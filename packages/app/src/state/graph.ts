@@ -27,3 +27,10 @@ export function removeGraphNodeStateFamilies(nodeId: NodeId): void {
   nodeInstanceByIdState.remove(nodeId);
   ioDefinitionsForNodeState.remove(nodeId);
 }
+
+/** Clean up all node-keyed atomFamily entries for a set of nodes (e.g., when switching graphs). */
+export function cleanupNodeAtomFamilies(nodeIds: NodeId[]): void {
+  for (const nodeId of nodeIds) {
+    removeGraphNodeStateFamilies(nodeId);
+  }
+}

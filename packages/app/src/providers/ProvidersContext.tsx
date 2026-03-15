@@ -1,6 +1,6 @@
 import { createContext, useContext, useMemo, type FC, type ReactNode } from 'react';
 import { type IOProvider } from '../io/IOProvider.js';
-import { type DatasetProvider, type AudioProvider, type ProjectId } from '@ironclad/rivet-core';
+import { type DatasetProvider, type AudioProvider, type ProjectId, type CombinedDataset } from '@ironclad/rivet-core';
 import { BrowserIOProvider } from '../io/BrowserIOProvider.js';
 import { LegacyBrowserIOProvider } from '../io/LegacyBrowserIOProvider.js';
 import { TauriIOProvider } from '../io/TauriIOProvider.js';
@@ -15,6 +15,7 @@ export type DataRefStore = {
 
 export type AppDatasetProvider = DatasetProvider & {
   loadDatasets?(projectId: ProjectId): Promise<void>;
+  importDatasetsForProject?(projectId: ProjectId, datasets: CombinedDataset[]): Promise<void>;
 };
 
 export type Providers = {
@@ -51,9 +52,11 @@ export function useDataRefs(): DataRefStore {
 }
 
 function createDefaultProviders(): Providers {
+  const datasets = new BrowserDatasetProvider();
+
   let io: IOProvider;
   if (TauriIOProvider.isSupported()) {
-    io = new TauriIOProvider();
+    io = new TauriIOProvider(datasets);
   } else if (BrowserIOProvider.isSupported()) {
     io = new BrowserIOProvider();
   } else {
@@ -62,7 +65,7 @@ function createDefaultProviders(): Providers {
 
   return {
     io,
-    datasets: new BrowserDatasetProvider(),
+    datasets,
     audio: new TauriBrowserAudioProvider(),
     dataRefs: {
       get: getGlobalDataRef,

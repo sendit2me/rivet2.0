@@ -1,6 +1,6 @@
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { type NodeGraph, emptyNodeGraph } from '@ironclad/rivet-core';
-import { graphState, historicalGraphState, isReadOnlyGraphState } from '../state/graph.js';
+import { cleanupNodeAtomFamilies, graphState, historicalGraphState, isReadOnlyGraphState } from '../state/graph.js';
 import { useSaveCurrentGraph } from './useSaveCurrentGraph.js';
 import {
   canvasPositionState,
@@ -27,6 +27,12 @@ export function useLoadGraph() {
   return useStableCallback((savedGraph: NodeGraph, { pushHistory = true }: { pushHistory?: boolean } = {}) => {
     if (graph.nodes.length > 0 || graph.metadata?.name !== emptyNodeGraph().metadata!.name) {
       saveCurrentGraph();
+    }
+
+    // Clean up atomFamily entries for the old graph's nodes to prevent memory leaks
+    if (graph.metadata?.id !== savedGraph.metadata?.id) {
+      const oldNodeIds = graph.nodes.map((n) => n.id);
+      cleanupNodeAtomFamilies(oldNodeIds);
     }
 
     setGraph(savedGraph);

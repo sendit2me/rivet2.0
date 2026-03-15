@@ -1,19 +1,19 @@
 import { type OpenedProjectInfo, loadedProjectState, projectState } from '../state/savedGraphs.js';
 import { emptyNodeGraph, getError } from '@ironclad/rivet-core';
-import { graphState, historicalGraphState, isReadOnlyGraphState } from '../state/graph.js';
+import { cleanupNodeAtomFamilies, graphState, historicalGraphState, isReadOnlyGraphState } from '../state/graph.js';
 import { isPathBasedIOProvider } from '../io/IOProvider.js';
 import { trivetState } from '../state/trivet.js';
 import { useSetStaticData } from './useSetStaticData';
 import { toast } from 'react-toastify';
 import { graphNavigationStackState } from '../state/graphBuilder';
-import { useSetAtom } from 'jotai';
+import { useAtom, useSetAtom } from 'jotai';
 import { useIOProvider } from '../providers/ProvidersContext.js';
 
 export function useLoadProject() {
   const ioProvider = useIOProvider();
   const setProject = useSetAtom(projectState);
   const setLoadedProjectState = useSetAtom(loadedProjectState);
-  const setGraphData = useSetAtom(graphState);
+  const [currentGraph, setGraphData] = useAtom(graphState);
   const setTrivetState = useSetAtom(trivetState);
   const setStaticData = useSetStaticData();
   const setNavigationStack = useSetAtom(graphNavigationStackState);
@@ -25,6 +25,10 @@ export function useLoadProject() {
       setProject(projectInfo.project);
 
       setNavigationStack({ stack: [], index: undefined });
+
+      // Clean up atomFamily entries for the old graph's nodes to prevent memory leaks
+      const oldNodeIds = currentGraph.nodes.map((n) => n.id);
+      cleanupNodeAtomFamilies(oldNodeIds);
 
       setIsReadOnlyGraph(false);
       setHistoricalGraph(null);

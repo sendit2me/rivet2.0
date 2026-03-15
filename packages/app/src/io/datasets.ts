@@ -1,9 +1,9 @@
 import { type Project, deserializeDatasets, serializeDatasets } from '@ironclad/rivet-core';
 import { allowDataFileNeighbor } from '../utils/tauri.js';
-import { datasetProvider } from '../utils/globals/datasetProvider.js';
+import { type AppDatasetProvider } from '../providers/ProvidersContext.js';
 import { nativeExists, nativeReadTextFile, nativeWriteFile } from '../utils/nativeApp';
 
-export async function saveDatasetsFile(projectFilePath: string, project: Project) {
+export async function saveDatasetsFile(projectFilePath: string, project: Project, datasetProvider: AppDatasetProvider) {
   await allowDataFileNeighbor(projectFilePath);
 
   const dataPath = projectFilePath.replace('.rivet-project', '.rivet-data');
@@ -19,7 +19,7 @@ export async function saveDatasetsFile(projectFilePath: string, project: Project
   }
 }
 
-export async function loadDatasetsFile(projectFilePath: string, project: Project) {
+export async function loadDatasetsFile(projectFilePath: string, project: Project, datasetProvider: AppDatasetProvider) {
   await allowDataFileNeighbor(projectFilePath);
 
   const datasetsFilePath = projectFilePath.replace('.rivet-project', '.rivet-data');
@@ -28,7 +28,7 @@ export async function loadDatasetsFile(projectFilePath: string, project: Project
 
   // No data file, so just no datasets
   if (!datasetsFileExists) {
-    await datasetProvider.importDatasetsForProject(project.metadata.id, []);
+    await datasetProvider.importDatasetsForProject?.(project.metadata.id, []);
     return;
   }
 
@@ -36,5 +36,5 @@ export async function loadDatasetsFile(projectFilePath: string, project: Project
 
   const datasets = deserializeDatasets(fileContents);
 
-  await datasetProvider.importDatasetsForProject(project.metadata.id, datasets);
+  await datasetProvider.importDatasetsForProject?.(project.metadata.id, datasets);
 }
