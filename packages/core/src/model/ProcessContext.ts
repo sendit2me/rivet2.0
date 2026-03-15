@@ -34,8 +34,8 @@ export type ProcessContext = {
   /** The provider responsible for being able to play audio. Undefined if unsupported in this context. */
   audioProvider?: AudioProvider;
 
-  /** Sets the tokenizer that will be used for all nodes. If unset, the default GptTokenizerTokenizer will be used. */
-  tokenizer?: Tokenizer;
+  /** The tokenizer that will be used for all nodes. */
+  tokenizer: Tokenizer;
 
   /** The provider for running arbitrary code in the Code Node. */
   codeRunner?: CodeRunner;

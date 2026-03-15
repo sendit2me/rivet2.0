@@ -771,8 +771,19 @@ export const ChatAnthropicNodeImpl: PluginNodeImpl<ChatAnthropicNode> = {
 
             if (err instanceof AnthropicError) {
               if (err.response.status >= 400 && err.response.status < 500) {
-                if ((err.responseJson as any).error?.message) {
-                  throw new Error((err.responseJson as any).error.message);
+                const errorMessage =
+                  typeof err.responseJson === 'object' &&
+                  err.responseJson != null &&
+                  'error' in err.responseJson &&
+                  typeof err.responseJson.error === 'object' &&
+                  err.responseJson.error != null &&
+                  'message' in err.responseJson.error &&
+                  typeof err.responseJson.error.message === 'string'
+                    ? err.responseJson.error.message
+                    : undefined;
+
+                if (errorMessage) {
+                  throw new Error(errorMessage);
                 }
               }
             }

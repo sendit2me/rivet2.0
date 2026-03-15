@@ -4,7 +4,7 @@ import { css } from '@emotion/react';
 import { type FC, useRef } from 'react';
 import { useLoadRecording } from '../hooks/useLoadRecording';
 import { useRemoteDebugger } from '../hooks/useRemoteDebugger';
-import { selectedExecutorState } from '../state/execution';
+import { defaultExecutorState, executorOptions } from '../state/settings';
 import { debuggerPanelOpenState, helpModalOpenState } from '../state/ui';
 import { isInTauri } from '../utils/tauri';
 import { settingsModalOpenState } from './SettingsModal';
@@ -15,10 +15,9 @@ import ForwardCircleIcon from 'majesticons/line/forward-circle-line.svg?react';
 import CopyIcon from 'majesticons/line/clipboard-plus-line.svg?react';
 import { CopyAsTestCaseModal } from './CopyAsTestCaseModal';
 import { useToggle } from 'ahooks';
-import { executorOptions } from '../state/settings';
 import QuestionIcon from 'majesticons/line/question-circle-line.svg?react';
 import { useSetAtom, useAtom } from 'jotai';
-import { swallowPromise, syncWrapper } from '../utils/syncWrapper';
+import { syncWrapper } from '../utils/syncWrapper';
 
 const moreMenuStyles = css`
   background-color: var(--grey-darkish);
@@ -80,7 +79,7 @@ export const ActionBarMoreMenu: FC<{
   const dropdownTarget = useRef<HTMLDivElement>(null);
   const setSettingsOpen = useSetAtom(settingsModalOpenState);
   const setDebuggerPanelOpen = useSetAtom(debuggerPanelOpenState);
-  const [selectedExecutor, setSelectedExecutor] = useAtom(selectedExecutorState);
+  const [selectedExecutor, setSelectedExecutor] = useAtom(defaultExecutorState);
   const selectedExecutorOption = executorOptions.find((option) => option.value === selectedExecutor);
   const { loadRecording } = useLoadRecording();
   const setHelpModalOpen = useSetAtom(helpModalOpenState);

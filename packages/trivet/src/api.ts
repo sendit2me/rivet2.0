@@ -4,11 +4,13 @@ import {
   type BaseDir,
   type ReadDirOptions,
   GraphProcessor,
+  globalRivetNodeRegistry,
   type Settings,
   type GraphOutputNode,
   inferType,
   DEFAULT_CHAT_NODE_TIMEOUT,
 } from '@ironclad/rivet-core';
+import { GptTokenizerTokenizer } from '../../core/src/integrations/GptTokenizerTokenizer.js';
 import { cloneDeep, keyBy, mapValues, omit } from 'lodash-es';
 import {
   type TrivetGraphRunner,
@@ -50,12 +52,13 @@ export class DummyNativeApi implements NativeApi {
 
 export function createTestGraphRunner(opts: { openAiKey: string; executor?: 'nodejs' | 'browser' }): TrivetGraphRunner {
   return async (project, graphId, inputs) => {
-    const processor = new GraphProcessor(project, graphId);
+    const processor = new GraphProcessor(project, graphId, globalRivetNodeRegistry);
     processor.executor = opts.executor;
     const resolvedContextValues: Record<string, DataValue> = {};
     const outputs = await processor.processGraph(
       {
         nativeApi: new DummyNativeApi(),
+        tokenizer: new GptTokenizerTokenizer(),
         settings: {
           openAiKey: opts.openAiKey,
           openAiOrganization: '',

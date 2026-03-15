@@ -6,13 +6,13 @@ import { canvasToClientPosition, useCanvasPositioning } from '../hooks/useCanvas
 import { ErrorBoundary } from 'react-error-boundary';
 import { draggingWireClosestPortState } from '../state/graphBuilder.js';
 import { orderBy } from 'lodash-es';
-import { ioDefinitionsState, nodesByIdState } from '../state/graph';
+import { ioDefinitionsForNodeState, nodesByIdState } from '../state/graph';
 import { type PortPositions } from './NodeCanvas';
 import { type RunDataByNodeId, lastRunDataByNodeState, selectedProcessPageNodesState } from '../state/dataFlow';
 import select from '@atlaskit/select/dist/types/entry-points/select';
 import { useStableCallback } from '../hooks/useStableCallback';
 import { lineCrossesViewport } from '../utils/lineClipping';
-import { useAtom, useAtomValue } from 'jotai';
+import { useAtom, useAtomValue, useStore } from 'jotai';
 
 const wiresStyles = css`
   width: 100%;
@@ -67,7 +67,7 @@ export const WireLayer: FC<WireLayerProps> = ({
 }) => {
   const [mousePosition, setMousePosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [closestPort, setClosestPort] = useAtom(draggingWireClosestPortState);
-  const ioByNode = useAtomValue(ioDefinitionsState);
+  const store = useStore();
 
   const lastRunDataByNode = useAtomValue(lastRunDataByNodeState);
   const selectedProcessPageNodes = useAtomValue(selectedProcessPageNodesState);
@@ -108,7 +108,7 @@ export const WireLayer: FC<WireLayerProps> = ({
           const nodeId = closestHoverElem!.parentElement!.dataset.nodeid as NodeId | undefined;
 
           if (portId && nodeId) {
-            const io = ioByNode[nodeId!];
+            const io = store.get(ioDefinitionsForNodeState(nodeId));
             const definition = io!.inputDefinitions.find((def) => def.id === portId)!;
 
             setClosestPort({ nodeId, portId, element: closestHoverElem.parentElement!, definition });
@@ -120,7 +120,7 @@ export const WireLayer: FC<WireLayerProps> = ({
         setClosestPort(undefined);
       }
     },
-    [draggingWire, setClosestPort, draggingNode, ioByNode, closestPort],
+    [draggingWire, setClosestPort, draggingNode, store, closestPort],
   );
 
   useEffect(() => {

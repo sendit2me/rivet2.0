@@ -6,7 +6,6 @@ import { css } from '@emotion/react';
 import { isEqual, mean } from 'lodash-es';
 import { LazyCodeEditor } from '../LazyComponents';
 import type { monaco } from '../../utils/monaco';
-import { swallowPromise } from '../../utils/syncWrapper';
 
 const styles = css`
   display: flex;

@@ -17,7 +17,7 @@ import { TauriNativeApi } from '../model/native/TauriNativeApi';
 import { useStableCallback } from './useStableCallback';
 import { useSaveCurrentGraph } from './useSaveCurrentGraph';
 import { useCurrentExecution } from './useCurrentExecution';
-import { userInputModalQuestionsState, userInputModalSubmitState } from '../state/userInput';
+import { userInputModalQuestionsState } from '../state/userInput';
 import { loadedProjectState, projectContextState, projectDataState, projectState } from '../state/savedGraphs';
 import { recordExecutionsState, settingsState } from '../state/settings';
 import { graphState } from '../state/graph';
@@ -25,19 +25,22 @@ import { lastRecordingState, loadedRecordingState } from '../state/execution';
 import { fillMissingSettingsFromEnvironmentVariables } from '../utils/tauri';
 import { trivetState } from '../state/trivet';
 import { runTrivet } from '@ironclad/trivet';
-import { audioProvider, datasetProvider } from '../utils/globals';
 import { entries } from '../../../core/src/utils/typeSafety';
 import { type RunDataByNodeId, lastRunDataByNodeState } from '../state/dataFlow';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { TauriProjectReferenceLoader } from '../model/TauriProjectReferenceLoader';
+import { useAudioProvider, useDatasetProvider } from '../providers/ProvidersContext';
+import { setUserInputSubmitHandler } from '../state/actions/userInputActions';
+import { GptTokenizerTokenizer } from '../../../core/src/integrations/GptTokenizerTokenizer';
 
 export function useLocalExecutor() {
+  const audioProvider = useAudioProvider();
+  const datasetProvider = useDatasetProvider();
   const project = useAtomValue(projectState);
   const graph = useAtomValue(graphState);
   const currentProcessor = useRef<GraphProcessor | null>(null);
   const saveGraph = useSaveCurrentGraph();
   const currentExecution = useCurrentExecution();
-  const setUserInputModalSubmit = useSetAtom(userInputModalSubmitState);
   const setUserInputQuestions = useSetAtom(userInputModalQuestionsState);
   const savedSettings = useAtomValue(settingsState);
   const loadedRecording = useAtomValue(loadedRecordingState);
@@ -54,17 +57,13 @@ export function useLocalExecutor() {
     processor.on('nodeFinish', currentExecution.onNodeFinish);
     processor.on('nodeError', currentExecution.onNodeError);
 
-    setUserInputModalSubmit({
-      submit: (nodeId: NodeId, answers: StringArrayDataValue) => {
-        processor.userInput(nodeId, answers);
-
-        // Remove from pending questions
-        setUserInputQuestions((q) =>
-          produce(q, (draft) => {
-            delete draft[nodeId];
-          }),
-        );
-      },
+    setUserInputSubmitHandler((nodeId: NodeId, answers: StringArrayDataValue) => {
+      processor.userInput(nodeId, answers);
+      setUserInputQuestions((q) =>
+        produce(q, (draft) => {
+          delete draft[nodeId];
+        }),
+      );
     });
 
     processor.on('userInput', currentExecution.onUserInput);
@@ -118,7 +117,7 @@ export function useLocalExecutor() {
         };
 
         const recorder = new ExecutionRecorder();
-        const processor = new GraphProcessor(tempProject, graphToRun, undefined, true);
+        const processor = new GraphProcessor(tempProject, graphToRun, globalRivetNodeRegistry, true);
         processor.executor = 'browser';
         processor.recordingPlaybackChatLatency = savedSettings.recordingPlaybackLatency ?? 1000;
 
@@ -159,6 +158,7 @@ export function useLocalExecutor() {
               nativeApi: new TauriNativeApi(),
               datasetProvider,
               audioProvider,
+              tokenizer: new GptTokenizerTokenizer(),
               projectPath: loadedProject.path ?? undefined,
               projectReferenceLoader: new TauriProjectReferenceLoader(),
             },
@@ -211,7 +211,7 @@ export function useLocalExecutor() {
             }));
           },
           runGraph: async (project, graphId, inputs) => {
-            const processor = new GraphProcessor(project, graphId, undefined, true);
+            const processor = new GraphProcessor(project, graphId, globalRivetNodeRegistry, true);
             processor.executor = 'browser';
             attachGraphEvents(processor);
             return processor.processGraph(
@@ -223,6 +223,7 @@ export function useLocalExecutor() {
                 nativeApi: new TauriNativeApi(),
                 datasetProvider,
                 audioProvider,
+                tokenizer: new GptTokenizerTokenizer(),
               },
               inputs,
             );

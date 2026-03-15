@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useAtomValue } from 'jotai';
-import { selectedExecutorState } from '../state/execution';
+import { defaultExecutorState } from '../state/settings';
 import { useExecutorSidecar } from './useExecutorSidecar';
 import { useLocalExecutor } from './useLocalExecutor';
 import { useRemoteExecutor } from './useRemoteExecutor';
@@ -13,7 +13,7 @@ import { useRemoteExecutor } from './useRemoteExecutor';
  * @returns
  */
 export function useGraphExecutor() {
-  const selectedExecutor = useAtomValue(selectedExecutorState);
+  const selectedExecutor = useAtomValue(defaultExecutorState);
   const localExecutor = useLocalExecutor();
   const remoteExecutor = useRemoteExecutor();
 

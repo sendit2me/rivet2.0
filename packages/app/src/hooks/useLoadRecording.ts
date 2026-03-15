@@ -1,8 +1,9 @@
 import { useSetAtom } from 'jotai';
 import { loadedRecordingState } from '../state/execution.js';
-import { ioProvider } from '../utils/globals.js';
+import { useIOProvider } from '../providers/ProvidersContext.js';
 
 export function useLoadRecording() {
+  const ioProvider = useIOProvider();
   const setLoadedRecording = useSetAtom(loadedRecordingState);
 
   return {

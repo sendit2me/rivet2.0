@@ -34,9 +34,10 @@ import Toggle from '@atlaskit/toggle';
 import { pinnedNodesState } from '../state/graphBuilder';
 import { useNodeIO } from '../hooks/useGetNodeIO';
 import { Tooltip } from './Tooltip';
-import { getGlobalDataRef } from '../utils/globals';
+import { useDataRefs } from '../providers/ProvidersContext';
 
 export const NodeOutput: FC<{ node: ChartNode; isHovered: boolean }> = memo(({ node, isHovered }) => {
+  const dataRefs = useDataRefs();
   const [isModalOpen, setIsModalOpen] = useState(false);
   useDependsOnPlugins();
 
@@ -177,6 +178,7 @@ const fullscreenOutputButtonsCss = css`
 `;
 
 const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
+  const dataRefs = useDataRefs();
   const output = useAtomValue(lastRunDataState(node.id));
   const [selectedPage, setSelectedPage] = useAtom(selectedProcessPageState(node.id));
 
@@ -225,7 +227,7 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
     if (outputValue.type === 'string') {
       copyToClipboard(outputValue.value);
     } else if (outputValue.type === 'chat-message') {
-      const resolved = getGlobalDataRef(outputValue.value.ref);
+      const resolved = dataRefs.get(outputValue.value.ref);
 
       if (!resolved) {
         return;
@@ -412,6 +414,7 @@ const NodeOutputSingleProcess: FC<{
   isHovered: boolean;
   onOpenFullscreenModal?: () => void;
 }> = ({ node, data, processId, isHovered, onOpenFullscreenModal }) => {
+  const dataRefs = useDataRefs();
   const { Output, OutputSimple } = useUnknownNodeComponentDescriptorFor(node);
 
   const setOverlayOpen = useSetAtom(overlayOpenState);
@@ -434,7 +437,7 @@ const NodeOutputSingleProcess: FC<{
       if (outputValue.type === 'string') {
         copyToClipboard(outputValue.value);
       } else if (outputValue.type === 'chat-message') {
-        const resolved = getGlobalDataRef(outputValue.value.ref);
+        const resolved = dataRefs.get(outputValue.value.ref);
 
         if (!resolved) {
           return;

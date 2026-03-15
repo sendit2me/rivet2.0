@@ -11,12 +11,11 @@ import {
   getError,
   type ExternalFunction,
   type DataValue,
+  type PortId,
   registerBuiltInNodes,
   NodeRegistration,
   plugins as corePlugins,
 } from '@ironclad/rivet-core';
-import { createDir, BaseDirectory, writeFile } from '@tauri-apps/api/fs';
-import { appLogDir } from '@tauri-apps/api/path';
 import { cloneDeep } from 'lodash-es';
 import { toast } from 'react-toastify';
 import { TauriNativeApi } from '../model/native/TauriNativeApi';
@@ -30,6 +29,7 @@ import { useDependsOnPlugins } from './useDependsOnPlugins';
 import graphBuilderProject from '../../graphs/graph-creator.rivet-project?raw';
 import graphBuilderData from '../../graphs/graph-creator.rivet-data?raw';
 import { referencedProjectsState } from '../state/savedGraphs';
+import { nativeAppLogDir, nativeCreateDir, nativeWriteFile } from '../utils/nativeApp';
 
 export function useAiGraphBuilder({ record, onFeedback }: { record: boolean; onFeedback: (feedback: string) => void }) {
   const [graph, setGraph] = useAtom(graphState);
@@ -62,6 +62,26 @@ export function useAiGraphBuilder({ record, onFeedback }: { record: boolean; onF
         centerView(workingGraph);
       };
 
+      const parseConnectionOptions = (options: unknown) => {
+        if (
+          typeof options !== 'object' ||
+          options == null ||
+          !('sourceNodeId' in options) ||
+          !('destNodeId' in options) ||
+          !('sourcePortId' in options) ||
+          !('destPortId' in options)
+        ) {
+          throw new Error('Invalid connection options');
+        }
+
+        return options as {
+          sourceNodeId: NodeId;
+          destNodeId: NodeId;
+          sourcePortId: PortId;
+          destPortId: PortId;
+        };
+      };
+
       const externalFunctions: Record<string, ExternalFunction> = {
         createNode: async (_ctx, nodeType) => {
           const newNode = globalRivetNodeRegistry.createDynamic(nodeType as string);
@@ -73,7 +93,7 @@ export function useAiGraphBuilder({ record, onFeedback }: { record: boolean; onF
           };
         },
         connectNodes: async (_ctx, options) => {
-          const { sourceNodeId, destNodeId, sourcePortId, destPortId } = options as any;
+          const { sourceNodeId, destNodeId, sourcePortId, destPortId } = parseConnectionOptions(options);
 
           const sourceNode = workingGraph.nodes.find((node) => node.id === sourceNodeId);
           const destNode = workingGraph.nodes.find((node) => node.id === destNodeId);
@@ -137,7 +157,7 @@ export function useAiGraphBuilder({ record, onFeedback }: { record: boolean; onF
           };
         },
         disconnectNodes: async (_ctx, options) => {
-          const { sourceNodeId, destNodeId, sourcePortId, destPortId } = options as any;
+          const { sourceNodeId, destNodeId, sourcePortId, destPortId } = parseConnectionOptions(options);
 
           const toRemove = workingGraph.connections.find(
             (connection) =>
@@ -510,16 +530,16 @@ export function useAiGraphBuilder({ record, onFeedback }: { record: boolean; onF
 
         const fileName = `recordings/graph-${Date.now()}.rivet-recording`;
 
-        await createDir('recordings', {
-          dir: BaseDirectory.AppLog,
+        await nativeCreateDir('recordings', {
+          dir: 'AppLog',
           recursive: true,
         });
 
-        await writeFile(fileName, serialized, {
-          dir: BaseDirectory.AppLog,
+        await nativeWriteFile(fileName, serialized, {
+          dir: 'AppLog',
         });
 
-        console.log(`Recording saved to ${await appLogDir()}${fileName}`);
+        console.log(`Recording saved to ${await nativeAppLogDir()}${fileName}`);
       }
 
       console.log(`Cost: ${coerceType(cost, 'number')}`);
@@ -527,14 +547,14 @@ export function useAiGraphBuilder({ record, onFeedback }: { record: boolean; onF
       if (record) {
         const serialized = recorder.serialize();
         const fileName = `recordings/error-${Date.now()}.rivet-recording`;
-        await createDir('recordings', {
-          dir: BaseDirectory.AppLog,
+        await nativeCreateDir('recordings', {
+          dir: 'AppLog',
           recursive: true,
         });
-        await writeFile(fileName, serialized, {
-          dir: BaseDirectory.AppLog,
+        await nativeWriteFile(fileName, serialized, {
+          dir: 'AppLog',
         });
-        console.log(`Recording saved to ${await appLogDir()}${fileName}`);
+        console.log(`Recording saved to ${await nativeAppLogDir()}${fileName}`);
       }
 
       const error = getError(err);

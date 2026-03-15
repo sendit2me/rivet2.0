@@ -46,7 +46,7 @@ yarn publish-docs # Deploy documentation to docs branch
 cd packages/core
 yarn build        # Rollup (ESM) + esbuild (CJS) → dist/
 yarn watch        # Watch mode for development
-yarn test         # Vitest test suite
+yarn test         # node:test via tsx
 yarn lint         # ESLint
 ```
 

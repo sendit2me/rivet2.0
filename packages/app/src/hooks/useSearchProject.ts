@@ -61,7 +61,7 @@ export function useSearchProject(query: string, enabled: boolean): SearchedItem[
           id: node.id,
           joinedData: joinedData.join(' '),
           containerGraph: graph.metadata!.id!,
-          nodeType: isKnownNodeType ? globalRivetNodeRegistry.getDisplayName(node.type as any) : '',
+          nodeType: isKnownNodeType ? globalRivetNodeRegistry.getDynamicDisplayName(node.type) : '',
         };
 
         items.push(searchableNode);

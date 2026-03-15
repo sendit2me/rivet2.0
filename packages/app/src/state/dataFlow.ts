@@ -104,3 +104,8 @@ export const selectedProcessPageState = atomFamily((nodeId: NodeId) =>
     },
   ),
 );
+
+export function removeExecutionNodeStateFamilies(nodeId: NodeId): void {
+  lastRunDataState.remove(nodeId);
+  selectedProcessPageState.remove(nodeId);
+}

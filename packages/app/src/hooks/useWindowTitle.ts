@@ -1,8 +1,7 @@
-import { getVersion } from '@tauri-apps/api/app';
-import { appWindow } from '@tauri-apps/api/window';
 import { useEffect } from 'react';
 import { useAtomValue } from 'jotai';
 import { projectState, loadedProjectState } from '../state/savedGraphs';
+import { getAppVersion, getAppWindowHandle } from '../utils/nativeApp';
 
 export function useWindowTitle() {
   const project = useAtomValue(projectState);
@@ -11,8 +10,9 @@ export function useWindowTitle() {
   useEffect(() => {
     (async () => {
       try {
-        const currentVersion = await getVersion();
-        await appWindow.setTitle(
+        const currentVersion = await getAppVersion();
+        const appWindow = await getAppWindowHandle();
+        await appWindow?.setTitle?.(
           `Rivet ${currentVersion} - ${project.metadata.title} (${
             loadedProject?.path?.trim() ? loadedProject.path : 'Unsaved'
           })`,

@@ -1,7 +1,6 @@
 import { css } from '@emotion/react';
 import { useState, type FC, type KeyboardEvent } from 'react';
 import TextArea from '@atlaskit/textarea';
-import { swallowPromise } from '../utils/syncWrapper';
 import { useAiGraphBuilder } from '../hooks/useAiGraphBuilder';
 import { openai } from '@ironclad/rivet-core';
 import Select from '@atlaskit/select';
@@ -10,6 +9,7 @@ import { atom, useAtom } from 'jotai';
 import Toggle from '@atlaskit/toggle';
 import { Label } from '@atlaskit/form';
 import { modelSelectorOptions } from '../utils/modelSelectorOptions';
+import { wrapAsync } from '../utils/errorHandling';
 
 const styles = css`
   position: fixed;
@@ -75,11 +75,15 @@ export const AiGraphCreatorInput: FC = () => {
     setRunning(false);
   }
 
+  const runPrompt = wrapAsync(async () => {
+    await applyPrompt(prompt);
+    setPrompt('');
+  }, 'Apply AI graph prompt');
+
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
-      swallowPromise(applyPrompt(prompt));
-      setPrompt('');
+      runPrompt();
     }
 
     if (e.key === 'Escape') {
@@ -133,7 +137,7 @@ export const AiGraphCreatorInput: FC = () => {
               Stop
             </Button>
           ) : (
-            <Button isDisabled={running} onClick={() => swallowPromise(applyPrompt(prompt))} appearance="primary">
+            <Button isDisabled={running} onClick={runPrompt} appearance="primary">
               Go
             </Button>
           )}

@@ -7,7 +7,13 @@ import CloseIcon from 'majesticons/line/multiply-line.svg?react';
 import BlankFileIcon from 'majesticons/line/file-line.svg?react';
 import FileIcon from 'majesticons/line/file-plus-line.svg?react';
 import FolderIcon from 'majesticons/line/folder-line.svg?react';
-import { openedProjectsSortedIdsState, openedProjectsState, projectState, projectsState } from '../state/savedGraphs';
+import {
+  clearProjectContextState,
+  openedProjectsSortedIdsState,
+  openedProjectsState,
+  projectState,
+  projectsState,
+} from '../state/savedGraphs';
 import clsx from 'clsx';
 import { useLoadProject } from '../hooks/useLoadProject';
 import { useSyncCurrentStateIntoOpenedProjects } from '../hooks/useSyncCurrentStateIntoOpenedProjects';
@@ -261,6 +267,7 @@ export const ProjectSelector: FC = () => {
         }
       }),
     );
+    clearProjectContextState(projectId);
 
     const closestProject = sortedOpenedProjects[indexOfProject + 1] || sortedOpenedProjects[indexOfProject - 1];
     if (closestProject) {

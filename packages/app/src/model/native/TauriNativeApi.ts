@@ -1,36 +1,36 @@
-import { readDir, BaseDirectory, readTextFile, readBinaryFile, writeFile, type FileEntry } from '@tauri-apps/api/fs';
 import { type BaseDir, type NativeApi, type ReadDirOptions } from '@ironclad/rivet-core';
 
 import { minimatch } from 'minimatch';
+import { nativeReadBinaryFile, nativeReadDir, nativeReadTextFile, nativeWriteFile } from '../../utils/nativeApp';
 
-const baseDirToBaseDirectoryMap: Record<BaseDir, BaseDirectory> = {
-  app: BaseDirectory.App,
-  appCache: BaseDirectory.AppCache,
-  appConfig: BaseDirectory.AppConfig,
-  appData: BaseDirectory.AppData,
-  appLocalData: BaseDirectory.AppLocalData,
-  appLog: BaseDirectory.AppLog,
-  audio: BaseDirectory.Audio,
-  cache: BaseDirectory.Cache,
-  config: BaseDirectory.Config,
-  data: BaseDirectory.Data,
-  desktop: BaseDirectory.Desktop,
-  document: BaseDirectory.Document,
-  download: BaseDirectory.Download,
-  executable: BaseDirectory.Executable,
-  font: BaseDirectory.Font,
-  home: BaseDirectory.Home,
-  localData: BaseDirectory.LocalData,
-  log: BaseDirectory.Log,
-  picture: BaseDirectory.Picture,
-  public: BaseDirectory.Public,
-  resource: BaseDirectory.Resource,
-  runtime: BaseDirectory.Runtime,
-  temp: BaseDirectory.Temp,
-  template: BaseDirectory.Template,
-  video: BaseDirectory.Video,
+const baseDirToBaseDirectoryMap: Record<BaseDir, string> = {
+  app: 'App',
+  appCache: 'AppCache',
+  appConfig: 'AppConfig',
+  appData: 'AppData',
+  appLocalData: 'AppLocalData',
+  appLog: 'AppLog',
+  audio: 'Audio',
+  cache: 'Cache',
+  config: 'Config',
+  data: 'Data',
+  desktop: 'Desktop',
+  document: 'Document',
+  download: 'Download',
+  executable: 'Executable',
+  font: 'Font',
+  home: 'Home',
+  localData: 'LocalData',
+  log: 'Log',
+  picture: 'Picture',
+  public: 'Public',
+  resource: 'Resource',
+  runtime: 'Runtime',
+  temp: 'Temp',
+  template: 'Template',
+  video: 'Video',
 };
-const baseDirToBaseDirectory = (baseDir?: string): BaseDirectory | undefined =>
+const baseDirToBaseDirectory = (baseDir?: string): string | undefined =>
   baseDir ? baseDirToBaseDirectoryMap[baseDir as BaseDir] : undefined;
 
 export class TauriNativeApi implements NativeApi {
@@ -38,12 +38,14 @@ export class TauriNativeApi implements NativeApi {
     const { recursive = false, includeDirectories = false, filterGlobs = [], relative = false, ignores = [] } = options;
 
     const baseDirectory = baseDirToBaseDirectory(baseDir);
-    const results = await readDir(path, { dir: baseDirectory, recursive });
+    const results = await nativeReadDir(path, { dir: baseDirectory, recursive });
+    type FileTreeEntry = { children?: FileTreeEntry[]; path: string };
+    const entries = results as FileTreeEntry[];
 
-    const flattenResults: (r: FileEntry[]) => FileEntry[] = (r) =>
-      r.flatMap((result) => (result.children ? [result, ...flattenResults(result.children)] : [result]));
+    const flattenResults = (tree: FileTreeEntry[]): FileTreeEntry[] =>
+      tree.flatMap((result) => (result.children ? [result, ...flattenResults(result.children)] : [result]));
 
-    let filteredResults = flattenResults(results)
+    let filteredResults = flattenResults(entries)
       .filter((result) => (includeDirectories ? true : result.children == null))
       .map((result) => result.path);
 
@@ -69,19 +71,19 @@ export class TauriNativeApi implements NativeApi {
 
   async readTextFile(path: string, baseDir?: BaseDir): Promise<string> {
     const baseDirectory = baseDirToBaseDirectory(baseDir);
-    const result = await readTextFile(path, { dir: baseDirectory });
+    const result = await nativeReadTextFile(path, { dir: baseDirectory });
     return result;
   }
 
   async readBinaryFile(path: string, baseDir?: BaseDir): Promise<Blob> {
     const baseDirectory = baseDirToBaseDirectory(baseDir);
-    const result = await readBinaryFile(path, { dir: baseDirectory });
+    const result = await nativeReadBinaryFile(path, { dir: baseDirectory });
     return new Blob([result]);
   }
 
   async writeTextFile(path: string, data: string, baseDir?: BaseDir): Promise<void> {
     const baseDirectory = baseDirToBaseDirectory(baseDir);
-    await writeFile(path, data, { dir: baseDirectory });
+    await nativeWriteFile(path, data, { dir: baseDirectory });
   }
 
   async exec(command: string, args: string[], options?: { cwd?: string | undefined } | undefined): Promise<void> {

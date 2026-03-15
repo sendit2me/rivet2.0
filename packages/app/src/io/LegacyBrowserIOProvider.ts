@@ -11,7 +11,6 @@ import { type IOProvider } from './IOProvider.js';
 import {
   type SerializedTrivetData,
   type TrivetData,
-  TrivetTestSuite,
   deserializeTrivetData,
   serializeTrivetData,
 } from '@ironclad/trivet';
@@ -36,10 +35,6 @@ export class LegacyBrowserIOProvider implements IOProvider {
     link.download = 'project.rivet-project';
     link.click();
     return link.download;
-  }
-
-  async saveProjectDataNoPrompt(_project: Project, _testData: TrivetData, _path: string): Promise<void> {
-    throw new Error('Function not supported in the browser');
   }
 
   async loadGraphData(callback: (graphData: NodeGraph) => void): Promise<void> {
@@ -75,10 +70,6 @@ export class LegacyBrowserIOProvider implements IOProvider {
     input.click();
   }
 
-  async loadProjectDataNoPrompt(path: string): Promise<{ project: Project; testData: TrivetData }> {
-    throw new Error('Function not supported in the browser');
-  }
-
   async loadRecordingData(callback: (data: { recorder: ExecutionRecorder; path: string }) => void): Promise<void> {
     const input = document.createElement('input');
     input.type = 'file';
@@ -89,22 +80,6 @@ export class LegacyBrowserIOProvider implements IOProvider {
       callback({ recorder: ExecutionRecorder.deserializeFromString(text), path: file.name });
     };
     input.click();
-  }
-
-  async openDirectory(): Promise<string | string[] | null> {
-    throw new Error('Function not supported in the browser');
-  }
-
-  async openFilePath(): Promise<string> {
-    return new Promise((resolve) => {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.onchange = (event) => {
-        const file = (event.target as HTMLInputElement)!.files![0]!;
-        resolve(file.name);
-      };
-      input.click();
-    });
   }
 
   async saveString(content: string, defaultFileName: string): Promise<void> {
@@ -139,13 +114,5 @@ export class LegacyBrowserIOProvider implements IOProvider {
       reader.readAsArrayBuffer(file);
     };
     input.click();
-  }
-
-  async readPathAsString(path: string): Promise<string> {
-    throw new Error('Function not supported in the browser');
-  }
-
-  async readPathAsBinary(path: string): Promise<Uint8Array> {
-    throw new Error('Function not supported in the browser');
   }
 }

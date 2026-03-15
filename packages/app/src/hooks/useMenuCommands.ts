@@ -1,18 +1,17 @@
 import { useEffect } from 'react';
 import { useSaveProject } from './useSaveProject.js';
-import { window } from '@tauri-apps/api';
 import { match } from 'ts-pattern';
 import { useLoadProjectWithFileBrowser } from './useLoadProjectWithFileBrowser.js';
 import { settingsModalOpenState } from '../components/SettingsModal.js';
 import { graphState } from '../state/graph.js';
 import { useLoadRecording } from './useLoadRecording.js';
-import { type WebviewWindow } from '@tauri-apps/api/window';
-import { ioProvider } from '../utils/globals.js';
 import { helpModalOpenState, newProjectModalOpenState } from '../state/ui';
 import { useToggleRemoteDebugger } from '../components/DebuggerConnectPanel';
 import { lastRunDataByNodeState } from '../state/dataFlow';
 import { useImportGraph } from './useImportGraph';
 import { useAtom, useSetAtom } from 'jotai';
+import { useIOProvider } from '../providers/ProvidersContext.js';
+import { getCurrentWindowHandle, type NativeWindowHandle } from '../utils/nativeApp';
 
 export type MenuIds =
   | 'settings'
@@ -34,17 +33,6 @@ const handlerState: {
   handler: (e: { payload: MenuIds }) => void;
 } = { handler: () => {} };
 
-let mainWindow: WebviewWindow;
-
-try {
-  mainWindow = window.getCurrent();
-  mainWindow.onMenuClicked((e) => {
-    handlerState.handler(e as { payload: MenuIds });
-  });
-} catch (err) {
-  console.warn(`Error getting main window, likely not running in tauri: ${err}`);
-}
-
 export function useRunMenuCommand() {
   return (command: MenuIds) => {
     const { handler } = handlerState;
@@ -58,6 +46,7 @@ export function useMenuCommands(
     onRunGraph?: () => void;
   } = {},
 ) {
+  const ioProvider = useIOProvider();
   const [graphData, setGraphData] = useAtom(graphState);
   const { saveProject, saveProjectAs } = useSaveProject();
   const setNewProjectModalOpen = useSetAtom(newProjectModalOpenState);
@@ -70,13 +59,16 @@ export function useMenuCommands(
   const setHelpModalOpen = useSetAtom(helpModalOpenState);
 
   useEffect(() => {
+    let mainWindow: NativeWindowHandle | null = null;
+    let unlistenMenu: (() => void | Promise<void>) | undefined;
+
     const handler: (e: { payload: MenuIds }) => void = ({ payload }) => {
       match(payload as MenuIds)
         .with('settings', () => {
           setSettingsOpen(true);
         })
         .with('quit', () => {
-          mainWindow.close();
+          void mainWindow?.close();
         })
         .with('new_project', () => {
           setNewProjectModalOpen(true);
@@ -118,8 +110,22 @@ export function useMenuCommands(
     const prevHandler = handlerState.handler;
     handlerState.handler = handler;
 
+    void getCurrentWindowHandle()
+      .then(async (windowHandle) => {
+        mainWindow = windowHandle;
+        if (windowHandle?.onMenuClicked) {
+          unlistenMenu = await windowHandle.onMenuClicked((e) => {
+            handlerState.handler(e as { payload: MenuIds });
+          });
+        }
+      })
+      .catch((err) => {
+        console.warn(`Error getting main window, likely not running in tauri: ${err}`);
+      });
+
     return () => {
       handlerState.handler = prevHandler;
+      void unlistenMenu?.();
     };
   }, [
     saveProject,
@@ -129,6 +135,7 @@ export function useMenuCommands(
     graphData,
     setGraphData,
     options,
+    ioProvider,
     loadRecording,
     importGraph,
     toggleRemoteDebugger,

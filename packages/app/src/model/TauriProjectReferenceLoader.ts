@@ -1,6 +1,6 @@
 import { type ProjectReference, type Project, deserializeProject } from '@ironclad/rivet-core';
 import { type ProjectReferenceLoader } from '../../../core/src/model/ProjectReferenceLoader';
-import { invoke } from '@tauri-apps/api/tauri';
+import { invokeNative } from '../utils/nativeApp';
 
 export class TauriProjectReferenceLoader implements ProjectReferenceLoader {
   async loadProject(currentProjectPath: string | undefined, reference: ProjectReference): Promise<Project> {
@@ -12,7 +12,7 @@ export class TauriProjectReferenceLoader implements ProjectReferenceLoader {
 
     for (const path of reference.hintPaths ?? []) {
       try {
-        const projectData = await invoke<string>('read_relative_project_file', {
+        const projectData = await invokeNative<string>('read_relative_project_file', {
           relativeFrom: currentProjectPath,
           projectFilePath: path,
         });

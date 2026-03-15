@@ -1,11 +1,9 @@
-import { checkUpdate } from '@tauri-apps/api/updater';
 import { toast } from 'react-toastify';
 import { css } from '@emotion/react';
-import { isInTauri } from '../utils/tauri';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { checkForUpdatesState, skippedMaxVersionState, updateModalOpenState } from '../state/settings';
 import { lte } from 'semver';
-import { swallowPromise } from '../utils/syncWrapper';
+import { checkForAppUpdate, isInTauri } from '../utils/nativeApp';
 
 const toastStyle = css`
   display: flex;
@@ -52,7 +50,7 @@ export function useCheckForUpdate({
       return;
     }
 
-    const { shouldUpdate, manifest } = await checkUpdate();
+    const { shouldUpdate, manifest } = await checkForAppUpdate();
 
     if (!manifest) {
       console.log('No manifest found');

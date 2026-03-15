@@ -1,7 +1,7 @@
 import { useCallback, useEffect } from 'react';
 import { type NodeConnection, type NodeId, type PortId } from '@ironclad/rivet-core';
-import { useAtom, useAtomValue } from 'jotai';
-import { connectionsState, ioDefinitionsState, nodesByIdState } from '../state/graph.js';
+import { useAtom, useAtomValue, useStore } from 'jotai';
+import { connectionsState, ioDefinitionsForNodeState, nodesByIdState } from '../state/graph.js';
 import { draggingWireClosestPortState, draggingWireState } from '../state/graphBuilder.js';
 import { useLatest } from 'ahooks';
 import { useMakeConnectionCommand } from '../commands/makeConnectionCommand';
@@ -9,7 +9,7 @@ import { useBreakConnectionCommand } from '../commands/breakConnectionCommand';
 
 export const useDraggingWire = (onConnectionsChanged: (connections: NodeConnection[]) => void) => {
   const [draggingWire, setDraggingWire] = useAtom(draggingWireState);
-  const ioByNode = useAtomValue(ioDefinitionsState);
+  const store = useStore();
   const connections = useAtomValue(connectionsState);
   const nodesById = useAtomValue(nodesByIdState);
   const [closestPortToDraggingWire, setClosestPortToDraggingWire] = useAtom(draggingWireClosestPortState);
@@ -47,7 +47,7 @@ export const useDraggingWire = (onConnectionsChanged: (connections: NodeConnecti
 
           const { outputId, outputNodeId } = connections[existingConnectionIndex]!;
 
-          const def = ioByNode[outputNodeId]!.outputDefinitions.find((o) => o.id === outputId)!;
+          const def = store.get(ioDefinitionsForNodeState(outputNodeId))!.outputDefinitions.find((o) => o.id === outputId)!;
 
           setDraggingWire({
             startNodeId: outputNodeId,
@@ -60,10 +60,10 @@ export const useDraggingWire = (onConnectionsChanged: (connections: NodeConnecti
         return;
       }
 
-      const def = ioByNode[startNodeId]!.outputDefinitions.find((o) => o.id === startPortId)!;
+      const def = store.get(ioDefinitionsForNodeState(startNodeId))!.outputDefinitions.find((o) => o.id === startPortId)!;
       setDraggingWire({ startNodeId, startPortId, startPortIsInput: isInput, dataType: def.dataType });
     },
-    [connections, ioByNode, setDraggingWire, breakConnection],
+    [connections, store, setDraggingWire, breakConnection],
   );
 
   const onWireEndDrag = useCallback(
@@ -83,8 +83,8 @@ export const useDraggingWire = (onConnectionsChanged: (connections: NodeConnecti
       let inputNode = nodesById[endNodeId];
       let outputNode = nodesById[draggingWire.startNodeId];
 
-      let inputNodeIO = inputNode ? ioByNode[inputNode.id]! : null;
-      let outputNodeIO = outputNode ? ioByNode[outputNode.id]! : null;
+      let inputNodeIO = inputNode ? store.get(ioDefinitionsForNodeState(inputNode.id)) : null;
+      let outputNodeIO = outputNode ? store.get(ioDefinitionsForNodeState(outputNode.id)) : null;
 
       let input = inputNode ? inputNodeIO?.inputDefinitions.find((i) => i.id === endPortId) : null;
       let output = outputNode ? outputNodeIO?.outputDefinitions.find((o) => o.id === draggingWire.startPortId) : null;
@@ -94,8 +94,8 @@ export const useDraggingWire = (onConnectionsChanged: (connections: NodeConnecti
         inputNode = outputNode;
         outputNode = tmp;
 
-        inputNodeIO = inputNode ? ioByNode[inputNode.id]! : null;
-        outputNodeIO = outputNode ? ioByNode[outputNode.id]! : null;
+        inputNodeIO = inputNode ? store.get(ioDefinitionsForNodeState(inputNode.id)) : null;
+        outputNodeIO = outputNode ? store.get(ioDefinitionsForNodeState(outputNode.id)) : null;
 
         input = inputNode ? inputNodeIO?.inputDefinitions.find((i) => i.id === endPortId) : null;
         output = outputNode ? outputNodeIO?.outputDefinitions.find((o) => o.id === draggingWire.startPortId) : null;
@@ -124,7 +124,7 @@ export const useDraggingWire = (onConnectionsChanged: (connections: NodeConnecti
     [
       draggingWire,
       nodesById,
-      ioByNode,
+      store,
       setDraggingWire,
       closestPortToDraggingWire,
       setClosestPortToDraggingWire,

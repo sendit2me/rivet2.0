@@ -4,7 +4,6 @@ import {
   type ProcessEvents,
   type StringArrayDataValue,
   globalRivetNodeRegistry,
-  serializeDatasets,
   type GraphId,
   type DataValue,
   GraphProcessor,
@@ -12,7 +11,7 @@ import {
 } from '@ironclad/rivet-core';
 import { useCurrentExecution } from './useCurrentExecution';
 import { graphState } from '../state/graph';
-import { settingsState } from '../state/settings';
+import { defaultExecutorState, settingsState } from '../state/settings';
 import { setCurrentDebuggerMessageHandler, useRemoteDebugger } from './useRemoteDebugger';
 import { fillMissingSettingsFromEnvironmentVariables } from '../utils/tauri';
 import { loadedProjectState, projectContextState, projectDataState, projectState } from '../state/savedGraphs';
@@ -21,13 +20,11 @@ import { toast } from 'react-toastify';
 import { trivetState } from '../state/trivet';
 import { runTrivet } from '@ironclad/trivet';
 import { produce } from 'immer';
-import { userInputModalQuestionsState, userInputModalSubmitState } from '../state/userInput';
-import { pluginsState } from '../state/plugins';
+import { userInputModalQuestionsState } from '../state/userInput';
 import { entries } from '../../../core/src/utils/typeSafety';
-import { selectedExecutorState } from '../state/execution';
-import { datasetProvider } from '../utils/globals';
 import { type RunDataByNodeId, lastRunDataByNodeState } from '../state/dataFlow';
 import { useAtomValue, useSetAtom, useAtom } from 'jotai';
+import { setUserInputSubmitHandler } from '../state/actions/userInputActions';
 
 // TODO: This allows us to retrieve the GraphOutputs from the remote debugger.
 // If the remote debugger events had a unique ID for each run, this would feel a lot less hacky.
@@ -47,9 +44,8 @@ export function useRemoteExecutor() {
   const graph = useAtomValue(graphState);
   const savedSettings = useAtomValue(settingsState);
   const [{ testSuites }, setTrivetState] = useAtom(trivetState);
-  const setUserInputModalSubmit = useSetAtom(userInputModalSubmitState);
   const setUserInputQuestions = useSetAtom(userInputModalQuestionsState);
-  const selectedExecutor = useAtomValue(selectedExecutorState);
+  const selectedExecutor = useAtomValue(defaultExecutorState);
   const lastRunData = useAtomValue(lastRunDataByNodeState);
   const loadedProject = useAtomValue(loadedProjectState);
 
@@ -133,17 +129,13 @@ export function useRemoteExecutor() {
       return;
     }
 
-    setUserInputModalSubmit({
-      submit: (nodeId: NodeId, answers: StringArrayDataValue) => {
-        remoteDebugger.send('user-input', { nodeId, answers });
-
-        // Remove from pending questions
-        setUserInputQuestions((q) =>
-          produce(q, (draft) => {
-            delete draft[nodeId];
-          }),
-        );
-      },
+    setUserInputSubmitHandler((nodeId: NodeId, answers: StringArrayDataValue) => {
+      remoteDebugger.send('user-input', { nodeId, answers });
+      setUserInputQuestions((q) =>
+        produce(q, (draft) => {
+          delete draft[nodeId];
+        }),
+      );
     });
 
     const graphToRun = options.graphId ?? graph.metadata!.id!;
@@ -179,7 +171,7 @@ export function useRemoteExecutor() {
 
       if (options.from) {
         // Use a local graph processor to get dependency nodes instead of asking the remote debugger
-        const processor = new GraphProcessor(project, graph.metadata!.id!, undefined, true);
+        const processor = new GraphProcessor(project, graph.metadata!.id!, globalRivetNodeRegistry, true);
         const dependencyNodes = processor.getDependencyNodesDeep(options.from);
         const preloadData = getDependentDataForNodeForPreload(dependencyNodes, lastRunData);
 

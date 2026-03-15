@@ -1,15 +1,21 @@
 import { useEffect } from 'react';
-import { register, unregister } from '@tauri-apps/api/globalShortcut';
 import { useStableCallback } from './useStableCallback.js';
+import { registerGlobalShortcut } from '../utils/nativeApp';
 
 export function useGlobalShortcut(shortcut: string, handler: () => void) {
-  // const handlerStable = useStableCallback(() => {
-  //   handler();
-  // });
-  // useEffect(() => {
-  //   register(shortcut, handlerStable);
-  //   return () => {
-  //     unregister(shortcut);
-  //   };
-  // }, [handlerStable, shortcut]);
+  const handlerStable = useStableCallback(() => {
+    handler();
+  });
+
+  useEffect(() => {
+    let unregisterShortcut: (() => void | Promise<void>) | undefined;
+
+    void registerGlobalShortcut(shortcut, handlerStable).then((unregister) => {
+      unregisterShortcut = unregister;
+    });
+
+    return () => {
+      void unregisterShortcut?.();
+    };
+  }, [handlerStable, shortcut]);
 }

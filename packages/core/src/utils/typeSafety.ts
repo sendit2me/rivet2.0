@@ -58,5 +58,7 @@ export function mapValues<T extends object, U>(
 ): {
   [K in keyof T]: U;
 } {
-  return Object.fromEntries(Object.entries(o).map(([key, value]) => [key, fn(value)])) as any;
+  return Object.fromEntries(Object.entries(o).map(([key, value]) => [key, fn(value)])) as {
+    [K in keyof T]: U;
+  };
 }

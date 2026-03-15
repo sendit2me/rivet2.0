@@ -179,3 +179,8 @@ export const openedProjectsSortedIdsState = atom(
 export const projectContextState = atomFamily((projectId: ProjectId) =>
   atomWithStorage<ProjectContext>(`projectContext__"${projectId}"`, {}, storage),
 );
+
+export function clearProjectContextState(projectId: ProjectId): void {
+  storage.removeItem(`projectContext__"${projectId}"`);
+  projectContextState.remove(projectId);
+}

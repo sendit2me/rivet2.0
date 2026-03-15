@@ -197,7 +197,7 @@ export async function* streamGenerativeAi({
 
     if (chunk.candidates) {
       outChunk.completion = chunk.candidates[0]?.content?.parts?.[0]?.text;
-      outChunk.finish_reason = chunk.candidates[0]?.finishReason as any;
+      outChunk.finish_reason = chunk.candidates[0]?.finishReason as ChatCompletionChunk['finish_reason'];
     }
 
     if (outChunk.completion || outChunk.function_calls) {
@@ -234,7 +234,7 @@ export async function* streamChatCompletions({
     },
   });
   const response = await generativeModel.generateContentStream({
-    contents: prompt as any, // crazy type stuff but... this is good enough, this is legacy
+    contents: prompt as unknown as Parameters<typeof generativeModel.generateContentStream>[0]['contents'],
   });
 
   let hadChunks = false;
@@ -245,7 +245,7 @@ export async function* streamChatCompletions({
     if (!signal?.aborted && chunk.candidates[0]?.content.parts[0]?.text) {
       yield {
         completion: chunk.candidates[0]?.content.parts[0]?.text,
-        finish_reason: chunk.candidates[0]?.finishReason as any,
+        finish_reason: chunk.candidates[0]?.finishReason as ChatCompletionChunk['finish_reason'],
         model,
       };
     } else {

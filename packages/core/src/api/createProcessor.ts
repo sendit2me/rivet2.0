@@ -1,28 +1,26 @@
 import type { PascalCase } from 'type-fest';
-import {
-  type AttachedData,
-  type AudioProvider,
-  type DataValue,
-  type DatasetProvider,
-  type ExternalFunction,
-  type GraphId,
-  type MCPProvider,
-  type NativeApi,
-  type NodeRegistration,
-  type ProcessContext,
-  type ProcessEvents,
-  type Project,
-  type RivetEventStreamFilterSpec,
-  type Settings,
-} from '../index.js';
+import type { AttachedData } from '../utils/serialization/serializationUtils.js';
+import type { AudioProvider } from '../integrations/AudioProvider.js';
+import type { DataValue } from '../model/DataValue.js';
+import type { DatasetProvider } from '../integrations/DatasetProvider.js';
+import type { ExternalFunction, ProcessEvents } from '../model/GraphProcessor.js';
+import type { GraphId } from '../model/NodeGraph.js';
+import type { Project } from '../model/Project.js';
+import type { MCPProvider } from '../integrations/mcp/MCPProvider.js';
+import type { NativeApi } from '../native/NativeApi.js';
+import type { NodeRegistration } from '../model/NodeRegistration.js';
+import type { ProcessContext } from '../model/ProcessContext.js';
+import type { RivetEventStreamFilterSpec } from './streaming.js';
+import type { Settings } from '../model/Settings.js';
+import { globalRivetNodeRegistry } from '../model/Nodes.js';
 import { getProcessorEvents, getProcessorSSEStream, getSingleNodeStream } from './streaming.js';
-// eslint-disable-next-line import/no-cycle -- Necessary cycle
+// eslint-disable-next-line import/no-cycle -- GraphProcessor depends on CodeRunner, which exposes the package export surface.
 import { GraphProcessor } from '../model/GraphProcessor.js';
 import { deserializeProject } from '../utils/serialization/serialization.js';
 import { DEFAULT_CHAT_NODE_TIMEOUT } from '../utils/defaults.js';
+import { GptTokenizerTokenizer } from '../integrations/GptTokenizerTokenizer.js';
 import type { Tokenizer } from '../integrations/Tokenizer.js';
 import { looseDataValuesToDataValues, type LooseDataValue } from './looseDataValue.js';
-import type { CodeRunner } from '../integrations/CodeRunner.js';
 import type { ProjectReferenceLoader } from '../model/ProjectReferenceLoader.js';
 
 export type RunGraphOptions = {
@@ -44,7 +42,7 @@ export type RunGraphOptions = {
   includeTrace?: boolean;
   getChatNodeEndpoint?: ProcessContext['getChatNodeEndpoint'];
   tokenizer?: Tokenizer;
-  codeRunner?: CodeRunner;
+  codeRunner?: ProcessContext['codeRunner'];
   projectPath?: string;
   projectReferenceLoader?: ProjectReferenceLoader;
 } & {
@@ -65,7 +63,12 @@ export function coreCreateProcessor(project: Project, options: RunGraphOptions) 
   }
 
   // TODO: Consolidate options into one object
-  const processor = new GraphProcessor(project, graphId as GraphId, options.registry, options.includeTrace);
+  const processor = new GraphProcessor(
+    project,
+    graphId as GraphId,
+    options.registry ?? globalRivetNodeRegistry,
+    options.includeTrace,
+  );
 
   if (options.onStart) {
     processor.on('start', options.onStart);
@@ -162,6 +165,7 @@ export function coreCreateProcessor(project: Project, options: RunGraphOptions) 
           audioProvider: options.audioProvider,
           mcpProvider: options.mcpProvider,
           codeRunner: options.codeRunner,
+          tokenizer: options.tokenizer ?? new GptTokenizerTokenizer(),
           projectPath: options.projectPath,
           projectReferenceLoader: options.projectReferenceLoader,
           settings: {

@@ -58,7 +58,7 @@ export const useContextMenu = () => {
     };
   }, [contextMenuRef]);
 
-  refs.setReference = useMergeRefs([refs.setReference, contextMenuRef]) as any;
+  const setReference = useMergeRefs([refs.setReference, contextMenuRef]);
 
   return {
     contextMenuRef,
@@ -67,7 +67,10 @@ export const useContextMenu = () => {
     handleContextMenu,
     setContextMenuData,
     setShowContextMenu,
-    refs,
+    refs: {
+      ...refs,
+      setReference,
+    },
     floatingStyles,
     update,
   };

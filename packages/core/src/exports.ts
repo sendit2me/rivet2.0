@@ -1,4 +1,5 @@
 export * from './utils/index.js';
+// eslint-disable-next-line import/no-cycle -- GraphProcessor depends on CodeRunner, which exposes the top-level Rivet export surface.
 export * from './model/GraphProcessor.js';
 export * from './model/DataValue.js';
 export * from './model/NodeBase.js';
@@ -27,6 +28,18 @@ export * from './model/EditorDefinition.js';
 export * from './model/NodeBodySpec.js';
 export * from './integrations/DatasetProvider.js';
 export * from './model/Dataset.js';
+export type {
+  DatasetRequestMap,
+  DatasetRequestMessage,
+  DatasetRequestPayload,
+  GraphUploadAllowedMessage,
+  IncomingMessage,
+  OutgoingMessage,
+  OutgoingMessageMap,
+  ProcessEventMessage,
+  ProcessEventMessageMap,
+  SerializedProcessEventMap,
+} from './model/ExecutorProtocol.js';
 export * from './api/streaming.js';
 export * from './api/createProcessor.js';
 export * from './integrations/AudioProvider.js';

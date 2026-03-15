@@ -9,7 +9,6 @@ import { nanoid } from 'nanoid/non-secure';
 import { type TryRunTests } from './api';
 import { overlayOpenState } from '../../state/ui';
 import { NoTestSuitesSplash } from './NoTestSuitesSplash';
-import { swallowPromise } from '../../utils/syncWrapper';
 
 const styles = css`
   position: fixed;

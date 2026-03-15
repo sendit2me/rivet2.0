@@ -461,14 +461,14 @@ export const scalarDefaults: { [P in ScalarDataType]: Extract<ScalarDataValue, {
   },
 };
 
-export function getDefaultValue<T extends DataType>(type: T): (DataValue & { type: T })['value'] {
+export function getDefaultValue<T extends DataType>(type: T): GetDataValue<T>['value'] {
   if (isArrayDataType(type)) {
-    return [] as any;
+    return [] as unknown as GetDataValue<T>['value'];
   }
 
   if (isFunctionDataType(type)) {
-    return (() => scalarDefaults[getScalarTypeOf(type)]) as any;
+    return (() => scalarDefaults[getScalarTypeOf(type)]) as unknown as GetDataValue<T>['value'];
   }
 
-  return scalarDefaults[getScalarTypeOf(type)] as any;
+  return scalarDefaults[getScalarTypeOf(type)] as unknown as GetDataValue<T>['value'];
 }

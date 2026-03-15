@@ -13,17 +13,19 @@ import prettyBytes from 'pretty-bytes';
 import { type FC } from 'react';
 import { useAtomValue } from 'jotai';
 import { projectDataState } from '../../state/savedGraphs';
-import { ioProvider } from '../../utils/globals';
+import { isPathBasedIOProvider } from '../../io/IOProvider';
 import { type SharedEditorProps } from './SharedEditorProps';
 import { getHelperMessage } from './editorUtils';
 import mime from 'mime';
 import { syncWrapper } from '../../utils/syncWrapper';
+import { useIOProvider } from '../../providers/ProvidersContext';
 
 export const DefaultFileBrowserEditor: FC<
   SharedEditorProps & {
     editor: FileBrowserEditorDefinition<ChartNode>;
   }
 > = ({ node, isReadonly, isDisabled, onChange, editor }) => {
+  const ioProvider = useIOProvider();
   const data = node.data as Record<string, unknown>;
   const projectData = useAtomValue(projectDataState);
   const helperMessage = getHelperMessage(editor, node.data);
@@ -77,10 +79,12 @@ export const DefaultFilePathBrowserEditor: FC<
     editor: FilePathBrowserEditorDefinition<ChartNode>;
   }
 > = ({ node, isReadonly, isDisabled, onChange, editor }) => {
+  const ioProvider = useIOProvider();
   const data = node.data as Record<string, unknown>;
   const helperMessage = getHelperMessage(editor, node.data);
 
   const pickFile = async () => {
+    if (!isPathBasedIOProvider(ioProvider)) return;
     const path = await ioProvider.openFilePath();
     if (path) {
       onChange({

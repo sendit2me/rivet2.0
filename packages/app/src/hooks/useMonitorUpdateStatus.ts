@@ -1,9 +1,7 @@
-import { isInTauri } from '../utils/tauri';
-import { onUpdaterEvent } from '@tauri-apps/api/updater';
 import { useSetAtom } from 'jotai';
 import { updateStatusState } from '../state/settings';
-import { match } from 'ts-pattern';
 import useAsyncEffect from 'use-async-effect';
+import { isInTauri, onAppUpdaterEvent } from '../utils/nativeApp';
 
 export function useMonitorUpdateStatus() {
   const setUpdateStatus = useSetAtom(updateStatusState);
@@ -12,14 +10,26 @@ export function useMonitorUpdateStatus() {
     let unlisten: any | undefined = undefined;
 
     if (isInTauri()) {
-      unlisten = await onUpdaterEvent(({ error, status }) => {
-        match(status as typeof status | 'DOWNLOADED') // -.-
-          .with('PENDING', async () => setUpdateStatus('Downloading...'))
-          .with('DONE', async () => setUpdateStatus('Installed.'))
-          .with('ERROR', async () => setUpdateStatus(`Error - ${error}`))
-          .with('UPTODATE', async () => setUpdateStatus('Up to date.'))
-          .with('DOWNLOADED', async () => setUpdateStatus('Installing...'))
-          .exhaustive();
+      unlisten = await onAppUpdaterEvent(({ error, status }) => {
+        switch (status) {
+          case 'PENDING':
+            setUpdateStatus('Downloading...');
+            break;
+          case 'DONE':
+            setUpdateStatus('Installed.');
+            break;
+          case 'ERROR':
+            setUpdateStatus(`Error - ${error}`);
+            break;
+          case 'UPTODATE':
+            setUpdateStatus('Up to date.');
+            break;
+          case 'DOWNLOADED':
+            setUpdateStatus('Installing...');
+            break;
+          default:
+            break;
+        }
       });
     }
 

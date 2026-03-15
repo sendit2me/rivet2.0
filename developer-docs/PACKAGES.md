@@ -13,7 +13,7 @@
 | **Entry (CJS)** | `dist/cjs/bundle.cjs` |
 | **Types** | `dist/esm/index.d.ts` |
 | **Build** | Rollup (ESM) + esbuild (CJS) |
-| **Test** | Vitest |
+| **Test** | `node:test` via tsx |
 | **Size** | Largest package (84 node implementations) |
 
 **Contains:**

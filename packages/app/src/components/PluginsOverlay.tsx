@@ -8,7 +8,6 @@ import { getError } from '@ironclad/rivet-core';
 import { useOpenUrl } from '../hooks/useOpenUrl';
 import { type PackagePluginLoadSpec, type PluginLoadSpec } from '../../../core/src/model/PluginLoadSpec';
 import { css } from '@emotion/react';
-import { appLocalDataDir, join } from '@tauri-apps/api/path';
 import CopyIcon from 'majesticons/line/clipboard-line.svg?react';
 import GithubMark from '../assets/vendor_logos/github-mark-white.svg?react';
 import { copyToClipboard } from '../utils/copyToClipboard';
@@ -26,6 +25,7 @@ import { projectPluginsState } from '../state/savedGraphs';
 import { produce } from 'immer';
 import { useAtom, useAtomValue } from 'jotai';
 import { syncWrapper } from '../utils/syncWrapper';
+import { nativeAppLocalDataDir, nativeJoinPath } from '../utils/nativeApp';
 
 const styles = css`
   position: fixed;
@@ -288,8 +288,8 @@ export const PluginsOverlay: FC = () => {
 
   useAsyncEffect(async () => {
     try {
-      const appDataDir = await appLocalDataDir();
-      setPluginStoreDirectory(await join(appDataDir, 'plugins'));
+      const appDataDir = await nativeAppLocalDataDir();
+      setPluginStoreDirectory(await nativeJoinPath(appDataDir, 'plugins'));
     } catch (err) {
       console.error(err);
     }

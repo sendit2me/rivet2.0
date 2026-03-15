@@ -22,7 +22,8 @@ import AlertCircleIcon from 'majesticons/line/alert-circle-line.svg?react';
 import { NoTestCasesSplash } from './NoTestCasesSplash';
 import { useTestSuite } from '../../hooks/useTestSuite';
 import { GraphSelector } from '../editors/GraphSelectorEditor';
-import { swallowPromise, syncWrapper } from '../../utils/syncWrapper';
+import { syncWrapper } from '../../utils/syncWrapper';
+import { wrapAsync } from '../../utils/errorHandling';
 
 const styles = css`
   min-height: 100%;
@@ -303,7 +304,7 @@ export const TestSuite: FC<{ testSuite: TrivetTestSuite; tryRunTests: TryRunTest
               <div className="test-suite-controls">
                 <Button
                   appearance="primary"
-                  onClick={() => swallowPromise(tryRunTests({ testSuiteIds: [testSuite.id] }))}
+                  onClick={wrapAsync(() => tryRunTests({ testSuiteIds: [testSuite.id] }), 'Run test suite')}
                 >
                   Run Test Suite
                 </Button>

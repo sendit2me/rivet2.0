@@ -142,6 +142,12 @@ export class CompareNodeImpl extends NodeImpl<CompareNode> {
 
     const value1 = inputA.value;
     const value2 = inputB?.type !== inputA.type ? coerceTypeOptional(inputB, inputA.type) : inputB.value;
+    const compareValues = (left: string | number | boolean, right: string | number | boolean) => ({
+      '<': left < right,
+      '>': left > right,
+      '<=': left <= right,
+      '>=': left >= right,
+    });
 
     return {
       ['output' as PortId]: {
@@ -149,10 +155,10 @@ export class CompareNodeImpl extends NodeImpl<CompareNode> {
         value: match(comparisonFunction)
           .with('==', () => isEqual(value1, value2))
           .with('!=', () => !isEqual(value1, value2))
-          .with('<', () => (value1 as any) < (value2 as any))
-          .with('>', () => (value1 as any) > (value2 as any))
-          .with('<=', () => (value1 as any) <= (value2 as any))
-          .with('>=', () => (value1 as any) >= (value2 as any))
+          .with('<', () => compareValues(value1 as string | number | boolean, value2 as string | number | boolean)['<'])
+          .with('>', () => compareValues(value1 as string | number | boolean, value2 as string | number | boolean)['>'])
+          .with('<=', () => compareValues(value1 as string | number | boolean, value2 as string | number | boolean)['<='])
+          .with('>=', () => compareValues(value1 as string | number | boolean, value2 as string | number | boolean)['>='])
           .with('and', () => !!(value1 && value2))
           .with('or', () => !!(value1 || value2))
           .with('xor', () => !!(value1 ? !value2 : value2))

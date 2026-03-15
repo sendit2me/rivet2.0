@@ -26,7 +26,7 @@ import { syncWrapper } from '../../../utils/syncWrapper';
 import { modelSelectorOptions } from '../../../utils/modelSelectorOptions';
 import TextArea from '@atlaskit/textarea';
 import { selectedAssistModelState } from '../../../state/ai';
-import { BaseDirectory, createDir, writeFile } from '@tauri-apps/api/fs';
+import { nativeCreateDir, nativeWriteFile } from '../../../utils/nativeApp';
 
 const styles = css`
   display: flex;
@@ -115,13 +115,13 @@ export const AiAssistEditorBase = <TNodeData, TOutputs>({
       if (record) {
         const fileName = `recordings/${graphName.replace(/ /g, '-')}-${Date.now()}.rivet-recording`;
 
-        await createDir('recordings', {
-          dir: BaseDirectory.AppLog,
+        await nativeCreateDir('recordings', {
+          dir: 'AppLog',
           recursive: true,
         });
 
-        await writeFile(fileName, recorder.serialize(), {
-          dir: BaseDirectory.AppLog,
+        await nativeWriteFile(fileName, recorder.serialize(), {
+          dir: 'AppLog',
         });
       }
 

@@ -1,8 +1,6 @@
 import { type ChartNode, getPluginConfig, globalRivetNodeRegistry } from '@ironclad/rivet-core';
-import { datasetProvider } from '../utils/globals';
-import { selectedExecutorState } from '../state/execution';
+import { defaultExecutorState, settingsState } from '../state/settings';
 import { type RivetUIContext } from '../../../core/src/model/RivetUIContext';
-import { settingsState } from '../state/settings';
 import { fillMissingSettingsFromEnvironmentVariables } from '../utils/tauri';
 import { useDependsOnPlugins } from './useDependsOnPlugins';
 import { projectState, referencedProjectsState } from '../state/savedGraphs';
@@ -10,9 +8,11 @@ import { graphState } from '../state/graph';
 import { useStableCallback } from './useStableCallback';
 import { useAtomValue } from 'jotai';
 import { TauriNativeApi } from '../model/native/TauriNativeApi';
+import { useDatasetProvider } from '../providers/ProvidersContext';
 
 export function useGetRivetUIContext() {
-  const selectedExecutor = useAtomValue(selectedExecutorState);
+  const datasetProvider = useDatasetProvider();
+  const selectedExecutor = useAtomValue(defaultExecutorState);
   const settings = useAtomValue(settingsState);
   const plugins = useDependsOnPlugins();
   const project = useAtomValue(projectState);

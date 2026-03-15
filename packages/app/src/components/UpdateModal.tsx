@@ -5,12 +5,10 @@ import { useAtom, useSetAtom } from 'jotai';
 import { skippedMaxVersionState, updateModalOpenState, updateStatusState } from '../state/settings';
 import Button from '@atlaskit/button';
 import useAsyncEffect from 'use-async-effect';
-import { checkUpdate, installUpdate } from '@tauri-apps/api/updater';
-import { getVersion } from '@tauri-apps/api/app';
 import { css } from '@emotion/react';
 import { useMarkdown } from '../hooks/useMarkdown';
-import { relaunch } from '@tauri-apps/api/process';
 import { syncWrapper } from '../utils/syncWrapper';
+import { checkForAppUpdate, getAppVersion, installAppUpdate, relaunchApp } from '../utils/nativeApp';
 
 const bodyStyle = css`
   pre {
@@ -35,8 +33,8 @@ export const UpdateModal: FC = () => {
   const [updateBody, setUpdateBody] = useState('');
 
   useAsyncEffect(async () => {
-    setCurrentVersion(await getVersion());
-    const { manifest } = await checkUpdate();
+    setCurrentVersion(await getAppVersion());
+    const { manifest } = await checkForAppUpdate();
     if (manifest) {
       setLatestVersion(manifest.version);
       setUpdateBody(manifest.body);
@@ -48,7 +46,7 @@ export const UpdateModal: FC = () => {
       setUpdateStatus('Starting update...');
       setIsUpdating(true);
 
-      await installUpdate();
+      await installAppUpdate();
     } catch (err) {
       console.error(err);
     }
@@ -89,7 +87,7 @@ export const UpdateModal: FC = () => {
         <ModalFooter>
           {isUpdating ? (
             updateStatus === 'Installed.' ? (
-              <Button appearance="primary" onClick={syncWrapper(relaunch)}>
+              <Button appearance="primary" onClick={syncWrapper(relaunchApp)}>
                 Update complete! Click to restart.
               </Button>
             ) : (

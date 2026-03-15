@@ -14,7 +14,6 @@ import { useState, type FC, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { useContextMenu } from '../../hooks/useContextMenu';
 import { useDataset } from '../../hooks/useDataset';
-import { datasetProvider, ioProvider } from '../../utils/globals';
 import { stringify as stringifyCsv } from 'csv-stringify/browser/esm/sync';
 import { parse as parseCsv } from 'csv-parse/browser/esm/sync';
 import { DatasetTable } from './DatasetTable';
@@ -27,7 +26,9 @@ import { InlineEditableTextfield } from '@atlaskit/inline-edit';
 import { useDatasets } from '../../hooks/useDatasets';
 import { useAtomValue } from 'jotai';
 import { projectMetadataState } from '../../state/savedGraphs';
-import { swallowPromise, syncWrapper } from '../../utils/syncWrapper';
+import { syncWrapper } from '../../utils/syncWrapper';
+import { useDatasetProvider, useIOProvider } from '../../providers/ProvidersContext';
+import { wrapAsync } from '../../utils/errorHandling';
 
 const datasetDisplayStyles = css`
   padding: 16px;
@@ -109,6 +110,8 @@ export const DatasetDisplay: FC<{
   dataset: DatasetMetadata;
   onChangedId?: (id: DatasetId) => void;
 }> = ({ dataset, onChangedId }) => {
+  const datasetProvider = useDatasetProvider();
+  const ioProvider = useIOProvider();
   const { dataset: datasetData, ...datasetMethods } = useDataset(dataset.id);
 
   const projectMetadata = useAtomValue(projectMetadataState);
@@ -229,14 +232,14 @@ export const DatasetDisplay: FC<{
           <InlineEditableTextfield
             defaultValue={dataset.name}
             placeholder="Dataset Name"
-            onConfirm={(newName) => swallowPromise(renameDataset(newName))}
+            onConfirm={wrapAsync(renameDataset, 'Rename dataset')}
             readViewFitContainerWidth
           />
           ID:
           <InlineEditableTextfield
             defaultValue={dataset.id}
             placeholder="Dataset ID"
-            onConfirm={(newId) => swallowPromise(setDatasetId(newId))}
+            onConfirm={wrapAsync(setDatasetId, 'Change dataset ID')}
             readViewFitContainerWidth
           />
         </h1>
@@ -284,27 +287,40 @@ export const DatasetDisplay: FC<{
               top: contextMenuData.y,
             }}
           >
-            <DropdownItem onClick={() => swallowPromise(datasetMethods.insertRowAbove(parseInt(selectedCellRow!, 10)))}>
+            <DropdownItem
+              onClick={wrapAsync(() => datasetMethods.insertRowAbove(parseInt(selectedCellRow!, 10)), 'Insert row above')}
+            >
               Insert Row Above
             </DropdownItem>
-            <DropdownItem onClick={() => swallowPromise(datasetMethods.insertRowBelow(parseInt(selectedCellRow!, 10)))}>
+            <DropdownItem
+              onClick={wrapAsync(() => datasetMethods.insertRowBelow(parseInt(selectedCellRow!, 10)), 'Insert row below')}
+            >
               Insert Row Below
             </DropdownItem>
             <DropdownItem
-              onClick={() => swallowPromise(datasetMethods.insertColumnLeft(parseInt(selectedCellColumn!, 10)))}
+              onClick={wrapAsync(
+                () => datasetMethods.insertColumnLeft(parseInt(selectedCellColumn!, 10)),
+                'Insert column left',
+              )}
             >
               Insert Column Left
             </DropdownItem>
             <DropdownItem
-              onClick={() => swallowPromise(datasetMethods.insertColumnRight(parseInt(selectedCellColumn!, 10)))}
+              onClick={wrapAsync(
+                () => datasetMethods.insertColumnRight(parseInt(selectedCellColumn!, 10)),
+                'Insert column right',
+              )}
             >
               Insert Column Right
             </DropdownItem>
-            <DropdownItem onClick={() => swallowPromise(datasetMethods.deleteRow(parseInt(selectedCellRow!, 10)))}>
+            <DropdownItem onClick={wrapAsync(() => datasetMethods.deleteRow(parseInt(selectedCellRow!, 10)), 'Delete row')}>
               Delete Row
             </DropdownItem>
             <DropdownItem
-              onClick={() => swallowPromise(datasetMethods.deleteColumn(parseInt(selectedCellColumn!, 10)))}
+              onClick={wrapAsync(
+                () => datasetMethods.deleteColumn(parseInt(selectedCellColumn!, 10)),
+                'Delete column',
+              )}
             >
               Delete Column
             </DropdownItem>

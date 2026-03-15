@@ -110,11 +110,13 @@ function toRecordedEvent<T extends keyof ProcessEvents>(event: T, data: ProcessE
     };
   }
 
-  return {
+  const recordedEvent: RecordedEvent<T> = {
     type: event,
-    data: (toRecordedEventMap[event] as any)(data),
+    data: toRecordedEventMap[event](data) as unknown as RecordedEvent<T>['data'],
     ts: Date.now(),
   };
+
+  return recordedEvent as RecordedEvents;
 }
 
 export type ExecutionRecorderOptions = {
@@ -219,7 +221,7 @@ export class ExecutionRecorder {
 
   constructor(options: ExecutionRecorderOptions = {}) {
     this.#emitter = new Emittery();
-    this.#emitter.bindMethods(this as any, ['on', 'off', 'once']);
+    this.#emitter.bindMethods(this as unknown as Record<string, unknown>, ['on', 'off', 'once']);
     this.#includePartialOutputs = options.includePartialOutputs ?? false;
     this.#includeTrace = options.includeTrace ?? false;
   }

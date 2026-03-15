@@ -1,26 +1,26 @@
 import Button from '@atlaskit/button';
-import { WebviewWindow } from '@tauri-apps/api/window';
 import { type FC } from 'react';
 import { useSetAtom } from 'jotai';
 import { getCommunityLoginUrl } from '../../utils/getCommunityApi';
 import { isLoggedInToCommunityState } from '../../state/community';
+import { createWebviewWindowHandle } from '../../utils/nativeApp';
 
 export const NeedsLoginPage: FC = () => {
   const loginUrl = getCommunityLoginUrl();
   const setIsLoggedInToCommunity = useSetAtom(isLoggedInToCommunityState);
 
-  const handleLogInClick = () => {
-    const window = new WebviewWindow('login', { alwaysOnTop: true, center: true, url: loginUrl });
+  const handleLogInClick = async () => {
+    const window = await createWebviewWindowHandle('login', { alwaysOnTop: true, center: true, url: loginUrl });
 
-    window.once('tauri://created', () => {
+    await window.once?.('tauri://created', () => {
       console.log('window created');
     });
 
-    window.once('tauri://error', (e) => {
+    await window.once?.('tauri://error', (e) => {
       console.error(e);
     });
 
-    window.onCloseRequested(() => {
+    await window.onCloseRequested?.(() => {
       setIsLoggedInToCommunity(undefined);
     });
   };
@@ -34,7 +34,12 @@ export const NeedsLoginPage: FC = () => {
         <li>Star and comment on other templates</li>
       </ul>
       <p>
-        <Button appearance="primary" onClick={handleLogInClick}>
+        <Button
+          appearance="primary"
+          onClick={() => {
+            void handleLogInClick();
+          }}
+        >
           Log in
         </Button>
       </p>

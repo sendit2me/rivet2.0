@@ -33,8 +33,10 @@ import { CommunityOverlayRenderer } from './community/CommunityOverlay';
 import { HelpModal } from './HelpModal';
 import { openedProjectsSortedIdsState } from '../state/savedGraphs';
 import { NoProject } from './NoProject';
-import { swallowPromise, syncWrapper } from '../utils/syncWrapper';
+import { syncWrapper } from '../utils/syncWrapper';
 import { allInitializeStoreFns } from '../state/storage';
+import { AppErrorBoundary } from './AppErrorBoundary';
+import { wrapAsync } from '../utils/errorHandling';
 
 const styles = css`
   overflow: hidden;
@@ -74,7 +76,9 @@ export const RivetApp: FC = () => {
         <>
           <NoProject />
           <NewProjectModalRenderer />
-          <SettingsModal />
+          <AppErrorBoundary context="Settings Modal" fallback={<div>Failed to render Settings</div>}>
+            <SettingsModal />
+          </AppErrorBoundary>
         </>
       ) : (
         <>
@@ -89,9 +93,11 @@ export const RivetApp: FC = () => {
           />
           <StatusBar />
           <DebuggerPanelRenderer />
-          <LeftSidebar onRunGraph={(graphId) => swallowPromise(tryRunGraph({ graphId }))} />
+          <LeftSidebar onRunGraph={(graphId) => wrapAsync(() => tryRunGraph({ graphId }), 'Run graph from sidebar')()} />
           <GraphBuilder />
-          <SettingsModal />
+          <AppErrorBoundary context="Settings Modal" fallback={<div>Failed to render Settings</div>}>
+            <SettingsModal />
+          </AppErrorBoundary>
           <PromptDesignerRenderer />
           <TrivetRenderer tryRunTests={tryRunTests} />
           <ChatViewerRenderer />

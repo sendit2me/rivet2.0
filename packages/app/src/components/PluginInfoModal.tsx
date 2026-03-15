@@ -5,9 +5,9 @@ import { type RivetPlugin } from '@ironclad/rivet-core';
 import { useState, type FC } from 'react';
 import { match } from 'ts-pattern';
 import { type PluginLoadSpec } from '../../../core/src/model/PluginLoadSpec';
-import { appLocalDataDir, join } from '@tauri-apps/api/path';
 import useAsyncEffect from 'use-async-effect';
 import { CopyToClipboardButton } from './CopyToClipboardButton';
+import { nativeAppLocalDataDir, nativeJoinPath } from '../utils/nativeApp';
 
 const pluginInfoModalBody = css`
   dl {
@@ -47,10 +47,10 @@ export const PluginInfoModal: FC<PluginInfoModalProps> = ({ isOpen, onClose, plu
       return;
     }
 
-    const localDataDir = await appLocalDataDir();
+    const localDataDir = await nativeAppLocalDataDir();
 
-    const pluginDir = await join(localDataDir, `plugins/${spec.package}-${spec.tag}`);
-    const pluginFilesPath = await join(pluginDir, 'package');
+    const pluginDir = await nativeJoinPath(localDataDir, `plugins/${spec.package}-${spec.tag}`);
+    const pluginFilesPath = await nativeJoinPath(pluginDir, 'package');
 
     setInstallDir(pluginFilesPath);
   }, []);

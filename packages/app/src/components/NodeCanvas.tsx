@@ -10,7 +10,6 @@ import {
   useState,
   type MouseEvent,
   useEffect,
-  useLayoutEffect,
   type RefObject,
   type MutableRefObject,
 } from 'react';
@@ -64,6 +63,8 @@ import { lastRunDataByNodeState, selectedProcessPageNodesState } from '../state/
 import { useDeleteNodesCommand } from '../commands/deleteNodeCommand';
 import { useEditNodeCommand } from '../commands/editNodeCommand';
 import { useAutoLayoutGraph } from '../hooks/useAutoLayoutGraph';
+import { CanvasHandlersContext, CanvasViewContext } from './CanvasContext';
+import { useVisibleCanvasNodes } from '../hooks/useVisibleCanvasNodes';
 
 const styles = css`
   width: 100vw;
@@ -170,8 +171,6 @@ export interface NodeCanvasProps {
 }
 
 export type PortPositions = Record<string, { x: number; y: number }>;
-
-const shouldShowNodeBasedOnPosition = new WeakMap<ChartNode, boolean>();
 
 export const NodeCanvas: FC<NodeCanvasProps> = ({
   nodes,
@@ -631,62 +630,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
   const isZoomedOut = canvasPosition.zoom < 0.4;
   const isReallyZoomedOut = canvasPosition.zoom < 0.2;
 
-  const [forceRender, setForceRender] = useState(0);
-  const movingRerenderTimeout = useRef<number | undefined>();
-  const lastNodeRecalculateTime = useRef(0);
-
-  const isLargeGraph = nodes.length > 100;
-  const debounceTime = isLargeGraph ? 500 : 50;
-
-  const previousNodes = useRef<ChartNode[]>([]);
-
-  useLayoutEffect(() => {
-    const recalculateVisibleNodes = () => {
-      let numVisible = 0;
-
-      for (const node of nodes) {
-        const isPinned = pinnedNodes.includes(node.id);
-
-        const shouldHide =
-          (node.visualData.x < viewportBounds.left - (node.visualData.width ?? 300) ||
-            node.visualData.x > viewportBounds.right + (node.visualData.width ?? 300) ||
-            node.visualData.y < viewportBounds.top - 500 ||
-            node.visualData.y > viewportBounds.bottom + 500) &&
-          !isPinned;
-
-        shouldShowNodeBasedOnPosition.set(node, !shouldHide);
-
-        if (!shouldHide) {
-          numVisible++;
-        }
-      }
-
-      setForceRender((prev) => prev + 1);
-      lastNodeRecalculateTime.current = Date.now();
-    };
-
-    if (movingRerenderTimeout.current) {
-      window.clearTimeout(movingRerenderTimeout.current);
-    }
-
-    movingRerenderTimeout.current = window.setTimeout(() => {
-      recalculateVisibleNodes();
-    }, debounceTime);
-
-    if (previousNodes.current !== nodes) {
-      previousNodes.current = nodes;
-      recalculateVisibleNodes();
-    }
-  }, [
-    pinnedNodes,
-    nodes,
-    viewportBounds.left,
-    viewportBounds.right,
-    viewportBounds.top,
-    viewportBounds.bottom,
-    forceRender,
-    debounceTime,
-  ]);
+  const { isNodeVisible } = useVisibleCanvasNodes({ nodes, pinnedNodeIds: pinnedNodes, viewportBounds });
 
   const editNode = useEditNodeCommand();
 
@@ -701,6 +645,43 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
       },
     });
   });
+  const canvasViewContextValue = useMemo(
+    () => ({
+      canvasZoom: canvasPosition.zoom,
+      closestPortToDraggingWire: closestPort,
+      draggingWire,
+      heightCache: cache,
+      isReallyZoomedOut,
+      isZoomedOut,
+    }),
+    [cache, canvasPosition.zoom, closestPort, draggingWire, isReallyZoomedOut, isZoomedOut],
+  );
+  const canvasHandlersContextValue = useMemo(
+    () => ({
+      onMouseOut: onNodeMouseOut,
+      onMouseOver: onNodeMouseOver,
+      onNodeSelected: nodeSelected,
+      onNodeSizeChanged,
+      onNodeStartEditing: nodeStartEditing,
+      onPortMouseOut,
+      onPortMouseOver,
+      onResizeFinish,
+      onWireEndDrag,
+      onWireStartDrag,
+    }),
+    [
+      nodeSelected,
+      nodeStartEditing,
+      onNodeMouseOut,
+      onNodeMouseOver,
+      onNodeSizeChanged,
+      onPortMouseOut,
+      onPortMouseOver,
+      onResizeFinish,
+      onWireEndDrag,
+      onWireStartDrag,
+    ],
+  );
 
   return (
     <DndContext onDragStart={onNodeStartDrag} onDragEnd={onNodeDragged}>
@@ -729,78 +710,64 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
             willChange: 'transform',
           }}
         >
-          <div className="nodes">
-            {nodesWithConnections.map(({ node, nodeConnections }) => {
-              if (!shouldShowNodeBasedOnPosition.get(node)) {
-                return null;
-              }
+          <CanvasViewContext.Provider value={canvasViewContextValue}>
+            <CanvasHandlersContext.Provider value={canvasHandlersContextValue}>
+              <div className="nodes">
+                {nodesWithConnections.map(({ node, nodeConnections }) => {
+                  if (!isNodeVisible(node)) {
+                    return null;
+                  }
 
-              if (draggingNodes.some((n) => n.id === node.id)) {
-                return null;
-              }
+                  if (draggingNodes.some((n) => n.id === node.id)) {
+                    return null;
+                  }
 
-              return (
-                <DraggableNode
-                  key={node.id}
-                  heightCache={cache}
-                  node={node}
-                  connections={nodeConnections}
-                  isSelected={highlightedNodes.includes(node.id) || searchMatchingNodes.includes(node.id)}
-                  canvasZoom={canvasPosition.zoom}
-                  isKnownNodeType={node.type in nodeTypes}
-                  lastRun={lastRunPerNode[node.id]}
-                  isPinned={pinnedNodes.includes(node.id)}
-                  isZoomedOut={isZoomedOut && node.type !== 'comment'}
-                  isReallyZoomedOut={isReallyZoomedOut && node.type !== 'comment'}
-                  processPage={selectedProcessPagePerNode[node.id]!}
-                  draggingWire={draggingWire}
-                  onWireStartDrag={onWireStartDrag}
-                  onWireEndDrag={onWireEndDrag}
-                  onNodeSelected={nodeSelected}
-                  onNodeStartEditing={nodeStartEditing}
-                  onNodeSizeChanged={onNodeSizeChanged}
-                  onMouseOver={onNodeMouseOver}
-                  onMouseOut={onNodeMouseOut}
-                  onPortMouseOver={onPortMouseOver}
-                  onPortMouseOut={onPortMouseOut}
-                  onResizeFinish={onResizeFinish}
-                />
-              );
-            })}
-          </div>
-          <DragOverlay
-            dropAnimation={null}
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-            }}
-            modifiers={[
-              (args) => {
-                return {
-                  scaleX: 1,
-                  scaleY: 1,
-                  x: args.transform.x / canvasPosition.zoom,
-                  y: args.transform.y / canvasPosition.zoom,
-                };
-              },
-            ]}
-          >
-            {draggingNodes.map((node) => (
-              <VisualNode
-                key={node.id}
-                heightCache={cache}
-                node={node}
-                connections={draggingNodeConnections}
-                isOverlay
-                isKnownNodeType={node.type in nodeTypes}
-                isPinned={pinnedNodes.includes(node.id)}
-                isZoomedOut={isZoomedOut && node.type !== 'comment'}
-                isReallyZoomedOut={isReallyZoomedOut && node.type !== 'comment'}
-                processPage={selectedProcessPagePerNode[node.id]!}
-              />
-            ))}
-          </DragOverlay>
+                  return (
+                    <DraggableNode
+                      key={node.id}
+                      node={node}
+                      connections={nodeConnections}
+                      isSelected={highlightedNodes.includes(node.id) || searchMatchingNodes.includes(node.id)}
+                      isKnownNodeType={node.type in nodeTypes}
+                      lastRun={lastRunPerNode[node.id]}
+                      isPinned={pinnedNodes.includes(node.id)}
+                      processPage={selectedProcessPagePerNode[node.id]!}
+                    />
+                  );
+                })}
+              </div>
+              <DragOverlay
+                dropAnimation={null}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                }}
+                modifiers={[
+                  (args) => {
+                    return {
+                      scaleX: 1,
+                      scaleY: 1,
+                      x: args.transform.x / canvasPosition.zoom,
+                      y: args.transform.y / canvasPosition.zoom,
+                    };
+                  },
+                ]}
+              >
+                {draggingNodes.map((node) => (
+                  <VisualNode
+                    key={node.id}
+                    node={node}
+                    connections={draggingNodeConnections}
+                    isOverlay
+                    isKnownNodeType={node.type in nodeTypes}
+                    isPinned={pinnedNodes.includes(node.id)}
+                    processPage={selectedProcessPagePerNode[node.id]!}
+                  />
+                ))}
+              </DragOverlay>
+            </CanvasHandlersContext.Provider>
+          </CanvasViewContext.Provider>
         </div>
         <CSSTransition
           nodeRef={contextMenuRef}

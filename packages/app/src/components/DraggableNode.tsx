@@ -1,87 +1,35 @@
 import { useDraggable } from '@dnd-kit/core';
-import {
-  type NodeInputDefinition,
-  type ChartNode,
-  type NodeConnection,
-  type NodeId,
-  type PortId,
-  type NodeOutputDefinition,
-} from '@ironclad/rivet-core';
-import { type MouseEvent, type FC } from 'react';
-import type { HeightCache } from '../hooks/useNodeBodyHeight';
+import { type ChartNode, type NodeConnection } from '@ironclad/rivet-core';
+import { type FC } from 'react';
 import { VisualNode } from './VisualNode.js';
 import { useStableCallback } from '../hooks/useStableCallback.js';
 import { ErrorBoundary } from 'react-error-boundary';
 import { type ProcessDataForNode } from '../state/dataFlow';
-import { type DraggingWireDef } from '../state/graphBuilder';
+import { useCanvasHandlersContext, useCanvasViewContext } from './CanvasContext';
 
 interface DraggableNodeProps {
   renderSkeleton?: boolean;
-  heightCache: HeightCache;
   node: ChartNode;
   connections?: NodeConnection[];
   isSelected?: boolean;
   isKnownNodeType: boolean;
-  onWireStartDrag?: (
-    event: MouseEvent<HTMLElement>,
-    startNodeId: NodeId,
-    startPortId: PortId,
-    isInput: boolean,
-  ) => void;
-  canvasZoom: number;
   lastRun?: ProcessDataForNode[];
   processPage: number | 'latest';
-  draggingWire?: DraggingWireDef;
-  isZoomedOut: boolean;
-  isReallyZoomedOut: boolean;
   isPinned: boolean;
-  onWireEndDrag?: (event: MouseEvent<HTMLElement>, endNodeId: NodeId, endPortId: PortId) => void;
-  onNodeSelected?: (node: ChartNode, multi: boolean) => void;
-  onNodeStartEditing?: (node: ChartNode) => void;
-  onNodeSizeChanged?: (node: ChartNode, newWidth: number, newHeight: number) => void;
-  onMouseOver?: (event: MouseEvent<HTMLElement>, nodeId: NodeId) => void;
-  onMouseOut?: (event: MouseEvent<HTMLElement>, nodeId: NodeId) => void;
-  onPortMouseOver?: (
-    event: MouseEvent<HTMLElement>,
-    nodeId: NodeId,
-    isInput: boolean,
-    portId: PortId,
-    definition: NodeInputDefinition | NodeOutputDefinition,
-  ) => void;
-  onPortMouseOut?: (
-    event: MouseEvent<HTMLElement>,
-    nodeId: NodeId,
-    isInput: boolean,
-    portId: PortId,
-    definition: NodeInputDefinition | NodeOutputDefinition,
-  ) => void;
-  onResizeFinish?: (node: ChartNode, startWidth: number, startHeight: number) => void;
 }
 
 export const DraggableNode: FC<DraggableNodeProps> = ({
-  heightCache,
   node,
   connections = [],
   isSelected = false,
-  canvasZoom,
   isKnownNodeType,
   lastRun,
   processPage,
-  draggingWire,
-  isZoomedOut,
-  isReallyZoomedOut,
   isPinned,
   renderSkeleton,
-  onWireStartDrag,
-  onWireEndDrag,
-  onNodeSelected,
-  onNodeStartEditing,
-  onNodeSizeChanged,
-  onMouseOver,
-  onMouseOut,
-  onPortMouseOver,
-  onPortMouseOut,
 }) => {
+  const { canvasZoom } = useCanvasViewContext();
+  const { onNodeSelected, onNodeSizeChanged, onNodeStartEditing } = useCanvasHandlersContext();
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: node.id });
 
   return (
@@ -89,7 +37,6 @@ export const DraggableNode: FC<DraggableNodeProps> = ({
       <VisualNode
         ref={setNodeRef}
         isSelected={isSelected}
-        heightCache={heightCache}
         node={node}
         connections={connections}
         isDragging={isDragging}
@@ -100,13 +47,8 @@ export const DraggableNode: FC<DraggableNodeProps> = ({
         isKnownNodeType={isKnownNodeType}
         lastRun={lastRun}
         processPage={processPage}
-        draggingWire={draggingWire}
-        isZoomedOut={isZoomedOut}
-        isReallyZoomedOut={isReallyZoomedOut}
         isPinned={isPinned}
         renderSkeleton={renderSkeleton}
-        onWireEndDrag={onWireEndDrag}
-        onWireStartDrag={onWireStartDrag}
         onSelectNode={useStableCallback((multi: boolean) => {
           onNodeSelected?.(node, multi);
         })}
@@ -114,10 +56,6 @@ export const DraggableNode: FC<DraggableNodeProps> = ({
           onNodeStartEditing?.(node);
         })}
         onNodeSizeChanged={(width, height) => onNodeSizeChanged?.(node, width, height)}
-        onMouseOver={onMouseOver}
-        onMouseOut={onMouseOut}
-        onPortMouseOver={onPortMouseOver}
-        onPortMouseOut={onPortMouseOut}
       />
     </ErrorBoundary>
   );

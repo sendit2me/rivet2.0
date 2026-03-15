@@ -277,7 +277,7 @@ const FromTutorialTemplate: FC<{
         <Field name="tutorial" label="Tutorial">
           {() => (
             <Select
-              options={tutorials as any}
+              options={tutorials}
               value={selectedTutorialData}
               onChange={(option) => setSelectedTutorial(option?.value)}
               placeholder="Select a tutorial"

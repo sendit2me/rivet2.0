@@ -1,27 +1,44 @@
-import { type ChartNode, type NodeImplConstructor, type NodeImpl, type PluginNodeImpl } from '../index.js';
+import { type ChartNode } from './NodeBase.js';
+import { type NodeImplConstructor, type NodeImpl, type PluginNodeImpl, PluginNodeImplClass } from './NodeImpl.js';
 import { mapValues, values } from '../utils/typeSafety.js';
 import type { NodeDefinition, PluginNodeDefinition } from './NodeDefinition.js';
 import { type RivetPlugin } from './RivetPlugin.js';
 import { type RivetUIContext } from './RivetUIContext.js';
-import { PluginNodeImplClass } from './NodeImpl.js';
+
+type RegisteredNodeInfo<T extends ChartNode> = {
+  displayName: string;
+  impl: NodeImplConstructor<T>;
+  plugin?: RivetPlugin;
+  pluginImpl?: PluginNodeImpl<T>;
+};
 
 export class NodeRegistration<NodeTypes extends string = never, Nodes extends ChartNode = never> {
   NodesType: Nodes = undefined!;
   NodeTypesType: NodeTypes = undefined!;
 
-  #infos = {} as {
-    [P in NodeTypes]: {
-      displayName: string;
-      impl: NodeImplConstructor<Extract<Nodes, { type: P }>>;
-      plugin?: RivetPlugin;
-      pluginImpl?: PluginNodeImpl<Extract<Nodes, { type: P }>>;
-    };
-  };
+  #infos = {} as Record<NodeTypes, RegisteredNodeInfo<ChartNode>>;
 
   readonly #plugins = [] as RivetPlugin[];
 
   #implsMap = {} as Record<string, { impl: NodeImplConstructor<ChartNode>; pluginImpl?: PluginNodeImpl<ChartNode> }>;
   readonly #nodeTypes = [] as NodeTypes[];
+
+  #toDynamicConstructor<T extends ChartNode>(impl: NodeImplConstructor<T>): NodeImplConstructor<ChartNode> {
+    return impl as unknown as NodeImplConstructor<ChartNode>;
+  }
+
+  #toDynamicPluginImpl<T extends ChartNode>(pluginImpl: PluginNodeImpl<T>): PluginNodeImpl<ChartNode> {
+    return pluginImpl as unknown as PluginNodeImpl<ChartNode>;
+  }
+
+  #getInfo<T extends NodeTypes>(type: T): RegisteredNodeInfo<Extract<Nodes, { type: T }>> {
+    const info = this.#infos[type];
+    if (!info) {
+      throw new Error(`Unknown node type: ${type}`);
+    }
+
+    return info as unknown as RegisteredNodeInfo<Extract<Nodes, { type: T }>>;
+  }
 
   register<T extends ChartNode>(
     definition: NodeDefinition<T>,
@@ -37,12 +54,12 @@ export class NodeRegistration<NodeTypes extends string = never, Nodes extends Ch
 
     newRegistration.#infos[typeStr] = {
       displayName: definition.displayName,
-      impl: definition.impl as any,
+      impl: definition.impl as unknown as NodeImplConstructor<ChartNode>,
       plugin,
     };
 
     newRegistration.#implsMap[typeStr] = {
-      impl: definition.impl as any,
+      impl: this.#toDynamicConstructor(definition.impl),
       pluginImpl: undefined,
     };
 
@@ -64,6 +81,14 @@ export class NodeRegistration<NodeTypes extends string = never, Nodes extends Ch
     }
 
     const pluginClass = class extends PluginNodeImplClass<T> {
+      constructor(chartNode: T, impl?: PluginNodeImpl<T>) {
+        if (!impl) {
+          throw new Error(`Missing plugin implementation for node type: ${typeStr}`);
+        }
+
+        super(chartNode, impl);
+      }
+
       static create() {
         return definition.impl.create();
       }
@@ -75,14 +100,14 @@ export class NodeRegistration<NodeTypes extends string = never, Nodes extends Ch
 
     newRegistration.#infos[typeStr] = {
       displayName: definition.displayName,
-      impl: pluginClass as any,
+      impl: this.#toDynamicConstructor(pluginClass),
       plugin,
-      pluginImpl: definition.impl as any,
+      pluginImpl: this.#toDynamicPluginImpl(definition.impl),
     };
 
     newRegistration.#implsMap[typeStr] = {
-      impl: pluginClass as any,
-      pluginImpl: definition.impl as any,
+      impl: this.#toDynamicConstructor(pluginClass),
+      pluginImpl: this.#toDynamicPluginImpl(definition.impl),
     };
 
     newRegistration.#nodeTypes.push(typeStr);
@@ -110,12 +135,8 @@ export class NodeRegistration<NodeTypes extends string = never, Nodes extends Ch
   }
 
   create<T extends NodeTypes>(type: T): Extract<Nodes, { type: T }> {
-    const info = this.#infos[type];
-    if (!info) {
-      throw new Error(`Unknown node type: ${type}`);
-    }
-
-    return info.impl.create(info.pluginImpl) as unknown as Extract<Nodes, { type: T }>;
+    const info = this.#getInfo(type);
+    return info.impl.create(info.pluginImpl);
   }
 
   createDynamic(type: string): ChartNode {
@@ -126,23 +147,9 @@ export class NodeRegistration<NodeTypes extends string = never, Nodes extends Ch
     return implClass.impl.create(implClass.pluginImpl);
   }
 
-  createImpl<T extends Nodes>(node: T): NodeImpl<T> {
-    const type = node.type as Extract<NodeTypes, T['type']>;
-
-    const info = this.#infos[type];
-
-    if (!info) {
-      throw new Error(`Unknown node type: ${type}`);
-    }
-
-    const { impl: ImplClass, pluginImpl } = info;
-
-    const impl = new ImplClass(node as any, pluginImpl) as unknown as NodeImpl<T>;
-    if (!impl) {
-      throw new Error(`Unknown node type: ${type}`);
-    }
-
-    return impl;
+  createImpl<TType extends NodeTypes>(node: Extract<Nodes, { type: TType }>): NodeImpl<Extract<Nodes, { type: TType }>> {
+    const info = this.#getInfo(node.type);
+    return new info.impl(node, info.pluginImpl);
   }
 
   createDynamicImpl(node: ChartNode): NodeImpl<ChartNode> {
@@ -153,7 +160,7 @@ export class NodeRegistration<NodeTypes extends string = never, Nodes extends Ch
       throw new Error(`Unknown node type: ${type}`);
     }
 
-    const impl = new ImplClass.impl(node, ImplClass.pluginImpl) as unknown as NodeImpl<ChartNode>;
+    const impl = new ImplClass.impl(node, ImplClass.pluginImpl);
     if (!impl) {
       throw new Error(`Unknown node type: ${type}`);
     }
@@ -162,13 +169,7 @@ export class NodeRegistration<NodeTypes extends string = never, Nodes extends Ch
   }
 
   getDisplayName<T extends NodeTypes>(type: T): string {
-    const info = this.#infos[type];
-
-    if (!info) {
-      throw new Error(`Unknown node type: ${type}`);
-    }
-
-    return info.displayName;
+    return this.#getInfo(type).displayName;
   }
 
   getDynamicDisplayName(type: string) {

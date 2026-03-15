@@ -1,11 +1,7 @@
 import {
-  type NodeInputDefinition,
   type ChartNode,
   type NodeConnection,
-  type NodeId,
   type PortId,
-  type NodeOutputDefinition,
-  type DataType,
   isBuiltInInputDefinition,
 } from '@ironclad/rivet-core';
 import { type FC, type MouseEvent } from 'react';
@@ -15,37 +11,14 @@ import { Port } from './Port.js';
 import { ErrorBoundary } from 'react-error-boundary';
 import { useDependsOnPlugins } from '../hooks/useDependsOnPlugins';
 import { LoopControllerNodePorts } from './LoopControllerNodePorts';
-import { type DraggingWireDef } from '../state/graphBuilder';
 import { useAtomValue } from 'jotai';
 import { preservePortTextCaseState } from '../state/settings.js';
+import { useCanvasHandlersContext, useCanvasViewContext } from './CanvasContext';
 
 export type NodePortsProps = {
   node: ChartNode;
   connections: NodeConnection[];
   zoomedOut?: boolean;
-  draggingWire: DraggingWireDef | undefined;
-  closestPortToDraggingWire: { nodeId: NodeId; portId: PortId } | undefined;
-  onWireStartDrag?: (
-    event: MouseEvent<HTMLElement>,
-    startNodeId: NodeId,
-    startPortId: PortId,
-    isInput: boolean,
-  ) => void;
-  onWireEndDrag?: (event: MouseEvent<HTMLElement>, endNodeId: NodeId, endPortId: PortId) => void;
-  onPortMouseOver?: (
-    event: MouseEvent<HTMLElement>,
-    nodeId: NodeId,
-    isInput: boolean,
-    portId: PortId,
-    definition: NodeInputDefinition | NodeOutputDefinition,
-  ) => void;
-  onPortMouseOut?: (
-    event: MouseEvent<HTMLElement>,
-    nodeId: NodeId,
-    isInput: boolean,
-    portId: PortId,
-    definition: NodeInputDefinition | NodeOutputDefinition,
-  ) => void;
 };
 
 export const NodePortsRenderer: FC<NodePortsProps> = ({ ...props }) => {
@@ -59,13 +32,9 @@ export const NodePortsRenderer: FC<NodePortsProps> = ({ ...props }) => {
 export const NodePorts: FC<NodePortsProps> = ({
   node,
   connections,
-  draggingWire,
-  closestPortToDraggingWire,
-  onWireStartDrag,
-  onWireEndDrag,
-  onPortMouseOver,
-  onPortMouseOut,
 }) => {
+  const { draggingWire, closestPortToDraggingWire } = useCanvasViewContext();
+  const { onPortMouseOut, onPortMouseOver, onWireEndDrag, onWireStartDrag } = useCanvasHandlersContext();
   const { inputDefinitions, outputDefinitions } = useNodeIO(node.id)!;
   const preservePortTextCase = useAtomValue(preservePortTextCaseState);
 

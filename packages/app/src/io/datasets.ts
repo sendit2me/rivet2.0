@@ -1,7 +1,7 @@
-import { writeFile, readTextFile, exists } from '@tauri-apps/api/fs';
 import { type Project, deserializeDatasets, serializeDatasets } from '@ironclad/rivet-core';
 import { allowDataFileNeighbor } from '../utils/tauri.js';
 import { datasetProvider } from '../utils/globals/datasetProvider.js';
+import { nativeExists, nativeReadTextFile, nativeWriteFile } from '../utils/nativeApp';
 
 export async function saveDatasetsFile(projectFilePath: string, project: Project) {
   await allowDataFileNeighbor(projectFilePath);
@@ -9,10 +9,10 @@ export async function saveDatasetsFile(projectFilePath: string, project: Project
   const dataPath = projectFilePath.replace('.rivet-project', '.rivet-data');
   const datasets = await datasetProvider.exportDatasetsForProject(project.metadata.id);
 
-  if (datasets.length > 0 || (await exists(dataPath))) {
+  if (datasets.length > 0 || (await nativeExists(dataPath))) {
     const serializedDatasets = serializeDatasets(datasets);
 
-    await writeFile({
+    await nativeWriteFile({
       contents: serializedDatasets,
       path: dataPath,
     });
@@ -24,7 +24,7 @@ export async function loadDatasetsFile(projectFilePath: string, project: Project
 
   const datasetsFilePath = projectFilePath.replace('.rivet-project', '.rivet-data');
 
-  const datasetsFileExists = await exists(datasetsFilePath);
+  const datasetsFileExists = await nativeExists(datasetsFilePath);
 
   // No data file, so just no datasets
   if (!datasetsFileExists) {
@@ -32,7 +32,7 @@ export async function loadDatasetsFile(projectFilePath: string, project: Project
     return;
   }
 
-  const fileContents = await readTextFile(datasetsFilePath);
+  const fileContents = await nativeReadTextFile(datasetsFilePath);
 
   const datasets = deserializeDatasets(fileContents);
 

@@ -4,18 +4,21 @@ import { type ChartNode, type DirectoryBrowserEditorDefinition } from '@ironclad
 import { type FC } from 'react';
 import { type SharedEditorProps } from './SharedEditorProps';
 import { getHelperMessage } from './editorUtils';
-import { ioProvider } from '../../utils/globals';
+import { isPathBasedIOProvider } from '../../io/IOProvider';
 import { syncWrapper } from '../../utils/syncWrapper';
+import { useIOProvider } from '../../providers/ProvidersContext';
 
 export const DefaultDirectoryBrowserEditor: FC<
   SharedEditorProps & {
     editor: DirectoryBrowserEditorDefinition<ChartNode>;
   }
 > = ({ node, isReadonly, isDisabled, onChange, editor }) => {
+  const ioProvider = useIOProvider();
   const data = node.data as Record<string, unknown>;
   const helperMessage = getHelperMessage(editor, node.data);
 
   const pickDirectory = async () => {
+    if (!isPathBasedIOProvider(ioProvider)) return;
     const path = await ioProvider.openDirectory();
     if (path) {
       onChange({

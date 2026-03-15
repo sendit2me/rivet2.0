@@ -35,10 +35,6 @@ export class BrowserIOProvider implements IOProvider {
     return fileHandle.name;
   }
 
-  async saveProjectDataNoPrompt(project: Project, testData: TrivetData, path: string): Promise<void> {
-    throw new Error('Function not supported in the browser');
-  }
-
   async loadGraphData(callback: (graphData: NodeGraph) => void): Promise<void> {
     const [fileHandle] = await window.showOpenFilePicker();
     const file = await fileHandle.getFile();
@@ -62,25 +58,11 @@ export class BrowserIOProvider implements IOProvider {
     callback({ project, testData, path: fileHandle.name });
   }
 
-  async loadProjectDataNoPrompt(path: string): Promise<{ project: Project; testData: TrivetData }> {
-    throw new Error('Function not supported in the browser');
-  }
-
   async loadRecordingData(callback: (data: { recorder: ExecutionRecorder; path: string }) => void): Promise<void> {
     const [fileHandle] = await window.showOpenFilePicker();
     const file = await fileHandle.getFile();
     const text = await file.text();
     callback({ recorder: ExecutionRecorder.deserializeFromString(text), path: fileHandle.name });
-  }
-
-  async openDirectory(): Promise<string | string[] | null> {
-    const dirHandle = await window.showDirectoryPicker();
-    return dirHandle.name;
-  }
-
-  async openFilePath(): Promise<string> {
-    const [fileHandle] = await window.showOpenFilePicker();
-    return fileHandle.name;
   }
 
   async saveString(content: string, defaultFileName: string): Promise<void> {
@@ -102,13 +84,5 @@ export class BrowserIOProvider implements IOProvider {
     const file = await fileHandle.getFile();
     const arrayBuffer = await file.arrayBuffer();
     callback(new Uint8Array(arrayBuffer), file.name);
-  }
-
-  async readPathAsString(path: string): Promise<string> {
-    throw new Error('Function not supported in the browser');
-  }
-
-  async readPathAsBinary(path: string): Promise<Uint8Array> {
-    throw new Error('Function not supported in the browser');
   }
 }

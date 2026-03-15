@@ -3,10 +3,12 @@ import { loadedProjectState, openedProjectsState, projectState } from '../state/
 import { useSaveCurrentGraph } from './useSaveCurrentGraph.js';
 import { produce } from 'immer';
 import { toast, type Id as ToastId } from 'react-toastify';
-import { ioProvider } from '../utils/globals.js';
+import { isPathBasedIOProvider } from '../io/IOProvider.js';
 import { trivetState } from '../state/trivet.js';
+import { useIOProvider } from '../providers/ProvidersContext.js';
 
 export function useSaveProject() {
+  const ioProvider = useIOProvider();
   const saveGraph = useSaveCurrentGraph();
   const project = useAtomValue(projectState);
   const [loadedProject, setLoadedProject] = useAtom(loadedProjectState);
@@ -14,7 +16,7 @@ export function useSaveProject() {
   const setOpenedProjects = useSetAtom(openedProjectsState);
 
   async function saveProject() {
-    if (!loadedProject.loaded || !loadedProject.path) {
+    if (!loadedProject.loaded || !loadedProject.path || !isPathBasedIOProvider(ioProvider)) {
       return saveProjectAs();
     }
 

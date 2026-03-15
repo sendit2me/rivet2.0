@@ -1,8 +1,8 @@
 import { css } from '@emotion/react';
-import { type ChangeEvent, type FC, useEffect, useState, useRef, useLayoutEffect } from 'react';
+import { type FC, useEffect, useState, useRef } from 'react';
 import { atom, useAtom, useAtomValue, useSetAtom } from 'jotai';
+import { AppErrorBoundary } from './AppErrorBoundary';
 import {
-  type PromptDesignerTestGroupResults,
   promptDesignerAttachedChatNodeState,
   promptDesignerConfigurationState,
   promptDesignerMessagesState,
@@ -15,20 +15,14 @@ import { type InputsOrOutputsWithRefs, lastRunDataByNodeState } from '../state/d
 import {
   type ChatMessage,
   type ChatNode,
-  ChatNodeImpl,
+  type DataValue,
   type GraphId,
-  GraphProcessor,
-  type InternalProcessContext,
   type NodeId,
   type NodeTestGroup,
-  type PortId,
   arrayizeDataValue,
-  coerceType,
-  coerceTypeOptional,
   getError,
   isArrayDataValue,
   openai,
-  type DataValue,
   type ScalarDataValue,
   type Inputs,
 } from '@ironclad/rivet-core';
@@ -39,20 +33,20 @@ import Button from '@atlaskit/button';
 import Select from '@atlaskit/select';
 import Toggle from '@atlaskit/toggle';
 import { nanoid } from 'nanoid/non-secure';
-import { TauriNativeApi } from '../model/native/TauriNativeApi.js';
-import { settingsState } from '../state/settings.js';
-import TextArea from '@atlaskit/textarea';
-import { projectState } from '../state/savedGraphs.js';
-import { cloneDeep, findIndex, mapValues, range, zip } from 'lodash-es';
+import { mapValues } from 'lodash-es';
 import { useStableCallback } from '../hooks/useStableCallback.js';
-import { toast } from 'react-toastify';
 import { produce } from 'immer';
 import { overlayOpenState } from '../state/ui';
-import { datasetProvider } from '../utils/globals';
-import { GraphSelector } from './editors/GraphSelectorEditor';
-import { useGetAdHocInternalProcessContext } from '../hooks/useGetAdHocInternalProcessContext';
-import { type ChatNodeConfigData, getChatNodeMessages } from '../../../core/src/model/nodes/ChatNodeBase';
+import { getChatNodeMessages } from '../../../core/src/model/nodes/ChatNodeBase';
 import { syncWrapper } from '../utils/syncWrapper';
+import { useDatasetProvider } from '../providers/ProvidersContext';
+import { useGetAdHocInternalProcessContext } from '../hooks/useGetAdHocInternalProcessContext';
+import {
+  PromptDesignerMessage,
+  PromptDesignerTestGroup,
+  PromptDesignerTestGroupResultList,
+} from './promptDesigner/PromptDesignerComponents';
+import { runAdHocChat, useRunPromptDesignerTestGroupSampleCount } from './promptDesigner/PromptDesignerTestRunner';
 
 const styles = css`
   position: fixed;
@@ -296,7 +290,11 @@ export const PromptDesignerRenderer: FC = () => {
     return null;
   }
 
-  return <PromptDesigner onClose={() => setOpenOverlay(undefined)} />;
+  return (
+    <AppErrorBoundary context="Prompt Designer" fallback={<div>Failed to render Prompt Designer</div>}>
+      <PromptDesigner onClose={() => setOpenOverlay(undefined)} />
+    </AppErrorBoundary>
+  );
 };
 
 export type PromptDesignerProps = {
@@ -306,6 +304,7 @@ export type PromptDesignerProps = {
 const lastPromptDesignerAttachedNodeState = atom<NodeId | undefined>(undefined);
 
 export const PromptDesigner: FC<PromptDesignerProps> = ({ onClose }) => {
+  const datasetProvider = useDatasetProvider();
   const [{ messages }, setMessages] = useAtom(promptDesignerMessagesState);
   const attachedNodeId = useAtomValue(promptDesignerAttachedChatNodeState);
   const [nodes, setNodes] = useAtom(nodesState);
@@ -441,7 +440,7 @@ export const PromptDesigner: FC<PromptDesignerProps> = ({ onClose }) => {
     });
   };
 
-  const runTestGroup = useRunTestGroupSampleCount();
+  const runTestGroup = useRunPromptDesignerTestGroupSampleCount(datasetProvider);
 
   const [testGroupResultsByNodeId, setTestGroupResultsByNodeId] = useAtom(promptDesignerTestGroupResultsByNodeIdState);
 
@@ -449,7 +448,6 @@ export const PromptDesigner: FC<PromptDesignerProps> = ({ onClose }) => {
 
   const abortController = useRef<AbortController>();
   const [inProgress, setInProgress] = useState(false);
-
   const getAdHocInternalProcessContext = useGetAdHocInternalProcessContext();
 
   const tryRunSingle = async () => {
@@ -754,348 +752,3 @@ export const PromptDesigner: FC<PromptDesignerProps> = ({ onClose }) => {
   );
 };
 
-const CHAT_MESSAGE_TYPES = ['user', 'assistant', 'system', 'function'] as const;
-
-const PromptDesignerMessage: FC<{
-  message: ChatMessage;
-  onChange: (message: ChatMessage) => void;
-  onDelete: () => void;
-}> = ({ message, onChange, onDelete }) => {
-  const toggleAuthorType = useStableCallback(() => {
-    const idx = findIndex(CHAT_MESSAGE_TYPES, (type) => message.type === type);
-    const nextMessageType = CHAT_MESSAGE_TYPES[(idx + 1) % CHAT_MESSAGE_TYPES.length]!;
-    onChange({
-      ...message,
-      type: nextMessageType,
-    } as ChatMessage);
-  });
-
-  const onTextChange = useStableCallback((e: ChangeEvent<HTMLTextAreaElement>) => {
-    onChange({
-      ...message,
-      message: e.target.value,
-    });
-  });
-
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  useLayoutEffect(() => {
-    const textarea = textareaRef.current;
-    if (textarea != null && textarea.scrollHeight > 0) {
-      textarea.style.marginBottom = textarea.style.height ?? '10px';
-      textarea.style.height = 'inherit';
-      textarea.style.height = `${textarea.scrollHeight + 10}px`;
-      textarea.style.marginBottom = 'unset';
-    }
-  }, [message?.message]);
-
-  const stringMessage = coerceType({ type: 'chat-message', value: message }, 'string');
-
-  return (
-    <div className="message">
-      <div className="message-author-type">
-        <Button className="toggle-author-type" onClick={toggleAuthorType}>
-          {message.type}
-        </Button>
-      </div>
-      <div className="message-text">
-        <textarea
-          autoFocus
-          className="message-editor"
-          value={stringMessage}
-          onClick={(e) => e.stopPropagation()}
-          onChange={onTextChange}
-          ref={textareaRef}
-        />
-      </div>
-      <div className="message-delete-button-container">
-        <Button appearance="subtle" className="message-delete-button" onClick={onDelete}>
-          &times;
-        </Button>
-      </div>
-    </div>
-  );
-};
-
-const PromptDesignerTestGroup: FC<{
-  testGroup: NodeTestGroup;
-  onChange: (testGroup: NodeTestGroup) => void;
-  onStart: (testGroup: NodeTestGroup) => void;
-  onDelete: (testGroup: NodeTestGroup) => void;
-  inProgress: boolean;
-  onCancel?: () => void;
-}> = ({ testGroup, onChange, onStart, onDelete, inProgress, onCancel }) => {
-  return (
-    <div className="test-group">
-      <Button appearance="subtle" className="delete-test-group-button" onClick={() => onDelete(testGroup)}>
-        &times;
-      </Button>
-      <GraphSelector
-        label="Evaluator Graph"
-        value={testGroup.evaluatorGraphId}
-        onChange={(selected) => onChange({ ...testGroup, evaluatorGraphId: selected as GraphId })}
-        isReadonly={false}
-        name={`evaluator-graph-${testGroup.id}`}
-      />
-      <div className="test-group-tests">
-        {testGroup.tests.map((test, index) => (
-          <div className="test-group-test" key={`test-${index}`}>
-            <div className="test-group-test-controls">
-              <TextArea
-                placeholder="Enter test condition"
-                value={test.conditionText}
-                onChange={(e) =>
-                  onChange({
-                    ...testGroup,
-                    tests: testGroup.tests.map((t, i) =>
-                      i === index ? { ...t, conditionText: (e.target as HTMLTextAreaElement).value } : t,
-                    ),
-                  })
-                }
-              />
-              <Button
-                appearance="subtle"
-                className="delete-test-button"
-                onClick={() =>
-                  onChange({
-                    ...testGroup,
-                    tests: testGroup.tests.filter((t, i) => i !== index),
-                  })
-                }
-              >
-                &times;
-              </Button>
-            </div>
-          </div>
-        ))}
-      </div>
-      <div className="test-group-buttons">
-        <Button
-          appearance="subtle-link"
-          onClick={() =>
-            onChange({
-              ...testGroup,
-              tests: [
-                ...testGroup.tests,
-                {
-                  conditionText: '',
-                },
-              ],
-            })
-          }
-        >
-          Add Test
-        </Button>
-        {inProgress ? (
-          <Button appearance="danger" onClick={onCancel}>
-            Cancel
-          </Button>
-        ) : (
-          <Button appearance="primary" onClick={() => onStart(testGroup)}>
-            Start
-          </Button>
-        )}
-      </div>
-    </div>
-  );
-};
-
-export const PromptDesignerTestGroupResultList: FC<{
-  results: PromptDesignerTestGroupResults[];
-}> = ({ results }) => {
-  return (
-    <div className="test-group-results">
-      {results.map((result, index) => (
-        <PromptDesignerTestGroupResult key={`result-${index}`} result={result} index={index} />
-      ))}
-    </div>
-  );
-};
-
-export const PromptDesignerTestGroupResult: FC<{
-  result: PromptDesignerTestGroupResults;
-  index: number;
-}> = ({ result, index }) => {
-  const [expanded, setExpanded] = useState(false);
-
-  return (
-    <div className="test-group-result">
-      <header>Sample {index + 1}</header>
-      <Button appearance="subtle" className="test-group-result-expand" onClick={() => setExpanded(!expanded)}>
-        {expanded ? 'Hide' : 'Show'} Response
-      </Button>
-      {expanded && <pre className="pre-wrap test-group-result-response">{result.response}</pre>}
-      <div className="test-group-result-conditions">
-        {result.results.map((r, index) => (
-          <div key={`result-${index}`} className="test-group-result-condition-result">
-            {r.pass ? <span className="pass">Pass</span> : <span className="fail">Fail</span>}
-            <span className="condition">{r.conditionText}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
-
-async function runAdHocChat(messages: ChatMessage[], data: ChatNodeConfigData, context: InternalProcessContext) {
-  const chatNode = new ChatNodeImpl({
-    data: {
-      ...data,
-      cache: false,
-      useFrequencyPenaltyInput: false,
-      usePresencePenaltyInput: false,
-      useMaxTokensInput: false,
-      useStopInput: false,
-      useStop: false,
-      useTemperatureInput: false,
-      useModelInput: false,
-      useTopPInput: false,
-      useUseTopPInput: false,
-    },
-    id: nanoid() as NodeId,
-    title: 'N/A',
-    type: 'chat',
-    visualData: {
-      x: 0,
-      y: 0,
-    },
-  });
-
-  try {
-    const result = await chatNode.process(
-      {
-        ['prompt' as PortId]: {
-          type: 'chat-message[]',
-          value: messages,
-        },
-      },
-      context,
-    );
-
-    const response = coerceTypeOptional(result['response' as PortId], 'string');
-    return response ?? '';
-  } catch (err) {
-    toast.error((err as Error).message);
-    throw err;
-  }
-}
-
-function useRunTestGroup() {
-  const project = useAtomValue(projectState);
-  const settings = useAtomValue(settingsState);
-
-  return async (
-    testGroup: NodeTestGroup,
-    messages: ChatMessage[],
-    data: ChatNodeConfigData,
-    context: InternalProcessContext,
-  ): Promise<PromptDesignerTestGroupResults> => {
-    const response = await runAdHocChat(messages, data, context);
-
-    const processor = new GraphProcessor(project, testGroup.evaluatorGraphId, undefined, true);
-    processor.executor = 'browser';
-
-    processor.on('trace', (value) => console.log(value));
-
-    processor.on('nodeFinish', ({ node, outputs }) => {
-      if (node.type === 'chat') {
-        console.log(outputs['response' as PortId]);
-      }
-    });
-
-    const outputs = await processor.processGraph(
-      {
-        nativeApi: new TauriNativeApi(),
-        datasetProvider,
-        settings,
-      },
-      {
-        ['conditions' as PortId]: {
-          type: 'string[]',
-          value: testGroup.tests.map((t) => t.conditionText),
-        },
-        ['input' as PortId]: {
-          type: 'string',
-          value: response,
-        },
-      },
-    );
-
-    const output = outputs['output' as PortId];
-
-    if (!output || output?.type === 'control-flow-excluded') {
-      return {
-        groupId: testGroup.id,
-        response,
-        results: testGroup.tests.map(({ conditionText }): PromptDesignerTestGroupResults['results'][number] => ({
-          conditionText,
-          pass: false,
-        })),
-      };
-    }
-
-    const passOrFails = coerceType(output, 'boolean[]');
-
-    const caseResults = zip(testGroup.tests, passOrFails).map(
-      ([test, passOrFail]): PromptDesignerTestGroupResults['results'][number] => ({
-        conditionText: test?.conditionText ?? '',
-        pass: passOrFail ?? false,
-      }),
-    );
-
-    return {
-      response,
-      groupId: testGroup.id,
-      results: caseResults,
-    };
-  };
-}
-
-function useRunTestGroupSampleCount() {
-  const runTestGroup = useRunTestGroup();
-  const getAdHocInternalProcessContext = useGetAdHocInternalProcessContext();
-
-  return async (
-    testGroup: NodeTestGroup,
-    messages: ChatMessage[],
-    sampleCount: number,
-    options: {
-      onPartialResults?: (data: PromptDesignerTestGroupResults[]) => void;
-    } = {},
-    data: ChatNodeConfigData,
-  ): Promise<PromptDesignerTestGroupResults[]> => {
-    const { onPartialResults } = options;
-
-    const results: PromptDesignerTestGroupResults[] = [];
-
-    // TODO queue
-
-    await Promise.all(
-      range(sampleCount).map(async (sampleIndex) => {
-        results[sampleIndex] = {
-          response: '',
-          groupId: testGroup.id,
-          results: [],
-        };
-
-        const caseResults = await runTestGroup(
-          testGroup,
-          messages,
-          data,
-          await getAdHocInternalProcessContext({
-            onPartialResult: (response) => {
-              results[sampleIndex]!.response = response;
-              onPartialResults?.(cloneDeep(results));
-            },
-          }),
-        );
-
-        results[sampleIndex]!.results = caseResults.results;
-
-        onPartialResults?.(cloneDeep(results));
-      }),
-    );
-
-    return results;
-  };
-}

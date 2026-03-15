@@ -1,39 +1,48 @@
 import { atom } from 'jotai';
 import { atomWithStorage } from 'jotai/utils';
 import { type ExecutionRecorder } from '@ironclad/rivet-core';
-import { defaultExecutorState } from './settings';
 import { createHybridStorage } from './storage.js';
 
 const { storage } = createHybridStorage('execution');
 
 export const remoteUploadAllowedState = atom<boolean>(false);
 
-export const selectedExecutorState = atom(
-  (get) => get(defaultExecutorState),
-  (get, set, value: 'browser' | 'nodejs') => set(defaultExecutorState, value),
-);
-
-export type RemoteDebuggerState = {
-  socket: WebSocket | null;
-  started: boolean;
-  reconnecting: boolean;
+/** Persistent config for the remote debugger (survives page reload). */
+export type RemoteDebuggerConfig = {
   url: string;
   remoteUploadAllowed: boolean;
   isInternalExecutor: boolean;
 };
 
-export const remoteDebuggerState = atomWithStorage<RemoteDebuggerState>(
-  'remoteDebuggerState',
+export const remoteDebuggerConfigState = atomWithStorage<RemoteDebuggerConfig>(
+  'remoteDebuggerConfig',
   {
-    socket: null,
-    started: false,
-    reconnecting: false,
     url: '',
     remoteUploadAllowed: false,
     isInternalExecutor: false,
   },
   storage,
 );
+
+/** Transient runtime state for the remote debugger (reset on reload). */
+export type RemoteDebuggerConnectionState = {
+  started: boolean;
+  reconnecting: boolean;
+};
+
+export const remoteDebuggerConnectionState = atom<RemoteDebuggerConnectionState>({
+  started: false,
+  reconnecting: false,
+});
+
+/**
+ * Combined view for backward compatibility.
+ * @deprecated Prefer reading remoteDebuggerConfigState and remoteDebuggerConnectionState directly.
+ */
+export type RemoteDebuggerState = RemoteDebuggerConfig &
+  RemoteDebuggerConnectionState & {
+    socket: WebSocket | null;
+  };
 
 export const loadedRecordingState = atom<{
   path: string;

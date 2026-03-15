@@ -1,11 +1,12 @@
 import { useSetAtom } from 'jotai';
-import { ioProvider } from '../utils/globals';
 import { graphState } from '../state/graph';
 import { duplicateGraph } from '../utils/duplicateGraph';
 import { savedGraphsState } from '../state/savedGraphs';
 import { useCenterViewOnGraph } from './useCenterViewOnGraph';
+import { useIOProvider } from '../providers/ProvidersContext';
 
 export function useImportGraph() {
+  const ioProvider = useIOProvider();
   const setGraphData = useSetAtom(graphState);
   const setSavedGraphs = useSetAtom(savedGraphsState);
   const centerViewOnGraph = useCenterViewOnGraph();

@@ -42,6 +42,14 @@ import TextField from '@atlaskit/textfield';
 import { useFuseSearch } from '../hooks/useFuseSearch';
 import { useImportGraph } from '../hooks/useImportGraph';
 import { expandedFoldersState } from '../state/ui';
+import {
+  createFoldersFromGraphs,
+  getFolderNames,
+  isInFolder,
+  type NodeGraphFolder,
+  type NodeGraphFolderGraph,
+  type NodeGraphFolderItem,
+} from './graphList/graphFolders';
 
 const styles = css`
   display: flex;
@@ -194,123 +202,6 @@ const contextMenuStyles = css`
     overflow-x: visible !important;
   }
 `;
-
-interface NodeGraphFolder {
-  type: 'folder';
-  name: string;
-  fullPath: string;
-  children: NodeGraphFolderItem[];
-}
-
-interface NodeGraphFolderGraph {
-  type: 'graph';
-  name: string;
-  graph: NodeGraph;
-}
-
-type NodeGraphFolderItem = NodeGraphFolder | NodeGraphFolderGraph;
-
-function createFoldersFromGraphs(graphs: NodeGraph[], folderNames: string[]): NodeGraphFolderItem[] {
-  const rootFolder: NodeGraphFolderItem = {
-    name: '',
-    fullPath: '',
-    type: 'folder',
-    children: [],
-  };
-
-  // Create folders for each folder name, to guarantee that empty folders don't disappear
-  folderNames.forEach((folderName) => {
-    let currentFolder = rootFolder;
-    const folderNameParts = folderName.split('/');
-
-    for (let i = 0; i < folderNameParts.length; i++) {
-      const existingFolder = currentFolder.children.find(
-        (child): child is NodeGraphFolder => child.name === folderNameParts[i] && child.type === 'folder',
-      );
-
-      if (existingFolder) {
-        currentFolder = existingFolder;
-      } else {
-        const newFolder: NodeGraphFolder = {
-          name: folderNameParts[i] ?? '',
-          fullPath: folderNameParts.slice(0, i + 1).join('/'),
-          type: 'folder',
-          children: [],
-        };
-        currentFolder.children.push(newFolder);
-        currentFolder = newFolder;
-      }
-    }
-  });
-
-  graphs.forEach((graph) => {
-    const graphNameParts = graph.metadata?.name?.split('/') ?? [];
-
-    let currentFolder = rootFolder;
-    for (let i = 0; i < graphNameParts.length - 1; i++) {
-      const folderName = graphNameParts[i] ?? '';
-      const existingFolder = currentFolder.children.find(
-        (child): child is NodeGraphFolder => child.name === folderName && child.type === 'folder',
-      );
-
-      if (existingFolder) {
-        currentFolder = existingFolder;
-      } else {
-        const newFolder: NodeGraphFolder = {
-          name: folderName,
-          fullPath: graphNameParts.slice(0, i + 1).join('/'),
-          type: 'folder',
-          children: [],
-        };
-        currentFolder.children.push(newFolder);
-        currentFolder = newFolder;
-      }
-    }
-
-    currentFolder.children.push({
-      name: graphNameParts[graphNameParts.length - 1] ?? '',
-      type: 'graph',
-      graph,
-    });
-  });
-
-  // Order by name recursively
-  const sortFolder = (folder: NodeGraphFolder) => {
-    folder.children = orderBy(folder.children, ['type', 'name'], ['asc', 'asc']);
-    folder.children.forEach((child) => {
-      if (child.type === 'folder') {
-        sortFolder(child);
-      }
-    });
-  };
-
-  sortFolder(rootFolder);
-
-  return rootFolder.children;
-}
-
-function isInFolder(folderPath: string, itemPath: string): boolean {
-  return itemPath.startsWith(folderPath + '/');
-}
-
-function getFolderNames(folderedGraphs: NodeGraphFolderItem[]): string[] {
-  const folderNames: string[] = [];
-
-  const traverseFolder = (folder: NodeGraphFolderItem) => {
-    if (folder.type === 'folder') {
-      folder.children.forEach((child) => {
-        traverseFolder(child);
-      });
-      folderNames.push(folder.fullPath);
-    }
-  };
-
-  folderedGraphs.forEach((folder) => {
-    traverseFolder(folder);
-  });
-
-  return folderNames;
-}
 
 export const GraphList: FC<{ onRunGraph?: (graphId: GraphId) => void }> = memo(({ onRunGraph }) => {
   const projectMetadata = useAtomValue(projectMetadataState);

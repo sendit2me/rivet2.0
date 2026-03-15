@@ -1,8 +1,8 @@
 import { deserializeProject, type GraphId, type Project } from '@ironclad/rivet-core';
-import { Command } from '@tauri-apps/api/shell';
 import isEqual from 'fast-deep-equal';
 import Emittery from 'emittery';
 import { deserializeProjectAsync } from './deserializeProject';
+import { createNativeCommand } from './nativeApp';
 
 export type GitRevision = {
   hash: string;
@@ -94,24 +94,26 @@ export class ProjectRevisionCalculator {
 
   async loadGitRevisions() {
     const pathDirname = this.#projectPath.split('/').slice(0, -1).join('/');
+    const rootDirCommand = await createNativeCommand('git', ['rev-parse', '--show-toplevel'], {
+      encoding: 'utf8',
+      cwd: pathDirname,
+    });
 
     this.#rootDir = (
-      await new Command('git', ['rev-parse', '--show-toplevel'], {
-        encoding: 'utf8',
-        cwd: pathDirname,
-      }).execute()
+      await rootDirCommand.execute()
     ).stdout.trim();
 
     this.#relativePath = this.#projectPath.replace(this.#rootDir, '').replace(/^\//, '');
 
-    const gitRevisionLogs = await new Command(
+    const gitLogCommand = await createNativeCommand(
       'git',
       ['log', '--pretty=format:"%H|%an|%ae|%ad|%s"', '--date=iso-strict', '--no-merges', '--', this.#projectPath],
       {
         cwd: this.#rootDir,
         encoding: 'utf8',
       },
-    ).execute();
+    );
+    const gitRevisionLogs = await gitLogCommand.execute();
 
     if (gitRevisionLogs.code !== 0) {
       throw new Error(gitRevisionLogs.stderr);
@@ -189,13 +191,14 @@ export class ProjectRevisionCalculator {
 
   async loadProjectAtRevision(revision: CalculatedRevision, previousCommit: boolean) {
     try {
-      const projectAtRevision = await new Command(
+      const showRevisionCommand = await createNativeCommand(
         'git',
         ['show', '--raw', `${revision.hash}${previousCommit ? '^' : ''}:${this.#relativePath}`],
         {
           cwd: this.#rootDir,
         },
-      ).execute();
+      );
+      const projectAtRevision = await showRevisionCommand.execute();
 
       if (projectAtRevision.code !== 0) {
         throw new Error(projectAtRevision.stderr);

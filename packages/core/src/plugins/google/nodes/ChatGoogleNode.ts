@@ -38,6 +38,34 @@ import { getInputOrData, cleanHeaders } from '../../../utils/inputs.js';
 import { type Content, type FunctionDeclaration, type Part, type Tool, type FunctionCall, Type } from '@google/genai';
 import { mapValues } from 'lodash-es';
 
+type JsonSchemaProperty = {
+  type?: string | string[];
+  description?: string;
+};
+
+type JsonSchemaFunctionParameters = {
+  properties?: Record<string, JsonSchemaProperty>;
+  required?: string[];
+};
+
+function toGoogleSchemaType(type: string | undefined): Type | undefined {
+  switch (type) {
+    case 'string':
+      return Type.STRING;
+    case 'number':
+    case 'integer':
+      return Type.NUMBER;
+    case 'boolean':
+      return Type.BOOLEAN;
+    case 'array':
+      return Type.ARRAY;
+    case 'object':
+      return Type.OBJECT;
+    default:
+      return undefined;
+  }
+}
+
 export type ChatGoogleNode = ChartNode<'chatGoogle', ChatGoogleNodeData>;
 
 export type ChatGoogleNodeConfigData = {
@@ -487,22 +515,28 @@ export const ChatGoogleNodeImpl: PluginNodeImpl<ChatGoogleNode> = {
         tools = [
           {
             functionDeclarations: gptTools.map(
-              (tool): FunctionDeclaration => ({
-                name: tool.name,
-                description: tool.description,
-                parameters:
-                  Object.keys((tool.parameters as any).properties).length === 0
-                    ? undefined
-                    : {
-                        type: Type.OBJECT,
-                        properties: mapValues((tool.parameters as any).properties, (p: any) => ({
-                          // gemini doesn't support union property types, it uses openapi style not jsonschema, what a mess
-                          type: Array.isArray(p.type) ? p.type.filter((t: any) => t !== 'null')[0] : p.type,
-                          description: p.description,
-                        })),
-                        required: (tool.parameters as any).required || [],
-                      },
-              }),
+              (tool): FunctionDeclaration => {
+                const parameters = tool.parameters as JsonSchemaFunctionParameters;
+
+                return {
+                  name: tool.name,
+                  description: tool.description,
+                  parameters:
+                    Object.keys(parameters.properties ?? {}).length === 0
+                      ? undefined
+                      : {
+                          type: Type.OBJECT,
+                          properties: mapValues(parameters.properties ?? {}, (property) => ({
+                            // gemini doesn't support union property types, it uses openapi style not jsonschema, what a mess
+                            type: toGoogleSchemaType(
+                              Array.isArray(property.type) ? property.type.find((type) => type !== 'null') : property.type,
+                            ),
+                            description: property.description,
+                          })),
+                          required: parameters.required ?? [],
+                        },
+                };
+              },
             ),
           },
         ];

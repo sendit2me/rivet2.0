@@ -1,18 +1,17 @@
 import { Pipeline, StepRun, init, runTest, getPipelines } from '@gentrace/core';
 
-import {
-  type GraphId,
-  type NativeApi,
-  type NodeGraph,
-  type Project,
-  type Recording,
-  type RivetPlugin,
-  type SecretPluginConfigurationSpec,
-  type Settings,
-} from '../../index.js';
+import type { Project } from '../../model/Project.js';
+import type { GraphId, NodeGraph } from '../../model/NodeGraph.js';
+import type { NativeApi } from '../../native/NativeApi.js';
+import type { Recording } from '../../recording/RecordedEvents.js';
+import type { RivetPlugin, SecretPluginConfigurationSpec } from '../../model/RivetPlugin.js';
+import type { Settings } from '../../model/Settings.js';
+import { globalRivetNodeRegistry } from '../../model/Nodes.js';
 import { mapValues } from 'lodash-es';
+import { GptTokenizerTokenizer } from '../../integrations/GptTokenizerTokenizer.js';
 import { ExecutionRecorder } from '../../recording/ExecutionRecorder.js';
 import { inferType } from '../../utils/coerceType.js';
+// eslint-disable-next-line import/no-cycle -- Local Gentrace execution intentionally depends on GraphProcessor.
 import { GraphProcessor } from '../../model/GraphProcessor.js';
 
 const apiKeyConfigSpec: SecretPluginConfigurationSpec = {
@@ -68,7 +67,7 @@ export const runGentraceTests = async (
     };
 
     const recorder = new ExecutionRecorder();
-    const processor = new GraphProcessor(tempProject, graphId);
+    const processor = new GraphProcessor(tempProject, graphId, globalRivetNodeRegistry);
     processor.executor = 'browser';
 
     recorder.record(processor);
@@ -76,6 +75,7 @@ export const runGentraceTests = async (
       {
         settings,
         nativeApi,
+        tokenizer: new GptTokenizerTokenizer(),
       },
       rivetFormattedInputs,
     );

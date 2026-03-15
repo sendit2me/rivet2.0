@@ -92,3 +92,7 @@ export const goToSearchState = atom<{
 export const searchMatchingNodeIdsState = atom<NodeId[]>([]);
 
 export const hoveringNodeState = atom<NodeId | undefined>(undefined);
+
+export function removeGraphBuilderNodeStateFamilies(nodeId: NodeId): void {
+  isPinnedState.remove(nodeId);
+}

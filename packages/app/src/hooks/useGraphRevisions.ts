@@ -1,12 +1,12 @@
 import { useAtomValue } from 'jotai';
 import { loadedProjectState } from '../state/savedGraphs';
-import { Command } from '@tauri-apps/api/shell';
 import useAsyncEffect from 'use-async-effect';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { deserializeProject, type GraphId, serializeGraph, type Project } from '@ironclad/rivet-core';
 import { graphState } from '../state/graph';
 import isEqual from 'fast-deep-equal';
 import { type CalculatedRevision, ProjectRevisionCalculator } from '../utils/ProjectRevisionCalculator';
+import { createNativeCommand } from '../utils/nativeApp';
 
 const revisionCalculators = new Map<string, ProjectRevisionCalculator>();
 
@@ -123,9 +123,10 @@ export function useHasGitHistory() {
 
     const pathDirname = projectPath.split('/').slice(0, -1).join('/');
 
-    const result = await new Command('git', ['rev-list', '--count', 'HEAD'], {
+    const command = await createNativeCommand('git', ['rev-list', '--count', 'HEAD'], {
       cwd: pathDirname,
-    }).execute();
+    });
+    const result = await command.execute();
 
     if (result.code === 0) {
       setHasHistory(true);

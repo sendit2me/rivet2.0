@@ -1,5 +1,3 @@
-import { save, open } from '@tauri-apps/api/dialog';
-import { writeFile, readTextFile, readBinaryFile } from '@tauri-apps/api/fs';
 import {
   ExecutionRecorder,
   type NodeGraph,
@@ -9,7 +7,7 @@ import {
   serializeGraph,
   serializeProject,
 } from '@ironclad/rivet-core';
-import { type IOProvider } from './IOProvider.js';
+import { type PathBasedIOProvider } from './IOProvider.js';
 import { isInTauri } from '../utils/tauri.js';
 import {
   type SerializedTrivetData,
@@ -18,14 +16,15 @@ import {
   serializeTrivetData,
 } from '@ironclad/trivet';
 import { saveDatasetsFile, loadDatasetsFile } from './datasets.js';
+import { nativeReadBinaryFile, nativeReadTextFile, nativeWriteFile, openDialog, saveDialog } from '../utils/nativeApp';
 
-export class TauriIOProvider implements IOProvider {
+export class TauriIOProvider implements PathBasedIOProvider {
   static isSupported(): boolean {
     return isInTauri();
   }
 
   async saveGraphData(graphData: NodeGraph) {
-    const filePath = await save({
+    const filePath = await saveDialog({
       filters: [
         {
           name: 'Rivet Graph',
@@ -39,7 +38,7 @@ export class TauriIOProvider implements IOProvider {
     const data = serializeGraph(graphData) as string;
 
     if (filePath) {
-      await writeFile({
+      await nativeWriteFile({
         contents: data,
         path: filePath,
       });
@@ -47,7 +46,7 @@ export class TauriIOProvider implements IOProvider {
   }
 
   async saveProjectData(project: Project, testData: TrivetData) {
-    const filePath = await save({
+    const filePath = await saveDialog({
       filters: [
         {
           name: 'Rivet Project',
@@ -63,7 +62,7 @@ export class TauriIOProvider implements IOProvider {
     }) as string;
 
     if (filePath) {
-      await writeFile({
+      await nativeWriteFile({
         contents: data,
         path: filePath,
       });
@@ -81,7 +80,7 @@ export class TauriIOProvider implements IOProvider {
       trivet: serializeTrivetData(testData),
     }) as string;
 
-    await writeFile({
+    await nativeWriteFile({
       contents: data,
       path,
     });
@@ -90,7 +89,7 @@ export class TauriIOProvider implements IOProvider {
   }
 
   async loadGraphData(callback: (graphData: NodeGraph) => void) {
-    const path = await open({
+    const path = await openDialog({
       filters: [
         {
           name: 'Rivet Graph',
@@ -104,14 +103,14 @@ export class TauriIOProvider implements IOProvider {
     });
 
     if (path) {
-      const data = await readTextFile(path as string);
+      const data = await nativeReadTextFile(path as string);
       const graphData = deserializeGraph(data);
       callback(graphData);
     }
   }
 
   async loadProjectData(callback: (data: { project: Project; testData: TrivetData; path: string }) => void) {
-    const path = (await open({
+    const path = (await openDialog({
       filters: [
         {
           name: 'Rivet Project',
@@ -131,7 +130,7 @@ export class TauriIOProvider implements IOProvider {
   }
 
   async loadProjectDataNoPrompt(path: string): Promise<{ project: Project; testData: TrivetData }> {
-    const data = await readTextFile(path);
+    const data = await nativeReadTextFile(path);
     const [projectData, attachedData] = deserializeProject(data, path);
 
     const trivetData = attachedData.trivet
@@ -144,7 +143,7 @@ export class TauriIOProvider implements IOProvider {
   }
 
   async loadRecordingData(callback: (data: { recorder: ExecutionRecorder; path: string }) => void) {
-    const path = await open({
+    const path = await openDialog({
       filters: [
         {
           name: 'Rivet Recording',
@@ -158,14 +157,14 @@ export class TauriIOProvider implements IOProvider {
     });
 
     if (path) {
-      const data = await readTextFile(path as string);
+      const data = await nativeReadTextFile(path as string);
       const recorder = ExecutionRecorder.deserializeFromString(data);
       callback({ recorder, path: path as string });
     }
   }
 
   async openDirectory() {
-    const path = await open({
+    const path = await openDialog({
       filters: [],
       multiple: false,
       directory: true,
@@ -177,7 +176,7 @@ export class TauriIOProvider implements IOProvider {
   }
 
   async openFilePath() {
-    const path = await open({
+    const path = await openDialog({
       filters: [],
       multiple: false,
       directory: false,
@@ -189,14 +188,14 @@ export class TauriIOProvider implements IOProvider {
   }
 
   async saveString(content: string, defaultFileName: string) {
-    const path = await save({
+    const path = await saveDialog({
       filters: [],
       title: 'Save File',
       defaultPath: defaultFileName,
     });
 
     if (path) {
-      await writeFile({
+      await nativeWriteFile({
         contents: content,
         path,
       });
@@ -204,38 +203,38 @@ export class TauriIOProvider implements IOProvider {
   }
 
   async readFileAsString(callback: (data: string, fileName: string) => void): Promise<void> {
-    const path = await open({
+    const path = await openDialog({
       multiple: false,
     });
 
     if (path) {
       const fileName = (path as string).split('/').pop() as string;
 
-      const contents = await readTextFile(path as string);
+      const contents = await nativeReadTextFile(path as string);
       callback(contents, fileName);
     }
   }
 
   async readFileAsBinary(callback: (data: Uint8Array, fileName: string) => void): Promise<void> {
-    const path = await open({
+    const path = await openDialog({
       multiple: false,
     });
 
     if (path) {
       const fileName = (path as string).split('/').pop() as string;
 
-      const contents = await readBinaryFile(path as string);
+      const contents = await nativeReadBinaryFile(path as string);
       callback(contents, fileName);
     }
   }
 
   async readPathAsString(path: string): Promise<string> {
-    const contents = await readTextFile(path);
+    const contents = await nativeReadTextFile(path);
     return contents;
   }
 
   async readPathAsBinary(path: string): Promise<Uint8Array> {
-    const contents = await readBinaryFile(path);
+    const contents = await nativeReadBinaryFile(path);
     return contents;
   }
 }

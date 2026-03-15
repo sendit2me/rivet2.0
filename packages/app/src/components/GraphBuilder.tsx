@@ -7,7 +7,7 @@ import { NodeEditorRenderer } from './NodeEditor.js';
 import styled from '@emotion/styled';
 import { useStableCallback } from '../hooks/useStableCallback.js';
 import { type ArrayDataValue, type ChartNode, type StringDataValue } from '@ironclad/rivet-core';
-import { type ProcessQuestions, userInputModalQuestionsState, userInputModalSubmitState } from '../state/userInput.js';
+import { type ProcessQuestions, userInputModalQuestionsState } from '../state/userInput.js';
 import { UserInputModal } from './UserInputModal.js';
 import Button from '@atlaskit/button';
 import { isNotNull } from '../utils/genericUtilFunctions.js';
@@ -28,6 +28,7 @@ import { syncWrapper } from '../utils/syncWrapper';
 import { AiGraphCreatorInput } from './AiGraphCreatorInput';
 import { AiGraphCreatorToggle } from './AiGraphCreatorToggle';
 import { useReloadProjectReferences } from '../hooks/useReloadProjectReferences';
+import { submitUserInputAnswers } from '../state/actions/userInputActions';
 
 const Container = styled.div`
   position: relative;
@@ -101,7 +102,6 @@ export const GraphBuilder: FC = () => {
   });
 
   const allCurrentQuestions = useAtomValue(userInputModalQuestionsState);
-  const userInputModalSubmit = useAtomValue(userInputModalSubmitState);
   const firstNodeQuestions = useMemo(() => entries(allCurrentQuestions)[0], [allCurrentQuestions]);
 
   const [isUserInputModalOpen, setUserInputModalOpen] = useState(false);
@@ -115,9 +115,8 @@ export const GraphBuilder: FC = () => {
   };
 
   const handleSubmitUserInputModal = (answers: ArrayDataValue<StringDataValue>) => {
-    // Handle the submission of the user input
     setUserInputModalOpen(false);
-    userInputModalSubmit.submit(firstNodeQuestions![0], answers);
+    submitUserInputAnswers(firstNodeQuestions![0], answers);
   };
 
   useEffect(() => {

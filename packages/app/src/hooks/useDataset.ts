@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { datasetProvider } from '../utils/globals';
 import { toast } from 'react-toastify';
 import { type DatasetRow, type DatasetId, getError, newId, type Dataset } from '@ironclad/rivet-core';
 import { useStableCallback } from './useStableCallback';
+import { useDatasetProvider } from '../providers/ProvidersContext';
 
 export function useDataset(datasetId: DatasetId) {
+  const datasetProvider = useDatasetProvider();
   const [dataset, updateDataset] = useState<Dataset | null>(null);
 
   const reloadDatasetData = useStableCallback(async () => {

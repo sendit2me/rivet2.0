@@ -63,7 +63,7 @@ export default [
 
       // Import plugin rules
       'import/no-duplicates': 'error',
-      'import/no-cycle': 'warn', // TODO: Enable after fixing cycle in CallGraphNode -> globalRivetNodeRegistry
+      'import/no-cycle': 'error',
       'import/first': 'off',
 
       // TypeScript-specific rules

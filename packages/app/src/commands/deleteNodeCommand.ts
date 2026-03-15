@@ -1,9 +1,10 @@
 import { useAtomValue, useSetAtom } from 'jotai';
-import { connectionsState, nodesState } from '../state/graph';
+import { connectionsState, nodesState, removeGraphNodeStateFamilies } from '../state/graph';
 import { useCommand } from './Command';
-import { editingNodeState, selectedNodesState } from '../state/graphBuilder';
+import { editingNodeState, selectedNodesState, removeGraphBuilderNodeStateFamilies } from '../state/graphBuilder';
 import { type NodeConnection, type ChartNode, type NodeId } from '@ironclad/rivet-core';
 import { partition } from 'lodash-es';
+import { removeExecutionNodeStateFamilies } from '../state/dataFlow';
 
 export const useDeleteNodesCommand = () => {
   const selectedNodeIds = useAtomValue(selectedNodesState);
@@ -48,6 +49,11 @@ export const useDeleteNodesCommand = () => {
       setNodes?.(newNodes);
       setConnections?.(newConnections);
       setSelectedNodeIds((current) => current.filter((id) => !nodeIds.includes(id)));
+      for (const nodeId of nodeIds) {
+        removeGraphNodeStateFamilies(nodeId);
+        removeExecutionNodeStateFamilies(nodeId);
+        removeGraphBuilderNodeStateFamilies(nodeId);
+      }
 
       return {
         removedNodes,

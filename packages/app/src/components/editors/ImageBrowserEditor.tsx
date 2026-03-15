@@ -11,17 +11,18 @@ import { nanoid } from 'nanoid/non-secure';
 import { type FC } from 'react';
 import { useAtomValue } from 'jotai';
 import { projectDataState } from '../../state/savedGraphs';
-import { ioProvider } from '../../utils/globals';
 import { type SharedEditorProps } from './SharedEditorProps';
 import { getHelperMessage } from './editorUtils';
 import mime from 'mime';
 import { syncWrapper } from '../../utils/syncWrapper';
+import { useIOProvider } from '../../providers/ProvidersContext';
 
 export const DefaultImageBrowserEditor: FC<
   SharedEditorProps & {
     editor: ImageBrowserEditorDefinition<ChartNode>;
   }
 > = ({ node, isReadonly, isDisabled, onChange, editor }) => {
+  const ioProvider = useIOProvider();
   const data = node.data as Record<string, unknown>;
   const helperMessage = getHelperMessage(editor, node.data);
 

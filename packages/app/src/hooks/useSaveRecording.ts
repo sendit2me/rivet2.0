@@ -1,9 +1,10 @@
 import { useAtomValue } from 'jotai';
 import { lastRecordingState } from '../state/execution';
-import { ioProvider } from '../utils/globals';
 import { useCallback } from 'react';
+import { useIOProvider } from '../providers/ProvidersContext';
 
 export function useSaveRecording() {
+  const ioProvider = useIOProvider();
   const recording = useAtomValue(lastRecordingState);
 
   return useCallback(async () => {
@@ -16,5 +17,5 @@ export function useSaveRecording() {
     } catch (err) {
       console.error(err);
     }
-  }, [recording]);
+  }, [ioProvider, recording]);
 }

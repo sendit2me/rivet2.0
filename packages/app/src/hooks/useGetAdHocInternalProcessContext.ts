@@ -13,11 +13,13 @@ import { nanoid } from 'nanoid/non-secure';
 import { useAtomValue } from 'jotai';
 import { settingsState } from '../state/settings';
 import { useDependsOnPlugins } from './useDependsOnPlugins';
-import { audioProvider, datasetProvider } from '../utils/globals';
 import { loadedProjectState, referencedProjectsState } from '../state/savedGraphs';
 import { TauriProjectReferenceLoader } from '../model/TauriProjectReferenceLoader';
+import { useAudioProvider, useDatasetProvider } from '../providers/ProvidersContext';
 
 export function useGetAdHocInternalProcessContext() {
+  const audioProvider = useAudioProvider();
+  const datasetProvider = useDatasetProvider();
   const settings = useAtomValue(settingsState);
   const plugins = useDependsOnPlugins();
   const referencedProjects = useAtomValue(referencedProjectsState);
@@ -68,6 +70,6 @@ export function useGetAdHocInternalProcessContext() {
         projectReferenceLoader: new TauriProjectReferenceLoader(),
       };
     },
-    [plugins, settings, loadedProject, referencedProjects],
+    [audioProvider, datasetProvider, plugins, settings, loadedProject, referencedProjects],
   );
 }

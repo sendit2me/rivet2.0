@@ -137,7 +137,7 @@ export class AppendToDatasetNodeImpl extends NodeImpl<AppendToDatasetNode> {
     return {
       ['dataset' as PortId]: {
         type: 'object',
-        value: newData as any,
+        value: newData as Record<string, unknown>,
       },
       ['id_out' as PortId]: {
         type: 'string',

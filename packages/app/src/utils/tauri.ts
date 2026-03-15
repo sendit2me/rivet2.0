@@ -1,15 +1,9 @@
 import { type RivetPlugin, type Settings, type StringPluginConfigurationSpec } from '@ironclad/rivet-core';
-import { window } from '@tauri-apps/api';
-import { invoke } from '@tauri-apps/api/tauri';
 import { entries } from '../../../core/src/utils/typeSafety';
+import { invokeNative, isInTauri as detectTauri } from './nativeApp';
 
 export function isInTauri(): boolean {
-  try {
-    window.getCurrent();
-    return true;
-  } catch (err) {
-    return false;
-  }
+  return detectTauri();
 }
 
 const cachedEnvVars: Record<string, string> = {};
@@ -20,7 +14,7 @@ export async function getEnvVar(name: string): Promise<string | undefined> {
   }
 
   if (isInTauri()) {
-    const value = (await invoke('get_environment_variable', { name })) as string;
+    const value = await invokeNative<string>('get_environment_variable', { name });
     cachedEnvVars[name] = value;
     return value;
   } else {
@@ -69,5 +63,5 @@ export async function fillMissingSettingsFromEnvironmentVariables(settings: Part
 }
 
 export async function allowDataFileNeighbor(projectFilePath: string): Promise<void> {
-  await invoke('allow_data_file_scope', { projectFilePath });
+  await invokeNative('allow_data_file_scope', { projectFilePath });
 }

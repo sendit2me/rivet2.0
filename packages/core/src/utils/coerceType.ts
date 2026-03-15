@@ -25,14 +25,19 @@ export function coerceTypeOptional<T extends DataType>(
       return undefined;
     }
 
-    return [coerced] as any;
+    const coercedArray = [coerced] as unknown;
+    // @ts-expect-error Generic T is not narrowed to its array subtype within this runtime-guarded branch.
+    return coercedArray as GetDataValue<T>['value'];
   }
 
   // Coerce foo[] to bar[]
   if (isArrayDataType(type) && isArrayDataValue(value) && getScalarTypeOf(type) !== getScalarTypeOf(value.type)) {
-    return value.value.map((v) =>
+    const coercedArray = value.value.map((v) =>
       coerceTypeOptional({ type: getScalarTypeOf(value.type), value: v } as DataValue, getScalarTypeOf(type)),
-    ) as any;
+    ) as unknown;
+
+    // @ts-expect-error Generic T is not narrowed to its array subtype within this runtime-guarded branch.
+    return coercedArray as GetDataValue<T>['value'];
   }
 
   const result = match(type as DataType)

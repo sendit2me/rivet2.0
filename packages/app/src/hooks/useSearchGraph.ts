@@ -30,7 +30,7 @@ export function useSearchGraph() {
         description: node.description,
         id: node.id,
         joinedData: joinedData.join(' '),
-        nodeType: isKnownNodeType ? globalRivetNodeRegistry.getDisplayName(node.type as any) : '',
+        nodeType: isKnownNodeType ? globalRivetNodeRegistry.getDynamicDisplayName(node.type) : '',
       };
 
       return searchableNode;

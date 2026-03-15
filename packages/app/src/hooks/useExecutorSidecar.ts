@@ -1,8 +1,8 @@
-import { type Child, Command } from '@tauri-apps/api/shell';
 import { useEffect } from 'react';
+import { createNativeSidecarCommand, type NativeChildProcess } from '../utils/nativeApp';
 
 let sidecarStarted = false;
-let sidecarProcess: Child | null = null;
+let sidecarProcess: NativeChildProcess | null = null;
 
 async function runSidecar(abortSignal: AbortSignal) {
   try {
@@ -10,7 +10,7 @@ async function runSidecar(abortSignal: AbortSignal) {
       return;
     }
 
-    const command = Command.sidecar('../../app-executor/dist/app-executor');
+    const command = await createNativeSidecarCommand('../../app-executor/dist/app-executor');
 
     command.stdout.on('data', (data) => {
       console.log('sidecar stdout', data);

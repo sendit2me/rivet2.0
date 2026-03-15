@@ -2,14 +2,15 @@ import { useAtom, useSetAtom } from 'jotai';
 import { loadedProjectState, projectState, projectsState } from '../state/savedGraphs.js';
 import { type NodeGraph, emptyNodeGraph, getError } from '@ironclad/rivet-core';
 import { graphState } from '../state/graph.js';
-import { ioProvider } from '../utils/globals.js';
 import { trivetState } from '../state/trivet.js';
 import { useSetStaticData } from './useSetStaticData';
 import { toast } from 'react-toastify';
 import { graphNavigationStackState } from '../state/graphBuilder';
 import { useCenterViewOnGraph } from './useCenterViewOnGraph';
+import { useIOProvider } from '../providers/ProvidersContext.js';
 
 export function useLoadProjectWithFileBrowser() {
+  const ioProvider = useIOProvider();
   const setProject = useSetAtom(projectState);
   const setLoadedProjectState = useSetAtom(loadedProjectState);
   const [projects, setProjects] = useAtom(projectsState);

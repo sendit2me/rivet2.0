@@ -5,7 +5,8 @@ import { useAtomValue } from 'jotai';
 import { useLoadRecording } from '../hooks/useLoadRecording';
 import { useSaveRecording } from '../hooks/useSaveRecording';
 import { graphRunningState, graphPausedState } from '../state/dataFlow';
-import { lastRecordingState, loadedRecordingState, selectedExecutorState } from '../state/execution';
+import { lastRecordingState, loadedRecordingState } from '../state/execution';
+import { defaultExecutorState } from '../state/settings';
 import ChevronRightIcon from 'majesticons/line/chevron-right-line.svg?react';
 import MultiplyIcon from 'majesticons/line/multiply-line.svg?react';
 import PauseIcon from 'majesticons/line/pause-circle-line.svg?react';
@@ -146,7 +147,7 @@ export const ActionBar: FC<ActionBarProps> = ({ onRunGraph, onAbortGraph, onPaus
   const loadedRecording = useAtomValue(loadedRecordingState);
   const { unloadRecording } = useLoadRecording();
   const [menuIsOpen, toggleMenuIsOpen] = useToggle();
-  const selectedExecutor = useAtomValue(selectedExecutorState);
+  const selectedExecutor = useAtomValue(defaultExecutorState);
 
   const { remoteDebuggerState: remoteDebugger, disconnect } = useRemoteDebugger();
   const isActuallyRemoteDebugging = remoteDebugger.started && !remoteDebugger.isInternalExecutor;

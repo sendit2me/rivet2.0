@@ -11,9 +11,10 @@ import {
   type DataValue,
 } from '@ironclad/rivet-core';
 import { type NodeComponentDescriptor } from '../../hooks/useNodeTypes.js';
-import { ioProvider } from '../../utils/globals.js';
+import { isPathBasedIOProvider } from '../../io/IOProvider.js';
 import { type InputsOrOutputsWithRefs } from '../../state/dataFlow';
 import { syncWrapper } from '../../utils/syncWrapper';
+import { useIOProvider } from '../../providers/ProvidersContext.js';
 
 const container = css`
   font-family: 'Roboto', sans-serif;
@@ -66,7 +67,9 @@ export type ReadDirectoryNodeEditorProps = {
 };
 
 export const ReadDirectoryNodeEditor: FC<ReadDirectoryNodeEditorProps> = ({ node, onChange }) => {
+  const ioProvider = useIOProvider();
   const handleBrowseClick = async () => {
+    if (!isPathBasedIOProvider(ioProvider)) return;
     const directory = await ioProvider.openDirectory();
     if (directory) {
       onChange?.({

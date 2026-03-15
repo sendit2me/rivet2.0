@@ -1,17 +1,18 @@
 import { type DatasetId, type DatasetMetadata, type ProjectId, getError } from '@ironclad/rivet-core';
 import { useEffect, useState } from 'react';
-import { datasetProvider } from '../utils/globals';
 import { toast } from 'react-toastify';
 import { datasetsState } from '../state/dataStudio';
 import { useAtom } from 'jotai';
 import { useStableCallback } from './useStableCallback';
+import { useDatasetProvider } from '../providers/ProvidersContext';
 
 export function useDatasets(projectId: ProjectId) {
+  const datasetProvider = useDatasetProvider();
   const [datasets, setDatasets] = useAtom(datasetsState);
 
   const initDatasets = useStableCallback(async () => {
     try {
-      await datasetProvider.loadDatasets(projectId);
+      await datasetProvider.loadDatasets?.(projectId);
       await reloadDatasets();
     } catch (err) {
       toast.error(getError(err).message);

@@ -24,8 +24,10 @@ import ColorizedPreformattedText from './ColorizedPreformattedText';
 import { P, match } from 'ts-pattern';
 import clsx from 'clsx';
 import { type InputsOrOutputsWithRefs, type DataValueWithRefs, type ScalarDataValueWithRefs } from '../state/dataFlow';
-import { getGlobalDataRef } from '../utils/globals';
 import prettyBytes from 'pretty-bytes';
+import { getDefaultProviders } from '../providers/ProvidersContext';
+
+const dataRefs = getDefaultProviders().dataRefs;
 
 const styles = css`
   .chat-message.user header em {
@@ -117,7 +119,7 @@ const scalarRenderers: {
     return <pre className="pre-wrap">{truncated}</pre>;
   },
   'chat-message': ({ value, renderMarkdown, isCompact }) => {
-    const resolved = getGlobalDataRef(value.value.ref);
+    const resolved = dataRefs.get(value.value.ref);
 
     if (!resolved) {
       return <div>Could not find data.</div>;
@@ -200,7 +202,7 @@ const scalarRenderers: {
       .otherwise((message) => (
         <div className="chat-message unknown">
           <header>
-            <em>{(message as any).type as string}</em>
+            <em>unknown</em>
           </header>
           {messageContent}
         </div>
@@ -239,7 +241,7 @@ const scalarRenderers: {
   ),
   vector: ({ value }) => <>Vector (length {value.value.length})</>,
   image: ({ value }) => {
-    const resolved = getGlobalDataRef(value.value.ref);
+    const resolved = dataRefs.get(value.value.ref);
     if (!resolved) {
       return <div>Could not find data.</div>;
     }
@@ -260,7 +262,7 @@ const scalarRenderers: {
     );
   },
   binary: ({ value }) => {
-    const resolved = getGlobalDataRef(value.value.ref);
+    const resolved = dataRefs.get(value.value.ref);
     if (!resolved) {
       return <div>Could not find data.</div>;
     }
@@ -270,7 +272,7 @@ const scalarRenderers: {
     //        Consider coercing it back to `Uint8Array` at the entrypoints of the boundaries between
     //        browser and node.js instead.
     const coercedValue = useMemo(() => {
-      const resolved = getGlobalDataRef(value.value.ref);
+      const resolved = dataRefs.get(value.value.ref);
       if (resolved!.value instanceof Uint8Array) {
         return resolved!.value;
       }
@@ -280,7 +282,7 @@ const scalarRenderers: {
     return <>Binary (length {coercedValue.length.toLocaleString()})</>;
   },
   audio: ({ value }) => {
-    const resolved = getGlobalDataRef(value.value.ref);
+    const resolved = dataRefs.get(value.value.ref);
     if (!resolved) {
       return <div>Could not find data.</div>;
     }
@@ -306,7 +308,7 @@ const scalarRenderers: {
     return <div>(Reference to graph &quot;{value.value.graphName}&quot;)</div>;
   },
   document: ({ value }) => {
-    const resolved = getGlobalDataRef(value.value.ref);
+    const resolved = dataRefs.get(value.value.ref);
     if (!resolved) {
       return <div>Could not find data.</div>;
     }

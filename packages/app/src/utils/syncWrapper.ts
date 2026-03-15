@@ -1,15 +1,9 @@
-import { toast } from 'react-toastify';
+import { handleError } from './errorHandling';
 
-export function syncWrapper<T extends (...args: any[]) => Promise<void>>(fn: T): () => void {
+export function syncWrapper<T extends (...args: any[]) => Promise<void>>(fn: T, context = 'Unexpected error'): () => void {
   return (...args: Parameters<T>) => {
     fn(...args).catch((err) => {
-      toast.error(err.message);
+      handleError(err, context);
     });
   };
-}
-
-export function swallowPromise<T extends Promise<void>>(promise: T): void {
-  promise.catch((err) => {
-    toast.error(err.message);
-  });
 }

@@ -1,8 +1,11 @@
 import { css } from '@emotion/react';
+import { type ComponentProps } from 'react';
 import { CustomPicker } from 'react-color';
 import { Alpha, Hue, Saturation } from 'react-color/lib/components/common';
 
-export const TripleBarColorPicker = CustomPicker((props) => {
+type CommonColorPickerProps = ComponentProps<typeof Saturation>;
+
+export const TripleBarColorPicker = CustomPicker((props: CommonColorPickerProps) => {
   return (
     <div
       css={css`
@@ -15,7 +18,7 @@ export const TripleBarColorPicker = CustomPicker((props) => {
           position: relative;
         `}
       >
-        <Saturation {...(props as any)} />
+        <Saturation {...props} />
       </div>
       <div
         css={css`
@@ -23,7 +26,7 @@ export const TripleBarColorPicker = CustomPicker((props) => {
           position: relative;
         `}
       >
-        <Hue {...(props as any)} />
+        <Hue {...props} />
       </div>
       <div
         css={css`
@@ -31,7 +34,7 @@ export const TripleBarColorPicker = CustomPicker((props) => {
           position: relative;
         `}
       >
-        <Alpha {...(props as any)} />
+        <Alpha {...props} />
       </div>
     </div>
   );

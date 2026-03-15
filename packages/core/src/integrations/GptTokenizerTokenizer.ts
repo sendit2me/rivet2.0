@@ -5,6 +5,16 @@ import { getError } from '../utils/errors.js';
 import { chatMessageToOpenAIChatCompletionMessage } from '../utils/chatMessageToOpenAIChatCompletionMessage.js';
 import type { ChatCompletionRequestUserMessageTextContent } from '../utils/openai.js';
 
+type JsonSchemaParameterDefinition = {
+  description?: string;
+  type?: string | string[];
+};
+
+type JsonSchemaParameters = {
+  properties?: Record<string, JsonSchemaParameterDefinition>;
+  required?: string[];
+};
+
 export class GptTokenizerTokenizer implements Tokenizer {
   emitter = new Emittery<{
     error: Error;
@@ -48,7 +58,7 @@ export class GptTokenizerTokenizer implements Tokenizer {
 
       const { encode, encodeChat } = await import('gpt-tokenizer');
 
-      const encodedChat = encodeChat(validMessages as any, 'gpt-3.5-turbo');
+      const encodedChat = encodeChat(validMessages as unknown as Parameters<typeof encodeChat>[0], 'gpt-3.5-turbo');
       const encodedFunctions =
         functions && functions.length > 0 ? encode(this.convertGptFunctionsToPromptString(functions)) : [];
 
@@ -78,8 +88,11 @@ ${functions
     (fn) => `
 // ${fn.description}
 type ${fn.name} = (_: {
-${Object.entries((fn.parameters as any)?.properties ?? {})
-  .map(([parameterName, value]: [string, any]) => `// ${value?.description}\n${parameterName}?: ${value?.type}`)
+${Object.entries((fn.parameters as JsonSchemaParameters | undefined)?.properties ?? {})
+  .map(
+    ([parameterName, value]) =>
+      `// ${value?.description}\n${parameterName}?: ${Array.isArray(value?.type) ? value.type.join(' | ') : value?.type}`,
+  )
   .join('\n')}
 })
 `,

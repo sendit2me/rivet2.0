@@ -1,5 +1,12 @@
 import { readFile } from 'node:fs/promises';
-import { deserializeProject, GraphProcessor, type ProcessContext, type Project } from '../src/index.js';
+import {
+  deserializeProject,
+  globalRivetNodeRegistry,
+  GraphProcessor,
+  type ProcessContext,
+  type Project,
+} from '../src/index.js';
+import { GptTokenizerTokenizer } from '../src/integrations/GptTokenizerTokenizer.js';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -17,7 +24,7 @@ export async function loadTestGraphInProcessor(graphName: string) {
     throw new Error(`Could not find graph with name ${graphName}`);
   }
 
-  return new GraphProcessor(project, graph.metadata!.id!);
+  return new GraphProcessor(project, graph.metadata!.id!, globalRivetNodeRegistry);
 }
 
 export async function loadProjectFromFile(path: string): Promise<Project> {
@@ -32,6 +39,7 @@ export function loadProjectFromString(content: string, path: string | null = nul
 
 export function testProcessContext(): ProcessContext {
   return {
+    tokenizer: new GptTokenizerTokenizer(),
     settings: {
       openAiKey: process.env.OPENAI_API_KEY,
       openAiOrganization: process.env.OPENAI_ORG_ID,

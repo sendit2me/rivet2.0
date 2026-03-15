@@ -171,7 +171,7 @@ function getQuestions(inputs: Inputs): LemurQuestion[] {
       },
     ];
   } else if ((input.type === 'any' && Array.isArray(input.value)) || input.type === 'any[]') {
-    return (input.value as any[]).map<LemurQuestion>((question: any) => {
+    return (input.value as unknown[]).map<LemurQuestion>((question) => {
       if (typeof question === 'string') {
         return { question };
       } else if (typeof question === 'object') {

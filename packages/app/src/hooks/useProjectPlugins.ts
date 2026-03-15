@@ -1,7 +1,7 @@
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { projectPluginsState } from '../state/savedGraphs';
 import { globalRivetNodeRegistry, resetGlobalRivetNodeRegistry, plugins as rivetPlugins } from '@ironclad/rivet-core';
-import { pluginRefreshCounterState, pluginsState } from '../state/plugins';
+import { pluginRefreshCounterState, pluginRetryCounterState, pluginsState } from '../state/plugins';
 import { produce } from 'immer';
 import { match } from 'ts-pattern';
 import { isNotNull } from '../utils/genericUtilFunctions';
@@ -9,10 +9,12 @@ import { getError } from '../utils/errors';
 import * as Rivet from '@ironclad/rivet-core';
 import { useLoadPackagePlugin } from './useLoadPackagePlugin';
 import useAsyncEffect from 'use-async-effect';
+import { toast } from 'react-toastify';
 
 export function useProjectPlugins() {
   const pluginSpecs = useAtomValue(projectPluginsState);
-  const [plugins, setPlugins] = useAtom(pluginsState);
+  const retryCounter = useAtomValue(pluginRetryCounterState);
+  const [, setPlugins] = useAtom(pluginsState);
   const setPluginRefreshCounter = useSetAtom(pluginRefreshCounterState);
   const { loadPackagePlugin } = useLoadPackagePlugin({
     onLog: (message) => console.log(message),
@@ -24,6 +26,8 @@ export function useProjectPlugins() {
     setPlugins(pluginSpecs.map((spec) => ({ id: spec.id, spec, loaded: false })));
 
     const loadedPlugins: Rivet.RivetPlugin[] = [];
+    const failedPlugins: { id: string; error: string }[] = [];
+
     for (const spec of pluginSpecs) {
       try {
         const loadedPlugin = await match(spec)
@@ -32,7 +36,7 @@ export function useProjectPlugins() {
             if (id in rivetPlugins) {
               return rivetPlugins[id as keyof typeof rivetPlugins];
             }
-            throw new Error(`Unknown built-in plugin ${name}.`);
+            throw new Error(`Unknown built-in plugin ${id}.`);
           })
           .with({ type: 'uri' }, async (spec) => {
             const plugin = ((await import(/* @vite-ignore */ spec.uri)) as { default: Rivet.RivetPluginInitializer })
@@ -71,9 +75,28 @@ export function useProjectPlugins() {
 
         loadedPlugins.push(loadedPlugin);
       } catch (err) {
-        console.error(`Failed to load plugin ${spec.id}: ${getError(err).message}`);
-        return null;
+        const errorMessage = getError(err).message;
+        console.error(`Failed to load plugin ${spec.id}: ${errorMessage}`);
+
+        failedPlugins.push({ id: spec.id, error: errorMessage });
+
+        setPlugins((oldPlugins) =>
+          produce(oldPlugins, (draft) => {
+            const plugin = draft.find((plugin) => plugin.id === spec.id);
+            if (plugin) {
+              plugin.loaded = false;
+              plugin.error = errorMessage;
+            }
+          }),
+        );
       }
+    }
+
+    // Show a single toast if any plugins failed
+    if (failedPlugins.length === 1) {
+      toast.error(`Plugin "${failedPlugins[0]!.id}" failed to load: ${failedPlugins[0]!.error}`);
+    } else if (failedPlugins.length > 1) {
+      toast.error(`${failedPlugins.length} plugins failed to load. Check Settings > Plugins for details.`);
     }
 
     for (const plugin of loadedPlugins.filter(isNotNull)) {
@@ -82,5 +105,5 @@ export function useProjectPlugins() {
     }
 
     setPluginRefreshCounter((oldValue) => oldValue + 1);
-  }, [pluginSpecs]);
+  }, [pluginSpecs, retryCounter]);
 }

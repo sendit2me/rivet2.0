@@ -2,10 +2,10 @@ import Button from '@atlaskit/button';
 import { Label } from '@atlaskit/form';
 import { css } from '@emotion/react';
 import { type FC } from 'react';
-import { ioProvider } from '../utils/globals';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { loadedProjectState, projectState } from '../state/savedGraphs';
 import { type ProjectReference } from '@ironclad/rivet-core';
+import { useIOProvider } from '../providers/ProvidersContext';
 
 const styles = css`
   margin-top: 16px;
@@ -18,6 +18,7 @@ const styles = css`
 `;
 
 export const ProjectReferencesConfiguration: FC = () => {
+  const ioProvider = useIOProvider();
   const [project, setProject] = useAtom(projectState);
 
   const loadedProject = useAtomValue(loadedProjectState);

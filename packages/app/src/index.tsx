@@ -5,6 +5,9 @@ import ReactDOM from 'react-dom/client';
 import './index.css';
 import './colors.css';
 import App from './App.js';
+import { installGlobalErrorHandlers } from './utils/errorHandling.js';
+
+installGlobalErrorHandlers();
 
 const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement);
 root.render(

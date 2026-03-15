@@ -5,8 +5,10 @@ export type PluginState = {
   id: string;
   loaded: boolean;
   spec: PluginLoadSpec;
+  error?: string;
 };
 
 export const pluginRefreshCounterState = atom<number>(0);
+export const pluginRetryCounterState = atom<number>(0);
 
 export const pluginsState = atom<PluginState[]>([]);
