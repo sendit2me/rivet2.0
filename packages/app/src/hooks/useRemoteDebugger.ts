@@ -11,7 +11,6 @@ import type {
   ProcessEventMessage,
   ProcessEventMessageMap,
 } from '@ironclad/rivet-core';
-import type { Setter } from 'jotai';
 import type { RemoteDebuggerConfig, RemoteDebuggerConnectionState } from '../state/execution.js';
 import { remoteDebuggerConfigState, remoteDebuggerConnectionState } from '../state/execution.js';
 import { useDatasetProvider } from '../providers/ProvidersContext';
@@ -41,12 +40,15 @@ let manuallyDisconnecting = false;
 let currentUrl = '';
 const onConnectCallbacks = new Set<LifecycleCallback>();
 const onDisconnectCallbacks = new Set<LifecycleCallback>();
-let setDebuggerConfigState: Setter<[RemoteDebuggerConfig | ((prev: RemoteDebuggerConfig) => RemoteDebuggerConfig)], void> | null = null;
+let setDebuggerConfigState:
+  | ((updater: RemoteDebuggerConfig | ((prev: RemoteDebuggerConfig) => RemoteDebuggerConfig)) => void)
+  | null = null;
 let setConnectionStateValue:
-  | Setter<
-      [RemoteDebuggerConnectionState | ((prev: RemoteDebuggerConnectionState) => RemoteDebuggerConnectionState)],
-      void
-    >
+  | ((
+      updater:
+        | RemoteDebuggerConnectionState
+        | ((prev: RemoteDebuggerConnectionState) => RemoteDebuggerConnectionState),
+    ) => void)
   | null = null;
 
 function notifyConnect() {

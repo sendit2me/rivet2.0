@@ -539,6 +539,12 @@ based on:
 
 It also manages the sidecar lifecycle via `useExecutorSidecar`.
 
+Current architectural detail:
+
+- the sidecar lifecycle is shared across hook consumers rather than owned by a single component instance
+- this is important because `useGraphExecutor` is consumed from multiple UI entry points
+- the app expects one internal sidecar process, not one sidecar per consumer
+
 Important code-level warning already present in the source:
 
 - this hook should live on components that do not unmount casually, because cleanup can disconnect the remote debugger unexpectedly
@@ -582,6 +588,12 @@ Current responsibilities:
 - send preload data for run-from execution
 - send `run`, `pause`, `resume`, `abort`, and `user-input` messages
 - provide Trivet execution by awaiting remote completion through a promise bridge
+
+Current architectural detail:
+
+- `useRemoteDebugger` is effectively a shared singleton connection manager
+- multiple components read remote-debugger state, but they should observe one shared socket lifecycle
+- this shared lifecycle is necessary to avoid duplicate connection attempts, reconnect thrash, and internal-executor instability when switching to Node mode
 
 Notable current limitations:
 
