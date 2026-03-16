@@ -13,8 +13,10 @@
     "release-node": "node --loader ts-node/esm --loader ./.pnp.loader.mjs release-node.mts",
     "publish-docs": "tsx publish-docs.mts",
     "build": "yarn workspace @ironclad/rivet-core run build && yarn workspace @ironclad/rivet-node run build && yarn workspace @ironclad/rivet-app-executor run build && yarn workspace @ironclad/trivet run build && yarn workspace @ironclad/rivet-app run build && yarn workspace @ironclad/rivet-cli run build",
+    "build:all": "npm run build",
     "publish": "tsx publish-packages.mts",
-    "test": "yarn workspace @ironclad/rivet-core run test",
+    "test": "yarn workspace @ironclad/rivet-core run test && yarn workspace @ironclad/rivet-node run test && yarn workspace @ironclad/rivet-app run test && yarn workspace @ironclad/rivet-cli run test",
+    "test:all": "npm run test",
     "lint": "yarn workspace @ironclad/rivet-core run lint && yarn workspace @ironclad/rivet-node run lint && yarn workspace @ironclad/rivet-app run lint && yarn workspace @ironclad/trivet run lint && yarn workspace @ironclad/rivet-app-executor run lint && yarn workspace @ironclad/rivet-cli run lint",
     "prettier:fix": "prettier --write ."
   },
