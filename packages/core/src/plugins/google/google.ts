@@ -218,7 +218,7 @@ export async function* streamChatCompletions({
   top_k,
   prompt,
 }: ChatCompletionOptions): AsyncGenerator<ChatCompletionChunk> {
-  // If you import normally, the Google auth library throws a fit.
+  // Dynamic import: the Google auth library fails under static CJS require.
   const { VertexAI } = await import('@google-cloud/vertexai');
 
   // Can't find a way to pass the credentials path in

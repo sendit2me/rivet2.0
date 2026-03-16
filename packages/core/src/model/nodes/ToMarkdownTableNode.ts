@@ -100,8 +100,8 @@ export class ToMarkdownTableNodeImpl extends NodeImpl<ToMarkdownTableNode> {
 
     const keys = data.length === 0 ? [] : Object.keys(data[0]!);
 
-    // Dynamic import because these are ESM-only, and top level imports are converted to CommonJS for rivet-node.
-    // Dynamic import is able to load ESM-only modules.
+    // mdast-util-to-markdown and mdast-util-gfm-table are ESM-only packages.
+    // Dynamic import allows loading them even in the CJS bundle (rivet-node).
     const { toMarkdown } = await import('mdast-util-to-markdown');
     const { gfmTableToMarkdown } = await import('mdast-util-gfm-table');
 

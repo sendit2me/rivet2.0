@@ -9,6 +9,7 @@ import type { ProcessEvents } from './GraphProcessor.js';
 import type Emittery from 'emittery';
 import type { Project } from './Project.js';
 import type { UserInputNode } from './nodes/UserInputNode.js';
+import { emitDetached } from '../utils/emitDetached.js';
 
 type Outputs = Record<PortId, DataValue | undefined>;
 type GraphOutputs = Record<string, DataValue>;
@@ -81,8 +82,7 @@ export async function replayExecutionRecording(options: {
 
       await match(event)
         .with({ type: 'start' }, ({ data }) => {
-          // eslint-disable-next-line @typescript-eslint/no-floating-promises
-          emitter.emit('start', {
+          emitDetached(emitter, 'start', {
             project,
             contextValues: data.contextValues,
             inputs: data.inputs,
@@ -92,53 +92,44 @@ export async function replayExecutionRecording(options: {
           setGraphInputs(data.inputs);
         })
         .with({ type: 'abort' }, ({ data }) => {
-          // eslint-disable-next-line @typescript-eslint/no-floating-promises
-          emitter.emit('abort', data);
+          emitDetached(emitter, 'abort', data);
         })
         .with({ type: 'pause' }, () => {})
         .with({ type: 'resume' }, () => {})
         .with({ type: 'done' }, ({ data }) => {
-          // eslint-disable-next-line @typescript-eslint/no-floating-promises
-          emitter.emit('done', data);
+          emitDetached(emitter, 'done', data);
           setGraphOutputs(data.results);
           setRunning(false);
         })
         .with({ type: 'error' }, ({ data }) => {
-          // eslint-disable-next-line @typescript-eslint/no-floating-promises
-          emitter.emit('error', data);
+          emitDetached(emitter, 'error', data);
         })
         .with({ type: 'globalSet' }, ({ data }) => {
-          // eslint-disable-next-line @typescript-eslint/no-floating-promises
-          emitter.emit('globalSet', data);
+          emitDetached(emitter, 'globalSet', data);
         })
         .with({ type: 'trace' }, ({ data }) => {
-          // eslint-disable-next-line @typescript-eslint/no-floating-promises
-          emitter.emit('trace', data);
+          emitDetached(emitter, 'trace', data);
         })
         .with({ type: 'graphStart' }, ({ data }) => {
-          // eslint-disable-next-line @typescript-eslint/no-floating-promises
-          emitter.emit('graphStart', {
+          emitDetached(emitter, 'graphStart', {
             graph: getGraph(data.graphId),
             inputs: data.inputs,
           });
         })
         .with({ type: 'graphFinish' }, ({ data }) => {
-          // eslint-disable-next-line @typescript-eslint/no-floating-promises
-          emitter.emit('graphFinish', {
+          emitDetached(emitter, 'graphFinish', {
             graph: getGraph(data.graphId),
             outputs: data.outputs,
           });
         })
         .with({ type: 'graphError' }, ({ data }) => {
-          // eslint-disable-next-line @typescript-eslint/no-floating-promises
-          emitter.emit('graphError', {
+          emitDetached(emitter, 'graphError', {
             graph: getGraph(data.graphId),
             error: data.error,
           });
         })
         .with({ type: 'graphAbort' }, ({ data }) => {
-          // eslint-disable-next-line @typescript-eslint/no-floating-promises
-          emitter.emit('graphAbort', {
+          emitDetached(emitter, 'graphAbort', {
             graph: getGraph(data.graphId),
             error: data.error,
             successful: data.successful,
@@ -147,8 +138,7 @@ export async function replayExecutionRecording(options: {
         .with({ type: 'nodeStart' }, async ({ data }) => {
           const node = getNode(data.nodeId);
 
-          // eslint-disable-next-line @typescript-eslint/no-floating-promises
-          emitter.emit('nodeStart', {
+          emitDetached(emitter, 'nodeStart', {
             node,
             inputs: data.inputs,
             processId: data.processId as ProcessId,
@@ -161,8 +151,7 @@ export async function replayExecutionRecording(options: {
         .with({ type: 'nodeFinish' }, ({ data }) => {
           const node = getNode(data.nodeId);
 
-          // eslint-disable-next-line @typescript-eslint/no-floating-promises
-          emitter.emit('nodeFinish', {
+          emitDetached(emitter, 'nodeFinish', {
             node,
             outputs: data.outputs,
             processId: data.processId as ProcessId,
@@ -172,8 +161,7 @@ export async function replayExecutionRecording(options: {
           visitedNodes.add(data.nodeId);
         })
         .with({ type: 'nodeError' }, ({ data }) => {
-          // eslint-disable-next-line @typescript-eslint/no-floating-promises
-          emitter.emit('nodeError', {
+          emitDetached(emitter, 'nodeError', {
             node: getNode(data.nodeId),
             error: data.error,
             processId: data.processId as ProcessId,
@@ -183,8 +171,7 @@ export async function replayExecutionRecording(options: {
           visitedNodes.add(data.nodeId);
         })
         .with({ type: 'nodeExcluded' }, ({ data }) => {
-          // eslint-disable-next-line @typescript-eslint/no-floating-promises
-          emitter.emit('nodeExcluded', {
+          emitDetached(emitter, 'nodeExcluded', {
             node: getNode(data.nodeId),
             processId: data.processId as ProcessId,
             inputs: data.inputs,
@@ -197,8 +184,7 @@ export async function replayExecutionRecording(options: {
         .with({ type: 'nodeOutputsCleared' }, () => {})
         .with({ type: 'partialOutput' }, () => {})
         .with({ type: 'userInput' }, ({ data }) => {
-          // eslint-disable-next-line @typescript-eslint/no-floating-promises
-          emitter.emit('userInput', {
+          emitDetached(emitter, 'userInput', {
             callback: undefined as unknown as (values: StringArrayDataValue) => void,
             inputStrings: data.inputStrings,
             inputs: data.inputs,
@@ -208,24 +194,20 @@ export async function replayExecutionRecording(options: {
           });
         })
         .with({ type: P.string.startsWith('globalSet:') }, ({ type, data }) => {
-          // eslint-disable-next-line @typescript-eslint/no-floating-promises
-          emitter.emit(type, data);
+          emitDetached(emitter, type, data);
         })
         .with({ type: P.string.startsWith('userEvent:') }, ({ type, data }) => {
-          // eslint-disable-next-line @typescript-eslint/no-floating-promises
-          emitter.emit(type, data);
+          emitDetached(emitter, type, data);
         })
         .with({ type: 'newAbortController' }, () => {})
         .with({ type: 'finish' }, () => {
-          // eslint-disable-next-line @typescript-eslint/no-floating-promises
-          emitter.emit('finish', undefined);
+          emitDetached(emitter, 'finish', undefined);
         })
         .with(P.nullish, () => {})
         .exhaustive();
     }
   } catch (error) {
-    // eslint-disable-next-line @typescript-eslint/no-floating-promises
-    emitter.emit('error', { error: getError(error) });
+    emitDetached(emitter, 'error', { error: getError(error) });
   } finally {
     setRunning(false);
   }

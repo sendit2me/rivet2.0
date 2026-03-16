@@ -24,10 +24,50 @@ export async function createWebviewWindowHandle(
   options: { alwaysOnTop?: boolean; center?: boolean; url: string },
 ): Promise<NativeWindowHandle> {
   if (!isInTauri()) {
-    window.open(options.url, '_blank');
+    const popup = window.open(options.url, '_blank');
+    const closeIntervals = new Set<ReturnType<typeof globalThis.setInterval>>();
+    const closeHandlers = new Set<() => void>();
+    let closeNotified = false;
+
+    const notifyClosed = () => {
+      if (closeNotified) {
+        return;
+      }
+
+      closeNotified = true;
+
+      for (const intervalId of closeIntervals) {
+        globalThis.clearInterval(intervalId);
+      }
+      closeIntervals.clear();
+
+      for (const handler of closeHandlers) {
+        void handler();
+      }
+    };
+
     return {
-      close: async () => {},
-      onCloseRequested: async () => () => {},
+      close: async () => {
+        popup?.close();
+        notifyClosed();
+      },
+      onCloseRequested: async (handler) => {
+        closeHandlers.add(handler);
+
+        const intervalId = globalThis.setInterval(() => {
+          if (popup == null || popup.closed) {
+            notifyClosed();
+          }
+        }, 250);
+
+        closeIntervals.add(intervalId);
+
+        return async () => {
+          globalThis.clearInterval(intervalId);
+          closeIntervals.delete(intervalId);
+          closeHandlers.delete(handler);
+        };
+      },
       once: async () => () => {},
     };
   }

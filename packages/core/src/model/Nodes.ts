@@ -351,3 +351,11 @@ export type NodeOfType<T extends BuiltInNodeType> = Extract<BuiltInNodes, { type
 export function resetGlobalRivetNodeRegistry() {
   globalRivetNodeRegistry = registerBuiltInNodes(new NodeRegistration());
 }
+
+/**
+ * Replace the global registry with a fully-assembled one.
+ * Use after `assembleRegistry()` to install a registry that includes project plugins.
+ */
+export function replaceGlobalRivetNodeRegistry(registry: NodeRegistration<any, any>) {
+  globalRivetNodeRegistry = registry as typeof globalRivetNodeRegistry;
+}

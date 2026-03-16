@@ -6,14 +6,19 @@ import type {
   NodeId,
   NodeConnection,
   ChartNode,
-  PortId,
   ChartNodeVariant,
   ProjectId,
 } from '../../index.js';
-import stableStringify from 'safe-stable-stringify';
-// @ts-ignore
-import * as yaml from 'yaml';
 import { doubleCheckProject } from './serializationUtils.js';
+import {
+  type SerializedNodeConnection,
+  serializeConnection,
+  deserializeConnection,
+  parseVisualData,
+  packVisualDataV3,
+  wrapInYamlEnvelope,
+  unwrapYamlEnvelope,
+} from './serializationHelpers.js';
 
 type SerializedProject = {
   metadata: {
@@ -50,78 +55,24 @@ export type SerializedNode = {
   variants?: ChartNodeVariant<unknown>[];
 };
 
-/** x/y/width/zIndex */
-// type SerializedVisualData = `${string}/${string}/${string}/${string}`;
-
-// portId->nodeId/portId
-type SerializedNodeConnection = `${string}->"${string}" ${string}/${string}`;
-
 export function projectV3Deserializer(data: unknown): Project {
-  if (typeof data !== 'string') {
-    throw new Error('Project v3 deserializer requires a string');
-  }
-
-  const serializedProject = yaml.parse(data) as { version: number; data: SerializedProject };
-
-  if (serializedProject.version !== 3) {
-    throw new Error('Project v3 deserializer requires a version 3 project');
-  }
-
-  const project = fromSerializedProject(serializedProject.data);
-
+  const serializedProject = unwrapYamlEnvelope<SerializedProject>(data, 3, 'Project v3');
+  const project = fromSerializedProject(serializedProject);
   doubleCheckProject(project);
-
   return project;
 }
 
 export function graphV3Deserializer(data: unknown): NodeGraph {
-  if (typeof data !== 'string') {
-    throw new Error('Graph v3 deserializer requires a string');
-  }
-
-  const serializedGraph = yaml.parse(data) as { version: number; data: SerializedGraph };
-
-  if (serializedGraph.version !== 3) {
-    throw new Error('Graph v3 deserializer requires a version 3 graph');
-  }
-
-  return fromSerializedGraph(serializedGraph.data);
+  const serializedGraph = unwrapYamlEnvelope<SerializedGraph>(data, 3, 'Graph v3');
+  return fromSerializedGraph(serializedGraph);
 }
 
 export function projectV3Serializer(project: Project): unknown {
-  // Make sure all data is ordered deterministically first
-  const stabilized = JSON.parse(stableStringify(toSerializedProject(project)));
-
-  const serialized = yaml.stringify(
-    {
-      version: 3,
-      data: stabilized,
-    },
-    null,
-    {
-      indent: 2,
-    },
-  );
-
-  return serialized;
+  return wrapInYamlEnvelope(3, toSerializedProject(project));
 }
 
 export function graphV3Serializer(graph: NodeGraph): unknown {
-  // Make sure all data is ordered deterministically first
-  const stabilized = JSON.parse(stableStringify(toSerializedGraph(graph)));
-
-  const serialized = yaml.stringify(
-    {
-      version: 4,
-      data: stabilized,
-    },
-    null,
-    {
-      indent: 2,
-    },
-  );
-
-  return serialized;
+  return wrapInYamlEnvelope(3, toSerializedGraph(graph));
 }
 
 function toSerializedProject(project: Project): SerializedProject {
@@ -183,25 +134,23 @@ function toSerializedNode(node: ChartNode, allNodes: ChartNode[], allConnections
     title: node.title,
     description: node.description,
     type: node.type,
-    visualData: `${node.visualData.x}/${node.visualData.y}/${node.visualData.width ?? 'null'}/${
-      node.visualData.zIndex ?? 'null'
-    }`,
+    visualData: packVisualDataV3(node) as SerializedNode['visualData'],
     isSplitRun: node.isSplitRun,
     splitRunMax: node.splitRunMax,
     data: node.data,
     outgoingConnections: allConnections
       .filter((connection) => connection.outputNodeId === node.id)
-      .map((connection) => toSerializedConnection(connection, allNodes))
+      .map((connection) => serializeConnection(connection, allNodes))
       .sort(),
     variants: (node.variants?.length ?? 0) > 0 ? node.variants : undefined,
   };
 }
 
 function fromSerializedNode(serializedNode: SerializedNode): [ChartNode, NodeConnection[]] {
-  const [x, y, width, zIndex] = serializedNode.visualData.split('/');
+  const { x, y, width, zIndex } = parseVisualData(serializedNode.visualData);
 
-  const connections = serializedNode.outgoingConnections.map((serializedConnection) =>
-    fromSerializedConnection(serializedConnection, serializedNode),
+  const connections = serializedNode.outgoingConnections.map((conn) =>
+    deserializeConnection(conn, serializedNode.id as NodeId),
   );
 
   return [
@@ -212,32 +161,10 @@ function fromSerializedNode(serializedNode: SerializedNode): [ChartNode, NodeCon
       type: serializedNode.type,
       isSplitRun: serializedNode.isSplitRun,
       splitRunMax: serializedNode.splitRunMax,
-      visualData: {
-        x: parseFloat(x!),
-        y: parseFloat(y!),
-        width: width === 'null' ? undefined : parseFloat(width!),
-        zIndex: zIndex === 'null' ? undefined : parseFloat(zIndex!),
-      },
+      visualData: { x, y, width, zIndex },
       data: serializedNode.data,
       variants: serializedNode.variants,
     },
     connections,
   ];
-}
-
-function toSerializedConnection(connection: NodeConnection, allNodes: ChartNode[]): SerializedNodeConnection {
-  return `${connection.outputId}->"${allNodes.find((node) => node.id === connection.inputNodeId)?.title}" ${
-    connection.inputNodeId
-  }/${connection.inputId}`;
-}
-
-function fromSerializedConnection(connection: SerializedNodeConnection, outgoingNode: SerializedNode): NodeConnection {
-  const [, outputId, , inputNodeId, inputId] = connection.match(/(.+)->"(.+)" (.+)\/(.+)/)!;
-
-  return {
-    outputId: outputId as PortId,
-    outputNodeId: outgoingNode.id as NodeId,
-    inputId: inputId as PortId,
-    inputNodeId: inputNodeId as NodeId,
-  };
 }

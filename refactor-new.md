@@ -463,7 +463,7 @@ These are worth doing once Tier 1 is underway or covered by tests.
 
 ---
 
-### 7. Consolidate serialization code further and shrink compatibility paths
+### 7. Consolidate serialization code further and shrink compatibility paths - DONE
 
 **Effort: M | Impact: Medium**
 
@@ -476,10 +476,15 @@ Reduce serializer/deserializer duplication without changing serialized output or
 **Suggested steps**
 
 1. Extract shared V3/V4 node and graph serialization helpers where the structure is still duplicated.
+   DONE - Created `serializationHelpers.ts` with shared connection serialization, visual data encoding/parsing, and YAML envelope helpers.
 2. Centralize version detection into one narrow function if there are still scattered checks.
+   DONE - Already centralized in `serializationUtils.ts`; V3/V4 now use `unwrapYamlEnvelope` instead of inline parsing.
 3. Replace nested fallbacks with a small dispatch table where possible.
+   DONE - Dispatch in `serialization.ts` is clean; V3/V4 use shared helpers.
 4. Add snapshot-like round-trip tests for the existing example and fixture project files.
+   DONE - Added round-trip tests for project and graph V4 serialization, plus unit tests for shared helpers.
 5. Delete duplicated helper logic once coverage is in place.
+   DONE - Deleted duplicate connection serialization, visual data parsing, and YAML envelope code from V3 and V4.
 
 **Expected result**
 
@@ -494,7 +499,7 @@ Reduce serializer/deserializer duplication without changing serialized output or
 
 ---
 
-### 8. Shrink `nativeApp.ts` into focused platform capability modules
+### 8. Shrink `nativeApp.ts` into focused platform capability modules - DONE
 
 **Effort: M | Impact: Medium**
 
@@ -508,7 +513,7 @@ Reduce serializer/deserializer duplication without changing serialized output or
 - updater
 - HTTP
 
-It is useful, but it is also a single oversized “everything native” module. In its current shape, it also encourages app code to think in terms of Tauri APIs instead of in terms of platform capabilities.
+It is useful, but it is also a single oversized "everything native" module. In its current shape, it also encourages app code to think in terms of Tauri APIs instead of in terms of platform capabilities.
 
 **Refactor goal**
 
@@ -523,11 +528,17 @@ Split platform integration by capability so app code depends on narrower modules
    - `platformDialog.ts`
    - `platformUpdater.ts`
    - `platformHttp.ts`
+   DONE - Already split into `packages/app/src/utils/platform/` with: `core.ts`, `shell.ts`, `app.ts`, `updater.ts`, `window.ts`, `dialog.ts`, `fs.ts`, `path.ts`, `http.ts`.
 2. Keep a tiny top-level compatibility barrel only if it is truly additive and does not collapse the new boundaries back into one import magnet.
+   DONE - No barrel; consumers import directly from capability modules.
 3. Move the shared environment detection / unsupported helpers into a tiny shared base file.
+   DONE - `core.ts` contains `isInTauri()` and `unsupported()`.
 4. Keep the existing Tauri implementations as the current concrete implementations.
+   DONE
 5. Update consumers to import only the capability they use.
+   DONE
 6. Delete the old monolith once imports are migrated.
+   DONE - `nativeApp.ts` no longer exists.
 
 **Expected result**
 
@@ -544,7 +555,7 @@ Split platform integration by capability so app code depends on narrower modules
 
 ---
 
-### 9. Simplify node/plugin registration ownership
+### 9. Simplify node/plugin registration ownership - DONE
 
 **Effort: M | Impact: Medium-High**
 
@@ -567,16 +578,22 @@ Make it obvious which layer owns which registration step and reduce reset/rebuil
    - create built-in registry
    - extend registry with plugins
    - replace current runtime registry
-2. Encapsulate “reset + re-register built-ins + register project plugins” into one helper used by the app and executor.
+   DONE - `RegistryAssembly.ts` exports `createBuiltInRegistry()`, `registerPluginsIntoRegistry()`, `replaceGlobalRivetNodeRegistry()`.
+2. Encapsulate "reset + re-register built-ins + register project plugins" into one helper used by the app and executor.
+   DONE - `assembleRegistry(specs, loadPlugin)` handles the full flow: create built-in registry, load each plugin, register all successfully loaded plugins.
 3. Remove scattered direct registry mutation where possible.
+   DONE - `useProjectPlugins.ts` and `executor.mts` now use `assembleRegistry()` + `replaceGlobalRivetNodeRegistry()` instead of manual reset + loop + registerPlugin.
 4. Audit `globalRivetNodeRegistry` usage and replace non-essential direct reads/writes with explicit helper calls.
+   DONE - Direct mutation sites consolidated; read-only consumers (display name, create node, etc.) still use the global registry appropriately.
 5. Keep runtime behavior identical: same built-ins, same plugin load order, same failure behavior.
+   DONE
 6. Keep the helper interfaces usable by:
    - app browser execution
    - desktop app sidecar execution
    - standalone `rivet-node`
    - future web client runtime assembly
    without requiring one global mutable registry path.
+   DONE - `assembleRegistry()` returns a fresh registry without touching the global; callers choose whether to install it globally.
 
 **Expected result**
 
@@ -593,7 +610,7 @@ Make it obvious which layer owns which registration step and reduce reset/rebuil
 
 ---
 
-### 10. Replace ad hoc “fire-and-forget” event emission with explicit helpers
+### 10. Replace ad hoc "fire-and-forget" event emission with explicit helpers - DONE
 
 **Effort: M | Impact: Medium**
 
@@ -606,10 +623,15 @@ Make asynchronous fire-and-forget behavior explicit and consistent, instead of r
 **Suggested steps**
 
 1. Inventory the current `no-floating-promises` suppressions in core and app execution code.
+   DONE - Found 45 occurrences across 5 files: GraphProcessor.ts (22), RecordingPlayer.ts (19), ExecutionRecorder.ts (2), createProcessor.ts (1), GptTokenizerTokenizer.ts (1).
 2. Introduce a tiny explicit helper for intentionally detached async event emission, for example `emitDetached(...)`.
+   DONE - Created `packages/core/src/utils/emitDetached.ts` with `emitDetached(emitter, event, data)`.
 3. Replace repetitive inline suppression comments with helper usage where the pattern is intentional.
+   DONE - All Emittery `.emit()` fire-and-forget calls now use `emitDetached()`.
 4. Leave genuinely suspicious cases as explicit awaited calls or as local `void` with comments.
+   DONE - `processingQueue.add/addAll` uses `void`, `processor.abort()` uses `void`, `this.emitter.emit('error',...)` uses `void`.
 5. Delete now-unneeded lint suppression noise.
+   DONE - Zero `no-floating-promises` suppressions remain in core source code.
 
 **Expected result**
 
@@ -624,7 +646,7 @@ Make asynchronous fire-and-forget behavior explicit and consistent, instead of r
 
 ---
 
-### 11. Clean up CJS/ESM friction in `rivet-node` and `app-executor`
+### 11. Clean up CJS/ESM friction in `rivet-node` and `app-executor` - DONE
 
 **Effort: M | Impact: Medium**
 
@@ -643,12 +665,17 @@ Make Node runtime packaging less surprising and remove compatibility hacks where
 **Suggested steps**
 
 1. Audit `NodeCodeRunner.ts` and any similar files that branch on `import.meta` in CJS builds.
+   DONE - Audited all CJS/ESM friction points: PQueue double-default hack, ESM-only dynamic imports (mdast-util, Google, gpt-tokenizer), NodeCodeRunner createRequire, executor plugin loading.
 2. Replace fragile mixed-mode patterns with one explicit compatibility strategy per runtime:
    - ESM path
    - CJS fallback path
+   DONE - Isolated p-queue CJS/ESM interop into `pQueueCompat.ts`, removing the inline hack from GraphProcessor.ts. Extracted `importPluginInitializer()` helper in executor.mts to centralize double-default resolution for dynamic plugin imports.
 3. Review `app-executor` bundling for dynamic requires that `pkg` cannot statically resolve.
+   DONE - Reviewed build-executor.mts; added documentation explaining why CJS format is required (for `pkg` static analysis). The resolveRivet plugin inlines all workspace deps, eliminating external requires.
 4. Where dynamic requires are intentional, isolate them behind a tiny module and document why.
+   DONE - Documented all intentional dynamic imports: ToMarkdownTableNode (ESM-only mdast-util packages), google.ts (auth library CJS incompatibility), GptTokenizerTokenizer (lazy loading), NodeCodeRunner (CJS `require` for user code). Added CJS alias comments to bundle.esbuild.ts.
 5. Aim to reduce build-time warnings without changing runtime behavior or sidecar packaging shape.
+   DONE - No runtime behavior changes; all compatibility patterns preserved with explicit documentation.
 
 **Expected result**
 

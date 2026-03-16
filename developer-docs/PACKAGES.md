@@ -31,12 +31,15 @@ Shared runtime foundation for the entire repo.
 ### What it contains
 
 - graph/project/node/data types
-- `GraphProcessor`
+- `GraphProcessor` and extracted helpers (`NodeExecutionPlanner`, `SubprocessorBridge`, `SplitRunProcessor`)
 - built-in nodes
 - built-in plugins
-- serialization
+- `RegistryAssembly` — centralized registry creation and plugin assembly
+- serialization with shared V3/V4 helpers (`serializationHelpers.ts`)
 - recording/playback support
 - runtime integration contracts
+- `emitDetached` — explicit fire-and-forget event emission helper
+- `pQueueCompat` — CJS/ESM interop for p-queue
 - public execution helpers and streaming APIs
 
 ### Important downstream consumers
@@ -138,14 +141,19 @@ The sidecar:
 
 - starts a debugger/WebSocket server
 - accepts uploaded project/settings/static-data state
-- rebuilds a registry for the current project's plugins
+- uses `assembleRegistry()` from core's `RegistryAssembly.ts` to build a fresh registry for each graph run
+- dynamically imports plugins through `importPluginInitializer()`, which handles CJS/ESM default-export interop
 - runs graphs dynamically using `rivet-node` APIs
 - supports preload, pause, resume, abort, and user-input messages
 - supports run-from execution by accepting preload data and a `runFromNodeId`
 
+### Build model
+
+The executor source is ESM (`.mts`) but is bundled to CJS (`executor-bundle.cjs`) by esbuild so that `pkg` can statically analyze it for native binary compilation. A custom esbuild plugin inlines all `@ironclad/rivet-*` workspace packages from source.
+
 ### Architectural significance
 
-This package is effectively the app's Node execution backend and mirrors part of the plugin/runtime assembly work that also exists in the app.
+This package is effectively the app's Node execution backend. It shares the same `assembleRegistry()` helper as the app for registry construction, keeping plugin/runtime assembly logic in one place.
 It is paired with the app-side shared executor session rather than being managed independently by each remote execution hook consumer.
 
 ## `@ironclad/rivet-cli` (`packages/cli/`)

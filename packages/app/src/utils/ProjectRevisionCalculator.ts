@@ -2,6 +2,7 @@ import { deserializeProject, type GraphId, type Project } from '@ironclad/rivet-
 import isEqual from 'fast-deep-equal';
 import Emittery from 'emittery';
 import { deserializeProjectAsync } from './deserializeProject';
+import { getPathDirname } from './platform/path.js';
 import { createNativeCommand } from './platform/shell.js';
 
 export type GitRevision = {
@@ -93,7 +94,7 @@ export class ProjectRevisionCalculator {
   }
 
   async loadGitRevisions() {
-    const pathDirname = this.#projectPath.split('/').slice(0, -1).join('/');
+    const pathDirname = getPathDirname(this.#projectPath);
     const rootDirCommand = await createNativeCommand('git', ['rev-parse', '--show-toplevel'], {
       encoding: 'utf8',
       cwd: pathDirname,

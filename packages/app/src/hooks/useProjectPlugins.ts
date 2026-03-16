@@ -1,109 +1,102 @@
-import { useAtom, useAtomValue, useSetAtom } from 'jotai';
+import { useEffect, useRef } from 'react';
+import { useAtomValue, useSetAtom } from 'jotai';
 import { projectPluginsState } from '../state/savedGraphs';
-import { globalRivetNodeRegistry, resetGlobalRivetNodeRegistry, plugins as rivetPlugins } from '@ironclad/rivet-core';
+import {
+  assembleRegistry,
+  replaceGlobalRivetNodeRegistry,
+  resolveBuiltInPlugin,
+} from '@ironclad/rivet-core';
+import type { PluginLoadSpec } from '@ironclad/rivet-core';
 import { pluginRefreshCounterState, pluginRetryCounterState, pluginsState } from '../state/plugins';
 import { produce } from 'immer';
 import { match } from 'ts-pattern';
-import { isNotNull } from '../utils/genericUtilFunctions';
-import { getError } from '../utils/errors';
 import * as Rivet from '@ironclad/rivet-core';
 import { useLoadPackagePlugin } from './useLoadPackagePlugin';
 import useAsyncEffect from 'use-async-effect';
 import { toast } from 'react-toastify';
+import { importPluginInitializer } from '../utils/pluginInitializer.js';
 
 export function useProjectPlugins() {
   const pluginSpecs = useAtomValue(projectPluginsState);
   const retryCounter = useAtomValue(pluginRetryCounterState);
-  const [, setPlugins] = useAtom(pluginsState);
+  const setPlugins = useSetAtom(pluginsState);
   const setPluginRefreshCounter = useSetAtom(pluginRefreshCounterState);
+  const loadGenerationRef = useRef(0);
   const { loadPackagePlugin } = useLoadPackagePlugin({
     onLog: (message) => console.log(message),
   });
 
+  const updatePluginState = (id: string, updates: { loaded?: boolean; error?: string }) => {
+    setPlugins((oldPlugins) =>
+      produce(oldPlugins, (draft) => {
+        const entry = draft.find((p) => p.id === id);
+        if (entry) {
+          Object.assign(entry, updates);
+        }
+      }),
+    );
+  };
+
+  useEffect(() => {
+    return () => {
+      loadGenerationRef.current += 1;
+    };
+  }, []);
+
   useAsyncEffect(async () => {
-    resetGlobalRivetNodeRegistry();
+    const generation = ++loadGenerationRef.current;
+    const isStale = () => loadGenerationRef.current !== generation;
 
     setPlugins(pluginSpecs.map((spec) => ({ id: spec.id, spec, loaded: false })));
 
-    const loadedPlugins: Rivet.RivetPlugin[] = [];
-    const failedPlugins: { id: string; error: string }[] = [];
+    const { registry, results } = await assembleRegistry(pluginSpecs, async (spec: PluginLoadSpec) => {
+      const plugin = await match(spec)
+        .with({ type: 'built-in' }, async (s) => resolveBuiltInPlugin(s.id))
+        .with({ type: 'uri' }, async (s) => {
+          const mod = await importPluginInitializer(s.uri, s.id);
+          const initialized = mod(Rivet);
+          if (!initialized?.id) {
+            throw new Error(`Plugin ${s.id} does not have an id`);
+          }
+          return initialized;
+        })
+        .with({ type: 'package' }, async (s) => {
+          const loaded = await loadPackagePlugin(s);
+          if (!loaded?.id) {
+            throw new Error(`Plugin ${s.package} does not have an id`);
+          }
+          return loaded;
+        })
+        .exhaustive();
 
-    for (const spec of pluginSpecs) {
-      try {
-        const loadedPlugin = await match(spec)
-          .with({ type: 'built-in' }, async (spec) => {
-            const { id } = spec;
-            if (id in rivetPlugins) {
-              return rivetPlugins[id as keyof typeof rivetPlugins];
-            }
-            throw new Error(`Unknown built-in plugin ${id}.`);
-          })
-          .with({ type: 'uri' }, async (spec) => {
-            const plugin = ((await import(/* @vite-ignore */ spec.uri)) as { default: Rivet.RivetPluginInitializer })
-              .default;
-
-            if (typeof plugin !== 'function') {
-              throw new Error(`Plugin ${spec.id} is not a function`);
-            }
-
-            const initializedPlugin = plugin(Rivet);
-
-            if (!initializedPlugin?.id) {
-              throw new Error(`Plugin ${spec.id} does not have an id`);
-            }
-            return initializedPlugin;
-          })
-          .with({ type: 'package' }, async (spec) => {
-            const plugin = await loadPackagePlugin(spec);
-
-            if (!plugin?.id) {
-              throw new Error(`Plugin ${spec.package} does not have an id`);
-            }
-
-            return plugin;
-          })
-          .exhaustive();
-
-        setPlugins((oldPlugins) =>
-          produce(oldPlugins, (draft) => {
-            const plugin = draft.find((plugin) => plugin.id === spec.id);
-            if (plugin) {
-              plugin.loaded = true;
-            }
-          }),
-        );
-
-        loadedPlugins.push(loadedPlugin);
-      } catch (err) {
-        const errorMessage = getError(err).message;
-        console.error(`Failed to load plugin ${spec.id}: ${errorMessage}`);
-
-        failedPlugins.push({ id: spec.id, error: errorMessage });
-
-        setPlugins((oldPlugins) =>
-          produce(oldPlugins, (draft) => {
-            const plugin = draft.find((plugin) => plugin.id === spec.id);
-            if (plugin) {
-              plugin.loaded = false;
-              plugin.error = errorMessage;
-            }
-          }),
-        );
+      if (isStale()) {
+        return plugin;
       }
-    }
 
-    // Show a single toast if any plugins failed
-    if (failedPlugins.length === 1) {
-      toast.error(`Plugin "${failedPlugins[0]!.id}" failed to load: ${failedPlugins[0]!.error}`);
-    } else if (failedPlugins.length > 1) {
-      toast.error(`${failedPlugins.length} plugins failed to load. Check Settings > Plugins for details.`);
-    }
+      updatePluginState(spec.id, { loaded: true });
 
-    for (const plugin of loadedPlugins.filter(isNotNull)) {
-      globalRivetNodeRegistry.registerPlugin(plugin);
       console.log(`Loaded plugin: ${plugin.id}`);
+      return plugin;
+    });
+
+    if (isStale()) {
+      return;
     }
 
+    // Update UI state for failed plugins
+    for (const fail of results.failed) {
+      console.error(`Failed to load plugin ${fail.id}: ${fail.error}`);
+      updatePluginState(fail.id, { loaded: false, error: fail.error });
+    }
+
+    // Show toast for failures
+    if (results.failed.length === 1) {
+      toast.error(`Plugin "${results.failed[0]!.id}" failed to load: ${results.failed[0]!.error}`);
+    } else if (results.failed.length > 1) {
+      toast.error(`${results.failed.length} plugins failed to load. Check Settings > Plugins for details.`);
+    }
+
+    replaceGlobalRivetNodeRegistry(registry);
     setPluginRefreshCounter((oldValue) => oldValue + 1);
   }, [pluginSpecs, retryCounter]);
 }

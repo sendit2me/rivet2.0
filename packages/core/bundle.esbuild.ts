@@ -19,6 +19,11 @@ const aliasModule = (moduleFrom: string, moduleTo: string): esbuild.Plugin => ({
   },
 });
 
+// CJS bundle configuration.
+// Several dependencies ship as ESM-only in their latest versions. The CJS bundle
+// aliases them to older CJS-compatible versions (installed via npm: aliases in
+// package.json) so that `require()` works at runtime. See pQueueCompat.ts for
+// the corresponding runtime normalization of the p-queue default export.
 const options: esbuild.BuildOptions = {
   entryPoints: ['src/index.ts'],
   bundle: true,
@@ -29,10 +34,10 @@ const options: esbuild.BuildOptions = {
   packages: 'external',
   sourcemap: true,
   plugins: [
-    aliasModule('lodash-es', 'lodash'),
-    aliasModule('p-queue', 'p-queue-6'),
-    aliasModule('emittery', 'emittery-0-13'),
-    aliasModule('p-retry', 'p-retry-4'),
+    aliasModule('lodash-es', 'lodash'), // lodash-es is ESM-only; lodash is CJS
+    aliasModule('p-queue', 'p-queue-6'), // p-queue v7+ is ESM-only; v6 is CJS
+    aliasModule('emittery', 'emittery-0-13'), // emittery v1+ is ESM-only; v0.13 is CJS
+    aliasModule('p-retry', 'p-retry-4'), // p-retry v6+ is ESM-only; v4 is CJS
   ],
 };
 

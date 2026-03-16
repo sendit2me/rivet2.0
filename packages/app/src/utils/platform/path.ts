@@ -1,5 +1,24 @@
 import { isInTauri, unsupported } from './core.js';
 
+export function getPathDirname(path: string): string {
+  const trimmedPath = path.replace(/[\\/]+$/, '');
+  const lastSeparatorIndex = Math.max(trimmedPath.lastIndexOf('/'), trimmedPath.lastIndexOf('\\'));
+
+  if (lastSeparatorIndex < 0) {
+    return '';
+  }
+
+  if (lastSeparatorIndex === 0) {
+    return trimmedPath.slice(0, 1);
+  }
+
+  if (lastSeparatorIndex === 2 && /^[A-Za-z]:/.test(trimmedPath)) {
+    return trimmedPath.slice(0, 3);
+  }
+
+  return trimmedPath.slice(0, lastSeparatorIndex);
+}
+
 export async function nativeAppLocalDataDir(): Promise<string> {
   if (!isInTauri()) {
     unsupported('App local data directory');

@@ -6,6 +6,7 @@ import { deserializeProject, type GraphId, serializeGraph, type Project } from '
 import { graphState } from '../state/graph';
 import isEqual from 'fast-deep-equal';
 import { type CalculatedRevision, ProjectRevisionCalculator } from '../utils/ProjectRevisionCalculator';
+import { getPathDirname } from '../utils/platform/path.js';
 import { createNativeCommand } from '../utils/platform/shell.js';
 
 const revisionCalculators = new Map<string, ProjectRevisionCalculator>();
@@ -121,7 +122,7 @@ export function useHasGitHistory() {
       return;
     }
 
-    const pathDirname = projectPath.split('/').slice(0, -1).join('/');
+    const pathDirname = getPathDirname(projectPath);
 
     const command = await createNativeCommand('git', ['rev-list', '--count', 'HEAD'], {
       cwd: pathDirname,

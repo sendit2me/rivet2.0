@@ -116,12 +116,27 @@ Runs:
 - CJS bundle via `tsx bundle.esbuild.ts`
 - watch mode via `tsc -b -w`
 
+#### CJS bundle alias strategy
+
+The CJS bundle (built by `bundle.esbuild.ts`) targets Node 16 and aliases several ESM-only dependencies to older CJS-compatible versions:
+
+| ESM dependency | CJS alias        | Reason                         |
+|----------------|------------------|--------------------------------|
+| `lodash-es`    | `lodash`         | lodash-es is ESM-only          |
+| `p-queue`      | `p-queue-6`      | p-queue v7+ is ESM-only        |
+| `emittery`     | `emittery-0-13`  | emittery v1+ is ESM-only       |
+| `p-retry`      | `p-retry-4`      | p-retry v6+ is ESM-only        |
+
+The alias packages are installed via `npm:` aliases in `package.json`. Because the CJS `p-queue` alias wraps the default export differently, [`pQueueCompat.ts`](../packages/core/src/utils/pQueueCompat.ts) normalizes the import at runtime so consumers never need an inline type check.
+
+ESM-only packages that cannot be aliased (e.g. `mdast-util-to-markdown`, `@google/genai`) use dynamic `import()` at call sites instead.
+
 ### Node
 
 `packages/node/package.json`:
 
 - `build`: `build:esm` then `build:cjs`
-- CJS bundle reuses core's esbuild bundler script
+- CJS bundle reuses core's esbuild bundler script (same alias strategy applies)
 - `pretest`: builds `@ironclad/rivet-core` ESM output first, because the node tests import the workspace package through its published-style export surface
 
 ### App
@@ -144,6 +159,8 @@ Current dev/build detail:
 - `build`: `tsx scripts/build-executor.mts`
 - `dev`: `tsx watch --inspect=9228 --experimental-network-imports bin/executor.mts`
 - `start`: build then run bundled executor
+
+The build script (`scripts/build-executor.mts`) bundles the ESM source to CJS using esbuild, then compiles the CJS bundle into a native binary via `pkg`. CJS format is required because `pkg` needs static analysis of `require()` calls. A custom esbuild plugin (`resolveRivet`) inlines `@ironclad/rivet-*` packages from source, so the final bundle has zero external workspace dependencies.
 
 ### CLI
 

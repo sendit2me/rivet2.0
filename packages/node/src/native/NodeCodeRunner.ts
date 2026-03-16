@@ -3,6 +3,9 @@ import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import * as process from 'node:process';
 
+// Provide a CJS-style `require` to user-written Code Node scripts. Even though
+// rivet-node is ESM, user code may need `require()` for third-party modules.
+// The synthetic `.cjs` anchor tells Node to resolve from the current working dir.
 const runtimeRequire = createRequire(join(process.cwd(), '__rivet_node_code_runner__.cjs'));
 
 export class NodeCodeRunner implements CodeRunner {

@@ -6,17 +6,23 @@ import type {
   NodeId,
   NodeConnection,
   ChartNode,
-  PortId,
   ProjectId,
   ChartNodeVariant,
 } from '../../index.js';
-import stableStringify from 'safe-stable-stringify';
-import * as yaml from 'yaml';
 import { type AttachedData, doubleCheckProject } from './serializationUtils.js';
 import { entries } from '../typeSafety.js';
 import type { PluginLoadSpec } from '../../model/PluginLoadSpec.js';
 import type { CombinedDataset } from './serialization.js';
 import { type ProjectMetadata } from '../../model/Project.js';
+import {
+  type SerializedNodeConnection,
+  serializeConnection,
+  deserializeConnection,
+  parseVisualData,
+  packVisualDataV4,
+  wrapInYamlEnvelope,
+  unwrapYamlEnvelope,
+} from './serializationHelpers.js';
 
 type SerializedProject = {
   metadata: ProjectMetadata;
@@ -51,7 +57,7 @@ type SerializedNode = {
   isSplitRun?: boolean;
   splitRunMax?: number;
   isSplitSequential?: boolean;
-  visualData: SerializedVisualData;
+  visualData: string;
   outgoingConnections: SerializedNodeConnection[] | undefined;
   data?: unknown;
   variants?: ChartNodeVariant<unknown>[];
@@ -59,42 +65,16 @@ type SerializedNode = {
   isConditional?: boolean;
 };
 
-/** x/y/width/zIndex */
-type SerializedVisualData = `${string}/${string}/${string}/${string}`;
-
-// portId->nodeId/portId
-type SerializedNodeConnection = `${string}->"${string}" ${string}/${string}`;
-
 export function projectV4Deserializer(data: unknown): [Project, AttachedData] {
-  if (typeof data !== 'string') {
-    throw new Error('Project v4 deserializer requires a string');
-  }
-
-  const serializedProject = yaml.parse(data) as { version: number; data: SerializedProject };
-
-  if (serializedProject.version !== 4) {
-    throw new Error('Project v4 deserializer requires a version 4 project');
-  }
-
-  const [project, attachedData] = fromSerializedProject(serializedProject.data);
-
+  const serializedProject = unwrapYamlEnvelope<SerializedProject>(data, 4, 'Project v4');
+  const [project, attachedData] = fromSerializedProject(serializedProject);
   doubleCheckProject(project);
-
   return [project, attachedData];
 }
 
 export function graphV4Deserializer(data: unknown): NodeGraph {
-  if (typeof data !== 'string') {
-    throw new Error('Graph v4 deserializer requires a string');
-  }
-
-  const serializedGraph = yaml.parse(data) as { version: number; data: SerializedGraph };
-
-  if (serializedGraph.version !== 4) {
-    throw new Error('Graph v4 deserializer requires a version 4 graph');
-  }
-
-  return fromSerializedGraph(serializedGraph.data);
+  const serializedGraph = unwrapYamlEnvelope<SerializedGraph>(data, 4, 'Graph v4');
+  return fromSerializedGraph(serializedGraph);
 }
 
 export function projectV4Serializer(project: Project, attachedData?: AttachedData): unknown {
@@ -106,39 +86,11 @@ export function projectV4Serializer(project: Project, attachedData?: AttachedDat
     },
   };
 
-  // Make sure all data is ordered deterministically first
-  const stabilized = JSON.parse(stableStringify(toSerializedProject(filteredProject, attachedData)));
-
-  const serialized = yaml.stringify(
-    {
-      version: 4,
-      data: stabilized,
-    },
-    null,
-    {
-      indent: 2,
-    },
-  );
-
-  return serialized;
+  return wrapInYamlEnvelope(4, toSerializedProject(filteredProject, attachedData));
 }
 
 export function graphV4Serializer(graph: NodeGraph): unknown {
-  // Make sure all data is ordered deterministically first
-  const stabilized = JSON.parse(stableStringify(toSerializedGraph(graph)));
-
-  const serialized = yaml.stringify(
-    {
-      version: 4,
-      data: stabilized,
-    },
-    null,
-    {
-      indent: 2,
-    },
-  );
-
-  return serialized;
+  return wrapInYamlEnvelope(4, toSerializedGraph(graph));
 }
 
 function toSerializedProject(project: Project, attachedData?: AttachedData): SerializedProject {
@@ -195,7 +147,7 @@ function getGraphNodeKey(node: ChartNode): string {
 
 function deserializeGraphNodeKey(key: string): [NodeId, string, string] {
   const { nodeId, type, title } = key.match(/^\[(?<nodeId>[^\]]+)\]:(?<type>[^\s]+) "(?<title>.*)"$/)?.groups ?? {};
-  if (!nodeId || !type || !title) {
+  if (!nodeId || !type || title == null) {
     throw new Error(`Invalid graph node key: ${key}`);
   }
   return [nodeId as NodeId, type, title];
@@ -231,13 +183,11 @@ function fromSerializedGraph(serializedGraph: SerializedGraph): NodeGraph {
 function toSerializedNode(node: ChartNode, allNodes: ChartNode[], allConnections: NodeConnection[]): SerializedNode {
   const outgoingConnections = allConnections
     .filter((connection) => connection.outputNodeId === node.id)
-    .map((connection) => toSerializedConnection(connection, allNodes))
+    .map((connection) => serializeConnection(connection, allNodes))
     .sort();
   return {
     description: node.description?.trim() ? node.description : undefined,
-    visualData: `${node.visualData.x}/${node.visualData.y}/${node.visualData.width ?? 'null'}/${
-      node.visualData.zIndex ?? 'null'
-    }/${node.visualData.color?.border ?? ''}/${node.visualData.color?.bg ?? ''}`,
+    visualData: packVisualDataV4(node),
     isSplitRun: node.isSplitRun ? true : undefined,
     splitRunMax: node.isSplitRun ? node.splitRunMax : undefined,
     isSplitSequential: node.isSplitSequential ? true : undefined,
@@ -255,12 +205,10 @@ function fromSerializedNode(
 ): [ChartNode, NodeConnection[]] {
   const [nodeId, type, title] = deserializeGraphNodeKey(serializedNodeInfo);
 
-  const [x, y, width, zIndex, borderColor, bgColor] = serializedNode.visualData.split('/');
+  const { x, y, width, zIndex, borderColor, bgColor } = parseVisualData(serializedNode.visualData);
 
   const connections =
-    serializedNode.outgoingConnections?.map((serializedConnection) =>
-      fromSerializedConnection(serializedConnection, nodeId),
-    ) ?? [];
+    serializedNode.outgoingConnections?.map((conn) => deserializeConnection(conn, nodeId)) ?? [];
 
   const color = borderColor || bgColor ? { border: borderColor!, bg: bgColor! } : undefined;
 
@@ -274,10 +222,10 @@ function fromSerializedNode(
       splitRunMax: serializedNode.splitRunMax ?? 10,
       isSplitSequential: serializedNode.isSplitSequential ?? false,
       visualData: {
-        x: parseFloat(x!),
-        y: parseFloat(y!),
-        width: width === 'null' ? undefined : parseFloat(width!),
-        zIndex: zIndex === 'null' ? undefined : parseFloat(zIndex!),
+        x,
+        y,
+        width,
+        zIndex,
         color,
       },
       data: serializedNode.data ?? {},
@@ -289,45 +237,14 @@ function fromSerializedNode(
   ];
 }
 
-function toSerializedConnection(connection: NodeConnection, allNodes: ChartNode[]): SerializedNodeConnection {
-  return `${connection.outputId}->"${allNodes.find((node) => node.id === connection.inputNodeId)?.title}" ${
-    connection.inputNodeId
-  }/${connection.inputId}`;
-}
-
-function fromSerializedConnection(connection: SerializedNodeConnection, nodeId: NodeId): NodeConnection {
-  try {
-    const [, outputId, , inputNodeId, inputId] = connection.match(/(.+)->"(.+)"\s+(.+)\/(.+)/)!;
-
-    return {
-      outputId: outputId as PortId,
-      outputNodeId: nodeId,
-      inputId: inputId as PortId,
-      inputNodeId: inputNodeId as NodeId,
-    };
-  } catch (err) {
-    throw new Error(`Invalid connection: ${connection}`);
-  }
-}
-
 export function datasetV4Serializer(datasets: CombinedDataset[]): string {
-  const dataContainer = {
-    datasets,
-  };
-
-  const data = JSON.stringify(dataContainer);
-
-  return data;
+  return JSON.stringify({ datasets });
 }
 
 export function datasetV4Deserializer(serializedDatasets: string): CombinedDataset[] {
-  const stringData = serializedDatasets as string;
-
-  const dataContainer = JSON.parse(stringData) as { datasets: CombinedDataset[] };
-
+  const dataContainer = JSON.parse(serializedDatasets) as { datasets: CombinedDataset[] };
   if (!dataContainer.datasets) {
     throw new Error('Invalid dataset data');
   }
-
   return dataContainer.datasets;
 }

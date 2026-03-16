@@ -640,7 +640,7 @@ Responsibilities are now split by capability rather than by current desktop impl
 - `window.ts`: window handles and global shortcuts
 - `dialog.ts`: open/save dialogs
 - `fs.ts`: filesystem reads/writes
-- `path.ts`: app data/log paths and path joining
+- `path.ts`: app data/log paths plus cross-platform path helpers used by revision/project flows and plugin installation paths
 - `http.ts`: native/browser HTTP helpers
 - `updater.ts`: updater status, install, and event subscription
 
@@ -795,21 +795,22 @@ This hook is the main project-plugin loading pipeline.
 Current sequence:
 
 1. read plugin specs from `projectPluginsState`
-2. reset the global node registry
-3. populate loading-state UI entries
-4. load each plugin based on spec type
-5. mark success/failure in app plugin state
-6. show aggregated failure toasts
-7. register loaded plugins into `globalRivetNodeRegistry`
-8. bump the plugin refresh counter
+2. seed `pluginsState` with one loading entry per spec
+3. start a generation-tracked async load pass so stale completions from an older plugin set cannot overwrite the current UI state or global registry
+4. call `assembleRegistry(specs, loadPlugin)` from core's `RegistryAssembly.ts` — this creates a fresh built-in registry and loads each plugin via a caller-provided loader
+5. mark per-plugin success/failure in app plugin state as results arrive
+6. ignore the finished result completely if a newer generation has superseded it
+7. show aggregated failure toasts for the active generation
+8. install the assembled registry globally via `replaceGlobalRivetNodeRegistry(registry)`
+9. bump the plugin refresh counter
 
-Supported load paths:
+Supported load paths (inside the `loadPlugin` callback):
 
-- built-in plugin from core export map
-- URI plugin via dynamic import
-- package plugin via `useLoadPackagePlugin`
+- built-in plugin via `resolveBuiltInPlugin(id)` from `RegistryAssembly.ts`
+- URI plugin via dynamic import, with initializer resolution that tolerates wrapped `default` exports from CJS/ESM interop
+- package plugin via `useLoadPackagePlugin`, using the same initializer-resolution behavior after loading the installed module
 
-This matters for refactors because node availability in the editor is partially rebuilt from scratch whenever project plugins change.
+This matters for refactors because node availability in the editor is partially rebuilt from scratch whenever project plugins change. The generation guard is part of the behavioral contract now: plugin retries or rapid project/plugin switching must not let an older async load pass replace newer plugin state or the active global registry. The `assembleRegistry()` helper is shared with the sidecar, so registry construction logic stays in one place.
 
 ### `PluginsOverlay`
 

@@ -12,7 +12,6 @@ import { invokeNative } from '../utils/platform/core.js';
 import {
   nativeCreateDir,
   nativeExists,
-  nativeReadDir,
   nativeReadTextFile,
   nativeRemoveDir,
   nativeWriteBinaryFile,
@@ -20,6 +19,7 @@ import {
 } from '../utils/platform/fs.js';
 import { nativeAppLocalDataDir, nativeJoinPath } from '../utils/platform/path.js';
 import { createNativeSidecarCommand } from '../utils/platform/shell.js';
+import { importPluginInitializer } from '../utils/pluginInitializer.js';
 
 export function useLoadPackagePlugin(options: { onLog?: (message: string) => void } = {}) {
   const [packageInstallLog, setPackageInstallLog] = useState('');
@@ -29,42 +29,41 @@ export function useLoadPackagePlugin(options: { onLog?: (message: string) => voi
     options.onLog?.(message);
   };
 
+  const fetchNpmPackageData = async <T>(spec: PackagePluginLoadSpec): Promise<T> => {
+    const response = await nativeFetch<T>(`https://registry.npmjs.org/${spec.package}/${spec.tag}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+    });
+
+    if (response.status === 404) {
+      throw new Error(`Plugin not found on NPM: ${spec.package}@${spec.tag}`);
+    }
+
+    if (response.status !== 200) {
+      throw new Error(`Error loading plugin from NPM: ${spec.package}@${spec.tag}`);
+    }
+
+    return response.data;
+  };
+
   const loadPackagePlugin = async (spec: PackagePluginLoadSpec): Promise<RivetPlugin> => {
     const localDataDir = await nativeAppLocalDataDir();
 
     const pluginDir = await nativeJoinPath(localDataDir, `plugins/${spec.package}-${spec.tag}`);
     const pluginFilesPath = await nativeJoinPath(pluginDir, 'package');
+    const packageJsonPath = await nativeJoinPath(pluginFilesPath, 'package.json');
 
     let needsReinstall = false;
 
     try {
       if (await nativeExists(pluginFilesPath)) {
-        const packageJson = await nativeJoinPath(pluginFilesPath, 'package.json');
-
-        if (await nativeExists(packageJson)) {
+        if (await nativeExists(packageJsonPath)) {
           log(`Checking for plugin updates: ${spec.package}@${spec.tag}\n`);
-          const { version } = JSON.parse(await nativeReadTextFile(packageJson));
-
-          const npmPackageData = await nativeFetch<{ version: string }>(
-            `https://registry.npmjs.org/${spec.package}/${spec.tag}`,
-            {
-              method: 'GET',
-              headers: {
-                'Content-Type': 'application/json',
-                Accept: 'application/json',
-              },
-            },
-          );
-
-          if (npmPackageData.status === 404) {
-            throw new Error(`Plugin not found on NPM: ${spec.package}@${spec.tag}`);
-          }
-
-          if (npmPackageData.status !== 200) {
-            throw new Error(`Error loading plugin from NPM: ${spec.package}@${spec.tag}`);
-          }
-
-          const latestVersion = npmPackageData.data.version;
+          const { version } = JSON.parse(await nativeReadTextFile(packageJsonPath));
+          const { version: latestVersion } = await fetchNpmPackageData<{ version: string }>(spec);
 
           if (semverGt(latestVersion, version)) {
             log(`Plugin update available: ${spec.package}@${spec.tag} -> ${latestVersion}\n`);
@@ -108,26 +107,9 @@ export function useLoadPackagePlugin(options: { onLog?: (message: string) => voi
       log(`Plugin not found locally or needs reinstall: ${spec.package}@${spec.tag}, downloading from NPM...\n`);
 
       // Download from NPM and install to plugins directory
-      const npmPackageData = await nativeFetch<{ dist: { tarball: string } }>(
-        `https://registry.npmjs.org/${spec.package}/${spec.tag}`,
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            Accept: 'application/json',
-          },
-        },
-      );
-
-      if (npmPackageData.status === 404) {
-        throw new Error(`Plugin not found on NPM: ${spec.package}@${spec.tag}`);
-      }
-
-      if (npmPackageData.status !== 200) {
-        throw new Error(`Error loading plugin from NPM: ${spec.package}@${spec.tag}`);
-      }
-
-      const tarball = npmPackageData.data.dist.tarball;
+      const {
+        dist: { tarball },
+      } = await fetchNpmPackageData<{ dist: { tarball: string } }>(spec);
 
       log(`Downloading plugin tarball from NPM: ${tarball}\n`);
 
@@ -152,8 +134,6 @@ export function useLoadPackagePlugin(options: { onLog?: (message: string) => voi
       await invokeNative('extract_package_plugin_tarball', {
         path: tarDestination,
       });
-
-      const packageJsonPath = await nativeJoinPath(pluginFilesPath, 'package.json');
 
       if (await nativeExists(packageJsonPath)) {
         const packageJsonContents = JSON.parse(await nativeReadTextFile(packageJsonPath));
@@ -189,14 +169,11 @@ export function useLoadPackagePlugin(options: { onLog?: (message: string) => voi
       await nativeWriteTextFile(completedInstallVersionFile, spec.tag);
     }
 
-    const files = await nativeReadDir(pluginFilesPath);
-
-    const packageJson = files.find((file) => file.name === 'package.json');
-    if (!packageJson) {
+    if (!(await nativeExists(packageJsonPath))) {
       throw new Error(`Plugin package.json not found: ${spec.package}@${spec.tag}`);
     }
 
-    const packageJsonContents = JSON.parse(await nativeReadTextFile(`${pluginFilesPath}/${packageJson.name}`));
+    const packageJsonContents = JSON.parse(await nativeReadTextFile(packageJsonPath));
 
     const main = packageJsonContents.main;
 
@@ -212,17 +189,11 @@ export function useLoadPackagePlugin(options: { onLog?: (message: string) => voi
 
     try {
       log(`Initializing plugin: ${spec.package}@${spec.tag}\n`);
-      const pluginInitializer = (await import(
-        /* @vite-ignore */ `data:application/javascript;base64,${b64Contents}`
-      )) as {
-        default: Rivet.RivetPluginInitializer;
-      };
-
-      if (typeof pluginInitializer.default !== 'function') {
-        throw new Error(`Plugin ${spec.package}@${spec.tag} is not a function`);
-      }
-
-      const initializedPlugin = pluginInitializer.default(Rivet);
+      const pluginInitializer = await importPluginInitializer(
+        `data:application/javascript;base64,${b64Contents}`,
+        `${spec.package}@${spec.tag}`,
+      );
+      const initializedPlugin = pluginInitializer(Rivet);
 
       return initializedPlugin;
     } catch (e) {

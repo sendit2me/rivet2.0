@@ -13,6 +13,7 @@ import { uint8ArrayToBase64Sync, base64ToUint8Array } from '../utils/base64.js';
 import { isPlainObject } from 'lodash-es';
 import { stringifyJsonStream, type SerializableJsonValue, parseJsonStream, streamToIterable } from 'json-stream-es';
 import fnv1a from '../vendor/fnv1a.js';
+import { emitDetached } from '../utils/emitDetached.js';
 
 export type ExecutionRecorderEvents = {
   finish: { recording: Recording };
@@ -248,8 +249,7 @@ export class ExecutionRecorder {
         this.#events.push(toRecordedEvent(message, data) as RecordedEvents);
 
         if (message === 'done' || message === 'abort' || message === 'error') {
-          // eslint-disable-next-line @typescript-eslint/no-floating-promises
-          this.#emitter.emit('finish', {
+          emitDetached(this.#emitter, 'finish', {
             recording: this.getRecording(),
           });
 
@@ -277,8 +277,7 @@ export class ExecutionRecorder {
       this.#events.push(toRecordedEvent(event, data) as RecordedEvents);
 
       if (event === 'done' || event === 'abort' || event === 'error') {
-        // eslint-disable-next-line @typescript-eslint/no-floating-promises
-        this.#emitter.emit('finish', {
+        emitDetached(this.#emitter, 'finish', {
           recording: this.getRecording(),
         });
       }

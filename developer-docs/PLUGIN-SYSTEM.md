@@ -188,19 +188,23 @@ The app's main plugin-loading path is [`useProjectPlugins.ts`](../packages/app/s
 ### Current sequence
 
 1. read plugin specs from `projectPluginsState`
-2. reset the global node registry to built-ins only
-3. seed app plugin state with loading metadata
-4. load each plugin one by one by spec type
-5. record success/failure in `pluginsState`
-6. show aggregate failure toasts
-7. register successfully loaded plugins into `globalRivetNodeRegistry`
-8. increment `pluginRefreshCounterState`
+2. seed `pluginsState` with one loading entry per spec
+3. start a generation-tracked async load pass so stale completions from an older plugin set cannot overwrite the current UI state or global registry
+4. call `assembleRegistry(specs, loadPlugin)` from `RegistryAssembly.ts`, which creates a fresh built-in registry and then loads/registers each plugin via a caller-provided loader
+5. record per-plugin success/failure in `pluginsState` as results arrive
+6. ignore the finished result completely if a newer generation has superseded it
+7. show aggregate failure toasts for the active generation
+8. install the assembled registry globally via `replaceGlobalRivetNodeRegistry(registry)`
+9. increment `pluginRefreshCounterState`
 
 ### Implications
 
 - plugin availability is rebuilt whenever project plugin specs or retry state changes
 - registry state is mutable and project-dependent
 - editor behavior that depends on node constructors must tolerate registry refreshes
+- the app and sidecar share the same `assembleRegistry()` helper, keeping registry construction logic in one place
+- the app normalizes wrapped default exports for external plugin modules before invoking the initializer, so editor-side loading matches sidecar/runtime behavior for mixed CJS/ESM plugins
+- the generation guard is now part of the app-side contract: older async plugin loads must never replace newer plugin state or the active global registry
 
 ## URI Plugin Loading
 
@@ -208,7 +212,7 @@ URI plugins are loaded in the app with dynamic import.
 
 Current expectations:
 
-- module default export must be a `RivetPluginInitializer`
+- the module must resolve to a `RivetPluginInitializer`, either directly or through one or two nested `default` wrappers created by CJS/ESM interop
 - initializer is invoked with the full core API namespace
 - resulting plugin must have an `id`
 
@@ -221,9 +225,10 @@ Package plugins are primarily a desktop-app capability.
 Current flow:
 
 - package spec is resolved by app plugin loading
-- installation/loading work is delegated through app-specific package-plugin helpers
-- Tauri/native capabilities are used for extraction and installation
-- the plugin is imported from its installed package output
+- installation/loading work is delegated through `useLoadPackagePlugin`
+- Tauri/native capabilities are used to fetch registry metadata, download/extract tarballs, manage the installed package directory, and install production dependencies when needed
+- the app currently reads the installed main file, converts it to a `data:` import, and normalizes the initializer through the same helper used by URI plugin loading
+- reinstall decisions are path- and version-aware: the loader checks local package state, installed dependency presence, the completion marker file, and skips reinstall for git-working-copy plugins
 
 Related runtime assumptions appear in multiple places:
 
@@ -231,18 +236,17 @@ Related runtime assumptions appear in multiple places:
 - Tauri plugin extraction support
 - `app-executor` package-plugin lookup under app data directories
 
-This is one of the strongest cross-package plugin couplings in the repo.
-
 ## Sidecar and Runtime Plugin Loading
 
 ### App executor
 
-`packages/app-executor/bin/executor.mts` rebuilds a fresh `NodeRegistration` and:
+`packages/app-executor/bin/executor.mts` uses `assembleRegistry(specs, loadPlugin)` from core's `RegistryAssembly.ts` to build a fresh registry for each graph run:
 
-- registers built-in nodes
-- walks the project's plugin specs
-- loads built-in, URI, and package plugins
-- registers them into the execution registry used for the run
+- the `assembleRegistry()` call creates a built-in registry and loads each plugin spec via a callback
+- built-in plugins are resolved through `resolveBuiltInPlugin(id)`
+- URI and package plugins are dynamically imported through `importPluginInitializer(specifier, pluginId)`, a local helper that normalizes CJS/ESM default-export wrapping
+- package plugins are loaded from the already-installed package files in the app-data plugin directory, using `pathToFileURL(mainPath)` so Windows file URLs are constructed correctly
+- the assembled registry is passed directly to `createProcessor()` without mutating the global
 
 For package plugins, the sidecar expects installed plugin files under the app-data plugin directory structure.
 

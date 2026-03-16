@@ -206,11 +206,23 @@ Key APIs:
 - `getPluginFor(...)`
 - `getPlugins()`
 
+### Registry Assembly
+
+[`RegistryAssembly.ts`](../packages/core/src/model/RegistryAssembly.ts) encapsulates the full registry lifecycle:
+
+- `createBuiltInRegistry()` — creates a fresh registry populated with all built-in nodes
+- `resolveBuiltInPlugin(id)` — resolves a built-in plugin by ID from `plugins.ts`
+- `registerPluginsIntoRegistry(registry, plugins)` — registers an array of plugins into an existing registry
+- `assembleRegistry(specs, loadPlugin)` — end-to-end helper: creates a built-in registry, then loads and registers plugin specs one by one so per-plugin load/registration failures are recorded without aborting the whole assembly
+
+The app uses `assembleRegistry()` + `replaceGlobalRivetNodeRegistry()` (from `Nodes.ts`) to rebuild the global registry when project plugins change. The sidecar (`app-executor`) uses the same `assembleRegistry()` helper but passes the result directly to `createProcessor()` without touching the global.
+
 Architectural significance:
 
 - this registry is the bridge between serialized graph data and executable node implementations
 - the app, node package, and sidecar all depend on this working consistently
 - plugin loading mutates runtime availability through this registry
+- `assembleRegistry()` returns a fresh registry without mutating the global, so callers choose whether to install it globally
 
 ## Built-In Plugins
 
@@ -356,9 +368,11 @@ The processor also exposes:
 - `events()` async generator for streaming-style consumption
 - dedicated `onUserEvent(...)` and `offUserEvent(...)` helpers
 
+Fire-and-forget event emission uses [`emitDetached(emitter, event, data)`](../packages/core/src/utils/emitDetached.ts), a thin wrapper around `void emitter.emit(...)` that makes the intent explicit. All detached emissions in `GraphProcessor`, `RecordingPlayer`, and `ExecutionRecorder` use this helper instead of inline `eslint-disable` suppressions.
+
 ### Scheduling model
 
-The processor uses `p-queue` with effectively unbounded concurrency for queued node execution.
+The processor uses `p-queue` with effectively unbounded concurrency for queued node execution. The import is normalized through [`pQueueCompat.ts`](../packages/core/src/utils/pQueueCompat.ts), which handles the CJS/ESM default-export interop (see Build-and-CI docs for the CJS alias strategy).
 
 Execution is dataflow-driven:
 
@@ -561,10 +575,20 @@ Serialization lives in [`packages/core/src/utils/serialization/`](../packages/co
 
 ### Current behavior
 
-- version detection happens centrally
+- version detection happens centrally in `serializationUtils.ts`
 - project and graph deserialization dispatch by detected version
 - v4 is the active serializer/deserializer path
 - dataset serialization is handled separately through v4 dataset helpers
+
+### Shared helpers
+
+[`serializationHelpers.ts`](../packages/core/src/utils/serialization/serializationHelpers.ts) consolidates logic shared between V3 and V4 serializers:
+
+- `serializeConnection` / `deserializeConnection` — convert `NodeConnection` to/from the compact string format
+- `parseVisualData` / `packVisualDataV3` / `packVisualDataV4` — encode/decode node visual data (position, size, colors)
+- `wrapInYamlEnvelope` / `unwrapYamlEnvelope` — standard YAML version-envelope wrapping with validation
+
+Both `serialization_v3.ts` and `serialization_v4.ts` delegate to these shared helpers instead of keeping their own copies.
 
 ### Architectural significance
 
@@ -591,12 +615,14 @@ The app relies on this for execution replay and recording-driven UX.
 
 The most meaningful seams in core right now are:
 
-- `GraphProcessor` vs `SplitRunProcessor`
-- `NodeRegistration` vs concrete node/plugin definitions
+- `GraphProcessor` vs `SplitRunProcessor` vs `NodeExecutionPlanner` vs `SubprocessorBridge`
+- `NodeRegistration` vs `RegistryAssembly` vs concrete node/plugin definitions
 - `ProcessContext` and `buildNodeProcessContext(...)`
-- serialization modules by version
+- serialization modules by version, with shared helpers in `serializationHelpers.ts`
 - `exports.ts` as the public boundary
 - `plugins.ts` plus `model/Nodes.ts` as the two main capability registries
+- `emitDetached` as the single fire-and-forget emission pattern
+- `pQueueCompat` as the CJS/ESM interop boundary for p-queue
 
 ## Known Architectural Tensions
 

@@ -149,7 +149,9 @@ This registry is:
 
 - pre-populated with built-in nodes
 - mutated when plugins are registered
-- reset and rebuilt in some app/plugin-loading flows
+- rebuilt through `assembleRegistry()` + `replaceGlobalRivetNodeRegistry()` in app/plugin-loading flows
+
+Registry construction is centralized in [`RegistryAssembly.ts`](../packages/core/src/model/RegistryAssembly.ts). Both the app (`useProjectPlugins`) and sidecar (`executor.mts`) use `assembleRegistry()` to build a fresh registry from plugin specs, keeping the assembly logic in one place.
 
 That makes registry state one of the key global couplings in the repo.
 
