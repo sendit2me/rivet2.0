@@ -9,7 +9,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "yarn workspace @ironclad/rivet-app-executor run build && yarn workspace @ironclad/rivet-app run dev",
+    "dev": "node -e \"const { spawnSync } = require('node:child_process'); const env = { ...process.env, NODE_OPTIONS: '--max-old-space-size=8192' }; const run = (args) => { const result = spawnSync(process.execPath, ['.yarn/releases/yarn-4.6.0.cjs', ...args], { stdio: 'inherit', env }); if (result.status !== 0) process.exit(result.status ?? 1); }; run(['workspace', '@ironclad/rivet-app-executor', 'run', 'build']); run(['workspace', '@ironclad/rivet-app', 'run', 'dev']);\"",
     "release-node": "node --loader ts-node/esm --loader ./.pnp.loader.mjs release-node.mts",
     "publish-docs": "tsx publish-docs.mts",
     "build": "node --max-old-space-size=8192 .yarn/releases/yarn-4.6.0.cjs workspace @ironclad/rivet-core run build && node --max-old-space-size=8192 .yarn/releases/yarn-4.6.0.cjs workspace @ironclad/rivet-node run build && node --max-old-space-size=8192 .yarn/releases/yarn-4.6.0.cjs workspace @ironclad/rivet-app-executor run build && node --max-old-space-size=8192 .yarn/releases/yarn-4.6.0.cjs workspace @ironclad/trivet run build && node --max-old-space-size=8192 .yarn/releases/yarn-4.6.0.cjs workspace @ironclad/rivet-app run build && node --max-old-space-size=8192 .yarn/releases/yarn-4.6.0.cjs workspace @ironclad/rivet-cli run build",
