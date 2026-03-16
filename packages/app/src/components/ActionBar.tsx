@@ -23,6 +23,7 @@ import { projectMetadataState } from '../state/savedGraphs';
 import { graphMetadataState } from '../state/graph';
 import { type GraphId } from '@ironclad/rivet-core';
 import { syncWrapper } from '../utils/syncWrapper';
+import { getActionBarExecutionState } from '../state/selectors/executionSelectors.js';
 
 const styles = css`
   position: fixed;
@@ -149,8 +150,13 @@ export const ActionBar: FC<ActionBarProps> = ({ onRunGraph, onAbortGraph, onPaus
   const [menuIsOpen, toggleMenuIsOpen] = useToggle();
   const selectedExecutor = useAtomValue(defaultExecutorState);
 
-  const { remoteDebuggerState: remoteDebugger, disconnect } = useRemoteDebugger();
-  const isActuallyRemoteDebugging = remoteDebugger.started && !remoteDebugger.isInternalExecutor;
+  const { sessionState: remoteDebugger, disconnect } = useRemoteDebugger();
+  const actionBarExecutionState = getActionBarExecutionState({
+    graphPaused,
+    graphRunning,
+    selectedExecutor,
+    session: remoteDebugger,
+  });
   const [copyAsTestCaseModalOpen, toggleCopyAsTestCaseModalOpen] = useToggle();
 
   const plugins = useDependsOnPlugins();
@@ -158,13 +164,12 @@ export const ActionBar: FC<ActionBarProps> = ({ onRunGraph, onAbortGraph, onPaus
   const gentracePlugin = plugins.find((plugin) => plugin.id === 'gentrace');
   const isGentracePluginEnabled = !!gentracePlugin;
 
-  const canRun = (remoteDebugger.started && !remoteDebugger.reconnecting) || selectedExecutor === 'browser';
   const hasMainGraph = projectMetadata.mainGraphId != null;
   const isMainGraph = hasMainGraph && graphMetadata?.id === projectMetadata.mainGraphId;
 
   return (
     <div css={styles}>
-      {(isActuallyRemoteDebugging || (!remoteDebugger.isInternalExecutor && remoteDebugger.reconnecting)) && (
+      {actionBarExecutionState.showRemoteDebuggerBanner && (
         <div
           className={clsx('remote-debugger-button active', {
             reconnecting: remoteDebugger.reconnecting,
@@ -205,7 +210,7 @@ export const ActionBar: FC<ActionBarProps> = ({ onRunGraph, onAbortGraph, onPaus
         </div>
       )}
       <div className={clsx('run-button', { running: graphRunning, recording: !!loadedRecording })}>
-        {canRun && (
+        {actionBarExecutionState.canRun && (
           <button onClick={() => (graphRunning ? onAbortGraph?.() : onRunGraph?.({ graphId: graphMetadata?.id }))}>
             {graphRunning ? (
               <>
@@ -225,7 +230,7 @@ export const ActionBar: FC<ActionBarProps> = ({ onRunGraph, onAbortGraph, onPaus
       </div>
       {hasMainGraph && !isMainGraph && !graphRunning && (
         <div className={clsx('run-button', { running: graphRunning })}>
-          {canRun && (
+          {actionBarExecutionState.canRun && (
             <button
               onClick={() => (graphRunning ? onAbortGraph?.() : onRunGraph?.({ graphId: projectMetadata.mainGraphId }))}
             >

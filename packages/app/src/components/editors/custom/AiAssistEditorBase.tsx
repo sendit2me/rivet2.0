@@ -26,7 +26,7 @@ import { syncWrapper } from '../../../utils/syncWrapper';
 import { modelSelectorOptions } from '../../../utils/modelSelectorOptions';
 import TextArea from '@atlaskit/textarea';
 import { selectedAssistModelState } from '../../../state/ai';
-import { nativeCreateDir, nativeWriteFile } from '../../../utils/nativeApp';
+import { nativeCreateDir, nativeWriteFile } from '../../../utils/platform/fs.js';
 
 const styles = css`
   display: flex;

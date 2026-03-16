@@ -110,6 +110,13 @@ Desktop IDE frontend plus Tauri app packaging layer.
 - Trivet UI
 - debugger/community/data/update overlays
 
+### Important current boundaries
+
+- execution transport/session ownership is centralized under `src/hooks/executorSession.ts` and `src/hooks/useExecutorSession.ts`
+- project/graph load-save-switch sequencing is centralized under `src/hooks/useWorkspaceTransitions.ts` and `src/utils/workspaceTransitions.ts`
+- platform-specific capabilities are split under `src/utils/platform/*`, with `nativeApp.ts` retained mainly as a compatibility barrel
+- the Tauri backend under `src-tauri/` also vendors the two small Tauri v1 plugin crates it depends on under `src-tauri/vendor/` to avoid current Cargo/git-workspace metadata breakage from the upstream plugins workspace template
+
 ### Version caveat
 
 The desktop product version is also tracked in `packages/app/src-tauri/tauri.conf.json`, which currently reports `1.11.3`.
@@ -134,10 +141,12 @@ The sidecar:
 - rebuilds a registry for the current project's plugins
 - runs graphs dynamically using `rivet-node` APIs
 - supports preload, pause, resume, abort, and user-input messages
+- supports run-from execution by accepting preload data and a `runFromNodeId`
 
 ### Architectural significance
 
 This package is effectively the app's Node execution backend and mirrors part of the plugin/runtime assembly work that also exists in the app.
+It is paired with the app-side shared executor session rather than being managed independently by each remote execution hook consumer.
 
 ## `@ironclad/rivet-cli` (`packages/cli/`)
 

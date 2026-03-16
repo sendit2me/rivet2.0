@@ -257,6 +257,52 @@ At a high level, it owns:
 - recording playback
 - process event emission
 
+Important current boundary:
+
+- graph-topology queries and readiness checks have been extracted into [`NodeExecutionPlanner.ts`](../packages/core/src/model/NodeExecutionPlanner.ts)
+- child-processor event/lifecycle wiring has been extracted into [`SubprocessorBridge.ts`](../packages/core/src/model/SubprocessorBridge.ts)
+- `GraphProcessor` still remains the public evented execution surface and the owner of execution state
+
+## Chat Runtime Seams
+
+`ChatNodeBase.ts` is still one of the larger remaining core hotspots, but it now has a dedicated helper seam under:
+
+- [`packages/core/src/model/chat/openAIChatRequest.ts`](../packages/core/src/model/chat/openAIChatRequest.ts)
+- [`packages/core/src/model/chat/openAIChatRuntime.ts`](../packages/core/src/model/chat/openAIChatRuntime.ts)
+- [`packages/core/src/model/chat/chatMessages.ts`](../packages/core/src/model/chat/chatMessages.ts)
+- [`packages/core/src/model/chat/tokenBudget.ts`](../packages/core/src/model/chat/tokenBudget.ts)
+- [`packages/core/src/model/chat/streamChatResponse.ts`](../packages/core/src/model/chat/streamChatResponse.ts)
+- [`packages/core/src/model/chat/chatCost.ts`](../packages/core/src/model/chat/chatCost.ts)
+
+Current responsibilities split this way:
+
+- `openAIChatRequest.ts`: request shaping shared inside the OpenAI-compatible chat path
+- `openAIChatRuntime.ts`: OpenAI-specific streaming/non-streaming execution and retry behavior
+- `chatMessages.ts`: prompt/input coercion into `ChatMessage[]` plus system-prompt injection helpers
+- `tokenBudget.ts`: shared prompt/max-token limit enforcement and request/response token output helpers
+- `streamChatResponse.ts`: streamed tool-call assembly and assistant-message reconstruction
+- `chatCost.ts`: prompt/completion/audio cost calculation and token-cost helpers
+
+These helpers are now reused across more than just `ChatNodeBase`:
+
+- `ChatNodeBase.ts`
+- `plugins/google/nodes/ChatGoogleNode.ts`
+- `plugins/anthropic/nodes/ChatAnthropicNode.ts`
+
+That means some of the former provider-level duplication is already removed in:
+
+- prompt-to-chat-message coercion
+- max-token clamping and warning generation
+- assistant `all-messages` output reconstruction
+- request/response token output wiring
+- OpenAI chat runtime orchestration and retry handling
+
+Current outcome:
+
+- `ChatNodeBase.ts` is now closer to node-definition/editor contract plus orchestration
+- the OpenAI execution loop is isolated from the node-definition surface
+- Google and Anthropic nodes now share more chat-pipeline helpers instead of each keeping their own prompt/token/output plumbing
+
 ### Current state model inside `GraphProcessor`
 
 The class maintains both:
@@ -265,6 +311,12 @@ The class maintains both:
 - per-run state, such as results, visited nodes, abort controllers, globals, loaded references, and queue state
 
 This distinction is important because some state is reused across runs and some is rebuilt on each `processGraph(...)`.
+
+Current behavioral detail:
+
+- helper paths such as `getDependencyNodesDeep(...)` can trigger preprocessing before `processGraph(...)` starts, because the app uses them for run-from preloading
+- `contextValues` are refreshed per `processGraph(...)` call even when reusing the same processor instance
+- pause waits are abort-aware, so aborting a paused run unwinds instead of waiting forever for a later `resume`
 
 ### Preprocessing
 
@@ -278,6 +330,10 @@ Before execution, `GraphProcessor`:
 - computes strongly connected components
 
 The SCC and preprocessing work are significant because they shape cycle handling and graph validation before the main execution loop.
+
+Current architectural detail:
+
+- preprocessing is not only a `processGraph(...)` concern; some public helper paths depend on it being available lazily
 
 ### Event system
 
@@ -310,6 +366,8 @@ Execution is dataflow-driven:
 - completion of one node can trigger downstream nodes
 - split-run can further fan a node into multiple executions
 
+The readiness/dependency logic used by this flow now lives largely in `NodeExecutionPlanner.ts`, while `GraphProcessor` coordinates queueing and mutable execution state.
+
 ### Control-flow model
 
 Control flow is implemented through data propagation rather than separate wire types.
@@ -336,6 +394,8 @@ Subprocessors:
 - participate in root-level pause/resume/abort behavior
 
 This means subgraphs are not a separate execution engine. They are nested processors wired into the same event and lifecycle model.
+
+The low-level event/lifecycle plumbing for that parent-child relationship now lives in `SubprocessorBridge.ts`.
 
 ### User input
 

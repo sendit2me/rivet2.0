@@ -100,7 +100,7 @@ export type OutgoingMessageMap = {
     graphId: GraphId;
     runToNodeIds?: NodeId[];
     contextValues: Record<string, DataValue>;
-    runFromNodeIds?: NodeId;
+    runFromNodeId?: NodeId;
     inputs?: GraphInputs;
     projectPath?: string | null;
   };

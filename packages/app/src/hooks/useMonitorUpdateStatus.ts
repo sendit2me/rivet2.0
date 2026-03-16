@@ -1,7 +1,8 @@
 import { useSetAtom } from 'jotai';
 import { updateStatusState } from '../state/settings';
 import useAsyncEffect from 'use-async-effect';
-import { isInTauri, onAppUpdaterEvent } from '../utils/nativeApp';
+import { isInTauri } from '../utils/platform/core.js';
+import { onAppUpdaterEvent } from '../utils/platform/updater.js';
 
 export function useMonitorUpdateStatus() {
   const setUpdateStatus = useSetAtom(updateStatusState);

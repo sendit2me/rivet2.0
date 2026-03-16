@@ -11,7 +11,6 @@ import {
   type Outputs,
   type PluginNodeImpl,
   type PortId,
-  type ScalarDataValue,
   type ChatMessageMessagePart,
 } from '../../../index.js';
 import {
@@ -33,17 +32,17 @@ import {
 import { nanoid } from 'nanoid/non-secure';
 import { dedent } from 'ts-dedent';
 import retry from 'p-retry';
-import { match } from 'ts-pattern';
 import { coerceType, coerceTypeOptional } from '../../../utils/coerceType.js';
-import { addWarning } from '../../../utils/outputs.js';
 import { getError } from '../../../utils/errors.js';
 import { pluginNodeDefinition } from '../../../model/NodeDefinition.js';
-import { getScalarTypeOf, isArrayDataValue } from '../../../model/DataValue.js';
 import type { TokenizerCallInfo } from '../../../integrations/Tokenizer.js';
 import { assertNever } from '../../../utils/assertNever.js';
 import { isNotNull } from '../../../utils/genericUtilFunctions.js';
 import { uint8ArrayToBase64 } from '../../../utils/base64.js';
 import { getInputOrData, cleanHeaders } from '../../../utils/inputs.js';
+import { coercePromptToChatMessages } from '../../../model/chat/chatMessages.js';
+import { clampMaxTokensToModelLimit, setRequestAndResponseTokenOutputs } from '../../../model/chat/tokenBudget.js';
+import { createAssistantMessagesOutput } from '../../../model/chat/streamChatResponse.js';
 
 export type ChatAnthropicNode = ChartNode<'chatAnthropic', ChatAnthropicNodeData>;
 
@@ -466,21 +465,7 @@ export const ChatAnthropicNodeImpl: PluginNodeImpl<ChatAnthropicNode> = {
       },
     };
 
-    if (tokenCountEstimate >= modelInfo.maxTokens) {
-      throw new Error(
-        `The model ${model} can only handle ${modelInfo.maxTokens} tokens, but ${tokenCountEstimate} were provided in the prompts alone.`,
-      );
-    }
-
-    if (tokenCountEstimate + maxTokens > modelInfo.maxTokens) {
-      const message = `The model can only handle a maximum of ${
-        modelInfo.maxTokens
-      } tokens, but the prompts and max tokens together exceed this limit. The max tokens has been reduced to ${
-        modelInfo.maxTokens - tokenCountEstimate
-      }.`;
-      addWarning(output, message);
-      maxTokens = Math.floor((modelInfo.maxTokens - tokenCountEstimate) * 0.95); // reduce max tokens by 5% to be safe, calculation is a little wrong.
-    }
+    maxTokens = clampMaxTokensToModelLimit(output, model, tokenCountEstimate, maxTokens, modelInfo.maxTokens);
 
     const headersFromData = (data.headers ?? []).reduce(
       (acc, header) => {
@@ -659,18 +644,19 @@ export const ChatAnthropicNodeImpl: PluginNodeImpl<ChatAnthropicNode> = {
                 id: tool.id,
               }));
 
-              output['all-messages' as PortId] = {
-                type: 'chat-message[]',
-                value: [
-                  ...rivetChatMessages,
-                  {
-                    type: 'assistant',
-                    message: responseParts.join('').trim(),
-                    function_call: functionCalls.length === 1 ? functionCalls[0] : undefined,
-                    function_calls: functionCalls.length > 0 ? functionCalls : undefined,
-                  } satisfies ChatMessage,
-                ],
-              };
+              output['all-messages' as PortId] = createAssistantMessagesOutput(
+                rivetChatMessages,
+                responseParts.join('').trim(),
+                functionCalls.length > 0
+                  ? functionCalls.map((call) => ({
+                      type: 'function' as const,
+                      id: call.id,
+                      name: call.name,
+                      arguments: typeof call.arguments === 'string' ? call.arguments : JSON.stringify(call.arguments),
+                    }))
+                  : undefined,
+                { functionCallMode: 'only' },
+              );
 
               context.onPartialOutputs?.(output);
             }
@@ -680,10 +666,9 @@ export const ChatAnthropicNodeImpl: PluginNodeImpl<ChatAnthropicNode> = {
               throw new Error('No response or tool calls received from Anthropic');
             }
 
-            output['requestTokens' as PortId] = { type: 'number', value: requestTokens ?? tokenCountEstimate };
             const responseTokenCount =
               responseTokens ?? (await context.tokenizer.getTokenCountForString(responseParts.join(''), tokenizerInfo));
-            output['responseTokens' as PortId] = { type: 'number', value: responseTokenCount };
+            setRequestAndResponseTokenOutputs(output, requestTokens ?? tokenCountEstimate, responseTokenCount);
           } else {
             // Use the normal chat completion method for non-Claude 3 models
             const chunks = streamChatCompletions({
@@ -712,24 +697,17 @@ export const ChatAnthropicNodeImpl: PluginNodeImpl<ChatAnthropicNode> = {
               throw new Error('No response from Anthropic');
             }
 
-            output['all-messages' as PortId] = {
-              type: 'chat-message[]',
-              value: [
-                ...rivetChatMessages,
-                {
-                  type: 'assistant',
-                  message: responseParts.join('').trim(),
-                  function_call: undefined,
-                  function_calls: undefined,
-                } satisfies ChatMessage,
-              ],
-            };
-            output['requestTokens' as PortId] = { type: 'number', value: tokenCountEstimate };
+            output['all-messages' as PortId] = createAssistantMessagesOutput(
+              rivetChatMessages,
+              responseParts.join('').trim(),
+              undefined,
+              { functionCallMode: 'only' },
+            );
             const responseTokenCount = await context.tokenizer.getTokenCountForString(
               responseParts.join(''),
               tokenizerInfo,
             );
-            output['responseTokens' as PortId] = { type: 'number', value: responseTokenCount };
+            setRequestAndResponseTokenOutputs(output, tokenCountEstimate, responseTokenCount);
           }
 
           const cost = getCostForTokens(
@@ -840,40 +818,7 @@ export function getSystemPrompt(inputs: Inputs): SystemPrompt | undefined {
 
 function getChatMessages(inputs: Inputs) {
   const prompt = inputs['prompt' as PortId];
-  if (!prompt) {
-    throw new Error('Prompt is required');
-  }
-
-  const chatMessages = match(prompt)
-    .with({ type: 'chat-message' }, (p) => [p.value])
-    .with({ type: 'chat-message[]' }, (p) => p.value)
-    .with({ type: 'string' }, (p): ChatMessage[] => [{ type: 'user', message: p.value }])
-    .with({ type: 'string[]' }, (p): ChatMessage[] => p.value.map((v) => ({ type: 'user', message: v })))
-    .otherwise((p): ChatMessage[] => {
-      if (isArrayDataValue(p)) {
-        const stringValues = (p.value as readonly unknown[]).map((v) =>
-          coerceType(
-            {
-              type: getScalarTypeOf(p.type),
-              value: v,
-            } as ScalarDataValue,
-            'string',
-          ),
-        );
-
-        return stringValues.filter((v) => v != null).map((v) => ({ type: 'user', message: v }));
-      }
-
-      const coercedMessage = coerceType(p, 'chat-message');
-      if (coercedMessage != null) {
-        return [coercedMessage];
-      }
-
-      const coercedString = coerceType(p, 'string');
-      return coercedString != null ? [{ type: 'user', message: coerceType(p, 'string') }] : [];
-    });
-
-  return chatMessages;
+  return coercePromptToChatMessages(prompt, { requirePrompt: true });
 }
 
 export async function chatMessagesToClaude3ChatMessages(chatMessages: ChatMessage[]): Promise<Claude3ChatMessage[]> {

@@ -18,6 +18,7 @@ import { useDependsOnPlugins } from '../../hooks/useDependsOnPlugins';
 import { Port } from '../Port';
 import { preservePortTextCaseState } from '../../state/settings';
 import { useCanvasHandlersContext, useCanvasViewContext } from '../CanvasContext';
+import { getSelectedProcessRun } from '../../state/selectors/executionSelectors.js';
 
 export const ZoomedOutVisualNodeContent: FC<{
   node: ChartNode;
@@ -43,10 +44,7 @@ export const ZoomedOutVisualNodeContent: FC<{
       useCanvasHandlersContext();
     const preservePortTextCase = useAtomValue(preservePortTextCaseState);
 
-    const selectedProcessRun =
-      lastRun && lastRun.length > 0
-        ? lastRun.at(processPage === 'latest' ? lastRun.length - 1 : processPage)?.data
-        : undefined;
+    const selectedProcessRun = getSelectedProcessRun(lastRun, processPage);
 
     const handleEditClick = useStableCallback((event: MouseEvent<HTMLButtonElement>) => {
       event.stopPropagation();

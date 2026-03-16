@@ -122,14 +122,20 @@ Runs:
 
 - `build`: `build:esm` then `build:cjs`
 - CJS bundle reuses core's esbuild bundler script
+- `pretest`: builds `@ironclad/rivet-core` ESM output first, because the node tests import the workspace package through its published-style export surface
 
 ### App
 
 `packages/app/package.json`:
 
 - `start`: Vite dev server
-- `dev`: `tauri dev`
+- `dev`: `node scripts/dev.mjs`
 - `build`: `tsc && vite build`
+
+Current dev/build detail:
+
+- `packages/app/scripts/dev.mjs` does a Windows-only cleanup pass for stale `src-tauri/target/*/app-executor.exe` processes before launching `tauri dev`, because Tauri's sidecar-copy step fails if a previous dev session left that copied sidecar binary locked
+- `packages/app/src-tauri/vendor/` now carries the small vendored Tauri v1 plugin crates (`tauri-plugin-persisted-scope` and `tauri-plugin-window-state`) so Cargo no longer has to parse the upstream `plugins-workspace` template manifest during metadata/check/dev runs
 
 ### App executor
 
@@ -144,8 +150,11 @@ Runs:
 `packages/cli/package.json`:
 
 - `build`: `tsc -b`
+- `test`: `tsx --test test/**/*.test.ts`
 - `start`: build then run CLI
 - `docker-publish`: delegated shell script
+
+The CLI now includes a small smoke suite so root `yarn test` / `npm run test` validates the package instead of failing on an empty test glob.
 
 ### Trivet
 
@@ -334,4 +343,5 @@ Visible from the current scripts/workflows:
 - Keep root build order aligned with runtime/package dependencies.
 - If moving or renaming packages, update root scripts, CI workflows, and publish scripts together.
 - If changing app-executor packaging, update both Tauri config and release/build assumptions.
+- If changing app execution/session code, manual verification should cover both Browser executor mode and Node executor mode in the desktop app, plus at least one multi-consumer path that listens to executor events while the main graph execution UI is mounted.
 - Treat docs publish and package publish scripts as operational code that deserves review, not just maintenance glue.

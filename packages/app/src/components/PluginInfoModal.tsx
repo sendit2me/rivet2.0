@@ -7,7 +7,7 @@ import { match } from 'ts-pattern';
 import { type PluginLoadSpec } from '../../../core/src/model/PluginLoadSpec';
 import useAsyncEffect from 'use-async-effect';
 import { CopyToClipboardButton } from './CopyToClipboardButton';
-import { nativeAppLocalDataDir, nativeJoinPath } from '../utils/nativeApp';
+import { nativeAppLocalDataDir, nativeJoinPath } from '../utils/platform/path.js';
 
 const pluginInfoModalBody = css`
   dl {

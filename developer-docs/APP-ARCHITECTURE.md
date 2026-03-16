@@ -136,9 +136,28 @@ The app can be thought of as six cooperating subsystems:
 
 Handles open-project switching and the top-of-window project context.
 
+Current workspace behavior:
+
+- creating a new blank project or template project adds a new open-project tab instead of replacing the existing open-project set
+- `projectsState` is the canonical multi-project tab store; `openedProjectsState` and `openedProjectsSortedIdsState` are compatibility projections over it
+- `useSyncCurrentStateIntoOpenedProjects` continuously snapshots the active project's in-memory graph state, current static project data, and `openedGraph` back into the tab store so switching tabs does not require an explicit save
+- closing/reordering project tabs still lives in `ProjectSelector.tsx`, not in the shared workspace transition layer
+
 ### `ActionBar`
 
 Surface for run, test, pause, resume, abort, and related execution actions. It delegates actual behavior to `useGraphExecutor`.
+
+### `SettingsModal`
+
+The settings UI is still coordinated by [`packages/app/src/components/SettingsModal.tsx`](../packages/app/src/components/SettingsModal.tsx), but the page content is no longer kept in one large component file.
+
+Current structure:
+
+- [`packages/app/src/components/settings/SettingsPages.tsx`](../packages/app/src/components/settings/SettingsPages.tsx) is now just a barrel export
+- individual settings pages live under [`packages/app/src/components/settings/pages/`](../packages/app/src/components/settings/pages)
+- shared plugin-config form rendering for the plugin pages lives in [`packages/app/src/components/settings/pages/PluginSettingsSection.tsx`](../packages/app/src/components/settings/pages/PluginSettingsSection.tsx)
+
+This is a better refactor seam because settings page changes no longer require editing one large file that mixes general preferences, OpenAI settings, plugin settings, custom plugin pages, and update behavior.
 
 ### `LeftSidebar`
 
@@ -211,7 +230,17 @@ Current responsibilities:
 - zoomed-out rendering decisions
 - drag overlay rendering
 
-The component is still large, but several concerns have already been extracted into hooks.
+The component is still one of the heavier files, but it is no longer one all-in-one render surface.
+
+Current structure:
+
+- [`packages/app/src/components/NodeCanvas.tsx`](../packages/app/src/components/NodeCanvas.tsx) now coordinates canvas state, hotkeys, and command wiring
+- viewport transform application and node/drag-overlay rendering live in [`packages/app/src/components/nodeCanvas/NodeCanvasViewport.tsx`](../packages/app/src/components/nodeCanvas/NodeCanvasViewport.tsx)
+- context menu, selection box, wire layer, and port tooltip rendering live in [`packages/app/src/components/nodeCanvas/NodeCanvasOverlays.tsx`](../packages/app/src/components/nodeCanvas/NodeCanvasOverlays.tsx)
+- mouse pan/zoom/selection-box/context-menu handlers live in [`packages/app/src/components/nodeCanvas/useNodeCanvasInteractions.ts`](../packages/app/src/components/nodeCanvas/useNodeCanvasInteractions.ts)
+- canvas styling lives in [`packages/app/src/components/nodeCanvas/nodeCanvasStyles.ts`](../packages/app/src/components/nodeCanvas/nodeCanvasStyles.ts)
+
+This keeps the top-level component closer to an orchestration layer and makes viewport math, overlay rendering, and interaction sequencing reviewable in isolation.
 
 ### Extracted hook seams in `NodeCanvas`
 
@@ -343,12 +372,23 @@ Current responsibilities:
 ### Extracted pieces
 
 - `usePromptDesignerMessages`
+- `usePromptDesignerAttachedNode`
+- `usePromptDesignerRunActions`
 - `PromptDesignerConfigPanel`
 - `PromptDesignerTestPanel`
+- `PromptDesignerMessageList`
+- `PromptDesignerResponsePane`
 - `PromptDesignerComponents`
 - `PromptDesignerTestRunner`
 
-This area is still coupled to chat-node structure and ad-hoc process-context creation, so it remains a meaningful refactor hotspot.
+Current architectural detail:
+
+- [`packages/app/src/components/PromptDesigner.tsx`](../packages/app/src/components/PromptDesigner.tsx) now acts as the overlay shell and high-level coordinator
+- attached-node syncing, config hydration, and test-group mutation logic live in [`packages/app/src/components/promptDesigner/usePromptDesignerAttachedNode.ts`](../packages/app/src/components/promptDesigner/usePromptDesignerAttachedNode.ts)
+- ad-hoc run/test orchestration and abort handling live in [`packages/app/src/components/promptDesigner/usePromptDesignerRunActions.ts`](../packages/app/src/components/promptDesigner/usePromptDesignerRunActions.ts)
+- the left and center panes are rendered through [`packages/app/src/components/promptDesigner/PromptDesignerMessageList.tsx`](../packages/app/src/components/promptDesigner/PromptDesignerMessageList.tsx) and [`packages/app/src/components/promptDesigner/PromptDesignerResponsePane.tsx`](../packages/app/src/components/promptDesigner/PromptDesignerResponsePane.tsx)
+
+This keeps prompt-designer overlay composition separate from chat-node syncing and run/test execution state, which makes future changes easier to localize.
 
 ## State Model
 
@@ -413,6 +453,8 @@ Important nuance:
 - `projectState` is stored as `Omit<Project, 'data'>`
 - large attached static data is held separately in `projectDataState`
 - per-project context values are persisted separately via `projectContextState(projectId)`
+- open-project tab state is persisted separately in `projectsState` and stores a per-tab project snapshot, `fsPath`, and optional `openedGraph`
+- when replacing the current project, `projectDataState` is replaced for the new project and the IndexedDB static-data cache is cleared before loading the new project's data
 
 ### Execution and data-flow state
 
@@ -423,6 +465,12 @@ Execution state is split between:
 
 `execution.ts` owns remote-debugger config and recording pointers.
 
+Important nuance:
+
+- the persisted debugger config still lives in `execution.ts`
+- compatibility booleans like `started`/`reconnecting` are still exposed there for older consumers
+- the authoritative runtime socket/session lifecycle now lives in `executorSession.ts`
+
 `dataFlow.ts` owns:
 
 - last-run data per node
@@ -430,6 +478,18 @@ Execution state is split between:
 - root graph ID
 - graph running/paused flags
 - selected process page per node
+
+The app now also has a small selector/helper layer for canonical execution-state derivation:
+
+- [`packages/app/src/state/selectors/executionSelectors.ts`](../packages/app/src/state/selectors/executionSelectors.ts)
+
+That layer centralizes:
+
+- selected process/run lookup for paged node output
+- node status-to-class derivation (`success`, `error`, `running`, `not-ran`)
+- action-bar run/debugger visibility decisions derived from executor session state
+
+UI consumers such as `ActionBar`, `VisualNode`, `NodeOutput`, `PortInfo`, and the visual-node content renderers should prefer those helpers over recomputing execution semantics locally.
 
 The per-node run data model is rich enough to store:
 
@@ -475,12 +535,19 @@ Current sequence:
 2. reset graph navigation stack
 3. cleanup old graph node atom families
 4. clear read-only/historical state
-5. load the target graph or fallback empty graph
-6. load static project data into app state
-7. persist loaded filesystem path
-8. load Trivet data if the IO provider supports path-based reads
+5. load the requested graph, otherwise fall back to the project's main graph and then to a stable sorted graph choice
+6. restore the chosen graph's saved viewport when available, otherwise center/reset the canvas like a normal graph switch
+7. clear prior static-data state and load the new project's static data into app state/IndexedDB
+8. persist loaded filesystem path
+9. load Trivet data if the IO provider supports path-based reads
 
 This hook is a critical refactor seam because it couples project replacement, graph replacement, atom-family cleanup, and Trivet hydration.
+
+Current architectural update:
+
+- `useLoadProject` is now a thin adapter over the shared workspace transition layer
+- the transition sequencing itself lives in [`packages/app/src/hooks/useWorkspaceTransitions.ts`](../packages/app/src/hooks/useWorkspaceTransitions.ts)
+- pure transition planning lives in [`packages/app/src/utils/workspaceTransitions.ts`](../packages/app/src/utils/workspaceTransitions.ts)
 
 ### `useLoadGraph`
 
@@ -495,6 +562,11 @@ Current sequence:
 
 This hook is the authoritative graph-switch path.
 
+Current architectural update:
+
+- `useLoadGraph` now delegates the shared sequencing to the workspace transition layer
+- viewport restoration/centering decisions are derived from transition output rather than repeated inline logic
+
 ### `useSaveProject`
 
 Current behavior:
@@ -503,7 +575,32 @@ Current behavior:
 - uses `saveProjectDataNoPrompt` when a path already exists
 - falls back to save-as when needed
 - persists Trivet test-suite data alongside the project
+- keeps the current open-project tab metadata intact when save/save-as updates the project's persisted path
 - shows slow-save toast feedback for large saves
+
+Current architectural update:
+
+- `useSaveProject` is now a thin adapter over the workspace transition layer
+- the transition layer owns graph-to-project syncing and the split between save-in-place and save-as
+
+### Shared workspace transition layer
+
+The app now has a dedicated workspace transition layer under:
+
+- [`packages/app/src/hooks/useWorkspaceTransitions.ts`](../packages/app/src/hooks/useWorkspaceTransitions.ts)
+- [`packages/app/src/utils/workspaceTransitions.ts`](../packages/app/src/utils/workspaceTransitions.ts)
+
+Responsibilities are split intentionally:
+
+- `workspaceTransitions.ts` holds pure transition planning and reusable workspace-state helpers
+- `useWorkspaceTransitions.ts` binds those transitions to Jotai state, static-data persistence, viewport updates, and optional path-based IO
+
+This matters for future work because it keeps path-based persistence concerns separate from the in-memory workspace flow that a future browser client would also need.
+
+Current boundary:
+
+- load-project, graph-switch, save/save-as, and new blank/template project initialization all reuse this sequencing
+- project-tab closing/reordering and active-tab snapshot syncing still live outside this layer in `ProjectSelector.tsx` and `useSyncCurrentStateIntoOpenedProjects.ts`
 
 ## File I/O and Runtime Abstraction
 
@@ -521,6 +618,41 @@ That abstraction is used so the same app code can work in:
 
 The app also keeps separate provider abstractions for datasets, audio, and related execution-time services through React providers.
 
+## Platform Capability Boundary
+
+The app now has an explicit platform adapter layer under:
+
+- [`packages/app/src/utils/platform/core.ts`](../packages/app/src/utils/platform/core.ts)
+- [`packages/app/src/utils/platform/shell.ts`](../packages/app/src/utils/platform/shell.ts)
+- [`packages/app/src/utils/platform/app.ts`](../packages/app/src/utils/platform/app.ts)
+- [`packages/app/src/utils/platform/window.ts`](../packages/app/src/utils/platform/window.ts)
+- [`packages/app/src/utils/platform/dialog.ts`](../packages/app/src/utils/platform/dialog.ts)
+- [`packages/app/src/utils/platform/fs.ts`](../packages/app/src/utils/platform/fs.ts)
+- [`packages/app/src/utils/platform/path.ts`](../packages/app/src/utils/platform/path.ts)
+- [`packages/app/src/utils/platform/http.ts`](../packages/app/src/utils/platform/http.ts)
+- [`packages/app/src/utils/platform/updater.ts`](../packages/app/src/utils/platform/updater.ts)
+
+Responsibilities are now split by capability rather than by current desktop implementation:
+
+- `core.ts`: environment detection and native command invocation
+- `shell.ts`: external URLs, commands, and sidecars
+- `app.ts`: app lifecycle/version helpers
+- `window.ts`: window handles and global shortcuts
+- `dialog.ts`: open/save dialogs
+- `fs.ts`: filesystem reads/writes
+- `path.ts`: app data/log paths and path joining
+- `http.ts`: native/browser HTTP helpers
+- `updater.ts`: updater status, install, and event subscription
+
+This is an architectural boundary, not just a file split:
+
+- product hooks/components should depend on the narrow capability they need
+- direct `@tauri-apps/api/*` imports are isolated to the platform adapter modules
+- browser-safe code paths can continue to import app logic without taking a broad desktop-only dependency at top level
+- the browser app build also aliases the deprecated `@google-cloud/vertexai` path to a stub so browser bundles do not pull in node-only Google auth SDKs
+
+[`packages/app/src/utils/nativeApp.ts`](../packages/app/src/utils/nativeApp.ts) remains only as a compatibility barrel. New code should prefer capability-specific imports instead of pulling the whole native surface through one module.
+
 ## Execution Architecture
 
 Execution is orchestrated from `useGraphExecutor`.
@@ -537,19 +669,19 @@ based on:
 - `defaultExecutorState`
 - whether the remote debugger/sidecar connection is active
 
-It also manages the sidecar lifecycle via `useExecutorSidecar`.
+The app shell now bootstraps execution through `useExecutorSession`, which centralizes:
+
+- Node-executor sidecar enablement
+- internal executor websocket bootstrap
+- disconnect cleanup when executor mode changes
 
 Current architectural detail:
 
-- the sidecar lifecycle is shared across hook consumers rather than owned by a single component instance
-- this is important because `useGraphExecutor` is consumed from multiple UI entry points
-- the app expects one internal sidecar process, not one sidecar per consumer
-
-Important code-level warning already present in the source:
-
-- this hook should live on components that do not unmount casually, because cleanup can disconnect the remote debugger unexpectedly
-
-That warning is real and should be treated as a current design constraint.
+- `RivetApp` mounts `useExecutorSession` once so executor session ownership does not follow every `useGraphExecutor` consumer
+- `useGraphExecutor` is now thinner and mainly selects local vs remote execution from shared session state
+- sidecar/socket session ownership no longer lives directly in `useGraphExecutor`
+- the app still expects one internal sidecar process, not one sidecar per consumer
+- in browser executor mode, a `connecting` or `reconnecting` remote session does not preempt local browser execution; remote execution is only selected once the shared session is actually `ready`
 
 ### Local executor
 
@@ -581,24 +713,50 @@ It also fills missing settings from environment variables before execution and i
 
 Current responsibilities:
 
-- maintain remote debugger connectivity
 - reconnect to the internal executor when appropriate
 - bridge remote debugger events into `useCurrentExecution`
 - upload dynamic project/settings/static data when remote upload is enabled
 - send preload data for run-from execution
 - send `run`, `pause`, `resume`, `abort`, and `user-input` messages
-- provide Trivet execution by awaiting remote completion through a promise bridge
+- provide Trivet execution by awaiting remote completion through the shared executor-session pending-run API
 
 Current architectural detail:
 
-- `useRemoteDebugger` is effectively a shared singleton connection manager
-- multiple components read remote-debugger state, but they should observe one shared socket lifecycle
-- this shared lifecycle is necessary to avoid duplicate connection attempts, reconnect thrash, and internal-executor instability when switching to Node mode
+- `useRemoteExecutor` no longer owns the websocket/session lifecycle directly
+- it consumes a shared executor session that owns connection state and pending remote run coordination
+- this keeps run/test behavior separate from transport/session behavior
+- read-only UI consumers should use shared session/debugger state directly rather than mounting `useRemoteExecutor`, because that hook still owns remote event subscriptions and execution side effects
 
 Notable current limitations:
 
-- the remote test/run completion flow uses a module-level promise bridge
-- comments in the source note this makes parallel processing awkward/impossible in remote debugger mode
+- remote execution still assumes one active pending remote graph completion at a time
+
+### Shared executor session
+
+The app now has a dedicated shared session layer under:
+
+- [`packages/app/src/hooks/executorSession.ts`](../packages/app/src/hooks/executorSession.ts)
+- [`packages/app/src/hooks/useExecutorSession.ts`](../packages/app/src/hooks/useExecutorSession.ts)
+
+This session layer owns:
+
+- websocket/socket reference
+- explicit session status (`idle`, `connecting`, `ready`, `reconnecting`)
+- reconnect policy
+- dataset request handling over the executor protocol
+- pending remote graph completion bridging
+- socket generation ownership so stale close/message events from replaced sockets are ignored
+- disconnect lifecycle signaling for both explicit teardown and unexpected drops
+- fan-out delivery of executor protocol messages to multiple subscribers instead of one global handler owner
+- per-socket capability state such as `remoteUploadAllowed`, which is cleared when replacing the active connection
+- compatibility mapping back to the older `started`/`reconnecting` flags consumed by some UI/state code
+
+Current ownership detail:
+
+- `useExecutorSession` should be mounted from a stable app-shell surface
+- read-only consumers such as `useGraphExecutor`, `ActionBarMoreMenu`, and `GentraceInteractors` should observe session state through `useExecutorSessionState` / `useRemoteDebugger` rather than owning connection teardown
+
+`useRemoteDebugger` is now primarily a compatibility-facing hook over that session owner.
 
 ### Internal sidecar vs external debugger
 
@@ -608,6 +766,24 @@ There are two related but different concepts:
 - configurable remote debugger endpoint: default persisted as `ws://localhost:21888`
 
 Conflating those will produce wrong behavior and wrong docs.
+
+The session layer keeps those paths explicit so desktop Node execution does not become the architectural default for every future client.
+
+## Core Runtime Boundary
+
+The desktop app still depends heavily on `@ironclad/rivet-core`, but `GraphProcessor` is less monolithic than before.
+
+Relevant current seams in core:
+
+- [`packages/core/src/model/NodeExecutionPlanner.ts`](../packages/core/src/model/NodeExecutionPlanner.ts)
+- [`packages/core/src/model/SubprocessorBridge.ts`](../packages/core/src/model/SubprocessorBridge.ts)
+- [`packages/core/src/model/GraphProcessor.ts`](../packages/core/src/model/GraphProcessor.ts)
+
+Current architectural detail:
+
+- `GraphProcessor` remains the public evented execution surface
+- graph-topology and scheduling helpers have been extracted into `NodeExecutionPlanner`
+- child-processor event/lifecycle wiring has been extracted into `SubprocessorBridge`
 
 ## Plugin Architecture in the App
 
@@ -634,6 +810,47 @@ Supported load paths:
 
 This matters for refactors because node availability in the editor is partially rebuilt from scratch whenever project plugins change.
 
+### `PluginsOverlay`
+
+The plugin browser/install overlay is still launched through [`packages/app/src/components/PluginsOverlay.tsx`](../packages/app/src/components/PluginsOverlay.tsx), but it no longer keeps catalog rendering and modal rendering in one large file.
+
+Current structure:
+
+- overlay-level install/search state stays in `PluginsOverlay.tsx`
+- catalog rendering lives in [`packages/app/src/components/pluginsOverlay/PluginCatalog.tsx`](../packages/app/src/components/pluginsOverlay/PluginCatalog.tsx)
+- per-plugin row rendering lives in [`packages/app/src/components/pluginsOverlay/PluginCatalogItem.tsx`](../packages/app/src/components/pluginsOverlay/PluginCatalogItem.tsx)
+- install/log modals live in [`packages/app/src/components/pluginsOverlay/PluginInstallModals.tsx`](../packages/app/src/components/pluginsOverlay/PluginInstallModals.tsx)
+- shared overlay styles live in [`packages/app/src/components/pluginsOverlay/pluginsOverlayStyles.ts`](../packages/app/src/components/pluginsOverlay/pluginsOverlayStyles.ts)
+
+This keeps plugin search/install orchestration separate from the catalog UI and modal UI, which makes later changes to install flows or overlay presentation easier to review.
+
+### `NodeEditor`
+
+[`packages/app/src/components/NodeEditor.tsx`](../packages/app/src/components/NodeEditor.tsx) still owns the editor panel lifecycle, variant/test helpers, and panel shell, but it no longer mixes all rendering concerns in one file.
+
+Current structure:
+
+- `NodeEditor.tsx` owns editor selection/fallback rendering and the editor panel shell
+- node metadata, split-run, variant, and conditional controls live in [`packages/app/src/components/nodeEditor/NodeEditorGlobalControls.tsx`](../packages/app/src/components/nodeEditor/NodeEditorGlobalControls.tsx)
+
+This keeps the real boundary in place without preserving a thin wrapper file that only forwarded editor props.
+
+### Output rendering
+
+Output rendering is also less centralized than before.
+
+Current structure:
+
+- [`packages/app/src/components/NodeOutput.tsx`](../packages/app/src/components/NodeOutput.tsx) now focuses on output panel orchestration
+- process-page controls are kept local to `NodeOutput.tsx`
+- output body selection lives in [`packages/app/src/components/nodeOutput/renderNodeOutputBody.tsx`](../packages/app/src/components/nodeOutput/renderNodeOutputBody.tsx)
+- [`packages/app/src/components/RenderDataValue.tsx`](../packages/app/src/components/RenderDataValue.tsx) is narrower and delegates renderer-specific work
+- scalar/type renderer setup lives in [`packages/app/src/components/renderDataValue/createScalarRenderers.tsx`](../packages/app/src/components/renderDataValue/createScalarRenderers.tsx)
+- chat-part rendering lives in [`packages/app/src/components/renderDataValue/RenderChatMessagePart.tsx`](../packages/app/src/components/renderDataValue/RenderChatMessagePart.tsx)
+- shared output-rendering styles live in [`packages/app/src/components/renderDataValue/renderDataValueStyles.ts`](../packages/app/src/components/renderDataValue/renderDataValueStyles.ts)
+
+This keeps output selection logic separate from data-type rendering without preserving a separate pager file that only forwarded a few props.
+
 ## Tauri Backend and Native Integration
 
 Rust code lives under [`packages/app/src-tauri/`](../packages/app/src-tauri/).
@@ -652,6 +869,12 @@ The Tauri config currently includes sidecar/external-bin setup for:
 - bundled `pnpm`
 
 This app therefore depends on both frontend code and packaging/runtime config being kept aligned.
+
+Current boundary expectation:
+
+- Tauri-specific implementation details stay behind `src/utils/platform/*`
+- app-level orchestration, workspace flows, and execution-selection logic stay platform-neutral where possible
+- a future browser client should be able to reuse those higher-level layers while swapping the capability adapters
 
 ## Important Refactor Seams
 
@@ -676,6 +899,8 @@ If planning significant refactors, these are the highest-value seams already vis
 ### Execution seams
 
 - `useGraphExecutor`
+- `useExecutorSession`
+- `executorSession`
 - `useLocalExecutor`
 - `useRemoteExecutor`
 - `useCurrentExecution`
@@ -700,16 +925,17 @@ These are visible from the current code and matter for planning:
 
 - `NodeCanvas` remains large even after some extraction.
 - `GraphBuilder` mixes orchestration, overlays, and some execution-adjacent UI behavior.
-- executor selection, sidecar lifecycle, and remote debugger concerns are still somewhat entangled.
+- executor selection, sidecar lifecycle, and remote debugger concerns are better separated than before, but shared session state is still read directly in several UI surfaces.
 - plugin loading mutates global registry state, which can complicate local reasoning and tests.
 - project loading/saving and graph switching rely on explicit cleanup discipline.
-- remote execution has a promise-bridge workaround that limits elegance and likely future concurrency work.
+- remote execution still assumes one active pending remote graph completion at a time.
 
 ## Practical Refactor Guidance
 
 - Treat `GraphBuilder` and `NodeCanvas` as orchestration layers and prefer extracting domain hooks/components further.
 - Do not change graph/project switching without preserving `cleanupNodeAtomFamilies(...)`.
-- Keep the internal sidecar path and external debugger path conceptually separate.
+- Keep the internal sidecar path, external debugger path, and shared executor-session layer conceptually separate.
+- Prefer imports from `src/utils/platform/*` over broad native barrels when touching desktop capabilities.
 - When touching plugin flows, review both registry state and app plugin-state UI together.
 - When changing save/load behavior, include Trivet data, static project data, and per-project context in the design review.
 - Validate both local and remote executor behavior for any execution-related change.

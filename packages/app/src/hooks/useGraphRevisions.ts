@@ -6,7 +6,7 @@ import { deserializeProject, type GraphId, serializeGraph, type Project } from '
 import { graphState } from '../state/graph';
 import isEqual from 'fast-deep-equal';
 import { type CalculatedRevision, ProjectRevisionCalculator } from '../utils/ProjectRevisionCalculator';
-import { createNativeCommand } from '../utils/nativeApp';
+import { createNativeCommand } from '../utils/platform/shell.js';
 
 const revisionCalculators = new Map<string, ProjectRevisionCalculator>();
 

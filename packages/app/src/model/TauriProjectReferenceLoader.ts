@@ -1,6 +1,6 @@
 import { type ProjectReference, type Project, deserializeProject } from '@ironclad/rivet-core';
 import { type ProjectReferenceLoader } from '../../../core/src/model/ProjectReferenceLoader';
-import { invokeNative } from '../utils/nativeApp';
+import { invokeNative } from '../utils/platform/core.js';
 
 export class TauriProjectReferenceLoader implements ProjectReferenceLoader {
   async loadProject(currentProjectPath: string | undefined, reference: ProjectReference): Promise<Project> {

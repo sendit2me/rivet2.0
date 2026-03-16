@@ -119,6 +119,7 @@ Used by the desktop app when `defaultExecutorState` is `browser`.
 - runs `GraphProcessor` in-process inside the app
 - uses browser/Tauri-facing adapters
 - supports the editor's immediate local run flow
+- run-from execution preloads dependency outputs in-process before re-entering `GraphProcessor`
 
 ### Sidecar Node execution
 
@@ -128,6 +129,7 @@ Used by the desktop app when `defaultExecutorState` is `nodejs`.
 - communication happens over `ws://localhost:21889/internal`
 - execution runs via the debugger/server protocol
 - supports Node-specific APIs and plugin installation scenarios
+- connection ownership is centralized in the app's shared `executorSession` layer rather than in `useRemoteExecutor` itself
 
 ### Standalone Node execution
 
@@ -176,10 +178,10 @@ This split shows up repeatedly in app save/load code and should be treated as ar
 Based on the current code, the highest-risk/highest-value refactor areas are:
 
 - `packages/app/src/components/NodeCanvas.tsx` and related canvas hooks
-- `packages/app/src/hooks/useGraphExecutor.ts`, `useLocalExecutor.ts`, and `useRemoteExecutor.ts`
+- `packages/app/src/hooks/useGraphExecutor.ts`, `useLocalExecutor.ts`, `useRemoteExecutor.ts`, and `executorSession.ts`
 - `packages/app/src/hooks/useProjectPlugins.ts`
-- `packages/app/src/hooks/useLoadProject.ts` and `useLoadGraph.ts`
-- `packages/core/src/model/GraphProcessor.ts`
+- `packages/app/src/hooks/useWorkspaceTransitions.ts` and `packages/app/src/utils/workspaceTransitions.ts`
+- `packages/core/src/model/GraphProcessor.ts`, `NodeExecutionPlanner.ts`, and `SubprocessorBridge.ts`
 - `packages/core/src/model/SplitRunProcessor.ts`
 - `packages/core/src/model/NodeRegistration.ts`
 - serialization contracts in `packages/core/src/utils/serialization/`

@@ -2,7 +2,7 @@ import { type FC, useMemo } from 'react';
 import styled from '@emotion/styled';
 import { type ObjectNode } from '@ironclad/rivet-core';
 import { type NodeComponentDescriptor } from '../../hooks/useNodeTypes';
-import { LazyColorizedPreformattedText } from '../LazyComponents';
+import ColorizedPreformattedText from '../ColorizedPreformattedText';
 
 export type ObjectNodeBodyProps = {
   node: ObjectNode;
@@ -32,7 +32,7 @@ export const ObjectNodeBody: FC<ObjectNodeBodyProps> = ({ node }) => {
 
   return (
     <Body>
-      <LazyColorizedPreformattedText text={truncated} language="json" />
+      <ColorizedPreformattedText text={truncated} language="json" />
     </Body>
   );
 };

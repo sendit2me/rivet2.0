@@ -16,7 +16,7 @@ import { ActionBar } from './ActionBar';
 import { DebuggerPanelRenderer } from './DebuggerConnectPanel';
 import { ChatViewerRenderer } from './ChatViewer';
 import { useAtomValue } from 'jotai';
-import { themeState } from '../state/settings';
+import { defaultExecutorState, themeState } from '../state/settings';
 import clsx from 'clsx';
 import { useLoadStaticData } from '../hooks/useLoadStaticData';
 import { DataStudioRenderer } from './dataStudio/DataStudio';
@@ -37,6 +37,7 @@ import { syncWrapper } from '../utils/syncWrapper';
 import { allInitializeStoreFns } from '../state/storage';
 import { AppErrorBoundary } from './AppErrorBoundary';
 import { wrapAsync } from '../utils/errorHandling';
+import { useExecutorSession } from '../hooks/useExecutorSession';
 
 const styles = css`
   overflow: hidden;
@@ -47,6 +48,8 @@ setGlobalTheme({
 });
 
 export const RivetApp: FC = () => {
+  const selectedExecutor = useAtomValue(defaultExecutorState);
+  useExecutorSession(selectedExecutor);
   const { tryRunGraph, tryRunTests, tryAbortGraph, tryPauseGraph, tryResumeGraph } = useGraphExecutor();
   const theme = useAtomValue(themeState);
   const openedProjectIds = useAtomValue(openedProjectsSortedIdsState);

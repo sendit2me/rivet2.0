@@ -40,6 +40,7 @@ export default defineConfig({
     alias: {
       '@ironclad/rivet-core': resolve('../core/src/index.ts'),
       '@ironclad/trivet': resolve('../trivet/src/index.ts'),
+      '@google-cloud/vertexai': resolve('./src/utils/browser/vertexAiBrowserStub.ts'),
     },
   },
   build: {

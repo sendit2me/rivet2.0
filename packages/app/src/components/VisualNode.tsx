@@ -13,6 +13,7 @@ import { type ChartNode, type CommentNode, type NodeConnection } from '@ironclad
 import { useDependsOnPlugins } from '../hooks/useDependsOnPlugins';
 import { useHistoricalNodeChangeInfo } from '../hooks/useHistoricalNodeChangeInfo';
 import { type ProcessDataForNode } from '../state/dataFlow.js';
+import { getNodeExecutionClassFlags, getSelectedProcessRun } from '../state/selectors/executionSelectors.js';
 import { useCanvasHandlersContext, useCanvasViewContext } from './CanvasContext';
 import { ZoomedOutVisualNodeContent } from './visualNode/ZoomedOutVisualNodeContent';
 import { NormalVisualNodeContent } from './visualNode/NormalVisualNodeContent';
@@ -104,10 +105,8 @@ export const VisualNode = memo(
         return <div className="node-skeleton" style={style} {...nodeAttributes} />;
       }
 
-      const selectedProcessRun =
-        lastRun && lastRun.length > 0
-          ? lastRun.at(processPage === 'latest' ? lastRun.length - 1 : processPage)?.data
-          : undefined;
+      const selectedProcessRun = getSelectedProcessRun(lastRun, processPage);
+      const executionClassFlags = getNodeExecutionClassFlags(selectedProcessRun);
 
       const changedClass = changeInfo
         ? changeInfo.changed
@@ -125,10 +124,7 @@ export const VisualNode = memo(
             {
               overlayNode: isOverlay,
               selected: isSelected,
-              success: selectedProcessRun?.status?.type === 'ok',
-              error: selectedProcessRun?.status?.type === 'error',
-              running: selectedProcessRun?.status?.type === 'running',
-              'not-ran': selectedProcessRun?.status?.type === 'notRan',
+              ...executionClassFlags,
               zoomedOut: effectiveIsZoomedOut,
               isComment,
               isPinned,

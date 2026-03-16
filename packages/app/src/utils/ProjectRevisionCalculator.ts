@@ -2,7 +2,7 @@ import { deserializeProject, type GraphId, type Project } from '@ironclad/rivet-
 import isEqual from 'fast-deep-equal';
 import Emittery from 'emittery';
 import { deserializeProjectAsync } from './deserializeProject';
-import { createNativeCommand } from './nativeApp';
+import { createNativeCommand } from './platform/shell.js';
 
 export type GitRevision = {
   hash: string;

@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
-import { createNativeSidecarCommand, type NativeChildProcess } from '../utils/nativeApp';
+import { type NativeChildProcess } from '../utils/platform/core.js';
+import { createNativeSidecarCommand } from '../utils/platform/shell.js';
 
 let sidecarStarted = false;
 let sidecarProcess: NativeChildProcess | null = null;

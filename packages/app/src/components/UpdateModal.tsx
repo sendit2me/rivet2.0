@@ -8,7 +8,8 @@ import useAsyncEffect from 'use-async-effect';
 import { css } from '@emotion/react';
 import { useMarkdown } from '../hooks/useMarkdown';
 import { syncWrapper } from '../utils/syncWrapper';
-import { checkForAppUpdate, getAppVersion, installAppUpdate, relaunchApp } from '../utils/nativeApp';
+import { getAppVersion, relaunchApp } from '../utils/platform/app.js';
+import { checkForAppUpdate, installAppUpdate } from '../utils/platform/updater.js';
 
 const bodyStyle = css`
   pre {

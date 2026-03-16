@@ -1,25 +1,22 @@
 import { useSetAtom } from 'jotai';
-import { loadedProjectState, projectState } from '../state/savedGraphs.js';
 import {
   type GraphId,
   type NodeGraph,
   deserializeProject,
-  emptyNodeGraph,
   type BuiltInNodes,
   type ProjectId,
 } from '@ironclad/rivet-core';
-import { graphState } from '../state/graph.js';
-import { trivetState } from '../state/trivet';
-import { orderBy } from 'lodash-es';
 import { duplicateGraph } from '../utils/duplicateGraph';
 import { produce } from 'immer';
 import { nanoid } from 'nanoid';
+import { addOpenedProject } from '../utils/openedProjects.js';
+import { projectsState } from '../state/savedGraphs.js';
+import { chooseProjectGraph } from '../utils/workspaceTransitions.js';
+import { useWorkspaceTransitions } from './useWorkspaceTransitions.js';
 
 export function useNewProjectFromTemplate() {
-  const setProject = useSetAtom(projectState);
-  const setLoadedProject = useSetAtom(loadedProjectState);
-  const setGraphData = useSetAtom(graphState);
-  const setTrivetData = useSetAtom(trivetState);
+  const setProjects = useSetAtom(projectsState);
+  const workspaceTransitions = useWorkspaceTransitions();
 
   return (template: unknown) => {
     let [project] = deserializeProject(template);
@@ -65,25 +62,24 @@ export function useNewProjectFromTemplate() {
       }
     });
 
-    setLoadedProject({ loaded: false, path: '' });
-    setProject({
+    const projectWithNewId = {
       ...project,
       metadata: {
         ...project.metadata,
         id: nanoid() as ProjectId,
       },
+    };
+    const { data, ...projectWithoutData } = projectWithNewId;
+    const graphToLoad = chooseProjectGraph(projectWithoutData, {
+      fallbackToMainGraph: true,
+      fallbackToSortedProjectGraph: true,
     });
 
-    const firstGraph = orderBy(Object.values(project.graphs), (g) => g.metadata!.name!)[0];
-
-    if (firstGraph) {
-      setGraphData(firstGraph);
-    } else {
-      setGraphData(emptyNodeGraph());
-    }
-
-    setTrivetData({
-      runningTests: false,
+    setProjects((prev) => addOpenedProject(prev, projectWithNewId));
+    void workspaceTransitions.loadProject({
+      project: projectWithoutData,
+      data,
+      graphToLoad,
       testSuites: [],
     });
   };

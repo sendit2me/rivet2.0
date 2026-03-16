@@ -6,7 +6,7 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "dev": "tauri dev",
+    "dev": "node scripts/dev.mjs",
     "start": "vite",
     "build": "tsc && vite build",
     "release": "tsx scripts/release.ts",

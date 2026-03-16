@@ -1,6 +1,5 @@
 import {
   type ChartNode,
-  type ChatMessage,
   type EditorDefinition,
   type Inputs,
   type InternalProcessContext,
@@ -11,7 +10,6 @@ import {
   type Outputs,
   type PluginNodeImpl,
   type PortId,
-  type ScalarDataValue,
 } from '../../../index.js';
 import {
   streamChatCompletions,
@@ -27,16 +25,17 @@ import { nanoid } from 'nanoid/non-secure';
 import { dedent } from 'ts-dedent';
 import retry from 'p-retry';
 import { match } from 'ts-pattern';
-import { coerceType, coerceTypeOptional } from '../../../utils/coerceType.js';
-import { addWarning } from '../../../utils/outputs.js';
+import { coerceTypeOptional } from '../../../utils/coerceType.js';
 import { getError } from '../../../utils/errors.js';
 import { uint8ArrayToBase64 } from '../../../utils/base64.js';
 import { pluginNodeDefinition } from '../../../model/NodeDefinition.js';
-import { getScalarTypeOf, isArrayDataValue } from '../../../model/DataValue.js';
 import type { TokenizerCallInfo } from '../../../integrations/Tokenizer.js';
 import { getInputOrData, cleanHeaders } from '../../../utils/inputs.js';
 import { type Content, type FunctionDeclaration, type Part, type Tool, type FunctionCall, Type } from '@google/genai';
 import { mapValues } from 'lodash-es';
+import { coercePromptToChatMessages } from '../../../model/chat/chatMessages.js';
+import { clampMaxTokensToModelLimit, setRequestAndResponseTokenOutputs } from '../../../model/chat/tokenBudget.js';
+import { createAssistantMessagesOutput } from '../../../model/chat/streamChatResponse.js';
 
 type JsonSchemaProperty = {
   type?: string | string[];
@@ -485,20 +484,14 @@ export const ChatGoogleNodeImpl: PluginNodeImpl<ChatGoogleNode> = {
     // TODO Better token counting for Google models.
     const tokenCount = await context.tokenizer.getTokenCountForMessages(messages, undefined, tokenizerInfo);
 
-    if (generativeAiGoogleModels[model] && tokenCount >= generativeAiGoogleModels[model].maxTokens) {
-      throw new Error(
-        `The model ${model} can only handle ${generativeAiGoogleModels[model].maxTokens} tokens, but ${tokenCount} were provided in the prompts alone.`,
+    if (generativeAiGoogleModels[model]) {
+      maxTokens = clampMaxTokensToModelLimit(
+        output,
+        model,
+        tokenCount,
+        maxTokens,
+        generativeAiGoogleModels[model].maxTokens,
       );
-    }
-
-    if (generativeAiGoogleModels[model] && tokenCount + maxTokens > generativeAiGoogleModels[model].maxTokens) {
-      const message = `The model can only handle a maximum of ${
-        generativeAiGoogleModels[model].maxTokens
-      } tokens, but the prompts and max tokens together exceed this limit. The max tokens has been reduced to ${
-        generativeAiGoogleModels[model].maxTokens - tokenCount
-      }.`;
-      addWarning(output, message);
-      maxTokens = Math.floor((generativeAiGoogleModels[model].maxTokens - tokenCount) * 0.95); // reduce max tokens by 5% to be safe, calculation is a little wrong.
     }
 
     const project = context.getPluginConfig('googleProjectId');
@@ -677,25 +670,19 @@ export const ChatGoogleNodeImpl: PluginNodeImpl<ChatGoogleNode> = {
 
           const endTime = Date.now();
 
-          output['all-messages' as PortId] = {
-            type: 'chat-message[]',
-            value: [
-              ...messages,
-              {
-                type: 'assistant',
-                message: responseParts.join('').trim() ?? '',
-                function_call: undefined,
-                function_calls:
-                  functionCalls.length === 0
-                    ? undefined
-                    : functionCalls.map((fc) => ({
-                        id: fc.name!,
-                        name: fc.name!,
-                        arguments: JSON.stringify(fc.args),
-                      })),
-              },
-            ],
-          };
+          output['all-messages' as PortId] = createAssistantMessagesOutput(
+            messages,
+            responseParts.join('').trim() ?? '',
+            functionCalls.length === 0
+              ? undefined
+              : functionCalls.map((fc) => ({
+                  type: 'function' as const,
+                  id: fc.name!,
+                  name: fc.name!,
+                  arguments: JSON.stringify(fc.args),
+                })),
+            { functionCallMode: 'never' },
+          );
 
           output['in-messages' as PortId] = {
             type: 'chat-message[]',
@@ -706,13 +693,11 @@ export const ChatGoogleNodeImpl: PluginNodeImpl<ChatGoogleNode> = {
             throw new Error('No response from Google');
           }
 
-          output['requestTokens' as PortId] = { type: 'number', value: tokenCount };
-
           const responseTokenCount = await context.tokenizer.getTokenCountForString(
             responseParts.join(''),
             tokenizerInfo,
           );
-          output['responseTokens' as PortId] = { type: 'number', value: responseTokenCount };
+          setRequestAndResponseTokenOutputs(output, tokenCount, responseTokenCount);
 
           // TODO
           // const cost =
@@ -770,37 +755,5 @@ export const chatGoogleNode = pluginNodeDefinition(ChatGoogleNodeImpl, 'Chat');
 
 export function getChatGoogleNodeMessages(inputs: Inputs) {
   const prompt = inputs['prompt' as PortId];
-  if (!prompt) {
-    throw new Error('Prompt is required');
-  }
-
-  const messages: ChatMessage[] = match(prompt)
-    .with({ type: 'chat-message' }, (p) => [p.value])
-    .with({ type: 'chat-message[]' }, (p) => p.value)
-    .with({ type: 'string' }, (p): ChatMessage[] => [{ type: 'user', message: p.value }])
-    .with({ type: 'string[]' }, (p): ChatMessage[] => p.value.map((v) => ({ type: 'user', message: v })))
-    .otherwise((p): ChatMessage[] => {
-      if (isArrayDataValue(p)) {
-        const stringValues = (p.value as readonly unknown[]).map((v) =>
-          coerceType(
-            {
-              type: getScalarTypeOf(p.type),
-              value: v,
-            } as ScalarDataValue,
-            'string',
-          ),
-        );
-
-        return stringValues.filter((v) => v != null).map((v) => ({ type: 'user', message: v }));
-      }
-
-      const coercedMessage = coerceType(p, 'chat-message');
-      if (coercedMessage != null) {
-        return [coercedMessage];
-      }
-
-      const coercedString = coerceType(p, 'string');
-      return coercedString != null ? [{ type: 'user', message: coerceType(p, 'string') }] : [];
-    });
-  return { messages };
+  return { messages: coercePromptToChatMessages(prompt, { requirePrompt: true }) };
 }

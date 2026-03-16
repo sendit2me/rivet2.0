@@ -5,20 +5,21 @@ import semverGt from 'semver/functions/gt';
 import { useState } from 'react';
 import {
   NativeResponseType,
-  createNativeSidecarCommand,
-  invokeNative,
-  nativeAppLocalDataDir,
-  nativeCreateDir,
-  nativeExists,
   nativeFetch,
   nativeHttpClientGet,
-  nativeJoinPath,
+} from '../utils/platform/http.js';
+import { invokeNative } from '../utils/platform/core.js';
+import {
+  nativeCreateDir,
+  nativeExists,
   nativeReadDir,
   nativeReadTextFile,
   nativeRemoveDir,
   nativeWriteBinaryFile,
   nativeWriteTextFile,
-} from '../utils/nativeApp';
+} from '../utils/platform/fs.js';
+import { nativeAppLocalDataDir, nativeJoinPath } from '../utils/platform/path.js';
+import { createNativeSidecarCommand } from '../utils/platform/shell.js';
 
 export function useLoadPackagePlugin(options: { onLog?: (message: string) => void } = {}) {
   const [packageInstallLog, setPackageInstallLog] = useState('');

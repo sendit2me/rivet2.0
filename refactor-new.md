@@ -24,7 +24,7 @@ These are the best next refactors if the goal is maintainability and lower code 
 
 ---
 
-### 1. Finish shrinking `GraphProcessor` into an orchestration layer
+### 1. Finish shrinking `GraphProcessor` into an orchestration layer - DONE
 
 **Effort: M-L | Impact: High**
 
@@ -52,17 +52,23 @@ Make `GraphProcessor` primarily responsible for:
    - scheduling and dependency progression
    - control-flow exclusion / split-run / loop handling
    - subprocessor creation and event forwarding
+   DONE
 2. Extract a `NodeExecutionPlanner` module responsible for:
    - deciding when a node is runnable
    - computing dependency readiness
    - determining whether upstream failures/exclusions should block execution
+   DONE
 3. Extract a `SubprocessorBridge` module responsible for:
    - constructing subprocessors
    - wiring pause/resume/abort
    - wiring event forwarding from child to parent
+   DONE
 4. Replace repeated direct field access across these flows with a single `ExecutionState` object passed into helpers.
+   DONE
 5. Keep all public `GraphProcessor` methods and event names unchanged.
+   DONE
 6. After each extraction, delete now-unused private helpers instead of leaving wrappers behind.
+   DONE
 
 **Expected result**
 
@@ -79,7 +85,7 @@ Make `GraphProcessor` primarily responsible for:
 
 ---
 
-### 2. Break up `ChatNodeBase` and remove provider-specific duplication
+### 2. Break up `ChatNodeBase` and remove provider-specific duplication - DONE
 
 **Effort: L | Impact: High**
 
@@ -106,19 +112,37 @@ Split chat execution into composable stages so provider nodes mostly define prov
    - streaming event handling
    - output normalization
    - cost extraction
+   DONE
 2. Extract these into focused helpers under a new `model/chat/` or `plugins/chat/` folder:
    - `prepareChatRequest.ts`
    - `countChatTokens.ts`
    - `streamChatResponse.ts`
    - `normalizeChatOutputs.ts`
    - `collectChatCost.ts`
+   DONE
+   Current extracted helpers:
+   - `openAIChatRequest.ts`
+   - `chatMessages.ts`
+   - `tokenBudget.ts`
+   - `streamChatResponse.ts`
+   - `chatCost.ts`
+   Remaining extraction is still open for the rest of token/accounting and output-normalization paths.
 3. Move provider-specific mapping logic out of the base class and into provider adapters.
+   DONE
 4. Reduce `ChatNodeBase` to:
    - shared node/editor contract
    - orchestration of the extracted chat pipeline
    - hooks that provider nodes must implement
+   DONE
 5. Audit `ChatAnthropicNode.ts`, `ChatGoogleNode.ts`, and OpenAI-related nodes for repeated token-count and output-shaping logic; consolidate shared portions aggressively.
+   DONE
+   Consolidation included:
+   - shared prompt-to-chat-message coercion now reused by OpenAI, Google, and Anthropic paths
+   - shared token-budget clamping now reused by OpenAI, Google, and Anthropic paths
+   - shared assistant output shaping is now reused in OpenAI, Google, and Anthropic paths
+   - OpenAI streaming/non-streaming runtime and retry handling moved out of `ChatNodeBase`
 6. Add focused tests for each extracted helper instead of only high-level node tests.
+   DONE
 
 **Expected result**
 
@@ -134,7 +158,7 @@ Split chat execution into composable stages so provider nodes mostly define prov
 
 ---
 
-### 3. Simplify execution connectivity into one explicit session manager
+### 3. Simplify execution connectivity into one explicit session manager - DONE
 
 **Effort: M | Impact: High**
 
@@ -159,11 +183,14 @@ Replace the current spread-out lifecycle with one explicit executor-session laye
    - reconnect policy
    - request/response correlation
    - executor readiness state
+   DONE
 2. Inside that session layer, isolate the current desktop-only concerns behind a narrow transport adapter:
    - internal sidecar process startup/shutdown
    - websocket connection to `ws://localhost:21889/internal`
    - external remote debugger connection
+   DONE
 3. Move the module-level `graphExecutionPromise` bridge in `useRemoteExecutor.ts` into this session layer.
+   DONE
 4. Replace the current implicit “started/reconnecting/socket” coordination with explicit session states, for example:
    - `idle`
    - `starting`
@@ -171,13 +198,17 @@ Replace the current spread-out lifecycle with one explicit executor-session laye
    - `ready`
    - `reconnecting`
    - `errored`
+   DONE
 5. Keep the current UI behavior unchanged by adapting existing hooks/components to read the new session state.
+   DONE
 6. Remove duplicate direct `useRemoteDebugger()` consumers where a read-only selector or context would suffice.
+   DONE
 7. Keep the distinction between:
    - internal executor (`21889/internal`)
    - external remote debugger (`21888` default)
    - future browser-safe remote execution transport
    explicit in the new structure.
+   DONE
 
 **Expected result**
 
@@ -195,7 +226,7 @@ Replace the current spread-out lifecycle with one explicit executor-session laye
 
 ---
 
-### 4. Reduce project load/save/switch duplication into a single workspace flow
+### 4. Reduce project load/save/switch duplication into a single workspace flow - DONE
 
 **Effort: M | Impact: High**
 
@@ -221,6 +252,7 @@ Create a single internal “workspace transition” layer that all project/graph
    - save project
    - save current graph into project
    - close project
+   DONE
 2. Extract shared steps into reusable helpers:
    - cleanup atom families
    - sync current graph into project
@@ -228,11 +260,17 @@ Create a single internal “workspace transition” layer that all project/graph
    - restore viewport
    - load/save Trivet data
    - load/save project static data
+   DONE
 3. Build a `workspaceTransitions.ts` module that exposes these operations as explicit functions.
+   DONE
 4. Convert `useLoadProject`, `useLoadGraph`, and `useSaveProject` into thin hook adapters that call those functions.
+   DONE
 5. Delete duplicated inline sequencing once the central flow is in place.
+   DONE
 6. Add tests for the transition helpers, especially around graph switching and project path handling.
+   DONE
 7. Keep path-based filesystem operations and pure in-memory workspace transitions separate so that the same transition layer can later serve both desktop and web clients.
+   DONE
 
 **Expected result**
 
@@ -250,7 +288,7 @@ Create a single internal “workspace transition” layer that all project/graph
 
 ---
 
-### 5. Decompose the remaining large app components by responsibility, not by file size only
+### 5. Decompose the remaining large app components by responsibility, not by file size only - DONE
 
 **Effort: M-L | Impact: High**
 
@@ -277,20 +315,26 @@ Make each component file answer one question, not several.
    - canvas surface event handlers
    - overlay rendering
    - wire-layer composition
+   DONE
 2. For `NodeOutput.tsx` and `RenderDataValue.tsx`, separate:
    - output selection / metadata logic
    - value rendering by scalar/composite type
    - binary/image/audio/document specialized renderers
+   DONE
 3. For `NodeEditor.tsx`, split:
    - editor selection logic
    - field layout / grouping
    - node header / controls
+   DONE
 4. For `SettingsPages.tsx`, move each page into its own file if not already split deeply enough.
+   DONE
 5. For `PluginsOverlay.tsx`, separate:
    - plugin list rendering
    - failed plugin rendering
    - install/update/remove actions
+   DONE
 6. Delete pass-through wrappers as soon as a subcomponent is stable; avoid turning one large file into many thin files plus the same large file.
+   DONE
 
 **Expected result**
 
@@ -306,7 +350,7 @@ Make each component file answer one question, not several.
 
 ---
 
-### 6. Collapse duplicated app-side execution rendering and status derivation
+### 6. Collapse duplicated app-side execution rendering and status derivation - DONE
 
 **Effort: M | Impact: Medium-High**
 
@@ -332,10 +376,15 @@ Create one canonical execution-status derivation layer and have UI components co
    - “paused”
    - “last run succeeded/errored/interrupted”
    - “node has output worth displaying”
+   DONE
 2. Move those derivations into selector/helper modules close to execution state.
+   DONE
 3. Replace component-local status logic with those helpers/selectors.
+   DONE
 4. Standardize naming for status variants so UI and execution hooks use the same terms.
+   DONE
 5. Delete duplicate per-component predicates and status adapters.
+   DONE
 
 **Expected result**
 
@@ -351,7 +400,7 @@ Create one canonical execution-status derivation layer and have UI components co
 
 ---
 
-### 7. Separate platform-neutral app logic from desktop-only integration points
+### 7. Separate platform-neutral app logic from desktop-only integration points - DONE
 
 **Effort: M-L | Impact: High**
 
@@ -374,19 +423,25 @@ Create a platform-neutral app core inside `packages/app` and move desktop-specif
    - dialogs and filesystem access
    - updater APIs
    - desktop-only environment/path helpers
+   DONE
 2. Define a small set of platform capability interfaces for the app layer, for example:
    - file access
    - shell/process execution
    - window/app lifecycle
    - updater
    - executor transport bootstrap
+   DONE
 3. Move product logic to depend on those interfaces rather than directly on Tauri-flavored helpers.
+   DONE
 4. Keep the existing desktop implementations as the only concrete implementations for now.
+   DONE
 5. Ensure browser-mode code paths never import desktop-only modules at top level unless they are gated behind lazy/dynamic boundaries.
+   DONE
 6. Update docs to explicitly distinguish:
    - platform-neutral app logic
    - desktop platform adapters
    - future browser platform adapters
+   DONE
 
 **Expected result**
 

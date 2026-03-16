@@ -1,6 +1,6 @@
 import { type RivetPlugin, type Settings, type StringPluginConfigurationSpec } from '@ironclad/rivet-core';
 import { entries } from '../../../core/src/utils/typeSafety';
-import { invokeNative, isInTauri as detectTauri } from './nativeApp';
+import { invokeNative, isInTauri as detectTauri } from './platform/core.js';
 
 export function isInTauri(): boolean {
   return detectTauri();

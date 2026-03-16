@@ -17,7 +17,8 @@ import {
 } from '@ironclad/trivet';
 import { saveDatasetsFile, loadDatasetsFile } from './datasets.js';
 import { type AppDatasetProvider } from '../providers/ProvidersContext.js';
-import { nativeReadBinaryFile, nativeReadTextFile, nativeWriteFile, openDialog, saveDialog } from '../utils/nativeApp';
+import { openDialog, saveDialog } from '../utils/platform/dialog.js';
+import { nativeReadBinaryFile, nativeReadTextFile, nativeWriteFile } from '../utils/platform/fs.js';
 
 export class TauriIOProvider implements PathBasedIOProvider {
   readonly #datasetProvider: AppDatasetProvider;

@@ -1,4 +1,4 @@
-import { type FC, Suspense, memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { type FC, memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { type HeightCache, useNodeBodyHeight } from '../hooks/useNodeBodyHeight';
 import { useUnknownNodeComponentDescriptorFor } from '../hooks/useNodeTypes.js';
 import {
@@ -15,7 +15,7 @@ import {
 import { useMarkdown } from '../hooks/useMarkdown';
 import { match } from 'ts-pattern';
 import styled from '@emotion/styled';
-import { LazyColorizedPreformattedText } from './LazyComponents';
+import ColorizedPreformattedText from './ColorizedPreformattedText';
 import { useDependsOnPlugins } from '../hooks/useDependsOnPlugins';
 import { useGetRivetUIContext } from '../hooks/useGetRivetUIContext';
 import { useAsyncEffect } from 'use-async-effect';
@@ -110,11 +110,7 @@ export const MarkdownNodeBody: FC<MarkdownNodeBodySpec> = memo(({ text }) => {
 MarkdownNodeBody.displayName = 'MarkdownNodeBody';
 
 export const ColorizedNodeBody: FC<ColorizedNodeBodySpec> = memo(({ text, language, theme }) => {
-  return (
-    <Suspense fallback={<div />}>
-      <LazyColorizedPreformattedText text={text} language={language} theme={theme} />
-    </Suspense>
-  );
+  return <ColorizedPreformattedText text={text} language={language} theme={theme} />;
 });
 
 ColorizedNodeBody.displayName = 'ColorizedNodeBody';

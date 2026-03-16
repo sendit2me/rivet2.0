@@ -29,7 +29,8 @@ import { useDependsOnPlugins } from './useDependsOnPlugins';
 import graphBuilderProject from '../../graphs/graph-creator.rivet-project?raw';
 import graphBuilderData from '../../graphs/graph-creator.rivet-data?raw';
 import { referencedProjectsState } from '../state/savedGraphs';
-import { nativeAppLogDir, nativeCreateDir, nativeWriteFile } from '../utils/nativeApp';
+import { nativeCreateDir, nativeWriteFile } from '../utils/platform/fs.js';
+import { nativeAppLogDir } from '../utils/platform/path.js';
 
 export function useAiGraphBuilder({ record, onFeedback }: { record: boolean; onFeedback: (feedback: string) => void }) {
   const [graph, setGraph] = useAtom(graphState);

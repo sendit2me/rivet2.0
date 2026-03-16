@@ -10,8 +10,8 @@ import { useSetAtom, useAtom } from 'jotai';
 
 export function useToggleRemoteDebugger() {
   const setDebuggerPanelOpen = useSetAtom(debuggerPanelOpenState);
-  const { remoteDebuggerState: remoteDebugger, connect, disconnect } = useRemoteDebugger();
-  const isActuallyRemoteDebugging = remoteDebugger.started && !remoteDebugger.isInternalExecutor;
+  const { sessionState: remoteDebugger, connect, disconnect } = useRemoteDebugger();
+  const isActuallyRemoteDebugging = remoteDebugger.status !== 'idle' && !remoteDebugger.isInternalExecutor;
 
   return () => {
     if (isActuallyRemoteDebugging || remoteDebugger.reconnecting) {

@@ -10,8 +10,6 @@ import {
 } from '@ironclad/rivet-node';
 import * as Rivet from '@ironclad/rivet-core';
 import { type RivetPluginInitializer } from '@ironclad/rivet-core';
-import yargs from 'yargs';
-import { hideBin } from 'yargs/helpers';
 import { match } from 'ts-pattern';
 import { join } from 'node:path';
 import { access, readFile } from 'node:fs/promises';
@@ -35,14 +33,35 @@ function getAppDataLocalPath() {
     });
 }
 
-const { port } = yargs(hideBin(process.argv))
-  .option('port', {
-    alias: 'p',
-    type: 'number',
-    description: 'Port to run the executor on.',
-    default: 21889,
-  })
-  .parseSync();
+function parsePortFromArgs(argv: string[]) {
+  const defaultPort = 21889;
+
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
+
+    if (arg === '--port' || arg === '-p') {
+      const value = argv[index + 1];
+      const parsed = Number(value);
+      if (!value || Number.isNaN(parsed) || !Number.isInteger(parsed) || parsed <= 0) {
+        throw new Error(`Invalid port value: ${value ?? '(missing)'}`);
+      }
+      return parsed;
+    }
+
+    if (arg?.startsWith('--port=')) {
+      const value = arg.slice('--port='.length);
+      const parsed = Number(value);
+      if (!value || Number.isNaN(parsed) || !Number.isInteger(parsed) || parsed <= 0) {
+        throw new Error(`Invalid port value: ${value || '(missing)'}`);
+      }
+      return parsed;
+    }
+  }
+
+  return defaultPort;
+}
+
+const port = parsePortFromArgs(process.argv.slice(2));
 
 const rivetDebugger = startDebuggerServer({
   port,

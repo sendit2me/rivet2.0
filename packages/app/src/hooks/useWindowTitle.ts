@@ -1,7 +1,8 @@
 import { useEffect } from 'react';
 import { useAtomValue } from 'jotai';
 import { projectState, loadedProjectState } from '../state/savedGraphs';
-import { getAppVersion, getAppWindowHandle } from '../utils/nativeApp';
+import { getAppVersion } from '../utils/platform/app.js';
+import { getAppWindowHandle } from '../utils/platform/window.js';
 
 export function useWindowTitle() {
   const project = useAtomValue(projectState);

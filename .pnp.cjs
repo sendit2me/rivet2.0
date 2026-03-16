@@ -6986,8 +6986,7 @@ const RAW_RUNTIME_STATE =
           ["ts-pattern", "npm:5.6.2"],\
           ["tsx", "npm:4.6.2"],\
           ["type-fest", "npm:4.34.1"],\
-          ["typescript", "patch:typescript@npm%3A5.7.3#optional!builtin<compat/typescript>::version=5.7.3&hash=5786d5"],\
-          ["yargs", "npm:17.7.2"]\
+          ["typescript", "patch:typescript@npm%3A5.7.3#optional!builtin<compat/typescript>::version=5.7.3&hash=5786d5"]\
         ],\
         "linkType": "SOFT"\
       }]\
@@ -11895,7 +11894,7 @@ const RAW_RUNTIME_STATE =
           ["autoprefixer", "virtual:f04832643e94957b229869c1850c865d9471dcdcb424ec74f2d208812bb3627f82ea73f1d2dd784197a2ae29b9ab9f36119ce32a9c2754d0da49118d3803d822#npm:10.4.14"],\
           ["@types/postcss", null],\
           ["browserslist", "npm:4.21.9"],\
-          ["caniuse-lite", "npm:1.0.30001642"],\
+          ["caniuse-lite", "npm:1.0.30001779"],\
           ["fraction.js", "npm:4.2.0"],\
           ["normalize-range", "npm:0.1.2"],\
           ["picocolors", "npm:1.0.0"],\
@@ -12396,7 +12395,7 @@ const RAW_RUNTIME_STATE =
         "packageLocation": "./.yarn/cache/browserslist-npm-4.21.9-f6128308c1-f015dd3d97.zip/node_modules/browserslist/",\
         "packageDependencies": [\
           ["browserslist", "npm:4.21.9"],\
-          ["caniuse-lite", "npm:1.0.30001642"],\
+          ["caniuse-lite", "npm:1.0.30001779"],\
           ["electron-to-chromium", "npm:1.4.435"],\
           ["node-releases", "npm:2.0.12"],\
           ["update-browserslist-db", "virtual:f6128308c12e2b37fe427262226a88e213eb66128b3445db14a7af8a6dafb815a9c4562e232b574e216fb796ee19313d71844b195e41ad82170480289a6b575c#npm:1.0.11"]\
@@ -12407,7 +12406,7 @@ const RAW_RUNTIME_STATE =
         "packageLocation": "./.yarn/cache/browserslist-npm-4.24.4-2fdeb5face-11fda105e8.zip/node_modules/browserslist/",\
         "packageDependencies": [\
           ["browserslist", "npm:4.24.4"],\
-          ["caniuse-lite", "npm:1.0.30001699"],\
+          ["caniuse-lite", "npm:1.0.30001779"],\
           ["electron-to-chromium", "npm:1.5.97"],\
           ["node-releases", "npm:2.0.19"],\
           ["update-browserslist-db", "virtual:2fdeb5face9914bb5fd94c70f084d153c80d2f09e5aabee010e4220b248dc23fca8f73c7beed0195e45ae6e2b1cb25388f709d7bfc4f00e473d573887faf4e5c#npm:1.1.2"]\
@@ -12611,7 +12610,7 @@ const RAW_RUNTIME_STATE =
         "packageDependencies": [\
           ["caniuse-api", "npm:3.0.0"],\
           ["browserslist", "npm:4.21.9"],\
-          ["caniuse-lite", "npm:1.0.30001642"],\
+          ["caniuse-lite", "npm:1.0.30001779"],\
           ["lodash.memoize", "npm:4.1.2"],\
           ["lodash.uniq", "npm:4.5.0"]\
         ],\
@@ -12619,17 +12618,10 @@ const RAW_RUNTIME_STATE =
       }]\
     ]],\
     ["caniuse-lite", [\
-      ["npm:1.0.30001642", {\
-        "packageLocation": "./.yarn/cache/caniuse-lite-npm-1.0.30001642-794b0b6b47-8d80ea82be.zip/node_modules/caniuse-lite/",\
+      ["npm:1.0.30001779", {\
+        "packageLocation": "./.yarn/cache/caniuse-lite-npm-1.0.30001779-837410c739-025b74d98d.zip/node_modules/caniuse-lite/",\
         "packageDependencies": [\
-          ["caniuse-lite", "npm:1.0.30001642"]\
-        ],\
-        "linkType": "HARD"\
-      }],\
-      ["npm:1.0.30001699", {\
-        "packageLocation": "./.yarn/cache/caniuse-lite-npm-1.0.30001699-aed268ac86-325bf4d4ea.zip/node_modules/caniuse-lite/",\
-        "packageDependencies": [\
-          ["caniuse-lite", "npm:1.0.30001699"]\
+          ["caniuse-lite", "npm:1.0.30001779"]\
         ],\
         "linkType": "HARD"\
       }]\
@@ -21116,7 +21108,7 @@ const RAW_RUNTIME_STATE =
           ["@types/sass", null],\
           ["babel-plugin-react-compiler", null],\
           ["busboy", "npm:1.6.0"],\
-          ["caniuse-lite", "npm:1.0.30001699"],\
+          ["caniuse-lite", "npm:1.0.30001779"],\
           ["postcss", "npm:8.4.31"],\
           ["react", "npm:18.2.0"],\
           ["react-dom", "virtual:388c29633752d7c364e0487c276ae72861ce5d69c069bff16a49b35801303d87d39cb24723bbac1721c48df59f346575324fe3c6de8ead4fb7d83d6ae4a0e521#npm:18.2.0"],\

@@ -1,45 +1,22 @@
 import { css } from '@emotion/react';
-import { type FC, useEffect, useState, useRef } from 'react';
-import { atom, useAtom, useAtomValue } from 'jotai';
+import { type FC } from 'react';
+import { useAtom, useAtomValue } from 'jotai';
 import { AppErrorBoundary } from './AppErrorBoundary';
 import {
-  promptDesignerAttachedChatNodeState,
-  promptDesignerConfigurationState,
-  promptDesignerResponseState,
   promptDesignerState,
-  promptDesignerTestGroupResultsByNodeIdState,
 } from '../state/promptDesigner';
-import { nodesByIdState, nodesState } from '../state/graph.js';
-import { type InputsOrOutputsWithRefs, lastRunDataByNodeState } from '../state/dataFlow.js';
-import {
-  type ChatNode,
-  type DataValue,
-  type GraphId,
-  type NodeId,
-  type NodeTestGroup,
-  arrayizeDataValue,
-  getError,
-  isArrayDataValue,
-  type ScalarDataValue,
-  type Inputs,
-} from '@ironclad/rivet-core';
+import { type NodeTestGroup } from '@ironclad/rivet-core';
 import Tabs, { Tab, TabList, TabPanel } from '@atlaskit/tabs';
 import Button from '@atlaskit/button';
-import { nanoid } from 'nanoid/non-secure';
-import { mapValues } from 'lodash-es';
 import { overlayOpenState } from '../state/ui';
-import { getChatNodeMessages } from '../../../core/src/model/nodes/ChatNodeBase';
 import { syncWrapper } from '../utils/syncWrapper';
-import { useDatasetProvider } from '../providers/ProvidersContext';
-import { useGetAdHocInternalProcessContext } from '../hooks/useGetAdHocInternalProcessContext';
 import { usePromptDesignerMessages } from '../hooks/usePromptDesignerMessages';
-import {
-  PromptDesignerMessage,
-  PromptDesignerTestGroupResultList,
-} from './promptDesigner/PromptDesignerComponents';
-import { runAdHocChat, useRunPromptDesignerTestGroupSampleCount } from './promptDesigner/PromptDesignerTestRunner';
 import { PromptDesignerConfigPanel } from './promptDesigner/PromptDesignerConfigPanel';
+import { PromptDesignerMessageList } from './promptDesigner/PromptDesignerMessageList.js';
+import { PromptDesignerResponsePane } from './promptDesigner/PromptDesignerResponsePane.js';
 import { PromptDesignerTestPanel } from './promptDesigner/PromptDesignerTestPanel';
+import { usePromptDesignerAttachedNode } from './promptDesigner/usePromptDesignerAttachedNode.js';
+import { usePromptDesignerRunActions } from './promptDesigner/usePromptDesignerRunActions.js';
 
 const styles = css`
   position: fixed;
@@ -294,205 +271,19 @@ export type PromptDesignerProps = {
   onClose: () => void;
 };
 
-const lastPromptDesignerAttachedNodeState = atom<NodeId | undefined>(undefined);
-
 export const PromptDesigner: FC<PromptDesignerProps> = ({ onClose }) => {
-  const datasetProvider = useDatasetProvider();
   const { messages, setMessages, messageChanged, deleteMessage, addMessage } = usePromptDesignerMessages();
-  const attachedNodeId = useAtomValue(promptDesignerAttachedChatNodeState);
-  const [, setNodes] = useAtom(nodesState);
-  const nodeOutput = useAtomValue(lastRunDataByNodeState);
-  const [config, setConfig] = useAtom(promptDesignerConfigurationState);
-  const [response, setResponse] = useAtom(promptDesignerResponseState);
   const [promptDesigner, setPromptDesigner] = useAtom(promptDesignerState);
-  const nodesById = useAtomValue(nodesByIdState);
-
-  const attachedNode = attachedNodeId?.nodeId ? (nodesById[attachedNodeId.nodeId] as ChatNode) : undefined;
-
-  const testGroups = attachedNode?.tests ?? [];
-
-  const [lastPromptDesignerAttachedNode, setLastPromptDesignerAttachedNode] = useAtom(
-    lastPromptDesignerAttachedNodeState,
-  );
-
-  useEffect(() => {
-    if (!attachedNode || lastPromptDesignerAttachedNode === attachedNode.id) {
-      return;
-    }
-
-    const { data } = attachedNode;
-    setConfig({
-      data: {
-        maxTokens: data.maxTokens,
-        model: data.model,
-        presencePenalty: data.presencePenalty,
-        frequencyPenalty: data.frequencyPenalty,
-        temperature: data.temperature,
-        useTopP: data.useTopP,
-        enableFunctionUse: data.enableFunctionUse,
-        numberOfChoices: data.numberOfChoices,
-        stop: data.stop,
-        top_p: data.top_p,
-        user: data.user,
-      },
+  const { config, setConfig, testGroups, addTestGroup, deleteTestGroup, testGroupChanged } =
+    usePromptDesignerAttachedNode({
+      setMessages,
     });
-
-    const nodeDataForAttachedNode = attachedNodeId ? nodeOutput[attachedNodeId.nodeId] : undefined;
-    const nodeDataForAttachedNodeProcess = attachedNodeId
-      ? nodeDataForAttachedNode?.find((n) => n.processId === attachedNodeId.processId)?.data
-      : undefined;
-
-    if (nodeDataForAttachedNodeProcess?.inputData) {
-      let inputData = nodeDataForAttachedNodeProcess.inputData;
-      // If node is a split run, just grab the first input data.
-      if (attachedNode.isSplitRun) {
-        inputData = mapValues(inputData, (val) =>
-          isArrayDataValue(val as DataValue) ? arrayizeDataValue(val as ScalarDataValue)[0] : val,
-        ) as InputsOrOutputsWithRefs;
-      }
-      const { messages } = getChatNodeMessages(inputData as Inputs);
-      setMessages({
-        messages,
-      });
-    }
-
-    setLastPromptDesignerAttachedNode(attachedNode.id);
-  }, [
-    attachedNode,
-    attachedNodeId,
-    nodeOutput,
-    setConfig,
-    setMessages,
-    lastPromptDesignerAttachedNode,
-    setLastPromptDesignerAttachedNode,
-  ]);
-
-  const attachedNodeChanged = (newNode: ChatNode) => {
-    setNodes((prev) => prev.map((n) => (n.id === newNode.id ? newNode : n)));
-  };
-
-  const testGroupChanged = (newTestGroup: NodeTestGroup, index: number) => {
-    if (!attachedNode) {
-      return;
-    }
-
-    attachedNodeChanged({
-      ...attachedNode,
-      tests: (attachedNode.tests ?? []).map((t, i) => (i === index ? newTestGroup : t)),
+  const { handleCancel, handleStartTestGroup, inProgress, response, resultsForAttachedNode, tryRunSingle } =
+    usePromptDesignerRunActions({
+      configData: config.data,
+      messages,
+      samples: promptDesigner.samples,
     });
-  };
-
-  const addTestGroup = () => {
-    if (!attachedNode) {
-      return;
-    }
-
-    attachedNodeChanged({
-      ...attachedNode,
-      tests: [
-        ...(attachedNode.tests ?? []),
-        {
-          id: nanoid() as NodeId,
-          tests: [],
-          evaluatorGraphId: '' as GraphId,
-        },
-      ],
-    });
-  };
-
-  const deleteTestGroup = (index: number) => {
-    if (!attachedNode) {
-      return;
-    }
-
-    attachedNodeChanged({
-      ...attachedNode,
-      tests: (attachedNode.tests ?? []).filter((_, i) => i !== index),
-    });
-  };
-
-  const runTestGroup = useRunPromptDesignerTestGroupSampleCount(datasetProvider);
-
-  const [testGroupResultsByNodeId, setTestGroupResultsByNodeId] = useAtom(promptDesignerTestGroupResultsByNodeIdState);
-
-  const resultsForAttachedNode = testGroupResultsByNodeId[attachedNodeId?.nodeId ?? ''];
-
-  const abortController = useRef<AbortController>();
-  const [inProgress, setInProgress] = useState(false);
-  const getAdHocInternalProcessContext = useGetAdHocInternalProcessContext();
-
-  const tryRunSingle = async () => {
-    try {
-      abortController.current?.abort();
-      abortController.current = new AbortController();
-      setInProgress(true);
-      setResponse({});
-
-      if (attachedNodeId?.nodeId) {
-        setTestGroupResultsByNodeId((s) => ({ ...s, [attachedNodeId.nodeId]: [] }));
-      }
-
-      const response = await runAdHocChat(
-        messages,
-        config.data,
-        await getAdHocInternalProcessContext({
-          onPartialResult: (partialResult) => {
-            setResponse({ response: partialResult });
-          },
-          signal: abortController.current.signal,
-        }),
-      );
-
-      setResponse({
-        response,
-      });
-    } catch (err) {
-      console.error(getError(err));
-    } finally {
-      abortController.current = undefined;
-      setInProgress(false);
-    }
-  };
-
-  const handleStartTestGroup = async (testGroup: NodeTestGroup) => {
-    if (!attachedNodeId?.nodeId) {
-      return;
-    }
-
-    abortController.current?.abort();
-    abortController.current = new AbortController();
-    setInProgress(true);
-    setResponse({});
-    setTestGroupResultsByNodeId((s) => ({ ...s, [attachedNodeId.nodeId]: [] }));
-
-    try {
-      await runTestGroup(
-        testGroup,
-        messages,
-        promptDesigner.samples,
-        {
-          onPartialResults: (partialResults) => {
-            setTestGroupResultsByNodeId((s) => ({
-              ...s,
-              [attachedNodeId.nodeId]: partialResults,
-            }));
-          },
-        },
-        config.data,
-      );
-    } catch (err) {
-      console.error(getError(err));
-    } finally {
-      abortController.current = undefined;
-      setInProgress(false);
-    }
-  };
-
-  const handleCancel = () => {
-    abortController.current?.abort();
-    abortController.current = undefined;
-    setInProgress(false);
-  };
 
   return (
     <div css={styles}>
@@ -502,41 +293,15 @@ export const PromptDesigner: FC<PromptDesignerProps> = ({ onClose }) => {
 
       <div className="prompt-designer-content">
         <div className="message-area">
-          <div className="message-list">
-            <Button
-              key="add-message-first"
-              className="add-message"
-              appearance="subtle-link"
-              onClick={() => addMessage(-1)}
-            >
-              + Add message
-            </Button>
-            {messages.map((message, index) => (
-              <>
-                <PromptDesignerMessage
-                  message={message}
-                  key={`message-${index}`}
-                  onChange={(newMessage) => messageChanged(newMessage, index)}
-                  onDelete={() => deleteMessage(index)}
-                />
-                <Button
-                  key={`add-message-${index}`}
-                  className="add-message"
-                  appearance="subtle-link"
-                  onClick={() => addMessage(index)}
-                >
-                  + Add message
-                </Button>
-              </>
-            ))}
-          </div>
+          <PromptDesignerMessageList
+            messages={messages}
+            addMessage={addMessage}
+            deleteMessage={deleteMessage}
+            messageChanged={messageChanged}
+          />
         </div>
         <div className="response-area">
-          {resultsForAttachedNode?.length ? (
-            <PromptDesignerTestGroupResultList results={resultsForAttachedNode} />
-          ) : (
-            <pre className="pre-wrap response-text">{response.response ?? ''}</pre>
-          )}
+          <PromptDesignerResponsePane response={response.response} results={resultsForAttachedNode} />
         </div>
         <div className="controls-area">
           <Tabs id="prompt-designer-tabs">

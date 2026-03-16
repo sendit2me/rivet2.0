@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useStableCallback } from './useStableCallback.js';
-import { registerGlobalShortcut } from '../utils/nativeApp';
+import { registerGlobalShortcut } from '../utils/platform/window.js';
 
 export function useGlobalShortcut(shortcut: string, handler: () => void) {
   const handlerStable = useStableCallback(() => {

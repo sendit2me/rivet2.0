@@ -1,24 +1,15 @@
 import { useAtom, useSetAtom } from 'jotai';
-import { loadedProjectState, projectState, projectsState } from '../state/savedGraphs.js';
-import { type NodeGraph, emptyNodeGraph, getError } from '@ironclad/rivet-core';
-import { graphState } from '../state/graph.js';
-import { trivetState } from '../state/trivet.js';
-import { useSetStaticData } from './useSetStaticData';
+import { projectsState } from '../state/savedGraphs.js';
+import { getError } from '@ironclad/rivet-core';
 import { toast } from 'react-toastify';
-import { graphNavigationStackState } from '../state/graphBuilder';
-import { useCenterViewOnGraph } from './useCenterViewOnGraph';
 import { useIOProvider } from '../providers/ProvidersContext.js';
+import { chooseProjectGraph } from '../utils/workspaceTransitions.js';
+import { useWorkspaceTransitions } from './useWorkspaceTransitions.js';
 
 export function useLoadProjectWithFileBrowser() {
   const ioProvider = useIOProvider();
-  const setProject = useSetAtom(projectState);
-  const setLoadedProjectState = useSetAtom(loadedProjectState);
   const [projects, setProjects] = useAtom(projectsState);
-  const setGraph = useSetAtom(graphState);
-  const setTrivetState = useSetAtom(trivetState);
-  const setStaticData = useSetStaticData();
-  const setNavigationStack = useSetAtom(graphNavigationStackState);
-  const centerViewOnGraph = useCenterViewOnGraph();
+  const workspaceTransitions = useWorkspaceTransitions();
 
   return async () => {
     try {
@@ -45,37 +36,17 @@ export function useLoadProjectWithFileBrowser() {
           return;
         }
 
-        setProject(projectData);
-        setNavigationStack({ stack: [], index: undefined });
-
-        if (data) {
-          setStaticData(data);
-        }
-
-        let graphToLoad: NodeGraph;
-        if (projectData.metadata.mainGraphId && projectData.graphs[projectData.metadata.mainGraphId]) {
-          graphToLoad = projectData.graphs[projectData.metadata.mainGraphId]!;
-        } else {
-          graphToLoad =
-            Object.values(projectData.graphs).sort((a, b) =>
-              (a.metadata?.name ?? '').localeCompare(b.metadata?.name ?? ''),
-            )[0] ?? emptyNodeGraph();
-        }
-
-        setGraph(graphToLoad);
-        centerViewOnGraph(graphToLoad);
-
-        setLoadedProjectState({
-          path,
-          loaded: true,
+        const graphToLoad = chooseProjectGraph(projectData, {
+          fallbackToMainGraph: true,
+          fallbackToSortedProjectGraph: true,
         });
 
-        setTrivetState({
+        void workspaceTransitions.loadProject({
+          project: projectData,
+          data,
+          fsPath: path,
+          graphToLoad,
           testSuites: testData.testSuites,
-          selectedTestSuiteId: undefined,
-          editingTestCaseId: undefined,
-          recentTestResults: undefined,
-          runningTests: false,
         });
 
         setProjects((prev) => ({

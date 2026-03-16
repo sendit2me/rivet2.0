@@ -3,7 +3,7 @@ import { type FC } from 'react';
 import { useSetAtom } from 'jotai';
 import { getCommunityLoginUrl } from '../../utils/getCommunityApi';
 import { isLoggedInToCommunityState } from '../../state/community';
-import { createWebviewWindowHandle } from '../../utils/nativeApp';
+import { createWebviewWindowHandle } from '../../utils/platform/window.js';
 
 export const NeedsLoginPage: FC = () => {
   const loginUrl = getCommunityLoginUrl();

@@ -11,7 +11,8 @@ import { lastRunDataByNodeState } from '../state/dataFlow';
 import { useImportGraph } from './useImportGraph';
 import { useAtom, useSetAtom } from 'jotai';
 import { useIOProvider } from '../providers/ProvidersContext.js';
-import { getCurrentWindowHandle, type NativeWindowHandle } from '../utils/nativeApp';
+import { type NativeWindowHandle } from '../utils/platform/core.js';
+import { getCurrentWindowHandle } from '../utils/platform/window.js';
 
 export type MenuIds =
   | 'settings'

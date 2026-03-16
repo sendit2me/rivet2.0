@@ -9,10 +9,10 @@ import GentraceImage from '../../assets/vendor_logos/gentrace.svg?react';
 import { toast } from 'react-toastify';
 import { runGentraceTests, runRemoteGentraceTests } from '../../../../core/src/plugins/gentrace/plugin';
 import { useRemoteDebugger } from '../../hooks/useRemoteDebugger';
-import { useRemoteExecutor } from '../../hooks/useRemoteExecutor';
+import { useExecutorSessionState } from '../../hooks/useExecutorSession';
 import { TauriNativeApi } from '../../model/native/TauriNativeApi';
 import { graphState } from '../../state/graph';
-import { projectContextState, projectDataState, projectState } from '../../state/savedGraphs.js';
+import { projectContextState, projectState } from '../../state/savedGraphs.js';
 import { settingsState } from '../../state/settings';
 import { fillMissingSettingsFromEnvironmentVariables } from '../../utils/tauri';
 import GentracePipelinePicker, { type GentracePipeline } from './GentracePipelinePicker';
@@ -27,8 +27,7 @@ export const GentraceInteractors = () => {
   const projectContext = useAtomValue(projectContextState(project.metadata.id));
 
   const remoteDebugger = useRemoteDebugger();
-
-  const remoteExecutor = useRemoteExecutor();
+  const executorSession = useExecutorSessionState();
 
   const gentracePipelineSettings = graph?.metadata?.attachedData?.gentracePipeline as GentracePipeline | undefined;
   const currentGentracePipelineSlug = gentracePipelineSettings?.slug;
@@ -54,7 +53,7 @@ export const GentraceInteractors = () => {
     let testResultId: string | null = null;
 
     try {
-      if (remoteExecutor.active && remoteDebugger.remoteDebuggerState.socket) {
+      if (executorSession.status === 'ready' && remoteDebugger.remoteDebuggerState.socket) {
         const testResponse = await runRemoteGentraceTests(
           currentGentracePipelineSlug,
           settings,

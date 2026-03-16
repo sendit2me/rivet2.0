@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useAtom, useAtomValue } from 'jotai';
 import { graphState } from '../state/graph';
 import {
@@ -6,6 +6,7 @@ import {
   type OpenedProjectInfo,
   openedProjectsSortedIdsState,
   openedProjectsState,
+  projectDataState,
   projectState,
 } from '../state/savedGraphs';
 
@@ -14,8 +15,16 @@ export function useSyncCurrentStateIntoOpenedProjects() {
   const [openedProjectsSortedIds, setOpenedProjectsSortedIds] = useAtom(openedProjectsSortedIdsState);
 
   const currentProject = useAtomValue(projectState);
+  const currentProjectData = useAtomValue(projectDataState);
   const loadedProject = useAtomValue(loadedProjectState);
   const currentGraph = useAtomValue(graphState);
+  const currentProjectWithData = useMemo(
+    () => ({
+      ...currentProject,
+      data: currentProjectData,
+    }),
+    [currentProject, currentProjectData],
+  );
 
   // Make sure current opened project is in opened projects
   useEffect(() => {
@@ -23,7 +32,7 @@ export function useSyncCurrentStateIntoOpenedProjects() {
       setOpenedProjects({
         ...openedProjects,
         [currentProject.metadata.id]: {
-          project: currentProject,
+          project: currentProjectWithData,
           fsPath: null,
         } satisfies OpenedProjectInfo,
       });
@@ -33,7 +42,7 @@ export function useSyncCurrentStateIntoOpenedProjects() {
       setOpenedProjects({
         ...openedProjects,
         [currentProject.metadata.id]: {
-          project: currentProject,
+          project: currentProjectWithData,
           fsPath: loadedProject.path,
         } satisfies OpenedProjectInfo,
       });
@@ -43,7 +52,7 @@ export function useSyncCurrentStateIntoOpenedProjects() {
       setOpenedProjectsSortedIds([...openedProjectsSortedIds, currentProject.metadata.id]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional
-  }, [currentProject, loadedProject, setOpenedProjects]);
+  }, [currentProject, currentProjectWithData, loadedProject, setOpenedProjects]);
 
   // Sync current project into opened projects
   useEffect(() => {
@@ -51,15 +60,15 @@ export function useSyncCurrentStateIntoOpenedProjects() {
       ...openedProjects,
       [currentProject.metadata.id]: {
         ...openedProjects[currentProject.metadata.id],
-        project: currentProject,
+        project: currentProjectWithData,
       } satisfies OpenedProjectInfo,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional
-  }, [currentProject]);
+  }, [currentProject, currentProjectWithData]);
 
   // Track project and graph state, so that when the user switches projects, we can track that state without saving the project.
   const [prevProjectState, setPrevProjectState] = useState({
-    project: currentProject,
+    project: currentProjectWithData,
     openedGraph: currentGraph?.metadata?.id,
   } satisfies OpenedProjectInfo);
   useEffect(() => {
@@ -70,7 +79,7 @@ export function useSyncCurrentStateIntoOpenedProjects() {
     ) {
       setPrevProjectState({
         project: {
-          ...currentProject,
+          ...currentProjectWithData,
           graphs: {
             ...currentProject.graphs,
             [currentGraph.metadata!.id!]: currentGraph,
@@ -79,7 +88,7 @@ export function useSyncCurrentStateIntoOpenedProjects() {
         openedGraph: currentGraph.metadata!.id!,
       } satisfies OpenedProjectInfo);
     }
-  }, [currentGraph, currentProject, prevProjectState.project.metadata.id]);
+  }, [currentGraph, currentProject, currentProjectWithData, prevProjectState.project.metadata.id]);
 
   // Sync current graph into opened projects when user switches projects.
   useEffect(() => {
@@ -98,10 +107,10 @@ export function useSyncCurrentStateIntoOpenedProjects() {
       });
       // Update prevProjectState, so that we track changes to it
       setPrevProjectState({
-        project: currentProject,
+        project: currentProjectWithData,
         openedGraph: currentGraph?.metadata?.id,
       } satisfies OpenedProjectInfo);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional
-  }, [currentProject]);
+  }, [currentProject, currentProjectWithData]);
 }

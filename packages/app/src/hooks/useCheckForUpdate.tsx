@@ -3,7 +3,8 @@ import { css } from '@emotion/react';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { checkForUpdatesState, skippedMaxVersionState, updateModalOpenState } from '../state/settings';
 import { lte } from 'semver';
-import { checkForAppUpdate, isInTauri } from '../utils/nativeApp';
+import { isInTauri } from '../utils/platform/core.js';
+import { checkForAppUpdate } from '../utils/platform/updater.js';
 
 const toastStyle = css`
   display: flex;

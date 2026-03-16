@@ -45,7 +45,9 @@ export const themeState = atomWithStorage<Theme>('theme', 'molten', storage);
 
 export const recordExecutionsState = atomWithStorage<boolean>('recordExecutions', true, storage);
 
-export const defaultExecutorState = atomWithStorage<'browser' | 'nodejs'>('defaultExecutor', 'browser', storage);
+export type DefaultExecutor = 'browser' | 'nodejs';
+
+export const defaultExecutorState = atomWithStorage<DefaultExecutor>('defaultExecutor', 'browser', storage);
 
 export const executorOptions = isInTauri()
   ? ([

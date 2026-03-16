@@ -1,7 +1,7 @@
 import { type BaseDir, type NativeApi, type ReadDirOptions } from '@ironclad/rivet-core';
 
 import { minimatch } from 'minimatch';
-import { nativeReadBinaryFile, nativeReadDir, nativeReadTextFile, nativeWriteFile } from '../../utils/nativeApp';
+import { nativeReadBinaryFile, nativeReadDir, nativeReadTextFile, nativeWriteFile } from '../../utils/platform/fs.js';
 
 const baseDirToBaseDirectoryMap: Record<BaseDir, string> = {
   app: 'App',

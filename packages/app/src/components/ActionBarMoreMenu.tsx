@@ -3,7 +3,7 @@ import Select from '@atlaskit/select';
 import { css } from '@emotion/react';
 import { type FC, useRef } from 'react';
 import { useLoadRecording } from '../hooks/useLoadRecording';
-import { useRemoteDebugger } from '../hooks/useRemoteDebugger';
+import { useExecutorSessionState } from '../hooks/useExecutorSession';
 import { defaultExecutorState, executorOptions } from '../state/settings';
 import { debuggerPanelOpenState, helpModalOpenState } from '../state/ui';
 import { isInTauri } from '../utils/tauri';
@@ -104,8 +104,8 @@ export const ActionBarMoreMenu: FC<{
     onClose();
   };
 
-  const { remoteDebuggerState: remoteDebugger } = useRemoteDebugger();
-  const isActuallyRemoteDebugging = remoteDebugger.started && !remoteDebugger.isInternalExecutor;
+  const remoteDebugger = useExecutorSessionState();
+  const isActuallyRemoteDebugging = remoteDebugger.status !== 'idle' && !remoteDebugger.isInternalExecutor;
 
   return (
     <div css={moreMenuStyles}>

@@ -30,6 +30,7 @@ import { preservePortTextCaseState } from '../../state/settings';
 import { useCanvasHandlersContext, useCanvasViewContext } from '../CanvasContext';
 import { NodeBody } from '../NodeBody.js';
 import { NodeOutput } from '../NodeOutput.js';
+import { getSelectedProcessRun } from '../../state/selectors/executionSelectors.js';
 
 export const NormalVisualNodeContent: FC<{
   heightCache: HeightCache;
@@ -78,10 +79,7 @@ export const NormalVisualNodeContent: FC<{
     const [initialMouseY, setInitialMouseY] = useState(0);
     const [shiftHeld, setShiftHeld] = useState(false);
 
-    const selectedProcessRun =
-      lastRun && lastRun.length > 0
-        ? lastRun.at(processPage === 'latest' ? lastRun.length - 1 : processPage)?.data
-        : undefined;
+    const selectedProcessRun = getSelectedProcessRun(lastRun, processPage);
 
     const getNodeCurrentDimensions = (elementOrChild: HTMLElement): [number, number] => {
       const nodeElement = elementOrChild.closest('.node');

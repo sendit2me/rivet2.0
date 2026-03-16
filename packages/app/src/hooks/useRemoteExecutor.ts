@@ -12,7 +12,7 @@ import {
 import { useCurrentExecution } from './useCurrentExecution';
 import { graphState } from '../state/graph';
 import { defaultExecutorState, settingsState } from '../state/settings';
-import { setCurrentDebuggerMessageHandler, useRemoteDebugger } from './useRemoteDebugger';
+import { useRemoteDebugger } from './useRemoteDebugger';
 import { fillMissingSettingsFromEnvironmentVariables } from '../utils/tauri';
 import { loadedProjectState, projectContextState, projectDataState, projectState } from '../state/savedGraphs';
 import { useStableCallback } from './useStableCallback';
@@ -25,15 +25,15 @@ import { entries } from '../../../core/src/utils/typeSafety';
 import { type RunDataByNodeId, lastRunDataByNodeState } from '../state/dataFlow';
 import { useAtomValue, useSetAtom, useAtom } from 'jotai';
 import { setUserInputSubmitHandler } from '../state/actions/userInputActions';
-
-// TODO: This allows us to retrieve the GraphOutputs from the remote debugger.
-// If the remote debugger events had a unique ID for each run, this would feel a lot less hacky.
-// For now, it will be impossible to support parallel processing in remote debugger mode.
-let graphExecutionPromise: {
-  promise: Promise<GraphOutputs> | undefined;
-  resolve: ((value: GraphOutputs) => void) | undefined;
-  reject: ((reason?: any) => void) | undefined;
-};
+import {
+  INTERNAL_EXECUTOR_URL,
+  createPendingGraphExecution,
+  isExecutorSessionReady,
+  rejectPendingGraphExecution,
+  resolvePendingGraphExecution,
+  subscribeExecutorSessionMessages,
+} from './executorSession';
+import { useEffect } from 'react';
 
 export function useRemoteExecutor() {
   const project = useAtomValue(projectState);
@@ -55,77 +55,74 @@ export function useRemoteExecutor() {
 
       // If we're using the node executor, disconnecting means reconnecting to the internal executor
       if (selectedExecutor === 'nodejs') {
-        remoteDebugger.connect('ws://localhost:21889/internal');
+        remoteDebugger.connect(INTERNAL_EXECUTOR_URL);
       }
     },
   });
 
-  setCurrentDebuggerMessageHandler((message, data) => {
-    switch (message) {
-      case 'nodeStart':
-        currentExecution.onNodeStart(data as ProcessEvents['nodeStart']);
-        break;
-      case 'nodeFinish':
-        currentExecution.onNodeFinish(data as ProcessEvents['nodeFinish']);
-        break;
-      case 'nodeError':
-        currentExecution.onNodeError(data as ProcessEvents['nodeError']);
-        break;
-      case 'userInput':
-        currentExecution.onUserInput(data as ProcessEvents['userInput']);
-        break;
-      case 'start':
-        currentExecution.onStart(data as ProcessEvents['start']);
-        break;
-      case 'done':
-        const doneData = data as ProcessEvents['done'];
-        graphExecutionPromise?.resolve?.(doneData.results);
-        currentExecution.onDone(data as ProcessEvents['done']);
-        break;
-      case 'abort':
-        graphExecutionPromise?.reject?.(new Error('graph execution aborted'));
-        currentExecution.onAbort(data as ProcessEvents['abort']);
-        break;
-      case 'graphAbort':
-        currentExecution.onGraphAbort(data as ProcessEvents['graphAbort']);
-        break;
-      case 'partialOutput':
-        currentExecution.onPartialOutput(data as ProcessEvents['partialOutput']);
-        break;
-      case 'graphStart':
-        currentExecution.onGraphStart(data as ProcessEvents['graphStart']);
-        break;
-      case 'graphFinish':
-        currentExecution.onGraphFinish(data as ProcessEvents['graphFinish']);
-        break;
-      case 'nodeOutputsCleared':
-        currentExecution.onNodeOutputsCleared(data as ProcessEvents['nodeOutputsCleared']);
-        break;
-      case 'trace':
-        console.log(`remote: ${data}`);
-        break;
-      case 'pause':
-        currentExecution.onPause();
-        break;
-      case 'resume':
-        currentExecution.onResume();
-        break;
-      case 'error':
-        const errorData = data as ProcessEvents['error'];
-        graphExecutionPromise?.reject?.(errorData.error);
-        currentExecution.onError(data as ProcessEvents['error']);
-        break;
-      case 'nodeExcluded':
-        currentExecution.onNodeExcluded(data as ProcessEvents['nodeExcluded']);
-        break;
-    }
-  });
+  useEffect(() => {
+    return subscribeExecutorSessionMessages((message, data) => {
+      switch (message) {
+        case 'nodeStart':
+          currentExecution.onNodeStart(data as ProcessEvents['nodeStart']);
+          break;
+        case 'nodeFinish':
+          currentExecution.onNodeFinish(data as ProcessEvents['nodeFinish']);
+          break;
+        case 'nodeError':
+          currentExecution.onNodeError(data as ProcessEvents['nodeError']);
+          break;
+        case 'userInput':
+          currentExecution.onUserInput(data as ProcessEvents['userInput']);
+          break;
+        case 'start':
+          currentExecution.onStart(data as ProcessEvents['start']);
+          break;
+        case 'done':
+          resolvePendingGraphExecution((data as ProcessEvents['done']).results);
+          currentExecution.onDone(data as ProcessEvents['done']);
+          break;
+        case 'abort':
+          rejectPendingGraphExecution(new Error('graph execution aborted'));
+          currentExecution.onAbort(data as ProcessEvents['abort']);
+          break;
+        case 'graphAbort':
+          currentExecution.onGraphAbort(data as ProcessEvents['graphAbort']);
+          break;
+        case 'partialOutput':
+          currentExecution.onPartialOutput(data as ProcessEvents['partialOutput']);
+          break;
+        case 'graphStart':
+          currentExecution.onGraphStart(data as ProcessEvents['graphStart']);
+          break;
+        case 'graphFinish':
+          currentExecution.onGraphFinish(data as ProcessEvents['graphFinish']);
+          break;
+        case 'nodeOutputsCleared':
+          currentExecution.onNodeOutputsCleared(data as ProcessEvents['nodeOutputsCleared']);
+          break;
+        case 'trace':
+          console.log(`remote: ${data}`);
+          break;
+        case 'pause':
+          currentExecution.onPause();
+          break;
+        case 'resume':
+          currentExecution.onResume();
+          break;
+        case 'error':
+          rejectPendingGraphExecution((data as ProcessEvents['error']).error);
+          currentExecution.onError(data as ProcessEvents['error']);
+          break;
+        case 'nodeExcluded':
+          currentExecution.onNodeExcluded(data as ProcessEvents['nodeExcluded']);
+          break;
+      }
+    });
+  }, [currentExecution]);
 
   const tryRunGraph = async (options: { to?: NodeId[]; from?: NodeId; graphId?: GraphId } = {}) => {
-    if (
-      !remoteDebugger.remoteDebuggerState.started ||
-      remoteDebugger.remoteDebuggerState.socket?.readyState !== WebSocket.OPEN
-    ) {
+    if (!isExecutorSessionReady()) {
       return;
     }
 
@@ -182,7 +179,7 @@ export function useRemoteExecutor() {
         graphId: graphToRun,
         runToNodeIds: options.to,
         contextValues,
-        runFromNodeIds: options.from,
+        runFromNodeId: options.from,
         projectPath: loadedProject.path,
       });
     } catch (e) {
@@ -242,19 +239,7 @@ export function useRemoteExecutor() {
               });
             }
 
-            {
-              let resolve: (value: GraphOutputs) => void;
-              let reject: (err: string) => void;
-              const promise = new Promise<GraphOutputs>((res, rej) => {
-                resolve = res;
-                reject = rej;
-              });
-              graphExecutionPromise = {
-                promise,
-                resolve: resolve!,
-                reject: reject!,
-              };
-            }
+            const pendingResults = createPendingGraphExecution();
 
             const contextValues = entries(projectContext).reduce(
               (acc, [id, value]) => ({
@@ -266,7 +251,7 @@ export function useRemoteExecutor() {
 
             remoteDebugger.send('run', { graphId, inputs, contextValues, projectPath: loadedProject.path });
 
-            const results = await graphExecutionPromise.promise!;
+            const results = await pendingResults;
             return results;
           },
         });
@@ -313,7 +298,7 @@ export function useRemoteExecutor() {
     tryAbortGraph,
     tryPauseGraph,
     tryResumeGraph,
-    active: remoteDebugger.remoteDebuggerState.started,
+    active: remoteDebugger.sessionState.status === 'ready',
     tryRunTests,
   };
 }

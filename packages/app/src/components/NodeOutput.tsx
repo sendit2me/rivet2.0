@@ -24,17 +24,17 @@ import ExpandIcon from 'majesticons/line/maximize-line.svg?react';
 import FlaskIcon from 'majesticons/line/flask-line.svg?react';
 import { FullScreenModal } from './FullScreenModal.js';
 import { RenderDataOutputs } from './RenderDataValue.js';
-import { orderBy } from 'lodash-es';
 import { promptDesignerAttachedChatNodeState } from '../state/promptDesigner.js';
 import { overlayOpenState } from '../state/ui';
 import { useDependsOnPlugins } from '../hooks/useDependsOnPlugins';
-import { entries } from '../../../core/src/utils/typeSafety';
 import { useToggle } from 'ahooks';
 import Toggle from '@atlaskit/toggle';
 import { pinnedNodesState } from '../state/graphBuilder';
 import { useNodeIO } from '../hooks/useGetNodeIO';
 import { Tooltip } from './Tooltip';
 import { useDataRefs } from '../providers/ProvidersContext';
+import { getSelectedProcessData } from '../state/selectors/executionSelectors.js';
+import { renderNodeOutputBody } from './nodeOutput/renderNodeOutputBody.js';
 
 export const NodeOutput: FC<{ node: ChartNode; isHovered: boolean }> = memo(({ node, isHovered }) => {
   const dataRefs = useDataRefs();
@@ -177,6 +177,34 @@ const fullscreenOutputButtonsCss = css`
   }
 `;
 
+const renderNodeOutputPager = ({
+  onNextPage,
+  onPrevPage,
+  selectedPage,
+  stopDoubleClickPropagation = false,
+  totalPages,
+}: {
+  selectedPage: number | 'latest';
+  totalPages: number;
+  onPrevPage: () => void;
+  onNextPage: () => void;
+  stopDoubleClickPropagation?: boolean;
+}) => {
+  const handleDoubleClick = stopDoubleClickPropagation ? (event: MouseEvent) => event.stopPropagation() : undefined;
+
+  return (
+    <div className="picker">
+      <button className="picker-left" onClick={onPrevPage} onDoubleClick={handleDoubleClick}>
+        {'<'}
+      </button>
+      <div className="picker-page">{selectedPage === 'latest' ? totalPages : selectedPage + 1}</div>
+      <button className="picker-right" onClick={onNextPage} onDoubleClick={handleDoubleClick}>
+        {'>'}
+      </button>
+    </div>
+  );
+};
+
 const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
   const dataRefs = useDataRefs();
   const output = useAtomValue(lastRunDataState(node.id));
@@ -193,15 +221,11 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
   const io = useNodeIO(node.id);
 
   const { data, processId } = useMemo(() => {
-    if (!output?.length) {
-      return { data: undefined, processId: undefined };
-    }
-
-    if (output.length === 1) {
-      return output[0]!;
-    } else {
-      return output[selectedPage === 'latest' ? output.length - 1 : selectedPage]!;
-    }
+    const selectedProcess = getSelectedProcessData(output, selectedPage);
+    return {
+      data: selectedProcess?.data,
+      processId: selectedProcess?.processId,
+    };
   }, [output, selectedPage]);
 
   const handleOpenPromptDesigner = () => {
@@ -285,65 +309,28 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
     return null;
   }
 
-  let body: ReactNode;
-
-  if (FullscreenOutput) {
-    body = <FullscreenOutput node={node} />;
-  } else if (Output) {
-    body = <Output node={node} isCompact={false} />;
-  } else if (data.splitOutputData) {
-    const outputs = orderBy(
-      entries(data.splitOutputData).map(([key, value]) => ({ key, value })),
-      (x) => x.key,
-    );
-
-    body = (
-      <div className="split-output">
-        {outputs.map(({ key, value }) =>
-          FullscreenOutputSimple ? (
-            <FullscreenOutputSimple key={`outputs-${key}`} outputs={value} renderMarkdown={renderMarkdown} />
-          ) : OutputSimple ? (
-            <OutputSimple key={`outputs-${key}`} outputs={value} isCompact={false} />
-          ) : (
-            <RenderDataOutputs
-              key={`outputs-${key}`}
-              definitions={io.outputDefinitions}
-              outputs={value}
-              renderMarkdown={renderMarkdown}
-              isCompact={false}
-            />
-          ),
-        )}
-      </div>
-    );
-  } else {
-    body = FullscreenOutputSimple ? (
-      <FullscreenOutputSimple outputs={data.outputData!} renderMarkdown={renderMarkdown} />
-    ) : OutputSimple ? (
-      <OutputSimple outputs={data.outputData!} isCompact={false} />
-    ) : (
-      <RenderDataOutputs
-        definitions={io.outputDefinitions}
-        outputs={data.outputData!}
-        renderMarkdown={renderMarkdown}
-        isCompact={false}
-      />
-    );
-  }
+  const body = renderNodeOutputBody({
+    FullscreenOutput,
+    Output,
+    OutputSimple,
+    FullscreenOutputSimple,
+    node,
+    data,
+    definitions: io.outputDefinitions,
+    isCompact: false,
+    renderMarkdown,
+  });
 
   return (
     <div css={fullscreenOutputCss}>
       <header className="fullscreen-header">
         {output.length > 1 ? (
-          <div className="picker">
-            <button className="picker-left" onClick={prevPage}>
-              {'<'}
-            </button>
-            <div className="picker-page">{selectedPage === 'latest' ? output.length : selectedPage + 1}</div>
-            <button className="picker-right" onClick={nextPage}>
-              {'>'}
-            </button>
-          </div>
+          renderNodeOutputPager({
+            selectedPage,
+            totalPages: output.length,
+            onPrevPage: prevPage,
+            onNextPage: nextPage,
+          })
         ) : (
           <div />
         )}
@@ -468,39 +455,14 @@ const NodeOutputSingleProcess: FC<{
     return null;
   }
 
-  let body: ReactNode;
-
-  if (Output) {
-    body = <Output node={node} isCompact={!isHovered} />;
-  } else if (data.splitOutputData) {
-    const outputs = orderBy(
-      entries(data.splitOutputData).map(([key, value]) => ({ key, value })),
-      (x) => x.key,
-    );
-
-    body = (
-      <div className="split-output">
-        {outputs.map(({ key, value }) =>
-          OutputSimple ? (
-            <OutputSimple key={`outputs-${key}`} outputs={value} isCompact={!isHovered} />
-          ) : (
-            <RenderDataOutputs
-              definitions={io.outputDefinitions}
-              key={`outputs-${key}`}
-              outputs={value}
-              isCompact={!isHovered}
-            />
-          ),
-        )}
-      </div>
-    );
-  } else {
-    body = OutputSimple ? (
-      <OutputSimple outputs={data.outputData!} isCompact={!isHovered} />
-    ) : (
-      <RenderDataOutputs definitions={io.outputDefinitions} outputs={data.outputData!} isCompact={!isHovered} />
-    );
-  }
+  const body = renderNodeOutputBody({
+    Output,
+    OutputSimple,
+    node,
+    data,
+    definitions: io.outputDefinitions,
+    isCompact: !isHovered,
+  });
 
   return (
     <div className="node-output-inner">
@@ -572,15 +534,13 @@ const NodeOutputMultiProcess: FC<{
   return (
     <div className="node-output multi">
       <div className="multi-node-output">
-        <div className="picker">
-          <button className="picker-left" onClick={prevPage} onDoubleClick={(e) => e.stopPropagation()}>
-            {'<'}
-          </button>
-          <div className="picker-page">{selectedPage === 'latest' ? data.length : selectedPage + 1}</div>
-          <button className="picker-right" onClick={nextPage} onDoubleClick={(e) => e.stopPropagation()}>
-            {'>'}
-          </button>
-        </div>
+        <NodeOutputPager
+          selectedPage={selectedPage}
+          totalPages={data.length}
+          onPrevPage={prevPage}
+          onNextPage={nextPage}
+          stopDoubleClickPropagation
+        />
       </div>
       {selectedData && (
         <NodeOutputSingleProcess
@@ -594,3 +554,11 @@ const NodeOutputMultiProcess: FC<{
     </div>
   );
 };
+
+const NodeOutputPager: FC<{
+  selectedPage: number | 'latest';
+  totalPages: number;
+  onPrevPage: () => void;
+  onNextPage: () => void;
+  stopDoubleClickPropagation?: boolean;
+}> = (props) => renderNodeOutputPager(props);

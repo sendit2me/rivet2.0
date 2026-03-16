@@ -12,6 +12,7 @@ import { type CSSProperties, forwardRef, useMemo } from 'react';
 import { useAtomValue } from 'jotai';
 import { draggingWireState } from '../state/graphBuilder';
 import { lastRunDataState, selectedProcessPageState } from '../state/dataFlow';
+import { getSelectedProcessData } from '../state/selectors/executionSelectors.js';
 import clsx from 'clsx';
 import { RenderDataValue } from './RenderDataValue';
 
@@ -117,7 +118,7 @@ export const PortInfo = forwardRef<
       return undefined;
     }
 
-    const execution = selectedPage === 'latest' ? lastRun[lastRun.length - 1] : lastRun[selectedPage];
+    const execution = getSelectedProcessData(lastRun, selectedPage);
     if (!execution?.data) {
       return undefined;
     }

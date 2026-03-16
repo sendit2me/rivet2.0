@@ -1,5 +1,4 @@
-import { match } from 'ts-pattern';
-import { coerceType, coerceTypeOptional } from '../../utils/coerceType.js';
+import { coerceTypeOptional } from '../../utils/coerceType.js';
 import { getError } from '../../utils/errors.js';
 import { dedent } from '../../utils/misc.js';
 import {
@@ -7,14 +6,11 @@ import {
   openAiModelOptions,
   openaiModels,
   type ChatCompletionOptions,
-  type ChatCompletionTool,
   chatCompletions,
   streamChatCompletions,
-  type ChatCompletionChunkUsage,
   defaultOpenaiSupported,
   type OpenAIModel,
 } from '../../utils/openai.js';
-import { isArrayDataValue, type ChatMessage, getScalarTypeOf, type ScalarDataValue } from '../DataValue.js';
 import type { EditorDefinition } from '../EditorDefinition.js';
 import type { ChartNode, NodeInputDefinition, NodeOutputDefinition, PortId } from '../NodeBase.js';
 import type { ChatNode } from './ChatNode.js';
@@ -24,9 +20,23 @@ import type { InternalProcessContext } from '../ProcessContext.js';
 import { chatMessageToOpenAIChatCompletionMessage } from '../../utils/chatMessageToOpenAIChatCompletionMessage.js';
 import { DEFAULT_CHAT_ENDPOINT } from '../../utils/defaults.js';
 import type { TokenizerCallInfo } from '../../integrations/Tokenizer.js';
-import { addWarning } from '../../utils/outputs.js';
 import retry from 'p-retry';
-import { base64ToUint8Array } from '../../utils/base64.js';
+import {
+  resolveAdditionalHeaders,
+  resolveAdditionalParameters,
+  resolveAudioAndModalities,
+  resolveChatToolChoice,
+  resolveChatTools,
+  resolveOpenAIResponseFormat,
+  resolvePredictionObject,
+} from '../chat/openAIChatRequest.js';
+import { coercePromptToChatMessages, prependSystemPrompt } from '../chat/chatMessages.js';
+import { clampMaxTokensToModelLimit } from '../chat/tokenBudget.js';
+import {
+  applyOpenAINonStreamingResponse,
+  applyOpenAIStreamingResponse,
+  handleOpenAIRetryableFailure,
+} from '../chat/openAIChatRuntime.js';
 
 export type ChatNodeConfigData = {
   model: string;
@@ -877,90 +887,17 @@ export const ChatNodeBase = {
     const endpoint = getInputOrData(data, inputs, 'endpoint');
     const overrideModel = getInputOrData(data, inputs, 'overrideModel');
     const seed = getInputOrData(data, inputs, 'seed', 'number');
-    const responseFormat = getInputOrData(data, inputs, 'responseFormat') as 'text' | 'json' | 'json_schema' | '';
-    const toolChoiceMode = getInputOrData(data, inputs, 'toolChoice', 'string') as 'none' | 'auto' | 'function';
     const parallelFunctionCalling = getInputOrData(data, inputs, 'parallelFunctionCalling', 'boolean');
-
-    const predictedOutput = data.usePredictedOutput
-      ? coerceTypeOptional(inputs['predictedOutput' as PortId], 'string[]')
-      : undefined;
-
-    const toolChoice: ChatCompletionOptions['tool_choice'] =
-      !toolChoiceMode || !data.enableFunctionUse
-        ? undefined
-        : toolChoiceMode === 'function'
-          ? {
-              type: 'function',
-              function: {
-                name: getInputOrData(data, inputs, 'toolChoiceFunction', 'string'),
-              },
-            }
-          : toolChoiceMode;
-
-    let responseSchema: object | undefined;
-
-    const responseSchemaInput = inputs['responseSchema' as PortId];
-    if (responseSchemaInput?.type === 'gpt-function') {
-      responseSchema = responseSchemaInput.value.parameters;
-    } else if (responseSchemaInput != null) {
-      responseSchema = coerceType(responseSchemaInput, 'object');
-    }
-
-    const openaiResponseFormat = !responseFormat?.trim()
-      ? undefined
-      : responseFormat === 'json'
-        ? ({
-            type: 'json_object',
-          } as const)
-        : responseFormat === 'json_schema'
-          ? {
-              type: 'json_schema' as const,
-              json_schema: {
-                name: getInputOrData(data, inputs, 'responseSchemaName', 'string') || 'response_schema',
-                strict: true,
-                schema: responseSchema ?? {},
-              },
-            }
-          : ({
-              type: 'text',
-            } as const);
-
-    const headersFromData = (data.headers ?? []).reduce(
-      (acc, header) => {
-        acc[header.key] = header.value;
-        return acc;
-      },
-      {} as Record<string, string>,
-    );
-    const additionalHeaders = data.useHeadersInput
-      ? (coerceTypeOptional(inputs['headers' as PortId], 'object') as Record<string, string> | undefined) ??
-        headersFromData
-      : headersFromData;
-
-    const additionalParametersFromData = (data.additionalParameters ?? []).reduce(
-      (acc, param) => {
-        acc[param.key] = Number.isNaN(parseFloat(param.value)) ? param.value : parseFloat(param.value);
-        return acc;
-      },
-      {} as Record<string, string | number>,
-    );
-    const additionalParameters = data.useAdditionalParametersInput
-      ? (coerceTypeOptional(inputs['additionalParameters' as PortId], 'object') as
-          | Record<string, string>
-          | undefined) ?? additionalParametersFromData
-      : additionalParametersFromData;
+    const toolChoice = resolveChatToolChoice(data, inputs);
+    const openaiResponseFormat = resolveOpenAIResponseFormat(data, inputs);
+    const additionalHeaders = resolveAdditionalHeaders(data, inputs);
+    const additionalParameters = resolveAdditionalParameters(data, inputs);
 
     // If using a model input, that's priority, otherwise override > main
     const finalModel = data.useModelInput && inputs['model' as PortId] != null ? model : overrideModel || model;
 
     const functions = coerceTypeOptional(inputs['functions' as PortId], 'gpt-function[]');
-
-    const tools = (functions ?? []).map(
-      (fn): ChatCompletionTool => ({
-        function: fn,
-        type: 'function',
-      }),
-    );
+    const tools = resolveChatTools(inputs);
 
     const { messages } = getChatNodeMessages(inputs);
 
@@ -991,7 +928,7 @@ export const ChatNodeBase = {
     let { maxTokens } = data;
 
     const openaiModel = {
-      ...(openaiModels[model as keyof typeof openaiModels] ?? {
+      ...(openaiModels[finalModel as keyof typeof openaiModels] ?? {
         maxTokens: data.overrideMaxTokens ?? 8192,
         cost: {
           completion: 0,
@@ -1033,56 +970,11 @@ export const ChatNodeBase = {
     if (!data.useServerTokenCalculation) {
       inputTokenCount = await context.tokenizer.getTokenCountForMessages(messages, functions, tokenizerInfo);
 
-      if (inputTokenCount >= openaiModel.maxTokens) {
-        throw new Error(
-          `The model ${model} can only handle ${openaiModel.maxTokens} tokens, but ${inputTokenCount} were provided in the prompts alone.`,
-        );
-      }
-
-      if (inputTokenCount + maxTokens > openaiModel.maxTokens) {
-        const message = `The model can only handle a maximum of ${
-          openaiModel.maxTokens
-        } tokens, but the prompts and max tokens together exceed this limit. The max tokens has been reduced to ${
-          openaiModel.maxTokens - inputTokenCount
-        }.`;
-        addWarning(output, message);
-        maxTokens = Math.floor((openaiModel.maxTokens - inputTokenCount) * 0.95); // reduce max tokens by 5% to be safe, calculation is a little wrong.
-      }
+      maxTokens = clampMaxTokensToModelLimit(output, model, inputTokenCount, maxTokens, openaiModel.maxTokens);
     }
 
-    const predictionObject = predictedOutput
-      ? predictedOutput.length === 1
-        ? { type: 'content' as const, content: predictedOutput[0]! }
-        : { type: 'content' as const, content: predictedOutput.map((part) => ({ type: 'text', text: part })) }
-      : undefined;
-
-    const voice = getInputOrData(data, inputs, 'audioVoice');
-
-    let modalities: ('text' | 'audio')[] | undefined = [];
-    if (data.modalitiesIncludeText) {
-      modalities.push('text');
-    }
-    if (data.modalitiesIncludeAudio) {
-      modalities.push('audio');
-
-      if (!voice) {
-        throw new Error('Audio voice must be specified if audio is enabled.');
-      }
-    }
-
-    // Errors happen if modalities isn't supported, so omit it if it's empty
-    if (modalities.length === 0) {
-      modalities = undefined;
-    }
-
-    const audio = modalities?.includes('audio')
-      ? {
-          voice,
-          format:
-            (getInputOrData(data, inputs, 'audioFormat') as 'wav' | 'mp3' | 'flac' | 'opus' | 'pcm16' | undefined) ??
-            'wav',
-        }
-      : undefined;
+    const predictionObject = resolvePredictionObject(data, inputs);
+    const { modalities, audio } = resolveAudioAndModalities(data, inputs);
 
     const reasoningEffort = getInputOrData(data, inputs, 'reasoningEffort') as '' | 'low' | 'medium' | 'high';
 
@@ -1152,97 +1044,17 @@ export const ChatNodeBase = {
               throw new OpenAIError(400, response.error);
             }
 
-            if (isMultiResponse) {
-              output['response' as PortId] = {
-                type: 'string[]',
-                value: response.choices.map((c) => c.message.content!),
-              };
-            } else {
-              output['response' as PortId] = {
-                type: 'string',
-                value: response.choices[0]!.message.content! ?? '',
-              };
-            }
-
-            if (!isMultiResponse) {
-              output['all-messages' as PortId] = {
-                type: 'chat-message[]',
-                value: [
-                  ...messages,
-                  {
-                    type: 'assistant',
-                    message: response.choices[0]!.message.content! ?? '',
-                    function_calls: undefined,
-                    isCacheBreakpoint: false,
-                    function_call: undefined,
-                  },
-                ],
-              };
-            }
-
-            if (modalities?.includes('audio')) {
-              const audioData = response.choices[0]!.message.audio;
-
-              output['audio' as PortId] = {
-                type: 'audio',
-                value: {
-                  data: base64ToUint8Array(audioData!.data),
-                  mediaType: audioFormatToMediaType(audio!.format),
-                },
-              };
-
-              output['audioTranscript' as PortId] = {
-                type: 'string',
-                value: response.choices[0]!.message.audio!.transcript,
-              };
-            }
-
-            output['duration' as PortId] = { type: 'number', value: Date.now() - startTime };
-
-            if (response.usage) {
-              output['usage' as PortId] = {
-                type: 'object',
-                value: response.usage,
-              };
-
-              const costs =
-                finalModel in openaiModels ? openaiModels[finalModel as keyof typeof openaiModels].cost : undefined;
-
-              const promptCostPerThousand = costs?.prompt ?? 0;
-              const completionCostPerThousand = costs?.completion ?? 0;
-              const audioPromptCostPerThousand = costs
-                ? 'audioPrompt' in costs
-                  ? (costs.audioPrompt as number)
-                  : 0
-                : 0;
-              const audioCompletionCostPerThousand = costs
-                ? 'audioCompletion' in costs
-                  ? (costs.audioCompletion as number)
-                  : 0
-                : 0;
-
-              const promptCost = getCostForTokens(
-                response.usage.prompt_tokens_details.text_tokens,
-                promptCostPerThousand,
-              );
-              const completionCost = getCostForTokens(
-                response.usage.completion_tokens_details.text_tokens,
-                completionCostPerThousand,
-              );
-              const audioPromptCost = getCostForTokens(
-                response.usage.prompt_tokens_details.audio_tokens,
-                audioPromptCostPerThousand,
-              );
-              const audioCompletionCost = getCostForTokens(
-                response.usage.completion_tokens_details.audio_tokens,
-                audioCompletionCostPerThousand,
-              );
-
-              output['cost' as PortId] = {
-                type: 'number',
-                value: promptCost + completionCost + audioPromptCost + audioCompletionCost,
-              };
-            }
+            await applyOpenAINonStreamingResponse({
+              response,
+              output,
+              messages,
+              isMultiResponse,
+              modalities,
+              audioFormat: audio?.format,
+              modelCosts:
+                finalModel in openaiModels ? openaiModels[finalModel as keyof typeof openaiModels].cost : undefined,
+              durationMs: Date.now() - startTime,
+            });
 
             Object.freeze(output);
             cache.set(cacheKey, output);
@@ -1261,226 +1073,26 @@ export const ChatNodeBase = {
             ...options,
           });
 
-          const responseChoicesParts: string[][] = [];
+          await applyOpenAIStreamingResponse({
+            chunks,
+            output,
+            messages,
+            isMultiResponse,
+            parallelFunctionCalling: data.parallelFunctionCalling,
+            context,
+            tokenizer: context.tokenizer,
+            tokenizerInfo,
+            inputTokenCount,
+            numberOfChoices,
+            useServerTokenCalculation: data.useServerTokenCalculation,
+            modelCosts: {
+              prompt: finalModel in openaiModels ? openaiModels[finalModel as keyof typeof openaiModels].cost.prompt : 0,
+              completion:
+                finalModel in openaiModels ? openaiModels[finalModel as keyof typeof openaiModels].cost.completion : 0,
+            },
+          });
 
-          // First array is the function calls per choice, inner array is the functions calls inside the choice
-          const functionCalls: {
-            type: 'function';
-            id: string;
-            name: string;
-            arguments: string;
-            lastParsedArguments?: unknown;
-          }[][] = [];
-
-          let usage: ChatCompletionChunkUsage | undefined;
-
-          let throttleLastCalledTime = Date.now();
-          const onPartialOutput = (output: Outputs) => {
-            const now = Date.now();
-            if (now - throttleLastCalledTime > (context.settings.throttleChatNode ?? 100)) {
-              context.onPartialOutputs?.(output);
-              throttleLastCalledTime = now;
-            }
-          };
-
-          for await (const chunk of chunks) {
-            if (chunk.usage) {
-              usage = chunk.usage;
-            }
-
-            if (!chunk.choices) {
-              // Could be error for some reason 🤷‍♂️ but ignoring has worked for me so far.
-              continue;
-            }
-
-            for (const { delta, index } of chunk.choices) {
-              if (delta.content != null) {
-                responseChoicesParts[index] ??= [];
-                responseChoicesParts[index]!.push(delta.content);
-              }
-
-              if (delta.tool_calls) {
-                // Are we sure that tool_calls will always be full and not a bunch of deltas?
-                functionCalls[index] ??= [];
-
-                for (const toolCall of delta.tool_calls) {
-                  functionCalls[index]![toolCall.index] ??= {
-                    type: 'function',
-                    arguments: '',
-                    lastParsedArguments: undefined,
-                    name: '',
-                    id: '',
-                  };
-
-                  if (toolCall.id) {
-                    functionCalls[index]![toolCall.index]!.id = toolCall.id;
-                  }
-
-                  if (toolCall.function.name) {
-                    functionCalls[index]![toolCall.index]!.name += toolCall.function.name;
-                  }
-
-                  if (toolCall.function.arguments) {
-                    functionCalls[index]![toolCall.index]!.arguments += toolCall.function.arguments;
-
-                    try {
-                      functionCalls[index]![toolCall.index]!.lastParsedArguments = JSON.parse(
-                        functionCalls[index]![toolCall.index]!.arguments,
-                      );
-                    } catch (error) {
-                      // Ignore
-                    }
-                  }
-                }
-              }
-            }
-
-            if (isMultiResponse) {
-              output['response' as PortId] = {
-                type: 'string[]',
-                value: responseChoicesParts.map((parts) => parts.join('')),
-              };
-            } else {
-              output['response' as PortId] = {
-                type: 'string',
-                value: responseChoicesParts[0]?.join('') ?? '',
-              };
-            }
-
-            if (functionCalls.length > 0) {
-              if (isMultiResponse) {
-                output['function-call' as PortId] = {
-                  type: 'object[]',
-                  value: functionCalls.map((functionCalls) => ({
-                    name: functionCalls[0]?.name,
-                    arguments: functionCalls[0]?.lastParsedArguments,
-                    id: functionCalls[0]?.id,
-                  })),
-                };
-              } else {
-                if (data.parallelFunctionCalling) {
-                  output['function-calls' as PortId] = {
-                    type: 'object[]',
-                    value: functionCalls[0]!.map((functionCall) => ({
-                      name: functionCall.name,
-                      arguments: functionCall.lastParsedArguments,
-                      id: functionCall.id,
-                    })),
-                  };
-                } else {
-                  output['function-call' as PortId] = {
-                    type: 'object',
-                    value: {
-                      name: functionCalls[0]![0]?.name,
-                      arguments: functionCalls[0]![0]?.lastParsedArguments,
-                      id: functionCalls[0]![0]?.id,
-                    } as Record<string, unknown>,
-                  };
-                }
-              }
-            }
-
-            onPartialOutput(output);
-          }
-
-          // Call one last time manually to ensure the last output is sent
-          context.onPartialOutputs?.(output);
-
-          if (!isMultiResponse) {
-            output['all-messages' as PortId] = {
-              type: 'chat-message[]',
-              value: [
-                ...messages,
-                {
-                  type: 'assistant',
-                  message: responseChoicesParts[0]?.join('') ?? '',
-                  function_call: functionCalls[0]
-                    ? {
-                        name: functionCalls[0][0]!.name,
-                        arguments: functionCalls[0][0]!.arguments, // Needs the stringified one here in chat list
-                        id: functionCalls[0][0]!.id,
-                      }
-                    : undefined,
-                  function_calls: functionCalls[0]
-                    ? functionCalls[0].map((fc) => ({
-                        name: fc.name,
-                        arguments: fc.arguments,
-                        id: fc.id,
-                      }))
-                    : undefined,
-                },
-              ],
-            };
-          }
-
-          const endTime = Date.now();
-
-          if (responseChoicesParts.length === 0 && functionCalls.length === 0) {
-            throw new Error('No response from OpenAI');
-          }
-
-          let outputTokenCount = 0;
-
-          if (usage) {
-            inputTokenCount = usage.prompt_tokens;
-            outputTokenCount = usage.completion_tokens;
-          }
-
-          output['in-messages' as PortId] = { type: 'chat-message[]', value: messages };
-          output['requestTokens' as PortId] = { type: 'number', value: inputTokenCount * (numberOfChoices ?? 1) };
-
-          if (!data.useServerTokenCalculation) {
-            let responseTokenCount = 0;
-            for (const choiceParts of responseChoicesParts) {
-              responseTokenCount += await context.tokenizer.getTokenCountForString(choiceParts.join(), tokenizerInfo);
-            }
-            outputTokenCount = responseTokenCount;
-          }
-
-          output['responseTokens' as PortId] = { type: 'number', value: outputTokenCount };
-
-          const outputTokensForCostCalculation = usage?.completion_tokens_details
-            ? usage.completion_tokens_details.rejected_prediction_tokens > 0
-              ? usage.completion_tokens_details.rejected_prediction_tokens
-              : usage.completion_tokens
-            : outputTokenCount;
-
-          const promptCostPerThousand =
-            model in openaiModels ? openaiModels[model as keyof typeof openaiModels].cost.prompt : 0;
-          const completionCostPerThousand =
-            model in openaiModels ? openaiModels[model as keyof typeof openaiModels].cost.completion : 0;
-
-          const promptCost = getCostForTokens(inputTokenCount, promptCostPerThousand);
-          const completionCost = getCostForTokens(outputTokensForCostCalculation, completionCostPerThousand);
-
-          const cost = promptCost + completionCost;
-
-          if (usage) {
-            output['usage' as PortId] = {
-              type: 'object',
-              value: {
-                ...usage,
-                prompt_cost: promptCost,
-                completion_cost: completionCost,
-                total_cost: cost,
-              },
-            };
-          } else {
-            output['usage' as PortId] = {
-              type: 'object',
-              value: {
-                prompt_tokens: inputTokenCount,
-                completion_tokens: outputTokenCount,
-              },
-            };
-          }
-
-          output['cost' as PortId] = { type: 'number', value: cost };
-          output['__hidden_token_count' as PortId] = { type: 'number', value: inputTokenCount + outputTokenCount };
-
-          const duration = endTime - startTime;
-
-          output['duration' as PortId] = { type: 'number', value: duration };
+          output['duration' as PortId] = { type: 'number', value: Date.now() - startTime };
 
           Object.freeze(output);
           cache.set(cacheKey, output);
@@ -1497,69 +1109,7 @@ export const ChatNodeBase = {
           randomize: true,
           signal: context.signal,
           onFailedAttempt(originalError) {
-            let err = originalError;
-            if (originalError.toString().includes('fetch failed') && originalError.cause) {
-              const cause =
-                getError(originalError.cause) instanceof AggregateError
-                  ? (originalError.cause as AggregateError).errors[0]
-                  : getError(originalError.cause);
-
-              err = cause;
-            }
-
-            if (context.signal.aborted) {
-              throw new Error('Aborted');
-            }
-
-            context.trace(`ChatNode failed, retrying: ${err.toString()}`);
-
-            const { retriesLeft } = err;
-
-            // Retry network errors
-            if (
-              err.toString().includes('terminated') ||
-              originalError.toString().includes('terminated') ||
-              err.toString().includes('fetch failed')
-            ) {
-              return;
-            }
-
-            if (!(err instanceof OpenAIError)) {
-              if ('code' in err) {
-                throw err;
-              }
-
-              return; // Just retry?
-            }
-
-            if (err.status === 429) {
-              if (retriesLeft) {
-                context.onPartialOutputs?.({
-                  ['response' as PortId]: {
-                    type: 'string',
-                    value: 'OpenAI API rate limit exceeded, retrying...',
-                  },
-                });
-                return;
-              }
-            }
-
-            if (err.status === 408) {
-              if (retriesLeft) {
-                context.onPartialOutputs?.({
-                  ['response' as PortId]: {
-                    type: 'string',
-                    value: 'OpenAI API timed out, retrying...',
-                  },
-                });
-                return;
-              }
-            }
-
-            // We did something wrong (besides rate limit)
-            if (err.status >= 400 && err.status < 500) {
-              throw new Error(err.message);
-            }
+            handleOpenAIRetryableFailure({ originalError, context });
           },
         },
       );
@@ -1572,68 +1122,8 @@ export const ChatNodeBase = {
 
 export function getChatNodeMessages(inputs: Inputs) {
   const prompt = inputs['prompt' as PortId];
-
-  let messages: ChatMessage[] = match(prompt)
-    .with({ type: 'chat-message' }, (p) => [p.value])
-    .with({ type: 'chat-message[]' }, (p) => p.value)
-    .with({ type: 'string' }, (p): ChatMessage[] => [{ type: 'user', message: p.value }])
-    .with({ type: 'string[]' }, (p): ChatMessage[] => p.value.map((v) => ({ type: 'user', message: v })))
-    .otherwise((p): ChatMessage[] => {
-      if (!p) {
-        return [];
-      }
-
-      if (isArrayDataValue(p)) {
-        const stringValues = (p.value as readonly unknown[]).map((v) =>
-          coerceType(
-            {
-              type: getScalarTypeOf(p.type),
-              value: v,
-            } as ScalarDataValue,
-            'string',
-          ),
-        );
-
-        return stringValues.filter((v) => v != null).map((v) => ({ type: 'user', message: v }));
-      }
-
-      const coercedMessage = coerceTypeOptional(p, 'chat-message');
-      if (coercedMessage != null) {
-        return [coercedMessage];
-      }
-
-      const coercedString = coerceTypeOptional(p, 'string');
-      return coercedString != null ? [{ type: 'user', message: coerceType(p, 'string') }] : [];
-    });
-
   const systemPrompt = inputs['systemPrompt' as PortId];
-  if (systemPrompt) {
-    if (messages.length > 0 && messages.at(0)!.type === 'system') {
-      // Delete the first system message if it's already there
-      messages.splice(0, 1);
-    }
-
-    messages = [{ type: 'system', message: coerceType(systemPrompt, 'string') }, ...messages];
-  }
-
+  const messages = prependSystemPrompt(coercePromptToChatMessages(prompt), systemPrompt);
   return { messages, systemPrompt };
 }
 
-export function getCostForTokens(tokenCount: number, costPerThousand: number) {
-  return (tokenCount / 1000) * costPerThousand;
-}
-
-function audioFormatToMediaType(format: 'wav' | 'mp3' | 'flac' | 'opus' | 'pcm16') {
-  switch (format) {
-    case 'wav':
-      return 'audio/wav';
-    case 'mp3':
-      return 'audio/mpeg';
-    case 'flac':
-      return 'audio/flac';
-    case 'opus':
-      return 'audio/opus';
-    case 'pcm16':
-      return 'audio/wav';
-  }
-}
