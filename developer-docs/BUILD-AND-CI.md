@@ -28,7 +28,9 @@ Current root scripts from `package.json`:
 ```bash
 yarn dev
 yarn build
+yarn build:all
 yarn test
+yarn test:all
 yarn lint
 yarn prettier:fix
 yarn publish
@@ -55,11 +57,24 @@ Runs builds in fixed order:
 5. app
 6. cli
 
+### `yarn build:all`
+
+Alias for `yarn build`.
+
 ### `yarn test`
 
-Currently only runs the core test suite:
+Runs all currently defined workspace test suites:
 
 - `yarn workspace @ironclad/rivet-core run test`
+- `yarn workspace @ironclad/rivet-node run test`
+- `yarn workspace @ironclad/rivet-app run test`
+- `yarn workspace @ironclad/rivet-cli run test`
+
+Packages without a `test` script are not included.
+
+### `yarn test:all`
+
+Alias for `yarn test`.
 
 ### `yarn lint`
 

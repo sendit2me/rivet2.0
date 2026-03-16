@@ -11,6 +11,10 @@ import {
   type RunGraphOptions,
   DEFAULT_CHAT_NODE_TIMEOUT,
   type Settings,
+  type Tokenizer,
+  type TokenizerCallInfo,
+  type ChatMessage,
+  type GptFunction,
 } from '@ironclad/rivet-core';
 
 import { readFile } from 'node:fs/promises';
@@ -21,6 +25,49 @@ import { NodeCodeRunner } from './native/NodeCodeRunner.js';
 import type { RivetDebuggerServer } from './debugger.js';
 import { NodeProjectReferenceLoader } from './native/NodeProjectReferenceLoader.js';
 import { NodeMCPProvider } from './native/NodeMCPProvider.js';
+
+class FallbackTokenizer implements Tokenizer {
+  on(_event: 'error', _listener: (err: Error) => void): void {}
+
+  async getTokenCountForString(input: string, _info: TokenizerCallInfo): Promise<number> {
+    return input.length;
+  }
+
+  async getTokenCountForMessages(
+    messages: ChatMessage[],
+    _gptFunctions: GptFunction[] | undefined,
+    _info: TokenizerCallInfo,
+  ): Promise<number> {
+    return messages.reduce((total, message) => {
+      if (typeof message.message === 'string') {
+        return total + message.message.length;
+      }
+
+      if (Array.isArray(message.message)) {
+        return (
+          total +
+          message.message.reduce((messageTotal, part) => {
+            if (typeof part === 'string') {
+              return messageTotal + part.length;
+            }
+
+            if (part.type === 'url') {
+              return messageTotal + part.url.length;
+            }
+
+            if (part.type === 'document') {
+              return messageTotal + (part.title?.length ?? 0) + (part.context?.length ?? 0);
+            }
+
+            return messageTotal;
+          }, 0)
+        );
+      }
+
+      return total;
+    }, 0);
+  }
+}
 
 export async function loadProjectFromFile(path: string): Promise<Project> {
   const content = await readFile(path, { encoding: 'utf8' });
@@ -72,7 +119,7 @@ export function createProcessor(
           datasetProvider: options.datasetProvider,
           mcpProvider: options.mcpProvider ?? new NodeMCPProvider(),
           audioProvider: options.audioProvider,
-          tokenizer: options.tokenizer,
+          tokenizer: options.tokenizer ?? new FallbackTokenizer(),
           codeRunner: options.codeRunner ?? new NodeCodeRunner(),
           projectPath: options.projectPath,
           projectReferenceLoader: options.projectReferenceLoader ?? new NodeProjectReferenceLoader(),

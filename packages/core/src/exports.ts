@@ -45,6 +45,7 @@ export * from './api/createProcessor.js';
 export * from './integrations/AudioProvider.js';
 export * from './api/looseDataValue.js';
 export * from './integrations/CodeRunner.js';
+export * from './integrations/GptTokenizerTokenizer.js';
 
 import * as openai from './utils/openai.js';
 export { openai };

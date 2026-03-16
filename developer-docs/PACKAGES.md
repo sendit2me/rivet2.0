@@ -82,6 +82,7 @@ This package is the shared Node runtime used by:
 - parts of the app-executor stack
 
 It is not just a convenience wrapper. It sets Node-default providers, debugger integration, env-based plugin config fallback, and Node-specific reference loading.
+It also supplies a default tokenizer for Node-side runs when the caller does not provide one explicitly.
 
 ## `@ironclad/rivet-app` (`packages/app/`)
 
