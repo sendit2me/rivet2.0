@@ -130,6 +130,7 @@ Used by the desktop app when `defaultExecutorState` is `nodejs`.
 - execution runs via the debugger/server protocol
 - supports Node-specific APIs and plugin installation scenarios
 - connection ownership is centralized in the app's shared `executorSession` layer rather than in `useRemoteExecutor` itself
+- sidecar process lifecycle is now isolated in a small runtime helper (`executorSidecarRuntime.ts`) instead of being reassembled inside the React hook that mounts it
 
 ### Standalone Node execution
 
@@ -181,6 +182,8 @@ Based on the current code, the highest-risk/highest-value refactor areas are:
 
 - `packages/app/src/components/NodeCanvas.tsx` and related canvas hooks
 - `packages/app/src/hooks/useGraphExecutor.ts`, `useLocalExecutor.ts`, `useRemoteExecutor.ts`, and `executorSession.ts`
+- `packages/app/src/domain/graphEditing/*` and the remaining graph-editor consumers that have not yet moved onto those shared action helpers
+- `packages/app/src/components/RenderDataValue.tsx` and `packages/app/src/components/renderDataValue/*` as new data-renderer extension points
 - `packages/app/src/hooks/useProjectPlugins.ts`
 - `packages/app/src/hooks/useWorkspaceTransitions.ts` and `packages/app/src/utils/workspaceTransitions.ts`
 - `packages/core/src/model/GraphProcessor.ts`, `NodeExecutionPlanner.ts`, and `SubprocessorBridge.ts`

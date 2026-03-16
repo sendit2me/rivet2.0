@@ -26,12 +26,14 @@ import { fillMissingSettingsFromEnvironmentVariables } from '../utils/tauri';
 import { trivetState } from '../state/trivet';
 import { runTrivet } from '@ironclad/trivet';
 import { entries } from '../../../core/src/utils/typeSafety';
-import { type RunDataByNodeId, lastRunDataByNodeState } from '../state/dataFlow';
+import { type InputsOrOutputsWithRefs, type RunDataByNodeId, lastRunDataByNodeState } from '../state/dataFlow';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { TauriProjectReferenceLoader } from '../model/TauriProjectReferenceLoader';
 import { useAudioProvider, useDatasetProvider } from '../providers/ProvidersContext';
 import { setUserInputSubmitHandler } from '../state/actions/userInputActions';
 import { GptTokenizerTokenizer } from '../../../core/src/integrations/GptTokenizerTokenizer';
+import { restoreDataValueFromHistory } from '../utils/executionDataTransforms.js';
+import { getGlobalDataRef } from '../utils/globals/globalDataRefs.js';
 
 export function useLocalExecutor() {
   const audioProvider = useAudioProvider();
@@ -274,15 +276,18 @@ export function useLocalExecutor() {
 
 function preloadDependentDataForNode(processor: GraphProcessor, nodeId: NodeId, previousRunData: RunDataByNodeId) {
   const dependencyNodes = processor.getDependencyNodesDeep(nodeId);
+  const dataRefs = {
+    get: getGlobalDataRef,
+  };
 
   for (const dependencyNode of dependencyNodes) {
-    const dependencyNodeData = previousRunData[dependencyNode];
+    const dependencyNodeData = previousRunData[dependencyNode as keyof RunDataByNodeId];
 
     if (!dependencyNodeData) {
       throw new Error(`Node ${dependencyNode} was not found in the previous run data, cannot continue preloading data`);
     }
 
-    const firstExecution = dependencyNodeData[0];
+    const firstExecution = dependencyNodeData[0] as (typeof dependencyNodeData)[number] | undefined;
 
     if (!firstExecution?.data.outputData) {
       throw new Error(
@@ -290,21 +295,10 @@ function preloadDependentDataForNode(processor: GraphProcessor, nodeId: NodeId, 
       );
     }
 
-    const { outputData } = firstExecution.data;
+    const outputData = firstExecution.data.outputData as InputsOrOutputsWithRefs;
 
-    // Convert back to DataValue from DataValueWithRefs
     const outputDataWithoutRefs = Object.fromEntries(
-      Object.entries(outputData).map(([portId, dataValueWithRefs]) => {
-        if (dataValueWithRefs.type === 'image') {
-          throw new Error('Not implemented yed');
-        } else if (dataValueWithRefs.type === 'binary') {
-          throw new Error('Not implemented yed');
-        } else if (dataValueWithRefs.type === 'audio') {
-          throw new Error('Not implemented yed');
-        } else {
-          return [portId, dataValueWithRefs];
-        }
-      }),
+      Object.entries(outputData).map(([portId, dataValueWithRefs]) => [portId, restoreDataValueFromHistory(dataValueWithRefs, dataRefs)]),
     ) as Outputs;
 
     processor.preloadNodeData(dependencyNode, outputDataWithoutRefs);

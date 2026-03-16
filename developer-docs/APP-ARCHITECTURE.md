@@ -212,6 +212,7 @@ Current responsibilities:
 - host secondary canvas-adjacent UI like navigation bar and graph execution selector
 
 Notable detail: user-input flow is not owned by the executor hooks alone. `GraphBuilder` also participates by reading `userInputModalQuestionsState`, showing the modal, and passing results back through `submitUserInputAnswers(...)`.
+The AI graph-builder path now also depends on extracted plain helpers in [`packages/app/src/hooks/aiGraphBuilderHelpers.ts`](../packages/app/src/hooks/aiGraphBuilderHelpers.ts); those helpers must resolve port connectivity relative to the requested node, not just by shared port ids like `input` or `output`, or graph review/edit operations can report the wrong edges.
 
 ### `NodeCanvas`
 
@@ -316,6 +317,20 @@ That makes it a key seam when changing how interaction is propagated through the
 
 The sidebar graph tree is no longer just a flat list of graphs.
 
+The app now also has a small internal graph-editing domain layer under:
+
+- [`packages/app/src/domain/graphEditing/nodeActions.ts`](../packages/app/src/domain/graphEditing/nodeActions.ts)
+- [`packages/app/src/domain/graphEditing/connectionActions.ts`](../packages/app/src/domain/graphEditing/connectionActions.ts)
+- [`packages/app/src/domain/graphEditing/navigationActions.ts`](../packages/app/src/domain/graphEditing/navigationActions.ts)
+- [`packages/app/src/domain/graphEditing/graphListActions.ts`](../packages/app/src/domain/graphEditing/graphListActions.ts)
+
+Those modules hold plain graph-editing sequences and state-transition helpers that are reused by commands and hooks.
+They also now encode a couple of important behavior invariants that callers rely on:
+
+- node duplication helpers must return structurally independent node data so editing a duplicate does not mutate the original node through shared nested references
+- graph-list folder creation helpers must return unique folder paths within the target parent so repeated "new folder" actions do not collide with existing graph or folder names
+- folder rename/delete helpers should only rewrite or clear the active graph when the active graph is actually inside the affected folder subtree
+
 ### `GraphList`
 
 Responsibilities:
@@ -341,6 +356,12 @@ Owns graph/folder operations previously bundled into the component:
 - import graph
 - rename graph/folder path updates
 - graph selection and optional run action
+
+Current boundary:
+
+- `useGraphOperations` is now mostly a UI adapter over `graphListActions.ts`
+- graph/folder naming, deletion, and path-rename sequencing are kept out of the React hook body
+- command-oriented graph editing behavior can now reuse the same domain helpers instead of rebuilding folder/path logic inline
 
 ### `useGraphListDragDrop`
 
@@ -725,6 +746,8 @@ Current architectural detail:
 - it consumes a shared executor session that owns connection state and pending remote run coordination
 - this keeps run/test behavior separate from transport/session behavior
 - read-only UI consumers should use shared session/debugger state directly rather than mounting `useRemoteExecutor`, because that hook still owns remote event subscriptions and execution side effects
+- plain run/test orchestration helpers now live in [`packages/app/src/hooks/remoteExecutorHelpers.ts`](../packages/app/src/hooks/remoteExecutorHelpers.ts)
+- that helper module holds context-value shaping, run-from dependency/preload derivation, event-dispatch fan-out, and test-suite selection without depending on React state
 
 Notable current limitations:
 
@@ -848,10 +871,11 @@ Current structure:
 - output body selection lives in [`packages/app/src/components/nodeOutput/renderNodeOutputBody.tsx`](../packages/app/src/components/nodeOutput/renderNodeOutputBody.tsx)
 - [`packages/app/src/components/RenderDataValue.tsx`](../packages/app/src/components/RenderDataValue.tsx) is narrower and delegates renderer-specific work
 - scalar/type renderer setup lives in [`packages/app/src/components/renderDataValue/createScalarRenderers.tsx`](../packages/app/src/components/renderDataValue/createScalarRenderers.tsx)
+- full data-type dispatch now lives in [`packages/app/src/components/renderDataValue/createDataValueRendererMap.tsx`](../packages/app/src/components/renderDataValue/createDataValueRendererMap.tsx)
 - chat-part rendering lives in [`packages/app/src/components/renderDataValue/RenderChatMessagePart.tsx`](../packages/app/src/components/renderDataValue/RenderChatMessagePart.tsx)
 - shared output-rendering styles live in [`packages/app/src/components/renderDataValue/renderDataValueStyles.ts`](../packages/app/src/components/renderDataValue/renderDataValueStyles.ts)
 
-This keeps output selection logic separate from data-type rendering without preserving a separate pager file that only forwarded a few props.
+This keeps output selection logic separate from data-type rendering without preserving a separate pager file that only forwarded a few props. The top-level render component is now a thin adapter over a table-driven renderer registry instead of mixing array/function/scalar dispatch inline.
 
 ## Tauri Backend and Native Integration
 

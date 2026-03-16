@@ -3,8 +3,8 @@ import { connectionsState, nodesState, removeGraphNodeStateFamilies } from '../s
 import { useCommand } from './Command';
 import { editingNodeState, selectedNodesState, removeGraphBuilderNodeStateFamilies } from '../state/graphBuilder';
 import { type NodeConnection, type ChartNode, type NodeId } from '@ironclad/rivet-core';
-import { partition } from 'lodash-es';
 import { removeExecutionNodeStateFamilies } from '../state/dataFlow';
+import { deleteNodesFromGraph } from '../domain/graphEditing/nodeActions.js';
 
 export const useDeleteNodesCommand = () => {
   const selectedNodeIds = useAtomValue(selectedNodesState);
@@ -19,28 +19,11 @@ export const useDeleteNodesCommand = () => {
     apply(args, _appliedData, currentState) {
       const nodeIds =
         selectedNodeIds.length > 0 ? [...new Set([...selectedNodeIds, ...args.nodeIds])] : [...args.nodeIds];
-
-      const newNodes = [...currentState.nodes];
-      let newConnections = [...currentState.connections];
-
-      const removedNodes: ChartNode[] = [];
-      const removedConnections: NodeConnection[] = [];
-
-      for (const nodeId of nodeIds) {
-        const nodeIndex = newNodes.findIndex((n) => n.id === nodeId);
-        if (nodeIndex >= 0) {
-          const [removedNode] = newNodes.splice(nodeIndex, 1);
-          removedNodes.push(removedNode!);
-        }
-
-        // Remove all connections associated with the node
-        const [removeConnections, keepConnections] = partition(
-          newConnections,
-          (c) => c.inputNodeId === nodeId || c.outputNodeId === nodeId,
-        );
-        newConnections = keepConnections;
-        removedConnections.push(...removeConnections);
-      }
+      const { newNodes, newConnections, removedNodes, removedConnections } = deleteNodesFromGraph({
+        nodeIds,
+        nodes: currentState.nodes,
+        connections: currentState.connections,
+      });
 
       if (currentState.editingNodeId && nodeIds.includes(currentState.editingNodeId)) {
         setEditingNodeId(null);

@@ -1,22 +1,10 @@
-import { useMemo, type FC } from 'react';
-import {
-  type DataValue,
-  type ScalarDataType,
-  arrayizeDataValue,
-  getScalarTypeOf,
-  inferType,
-  isFunctionDataValue,
-  type NodeOutputDefinition,
-  type DataType,
-  isArrayDataType,
-  type ScalarOrArrayDataValue,
-} from '@ironclad/rivet-core';
+import { type FC } from 'react';
+import { type NodeOutputDefinition } from '@ironclad/rivet-core';
 import { keys } from '../../../core/src/utils/typeSafety';
-import clsx from 'clsx';
-import { type InputsOrOutputsWithRefs, type DataValueWithRefs, type ScalarDataValueWithRefs } from '../state/dataFlow';
+import { type InputsOrOutputsWithRefs, type DataValueWithRefs } from '../state/dataFlow';
 import { getDefaultProviders } from '../providers/ProvidersContext';
-import { createScalarRenderers, type ScalarRendererProps } from './renderDataValue/createScalarRenderers.js';
-import { multiOutputStyles, renderDataValueStyles } from './renderDataValue/renderDataValueStyles.js';
+import { createScalarRenderers } from './renderDataValue/createScalarRenderers.js';
+import { createDataValueRendererMap } from './renderDataValue/createDataValueRendererMap.js';
 
 const dataRefs = getDefaultProviders().dataRefs;
 
@@ -39,6 +27,18 @@ export const RenderDataValue: FC<{
       />
     ),
   });
+  const rendererMap = createDataValueRendererMap({
+    scalarRenderers,
+    renderValue: ({ value, depth, renderMarkdown, truncateLength, isCompact }) => (
+      <RenderDataValue
+        value={value}
+        depth={depth}
+        renderMarkdown={renderMarkdown}
+        truncateLength={truncateLength}
+        isCompact={isCompact}
+      />
+    ),
+  });
 
   if ((depth ?? 0) > 100) {
     return <>ERROR: FAILED TO RENDER {JSON.stringify(value)}</>;
@@ -47,67 +47,9 @@ export const RenderDataValue: FC<{
     return <>undefined</>;
   }
 
-  if (isArrayDataType(value.type)) {
-    let items = arrayizeDataValue(value as ScalarOrArrayDataValue);
+  const Renderer = rendererMap[value.type];
 
-    const count = items.length;
-
-    if (isCompact) {
-      items = items.slice(0, 1);
-    }
-
-    return (
-      <div
-        css={multiOutputStyles}
-        className={clsx({
-          'chat-message-list': value.type === 'chat-message[]',
-        })}
-      >
-        <div className="array-info">
-          ({count.toLocaleString()} element{count === 1 ? '' : 's'})
-        </div>
-        {items.map((v, i) => (
-          <div className="multi-output-item" key={i}>
-            <RenderDataValue
-              key={i}
-              value={v as DataValueWithRefs}
-              depth={(depth ?? 0) + 1}
-              renderMarkdown={renderMarkdown}
-              truncateLength={truncateLength}
-              isCompact={isCompact}
-            />
-          </div>
-        ))}
-      </div>
-    );
-  }
-
-  if (isFunctionDataValue(value as DataValue)) {
-    const type = getScalarTypeOf(value.type);
-    return (
-      <div>
-        <em>Function{`<${type}>`}</em>
-      </div>
-    );
-  }
-
-  const Renderer = scalarRenderers[value.type as ScalarDataType] as FC<ScalarRendererProps>;
-
-  if (!Renderer) {
-    return <div>ERROR: UNKNOWN TYPE: {JSON.stringify(value)}</div>;
-  }
-
-  return (
-    <div css={renderDataValueStyles}>
-      <Renderer
-        value={value as ScalarDataValueWithRefs}
-        depth={(depth ?? 0) + 1}
-        renderMarkdown={renderMarkdown}
-        truncateLength={truncateLength}
-        isCompact={isCompact}
-      />
-    </div>
-  );
+  return <Renderer value={value} depth={depth} renderMarkdown={renderMarkdown} truncateLength={truncateLength} isCompact={isCompact} />;
 };
 
 export const RenderDataOutputs: FC<{

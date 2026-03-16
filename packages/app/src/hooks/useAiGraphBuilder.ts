@@ -9,9 +9,8 @@ import {
   coerceType,
   InMemoryDatasetProvider,
   getError,
-  type ExternalFunction,
   type DataValue,
-  type PortId,
+  type ExternalFunction,
   registerBuiltInNodes,
   NodeRegistration,
   plugins as corePlugins,
@@ -31,6 +30,7 @@ import graphBuilderData from '../../graphs/graph-creator.rivet-data?raw';
 import { referencedProjectsState } from '../state/savedGraphs';
 import { nativeCreateDir, nativeWriteFile } from '../utils/platform/fs.js';
 import { nativeAppLogDir } from '../utils/platform/path.js';
+import { buildAiGraphBuilderExternalFunctions } from './aiGraphBuilderHelpers.js';
 
 export function useAiGraphBuilder({ record, onFeedback }: { record: boolean; onFeedback: (feedback: string) => void }) {
   const [graph, setGraph] = useAtom(graphState);
@@ -63,175 +63,21 @@ export function useAiGraphBuilder({ record, onFeedback }: { record: boolean; onF
         centerView(workingGraph);
       };
 
-      const parseConnectionOptions = (options: unknown) => {
-        if (
-          typeof options !== 'object' ||
-          options == null ||
-          !('sourceNodeId' in options) ||
-          !('destNodeId' in options) ||
-          !('sourcePortId' in options) ||
-          !('destPortId' in options)
-        ) {
-          throw new Error('Invalid connection options');
-        }
-
-        return options as {
-          sourceNodeId: NodeId;
-          destNodeId: NodeId;
-          sourcePortId: PortId;
-          destPortId: PortId;
-        };
-      };
-
       const externalFunctions: Record<string, ExternalFunction> = {
-        createNode: async (_ctx, nodeType) => {
-          const newNode = globalRivetNodeRegistry.createDynamic(nodeType as string);
-          workingGraph.nodes.push(newNode);
-          showChanges();
-          return {
-            type: 'string',
-            value: newNode.id,
-          };
-        },
-        connectNodes: async (_ctx, options) => {
-          const { sourceNodeId, destNodeId, sourcePortId, destPortId } = parseConnectionOptions(options);
-
-          const sourceNode = workingGraph.nodes.find((node) => node.id === sourceNodeId);
-          const destNode = workingGraph.nodes.find((node) => node.id === destNodeId);
-
-          if (!sourceNode) {
-            throw new Error(`Node with ID ${sourceNodeId} not found`);
-          }
-
-          if (!destNode) {
-            throw new Error(`Node with ID ${destNodeId} not found`);
-          }
-
-          const sourceInstance = globalRivetNodeRegistry.createDynamicImpl(sourceNode);
-          const destInstance = globalRivetNodeRegistry.createDynamicImpl(destNode);
-
-          const sourceNodeConnections = workingGraph.connections.filter(
-            (connection) => connection.outputNodeId === sourceNodeId,
-          );
-          const destNodeConnections = workingGraph.connections.filter(
-            (connection) => connection.inputNodeId === destNodeId,
-          );
-
-          const nodesById = Object.fromEntries(workingGraph.nodes.map((node) => [node.id, node]));
-
-          const sourcePort = sourceInstance
-            .getOutputDefinitions(sourceNodeConnections, nodesById, project, referencedProjects)
-            .find((port) => port.id === sourcePortId);
-
-          const destPort = destInstance
-            .getInputDefinitions(destNodeConnections, nodesById, project, referencedProjects)
-            .find((port) => port.id === destPortId);
-
-          if (!sourcePort) {
-            throw new Error(`Output port with ID ${sourcePortId} not found on node ${sourceNodeId}`);
-          }
-
-          if (!destPort) {
-            throw new Error(`Input port with ID ${destPortId} not found on node ${destNodeId}`);
-          }
-
-          const alreadyConnectedToDest = workingGraph.connections.find(
-            (connection) => connection.inputNodeId === destNodeId && connection.inputId === destPortId,
-          );
-
-          if (alreadyConnectedToDest) {
-            throw new Error(`Node ${destNodeId} is already connected to this output. Disconnect it first.`);
-          }
-
-          workingGraph.connections.push({
-            outputNodeId: sourceNodeId,
-            outputId: sourcePortId,
-            inputNodeId: destNodeId,
-            inputId: destPortId,
-          });
-
-          showChanges();
-
-          return {
-            type: 'boolean',
-            value: true,
-          };
-        },
-        disconnectNodes: async (_ctx, options) => {
-          const { sourceNodeId, destNodeId, sourcePortId, destPortId } = parseConnectionOptions(options);
-
-          const toRemove = workingGraph.connections.find(
-            (connection) =>
-              connection.outputNodeId === sourceNodeId &&
-              connection.inputNodeId === destNodeId &&
-              connection.outputId === sourcePortId &&
-              connection.inputId === destPortId,
-          );
-
-          if (!toRemove) {
-            throw new Error(`Connection not found. Use reviewGraph to see all connections.`);
-          }
-
-          workingGraph.connections = workingGraph.connections.filter((connection) => connection !== toRemove);
-
-          showChanges();
-
-          return {
-            type: 'boolean',
-            value: true,
-          };
-        },
-        getSerializedGraph: async () => {
-          return {
-            type: 'string',
-            value: JSON.stringify(workingGraph, null, 2),
-          };
-        },
-        getPorts: async (_ctx, nodeId) => {
-          const node = workingGraph.nodes.find((node) => node.id === nodeId);
-
-          if (!node) {
-            throw new Error(`Node with ID ${nodeId} not found`);
-          }
-
-          const connectionsToNode = workingGraph.connections.filter(
-            (connection) => connection.inputNodeId === node.id || connection.outputNodeId === node.id,
-          );
-
-          const instance = globalRivetNodeRegistry.createDynamicImpl(node);
-
-          const nodesById = Object.fromEntries(workingGraph.nodes.map((node) => [node.id, node]));
-
-          const inputs = instance.getInputDefinitions(connectionsToNode, nodesById, project, referencedProjects);
-          const outputs = instance.getOutputDefinitions(connectionsToNode, nodesById, project, referencedProjects);
-
-          const inputsWithConnections = inputs.map((input) => ({
-            definition: input,
-            connectedTo: connectionsToNode.find((connection) => connection.inputId === input.id),
-            actualDataType: node.isSplitRun ? `${input.dataType}[]` : input.dataType,
-          }));
-
-          const outputsWithConnections = outputs.map((output) => ({
-            definition: output,
-            connectedTo: connectionsToNode.filter((connection) => connection.outputId === output.id),
-            actualDataType: node.isSplitRun ? `${output.dataType}[]` : output.dataType,
-          }));
-
-          return {
-            type: 'object',
-            value: {
-              inputs: inputsWithConnections,
-              outputs: outputsWithConnections,
-            },
-          };
-        },
-        showChanges: async () => {
-          return {
-            type: 'boolean',
-            value: true,
-          };
-        },
-        editNode: async (_ctx, nodeId, key, value) => {
+        ...buildAiGraphBuilderExternalFunctions({
+          project,
+          referencedProjects,
+          showChanges,
+          workingGraph: () => workingGraph,
+          setWorkingGraph: (nextGraph) => {
+            workingGraph = nextGraph;
+          },
+        }),
+        showChanges: async () => ({
+          type: 'boolean' as const,
+          value: true,
+        }),
+        editNode: async (_ctx: unknown, nodeId: unknown, key: unknown, value: unknown) => {
           const node = workingGraph.nodes.find((node) => node.id === nodeId);
 
           if (!node) {
@@ -249,11 +95,11 @@ export function useAiGraphBuilder({ record, onFeedback }: { record: boolean; onF
           showChanges();
 
           return {
-            type: 'object',
+            type: 'object' as const,
             value: node.data as Record<string, unknown>,
           };
         },
-        getNodeData: async (_ctx, nodeId) => {
+        getNodeData: async (_ctx: unknown, nodeId: unknown) => {
           const node = workingGraph.nodes.find((node) => node.id === nodeId);
 
           if (!node) {
@@ -261,14 +107,14 @@ export function useAiGraphBuilder({ record, onFeedback }: { record: boolean; onF
           }
 
           return {
-            type: 'object',
+            type: 'object' as const,
             value: {
               data: node.data as Record<string, unknown>,
               splittingEnabled: node.isSplitRun,
             },
           };
         },
-        deleteNode: async (_ctx, nodeId) => {
+        deleteNode: async (_ctx: unknown, nodeId: unknown) => {
           const node = workingGraph.nodes.find((node) => node.id === nodeId);
 
           if (!node) {
@@ -283,11 +129,11 @@ export function useAiGraphBuilder({ record, onFeedback }: { record: boolean; onF
           showChanges();
 
           return {
-            type: 'boolean',
+            type: 'boolean' as const,
             value: true,
           };
         },
-        addNodeData: async (_ctx, nodeId, key, value) => {
+        addNodeData: async (_ctx: unknown, nodeId: unknown, key: unknown, value: unknown) => {
           const node = workingGraph.nodes.find((node) => node.id === nodeId);
 
           if (!node) {
@@ -448,11 +294,11 @@ export function useAiGraphBuilder({ record, onFeedback }: { record: boolean; onF
           }
 
           return {
-            type: 'string[]',
+            type: 'string[]' as const,
             value: warnings,
           };
         },
-        toggleSplitting: async (_ctx, nodeId, enabled, maxSplitAmount) => {
+        toggleSplitting: async (_ctx: unknown, nodeId: unknown, enabled: unknown, maxSplitAmount: unknown) => {
           const node = workingGraph.nodes.find((node) => node.id === nodeId);
 
           if (!node) {
@@ -468,7 +314,7 @@ export function useAiGraphBuilder({ record, onFeedback }: { record: boolean; onF
 
           showChanges();
           return {
-            type: 'boolean',
+            type: 'boolean' as const,
             value: true,
           };
         },

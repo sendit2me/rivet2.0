@@ -2,6 +2,7 @@ import { type NodeConnection, type NodeId, type PortId } from '@ironclad/rivet-c
 import { useCommand } from './Command';
 import { useSetAtom } from 'jotai';
 import { connectionsState } from '../state/graph';
+import { createConnectionChange, undoConnectionChange } from '../domain/graphEditing/connectionActions.js';
 
 export function useMakeConnectionCommand() {
   const setConnections = useSetAtom(connectionsState);
@@ -20,46 +21,23 @@ export function useMakeConnectionCommand() {
   >({
     type: 'makeConnection',
     apply(params, _appliedData, currentState) {
-      let connections = [...currentState.connections];
+      const change = createConnectionChange(currentState.connections, params);
 
-      const currentConnectionToInput = currentState.connections.find(
-        (conn) => conn.inputNodeId === params.inputNodeId && conn.inputId === params.inputId,
-      );
-
-      if (currentConnectionToInput) {
-        connections = connections.filter((conn) => conn !== currentConnectionToInput);
-      }
-
-      const newConnection = {
-        inputNodeId: params.inputNodeId,
-        inputId: params.inputId,
-        outputNodeId: params.outputNodeId,
-        outputId: params.outputId,
-      };
-
-      setConnections([...connections, newConnection]);
+      setConnections(change.connections);
 
       return {
-        newConnection,
-        previousConnectionToInput: currentConnectionToInput,
+        newConnection: change.newConnection,
+        previousConnectionToInput: change.previousConnectionToInput,
       };
     },
     undo(_data, _appliedData, currentState) {
-      let newConnections = [...currentState.connections];
-
-      newConnections = newConnections.filter(
-        (conn) =>
-          conn.inputId !== _appliedData.newConnection.inputId &&
-          conn.inputNodeId !== _appliedData.newConnection.inputNodeId &&
-          conn.outputId !== _appliedData.newConnection.outputId &&
-          conn.outputNodeId !== _appliedData.newConnection.outputNodeId,
+      setConnections(
+        undoConnectionChange({
+          connections: currentState.connections,
+          newConnection: _appliedData.newConnection,
+          previousConnectionToInput: _appliedData.previousConnectionToInput,
+        }),
       );
-
-      if (_appliedData.previousConnectionToInput) {
-        newConnections.push(_appliedData.previousConnectionToInput);
-      }
-
-      setConnections(newConnections);
     },
   });
 }

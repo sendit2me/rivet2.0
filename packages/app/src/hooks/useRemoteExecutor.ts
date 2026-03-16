@@ -1,13 +1,8 @@
 import {
-  type GraphOutputs,
   type NodeId,
-  type ProcessEvents,
   type StringArrayDataValue,
   globalRivetNodeRegistry,
   type GraphId,
-  type DataValue,
-  GraphProcessor,
-  type Outputs,
 } from '@ironclad/rivet-core';
 import { useCurrentExecution } from './useCurrentExecution';
 import { graphState } from '../state/graph';
@@ -21,8 +16,7 @@ import { trivetState } from '../state/trivet';
 import { runTrivet } from '@ironclad/trivet';
 import { produce } from 'immer';
 import { userInputModalQuestionsState } from '../state/userInput';
-import { entries } from '../../../core/src/utils/typeSafety';
-import { type RunDataByNodeId, lastRunDataByNodeState } from '../state/dataFlow';
+import { lastRunDataByNodeState } from '../state/dataFlow';
 import { useAtomValue, useSetAtom, useAtom } from 'jotai';
 import { setUserInputSubmitHandler } from '../state/actions/userInputActions';
 import {
@@ -34,10 +28,18 @@ import {
   subscribeExecutorSessionMessages,
 } from './executorSession';
 import { useEffect } from 'react';
+import {
+  createProcessEventDispatcher,
+  getContextValues,
+  getDependencyNodesForRunFrom,
+  getDependentDataForNodeForPreload,
+  selectTestSuitesToRun,
+} from './remoteExecutorHelpers.js';
 
 export function useRemoteExecutor() {
   const project = useAtomValue(projectState);
   const projectData = useAtomValue(projectDataState);
+
   const projectContext = useAtomValue(projectContextState(project.metadata.id));
 
   const currentExecution = useCurrentExecution();
@@ -60,66 +62,68 @@ export function useRemoteExecutor() {
     },
   });
 
+  const eventDispatcher = createProcessEventDispatcher(currentExecution);
+
   useEffect(() => {
     return subscribeExecutorSessionMessages((message, data) => {
       switch (message) {
         case 'nodeStart':
-          currentExecution.onNodeStart(data as ProcessEvents['nodeStart']);
+          eventDispatcher.nodeStart(data);
           break;
         case 'nodeFinish':
-          currentExecution.onNodeFinish(data as ProcessEvents['nodeFinish']);
+          eventDispatcher.nodeFinish(data);
           break;
         case 'nodeError':
-          currentExecution.onNodeError(data as ProcessEvents['nodeError']);
+          eventDispatcher.nodeError(data);
           break;
         case 'userInput':
-          currentExecution.onUserInput(data as ProcessEvents['userInput']);
+          eventDispatcher.userInput(data);
           break;
         case 'start':
-          currentExecution.onStart(data as ProcessEvents['start']);
+          eventDispatcher.start(data);
           break;
         case 'done':
-          resolvePendingGraphExecution((data as ProcessEvents['done']).results);
-          currentExecution.onDone(data as ProcessEvents['done']);
+          resolvePendingGraphExecution((data as { results: unknown }).results as any);
+          eventDispatcher.done(data);
           break;
         case 'abort':
           rejectPendingGraphExecution(new Error('graph execution aborted'));
-          currentExecution.onAbort(data as ProcessEvents['abort']);
+          eventDispatcher.abort(data);
           break;
         case 'graphAbort':
-          currentExecution.onGraphAbort(data as ProcessEvents['graphAbort']);
+          eventDispatcher.graphAbort(data);
           break;
         case 'partialOutput':
-          currentExecution.onPartialOutput(data as ProcessEvents['partialOutput']);
+          eventDispatcher.partialOutput(data);
           break;
         case 'graphStart':
-          currentExecution.onGraphStart(data as ProcessEvents['graphStart']);
+          eventDispatcher.graphStart(data);
           break;
         case 'graphFinish':
-          currentExecution.onGraphFinish(data as ProcessEvents['graphFinish']);
+          eventDispatcher.graphFinish(data);
           break;
         case 'nodeOutputsCleared':
-          currentExecution.onNodeOutputsCleared(data as ProcessEvents['nodeOutputsCleared']);
+          eventDispatcher.nodeOutputsCleared(data);
           break;
         case 'trace':
           console.log(`remote: ${data}`);
           break;
         case 'pause':
-          currentExecution.onPause();
+          eventDispatcher.pause();
           break;
         case 'resume':
-          currentExecution.onResume();
+          eventDispatcher.resume();
           break;
         case 'error':
-          rejectPendingGraphExecution((data as ProcessEvents['error']).error);
-          currentExecution.onError(data as ProcessEvents['error']);
+          rejectPendingGraphExecution((data as { error: Error }).error);
+          eventDispatcher.error(data);
           break;
         case 'nodeExcluded':
-          currentExecution.onNodeExcluded(data as ProcessEvents['nodeExcluded']);
+          eventDispatcher.nodeExcluded(data);
           break;
       }
     });
-  }, [currentExecution]);
+  }, [eventDispatcher]);
 
   const tryRunGraph = async (options: { to?: NodeId[]; from?: NodeId; graphId?: GraphId } = {}) => {
     if (!isExecutorSessionReady()) {
@@ -153,23 +157,15 @@ export function useRemoteExecutor() {
           ),
         });
 
-        for (const [id, dataValue] of entries(projectData)) {
+        for (const [id, dataValue] of Object.entries(projectData ?? {})) {
           remoteDebugger.sendRaw(`set-static-data:${id}:${dataValue}`);
         }
       }
 
-      const contextValues = entries(projectContext).reduce(
-        (acc, [id, value]) => ({
-          ...acc,
-          [id]: value.value,
-        }),
-        {} as Record<string, DataValue>,
-      );
+      const contextValues = getContextValues(projectContext);
 
       if (options.from) {
-        // Use a local graph processor to get dependency nodes instead of asking the remote debugger
-        const processor = new GraphProcessor(project, graph.metadata!.id!, globalRivetNodeRegistry, true);
-        const dependencyNodes = processor.getDependencyNodesDeep(options.from);
+        const dependencyNodes = getDependencyNodesForRunFrom(project, graph.metadata!.id!, options.from);
         const preloadData = getDependentDataForNodeForPreload(dependencyNodes, lastRunData);
 
         remoteDebugger.send('preload', { nodeData: preloadData });
@@ -201,16 +197,7 @@ export function useRemoteExecutor() {
         runningTests: true,
         recentTestResults: undefined,
       }));
-      const testSuitesToRun = options.testSuiteIds
-        ? testSuites
-            .filter((t) => options.testSuiteIds!.includes(t.id))
-            .map((t) => ({
-              ...t,
-              testCases: options.testCaseIds
-                ? t.testCases.filter((tc) => options.testCaseIds?.includes(tc.id))
-                : t.testCases,
-            }))
-        : testSuites;
+      const testSuitesToRun = selectTestSuitesToRun(testSuites, options);
       try {
         const result = await runTrivet({
           project,
@@ -241,13 +228,7 @@ export function useRemoteExecutor() {
 
             const pendingResults = createPendingGraphExecution();
 
-            const contextValues = entries(projectContext).reduce(
-              (acc, [id, value]) => ({
-                ...acc,
-                [id]: value.value,
-              }),
-              {} as Record<string, DataValue>,
-            );
+            const contextValues = getContextValues(projectContext);
 
             remoteDebugger.send('run', { graphId, inputs, contextValues, projectPath: loadedProject.path });
 
@@ -301,45 +282,4 @@ export function useRemoteExecutor() {
     active: remoteDebugger.sessionState.status === 'ready',
     tryRunTests,
   };
-}
-
-function getDependentDataForNodeForPreload(dependencyNodes: NodeId[], previousRunData: RunDataByNodeId) {
-  const preloadData: Record<NodeId, Outputs> = {};
-
-  for (const dependencyNode of dependencyNodes) {
-    const dependencyNodeData = previousRunData[dependencyNode];
-
-    if (!dependencyNodeData) {
-      throw new Error(`Node ${dependencyNode} was not found in the previous run data, cannot continue preloading data`);
-    }
-
-    const firstExecution = dependencyNodeData[0];
-
-    if (!firstExecution?.data.outputData) {
-      throw new Error(
-        `Node ${dependencyNode} has no output data in the previous run data, cannot continue preloading data`,
-      );
-    }
-
-    const { outputData } = firstExecution.data;
-
-    // Convert back to DataValue from DataValueWithRefs
-    const outputDataWithoutRefs = Object.fromEntries(
-      Object.entries(outputData).map(([portId, dataValueWithRefs]) => {
-        if (dataValueWithRefs.type === 'image') {
-          throw new Error('Not implemented yed');
-        } else if (dataValueWithRefs.type === 'binary') {
-          throw new Error('Not implemented yed');
-        } else if (dataValueWithRefs.type === 'audio') {
-          throw new Error('Not implemented yed');
-        } else {
-          return [portId, dataValueWithRefs];
-        }
-      }),
-    ) as Outputs;
-
-    preloadData[dependencyNode] = outputDataWithoutRefs;
-  }
-
-  return preloadData;
 }

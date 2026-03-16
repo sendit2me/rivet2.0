@@ -8,6 +8,7 @@ import {
   type Inputs,
   type Outputs,
   type PortId,
+  type ScalarOrArrayDataValue,
   coerceTypeOptional,
 } from '@ironclad/rivet-core';
 import { nanoid } from 'nanoid';
@@ -17,6 +18,8 @@ import type { DataRefStore } from '../providers/ProvidersContext';
 import type { DataValueWithRefs, InputsOrOutputsWithRefs, NodeRunData, NodeRunDataWithRefs } from '../state/dataFlow';
 
 const DEFAULT_MAX_DATA_LENGTH = 300_000;
+
+type DataRefReader = Pick<DataRefStore, 'get'>;
 
 export function sanitizeDataValueForLength(
   value: DataValue | undefined,
@@ -164,6 +167,46 @@ export function cloneNodeInputOrOutputDataForHistory(
 
     return convertToRef(value, refStore);
   }) as InputsOrOutputsWithRefs;
+}
+
+export function restoreDataValueFromHistory(value: DataValueWithRefs, refStore: DataRefReader): DataValue {
+  const scalarType = getScalarTypeOf(value.type);
+
+  if (isArrayDataValue(value as DataValue)) {
+    const arrayized = arrayizeDataValue(value as unknown as ScalarOrArrayDataValue);
+
+    return {
+      type: value.type,
+      value: arrayized.map((item) =>
+        restoreDataValueFromHistory(
+          {
+            type: scalarType,
+            value: item.value,
+          } as DataValueWithRefs,
+          refStore,
+        ).value,
+      ),
+    } as DataValue;
+  }
+
+  if (
+    scalarType !== 'audio' &&
+    scalarType !== 'binary' &&
+    scalarType !== 'image' &&
+    scalarType !== 'document' &&
+    scalarType !== 'chat-message'
+  ) {
+    return cloneDeep(value) as unknown as DataValue;
+  }
+
+  const ref = (value.value as { ref?: string } | undefined)?.ref;
+  const resolved = ref ? refStore.get(ref) : undefined;
+
+  if (!resolved) {
+    throw new Error(`Could not restore ref-backed value for type ${value.type}`);
+  }
+
+  return fixDataValueUint8Arrays(cloneDeep(resolved))!;
 }
 
 export function convertToRef(value: DataValue, refStore: DataRefStore): DataValueWithRefs {

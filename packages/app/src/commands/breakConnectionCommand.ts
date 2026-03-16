@@ -2,6 +2,7 @@ import { type NodeConnection, type NodeId, type PortId } from '@ironclad/rivet-c
 import { useCommand } from './Command';
 import { useSetAtom } from 'jotai';
 import { connectionsState } from '../state/graph';
+import { removeConnection } from '../domain/graphEditing/connectionActions.js';
 
 export function useBreakConnectionCommand() {
   const setConnections = useSetAtom(connectionsState);
@@ -16,7 +17,7 @@ export function useBreakConnectionCommand() {
   >({
     type: 'breakConnection',
     apply(params, _appliedData, currentState) {
-      const connections = currentState.connections.filter((conn) => conn !== params.connectionToBreak);
+      const connections = removeConnection(currentState.connections, params.connectionToBreak);
 
       setConnections(connections);
 

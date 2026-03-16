@@ -1,5 +1,4 @@
 import { useState, useMemo } from 'react';
-import { produce } from 'immer';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { graphState } from '../state/graph.js';
 import { projectMetadataState, savedGraphsState } from '../state/savedGraphs.js';
@@ -7,17 +6,20 @@ import { useDeleteGraph } from './useDeleteGraph.js';
 import { useLoadGraph } from './useLoadGraph.js';
 import { useDuplicateGraph } from './useDuplicateGraph.js';
 import { useImportGraph } from './useImportGraph';
-import { type GraphId, emptyNodeGraph, type NodeGraph } from '@ironclad/rivet-core';
+import { emptyNodeGraph, type GraphId, type NodeGraph } from '@ironclad/rivet-core';
 import { useStableCallback } from './useStableCallback.js';
 import { expandedFoldersState } from '../state/ui';
-import {
-  createFoldersFromGraphs,
-  getFolderNames,
-  isInFolder,
-  type NodeGraphFolderItem,
-} from '../components/graphList/graphFolders';
 import { toast } from 'react-toastify';
 import { useFuseSearch } from './useFuseSearch';
+import {
+  buildUniqueNewFolderPath,
+  buildUntitledGraph,
+  createFolderedGraphs,
+  deleteFolderGraphs,
+  findRunnableGraphId,
+  preserveFolderNames,
+  renameFolderItemInGraphs,
+} from '../domain/graphEditing/graphListActions.js';
 
 export function useGraphOperations(onRunGraph?: (graphId: GraphId) => void) {
   const projectMetadata = useAtomValue(projectMetadataState);
@@ -40,10 +42,7 @@ export function useGraphOperations(onRunGraph?: (graphId: GraphId) => void) {
   // Track folders on deletion or creation, so that empty folders aren't automatically deleted.
   const [folderNames, setFolderNames] = useState<string[]>([]);
 
-  const folderedGraphs = useMemo(
-    () => createFoldersFromGraphs(filteredGraphs, folderNames),
-    [filteredGraphs, folderNames],
-  );
+  const folderedGraphs = useMemo(() => createFolderedGraphs(filteredGraphs, folderNames), [filteredGraphs, folderNames]);
 
   const deleteGraph = useDeleteGraph();
   const loadGraph = useLoadGraph();
@@ -57,36 +56,14 @@ export function useGraphOperations(onRunGraph?: (graphId: GraphId) => void) {
   });
 
   const handleNew = useStableCallback((folderPath?: string) => {
-    const graph = emptyNodeGraph();
-    let i = 1;
-    if (folderPath) {
-      if (savedGraphs.some((g) => g.metadata?.name === `${folderPath}/Untitled Graph`)) {
-        i++;
-      }
-
-      while (savedGraphs.some((g) => g.metadata?.name === `${folderPath}/Untitled Graph ${i}`)) {
-        i++;
-      }
-
-      graph.metadata!.name = i === 1 ? `${folderPath}/Untitled Graph` : `${folderPath}/Untitled Graph ${i}`;
-    } else {
-      if (savedGraphs.some((g) => g.metadata?.name === 'Untitled Graph')) {
-        i++;
-      }
-
-      while (savedGraphs.some((g) => g.metadata?.name === `Untitled Graph ${i}`)) {
-        i++;
-      }
-
-      graph.metadata!.name = i === 1 ? `Untitled Graph` : `Untitled Graph ${i}`;
-    }
+    const graph = buildUntitledGraph(savedGraphs, folderPath);
     loadGraph(graph);
     setSavedGraphs((prev) => [...prev, graph]);
     startRename(graph.metadata!.name!);
   });
 
   const handleNewFolder = useStableCallback((parentPath?: string) => {
-    const newFolderPath = parentPath ? `${parentPath}/New Folder` : 'New Folder';
+    const newFolderPath = buildUniqueNewFolderPath(parentPath, folderNames, savedGraphs);
     setFolderNames((prev) => [...prev, newFolderPath]);
     startRename(newFolderPath);
     setExpandedFolders((prev) => ({
@@ -96,69 +73,66 @@ export function useGraphOperations(onRunGraph?: (graphId: GraphId) => void) {
   });
 
   const handleDelete = useStableCallback((graph: NodeGraph) => {
-    setFolderNames(getFolderNames(folderedGraphs));
+    setFolderNames(preserveFolderNames(folderedGraphs));
     deleteGraph(graph);
   });
 
   const handleDeleteFolder = useStableCallback((folderName: string) => {
-    const graphsToDelete = savedGraphs.filter(
-      (graph) => graph.metadata?.name && isInFolder(folderName, graph.metadata?.name),
-    );
-    graphsToDelete.forEach((graph) => deleteGraph(graph));
-    const newFolderNames = folderNames.filter((name) => folderName !== name && !isInFolder(folderName, name));
-    setFolderNames(newFolderNames);
+    const nextSavedGraphs = deleteFolderGraphs(savedGraphs, folderName);
+    const currentGraphId = graph.metadata?.id;
+    const currentGraphWasDeleted =
+      currentGraphId != null &&
+      savedGraphs.some((savedGraph: NodeGraph) => savedGraph.metadata?.id === currentGraphId) &&
+      !nextSavedGraphs.some((savedGraph: NodeGraph) => savedGraph.metadata?.id === currentGraphId);
+
+    setSavedGraphs(nextSavedGraphs);
+
+    if (currentGraphWasDeleted) {
+      setGraph(emptyNodeGraph());
+    }
+
+    setFolderNames((prev) => prev.filter((name) => name !== folderName && !name.startsWith(`${folderName}/`)));
   });
 
   const runGraph = useStableCallback((folderName: string) => {
-    const graph = savedGraphs.find((graph) => graph.metadata?.name === folderName);
-    if (graph) {
-      onRunGraph?.(graph.metadata!.id!);
+    const graphId = findRunnableGraphId(savedGraphs, folderName);
+    if (graphId) {
+      onRunGraph?.(graphId);
     }
   });
 
   const renameFolderItem = useStableCallback((fullPath: string, newFullPath: string, itemId?: string) => {
-    if (fullPath === newFullPath || !newFullPath || /\/$/.test(newFullPath)) {
+    const result = renameFolderItemInGraphs({
+      fullPath,
+      newFullPath,
+      savedGraphs,
+      currentGraph: graph,
+      folderNames,
+    });
+
+    if ('error' in result) {
+      if (result.error === 'noop') {
+        setRenamingItemFullPath(undefined);
+        return;
+      }
+
+      if (result.error === 'invalid') {
+        toast.error('Names contains invalid segments');
+        return;
+      }
+
+      if (result.error === 'duplicate') {
+        toast.error('A graph or folder with that name already exists.');
+        return;
+      }
+
       setRenamingItemFullPath(undefined);
       return;
     }
 
-    if (newFullPath.split('/').some((part) => part === '')) {
-      toast.error('Names contains invalid segments');
-      return;
-    }
-
-    if (savedGraphs.some((g) => g.metadata?.name === newFullPath) || folderNames.includes(newFullPath)) {
-      toast.error('A graph or folder with that name already exists.');
-      return;
-    }
-
-    setSavedGraphs((prev) => {
-      return prev.map((g) => {
-        if (g.metadata?.name && (fullPath === g.metadata.name || isInFolder(fullPath, g.metadata.name))) {
-          return {
-            ...g,
-            metadata: {
-              ...g.metadata,
-              name: g.metadata.name.replace(fullPath, newFullPath),
-            },
-          };
-        }
-        return g;
-      });
-    });
-
-    setGraph((prev) =>
-      produce(prev, (draft) => {
-        const metadata = draft.metadata ?? { name: '' };
-        metadata.name = metadata.name!.replace(fullPath, newFullPath);
-        draft.metadata = metadata;
-      }),
-    );
-
-    const newFolderNames = folderNames.map((name) =>
-      name === fullPath || isInFolder(fullPath, name) ? name.replace(fullPath, newFullPath) : name,
-    );
-    setFolderNames(newFolderNames);
+    setSavedGraphs(result.savedGraphs);
+    setGraph(result.currentGraph);
+    setFolderNames(result.folderNames);
 
     setRenamingItemFullPath(undefined);
     setExpandedFolders((prev) => ({

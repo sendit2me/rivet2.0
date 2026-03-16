@@ -3,45 +3,52 @@ import { graphNavigationStackState } from '../state/graphBuilder.js';
 import { projectState } from '../state/savedGraphs.js';
 import { useLoadGraph } from '../hooks/useLoadGraph.js';
 import { useAtom, useAtomValue } from 'jotai';
+import { getGraphNavigationAvailability, resolveNavigationTarget } from '../domain/graphEditing/navigationActions.js';
 
 export const useGraphHistoryNavigation = () => {
   const [graphNavigationStack, setGraphNavigationStack] = useAtom(graphNavigationStackState);
   const loadGraph = useLoadGraph();
   const project = useAtomValue(projectState);
 
-  const hasForward =
-    graphNavigationStack.index != null && graphNavigationStack.index < graphNavigationStack.stack.length - 1;
-  const hasBackward = (graphNavigationStack.index ?? -1) > 0;
+  const { hasForward, hasBackward } = getGraphNavigationAvailability(graphNavigationStack);
 
   const navigateBack = useCallback(() => {
-    if ((graphNavigationStack.index ?? -1) > 0) {
-      const prevGraphId = graphNavigationStack.stack[graphNavigationStack.index! - 1]!;
-      setGraphNavigationStack((stack) => ({
-        ...stack,
-        index: stack.index! - 1,
-      }));
+    const target = resolveNavigationTarget({
+      direction: 'backward',
+      navigationStack: graphNavigationStack,
+      project,
+    });
 
-      const graph = project.graphs[prevGraphId];
+    if (!target) {
+      return;
+    }
 
-      if (graph) {
-        loadGraph(graph, { pushHistory: false });
-      }
+    setGraphNavigationStack(target.nextStack);
+
+    const graph = project.graphs[target.targetGraphId];
+
+    if (graph) {
+      loadGraph(graph, { pushHistory: false });
     }
   }, [graphNavigationStack, loadGraph, project, setGraphNavigationStack]);
 
   const navigateForward = useCallback(() => {
-    if (graphNavigationStack.index != null && graphNavigationStack.index < graphNavigationStack.stack.length - 1) {
-      const nextGraphId = graphNavigationStack.stack[graphNavigationStack.index! + 1]!;
-      setGraphNavigationStack((stack) => ({
-        ...stack,
-        index: stack.index! + 1,
-      }));
+    const target = resolveNavigationTarget({
+      direction: 'forward',
+      navigationStack: graphNavigationStack,
+      project,
+    });
 
-      const graph = project.graphs[nextGraphId];
+    if (!target) {
+      return;
+    }
 
-      if (graph) {
-        loadGraph(graph, { pushHistory: false });
-      }
+    setGraphNavigationStack(target.nextStack);
+
+    const graph = project.graphs[target.targetGraphId];
+
+    if (graph) {
+      loadGraph(graph, { pushHistory: false });
     }
   }, [graphNavigationStack, loadGraph, project, setGraphNavigationStack]);
 

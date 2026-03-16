@@ -698,6 +698,7 @@ These are larger cleanups that become much easier once earlier items reduce loca
 
 ---
 
+DONE
 ### 12. Create a small internal UI domain layer for graph editing actions
 
 **Effort: L | Impact: Medium-High**
@@ -733,6 +734,7 @@ Group graph-editing actions into a small internal domain layer so the UI compose
 
 ---
 
+DONE
 ### 13. Compress rendering-by-data-type into a table-driven renderer map
 
 **Effort: M | Impact: Medium**
@@ -764,6 +766,7 @@ Use a small registry/map of renderers per data type instead of one long branchin
 
 ---
 
+DONE
 ### 14. Continue replacing “stateful hook tricks” with plain helpers where React is not needed
 
 **Effort: M | Impact: Medium**
@@ -801,6 +804,7 @@ Reduce unnecessary React hook surface by moving pure logic into plain modules an
 
 ---
 
+DONE
 ### 15. Add targeted regression coverage for the simplified boundaries
 
 **Effort: M | Impact: High**
