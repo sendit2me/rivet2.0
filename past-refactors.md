@@ -4,8 +4,6 @@ This file is a plain-language record of refactors that have already been complet
 meant to describe what changed and why it mattered, without prioritization, effort sizing,
 or planning metadata.
 
-The numbering is preserved from the original plan so it is easy to cross-reference past
-work when planning future refactors.
 
 ## 1. Eliminate the circular dependency through barrel imports
 
@@ -267,3 +265,205 @@ This refactor reorganized the state code around clearer boundaries so storage, s
 actions, and base atoms are less entangled. The result is a state system that is easier to
 trace and easier to extend, while also reducing the amount of unrelated logic packed into
 single state files.
+
+## 24. Finish shrinking `GraphProcessor` into an orchestration layer
+
+`GraphProcessor` was still carrying too many internal responsibilities even after the earlier
+round of extraction work. Scheduling decisions, control-flow exclusion, split-run behavior,
+loop handling, subprocessor setup, and child-event forwarding were still tightly packed into
+one class, which made execution bugs harder to isolate and increased the risk of changing one
+path while accidentally affecting another.
+
+This refactor moved those responsibilities behind clearer internal boundaries by extracting
+planner and subprocessor helpers, passing a shared execution-state object through the deeper
+flows, and deleting obsolete private wrappers. The result is that `GraphProcessor` behaves
+more like an orchestration layer around execution state and the public event API, which makes
+the remaining execution code easier to navigate and safer to change.
+
+## 25. Break up `ChatNodeBase` and remove provider-specific duplication
+
+`ChatNodeBase` and the provider-specific chat nodes had accumulated a large amount of repeated
+logic around prompt shaping, token budgeting, streaming, output normalization, and cost
+tracking. That duplication made provider behavior harder to compare and increased the chance
+that a bug fix in one provider path would not be carried over to the others.
+
+This refactor split the shared chat pipeline into focused helpers and reduced provider nodes to
+the parts that are genuinely provider-specific. Shared message coercion, token-budget logic,
+assistant output shaping, and streaming behavior now live in reusable pipeline modules, which
+lowers maintenance cost and makes future provider work less dependent on copying existing code.
+
+## 26. Simplify execution connectivity into one explicit session manager
+
+Executor connectivity in the app had been spread across several hooks and ad hoc coordination
+mechanisms, including reconnect logic, readiness tracking, socket lifecycle, and a
+module-level promise bridge. The behavior worked, but it was difficult to reason about which
+part of the system owned the session at any given moment and why the UI considered the
+executor ready, disconnected, or reconnecting.
+
+This refactor introduced a single executor-session layer with explicit states and narrow
+transport boundaries for the internal sidecar and remote debugger paths. Existing hooks and UI
+surfaces were adapted to consume that session state instead of duplicating their own
+connectivity logic. This reduces lifecycle drift and creates a cleaner seam for both current
+desktop execution and future browser-safe transports.
+
+## 27. Reduce project load/save/switch duplication into a single workspace flow
+
+Project loading, graph switching, and saving had been implemented through several hooks and
+helpers that all knew slightly different versions of the same workflow. That duplication made
+it too easy to miss one persistence or cleanup concern when changing how projects moved
+through the app.
+
+This refactor consolidated those operations into an explicit workspace-transition layer with
+shared helpers for graph syncing, atom-family cleanup, view restoration, and Trivet/static
+data persistence. The project lifecycle now has one clearer internal flow, with thin hook
+adapters on top, which reduces hook code volume and keeps platform-neutral workspace logic
+separate from filesystem concerns.
+
+## 28. Decompose the remaining large app components by responsibility
+
+Several major UI files were still large enough to mix rendering, event handling, state
+selection, and specialized sub-behaviors in one place. Even when those files were working,
+their size made review slower and made it harder to tell which logic actually belonged
+together.
+
+This refactor split those components along domain boundaries instead of just chopping them by
+line count. `NodeCanvas`, `NodeEditor`, `NodeOutput`, `RenderDataValue`, `SettingsPages`, and
+`PluginsOverlay` were all reduced so each file answers a narrower question, which improves
+reviewability, lowers unrelated subscriptions inside single components, and makes UI bugs
+easier to localize.
+
+## 29. Collapse duplicated app-side execution rendering and status derivation
+
+The app had multiple places computing concepts like whether execution could start, whether a
+run was active or paused, what status a node should display, and whether a node output was
+worth rendering. That meant execution semantics were partly encoded in the UI layer itself,
+with slightly different naming and predicate logic across components.
+
+This refactor centralized those derivations into selector and helper modules near the execution
+state model and updated the UI to consume the canonical outputs. This makes changes to run-
+state behavior more predictable, because the action bar, node styling, process-page logic,
+and output displays now speak the same status language.
+
+## 30. Separate platform-neutral app logic from desktop-only integration points
+
+The app layer still mixed product logic with desktop-only assumptions about Tauri APIs,
+sidecar bootstrapping, dialogs, and path-based file access. That made the architecture harder
+to reason about and created friction for any future browser-safe client, because platform
+concerns could leak into otherwise reusable hooks and components.
+
+This refactor moved the app toward a platform-neutral core plus explicit platform adapters.
+Product code now depends more directly on capability boundaries instead of desktop-flavored
+helpers, and the docs now make the distinction between shared app logic and desktop-specific
+implementations explicit. This improves current dependency clarity while also preserving a
+realistic path for future non-desktop clients.
+
+## 31. Consolidate serialization code further and shrink compatibility paths
+
+The serialization layer still carried duplicated V3/V4 helper logic and a compatibility path
+that was more complicated than it needed to be. Since serialization is a user-data boundary,
+that extra complexity increased review cost and made future persistence changes feel riskier
+than they should have.
+
+This refactor extracted shared serialization helpers, narrowed version detection to cleaner
+entry points, and added round-trip coverage for the supported formats. The result is a smaller
+and easier-to-audit compatibility surface that preserves existing file behavior while reducing
+the amount of duplicate serialization and YAML-envelope logic spread across versions.
+
+## 32. Shrink `nativeApp.ts` into focused platform capability modules
+
+`nativeApp.ts` had become an oversized catch-all surface for desktop integrations such as app
+window behavior, shell commands, dialogs, filesystem access, updater APIs, and HTTP. Even
+though it was better than scattering raw Tauri imports everywhere, it still encouraged callers
+to think in terms of one giant native module instead of explicit capabilities.
+
+This refactor replaced that monolith with narrower modules under `utils/platform/`, including
+separate app, shell, window, dialog, filesystem, path, updater, and HTTP helpers, plus a tiny
+shared core for environment detection. The result is clearer dependency boundaries, smaller
+files, and an app layer that can depend on the exact platform capability it needs.
+
+## 33. Simplify node/plugin registration ownership
+
+Registry setup had mixed together built-in node registration, plugin loading, runtime reset,
+and global-registry replacement in ways that were functional but not very explicit. That made
+plugin-related behavior harder to follow across the app and executor, and it increased hidden
+coupling around global registry state.
+
+This refactor established clearer registry assembly operations and reused them across the app
+and executor. Creating a built-in registry, extending it with plugins, and optionally
+installing it as the current global registry are now separate concerns. This reduces duplicate
+setup code and makes plugin/runtime assembly easier to reuse outside one long-lived desktop
+global path.
+
+## 34. Replace ad hoc fire-and-forget event emission with explicit helpers
+
+Core execution code had accumulated many inline promise-detachment patterns and lint
+suppression comments around intentional fire-and-forget event emission. Even when those calls
+were correct, the repeated local patterns made it hard to tell which cases were deliberate and
+which might be hiding a sequencing bug.
+
+This refactor introduced a small explicit helper for detached async emission and replaced the
+repetitive inline suppressions where the behavior was intentional. That makes the async model
+easier to audit, reduces comment noise, and clarifies which calls are meant to be detached
+versus which ones still deserve explicit awaiting or local justification.
+
+## 35. Clean up CJS/ESM friction in `rivet-node` and `app-executor`
+
+The Node-oriented runtime surfaces still carried a variety of compatibility hacks for mixed
+CommonJS and ESM behavior, including double-default resolution, dynamic import boundaries, and
+packaging constraints imposed by `pkg`. Those issues were not always breaking builds, but they
+generated confusion and made the runtime edges harder to maintain.
+
+This refactor centralized the compatibility strategies instead of leaving them as scattered
+inline special cases. Interop helpers and explicit documentation now explain why certain Node-
+only or packaging-specific patterns exist. This reduces build-time surprise and makes the
+runtime boundary between browser-safe code and Node-only execution more deliberate.
+
+## 36. Create a small internal UI domain layer for graph editing actions
+
+Graph editing behavior had still been spread across hooks, commands, state modules, and
+component-local callbacks, with the same workflows assembled in slightly different ways in
+different surfaces. That made editing behavior harder to trace and increased the chance of one
+entry point drifting from another.
+
+This refactor grouped the stable editing workflows into small internal domain modules for node
+actions, connection actions, navigation actions, and graph or folder operations. Hooks now act
+more like UI adapters over those domain helpers. This reduces repeated glue code and gives the
+application a clearer place to evolve graph-editing behavior without rewriting the same
+sequence in multiple UI paths.
+
+## 37. Compress rendering-by-data-type into a table-driven renderer map
+
+Data-value rendering had grown around long branching logic that decided how to display many
+different data types in one place. That structure worked, but it made renderer-specific
+behavior harder to isolate and made adding or adjusting a single data-type renderer more
+invasive than it needed to be.
+
+This refactor introduced a table-driven renderer map so type-specific rendering is delegated to
+focused renderers while the top-level component stays narrow. The result is a smaller and more
+extensible rendering surface, with a clearer fallback path for unsupported values and less
+branching logic in the main output-view component.
+
+## 38. Continue replacing stateful hook tricks with plain helpers where React is not needed
+
+Several hooks were still carrying logic that was mostly pure transformation or imperative
+workflow sequencing rather than true React lifecycle behavior. Keeping that code inside hooks
+made the logic harder to test directly and increased the amount of closure-heavy code that had
+to be understood through the lens of React state wiring.
+
+This refactor moved those non-React responsibilities into plain helper modules and kept the
+hooks focused on integration with atoms, effects, and callbacks. This reduces unnecessary hook
+surface area, improves testability, and lowers the risk of accidental reactivity bugs caused
+by logic that never really needed to live inside React in the first place.
+
+## 39. Add targeted regression coverage for the simplified boundaries
+
+The refactor plan created several cleaner internal seams, but those simplifications would have
+been risky without better automated coverage around the new boundaries. Broad integration tests
+alone were not enough, because the main goal was to make it safe to delete glue code and
+consolidate behavior without losing confidence.
+
+This refactor added focused regression coverage around the extracted execution, workspace,
+platform, chat, and graph-editing boundaries, along with targeted tests for high-risk helper
+behavior discovered during reassessment. That supports continued simplification work while
+lowering the chance that subtle execution, connectivity, or UI-boundary bugs will be
+reintroduced.
