@@ -650,8 +650,7 @@ This is an architectural boundary, not just a file split:
 - direct `@tauri-apps/api/*` imports are isolated to the platform adapter modules
 - browser-safe code paths can continue to import app logic without taking a broad desktop-only dependency at top level
 - the browser app build also aliases the deprecated `@google-cloud/vertexai` path to a stub so browser bundles do not pull in node-only Google auth SDKs
-
-[`packages/app/src/utils/nativeApp.ts`](../packages/app/src/utils/nativeApp.ts) remains only as a compatibility barrel. New code should prefer capability-specific imports instead of pulling the whole native surface through one module.
+- the old `nativeApp.ts` compatibility barrel has been removed, so new desktop integrations must choose a capability-specific module instead of reintroducing one broad native import surface
 
 ## Execution Architecture
 
@@ -754,9 +753,11 @@ This session layer owns:
 Current ownership detail:
 
 - `useExecutorSession` should be mounted from a stable app-shell surface
-- read-only consumers such as `useGraphExecutor`, `ActionBarMoreMenu`, and `GentraceInteractors` should observe session state through `useExecutorSessionState` / `useRemoteDebugger` rather than owning connection teardown
+- `useExecutorSession` now also owns the `bindExecutorSession(...)` wiring for dataset access and debugger/session atom updates
+- read-only consumers such as `useGraphExecutor` and `ActionBarMoreMenu` should observe session state through `useExecutorSessionState`
+- controller consumers such as `useRemoteExecutor`, `ActionBar`, `DebuggerConnectPanel`, and `GentraceInteractors` should use `useRemoteDebugger` for connect/disconnect/send operations without taking over session binding or teardown
 
-`useRemoteDebugger` is now primarily a compatibility-facing hook over that session owner.
+`useRemoteDebugger` is now a thin controller/subscription hook over the shared session layer rather than another owner of executor-session wiring.
 
 ### Internal sidecar vs external debugger
 

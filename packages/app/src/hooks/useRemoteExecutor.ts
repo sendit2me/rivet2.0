@@ -138,7 +138,7 @@ export function useRemoteExecutor() {
     const graphToRun = options.graphId ?? graph.metadata!.id!;
 
     try {
-      if (remoteDebugger.remoteDebuggerState.remoteUploadAllowed) {
+      if (remoteDebugger.sessionState.remoteUploadAllowed) {
         remoteDebugger.send('set-dynamic-data', {
           project: {
             ...project,
@@ -223,7 +223,7 @@ export function useRemoteExecutor() {
             }));
           },
           runGraph: async (project, graphId, inputs) => {
-            if (remoteDebugger.remoteDebuggerState.remoteUploadAllowed) {
+            if (remoteDebugger.sessionState.remoteUploadAllowed) {
               remoteDebugger.send('set-dynamic-data', {
                 project: {
                   ...project,

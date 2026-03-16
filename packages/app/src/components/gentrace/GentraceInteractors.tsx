@@ -9,7 +9,6 @@ import GentraceImage from '../../assets/vendor_logos/gentrace.svg?react';
 import { toast } from 'react-toastify';
 import { runGentraceTests, runRemoteGentraceTests } from '../../../../core/src/plugins/gentrace/plugin';
 import { useRemoteDebugger } from '../../hooks/useRemoteDebugger';
-import { useExecutorSessionState } from '../../hooks/useExecutorSession';
 import { TauriNativeApi } from '../../model/native/TauriNativeApi';
 import { graphState } from '../../state/graph';
 import { projectContextState, projectState } from '../../state/savedGraphs.js';
@@ -27,7 +26,7 @@ export const GentraceInteractors = () => {
   const projectContext = useAtomValue(projectContextState(project.metadata.id));
 
   const remoteDebugger = useRemoteDebugger();
-  const executorSession = useExecutorSessionState();
+  const executorSession = remoteDebugger.sessionState;
 
   const gentracePipelineSettings = graph?.metadata?.attachedData?.gentracePipeline as GentracePipeline | undefined;
   const currentGentracePipelineSlug = gentracePipelineSettings?.slug;
@@ -53,14 +52,14 @@ export const GentraceInteractors = () => {
     let testResultId: string | null = null;
 
     try {
-      if (executorSession.status === 'ready' && remoteDebugger.remoteDebuggerState.socket) {
+      if (executorSession.status === 'ready' && executorSession.socket) {
         const testResponse = await runRemoteGentraceTests(
           currentGentracePipelineSlug,
           settings,
           project,
           graph,
           async (inputs) => {
-            if (remoteDebugger.remoteDebuggerState.remoteUploadAllowed) {
+            if (executorSession.remoteUploadAllowed) {
               remoteDebugger.send('set-dynamic-data', {
                 project: {
                   ...project,
@@ -78,7 +77,7 @@ export const GentraceInteractors = () => {
 
             const recorder = new ExecutionRecorder();
 
-            const recorderPromise = recorder.recordSocket(remoteDebugger.remoteDebuggerState.socket!);
+            const recorderPromise = recorder.recordSocket(executorSession.socket!);
 
             const contextValues = entries(projectContext).reduce(
               (acc, [key, value]) => ({

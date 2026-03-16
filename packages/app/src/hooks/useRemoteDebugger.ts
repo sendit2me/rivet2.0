@@ -1,12 +1,9 @@
 import { useLatest } from 'ahooks';
-import { useAtom } from 'jotai';
+import { useAtomValue } from 'jotai';
 import { useEffect } from 'react';
-import type { OutgoingMessageMap, ProcessEventMessageMap } from '@ironclad/rivet-core';
-import type { RemoteDebuggerConfig, RemoteDebuggerConnectionState } from '../state/execution.js';
+import type { OutgoingMessageMap } from '@ironclad/rivet-core';
 import { remoteDebuggerConfigState, remoteDebuggerConnectionState } from '../state/execution.js';
-import { useDatasetProvider } from '../providers/ProvidersContext';
 import {
-  bindExecutorSession,
   buildExecutorSessionState,
   connectExecutorSession,
   disconnectExecutorSession,
@@ -22,19 +19,10 @@ export function getDebuggerSocket(): WebSocket | null {
 }
 
 export function useRemoteDebugger(options: { onConnect?: () => void; onDisconnect?: () => void } = {}) {
-  const datasetProvider = useDatasetProvider();
-  const [debuggerConfig, setDebuggerConfig] = useAtom(remoteDebuggerConfigState);
-  const [connectionState, setConnectionState] = useAtom(remoteDebuggerConnectionState);
+  const debuggerConfig = useAtomValue(remoteDebuggerConfigState);
+  const connectionState = useAtomValue(remoteDebuggerConnectionState);
   const onConnectLatest = useLatest(options.onConnect ?? (() => {}));
   const onDisconnectLatest = useLatest(options.onDisconnect ?? (() => {}));
-
-  useEffect(() => {
-    bindExecutorSession({
-      datasetProvider,
-      setDebuggerConfig,
-      setConnectionState,
-    });
-  }, [datasetProvider, setConnectionState, setDebuggerConfig]);
 
   useEffect(() => {
     const unsubscribeConnect = subscribeExecutorSessionLifecycle('connect', () => onConnectLatest.current?.());
@@ -49,7 +37,6 @@ export function useRemoteDebugger(options: { onConnect?: () => void; onDisconnec
   const sessionState: ExecutorSessionState = buildExecutorSessionState(debuggerConfig, connectionState);
 
   return {
-    remoteDebuggerState: sessionState,
     sessionState,
     connect: (url: string) => {
       void connectExecutorSession(url);
