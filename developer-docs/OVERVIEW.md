@@ -1,171 +1,198 @@
-# Rivet Developer Documentation - Architecture Overview
+# Rivet Developer Docs Overview
 
-> Internal developer documentation for understanding and refactoring Rivet.
-> Created to support the new maintainer transition.
+> Internal maintainer-facing documentation for the current monorepo.
+> These docs are intended to support refactors, not just orientation.
 
-## What Is Rivet?
+## What This Repo Contains
 
-Rivet is a **visual IDE for creating complex AI agents and prompt chains**. It provides:
+Rivet is a monorepo organized around one shared graph runtime and several product surfaces built on top of it.
 
-1. A **desktop application** (Tauri + React) with a node-based graph editor
-2. A **core TypeScript library** (`@ironclad/rivet-core`) that powers graph execution
-3. A **Node.js library** (`@ironclad/rivet-node`) for embedding Rivet graphs in applications
-4. A **CLI** (`@ironclad/rivet-cli`) for running and serving graphs from the command line
-5. A **plugin system** for extending node types and integrations
-6. A **testing framework** (`@ironclad/trivet`) for validating AI agent behavior
+At a high level:
 
-## Monorepo Structure
+1. `@ironclad/rivet-core` defines the graph model, execution engine, built-in nodes, built-in plugins, serialization, and shared runtime contracts.
+2. `@ironclad/rivet-app` is the Tauri/React desktop IDE.
+3. `@ironclad/rivet-node` adapts core for Node environments.
+4. `@ironclad/rivet-cli` exposes run/serve workflows on top of `rivet-node`.
+5. `@ironclad/rivet-app-executor` is the Node sidecar used by the desktop app.
+6. `@ironclad/trivet` provides graph-oriented testing utilities and serialization.
+7. `packages/docs` is the Docusaurus documentation site.
 
-```
-rivet/
-├── packages/
-│   ├── core/           # @ironclad/rivet-core - Execution engine, node types, type system
-│   ├── app/            # @ironclad/rivet-app - Desktop application (Tauri + React + Vite)
-│   ├── app-executor/   # @ironclad/rivet-app-executor - Node.js sidecar for the app
-│   ├── node/           # @ironclad/rivet-node - Node.js integration library
-│   ├── cli/            # @ironclad/rivet-cli - Command-line interface
-│   ├── trivet/         # @ironclad/trivet - Test runner for Rivet graphs
-│   ├── community/      # Community template sharing
-│   └── docs/           # Docusaurus documentation website
-├── examples/           # Example projects (RPG chat-loop demo)
-├── developer-docs/     # THIS FOLDER - internal developer documentation
-├── package.json        # Root workspace config (Yarn 4 PnP)
-├── tsconfig.base.json  # Shared TypeScript config
-└── eslint.config.mjs   # Shared ESLint config (v9 flat config)
-```
+## Workspace Layout
 
-## Package Dependency Graph
-
-```
-                    ┌──────────────┐
-                    │   rivet-core │  (no workspace deps)
-                    └──────┬───────┘
-                           │
-              ┌────────────┼────────────┐
-              │            │            │
-       ┌──────▼──────┐    │     ┌──────▼──────┐
-       │  rivet-node  │    │     │  app-executor│
-       │  (core)      │    │     │  (core)      │
-       └──────┬───────┘    │     └──────────────┘
-              │            │
-       ┌──────▼──────┐    │
-       │  rivet-cli   │    │
-       │  (node)      │    │
-       └─────────────┘    │
-                          │
-                   ┌──────▼──────┐
-                   │  rivet-app   │
-                   │  (core)      │
-                   └──────┬───────┘
-                          │ spawns
-                   ┌──────▼──────┐
-                   │ app-executor │
-                   │ (sidecar)    │
-                   └─────────────┘
+```text
+packages/
+  app/            Desktop app
+  app-executor/   Node sidecar for the app
+  cli/            CLI for running and serving graphs
+  community/      Internal app/community package
+  core/           Runtime engine, graph model, built-in nodes/plugins
+  docs/           Docusaurus site
+  node/           Node integration library
+  trivet/         Test-runner package
+developer-docs/   These internal docs
+_.github/         CI workflows and release scripts
 ```
 
-**Key relationships:**
-- `core` has **zero** workspace dependencies - it's the foundation
-- `node` wraps `core` with Node.js-specific APIs (file loading, debugger server, MCP support)
-- `cli` depends on `node` (and transitively `core`)
-- `app` depends on `core` directly for browser-based execution
-- `app-executor` is a **sidecar process** spawned by `app` for Node.js-based execution
-- `trivet` depends on `core` for graph execution during testing
+## Dependency Structure
 
-## Technology Stack
+The core dependency direction is intentionally simple:
 
-| Layer | Technology | Notes |
-|-------|-----------|-------|
-| **Build System** | Yarn 4 (PnP) | Workspaces, zero-install |
-| **Language** | TypeScript 5.7 | Strict mode, ESM |
-| **Bundler** | Vite 6 (app), esbuild/rollup (libs) | Fast dev server |
-| **Desktop Shell** | Tauri 1.8 (Rust) | Lightweight alternative to Electron |
-| **Frontend** | React 18 | SPA with Emotion CSS-in-JS |
-| **State** | Jotai 2 | Atom-based reactive state |
-| **UI Kit** | Atlaskit | Enterprise design system |
-| **Graph Editor** | Custom (Canvas + SVG) | DnD via @dnd-kit |
-| **Code Editor** | Monaco Editor | Embedded in Code nodes |
-| **LLM SDKs** | OpenAI, Anthropic | Direct API integration |
-| **Node Runtime** | Node.js 20 | Via Volta version management |
-| **CI/CD** | GitHub Actions | Multi-platform builds |
-
-## High-Level Architecture
-
-```
-┌─────────────────────────────────────────────────────┐
-│                   Desktop App (Tauri)                │
-│  ┌───────────────────────────────────────────────┐  │
-│  │              React Frontend (Vite)             │  │
-│  │  ┌─────────┐ ┌──────────┐ ┌───────────────┐  │  │
-│  │  │  Graph   │ │  State   │ │   Settings    │  │  │
-│  │  │  Editor  │ │  (Jotai) │ │   & Config    │  │  │
-│  │  └────┬─────┘ └─────┬────┘ └───────────────┘  │  │
-│  │       │              │                         │  │
-│  │  ┌────▼──────────────▼────┐                    │  │
-│  │  │    GraphProcessor      │ ← Browser executor │  │
-│  │  │    (rivet-core)        │                    │  │
-│  │  └────────────────────────┘                    │  │
-│  └───────────────────────────────────────────────┘  │
-│                      │ WebSocket                     │
-│  ┌───────────────────▼───────────────────────────┐  │
-│  │          app-executor (Node.js sidecar)        │  │
-│  │    GraphProcessor + full Node.js APIs          │  │
-│  └───────────────────────────────────────────────┘  │
-│                                                     │
-│  ┌───────────────────────────────────────────────┐  │
-│  │           Tauri Rust Backend                   │  │
-│  │    File dialogs, env vars, plugin extraction   │  │
-│  └───────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────┐
-│              Embeddable Runtime                      │
-│  ┌───────────────────────────────────────────────┐  │
-│  │   Your Node.js App                             │  │
-│  │   const { runGraphInFile } = rivetNode;        │  │
-│  │   const result = await runGraphInFile(          │  │
-│  │     'project.rivet-project',                   │  │
-│  │     { graph: 'Main', inputs: { ... } }         │  │
-│  │   );                                           │  │
-│  └───────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────┘
+```text
+core
+|- node
+|  `- cli
+|- app
+|- app-executor
+`- trivet
 ```
 
-## Dual Execution Model
+Important implications:
 
-The app supports two execution backends:
+- `core` is the foundation and does not depend on other workspace packages.
+- `node`, `app`, `app-executor`, and `trivet` all rely on `core` concepts and types.
+- `cli` is not an independent runtime; it is a thin operational layer over `rivet-node`.
+- the app uses both `core` directly and the sidecar protocol indirectly.
 
-### Browser Executor (Default)
-- Runs `GraphProcessor` directly in the browser main thread
-- Fast startup, no extra processes
-- Limited: no file system access, no shell commands, no native modules
-- Good for quick prototyping and simple graphs
+## Main Architectural Layers
 
-### Node.js Executor (Sidecar)
-- Spawns `app-executor` as a Tauri sidecar process
-- Communicates via WebSocket (`ws://localhost:21889/internal`)
-- Full Node.js capabilities: file I/O, shell access, native modules
-- Required for: Code nodes with Node APIs, plugin nodes needing system access
-- Supports remote debugging from external processes
+### 1. Shared runtime layer
 
-## File Formats
+Owned by `packages/core`.
 
-| Extension | Purpose | Format |
-|-----------|---------|--------|
-| `.rivet-project` | Project file | JSON (versioned serialization) |
-| `.rivet-data` | Large dataset storage | JSON (sibling to project file) |
-| `.rivet-graph` | Single graph export | JSON |
-| `.rivet-recording` | Execution recording | JSON (for playback/debugging) |
+Contains:
 
-Projects use versioned serialization (v1-v4) with backward compatibility.
+- project and graph types
+- data type system
+- node registration and node execution
+- built-in nodes
+- built-in provider plugins
+- serialization
+- execution recording support
+- public programmatic APIs
 
-## Documentation Index
+### 2. Desktop IDE layer
 
-| Document | Contents |
-|----------|----------|
-| [OVERVIEW.md](./OVERVIEW.md) | This file - high-level architecture |
-| [CORE-ENGINE.md](./CORE-ENGINE.md) | Execution engine, type system, node architecture |
-| [APP-ARCHITECTURE.md](./APP-ARCHITECTURE.md) | Desktop app, graph editor, state management |
-| [PLUGIN-SYSTEM.md](./PLUGIN-SYSTEM.md) | Plugin interfaces, loading, registration |
-| [PACKAGES.md](./PACKAGES.md) | Detailed package reference |
-| [BUILD-AND-CI.md](./BUILD-AND-CI.md) | Build system, CI/CD, release process |
+Owned by `packages/app` and `packages/app/src-tauri`.
+
+Contains:
+
+- graph editor UI
+- project workspace UI
+- local and sidecar execution orchestration
+- plugin installation/loading UX
+- Trivet integration
+- prompt-designer integration
+- updater/debugger/community/data overlays
+- Tauri-native bridging
+
+### 3. Node runtime layer
+
+Owned by `packages/node`.
+
+Contains:
+
+- file-based project loading
+- Node-native execution defaults
+- remote debugger server
+- dataset/debugger/project-reference helpers
+- re-exported core APIs
+
+### 4. Operational surfaces
+
+Owned by:
+
+- `packages/cli`
+- `packages/app-executor`
+- `packages/trivet`
+- `packages/docs`
+
+These packages expose the runtime in different ways rather than redefining it.
+
+## Execution Model
+
+There are three execution contexts worth distinguishing:
+
+### Browser execution
+
+Used by the desktop app when `defaultExecutorState` is `browser`.
+
+- runs `GraphProcessor` in-process inside the app
+- uses browser/Tauri-facing adapters
+- supports the editor's immediate local run flow
+
+### Sidecar Node execution
+
+Used by the desktop app when `defaultExecutorState` is `nodejs`.
+
+- the app starts or connects to `app-executor`
+- communication happens over `ws://localhost:21889/internal`
+- execution runs via the debugger/server protocol
+- supports Node-specific APIs and plugin installation scenarios
+
+### Standalone Node execution
+
+Used by `rivet-node`, `rivet-cli`, and external Node consumers.
+
+- runs `GraphProcessor` directly in Node
+- uses Node-native providers like `NodeNativeApi`, `NodeCodeRunner`, and `NodeProjectReferenceLoader`
+- can optionally attach a debugger server
+
+## Cross-Cutting Concepts
+
+### Global node registry
+
+The repo relies heavily on a shared `globalRivetNodeRegistry` from core.
+
+This registry is:
+
+- pre-populated with built-in nodes
+- mutated when plugins are registered
+- reset and rebuilt in some app/plugin-loading flows
+
+That makes registry state one of the key global couplings in the repo.
+
+### Project serialization
+
+Serialization is versioned in `packages/core/src/utils/serialization/`.
+
+Current repo-visible serialized artifacts include:
+
+- `.rivet-project`
+- `.rivet-data`
+- `.rivet-recording`
+
+### Attached/test/static data split
+
+Several parts of the system intentionally keep large or auxiliary data outside the central graph structures:
+
+- static project data can live separately from `projectState`
+- app state stores Trivet and runtime context separately
+- recording and debugger flows serialize execution data separately
+
+This split shows up repeatedly in app save/load code and should be treated as architectural, not incidental.
+
+## Current Refactor Hotspots
+
+Based on the current code, the highest-risk/highest-value refactor areas are:
+
+- `packages/app/src/components/NodeCanvas.tsx` and related canvas hooks
+- `packages/app/src/hooks/useGraphExecutor.ts`, `useLocalExecutor.ts`, and `useRemoteExecutor.ts`
+- `packages/app/src/hooks/useProjectPlugins.ts`
+- `packages/app/src/hooks/useLoadProject.ts` and `useLoadGraph.ts`
+- `packages/core/src/model/GraphProcessor.ts`
+- `packages/core/src/model/SplitRunProcessor.ts`
+- `packages/core/src/model/NodeRegistration.ts`
+- serialization contracts in `packages/core/src/utils/serialization/`
+- debugger/server protocol surfaces between app, app-executor, and node
+
+## How To Use These Docs
+
+Recommended reading order:
+
+1. [APP-ARCHITECTURE.md](./APP-ARCHITECTURE.md) for desktop IDE structure and state flows
+2. [CORE-ENGINE.md](./CORE-ENGINE.md) for the runtime model and execution engine
+3. [PLUGIN-SYSTEM.md](./PLUGIN-SYSTEM.md) for node/plugin registration and loading behavior
+4. [PACKAGES.md](./PACKAGES.md) for package-by-package operational detail
+5. [BUILD-AND-CI.md](./BUILD-AND-CI.md) for build, release, and publish workflows
+
+When planning refactors, treat these docs as a map of current seams and constraints, not a guarantee that every area is cleanly isolated.

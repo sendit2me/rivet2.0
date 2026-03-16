@@ -2,6 +2,8 @@ import { type NodeId } from '@ironclad/rivet-core';
 import { connectionsForSingleNodeState } from './selectors/graphSelectors';
 import { ioDefinitionsForNodeState } from './selectors/ioDefinitions';
 import { nodeByIdState, nodeInstanceByIdState } from './selectors/nodeSelectors';
+import { removeExecutionNodeStateFamilies } from './dataFlow';
+import { removeGraphBuilderNodeStateFamilies } from './graphBuilder';
 
 export {
   connectionsState,
@@ -32,5 +34,7 @@ export function removeGraphNodeStateFamilies(nodeId: NodeId): void {
 export function cleanupNodeAtomFamilies(nodeIds: NodeId[]): void {
   for (const nodeId of nodeIds) {
     removeGraphNodeStateFamilies(nodeId);
+    removeExecutionNodeStateFamilies(nodeId);
+    removeGraphBuilderNodeStateFamilies(nodeId);
   }
 }

@@ -2,10 +2,9 @@ import { useDraggable } from '@dnd-kit/core';
 import { type ChartNode, type NodeConnection } from '@ironclad/rivet-core';
 import { type FC } from 'react';
 import { VisualNode } from './VisualNode.js';
-import { useStableCallback } from '../hooks/useStableCallback.js';
 import { ErrorBoundary } from 'react-error-boundary';
 import { type ProcessDataForNode } from '../state/dataFlow';
-import { useCanvasHandlersContext, useCanvasViewContext } from './CanvasContext';
+import { useCanvasViewContext } from './CanvasContext';
 
 interface DraggableNodeProps {
   renderSkeleton?: boolean;
@@ -29,7 +28,6 @@ export const DraggableNode: FC<DraggableNodeProps> = ({
   renderSkeleton,
 }) => {
   const { canvasZoom } = useCanvasViewContext();
-  const { onNodeSelected, onNodeSizeChanged, onNodeStartEditing } = useCanvasHandlersContext();
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: node.id });
 
   return (
@@ -49,13 +47,6 @@ export const DraggableNode: FC<DraggableNodeProps> = ({
         processPage={processPage}
         isPinned={isPinned}
         renderSkeleton={renderSkeleton}
-        onSelectNode={useStableCallback((multi: boolean) => {
-          onNodeSelected?.(node, multi);
-        })}
-        onStartEditing={useStableCallback(() => {
-          onNodeStartEditing?.(node);
-        })}
-        onNodeSizeChanged={(width, height) => onNodeSizeChanged?.(node, width, height)}
       />
     </ErrorBoundary>
   );

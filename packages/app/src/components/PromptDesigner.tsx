@@ -1,11 +1,10 @@
 import { css } from '@emotion/react';
 import { type FC, useEffect, useState, useRef } from 'react';
-import { atom, useAtom, useAtomValue, useSetAtom } from 'jotai';
+import { atom, useAtom, useAtomValue } from 'jotai';
 import { AppErrorBoundary } from './AppErrorBoundary';
 import {
   promptDesignerAttachedChatNodeState,
   promptDesignerConfigurationState,
-  promptDesignerMessagesState,
   promptDesignerResponseState,
   promptDesignerState,
   promptDesignerTestGroupResultsByNodeIdState,
@@ -13,7 +12,6 @@ import {
 import { nodesByIdState, nodesState } from '../state/graph.js';
 import { type InputsOrOutputsWithRefs, lastRunDataByNodeState } from '../state/dataFlow.js';
 import {
-  type ChatMessage,
   type ChatNode,
   type DataValue,
   type GraphId,
@@ -22,31 +20,26 @@ import {
   arrayizeDataValue,
   getError,
   isArrayDataValue,
-  openai,
   type ScalarDataValue,
   type Inputs,
 } from '@ironclad/rivet-core';
-import TextField from '@atlaskit/textfield';
-import { Field } from '@atlaskit/form';
 import Tabs, { Tab, TabList, TabPanel } from '@atlaskit/tabs';
 import Button from '@atlaskit/button';
-import Select from '@atlaskit/select';
-import Toggle from '@atlaskit/toggle';
 import { nanoid } from 'nanoid/non-secure';
 import { mapValues } from 'lodash-es';
-import { useStableCallback } from '../hooks/useStableCallback.js';
-import { produce } from 'immer';
 import { overlayOpenState } from '../state/ui';
 import { getChatNodeMessages } from '../../../core/src/model/nodes/ChatNodeBase';
 import { syncWrapper } from '../utils/syncWrapper';
 import { useDatasetProvider } from '../providers/ProvidersContext';
 import { useGetAdHocInternalProcessContext } from '../hooks/useGetAdHocInternalProcessContext';
+import { usePromptDesignerMessages } from '../hooks/usePromptDesignerMessages';
 import {
   PromptDesignerMessage,
-  PromptDesignerTestGroup,
   PromptDesignerTestGroupResultList,
 } from './promptDesigner/PromptDesignerComponents';
 import { runAdHocChat, useRunPromptDesignerTestGroupSampleCount } from './promptDesigner/PromptDesignerTestRunner';
+import { PromptDesignerConfigPanel } from './promptDesigner/PromptDesignerConfigPanel';
+import { PromptDesignerTestPanel } from './promptDesigner/PromptDesignerTestPanel';
 
 const styles = css`
   position: fixed;
@@ -305,9 +298,9 @@ const lastPromptDesignerAttachedNodeState = atom<NodeId | undefined>(undefined);
 
 export const PromptDesigner: FC<PromptDesignerProps> = ({ onClose }) => {
   const datasetProvider = useDatasetProvider();
-  const [{ messages }, setMessages] = useAtom(promptDesignerMessagesState);
+  const { messages, setMessages, messageChanged, deleteMessage, addMessage } = usePromptDesignerMessages();
   const attachedNodeId = useAtomValue(promptDesignerAttachedChatNodeState);
-  const [nodes, setNodes] = useAtom(nodesState);
+  const [, setNodes] = useAtom(nodesState);
   const nodeOutput = useAtomValue(lastRunDataByNodeState);
   const [config, setConfig] = useAtom(promptDesignerConfigurationState);
   const [response, setResponse] = useAtom(promptDesignerResponseState);
@@ -377,28 +370,6 @@ export const PromptDesigner: FC<PromptDesignerProps> = ({ onClose }) => {
   const attachedNodeChanged = (newNode: ChatNode) => {
     setNodes((prev) => prev.map((n) => (n.id === newNode.id ? newNode : n)));
   };
-
-  const messageChanged = (newMessage: ChatMessage, index: number) => {
-    setMessages((s) => ({
-      ...s,
-      messages: s.messages.map((m, i) => (i === index ? newMessage : m)),
-    }));
-  };
-
-  const deleteMessage = useStableCallback((index: number) => {
-    setMessages((s) => ({
-      ...s,
-      messages: [...s.messages.slice(0, index), ...s.messages.slice(index + 1)],
-    }));
-  });
-
-  const addMessage = useStableCallback((index: number) => {
-    setMessages((s) =>
-      produce(s, (draft) => {
-        draft.messages.splice(index + 1, 0, { type: 'user', message: '' });
-      }),
-    );
-  });
 
   const testGroupChanged = (newTestGroup: NodeTestGroup, index: number) => {
     if (!attachedNode) {
@@ -574,176 +545,24 @@ export const PromptDesigner: FC<PromptDesignerProps> = ({ onClose }) => {
               <Tab>Test</Tab>
             </TabList>
             <TabPanel>
-              <div className="panel">
-                <div className="chat-config-area">
-                  <div className="chat-config-controls">
-                    <Field name="model" label="Model">
-                      {({ fieldProps }) => (
-                        <Select
-                          {...fieldProps}
-                          options={openai.openAiModelOptions}
-                          value={openai.openAiModelOptions.find((o) => o.value === config.data.model)!}
-                          placeholder="Select a model"
-                          onChange={(value) => setConfig((s) => ({ ...s, data: { ...s.data, model: value!.value } }))}
-                        />
-                      )}
-                    </Field>
-                    <Field name="temperature" label="Temperature">
-                      {({ fieldProps }) => (
-                        <TextField
-                          {...fieldProps}
-                          placeholder="Enter temperature"
-                          type="number"
-                          value={config.data.temperature}
-                          min={0}
-                          max={1}
-                          step={0.1}
-                          onChange={(e) =>
-                            setConfig((s) => ({
-                              ...s,
-                              data: { ...s.data, temperature: (e.target as HTMLInputElement).valueAsNumber },
-                            }))
-                          }
-                        />
-                      )}
-                    </Field>
-                    <Field name="useTopP" label="Use Top P">
-                      {({ fieldProps }) => (
-                        <Toggle
-                          {...fieldProps}
-                          isChecked={config.data.useTopP}
-                          onChange={(e) =>
-                            setConfig((s) => ({
-                              ...s,
-                              data: { ...s.data, useTopP: (e.target as HTMLInputElement).checked },
-                            }))
-                          }
-                        />
-                      )}
-                    </Field>
-                    <Field name="topP" label="Top P">
-                      {({ fieldProps }) => (
-                        <TextField
-                          {...fieldProps}
-                          placeholder="Enter top p"
-                          type="number"
-                          value={config.data.top_p ?? 0}
-                          min={0}
-                          max={1}
-                          step={0.1}
-                          onChange={(e) =>
-                            setConfig((s) => ({
-                              ...s,
-                              data: { ...s.data, topP: (e.target as HTMLInputElement).valueAsNumber },
-                            }))
-                          }
-                        />
-                      )}
-                    </Field>
-                    <Field name="max-tokens" label="Max Tokens">
-                      {({ fieldProps }) => (
-                        <TextField
-                          {...fieldProps}
-                          placeholder="Enter max tokens"
-                          type="number"
-                          min={1}
-                          max={100}
-                          value={config.data.maxTokens}
-                          onChange={(e) =>
-                            setConfig((s) => ({
-                              ...s,
-                              data: { ...s.data, maxTokens: (e.target as HTMLInputElement).valueAsNumber },
-                            }))
-                          }
-                        />
-                      )}
-                    </Field>
-                    <Field name="frequencyPenalty" label="Frequency Penalty">
-                      {({ fieldProps }) => (
-                        <TextField
-                          {...fieldProps}
-                          placeholder="Enter frequency penalty"
-                          type="number"
-                          min={0}
-                          max={100}
-                          value={config.data.frequencyPenalty ?? 0}
-                          onChange={(e) =>
-                            setConfig((s) => ({
-                              ...s,
-                              data: { ...s.data, frequencyPenalty: (e.target as HTMLInputElement).valueAsNumber },
-                            }))
-                          }
-                        />
-                      )}
-                    </Field>
-                    <Field name="presencePenalty" label="Presence Penalty">
-                      {({ fieldProps }) => (
-                        <TextField
-                          {...fieldProps}
-                          placeholder="Enter presence penalty"
-                          type="number"
-                          min={0}
-                          max={100}
-                          value={config.data.presencePenalty ?? 0}
-                          onChange={(e) =>
-                            setConfig((s) => ({
-                              ...s,
-                              data: { ...s.data, presencePenalty: (e.target as HTMLInputElement).valueAsNumber },
-                            }))
-                          }
-                        />
-                      )}
-                    </Field>
-                  </div>
-                  <div className="controls-buttons">
-                    <Button appearance="primary" onClick={syncWrapper(tryRunSingle)}>
-                      Run
-                    </Button>
-                  </div>
-                </div>
-              </div>
+              <PromptDesignerConfigPanel
+                config={config}
+                setConfig={setConfig}
+                onRun={syncWrapper(tryRunSingle)}
+              />
             </TabPanel>
             <TabPanel>
-              <div className="panel">
-                <div className="test-config-area">
-                  <div className="test-config">
-                    <Field name="test-samples" label="Samples">
-                      {({ fieldProps }) => (
-                        <TextField
-                          {...fieldProps}
-                          placeholder="Enter number of samples"
-                          type="number"
-                          min={1}
-                          max={100}
-                          value={promptDesigner.samples}
-                          onChange={(e) =>
-                            setPromptDesigner((s) => ({
-                              ...s,
-                              samples: (e.target as HTMLInputElement).valueAsNumber,
-                            }))
-                          }
-                        />
-                      )}
-                    </Field>
-                  </div>
-                  <div className="test-list">
-                    {testGroups.map((testGroup, index) => (
-                      <PromptDesignerTestGroup
-                        testGroup={testGroup}
-                        key={`test-${index}`}
-                        onChange={(newTestGroup) => testGroupChanged(newTestGroup, index)}
-                        onDelete={() => deleteTestGroup(index)}
-                        onStart={syncWrapper(handleStartTestGroup)}
-                        inProgress={inProgress}
-                        onCancel={handleCancel}
-                      />
-                    ))}
-                    <Button className="add-test" appearance="subtle-link" onClick={addTestGroup}>
-                      Add Test Group
-                    </Button>
-                  </div>
-                </div>
-              </div>
+              <PromptDesignerTestPanel
+                testGroups={testGroups}
+                promptDesigner={promptDesigner}
+                setPromptDesigner={setPromptDesigner}
+                onTestGroupChanged={testGroupChanged}
+                onDeleteTestGroup={deleteTestGroup}
+                onAddTestGroup={addTestGroup}
+                onStartTestGroup={handleStartTestGroup}
+                inProgress={inProgress}
+                onCancel={handleCancel}
+              />
             </TabPanel>
           </Tabs>
         </div>
@@ -751,4 +570,3 @@ export const PromptDesigner: FC<PromptDesignerProps> = ({ onClose }) => {
     </div>
   );
 };
-

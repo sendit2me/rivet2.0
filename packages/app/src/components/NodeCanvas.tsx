@@ -10,9 +10,10 @@ import {
   useState,
   type MouseEvent,
   useEffect,
-  type RefObject,
   type MutableRefObject,
 } from 'react';
+import { useSelectionBox } from '../hooks/useSelectionBox.js';
+import { usePortHoverTooltip } from '../hooks/usePortHoverTooltip.js';
 import { ContextMenu, type ContextMenuContext } from './ContextMenu.js';
 import { CSSTransition } from 'react-transition-group';
 import { WireLayer } from './WireLayer.js';
@@ -20,13 +21,10 @@ import { useContextMenu } from '../hooks/useContextMenu.js';
 import { useDraggingNode } from '../hooks/useDraggingNode.js';
 import { useDraggingWire } from '../hooks/useDraggingWire.js';
 import {
-  type PortId,
   type ChartNode,
   type CommentNode,
   type NodeConnection,
   type NodeId,
-  type NodeInputDefinition,
-  type NodeOutputDefinition,
 } from '@ironclad/rivet-core';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import {
@@ -44,13 +42,13 @@ import {
 import { useCanvasPositioning } from '../hooks/useCanvasPositioning.js';
 import { VisualNode } from './VisualNode.js';
 import { useStableCallback } from '../hooks/useStableCallback.js';
-import { useThrottle, useThrottleFn } from 'ahooks';
+import { useThrottleFn } from 'ahooks';
 import { produce } from 'immer';
 import { graphMetadataState, graphState, nodesState } from '../state/graph.js';
 import { useViewportBounds } from '../hooks/useViewportBounds.js';
 import { useGlobalHotkey } from '../hooks/useGlobalHotkey.js';
 import { useWireDragScrolling } from '../hooks/useWireDragScrolling';
-import { autoUpdate, offset, shift, useFloating, useMergeRefs } from '@floating-ui/react';
+import { useMergeRefs } from '@floating-ui/react';
 import { useNodePortPositions } from '../hooks/useNodePortPositions';
 import { useCopyNodesHotkeys } from '../hooks/useCopyNodesHotkeys';
 import { useCanvasHotkeys } from '../hooks/useCanvasHotkeys';
@@ -193,11 +191,15 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
   const setLastMousePosition = useSetAtom(lastMousePositionState);
   const removeNodes = useDeleteNodesCommand();
 
-  const { refs, floatingStyles } = useFloating({
-    placement: 'bottom-end',
-    whileElementsMounted: autoUpdate,
-    middleware: [offset(5), shift({ crossAxis: true })],
-  });
+  const { selectionBox, startSelectionBox, updateSelectionBox, endSelectionBox } = useSelectionBox();
+  const {
+    hoveringPort,
+    hoveringShowPortInfo,
+    onPortMouseOver,
+    onPortMouseOut,
+    floatingStyles,
+    floatingRefs,
+  } = usePortHoverTooltip();
 
   const lastMouseInfoRef = useRef<{ x: number; y: number; target: EventTarget | undefined }>({
     x: -3000,
@@ -207,9 +209,6 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
 
   const [editingNodeId, setEditingNodeId] = useAtom(editingNodeState);
   const [selectedNodeIds, setSelectedNodeIds] = useAtom(selectedNodesState);
-  const [selectionBox, setSelectionBox] = useState<{ x: number; y: number; width: number; height: number } | null>(
-    null,
-  );
 
   const { draggingNodes, onNodeStartDrag, onNodeDragged } = useDraggingNode(onNodesChanged);
   const { draggingWire, onWireStartDrag, onWireEndDrag } = useDraggingWire(onConnectionsChanged);
@@ -286,7 +285,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
     e.preventDefault();
 
     if (e.shiftKey) {
-      setSelectionBox({ x: e.clientX, y: e.clientY, width: 0, height: 0 });
+      startSelectionBox(e.clientX, e.clientY);
     } else {
       setIsDraggingCanvas(true);
       setDragStart({ x: e.clientX, y: e.clientY, canvasStartX: canvasPosition.x, canvasStartY: canvasPosition.y });
@@ -301,53 +300,9 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
       recalculatePortPositions();
 
       if (selectionBox) {
-        const newBox = {
-          ...selectionBox!,
-          width: e.clientX - selectionBox!.x,
-          height: e.clientY - selectionBox!.y,
-        };
-        setSelectionBox(newBox);
-
-        const topLeft = {
-          x: newBox.width < 0 ? newBox.x + newBox.width : newBox.x,
-          y: newBox.height < 0 ? newBox.y + newBox.height : newBox.y,
-        };
-        const bottomRight = {
-          x: newBox.width < 0 ? newBox.x : newBox.x + newBox.width,
-          y: newBox.height < 0 ? newBox.y : newBox.y + newBox.height,
-        };
-
-        const canvasStartPoint = clientToCanvasPosition(topLeft.x, topLeft.y);
-        const canvasEndPoint = clientToCanvasPosition(bottomRight.x, bottomRight.y);
-
-        const nodesInBox = nodes.filter((node) => {
-          const nodeWidth = node.visualData.width ?? 150;
-          const nodeHeight = 150; // Assuming the height is 150
-
-          const nodeArea = nodeWidth * nodeHeight;
-          const halfNodeArea = nodeArea / 2;
-
-          // Calculate the area of intersection
-          const xOverlap = Math.max(
-            0,
-            Math.min(canvasEndPoint.x, node.visualData.x + nodeWidth) - Math.max(canvasStartPoint.x, node.visualData.x),
-          );
-          const yOverlap = Math.max(
-            0,
-            Math.min(canvasEndPoint.y, node.visualData.y + nodeHeight) -
-              Math.max(canvasStartPoint.y, node.visualData.y),
-          );
-          const overlapArea = xOverlap * yOverlap;
-
-          // Check if at least 50% of the node is in the selection box
-          return overlapArea > 0 && overlapArea >= halfNodeArea;
-        });
-
-        const isSameSetOfNodes =
-          selectedNodeIds.length === nodesInBox.length &&
-          selectedNodeIds.every((node) => nodesInBox.some((n) => n.id === node));
-        if (!isSameSetOfNodes) {
-          setSelectedNodeIds(nodesInBox.map((node) => node.id));
+        const newSelectedNodeIds = updateSelectionBox(e.clientX, e.clientY, nodes, clientToCanvasPosition, selectedNodeIds);
+        if (newSelectedNodeIds) {
+          setSelectedNodeIds(newSelectedNodeIds);
         }
       } else if (isDraggingCanvas) {
         const dx = (e.clientX - dragStart.x) * (1 / canvasPosition.zoom);
@@ -431,7 +386,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
 
   const canvasMouseUp = (e: React.MouseEvent) => {
     if (selectionBox) {
-      setSelectionBox(null);
+      endSelectionBox();
     } else if (!isDraggingCanvas) {
       return;
     }
@@ -467,70 +422,11 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
   });
 
   const [hoveringNode, setHoveringNode] = useAtom(hoveringNodeState);
-  const [hoveringPort, setHoveringPort] = useState<
-    | {
-        nodeId: NodeId;
-        isInput: boolean;
-        portId: PortId;
-        definition: NodeInputDefinition | NodeOutputDefinition;
-      }
-    | undefined
-  >();
-  const hoveringPortTimeout = useRef<number | undefined>();
-  const [hoveringShowPortInfo, setHoveringPortShowInfo] = useState(false);
 
   const closestPort = useAtomValue(draggingWireClosestPortState);
 
-  const { setReference } = refs;
-
-  useEffect(() => {
-    if (closestPort?.portId) {
-      setHoveringPort({
-        portId: closestPort.portId,
-        nodeId: closestPort.nodeId,
-        isInput: true,
-        definition: closestPort.definition,
-      });
-      setReference(closestPort.element);
-
-      hoveringPortTimeout.current = window.setTimeout(() => {
-        setHoveringPortShowInfo(true);
-      }, 400);
-    } else {
-      setHoveringPort(undefined);
-      setHoveringPortShowInfo(false);
-      if (hoveringPortTimeout.current) {
-        window.clearTimeout(hoveringPortTimeout.current);
-      }
-    }
-  }, [closestPort?.portId, closestPort?.nodeId, closestPort?.definition, closestPort?.element, setReference]);
-
   const onNodeMouseOver = useStableCallback((_e: MouseEvent<HTMLElement>, nodeId: NodeId) => {
     setHoveringNode(nodeId);
-  });
-
-  const onPortMouseOver = useStableCallback(
-    (
-      e: MouseEvent<HTMLElement>,
-      nodeId: NodeId,
-      isInput: boolean,
-      portId: PortId,
-      definition: NodeInputDefinition | NodeOutputDefinition,
-    ) => {
-      setHoveringPort({ nodeId, isInput, portId, definition });
-      refs.setReference((e.target as HTMLElement).closest('.port'));
-      hoveringPortTimeout.current = window.setTimeout(() => {
-        setHoveringPortShowInfo(true);
-      }, 700);
-    },
-  );
-
-  const onPortMouseOut = useStableCallback(() => {
-    setHoveringPort(undefined);
-    setHoveringPortShowInfo(false);
-    if (hoveringPortTimeout.current) {
-      window.clearTimeout(hoveringPortTimeout.current);
-    }
   });
 
   const onNodeMouseOut = useStableCallback(() => {
@@ -814,7 +710,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
           />
         )}
         {hoveringPort && hoveringShowPortInfo && (
-          <PortInfo floatingStyles={floatingStyles} ref={refs.setFloating} port={hoveringPort} />
+          <PortInfo floatingStyles={floatingStyles} ref={floatingRefs.setFloating} port={hoveringPort} />
         )}
       </div>
     </DndContext>

@@ -1,55 +1,18 @@
-import {
-  DndContext,
-  type DragEndEvent,
-  type DragOverEvent,
-  type DragStartEvent,
-  useDraggable,
-  useDroppable,
-} from '@dnd-kit/core';
+import { DndContext, useDroppable } from '@dnd-kit/core';
 import { css } from '@emotion/react';
-import {
-  type CSSProperties,
-  type FC,
-  useState,
-  useMemo,
-  type FocusEvent,
-  type MouseEvent,
-  type KeyboardEvent,
-  memo,
-} from 'react';
-import { produce } from 'immer';
-import { useAtom, useAtomValue, useSetAtom } from 'jotai';
-import { graphState } from '../state/graph.js';
-import { projectMetadataState, savedGraphsState } from '../state/savedGraphs.js';
-import { orderBy, range } from 'lodash-es';
+import { type FC, type MouseEvent, type KeyboardEvent, memo } from 'react';
+import { useAtomValue } from 'jotai';
 import { DropdownItem } from '@atlaskit/dropdown-menu';
-import { useDeleteGraph } from '../hooks/useDeleteGraph.js';
-import { useLoadGraph } from '../hooks/useLoadGraph.js';
-import { type GraphId, emptyNodeGraph, type NodeGraph } from '@ironclad/rivet-core';
+import { type GraphId } from '@ironclad/rivet-core';
 import clsx from 'clsx';
-import { LoadingSpinner } from './LoadingSpinner.js';
 import { runningGraphsState } from '../state/dataFlow.js';
-import { useDuplicateGraph } from '../hooks/useDuplicateGraph.js';
 import { useContextMenu } from '../hooks/useContextMenu.js';
 import Portal from '@atlaskit/portal';
-import ArrowRightIcon from 'majesticons/line/arrow-right-line.svg?react';
-import ArrowDownIcon from 'majesticons/line/arrow-down-line.svg?react';
-import MenuLineIcon from 'majesticons/line/menu-line.svg?react';
 import CrossIcon from 'majesticons/line/multiply-line.svg?react';
-import { toast } from 'react-toastify';
 import { useStableCallback } from '../hooks/useStableCallback.js';
-import TextField from '@atlaskit/textfield';
-import { useFuseSearch } from '../hooks/useFuseSearch';
-import { useImportGraph } from '../hooks/useImportGraph';
-import { expandedFoldersState } from '../state/ui';
-import {
-  createFoldersFromGraphs,
-  getFolderNames,
-  isInFolder,
-  type NodeGraphFolder,
-  type NodeGraphFolderGraph,
-  type NodeGraphFolderItem,
-} from './graphList/graphFolders';
+import { useGraphOperations } from '../hooks/useGraphOperations';
+import { useGraphListDragDrop } from '../hooks/useGraphListDragDrop';
+import { FolderItem } from './graphList/FolderItem';
 
 const styles = css`
   display: flex;
@@ -204,192 +167,29 @@ const contextMenuStyles = css`
 `;
 
 export const GraphList: FC<{ onRunGraph?: (graphId: GraphId) => void }> = memo(({ onRunGraph }) => {
-  const projectMetadata = useAtomValue(projectMetadataState);
-  const [savedGraphs, setSavedGraphs] = useAtom(savedGraphsState);
-  const [graph, setGraph] = useAtom(graphState);
-  const [searchText, setSearchText] = useState('');
-
-  const searchedGraphs = useFuseSearch(
+  const {
+    graph,
     savedGraphs,
     searchText,
-    ['metadata.name' as keyof NodeGraph, 'metadata.description' as keyof NodeGraph],
-    {},
-  );
-  const filteredGraphs = useMemo(() => searchedGraphs.map((g) => g.item), [searchedGraphs]);
+    setSearchText,
+    renamingItemFullPath,
+    folderedGraphs,
+    loadGraph,
+    duplicateGraph,
+    importGraph,
+    handleNew,
+    handleNewFolder,
+    handleDelete,
+    handleDeleteFolder,
+    runGraph,
+    startRename,
+    renameFolderItem,
+  } = useGraphOperations(onRunGraph);
 
-  // Track the graph that is being renamed, so that we can update the name when the user is done.
-  const [renamingItemFullPath, setRenamingItemFullPath] = useState<string | undefined>();
-
-  const [draggingItemFullPath, setDraggingItemFullPath] = useState<string | undefined>();
-  const draggingItemFolder = draggingItemFullPath?.split('/').slice(0, -1).join('/');
-
-  // Track folders on deletion or creation, so that empty folders aren't automatically deleted.
-  const [folderNames, setFolderNames] = useState<string[]>([]);
-
-  const folderedGraphs = useMemo(
-    () => createFoldersFromGraphs(filteredGraphs, folderNames),
-    [filteredGraphs, folderNames],
-  );
+  const { draggingItemFolder, dragOverFolderName, handleDragStart, handleDragEnd, handleDragOver } =
+    useGraphListDragDrop(renameFolderItem);
 
   const runningGraphs = useAtomValue(runningGraphsState);
-
-  const deleteGraph = useDeleteGraph();
-  const loadGraph = useLoadGraph();
-
-  const duplicateGraph = useDuplicateGraph();
-  const importGraph = useImportGraph();
-
-  const handleNew = useStableCallback((folderPath?: string) => {
-    const graph = emptyNodeGraph();
-    let i = 1;
-    if (folderPath) {
-      if (savedGraphs.some((g) => g.metadata?.name === `${folderPath}/Untitled Graph`)) {
-        i++;
-      }
-
-      while (savedGraphs.some((g) => g.metadata?.name === `${folderPath}/Untitled Graph ${i}`)) {
-        i++;
-      }
-
-      graph.metadata!.name = i === 1 ? `${folderPath}/Untitled Graph` : `${folderPath}/Untitled Graph ${i}`;
-    } else {
-      if (savedGraphs.some((g) => g.metadata?.name === 'Untitled Graph')) {
-        i++;
-      }
-
-      while (savedGraphs.some((g) => g.metadata?.name === `Untitled Graph ${i}`)) {
-        i++;
-      }
-
-      graph.metadata!.name = i === 1 ? `Untitled Graph` : `Untitled Graph ${i}`;
-    }
-    loadGraph(graph);
-    setSavedGraphs((prev) => [...prev, graph]);
-    startRename(graph.metadata!.name!);
-  });
-
-  const setExpandedFolders = useSetAtom(expandedFoldersState);
-
-  const handleNewFolder = useStableCallback((parentPath?: string) => {
-    const newFolderPath = parentPath ? `${parentPath}/New Folder` : 'New Folder';
-    setFolderNames((prev) => [...prev, newFolderPath]);
-    startRename(newFolderPath);
-    setExpandedFolders((prev) => ({
-      ...prev,
-      [`${projectMetadata.id}/${newFolderPath}`]: true,
-    }));
-  });
-
-  const handleDelete = useStableCallback((graph: NodeGraph) => {
-    setFolderNames(getFolderNames(folderedGraphs));
-    deleteGraph(graph);
-  });
-
-  const handleDeleteFolder = useStableCallback((folderName: string) => {
-    const graphsToDelete = savedGraphs.filter(
-      (graph) => graph.metadata?.name && isInFolder(folderName, graph.metadata?.name),
-    );
-    graphsToDelete.forEach((graph) => deleteGraph(graph));
-    const newFolderNames = folderNames.filter((name) => folderName !== name && !isInFolder(folderName, name));
-    setFolderNames(newFolderNames);
-  });
-
-  const runGraph = useStableCallback((folderName: string) => {
-    const graph = savedGraphs.find((graph) => graph.metadata?.name === folderName);
-    if (graph) {
-      onRunGraph?.(graph.metadata!.id!);
-    }
-  });
-
-  const startRename = useStableCallback((folderItemName: string) => {
-    setRenamingItemFullPath(folderItemName);
-  });
-
-  const renameFolderItem = useStableCallback((fullPath: string, newFullPath: string, itemId?: string) => {
-    if (fullPath === newFullPath || !newFullPath || /\/$/.test(newFullPath)) {
-      setRenamingItemFullPath(undefined);
-      return;
-    }
-
-    if (newFullPath.split('/').some((part) => part === '')) {
-      toast.error('Names contains invalid segments');
-      return;
-    }
-
-    if (savedGraphs.some((g) => g.metadata?.name === newFullPath) || folderNames.includes(newFullPath)) {
-      toast.error('A graph or folder with that name already exists.');
-      return;
-    }
-
-    setSavedGraphs((prev) => {
-      return prev.map((g) => {
-        if (g.metadata?.name && (fullPath === g.metadata.name || isInFolder(fullPath, g.metadata.name))) {
-          return {
-            ...g,
-            metadata: {
-              ...g.metadata,
-              name: g.metadata.name.replace(fullPath, newFullPath),
-            },
-          };
-        }
-        return g;
-      });
-    });
-
-    setGraph((prev) =>
-      produce(prev, (draft) => {
-        const metadata = draft.metadata ?? { name: '' };
-        metadata.name = metadata.name!.replace(fullPath, newFullPath);
-        draft.metadata = metadata;
-      }),
-    );
-
-    const newFolderNames = folderNames.map((name) =>
-      name === fullPath || isInFolder(fullPath, name) ? name.replace(fullPath, newFullPath) : name,
-    );
-    setFolderNames(newFolderNames);
-
-    setRenamingItemFullPath(undefined);
-    setExpandedFolders((prev) => ({
-      ...prev,
-      [`${projectMetadata.id}/${newFullPath}`]: prev[`${projectMetadata.id}/${fullPath}`] ?? false,
-    }));
-  });
-
-  const handleDragStart = useStableCallback((drag: DragStartEvent) => {
-    const activeFullPath = drag.active?.id as string;
-    setDraggingItemFullPath(activeFullPath);
-  });
-
-  const handleDragEnd = useStableCallback((dragResult: DragEndEvent) => {
-    setDragOverFolderName(undefined);
-    const activeFullPath = dragResult.active?.id as string;
-    const overFullPath = dragResult.over?.id as string;
-    if (overFullPath && activeFullPath) {
-      if (isInFolder(activeFullPath, overFullPath)) {
-        // Don't allow dragging into a folder that is a child of the active item
-        return;
-      }
-      const overFolderName = overFullPath.indexOf('/') > 0 ? overFullPath.replace(/\/[^/]*$/, '') : '';
-      // Get the last part of the active id's name
-      const itemName = activeFullPath.split('/').pop()!;
-      const newItemFullPath = overFolderName === '' ? itemName : `${overFolderName}/${itemName}`;
-      if (activeFullPath !== newItemFullPath) {
-        renameFolderItem(activeFullPath, newItemFullPath);
-      }
-    }
-  });
-
-  const [dragOverFolderName, setDragOverFolderName] = useState<string | undefined>();
-
-  const handleDragOver = useStableCallback((dragOver: DragOverEvent) => {
-    const overFullPath = dragOver.over?.id as string;
-    if (overFullPath == null) {
-      setDragOverFolderName(undefined);
-    } else {
-      setDragOverFolderName(overFullPath.indexOf('/') > 0 ? overFullPath.replace(/\/[^/]*$/, '') : '');
-    }
-  });
 
   const { setShowContextMenu, showContextMenu, contextMenuData, handleContextMenu, floatingStyles, refs } =
     useContextMenu();
@@ -619,174 +419,3 @@ export const GraphListSpacer: FC = memo(() => {
 });
 
 GraphListSpacer.displayName = 'GraphListSpacer';
-
-export const FolderItem: FC<{
-  item: NodeGraphFolderItem;
-  runningGraphs: GraphId[];
-  renamingItemFullPath: string | undefined;
-  graph: NodeGraph;
-  depth: number;
-  dragOverFolderName: string | undefined;
-  draggingItemFolder: string | undefined;
-  onGraphSelected?: (savedGraph: NodeGraph) => void;
-  onRenameItem: (fullPath: string, newFullPath: string) => void;
-}> = memo(
-  ({
-    item,
-    runningGraphs,
-    renamingItemFullPath,
-    graph,
-    draggingItemFolder,
-    onGraphSelected,
-    onRenameItem,
-    depth,
-    dragOverFolderName,
-  }) => {
-    const projectMetadata = useAtomValue(projectMetadataState);
-    const [expandedFolders, setExpandedFolders] = useAtom(expandedFoldersState);
-
-    const savedGraph = item.type === 'graph' ? item.graph : undefined;
-    const graphIsRunning = savedGraph && runningGraphs.includes(savedGraph.metadata?.id ?? ('' as GraphId));
-    const fullPath = item.type === 'folder' ? item.fullPath : item.graph.metadata?.name ?? 'Untitled Graph';
-    const isExpanded = expandedFolders[`${projectMetadata.id}/${fullPath}`] ?? true; // Default open
-
-    const isRenaming = renamingItemFullPath === fullPath;
-    const isSelected = graph.metadata?.id === savedGraph?.metadata?.id;
-    const isDraggingOver =
-      item.type === 'folder' && dragOverFolderName === fullPath && draggingItemFolder !== dragOverFolderName;
-
-    const handleRenameSaved = useStableCallback((newName: string) => {
-      onRenameItem(fullPath, fullPath.replace(/[^/]+$/, newName));
-    });
-
-    const {
-      attributes,
-      listeners,
-      setNodeRef: setDraggableNodeRef,
-      transform,
-      isDragging,
-    } = useDraggable({ id: fullPath });
-    const style: CSSProperties = transform ? { transform: `translate3d(0, ${transform.y}px, 0)`, zIndex: 100 } : {};
-    const { setNodeRef: setDroppableNodeRef } = useDroppable({
-      id: item.type === 'folder' ? fullPath + '/' : fullPath,
-    });
-
-    const virtualDepth = useMemo(
-      () =>
-        isDragging && item.type === 'folder' && item.fullPath !== dragOverFolderName
-          ? dragOverFolderName?.split('/').length ?? 0
-          : depth,
-      [isDragging, dragOverFolderName, depth, item],
-    );
-
-    const setExpanded = useStableCallback((expanded: boolean) => {
-      setExpandedFolders((prev) => ({
-        ...prev,
-        [`${projectMetadata.id}/${fullPath}`]: expanded,
-      }));
-    });
-
-    return (
-      <div ref={setDroppableNodeRef}>
-        <div
-          className={clsx('folder-item', { 'dragging-over': isDraggingOver, dragging: isDragging })}
-          ref={setDraggableNodeRef}
-          style={style}
-        >
-          <div
-            className={clsx('graph-item', { selected: isSelected })}
-            data-contextmenutype={item.type === 'folder' ? 'graph-folder' : 'graph-item'}
-            data-graphid={savedGraph?.metadata?.id}
-            data-folderpath={item.type === 'folder' ? item.fullPath : item.graph.metadata?.name}
-            title={fullPath}
-          >
-            {range(virtualDepth + 1).map((idx) => {
-              const isSpinner = idx === 0 && graphIsRunning;
-              const isExpander = idx === virtualDepth && item.type === 'folder' && !isSpinner;
-              return (
-                <div className="depthSpacer" key={idx}>
-                  {isSpinner && (
-                    <div className="spinner">
-                      <LoadingSpinner />
-                    </div>
-                  )}
-                  {isExpander && (
-                    <div className="expander" onClick={() => setExpanded(!isExpanded)}>
-                      {isExpanded ? <ArrowDownIcon /> : <ArrowRightIcon />}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-            <div
-              className="graph-item-select"
-              onClick={() => (item.type === 'graph' ? onGraphSelected?.(item.graph) : setExpanded(!isExpanded))}
-            >
-              {isRenaming ? (
-                <FolderItemRename value={fullPath.replace(/.*\//, '')} onSaved={handleRenameSaved} />
-              ) : (
-                <span>{item.name}</span>
-              )}
-            </div>
-            <div className="dragger" {...listeners} {...attributes}>
-              <MenuLineIcon />
-            </div>
-          </div>
-          {item.type === 'folder' && (
-            <div className={clsx('folder-children', { expanded: isExpanded })}>
-              {item.children.map((child) => (
-                <FolderItem
-                  key={child.type === 'graph' ? child.graph.metadata?.id : child.fullPath}
-                  item={child}
-                  runningGraphs={runningGraphs}
-                  renamingItemFullPath={renamingItemFullPath}
-                  graph={graph}
-                  onGraphSelected={onGraphSelected}
-                  onRenameItem={onRenameItem}
-                  dragOverFolderName={dragOverFolderName}
-                  depth={virtualDepth + 1}
-                  draggingItemFolder={draggingItemFolder}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  },
-);
-
-FolderItem.displayName = 'FolderItem';
-
-const FolderItemRename: FC<{
-  value: string;
-  onSaved?: (newName: string) => void;
-}> = ({ value, onSaved }) => {
-  const [renameValue, setRenameValue] = useState(value);
-
-  const handleRenameFocus = useStableCallback((e: FocusEvent<HTMLInputElement>) => {
-    e.target.select();
-    e.preventDefault();
-  });
-
-  const handleRenameBlur = useStableCallback((e: FocusEvent<HTMLInputElement>) => {
-    onSaved?.(renameValue);
-  });
-
-  const handleRenameKeyDown = useStableCallback((e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      onSaved?.(renameValue);
-    }
-  });
-
-  return (
-    <TextField
-      autoFocus
-      onFocus={handleRenameFocus}
-      onBlur={handleRenameBlur}
-      onKeyDown={handleRenameKeyDown}
-      value={renameValue}
-      onChange={(e) => setRenameValue((e.target as HTMLInputElement).value)}
-    />
-  );
-};

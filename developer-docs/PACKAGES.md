@@ -1,291 +1,292 @@
-# Packages Reference
+# Package Reference
 
-> Detailed reference for each package in the Rivet monorepo.
+> Detailed package-by-package reference for the current monorepo.
+
+## Build Order
+
+The root `yarn build` script currently builds packages in this order:
+
+1. `@ironclad/rivet-core`
+2. `@ironclad/rivet-node`
+3. `@ironclad/rivet-app-executor`
+4. `@ironclad/trivet`
+5. `@ironclad/rivet-app`
+6. `@ironclad/rivet-cli`
+
+That order is encoded directly in the root `package.json` and reflects actual runtime dependencies.
 
 ## `@ironclad/rivet-core` (`packages/core/`)
 
-**The foundation.** Zero workspace dependencies. Runs in both browser and Node.js.
+### Role
 
-| Aspect | Details |
-|--------|---------|
-| **Version** | 1.26.0 (npm), package.json matches |
-| **Entry (ESM)** | `dist/esm/index.js` |
-| **Entry (CJS)** | `dist/cjs/bundle.cjs` |
-| **Types** | `dist/esm/index.d.ts` |
-| **Build** | Rollup (ESM) + esbuild (CJS) |
-| **Test** | `node:test` via tsx |
-| **Size** | Largest package (84 node implementations) |
+Shared runtime foundation for the entire repo.
 
-**Contains:**
-- Type system (`DataValue`, `DataType`)
-- Graph model (`Project`, `NodeGraph`, `ChartNode`, `NodeConnection`)
-- Execution engine (`GraphProcessor`)
-- All 84 built-in node types
-- Plugin interface (`RivetPlugin`, `PluginNodeDefinition`)
-- Node registration system (`NodeRegistration`, `globalRivetNodeRegistry`)
-- Serialization (v1-v4)
-- Integration interfaces (`LLMProvider`, `EmbeddingGenerator`, `VectorDatabase`, etc.)
-- MCP (Model Context Protocol) support
-- Streaming API (`getProcessorEvents`, `getProcessorSSEStream`)
+### Package metadata
 
-**Key exports:**
-```typescript
-// Running graphs
-export { coreCreateProcessor, coreRunGraph } from './api/createProcessor'
-export { GraphProcessor } from './model/GraphProcessor'
+- Version: `1.26.0`
+- Main: `dist/cjs/bundle.cjs`
+- Module: `dist/esm/index.js`
+- Types: `dist/types/index.d.ts`
 
-// Types
-export type { Project, NodeGraph, ChartNode, NodeConnection, DataValue, DataType }
-export type { ProcessContext, InternalProcessContext, ProcessEvents }
-export type { RivetPlugin, PluginNodeDefinition, PluginNodeImpl }
-export type { RunGraphOptions, NodeRegistration }
-```
+### What it contains
 
-**Dependencies (notable):**
-- `openai` - OpenAI SDK for Chat nodes
-- `@anthropic-ai/sdk` - Anthropic Claude
-- `@assemblyai/lemur` - AssemblyAI
-- `tiktoken` / `js-tiktoken` - Token counting
-- `emittery` - Async event emitter
-- `p-queue` - Promise queue for execution concurrency
-- `nanoid` - ID generation
-- `yaml` - YAML parsing
-- `lodash-es` - Utility functions
+- graph/project/node/data types
+- `GraphProcessor`
+- built-in nodes
+- built-in plugins
+- serialization
+- recording/playback support
+- runtime integration contracts
+- public execution helpers and streaming APIs
 
----
+### Important downstream consumers
+
+- app
+- node
+- app-executor
+- trivet
 
 ## `@ironclad/rivet-node` (`packages/node/`)
 
-**Node.js integration library.** Wraps `rivet-core` with Node.js-specific APIs.
+### Role
 
-| Aspect | Details |
-|--------|---------|
-| **Version** | 1.26.0 |
-| **Entry** | `dist/index.js` (ESM) |
-| **Build** | Rollup |
-| **Dependencies** | `rivet-core` (workspace), `ws`, `emittery`, `@modelcontextprotocol/sdk`, `lodash-es`, `minimatch`, `nanoid`, `ts-pattern`, `type-fest` |
+Node-native runtime wrapper around core.
 
-**Provides:**
-```typescript
-// High-level API
-export function loadProjectFromFile(path: string): Promise<Project>
-export function loadProjectFromString(content: string): Project
-export function runGraphInFile(
-  path: string,
-  options: RunGraphOptions
-): Promise<Record<string, DataValue>>
-export function runGraph(
-  project: Project,
-  options: RunGraphOptions
-): Promise<Record<string, DataValue>>
-export function createProcessor(
-  project: Project,
-  options: RunGraphOptions
-): { processor, run(), getEvents(), ... }
+### Package metadata
 
-// Debugging
-export class RivetDebuggerServer {
-  constructor(options: { port?: number, ... })
-  // WebSocket server for remote debugging from Rivet app
-}
+- Version: `1.26.0`
+- Main: `dist/cjs/bundle.cjs`
+- Module: `dist/esm/index.js`
+- Types: `dist/types/index.d.ts`
 
-// MCP
-export class NodeMCPProvider { ... }
-// Model Context Protocol integration using @modelcontextprotocol/sdk
+### Main exports
 
-// Re-exports everything from rivet-core
-export * from '@ironclad/rivet-core'
-```
+From `src/index.ts` and related files:
 
-**Usage example:**
-```typescript
-import { runGraphInFile } from '@ironclad/rivet-node';
+- re-exports of all core exports
+- Node native API types and helpers
+- `loadProjectFromFile(...)`
+- `loadProjectAndAttachedDataFromFile(...)`
+- `runGraphInFile(...)`
+- `runGraph(...)`
+- `createProcessor(...)`
+- debugger server APIs
+- dataset/debugger/project-reference helpers
 
-const result = await runGraphInFile('my-project.rivet-project', {
-  graph: 'Main',
-  inputs: { query: 'Hello, world!' },
-  openAiKey: process.env.OPENAI_API_KEY,
-});
-```
+### Architectural role
 
----
+This package is the shared Node runtime used by:
+
+- external consumers
+- the CLI
+- parts of the app-executor stack
+
+It is not just a convenience wrapper. It sets Node-default providers, debugger integration, env-based plugin config fallback, and Node-specific reference loading.
 
 ## `@ironclad/rivet-app` (`packages/app/`)
 
-**The desktop application.** See [APP-ARCHITECTURE.md](./APP-ARCHITECTURE.md) for details.
+### Role
 
-| Aspect | Details |
-|--------|---------|
-| **Version** | 1.1.0 (package.json) / 1.11.3 (Tauri productVersion) |
-| **Framework** | React 18 + Vite 6 + Tauri 1.8 |
-| **State** | Jotai 2 |
-| **Styling** | Emotion CSS-in-JS |
-| **UI Kit** | Atlaskit |
+Desktop IDE frontend plus Tauri app packaging layer.
 
-**Key scripts:**
-```bash
-yarn dev          # Start Vite dev server + Tauri
-yarn build        # Production build
-yarn start        # Vite dev server only (for dev without Tauri)
-```
+### Package metadata
 
----
+- Version: `1.1.0`
+- Private: yes
+
+### Runtime shape
+
+- React/Vite frontend under `src/`
+- Tauri/Rust backend under `src-tauri/`
+
+### Important responsibilities
+
+- graph editor
+- project workspace UX
+- local and sidecar execution
+- plugin loading/install UI
+- prompt designer
+- Trivet UI
+- debugger/community/data/update overlays
+
+### Version caveat
+
+The desktop product version is also tracked in `packages/app/src-tauri/tauri.conf.json`, which currently reports `1.11.3`.
 
 ## `@ironclad/rivet-app-executor` (`packages/app-executor/`)
 
-**Node.js sidecar process.** Spawned by the desktop app for Node.js-based execution.
+### Role
 
-| Aspect | Details |
-|--------|---------|
-| **Entry** | `bin/executor.mts` |
-| **Build** | esbuild (single bundle) |
-| **Dependencies** | `rivet-core` (workspace) |
+Node sidecar process used by the desktop app for Node-capable execution.
 
-**How it works:**
-1. The Tauri app spawns this as a sidecar process
-2. It starts a WebSocket server on port 21889
-3. The app frontend connects and sends graph execution requests
-4. The executor runs `GraphProcessor` with full Node.js capabilities
-5. Execution events are streamed back to the app via WebSocket
-6. Also acts as a `RivetDebuggerServer` for remote debugging
+### Package metadata
 
-**Includes:** `tiktoken_bg.wasm` for token counting (bundled).
+- Version: `1.0.1`
+- Bin: `./bin/executor-bundle.cjs`
 
----
+### Main behavior
+
+The sidecar:
+
+- starts a debugger/WebSocket server
+- accepts uploaded project/settings/static-data state
+- rebuilds a registry for the current project's plugins
+- runs graphs dynamically using `rivet-node` APIs
+- supports preload, pause, resume, abort, and user-input messages
+
+### Architectural significance
+
+This package is effectively the app's Node execution backend and mirrors part of the plugin/runtime assembly work that also exists in the app.
 
 ## `@ironclad/rivet-cli` (`packages/cli/`)
 
-**Command-line interface.** Run and serve Rivet graphs from the terminal.
+### Role
 
-| Aspect | Details |
-|--------|---------|
-| **Version** | 1.26.0 |
-| **Entry** | `dist/index.js` |
-| **Binary** | `rivet` |
-| **Dependencies** | `rivet-node` (workspace), `hono`, `@hono/node-server`, `yargs`, `chalk`, `dotenv`, `didyoumean2` |
+Operational CLI for running or serving Rivet graphs.
 
-**Commands:**
-```bash
-rivet run <project-file> [options]    # Execute a graph
-  --graph <name>                      # Graph to run (default: main)
-  --inputs <json>                     # Input values
-  --input.<name> <value>              # Individual input
+### Package metadata
 
-rivet serve <project-file> [options]  # Start HTTP server
-  --port <port>                       # Listen port (default: 3000)
-  --graph <name>                      # Default graph
-```
+- Version: `1.26.0`
+- Source entry: `src/cli.ts`
+- Published bin mapping: `rivet -> bin/cli.js`
+- Types: `dist/types/cli.d.ts`
 
-**Server implementation:** Uses Hono (lightweight web framework) to expose graph
-execution via HTTP endpoints. Supports SSE streaming for real-time execution events.
+### Commands
 
-**Docker support:** Can be containerized for production deployment.
-See `packages/docs/docs/cli/docker.md` for Dockerfile examples.
+Current command families:
 
----
+- `run <projectFile> [graphName]`
+- `serve [projectFile]`
+
+### `run` command behavior
+
+Implemented in `src/commands/run.ts`.
+
+Supports:
+
+- graph selection by name/ID
+- stdin JSON inputs
+- repeated `--input key=value`
+- repeated `--context key=value`
+- optional cost suppression
+
+Internally:
+
+- resolves the project file
+- loads the project through `rivet-node`
+- builds a processor
+- runs it
+- prints JSON outputs
+
+### `serve` command behavior
+
+Implemented in `src/commands/serve.ts`.
+
+Supports:
+
+- Hono-based HTTP serving
+- optional dev reload mode
+- optional graph selection
+- optional graph-by-path routing
+- optional SSE streaming
+- optional single-node streaming
+- OpenAI-related option overrides
+
+Architecturally, it is a thin HTTP wrapper around `rivet-node` processor creation and streaming helpers.
 
 ## `@ironclad/trivet` (`packages/trivet/`)
 
-**Testing framework for Rivet graphs.** Validates that AI agents produce expected outputs.
+### Role
 
-| Aspect | Details |
-|--------|---------|
-| **Version** | 1.26.0 |
-| **Build** | Rollup |
-| **Dependencies** | `rivet-core` (workspace) |
+Graph-oriented testing package.
 
-**Concept:**
-- **Test Suite**: A collection of test cases for a graph
-- **Test Case**: Input values + expected output assertions
-- **Validation Graph**: A separate Rivet graph that validates outputs
-  (e.g., "does the output contain X?" or "is the output valid JSON?")
+### Package metadata
 
-**API:**
-```typescript
-import { runTrivet } from '@ironclad/trivet';
+- Version: `1.26.0`
+- Main: `dist/cjs/bundle.cjs`
+- Module: `dist/esm/index.js`
+- Types: `dist/types/index.d.ts`
 
-const results = await runTrivet({
-  project: loadedProject,
-  testSuites: [...],
-  onUpdate: (progress) => console.log(progress),
-});
-// Returns pass/fail status for each test case
-```
+### What it contains
 
-**Integration:** The desktop app includes a Trivet overlay tab for running
-tests visually with progress tracking.
+- test-suite/test-case/result types
+- Trivet serialization
+- `runTrivet(...)`
+- `createTestGraphRunner(...)`
+- validation helpers
 
----
+### Runtime model
+
+Trivet runs:
+
+1. a test graph with case inputs
+2. a validation graph against input/expected/output objects
+3. boolean/truthy validation outputs to determine pass/fail
+
+The app integrates this package directly for test UI and persistence.
 
 ## `packages/community/`
 
-**Community template sharing.** Contains the API client and types for the Rivet
-community template service (browsing, uploading, versioning templates).
+Internal package used by the app for community/template features.
 
-Not published to npm. Used internally by the app.
-
----
+Not published as a public npm package from this repo.
 
 ## `packages/docs/`
 
-**Documentation website.** Built with Docusaurus 2.
+### Role
 
-| Aspect | Details |
-|--------|---------|
-| **Framework** | Docusaurus 2 |
-| **Deploy** | GitHub Pages (`docs` branch) |
-| **URL** | https://rivet.ironcladapp.com/docs |
+Docusaurus documentation site package.
 
-**Content structure:**
-```
-docs/
-├── introduction.md          # Overview
-├── getting-started/          # Installation, setup, first agent
-├── user-guide/               # Interface, nodes, remote debugging
-├── node-reference/           # Documentation for each node type
-├── api-reference/
-│   ├── core/                 # rivet-core API docs
-│   └── node/                 # rivet-node API docs
-├── cli/                      # CLI usage, serving, Docker
-└── tutorial/                 # Step-by-step guides
-```
+### Package metadata
 
-**Build & publish:**
-```bash
-cd packages/docs
-yarn build                    # Build static site
-# Then: tsx publish-docs.mts  # Deploys to docs branch
-```
+- Version: `1.0.0`
+- Private: yes
 
-## Package Build Order
+### Script surface
 
-The root `yarn build` script enforces this order:
+- `yarn start`
+- `yarn build`
+- `yarn serve`
+- `yarn typecheck`
+- standard Docusaurus maintenance commands
 
-```
-1. rivet-core        # Foundation, no deps
-2. rivet-node        # Depends on core
-3. rivet-app-executor # Depends on core
-4. trivet            # Depends on core
-5. rivet-app         # Depends on core (+ spawns app-executor)
-6. rivet-cli         # Depends on node
-```
+### Publish model
 
-## Package Publishing
+Docs publishing is handled from the repo root by `publish-docs.mts`, not by package-local deploy automation.
 
-Published to npm via `tsx publish-packages.mts`:
+## `publish-packages.mts`
 
-```bash
-tsx publish-packages.mts
-# Publishes:
-#   @ironclad/rivet-core
-#   @ironclad/rivet-node
-#   @ironclad/rivet-cli
-#   @ironclad/trivet
-# Requires npm OTP for security
-# Also builds Docker image for CLI
-```
+Although not itself a package, this root script is part of the operational package story.
 
-Requirements:
-- Clean git working tree
-- Valid npm credentials
-- OTP code for publish verification
+Current behavior:
+
+- requires an OTP argument
+- refuses to run on a dirty git tree
+- verifies expected workspaces exist
+- publishes `rivet-core`, `rivet-node`, `rivet-cli`, and `trivet`
+- then runs Docker publishing for the CLI
+
+## `publish-docs.mts`
+
+Also operationally important.
+
+Current behavior:
+
+- requires a clean git tree
+- builds docs
+- copies the built site to a temp dir
+- checks out the `docs` branch
+- deletes tracked files except a small ignore list
+- copies the built site into the branch
+- commits `"Docs publish"`
+- then force-checks out the previous branch and resets hard to `HEAD`
+
+That script is functionally important but operationally risky. It assumes a clean tree and uses destructive git cleanup on exit.
+
+## Package-Level Refactor Guidance
+
+- Treat `core` as the compatibility center of gravity.
+- Treat `node` as the Node-default runtime adapter, not just a re-export package.
+- Treat `app-executor` as a runtime package, not a build artifact.
+- Treat `cli` as an operational wrapper around `rivet-node` rather than an independent execution engine.
+- Treat `trivet` as both a test runner and a persistence format owner for test data.

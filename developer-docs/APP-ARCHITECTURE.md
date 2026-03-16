@@ -1,551 +1,703 @@
 # Desktop App Architecture (`@ironclad/rivet-app`)
 
-> The Rivet desktop application. A Tauri + React SPA with a custom node-based
-> graph editor, dual execution backends, and plugin management.
+> Detailed internal reference for refactoring the desktop app.
+> Verified against `packages/app`, `packages/app/src-tauri`, and the current hooks/state modules.
 
-## Tech Stack
+## Purpose
 
-| Technology | Version | Role |
-|-----------|---------|------|
-| React | 18.2 | UI framework |
-| Vite | 6.1 | Build tool + dev server |
-| TypeScript | 5.7 | Language |
-| Tauri | 1.8 | Desktop shell (Rust) |
-| Jotai | 2.11 | State management (atom-based) |
-| Emotion | 11.x | CSS-in-JS styling |
-| Atlaskit | various | Enterprise UI component kit |
-| @dnd-kit | 6.x | Drag and drop |
-| Monaco Editor | 0.44 | Code editor (in Code nodes) |
-| React Window | 1.x | Virtual scrolling |
-| Fuse.js | 6.6 | Fuzzy search |
-| Marked | 9.x | Markdown rendering |
+`@ironclad/rivet-app` is the interactive IDE layer of the monorepo. It is responsible for:
 
-## Source Structure
+- project loading and saving
+- graph editing
+- node rendering and canvas interaction
+- graph execution orchestration
+- plugin loading and plugin management UI
+- Trivet test execution UI
+- prompt-designer UI
+- dataset/community/debugger/update overlays
+- bridging browser code to Tauri-native capabilities
 
-```
-packages/app/
-├── src/
-│   ├── App.tsx                     # Root: React Query provider + app loader
-│   ├── components/                 # React components (~130 .tsx files)
-│   │   ├── GraphBuilder.tsx        # Main canvas orchestrator
-│   │   ├── NodeCanvas.tsx          # Grid/positioning layer
-│   │   ├── VisualNode.tsx          # Individual node renderer
-│   │   ├── WireLayer.tsx           # SVG connection rendering
-│   │   ├── Port.tsx                # Port drag targets
-│   │   ├── DraggableNode.tsx       # @dnd-kit wrapper for nodes
-│   │   ├── editors/                # Node property editors (50+ specialized)
-│   │   ├── dataStudio/             # Dataset management UI
-│   │   ├── community/              # Template sharing features
-│   │   └── trivet/                 # Test runner UI
-│   ├── hooks/                      # Custom React hooks (~84 files)
-│   │   ├── useGraphExecutor.ts     # Execution orchestration
-│   │   ├── useLocalExecutor.ts     # Browser-based execution
-│   │   ├── useRemoteExecutor.ts    # Node.js sidecar execution
-│   │   ├── useProjectPlugins.ts    # Plugin loading
-│   │   ├── useSaveProject.ts       # Project persistence
-│   │   ├── useLoadProject.ts       # Project loading
-│   │   ├── useCanvasPositioning.ts # Pan/zoom logic
-│   │   ├── useDraggingNode.ts      # Node drag handling
-│   │   ├── useDraggingWire.ts      # Wire drag handling
-│   │   └── [many more...]
-│   ├── state/                      # Jotai atom definitions (~15 files)
-│   │   ├── graph.ts                # Nodes, connections, metadata (~17 atoms)
-│   │   ├── graphBuilder.ts         # Canvas state, selection, dragging (~15 atoms)
-│   │   ├── savedGraphs.ts          # Project data
-│   │   ├── plugins.ts              # Plugin registry
-│   │   ├── execution.ts            # Run state (~8 atoms)
-│   │   ├── settings.ts             # User preferences (~12 atoms)
-│   │   ├── ui.ts                   # Modal/overlay state
-│   │   ├── dataFlow.ts             # Execution result data, process pages
-│   │   ├── ai.ts                   # AI assistant state
-│   │   ├── clipboard.ts            # Clipboard state
-│   │   ├── community.ts            # Community template state
-│   │   ├── dataStudio.ts           # Dataset management state
-│   │   ├── promptDesigner.ts       # Prompt designer state
-│   │   ├── trivet.ts               # Test runner state
-│   │   └── userInput.ts            # User input state
-│   ├── commands/                   # Undo/redo command pattern
-│   │   ├── Command.ts              # Command interface + history stacks
-│   │   ├── addNodeCommand.ts
-│   │   ├── deleteNodeCommand.ts
-│   │   ├── makeConnectionCommand.ts
-│   │   ├── breakConnectionCommand.ts
-│   │   ├── moveNodeCommand.ts
-│   │   └── editNodeCommand.ts
-│   ├── io/                         # File I/O abstraction
-│   │   ├── IOProvider.ts           # Interface definition
-│   │   ├── TauriIOProvider.ts      # Native file dialogs (Tauri)
-│   │   ├── BrowserIOProvider.ts    # File System Access API
-│   │   ├── LegacyBrowserIOProvider.ts  # Fallback
-│   │   ├── BrowserDatasetProvider.ts   # Dataset CRUD for browser
-│   │   ├── TauriBrowserAudioProvider.ts # Audio via Tauri
-│   │   └── datasets.ts            # Dataset helpers
-│   └── utils/
-│       ├── tauri.ts                # Tauri helper (env vars, scoping)
-│       └── globals.ts              # Singleton providers
-├── src-tauri/                      # Rust backend
-│   ├── src/
-│   │   ├── main.rs                 # Tauri app setup + IPC commands
-│   │   └── plugins.rs              # Plugin tarball extraction
-│   ├── Cargo.toml                  # Rust dependencies
-│   └── tauri.conf.json             # App config, permissions, build
-└── vite.config.ts                  # Vite configuration
+The app is not just a thin client over `rivet-core`. A large amount of product behavior lives here in React components, Jotai state, commands, and hooks.
+
+## Stack
+
+Current major libraries:
+
+- React 18
+- Vite 6
+- Tauri 1.x
+- Jotai 2
+- Emotion
+- Atlaskit
+- `@dnd-kit`
+- TanStack React Query
+- Monaco Editor
+- `react-toastify`
+- `use-async-effect`
+- `immer`
+
+## Source Layout
+
+```text
+packages/app/src/
+  components/   Main UI tree, canvas, overlays, editors
+  commands/     Undo/redo command implementations
+  hooks/        Execution, loading, graph editing, view logic
+  io/           Browser/Tauri/legacy project I/O adapters
+  model/        App-specific runtime helpers
+  providers/    Context providers for IO, datasets, audio, etc.
+  state/        Jotai atoms, selectors, storage helpers
+  utils/        Shared helpers
+packages/app/src-tauri/
+  Rust backend for native dialogs, env, plugin extraction, packaging, updater
 ```
 
-## Component Hierarchy
+Key entry points:
 
-```
-App.tsx (React Query provider)
-  └─ RivetAppLoader (initialization, settings loading)
-     └─ RivetApp (main layout)
-        ├─ ProjectSelector (top navigation, project tabs)
-        ├─ ActionBar (run/pause/stop buttons, executor selector)
-        ├─ StatusBar (info footer)
-        ├─ LeftSidebar
-        │  ├─ GraphList (graph navigation)
-        │  └─ ProjectPluginConfiguration
-        ├─ GraphBuilder ← MAIN COMPONENT
-        │  ├─ NodeCanvas (positioned container with grid background)
-        │  │  ├─ DraggableNode (per node, wraps VisualNode)
-        │  │  │  └─ VisualNode
-        │  │  │     ├─ NodeBody (property display)
-        │  │  │     ├─ NodePorts
-        │  │  │     │  └─ Port (input/output drag targets)
-        │  │  │     ├─ NodeOutput (execution results)
-        │  │  │     └─ ResizeHandle
-        │  │  └─ WireLayer (SVG canvas)
-        │  │     ├─ ConditionallyRenderWire → Wire (Bezier curves)
-        │  │     └─ PartialWire (in-progress drag)
-        │  └─ ContextMenu (right-click node picker)
-        ├─ OverlayTabs (modal content panels)
-        │  ├─ PromptDesignerRenderer
-        │  ├─ TrivetRenderer (test runner)
-        │  ├─ ChatViewerRenderer
-        │  ├─ DataStudioRenderer (datasets)
-        │  ├─ PluginsOverlayRenderer
-        │  └─ CommunityOverlayRenderer
-        └─ SettingsModal (API keys, preferences)
-```
+- [`packages/app/src/App.tsx`](../packages/app/src/App.tsx)
+- [`packages/app/src/components/RivetApp.tsx`](../packages/app/src/components/RivetApp.tsx)
+- [`packages/app/src/components/GraphBuilder.tsx`](../packages/app/src/components/GraphBuilder.tsx)
+- [`packages/app/src/components/NodeCanvas.tsx`](../packages/app/src/components/NodeCanvas.tsx)
 
-## State Management (Jotai)
+## Top-Level Composition
 
-The app uses Jotai's atom-based state management. State is organized into categories:
+The root visible shell is built in `RivetApp.tsx`.
 
-### Graph State (`state/graph.ts`) - ~17 atoms
+There are two major render modes:
 
-```typescript
-graphState                   // Current NodeGraph (nodes + connections + metadata)
-nodesState                   // Derived: nodes array (read/write)
-connectionsState             // Derived: connections array (read/write)
-nodesByIdState               // Derived: Record<NodeId, ChartNode> lookup
-nodeByIdState                // atomFamily: single node by ID
-nodesForConnectionState      // atomFamily: nodes at each end of connection
-connectionsForNodeState      // atomFamily: all connections for a node
-connectionsForSingleNodeState // Single node connection lookup
-nodeInstancesState           // Node implementation instances
-nodeInstanceByIdState        // atomFamily: single node impl
-ioDefinitionsState           // Derived: port definitions per node
-ioDefinitionsForNodeState    // atomFamily: ports for single node
-nodeConstructorsState        // Node type constructors
-graphMetadataState           // Graph metadata (name, description)
-historicalGraphState         // Previous graph state (for diff)
-isReadOnlyGraphState         // Read-only mode flag
-historicalChangedNodesState  // Changed nodes since last snapshot
-```
+### No-project mode
 
-### Canvas/UI State (`state/graphBuilder.ts`) - ~15 atoms
+Rendered when `openedProjectsSortedIdsState` is empty.
 
-```typescript
-canvasPositionState          // { x, y, zoom } - pan and zoom
-lastCanvasPositionByGraphState // Remembered positions per graph
-selectedNodesState           // Set<NodeId> - currently selected
-draggingNodesState           // Nodes being dragged
-draggingWireState            // Wire being drawn (source port info)
-isDraggingWireState          // Boolean shortcut
-draggingWireClosestPortState // Nearest valid port during wire drag
-editingNodeState             // Currently editing node (property panel)
-pinnedNodesState             // Pinned node IDs (stay visible when zoomed out)
-isPinnedState                // atomFamily: is node pinned?
-searchMatchingNodeIdsState   // Search result highlights
-searchingGraphState          // Is search panel open?
-hoveringNodeState            // Node under cursor
-lastMousePositionState       // Last known mouse position
-sidebarOpenState             // Left sidebar open/closed
-graphNavigationStackState    // Navigation history for subgraphs
-viewingNodeChangesState      // Showing historical changes
+Includes:
+
+- `NoProject`
+- `NewProjectModalRenderer`
+- `SettingsModal`
+- `HelpModal`
+- global toast containers
+
+### Full IDE mode
+
+Rendered when at least one project is open.
+
+Current composition:
+
+```text
+RivetApp
+|- ProjectSelector
+|- OverlayTabs
+|- ActionBar
+|- StatusBar
+|- DebuggerPanelRenderer
+|- LeftSidebar
+|  |- GraphList
+|  |- GraphInfoSidebarTab
+|  `- ProjectInfoSidebarTab
+|- GraphBuilder
+|  |- NodeCanvas
+|  |- NodeEditorRenderer
+|  |- NavigationBar
+|  |- GraphExecutionSelectorBar
+|  |- HistoricalGraphNotice
+|  |- UserInputModal
+|  |- NodeChangesModalRenderer
+|  |- AiGraphCreatorInput
+|  `- AiGraphCreatorToggle
+|- SettingsModal
+|- PromptDesignerRenderer
+|- TrivetRenderer
+|- ChatViewerRenderer
+|- DataStudioRenderer
+|- PluginsOverlayRenderer
+|- UpdateModalRenderer
+|- NewProjectModalRenderer
+|- CommunityOverlayRenderer
+|- HelpModal
+`- ToastContainer(s)
 ```
 
-### Project State (`state/savedGraphs.ts`)
+This is important for refactors because many "global" behaviors are actually distributed across overlay renderers rather than centralized in a router or modal manager.
 
-```typescript
-projectState             // Current project (metadata + all graphs)
-loadedProjectState       // { path, loaded } - file system info
-projectPluginsState      // PluginLoadSpec[] - active plugins
-projectContextState      // Runtime context variables
-openedProjectsState      // Multiple open projects
+## Main Architectural Areas
+
+The app can be thought of as six cooperating subsystems:
+
+1. Shell and project/workspace UI
+2. Graph editor and canvas
+3. State/persistence layer
+4. Execution layer
+5. Plugin and extension layer
+6. Native/platform integration
+
+## Shell and Workspace UI
+
+### `ProjectSelector`
+
+Handles open-project switching and the top-of-window project context.
+
+### `ActionBar`
+
+Surface for run, test, pause, resume, abort, and related execution actions. It delegates actual behavior to `useGraphExecutor`.
+
+### `LeftSidebar`
+
+A fixed left rail controlled by `sidebarOpenState`.
+
+Tabs:
+
+- `Graphs`
+- `Graph Info`
+- `Project`
+
+The `Graphs` tab hosts `GraphList`, which is no longer a single all-in-one implementation. Graph CRUD and drag/drop logic have been split into hooks.
+
+### `OverlayTabs`
+
+Acts as the switchboard for overlay-like product areas such as prompt designer, Trivet, chat viewer, community, and other auxiliary surfaces.
+
+## Graph Editor
+
+The graph editor is the heaviest interactive part of the app.
+
+Main chain:
+
+```text
+GraphBuilder
+`- NodeCanvas
+   |- DraggableNode (per visible node)
+   |  `- VisualNode
+   |     |- NormalVisualNodeContent
+   |     `- ZoomedOutVisualNodeContent
+   |- DragOverlay
+   |- ContextMenu
+   |- WireLayer
+   |- Selection box
+   `- PortInfo tooltip
 ```
 
-### Execution State (`state/execution.ts` + `state/dataFlow.ts`) - ~12 atoms
+### `GraphBuilder`
 
-```typescript
-// execution.ts
-selectedExecutorState        // 'browser' | 'nodejs'
-loadedRecordingState         // Recorded execution for playback
-lastRecordingState           // Last recording path
-remoteUploadAllowedState     // Allow remote upload
-remoteDebuggerState          // Remote debugger connection
+`GraphBuilder` is the orchestrator around the canvas rather than the canvas itself.
 
-// dataFlow.ts
-lastRunDataByNodeState       // Execution results per node
-lastRunDataState             // atomFamily: per-node results
-runningGraphsState           // Currently executing graph IDs
-rootGraphState               // Root graph of current execution
-graphRunningState            // Is a graph currently executing?
-graphStartTimeState          // When execution started
-graphPausedState             // Is execution paused?
-selectedProcessPageNodesState // Process page selection per node
-selectedProcessPageState     // atomFamily: process page for node
+Current responsibilities:
+
+- read/write nodes and connections through Jotai
+- drive selection and editing state
+- install graph-history mouse navigation
+- trigger project-plugin loading with `useProjectPlugins`
+- reload project references
+- attach dataset lifecycle hooks
+- host user-input modal behavior
+- show read-only or recording borders
+- host secondary canvas-adjacent UI like navigation bar and graph execution selector
+
+Notable detail: user-input flow is not owned by the executor hooks alone. `GraphBuilder` also participates by reading `userInputModalQuestionsState`, showing the modal, and passing results back through `submitUserInputAnswers(...)`.
+
+### `NodeCanvas`
+
+`NodeCanvas` is the actual interactive viewport.
+
+Current responsibilities:
+
+- pan/zoom interaction
+- selection-box interaction
+- drag-to-connect wires
+- node drag integration via `@dnd-kit`
+- per-node rendering and visibility filtering
+- context menu display and dispatch
+- hotkeys for delete, copy, search, and canvas actions
+- port-position tracking for wire rendering
+- zoomed-out rendering decisions
+- drag overlay rendering
+
+The component is still large, but several concerns have already been extracted into hooks.
+
+### Extracted hook seams in `NodeCanvas`
+
+These are important refactor boundaries because they represent work already separated from the monolith:
+
+- `useSelectionBox`
+- `usePortHoverTooltip`
+- `useDraggingNode`
+- `useDraggingWire`
+- `useCanvasPositioning`
+- `useViewportBounds`
+- `useWireDragScrolling`
+- `useNodePortPositions`
+- `useCanvasHotkeys`
+- `useSearchGraph`
+- `useVisibleCanvasNodes`
+- `useAutoLayoutGraph`
+
+This means refactors should usually start in those hooks before pushing more logic back into `NodeCanvas`.
+
+### Viewport model
+
+Viewport state lives in `canvasPositionState` and uses:
+
+```ts
+type CanvasPosition = { x: number; y: number; zoom: number; fromSaved?: boolean };
 ```
 
-### Settings (`state/settings.ts`) - ~12 atoms
+`NodeCanvas` applies the viewport via a CSS transform on `.canvas-contents` and also adjusts the grid background size/position independently.
 
-```typescript
-settingsState                // API keys, timeouts, chat headers
-themeState                   // UI theme (Molten/Grapefruit/Taffy)
-recordExecutionsState        // Toggle execution recording
-defaultExecutorState         // Default execution backend
-previousDataPerNodeToKeepState // How many past runs to keep
-preservePortTextCaseState    // Preserve port name casing
-checkForUpdatesState         // Auto-update check toggle
-skippedMaxVersionState       // Skipped version for update prompt
-updateModalOpenState         // Update modal visibility
-updateStatusState            // Current update status
-zoomSensitivityState         // Canvas zoom sensitivity
-debuggerDefaultUrlState      // Default debugger WebSocket URL
-```
+Per-graph viewport memory lives in `lastCanvasPositionByGraphState`.
 
-### Storage Pattern
+### Rendering strategy
 
-```typescript
-// Atoms persisted to localStorage/IndexedDB via createHybridStorage
-const settingsState = atomWithStorage('settings', defaultSettings, hybridStorage);
+Key current behaviors:
 
-// Derived read/write atoms
-const nodesState = atom(
-  (get) => get(graphState).nodes,                    // read
-  (get, set, newValue) => {                          // write
-    set(graphState, { ...get(graphState), nodes: newValue });
-  }
-);
+- nodes outside the visible viewport are skipped via `useVisibleCanvasNodes`
+- wires are only rendered above a zoom threshold
+- nodes use a distinct zoomed-out content renderer below zoom thresholds
+- dragging nodes are removed from the main render pass and shown via `DragOverlay`
 
-// Family atoms for per-entity state
-const nodeByIdState = atomFamily((nodeId: NodeId) =>
-  atom((get) => get(nodesByIdState)[nodeId])
-);
-```
+### Contexts instead of prop drilling
 
-## Graph Editor Implementation
+`NodeCanvas` provides two React contexts via [`CanvasContext.tsx`](../packages/app/src/components/CanvasContext.tsx):
 
-### Canvas Rendering
+- `CanvasViewContext`
+- `CanvasHandlersContext`
 
-- **Grid background**: CSS gradient pattern (20px squares)
-- **Positioning**: `transform: translate(x, y) scale(zoom)` on container
-- **Pan**: Click-drag on empty space (mouse event handlers on `NodeCanvas`)
-- **Zoom**: Mouse wheel (configurable sensitivity), stored in `canvasPositionState`
-- **Center/Reset**: "Center graph" button recalculates optimal viewport
+These carry view-state and interaction callbacks down into `VisualNode`, `NormalVisualNodeContent`, `ZoomedOutVisualNodeContent`, and ports.
 
-### Node Rendering (`VisualNode.tsx`)
+This is a major structural point: event handlers are no longer passed as a large prop bag through multiple levels.
 
-Each node is absolutely positioned on the canvas:
+### `VisualNode`
 
-```
-┌──────────────────────────────────┐
-│ [icon] Node Title        [pin]  │ ← Header (colored by node type)
-├──────────────────────────────────┤
-│ ● input-1         output-1 ●    │ ← Ports (circles for connections)
-│ ● input-2         output-2 ●    │
-├──────────────────────────────────┤
-│ [Node body - property display]   │ ← Body (varies by node type)
-├──────────────────────────────────┤
-│ [Execution output / results]     │ ← Output (shown after execution)
-└──────────────────────────────────┘
-```
+`VisualNode` is the boundary between canvas-level behavior and per-node UI rendering.
 
-### Wire/Connection Rendering (`WireLayer.tsx`)
+Current responsibilities:
 
-- **Technology**: SVG overlay on top of node canvas
-- **Connections**: Bezier curves between output and input ports
-- **Partial wire**: Temporary wire while dragging from a port
-- **Hit detection**: `elementsFromPoint()` finds closest valid port
-- **Type validation**: `isDataTypeAccepted()` checks compatibility
-- **Visual feedback**: Color change on valid drop targets
+- derive CSS variables from node colors
+- choose between normal and zoomed-out rendering
+- reflect execution state classes (`success`, `error`, `running`, `not-ran`)
+- reflect graph/history state (`selected`, changed, pinned, disabled, conditional, split)
+- start node editing on double-click for known node types
 
-### Drag & Drop
+It also depends on both:
 
-**Node dragging** (via `@dnd-kit`):
-1. `DraggableNode` wraps each node with `useDraggable()`
-2. Drag start → sets `draggingNodesState`
-3. Drag move → updates node `visualData.x/y`
-4. Drag end → commits position via `moveNodeCommand`
+- `useCanvasViewContext`
+- `useCanvasHandlersContext`
 
-**Wire dragging** (custom implementation):
-1. Mouse down on port → sets `draggingWireState` (source port info)
-2. Mouse move → `WireLayer` draws partial wire to cursor
-3. Mouse up on port → `makConnectionCommand` creates connection
-4. Mouse up on empty → cancels wire drag
+That makes it a key seam when changing how interaction is propagated through the node tree.
 
-### Command Pattern (Undo/Redo)
+## Graph List and Sidebar Graph Management
 
-All graph mutations go through commands for undo/redo support:
+The sidebar graph tree is no longer just a flat list of graphs.
 
-```typescript
-interface Command<T, U> {
-  type: string;
-  apply(data: T, appliedData: U | undefined, currentState: GraphCommandState): U;
-  undo(data: T, appliedData: U, currentState: GraphCommandState): void;
-}
+### `GraphList`
 
-type GraphCommandState = {
-  graph: NodeGraph;
-  // ... additional state
-}
+Responsibilities:
 
-// Per-graph history stacks (Jotai atoms)
-commandHistoryStackStatePerGraph    // Undo stack
-redoStackStatePerGraph              // Redo stack
-```
+- search UI
+- context menu UI for graphs/folders/list root
+- DnD container for graph/folder moves
+- rendering `FolderItem` recursively
 
-**Available commands**: addNode, deleteNodes, editNode, makeConnection,
-breakConnection, moveNode.
+### `useGraphOperations`
 
-### Selection & Hotkeys
+Owns graph/folder operations previously bundled into the component:
 
-| Action | Shortcut |
-|--------|----------|
-| Select node | Click |
-| Multi-select | Ctrl/Cmd + Click |
-| Clear selection | Click empty space |
-| Delete selected | Delete / Backspace |
-| Copy | Cmd+C / Ctrl+C |
-| Paste | Cmd+V / Ctrl+V |
-| Undo | Cmd+Z / Ctrl+Z |
-| Redo | Cmd+Shift+Z / Ctrl+Shift+Z |
-| Search nodes | Cmd+F / Ctrl+F |
-| Save | Cmd+S / Ctrl+S |
-| Open | Cmd+O / Ctrl+O |
+- search text
+- filtered/folderized graph set
+- rename in-progress state
+- transient folder-name preservation
+- new graph creation
+- new folder creation
+- delete graph
+- delete folder
+- duplicate graph
+- import graph
+- rename graph/folder path updates
+- graph selection and optional run action
 
-## Tauri Integration
+### `useGraphListDragDrop`
 
-### Rust Backend (`src-tauri/`)
+Owns graph/folder drag state:
 
-The Tauri backend provides native OS capabilities:
+- active dragged item path
+- hovered folder path
+- drag start/end/over handlers
 
-```rust
-// IPC commands exposed to frontend
-#[tauri::command]
-fn get_environment_variable(name: &str) -> String
-// Fetches env vars (OPENAI_API_KEY, etc.)
+This split is a current architectural fact and should be preserved or expanded rather than collapsed during refactors.
 
-#[tauri::command]
-fn allow_data_file_scope(app_handle: AppHandle, project_file_path: &str)
-// Enables file read/write for .rivet-data sibling files
+## Prompt Designer
 
-#[tauri::command]
-fn read_relative_project_file(relative_from: &str, project_file_path: &str)
-// Loads project files relative to a base path
+The prompt-designer area is still feature-rich, but it has also already been partially decomposed.
 
-// Plugin support (plugins.rs)
-pub fn extract_package_plugin_tarball(path: &str)
-// Decompresses plugin .tar.gz archives
-```
+### `PromptDesigner`
 
-### Frontend → Tauri Communication
+Current responsibilities:
 
-```typescript
-// src/utils/tauri.ts
-import { invoke } from '@tauri-apps/api/tauri';
+- overlay lifecycle
+- attach to a chat node selected in prompt-designer state
+- hydrate prompt-designer config from the attached node
+- hydrate initial message list from prior node execution input data
+- edit the attached node's test groups
+- run ad-hoc chat requests
+- run prompt-designer test groups
+- show either the current response or test-group results
 
-export async function getEnvVar(name: string): Promise<string | undefined> {
-  if (isInTauri()) {
-    return (await invoke('get_environment_variable', { name })) as string;
-  }
-}
+### Extracted pieces
 
-export async function allowDataFileNeighbor(projectFilePath: string) {
-  await invoke('allow_data_file_scope', { projectFilePath });
-}
-```
+- `usePromptDesignerMessages`
+- `PromptDesignerConfigPanel`
+- `PromptDesignerTestPanel`
+- `PromptDesignerComponents`
+- `PromptDesignerTestRunner`
 
-### File I/O Adapter Pattern
+This area is still coupled to chat-node structure and ad-hoc process-context creation, so it remains a meaningful refactor hotspot.
 
-```typescript
-// Smart runtime detection
-if (TauriIOProvider.isSupported()) {
-  ioProvider = new TauriIOProvider();       // Native file dialogs
-} else if (BrowserIOProvider.isSupported()) {
-  ioProvider = new BrowserIOProvider();     // File System Access API
-} else {
-  ioProvider = new LegacyBrowserIOProvider(); // Download/upload fallback
-}
-```
+## State Model
 
-This pattern allows the app to run as:
-- A **Tauri desktop app** with native file dialogs
-- A **web app** using the File System Access API (Chrome/Edge)
-- A **legacy web app** with download/upload fallback
+The app uses Jotai heavily. State is spread across domain files rather than a single store.
 
-### Tauri Configuration (`tauri.conf.json`)
+### Graph state
 
-```json
-{
-  "build": {
-    "devPath": "http://localhost:5173",
-    "distDir": "../dist",
-    "beforeBuildCommand": "yarn build",
-    "beforeDevCommand": "yarn start"
-  },
-  "package": {
-    "productName": "Rivet",
-    "version": "1.11.3"
-  },
-  "tauri": {
-    "windows": [{ "width": 1200, "height": 1024, "resizable": true }],
-    "allowlist": {
-      "fs": { "all": true, "scope": ["$APPLOCALDATA/**", "$TEMP/**", "**", "/**/*"] },
-      "path": { "all": true },
-      "dialog": { "all": true },
-      "process": { "relaunch": true },
-      "shell": { "sidecar": true, "open": true, "execute": true },
-      "globalShortcut": { "all": true },
-      "window": { "all": true },
-      "http": { "all": true }
-    }
-  }
-}
-```
+Primary graph state is re-exported through [`packages/app/src/state/graph.ts`](../packages/app/src/state/graph.ts).
 
-> **Note**: The FS scope is very permissive (`"**"`, `"/**/*"`) - this grants broad file
-> system access. The shell scope allows `app-executor` sidecar, `npm`, `pnpm`, and `git`.
+Important pieces:
+
+- `graphState`
+- `nodesState`
+- `connectionsState`
+- `graphMetadataState`
+- `historicalGraphState`
+- `historicalChangedNodesState`
+- `isReadOnlyGraphState`
+- lookup/selectors such as `nodesByIdState`, `nodeByIdState`, `nodeInstanceByIdState`, and IO-definition selectors
+
+Maintenance-critical detail:
+
+- `cleanupNodeAtomFamilies(nodeIds)` clears node-keyed atom families in graph state, execution state, and graph-builder state.
+
+That cleanup runs during graph/project switching and is explicitly there to prevent leaked/stale atom-family state.
+
+### Graph-builder state
+
+[`packages/app/src/state/graphBuilder.ts`](../packages/app/src/state/graphBuilder.ts) owns canvas/editor interaction state:
+
+- selected nodes
+- editing node
+- canvas position
+- remembered canvas positions per graph
+- dragging nodes
+- dragging wire
+- closest valid port during wire drag
+- graph navigation stack
+- pinned nodes
+- search/go-to UI state
+- hovered node
+- sidebar visibility
+- viewing node changes
+
+### Saved-project state
+
+[`packages/app/src/state/savedGraphs.ts`](../packages/app/src/state/savedGraphs.ts) is broader than the filename suggests.
+
+It owns:
+
+- `projectState`
+- referenced projects
+- project static data
+- loaded project path state
+- graph list derived from the project
+- project plugin specs
+- open-project workspace state
+- per-project context values
+
+Important nuance:
+
+- `projectState` is stored as `Omit<Project, 'data'>`
+- large attached static data is held separately in `projectDataState`
+- per-project context values are persisted separately via `projectContextState(projectId)`
+
+### Execution and data-flow state
+
+Execution state is split between:
+
+- `execution.ts`
+- `dataFlow.ts`
+
+`execution.ts` owns remote-debugger config and recording pointers.
+
+`dataFlow.ts` owns:
+
+- last-run data per node
+- running graph IDs
+- root graph ID
+- graph running/paused flags
+- selected process page per node
+
+The per-node run data model is rich enough to store:
+
+- input data
+- output data
+- split-run output data
+- start/finish timestamps
+- status variants like ok/error/running/interrupted/not-ran
+
+This state directly drives node output rendering and process-page selection in the canvas.
+
+### Settings state
+
+`settings.ts` stores:
+
+- API/settings payload (`settingsState`)
+- theme
+- record-execution toggle
+- default executor
+- node-history retention count
+- casing preference
+- update preferences/state
+- zoom sensitivity
+- remote debugger default URL
+
+Important distinction:
+
+- `defaultExecutorState` picks browser vs node sidecar by default
+- `debuggerDefaultUrlState` is the persisted external debugger URL default
+- the internal executor connection still uses `ws://localhost:21889/internal`
+
+### Overlay and UI state
+
+The app also uses other state files such as `ui.ts`, `trivet.ts`, `promptDesigner.ts`, `userInput.ts`, `plugins.ts`, `community.ts`, and `dataStudio.ts` to drive overlay-specific behavior.
+
+## Project Loading and Saving
+
+### `useLoadProject`
+
+Current sequence:
+
+1. replace `projectState`
+2. reset graph navigation stack
+3. cleanup old graph node atom families
+4. clear read-only/historical state
+5. load the target graph or fallback empty graph
+6. load static project data into app state
+7. persist loaded filesystem path
+8. load Trivet data if the IO provider supports path-based reads
+
+This hook is a critical refactor seam because it couples project replacement, graph replacement, atom-family cleanup, and Trivet hydration.
+
+### `useLoadGraph`
+
+Current sequence:
+
+1. optionally save the current graph back into the project
+2. cleanup old graph atom families if changing graph IDs
+3. replace `graphState`
+4. clear selection, historical state, and read-only mode
+5. optionally push onto graph navigation history
+6. restore last viewport or center on the graph
+
+This hook is the authoritative graph-switch path.
+
+### `useSaveProject`
+
+Current behavior:
+
+- saves the current in-memory graph back into the project before persisting
+- uses `saveProjectDataNoPrompt` when a path already exists
+- falls back to save-as when needed
+- persists Trivet test-suite data alongside the project
+- shows slow-save toast feedback for large saves
+
+## File I/O and Runtime Abstraction
+
+The app has an IO abstraction under `src/io/`:
+
+- `TauriIOProvider`
+- `BrowserIOProvider`
+- `LegacyBrowserIOProvider`
+
+That abstraction is used so the same app code can work in:
+
+- Tauri desktop mode
+- browser environments with modern file APIs
+- fallback browser flows
+
+The app also keeps separate provider abstractions for datasets, audio, and related execution-time services through React providers.
 
 ## Execution Architecture
 
-### Browser Executor (`useLocalExecutor.ts`)
+Execution is orchestrated from `useGraphExecutor`.
 
-```typescript
-async function runGraphLocally(options) {
-  const processor = new GraphProcessor(project, graphId, registry);
+### `useGraphExecutor`
 
-  // Attach event handlers for UI updates
-  processor.on('nodeStart', (data) => setNodeState(data.node.id, 'running'));
-  processor.on('nodeFinish', (data) => setNodeState(data.node.id, 'done'));
-  processor.on('nodeError', (data) => setNodeState(data.node.id, 'error'));
-  processor.on('partialOutput', (data) => updateNodeOutput(data));
+This hook decides whether to use:
 
-  const results = await processor.processGraph(context, inputs);
-  setLastRunData(results);
-}
-```
+- `useLocalExecutor`
+- `useRemoteExecutor`
 
-- Runs `GraphProcessor` directly in the browser main thread
-- Fast startup, no extra processes needed
-- **Limitations**: No file system access, no shell commands, no native modules
+based on:
 
-### Node.js Executor (`useRemoteExecutor.ts` + app-executor sidecar)
+- `defaultExecutorState`
+- whether the remote debugger/sidecar connection is active
 
-```typescript
-async function runGraphRemotely(options) {
-  // Connect to sidecar via WebSocket
-  const ws = new WebSocket('ws://localhost:21889/internal');
+It also manages the sidecar lifecycle via `useExecutorSidecar`.
 
-  // Send graph + project + inputs to sidecar
-  ws.send(JSON.stringify({ type: 'run', project, graphId, inputs }));
+Important code-level warning already present in the source:
 
-  // Receive events for UI updates
-  ws.onmessage = (event) => {
-    const data = JSON.parse(event.data);
-    switch (data.type) {
-      case 'nodeStart': setNodeState(data.node.id, 'running'); break;
-      case 'nodeFinish': setNodeState(data.node.id, 'done'); break;
-      // ...
-    }
-  };
-}
-```
+- this hook should live on components that do not unmount casually, because cleanup can disconnect the remote debugger unexpectedly
 
-- Spawns `app-executor` as a Tauri sidecar process
-- WebSocket communication on `ws://localhost:21889/internal`
-- Full Node.js capabilities: file I/O, shell, native modules
-- Required for Code nodes using Node APIs, plugins needing system access
-- Also supports remote debugging from external processes
+That warning is real and should be treated as a current design constraint.
 
-### Execution Result Display
+### Local executor
 
-After execution, each node shows its output:
+`useLocalExecutor` runs `GraphProcessor` in-process.
 
-- **lastRunDataByNodeState**: `Record<NodeId, ProcessDataForNode[]>`
-- Results displayed in the `NodeOutput` component below the node body
-- Supports pagination for multiple process runs (split-run)
-- Streaming partial outputs update in real-time during execution
+Current responsibilities:
 
-## Project Management
+- save current graph before execution
+- build a temporary project including unsaved current-graph changes
+- attach event handlers to `GraphProcessor`
+- wire `userInput` callbacks into UI state
+- optionally record executions
+- support replaying loaded recordings
+- support run-to and run-from execution
+- preload dependent outputs for partial reruns
+- provide browser-mode Trivet execution
 
-### File Operations
+It also fills missing settings from environment variables before execution and injects app-side providers such as:
 
-```typescript
-// Load
-async function loadProject(projectInfo: OpenedProjectInfo) {
-  setProject(projectInfo.project);
-  setGraphData(projectInfo.project.graphs[firstGraphId]);
-  // Load sibling .rivet-data file for datasets/test data
-}
+- `TauriNativeApi`
+- dataset provider
+- audio provider
+- tokenizer
+- project reference loader
 
-// Save
-async function saveProject() {
-  await ioProvider.saveProjectDataNoPrompt(project, { testSuites }, path);
-}
+### Remote executor
 
-// Save As
-async function saveProjectAs() {
-  const filePath = await ioProvider.saveProjectData(project, { testSuites });
-  setLoadedProject({ path: filePath, loaded: true });
-}
-```
+`useRemoteExecutor` runs graphs through the remote-debugger protocol, usually talking to the internal sidecar.
 
-### Multi-Project Support
+Current responsibilities:
 
-- `openedProjectsState` tracks multiple open projects
-- Tab-like switching via `ProjectSelector` component
-- Each project's canvas state cached independently
-- Canvas position remembered per graph (`lastCanvasPositionByGraphState`)
+- maintain remote debugger connectivity
+- reconnect to the internal executor when appropriate
+- bridge remote debugger events into `useCurrentExecution`
+- upload dynamic project/settings/static data when remote upload is enabled
+- send preload data for run-from execution
+- send `run`, `pause`, `resume`, `abort`, and `user-input` messages
+- provide Trivet execution by awaiting remote completion through a promise bridge
 
-## Additional Features
+Notable current limitations:
 
-### Data Studio
-- Upload/manage CSV/JSON datasets
-- Virtual scroll table view (React Window)
-- Datasets stored in `.rivet-data` sibling file
+- the remote test/run completion flow uses a module-level promise bridge
+- comments in the source note this makes parallel processing awkward/impossible in remote debugger mode
 
-### Community Templates
-- Browse/share graph templates
-- Upload versioned templates
-- Fork & remix community graphs
+### Internal sidecar vs external debugger
 
-### Prompt Designer
-- Visual template editor for LLM prompts
-- Variable/placeholder support
-- Test prompts against models
+There are two related but different concepts:
 
-### Recording & Playback
-- Toggle recording via `recordExecutionsState`
-- Full execution trace saved to `.rivet-recording`
-- Replay step-by-step for debugging
+- internal sidecar executor: `ws://localhost:21889/internal`
+- configurable remote debugger endpoint: default persisted as `ws://localhost:21888`
 
-### Remote Debugger
-- Connect to external Node.js processes
-- Real-time execution tracking
-- Pause/resume/inspect node state
+Conflating those will produce wrong behavior and wrong docs.
 
-### Trivet Integration
-- Test suites stored in project
-- `runTrivet()` executes test suites
-- Visual test results in overlay tab
+## Plugin Architecture in the App
+
+### `useProjectPlugins`
+
+This hook is the main project-plugin loading pipeline.
+
+Current sequence:
+
+1. read plugin specs from `projectPluginsState`
+2. reset the global node registry
+3. populate loading-state UI entries
+4. load each plugin based on spec type
+5. mark success/failure in app plugin state
+6. show aggregated failure toasts
+7. register loaded plugins into `globalRivetNodeRegistry`
+8. bump the plugin refresh counter
+
+Supported load paths:
+
+- built-in plugin from core export map
+- URI plugin via dynamic import
+- package plugin via `useLoadPackagePlugin`
+
+This matters for refactors because node availability in the editor is partially rebuilt from scratch whenever project plugins change.
+
+## Tauri Backend and Native Integration
+
+Rust code lives under [`packages/app/src-tauri/`](../packages/app/src-tauri/).
+
+The Tauri layer currently supports:
+
+- dialogs and filesystem access
+- environment-variable access
+- plugin package extraction
+- packaging external binaries
+- updater configuration
+
+The Tauri config currently includes sidecar/external-bin setup for:
+
+- `app-executor`
+- bundled `pnpm`
+
+This app therefore depends on both frontend code and packaging/runtime config being kept aligned.
+
+## Important Refactor Seams
+
+If planning significant refactors, these are the highest-value seams already visible in the code:
+
+### Graph editor seams
+
+- `GraphBuilder`
+- `NodeCanvas`
+- `CanvasContext`
+- extracted canvas hooks
+- `VisualNode` and `visualNode/*`
+
+### Graph/workspace management seams
+
+- `useLoadProject`
+- `useLoadGraph`
+- `useSaveProject`
+- `useGraphOperations`
+- `useGraphListDragDrop`
+
+### Execution seams
+
+- `useGraphExecutor`
+- `useLocalExecutor`
+- `useRemoteExecutor`
+- `useCurrentExecution`
+- remote-debugger integration
+
+### Plugin seams
+
+- `useProjectPlugins`
+- package-plugin loading path
+- registry reset/rebuild behavior
+
+### State-management seams
+
+- graph atom-family cleanup
+- persisted per-project context
+- split between `projectState` and `projectDataState`
+- split between execution config state and per-node run-data state
+
+## Known Architectural Tensions
+
+These are visible from the current code and matter for planning:
+
+- `NodeCanvas` remains large even after some extraction.
+- `GraphBuilder` mixes orchestration, overlays, and some execution-adjacent UI behavior.
+- executor selection, sidecar lifecycle, and remote debugger concerns are still somewhat entangled.
+- plugin loading mutates global registry state, which can complicate local reasoning and tests.
+- project loading/saving and graph switching rely on explicit cleanup discipline.
+- remote execution has a promise-bridge workaround that limits elegance and likely future concurrency work.
+
+## Practical Refactor Guidance
+
+- Treat `GraphBuilder` and `NodeCanvas` as orchestration layers and prefer extracting domain hooks/components further.
+- Do not change graph/project switching without preserving `cleanupNodeAtomFamilies(...)`.
+- Keep the internal sidecar path and external debugger path conceptually separate.
+- When touching plugin flows, review both registry state and app plugin-state UI together.
+- When changing save/load behavior, include Trivet data, static project data, and per-project context in the design review.
+- Validate both local and remote executor behavior for any execution-related change.

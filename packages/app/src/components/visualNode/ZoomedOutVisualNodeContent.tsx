@@ -27,8 +27,6 @@ export const ZoomedOutVisualNodeContent: FC<{
   lastRun?: ProcessDataForNode[];
   processPage: number | 'latest';
   isReallyZoomedOut: boolean;
-  onSelectNode?: (multi: boolean) => void;
-  onStartEditing?: () => void;
 }> = memo(
   ({
     node,
@@ -38,12 +36,11 @@ export const ZoomedOutVisualNodeContent: FC<{
     lastRun,
     processPage,
     isReallyZoomedOut,
-    onSelectNode,
-    onStartEditing,
   }) => {
     useDependsOnPlugins();
     const { draggingWire, closestPortToDraggingWire } = useCanvasViewContext();
-    const { onPortMouseOut, onPortMouseOver, onWireEndDrag, onWireStartDrag } = useCanvasHandlersContext();
+    const { onNodeSelected, onNodeStartEditing, onPortMouseOut, onPortMouseOver, onWireEndDrag, onWireStartDrag } =
+      useCanvasHandlersContext();
     const preservePortTextCase = useAtomValue(preservePortTextCaseState);
 
     const selectedProcessRun =
@@ -53,7 +50,7 @@ export const ZoomedOutVisualNodeContent: FC<{
 
     const handleEditClick = useStableCallback((event: MouseEvent<HTMLButtonElement>) => {
       event.stopPropagation();
-      onStartEditing?.();
+      onNodeStartEditing?.(node);
     });
 
     const handleEditMouseDown = useStableCallback((event: MouseEvent<HTMLButtonElement>) => {
@@ -63,7 +60,7 @@ export const ZoomedOutVisualNodeContent: FC<{
 
     const handleGrabClick = useStableCallback((event: MouseEvent<HTMLDivElement>) => {
       event.stopPropagation();
-      onSelectNode?.(event.shiftKey);
+      onNodeSelected?.(node, event.shiftKey);
     });
 
     const handleIfPortMouseDown = useStableCallback(

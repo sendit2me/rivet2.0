@@ -30,9 +30,6 @@ export type VisualNodeProps = {
   lastRun?: ProcessDataForNode[];
   processPage: number | 'latest';
   renderSkeleton?: boolean;
-  onSelectNode?: (multi: boolean) => void;
-  onStartEditing?: () => void;
-  onNodeSizeChanged?: (newWidth: number, newHeight: number) => void;
   nodeAttributes?: HTMLAttributes<HTMLDivElement>;
   handleAttributes?: HTMLAttributes<HTMLDivElement>;
 };
@@ -55,14 +52,11 @@ export const VisualNode = memo(
         lastRun,
         processPage,
         renderSkeleton,
-        onSelectNode,
-        onStartEditing,
-        onNodeSizeChanged,
       },
       ref,
     ) => {
       const { heightCache, isReallyZoomedOut, isZoomedOut } = useCanvasViewContext();
-      const { onMouseOut, onMouseOver } = useCanvasHandlersContext();
+      const { onMouseOut, onMouseOver, onNodeStartEditing } = useCanvasHandlersContext();
       const isComment = node.type === 'comment';
       const effectiveIsZoomedOut = isZoomedOut && !isComment;
       const effectiveIsReallyZoomedOut = isReallyZoomedOut && !isComment;
@@ -159,7 +153,7 @@ export const VisualNode = memo(
           }}
           onDoubleClick={() => {
             if (isKnownNodeType) {
-              onStartEditing?.();
+              onNodeStartEditing?.(node);
             }
           }}
         >
@@ -168,8 +162,6 @@ export const VisualNode = memo(
               node={node}
               connections={connections}
               handleAttributes={handleAttributes}
-              onSelectNode={onSelectNode}
-              onStartEditing={onStartEditing}
               isKnownNodeType={isKnownNodeType}
               lastRun={lastRun}
               processPage={processPage}
@@ -180,9 +172,6 @@ export const VisualNode = memo(
               heightCache={heightCache}
               node={node}
               connections={connections}
-              onSelectNode={onSelectNode}
-              onStartEditing={onStartEditing}
-              onNodeSizeChanged={onNodeSizeChanged}
               handleAttributes={handleAttributes}
               isKnownNodeType={isKnownNodeType}
               lastRun={lastRun}

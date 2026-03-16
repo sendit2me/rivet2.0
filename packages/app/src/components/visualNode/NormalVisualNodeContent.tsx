@@ -42,9 +42,6 @@ export const NormalVisualNodeContent: FC<{
   isPinned: boolean;
   isHistoricalChanged: boolean;
   isHovered: boolean;
-  onSelectNode?: (multi: boolean) => void;
-  onStartEditing?: () => void;
-  onNodeSizeChanged?: (newWidth: number, newHeight: number) => void;
 }> = memo(
   ({
     heightCache,
@@ -53,9 +50,6 @@ export const NormalVisualNodeContent: FC<{
     lastRun,
     processPage,
     isPinned,
-    onSelectNode,
-    onStartEditing,
-    onNodeSizeChanged,
     handleAttributes,
     isKnownNodeType,
     isHistoricalChanged,
@@ -63,8 +57,16 @@ export const NormalVisualNodeContent: FC<{
   }) => {
     useDependsOnPlugins();
     const { draggingWire, closestPortToDraggingWire } = useCanvasViewContext();
-    const { onPortMouseOut, onPortMouseOver, onResizeFinish, onWireEndDrag, onWireStartDrag } =
-      useCanvasHandlersContext();
+    const {
+      onNodeSelected,
+      onNodeSizeChanged,
+      onNodeStartEditing,
+      onPortMouseOut,
+      onPortMouseOver,
+      onResizeFinish,
+      onWireEndDrag,
+      onWireStartDrag,
+    } = useCanvasHandlersContext();
     const { clientToCanvasPosition } = useCanvasPositioning();
     const setPinnedNodes = useSetAtom(pinnedNodesState);
     const setViewingNodeChanges = useSetAtom(viewingNodeChangesState);
@@ -95,7 +97,7 @@ export const NormalVisualNodeContent: FC<{
 
     const handleEditClick = useStableCallback((event: ReactMouseEvent<HTMLButtonElement>) => {
       event.stopPropagation();
-      onStartEditing?.();
+      onNodeStartEditing?.(node);
     });
 
     const handleEditMouseDown = useStableCallback((event: ReactMouseEvent<HTMLButtonElement>) => {
@@ -127,7 +129,7 @@ export const NormalVisualNodeContent: FC<{
       const newHeight = initialHeight != null ? initialHeight + deltaY : initialHeight;
 
       if (newWidth != null && newHeight != null && (newWidth !== initialWidth || newHeight !== initialHeight)) {
-        onNodeSizeChanged?.(newWidth, newHeight);
+        onNodeSizeChanged?.(node, newWidth, newHeight);
       }
     });
 
@@ -150,7 +152,7 @@ export const NormalVisualNodeContent: FC<{
 
     const handleGrabClick = useStableCallback((event: ReactMouseEvent) => {
       event.stopPropagation();
-      onSelectNode?.(event.shiftKey);
+      onNodeSelected?.(node, event.shiftKey);
     });
 
     const togglePinned = useStableCallback(() => {

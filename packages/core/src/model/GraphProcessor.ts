@@ -1,12 +1,8 @@
-import { max, range, sum, uniqBy } from 'lodash-es';
+import { uniqBy } from 'lodash-es';
 import {
   type DataValue,
-  type ArrayDataValue,
-  type AnyDataValue,
   type StringArrayDataValue,
   type ControlFlowExcludedDataValue,
-  isArrayDataValue,
-  arrayizeDataValue,
   type ScalarOrArrayDataValue,
   getScalarTypeOf,
 } from './DataValue.js';
@@ -24,7 +20,7 @@ import type { NodeImpl } from './NodeImpl.js';
 import PQueueImport from 'p-queue';
 import { getError } from '../utils/errors.js';
 import Emittery from 'emittery';
-import { entries, fromEntries, values } from '../utils/typeSafety.js';
+import { entries } from '../utils/typeSafety.js';
 import { isNotNull } from '../utils/genericUtilFunctions.js';
 import { type ProjectId, type Project, type ProjectReference } from './Project.js';
 import { nanoid } from 'nanoid/non-secure';
@@ -38,6 +34,7 @@ import { getPluginConfig } from '../utils/index.js';
 import { preprocessGraphState } from './GraphPreprocessor.js';
 import { replayExecutionRecording } from './RecordingPlayer.js';
 import { buildNodeProcessContext } from './ProcessContextBuilder.js';
+import { processSplitRunNode } from './SplitRunProcessor.js';
 
 // eslint-disable-next-line import/no-cycle -- There has to be a cycle because CodeRunner needs to import the entirety of Rivet
 import { IsomorphicCodeRunner } from '../integrations/CodeRunner.js';
@@ -771,6 +768,11 @@ export class GraphProcessor {
     }
   }
 
+  /** Checks if a data value represents a control-flow-excluded signal. */
+  #isControlFlowExcluded(value: DataValue | undefined): boolean {
+    return value != null && getScalarTypeOf(value.type) === 'control-flow-excluded';
+  }
+
   async #fetchNodeDataAndProcessNode(node: ChartNode): Promise<void> {
     if (this.#currentlyProcessing.has(node.id) || this.#queuedNodes.has(node.id)) {
       return;
@@ -918,7 +920,7 @@ export class GraphProcessor {
   #getWaitingForInputNode(node: ChartNode, inputNodes: ChartNode[], inputValues: Inputs): false | string {
     let waitingForInputNode: false | string = false;
     const anyInputIsValid = Object.values(inputValues).some(
-      (value) => value && value.type.includes('control-flow-excluded') === false,
+      (value) => value && !this.#isControlFlowExcluded(value),
     );
 
     for (const inputNode of inputNodes) {
@@ -971,7 +973,7 @@ export class GraphProcessor {
     const breakValue = loopControllerResults['break' as PortId];
     const didBreak =
       // @ts-ignore
-      !(breakValue?.type === 'control-flow-excluded' && breakValue?.value === 'loop-not-broken') ??
+      !(this.#isControlFlowExcluded(breakValue) && breakValue?.value === 'loop-not-broken') ??
       this.#excludedDueToControlFlow(node, this.#getInputValuesForNode(node), nanoid() as ProcessId);
 
     if (didBreak) {
@@ -1121,123 +1123,21 @@ export class GraphProcessor {
   }
 
   async #processSplitRunNode(node: ChartNode, processId: ProcessId) {
-    const inputValues = this.#getInputValuesForNode(node);
-
-    if (this.#excludedDueToControlFlow(node, inputValues, processId)) {
-      return;
-    }
-
-    const splittingAmount = Math.min(
-      max(values(inputValues).map((value) => (Array.isArray(value?.value) ? value?.value.length : 1))) ?? 1,
-      node.splitRunMax ?? 10,
-    );
-
-    // eslint-disable-next-line @typescript-eslint/no-floating-promises
-    this.#emitter.emit('nodeStart', { node, inputs: inputValues, processId });
-
-    try {
-      let results: (
-        | {
-            type: string;
-            output: Outputs;
-            error?: Error;
-          }
-        | {
-            type: string;
-            error: Error;
-            output?: Outputs;
-          }
-      )[] = [];
-
-      if (node.isSplitSequential) {
-        for (let i = 0; i < splittingAmount; i++) {
-          if (this.#aborted) {
-            throw new Error('Processing aborted');
-          }
-
-          const inputs = fromEntries(
-            entries(inputValues).map(([port, value]) => [
-              port as PortId,
-              isArrayDataValue(value) ? arrayizeDataValue(value)[i] ?? undefined : value,
-            ]),
-          );
-
-          try {
-            const output = await this.#processNodeWithInputData(
-              node,
-              inputs as Inputs,
-              i,
-              processId,
-              (node, partialOutputs, index) => {
-                // eslint-disable-next-line @typescript-eslint/no-floating-promises
-                this.#emitter.emit('partialOutput', { node, outputs: partialOutputs, index, processId });
-              },
-            );
-
-            this.#accumulateCost(output);
-            results.push({ type: 'output', output });
-          } catch (error) {
-            results.push({ type: 'error', error: getError(error) });
-          }
-        }
-      } else {
-        results = await Promise.all(
-          range(0, splittingAmount).map(async (i) => {
-            const inputs = fromEntries(
-              entries(inputValues).map(([port, value]) => [
-                port as PortId,
-                isArrayDataValue(value) ? arrayizeDataValue(value)[i] ?? undefined : value,
-              ]),
-            );
-
-            try {
-              const output = await this.#processNodeWithInputData(
-                node,
-                inputs as Inputs,
-                i,
-                processId,
-                (node, partialOutputs, index) => {
-                  // eslint-disable-next-line @typescript-eslint/no-floating-promises
-                  this.#emitter.emit('partialOutput', { node, outputs: partialOutputs, index, processId });
-                },
-              );
-
-              this.#accumulateCost(output);
-              return { type: 'output', output };
-            } catch (error) {
-              return { type: 'error', error: getError(error) };
-            }
-          }),
-        );
-      }
-
-      const errors = results.filter((r) => r.type === 'error').map((r) => r.error!);
-      if (errors.length === 1) {
-        const e = errors[0]!;
-        throw e;
-      } else if (errors.length > 0) {
-        throw new AggregateError(errors);
-      }
-
-      // Combine the parallel results into the final output
-
-      // Turn a Record<PortId, DataValue[]> into a Record<PortId, AnyArrayDataValue>
-      const aggregateResults = results.reduce((acc, result) => {
-        for (const [portId, value] of entries(result.output!)) {
-          acc[portId as PortId] ??= { type: (value?.type + '[]') as DataValue['type'], value: [] } as DataValue;
-          (acc[portId as PortId] as ArrayDataValue<AnyDataValue>).value.push(value?.value);
-        }
-        return acc;
-      }, {} as Outputs);
-
-      this.#nodeResults.set(node.id, aggregateResults);
-      this.#visitedNodes.add(node.id);
-      this.#totalCost += sum(results.map((r) => coerceTypeOptional(r.output?.['cost' as PortId], 'number') ?? 0));
-      // eslint-disable-next-line @typescript-eslint/no-floating-promises
-      this.#emitter.emit('nodeFinish', { node, outputs: aggregateResults, processId });
-    } catch (error) {
-      this.#nodeErrored(node, error, processId);
-    }
+    return processSplitRunNode(node, processId, {
+      getInputValues: (n) => this.#getInputValuesForNode(n),
+      isExcludedDueToControlFlow: (n, inputs, pid) => this.#excludedDueToControlFlow(n, inputs, pid),
+      processNodeWithInputData: (n, inputs, idx, pid, partial) =>
+        this.#processNodeWithInputData(n, inputs, idx, pid, partial),
+      accumulateCost: (output) => this.#accumulateCost(output),
+      setNodeResults: (nodeId, outputs) => this.#nodeResults.set(nodeId, outputs),
+      markNodeVisited: (nodeId) => this.#visitedNodes.add(nodeId),
+      nodeErrored: (n, err, pid) => this.#nodeErrored(n, err, pid),
+      isAborted: () => this.#aborted,
+      emit: (event, data) => {
+        // eslint-disable-next-line @typescript-eslint/no-floating-promises
+        this.#emitter.emit(event, data);
+      },
+    });
   }
 
   async #processNormalNode(node: ChartNode, processId: ProcessId) {
@@ -1569,9 +1469,7 @@ export class GraphProcessor {
     const inputsWithValues = entries(inputValues);
     const controlFlowExcludedValues = inputsWithValues.filter(
       ([, value]) =>
-        value &&
-        getScalarTypeOf(value.type) === 'control-flow-excluded' &&
-        (!typeOfExclusion || value.value === typeOfExclusion),
+        this.#isControlFlowExcluded(value) && (!typeOfExclusion || value!.value === typeOfExclusion),
     );
     const inputIsExcludedValue = inputsWithValues.length > 0 && controlFlowExcludedValues.length > 0;
 

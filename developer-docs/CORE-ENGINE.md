@@ -1,638 +1,557 @@
 # Core Engine (`@ironclad/rivet-core`)
 
-> The heart of Rivet. This package contains the execution engine, type system,
-> all built-in node types, serialization, and the plugin interface.
-> It has **zero workspace dependencies** and runs in both browser and Node.js.
+> Detailed internal reference for the shared runtime package.
+
+## Purpose
+
+`@ironclad/rivet-core` is the foundational package in the repo.
+
+It owns:
+
+- graph/project/node types
+- the `DataValue` type system
+- the execution engine
+- node registration and built-in nodes
+- built-in provider plugins
+- runtime integration contracts
+- serialization/deserialization
+- recording/playback support
+- public programmatic execution APIs
+
+Every other runtime-oriented package in the monorepo builds on this package.
 
 ## Source Layout
 
-```
+```text
 packages/core/src/
-├── index.ts                    # Re-exports from exports.ts
-├── exports.ts                  # Central public API surface
-├── model/                      # Core data structures & execution
-│   ├── DataValue.ts            # Type system (DataType, DataValue unions)
-│   ├── Project.ts              # Project, ProjectMetadata definitions
-│   ├── NodeGraph.ts            # NodeGraph, connections, graph metadata
-│   ├── NodeBase.ts             # ChartNode, NodeInputDefinition, NodeOutputDefinition
-│   ├── NodeImpl.ts             # NodeImpl abstract class (node implementation)
-│   ├── NodeRegistration.ts     # Global registry for node types
-│   ├── GraphProcessor.ts       # Main execution engine (~1900 lines)
-│   ├── ProcessContext.ts       # Runtime context for node execution
-│   ├── ProcessEvents.ts        # 23 named + 2 dynamic event types
-│   ├── RivetPlugin.ts          # Plugin interface definitions
-│   ├── PluginLoadSpec.ts       # Plugin load spec types (built-in, URI, package)
-│   ├── Settings.ts             # Settings type definitions
-│   ├── EditorDefinition.ts     # 19 editor types for node property UIs
-│   └── nodes/                  # 84 built-in node implementations
-│       ├── ChatNode.ts
-│       ├── TextNode.ts
-│       ├── IfNode.ts
-│       ├── LoopControllerNode.ts
-│       ├── CodeNode.ts
-│       ├── SubGraphNode.ts
-│       └── ... (84 files total)
-├── integrations/               # External service provider interfaces
-│   ├── LLMProvider.ts          # LLM chat completion abstraction
-│   ├── EmbeddingGenerator.ts   # Embedding/vector generation
-│   ├── DatasetProvider.ts      # Dataset CRUD operations
-│   ├── VectorDatabase.ts       # Vector DB operations
-│   ├── CodeRunner.ts           # Sandboxed code execution
-│   ├── AudioProvider.ts        # Audio playback/recording
-│   ├── Tokenizer.ts            # Token counting
-│   ├── integrations.ts         # Integration enable/disable helpers
-│   ├── enableIntegrations.ts   # Integration initialization
-│   ├── GptTokenizerTokenizer.ts # GPT tokenizer implementation
-│   ├── mcp/                    # Model Context Protocol support
-│   │   ├── MCPProvider.ts      # MCP provider interface
-│   │   ├── MCPBase.ts          # MCP base utilities
-│   │   └── MCPUtils.ts         # MCP helper functions
-│   └── openai/
-│       └── OpenAIEmbeddingGenerator.ts  # OpenAI embedding impl
-├── api/                        # Public API helpers
-│   ├── createProcessor.ts      # Main API: coreCreateProcessor(), coreRunGraph()
-│   ├── streaming.ts            # Event stream filtering & SSE
-│   └── looseDataValue.ts       # Type coercion for user-friendly API
-├── utils/
-│   └── serialization/          # Versioned project serialization
-│       ├── serialization.ts    # Version detection & dispatch
-│       ├── serialization_v1.ts # Legacy format
-│       ├── serialization_v2.ts
-│       ├── serialization_v3.ts
-│       └── serialization_v4.ts # Current format
-├── native/                     # Platform-specific implementations
-│   ├── nodeNativeApi.ts        # Node.js file I/O, shell access
-│   └── browserNativeApi.ts     # Browser fallback
-└── recording/                  # Execution recording & playback
+  api/           High-level APIs for processor creation and event streaming
+  integrations/  Interfaces and implementations for LLMs, datasets, MCP, code runner, etc.
+  model/         Graph model, processor, node contracts, plugin contracts, registration
+  native/        Browser/node native API abstractions
+  plugins/       Built-in provider/integration plugins
+  recording/     Execution recording and playback support
+  utils/         Serialization and shared helpers
+  vendor/        Vendored support code
+  exports.ts     Public export surface
+  index.ts       Top-level entry
+  plugins.ts     Built-in plugin export map
 ```
 
-## Type System (`DataValue.ts`)
+Important architectural note:
 
-Rivet has a rich, type-safe data type system. Every value flowing through a graph wire
-is a `DataValue` - a tagged union with a `type` discriminator and a `value` payload.
+- built-in capabilities are split between `model/nodes` and `plugins/`
+- not every feature node comes from the same registration path
 
-### Scalar Types (17 types)
+## Public API Surface
 
-| Type | TypeScript Value | Description |
-|------|-----------------|-------------|
-| `string` | `string` | Text data |
-| `number` | `number` | Numeric data |
-| `boolean` | `boolean` | True/false |
-| `date` | `string` | Date string |
-| `time` | `string` | Time string |
-| `datetime` | `string` | DateTime string |
-| `chat-message` | `ChatMessage` | LLM message (system/user/assistant/function) |
-| `control-flow-excluded` | `undefined \| 'loop-not-broken'` | Control flow marker |
-| `object` | `Record<string, unknown>` | JSON object |
-| `any` | `unknown` | Untyped data |
-| `gpt-function` | `{ name, description, parameters, strict? }` | Tool definition |
-| `vector` | `number[]` | Embedding vector |
-| `image` | `{ data: Uint8Array, mediaType }` | Image binary |
-| `binary` | `Uint8Array` | Raw bytes |
-| `audio` | `{ data: Uint8Array, ... }` | Audio binary |
-| `document` | `{ ... }` | Document with citations |
-| `graph-reference` | `{ graphId, graphName }` | Dynamic graph pointer |
+The published export surface is defined by [`packages/core/src/exports.ts`](../packages/core/src/exports.ts).
 
-> **Note**: There are exactly **17 scalar types** (not 18). The `scalarTypes` tuple
-> in `DataValue.ts` is exhaustively checked at compile time.
+That file re-exports:
 
-### Composite Types
+- model types and runtime contracts
+- the graph processor
+- built-in nodes
+- plugins
+- integration interfaces
+- recording APIs
+- execution streaming APIs
+- create/run processor helpers
 
-- **Arrays**: `string[]`, `number[]`, `chat-message[]`, etc. - Array of any scalar type
-- **Functions**: `fn<string>`, `fn<number[]>`, etc. - Lazy/deferred values evaluated on demand
-
-### Key Type Utilities
-
-```typescript
-// Type definition
-type DataValue = ScalarDataValue | ArrayDataValues | FunctionDataValues;
-
-// Type guards
-isScalarDataValue(value: DataValue): boolean
-isArrayDataValue(value: DataValue): boolean
-isFunctionDataValue(value: DataValue): boolean
-
-// Conversions
-unwrapDataValue(value: DataValue): ScalarOrArrayDataValue   // Evaluate lazy fns
-arrayizeDataValue(value: DataValue): ArrayDataValue          // Scalar → array
-getScalarTypeOf(type: DataType): ScalarDataType              // Extract base type
-getDefaultValue<T>(type: T): DataValueByType[T]              // Default for type
-
-// Coercion (for user-friendly API)
-type LooseDataValue = DataValue | string | number | boolean | unknown[] | Record<string, unknown>
-looseDataValuesToDataValues(input: Record<string, LooseDataValue>): Record<string, DataValue>
-```
-
-### Opaque ID Types (type safety)
-
-```typescript
-type NodeId = Opaque<string, 'NodeId'>       // Unique within a graph
-type PortId = Opaque<string, 'PortId'>       // Unique within a node
-type GraphId = Opaque<string, 'GraphId'>     // Unique within a project
-type ProjectId = Opaque<string, 'ProjectId'> // Unique project ID
-type ProcessId = Opaque<string, 'ProcessId'> // Unique per execution run
-```
-
-## Node System
-
-### ChartNode (Data Model)
-
-Every node in a graph is represented by a `ChartNode`:
-
-```typescript
-interface NodeBase {
-  type: string                    // Node type identifier (e.g., 'chat', 'text', 'if')
-  id: NodeId                     // Unique ID within the graph
-  title: string                  // Display name
-  description?: string           // User annotation
-  data: unknown                  // Node-type-specific configuration
-
-  // Execution modifiers
-  disabled?: boolean             // Skip this node entirely
-  isConditional?: boolean        // Expose an 'if' input port
-  isSplitRun?: boolean           // Run node once per array element (parallel)
-  isSplitSequential?: boolean    // Run node once per array element (sequential)
-  splitRunMax?: number           // Max parallel split-runs
-
-  // Visual properties
-  visualData: {
-    x: number; y: number         // Canvas position
-    width?: number               // Node width
-    color?: { border, bg }       // Custom colors
-    zIndex?: number              // Layer ordering
-  }
-
-  // Advanced
-  variants?: ChartNodeVariant[]  // Alternative configurations
-  tests?: NodeTestGroup[]        // Inline test specs
-}
-
-type ChartNode<Type, Data> = NodeBase & { type: Type; data: Data }
-```
-
-### Node Input/Output Definitions
-
-```typescript
-interface NodeInputDefinition {
-  id: PortId                      // Port identifier
-  title: string                   // Display label
-  dataType: DataType | DataType[] // Accepted type(s)
-  required?: boolean              // Must be connected
-  defaultValue?: unknown          // Fallback value
-  coerced?: boolean               // Auto type conversion
-  description?: string            // Tooltip
-}
-
-interface NodeOutputDefinition {
-  id: PortId
-  title: string
-  dataType: DataType | DataType[]
-  description?: string
-}
-
-// Special built-in port for conditional execution
-const IF_PORT = {
-  id: '$if' as PortId,
-  title: 'if',
-  dataType: 'boolean',
-  defaultValue: 'false'
-}
-```
-
-### NodeImpl (Implementation Interface)
-
-```typescript
-abstract class NodeImpl<T extends ChartNode> {
-  readonly chartNode: T           // The node data
-  get id(): NodeId
-  get type(): string
-  get title(): string
-  get visualData(): NodeBase['visualData']
-  get data(): T['data']          // Typed access to node config
-
-  // Required overrides
-  abstract getInputDefinitions(
-    connections: NodeConnection[],
-    nodes: Record<NodeId, ChartNode>,
-    project: Project,
-    referencedProjects: Record<ProjectId, Project>,  // Cross-project support
-  ): NodeInputDefinition[]
-
-  abstract getOutputDefinitions(
-    connections: NodeConnection[],
-    nodes: Record<NodeId, ChartNode>,
-    project: Project,
-    referencedProjects: Record<ProjectId, Project>,
-  ): NodeOutputDefinition[]
-
-  abstract process(inputData: Inputs, context: InternalProcessContext): Promise<Outputs>
-
-  // Auto-adds IF_PORT when node.isConditional is true
-  getInputDefinitionsIncludingBuiltIn(...): NodeInputDefinition[]
-
-  // UI (for app rendering)
-  abstract getEditors(context: RivetUIContext): EditorDefinition<T>[] | Promise<EditorDefinition<T>[]>
-  abstract getBody(context: RivetUIContext): NodeBody | Promise<NodeBody>
-  static getUIData(context: RivetUIContext): NodeUIData
-  static create(): T
-}
-```
-
-### Node Connections
-
-```typescript
-interface NodeConnection {
-  outputNodeId: NodeId    // Source node
-  inputNodeId: NodeId     // Target node
-  outputId: PortId        // Source port
-  inputId: PortId         // Target port
-}
-```
-
-### Built-in Node Categories (84 nodes)
-
-**I/O & Primitives**: Text, Number, Boolean, Object, Array, Image, Audio, Document, User Input, Prompt
-
-**LLM & AI**: Chat, ChatLoop, GPT Function/Tool, Get Embedding, Delegate Function Call, Assemble Prompt, Assemble Message
-
-**Data Extraction**: Extract JSON, Extract Regex, Extract YAML, Extract Object Path, Extract Markdown Code Blocks
-
-**Logic & Control Flow**: If, IfElse, Match, Loop Controller, Loop Until, Race Inputs, Coalesce, Pop (circuit breaker)
-
-**Graph Composition**: Graph Input, Graph Output, SubGraph, CallGraph, Graph Reference, List Graphs
-
-**Data Processing**: Chunk, Split, Slice, Join, Filter, Shuffle, Destructure, Passthrough, To JSON/YAML/Markdown Table/Tree, Context Node, Hash, Compare, Evaluate, Trim Chat Messages
-
-**Datasets & Vectors**: Create Dataset, Load Dataset, Append/Replace/Get Dataset Row, Get All Datasets, Dataset Nearest Neighbors, Vector Store, Vector Nearest Neighbors
-
-**State & Events**: Set/Get Global, Raise Event, Wait For Event
-
-**File I/O**: Read File, Read Directory, Read All Files
-
-**Advanced**: Code (arbitrary JS), HTTP Call, External Call, Abort Graph, Delay, Cron, Comment, Random Number, URL Reference, Play Audio, Referenced Graph Alias
-
-**MCP (Model Context Protocol)**: MCP Discovery, MCP Tool Call, MCP Get Prompt
-
-### Node Registration
-
-```typescript
-class NodeRegistration<NodeTypes, Nodes> {
-  register(definition: NodeDefinition<T>): NodeRegistration
-  registerPluginNode(definition: PluginNodeDefinition<T>, plugin: RivetPlugin): NodeRegistration
-  registerPlugin(plugin: RivetPlugin): void
-
-  create(type: NodeTypes): ChartNode          // Factory
-  createImpl(node: ChartNode): NodeImpl       // Implementation factory
-  getDisplayName(type: NodeTypes): string
-  isRegistered(type: NodeTypes): boolean
-  getNodeTypes(): NodeTypes[]
-  getPlugins(): RivetPlugin[]
-}
-
-// Singleton - all built-in nodes pre-registered
-export const globalRivetNodeRegistry = registerBuiltInNodes(new NodeRegistration())
-```
+For refactors, `exports.ts` is the API contract that downstream packages rely on.
 
 ## Graph Model
 
-### Project
+Core graph model types live in `model/`.
 
-```typescript
-type Project = {
-  metadata: ProjectMetadata
-  plugins?: PluginLoadSpec[]                    // Plugin load specs
-  graphs: Record<GraphId, NodeGraph>           // All graphs
-  data?: Record<DataId, string>                // Large data blobs
-  references?: ProjectReference[]              // Cross-project refs
-}
+Key concepts:
 
-type ProjectMetadata = {
-  id: ProjectId
-  title: string
-  description: string
-  mainGraphId?: GraphId                        // Entry point graph
-  path?: string                                // File system path
-  mcpServer?: MCP.Config                       // MCP server config
-}
-```
+- `Project`
+- `NodeGraph`
+- `ChartNode`
+- `NodeConnection`
+- `GraphId`, `NodeId`, `PortId`, `ProcessId`
 
-### NodeGraph
+Projects currently include:
 
-```typescript
-interface NodeGraph {
-  metadata?: {
-    id?: GraphId
-    name?: string
-    description?: string
-    attachedData?: AttachedData                // UI-only state
-  }
-  nodes: ChartNode[]                           // All nodes in graph
-  connections: NodeConnection[]                // All edges
-}
-```
+- metadata
+- graph map
+- optional plugin load specs
+- optional project references
+- optional metadata path
 
-## Execution Engine (`GraphProcessor`)
+Graphs include:
 
-The `GraphProcessor` class (~1900 lines) is the core of Rivet. It executes a graph by
-topologically processing nodes, resolving dependencies, and managing control flow.
+- graph metadata
+- node list
+- connection list
 
-### Public API
+## Data Type System
 
-```typescript
-class GraphProcessor {
-  constructor(project: Project, graphId?: GraphId,
-              registry?: NodeRegistration, includeTrace?: boolean)
+The type system lives in [`DataValue.ts`](../packages/core/src/model/DataValue.ts).
 
-  // Main execution
-  async processGraph(
-    context: ProcessContext,
-    inputs?: Record<string, DataValue>,
-    contextValues?: Record<string, DataValue>
-  ): Promise<GraphOutputs>
+### Scalar value families
 
-  // Control
-  async abort(successful?: boolean, error?: Error | string): void
-  pause(): void
-  resume(): void
+Current scalar types include:
 
-  // Events (Emittery-based)
-  on<K extends keyof ProcessEvents>(event: K, handler): void
-  async *events(): AsyncGenerator<ProcessEvent>
+- `any`
+- `boolean`
+- `string`
+- `number`
+- `date`
+- `time`
+- `datetime`
+- `chat-message`
+- `control-flow-excluded`
+- `object`
+- `gpt-function`
+- `vector`
+- `image`
+- `binary`
+- `audio`
+- `graph-reference`
+- `document`
 
-  // User interaction
-  onUserEvent(eventName: string, listener): void
-  userInput(nodeId: NodeId, values: StringArrayDataValue): void
+### Composite value families
 
-  // Extension
-  setExternalFunction(name: string, fn: ExternalFunction): void
-  preloadNodeData(nodeId: NodeId, data: Outputs): void
-  getDependencyNodesDeep(nodeId: NodeId): NodeId[]
+The type system also supports:
 
-  // Recording
-  async replayRecording(recorder: ExecutionRecorder): Promise<GraphOutputs>
+- array variants of scalar values
+- lazy `fn<...>` variants for deferred evaluation
 
-  // Properties
-  get isRunning(): boolean
-  slowMode: boolean                    // 250ms delays between nodes (testing)
-  runToNodeIds?: NodeId[]              // Run only up to these nodes
-  runFromNodeId?: NodeId               // Run starting from this node
-  recordingPlaybackChatLatency: number // Simulated latency for recording playback
-  warnOnInvalidGraph: boolean          // Warn instead of error on invalid graph
-}
-```
+### Key helpers
 
-### Execution Flow
+Important utilities defined in `DataValue.ts`:
 
-```
-1. INITIALIZATION (#initProcessState)
-   ├── Create node instances from registry
-   ├── Build connection lookup tables (input→output, output→input)
-   ├── Load & validate all input/output definitions
-   ├── Compute strongly connected components (Tarjan's SCC for cycle detection)
-   └── Initialize per-node execution state maps
+- `isScalarDataValue`
+- `isArrayDataValue`
+- `isFunctionDataValue`
+- `getScalarTypeOf`
+- `unwrapDataValue`
+- `arrayizeDataValue`
+- `getDefaultValue`
 
-2. START
-   ├── Emit 'start' and 'graphStart' events
-   ├── Identify start nodes (nodes with no input dependencies)
-   └── Queue start nodes for processing
+### Architectural significance
 
-3. DEPENDENCY RESOLUTION (#fetchNodeDataAndProcessNode)
-   ├── For each queued node:
-   │   ├── Recursively fetch all input dependencies
-   │   ├── Wait for upstream nodes to complete
-   │   └── Collect input DataValues from connected output ports
-   └── Once all inputs ready → process node
+This type system is not just validation metadata. It is used directly in:
 
-4. NODE PROCESSING (#processNode)
-   ├── Resolve conditional port ('if' check)
-   ├── Handle split-run (one execution per array element)
-   ├── Instantiate NodeImpl
-   ├── Emit 'nodeStart' event
-   ├── Call NodeImpl.process(inputs, context) → outputs
-   ├── Emit 'nodeFinish' event
-   ├── Store outputs
-   └── Queue dependent nodes
+- port compatibility
+- default-value generation
+- split-run behavior
+- lazy/deferred execution
+- control-flow propagation
+- output rendering and serialization
 
-5. CONTROL FLOW
-   ├── Loops: LoopController tracks iterations, clears loop body, re-queues
-   ├── Conditionals: If/IfElse emit 'control-flow-excluded' to skip branches
-   ├── Races: RaceInputs completes when first input resolves, aborts others
-   ├── Exclusion: 'control-flow-excluded' values propagate downstream
-   └── Abort: AbortGraph node terminates the entire execution
+The `control-flow-excluded` type in particular is a core execution mechanism, not just a marker type.
 
-6. COMPLETION
-   ├── Collect GraphOutput node values → final result
-   ├── Emit 'graphFinish', 'done', 'finish' events
-   └── Return Record<string, DataValue>
-```
+## Node System
 
-### Concurrency Model
+There are three main node-related concepts:
 
-- Uses `p-queue` with effectively infinite concurrency (nodes run as soon as inputs are ready)
-- Execution is **dataflow-driven**: nodes fire when all inputs are available
-- `isSplitRun` enables data parallelism (one node instance per array element)
-- `isSplitSequential` enforces sequential processing of array elements
-- `splitRunMax` caps maximum parallel split-run instances
+1. `ChartNode`: serialized data model for a node in a graph
+2. `NodeImpl`: class-based execution/UI contract used by built-in nodes
+3. `PluginNodeImpl`: object-based execution/UI contract used by plugin nodes
 
-### Error Handling
+### Built-in nodes
 
-- **Per-node errors**: A node failure doesn't abort the whole graph
-- **Error propagation**: Failed nodes block their dependents
-- **Error recovery**: Nodes with `useErrorOutput` can catch errors and continue
-- **AggregateError**: Multiple node failures collected into final error
+Built-in node registration is centered in [`Nodes.ts`](../packages/core/src/model/Nodes.ts).
 
-### ProcessContext
+The current built-in node list is registered through `registerBuiltInNodes(...)`, which populates:
 
-The runtime environment provided to every node during execution:
+- `globalRivetNodeRegistry`
+- built-in node constructors
+- built-in node type union information
 
-```typescript
-type ProcessContext = {
-  settings: Settings                    // API keys, timeouts, headers
-  nativeApi?: NativeApi                 // File I/O, shell access
-  datasetProvider?: DatasetProvider     // Dataset CRUD
-  mcpProvider?: MCPProvider             // MCP integration
-  audioProvider?: AudioProvider         // Audio playback
-  tokenizer?: Tokenizer                 // Token counting
-  codeRunner?: CodeRunner              // Sandboxed code execution
-  projectReferenceLoader?: ProjectReferenceLoader
-  projectPath?: string
-}
+The repo currently has 84 files under `packages/core/src/model/nodes`.
 
-// Internal (extended context passed to NodeImpl.process)
-type InternalProcessContext = ProcessContext & {
-  executor: 'nodejs' | 'browser'
-  project: Project
-  referencedProjects: Record<ProjectId, Project>  // Cross-project refs
-  signal: AbortSignal                   // Cancellation
-  processId: ProcessId
-  contextValues: Record<string, DataValue>
-  graphInputs: Record<string, DataValue>       // Inputs to current graph
-  graphOutputs: Record<string, DataValue>      // Outputs from current graph
-  graphInputNodeValues: Record<string, DataValue>  // Raw input node values
-  tokenizer: Tokenizer                 // Required (not optional)
-  node: ChartNode                      // Current node being processed
-  attachedData: AttachedNodeData       // Transient per-node execution data
+### Plugin nodes
 
-  // Inter-node communication
-  raiseEvent(name: string, data?: DataValue): void
-  waitEvent(name: string): Promise<DataValue | undefined>
+Plugin nodes are registered through `NodeRegistration.registerPluginNode(...)`.
 
-  // Global state (shared across all nodes and subgraphs)
-  getGlobal(id: string): ScalarOrArrayDataValue | undefined
-  setGlobal(id: string, value: ScalarOrArrayDataValue): void
-  waitForGlobal(id: string): Promise<ScalarOrArrayDataValue>
+They are wrapped into a generated `PluginNodeImplClass` so they can participate in the same runtime paths as built-in nodes.
 
-  // Subgraph execution
-  createSubProcessor(graphId?: GraphId, opts?): GraphProcessor
+### Node UI contracts
 
-  // Streaming
-  onPartialOutputs?(outputs: Outputs): void
+Core also defines UI-facing contracts used by the app:
 
-  // Extension
-  externalFunctions: Record<string, ExternalFunction>
-  executionCache: Map<string, unknown>  // Per-execution cache
-  getPluginConfig(name: string): string | undefined
-  codeRunner: CodeRunner               // Required (not optional)
-  trace(message: string): void         // Emit trace message
-  abortGraph(error?: Error | string): void  // Abort current graph
-  requestUserInput(inputs: string[], renderingType: string): Promise<StringArrayDataValue>
-}
-```
+- `EditorDefinition`
+- `NodeBody`
+- `NodeBodySpec`
+- `NodeUIData`
 
-### Event System (25+ event types)
+That is why core is not purely headless business logic. It also carries enough metadata for the editor to render and edit nodes.
 
-```typescript
-type ProcessEvents = {
-  // Lifecycle
-  start: { project, startGraph, inputs, contextValues }
-  graphStart: { graph, inputs }
-  graphFinish: { graph, outputs }
-  graphError: { graph, error }
-  graphAbort: { successful, graph, error? }
-  done: { results }
-  finish: void
-  error: { error }
+## Node Registration
 
-  // Node lifecycle
-  nodeStart: { node, inputs, processId }
-  nodeFinish: { node, outputs, processId }
-  nodeError: { node, error, processId }
-  nodeExcluded: { node, processId, inputs, outputs, reason }
-  nodeOutputsCleared: { node, processId? }
+[`NodeRegistration.ts`](../packages/core/src/model/NodeRegistration.ts) is the registry and factory layer.
 
-  // Streaming
-  partialOutput: { node, outputs, index, processId }
+Current responsibilities:
 
-  // User interaction
-  userInput: { node, inputStrings, callback, processId, renderingType }
+- register built-in nodes
+- register plugin nodes
+- register whole plugins
+- create serialized node instances
+- create runtime `NodeImpl` instances
+- provide dynamic lookup for unknown-at-compile-time node types
+- provide plugin ownership lookup for a node type
 
-  // Control
-  pause: void
-  resume: void
-  trace: string
+Key APIs:
 
-  // State
-  globalSet: { id, value, processId }
-  newAbortController: AbortController
-  'userEvent:${string}': DataValue | undefined
-  'globalSet:${string}': ScalarOrArrayDataValue | undefined
-}
-```
+- `register(...)`
+- `registerPluginNode(...)`
+- `registerPlugin(...)`
+- `create(...)`
+- `createDynamic(...)`
+- `createImpl(...)`
+- `createDynamicImpl(...)`
+- `getPluginFor(...)`
+- `getPlugins()`
 
-## Public API (`createProcessor.ts`)
+Architectural significance:
 
-The main entry points for running graphs programmatically:
+- this registry is the bridge between serialized graph data and executable node implementations
+- the app, node package, and sidecar all depend on this working consistently
+- plugin loading mutates runtime availability through this registry
 
-```typescript
-// Full control: create processor, attach events, then run
-function coreCreateProcessor(project: Project, options: RunGraphOptions) {
-  return {
-    processor: GraphProcessor,
-    inputs: DataValue[],
-    contextValues: DataValue[],
-    getEvents(spec): AsyncGenerator<RivetEventStreamEventInfo>,
-    getSSEStream(spec): ReadableStream<Uint8Array>,
-    streamNode(nodeIdOrTitle): AsyncGenerator<Outputs>,
-    async run(): Promise<Record<string, DataValue>>
-  }
-}
+## Built-In Plugins
 
-// Simple: just run and get results
-async function coreRunGraph(
-  project: Project,
-  options: RunGraphOptions
-): Promise<Record<string, DataValue>>
-```
+Built-in plugins are exported from [`packages/core/src/plugins.ts`](../packages/core/src/plugins.ts).
 
-### RunGraphOptions
+Current built-in plugin families present in the repo:
 
-```typescript
-type RunGraphOptions = {
-  graph?: string                          // Graph ID or name
-  inputs?: Record<string, LooseDataValue>
-  context?: Record<string, LooseDataValue>
+- Anthropic
+- Autoevals
+- AssemblyAI
+- Pinecone
+- Hugging Face
+- Gentrace
+- OpenAI
+- Google
 
-  // Providers
-  nativeApi?: NativeApi
-  datasetProvider?: DatasetProvider
-  audioProvider?: AudioProvider
-  mcpProvider?: MCPProvider
-  tokenizer?: Tokenizer
-  codeRunner?: CodeRunner
+These plugins contribute:
 
-  // Extension
-  externalFunctions?: Record<string, ExternalFunction>
-  onUserEvent?: Record<string, (data: DataValue) => void>
-  abortSignal?: AbortSignal
-  registry?: NodeRegistration
+- config specs
+- context menu groups
+- plugin nodes
+- provider-specific execution behavior
 
-  // Settings
-  openAiKey?: string
-  openAiOrganization?: string
-  openAiEndpoint?: string
-  pluginEnv?: Record<string, string>
-  pluginSettings?: Record<string, any>
+This is why "nodes" and "plugins" in core cannot be treated as separate, non-overlapping concerns.
 
-  // Event handlers
-  onStart?, onNodeStart?, onNodeFinish?, onNodeError?,
-  onDone?, onTrace?, onPartialOutput?, ...
-}
-```
+## Execution Engine
+
+The main execution engine is [`GraphProcessor.ts`](../packages/core/src/model/GraphProcessor.ts).
+
+### What `GraphProcessor` owns
+
+At a high level, it owns:
+
+- graph preprocessing
+- node instance creation
+- dependency resolution
+- queue-driven node scheduling
+- control-flow exclusion
+- split-run handling
+- subgraph execution
+- pause/resume/abort
+- user input requests
+- global state/event propagation
+- recording playback
+- process event emission
+
+### Current state model inside `GraphProcessor`
+
+The class maintains both:
+
+- per-instance state, such as project/graph/registry/node-instance maps
+- per-run state, such as results, visited nodes, abort controllers, globals, loaded references, and queue state
+
+This distinction is important because some state is reused across runs and some is rebuilt on each `processGraph(...)`.
+
+### Preprocessing
+
+Before execution, `GraphProcessor`:
+
+- loads project references
+- calls `preprocessGraphState(...)`
+- builds node instances
+- builds connection maps
+- computes port definitions
+- computes strongly connected components
+
+The SCC and preprocessing work are significant because they shape cycle handling and graph validation before the main execution loop.
+
+### Event system
+
+`GraphProcessor` uses `Emittery` and defines a rich `ProcessEvents` map.
+
+Current event families include:
+
+- graph lifecycle events
+- node lifecycle events
+- partial output events
+- user-input events
+- pause/resume/abort events
+- trace events
+- global-set events
+- dynamic `userEvent:${string}` and `globalSet:${string}` channels
+
+The processor also exposes:
+
+- direct listener methods (`on`, `off`, `once`, `onAny`, `offAny`)
+- `events()` async generator for streaming-style consumption
+- dedicated `onUserEvent(...)` and `offUserEvent(...)` helpers
+
+### Scheduling model
+
+The processor uses `p-queue` with effectively unbounded concurrency for queued node execution.
+
+Execution is dataflow-driven:
+
+- nodes are queued when their dependencies become available
+- completion of one node can trigger downstream nodes
+- split-run can further fan a node into multiple executions
+
+### Control-flow model
+
+Control flow is implemented through data propagation rather than separate wire types.
+
+Important mechanisms:
+
+- built-in conditional port `IF_PORT`
+- `control-flow-excluded` values
+- special handling for loops and certain nodes that are allowed to consume excluded values
+
+The central check is currently internalized in `#excludedDueToControlFlow(...)`.
+
+### Subgraphs
+
+Subgraph execution uses child `GraphProcessor` instances created by `#createSubProcessor(...)`.
+
+Subprocessors:
+
+- inherit executor mode
+- share execution cache
+- share globals
+- share external functions
+- propagate events back to the parent
+- participate in root-level pause/resume/abort behavior
+
+This means subgraphs are not a separate execution engine. They are nested processors wired into the same event and lifecycle model.
+
+### User input
+
+User-input nodes are supported directly by the processor.
+
+Current behavior:
+
+- a node requests user input through `requestUserInput(...)` in process context
+- processor stores pending resolvers by `NodeId`
+- processor emits a `userInput` event
+- callers respond through `processor.userInput(nodeId, values)`
+
+This is how the app bridges execution to the user-input modal.
+
+### Globals and user events
+
+`GraphProcessor` also provides lightweight runtime communication channels:
+
+- graph-global values via `getGlobal`, `setGlobal`, `waitForGlobal`
+- user events via `raiseEvent(...)` and `waitEvent(...)`
+
+These are shared across subgraphs because subprocessors inherit the same root structures.
+
+## Split-Run Execution
+
+Split-run logic has been extracted into [`SplitRunProcessor.ts`](../packages/core/src/model/SplitRunProcessor.ts).
+
+### Why it matters
+
+This is one of the clearest recent refactor seams in core:
+
+- `GraphProcessor` still decides when split-run is needed
+- the actual split-run loop/aggregation lives in a separate module
+
+### Current split-run behavior
+
+`processSplitRunNode(...)`:
+
+- pulls input values from injected dependencies
+- determines split count from array-valued inputs and `splitRunMax`
+- emits `nodeStart`
+- runs sequentially when `isSplitSequential` is set
+- otherwise runs in parallel
+- emits partial outputs for each split item
+- aggregates split outputs back into array outputs
+- emits `nodeFinish` or routes errors back through the injected `nodeErrored(...)`
+
+### Architectural significance
+
+The split-run module is intentionally dependency-injected through `SplitRunDeps`.
+
+That means:
+
+- split-run policy is still coupled to processor semantics
+- but the orchestration details are now testable/refactorable separately
+
+## Process Context
+
+The runtime context exposed to nodes is defined in [`ProcessContext.ts`](../packages/core/src/model/ProcessContext.ts).
+
+There are two layers:
+
+### `ProcessContext`
+
+Caller-provided execution environment:
+
+- settings
+- native API
+- dataset provider
+- MCP provider
+- audio provider
+- tokenizer
+- code runner
+- project reference loader
+- project path
+- optional chat-endpoint resolution hook
+
+### `InternalProcessContext`
+
+Processor-built node execution context:
+
+- executor mode
+- current project
+- referenced projects
+- abort signal
+- process ID
+- context values
+- graph inputs/outputs
+- graph input-node values
+- current node
+- attached execution data
+- event/global helpers
+- subprocessor factory
+- partial-output callback
+- external functions
+- execution cache
+- plugin config lookup
+- code runner
+- trace and abort helpers
+- user-input request helper
+
+This context is one of the most important extension surfaces in the runtime.
+
+## Programmatic API
+
+The high-level API lives in [`packages/core/src/api/createProcessor.ts`](../packages/core/src/api/createProcessor.ts).
+
+### `coreCreateProcessor(...)`
+
+Returns:
+
+- `processor`
+- normalized `inputs`
+- normalized `contextValues`
+- `getEvents(...)`
+- `getSSEStream(...)`
+- `streamNode(...)`
+- `run()`
+
+This is the main composition API used by higher-level packages.
+
+### `coreRunGraph(...)`
+
+Thin convenience wrapper around `coreCreateProcessor(...).run()`.
+
+### `RunGraphOptions`
+
+Current options include:
+
+- graph selection
+- inputs and context
+- native/dataset/audio/MCP providers
+- external functions
+- user-event handlers
+- abort signal
+- registry override
+- trace toggle
+- chat-endpoint resolver
+- tokenizer
+- code runner
+- project path
+- project reference loader
+- full settings payload
+- generated event callbacks like `onNodeStart`, `onGraphFinish`, etc.
+
+This option type is much broader than "just inputs and settings."
+
+## Event Streaming API
+
+Streaming helpers live in [`packages/core/src/api/streaming.ts`](../packages/core/src/api/streaming.ts).
+
+Current functionality:
+
+- `getProcessorEvents(...)` exposes filtered async iteration over processor events
+- `getProcessorSSEStream(...)` adapts that to SSE wire format
+- `getSingleNodeStream(...)` streams partial output for a single node until completion
+
+These APIs are used directly by higher-level surfaces like the CLI and Node-serving flows.
 
 ## Serialization
 
-Projects are serialized to JSON with versioned formats (v1-v4):
+Serialization lives in [`packages/core/src/utils/serialization/`](../packages/core/src/utils/serialization/).
 
-```typescript
-// Deserialize (auto-detects version)
-function deserializeProject(content: string): [Project, AttachedData]
-function loadProjectFromString(content: string): Project
+### Current behavior
 
-// Serialize
-function serializeProject(project: Project, attachedData?: AttachedData): string
-```
+- version detection happens centrally
+- project and graph deserialization dispatch by detected version
+- v4 is the active serializer/deserializer path
+- dataset serialization is handled separately through v4 dataset helpers
 
-The serialization system handles backward compatibility automatically. Version detection
-examines the JSON structure to determine which deserializer to use.
+### Architectural significance
 
-## Key Architectural Patterns
+Serialization is not just persistence. It is also the compatibility boundary for:
 
-### 1. Control Flow via Data Types
-Instead of explicit control flow wires, Rivet uses a special `control-flow-excluded`
-data type that propagates through the graph to mark excluded branches.
+- old project files
+- graph import/export
+- app save/load behavior
+- Trivet/project attached data handling
 
-### 2. Lazy Evaluation with Function DataValues
-`fn<T>` data values wrap computations that are only evaluated when consumed.
-This enables deferred/on-demand processing.
+Any structural refactor that changes graph/project/node shape must be reviewed together with serialization.
 
-### 3. Composition over Inheritance
-Nodes are composed from data (`ChartNode`) + implementation (`NodeImpl`), registered
-in a type-safe registry rather than using class hierarchies.
+## Recording and Playback
 
-### 4. Strongly Connected Components for Cycle Handling
-Tarjan's SCC algorithm detects cycles in the graph. Loops must use the explicit
-`LoopController` node - cycles in the graph structure are errors.
+Core includes execution recording support under `recording/` and exports:
 
-### 5. Event-Driven Architecture
-The processor uses Emittery for async event emission, supporting both direct
-event handlers and async generator-based event streaming.
+- `ExecutionRecorder`
+- recorded event types
+- replay support used by `GraphProcessor.replayRecording(...)`
+
+The app relies on this for execution replay and recording-driven UX.
+
+## Current Refactor Seams
+
+The most meaningful seams in core right now are:
+
+- `GraphProcessor` vs `SplitRunProcessor`
+- `NodeRegistration` vs concrete node/plugin definitions
+- `ProcessContext` and `buildNodeProcessContext(...)`
+- serialization modules by version
+- `exports.ts` as the public boundary
+- `plugins.ts` plus `model/Nodes.ts` as the two main capability registries
+
+## Known Architectural Tensions
+
+Visible from the current code:
+
+- `GraphProcessor` still carries a very large amount of orchestration logic.
+- the runtime mixes execution concerns and editor-facing metadata concerns in the same package.
+- plugin and built-in node registration both affect global registry state.
+- subprocessor wiring is powerful but increases hidden coupling between parent/child execution.
+- control-flow semantics are powerful but non-obvious because they are data-type-driven.
+
+## Practical Refactor Guidance
+
+- Keep `exports.ts` stable unless downstream breakage is intended.
+- Treat graph shape, serializer shape, and app save/load behavior as a single change set.
+- When changing execution behavior, review `GraphProcessor`, `SplitRunProcessor`, and streaming APIs together.
+- When changing node/plugin contracts, review both app editor usage and runtime construction paths.
+- Be careful with registry-global behavior; several packages assume built-ins are present and plugins are additive/resettable.

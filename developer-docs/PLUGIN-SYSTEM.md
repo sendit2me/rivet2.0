@@ -1,415 +1,291 @@
 # Plugin System
 
-> Rivet's plugin system allows extending the IDE with custom node types,
-> integrations, and configuration. Plugins can be built-in, loaded from URLs,
-> or installed from npm packages.
+> Detailed internal reference for plugin contracts and loading behavior across core, app, and sidecar flows.
 
-## Plugin Interface (`RivetPlugin`)
+## Purpose
 
-```typescript
-type RivetPlugin = {
-  id: string                              // Unique plugin identifier
-  name?: string                           // Human-readable display name
+Rivet plugins extend the system by registering node types and exposing configuration and categorization metadata.
 
-  // Register custom nodes
-  register?: (register: (def: PluginNodeDefinition) => void) => void
+The plugin system spans multiple packages:
 
-  // Configuration schema (displayed in Settings)
-  configSpec?: RivetPluginConfigSpecs
-  configPage?: RivetPluginConfigPage      // UI grouping/sections
+- core defines plugin contracts and registry behavior
+- the app loads plugin specs from projects and mutates the global registry
+- the app-executor and node runtime must construct compatible registries for execution
 
-  // Context menu groups for node picker
-  contextMenuGroups?: Array<{
-    id: string
-    label: string
-  }>
-}
-```
+Because of that, plugin work is cross-package by default.
+
+## Core Contracts
+
+The main type definitions live in:
+
+- [`packages/core/src/model/RivetPlugin.ts`](../packages/core/src/model/RivetPlugin.ts)
+- [`packages/core/src/model/PluginLoadSpec.ts`](../packages/core/src/model/PluginLoadSpec.ts)
+- [`packages/core/src/model/NodeDefinition.ts`](../packages/core/src/model/NodeDefinition.ts)
+- [`packages/core/src/model/NodeRegistration.ts`](../packages/core/src/model/NodeRegistration.ts)
+- [`packages/core/src/model/NodeImpl.ts`](../packages/core/src/model/NodeImpl.ts)
+
+## `RivetPlugin`
+
+Current `RivetPlugin` shape:
+
+- `id`
+- optional `name`
+- optional `register(registerFn)`
+- optional `configSpec`
+- optional `configPage`
+- optional `contextMenuGroups`
+
+### What each field does
+
+- `id`: stable plugin identity used in project specs and UI state
+- `name`: human-facing display name
+- `register(...)`: contributes plugin node definitions to a registry
+- `configSpec`: declares plugin-level configuration fields
+- `configPage`: controls grouping/description in settings UI
+- `contextMenuGroups`: adds node-picker grouping metadata
 
 ## Plugin Configuration
 
-Plugins can define configuration fields that appear in the Settings UI:
+Plugin configuration specs are declared through `configSpec`.
 
-```typescript
-type PluginConfigurationSpec =
-  | StringPluginConfigurationSpec
-  | SecretPluginConfigurationSpec
-  | PluginConfigurationSpecBase<number>
-  | PluginConfigurationSpecBase<boolean>
+### Supported config shape families
 
-type StringPluginConfigurationSpec = {
-  type: 'string' | 'secret'
-  default?: string
-  label: string
-  description?: string
-  helperText?: string
-  pullEnvironmentVariable?: true | string  // Auto-load from env var
-}
-```
+Current families are:
 
-**Environment variable pull-through**: When `pullEnvironmentVariable` is set, the
-plugin config will automatically read from the specified environment variable.
-This is how API keys (like `OPENAI_API_KEY`) are typically configured.
+- string
+- secret
+- number-like base spec
+- boolean-like base spec
 
-Configuration values are accessible during execution via:
-```typescript
-context.getPluginConfig('configKey')  // In node process() method
-```
+For string/secret values, `pullEnvironmentVariable` can be used to request env-backed defaults.
 
-## Custom Node Definition
+### Runtime access
 
-```typescript
-type PluginNodeDefinition<T extends ChartNode> = {
-  impl: PluginNodeImpl<T>
-  displayName: string
-}
+At execution time, nodes read config through:
 
-interface PluginNodeImpl<T extends ChartNode> {
-  // Port definitions (can be dynamic based on config + connections)
-  getInputDefinitions(
-    data: T['data'],
-    connections: NodeConnection[],
-    nodes: Record<NodeId, ChartNode>,
-    project: Project
-  ): NodeInputDefinition[]
+- `context.getPluginConfig(name)`
 
-  getOutputDefinitions(
-    data: T['data'],
-    connections: NodeConnection[],
-    nodes: Record<NodeId, ChartNode>,
-    project: Project
-  ): NodeOutputDefinition[]
+That helper is populated by `GraphProcessor` using:
 
-  // Execution logic
-  process(
-    data: T['data'],
-    inputData: Inputs,
-    context: InternalProcessContext
-  ): Promise<Outputs>
+- the plugin owning the node type
+- runtime settings
+- config/env fallback logic from core utilities
 
-  // UI configuration
-  getEditors(data: T['data'], context: RivetUIContext): EditorDefinition<T>[]
-  getBody(data: T['data'], context: RivetUIContext): NodeBody | Promise<NodeBody>
-  create(): T
-  getUIData(context: RivetUIContext): NodeUIData
-}
-```
+### App integration
 
-### Editor Definitions
+The app also hydrates some plugin settings from environment variables through Tauri-side helpers when available.
 
-Plugins define property editors for the node's settings panel. All editors share
-common props (`label`, `helperMessage?`, `autoFocus?`, `hideIf?`, `disableIf?`).
+That means config fallback behavior is partly a core concern and partly an app/platform concern.
 
-There are **19 editor types** (defined in `EditorDefinition.ts`):
+## Plugin Node Contracts
 
-```typescript
-type EditorDefinition<T extends ChartNode> =
-  | StringEditorDefinition<T>            // 'string' - text input (with optional useInputToggle, placeholder, maxLength)
-  | NumberEditorDefinition<T>            // 'number' - numeric input (min, max, step, allowEmpty)
-  | ToggleEditorDefinition<T>            // 'toggle' - boolean toggle
-  | DropdownEditorDefinition<T>          // 'dropdown' - select from options [{value, label}]
-  | CodeEditorDefinition<T>              // 'code' - Monaco editor (language, theme, height)
-  | ColorEditorDefinition<T>             // 'color' - color picker
-  | CustomEditorDefinition<T>            // 'custom' - custom editor component (customEditorId)
-  | GraphSelectorEditorDefinition<T>     // 'graphSelector' - pick a graph from the project
-  | DataTypeSelectorEditorDefinition<T>  // 'dataTypeSelector' - pick a DataType
-  | DatasetSelectorEditorDefinition<T>   // 'datasetSelector' - pick a DatasetId
-  | AnyDataEditorDefinition<T>           // 'anyData' - generic data editor
-  | FileBrowserEditorDefinition<T>       // 'fileBrowser' - file picker (DataRef + mediaType)
-  | FilePathBrowserEditorDefinition<T>   // 'filePathBrowser' - file path string picker
-  | DirectoryBrowserEditorDefinition<T>  // 'directoryBrowser' - directory path picker
-  | ImageBrowserEditorDefinition<T>      // 'imageBrowser' - image picker (DataRef + mediaType)
-  | KeyValuePairEditorDefinition<T>      // 'keyValuePair' - list of {key, value} pairs
-  | StringListEditorDefinition<T>        // 'stringList' - list of strings
-  | EditorDefinitionGroup<T>             // 'group' - collapsible group of nested editors
-  | DynamicEditorDefinition<T>           // 'dynamic' - editor type resolved at runtime
-```
+Plugins provide nodes via `PluginNodeDefinition<T>`.
 
-Most editors support `useInputToggleDataKey` - a boolean data key that, when true,
-hides the editor and exposes the value as an input port instead.
+That definition contains:
 
-### NodeBody
+- `impl`
+- `displayName`
 
-The `getBody` method returns the text displayed on the node's body in the graph editor:
+### `PluginNodeImpl`
 
-```typescript
-type NodeBody = string | NodeBodySpec | NodeBodySpec[] | undefined
+Plugin node implementations are object-based and currently provide:
 
-type NodeBodySpec = NodeBodySpecBase & (PlainNodeBodySpec | MarkdownNodeBodySpec | ColorizedNodeBodySpec)
+- `getInputDefinitions(...)`
+- `getOutputDefinitions(...)`
+- `process(...)`
+- `getEditors(...)`
+- `getBody(...)`
+- `create()`
+- `getUIData(...)`
 
-type NodeBodySpecBase = {
-  fontSize?: number
-  fontFamily?: 'monospace' | 'sans-serif'
-}
+Unlike built-in nodes, plugin nodes do not subclass `NodeImpl` directly. They are wrapped by the registry into `PluginNodeImplClass`.
 
-// Variants:
-type PlainNodeBodySpec = { type?: 'plain', text: string }
-type MarkdownNodeBodySpec = { type: 'markdown', text: string }
-type ColorizedNodeBodySpec = { type: 'colorized', text: string, language: string, theme?: string }
-```
+## Registry Behavior
 
-> **Note**: `getBody` can also return `Promise<NodeBody>` for async body generation.
+`NodeRegistration` is the bridge between plugin declarations and executable nodes.
 
-### NodeUIData
+### Relevant APIs
 
-Controls how the node appears in the UI:
+- `register(...)`
+- `registerPluginNode(...)`
+- `registerPlugin(...)`
+- `create(...)`
+- `createDynamic(...)`
+- `createImpl(...)`
+- `createDynamicImpl(...)`
+- `getPluginFor(...)`
+- `getPlugins()`
 
-```typescript
-type NodeUIData = {
-  group: string | string[]       // Category in node picker
-  contextMenuTitle?: string      // Override in context menu
-  infoBoxTitle?: string          // Info panel title
-  infoBoxBody?: string           // Info panel description
-}
-```
+### Important behavior
+
+- duplicate node types are rejected
+- plugin node registration creates a generated wrapper class
+- registry stores plugin ownership per node type
+- runtime execution later uses that plugin ownership to resolve config for a node
+
+### Why `createDynamicImpl(...)` matters
+
+The app uses `createDynamicImpl(...)` in several places where node types are not fully known at compile time or may come from plugins.
+
+So plugin support is not just "load the node in the picker." It also affects many editor/runtime utility paths.
 
 ## Plugin Load Specs
 
-Projects specify which plugins to load:
+Projects store plugin intent via `PluginLoadSpec`.
 
-```typescript
-type BuiltInPluginLoadSpec = {
-  type: 'built-in'
-  id: string
-  name: string                // Human-readable name (required for built-ins)
-}
+Current load-spec families:
 
-type URIPluginLoadSpec = {
-  type: 'uri'
-  id: string
-  uri: string                 // URL to dynamically import
-}
+- built-in
+- uri
+- package
 
-type PackagePluginLoadSpec = {
-  type: 'package'
-  id: string
-  package: string             // npm package name
-  tag: string                 // npm dist-tag (e.g. "latest")
-}
+### Built-in plugin spec
 
-type PluginLoadSpec = BuiltInPluginLoadSpec | URIPluginLoadSpec | PackagePluginLoadSpec
-```
+Contains:
 
-## Plugin Loading Flow (in the App)
+- `type: 'built-in'`
+- `id`
+- `name`
 
-### 1. Built-in Plugins
+### URI plugin spec
 
-```typescript
-// Direct import from @ironclad/rivet-core
-const plugin = rivetPlugins[spec.id];
-globalRivetNodeRegistry.registerPlugin(plugin);
-```
+Contains:
 
-### 2. URI Plugins (Dynamic Import)
+- `type: 'uri'`
+- `id`
+- `uri`
 
-```typescript
-// Load JavaScript module from URL
-const module = await import(/* @vite-ignore */ spec.uri);
-const plugin = module.default(Rivet);  // Plugin factory receives Rivet API
-globalRivetNodeRegistry.registerPlugin(plugin);
-```
+### Package plugin spec
 
-### 3. Package Plugins (npm)
+Contains:
 
-Installation flow:
-1. Download from npm registry
-2. Extract tarball via Tauri command (`extract_package_plugin_tarball`)
-3. Run `npm install` for dependencies (via pnpm sidecar)
-4. Load `dist/index.js` as ESM module
-5. Cache in `~/.local/share/[app]/plugins/[package]-[tag]/`
-6. Check for updates via semver comparison on subsequent loads
+- `type: 'package'`
+- `id`
+- `package`
+- `tag`
 
-```typescript
-async function loadPackagePlugin(spec: PackagePluginLoadSpec) {
-  const pluginDir = await getPluginCacheDir(spec);
+## Built-In Plugins
 
-  if (!await isPluginCached(pluginDir)) {
-    const tarball = await downloadFromNpm(spec.package, spec.tag);
-    await extractTarball(tarball, pluginDir);
-    await installDependencies(pluginDir);
-  }
+Built-in plugins are exported from core and currently include:
 
-  const module = await import(path.join(pluginDir, 'dist/index.js'));
-  return module.default(Rivet);
-}
-```
+- `anthropic`
+- `autoevals`
+- `assemblyAi`
+- `pinecone`
+- `huggingFace`
+- `gentrace`
+- `openai`
+- `google`
 
-## Node Registration
+Their implementations live under [`packages/core/src/plugins/`](../packages/core/src/plugins/).
 
-All nodes (built-in + plugin) are tracked in `NodeRegistration`:
+These plugins are not "special cased out of band." They still participate via the plugin contract and registry.
 
-```typescript
-class NodeRegistration<NodeTypes, Nodes> {
-  // Register a built-in node
-  register(definition: NodeDefinition<T>): NodeRegistration
+## App-Side Plugin Loading
 
-  // Register a plugin node (associated with its plugin)
-  registerPluginNode(definition: PluginNodeDefinition<T>, plugin: RivetPlugin): NodeRegistration
+The app's main plugin-loading path is [`useProjectPlugins.ts`](../packages/app/src/hooks/useProjectPlugins.ts).
 
-  // Register an entire plugin (calls plugin.register())
-  registerPlugin(plugin: RivetPlugin): void
+### Current sequence
 
-  // Factory methods
-  create(type: NodeTypes): ChartNode          // Create node data
-  createImpl(node: ChartNode): NodeImpl       // Create node implementation
-  createDynamicImpl(node: ChartNode): NodeImpl // For unknown types
+1. read plugin specs from `projectPluginsState`
+2. reset the global node registry to built-ins only
+3. seed app plugin state with loading metadata
+4. load each plugin one by one by spec type
+5. record success/failure in `pluginsState`
+6. show aggregate failure toasts
+7. register successfully loaded plugins into `globalRivetNodeRegistry`
+8. increment `pluginRefreshCounterState`
 
-  // Queries
-  getDisplayName(type: NodeTypes): string
-  isRegistered(type: NodeTypes): boolean
-  getNodeTypes(): NodeTypes[]
-  getPlugins(): RivetPlugin[]
-}
-```
+### Implications
 
-The global singleton:
-```typescript
-export const globalRivetNodeRegistry = registerBuiltInNodes(new NodeRegistration())
-```
+- plugin availability is rebuilt whenever project plugin specs or retry state changes
+- registry state is mutable and project-dependent
+- editor behavior that depends on node constructors must tolerate registry refreshes
 
-## Writing a Plugin (Quick Guide)
+## URI Plugin Loading
 
-### 1. Create Plugin Entry Point
+URI plugins are loaded in the app with dynamic import.
 
-```typescript
-// index.ts
-import type { RivetPlugin, RivetPluginInitializer } from '@ironclad/rivet-core';
+Current expectations:
 
-const plugin: RivetPluginInitializer = (rivet) => {
-  const myPlugin: RivetPlugin = {
-    id: 'my-plugin',
-    name: 'My Plugin',
+- module default export must be a `RivetPluginInitializer`
+- initializer is invoked with the full core API namespace
+- resulting plugin must have an `id`
 
-    configSpec: {
-      apiKey: {
-        type: 'secret',
-        label: 'API Key',
-        description: 'Your API key',
-        pullEnvironmentVariable: 'MY_API_KEY',
-      },
-    },
+This path is especially useful for plugin development against a local dev server.
 
-    register: (register) => {
-      register(myCustomNode(rivet));
-    },
+## Package Plugin Loading
 
-    contextMenuGroups: [
-      { id: 'my-plugin', label: 'My Plugin' },
-    ],
-  };
+Package plugins are primarily a desktop-app capability.
 
-  return myPlugin;
-};
+Current flow:
 
-export default plugin;
-```
+- package spec is resolved by app plugin loading
+- installation/loading work is delegated through app-specific package-plugin helpers
+- Tauri/native capabilities are used for extraction and installation
+- the plugin is imported from its installed package output
 
-### 2. Define a Custom Node
+Related runtime assumptions appear in multiple places:
 
-```typescript
-function myCustomNode(rivet: typeof import('@ironclad/rivet-core')) {
-  return {
-    impl: {
-      create() {
-        return {
-          id: rivet.newId<NodeId>(),
-          type: 'myCustomNode',
-          title: 'My Custom Node',
-          data: { prompt: '' },
-          visualData: { x: 0, y: 0, width: 250 },
-        };
-      },
+- app plugin loader
+- Tauri plugin extraction support
+- `app-executor` package-plugin lookup under app data directories
 
-      getInputDefinitions() {
-        return [
-          { id: 'input' as PortId, title: 'Input', dataType: 'string' },
-        ];
-      },
+This is one of the strongest cross-package plugin couplings in the repo.
 
-      getOutputDefinitions() {
-        return [
-          { id: 'output' as PortId, title: 'Output', dataType: 'string' },
-        ];
-      },
+## Sidecar and Runtime Plugin Loading
 
-      async process(data, inputs, context) {
-        const input = rivet.coerceType(inputs['input'], 'string');
-        const apiKey = context.getPluginConfig('apiKey');
+### App executor
 
-        // Your logic here
-        const result = await doSomething(input, apiKey);
+`packages/app-executor/bin/executor.mts` rebuilds a fresh `NodeRegistration` and:
 
-        return { output: { type: 'string', value: result } };
-      },
+- registers built-in nodes
+- walks the project's plugin specs
+- loads built-in, URI, and package plugins
+- registers them into the execution registry used for the run
 
-      getEditors() {
-        return [
-          { type: 'string', dataKey: 'prompt', label: 'Prompt Template' },
-        ];
-      },
+For package plugins, the sidecar expects installed plugin files under the app-data plugin directory structure.
 
-      getBody(data) {
-        return rivet.dedent`Prompt: ${data.prompt}`;
-      },
+### Node runtime
 
-      getUIData() {
-        return {
-          group: ['My Plugin'],
-          contextMenuTitle: 'My Custom Node',
-          infoBoxTitle: 'My Custom Node',
-          infoBoxBody: 'Does something custom.',
-        };
-      },
-    },
-    displayName: 'My Custom Node',
-  };
-}
-```
+`rivet-node` consumers can also pass a custom registry or rely on built-ins/plugins already present in the registry they use.
 
-### 3. Package as npm Module
+## Plugin Ownership and Config Lookup
 
-```json
-{
-  "name": "rivet-plugin-my-plugin",
-  "main": "dist/index.js",
-  "type": "module",
-  "peerDependencies": {
-    "@ironclad/rivet-core": "^1.0.0"
-  }
-}
-```
+One subtle but important runtime detail:
 
-### 4. Add to Project
+- `GraphProcessor` resolves the plugin owning a node type through `registry.getPluginFor(node.type)`
+- it then builds `getPluginConfig(...)` into the `InternalProcessContext`
 
-In the Rivet app, go to **Project → Plugins** and add:
-- **Package**: `rivet-plugin-my-plugin`
-- **Tag**: `latest`
+That means:
 
-Or for development, use URI loading:
-- **URI**: `http://localhost:3000/dist/index.js`
+- config resolution is based on node type ownership in the registry
+- incorrect registry registration can break execution-time config lookup even if the node renders fine
 
-## Plugin Settings in Project
+## Current Refactor Seams
 
-Plugin settings are stored in the project file:
+Meaningful plugin-system seams:
 
-```json
-{
-  "metadata": { ... },
-  "plugins": [
-    { "type": "package", "package": "rivet-plugin-example", "tag": "latest", "id": "example" }
-  ],
-  "graphs": { ... }
-}
-```
+- core contracts in `RivetPlugin.ts`
+- `NodeRegistration` and its generated plugin wrappers
+- app plugin loading in `useProjectPlugins`
+- package-plugin installation/loading paths
+- sidecar runtime plugin loading in `app-executor`
+- plugin config resolution in `GraphProcessor`
 
-Runtime plugin settings (like API keys) are stored in the app's settings,
-not in the project file, to avoid accidentally committing secrets.
+## Known Architectural Tensions
 
-## Limitations & Considerations
+Visible in current code:
 
-- Plugin nodes must have globally unique `type` strings
-- Plugins receive the full `InternalProcessContext` during execution
-- Plugin configuration values can be pulled from environment variables
-- Package plugins are cached locally and checked for updates on load
-- URI plugins are re-fetched on every project load (no caching)
-- Built-in plugins are always available, no installation needed
+- plugin loading mutates shared global registry state in the app
+- package plugin installation/loading spans frontend, Tauri, and sidecar behavior
+- plugin config resolution depends on registry ownership and runtime settings being kept aligned
+- built-in plugins and external plugins share most plumbing but not always the same loading path
+
+## Practical Refactor Guidance
+
+- Treat plugin changes as cross-package work by default.
+- Keep plugin contracts, registry behavior, app loading, and sidecar loading in sync.
+- Be careful changing plugin IDs or node type IDs; those are persistence/runtime identifiers.
+- Preserve the distinction between node registration, plugin metadata, and plugin configuration resolution.
+- Test both editor-side availability and runtime execution when touching plugin code paths.

@@ -1,335 +1,322 @@
-# Build System & CI/CD
+# Build, CI, and Release
 
-> How to build, test, lint, and release Rivet.
+> Detailed reference for the current build and release workflows.
 
-## Prerequisites
+## Toolchain
 
-- **Node.js 20.4+** (managed via Volta)
-- **Yarn 4** (PnP mode, included in repo)
-- **Rust** (via rustup, for Tauri builds)
-- **Platform-specific**: See per-platform sections below
+### Node and Yarn
 
-## Package Manager: Yarn 4 (PnP)
+Repo-level toolchain expectations:
 
-Rivet uses Yarn 4 with Plug'n'Play (PnP) - no `node_modules` directory.
-Dependencies are stored in `.yarn/cache/` as zip files and resolved via `.pnp.cjs`.
+- Node `20.4.0` via Volta
+- root `packageManager`: `yarn@4.6.0`
+- Plug'n'Play enabled
 
-```bash
-# Install dependencies (from repo root)
-yarn
+Several packages still declare `yarn@3.5.0` in local manifests, but the root workspace tooling is the authoritative setup for normal development.
 
-# Use blobless clone for faster checkout
-git clone --filter=blob:none https://github.com/Ironclad/rivet.git
-```
+### Rust
 
-**VS Code setup:**
-- Install the **ZipFS** extension (required for PnP)
-- Set **TypeScript → "Use Workspace Version"**
+Required for:
+
+- Tauri desktop builds
+- release pipelines that package the app
 
 ## Root Scripts
 
-```bash
-yarn dev          # Build executor + start app dev server
-yarn build        # Full production build (all packages, in order)
-yarn test         # Run tests (rivet-core only currently)
-yarn lint         # Lint all packages
-yarn prettier:fix # Auto-format all files
-yarn publish      # Publish npm packages (requires OTP)
-yarn publish-docs # Deploy documentation to docs branch
-```
-
-## Per-Package Build
-
-### `rivet-core`
+Current root scripts from `package.json`:
 
 ```bash
-cd packages/core
-yarn build        # Rollup (ESM) + esbuild (CJS) → dist/
-yarn watch        # Watch mode for development
-yarn test         # node:test via tsx
-yarn lint         # ESLint
-```
-
-**Output:**
-- `dist/esm/` - ES modules
-- `dist/cjs/bundle.cjs` - CommonJS bundle
-- `dist/esm/*.d.ts` - TypeScript declarations
-
-### `rivet-node`
-
-```bash
-cd packages/node
-yarn build        # Rollup → dist/
+yarn dev
+yarn build
+yarn test
 yarn lint
-```
-
-### `rivet-app`
-
-```bash
-cd packages/app
-yarn start        # Vite dev server only (port 5173)
-yarn dev          # Full Tauri dev (opens desktop window)
-yarn build        # Vite production build → dist/
-```
-
-**Tauri build** (creates desktop installers):
-```bash
-cd packages/app/src-tauri
-cargo tauri build
-```
-
-### `app-executor`
-
-```bash
-cd packages/app-executor
-yarn build        # esbuild → single bundle
-yarn dev          # Watch mode for development
-```
-
-### `rivet-cli`
-
-```bash
-cd packages/cli
-yarn build        # Build CLI
-```
-
-### `trivet`
-
-```bash
-cd packages/trivet
-yarn build        # Rollup → dist/
-```
-
-### `docs`
-
-```bash
-cd packages/docs
-yarn start        # Docusaurus dev server (port 3000)
-yarn build        # Static site build
-```
-
-## Development Workflow
-
-### App Development
-
-```bash
-# Terminal 1: Start the full dev environment
-yarn dev
-# This runs:
-#   1. yarn workspace @ironclad/rivet-app-executor run build
-#   2. yarn workspace @ironclad/rivet-app run dev (Vite + Tauri)
-```
-
-### Core Development (with app hot-reload)
-
-```bash
-# Terminal 1: Watch core for changes
-cd packages/core && yarn watch
-
-# Terminal 2: Watch executor for changes
-cd packages/app-executor && yarn dev
-
-# Terminal 3: Run the app
-cd packages/app && yarn dev
-```
-
-### Node Executor Development
-
-When working on the app-executor sidecar:
-
-```bash
-# Terminal 1: Watch core changes
-cd packages/core && yarn watch
-
-# Terminal 2: Dev executor (separate from app)
-cd packages/app-executor && yarn dev
-
-# Terminal 3: Run app
-yarn dev
-```
-
-## TypeScript Configuration
-
-### Base Config (`tsconfig.base.json`)
-
-```json
-{
-  "compilerOptions": {
-    "target": "ESNext",
-    "lib": ["DOM", "DOM.Iterable", "ESNext"],
-    "allowJs": true,
-    "skipLibCheck": true,
-    "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true,
-    "strict": true,
-    "forceConsistentCasingInFileNames": true,
-    "noFallthroughCasesInSwitch": true,
-    "isolatedModules": true,
-    "noUncheckedIndexedAccess": true,
-    "composite": true,
-    "declaration": true,
-    "verbatimModuleSyntax": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true
-  },
-  "ts-node": {
-    "swc": true,
-    "compilerOptions": {
-      "module": "CommonJS"       // Only for ts-node scripts, NOT main builds
-    }
-  }
-}
-```
-
-> **Note**: The base config does NOT set `module` or `moduleResolution` - these
-> are configured per-package in their individual `tsconfig.json` files.
-
-Each package extends this with its own `tsconfig.json`.
-
-## Linting
-
-**ESLint v9** with flat config (`eslint.config.mjs`):
-
-```javascript
-// Key rules:
-{
-  '@typescript-eslint/consistent-type-imports': 'error',
-  '@typescript-eslint/no-misused-promises': 'error',
-  '@typescript-eslint/no-floating-promises': 'error',
-  'import/no-cycle': 'warn',
-  // React hooks rules (for app package)
-  'react-hooks/rules-of-hooks': 'error',
-  'react-hooks/exhaustive-deps': 'warn',
-}
-```
-
-**Prettier** for formatting:
-```yaml
-# .prettierrc.yml
-singleQuote: true
-trailingComma: all
-printWidth: 120
-```
-
-## CI/CD (GitHub Actions)
-
-### Build Workflow (`.github/workflows/build.yml`)
-
-Triggers on: all branches, all PRs
-
-```yaml
-runs-on: ubuntu-latest
-node: 20.4.x
-steps:
-  - yarn --immutable    # Install (no lockfile changes)
-  - yarn build          # Full build
-  - yarn test           # Tests
-  - yarn lint           # Linting
-  - prettier --check .  # Format check
-env:
-  NODE_OPTIONS: --max-old-space-size=6144  # 6GB memory
-```
-
-### Release Workflow (`.github/workflows/release.yml`)
-
-Triggers on: `app-v*` tags, `windows-builds` branch
-
-**Matrix builds:**
-
-| Platform | Runner | Target |
-|----------|--------|--------|
-| Windows | `windows-latest` | x64 |
-| macOS | `macos-latest` | universal (x64 + ARM) |
-| Linux x64 | `ubuntu-22.04` | x86_64 |
-| Linux ARM | `ubuntu-22.04` (ARM) | aarch64 |
-
-**Steps per platform:**
-1. Setup Node.js 20.4.x + Rust toolchain
-2. Install platform-specific deps (Linux: `libgtk-3-dev`, `libwebkit2gtk-4.0-dev`, etc.)
-3. `yarn --immutable` + `yarn build`
-4. `cargo tauri build` (creates platform installers)
-5. Create draft GitHub release
-6. Upload artifacts
-
-**Secrets used:**
-- `GITHUB_TOKEN` - Release creation
-- `TAURI_PRIVATE_KEY` - App signing
-- `APPLE_CERTIFICATE` + `APPLE_CERTIFICATE_PASSWORD` - macOS code signing
-- `APPLE_ID` + `APPLE_PASSWORD` + `APPLE_TEAM_ID` - macOS notarization
-
-### Release Asset Renaming (`.github/scripts/rename-release-files.mts`)
-
-After release, renames versioned files to permanent URLs:
-```
-Rivet_X.X.X_universal.dmg     → Rivet.dmg
-Rivet_X.X.X_amd64.AppImage    → Rivet.AppImage
-Rivet_X.X.X_x64-setup.exe     → Rivet-Setup.exe
-```
-
-## Release Process
-
-### 1. Version Bump
-
-Update version in relevant `package.json` files:
-- `packages/core/package.json`
-- `packages/node/package.json`
-- `packages/app/package.json`
-- `packages/app/src-tauri/tauri.conf.json`
-- `packages/cli/package.json`
-- `packages/trivet/package.json`
-
-### 2. Publish npm Libraries
-
-```bash
+yarn prettier:fix
 yarn publish
-# Publishes: rivet-core, rivet-node, rivet-cli, trivet
-# Requires OTP code
-# Also builds Docker image for CLI
-```
-
-### 3. Create Git Tags
-
-```bash
-git tag v1.X.X           # Library version
-git tag app-v1.X.X       # App version (triggers release build)
-git push origin --tags
-```
-
-### 4. GitHub Release
-
-1. CI creates a draft release from the `app-v*` tag
-2. Wait for all platform builds to complete
-3. Run rename script for permanent download URLs
-4. Write release notes
-5. Publish the release
-
-### 5. Documentation
-
-```bash
 yarn publish-docs
-# Builds docs, checks out docs branch, copies files, commits
 ```
 
-## Docker (CLI)
+### `yarn dev`
 
-The CLI can be deployed as a Docker container:
+Runs:
 
-```dockerfile
-FROM node:20-slim
-RUN npm install -g @ironclad/rivet-cli
-ENTRYPOINT ["rivet"]
-```
+1. `yarn workspace @ironclad/rivet-app-executor run build`
+2. `yarn workspace @ironclad/rivet-app run dev`
 
-See `packages/docs/docs/cli/docker.md` for full examples.
+This means repo-level app development depends on the sidecar being built first.
 
-## Environment Variables
+### `yarn build`
 
-| Variable | Used By | Purpose |
-|----------|---------|---------|
-| `OPENAI_API_KEY` | core/app | OpenAI API access |
-| `OPENAI_API_ENDPOINT` | core/app | Custom OpenAI endpoint |
-| `OPENAI_ORGANIZATION` | core/app | OpenAI org ID |
-| `ANTHROPIC_API_KEY` | core/app | Anthropic Claude access |
-| `TAURI_PRIVATE_KEY` | CI | App signing |
-| `APPLE_CERTIFICATE` | CI | macOS code signing |
-| `APPLE_ID` / `APPLE_PASSWORD` | CI | macOS notarization |
+Runs builds in fixed order:
+
+1. core
+2. node
+3. app-executor
+4. trivet
+5. app
+6. cli
+
+### `yarn test`
+
+Currently only runs the core test suite:
+
+- `yarn workspace @ironclad/rivet-core run test`
+
+### `yarn lint`
+
+Runs lint across:
+
+- core
+- node
+- app
+- trivet
+- app-executor
+- cli
+
+### `yarn prettier:fix`
+
+Runs:
+
+- `prettier --write .`
+
+### `yarn publish`
+
+Runs:
+
+- `tsx publish-packages.mts`
+
+### `yarn publish-docs`
+
+Runs:
+
+- `tsx publish-docs.mts`
+
+## Per-Package Build Notes
+
+### Core
+
+`packages/core/package.json`:
+
+- `build`: `build:esm` then `build:cjs`
+- ESM output via `tsc -b`
+- CJS bundle via `tsx bundle.esbuild.ts`
+- watch mode via `tsc -b -w`
+
+### Node
+
+`packages/node/package.json`:
+
+- `build`: `build:esm` then `build:cjs`
+- CJS bundle reuses core's esbuild bundler script
+
+### App
+
+`packages/app/package.json`:
+
+- `start`: Vite dev server
+- `dev`: `tauri dev`
+- `build`: `tsc && vite build`
+
+### App executor
+
+`packages/app-executor/package.json`:
+
+- `build`: `tsx scripts/build-executor.mts`
+- `dev`: `tsx watch --inspect=9228 --experimental-network-imports bin/executor.mts`
+- `start`: build then run bundled executor
+
+### CLI
+
+`packages/cli/package.json`:
+
+- `build`: `tsc -b`
+- `start`: build then run CLI
+- `docker-publish`: delegated shell script
+
+### Trivet
+
+`packages/trivet/package.json`:
+
+- dual ESM/CJS build similar to core/node
+
+### Docs
+
+`packages/docs/package.json`:
+
+- Docusaurus local dev/build/serve
+- `typecheck` via `tsc`
+
+## CI Workflows
+
+Workflows live under [`_.github/workflows/`](../_.github/workflows/).
+
+## `build.yml`
+
+### Trigger conditions
+
+- all pushes
+- all pull requests
+
+### Current behavior
+
+Runs on `ubuntu-latest` and performs:
+
+1. checkout
+2. Node setup (`20.4.x`)
+3. `yarn --immutable`
+4. `yarn build`
+5. `yarn test`
+6. `yarn lint`
+7. `yarn prettier --check`
+
+### Important notes
+
+- build runs with increased `NODE_OPTIONS`
+- formatting check uses the Prettier binary directly via Yarn, not the repo's `prettier:fix` script
+
+## `release.yml`
+
+### Trigger conditions
+
+- pushes to `windows-builds`
+- tags matching `app-v*`
+
+### Matrix targets
+
+- `windows-latest`
+- `macos-latest`
+- `ubuntu-22.04`
+- `ubuntu-22.04-arm`
+
+### Current steps
+
+Per matrix entry, the workflow:
+
+1. checks out the repo
+2. sets up Node `20.4.x`
+3. sets up Rust toolchains
+4. installs Linux system dependencies where needed
+5. runs `yarn --immutable`
+6. runs `yarn build`
+7. invokes `tauri-apps/tauri-action`
+
+### Tauri release details
+
+The workflow currently uses:
+
+- `projectPath: packages/app`
+- `tauriScript: yarn tauri`
+- draft GitHub releases
+- universal macOS target
+
+### Release secrets/environment
+
+Current workflow references:
+
+- `GITHUB_TOKEN`
+- `TAURI_PRIVATE_KEY`
+- `TAURI_KEY_PASSWORD`
+- Apple signing/notarization-related secrets
+
+## `rename-release-assets.yml`
+
+### Trigger conditions
+
+- release `published`
+- release `edited`
+
+### Current behavior
+
+Runs `_.github/scripts/rename-release-files.mts`, which:
+
+- enumerates release assets
+- downloads versioned app artifacts
+- re-uploads renamed stable filenames
+- deletes older assets with the same target filename if needed
+
+Current rename targets include patterns for:
+
+- universal DMG
+- AppImage
+- Debian package
+- Windows setup executable
+
+## Tauri Build and Packaging
+
+Tauri config lives in [`packages/app/src-tauri/tauri.conf.json`](../packages/app/src-tauri/tauri.conf.json).
+
+### Verified current details
+
+- `beforeDevCommand`: `yarn start`
+- `beforeBuildCommand`: `yarn build`
+- `devPath`: `http://localhost:5173`
+- `distDir`: `../dist`
+- package version there: `1.11.3`
+- updater is active
+- updater endpoint points at GitHub release `latest.json`
+- external binaries include app-executor and bundled `pnpm`
+
+### Packaging significance
+
+The app package is not standalone frontend output. Tauri packaging, sidecars, updater behavior, and shell permissions are part of the build contract.
+
+## Publish Scripts
+
+## `publish-packages.mts`
+
+Current behavior:
+
+1. parse OTP from CLI args
+2. fail if git tree is dirty
+3. verify expected workspaces exist
+4. publish core, node, cli, and trivet
+5. run CLI Docker publish
+
+### Operational implication
+
+This script assumes a release-quality workspace and does not attempt partial or resumable publish logic.
+
+## `publish-docs.mts`
+
+Current behavior:
+
+1. fail if git tree is dirty
+2. record current branch
+3. build docs
+4. copy build to temp dir
+5. check out `docs` branch
+6. delete tracked files except a short allowlist
+7. copy built docs into branch
+8. commit `"Docs publish"`
+9. force-check out the original branch
+10. hard-reset to `HEAD`
+
+### Operational implication
+
+This script is intentionally aggressive and should be treated carefully. It only makes sense on a clean tree and a controlled publish workflow.
+
+## Release Process As Implemented
+
+The current effective release flow is:
+
+1. update versions in package manifests and Tauri config
+2. publish npm packages via `yarn publish`
+3. push `app-v*` tag for desktop release
+4. let `release.yml` create draft desktop artifacts
+5. let `rename-release-assets.yml` normalize asset names
+6. publish docs separately if needed via `yarn publish-docs`
+
+## Known Operational Risks
+
+Visible from the current scripts/workflows:
+
+- docs publishing uses force checkout/reset behavior
+- npm publishing requires a clean tree and OTP up front
+- app release depends on sidecar and Tauri packaging staying aligned
+- build/test coverage is not symmetrical across all packages
+
+## Practical Refactor Guidance
+
+- Keep root build order aligned with runtime/package dependencies.
+- If moving or renaming packages, update root scripts, CI workflows, and publish scripts together.
+- If changing app-executor packaging, update both Tauri config and release/build assumptions.
+- Treat docs publish and package publish scripts as operational code that deserves review, not just maintenance glue.
