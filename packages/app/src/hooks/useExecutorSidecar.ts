@@ -3,45 +3,66 @@ import { createNativeSidecarCommand, type NativeChildProcess } from '../utils/na
 
 let sidecarStarted = false;
 let sidecarProcess: NativeChildProcess | null = null;
+let sidecarStartPromise: Promise<void> | null = null;
+let sidecarConsumerCount = 0;
 
-async function runSidecar(abortSignal: AbortSignal) {
+async function runSidecar() {
   try {
     if (sidecarStarted) {
       return;
     }
 
-    const command = await createNativeSidecarCommand('../../app-executor/dist/app-executor');
+    if (sidecarStartPromise) {
+      await sidecarStartPromise;
+      return;
+    }
 
-    command.stdout.on('data', (data) => {
-      console.log('sidecar stdout', data);
-    });
+    sidecarStartPromise = (async () => {
+      const command = await createNativeSidecarCommand('../../app-executor/dist/app-executor');
 
-    command.stderr.on('data', (data) => {
-      console.error('sidecar stderr', data);
-    });
+      command.stdout.on('data', (data) => {
+        console.log('sidecar stdout', data);
+      });
 
-    sidecarStarted = true;
+      command.stderr.on('data', (data) => {
+        console.error('sidecar stderr', data);
+      });
 
-    // TODO better API
-    const proc = await command.spawn();
+      sidecarStarted = true;
 
-    sidecarProcess = proc;
+      // TODO better API
+      sidecarProcess = await command.spawn();
 
-    abortSignal.onabort = () => {
-      if (sidecarProcess === proc) {
-        sidecarProcess.kill();
+      if (sidecarConsumerCount === 0 && sidecarProcess) {
+        const proc = sidecarProcess;
         sidecarProcess = null;
         sidecarStarted = false;
+        await proc.kill();
       }
-    };
-  } catch (err) {
-    console.error('Error running sidecar', err);
+    })();
 
-    if (!abortSignal.aborted) {
-      setTimeout(() => {
-        runSidecar(abortSignal);
-      }, 1000);
-    }
+    await sidecarStartPromise;
+    sidecarStartPromise = null;
+  } catch (err) {
+    sidecarStartPromise = null;
+    sidecarStarted = false;
+    sidecarProcess = null;
+    console.error('Error running sidecar', err);
+  }
+}
+
+async function stopSidecar() {
+  if (sidecarConsumerCount > 0) {
+    return;
+  }
+
+  const proc = sidecarProcess;
+  sidecarProcess = null;
+  sidecarStarted = false;
+  sidecarStartPromise = null;
+
+  if (proc) {
+    await proc.kill();
   }
 }
 
@@ -53,12 +74,13 @@ export function useExecutorSidecar(options: { enabled?: boolean } = {}) {
       return;
     }
 
-    const controller = new AbortController();
+    sidecarConsumerCount += 1;
 
-    runSidecar(controller.signal);
+    void runSidecar();
 
     return () => {
-      controller.abort();
+      sidecarConsumerCount = Math.max(0, sidecarConsumerCount - 1);
+      void stopSidecar();
     };
   }, [enabled]);
 }
