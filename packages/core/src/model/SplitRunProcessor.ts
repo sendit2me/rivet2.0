@@ -10,6 +10,7 @@ import { type ChartNode, type PortId } from './NodeBase.js';
 import type { ProcessId } from './ProcessContext.js';
 import type { Inputs, Outputs } from './GraphProcessor.js';
 import { getError } from '../utils/errors.js';
+import PQueue from '../utils/pQueueCompat.js';
 import { entries, fromEntries, values } from '../utils/typeSafety.js';
 
 export type SplitRunDeps = {
@@ -22,6 +23,7 @@ export type SplitRunDeps = {
     processId: ProcessId,
     partialOutput?: (node: ChartNode, partialOutputs: Outputs, index: number) => void,
   ): Promise<Outputs>;
+  splitRunConcurrency: number;
   accumulateCost(output: Outputs): void;
   setNodeResults(nodeId: ChartNode['id'], outputs: Outputs): void;
   markNodeVisited(nodeId: ChartNode['id']): void;
@@ -121,21 +123,25 @@ async function runParallel(
   processId: ProcessId,
   deps: SplitRunDeps,
 ): Promise<SplitResult[]> {
+  const queue = new PQueue({ concurrency: deps.splitRunConcurrency });
+
   return Promise.all(
-    range(0, splittingAmount).map(async (i) => {
-      const inputs = splitInputsAtIndex(inputValues, i);
+    range(0, splittingAmount).map((i) =>
+      queue.add(async () => {
+        const inputs = splitInputsAtIndex(inputValues, i);
 
-      try {
-        const output = await deps.processNodeWithInputData(node, inputs, i, processId, (n, partialOutputs, index) => {
-          deps.emit('partialOutput', { node: n, outputs: partialOutputs, index, processId });
-        });
+        try {
+          const output = await deps.processNodeWithInputData(node, inputs, i, processId, (n, partialOutputs, index) => {
+            deps.emit('partialOutput', { node: n, outputs: partialOutputs, index, processId });
+          });
 
-        deps.accumulateCost(output);
-        return { type: 'output' as const, output };
-      } catch (error) {
-        return { type: 'error' as const, error: getError(error) };
-      }
-    }),
+          deps.accumulateCost(output);
+          return { type: 'output' as const, output };
+        } catch (error) {
+          return { type: 'error' as const, error: getError(error) };
+        }
+      }),
+    ),
   );
 }
 

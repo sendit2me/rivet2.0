@@ -24,7 +24,6 @@ import { overlayOpenState } from '../state/ui';
 import { GraphExecutionSelectorBar } from './GraphExecutionSelectorBar';
 import { HistoricalGraphNotice } from './HistoricalGraphNotice';
 import { NodeChangesModal, NodeChangesModalRenderer } from './NodeChangesModal';
-import { syncWrapper } from '../utils/syncWrapper';
 import { AiGraphCreatorInput } from './AiGraphCreatorInput';
 import { AiGraphCreatorToggle } from './AiGraphCreatorToggle';
 import { useReloadProjectReferences } from '../hooks/useReloadProjectReferences';

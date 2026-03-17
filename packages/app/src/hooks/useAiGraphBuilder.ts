@@ -4,11 +4,9 @@ import {
   deserializeDatasets,
   ExecutionRecorder,
   coreCreateProcessor,
-  globalRivetNodeRegistry,
   type NodeId,
   coerceType,
   InMemoryDatasetProvider,
-  getError,
   type DataValue,
   type ExternalFunction,
   registerBuiltInNodes,
@@ -31,12 +29,15 @@ import { referencedProjectsState } from '../state/savedGraphs';
 import { nativeCreateDir, nativeWriteFile } from '../utils/platform/fs.js';
 import { nativeAppLogDir } from '../utils/platform/path.js';
 import { buildAiGraphBuilderExternalFunctions } from './aiGraphBuilderHelpers.js';
+import { useProjectNodeRegistry } from './useProjectNodeRegistry';
+import { handleError } from '../utils/errorHandling.js';
 
 export function useAiGraphBuilder({ record, onFeedback }: { record: boolean; onFeedback: (feedback: string) => void }) {
   const [graph, setGraph] = useAtom(graphState);
 
   const settings = useAtomValue(settingsState);
   const plugins = useDependsOnPlugins();
+  const projectNodeRegistry = useProjectNodeRegistry();
 
   const centerView = useCenterViewOnGraph();
   const autoLayout = useAutoLayoutGraph();
@@ -67,6 +68,7 @@ export function useAiGraphBuilder({ record, onFeedback }: { record: boolean; onF
         ...buildAiGraphBuilderExternalFunctions({
           project,
           referencedProjects,
+          registry: projectNodeRegistry,
           showChanges,
           workingGraph: () => workingGraph,
           setWorkingGraph: (nextGraph) => {
@@ -161,8 +163,8 @@ export function useAiGraphBuilder({ record, onFeedback }: { record: boolean; onF
               continue;
             }
 
-            const sourceInstance = globalRivetNodeRegistry.createDynamicImpl(sourceNode);
-            const destInstance = globalRivetNodeRegistry.createDynamicImpl(destNode);
+            const sourceInstance = projectNodeRegistry.createDynamicImpl(sourceNode);
+            const destInstance = projectNodeRegistry.createDynamicImpl(destNode);
 
             const sourceConnections = workingGraph.connections.filter((conn) => conn.outputNodeId === sourceNode.id);
 
@@ -234,8 +236,8 @@ export function useAiGraphBuilder({ record, onFeedback }: { record: boolean; onF
               continue;
             }
 
-            const sourceInstance = globalRivetNodeRegistry.createDynamicImpl(sourceNode);
-            const destInstance = globalRivetNodeRegistry.createDynamicImpl(destNode);
+            const sourceInstance = projectNodeRegistry.createDynamicImpl(sourceNode);
+            const destInstance = projectNodeRegistry.createDynamicImpl(destNode);
 
             const sourceConnections = workingGraph.connections.filter((conn) => conn.outputNodeId === sourceNode.id);
 
@@ -355,7 +357,7 @@ export function useAiGraphBuilder({ record, onFeedback }: { record: boolean; onF
         context: {
           allNodeTypes: {
             type: 'string[]',
-            value: globalRivetNodeRegistry.getNodeTypes(),
+            value: projectNodeRegistry.getNodeTypes(),
           },
         },
         externalFunctions,
@@ -404,11 +406,13 @@ export function useAiGraphBuilder({ record, onFeedback }: { record: boolean; onF
         console.log(`Recording saved to ${await nativeAppLogDir()}${fileName}`);
       }
 
-      const error = getError(err);
-
-      console.error(`Error details:`, error);
-
-      toast.error(`Error: ${error.message}`);
+      handleError(err, 'AI graph builder failed', {
+        metadata: {
+          modelAndApi,
+          promptLength: prompt.length,
+          record,
+        },
+      });
     }
   };
 }

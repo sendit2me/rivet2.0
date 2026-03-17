@@ -14,7 +14,7 @@ import { projectDataState } from '../../state/savedGraphs';
 import { type SharedEditorProps } from './SharedEditorProps';
 import { getHelperMessage } from './editorUtils';
 import mime from 'mime';
-import { syncWrapper } from '../../utils/syncWrapper';
+import { wrapAsync } from '../../utils/errorHandling';
 import { useIOProvider } from '../../providers/ProvidersContext';
 
 export const DefaultImageBrowserEditor: FC<
@@ -28,28 +28,34 @@ export const DefaultImageBrowserEditor: FC<
 
   const dataState = useAtomValue(projectDataState);
 
-  const pickFile = async () => {
-    await ioProvider.readFileAsBinary(
-      syncWrapper(async (binaryData: Uint8Array) => {
-        const dataId = nanoid() as DataId;
-        onChange(
-          {
-            ...node,
-            data: {
-              ...data,
-              [editor.dataKey]: {
-                refId: dataId,
-              } satisfies DataRef,
-              [editor.mediaTypeDataKey]: mime.getType(editor.dataKey) ?? 'image/png',
-            },
+  const handleFileSelected = wrapAsync(
+    async (binaryData: Uint8Array) => {
+      const dataId = nanoid() as DataId;
+      onChange(
+        {
+          ...node,
+          data: {
+            ...data,
+            [editor.dataKey]: {
+              refId: dataId,
+            } satisfies DataRef,
+            [editor.mediaTypeDataKey]: mime.getType(editor.dataKey) ?? 'image/png',
           },
-          {
-            [dataId]: (await uint8ArrayToBase64(binaryData)) ?? '',
-          },
-        );
-      }),
-    );
-  };
+        },
+        {
+          [dataId]: (await uint8ArrayToBase64(binaryData)) ?? '',
+        },
+      );
+    },
+    'Load image file',
+  );
+
+  const pickFile = wrapAsync(
+    async () => {
+      await ioProvider.readFileAsBinary(handleFileSelected);
+    },
+    'Open image picker',
+  );
 
   const dataRef = data[editor.dataKey] as DataRef | undefined;
   const b64Data = dataRef ? dataState?.[dataRef.refId] : undefined;
@@ -61,7 +67,7 @@ export const DefaultImageBrowserEditor: FC<
     <Field name={editor.dataKey} label={editor.label}>
       {() => (
         <div>
-          <Button onClick={syncWrapper(pickFile)} isDisabled={isReadonly || isDisabled}>
+          <Button onClick={pickFile} isDisabled={isReadonly || isDisabled}>
             Pick Image
           </Button>
           {helperMessage && <HelperMessage>{helperMessage}</HelperMessage>}

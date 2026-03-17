@@ -81,7 +81,7 @@ const rivetDebugger = startDebuggerServer({
   port,
   allowGraphUpload: true,
   datasetProvider,
-  dynamicGraphRun: async ({ graphId, inputs, runToNodeIds, contextValues, runFromNodeId, projectPath }) => {
+  dynamicGraphRun: async ({ requestId, graphId, inputs, runToNodeIds, contextValues, runFromNodeId, projectPath }) => {
     console.log(`Running graph ${graphId} with inputs:`, inputs);
 
     const project = currentDebuggerState.uploadedProject;
@@ -145,6 +145,7 @@ const rivetDebugger = startDebuggerServer({
         inputs,
         ...currentDebuggerState.settings!,
         remoteDebugger: rivetDebugger,
+        remoteDebuggerRequestId: requestId,
         registry,
         datasetProvider,
         onTrace: (trace) => {

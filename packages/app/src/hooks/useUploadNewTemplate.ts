@@ -1,11 +1,11 @@
 import { useAtomValue } from 'jotai';
 import { projectState } from '../state/savedGraphs';
-import { type GraphId, serializeProject } from '@ironclad/rivet-core';
-import { type UseMutationResult, useMutation } from '@tanstack/react-query';
-import { getCommunityApi } from '../utils/getCommunityApi';
-import { templateResponseChecker, type PostTemplateBody, type PutTemplateVersionBody } from '../utils/communityApi';
+import { type GraphId } from '@ironclad/rivet-core';
+import { type UseMutationResult } from '@tanstack/react-query';
+import { type PostTemplateBody, type PutTemplateVersionBody } from '../utils/communityApi';
+import { createTemplate, serializeTemplateProject, unpublishTemplate, uploadTemplateVersion } from '../utils/communityTemplates';
 import { useDependsOnPlugins } from './useDependsOnPlugins';
-import { toast } from 'react-toastify';
+import { useHandledMutation } from './useHandledMutation';
 
 export function useUploadNewTemplate({ onCompleted }: { onCompleted: () => void }): UseMutationResult<
   void,
@@ -14,6 +14,7 @@ export function useUploadNewTemplate({ onCompleted }: { onCompleted: () => void 
     templateName: string;
     version: string;
     description: string;
+    versionDescription: string;
     graphsToInclude: GraphId[];
   },
   unknown
@@ -21,59 +22,44 @@ export function useUploadNewTemplate({ onCompleted }: { onCompleted: () => void 
   const project = useAtomValue(projectState);
   const plugins = useDependsOnPlugins();
 
-  const mutation = useMutation({
+  const mutation = useHandledMutation({
     mutationFn: async (params: {
       templateName: string;
       version: string;
       description: string;
+      versionDescription: string;
       graphsToInclude: GraphId[];
     }) => {
-      const serializedProject = serializeProject(project);
+      const serializedProject = serializeTemplateProject(project, params.graphsToInclude);
+      const template = await createTemplate({
+        name: params.templateName,
+        tags: [],
+      } satisfies PostTemplateBody);
 
-      const postTemplateUrl = getCommunityApi('/templates');
-      const putTemplateVersionUrl = getCommunityApi('/templates/:templateId/version/:version');
-
-      const postTemplateResponse = await fetch(postTemplateUrl, {
-        credentials: 'include',
-        method: 'POST',
-        body: JSON.stringify({
-          name: params.templateName,
-          tags: [],
-        } satisfies PostTemplateBody),
-      });
-
-      if (!postTemplateResponse.ok) {
-        throw new Error(`Failed to upload template: ${await postTemplateResponse.text()}`);
-      }
-
-      const postTemplateJson = templateResponseChecker(await postTemplateResponse.json());
-
-      if (postTemplateJson.type === 'failure') {
-        throw new Error(postTemplateJson.message);
-      }
-
-      const versionResponse = await fetch(
-        putTemplateVersionUrl.replace(':templateId', postTemplateJson.value.id).replace(':version', params.version),
-        {
-          credentials: 'include',
-          method: 'PUT',
-          body: JSON.stringify({
+      try {
+        await uploadTemplateVersion(
+          template.id,
+          params.version,
+          {
             descriptionMarkdown: params.description,
-            versionDescriptionMarkdown: params.description,
+            versionDescriptionMarkdown: params.versionDescription,
             plugins: plugins.map((plugin) => plugin.id),
             serializedProject: serializedProject as string,
-          } satisfies PutTemplateVersionBody),
-        },
-      );
+          } satisfies PutTemplateVersionBody,
+        );
+      } catch (error) {
+        try {
+          await unpublishTemplate(template.id);
+        } catch {}
 
-      if (!versionResponse.ok) {
-        throw new Error(`Failed to upload template: ${await versionResponse.text()}`);
+        throw error;
       }
     },
-    onError: (error) => {
-      toast.error(`Failed to upload template: ${error.message}`);
+    errorMessage: 'Failed to upload template',
+    metadata: {
+      projectId: project.metadata.id,
     },
-    onMutate: () => {
+    onSuccess: () => {
       onCompleted();
     },
   });

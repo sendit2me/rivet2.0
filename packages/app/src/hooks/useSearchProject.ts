@@ -2,9 +2,10 @@ import { useAtomValue } from 'jotai';
 import { useMemo } from 'react';
 import { entries } from '../../../core/src/utils/typeSafety';
 import { useFuseSearch } from './useFuseSearch';
-import { type GraphId, globalRivetNodeRegistry } from '@ironclad/rivet-core';
+import { type GraphId } from '@ironclad/rivet-core';
 import { useNodeTypes } from './useNodeTypes';
 import { useDependsOnPlugins } from './useDependsOnPlugins';
+import { useProjectNodeRegistry } from './useProjectNodeRegistry';
 import { projectState } from '../state/savedGraphs';
 
 export type SearchableItem = {
@@ -38,6 +39,7 @@ export function useSearchProject(query: string, enabled: boolean): SearchedItem[
   useDependsOnPlugins();
 
   const nodeTypes = useNodeTypes();
+  const projectNodeRegistry = useProjectNodeRegistry();
 
   const searchableNodes = useMemo(() => {
     const graphs = Object.values(project.graphs);
@@ -61,7 +63,7 @@ export function useSearchProject(query: string, enabled: boolean): SearchedItem[
           id: node.id,
           joinedData: joinedData.join(' '),
           containerGraph: graph.metadata!.id!,
-          nodeType: isKnownNodeType ? globalRivetNodeRegistry.getDynamicDisplayName(node.type) : '',
+          nodeType: isKnownNodeType ? projectNodeRegistry.getDynamicDisplayName(node.type) : '',
         };
 
         items.push(searchableNode);
@@ -69,7 +71,7 @@ export function useSearchProject(query: string, enabled: boolean): SearchedItem[
     }
 
     return items;
-  }, [nodeTypes, project]);
+  }, [nodeTypes, project, projectNodeRegistry]);
 
   const searchedNodes = useFuseSearch(
     searchableNodes,

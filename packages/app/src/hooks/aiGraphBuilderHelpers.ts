@@ -1,9 +1,9 @@
 import {
   type DataValue,
   type ExternalFunction,
-  globalRivetNodeRegistry,
   type NodeGraph,
   type NodeId,
+  type NodeRegistration,
   type PortId,
   type Project,
 } from '@ironclad/rivet-core';
@@ -31,6 +31,7 @@ export function parseConnectionOptions(options: unknown) {
 export function buildAiGraphBuilderExternalFunctions(options: {
   project: Project;
   referencedProjects: Record<string, Project>;
+  registry: NodeRegistration<any, any>;
   showChanges: () => void;
   workingGraph: () => NodeGraph;
   setWorkingGraph: (graph: NodeGraph) => void;
@@ -41,7 +42,7 @@ export function buildAiGraphBuilderExternalFunctions(options: {
   return {
     createNode: async (_ctx: unknown, nodeType: unknown) => {
       const graph = getWorkingGraph();
-      const newNode = globalRivetNodeRegistry.createDynamic(nodeType as string);
+      const newNode = options.registry.createDynamic(nodeType as string);
       graph.nodes.push(newNode);
       setWorkingGraph(graph);
       options.showChanges();
@@ -64,8 +65,8 @@ export function buildAiGraphBuilderExternalFunctions(options: {
         throw new Error(`Node with ID ${destNodeId} not found`);
       }
 
-      const sourceInstance = globalRivetNodeRegistry.createDynamicImpl(sourceNode);
-      const destInstance = globalRivetNodeRegistry.createDynamicImpl(destNode);
+      const sourceInstance = options.registry.createDynamicImpl(sourceNode);
+      const destInstance = options.registry.createDynamicImpl(destNode);
       const sourceNodeConnections = graph.connections.filter((connection) => connection.outputNodeId === sourceNodeId);
       const destNodeConnections = graph.connections.filter((connection) => connection.inputNodeId === destNodeId);
       const nodesById = Object.fromEntries(graph.nodes.map((node) => [node.id, node]));
@@ -145,7 +146,7 @@ export function buildAiGraphBuilderExternalFunctions(options: {
       const connectionsToNode = graph.connections.filter(
         (connection) => connection.inputNodeId === node.id || connection.outputNodeId === node.id,
       );
-      const instance = globalRivetNodeRegistry.createDynamicImpl(node);
+      const instance = options.registry.createDynamicImpl(node);
       const nodesById = Object.fromEntries(graph.nodes.map((candidate) => [candidate.id, candidate]));
       const inputs = instance.getInputDefinitions(connectionsToNode, nodesById, options.project, options.referencedProjects);
       const outputs = instance.getOutputDefinitions(connectionsToNode, nodesById, options.project, options.referencedProjects);

@@ -372,13 +372,20 @@ Fire-and-forget event emission uses [`emitDetached(emitter, event, data)`](../pa
 
 ### Scheduling model
 
-The processor uses `p-queue` with effectively unbounded concurrency for queued node execution. The import is normalized through [`pQueueCompat.ts`](../packages/core/src/utils/pQueueCompat.ts), which handles the CJS/ESM default-export interop (see Build-and-CI docs for the CJS alias strategy).
+The processor uses `p-queue` with explicit bounded concurrency for queued node execution. The import is normalized through [`pQueueCompat.ts`](../packages/core/src/utils/pQueueCompat.ts), which handles the CJS/ESM default-export interop (see Build-and-CI docs for the CJS alias strategy).
 
 Execution is dataflow-driven:
 
 - nodes are queued when their dependencies become available
 - completion of one node can trigger downstream nodes
 - split-run can further fan a node into multiple executions
+
+Current execution policy details:
+
+- `GraphProcessor` resolves a `GraphProcessorConcurrency` policy per processor instance
+- queued node execution uses a bounded `nodeConcurrency` limit instead of `Infinity`
+- child subprocessors inherit the parent processor's concurrency policy
+- split-run parallel execution uses its own bounded `splitRunConcurrency` limit instead of raw `Promise.all`
 
 The readiness/dependency logic used by this flow now lives largely in `NodeExecutionPlanner.ts`, while `GraphProcessor` coordinates queueing and mutable execution state.
 
@@ -404,6 +411,7 @@ Subprocessors:
 - share execution cache
 - share globals
 - share external functions
+- inherit the parent processor's concurrency policy
 - propagate events back to the parent
 - participate in root-level pause/resume/abort behavior
 
@@ -452,7 +460,7 @@ This is one of the clearest recent refactor seams in core:
 - determines split count from array-valued inputs and `splitRunMax`
 - emits `nodeStart`
 - runs sequentially when `isSplitSequential` is set
-- otherwise runs in parallel
+- otherwise runs in parallel through a bounded queue
 - emits partial outputs for each split item
 - aggregates split outputs back into array outputs
 - emits `nodeFinish` or routes errors back through the injected `nodeErrored(...)`
@@ -547,6 +555,7 @@ Current options include:
 - abort signal
 - registry override
 - trace toggle
+- processor concurrency override
 - chat-endpoint resolver
 - tokenizer
 - code runner

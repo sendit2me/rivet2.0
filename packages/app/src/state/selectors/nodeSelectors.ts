@@ -1,21 +1,28 @@
 import { atom } from 'jotai';
 import { atomFamily } from 'jotai/utils';
-import { getError, globalRivetNodeRegistry, type NodeId } from '@ironclad/rivet-core';
+import { type NodeId } from '@ironclad/rivet-core';
 import { mapValues } from 'lodash-es';
-import { pluginRefreshCounterState } from '../plugins';
+import { projectNodeRegistryState } from '../plugins';
 import { nodesByIdState } from './graphSelectors';
+import { handleError } from '../../utils/errorHandling.js';
 
 export const nodeByIdState = atomFamily((nodeId: NodeId) => atom((get) => get(nodesByIdState)[nodeId]));
 
 export const nodeInstancesState = atom((get) => {
   const nodesById = get(nodesByIdState);
-  get(pluginRefreshCounterState);
+  const projectNodeRegistry = get(projectNodeRegistryState);
 
   return mapValues(nodesById, (node) => {
     try {
-      return globalRivetNodeRegistry.createDynamicImpl(node);
+      return projectNodeRegistry.createDynamicImpl(node);
     } catch (error) {
-      console.error('Error creating node implementation', getError(error));
+      handleError(error, 'Error creating node implementation', {
+        metadata: {
+          nodeId: node.id,
+          nodeType: node.type,
+        },
+        toastError: false,
+      });
       return undefined;
     }
   });
@@ -26,6 +33,5 @@ export const nodeInstanceByIdState = atomFamily((nodeId: NodeId) =>
 );
 
 export const nodeConstructorsState = atom((get) => {
-  get(pluginRefreshCounterState);
-  return globalRivetNodeRegistry.getNodeConstructors();
+  return get(projectNodeRegistryState).getNodeConstructors();
 });

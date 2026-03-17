@@ -1,10 +1,13 @@
 import { getError, type Project } from '@ironclad/rivet-core';
 import { nanoid } from 'nanoid';
+import { handleError } from './errorHandling.js';
 
 const worker = new Worker(new URL('./deserializeProject.worker.ts', import.meta.url), { type: 'module' });
 
 worker.addEventListener('error', (event) => {
-  console.error('Worker error:', event);
+  handleError(event, 'Project deserialization worker error', {
+    toastError: false,
+  });
 });
 
 worker.addEventListener('message', (event) => {
@@ -24,7 +27,12 @@ worker.addEventListener('message', (event) => {
     }
     waiting.delete(id);
   } else {
-    console.error('No resolvers found for id:', id);
+    handleError(new Error(`No resolvers found for id: ${id}`), 'Unexpected deserialization worker response', {
+      metadata: {
+        id,
+      },
+      toastError: false,
+    });
   }
 });
 

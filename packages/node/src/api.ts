@@ -15,6 +15,7 @@ import {
   type TokenizerCallInfo,
   type ChatMessage,
   type GptFunction,
+  type RemoteRunRequestId,
 } from '@ironclad/rivet-core';
 
 import { readFile } from 'node:fs/promises';
@@ -86,6 +87,7 @@ export async function runGraphInFile(path: string, options: NodeRunGraphOptions)
 
 export type NodeRunGraphOptions = RunGraphOptions & {
   remoteDebugger?: RivetDebuggerServer;
+  remoteDebuggerRequestId?: RemoteRunRequestId;
 };
 
 export function createProcessor(
@@ -101,7 +103,7 @@ export function createProcessor(
   });
 
   if (options.remoteDebugger) {
-    options.remoteDebugger.attach(processor.processor);
+    options.remoteDebugger.attach(processor.processor, options.remoteDebuggerRequestId);
   }
 
   let pluginEnv = options.pluginEnv;

@@ -117,6 +117,7 @@ export const projectPluginsState = atom(
   (get) => get(projectState).plugins ?? [],
   (get, set, newValue: Project['plugins'] | ((prev: Project['plugins']) => Project['plugins']) | undefined) => {
     const currentProject = get(projectState);
+
     const currentPlugins = currentProject.plugins ?? blankProject().plugins;
 
     const nextPlugins = typeof newValue === 'function' ? newValue(currentPlugins) : newValue ?? blankProject().plugins;
@@ -129,9 +130,15 @@ export const projectPluginsState = atom(
 );
 
 export type OpenedProjectInfo = {
-  project: Project;
+  projectId: ProjectId;
+  title: string;
   fsPath?: string | null;
   openedGraph?: GraphId;
+};
+
+export type OpenedProjectSnapshot = {
+  project: Omit<Project, 'data'>;
+  data?: Project['data'];
 };
 
 export type OpenedProjectsInfo = {
@@ -145,6 +152,12 @@ export const projectsState = atomWithStorage<OpenedProjectsInfo>(
     openedProjects: {},
     openedProjectsSortedIds: [],
   },
+  storage,
+);
+
+export const openedProjectSnapshotsState = atomWithStorage<Record<ProjectId, OpenedProjectSnapshot>>(
+  'openedProjectSnapshotsState',
+  {},
   storage,
 );
 

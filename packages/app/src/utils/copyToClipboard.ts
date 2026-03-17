@@ -1,4 +1,5 @@
 import { toast } from 'react-toastify';
+import { handleError } from './errorHandling.js';
 
 export const copyToClipboard = async (text: string) => {
   try {
@@ -7,6 +8,10 @@ export const copyToClipboard = async (text: string) => {
 
     toast.success('Text copied to clipboard');
   } catch (err) {
-    console.error('Failed to copy text: ', err);
+    handleError(err, 'Failed to copy text to clipboard', {
+      metadata: {
+        textLength: text.length,
+      },
+    });
   }
 };

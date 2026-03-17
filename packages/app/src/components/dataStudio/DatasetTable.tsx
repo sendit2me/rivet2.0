@@ -140,6 +140,8 @@ export const DatasetTable: FC<{
   isFiltered?: boolean;
   onDataChanged: (data: DatasetRow[]) => void;
 }> = ({ datasetData, isFiltered, onDataChanged }) => {
+  const isReadonly = isFiltered === true;
+
   const getColorForDistance = (distance: number) => {
     const points = [
       [0, [255, 0, 0]],
@@ -199,9 +201,16 @@ export const DatasetTable: FC<{
                   value={row.id}
                   row={i}
                   column={-1}
+                  isReadonly={isReadonly}
                   onChange={(value) => {
-                    const newData = [...datasetData];
-                    newData[i]!.id = value;
+                    const newData = datasetData.map((row) => ({
+                      ...row,
+                      data: [...row.data],
+                    }));
+                    newData[i] = {
+                      ...newData[i]!,
+                      id: value,
+                    };
                     onDataChanged(newData);
                   }}
                 />
@@ -213,9 +222,16 @@ export const DatasetTable: FC<{
                     value={cell}
                     row={i}
                     column={j}
+                    isReadonly={isReadonly}
                     onChange={(value) => {
-                      const newData = [...datasetData];
-                      newData[i]!.data[j] = value;
+                      const newData = datasetData.map((row) => ({
+                        ...row,
+                        data: [...row.data],
+                      }));
+                      newData[i] = {
+                        ...newData[i]!,
+                        data: newData[i]!.data.map((cell, columnIndex) => (columnIndex === j ? value : cell)),
+                      };
                       onDataChanged(newData);
                     }}
                   />
@@ -229,8 +245,10 @@ export const DatasetTable: FC<{
         <div className="add-column-area">
           <button
             onClick={() => {
-              const newData = [...datasetData];
-              newData.forEach((row) => row.data.push(''));
+              const newData = datasetData.map((row) => ({
+                ...row,
+                data: [...row.data, ''],
+              }));
               onDataChanged(newData);
             }}
           >
@@ -262,10 +280,17 @@ const DatasetEditableCell: FC<{
   value: string;
   row: number;
   column: number;
+  isReadonly?: boolean;
   onChange: (value: string) => void;
-}> = ({ value, row, column, onChange }) => {
+}> = ({ value, row, column, isReadonly, onChange }) => {
   const [editing, setEditing] = useState(false);
   const [editingText, setEditingText] = useState(value);
+
+  useEffect(() => {
+    if (!editing) {
+      setEditingText(value);
+    }
+  }, [value, editing]);
 
   return (
     <div className="cell editor" data-row={row} data-column={column} data-contextmenutype="cell">
@@ -273,7 +298,7 @@ const DatasetEditableCell: FC<{
         <Suspense fallback={<div />}>
           <LazyCodeEditor
             autoFocus
-            text={value}
+            text={editingText}
             onChange={(e) => setEditingText(e)}
             onBlur={() => {
               onChange(editingText);
@@ -288,7 +313,17 @@ const DatasetEditableCell: FC<{
           />
         </Suspense>
       ) : (
-        <div className="value" onDoubleClick={() => setEditing(true)}>
+        <div
+          className="value"
+          onDoubleClick={() => {
+            if (isReadonly) {
+              return;
+            }
+
+            setEditingText(value);
+            setEditing(true);
+          }}
+        >
           {value}
         </div>
       )}

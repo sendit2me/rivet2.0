@@ -3,7 +3,7 @@ import { useAtom, useAtomValue } from 'jotai';
 import { graphState } from '../state/graph';
 import {
   loadedProjectState,
-  type OpenedProjectInfo,
+  openedProjectSnapshotsState,
   openedProjectsSortedIdsState,
   openedProjectsState,
   projectDataState,
@@ -12,6 +12,7 @@ import {
 
 export function useSyncCurrentStateIntoOpenedProjects() {
   const [openedProjects, setOpenedProjects] = useAtom(openedProjectsState);
+  const [openedProjectSnapshots, setOpenedProjectSnapshots] = useAtom(openedProjectSnapshotsState);
   const [openedProjectsSortedIds, setOpenedProjectsSortedIds] = useAtom(openedProjectsSortedIdsState);
 
   const currentProject = useAtomValue(projectState);
@@ -32,9 +33,11 @@ export function useSyncCurrentStateIntoOpenedProjects() {
       setOpenedProjects({
         ...openedProjects,
         [currentProject.metadata.id]: {
-          project: currentProjectWithData,
+          projectId: currentProject.metadata.id,
+          title: currentProject.metadata.title,
           fsPath: null,
-        } satisfies OpenedProjectInfo,
+          openedGraph: currentGraph?.metadata?.id,
+        },
       });
     }
 
@@ -42,9 +45,11 @@ export function useSyncCurrentStateIntoOpenedProjects() {
       setOpenedProjects({
         ...openedProjects,
         [currentProject.metadata.id]: {
-          project: currentProjectWithData,
+          projectId: currentProject.metadata.id,
+          title: currentProject.metadata.title,
           fsPath: loadedProject.path,
-        } satisfies OpenedProjectInfo,
+          openedGraph: currentGraph?.metadata?.id,
+        },
       });
     }
 
@@ -60,17 +65,19 @@ export function useSyncCurrentStateIntoOpenedProjects() {
       ...openedProjects,
       [currentProject.metadata.id]: {
         ...openedProjects[currentProject.metadata.id],
-        project: currentProjectWithData,
-      } satisfies OpenedProjectInfo,
+        projectId: currentProject.metadata.id,
+        title: currentProject.metadata.title,
+        openedGraph: currentGraph?.metadata?.id,
+      },
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional
-  }, [currentProject, currentProjectWithData]);
+  }, [currentProject, currentGraph?.metadata?.id]);
 
   // Track project and graph state, so that when the user switches projects, we can track that state without saving the project.
   const [prevProjectState, setPrevProjectState] = useState({
     project: currentProjectWithData,
     openedGraph: currentGraph?.metadata?.id,
-  } satisfies OpenedProjectInfo);
+  });
   useEffect(() => {
     if (
       currentGraph.metadata?.id != null &&
@@ -86,7 +93,7 @@ export function useSyncCurrentStateIntoOpenedProjects() {
           },
         },
         openedGraph: currentGraph.metadata!.id!,
-      } satisfies OpenedProjectInfo);
+      });
     }
   }, [currentGraph, currentProject, currentProjectWithData, prevProjectState.project.metadata.id]);
 
@@ -97,19 +104,26 @@ export function useSyncCurrentStateIntoOpenedProjects() {
       prevProjectState.project.metadata.id !== currentProject.metadata.id &&
       openedProjects[prevProjectState.project.metadata.id]
     ) {
+      setOpenedProjectSnapshots({
+        ...openedProjectSnapshots,
+        [prevProjectState.project.metadata.id]: {
+          project: prevProjectState.project,
+          data: prevProjectState.project.data,
+        },
+      });
+
       setOpenedProjects({
         ...openedProjects,
         [prevProjectState.project.metadata.id]: {
           ...openedProjects[prevProjectState.project.metadata.id],
-          project: prevProjectState.project,
           openedGraph: prevProjectState.openedGraph,
-        } satisfies OpenedProjectInfo,
+        },
       });
       // Update prevProjectState, so that we track changes to it
       setPrevProjectState({
         project: currentProjectWithData,
         openedGraph: currentGraph?.metadata?.id,
-      } satisfies OpenedProjectInfo);
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional
   }, [currentProject, currentProjectWithData]);

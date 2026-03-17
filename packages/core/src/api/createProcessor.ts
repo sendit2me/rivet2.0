@@ -3,7 +3,7 @@ import type { AttachedData } from '../utils/serialization/serializationUtils.js'
 import type { AudioProvider } from '../integrations/AudioProvider.js';
 import type { DataValue } from '../model/DataValue.js';
 import type { DatasetProvider } from '../integrations/DatasetProvider.js';
-import type { ExternalFunction, ProcessEvents } from '../model/GraphProcessor.js';
+import type { ExternalFunction, GraphProcessorConcurrency, ProcessEvents } from '../model/GraphProcessor.js';
 import type { GraphId } from '../model/NodeGraph.js';
 import type { Project } from '../model/Project.js';
 import type { MCPProvider } from '../integrations/mcp/MCPProvider.js';
@@ -40,6 +40,7 @@ export type RunGraphOptions = {
   abortSignal?: AbortSignal;
   registry?: NodeRegistration<any, any>;
   includeTrace?: boolean;
+  concurrency?: GraphProcessorConcurrency;
   getChatNodeEndpoint?: ProcessContext['getChatNodeEndpoint'];
   tokenizer?: Tokenizer;
   codeRunner?: ProcessContext['codeRunner'];
@@ -68,6 +69,7 @@ export function coreCreateProcessor(project: Project, options: RunGraphOptions) 
     graphId as GraphId,
     options.registry ?? globalRivetNodeRegistry,
     options.includeTrace,
+    { concurrency: options.concurrency },
   );
 
   if (options.onStart) {

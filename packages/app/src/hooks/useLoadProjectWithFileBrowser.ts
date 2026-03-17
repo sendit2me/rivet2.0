@@ -1,9 +1,10 @@
-import { useAtom, useSetAtom } from 'jotai';
-import { projectsState } from '../state/savedGraphs.js';
-import { getError } from '@ironclad/rivet-core';
+import { useAtom } from 'jotai';
+import { projectsState, type OpenedProjectInfo, type OpenedProjectsInfo } from '../state/savedGraphs.js';
 import { toast } from 'react-toastify';
 import { useIOProvider } from '../providers/ProvidersContext.js';
 import { chooseProjectGraph } from '../utils/workspaceTransitions.js';
+import { addOpenedProject } from '../utils/openedProjects.js';
+import { handleError } from '../utils/errorHandling.js';
 import { useWorkspaceTransitions } from './useWorkspaceTransitions.js';
 
 export function useLoadProjectWithFileBrowser() {
@@ -15,19 +16,18 @@ export function useLoadProjectWithFileBrowser() {
     try {
       await ioProvider.loadProjectData(({ project, testData, path }) => {
         const { data, ...projectData } = project;
+        const openedProjects = Object.values(projects.openedProjects) as OpenedProjectInfo[];
 
-        if (Object.values(projects.openedProjects).some((p) => p.fsPath === path)) {
+        if (openedProjects.some((p) => p.fsPath === path)) {
           toast.error(`That project is already open.`);
           return;
         }
 
-        const alreadyOpenedProject = Object.values(projects.openedProjects).find(
-          (p) => p.project.metadata.id === project.metadata.id,
-        );
+        const alreadyOpenedProject = openedProjects.find((p) => p.projectId === project.metadata.id);
 
         if (alreadyOpenedProject) {
           toast.error(
-            `"${alreadyOpenedProject.project.metadata.title} [${
+            `"${alreadyOpenedProject.title} [${
               alreadyOpenedProject.fsPath?.split('/').pop() ?? 'no path'
             }]" shares the same ID (${
               project.metadata.id
@@ -41,27 +41,26 @@ export function useLoadProjectWithFileBrowser() {
           fallbackToSortedProjectGraph: true,
         });
 
-        void workspaceTransitions.loadProject({
-          project: projectData,
-          data,
-          fsPath: path,
-          graphToLoad,
-          testSuites: testData.testSuites,
-        });
+        void (async () => {
+          const loaded = await workspaceTransitions.loadProject({
+            project: projectData,
+            data,
+            fsPath: path,
+            graphToLoad,
+            testSuites: testData.testSuites,
+          });
 
-        setProjects((prev) => ({
-          openedProjects: {
-            ...prev.openedProjects,
-            [project.metadata.id]: {
-              project: projectData,
-              fsPath: path,
-            },
-          },
-          openedProjectsSortedIds: [...prev.openedProjectsSortedIds, project.metadata.id],
-        }));
+          if (loaded) {
+            setProjects((prev: OpenedProjectsInfo) => addOpenedProject(prev, project, { fsPath: path }));
+          }
+        })();
       });
     } catch (err) {
-      toast.error(`Failed to load project: ${getError(err).message}`);
+      handleError(err, 'Failed to load project from file browser', {
+        metadata: {
+          openProjectCount: Object.keys(projects.openedProjects).length,
+        },
+      });
     }
   };
 }

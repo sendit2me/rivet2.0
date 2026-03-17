@@ -16,7 +16,7 @@ import { ErrorBoundary } from 'react-error-boundary';
 import { projectPluginsState } from '../state/savedGraphs';
 import { produce } from 'immer';
 import { useAtom, useAtomValue } from 'jotai';
-import { syncWrapper } from '../utils/syncWrapper';
+import { handleError, wrapAsync } from '../utils/errorHandling';
 import { nativeAppLocalDataDir, nativeJoinPath } from '../utils/platform/path.js';
 import { PluginCatalog } from './pluginsOverlay/PluginCatalog.js';
 import { AddNpmPluginModal, PluginLogModal } from './pluginsOverlay/PluginInstallModals.js';
@@ -105,7 +105,9 @@ export const PluginsOverlay: FC = () => {
       const appDataDir = await nativeAppLocalDataDir();
       setPluginStoreDirectory(await nativeJoinPath(appDataDir, 'plugins'));
     } catch (err) {
-      console.error(err);
+      handleError(err, 'Failed to resolve plugin store directory', {
+        toastError: false,
+      });
     }
   }, []);
 
@@ -143,7 +145,7 @@ export const PluginsOverlay: FC = () => {
           <AddNpmPluginModal
             isOpen={addNPMPluginModalOpen}
             onClose={toggleAddNPMPluginModal.setLeft}
-            onAddPlugin={syncWrapper(addPackagePlugin)}
+            onAddPlugin={wrapAsync(addPackagePlugin, 'Install package plugin')}
             pluginStoreDirectory={pluginStoreDirectory}
           />
           <PluginLogModal isOpen={pluginLogModalOpen} log={packageInstallLog} onClose={togglePluginLogModal.setLeft} />

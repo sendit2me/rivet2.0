@@ -4,12 +4,12 @@ import {
   type NodeId,
   type NodeConnection,
   type ChartNode,
-  globalRivetNodeRegistry,
   type Project,
 } from '@ironclad/rivet-core';
 import { nodesState, connectionsState } from '../state/graph';
 import { produce } from 'immer';
 import { referencedProjectsState } from '../state/savedGraphs';
+import { useProjectNodeRegistry } from '../hooks/useProjectNodeRegistry';
 
 const MERGE_WINDOW_MS = 5000; // 5 seconds in milliseconds
 
@@ -17,6 +17,7 @@ export function useEditNodeCommand() {
   const setNodes = useSetAtom(nodesState);
   const setConnections = useSetAtom(connectionsState);
   const setCommandHistories = useSetAtom(commandHistoryStackStatePerGraph);
+  const projectNodeRegistry = useProjectNodeRegistry();
   const referencedProjects = useAtomValue(referencedProjectsState);
 
   const findBrokenConnections = (
@@ -40,7 +41,7 @@ export function useEditNodeCommand() {
 
     const nodesById = Object.fromEntries(updatedNodes.map((n) => [n.id, n]));
     const updatedNode = nodesById[nodeId]!;
-    const instance = globalRivetNodeRegistry.createDynamicImpl(updatedNode);
+    const instance = projectNodeRegistry.createDynamicImpl(updatedNode);
 
     const inputDefs = instance.getInputDefinitionsIncludingBuiltIn(
       connectionsForNode,

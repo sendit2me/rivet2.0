@@ -1,7 +1,6 @@
 import { useAtomValue } from 'jotai';
 import { cloneDeep, range, zip } from 'lodash-es';
 import { nanoid } from 'nanoid/non-secure';
-import { toast } from 'react-toastify';
 import {
   ChatNodeImpl,
   GraphProcessor,
@@ -16,12 +15,12 @@ import {
   type PortId,
   coerceType,
   coerceTypeOptional,
-  globalRivetNodeRegistry,
 } from '@ironclad/rivet-core';
 import { TauriNativeApi } from '../../model/native/TauriNativeApi.js';
 import { projectState } from '../../state/savedGraphs.js';
 import { settingsState } from '../../state/settings.js';
 import { useGetAdHocInternalProcessContext } from '../../hooks/useGetAdHocInternalProcessContext';
+import { useProjectNodeRegistry } from '../../hooks/useProjectNodeRegistry';
 import type { PromptDesignerTestGroupResults } from '../../state/promptDesigner';
 import type { ChatNodeConfigData } from '../../../../core/src/model/nodes/ChatNodeBase';
 import { GptTokenizerTokenizer } from '../../../../core/src/integrations/GptTokenizerTokenizer';
@@ -50,26 +49,22 @@ export async function runAdHocChat(messages: ChatMessage[], data: ChatNodeConfig
     },
   });
 
-  try {
-    const result = await chatNode.process(
-      {
-        ['prompt' as PortId]: {
-          type: 'chat-message[]',
-          value: messages,
-        },
+  const result = await chatNode.process(
+    {
+      ['prompt' as PortId]: {
+        type: 'chat-message[]',
+        value: messages,
       },
-      context,
-    );
+    },
+    context,
+  );
 
-    return coerceTypeOptional(result['response' as PortId], 'string') ?? '';
-  } catch (error) {
-    toast.error((error as Error).message);
-    throw error;
-  }
+  return coerceTypeOptional(result['response' as PortId], 'string') ?? '';
 }
 
 export function useRunPromptDesignerTestGroup(datasetProvider: DatasetProvider) {
   const project = useAtomValue(projectState);
+  const projectNodeRegistry = useProjectNodeRegistry();
   const settings = useAtomValue(settingsState);
 
   return async (
@@ -79,7 +74,7 @@ export function useRunPromptDesignerTestGroup(datasetProvider: DatasetProvider) 
     context: InternalProcessContext,
   ): Promise<PromptDesignerTestGroupResults> => {
     const response = await runAdHocChat(messages, data, context);
-    const processor = new GraphProcessor(project, testGroup.evaluatorGraphId, globalRivetNodeRegistry, true);
+    const processor = new GraphProcessor(project, testGroup.evaluatorGraphId, projectNodeRegistry, true);
     processor.executor = 'browser';
 
     processor.on('trace', (value) => console.log(value));

@@ -3,9 +3,11 @@ import { useCommand } from './Command';
 import { nodesState } from '../state/graph';
 import { type NodeId } from '@ironclad/rivet-core';
 import { createAddedNode } from '../domain/graphEditing/nodeActions.js';
+import { useProjectNodeRegistry } from '../hooks/useProjectNodeRegistry';
 
 export function useAddNodeCommand() {
   const setNodes = useSetAtom(nodesState);
+  const projectNodeRegistry = useProjectNodeRegistry();
 
   return useCommand<{ nodeType: string; position: { x: number; y: number } }, { id: NodeId }>({
     type: 'addNode',
@@ -13,6 +15,7 @@ export function useAddNodeCommand() {
       const newNode = createAddedNode({
         nodeType: params.nodeType,
         position: params.position,
+        registry: projectNodeRegistry,
         referencedProjects: currentState.referencedProjects,
         appliedId: appliedData?.id,
       });

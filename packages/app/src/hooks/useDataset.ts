@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { toast } from 'react-toastify';
-import { type DatasetRow, type DatasetId, getError, newId, type Dataset } from '@ironclad/rivet-core';
+import { type DatasetRow, type DatasetId, newId, type Dataset } from '@ironclad/rivet-core';
 import { useStableCallback } from './useStableCallback';
 import { useDatasetProvider } from '../providers/ProvidersContext';
+import { handleError } from '../utils/errorHandling.js';
 
 export function useDataset(datasetId: DatasetId) {
   const datasetProvider = useDatasetProvider();
@@ -13,7 +13,11 @@ export function useDataset(datasetId: DatasetId) {
       const result = await datasetProvider.getDatasetData(datasetId);
       updateDataset(result);
     } catch (err) {
-      toast.error(getError(err).message);
+      handleError(err, 'Failed to reload dataset data', {
+        metadata: {
+          datasetId,
+        },
+      });
     }
   });
 
@@ -21,24 +25,26 @@ export function useDataset(datasetId: DatasetId) {
     reloadDatasetData();
   }, [datasetId, reloadDatasetData]);
 
-  const deleteRow = async (row: number) => {
-    const newData = [...dataset!.rows];
-    newData.splice(row, 1);
+  const persistDatasetRows = async (rows: DatasetRow[]) => {
     await datasetProvider.putDatasetData(datasetId, {
       ...dataset!,
-      rows: newData,
+      rows,
     });
     await reloadDatasetData();
   };
 
-  const deleteColumn = async (column: number) => {
+  const deleteRow = async (row: number) => {
     const newData = [...dataset!.rows];
-    newData.forEach((row) => row.data.splice(column, 1));
-    await datasetProvider.putDatasetData(datasetId, {
-      ...dataset!,
-      rows: newData,
-    });
-    await reloadDatasetData();
+    newData.splice(row, 1);
+    await persistDatasetRows(newData);
+  };
+
+  const deleteColumn = async (column: number) => {
+    const newData = dataset!.rows.map((row: DatasetRow) => ({
+      ...row,
+      data: row.data.filter((_: string, index: number) => index !== column),
+    }));
+    await persistDatasetRows(newData);
   };
 
   const insertRowAbove = async (row: number) => {
@@ -47,11 +53,7 @@ export function useDataset(datasetId: DatasetId) {
       id: newId(),
       data: Array(dataset!.rows[0]?.data.length ?? 1).fill(''),
     });
-    await datasetProvider.putDatasetData(datasetId, {
-      ...dataset!,
-      rows: newData,
-    });
-    await reloadDatasetData();
+    await persistDatasetRows(newData);
   };
 
   const insertRowBelow = async (row: number) => {
@@ -60,39 +62,27 @@ export function useDataset(datasetId: DatasetId) {
       id: newId(),
       data: Array(dataset!.rows[0]?.data.length ?? 1).fill(''),
     });
-    await datasetProvider.putDatasetData(datasetId, {
-      ...dataset!,
-      rows: newData,
-    });
-    await reloadDatasetData();
+    await persistDatasetRows(newData);
   };
 
   const insertColumnLeft = async (column: number) => {
-    const newData = [...dataset!.rows];
-    newData.forEach((row) => row.data.splice(column, 0, ''));
-    await datasetProvider.putDatasetData(datasetId, {
-      ...dataset!,
-      rows: newData,
-    });
-    await reloadDatasetData();
+    const newData = dataset!.rows.map((row: DatasetRow) => ({
+      ...row,
+      data: [...row.data.slice(0, column), '', ...row.data.slice(column)],
+    }));
+    await persistDatasetRows(newData);
   };
 
   const insertColumnRight = async (column: number) => {
-    const newData = [...dataset!.rows];
-    newData.forEach((row) => row.data.splice(column + 1, 0, ''));
-    await datasetProvider.putDatasetData(datasetId, {
-      ...dataset!,
-      rows: newData,
-    });
-    await reloadDatasetData();
+    const newData = dataset!.rows.map((row: DatasetRow) => ({
+      ...row,
+      data: [...row.data.slice(0, column + 1), '', ...row.data.slice(column + 1)],
+    }));
+    await persistDatasetRows(newData);
   };
 
   const putDatasetData = async (data: DatasetRow[]) => {
-    await datasetProvider.putDatasetData(datasetId, {
-      ...dataset!,
-      rows: data,
-    });
-    await reloadDatasetData();
+    await persistDatasetRows(data);
   };
 
   const clearData = async () => {

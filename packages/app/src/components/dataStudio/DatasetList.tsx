@@ -1,9 +1,8 @@
 import Button from '@atlaskit/button';
 import { DropdownItem } from '@atlaskit/dropdown-menu';
 import Portal from '@atlaskit/portal';
-import { type DatasetId, type DatasetMetadata, newId, getError } from '@ironclad/rivet-core';
+import { type DatasetId, type DatasetMetadata, newId } from '@ironclad/rivet-core';
 import { type FC, useState } from 'react';
-import { toast } from 'react-toastify';
 import { useAtomValue, useAtom } from 'jotai';
 import { useContextMenu } from '../../hooks/useContextMenu';
 import { useDatasets } from '../../hooks/useDatasets';
@@ -12,7 +11,6 @@ import { projectState } from '../../state/savedGraphs';
 import { DatasetListItem } from './DatasetListItem';
 import { css } from '@emotion/react';
 import { autoUpdate, shift, useFloating } from '@floating-ui/react';
-import { syncWrapper } from '../../utils/syncWrapper';
 import { wrapAsync } from '../../utils/errorHandling';
 
 const contextMenuStyles = css`
@@ -44,7 +42,14 @@ export const DatasetList: FC<{}> = () => {
   const project = useAtomValue(projectState);
   const { datasets, ...datasetsMethods } = useDatasets(project.metadata.id);
 
-  const newDataset = async () => {
+  const datasetErrorOptions = (datasetId: DatasetId) => ({
+    metadata: {
+      datasetId,
+      projectId: project.metadata.id,
+    },
+  });
+
+  const newDataset = () => {
     const metadata: DatasetMetadata = {
       id: newId<DatasetId>(),
       projectId: project.metadata.id,
@@ -52,35 +57,37 @@ export const DatasetList: FC<{}> = () => {
       description: '',
     };
 
-    try {
-      await datasetsMethods.putDataset(metadata);
-      setRenamingDataset(metadata.id);
-    } catch (err) {
-      toast.error(`Failed to create dataset: ${getError(err).message}`);
-    }
+    return wrapAsync(
+      async () => {
+        await datasetsMethods.putDataset(metadata);
+        setRenamingDataset(metadata.id);
+      },
+      'Failed to create dataset',
+      datasetErrorOptions(metadata.id),
+    )();
   };
 
-  const updateDataset = async (dataset: DatasetMetadata) => {
-    try {
+  const updateDataset = wrapAsync(
+    async (dataset: DatasetMetadata) => {
       await datasetsMethods.putDataset(dataset);
-    } catch (err) {
-      toast.error(`Failed to update dataset: ${getError(err).message}`);
-    }
-  };
+    },
+    'Failed to update dataset',
+    (dataset) => datasetErrorOptions(dataset.id),
+  );
 
   const selectedDatasetForContextMenu =
     contextMenuData.data?.type === 'dataset'
       ? datasets?.find((set) => set.id === contextMenuData.data!.element.dataset.datasetid)
       : undefined;
 
-  const deleteDataset = async (dataset: DatasetMetadata) => {
-    setShowContextMenu(false);
-    try {
+  const deleteDataset = wrapAsync(
+    async (dataset: DatasetMetadata) => {
+      setShowContextMenu(false);
       await datasetsMethods.deleteDataset(dataset.id);
-    } catch (err) {
-      toast.error(`Failed to delete dataset: ${getError(err).message}`);
-    }
-  };
+    },
+    'Failed to delete dataset',
+    (dataset) => datasetErrorOptions(dataset.id),
+  );
 
   return (
     <div
@@ -92,7 +99,7 @@ export const DatasetList: FC<{}> = () => {
     >
       <header>
         <h2>Datasets</h2>
-        <Button appearance="primary" onClick={syncWrapper(newDataset)}>
+        <Button appearance="primary" onClick={newDataset}>
           +
         </Button>
       </header>
@@ -125,7 +132,7 @@ export const DatasetList: FC<{}> = () => {
           >
             <div ref={refs.setFloating} style={floatingStyles} css={contextMenuStyles}>
               <DropdownItem onClick={() => setRenamingDataset(selectedDatasetForContextMenu?.id)}>Rename</DropdownItem>
-              <DropdownItem onClick={wrapAsync(() => deleteDataset(selectedDatasetForContextMenu!), 'Delete dataset')}>
+              <DropdownItem onClick={() => deleteDataset(selectedDatasetForContextMenu!)}>
                 Delete
               </DropdownItem>
             </div>

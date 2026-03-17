@@ -33,7 +33,6 @@ import { CommunityOverlayRenderer } from './community/CommunityOverlay';
 import { HelpModal } from './HelpModal';
 import { openedProjectsSortedIdsState } from '../state/savedGraphs';
 import { NoProject } from './NoProject';
-import { syncWrapper } from '../utils/syncWrapper';
 import { allInitializeStoreFns } from '../state/storage';
 import { AppErrorBoundary } from './AppErrorBoundary';
 import { wrapAsync } from '../utils/errorHandling';
@@ -58,8 +57,12 @@ export const RivetApp: FC = () => {
 
   useLoadStaticData();
 
+  const runGraph = wrapAsync(tryRunGraph, 'Run graph');
+  const runTests = wrapAsync(tryRunTests, 'Run tests');
+  const runGraphFromSidebar = wrapAsync(async (graphId: string) => tryRunGraph({ graphId }), 'Run graph from sidebar');
+
   useMenuCommands({
-    onRunGraph: syncWrapper(tryRunGraph),
+    onRunGraph: runGraph,
   });
 
   useWindowsHotkeysFix();
@@ -88,21 +91,21 @@ export const RivetApp: FC = () => {
           <ProjectSelector />
           <OverlayTabs />
           <ActionBar
-            onRunGraph={syncWrapper(tryRunGraph)}
-            onRunTests={syncWrapper(tryRunTests)}
+            onRunGraph={runGraph}
+            onRunTests={runTests}
             onAbortGraph={tryAbortGraph}
             onPauseGraph={tryPauseGraph}
             onResumeGraph={tryResumeGraph}
           />
           <StatusBar />
           <DebuggerPanelRenderer />
-          <LeftSidebar onRunGraph={(graphId) => wrapAsync(() => tryRunGraph({ graphId }), 'Run graph from sidebar')()} />
+          <LeftSidebar onRunGraph={runGraphFromSidebar} />
           <GraphBuilder />
           <AppErrorBoundary context="Settings Modal" fallback={<div>Failed to render Settings</div>}>
             <SettingsModal />
           </AppErrorBoundary>
           <PromptDesignerRenderer />
-          <TrivetRenderer tryRunTests={tryRunTests} />
+          <TrivetRenderer tryRunTests={runTests} />
           <ChatViewerRenderer />
           <DataStudioRenderer />
           <PluginsOverlayRenderer />

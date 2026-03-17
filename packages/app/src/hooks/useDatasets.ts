@@ -1,10 +1,10 @@
-import { type DatasetId, type DatasetMetadata, type ProjectId, getError } from '@ironclad/rivet-core';
-import { useEffect, useState } from 'react';
-import { toast } from 'react-toastify';
+import { type DatasetId, type DatasetMetadata, type ProjectId } from '@ironclad/rivet-core';
+import { useEffect } from 'react';
 import { datasetsState } from '../state/dataStudio';
 import { useAtom } from 'jotai';
 import { useStableCallback } from './useStableCallback';
 import { useDatasetProvider } from '../providers/ProvidersContext';
+import { handleError } from '../utils/errorHandling.js';
 
 export function useDatasets(projectId: ProjectId) {
   const datasetProvider = useDatasetProvider();
@@ -15,7 +15,11 @@ export function useDatasets(projectId: ProjectId) {
       await datasetProvider.loadDatasets?.(projectId);
       await reloadDatasets();
     } catch (err) {
-      toast.error(getError(err).message);
+      handleError(err, 'Failed to initialize datasets', {
+        metadata: {
+          projectId,
+        },
+      });
     }
   });
 
@@ -24,8 +28,17 @@ export function useDatasets(projectId: ProjectId) {
       const datasets = await datasetProvider.getDatasetsForProject(projectId);
       setDatasets(datasets);
     } catch (err) {
-      toast.error(getError(err).message);
+      handleError(err, 'Failed to reload datasets', {
+        metadata: {
+          projectId,
+        },
+      });
     }
+  };
+
+  const updateDatasets = async (operation: () => Promise<void>) => {
+    await operation();
+    await reloadDatasets();
   };
 
   useEffect(() => {
@@ -33,13 +46,15 @@ export function useDatasets(projectId: ProjectId) {
   }, [projectId, initDatasets]);
 
   const putDataset = async (dataset: DatasetMetadata) => {
-    await datasetProvider.putDatasetMetadata(dataset);
-    await reloadDatasets();
+    await updateDatasets(async () => {
+      await datasetProvider.putDatasetMetadata(dataset);
+    });
   };
 
   const deleteDataset = async (datasetId: DatasetId) => {
-    await datasetProvider.deleteDataset(datasetId);
-    await reloadDatasets();
+    await updateDatasets(async () => {
+      await datasetProvider.deleteDataset(datasetId);
+    });
   };
 
   return {

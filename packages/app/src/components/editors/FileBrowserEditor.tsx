@@ -17,7 +17,7 @@ import { isPathBasedIOProvider } from '../../io/IOProvider';
 import { type SharedEditorProps } from './SharedEditorProps';
 import { getHelperMessage } from './editorUtils';
 import mime from 'mime';
-import { syncWrapper } from '../../utils/syncWrapper';
+import { wrapAsync } from '../../utils/errorHandling';
 import { useIOProvider } from '../../providers/ProvidersContext';
 
 export const DefaultFileBrowserEditor: FC<
@@ -30,28 +30,34 @@ export const DefaultFileBrowserEditor: FC<
   const projectData = useAtomValue(projectDataState);
   const helperMessage = getHelperMessage(editor, node.data);
 
-  const pickFile = async () => {
-    await ioProvider.readFileAsBinary(
-      syncWrapper(async (binaryData: Uint8Array, fileName: string) => {
-        const dataId = nanoid() as DataId;
-        onChange(
-          {
-            ...node,
-            data: {
-              ...data,
-              [editor.dataKey]: {
-                refId: dataId,
-              } satisfies DataRef,
-              [editor.mediaTypeDataKey]: mime.getType(fileName) ?? 'application/octet-stream',
-            },
+  const handleFileSelected = wrapAsync(
+    async (binaryData: Uint8Array, fileName: string) => {
+      const dataId = nanoid() as DataId;
+      onChange(
+        {
+          ...node,
+          data: {
+            ...data,
+            [editor.dataKey]: {
+              refId: dataId,
+            } satisfies DataRef,
+            [editor.mediaTypeDataKey]: mime.getType(fileName) ?? 'application/octet-stream',
           },
-          {
-            [dataId]: (await uint8ArrayToBase64(binaryData)) ?? '',
-          },
-        );
-      }),
-    );
-  };
+        },
+        {
+          [dataId]: (await uint8ArrayToBase64(binaryData)) ?? '',
+        },
+      );
+    },
+    'Load file',
+  );
+
+  const pickFile = wrapAsync(
+    async () => {
+      await ioProvider.readFileAsBinary(handleFileSelected);
+    },
+    'Open file picker',
+  );
 
   const dataRef = data[editor.dataKey] as DataRef | undefined;
   const b64Data = dataRef ? projectData?.[dataRef.refId] : undefined;
@@ -63,7 +69,7 @@ export const DefaultFileBrowserEditor: FC<
     <Field name={editor.dataKey} label={editor.label}>
       {() => (
         <div>
-          <Button onClick={syncWrapper(pickFile)} isDisabled={isReadonly || isDisabled}>
+          <Button onClick={pickFile} isDisabled={isReadonly || isDisabled}>
             Pick File
           </Button>
           <div className="current">{dataUri && <span>Data ({prettyBytes(dataByteLength ?? NaN)})</span>}</div>
@@ -83,25 +89,28 @@ export const DefaultFilePathBrowserEditor: FC<
   const data = node.data as Record<string, unknown>;
   const helperMessage = getHelperMessage(editor, node.data);
 
-  const pickFile = async () => {
-    if (!isPathBasedIOProvider(ioProvider)) return;
-    const path = await ioProvider.openFilePath();
-    if (path) {
-      onChange({
-        ...node,
-        data: {
-          ...data,
-          [editor.dataKey]: path as string,
-        },
-      });
-    }
-  };
+  const pickFile = wrapAsync(
+    async () => {
+      if (!isPathBasedIOProvider(ioProvider)) return;
+      const path = await ioProvider.openFilePath();
+      if (path) {
+        onChange({
+          ...node,
+          data: {
+            ...data,
+            [editor.dataKey]: path as string,
+          },
+        });
+      }
+    },
+    'Open file path picker',
+  );
 
   return (
     <Field name={editor.dataKey} label={editor.label}>
       {() => (
         <div>
-          <Button onClick={syncWrapper(pickFile)} isDisabled={isReadonly || isDisabled}>
+          <Button onClick={pickFile} isDisabled={isReadonly || isDisabled}>
             Pick File
           </Button>
           <div className="current">{data[editor.dataKey] != null && <span>{data[editor.dataKey] as string}</span>}</div>

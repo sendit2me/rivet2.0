@@ -4,6 +4,7 @@ import { useSetAtom } from 'jotai';
 import { getCommunityLoginUrl } from '../../utils/getCommunityApi';
 import { isLoggedInToCommunityState } from '../../state/community';
 import { createWebviewWindowHandle } from '../../utils/platform/window.js';
+import { handleError } from '../../utils/errorHandling.js';
 
 export const NeedsLoginPage: FC = () => {
   const loginUrl = getCommunityLoginUrl();
@@ -17,7 +18,12 @@ export const NeedsLoginPage: FC = () => {
     });
 
     await window.once?.('tauri://error', (e) => {
-      console.error(e);
+      handleError(e, 'Community login window error', {
+        metadata: {
+          loginUrl,
+        },
+        toastError: false,
+      });
     });
 
     await window.onCloseRequested?.(() => {

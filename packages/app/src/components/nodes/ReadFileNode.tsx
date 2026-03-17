@@ -5,7 +5,7 @@ import Button from '@atlaskit/button';
 import { type ChartNode, type ReadFileNode } from '@ironclad/rivet-core';
 import { type NodeComponentDescriptor } from '../../hooks/useNodeTypes.js';
 import { isPathBasedIOProvider } from '../../io/IOProvider.js';
-import { syncWrapper } from '../../utils/syncWrapper';
+import { wrapAsync } from '../../utils/errorHandling';
 import { useIOProvider } from '../../providers/ProvidersContext.js';
 
 type ReadFileNodeBodyProps = {
@@ -84,16 +84,19 @@ const container = css`
 
 export const ReadFileNodeEditor: FC<ReadFileNodeEditorProps> = ({ node, onChange }) => {
   const ioProvider = useIOProvider();
-  const handleBrowseClick = async () => {
-    if (!isPathBasedIOProvider(ioProvider)) return;
-    const path = await ioProvider.openFilePath();
-    if (path) {
-      onChange?.({
-        ...node,
-        data: { ...node.data, path: path as string },
-      });
-    }
-  };
+  const handleBrowseClick = wrapAsync(
+    async () => {
+      if (!isPathBasedIOProvider(ioProvider)) return;
+      const path = await ioProvider.openFilePath();
+      if (path) {
+        onChange?.({
+          ...node,
+          data: { ...node.data, path: path as string },
+        });
+      }
+    },
+    'Open read file path picker',
+  );
 
   return (
     <div css={container}>
@@ -105,7 +108,7 @@ export const ReadFileNodeEditor: FC<ReadFileNodeEditorProps> = ({ node, onChange
             <label className="label" htmlFor="baseDirectory">
               Pick File
             </label>
-            <Button onClick={syncWrapper(handleBrowseClick)}>Browse...</Button>
+            <Button onClick={handleBrowseClick}>Browse...</Button>
           </>
         )}
         <Toggle

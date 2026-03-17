@@ -9,6 +9,7 @@ import Button from '@atlaskit/button';
 import { type MCP } from '@ironclad/rivet-core';
 import { toast } from 'react-toastify';
 import { LazyCodeEditor } from './LazyComponents';
+import { handleError } from '../utils/errorHandling.js';
 
 
 export const ProjectMCPConfiguration: FC = () => {
@@ -39,7 +40,13 @@ export const ProjectMCPConfiguration: FC = () => {
       toast.success('MCP Configuration saved successfully');
       onClose();
     } catch (err) {
-      console.error(err);
+      handleError(err, 'Failed to save MCP configuration', {
+        metadata: {
+          configLength: newConfig.length,
+          projectId: projectMetadata.id,
+        },
+        toastError: false,
+      });
       toast.error('Failed to save MCP Configuration: Please make sure your configuration is correctly JSON formatted.');
     }
   };

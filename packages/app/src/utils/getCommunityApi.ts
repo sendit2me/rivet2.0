@@ -1,6 +1,6 @@
 import join from 'url-join';
 import { type CheckerReturnType, type Checker } from '@recoiljs/refine';
-import { toast } from 'react-toastify';
+import { handleError } from './errorHandling.js';
 
 export function getCommunityHost() {
   if (import.meta.env.MODE === 'production') {
@@ -43,7 +43,11 @@ export async function fetchCommunity<T extends Checker<any>>(
   const checkerResult = bodyChecker(data);
 
   if (checkerResult.type === 'failure') {
-    toast.error(checkerResult.message);
+    handleError(new Error(checkerResult.message), 'Failed to validate community API response', {
+      metadata: {
+        path,
+      },
+    });
     throw new Error(checkerResult.message);
   }
 

@@ -24,7 +24,8 @@ describe('openedProjects helpers', () => {
       {
         openedProjects: {
           [existingProject.metadata.id]: {
-            project: existingProject,
+            projectId: existingProject.metadata.id,
+            title: existingProject.metadata.title,
             fsPath: '/tmp/existing.rivet-project',
           },
         },
@@ -34,8 +35,8 @@ describe('openedProjects helpers', () => {
     );
 
     assert.deepEqual(result.openedProjectsSortedIds, [existingProject.metadata.id, nextProject.metadata.id]);
-    assert.equal(result.openedProjects[existingProject.metadata.id]?.project.metadata.title, 'Existing');
-    assert.equal(result.openedProjects[nextProject.metadata.id]?.project.metadata.title, 'Next');
+    assert.equal(result.openedProjects[existingProject.metadata.id]?.title, 'Existing');
+    assert.equal(result.openedProjects[nextProject.metadata.id]?.title, 'Next');
     assert.equal(result.openedProjects[nextProject.metadata.id]?.fsPath, null);
   });
 
@@ -46,7 +47,8 @@ describe('openedProjects helpers', () => {
       {
         openedProjects: {
           [project.metadata.id]: {
-            project,
+            projectId: project.metadata.id,
+            title: project.metadata.title,
             fsPath: null,
           },
         },
@@ -68,7 +70,8 @@ describe('openedProjects helpers', () => {
       {
         openedProjects: {
           [project.metadata.id]: {
-            project,
+            projectId: project.metadata.id,
+            title: project.metadata.title,
             fsPath: '/tmp/project-1.rivet-project',
             openedGraph: 'graph-2' as GraphId,
           },
@@ -79,7 +82,7 @@ describe('openedProjects helpers', () => {
     );
 
     assert.deepEqual(result.openedProjectsSortedIds, [project.metadata.id]);
-    assert.equal(result.openedProjects[project.metadata.id]?.project.metadata.title, 'Updated');
+    assert.equal(result.openedProjects[project.metadata.id]?.title, 'Updated');
     assert.equal(result.openedProjects[project.metadata.id]?.fsPath, '/tmp/project-1.rivet-project');
     assert.equal(result.openedProjects[project.metadata.id]?.openedGraph, 'graph-2');
   });

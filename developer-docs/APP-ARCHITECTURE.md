@@ -130,6 +130,41 @@ The app can be thought of as six cooperating subsystems:
 5. Plugin and extension layer
 6. Native/platform integration
 
+## Shared async UI helper boundary
+
+The app now uses small shared async helpers for a subset of UI work:
+
+- `wrapAsync(...)` for routine async UI handlers that only need consistent error reporting
+- `useHandledMutation(...)` for React Query mutations that share the same error/invalidation/completion shape
+- `syncWrapper(...)` only as a compatibility alias over `wrapAsync(...)`
+
+These helpers are intentionally scoped.
+
+They are a good fit for:
+
+- utility buttons
+- browse/open actions
+- straightforward form submissions
+- template/profile/community mutations with ordinary invalidation and toast/error handling
+- dataset actions that are just "persist then reload"
+
+They are not a good fit for flows that also own:
+
+- rollback or partial-failure handling
+- cross-store coordination
+- multi-step workspace transitions
+- executor/session orchestration
+- recovery behavior that must stay explicit at each step
+
+Within `useHandledMutation(...)`, callback timing also matters:
+
+- `onMutate` is for optimistic or pre-request work that may happen before the network call settles
+- `onSuccess` is for success-only follow-up such as closing dialogs, dismissing publish flows, or showing completion-only UI state
+
+If a mutation still performs a multi-step operation inside `mutationFn` itself, any rollback or cleanup for partially completed work should stay explicit inside that mutation body rather than being delegated to the shared helper.
+
+In those cases the app should keep explicit `try/catch` structure close to the orchestration logic instead of hiding control flow behind a generic wrapper.
+
 ## Shell and Workspace UI
 
 ### `ProjectSelector`
@@ -140,7 +175,9 @@ Current workspace behavior:
 
 - creating a new blank project or template project adds a new open-project tab instead of replacing the existing open-project set
 - `projectsState` is the canonical multi-project tab store; `openedProjectsState` and `openedProjectsSortedIdsState` are compatibility projections over it
-- `useSyncCurrentStateIntoOpenedProjects` continuously snapshots the active project's in-memory graph state, current static project data, and `openedGraph` back into the tab store so switching tabs does not require an explicit save
+- `projectsState` now stores only lightweight tab metadata: `projectId`, title, `fsPath`, and `openedGraph`
+- `useSyncCurrentStateIntoOpenedProjects` keeps tab metadata in sync while writing full inactive-project restoration snapshots into `openedProjectSnapshotsState` on project switches
+- successful project saves clear any persisted restoration snapshot for that project so file-backed projects do not keep redundant snapshot state
 - closing/reordering project tabs still lives in `ProjectSelector.tsx`, not in the shared workspace transition layer
 
 ### `ActionBar`
@@ -474,7 +511,8 @@ Important nuance:
 - `projectState` is stored as `Omit<Project, 'data'>`
 - large attached static data is held separately in `projectDataState`
 - per-project context values are persisted separately via `projectContextState(projectId)`
-- open-project tab state is persisted separately in `projectsState` and stores a per-tab project snapshot, `fsPath`, and optional `openedGraph`
+- open-project tab state is persisted separately in `projectsState` but now stores only lightweight tab metadata rather than a full project payload
+- full restoration payloads for inactive tabs live in `openedProjectSnapshotsState` and are treated as explicit restoration artifacts instead of the canonical tab model
 - when replacing the current project, `projectDataState` is replaced for the new project and the IndexedDB static-data cache is cleared before loading the new project's data
 
 ### Execution and data-flow state
@@ -569,6 +607,7 @@ Current architectural update:
 - `useLoadProject` is now a thin adapter over the shared workspace transition layer
 - the transition sequencing itself lives in [`packages/app/src/hooks/useWorkspaceTransitions.ts`](../packages/app/src/hooks/useWorkspaceTransitions.ts)
 - pure transition planning lives in [`packages/app/src/utils/workspaceTransitions.ts`](../packages/app/src/utils/workspaceTransitions.ts)
+- `workspaceTransitions.loadProject(...)` now reports `true`/`false` so callers that own surrounding UI state can distinguish a completed transition from a handled failure
 
 ### `useLoadGraph`
 
@@ -622,6 +661,8 @@ Current boundary:
 
 - load-project, graph-switch, save/save-as, and new blank/template project initialization all reuse this sequencing
 - project-tab closing/reordering and active-tab snapshot syncing still live outside this layer in `ProjectSelector.tsx` and `useSyncCurrentStateIntoOpenedProjects.ts`
+- external UI state that depends on a completed load, such as adding an opened-project tab or closing the new-project modal, must stay outside the transition layer and only run after `loadProject(...)` resolves `true`
+- `loadProject(...)` handles/logs its own transition failures and returns `false` instead of throwing for those transition-stage errors, so callers should branch on the boolean result rather than assume success after awaiting it
 
 ## File I/O and Runtime Abstraction
 
@@ -738,20 +779,17 @@ Current responsibilities:
 - upload dynamic project/settings/static data when remote upload is enabled
 - send preload data for run-from execution
 - send `run`, `pause`, `resume`, `abort`, and `user-input` messages
-- provide Trivet execution by awaiting remote completion through the shared executor-session pending-run API
+- provide Trivet execution by awaiting request-scoped remote completion through the shared executor-session pending-run API
 
 Current architectural detail:
 
 - `useRemoteExecutor` no longer owns the websocket/session lifecycle directly
 - it consumes a shared executor session that owns connection state and pending remote run coordination
 - this keeps run/test behavior separate from transport/session behavior
+- remote graph/test runs now carry request IDs through the debugger protocol so multiple pending remote runs can resolve independently
 - read-only UI consumers should use shared session/debugger state directly rather than mounting `useRemoteExecutor`, because that hook still owns remote event subscriptions and execution side effects
 - plain run/test orchestration helpers now live in [`packages/app/src/hooks/remoteExecutorHelpers.ts`](../packages/app/src/hooks/remoteExecutorHelpers.ts)
 - that helper module holds context-value shaping, run-from dependency/preload derivation, event-dispatch fan-out, and test-suite selection without depending on React state
-
-Notable current limitations:
-
-- remote execution still assumes one active pending remote graph completion at a time
 
 ### Shared executor session
 
@@ -759,6 +797,7 @@ The app now has a dedicated shared session layer under:
 
 - [`packages/app/src/hooks/executorSession.ts`](../packages/app/src/hooks/executorSession.ts)
 - [`packages/app/src/hooks/useExecutorSession.ts`](../packages/app/src/hooks/useExecutorSession.ts)
+- [`packages/app/src/providers/ExecutorSessionContext.tsx`](../packages/app/src/providers/ExecutorSessionContext.tsx)
 
 This session layer owns:
 
@@ -776,7 +815,8 @@ This session layer owns:
 Current ownership detail:
 
 - `useExecutorSession` should be mounted from a stable app-shell surface
-- `useExecutorSession` now also owns the `bindExecutorSession(...)` wiring for dataset access and debugger/session atom updates
+- `ExecutorSessionProvider` now creates the shared runtime once at the app shell boundary and owns dataset access plus debugger/session atom wiring
+- `useExecutorSession` now controls connection lifecycle against that provider-owned runtime instead of binding a process-global singleton
 - read-only consumers such as `useGraphExecutor` and `ActionBarMoreMenu` should observe session state through `useExecutorSessionState`
 - controller consumers such as `useRemoteExecutor`, `ActionBar`, `DebuggerConnectPanel`, and `GentraceInteractors` should use `useRemoteDebugger` for connect/disconnect/send operations without taking over session binding or teardown
 
@@ -819,12 +859,12 @@ Current sequence:
 
 1. read plugin specs from `projectPluginsState`
 2. seed `pluginsState` with one loading entry per spec
-3. start a generation-tracked async load pass so stale completions from an older plugin set cannot overwrite the current UI state or global registry
+3. start a generation-tracked async load pass so stale completions from an older plugin set cannot overwrite the current UI state or active project registry
 4. call `assembleRegistry(specs, loadPlugin)` from core's `RegistryAssembly.ts` — this creates a fresh built-in registry and loads each plugin via a caller-provided loader
 5. mark per-plugin success/failure in app plugin state as results arrive
 6. ignore the finished result completely if a newer generation has superseded it
 7. show aggregated failure toasts for the active generation
-8. install the assembled registry globally via `replaceGlobalRivetNodeRegistry(registry)`
+8. publish the assembled registry into `projectNodeRegistryState`
 9. bump the plugin refresh counter
 
 Supported load paths (inside the `loadPlugin` callback):
@@ -833,7 +873,7 @@ Supported load paths (inside the `loadPlugin` callback):
 - URI plugin via dynamic import, with initializer resolution that tolerates wrapped `default` exports from CJS/ESM interop
 - package plugin via `useLoadPackagePlugin`, using the same initializer-resolution behavior after loading the installed module
 
-This matters for refactors because node availability in the editor is partially rebuilt from scratch whenever project plugins change. The generation guard is part of the behavioral contract now: plugin retries or rapid project/plugin switching must not let an older async load pass replace newer plugin state or the active global registry. The `assembleRegistry()` helper is shared with the sidecar, so registry construction logic stays in one place.
+This matters for refactors because node availability in the editor is partially rebuilt from scratch whenever project plugins change. The generation guard is part of the behavioral contract now: plugin retries or rapid project/plugin switching must not let an older async load pass replace newer plugin state or the active project registry. The `assembleRegistry()` helper is shared with the sidecar, so registry construction logic stays in one place.
 
 ### `PluginsOverlay`
 
@@ -952,9 +992,9 @@ These are visible from the current code and matter for planning:
 - `NodeCanvas` remains large even after some extraction.
 - `GraphBuilder` mixes orchestration, overlays, and some execution-adjacent UI behavior.
 - executor selection, sidecar lifecycle, and remote debugger concerns are better separated than before, but shared session state is still read directly in several UI surfaces.
-- plugin loading mutates global registry state, which can complicate local reasoning and tests.
+- project plugin loading still forces broad editor/runtime fan-out because many surfaces depend on the active project registry, even though that registry is now explicit state instead of a global singleton.
 - project loading/saving and graph switching rely on explicit cleanup discipline.
-- remote execution still assumes one active pending remote graph completion at a time.
+- some multi-project and multi-surface flows still rely on the currently selected project's registry being the only active editor/runtime surface in view.
 
 ## Practical Refactor Guidance
 

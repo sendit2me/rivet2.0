@@ -1,11 +1,12 @@
 import { type FC, useEffect, useState } from 'react';
-import { type ChartNode, type EditorDefinition, getError, globalRivetNodeRegistry } from '@ironclad/rivet-core';
+import { type ChartNode, type EditorDefinition } from '@ironclad/rivet-core';
 import { css } from '@emotion/react';
-import { toast } from 'react-toastify';
 import { type SharedEditorProps } from './SharedEditorProps';
 import { DefaultNodeEditorField } from './DefaultNodeEditorField';
 import { useGetRivetUIContext } from '../../hooks/useGetRivetUIContext';
+import { useProjectNodeRegistry } from '../../hooks/useProjectNodeRegistry';
 import { produce } from 'immer';
+import { handleError } from '../../utils/errorHandling.js';
 
 export const defaultEditorContainerStyles = css`
   display: flex;
@@ -98,11 +99,12 @@ export const DefaultNodeEditor: FC<
   const [editors, setEditors] = useState<EditorDefinition<ChartNode>[]>([]);
 
   const getUIContext = useGetRivetUIContext();
+  const projectNodeRegistry = useProjectNodeRegistry();
 
   useEffect(() => {
     (async () => {
       try {
-        const dynamicImpl = globalRivetNodeRegistry.createDynamicImpl(node);
+        const dynamicImpl = projectNodeRegistry.createDynamicImpl(node);
 
         let loadedEditors = await dynamicImpl.getEditors(await getUIContext({ node }));
 
@@ -125,10 +127,15 @@ export const DefaultNodeEditor: FC<
 
         setEditors(loadedEditors);
       } catch (err) {
-        toast.error(`Failed to load editors for node ${node.id}: ${getError(err).message}`);
+        handleError(err, 'Failed to load editors for node', {
+          metadata: {
+            nodeId: node.id,
+            nodeType: node.type,
+          },
+        });
       }
     })();
-  }, [node, getUIContext]);
+  }, [getUIContext, node, projectNodeRegistry]);
 
   return (
     <div css={defaultEditorContainerStyles}>

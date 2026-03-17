@@ -6,7 +6,6 @@ import {
   coerceTypeOptional,
   ExecutionRecorder,
   type GraphOutputs,
-  globalRivetNodeRegistry,
   type GraphId,
   type Outputs,
 } from '@ironclad/rivet-core';
@@ -34,10 +33,13 @@ import { setUserInputSubmitHandler } from '../state/actions/userInputActions';
 import { GptTokenizerTokenizer } from '../../../core/src/integrations/GptTokenizerTokenizer';
 import { restoreDataValueFromHistory } from '../utils/executionDataTransforms.js';
 import { getGlobalDataRef } from '../utils/globals/globalDataRefs.js';
+import { useProjectNodeRegistry } from './useProjectNodeRegistry';
+import { handleError } from '../utils/errorHandling.js';
 
 export function useLocalExecutor() {
   const audioProvider = useAudioProvider();
   const datasetProvider = useDatasetProvider();
+  const projectNodeRegistry = useProjectNodeRegistry();
   const project = useAtomValue(projectState);
   const graph = useAtomValue(graphState);
   const currentProcessor = useRef<GraphProcessor | null>(null);
@@ -119,7 +121,7 @@ export function useLocalExecutor() {
         };
 
         const recorder = new ExecutionRecorder();
-        const processor = new GraphProcessor(tempProject, graphToRun, globalRivetNodeRegistry, true);
+        const processor = new GraphProcessor(tempProject, graphToRun, projectNodeRegistry, true);
         processor.executor = 'browser';
         processor.recordingPlaybackChatLatency = savedSettings.recordingPlaybackLatency ?? 1000;
 
@@ -155,7 +157,7 @@ export function useLocalExecutor() {
             {
               settings: await fillMissingSettingsFromEnvironmentVariables(
                 savedSettings,
-                globalRivetNodeRegistry.getPlugins(),
+                projectNodeRegistry.getPlugins(),
               ),
               nativeApi: new TauriNativeApi(),
               datasetProvider,
@@ -213,14 +215,14 @@ export function useLocalExecutor() {
             }));
           },
           runGraph: async (project, graphId, inputs) => {
-            const processor = new GraphProcessor(project, graphId, globalRivetNodeRegistry, true);
+            const processor = new GraphProcessor(project, graphId, projectNodeRegistry, true);
             processor.executor = 'browser';
             attachGraphEvents(processor);
             return processor.processGraph(
               {
                 settings: await fillMissingSettingsFromEnvironmentVariables(
                   savedSettings,
-                  globalRivetNodeRegistry.getPlugins(),
+                  projectNodeRegistry.getPlugins(),
                 ),
                 nativeApi: new TauriNativeApi(),
                 datasetProvider,
@@ -243,12 +245,11 @@ export function useLocalExecutor() {
         );
         console.log(result);
       } catch (e) {
-        console.log(e);
         setTrivetState((s) => ({
           ...s,
           runningTests: false,
         }));
-        toast.error('Error running tests');
+        handleError(e, 'Failed to run local tests');
       }
     },
   );

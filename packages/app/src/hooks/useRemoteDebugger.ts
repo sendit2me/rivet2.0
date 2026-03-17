@@ -2,53 +2,42 @@ import { useLatest } from 'ahooks';
 import { useAtomValue } from 'jotai';
 import { useEffect } from 'react';
 import type { OutgoingMessageMap } from '@ironclad/rivet-core';
+import { useExecutorSessionRuntime } from '../providers/ExecutorSessionContext.js';
 import { remoteDebuggerConfigState, remoteDebuggerConnectionState } from '../state/execution.js';
-import {
-  buildExecutorSessionState,
-  connectExecutorSession,
-  disconnectExecutorSession,
-  getExecutorSessionRuntimeState,
-  sendExecutorSessionMessage,
-  sendExecutorSessionRaw,
-  subscribeExecutorSessionLifecycle,
-  type ExecutorSessionState,
-} from './executorSession';
-
-export function getDebuggerSocket(): WebSocket | null {
-  return getExecutorSessionRuntimeState().socket;
-}
+import { type ExecutorSessionState } from './executorSession';
 
 export function useRemoteDebugger(options: { onConnect?: () => void; onDisconnect?: () => void } = {}) {
+  const runtime = useExecutorSessionRuntime();
   const debuggerConfig = useAtomValue(remoteDebuggerConfigState);
   const connectionState = useAtomValue(remoteDebuggerConnectionState);
   const onConnectLatest = useLatest(options.onConnect ?? (() => {}));
   const onDisconnectLatest = useLatest(options.onDisconnect ?? (() => {}));
 
   useEffect(() => {
-    const unsubscribeConnect = subscribeExecutorSessionLifecycle('connect', () => onConnectLatest.current?.());
-    const unsubscribeDisconnect = subscribeExecutorSessionLifecycle('disconnect', () => onDisconnectLatest.current?.());
+    const unsubscribeConnect = runtime.subscribeLifecycle('connect', () => onConnectLatest.current?.());
+    const unsubscribeDisconnect = runtime.subscribeLifecycle('disconnect', () => onDisconnectLatest.current?.());
 
     return () => {
       unsubscribeConnect();
       unsubscribeDisconnect();
     };
-  }, [onConnectLatest, onDisconnectLatest]);
+  }, [onConnectLatest, onDisconnectLatest, runtime]);
 
-  const sessionState: ExecutorSessionState = buildExecutorSessionState(debuggerConfig, connectionState);
+  const sessionState: ExecutorSessionState = runtime.buildSessionState(debuggerConfig, connectionState);
 
   return {
     sessionState,
     connect: (url: string) => {
-      void connectExecutorSession(url);
+      void runtime.connect(url);
     },
     disconnect: () => {
-      disconnectExecutorSession();
+      runtime.disconnect();
     },
     send<T extends keyof OutgoingMessageMap>(type: T, data: OutgoingMessageMap[T]) {
-      sendExecutorSessionMessage(type, data);
+      runtime.sendMessage(type, data);
     },
     sendRaw(data: string) {
-      sendExecutorSessionRaw(data);
+      runtime.sendRaw(data);
     },
   };
 }

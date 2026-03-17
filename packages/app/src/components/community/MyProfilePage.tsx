@@ -1,12 +1,13 @@
 import Button from '@atlaskit/button';
 import { Field } from '@atlaskit/form';
 import TextField from '@atlaskit/textfield';
-import { useQuery, useMutation } from '@tanstack/react-query';
-import { type FC, useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { type ChangeEvent, type FC, useState, useEffect, type FormEvent } from 'react';
 import { toast } from 'react-toastify';
 import { fetchCommunity } from '../../utils/getCommunityApi';
 import { getProfileResponseChecker, type PutProfileBody } from '../../utils/communityApi';
 import { css } from '@emotion/react';
+import { useHandledMutation } from '../../hooks/useHandledMutation';
 
 const styles = css`
   .actions {
@@ -34,8 +35,8 @@ export const MyProfilePage: FC = () => {
     setEmail(data.user.email);
   }, [data]);
 
-  const saveProfileChanges = useMutation({
-    mutationFn: async () => {
+  const saveProfileChanges = useHandledMutation({
+    mutationFn: async (_variables: void) => {
       const response = await fetchCommunity('/profile', getProfileResponseChecker, {
         method: 'PUT',
         body: JSON.stringify({
@@ -47,22 +48,38 @@ export const MyProfilePage: FC = () => {
 
       return response;
     },
-    onMutate: () => {
+    errorMessage: 'Failed to save profile changes',
+    metadata: {
+      username,
+      displayName,
+      email,
+    },
+    onSuccess: () => {
       toast.info('Profile changes saved.');
     },
   });
 
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (saveProfileChanges.isPending) {
+      return;
+    }
+
+    saveProfileChanges.mutate(undefined);
+  };
+
   return (
     <div css={styles}>
       <h1>My Profile</h1>
-      <form>
+      <form onSubmit={handleSubmit}>
         <Field name="username" label="Username">
           {() => (
             <TextField
               name="username"
               placeholder="Username"
               value={username}
-              onChange={(e) => setUsername((e.target as HTMLInputElement).value)}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setUsername(e.target.value)}
             />
           )}
         </Field>
@@ -72,7 +89,7 @@ export const MyProfilePage: FC = () => {
               name="displayName"
               placeholder="Display Name"
               value={displayName}
-              onChange={(e) => setDisplayName((e.target as HTMLInputElement).value)}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setDisplayName(e.target.value)}
             />
           )}
         </Field>
@@ -82,12 +99,12 @@ export const MyProfilePage: FC = () => {
               name="email"
               placeholder="Email"
               value={email}
-              onChange={(e) => setEmail((e.target as HTMLInputElement).value)}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
             />
           )}
         </Field>
         <div className="actions">
-          <Button appearance="primary" onClick={() => saveProfileChanges.mutate()}>
+          <Button appearance="primary" type="submit" isDisabled={saveProfileChanges.isPending}>
             Save
           </Button>
         </div>

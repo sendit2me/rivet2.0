@@ -1,10 +1,7 @@
 import { css } from '@emotion/react';
 import { type FC } from 'react';
 import Button from '@atlaskit/button';
-import { fetchCommunity, getCommunityApi } from '../../utils/getCommunityApi';
-import { useQuery } from '@tanstack/react-query';
-import { array } from '@recoiljs/refine';
-import { type TemplateResponse, templateResponseChecker } from '../../utils/communityApi';
+import { type TemplateResponse } from '../../utils/communityApi';
 
 export const styles = css`
   display: flex;

@@ -7,19 +7,19 @@ import {
   type MarkdownNodeBodySpec,
   type NodeBodySpec,
   type PlainNodeBodySpec,
-  globalRivetNodeRegistry,
   type NodeBody as RenderedNodeBody,
-  getError,
   type NodeId,
 } from '@ironclad/rivet-core';
+
 import { useMarkdown } from '../hooks/useMarkdown';
 import { match } from 'ts-pattern';
 import styled from '@emotion/styled';
 import ColorizedPreformattedText from './ColorizedPreformattedText';
 import { useDependsOnPlugins } from '../hooks/useDependsOnPlugins';
 import { useGetRivetUIContext } from '../hooks/useGetRivetUIContext';
+import { useProjectNodeRegistry } from '../hooks/useProjectNodeRegistry';
 import { useAsyncEffect } from 'use-async-effect';
-import { toast } from 'react-toastify';
+import { handleError } from '../utils/errorHandling.js';
 
 export const NodeBody: FC<{ heightCache: HeightCache; node: ChartNode }> = memo(({ heightCache, node }) => {
   const { Body } = useUnknownNodeComponentDescriptorFor(node);
@@ -46,22 +46,28 @@ const previousRenderedBodyMap = new Map<NodeId, RenderedNodeBody>();
 
 const UnknownNodeBody: FC<{ heightCache: HeightCache; node: ChartNode }> = ({ heightCache, node }) => {
   const getUIContext = useGetRivetUIContext();
+  const projectNodeRegistry = useProjectNodeRegistry();
 
   const [body, setBody] = useState<RenderedNodeBody | undefined>(previousRenderedBodyMap.get(node.id));
   const { ref, height } = useNodeBodyHeight(heightCache, node.id, !!body);
 
   useAsyncEffect(async () => {
     try {
-      const impl = globalRivetNodeRegistry.createDynamicImpl(node);
+      const impl = projectNodeRegistry.createDynamicImpl(node);
       const renderedBody = await impl.getBody(await getUIContext({ node }));
 
       setBody(renderedBody);
 
       previousRenderedBodyMap.set(node.id, renderedBody);
     } catch (err) {
-      toast.error(`Failed to load body for node ${node.id}: ${getError(err).message}`);
+      handleError(err, 'Failed to load body for node', {
+        metadata: {
+          nodeId: node.id,
+          nodeType: node.type,
+        },
+      });
     }
-  }, [node]);
+  }, [getUIContext, node, projectNodeRegistry]);
 
   const bodySpec: NodeBodySpec | NodeBodySpec[] | undefined =
     typeof body === 'string' ? { type: 'plain', text: body } : body;

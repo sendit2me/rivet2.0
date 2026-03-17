@@ -1,5 +1,5 @@
 import { css } from '@emotion/react';
-import { useMemo, type FC } from 'react';
+import { useMemo, type FC, type MouseEvent } from 'react';
 import { DndContext, type DragEndEvent } from '@dnd-kit/core';
 import { type ProjectId } from '@ironclad/rivet-core';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
@@ -9,6 +9,7 @@ import FileIcon from 'majesticons/line/file-plus-line.svg?react';
 import FolderIcon from 'majesticons/line/folder-line.svg?react';
 import {
   clearProjectContextState,
+  openedProjectSnapshotsState,
   openedProjectsSortedIdsState,
   openedProjectsState,
   projectState,
@@ -17,17 +18,15 @@ import {
 import clsx from 'clsx';
 import { useLoadProject } from '../hooks/useLoadProject';
 import { useSyncCurrentStateIntoOpenedProjects } from '../hooks/useSyncCurrentStateIntoOpenedProjects';
-import { useNewProject } from '../hooks/useNewProject';
 import { produce } from 'immer';
 import { type SyntheticListenerMap } from '@dnd-kit/core/dist/hooks/utilities';
 import { SortableContext, horizontalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { useLoadProjectWithFileBrowser } from '../hooks/useLoadProjectWithFileBrowser';
-import { graphNavigationStackState } from '../state/graphBuilder';
 import { newProjectModalOpenState } from '../state/ui';
 import DiscordLogo from '../assets/vendor_logos/discord-mark-white.svg?react';
 import { useOpenUrl } from '../hooks/useOpenUrl';
 import { keys } from '../../../core/src/utils/typeSafety';
-import { syncWrapper } from '../utils/syncWrapper';
+import { wrapAsync } from '../utils/errorHandling';
 
 export const styles = css`
   position: absolute;
@@ -218,6 +217,7 @@ export const styles = css`
 
 export const ProjectSelector: FC = () => {
   const setProjects = useSetAtom(projectsState);
+  const setOpenedProjectSnapshots = useSetAtom(openedProjectSnapshotsState);
   const openedProjects = useAtomValue(openedProjectsState);
   const [openedProjectsSortedIds, setOpenedProjectsSortedIds] = useAtom(openedProjectsSortedIdsState);
 
@@ -267,6 +267,11 @@ export const ProjectSelector: FC = () => {
         }
       }),
     );
+    setOpenedProjectSnapshots((snapshots) =>
+      produce(snapshots, (draft) => {
+        delete draft[projectId];
+      }),
+    );
     clearProjectContextState(projectId);
 
     const closestProject = sortedOpenedProjects[indexOfProject + 1] || sortedOpenedProjects[indexOfProject - 1];
@@ -294,9 +299,9 @@ export const ProjectSelector: FC = () => {
                 return (
                   <SortableProject
                     key={project.id}
-                    projectId={project.project.project.metadata.id}
-                    onCloseProject={() => handleCloseProject(project.project.project.metadata.id)}
-                    onSelectProject={() => handleSelectProject(project.project.project.metadata.id)}
+                    projectId={project.project.projectId}
+                    onCloseProject={() => handleCloseProject(project.project.projectId)}
+                    onSelectProject={() => handleSelectProject(project.project.projectId)}
                   />
                 );
               })}
@@ -308,10 +313,10 @@ export const ProjectSelector: FC = () => {
         <button className="new-project" onClick={() => setNewProjectModalOpen(true)} title="New Project">
           <FileIcon />
         </button>
-        <button className="open-project" onClick={syncWrapper(loadProjectWithFileBrowser)} title="Open Project">
+        <button className="open-project" onClick={wrapAsync(loadProjectWithFileBrowser, 'Open project')} title="Open Project">
           <FolderIcon />
         </button>
-        <button className="get-help" onClick={syncWrapper(openDiscord)}>
+        <button className="get-help" onClick={openDiscord}>
           <DiscordLogo /> Discord
         </button>
       </div>
@@ -323,9 +328,9 @@ export const SortableProject: FC<{
   projectId: ProjectId;
   onCloseProject?: () => void;
   onSelectProject?: () => void;
-}> = ({ ...props }) => {
+}> = ({ projectId, onCloseProject, onSelectProject }) => {
   const { attributes, listeners, setNodeRef, transform, isDragging, transition } = useSortable({
-    id: props.projectId,
+    id: projectId,
   });
 
   return (
@@ -338,7 +343,7 @@ export const SortableProject: FC<{
       }}
       {...attributes}
     >
-      <ProjectTab {...props} dragListeners={listeners} isDragging={isDragging} />
+      <ProjectTab projectId={projectId} dragListeners={listeners} isDragging={isDragging} onCloseProject={onCloseProject} onSelectProject={onSelectProject} />
     </div>
   );
 };
@@ -357,15 +362,15 @@ export const ProjectTab: FC<{
 
   const unsaved = !project?.fsPath;
   const fileName = unsaved ? 'Unsaved' : project.fsPath!.split('/').pop();
-  const projectDisplayName = `${project?.project.metadata.title}${fileName ? ` [${fileName}]` : ''}`;
+  const projectDisplayName = `${project?.title}${fileName ? ` [${fileName}]` : ''}`;
 
-  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+  const handleMouseDown = (e: MouseEvent<HTMLDivElement>) => {
     if (e.button === 0) {
       onSelectProject?.();
     }
   };
 
-  const closeProject = (e: React.MouseEvent<HTMLButtonElement>) => {
+  const closeProject = (e: MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
     onCloseProject?.();
   };

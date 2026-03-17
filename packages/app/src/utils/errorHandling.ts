@@ -4,15 +4,27 @@ import { toast } from 'react-toastify';
 const recentErrorTimestamps = new Map<string, number>();
 const ERROR_DEDUPE_WINDOW_MS = 5_000;
 
-type HandleErrorOptions = {
+export type HandleErrorOptions = {
+  metadata?: Record<string, unknown>;
   toastError?: boolean;
 };
+
+type HandleErrorOptionsResolver<TArgs extends unknown[]> =
+  | HandleErrorOptions
+  | ((...args: TArgs) => HandleErrorOptions);
 
 export function handleError(error: unknown, context: string, options: HandleErrorOptions = {}): void {
   const normalizedError = getError(error);
   const message = `${context}: ${normalizedError.message}`;
 
-  console.error(`[${context}]`, normalizedError);
+  if (options.metadata) {
+    console.error(`[${context}]`, {
+      error: normalizedError,
+      metadata: options.metadata,
+    });
+  } else {
+    console.error(`[${context}]`, normalizedError);
+  }
 
   if (options.toastError === false) {
     return;
@@ -31,12 +43,20 @@ export function handleError(error: unknown, context: string, options: HandleErro
 export function wrapAsync<TArgs extends unknown[], TResult>(
   fn: (...args: TArgs) => Promise<TResult>,
   context: string,
+  options?: HandleErrorOptionsResolver<TArgs>,
 ): (...args: TArgs) => void {
   return (...args: TArgs) => {
     void fn(...args).catch((error) => {
-      handleError(error, context);
+      handleError(error, context, typeof options === 'function' ? options(...args) : options);
     });
   };
+}
+
+export function syncWrapper<TArgs extends unknown[], TResult>(
+  fn: (...args: TArgs) => Promise<TResult>,
+  context = 'Unexpected error',
+): (...args: TArgs) => void {
+  return wrapAsync(fn, context);
 }
 
 export function installGlobalErrorHandlers(): void {

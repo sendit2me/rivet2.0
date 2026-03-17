@@ -1,9 +1,9 @@
 import {
-  globalRivetNodeRegistry,
   type ChartNode,
   type GraphId,
   type NodeConnection,
   type NodeId,
+  type NodeRegistration,
   type Project,
   type ProjectId,
   type ReferencedGraphAliasNode,
@@ -13,6 +13,7 @@ import { cloneDeep, partition } from 'lodash-es';
 export function createAddedNode(options: {
   nodeType: string;
   position: { x: number; y: number };
+  registry: NodeRegistration<any, any>;
   referencedProjects: Record<ProjectId, Project>;
   appliedId?: NodeId;
 }) {
@@ -28,7 +29,7 @@ export function createAddedNode(options: {
     throw new Error('Node type is required');
   }
 
-  const newNode = globalRivetNodeRegistry.createDynamic(nodeType);
+  const newNode = options.registry.createDynamic(nodeType);
 
   newNode.visualData.x = options.position.x;
   newNode.visualData.y = options.position.y;
@@ -58,8 +59,9 @@ export function createAddedNode(options: {
 export function duplicateNodeWithConnections(options: {
   node: ChartNode;
   connections: NodeConnection[];
+  registry: NodeRegistration<any, any>;
 }) {
-  const newNode = globalRivetNodeRegistry.createDynamic(options.node.type);
+  const newNode = options.registry.createDynamic(options.node.type);
   newNode.data = cloneDeep(options.node.data);
   newNode.visualData = {
     ...options.node.visualData,

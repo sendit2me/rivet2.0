@@ -1,0 +1,1 @@
+- When the node has read a lot of data (large base64 image for example), it makes the app laggy and slow. 

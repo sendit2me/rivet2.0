@@ -6,7 +6,7 @@ import { type NodeTestGroup } from '@ironclad/rivet-core';
 import { PromptDesignerTestGroup } from './PromptDesignerComponents';
 import type { PromptDesignerState } from '../../state/promptDesigner';
 import type { SetStateAction } from 'jotai';
-import { syncWrapper } from '../../utils/syncWrapper';
+import { wrapAsync } from '../../utils/errorHandling';
 
 export type PromptDesignerTestPanelProps = {
   testGroups: NodeTestGroup[];
@@ -61,7 +61,7 @@ export const PromptDesignerTestPanel: FC<PromptDesignerTestPanelProps> = ({
               key={`test-${index}`}
               onChange={(newTestGroup) => onTestGroupChanged(newTestGroup, index)}
               onDelete={() => onDeleteTestGroup(index)}
-              onStart={syncWrapper(onStartTestGroup)}
+              onStart={wrapAsync(onStartTestGroup, 'Run prompt designer test group')}
               inProgress={inProgress}
               onCancel={onCancel}
             />

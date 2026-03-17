@@ -22,7 +22,7 @@ import { GentraceInteractors } from './gentrace/GentraceInteractors';
 import { projectMetadataState } from '../state/savedGraphs';
 import { graphMetadataState } from '../state/graph';
 import { type GraphId } from '@ironclad/rivet-core';
-import { syncWrapper } from '../utils/syncWrapper';
+import { wrapAsync } from '../utils/errorHandling';
 import { getActionBarExecutionState } from '../state/selectors/executionSelectors.js';
 
 const styles = css`
@@ -206,7 +206,7 @@ export const ActionBar: FC<ActionBarProps> = ({ onRunGraph, onAbortGraph, onPaus
 
       {lastRecording && (
         <div className={clsx('save-recording-button')}>
-          <button onClick={syncWrapper(saveRecording)}>Save Recording</button>
+          <button onClick={saveRecording}>Save Recording</button>
         </div>
       )}
       <div className={clsx('run-button', { running: graphRunning, recording: !!loadedRecording })}>

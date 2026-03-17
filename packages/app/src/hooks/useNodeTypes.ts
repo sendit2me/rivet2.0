@@ -2,7 +2,6 @@ import {
   type NodeOfType,
   type BuiltInNodeType,
   type Outputs,
-  globalRivetNodeRegistry,
   type ChartNode,
 } from '@ironclad/rivet-core';
 import { type FC, useMemo } from 'react';
@@ -23,6 +22,7 @@ import { getDatasetRowNodeDescriptor } from '../components/nodes/GetDatasetRowNo
 import { replaceDatasetNodeDescriptor } from '../components/nodes/ReplaceDatasetNode';
 import { type InputsOrOutputsWithRefs } from '../state/dataFlow';
 import { useAtomValue } from 'jotai';
+import { useProjectNodeRegistry } from './useProjectNodeRegistry';
 
 export type UnknownNodeComponentDescriptor = {
   Body?: FC<{ node: ChartNode }>;
@@ -67,6 +67,7 @@ const overriddenDescriptors: Partial<NodeComponentDescriptors> = {
 
 export function useNodeTypes(): NodeComponentDescriptors {
   const counter = useAtomValue(pluginRefreshCounterState);
+  const projectNodeRegistry = useProjectNodeRegistry();
 
   return useMemo(() => {
     if (Number.isNaN(counter)) {
@@ -74,7 +75,7 @@ export function useNodeTypes(): NodeComponentDescriptors {
       throw new Error();
     }
 
-    const allNodeTypes = globalRivetNodeRegistry.getNodeTypes();
+    const allNodeTypes = projectNodeRegistry.getNodeTypes();
 
     return Object.fromEntries(
       allNodeTypes.map((nodeType) => {
@@ -82,7 +83,7 @@ export function useNodeTypes(): NodeComponentDescriptors {
         return [nodeType, descriptor];
       }),
     ) as NodeComponentDescriptors;
-  }, [counter]);
+  }, [counter, projectNodeRegistry]);
 }
 
 export function useUnknownNodeComponentDescriptorFor(node: ChartNode) {

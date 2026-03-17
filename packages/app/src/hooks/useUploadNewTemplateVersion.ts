@@ -1,11 +1,11 @@
 import { projectState } from '../state/savedGraphs';
-import { type GraphId, serializeProject } from '@ironclad/rivet-core';
-import { type UseMutationResult, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getCommunityApi } from '../utils/getCommunityApi';
+import { type GraphId } from '@ironclad/rivet-core';
+import { type UseMutationResult } from '@tanstack/react-query';
 import { type PutTemplateVersionBody } from '../utils/communityApi';
+import { myTemplatesQueryKey, serializeTemplateProject, uploadTemplateVersion } from '../utils/communityTemplates';
 import { useDependsOnPlugins } from './useDependsOnPlugins';
-import { toast } from 'react-toastify';
 import { useAtomValue } from 'jotai';
+import { useHandledMutation } from './useHandledMutation';
 
 export type UseUploadNewTemplateVersionParams = {
   version: string;
@@ -23,39 +23,29 @@ export function useUploadNewTemplateVersion({
 }): UseMutationResult<void, Error, UseUploadNewTemplateVersionParams, unknown> {
   const project = useAtomValue(projectState);
   const plugins = useDependsOnPlugins();
-  const queryClient = useQueryClient();
 
-  const mutation = useMutation({
+  const mutation = useHandledMutation({
     mutationFn: async (params: UseUploadNewTemplateVersionParams) => {
-      const serializedProject = serializeProject(project);
+      const serializedProject = serializeTemplateProject(project, params.graphsToInclude);
 
-      const putTemplateVersionUrl = getCommunityApi('/templates/:templateId/version/:version');
-
-      const versionResponse = await fetch(
-        putTemplateVersionUrl.replace(':templateId', templateId).replace(':version', params.version),
+      await uploadTemplateVersion(
+        templateId,
+        params.version,
         {
-          credentials: 'include',
-          method: 'PUT',
-          body: JSON.stringify({
-            descriptionMarkdown: params.description,
-            versionDescriptionMarkdown: params.versionDescription,
-            plugins: plugins.map((plugin) => plugin.id),
-            serializedProject: serializedProject as string,
-          } satisfies PutTemplateVersionBody),
-        },
+          descriptionMarkdown: params.description,
+          versionDescriptionMarkdown: params.versionDescription,
+          plugins: plugins.map((plugin) => plugin.id),
+          serializedProject: serializedProject as string,
+        } satisfies PutTemplateVersionBody,
       );
-
-      if (!versionResponse.ok) {
-        throw new Error(`Failed to upload template: ${await versionResponse.text()}`);
-      }
     },
+    errorMessage: 'Failed to upload template version',
+    metadata: {
+      projectId: project.metadata.id,
+      templateId,
+    },
+    invalidateQueryKey: myTemplatesQueryKey,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['my-templates'] });
-    },
-    onError: (error) => {
-      toast.error(`Failed to upload template: ${error.message}`);
-    },
-    onMutate: () => {
       onCompleted();
     },
   });

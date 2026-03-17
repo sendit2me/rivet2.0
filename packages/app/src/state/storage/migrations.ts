@@ -1,5 +1,6 @@
 import { createJSONStorage } from 'jotai/utils';
 import type { AsyncStorageBackend } from './indexedDB';
+import { handleError } from '../../utils/errorHandling.js';
 
 export const memoryStorage = new Map<string, any>();
 
@@ -24,10 +25,20 @@ export async function initializeHybridStorage(mainKey: string | undefined, async
         await asyncStorage.setItem(mainKey, JSON.stringify(localData));
       }
     } catch (error) {
-      console.error('Error reading from localStorage:', error);
+      handleError(error, 'Failed to migrate storage from localStorage', {
+        metadata: {
+          mainKey,
+        },
+        toastError: false,
+      });
     }
   } catch (error) {
-    console.error('Error initializing store:', error);
+    handleError(error, 'Failed to initialize hybrid storage', {
+      metadata: {
+        mainKey,
+      },
+      toastError: false,
+    });
 
     if (mainKey) {
       try {
@@ -36,7 +47,12 @@ export async function initializeHybridStorage(mainKey: string | undefined, async
           memoryStorage.set(mainKey, localData);
         }
       } catch (localError) {
-        console.error('Error reading from localStorage:', localError);
+        handleError(localError, 'Failed to recover hybrid storage from localStorage fallback', {
+          metadata: {
+            mainKey,
+          },
+          toastError: false,
+        });
       }
     }
   }

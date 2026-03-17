@@ -22,11 +22,11 @@ import { settingsState } from '../../../state/settings';
 import { fillMissingSettingsFromEnvironmentVariables } from '../../../utils/tauri';
 import { useDependsOnPlugins } from '../../../hooks/useDependsOnPlugins';
 import { marked } from 'marked';
-import { syncWrapper } from '../../../utils/syncWrapper';
 import { modelSelectorOptions } from '../../../utils/modelSelectorOptions';
 import TextArea from '@atlaskit/textarea';
 import { selectedAssistModelState } from '../../../state/ai';
 import { nativeCreateDir, nativeWriteFile } from '../../../utils/platform/fs.js';
+import { handleError } from '../../../utils/errorHandling.js';
 
 const styles = css`
   display: flex;
@@ -156,8 +156,14 @@ export const AiAssistEditorBase = <TNodeData, TOutputs>({
       }
     } catch (err) {
       const error = getError(err);
-      const errorMessage = `Failed to generate: ${error.message}`;
-      toast.error(errorMessage);
+      handleError(error, 'Failed to generate AI assist content', {
+        metadata: {
+          graphName,
+          modelAndApi,
+          nodeId: node.id,
+          promptLength: prompt.length,
+        },
+      });
 
       // Call error callback if provided
       if (onError) {
@@ -196,7 +202,7 @@ export const AiAssistEditorBase = <TNodeData, TOutputs>({
               isDisabled={isDisabled || working}
               className="model-selector"
             />
-            <Button appearance="primary" onClick={syncWrapper(generate)} isDisabled={isDisabled || working}>
+            <Button appearance="primary" onClick={() => void generate()} isDisabled={isDisabled || working}>
               Generate
             </Button>
           </div>

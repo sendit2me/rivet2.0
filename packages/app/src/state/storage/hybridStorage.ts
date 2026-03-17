@@ -2,8 +2,8 @@ import { getError } from '@ironclad/rivet-core';
 import { createJSONStorage } from 'jotai/utils';
 import type { SyncStorage } from 'jotai/vanilla/utils/atomWithStorage';
 import { debounce } from 'lodash-es';
-import { toast } from 'react-toastify';
 import { createDefaultAsyncStorage, type AsyncStorageBackend } from './indexedDB';
+import { handleError } from '../../utils/errorHandling.js';
 import { initializeHybridStorage, memoryStorage } from './migrations';
 
 export const allInitializeStoreFns = new Set<() => Promise<void>>();
@@ -20,8 +20,11 @@ export const createHybridStorage = (
     try {
       await asyncStorage.setItem(key, JSON.stringify(value));
     } catch (error) {
-      console.error('Error saving to async storage:', error);
-      toast.error(`Error saving to persistent storage: ${error}`);
+      handleError(error, 'Failed to save persistent storage item', {
+        metadata: {
+          key,
+        },
+      });
     }
   }, 1000);
 
@@ -47,13 +50,26 @@ export const createHybridStorage = (
         memoryStorage.set(mainKey, mainObject);
         debouncedSave(mainKey, mainObject);
       } catch (error) {
-        toast.error(`Error setting storage item: ${getError(error)}`);
+        handleError(error, 'Failed to update in-memory storage item', {
+          metadata: {
+            key,
+            mainKey,
+            normalizedError: getError(error).message,
+          },
+        });
       }
     },
     removeItem: (key): void => {
       if (!mainKey) {
         memoryStorage.delete(key);
-        asyncStorage.removeItem(key).catch(console.error);
+        asyncStorage.removeItem(key).catch((error) => {
+          handleError(error, 'Failed to remove persistent storage item', {
+            metadata: {
+              key,
+            },
+            toastError: false,
+          });
+        });
         return;
       }
 

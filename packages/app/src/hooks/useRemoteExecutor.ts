@@ -1,12 +1,13 @@
 import {
   type NodeId,
+  type RemoteRunRequestId,
   type StringArrayDataValue,
-  globalRivetNodeRegistry,
   type GraphId,
 } from '@ironclad/rivet-core';
 import { useCurrentExecution } from './useCurrentExecution';
 import { graphState } from '../state/graph';
 import { defaultExecutorState, settingsState } from '../state/settings';
+import { useExecutorSessionRuntime } from '../providers/ExecutorSessionContext.js';
 import { useRemoteDebugger } from './useRemoteDebugger';
 import { fillMissingSettingsFromEnvironmentVariables } from '../utils/tauri';
 import { loadedProjectState, projectContextState, projectDataState, projectState } from '../state/savedGraphs';
@@ -19,15 +20,9 @@ import { userInputModalQuestionsState } from '../state/userInput';
 import { lastRunDataByNodeState } from '../state/dataFlow';
 import { useAtomValue, useSetAtom, useAtom } from 'jotai';
 import { setUserInputSubmitHandler } from '../state/actions/userInputActions';
-import {
-  INTERNAL_EXECUTOR_URL,
-  createPendingGraphExecution,
-  isExecutorSessionReady,
-  rejectPendingGraphExecution,
-  resolvePendingGraphExecution,
-  subscribeExecutorSessionMessages,
-} from './executorSession';
-import { useEffect } from 'react';
+import { INTERNAL_EXECUTOR_URL } from './executorSession';
+import { useEffect, useRef } from 'react';
+import { useProjectNodeRegistry } from './useProjectNodeRegistry';
 import {
   createProcessEventDispatcher,
   getContextValues,
@@ -35,8 +30,12 @@ import {
   getDependentDataForNodeForPreload,
   selectTestSuitesToRun,
 } from './remoteExecutorHelpers.js';
+import { handleError } from '../utils/errorHandling.js';
 
 export function useRemoteExecutor() {
+  const executorSession = useExecutorSessionRuntime();
+  const activeGraphRequestIdRef = useRef<RemoteRunRequestId | null>(null);
+  const projectNodeRegistry = useProjectNodeRegistry();
   const project = useAtomValue(projectState);
   const projectData = useAtomValue(projectDataState);
 
@@ -53,6 +52,7 @@ export function useRemoteExecutor() {
 
   const remoteDebugger = useRemoteDebugger({
     onDisconnect: () => {
+      activeGraphRequestIdRef.current = null;
       currentExecution.onStop();
 
       // If we're using the node executor, disconnecting means reconnecting to the internal executor
@@ -65,68 +65,113 @@ export function useRemoteExecutor() {
   const eventDispatcher = createProcessEventDispatcher(currentExecution);
 
   useEffect(() => {
-    return subscribeExecutorSessionMessages((message, data) => {
+    return executorSession.subscribeMessages((message, data, requestId) => {
+      const shouldDispatchExecutionEvent = requestId == null || requestId === activeGraphRequestIdRef.current;
+
       switch (message) {
         case 'nodeStart':
-          eventDispatcher.nodeStart(data);
+          if (shouldDispatchExecutionEvent) {
+            eventDispatcher.nodeStart(data);
+          }
           break;
         case 'nodeFinish':
-          eventDispatcher.nodeFinish(data);
+          if (shouldDispatchExecutionEvent) {
+            eventDispatcher.nodeFinish(data);
+          }
           break;
         case 'nodeError':
-          eventDispatcher.nodeError(data);
+          if (shouldDispatchExecutionEvent) {
+            eventDispatcher.nodeError(data);
+          }
           break;
         case 'userInput':
-          eventDispatcher.userInput(data);
+          if (shouldDispatchExecutionEvent) {
+            eventDispatcher.userInput(data);
+          }
           break;
         case 'start':
-          eventDispatcher.start(data);
+          if (shouldDispatchExecutionEvent) {
+            eventDispatcher.start(data);
+          }
           break;
         case 'done':
-          resolvePendingGraphExecution((data as { results: unknown }).results as any);
-          eventDispatcher.done(data);
+          executorSession.resolvePendingGraphExecution(requestId, (data as { results: unknown }).results as any);
+          if (requestId === activeGraphRequestIdRef.current) {
+            activeGraphRequestIdRef.current = null;
+          }
+          if (shouldDispatchExecutionEvent) {
+            eventDispatcher.done(data);
+          }
           break;
         case 'abort':
-          rejectPendingGraphExecution(new Error('graph execution aborted'));
-          eventDispatcher.abort(data);
+          executorSession.rejectPendingGraphExecution(requestId, new Error('graph execution aborted'));
+          if (requestId === activeGraphRequestIdRef.current) {
+            activeGraphRequestIdRef.current = null;
+          }
+          if (shouldDispatchExecutionEvent) {
+            eventDispatcher.abort(data);
+          }
           break;
         case 'graphAbort':
-          eventDispatcher.graphAbort(data);
+          if (shouldDispatchExecutionEvent) {
+            eventDispatcher.graphAbort(data);
+          }
           break;
         case 'partialOutput':
-          eventDispatcher.partialOutput(data);
+          if (shouldDispatchExecutionEvent) {
+            eventDispatcher.partialOutput(data);
+          }
           break;
         case 'graphStart':
-          eventDispatcher.graphStart(data);
+          if (shouldDispatchExecutionEvent) {
+            eventDispatcher.graphStart(data);
+          }
           break;
         case 'graphFinish':
-          eventDispatcher.graphFinish(data);
+          if (shouldDispatchExecutionEvent) {
+            eventDispatcher.graphFinish(data);
+          }
           break;
         case 'nodeOutputsCleared':
-          eventDispatcher.nodeOutputsCleared(data);
+          if (shouldDispatchExecutionEvent) {
+            eventDispatcher.nodeOutputsCleared(data);
+          }
           break;
         case 'trace':
-          console.log(`remote: ${data}`);
+          if (shouldDispatchExecutionEvent) {
+            console.log(`remote: ${data}`);
+          }
           break;
         case 'pause':
-          eventDispatcher.pause();
+          if (shouldDispatchExecutionEvent) {
+            eventDispatcher.pause();
+          }
           break;
         case 'resume':
-          eventDispatcher.resume();
+          if (shouldDispatchExecutionEvent) {
+            eventDispatcher.resume();
+          }
           break;
         case 'error':
-          rejectPendingGraphExecution((data as { error: Error }).error);
-          eventDispatcher.error(data);
+          executorSession.rejectPendingGraphExecution(requestId, (data as { error: Error }).error);
+          if (requestId === activeGraphRequestIdRef.current) {
+            activeGraphRequestIdRef.current = null;
+          }
+          if (shouldDispatchExecutionEvent) {
+            eventDispatcher.error(data);
+          }
           break;
         case 'nodeExcluded':
-          eventDispatcher.nodeExcluded(data);
+          if (shouldDispatchExecutionEvent) {
+            eventDispatcher.nodeExcluded(data);
+          }
           break;
       }
     });
-  }, [eventDispatcher]);
+  }, [eventDispatcher, executorSession]);
 
   const tryRunGraph = async (options: { to?: NodeId[]; from?: NodeId; graphId?: GraphId } = {}) => {
-    if (!isExecutorSessionReady()) {
+    if (!executorSession.isReady()) {
       return;
     }
 
@@ -153,7 +198,7 @@ export function useRemoteExecutor() {
           },
           settings: await fillMissingSettingsFromEnvironmentVariables(
             savedSettings,
-            globalRivetNodeRegistry.getPlugins(),
+            projectNodeRegistry.getPlugins(),
           ),
         });
 
@@ -163,15 +208,18 @@ export function useRemoteExecutor() {
       }
 
       const contextValues = getContextValues(projectContext);
+      const requestId = executorSession.createRemoteExecutionRequest();
+      activeGraphRequestIdRef.current = requestId;
 
       if (options.from) {
-        const dependencyNodes = getDependencyNodesForRunFrom(project, graph.metadata!.id!, options.from);
+        const dependencyNodes = getDependencyNodesForRunFrom(project, graph.metadata!.id!, options.from, projectNodeRegistry);
         const preloadData = getDependentDataForNodeForPreload(dependencyNodes, lastRunData);
 
         remoteDebugger.send('preload', { nodeData: preloadData });
       }
 
       remoteDebugger.send('run', {
+        requestId,
         graphId: graphToRun,
         runToNodeIds: options.to,
         contextValues,
@@ -179,7 +227,7 @@ export function useRemoteExecutor() {
         projectPath: loadedProject.path,
       });
     } catch (e) {
-      console.error(e);
+      handleError(e, 'Failed to start remote graph run');
     }
     return;
   };
@@ -221,16 +269,16 @@ export function useRemoteExecutor() {
                 },
                 settings: await fillMissingSettingsFromEnvironmentVariables(
                   savedSettings,
-                  globalRivetNodeRegistry.getPlugins(),
+                  projectNodeRegistry.getPlugins(),
                 ),
               });
             }
 
-            const pendingResults = createPendingGraphExecution();
+            const { requestId, promise: pendingResults } = executorSession.createPendingGraphExecution();
 
             const contextValues = getContextValues(projectContext);
 
-            remoteDebugger.send('run', { graphId, inputs, contextValues, projectPath: loadedProject.path });
+            remoteDebugger.send('run', { requestId, graphId, inputs, contextValues, projectPath: loadedProject.path });
 
             const results = await pendingResults;
             return results;
@@ -248,12 +296,11 @@ export function useRemoteExecutor() {
         );
         console.log(result);
       } catch (e) {
-        console.log(e);
         setTrivetState((s) => ({
           ...s,
           runningTests: false,
         }));
-        toast.error('Error running tests');
+        handleError(e, 'Failed to run remote tests');
       }
     },
   );

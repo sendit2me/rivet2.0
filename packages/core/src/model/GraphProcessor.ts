@@ -147,6 +147,27 @@ export type ExternalFunction = (
   ...args: unknown[]
 ) => Promise<DataValue & { cost?: number }>;
 
+export type GraphProcessorConcurrency = {
+  nodeConcurrency?: number;
+  splitRunConcurrency?: number;
+};
+
+const DEFAULT_NODE_CONCURRENCY = 8;
+const DEFAULT_SPLIT_RUN_CONCURRENCY = 4;
+
+function normalizeConcurrencyValue(value: number | undefined, fallback: number): number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 1 ? Math.floor(value) : fallback;
+}
+
+function resolveGraphProcessorConcurrency(
+  concurrency: GraphProcessorConcurrency | undefined,
+): Required<GraphProcessorConcurrency> {
+  return {
+    nodeConcurrency: normalizeConcurrencyValue(concurrency?.nodeConcurrency, DEFAULT_NODE_CONCURRENCY),
+    splitRunConcurrency: normalizeConcurrencyValue(concurrency?.splitRunConcurrency, DEFAULT_SPLIT_RUN_CONCURRENCY),
+  };
+}
+
 export type RaceId = Tagged<string, 'RaceId'>;
 
 export type LoopInfo = AttachedNodeDataItem & {
@@ -191,6 +212,7 @@ export class GraphProcessor {
   #isPaused = false;
   #parent: GraphProcessor | undefined;
   readonly #registry: NodeRegistration<any, any>;
+  readonly #concurrency: Required<GraphProcessorConcurrency>;
   id = nanoid();
 
   readonly #includeTrace?: boolean = true;
@@ -263,7 +285,13 @@ export class GraphProcessor {
     return this.#running;
   }
 
-  constructor(project: Project, graphId: GraphId | undefined, registry: NodeRegistration<any, any>, includeTrace?: boolean) {
+  constructor(
+    project: Project,
+    graphId: GraphId | undefined,
+    registry: NodeRegistration<any, any>,
+    includeTrace?: boolean,
+    options?: { concurrency?: GraphProcessorConcurrency },
+  ) {
     this.#project = project;
     const graph = graphId
       ? project.graphs[graphId]
@@ -281,6 +309,7 @@ export class GraphProcessor {
     this.#connections = {};
     this.#nodesById = {};
     this.#registry = registry;
+    this.#concurrency = resolveGraphProcessorConcurrency(options?.concurrency);
 
     this.#emitter.bindMethods(this as unknown as Record<string, unknown>, ['on', 'off', 'once', 'onAny', 'offAny']);
 
@@ -544,7 +573,7 @@ export class GraphProcessor {
     this.#currentlyProcessing = new Set();
     this.#remainingNodes = new Set(this.#graph.nodes.map((n) => n.id));
     this.#pendingUserInputs = {};
-    this.#processingQueue = new PQueue({ concurrency: Infinity });
+    this.#processingQueue = new PQueue({ concurrency: this.#concurrency.nodeConcurrency });
     this.#graphOutputs = {};
     this.#executionCache ??= new Map();
     this.#queuedNodes = new Set();
@@ -1134,6 +1163,7 @@ export class GraphProcessor {
       isExcludedDueToControlFlow: (n, inputs, pid) => this.#excludedDueToControlFlow(n, inputs, pid),
       processNodeWithInputData: (n, inputs, idx, pid, partial) =>
         this.#processNodeWithInputData(n, inputs, idx, pid, partial),
+      splitRunConcurrency: this.#concurrency.splitRunConcurrency,
       accumulateCost: (output) => this.#accumulateCost(output),
       setNodeResults: (nodeId, outputs) => this.#nodeResults.set(nodeId, outputs),
       markNodeVisited: (nodeId) => this.#visitedNodes.add(nodeId),
@@ -1349,7 +1379,9 @@ export class GraphProcessor {
     subGraphId: GraphId | undefined,
     { signal, project }: { signal?: AbortSignal; project?: Project } = {},
   ): GraphProcessor {
-    const processor = new GraphProcessor(project ?? this.#project, subGraphId, this.#registry);
+    const processor = new GraphProcessor(project ?? this.#project, subGraphId, this.#registry, this.#includeTrace, {
+      concurrency: this.#concurrency,
+    });
     processor.executor = this.executor;
     processor.#isSubProcessor = true;
     processor.#executionCache = this.#executionCache;

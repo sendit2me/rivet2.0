@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
-  globalRivetNodeRegistry,
+  createBuiltInRegistry,
   type ExternalFunctionProcessContext,
   type GraphId,
   type NodeGraph,
@@ -13,24 +13,25 @@ import {
 import { buildAiGraphBuilderExternalFunctions } from './aiGraphBuilderHelpers';
 
 test('getPorts only reports connections that belong to the requested node', async () => {
+  const registry = createBuiltInRegistry();
   let workingGraph: NodeGraph = {
     metadata: { id: 'graph-1' as GraphId, name: 'Graph', description: '' },
     nodes: [],
     connections: [],
   };
 
-  const nodeA = globalRivetNodeRegistry.createDynamic('text') as TextNode;
+  const nodeA = registry.createDynamic('text') as TextNode;
   nodeA.id = 'node-a' as any;
   nodeA.data.text = '{{input}}';
 
-  const nodeB = globalRivetNodeRegistry.createDynamic('text') as TextNode;
+  const nodeB = registry.createDynamic('text') as TextNode;
   nodeB.id = 'node-b' as any;
   nodeB.data.text = '{{input}}';
 
-  const nodeC = globalRivetNodeRegistry.createDynamic('extractJson') as ExtractJsonNode;
+  const nodeC = registry.createDynamic('extractJson') as ExtractJsonNode;
   nodeC.id = 'node-c' as any;
 
-  const nodeD = globalRivetNodeRegistry.createDynamic('extractJson') as ExtractJsonNode;
+  const nodeD = registry.createDynamic('extractJson') as ExtractJsonNode;
   nodeD.id = 'node-d' as any;
 
   const context = {} as ExternalFunctionProcessContext;
@@ -61,6 +62,7 @@ test('getPorts only reports connections that belong to the requested node', asyn
       plugins: [],
     } as Project,
     referencedProjects: {},
+    registry,
     showChanges: () => {},
     workingGraph: () => workingGraph,
     setWorkingGraph: (nextGraph) => {

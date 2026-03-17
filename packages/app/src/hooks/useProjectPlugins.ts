@@ -1,13 +1,9 @@
 import { useEffect, useRef } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { projectPluginsState } from '../state/savedGraphs';
-import {
-  assembleRegistry,
-  replaceGlobalRivetNodeRegistry,
-  resolveBuiltInPlugin,
-} from '@ironclad/rivet-core';
+import { assembleRegistry, resolveBuiltInPlugin } from '@ironclad/rivet-core';
 import type { PluginLoadSpec } from '@ironclad/rivet-core';
-import { pluginRefreshCounterState, pluginRetryCounterState, pluginsState } from '../state/plugins';
+import { pluginRefreshCounterState, pluginRetryCounterState, pluginsState, projectNodeRegistryState } from '../state/plugins';
 import { produce } from 'immer';
 import { match } from 'ts-pattern';
 import * as Rivet from '@ironclad/rivet-core';
@@ -15,11 +11,13 @@ import { useLoadPackagePlugin } from './useLoadPackagePlugin';
 import useAsyncEffect from 'use-async-effect';
 import { toast } from 'react-toastify';
 import { importPluginInitializer } from '../utils/pluginInitializer.js';
+import { handleError } from '../utils/errorHandling.js';
 
 export function useProjectPlugins() {
   const pluginSpecs = useAtomValue(projectPluginsState);
   const retryCounter = useAtomValue(pluginRetryCounterState);
   const setPlugins = useSetAtom(pluginsState);
+  const setProjectNodeRegistry = useSetAtom(projectNodeRegistryState);
   const setPluginRefreshCounter = useSetAtom(pluginRefreshCounterState);
   const loadGenerationRef = useRef(0);
   const { loadPackagePlugin } = useLoadPackagePlugin({
@@ -85,7 +83,13 @@ export function useProjectPlugins() {
 
     // Update UI state for failed plugins
     for (const fail of results.failed) {
-      console.error(`Failed to load plugin ${fail.id}: ${fail.error}`);
+      handleError(new Error(fail.error), `Failed to load plugin "${fail.id}"`, {
+        metadata: {
+          pluginId: fail.id,
+          projectPluginCount: pluginSpecs.length,
+        },
+        toastError: false,
+      });
       updatePluginState(fail.id, { loaded: false, error: fail.error });
     }
 
@@ -96,7 +100,7 @@ export function useProjectPlugins() {
       toast.error(`${results.failed.length} plugins failed to load. Check Settings > Plugins for details.`);
     }
 
-    replaceGlobalRivetNodeRegistry(registry);
+    setProjectNodeRegistry(registry);
     setPluginRefreshCounter((oldValue) => oldValue + 1);
   }, [pluginSpecs, retryCounter]);
 }

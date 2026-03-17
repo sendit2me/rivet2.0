@@ -1,9 +1,8 @@
-import { handleError } from './errorHandling';
+import { wrapAsync } from './errorHandling';
 
-export function syncWrapper<T extends (...args: any[]) => Promise<void>>(fn: T, context = 'Unexpected error'): () => void {
-  return (...args: Parameters<T>) => {
-    fn(...args).catch((err) => {
-      handleError(err, context);
-    });
-  };
+export function syncWrapper<TArgs extends unknown[], TResult>(
+  fn: (...args: TArgs) => Promise<TResult>,
+  context = 'Unexpected error',
+): (...args: TArgs) => void {
+  return wrapAsync(fn, context);
 }

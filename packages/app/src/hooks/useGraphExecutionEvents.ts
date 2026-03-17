@@ -12,6 +12,7 @@ import {
 } from '../state/dataFlow';
 import { userInputModalQuestionsState } from '../state/userInput';
 import { keys } from '../../../core/src/utils/typeSafety';
+import { handleError } from '../utils/errorHandling.js';
 import type { ExecutionDataFlowApi } from './useExecutionDataFlow';
 
 export type GraphExecutionEventsApi = {
@@ -91,7 +92,9 @@ export function useGraphExecutionEvents({
 
   const onError = (data: ProcessEvents['error']) => {
     stopAll();
-    console.error(data.error);
+    handleError(data.error, 'Graph execution error', {
+      toastError: false,
+    });
   };
 
   const onGraphStart = (data: ProcessEvents['graphStart']) => {

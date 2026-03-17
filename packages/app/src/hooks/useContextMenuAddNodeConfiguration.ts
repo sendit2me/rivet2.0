@@ -1,16 +1,16 @@
-import { type BuiltInNodeType, type NodeUIData, getError, globalRivetNodeRegistry } from '@ironclad/rivet-core';
+import { type BuiltInNodeType, type NodeUIData } from '@ironclad/rivet-core';
 import { type ContextMenuItem } from './useContextMenuConfiguration';
 import { useMemo, useState } from 'react';
 import { useBuiltInNodeImages } from './useBuiltInNodeImages';
 import { useDependsOnPlugins } from './useDependsOnPlugins';
 import { useGetRivetUIContext } from './useGetRivetUIContext';
 import useAsyncEffect from 'use-async-effect';
-import { toast } from 'react-toastify';
 import { isNotNull } from '../utils/genericUtilFunctions';
 import { orderBy, uniqBy } from 'lodash-es';
 import { useAtomValue } from 'jotai';
 import { nodeConstructorsState } from '../state/graph';
 import { referencedProjectsState } from '../state/savedGraphs';
+import { handleError } from '../utils/errorHandling.js';
 
 export const addContextMenuGroups = [
   {
@@ -97,7 +97,11 @@ export function useContextMenuAddNodeConfiguration() {
 
             return { type, uiData };
           } catch (err) {
-            toast.error(`Error getting UI data for node type ${constructor.name}: ${getError(err).message}`);
+            handleError(err, `Error getting UI data for node type ${constructor.name}`, {
+              metadata: {
+                constructorName: constructor.name,
+              },
+            });
             return undefined;
           }
         }),

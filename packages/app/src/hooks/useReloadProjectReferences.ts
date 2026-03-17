@@ -4,7 +4,7 @@ import { useCallback } from 'react';
 import { TauriProjectReferenceLoader } from '../model/TauriProjectReferenceLoader';
 import { type Project, type ProjectId } from '@ironclad/rivet-core';
 import useAsyncEffect from 'use-async-effect';
-import { toast } from 'react-toastify';
+import { handleError } from '../utils/errorHandling.js';
 
 export function useReloadProjectReferences() {
   const project = useAtomValue(projectState);
@@ -25,7 +25,13 @@ export function useReloadProjectReferences() {
 
       setReferencedProjects(collectedProjects);
     } catch (err) {
-      toast.error('Error reloading project references');
+      handleError(err, 'Failed to reload project references', {
+        metadata: {
+          projectId: project.metadata.id,
+          projectPath: loadedProject.path,
+          referenceCount: project.references?.length ?? 0,
+        },
+      });
     }
   }, [project, loadedProject, setReferencedProjects]);
 

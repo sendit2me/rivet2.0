@@ -3,6 +3,7 @@ import { useStaticDataDatabase } from './useStaticDataDatabase';
 import { projectDataState } from '../state/savedGraphs';
 import { type DataId } from '@ironclad/rivet-core';
 import { entries } from '../../../core/src/utils/typeSafety';
+import { handleError } from '../utils/errorHandling.js';
 
 export function useSetStaticData() {
   const setProjectData = useSetAtom(projectDataState);
@@ -20,7 +21,12 @@ export function useSetStaticData() {
       try {
         await database.insert(id, dataValue);
       } catch (err) {
-        console.error(err);
+        handleError(err, 'Failed to persist static data entry', {
+          metadata: {
+            dataId: id,
+          },
+          toastError: false,
+        });
       }
     }
   };

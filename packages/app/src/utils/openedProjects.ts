@@ -16,7 +16,8 @@ export function addOpenedProject(
       ...current.openedProjects,
       [projectId]: {
         ...existingProject,
-        project,
+        projectId,
+        title: project.metadata.title,
         fsPath: nextFsPath,
       },
     },

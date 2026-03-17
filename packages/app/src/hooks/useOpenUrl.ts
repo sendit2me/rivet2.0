@@ -1,10 +1,17 @@
-import { toast } from 'react-toastify';
 import { openExternalUrl } from '../utils/platform/shell.js';
+import { wrapAsync } from '../utils/errorHandling.js';
 
 export function useOpenUrl(url: string) {
-  return async () => {
-    openExternalUrl(url).catch((err) => {
-      toast.error(`Failed to open URL: ${err}`);
-    });
-  };
+  return wrapAsync(
+    async (event?: { preventDefault?: () => void }) => {
+      event?.preventDefault?.();
+      await openExternalUrl(url);
+    },
+    'Failed to open URL',
+    {
+      metadata: {
+        url,
+      },
+    },
+  );
 }

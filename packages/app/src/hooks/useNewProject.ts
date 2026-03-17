@@ -9,7 +9,7 @@ export function useNewProject() {
   const setProjects = useSetAtom(projectsState);
   const workspaceTransitions = useWorkspaceTransitions();
 
-  return ({
+  return async ({
     title,
     description,
   }: {
@@ -21,11 +21,16 @@ export function useNewProject() {
     project.metadata.title = title || project.metadata.title;
     project.metadata.description = description || project.metadata.description;
 
-    setProjects((prev) => addOpenedProject(prev, project));
-    void workspaceTransitions.loadProject({
+    const loaded = await workspaceTransitions.loadProject({
       project,
       graphToLoad: emptyNodeGraph(),
       testSuites: [],
     });
+
+    if (loaded) {
+      setProjects((prev) => addOpenedProject(prev, project));
+    }
+
+    return loaded;
   };
 }

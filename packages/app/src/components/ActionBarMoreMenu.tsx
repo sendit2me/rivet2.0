@@ -17,7 +17,6 @@ import { CopyAsTestCaseModal } from './CopyAsTestCaseModal';
 import { useToggle } from 'ahooks';
 import QuestionIcon from 'majesticons/line/question-circle-line.svg?react';
 import { useSetAtom, useAtom } from 'jotai';
-import { syncWrapper } from '../utils/syncWrapper';
 
 const moreMenuStyles = css`
   background-color: var(--grey-darkish);

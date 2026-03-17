@@ -12,7 +12,7 @@ describe('api', () => {
       },
     });
 
-    processor.run();
+    void processor.run();
 
     const eventNames: string[] = [];
     for await (const event of processor.getEvents({ done: true, nodeStart: true, nodeFinish: true })) {
@@ -39,7 +39,7 @@ describe('api', () => {
       },
     });
 
-    processor.run();
+    void processor.run();
 
     for await (const event of processor.getEvents({ nodeStart: ['Passthrough'] })) {
       assert.equal(event.type, 'nodeStart');
@@ -54,7 +54,7 @@ describe('api', () => {
       },
     });
 
-    processor.run();
+    void processor.run();
 
     const reader = processor
       .getSSEStream({
@@ -78,5 +78,31 @@ describe('api', () => {
     }
 
     assert.deepEqual(eventNames, ['nodeFinish', 'nodeFinish', 'nodeFinish']);
+  });
+
+  it('passes remote debugger request ids through attach', async () => {
+    let attachedRequestId: string | undefined;
+
+    const remoteDebugger = {
+      on: () => undefined,
+      off: () => undefined,
+      webSocketServer: {} as never,
+      broadcast: () => undefined,
+      attach: (_processor: unknown, requestId?: string) => {
+        attachedRequestId = requestId;
+      },
+      detach: () => undefined,
+    };
+
+    createProcessor(await loadTestGraphs(), {
+      graph: 'Passthrough',
+      inputs: {
+        input: 'input value',
+      },
+      remoteDebugger,
+      remoteDebuggerRequestId: 'request-123',
+    });
+
+    assert.equal(attachedRequestId, 'request-123');
   });
 });

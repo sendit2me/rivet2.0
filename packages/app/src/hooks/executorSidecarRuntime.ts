@@ -1,5 +1,6 @@
 import { type NativeChildProcess } from '../utils/platform/core.js';
 import { createNativeSidecarCommand } from '../utils/platform/shell.js';
+import { handleError } from '../utils/errorHandling.js';
 
 export type ExecutorSidecarRuntimeState = {
   started: boolean;
@@ -39,7 +40,12 @@ export async function startExecutorSidecar(
       });
 
       command.stderr.on('data', (data) => {
-        console.error('sidecar stderr', data);
+        handleError(new Error(String(data)), 'Executor sidecar stderr', {
+          metadata: {
+            consumerCount: runtime.consumerCount,
+          },
+          toastError: false,
+        });
       });
 
       runtime.started = true;
@@ -59,7 +65,12 @@ export async function startExecutorSidecar(
     runtime.startPromise = null;
     runtime.started = false;
     runtime.process = null;
-    console.error('Error running sidecar', error);
+    handleError(error, 'Failed to start executor sidecar', {
+      metadata: {
+        consumerCount: runtime.consumerCount,
+      },
+      toastError: false,
+    });
   }
 }
 

@@ -9,7 +9,7 @@ import { type NodeTestGroup } from '@ironclad/rivet-core';
 import Tabs, { Tab, TabList, TabPanel } from '@atlaskit/tabs';
 import Button from '@atlaskit/button';
 import { overlayOpenState } from '../state/ui';
-import { syncWrapper } from '../utils/syncWrapper';
+import { wrapAsync } from '../utils/errorHandling';
 import { usePromptDesignerMessages } from '../hooks/usePromptDesignerMessages';
 import { PromptDesignerConfigPanel } from './promptDesigner/PromptDesignerConfigPanel';
 import { PromptDesignerMessageList } from './promptDesigner/PromptDesignerMessageList.js';
@@ -313,7 +313,7 @@ export const PromptDesigner: FC<PromptDesignerProps> = ({ onClose }) => {
               <PromptDesignerConfigPanel
                 config={config}
                 setConfig={setConfig}
-                onRun={syncWrapper(tryRunSingle)}
+                onRun={wrapAsync(tryRunSingle, 'Run prompt designer test')}
               />
             </TabPanel>
             <TabPanel>

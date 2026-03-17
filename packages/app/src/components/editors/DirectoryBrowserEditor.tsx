@@ -5,7 +5,7 @@ import { type FC } from 'react';
 import { type SharedEditorProps } from './SharedEditorProps';
 import { getHelperMessage } from './editorUtils';
 import { isPathBasedIOProvider } from '../../io/IOProvider';
-import { syncWrapper } from '../../utils/syncWrapper';
+import { wrapAsync } from '../../utils/errorHandling';
 import { useIOProvider } from '../../providers/ProvidersContext';
 
 export const DefaultDirectoryBrowserEditor: FC<
@@ -17,25 +17,28 @@ export const DefaultDirectoryBrowserEditor: FC<
   const data = node.data as Record<string, unknown>;
   const helperMessage = getHelperMessage(editor, node.data);
 
-  const pickDirectory = async () => {
-    if (!isPathBasedIOProvider(ioProvider)) return;
-    const path = await ioProvider.openDirectory();
-    if (path) {
-      onChange({
-        ...node,
-        data: {
-          ...data,
-          [editor.dataKey]: path as string,
-        },
-      });
-    }
-  };
+  const pickDirectory = wrapAsync(
+    async () => {
+      if (!isPathBasedIOProvider(ioProvider)) return;
+      const path = await ioProvider.openDirectory();
+      if (path) {
+        onChange({
+          ...node,
+          data: {
+            ...data,
+            [editor.dataKey]: path as string,
+          },
+        });
+      }
+    },
+    'Open directory picker',
+  );
 
   return (
     <Field name={editor.dataKey} label={editor.label}>
       {() => (
         <div>
-          <Button onClick={syncWrapper(pickDirectory)} isDisabled={isReadonly || isDisabled}>
+          <Button onClick={pickDirectory} isDisabled={isReadonly || isDisabled}>
             Pick Directory
           </Button>
           <div className="current">{data[editor.dataKey] != null && <span>{data[editor.dataKey] as string}</span>}</div>

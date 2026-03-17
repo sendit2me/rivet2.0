@@ -22,7 +22,6 @@ import AlertCircleIcon from 'majesticons/line/alert-circle-line.svg?react';
 import { NoTestCasesSplash } from './NoTestCasesSplash';
 import { useTestSuite } from '../../hooks/useTestSuite';
 import { GraphSelector } from '../editors/GraphSelectorEditor';
-import { syncWrapper } from '../../utils/syncWrapper';
 import { wrapAsync } from '../../utils/errorHandling';
 
 const styles = css`
@@ -330,7 +329,7 @@ export const TestSuite: FC<{ testSuite: TrivetTestSuite; tryRunTests: TryRunTest
         </div>
       )}
       <div className="view-documentation">
-        <a onClick={syncWrapper(viewDocumentation)}>
+        <a onClick={viewDocumentation}>
           {/* TODO wrong icon, want external url icon */}
           <BrowserLineIcon /> Trivet Documentation
         </a>

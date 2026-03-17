@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { useAtom, useAtomValue } from 'jotai';
-import { getError, type NodeTestGroup } from '@ironclad/rivet-core';
+import { type NodeTestGroup } from '@ironclad/rivet-core';
 import {
   promptDesignerAttachedChatNodeState,
   promptDesignerResponseState,
@@ -9,6 +9,7 @@ import {
 import { useDatasetProvider } from '../../providers/ProvidersContext.js';
 import { useGetAdHocInternalProcessContext } from '../../hooks/useGetAdHocInternalProcessContext.js';
 import { runAdHocChat, useRunPromptDesignerTestGroupSampleCount } from './PromptDesignerTestRunner.js';
+import { handleError } from '../../utils/errorHandling.js';
 
 export const usePromptDesignerRunActions = ({
   configData,
@@ -59,7 +60,12 @@ export const usePromptDesignerRunActions = ({
 
       setResponse({ response: nextResponse });
     } catch (error) {
-      console.error(getError(error));
+      handleError(error, 'Failed to run prompt designer chat', {
+        metadata: {
+          attachedNodeId: attachedNodeId?.nodeId,
+          messageCount: messages.length,
+        },
+      });
     } finally {
       abortController.current = undefined;
       setInProgress(false);
@@ -93,7 +99,13 @@ export const usePromptDesignerRunActions = ({
         configData,
       );
     } catch (error) {
-      console.error(getError(error));
+      handleError(error, 'Failed to run prompt designer test group', {
+        metadata: {
+          attachedNodeId: attachedNodeId.nodeId,
+          sampleCount: samples,
+          testCaseCount: testGroup.testCases.length,
+        },
+      });
     } finally {
       abortController.current = undefined;
       setInProgress(false);

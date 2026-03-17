@@ -4,10 +4,10 @@ import { useEffect, useMemo } from 'react';
 import { entries } from '../../../core/src/utils/typeSafety';
 import { searchMatchingNodeIdsState, searchingGraphState } from '../state/graphBuilder';
 import { useFuseSearch } from './useFuseSearch';
-import { globalRivetNodeRegistry } from '@ironclad/rivet-core';
 import { useFocusOnNodes } from './useFocusOnNodes';
 import { useNodeTypes } from './useNodeTypes';
 import { useDependsOnPlugins } from './useDependsOnPlugins';
+import { useProjectNodeRegistry } from './useProjectNodeRegistry';
 
 export function useSearchGraph() {
   const graphNodes = useAtomValue(nodesState);
@@ -16,6 +16,7 @@ export function useSearchGraph() {
   useDependsOnPlugins();
   const focusOnNodes = useFocusOnNodes();
   const nodeTypes = useNodeTypes();
+  const projectNodeRegistry = useProjectNodeRegistry();
 
   const searchableNodes = useMemo(() => {
     return graphNodes.map((node) => {
@@ -30,12 +31,12 @@ export function useSearchGraph() {
         description: node.description,
         id: node.id,
         joinedData: joinedData.join(' '),
-        nodeType: isKnownNodeType ? globalRivetNodeRegistry.getDynamicDisplayName(node.type) : '',
+        nodeType: isKnownNodeType ? projectNodeRegistry.getDynamicDisplayName(node.type) : '',
       };
 
       return searchableNode;
     });
-  }, [graphNodes, nodeTypes]);
+  }, [graphNodes, nodeTypes, projectNodeRegistry]);
 
   const searchState = useAtomValue(searchingGraphState);
 

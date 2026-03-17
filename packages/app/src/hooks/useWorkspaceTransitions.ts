@@ -1,5 +1,5 @@
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
-import { emptyNodeGraph, getError, type DataId, type Project } from '@ironclad/rivet-core';
+import { emptyNodeGraph, type DataId, type Project } from '@ironclad/rivet-core';
 import { toast, type Id as ToastId } from 'react-toastify';
 import { isPathBasedIOProvider } from '../io/IOProvider.js';
 import { useIOProvider } from '../providers/ProvidersContext.js';
@@ -10,7 +10,13 @@ import {
   lastCanvasPositionByGraphState,
   selectedNodesState,
 } from '../state/graphBuilder.js';
-import { loadedProjectState, projectDataState, projectState, projectsState } from '../state/savedGraphs.js';
+import {
+  loadedProjectState,
+  openedProjectSnapshotsState,
+  projectDataState,
+  projectState,
+  projectsState,
+} from '../state/savedGraphs.js';
 import { trivetState } from '../state/trivet.js';
 import { useCenterViewOnGraph } from './useCenterViewOnGraph.js';
 import { useSaveCurrentGraph } from './useSaveCurrentGraph.js';
@@ -21,6 +27,7 @@ import {
   createProjectLoadTransition,
   mergeCurrentGraphIntoProject,
 } from '../utils/workspaceTransitions.js';
+import { handleError } from '../utils/errorHandling.js';
 import { useStaticDataDatabase } from './useStaticDataDatabase.js';
 import { addOpenedProject } from '../utils/openedProjects.js';
 
@@ -39,6 +46,7 @@ export function useWorkspaceTransitions() {
   const setPosition = useSetAtom(canvasPositionState);
   const lastSavedPositions = useAtomValue(lastCanvasPositionByGraphState);
   const graphNavigationStack = useAtomValue(graphNavigationStackState);
+  const setOpenedProjectSnapshots = useSetAtom(openedProjectSnapshotsState);
   const setProjects = useSetAtom(projectsState);
   const centerViewOnGraph = useCenterViewOnGraph();
   const saveCurrentGraph = useSaveCurrentGraph();
@@ -50,7 +58,13 @@ export function useWorkspaceTransitions() {
     try {
       await database.clear();
     } catch (err) {
-      console.error(err);
+      handleError(err, 'Failed to clear static data cache while loading project', {
+        metadata: {
+          projectId: project.metadata.id,
+          projectPath: loadedProject.path,
+        },
+        toastError: false,
+      });
     }
 
     if (!data) {
@@ -61,7 +75,14 @@ export function useWorkspaceTransitions() {
       try {
         await database.insert(id as DataId, dataValue!);
       } catch (err) {
-        console.error(err);
+        handleError(err, `Failed to hydrate static data entry "${id}" while loading project`, {
+          metadata: {
+            dataId: id,
+            projectId: project.metadata.id,
+            projectPath: loadedProject.path,
+          },
+          toastError: false,
+        });
       }
     }
   }
@@ -74,7 +95,7 @@ export function useWorkspaceTransitions() {
       openedGraph?: string;
       testSuites?: typeof testSuites;
       graphToLoad?: typeof currentGraph;
-    }) {
+    }): Promise<boolean> {
       try {
         const graphToLoad =
           projectInfo.graphToLoad ??
@@ -106,8 +127,17 @@ export function useWorkspaceTransitions() {
         await applyStaticData(projectInfo.data);
         setLoadedProject(transition.loadedProject);
         setTrivetState(createDefaultTrivetState(projectInfo.testSuites ?? []));
+        return true;
       } catch (err) {
-        toast.error(`Failed to load project: ${getError(err).message}`);
+        handleError(err, 'Failed to load project', {
+          metadata: {
+            currentGraphId: currentGraph.metadata?.id,
+            fsPath: projectInfo.fsPath,
+            openedGraph: projectInfo.openedGraph,
+            projectId: projectInfo.project.metadata.id,
+          },
+        });
+        return false;
       }
     },
 
@@ -167,6 +197,11 @@ export function useWorkspaceTransitions() {
 
           if (filePath) {
             setLoadedProject({ loaded: true, path: filePath });
+            setOpenedProjectSnapshots((snapshots) => {
+              const nextSnapshots = { ...snapshots };
+              delete nextSnapshots[projectToPersist.metadata.id];
+              return nextSnapshots;
+            });
             setProjects((prev) => addOpenedProject(prev, projectToPersist, { fsPath: filePath }));
             toast.success('Project saved');
           }
@@ -174,10 +209,22 @@ export function useWorkspaceTransitions() {
           const projectPath = loadedProject.path!;
           await ioProvider.saveProjectDataNoPrompt(projectToPersist, { testSuites }, projectPath);
           setLoadedProject({ loaded: true, path: projectPath });
+          setOpenedProjectSnapshots((snapshots) => {
+            const nextSnapshots = { ...snapshots };
+            delete nextSnapshots[projectToPersist.metadata.id];
+            return nextSnapshots;
+          });
           toast.success('Project saved');
         }
-      } catch {
-        toast.error('Failed to save project');
+      } catch (err) {
+        handleError(err, 'Failed to save project', {
+          metadata: {
+            forceSaveAs: options.forceSaveAs ?? false,
+            projectId: projectToPersist.metadata.id,
+            projectPath: loadedProject.path,
+            usedSaveAs: shouldUseSaveAs,
+          },
+        });
       } finally {
         clearTimeout(savingTimeout);
         if (saving != null) {

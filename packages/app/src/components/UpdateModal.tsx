@@ -7,9 +7,9 @@ import Button from '@atlaskit/button';
 import useAsyncEffect from 'use-async-effect';
 import { css } from '@emotion/react';
 import { useMarkdown } from '../hooks/useMarkdown';
-import { syncWrapper } from '../utils/syncWrapper';
 import { getAppVersion, relaunchApp } from '../utils/platform/app.js';
 import { checkForAppUpdate, installAppUpdate } from '../utils/platform/updater.js';
+import { wrapAsync } from '../utils/errorHandling.js';
 
 const bodyStyle = css`
   pre {
@@ -42,16 +42,29 @@ export const UpdateModal: FC = () => {
     }
   }, []);
 
-  const doUpdate = async () => {
-    try {
+  const doUpdate = wrapAsync(
+    async () => {
       setUpdateStatus('Starting update...');
       setIsUpdating(true);
 
-      await installAppUpdate();
-    } catch (err) {
-      console.error(err);
-    }
-  };
+      try {
+        await installAppUpdate();
+      } catch (error) {
+        setIsUpdating(false);
+        setUpdateStatus('');
+        throw error;
+      }
+    },
+    'Failed to install app update',
+    {
+      metadata: {
+        currentVersion,
+        latestVersion,
+      },
+    },
+  );
+
+  const restartAfterUpdate = wrapAsync(relaunchApp, 'Relaunch app');
 
   const handleModalClose = () => {
     if (isUpdating) {
@@ -88,7 +101,7 @@ export const UpdateModal: FC = () => {
         <ModalFooter>
           {isUpdating ? (
             updateStatus === 'Installed.' ? (
-              <Button appearance="primary" onClick={syncWrapper(relaunchApp)}>
+              <Button appearance="primary" onClick={restartAfterUpdate}>
                 Update complete! Click to restart.
               </Button>
             ) : (
@@ -96,7 +109,7 @@ export const UpdateModal: FC = () => {
             )
           ) : (
             <>
-              <Button appearance="primary" onClick={syncWrapper(doUpdate)}>
+              <Button appearance="primary" onClick={doUpdate}>
                 Update
               </Button>
               <Button appearance="subtle" onClick={skipUpdate}>

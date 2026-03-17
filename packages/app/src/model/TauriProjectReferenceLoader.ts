@@ -1,9 +1,11 @@
 import { type ProjectReference, type Project, deserializeProject } from '@ironclad/rivet-core';
 import { type ProjectReferenceLoader } from '../../../core/src/model/ProjectReferenceLoader';
 import { invokeNative } from '../utils/platform/core.js';
+import { handleError } from '../utils/errorHandling.js';
 
 export class TauriProjectReferenceLoader implements ProjectReferenceLoader {
   async loadProject(currentProjectPath: string | undefined, reference: ProjectReference): Promise<Project> {
+
     if (currentProjectPath === undefined) {
       throw new Error(
         `Could not load project "${reference.title} (${reference.id})": current project path is undefined.`,
@@ -20,7 +22,15 @@ export class TauriProjectReferenceLoader implements ProjectReferenceLoader {
         const [project, attachedData] = deserializeProject(projectData);
         return project;
       } catch (err) {
-        console.error(`Failed to load project "${reference.title} (${reference.id})" from path "${path}":`, err);
+        handleError(err, 'Failed to load referenced project from hint path', {
+          metadata: {
+            currentProjectPath,
+            hintPath: path,
+            referenceId: reference.id,
+            referenceTitle: reference.title,
+          },
+          toastError: false,
+        });
       }
     }
 

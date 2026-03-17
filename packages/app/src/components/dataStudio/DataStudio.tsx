@@ -8,6 +8,7 @@ import { overlayOpenState } from '../../state/ui';
 import { DatasetList } from './DatasetList';
 import { DatasetDisplay } from './DatasetDisplay';
 import { useAtom, useAtomValue } from 'jotai';
+import { handleError } from '../../utils/errorHandling.js';
 
 export const DataStudioRenderer: FC = () => {
   const [openOverlay, setOpenOverlay] = useAtom(overlayOpenState);
@@ -15,7 +16,14 @@ export const DataStudioRenderer: FC = () => {
   if (openOverlay !== 'dataStudio') return null;
 
   return (
-    <ErrorBoundary onError={(err) => console.error(err)} fallbackRender={() => 'Failed to render Data Studio'}>
+    <ErrorBoundary
+      onError={(err) => {
+        handleError(err, 'Failed to render Data Studio', {
+          toastError: false,
+        });
+      }}
+      fallbackRender={() => 'Failed to render Data Studio'}
+    >
       <DataStudio onClose={() => setOpenOverlay(undefined)} />
     </ErrorBoundary>
   );

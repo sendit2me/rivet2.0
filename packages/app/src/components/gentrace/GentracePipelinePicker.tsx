@@ -7,6 +7,7 @@ import { useAtom, useAtomValue } from 'jotai';
 import { getGentracePipelines } from '../../../../core/src/plugins/gentrace/plugin';
 import { graphState } from '../../state/graph';
 import { settingsState } from '../../state/settings';
+import { handleError } from '../../utils/errorHandling.js';
 
 type GentracePipelinePickerProps = {
   onClose: () => void;
@@ -50,11 +51,15 @@ const GentracePipelinePicker: FC<GentracePipelinePickerProps> = ({ onClose }) =>
         const pipelines = await getGentracePipelines(gentraceApiKey);
         setPipelines(pipelines);
       } catch (e: any) {
-        const serverResult = e?.response?.data?.message ?? e?.message;
-        toast.error(`Error loading Gentrace pipelines: ${serverResult}`);
+        handleError(e, 'Failed to load Gentrace pipelines', {
+          metadata: {
+            hasApiKey: Boolean(gentraceApiKey),
+            selectedPipelineSlug: currentGentracePipelineSlug,
+          },
+        });
       }
     })();
-  }, [gentraceApiKey]);
+  }, [currentGentracePipelineSlug, gentraceApiKey]);
 
   const dropdownTarget = useRef<HTMLDivElement>(null);
 

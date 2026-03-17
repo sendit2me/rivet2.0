@@ -5,13 +5,11 @@ import { css } from '@emotion/react';
 import {
   type DatasetMetadata,
   type DatasetRow,
-  getError,
   newId,
   getIntegration,
   type DatasetId,
 } from '@ironclad/rivet-core';
 import { useState, type FC, useEffect } from 'react';
-import { toast } from 'react-toastify';
 import { useContextMenu } from '../../hooks/useContextMenu';
 import { useDataset } from '../../hooks/useDataset';
 import { stringify as stringifyCsv } from 'csv-stringify/browser/esm/sync';
@@ -26,9 +24,8 @@ import { InlineEditableTextfield } from '@atlaskit/inline-edit';
 import { useDatasets } from '../../hooks/useDatasets';
 import { useAtomValue } from 'jotai';
 import { projectMetadataState } from '../../state/savedGraphs';
-import { syncWrapper } from '../../utils/syncWrapper';
 import { useDatasetProvider, useIOProvider } from '../../providers/ProvidersContext';
-import { wrapAsync } from '../../utils/errorHandling';
+import { handleError, wrapAsync } from '../../utils/errorHandling';
 
 const datasetDisplayStyles = css`
   padding: 16px;
@@ -123,42 +120,64 @@ export const DatasetDisplay: FC<{
   const selectedCellColumn =
     contextMenuData.data?.type === 'cell' ? contextMenuData.data.element.dataset.column : undefined;
 
-  const exportDataset = async () => {
-    const csvContent = stringifyCsv(datasetData!.rows.map((row) => row.data));
+  const datasetErrorMetadata = {
+    datasetId: dataset.id,
+    datasetName: dataset.name,
+  };
 
-    try {
+  const exportDataset = wrapAsync(
+    async () => {
+      const csvContent = stringifyCsv(datasetData!.rows.map((row) => row.data));
       await ioProvider.saveString(csvContent, `${dataset.name}.csv`);
-    } catch (err) {
-      toast.error(`Failed to export dataset: ${getError(err).message}`);
-    }
-  };
+    },
+    'Failed to export dataset',
+    () => ({
+      metadata: {
+        ...datasetErrorMetadata,
+        rowCount: datasetData?.rows.length ?? 0,
+      },
+    }),
+  );
 
-  const importDataset = async () => {
-    await ioProvider.readFileAsString(
-      syncWrapper(async (csvContent: string) => {
-        try {
-          const csvData = parseCsv(csvContent) as string[][];
+  const importDatasetData = wrapAsync(
+    async (csvContent: string) => {
+      const csvData = parseCsv(csvContent) as string[][];
 
-          const data: DatasetRow[] = csvData.map((row) => ({
-            id: newId(),
-            data: row,
-          }));
+      const data: DatasetRow[] = csvData.map((row) => ({
+        id: newId(),
+        data: row,
+      }));
 
-          datasetMethods.putDatasetData(data);
-        } catch (err) {
-          toast.error(`Failed to import dataset: ${getError(err).message}`);
-        }
-      }),
-    );
-  };
+      await datasetMethods.putDatasetData(data);
+    },
+    'Failed to import dataset',
+    (csvContent) => ({
+      metadata: {
+        ...datasetErrorMetadata,
+        csvLength: csvContent.length,
+      },
+    }),
+  );
 
-  const clearDataset = async () => {
-    try {
+  const importDataset = wrapAsync(
+    async () => {
+      await ioProvider.readFileAsString(importDatasetData);
+    },
+    'Failed to open dataset import file',
+    {
+      metadata: datasetErrorMetadata,
+    },
+  );
+
+  const clearDataset = wrapAsync(
+    async () => {
       await datasetMethods.clearData();
-    } catch (err) {
-      toast.error(`Failed to clear dataset: ${getError(err).message}`);
-    }
-  };
+    },
+    'Failed to clear dataset',
+    {
+      metadata: datasetErrorMetadata,
+    },
+  );
 
   const [knnEmbeddingProvider, setKnnEmbeddingProvider] =
     useState<(typeof embeddingProviders)[number]['value']>('openai');
@@ -169,6 +188,7 @@ export const DatasetDisplay: FC<{
   const getAdHocInternalProcessContext = useGetAdHocInternalProcessContext();
 
   const [filteredRows, setFilteredRows] = useState<DatasetRowWithDistance[] | undefined>(undefined);
+  const isFiltered = filteredRows != null;
 
   useAsyncEffect(async () => {
     if (debouncedKnnSearch.trim().length === 0) {
@@ -187,7 +207,13 @@ export const DatasetDisplay: FC<{
 
       setFilteredRows(knn);
     } catch (err) {
-      toast.error(`Failed to generate embedding: ${getError(err).message}`);
+      handleError(err, 'Failed to generate dataset embedding search', {
+        metadata: {
+          datasetId: dataset.id,
+          embeddingProvider: knnEmbeddingProvider,
+          queryLength: debouncedKnnSearch.length,
+        },
+      });
       setFilteredRows(undefined);
     }
   }, [debouncedKnnSearch, knnEmbeddingProvider, dataset.id]);
@@ -212,9 +238,41 @@ export const DatasetDisplay: FC<{
   };
 
   const setDatasetId = async (id: string) => {
-    await datasetsMethods.putDataset({ ...dataset, id: id as DatasetId });
-    await datasetsMethods.deleteDataset(dataset.id);
-    onChangedId?.(id as DatasetId);
+    const trimmedId = id.trim() as DatasetId;
+
+    if (trimmedId.length === 0) {
+      throw new Error('Dataset ID cannot be empty');
+    }
+
+    if (trimmedId === dataset.id) {
+      return;
+    }
+
+    if (datasetsMethods.datasets?.some((existingDataset) => existingDataset.id === trimmedId)) {
+      throw new Error('A dataset with that ID already exists');
+    }
+
+    if (!datasetData) {
+      throw new Error('Dataset data is not loaded yet');
+    }
+
+    await datasetsMethods.putDataset({ ...dataset, id: trimmedId });
+
+    try {
+      await datasetProvider.putDatasetData(trimmedId, {
+        ...datasetData,
+        id: trimmedId,
+      });
+      await datasetsMethods.deleteDataset(dataset.id);
+    } catch (error) {
+      try {
+        await datasetsMethods.deleteDataset(trimmedId);
+      } catch {}
+
+      throw error;
+    }
+
+    onChangedId?.(trimmedId);
   };
 
   return (
@@ -260,24 +318,30 @@ export const DatasetDisplay: FC<{
               placeholder="Embedding Provider"
             />
           </div>
-          <Button appearance="primary" onClick={syncWrapper(exportDataset)}>
+          <Button appearance="primary" onClick={exportDataset}>
             Export Dataset
           </Button>
-          <Button appearance="default" onClick={syncWrapper(importDataset)}>
+          <Button appearance="default" onClick={importDataset}>
             Import (Replace) Data
           </Button>
-          <Button appearance="danger" onClick={syncWrapper(clearDataset)}>
+          <Button appearance="danger" onClick={clearDataset}>
             Clear Data
           </Button>
         </div>
       </header>
       <div className="table-viewer">
         {datasetData && (
-          <DatasetTable datasetData={filteredRows ?? datasetData.rows} onDataChanged={syncWrapper(updateDatasetData)} />
+          <DatasetTable
+            datasetData={filteredRows ?? datasetData.rows}
+            isFiltered={isFiltered}
+            onDataChanged={wrapAsync(updateDatasetData, 'Update dataset data', {
+              metadata: datasetErrorMetadata,
+            })}
+          />
         )}
       </div>
       <Portal>
-        {showContextMenu && contextMenuData.data?.type === 'cell' && (
+        {showContextMenu && contextMenuData.data?.type === 'cell' && !isFiltered && (
           <div
             className="context-menu"
             css={contextMenuStyles}

@@ -18,7 +18,7 @@ export function useNewProjectFromTemplate() {
   const setProjects = useSetAtom(projectsState);
   const workspaceTransitions = useWorkspaceTransitions();
 
-  return (template: unknown) => {
+  return async (template: unknown) => {
     let [project] = deserializeProject(template);
 
     project = produce(project, (draft) => {
@@ -75,12 +75,17 @@ export function useNewProjectFromTemplate() {
       fallbackToSortedProjectGraph: true,
     });
 
-    setProjects((prev) => addOpenedProject(prev, projectWithNewId));
-    void workspaceTransitions.loadProject({
+    const loaded = await workspaceTransitions.loadProject({
       project: projectWithoutData,
       data,
       graphToLoad,
       testSuites: [],
     });
+
+    if (loaded) {
+      setProjects((prev) => addOpenedProject(prev, projectWithNewId));
+    }
+
+    return loaded;
   };
 }

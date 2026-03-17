@@ -3,7 +3,6 @@ import { type FC } from 'react';
 import Button from '@atlaskit/button';
 import CrossIcon from 'majesticons/line/multiply-line.svg?react';
 import { CreateTemplateForm } from './CreateTemplateForm';
-import { useUploadNewTemplate } from '../../hooks/useUploadNewTemplate';
 import { type TemplateResponse } from '../../utils/communityApi';
 import { useUploadNewTemplateVersion } from '../../hooks/useUploadNewTemplateVersion';
 

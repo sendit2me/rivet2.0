@@ -1,9 +1,9 @@
 import {
   GraphProcessor,
   type DataValue,
-  globalRivetNodeRegistry,
   type GraphId,
   type NodeId,
+  type NodeRegistration,
   type Outputs,
   type ProcessEvents,
   type Project,
@@ -58,8 +58,13 @@ export function getDependentDataForNodeForPreload(dependencyNodes: NodeId[], pre
   return preloadData;
 }
 
-export function getDependencyNodesForRunFrom(project: Project, graphId: GraphId, from: NodeId): NodeId[] {
-  const processor = new GraphProcessor(project, graphId, globalRivetNodeRegistry, true);
+export function getDependencyNodesForRunFrom(
+  project: Project,
+  graphId: GraphId,
+  from: NodeId,
+  projectNodeRegistry: NodeRegistration<any, any>,
+): NodeId[] {
+  const processor = new GraphProcessor(project, graphId, projectNodeRegistry, true);
   return processor.getDependencyNodesDeep(from);
 }
 

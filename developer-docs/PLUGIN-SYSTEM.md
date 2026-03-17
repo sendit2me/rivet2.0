@@ -189,22 +189,22 @@ The app's main plugin-loading path is [`useProjectPlugins.ts`](../packages/app/s
 
 1. read plugin specs from `projectPluginsState`
 2. seed `pluginsState` with one loading entry per spec
-3. start a generation-tracked async load pass so stale completions from an older plugin set cannot overwrite the current UI state or global registry
+3. start a generation-tracked async load pass so stale completions from an older plugin set cannot overwrite the current UI state or active project registry
 4. call `assembleRegistry(specs, loadPlugin)` from `RegistryAssembly.ts`, which creates a fresh built-in registry and then loads/registers each plugin via a caller-provided loader
 5. record per-plugin success/failure in `pluginsState` as results arrive
 6. ignore the finished result completely if a newer generation has superseded it
 7. show aggregate failure toasts for the active generation
-8. install the assembled registry globally via `replaceGlobalRivetNodeRegistry(registry)`
+8. publish the assembled registry into the app's `projectNodeRegistryState`
 9. increment `pluginRefreshCounterState`
 
 ### Implications
 
 - plugin availability is rebuilt whenever project plugin specs or retry state changes
-- registry state is mutable and project-dependent
+- registry state is explicit and project-dependent
 - editor behavior that depends on node constructors must tolerate registry refreshes
 - the app and sidecar share the same `assembleRegistry()` helper, keeping registry construction logic in one place
 - the app normalizes wrapped default exports for external plugin modules before invoking the initializer, so editor-side loading matches sidecar/runtime behavior for mixed CJS/ESM plugins
-- the generation guard is now part of the app-side contract: older async plugin loads must never replace newer plugin state or the active global registry
+- the generation guard is now part of the app-side contract: older async plugin loads must never replace newer plugin state or the active project registry
 
 ## URI Plugin Loading
 

@@ -10,6 +10,7 @@ export type GraphInputs = Record<string, DataValue>;
 export type GraphOutputs = Record<string, DataValue>;
 export type Inputs = Record<PortId, DataValue | undefined>;
 export type Outputs = Record<PortId, DataValue | undefined>;
+export type RemoteRunRequestId = string;
 
 export type SerializedProcessEventMap = {
   start: { project: Project; startGraph: NodeGraph; inputs: GraphInputs; contextValues: Record<string, DataValue> };
@@ -41,7 +42,7 @@ export type SerializedProcessEventMap = {
 };
 
 export type ProcessEventMessage = {
-  [K in keyof ProcessEventMessageMap]: { message: K; data: ProcessEventMessageMap[K] };
+  [K in keyof ProcessEventMessageMap]: { message: K; data: ProcessEventMessageMap[K]; requestId?: RemoteRunRequestId };
 }[keyof ProcessEventMessageMap];
 
 export type ProcessEventMessageMap = {
@@ -97,6 +98,7 @@ export type OutgoingMessageMap = {
   'user-input': { nodeId: NodeId; answers: StringArrayDataValue };
   'set-dynamic-data': { project: Project; settings: Settings };
   run: {
+    requestId: RemoteRunRequestId;
     graphId: GraphId;
     runToNodeIds?: NodeId[];
     contextValues: Record<string, DataValue>;

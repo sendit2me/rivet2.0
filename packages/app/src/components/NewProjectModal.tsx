@@ -130,8 +130,14 @@ const BlankProjectTemplate: FC<{
 
   const createProject = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    newProject({ title: projectName, description: projectDescription });
-    onCreated();
+
+    void (async () => {
+      const created = await newProject({ title: projectName, description: projectDescription });
+
+      if (created) {
+        onCreated();
+      }
+    })();
   };
 
   return (
@@ -182,8 +188,14 @@ const AiAgentTemplate: FC<{
 
   const createProject = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    newProjectFromTemplate(aiAgentTemplateProject);
-    onCreated();
+
+    void (async () => {
+      const created = await newProjectFromTemplate(aiAgentTemplateProject);
+
+      if (created) {
+        onCreated();
+      }
+    })();
   };
 
   return (
@@ -209,8 +221,14 @@ const MCPAiAgentTemplate: FC<{
 
   const createProject = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    newProjectFromTemplate(mcpAiAgentTemplateProject);
-    onCreated();
+
+    void (async () => {
+      const created = await newProjectFromTemplate(mcpAiAgentTemplateProject);
+
+      if (created) {
+        onCreated();
+      }
+    })();
   };
 
   return (
@@ -257,13 +275,17 @@ const FromTutorialTemplate: FC<{
       return;
     }
 
-    match(selectedTutorial)
-      .with('documentation_tutorial_project', () => {
-        newProjectFromTemplate(documentationTutorialProject);
-      })
-      .otherwise((tutorial) => {});
+    void (async () => {
+      const created = await match(selectedTutorial)
+        .with('documentation_tutorial_project', () => {
+          return newProjectFromTemplate(documentationTutorialProject);
+        })
+        .otherwise(() => Promise.resolve(false));
 
-    onCreated();
+      if (created) {
+        onCreated();
+      }
+    })();
   };
 
   return (

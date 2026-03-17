@@ -11,6 +11,7 @@ import {
   type DataId,
   type DataValue,
   type Outputs,
+  type RemoteRunRequestId,
 } from '@ironclad/rivet-core';
 import { match } from 'ts-pattern';
 import Emittery from 'emittery';
@@ -22,9 +23,9 @@ export interface RivetDebuggerServer {
 
   webSocketServer: WebSocketServer;
 
-  broadcast(processor: GraphProcessor, message: string, data: unknown): void;
+  broadcast(processor: GraphProcessor, message: string, data: unknown, requestId?: RemoteRunRequestId): void;
 
-  attach(processor: GraphProcessor): void;
+  attach(processor: GraphProcessor, requestId?: RemoteRunRequestId): void;
   detach(processor: GraphProcessor): void;
 }
 
@@ -39,6 +40,7 @@ export const currentDebuggerState = {
 
 export type DynamicGraphRunOptions = {
   client: WebSocket;
+  requestId: RemoteRunRequestId;
   graphId: GraphId;
   inputs?: GraphInputs;
   runToNodeIds?: NodeId[];
@@ -69,6 +71,7 @@ export function startDebuggerServer(
   const emitter = new Emittery<DebuggerEvents>();
 
   const attachedProcessors: GraphProcessor[] = [];
+  const requestIdsByProcessorId = new Map<string, RemoteRunRequestId | undefined>();
 
   server.on('connection', (socket) => {
     if (options.datasetProvider) {
@@ -100,7 +103,8 @@ export function startDebuggerServer(
 
         await match(message)
           .with({ type: 'run' }, async () => {
-            const { graphId, inputs, runToNodeIds, contextValues, runFromNodeId, projectPath } = message.data as {
+            const { requestId, graphId, inputs, runToNodeIds, contextValues, runFromNodeId, projectPath } = message.data as {
+              requestId: RemoteRunRequestId;
               graphId: GraphId;
               inputs: GraphInputs;
               runToNodeIds?: NodeId[];
@@ -111,6 +115,7 @@ export function startDebuggerServer(
 
             await options.dynamicGraphRun?.({
               client: socket,
+              requestId,
               graphId,
               inputs,
               runToNodeIds,
@@ -193,23 +198,25 @@ export function startDebuggerServer(
     webSocketServer: server,
 
     /** Given an event on a processor, sends that processor's events to the correct debugger clients (allows routing debugger). */
-    broadcast(procesor: GraphProcessor, message: string, data: unknown) {
+    broadcast(procesor: GraphProcessor, message: string, data: unknown, requestId?: RemoteRunRequestId) {
       const clients = options.getClientsForProcessor?.(procesor, [...server.clients]) ?? [...server.clients];
+      const resolvedRequestId = requestId ?? requestIdsByProcessorId.get(procesor.id);
 
       clients.forEach((client) => {
         if (client.readyState === WebSocket.OPEN) {
-          client.send(JSON.stringify({ message, data }));
+          client.send(JSON.stringify({ message, data, requestId: resolvedRequestId }));
         }
       });
     },
 
-    attach(processor: GraphProcessor) {
+    attach(processor: GraphProcessor, requestId?: RemoteRunRequestId) {
       if (attachedProcessors.find((p) => p.id === processor.id)) {
         return;
       }
 
       const lastPartialOutputsTimePerNode: Record<NodeId, number> = {};
       attachedProcessors.push(processor);
+      requestIdsByProcessorId.set(processor.id, requestId);
 
       processor.on('nodeStart', (data) => {
         this.broadcast(processor, 'nodeStart', data);
@@ -288,6 +295,7 @@ export function startDebuggerServer(
       if (processorIndex !== -1) {
         attachedProcessors.splice(processorIndex, 1);
       }
+      requestIdsByProcessorId.delete(processor.id);
     },
   };
 }

@@ -1,9 +1,5 @@
-import { pluginRefreshCounterState } from '../state/plugins';
-import { globalRivetNodeRegistry } from '@ironclad/rivet-core';
-import { useAtomValue } from 'jotai';
+import { useProjectNodeRegistry } from './useProjectNodeRegistry';
 
 export function useDependsOnPlugins() {
-  useAtomValue(pluginRefreshCounterState);
-
-  return globalRivetNodeRegistry.getPlugins();
+  return useProjectNodeRegistry().getPlugins();
 }

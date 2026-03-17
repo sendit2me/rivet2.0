@@ -7,10 +7,10 @@ import {
   type ChartNode,
   type NodeTestGroup,
   type GraphId,
-  globalRivetNodeRegistry,
   type DataId,
 } from '@ironclad/rivet-core';
 import { useUnknownNodeComponentDescriptorFor } from '../hooks/useNodeTypes.js';
+import { useProjectNodeRegistry } from '../hooks/useProjectNodeRegistry';
 import { produce } from 'immer';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { InlineEditableTextfield } from '@atlaskit/inline-edit';
@@ -381,13 +381,14 @@ export const NodeEditor: FC<NodeEditorProps> = ({ selectedNode, onDeselect }) =>
   };
 
   const showGlobalControls = selectedNode.type !== 'comment';
+  const projectNodeRegistry = useProjectNodeRegistry();
 
   return (
     <Container>
       <div className="tabs">
         <Tabs id="node-editor-tabs">
           <TabList>
-            <Tab>{globalRivetNodeRegistry.getDynamicDisplayName(selectedNode.type)} Node</Tab>
+            <Tab>{projectNodeRegistry.getDynamicDisplayName(selectedNode.type)} Node</Tab>
           </TabList>
           <TabPanel>
             <div className="panel-container">

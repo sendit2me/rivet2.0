@@ -1,24 +1,17 @@
 import { css } from '@emotion/react';
 import { useState, type FC, useMemo } from 'react';
-import {
-  type TemplateVersion,
-  type TemplateResponse,
-  unpublishTemplateResponseChecker,
-} from '../../utils/communityApi';
+import { type TemplateVersion, type TemplateResponse } from '../../utils/communityApi';
 import Button from '@atlaskit/button';
 import CrossIcon from 'majesticons/line/multiply-line.svg?react';
 import { EditTemplateVersionPage } from './EditTemplateVersionPage';
 import TextField from '@atlaskit/textfield';
 import { Field } from '@atlaskit/form';
 import Modal, { ModalTransition, ModalHeader, ModalTitle, ModalBody, ModalFooter } from '@atlaskit/modal-dialog';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { fetchCommunity } from '../../utils/getCommunityApi';
-import { toast } from 'react-toastify';
-import { getError } from '@ironclad/rivet-core';
+import { myTemplatesQueryKey, unpublishTemplate } from '../../utils/communityTemplates';
 import { CreateTemplateVersionPage } from './CreateTemplateVersionPage';
 import { orderBy } from 'lodash-es';
+import { useHandledMutation } from '../../hooks/useHandledMutation';
 import { useMarkdown } from '../../hooks/useMarkdown';
-import { syncWrapper } from '../../utils/syncWrapper';
 
 const styles = css`
   display: flex;
@@ -240,29 +233,28 @@ const UnpublishTemplateModal: FC<{
   onClose?: () => void;
 }> = ({ isOpen, template, onDelete, onClose }) => {
   const [name, setName] = useState('');
-  const queryClient = useQueryClient();
 
-  const mutation = useMutation({
+  const mutation = useHandledMutation({
     mutationFn: async ({ templateId }: { templateId: string }) => {
-      const { success } = await fetchCommunity(`/templates/${templateId}`, unpublishTemplateResponseChecker, {
-        method: 'DELETE',
-      });
-      return success;
+      return unpublishTemplate(templateId);
     },
+    errorMessage: 'Failed to unpublish template',
+    metadata: {
+      templateId: template.id,
+      templateName: template.name,
+    },
+    invalidateQueryKey: myTemplatesQueryKey,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['my-templates'] });
+      onDelete?.(template.id);
     },
   });
 
-  const doDelete = async () => {
-    if (name === template.name) {
-      try {
-        await mutation.mutateAsync({ templateId: template.id });
-        onDelete?.(template.id);
-      } catch (err) {
-        toast.error(`Failed to unpublish template: ${getError(err).toString()}`);
-      }
+  const doDelete = () => {
+    if (name !== template.name) {
+      return;
     }
+
+    mutation.mutate({ templateId: template.id });
   };
 
   return (
@@ -315,7 +307,7 @@ const UnpublishTemplateModal: FC<{
               <Button appearance="subtle" onClick={onClose} isDisabled={mutation.isPending}>
                 Cancel
               </Button>
-              <Button appearance="danger" onClick={syncWrapper(doDelete)} isDisabled={mutation.isPending}>
+              <Button appearance="danger" onClick={doDelete} isDisabled={mutation.isPending}>
                 Unpublish
               </Button>
             </div>
