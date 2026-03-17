@@ -370,6 +370,14 @@ The processor also exposes:
 
 Fire-and-forget event emission uses [`emitDetached(emitter, event, data)`](../packages/core/src/utils/emitDetached.ts), a thin wrapper around `void emitter.emit(...)` that makes the intent explicit. All detached emissions in `GraphProcessor`, `RecordingPlayer`, and `ExecutionRecorder` use this helper instead of inline `eslint-disable` suppressions.
 
+Current lineage invariant:
+
+- execution-facing graph and node events now carry `GraphExecutionMetadata`
+- `processId` remains node-run identity, while `graphRunId` identifies the enclosing graph invocation
+- top-level runs create a fresh `rootRunId` and `graphRunId`
+- each subgraph invocation receives its own child `graphRunId` while inheriting the same `rootRunId`
+- subgraph events can also carry `parentGraphRunId` plus executor metadata (`nodeId`, `processId`, `splitIndex`) so downstream consumers can distinguish reused subgraph call sites
+
 ### Scheduling model
 
 The processor uses `p-queue` with explicit bounded concurrency for queued node execution. The import is normalized through [`pQueueCompat.ts`](../packages/core/src/utils/pQueueCompat.ts), which handles the CJS/ESM default-export interop (see Build-and-CI docs for the CJS alias strategy).
@@ -418,6 +426,12 @@ Subprocessors:
 This means subgraphs are not a separate execution engine. They are nested processors wired into the same event and lifecycle model.
 
 The low-level event/lifecycle plumbing for that parent-child relationship now lives in `SubprocessorBridge.ts`.
+
+Important current behavior:
+
+- child processors emit already-enriched execution metadata rather than relying on the parent bridge to reconstruct lineage after the fact
+- node events emitted inside a subgraph reference that subgraph invocation's `graphRunId`
+- split-sequential subgraph calls preserve executor `splitIndex` in execution metadata so app-side consumers can distinguish sibling invocations that share the same graph definition
 
 ### User input
 
@@ -504,6 +518,7 @@ Processor-built node execution context:
 - referenced projects
 - abort signal
 - process ID
+- root run ID / graph run ID / parent graph-run lineage
 - context values
 - graph inputs/outputs
 - graph input-node values
@@ -520,6 +535,8 @@ Processor-built node execution context:
 - user-input request helper
 
 This context is one of the most important extension surfaces in the runtime.
+
+That is especially true for nested execution correctness: `ProcessContextBuilder` is the seam that threads root lineage into child processors while assigning fresh child graph-run identity.
 
 ## Programmatic API
 
@@ -619,6 +636,13 @@ Core includes execution recording support under `recording/` and exports:
 - replay support used by `GraphProcessor.replayRecording(...)`
 
 The app relies on this for execution replay and recording-driven UX.
+
+Current replay/parity invariants:
+
+- recorded event payloads preserve execution metadata when live execution emitted it
+- replay emits metadata-rich graph and node events with the same shape expected by live consumers
+- replay now re-emits `partialOutput` and `nodeOutputsCleared` instead of silently dropping them
+- legacy recordings without execution metadata still replay through an explicit fallback path that synthesizes stable-enough graph-run identity for compatibility, but only metadata-rich recordings support full graph-view-aware inspection
 
 ## Current Refactor Seams
 

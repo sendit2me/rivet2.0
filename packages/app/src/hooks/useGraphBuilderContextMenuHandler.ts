@@ -2,6 +2,7 @@ import { P, match } from 'ts-pattern';
 import { useStableCallback } from './useStableCallback';
 import { type NodeId, type BuiltInNodes, type GraphId, type SubGraphNode } from '@ironclad/rivet-core';
 import { type ContextMenuContext } from '../components/ContextMenu';
+import { createRootGraphViewContext, createSubgraphGraphViewContext } from '../domain/graphEditing/navigationActions.js';
 import { editingNodeState } from '../state/graphBuilder';
 import { projectState } from '../state/savedGraphs';
 import { useCanvasPositioning } from './useCanvasPositioning';
@@ -114,19 +115,25 @@ export function useGraphBuilderContextMenuHandler({ onAutoLayoutGraph }: { onAut
 
           const { graphId } = node.data;
 
-          const graph = project.graphs[graphId];
+          const subgraph = project.graphs[graphId];
 
-          if (!graph) {
+          if (!subgraph) {
             return;
           }
 
-          loadGraph(graph);
+          loadGraph(subgraph, {
+            graphView: createSubgraphGraphViewContext({
+              graphId,
+              parentGraphId: graph.id,
+              parentNodeId: nodeId,
+            }),
+          });
         })
         .with(P.string.startsWith('go-to-graph:'), () => {
           const graphId = data as GraphId;
           const graph = project.graphs[graphId];
           if (graph) {
-            loadGraph(graph);
+            loadGraph(graph, { graphView: createRootGraphViewContext(graphId) });
           }
         })
         .with('node-run-to-here', () => {

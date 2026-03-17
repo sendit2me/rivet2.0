@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { type GraphId } from '@ironclad/rivet-core';
 import {
+  createRootGraphViewContext,
   createInitialGraphNavigationStack,
   getGraphNavigationAvailability,
   resolveNavigationTarget,
@@ -14,19 +15,31 @@ test('createInitialGraphNavigationStack seeds history for the current graph once
     existingStack: { stack: [], index: undefined },
   });
 
-  assert.deepEqual(result, { stack: ['graph-1'], index: 0 });
+  assert.deepEqual(result, { stack: [createRootGraphViewContext('graph-1' as GraphId)], index: 0 });
 });
 
 test('getGraphNavigationAvailability reports forward and backward navigation correctly', () => {
-  assert.deepEqual(getGraphNavigationAvailability({ stack: ['a' as GraphId, 'b' as GraphId], index: 0 }), {
-    hasBackward: false,
-    hasForward: true,
-  });
+  assert.deepEqual(
+    getGraphNavigationAvailability({
+      stack: [createRootGraphViewContext('a' as GraphId), createRootGraphViewContext('b' as GraphId)],
+      index: 0,
+    }),
+    {
+      hasBackward: false,
+      hasForward: true,
+    },
+  );
 
-  assert.deepEqual(getGraphNavigationAvailability({ stack: ['a' as GraphId, 'b' as GraphId], index: 1 }), {
-    hasBackward: true,
-    hasForward: false,
-  });
+  assert.deepEqual(
+    getGraphNavigationAvailability({
+      stack: [createRootGraphViewContext('a' as GraphId), createRootGraphViewContext('b' as GraphId)],
+      index: 1,
+    }),
+    {
+      hasBackward: true,
+      hasForward: false,
+    },
+  );
 });
 
 test('resolveNavigationTarget returns the next backward target and stack mutation', () => {
@@ -35,12 +48,19 @@ test('resolveNavigationTarget returns the next backward target and stack mutatio
 
   const target = resolveNavigationTarget({
     direction: 'backward',
-    navigationStack: { stack: [graphA, graphB], index: 1 },
+    navigationStack: {
+      stack: [createRootGraphViewContext(graphA), createRootGraphViewContext(graphB)],
+      index: 1,
+    },
     project: { graphs: { [graphA]: {} as any, [graphB]: {} as any } },
   });
 
   assert.deepEqual(target, {
-    nextStack: { stack: ['a', 'b'], index: 0 },
+    nextStack: {
+      stack: [createRootGraphViewContext('a' as GraphId), createRootGraphViewContext('b' as GraphId)],
+      index: 0,
+    },
     targetGraphId: 'a',
+    targetView: createRootGraphViewContext('a' as GraphId),
   });
 });

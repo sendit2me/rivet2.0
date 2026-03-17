@@ -1,9 +1,13 @@
 import {
   type ChartNode,
   coerceTypeOptional,
+  type GraphId,
+  type GraphRunId,
+  type Outputs,
   type ProcessId,
   type InternalProcessContext,
   type PortId,
+  type RootRunId,
 } from '@ironclad/rivet-core';
 import { useCallback } from 'react';
 import { GptTokenizerTokenizer } from '../../../core/src/integrations/GptTokenizerTokenizer';
@@ -30,20 +34,30 @@ export function useGetAdHocInternalProcessContext() {
       onPartialResult?: (result: string) => void;
       signal?: AbortSignal;
     }): Promise<InternalProcessContext> => {
+      const rootRunId = nanoid() as RootRunId;
+      const graphRunId = nanoid() as GraphRunId;
+
       return {
         executor: 'browser',
         node: {} as ChartNode,
         tokenizer: new GptTokenizerTokenizer(),
         contextValues: {},
+
         createSubProcessor: undefined!,
         settings: await fillMissingSettingsFromEnvironmentVariables(settings, plugins),
         nativeApi: new TauriNativeApi(),
         datasetProvider,
         audioProvider,
         processId: nanoid() as ProcessId,
+        execution: {
+          graphId: 'ad-hoc' as GraphId,
+          graphRunId,
+          rootRunId,
+        },
         executionCache: new Map(),
         externalFunctions: {},
         getGlobal: undefined!,
+
         graphInputs: {},
         graphOutputs: {},
         graphInputNodeValues: {},
@@ -51,10 +65,10 @@ export function useGetAdHocInternalProcessContext() {
         raiseEvent: undefined!,
         setGlobal: undefined!,
         signal: options?.signal ?? new AbortController().signal,
-        trace: (value) => console.log(value),
+        trace: (value: string) => console.log(value),
         waitEvent: undefined!,
         waitForGlobal: undefined!,
-        onPartialOutputs: (outputs) => {
+        onPartialOutputs: (outputs: Outputs) => {
           const responsePartial = coerceTypeOptional(outputs['response' as PortId], 'string');
           if (responsePartial) {
             options?.onPartialResult?.(responsePartial);

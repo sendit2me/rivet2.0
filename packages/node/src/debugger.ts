@@ -224,11 +224,12 @@ export function startDebuggerServer(
       processor.on('nodeFinish', (data) => {
         this.broadcast(processor, 'nodeFinish', data);
       });
-      processor.on('nodeError', ({ node, error, processId }) => {
+      processor.on('nodeError', ({ node, error, processId, execution }) => {
         this.broadcast(processor, 'nodeError', {
           node,
           error: typeof error === 'string' ? error : error.toString(),
           processId,
+          execution,
         });
       });
       processor.on('error', ({ error }) => {
@@ -236,10 +237,11 @@ export function startDebuggerServer(
           error: typeof error === 'string' ? error : error.toString(),
         });
       });
-      processor.on('graphError', ({ graph, error }) => {
+      processor.on('graphError', ({ graph, error, execution }) => {
         this.broadcast(processor, 'graphError', {
           graph,
           error: typeof error === 'string' ? error : error.toString(),
+          execution,
         });
       });
       processor.on('nodeExcluded', (data) => {

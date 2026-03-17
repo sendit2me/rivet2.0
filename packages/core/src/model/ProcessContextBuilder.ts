@@ -1,5 +1,5 @@
 import type { DataValue, ScalarOrArrayDataValue, StringArrayDataValue } from './DataValue.js';
-import type { InternalProcessContext, ProcessContext, ProcessId } from './ProcessContext.js';
+import type { GraphExecutionMetadata, InternalProcessContext, ProcessContext, ProcessId } from './ProcessContext.js';
 import type { ChartNode } from './NodeBase.js';
 import type { GraphId } from './NodeGraph.js';
 import type { Project, ProjectId } from './Project.js';
@@ -16,6 +16,7 @@ export function buildNodeProcessContext(options: {
     subGraphId: GraphId | undefined,
     options?: { signal?: AbortSignal; project?: Project },
   ) => unknown;
+  execution: GraphExecutionMetadata;
   executionCache: Map<string, unknown>;
   executor: 'nodejs' | 'browser';
   externalFunctions: Record<string, ExternalFunction>;
@@ -45,6 +46,7 @@ export function buildNodeProcessContext(options: {
     context,
     contextValues,
     createSubProcessor,
+    execution,
     executionCache,
     executor,
     externalFunctions,
@@ -97,5 +99,6 @@ export function buildNodeProcessContext(options: {
     getPluginConfig,
     requestUserInput,
     graphInputNodeValues,
+    execution,
   };
 }

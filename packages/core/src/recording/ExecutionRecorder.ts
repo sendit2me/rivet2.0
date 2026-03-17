@@ -1,5 +1,6 @@
 import { nanoid } from 'nanoid/non-secure';
 import {
+  type GraphExecutionMetadata,
   type GraphProcessor,
   type ProcessEvents,
   type RecordedEvent,
@@ -19,74 +20,78 @@ export type ExecutionRecorderEvents = {
   finish: { recording: Recording };
 };
 
+function withExecution<T extends object>(base: T, execution: GraphExecutionMetadata | undefined): T & { execution?: GraphExecutionMetadata } {
+  return (execution == null ? base : { ...base, execution }) as T & { execution?: GraphExecutionMetadata };
+}
+
 const toRecordedEventMap: {
   [P in keyof ProcessEvents]: (data: ProcessEvents[P]) => RecordedEvent<P>['data'];
 } = {
-  graphStart: ({ graph, inputs }) => ({ graphId: graph.metadata!.id!, inputs }),
-  graphFinish: ({ graph, outputs }) => ({ graphId: graph.metadata!.id!, outputs }),
-  graphError: ({ graph, error }) => ({
+  graphStart: ({ graph, inputs, execution }) => withExecution({ graphId: graph.metadata!.id!, inputs }, execution),
+  graphFinish: ({ graph, outputs, execution }) => withExecution({ graphId: graph.metadata!.id!, outputs }, execution),
+  graphError: ({ graph, error, execution }) => withExecution({
     graphId: graph.metadata!.id!,
     error: typeof error === 'string' ? error : error.stack!,
-  }),
-  nodeStart: ({ node, inputs, processId }) => ({
+  }, execution),
+  nodeStart: ({ node, inputs, processId, execution }) => withExecution({
     nodeId: node.id,
     inputs,
     processId,
-  }),
-  nodeFinish: ({ node, outputs, processId }) => ({
+  }, execution),
+  nodeFinish: ({ node, outputs, processId, execution }) => withExecution({
     nodeId: node.id,
     outputs,
     processId,
-  }),
-  nodeError: ({ node, error, processId }) => ({
+  }, execution),
+  nodeError: ({ node, error, processId, execution }) => withExecution({
     nodeId: node.id,
     error: typeof error === 'string' ? error : error.stack!,
     processId,
-  }),
+  }, execution),
   abort: ({ successful, error }) => ({ successful, error: typeof error === 'string' ? error : error?.stack }),
-  graphAbort: ({ successful, error, graph }) => ({
+  graphAbort: ({ successful, error, graph, execution }) => withExecution({
     successful,
     error: typeof error === 'string' ? error : error?.stack,
     graphId: graph.metadata!.id!,
-  }),
-  nodeExcluded: ({ node, processId, inputs, outputs, reason }) => ({
+  }, execution),
+  nodeExcluded: ({ node, processId, inputs, outputs, reason, execution }) => withExecution({
     nodeId: node.id,
     processId,
     inputs,
     outputs,
     reason,
-  }),
-  userInput: ({ node, inputs, callback, processId, inputStrings, renderingType }) => ({
+  }, execution),
+  userInput: ({ node, inputs, callback, processId, inputStrings, renderingType, execution }) => withExecution({
     nodeId: node.id,
     inputs,
     callback,
     processId,
     inputStrings,
     renderingType,
-  }),
-  partialOutput: ({ node, outputs, index, processId }) => ({
+  }, execution),
+  partialOutput: ({ node, outputs, index, processId, execution }) => withExecution({
     nodeId: node.id,
     outputs,
     index,
     processId,
-  }),
-  nodeOutputsCleared: ({ node, processId }) => ({
+  }, execution),
+  nodeOutputsCleared: ({ node, processId, execution }) => withExecution({
     nodeId: node.id,
     processId,
-  }),
+  }, execution),
   error: ({ error }) => ({
     error: typeof error === 'string' ? error : error.stack!,
   }),
   done: ({ results }) => ({ results }),
-  globalSet: ({ id, processId, value }) => ({ id, processId, value }),
+  globalSet: ({ id, processId, value, execution }) => withExecution({ id, processId, value }, execution),
   pause: () => void 0,
   resume: () => void 0,
-  start: ({ contextValues, inputs, project, startGraph }) => ({
+  start: ({ contextValues, inputs, project, startGraph, execution }) => withExecution({
     contextValues,
     inputs,
     projectId: project.metadata!.id!,
     startGraph: startGraph.metadata!.id!,
-  }),
+  }, execution),
   trace: (message) => message,
   newAbortController: () => {},
   finish: () => void 0,
@@ -265,7 +270,7 @@ export class ExecutionRecorder {
 
   record(processor: GraphProcessor) {
     this.recordingId = nanoid() as RecordingId;
-    processor.onAny((event, data) => {
+    processor.onAny((event: keyof ProcessEvents, data: ProcessEvents[keyof ProcessEvents]) => {
       if (this.#includePartialOutputs === false && event === 'partialOutput') {
         return;
       }

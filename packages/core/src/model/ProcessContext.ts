@@ -11,6 +11,7 @@ import {
   type ScalarOrArrayDataValue,
   type DatasetProvider,
   type ChartNode,
+  type NodeId,
   type AttachedNodeData,
   type AudioProvider,
   type StringArrayDataValue,
@@ -63,6 +64,25 @@ export type ChatNodeEndpointInfo = {
 
 export type ProcessId = Opaque<string, 'ProcessId'>;
 
+export type RootRunId = Opaque<string, 'RootRunId'>;
+
+export type GraphRunId = Opaque<string, 'GraphRunId'>;
+
+export type SubgraphExecutorMetadata = {
+  nodeId: NodeId;
+  parentGraphId: GraphId;
+  processId: ProcessId;
+  splitIndex?: number;
+};
+
+export type GraphExecutionMetadata = {
+  rootRunId: RootRunId;
+  graphRunId: GraphRunId;
+  graphId: GraphId;
+  parentGraphRunId?: GraphRunId;
+  executor?: SubgraphExecutorMetadata;
+};
+
 export type InternalProcessContext<T extends ChartNode = ChartNode> = ProcessContext & {
   /** The executor that is running the current processor. */
   executor: 'nodejs' | 'browser';
@@ -78,6 +98,9 @@ export type InternalProcessContext<T extends ChartNode = ChartNode> = ProcessCon
 
   /** A unique ID for this specific execution of the node. */
   processId: ProcessId;
+
+  /** Stable execution lineage for the current graph invocation. */
+  execution: GraphExecutionMetadata;
 
   /** Context values that are accessible on graphs and all subgraphs. */
   contextValues: Record<string, DataValue>;

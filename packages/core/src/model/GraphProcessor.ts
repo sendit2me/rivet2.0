@@ -22,7 +22,14 @@ import Emittery from 'emittery';
 import { entries } from '../utils/typeSafety.js';
 import { type ProjectId, type Project, type ProjectReference } from './Project.js';
 import { nanoid } from 'nanoid/non-secure';
-import type { InternalProcessContext, ProcessContext, ProcessId } from './ProcessContext.js';
+import type {
+  GraphExecutionMetadata,
+  GraphRunId,
+  InternalProcessContext,
+  ProcessContext,
+  ProcessId,
+  RootRunId,
+} from './ProcessContext.js';
 import type { ExecutionRecorder } from '../recording/ExecutionRecorder.js';
 import type { Tagged } from 'type-fest';
 import { coerceTypeOptional } from '../utils/coerceType.js';
@@ -48,36 +55,38 @@ import { emitDetached } from '../utils/emitDetached.js';
 // eslint-disable-next-line import/no-cycle -- There has to be a cycle because CodeRunner needs to import the entirety of Rivet
 import { IsomorphicCodeRunner } from '../integrations/CodeRunner.js';
 
+type WithExecution<T extends object> = T & { execution: GraphExecutionMetadata };
+
 export type ProcessEvents = {
   /** Called when processing has started. */
-  start: { project: Project; startGraph: NodeGraph; inputs: GraphInputs; contextValues: Record<string, DataValue> };
+  start: WithExecution<{ project: Project; startGraph: NodeGraph; inputs: GraphInputs; contextValues: Record<string, DataValue> }>;
 
   /** Called when a graph or subgraph has started. */
-  graphStart: { graph: NodeGraph; inputs: GraphInputs };
+  graphStart: WithExecution<{ graph: NodeGraph; inputs: GraphInputs }>;
 
   /** Called when a graph or subgraph has errored. */
-  graphError: { graph: NodeGraph; error: Error | string };
+  graphError: WithExecution<{ graph: NodeGraph; error: Error | string }>;
 
   /** Called when a graph or a subgraph has finished. */
-  graphFinish: { graph: NodeGraph; outputs: GraphOutputs };
+  graphFinish: WithExecution<{ graph: NodeGraph; outputs: GraphOutputs }>;
 
   /** Called when a graph has been aborted. */
-  graphAbort: { successful: boolean; graph: NodeGraph; error?: Error | string };
+  graphAbort: WithExecution<{ successful: boolean; graph: NodeGraph; error?: Error | string }>;
 
   /** Called when a node has started processing, with the input values for the node. */
-  nodeStart: { node: ChartNode; inputs: Inputs; processId: ProcessId };
+  nodeStart: WithExecution<{ node: ChartNode; inputs: Inputs; processId: ProcessId }>;
 
   /** Called when a node has finished processing, with the output values for the node. */
-  nodeFinish: { node: ChartNode; outputs: Outputs; processId: ProcessId };
+  nodeFinish: WithExecution<{ node: ChartNode; outputs: Outputs; processId: ProcessId }>;
 
   /** Called when a node has errored during processing. */
-  nodeError: { node: ChartNode; error: Error | string; processId: ProcessId };
+  nodeError: WithExecution<{ node: ChartNode; error: Error | string; processId: ProcessId }>;
 
   /** Called when a node has been excluded from processing. */
-  nodeExcluded: { node: ChartNode; processId: ProcessId; inputs: Inputs; outputs: Outputs; reason: string };
+  nodeExcluded: WithExecution<{ node: ChartNode; processId: ProcessId; inputs: Inputs; outputs: Outputs; reason: string }>;
 
   /** Called when a user input node requires user input. Call the callback when finished, or call userInput() on the GraphProcessor with the results. */
-  userInput: {
+  userInput: WithExecution<{
     node: ChartNode;
     inputStrings: string[];
 
@@ -88,13 +97,13 @@ export type ProcessEvents = {
     processId: ProcessId;
 
     renderingType: 'text' | 'markdown';
-  };
+  }>;
 
   /** Called when a node has partially processed, with the current partial output values for the node. */
-  partialOutput: { node: ChartNode; outputs: Outputs; index: number; processId: ProcessId };
+  partialOutput: WithExecution<{ node: ChartNode; outputs: Outputs; index: number; processId: ProcessId }>;
 
   /** Called when the outputs of a node have been cleared entirely. If processId is present, only the one process() should be cleared. */
-  nodeOutputsCleared: { node: ChartNode; processId?: ProcessId };
+  nodeOutputsCleared: WithExecution<{ node: ChartNode; processId?: ProcessId }>;
 
   /** Called when the root graph has errored. The root graph will also throw. */
   error: { error: Error | string };
@@ -118,7 +127,7 @@ export type ProcessEvents = {
   resume: void;
 
   /** Called when a global variable has been set in a graph. */
-  globalSet: { id: string; value: ScalarOrArrayDataValue; processId: ProcessId };
+  globalSet: WithExecution<{ id: string; value: ScalarOrArrayDataValue; processId: ProcessId }>;
 
   /** Called when an AbortController has been created. Used by node to increase the max event listeners. */
   newAbortController: AbortController;
@@ -229,10 +238,15 @@ export class GraphProcessor {
   #executor:
     | {
         nodeId: NodeId;
+        parentGraphId: GraphId;
         index: number;
         processId: ProcessId;
       }
     | undefined;
+
+  #rootRunId: RootRunId = undefined!;
+  #graphRunId: GraphRunId = undefined!;
+  #parentGraphRunId: GraphRunId | undefined = undefined;
 
   /** The interval between nodeFinish events when playing back a recording. I.e. how fast the playback is. */
   recordingPlaybackChatLatency = 1000;
@@ -315,7 +329,7 @@ export class GraphProcessor {
 
     this.setExternalFunction('echo', async (value) => ({ type: 'any', value }) satisfies DataValue);
 
-    this.#emitter.on('globalSet', ({ id, value }) => {
+    this.#emitter.on('globalSet', ({ id, value }: ProcessEvents['globalSet']) => {
       emitDetached(this.#emitter, `globalSet:${id}`, value);
     });
   }
@@ -341,6 +355,32 @@ export class GraphProcessor {
     if (this.#includeTrace) {
       emitDetached(this.#emitter, 'trace', eventData);
     }
+  }
+
+  #buildExecutionMetadata(): GraphExecutionMetadata {
+    return {
+      rootRunId: this.#rootRunId,
+      graphRunId: this.#graphRunId,
+      graphId: this.#graph.metadata!.id!,
+      parentGraphRunId: this.#parentGraphRunId,
+      executor: this.#executor
+        ? {
+            nodeId: this.#executor.nodeId,
+            parentGraphId: this.#executor.parentGraphId,
+            processId: this.#executor.processId,
+            splitIndex: this.#executor.index,
+          }
+        : undefined,
+    };
+  }
+
+  #withExecution<T extends object>(data: T, execution: GraphExecutionMetadata = this.#buildExecutionMetadata()): T & {
+    execution: GraphExecutionMetadata;
+  } {
+    return {
+      ...data,
+      execution,
+    };
   }
 
   on = undefined! as Emittery<ProcessEvents>['on'];
@@ -397,7 +437,7 @@ export class GraphProcessor {
     this.#abortError = error;
     this.#abortController.abort();
 
-    emitDetached(this.#emitter, 'graphAbort', { successful, error, graph: this.#graph });
+    emitDetached(this.#emitter, 'graphAbort', this.#withExecution({ successful, error, graph: this.#graph }));
 
     if (!this.#isSubProcessor) {
       emitDetached(this.#emitter, 'abort', { successful, error });
@@ -649,6 +689,10 @@ export class GraphProcessor {
     this.#graphInputs = inputs;
     this.#contextValues = contextValues;
 
+    this.#rootRunId = this.#parent ? this.#parent.#rootRunId : (nanoid() as RootRunId);
+    this.#graphRunId = nanoid() as GraphRunId;
+    this.#parentGraphRunId = this.#parent ? this.#parent.#graphRunId : undefined;
+
     this.#context.tokenizer.on('error', (error) => {
       emitDetached(this.#emitter, 'error', { error });
     });
@@ -656,15 +700,15 @@ export class GraphProcessor {
 
   async #emitGraphStart(): Promise<void> {
     if (!this.#isSubProcessor) {
-      await this.#emitter.emit('start', {
+      await this.#emitter.emit('start', this.#withExecution({
         contextValues: this.#contextValues,
         inputs: this.#graphInputs,
         project: this.#project,
         startGraph: this.#graph,
-      });
+      }));
     }
 
-    await this.#emitter.emit('graphStart', { graph: this.#graph, inputs: this.#graphInputs });
+    await this.#emitter.emit('graphStart', this.#withExecution({ graph: this.#graph, inputs: this.#graphInputs }));
   }
 
   async #emitPreloadedNodeResults(): Promise<void> {
@@ -679,17 +723,17 @@ export class GraphProcessor {
 
       this.#emitTraceEvent(`Node ${node.title} has preloaded data`);
 
-      await this.#emitter.emit('nodeStart', {
+      await this.#emitter.emit('nodeStart', this.#withExecution({
         node,
         inputs: {},
         processId: 'preload' as ProcessId,
-      });
+      }));
 
-      await this.#emitter.emit('nodeFinish', {
+      await this.#emitter.emit('nodeFinish', this.#withExecution({
         node,
         outputs: this.#nodeResults.get(node.id)!,
         processId: 'preload' as ProcessId,
-      });
+      }));
     }
   }
 
@@ -749,7 +793,7 @@ export class GraphProcessor {
     }
 
     const error = this.#createGraphError(erroredNodes);
-    await this.#emitter.emit('graphError', { graph: this.#graph, error });
+    await this.#emitter.emit('graphError', this.#withExecution({ graph: this.#graph, error }));
 
     if (!this.#isSubProcessor) {
       await this.#emitter.emit('error', { error });
@@ -769,7 +813,7 @@ export class GraphProcessor {
     const outputValues = this.#graphOutputs;
     this.#running = false;
 
-    await this.#emitter.emit('graphFinish', { graph: this.#graph, outputs: outputValues });
+    await this.#emitter.emit('graphFinish', this.#withExecution({ graph: this.#graph, outputs: outputValues }));
 
     if (!this.#isSubProcessor) {
       await this.#emitter.emit('done', { results: outputValues });
@@ -1170,7 +1214,7 @@ export class GraphProcessor {
       nodeErrored: (n, err, pid) => this.#nodeErrored(n, err, pid),
       isAborted: () => this.#aborted,
       emit: (event, data) => {
-        emitDetached(this.#emitter, event, data);
+        emitDetached(this.#emitter, event, this.#withExecution(data));
       },
     });
   }
@@ -1182,7 +1226,7 @@ export class GraphProcessor {
       return;
     }
 
-    emitDetached(this.#emitter, 'nodeStart', { node, inputs: inputValues, processId });
+    emitDetached(this.#emitter, 'nodeStart', this.#withExecution({ node, inputs: inputValues, processId }));
 
     try {
       const outputValues = await this.#processNodeWithInputData(
@@ -1191,14 +1235,14 @@ export class GraphProcessor {
         0,
         processId,
         (node, partialOutputs, index) => {
-          emitDetached(this.#emitter, 'partialOutput', { node, outputs: partialOutputs, index, processId });
+          emitDetached(this.#emitter, 'partialOutput', this.#withExecution({ node, outputs: partialOutputs, index, processId }));
         },
       );
 
       this.#nodeResults.set(node.id, outputValues);
       this.#visitedNodes.add(node.id);
       this.#accumulateCost(outputValues);
-      emitDetached(this.#emitter, 'nodeFinish', { node, outputs: outputValues, processId });
+      emitDetached(this.#emitter, 'nodeFinish', this.#withExecution({ node, outputs: outputValues, processId }));
     } catch (error) {
       this.#nodeErrored(node, error, processId);
     }
@@ -1206,7 +1250,7 @@ export class GraphProcessor {
 
   #nodeErrored(node: ChartNode, e: unknown, processId: ProcessId) {
     const error = getError(e);
-    emitDetached(this.#emitter, 'nodeError', { node, error, processId });
+    emitDetached(this.#emitter, 'nodeError', this.#withExecution({ node, error, processId }));
     this.#emitTraceEvent(`Node ${node.title} (${node.id}-${processId}) errored: ${error.stack}`);
     this.#erroredNodes.set(node.id, error);
   }
@@ -1297,6 +1341,7 @@ export class GraphProcessor {
       contextValues: this.#contextValues,
       createSubProcessor: (subGraphId, options = {}) =>
         this.#createSubProcessor(node, index, processId, subGraphId, options),
+      execution: this.#buildExecutionMetadata(),
       executionCache: this.#executionCache,
       executor: this.executor ?? 'nodejs',
       externalFunctions: this.#externalFunctions,
@@ -1321,7 +1366,7 @@ export class GraphProcessor {
         this.#requestUserInput(node, inputStrings, inputValues, renderingType, processId),
       setGlobal: (id, value) => {
         this.#globals.set(id, value);
-        emitDetached(this.#emitter, 'globalSet', { id, value, processId });
+        emitDetached(this.#emitter, 'globalSet', this.#withExecution({ id, value, processId }));
       },
       tokenizer: this.#getTokenizer(),
       trace: (message) => {
@@ -1364,11 +1409,14 @@ export class GraphProcessor {
       return;
     }
 
+    const parentExecution = this.#parent.#buildExecutionMetadata();
+
     emitDetached(this.#emitter, 'partialOutput', {
       index: this.#executor.index,
       node: executorNode,
       outputs: partialOutputs,
       processId: this.#executor.processId,
+      execution: parentExecution,
     });
   }
 
@@ -1391,6 +1439,7 @@ export class GraphProcessor {
     processor.#globals = this.#globals;
     processor.#executor = {
       nodeId: node.id,
+      parentGraphId: this.#graph.metadata!.id!,
       index,
       processId,
     };
@@ -1445,18 +1494,18 @@ export class GraphProcessor {
 
       this.#abortController.signal.addEventListener('abort', abortListener, { once: true });
 
-      emitDetached(this.#emitter, 'userInput', {
+      emitDetached(this.#emitter, 'userInput', this.#withExecution({
         node,
         inputStrings,
         inputs: inputValues,
         renderingType,
-        callback: (results) => {
+        callback: (results: StringArrayDataValue) => {
           this.#abortController.signal.removeEventListener('abort', abortListener);
           resolve(results);
           delete this.#pendingUserInputs[node.id];
         },
         processId,
-      });
+      }));
     });
   }
 
@@ -1538,13 +1587,13 @@ export class GraphProcessor {
 
     this.#nodeResults.set(node.id, outputs);
 
-    emitDetached(this.#emitter, 'nodeExcluded', {
+    emitDetached(this.#emitter, 'nodeExcluded', this.#withExecution({
       node,
       processId,
       inputs: inputValues,
       outputs,
       reason,
-    });
+    }));
   }
 
   #getInputValuesForNode(node: ChartNode): Inputs {

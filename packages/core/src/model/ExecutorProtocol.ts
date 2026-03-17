@@ -2,7 +2,7 @@ import type { DataValue, ScalarOrArrayDataValue, StringArrayDataValue } from './
 import type { Dataset, DatasetId, DatasetMetadata, DatasetRow } from './Dataset.js';
 import type { ChartNode, NodeId, PortId } from './NodeBase.js';
 import type { GraphId, NodeGraph } from './NodeGraph.js';
-import type { ProcessId } from './ProcessContext.js';
+import type { GraphExecutionMetadata, ProcessId } from './ProcessContext.js';
 import type { Project, ProjectId } from './Project.js';
 import type { Settings } from './Settings.js';
 
@@ -12,25 +12,27 @@ export type Inputs = Record<PortId, DataValue | undefined>;
 export type Outputs = Record<PortId, DataValue | undefined>;
 export type RemoteRunRequestId = string;
 
+type WithExecution<T extends object> = T & { execution: GraphExecutionMetadata };
+
 export type SerializedProcessEventMap = {
-  start: { project: Project; startGraph: NodeGraph; inputs: GraphInputs; contextValues: Record<string, DataValue> };
-  graphStart: { graph: NodeGraph; inputs: GraphInputs };
-  graphError: { graph: NodeGraph; error: Error | string };
-  graphFinish: { graph: NodeGraph; outputs: GraphOutputs };
-  graphAbort: { successful: boolean; graph: NodeGraph; error?: Error | string };
-  nodeStart: { node: ChartNode; inputs: Inputs; processId: ProcessId };
-  nodeFinish: { node: ChartNode; outputs: Outputs; processId: ProcessId };
-  nodeError: { node: ChartNode; error: Error | string; processId: ProcessId };
-  nodeExcluded: { node: ChartNode; processId: ProcessId; inputs: Inputs; outputs: Outputs; reason: string };
-  userInput: {
+  start: WithExecution<{ project: Project; startGraph: NodeGraph; inputs: GraphInputs; contextValues: Record<string, DataValue> }>;
+  graphStart: WithExecution<{ graph: NodeGraph; inputs: GraphInputs }>;
+  graphError: WithExecution<{ graph: NodeGraph; error: Error | string }>;
+  graphFinish: WithExecution<{ graph: NodeGraph; outputs: GraphOutputs }>;
+  graphAbort: WithExecution<{ successful: boolean; graph: NodeGraph; error?: Error | string }>;
+  nodeStart: WithExecution<{ node: ChartNode; inputs: Inputs; processId: ProcessId }>;
+  nodeFinish: WithExecution<{ node: ChartNode; outputs: Outputs; processId: ProcessId }>;
+  nodeError: WithExecution<{ node: ChartNode; error: Error | string; processId: ProcessId }>;
+  nodeExcluded: WithExecution<{ node: ChartNode; processId: ProcessId; inputs: Inputs; outputs: Outputs; reason: string }>;
+  userInput: WithExecution<{
     node: ChartNode;
     inputStrings: string[];
     inputs: Inputs;
     processId: ProcessId;
     renderingType: 'text' | 'markdown';
-  };
-  partialOutput: { node: ChartNode; outputs: Outputs; index: number; processId: ProcessId };
-  nodeOutputsCleared: { node: ChartNode; processId?: ProcessId };
+  }>;
+  partialOutput: WithExecution<{ node: ChartNode; outputs: Outputs; index: number; processId: ProcessId }>;
+  nodeOutputsCleared: WithExecution<{ node: ChartNode; processId?: ProcessId }>;
   error: { error: Error | string };
   done: { results: GraphOutputs };
   abort: { successful: boolean; error?: string | Error };
@@ -38,7 +40,7 @@ export type SerializedProcessEventMap = {
   trace: string;
   pause: void;
   resume: void;
-  globalSet: { id: string; value: ScalarOrArrayDataValue; processId: ProcessId };
+  globalSet: WithExecution<{ id: string; value: ScalarOrArrayDataValue; processId: ProcessId }>;
 };
 
 export type ProcessEventMessage = {

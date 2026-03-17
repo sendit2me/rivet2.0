@@ -1,4 +1,5 @@
 import { type NodeId } from '@ironclad/rivet-core';
+import { createRootGraphViewContext } from '../domain/graphEditing/navigationActions.js';
 import { useStableCallback } from './useStableCallback';
 import { useLoadGraph } from './useLoadGraph';
 import { projectState } from '../state/savedGraphs';
@@ -19,7 +20,7 @@ export function useGoToNode() {
 
     const node = graphForNode.nodes.find((n) => n.id === nodeId)!;
 
-    loadGraph(graphForNode);
+    loadGraph(graphForNode, { graphView: createRootGraphViewContext(graphForNode.metadata!.id!) });
 
     const nodeRect = { x: node.visualData.x, y: node.visualData.y, width: node.visualData.width ?? 300, height: 300 };
     const viewportBounds = { width: window.innerWidth, height: window.innerHeight };

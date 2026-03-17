@@ -10,6 +10,7 @@ import {
   type NodeGraph,
 } from '@ironclad/rivet-core';
 import { type WireDef } from '../components/WireLayer.js';
+import type { GraphNavigationStack } from '../domain/graphEditing/navigationActions.js';
 import { createHybridStorage } from './storage.js';
 import { type SearchedItem, type SearchableItem } from '../hooks/useSearchProject';
 
@@ -60,10 +61,7 @@ export const draggingWireClosestPortState = atom<
   | undefined
 >(undefined);
 
-export const graphNavigationStackState = atom<{
-  stack: GraphId[];
-  index?: number;
-}>({
+export const graphNavigationStackState = atom<GraphNavigationStack>({
   stack: [],
   index: undefined,
 });

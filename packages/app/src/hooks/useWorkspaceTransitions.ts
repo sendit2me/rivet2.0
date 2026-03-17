@@ -20,6 +20,7 @@ import {
 import { trivetState } from '../state/trivet.js';
 import { useCenterViewOnGraph } from './useCenterViewOnGraph.js';
 import { useSaveCurrentGraph } from './useSaveCurrentGraph.js';
+import type { GraphViewContext } from '../domain/graphEditing/navigationActions.js';
 import {
   chooseProjectGraph,
   createDefaultTrivetState,
@@ -141,7 +142,7 @@ export function useWorkspaceTransitions() {
       }
     },
 
-    switchGraph(savedGraph: typeof currentGraph, options: { pushHistory?: boolean } = {}) {
+    switchGraph(savedGraph: typeof currentGraph, options: { graphView?: GraphViewContext; pushHistory?: boolean } = {}) {
       if (currentGraph.nodes.length > 0 || currentGraph.metadata?.name !== emptyNodeGraph().metadata!.name) {
         saveCurrentGraph();
       }
@@ -150,6 +151,7 @@ export function useWorkspaceTransitions() {
         currentGraph,
         graphToLoad: savedGraph,
         lastSavedPositions,
+        nextGraphView: options.graphView,
         previousNavigationStack: graphNavigationStack,
         pushHistory: options.pushHistory ?? true,
       });

@@ -8,11 +8,19 @@ import { draggingWireClosestPortState } from '../state/graphBuilder.js';
 import { orderBy } from 'lodash-es';
 import { ioDefinitionsForNodeState, nodesByIdState } from '../state/graph';
 import { type PortPositions } from './NodeCanvas';
-import { type RunDataByNodeId, lastRunDataByNodeState, selectedProcessPageNodesState } from '../state/dataFlow';
+import {
+  currentGraphViewState,
+  graphRunHistoryByViewState,
+  lastRunDataByNodeState,
+  selectedGraphRunByViewState,
+  selectedProcessPageNodesState,
+  type RunDataByNodeId,
+} from '../state/dataFlow';
 import select from '@atlaskit/select/dist/types/entry-points/select';
 import { useStableCallback } from '../hooks/useStableCallback';
 import { lineCrossesViewport } from '../utils/lineClipping';
 import { useAtom, useAtomValue, useStore } from 'jotai';
+import { getGraphSelectionOptions, getSelectedProcessData } from '../state/selectors/executionSelectors.js';
 
 const wiresStyles = css`
   width: 100%;
@@ -69,8 +77,16 @@ export const WireLayer: FC<WireLayerProps> = ({
   const [closestPort, setClosestPort] = useAtom(draggingWireClosestPortState);
   const store = useStore();
 
+  const currentGraphView = useAtomValue(currentGraphViewState);
+  const graphRunHistoryByView = useAtomValue(graphRunHistoryByViewState);
   const lastRunDataByNode = useAtomValue(lastRunDataByNodeState);
+  const selectedGraphRunByView = useAtomValue(selectedGraphRunByViewState);
   const selectedProcessPageNodes = useAtomValue(selectedProcessPageNodesState);
+
+  const graphSelectionOptions = useMemo(
+    () => getGraphSelectionOptions({ currentGraphView, graphRunHistoryByView, selectedGraphRunByView }),
+    [currentGraphView, graphRunHistoryByView, selectedGraphRunByView],
+  );
 
   const handleMouseDown = useStableCallback((event: MouseEvent) => {
     const { clientX, clientY } = event;
@@ -139,9 +155,6 @@ export const WireLayer: FC<WireLayerProps> = ({
 
   const nodesById = useAtomValue(nodesByIdState);
 
-  // Despite having to run getNodePortPositions in ConditionallyRenderWire, it's still faster to filter here
-  // using lineCrossesViewport, especially for gigantic graphs when zoomed in. Avoiding rendering thousands of
-  // <ErrorBoundary> and <ConditionallyRenderWire> helps with the performance.
   const renderableWires = useMemo(() => {
     return connections.filter((connection) => {
       const inputNode = nodesById[connection.inputNodeId];
@@ -199,16 +212,19 @@ export const WireLayer: FC<WireLayerProps> = ({
           const isHighlightedNode =
             highlightedNodes?.includes(connection.inputNodeId) || highlightedNodes?.includes(connection.outputNodeId);
 
-          const isCurrentlyRunning = lastRunDataByNode[connection.inputNodeId]?.some(
-            (run) => run.data.status?.type === 'running',
-          );
+          const isCurrentlyRunning =
+            getSelectedProcessData(
+              lastRunDataByNode[connection.inputNodeId],
+              selectedProcessPageNodes[connection.inputNodeId] ?? 0,
+              graphSelectionOptions,
+            )?.data.status?.type === 'running';
 
           const isHighlightedPort =
             highlightedPort &&
             (highlightedPort.isInput ? connection.inputId : connection.outputId) === highlightedPort.portId &&
             (highlightedPort.isInput ? connection.inputNodeId : connection.outputNodeId) === highlightedPort.nodeId;
 
-          const isNotRan = getIsNotRan(connection, selectedProcessPageNodes, lastRunDataByNode);
+          const isNotRan = getIsNotRan(connection, selectedProcessPageNodes, lastRunDataByNode, graphSelectionOptions);
 
           const highlighted = isHighlightedNode || isCurrentlyRunning || isHighlightedPort;
           return (
@@ -229,40 +245,29 @@ export const WireLayer: FC<WireLayerProps> = ({
   );
 };
 
-// Not sure if too much computation to run on render... it's all indexed lookups, but there are a lot
 function getIsNotRan(
   connection: NodeConnection,
   selectedProcessPageNodes: Record<NodeId, number | 'latest'>,
   lastRunDataByNode: RunDataByNodeId,
+  graphSelectionOptions: Parameters<typeof getSelectedProcessData>[2],
 ) {
-  // Too heavyweight for here?
-  const inputNodeSelectedProcessPage = selectedProcessPageNodes[connection.inputNodeId];
-  const outputNodeSelectedProcessPage = selectedProcessPageNodes[connection.outputNodeId];
-  const inputNodeLastRunData = lastRunDataByNode[connection.inputNodeId];
-  const outputNodeLastRunData = lastRunDataByNode[connection.outputNodeId];
-  let isNotRan = false;
-  if (
-    inputNodeLastRunData &&
-    outputNodeLastRunData &&
-    inputNodeSelectedProcessPage != null &&
-    outputNodeSelectedProcessPage != null &&
-    inputNodeSelectedProcessPage === outputNodeSelectedProcessPage // Needs same process selected for this to mean anything
-  ) {
-    const inputNodeSelectedExecution =
-      inputNodeSelectedProcessPage === 'latest'
-        ? inputNodeLastRunData[inputNodeLastRunData.length - 1]
-        : inputNodeLastRunData[inputNodeSelectedProcessPage];
-    const outputNodeSelectedExecution =
-      outputNodeSelectedProcessPage === 'latest'
-        ? outputNodeLastRunData[outputNodeLastRunData.length - 1]
-        : outputNodeLastRunData[outputNodeSelectedProcessPage];
+  const inputNodeSelectedExecution = getSelectedProcessData(
+    lastRunDataByNode[connection.inputNodeId],
+    selectedProcessPageNodes[connection.inputNodeId] ?? 0,
+    graphSelectionOptions,
+  );
+  const outputNodeSelectedExecution = getSelectedProcessData(
+    lastRunDataByNode[connection.outputNodeId],
+    selectedProcessPageNodes[connection.outputNodeId] ?? 0,
+    graphSelectionOptions,
+  );
 
-    if (inputNodeSelectedExecution?.data.inputData && outputNodeSelectedExecution?.data.outputData) {
-      const inputValue = inputNodeSelectedExecution.data.inputData[connection.inputId];
-      const outputValue = outputNodeSelectedExecution.data.outputData[connection.outputId];
-      isNotRan = outputValue?.type === 'control-flow-excluded' && inputValue?.type === 'control-flow-excluded';
-    }
+  if (inputNodeSelectedExecution?.data.inputData && outputNodeSelectedExecution?.data.outputData) {
+    return (
+      inputNodeSelectedExecution.data.inputData[connection.inputId]?.type === 'control-flow-excluded' ||
+      outputNodeSelectedExecution.data.outputData[connection.outputId]?.type === 'control-flow-excluded'
+    );
   }
 
-  return isNotRan;
+  return false;
 }

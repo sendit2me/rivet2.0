@@ -10,7 +10,7 @@ import {
 import SettingsCogIcon from 'majesticons/line/settings-cog-line.svg?react';
 import SendIcon from 'majesticons/solid/send.svg?react';
 import GitForkLine from 'majesticons/line/git-fork-line.svg?react';
-import { type ProcessDataForNode } from '../../state/dataFlow.js';
+import { currentGraphViewState, graphRunHistoryByViewState, selectedGraphRunByViewState, type ProcessDataForNode } from '../../state/dataFlow.js';
 import { useStableCallback } from '../../hooks/useStableCallback.js';
 import { LoadingSpinner } from '../LoadingSpinner.js';
 import { NodePortsRenderer } from '../NodePorts.js';
@@ -18,7 +18,7 @@ import { useDependsOnPlugins } from '../../hooks/useDependsOnPlugins';
 import { Port } from '../Port';
 import { preservePortTextCaseState } from '../../state/settings';
 import { useCanvasHandlersContext, useCanvasViewContext } from '../CanvasContext';
-import { getSelectedProcessRun } from '../../state/selectors/executionSelectors.js';
+import { getGraphSelectionOptions, getSelectedProcessRun } from '../../state/selectors/executionSelectors.js';
 
 export const ZoomedOutVisualNodeContent: FC<{
   node: ChartNode;
@@ -43,8 +43,16 @@ export const ZoomedOutVisualNodeContent: FC<{
     const { onNodeSelected, onNodeStartEditing, onPortMouseOut, onPortMouseOver, onWireEndDrag, onWireStartDrag } =
       useCanvasHandlersContext();
     const preservePortTextCase = useAtomValue(preservePortTextCaseState);
+    const currentGraphView = useAtomValue(currentGraphViewState);
+    const graphRunHistoryByView = useAtomValue(graphRunHistoryByViewState);
+    const selectedGraphRunByView = useAtomValue(selectedGraphRunByViewState);
 
-    const selectedProcessRun = getSelectedProcessRun(lastRun, processPage);
+    const graphSelectionOptions = getGraphSelectionOptions({
+      currentGraphView,
+      graphRunHistoryByView,
+      selectedGraphRunByView,
+    });
+    const selectedProcessRun = getSelectedProcessRun(lastRun, processPage, graphSelectionOptions);
 
     const handleEditClick = useStableCallback((event: MouseEvent<HTMLButtonElement>) => {
       event.stopPropagation();

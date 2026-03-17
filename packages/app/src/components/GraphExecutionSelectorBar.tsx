@@ -1,11 +1,10 @@
 import { css } from '@emotion/react';
 import { useMemo, type FC } from 'react';
 import { useAtom, useAtomValue } from 'jotai';
-import { lastRunDataByNodeState, selectedProcessPageNodesState } from '../state/dataFlow';
-import { nodesState } from '../state/graph';
+import { currentGraphViewState, graphRunHistoryByViewState, selectedGraphRunByViewState } from '../state/dataFlow';
+import { getGraphRunsForView } from '../state/selectors/executionSelectors.js';
 import LeftIcon from 'majesticons/line/chevron-left-line.svg?react';
 import RightIcon from 'majesticons/line/chevron-right-line.svg?react';
-import { produce } from 'immer';
 import { Tooltip } from './Tooltip';
 
 const styles = css`
@@ -69,85 +68,65 @@ const styles = css`
 `;
 
 export const GraphExecutionSelectorBar: FC = () => {
-  const nodes = useAtomValue(nodesState);
-  const [selectedExecutionByNode, setSelectedExecutionByNode] = useAtom(selectedProcessPageNodesState);
-  const lastRunDataByNode = useAtomValue(lastRunDataByNodeState);
+  const currentGraphView = useAtomValue(currentGraphViewState);
+  const graphRunHistoryByView = useAtomValue(graphRunHistoryByViewState);
+  const [selectedGraphRunByView, setSelectedGraphRunByView] = useAtom(selectedGraphRunByViewState);
 
-  const nodeIds = useMemo(() => nodes.map((n) => n.id), [nodes]);
+  const graphRuns = useMemo(
+    () => getGraphRunsForView({ currentGraphView, graphRunHistoryByView }),
+    [currentGraphView, graphRunHistoryByView],
+  );
 
-  const maxExecutionNum = useMemo(() => {
-    return nodeIds.reduce((acc, nodeId) => {
-      const processData = lastRunDataByNode[nodeId] ?? [];
-      return processData.length > acc ? processData.length : acc;
-    }, 0);
-  }, [lastRunDataByNode, nodeIds]);
+  const selectedGraphRun = currentGraphView ? selectedGraphRunByView[currentGraphView.key] ?? 'latest' : 'latest';
 
-  const graphSelectedExecution = useMemo(() => {
-    let selected: number | 'latest' | 'mixed' | undefined = undefined;
-
-    for (const nodeId of nodeIds) {
-      const page = selectedExecutionByNode[nodeId];
-      if (selected === undefined) {
-        selected = page;
-      } else if (page !== selected) {
-        return 'mixed';
-      }
+  const selectedExecutionIndex = useMemo(() => {
+    if (!graphRuns.length) {
+      return -1;
     }
 
-    return selected === undefined ? 'latest' : selected;
-  }, [selectedExecutionByNode, nodeIds]);
+    if (selectedGraphRun === 'latest') {
+      return graphRuns.length - 1;
+    }
 
-  const setAllSelectedExecution = (page: number | 'latest') => {
-    setSelectedExecutionByNode((prev) =>
-      produce(prev, (draft) => {
-        for (const nodeId of nodeIds) {
-          draft[nodeId] = page;
-        }
-      }),
-    );
+    const selectedIndex = graphRuns.findIndex((graphRun) => graphRun.graphRunId === selectedGraphRun);
+    return selectedIndex === -1 ? graphRuns.length - 1 : selectedIndex;
+  }, [graphRuns, selectedGraphRun]);
+
+  const setSelectedGraphRun = (graphRunId: typeof selectedGraphRun) => {
+    if (!currentGraphView) {
+      return;
+    }
+
+    setSelectedGraphRunByView((prev) => ({
+      ...prev,
+      [currentGraphView.key]: graphRunId,
+    }));
   };
 
   const onPrev = () => {
-    if (graphSelectedExecution === 'latest' && maxExecutionNum > 1) {
-      setAllSelectedExecution(maxExecutionNum - 1);
-      return;
-    } else if (graphSelectedExecution === 'latest') {
+    if (selectedExecutionIndex <= 0) {
       return;
     }
 
-    if (graphSelectedExecution === 'mixed') {
-      setAllSelectedExecution(0);
-      return;
-    }
-
-    if (graphSelectedExecution === 0) {
-      return;
-    }
-
-    setAllSelectedExecution(graphSelectedExecution - 1);
+    setSelectedGraphRun(graphRuns[selectedExecutionIndex - 1]!.graphRunId);
   };
 
   const onNext = () => {
-    if (graphSelectedExecution === 'latest' || graphSelectedExecution === 'mixed') {
-      setAllSelectedExecution(maxExecutionNum - 1);
+    if (!graphRuns.length || selectedExecutionIndex === graphRuns.length - 1) {
       return;
     }
 
-    if (graphSelectedExecution === maxExecutionNum - 1) {
-      return;
+    if (selectedExecutionIndex === graphRuns.length - 2) {
+      setSelectedGraphRun('latest');
+    } else {
+      setSelectedGraphRun(graphRuns[selectedExecutionIndex + 1]!.graphRunId);
     }
-
-    setAllSelectedExecution(graphSelectedExecution + 1);
   };
 
   const selectedExecutionText =
-    graphSelectedExecution === 'latest'
-      ? `${maxExecutionNum} / ${maxExecutionNum}`
-      : graphSelectedExecution === 'mixed'
-        ? '(Mixed)'
-        : `${graphSelectedExecution + 1} / ${maxExecutionNum}`;
+    selectedExecutionIndex === -1 ? '0 / 0' : `${selectedExecutionIndex + 1} / ${graphRuns.length}`;
 
-  if (maxExecutionNum <= 1) {
+  if (!currentGraphView || graphRuns.length <= 1) {
     return null;
   }
 
@@ -159,7 +138,7 @@ export const GraphExecutionSelectorBar: FC = () => {
         </button>
       </Tooltip>
       <Tooltip
-        content={`This graph has executed ${maxExecutionNum} times. You are viewing execution ${selectedExecutionText}.`}
+        content={`This graph view has executed ${graphRuns.length} times. You are viewing execution ${selectedExecutionText}.`}
         placement="bottom"
       >
         <div className="current">{selectedExecutionText}</div>

@@ -10,10 +10,11 @@ import {
   useState,
 } from 'react';
 import { type ChartNode, type CommentNode, type NodeConnection } from '@ironclad/rivet-core';
+import { useAtomValue } from 'jotai';
 import { useDependsOnPlugins } from '../hooks/useDependsOnPlugins';
 import { useHistoricalNodeChangeInfo } from '../hooks/useHistoricalNodeChangeInfo';
-import { type ProcessDataForNode } from '../state/dataFlow.js';
-import { getNodeExecutionClassFlags, getSelectedProcessRun } from '../state/selectors/executionSelectors.js';
+import { currentGraphViewState, graphRunHistoryByViewState, selectedGraphRunByViewState, type ProcessDataForNode } from '../state/dataFlow.js';
+import { getGraphSelectionOptions, getNodeExecutionClassFlags, getSelectedProcessRun } from '../state/selectors/executionSelectors.js';
 import { useCanvasHandlersContext, useCanvasViewContext } from './CanvasContext';
 import { ZoomedOutVisualNodeContent } from './visualNode/ZoomedOutVisualNodeContent';
 import { NormalVisualNodeContent } from './visualNode/NormalVisualNodeContent';
@@ -62,10 +63,14 @@ export const VisualNode = memo(
       const effectiveIsZoomedOut = isZoomedOut && !isComment;
       const effectiveIsReallyZoomedOut = isReallyZoomedOut && !isComment;
       const changeInfo = useHistoricalNodeChangeInfo(node.id);
-      const [isHovered, setIsHovered] = useState(false);
-      const asCommentNode = node as CommentNode;
+      const currentGraphView = useAtomValue(currentGraphViewState);
+      const graphRunHistoryByView = useAtomValue(graphRunHistoryByViewState);
+      const selectedGraphRunByView = useAtomValue(selectedGraphRunByViewState);
 
       useDependsOnPlugins();
+
+      const [isHovered, setIsHovered] = useState(false);
+      const asCommentNode = node as CommentNode;
 
       const style = useMemo(() => {
         const bgColor = node.visualData.color?.bg ?? 'var(--grey-darkish)';
@@ -105,7 +110,12 @@ export const VisualNode = memo(
         return <div className="node-skeleton" style={style} {...nodeAttributes} />;
       }
 
-      const selectedProcessRun = getSelectedProcessRun(lastRun, processPage);
+      const graphSelectionOptions = getGraphSelectionOptions({
+        currentGraphView,
+        graphRunHistoryByView,
+        selectedGraphRunByView,
+      });
+      const selectedProcessRun = getSelectedProcessRun(lastRun, processPage, graphSelectionOptions);
       const executionClassFlags = getNodeExecutionClassFlags(selectedProcessRun);
 
       const changedClass = changeInfo

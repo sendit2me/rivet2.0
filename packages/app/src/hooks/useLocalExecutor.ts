@@ -75,6 +75,7 @@ export function useLocalExecutor() {
     processor.on('done', currentExecution.onDone);
     processor.on('abort', currentExecution.onAbort);
     processor.on('graphAbort', currentExecution.onGraphAbort);
+    processor.on('graphError', currentExecution.onGraphError);
     processor.on('partialOutput', currentExecution.onPartialOutput);
     processor.on('graphStart', currentExecution.onGraphStart);
     processor.on('graphFinish', currentExecution.onGraphFinish);

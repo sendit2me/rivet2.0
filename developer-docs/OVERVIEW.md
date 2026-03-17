@@ -198,8 +198,9 @@ Recommended reading order:
 
 1. [APP-ARCHITECTURE.md](./APP-ARCHITECTURE.md) for desktop IDE structure and state flows
 2. [CORE-ENGINE.md](./CORE-ENGINE.md) for the runtime model and execution engine
-3. [PLUGIN-SYSTEM.md](./PLUGIN-SYSTEM.md) for node/plugin registration and loading behavior
-4. [PACKAGES.md](./PACKAGES.md) for package-by-package operational detail
-5. [BUILD-AND-CI.md](./BUILD-AND-CI.md) for build, release, and publish workflows
+3. [EXECUTION-DATA-FLOW.md](./EXECUTION-DATA-FLOW.md) for how execution data, graph views, subgraph runs, and the run switcher interact
+4. [PLUGIN-SYSTEM.md](./PLUGIN-SYSTEM.md) for node/plugin registration and loading behavior
+5. [PACKAGES.md](./PACKAGES.md) for package-by-package operational detail
+6. [BUILD-AND-CI.md](./BUILD-AND-CI.md) for build, release, and publish workflows
 
 When planning refactors, treat these docs as a map of current seams and constraints, not a guarantee that every area is cleanly isolated.

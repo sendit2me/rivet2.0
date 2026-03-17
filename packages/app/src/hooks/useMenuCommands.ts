@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useSaveProject } from './useSaveProject.js';
 import { match } from 'ts-pattern';
 import { useLoadProjectWithFileBrowser } from './useLoadProjectWithFileBrowser.js';
@@ -7,7 +7,7 @@ import { graphState } from '../state/graph.js';
 import { useLoadRecording } from './useLoadRecording.js';
 import { helpModalOpenState, newProjectModalOpenState } from '../state/ui';
 import { useToggleRemoteDebugger } from '../components/DebuggerConnectPanel';
-import { lastRunDataByNodeState } from '../state/dataFlow';
+import { graphRunHistoryByViewState, lastRunDataByNodeState, selectedGraphRunByViewState } from '../state/dataFlow';
 import { useImportGraph } from './useImportGraph';
 import { useAtom, useSetAtom } from 'jotai';
 import { useIOProvider } from '../providers/ProvidersContext.js';
@@ -47,8 +47,9 @@ export function useMenuCommands(
     onRunGraph?: () => void;
   } = {},
 ) {
+  const { onRunGraph } = options;
   const ioProvider = useIOProvider();
-  const [graphData, setGraphData] = useAtom(graphState);
+  const [graphData] = useAtom(graphState);
   const { saveProject, saveProjectAs } = useSaveProject();
   const setNewProjectModalOpen = useSetAtom(newProjectModalOpenState);
   const loadProject = useLoadProjectWithFileBrowser();
@@ -56,20 +57,20 @@ export function useMenuCommands(
   const { loadRecording } = useLoadRecording();
   const toggleRemoteDebugger = useToggleRemoteDebugger();
   const setLastRunData = useSetAtom(lastRunDataByNodeState);
+  const setGraphRunHistoryByView = useSetAtom(graphRunHistoryByViewState);
+  const setSelectedGraphRunByView = useSetAtom(selectedGraphRunByViewState);
   const importGraph = useImportGraph();
   const setHelpModalOpen = useSetAtom(helpModalOpenState);
+  const mainWindowRef = useRef<NativeWindowHandle | null>(null);
 
   useEffect(() => {
-    let mainWindow: NativeWindowHandle | null = null;
-    let unlistenMenu: (() => void | Promise<void>) | undefined;
-
     const handler: (e: { payload: MenuIds }) => void = ({ payload }) => {
       match(payload as MenuIds)
         .with('settings', () => {
           setSettingsOpen(true);
         })
         .with('quit', () => {
-          void mainWindow?.close();
+          void mainWindowRef.current?.close();
         })
         .with('new_project', () => {
           setNewProjectModalOpen(true);
@@ -90,7 +91,7 @@ export function useMenuCommands(
           importGraph();
         })
         .with('run', () => {
-          options.onRunGraph?.();
+          onRunGraph?.();
         })
         .with('load_recording', () => {
           loadRecording();
@@ -101,6 +102,8 @@ export function useMenuCommands(
         .with('toggle_devtools', () => {})
         .with('clear_outputs', () => {
           setLastRunData({});
+          setGraphRunHistoryByView({});
+          setSelectedGraphRunByView({});
         })
         .with('get_help', () => {
           setHelpModalOpen(true);
@@ -108,12 +111,35 @@ export function useMenuCommands(
         .exhaustive();
     };
 
-    const prevHandler = handlerState.handler;
     handlerState.handler = handler;
+
+    return () => {
+      if (handlerState.handler === handler) {
+        handlerState.handler = () => {};
+      }
+    };
+  }, [
+    saveProject,
+    saveProjectAs,
+    loadProject,
+    setSettingsOpen,
+    graphData,
+    onRunGraph,
+    ioProvider,
+    loadRecording,
+    importGraph,
+    toggleRemoteDebugger,
+    setLastRunData,
+    setNewProjectModalOpen,
+    setHelpModalOpen,
+  ]);
+
+  useEffect(() => {
+    let unlistenMenu: (() => void | Promise<void>) | undefined;
 
     void getCurrentWindowHandle()
       .then(async (windowHandle) => {
-        mainWindow = windowHandle;
+        mainWindowRef.current = windowHandle;
         if (windowHandle?.onMenuClicked) {
           unlistenMenu = await windowHandle.onMenuClicked((e) => {
             handlerState.handler(e as { payload: MenuIds });
@@ -125,23 +151,8 @@ export function useMenuCommands(
       });
 
     return () => {
-      handlerState.handler = prevHandler;
+      mainWindowRef.current = null;
       void unlistenMenu?.();
     };
-  }, [
-    saveProject,
-    saveProjectAs,
-    loadProject,
-    setSettingsOpen,
-    graphData,
-    setGraphData,
-    options,
-    ioProvider,
-    loadRecording,
-    importGraph,
-    toggleRemoteDebugger,
-    setLastRunData,
-    setNewProjectModalOpen,
-    setHelpModalOpen,
-  ]);
+  }, []);
 }

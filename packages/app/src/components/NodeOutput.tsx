@@ -1,11 +1,15 @@
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import {
+  currentGraphViewState,
+  graphRunHistoryByViewState,
   type NodeRunData,
   type ProcessDataForNode,
   lastRunDataState,
+  selectedGraphRunByViewState,
   selectedProcessPageState,
   type NodeRunDataWithRefs,
 } from '../state/dataFlow.js';
+
 import { type FC, type ReactNode, memo, useMemo, useState, type MouseEvent } from 'react';
 import { useUnknownNodeComponentDescriptorFor } from '../hooks/useNodeTypes.js';
 import { useStableCallback } from '../hooks/useStableCallback.js';
@@ -33,7 +37,7 @@ import { pinnedNodesState } from '../state/graphBuilder';
 import { useNodeIO } from '../hooks/useGetNodeIO';
 import { Tooltip } from './Tooltip';
 import { useDataRefs } from '../providers/ProvidersContext';
-import { getSelectedProcessData } from '../state/selectors/executionSelectors.js';
+import { filterProcessDataForSelection, getGraphSelectionOptions, getSelectedProcessData } from '../state/selectors/executionSelectors.js';
 import { renderNodeOutputBody } from './nodeOutput/renderNodeOutputBody.js';
 
 export const NodeOutput: FC<{ node: ChartNode; isHovered: boolean }> = memo(({ node, isHovered }) => {
@@ -208,7 +212,19 @@ const renderNodeOutputPager = ({
 const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
   const dataRefs = useDataRefs();
   const output = useAtomValue(lastRunDataState(node.id));
+  const currentGraphView = useAtomValue(currentGraphViewState);
+  const graphRunHistoryByView = useAtomValue(graphRunHistoryByViewState);
+  const selectedGraphRunByView = useAtomValue(selectedGraphRunByViewState);
   const [selectedPage, setSelectedPage] = useAtom(selectedProcessPageState(node.id));
+  const graphSelectionOptions = useMemo(
+    () => getGraphSelectionOptions({ currentGraphView, graphRunHistoryByView, selectedGraphRunByView }),
+    [currentGraphView, graphRunHistoryByView, selectedGraphRunByView],
+  );
+
+  const filteredOutput = useMemo(
+    () => filterProcessDataForSelection({ ...graphSelectionOptions, processData: output }) ?? output,
+    [graphSelectionOptions, output],
+  );
 
   const { FullscreenOutput, Output, OutputSimple, FullscreenOutputSimple, defaultRenderMarkdown } =
     useUnknownNodeComponentDescriptorFor(node);
@@ -221,12 +237,12 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
   const io = useNodeIO(node.id);
 
   const { data, processId } = useMemo(() => {
-    const selectedProcess = getSelectedProcessData(output, selectedPage);
+    const selectedProcess = getSelectedProcessData(filteredOutput, selectedPage);
     return {
       data: selectedProcess?.data,
       processId: selectedProcess?.processId,
     };
-  }, [output, selectedPage]);
+  }, [filteredOutput, selectedPage]);
 
   const handleOpenPromptDesigner = () => {
     setOverlayOpen('promptDesigner');
@@ -278,26 +294,26 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
   });
 
   const prevPage = useStableCallback(() => {
-    if (!output) {
+    if (!filteredOutput) {
       return;
     }
     setSelectedPage((page) => {
-      const pageNum = page === 'latest' ? output.length - 1 : page;
+      const pageNum = page === 'latest' ? filteredOutput.length - 1 : page;
       return pageNum > 0 ? pageNum - 1 : pageNum;
     });
   });
 
   const nextPage = useStableCallback(() => {
-    if (!output) {
+    if (!filteredOutput) {
       return;
     }
     setSelectedPage((page) => {
-      const pageNum = page === 'latest' ? output.length - 1 : page;
-      return pageNum < output.length - 1 ? pageNum + 1 : pageNum;
+      const pageNum = page === 'latest' ? filteredOutput.length - 1 : page;
+      return pageNum < filteredOutput.length - 1 ? pageNum + 1 : pageNum;
     });
   });
 
-  if (!output || !data) {
+  if (!filteredOutput || !data) {
     return null;
   }
 
@@ -324,10 +340,10 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
   return (
     <div css={fullscreenOutputCss}>
       <header className="fullscreen-header">
-        {output.length > 1 ? (
+        {filteredOutput.length > 1 ? (
           renderNodeOutputPager({
             selectedPage,
-            totalPages: output.length,
+            totalPages: filteredOutput.length,
             onPrevPage: prevPage,
             onNextPage: nextPage,
           })
@@ -364,17 +380,29 @@ const NodeOutputBase: FC<{
   isHovered: boolean;
 }> = ({ node, onOpenFullscreenModal, isHovered }) => {
   const output = useAtomValue(lastRunDataState(node.id));
-  if (!output?.length) {
+  const currentGraphView = useAtomValue(currentGraphViewState);
+  const graphRunHistoryByView = useAtomValue(graphRunHistoryByViewState);
+  const selectedGraphRunByView = useAtomValue(selectedGraphRunByViewState);
+  const graphSelectionOptions = useMemo(
+    () => getGraphSelectionOptions({ currentGraphView, graphRunHistoryByView, selectedGraphRunByView }),
+    [currentGraphView, graphRunHistoryByView, selectedGraphRunByView],
+  );
+  const filteredOutput = useMemo(
+    () => filterProcessDataForSelection({ ...graphSelectionOptions, processData: output }) ?? output,
+    [graphSelectionOptions, output],
+  );
+
+  if (!filteredOutput?.length) {
     return null;
   }
 
-  if (output.length === 1) {
+  if (filteredOutput.length === 1) {
     return (
       <div className="node-output">
         <NodeOutputSingleProcess
           node={node}
-          data={output[0]!.data}
-          processId={output[0]!.processId}
+          data={filteredOutput[0]!.data}
+          processId={filteredOutput[0]!.processId}
           onOpenFullscreenModal={onOpenFullscreenModal}
           isHovered={isHovered}
         />
@@ -385,7 +413,7 @@ const NodeOutputBase: FC<{
       <div className="node-output multi">
         <NodeOutputMultiProcess
           node={node}
-          data={output}
+          data={filteredOutput}
           onOpenFullscreenModal={onOpenFullscreenModal}
           isHovered={isHovered}
         />

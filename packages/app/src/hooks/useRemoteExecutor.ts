@@ -117,6 +117,11 @@ export function useRemoteExecutor() {
             eventDispatcher.graphAbort(data);
           }
           break;
+        case 'graphError':
+          if (shouldDispatchExecutionEvent) {
+            eventDispatcher.graphError(data);
+          }
+          break;
         case 'partialOutput':
           if (shouldDispatchExecutionEvent) {
             eventDispatcher.partialOutput(data);

@@ -1,27 +1,162 @@
-import type { ProcessDataForNode, NodeRunDataWithRefs, PageValue } from '../dataFlow.js';
+import type { GraphRunRecord, GraphRunSelection, ProcessDataForNode, NodeRunDataWithRefs, PageValue } from '../dataFlow.js';
+import type { GraphId, GraphRunId } from '@ironclad/rivet-core';
 import type { DefaultExecutor } from '../settings.js';
 import type { ExecutorSessionState } from '../../hooks/executorSession.js';
+import type { GraphViewContext, GraphViewKey } from '../../domain/graphEditing/navigationActions.js';
 
-export function getSelectedProcessData(
-  processData: ProcessDataForNode[] | undefined,
-  selectedPage: PageValue,
-): ProcessDataForNode | undefined {
+export function getGraphRunsForView(options: {
+  currentGraphView?: GraphViewContext;
+  graphRunHistoryByView: Record<GraphViewKey, GraphRunRecord[]>;
+}): GraphRunRecord[] {
+  const { currentGraphView, graphRunHistoryByView } = options;
+  if (!currentGraphView) {
+    return [];
+  }
+
+  const directMatches = (graphRunHistoryByView[currentGraphView.key] ?? []).filter(
+    (graphRun) => graphRun.graphId === currentGraphView.graphId,
+  );
+
+  // When viewing a root context with direct matches, no broader search needed.
+  // But when viewing a graph as root that was only executed as a subgraph (no direct matches),
+  // or when viewing an explicit subgraph context, do a broader search by graphId.
+  if (!currentGraphView.parent && directMatches.length > 0) {
+    return directMatches;
+  }
+
+  const runsById = new Map<GraphRunId, GraphRunRecord>();
+  for (const graphRun of directMatches) {
+    runsById.set(graphRun.graphRunId, graphRun);
+  }
+
+  for (const graphRuns of Object.values(graphRunHistoryByView)) {
+    for (const graphRun of graphRuns) {
+      if (graphRun.graphId !== currentGraphView.graphId) {
+        continue;
+      }
+
+      if (currentGraphView.parent && graphRun.executor?.nodeId && graphRun.executor.nodeId !== currentGraphView.parent.parentNodeId) {
+        continue;
+      }
+
+      runsById.set(graphRun.graphRunId, graphRun);
+    }
+  }
+
+  return [...runsById.values()].sort((left, right) => {
+    const leftTime = left.startedAt ?? left.finishedAt ?? 0;
+    const rightTime = right.startedAt ?? right.finishedAt ?? 0;
+    return leftTime - rightTime;
+  });
+}
+
+export function getGraphSelectionOptions(options: {
+  currentGraphView?: GraphViewContext;
+  graphRunHistoryByView: Record<GraphViewKey, GraphRunRecord[]>;
+  selectedGraphRunByView: Record<GraphViewKey, GraphRunSelection>;
+}): {
+  graphRuns?: GraphRunRecord[];
+  graphId?: GraphId;
+  graphViewKey?: GraphViewKey;
+  selectedGraphRun?: GraphRunSelection;
+} {
+  const { currentGraphView, graphRunHistoryByView, selectedGraphRunByView } = options;
+
+  return {
+    graphRuns: currentGraphView ? getGraphRunsForView({ currentGraphView, graphRunHistoryByView }) : undefined,
+    graphId: currentGraphView?.graphId,
+    graphViewKey: currentGraphView?.key,
+    selectedGraphRun: currentGraphView ? selectedGraphRunByView[currentGraphView.key] : undefined,
+  };
+}
+
+export function getSelectedGraphRunId(
+  graphRuns: GraphRunRecord[] | undefined,
+  selectedGraphRun: GraphRunSelection | undefined,
+): GraphRunId | undefined {
+  if (!graphRuns?.length) {
+    return undefined;
+  }
+
+  if (selectedGraphRun == null || selectedGraphRun === 'latest') {
+    return graphRuns[graphRuns.length - 1]?.graphRunId;
+  }
+
+  return graphRuns.some((graphRun) => graphRun.graphRunId === selectedGraphRun)
+    ? selectedGraphRun
+    : graphRuns[graphRuns.length - 1]?.graphRunId;
+}
+
+export function filterProcessDataForSelection(options: {
+  graphRuns?: GraphRunRecord[];
+  graphId?: GraphId;
+  graphViewKey?: string;
+  processData?: ProcessDataForNode[];
+  selectedGraphRun?: GraphRunSelection;
+}): ProcessDataForNode[] | undefined {
+  const { graphRuns, graphId, graphViewKey, processData, selectedGraphRun } = options;
   if (!processData?.length) {
     return undefined;
   }
 
-  if (processData.length === 1) {
-    return processData[0];
+  const graphViewFiltered = graphViewKey
+    ? processData.filter((process) => process.graphViewKey == null || process.graphViewKey === graphViewKey)
+    : processData;
+
+  // Fall back to graphId matching when the exact graphViewKey filter produces no results.
+  // This handles the case where the user navigates to a subgraph via root context
+  // (e.g. sidebar click) but the data is stored under a subgraph view key.
+  const compatibleViewFiltered =
+    graphViewFiltered.length > 0 || !graphId
+      ? graphViewFiltered
+      : processData.filter((process) => process.graphId == null || process.graphId === graphId);
+
+  const selectedGraphRunId = getSelectedGraphRunId(graphRuns, selectedGraphRun);
+  if (!selectedGraphRunId) {
+    return compatibleViewFiltered;
   }
 
-  return processData[selectedPage === 'latest' ? processData.length - 1 : selectedPage];
+  const graphRunFiltered = compatibleViewFiltered.filter(
+    (process) => process.graphRunId == null || process.graphRunId === selectedGraphRunId,
+  );
+  return graphRunFiltered.length > 0 ? graphRunFiltered : compatibleViewFiltered;
+}
+
+export function getSelectedProcessData(
+  processData: ProcessDataForNode[] | undefined,
+  selectedPage: PageValue,
+  options?: {
+    graphRuns?: GraphRunRecord[];
+    graphId?: GraphId;
+    graphViewKey?: string;
+    selectedGraphRun?: GraphRunSelection;
+  },
+): ProcessDataForNode | undefined {
+  const filteredProcessData = filterProcessDataForSelection({
+    graphRuns: options?.graphRuns,
+    graphId: options?.graphId,
+    graphViewKey: options?.graphViewKey,
+    processData,
+    selectedGraphRun: options?.selectedGraphRun,
+  });
+
+  if (!filteredProcessData?.length) {
+    return undefined;
+  }
+
+  if (filteredProcessData.length === 1) {
+    return filteredProcessData[0];
+  }
+
+  return filteredProcessData[selectedPage === 'latest' ? filteredProcessData.length - 1 : selectedPage];
 }
 
 export function getSelectedProcessRun(
   processData: ProcessDataForNode[] | undefined,
   selectedPage: PageValue,
+  options?: Parameters<typeof getSelectedProcessData>[2],
 ): NodeRunDataWithRefs | undefined {
-  return getSelectedProcessData(processData, selectedPage)?.data;
+  return getSelectedProcessData(processData, selectedPage, options)?.data;
 }
 
 export function getNodeExecutionStatus(runData: NodeRunDataWithRefs | undefined) {

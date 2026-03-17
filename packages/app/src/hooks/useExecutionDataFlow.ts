@@ -1,20 +1,33 @@
 import { useLatest } from 'ahooks';
 import { produce } from 'immer';
 import { useAtomValue, useSetAtom } from 'jotai';
-import { type NodeId, type ProcessEvents, type ProcessId } from '@ironclad/rivet-core';
+import { type GraphExecutionMetadata, type NodeId, type ProcessEvents, type ProcessId } from '@ironclad/rivet-core';
 import { useDataRefs } from '../providers/ProvidersContext';
 import { lastRecordingState } from '../state/execution';
-import { type NodeRunData, lastRunDataByNodeState, selectedProcessPageNodesState } from '../state/dataFlow';
+import { 
+  currentGraphViewState,
+  selectedGraphRunByViewState,
+  type NodeRunData, 
+  lastRunDataByNodeState, 
+  selectedProcessPageNodesState 
+} from '../state/dataFlow';
 import { previousDataPerNodeToKeepState } from '../state/settings';
 import { trivetTestsRunningState } from '../state/trivet';
 import { type ProcessQuestions, userInputModalQuestionsState } from '../state/userInput';
+import { projectState } from '../state/savedGraphs';
 import { cloneNodeDataForHistory } from '../utils/executionDataTransforms';
+import { buildGraphViewKeyFromExecution } from '../utils/executionIdentity';
 
 export type ExecutionDataFlowApi = {
   onTrivetStart: () => void;
   onUserInput: (data: ProcessEvents['userInput']) => void;
-  setDataForNode: (nodeId: NodeId, processId: ProcessId, data: Partial<NodeRunData>) => void;
-  setSelectedNodePageLatest: (nodeId: NodeId) => void;
+  setDataForNode: (
+    nodeId: NodeId,
+    processId: ProcessId,
+    execution: GraphExecutionMetadata | undefined,
+    data: Partial<NodeRunData>,
+  ) => void;
+  setSelectedNodePageLatest: (nodeId: NodeId, execution: GraphExecutionMetadata | undefined) => void;
   trivetRunningLatest: ReturnType<typeof useLatest<boolean>>;
 };
 
@@ -27,8 +40,18 @@ export function useExecutionDataFlow(): ExecutionDataFlowApi {
   const trivetRunning = useAtomValue(trivetTestsRunningState);
   const trivetRunningLatest = useLatest(trivetRunning);
   const previousDataPerNodeToKeep = useAtomValue(previousDataPerNodeToKeepState);
+  const currentGraphView = useAtomValue(currentGraphViewState);
+  const project = useAtomValue(projectState);
+  const selectedGraphRunByView = useAtomValue(selectedGraphRunByViewState);
 
-  const setDataForNode = (nodeId: NodeId, processId: ProcessId, data: Partial<NodeRunData>) => {
+  const setDataForNode = (
+    nodeId: NodeId,
+    processId: ProcessId,
+    execution: GraphExecutionMetadata | undefined,
+    data: Partial<NodeRunData>,
+  ) => {
+    const graphViewKey = execution ? buildGraphViewKeyFromExecution({ execution, project }) : undefined;
+
     setLastRunData((prev) =>
       produce(prev, (draft) => {
         if (!draft[nodeId]) {
@@ -37,6 +60,10 @@ export function useExecutionDataFlow(): ExecutionDataFlowApi {
 
         const existingProcess = draft[nodeId]!.find((process) => process.processId === processId);
         if (existingProcess) {
+          existingProcess.graphId = execution?.graphId ?? existingProcess.graphId;
+          existingProcess.graphRunId = execution?.graphRunId ?? existingProcess.graphRunId;
+          existingProcess.graphViewKey = graphViewKey ?? existingProcess.graphViewKey;
+          existingProcess.rootRunId = execution?.rootRunId ?? existingProcess.rootRunId;
           existingProcess.data = {
             ...existingProcess.data,
             ...cloneNodeDataForHistory(data, dataRefs),
@@ -63,17 +90,36 @@ export function useExecutionDataFlow(): ExecutionDataFlowApi {
 
         draft[nodeId]!.push({
           processId,
+          graphId: execution?.graphId,
+          graphRunId: execution?.graphRunId,
+          graphViewKey,
+          rootRunId: execution?.rootRunId,
           data: cloneNodeDataForHistory(data, dataRefs)!,
         });
       }),
     );
   };
 
-  const setSelectedNodePageLatest = (nodeId: NodeId) => {
+  const setSelectedNodePageLatest = (nodeId: NodeId, execution: GraphExecutionMetadata | undefined) => {
+    const graphViewKey = execution ? buildGraphViewKeyFromExecution({ execution, project }) : undefined;
+    // Match by exact graphViewKey, or fall back to graphId match when viewing a
+    // subgraph via root context (sidebar navigation) while data has subgraph keys.
+    const graphViewMatches =
+      graphViewKey === currentGraphView?.key ||
+      (graphViewKey != null && execution?.graphId === currentGraphView?.graphId);
+    const shouldFollowLatest =
+      currentGraphView != null &&
+      graphViewMatches &&
+      (selectedGraphRunByView[currentGraphView.key] ?? 'latest') === 'latest';
+
+    if (!shouldFollowLatest) {
+      return;
+    }
+
     setSelectedPage((prev) => ({ ...prev, [nodeId]: 'latest' }));
   };
 
-  const onUserInput = ({ node, processId, inputStrings }: ProcessEvents['userInput']) => {
+  const onUserInput = ({ node, processId, inputStrings, execution }: ProcessEvents['userInput']) => {
     const questions: ProcessQuestions = {
       nodeId: node.id,
       processId,
@@ -88,7 +134,7 @@ export function useExecutionDataFlow(): ExecutionDataFlowApi {
       };
     });
 
-    setSelectedNodePageLatest(node.id);
+    setSelectedNodePageLatest(node.id, execution);
   };
 
   const onTrivetStart = () => {

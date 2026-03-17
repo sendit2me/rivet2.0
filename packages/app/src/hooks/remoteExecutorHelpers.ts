@@ -89,6 +89,7 @@ export function createProcessEventDispatcher(currentExecution: {
   onDone: (event: ProcessEvents['done']) => void;
   onError: (event: ProcessEvents['error']) => void;
   onGraphAbort: (event: ProcessEvents['graphAbort']) => void;
+  onGraphError: (event: ProcessEvents['graphError']) => void;
   onGraphFinish: (event: ProcessEvents['graphFinish']) => void;
   onGraphStart: (event: ProcessEvents['graphStart']) => void;
   onNodeError: (event: ProcessEvents['nodeError']) => void;
@@ -111,6 +112,7 @@ export function createProcessEventDispatcher(currentExecution: {
     done: (data: unknown) => currentExecution.onDone(data as ProcessEvents['done']),
     abort: (data: unknown) => currentExecution.onAbort(data as ProcessEvents['abort']),
     graphAbort: (data: unknown) => currentExecution.onGraphAbort(data as ProcessEvents['graphAbort']),
+    graphError: (data: unknown) => currentExecution.onGraphError(data as ProcessEvents['graphError']),
     partialOutput: (data: unknown) => currentExecution.onPartialOutput(data as ProcessEvents['partialOutput']),
     graphStart: (data: unknown) => currentExecution.onGraphStart(data as ProcessEvents['graphStart']),
     graphFinish: (data: unknown) => currentExecution.onGraphFinish(data as ProcessEvents['graphFinish']),

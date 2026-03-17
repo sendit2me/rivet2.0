@@ -1,8 +1,9 @@
-import { P, match } from 'ts-pattern';
 import { getError } from '../utils/errors.js';
 import type { ExecutionRecorder } from '../recording/ExecutionRecorder.js';
+import type { RecordedEvents } from '../recording/RecordedEvents.js';
 import type { DataValue, StringArrayDataValue } from './DataValue.js';
-import type { ProcessId } from './ProcessContext.js';
+import { nanoid } from 'nanoid/non-secure';
+import type { GraphExecutionMetadata, GraphRunId, ProcessId, RootRunId } from './ProcessContext.js';
 import type { GraphId } from './NodeGraph.js';
 import type { ChartNode, NodeId, PortId } from './NodeBase.js';
 import type { ProcessEvents } from './GraphProcessor.js';
@@ -50,11 +51,15 @@ export async function replayExecutionRecording(options: {
   } = options;
 
   const nodesByIdAllGraphs: Record<NodeId, ChartNode> = {};
+  const graphIdByNodeId: Record<NodeId, GraphId> = {};
   for (const graph of Object.values(project.graphs)) {
     for (const node of graph.nodes) {
       nodesByIdAllGraphs[node.id] = node;
+      graphIdByNodeId[node.id] = graph.metadata!.id!;
     }
   }
+
+  const rootGraphId = (project.metadata.mainGraphId ?? Object.keys(project.graphs)[0]) as GraphId;
 
   const getGraph = (graphId: GraphId) => {
     const graph = project.graphs[graphId];
@@ -72,7 +77,39 @@ export async function replayExecutionRecording(options: {
     return node;
   };
 
+  const getGraphIdForNode = (nodeId: NodeId) => {
+    const graphId = graphIdByNodeId[nodeId];
+    if (!graphId) {
+      throw new Error(`Mismatch between project and recording: node ${nodeId} is not associated with a graph in project`);
+    }
+    return graphId;
+  };
+
   try {
+    const legacyRootRunId = nanoid() as RootRunId;
+    const legacyGraphRunsByGraphId = new Map<GraphId, GraphRunId>();
+
+    const getExecution = (
+      graphId: GraphId,
+      recordedExecution?: GraphExecutionMetadata,
+    ): GraphExecutionMetadata => {
+      if (recordedExecution) {
+        return recordedExecution;
+      }
+
+      let graphRunId = legacyGraphRunsByGraphId.get(graphId);
+      if (!graphRunId) {
+        graphRunId = nanoid() as GraphRunId;
+        legacyGraphRunsByGraphId.set(graphId, graphRunId);
+      }
+
+      return {
+        graphId,
+        graphRunId,
+        rootRunId: legacyRootRunId,
+      };
+    };
+
     for (const event of recorder.events) {
       if (isAborted()) {
         break;
@@ -80,131 +117,207 @@ export async function replayExecutionRecording(options: {
 
       await waitUntilUnpaused();
 
-      await match(event)
-        .with({ type: 'start' }, ({ data }) => {
+      switch (event.type) {
+        case 'start': {
+          const { data } = event;
           emitDetached(emitter, 'start', {
             project,
             contextValues: data.contextValues,
             inputs: data.inputs,
             startGraph: getGraph(data.startGraph),
+            execution: getExecution(data.startGraph, data.execution),
           });
           setContextValues(data.contextValues);
           setGraphInputs(data.inputs);
-        })
-        .with({ type: 'abort' }, ({ data }) => {
-          emitDetached(emitter, 'abort', data);
-        })
-        .with({ type: 'pause' }, () => {})
-        .with({ type: 'resume' }, () => {})
-        .with({ type: 'done' }, ({ data }) => {
-          emitDetached(emitter, 'done', data);
-          setGraphOutputs(data.results);
+          break;
+        }
+        case 'abort': {
+          emitDetached(emitter, 'abort', event.data);
+          break;
+        }
+        case 'pause':
+        case 'resume': {
+          break;
+        }
+        case 'done': {
+          emitDetached(emitter, 'done', event.data);
+          setGraphOutputs(event.data.results);
           setRunning(false);
-        })
-        .with({ type: 'error' }, ({ data }) => {
-          emitDetached(emitter, 'error', data);
-        })
-        .with({ type: 'globalSet' }, ({ data }) => {
-          emitDetached(emitter, 'globalSet', data);
-        })
-        .with({ type: 'trace' }, ({ data }) => {
-          emitDetached(emitter, 'trace', data);
-        })
-        .with({ type: 'graphStart' }, ({ data }) => {
+          break;
+        }
+        case 'error': {
+          emitDetached(emitter, 'error', event.data);
+          break;
+        }
+        case 'globalSet': {
+          const { data } = event;
+          emitDetached(emitter, 'globalSet', {
+            ...data,
+            execution: getExecution(data.execution?.graphId ?? rootGraphId, data.execution),
+          });
+          break;
+        }
+        case 'trace': {
+          emitDetached(emitter, 'trace', event.data);
+          break;
+        }
+        case 'graphStart': {
+          const { data } = event;
+          const execution = getExecution(data.graphId, data.execution);
+          legacyGraphRunsByGraphId.set(data.graphId, execution.graphRunId);
           emitDetached(emitter, 'graphStart', {
             graph: getGraph(data.graphId),
             inputs: data.inputs,
+            execution,
           });
-        })
-        .with({ type: 'graphFinish' }, ({ data }) => {
+          break;
+        }
+        case 'graphFinish': {
+          const { data } = event;
           emitDetached(emitter, 'graphFinish', {
             graph: getGraph(data.graphId),
             outputs: data.outputs,
+            execution: getExecution(data.graphId, data.execution),
           });
-        })
-        .with({ type: 'graphError' }, ({ data }) => {
+          break;
+        }
+        case 'graphError': {
+          const { data } = event;
           emitDetached(emitter, 'graphError', {
             graph: getGraph(data.graphId),
             error: data.error,
+            execution: getExecution(data.graphId, data.execution),
           });
-        })
-        .with({ type: 'graphAbort' }, ({ data }) => {
+          break;
+        }
+        case 'graphAbort': {
+          const { data } = event;
           emitDetached(emitter, 'graphAbort', {
             graph: getGraph(data.graphId),
             error: data.error,
             successful: data.successful,
+            execution: getExecution(data.graphId, data.execution),
           });
-        })
-        .with({ type: 'nodeStart' }, async ({ data }) => {
+          break;
+        }
+        case 'nodeStart': {
+          const { data } = event;
           const node = getNode(data.nodeId);
-
           emitDetached(emitter, 'nodeStart', {
             node,
             inputs: data.inputs,
             processId: data.processId as ProcessId,
+            execution: getExecution(data.execution?.graphId ?? getGraphIdForNode(data.nodeId), data.execution),
           });
-
           if (node.type === 'chat') {
             await new Promise((resolve) => setTimeout(resolve, recordingPlaybackChatLatency));
           }
-        })
-        .with({ type: 'nodeFinish' }, ({ data }) => {
+          break;
+        }
+        case 'nodeFinish': {
+          const { data } = event;
           const node = getNode(data.nodeId);
-
           emitDetached(emitter, 'nodeFinish', {
             node,
             outputs: data.outputs,
             processId: data.processId as ProcessId,
+            execution: getExecution(data.execution?.graphId ?? getGraphIdForNode(data.nodeId), data.execution),
           });
-
           nodeResults.set(data.nodeId, data.outputs as Outputs);
           visitedNodes.add(data.nodeId);
-        })
-        .with({ type: 'nodeError' }, ({ data }) => {
+          break;
+        }
+        case 'nodeError': {
+          const { data } = event;
+          const node = getNode(data.nodeId);
           emitDetached(emitter, 'nodeError', {
-            node: getNode(data.nodeId),
+            node,
             error: data.error,
             processId: data.processId as ProcessId,
+            execution: getExecution(data.execution?.graphId ?? getGraphIdForNode(data.nodeId), data.execution),
           });
-
           erroredNodes.set(data.nodeId, data.error);
           visitedNodes.add(data.nodeId);
-        })
-        .with({ type: 'nodeExcluded' }, ({ data }) => {
+          break;
+        }
+        case 'nodeExcluded': {
+          const { data } = event;
+          const node = getNode(data.nodeId);
           emitDetached(emitter, 'nodeExcluded', {
-            node: getNode(data.nodeId),
+            node,
             processId: data.processId as ProcessId,
             inputs: data.inputs,
             outputs: data.outputs,
             reason: data.reason,
+            execution: getExecution(data.execution?.graphId ?? getGraphIdForNode(data.nodeId), data.execution),
           });
-
           visitedNodes.add(data.nodeId);
-        })
-        .with({ type: 'nodeOutputsCleared' }, () => {})
-        .with({ type: 'partialOutput' }, () => {})
-        .with({ type: 'userInput' }, ({ data }) => {
+          break;
+        }
+        case 'nodeOutputsCleared': {
+          const { data } = event;
+          const node = getNode(data.nodeId);
+          if (data.processId == null) {
+            nodeResults.delete(data.nodeId);
+          }
+          emitDetached(emitter, 'nodeOutputsCleared', {
+            node,
+            processId: data.processId as ProcessId | undefined,
+            execution: getExecution(data.execution?.graphId ?? getGraphIdForNode(data.nodeId), data.execution),
+          });
+          break;
+        }
+        case 'partialOutput': {
+          const { data } = event;
+          const node = getNode(data.nodeId);
+          emitDetached(emitter, 'partialOutput', {
+            node,
+            outputs: data.outputs,
+            index: data.index,
+            processId: data.processId as ProcessId,
+            execution: getExecution(data.execution?.graphId ?? getGraphIdForNode(data.nodeId), data.execution),
+          });
+          break;
+        }
+        case 'userInput': {
+          const { data } = event;
+          const node = getNode(data.nodeId) as UserInputNode;
           emitDetached(emitter, 'userInput', {
             callback: undefined as unknown as (values: StringArrayDataValue) => void,
             inputStrings: data.inputStrings,
             inputs: data.inputs,
-            node: getNode(data.nodeId) as UserInputNode,
+            node,
             processId: data.processId as ProcessId,
             renderingType: data.renderingType,
+            execution: getExecution(data.execution?.graphId ?? getGraphIdForNode(data.nodeId), data.execution),
           });
-        })
-        .with({ type: P.string.startsWith('globalSet:') }, ({ type, data }) => {
-          emitDetached(emitter, type, data);
-        })
-        .with({ type: P.string.startsWith('userEvent:') }, ({ type, data }) => {
-          emitDetached(emitter, type, data);
-        })
-        .with({ type: 'newAbortController' }, () => {})
-        .with({ type: 'finish' }, () => {
+          break;
+        }
+        case 'newAbortController': {
+          break;
+        }
+        case 'finish': {
           emitDetached(emitter, 'finish', undefined);
-        })
-        .with(P.nullish, () => {})
-        .exhaustive();
+          break;
+        }
+        default: {
+          const typedEvent = event as RecordedEvents;
+          if (typedEvent.type.startsWith('globalSet:')) {
+            emitDetached(
+              emitter as Emittery<ProcessEvents & Record<`globalSet:${string}`, ProcessEvents[`globalSet:${string}`]>>,
+              typedEvent.type as `globalSet:${string}`,
+              typedEvent.data as ProcessEvents[`globalSet:${string}`],
+            );
+          } else if (typedEvent.type.startsWith('userEvent:')) {
+            emitDetached(
+              emitter as Emittery<ProcessEvents & Record<`userEvent:${string}`, ProcessEvents[`userEvent:${string}`]>>,
+              typedEvent.type as `userEvent:${string}`,
+              typedEvent.data as ProcessEvents[`userEvent:${string}`],
+            );
+          }
+          break;
+        }
+      }
     }
   } catch (error) {
     emitDetached(emitter, 'error', { error: getError(error) });

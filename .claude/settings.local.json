@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Read(//d/**)"
+      "Read(//d/**)",
+      "Bash(yarn workspace @ironclad/rivet-app exec npx tsx --test:*)",
+      "Bash(yarn tsc:*)",
+      "Bash(yarn workspace @ironclad/rivet-app exec yarn build:*)"
     ]
   }
 }

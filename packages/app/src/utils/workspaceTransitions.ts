@@ -7,6 +7,11 @@ import {
   type Project,
   emptyNodeGraph,
 } from '@ironclad/rivet-core';
+import {
+  createRootGraphViewContext,
+  type GraphNavigationStack,
+  type GraphViewContext,
+} from '../domain/graphEditing/navigationActions.js';
 import type { TrivetState } from '../state/trivet.js';
 import type { CanvasPosition } from '../state/graphBuilder.js';
 import type { OpenedProjectInfo } from '../state/savedGraphs.js';
@@ -22,7 +27,7 @@ export type ProjectLoadTransition = {
   cleanupNodeIds: NodeId[];
   graph: NodeGraph;
   loadedProject: { loaded: boolean; path: string | null };
-  navigationStack: { stack: GraphId[]; index: undefined };
+  navigationStack: GraphNavigationStack;
   project: Omit<Project, 'data'>;
   resetHistoricalGraph: true;
   resetReadOnlyGraph: true;
@@ -37,7 +42,7 @@ export type GraphSwitchViewportStrategy =
 export type GraphSwitchTransition = {
   cleanupNodeIds: NodeId[];
   graph: NodeGraph;
-  navigationStack?: { stack: GraphId[]; index: number };
+  navigationStack?: GraphNavigationStack;
   resetHistoricalGraph: true;
   resetReadOnlyGraph: true;
   selectedNodes: [];
@@ -94,7 +99,10 @@ export function createProjectLoadTransition(options: {
       loaded: true,
       path: options.path ?? null,
     },
-    navigationStack: { stack: [], index: undefined },
+    navigationStack: {
+      stack: [createRootGraphViewContext(options.graphToLoad.metadata!.id!)],
+      index: 0,
+    },
     project: options.project,
     resetHistoricalGraph: true,
     resetReadOnlyGraph: true,
@@ -107,10 +115,12 @@ export function createGraphSwitchTransition(options: {
   graphToLoad: NodeGraph;
   lastSavedPositions: Record<GraphId, CanvasPosition | undefined>;
   pushHistory?: boolean;
-  previousNavigationStack: { stack: GraphId[]; index?: number };
+  previousNavigationStack: GraphNavigationStack;
+  nextGraphView?: GraphViewContext;
 }): GraphSwitchTransition {
   const graphChanged = options.currentGraph.metadata?.id !== options.graphToLoad.metadata?.id;
   const lastSavedPosition = options.lastSavedPositions[options.graphToLoad.metadata!.id!];
+  const nextGraphView = options.nextGraphView ?? createRootGraphViewContext(options.graphToLoad.metadata!.id!);
 
   return {
     cleanupNodeIds: graphChanged ? options.currentGraph.nodes.map((node) => node.id) : [],
@@ -120,7 +130,7 @@ export function createGraphSwitchTransition(options: {
           index: (options.previousNavigationStack.index ?? -1) + 1,
           stack: [
             ...options.previousNavigationStack.stack.slice(0, (options.previousNavigationStack.index ?? -1) + 1),
-            options.graphToLoad.metadata!.id!,
+            nextGraphView,
           ],
         }
       : undefined,

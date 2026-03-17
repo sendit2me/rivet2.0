@@ -1,6 +1,7 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { type GraphId, type NodeGraph, type Project, type ProjectId } from '@ironclad/rivet-core';
+import { createRootGraphViewContext } from '../domain/graphEditing/navigationActions.js';
 import {
   chooseProjectGraph,
   createDefaultTrivetState,
@@ -72,7 +73,7 @@ describe('workspaceTransitions', () => {
 
     assert.deepEqual(transition.cleanupNodeIds, ['n-1']);
     assert.equal(transition.graph.metadata?.id, 'next');
-    assert.deepEqual(transition.navigationStack, { stack: [], index: undefined });
+    assert.deepEqual(transition.navigationStack, { stack: [createRootGraphViewContext('next' as GraphId)], index: 0 });
     assert.deepEqual(transition.loadedProject, { loaded: true, path: '/tmp/project.rivet-project' });
     assert.deepEqual(transition.viewport, { type: 'center' });
   });
@@ -125,14 +126,14 @@ describe('workspaceTransitions', () => {
       lastSavedPositions: {
         next: { x: 10, y: 20, zoom: 2 },
       } as Record<GraphId, any>,
-      previousNavigationStack: { stack: ['current' as GraphId], index: 0 },
+      previousNavigationStack: { stack: [createRootGraphViewContext('current' as GraphId)], index: 0 },
       pushHistory: true,
     });
 
     assert.deepEqual(transition.cleanupNodeIds, ['n-1']);
     assert.deepEqual(transition.navigationStack, {
       index: 1,
-      stack: ['current', 'next'],
+      stack: [createRootGraphViewContext('current' as GraphId), createRootGraphViewContext('next' as GraphId)],
     });
     assert.deepEqual(transition.viewport, {
       type: 'saved',

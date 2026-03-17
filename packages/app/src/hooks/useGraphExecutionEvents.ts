@@ -1,25 +1,56 @@
 import { produce } from 'immer';
-import { useSetAtom } from 'jotai';
-import { type ProcessEvents } from '@ironclad/rivet-core';
+import { useAtomValue, useSetAtom } from 'jotai';
+import { type GraphId, type GraphRunId, type ProcessEvents } from '@ironclad/rivet-core';
 import { lastRecordingState } from '../state/execution';
 import {
+  graphRunHistoryByViewState,
   graphPausedState,
   graphRunningState,
   graphStartTimeState,
   lastRunDataByNodeState,
   rootGraphState,
   runningGraphsState,
+  selectedGraphRunByViewState,
+  type GraphRunSelection,
 } from '../state/dataFlow';
+import { projectState } from '../state/savedGraphs.js';
 import { userInputModalQuestionsState } from '../state/userInput';
 import { keys } from '../../../core/src/utils/typeSafety';
 import { handleError } from '../utils/errorHandling.js';
+import { buildGraphViewKeyFromExecution } from '../utils/executionIdentity';
+import type { GraphViewKey } from '../domain/graphEditing/navigationActions.js';
 import type { ExecutionDataFlowApi } from './useExecutionDataFlow';
+
+export function removeRunningGraphEntry(runningGraphs: GraphId[], graphId: GraphId): GraphId[] {
+  const nextRunningGraphs = [...runningGraphs];
+  const graphIndex = nextRunningGraphs.indexOf(graphId);
+  if (graphIndex !== -1) {
+    nextRunningGraphs.splice(graphIndex, 1);
+  }
+  return nextRunningGraphs;
+}
+
+export function updateSelectedGraphRunForGraphStart(
+  previousSelections: Record<GraphViewKey, GraphRunSelection>,
+  graphViewKey: GraphViewKey,
+): Record<GraphViewKey, GraphRunSelection> {
+  const previousSelection = previousSelections[graphViewKey];
+  if (previousSelection != null && previousSelection !== 'latest') {
+    return previousSelections;
+  }
+
+  return {
+    ...previousSelections,
+    [graphViewKey]: 'latest',
+  };
+}
 
 export type GraphExecutionEventsApi = {
   onAbort: (data: ProcessEvents['abort']) => void;
   onDone: (data: ProcessEvents['done']) => void;
   onError: (data: ProcessEvents['error']) => void;
   onGraphAbort: (data: ProcessEvents['graphAbort']) => void;
+  onGraphError: (data: ProcessEvents['graphError']) => void;
   onGraphFinish: (data: ProcessEvents['graphFinish']) => void;
   onGraphStart: (data: ProcessEvents['graphStart']) => void;
   onPause: () => void;
@@ -39,6 +70,9 @@ export function useGraphExecutionEvents({
   const setRootGraph = useSetAtom(rootGraphState);
   const setLastRunData = useSetAtom(lastRunDataByNodeState);
   const setGraphStartTime = useSetAtom(graphStartTimeState);
+  const setGraphRunHistoryByView = useSetAtom(graphRunHistoryByViewState);
+  const setSelectedGraphRunByView = useSetAtom(selectedGraphRunByViewState);
+  const project = useAtomValue(projectState);
 
   const stopAll = () => {
     setGraphRunning(false);
@@ -70,6 +104,8 @@ export function useGraphExecutionEvents({
 
     if (!trivetRunningLatest.current) {
       setLastRunData({});
+      setGraphRunHistoryByView({});
+      setSelectedGraphRunByView({});
     }
   };
 
@@ -86,8 +122,36 @@ export function useGraphExecutionEvents({
     interruptAll();
   };
 
-  const onGraphAbort = (_data: ProcessEvents['graphAbort']) => {
-    // nothing right now
+  const onGraphAbort = (data: ProcessEvents['graphAbort']) => {
+    const graphViewKey = buildGraphViewKeyFromExecution({ execution: data.execution, project });
+
+    setRunningGraphsState((running) => removeRunningGraphEntry(running, data.graph.metadata!.id!));
+
+    setGraphRunHistoryByView((prev) =>
+      produce(prev, (draft) => {
+        const run = draft[graphViewKey]?.find((graphRun) => graphRun.graphRunId === data.execution.graphRunId);
+        if (run) {
+          run.finishedAt = Date.now();
+          run.status = 'aborted';
+        }
+      }),
+    );
+  };
+
+  const onGraphError = (data: ProcessEvents['graphError']) => {
+    const graphViewKey = buildGraphViewKeyFromExecution({ execution: data.execution, project });
+
+    setRunningGraphsState((running) => removeRunningGraphEntry(running, data.graph.metadata!.id!));
+
+    setGraphRunHistoryByView((prev) =>
+      produce(prev, (draft) => {
+        const run = draft[graphViewKey]?.find((graphRun) => graphRun.graphRunId === data.execution.graphRunId);
+        if (run) {
+          run.finishedAt = Date.now();
+          run.status = 'error';
+        }
+      }),
+    );
   };
 
   const onError = (data: ProcessEvents['error']) => {
@@ -99,19 +163,44 @@ export function useGraphExecutionEvents({
 
   const onGraphStart = (data: ProcessEvents['graphStart']) => {
     setRunningGraphsState((running) => [...running, data.graph.metadata!.id!]);
+
+    const graphViewKey = buildGraphViewKeyFromExecution({ execution: data.execution, project });
+
+    setGraphRunHistoryByView((prev) =>
+      produce(prev, (draft) => {
+        draft[graphViewKey] ??= [];
+        const existing = draft[graphViewKey]!.find((graphRun) => graphRun.graphRunId === data.execution.graphRunId);
+        if (!existing) {
+          draft[graphViewKey]!.push({
+            executor: data.execution.executor,
+            graphId: data.execution.graphId,
+            graphRunId: data.execution.graphRunId,
+            parentGraphRunId: data.execution.parentGraphRunId,
+            rootRunId: data.execution.rootRunId,
+            startedAt: Date.now(),
+            status: 'running',
+          });
+        }
+      }),
+    );
+    setSelectedGraphRunByView((prev) => updateSelectedGraphRunForGraphStart(prev, graphViewKey));
   };
 
   const onGraphFinish = (data: ProcessEvents['graphFinish']) => {
     if (data.graph.metadata?.id) {
-      setRunningGraphsState((running) => {
-        const nextRunningGraphs = [...running];
-        const graphIndex = nextRunningGraphs.indexOf(data.graph.metadata!.id!);
-        if (graphIndex !== -1) {
-          nextRunningGraphs.splice(graphIndex, 1);
-        }
-        return nextRunningGraphs;
-      });
+      setRunningGraphsState((running) => removeRunningGraphEntry(running, data.graph.metadata!.id!));
     }
+
+    const graphViewKey = buildGraphViewKeyFromExecution({ execution: data.execution, project });
+    setGraphRunHistoryByView((prev) =>
+      produce(prev, (draft) => {
+        const run = draft[graphViewKey]?.find((graphRun) => graphRun.graphRunId === data.execution.graphRunId);
+        if (run) {
+          run.finishedAt = Date.now();
+          run.status = 'ok';
+        }
+      }),
+    );
   };
 
   const onPause = () => {
@@ -127,6 +216,7 @@ export function useGraphExecutionEvents({
     onDone,
     onError,
     onGraphAbort,
+    onGraphError,
     onGraphFinish,
     onGraphStart,
     onPause,

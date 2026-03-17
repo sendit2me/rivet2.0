@@ -11,8 +11,8 @@ import {
 import { type CSSProperties, forwardRef, useMemo } from 'react';
 import { useAtomValue } from 'jotai';
 import { draggingWireState } from '../state/graphBuilder';
-import { lastRunDataState, selectedProcessPageState } from '../state/dataFlow';
-import { getSelectedProcessData } from '../state/selectors/executionSelectors.js';
+import { currentGraphViewState, graphRunHistoryByViewState, lastRunDataState, selectedGraphRunByViewState, selectedProcessPageState } from '../state/dataFlow';
+import { getGraphSelectionOptions, getSelectedProcessData } from '../state/selectors/executionSelectors.js';
 import clsx from 'clsx';
 import { RenderDataValue } from './RenderDataValue';
 
@@ -112,13 +112,20 @@ export const PortInfo = forwardRef<
 
   const lastRun = useAtomValue(lastRunDataState(port.nodeId));
   const selectedPage = useAtomValue(selectedProcessPageState(port.nodeId));
+  const currentGraphView = useAtomValue(currentGraphViewState);
+  const graphRunHistoryByView = useAtomValue(graphRunHistoryByViewState);
+  const selectedGraphRunByView = useAtomValue(selectedGraphRunByViewState);
+  const graphSelectionOptions = useMemo(
+    () => getGraphSelectionOptions({ currentGraphView, graphRunHistoryByView, selectedGraphRunByView }),
+    [currentGraphView, graphRunHistoryByView, selectedGraphRunByView],
+  );
 
   const portData = useMemo(() => {
     if (!lastRun || selectedPage == null) {
       return undefined;
     }
 
-    const execution = getSelectedProcessData(lastRun, selectedPage);
+    const execution = getSelectedProcessData(lastRun, selectedPage, graphSelectionOptions);
     if (!execution?.data) {
       return undefined;
     }
@@ -129,7 +136,7 @@ export const PortInfo = forwardRef<
     }
 
     return data;
-  }, [lastRun, selectedPage, port.isInput]);
+  }, [graphSelectionOptions, lastRun, port.isInput, selectedPage]);
 
   const didNotRun = portData?.[port.portId]?.type === 'control-flow-excluded';
 

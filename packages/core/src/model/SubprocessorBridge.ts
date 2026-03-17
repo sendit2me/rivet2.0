@@ -17,9 +17,11 @@ export function wireSubprocessorEvents(
     processor.on('nodeExcluded', (event) => parentEmitter.emit('nodeExcluded', event)),
     processor.on('nodeStart', (event) => parentEmitter.emit('nodeStart', event)),
     processor.on('graphAbort', (event) => parentEmitter.emit('graphAbort', event)),
+    processor.on('graphError', (event) => parentEmitter.emit('graphError', event)),
     processor.on('userInput', (event) => parentEmitter.emit('userInput', event)),
     processor.on('graphStart', (event) => parentEmitter.emit('graphStart', event)),
     processor.on('graphFinish', (event) => parentEmitter.emit('graphFinish', event)),
+    processor.on('nodeOutputsCleared', (event) => parentEmitter.emit('nodeOutputsCleared', event)),
     processor.on('globalSet', (event) => parentEmitter.emit('globalSet', event)),
     processor.on('newAbortController', (event) => parentEmitter.emit('newAbortController', event)),
     processor.on('pause', () => {

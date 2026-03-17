@@ -560,6 +560,39 @@ The per-node run data model is rich enough to store:
 
 This state directly drives node output rendering and process-page selection in the canvas.
 
+### Graph-view-aware navigation and execution state
+
+The graph navigation stack is no longer just a `GraphId[]` history. It stores graph-view-aware `GraphViewContext` entries from [`navigationActions.ts`](../packages/app/src/domain/graphEditing/navigationActions.ts):
+
+- root graph views use `root:${graphId}` keys
+- subgraph views use keys derived from the caller graph and caller node
+- two different call sites into the same subgraph definition must remain distinct navigation entries
+- backward/forward navigation restores both the graph definition and the graph-view context
+
+`dataFlow.ts` also owns graph-view-aware execution state:
+
+- `currentGraphViewState` derived from the navigation stack
+- `graphRunHistoryByViewState`
+- `selectedGraphRunByViewState`
+
+This changes the execution selection model in an important way:
+
+- graph execution selection is keyed by graph view, not only by `graphId`
+- a selected execution is a `graphRunId` or `latest`, not a shared numeric page index
+- node-local paging still exists, but only inside the subset of node runs that belong to the selected graph run for the current graph view
+
+Important selection invariants:
+
+- selectors filter node history by `graphViewKey` and then by the selected `graphRunId`
+- if a stored selected graph run becomes stale, selectors fall back to the latest available run for that graph view instead of mixing runs together
+- node history entries can carry `rootRunId`, `graphRunId`, `graphId`, and `graphViewKey` so the app does not reconstruct nested execution identity from array position
+
+The execution UI is now intentionally graph-view-aware:
+
+- `GraphExecutionSelectorBar` selects graph runs for the current graph view
+- `NodeOutput`, `PortInfo`, `VisualNode`, and `WireLayer` resolve visible execution data through the current graph view plus selected graph run
+- follow mode only auto-selects `latest` when the current graph view is still following `latest`; explicit historical selections must not be overwritten by later events
+
 ### Settings state
 
 `settings.ts` stores:

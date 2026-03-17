@@ -10,16 +10,36 @@ import {
   type DataType,
   type DataValue,
   type ScalarDataType,
+  type GraphExecutionMetadata,
+  type GraphRunId,
+  type RootRunId,
 } from '@ironclad/rivet-core';
+import { graphNavigationStackState } from './graphBuilder.js';
+import type { GraphViewKey } from '../domain/graphEditing/navigationActions.js';
+
+export type GraphRunSelection = GraphRunId | 'latest';
+
+export type GraphRunRecord = {
+  graphRunId: GraphRunId;
+  rootRunId: RootRunId;
+  graphId: GraphId;
+  parentGraphRunId?: GraphRunId;
+  executor?: GraphExecutionMetadata['executor'];
+  startedAt?: number;
+  finishedAt?: number;
+  status?: 'running' | 'ok' | 'error' | 'aborted';
+};
 
 export type ProcessDataForNode = {
   processId: ProcessId;
+  rootRunId?: RootRunId;
+  graphRunId?: GraphRunId;
+  graphId?: GraphId;
+  graphViewKey?: GraphViewKey;
   data: NodeRunDataWithRefs;
 };
 
-export type RunDataByNodeId = {
-  [nodeId: NodeId]: ProcessDataForNode[];
-};
+export type RunDataByNodeId = Record<NodeId, ProcessDataForNode[]>;
 
 export type NodeRunDataBase = {
   startedAt?: number;
@@ -53,9 +73,7 @@ export type NodeRunDataWithRefs = NodeRunDataBase & {
   };
 };
 
-export type InputsOrOutputsWithRefs = {
-  [portId: PortId]: DataValueWithRefs;
-};
+export type InputsOrOutputsWithRefs = Record<PortId, DataValueWithRefs>;
 
 export type DataValueWithRefs = {
   [P in DataType]: {
@@ -72,9 +90,22 @@ export type PageUpdater = (prev: PageValue) => PageValue;
 
 export type ScalarDataValueWithRefs = Extract<DataValueWithRefs, { type: ScalarDataType }>;
 
+export const currentGraphViewState = atom((get) => {
+  const navigation = get(graphNavigationStackState);
+  if (navigation.index == null) {
+    return undefined;
+  }
+
+  return navigation.stack[navigation.index];
+});
+
 export const lastRunDataByNodeState = atom<RunDataByNodeId>({});
 
 export const lastRunDataState = atomFamily((nodeId: NodeId) => atom((get) => get(lastRunDataByNodeState)[nodeId]));
+
+export const graphRunHistoryByViewState = atom<Record<GraphViewKey, GraphRunRecord[]>>({});
+
+export const selectedGraphRunByViewState = atom<Record<GraphViewKey, GraphRunSelection>>({});
 
 export const runningGraphsState = atom<GraphId[]>([]);
 

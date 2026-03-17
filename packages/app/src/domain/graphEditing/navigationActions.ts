@@ -1,9 +1,42 @@
-import { type GraphId, type Project } from '@ironclad/rivet-core';
+import { type GraphId, type NodeId, type Project } from '@ironclad/rivet-core';
+
+export type GraphViewKey = string;
+
+export type GraphViewContext = {
+  key: GraphViewKey;
+  graphId: GraphId;
+  parent?: {
+    parentGraphId: GraphId;
+    parentNodeId: NodeId;
+  };
+};
 
 export type GraphNavigationStack = {
-  stack: GraphId[];
+  stack: GraphViewContext[];
   index?: number;
 };
+
+export function createRootGraphViewContext(graphId: GraphId): GraphViewContext {
+  return {
+    key: `root:${graphId}`,
+    graphId,
+  };
+}
+
+export function createSubgraphGraphViewContext(options: {
+  graphId: GraphId;
+  parentGraphId: GraphId;
+  parentNodeId: NodeId;
+}): GraphViewContext {
+  return {
+    key: `subgraph:${options.parentGraphId}:${options.parentNodeId}:${options.graphId}`,
+    graphId: options.graphId,
+    parent: {
+      parentGraphId: options.parentGraphId,
+      parentNodeId: options.parentNodeId,
+    },
+  };
+}
 
 export function createInitialGraphNavigationStack(options: {
   currentGraphId?: GraphId;
@@ -15,7 +48,7 @@ export function createInitialGraphNavigationStack(options: {
     options.currentGraphId != null &&
     options.availableGraphIds.includes(options.currentGraphId)
   ) {
-    return { index: 0, stack: [options.currentGraphId] };
+    return { index: 0, stack: [createRootGraphViewContext(options.currentGraphId)] };
   }
 
   return undefined;
@@ -32,7 +65,7 @@ export function resolveNavigationTarget(options: {
   direction: 'backward' | 'forward';
   navigationStack: GraphNavigationStack;
   project: Pick<Project, 'graphs'>;
-}): { nextStack: GraphNavigationStack; targetGraphId: GraphId } | undefined {
+}): { nextStack: GraphNavigationStack; targetGraphId: GraphId; targetView: GraphViewContext } | undefined {
   const { direction, navigationStack } = options;
 
   if (direction === 'backward') {
@@ -41,7 +74,8 @@ export function resolveNavigationTarget(options: {
     }
 
     const targetIndex = navigationStack.index! - 1;
-    const targetGraphId = navigationStack.stack[targetIndex];
+    const targetView = navigationStack.stack[targetIndex];
+    const targetGraphId = targetView?.graphId;
     if (!targetGraphId || !options.project.graphs[targetGraphId]) {
       return undefined;
     }
@@ -51,6 +85,7 @@ export function resolveNavigationTarget(options: {
         ...navigationStack,
         index: targetIndex,
       },
+      targetView,
       targetGraphId,
     };
   }
@@ -60,7 +95,8 @@ export function resolveNavigationTarget(options: {
   }
 
   const targetIndex = navigationStack.index + 1;
-  const targetGraphId = navigationStack.stack[targetIndex];
+  const targetView = navigationStack.stack[targetIndex];
+  const targetGraphId = targetView?.graphId;
   if (!targetGraphId || !options.project.graphs[targetGraphId]) {
     return undefined;
   }
@@ -70,6 +106,7 @@ export function resolveNavigationTarget(options: {
       ...navigationStack,
       index: targetIndex,
     },
+    targetView,
     targetGraphId,
   };
 }

@@ -28,7 +28,7 @@ export const useGraphHistoryNavigation = () => {
     const graph = project.graphs[target.targetGraphId];
 
     if (graph) {
-      loadGraph(graph, { pushHistory: false });
+      loadGraph(graph, { graphView: target.targetView, pushHistory: false });
     }
   }, [graphNavigationStack, loadGraph, project, setGraphNavigationStack]);
 
@@ -48,7 +48,7 @@ export const useGraphHistoryNavigation = () => {
     const graph = project.graphs[target.targetGraphId];
 
     if (graph) {
-      loadGraph(graph, { pushHistory: false });
+      loadGraph(graph, { graphView: target.targetView, pushHistory: false });
     }
   }, [graphNavigationStack, loadGraph, project, setGraphNavigationStack]);
 
