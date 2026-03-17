@@ -467,3 +467,86 @@ platform, chat, and graph-editing boundaries, along with targeted tests for high
 behavior discovered during reassessment. That supports continued simplification work while
 lowering the chance that subtle execution, connectivity, or UI-boundary bugs will be
 reintroduced.
+
+## 40. Replace executor-session singleton ownership with an explicit runtime
+
+The executor session layer in the app had been improved structurally, but it still depended on
+module-level mutable state for sockets, callbacks, and pending work. That made ownership
+implicit, kept lifecycle coupling hidden, and made it harder to test or evolve transport
+behavior without worrying about process-global side effects.
+
+This refactor moved session ownership into an explicit app-scoped runtime that owns connection
+state, message routing, request dispatch, and teardown. Hooks now subscribe to that runtime
+instead of mutating a shared singleton, which makes executor behavior easier to reason about and
+reduces the chance of stale session state leaking across reconnects, project switches, or future
+runtime surfaces.
+
+## 41. Make remote execution tracking request-scoped instead of single-flight
+
+Remote execution handling previously assumed there could be only one pending run at a time. A
+second run could replace the first pending promise, which meant overlapping work was not tracked
+safely and completion or error handling could become attached to the wrong request.
+
+This refactor introduced stable request IDs and request-scoped tracking for remote runs so the
+app can safely manage multiple active executions at once. Completion, failure, and cleanup are
+now routed to the specific request they belong to, which makes concurrent tooling behavior more
+predictable and avoids confusing replacement-style failures.
+
+## 42. Replace mutable global registry switching with clearer project-scoped ownership
+
+The app had still been relying on a mutable global node registry that changed when projects or
+plugin sets changed. Even when that worked, it created hidden coupling between project loading,
+editor behavior, validation, and runtime availability because global state was standing in for
+project-owned dependencies.
+
+This refactor moved the app toward explicit project-scoped registry ownership and reduced the
+amount of code that depends on the registry as an ambient singleton. That makes multi-project and
+plugin behavior easier to reason about, lowers the risk that one project’s plugin changes affect
+another, and gives the app a clearer dependency boundary between project state and runtime setup.
+
+## 43. Introduce bounded concurrency policy into `GraphProcessor`
+
+`GraphProcessor` had still been running with effectively unbounded concurrency by initializing
+its queue with `Infinity`. That made resource usage and throughput depend too heavily on graph
+shape and node behavior instead of an intentional execution policy, which increased the risk of
+load spikes and unstable behavior under heavy fan-out.
+
+This refactor introduced explicit concurrency policy so execution can run under clearer and more
+predictable limits. The result is a scheduler that is easier to tune, easier to observe, and
+less likely to overload the system unpredictably when large or high-latency graphs are running.
+
+## 44. De-duplicate multi-project workspace state into a clearer authority model
+
+Workspace state for multiple open projects had been duplicated across open-tab state and
+persistence-oriented layers, which created overlapping sources of truth. That duplication made
+stale writes, hidden synchronization drift, and unnecessary memory pressure more likely,
+especially during tab switching or restoration flows.
+
+This refactor reduced that duplication by moving the workspace toward one clearer authoritative
+model and treating tab metadata and stored snapshots as narrower derived artifacts. That makes
+project switching and restoration behavior more reliable and lowers the chance that the app will
+resurrect stale project data after transitions or recovery paths.
+
+## 45. Make app-side error handling more structured and boundary-aware
+
+The app still had too many failure paths that collapsed into generic logs, generic toasts, or
+silent degradation. In a stateful desktop application, that kind of low-signal failure handling
+made it too easy for important execution, transport, and persistence problems to leave the app
+in a partially broken state without enough information to recover or debug the issue.
+
+This refactor pushed the codebase toward more structured, boundary-specific failure handling.
+Errors now preserve more contextual information, asynchronous failures are less likely to vanish
+silently, and important boundaries such as executor/session flows, plugin loading, and workspace
+transitions now behave more predictably when something goes wrong.
+
+## 46. Consolidate repeated async action and mutation boilerplate in the app
+
+The app’s safety and error-reporting work had improved behavior, but it also left behind a lot
+of repeated async boilerplate in components and hooks. Repeated `try/catch` blocks, duplicated
+error-metadata wiring, wrapper-on-wrapper handlers, and near-identical React Query mutation setup
+made common UI flows bigger and harder to maintain than they needed to be.
+
+This refactor consolidated those repeated patterns into a smaller set of explicit helpers such as
+`wrapAsync` and shared handled-mutation plumbing, while deliberately leaving more complex
+orchestration paths explicit where their behavior is meaningfully unique. The result is smaller
+call sites, more consistent async behavior, and less copy-pasted code in routine app-side flows.
