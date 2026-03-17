@@ -79,7 +79,7 @@ export function useNodeTypes(): NodeComponentDescriptors {
 
     return Object.fromEntries(
       allNodeTypes.map((nodeType) => {
-        const descriptor = overriddenDescriptors[nodeType] ?? {};
+        const descriptor = overriddenDescriptors[nodeType as BuiltInNodeType] ?? {};
         return [nodeType, descriptor];
       }),
     ) as NodeComponentDescriptors;

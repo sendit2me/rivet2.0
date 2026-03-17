@@ -103,7 +103,7 @@ export const usePromptDesignerRunActions = ({
         metadata: {
           attachedNodeId: attachedNodeId.nodeId,
           sampleCount: samples,
-          testCaseCount: testGroup.testCases.length,
+          testCaseCount: testGroup.tests.length,
         },
       });
     } finally {

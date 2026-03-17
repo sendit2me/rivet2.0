@@ -1,16 +1,23 @@
 import { describe, test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { toast } from 'react-toastify';
+import { toast, type Id as ToastId } from 'react-toastify';
 import { handleError, syncWrapper, wrapAsync } from './errorHandling.js';
 import { syncWrapper as legacySyncWrapper } from './syncWrapper.js';
 
 type ToastWithMutableError = typeof toast & {
-  error: (message: string) => void;
+  error: typeof toast.error;
 };
 
 const mutableToast = toast as ToastWithMutableError;
 const originalToastError = mutableToast.error;
 const originalConsoleError = console.error;
+
+function createToastErrorStub(onToast: (message: string) => void): typeof toast.error {
+  return ((content) => {
+    onToast(typeof content === 'string' ? content : String(content ?? ''));
+    return 'test-toast-id' as ToastId;
+  }) as typeof toast.error;
+}
 
 afterEach(() => {
   mutableToast.error = originalToastError;
@@ -25,9 +32,9 @@ describe('errorHandling', () => {
     console.error = (...args: unknown[]) => {
       logged.push(args);
     };
-    mutableToast.error = (message: string) => {
+    mutableToast.error = createToastErrorStub((message) => {
       toasted.push(message);
-    };
+    });
 
     handleError(new Error('boom'), 'Structured error test', {
       metadata: {
@@ -55,9 +62,9 @@ describe('errorHandling', () => {
     const toasted: string[] = [];
 
     console.error = () => {};
-    mutableToast.error = (message: string) => {
+    mutableToast.error = createToastErrorStub((message) => {
       toasted.push(message);
-    };
+    });
 
     handleError(new Error('duplicate'), 'Deduped error test');
     handleError(new Error('duplicate'), 'Deduped error test');
@@ -72,9 +79,9 @@ describe('errorHandling', () => {
     console.error = (...args: unknown[]) => {
       logged.push(args);
     };
-    mutableToast.error = (message: string) => {
+    mutableToast.error = createToastErrorStub((message) => {
       toasted.push(message);
-    };
+    });
 
     handleError(new Error('silent'), 'Silent error test', {
       metadata: {
@@ -94,9 +101,9 @@ describe('errorHandling', () => {
     console.error = (...args: unknown[]) => {
       logged.push(args);
     };
-    mutableToast.error = (message: string) => {
+    mutableToast.error = createToastErrorStub((message) => {
       toasted.push(message);
-    };
+    });
 
     const wrapped = wrapAsync(
       async (datasetId: string) => {
@@ -130,9 +137,9 @@ describe('errorHandling', () => {
     const toasted: string[] = [];
 
     console.error = () => {};
-    mutableToast.error = (message: string) => {
+    mutableToast.error = createToastErrorStub((message) => {
       toasted.push(message);
-    };
+    });
 
     const wrapped = syncWrapper(async () => {
       throw new Error('compatibility boom');
@@ -148,9 +155,9 @@ describe('errorHandling', () => {
     const toasted: string[] = [];
 
     console.error = () => {};
-    mutableToast.error = (message: string) => {
+    mutableToast.error = createToastErrorStub((message) => {
       toasted.push(message);
-    };
+    });
 
     const wrapped = legacySyncWrapper(async (datasetId: string) => {
       throw new Error(`compatibility boom ${datasetId}`);

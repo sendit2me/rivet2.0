@@ -40,6 +40,7 @@ export type {
   OutgoingMessageMap,
   ProcessEventMessage,
   ProcessEventMessageMap,
+  RemoteRunRequestId,
   SerializedProcessEventMap,
 } from './model/ExecutorProtocol.js';
 export * from './api/streaming.js';

@@ -2,6 +2,7 @@ import { useWindowsHotkeysFix } from '../hooks/useWindowsHotkeysFix';
 import { GraphBuilder } from './GraphBuilder.js';
 import { OverlayTabs } from './OverlayTabs.js';
 import { type FC, useEffect } from 'react';
+import { type GraphId } from '@ironclad/rivet-core';
 import { css } from '@emotion/react';
 import { SettingsModal } from './SettingsModal.js';
 import { setGlobalTheme } from '@atlaskit/tokens';
@@ -59,7 +60,7 @@ export const RivetApp: FC = () => {
 
   const runGraph = wrapAsync(tryRunGraph, 'Run graph');
   const runTests = wrapAsync(tryRunTests, 'Run tests');
-  const runGraphFromSidebar = wrapAsync(async (graphId: string) => tryRunGraph({ graphId }), 'Run graph from sidebar');
+  const runGraphFromSidebar = wrapAsync(async (graphId: GraphId) => tryRunGraph({ graphId }), 'Run graph from sidebar');
 
   useMenuCommands({
     onRunGraph: runGraph,
@@ -105,7 +106,7 @@ export const RivetApp: FC = () => {
             <SettingsModal />
           </AppErrorBoundary>
           <PromptDesignerRenderer />
-          <TrivetRenderer tryRunTests={runTests} />
+          <TrivetRenderer tryRunTests={tryRunTests} />
           <ChatViewerRenderer />
           <DataStudioRenderer />
           <PluginsOverlayRenderer />

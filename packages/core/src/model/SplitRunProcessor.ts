@@ -126,8 +126,8 @@ async function runParallel(
   const queue = new PQueue({ concurrency: deps.splitRunConcurrency });
 
   return Promise.all(
-    range(0, splittingAmount).map((i) =>
-      queue.add(async () => {
+    range(0, splittingAmount).map(async (i: number) => {
+      const result = await queue.add(async () => {
         const inputs = splitInputsAtIndex(inputValues, i);
 
         try {
@@ -140,8 +140,14 @@ async function runParallel(
         } catch (error) {
           return { type: 'error' as const, error: getError(error) };
         }
-      }),
-    ),
+      });
+
+      if (!result) {
+        throw new Error('Parallel split-run task completed without a result.');
+      }
+
+      return result;
+    }),
   );
 }
 

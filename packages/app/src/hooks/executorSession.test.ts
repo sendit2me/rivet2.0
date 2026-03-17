@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import type { GraphOutputs } from '@ironclad/rivet-core';
 import { createExecutorSessionRuntime, type ExecutorSessionRuntime } from './executorSession';
 
 class FakeWebSocket {
@@ -63,6 +64,10 @@ const defaultConnectionState = {
 let debuggerConfig = { ...defaultDebuggerConfig };
 let connectionState = { ...defaultConnectionState };
 let runtime: ExecutorSessionRuntime;
+
+const buildOutputs = (key: string, value: string): GraphOutputs => ({
+  [key]: { type: 'string', value },
+});
 
 test.beforeEach(() => {
   FakeWebSocket.instances = [];
@@ -201,11 +206,11 @@ test('tracks overlapping pending graph executions by request id', async () => {
   const first = runtime.createPendingGraphExecution('request-1');
   const second = runtime.createPendingGraphExecution('request-2');
 
-  runtime.resolvePendingGraphExecution('request-2', { second: 'done' });
-  runtime.resolvePendingGraphExecution('request-1', { first: 'done' });
+  runtime.resolvePendingGraphExecution('request-2', buildOutputs('second', 'done'));
+  runtime.resolvePendingGraphExecution('request-1', buildOutputs('first', 'done'));
 
-  assert.deepEqual(await first.promise, { first: 'done' });
-  assert.deepEqual(await second.promise, { second: 'done' });
+  assert.deepEqual(await first.promise, buildOutputs('first', 'done'));
+  assert.deepEqual(await second.promise, buildOutputs('second', 'done'));
 });
 
 test('rejects only the targeted pending execution when multiple requests are active', async () => {
@@ -213,10 +218,10 @@ test('rejects only the targeted pending execution when multiple requests are act
   const second = runtime.createPendingGraphExecution('request-2');
 
   runtime.rejectPendingGraphExecution('request-1', new Error('request-1 failed'));
-  runtime.resolvePendingGraphExecution('request-2', { second: 'done' });
+  runtime.resolvePendingGraphExecution('request-2', buildOutputs('second', 'done'));
 
   await assert.rejects(first.promise, /request-1 failed/);
-  assert.deepEqual(await second.promise, { second: 'done' });
+  assert.deepEqual(await second.promise, buildOutputs('second', 'done'));
 });
 
 test('logs malformed executor messages without breaking the session', async () => {
