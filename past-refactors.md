@@ -550,3 +550,23 @@ This refactor consolidated those repeated patterns into a smaller set of explici
 `wrapAsync` and shared handled-mutation plumbing, while deliberately leaving more complex
 orchestration paths explicit where their behavior is meaningfully unique. The result is smaller
 call sites, more consistent async behavior, and less copy-pasted code in routine app-side flows.
+
+## 47. Add execution identity to subgraph dataflow and make inspection run-scoped
+
+Subgraph execution in the editor had a structural data integrity problem. When a subgraph ran multiple times — especially during split-sequential execution — the inspector would show mixed data from different invocations because there was no execution identity tying node events to a specific graph run. The app stored node history as append-only arrays and used numeric page indices to select which execution to display, but a page index is only a positional heuristic and does not represent a stable execution identity. Nodes that finished at different times could end up with different array lengths, so "page 2" for one node might correspond to a completely different subgraph invocation than "page 2" for another.
+
+This refactor introduced explicit execution identity throughout the stack. The core engine now generates a `rootRunId` (shared across an entire execution tree) and a fresh `graphRunId` for every graph invocation, including subgraphs. Each subprocessor inherits the root lineage and carries metadata about which parent node invoked it. These identities are attached to every event the app reduces into state, so node-level data can be joined to the correct graph invocation by identity rather than by array position. The recording and replay system was updated in parallel so that recorded events preserve the same metadata and replay produces the same state as live execution, with a legacy fallback that synthesizes stable identities for older recordings.
+
+On the app side, the refactor replaced the position-based inspection model with a graph-view-aware one. A `GraphViewContext` distinguishes between viewing a graph as the root versus as a subgraph called from a specific parent node, and the navigation stack was upgraded to carry that context. Graph-run history is now tracked per view, the run switcher selects a concrete `graphRunId` instead of a shared page index, and node data is filtered by the selected run identity. The auto-follow behavior was scoped so that selecting a historical run is stable — new events for later invocations no longer silently drag the inspector to a different execution.
+
+## 48. Simplify the execution dataflow app layer
+
+The subgraph execution identity refactor solved the right problem, but the app layer that
+consumed the new metadata had accumulated unnecessary complexity. The main issue was a dual
+identity system where navigation created `GraphViewKey` strings in one format (typically
+`root:${graphId}` from sidebar clicks) while execution stored data under a different format
+(`subgraph:${parentId}:${nodeId}:${graphId}`). Rather than eliminating this mismatch, the
+original implementation patched it with fallback logic in three separate places.
+
+This refactor addressed the complexity in three tiers. First, `buildGraphViewKeyFromExecution`
+was reduced from 93 lines to about 20 by removing a project-scanning inference path that was verified as either dead code or counterproductive — it tried to produce subgraph keys for legacy recordings, but those keys mismatched sidebar navigation, so removing the inference actually fixed a latent bug. Second, the graph selection computation that six component types were independently performing was centralized into a single derived Jotai atom, replacing 18 atom subscriptions and six `useMemo` wrappers with one shared computation. Third, `graphViewKey` was removed from per-node data entirely, eliminating a redundant filtering stage and two of the three key-mismatch fallback locations. Node data is now filtered by `graphRunId` alone, which is sufficient because each graph invocation gets a unique `graphRunId`. The key mismatch is handled in exactly one place — `getGraphRunsForView` — which resolves the correct runs regardless of how the user navigated to the graph.
