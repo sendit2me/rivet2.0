@@ -299,8 +299,11 @@ The graph selection inputs (`graphRuns` and `selectedGraphRun`) are computed
 once via the `resolvedGraphSelectionState` derived atom in `dataFlow.ts` and
 shared across all consuming components.
 
-Consumers: `NodeOutput`, `VisualNode`, `PortInfo`, `WireLayer`, and zoomed-out
-node content.
+- Consumers: `NodeOutput`, `VisualNode`, `PortInfo`, `WireLayer`, and zoomed-out
+  node content.
+- `VisualNode` resolves `selectedProcessRun` once from that shared selection state and passes
+  it down into `NormalVisualNodeContent` and `ZoomedOutVisualNodeContent` rather than having
+  those children resubscribe and recompute the same selection locally.
 
 ## The Run Switcher
 
@@ -417,13 +420,25 @@ const eventDispatcher = createProcessEventDispatcher(currentExecution);
 The sidecar serializes events with full metadata. The dispatcher reconstructs
 and routes them to the same handler functions.
 
+Local and remote run-from execution now also share the same preload-data derivation helper:
+
+- `getDependentDataForNodeForPreload(...)` in `remoteExecutorHelpers.ts` restores dependency outputs from stored history
+- `useLocalExecutor` uses that helper and then calls `processor.preloadNodeData(...)`
+- `useRemoteExecutor` uses that same helper and sends the resulting map over the debugger preload message
+
 ### Lifecycle
 
 - `onStart`: Clears all run history, run data, and selection state.
 - `onGraphStart`: Creates a `GraphRunRecord` in history.
-- `onGraphFinish`/`onGraphError`/`onGraphAbort`: Updates the record's status.
-- `onNodeStart`/`onNodeFinish`/`onPartialOutput`/`onNodeError`: Stores per-node data.
+- `onGraphFinish`/`onGraphError`/`onGraphAbort`: Updates the record's status through a shared `finishGraphRun(...)` helper in `useGraphExecutionEvents`.
+- `onNodeStart`/`onNodeFinish`/`onNodeExcluded`/`onPartialOutput`/`onNodeError`: Store per-node data.
 - `onDone`: Marks graph as no longer running.
+
+Persisted app-side execution payloads now share one sanitization path before being cloned into history:
+
+- `sanitizeInputsOrOutputs(...)` in `executionDataTransforms.ts` fixes Uint8Array-shaped values and truncates oversized payloads for inspection
+- `useNodeExecutionEvents` uses that helper for started, finished, excluded, and partial-output persistence paths
+- split-run partial outputs still keep their separate `splitOutputData[index]` storage model, but they now reuse the same sanitization transform before storage
 
 ## Browser vs Remote: Event Delivery and React Rendering
 

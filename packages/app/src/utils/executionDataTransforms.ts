@@ -11,6 +11,7 @@ import {
   type ScalarOrArrayDataValue,
   coerceTypeOptional,
 } from '@ironclad/rivet-core';
+import { entries } from '../../../core/src/utils/typeSafety';
 import { nanoid } from 'nanoid';
 import { cloneDeep, mapValues } from 'lodash-es';
 import { P, match } from 'ts-pattern';
@@ -79,6 +80,17 @@ export function sanitizeDataValueForLength(
       return stringArrayValue;
     })
     .otherwise((otherValue): DataValue | undefined => otherValue);
+}
+
+export function sanitizeInputsOrOutputs<T extends Inputs | Outputs>(data: T): T {
+  const sanitized: Partial<Record<keyof T, DataValue>> = {};
+
+  for (const [key, value] of entries(data)) {
+    const fixedValue = fixDataValueUint8Arrays(value) as DataValue;
+    sanitized[key as keyof T] = sanitizeDataValueForLength(fixedValue) as DataValue;
+  }
+
+  return sanitized as T;
 }
 
 export function fixDataValueUint8Arrays(value: DataValue | undefined): DataValue | undefined {

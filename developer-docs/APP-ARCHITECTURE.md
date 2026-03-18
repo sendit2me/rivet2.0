@@ -577,15 +577,10 @@ The graph navigation stack is no longer just a `GraphId[]` history. It stores gr
 
 This changes the execution selection model in an important way:
 
-- graph execution selection is keyed by graph view, not only by `graphId`
-- a selected execution is a `graphRunId` or `latest`, not a shared numeric page index
-- node-local paging still exists, but only inside the subset of node runs that belong to the selected graph run for the current graph view
-
-Important selection invariants:
-
-- selectors filter node history by `graphViewKey` and then by the selected `graphRunId`
+- selectors resolve graph runs per view through `getGraphRunsForView(...)`, including the root-view fallback for subgraph history reached from sidebar navigation
+- once a run is resolved, node history is filtered by `graphRunId`, not by a stored `graphViewKey`
 - if a stored selected graph run becomes stale, selectors fall back to the latest available run for that graph view instead of mixing runs together
-- node history entries can carry `rootRunId`, `graphRunId`, `graphId`, and `graphViewKey` so the app does not reconstruct nested execution identity from array position
+- node history entries carry execution identity such as `rootRunId`, `graphRunId`, and `graphId`, so the app does not reconstruct nested execution identity from array position
 
 The execution UI is now intentionally graph-view-aware:
 
@@ -801,6 +796,10 @@ It also fills missing settings from environment variables before execution and i
 - tokenizer
 - project reference loader
 
+The run-from preload path is intentionally shared with remote execution through helpers in
+[`packages/app/src/hooks/remoteExecutorHelpers.ts`](../packages/app/src/hooks/remoteExecutorHelpers.ts)
+rather than keeping separate local-only preload derivation logic.
+
 ### Remote executor
 
 `useRemoteExecutor` runs graphs through the remote-debugger protocol, usually talking to the internal sidecar.
@@ -823,6 +822,7 @@ Current architectural detail:
 - read-only UI consumers should use shared session/debugger state directly rather than mounting `useRemoteExecutor`, because that hook still owns remote event subscriptions and execution side effects
 - plain run/test orchestration helpers now live in [`packages/app/src/hooks/remoteExecutorHelpers.ts`](../packages/app/src/hooks/remoteExecutorHelpers.ts)
 - that helper module holds context-value shaping, run-from dependency/preload derivation, event-dispatch fan-out, and test-suite selection without depending on React state
+- shared execution data transforms now live in [`packages/app/src/utils/executionDataTransforms.ts`](../packages/app/src/utils/executionDataTransforms.ts), so node-event persistence does not duplicate input/output sanitization work across event branches
 
 ### Shared executor session
 

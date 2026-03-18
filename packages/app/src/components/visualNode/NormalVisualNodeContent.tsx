@@ -10,7 +10,7 @@ import {
   type PortId,
 } from '@ironclad/rivet-core';
 import type { HeightCache } from '../../hooks/useNodeBodyHeight';
-import { type ProcessDataForNode, resolvedGraphSelectionState } from '../../state/dataFlow.js';
+import type { SelectedProcessRunProp } from '../VisualNode';
 import SettingsCogIcon from 'majesticons/line/settings-cog-line.svg?react';
 import SendIcon from 'majesticons/solid/send.svg?react';
 import GitForkLine from 'majesticons/line/git-fork-line.svg?react';
@@ -30,7 +30,6 @@ import { preservePortTextCaseState } from '../../state/settings';
 import { useCanvasHandlersContext, useCanvasViewContext } from '../CanvasContext';
 import { NodeBody } from '../NodeBody.js';
 import { NodeOutput } from '../NodeOutput.js';
-import { getSelectedProcessRun } from '../../state/selectors/executionSelectors.js';
 
 export const NormalVisualNodeContent: FC<{
   heightCache: HeightCache;
@@ -38,8 +37,7 @@ export const NormalVisualNodeContent: FC<{
   connections?: NodeConnection[];
   handleAttributes?: HTMLAttributes<HTMLDivElement>;
   isKnownNodeType: boolean;
-  lastRun?: ProcessDataForNode[];
-  processPage: number | 'latest';
+  selectedProcessRun?: SelectedProcessRunProp['selectedProcessRun'];
   isPinned: boolean;
   isHistoricalChanged: boolean;
   isHovered: boolean;
@@ -48,8 +46,7 @@ export const NormalVisualNodeContent: FC<{
     heightCache,
     node,
     connections = [],
-    lastRun,
-    processPage,
+    selectedProcessRun,
     isPinned,
     handleAttributes,
     isKnownNodeType,
@@ -72,15 +69,12 @@ export const NormalVisualNodeContent: FC<{
     const setPinnedNodes = useSetAtom(pinnedNodesState);
     const setViewingNodeChanges = useSetAtom(viewingNodeChangesState);
     const preservePortTextCase = useAtomValue(preservePortTextCaseState);
-    const graphSelectionOptions = useAtomValue(resolvedGraphSelectionState);
 
     const [initialHeight, setInitialHeight] = useState<number | undefined>();
     const [initialWidth, setInitialWidth] = useState<number | undefined>();
     const [initialMouseX, setInitialMouseX] = useState(0);
     const [initialMouseY, setInitialMouseY] = useState(0);
     const [shiftHeld, setShiftHeld] = useState(false);
-
-    const selectedProcessRun = getSelectedProcessRun(lastRun, processPage, graphSelectionOptions);
 
     const getNodeCurrentDimensions = (elementOrChild: HTMLElement): [number, number] => {
       const nodeElement = elementOrChild.closest('.node');

@@ -7,7 +7,6 @@ import {
   getActionBarExecutionState,
   getGraphRunsForView,
   getNodeExecutionClassFlags,
-  getNodeExecutionStatus,
   getSelectedGraphRunId,
   getSelectedProcessData,
   getSelectedProcessRun,
@@ -87,7 +86,12 @@ describe('executionSelectors', () => {
   });
 
   test('node execution status helpers derive canonical class flags', () => {
-    assert.equal(getNodeExecutionStatus({ status: { type: 'error', error: 'boom' } }), 'error');
+    assert.deepEqual(getNodeExecutionClassFlags({ status: { type: 'error', error: 'boom' } }), {
+      success: false,
+      error: true,
+      running: false,
+      'not-ran': false,
+    });
     assert.deepEqual(getNodeExecutionClassFlags({ status: { type: 'notRan', reason: 'skip' } }), {
       success: false,
       error: false,

@@ -13,7 +13,7 @@ import { type ChartNode, type CommentNode, type NodeConnection } from '@ironclad
 import { useAtomValue } from 'jotai';
 import { useDependsOnPlugins } from '../hooks/useDependsOnPlugins';
 import { useHistoricalNodeChangeInfo } from '../hooks/useHistoricalNodeChangeInfo';
-import { type ProcessDataForNode, resolvedGraphSelectionState } from '../state/dataFlow.js';
+import { type ProcessDataForNode, resolvedGraphSelectionState, type NodeRunDataWithRefs } from '../state/dataFlow.js';
 import { getNodeExecutionClassFlags, getSelectedProcessRun } from '../state/selectors/executionSelectors.js';
 import { useCanvasHandlersContext, useCanvasViewContext } from './CanvasContext';
 import { ZoomedOutVisualNodeContent } from './visualNode/ZoomedOutVisualNodeContent';
@@ -34,6 +34,10 @@ export type VisualNodeProps = {
   renderSkeleton?: boolean;
   nodeAttributes?: HTMLAttributes<HTMLDivElement>;
   handleAttributes?: HTMLAttributes<HTMLDivElement>;
+};
+
+export type SelectedProcessRunProp = {
+  selectedProcessRun?: NodeRunDataWithRefs;
 };
 
 export const VisualNode = memo(
@@ -162,8 +166,7 @@ export const VisualNode = memo(
               connections={connections}
               handleAttributes={handleAttributes}
               isKnownNodeType={isKnownNodeType}
-              lastRun={lastRun}
-              processPage={processPage}
+              selectedProcessRun={selectedProcessRun}
               isReallyZoomedOut={effectiveIsReallyZoomedOut}
             />
           ) : (
@@ -173,8 +176,7 @@ export const VisualNode = memo(
               connections={connections}
               handleAttributes={handleAttributes}
               isKnownNodeType={isKnownNodeType}
-              lastRun={lastRun}
-              processPage={processPage}
+              selectedProcessRun={selectedProcessRun}
               isPinned={isPinned}
               isHistoricalChanged={isHistoricalChanged}
               isHovered={isHovered}

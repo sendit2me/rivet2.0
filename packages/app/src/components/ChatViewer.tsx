@@ -30,7 +30,6 @@ import MaximizeIcon from 'majesticons/line/maximize-line.svg?react';
 import MinimizeIcon from 'majesticons/line/minimize-line.svg?react';
 import { useToggle } from 'ahooks';
 import { FixedSizeList } from 'react-window';
-import { useCurrentExecution } from '../hooks/useCurrentExecution';
 
 export const ChatViewerRenderer: FC = () => {
   const [openOverlay, setOpenOverlay] = useAtom(overlayOpenState);

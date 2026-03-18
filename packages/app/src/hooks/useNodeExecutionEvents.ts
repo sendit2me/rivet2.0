@@ -1,11 +1,10 @@
 import { produce } from 'immer';
 import { useSetAtom } from 'jotai';
-import { type DataValue, type Inputs, type Outputs, type ProcessEvents } from '@ironclad/rivet-core';
+import { type ProcessEvents } from '@ironclad/rivet-core';
 import { type ExecutionDataFlowApi } from './useExecutionDataFlow';
 import { lastRunDataByNodeState } from '../state/dataFlow';
-import { cloneNodeInputOrOutputDataForHistory, fixDataValueUint8Arrays, sanitizeDataValueForLength } from '../utils/executionDataTransforms';
+import { cloneNodeInputOrOutputDataForHistory, sanitizeInputsOrOutputs } from '../utils/executionDataTransforms';
 import { useDataRefs } from '../providers/ProvidersContext';
-import { entries } from '../../../core/src/utils/typeSafety';
 
 export type NodeExecutionEventsApi = {
   onNodeError: (data: ProcessEvents['nodeError']) => void;
@@ -24,14 +23,8 @@ export function useNodeExecutionEvents({
   const setLastRunData = useSetAtom(lastRunDataByNodeState);
 
   const onNodeStart = ({ node, inputs, processId, execution }: ProcessEvents['nodeStart']) => {
-    const sanitizedInputs: Inputs = {};
-    for (const [key, value] of entries(inputs)) {
-      const fixedValue = fixDataValueUint8Arrays(value) as DataValue;
-      sanitizedInputs[key] = sanitizeDataValueForLength(fixedValue) as DataValue;
-    }
-
     setDataForNode(node.id, processId, execution, {
-      inputData: sanitizedInputs,
+      inputData: sanitizeInputsOrOutputs(inputs),
       status: { type: 'running' },
       startedAt: Date.now(),
     });
@@ -39,14 +32,8 @@ export function useNodeExecutionEvents({
   };
 
   const onNodeFinish = ({ node, outputs, processId, execution }: ProcessEvents['nodeFinish']) => {
-    const sanitizedOutputs: Outputs = {};
-    for (const [key, value] of entries(outputs)) {
-      const fixedValue = fixDataValueUint8Arrays(value) as DataValue;
-      sanitizedOutputs[key] = sanitizeDataValueForLength(fixedValue) as DataValue;
-    }
-
     setDataForNode(node.id, processId, execution, {
-      outputData: sanitizedOutputs,
+      outputData: sanitizeInputsOrOutputs(outputs),
       status: { type: 'ok' },
       finishedAt: Date.now(),
     });
@@ -55,8 +42,8 @@ export function useNodeExecutionEvents({
 
   const onNodeExcluded = ({ node, processId, inputs, outputs, reason, execution }: ProcessEvents['nodeExcluded']) => {
     setDataForNode(node.id, processId, execution, {
-      inputData: inputs,
-      outputData: outputs,
+      inputData: sanitizeInputsOrOutputs(inputs),
+      outputData: sanitizeInputsOrOutputs(outputs),
       status: { type: 'notRan', reason },
       startedAt: Date.now(),
       finishedAt: Date.now(),
@@ -73,6 +60,8 @@ export function useNodeExecutionEvents({
   };
 
   const onPartialOutput = ({ node, outputs, index, processId, execution }: ProcessEvents['partialOutput']) => {
+    const sanitizedOutputs = sanitizeInputsOrOutputs(outputs);
+
     if (node.isSplitRun) {
       setLastRunData((prev) =>
         produce(prev, (draft) => {
@@ -87,7 +76,7 @@ export function useNodeExecutionEvents({
             existingProcess.rootRunId = execution.rootRunId;
             existingProcess.data.splitOutputData = {
               ...existingProcess.data.splitOutputData,
-              [index]: cloneNodeInputOrOutputDataForHistory(outputs, dataRefs)!,
+              [index]: cloneNodeInputOrOutputDataForHistory(sanitizedOutputs, dataRefs)!,
             };
           } else {
             draft[node.id]!.push({
@@ -97,7 +86,7 @@ export function useNodeExecutionEvents({
               rootRunId: execution.rootRunId,
               data: {
                 splitOutputData: {
-                  [index]: cloneNodeInputOrOutputDataForHistory(outputs, dataRefs)!,
+                  [index]: cloneNodeInputOrOutputDataForHistory(sanitizedOutputs, dataRefs)!,
                 },
               },
             });
@@ -106,7 +95,7 @@ export function useNodeExecutionEvents({
       );
     } else {
       setDataForNode(node.id, processId, execution, {
-        outputData: outputs,
+        outputData: sanitizedOutputs,
       });
     }
 

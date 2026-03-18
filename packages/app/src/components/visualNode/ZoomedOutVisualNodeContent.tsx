@@ -10,7 +10,6 @@ import {
 import SettingsCogIcon from 'majesticons/line/settings-cog-line.svg?react';
 import SendIcon from 'majesticons/solid/send.svg?react';
 import GitForkLine from 'majesticons/line/git-fork-line.svg?react';
-import { type ProcessDataForNode, resolvedGraphSelectionState } from '../../state/dataFlow.js';
 import { useStableCallback } from '../../hooks/useStableCallback.js';
 import { LoadingSpinner } from '../LoadingSpinner.js';
 import { NodePortsRenderer } from '../NodePorts.js';
@@ -18,15 +17,14 @@ import { useDependsOnPlugins } from '../../hooks/useDependsOnPlugins';
 import { Port } from '../Port';
 import { preservePortTextCaseState } from '../../state/settings';
 import { useCanvasHandlersContext, useCanvasViewContext } from '../CanvasContext';
-import { getSelectedProcessRun } from '../../state/selectors/executionSelectors.js';
+import type { SelectedProcessRunProp } from '../VisualNode';
 
 export const ZoomedOutVisualNodeContent: FC<{
   node: ChartNode;
   connections?: NodeConnection[];
   handleAttributes?: HTMLAttributes<HTMLDivElement>;
   isKnownNodeType: boolean;
-  lastRun?: ProcessDataForNode[];
-  processPage: number | 'latest';
+  selectedProcessRun?: SelectedProcessRunProp['selectedProcessRun'];
   isReallyZoomedOut: boolean;
 }> = memo(
   ({
@@ -34,8 +32,7 @@ export const ZoomedOutVisualNodeContent: FC<{
     connections = [],
     handleAttributes,
     isKnownNodeType,
-    lastRun,
-    processPage,
+    selectedProcessRun,
     isReallyZoomedOut,
   }) => {
     useDependsOnPlugins();
@@ -43,8 +40,6 @@ export const ZoomedOutVisualNodeContent: FC<{
     const { onNodeSelected, onNodeStartEditing, onPortMouseOut, onPortMouseOver, onWireEndDrag, onWireStartDrag } =
       useCanvasHandlersContext();
     const preservePortTextCase = useAtomValue(preservePortTextCaseState);
-    const graphSelectionOptions = useAtomValue(resolvedGraphSelectionState);
-    const selectedProcessRun = getSelectedProcessRun(lastRun, processPage, graphSelectionOptions);
 
     const handleEditClick = useStableCallback((event: MouseEvent<HTMLButtonElement>) => {
       event.stopPropagation();

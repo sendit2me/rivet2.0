@@ -12,6 +12,7 @@ import {
   runningGraphsState,
   selectedGraphRunByViewState,
   type GraphRunSelection,
+  type GraphRunRecord,
 } from '../state/dataFlow';
 import { userInputModalQuestionsState } from '../state/userInput';
 import { keys } from '../../../core/src/utils/typeSafety';
@@ -124,32 +125,14 @@ export function useGraphExecutionEvents({
     const graphViewKey = buildGraphViewKeyFromExecution({ execution: data.execution });
 
     setRunningGraphsState((running) => removeRunningGraphEntry(running, data.graph.metadata!.id!));
-
-    setGraphRunHistoryByView((prev) =>
-      produce(prev, (draft) => {
-        const run = draft[graphViewKey]?.find((graphRun) => graphRun.graphRunId === data.execution.graphRunId);
-        if (run) {
-          run.finishedAt = Date.now();
-          run.status = 'aborted';
-        }
-      }),
-    );
+    finishGraphRun(graphViewKey, data.execution.graphRunId, 'aborted');
   };
 
   const onGraphError = (data: ProcessEvents['graphError']) => {
     const graphViewKey = buildGraphViewKeyFromExecution({ execution: data.execution });
 
     setRunningGraphsState((running) => removeRunningGraphEntry(running, data.graph.metadata!.id!));
-
-    setGraphRunHistoryByView((prev) =>
-      produce(prev, (draft) => {
-        const run = draft[graphViewKey]?.find((graphRun) => graphRun.graphRunId === data.execution.graphRunId);
-        if (run) {
-          run.finishedAt = Date.now();
-          run.status = 'error';
-        }
-      }),
-    );
+    finishGraphRun(graphViewKey, data.execution.graphRunId, 'error');
   };
 
   const onError = (data: ProcessEvents['error']) => {
@@ -190,15 +173,7 @@ export function useGraphExecutionEvents({
     }
 
     const graphViewKey = buildGraphViewKeyFromExecution({ execution: data.execution });
-    setGraphRunHistoryByView((prev) =>
-      produce(prev, (draft) => {
-        const run = draft[graphViewKey]?.find((graphRun) => graphRun.graphRunId === data.execution.graphRunId);
-        if (run) {
-          run.finishedAt = Date.now();
-          run.status = 'ok';
-        }
-      }),
-    );
+    finishGraphRun(graphViewKey, data.execution.graphRunId, 'ok');
   };
 
   const onPause = () => {
@@ -207,6 +182,18 @@ export function useGraphExecutionEvents({
 
   const onResume = () => {
     setGraphPaused(false);
+  };
+
+  const finishGraphRun = (graphViewKey: GraphViewKey, graphRunId: GraphRunId, status: GraphRunRecord['status']) => {
+    setGraphRunHistoryByView((prev) =>
+      produce(prev, (draft) => {
+        const run = draft[graphViewKey]?.find((graphRun) => graphRun.graphRunId === graphRunId);
+        if (run) {
+          run.finishedAt = Date.now();
+          run.status = status;
+        }
+      }),
+    );
   };
 
   return {

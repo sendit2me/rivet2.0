@@ -7,7 +7,6 @@ import {
   ExecutionRecorder,
   type GraphOutputs,
   type GraphId,
-  type Outputs,
   type ProcessEvents,
 } from '@ironclad/rivet-core';
 import { produce } from 'immer';
@@ -26,16 +25,16 @@ import { fillMissingSettingsFromEnvironmentVariables } from '../utils/tauri';
 import { trivetState } from '../state/trivet';
 import { runTrivet } from '@ironclad/trivet';
 import { entries } from '../../../core/src/utils/typeSafety';
-import { type InputsOrOutputsWithRefs, type RunDataByNodeId, lastRunDataByNodeState } from '../state/dataFlow';
+import { lastRunDataByNodeState } from '../state/dataFlow';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { TauriProjectReferenceLoader } from '../model/TauriProjectReferenceLoader';
 import { useAudioProvider, useDatasetProvider } from '../providers/ProvidersContext';
 import { setUserInputSubmitHandler } from '../state/actions/userInputActions';
 import { GptTokenizerTokenizer } from '../../../core/src/integrations/GptTokenizerTokenizer';
-import { restoreDataValueFromHistory } from '../utils/executionDataTransforms.js';
-import { getGlobalDataRef } from '../utils/globals/globalDataRefs.js';
 import { useProjectNodeRegistry } from './useProjectNodeRegistry';
 import { handleError } from '../utils/errorHandling.js';
+import { getDependentDataForNodeForPreload } from './remoteExecutorHelpers.js';
+
 /**
  * Yield to the macrotask queue so the browser can repaint.
  *
@@ -174,7 +173,11 @@ export function useLocalExecutor() {
         }
 
         if (options.from) {
-          preloadDependentDataForNode(processor, options.from, lastRunData);
+          const dependencyNodes = processor.getDependencyNodesDeep(options.from);
+          const preloadData = getDependentDataForNodeForPreload(dependencyNodes, lastRunData);
+          for (const [nodeId, outputs] of Object.entries(preloadData)) {
+            processor.preloadNodeData(nodeId as NodeId, outputs);
+          }
           processor.runFromNodeId = options.from;
         }
 
@@ -317,35 +320,4 @@ export function useLocalExecutor() {
     tryResumeGraph,
     tryRunTests,
   };
-}
-
-function preloadDependentDataForNode(processor: GraphProcessor, nodeId: NodeId, previousRunData: RunDataByNodeId) {
-  const dependencyNodes = processor.getDependencyNodesDeep(nodeId);
-  const dataRefs = {
-    get: getGlobalDataRef,
-  };
-
-  for (const dependencyNode of dependencyNodes) {
-    const dependencyNodeData = previousRunData[dependencyNode as keyof RunDataByNodeId];
-
-    if (!dependencyNodeData) {
-      throw new Error(`Node ${dependencyNode} was not found in the previous run data, cannot continue preloading data`);
-    }
-
-    const firstExecution = dependencyNodeData[0] as (typeof dependencyNodeData)[number] | undefined;
-
-    if (!firstExecution?.data.outputData) {
-      throw new Error(
-        `Node ${dependencyNode} has no output data in the previous run data, cannot continue preloading data`,
-      );
-    }
-
-    const outputData = firstExecution.data.outputData as InputsOrOutputsWithRefs;
-
-    const outputDataWithoutRefs = Object.fromEntries(
-      Object.entries(outputData).map(([portId, dataValueWithRefs]) => [portId, restoreDataValueFromHistory(dataValueWithRefs, dataRefs)]),
-    ) as Outputs;
-
-    processor.preloadNodeData(dependencyNode, outputDataWithoutRefs);
-  }
 }

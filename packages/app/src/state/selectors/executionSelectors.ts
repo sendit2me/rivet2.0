@@ -137,12 +137,8 @@ export function getSelectedProcessRun(
   return getSelectedProcessData(processData, selectedPage, options)?.data;
 }
 
-export function getNodeExecutionStatus(runData: NodeRunDataWithRefs | undefined) {
-  return runData?.status?.type;
-}
-
 export function getNodeExecutionClassFlags(runData: NodeRunDataWithRefs | undefined) {
-  const status = getNodeExecutionStatus(runData);
+  const status = runData?.status?.type;
 
   return {
     success: status === 'ok',
