@@ -1226,7 +1226,9 @@ export class GraphProcessor {
       return;
     }
 
-    emitDetached(this.#emitter, 'nodeStart', this.#withExecution({ node, inputs: inputValues, processId }));
+    // Use awaited emit (not emitDetached) so that listeners can yield to the
+    // macrotask queue, giving the browser a chance to repaint during execution.
+    await this.#emitter.emit('nodeStart', this.#withExecution({ node, inputs: inputValues, processId }));
 
     try {
       const outputValues = await this.#processNodeWithInputData(
@@ -1242,7 +1244,7 @@ export class GraphProcessor {
       this.#nodeResults.set(node.id, outputValues);
       this.#visitedNodes.add(node.id);
       this.#accumulateCost(outputValues);
-      emitDetached(this.#emitter, 'nodeFinish', this.#withExecution({ node, outputs: outputValues, processId }));
+      await this.#emitter.emit('nodeFinish', this.#withExecution({ node, outputs: outputValues, processId }));
     } catch (error) {
       this.#nodeErrored(node, error, processId);
     }

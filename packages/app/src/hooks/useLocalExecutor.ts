@@ -8,6 +8,7 @@ import {
   type GraphOutputs,
   type GraphId,
   type Outputs,
+  type ProcessEvents,
 } from '@ironclad/rivet-core';
 import { produce } from 'immer';
 import { useRef } from 'react';
@@ -35,6 +36,31 @@ import { restoreDataValueFromHistory } from '../utils/executionDataTransforms.js
 import { getGlobalDataRef } from '../utils/globals/globalDataRefs.js';
 import { useProjectNodeRegistry } from './useProjectNodeRegistry';
 import { handleError } from '../utils/errorHandling.js';
+/**
+ * Yield to the macrotask queue so the browser can repaint.
+ *
+ * In browser execution mode, GraphProcessor runs in the same thread.  Emittery
+ * defers all listeners to microtasks (`await resolvedPromise`), and PQueue
+ * chains node processing as further microtasks.  React 18 batches state updates
+ * and only commits + paints at macrotask boundaries, so intermediate states
+ * (e.g. "running" indicators) are invisible without explicit yields.
+ *
+ * In contrast, Node execution mode delivers events as separate WebSocket
+ * messages (macrotasks), giving the browser natural repaint opportunities.
+ *
+ * `MessageChannel` posts a macrotask with near-zero latency (unlike
+ * `setTimeout(0)` which has a ≥4 ms minimum).  By returning a Promise that
+ * resolves on the next macrotask, any `await yieldToMacrotask()` inside an
+ * Emittery listener pauses the GraphProcessor (which `await`s the `emit()`
+ * call), lets React flush and the browser repaint, then resumes processing.
+ */
+function yieldToMacrotask(): Promise<void> {
+  return new Promise((resolve) => {
+    const channel = new MessageChannel();
+    channel.port1.onmessage = () => resolve();
+    channel.port2.postMessage(undefined);
+  });
+}
 
 export function useLocalExecutor() {
   const audioProvider = useAudioProvider();
@@ -57,8 +83,17 @@ export function useLocalExecutor() {
   const loadedProject = useAtomValue(loadedProjectState);
 
   function attachGraphEvents(processor: GraphProcessor) {
-    processor.on('nodeStart', currentExecution.onNodeStart);
-    processor.on('nodeFinish', currentExecution.onNodeFinish);
+    // nodeStart and nodeFinish use awaited emit in GraphProcessor, so returning
+    // a Promise here pauses the processor until the macrotask yield completes,
+    // giving the browser a chance to repaint with updated React state.
+    processor.on('nodeStart', async (data: ProcessEvents['nodeStart']) => {
+      currentExecution.onNodeStart(data);
+      await yieldToMacrotask();
+    });
+    processor.on('nodeFinish', async (data: ProcessEvents['nodeFinish']) => {
+      currentExecution.onNodeFinish(data);
+      await yieldToMacrotask();
+    });
     processor.on('nodeError', currentExecution.onNodeError);
 
     setUserInputSubmitHandler((nodeId: NodeId, answers: StringArrayDataValue) => {
@@ -71,13 +106,21 @@ export function useLocalExecutor() {
     });
 
     processor.on('userInput', currentExecution.onUserInput);
-    processor.on('start', currentExecution.onStart);
+    // start and graphStart are already awaited by GraphProcessor, so yielding
+    // here also creates a macrotask boundary before node processing begins.
+    processor.on('start', async (data: ProcessEvents['start']) => {
+      currentExecution.onStart(data);
+      await yieldToMacrotask();
+    });
     processor.on('done', currentExecution.onDone);
     processor.on('abort', currentExecution.onAbort);
     processor.on('graphAbort', currentExecution.onGraphAbort);
     processor.on('graphError', currentExecution.onGraphError);
     processor.on('partialOutput', currentExecution.onPartialOutput);
-    processor.on('graphStart', currentExecution.onGraphStart);
+    processor.on('graphStart', async (data: ProcessEvents['graphStart']) => {
+      currentExecution.onGraphStart(data);
+      await yieldToMacrotask();
+    });
     processor.on('graphFinish', currentExecution.onGraphFinish);
     processor.on('nodeOutputsCleared', currentExecution.onNodeOutputsCleared);
     processor.on('trace', (log) => console.log(log));

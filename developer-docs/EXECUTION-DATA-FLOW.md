@@ -425,6 +425,206 @@ and routes them to the same handler functions.
 - `onNodeStart`/`onNodeFinish`/`onPartialOutput`/`onNodeError`: Stores per-node data.
 - `onDone`: Marks graph as no longer running.
 
+## Browser vs Remote: Event Delivery and React Rendering
+
+This section documents a critical difference between browser and remote execution
+modes that is invisible from the handler code but determines whether the UI
+updates during execution. **Getting this wrong causes the app to appear frozen
+during browser-mode execution — no running indicators, no dataflow, no progress —
+even though all state updates happen correctly (visible only after execution ends).**
+
+### The core problem
+
+React 18 batches all `setState` calls and only commits + paints at **macrotask
+boundaries**. The browser's rendering pipeline (style → layout → paint →
+composite) runs between macrotasks, never in the middle of a microtask chain.
+
+This distinction is irrelevant for remote execution but critical for browser
+execution, because the two modes deliver events on fundamentally different
+scheduling boundaries.
+
+### Remote execution: natural macrotask boundaries
+
+In remote/Node execution mode, each event arrives as a separate **WebSocket
+message**. The browser delivers each message as its own macrotask:
+
+```
+[macrotask] WebSocket message: nodeStart  → setState → React commit → browser paint ✅
+[macrotask] WebSocket message: nodeFinish → setState → React commit → browser paint ✅
+[macrotask] WebSocket message: nodeStart  → setState → React commit → browser paint ✅
+```
+
+Each event gets its own render cycle automatically. No special handling is needed.
+
+### Browser execution: microtask avalanche
+
+In browser execution mode, `GraphProcessor` runs in the same thread as React.
+The processor uses **Emittery** for event emission and **PQueue** for node
+processing concurrency. Both of these schedule work as **microtasks**:
+
+- **Emittery's `emit()`** has `await resolvedPromise` before calling listeners,
+  which defers all listener invocations to microtasks.
+- **PQueue** chains node processing as further microtask continuations.
+
+The result is that dozens or hundreds of events fire within the same macrotask,
+with React batching all their `setState` calls. The browser never gets a chance
+to repaint until the entire graph execution completes:
+
+```
+[macrotask] processGraph() starts
+  [microtask] emit nodeStart  → setState (batched, not committed)
+  [microtask] emit nodeFinish → setState (batched, not committed)
+  [microtask] emit nodeStart  → setState (batched, not committed)
+  ... hundreds more microtasks ...
+  [microtask] emit done       → setState (batched, not committed)
+[macrotask boundary] → React commits ALL state → browser paints ONCE ❌
+```
+
+The user sees nothing change until execution is complete, then everything appears
+at once.
+
+### The solution: macrotask yielding
+
+The fix has two parts that must work together:
+
+**1. GraphProcessor must `await` its emits** (`GraphProcessor.ts`)
+
+For `nodeStart` and `nodeFinish`, the processor uses `await this.#emitter.emit()`
+instead of `emitDetached()`. This makes the processor pause until all listeners
+have completed, which is necessary for the yield to actually pause processing.
+
+```typescript
+// In #processNormalNode:
+await this.#emitter.emit('nodeStart', ...);   // processor waits for listeners
+// ... node processes ...
+await this.#emitter.emit('nodeFinish', ...);  // processor waits again
+```
+
+Note: `emitDetached()` (which calls `void emitter.emit()`) is fire-and-forget —
+the processor continues immediately regardless of what listeners do. With
+`emitDetached`, a listener's `await yieldToMacrotask()` would pause only that
+listener, not the processor. The processor would race ahead, emitting more events
+before any yield completes.
+
+**2. Local executor handlers must yield to the macrotask queue** (`useLocalExecutor.ts`)
+
+Key event handlers (`nodeStart`, `nodeFinish`, `start`, `graphStart`) are async
+and yield to the macrotask queue after updating state:
+
+```typescript
+function yieldToMacrotask(): Promise<void> {
+  return new Promise((resolve) => {
+    const channel = new MessageChannel();
+    channel.port1.onmessage = () => resolve();
+    channel.port2.postMessage(undefined);
+  });
+}
+
+processor.on('nodeStart', async (data) => {
+  currentExecution.onNodeStart(data);    // setState calls (batched by React)
+  await yieldToMacrotask();              // pause → React commits → browser paints
+});
+```
+
+`MessageChannel` posts a macrotask with near-zero latency (unlike `setTimeout(0)`
+which has a >=4 ms minimum in browsers). The returned Promise resolves on the next
+macrotask, which means:
+
+1. The handler calls `setState` (React batches it).
+2. `await yieldToMacrotask()` suspends the handler.
+3. Since Emittery `await`s listener Promises, and the processor `await`s
+   `emit()`, the entire processing chain is paused.
+4. The microtask queue drains. The macrotask ends.
+5. **React commits the batched state.** The browser paints.
+6. The `MessageChannel` macrotask fires, resolving the Promise.
+7. The handler resumes → Emittery resumes → the processor continues.
+
+### Why `flushSync` doesn't work
+
+`flushSync` (from `react-dom`) forces React to synchronously commit state, but
+it does **not** trigger a browser repaint. The browser repaint only happens at
+macrotask boundaries. Since Emittery defers listeners to microtasks, even with
+`flushSync` the DOM updates happen but the browser never paints them — the next
+microtask (next event) starts before the browser can composite a frame.
+
+### Subgraph event propagation
+
+`wireSubprocessorEvents` in `SubprocessorBridge.ts` forwards child processor
+events to the parent emitter by returning the Promise from
+`parentEmitter.emit()`:
+
+```typescript
+processor.on('nodeStart', (event) => parentEmitter.emit('nodeStart', event));
+//                                  ^ returns Promise
+```
+
+Because the child processor `await`s its own `emit()` calls, and those listeners
+return the Promise from `parentEmitter.emit()`, and the parent's listeners yield
+to macrotask — the pause propagates through the entire subprocessor tree. A
+macrotask yield in a top-level handler pauses child processors too.
+
+### Why only some events yield
+
+Not all events need macrotask yields:
+
+- **`nodeStart`, `nodeFinish`**: High-frequency events that drive running
+  indicators and dataflow display. Must yield.
+- **`start`, `graphStart`**: Set up initial execution context. Yielding here
+  ensures the UI shows "running" state before node processing begins.
+- **`nodeError`, `done`, `abort`, etc.**: Terminal or infrequent events. By the
+  time they fire, either the graph is finishing (one final paint is sufficient)
+  or there is an error state. No yield needed.
+
+## Stale Closures in Browser Execution Handlers
+
+### The problem
+
+In browser execution mode, `attachGraphEvents()` in `useLocalExecutor` registers
+event handlers **once** when the processor is created. These handlers close over
+values from the render cycle in which `attachGraphEvents` was called.
+
+In contrast, remote execution mode uses `useEffect` with a dependency array that
+causes re-subscription on every relevant render, so handlers always have fresh
+closure values.
+
+This means any value captured by closure in a browser-mode handler will be stale
+if it changes during execution. The most important case is
+`setSelectedNodePageLatest` in `useExecutionDataFlow.ts`, which reads
+`currentGraphView` and `selectedGraphRunByView` to decide whether to auto-follow
+the latest execution page.
+
+### The solution: `useLatest` refs
+
+Values that must be current when read inside event handlers are wrapped with
+`useLatest` (from `ahooks`), which stores the value in a ref that is updated on
+every render:
+
+```typescript
+const currentGraphViewLatest = useLatest(currentGraphView);
+const selectedGraphRunByViewLatest = useLatest(selectedGraphRunByView);
+
+const setSelectedNodePageLatest = (nodeId, execution) => {
+  const view = currentGraphViewLatest.current;           // always fresh
+  const selectionByView = selectedGraphRunByViewLatest.current; // always fresh
+  // ...
+};
+```
+
+This is safe because `setSelectedNodePageLatest` is only called from event
+handlers (microtasks), and React updates refs synchronously during the commit
+phase of the previous render — so by the time a handler reads the ref, it
+reflects the latest committed state.
+
+### When to use `useLatest` vs direct closure
+
+- **Jotai `useSetAtom` setters** (e.g., `setLastRunData`): Safe to capture in
+  closure. The setter identity is stable and functional updates (`prev => ...`)
+  always receive the latest state.
+- **Jotai `useAtomValue` values** (e.g., `currentGraphView`): Stale in
+  long-lived handlers. Use `useLatest` if the handler needs the current value.
+- **Callback refs from `useStableCallback`**: Already use refs internally, so
+  they always call the latest version of the callback. Safe to capture.
+
 ## Recording and Replay
 
 Execution recordings capture the full event stream so it can be replayed later
@@ -574,3 +774,17 @@ When execution data is not showing up for a graph:
 5. **Check that events are being forwarded** — is `wireSubprocessorEvents` wiring the event type you expect?
 6. **Check `filterProcessDataForSelection`** — is it filtering to the correct `graphRunId`?
 7. **For remote execution** — check that the sidecar serializes the event type and that `createProcessEventDispatcher` maps it.
+
+When execution data appears only *after* execution completes (no live updates):
+
+8. **Browser mode only?** If the problem is exclusive to browser mode but works
+   in Node mode, see "Browser vs Remote: Event Delivery and React Rendering"
+   above. The most likely cause is that event handlers are not yielding to the
+   macrotask queue, preventing React from committing intermediate state.
+9. **Check `emitDetached` vs `await emit()`** — if a new event type is added
+   to `GraphProcessor` and uses `emitDetached`, its listeners cannot pause the
+   processor. If that event needs live UI updates, change it to `await emit()`.
+10. **Check for stale closure values** — if a handler reads a value that was
+    correct at registration time but wrong at call time, see "Stale Closures in
+    Browser Execution Handlers" above. Use `useLatest` for values captured by
+    long-lived handlers in `attachGraphEvents`.

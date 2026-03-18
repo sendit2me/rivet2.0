@@ -40,6 +40,8 @@ export function useExecutionDataFlow(): ExecutionDataFlowApi {
   const previousDataPerNodeToKeep = useAtomValue(previousDataPerNodeToKeepState);
   const currentGraphView = useAtomValue(currentGraphViewState);
   const selectedGraphRunByView = useAtomValue(selectedGraphRunByViewState);
+  const currentGraphViewLatest = useLatest(currentGraphView);
+  const selectedGraphRunByViewLatest = useLatest(selectedGraphRunByView);
 
   const setDataForNode = (
     nodeId: NodeId,
@@ -94,10 +96,12 @@ export function useExecutionDataFlow(): ExecutionDataFlowApi {
   };
 
   const setSelectedNodePageLatest = (nodeId: NodeId, execution: GraphExecutionMetadata | undefined) => {
+    const view = currentGraphViewLatest.current;
+    const selectionByView = selectedGraphRunByViewLatest.current;
     const shouldFollowLatest =
-      currentGraphView != null &&
-      execution?.graphId === currentGraphView.graphId &&
-      (selectedGraphRunByView[currentGraphView.key] ?? 'latest') === 'latest';
+      view != null &&
+      execution?.graphId === view.graphId &&
+      (selectionByView[view.key] ?? 'latest') === 'latest';
 
     if (!shouldFollowLatest) {
       return;
