@@ -1,11 +1,9 @@
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import {
-  currentGraphViewState,
-  graphRunHistoryByViewState,
   type NodeRunData,
   type ProcessDataForNode,
   lastRunDataState,
-  selectedGraphRunByViewState,
+  resolvedGraphSelectionState,
   selectedProcessPageState,
   type NodeRunDataWithRefs,
 } from '../state/dataFlow.js';
@@ -37,7 +35,7 @@ import { pinnedNodesState } from '../state/graphBuilder';
 import { useNodeIO } from '../hooks/useGetNodeIO';
 import { Tooltip } from './Tooltip';
 import { useDataRefs } from '../providers/ProvidersContext';
-import { filterProcessDataForSelection, getGraphSelectionOptions, getSelectedProcessData } from '../state/selectors/executionSelectors.js';
+import { filterProcessDataForSelection, getSelectedProcessData } from '../state/selectors/executionSelectors.js';
 import { renderNodeOutputBody } from './nodeOutput/renderNodeOutputBody.js';
 
 export const NodeOutput: FC<{ node: ChartNode; isHovered: boolean }> = memo(({ node, isHovered }) => {
@@ -212,14 +210,8 @@ const renderNodeOutputPager = ({
 const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
   const dataRefs = useDataRefs();
   const output = useAtomValue(lastRunDataState(node.id));
-  const currentGraphView = useAtomValue(currentGraphViewState);
-  const graphRunHistoryByView = useAtomValue(graphRunHistoryByViewState);
-  const selectedGraphRunByView = useAtomValue(selectedGraphRunByViewState);
   const [selectedPage, setSelectedPage] = useAtom(selectedProcessPageState(node.id));
-  const graphSelectionOptions = useMemo(
-    () => getGraphSelectionOptions({ currentGraphView, graphRunHistoryByView, selectedGraphRunByView }),
-    [currentGraphView, graphRunHistoryByView, selectedGraphRunByView],
-  );
+  const graphSelectionOptions = useAtomValue(resolvedGraphSelectionState);
 
   const filteredOutput = useMemo(
     () => filterProcessDataForSelection({ ...graphSelectionOptions, processData: output }) ?? output,
@@ -380,13 +372,7 @@ const NodeOutputBase: FC<{
   isHovered: boolean;
 }> = ({ node, onOpenFullscreenModal, isHovered }) => {
   const output = useAtomValue(lastRunDataState(node.id));
-  const currentGraphView = useAtomValue(currentGraphViewState);
-  const graphRunHistoryByView = useAtomValue(graphRunHistoryByViewState);
-  const selectedGraphRunByView = useAtomValue(selectedGraphRunByViewState);
-  const graphSelectionOptions = useMemo(
-    () => getGraphSelectionOptions({ currentGraphView, graphRunHistoryByView, selectedGraphRunByView }),
-    [currentGraphView, graphRunHistoryByView, selectedGraphRunByView],
-  );
+  const graphSelectionOptions = useAtomValue(resolvedGraphSelectionState);
   const filteredOutput = useMemo(
     () => filterProcessDataForSelection({ ...graphSelectionOptions, processData: output }) ?? output,
     [graphSelectionOptions, output],

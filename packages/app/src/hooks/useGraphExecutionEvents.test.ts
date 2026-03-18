@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { GraphId, GraphRunId } from '@ironclad/rivet-core';
+import type { GraphViewKey } from '../domain/graphEditing/navigationActions';
 import { removeRunningGraphEntry, updateSelectedGraphRunForGraphStart } from './useGraphExecutionEvents';
 
 test('updateSelectedGraphRunForGraphStart preserves explicit historical selection', () => {
@@ -10,7 +11,7 @@ test('updateSelectedGraphRunForGraphStart preserves explicit historical selectio
         'root:graph-a': 'graph-run-1' as GraphRunId,
         'root:graph-b': 'latest',
       },
-      'root:graph-a' as GraphId,
+      'root:graph-a' as GraphViewKey,
     ),
     {
       'root:graph-a': 'graph-run-1' as GraphRunId,
@@ -20,13 +21,13 @@ test('updateSelectedGraphRunForGraphStart preserves explicit historical selectio
 });
 
 test('updateSelectedGraphRunForGraphStart follows latest when unset or already latest', () => {
-  assert.deepEqual(updateSelectedGraphRunForGraphStart({}, 'root:graph-a' as GraphId), { 'root:graph-a': 'latest' });
+  assert.deepEqual(updateSelectedGraphRunForGraphStart({}, 'root:graph-a' as GraphViewKey), { 'root:graph-a': 'latest' });
   assert.deepEqual(
     updateSelectedGraphRunForGraphStart(
       {
         'root:graph-a': 'latest',
       },
-      'root:graph-a' as GraphId,
+      'root:graph-a' as GraphViewKey,
     ),
     {
       'root:graph-a': 'latest',

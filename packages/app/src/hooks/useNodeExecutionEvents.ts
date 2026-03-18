@@ -1,11 +1,9 @@
 import { produce } from 'immer';
-import { useSetAtom, useAtomValue } from 'jotai';
+import { useSetAtom } from 'jotai';
 import { type DataValue, type Inputs, type Outputs, type ProcessEvents } from '@ironclad/rivet-core';
 import { type ExecutionDataFlowApi } from './useExecutionDataFlow';
 import { lastRunDataByNodeState } from '../state/dataFlow';
-import { projectState } from '../state/savedGraphs';
 import { cloneNodeInputOrOutputDataForHistory, fixDataValueUint8Arrays, sanitizeDataValueForLength } from '../utils/executionDataTransforms';
-import { buildGraphViewKeyFromExecution } from '../utils/executionIdentity';
 import { useDataRefs } from '../providers/ProvidersContext';
 import { entries } from '../../../core/src/utils/typeSafety';
 
@@ -24,7 +22,6 @@ export function useNodeExecutionEvents({
 }: Pick<ExecutionDataFlowApi, 'setDataForNode' | 'setSelectedNodePageLatest'>): NodeExecutionEventsApi {
   const dataRefs = useDataRefs();
   const setLastRunData = useSetAtom(lastRunDataByNodeState);
-  const project = useAtomValue(projectState);
 
   const onNodeStart = ({ node, inputs, processId, execution }: ProcessEvents['nodeStart']) => {
     const sanitizedInputs: Inputs = {};
@@ -87,7 +84,6 @@ export function useNodeExecutionEvents({
           if (existingProcess) {
             existingProcess.graphId = execution.graphId;
             existingProcess.graphRunId = execution.graphRunId;
-            existingProcess.graphViewKey = buildGraphViewKeyFromExecution({ execution, project });
             existingProcess.rootRunId = execution.rootRunId;
             existingProcess.data.splitOutputData = {
               ...existingProcess.data.splitOutputData,
@@ -98,7 +94,6 @@ export function useNodeExecutionEvents({
               processId,
               graphId: execution.graphId,
               graphRunId: execution.graphRunId,
-              graphViewKey: buildGraphViewKeyFromExecution({ execution, project }),
               rootRunId: execution.rootRunId,
               data: {
                 splitOutputData: {

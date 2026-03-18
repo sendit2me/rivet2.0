@@ -4,19 +4,17 @@ import { useAtomValue, useSetAtom } from 'jotai';
 import { type GraphExecutionMetadata, type NodeId, type ProcessEvents, type ProcessId } from '@ironclad/rivet-core';
 import { useDataRefs } from '../providers/ProvidersContext';
 import { lastRecordingState } from '../state/execution';
-import { 
+import {
   currentGraphViewState,
   selectedGraphRunByViewState,
-  type NodeRunData, 
-  lastRunDataByNodeState, 
-  selectedProcessPageNodesState 
+  type NodeRunData,
+  lastRunDataByNodeState,
+  selectedProcessPageNodesState
 } from '../state/dataFlow';
 import { previousDataPerNodeToKeepState } from '../state/settings';
 import { trivetTestsRunningState } from '../state/trivet';
 import { type ProcessQuestions, userInputModalQuestionsState } from '../state/userInput';
-import { projectState } from '../state/savedGraphs';
 import { cloneNodeDataForHistory } from '../utils/executionDataTransforms';
-import { buildGraphViewKeyFromExecution } from '../utils/executionIdentity';
 
 export type ExecutionDataFlowApi = {
   onTrivetStart: () => void;
@@ -41,7 +39,6 @@ export function useExecutionDataFlow(): ExecutionDataFlowApi {
   const trivetRunningLatest = useLatest(trivetRunning);
   const previousDataPerNodeToKeep = useAtomValue(previousDataPerNodeToKeepState);
   const currentGraphView = useAtomValue(currentGraphViewState);
-  const project = useAtomValue(projectState);
   const selectedGraphRunByView = useAtomValue(selectedGraphRunByViewState);
 
   const setDataForNode = (
@@ -50,8 +47,6 @@ export function useExecutionDataFlow(): ExecutionDataFlowApi {
     execution: GraphExecutionMetadata | undefined,
     data: Partial<NodeRunData>,
   ) => {
-    const graphViewKey = execution ? buildGraphViewKeyFromExecution({ execution, project }) : undefined;
-
     setLastRunData((prev) =>
       produce(prev, (draft) => {
         if (!draft[nodeId]) {
@@ -62,7 +57,6 @@ export function useExecutionDataFlow(): ExecutionDataFlowApi {
         if (existingProcess) {
           existingProcess.graphId = execution?.graphId ?? existingProcess.graphId;
           existingProcess.graphRunId = execution?.graphRunId ?? existingProcess.graphRunId;
-          existingProcess.graphViewKey = graphViewKey ?? existingProcess.graphViewKey;
           existingProcess.rootRunId = execution?.rootRunId ?? existingProcess.rootRunId;
           existingProcess.data = {
             ...existingProcess.data,
@@ -92,7 +86,6 @@ export function useExecutionDataFlow(): ExecutionDataFlowApi {
           processId,
           graphId: execution?.graphId,
           graphRunId: execution?.graphRunId,
-          graphViewKey,
           rootRunId: execution?.rootRunId,
           data: cloneNodeDataForHistory(data, dataRefs)!,
         });
@@ -101,15 +94,9 @@ export function useExecutionDataFlow(): ExecutionDataFlowApi {
   };
 
   const setSelectedNodePageLatest = (nodeId: NodeId, execution: GraphExecutionMetadata | undefined) => {
-    const graphViewKey = execution ? buildGraphViewKeyFromExecution({ execution, project }) : undefined;
-    // Match by exact graphViewKey, or fall back to graphId match when viewing a
-    // subgraph via root context (sidebar navigation) while data has subgraph keys.
-    const graphViewMatches =
-      graphViewKey === currentGraphView?.key ||
-      (graphViewKey != null && execution?.graphId === currentGraphView?.graphId);
     const shouldFollowLatest =
       currentGraphView != null &&
-      graphViewMatches &&
+      execution?.graphId === currentGraphView.graphId &&
       (selectedGraphRunByView[currentGraphView.key] ?? 'latest') === 'latest';
 
     if (!shouldFollowLatest) {

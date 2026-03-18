@@ -11,8 +11,8 @@ import {
 import { type CSSProperties, forwardRef, useMemo } from 'react';
 import { useAtomValue } from 'jotai';
 import { draggingWireState } from '../state/graphBuilder';
-import { currentGraphViewState, graphRunHistoryByViewState, lastRunDataState, selectedGraphRunByViewState, selectedProcessPageState } from '../state/dataFlow';
-import { getGraphSelectionOptions, getSelectedProcessData } from '../state/selectors/executionSelectors.js';
+import { lastRunDataState, resolvedGraphSelectionState, selectedProcessPageState } from '../state/dataFlow';
+import { getSelectedProcessData } from '../state/selectors/executionSelectors.js';
 import clsx from 'clsx';
 import { RenderDataValue } from './RenderDataValue';
 
@@ -112,13 +112,7 @@ export const PortInfo = forwardRef<
 
   const lastRun = useAtomValue(lastRunDataState(port.nodeId));
   const selectedPage = useAtomValue(selectedProcessPageState(port.nodeId));
-  const currentGraphView = useAtomValue(currentGraphViewState);
-  const graphRunHistoryByView = useAtomValue(graphRunHistoryByViewState);
-  const selectedGraphRunByView = useAtomValue(selectedGraphRunByViewState);
-  const graphSelectionOptions = useMemo(
-    () => getGraphSelectionOptions({ currentGraphView, graphRunHistoryByView, selectedGraphRunByView }),
-    [currentGraphView, graphRunHistoryByView, selectedGraphRunByView],
-  );
+  const graphSelectionOptions = useAtomValue(resolvedGraphSelectionState);
 
   const portData = useMemo(() => {
     if (!lastRun || selectedPage == null) {

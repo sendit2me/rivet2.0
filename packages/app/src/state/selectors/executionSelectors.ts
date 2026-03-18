@@ -1,5 +1,5 @@
 import type { GraphRunRecord, GraphRunSelection, ProcessDataForNode, NodeRunDataWithRefs, PageValue } from '../dataFlow.js';
-import type { GraphId, GraphRunId } from '@ironclad/rivet-core';
+import type { GraphRunId } from '@ironclad/rivet-core';
 import type { DefaultExecutor } from '../settings.js';
 import type { ExecutorSessionState } from '../../hooks/executorSession.js';
 import type { GraphViewContext, GraphViewKey } from '../../domain/graphEditing/navigationActions.js';
@@ -56,16 +56,12 @@ export function getGraphSelectionOptions(options: {
   selectedGraphRunByView: Record<GraphViewKey, GraphRunSelection>;
 }): {
   graphRuns?: GraphRunRecord[];
-  graphId?: GraphId;
-  graphViewKey?: GraphViewKey;
   selectedGraphRun?: GraphRunSelection;
 } {
   const { currentGraphView, graphRunHistoryByView, selectedGraphRunByView } = options;
 
   return {
     graphRuns: currentGraphView ? getGraphRunsForView({ currentGraphView, graphRunHistoryByView }) : undefined,
-    graphId: currentGraphView?.graphId,
-    graphViewKey: currentGraphView?.key,
     selectedGraphRun: currentGraphView ? selectedGraphRunByView[currentGraphView.key] : undefined,
   };
 }
@@ -89,37 +85,23 @@ export function getSelectedGraphRunId(
 
 export function filterProcessDataForSelection(options: {
   graphRuns?: GraphRunRecord[];
-  graphId?: GraphId;
-  graphViewKey?: string;
   processData?: ProcessDataForNode[];
   selectedGraphRun?: GraphRunSelection;
 }): ProcessDataForNode[] | undefined {
-  const { graphRuns, graphId, graphViewKey, processData, selectedGraphRun } = options;
+  const { graphRuns, processData, selectedGraphRun } = options;
   if (!processData?.length) {
     return undefined;
   }
 
-  const graphViewFiltered = graphViewKey
-    ? processData.filter((process) => process.graphViewKey == null || process.graphViewKey === graphViewKey)
-    : processData;
-
-  // Fall back to graphId matching when the exact graphViewKey filter produces no results.
-  // This handles the case where the user navigates to a subgraph via root context
-  // (e.g. sidebar click) but the data is stored under a subgraph view key.
-  const compatibleViewFiltered =
-    graphViewFiltered.length > 0 || !graphId
-      ? graphViewFiltered
-      : processData.filter((process) => process.graphId == null || process.graphId === graphId);
-
   const selectedGraphRunId = getSelectedGraphRunId(graphRuns, selectedGraphRun);
   if (!selectedGraphRunId) {
-    return compatibleViewFiltered;
+    return processData;
   }
 
-  const graphRunFiltered = compatibleViewFiltered.filter(
+  const graphRunFiltered = processData.filter(
     (process) => process.graphRunId == null || process.graphRunId === selectedGraphRunId,
   );
-  return graphRunFiltered.length > 0 ? graphRunFiltered : compatibleViewFiltered;
+  return graphRunFiltered.length > 0 ? graphRunFiltered : processData;
 }
 
 export function getSelectedProcessData(
@@ -127,15 +109,11 @@ export function getSelectedProcessData(
   selectedPage: PageValue,
   options?: {
     graphRuns?: GraphRunRecord[];
-    graphId?: GraphId;
-    graphViewKey?: string;
     selectedGraphRun?: GraphRunSelection;
   },
 ): ProcessDataForNode | undefined {
   const filteredProcessData = filterProcessDataForSelection({
     graphRuns: options?.graphRuns,
-    graphId: options?.graphId,
-    graphViewKey: options?.graphViewKey,
     processData,
     selectedGraphRun: options?.selectedGraphRun,
   });

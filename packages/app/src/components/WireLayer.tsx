@@ -9,10 +9,8 @@ import { orderBy } from 'lodash-es';
 import { ioDefinitionsForNodeState, nodesByIdState } from '../state/graph';
 import { type PortPositions } from './NodeCanvas';
 import {
-  currentGraphViewState,
-  graphRunHistoryByViewState,
   lastRunDataByNodeState,
-  selectedGraphRunByViewState,
+  resolvedGraphSelectionState,
   selectedProcessPageNodesState,
   type RunDataByNodeId,
 } from '../state/dataFlow';
@@ -20,7 +18,7 @@ import select from '@atlaskit/select/dist/types/entry-points/select';
 import { useStableCallback } from '../hooks/useStableCallback';
 import { lineCrossesViewport } from '../utils/lineClipping';
 import { useAtom, useAtomValue, useStore } from 'jotai';
-import { getGraphSelectionOptions, getSelectedProcessData } from '../state/selectors/executionSelectors.js';
+import { getSelectedProcessData } from '../state/selectors/executionSelectors.js';
 
 const wiresStyles = css`
   width: 100%;
@@ -77,16 +75,9 @@ export const WireLayer: FC<WireLayerProps> = ({
   const [closestPort, setClosestPort] = useAtom(draggingWireClosestPortState);
   const store = useStore();
 
-  const currentGraphView = useAtomValue(currentGraphViewState);
-  const graphRunHistoryByView = useAtomValue(graphRunHistoryByViewState);
   const lastRunDataByNode = useAtomValue(lastRunDataByNodeState);
-  const selectedGraphRunByView = useAtomValue(selectedGraphRunByViewState);
   const selectedProcessPageNodes = useAtomValue(selectedProcessPageNodesState);
-
-  const graphSelectionOptions = useMemo(
-    () => getGraphSelectionOptions({ currentGraphView, graphRunHistoryByView, selectedGraphRunByView }),
-    [currentGraphView, graphRunHistoryByView, selectedGraphRunByView],
-  );
+  const graphSelectionOptions = useAtomValue(resolvedGraphSelectionState);
 
   const handleMouseDown = useStableCallback((event: MouseEvent) => {
     const { clientX, clientY } = event;

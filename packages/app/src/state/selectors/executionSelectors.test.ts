@@ -26,11 +26,11 @@ describe('executionSelectors', () => {
     assert.equal(getSelectedProcessRun(processData, 'latest')?.status?.type, 'running');
   });
 
-  test('graph-view-aware selection filters node history by graph view and selected graph run', () => {
+  test('graph-run-aware selection filters node history by selected graph run', () => {
     const processData = [
-      { processId: 'p-root-a', graphRunId: 'graph-run-a' as GraphRunId, graphViewKey: 'root:g-1', data: { status: { type: 'ok' } } },
-      { processId: 'p-root-b', graphRunId: 'graph-run-b' as GraphRunId, graphViewKey: 'root:g-1', data: { status: { type: 'running' } } },
-      { processId: 'p-other-view', graphRunId: 'graph-run-c' as GraphRunId, graphViewKey: 'subgraph:n-1:g-1', data: { status: { type: 'error', error: 'boom' } } },
+      { processId: 'p-root-a', graphRunId: 'graph-run-a' as GraphRunId, data: { status: { type: 'ok' } } },
+      { processId: 'p-root-b', graphRunId: 'graph-run-b' as GraphRunId, data: { status: { type: 'running' } } },
+      { processId: 'p-other', graphRunId: 'graph-run-c' as GraphRunId, data: { status: { type: 'error', error: 'boom' } } },
     ] as ProcessDataForNode[];
 
     const graphRuns = [
@@ -40,7 +40,6 @@ describe('executionSelectors', () => {
 
     const filtered = filterProcessDataForSelection({
       graphRuns,
-      graphViewKey: 'root:g-1',
       processData,
       selectedGraphRun: 'graph-run-a' as GraphRunId,
     });
@@ -49,7 +48,6 @@ describe('executionSelectors', () => {
     assert.equal(
       getSelectedProcessData(processData, 'latest', {
         graphRuns,
-        graphViewKey: 'root:g-1',
         selectedGraphRun: 'graph-run-b' as GraphRunId,
       })?.processId,
       'p-root-b',
@@ -67,10 +65,10 @@ describe('executionSelectors', () => {
     assert.equal(getSelectedGraphRunId(graphRuns, 'graph-run-a' as GraphRunId), 'graph-run-a');
   });
 
-  test('graph-view-aware selection falls back to the latest run when the selected graph run is stale', () => {
+  test('graph-run-aware selection falls back to the latest run when the selected graph run is stale', () => {
     const processData = [
-      { processId: 'p-root-a', graphRunId: 'graph-run-a' as GraphRunId, graphViewKey: 'root:g-1', data: { status: { type: 'ok' } } },
-      { processId: 'p-root-b', graphRunId: 'graph-run-b' as GraphRunId, graphViewKey: 'root:g-1', data: { status: { type: 'running' } } },
+      { processId: 'p-root-a', graphRunId: 'graph-run-a' as GraphRunId, data: { status: { type: 'ok' } } },
+      { processId: 'p-root-b', graphRunId: 'graph-run-b' as GraphRunId, data: { status: { type: 'running' } } },
     ] as ProcessDataForNode[];
 
     const graphRuns = [
@@ -81,7 +79,6 @@ describe('executionSelectors', () => {
     assert.deepEqual(
       filterProcessDataForSelection({
         graphRuns,
-        graphViewKey: 'root:g-1',
         processData,
         selectedGraphRun: 'missing-graph-run' as GraphRunId,
       })?.map((process) => process.processId),
@@ -161,10 +158,10 @@ describe('executionSelectors', () => {
     assert.equal(runs[0]!.graphRunId, 'root-run');
   });
 
-  test('filterProcessDataForSelection falls back to graphId when viewing subgraph via root context', () => {
+  test('filterProcessDataForSelection filters by graphRunId only', () => {
     const processData = [
-      { processId: 'p-sub-a', graphRunId: 'sub-run-a' as GraphRunId, graphId: 'sub-graph' as GraphId, graphViewKey: 'subgraph:main-graph:node-1:sub-graph', data: { status: { type: 'ok' } } },
-      { processId: 'p-sub-b', graphRunId: 'sub-run-b' as GraphRunId, graphId: 'sub-graph' as GraphId, graphViewKey: 'subgraph:main-graph:node-1:sub-graph', data: { status: { type: 'ok' } } },
+      { processId: 'p-sub-a', graphRunId: 'sub-run-a' as GraphRunId, graphId: 'sub-graph' as GraphId, data: { status: { type: 'ok' } } },
+      { processId: 'p-sub-b', graphRunId: 'sub-run-b' as GraphRunId, graphId: 'sub-graph' as GraphId, data: { status: { type: 'ok' } } },
     ] as ProcessDataForNode[];
 
     const graphRuns = [
@@ -172,11 +169,8 @@ describe('executionSelectors', () => {
       { graphRunId: 'sub-run-b' as GraphRunId, rootRunId: 'root-1' as RootRunId, graphId: 'sub-graph' as GraphId },
     ];
 
-    // Viewing via root context: graphViewKey is root:sub-graph but data has subgraph keys
     const filtered = filterProcessDataForSelection({
       graphRuns,
-      graphId: 'sub-graph' as GraphId,
-      graphViewKey: 'root:sub-graph',
       processData,
       selectedGraphRun: 'sub-run-a' as GraphRunId,
     });

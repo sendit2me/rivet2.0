@@ -95,9 +95,11 @@ The app converts this metadata into a `GraphViewKey` via `buildGraphViewKeyFromE
 //   key = "root:${graphId}"
 ```
 
-This key is used to store:
-- **Graph run records** in `graphRunHistoryByViewState[key]`
-- **Node data** in each `ProcessDataForNode.graphViewKey`
+This key is used to store **graph run records** in `graphRunHistoryByViewState[key]`.
+
+Per-node data (`ProcessDataForNode`) is tagged with `graphRunId` only — not with
+`graphViewKey`. The filtering pipeline uses the resolved `graphRunId` from the run
+switcher to select the correct node data for display.
 
 ### How navigation creates view context
 
@@ -120,22 +122,21 @@ If the user navigates to a subgraph via the sidebar after execution:
 
 ### How this is solved
 
-Three places implement fallback logic for this mismatch:
+The mismatch is handled in one place: **`getGraphRunsForView()`** in
+`executionSelectors.ts`. When viewing a root context with no direct history matches,
+it falls through to a broader search across all history entries matching by `graphId`.
+This resolves the correct `graphRunId` values for the current view.
 
-1. **`getGraphRunsForView()`** in `executionSelectors.ts`: When viewing a root context
-   with no direct matches, falls through to a broader search across all history entries
-   matching by `graphId`.
+Once the correct `graphRunId` is resolved via the run switcher, all downstream
+filtering uses `graphRunId` only:
 
-2. **`filterProcessDataForSelection()`** in `executionSelectors.ts`: When the exact
-   `graphViewKey` filter produces no results, falls back to filtering by `graphId`.
+- **`filterProcessDataForSelection()`** filters node data by `graphRunId`.
+- **`setSelectedNodePageLatest()`** matches by `graphId` to decide whether to
+  auto-follow the latest execution.
 
-3. **`setSelectedNodePageLatest()`** in `useExecutionDataFlow.ts`: Matches by
-   `graphId` in addition to exact `graphViewKey` when deciding whether to auto-follow
-   the latest execution.
-
-**When modifying any of these systems, preserve these fallbacks.** They are not
-optional compatibility shims — they are how the app works for the most common
-navigation path (sidebar click to view a subgraph after execution).
+**When modifying `getGraphRunsForView`, preserve its fallback logic.** It is how
+the app works for the most common navigation path (sidebar click to view a subgraph
+after execution).
 
 ## Execution Identity Chain
 
@@ -188,7 +189,7 @@ SubProcessor emits nodeStart({ execution: { graphRunId: "child-run", ... } })
      └─ parentEmitter.emit('nodeStart', same event)
         └─ App handler: onNodeStart(event)
            └─ setDataForNode(nodeId, processId, event.execution, data)
-              └─ Stores with graphViewKey derived from event.execution
+              └─ Stores with graphRunId from event.execution
 ```
 
 For **local execution** (`useLocalExecutor`), events are received directly on the
@@ -254,7 +255,6 @@ Each `ProcessDataForNode` contains:
   rootRunId?: RootRunId;
   graphRunId?: GraphRunId;
   graphId?: GraphId;
-  graphViewKey?: GraphViewKey;
   data: {
     inputData?: Record<PortId, DataValue>;
     outputData?: Record<PortId, DataValue>;
@@ -272,31 +272,32 @@ entries from different graph runs or split-run iterations.
 ## Data Filtering for Display
 
 When rendering node output or execution status, the app filters the node's
-`ProcessDataForNode[]` array through a multi-stage pipeline:
+`ProcessDataForNode[]` array through a two-stage pipeline:
 
 ```
 All ProcessDataForNode[] for this node
   │
-  ├─ Stage 1: Filter by graphViewKey
-  │  Match: process.graphViewKey === currentGraphView.key
-  │  OR process.graphViewKey is null (legacy/untagged data)
-  │
-  ├─ Stage 1b: Fallback by graphId (if Stage 1 found nothing)
-  │  Match: process.graphId === currentGraphView.graphId
-  │  This handles the key mismatch described above.
-  │
-  ├─ Stage 2: Filter by selected graphRunId
+  ├─ Stage 1: Filter by selected graphRunId
   │  Match: process.graphRunId === resolvedSelectedGraphRunId
-  │  Falls back to showing all compatible data if no match.
+  │  OR process.graphRunId is null (legacy/untagged data)
+  │  Falls back to showing all data if no match.
   │
-  └─ Stage 3: Page selection
+  └─ Stage 2: Page selection
      Pick entry by page index or 'latest'.
 ```
 
+The `resolvedSelectedGraphRunId` comes from the run switcher, which uses
+`getGraphRunsForView()` to resolve the correct runs for the current view
+(handling the key mismatch described above).
+
 This pipeline is implemented across:
 
-- `filterProcessDataForSelection()` in `executionSelectors.ts` (stages 1-2)
-- `getSelectedProcessData()` in `executionSelectors.ts` (stage 3)
+- `filterProcessDataForSelection()` in `executionSelectors.ts` (stage 1)
+- `getSelectedProcessData()` in `executionSelectors.ts` (stage 2)
+
+The graph selection inputs (`graphRuns` and `selectedGraphRun`) are computed
+once via the `resolvedGraphSelectionState` derived atom in `dataFlow.ts` and
+shared across all consuming components.
 
 Consumers: `NodeOutput`, `VisualNode`, `PortInfo`, `WireLayer`, and zoomed-out
 node content.
@@ -468,8 +469,8 @@ The critical design point is **execution metadata parity**: replay emits events
 with the same `GraphExecutionMetadata` that was recorded, so:
 
 - `graphRunHistoryByView` gets populated with the same view keys.
-- `lastRunDataByNodeState` entries get the same `graphViewKey` and `graphRunId` tags.
-- The run switcher, data filtering, and key mismatch fallbacks all work identically.
+- `lastRunDataByNodeState` entries get the same `graphRunId` tags.
+- The run switcher and data filtering work identically to live execution.
 
 ### Legacy recording fallback
 
@@ -540,8 +541,8 @@ absence gracefully since the final `nodeFinish` event contains the complete outp
 | File | Role |
 |------|------|
 | [`navigationActions.ts`](../packages/app/src/domain/graphEditing/navigationActions.ts) | `GraphViewContext` types, `createRootGraphViewContext`, `createSubgraphGraphViewContext` |
-| [`executionIdentity.ts`](../packages/app/src/utils/executionIdentity.ts) | `buildGraphViewKeyFromExecution` — converts execution metadata to view key |
-| [`dataFlow.ts`](../packages/app/src/state/dataFlow.ts) | Core atoms: `currentGraphViewState`, `graphRunHistoryByViewState`, `selectedGraphRunByViewState`, `lastRunDataByNodeState` |
+| [`executionIdentity.ts`](../packages/app/src/utils/executionIdentity.ts) | `buildGraphViewKeyFromExecution` — converts execution metadata to view key (used only for graph-level events) |
+| [`dataFlow.ts`](../packages/app/src/state/dataFlow.ts) | Core atoms: `currentGraphViewState`, `graphRunHistoryByViewState`, `selectedGraphRunByViewState`, `lastRunDataByNodeState`, `resolvedGraphSelectionState` |
 | [`executionSelectors.ts`](../packages/app/src/state/selectors/executionSelectors.ts) | `getGraphRunsForView`, `filterProcessDataForSelection`, `getSelectedProcessData`, `getGraphSelectionOptions` |
 | [`useExecutionDataFlow.ts`](../packages/app/src/hooks/useExecutionDataFlow.ts) | `setDataForNode`, `setSelectedNodePageLatest` — writes execution data to state |
 | [`useGraphExecutionEvents.ts`](../packages/app/src/hooks/useGraphExecutionEvents.ts) | Graph-level event handlers: `onStart`, `onGraphStart`, `onGraphFinish`, `onDone` |
@@ -566,8 +567,10 @@ When execution data is not showing up for a graph:
 
 1. **Check `currentGraphView.key`** — is it `root:` or `subgraph:`?
 2. **Check `graphRunHistoryByView` keys** — what keys have run records?
-3. **Do the keys match?** If not, the key mismatch fallbacks may not be working.
-4. **Check `ProcessDataForNode.graphViewKey`** for the node — does it match the current view?
+3. **Do the keys match?** If not, `getGraphRunsForView()` should fall back to
+   a broader search by `graphId`. Check that this fallback is finding runs.
+4. **Check `ProcessDataForNode.graphRunId`** for the node — does it match a
+   run in the resolved graph runs list?
 5. **Check that events are being forwarded** — is `wireSubprocessorEvents` wiring the event type you expect?
-6. **Check `filterProcessDataForSelection`** — is the fallback from graphViewKey to graphId triggering?
+6. **Check `filterProcessDataForSelection`** — is it filtering to the correct `graphRunId`?
 7. **For remote execution** — check that the sidecar serializes the event type and that `createProcessEventDispatcher` maps it.

@@ -129,7 +129,7 @@ These parts are well-designed and should not be simplified:
 
 ## Simplification Plan
 
-### Tier 1: Centralize the graph selection computation (medium impact, low risk)
+### Tier 1: Centralize the graph selection computation (medium impact, low risk) — DONE
 
 **Goal**: Compute `getGraphSelectionOptions()` once via a derived atom instead of
 independently in 6 component types.
@@ -186,7 +186,7 @@ computation (`graphSelectionOptions`), which is uniform.
 
 ---
 
-### Tier 2: Eliminate `graphViewKey` from per-node data (medium impact, medium risk)
+### Tier 2: Eliminate `graphViewKey` from per-node data (medium impact, medium risk) — DONE
 
 **Goal**: Stop storing and filtering by `graphViewKey` on `ProcessDataForNode`.
 Filter by `graphRunId` only.
@@ -354,7 +354,7 @@ Update `executionSelectors.test.ts`:
 
 ---
 
-### Tier 3: Simplify `buildGraphViewKeyFromExecution` (medium impact, low risk)
+### Tier 3: Simplify `buildGraphViewKeyFromExecution` (medium impact, low risk) — DONE
 
 **Goal**: Remove the project-scanning inference logic. This should be done FIRST
 (before Tiers 1-2) because it's the lowest risk and makes the function simpler

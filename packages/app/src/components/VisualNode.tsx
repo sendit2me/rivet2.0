@@ -13,8 +13,8 @@ import { type ChartNode, type CommentNode, type NodeConnection } from '@ironclad
 import { useAtomValue } from 'jotai';
 import { useDependsOnPlugins } from '../hooks/useDependsOnPlugins';
 import { useHistoricalNodeChangeInfo } from '../hooks/useHistoricalNodeChangeInfo';
-import { currentGraphViewState, graphRunHistoryByViewState, selectedGraphRunByViewState, type ProcessDataForNode } from '../state/dataFlow.js';
-import { getGraphSelectionOptions, getNodeExecutionClassFlags, getSelectedProcessRun } from '../state/selectors/executionSelectors.js';
+import { type ProcessDataForNode, resolvedGraphSelectionState } from '../state/dataFlow.js';
+import { getNodeExecutionClassFlags, getSelectedProcessRun } from '../state/selectors/executionSelectors.js';
 import { useCanvasHandlersContext, useCanvasViewContext } from './CanvasContext';
 import { ZoomedOutVisualNodeContent } from './visualNode/ZoomedOutVisualNodeContent';
 import { NormalVisualNodeContent } from './visualNode/NormalVisualNodeContent';
@@ -63,9 +63,7 @@ export const VisualNode = memo(
       const effectiveIsZoomedOut = isZoomedOut && !isComment;
       const effectiveIsReallyZoomedOut = isReallyZoomedOut && !isComment;
       const changeInfo = useHistoricalNodeChangeInfo(node.id);
-      const currentGraphView = useAtomValue(currentGraphViewState);
-      const graphRunHistoryByView = useAtomValue(graphRunHistoryByViewState);
-      const selectedGraphRunByView = useAtomValue(selectedGraphRunByViewState);
+      const graphSelectionOptions = useAtomValue(resolvedGraphSelectionState);
 
       useDependsOnPlugins();
 
@@ -110,11 +108,6 @@ export const VisualNode = memo(
         return <div className="node-skeleton" style={style} {...nodeAttributes} />;
       }
 
-      const graphSelectionOptions = getGraphSelectionOptions({
-        currentGraphView,
-        graphRunHistoryByView,
-        selectedGraphRunByView,
-      });
       const selectedProcessRun = getSelectedProcessRun(lastRun, processPage, graphSelectionOptions);
       const executionClassFlags = getNodeExecutionClassFlags(selectedProcessRun);
 

@@ -16,6 +16,7 @@ import {
 } from '@ironclad/rivet-core';
 import { graphNavigationStackState } from './graphBuilder.js';
 import type { GraphViewKey } from '../domain/graphEditing/navigationActions.js';
+import { getGraphSelectionOptions } from './selectors/executionSelectors.js';
 
 export type GraphRunSelection = GraphRunId | 'latest';
 
@@ -35,7 +36,6 @@ export type ProcessDataForNode = {
   rootRunId?: RootRunId;
   graphRunId?: GraphRunId;
   graphId?: GraphId;
-  graphViewKey?: GraphViewKey;
   data: NodeRunDataWithRefs;
 };
 
@@ -116,6 +116,18 @@ export const graphRunningState = atom(false);
 export const graphStartTimeState = atom<number | undefined>(undefined);
 
 export const graphPausedState = atom(false);
+
+export const resolvedGraphSelectionState = atom((get) => {
+  const currentGraphView = get(currentGraphViewState);
+  const graphRunHistoryByView = get(graphRunHistoryByViewState);
+  const selectedGraphRunByView = get(selectedGraphRunByViewState);
+
+  return getGraphSelectionOptions({
+    currentGraphView,
+    graphRunHistoryByView,
+    selectedGraphRunByView,
+  });
+});
 
 export const selectedProcessPageNodesState = atom<Record<NodeId, PageValue>>({});
 
