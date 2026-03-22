@@ -12,6 +12,17 @@ const mutableToast = toast as ToastWithMutableError;
 const originalToastError = mutableToast.error;
 const originalConsoleError = console.error;
 
+function filterRelevantConsoleErrors(logged: unknown[]): unknown[] {
+  return logged.filter((entry) => {
+    if (!Array.isArray(entry) || entry.length === 0) {
+      return true;
+    }
+
+    const [firstArg] = entry;
+    return !(typeof firstArg === 'string' && firstArg.includes('[DEP0040] DeprecationWarning'));
+  });
+}
+
 function createToastErrorStub(onToast: (message: string) => void): typeof toast.error {
   return ((content) => {
     onToast(typeof content === 'string' ? content : String(content ?? ''));
@@ -24,7 +35,7 @@ afterEach(() => {
   console.error = originalConsoleError;
 });
 
-describe('errorHandling', () => {
+describe('errorHandling', { concurrency: false }, () => {
   test('logs structured metadata when provided', () => {
     const logged: unknown[] = [];
     const toasted: string[] = [];
@@ -43,10 +54,12 @@ describe('errorHandling', () => {
       },
     });
 
+    const relevantLogged = filterRelevantConsoleErrors(logged);
+
     assert.equal(toasted.length, 1);
     assert.equal(toasted[0], 'Structured error test: boom');
-    assert.equal(logged.length, 1);
-    assert.deepEqual(logged[0], [
+    assert.equal(relevantLogged.length, 1);
+    assert.deepEqual(relevantLogged[0], [
       '[Structured error test]',
       {
         error: new Error('boom'),
@@ -90,8 +103,10 @@ describe('errorHandling', () => {
       toastError: false,
     });
 
+    const relevantLogged = filterRelevantConsoleErrors(logged);
+
     assert.equal(toasted.length, 0);
-    assert.equal(logged.length, 1);
+    assert.equal(relevantLogged.length, 1);
   });
 
   test('wrapAsync resolves structured error options from handler arguments', async () => {
@@ -120,9 +135,11 @@ describe('errorHandling', () => {
     wrapped('dataset-1');
     await new Promise((resolve) => setTimeout(resolve, 0));
 
+    const relevantLogged = filterRelevantConsoleErrors(logged);
+
     assert.deepEqual(toasted, ['Wrapped error test: wrapped boom']);
-    assert.equal(logged.length, 1);
-    assert.deepEqual(logged[0], [
+    assert.equal(relevantLogged.length, 1);
+    assert.deepEqual(relevantLogged[0], [
       '[Wrapped error test]',
       {
         error: new Error('wrapped boom'),

@@ -1,0 +1,97 @@
+import { streamText, type LanguageModelUsage, type ModelMessage, type TextStreamPart, type ToolSet } from 'ai';
+import type { ChatMessage, GptFunction } from '../DataValue.js';
+import type { Outputs } from '../GraphProcessor.js';
+import type { InternalProcessContext } from '../ProcessContext.js';
+import type { AssistantMessageFunctionCallMode, StreamedFunctionCall } from '../chat/streamChatResponse.js';
+
+type StreamTextArgs = Parameters<typeof streamText>[0];
+type MaybePromiseLike<T> = T | PromiseLike<T>;
+
+export type ChatV2Provider = 'openai' | 'anthropic' | 'google';
+
+export type ChatV2Model = StreamTextArgs['model'];
+export type ChatV2ProviderOptions = StreamTextArgs['providerOptions'];
+export type ChatV2ToolSet = NonNullable<StreamTextArgs['tools']>;
+export type ChatV2MessageList = ModelMessage[];
+export type ChatV2StreamPart = TextStreamPart<ToolSet>;
+
+export type ChatV2ProviderMetadata = Record<string, Record<string, unknown>>;
+
+export type ChatV2NormalizedUsage = {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  cachedTokens: number;
+  reasoningTokens: number;
+  totalCost: number | undefined;
+};
+
+export type ChatV2StreamHandle = {
+  fullStream: AsyncIterable<ChatV2StreamPart>;
+  finishReason?: MaybePromiseLike<string | undefined> | undefined;
+  providerMetadata?: MaybePromiseLike<ChatV2ProviderMetadata | undefined> | undefined;
+  usage?: MaybePromiseLike<LanguageModelUsage | undefined> | undefined;
+};
+
+export type ChatV2StreamExecutor = (
+  args: StreamTextArgs,
+) => ChatV2StreamHandle | Promise<ChatV2StreamHandle>;
+
+export type StreamChatV2Options = {
+  model: ChatV2Model;
+  messages: ChatV2MessageList;
+  tools?: ChatV2ToolSet | undefined;
+  maxTokens?: number | undefined;
+  temperature?: number | undefined;
+  topP?: number | undefined;
+  topK?: number | undefined;
+  stopSequences?: string[] | undefined;
+  providerOptions?: ChatV2ProviderOptions | undefined;
+  abortSignal?: AbortSignal | undefined;
+  executeStream?: ChatV2StreamExecutor | undefined;
+  onPartialOutput?: ((partial: { text: string; functionCalls: StreamedFunctionCall[] }) => void) | undefined;
+};
+
+export type StreamChatV2Result = {
+  responseText: string;
+  functionCalls: StreamedFunctionCall[];
+  usage: LanguageModelUsage | undefined;
+  reasoning: string;
+  finishReason: string | undefined;
+  providerMetadata: ChatV2ProviderMetadata | undefined;
+};
+
+export type RunChatV2PipelineOptions = {
+  provider: ChatV2Provider;
+  model: ChatV2Model;
+  modelId: string;
+  prompt: unknown;
+  systemPrompt?: unknown;
+  functions?: GptFunction[] | undefined;
+  additionalTools?: ChatV2ToolSet | undefined;
+  maxTokens?: number | undefined;
+  temperature?: number | undefined;
+  topP?: number | undefined;
+  topK?: number | undefined;
+  stopSequences?: string[] | undefined;
+  providerOptions?: ChatV2ProviderOptions | undefined;
+  anthropicCacheControlTtl?: '5m' | '1h' | undefined;
+  outputUsage?: boolean | undefined;
+  emitPartialOutputs?: boolean | undefined;
+  functionCallMode?: AssistantMessageFunctionCallMode | undefined;
+  context: Pick<InternalProcessContext, 'signal' | 'onPartialOutputs'>;
+  executeStream?: ChatV2StreamExecutor | undefined;
+};
+
+export type ChatV2PipelineResult = {
+  commonOutputs: Outputs;
+  requestMessages: ChatMessage[];
+  allMessages: ChatMessage[];
+  response: string;
+  functionCalls: StreamedFunctionCall[];
+  reasoning: string;
+  usage: ChatV2NormalizedUsage | undefined;
+  rawUsage: LanguageModelUsage | undefined;
+  finishReason: string | undefined;
+  providerMetadata: ChatV2ProviderMetadata | undefined;
+};

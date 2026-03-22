@@ -87,7 +87,7 @@ export const ChatAnthropicNodeImpl: PluginNodeImpl<ChatAnthropicNode> = {
   create(): ChatAnthropicNode {
     const chartNode: ChatAnthropicNode = {
       type: 'chatAnthropic',
-      title: 'Chat (Anthropic)',
+      title: 'Chat (Anthropic, Legacy)',
       id: nanoid() as NodeId,
       visualData: {
         x: 0,
@@ -395,10 +395,12 @@ export const ChatAnthropicNodeImpl: PluginNodeImpl<ChatAnthropicNode> = {
   getUIData(): NodeUIData {
     return {
       infoBoxBody: dedent`
-        Makes a call to an Anthropic chat model. The settings contains many options for tweaking the model's behavior.
-      `,
-      infoBoxTitle: 'Chat (Anthropic) Node',
-      contextMenuTitle: 'Chat (Anthropic)',
+          Legacy Anthropic chat node.
+
+          For new work, prefer \`LLM Chat v2\`, which keeps provider selection inside one shared node.
+        `,
+      infoBoxTitle: 'Chat (Anthropic) Node (Legacy)',
+      contextMenuTitle: 'Chat (Anthropic, Legacy)',
       group: ['AI'],
     };
   },
@@ -775,7 +777,7 @@ export const ChatAnthropicNodeImpl: PluginNodeImpl<ChatAnthropicNode> = {
   },
 };
 
-export const chatAnthropicNode = pluginNodeDefinition(ChatAnthropicNodeImpl, 'Chat');
+export const chatAnthropicNode = pluginNodeDefinition(ChatAnthropicNodeImpl, 'Chat (Anthropic, Legacy)');
 
 export function getSystemPrompt(inputs: Inputs): SystemPrompt | undefined {
   const systemInput = inputs['system' as PortId];

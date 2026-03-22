@@ -29,7 +29,7 @@ export const DefaultNodeEditorField: FC<
   SharedEditorProps & {
     editor: EditorDefinition<ChartNode>;
   }
-> = ({ node, onChange, editor, isReadonly, isDisabled, onClose }) => {
+> = ({ node, onChange, editor, isReadonly, isDisabled, onClose, onRefreshEditors }) => {
   const data = node.data as Record<string, unknown>;
 
   if (editor.hideIf?.(node.data)) {
@@ -41,6 +41,7 @@ export const DefaultNodeEditorField: FC<
     onChange,
     isReadonly,
     onClose,
+    onRefreshEditors,
     isDisabled,
   };
 

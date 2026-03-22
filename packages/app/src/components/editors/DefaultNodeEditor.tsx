@@ -97,9 +97,11 @@ export const DefaultNodeEditor: FC<
   }
 > = ({ node, onChange, isReadonly, onClose }) => {
   const [editors, setEditors] = useState<EditorDefinition<ChartNode>[]>([]);
+  const [editorRefreshNonce, setEditorRefreshNonce] = useState(0);
 
   const getUIContext = useGetRivetUIContext();
   const projectNodeRegistry = useProjectNodeRegistry();
+  const refreshEditors = () => setEditorRefreshNonce((value) => value + 1);
 
   useEffect(() => {
     (async () => {
@@ -135,7 +137,7 @@ export const DefaultNodeEditor: FC<
         });
       }
     })();
-  }, [getUIContext, node, projectNodeRegistry]);
+  }, [editorRefreshNonce, getUIContext, node, projectNodeRegistry]);
 
   return (
     <div css={defaultEditorContainerStyles}>
@@ -150,6 +152,7 @@ export const DefaultNodeEditor: FC<
             isReadonly={isReadonly}
             isDisabled={isDisabled}
             onClose={onClose}
+            onRefreshEditors={refreshEditors}
           />
         );
       })}

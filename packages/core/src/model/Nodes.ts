@@ -10,6 +10,9 @@ import { chatNode } from './nodes/ChatNode.js';
 export * from './nodes/ChatNode.js';
 export * from './nodes/ChatNodeBase.js';
 
+import { llmChatV2Node } from './nodes/LLMChatV2Node.js';
+export * from './nodes/LLMChatV2Node.js';
+
 import { promptNode } from './nodes/PromptNode.js';
 export * from './nodes/PromptNode.js';
 
@@ -255,6 +258,7 @@ export const registerBuiltInNodes = (registry: NodeRegistration) => {
     .register(toYamlNode)
     .register(userInputNode)
     .register(textNode)
+    .register(llmChatV2Node)
     .register(chatNode)
     .register(promptNode)
     .register(extractRegexNode)

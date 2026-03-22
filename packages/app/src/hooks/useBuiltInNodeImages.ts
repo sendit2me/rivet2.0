@@ -87,6 +87,7 @@ export const useBuiltInNodeImages = (): Record<BuiltInNodeType, string> => {
   return {
     text: textNodeImage,
     chat: chatNodeImage,
+    llmChatV2: chatNodeImage,
     chunk: chunkNodeImage,
     prompt: promptNodeImage,
     toYaml: toYamlNodeImage,

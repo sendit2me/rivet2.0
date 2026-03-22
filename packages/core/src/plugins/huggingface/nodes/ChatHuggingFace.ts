@@ -59,7 +59,7 @@ export const ChatHuggingFaceNodeImpl: PluginNodeImpl<ChatHuggingFaceNode> = {
         maxNewTokens: 1024,
         doSample: false,
       },
-      title: 'Chat (Hugging Face)',
+      title: 'Chat (Hugging Face, Legacy)',
       visualData: {
         x: 0,
         y: 0,
@@ -71,9 +71,9 @@ export const ChatHuggingFaceNodeImpl: PluginNodeImpl<ChatHuggingFaceNode> = {
   getUIData(): NodeUIData {
     return {
       group: ['AI', 'Hugging Face'],
-      contextMenuTitle: 'Chat (Hugging Face)',
-      infoBoxTitle: 'Chat (Hugging Face) Node',
-      infoBoxBody: 'Chat, using the hugging face inference API',
+      contextMenuTitle: 'Chat (Hugging Face, Legacy)',
+      infoBoxTitle: 'Chat (Hugging Face) Node (Legacy)',
+      infoBoxBody: 'Legacy chat node using the Hugging Face inference API.',
     };
   },
 
@@ -313,4 +313,4 @@ export const ChatHuggingFaceNodeImpl: PluginNodeImpl<ChatHuggingFaceNode> = {
   },
 };
 
-export const chatHuggingFaceNode = pluginNodeDefinition(ChatHuggingFaceNodeImpl, 'Chat (Hugging Face)');
+export const chatHuggingFaceNode = pluginNodeDefinition(ChatHuggingFaceNodeImpl, 'Chat (Hugging Face, Legacy)');

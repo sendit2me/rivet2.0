@@ -12,6 +12,7 @@ export * from './native/BaseDir.js';
 export * from './native/NativeApi.js';
 export * from './native/BrowserNativeApi.js';
 export * from './model/ProcessContext.js';
+export * from './model/chat-v2/index.js';
 export * from './integrations/integrations.js';
 import './integrations/enableIntegrations.js';
 export * from './integrations/VectorDatabase.js';

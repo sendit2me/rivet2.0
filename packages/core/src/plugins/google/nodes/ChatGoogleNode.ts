@@ -102,7 +102,7 @@ export const ChatGoogleNodeImpl: PluginNodeImpl<ChatGoogleNode> = {
   create(): ChatGoogleNode {
     const chartNode: ChatGoogleNode = {
       type: 'chatGoogle',
-      title: 'Chat (Google)',
+      title: 'Chat (Google, Legacy)',
       id: nanoid() as NodeId,
       visualData: {
         x: 0,
@@ -359,10 +359,12 @@ export const ChatGoogleNodeImpl: PluginNodeImpl<ChatGoogleNode> = {
   getUIData(): NodeUIData {
     return {
       infoBoxBody: dedent`
-        Makes a call to an Google chat model. The settings contains many options for tweaking the model's behavior.
-      `,
-      infoBoxTitle: 'Chat (Google) Node',
-      contextMenuTitle: 'Chat (Google)',
+          Legacy Google chat node.
+
+          For new work, prefer \`LLM Chat v2\`, which keeps provider selection inside one shared node.
+        `,
+      infoBoxTitle: 'Chat (Google) Node (Legacy)',
+      contextMenuTitle: 'Chat (Google, Legacy)',
       group: ['AI'],
     };
   },
@@ -751,7 +753,7 @@ export const ChatGoogleNodeImpl: PluginNodeImpl<ChatGoogleNode> = {
   },
 };
 
-export const chatGoogleNode = pluginNodeDefinition(ChatGoogleNodeImpl, 'Chat');
+export const chatGoogleNode = pluginNodeDefinition(ChatGoogleNodeImpl, 'Chat (Google, Legacy)');
 
 export function getChatGoogleNodeMessages(inputs: Inputs) {
   const prompt = inputs['prompt' as PortId];

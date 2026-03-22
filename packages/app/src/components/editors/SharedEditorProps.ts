@@ -7,4 +7,5 @@ export type SharedEditorProps = {
   isReadonly: boolean;
   isDisabled: boolean;
   onClose?: () => void;
+  onRefreshEditors?: () => void;
 };

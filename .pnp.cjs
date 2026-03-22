@@ -105,6 +105,138 @@ const RAW_RUNTIME_STATE =
         "linkType": "HARD"\
       }]\
     ]],\
+    ["@ai-sdk/anthropic", [\
+      ["npm:3.0.58", {\
+        "packageLocation": "./.yarn/cache/@ai-sdk-anthropic-npm-3.0.58-7c488ef3fe-256d52e330.zip/node_modules/@ai-sdk/anthropic/",\
+        "packageDependencies": [\
+          ["@ai-sdk/anthropic", "npm:3.0.58"]\
+        ],\
+        "linkType": "SOFT"\
+      }],\
+      ["virtual:36b10b38a2f3e49d8cd162fbeda8e49e065ae2d0ebbbd25b0a3339d0203e0ec0394d852d27989cf9f4297d5cf181367ebbc4ea51690fe53337f9c0c2783178a4#npm:3.0.58", {\
+        "packageLocation": "./.yarn/__virtual__/@ai-sdk-anthropic-virtual-0cdcdda25d/0/cache/@ai-sdk-anthropic-npm-3.0.58-7c488ef3fe-256d52e330.zip/node_modules/@ai-sdk/anthropic/",\
+        "packageDependencies": [\
+          ["@ai-sdk/anthropic", "virtual:36b10b38a2f3e49d8cd162fbeda8e49e065ae2d0ebbbd25b0a3339d0203e0ec0394d852d27989cf9f4297d5cf181367ebbc4ea51690fe53337f9c0c2783178a4#npm:3.0.58"],\
+          ["@ai-sdk/provider", "npm:3.0.8"],\
+          ["@ai-sdk/provider-utils", "virtual:0cdcdda25d01380a0d75a6e689f8386dc862d24bf97ff2b4391374ee94ba7006648428207098722eae44e6c3b9d65ac10d7424e9f4e42932226e1b4542b96ce1#npm:4.0.19"],\
+          ["@types/zod", null],\
+          ["zod", "npm:4.3.6"]\
+        ],\
+        "packagePeers": [\
+          "@types/zod",\
+          "zod"\
+        ],\
+        "linkType": "HARD"\
+      }]\
+    ]],\
+    ["@ai-sdk/gateway", [\
+      ["npm:3.0.66", {\
+        "packageLocation": "./.yarn/cache/@ai-sdk-gateway-npm-3.0.66-71354ebb90-e49da0e109.zip/node_modules/@ai-sdk/gateway/",\
+        "packageDependencies": [\
+          ["@ai-sdk/gateway", "npm:3.0.66"]\
+        ],\
+        "linkType": "SOFT"\
+      }],\
+      ["virtual:352d61ee9c23e228ebde8c4eea5b8086a1174f3792d3892174e886a2e3a1068508a5b2aea701e8b685786442b0dd60977c6cbaabbcab379ff02446459a42b80e#npm:3.0.66", {\
+        "packageLocation": "./.yarn/__virtual__/@ai-sdk-gateway-virtual-84193647ce/0/cache/@ai-sdk-gateway-npm-3.0.66-71354ebb90-e49da0e109.zip/node_modules/@ai-sdk/gateway/",\
+        "packageDependencies": [\
+          ["@ai-sdk/gateway", "virtual:352d61ee9c23e228ebde8c4eea5b8086a1174f3792d3892174e886a2e3a1068508a5b2aea701e8b685786442b0dd60977c6cbaabbcab379ff02446459a42b80e#npm:3.0.66"],\
+          ["@ai-sdk/provider", "npm:3.0.8"],\
+          ["@ai-sdk/provider-utils", "virtual:0cdcdda25d01380a0d75a6e689f8386dc862d24bf97ff2b4391374ee94ba7006648428207098722eae44e6c3b9d65ac10d7424e9f4e42932226e1b4542b96ce1#npm:4.0.19"],\
+          ["@types/zod", null],\
+          ["@vercel/oidc", "npm:3.1.0"],\
+          ["zod", "npm:4.3.6"]\
+        ],\
+        "packagePeers": [\
+          "@types/zod",\
+          "zod"\
+        ],\
+        "linkType": "HARD"\
+      }]\
+    ]],\
+    ["@ai-sdk/google", [\
+      ["npm:3.0.43", {\
+        "packageLocation": "./.yarn/cache/@ai-sdk-google-npm-3.0.43-6fb0b7a17a-1e9f2646b3.zip/node_modules/@ai-sdk/google/",\
+        "packageDependencies": [\
+          ["@ai-sdk/google", "npm:3.0.43"]\
+        ],\
+        "linkType": "SOFT"\
+      }],\
+      ["virtual:36b10b38a2f3e49d8cd162fbeda8e49e065ae2d0ebbbd25b0a3339d0203e0ec0394d852d27989cf9f4297d5cf181367ebbc4ea51690fe53337f9c0c2783178a4#npm:3.0.43", {\
+        "packageLocation": "./.yarn/__virtual__/@ai-sdk-google-virtual-630cdf2dcc/0/cache/@ai-sdk-google-npm-3.0.43-6fb0b7a17a-1e9f2646b3.zip/node_modules/@ai-sdk/google/",\
+        "packageDependencies": [\
+          ["@ai-sdk/google", "virtual:36b10b38a2f3e49d8cd162fbeda8e49e065ae2d0ebbbd25b0a3339d0203e0ec0394d852d27989cf9f4297d5cf181367ebbc4ea51690fe53337f9c0c2783178a4#npm:3.0.43"],\
+          ["@ai-sdk/provider", "npm:3.0.8"],\
+          ["@ai-sdk/provider-utils", "virtual:0cdcdda25d01380a0d75a6e689f8386dc862d24bf97ff2b4391374ee94ba7006648428207098722eae44e6c3b9d65ac10d7424e9f4e42932226e1b4542b96ce1#npm:4.0.19"],\
+          ["@types/zod", null],\
+          ["zod", "npm:4.3.6"]\
+        ],\
+        "packagePeers": [\
+          "@types/zod",\
+          "zod"\
+        ],\
+        "linkType": "HARD"\
+      }]\
+    ]],\
+    ["@ai-sdk/openai", [\
+      ["npm:3.0.41", {\
+        "packageLocation": "./.yarn/cache/@ai-sdk-openai-npm-3.0.41-54b77423dc-c4a696aeeb.zip/node_modules/@ai-sdk/openai/",\
+        "packageDependencies": [\
+          ["@ai-sdk/openai", "npm:3.0.41"]\
+        ],\
+        "linkType": "SOFT"\
+      }],\
+      ["virtual:36b10b38a2f3e49d8cd162fbeda8e49e065ae2d0ebbbd25b0a3339d0203e0ec0394d852d27989cf9f4297d5cf181367ebbc4ea51690fe53337f9c0c2783178a4#npm:3.0.41", {\
+        "packageLocation": "./.yarn/__virtual__/@ai-sdk-openai-virtual-b0997dd93e/0/cache/@ai-sdk-openai-npm-3.0.41-54b77423dc-c4a696aeeb.zip/node_modules/@ai-sdk/openai/",\
+        "packageDependencies": [\
+          ["@ai-sdk/openai", "virtual:36b10b38a2f3e49d8cd162fbeda8e49e065ae2d0ebbbd25b0a3339d0203e0ec0394d852d27989cf9f4297d5cf181367ebbc4ea51690fe53337f9c0c2783178a4#npm:3.0.41"],\
+          ["@ai-sdk/provider", "npm:3.0.8"],\
+          ["@ai-sdk/provider-utils", "virtual:0cdcdda25d01380a0d75a6e689f8386dc862d24bf97ff2b4391374ee94ba7006648428207098722eae44e6c3b9d65ac10d7424e9f4e42932226e1b4542b96ce1#npm:4.0.19"],\
+          ["@types/zod", null],\
+          ["zod", "npm:4.3.6"]\
+        ],\
+        "packagePeers": [\
+          "@types/zod",\
+          "zod"\
+        ],\
+        "linkType": "HARD"\
+      }]\
+    ]],\
+    ["@ai-sdk/provider", [\
+      ["npm:3.0.8", {\
+        "packageLocation": "./.yarn/cache/@ai-sdk-provider-npm-3.0.8-8ed5bd3c88-85fb7b9c7c.zip/node_modules/@ai-sdk/provider/",\
+        "packageDependencies": [\
+          ["@ai-sdk/provider", "npm:3.0.8"],\
+          ["json-schema", "npm:0.4.0"]\
+        ],\
+        "linkType": "HARD"\
+      }]\
+    ]],\
+    ["@ai-sdk/provider-utils", [\
+      ["npm:4.0.19", {\
+        "packageLocation": "./.yarn/cache/@ai-sdk-provider-utils-npm-4.0.19-9b41d056a4-7f3822c782.zip/node_modules/@ai-sdk/provider-utils/",\
+        "packageDependencies": [\
+          ["@ai-sdk/provider-utils", "npm:4.0.19"]\
+        ],\
+        "linkType": "SOFT"\
+      }],\
+      ["virtual:0cdcdda25d01380a0d75a6e689f8386dc862d24bf97ff2b4391374ee94ba7006648428207098722eae44e6c3b9d65ac10d7424e9f4e42932226e1b4542b96ce1#npm:4.0.19", {\
+        "packageLocation": "./.yarn/__virtual__/@ai-sdk-provider-utils-virtual-33f49d459c/0/cache/@ai-sdk-provider-utils-npm-4.0.19-9b41d056a4-7f3822c782.zip/node_modules/@ai-sdk/provider-utils/",\
+        "packageDependencies": [\
+          ["@ai-sdk/provider-utils", "virtual:0cdcdda25d01380a0d75a6e689f8386dc862d24bf97ff2b4391374ee94ba7006648428207098722eae44e6c3b9d65ac10d7424e9f4e42932226e1b4542b96ce1#npm:4.0.19"],\
+          ["@ai-sdk/provider", "npm:3.0.8"],\
+          ["@standard-schema/spec", "npm:1.1.0"],\
+          ["@types/zod", null],\
+          ["eventsource-parser", "npm:3.0.6"],\
+          ["zod", "npm:4.3.6"]\
+        ],\
+        "packagePeers": [\
+          "@types/zod",\
+          "zod"\
+        ],\
+        "linkType": "HARD"\
+      }]\
+    ]],\
     ["@algolia/autocomplete-core", [\
       ["npm:1.9.3", {\
         "packageLocation": "./.yarn/cache/@algolia-autocomplete-core-npm-1.9.3-e43f49f9c4-a0d195ecde.zip/node_modules/@algolia/autocomplete-core/",\
@@ -7056,6 +7188,9 @@ const RAW_RUNTIME_STATE =
         "packageLocation": "./packages/core/",\
         "packageDependencies": [\
           ["@ironclad/rivet-core", "workspace:packages/core"],\
+          ["@ai-sdk/anthropic", "virtual:36b10b38a2f3e49d8cd162fbeda8e49e065ae2d0ebbbd25b0a3339d0203e0ec0394d852d27989cf9f4297d5cf181367ebbc4ea51690fe53337f9c0c2783178a4#npm:3.0.58"],\
+          ["@ai-sdk/google", "virtual:36b10b38a2f3e49d8cd162fbeda8e49e065ae2d0ebbbd25b0a3339d0203e0ec0394d852d27989cf9f4297d5cf181367ebbc4ea51690fe53337f9c0c2783178a4#npm:3.0.43"],\
+          ["@ai-sdk/openai", "virtual:36b10b38a2f3e49d8cd162fbeda8e49e065ae2d0ebbbd25b0a3339d0203e0ec0394d852d27989cf9f4297d5cf181367ebbc4ea51690fe53337f9c0c2783178a4#npm:3.0.41"],\
           ["@gentrace/core", "npm:2.2.5"],\
           ["@google-cloud/vertexai", "npm:0.1.3"],\
           ["@google/genai", "npm:0.12.0"],\
@@ -7069,6 +7204,7 @@ const RAW_RUNTIME_STATE =
           ["@types/yaml", "npm:1.9.7"],\
           ["@typescript-eslint/eslint-plugin", "virtual:36b10b38a2f3e49d8cd162fbeda8e49e065ae2d0ebbbd25b0a3339d0203e0ec0394d852d27989cf9f4297d5cf181367ebbc4ea51690fe53337f9c0c2783178a4#npm:8.24.0"],\
           ["@typescript-eslint/parser", "virtual:36b10b38a2f3e49d8cd162fbeda8e49e065ae2d0ebbbd25b0a3339d0203e0ec0394d852d27989cf9f4297d5cf181367ebbc4ea51690fe53337f9c0c2783178a4#npm:8.24.0"],\
+          ["ai", "virtual:36b10b38a2f3e49d8cd162fbeda8e49e065ae2d0ebbbd25b0a3339d0203e0ec0394d852d27989cf9f4297d5cf181367ebbc4ea51690fe53337f9c0c2783178a4#npm:6.0.116"],\
           ["assemblyai", "npm:4.6.0"],\
           ["autoevals", "npm:0.0.26"],\
           ["cron-parser", "npm:4.9.0"],\
@@ -7113,7 +7249,8 @@ const RAW_RUNTIME_STATE =
           ["tsx", "npm:4.6.2"],\
           ["type-fest", "npm:4.34.1"],\
           ["typescript", "patch:typescript@npm%3A5.7.3#optional!builtin<compat/typescript>::version=5.7.3&hash=5786d5"],\
-          ["yaml", "npm:2.3.3"]\
+          ["yaml", "npm:2.3.3"],\
+          ["zod", "npm:4.3.6"]\
         ],\
         "linkType": "SOFT"\
       }]\
@@ -8092,6 +8229,15 @@ const RAW_RUNTIME_STATE =
         "linkType": "HARD"\
       }]\
     ]],\
+    ["@opentelemetry/api", [\
+      ["npm:1.9.0", {\
+        "packageLocation": "./.yarn/cache/@opentelemetry-api-npm-1.9.0-7d0560d0dd-a607f0eef9.zip/node_modules/@opentelemetry/api/",\
+        "packageDependencies": [\
+          ["@opentelemetry/api", "npm:1.9.0"]\
+        ],\
+        "linkType": "HARD"\
+      }]\
+    ]],\
     ["@panva/hkdf", [\
       ["npm:1.1.1", {\
         "packageLocation": "./.yarn/cache/@panva-hkdf-npm-1.1.1-f16d36bb8a-f0dd129037.zip/node_modules/@panva/hkdf/",\
@@ -8481,6 +8627,15 @@ const RAW_RUNTIME_STATE =
           ["eval", "npm:0.1.8"],\
           ["p-map", "npm:4.0.0"],\
           ["webpack-sources", "npm:3.2.3"]\
+        ],\
+        "linkType": "HARD"\
+      }]\
+    ]],\
+    ["@standard-schema/spec", [\
+      ["npm:1.1.0", {\
+        "packageLocation": "./.yarn/cache/@standard-schema-spec-npm-1.1.0-d3e5ccd2e2-a209615c9e.zip/node_modules/@standard-schema/spec/",\
+        "packageDependencies": [\
+          ["@standard-schema/spec", "npm:1.1.0"]\
         ],\
         "linkType": "HARD"\
       }]\
@@ -10941,6 +11096,15 @@ const RAW_RUNTIME_STATE =
         "linkType": "HARD"\
       }]\
     ]],\
+    ["@vercel/oidc", [\
+      ["npm:3.1.0", {\
+        "packageLocation": "./.yarn/cache/@vercel-oidc-npm-3.1.0-18f68056f0-2e7fe962a4.zip/node_modules/@vercel/oidc/",\
+        "packageDependencies": [\
+          ["@vercel/oidc", "npm:3.1.0"]\
+        ],\
+        "linkType": "HARD"\
+      }]\
+    ]],\
     ["@vitejs/plugin-react", [\
       ["npm:4.1.0", {\
         "packageLocation": "./.yarn/cache/@vitejs-plugin-react-npm-4.1.0-8f45ca85b1-97cdc60c57.zip/node_modules/@vitejs/plugin-react/",\
@@ -11383,6 +11547,32 @@ const RAW_RUNTIME_STATE =
         "packageLocation": "./.yarn/cache/ahooks-v3-count-npm-1.0.0-6e2b8385ab-3974d94b7c.zip/node_modules/ahooks-v3-count/",\
         "packageDependencies": [\
           ["ahooks-v3-count", "npm:1.0.0"]\
+        ],\
+        "linkType": "HARD"\
+      }]\
+    ]],\
+    ["ai", [\
+      ["npm:6.0.116", {\
+        "packageLocation": "./.yarn/cache/ai-npm-6.0.116-bf9e26ffaf-bd684653ca.zip/node_modules/ai/",\
+        "packageDependencies": [\
+          ["ai", "npm:6.0.116"]\
+        ],\
+        "linkType": "SOFT"\
+      }],\
+      ["virtual:36b10b38a2f3e49d8cd162fbeda8e49e065ae2d0ebbbd25b0a3339d0203e0ec0394d852d27989cf9f4297d5cf181367ebbc4ea51690fe53337f9c0c2783178a4#npm:6.0.116", {\
+        "packageLocation": "./.yarn/__virtual__/ai-virtual-352d61ee9c/0/cache/ai-npm-6.0.116-bf9e26ffaf-bd684653ca.zip/node_modules/ai/",\
+        "packageDependencies": [\
+          ["ai", "virtual:36b10b38a2f3e49d8cd162fbeda8e49e065ae2d0ebbbd25b0a3339d0203e0ec0394d852d27989cf9f4297d5cf181367ebbc4ea51690fe53337f9c0c2783178a4#npm:6.0.116"],\
+          ["@ai-sdk/gateway", "virtual:352d61ee9c23e228ebde8c4eea5b8086a1174f3792d3892174e886a2e3a1068508a5b2aea701e8b685786442b0dd60977c6cbaabbcab379ff02446459a42b80e#npm:3.0.66"],\
+          ["@ai-sdk/provider", "npm:3.0.8"],\
+          ["@ai-sdk/provider-utils", "virtual:0cdcdda25d01380a0d75a6e689f8386dc862d24bf97ff2b4391374ee94ba7006648428207098722eae44e6c3b9d65ac10d7424e9f4e42932226e1b4542b96ce1#npm:4.0.19"],\
+          ["@opentelemetry/api", "npm:1.9.0"],\
+          ["@types/zod", null],\
+          ["zod", "npm:4.3.6"]\
+        ],\
+        "packagePeers": [\
+          "@types/zod",\
+          "zod"\
         ],\
         "linkType": "HARD"\
       }]\
@@ -16481,6 +16671,13 @@ const RAW_RUNTIME_STATE =
           ["eventsource-parser", "npm:3.0.1"]\
         ],\
         "linkType": "HARD"\
+      }],\
+      ["npm:3.0.6", {\
+        "packageLocation": "./.yarn/cache/eventsource-parser-npm-3.0.6-17d4172da2-febf7058b9.zip/node_modules/eventsource-parser/",\
+        "packageDependencies": [\
+          ["eventsource-parser", "npm:3.0.6"]\
+        ],\
+        "linkType": "HARD"\
       }]\
     ]],\
     ["execa", [\
@@ -19503,6 +19700,15 @@ const RAW_RUNTIME_STATE =
         "packageLocation": "./.yarn/cache/json-parse-even-better-errors-npm-2.3.1-144d62256e-5f3a99009e.zip/node_modules/json-parse-even-better-errors/",\
         "packageDependencies": [\
           ["json-parse-even-better-errors", "npm:2.3.1"]\
+        ],\
+        "linkType": "HARD"\
+      }]\
+    ]],\
+    ["json-schema", [\
+      ["npm:0.4.0", {\
+        "packageLocation": "./.yarn/cache/json-schema-npm-0.4.0-e776313070-8b3b64eff4.zip/node_modules/json-schema/",\
+        "packageDependencies": [\
+          ["json-schema", "npm:0.4.0"]\
         ],\
         "linkType": "HARD"\
       }]\
@@ -28801,6 +29007,13 @@ const RAW_RUNTIME_STATE =
         "packageLocation": "./.yarn/cache/zod-npm-3.24.4-f67b364e5d-3d545792fa.zip/node_modules/zod/",\
         "packageDependencies": [\
           ["zod", "npm:3.24.4"]\
+        ],\
+        "linkType": "HARD"\
+      }],\
+      ["npm:4.3.6", {\
+        "packageLocation": "./.yarn/cache/zod-npm-4.3.6-a096e305e6-25fc0f62e0.zip/node_modules/zod/",\
+        "packageDependencies": [\
+          ["zod", "npm:4.3.6"]\
         ],\
         "linkType": "HARD"\
       }]\

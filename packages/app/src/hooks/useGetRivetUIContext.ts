@@ -10,6 +10,7 @@ import { useStableCallback } from './useStableCallback';
 import { useAtomValue } from 'jotai';
 import { TauriNativeApi } from '../model/native/TauriNativeApi';
 import { useDatasetProvider } from '../providers/ProvidersContext';
+import { getChatV2DiscoveredModelOptions } from '../utils/chatV2ModelCatalog.js';
 
 export function useGetRivetUIContext() {
   const datasetProvider = useDatasetProvider();
@@ -22,26 +23,32 @@ export function useGetRivetUIContext() {
   const referencedProjects = useAtomValue(referencedProjectsState);
 
   return useStableCallback(async ({ node }: { node?: ChartNode }) => {
+    const resolvedSettings = await fillMissingSettingsFromEnvironmentVariables(settings, plugins);
     let getPluginConfigFn: RivetUIContext['getPluginConfig'] = () => undefined;
     if (node) {
       const nodePlugin = projectNodeRegistry.getPluginFor(node?.type);
       if (nodePlugin) {
-        getPluginConfigFn = (name) => getPluginConfig(nodePlugin, settings, name);
+        getPluginConfigFn = (name) => getPluginConfig(nodePlugin, resolvedSettings, name);
       }
     }
 
-    const context: RivetUIContext = {
+    const context = {
       datasetProvider,
       executor: selectedExecutor,
-      settings: await fillMissingSettingsFromEnvironmentVariables(settings, plugins),
+      settings: resolvedSettings,
       project,
       graph,
       node,
       getPluginConfig: getPluginConfigFn,
+      getChatModelOptions: (provider: 'openai' | 'anthropic' | 'google') =>
+        getChatV2DiscoveredModelOptions(provider, {
+          settings: resolvedSettings,
+          plugins,
+        }),
       nativeApi: new TauriNativeApi(),
       referencedProjects,
     };
 
-    return context;
+    return context as RivetUIContext;
   });
 }

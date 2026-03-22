@@ -14,7 +14,7 @@ export class ChatNodeImpl extends NodeImpl<ChatNode> {
   static create(): ChatNode {
     const chartNode: ChatNode = {
       type: 'chat',
-      title: 'Chat',
+      title: 'Chat (Legacy)',
       id: nanoid() as NodeId,
       visualData: {
         x: 0,
@@ -38,14 +38,16 @@ export class ChatNodeImpl extends NodeImpl<ChatNode> {
   static getUIData(): NodeUIData {
     return {
       infoBoxBody: dedent`
-        Makes a call to an LLM chat model. Supports GPT and any OpenAI-compatible API. The settings contains many options for tweaking the model's behavior.
+        Legacy OpenAI-compatible chat node.
+
+        For new work, prefer \`LLM Chat v2\`, which provides a shared vendor-agnostic chat experience across OpenAI, Anthropic, and Google.
 
         The \`System Prompt\` input specifies a system prompt as the first message to the model. This is useful for providing context to the model.
 
         The \`Prompt\` input takes one or more strings or chat-messages (from a Prompt node) to send to the model.
       `,
-      contextMenuTitle: 'Chat',
-      infoBoxTitle: 'Chat Node',
+      contextMenuTitle: 'Chat (Legacy)',
+      infoBoxTitle: 'Chat Node (Legacy)',
       group: ['Common', 'AI'],
     };
   }
@@ -63,4 +65,4 @@ export class ChatNodeImpl extends NodeImpl<ChatNode> {
   }
 }
 
-export const chatNode = nodeDefinition(ChatNodeImpl, 'Chat');
+export const chatNode = nodeDefinition(ChatNodeImpl, 'Chat (Legacy)');

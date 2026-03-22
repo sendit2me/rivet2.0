@@ -36,4 +36,14 @@ export type RivetUIContext = {
 
   /** Gets a string plugin config value from the settings, falling back to a specified environment variable if set. */
   getPluginConfig(name: string): string | undefined;
+
+  /** Best-effort UI-side model discovery for provider-backed chat nodes. */
+  getChatModelOptions?: (
+    provider: 'openai' | 'anthropic' | 'google',
+  ) => Promise<
+    {
+      value: string;
+      label: string;
+    }[]
+  >;
 };

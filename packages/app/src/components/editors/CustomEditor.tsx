@@ -9,6 +9,7 @@ import { ObjectNodeAiAssistEditor } from './custom/ObjectNodeAiAssistEditor';
 import { GptFunctionNodeJsonSchemaAiAssistEditor } from './custom/GptFunctionJsonSchemaAiAssistEditor';
 import { PromptNodeAiAssistEditor } from './custom/PromptNodeAiAssistEditor';
 import { TextNodeAiAssistEditor } from './custom/TextNodeAiAssistEditor';
+import { LLMChatV2ModelCatalogEditor } from './custom/LLMChatV2ModelCatalogEditor';
 
 export const CustomEditor: FC<
   SharedEditorProps & {
@@ -25,5 +26,6 @@ export const CustomEditor: FC<
     ))
     .with('PromptNodeAiAssist', () => <PromptNodeAiAssistEditor {...props} editor={editor} />)
     .with('TextNodeAiAssist', () => <TextNodeAiAssistEditor {...props} editor={editor} />)
+    .with('LLMChatV2ModelCatalog', () => <LLMChatV2ModelCatalogEditor {...props} editor={editor} />)
     .otherwise(() => null);
 };
