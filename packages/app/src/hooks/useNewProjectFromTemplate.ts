@@ -83,7 +83,11 @@ export function useNewProjectFromTemplate() {
     });
 
     if (loaded) {
-      setProjects((prev) => addOpenedProject(prev, projectWithNewId));
+      setProjects((prev) =>
+        addOpenedProject(prev, projectWithNewId, {
+          openedGraph: graphToLoad.metadata?.id,
+        }),
+      );
     }
 
     return loaded;

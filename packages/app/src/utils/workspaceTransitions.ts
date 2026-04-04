@@ -83,6 +83,34 @@ export function chooseProjectGraph(
   return emptyNodeGraph();
 }
 
+export function resolveProjectGraphForLoad(
+  project: Omit<Project, 'data'>,
+  options: {
+    graphToLoad?: NodeGraph;
+    openedGraphId?: GraphId;
+  } = {},
+): NodeGraph {
+  const explicitGraphId = options.graphToLoad?.metadata?.id;
+
+  if (explicitGraphId && project.graphs[explicitGraphId]) {
+    return project.graphs[explicitGraphId]!;
+  }
+
+  if (options.openedGraphId && project.graphs[options.openedGraphId]) {
+    return project.graphs[options.openedGraphId]!;
+  }
+
+  if (project.metadata.mainGraphId && project.graphs[project.metadata.mainGraphId]) {
+    return project.graphs[project.metadata.mainGraphId]!;
+  }
+
+  const firstSortedGraph = Object.values(project.graphs).sort((a, b) =>
+    (a.metadata?.name ?? '').localeCompare(b.metadata?.name ?? ''),
+  )[0];
+
+  return firstSortedGraph ?? emptyNodeGraph();
+}
+
 export function createProjectLoadTransition(options: {
   currentGraph: NodeGraph;
   graphToLoad: NodeGraph;

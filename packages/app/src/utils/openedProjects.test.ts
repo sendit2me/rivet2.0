@@ -38,6 +38,7 @@ describe('openedProjects helpers', () => {
     assert.equal(result.openedProjects[existingProject.metadata.id]?.title, 'Existing');
     assert.equal(result.openedProjects[nextProject.metadata.id]?.title, 'Next');
     assert.equal(result.openedProjects[nextProject.metadata.id]?.fsPath, null);
+    assert.equal(result.openedProjects[nextProject.metadata.id]?.openedGraph, 'graph-1');
   });
 
   test('does not duplicate an already-open project id', () => {
@@ -60,6 +61,24 @@ describe('openedProjects helpers', () => {
 
     assert.deepEqual(result.openedProjectsSortedIds, [project.metadata.id]);
     assert.equal(result.openedProjects[project.metadata.id]?.fsPath, '/tmp/project-1.rivet-project');
+    assert.equal(result.openedProjects[project.metadata.id]?.openedGraph, 'graph-1');
+  });
+
+  test('allows callers to seed the opened graph explicitly for a newly opened project', () => {
+    const project = makeProject('project-1', 'Existing');
+
+    const result = addOpenedProject(
+      {
+        openedProjects: {},
+        openedProjectsSortedIds: [],
+      },
+      project,
+      {
+        openedGraph: 'graph-2' as GraphId,
+      },
+    );
+
+    assert.equal(result.openedProjects[project.metadata.id]?.openedGraph, 'graph-2');
   });
 
   test('preserves existing tab metadata when updating an already-open project', () => {

@@ -51,7 +51,12 @@ export function useLoadProjectWithFileBrowser() {
           });
 
           if (loaded) {
-            setProjects((prev: OpenedProjectsInfo) => addOpenedProject(prev, project, { fsPath: path }));
+            setProjects((prev: OpenedProjectsInfo) =>
+              addOpenedProject(prev, project, {
+                fsPath: path,
+                openedGraph: graphToLoad.metadata?.id,
+              }),
+            );
           }
         })();
       });

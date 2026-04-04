@@ -1,4 +1,4 @@
-import { type Project, type ProjectId, newId } from '@ironclad/rivet-core';
+import { emptyNodeGraph, type Project, type ProjectId, newId } from '@ironclad/rivet-core';
 
 export function blankProject(): Project {
   return {
@@ -10,4 +10,16 @@ export function blankProject(): Project {
     },
     plugins: [],
   };
+}
+
+export function createBlankProjectWithDefaultGraph(options: { title?: string; description?: string } = {}): Project {
+  const project = blankProject();
+  const graph = emptyNodeGraph();
+
+  project.metadata.title = options.title || project.metadata.title;
+  project.metadata.description = options.description || project.metadata.description;
+  project.metadata.mainGraphId = graph.metadata!.id!;
+  project.graphs[graph.metadata!.id!] = graph;
+
+  return project;
 }

@@ -8,6 +8,7 @@ import {
   createGraphSwitchTransition,
   createProjectLoadTransition,
   mergeCurrentGraphIntoProject,
+  resolveProjectGraphForLoad,
 } from './workspaceTransitions.js';
 
 function makeGraph(id: string, name: string, nodes: NodeGraph['nodes'] = []): NodeGraph {
@@ -56,6 +57,60 @@ describe('workspaceTransitions', () => {
     assert.equal(chooseProjectGraph(project, { openedGraphId: 'g-1' as GraphId }).metadata?.id, 'g-1');
     assert.equal(chooseProjectGraph(project, { fallbackToMainGraph: true }).metadata?.id, 'g-2');
     assert.equal(chooseProjectGraph(project, { fallbackToSortedProjectGraph: true }).metadata?.id, 'g-1');
+  });
+
+  test('resolveProjectGraphForLoad returns the project-owned graph for a valid explicit graph id', () => {
+    const alpha = makeGraph('g-1', 'Alpha');
+    const detachedAlpha = makeGraph('g-1', 'Detached Alpha');
+    const project = makeProject([alpha]);
+
+    const resolved = resolveProjectGraphForLoad(project, { graphToLoad: detachedAlpha });
+
+    assert.equal(resolved, alpha);
+  });
+
+  test('resolveProjectGraphForLoad falls back from invalid explicit graph to opened graph, main graph, and sorted graph', () => {
+    const alpha = makeGraph('g-1', 'Alpha');
+    const beta = makeGraph('g-2', 'Beta');
+
+    const withOpenedGraph = makeProject([beta, alpha], { mainGraphId: 'g-2' });
+    assert.equal(
+      resolveProjectGraphForLoad(withOpenedGraph, {
+        graphToLoad: makeGraph('missing', 'Missing'),
+        openedGraphId: 'g-1' as GraphId,
+      }).metadata?.id,
+      'g-1',
+    );
+
+    const withMainGraph = makeProject([beta, alpha], { mainGraphId: 'g-2' });
+    assert.equal(
+      resolveProjectGraphForLoad(withMainGraph, {
+        graphToLoad: makeGraph('missing', 'Missing'),
+      }).metadata?.id,
+      'g-2',
+    );
+
+    const withSortedFallback = makeProject([beta, alpha]);
+    assert.equal(
+      resolveProjectGraphForLoad(withSortedFallback, {
+        graphToLoad: makeGraph('missing', 'Missing'),
+      }).metadata?.id,
+      'g-1',
+    );
+  });
+
+  test('resolveProjectGraphForLoad returns a temporary empty graph only when the project has zero graphs', () => {
+    const emptyProject = makeProject([]);
+
+    const resolved = resolveProjectGraphForLoad(emptyProject, {
+      graphToLoad: makeGraph('missing', 'Missing'),
+      openedGraphId: 'missing' as GraphId,
+    });
+
+    assert.equal(Object.keys(emptyProject.graphs).length, 0);
+    assert.equal(resolved.metadata?.name, 'Untitled Graph');
+    assert.equal(resolved.nodes.length, 0);
+    assert.equal(resolved.connections.length, 0);
   });
 
   test('createProjectLoadTransition resets workspace state and loads requested graph', () => {

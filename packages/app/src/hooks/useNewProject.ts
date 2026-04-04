@@ -1,7 +1,6 @@
 import { useSetAtom } from 'jotai';
-import { emptyNodeGraph } from '@ironclad/rivet-core';
 import { projectsState } from '../state/savedGraphs.js';
-import { blankProject } from '../utils/blankProject';
+import { createBlankProjectWithDefaultGraph } from '../utils/blankProject';
 import { addOpenedProject } from '../utils/openedProjects.js';
 import { useWorkspaceTransitions } from './useWorkspaceTransitions.js';
 
@@ -16,19 +15,21 @@ export function useNewProject() {
     title?: string;
     description?: string;
   } = {}) => {
-    const { data: _data, ...project } = blankProject();
-
-    project.metadata.title = title || project.metadata.title;
-    project.metadata.description = description || project.metadata.description;
+    const { data: _data, ...project } = createBlankProjectWithDefaultGraph({ title, description });
+    const initialGraph = project.metadata.mainGraphId ? project.graphs[project.metadata.mainGraphId] : undefined;
 
     const loaded = await workspaceTransitions.loadProject({
       project,
-      graphToLoad: emptyNodeGraph(),
+      graphToLoad: initialGraph,
       testSuites: [],
     });
 
     if (loaded) {
-      setProjects((prev) => addOpenedProject(prev, project));
+      setProjects((prev) =>
+        addOpenedProject(prev, project, {
+          openedGraph: initialGraph?.metadata?.id,
+        }),
+      );
     }
 
     return loaded;

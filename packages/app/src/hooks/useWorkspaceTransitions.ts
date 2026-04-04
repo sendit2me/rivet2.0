@@ -22,11 +22,11 @@ import { useCenterViewOnGraph } from './useCenterViewOnGraph.js';
 import { useSaveCurrentGraph } from './useSaveCurrentGraph.js';
 import type { GraphViewContext } from '../domain/graphEditing/navigationActions.js';
 import {
-  chooseProjectGraph,
   createDefaultTrivetState,
   createGraphSwitchTransition,
   createProjectLoadTransition,
   mergeCurrentGraphIntoProject,
+  resolveProjectGraphForLoad,
 } from '../utils/workspaceTransitions.js';
 import { handleError } from '../utils/errorHandling.js';
 import { useStaticDataDatabase } from './useStaticDataDatabase.js';
@@ -98,11 +98,10 @@ export function useWorkspaceTransitions() {
       graphToLoad?: typeof currentGraph;
     }): Promise<boolean> {
       try {
-        const graphToLoad =
-          projectInfo.graphToLoad ??
-          chooseProjectGraph(projectInfo.project, {
-            openedGraphId: projectInfo.openedGraph as any,
-          });
+        const graphToLoad = resolveProjectGraphForLoad(projectInfo.project, {
+          graphToLoad: projectInfo.graphToLoad,
+          openedGraphId: projectInfo.openedGraph as any,
+        });
 
         const transition = createProjectLoadTransition({
           currentGraph,

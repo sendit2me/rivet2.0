@@ -174,8 +174,10 @@ Handles open-project switching and the top-of-window project context.
 Current workspace behavior:
 
 - creating a new blank project or template project adds a new open-project tab instead of replacing the existing open-project set
+- a new blank project now starts with one real saved graph named `Untitled Graph`, and that graph is also seeded as the project's `mainGraphId`
 - `projectsState` is the canonical multi-project tab store; `openedProjectsState` and `openedProjectsSortedIdsState` are compatibility projections over it
 - `projectsState` now stores only lightweight tab metadata: `projectId`, title, `fsPath`, and `openedGraph`
+- open-project entries should seed `openedGraph` immediately when the project is opened instead of relying on a later sync pass to infer it
 - `useSyncCurrentStateIntoOpenedProjects` keeps tab metadata in sync while writing full inactive-project restoration snapshots into `openedProjectSnapshotsState` on project switches
 - successful project saves clear any persisted restoration snapshot for that project so file-backed projects do not keep redundant snapshot state
 - closing/reordering project tabs still lives in `ProjectSelector.tsx`, not in the shared workspace transition layer
@@ -665,7 +667,7 @@ Current sequence:
 2. reset graph navigation stack
 3. cleanup old graph node atom families
 4. clear read-only/historical state
-5. load the requested graph, otherwise fall back to the project's main graph and then to a stable sorted graph choice
+5. normalize the requested graph against the project's real `graphs` map, then fall back to `openedGraph`, `mainGraphId`, and finally a stable sorted graph choice
 6. restore the chosen graph's saved viewport when available, otherwise center/reset the canvas like a normal graph switch
 7. clear prior static-data state and load the new project's static data into app state/IndexedDB
 8. persist loaded filesystem path
@@ -731,6 +733,7 @@ This matters for future work because it keeps path-based persistence concerns se
 Current boundary:
 
 - load-project, graph-switch, save/save-as, and new blank/template project initialization all reuse this sequencing
+- blank-project initialization now goes through the same transition layer with a real project-owned default graph instead of loading a detached placeholder graph into `graphState`
 - project-tab closing/reordering and active-tab snapshot syncing still live outside this layer in `ProjectSelector.tsx` and `useSyncCurrentStateIntoOpenedProjects.ts`
 - external UI state that depends on a completed load, such as adding an opened-project tab or closing the new-project modal, must stay outside the transition layer and only run after `loadProject(...)` resolves `true`
 - `loadProject(...)` handles/logs its own transition failures and returns `false` instead of throwing for those transition-stage errors, so callers should branch on the boolean result rather than assume success after awaiting it

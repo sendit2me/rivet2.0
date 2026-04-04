@@ -595,3 +595,22 @@ of band clear the current graph's history instead of replaying stale commands ag
 graph shape. The result is a safer per-graph undo model, targeted regression coverage around the
 new wire/preview behavior, and a graph editor that no longer corrupts connections during rewires or
 drag-to-disconnect gestures.
+
+## 51. Seed blank projects with a real default graph and normalize project-load graph selection
+
+Blank project creation had an integrity gap between the editor canvas and project state. Creating a
+new blank project loaded an `emptyNodeGraph()` into the canvas, but that graph was not inserted into
+`project.graphs` yet. The UI therefore showed a project with no graphs while edits were landing in a
+hidden in-memory graph that only became visible later through a save or graph-switch path. That was
+confusing on its own, and it also meant project-open tab metadata could momentarily point at no
+concrete graph until a later synchronization effect ran.
+
+This refactor made blank-project initialization explicit and project-owned from the start. New blank
+projects now create one real `Untitled Graph`, store it in `project.graphs`, set it as
+`mainGraphId`, and open that exact graph through the normal workspace transition path. The project
+loader was also tightened so an explicit `graphToLoad` is only honored when it actually belongs to
+the target project's graph map; otherwise it falls back through `openedGraph`, `mainGraphId`, and a
+stable sorted graph choice. Open-tab metadata now seeds `openedGraph` immediately when a project is
+opened instead of depending on a later sync pass. The result is a blank-project UX that matches the
+real saved state from the first edit onward, with less chance of detached graph state reappearing
+through future project-open flows.
