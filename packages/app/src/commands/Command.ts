@@ -41,6 +41,20 @@ export type GraphCommandState = {
 export const commandHistoryStackStatePerGraph = atom<Record<GraphId, CommandData<any, any>[]>>({});
 export const redoStackStatePerGraph = atom<Record<GraphId, CommandData<any, any>[]>>({});
 
+export function clearHistoryEntriesForGraph<T>(entries: Record<GraphId, T[]>, graphId: GraphId | undefined): Record<GraphId, T[]> {
+  if (!graphId) {
+    return entries;
+  }
+
+  if (!(graphId in entries)) {
+    return entries;
+  }
+
+  const nextEntries = { ...entries };
+  delete nextEntries[graphId];
+  return nextEntries;
+}
+
 function useGraphCommandState(): GraphCommandState {
   const graphId = useAtomValue(graphMetadataState)?.id;
   const nodes = useAtomValue(nodesState);
@@ -105,6 +119,29 @@ export function useCommand<T, U>(command: Command<T, U>) {
     });
 
     return appliedData;
+  });
+}
+
+export function useClearGraphHistory() {
+  const setCommandHistoryStacks = useSetAtom(commandHistoryStackStatePerGraph);
+  const setRedoStacks = useSetAtom(redoStackStatePerGraph);
+
+  return useStableCallback((graphId: GraphId | undefined) => {
+    if (!graphId) {
+      return;
+    }
+
+    setCommandHistoryStacks((stacks) => clearHistoryEntriesForGraph(stacks, graphId));
+    setRedoStacks((redoStacks) => clearHistoryEntriesForGraph(redoStacks, graphId));
+  });
+}
+
+export function useClearCurrentGraphHistory() {
+  const graphId = useAtomValue(graphMetadataState)?.id;
+  const clearGraphHistory = useClearGraphHistory();
+
+  return useStableCallback(() => {
+    clearGraphHistory(graphId);
   });
 }
 

@@ -16,9 +16,9 @@ import {
   type NodeConnection,
   type NodeId,
 } from '@ironclad/rivet-core';
+import { useAutoLayoutCommand } from '../commands/autoLayoutCommand';
 import { useDeleteNodesCommand } from '../commands/deleteNodeCommand';
 import { useEditNodeCommand } from '../commands/editNodeCommand';
-import { useAutoLayoutGraph } from '../hooks/useAutoLayoutGraph';
 import { useCanvasHotkeys } from '../hooks/useCanvasHotkeys';
 import { useCanvasPositioning } from '../hooks/useCanvasPositioning.js';
 import { useContextMenu } from '../hooks/useContextMenu.js';
@@ -47,9 +47,10 @@ import {
   hoveringNodeState,
   pinnedNodesState,
 } from '../state/graphBuilder';
-import { graphMetadataState, graphState, nodesState } from '../state/graph.js';
+import { graphMetadataState } from '../state/graph.js';
 import { lastRunDataByNodeState, selectedProcessPageNodesState } from '../state/dataFlow';
 import { zoomSensitivityState } from '../state/settings';
+import { canvasPreviewConnectionsState } from '../state/selectors/canvasGraphSelectors.js';
 import { MouseIcon } from './MouseIcon';
 import { type ContextMenuContext } from './ContextMenu.js';
 import { nodeCanvasStyles } from './nodeCanvas/nodeCanvasStyles.js';
@@ -78,7 +79,7 @@ export type PortPositions = Record<string, { x: number; y: number }>;
 
 export const NodeCanvas: FC<NodeCanvasProps> = ({
   nodes,
-  connections,
+  connections: _connections,
   onNodesChanged,
   onConnectionsChanged,
   onNodeSelected,
@@ -95,17 +96,16 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
   const [contextMenuDisabled, setContextMenuDisabled] = useState(true);
 
   const selectedGraphMetadata = useAtomValue(graphMetadataState);
-  const graph = useAtomValue(graphState);
   const closestPort = useAtomValue(draggingWireClosestPortState);
   const searchMatchingNodes = useAtomValue(searchMatchingNodeIdsState);
   const pinnedNodes = useAtomValue(pinnedNodesState);
   const lastRunPerNode = useAtomValue(lastRunDataByNodeState);
   const selectedProcessPagePerNode = useAtomValue(selectedProcessPageNodesState);
   const zoomSensitivity = useAtomValue(zoomSensitivityState);
+  const previewConnections = useAtomValue(canvasPreviewConnectionsState);
 
   const setLastSavedCanvasPosition = useSetAtom(lastCanvasPositionByGraphState);
   const setLastMousePosition = useSetAtom(lastMousePositionState);
-  const setNodes = useSetAtom(nodesState);
 
   const { clientToCanvasPosition } = useCanvasPositioning();
   const removeNodes = useDeleteNodesCommand();
@@ -142,16 +142,13 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
     canvasRef,
     recalculate: recalculatePortPositions,
   } = useNodePortPositions({ enabled: shouldRenderWires, isDraggingNode: draggingNodes.length > 0 });
-
-  const autoLayout = useAutoLayoutGraph();
+  const autoLayout = useAutoLayoutCommand(recalculatePortPositions);
 
   useEffect(() => {
     autoLayoutGraph.current = () => {
-      const updatedNodes = autoLayout(graph);
-      setNodes(updatedNodes);
-      recalculatePortPositions();
+      autoLayout({});
     };
-  }, [autoLayout, autoLayoutGraph, graph, recalculatePortPositions, setNodes]);
+  }, [autoLayout, autoLayoutGraph]);
 
   useEffect(() => {
     recalculatePortPositions();
@@ -164,17 +161,21 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
     () =>
       nodes.map((node) => ({
         node,
-        nodeConnections: connections.filter((connection) => connection.inputNodeId === node.id || connection.outputNodeId === node.id),
+        nodeConnections: previewConnections.filter(
+          (connection) => connection.inputNodeId === node.id || connection.outputNodeId === node.id,
+        ),
       })),
-    [connections, nodes],
+    [nodes, previewConnections],
   );
 
   const draggingNodeConnections = useMemo(
     () =>
       draggingNodes.flatMap((draggingNode) =>
-        connections.filter((connection) => connection.inputNodeId === draggingNode.id || connection.outputNodeId === draggingNode.id),
+        previewConnections.filter(
+          (connection) => connection.inputNodeId === draggingNode.id || connection.outputNodeId === draggingNode.id,
+        ),
       ),
-    [connections, draggingNodes],
+    [draggingNodes, previewConnections],
   );
 
   const contextMenuItemSelected = useStableCallback(
@@ -400,7 +401,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
         />
         {hydratedContextMenuData && (
           <NodeCanvasOverlays
-            connections={connections}
+            connections={previewConnections}
             context={hydratedContextMenuData}
             contextMenuDisabled={contextMenuDisabled}
             contextMenuRef={contextMenuRef}

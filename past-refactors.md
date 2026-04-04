@@ -576,3 +576,22 @@ was reduced from 93 lines to about 20 by removing a project-scanning inference p
 After the larger execution identity cleanup, the app still had a second layer of smaller but persistent complexity in its execution plumbing. Local and remote run-from execution each had their own preload logic, node event handlers repeated the same sanitization work in multiple branches, graph finish/error/abort handlers repeated the same graph-run history mutation, and `VisualNode` children were recomputing the same selected run that the parent had already resolved. None of that changed the app's behavior, but it kept the execution layer noisier and harder to audit than it needed to be.
 
 This refactor removed that leftover glue code without changing the underlying execution model. Run-from preload derivation is now shared between local and remote execution through `getDependentDataForNodeForPreload(...)`, node input/output sanitization is centralized in `sanitizeInputsOrOutputs(...)`, and graph run completion updates now flow through one small `finishGraphRun(...)` helper inside `useGraphExecutionEvents`. The visual node tree also computes `selectedProcessRun` once at the `VisualNode` boundary and passes it down as a prop instead of resubscribing in child components, while dead selector and re-export leftovers were removed. During audit, the same sanitization path was extended to excluded-node and partial-output persistence so all stored execution payloads go through one consistent app-side transform layer.
+
+## 50. Make canvas undo/redo transactional and preview-driven
+
+Canvas editing still had a structural integrity problem around wire dragging. Rewiring from an
+already-connected input used to break the old connection on drag start and create the new one on
+drop, so one gesture produced two history entries. That meant a single undo could land on the
+broken intermediate state and appear to remove random connections. At the same time, common canvas
+edits such as duplicate, paste, and auto-layout still bypassed command history entirely, so
+`Ctrl/Cmd+Z` could undo an older action instead of the edit the user had just made.
+
+This refactor made the canvas edit surface more coherent. Input-origin wire drags now keep the
+real graph intact until drop, carry the original connection in drag state, resolve the gesture
+into one semantic action, and use preview-aware selectors so wires, dynamic ports, connected
+badges, hover targets, and tooltips stay aligned during drag. Duplicate, paste, and auto-layout
+now flow through commands, while graph-replacement paths that still mutate nodes or connections out
+of band clear the current graph's history instead of replaying stale commands against a different
+graph shape. The result is a safer per-graph undo model, targeted regression coverage around the
+new wire/preview behavior, and a graph editor that no longer corrupts connections during rewires or
+drag-to-disconnect gestures.

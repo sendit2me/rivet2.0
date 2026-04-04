@@ -6,7 +6,7 @@ import { canvasToClientPosition, useCanvasPositioning } from '../hooks/useCanvas
 import { ErrorBoundary } from 'react-error-boundary';
 import { draggingWireClosestPortState } from '../state/graphBuilder.js';
 import { orderBy } from 'lodash-es';
-import { ioDefinitionsForNodeState, nodesByIdState } from '../state/graph';
+import { nodesByIdState } from '../state/graph';
 import { type PortPositions } from './NodeCanvas';
 import {
   lastRunDataByNodeState,
@@ -19,6 +19,7 @@ import { useStableCallback } from '../hooks/useStableCallback';
 import { lineCrossesViewport } from '../utils/lineClipping';
 import { useAtom, useAtomValue, useStore } from 'jotai';
 import { getSelectedProcessData } from '../state/selectors/executionSelectors.js';
+import { canvasIoDefinitionsForNodeState } from '../state/selectors/canvasGraphSelectors.js';
 
 const wiresStyles = css`
   width: 100%;
@@ -111,14 +112,20 @@ export const WireLayer: FC<WireLayerProps> = ({
             return distance;
           })[0] as HTMLElement;
 
-          const portId = closestHoverElem!.parentElement!.dataset.portid as PortId | undefined;
-          const nodeId = closestHoverElem!.parentElement!.dataset.nodeid as NodeId | undefined;
+          const portElement = closestHoverElem.parentElement as HTMLElement | null;
+          const portId = portElement?.dataset.portid as PortId | undefined;
+          const nodeId = portElement?.dataset.nodeid as NodeId | undefined;
 
-          if (portId && nodeId) {
-            const io = store.get(ioDefinitionsForNodeState(nodeId));
-            const definition = io!.inputDefinitions.find((def) => def.id === portId)!;
+          if (portElement && portId && nodeId) {
+            const io = store.get(canvasIoDefinitionsForNodeState(nodeId));
+            const definition = io?.inputDefinitions.find((def) => def.id === portId);
 
-            setClosestPort({ nodeId, portId, element: closestHoverElem.parentElement!, definition });
+            if (!definition?.dataType) {
+              setClosestPort(undefined);
+              return;
+            }
+
+            setClosestPort({ nodeId, portId, element: portElement, definition });
           } else {
             setClosestPort(undefined);
           }
@@ -129,6 +136,24 @@ export const WireLayer: FC<WireLayerProps> = ({
     },
     [draggingWire, setClosestPort, draggingNode, store, closestPort],
   );
+
+  useEffect(() => {
+    if (!closestPort) {
+      return;
+    }
+
+    if (!closestPort.element.isConnected) {
+      setClosestPort(undefined);
+      return;
+    }
+
+    const io = store.get(canvasIoDefinitionsForNodeState(closestPort.nodeId));
+    const definition = io?.inputDefinitions.find((candidate) => candidate.id === closestPort.portId);
+
+    if (!definition?.dataType) {
+      setClosestPort(undefined);
+    }
+  }, [closestPort, setClosestPort, store, connections, draggingWire]);
 
   useEffect(() => {
     window.addEventListener('mousedown', handleMouseDown, { capture: true });

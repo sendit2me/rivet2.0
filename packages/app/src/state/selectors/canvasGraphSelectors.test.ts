@@ -1,0 +1,49 @@
+import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
+import { createBuiltInRegistry, type NodeConnection } from '@ironclad/rivet-core';
+import { createStore } from 'jotai/vanilla';
+import { graphState } from '../atoms/graph';
+import { draggingWireState } from '../graphBuilder';
+import { canvasIoDefinitionsForNodeState, canvasPreviewConnectionsState } from './canvasGraphSelectors';
+
+describe('canvasGraphSelectors', () => {
+  it('keeps the source node dynamic ports stable during an input-origin rewire preview', () => {
+    const store = createStore();
+    const registry = createBuiltInRegistry();
+
+    const sourceNode = registry.createDynamic('text');
+    const targetNode = registry.createDynamic('array');
+
+    const originalConnection: NodeConnection = {
+      inputNodeId: targetNode.id,
+      inputId: 'input3' as any,
+      outputNodeId: sourceNode.id,
+      outputId: 'output' as any,
+    };
+
+    store.set(graphState, {
+      metadata: { id: 'graph-1', name: 'Test Graph' },
+      nodes: [sourceNode, targetNode],
+      connections: [originalConnection],
+    } as any);
+
+    store.set(draggingWireState, {
+      startNodeId: sourceNode.id,
+      startPortId: originalConnection.outputId,
+      startPortIsInput: false,
+      dataType: 'string',
+      originalConnection,
+      rewireSourceInput: {
+        nodeId: targetNode.id,
+        portId: originalConnection.inputId,
+      },
+    });
+
+    assert.deepEqual(store.get(canvasPreviewConnectionsState), []);
+
+    const io = store.get(canvasIoDefinitionsForNodeState(targetNode.id));
+
+    assert.ok(io.inputDefinitions.some((definition) => definition.id === 'input3'));
+    assert.ok(io.inputDefinitions.some((definition) => definition.id === 'input4'));
+  });
+});

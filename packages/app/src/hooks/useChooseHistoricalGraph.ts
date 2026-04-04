@@ -2,11 +2,13 @@ import { type GraphId, type NodeGraph } from '@ironclad/rivet-core';
 import { type CalculatedRevision } from '../utils/ProjectRevisionCalculator';
 import { useSetAtom } from 'jotai';
 import { graphState, historicalGraphState, isReadOnlyGraphState } from '../state/graph';
+import { useClearGraphHistory } from '../commands/Command.js';
 
 export function useChooseHistoricalGraph(revision: CalculatedRevision) {
   const setGraph = useSetAtom(graphState);
   const setIsReadOnlyGraph = useSetAtom(isReadOnlyGraphState);
   const setHistoricalGraph = useSetAtom(historicalGraphState);
+  const clearGraphHistory = useClearGraphHistory();
 
   return (graphId: GraphId) => {
     const nodesBefore = revision.projectAtRevision!.graphs[graphId]?.nodes ?? [];
@@ -19,6 +21,7 @@ export function useChooseHistoricalGraph(revision: CalculatedRevision) {
       nodes: [...nodesAfter, ...nodesDeleted],
     };
 
+    clearGraphHistory(graphId);
     setGraph(combinedGraph);
     setIsReadOnlyGraph(true);
     setHistoricalGraph(revision);

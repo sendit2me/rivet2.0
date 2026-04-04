@@ -27,8 +27,29 @@ export function usePortHoverTooltip() {
 
   const { setReference } = refs;
 
+  const clearHoveringPortTimer = useStableCallback(() => {
+    if (hoveringPortTimeout.current) {
+      window.clearTimeout(hoveringPortTimeout.current);
+      hoveringPortTimeout.current = undefined;
+    }
+  });
+
+  const scheduleHoverInfo = useStableCallback((delayMs: number) => {
+    clearHoveringPortTimer();
+    hoveringPortTimeout.current = window.setTimeout(() => {
+      setHoveringPortShowInfo(true);
+      hoveringPortTimeout.current = undefined;
+    }, delayMs);
+  });
+
   useEffect(() => {
-    if (closestPort?.portId) {
+    return () => {
+      clearHoveringPortTimer();
+    };
+  }, [clearHoveringPortTimer]);
+
+  useEffect(() => {
+    if (closestPort?.portId && closestPort.definition?.dataType && closestPort.element?.isConnected) {
       setHoveringPort({
         portId: closestPort.portId,
         nodeId: closestPort.nodeId,
@@ -36,18 +57,23 @@ export function usePortHoverTooltip() {
         definition: closestPort.definition,
       });
       setReference(closestPort.element);
-
-      hoveringPortTimeout.current = window.setTimeout(() => {
-        setHoveringPortShowInfo(true);
-      }, 400);
+      setHoveringPortShowInfo(false);
+      scheduleHoverInfo(400);
     } else {
       setHoveringPort(undefined);
       setHoveringPortShowInfo(false);
-      if (hoveringPortTimeout.current) {
-        window.clearTimeout(hoveringPortTimeout.current);
-      }
+      clearHoveringPortTimer();
+      setReference(null);
     }
-  }, [closestPort?.portId, closestPort?.nodeId, closestPort?.definition, closestPort?.element, setReference]);
+  }, [
+    clearHoveringPortTimer,
+    closestPort?.portId,
+    closestPort?.nodeId,
+    closestPort?.definition,
+    closestPort?.element,
+    scheduleHoverInfo,
+    setReference,
+  ]);
 
   const onPortMouseOver = useStableCallback(
     (
@@ -57,20 +83,26 @@ export function usePortHoverTooltip() {
       portId: PortId,
       definition: NodeInputDefinition | NodeOutputDefinition,
     ) => {
+      if (!definition.dataType) {
+        setHoveringPort(undefined);
+        setHoveringPortShowInfo(false);
+        clearHoveringPortTimer();
+        refs.setReference(null);
+        return;
+      }
+
       setHoveringPort({ nodeId, isInput, portId, definition });
+      setHoveringPortShowInfo(false);
       refs.setReference((e.target as HTMLElement).closest('.port'));
-      hoveringPortTimeout.current = window.setTimeout(() => {
-        setHoveringPortShowInfo(true);
-      }, 700);
+      scheduleHoverInfo(700);
     },
   );
 
   const onPortMouseOut = useStableCallback(() => {
     setHoveringPort(undefined);
     setHoveringPortShowInfo(false);
-    if (hoveringPortTimeout.current) {
-      window.clearTimeout(hoveringPortTimeout.current);
-    }
+    clearHoveringPortTimer();
+    refs.setReference(null);
   });
 
   return {

@@ -299,6 +299,49 @@ These are important refactor boundaries because they represent work already sepa
 
 This means refactors should usually start in those hooks before pushing more logic back into `NodeCanvas`.
 
+### Canvas edit history and wire-preview model
+
+Standard canvas edits are now expected to be command-backed rather than direct graph mutations.
+
+The current command-backed canvas surface includes:
+
+- add node
+- delete node(s)
+- move node(s)
+- edit node / commit resize
+- make connection
+- break connection
+- rewire connection
+- duplicate node
+- paste nodes
+- auto-layout
+
+Per-graph undo/redo stacks still live in [`packages/app/src/commands/Command.ts`](../packages/app/src/commands/Command.ts).
+That history is intentionally scoped to the canvas editing surface. Flows that replace the
+current graph's `nodes` or `connections` without going through commands, such as AI graph
+rewrites, historical-graph swaps, or prompt-designer graph mutations, should clear the
+current graph's history rather than leaving stale commands behind.
+
+Wire dragging now has an important transactional invariant:
+
+- dragging from an already-connected input must not mutate `connectionsState` on drag start
+- `draggingWireState` carries `originalConnection` and `rewireSourceInput` metadata for input-origin rewires
+- drop resolution flows through [`packages/app/src/domain/graphEditing/wireDragActions.ts`](../packages/app/src/domain/graphEditing/wireDragActions.ts), which resolves a gesture into one semantic action: make connection, rewire connection, break connection, or no-op
+- a completed rewire or disconnect is therefore one undo step
+
+Canvas rendering during a rewire uses preview selectors instead of temporarily mutating the
+real graph:
+
+- [`packages/app/src/state/selectors/canvasGraphSelectors.ts`](../packages/app/src/state/selectors/canvasGraphSelectors.ts) exposes `canvasPreviewConnectionsState`
+- `canvasPreviewConnectionsState` hides the original wire during an input-origin rewire preview
+- the same module exposes `canvasIoDefinitionsForNodeState`, which derives preview-aware port definitions for canvas consumers
+- the active rewire source node keeps its real node-local connections for IO derivation so connection-count-driven ports do not collapse under the cursor during preview
+
+When changing canvas behavior, wires, connected-port badges, hover targeting, and port tooltips
+should stay on the same preview-aware selector path. Mixing raw `connectionsState` with
+preview-aware canvas selectors is a regression risk because dynamic ports can diverge from what
+the wire layer is showing.
+
 ### Viewport model
 
 Viewport state lives in `canvasPositionState` and uses:
@@ -482,7 +525,7 @@ That cleanup runs during graph/project switching and is explicitly there to prev
 - canvas position
 - remembered canvas positions per graph
 - dragging nodes
-- dragging wire
+- dragging wire, including transactional rewire metadata
 - closest valid port during wire drag
 - graph navigation stack
 - pinned nodes

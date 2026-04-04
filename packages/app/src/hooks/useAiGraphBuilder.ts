@@ -31,6 +31,7 @@ import { nativeAppLogDir } from '../utils/platform/path.js';
 import { buildAiGraphBuilderExternalFunctions } from './aiGraphBuilderHelpers.js';
 import { useProjectNodeRegistry } from './useProjectNodeRegistry';
 import { handleError } from '../utils/errorHandling.js';
+import { useClearCurrentGraphHistory } from '../commands/Command.js';
 
 export function useAiGraphBuilder({ record, onFeedback }: { record: boolean; onFeedback: (feedback: string) => void }) {
   const [graph, setGraph] = useAtom(graphState);
@@ -41,6 +42,7 @@ export function useAiGraphBuilder({ record, onFeedback }: { record: boolean; onF
 
   const centerView = useCenterViewOnGraph();
   const autoLayout = useAutoLayoutGraph();
+  const clearCurrentGraphHistory = useClearCurrentGraphHistory();
 
   const referencedProjects = useAtomValue(referencedProjectsState);
 
@@ -60,6 +62,7 @@ export function useAiGraphBuilder({ record, onFeedback }: { record: boolean; onF
           ...workingGraph,
           nodes: autoLayout(workingGraph),
         };
+        clearCurrentGraphHistory();
         setGraph(workingGraph);
         centerView(workingGraph);
       };

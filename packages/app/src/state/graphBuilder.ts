@@ -3,6 +3,7 @@ import { atomWithStorage, atomFamily } from 'jotai/utils';
 import {
   type ChartNode,
   type GraphId,
+  type NodeConnection,
   type NodeId,
   type NodeInputDefinition,
   type PortId,
@@ -45,7 +46,14 @@ export const lastMousePositionState = atom<{ x: number; y: number }>({
 
 export const sidebarOpenState = atom<boolean>(true);
 
-export type DraggingWireDef = WireDef & { readonly dataType: DataType | Readonly<DataType[]> };
+export type DraggingWireDef = WireDef & {
+  readonly dataType: DataType | Readonly<DataType[]>;
+  readonly originalConnection?: NodeConnection;
+  readonly rewireSourceInput?: {
+    nodeId: NodeId;
+    portId: PortId;
+  };
+};
 
 export const draggingWireState = atom<DraggingWireDef | undefined>(undefined);
 

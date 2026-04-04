@@ -20,6 +20,7 @@ import {
   type ScalarDataValue,
 } from '@ironclad/rivet-core';
 import { getChatNodeMessages } from '../../../../core/src/model/nodes/ChatNodeBase.js';
+import { useClearCurrentGraphHistory } from '../../commands/Command.js';
 
 const lastPromptDesignerAttachedNodeState = atom<NodeId | undefined>(undefined);
 
@@ -36,6 +37,7 @@ export const usePromptDesignerAttachedNode = ({
   const [lastPromptDesignerAttachedNode, setLastPromptDesignerAttachedNode] = useAtom(
     lastPromptDesignerAttachedNodeState,
   );
+  const clearCurrentGraphHistory = useClearCurrentGraphHistory();
 
   const attachedNode = attachedNodeId?.nodeId ? (nodesById[attachedNodeId.nodeId] as ChatNode) : undefined;
   const testGroups = attachedNode?.tests ?? [];
@@ -90,6 +92,7 @@ export const usePromptDesignerAttachedNode = ({
   ]);
 
   const attachedNodeChanged = (newNode: ChatNode) => {
+    clearCurrentGraphHistory();
     setNodes((prev) => prev.map((node) => (node.id === newNode.id ? newNode : node)));
   };
 

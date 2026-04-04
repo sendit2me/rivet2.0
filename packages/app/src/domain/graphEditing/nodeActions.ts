@@ -7,6 +7,7 @@ import {
   type Project,
   type ProjectId,
   type ReferencedGraphAliasNode,
+  newId,
 } from '@ironclad/rivet-core';
 import { cloneDeep, partition } from 'lodash-es';
 
@@ -117,5 +118,62 @@ export function deleteNodesFromGraph(options: {
     newConnections,
     removedNodes,
     removedConnections,
+  };
+}
+
+export function createPastedNodes(options: {
+  nodes: ChartNode[];
+  connections: NodeConnection[];
+  position: { x: number; y: number };
+}) {
+  const boundingBox = options.nodes.reduce(
+    (accumulator, node) => ({
+      minX: Math.min(accumulator.minX, node.visualData.x),
+      minY: Math.min(accumulator.minY, node.visualData.y),
+      maxX: Math.max(accumulator.maxX, node.visualData.x + (node.visualData.width ?? 200)),
+      maxY: Math.max(accumulator.maxY, node.visualData.y + 200),
+    }),
+    {
+      minX: Number.MAX_SAFE_INTEGER,
+      minY: Number.MAX_SAFE_INTEGER,
+      maxX: Number.MIN_SAFE_INTEGER,
+      maxY: Number.MIN_SAFE_INTEGER,
+    },
+  );
+
+  const oldNewNodeIdMap: Record<NodeId, NodeId> = {};
+
+  const newNodes = options.nodes.map((node) => {
+    const duplicatedNode = cloneDeep(node);
+    const newNodeId = newId<NodeId>();
+    oldNewNodeIdMap[node.id] = newNodeId;
+
+    duplicatedNode.id = newNodeId;
+    duplicatedNode.visualData.x = options.position.x + (node.visualData.x - boundingBox.minX);
+    duplicatedNode.visualData.y = options.position.y + (node.visualData.y - boundingBox.minY);
+
+    return duplicatedNode;
+  });
+
+  const newConnections = options.connections.flatMap((connection) => {
+    const inputNodeId = oldNewNodeIdMap[connection.inputNodeId];
+    const outputNodeId = oldNewNodeIdMap[connection.outputNodeId];
+
+    if (!inputNodeId || !outputNodeId) {
+      return [];
+    }
+
+    return [
+      {
+        ...connection,
+        inputNodeId,
+        outputNodeId,
+      },
+    ];
+  });
+
+  return {
+    newNodes,
+    newConnections,
   };
 }

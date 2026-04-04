@@ -1,8 +1,6 @@
 import Portal from '@atlaskit/portal';
 import { css } from '@emotion/react';
 import {
-  canBeCoercedAny,
-  isDataTypeAccepted,
   type NodeId,
   type NodeInputDefinition,
   type NodeOutputDefinition,
@@ -15,6 +13,8 @@ import { lastRunDataState, resolvedGraphSelectionState, selectedProcessPageState
 import { getSelectedProcessData } from '../state/selectors/executionSelectors.js';
 import clsx from 'clsx';
 import { RenderDataValue } from './RenderDataValue';
+import { getPortCompatibilityStatus } from '../domain/graphEditing/portCompatibility.js';
+import { canvasIoDefinitionsForNodeState } from '../state/selectors/canvasGraphSelectors.js';
 
 const style = css`
   position: absolute;
@@ -107,7 +107,19 @@ export const PortInfo = forwardRef<
     floatingStyles: CSSProperties;
   }
 >(({ port, floatingStyles }, ref) => {
-  const { definition } = port;
+  const liveIo = useAtomValue(canvasIoDefinitionsForNodeState(port.nodeId));
+  const definition = useMemo(
+    () =>
+      port.isInput
+        ? liveIo.inputDefinitions.find((candidate) => candidate.id === port.portId)
+        : liveIo.outputDefinitions.find((candidate) => candidate.id === port.portId),
+    [liveIo.inputDefinitions, liveIo.outputDefinitions, port.isInput, port.portId],
+  );
+
+  if (!definition?.dataType) {
+    return null;
+  }
+
   const { dataType, title, description, id } = definition;
 
   const lastRun = useAtomValue(lastRunDataState(port.nodeId));
@@ -136,7 +148,8 @@ export const PortInfo = forwardRef<
 
   const draggingWire = useAtomValue(draggingWireState);
 
-  const dataTypeDisplay: string = Array.isArray(dataType) ? dataType.join(' or ') : (dataType as string);
+  const dataTypeDisplay: string =
+    dataType == null ? 'Unknown' : Array.isArray(dataType) ? dataType.join(' or ') : (dataType as string);
   let dataTypeDisplayWithCoerced = dataTypeDisplay;
 
   let canCoerce = false;
@@ -145,16 +158,20 @@ export const PortInfo = forwardRef<
     dataTypeDisplayWithCoerced += ' (coerced)';
   }
 
-  const willCoerce =
-    canCoerce &&
-    draggingWire &&
-    canBeCoercedAny(draggingWire.dataType, definition.dataType) &&
-    !isDataTypeAccepted(draggingWire.dataType, definition.dataType);
-
-  const incompatible =
-    draggingWire &&
-    !isDataTypeAccepted(draggingWire.dataType, definition.dataType) &&
-    (!canCoerce || !canBeCoercedAny(draggingWire.dataType, definition.dataType));
+  const compatibilityStatus = getPortCompatibilityStatus({
+    draggingDataType: draggingWire?.dataType,
+    portDataType: definition.dataType,
+    canCoerce,
+    isInput: port.isInput,
+  });
+  const willCoerce = compatibilityStatus === 'coerced';
+  const incompatible = compatibilityStatus === 'incompatible';
+  const draggingDataTypeDisplay =
+    draggingWire?.dataType == null
+      ? 'Unknown'
+      : Array.isArray(draggingWire.dataType)
+        ? draggingWire.dataType.join(' or ')
+        : draggingWire.dataType;
 
   const displayExecutionNum = portData ? (selectedPage === 'latest' ? lastRun!.length : selectedPage + 1) : undefined;
 
@@ -189,14 +206,14 @@ export const PortInfo = forwardRef<
         </dl>
         {willCoerce && (
           <div className="will-be-coerced">
-            Your data of type <code>{draggingWire.dataType}</code> will be coerced to <code>{dataTypeDisplay}</code> if
-            you connect it here.
+            Your data of type <code>{draggingDataTypeDisplay}</code> will be coerced to <code>{dataTypeDisplay}</code>{' '}
+            if you connect it here.
           </div>
         )}
         {incompatible && (
           <div className="incompatible">
-            Your data of type <code>{draggingWire.dataType}</code> is incompatible with <code>{dataTypeDisplay}</code>.
-            You may still connect it, but your graph may error.
+            Your data of type <code>{draggingDataTypeDisplay}</code> is incompatible with{' '}
+            <code>{dataTypeDisplay}</code>. You may still connect it, but your graph may error.
           </div>
         )}
         {didNotRun && port.isInput && (
