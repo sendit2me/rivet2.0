@@ -10,7 +10,6 @@ import {
 import { type FC, memo, useMemo, useState, type MouseEvent } from 'react';
 import { useUnknownNodeComponentDescriptorFor } from '../hooks/useNodeTypes.js';
 import { useStableCallback } from '../hooks/useStableCallback.js';
-import { copyToClipboard } from '../utils/copyToClipboard.js';
 import {
   type ChartNode,
   type ProcessId,
@@ -20,7 +19,6 @@ import CopyIcon from 'majesticons/line/clipboard-line.svg?react';
 import ExpandIcon from 'majesticons/line/maximize-line.svg?react';
 import FlaskIcon from 'majesticons/line/flask-line.svg?react';
 import { FullScreenModal } from './FullScreenModal.js';
-import { RenderDataOutputs } from './RenderDataValue.js';
 import { promptDesignerAttachedChatNodeState } from '../state/promptDesigner.js';
 import { overlayOpenState } from '../state/ui';
 import { useDependsOnPlugins } from '../hooks/useDependsOnPlugins';
@@ -29,15 +27,11 @@ import Toggle from '@atlaskit/toggle';
 import { pinnedNodesState } from '../state/graphBuilder';
 import { useNodeIO } from '../hooks/useGetNodeIO';
 import { Tooltip } from './Tooltip';
-import { type DataRefReader, useDataRefs } from '../providers/ProvidersContext';
+import { useDataRefs } from '../providers/ProvidersContext';
 import { filterProcessDataForSelection, getSelectedProcessData } from '../state/selectors/executionSelectors.js';
 import { renderNodeOutputBody } from './nodeOutput/renderNodeOutputBody.js';
-import {
-  getStoredWarningsForNodeOutput,
-  restoreDisplayedNodeOutputs,
-  serializeDisplayedNodeOutputsForClipboard,
-} from '../utils/executionDataReaders.js';
-import { handleError } from '../utils/errorHandling.js';
+import { getStoredWarningsForNodeOutput } from '../utils/executionDataReaders.js';
+import { copyNodeOutputJsonToClipboard, copyNodeOutputValueToClipboard } from './nodeOutput/nodeOutputCopyActions.js';
 
 export const NodeOutput: FC<{ node: ChartNode; isHovered: boolean }> = memo(({ node, isHovered: _isHovered }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -218,7 +212,7 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
     [graphSelectionOptions, output],
   );
 
-  const { FullscreenOutput, Output, OutputSimple, FullscreenOutputSimple, defaultRenderMarkdown } =
+  const { FullscreenOutput, Output, OutputSimple, FullscreenOutputSimple, defaultRenderMarkdown, getCopyValueData } =
     useUnknownNodeComponentDescriptorFor(node);
 
   const [renderMarkdown, toggleRenderMarkdown] = useToggle(defaultRenderMarkdown ?? false);
@@ -248,8 +242,10 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
     });
   };
 
-  const handleCopyToClipboard = useStableCallback(() => copyNodeOutputToClipboard(data, dataRefs));
-  const handleCopyToClipboardJson = useStableCallback(() => copyNodeOutputToClipboardJson(data, dataRefs));
+  const handleCopyToClipboard = useStableCallback(() =>
+    copyNodeOutputValueToClipboard(data, dataRefs, getCopyValueData),
+  );
+  const handleCopyToClipboardJson = useStableCallback(() => copyNodeOutputJsonToClipboard(data, dataRefs));
 
   const prevPage = useStableCallback(() => {
     if (!filteredOutput) {
@@ -379,7 +375,7 @@ const NodeOutputSingleProcess: FC<{
   onOpenFullscreenModal?: () => void;
 }> = ({ node, data, processId, onOpenFullscreenModal }) => {
   const dataRefs = useDataRefs();
-  const { Output, OutputSimple } = useUnknownNodeComponentDescriptorFor(node);
+  const { Output, OutputSimple, getCopyValueData } = useUnknownNodeComponentDescriptorFor(node);
 
   const setOverlayOpen = useSetAtom(overlayOpenState);
   const setPromptDesignerAttachedNode = useSetAtom(promptDesignerAttachedChatNodeState);
@@ -393,7 +389,9 @@ const NodeOutputSingleProcess: FC<{
     });
   };
 
-  const handleCopyToClipboard = useStableCallback(() => copyNodeOutputToClipboard(data, dataRefs));
+  const handleCopyToClipboard = useStableCallback(() =>
+    copyNodeOutputValueToClipboard(data, dataRefs, getCopyValueData),
+  );
 
   const warnings = useMemo(() => getStoredWarningsForNodeOutput(data, dataRefs), [data, dataRefs]);
 
@@ -511,37 +509,3 @@ const NodeOutputPager: FC<{
   onNextPage: () => void;
   stopDoubleClickPropagation?: boolean;
 }> = (props) => renderNodeOutputPager(props);
-
-function copyNodeOutputToClipboard(data: NodeRunDataWithRefs | undefined, dataRefs: DataRefReader): void {
-  if (!data) {
-    return;
-  }
-
-  try {
-    const serialized = serializeDisplayedNodeOutputsForClipboard(data, dataRefs);
-    if (serialized == null) {
-      return;
-    }
-
-    void copyToClipboard(serialized);
-  } catch (error) {
-    handleError(error, 'Failed to copy node output');
-  }
-}
-
-function copyNodeOutputToClipboardJson(data: NodeRunDataWithRefs | undefined, dataRefs: DataRefReader): void {
-  if (!data) {
-    return;
-  }
-
-  try {
-    const restoredOutputData = restoreDisplayedNodeOutputs(data, dataRefs);
-    if (!restoredOutputData) {
-      return;
-    }
-
-    void copyToClipboard(JSON.stringify(restoredOutputData, null, 2));
-  } catch (error) {
-    handleError(error, 'Failed to copy node output');
-  }
-}

@@ -3,6 +3,7 @@ import { type PortId } from '@ironclad/rivet-core';
 import { RenderDataValue, type OutputRenderMode } from '../RenderDataValue.js';
 import { type NodeComponentDescriptor } from '../../hooks/useNodeTypes.js';
 import { type InputsOrOutputsWithRefs } from '../../state/dataFlow';
+import { getLoopControllerNodeCopyValueData } from '../../utils/nodeOutputCopyValueProjectors.js';
 
 export const LoopControllerNodeOutput: FC<{ outputs: InputsOrOutputsWithRefs; renderMarkdown?: boolean; isCompact: boolean; renderMode?: OutputRenderMode }> = ({
   outputs,
@@ -33,4 +34,5 @@ export const LoopControllerNodeOutput: FC<{ outputs: InputsOrOutputsWithRefs; re
 
 export const loopControllerNodeDescriptor: NodeComponentDescriptor<'loopController'> = {
   OutputSimple: LoopControllerNodeOutput,
+  getCopyValueData: getLoopControllerNodeCopyValueData,
 };

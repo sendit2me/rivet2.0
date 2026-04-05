@@ -1,7 +1,6 @@
 import {
   type NodeOfType,
   type BuiltInNodeType,
-  type Outputs,
   type ChartNode,
 } from '@ironclad/rivet-core';
 import { type FC, useMemo } from 'react';
@@ -24,6 +23,7 @@ import { type InputsOrOutputsWithRefs } from '../state/dataFlow';
 import { useAtomValue } from 'jotai';
 import { useProjectNodeRegistry } from './useProjectNodeRegistry';
 import type { OutputRenderMode } from '../components/RenderDataValue.js';
+import type { NodeOutputCopyValueProjector } from '../utils/executionDataCopyValue.js';
 
 export type UnknownNodeComponentDescriptor = {
   Body?: FC<{ node: ChartNode }>;
@@ -32,6 +32,7 @@ export type UnknownNodeComponentDescriptor = {
   FullscreenOutput?: FC<{ node: ChartNode }>;
   OutputSimple?: FC<{ outputs: InputsOrOutputsWithRefs; isCompact: boolean; renderMode?: OutputRenderMode }>;
   FullscreenOutputSimple?: FC<{ outputs: InputsOrOutputsWithRefs; renderMarkdown: boolean; renderMode?: OutputRenderMode }>;
+  getCopyValueData?: NodeOutputCopyValueProjector;
   defaultRenderMarkdown?: boolean;
 };
 
@@ -42,6 +43,7 @@ export type NodeComponentDescriptor<T extends BuiltInNodeType> = {
   FullscreenOutput?: FC<{ node: NodeOfType<T> }>;
   OutputSimple?: FC<{ outputs: InputsOrOutputsWithRefs; isCompact: boolean; renderMode?: OutputRenderMode }>;
   FullscreenOutputSimple?: FC<{ outputs: InputsOrOutputsWithRefs; renderMarkdown: boolean; renderMode?: OutputRenderMode }>;
+  getCopyValueData?: NodeOutputCopyValueProjector;
   defaultRenderMarkdown?: boolean;
 };
 

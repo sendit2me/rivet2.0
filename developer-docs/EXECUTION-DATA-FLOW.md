@@ -457,7 +457,9 @@ Persisted app-side execution payloads now share one transform layer before being
 - `useNodeExecutionEvents` uses that shared path for started, finished, excluded, and partial-output persistence
 - split-run partial outputs still keep their separate `splitOutputData[index]` storage model, but they now reuse the same storage transform and stable ref-id scheme before persistence
 - `onStart`, `onTrivetStart`, and node-output clearing paths clear the corresponding execution-scoped refs when they wipe prior run data
-- `executionDataTransforms.ts` remains the low-level storage/restore boundary, but app-side read/restore behavior now goes through `executionDataReaders.ts` so UI and executor-preload code share the same displayed-output restore, port-level restore/coercion, warning extraction, and clipboard serialization logic
+- `executionDataTransforms.ts` remains the low-level storage/restore boundary, but app-side read/restore behavior now goes through `executionDataReaders.ts` so UI and executor-preload code share the same displayed-output restore, port-level restore/coercion, and warning extraction logic
+- display-oriented `Copy value` serialization now goes through `executionDataCopyValue.ts`, which projects restored outputs into the same plain-value shapes the user sees instead of serializing raw `DataValue` wrappers
+- nodes whose visible output shape differs from the raw output port map use `getCopyValueData` projectors from `nodeOutputCopyValueProjectors.ts` so copy behavior stays aligned with the custom output UI
 - preload/run-from paths therefore restore ref-backed values back into full `DataValue` payloads through the shared reader layer before passing them to the executor, instead of each consumer hand-rolling `restoreStoredInputsOrOutputs(...)` calls
 
 ## Browser vs Remote: Event Delivery and React Rendering

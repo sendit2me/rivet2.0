@@ -8,6 +8,7 @@ import { omit } from 'lodash-es';
 import { type InputsOrOutputsWithRefs } from '../../state/dataFlow';
 import { useDataRefs } from '../../providers/ProvidersContext.js';
 import { tryRestoreStoredDataValue } from '../../utils/executionDataTransforms.js';
+import { getSubGraphNodeCopyValueData } from '../../utils/nodeOutputCopyValueProjectors.js';
 
 export const SubGraphNodeBody: FC<{
   node: SubGraphNode;
@@ -71,4 +72,5 @@ export const subgraphNodeDescriptor: NodeComponentDescriptor<'subGraph'> = {
   Body: SubGraphNodeBody,
   OutputSimple: SubGraphNodeOutputSimple,
   FullscreenOutputSimple: FullscreenSubGraphNodeOutputSimple,
+  getCopyValueData: getSubGraphNodeCopyValueData,
 };

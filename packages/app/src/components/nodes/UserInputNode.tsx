@@ -4,6 +4,7 @@ import { type PortId, getScalarTypeOf } from '@ironclad/rivet-core';
 import { type NodeComponentDescriptor } from '../../hooks/useNodeTypes.js';
 import { type InputsOrOutputsWithRefs } from '../../state/dataFlow';
 import { RenderDataValue, type OutputRenderMode } from '../RenderDataValue.js';
+import { getUserInputNodeCopyValueData } from '../../utils/nodeOutputCopyValueProjectors.js';
 
 const questionsAndAnswersStyles = css`
   display: flex;
@@ -35,4 +36,5 @@ export const UserInputNodeOutput: FC<{ outputs: InputsOrOutputsWithRefs; isCompa
 
 export const userInputNodeDescriptor: NodeComponentDescriptor<'userInput'> = {
   OutputSimple: UserInputNodeOutput,
+  getCopyValueData: getUserInputNodeCopyValueData,
 };

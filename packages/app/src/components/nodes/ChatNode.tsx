@@ -15,6 +15,7 @@ import { type DataValueWithRefs, type InputsOrOutputsWithRefs } from '../../stat
 import { useDataRefs } from '../../providers/ProvidersContext.js';
 import { tryRestoreStoredDataValue } from '../../utils/executionDataTransforms.js';
 import type { OutputRenderMode } from '../RenderDataValue.js';
+import { getChatNodeCopyValueData } from '../../utils/nodeOutputCopyValueProjectors.js';
 
 const bodyStyles = css`
   display: flex;
@@ -219,5 +220,6 @@ const ChatNodeFullscreenOutput: FC<{
 export const chatNodeDescriptor: NodeComponentDescriptor<'chat'> = {
   OutputSimple: ChatNodeOutput,
   FullscreenOutputSimple: ChatNodeFullscreenOutput,
+  getCopyValueData: getChatNodeCopyValueData,
   defaultRenderMarkdown: true,
 };

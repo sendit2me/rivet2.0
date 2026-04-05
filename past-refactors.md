@@ -680,3 +680,19 @@ Monaco wrapper generic by handling persistence and drag behavior in the node-edi
 inside the base editor. The implementation also added container-size relayout through
 `ResizeObserver` so Monaco tracks live height changes cleanly, while keeping markdown, prompt-like,
 `jsonpath`, `regex`, and other out-of-scope code editors on a separate non-resizable layout path.
+
+## 56. Make node-output `Copy value` match the displayed output shape
+
+The fullscreen node-output copy actions had drifted away from what the UI actually showed. Generic
+structured outputs such as Object nodes were copying wrapped `DataValue` objects like `{ type,
+value }` instead of the plain displayed value, and custom output nodes such as Chat, User Input,
+Loop Controller, and SubGraph each had visible-field rules that the old generic copy path did not
+mirror reliably.
+
+This refactor fixed the behavior and then cleaned up the architecture around it without changing
+`Copy as JSON`. Generic display-aligned copy projection now lives in `executionDataCopyValue.ts`,
+restore/coerce and warning extraction stay in `executionDataReaders.ts`, node-specific visible-output
+overrides live in `nodeOutputCopyValueProjectors.ts`, and `NodeOutput.tsx` delegates clipboard side
+effects through `nodeOutputCopyActions.ts`. The result is that `Copy value` now copies the same
+value shape the user sees in the output preview, including ref-backed large outputs, while the
+internal `DataValue` wire format remains reserved for JSON/debug-style export paths.

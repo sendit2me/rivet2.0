@@ -1,11 +1,4 @@
-import {
-  type DataType,
-  type DataValue,
-  type Outputs,
-  type PortId,
-  coerceTypeOptional,
-  getWarnings,
-} from '@ironclad/rivet-core';
+import { type DataType, type DataValue, type Outputs, type PortId, coerceTypeOptional, getWarnings } from '@ironclad/rivet-core';
 import type { DataRefReader } from '../providers/ProvidersContext.js';
 import type { InputsOrOutputsWithRefs, NodeRunDataWithRefs } from '../state/dataFlow.js';
 import { restoreStoredInputsOrOutputs, tryRestoreStoredDataValue } from './executionDataTransforms.js';
@@ -68,28 +61,6 @@ export function restoreDisplayedNodeOutputs(
   return restoreStoredPortMap(data.outputData, dataRefs);
 }
 
-export function serializeDisplayedNodeOutputsForClipboard(
-  data: Pick<NodeRunDataWithRefs, 'outputData' | 'splitOutputData'>,
-  dataRefs: DataRefReader,
-): string | undefined {
-  const restoredOutputs = restoreDisplayedNodeOutputs(data, dataRefs);
-  if (!restoredOutputs) {
-    return undefined;
-  }
-
-  if (data.splitOutputData) {
-    return JSON.stringify(restoredOutputs, null, 2);
-  }
-
-  const outputMap = restoredOutputs as Outputs;
-  const keys = Object.keys(outputMap) as PortId[];
-  if (keys.length === 1) {
-    return serializeDataValueForClipboard(outputMap[keys[0]!]!);
-  }
-
-  return JSON.stringify(outputMap, null, 2);
-}
-
 export function getStoredWarningsForNodeOutput(
   data: Pick<NodeRunDataWithRefs, 'outputData' | 'splitOutputData'>,
   dataRefs: DataRefReader,
@@ -123,27 +94,4 @@ function collectWarningsFromOutputs(
   for (const warning of nextWarnings ?? []) {
     warnings.add(warning);
   }
-}
-
-function serializeDataValueForClipboard(value: DataValue): string {
-  if (value.type === 'string') {
-    return value.value;
-  }
-
-  if (value.type === 'chat-message') {
-    return serializeChatMessage(value);
-  }
-
-  if (value.type === 'chat-message[]') {
-    return value.value.map((message) => serializeChatMessage({ type: 'chat-message', value: message })).join('\n\n');
-  }
-
-  return JSON.stringify(value, null, 2);
-}
-
-function serializeChatMessage(value: Extract<DataValue, { type: 'chat-message' }>): string {
-  const messageParts = Array.isArray(value.value.message) ? value.value.message : [value.value.message];
-  return messageParts
-    .map((part) => (typeof part === 'string' ? part : part.type === 'url' ? part.url : `(${part.type})`))
-    .join('\n\n');
 }

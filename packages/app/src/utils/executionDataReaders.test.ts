@@ -9,7 +9,6 @@ import {
   getStoredWarningsForNodeOutput,
   restoreDisplayedNodeOutputs,
   restoreStoredPortValue,
-  serializeDisplayedNodeOutputsForClipboard,
 } from './executionDataReaders.js';
 
 function createDataRefStore(initialValues?: Record<string, DataValue>): DataRefReader {
@@ -19,80 +18,45 @@ function createDataRefStore(initialValues?: Record<string, DataValue>): DataRefR
   };
 }
 
-test('serializeDisplayedNodeOutputsForClipboard returns the plain value for a single non-split port', () => {
-  const serialized = serializeDisplayedNodeOutputsForClipboard(
+function inlineStored<T extends DataValue['type']>(type: T, value: Extract<DataValue, { type: T }>['value']) {
+  return {
+    type,
+    storage: 'inline' as const,
+    value,
+  };
+}
+
+test('restoreDisplayedNodeOutputs keeps wrapped values for the copy-as-json path', () => {
+  const restored = restoreDisplayedNodeOutputs(
     {
       outputData: {
-        output: {
-          type: 'string',
-          storage: 'inline',
-          value: 'hello',
-        },
+        output: inlineStored('object', {
+          key: 'Hello world!',
+        }),
       },
     } as NodeRunDataWithRefs,
     createDataRefStore(),
   );
 
-  assert.equal(serialized, 'hello');
-});
-
-test('serializeDisplayedNodeOutputsForClipboard serializes split outputs and preserves index ordering', () => {
-  const serialized = serializeDisplayedNodeOutputsForClipboard(
-    {
-      splitOutputData: {
-        1: {
-          output: {
-            type: 'string',
-            storage: 'inline',
-            value: 'second',
-          },
-        },
-        0: {
-          output: {
-            type: 'string',
-            storage: 'inline',
-            value: 'first',
-          },
-        },
+  assert.deepEqual(restored, {
+    output: {
+      type: 'object',
+      value: {
+        key: 'Hello world!',
       },
-    } as NodeRunDataWithRefs,
-    createDataRefStore(),
-  );
-
-  assert.equal(
-    serialized,
-    JSON.stringify(
-      {
-        0: {
-          output: { type: 'string', value: 'first' },
-        },
-        1: {
-          output: { type: 'string', value: 'second' },
-        },
-      },
-      null,
-      2,
-    ),
-  );
+    },
+  });
 });
 
 test('restoreDisplayedNodeOutputs prefers split outputs when they are present', () => {
   const restored = restoreDisplayedNodeOutputs(
     {
       outputData: {
-        output: {
-          type: 'string',
-          storage: 'inline',
-          value: 'ignored',
-        },
+        output: inlineStored('string', 'ignored'),
       },
       splitOutputData: {
         0: {
-          output: {
-            type: 'string',
-            storage: 'inline',
-            value: 'visible',
-          },
+          output: inlineStored('string', 'visible'),
         },
       },
     } as NodeRunDataWithRefs,
@@ -114,18 +78,10 @@ test('getStoredWarningsForNodeOutput aggregates warnings from split outputs', ()
     {
       splitOutputData: {
         0: {
-          [WarningsPort]: {
-            type: 'string[]',
-            storage: 'inline',
-            value: ['first warning'],
-          },
+          [WarningsPort]: inlineStored('string[]', ['first warning']),
         },
         1: {
-          [WarningsPort]: {
-            type: 'string[]',
-            storage: 'inline',
-            value: ['second warning', 'first warning'],
-          },
+          [WarningsPort]: inlineStored('string[]', ['second warning', 'first warning']),
         },
       },
     } as NodeRunDataWithRefs,
