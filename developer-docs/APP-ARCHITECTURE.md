@@ -1005,8 +1005,11 @@ Current structure:
 
 - [`packages/app/src/components/NodeOutput.tsx`](../packages/app/src/components/NodeOutput.tsx) now focuses on output panel orchestration
 - process-page controls are kept local to `NodeOutput.tsx`
+- fullscreen header controls for expanded node output now render through [`packages/app/src/components/nodeOutput/FullscreenNodeOutputToolbar.tsx`](../packages/app/src/components/nodeOutput/FullscreenNodeOutputToolbar.tsx), which stays presentational
 - output body selection lives in [`packages/app/src/components/nodeOutput/renderNodeOutputBody.tsx`](../packages/app/src/components/nodeOutput/renderNodeOutputBody.tsx)
 - copy-button side effects for node output live in [`packages/app/src/components/nodeOutput/nodeOutputCopyActions.ts`](../packages/app/src/components/nodeOutput/nodeOutputCopyActions.ts)
+- fullscreen output search state, hotkey interception, provider registration, and DOM/provider orchestration live in [`packages/app/src/components/nodeOutput/useFullscreenOutputSearch.ts`](../packages/app/src/components/nodeOutput/useFullscreenOutputSearch.ts)
+- pure fullscreen search/model helpers live in [`packages/app/src/components/nodeOutput/fullscreenOutputSearch.ts`](../packages/app/src/components/nodeOutput/fullscreenOutputSearch.ts), while DOM traversal/highlight logic and provider/block constants live in [`packages/app/src/components/nodeOutput/fullscreenOutputSearchDom.ts`](../packages/app/src/components/nodeOutput/fullscreenOutputSearchDom.ts)
 - [`packages/app/src/components/RenderDataValue.tsx`](../packages/app/src/components/RenderDataValue.tsx) is narrower and delegates renderer-specific work
 - scalar/type renderer setup lives in [`packages/app/src/components/renderDataValue/createScalarRenderers.tsx`](../packages/app/src/components/renderDataValue/createScalarRenderers.tsx)
 - full data-type dispatch now lives in [`packages/app/src/components/renderDataValue/createDataValueRendererMap.tsx`](../packages/app/src/components/renderDataValue/createDataValueRendererMap.tsx)
@@ -1020,11 +1023,18 @@ Current output-rendering rules that matter for performance-sensitive changes:
 - node-inline output is preview-first; hovering or pinning a node should not switch large payloads into full inline rendering
 - ref-backed large text/JSON-like values render through `LargeStoredValuePreview` and default to `compact` or `expanded-preview` modes before any explicit full inspection
 - fullscreen node output opens in `expanded-preview` mode, not raw full render mode
+- fullscreen node-output search is intentionally scoped to the expanded-preview modal only; compact node output should stay unchanged
+- fullscreen node-output search scope is the currently selected process-history page only, including split outputs on that page but not other history pages
+- `Ctrl/Cmd+F` interception for fullscreen output search must stay modal-scoped and capture-phase so it beats both canvas search and browser/webview find only while the fullscreen modal is open
+- search semantics should follow what the user currently sees, including markdown-toggle differences between rendered markdown text and raw text/JSON preview
 - copy/export actions must restore the original stored payload from refs before serializing
 - `NodeOutput`, `ChatViewer`, `CopyAsTestCaseModal`, prompt-designer hydration, total-cost derivation, and preload helpers should all go through the shared execution-data utility layer rather than assuming execution data is plain inline `DataValue` or hand-rolling restore loops
 - `restoreDisplayedNodeOutputs(...)`, port-level restore/coercion, and warning extraction belong in [`packages/app/src/utils/executionDataReaders.ts`](../packages/app/src/utils/executionDataReaders.ts)
 - generic display-aligned `Copy value` projection belongs in [`packages/app/src/utils/executionDataCopyValue.ts`](../packages/app/src/utils/executionDataCopyValue.ts)
 - node-specific output copy overrides should use the `getCopyValueData` descriptor path and live in [`packages/app/src/utils/nodeOutputCopyValueProjectors.ts`](../packages/app/src/utils/nodeOutputCopyValueProjectors.ts), not in UI component files
+- fullscreen search for large ref-backed previews should go through the provider/context path rather than falling back to generic DOM text search; `LargeStoredValuePreview` integrates through [`packages/app/src/components/renderDataValue/useLargeStoredValueFullscreenSearch.ts`](../packages/app/src/components/renderDataValue/useLargeStoredValueFullscreenSearch.ts)
+- full-text derivation for searchable ref-backed previews belongs in [`packages/app/src/components/renderDataValue/largeStoredValuePreviewText.ts`](../packages/app/src/components/renderDataValue/largeStoredValuePreviewText.ts), not inline in the render component
+- fullscreen chunk paging for large previews is intentionally contiguous and shared through [`packages/app/src/components/renderDataValue/largeStoredValueChunks.ts`](../packages/app/src/components/renderDataValue/largeStoredValueChunks.ts); chunk boundaries must not skip or duplicate content because fullscreen search relies on deterministic offset-to-chunk mapping
 
 ## Tauri Backend and Native Integration
 

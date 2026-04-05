@@ -23,7 +23,6 @@ import { promptDesignerAttachedChatNodeState } from '../state/promptDesigner.js'
 import { overlayOpenState } from '../state/ui';
 import { useDependsOnPlugins } from '../hooks/useDependsOnPlugins';
 import { useToggle } from 'ahooks';
-import Toggle from '@atlaskit/toggle';
 import { pinnedNodesState } from '../state/graphBuilder';
 import { useNodeIO } from '../hooks/useGetNodeIO';
 import { Tooltip } from './Tooltip';
@@ -32,6 +31,13 @@ import { filterProcessDataForSelection, getSelectedProcessData } from '../state/
 import { renderNodeOutputBody } from './nodeOutput/renderNodeOutputBody.js';
 import { getStoredWarningsForNodeOutput } from '../utils/executionDataReaders.js';
 import { copyNodeOutputJsonToClipboard, copyNodeOutputValueToClipboard } from './nodeOutput/nodeOutputCopyActions.js';
+import { FullscreenOutputSearchContext } from './nodeOutput/FullscreenOutputSearchContext.js';
+import { useFullscreenOutputSearch } from './nodeOutput/useFullscreenOutputSearch.js';
+import { FullscreenNodeOutputToolbar } from './nodeOutput/FullscreenNodeOutputToolbar.js';
+import {
+  FULLSCREEN_OUTPUT_SEARCH_MATCH_ACTIVE_CLASS,
+  FULLSCREEN_OUTPUT_SEARCH_MATCH_CLASS,
+} from './nodeOutput/fullscreenOutputSearchDom.js';
 
 export const NodeOutput: FC<{ node: ChartNode; isHovered: boolean }> = memo(({ node, isHovered: _isHovered }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -120,56 +126,15 @@ const fullscreenOutputCss = css`
       height: 32px;
     }
   }
-`;
 
-const fullscreenOutputButtonsCss = css`
-  display: inline-flex;
-  gap: 8px;
-
-  border: 1px solid var(--grey);
-  background: var(--grey-darker);
-  border-radius: 4px;
-  box-shadow: 4px 4px 8px var(--shadow-dark);
-  margin-bottom: 8px;
-  padding: 8px 12px;
-
-  .copy-button,
-  .prompt-designer-button {
-    width: 24px;
-    height: 24px;
-    font-size: 24px;
-    opacity: 0.2;
-    cursor: pointer;
-    transition: opacity 0.2s;
-    z-index: 1;
+  .${FULLSCREEN_OUTPUT_SEARCH_MATCH_CLASS} {
+    background: rgba(255, 214, 10, 0.3);
+    border-radius: 2px;
   }
 
-  .copy-button:hover,
-  .prompt-designer-button:hover {
-    opacity: 1;
-  }
-
-  .copy-json-button {
-    opacity: 0.2;
-    cursor: pointer;
-    user-select: none;
-    text-transform: uppercase;
-    font-size: 10px;
-    transition: opacity 0.2s;
-    z-index: 1;
-    height: 24px;
-    display: inline-flex;
-    align-items: center;
-
-    &:hover {
-      opacity: 1;
-    }
-  }
-
-  .markdown-toggle {
-    display: flex;
-    align-items: center;
-    user-select: none;
+  .${FULLSCREEN_OUTPUT_SEARCH_MATCH_ACTIVE_CLASS} {
+    background: rgba(255, 214, 10, 0.75);
+    color: #000;
   }
 `;
 
@@ -246,6 +211,29 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
     copyNodeOutputValueToClipboard(data, dataRefs, getCopyValueData),
   );
   const handleCopyToClipboardJson = useStableCallback(() => copyNodeOutputJsonToClipboard(data, dataRefs));
+  const contentVersion = useMemo(
+    () => ({
+      data,
+      processId,
+      renderMarkdown,
+      selectedPage,
+    }),
+    [data, processId, renderMarkdown, selectedPage],
+  );
+  const {
+    contextValue: fullscreenOutputSearchContext,
+    currentMatchIndex,
+    fullscreenOutputBodyRef,
+    goToNextMatch,
+    goToPreviousMatch,
+    handleSearchInputKeyDown,
+    query,
+    searchInputRef,
+    setQuery,
+    totalMatchCount,
+  } = useFullscreenOutputSearch({
+    contentKey: contentVersion,
+  });
 
   const prevPage = useStableCallback(() => {
     if (!filteredOutput) {
@@ -305,25 +293,28 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
         ) : (
           <div />
         )}
-        <div css={fullscreenOutputButtonsCss}>
-          <label className="markdown-toggle">
-            <Toggle isChecked={renderMarkdown} onChange={toggleRenderMarkdown.toggle} /> Render Markdown
-          </label>
-          <div className="copy-button" onClick={handleCopyToClipboard} title="Copy Value">
-            <CopyIcon />
-          </div>
-          <div className="copy-json-button" onClick={handleCopyToClipboardJson} title="Copy as JSON">
-            JSON
-          </div>
-          {node.type === 'chat' && (
-            <div className="prompt-designer-button" onClick={handleOpenPromptDesigner}>
-              <FlaskIcon />
-            </div>
-          )}
-        </div>
+        <FullscreenNodeOutputToolbar
+          renderMarkdown={renderMarkdown}
+          onToggleRenderMarkdown={toggleRenderMarkdown.toggle}
+          query={query}
+          onQueryChange={setQuery}
+          currentMatchIndex={currentMatchIndex}
+          totalMatchCount={totalMatchCount}
+          onPreviousMatch={goToPreviousMatch}
+          onNextMatch={goToNextMatch}
+          searchInputRef={searchInputRef}
+          onSearchInputKeyDown={handleSearchInputKeyDown}
+          onCopyValue={handleCopyToClipboard}
+          onCopyJson={handleCopyToClipboardJson}
+          onOpenPromptDesigner={node.type === 'chat' ? handleOpenPromptDesigner : undefined}
+        />
       </header>
 
-      <div className="fullscreen-output-body">{body}</div>
+      <FullscreenOutputSearchContext.Provider value={fullscreenOutputSearchContext}>
+        <div ref={fullscreenOutputBodyRef} className="fullscreen-output-body">
+          {body}
+        </div>
+      </FullscreenOutputSearchContext.Provider>
     </div>
   );
 };

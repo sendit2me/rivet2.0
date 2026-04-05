@@ -460,6 +460,7 @@ Persisted app-side execution payloads now share one transform layer before being
 - `executionDataTransforms.ts` remains the low-level storage/restore boundary, but app-side read/restore behavior now goes through `executionDataReaders.ts` so UI and executor-preload code share the same displayed-output restore, port-level restore/coercion, and warning extraction logic
 - display-oriented `Copy value` serialization now goes through `executionDataCopyValue.ts`, which projects restored outputs into the same plain-value shapes the user sees instead of serializing raw `DataValue` wrappers
 - nodes whose visible output shape differs from the raw output port map use `getCopyValueData` projectors from `nodeOutputCopyValueProjectors.ts` so copy behavior stays aligned with the custom output UI
+- fullscreen node-output search also depends on the same restore/payload model: generic rendered text is searched from the current fullscreen page DOM, while large ref-backed text/JSON-like previews participate through `LargeStoredValuePreview` search providers so search can target the full restored text instead of only the currently visible excerpt
 - preload/run-from paths therefore restore ref-backed values back into full `DataValue` payloads through the shared reader layer before passing them to the executor, instead of each consumer hand-rolling `restoreStoredInputsOrOutputs(...)` calls
 
 ## Browser vs Remote: Event Delivery and React Rendering

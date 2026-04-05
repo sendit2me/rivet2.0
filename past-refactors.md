@@ -696,3 +696,21 @@ overrides live in `nodeOutputCopyValueProjectors.ts`, and `NodeOutput.tsx` deleg
 effects through `nodeOutputCopyActions.ts`. The result is that `Copy value` now copies the same
 value shape the user sees in the output preview, including ref-backed large outputs, while the
 internal `DataValue` wire format remains reserved for JSON/debug-style export paths.
+
+## 57. Add fullscreen in-preview search for node output
+
+Fullscreen node output inspection had copy controls and markdown toggling, but it still relied on
+the app-wide find behavior instead of providing search within the output the user was actually
+looking at. That was especially limiting for large structured outputs and ref-backed payloads,
+where the user needed a current-page search experience inside the fullscreen preview rather than a
+global find bar for the whole app.
+
+This refactor added a fullscreen-only search bar to node output with modal-scoped `Ctrl/Cmd+F`,
+browser-like next/previous navigation, match counts, and highlight behavior that follows the
+currently displayed representation, including markdown-toggle changes. The implementation kept the
+feature scoped by making `NodeOutput.tsx` the fullscreen orchestration layer, moving the toolbar
+into `FullscreenNodeOutputToolbar.tsx`, splitting pure search/model helpers from DOM traversal and
+highlight logic, and integrating large ref-backed previews through provider-based search rather
+than generic DOM text matching. It also replaced the old large-preview paging model with
+contiguous chunking so later-chunk search matches can reliably map back to the correct preview
+page without skipped or duplicated content.

@@ -1,18 +1,20 @@
 import { css } from '@emotion/react';
 import prettyBytes from 'pretty-bytes';
-import { useEffect, useMemo, useState, type FC } from 'react';
+import { useEffect, useMemo, useRef, useState, type FC } from 'react';
 import { useDataRefs } from '../../providers/ProvidersContext.js';
 import type { StoredDataValue } from '../../state/dataFlow.js';
-import {
-  FULLSCREEN_CHUNK_PREVIEW_MAX_CHARS,
-  FULLSCREEN_CHUNK_PREVIEW_MAX_LINES,
-  FULL_RENDER_SAFE_THRESHOLD_CHARS,
-} from '../../utils/outputStorageLimits.js';
+import { FULL_RENDER_SAFE_THRESHOLD_CHARS } from '../../utils/outputStorageLimits.js';
 import { tryRestoreStoredDataValue } from '../../utils/executionDataTransforms.js';
-import ColorizedPreformattedText from '../ColorizedPreformattedText.js';
-import type { OutputRenderMode } from './outputRenderTypes.js';
 import { copyToClipboard } from '../../utils/copyToClipboard.js';
 import { handleError } from '../../utils/errorHandling.js';
+import ColorizedPreformattedText from '../ColorizedPreformattedText.js';
+import type { OutputRenderMode } from './outputRenderTypes.js';
+import {
+  buildLargeStoredValueChunks,
+  type LargeStoredValueChunk,
+} from './largeStoredValueChunks.js';
+import { deriveLargeStoredValuePreviewFullText } from './largeStoredValuePreviewText.js';
+import { useLargeStoredValueFullscreenSearch } from './useLargeStoredValueFullscreenSearch.js';
 
 const styles = css`
   display: flex;
@@ -67,6 +69,10 @@ const styles = css`
       height: 28px;
     }
   }
+
+  .preview-content {
+    min-height: 0;
+  }
 `;
 
 export const LargeStoredValuePreview: FC<{
@@ -77,6 +83,8 @@ export const LargeStoredValuePreview: FC<{
   const [showFull, setShowFull] = useState(mode === 'full');
   const [chunkPage, setChunkPage] = useState(0);
   const preview = value.preview;
+  const rootRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setShowFull(mode === 'full');
@@ -88,49 +96,60 @@ export const LargeStoredValuePreview: FC<{
     [dataRefs, mode, showFull, value],
   );
 
-  const fullText = useMemo(() => {
-    if (!restoredValue) {
+  const fullText = useMemo(() => deriveLargeStoredValuePreviewFullText(restoredValue), [restoredValue]);
+
+  const shouldPageFullText = (fullText?.length ?? 0) > FULL_RENDER_SAFE_THRESHOLD_CHARS;
+  const chunks = useMemo(() => (fullText ? buildLargeStoredValueChunks(fullText) : []), [fullText]);
+  const activeChunk = useMemo((): LargeStoredValueChunk | undefined => {
+    if (!fullText) {
       return undefined;
     }
 
-    switch (restoredValue.type) {
-      case 'string':
-        return restoredValue.value;
-      case 'string[]':
-        return restoredValue.value.join('\n');
-      case 'object':
-      case 'object[]':
-        return JSON.stringify(restoredValue.value, null, 2);
-      case 'any':
-      case 'any[]':
-        return typeof restoredValue.value === 'string'
-          ? restoredValue.value
-          : JSON.stringify(restoredValue.value, null, 2);
-      default:
-        return undefined;
+    if (!showFull || !shouldPageFullText) {
+      return chunks[0] ?? {
+        text: fullText,
+        startOffset: 0,
+        endOffset: fullText.length,
+      };
     }
-  }, [restoredValue]);
 
-  const shouldPageFullText = (fullText?.length ?? 0) > FULL_RENDER_SAFE_THRESHOLD_CHARS;
-  const chunkCount = fullText ? Math.max(1, Math.ceil(fullText.length / FULLSCREEN_CHUNK_PREVIEW_MAX_CHARS)) : 1;
+    return chunks[chunkPage] ?? chunks[0];
+  }, [chunkPage, chunks, fullText, shouldPageFullText, showFull]);
+
   const activeChunkText = useMemo(() => {
     if (!fullText) {
       return undefined;
     }
 
     if (!showFull) {
-      return slicePreviewChunk(fullText, 0);
+      return undefined;
     }
 
     if (!shouldPageFullText) {
       return fullText;
     }
 
-    return slicePreviewChunk(fullText, chunkPage * FULLSCREEN_CHUNK_PREVIEW_MAX_CHARS);
-  }, [chunkPage, fullText, showFull, shouldPageFullText]);
+    return activeChunk?.text ?? '';
+  }, [activeChunk?.text, fullText, shouldPageFullText, showFull]);
 
+  const chunkCount = shouldPageFullText ? Math.max(1, chunks.length) : 1;
   const showActions = mode !== 'compact';
   const missingRef = mode !== 'compact' && restoredValue == null;
+  const { providerRootProps, clearSearchAutoExpansion } = useLargeStoredValueFullscreenSearch({
+    providerId: value.refId,
+    rootRef,
+    contentRef,
+    fullText,
+    chunks,
+    activeChunk,
+    activeChunkText,
+    shouldPageFullText,
+    showFull,
+    setShowFull,
+    chunkPage,
+    setChunkPage,
+  });
+
   const handleCopyFullValue = () => {
     if (!fullText) {
       handleError(new Error('Value no longer available in memory'), 'Failed to copy node output');
@@ -149,8 +168,13 @@ export const LargeStoredValuePreview: FC<{
     void copyToClipboard(JSON.stringify(restoredValue.value, null, 2));
   };
 
+  const handleLoadFullValue = () => {
+    clearSearchAutoExpansion();
+    setShowFull(true);
+  };
+
   return (
-    <div css={styles}>
+    <div ref={rootRef} css={styles} {...providerRootProps}>
       <div className="preview-meta">
         <span>{preview.kind === 'json' ? 'JSON Preview' : 'Text Preview'}</span>
         {'totalChars' in preview && <span>{preview.totalChars.toLocaleString()} chars</span>}
@@ -162,7 +186,7 @@ export const LargeStoredValuePreview: FC<{
 
       {showActions && (
         <div className="preview-actions">
-          {!showFull && <button onClick={() => setShowFull(true)}>Load Full Value</button>}
+          {!showFull && <button onClick={handleLoadFullValue}>Load Full Value</button>}
           <button onClick={handleCopyFullValue}>Copy Full Value</button>
           {preview.kind === 'json' && <button onClick={handleCopyJson}>Copy JSON</button>}
         </div>
@@ -179,22 +203,23 @@ export const LargeStoredValuePreview: FC<{
             </span>
             <button onClick={() => setChunkPage((current) => Math.min(chunkCount - 1, current + 1))}>{'>'}</button>
           </div>
-          {preview.kind === 'json' ? (
-            <ColorizedPreformattedText text={activeChunkText ?? ''} language="json" />
-          ) : (
-            <pre>{activeChunkText}</pre>
-          )}
+          <div ref={contentRef} className="preview-content">
+            {preview.kind === 'json' ? (
+              <ColorizedPreformattedText text={activeChunkText ?? ''} language="json" />
+            ) : (
+              <pre>{activeChunkText}</pre>
+            )}
+          </div>
         </>
       ) : preview.kind === 'json' && showFull ? (
-        <ColorizedPreformattedText text={activeChunkText ?? ''} language="json" />
+        <div ref={contentRef} className="preview-content">
+          <ColorizedPreformattedText text={activeChunkText ?? ''} language="json" />
+        </div>
       ) : (
-        <pre>{showFull ? activeChunkText : preview.kind === 'summary' ? preview.label : preview.excerpt}</pre>
+        <div ref={contentRef} className="preview-content">
+          <pre>{showFull ? activeChunkText : preview.kind === 'summary' ? preview.label : preview.excerpt}</pre>
+        </div>
       )}
     </div>
   );
 };
-
-function slicePreviewChunk(text: string, offset: number): string {
-  const slice = text.slice(offset, offset + FULLSCREEN_CHUNK_PREVIEW_MAX_CHARS);
-  return slice.split('\n').slice(0, FULLSCREEN_CHUNK_PREVIEW_MAX_LINES).join('\n');
-}
