@@ -666,3 +666,17 @@ or folding mode changes, and the shared `CodeEditor` component was kept generic 
 theme prop as already resolved. Prompt-interpolation theme expansion is now shared through one
 helper across node editors and colorized text surfaces, which keeps folding scoped to the selected
 node-editor path without leaking Monaco state or theme behavior into unrelated editors.
+
+## 55. Add persistent per-node-type resizing for code and JSON node-editor viewports
+
+Monaco-based node editors for code and JSON fields were cramped, and the app had no way for users
+to make those viewports taller without changing source definitions. The requirement was to support
+bottom-edge drag resizing in the node editor, remember the chosen height across app sessions, and
+scope that preference to editor UI state rather than project data.
+
+This refactor added a resizable viewport shell for node-editor `javascript` and `json` Monaco
+fields, persisted the remembered height in app UI storage keyed by `node.type`, and kept the shared
+Monaco wrapper generic by handling persistence and drag behavior in the node-editor layer instead of
+inside the base editor. The implementation also added container-size relayout through
+`ResizeObserver` so Monaco tracks live height changes cleanly, while keeping markdown, prompt-like,
+`jsonpath`, `regex`, and other out-of-scope code editors on a separate non-resizable layout path.

@@ -34,12 +34,14 @@ export const CodeEditor: FC<{
   const onChangeLatest = useLatest(onChange);
 
   useEffect(() => {
-    if (!editorContainer.current) {
+    const container = editorContainer.current;
+
+    if (!container) {
       return;
     }
 
     const editor = monaco.editor.create(
-      editorContainer.current,
+      container,
       buildCodeEditorCreateOptions({
         theme,
         language,
@@ -50,13 +52,22 @@ export const CodeEditor: FC<{
       }),
     );
 
+    editor.layout();
+
     const onResize = () => {
       editor.layout();
     };
+    const resizeObserver =
+      typeof ResizeObserver !== 'undefined'
+        ? new ResizeObserver(onResize)
+        : undefined;
 
-    editor.layout();
-
-    window.addEventListener('resize', onResize);
+    if (resizeObserver) {
+      resizeObserver.observe(container);
+    } else {
+      // Fallback for environments that do not expose ResizeObserver.
+      window.addEventListener('resize', onResize);
+    }
 
     editor.onDidChangeModelContent(() => {
       onChangeLatest.current?.(editor.getValue());
@@ -79,8 +90,11 @@ export const CodeEditor: FC<{
       if (editorRef) {
         editorRef.current = undefined;
       }
+      resizeObserver?.disconnect();
       editor.dispose();
-      window.removeEventListener('resize', onResize);
+      if (!resizeObserver) {
+        window.removeEventListener('resize', onResize);
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

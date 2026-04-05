@@ -14,4 +14,10 @@ export const newProjectModalOpenState = atom<boolean>(false);
 
 export const expandedFoldersState = atomWithStorage<Record<string, boolean>>('expandedFoldersState', {}, storage);
 
+export const codeEditorHeightsByNodeTypeState = atomWithStorage<Record<string, number>>(
+  'codeEditorHeightsByNodeTypeState',
+  {},
+  storage,
+);
+
 export const helpModalOpenState = atom<boolean>(false);

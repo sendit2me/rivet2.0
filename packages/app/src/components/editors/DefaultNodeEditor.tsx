@@ -37,20 +37,22 @@ export const defaultEditorContainerStyles = css`
   }
 
   .editor-wrapper-wrapper {
-    min-height: 200px;
+    min-height: 0;
     flex: 1 1 auto;
     display: flex;
     flex-direction: column;
     position: relative;
-    /* height: 100%; */
+  }
+
+  .editor-viewport-shell {
+    position: relative;
+    min-height: 0;
+    flex: 0 0 auto;
   }
 
   .editor-wrapper {
-    position: absolute;
-    top: 24px;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    height: 100%;
+    min-height: 0;
   }
 
   .editor-container {
@@ -58,10 +60,31 @@ export const defaultEditorContainerStyles = css`
   }
 
   .row.code {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .node-editor-static-code-editor {
     min-height: 500px;
     flex: 1 1 auto;
     display: flex;
     flex-direction: column;
+  }
+
+  .node-editor-static-code-editor .editor-container {
+    flex: 1 1 auto;
+  }
+
+  .node-editor-code-resize-handle {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 10px;
+    cursor: ns-resize;
+    background: linear-gradient(to bottom, transparent 0%, rgba(255, 255, 255, 0.18) 100%);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.18);
   }
 
   .row.toggle > div {
