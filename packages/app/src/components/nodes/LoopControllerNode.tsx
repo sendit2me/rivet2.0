@@ -1,11 +1,13 @@
 import { type FC } from 'react';
-import { type Outputs, type PortId } from '@ironclad/rivet-core';
-import { RenderDataValue } from '../RenderDataValue.js';
+import { type PortId } from '@ironclad/rivet-core';
+import { RenderDataValue, type OutputRenderMode } from '../RenderDataValue.js';
 import { type NodeComponentDescriptor } from '../../hooks/useNodeTypes.js';
-import { type InputsOrOutputsWithRefs, type DataValueWithRefs } from '../../state/dataFlow';
+import { type InputsOrOutputsWithRefs } from '../../state/dataFlow';
 
-export const LoopControllerNodeOutput: FC<{ outputs: InputsOrOutputsWithRefs; renderMarkdown?: boolean }> = ({
+export const LoopControllerNodeOutput: FC<{ outputs: InputsOrOutputsWithRefs; renderMarkdown?: boolean; isCompact: boolean; renderMode?: OutputRenderMode }> = ({
   outputs,
+  isCompact,
+  renderMode,
 }) => {
   const outputKeys = Object.keys(outputs).filter((key) => key.startsWith('output'));
 
@@ -22,7 +24,7 @@ export const LoopControllerNodeOutput: FC<{ outputs: InputsOrOutputsWithRefs; re
           <div>
             <em>Output {i + 1}</em>
           </div>
-          <RenderDataValue key={key} value={outputs[key as PortId] as DataValueWithRefs} />
+          <RenderDataValue key={key} value={outputs[key as PortId]} isCompact={isCompact} mode={renderMode} />
         </div>
       ))}
     </div>

@@ -23,14 +23,15 @@ import { replaceDatasetNodeDescriptor } from '../components/nodes/ReplaceDataset
 import { type InputsOrOutputsWithRefs } from '../state/dataFlow';
 import { useAtomValue } from 'jotai';
 import { useProjectNodeRegistry } from './useProjectNodeRegistry';
+import type { OutputRenderMode } from '../components/RenderDataValue.js';
 
 export type UnknownNodeComponentDescriptor = {
   Body?: FC<{ node: ChartNode }>;
   Output?: FC<{ node: ChartNode; isCompact: boolean }>;
   Editor?: FC<{ node: ChartNode; onChange?: (node: ChartNode) => void }>;
   FullscreenOutput?: FC<{ node: ChartNode }>;
-  OutputSimple?: FC<{ outputs: InputsOrOutputsWithRefs; isCompact: boolean }>;
-  FullscreenOutputSimple?: FC<{ outputs: InputsOrOutputsWithRefs; renderMarkdown: boolean }>;
+  OutputSimple?: FC<{ outputs: InputsOrOutputsWithRefs; isCompact: boolean; renderMode?: OutputRenderMode }>;
+  FullscreenOutputSimple?: FC<{ outputs: InputsOrOutputsWithRefs; renderMarkdown: boolean; renderMode?: OutputRenderMode }>;
   defaultRenderMarkdown?: boolean;
 };
 
@@ -39,8 +40,8 @@ export type NodeComponentDescriptor<T extends BuiltInNodeType> = {
   Output?: FC<{ node: NodeOfType<T>; isCompact: boolean }>;
   Editor?: FC<{ node: NodeOfType<T>; onChange?: (node: NodeOfType<T>) => void }>;
   FullscreenOutput?: FC<{ node: NodeOfType<T> }>;
-  OutputSimple?: FC<{ outputs: InputsOrOutputsWithRefs; isCompact: boolean }>;
-  FullscreenOutputSimple?: FC<{ outputs: InputsOrOutputsWithRefs; renderMarkdown: boolean }>;
+  OutputSimple?: FC<{ outputs: InputsOrOutputsWithRefs; isCompact: boolean; renderMode?: OutputRenderMode }>;
+  FullscreenOutputSimple?: FC<{ outputs: InputsOrOutputsWithRefs; renderMarkdown: boolean; renderMode?: OutputRenderMode }>;
   defaultRenderMarkdown?: boolean;
 };
 

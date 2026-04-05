@@ -3,7 +3,12 @@ import { useSetAtom } from 'jotai';
 import { type ProcessEvents } from '@ironclad/rivet-core';
 import { type ExecutionDataFlowApi } from './useExecutionDataFlow';
 import { lastRunDataByNodeState } from '../state/dataFlow';
-import { cloneNodeInputOrOutputDataForHistory, sanitizeInputsOrOutputs } from '../utils/executionDataTransforms';
+import {
+  collectStoredRefIds,
+  deleteStoredRefIds,
+  sanitizeInputsOrOutputs,
+  storeInputsOrOutputsForHistory,
+} from '../utils/executionDataTransforms';
 import { useDataRefs } from '../providers/ProvidersContext';
 
 export type NodeExecutionEventsApi = {
@@ -61,6 +66,13 @@ export function useNodeExecutionEvents({
 
   const onPartialOutput = ({ node, outputs, index, processId, execution }: ProcessEvents['partialOutput']) => {
     const sanitizedOutputs = sanitizeInputsOrOutputs(outputs);
+    const storedOutputs = storeInputsOrOutputsForHistory(sanitizedOutputs, dataRefs, {
+      nodeId: node.id,
+      processId,
+      channel: 'output',
+      splitIndex: node.isSplitRun ? index : undefined,
+    });
+    let refIdsToDelete: string[] = [];
 
     if (node.isSplitRun) {
       setLastRunData((prev) =>
@@ -74,9 +86,10 @@ export function useNodeExecutionEvents({
             existingProcess.graphId = execution.graphId;
             existingProcess.graphRunId = execution.graphRunId;
             existingProcess.rootRunId = execution.rootRunId;
+            refIdsToDelete.push(...collectStoredRefIds(existingProcess.data.splitOutputData?.[index]));
             existingProcess.data.splitOutputData = {
               ...existingProcess.data.splitOutputData,
-              [index]: cloneNodeInputOrOutputDataForHistory(sanitizedOutputs, dataRefs)!,
+              [index]: storedOutputs!,
             };
           } else {
             draft[node.id]!.push({
@@ -86,7 +99,7 @@ export function useNodeExecutionEvents({
               rootRunId: execution.rootRunId,
               data: {
                 splitOutputData: {
-                  [index]: cloneNodeInputOrOutputDataForHistory(sanitizedOutputs, dataRefs)!,
+                  [index]: storedOutputs!,
                 },
               },
             });
@@ -99,23 +112,29 @@ export function useNodeExecutionEvents({
       });
     }
 
+    deleteStoredRefIds(dataRefs, refIdsToDelete);
     setSelectedNodePageLatest(node.id, execution);
   };
 
   const onNodeOutputsCleared = ({ node, processId, execution }: ProcessEvents['nodeOutputsCleared']) => {
+    let refIdsToDelete: string[] = [];
+
     setLastRunData((prev) =>
       produce(prev, (draft) => {
         if (processId) {
           const index = draft[node.id]?.findIndex((process) => process.processId === processId);
           if (index !== undefined && index !== -1) {
+            refIdsToDelete.push(...collectStoredRefIds(draft[node.id]![index]!.data));
             draft[node.id]!.splice(index, 1);
           }
         } else {
+          refIdsToDelete.push(...(draft[node.id] ?? []).flatMap((process) => collectStoredRefIds(process.data)));
           delete draft[node.id];
         }
       }),
     );
 
+    deleteStoredRefIds(dataRefs, refIdsToDelete);
     setSelectedNodePageLatest(node.id, execution);
   };
 

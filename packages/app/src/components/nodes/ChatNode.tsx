@@ -2,19 +2,19 @@ import { type FC } from 'react';
 import { css } from '@emotion/react';
 import { RenderDataValue } from '../RenderDataValue.js';
 import {
-  type ChatNode,
-  type Outputs,
+  type DataValue,
   type PortId,
   coerceTypeOptional,
   inferType,
   isArrayDataValue,
-  type DataValue,
 } from '@ironclad/rivet-core';
 import { type NodeComponentDescriptor } from '../../hooks/useNodeTypes.js';
 import styled from '@emotion/styled';
 import clsx from 'clsx';
-import { useMarkdown } from '../../hooks/useMarkdown.js';
-import { type InputsOrOutputsWithRefs, type DataValueWithRefs } from '../../state/dataFlow';
+import { type DataValueWithRefs, type InputsOrOutputsWithRefs } from '../../state/dataFlow';
+import { useDataRefs } from '../../providers/ProvidersContext.js';
+import { tryRestoreStoredDataValue } from '../../utils/executionDataTransforms.js';
+import type { OutputRenderMode } from '../RenderDataValue.js';
 
 const bodyStyles = css`
   display: flex;
@@ -33,24 +33,31 @@ export const ChatNodeOutput: FC<{
   outputs: InputsOrOutputsWithRefs;
   fullscreen?: boolean;
   renderMarkdown?: boolean;
-}> = ({ outputs, fullscreen, renderMarkdown }) => {
+  renderMode?: OutputRenderMode;
+}> = ({ outputs, fullscreen, renderMarkdown, renderMode }) => {
+  const dataRefs = useDataRefs();
+  const responseValue = tryRestoreStoredDataValue(outputs['response' as PortId], dataRefs);
+  const requestTokensValue = tryRestoreStoredDataValue(outputs['requestTokens' as PortId], dataRefs);
+  const responseTokensValue = tryRestoreStoredDataValue(outputs['responseTokens' as PortId], dataRefs);
+  const costValue = tryRestoreStoredDataValue(outputs['cost' as PortId], dataRefs);
+  const durationValue = tryRestoreStoredDataValue(outputs['duration' as PortId], dataRefs);
+  const functionCallValue =
+    tryRestoreStoredDataValue(outputs['function-call' as PortId], dataRefs) ??
+    tryRestoreStoredDataValue(outputs['function-calls' as PortId], dataRefs);
+
   if (
-    isArrayDataValue(outputs['response' as PortId] as DataValue) ||
-    isArrayDataValue(outputs['requestTokens' as PortId] as DataValue)
+    isArrayDataValue(responseValue) ||
+    isArrayDataValue(requestTokensValue)
   ) {
-    const outputTextAll = coerceTypeOptional(outputs['response' as PortId] as DataValue, 'string[]') ?? [];
+    const outputTextAll = coerceTypeOptional(responseValue, 'string[]') ?? [];
 
-    const requestTokensAll = coerceTypeOptional(outputs['requestTokens' as PortId] as DataValue, 'number[]') ?? [];
-    const responseTokensAll = coerceTypeOptional(outputs['responseTokens' as PortId] as DataValue, 'number[]') ?? [];
-    const costAll = coerceTypeOptional(outputs['cost' as PortId] as DataValue, 'number[]') ?? [];
-    const durationAll = coerceTypeOptional(outputs['duration' as PortId] as DataValue, 'number[]') ?? [];
+    const requestTokensAll = coerceTypeOptional(requestTokensValue, 'number[]') ?? [];
+    const responseTokensAll = coerceTypeOptional(responseTokensValue, 'number[]') ?? [];
+    const costAll = coerceTypeOptional(costValue, 'number[]') ?? [];
+    const durationAll = coerceTypeOptional(durationValue, 'number[]') ?? [];
 
-    const functionCallOutput =
-      (outputs['function-call' as PortId] as DataValue) ?? (outputs['function-calls' as PortId] as DataValue);
     const functionCallAll =
-      functionCallOutput?.type === 'object[]'
-        ? functionCallOutput.value
-        : coerceTypeOptional(functionCallOutput, 'string[]');
+      functionCallValue?.type === 'object[]' ? functionCallValue.value : coerceTypeOptional(functionCallValue, 'string[]');
 
     return (
       <div className="multi-message" css={bodyStyles}>
@@ -64,40 +71,39 @@ export const ChatNodeOutput: FC<{
           return (
             <ChatNodeOutputSingle
               key={index}
-              outputText={outputText}
+              outputValue={outputText == null ? undefined : { type: 'string', value: outputText }}
               requestTokens={requestTokens}
               responseTokens={responseTokens}
               cost={cost}
               duration={duration}
-              functionCall={functionCall}
+              functionCallValue={functionCall == null ? undefined : inferType(functionCall)}
               fullscreen={fullscreen}
               renderMarkdown={renderMarkdown}
+              renderMode={renderMode}
             />
           );
         })}
       </div>
     );
   } else {
-    const outputText = coerceTypeOptional(outputs['response' as PortId] as DataValue, 'string');
+    const outputText = coerceTypeOptional(responseValue, 'string');
 
-    const requestTokens = coerceTypeOptional(outputs['requestTokens' as PortId] as DataValue, 'number');
-    const responseTokens = coerceTypeOptional(outputs['responseTokens' as PortId] as DataValue, 'number');
-    const cost = coerceTypeOptional(outputs['cost' as PortId] as DataValue, 'number');
-    const duration = coerceTypeOptional(outputs['duration' as PortId] as DataValue, 'number');
-
-    const functionCallOutput =
-      (outputs['function-call' as PortId] as DataValue) ?? (outputs['function-calls' as PortId] as DataValue);
+    const requestTokens = coerceTypeOptional(requestTokensValue, 'number');
+    const responseTokens = coerceTypeOptional(responseTokensValue, 'number');
+    const cost = coerceTypeOptional(costValue, 'number');
+    const duration = coerceTypeOptional(durationValue, 'number');
 
     return (
       <ChatNodeOutputSingle
-        outputText={outputText}
+        outputValue={outputs['response' as PortId]}
         requestTokens={requestTokens}
         responseTokens={responseTokens}
         cost={cost}
-        functionCall={functionCallOutput?.value as object}
+        functionCallValue={functionCallValue}
         duration={duration}
         fullscreen={fullscreen}
         renderMarkdown={renderMarkdown}
+        renderMode={renderMode}
       />
     );
   }
@@ -134,16 +140,27 @@ const ChatNodeOutputContainer = styled.div`
 `;
 
 export const ChatNodeOutputSingle: FC<{
-  outputText: string | undefined;
-  functionCall: string | object | undefined;
+  outputValue: DataValueWithRefs | DataValue | undefined;
+  functionCallValue: DataValue | undefined;
   requestTokens: number | undefined;
   responseTokens: number | undefined;
   cost: number | undefined;
   duration: number | undefined;
   fullscreen?: boolean;
   renderMarkdown?: boolean;
-}> = ({ outputText, functionCall, requestTokens, responseTokens, cost, duration, fullscreen, renderMarkdown }) => {
-  const outputHtml = useMarkdown(outputText);
+  renderMode?: OutputRenderMode;
+}> = ({
+  outputValue,
+  functionCallValue,
+  requestTokens,
+  responseTokens,
+  cost,
+  duration,
+  fullscreen,
+  renderMarkdown,
+  renderMode,
+}) => {
+  const effectiveRenderMode = renderMode ?? (fullscreen ? 'expanded-preview' : 'compact');
 
   return (
     <ChatNodeOutputContainer className={clsx({ fullscreen })}>
@@ -175,19 +192,15 @@ export const ChatNodeOutputSingle: FC<{
       </div>
 
       <div className={clsx('outputText', { markdown: renderMarkdown })}>
-        {renderMarkdown ? (
-          <div dangerouslySetInnerHTML={outputHtml} />
-        ) : (
-          <div className="pre-wrap">
-            <RenderDataValue value={inferType(outputText) as DataValueWithRefs} />
-          </div>
-        )}
+        <div className="pre-wrap">
+          <RenderDataValue value={outputValue} renderMarkdown={renderMarkdown} mode={effectiveRenderMode} />
+        </div>
       </div>
-      {functionCall && (
+      {functionCallValue && (
         <div className="function-call">
-          <h4>{Array.isArray(functionCall) ? 'Function Calls' : 'Function Call'}:</h4>
+          <h4>{Array.isArray(functionCallValue.value) ? 'Function Calls' : 'Function Call'}:</h4>
           <div className="pre-wrap">
-            <RenderDataValue value={inferType(functionCall) as DataValueWithRefs} />
+            <RenderDataValue value={functionCallValue} mode={effectiveRenderMode} />
           </div>
         </div>
       )}
@@ -198,8 +211,9 @@ export const ChatNodeOutputSingle: FC<{
 const ChatNodeFullscreenOutput: FC<{
   outputs: InputsOrOutputsWithRefs;
   renderMarkdown: boolean;
-}> = ({ outputs, renderMarkdown }) => {
-  return <ChatNodeOutput outputs={outputs} fullscreen renderMarkdown={renderMarkdown} />;
+  renderMode?: OutputRenderMode;
+}> = ({ outputs, renderMarkdown, renderMode }) => {
+  return <ChatNodeOutput outputs={outputs} fullscreen renderMarkdown={renderMarkdown} renderMode={renderMode} />;
 };
 
 export const chatNodeDescriptor: NodeComponentDescriptor<'chat'> = {

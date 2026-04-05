@@ -226,7 +226,7 @@ export const PortInfo = forwardRef<
           <>
             <h6>Execution {displayExecutionNum}</h6>
             <div className="last-value">
-              <RenderDataValue truncateLength={1500} value={portData[port.portId]} />
+              <RenderDataValue truncateLength={1500} value={portData[port.portId]} mode="compact" />
             </div>
           </>
         )}

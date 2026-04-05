@@ -6,12 +6,15 @@ import { LegacyBrowserIOProvider } from '../io/LegacyBrowserIOProvider.js';
 import { TauriIOProvider } from '../io/TauriIOProvider.js';
 import { BrowserDatasetProvider } from '../io/BrowserDatasetProvider.js';
 import { TauriBrowserAudioProvider } from '../io/TauriBrowserAudioProvider.js';
-import { getGlobalDataRef, setGlobalDataRef } from '../utils/globals/globalDataRefs.js';
+import { deleteGlobalDataRef, getGlobalDataRef, setGlobalDataRef } from '../utils/globals/globalDataRefs.js';
 
 export type DataRefStore = {
   get(key: string): ReturnType<typeof getGlobalDataRef>;
-  set(key: string, value: Parameters<typeof setGlobalDataRef>[1]): void;
+  set(key: string, value: Parameters<typeof setGlobalDataRef>[1], options?: Parameters<typeof setGlobalDataRef>[2]): void;
+  delete(key: string): void;
 };
+
+export type DataRefReader = Pick<DataRefStore, 'get'>;
 
 export type AppDatasetProvider = DatasetProvider & {
   loadDatasets?(projectId: ProjectId): Promise<void>;
@@ -70,6 +73,7 @@ function createDefaultProviders(): Providers {
     dataRefs: {
       get: getGlobalDataRef,
       set: setGlobalDataRef,
+      delete: deleteGlobalDataRef,
     },
   };
 }

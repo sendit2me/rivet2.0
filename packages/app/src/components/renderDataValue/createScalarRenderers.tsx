@@ -1,24 +1,27 @@
-import { useMemo, type FC } from 'react';
+import { useMarkdown } from '../../hooks/useMarkdown.js';
 import {
   type AudioDataValue,
+  type BinaryDataValue,
   type ChatMessageDataValue,
+  type ChatMessageMessagePart,
   type DataType,
   type DocumentDataValue,
   type ImageDataValue,
   inferType,
   type ScalarDataType,
-  type ChatMessageMessagePart,
-  type BinaryDataValue,
+  type ScalarDataValue,
 } from '@ironclad/rivet-core';
-import { match } from 'ts-pattern';
 import prettyBytes from 'pretty-bytes';
+import { useMemo, type FC } from 'react';
+import { match } from 'ts-pattern';
+import type { DataValueRendererProps } from './createDataValueRendererMap.js';
 import ColorizedPreformattedText from '../ColorizedPreformattedText.js';
-import { useMarkdown } from '../../hooks/useMarkdown.js';
-import { type DataValueWithRefs, type ScalarDataValueWithRefs } from '../../state/dataFlow.js';
 import { RenderChatMessagePart } from './RenderChatMessagePart.js';
+import { COMPACT_PREVIEW_MAX_CHARS, COMPACT_PREVIEW_MAX_LINES } from '../../utils/outputStorageLimits.js';
+import { getRenderedStringText } from './stringPreview.js';
 
 export type ScalarRendererProps<T extends DataType = DataType> = {
-  value: Extract<ScalarDataValueWithRefs, { type: T }>;
+  value: Extract<ScalarDataValue, { type: T }>;
   depth?: number;
   renderMarkdown?: boolean;
   truncateLength?: number;
@@ -26,40 +29,30 @@ export type ScalarRendererProps<T extends DataType = DataType> = {
 };
 
 export function createScalarRenderers(options: {
-  dataRefs: ReturnType<typeof import('../../providers/ProvidersContext.js').getDefaultProviders>['dataRefs'];
-  renderValue: (value: DataValueWithRefs, depth?: number, renderMarkdown?: boolean, truncateLength?: number, isCompact?: boolean) => JSX.Element;
+  renderValue: (props: DataValueRendererProps) => JSX.Element;
 }) {
-  const { dataRefs, renderValue } = options;
+  const { renderValue } = options;
 
-  /* eslint-disable react-hooks/rules-of-hooks -- These are components (ish) */
+  /* eslint-disable react-hooks/rules-of-hooks -- table-driven renderers */
   const scalarRenderers: {
     [P in ScalarDataType]: FC<ScalarRendererProps<P>>;
   } = {
     boolean: ({ value }) => <>{value.value ? 'true' : 'false'}</>,
     number: ({ value }) => <>{value.value}</>,
     string: ({ value, renderMarkdown, truncateLength, isCompact }) => {
-      let truncated = truncateLength ? value.value.slice(0, truncateLength) + '...' : value.value;
+      const truncated = getRenderedStringText(value.value, { truncateLength, isCompact });
 
-      if (isCompact) {
-        truncated = truncated.split('\n').slice(0, 2).join('\n');
-      }
+      const markdownEnabled = !!renderMarkdown && !isCompact;
+      const markdownRendered = useMarkdown(truncated, markdownEnabled);
 
-      const markdownRendered = useMarkdown(truncated, renderMarkdown);
-
-      if (renderMarkdown) {
+      if (markdownEnabled) {
         return <div dangerouslySetInnerHTML={markdownRendered} />;
       }
 
       return <pre className="pre-wrap">{truncated}</pre>;
     },
     'chat-message': ({ value, renderMarkdown, isCompact }) => {
-      const resolved = dataRefs.get(value.value.ref);
-
-      if (!resolved) {
-        return <div>Could not find data.</div>;
-      }
-
-      const { value: realValue } = resolved as ChatMessageDataValue;
+      const { value: realValue } = value as ChatMessageDataValue;
       let parts = Array.isArray(realValue.message) ? realValue.message : [realValue.message];
 
       if (isCompact && parts.length > 1) {
@@ -109,7 +102,7 @@ export function createScalarRenderers(options: {
                 <h4>Function Calls:</h4>
                 <div className="pre-wrap">
                   {message.function_calls.map((fc, index) => (
-                    <div key={index}>{renderValue(inferType(fc) as DataValueWithRefs)}</div>
+                    <div key={index}>{renderValue({ value: inferType(fc) })}</div>
                   ))}
                 </div>
               </div>
@@ -117,7 +110,7 @@ export function createScalarRenderers(options: {
               message.function_call && (
                 <div className="function-call">
                   <h4>Function Call:</h4>
-                  <div className="pre-wrap">{renderValue(inferType(message.function_call) as DataValueWithRefs)}</div>
+                  <div className="pre-wrap">{renderValue({ value: inferType(message.function_call) })}</div>
                 </div>
               )
             )}
@@ -144,18 +137,29 @@ export function createScalarRenderers(options: {
     time: ({ value }) => <>{value.value}</>,
     datetime: ({ value }) => <>{value.value}</>,
     'control-flow-excluded': () => <>Not ran</>,
-    any: ({ value, depth, renderMarkdown }) => {
+    any: ({ value, depth, renderMarkdown, isCompact, truncateLength }) => {
       const inferred = inferType(value.value);
       if (inferred.type === 'any') {
         return <>{JSON.stringify(inferred.value)}</>;
       }
-      return renderValue(inferred as DataValueWithRefs, (depth ?? 0) + 1, renderMarkdown);
+      return renderValue({
+        value: inferred,
+        depth: (depth ?? 0) + 1,
+        renderMarkdown,
+        isCompact,
+        truncateLength,
+      });
     },
     object: ({ value, isCompact }) => {
       let stringified = JSON.stringify(value.value, null, 2);
 
       if (isCompact) {
-        stringified = stringified.split('\n').slice(0, 2).join('\n') + '\n...';
+        const compactByLines = stringified.split('\n').slice(0, COMPACT_PREVIEW_MAX_LINES).join('\n');
+        stringified =
+          compactByLines.length > COMPACT_PREVIEW_MAX_CHARS
+            ? `${compactByLines.slice(0, COMPACT_PREVIEW_MAX_CHARS)}...`
+            : compactByLines;
+        return <pre className="pre-wrap">{stringified}</pre>;
       }
 
       return (
@@ -171,19 +175,11 @@ export function createScalarRenderers(options: {
     ),
     vector: ({ value }) => <>Vector (length {value.value.length})</>,
     image: ({ value }) => {
-      const resolved = dataRefs.get(value.value.ref);
-      if (!resolved) {
-        return <div>Could not find data.</div>;
-      }
-
-      const {
-        value: { data, mediaType },
-      } = resolved as ImageDataValue;
-
+      const imageValue = value as ImageDataValue;
       const imageUrl = useMemo(() => {
-        const blob = new Blob([data], { type: mediaType });
+        const blob = new Blob([imageValue.value.data], { type: imageValue.value.mediaType });
         return URL.createObjectURL(blob);
-      }, [data, mediaType]);
+      }, [imageValue.value.data, imageValue.value.mediaType]);
 
       return (
         <div>
@@ -192,35 +188,15 @@ export function createScalarRenderers(options: {
       );
     },
     binary: ({ value }) => {
-      const resolved = dataRefs.get(value.value.ref);
-      if (!resolved) {
-        return <div>Could not find data.</div>;
-      }
-
-      const coercedValue = useMemo(() => {
-        const binaryValue = dataRefs.get(value.value.ref);
-        if (binaryValue!.value instanceof Uint8Array) {
-          return binaryValue!.value;
-        }
-        return new Uint8Array(Object.values((binaryValue as BinaryDataValue).value));
-      }, [dataRefs, value.value.ref]);
-
-      return <>Binary (length {coercedValue.length.toLocaleString()})</>;
+      const binaryValue = value as BinaryDataValue;
+      return <>Binary (length {binaryValue.value.length.toLocaleString()})</>;
     },
     audio: ({ value }) => {
-      const resolved = dataRefs.get(value.value.ref);
-      if (!resolved) {
-        return <div>Could not find data.</div>;
-      }
-
-      const {
-        value: { data, mediaType },
-      } = resolved as AudioDataValue;
-
+      const audioValue = value as AudioDataValue;
       const dataUri = useMemo(() => {
-        const blob = new Blob([data], { type: mediaType });
+        const blob = new Blob([audioValue.value.data], { type: audioValue.value.mediaType });
         return URL.createObjectURL(blob);
-      }, [data, mediaType]);
+      }, [audioValue.value.data, audioValue.value.mediaType]);
 
       return (
         <div>
@@ -234,28 +210,21 @@ export function createScalarRenderers(options: {
       return <div>(Reference to graph &quot;{value.value.graphName}&quot;)</div>;
     },
     document: ({ value }) => {
-      const resolved = dataRefs.get(value.value.ref);
-      if (!resolved) {
-        return <div>Could not find data.</div>;
-      }
-
-      const {
-        value: { context, data, title, enableCitations, mediaType },
-      } = resolved as DocumentDataValue;
+      const documentValue = value as DocumentDataValue;
 
       return (
         <div>
           <p>
-            {title ? `Document: ${title}` : 'Document'} ({mediaType})
+            {documentValue.value.title ? `Document: ${documentValue.value.title}` : 'Document'} ({documentValue.value.mediaType})
           </p>
-          {context && <p>{context}</p>}
-          {enableCitations && <p>(Citations enabled)</p>}
-          Size: {data.length > 0 ? prettyBytes(data.length) : '0 bytes'}
+          {documentValue.value.context && <p>{documentValue.value.context}</p>}
+          {documentValue.value.enableCitations && <p>(Citations enabled)</p>}
+          Size: {documentValue.value.data.length > 0 ? prettyBytes(documentValue.value.data.length) : '0 bytes'}
         </div>
       );
     },
   };
-  /* eslint-enable react-hooks/rules-of-hooks -- These are components (ish) */
+  /* eslint-enable react-hooks/rules-of-hooks -- table-driven renderers */
 
   return scalarRenderers;
 }

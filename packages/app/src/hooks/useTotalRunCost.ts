@@ -12,11 +12,14 @@ import { lastRunDataByNodeState } from '../state/dataFlow';
 import { graphState } from '../state/graph';
 import { projectState } from '../state/savedGraphs';
 import { entries } from '../../../core/src/utils/typeSafety';
+import { useDataRefs } from '../providers/ProvidersContext.js';
+import { coerceStoredPortValue } from '../utils/executionDataReaders.js';
 
 export function useTotalRunCost() {
   const lastRunData = useAtomValue(lastRunDataByNodeState);
   const project = useAtomValue(projectState);
   const graph = useAtomValue(graphState);
+  const dataRefs = useDataRefs();
 
   const allNodesById = useMemo(() => {
     if (!project) {
@@ -63,7 +66,7 @@ export function useTotalRunCost() {
         continue;
       }
 
-      const cost = nodeLastRunData.reduce((acc, curr) => {
+      const cost = nodeLastRunData.reduce((acc: number, curr) => {
         if (curr.data.status?.type !== 'ok') {
           return acc;
         }
@@ -74,16 +77,20 @@ export function useTotalRunCost() {
           return acc;
         }
 
-        const outputCost = outputData['cost' as PortId];
-        if (outputCost?.type === 'number[]') {
-          return outputCost.value.reduce((acc, curr) => acc + curr, 0);
-        } else if (outputCost?.type === 'number') {
-          return (outputCost.value as number) + acc;
+        const restoredCostArray = coerceStoredPortValue(outputData, 'cost' as PortId, 'number[]', dataRefs);
+        if (restoredCostArray) {
+          return restoredCostArray.value.reduce((runningTotal: number, current: number) => runningTotal + current, acc);
         }
+
+        const restoredCost = coerceStoredPortValue(outputData, 'cost' as PortId, 'number', dataRefs);
+        if (restoredCost) {
+          return restoredCost.value + acc;
+        }
+
         return acc;
       }, 0);
 
-      const tokens = nodeLastRunData.reduce((acc, curr) => {
+      const tokens = nodeLastRunData.reduce((acc: number, curr) => {
         if (curr.data.status?.type !== 'ok') {
           return acc;
         }
@@ -94,12 +101,16 @@ export function useTotalRunCost() {
           return acc;
         }
 
-        const tokens = outputData['__hidden_token_count' as PortId];
-        if (tokens?.type === 'number[]') {
-          return tokens.value.reduce((acc, curr) => acc + curr, 0);
-        } else if (tokens?.type === 'number') {
-          return (tokens.value as number) + acc;
+        const restoredTokenArray = coerceStoredPortValue(outputData, '__hidden_token_count' as PortId, 'number[]', dataRefs);
+        if (restoredTokenArray) {
+          return restoredTokenArray.value.reduce((runningTotal: number, current: number) => runningTotal + current, acc);
         }
+
+        const restoredTokens = coerceStoredPortValue(outputData, '__hidden_token_count' as PortId, 'number', dataRefs);
+        if (restoredTokens) {
+          return restoredTokens.value + acc;
+        }
+
         return acc;
       }, 0);
 
@@ -113,7 +124,7 @@ export function useTotalRunCost() {
     }
 
     return { cost: totalCost, tokens: totalTokens };
-  }, [lastRunData, allNodesById]);
+  }, [allNodesById, dataRefs, lastRunData]);
 
   return totals;
 }

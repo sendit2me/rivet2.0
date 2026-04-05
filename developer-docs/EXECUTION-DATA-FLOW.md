@@ -256,9 +256,9 @@ Each `ProcessDataForNode` contains:
   graphRunId?: GraphRunId;
   graphId?: GraphId;
   data: {
-    inputData?: Record<PortId, DataValue>;
-    outputData?: Record<PortId, DataValue>;
-    splitOutputData?: Record<number, Record<PortId, DataValue>>;
+    inputData?: Record<PortId, StoredDataValue>;
+    outputData?: Record<PortId, StoredDataValue>;
+    splitOutputData?: Record<number, Record<PortId, StoredDataValue>>;
     status?: { type: 'ok' | 'error' | 'running' | 'interrupted' | 'notRan', ... };
     startedAt?: number;
     finishedAt?: number;
@@ -268,6 +268,22 @@ Each `ProcessDataForNode` contains:
 
 Data is keyed by `processId` within the node's array. A node can have multiple
 entries from different graph runs or split-run iterations.
+
+`StoredDataValue` is an app-only wrapper around execution payloads:
+
+- small values stay inline as `{ type, storage: 'inline', value }`
+- oversized text-like values and media values become `{ type, storage: 'ref', refId, preview }`
+- the full payload for ref-backed values lives in the in-memory `globalDataRefs` cache
+
+Execution-scoped ref ids are stable per process and port:
+
+- `execution:${nodeId}:${processId}:input:${portId}`
+- `execution:${nodeId}:${processId}:output:${portId}`
+- `execution:${nodeId}:${processId}:output:${splitIndex}:${portId}`
+
+This matters because streaming `partialOutput` updates overwrite the same ref entry instead of
+allocating a new blob key on every event, and run resets can clear all execution-scoped refs
+deterministically.
 
 ## Data Filtering for Display
 
@@ -434,11 +450,15 @@ Local and remote run-from execution now also share the same preload-data derivat
 - `onNodeStart`/`onNodeFinish`/`onNodeExcluded`/`onPartialOutput`/`onNodeError`: Store per-node data.
 - `onDone`: Marks graph as no longer running.
 
-Persisted app-side execution payloads now share one sanitization path before being cloned into history:
+Persisted app-side execution payloads now share one transform layer before being cloned into history:
 
-- `sanitizeInputsOrOutputs(...)` in `executionDataTransforms.ts` fixes Uint8Array-shaped values and truncates oversized payloads for inspection
-- `useNodeExecutionEvents` uses that helper for started, finished, excluded, and partial-output persistence paths
-- split-run partial outputs still keep their separate `splitOutputData[index]` storage model, but they now reuse the same sanitization transform before storage
+- `sanitizeInputsOrOutputs(...)` in `executionDataTransforms.ts` fixes Uint8Array-shaped values without destructively truncating them
+- `storeNodeDataForHistory(...)` / `storeInputsOrOutputsForHistory(...)` decide whether each payload stays inline or moves into `globalDataRefs`
+- `useNodeExecutionEvents` uses that shared path for started, finished, excluded, and partial-output persistence
+- split-run partial outputs still keep their separate `splitOutputData[index]` storage model, but they now reuse the same storage transform and stable ref-id scheme before persistence
+- `onStart`, `onTrivetStart`, and node-output clearing paths clear the corresponding execution-scoped refs when they wipe prior run data
+- `executionDataTransforms.ts` remains the low-level storage/restore boundary, but app-side read/restore behavior now goes through `executionDataReaders.ts` so UI and executor-preload code share the same displayed-output restore, port-level restore/coercion, warning extraction, and clipboard serialization logic
+- preload/run-from paths therefore restore ref-backed values back into full `DataValue` payloads through the shared reader layer before passing them to the executor, instead of each consumer hand-rolling `restoreStoredInputsOrOutputs(...)` calls
 
 ## Browser vs Remote: Event Delivery and React Rendering
 

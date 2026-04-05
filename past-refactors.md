@@ -614,3 +614,38 @@ stable sorted graph choice. Open-tab metadata now seeds `openedGraph` immediatel
 opened instead of depending on a later sync pass. The result is a blank-project UX that matches the
 real saved state from the first edit onward, with less chance of detached graph state reappearing
 through future project-open flows.
+
+## 52. Make large execution outputs preview-first and ref-backed instead of canvas-heavy
+
+Large node outputs had become a performance trap because the app kept big text-like payloads inline
+in reactive execution state and some output surfaces would still try to render nearly all of that
+data just from hover or compact display. Single-line base64 blobs, large JSON objects, and growing
+partial outputs could therefore make the whole canvas sluggish even when the user had not explicitly
+opened the full output.
+
+This refactor moved oversized execution payloads into ref-backed storage with stable execution-scoped
+ids, keeping only preview metadata in node run history while preserving the full original value for
+copy, preload, and inspection. Output rendering was updated to be preview-first across node output,
+fullscreen inspection, chat viewer, and tooltips, with compact and expanded-preview modes that avoid
+eager markdown parsing, full JSON rendering, and hover-triggered full-output mounts. Copy/export and
+run-from preload paths now restore the real stored payload before using it, and execution ref entries
+are cleared when runs reset or node outputs are removed so large in-memory blobs do not leak across
+runs.
+
+## 53. Clean up large-output handling boundaries and hot render paths
+
+The large-output performance refactor fixed the main user-facing problem, but its first landing still
+left too much reader logic scattered across output surfaces and one avoidable hot-path cost in the
+renderer setup. Node output, chat viewer, prompt-designer hydration, clipboard export, total-cost
+derivation, and executor preload were all solving slightly different versions of "restore stored
+execution data back into real values," which made the new storage model harder to audit and easier to
+regress. At the same time, `RenderDataValue` was still building its renderer registry per component
+instance even though the dispatch table itself is static.
+
+This cleanup kept the behavior the same while making the ownership boundaries clearer. App-level
+stored-data reading now flows through `executionDataReaders.ts`, which centralizes displayed-output
+restore, port-level restore/coercion, warnings extraction, and clipboard serialization. The old
+component-local node-output reader helper was removed, `RenderDataValue` now uses a module-level lazy
+renderer registry, and readonly ref access was tightened through a shared `DataRefReader` type. The
+result is a more coherent large-output architecture with less repeated logic and less unnecessary
+work in a hot render path.

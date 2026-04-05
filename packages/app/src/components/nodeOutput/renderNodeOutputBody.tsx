@@ -1,20 +1,21 @@
 import { type ComponentType, type ReactNode } from 'react';
 import { orderBy } from 'lodash-es';
 import { entries } from '../../../../core/src/utils/typeSafety.js';
-import { RenderDataOutputs } from '../RenderDataValue.js';
+import { RenderDataOutputs, type OutputRenderMode } from '../RenderDataValue.js';
 import { type InputsOrOutputsWithRefs, type NodeRunDataWithRefs } from '../../state/dataFlow.js';
 import { type ChartNode } from '@ironclad/rivet-core';
 
 export function renderNodeOutputBody(options: {
   Output?: ComponentType<{ node: ChartNode; isCompact: boolean }>;
-  OutputSimple?: ComponentType<{ outputs: InputsOrOutputsWithRefs; isCompact: boolean }>;
+  OutputSimple?: ComponentType<{ outputs: InputsOrOutputsWithRefs; isCompact: boolean; renderMode?: OutputRenderMode }>;
   FullscreenOutput?: ComponentType<{ node: ChartNode }>;
-  FullscreenOutputSimple?: ComponentType<{ outputs: InputsOrOutputsWithRefs; renderMarkdown: boolean }>;
+  FullscreenOutputSimple?: ComponentType<{ outputs: InputsOrOutputsWithRefs; renderMarkdown: boolean; renderMode?: OutputRenderMode }>;
   node: ChartNode;
   data: NodeRunDataWithRefs;
   definitions: any;
   isCompact: boolean;
   renderMarkdown?: boolean;
+  renderMode?: OutputRenderMode;
 }): ReactNode {
   const {
     Output,
@@ -26,6 +27,7 @@ export function renderNodeOutputBody(options: {
     definitions,
     isCompact,
     renderMarkdown,
+    renderMode,
   } = options;
 
   if (FullscreenOutput) {
@@ -50,9 +52,10 @@ export function renderNodeOutputBody(options: {
               key={`outputs-${key}`}
               outputs={value as InputsOrOutputsWithRefs}
               renderMarkdown={renderMarkdown ?? false}
+              renderMode={renderMode}
             />
           ) : OutputSimple ? (
-            <OutputSimple key={`outputs-${key}`} outputs={value as InputsOrOutputsWithRefs} isCompact={isCompact} />
+            <OutputSimple key={`outputs-${key}`} outputs={value as InputsOrOutputsWithRefs} isCompact={isCompact} renderMode={renderMode} />
           ) : (
             <RenderDataOutputs
               key={`outputs-${key}`}
@@ -60,6 +63,7 @@ export function renderNodeOutputBody(options: {
               outputs={value as InputsOrOutputsWithRefs}
               renderMarkdown={renderMarkdown}
               isCompact={isCompact}
+              mode={renderMode}
             />
           ),
         )}
@@ -68,12 +72,12 @@ export function renderNodeOutputBody(options: {
   }
 
   if (FullscreenOutputSimple) {
-    return <FullscreenOutputSimple outputs={data.outputData!} renderMarkdown={renderMarkdown ?? false} />;
+    return <FullscreenOutputSimple outputs={data.outputData!} renderMarkdown={renderMarkdown ?? false} renderMode={renderMode} />;
   }
 
   if (OutputSimple) {
-    return <OutputSimple outputs={data.outputData!} isCompact={isCompact} />;
+    return <OutputSimple outputs={data.outputData!} isCompact={isCompact} renderMode={renderMode} />;
   }
 
-  return <RenderDataOutputs definitions={definitions} outputs={data.outputData!} renderMarkdown={renderMarkdown} isCompact={isCompact} />;
+  return <RenderDataOutputs definitions={definitions} outputs={data.outputData!} renderMarkdown={renderMarkdown} isCompact={isCompact} mode={renderMode} />;
 }

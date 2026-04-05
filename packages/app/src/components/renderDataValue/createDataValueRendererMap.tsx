@@ -1,4 +1,3 @@
-import { type FC, type ReactElement } from 'react';
 import {
   arrayizeDataValue,
   dataTypes,
@@ -8,18 +7,21 @@ import {
   type DataType,
   type ScalarDataType,
   type ScalarOrArrayDataValue,
+  type DataValue,
 } from '@ironclad/rivet-core';
 import clsx from 'clsx';
-import { type DataValueWithRefs, type ScalarDataValueWithRefs } from '../../state/dataFlow.js';
+import { type FC, type ReactElement } from 'react';
 import { multiOutputStyles, renderDataValueStyles } from './renderDataValueStyles.js';
 import { type createScalarRenderers, type ScalarRendererProps } from './createScalarRenderers.js';
+import type { OutputRenderMode } from './outputRenderTypes.js';
 
 export type DataValueRendererProps = {
-  value: DataValueWithRefs | undefined;
+  value: DataValue | undefined;
   depth?: number;
   renderMarkdown?: boolean;
   truncateLength?: number;
   isCompact?: boolean;
+  mode?: OutputRenderMode;
 };
 
 export function createDataValueRendererMap(options: {
@@ -30,7 +32,7 @@ export function createDataValueRendererMap(options: {
 
   const rendererMap = Object.fromEntries(
     dataTypes.map((dataType) => {
-      const Renderer: FC<DataValueRendererProps> = ({ value, depth, renderMarkdown, truncateLength, isCompact }) => {
+      const Renderer: FC<DataValueRendererProps> = ({ value, depth, renderMarkdown, truncateLength, isCompact, mode }) => {
         if (!value) {
           return <>undefined</>;
         }
@@ -56,11 +58,12 @@ export function createDataValueRendererMap(options: {
               {items.map((item, index) => (
                 <div className="multi-output-item" key={index}>
                   {renderValue({
-                    value: item as DataValueWithRefs,
+                    value: item,
                     depth: (depth ?? 0) + 1,
                     renderMarkdown,
                     truncateLength,
                     isCompact,
+                    mode,
                   })}
                 </div>
               ))}
@@ -86,7 +89,7 @@ export function createDataValueRendererMap(options: {
         return (
           <div css={renderDataValueStyles}>
             <ScalarRenderer
-              value={value as ScalarDataValueWithRefs}
+              value={value as Extract<DataValue, { type: ScalarDataType }>}
               depth={(depth ?? 0) + 1}
               renderMarkdown={renderMarkdown}
               truncateLength={truncateLength}

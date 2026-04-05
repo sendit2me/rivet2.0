@@ -1,11 +1,13 @@
 import { type FC } from 'react';
 import { useAtomValue } from 'jotai';
 import { projectState } from '../../state/savedGraphs.js';
-import { type Outputs, type PortId, type SubGraphNode, coerceTypeOptional, type DataValue } from '@ironclad/rivet-core';
+import { type PortId, type SubGraphNode, coerceTypeOptional } from '@ironclad/rivet-core';
 import { type NodeComponentDescriptor } from '../../hooks/useNodeTypes.js';
-import { RenderDataOutputs } from '../RenderDataValue.js';
+import { RenderDataOutputs, type OutputRenderMode } from '../RenderDataValue.js';
 import { omit } from 'lodash-es';
 import { type InputsOrOutputsWithRefs } from '../../state/dataFlow';
+import { useDataRefs } from '../../providers/ProvidersContext.js';
+import { tryRestoreStoredDataValue } from '../../utils/executionDataTransforms.js';
 
 export const SubGraphNodeBody: FC<{
   node: SubGraphNode;
@@ -25,9 +27,11 @@ export const SubGraphNodeOutputSimple: FC<{
   outputs: InputsOrOutputsWithRefs;
   renderMarkdown?: boolean;
   isCompact: boolean;
-}> = ({ outputs, renderMarkdown, isCompact }) => {
-  const cost = coerceTypeOptional(outputs['cost' as PortId] as DataValue, 'number');
-  const duration = coerceTypeOptional(outputs['duration' as PortId] as DataValue, 'number');
+  renderMode?: OutputRenderMode;
+}> = ({ outputs, renderMarkdown, isCompact, renderMode }) => {
+  const dataRefs = useDataRefs();
+  const cost = coerceTypeOptional(tryRestoreStoredDataValue(outputs['cost' as PortId], dataRefs), 'number');
+  const duration = coerceTypeOptional(tryRestoreStoredDataValue(outputs['duration' as PortId], dataRefs), 'number');
 
   return (
     <div>
@@ -48,6 +52,7 @@ export const SubGraphNodeOutputSimple: FC<{
           outputs={omit(outputs, ['cost', 'duration'])! as InputsOrOutputsWithRefs}
           renderMarkdown={renderMarkdown}
           isCompact={isCompact}
+          mode={renderMode}
         />
       </div>
     </div>
@@ -57,8 +62,9 @@ export const SubGraphNodeOutputSimple: FC<{
 export const FullscreenSubGraphNodeOutputSimple: FC<{
   outputs: InputsOrOutputsWithRefs;
   renderMarkdown: boolean;
-}> = ({ outputs, renderMarkdown }) => {
-  return <SubGraphNodeOutputSimple outputs={outputs} renderMarkdown={renderMarkdown} isCompact={false} />;
+  renderMode?: OutputRenderMode;
+}> = ({ outputs, renderMarkdown, renderMode }) => {
+  return <SubGraphNodeOutputSimple outputs={outputs} renderMarkdown={renderMarkdown} isCompact={false} renderMode={renderMode} />;
 };
 
 export const subgraphNodeDescriptor: NodeComponentDescriptor<'subGraph'> = {

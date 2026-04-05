@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { type NodeId } from '@ironclad/rivet-core';
 import { getContextValues, getDependentDataForNodeForPreload, selectTestSuitesToRun } from './remoteExecutorHelpers';
-import { setGlobalDataRef } from '../utils/globals/globalDataRefs';
+import { deleteGlobalDataRef, setGlobalDataRef } from '../utils/globals/globalDataRefs';
 
 test('getContextValues unwraps project context values', () => {
   const contextValues = getContextValues({
@@ -35,7 +35,7 @@ test('getDependentDataForNodeForPreload returns prior outputs for requested depe
         processId: 'process-1' as any,
         data: {
           outputData: {
-            output: { type: 'string', value: 'hello' },
+            output: { type: 'string', storage: 'inline', value: 'hello' },
           },
         },
       },
@@ -65,7 +65,16 @@ test('getDependentDataForNodeForPreload restores ref-backed media outputs', () =
         processId: 'process-2' as any,
         data: {
           outputData: {
-            output: { type: 'image', value: { ref: 'image-ref' } },
+            output: {
+              type: 'image',
+              storage: 'ref',
+              refId: 'image-ref',
+              preview: {
+                kind: 'summary',
+                label: 'Image (image/png)',
+                totalBytes: 3,
+              },
+            },
           },
         },
       },
@@ -81,4 +90,75 @@ test('getDependentDataForNodeForPreload restores ref-backed media outputs', () =
       },
     },
   });
+
+  deleteGlobalDataRef('image-ref');
+});
+
+test('getDependentDataForNodeForPreload restores ref-backed string outputs', () => {
+  const nodeId = 'node-3' as NodeId;
+  setGlobalDataRef('string-ref', {
+    type: 'string',
+    value: 'large output',
+  });
+
+  const preloadData = getDependentDataForNodeForPreload([nodeId], {
+    [nodeId]: [
+      {
+        processId: 'process-3' as any,
+        data: {
+          outputData: {
+            output: {
+              type: 'string',
+              storage: 'ref',
+              refId: 'string-ref',
+              preview: {
+                kind: 'text',
+                excerpt: 'large output',
+                totalChars: 12,
+                lineCount: 1,
+              },
+            },
+          },
+        },
+      },
+    ],
+  } as any);
+
+  assert.deepEqual(preloadData[nodeId], {
+    output: {
+      type: 'string',
+      value: 'large output',
+    },
+  });
+
+  deleteGlobalDataRef('string-ref');
+});
+
+test('getDependentDataForNodeForPreload throws clearly for missing ref-backed values', () => {
+  assert.throws(
+    () =>
+      getDependentDataForNodeForPreload(['node-4' as NodeId], {
+        'node-4': [
+          {
+            processId: 'process-4' as any,
+            data: {
+              outputData: {
+                output: {
+                  type: 'string',
+                  storage: 'ref',
+                  refId: 'missing-ref',
+                  preview: {
+                    kind: 'text',
+                    excerpt: 'preview',
+                    totalChars: 7,
+                    lineCount: 1,
+                  },
+                },
+              },
+            },
+          },
+        ],
+      } as any),
+    /cleared from execution memory/i,
+  );
 });

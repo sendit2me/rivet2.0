@@ -1,6 +1,5 @@
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import {
-  type NodeRunData,
   type ProcessDataForNode,
   lastRunDataState,
   resolvedGraphSelectionState,
@@ -8,17 +7,13 @@ import {
   type NodeRunDataWithRefs,
 } from '../state/dataFlow.js';
 
-import { type FC, type ReactNode, memo, useMemo, useState, type MouseEvent } from 'react';
+import { type FC, memo, useMemo, useState, type MouseEvent } from 'react';
 import { useUnknownNodeComponentDescriptorFor } from '../hooks/useNodeTypes.js';
 import { useStableCallback } from '../hooks/useStableCallback.js';
 import { copyToClipboard } from '../utils/copyToClipboard.js';
 import {
   type ChartNode,
-  type PortId,
   type ProcessId,
-  getWarnings,
-  type Outputs,
-  type ChatMessageDataValue,
 } from '@ironclad/rivet-core';
 import { css } from '@emotion/react';
 import CopyIcon from 'majesticons/line/clipboard-line.svg?react';
@@ -34,12 +29,17 @@ import Toggle from '@atlaskit/toggle';
 import { pinnedNodesState } from '../state/graphBuilder';
 import { useNodeIO } from '../hooks/useGetNodeIO';
 import { Tooltip } from './Tooltip';
-import { useDataRefs } from '../providers/ProvidersContext';
+import { type DataRefReader, useDataRefs } from '../providers/ProvidersContext';
 import { filterProcessDataForSelection, getSelectedProcessData } from '../state/selectors/executionSelectors.js';
 import { renderNodeOutputBody } from './nodeOutput/renderNodeOutputBody.js';
+import {
+  getStoredWarningsForNodeOutput,
+  restoreDisplayedNodeOutputs,
+  serializeDisplayedNodeOutputsForClipboard,
+} from '../utils/executionDataReaders.js';
+import { handleError } from '../utils/errorHandling.js';
 
-export const NodeOutput: FC<{ node: ChartNode; isHovered: boolean }> = memo(({ node, isHovered }) => {
-  const dataRefs = useDataRefs();
+export const NodeOutput: FC<{ node: ChartNode; isHovered: boolean }> = memo(({ node, isHovered: _isHovered }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   useDependsOnPlugins();
 
@@ -60,7 +60,7 @@ export const NodeOutput: FC<{ node: ChartNode; isHovered: boolean }> = memo(({ n
         <NodeFullscreenOutput node={node} />
       </FullScreenModal>
       <div onWheel={handleWheel}>
-        <NodeOutputBase node={node} onOpenFullscreenModal={() => setIsModalOpen(true)} isHovered={isHovered} />
+        <NodeOutputBase node={node} onOpenFullscreenModal={() => setIsModalOpen(true)} />
       </div>
     </div>
   );
@@ -237,53 +237,19 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
   }, [filteredOutput, selectedPage]);
 
   const handleOpenPromptDesigner = () => {
+    if (!processId) {
+      return;
+    }
+
     setOverlayOpen('promptDesigner');
     setPromptDesignerAttachedNode({
       nodeId: node.id,
-      processId: processId!,
+      processId,
     });
   };
 
-  const handleCopyToClipboard = useStableCallback(() => {
-    if (!data) {
-      return;
-    }
-    const keys = Object.keys(data.outputData ?? {}) as PortId[];
-
-    if (keys.length > 1) {
-      copyToClipboard(JSON.stringify(data.outputData, null, 2));
-      return;
-    }
-
-    const outputValue = data.outputData![keys[0]!]!;
-    if (outputValue.type === 'string') {
-      copyToClipboard(outputValue.value);
-    } else if (outputValue.type === 'chat-message') {
-      const resolved = dataRefs.get(outputValue.value.ref);
-
-      if (!resolved) {
-        return;
-      }
-
-      const chatMessage = resolved as ChatMessageDataValue | ChatMessageDataValue[];
-
-      if (Array.isArray(chatMessage)) {
-        const singleString = chatMessage.map((v) => (typeof v === 'string' ? v : '(Image)')).join('\n\n');
-        copyToClipboard(singleString);
-      } else {
-        copyToClipboard(typeof chatMessage.value.message === 'string' ? chatMessage.value.message : '(Image)');
-      }
-    } else {
-      copyToClipboard(JSON.stringify(outputValue, null, 2));
-    }
-  });
-
-  const handleCopyToClipboardJson = useStableCallback(() => {
-    if (!data) {
-      return;
-    }
-    copyToClipboard(JSON.stringify(data.outputData, null, 2));
-  });
+  const handleCopyToClipboard = useStableCallback(() => copyNodeOutputToClipboard(data, dataRefs));
+  const handleCopyToClipboardJson = useStableCallback(() => copyNodeOutputToClipboardJson(data, dataRefs));
 
   const prevPage = useStableCallback(() => {
     if (!filteredOutput) {
@@ -327,6 +293,7 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
     definitions: io.outputDefinitions,
     isCompact: false,
     renderMarkdown,
+    renderMode: 'expanded-preview',
   });
 
   return (
@@ -367,10 +334,8 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
 
 const NodeOutputBase: FC<{
   node: ChartNode;
-  children?: ReactNode;
   onOpenFullscreenModal?: () => void;
-  isHovered: boolean;
-}> = ({ node, onOpenFullscreenModal, isHovered }) => {
+}> = ({ node, onOpenFullscreenModal }) => {
   const output = useAtomValue(lastRunDataState(node.id));
   const graphSelectionOptions = useAtomValue(resolvedGraphSelectionState);
   const filteredOutput = useMemo(
@@ -383,26 +348,25 @@ const NodeOutputBase: FC<{
   }
 
   if (filteredOutput.length === 1) {
+    const firstOutput = filteredOutput[0];
+    if (!firstOutput) {
+      return null;
+    }
+
     return (
       <div className="node-output">
         <NodeOutputSingleProcess
           node={node}
-          data={filteredOutput[0]!.data}
-          processId={filteredOutput[0]!.processId}
+          data={firstOutput.data}
+          processId={firstOutput.processId}
           onOpenFullscreenModal={onOpenFullscreenModal}
-          isHovered={isHovered}
         />
       </div>
     );
   } else {
     return (
       <div className="node-output multi">
-        <NodeOutputMultiProcess
-          node={node}
-          data={filteredOutput}
-          onOpenFullscreenModal={onOpenFullscreenModal}
-          isHovered={isHovered}
-        />
+        <NodeOutputMultiProcess node={node} data={filteredOutput} onOpenFullscreenModal={onOpenFullscreenModal} />
       </div>
     );
   }
@@ -412,9 +376,8 @@ const NodeOutputSingleProcess: FC<{
   node: ChartNode;
   data: NodeRunDataWithRefs;
   processId: ProcessId;
-  isHovered: boolean;
   onOpenFullscreenModal?: () => void;
-}> = ({ node, data, processId, isHovered, onOpenFullscreenModal }) => {
+}> = ({ node, data, processId, onOpenFullscreenModal }) => {
   const dataRefs = useDataRefs();
   const { Output, OutputSimple } = useUnknownNodeComponentDescriptorFor(node);
 
@@ -426,40 +389,13 @@ const NodeOutputSingleProcess: FC<{
     setOverlayOpen('promptDesigner');
     setPromptDesignerAttachedNode({
       nodeId: node.id,
-      processId: processId!,
+      processId,
     });
   };
 
-  const handleCopyToClipboard = useStableCallback(() => {
-    const keys = Object.keys(data.outputData ?? {}) as PortId[];
+  const handleCopyToClipboard = useStableCallback(() => copyNodeOutputToClipboard(data, dataRefs));
 
-    if (keys.length === 1) {
-      const outputValue = data.outputData![keys[0]!]!;
-      if (outputValue.type === 'string') {
-        copyToClipboard(outputValue.value);
-      } else if (outputValue.type === 'chat-message') {
-        const resolved = dataRefs.get(outputValue.value.ref);
-
-        if (!resolved) {
-          return;
-        }
-
-        const chatMessage = resolved as ChatMessageDataValue | ChatMessageDataValue;
-
-        if (Array.isArray(chatMessage.value)) {
-          const singleString = chatMessage.value.map((v) => (typeof v === 'string' ? v : '(Image)')).join('\n\n');
-          copyToClipboard(singleString);
-        } else {
-          copyToClipboard(typeof chatMessage.value.message === 'string' ? chatMessage.value.message : '(Image)');
-        }
-      } else {
-        copyToClipboard(JSON.stringify(outputValue, null, 2));
-      }
-      return;
-    }
-
-    copyToClipboard(JSON.stringify(data.outputData, null, 2));
-  });
+  const warnings = useMemo(() => getStoredWarningsForNodeOutput(data, dataRefs), [data, dataRefs]);
 
   if (data.status?.type === 'error') {
     return <div className="node-output-inner errored">{data.status.error}</div>;
@@ -475,7 +411,8 @@ const NodeOutputSingleProcess: FC<{
     node,
     data,
     definitions: io.outputDefinitions,
-    isCompact: !isHovered,
+    isCompact: true,
+    renderMode: 'compact',
   });
 
   return (
@@ -505,9 +442,9 @@ const NodeOutputSingleProcess: FC<{
         </div>
       </div>
       {body}
-      {getWarnings(data.outputData as Outputs) && (
+      {warnings && (
         <div className="node-output-warnings">
-          {getWarnings(data.outputData as Outputs)!.map((warning) => (
+          {warnings.map((warning) => (
             <div className="node-output-warning" key={warning}>
               {warning}
             </div>
@@ -521,9 +458,8 @@ const NodeOutputSingleProcess: FC<{
 const NodeOutputMultiProcess: FC<{
   node: ChartNode;
   data: ProcessDataForNode[];
-  isHovered: boolean;
   onOpenFullscreenModal?: () => void;
-}> = ({ node, data, isHovered, onOpenFullscreenModal }) => {
+}> = ({ node, data, onOpenFullscreenModal }) => {
   const [selectedPage, setSelectedPage] = useAtom(selectedProcessPageState(node.id));
 
   const prevPage = useStableCallback(() => {
@@ -562,7 +498,6 @@ const NodeOutputMultiProcess: FC<{
           node={node}
           processId={selectedData.processId}
           onOpenFullscreenModal={onOpenFullscreenModal}
-          isHovered={isHovered}
         />
       )}
     </div>
@@ -576,3 +511,37 @@ const NodeOutputPager: FC<{
   onNextPage: () => void;
   stopDoubleClickPropagation?: boolean;
 }> = (props) => renderNodeOutputPager(props);
+
+function copyNodeOutputToClipboard(data: NodeRunDataWithRefs | undefined, dataRefs: DataRefReader): void {
+  if (!data) {
+    return;
+  }
+
+  try {
+    const serialized = serializeDisplayedNodeOutputsForClipboard(data, dataRefs);
+    if (serialized == null) {
+      return;
+    }
+
+    void copyToClipboard(serialized);
+  } catch (error) {
+    handleError(error, 'Failed to copy node output');
+  }
+}
+
+function copyNodeOutputToClipboardJson(data: NodeRunDataWithRefs | undefined, dataRefs: DataRefReader): void {
+  if (!data) {
+    return;
+  }
+
+  try {
+    const restoredOutputData = restoreDisplayedNodeOutputs(data, dataRefs);
+    if (!restoredOutputData) {
+      return;
+    }
+
+    void copyToClipboard(JSON.stringify(restoredOutputData, null, 2));
+  } catch (error) {
+    handleError(error, 'Failed to copy node output');
+  }
+}

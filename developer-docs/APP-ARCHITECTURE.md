@@ -869,6 +869,9 @@ Current architectural detail:
 - plain run/test orchestration helpers now live in [`packages/app/src/hooks/remoteExecutorHelpers.ts`](../packages/app/src/hooks/remoteExecutorHelpers.ts)
 - that helper module holds context-value shaping, run-from dependency/preload derivation, event-dispatch fan-out, and test-suite selection without depending on React state
 - shared execution data transforms now live in [`packages/app/src/utils/executionDataTransforms.ts`](../packages/app/src/utils/executionDataTransforms.ts), so node-event persistence does not duplicate input/output sanitization work across event branches
+- app-layer read/restore helpers for stored execution data now live in [`packages/app/src/utils/executionDataReaders.ts`](../packages/app/src/utils/executionDataReaders.ts), which keeps displayed-output restore, port-level restore/coercion, warnings extraction, and clipboard serialization out of individual UI surfaces
+- large execution payloads are now stored preview-first through that same transform layer: oversized `string`, `string[]`, `object`, `any`, and media outputs can be moved into `globalDataRefs` under stable execution-scoped ref ids instead of being kept inline in reactive node state
+- new runs and output-clearing paths are also responsible for clearing those execution-scoped refs so stale large payloads do not accumulate in the in-memory cache
 
 ### Shared executor session
 
@@ -994,7 +997,15 @@ Current structure:
 - chat-part rendering lives in [`packages/app/src/components/renderDataValue/RenderChatMessagePart.tsx`](../packages/app/src/components/renderDataValue/RenderChatMessagePart.tsx)
 - shared output-rendering styles live in [`packages/app/src/components/renderDataValue/renderDataValueStyles.ts`](../packages/app/src/components/renderDataValue/renderDataValueStyles.ts)
 
-This keeps output selection logic separate from data-type rendering without preserving a separate pager file that only forwarded a few props. The top-level render component is now a thin adapter over a table-driven renderer registry instead of mixing array/function/scalar dispatch inline.
+This keeps output selection logic separate from data-type rendering without preserving a separate pager file that only forwarded a few props. The top-level render component is now a thin adapter over a table-driven renderer registry instead of mixing array/function/scalar dispatch inline, and that registry is built as a module-level lazy singleton rather than per `RenderDataValue` instance.
+
+Current output-rendering rules that matter for performance-sensitive changes:
+
+- node-inline output is preview-first; hovering or pinning a node should not switch large payloads into full inline rendering
+- ref-backed large text/JSON-like values render through `LargeStoredValuePreview` and default to `compact` or `expanded-preview` modes before any explicit full inspection
+- fullscreen node output opens in `expanded-preview` mode, not raw full render mode
+- copy/export actions must restore the original stored payload from refs before serializing
+- `NodeOutput`, `ChatViewer`, `CopyAsTestCaseModal`, prompt-designer hydration, total-cost derivation, and preload helpers should all go through [`packages/app/src/utils/executionDataReaders.ts`](../packages/app/src/utils/executionDataReaders.ts) rather than assuming execution data is plain inline `DataValue` or hand-rolling restore loops
 
 ## Tauri Backend and Native Integration
 
