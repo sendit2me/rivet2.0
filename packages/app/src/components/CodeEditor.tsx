@@ -1,8 +1,7 @@
 import { useLatest } from 'ahooks';
 import { type FC, type MutableRefObject, useEffect, useRef } from 'react';
 import { monaco } from '../utils/monaco.js';
-import { useAtomValue } from 'jotai';
-import { themeState } from '../state/settings';
+import { buildCodeEditorCreateOptions } from './codeEditorOptions.js';
 
 export const CodeEditor: FC<{
   text: string;
@@ -15,6 +14,7 @@ export const CodeEditor: FC<{
   onBlur?: () => void;
   editorRef?: MutableRefObject<monaco.editor.IStandaloneCodeEditor | undefined>;
   scrollBeyondLastLine?: boolean;
+  enableFolding?: boolean;
 }> = ({
   text,
   isReadonly,
@@ -26,35 +26,29 @@ export const CodeEditor: FC<{
   onBlur,
   editorRef,
   scrollBeyondLastLine,
+  enableFolding,
 }) => {
   const editorContainer = useRef<HTMLDivElement>(null);
   const editorInstance = useRef<monaco.editor.IStandaloneCodeEditor>();
 
   const onChangeLatest = useLatest(onChange);
 
-  const appTheme = useAtomValue(themeState);
-  const actualTheme = theme === 'prompt-interpolation' ? `prompt-interpolation-${appTheme}` : theme;
-
   useEffect(() => {
     if (!editorContainer.current) {
       return;
     }
 
-    const editor = monaco.editor.create(editorContainer.current, {
-      theme: actualTheme ?? 'vs-dark',
-      lineNumbers: 'on',
-      glyphMargin: false,
-      folding: false,
-      lineNumbersMinChars: 2,
-      language,
-      minimap: {
-        enabled: false,
-      },
-      wordWrap: 'on',
-      readOnly: isReadonly,
-      value: text,
-      scrollBeyondLastLine,
-    });
+    const editor = monaco.editor.create(
+      editorContainer.current,
+      buildCodeEditorCreateOptions({
+        theme,
+        language,
+        text,
+        readOnly: isReadonly,
+        scrollBeyondLastLine,
+        enableFolding,
+      }),
+    );
 
     const onResize = () => {
       editor.layout();
@@ -81,19 +75,15 @@ export const CodeEditor: FC<{
 
     return () => {
       latestBeforeDispose?.(editor.getValue());
+      editorInstance.current = undefined;
+      if (editorRef) {
+        editorRef.current = undefined;
+      }
       editor.dispose();
       window.removeEventListener('resize', onResize);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  useEffect(() => {
-    if (editorInstance.current && actualTheme) {
-      editorInstance.current.updateOptions({
-        theme: actualTheme,
-      });
-    }
-  }, [actualTheme]);
 
   useEffect(() => {
     if (onKeyDown) {

@@ -1,11 +1,14 @@
 import { HelperMessage, Label } from '@atlaskit/form';
 import { type CodeEditorDefinition, type ChartNode } from '@ironclad/rivet-core';
-import { useLatest, useDebounceFn, usePrevious } from 'ahooks';
+import { useLatest, useDebounceFn } from 'ahooks';
+import { useAtomValue } from 'jotai';
 import { type FC, useRef, useEffect, Suspense } from 'react';
 import { type monaco } from '../../utils/monaco';
+import { themeState } from '../../state/settings.js';
 import { LazyCodeEditor } from '../LazyComponents';
 import { type SharedEditorProps } from './SharedEditorProps';
 import { getHelperMessage } from './editorUtils';
+import { getNodeEditorCodeEditorMountKey, resolveCodeEditorTheme } from '../codeEditorOptions.js';
 
 export const DefaultCodeEditor: FC<
   SharedEditorProps & {
@@ -40,6 +43,7 @@ export const DefaultCodeEditor: FC<
       onClose={onClose}
       language={editorDef.language}
       theme={editorDef.theme}
+      enableFolding={editorDef.enableFolding}
       id={node.id}
     />
   );
@@ -57,6 +61,7 @@ export const CodeEditor: FC<{
   onClose?: () => void;
   theme?: string;
   language?: string;
+  enableFolding?: boolean;
   id?: string;
 }> = ({
   value,
@@ -70,33 +75,39 @@ export const CodeEditor: FC<{
   onClose,
   theme,
   language,
+  enableFolding,
   id,
 }) => {
   const editorInstance = useRef<monaco.editor.IStandaloneCodeEditor>();
 
   const onChangeLatest = useLatest(onChange);
-  const previousId = useRef<string | undefined>(undefined);
+  const isEditorReadOnly = isReadonly || isDisabled;
+  const appTheme = useAtomValue(themeState);
+  const resolvedTheme = resolveCodeEditorTheme(theme, appTheme);
+  const editorMountKey = getNodeEditorCodeEditorMountKey({
+    nodeId: id,
+    fieldIdentity: name ?? label,
+    language,
+    theme: resolvedTheme,
+    enableFolding,
+  });
 
   useEffect(() => {
     if (editorInstance.current) {
       const currentValue = value;
-
       const textChanged = editorInstance.current.getValue() !== currentValue;
       const hasTextFocus = editorInstance.current.hasTextFocus();
-      const isNewId = previousId.current !== id && previousId.current !== undefined;
-
-      previousId.current = id;
 
       // Only set the text explicitly if we're not editing it and have a cursor position.
-      if ((textChanged && !hasTextFocus) || isNewId) {
+      if (textChanged && !hasTextFocus) {
         editorInstance.current.setValue(currentValue ?? '');
       }
 
       editorInstance.current.updateOptions({
-        readOnly: isReadonly,
+        readOnly: isEditorReadOnly,
       });
     }
-  }, [value, isReadonly, id, previousId]);
+  }, [value, isEditorReadOnly]);
 
   const handleKeyDown = (e: monaco.IKeyboardEvent) => {
     if (e.keyCode === 9 /* Escape */) {
@@ -113,16 +124,18 @@ export const CodeEditor: FC<{
         {helperMessage && <HelperMessage>{helperMessage}</HelperMessage>}
         <div className="editor-wrapper">
           <LazyCodeEditor
+            key={editorMountKey}
             editorRef={editorInstance}
             text={value ?? ''}
             onChange={(newValue) => {
               onChangeLatest.current?.(newValue);
             }}
-            theme={theme}
+            theme={resolvedTheme}
             language={language}
-            isReadonly={isReadonly || isDisabled}
+            isReadonly={isEditorReadOnly}
             onKeyDown={handleKeyDown}
             autoFocus={autoFocus}
+            enableFolding={enableFolding}
           />
         </div>
       </div>

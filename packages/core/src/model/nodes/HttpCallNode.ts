@@ -159,6 +159,7 @@ export class HttpCallNodeImpl extends NodeImpl<HttpCallNode> {
         dataKey: 'headers',
         useInputToggleDataKey: 'useHeadersInput',
         language: 'json',
+        enableFolding: true,
       },
       {
         type: 'code',
@@ -166,6 +167,7 @@ export class HttpCallNodeImpl extends NodeImpl<HttpCallNode> {
         dataKey: 'body',
         useInputToggleDataKey: 'useBodyInput',
         language: 'json',
+        enableFolding: true,
       },
       {
         type: 'toggle',

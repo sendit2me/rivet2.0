@@ -140,6 +140,7 @@ export class MCPGetPromptNodeImpl extends NodeImpl<MCPGetPromptNode> {
         useInputToggleDataKey: 'usePromptArgumentsInput',
         language: 'json',
         helperMessage: 'Arguments to provide the prompt',
+        enableFolding: true,
       },
     ];
 

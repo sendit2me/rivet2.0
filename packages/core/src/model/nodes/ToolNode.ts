@@ -150,6 +150,7 @@ export class GptFunctionNodeImpl extends NodeImpl<GptFunctionNode> {
         dataKey: 'schema',
         language: 'json',
         useInputToggleDataKey: 'useSchemaInput',
+        enableFolding: true,
       },
     ];
   }

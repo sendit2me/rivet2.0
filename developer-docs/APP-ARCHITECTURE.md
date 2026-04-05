@@ -979,8 +979,17 @@ Current structure:
 
 - `NodeEditor.tsx` owns editor selection/fallback rendering and the editor panel shell
 - node metadata, split-run, variant, and conditional controls live in [`packages/app/src/components/nodeEditor/NodeEditorGlobalControls.tsx`](../packages/app/src/components/nodeEditor/NodeEditorGlobalControls.tsx)
+- default field dispatch still flows through [`packages/app/src/components/editors/DefaultNodeEditorField.tsx`](../packages/app/src/components/editors/DefaultNodeEditorField.tsx), which routes `type: 'code'` editor definitions through [`packages/app/src/components/editors/CodeEditor.tsx`](../packages/app/src/components/editors/CodeEditor.tsx)
 
 This keeps the real boundary in place without preserving a thin wrapper file that only forwarded editor props.
+
+Current node-editor Monaco rules that matter for editor changes:
+
+- `CodeEditorDefinition.enableFolding` is an explicit opt-in capability on core editor definitions; folding is intentionally enabled only for selected built-in code/JSON node-editor fields, not for every Monaco surface in the app
+- the shared Monaco wrapper in [`packages/app/src/components/CodeEditor.tsx`](../packages/app/src/components/CodeEditor.tsx) is generic and create-once; it should treat its `theme` prop as an already-resolved Monaco theme id instead of reading app theme state itself
+- node-editor-specific structural identity lives in [`packages/app/src/components/codeEditorOptions.ts`](../packages/app/src/components/codeEditorOptions.ts) via `getNodeEditorCodeEditorMountKey(...)`, and the node-editor wrapper must use that key when switching node, field, language, resolved theme, or folding mode
+- prompt-interpolation theme expansion should go through `resolveCodeEditorTheme(...)` in `codeEditorOptions.ts`; both the node-editor code path and [`packages/app/src/components/ColorizedPreformattedText.tsx`](../packages/app/src/components/ColorizedPreformattedText.tsx) now share that helper instead of duplicating prompt-theme resolution
+- non-node Monaco consumers such as Trivet, project MCP configuration, dataset editing, and copy/test-case modals should stay outside the folding opt-in path unless they deliberately add their own product requirement for it
 
 ### Output rendering
 

@@ -649,3 +649,20 @@ component-local node-output reader helper was removed, `RenderDataValue` now use
 renderer registry, and readonly ref access was tightened through a shared `DataRefReader` type. The
 result is a more coherent large-output architecture with less repeated logic and less unnecessary
 work in a hot render path.
+
+## 54. Add scoped Monaco code folding to built-in node editors
+
+The app already used Monaco in several places, but folding behavior needed to be added narrowly
+rather than flipped on globally. The requirement was specifically for built-in node editors with
+real code- or JSON-style fields, while prompt-like editors, regex/jsonpath editors, and unrelated
+Monaco surfaces such as Trivet or project configuration needed to stay unchanged.
+
+This refactor added an explicit `enableFolding` opt-in to `CodeEditorDefinition` and enabled it only
+for the targeted built-in node fields such as Code, Object JSON Template, HTTP Call headers/body,
+Tool schema, MCP tool argument editors, and the AssemblyAI transcript-parameter editor. On the app
+side, Monaco create options and node-editor structural identity were centralized in
+`codeEditorOptions.ts`, the node-editor wrapper now remounts Monaco when node/field/language/theme
+or folding mode changes, and the shared `CodeEditor` component was kept generic by treating its
+theme prop as already resolved. Prompt-interpolation theme expansion is now shared through one
+helper across node editors and colorized text surfaces, which keeps folding scoped to the selected
+node-editor path without leaking Monaco state or theme behavior into unrelated editors.
