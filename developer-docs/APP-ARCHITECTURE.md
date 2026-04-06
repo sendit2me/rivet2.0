@@ -176,11 +176,12 @@ Current workspace behavior:
 - creating a new blank project or template project adds a new open-project tab instead of replacing the existing open-project set
 - a new blank project now starts with one real saved graph named `Untitled Graph`, and that graph is also seeded as the project's `mainGraphId`
 - `projectsState` is the canonical multi-project tab store; `openedProjectsState` and `openedProjectsSortedIdsState` are compatibility projections over it
-- `projectsState` now stores only lightweight tab metadata: `projectId`, title, `fsPath`, and `openedGraph`
-- open-project entries should seed `openedGraph` immediately when the project is opened instead of relying on a later sync pass to infer it
-- `useSyncCurrentStateIntoOpenedProjects` keeps tab metadata in sync while writing full inactive-project restoration snapshots into `openedProjectSnapshotsState` on project switches
-- successful project saves clear any persisted restoration snapshot for that project so file-backed projects do not keep redundant snapshot state
-- closing/reordering project tabs still lives in `ProjectSelector.tsx`, not in the shared workspace transition layer
+- `projectsState` stores only lightweight tab metadata: `projectId`, title, `fsPath`, and `openedGraph`
+- `openedGraph` is now a compatibility/fallback hint for project-open flows, not the primary source of remembered editor view state
+- exact editor-view restore state lives in `projectEditorStateByProjectIdState`, keyed by `project.metadata.id` and persisted under the grouped `project` storage namespace
+- `useSyncCurrentStateIntoOpenedProjects` keeps tab metadata and inactive-project content snapshots in sync, while `useSyncCurrentProjectEditorState` mirrors the active project's navigation stack and canvas positions into `projectEditorStateByProjectIdState` after boot hydration
+- successful project saves clear any persisted inactive-project snapshot for that project and flush the grouped `project` storage so tab metadata and editor-view state are durable together
+- closing/reordering project tabs still lives in `ProjectSelector.tsx`, and closing a background tab no longer triggers a neighbor-project load
 
 ### `ActionBar`
 
@@ -354,7 +355,18 @@ type CanvasPosition = { x: number; y: number; zoom: number; fromSaved?: boolean 
 
 `NodeCanvas` applies the viewport via a CSS transform on `.canvas-contents` and also adjusts the grid background size/position independently.
 
-Per-graph viewport memory lives in `lastCanvasPositionByGraphState`.
+Durable viewport/navigation restore now lives in `projectEditorStateByProjectIdState`, which stores:
+
+- the current `graphNavigationStackState`
+- project-scoped `canvasPositionsByGraph`
+
+Important nuance:
+
+- this state is keyed by `project.metadata.id`, not just `graphId`, so different projects that reuse graph IDs do not bleed viewport state into each other
+- `useSyncCurrentProjectEditorState` persists from `canvasPositionState` and `graphNavigationStackState` rather than from mouse handlers, so programmatic camera moves such as focus/center operations are also captured
+- `useRestorePersistedWorkspace` performs a one-shot boot restore of graph view and viewport without re-running the full project-load path
+- `projectEditorHydratedState` gates the active-project sync hook so boot-time defaults do not overwrite persisted editor state before restore runs
+- `lastCanvasPositionByGraphState` still exists as a same-session/compatibility cache and migration fallback, but it is no longer the primary reopen source
 
 ### Rendering strategy
 
@@ -560,6 +572,19 @@ Important nuance:
 - full restoration payloads for inactive tabs live in `openedProjectSnapshotsState` and are treated as explicit restoration artifacts instead of the canonical tab model
 - when replacing the current project, `projectDataState` is replaced for the new project and the IndexedDB static-data cache is cleared before loading the new project's data
 
+Per-project editor-view persistence now lives in [`packages/app/src/state/projectEditor.ts`](../packages/app/src/state/projectEditor.ts).
+
+That layer owns:
+
+- `projectEditorStateByProjectIdState`
+- `projectEditorHydratedState`
+
+Important nuance:
+
+- this is editor-only state and is not serialized into `.rivet-project`
+- it stores exact graph-navigation context plus per-graph canvas positions
+- it shares the grouped `project` hybrid-storage namespace so save-time flushes persist project tabs and remembered editor view together
+
 ### Execution and data-flow state
 
 Execution state is split between:
@@ -663,15 +688,17 @@ The app also uses other state files such as `ui.ts`, `trivet.ts`, `promptDesigne
 
 Current sequence:
 
-1. replace `projectState`
-2. reset graph navigation stack
-3. cleanup old graph node atom families
-4. clear read-only/historical state
-5. normalize the requested graph against the project's real `graphs` map, then fall back to `openedGraph`, `mainGraphId`, and finally a stable sorted graph choice
-6. restore the chosen graph's saved viewport when available, otherwise center/reset the canvas like a normal graph switch
-7. clear prior static-data state and load the new project's static data into app state/IndexedDB
-8. persist loaded filesystem path
-9. load Trivet data if the IO provider supports path-based reads
+1. snapshot the current project's editor-view state and inactive-tab payload when switching away from an already-loaded project
+2. resolve the target graph, graph-view context, navigation stack, and viewport through `resolveProjectEditorRestoreTarget(...)`
+3. replace `projectState`
+4. apply the resolved navigation stack
+5. cleanup old graph node atom families
+6. clear read-only/historical state and replace `graphState`
+7. hydrate the compatibility `lastCanvasPositionByGraphState` cache from any persisted project-scoped canvas positions
+8. restore the resolved viewport or center/reset the canvas
+9. clear prior static-data state and load the new project's static data into app state/IndexedDB
+10. persist loaded filesystem path
+11. load Trivet data if the IO provider supports path-based reads
 
 This hook is a critical refactor seam because it couples project replacement, graph replacement, atom-family cleanup, and Trivet hydration.
 
@@ -734,7 +761,10 @@ Current boundary:
 
 - load-project, graph-switch, save/save-as, and new blank/template project initialization all reuse this sequencing
 - blank-project initialization now goes through the same transition layer with a real project-owned default graph instead of loading a detached placeholder graph into `graphState`
-- project-tab closing/reordering and active-tab snapshot syncing still live outside this layer in `ProjectSelector.tsx` and `useSyncCurrentStateIntoOpenedProjects.ts`
+- project-tab closing/reordering and active-tab metadata syncing still live outside this layer in `ProjectSelector.tsx` and `useSyncCurrentStateIntoOpenedProjects.ts`
+- exact remembered editor view is resolved through `projectEditorState.ts`, synced by `useSyncCurrentProjectEditorState.ts`, and boot-restored by `useRestorePersistedWorkspace.ts`
+- boot restore is intentionally view-only: it rehydrates navigation/camera state for the already-loaded project instead of re-running full `loadProject(...)` side effects
+- save/save-as flush the grouped `project` storage before completion so remembered graph/subgraph/viewport state survives immediate close-and-reopen paths
 - external UI state that depends on a completed load, such as adding an opened-project tab or closing the new-project modal, must stay outside the transition layer and only run after `loadProject(...)` resolves `true`
 - `loadProject(...)` handles/logs its own transition failures and returns `false` instead of throwing for those transition-stage errors, so callers should branch on the boolean result rather than assume success after awaiting it
 

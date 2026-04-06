@@ -114,12 +114,11 @@ export function resolveProjectGraphForLoad(
 export function createProjectLoadTransition(options: {
   currentGraph: NodeGraph;
   graphToLoad: NodeGraph;
-  lastSavedPositions: Record<GraphId, CanvasPosition | undefined>;
+  navigationStack?: GraphNavigationStack;
   path?: string | null;
   project: Omit<Project, 'data'>;
+  viewport?: GraphSwitchViewportStrategy;
 }): ProjectLoadTransition {
-  const lastSavedPosition = options.lastSavedPositions[options.graphToLoad.metadata!.id!];
-
   return {
     cleanupNodeIds: options.currentGraph.nodes.map((node) => node.id),
     graph: options.graphToLoad,
@@ -127,14 +126,15 @@ export function createProjectLoadTransition(options: {
       loaded: true,
       path: options.path ?? null,
     },
-    navigationStack: {
-      stack: [createRootGraphViewContext(options.graphToLoad.metadata!.id!)],
-      index: 0,
-    },
+    navigationStack:
+      options.navigationStack ?? {
+        stack: [createRootGraphViewContext(options.graphToLoad.metadata!.id!)],
+        index: 0,
+      },
     project: options.project,
     resetHistoricalGraph: true,
     resetReadOnlyGraph: true,
-    viewport: resolveProjectLoadViewportStrategy(options.graphToLoad, lastSavedPosition),
+    viewport: options.viewport ?? resolveProjectLoadViewportStrategy(options.graphToLoad, undefined),
   };
 }
 

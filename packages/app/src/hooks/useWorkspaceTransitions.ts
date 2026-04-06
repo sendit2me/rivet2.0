@@ -14,8 +14,8 @@ import {
   loadedProjectState,
   openedProjectSnapshotsState,
   projectDataState,
-  projectState,
   projectsState,
+  projectState,
 } from '../state/savedGraphs.js';
 import { trivetState } from '../state/trivet.js';
 import { useCenterViewOnGraph } from './useCenterViewOnGraph.js';
@@ -26,11 +26,17 @@ import {
   createGraphSwitchTransition,
   createProjectLoadTransition,
   mergeCurrentGraphIntoProject,
-  resolveProjectGraphForLoad,
 } from '../utils/workspaceTransitions.js';
 import { handleError } from '../utils/errorHandling.js';
 import { useStaticDataDatabase } from './useStaticDataDatabase.js';
 import { addOpenedProject } from '../utils/openedProjects.js';
+import {
+  resolveCanvasPositionsForProject,
+  resolvePersistedCanvasPositionsForLegacyCache,
+  resolveProjectEditorRestoreTarget,
+} from '../utils/projectEditorState.js';
+import { flushHybridStorageGroup } from '../state/storage.js';
+import { useCurrentProjectEditorSnapshot } from './useCurrentProjectEditorSnapshot.js';
 
 export function useWorkspaceTransitions() {
   const ioProvider = useIOProvider();
@@ -45,13 +51,20 @@ export function useWorkspaceTransitions() {
   const setHistoricalGraph = useSetAtom(historicalGraphState);
   const setSelectedNodes = useSetAtom(selectedNodesState);
   const setPosition = useSetAtom(canvasPositionState);
-  const lastSavedPositions = useAtomValue(lastCanvasPositionByGraphState);
-  const graphNavigationStack = useAtomValue(graphNavigationStackState);
+  const setLastSavedPositions = useSetAtom(lastCanvasPositionByGraphState);
   const setOpenedProjectSnapshots = useSetAtom(openedProjectSnapshotsState);
   const setProjects = useSetAtom(projectsState);
   const centerViewOnGraph = useCenterViewOnGraph();
   const saveCurrentGraph = useSaveCurrentGraph();
   const { testSuites } = useAtomValue(trivetState);
+  const {
+    canvasPosition,
+    graphNavigationStack,
+    lastCanvasPositionsByGraph: lastSavedPositions,
+    persistCurrentOpenedProjectSnapshot,
+    persistCurrentProjectEditorSnapshot,
+    projectEditorStateByProjectId,
+  } = useCurrentProjectEditorSnapshot();
 
   async function applyStaticData(data: Project['data'] | undefined) {
     setProjectData(data);
@@ -96,19 +109,43 @@ export function useWorkspaceTransitions() {
       openedGraph?: string;
       testSuites?: typeof testSuites;
       graphToLoad?: typeof currentGraph;
+      graphView?: GraphViewContext;
     }): Promise<boolean> {
       try {
-        const graphToLoad = resolveProjectGraphForLoad(projectInfo.project, {
-          graphToLoad: projectInfo.graphToLoad,
+        const currentProjectId = project.metadata.id;
+        const targetProjectId = projectInfo.project.metadata.id;
+        const shouldPersistCurrentProjectEditorState =
+          Boolean(currentProjectId) &&
+          (loadedProject.loaded || Object.keys(project.graphs).length > 0 || graphNavigationStack.stack.length > 0);
+
+        const currentProjectEditorSnapshot = shouldPersistCurrentProjectEditorState
+          ? persistCurrentProjectEditorSnapshot()
+          : undefined;
+
+        if (currentProjectEditorSnapshot && currentProjectId) {
+          persistCurrentOpenedProjectSnapshot();
+        }
+
+        const persistedProjectEditorState =
+          targetProjectId === currentProjectId
+            ? currentProjectEditorSnapshot ?? projectEditorStateByProjectId[targetProjectId]
+            : projectEditorStateByProjectId[targetProjectId];
+        const restoreTarget = resolveProjectEditorRestoreTarget({
+          project: projectInfo.project,
+          persistedProjectEditorState,
+          explicitGraphToLoad: projectInfo.graphToLoad,
+          explicitGraphView: projectInfo.graphView,
           openedGraphId: projectInfo.openedGraph as any,
+          legacyCanvasPositionsByGraph: lastSavedPositions,
         });
 
         const transition = createProjectLoadTransition({
           currentGraph,
-          graphToLoad,
-          lastSavedPositions,
+          graphToLoad: restoreTarget.graph,
+          navigationStack: restoreTarget.navigationStack,
           path: projectInfo.fsPath,
           project: projectInfo.project,
+          viewport: restoreTarget.viewport,
         });
 
         setProject(transition.project);
@@ -117,6 +154,17 @@ export function useWorkspaceTransitions() {
         setIsReadOnlyGraph(false);
         setHistoricalGraph(null);
         setGraph(transition.graph);
+        const persistedCanvasPositionsByGraph = resolvePersistedCanvasPositionsForLegacyCache({
+          project: projectInfo.project,
+          persistedProjectEditorState,
+        });
+        if (Object.keys(persistedCanvasPositionsByGraph).length > 0) {
+          setLastSavedPositions((previousPositionsByGraph) => ({
+            ...previousPositionsByGraph,
+            ...persistedCanvasPositionsByGraph,
+          }));
+        }
+
         if (transition.viewport.type === 'saved') {
           setPosition(transition.viewport.position);
         } else if (transition.viewport.type === 'center') {
@@ -142,6 +190,25 @@ export function useWorkspaceTransitions() {
     },
 
     switchGraph(savedGraph: typeof currentGraph, options: { graphView?: GraphViewContext; pushHistory?: boolean } = {}) {
+      const currentGraphId = currentGraph.metadata?.id;
+
+      if (project.metadata.id) {
+        persistCurrentProjectEditorSnapshot({
+          currentGraphId,
+        });
+
+        if (currentGraphId) {
+          setLastSavedPositions((previousPositionsByGraph) => ({
+            ...previousPositionsByGraph,
+            [currentGraphId]: {
+              x: canvasPosition.x,
+              y: canvasPosition.y,
+              zoom: canvasPosition.zoom,
+            },
+          }));
+        }
+      }
+
       if (currentGraph.nodes.length > 0 || currentGraph.metadata?.name !== emptyNodeGraph().metadata!.name) {
         saveCurrentGraph();
       }
@@ -149,7 +216,11 @@ export function useWorkspaceTransitions() {
       const transition = createGraphSwitchTransition({
         currentGraph,
         graphToLoad: savedGraph,
-        lastSavedPositions,
+        lastSavedPositions: resolveCanvasPositionsForProject({
+          project,
+          persistedProjectEditorState: projectEditorStateByProjectId[project.metadata.id],
+          legacyCanvasPositionsByGraph: lastSavedPositions,
+        }),
         nextGraphView: options.graphView,
         previousNavigationStack: graphNavigationStack,
         pushHistory: options.pushHistory ?? true,
@@ -193,6 +264,11 @@ export function useWorkspaceTransitions() {
       }, 500);
 
       try {
+        persistCurrentProjectEditorSnapshot({
+          project: projectToPersist,
+        });
+        await flushHybridStorageGroup('project');
+
         if (shouldUseSaveAs) {
           const filePath = await ioProvider.saveProjectData(projectToPersist, { testSuites });
 
@@ -204,6 +280,7 @@ export function useWorkspaceTransitions() {
               return nextSnapshots;
             });
             setProjects((prev) => addOpenedProject(prev, projectToPersist, { fsPath: filePath }));
+            await flushHybridStorageGroup('project');
             toast.success('Project saved');
           }
         } else {
@@ -215,6 +292,7 @@ export function useWorkspaceTransitions() {
             delete nextSnapshots[projectToPersist.metadata.id];
             return nextSnapshots;
           });
+          await flushHybridStorageGroup('project');
           toast.success('Project saved');
         }
       } catch (err) {

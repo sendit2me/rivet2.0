@@ -171,6 +171,7 @@ Current repo-visible serialized artifacts include:
 Several parts of the system intentionally keep large or auxiliary data outside the central graph structures:
 
 - static project data can live separately from `projectState`
+- remembered graph/subgraph/viewport state lives separately in `projectEditorStateByProjectIdState`
 - app state stores Trivet and runtime context separately
 - recording and debugger flows serialize execution data separately
 

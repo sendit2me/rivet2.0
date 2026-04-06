@@ -27,6 +27,7 @@ import DiscordLogo from '../assets/vendor_logos/discord-mark-white.svg?react';
 import { useOpenUrl } from '../hooks/useOpenUrl';
 import { keys } from '../../../core/src/utils/typeSafety';
 import { wrapAsync } from '../utils/errorHandling';
+import { useCurrentProjectEditorSnapshot } from '../hooks/useCurrentProjectEditorSnapshot.js';
 
 export const styles = css`
   position: absolute;
@@ -220,6 +221,7 @@ export const ProjectSelector: FC = () => {
   const setOpenedProjectSnapshots = useSetAtom(openedProjectSnapshotsState);
   const openedProjects = useAtomValue(openedProjectsState);
   const [openedProjectsSortedIds, setOpenedProjectsSortedIds] = useAtom(openedProjectsSortedIdsState);
+  const { currentProject, persistCurrentProjectEditorSnapshot } = useCurrentProjectEditorSnapshot();
 
   const sortedOpenedProjects = useMemo(() => {
     return openedProjectsSortedIds
@@ -252,6 +254,11 @@ export const ProjectSelector: FC = () => {
       return;
     }
 
+    const closingCurrentProject = currentProject.metadata.id === projectId;
+    if (closingCurrentProject) {
+      persistCurrentProjectEditorSnapshot();
+    }
+
     setProjects((projects) =>
       produce(projects, (draft) => {
         delete draft.openedProjects[projectId];
@@ -275,12 +282,16 @@ export const ProjectSelector: FC = () => {
     clearProjectContextState(projectId);
 
     const closestProject = sortedOpenedProjects[indexOfProject + 1] || sortedOpenedProjects[indexOfProject - 1];
-    if (closestProject) {
+    if (closingCurrentProject && closestProject) {
       loadProject(closestProject.project);
     }
   };
 
   const handleSelectProject = (projectId: ProjectId) => {
+    if (projectId === currentProject.metadata.id) {
+      return;
+    }
+
     const projectInfo = openedProjects[projectId];
     if (projectInfo) {
       loadProject(projectInfo);

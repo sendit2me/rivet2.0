@@ -1,7 +1,7 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { type GraphId, type NodeGraph, type Project, type ProjectId } from '@ironclad/rivet-core';
-import { createRootGraphViewContext } from '../domain/graphEditing/navigationActions.js';
+import { createRootGraphViewContext, createSubgraphGraphViewContext } from '../domain/graphEditing/navigationActions.js';
 import {
   chooseProjectGraph,
   createDefaultTrivetState,
@@ -121,7 +121,6 @@ describe('workspaceTransitions', () => {
     const transition = createProjectLoadTransition({
       currentGraph,
       graphToLoad: targetGraph,
-      lastSavedPositions: {} as Record<GraphId, any>,
       path: '/tmp/project.rivet-project',
       project,
     });
@@ -141,7 +140,6 @@ describe('workspaceTransitions', () => {
     const transition = createProjectLoadTransition({
       currentGraph,
       graphToLoad: targetGraph,
-      lastSavedPositions: {} as Record<GraphId, any>,
       path: null,
       project,
     });
@@ -150,21 +148,35 @@ describe('workspaceTransitions', () => {
     assert.deepEqual(transition.viewport, { type: 'reset' });
   });
 
-  test('createProjectLoadTransition restores the saved viewport for the loaded graph', () => {
+  test('createProjectLoadTransition accepts an explicit restored navigation stack and viewport', () => {
     const currentGraph = makeGraph('current', 'Current');
     const targetGraph = makeGraph('next', 'Next', [{ id: 'n-2', visualData: { x: 0, y: 0 } } as any]);
     const project = makeProject([targetGraph]);
+    const restoredNavigationStack = {
+      stack: [
+        createRootGraphViewContext('current' as GraphId),
+        createSubgraphGraphViewContext({
+          graphId: 'next' as GraphId,
+          parentGraphId: 'current' as GraphId,
+          parentNodeId: 'n-1' as any,
+        }),
+      ],
+      index: 1,
+    };
 
     const transition = createProjectLoadTransition({
       currentGraph,
       graphToLoad: targetGraph,
-      lastSavedPositions: {
-        next: { x: 12, y: 24, zoom: 1.5 },
-      } as Record<GraphId, any>,
       path: '/tmp/project.rivet-project',
       project,
+      navigationStack: restoredNavigationStack,
+      viewport: {
+        type: 'saved',
+        position: { x: 12, y: 24, zoom: 1.5 },
+      },
     });
 
+    assert.deepEqual(transition.navigationStack, restoredNavigationStack);
     assert.deepEqual(transition.viewport, {
       type: 'saved',
       position: { x: 12, y: 24, zoom: 1.5 },

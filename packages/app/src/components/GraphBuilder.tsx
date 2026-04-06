@@ -28,6 +28,7 @@ import { AiGraphCreatorInput } from './AiGraphCreatorInput';
 import { AiGraphCreatorToggle } from './AiGraphCreatorToggle';
 import { useReloadProjectReferences } from '../hooks/useReloadProjectReferences';
 import { submitUserInputAnswers } from '../state/actions/userInputActions';
+import { useSyncCurrentProjectEditorState } from '../hooks/useSyncCurrentProjectEditorState.js';
 
 const Container = styled.div`
   position: relative;
@@ -72,6 +73,7 @@ export const GraphBuilder: FC = () => {
   const autoLayoutGraph = useRef(() => {});
 
   useReloadProjectReferences();
+  useSyncCurrentProjectEditorState();
 
   useDatasets(project.metadata.id);
 

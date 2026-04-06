@@ -1,5 +1,4 @@
 import { useAtomValue } from 'jotai';
-import { type GraphId } from '@ironclad/rivet-core';
 import { isPathBasedIOProvider } from '../io/IOProvider.js';
 import { useIOProvider } from '../providers/ProvidersContext.js';
 import {
@@ -9,7 +8,6 @@ import {
   projectState,
 } from '../state/savedGraphs.js';
 import { handleError } from '../utils/errorHandling.js';
-import { chooseProjectGraph } from '../utils/workspaceTransitions.js';
 import { useWorkspaceTransitions } from './useWorkspaceTransitions.js';
 import type { TrivetState } from '../state/trivet.js';
 
@@ -22,6 +20,10 @@ export function useLoadProject() {
 
   return async (projectInfo: OpenedProjectInfo) => {
     try {
+      if (currentProject.metadata.id === projectInfo.projectId) {
+        return;
+      }
+
       const activeProjectSnapshot =
         currentProject.metadata.id === projectInfo.projectId
           ? {
@@ -54,11 +56,6 @@ export function useLoadProject() {
         data,
         fsPath: projectInfo.fsPath,
         openedGraph: projectInfo.openedGraph,
-        graphToLoad: chooseProjectGraph(project, {
-          openedGraphId: projectInfo.openedGraph as GraphId | undefined,
-          fallbackToMainGraph: true,
-          fallbackToSortedProjectGraph: true,
-        }),
         testSuites,
       });
     } catch (err) {

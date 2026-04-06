@@ -34,10 +34,10 @@ import { CommunityOverlayRenderer } from './community/CommunityOverlay';
 import { HelpModal } from './HelpModal';
 import { openedProjectsSortedIdsState } from '../state/savedGraphs';
 import { NoProject } from './NoProject';
-import { allInitializeStoreFns } from '../state/storage';
 import { AppErrorBoundary } from './AppErrorBoundary';
 import { wrapAsync } from '../utils/errorHandling';
 import { useExecutorSession } from '../hooks/useExecutorSession';
+import { useRestorePersistedWorkspace } from '../hooks/useRestorePersistedWorkspace.js';
 
 const styles = css`
   overflow: hidden;
@@ -57,6 +57,7 @@ export const RivetApp: FC = () => {
   const noProjectOpen = openedProjectIds.length === 0;
 
   useLoadStaticData();
+  useRestorePersistedWorkspace();
 
   const runGraph = wrapAsync(tryRunGraph, 'Run graph');
   const runTests = wrapAsync(tryRunTests, 'Run tests');

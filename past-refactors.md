@@ -717,3 +717,24 @@ two-phase rebuild and active-match flow. Large ref-backed previews integrate thr
 text rather than generic DOM excerpts, and the old large-preview paging model was replaced with
 contiguous chunking so later-chunk search matches can reliably map back to the correct preview
 page without skipped or duplicated content.
+
+## 58. Remember the per-project editor view on reopen without changing the project file
+
+The workspace had been remembering pieces of editor state through several unrelated mechanisms, but
+that behavior was incomplete and unreliable. Open-project tabs stored an `openedGraph` hint,
+`lastCanvasPositionByGraphState` cached viewport by bare `graphId`, and the live
+`graphNavigationStackState` was never persisted at all. As a result, closing and reopening a
+project could lose the active subgraph context, restore the wrong pan/zoom, or race debounced app
+storage writes after a save.
+
+This refactor moved remembered editor view into a dedicated app-side persistence layer. The new
+`projectEditor.ts` state stores exact graph-navigation context plus per-graph canvas positions,
+keyed by `project.metadata.id` and kept in grouped `project` hybrid storage rather than in the
+`.rivet-project` file. Restore resolution now lives in `projectEditorState.ts`, which sanitizes
+persisted graph-view state, resolves explicit-vs-persisted-vs-fallback graph selection, and
+prefers project-scoped viewport state over the old global graph-id cache. The app restores this
+view once on boot through `useRestorePersistedWorkspace.ts`, keeps it synchronized from shared
+state through `useSyncCurrentProjectEditorState.ts`, and snapshots the current project centrally
+through `useCurrentProjectEditorSnapshot.ts` during project loads, graph switches, tab changes, and
+saves. Save flows also flush grouped `project` storage before completion so the latest remembered
+graph, subgraph, scroll position, and zoom survive immediate close-and-reopen paths.

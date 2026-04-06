@@ -410,9 +410,22 @@ a subgraph view context. All other paths create root contexts.
 
 ### Viewport per view
 
-Each graph view remembers its own canvas position in `lastCanvasPositionByGraphState`.
-Switching between views restores the saved viewport, or centers the view if no
-position was saved.
+The active canvas still renders from `canvasPositionState`, but remembered graph view is
+now persisted separately in `projectEditorStateByProjectIdState`.
+
+Important nuance:
+
+- remembered editor view is keyed by `project.metadata.id`, then by `graphId`
+- each persisted entry stores both the `GraphNavigationStack` and per-graph canvas positions
+- `useSyncCurrentProjectEditorState` mirrors `graphNavigationStackState` and `canvasPositionState`
+  into that project-scoped store, so programmatic viewport moves are captured too
+- `useRestorePersistedWorkspace` restores the remembered graph/subgraph context and viewport once on
+  boot without re-running the full project-load side effects
+- `lastCanvasPositionByGraphState` remains as a same-session runtime cache and compatibility
+  fallback for graph switching, but it is no longer the authoritative reopen source
+
+Switching between views therefore prefers the current project's persisted canvas positions, then
+falls back to the legacy cache, and centers/resets only when neither has a saved viewport.
 
 ## Event Handler Registration
 
