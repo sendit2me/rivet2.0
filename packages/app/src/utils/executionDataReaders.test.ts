@@ -6,7 +6,7 @@ import type { NodeRunDataWithRefs } from '../state/dataFlow.js';
 import { WarningsPort } from '../../../core/src/utils/symbols.js';
 import {
   coerceStoredPortValue,
-  getStoredWarningsForNodeOutput,
+  getStoredOutputWarnings,
   restoreDisplayedNodeOutputs,
   restoreStoredPortValue,
 } from './executionDataReaders.js';
@@ -73,8 +73,8 @@ test('restoreDisplayedNodeOutputs prefers split outputs when they are present', 
   });
 });
 
-test('getStoredWarningsForNodeOutput aggregates warnings from split outputs', () => {
-  const warnings = getStoredWarningsForNodeOutput(
+test('getStoredOutputWarnings aggregates warnings from split outputs', () => {
+  const warnings = getStoredOutputWarnings(
     {
       splitOutputData: {
         0: {

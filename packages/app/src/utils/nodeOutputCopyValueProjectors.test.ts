@@ -4,7 +4,7 @@ import type { DataValue } from '@ironclad/rivet-core';
 import type { DataRefReader } from '../providers/ProvidersContext.js';
 import type { NodeRunDataWithRefs } from '../state/dataFlow.js';
 import { WarningsPort } from '../../../core/src/utils/symbols.js';
-import { projectDisplayedNodeOutputsForCopyValue } from './executionDataCopyValue.js';
+import { projectDisplayedOutputs } from './executionDataCopyValue.js';
 import {
   getChatNodeCopyValueData,
   getLoopControllerNodeCopyValueData,
@@ -28,7 +28,7 @@ function inlineStored<T extends DataValue['type']>(type: T, value: Extract<DataV
 }
 
 test('chat copy-value projector returns plain response text when only the response is visible', () => {
-  const projected = projectDisplayedNodeOutputsForCopyValue(
+  const projected = projectDisplayedOutputs(
     {
       outputData: {
         response: inlineStored('string', 'Hello world!'),
@@ -46,7 +46,7 @@ test('chat copy-value projector returns plain response text when only the respon
 });
 
 test('chat copy-value projector includes only the visible response, function call, and visible meta fields', () => {
-  const projected = projectDisplayedNodeOutputsForCopyValue(
+  const projected = projectDisplayedOutputs(
     {
       outputData: {
         response: inlineStored('string', 'Hello world!'),
@@ -93,7 +93,7 @@ test('chat copy-value projector includes only the visible response, function cal
 });
 
 test('chat copy-value projector does not include duration when the chat UI would hide the meta block', () => {
-  const projected = projectDisplayedNodeOutputsForCopyValue(
+  const projected = projectDisplayedOutputs(
     {
       outputData: {
         response: inlineStored('string', 'Hello world!'),
@@ -110,7 +110,7 @@ test('chat copy-value projector does not include duration when the chat UI would
 });
 
 test('chat copy-value projector includes duration when a visible meta carrier exists even if the carrier value itself is hidden', () => {
-  const projected = projectDisplayedNodeOutputsForCopyValue(
+  const projected = projectDisplayedOutputs(
     {
       outputData: {
         response: inlineStored('string', 'Hello world!'),
@@ -131,7 +131,7 @@ test('chat copy-value projector includes duration when a visible meta carrier ex
 });
 
 test('user input copy-value projector only copies questionsAndAnswers', () => {
-  const projected = projectDisplayedNodeOutputsForCopyValue(
+  const projected = projectDisplayedOutputs(
     {
       outputData: {
         output: inlineStored('string[]', ['answer']),
@@ -148,7 +148,7 @@ test('user input copy-value projector only copies questionsAndAnswers', () => {
 });
 
 test('user input copy-value projector returns nothing when the output preview is empty', () => {
-  const projected = projectDisplayedNodeOutputsForCopyValue(
+  const projected = projectDisplayedOutputs(
     {
       outputData: {
         questionsAndAnswers: inlineStored('control-flow-excluded', undefined),
@@ -164,7 +164,7 @@ test('user input copy-value projector returns nothing when the output preview is
 });
 
 test('loop controller copy-value projector excludes break and iteration and includes continue plus visible outputs', () => {
-  const projected = projectDisplayedNodeOutputsForCopyValue(
+  const projected = projectDisplayedOutputs(
     {
       outputData: {
         break: inlineStored('any[]', ['done']),
@@ -187,7 +187,7 @@ test('loop controller copy-value projector excludes break and iteration and incl
 });
 
 test('subgraph copy-value projector includes visible meta and visible outputs only', () => {
-  const projected = projectDisplayedNodeOutputsForCopyValue(
+  const projected = projectDisplayedOutputs(
     {
       outputData: {
         cost: inlineStored('number', 0.5),
@@ -214,7 +214,7 @@ test('subgraph copy-value projector includes visible meta and visible outputs on
 });
 
 test('subgraph copy-value projector does not include array meta that the UI does not render', () => {
-  const projected = projectDisplayedNodeOutputsForCopyValue(
+  const projected = projectDisplayedOutputs(
     {
       outputData: {
         cost: inlineStored('number[]', [0.5, 0.25]),

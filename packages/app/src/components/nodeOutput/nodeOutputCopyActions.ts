@@ -3,12 +3,12 @@ import type { NodeRunDataWithRefs } from '../../state/dataFlow.js';
 import { copyToClipboard } from '../../utils/copyToClipboard.js';
 import {
   type NodeOutputCopyValueProjector,
-  serializeDisplayedNodeOutputsForCopyValue,
+  serializeDisplayedOutputs,
 } from '../../utils/executionDataCopyValue.js';
 import { restoreDisplayedNodeOutputs } from '../../utils/executionDataReaders.js';
 import { handleError } from '../../utils/errorHandling.js';
 
-export function copyNodeOutputValueToClipboard(
+export function copyOutputValue(
   data: NodeRunDataWithRefs | undefined,
   dataRefs: DataRefReader,
   getCopyValueData?: NodeOutputCopyValueProjector,
@@ -18,7 +18,7 @@ export function copyNodeOutputValueToClipboard(
   }
 
   try {
-    const serialized = serializeDisplayedNodeOutputsForCopyValue(data, dataRefs, {
+    const serialized = serializeDisplayedOutputs(data, dataRefs, {
       getCopyValueData,
     });
     if (serialized == null) {
@@ -31,7 +31,7 @@ export function copyNodeOutputValueToClipboard(
   }
 }
 
-export function copyNodeOutputJsonToClipboard(data: NodeRunDataWithRefs | undefined, dataRefs: DataRefReader): void {
+export function copyOutputJson(data: NodeRunDataWithRefs | undefined, dataRefs: DataRefReader): void {
   if (!data) {
     return;
   }

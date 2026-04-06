@@ -8,10 +8,9 @@ import { themeState } from '../../state/settings.js';
 import { LazyCodeEditor } from '../LazyComponents';
 import { type SharedEditorProps } from './SharedEditorProps';
 import { getHelperMessage } from './editorUtils';
-import { getNodeEditorCodeEditorMountKey, resolveCodeEditorTheme } from '../codeEditorOptions.js';
+import { resolveMonacoTheme } from '../codeEditorTheme.js';
 import { ResizeHandle } from '../ResizeHandle.js';
-import { isResizableNodeCodeEditorLanguage } from './nodeEditorCodeEditorSizing.js';
-import { useNodeEditorCodeViewportHeight } from './useNodeEditorCodeViewportHeight.js';
+import { isValidHeight, RESIZABLE_LANGUAGES, useNodeEditorCodeViewportHeight } from './useNodeEditorCodeViewportHeight.js';
 
 export const DefaultCodeEditor: FC<
   SharedEditorProps & {
@@ -92,15 +91,11 @@ export const CodeEditor: FC<{
   const onChangeLatest = useLatest(onChange);
   const isEditorReadOnly = isReadonly || isDisabled;
   const appTheme = useAtomValue(themeState);
-  const resolvedTheme = resolveCodeEditorTheme(theme, appTheme);
-  const isResizable = isResizableNodeCodeEditorLanguage(language);
-  const editorMountKey = getNodeEditorCodeEditorMountKey({
-    nodeId: id,
-    fieldIdentity: name ?? label,
-    language,
-    theme: resolvedTheme,
-    enableFolding,
-  });
+  const resolvedTheme = resolveMonacoTheme(theme, appTheme);
+  const isResizable = language != null && RESIZABLE_LANGUAGES.has(language);
+  const editorMountKey = `${id ?? 'node-editor'}::${name ?? label}::${language ?? 'language'}::${resolvedTheme ?? 'theme'}::${
+    enableFolding ? 'folding-on' : 'folding-off'
+  }`;
 
   useEffect(() => {
     if (editorInstance.current) {
@@ -167,11 +162,7 @@ export const CodeEditor: FC<{
   );
 };
 
-function hasExplicitCodeEditorHeight(height: number | undefined): height is number {
-  return typeof height === 'number' && Number.isFinite(height) && height > 0;
-}
-
-type MonacoEditorViewportProps = {
+type ViewportProps = {
   editorMountKey: string;
   editorInstance: MutableRefObject<monaco.editor.IStandaloneCodeEditor | undefined>;
   text: string;
@@ -184,34 +175,8 @@ type MonacoEditorViewportProps = {
   enableFolding: boolean | undefined;
 };
 
-const MonacoEditorViewport: FC<MonacoEditorViewportProps> = ({
-  editorMountKey,
-  editorInstance,
-  text,
-  onChange,
-  theme,
-  language,
-  isReadonly,
-  onKeyDown,
-  autoFocus,
-  enableFolding,
-}) => (
-  <LazyCodeEditor
-    key={editorMountKey}
-    editorRef={editorInstance}
-    text={text}
-    onChange={onChange}
-    theme={theme}
-    language={language}
-    isReadonly={isReadonly}
-    onKeyDown={onKeyDown}
-    autoFocus={autoFocus}
-    enableFolding={enableFolding}
-  />
-);
-
 const ResizableCodeEditorViewport: FC<
-  MonacoEditorViewportProps & {
+  ViewportProps & {
     nodeType: string | undefined;
     defaultHeight: number | undefined;
   }
@@ -224,7 +189,18 @@ const ResizableCodeEditorViewport: FC<
   return (
     <div className="editor-viewport-shell" style={{ height: viewportHeight }}>
       <div className="editor-wrapper">
-        <MonacoEditorViewport {...editorProps} />
+        <LazyCodeEditor
+          key={editorProps.editorMountKey}
+          editorRef={editorProps.editorInstance}
+          text={editorProps.text}
+          onChange={editorProps.onChange}
+          theme={editorProps.theme}
+          language={editorProps.language}
+          isReadonly={editorProps.isReadonly}
+          onKeyDown={editorProps.onKeyDown}
+          autoFocus={editorProps.autoFocus}
+          enableFolding={editorProps.enableFolding}
+        />
       </div>
       <ResizeHandle className="node-editor-code-resize-handle" {...resizeHandleProps} />
     </div>
@@ -232,17 +208,28 @@ const ResizableCodeEditorViewport: FC<
 };
 
 const NonResizableCodeEditorViewport: FC<
-  MonacoEditorViewportProps & {
+  ViewportProps & {
     defaultHeight: number | undefined;
   }
 > = ({ defaultHeight, ...editorProps }) => {
-  const staticViewportStyle = hasExplicitCodeEditorHeight(defaultHeight)
+  const staticViewportStyle = isValidHeight(defaultHeight)
     ? { minHeight: Math.round(defaultHeight) }
     : undefined;
 
   return (
     <div className="editor-wrapper node-editor-static-code-editor" style={staticViewportStyle}>
-      <MonacoEditorViewport {...editorProps} />
+      <LazyCodeEditor
+        key={editorProps.editorMountKey}
+        editorRef={editorProps.editorInstance}
+        text={editorProps.text}
+        onChange={editorProps.onChange}
+        theme={editorProps.theme}
+        language={editorProps.language}
+        isReadonly={editorProps.isReadonly}
+        onKeyDown={editorProps.onKeyDown}
+        autoFocus={editorProps.autoFocus}
+        enableFolding={editorProps.enableFolding}
+      />
     </div>
   );
 };

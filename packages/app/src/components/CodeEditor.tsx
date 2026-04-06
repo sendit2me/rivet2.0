@@ -1,7 +1,6 @@
 import { useLatest } from 'ahooks';
 import { type FC, type MutableRefObject, useEffect, useRef } from 'react';
 import { monaco } from '../utils/monaco.js';
-import { buildCodeEditorCreateOptions } from './codeEditorOptions.js';
 
 export const CodeEditor: FC<{
   text: string;
@@ -42,14 +41,25 @@ export const CodeEditor: FC<{
 
     const editor = monaco.editor.create(
       container,
-      buildCodeEditorCreateOptions({
-        theme,
+      {
+        theme: theme ?? 'vs-dark',
+        lineNumbers: 'on',
+        glyphMargin: false,
+        folding: enableFolding ?? false,
+        foldingStrategy: enableFolding ? 'auto' : undefined,
+        showFoldingControls: enableFolding ? 'mouseover' : undefined,
+        foldingHighlight: enableFolding ? true : undefined,
+        unfoldOnClickAfterEndOfLine: enableFolding ? false : undefined,
+        lineNumbersMinChars: 2,
         language,
-        text,
+        minimap: {
+          enabled: false,
+        },
+        wordWrap: 'on',
         readOnly: isReadonly,
+        value: text,
         scrollBeyondLastLine,
-        enableFolding,
-      }),
+      },
     );
 
     editor.layout();
@@ -57,17 +67,8 @@ export const CodeEditor: FC<{
     const onResize = () => {
       editor.layout();
     };
-    const resizeObserver =
-      typeof ResizeObserver !== 'undefined'
-        ? new ResizeObserver(onResize)
-        : undefined;
-
-    if (resizeObserver) {
-      resizeObserver.observe(container);
-    } else {
-      // Fallback for environments that do not expose ResizeObserver.
-      window.addEventListener('resize', onResize);
-    }
+    const resizeObserver = new ResizeObserver(onResize);
+    resizeObserver.observe(container);
 
     editor.onDidChangeModelContent(() => {
       onChangeLatest.current?.(editor.getValue());
@@ -92,9 +93,6 @@ export const CodeEditor: FC<{
       }
       resizeObserver?.disconnect();
       editor.dispose();
-      if (!resizeObserver) {
-        window.removeEventListener('resize', onResize);
-      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

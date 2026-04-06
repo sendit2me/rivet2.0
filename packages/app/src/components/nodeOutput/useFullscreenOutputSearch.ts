@@ -8,15 +8,15 @@ import {
 } from 'react';
 import { useStableCallback } from '../../hooks/useStableCallback.js';
 import {
-  buildFullscreenOutputSearchBlocks,
-  applyFullscreenOutputSearchHighlights,
-  clearFullscreenOutputSearchHighlights,
-  type FullscreenOutputSearchProvider,
-} from './fullscreenOutputSearchDom.js';
-import {
-  getWrappedFullscreenOutputSearchMatchIndex,
-  normalizeFullscreenOutputSearchQuery,
-  projectFullscreenOutputSearchMatches,
+  applyHighlights,
+  buildSearchBlocks,
+  clearHighlights,
+  MATCH_ACTIVE_CLASS,
+  MATCH_INDEX_ATTRIBUTE,
+  projectMatches,
+  type SearchMatch,
+  type SearchProvider,
+  wrapMatchIndex,
 } from './fullscreenOutputSearch.js';
 import type { NodeRunDataWithRefs } from '../../state/dataFlow.js';
 import type { ProcessId } from '@ironclad/rivet-core';
@@ -38,16 +38,22 @@ export function useFullscreenOutputSearch(args: {
   const [totalMatchCount, setTotalMatchCount] = useState(0);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const fullscreenOutputBodyRef = useRef<HTMLDivElement>(null);
-  const providersRef = useRef(new Map<string, FullscreenOutputSearchProvider>());
+  const providersRef = useRef(new Map<string, SearchProvider>());
   const [providersVersion, setProvidersVersion] = useState(0);
   const totalMatchCountRef = useRef(0);
+  const matchesRef = useRef<SearchMatch[]>([]);
+  const previousBuildInputsRef = useRef<{
+    contentKey: FullscreenOutputSearchContentKey;
+    query: string;
+    providersVersion: number;
+  } | null>(null);
 
   const focusSearchInput = useStableCallback(() => {
     searchInputRef.current?.focus();
     searchInputRef.current?.select();
   });
 
-  const registerProvider = useStableCallback((provider: FullscreenOutputSearchProvider) => {
+  const registerProvider = useStableCallback((provider: SearchProvider) => {
     providersRef.current.set(provider.id, provider);
     setProvidersVersion((currentVersion) => currentVersion + 1);
 
@@ -63,7 +69,7 @@ export function useFullscreenOutputSearch(args: {
       return;
     }
 
-    setCurrentMatchIndex((index) => getWrappedFullscreenOutputSearchMatchIndex(totalMatchCount, index, 1));
+    setCurrentMatchIndex((index) => wrapMatchIndex(totalMatchCount, index, 1));
   });
 
   const goToPreviousMatch = useStableCallback(() => {
@@ -72,7 +78,7 @@ export function useFullscreenOutputSearch(args: {
       return;
     }
 
-    setCurrentMatchIndex((index) => getWrappedFullscreenOutputSearchMatchIndex(totalMatchCount, index, -1));
+    setCurrentMatchIndex((index) => wrapMatchIndex(totalMatchCount, index, -1));
   });
 
   const handleSearchInputKeyDown = useStableCallback((event: ReactKeyboardEvent<HTMLInputElement>) => {
@@ -91,7 +97,6 @@ export function useFullscreenOutputSearch(args: {
       event.preventDefault();
       event.stopPropagation();
       setQuery('');
-      setCurrentMatchIndex(0);
       searchInputRef.current?.blur();
     }
   });
@@ -116,8 +121,9 @@ export function useFullscreenOutputSearch(args: {
       focusSearchInput();
     };
 
-    // Capture phase is required so fullscreen search wins over both the canvas
-    // hotkey layer and the webview/browser find behavior while the modal is open.
+    // Capture phase plus stopImmediatePropagation is required so fullscreen search
+    // wins over both the canvas hotkey layer and the webview/browser find behavior
+    // while the modal is open.
     window.addEventListener('keydown', handleKeyDown, true);
 
     return () => {
@@ -125,53 +131,62 @@ export function useFullscreenOutputSearch(args: {
     };
   }, [focusSearchInput]);
 
-  useEffect(() => {
-    if (!normalizeFullscreenOutputSearchQuery(query)) {
-      setCurrentMatchIndex(0);
-      return;
-    }
-
-    setCurrentMatchIndex(0);
-  }, [contentKey, query]);
-
   useLayoutEffect(() => {
     const bodyElement = fullscreenOutputBodyRef.current;
     if (!bodyElement) {
       return;
     }
 
-    clearFullscreenOutputSearchHighlights(bodyElement);
+    const previousBuildInputs = previousBuildInputsRef.current;
+    const contentChanged = previousBuildInputs?.contentKey !== contentKey;
+    const queryChanged = previousBuildInputs?.query !== query;
+    const providersChanged = previousBuildInputs?.providersVersion !== providersVersion;
+    const shouldRebuild = !previousBuildInputs || contentChanged || queryChanged || providersChanged;
 
-    const normalizedQuery = normalizeFullscreenOutputSearchQuery(query);
-    if (!normalizedQuery) {
-      providersRef.current.forEach((provider) => provider.clearActiveMatch());
-      if (totalMatchCountRef.current !== 0) {
-        totalMatchCountRef.current = 0;
-        setTotalMatchCount(0);
+    if (shouldRebuild) {
+      previousBuildInputsRef.current = {
+        contentKey,
+        query,
+        providersVersion,
+      };
+
+      clearHighlights(bodyElement);
+
+      const matchLength = query.toLocaleLowerCase().length;
+      if (matchLength === 0) {
+        matchesRef.current = [];
+      } else {
+        const blocks = buildSearchBlocks(bodyElement, providersRef.current, query);
+        matchesRef.current = projectMatches(blocks, query);
+
+        let nextGlobalMatchIndex = 0;
+        for (const block of blocks) {
+          if (block.kind === 'text' && block.matches.length > 0) {
+            applyHighlights({
+              textNodes: block.textNodes,
+              matchOffsets: block.matches,
+              matchLength,
+              matchIndices: block.matches.map((_, localMatchIndex) => nextGlobalMatchIndex + localMatchIndex),
+            });
+          }
+
+          nextGlobalMatchIndex += block.matches.length;
+        }
       }
-      return;
+
+      const rebuiltTotalMatchCount = matchesRef.current.length;
+      if (totalMatchCountRef.current !== rebuiltTotalMatchCount) {
+        totalMatchCountRef.current = rebuiltTotalMatchCount;
+        setTotalMatchCount(rebuiltTotalMatchCount);
+      }
     }
 
-    const providerMatchOffsetsById = Object.fromEntries(
-      Array.from(providersRef.current.entries(), ([providerId, provider]) => [providerId, provider.getMatchOffsets(query)]),
-    );
+    bodyElement.querySelectorAll<HTMLElement>(`.${MATCH_ACTIVE_CLASS}`).forEach((element) => {
+      element.classList.remove(MATCH_ACTIVE_CLASS);
+    });
 
-    const blocks = buildFullscreenOutputSearchBlocks(bodyElement, providersRef.current);
-    const matches = projectFullscreenOutputSearchMatches(
-      blocks.map((block) =>
-        block.kind === 'provider'
-          ? { kind: 'provider', providerId: block.providerId }
-          : { kind: 'dom', text: block.text },
-      ),
-      query,
-      providerMatchOffsetsById,
-    );
-    const totalMatchCount = matches.length;
-
-    totalMatchCountRef.current = totalMatchCount;
-    setTotalMatchCount(totalMatchCount);
-
-    if (totalMatchCount === 0) {
+    const matches = matchesRef.current;
+    if (matches.length === 0) {
       providersRef.current.forEach((provider) => provider.clearActiveMatch());
       if (currentMatchIndex !== 0) {
         setCurrentMatchIndex(0);
@@ -180,44 +195,11 @@ export function useFullscreenOutputSearch(args: {
     }
 
     const effectiveCurrentMatchIndex =
-      currentMatchIndex >= totalMatchCount ? 0 : Math.max(0, currentMatchIndex);
+      queryChanged || contentChanged || currentMatchIndex >= matches.length || currentMatchIndex < 0 ? 0 : currentMatchIndex;
 
     if (effectiveCurrentMatchIndex !== currentMatchIndex) {
       setCurrentMatchIndex(effectiveCurrentMatchIndex);
     }
-
-    let activeHighlightElement: HTMLElement | null = null;
-
-    blocks.forEach((block, blockIndex) => {
-      if (block.kind !== 'dom') {
-        return;
-      }
-
-      const blockMatches = matches.filter((match): match is Extract<typeof match, { kind: 'dom' }> => {
-        return match.kind === 'dom' && match.blockIndex === blockIndex;
-      });
-
-      if (blockMatches.length === 0) {
-        return;
-      }
-
-      const activeBlockMatch = matches[effectiveCurrentMatchIndex];
-      const activeLocalMatchIndex =
-        activeBlockMatch?.kind === 'dom' && activeBlockMatch.blockIndex === blockIndex
-          ? activeBlockMatch.localMatchIndex
-          : undefined;
-
-      const highlightElement = applyFullscreenOutputSearchHighlights({
-        textNodes: block.textNodes,
-        matchOffsets: blockMatches.map((match) => match.startOffset),
-        matchLength: normalizedQuery.length,
-        activeMatchIndex: activeLocalMatchIndex,
-      });
-
-      if (!activeHighlightElement && highlightElement) {
-        activeHighlightElement = highlightElement;
-      }
-    });
 
     const activeMatch = matches[effectiveCurrentMatchIndex];
     if (activeMatch?.kind === 'provider') {
@@ -229,32 +211,29 @@ export function useFullscreenOutputSearch(args: {
 
         provider.clearActiveMatch();
       });
-    } else {
-      providersRef.current.forEach((provider) => provider.clearActiveMatch());
+      return;
     }
 
-    const scrollTarget = activeHighlightElement as HTMLElement | null;
-    if (scrollTarget) {
-      scrollTarget.scrollIntoView({
-        block: 'nearest',
-        inline: 'nearest',
-      });
-    }
-  }, [
-    contentKey,
-    currentMatchIndex,
-    fullscreenOutputBodyRef,
-    providersVersion,
-    query,
-    setCurrentMatchIndex,
-    setTotalMatchCount,
-  ]);
+    providersRef.current.forEach((provider) => provider.clearActiveMatch());
+
+    const activeHighlightElements = Array.from(
+      bodyElement.querySelectorAll<HTMLElement>(`[${MATCH_INDEX_ATTRIBUTE}="${effectiveCurrentMatchIndex}"]`),
+    );
+    activeHighlightElements.forEach((element) => {
+      element.classList.add(MATCH_ACTIVE_CLASS);
+    });
+
+    activeHighlightElements[0]?.scrollIntoView({
+      block: 'nearest',
+      inline: 'nearest',
+    });
+  }, [contentKey, currentMatchIndex, providersVersion, query]);
 
   useEffect(() => {
     return () => {
       const bodyElement = fullscreenOutputBodyRef.current;
       if (bodyElement) {
-        clearFullscreenOutputSearchHighlights(bodyElement);
+        clearHighlights(bodyElement);
       }
 
       providersRef.current.forEach((provider) => provider.clearActiveMatch());

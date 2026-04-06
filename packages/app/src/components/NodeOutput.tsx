@@ -29,15 +29,12 @@ import { Tooltip } from './Tooltip';
 import { useDataRefs } from '../providers/ProvidersContext';
 import { filterProcessDataForSelection, getSelectedProcessData } from '../state/selectors/executionSelectors.js';
 import { renderNodeOutputBody } from './nodeOutput/renderNodeOutputBody.js';
-import { getStoredWarningsForNodeOutput } from '../utils/executionDataReaders.js';
-import { copyNodeOutputJsonToClipboard, copyNodeOutputValueToClipboard } from './nodeOutput/nodeOutputCopyActions.js';
+import { getStoredOutputWarnings } from '../utils/executionDataReaders.js';
+import { copyOutputJson, copyOutputValue } from './nodeOutput/nodeOutputCopyActions.js';
 import { FullscreenOutputSearchContext } from './nodeOutput/FullscreenOutputSearchContext.js';
 import { useFullscreenOutputSearch } from './nodeOutput/useFullscreenOutputSearch.js';
 import { FullscreenNodeOutputToolbar } from './nodeOutput/FullscreenNodeOutputToolbar.js';
-import {
-  FULLSCREEN_OUTPUT_SEARCH_MATCH_ACTIVE_CLASS,
-  FULLSCREEN_OUTPUT_SEARCH_MATCH_CLASS,
-} from './nodeOutput/fullscreenOutputSearchDom.js';
+import { MATCH_ACTIVE_CLASS, MATCH_CLASS } from './nodeOutput/fullscreenOutputSearch.js';
 
 export const NodeOutput: FC<{ node: ChartNode; isHovered: boolean }> = memo(({ node, isHovered: _isHovered }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -127,12 +124,12 @@ const fullscreenOutputCss = css`
     }
   }
 
-  .${FULLSCREEN_OUTPUT_SEARCH_MATCH_CLASS} {
+  .${MATCH_CLASS} {
     background: rgba(255, 214, 10, 0.3);
     border-radius: 2px;
   }
 
-  .${FULLSCREEN_OUTPUT_SEARCH_MATCH_ACTIVE_CLASS} {
+  .${MATCH_ACTIVE_CLASS} {
     background: rgba(255, 214, 10, 0.75);
     color: #000;
   }
@@ -208,9 +205,9 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
   };
 
   const handleCopyToClipboard = useStableCallback(() =>
-    copyNodeOutputValueToClipboard(data, dataRefs, getCopyValueData),
+    copyOutputValue(data, dataRefs, getCopyValueData),
   );
-  const handleCopyToClipboardJson = useStableCallback(() => copyNodeOutputJsonToClipboard(data, dataRefs));
+  const handleCopyToClipboardJson = useStableCallback(() => copyOutputJson(data, dataRefs));
   const contentVersion = useMemo(
     () => ({
       data,
@@ -381,10 +378,10 @@ const NodeOutputSingleProcess: FC<{
   };
 
   const handleCopyToClipboard = useStableCallback(() =>
-    copyNodeOutputValueToClipboard(data, dataRefs, getCopyValueData),
+    copyOutputValue(data, dataRefs, getCopyValueData),
   );
 
-  const warnings = useMemo(() => getStoredWarningsForNodeOutput(data, dataRefs), [data, dataRefs]);
+  const warnings = useMemo(() => getStoredOutputWarnings(data, dataRefs), [data, dataRefs]);
 
   if (data.status?.type === 'error') {
     return <div className="node-output-inner errored">{data.status.error}</div>;

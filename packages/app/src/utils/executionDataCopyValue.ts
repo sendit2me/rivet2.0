@@ -12,7 +12,7 @@ export type NodeOutputCopyValueProjectorArgs = {
 
 export type NodeOutputCopyValueProjector = (args: NodeOutputCopyValueProjectorArgs) => unknown | undefined;
 
-export function projectDataValueForCopyValue(value: DataValue): unknown {
+export function projectDataValue(value: DataValue): unknown {
   switch (value.type) {
     case 'string':
     case 'date':
@@ -32,12 +32,12 @@ export function projectDataValueForCopyValue(value: DataValue): unknown {
       if (inferredValue.type === 'any' || inferredValue.type === 'any[]') {
         return inferredValue.value;
       }
-      return projectDataValueForCopyValue(inferredValue);
+      return projectDataValue(inferredValue);
     }
     case 'chat-message':
-      return serializeChatMessageForCopyValue(value);
+      return serializeChatMessage(value);
     case 'chat-message[]':
-      return value.value.map((message) => serializeChatMessageForCopyValue({ type: 'chat-message', value: message }));
+      return value.value.map((message) => serializeChatMessage({ type: 'chat-message', value: message }));
     case 'control-flow-excluded':
       return 'Not ran';
     case 'vector':
@@ -49,7 +49,7 @@ export function projectDataValueForCopyValue(value: DataValue): unknown {
     case 'gpt-function':
       return `GPT Function: ${value.value.name}`;
     case 'document':
-      return serializeDocumentForCopyValue(value);
+      return serializeDocument(value);
     case 'image':
     case 'audio':
       return value.value;
@@ -62,16 +62,16 @@ export function projectDataValueForCopyValue(value: DataValue): unknown {
   }
 }
 
-export function projectStoredPortValueForCopyValue(
+export function projectStoredValue(
   outputs: InputsOrOutputsWithRefs | undefined,
   portId: PortId,
   dataRefs: DataRefReader,
 ): unknown | undefined {
   const restoredValue = restoreStoredPortValue(outputs, portId, dataRefs);
-  return restoredValue ? projectDataValueForCopyValue(restoredValue) : undefined;
+  return restoredValue ? projectDataValue(restoredValue) : undefined;
 }
 
-export function projectStoredOutputPortMapForCopyValue(
+export function projectStoredMap(
   outputs: InputsOrOutputsWithRefs | undefined,
   dataRefs: DataRefReader,
 ): unknown | undefined {
@@ -80,21 +80,21 @@ export function projectStoredOutputPortMapForCopyValue(
     return undefined;
   }
 
-  const visibleEntries = Object.entries(restoredOutputs).filter(([portId]) => isVisibleCopyValuePort(portId));
+  const visibleEntries = Object.entries(restoredOutputs).filter(([portId]) => isVisiblePort(portId));
   if (visibleEntries.length === 0) {
     return undefined;
   }
 
   if (visibleEntries.length === 1) {
-    return projectDataValueForCopyValue(visibleEntries[0]![1]!);
+    return projectDataValue(visibleEntries[0]![1]!);
   }
 
   return Object.fromEntries(
-    visibleEntries.map(([portId, value]) => [portId, projectDataValueForCopyValue(value!)]),
+    visibleEntries.map(([portId, value]) => [portId, projectDataValue(value!)]),
   );
 }
 
-export function projectDisplayedNodeOutputsForCopyValue(
+export function projectDisplayedOutputs(
   data: Pick<NodeRunDataWithRefs, 'outputData' | 'splitOutputData'>,
   dataRefs: DataRefReader,
   options?: {
@@ -110,7 +110,7 @@ export function projectDisplayedNodeOutputsForCopyValue(
         .flatMap(([index, outputs]) => {
           const projectedValue = getCopyValueData
             ? getCopyValueData({ outputs, dataRefs })
-            : projectStoredOutputPortMapForCopyValue(outputs, dataRefs);
+            : projectStoredMap(outputs, dataRefs);
 
           return projectedValue === undefined ? [] : [[Number(index), projectedValue]];
         }),
@@ -125,17 +125,17 @@ export function projectDisplayedNodeOutputsForCopyValue(
 
   return getCopyValueData
     ? getCopyValueData({ outputs: data.outputData, dataRefs })
-    : projectStoredOutputPortMapForCopyValue(data.outputData, dataRefs);
+    : projectStoredMap(data.outputData, dataRefs);
 }
 
-export function serializeDisplayedNodeOutputsForCopyValue(
+export function serializeDisplayedOutputs(
   data: Pick<NodeRunDataWithRefs, 'outputData' | 'splitOutputData'>,
   dataRefs: DataRefReader,
   options?: {
     getCopyValueData?: NodeOutputCopyValueProjector;
   },
 ): string | undefined {
-  const projectedOutputs = projectDisplayedNodeOutputsForCopyValue(data, dataRefs, options);
+  const projectedOutputs = projectDisplayedOutputs(data, dataRefs, options);
   if (projectedOutputs === undefined) {
     return undefined;
   }
@@ -143,18 +143,18 @@ export function serializeDisplayedNodeOutputsForCopyValue(
   return typeof projectedOutputs === 'string' ? projectedOutputs : JSON.stringify(projectedOutputs, null, 2);
 }
 
-export function isVisibleCopyValuePort(portId: PortId | string): boolean {
+export function isVisiblePort(portId: PortId | string): boolean {
   return portId !== (WarningsPort as PortId) && !String(portId).startsWith('__internalPort_');
 }
 
-function serializeChatMessageForCopyValue(value: Extract<DataValue, { type: 'chat-message' }>): string {
+function serializeChatMessage(value: Extract<DataValue, { type: 'chat-message' }>): string {
   const messageParts = Array.isArray(value.value.message) ? value.value.message : [value.value.message];
   return messageParts
     .map((part) => (typeof part === 'string' ? part : part.type === 'url' ? part.url : `(${part.type})`))
     .join('\n\n');
 }
 
-function serializeDocumentForCopyValue(value: Extract<DataValue, { type: 'document' }>): string {
+function serializeDocument(value: Extract<DataValue, { type: 'document' }>): string {
   const lines = [
     `${value.value.title ? `Document: ${value.value.title}` : 'Document'} (${value.value.mediaType})`,
   ];

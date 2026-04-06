@@ -61,7 +61,7 @@ than per-feature) is what produces the largest simplifications.
 
 ---
 
-## Feature #54 — Scoped Monaco code folding
+## DONE — Feature #54 — Scoped Monaco code folding
 
 ### Current shape
 
@@ -149,7 +149,7 @@ than per-feature) is what produces the largest simplifications.
 
 ---
 
-## Feature #55 — Persistent per-node-type resizing
+## DONE — Feature #55 — Persistent per-node-type resizing
 
 ### Current shape
 
@@ -248,7 +248,7 @@ than per-feature) is what produces the largest simplifications.
 
 ---
 
-## Feature #56 — `Copy value` matches displayed output
+## DONE — Feature #56 — `Copy value` matches displayed output
 
 ### Current shape
 
@@ -359,7 +359,7 @@ than per-feature) is what produces the largest simplifications.
 
 ---
 
-## Feature #57 — Fullscreen in-preview search
+## DONE — Feature #57 — Fullscreen in-preview search
 
 This is the largest feature by code volume and the biggest opportunity.
 

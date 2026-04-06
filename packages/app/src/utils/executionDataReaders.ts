@@ -61,7 +61,7 @@ export function restoreDisplayedNodeOutputs(
   return restoreStoredPortMap(data.outputData, dataRefs);
 }
 
-export function getStoredWarningsForNodeOutput(
+export function getStoredOutputWarnings(
   data: Pick<NodeRunDataWithRefs, 'outputData' | 'splitOutputData'>,
   dataRefs: DataRefReader,
 ): string[] | undefined {

@@ -15,8 +15,7 @@ const fullscreenOutputToolbarCss = css`
   margin-bottom: 8px;
   padding: 8px 12px;
 
-  .copy-button,
-  .prompt-designer-button {
+  .toolbar-icon {
     width: 24px;
     height: 24px;
     font-size: 24px;
@@ -26,8 +25,7 @@ const fullscreenOutputToolbarCss = css`
     z-index: 1;
   }
 
-  .copy-button:hover,
-  .prompt-designer-button:hover {
+  .toolbar-icon:hover {
     opacity: 1;
   }
 
@@ -161,14 +159,14 @@ export const FullscreenNodeOutputToolbar: FC<FullscreenNodeOutputToolbarProps> =
           {totalMatchCount === 0 ? '0 / 0' : `${Math.min(currentMatchIndex + 1, totalMatchCount)} / ${totalMatchCount}`}
         </span>
       </div>
-      <div className="copy-button" onClick={onCopyValue} title="Copy Value">
+      <div className="toolbar-icon copy-button" onClick={onCopyValue} title="Copy Value">
         <CopyIcon />
       </div>
       <div className="copy-json-button" onClick={onCopyJson} title="Copy as JSON">
         JSON
       </div>
       {onOpenPromptDesigner && (
-        <div className="prompt-designer-button" onClick={onOpenPromptDesigner}>
+        <div className="toolbar-icon prompt-designer-button" onClick={onOpenPromptDesigner}>
           <FlaskIcon />
         </div>
       )}

@@ -644,11 +644,11 @@ instance even though the dispatch table itself is static.
 
 This cleanup kept the behavior the same while making the ownership boundaries clearer. App-level
 stored-data reading now flows through `executionDataReaders.ts`, which centralizes displayed-output
-restore, port-level restore/coercion, warnings extraction, and clipboard serialization. The old
-component-local node-output reader helper was removed, `RenderDataValue` now uses a module-level lazy
-renderer registry, and readonly ref access was tightened through a shared `DataRefReader` type. The
-result is a more coherent large-output architecture with less repeated logic and less unnecessary
-work in a hot render path.
+restore, port-level restore/coercion, and warnings extraction. The old component-local node-output
+reader helper was removed, `RenderDataValue` now uses a module-level lazy renderer registry,
+display-aligned clipboard serialization later moved into `executionDataCopyValue.ts`, and readonly
+ref access was tightened through a shared `DataRefReader` type. The result is a more coherent
+large-output architecture with less repeated logic and less unnecessary work in a hot render path.
 
 ## 54. Add scoped Monaco code folding to built-in node editors
 
@@ -660,12 +660,12 @@ Monaco surfaces such as Trivet or project configuration needed to stay unchanged
 This refactor added an explicit `enableFolding` opt-in to `CodeEditorDefinition` and enabled it only
 for the targeted built-in node fields such as Code, Object JSON Template, HTTP Call headers/body,
 Tool schema, MCP tool argument editors, and the AssemblyAI transcript-parameter editor. On the app
-side, Monaco create options and node-editor structural identity were centralized in
-`codeEditorOptions.ts`, the node-editor wrapper now remounts Monaco when node/field/language/theme
-or folding mode changes, and the shared `CodeEditor` component was kept generic by treating its
-theme prop as already resolved. Prompt-interpolation theme expansion is now shared through one
-helper across node editors and colorized text surfaces, which keeps folding scoped to the selected
-node-editor path without leaking Monaco state or theme behavior into unrelated editors.
+side, Monaco create options now live inline in the shared `CodeEditor.tsx` wrapper, the node-editor
+wrapper remounts Monaco when node, field, language, resolved theme, or folding mode changes, and
+the shared editor component stays generic by treating its theme prop as already resolved.
+Prompt-interpolation theme expansion is shared through `codeEditorTheme.ts` across node editors and
+colorized text surfaces, which keeps folding scoped to the selected node-editor path without
+leaking Monaco state or theme behavior into unrelated editors.
 
 ## 55. Add persistent per-node-type resizing for code and JSON node-editor viewports
 
@@ -677,9 +677,10 @@ scope that preference to editor UI state rather than project data.
 This refactor added a resizable viewport shell for node-editor `javascript` and `json` Monaco
 fields, persisted the remembered height in app UI storage keyed by `node.type`, and kept the shared
 Monaco wrapper generic by handling persistence and drag behavior in the node-editor layer instead of
-inside the base editor. The implementation also added container-size relayout through
-`ResizeObserver` so Monaco tracks live height changes cleanly, while keeping markdown, prompt-like,
-`jsonpath`, `regex`, and other out-of-scope code editors on a separate non-resizable layout path.
+inside the base editor. The final shape centralizes resize eligibility, height validation, drag
+state, and final persisted-height resolution in `useNodeEditorCodeViewportHeight.ts`, while keeping
+markdown, prompt-like, `jsonpath`, `regex`, and other out-of-scope code editors on a separate
+non-resizable layout path.
 
 ## 56. Make node-output `Copy value` match the displayed output shape
 
@@ -709,8 +710,10 @@ This refactor added a fullscreen-only search bar to node output with modal-scope
 browser-like next/previous navigation, match counts, and highlight behavior that follows the
 currently displayed representation, including markdown-toggle changes. The implementation kept the
 feature scoped by making `NodeOutput.tsx` the fullscreen orchestration layer, moving the toolbar
-into `FullscreenNodeOutputToolbar.tsx`, splitting pure search/model helpers from DOM traversal and
-highlight logic, and integrating large ref-backed previews through provider-based search rather
-than generic DOM text matching. It also replaced the old large-preview paging model with
+into `FullscreenNodeOutputToolbar.tsx`, consolidating fullscreen search logic in
+`fullscreenOutputSearch.ts`, and letting `useFullscreenOutputSearch.ts` own the modal-scoped
+two-phase rebuild and active-match flow. Large ref-backed previews integrate through
+`useLargeStoredValueFullscreenSearch.ts` so provider-backed search can target the full restored
+text rather than generic DOM excerpts, and the old large-preview paging model was replaced with
 contiguous chunking so later-chunk search matches can reliably map back to the correct preview
 page without skipped or duplicated content.

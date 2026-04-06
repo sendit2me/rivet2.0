@@ -5,8 +5,8 @@ import type { DataRefReader } from '../providers/ProvidersContext.js';
 import type { NodeRunDataWithRefs } from '../state/dataFlow.js';
 import { WarningsPort } from '../../../core/src/utils/symbols.js';
 import {
-  projectDisplayedNodeOutputsForCopyValue,
-  serializeDisplayedNodeOutputsForCopyValue,
+  projectDisplayedOutputs,
+  serializeDisplayedOutputs,
 } from './executionDataCopyValue.js';
 
 function createDataRefStore(initialValues?: Record<string, DataValue>): DataRefReader {
@@ -24,8 +24,8 @@ function inlineStored<T extends DataValue['type']>(type: T, value: Extract<DataV
   };
 }
 
-test('serializeDisplayedNodeOutputsForCopyValue returns the plain value for a single string port', () => {
-  const serialized = serializeDisplayedNodeOutputsForCopyValue(
+test('serializeDisplayedOutputs returns the plain value for a single string port', () => {
+  const serialized = serializeDisplayedOutputs(
     {
       outputData: {
         output: inlineStored('string', 'hello'),
@@ -37,8 +37,8 @@ test('serializeDisplayedNodeOutputsForCopyValue returns the plain value for a si
   assert.equal(serialized, 'hello');
 });
 
-test('serializeDisplayedNodeOutputsForCopyValue copies raw object JSON for a single object output', () => {
-  const serialized = serializeDisplayedNodeOutputsForCopyValue(
+test('serializeDisplayedOutputs copies raw object JSON for a single object output', () => {
+  const serialized = serializeDisplayedOutputs(
     {
       outputData: {
         output: inlineStored('object', {
@@ -61,8 +61,8 @@ test('serializeDisplayedNodeOutputsForCopyValue copies raw object JSON for a sin
   );
 });
 
-test('serializeDisplayedNodeOutputsForCopyValue follows inferred preview semantics for any values', () => {
-  const serialized = serializeDisplayedNodeOutputsForCopyValue(
+test('serializeDisplayedOutputs follows inferred preview semantics for any values', () => {
+  const serialized = serializeDisplayedOutputs(
     {
       outputData: {
         output: inlineStored('any', {
@@ -85,8 +85,8 @@ test('serializeDisplayedNodeOutputsForCopyValue follows inferred preview semanti
   );
 });
 
-test('serializeDisplayedNodeOutputsForCopyValue copies raw arrays without DataValue wrappers', () => {
-  const serialized = serializeDisplayedNodeOutputsForCopyValue(
+test('serializeDisplayedOutputs copies raw arrays without DataValue wrappers', () => {
+  const serialized = serializeDisplayedOutputs(
     {
       outputData: {
         output: inlineStored('string[]', ['one', 'two']),
@@ -98,8 +98,8 @@ test('serializeDisplayedNodeOutputsForCopyValue copies raw arrays without DataVa
   assert.equal(serialized, JSON.stringify(['one', 'two'], null, 2));
 });
 
-test('serializeDisplayedNodeOutputsForCopyValue matches the preview text for control-flow-excluded values', () => {
-  const serialized = serializeDisplayedNodeOutputsForCopyValue(
+test('serializeDisplayedOutputs matches the preview text for control-flow-excluded values', () => {
+  const serialized = serializeDisplayedOutputs(
     {
       outputData: {
         output: inlineStored('control-flow-excluded', undefined),
@@ -111,8 +111,8 @@ test('serializeDisplayedNodeOutputsForCopyValue matches the preview text for con
   assert.equal(serialized, 'Not ran');
 });
 
-test('serializeDisplayedNodeOutputsForCopyValue keeps chat-message flattening semantics', () => {
-  const serialized = serializeDisplayedNodeOutputsForCopyValue(
+test('serializeDisplayedOutputs keeps chat-message flattening semantics', () => {
+  const serialized = serializeDisplayedOutputs(
     {
       outputData: {
         output: inlineStored('chat-message', {
@@ -129,8 +129,8 @@ test('serializeDisplayedNodeOutputsForCopyValue keeps chat-message flattening se
   assert.equal(serialized, 'Hello\n\nhttps://example.com');
 });
 
-test('projectDisplayedNodeOutputsForCopyValue copies multi-port outputs as a raw plain-value map and excludes warnings', () => {
-  const projected = projectDisplayedNodeOutputsForCopyValue(
+test('projectDisplayedOutputs copies multi-port outputs as a raw plain-value map and excludes warnings', () => {
+  const projected = projectDisplayedOutputs(
     {
       outputData: {
         output: inlineStored('object', { key: 'value' }),
@@ -149,8 +149,8 @@ test('projectDisplayedNodeOutputsForCopyValue copies multi-port outputs as a raw
   });
 });
 
-test('serializeDisplayedNodeOutputsForCopyValue serializes split outputs and preserves index ordering', () => {
-  const serialized = serializeDisplayedNodeOutputsForCopyValue(
+test('serializeDisplayedOutputs serializes split outputs and preserves index ordering', () => {
+  const serialized = serializeDisplayedOutputs(
     {
       splitOutputData: {
         1: {

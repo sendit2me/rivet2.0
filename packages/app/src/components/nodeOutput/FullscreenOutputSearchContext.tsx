@@ -1,8 +1,8 @@
 import { createContext, useContext } from 'react';
-import type { FullscreenOutputSearchProvider } from './fullscreenOutputSearchDom.js';
+import type { SearchProvider } from './fullscreenOutputSearch.js';
 
 type FullscreenOutputSearchContextValue = {
-  registerProvider: (provider: FullscreenOutputSearchProvider) => () => void;
+  registerProvider: (provider: SearchProvider) => () => void;
 };
 
 export const FullscreenOutputSearchContext = createContext<FullscreenOutputSearchContextValue | null>(null);

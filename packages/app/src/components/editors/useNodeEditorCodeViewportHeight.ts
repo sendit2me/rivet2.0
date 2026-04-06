@@ -1,12 +1,19 @@
 import { useAtom } from 'jotai';
 import { useEffect, useRef, useState } from 'react';
 import { codeEditorHeightsByNodeTypeState } from '../../state/ui.js';
-import {
-  getDraggedNodeCodeEditorViewportHeight,
-  resolveResizableNodeCodeEditorViewportHeight,
-} from './nodeEditorCodeEditorSizing.js';
 
 type ResizeHandleMouseEvent = globalThis.MouseEvent;
+
+// Keep this aligned with the static `.node-editor-static-code-editor` fallback
+// min-height in `DefaultNodeEditor.tsx` so resizable and non-resizable paths
+// stay visually consistent by default.
+export const DEFAULT_HEIGHT = 500;
+export const MIN_HEIGHT = 200;
+export const RESIZABLE_LANGUAGES = new Set(['javascript', 'json']);
+
+export function isValidHeight(height: number | undefined): height is number {
+  return typeof height === 'number' && Number.isFinite(height) && height > 0;
+}
 
 export function useNodeEditorCodeViewportHeight({
   nodeType,
@@ -18,12 +25,16 @@ export function useNodeEditorCodeViewportHeight({
   const [persistedHeightsByNodeType, setPersistedHeightsByNodeType] = useAtom(codeEditorHeightsByNodeTypeState);
   const dragStartHeight = useRef<number | undefined>(undefined);
   const dragStartClientY = useRef(0);
-  const resolvedViewportHeight = resolveResizableNodeCodeEditorViewportHeight({
-    nodeType,
-    editorHeight: defaultHeight,
-    persistedHeights: persistedHeightsByNodeType,
-  });
+  const currentViewportHeightRef = useRef<number>(DEFAULT_HEIGHT);
+  const persistedHeight = nodeType ? persistedHeightsByNodeType[nodeType] : undefined;
+  const resolvedViewportHeight = isValidHeight(persistedHeight)
+    ? Math.max(MIN_HEIGHT, Math.round(persistedHeight))
+    : isValidHeight(defaultHeight)
+      ? Math.max(MIN_HEIGHT, Math.round(defaultHeight))
+      : DEFAULT_HEIGHT;
   const [viewportHeight, setViewportHeight] = useState(resolvedViewportHeight);
+
+  currentViewportHeightRef.current = viewportHeight;
 
   useEffect(() => {
     setViewportHeight(resolvedViewportHeight);
@@ -42,26 +53,30 @@ export function useNodeEditorCodeViewportHeight({
       return;
     }
 
-    setViewportHeight(
-      getDraggedNodeCodeEditorViewportHeight({
-        startHeight: dragStartHeight.current,
-        startClientY: dragStartClientY.current,
-        currentClientY: event.clientY,
-      }),
-    );
+    const nextViewportHeight = Math.max(MIN_HEIGHT, Math.round(dragStartHeight.current + (event.clientY - dragStartClientY.current)));
+    currentViewportHeightRef.current = nextViewportHeight;
+    setViewportHeight(nextViewportHeight);
   };
 
   const onResizeEnd = (event: ResizeHandleMouseEvent) => {
     event.preventDefault();
+
+    const dragStart = dragStartHeight.current;
+    const finalViewportHeight = dragStart == null
+      ? currentViewportHeightRef.current
+      : Math.max(MIN_HEIGHT, Math.round(dragStart + (event.clientY - dragStartClientY.current)));
+
+    currentViewportHeightRef.current = finalViewportHeight;
+    setViewportHeight(finalViewportHeight);
     dragStartHeight.current = undefined;
 
-    if (nodeType == null || persistedHeightsByNodeType[nodeType] === viewportHeight) {
+    if (nodeType == null || persistedHeightsByNodeType[nodeType] === finalViewportHeight) {
       return;
     }
 
     setPersistedHeightsByNodeType((previous) => ({
       ...previous,
-      [nodeType]: viewportHeight,
+      [nodeType]: finalViewportHeight,
     }));
   };
 

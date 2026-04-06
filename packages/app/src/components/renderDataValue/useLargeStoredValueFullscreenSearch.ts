@@ -1,13 +1,12 @@
 import { useEffect, useLayoutEffect, useRef, useState, type Dispatch, type RefObject, type SetStateAction } from 'react';
 import { useFullscreenOutputSearchContext } from '../nodeOutput/FullscreenOutputSearchContext.js';
 import {
-  applyFullscreenOutputSearchHighlights,
-  clearFullscreenOutputSearchHighlights,
-  collectFullscreenOutputSearchTextNodes,
-  FULLSCREEN_OUTPUT_SEARCH_PROVIDER_ATTRIBUTE,
-  type FullscreenOutputSearchProvider,
-} from '../nodeOutput/fullscreenOutputSearchDom.js';
-import { findFullscreenOutputSearchMatchOffsets, normalizeFullscreenOutputSearchQuery } from '../nodeOutput/fullscreenOutputSearch.js';
+  applyHighlights,
+  clearHighlights,
+  collectTextNodes,
+  PROVIDER_ATTRIBUTE,
+} from '../nodeOutput/fullscreenOutputSearch.js';
+import { findMatchOffsets } from '../nodeOutput/fullscreenOutputSearch.js';
 import { getLargeStoredValueChunkIndexForOffset, type LargeStoredValueChunk } from './largeStoredValueChunks.js';
 
 type ActiveSearchMatch = {
@@ -54,11 +53,15 @@ export function useLargeStoredValueFullscreenSearch(args: {
   const autoExpandedSearchStateRef = useRef<{ showFull: boolean; chunkPage: number } | null>(null);
   const currentSearchQueryRef = useRef('');
   const currentSearchMatchOffsetsRef = useRef<number[]>([]);
-  const showFullRef = useRef(showFull);
-  const chunkPageRef = useRef(chunkPage);
+  const displayStateRef = useRef({
+    showFull,
+    chunkPage,
+  });
 
-  showFullRef.current = showFull;
-  chunkPageRef.current = chunkPage;
+  displayStateRef.current = {
+    showFull,
+    chunkPage,
+  };
 
   useEffect(() => {
     setActiveSearchMatch(null);
@@ -72,12 +75,12 @@ export function useLargeStoredValueFullscreenSearch(args: {
       return;
     }
 
-    const provider: FullscreenOutputSearchProvider = {
+    return fullscreenOutputSearch.registerProvider({
       id: providerId,
       rootElement: rootRef.current,
       getMatchOffsets: (query: string) => {
         currentSearchQueryRef.current = query;
-        const matchOffsets = fullText ? findFullscreenOutputSearchMatchOffsets(fullText, query) : [];
+        const matchOffsets = fullText ? findMatchOffsets(fullText, query) : [];
         currentSearchMatchOffsetsRef.current = matchOffsets;
         return matchOffsets;
       },
@@ -88,10 +91,11 @@ export function useLargeStoredValueFullscreenSearch(args: {
           return;
         }
 
-        if (!showFullRef.current && !autoExpandedSearchStateRef.current) {
+        const displayState = displayStateRef.current;
+        if (!displayState.showFull && !autoExpandedSearchStateRef.current) {
           autoExpandedSearchStateRef.current = {
             showFull: false,
-            chunkPage: chunkPageRef.current,
+            chunkPage: displayState.chunkPage,
           };
           setShowFull(true);
         }
@@ -119,9 +123,7 @@ export function useLargeStoredValueFullscreenSearch(args: {
           setChunkPage(restoreState.chunkPage);
         }
       },
-    };
-
-    return fullscreenOutputSearch.registerProvider(provider);
+    });
   }, [chunks, fullText, fullscreenOutputSearch, providerId, rootRef, setChunkPage, setShowFull, shouldPageFullText]);
 
   useEffect(() => {
@@ -130,14 +132,14 @@ export function useLargeStoredValueFullscreenSearch(args: {
       return;
     }
 
-    clearFullscreenOutputSearchHighlights(contentElement);
+    clearHighlights(contentElement);
 
     if (!showFull || !activeChunk || !activeChunkText || !activeSearchMatch) {
       return;
     }
 
-    const normalizedQuery = normalizeFullscreenOutputSearchQuery(activeSearchMatch.query);
-    if (!normalizedQuery) {
+    const matchLength = activeSearchMatch.query.toLocaleLowerCase().length;
+    if (matchLength === 0) {
       return;
     }
 
@@ -146,11 +148,13 @@ export function useLargeStoredValueFullscreenSearch(args: {
       return;
     }
 
-    const activeHighlightElement = applyFullscreenOutputSearchHighlights({
-      textNodes: collectFullscreenOutputSearchTextNodes(contentElement),
+    const activeHighlightElement = applyHighlights({
+      textNodes: collectTextNodes(contentElement),
       matchOffsets: [localMatchOffset],
-      matchLength: normalizedQuery.length,
+      matchLength,
+      matchIndices: [0],
       activeMatchIndex: 0,
+      includeMatchIndexAttribute: false,
     });
 
     activeHighlightElement?.scrollIntoView({
@@ -159,14 +163,14 @@ export function useLargeStoredValueFullscreenSearch(args: {
     });
 
     return () => {
-      clearFullscreenOutputSearchHighlights(contentElement);
+      clearHighlights(contentElement);
     };
   }, [activeChunk, activeChunkText, activeSearchMatch, contentRef, showFull]);
 
   return {
     providerRootProps: fullscreenOutputSearch
       ? {
-          [FULLSCREEN_OUTPUT_SEARCH_PROVIDER_ATTRIBUTE]: providerId,
+          [PROVIDER_ATTRIBUTE]: providerId,
         }
       : undefined,
     clearSearchAutoExpansion: () => {

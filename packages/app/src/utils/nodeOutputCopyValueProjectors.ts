@@ -1,68 +1,49 @@
 import { coerceTypeOptional, getScalarTypeOf, type DataValue, type PortId } from '@ironclad/rivet-core';
 import type { NodeOutputCopyValueProjector } from './executionDataCopyValue.js';
 import {
-  isVisibleCopyValuePort,
-  projectDataValueForCopyValue,
-  projectStoredOutputPortMapForCopyValue,
-  projectStoredPortValueForCopyValue,
+  isVisiblePort,
+  projectDataValue,
+  projectStoredMap,
 } from './executionDataCopyValue.js';
 import { restoreStoredPortValue } from './executionDataReaders.js';
-
-const CHAT_META_PORT_IDS = ['requestTokens', 'responseTokens', 'cost', 'duration'] as const;
 
 export const getChatNodeCopyValueData: NodeOutputCopyValueProjector = ({ outputs, dataRefs }) => {
   const visibleEntries: [string, unknown][] = [];
 
-  const responseValue = projectStoredPortValueForCopyValue(outputs, 'response' as PortId, dataRefs);
-  if (responseValue !== undefined) {
-    visibleEntries.push(['response', responseValue]);
+  const responseValue = restoreStoredPortValue(outputs, 'response' as PortId, dataRefs);
+  if (responseValue) {
+    visibleEntries.push(['response', projectDataValue(responseValue)]);
   }
 
-  const functionCallsPortId = outputs['function-calls' as PortId]
+  const functionCallPortId = outputs['function-calls' as PortId]
     ? ('function-calls' as PortId)
     : outputs['function-call' as PortId]
       ? ('function-call' as PortId)
       : undefined;
+  const functionCallValue = functionCallPortId ? restoreStoredPortValue(outputs, functionCallPortId, dataRefs) : undefined;
 
-  if (functionCallsPortId) {
-    const functionValue = projectStoredPortValueForCopyValue(outputs, functionCallsPortId, dataRefs);
-    if (functionValue !== undefined) {
-      visibleEntries.push([functionCallsPortId, functionValue]);
-    }
+  if (functionCallPortId && functionCallValue) {
+    visibleEntries.push([functionCallPortId, projectDataValue(functionCallValue)]);
   }
 
   const requestTokensValue = restoreStoredPortValue(outputs, 'requestTokens' as PortId, dataRefs);
   const responseTokensValue = restoreStoredPortValue(outputs, 'responseTokens' as PortId, dataRefs);
   const costValue = restoreStoredPortValue(outputs, 'cost' as PortId, dataRefs);
   const durationValue = restoreStoredPortValue(outputs, 'duration' as PortId, dataRefs);
+  const carriers = [requestTokensValue, responseTokensValue, costValue];
+  const metrics: [string, DataValue | undefined, boolean][] = [
+    ['requestTokens', requestTokensValue, isPositiveMetric(requestTokensValue)],
+    ['responseTokens', responseTokensValue, isPositiveMetric(responseTokensValue)],
+    ['cost', costValue, isPositiveMetric(costValue)],
+    ['duration', durationValue, isVisibleChatDuration(durationValue, carriers)],
+  ];
 
-  for (const portId of CHAT_META_PORT_IDS) {
-    const metricValue =
-      portId === 'requestTokens'
-        ? requestTokensValue
-        : portId === 'responseTokens'
-          ? responseTokensValue
-          : portId === 'cost'
-            ? costValue
-            : durationValue;
-
-    const isVisible =
-      portId === 'duration'
-        ? hasVisibleChatDurationMetric(durationValue, {
-            requestTokens: requestTokensValue,
-            responseTokens: responseTokensValue,
-            cost: costValue,
-          })
-        : hasVisiblePositiveChatMetric(metricValue);
-
-    if (!isVisible) {
+  for (const [portId, value, isVisible] of metrics) {
+    if (!value || !isVisible) {
       continue;
     }
 
-    const projectedValue = projectStoredPortValueForCopyValue(outputs, portId as PortId, dataRefs);
-    if (projectedValue !== undefined) {
-      visibleEntries.push([portId, projectedValue]);
-    }
+    visibleEntries.push([portId, projectDataValue(value)]);
   }
 
   if (visibleEntries.length === 0) {
@@ -82,23 +63,23 @@ export const getUserInputNodeCopyValueData: NodeOutputCopyValueProjector = ({ ou
     return undefined;
   }
 
-  return projectDataValueForCopyValue(questionsAndAnswersValue);
+  return projectDataValue(questionsAndAnswersValue);
 };
 
 export const getLoopControllerNodeCopyValueData: NodeOutputCopyValueProjector = ({ outputs, dataRefs }) => {
   const breakValue = restoreStoredPortValue(outputs, 'break' as PortId, dataRefs);
   const outputKeys = Object.keys(outputs)
     .filter((key) => key.startsWith('output'))
-    .sort(compareNumericPortSuffixes);
+    .sort((left, right) => Number(left.replace(/^\D+/, '')) - Number(right.replace(/^\D+/, '')));
 
   const projectedOutputs: Record<string, unknown> = {
     continue: breakValue == null || breakValue.type === 'control-flow-excluded',
   };
 
   for (const key of outputKeys) {
-    const projectedValue = projectStoredPortValueForCopyValue(outputs, key as PortId, dataRefs);
-    if (projectedValue !== undefined) {
-      projectedOutputs[key] = projectedValue;
+    const outputValue = restoreStoredPortValue(outputs, key as PortId, dataRefs);
+    if (outputValue !== undefined) {
+      projectedOutputs[key] = projectDataValue(outputValue);
     }
   }
 
@@ -109,27 +90,20 @@ export const getSubGraphNodeCopyValueData: NodeOutputCopyValueProjector = ({ out
   const result: Record<string, unknown> = {};
 
   const costValue = restoreStoredPortValue(outputs, 'cost' as PortId, dataRefs);
-  if (hasVisiblePositiveScalarMetric(costValue)) {
-    const projectedCost = projectStoredPortValueForCopyValue(outputs, 'cost' as PortId, dataRefs);
-    if (projectedCost !== undefined) {
-      result.cost = projectedCost;
-    }
+  if (coerceTypeOptional(costValue, 'number') != null && isPositiveMetric(costValue)) {
+    result.cost = projectDataValue(costValue!);
   }
 
   const durationValue = restoreStoredPortValue(outputs, 'duration' as PortId, dataRefs);
-  if (hasVisiblePositiveScalarMetric(durationValue)) {
-    const projectedDuration = projectStoredPortValueForCopyValue(outputs, 'duration' as PortId, dataRefs);
-    if (projectedDuration !== undefined) {
-      result.duration = projectedDuration;
-    }
+  if (coerceTypeOptional(durationValue, 'number') != null && isPositiveMetric(durationValue)) {
+    result.duration = projectDataValue(durationValue!);
   }
 
-  const visibleBodyEntries = Object.fromEntries(
+  const bodyOutputs = Object.fromEntries(
     Object.entries(outputs).filter(([portId]) => portId !== 'cost' && portId !== 'duration'),
   );
-
-  const bodyPortIds = Object.keys(visibleBodyEntries).filter(isVisibleCopyValuePort);
-  const projectedBody = projectStoredOutputPortMapForCopyValue(visibleBodyEntries, dataRefs);
+  const bodyPortIds = Object.keys(bodyOutputs).filter(isVisiblePort);
+  const projectedBody = projectStoredMap(bodyOutputs, dataRefs);
 
   if (Object.keys(result).length === 0) {
     return projectedBody;
@@ -155,43 +129,30 @@ export const getSubGraphNodeCopyValueData: NodeOutputCopyValueProjector = ({ out
   return result;
 };
 
-function hasVisiblePositiveChatMetric(value: DataValue | undefined): boolean {
-  return hasVisiblePositiveScalarMetric(value) || hasVisiblePositiveNumberArrayMetric(value);
-}
-
-function hasVisiblePositiveScalarMetric(value: DataValue | undefined): boolean {
+function isPositiveMetric(value: DataValue | undefined, index?: number): boolean {
   if (!value || value.type === 'control-flow-excluded') {
     return false;
   }
 
   const scalarValue = coerceTypeOptional(value, 'number');
-  return scalarValue != null && scalarValue > 0;
-}
-
-function hasVisiblePositiveNumberArrayMetric(value: DataValue | undefined): boolean {
-  if (!value || value.type === 'control-flow-excluded') {
-    return false;
+  if (scalarValue != null) {
+    return scalarValue > 0;
   }
 
   const arrayValue = coerceTypeOptional(value, 'number[]');
-  return arrayValue?.some((item) => item > 0) ?? false;
-}
-
-function hasVisibleChatDurationMetric(
-  durationValue: DataValue | undefined,
-  carrierValues: {
-    requestTokens: DataValue | undefined;
-    responseTokens: DataValue | undefined;
-    cost: DataValue | undefined;
-  },
-): boolean {
-  if (!durationValue || durationValue.type === 'control-flow-excluded') {
+  if (!arrayValue?.length) {
     return false;
   }
 
-  const scalarDuration = coerceTypeOptional(durationValue, 'number');
-  if (scalarDuration != null) {
-    return scalarDuration > 0 && hasVisibleChatMetricCarrier(carrierValues);
+  return index == null ? arrayValue.some((item) => item > 0) : (arrayValue[index] ?? 0) > 0;
+}
+
+function isVisibleChatDuration(
+  durationValue: DataValue | undefined,
+  carrierValues: Array<DataValue | undefined>,
+): boolean {
+  if (coerceTypeOptional(durationValue, 'number') != null) {
+    return isPositiveMetric(durationValue) && hasAnyCarrier(carrierValues);
   }
 
   const arrayDuration = coerceTypeOptional(durationValue, 'number[]');
@@ -199,57 +160,20 @@ function hasVisibleChatDurationMetric(
     return false;
   }
 
-  return arrayDuration.some(
-    (duration, index) => duration > 0 && hasVisibleChatMetricCarrierAtIndex(carrierValues, index),
-  );
+  return arrayDuration.some((duration, index) => duration > 0 && hasAnyCarrier(carrierValues, index));
 }
 
-function hasVisibleChatMetricCarrier(carrierValues: {
-  requestTokens: DataValue | undefined;
-  responseTokens: DataValue | undefined;
-  cost: DataValue | undefined;
-}): boolean {
-  return (
-    hasPresentScalarNumberValue(carrierValues.requestTokens) ||
-    hasPresentScalarNumberValue(carrierValues.responseTokens) ||
-    hasPresentScalarNumberValue(carrierValues.cost)
-  );
-}
+function hasAnyCarrier(carrierValues: Array<DataValue | undefined>, index?: number): boolean {
+  return carrierValues.some((value) => {
+    if (!value || value.type === 'control-flow-excluded') {
+      return false;
+    }
 
-function hasVisibleChatMetricCarrierAtIndex(
-  carrierValues: {
-    requestTokens: DataValue | undefined;
-    responseTokens: DataValue | undefined;
-    cost: DataValue | undefined;
-  },
-  index: number,
-): boolean {
-  return (
-    hasPresentNumberArrayValueAtIndex(carrierValues.requestTokens, index) ||
-    hasPresentNumberArrayValueAtIndex(carrierValues.responseTokens, index) ||
-    hasPresentNumberArrayValueAtIndex(carrierValues.cost, index)
-  );
-}
+    if (index == null) {
+      return coerceTypeOptional(value, 'number') != null;
+    }
 
-function hasPresentScalarNumberValue(value: DataValue | undefined): boolean {
-  if (!value || value.type === 'control-flow-excluded') {
-    return false;
-  }
-
-  return coerceTypeOptional(value, 'number') != null;
-}
-
-function hasPresentNumberArrayValueAtIndex(value: DataValue | undefined, index: number): boolean {
-  if (!value || value.type === 'control-flow-excluded') {
-    return false;
-  }
-
-  const arrayValue = coerceTypeOptional(value, 'number[]');
-  return arrayValue != null && index < arrayValue.length && arrayValue[index] != null;
-}
-
-function compareNumericPortSuffixes(left: string, right: string): number {
-  const leftSuffix = Number(left.replace(/^\D+/, ''));
-  const rightSuffix = Number(right.replace(/^\D+/, ''));
-  return leftSuffix - rightSuffix;
+    const arrayValue = coerceTypeOptional(value, 'number[]');
+    return arrayValue != null && index < arrayValue.length && arrayValue[index] != null;
+  });
 }
