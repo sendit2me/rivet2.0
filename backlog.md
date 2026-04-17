@@ -1,10 +1,10 @@
-- I want to resize the nodes on all sides, not just the bottom right corner
+- When I hover the node, it only unfolds the output a bit (when there's outpput) only when I hover over the output area. But it should react in any node's area 
 
-- When I hover the node, everything in it wobbles a bit
+- When a node has an output part, and the node is hovered, in the output part, a scrollbar appears for a aplit second and then diisappears as the output part is expanded vertically to fit the content. It looks messy. I want the scroll bar to not appear
+
 
 - I want to be able to go Ctrl++ and Ctrl+- in the code/text editor to make inly it larger or smaller
 
-- Sometimes when the node is hovered, the scrollbar appears for a second and then diisappears as the node is expanded vertically
 
 - In the code node settings, the "Generate Using AI" UI must be foldable and folded by default.
 

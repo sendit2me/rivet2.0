@@ -326,6 +326,13 @@ The current command-backed canvas surface includes:
 - paste nodes
 - auto-layout
 
+Node resize has a narrower contract than that generic list might imply:
+
+- normal node resize is width-only; height remains body/output-driven rather than user-persisted
+- the live drag path updates `visualData.x` and `visualData.width` together so left-edge resizes preserve the right edge
+- the committed resize still goes through `editNode`, so undo/redo treats the whole edge-resize gesture as one command
+- edge handles live just outside the node border and the port layer sits above them, so connector hit targets keep winning over resize cursors
+
 Per-graph undo/redo stacks still live in [`packages/app/src/commands/Command.ts`](../packages/app/src/commands/Command.ts).
 That history is intentionally scoped to the canvas editing surface. Flows that replace the
 current graph's `nodes` or `connections` without going through commands, such as AI graph

@@ -28,6 +28,12 @@ import { preservePortTextCaseState } from '../../state/settings';
 import { useCanvasHandlersContext, useCanvasViewContext } from '../CanvasContext';
 import { NodeBody } from '../NodeBody.js';
 import { NodeOutput } from '../NodeOutput.js';
+import {
+  computeHorizontalNodeResizeBounds,
+  DEFAULT_NODE_WIDTH,
+  haveHorizontalNodeResizeBoundsChanged,
+  type HorizontalNodeResizeDirection,
+} from '../../utils/nodeResize.js';
 
 export const NormalVisualNodeContent: FC<{
   heightCache: HeightCache;
@@ -63,22 +69,25 @@ export const NormalVisualNodeContent: FC<{
     const setViewingNodeChanges = useSetAtom(viewingNodeChangesState);
     const preservePortTextCase = useAtomValue(preservePortTextCaseState);
 
-    const [initialHeight, setInitialHeight] = useState<number | undefined>();
-    const [initialWidth, setInitialWidth] = useState<number | undefined>();
-    const [initialMouseX, setInitialMouseX] = useState(0);
-    const [initialMouseY, setInitialMouseY] = useState(0);
+    const [resizeState, setResizeState] = useState<{
+      direction: HorizontalNodeResizeDirection;
+      initialWidth: number;
+      initialX: number;
+      initialMouseX: number;
+      previousNodeOverride: Partial<ChartNode>;
+    } | null>(null);
     const [shiftHeld, setShiftHeld] = useState(false);
 
-    const getNodeCurrentDimensions = (elementOrChild: HTMLElement): [number, number] => {
+    const getNodeCurrentWidth = (elementOrChild: HTMLElement): number => {
       const nodeElement = elementOrChild.closest('.node');
       if (!nodeElement) {
-        return [100, 100];
+        return DEFAULT_NODE_WIDTH;
       }
 
       const cssWidth = window.getComputedStyle(nodeElement).width;
-      const cssHeight = window.getComputedStyle(nodeElement).height;
+      const width = Number.parseFloat(cssWidth);
 
-      return [parseInt(cssWidth, 10), parseInt(cssHeight, 10)];
+      return Number.isFinite(width) ? width : (node.visualData.width ?? DEFAULT_NODE_WIDTH);
     };
 
     const handleEditClick = useStableCallback((event: ReactMouseEvent<HTMLButtonElement>) => {
@@ -91,31 +100,48 @@ export const NormalVisualNodeContent: FC<{
       event.preventDefault();
     });
 
-    const handleResizeStart = useStableCallback((event: globalThis.MouseEvent) => {
+    const getNextResizeBounds = useStableCallback((event: globalThis.MouseEvent) => {
+      if (!resizeState) {
+        return null;
+      }
+
+      const initialMousePositionCanvas = clientToCanvasPosition(resizeState.initialMouseX, 0);
+      const newMousePositionCanvas = clientToCanvasPosition(event.clientX, 0);
+      const deltaX = newMousePositionCanvas.x - initialMousePositionCanvas.x;
+
+      return computeHorizontalNodeResizeBounds({
+        direction: resizeState.direction,
+        initialWidth: resizeState.initialWidth,
+        initialX: resizeState.initialX,
+        deltaX,
+      });
+    });
+
+    const handleResizeStart = useStableCallback((direction: HorizontalNodeResizeDirection, event: globalThis.MouseEvent) => {
       event.preventDefault();
       event.stopPropagation();
 
-      const [width, height] = getNodeCurrentDimensions(event.target as HTMLElement);
-      setInitialWidth(width);
-      setInitialHeight(height);
-      setInitialMouseX(event.clientX);
-      setInitialMouseY(event.clientY);
+      setResizeState({
+        direction,
+        initialWidth: getNodeCurrentWidth(event.target as HTMLElement),
+        initialX: node.visualData.x,
+        initialMouseX: event.clientX,
+        previousNodeOverride: structuredClone(node),
+      });
     });
 
     const handleResizeMove = useStableCallback((event: globalThis.MouseEvent) => {
       event.preventDefault();
       event.stopPropagation();
 
-      const initialMousePositionCanvas = clientToCanvasPosition(initialMouseX, initialMouseY);
-      const newMousePositionCanvas = clientToCanvasPosition(event.clientX, event.clientY);
-      const deltaX = newMousePositionCanvas.x - initialMousePositionCanvas.x;
-      const deltaY = newMousePositionCanvas.y - initialMousePositionCanvas.y;
+      const nextBounds = getNextResizeBounds(event);
+      const currentBounds = {
+        x: node.visualData.x,
+        width: node.visualData.width ?? resizeState?.initialWidth ?? DEFAULT_NODE_WIDTH,
+      };
 
-      const newWidth = initialWidth != null ? initialWidth + deltaX : initialWidth;
-      const newHeight = initialHeight != null ? initialHeight + deltaY : initialHeight;
-
-      if (newWidth != null && newHeight != null && (newWidth !== initialWidth || newHeight !== initialHeight)) {
-        onNodeSizeChanged?.(node, newWidth, newHeight);
+      if (nextBounds && haveHorizontalNodeResizeBoundsChanged(currentBounds, nextBounds)) {
+        onNodeSizeChanged?.(node, nextBounds);
       }
     });
 
@@ -123,11 +149,23 @@ export const NormalVisualNodeContent: FC<{
       event.preventDefault();
       event.stopPropagation();
 
-      onResizeFinish?.(node, initialWidth ?? 200, initialHeight ?? 200);
-      setInitialWidth(undefined);
-      setInitialHeight(undefined);
-      setInitialMouseX(0);
-      setInitialMouseY(0);
+      const nextBounds = getNextResizeBounds(event);
+
+      if (
+        resizeState &&
+        nextBounds &&
+        haveHorizontalNodeResizeBoundsChanged(
+          {
+            x: resizeState.initialX,
+            width: resizeState.initialWidth,
+          },
+          nextBounds,
+        )
+      ) {
+        onResizeFinish?.(node, nextBounds, resizeState.previousNodeOverride);
+      }
+
+      setResizeState(null);
     });
 
     const watchShift = useStableCallback((event: ReactMouseEvent) => {
@@ -236,8 +274,19 @@ export const NormalVisualNodeContent: FC<{
         <ErrorBoundary fallback={<div>Error rendering node output</div>}>
           <NodeOutput node={node} />
         </ErrorBoundary>
-        <div className="node-resize">
-          <ResizeHandle onResizeStart={handleResizeStart} onResizeMove={handleResizeMove} onResizeEnd={handleResizeEnd} />
+        <div className="node-resize-handles">
+          <ResizeHandle
+            className="resize-handle resize-handle-left"
+            onResizeStart={(event) => handleResizeStart('left', event)}
+            onResizeMove={handleResizeMove}
+            onResizeEnd={handleResizeEnd}
+          />
+          <ResizeHandle
+            className="resize-handle resize-handle-right"
+            onResizeStart={(event) => handleResizeStart('right', event)}
+            onResizeMove={handleResizeMove}
+            onResizeEnd={handleResizeEnd}
+          />
         </div>
       </>
     );

@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import type { ChartNode, NodeId } from '@ironclad/rivet-core';
+import { DEFAULT_NODE_WIDTH } from '../utils/nodeResize.js';
 
 export function useVisibleCanvasNodes(options: {
   nodes: ChartNode[];
@@ -22,8 +23,8 @@ export function useVisibleCanvasNodes(options: {
       for (const node of nodes) {
         const isOutputExpanded = expandedOutputNodeIds.includes(node.id);
         const shouldHide =
-          (node.visualData.x < viewportBounds.left - (node.visualData.width ?? 300) ||
-            node.visualData.x > viewportBounds.right + (node.visualData.width ?? 300) ||
+          (node.visualData.x < viewportBounds.left - (node.visualData.width ?? DEFAULT_NODE_WIDTH) ||
+            node.visualData.x > viewportBounds.right + (node.visualData.width ?? DEFAULT_NODE_WIDTH) ||
             node.visualData.y < viewportBounds.top - 500 ||
             node.visualData.y > viewportBounds.bottom + 500) &&
           !isOutputExpanded;

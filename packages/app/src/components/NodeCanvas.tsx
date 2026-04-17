@@ -12,7 +12,6 @@ import {
 } from 'react';
 import {
   type ChartNode,
-  type CommentNode,
   type NodeConnection,
   type NodeId,
 } from '@ironclad/rivet-core';
@@ -57,6 +56,7 @@ import { nodeCanvasStyles } from './nodeCanvas/nodeCanvasStyles.js';
 import { NodeCanvasOverlays } from './nodeCanvas/NodeCanvasOverlays.js';
 import { NodeCanvasViewport } from './nodeCanvas/NodeCanvasViewport.js';
 import { useNodeCanvasInteractions } from './nodeCanvas/useNodeCanvasInteractions.js';
+import type { HorizontalNodeResizeBounds } from '../utils/nodeResize.js';
 
 export interface NodeCanvasProps {
   nodes: ChartNode[];
@@ -220,16 +220,13 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
       zoomSensitivity,
     });
 
-  const onNodeSizeChanged = useStableCallback((node: ChartNode, width: number, height: number) => {
+  const onNodeSizeChanged = useStableCallback((node: ChartNode, nextBounds: HorizontalNodeResizeBounds) => {
     onNodesChanged(
       produce(nodes, (draft) => {
         const foundNode = draft.find((candidate) => candidate.id === node.id);
         if (foundNode) {
-          foundNode.visualData.width = width;
-        }
-
-        if (foundNode?.type === 'comment') {
-          (foundNode as CommentNode).data.height = height;
+          foundNode.visualData.x = nextBounds.x;
+          foundNode.visualData.width = nextBounds.width;
         }
       }),
     );
@@ -327,15 +324,21 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
   const isZoomedOut = canvasPosition.zoom < 0.4;
   const isReallyZoomedOut = canvasPosition.zoom < 0.2;
 
-  const onResizeFinish = useStableCallback((node: ChartNode, width: number, height: number) => {
+  const onResizeFinish = useStableCallback((
+    node: ChartNode,
+    nextBounds: HorizontalNodeResizeBounds,
+    previousNodeOverride?: Partial<ChartNode>,
+  ) => {
     editNode({
       nodeId: node.id,
       newNode: {
         visualData: {
           ...node.visualData,
-          width,
+          x: nextBounds.x,
+          width: nextBounds.width,
         },
       },
+      previousNodeOverride,
     });
   });
 

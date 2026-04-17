@@ -98,6 +98,7 @@ export function useEditNodeCommand() {
     {
       nodeId: NodeId;
       newNode: Partial<ChartNode>;
+      previousNodeOverride?: Partial<ChartNode>;
     },
     {
       previousNode: Partial<ChartNode>;
@@ -151,7 +152,7 @@ export function useEditNodeCommand() {
       }
 
       // Normal case - not merging
-      const previousNode = structuredClone(nodeToEdit);
+      const previousNode = structuredClone(params.previousNodeOverride ?? nodeToEdit);
       const brokenConnections = updateNodeAndConnections(params.nodeId, params.newNode, currentState);
 
       return {

@@ -233,12 +233,15 @@ export const nodeStyles = css`
     display: flex;
     justify-content: space-between;
     margin: 0 0 0 -12px;
+    z-index: 3;
   }
 
   .node-ports {
     display: flex;
     justify-content: space-between;
     margin: 0 -12px 0 -12px;
+    position: relative;
+    z-index: 3;
   }
 
   .node-ports-groups {
@@ -286,6 +289,7 @@ export const nodeStyles = css`
     display: flex;
     align-items: center;
     position: relative;
+    z-index: 3;
   }
 
   .port-label-uppercase {
@@ -577,24 +581,35 @@ export const nodeStyles = css`
     justify-content: center;
   }
 
-  .resize-handle {
-    width: 10px;
-    height: 100%;
-    height: 10px;
-    bottom: 0;
-    background-color: rgba(255, 255, 255, 0.25);
-    cursor: ew-resize;
+  .node-resize-handles {
     position: absolute;
-    right: 0;
-    border-top-left-radius: 100px;
-    border-bottom-right-radius: 50px;
+    inset: 0;
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  .resize-handle {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 12px;
+    background: transparent;
+    pointer-events: auto;
+    touch-action: none;
+  }
+
+  .resize-handle-left {
+    left: -8px;
+    cursor: ew-resize;
+  }
+
+  .resize-handle-right {
+    right: -8px;
+    cursor: ew-resize;
   }
 
   .node.isComment .resize-handle {
-    cursor: nwse-resize;
     pointer-events: all;
-    width: 20px;
-    height: 20px;
   }
 
   .node.running {

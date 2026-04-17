@@ -1,5 +1,5 @@
 import { useLatest } from 'ahooks';
-import { type FC, type MouseEvent as ReactMouseEvent, useRef } from 'react';
+import { type FC, type MouseEvent as ReactMouseEvent, useEffect, useRef } from 'react';
 
 type ResizeHandleMouseEvent = globalThis.MouseEvent;
 
@@ -18,7 +18,21 @@ export const ResizeHandle: FC<ResizeHandleProps> = ({ className, onResizeStart, 
   const onResizeMoveRef = useRef<(event: ResizeHandleMouseEvent) => void>(() => {});
   const handleMouseUpRef = useRef<(event: ResizeHandleMouseEvent) => void>(() => {});
 
+  const removeWindowListeners = () => {
+    window.removeEventListener('mousemove', onResizeMoveRef.current, {
+      capture: true,
+    });
+    window.removeEventListener('mouseup', handleMouseUpRef.current, { capture: true });
+  };
+
+  useEffect(() => {
+    return () => {
+      removeWindowListeners();
+    };
+  }, []);
+
   const handleMouseDown = (event: ReactMouseEvent<HTMLDivElement>) => {
+    event.preventDefault();
     event.stopPropagation();
     onResizeStartLatest.current?.(event.nativeEvent);
 
@@ -26,7 +40,7 @@ export const ResizeHandle: FC<ResizeHandleProps> = ({ className, onResizeStart, 
     handleMouseUpRef.current = (e) => handleMouseUp(e);
 
     window.addEventListener('mousemove', onResizeMoveRef.current, {
-      passive: true,
+      passive: false,
       capture: true,
     });
     window.addEventListener('mouseup', handleMouseUpRef.current, {
@@ -37,10 +51,7 @@ export const ResizeHandle: FC<ResizeHandleProps> = ({ className, onResizeStart, 
   const handleMouseUp = (event: ResizeHandleMouseEvent) => {
     event.stopPropagation();
     onResizeEndLatest.current?.(event);
-    window.removeEventListener('mousemove', onResizeMoveRef.current, {
-      capture: true,
-    });
-    window.removeEventListener('mouseup', handleMouseUpRef.current, { capture: true });
+    removeWindowListeners();
   };
 
   return <div className={['resize-handle', className].filter(Boolean).join(' ')} onMouseDown={handleMouseDown}></div>;
