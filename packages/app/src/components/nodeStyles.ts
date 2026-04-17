@@ -460,7 +460,7 @@ export const nodeStyles = css`
 
   .node:hover .node-output-warnings {
     max-height: 500px;
-    overflow: auto;
+    overflow: hidden;
   }
 
   .node.error .node-output:not(.multi) .node-output-inner,
@@ -476,7 +476,7 @@ export const nodeStyles = css`
 
   .node:hover .node-output-inner {
     max-height: 500px;
-    overflow: auto;
+    overflow: hidden;
   }
 
   .node.isOutputExpanded .node-output-inner {

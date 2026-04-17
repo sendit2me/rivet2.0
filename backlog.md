@@ -1,4 +1,6 @@
-- When a node has an output part, and the node is hovered, in the output part, a scrollbar appears for a aplit second and then diisappears as the output part is expanded vertically to fit the content. It looks messy. I want the scroll bar to not appear
+- Do not show the "Set a valid Main Graph in Project settings to see unreachable graphs." message when there is no main graph set.
+
+- In the workspace navigation (canvas/plugins/comminity/preompt designer...) when a tab is selected, it's both highlighted with a primary color and gets bigge rin size. Let's not change the size. The highlighted color is enough
 
 
 - I want to be able to go Ctrl++ and Ctrl+- in the code/text editor to make inly it larger or smaller
