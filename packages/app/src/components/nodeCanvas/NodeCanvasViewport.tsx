@@ -7,6 +7,7 @@ import { VisualNode } from '../VisualNode.js';
 import { type DragActivatorModifierState, type DragMode } from '../../hooks/useDraggingNode.js';
 import type { useNodeTypes } from '../../hooks/useNodeTypes.js';
 import type { PageValue, ProcessDataForNode } from '../../state/dataFlow.js';
+import { resolveDraggingExecutionContext } from './dragOverlayExecutionContext.js';
 
 type CanvasViewValue = ContextType<typeof CanvasViewContext>;
 type CanvasHandlersValue = ContextType<typeof CanvasHandlersContext>;
@@ -21,6 +22,7 @@ export interface NodeCanvasViewportProps {
   dragMode: DragMode;
   draggingNodeConnections: NodeConnection[];
   draggingNodes: ChartNode[];
+  draggingSourceNodeIds: NodeId[];
   hoveredNodeId: NodeId | undefined;
   isNodeVisible: (node: ChartNode) => boolean;
   lastRunPerNode: Record<NodeId, ProcessDataForNode[] | undefined>;
@@ -42,6 +44,7 @@ export const NodeCanvasViewport: FC<NodeCanvasViewportProps> = ({
   dragMode,
   draggingNodeConnections,
   draggingNodes,
+  draggingSourceNodeIds,
   hoveredNodeId,
   isNodeVisible,
   lastRunPerNode,
@@ -54,6 +57,7 @@ export const NodeCanvasViewport: FC<NodeCanvasViewportProps> = ({
   selectedProcessPagePerNode,
 }) => {
   const draggingNodeIdSet = useMemo(() => new Set(draggingNodes.map((node) => node.id)), [draggingNodes]);
+  const expandedOutputNodeIdSet = useMemo(() => new Set(expandedOutputNodeIds), [expandedOutputNodeIds]);
   const selectedNodeIdSet = useMemo(() => new Set(selectedNodeIds), [selectedNodeIds]);
   const searchMatchingNodeIdSet = useMemo(() => new Set(searchMatchingNodeIds), [searchMatchingNodeIds]);
 
@@ -83,7 +87,7 @@ export const NodeCanvasViewport: FC<NodeCanvasViewportProps> = ({
                   isKnownNodeType={node.type in nodeTypes}
                   lastRun={lastRunPerNode[node.id]}
                   onDragActivatorPointerDown={onNodeDragActivatorPointerDown}
-                  isOutputExpanded={expandedOutputNodeIds.includes(node.id)}
+                  isOutputExpanded={expandedOutputNodeIdSet.has(node.id)}
                   processPage={selectedProcessPagePerNode[node.id]!}
                 />
               );
@@ -101,17 +105,30 @@ export const NodeCanvasViewport: FC<NodeCanvasViewportProps> = ({
               }),
             ]}
           >
-            {draggingNodes.map((node) => (
-              <VisualNode
-                key={node.id}
-                node={node}
-                connections={draggingNodeConnections}
-                isOverlay
-                isKnownNodeType={node.type in nodeTypes}
-                isOutputExpanded={expandedOutputNodeIds.includes(node.id)}
-                processPage={selectedProcessPagePerNode[node.id]!}
-              />
-            ))}
+            {draggingNodes.map((node, index) => {
+              const { isOutputExpanded, lastRun, processPage } = resolveDraggingExecutionContext({
+                dragMode,
+                draggingNodeId: node.id,
+                draggingSourceNodeIds,
+                index,
+                expandedOutputNodeIdSet,
+                lastRunPerNode,
+                selectedProcessPagePerNode,
+              });
+
+              return (
+                <VisualNode
+                  key={node.id}
+                  node={node}
+                  connections={draggingNodeConnections}
+                  isOverlay
+                  isKnownNodeType={node.type in nodeTypes}
+                  isOutputExpanded={isOutputExpanded}
+                  lastRun={lastRun}
+                  processPage={processPage}
+                />
+              );
+            })}
           </DragOverlay>
         </CanvasHandlersContext.Provider>
       </CanvasViewContext.Provider>

@@ -397,6 +397,7 @@ Key current behaviors:
 - move drags remove source nodes from the main render pass and show them via `DragOverlay`
 - duplicate drags keep the source nodes visible in place and show duplicate preview nodes in `DragOverlay`
 - drag-overlay wires only follow move drags; duplicate preview is intentionally node-only today
+- drag overlays inherit execution/error styling and expanded-output state from the source nodes; duplicate preview ids are only render ids and must not be treated as execution-history ids
 - hover styling is a distinct render path from true selection; hovered nodes get lightweight visual treatment without reusing the stronger selected-node styling
 
 ### Contexts instead of prop drilling

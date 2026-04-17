@@ -1,7 +1,4 @@
-- In the workspace navigation (canvas/plugins/comminity/preompt designer...) when a tab is selected, it's both highlighted with a primary color and gets bigge rin size. Let's not change the size. The highlighted color is enough
-
-- When dragging around a node with the error output (red indication in the output area), the indication appears green. When releasing the dragging, it becomes red again. Let's fix it. Red shoud stay red.
-
+- Some nodes (for example the code node) when they show the internal content, it's truncated on the right (each line is truncated with "...") even if the node is resized to accommodate the content. Let's fix it. If the code is wide enough, it shouls show more of the content. The text node, for example, doesn't have this problem
 
 - I want to be able to go Ctrl++ and Ctrl+- in the code/text editor to make inly it larger or smaller
 

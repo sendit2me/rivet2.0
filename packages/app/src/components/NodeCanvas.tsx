@@ -127,6 +127,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
     dragMode,
     draggingConnectionSourceNodeIds,
     draggingNodes,
+    draggedSourceNodeIds,
     onNodeDragActivatorPointerDown,
     onNodeDragCancelled,
     onNodeStartDrag,
@@ -410,6 +411,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
           dragMode={dragMode}
           draggingNodeConnections={draggingNodeConnections}
           draggingNodes={draggingNodes}
+          draggingSourceNodeIds={draggedSourceNodeIds}
           hoveredNodeId={hoveringPort ? undefined : hoveringNode}
           isNodeVisible={isNodeVisible}
           lastRunPerNode={lastRunPerNode}

@@ -304,6 +304,7 @@ export const useDraggingNode = () => {
     dragMode,
     draggingConnectionSourceNodeIds,
     draggingNodes,
+    draggedSourceNodeIds,
     onNodeDragActivatorPointerDown,
     onNodeDragCancelled,
     onNodeStartDrag,
