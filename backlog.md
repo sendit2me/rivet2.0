@@ -1,5 +1,6 @@
 - I want to resize the nodes on all sides, not just the bottom right corner
 
+- When I hover the node, everything in it wobbles a bit
 
 - I want to be able to go Ctrl++ and Ctrl+- in the code/text editor to make inly it larger or smaller
 

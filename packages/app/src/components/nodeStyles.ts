@@ -534,10 +534,16 @@ export const nodeStyles = css`
   .prompt-designer-button {
     width: 24px;
     height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     font-size: 24px;
     opacity: 0.2;
     cursor: pointer;
-    transition: opacity 0.2s;
+    transition:
+      opacity 0.2s,
+      background-color 0.2s,
+      box-shadow 0.2s;
     z-index: 1;
   }
 
@@ -556,8 +562,10 @@ export const nodeStyles = css`
   }
 
   .node.isOutputExpanded .output-toggle-button {
-    opacity: 0.75;
-    color: var(--primary-text);
+    opacity: 1;
+    background-color: transparent;
+    box-shadow: none;
+    color: var(--primary);
   }
 
   .node .running {

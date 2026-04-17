@@ -19,7 +19,6 @@ import CopyIcon from 'majesticons/line/clipboard-line.svg?react';
 import ExpandIcon from 'majesticons/line/maximize-line.svg?react';
 import FlaskIcon from 'majesticons/line/flask-line.svg?react';
 import ExpandDownStopIcon from '../assets/icons/expand-down-stop.svg?react';
-import ExpandTopStopIcon from '../assets/icons/expand-top-stop.svg?react';
 import { FullScreenModal } from './FullScreenModal.js';
 import { promptDesignerAttachedChatNodeState } from '../state/promptDesigner.js';
 import { overlayOpenState } from '../state/ui';
@@ -433,7 +432,7 @@ const NodeOutputSingleProcess: FC<{
   return (
     <div className="node-output-inner">
       <div className="overlay-buttons">
-        <Tooltip content={isOutputExpanded ? 'Show Compact Output' : 'Show Full Output'}>
+        <Tooltip content="Show Full Output">
           <div
             className="output-toggle-button"
             onClick={(event) => {
@@ -441,7 +440,7 @@ const NodeOutputSingleProcess: FC<{
               onToggleExpandedOutput();
             }}
           >
-            {isOutputExpanded ? <ExpandTopStopIcon /> : <ExpandDownStopIcon />}
+            <ExpandDownStopIcon />
           </div>
         </Tooltip>
         <Tooltip content="Copy node output to clipboard">
