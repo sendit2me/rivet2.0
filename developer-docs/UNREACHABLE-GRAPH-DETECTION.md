@@ -1,11 +1,11 @@
-# Unused Graph Detection Investigation
+# Unreachable Graph Detection Investigation
 
 > Internal investigation notes for classifying graphs as definitely reachable,
 > dynamically reachable, or unreachable from a project's configured main graph.
 
 ## Summary
 
-This repo can no longer treat "unused graphs" as a simple "is this graph selected by a Subgraph node?" question.
+This repo can no longer treat "unreachable graphs" as a simple "is this graph selected by a Subgraph node?" question.
 
 Current same-project execution reachability comes from a mix of:
 
@@ -161,7 +161,7 @@ For reachability, this is treated as a static stored edge plus a warning.
 When the graph-list feature is implemented, use:
 
 - `definitely reachable`: normal graph styling
-- `dynamically reachable`: ambiguous styling / badge / tooltip, not "unused"
-- `unreachable`: the only bucket that should be visually marked as unused
+- `dynamically reachable`: ambiguous styling / badge / tooltip, not "unreachable"
+- `unreachable`: the only bucket that should be visually marked as unreachable
 
 That preserves the three-bucket model without collapsing runtime-only dispatch into a false negative.

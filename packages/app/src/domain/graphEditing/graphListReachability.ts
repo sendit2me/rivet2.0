@@ -4,7 +4,7 @@ import { type GraphReachabilityBucket, type GraphReachabilityReport } from '../.
 
 export type GraphListReachabilityPresentation = {
   bucketByGraphId: Record<GraphId, GraphReachabilityBucket>;
-  showUnusedBadges: boolean;
+  showUnreachableBadges: boolean;
   notice?: string;
 };
 
@@ -26,30 +26,30 @@ export function buildGraphListReachabilityPresentation(options: {
   if (waitingForPlugins) {
     return {
       bucketByGraphId,
-      showUnusedBadges: false,
-      notice: 'Unused graph analysis is waiting for project plugins to load.',
+      showUnreachableBadges: false,
+      notice: 'Unreachable graph analysis is waiting for project plugins to load.',
     };
   }
 
   if (report.status === 'blocked') {
     return {
       bucketByGraphId,
-      showUnusedBadges: false,
-      notice: 'Set a valid Main Graph in Project settings to see unused graphs.',
+      showUnreachableBadges: false,
+      notice: 'Set a valid Main Graph in Project settings to see unreachable graphs.',
     };
   }
 
   if (report.status === 'partial') {
     return {
       bucketByGraphId,
-      showUnusedBadges: true,
-      notice: 'Unused graph analysis may be incomplete for third-party plugin nodes.',
+      showUnreachableBadges: true,
+      notice: getPartialAnalysisNotice(report),
     };
   }
 
   return {
     bucketByGraphId,
-    showUnusedBadges: true,
+    showUnreachableBadges: true,
   };
 }
 
@@ -63,4 +63,18 @@ function getBucketForGraph(graphId: GraphId, report: GraphReachabilityReport): G
   }
 
   return 'unreachable';
+}
+
+function getPartialAnalysisNotice(report: GraphReachabilityReport): string {
+  const reasons = new Set(report.unsupportedReasons);
+
+  if (reasons.has('unregistered-node-type') && reasons.has('third-party-plugin-node')) {
+    return 'Unreachable graph analysis may be incomplete for unsupported or third-party plugin nodes.';
+  }
+
+  if (reasons.has('unregistered-node-type')) {
+    return 'Unreachable graph analysis may be incomplete for unsupported node types.';
+  }
+
+  return 'Unreachable graph analysis may be incomplete for third-party plugin nodes.';
 }

@@ -5,7 +5,9 @@ import {
   type NodeGraph,
   type NodeId,
   type PortId,
+  type PluginLoadSpec,
   type Project,
+  resolveBuiltInPlugin,
 } from '@ironclad/rivet-core';
 
 export type GraphReachabilityBucket = 'definitely-reachable' | 'dynamically-reachable' | 'unreachable';
@@ -13,6 +15,8 @@ export type GraphReachabilityBucket = 'definitely-reachable' | 'dynamically-reac
 export type GraphReachabilityAnalysisStatus = 'ready' | 'partial' | 'blocked';
 
 export type GraphReachabilityBlockedReason = 'missing-main-graph' | 'invalid-main-graph';
+
+export type GraphReachabilityUnsupportedReason = 'unregistered-node-type' | 'third-party-plugin-node';
 
 export type GraphDependencyEdgeKind =
   | 'direct-static'
@@ -34,6 +38,7 @@ export type GraphReachabilityReport = {
   dynamic: Set<GraphId>;
   unreachable: Set<GraphId>;
   unsupportedNodeTypes: string[];
+  unsupportedReasons: GraphReachabilityUnsupportedReason[];
   warnings: string[];
 };
 
@@ -44,6 +49,18 @@ type GraphDependencyEdge = {
   targets: GraphId[];
   warnings?: string[];
 };
+
+type CallGraphSourceResolution =
+  | {
+      status: 'missing';
+      warnings: string[];
+    }
+  | {
+      status: 'resolved';
+      sourceConnection: NodeConnection;
+      sourceNode: ChartNode;
+      warnings: string[];
+    };
 
 type ProjectWithGraphs = Pick<Project, 'metadata' | 'graphs'>;
 
@@ -82,12 +99,33 @@ type RunThreadNodeData = {
 const CALL_GRAPH_INPUT_ID = 'graph' as PortId;
 const GRAPH_REFERENCE_OUTPUT_ID = 'graph' as PortId;
 
+export function resolveSupportedBuiltInPluginIds(pluginSpecs: PluginLoadSpec[] | undefined): Set<string> {
+  const supportedIds = new Set<string>();
+
+  for (const spec of pluginSpecs ?? []) {
+    if (spec.type !== 'built-in') {
+      continue;
+    }
+
+    supportedIds.add(spec.id);
+
+    try {
+      supportedIds.add(resolveBuiltInPlugin(spec.id).id);
+    } catch {
+      // Keep the explicit spec id even if the built-in plugin catalog has drifted.
+    }
+  }
+
+  return supportedIds;
+}
+
 export function getGraphReachabilityReport(
   project: ProjectWithGraphs,
   options: GetGraphReachabilityReportOptions = {},
 ): GraphReachabilityReport {
   const warnings = new Set<string>();
   const unsupportedNodeTypes = new Set<string>();
+  const unsupportedReasons = new Set<GraphReachabilityUnsupportedReason>();
   const graphEntries = Object.entries(project.graphs) as Array<[GraphId, NodeGraph]>;
   const allGraphIds = graphEntries.map(([graphId]) => graphId);
   const namedGraphIds = graphEntries
@@ -121,29 +159,25 @@ export function getGraphReachabilityReport(
       'Reachability is rooted at project.metadata.mainGraphId. This project has no main graph, even though some runtime paths can fall back to a different graph.',
     );
 
-    return {
-      status: 'blocked',
+    return buildBlockedReport({
       blockedReason: 'missing-main-graph',
       definite,
       dynamic,
-      unreachable: new Set(allGraphIds),
-      unsupportedNodeTypes: [],
-      warnings: [...warnings],
-    };
+      allGraphIds,
+      warnings,
+    });
   }
 
   if (!project.graphs[mainGraphId]) {
     warnings.add(`The configured main graph ${mainGraphId} does not exist in the current project.`);
 
-    return {
-      status: 'blocked',
+    return buildBlockedReport({
       blockedReason: 'invalid-main-graph',
       definite,
       dynamic,
-      unreachable: new Set(allGraphIds),
-      unsupportedNodeTypes: [],
-      warnings: [...warnings],
-    };
+      allGraphIds,
+      warnings,
+    });
   }
 
   enqueue(mainGraphId, 'definite');
@@ -167,6 +201,7 @@ export function getGraphReachabilityReport(
       graph,
       registry: options.registry,
       unsupportedNodeTypes,
+      unsupportedReasons,
     });
 
     const edges = collectGraphDependencyEdges({
@@ -206,6 +241,7 @@ export function getGraphReachabilityReport(
     dynamic,
     unreachable,
     unsupportedNodeTypes: [...unsupportedNodeTypes].sort(),
+    unsupportedReasons: [...unsupportedReasons].sort(),
     warnings: [...warnings],
   };
 }
@@ -215,8 +251,9 @@ function collectUnsupportedNodeTypes(options: {
   graph: NodeGraph;
   registry: GraphReachabilityRegistry | undefined;
   unsupportedNodeTypes: Set<string>;
+  unsupportedReasons: Set<GraphReachabilityUnsupportedReason>;
 }) {
-  const { builtInPluginIds, graph, registry, unsupportedNodeTypes } = options;
+  const { builtInPluginIds, graph, registry, unsupportedNodeTypes, unsupportedReasons } = options;
 
   if (!registry) {
     return;
@@ -229,14 +266,37 @@ function collectUnsupportedNodeTypes(options: {
 
     if (!registry.isRegistered(node.type)) {
       unsupportedNodeTypes.add(node.type);
+      unsupportedReasons.add('unregistered-node-type');
       continue;
     }
 
     const plugin = registry.getPluginFor(node.type);
     if (plugin && !builtInPluginIds.has(plugin.id)) {
       unsupportedNodeTypes.add(node.type);
+      unsupportedReasons.add('third-party-plugin-node');
     }
   }
+}
+
+function buildBlockedReport(options: {
+  blockedReason: GraphReachabilityBlockedReason;
+  definite: Set<GraphId>;
+  dynamic: Set<GraphId>;
+  allGraphIds: GraphId[];
+  warnings: ReadonlySet<string>;
+}): GraphReachabilityReport {
+  const { blockedReason, definite, dynamic, allGraphIds, warnings } = options;
+
+  return {
+    status: 'blocked',
+    blockedReason,
+    definite,
+    dynamic,
+    unreachable: new Set(allGraphIds),
+    unsupportedNodeTypes: [],
+    unsupportedReasons: [],
+    warnings: [...warnings],
+  };
 }
 
 function collectGraphDependencyEdges(options: {
@@ -422,47 +482,27 @@ function collectCallGraphEdges(options: {
   project: ProjectWithGraphs;
 }): GraphDependencyEdge[] {
   const { allGraphIds, connectionsByInputNodeId, graph, node, nodesById, project } = options;
-  const graphInputConnections = (connectionsByInputNodeId[node.id] ?? []).filter(
-    (connection) => connection.inputId === CALL_GRAPH_INPUT_ID,
-  );
+  const sourceResolution = resolveCallGraphSource({
+    connectionsByInputNodeId,
+    graph,
+    node,
+    nodesById,
+  });
 
-  if (graphInputConnections.length === 0) {
-    return [];
+  if (sourceResolution.status === 'missing') {
+    return createInvalidEdgeOrSkip(sourceResolution.warnings);
   }
 
-  if (graphInputConnections.length > 1) {
-    return [
-      {
-        kind: 'dynamic-via-callgraph',
-        targets: allGraphIds,
-        warnings: [`${formatNodeContext(graph, node)} has multiple graph inputs; reachability is treated as dynamic.`],
-      },
-    ];
-  }
-
-  const sourceConnection = graphInputConnections[0]!;
-  const sourceNode = nodesById[sourceConnection.outputNodeId];
-
-  if (!sourceNode) {
-    return [
-      {
-        kind: 'invalid',
-        targets: [],
-        warnings: [
-          `${formatNodeContext(graph, node)} is wired from missing node ${sourceConnection.outputNodeId}; reachability could not be resolved.`,
-        ],
-      },
-    ];
-  }
+  const { sourceConnection, sourceNode, warnings } = sourceResolution;
 
   if (sourceNode.disabled) {
-    return [];
+    return createInvalidEdgeOrSkip(warnings);
   }
 
   if (isStaticGraphReferenceCarrier(sourceNode, sourceConnection.outputId)) {
     const data = sourceNode.data as GraphReferenceNodeData;
     if (data.useGraphIdOrNameInput) {
-      return [{ kind: 'dynamic-via-callgraph', targets: allGraphIds }];
+      return [withWarnings({ kind: 'dynamic-via-callgraph', targets: allGraphIds }, warnings)];
     }
 
     if (!data.graphId) {
@@ -470,7 +510,7 @@ function collectCallGraphEdges(options: {
         {
           kind: 'invalid',
           targets: [],
-          warnings: [`${formatNodeContext(graph, sourceNode)} has no configured graph reference target.`],
+          warnings: [...warnings, `${formatNodeContext(graph, sourceNode)} has no configured graph reference target.`],
         },
       ];
     }
@@ -481,16 +521,70 @@ function collectCallGraphEdges(options: {
           kind: 'invalid',
           targets: [],
           warnings: [
+            ...warnings,
             `${formatNodeContext(graph, sourceNode)} references missing graph ${data.graphId}; downstream Call Graph nodes cannot resolve it statically.`,
           ],
         },
       ];
     }
 
-    return [{ kind: 'static-via-callgraph', targets: [data.graphId] }];
+    return [withWarnings({ kind: 'static-via-callgraph', targets: [data.graphId] }, warnings)];
   }
 
-  return [{ kind: 'dynamic-via-callgraph', targets: allGraphIds }];
+  return [withWarnings({ kind: 'dynamic-via-callgraph', targets: allGraphIds }, warnings)];
+}
+
+function resolveCallGraphSource(options: {
+  connectionsByInputNodeId: ConnectionIndex;
+  graph: NodeGraph;
+  node: ChartNode;
+  nodesById: Record<NodeId, ChartNode>;
+}): CallGraphSourceResolution {
+  const { connectionsByInputNodeId, graph, node, nodesById } = options;
+  const graphInputConnections = (connectionsByInputNodeId[node.id] ?? []).filter(
+    (connection) => connection.inputId === CALL_GRAPH_INPUT_ID,
+  );
+
+  if (graphInputConnections.length === 0) {
+    return { status: 'missing', warnings: [] };
+  }
+
+  const warnings: string[] = [];
+  const validGraphInputConnections = graphInputConnections.filter((connection) => {
+    if (nodesById[connection.outputNodeId]) {
+      return true;
+    }
+
+    warnings.push(
+      `${formatNodeContext(graph, node)} is wired from missing node ${connection.outputNodeId}; that connection is ignored during reachability analysis.`,
+    );
+    return false;
+  });
+
+  if (validGraphInputConnections.length === 0) {
+    return { status: 'missing', warnings };
+  }
+
+  if (validGraphInputConnections.length > 1) {
+    warnings.push(`${formatNodeContext(graph, node)} has multiple graph inputs; runtime uses the first connection and ignores the rest.`);
+  }
+
+  const sourceConnection = validGraphInputConnections[0]!;
+
+  return {
+    status: 'resolved',
+    sourceConnection,
+    sourceNode: nodesById[sourceConnection.outputNodeId]!,
+    warnings,
+  };
+}
+
+function createInvalidEdgeOrSkip(warnings: string[]): GraphDependencyEdge[] {
+  return warnings.length > 0 ? [{ kind: 'invalid', targets: [], warnings }] : [];
+}
+
+function withWarnings(edge: GraphDependencyEdge, warnings: string[]): GraphDependencyEdge {
+  return warnings.length > 0 ? { ...edge, warnings } : edge;
 }
 
 function isStaticGraphReferenceCarrier(node: ChartNode, outputId: PortId): node is ChartNode<'graphReference'> {

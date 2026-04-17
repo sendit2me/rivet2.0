@@ -1,5 +1,7 @@
 - In the graphs list, mark unused graphs. The ones that are not referenced anywhere.
 
+- The icon for dragging the graphs shopuld br a dragging icon, not a square
+
 - HTTP node - emit fetch failed and other errors like invalid url as a separate output or something. So we can catch that in runtime instead of failing the workflow
 
 - When I move the canvas around, it's smooth but it not keeping up with the cursor movement. It feels like it's lagging behind

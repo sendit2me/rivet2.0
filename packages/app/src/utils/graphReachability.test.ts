@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import test, { describe } from 'node:test';
 import { type ChartNode, type GraphId, type NodeGraph, type Project, type ProjectId } from '@ironclad/rivet-core';
-import { getGraphReachabilityReport, type GraphReachabilityRegistry } from './graphReachability.js';
+import {
+  getGraphReachabilityReport,
+  resolveSupportedBuiltInPluginIds,
+  type GraphReachabilityRegistry,
+} from './graphReachability.js';
 
 function makeNode(type: string, data: Record<string, unknown>, options: { id?: string; disabled?: boolean } = {}): ChartNode {
   return {
@@ -156,6 +160,72 @@ describe('graphReachability', () => {
     assert.deepEqual(sortGraphIds(report.unreachable), ['target']);
   });
 
+  test('matches runtime by using the first valid Call Graph input connection', () => {
+    const staticReference = makeNode(
+      'graphReference',
+      {
+        graphId: 'target' as GraphId,
+        useGraphIdOrNameInput: false,
+      },
+      { id: 'static-ref' },
+    );
+    const dynamicReference = makeNode(
+      'graphReference',
+      {
+        graphId: 'spare' as GraphId,
+        useGraphIdOrNameInput: true,
+      },
+      { id: 'dynamic-ref' },
+    );
+    const callGraph = makeNode('callGraph', {}, { id: 'call' });
+    const main = makeGraph(
+      'main',
+      'Main',
+      [staticReference, dynamicReference, callGraph],
+      [
+        makeConnection('static-ref', 'call', 'graph', 'graph'),
+        makeConnection('dynamic-ref', 'call', 'graph', 'graph'),
+      ],
+    );
+    const target = makeGraph('target', 'Target');
+    const spare = makeGraph('spare', 'Spare');
+
+    const report = getGraphReachabilityReport(makeProject([main, target, spare], 'main'));
+
+    assert.deepEqual(sortGraphIds(report.definite), ['main', 'target']);
+    assert.deepEqual(sortGraphIds(report.dynamic), []);
+    assert.deepEqual(sortGraphIds(report.unreachable), ['spare']);
+    assert.match(report.warnings.join('\n'), /runtime uses the first connection and ignores the rest/i);
+  });
+
+  test('ignores missing upstream Call Graph connections before resolving a later valid connection', () => {
+    const reference = makeNode(
+      'graphReference',
+      {
+        graphId: 'target' as GraphId,
+        useGraphIdOrNameInput: false,
+      },
+      { id: 'ref' },
+    );
+    const callGraph = makeNode('callGraph', {}, { id: 'call' });
+    const main = makeGraph(
+      'main',
+      'Main',
+      [reference, callGraph],
+      [
+        makeConnection('missing-ref', 'call', 'graph', 'graph'),
+        makeConnection('ref', 'call', 'graph', 'graph'),
+      ],
+    );
+    const target = makeGraph('target', 'Target');
+
+    const report = getGraphReachabilityReport(makeProject([main, target], 'main'));
+
+    assert.deepEqual(sortGraphIds(report.definite), ['main', 'target']);
+    assert.deepEqual(sortGraphIds(report.dynamic), []);
+    assert.match(report.warnings.join('\n'), /wired from missing node missing-ref/i);
+  });
+
   test('treats manual handler graphs as definite and auto-delegation by name as dynamic', () => {
     const delegateManual = makeNode('delegateFunctionCall', {
       autoDelegate: false,
@@ -225,6 +295,7 @@ describe('graphReachability', () => {
     assert.equal(report.status, 'blocked');
     assert.equal(report.blockedReason, 'missing-main-graph');
     assert.deepEqual(report.unsupportedNodeTypes, []);
+    assert.deepEqual(report.unsupportedReasons, []);
     assert.match(report.warnings[0] ?? '', /no main graph/i);
   });
 
@@ -249,6 +320,7 @@ describe('graphReachability', () => {
 
     assert.equal(report.status, 'partial');
     assert.deepEqual(report.unsupportedNodeTypes, ['customPluginNode']);
+    assert.deepEqual(report.unsupportedReasons, ['unregistered-node-type']);
   });
 
   test('marks reachable graphs containing third-party plugin nodes as partial', () => {
@@ -264,6 +336,7 @@ describe('graphReachability', () => {
 
     assert.equal(report.status, 'partial');
     assert.deepEqual(report.unsupportedNodeTypes, ['customPluginNode']);
+    assert.deepEqual(report.unsupportedReasons, ['third-party-plugin-node']);
   });
 
   test('treats reachable built-in plugin nodes as supported when the plugin id is configured as built-in', () => {
@@ -278,6 +351,28 @@ describe('graphReachability', () => {
 
     assert.equal(report.status, 'ready');
     assert.deepEqual(report.unsupportedNodeTypes, []);
+    assert.deepEqual(report.unsupportedReasons, []);
+  });
+
+  test('normalizes built-in plugin spec ids to the registry plugin ids', () => {
+    const main = makeGraph('main', 'Main', [makeNode('chatHuggingFace', {})]);
+    const report = getGraphReachabilityReport(makeProject([main], 'main'), {
+      registry: makeRegistry({
+        registeredTypes: ['chatHuggingFace'],
+        pluginByType: { chatHuggingFace: 'huggingface' },
+      }),
+      builtInPluginIds: resolveSupportedBuiltInPluginIds([
+        {
+          type: 'built-in',
+          id: 'huggingFace',
+          name: 'Hugging Face',
+        },
+      ]),
+    });
+
+    assert.equal(report.status, 'ready');
+    assert.deepEqual(report.unsupportedNodeTypes, []);
+    assert.deepEqual(report.unsupportedReasons, []);
   });
 
   test('ignores unsupported third-party plugin nodes in unreachable graphs', () => {
@@ -293,6 +388,7 @@ describe('graphReachability', () => {
 
     assert.equal(report.status, 'ready');
     assert.deepEqual(report.unsupportedNodeTypes, []);
+    assert.deepEqual(report.unsupportedReasons, []);
     assert.deepEqual(sortGraphIds(report.unreachable), ['spare']);
   });
 });

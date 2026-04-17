@@ -16,7 +16,7 @@ import { useStableCallback } from '../hooks/useStableCallback.js';
 import { useGraphOperations } from '../hooks/useGraphOperations';
 import { useGraphListDragDrop } from '../hooks/useGraphListDragDrop';
 import { useProjectNodeRegistry } from '../hooks/useProjectNodeRegistry.js';
-import { getGraphReachabilityReport } from '../utils/graphReachability.js';
+import { getGraphReachabilityReport, resolveSupportedBuiltInPluginIds } from '../utils/graphReachability.js';
 import { FolderItem } from './graphList/FolderItem';
 
 const styles = css`
@@ -169,13 +169,13 @@ const styles = css`
     line-height: 1.4;
   }
 
-  .unused-badge {
+  .unreachable-badge {
     margin-right: 6px;
     padding: 4px 6px;
-    border: 1px solid var(--warning-dark);
+    border: 1px solid var(--grey-light);
     border-radius: 999px;
-    background: var(--warning-lighter);
-    color: var(--warning-dark);
+    background: var(--grey-darkerish);
+    color: var(--grey-lighter);
     font-size: 10px;
     font-weight: 600;
     line-height: 1;
@@ -183,10 +183,10 @@ const styles = css`
     flex-shrink: 0;
   }
 
-  .selected .unused-badge {
-    border-color: var(--foreground-on-primary);
-    background: rgba(255, 255, 255, 0.18);
-    color: var(--foreground-on-primary);
+  .selected .unreachable-badge {
+    border-color: rgba(255, 255, 255, 0.45);
+    background: rgba(0, 0, 0, 0.12);
+    color: rgba(255, 255, 255, 0.92);
   }
 `;
 
@@ -252,10 +252,7 @@ export const GraphList: FC<{ onRunGraph?: (graphId: GraphId) => void }> = memo((
     }
   });
 
-  const builtInPluginIds = useMemo(
-    () => new Set((project.plugins ?? []).flatMap((spec) => (spec.type === 'built-in' ? [spec.id] : []))),
-    [project.plugins],
-  );
+  const builtInPluginIds = useMemo(() => resolveSupportedBuiltInPluginIds(project.plugins), [project.plugins]);
 
   const graphListPlugins = useMemo(() => {
     const pluginStatesById = new Map(plugins.map((plugin) => [plugin.id, plugin]));
@@ -318,7 +315,7 @@ export const GraphList: FC<{ onRunGraph?: (graphId: GraphId) => void }> = memo((
                 depth={0}
                 onGraphSelected={loadGraph}
                 onRenameItem={renameFolderItem}
-                showUnusedBadges={graphListReachability.showUnusedBadges}
+                showUnreachableBadges={graphListReachability.showUnreachableBadges}
               />
             ))}
             <GraphListSpacer />

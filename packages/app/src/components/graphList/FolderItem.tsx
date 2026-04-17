@@ -34,7 +34,7 @@ export const FolderItem: FC<{
   draggingItemFolder: string | undefined;
   onGraphSelected?: (savedGraph: NodeGraph) => void;
   onRenameItem: (fullPath: string, newFullPath: string) => void;
-  showUnusedBadges: boolean;
+  showUnreachableBadges: boolean;
 }> = memo(
   ({
     item,
@@ -47,7 +47,7 @@ export const FolderItem: FC<{
     onRenameItem,
     depth,
     dragOverFolderName,
-    showUnusedBadges,
+    showUnreachableBadges,
   }) => {
     const projectMetadata = useAtomValue(projectMetadataState);
     const [expandedFolders, setExpandedFolders] = useAtom(expandedFoldersState);
@@ -63,10 +63,10 @@ export const FolderItem: FC<{
       item.type === 'folder' && dragOverFolderName === fullPath && draggingItemFolder !== dragOverFolderName;
     const graphReachability =
       item.type === 'graph' && savedGraph?.metadata?.id ? graphReachabilityByGraphId[savedGraph.metadata.id] : undefined;
-    const shouldShowUnusedBadge =
+    const shouldShowUnreachableBadge =
       item.type === 'graph' &&
       !isRenaming &&
-      showUnusedBadges &&
+      showUnreachableBadges &&
       graphReachability === 'unreachable';
 
     const handleRenameSaved = useStableCallback((newName: string) => {
@@ -142,9 +142,9 @@ export const FolderItem: FC<{
                 <span>{item.name}</span>
               )}
             </div>
-            {shouldShowUnusedBadge && (
-              <span className="unused-badge" title="This graph is not reachable from the project's Main Graph.">
-                Unused
+            {shouldShowUnreachableBadge && (
+              <span className="unreachable-badge" title="This graph is unreachable from the project's Main Graph.">
+                Unreachable
               </span>
             )}
             <div className="dragger" {...listeners} {...attributes}>
@@ -166,7 +166,7 @@ export const FolderItem: FC<{
                   dragOverFolderName={dragOverFolderName}
                   depth={virtualDepth + 1}
                   draggingItemFolder={draggingItemFolder}
-                  showUnusedBadges={showUnusedBadges}
+                  showUnreachableBadges={showUnreachableBadges}
                 />
               ))}
             </div>
