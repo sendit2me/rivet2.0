@@ -41,9 +41,21 @@ test('ready report shows badges and no notice', () => {
   });
 });
 
-test('blocked report hides badges and shows the main-graph notice', () => {
+test('blocked report hides badges and stays silent when no main graph is set', () => {
   const presentation = buildGraphListReachabilityPresentation({
     report: makeReport({ status: 'blocked', blockedReason: 'missing-main-graph' }, { unreachable: ['main'] }),
+    graphIds: ['main'] as GraphId[],
+    plugins: [],
+  });
+
+  assert.equal(presentation.showUnreachableBadges, false);
+  assert.equal(presentation.notice, undefined);
+  assert.equal(presentation.bucketByGraphId['main' as GraphId], 'unreachable');
+});
+
+test('blocked report shows the main-graph notice when the configured main graph is invalid', () => {
+  const presentation = buildGraphListReachabilityPresentation({
+    report: makeReport({ status: 'blocked', blockedReason: 'invalid-main-graph' }, { unreachable: ['main'] }),
     graphIds: ['main'] as GraphId[],
     plugins: [],
   });

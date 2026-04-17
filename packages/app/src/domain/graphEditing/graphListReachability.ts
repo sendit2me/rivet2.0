@@ -35,7 +35,7 @@ export function buildGraphListReachabilityPresentation(options: {
     return {
       bucketByGraphId,
       showUnreachableBadges: false,
-      notice: 'Set a valid Main Graph in Project settings to see unreachable graphs.',
+      notice: getBlockedAnalysisNotice(report),
     };
   }
 
@@ -77,4 +77,12 @@ function getPartialAnalysisNotice(report: GraphReachabilityReport): string {
   }
 
   return 'Unreachable graph analysis may be incomplete for third-party plugin nodes.';
+}
+
+function getBlockedAnalysisNotice(report: GraphReachabilityReport): string | undefined {
+  if (report.blockedReason === 'missing-main-graph') {
+    return undefined;
+  }
+
+  return 'Set a valid Main Graph in Project settings to see unreachable graphs.';
 }
