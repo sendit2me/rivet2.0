@@ -1,6 +1,6 @@
-- Do not show the "Set a valid Main Graph in Project settings to see unreachable graphs." message when there is no main graph set.
-
 - In the workspace navigation (canvas/plugins/comminity/preompt designer...) when a tab is selected, it's both highlighted with a primary color and gets bigge rin size. Let's not change the size. The highlighted color is enough
+
+- When dragging around a node with the error output (red indication in the output area), the indication appears green. When releasing the dragging, it becomes red again. Let's fix it. Red shoud stay red.
 
 
 - I want to be able to go Ctrl++ and Ctrl+- in the code/text editor to make inly it larger or smaller

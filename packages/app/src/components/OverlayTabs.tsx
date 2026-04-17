@@ -34,7 +34,10 @@ const styles = css`
     background-color: transparent;
     color: var(--grey-light);
     border: none;
-    transition: height 0.2s ease-out;
+    transition:
+      background-color 0.2s ease-out,
+      color 0.2s ease-out,
+      border-color 0.2s ease-out;
 
     border: 1px solid var(--grey);
     border-top: none;
@@ -60,10 +63,6 @@ const styles = css`
     cursor: pointer;
     padding: 0.5rem 1rem;
     color: inherit;
-  }
-
-  .menu-item.active {
-    height: 28px;
   }
 
   .menu-item:hover {
