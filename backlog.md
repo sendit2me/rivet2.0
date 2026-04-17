@@ -1,5 +1,3 @@
-- Some nodes (for example the code node) when they show the internal content, it's truncated on the right (each line is truncated with "...") even if the node is resized to accommodate the content. Let's fix it. If the code is wide enough, it shouls show more of the content. The text node, for example, doesn't have this problem
-
 - I want to be able to go Ctrl++ and Ctrl+- in the code/text editor to make inly it larger or smaller
 
 

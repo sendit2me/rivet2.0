@@ -155,12 +155,7 @@ export class CodeNodeImpl extends NodeImpl<CodeNode> {
   }
 
   getBody(): string | NodeBodySpec | undefined {
-    const trimmed = this.data.code
-      .split('\n')
-      .slice(0, 15)
-      .map((line) => (line.length > 50 ? line.slice(0, 50) + '...' : line))
-      .join('\n')
-      .trim();
+    const trimmed = this.data.code.split('\n').slice(0, 15).join('\n').trim();
 
     return {
       type: 'colorized',
