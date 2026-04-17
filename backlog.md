@@ -1,4 +1,9 @@
+- In the code node settings, the "Generate Using AI" UI must be foldable and folded by default.
 
+- In the runs switcher go "Run 1/2" instead of just "1/2"
+
+
+- In the code editor, when utocompletion triggers, there's no way to close it without closing the settings panel. Esc closes the whole panel.
 
 - HTTP node - emit fetch failed and other errors like invalid url as a separate output or something. So we can catch that in runtime instead of failing the workflow
 
@@ -10,7 +15,6 @@
 
 - The run button is pushing down the node settings window. It's better to put the run button to a place where it doesn't dishelp
 
-- The width of the node settings panel on te right - should be adjustable in width
 
 - I want to be able to go Ctrl++ and Ctrl+- in the code/text editor to make inly it larger or smaller
 

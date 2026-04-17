@@ -20,4 +20,6 @@ export const codeEditorHeightsByNodeTypeState = atomWithStorage<Record<string, n
   storage,
 );
 
+export const nodeEditorWidthState = atomWithStorage<number | null>('nodeEditorWidthState', null, storage);
+
 export const helpModalOpenState = atom<boolean>(false);

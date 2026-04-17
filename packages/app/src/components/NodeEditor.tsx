@@ -32,6 +32,8 @@ import { Tooltip } from './Tooltip';
 import { useAtomValue, useAtom, useSetAtom } from 'jotai';
 import { useEditNodeCommand } from '../commands/editNodeCommand';
 import { NodeEditorGlobalControls } from './nodeEditor/NodeEditorGlobalControls.js';
+import { ResizeHandle } from './ResizeHandle.js';
+import { useNodeEditorWidth } from './nodeEditor/useNodeEditorWidth.js';
 
 export const NodeEditorRenderer: FC = () => {
   const nodesById = useAtomValue(nodesByIdState);
@@ -54,15 +56,28 @@ export const NodeEditorRenderer: FC = () => {
   );
 };
 
-const Container = styled.div`
+const Container = styled.div<{ panelWidth: number }>`
   position: absolute;
   top: calc(32px + var(--project-selector-height));
   // tabpanel the parent has a padding of 8px on the left and right, so just move it over a bit...
   right: -8px;
   bottom: 0;
-  width: 45%;
+  width: ${({ panelWidth }) => `${panelWidth}px`};
   max-width: 1000px;
   min-width: 500px;
+
+  .node-editor-width-resize-handle {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 14px;
+    transform: translateX(-50%);
+    cursor: col-resize;
+    z-index: 2;
+    touch-action: none;
+    background: transparent;
+  }
 
   .panel-container {
     display: flex;
@@ -268,6 +283,7 @@ export type NodeChanged = (changed: ChartNode, newData?: Record<DataId, string>)
 export const NodeEditor: FC<NodeEditorProps> = ({ selectedNode, onDeselect }) => {
   const [selectedVariant, setSelectedVariant] = useState<string | undefined>();
   const [addVariantPopupOpen, setAddVariantPopupOpen] = useState(false);
+  const { panelWidth, resizeHandleProps } = useNodeEditorWidth();
 
   const setStaticData = useSetStaticData();
   const editNode = useEditNodeCommand();
@@ -384,7 +400,8 @@ export const NodeEditor: FC<NodeEditorProps> = ({ selectedNode, onDeselect }) =>
   const projectNodeRegistry = useProjectNodeRegistry();
 
   return (
-    <Container>
+    <Container panelWidth={panelWidth}>
+      <ResizeHandle className="node-editor-width-resize-handle" {...resizeHandleProps} />
       <div className="tabs">
         <Tabs id="node-editor-tabs">
           <TabList>
