@@ -1,6 +1,8 @@
-- In the code node, when the settings panel is opem, I cam resize the height of the code editor. I want the same for the text node
+- In the text node. in the settings panel I want a status line under the text gield that shows: Words count, and characters count 
 
 - I noticed that in the code node, when the settings panel is opened, the colorized code preview is not 100% the same colorized preview that is visible in the nod eitself, when it's not opened. The code is still colored but a bit differently. I want the color just like in the actual code editor 
+
+- In the node context menu, the "Delete" item should be red
 
 - In the code node settings, the "Generate Using AI" UI must be foldable and folded by default.
 

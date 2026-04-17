@@ -38,7 +38,7 @@ export const defaultEditorContainerStyles = css`
 
   .editor-wrapper-wrapper {
     min-height: 0;
-    flex: 1 1 auto;
+    flex: 0 0 auto;
     display: flex;
     flex-direction: column;
     position: relative;
@@ -60,7 +60,7 @@ export const defaultEditorContainerStyles = css`
   }
 
   .row.code {
-    flex: 1 1 auto;
+    flex: 0 0 auto;
     display: flex;
     flex-direction: column;
   }

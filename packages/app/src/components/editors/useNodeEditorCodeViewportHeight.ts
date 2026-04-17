@@ -9,7 +9,7 @@ type ResizeHandleMouseEvent = globalThis.MouseEvent;
 // stay visually consistent by default.
 export const DEFAULT_HEIGHT = 500;
 export const MIN_HEIGHT = 200;
-export const RESIZABLE_LANGUAGES = new Set(['javascript', 'json']);
+export const RESIZABLE_LANGUAGES = new Set(['javascript', 'json', 'prompt-interpolation-markdown']);
 
 export function isValidHeight(height: number | undefined): height is number {
   return typeof height === 'number' && Number.isFinite(height) && height > 0;
