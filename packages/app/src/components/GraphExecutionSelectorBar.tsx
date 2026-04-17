@@ -123,8 +123,9 @@ export const GraphExecutionSelectorBar: FC = () => {
     }
   };
 
-  const selectedExecutionText =
+  const selectedExecutionFraction =
     selectedExecutionIndex === -1 ? '0 / 0' : `${selectedExecutionIndex + 1} / ${graphRuns.length}`;
+  const selectedExecutionLabel = `Run ${selectedExecutionFraction}`;
 
   if (!currentGraphView || graphRuns.length <= 1) {
     return null;
@@ -138,10 +139,10 @@ export const GraphExecutionSelectorBar: FC = () => {
         </button>
       </Tooltip>
       <Tooltip
-        content={`This graph view has executed ${graphRuns.length} times. You are viewing execution ${selectedExecutionText}.`}
+        content={`This graph view has executed ${graphRuns.length} times. You are viewing ${selectedExecutionLabel.toLowerCase()}.`}
         placement="bottom"
       >
-        <div className="current">{selectedExecutionText}</div>
+        <div className="current">{selectedExecutionLabel}</div>
       </Tooltip>
       <Tooltip content="Next execution (all nodes)" placement="bottom">
         <button className="next" onClick={onNext}>

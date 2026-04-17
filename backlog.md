@@ -1,6 +1,7 @@
 - In the code node settings, the "Generate Using AI" UI must be foldable and folded by default.
 
-- In the runs switcher go "Run 1/2" instead of just "1/2"
+
+- On Alt_drag, the node must be duplicated
 
 
 - In the code editor, when utocompletion triggers, there's no way to close it without closing the settings panel. Esc closes the whole panel.
