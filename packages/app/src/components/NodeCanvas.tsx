@@ -45,7 +45,7 @@ import {
   searchMatchingNodeIdsState,
   draggingWireClosestPortState,
   hoveringNodeState,
-  pinnedNodesState,
+  expandedOutputNodeIdsState,
 } from '../state/graphBuilder';
 import { graphMetadataState } from '../state/graph.js';
 import { lastRunDataByNodeState, selectedProcessPageNodesState } from '../state/dataFlow';
@@ -98,7 +98,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
   const selectedGraphMetadata = useAtomValue(graphMetadataState);
   const closestPort = useAtomValue(draggingWireClosestPortState);
   const searchMatchingNodes = useAtomValue(searchMatchingNodeIdsState);
-  const pinnedNodes = useAtomValue(pinnedNodesState);
+  const expandedOutputNodeIds = useAtomValue(expandedOutputNodeIdsState);
   const lastRunPerNode = useAtomValue(lastRunDataByNodeState);
   const selectedProcessPagePerNode = useAtomValue(selectedProcessPageNodesState);
   const zoomSensitivity = useAtomValue(zoomSensitivityState);
@@ -258,7 +258,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
   }, [editingNodeId, hoveringNode, hoveringPort, selectedNodeIds]);
 
   const viewportBounds = useViewportBounds();
-  const { isNodeVisible } = useVisibleCanvasNodes({ nodes, pinnedNodeIds: pinnedNodes, viewportBounds });
+  const { isNodeVisible } = useVisibleCanvasNodes({ nodes, expandedOutputNodeIds, viewportBounds });
 
   const nodeSelected = useStableCallback((node: ChartNode, multi: boolean) => {
     onNodeSelected?.(node, multi);
@@ -407,7 +407,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
           nodeTypes={nodeTypes}
           nodesWithConnections={nodesWithConnections}
           onNodeDragActivatorPointerDown={onNodeDragActivatorPointerDown}
-          pinnedNodeIds={pinnedNodes}
+          expandedOutputNodeIds={expandedOutputNodeIds}
           searchMatchingNodeIds={searchMatchingNodes}
           selectedProcessPagePerNode={selectedProcessPagePerNode}
         />

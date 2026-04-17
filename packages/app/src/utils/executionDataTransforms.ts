@@ -31,6 +31,7 @@ import {
   COMPACT_PREVIEW_MAX_LINES,
   REF_STORAGE_THRESHOLD_CHARS,
 } from './outputStorageLimits.js';
+import { buildTextPreviewExcerpt } from './textPreview.js';
 
 type DataRefDeleter = Pick<DataRefStore, 'delete'>;
 
@@ -526,8 +527,10 @@ function buildExecutionDataRefId(scope: RefScope, portId: PortId): string {
 }
 
 function createExcerpt(text: string, maxChars: number, maxLines: number): string {
-  const trimmedToLines = text.split('\n').slice(0, maxLines).join('\n');
-  return trimmedToLines.length > maxChars ? `${trimmedToLines.slice(0, maxChars)}...` : trimmedToLines;
+  return buildTextPreviewExcerpt(text, {
+    maxChars,
+    maxLines,
+  }).text;
 }
 
 function getEncodedHint(text: string): 'base64' | 'data-uri' | undefined {

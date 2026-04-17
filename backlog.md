@@ -1,7 +1,11 @@
+- I want to resize the nodes on all sides, not just the bottom right corner
+
+
+- I want to be able to go Ctrl++ and Ctrl+- in the code/text editor to make inly it larger or smaller
+
+- Sometimes when the node is hovered, the scrollbar appears for a second and then diisappears as the node is expanded vertically
+
 - In the code node settings, the "Generate Using AI" UI must be foldable and folded by default.
-
-- When I drag a node and click Esc, it breaks the graph visually (the node disappears). But when I reopen the grapj, it's there.
-
 
 - In the code editor, when utocompletion triggers, there's no way to close it without closing the settings panel. Esc closes the whole panel.
 
@@ -16,9 +20,8 @@
 - The run button is pushing down the node settings window. It's better to put the run button to a place where it doesn't dishelp
 
 
-- I want to be able to go Ctrl++ and Ctrl+- in the code/text editor to make inly it larger or smaller
+- Nodes for working with lists: filtering, mapping, reducing, etc.
 
-- I want to resize the nodes on all sides, not just the bottom right corner
 
 - When editing the code node inputs and outputs, the return onject should be rewritten accordingly??? At least when it's not altered yet???
 

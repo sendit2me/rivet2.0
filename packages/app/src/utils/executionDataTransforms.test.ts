@@ -48,8 +48,27 @@ test('storeDataValueForHistory stores large strings by ref and restores them los
   assert.equal(stored.storage, 'ref');
   assert.equal(stored.refId, 'execution:node-1:process-1:output:output');
   assert.equal(stored.preview.kind, 'text');
+  assert.equal(stored.preview.excerpt.endsWith('\n...'), true);
   assert.equal(dataRefs.values.get(stored.refId), value);
   assert.deepEqual(restoreStoredDataValue(stored, dataRefs), value);
+});
+
+test('storeDataValueForHistory marks large multi-line string previews as truncated when only the line limit is exceeded', () => {
+  const dataRefs = createDataRefStore();
+  const value = {
+    type: 'string',
+    value: Array.from({ length: 3000 }, (_, index) => `L${index}`).join('\n'),
+  } as const;
+
+  const stored = storeDataValueForHistory(value, dataRefs, {
+    nodeId: 'node-line-limit',
+    processId: 'process-line-limit',
+    channel: 'output',
+  }, 'output' as PortId);
+
+  assert.equal(stored.storage, 'ref');
+  assert.equal(stored.preview.kind, 'text');
+  assert.equal(stored.preview.excerpt, 'L0\nL1\nL2\n...');
 });
 
 test('storeDataValueForHistory keeps smaller strings inline', () => {
@@ -89,6 +108,7 @@ test('storeInputsOrOutputsForHistory stores large objects by ref with json previ
 
   assert.equal((stored as any)?.output.storage, 'ref');
   assert.equal((stored as any)?.output.preview.kind, 'json');
+  assert.equal((stored as any)?.output.preview.excerpt.endsWith('\n...'), true);
   assert.deepEqual(restoreStoredInputsOrOutputs(stored, dataRefs), {
     output: objectValue,
   } as any);

@@ -27,7 +27,7 @@ export interface NodeCanvasViewportProps {
   nodeTypes: NodeTypes;
   nodesWithConnections: Array<{ node: ChartNode; nodeConnections: NodeConnection[] }>;
   onNodeDragActivatorPointerDown: (modifierState: DragActivatorModifierState) => void;
-  pinnedNodeIds: NodeId[];
+  expandedOutputNodeIds: NodeId[];
   searchMatchingNodeIds: NodeId[];
   selectedProcessPagePerNode: Record<NodeId, PageValue>;
 }
@@ -47,7 +47,7 @@ export const NodeCanvasViewport: FC<NodeCanvasViewportProps> = ({
   nodeTypes,
   nodesWithConnections,
   onNodeDragActivatorPointerDown,
-  pinnedNodeIds,
+  expandedOutputNodeIds,
   searchMatchingNodeIds,
   selectedProcessPagePerNode,
 }) => {
@@ -79,7 +79,7 @@ export const NodeCanvasViewport: FC<NodeCanvasViewportProps> = ({
                   isKnownNodeType={node.type in nodeTypes}
                   lastRun={lastRunPerNode[node.id]}
                   onDragActivatorPointerDown={onNodeDragActivatorPointerDown}
-                  isPinned={pinnedNodeIds.includes(node.id)}
+                  isOutputExpanded={expandedOutputNodeIds.includes(node.id)}
                   processPage={selectedProcessPagePerNode[node.id]!}
                 />
               );
@@ -104,7 +104,7 @@ export const NodeCanvasViewport: FC<NodeCanvasViewportProps> = ({
                 connections={draggingNodeConnections}
                 isOverlay
                 isKnownNodeType={node.type in nodeTypes}
-                isPinned={pinnedNodeIds.includes(node.id)}
+                isOutputExpanded={expandedOutputNodeIds.includes(node.id)}
                 processPage={selectedProcessPagePerNode[node.id]!}
               />
             ))}

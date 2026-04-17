@@ -194,12 +194,6 @@ export const nodeStyles = css`
     }
   }
 
-  .node.isPinned .title-controls .pin-button {
-    color: var(--primary-text);
-  }
-
-
-
   .title-controls .tooltip {
     display: flex;
     align-items: center;
@@ -478,7 +472,7 @@ export const nodeStyles = css`
     overflow: auto;
   }
 
-  .node.isPinned .node-output-inner {
+  .node.isOutputExpanded .node-output-inner {
     max-height: unset;
     overflow: auto;
   }
@@ -536,6 +530,7 @@ export const nodeStyles = css`
 
   .copy-button,
   .expand-button,
+  .output-toggle-button,
   .prompt-designer-button {
     width: 24px;
     height: 24px;
@@ -548,14 +543,21 @@ export const nodeStyles = css`
 
   .node:hover .copy-button,
   .node:hover .expand-button,
+  .node:hover .output-toggle-button,
   .node:hover .prompt-designer-button {
     opacity: 0.35;
   }
 
   .node .copy-button:hover,
   .node .expand-button:hover,
+  .node .output-toggle-button:hover,
   .node .prompt-designer-button:hover {
     opacity: 1;
+  }
+
+  .node.isOutputExpanded .output-toggle-button {
+    opacity: 0.75;
+    color: var(--primary-text);
   }
 
   .node .running {

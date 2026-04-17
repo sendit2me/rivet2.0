@@ -14,8 +14,6 @@ import type { SelectedProcessRunProp } from '../VisualNode';
 import SettingsCogIcon from 'majesticons/line/settings-cog-line.svg?react';
 import SendIcon from 'majesticons/solid/send.svg?react';
 import GitForkLine from 'majesticons/line/git-fork-line.svg?react';
-import PinIcon from 'majesticons/line/pin-line.svg?react';
-import PinSolidIcon from 'majesticons/solid/pin.svg?react';
 import BookIcon from 'majesticons/line/book-open-line.svg?react';
 import { ResizeHandle } from '../ResizeHandle.js';
 import { useCanvasPositioning } from '../../hooks/useCanvasPositioning.js';
@@ -23,7 +21,7 @@ import { useStableCallback } from '../../hooks/useStableCallback.js';
 import { LoadingSpinner } from '../LoadingSpinner.js';
 import { NodePortsRenderer } from '../NodePorts.js';
 import { useDependsOnPlugins } from '../../hooks/useDependsOnPlugins';
-import { pinnedNodesState, viewingNodeChangesState } from '../../state/graphBuilder';
+import { viewingNodeChangesState } from '../../state/graphBuilder';
 import { Tooltip } from '../Tooltip';
 import { Port } from '../Port';
 import { preservePortTextCaseState } from '../../state/settings';
@@ -38,20 +36,16 @@ export const NormalVisualNodeContent: FC<{
   handleAttributes?: HTMLAttributes<HTMLDivElement>;
   isKnownNodeType: boolean;
   selectedProcessRun?: SelectedProcessRunProp['selectedProcessRun'];
-  isPinned: boolean;
   isHistoricalChanged: boolean;
-  isHovered: boolean;
 }> = memo(
   ({
     heightCache,
     node,
     connections = [],
     selectedProcessRun,
-    isPinned,
     handleAttributes,
     isKnownNodeType,
     isHistoricalChanged,
-    isHovered,
   }) => {
     useDependsOnPlugins();
     const { draggingWire, closestPortToDraggingWire } = useCanvasViewContext();
@@ -66,7 +60,6 @@ export const NormalVisualNodeContent: FC<{
       onWireStartDrag,
     } = useCanvasHandlersContext();
     const { clientToCanvasPosition } = useCanvasPositioning();
-    const setPinnedNodes = useSetAtom(pinnedNodesState);
     const setViewingNodeChanges = useSetAtom(viewingNodeChangesState);
     const preservePortTextCase = useAtomValue(preservePortTextCaseState);
 
@@ -148,12 +141,6 @@ export const NormalVisualNodeContent: FC<{
       onNodeSelected?.(node, event.shiftKey);
     });
 
-    const togglePinned = useStableCallback(() => {
-      setPinnedNodes((previous) =>
-        previous.includes(node.id) ? previous.filter((nodeId) => nodeId !== node.id) : [...previous, node.id],
-      );
-    });
-
     const viewChanges = () => {
       if (isHistoricalChanged) {
         setViewingNodeChanges(node.id);
@@ -191,9 +178,6 @@ export const NormalVisualNodeContent: FC<{
                 </Tooltip>
               </button>
             )}
-            <button className={clsx('pin-button', { pinned: isPinned })} onClick={togglePinned}>
-              <Tooltip content="Pin node (always show entire output)">{isPinned ? <PinSolidIcon /> : <PinIcon />}</Tooltip>
-            </button>
             <div className="last-run-status">
               {selectedProcessRun?.status ? (
                 match(selectedProcessRun.status)
@@ -250,7 +234,7 @@ export const NormalVisualNodeContent: FC<{
         {isKnownNodeType && <NodePortsRenderer node={node} connections={connections} />}
 
         <ErrorBoundary fallback={<div>Error rendering node output</div>}>
-          <NodeOutput node={node} isHovered={isHovered} />
+          <NodeOutput node={node} />
         </ErrorBoundary>
         <div className="node-resize">
           <ResizeHandle onResizeStart={handleResizeStart} onResizeMove={handleResizeMove} onResizeEnd={handleResizeEnd} />

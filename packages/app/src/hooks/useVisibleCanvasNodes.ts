@@ -3,12 +3,12 @@ import type { ChartNode, NodeId } from '@ironclad/rivet-core';
 
 export function useVisibleCanvasNodes(options: {
   nodes: ChartNode[];
-  pinnedNodeIds: NodeId[];
+  expandedOutputNodeIds: NodeId[];
   viewportBounds: { left: number; right: number; top: number; bottom: number };
 }): {
   isNodeVisible: (node: ChartNode) => boolean;
 } {
-  const { nodes, pinnedNodeIds, viewportBounds } = options;
+  const { nodes, expandedOutputNodeIds, viewportBounds } = options;
   const visibilityByNode = useRef(new WeakMap<ChartNode, boolean>());
   const [visibleVersion, setVisibleVersion] = useState(0);
   const movingRerenderTimeout = useRef<number | undefined>();
@@ -20,13 +20,13 @@ export function useVisibleCanvasNodes(options: {
   useLayoutEffect(() => {
     const recalculateVisibleNodes = () => {
       for (const node of nodes) {
-        const isPinned = pinnedNodeIds.includes(node.id);
+        const isOutputExpanded = expandedOutputNodeIds.includes(node.id);
         const shouldHide =
           (node.visualData.x < viewportBounds.left - (node.visualData.width ?? 300) ||
             node.visualData.x > viewportBounds.right + (node.visualData.width ?? 300) ||
             node.visualData.y < viewportBounds.top - 500 ||
             node.visualData.y > viewportBounds.bottom + 500) &&
-          !isPinned;
+          !isOutputExpanded;
 
         visibilityByNode.current.set(node, !shouldHide);
       }
@@ -46,8 +46,8 @@ export function useVisibleCanvasNodes(options: {
     }
   }, [
     debounceTime,
+    expandedOutputNodeIds,
     nodes,
-    pinnedNodeIds,
     viewportBounds.bottom,
     viewportBounds.left,
     viewportBounds.right,

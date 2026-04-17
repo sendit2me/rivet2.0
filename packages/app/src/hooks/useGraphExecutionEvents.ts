@@ -106,17 +106,23 @@ export function useGraphExecutionEvents({
   };
 
   const onGraphAbort = (data: ProcessEvents['graphAbort']) => {
-    const graphViewKey = buildGraphViewKeyFromExecution({ execution: data.execution });
+    const graphViewKey = buildGraphViewKeyFromExecution({
+      execution: data.execution,
+      graphIdFallback: data.graph.metadata!.id!,
+    });
 
     setRunningGraphsState((running) => removeRunningGraphEntry(running, data.graph.metadata!.id!));
-    finishGraphRun(graphViewKey, data.execution.graphRunId, 'aborted');
+    finishGraphRun(graphViewKey, data.execution?.graphRunId, 'aborted');
   };
 
   const onGraphError = (data: ProcessEvents['graphError']) => {
-    const graphViewKey = buildGraphViewKeyFromExecution({ execution: data.execution });
+    const graphViewKey = buildGraphViewKeyFromExecution({
+      execution: data.execution,
+      graphIdFallback: data.graph.metadata!.id!,
+    });
 
     setRunningGraphsState((running) => removeRunningGraphEntry(running, data.graph.metadata!.id!));
-    finishGraphRun(graphViewKey, data.execution.graphRunId, 'error');
+    finishGraphRun(graphViewKey, data.execution?.graphRunId, 'error');
   };
 
   const onError = (data: ProcessEvents['error']) => {
@@ -129,7 +135,15 @@ export function useGraphExecutionEvents({
   const onGraphStart = (data: ProcessEvents['graphStart']) => {
     setRunningGraphsState((running) => [...running, data.graph.metadata!.id!]);
 
-    const graphViewKey = buildGraphViewKeyFromExecution({ execution: data.execution });
+    const graphViewKey = buildGraphViewKeyFromExecution({
+      execution: data.execution,
+      graphIdFallback: data.graph.metadata!.id!,
+    });
+
+    if (!data.execution) {
+      setSelectedGraphRunByView((prev) => updateSelectedGraphRunForGraphStart(prev, graphViewKey));
+      return;
+    }
 
     setGraphRunHistoryByView((prev) =>
       produce(prev, (draft) => {
@@ -156,8 +170,11 @@ export function useGraphExecutionEvents({
       setRunningGraphsState((running) => removeRunningGraphEntry(running, data.graph.metadata!.id!));
     }
 
-    const graphViewKey = buildGraphViewKeyFromExecution({ execution: data.execution });
-    finishGraphRun(graphViewKey, data.execution.graphRunId, 'ok');
+    const graphViewKey = buildGraphViewKeyFromExecution({
+      execution: data.execution,
+      graphIdFallback: data.graph.metadata!.id!,
+    });
+    finishGraphRun(graphViewKey, data.execution?.graphRunId, 'ok');
   };
 
   const onPause = () => {
@@ -168,7 +185,15 @@ export function useGraphExecutionEvents({
     setGraphPaused(false);
   };
 
-  const finishGraphRun = (graphViewKey: GraphViewKey, graphRunId: GraphRunId, status: GraphRunRecord['status']) => {
+  const finishGraphRun = (
+    graphViewKey: GraphViewKey,
+    graphRunId: GraphRunId | undefined,
+    status: GraphRunRecord['status'],
+  ) => {
+    if (!graphRunId) {
+      return;
+    }
+
     setGraphRunHistoryByView((prev) =>
       produce(prev, (draft) => {
         const run = draft[graphViewKey]?.find((graphRun) => graphRun.graphRunId === graphRunId);

@@ -18,12 +18,14 @@ import { css } from '@emotion/react';
 import CopyIcon from 'majesticons/line/clipboard-line.svg?react';
 import ExpandIcon from 'majesticons/line/maximize-line.svg?react';
 import FlaskIcon from 'majesticons/line/flask-line.svg?react';
+import ExpandDownStopIcon from '../assets/icons/expand-down-stop.svg?react';
+import ExpandTopStopIcon from '../assets/icons/expand-top-stop.svg?react';
 import { FullScreenModal } from './FullScreenModal.js';
 import { promptDesignerAttachedChatNodeState } from '../state/promptDesigner.js';
 import { overlayOpenState } from '../state/ui';
 import { useDependsOnPlugins } from '../hooks/useDependsOnPlugins';
 import { useToggle } from 'ahooks';
-import { pinnedNodesState } from '../state/graphBuilder';
+import { expandedOutputNodeIdsState } from '../state/graphBuilder';
 import { useNodeIO } from '../hooks/useGetNodeIO';
 import { Tooltip } from './Tooltip';
 import { useDataRefs } from '../providers/ProvidersContext';
@@ -35,20 +37,28 @@ import { FullscreenOutputSearchContext } from './nodeOutput/FullscreenOutputSear
 import { useFullscreenOutputSearch } from './nodeOutput/useFullscreenOutputSearch.js';
 import { FullscreenNodeOutputToolbar } from './nodeOutput/FullscreenNodeOutputToolbar.js';
 import { MATCH_ACTIVE_CLASS, MATCH_CLASS } from './nodeOutput/fullscreenOutputSearch.js';
+import { resolveNodeOutputPreviewMode } from './nodeOutput/nodeOutputPreviewMode.js';
 
-export const NodeOutput: FC<{ node: ChartNode; isHovered: boolean }> = memo(({ node, isHovered: _isHovered }) => {
+export const NodeOutput: FC<{ node: ChartNode }> = memo(({ node }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   useDependsOnPlugins();
 
-  const isPinned = useAtomValue(pinnedNodesState).includes(node.id);
+  const isOutputExpanded = useAtomValue(expandedOutputNodeIdsState).includes(node.id);
+  const setExpandedOutputNodeIds = useSetAtom(expandedOutputNodeIdsState);
 
   const handleWheel = useStableCallback((e: MouseEvent<HTMLDivElement>) => {
-    if (isPinned) {
-      return; // Scroll is allowed because there's no scroll bar when pinned
+    if (isOutputExpanded) {
+      return; // Scroll is allowed because the output is already expanded.
     }
 
     // Prevent zooming the graph when scrolling the output
     e.stopPropagation();
+  });
+
+  const handleToggleExpandedOutput = useStableCallback(() => {
+    setExpandedOutputNodeIds((previous) =>
+      previous.includes(node.id) ? previous.filter((nodeId) => nodeId !== node.id) : [...previous, node.id],
+    );
   });
 
   return (
@@ -57,7 +67,12 @@ export const NodeOutput: FC<{ node: ChartNode; isHovered: boolean }> = memo(({ n
         <NodeFullscreenOutput node={node} />
       </FullScreenModal>
       <div onWheel={handleWheel}>
-        <NodeOutputBase node={node} onOpenFullscreenModal={() => setIsModalOpen(true)} />
+        <NodeOutputBase
+          node={node}
+          isOutputExpanded={isOutputExpanded}
+          onToggleExpandedOutput={handleToggleExpandedOutput}
+          onOpenFullscreenModal={() => setIsModalOpen(true)}
+        />
       </div>
     </div>
   );
@@ -318,8 +333,10 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
 
 const NodeOutputBase: FC<{
   node: ChartNode;
+  isOutputExpanded: boolean;
+  onToggleExpandedOutput: () => void;
   onOpenFullscreenModal?: () => void;
-}> = ({ node, onOpenFullscreenModal }) => {
+}> = ({ node, isOutputExpanded, onToggleExpandedOutput, onOpenFullscreenModal }) => {
   const output = useAtomValue(lastRunDataState(node.id));
   const graphSelectionOptions = useAtomValue(resolvedGraphSelectionState);
   const filteredOutput = useMemo(
@@ -342,7 +359,9 @@ const NodeOutputBase: FC<{
         <NodeOutputSingleProcess
           node={node}
           data={firstOutput.data}
+          isOutputExpanded={isOutputExpanded}
           processId={firstOutput.processId}
+          onToggleExpandedOutput={onToggleExpandedOutput}
           onOpenFullscreenModal={onOpenFullscreenModal}
         />
       </div>
@@ -350,7 +369,13 @@ const NodeOutputBase: FC<{
   } else {
     return (
       <div className="node-output multi">
-        <NodeOutputMultiProcess node={node} data={filteredOutput} onOpenFullscreenModal={onOpenFullscreenModal} />
+        <NodeOutputMultiProcess
+          node={node}
+          data={filteredOutput}
+          isOutputExpanded={isOutputExpanded}
+          onToggleExpandedOutput={onToggleExpandedOutput}
+          onOpenFullscreenModal={onOpenFullscreenModal}
+        />
       </div>
     );
   }
@@ -359,9 +384,11 @@ const NodeOutputBase: FC<{
 const NodeOutputSingleProcess: FC<{
   node: ChartNode;
   data: NodeRunDataWithRefs;
+  isOutputExpanded: boolean;
   processId: ProcessId;
+  onToggleExpandedOutput: () => void;
   onOpenFullscreenModal?: () => void;
-}> = ({ node, data, processId, onOpenFullscreenModal }) => {
+}> = ({ node, data, isOutputExpanded, processId, onToggleExpandedOutput, onOpenFullscreenModal }) => {
   const dataRefs = useDataRefs();
   const { Output, OutputSimple, getCopyValueData } = useUnknownNodeComponentDescriptorFor(node);
 
@@ -391,19 +418,32 @@ const NodeOutputSingleProcess: FC<{
     return null;
   }
 
+  const { isCompact, renderMode } = resolveNodeOutputPreviewMode(isOutputExpanded);
+
   const body = renderNodeOutputBody({
     Output,
     OutputSimple,
     node,
     data,
     definitions: io.outputDefinitions,
-    isCompact: true,
-    renderMode: 'compact',
+    isCompact,
+    renderMode,
   });
 
   return (
     <div className="node-output-inner">
       <div className="overlay-buttons">
+        <Tooltip content={isOutputExpanded ? 'Show Compact Output' : 'Show Full Output'}>
+          <div
+            className="output-toggle-button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onToggleExpandedOutput();
+            }}
+          >
+            {isOutputExpanded ? <ExpandTopStopIcon /> : <ExpandDownStopIcon />}
+          </div>
+        </Tooltip>
         <Tooltip content="Copy node output to clipboard">
           <div className="copy-button" onClick={handleCopyToClipboard}>
             <CopyIcon />
@@ -444,8 +484,10 @@ const NodeOutputSingleProcess: FC<{
 const NodeOutputMultiProcess: FC<{
   node: ChartNode;
   data: ProcessDataForNode[];
+  isOutputExpanded: boolean;
+  onToggleExpandedOutput: () => void;
   onOpenFullscreenModal?: () => void;
-}> = ({ node, data, onOpenFullscreenModal }) => {
+}> = ({ node, data, isOutputExpanded, onToggleExpandedOutput, onOpenFullscreenModal }) => {
   const [selectedPage, setSelectedPage] = useAtom(selectedProcessPageState(node.id));
 
   const prevPage = useStableCallback(() => {
@@ -481,8 +523,10 @@ const NodeOutputMultiProcess: FC<{
       {selectedData && (
         <NodeOutputSingleProcess
           data={selectedData.data}
+          isOutputExpanded={isOutputExpanded}
           node={node}
           processId={selectedData.processId}
+          onToggleExpandedOutput={onToggleExpandedOutput}
           onOpenFullscreenModal={onOpenFullscreenModal}
         />
       )}

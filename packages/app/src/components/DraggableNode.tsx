@@ -17,7 +17,7 @@ interface DraggableNodeProps {
   lastRun?: ProcessDataForNode[];
   onDragActivatorPointerDown: (modifierState: DragActivatorModifierState) => void;
   processPage: number | 'latest';
-  isPinned: boolean;
+  isOutputExpanded: boolean;
 }
 
 export const DraggableNode: FC<DraggableNodeProps> = ({
@@ -29,7 +29,7 @@ export const DraggableNode: FC<DraggableNodeProps> = ({
   lastRun,
   onDragActivatorPointerDown,
   processPage,
-  isPinned,
+  isOutputExpanded,
   renderSkeleton,
 }) => {
   const { canvasZoom } = useCanvasViewContext();
@@ -63,7 +63,7 @@ export const DraggableNode: FC<DraggableNodeProps> = ({
         isKnownNodeType={isKnownNodeType}
         lastRun={lastRun}
         processPage={processPage}
-        isPinned={isPinned}
+        isOutputExpanded={isOutputExpanded}
         renderSkeleton={renderSkeleton}
       />
     </ErrorBoundary>

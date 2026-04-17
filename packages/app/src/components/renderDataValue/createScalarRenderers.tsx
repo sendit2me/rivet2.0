@@ -19,6 +19,7 @@ import ColorizedPreformattedText from '../ColorizedPreformattedText.js';
 import { RenderChatMessagePart } from './RenderChatMessagePart.js';
 import { COMPACT_PREVIEW_MAX_CHARS, COMPACT_PREVIEW_MAX_LINES } from '../../utils/outputStorageLimits.js';
 import { getRenderedStringText } from './stringPreview.js';
+import { buildTextPreviewExcerpt } from '../../utils/textPreview.js';
 
 export type ScalarRendererProps<T extends DataType = DataType> = {
   value: Extract<ScalarDataValue, { type: T }>;
@@ -154,11 +155,10 @@ export function createScalarRenderers(options: {
       let stringified = JSON.stringify(value.value, null, 2);
 
       if (isCompact) {
-        const compactByLines = stringified.split('\n').slice(0, COMPACT_PREVIEW_MAX_LINES).join('\n');
-        stringified =
-          compactByLines.length > COMPACT_PREVIEW_MAX_CHARS
-            ? `${compactByLines.slice(0, COMPACT_PREVIEW_MAX_CHARS)}...`
-            : compactByLines;
+        stringified = buildTextPreviewExcerpt(stringified, {
+          maxChars: COMPACT_PREVIEW_MAX_CHARS,
+          maxLines: COMPACT_PREVIEW_MAX_LINES,
+        }).text;
         return <pre className="pre-wrap">{stringified}</pre>;
       }
 

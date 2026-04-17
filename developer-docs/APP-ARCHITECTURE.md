@@ -406,7 +406,7 @@ Current responsibilities:
 - derive CSS variables from node colors
 - choose between normal and zoomed-out rendering
 - reflect execution state classes (`success`, `error`, `running`, `not-ran`)
-- reflect graph/history state (`selected`, changed, pinned, disabled, conditional, split)
+- reflect graph/history state (`selected`, changed, output-expanded, disabled, conditional, split)
 - start node editing on double-click for known node types
 
 It also depends on both:
@@ -557,7 +557,7 @@ That cleanup runs during graph/project switching and is explicitly there to prev
 - dragging wire, including transactional rewire metadata
 - closest valid port during wire drag
 - graph navigation stack
-- pinned nodes
+- nodes with expanded inline output
 - search/go-to UI state
 - hovered node
 - sidebar visibility
@@ -1059,6 +1059,8 @@ Current structure:
 
 - [`packages/app/src/components/NodeOutput.tsx`](../packages/app/src/components/NodeOutput.tsx) now focuses on output panel orchestration
 - process-page controls are kept local to `NodeOutput.tsx`
+- the inline `Show Full Output` toggle now lives in the node output action bar next to copy/fullscreen controls, not in the node header
+- inline compact-vs-full selection is resolved through [`packages/app/src/components/nodeOutput/nodeOutputPreviewMode.ts`](../packages/app/src/components/nodeOutput/nodeOutputPreviewMode.ts) so callers do not re-encode that policy ad hoc
 - fullscreen header controls for expanded node output now render through [`packages/app/src/components/nodeOutput/FullscreenNodeOutputToolbar.tsx`](../packages/app/src/components/nodeOutput/FullscreenNodeOutputToolbar.tsx), which stays presentational
 - output body selection lives in [`packages/app/src/components/nodeOutput/renderNodeOutputBody.tsx`](../packages/app/src/components/nodeOutput/renderNodeOutputBody.tsx)
 - copy-button side effects for node output live in [`packages/app/src/components/nodeOutput/nodeOutputCopyActions.ts`](../packages/app/src/components/nodeOutput/nodeOutputCopyActions.ts)
@@ -1074,8 +1076,14 @@ This keeps output selection logic separate from data-type rendering without pres
 
 Current output-rendering rules that matter for performance-sensitive changes:
 
-- node-inline output is preview-first; hovering or pinning a node should not switch large payloads into full inline rendering
+- hover-only inline output is preview-first; simple hover expansion should stay on the compact preview path
+- the `Show Full Output` node action is the explicit inline opt-in to `renderMode: 'full'`
+- expanded inline output must still honor the large-output safety path in `LargeStoredValuePreview` rather than forcing unbounded raw text rendering
+- the inline full-output toggle should render the real full-output path for normal-sized values; it must not just restyle or resize the compact preview
+- nodes with expanded inline output stay visible through viewport culling so the expanded output surface does not disappear while active
 - ref-backed large text/JSON-like values render through `LargeStoredValuePreview` and default to `compact` or `expanded-preview` modes before any explicit full inspection
+- preview truncation rules for string/object-like output should stay shared through [`packages/app/src/utils/textPreview.ts`](../packages/app/src/utils/textPreview.ts) so inline previews and stored ref-backed previews agree on when truncation happened
+- when compact preview truncation occurs, the ellipsis marker is part of the preview text and stays on its own line (`\n...`) rather than being inferred from hover height alone
 - fullscreen node output opens in `expanded-preview` mode, not raw full render mode
 - fullscreen node-output search is intentionally scoped to the expanded-preview modal only; compact node output should stay unchanged
 - fullscreen node-output search scope is the currently selected process-history page only, including split outputs on that page but not other history pages

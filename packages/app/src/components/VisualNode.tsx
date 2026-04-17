@@ -7,7 +7,6 @@ import {
   forwardRef,
   memo,
   useMemo,
-  useState,
 } from 'react';
 import { type ChartNode, type CommentNode, type NodeConnection } from '@ironclad/rivet-core';
 import { useAtomValue } from 'jotai';
@@ -28,7 +27,7 @@ export type VisualNodeProps = {
   isOverlay?: boolean;
   isSelected?: boolean;
   isKnownNodeType: boolean;
-  isPinned: boolean;
+  isOutputExpanded: boolean;
   lastRun?: ProcessDataForNode[];
   processPage: number | 'latest';
   renderSkeleton?: boolean;
@@ -54,7 +53,7 @@ export const VisualNode = memo(
         isOverlay,
         isSelected,
         isKnownNodeType,
-        isPinned,
+        isOutputExpanded,
         lastRun,
         processPage,
         renderSkeleton,
@@ -71,7 +70,6 @@ export const VisualNode = memo(
 
       useDependsOnPlugins();
 
-      const [isHovered, setIsHovered] = useState(false);
       const asCommentNode = node as CommentNode;
 
       const style = useMemo(() => {
@@ -134,7 +132,7 @@ export const VisualNode = memo(
               ...executionClassFlags,
               zoomedOut: effectiveIsZoomedOut,
               isComment,
-              isPinned,
+              isOutputExpanded,
               isSplit: node.isSplitRun,
               disabled: node.disabled,
               conditional: !!node.isConditional,
@@ -148,11 +146,9 @@ export const VisualNode = memo(
           data-contextmenutype={`node-${node.type}`}
           onMouseOver={(event: MouseEvent<HTMLElement>) => {
             onMouseOver?.(event, node.id);
-            setIsHovered(true);
           }}
           onMouseOut={(event: MouseEvent<HTMLElement>) => {
             onMouseOut?.(event, node.id);
-            setIsHovered(false);
           }}
           onDoubleClick={() => {
             if (isKnownNodeType) {
@@ -177,9 +173,7 @@ export const VisualNode = memo(
               handleAttributes={handleAttributes}
               isKnownNodeType={isKnownNodeType}
               selectedProcessRun={selectedProcessRun}
-              isPinned={isPinned}
               isHistoricalChanged={isHistoricalChanged}
-              isHovered={isHovered}
             />
           )}
         </div>

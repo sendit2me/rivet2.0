@@ -74,9 +74,11 @@ export const graphNavigationStackState = atom<GraphNavigationStack>({
   index: undefined,
 });
 
-export const pinnedNodesState = atom<NodeId[]>([]);
+export const expandedOutputNodeIdsState = atom<NodeId[]>([]);
 
-export const isPinnedState = atomFamily((nodeId: NodeId) => atom((get) => get(pinnedNodesState).includes(nodeId)));
+export const isNodeOutputExpandedState = atomFamily((nodeId: NodeId) =>
+  atom((get) => get(expandedOutputNodeIdsState).includes(nodeId)),
+);
 
 export const searchingGraphState = atom({
   searching: false,
@@ -100,5 +102,5 @@ export const searchMatchingNodeIdsState = atom<NodeId[]>([]);
 export const hoveringNodeState = atom<NodeId | undefined>(undefined);
 
 export function removeGraphBuilderNodeStateFamilies(nodeId: NodeId): void {
-  isPinnedState.remove(nodeId);
+  isNodeOutputExpandedState.remove(nodeId);
 }

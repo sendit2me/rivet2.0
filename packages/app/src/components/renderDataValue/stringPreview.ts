@@ -1,4 +1,5 @@
 import { COMPACT_PREVIEW_MAX_CHARS, COMPACT_PREVIEW_MAX_LINES } from '../../utils/outputStorageLimits.js';
+import { buildTextPreviewExcerpt } from '../../utils/textPreview.js';
 
 export function getRenderedStringText(
   value: string,
@@ -9,15 +10,13 @@ export function getRenderedStringText(
 ): string {
   const { truncateLength, isCompact } = options;
 
-  let rendered = truncateLength != null && value.length > truncateLength ? `${value.slice(0, truncateLength)}...` : value;
-
-  if (isCompact) {
-    const compactByLines = rendered.split('\n').slice(0, COMPACT_PREVIEW_MAX_LINES).join('\n');
-    rendered =
-      compactByLines.length > COMPACT_PREVIEW_MAX_CHARS
-        ? `${compactByLines.slice(0, COMPACT_PREVIEW_MAX_CHARS)}...`
-        : compactByLines;
-  }
-
-  return rendered;
+  return buildTextPreviewExcerpt(value, {
+    truncateLength,
+    ...(isCompact
+      ? {
+          maxChars: COMPACT_PREVIEW_MAX_CHARS,
+          maxLines: COMPACT_PREVIEW_MAX_LINES,
+        }
+      : {}),
+  }).text;
 }
