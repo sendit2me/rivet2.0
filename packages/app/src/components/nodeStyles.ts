@@ -458,7 +458,7 @@ export const nodeStyles = css`
     border-top: 1px solid var(--grey-light);
   }
 
-  .node-output-warnings:hover {
+  .node:hover .node-output-warnings {
     max-height: 500px;
     overflow: auto;
   }
@@ -474,7 +474,7 @@ export const nodeStyles = css`
     border-top-color: var(--grey-lightish);
   }
 
-  .node-output:hover .node-output-inner {
+  .node:hover .node-output-inner {
     max-height: 500px;
     overflow: auto;
   }

@@ -1,5 +1,3 @@
-- When I hover the node, it only unfolds the output a bit (when there's outpput) only when I hover over the output area. But it should react in any node's area 
-
 - When a node has an output part, and the node is hovered, in the output part, a scrollbar appears for a aplit second and then diisappears as the output part is expanded vertically to fit the content. It looks messy. I want the scroll bar to not appear
 
 
