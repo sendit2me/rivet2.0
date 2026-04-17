@@ -57,13 +57,16 @@ export const nodeStyles = css`
       0 0 10px var(--shadow-primary);
   }
 
-  .node.selected:not(.isComment),
   .node.selected:not(.isComment) {
     border-color: var(--primary);
     box-shadow:
       0 8px 16px rgba(0, 0, 0, 0.4),
       0 0 10px var(--shadow-primary);
     z-index: 10000 !important;
+  }
+
+  .node.hovered:not(.isComment) {
+    border-color: var(--primary);
   }
 
   .node-title {
@@ -467,7 +470,7 @@ export const nodeStyles = css`
     border-top-color: var(--grey-lightish);
   }
 
-  .node:hover .node-output-inner {
+  .node-output:hover .node-output-inner {
     max-height: 500px;
     overflow: auto;
   }

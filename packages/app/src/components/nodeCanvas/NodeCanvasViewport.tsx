@@ -21,7 +21,7 @@ export interface NodeCanvasViewportProps {
   dragMode: DragMode;
   draggingNodeConnections: NodeConnection[];
   draggingNodes: ChartNode[];
-  highlightedNodeIds: NodeId[];
+  hoveredNodeId: NodeId | undefined;
   isNodeVisible: (node: ChartNode) => boolean;
   lastRunPerNode: Record<NodeId, ProcessDataForNode[] | undefined>;
   nodeTypes: NodeTypes;
@@ -29,6 +29,7 @@ export interface NodeCanvasViewportProps {
   onNodeDragActivatorPointerDown: (modifierState: DragActivatorModifierState) => void;
   expandedOutputNodeIds: NodeId[];
   searchMatchingNodeIds: NodeId[];
+  selectedNodeIds: NodeId[];
   selectedProcessPagePerNode: Record<NodeId, PageValue>;
 }
 
@@ -41,7 +42,7 @@ export const NodeCanvasViewport: FC<NodeCanvasViewportProps> = ({
   dragMode,
   draggingNodeConnections,
   draggingNodes,
-  highlightedNodeIds,
+  hoveredNodeId,
   isNodeVisible,
   lastRunPerNode,
   nodeTypes,
@@ -49,16 +50,18 @@ export const NodeCanvasViewport: FC<NodeCanvasViewportProps> = ({
   onNodeDragActivatorPointerDown,
   expandedOutputNodeIds,
   searchMatchingNodeIds,
+  selectedNodeIds,
   selectedProcessPagePerNode,
 }) => {
   const draggingNodeIdSet = useMemo(() => new Set(draggingNodes.map((node) => node.id)), [draggingNodes]);
+  const selectedNodeIdSet = useMemo(() => new Set(selectedNodeIds), [selectedNodeIds]);
+  const searchMatchingNodeIdSet = useMemo(() => new Set(searchMatchingNodeIds), [searchMatchingNodeIds]);
 
   return (
     <div
       className="canvas-contents"
       style={{
-        transform: `scale(${canvasZoom}, ${canvasZoom}) translate(${canvasPositionX}px, ${canvasPositionY}px) translateZ(-1px)`,
-        willChange: 'transform',
+        transform: `scale(${canvasZoom}, ${canvasZoom}) translate(${canvasPositionX}px, ${canvasPositionY}px)`,
       }}
     >
       <CanvasViewContext.Provider value={canvasViewContextValue}>
@@ -75,7 +78,8 @@ export const NodeCanvasViewport: FC<NodeCanvasViewportProps> = ({
                   dragMode={dragMode}
                   node={node}
                   connections={nodeConnections}
-                  isSelected={highlightedNodeIds.includes(node.id) || searchMatchingNodeIds.includes(node.id)}
+                  isHovered={hoveredNodeId === node.id}
+                  isSelected={selectedNodeIdSet.has(node.id) || searchMatchingNodeIdSet.has(node.id)}
                   isKnownNodeType={node.type in nodeTypes}
                   lastRun={lastRunPerNode[node.id]}
                   onDragActivatorPointerDown={onNodeDragActivatorPointerDown}

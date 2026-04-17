@@ -20,8 +20,8 @@ export type CanvasViewContextValue = {
 };
 
 export type CanvasHandlersContextValue = {
-  onMouseOut?: (event: MouseEvent<HTMLElement>, nodeId: NodeId) => void;
-  onMouseOver?: (event: MouseEvent<HTMLElement>, nodeId: NodeId) => void;
+  onNodeMouseEnter?: (event: MouseEvent<HTMLElement>, nodeId: NodeId) => void;
+  onNodeMouseLeave?: (event: MouseEvent<HTMLElement>, nodeId: NodeId) => void;
   onNodeSelected?: (node: ChartNode, multi: boolean) => void;
   onNodeSizeChanged?: (node: ChartNode, newWidth: number, newHeight: number) => void;
   onNodeStartEditing?: (node: ChartNode) => void;

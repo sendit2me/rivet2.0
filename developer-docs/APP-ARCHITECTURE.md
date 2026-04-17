@@ -362,6 +362,11 @@ type CanvasPosition = { x: number; y: number; zoom: number; fromSaved?: boolean 
 
 `NodeCanvas` applies the viewport via a CSS transform on `.canvas-contents` and also adjusts the grid background size/position independently.
 
+Important rendering constraint:
+
+- keep the viewport transform 2D; `translateZ(...)` / forced 3D layer promotion on `.canvas-contents` causes visible text/icon anti-aliasing shifts when hovered nodes repaint
+- the current viewport path intentionally avoids `translateZ(...)` and `will-change: transform` for that reason
+
 Durable viewport/navigation restore now lives in `projectEditorStateByProjectIdState`, which stores:
 
 - the current `graphNavigationStackState`
@@ -385,6 +390,7 @@ Key current behaviors:
 - move drags remove source nodes from the main render pass and show them via `DragOverlay`
 - duplicate drags keep the source nodes visible in place and show duplicate preview nodes in `DragOverlay`
 - drag-overlay wires only follow move drags; duplicate preview is intentionally node-only today
+- hover styling is a distinct render path from true selection; hovered nodes get lightweight visual treatment without reusing the stronger selected-node styling
 
 ### Contexts instead of prop drilling
 
@@ -407,6 +413,7 @@ Current responsibilities:
 - choose between normal and zoomed-out rendering
 - reflect execution state classes (`success`, `error`, `running`, `not-ran`)
 - reflect graph/history state (`selected`, changed, output-expanded, disabled, conditional, split)
+- reflect hover state separately from selection state
 - start node editing on double-click for known node types
 
 It also depends on both:
@@ -415,6 +422,8 @@ It also depends on both:
 - `useCanvasHandlersContext`
 
 That makes it a key seam when changing how interaction is propagated through the node tree.
+
+Hover targeting is intentionally driven by `mouseenter` / `mouseleave` semantics at the node boundary rather than bubbling `mouseover` / `mouseout`. Regressing that distinction makes hover state flap while moving across child content inside the same node.
 
 ## Graph List and Sidebar Graph Management
 

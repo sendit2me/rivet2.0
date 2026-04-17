@@ -235,27 +235,33 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
     );
   });
 
-  const onNodeMouseOver = useStableCallback((_e: MouseEvent<HTMLElement>, nodeId: NodeId) => {
+  const onNodeMouseEnter = useStableCallback((_e: MouseEvent<HTMLElement>, nodeId: NodeId) => {
     setHoveringNode(nodeId);
   });
 
-  const onNodeMouseOut = useStableCallback(() => {
+  const onNodeMouseLeave = useStableCallback(() => {
     setHoveringNode(undefined);
   });
 
-  const highlightedNodes = useMemo(() => {
-    const highlightedNodeIds = new Set(selectedNodeIds);
+  const selectedViewportNodeIds = useMemo(() => {
+    const nextSelectedNodeIds = new Set(selectedNodeIds);
 
     if (editingNodeId) {
-      highlightedNodeIds.add(editingNodeId);
+      nextSelectedNodeIds.add(editingNodeId);
     }
+
+    return [...nextSelectedNodeIds];
+  }, [editingNodeId, selectedNodeIds]);
+
+  const highlightedNodes = useMemo(() => {
+    const highlightedNodeIds = new Set(selectedViewportNodeIds);
 
     if (hoveringNode && !hoveringPort) {
       highlightedNodeIds.add(hoveringNode);
     }
 
     return [...highlightedNodeIds];
-  }, [editingNodeId, hoveringNode, hoveringPort, selectedNodeIds]);
+  }, [hoveringNode, hoveringPort, selectedViewportNodeIds]);
 
   const viewportBounds = useViewportBounds();
   const { isNodeVisible } = useVisibleCanvasNodes({ nodes, expandedOutputNodeIds, viewportBounds });
@@ -347,8 +353,8 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
 
   const canvasHandlersContextValue = useMemo(
     () => ({
-      onMouseOut: onNodeMouseOut,
-      onMouseOver: onNodeMouseOver,
+      onNodeMouseEnter,
+      onNodeMouseLeave,
       onNodeSelected: nodeSelected,
       onNodeSizeChanged,
       onNodeStartEditing: nodeStartEditing,
@@ -361,8 +367,8 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
     [
       nodeSelected,
       nodeStartEditing,
-      onNodeMouseOut,
-      onNodeMouseOver,
+      onNodeMouseEnter,
+      onNodeMouseLeave,
       onNodeSizeChanged,
       onPortMouseOut,
       onPortMouseOver,
@@ -401,7 +407,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
           dragMode={dragMode}
           draggingNodeConnections={draggingNodeConnections}
           draggingNodes={draggingNodes}
-          highlightedNodeIds={highlightedNodes}
+          hoveredNodeId={hoveringPort ? undefined : hoveringNode}
           isNodeVisible={isNodeVisible}
           lastRunPerNode={lastRunPerNode}
           nodeTypes={nodeTypes}
@@ -409,6 +415,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
           onNodeDragActivatorPointerDown={onNodeDragActivatorPointerDown}
           expandedOutputNodeIds={expandedOutputNodeIds}
           searchMatchingNodeIds={searchMatchingNodes}
+          selectedNodeIds={selectedViewportNodeIds}
           selectedProcessPagePerNode={selectedProcessPagePerNode}
         />
         {hydratedContextMenuData && (

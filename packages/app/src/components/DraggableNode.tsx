@@ -13,6 +13,7 @@ interface DraggableNodeProps {
   node: ChartNode;
   connections?: NodeConnection[];
   isSelected?: boolean;
+  isHovered?: boolean;
   isKnownNodeType: boolean;
   lastRun?: ProcessDataForNode[];
   onDragActivatorPointerDown: (modifierState: DragActivatorModifierState) => void;
@@ -25,6 +26,7 @@ export const DraggableNode: FC<DraggableNodeProps> = ({
   node,
   connections = [],
   isSelected = false,
+  isHovered = false,
   isKnownNodeType,
   lastRun,
   onDragActivatorPointerDown,
@@ -53,6 +55,7 @@ export const DraggableNode: FC<DraggableNodeProps> = ({
       <VisualNode
         ref={setNodeRef}
         isSelected={isSelected}
+        isHovered={isHovered}
         node={node}
         connections={connections}
         isDragging={isDragging && !shouldKeepSourceNodeVisible}

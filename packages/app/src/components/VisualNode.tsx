@@ -26,6 +26,7 @@ export type VisualNodeProps = {
   isDragging?: boolean;
   isOverlay?: boolean;
   isSelected?: boolean;
+  isHovered?: boolean;
   isKnownNodeType: boolean;
   isOutputExpanded: boolean;
   lastRun?: ProcessDataForNode[];
@@ -52,6 +53,7 @@ export const VisualNode = memo(
         isDragging,
         isOverlay,
         isSelected,
+        isHovered,
         isKnownNodeType,
         isOutputExpanded,
         lastRun,
@@ -61,7 +63,7 @@ export const VisualNode = memo(
       ref,
     ) => {
       const { heightCache, isReallyZoomedOut, isZoomedOut } = useCanvasViewContext();
-      const { onMouseOut, onMouseOver, onNodeStartEditing } = useCanvasHandlersContext();
+      const { onNodeMouseEnter, onNodeMouseLeave, onNodeStartEditing } = useCanvasHandlersContext();
       const isComment = node.type === 'comment';
       const effectiveIsZoomedOut = isZoomedOut && !isComment;
       const effectiveIsReallyZoomedOut = isReallyZoomedOut && !isComment;
@@ -129,6 +131,7 @@ export const VisualNode = memo(
             {
               overlayNode: isOverlay,
               selected: isSelected,
+              hovered: isHovered,
               ...executionClassFlags,
               zoomedOut: effectiveIsZoomedOut,
               isComment,
@@ -144,11 +147,11 @@ export const VisualNode = memo(
           {...nodeAttributes}
           data-nodeid={node.id}
           data-contextmenutype={`node-${node.type}`}
-          onMouseOver={(event: MouseEvent<HTMLElement>) => {
-            onMouseOver?.(event, node.id);
+          onMouseEnter={(event: MouseEvent<HTMLElement>) => {
+            onNodeMouseEnter?.(event, node.id);
           }}
-          onMouseOut={(event: MouseEvent<HTMLElement>) => {
-            onMouseOut?.(event, node.id);
+          onMouseLeave={(event: MouseEvent<HTMLElement>) => {
+            onNodeMouseLeave?.(event, node.id);
           }}
           onDoubleClick={() => {
             if (isKnownNodeType) {
