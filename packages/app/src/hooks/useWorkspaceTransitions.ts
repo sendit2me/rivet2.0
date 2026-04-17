@@ -1,5 +1,5 @@
-import { useAtom, useAtomValue, useSetAtom } from 'jotai';
-import { emptyNodeGraph, type DataId, type Project } from '@ironclad/rivet-core';
+import { useAtom, useAtomValue, useSetAtom, useStore } from 'jotai';
+import { type DataId, type Project } from '@ironclad/rivet-core';
 import { toast, type Id as ToastId } from 'react-toastify';
 import { isPathBasedIOProvider } from '../io/IOProvider.js';
 import { useIOProvider } from '../providers/ProvidersContext.js';
@@ -40,6 +40,7 @@ import { useCurrentProjectEditorSnapshot } from './useCurrentProjectEditorSnapsh
 
 export function useWorkspaceTransitions() {
   const ioProvider = useIOProvider();
+  const store = useStore();
   const database = useStaticDataDatabase();
   const [currentGraph, setGraph] = useAtom(graphState);
   const [project, setProject] = useAtom(projectState);
@@ -209,9 +210,7 @@ export function useWorkspaceTransitions() {
         }
       }
 
-      if (currentGraph.nodes.length > 0 || currentGraph.metadata?.name !== emptyNodeGraph().metadata!.name) {
-        saveCurrentGraph();
-      }
+      saveCurrentGraph();
 
       const transition = createGraphSwitchTransition({
         currentGraph,
@@ -250,13 +249,19 @@ export function useWorkspaceTransitions() {
 
     buildProjectForSave() {
       const savedGraph = saveCurrentGraph();
-      return mergeCurrentGraphIntoProject(project, savedGraph);
+      return mergeCurrentGraphIntoProject(store.get(projectState), savedGraph);
     },
 
     async saveProject(options: { forceSaveAs?: boolean } = {}) {
-      const projectToPersist = mergeCurrentGraphIntoProject(project, saveCurrentGraph());
+      const latestProject = store.get(projectState);
+      const latestLoadedProject = store.get(loadedProjectState);
+      const latestTestSuites = store.get(trivetState).testSuites;
+      const projectToPersist = mergeCurrentGraphIntoProject(latestProject, saveCurrentGraph());
       const shouldUseSaveAs =
-        options.forceSaveAs || !loadedProject.loaded || !loadedProject.path || !isPathBasedIOProvider(ioProvider);
+        options.forceSaveAs ||
+        !latestLoadedProject.loaded ||
+        !latestLoadedProject.path ||
+        !isPathBasedIOProvider(ioProvider);
 
       let saving: ToastId | undefined;
       const savingTimeout = setTimeout(() => {
@@ -264,13 +269,15 @@ export function useWorkspaceTransitions() {
       }, 500);
 
       try {
+        setProject(projectToPersist);
         persistCurrentProjectEditorSnapshot({
           project: projectToPersist,
         });
+        await flushHybridStorageGroup('graph');
         await flushHybridStorageGroup('project');
 
         if (shouldUseSaveAs) {
-          const filePath = await ioProvider.saveProjectData(projectToPersist, { testSuites });
+          const filePath = await ioProvider.saveProjectData(projectToPersist, { testSuites: latestTestSuites });
 
           if (filePath) {
             setLoadedProject({ loaded: true, path: filePath });
@@ -280,18 +287,20 @@ export function useWorkspaceTransitions() {
               return nextSnapshots;
             });
             setProjects((prev) => addOpenedProject(prev, projectToPersist, { fsPath: filePath }));
+            await flushHybridStorageGroup('graph');
             await flushHybridStorageGroup('project');
             toast.success('Project saved');
           }
         } else {
-          const projectPath = loadedProject.path!;
-          await ioProvider.saveProjectDataNoPrompt(projectToPersist, { testSuites }, projectPath);
+          const projectPath = latestLoadedProject.path!;
+          await ioProvider.saveProjectDataNoPrompt(projectToPersist, { testSuites: latestTestSuites }, projectPath);
           setLoadedProject({ loaded: true, path: projectPath });
           setOpenedProjectSnapshots((snapshots) => {
             const nextSnapshots = { ...snapshots };
             delete nextSnapshots[projectToPersist.metadata.id];
             return nextSnapshots;
           });
+          await flushHybridStorageGroup('graph');
           await flushHybridStorageGroup('project');
           toast.success('Project saved');
         }
@@ -300,7 +309,7 @@ export function useWorkspaceTransitions() {
           metadata: {
             forceSaveAs: options.forceSaveAs ?? false,
             projectId: projectToPersist.metadata.id,
-            projectPath: loadedProject.path,
+            projectPath: latestLoadedProject.path,
             usedSaveAs: shouldUseSaveAs,
           },
         });

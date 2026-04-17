@@ -524,6 +524,11 @@ Important pieces:
 - `isReadOnlyGraphState`
 - lookup/selectors such as `nodesByIdState`, `nodeByIdState`, `nodeInstanceByIdState`, and IO-definition selectors
 
+Important nuance:
+
+- `graphState` lives in the grouped `graph` hybrid-storage namespace and represents the active editable graph, not an always-live mirror of `projectState.graphs`
+- save, graph-switch, and local-execution paths explicitly merge the latest `graphState` back into the project when they need an authoritative project payload
+
 Maintenance-critical detail:
 
 - `cleanupNodeAtomFamilies(nodeIds)` clears node-keyed atom families in graph state, execution state, and graph-builder state.
@@ -566,6 +571,8 @@ It owns:
 Important nuance:
 
 - `projectState` is stored as `Omit<Project, 'data'>`
+- `savedGraphsState` is a project-backed view over `projectState.graphs`
+- active graph edits can exist in `graphState` before they are merged back into `projectState.graphs`; that sync boundary is owned by `useSaveCurrentGraph` and the workspace transition layer
 - large attached static data is held separately in `projectDataState`
 - per-project context values are persisted separately via `projectContextState(projectId)`
 - open-project tab state is persisted separately in `projectsState` but now stores only lightweight tab metadata rather than a full project payload
@@ -713,7 +720,7 @@ Current architectural update:
 
 Current sequence:
 
-1. optionally save the current graph back into the project
+1. save the current graph back into the project when it represents a real persisted graph
 2. cleanup old graph atom families if changing graph IDs
 3. replace `graphState`
 4. clear selection, historical state, and read-only mode
@@ -726,12 +733,16 @@ Current architectural update:
 
 - `useLoadGraph` now delegates the shared sequencing to the workspace transition layer
 - viewport restoration/centering decisions are derived from transition output rather than repeated inline logic
+- current-graph persistence rules now live in [`packages/app/src/utils/currentGraphSave.ts`](../packages/app/src/utils/currentGraphSave.ts) instead of inline "is this graph empty?" checks
+- empty graphs are still persisted when they already belong to the project; only the detached `emptyNodeGraph()` placeholder is skipped
 
 ### `useSaveProject`
 
 Current behavior:
 
 - saves the current in-memory graph back into the project before persisting
+- builds the persisted project payload from the latest Jotai store values at call time rather than relying on render-time snapshots
+- persists an existing graph even if the current edit reduced it to zero nodes and zero connections
 - uses `saveProjectDataNoPrompt` when a path already exists
 - falls back to save-as when needed
 - persists Trivet test-suite data alongside the project
@@ -742,6 +753,7 @@ Current architectural update:
 
 - `useSaveProject` is now a thin adapter over the workspace transition layer
 - the transition layer owns graph-to-project syncing and the split between save-in-place and save-as
+- `useSaveCurrentGraph` now reads Jotai state at invocation time, so save/save-as and graph-switch transitions do not depend on stale render-closure graph data
 
 ### Shared workspace transition layer
 
@@ -761,10 +773,12 @@ Current boundary:
 
 - load-project, graph-switch, save/save-as, and new blank/template project initialization all reuse this sequencing
 - blank-project initialization now goes through the same transition layer with a real project-owned default graph instead of loading a detached placeholder graph into `graphState`
+- graph switching now always routes current-graph persistence through `useSaveCurrentGraph` and `currentGraphSave.ts`; the helper decides whether to skip only the detached placeholder graph
 - project-tab closing/reordering and active-tab metadata syncing still live outside this layer in `ProjectSelector.tsx` and `useSyncCurrentStateIntoOpenedProjects.ts`
 - exact remembered editor view is resolved through `projectEditorState.ts`, synced by `useSyncCurrentProjectEditorState.ts`, and boot-restored by `useRestorePersistedWorkspace.ts`
 - boot restore is intentionally view-only: it rehydrates navigation/camera state for the already-loaded project instead of re-running full `loadProject(...)` side effects
-- save/save-as flush the grouped `project` storage before completion so remembered graph/subgraph/viewport state survives immediate close-and-reopen paths
+- save/save-as flush both the grouped `graph` and `project` storage before completion so edited graph contents, open-project metadata, and remembered graph/subgraph/viewport state survive immediate close-and-reopen paths
+- save payload assembly reads the latest `projectState`, `loadedProjectState`, and current graph data from the Jotai store at call time, which avoids stale render-time state during explicit save actions
 - external UI state that depends on a completed load, such as adding an opened-project tab or closing the new-project modal, must stay outside the transition layer and only run after `loadProject(...)` resolves `true`
 - `loadProject(...)` handles/logs its own transition failures and returns `false` instead of throwing for those transition-stage errors, so callers should branch on the boolean result rather than assume success after awaiting it
 

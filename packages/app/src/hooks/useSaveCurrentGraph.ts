@@ -1,42 +1,24 @@
-import { produce } from 'immer';
-import { nanoid } from 'nanoid/non-secure';
-import { type GraphId } from '@ironclad/rivet-core';
-import { useAtom } from 'jotai';
+import { useStore } from 'jotai';
 import { graphState } from '../state/graph.js';
 import { savedGraphsState } from '../state/savedGraphs.js';
+import { useStableCallback } from './useStableCallback.js';
+import { prepareCurrentGraphForSave } from '../utils/currentGraphSave.js';
 
 export function useSaveCurrentGraph() {
-  const [graphData, setGraphData] = useAtom(graphState);
-  const [savedGraphs, setSavedGraphs] = useAtom(savedGraphsState);
+  const store = useStore();
 
-  return () => {
-    if (graphData.nodes.length === 0 && graphData.connections.length === 0) {
-      return;
+  return useStableCallback(() => {
+    const graphData = store.get(graphState);
+    const savedGraphs = store.get(savedGraphsState);
+    const prepared = prepareCurrentGraphForSave(graphData, savedGraphs);
+
+    if (!prepared) {
+      return undefined;
     }
 
-    const currentGraph = produce(graphData, (draft) => {
-      if (!draft.metadata) {
-        draft.metadata = {
-          id: nanoid() as GraphId,
-          name: 'Untitled',
-          description: '',
-        };
-      } else if (!draft.metadata.id) {
-        draft.metadata.id = nanoid() as GraphId;
-      }
+    store.set(graphState, prepared.currentGraph);
+    store.set(savedGraphsState, prepared.savedGraphs);
 
-      return draft;
-    });
-
-    setGraphData(currentGraph);
-
-    const existingGraph = savedGraphs.find((g) => g.metadata?.id === currentGraph.metadata?.id);
-    if (existingGraph) {
-      setSavedGraphs(savedGraphs.map((g) => (g.metadata?.id === currentGraph.metadata?.id ? currentGraph : g)));
-    } else {
-      setSavedGraphs([...savedGraphs, currentGraph]);
-    }
-
-    return currentGraph;
-  };
+    return prepared.currentGraph;
+  });
 }

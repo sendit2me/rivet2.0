@@ -1,17 +1,22 @@
 import { DndContext, useDroppable } from '@dnd-kit/core';
 import { css } from '@emotion/react';
-import { type FC, type MouseEvent, type KeyboardEvent, memo } from 'react';
+import { type FC, type MouseEvent, type KeyboardEvent, memo, useMemo } from 'react';
 import { useAtomValue } from 'jotai';
 import { DropdownItem } from '@atlaskit/dropdown-menu';
 import { type GraphId } from '@ironclad/rivet-core';
 import clsx from 'clsx';
 import { runningGraphsState } from '../state/dataFlow.js';
+import { pluginsState } from '../state/plugins.js';
+import { projectState } from '../state/savedGraphs.js';
 import { useContextMenu } from '../hooks/useContextMenu.js';
 import Portal from '@atlaskit/portal';
 import CrossIcon from 'majesticons/line/multiply-line.svg?react';
+import { buildGraphListReachabilityPresentation } from '../domain/graphEditing/graphListReachability.js';
 import { useStableCallback } from '../hooks/useStableCallback.js';
 import { useGraphOperations } from '../hooks/useGraphOperations';
 import { useGraphListDragDrop } from '../hooks/useGraphListDragDrop';
+import { useProjectNodeRegistry } from '../hooks/useProjectNodeRegistry.js';
+import { getGraphReachabilityReport } from '../utils/graphReachability.js';
 import { FolderItem } from './graphList/FolderItem';
 
 const styles = css`
@@ -152,6 +157,37 @@ const styles = css`
       }
     }
   }
+
+  .graph-list-notice {
+    margin: 8px 12px 0;
+    padding: 6px 8px;
+    border: 1px solid var(--warning);
+    border-radius: 6px;
+    background: var(--warning-lighter);
+    color: var(--warning-dark);
+    font-size: 11px;
+    line-height: 1.4;
+  }
+
+  .unused-badge {
+    margin-right: 6px;
+    padding: 4px 6px;
+    border: 1px solid var(--warning-dark);
+    border-radius: 999px;
+    background: var(--warning-lighter);
+    color: var(--warning-dark);
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .selected .unused-badge {
+    border-color: var(--foreground-on-primary);
+    background: rgba(255, 255, 255, 0.18);
+    color: var(--foreground-on-primary);
+  }
 `;
 
 const contextMenuStyles = css`
@@ -190,6 +226,9 @@ export const GraphList: FC<{ onRunGraph?: (graphId: GraphId) => void }> = memo((
     useGraphListDragDrop(renameFolderItem);
 
   const runningGraphs = useAtomValue(runningGraphsState);
+  const project = useAtomValue(projectState);
+  const plugins = useAtomValue(pluginsState);
+  const projectNodeRegistry = useProjectNodeRegistry();
 
   const { setShowContextMenu, showContextMenu, contextMenuData, handleContextMenu, floatingStyles, refs } =
     useContextMenu();
@@ -213,6 +252,35 @@ export const GraphList: FC<{ onRunGraph?: (graphId: GraphId) => void }> = memo((
     }
   });
 
+  const builtInPluginIds = useMemo(
+    () => new Set((project.plugins ?? []).flatMap((spec) => (spec.type === 'built-in' ? [spec.id] : []))),
+    [project.plugins],
+  );
+
+  const graphListPlugins = useMemo(() => {
+    const pluginStatesById = new Map(plugins.map((plugin) => [plugin.id, plugin]));
+    return (project.plugins ?? []).map((spec) => pluginStatesById.get(spec.id) ?? { loaded: false });
+  }, [plugins, project.plugins]);
+
+  const reachabilityReport = useMemo(
+    () =>
+      getGraphReachabilityReport(project, {
+        registry: projectNodeRegistry,
+        builtInPluginIds,
+      }),
+    [project, projectNodeRegistry, builtInPluginIds],
+  );
+
+  const graphListReachability = useMemo(
+    () =>
+      buildGraphListReachabilityPresentation({
+        report: reachabilityReport,
+        graphIds: Object.keys(project.graphs) as GraphId[],
+        plugins: graphListPlugins,
+      }),
+    [graphListPlugins, project.graphs, reachabilityReport],
+  );
+
   return (
     <div css={styles}>
       <div className="search">
@@ -231,6 +299,7 @@ export const GraphList: FC<{ onRunGraph?: (graphId: GraphId) => void }> = memo((
           </button>
         )}
       </div>
+      {graphListReachability.notice && <div className="graph-list-notice">{graphListReachability.notice}</div>}
       <div className="graph-list-container" onContextMenu={handleSidebarContextMenu}>
         <div
           className={clsx('graph-list', { 'dragging-over': dragOverFolderName === '' && draggingItemFolder !== '' })}
@@ -245,9 +314,11 @@ export const GraphList: FC<{ onRunGraph?: (graphId: GraphId) => void }> = memo((
                 graph={graph}
                 dragOverFolderName={dragOverFolderName}
                 draggingItemFolder={draggingItemFolder}
+                graphReachabilityByGraphId={graphListReachability.bucketByGraphId}
                 depth={0}
                 onGraphSelected={loadGraph}
                 onRenameItem={renameFolderItem}
+                showUnusedBadges={graphListReachability.showUnusedBadges}
               />
             ))}
             <GraphListSpacer />

@@ -1,0 +1,503 @@
+import {
+  type ChartNode,
+  type GraphId,
+  type NodeConnection,
+  type NodeGraph,
+  type NodeId,
+  type PortId,
+  type Project,
+} from '@ironclad/rivet-core';
+
+export type GraphReachabilityBucket = 'definitely-reachable' | 'dynamically-reachable' | 'unreachable';
+
+export type GraphReachabilityAnalysisStatus = 'ready' | 'partial' | 'blocked';
+
+export type GraphReachabilityBlockedReason = 'missing-main-graph' | 'invalid-main-graph';
+
+export type GraphDependencyEdgeKind =
+  | 'direct-static'
+  | 'static-via-callgraph'
+  | 'dynamic-via-callgraph'
+  | 'dynamic-name-match'
+  | 'cross-project'
+  | 'invalid';
+
+export type GraphReachabilityRegistry = {
+  isRegistered(type: string): boolean;
+  getPluginFor(type: string): { id: string } | undefined;
+};
+
+export type GraphReachabilityReport = {
+  status: GraphReachabilityAnalysisStatus;
+  blockedReason?: GraphReachabilityBlockedReason;
+  definite: Set<GraphId>;
+  dynamic: Set<GraphId>;
+  unreachable: Set<GraphId>;
+  unsupportedNodeTypes: string[];
+  warnings: string[];
+};
+
+type ReachabilityMode = 'definite' | 'dynamic';
+
+type GraphDependencyEdge = {
+  kind: GraphDependencyEdgeKind;
+  targets: GraphId[];
+  warnings?: string[];
+};
+
+type ProjectWithGraphs = Pick<Project, 'metadata' | 'graphs'>;
+
+type GetGraphReachabilityReportOptions = {
+  registry?: GraphReachabilityRegistry;
+  builtInPluginIds?: Iterable<string>;
+};
+
+type ConnectionIndex = Record<NodeId, NodeConnection[]>;
+
+type GraphReferenceNodeData = {
+  graphId?: GraphId;
+  useGraphIdOrNameInput?: boolean;
+};
+
+type LoopUntilNodeData = {
+  targetGraph?: GraphId;
+};
+
+type CronNodeData = {
+  targetGraph?: GraphId;
+  useTargetGraphInput?: boolean;
+};
+
+type DelegateFunctionCallNodeData = {
+  autoDelegate?: boolean;
+  handlers?: Array<{ key: string; value: GraphId }>;
+  unknownHandler?: GraphId;
+};
+
+type RunThreadNodeData = {
+  toolCallHandlers?: Array<{ key: string; value: GraphId }>;
+  onMessageCreationSubgraphId?: GraphId;
+};
+
+const CALL_GRAPH_INPUT_ID = 'graph' as PortId;
+const GRAPH_REFERENCE_OUTPUT_ID = 'graph' as PortId;
+
+export function getGraphReachabilityReport(
+  project: ProjectWithGraphs,
+  options: GetGraphReachabilityReportOptions = {},
+): GraphReachabilityReport {
+  const warnings = new Set<string>();
+  const unsupportedNodeTypes = new Set<string>();
+  const graphEntries = Object.entries(project.graphs) as Array<[GraphId, NodeGraph]>;
+  const allGraphIds = graphEntries.map(([graphId]) => graphId);
+  const namedGraphIds = graphEntries
+    .filter(([, graph]) => graph.metadata?.name && graph.metadata.name.trim().length > 0)
+    .map(([graphId]) => graphId);
+  const builtInPluginIds = new Set(options.builtInPluginIds ?? []);
+
+  const definite = new Set<GraphId>();
+  const dynamic = new Set<GraphId>();
+  const queue: Array<{ graphId: GraphId; mode: ReachabilityMode }> = [];
+  const strongestModeByGraph = new Map<GraphId, number>();
+
+  const enqueue = (graphId: GraphId, mode: ReachabilityMode) => {
+    if (!project.graphs[graphId]) {
+      return;
+    }
+
+    const nextStrength = mode === 'definite' ? 2 : 1;
+    const currentStrength = strongestModeByGraph.get(graphId) ?? 0;
+    if (currentStrength >= nextStrength) {
+      return;
+    }
+
+    strongestModeByGraph.set(graphId, nextStrength);
+    queue.push({ graphId, mode });
+  };
+
+  const mainGraphId = project.metadata.mainGraphId;
+  if (!mainGraphId) {
+    warnings.add(
+      'Reachability is rooted at project.metadata.mainGraphId. This project has no main graph, even though some runtime paths can fall back to a different graph.',
+    );
+
+    return {
+      status: 'blocked',
+      blockedReason: 'missing-main-graph',
+      definite,
+      dynamic,
+      unreachable: new Set(allGraphIds),
+      unsupportedNodeTypes: [],
+      warnings: [...warnings],
+    };
+  }
+
+  if (!project.graphs[mainGraphId]) {
+    warnings.add(`The configured main graph ${mainGraphId} does not exist in the current project.`);
+
+    return {
+      status: 'blocked',
+      blockedReason: 'invalid-main-graph',
+      definite,
+      dynamic,
+      unreachable: new Set(allGraphIds),
+      unsupportedNodeTypes: [],
+      warnings: [...warnings],
+    };
+  }
+
+  enqueue(mainGraphId, 'definite');
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    const graph = project.graphs[current.graphId];
+    if (!graph) {
+      continue;
+    }
+
+    if (current.mode === 'definite') {
+      definite.add(current.graphId);
+      dynamic.delete(current.graphId);
+    } else if (!definite.has(current.graphId)) {
+      dynamic.add(current.graphId);
+    }
+
+    collectUnsupportedNodeTypes({
+      builtInPluginIds,
+      graph,
+      registry: options.registry,
+      unsupportedNodeTypes,
+    });
+
+    const edges = collectGraphDependencyEdges({
+      allGraphIds,
+      graph,
+      namedGraphIds,
+      project,
+    });
+
+    for (const edge of edges) {
+      edge.warnings?.forEach((warning) => warnings.add(warning));
+
+      if (edge.kind === 'cross-project' || edge.kind === 'invalid') {
+        continue;
+      }
+
+      const nextMode =
+        current.mode === 'dynamic'
+          ? 'dynamic'
+          : edge.kind === 'direct-static' || edge.kind === 'static-via-callgraph'
+            ? 'definite'
+            : 'dynamic';
+
+      for (const target of edge.targets) {
+        enqueue(target, nextMode);
+      }
+    }
+  }
+
+  const unreachable = new Set(
+    allGraphIds.filter((graphId) => !definite.has(graphId) && !dynamic.has(graphId)),
+  );
+
+  return {
+    status: unsupportedNodeTypes.size > 0 ? 'partial' : 'ready',
+    definite,
+    dynamic,
+    unreachable,
+    unsupportedNodeTypes: [...unsupportedNodeTypes].sort(),
+    warnings: [...warnings],
+  };
+}
+
+function collectUnsupportedNodeTypes(options: {
+  builtInPluginIds: ReadonlySet<string>;
+  graph: NodeGraph;
+  registry: GraphReachabilityRegistry | undefined;
+  unsupportedNodeTypes: Set<string>;
+}) {
+  const { builtInPluginIds, graph, registry, unsupportedNodeTypes } = options;
+
+  if (!registry) {
+    return;
+  }
+
+  for (const node of graph.nodes) {
+    if (node.disabled) {
+      continue;
+    }
+
+    if (!registry.isRegistered(node.type)) {
+      unsupportedNodeTypes.add(node.type);
+      continue;
+    }
+
+    const plugin = registry.getPluginFor(node.type);
+    if (plugin && !builtInPluginIds.has(plugin.id)) {
+      unsupportedNodeTypes.add(node.type);
+    }
+  }
+}
+
+function collectGraphDependencyEdges(options: {
+  allGraphIds: GraphId[];
+  graph: NodeGraph;
+  namedGraphIds: GraphId[];
+  project: ProjectWithGraphs;
+}): GraphDependencyEdge[] {
+  const { allGraphIds, graph, namedGraphIds, project } = options;
+  const nodesById = Object.fromEntries(graph.nodes.map((node) => [node.id, node])) as Record<NodeId, ChartNode>;
+  const connectionsByInputNodeId = graph.connections.reduce((accumulator, connection) => {
+    accumulator[connection.inputNodeId] ??= [];
+    accumulator[connection.inputNodeId]!.push(connection);
+    return accumulator;
+  }, {} as ConnectionIndex);
+
+  const edges: GraphDependencyEdge[] = [];
+
+  const addStoredTarget = (
+    kind: Extract<GraphDependencyEdgeKind, 'direct-static' | 'static-via-callgraph'>,
+    options: {
+      graphId: GraphId | undefined;
+      description: string;
+      node: ChartNode;
+    },
+  ) => {
+    const { graphId, description, node } = options;
+    if (!graphId) {
+      edges.push({
+        kind: 'invalid',
+        targets: [],
+        warnings: [`${formatNodeContext(graph, node)} has no configured ${description}.`],
+      });
+      return;
+    }
+
+    if (!project.graphs[graphId]) {
+      edges.push({
+        kind: 'invalid',
+        targets: [],
+        warnings: [`${formatNodeContext(graph, node)} references missing graph ${graphId} via ${description}.`],
+      });
+      return;
+    }
+
+    edges.push({ kind, targets: [graphId] });
+  };
+
+  const addDynamicTargets = (
+    kind: Extract<GraphDependencyEdgeKind, 'dynamic-name-match' | 'dynamic-via-callgraph'>,
+    targets: GraphId[],
+  ) => {
+    if (targets.length === 0) {
+      return;
+    }
+
+    edges.push({ kind, targets });
+  };
+
+  for (const node of graph.nodes) {
+    if (node.disabled) {
+      continue;
+    }
+
+    switch (node.type) {
+      case 'subGraph': {
+        const data = node.data as GraphReferenceNodeData;
+        addStoredTarget('direct-static', { graphId: data.graphId, description: 'subgraph target', node });
+        break;
+      }
+
+      case 'loopUntil': {
+        const data = node.data as LoopUntilNodeData;
+        addStoredTarget('direct-static', { graphId: data.targetGraph, description: 'loop target graph', node });
+        break;
+      }
+
+      case 'cron': {
+        const data = node.data as CronNodeData;
+        const cronWarnings =
+          data.useTargetGraphInput && data.targetGraph
+            ? [
+                `${formatNodeContext(graph, node)} enables Target Graph input, but the current Cron node implementation still executes the stored targetGraph.`,
+              ]
+            : undefined;
+
+        addStoredTarget('direct-static', { graphId: data.targetGraph, description: 'cron target graph', node });
+
+        if (cronWarnings) {
+          const lastEdge = edges[edges.length - 1];
+          if (lastEdge) {
+            lastEdge.warnings = [...(lastEdge.warnings ?? []), ...cronWarnings];
+          }
+        }
+        break;
+      }
+
+      case 'delegateFunctionCall': {
+        const data = node.data as DelegateFunctionCallNodeData;
+        if (data.autoDelegate) {
+          addDynamicTargets('dynamic-name-match', namedGraphIds);
+          if (data.unknownHandler) {
+            addStoredTarget('direct-static', {
+              graphId: data.unknownHandler,
+              description: 'delegate fallback graph',
+              node,
+            });
+          }
+          break;
+        }
+
+        for (const handler of data.handlers ?? []) {
+          addStoredTarget('direct-static', {
+            graphId: handler.value,
+            description: `delegate handler graph for "${handler.key || 'unknown'}"`,
+            node,
+          });
+        }
+
+        if (data.unknownHandler) {
+          addStoredTarget('direct-static', {
+            graphId: data.unknownHandler,
+            description: 'delegate fallback graph',
+            node,
+          });
+        }
+        break;
+      }
+
+      case 'openaiRunThread': {
+        const data = node.data as RunThreadNodeData;
+        for (const handler of data.toolCallHandlers ?? []) {
+          addStoredTarget('direct-static', {
+            graphId: handler.value,
+            description: `run thread handler graph for "${handler.key || 'unknown'}"`,
+            node,
+          });
+        }
+
+        if (data.onMessageCreationSubgraphId) {
+          addStoredTarget('direct-static', {
+            graphId: data.onMessageCreationSubgraphId,
+            description: 'run thread on-message graph',
+            node,
+          });
+        }
+        break;
+      }
+
+      case 'callGraph': {
+        edges.push(
+          ...collectCallGraphEdges({
+            allGraphIds,
+            connectionsByInputNodeId,
+            graph,
+            node,
+            nodesById,
+            project,
+          }),
+        );
+        break;
+      }
+
+      case 'referencedGraphAlias': {
+        edges.push({ kind: 'cross-project', targets: [] });
+        break;
+      }
+
+      default:
+        break;
+    }
+  }
+
+  return edges;
+}
+
+function collectCallGraphEdges(options: {
+  allGraphIds: GraphId[];
+  connectionsByInputNodeId: ConnectionIndex;
+  graph: NodeGraph;
+  node: ChartNode;
+  nodesById: Record<NodeId, ChartNode>;
+  project: ProjectWithGraphs;
+}): GraphDependencyEdge[] {
+  const { allGraphIds, connectionsByInputNodeId, graph, node, nodesById, project } = options;
+  const graphInputConnections = (connectionsByInputNodeId[node.id] ?? []).filter(
+    (connection) => connection.inputId === CALL_GRAPH_INPUT_ID,
+  );
+
+  if (graphInputConnections.length === 0) {
+    return [];
+  }
+
+  if (graphInputConnections.length > 1) {
+    return [
+      {
+        kind: 'dynamic-via-callgraph',
+        targets: allGraphIds,
+        warnings: [`${formatNodeContext(graph, node)} has multiple graph inputs; reachability is treated as dynamic.`],
+      },
+    ];
+  }
+
+  const sourceConnection = graphInputConnections[0]!;
+  const sourceNode = nodesById[sourceConnection.outputNodeId];
+
+  if (!sourceNode) {
+    return [
+      {
+        kind: 'invalid',
+        targets: [],
+        warnings: [
+          `${formatNodeContext(graph, node)} is wired from missing node ${sourceConnection.outputNodeId}; reachability could not be resolved.`,
+        ],
+      },
+    ];
+  }
+
+  if (sourceNode.disabled) {
+    return [];
+  }
+
+  if (isStaticGraphReferenceCarrier(sourceNode, sourceConnection.outputId)) {
+    const data = sourceNode.data as GraphReferenceNodeData;
+    if (data.useGraphIdOrNameInput) {
+      return [{ kind: 'dynamic-via-callgraph', targets: allGraphIds }];
+    }
+
+    if (!data.graphId) {
+      return [
+        {
+          kind: 'invalid',
+          targets: [],
+          warnings: [`${formatNodeContext(graph, sourceNode)} has no configured graph reference target.`],
+        },
+      ];
+    }
+
+    if (!project.graphs[data.graphId]) {
+      return [
+        {
+          kind: 'invalid',
+          targets: [],
+          warnings: [
+            `${formatNodeContext(graph, sourceNode)} references missing graph ${data.graphId}; downstream Call Graph nodes cannot resolve it statically.`,
+          ],
+        },
+      ];
+    }
+
+    return [{ kind: 'static-via-callgraph', targets: [data.graphId] }];
+  }
+
+  return [{ kind: 'dynamic-via-callgraph', targets: allGraphIds }];
+}
+
+function isStaticGraphReferenceCarrier(node: ChartNode, outputId: PortId): node is ChartNode<'graphReference'> {
+  return node.type === 'graphReference' && outputId === GRAPH_REFERENCE_OUTPUT_ID;
+}
+
+function formatNodeContext(graph: NodeGraph, node: ChartNode): string {
+  const graphName = graph.metadata?.name ?? graph.metadata?.id ?? 'Unnamed Graph';
+  return `Node "${node.title || node.type}" (${node.type}) in graph "${graphName}"`;
+}

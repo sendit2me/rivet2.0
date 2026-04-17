@@ -21,28 +21,33 @@ import { useStableCallback } from '../../hooks/useStableCallback.js';
 import TextField from '@atlaskit/textfield';
 import { expandedFoldersState } from '../../state/ui';
 import { type NodeGraphFolderItem } from './graphFolders';
+import { type GraphReachabilityBucket } from '../../utils/graphReachability.js';
 
 export const FolderItem: FC<{
   item: NodeGraphFolderItem;
   runningGraphs: GraphId[];
   renamingItemFullPath: string | undefined;
   graph: NodeGraph;
+  graphReachabilityByGraphId: Record<GraphId, GraphReachabilityBucket>;
   depth: number;
   dragOverFolderName: string | undefined;
   draggingItemFolder: string | undefined;
   onGraphSelected?: (savedGraph: NodeGraph) => void;
   onRenameItem: (fullPath: string, newFullPath: string) => void;
+  showUnusedBadges: boolean;
 }> = memo(
   ({
     item,
     runningGraphs,
     renamingItemFullPath,
     graph,
+    graphReachabilityByGraphId,
     draggingItemFolder,
     onGraphSelected,
     onRenameItem,
     depth,
     dragOverFolderName,
+    showUnusedBadges,
   }) => {
     const projectMetadata = useAtomValue(projectMetadataState);
     const [expandedFolders, setExpandedFolders] = useAtom(expandedFoldersState);
@@ -56,6 +61,13 @@ export const FolderItem: FC<{
     const isSelected = graph.metadata?.id === savedGraph?.metadata?.id;
     const isDraggingOver =
       item.type === 'folder' && dragOverFolderName === fullPath && draggingItemFolder !== dragOverFolderName;
+    const graphReachability =
+      item.type === 'graph' && savedGraph?.metadata?.id ? graphReachabilityByGraphId[savedGraph.metadata.id] : undefined;
+    const shouldShowUnusedBadge =
+      item.type === 'graph' &&
+      !isRenaming &&
+      showUnusedBadges &&
+      graphReachability === 'unreachable';
 
     const handleRenameSaved = useStableCallback((newName: string) => {
       onRenameItem(fullPath, fullPath.replace(/[^/]+$/, newName));
@@ -130,6 +142,11 @@ export const FolderItem: FC<{
                 <span>{item.name}</span>
               )}
             </div>
+            {shouldShowUnusedBadge && (
+              <span className="unused-badge" title="This graph is not reachable from the project's Main Graph.">
+                Unused
+              </span>
+            )}
             <div className="dragger" {...listeners} {...attributes}>
               <MenuLineIcon />
             </div>
@@ -143,11 +160,13 @@ export const FolderItem: FC<{
                   runningGraphs={runningGraphs}
                   renamingItemFullPath={renamingItemFullPath}
                   graph={graph}
+                  graphReachabilityByGraphId={graphReachabilityByGraphId}
                   onGraphSelected={onGraphSelected}
                   onRenameItem={onRenameItem}
                   dragOverFolderName={dragOverFolderName}
                   depth={virtualDepth + 1}
                   draggingItemFolder={draggingItemFolder}
+                  showUnusedBadges={showUnusedBadges}
                 />
               ))}
             </div>
