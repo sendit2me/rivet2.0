@@ -161,8 +161,23 @@ export const styles = css`
     }
 
     &.active {
-      background-color: var(--grey-darkish);
+      background-color: var(--primary);
       border-bottom: 1px solid var(--primary);
+      color: var(--foreground-on-primary);
+    }
+
+    &.active:hover {
+      background-color: var(--primary-dark);
+      border-bottom-color: var(--primary-dark);
+    }
+
+    &.active .close-project {
+      color: rgba(255, 255, 255, 0.88);
+    }
+
+    &.active .close-project:hover {
+      color: var(--foreground-on-primary);
+      background-color: rgba(0, 0, 0, 0.16);
     }
 
     &.unsaved {

@@ -1,4 +1,4 @@
-- When multiple projects ar eopen at the same time, the tabs look confusing. Not clear which tab is open rigth now, they are all kind of gray. I want the active tab to be orange
+
 
 - HTTP node - emit fetch failed and other errors like invalid url as a separate output or something. So we can catch that in runtime instead of failing the workflow
 
