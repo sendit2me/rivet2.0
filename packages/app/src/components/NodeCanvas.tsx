@@ -123,7 +123,15 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
     floatingRefs,
   } = usePortHoverTooltip();
 
-  const { draggingNodes, onNodeStartDrag, onNodeDragged } = useDraggingNode(onNodesChanged);
+  const {
+    dragMode,
+    draggingConnectionSourceNodeIds,
+    draggingNodes,
+    onNodeDragActivatorPointerDown,
+    onNodeDragCancelled,
+    onNodeStartDrag,
+    onNodeDragged,
+  } = useDraggingNode();
   const { draggingWire, onWireStartDrag, onWireEndDrag } = useDraggingWire(onConnectionsChanged);
   useWireDragScrolling();
 
@@ -169,13 +177,15 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
   );
 
   const draggingNodeConnections = useMemo(
-    () =>
-      draggingNodes.flatMap((draggingNode) =>
-        previewConnections.filter(
-          (connection) => connection.inputNodeId === draggingNode.id || connection.outputNodeId === draggingNode.id,
-        ),
-      ),
-    [draggingNodes, previewConnections],
+    () => {
+      const draggingNodeIdSet = new Set(draggingConnectionSourceNodeIds);
+
+      return previewConnections.filter(
+        (connection) =>
+          draggingNodeIdSet.has(connection.inputNodeId) || draggingNodeIdSet.has(connection.outputNodeId),
+      );
+    },
+    [draggingConnectionSourceNodeIds, previewConnections],
   );
 
   const contextMenuItemSelected = useStableCallback(
@@ -363,7 +373,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
   );
 
   return (
-    <DndContext onDragStart={onNodeStartDrag} onDragEnd={onNodeDragged}>
+    <DndContext onDragStart={onNodeStartDrag} onDragEnd={onNodeDragged} onDragCancel={onNodeDragCancelled}>
       <div
         ref={setCanvasRef}
         className="node-canvas"
@@ -388,6 +398,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
           canvasPositionY={canvasPosition.y}
           canvasZoom={canvasPosition.zoom}
           canvasViewContextValue={canvasViewContextValue}
+          dragMode={dragMode}
           draggingNodeConnections={draggingNodeConnections}
           draggingNodes={draggingNodes}
           highlightedNodeIds={highlightedNodes}
@@ -395,6 +406,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
           lastRunPerNode={lastRunPerNode}
           nodeTypes={nodeTypes}
           nodesWithConnections={nodesWithConnections}
+          onNodeDragActivatorPointerDown={onNodeDragActivatorPointerDown}
           pinnedNodeIds={pinnedNodes}
           searchMatchingNodeIds={searchMatchingNodes}
           selectedProcessPagePerNode={selectedProcessPagePerNode}

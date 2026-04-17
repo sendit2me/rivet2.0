@@ -1,7 +1,6 @@
 - In the code node settings, the "Generate Using AI" UI must be foldable and folded by default.
 
-
-- On Alt_drag, the node must be duplicated
+- When I drag a node and click Esc, it breaks the graph visually (the node disappears). But when I reopen the grapj, it's there.
 
 
 - In the code editor, when utocompletion triggers, there's no way to close it without closing the settings panel. Esc closes the whole panel.

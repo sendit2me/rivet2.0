@@ -1,9 +1,10 @@
 import { DragOverlay } from '@dnd-kit/core';
-import { type FC, type ContextType } from 'react';
+import { type FC, type ContextType, useMemo } from 'react';
 import type { ChartNode, NodeConnection, NodeId } from '@ironclad/rivet-core';
 import { CanvasHandlersContext, CanvasViewContext } from '../CanvasContext.js';
 import { DraggableNode } from '../DraggableNode.js';
 import { VisualNode } from '../VisualNode.js';
+import { type DragActivatorModifierState, type DragMode } from '../../hooks/useDraggingNode.js';
 import type { useNodeTypes } from '../../hooks/useNodeTypes.js';
 import type { PageValue, ProcessDataForNode } from '../../state/dataFlow.js';
 
@@ -17,6 +18,7 @@ export interface NodeCanvasViewportProps {
   canvasPositionY: number;
   canvasZoom: number;
   canvasViewContextValue: CanvasViewValue;
+  dragMode: DragMode;
   draggingNodeConnections: NodeConnection[];
   draggingNodes: ChartNode[];
   highlightedNodeIds: NodeId[];
@@ -24,6 +26,7 @@ export interface NodeCanvasViewportProps {
   lastRunPerNode: Record<NodeId, ProcessDataForNode[] | undefined>;
   nodeTypes: NodeTypes;
   nodesWithConnections: Array<{ node: ChartNode; nodeConnections: NodeConnection[] }>;
+  onNodeDragActivatorPointerDown: (modifierState: DragActivatorModifierState) => void;
   pinnedNodeIds: NodeId[];
   searchMatchingNodeIds: NodeId[];
   selectedProcessPagePerNode: Record<NodeId, PageValue>;
@@ -35,6 +38,7 @@ export const NodeCanvasViewport: FC<NodeCanvasViewportProps> = ({
   canvasPositionY,
   canvasZoom,
   canvasViewContextValue,
+  dragMode,
   draggingNodeConnections,
   draggingNodes,
   highlightedNodeIds,
@@ -42,10 +46,13 @@ export const NodeCanvasViewport: FC<NodeCanvasViewportProps> = ({
   lastRunPerNode,
   nodeTypes,
   nodesWithConnections,
+  onNodeDragActivatorPointerDown,
   pinnedNodeIds,
   searchMatchingNodeIds,
   selectedProcessPagePerNode,
 }) => {
+  const draggingNodeIdSet = useMemo(() => new Set(draggingNodes.map((node) => node.id)), [draggingNodes]);
+
   return (
     <div
       className="canvas-contents"
@@ -58,18 +65,20 @@ export const NodeCanvasViewport: FC<NodeCanvasViewportProps> = ({
         <CanvasHandlersContext.Provider value={canvasHandlersContextValue}>
           <div className="nodes">
             {nodesWithConnections.map(({ node, nodeConnections }) => {
-              if (!isNodeVisible(node) || draggingNodes.some((draggingNode) => draggingNode.id === node.id)) {
+              if (!isNodeVisible(node) || draggingNodeIdSet.has(node.id)) {
                 return null;
               }
 
               return (
                 <DraggableNode
                   key={node.id}
+                  dragMode={dragMode}
                   node={node}
                   connections={nodeConnections}
                   isSelected={highlightedNodeIds.includes(node.id) || searchMatchingNodeIds.includes(node.id)}
                   isKnownNodeType={node.type in nodeTypes}
                   lastRun={lastRunPerNode[node.id]}
+                  onDragActivatorPointerDown={onNodeDragActivatorPointerDown}
                   isPinned={pinnedNodeIds.includes(node.id)}
                   processPage={selectedProcessPagePerNode[node.id]!}
                 />

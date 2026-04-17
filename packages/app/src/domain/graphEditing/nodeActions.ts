@@ -62,28 +62,71 @@ export function duplicateNodeWithConnections(options: {
   connections: NodeConnection[];
   registry: NodeRegistration<any, any>;
 }) {
-  const newNode = options.registry.createDynamic(options.node.type);
-  newNode.data = cloneDeep(options.node.data);
-  newNode.visualData = {
-    ...options.node.visualData,
-    x: options.node.visualData.x,
-    y: options.node.visualData.y + 200,
-  };
-  newNode.title = options.node.title;
-  newNode.description = options.node.description;
-  newNode.isSplitRun = options.node.isSplitRun;
-  newNode.splitRunMax = options.node.splitRunMax;
-
-  const duplicatedIncomingConnections = options.connections
-    .filter((connection) => connection.inputNodeId === options.node.id)
-    .map((connection) => ({
-      ...connection,
-      inputNodeId: newNode.id,
-    }));
+  const { newNodes, duplicatedConnections } = duplicateNodesWithConnections({
+    nodes: [options.node],
+    nodeIds: [options.node.id],
+    connections: options.connections,
+    delta: { x: 0, y: 200 },
+  });
 
   return {
-    newNode,
-    duplicatedIncomingConnections,
+    newNode: newNodes[0]!,
+    duplicatedIncomingConnections: duplicatedConnections,
+  };
+}
+
+export function duplicateNodesWithConnections(options: {
+  nodes: ChartNode[];
+  nodeIds: NodeId[];
+  connections: NodeConnection[];
+  delta?: { x: number; y: number };
+}) {
+  const nodeIds = [...new Set(options.nodeIds)];
+  const delta = options.delta ?? { x: 0, y: 0 };
+  const duplicatedNodeIds = new Map<NodeId, NodeId>();
+
+  const sourceNodes = nodeIds.map((nodeId) => {
+    const node = options.nodes.find((candidate) => candidate.id === nodeId);
+    if (!node) {
+      throw new Error(`Node with id ${nodeId} not found`);
+    }
+
+    return node;
+  });
+
+  const newNodes = sourceNodes.map((node) => {
+    const duplicatedNode = cloneDeep(node);
+    const duplicatedNodeId = newId<NodeId>();
+
+    duplicatedNodeIds.set(node.id, duplicatedNodeId);
+    duplicatedNode.id = duplicatedNodeId;
+    duplicatedNode.visualData = {
+      ...duplicatedNode.visualData,
+      x: node.visualData.x + delta.x,
+      y: node.visualData.y + delta.y,
+    };
+
+    return duplicatedNode;
+  });
+
+  const duplicatedConnections = options.connections.flatMap((connection) => {
+    const duplicatedInputNodeId = duplicatedNodeIds.get(connection.inputNodeId);
+    if (!duplicatedInputNodeId) {
+      return [];
+    }
+
+    return [
+      {
+        ...connection,
+        inputNodeId: duplicatedInputNodeId,
+        outputNodeId: duplicatedNodeIds.get(connection.outputNodeId) ?? connection.outputNodeId,
+      },
+    ];
+  });
+
+  return {
+    newNodes,
+    duplicatedConnections,
   };
 }
 

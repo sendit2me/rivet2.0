@@ -302,6 +302,13 @@ These are important refactor boundaries because they represent work already sepa
 
 This means refactors should usually start in those hooks before pushing more logic back into `NodeCanvas`.
 
+`useDraggingNode` now owns more than a thin `@dnd-kit` bridge. It is the drag-session state machine for node moves and `Alt`-drag duplication:
+
+- initial duplicate intent is captured from the node drag handle rather than inferred from `DragStartEvent`
+- live `Alt` press/release during a drag switches the session between move and duplicate mode
+- the drag cohort is canonicalized against `nodesById`, so stale selected node ids are filtered out before drop handling
+- the hook exposes explicit overlay policy through `draggingNodes` and `draggingConnectionSourceNodeIds` instead of relying on implicit render-side behavior
+
 ### Canvas edit history and wire-preview model
 
 Standard canvas edits are now expected to be command-backed rather than direct graph mutations.
@@ -315,7 +322,7 @@ The current command-backed canvas surface includes:
 - make connection
 - break connection
 - rewire connection
-- duplicate node
+- duplicate node / dragged node cohort
 - paste nodes
 - auto-layout
 
@@ -375,7 +382,9 @@ Key current behaviors:
 - nodes outside the visible viewport are skipped via `useVisibleCanvasNodes`
 - wires are only rendered above a zoom threshold
 - nodes use a distinct zoomed-out content renderer below zoom thresholds
-- dragging nodes are removed from the main render pass and shown via `DragOverlay`
+- move drags remove source nodes from the main render pass and show them via `DragOverlay`
+- duplicate drags keep the source nodes visible in place and show duplicate preview nodes in `DragOverlay`
+- drag-overlay wires only follow move drags; duplicate preview is intentionally node-only today
 
 ### Contexts instead of prop drilling
 
@@ -422,6 +431,7 @@ Those modules hold plain graph-editing sequences and state-transition helpers th
 They also now encode a couple of important behavior invariants that callers rely on:
 
 - node duplication helpers must return structurally independent node data so editing a duplicate does not mutate the original node through shared nested references
+- multi-node duplication helpers must preserve the duplicated cohort's internal connections and duplicated incoming connections from external source nodes
 - graph-list folder creation helpers must return unique folder paths within the target parent so repeated "new folder" actions do not collide with existing graph or folder names
 - folder rename/delete helpers should only rewrite or clear the active graph when the active graph is actually inside the affected folder subtree
 
