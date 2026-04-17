@@ -76,6 +76,14 @@ export const defaultEditorContainerStyles = css`
     flex: 1 1 auto;
   }
 
+  .editor-status-line {
+    margin-top: 6px;
+    color: var(--foreground-muted);
+    font-size: 13px;
+    font-family: 'Roboto Mono', monospace;
+    line-height: 1.4;
+  }
+
   .node-editor-code-resize-handle {
     position: absolute;
     left: 0;
@@ -87,27 +95,34 @@ export const defaultEditorContainerStyles = css`
     border-bottom: 1px solid rgba(255, 255, 255, 0.18);
   }
 
-  .row.toggle > div {
+  .row.toggle .toggle-editor-field {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-block: 10px 0;
+  }
+
+  .row.toggle .toggle-editor-control-row {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 4px;
+  }
 
-    label:first-child {
-      min-width: 75px;
-    }
+  .row.toggle .toggle-editor-label {
+    margin: 0;
+    min-width: 75px;
+  }
 
-    label:nth-child(2) {
-      min-width: 32px;
-    }
+  .row.toggle .toggle-editor-helper {
+    margin-left: 0;
+  }
 
-    &.use-input-toggle label:first-child {
-      min-width: unset;
-    }
+  .row.toggle .toggle-editor-helper > div {
+    margin: 0;
+  }
 
-    div,
-    label {
-      margin: 0;
-    }
+  .row.toggle .use-input-toggle label:first-child {
+    min-width: unset;
   }
 
   .helper-message {
@@ -164,7 +179,7 @@ export const DefaultNodeEditor: FC<
 
   return (
     <div css={defaultEditorContainerStyles}>
-      {editors.map((editor, i) => {
+      {editors.map((editor) => {
         const isDisabled = editor.disableIf?.(node.data) ?? false;
         return (
           <DefaultNodeEditorField

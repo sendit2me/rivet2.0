@@ -1,4 +1,4 @@
-import { Field, HelperMessage } from '@atlaskit/form';
+import { HelperMessage, Label } from '@atlaskit/form';
 import Toggle from '@atlaskit/toggle';
 import { type ToggleEditorDefinition, type ChartNode } from '@ironclad/rivet-core';
 import { type FC } from 'react';
@@ -41,21 +41,27 @@ export const ToggleEditor: FC<{
   label: string;
   name?: string;
   helperMessage?: string;
-  onClose?: () => void;
-}> = ({ value, onChange, isReadonly, isDisabled, label, name, helperMessage, onClose }) => {
+}> = ({ value, onChange, isReadonly, isDisabled, label, name, helperMessage }) => {
+  const toggleId = name ?? label;
+
   return (
-    <Field name={name ?? label} label={label} isDisabled={isDisabled}>
-      {({ fieldProps }) => (
-        <>
-          <Toggle
-            {...fieldProps}
-            isChecked={value}
-            isDisabled={isReadonly}
-            onChange={(e) => onChange(e.target.checked)}
-          />
-          {helperMessage && <HelperMessage>{helperMessage}</HelperMessage>}
-        </>
+    <div className="toggle-editor-field">
+      <div className="toggle-editor-control-row">
+        <div className="toggle-editor-label">
+          <Label htmlFor={toggleId}>{label}</Label>
+        </div>
+        <Toggle
+          id={toggleId}
+          isChecked={value}
+          isDisabled={isReadonly || isDisabled}
+          onChange={(e) => onChange(e.target.checked)}
+        />
+      </div>
+      {helperMessage && (
+        <div className="toggle-editor-helper">
+          <HelperMessage>{helperMessage}</HelperMessage>
+        </div>
       )}
-    </Field>
+    </div>
   );
 };

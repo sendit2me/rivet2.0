@@ -2,7 +2,7 @@ import { HelperMessage, Label } from '@atlaskit/form';
 import { type CodeEditorDefinition, type ChartNode } from '@ironclad/rivet-core';
 import { useLatest, useDebounceFn } from 'ahooks';
 import { useAtomValue } from 'jotai';
-import { type FC, type MutableRefObject, useRef, useEffect, Suspense } from 'react';
+import { type FC, type MutableRefObject, useRef, useEffect, Suspense, useState } from 'react';
 import { type monaco } from '../../utils/monaco';
 import { themeState } from '../../state/settings.js';
 import { LazyCodeEditor } from '../LazyComponents';
@@ -11,6 +11,7 @@ import { getHelperMessage } from './editorUtils';
 import { resolveMonacoTheme } from '../codeEditorTheme.js';
 import { ResizeHandle } from '../ResizeHandle.js';
 import { isValidHeight, RESIZABLE_LANGUAGES, useNodeEditorCodeViewportHeight } from './useNodeEditorCodeViewportHeight.js';
+import { formatTextEditorStatsLine } from './textEditorStats.js';
 
 export const DefaultCodeEditor: FC<
   SharedEditorProps & {
@@ -49,6 +50,7 @@ export const DefaultCodeEditor: FC<
       id={node.id}
       nodeType={node.type}
       defaultHeight={editorDef.height}
+      showTextStats={node.type === 'text' && editorDef.dataKey === 'text'}
     />
   );
 };
@@ -69,6 +71,7 @@ export const CodeEditor: FC<{
   id?: string;
   nodeType?: string;
   defaultHeight?: number;
+  showTextStats?: boolean;
 }> = ({
   value,
   onChange,
@@ -85,8 +88,10 @@ export const CodeEditor: FC<{
   id,
   nodeType,
   defaultHeight,
+  showTextStats = false,
 }) => {
   const editorInstance = useRef<monaco.editor.IStandaloneCodeEditor>();
+  const [displayValue, setDisplayValue] = useState(value ?? '');
 
   const onChangeLatest = useLatest(onChange);
   const isEditorReadOnly = isReadonly || isDisabled;
@@ -106,13 +111,21 @@ export const CodeEditor: FC<{
       // Only set the text explicitly if we're not editing it and have a cursor position.
       if (textChanged && !hasTextFocus) {
         editorInstance.current.setValue(currentValue ?? '');
+        setDisplayValue(currentValue ?? '');
       }
 
       editorInstance.current.updateOptions({
         readOnly: isEditorReadOnly,
       });
+    } else {
+      setDisplayValue(value ?? '');
     }
   }, [value, isEditorReadOnly]);
+
+  const handleEditorChange = (newText: string) => {
+    setDisplayValue(newText);
+    onChangeLatest.current(newText);
+  };
 
   const handleKeyDown = (e: monaco.IKeyboardEvent) => {
     if (e.keyCode === 9 /* Escape */) {
@@ -131,8 +144,8 @@ export const CodeEditor: FC<{
           <ResizableCodeEditorViewport
             editorMountKey={editorMountKey}
             editorInstance={editorInstance}
-            text={value ?? ''}
-            onChange={onChangeLatest.current}
+            text={displayValue}
+            onChange={handleEditorChange}
             theme={resolvedTheme}
             language={language}
             isReadonly={isEditorReadOnly}
@@ -146,8 +159,8 @@ export const CodeEditor: FC<{
           <NonResizableCodeEditorViewport
             editorMountKey={editorMountKey}
             editorInstance={editorInstance}
-            text={value ?? ''}
-            onChange={onChangeLatest.current}
+            text={displayValue}
+            onChange={handleEditorChange}
             theme={resolvedTheme}
             language={language}
             isReadonly={isEditorReadOnly}
@@ -157,6 +170,7 @@ export const CodeEditor: FC<{
             defaultHeight={defaultHeight}
           />
         )}
+        {showTextStats && <div className="editor-status-line">{formatTextEditorStatsLine(displayValue)}</div>}
       </div>
     </Suspense>
   );
