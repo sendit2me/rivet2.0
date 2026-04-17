@@ -1,6 +1,7 @@
 import { useLatest } from 'ahooks';
 import { type FC, type MutableRefObject, useEffect, useRef } from 'react';
 import { monaco } from '../utils/monaco.js';
+import { useMultilineEditorFontSize } from '../hooks/useMultilineEditorFontSize.js';
 
 export const CodeEditor: FC<{
   text: string;
@@ -31,6 +32,7 @@ export const CodeEditor: FC<{
   const editorInstance = useRef<monaco.editor.IStandaloneCodeEditor>();
 
   const onChangeLatest = useLatest(onChange);
+  const { fontSize, handleKeyDown: handleFontSizeKeyDown } = useMultilineEditorFontSize();
 
   useEffect(() => {
     const container = editorContainer.current;
@@ -55,6 +57,7 @@ export const CodeEditor: FC<{
         minimap: {
           enabled: false,
         },
+        fontSize,
         wordWrap: 'on',
         readOnly: isReadonly,
         value: text,
@@ -98,19 +101,45 @@ export const CodeEditor: FC<{
   }, []);
 
   useEffect(() => {
-    if (onKeyDown) {
-      const dispose = editorInstance.current?.onKeyDown(onKeyDown);
-      return () => {
-        dispose?.dispose();
-      };
+    const editor = editorInstance.current;
+
+    if (!editor) {
+      return undefined;
     }
-  }, [onKeyDown]);
+
+    const dispose = editor.onKeyDown((event) => {
+      if (handleFontSizeKeyDown(event.browserEvent)) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+
+      onKeyDown?.(event);
+    });
+
+    return () => {
+      dispose.dispose();
+    };
+  }, [handleFontSizeKeyDown, onKeyDown]);
 
   useEffect(() => {
     if (autoFocus) {
       editorInstance.current?.focus();
     }
   }, [autoFocus]);
+
+  useEffect(() => {
+    const editor = editorInstance.current;
+
+    if (!editor) {
+      return;
+    }
+
+    editor.updateOptions({
+      fontSize,
+    });
+    editor.layout();
+  }, [fontSize]);
 
   return <div ref={editorContainer} className="editor-container" />;
 };

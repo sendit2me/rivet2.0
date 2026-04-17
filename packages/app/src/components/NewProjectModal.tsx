@@ -15,6 +15,7 @@ import documentationTutorialProject from '../assets/tutorials/documentation-tuto
 import aiAgentTemplateProject from '../assets/templates/ai_agent_template.rivet-project?raw';
 import mcpAiAgentTemplateProject from '../assets/templates/mcp_ai_agent_template.rivet-project?raw';
 import { useNewProjectFromTemplate } from '../hooks/useNewProjectFromTemplate';
+import { useMultilineEditorFontSize } from '../hooks/useMultilineEditorFontSize.js';
 
 export const NewProjectModalRenderer: FC = () => {
   const newProjectModalOpen = useAtomValue(newProjectModalOpenState);
@@ -125,6 +126,7 @@ const BlankProjectTemplate: FC<{
 }> = ({ onCreated }) => {
   const [projectName, setProjectName] = useState<string>('');
   const [projectDescription, setProjectDescription] = useState<string>('');
+  const { fontSize, handleKeyDown: handleMultilineEditorFontSizeKeyDown } = useMultilineEditorFontSize();
 
   const newProject = useNewProject();
 
@@ -167,6 +169,13 @@ const BlankProjectTemplate: FC<{
               autoComplete="off"
               value={projectDescription}
               onChange={(e) => setProjectDescription((e.target as HTMLTextAreaElement).value)}
+              onKeyDown={(e) => {
+                if (handleMultilineEditorFontSizeKeyDown(e.nativeEvent)) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }
+              }}
+              style={{ fontSize }}
             />
           )}
         </Field>

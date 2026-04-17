@@ -27,6 +27,7 @@ import TextArea from '@atlaskit/textarea';
 import { selectedAssistModelState } from '../../../state/ai';
 import { nativeCreateDir, nativeWriteFile } from '../../../utils/platform/fs.js';
 import { handleError } from '../../../utils/errorHandling.js';
+import { useMultilineEditorFontSize } from '../../../hooks/useMultilineEditorFontSize.js';
 
 const styles = css`
   display: flex;
@@ -82,6 +83,7 @@ export const AiAssistEditorBase = <TNodeData, TOutputs>({
   const record = true;
 
   const [modelAndApi, setModelAndApi] = useAtom(selectedAssistModelState);
+  const { fontSize, handleKeyDown: handleMultilineEditorFontSizeKeyDown } = useMultilineEditorFontSize();
 
   const generate = async () => {
     try {
@@ -188,11 +190,18 @@ export const AiAssistEditorBase = <TNodeData, TOutputs>({
             placeholder={placeholder}
             className="text-area"
             onKeyDown={(e) => {
+              if (handleMultilineEditorFontSizeKeyDown(e.nativeEvent)) {
+                e.preventDefault();
+                e.stopPropagation();
+                return;
+              }
+
               if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
                 generate();
               }
             }}
             minimumRows={3}
+            style={{ fontSize }}
           />
           <div className="model-and-button">
             <Select

@@ -1,6 +1,7 @@
 import { atom } from 'jotai';
 import { atomWithStorage } from 'jotai/utils';
 import { createHybridStorage } from './storage.js';
+import { DEFAULT_MULTILINE_EDITOR_FONT_SIZE } from '../utils/multilineEditorFontSize.js';
 
 const { storage } = createHybridStorage('ui');
 
@@ -21,5 +22,11 @@ export const codeEditorHeightsByNodeTypeState = atomWithStorage<Record<string, n
 );
 
 export const nodeEditorWidthState = atomWithStorage<number | null>('nodeEditorWidthState', null, storage);
+
+export const multilineEditorFontSizeState = atomWithStorage<number>(
+  'multilineEditorFontSizeState',
+  DEFAULT_MULTILINE_EDITOR_FONT_SIZE,
+  storage,
+);
 
 export const helpModalOpenState = atom<boolean>(false);

@@ -10,6 +10,7 @@ import Toggle from '@atlaskit/toggle';
 import { Label } from '@atlaskit/form';
 import { modelSelectorOptions } from '../utils/modelSelectorOptions';
 import { wrapAsync } from '../utils/errorHandling';
+import { useMultilineEditorFontSize } from '../hooks/useMultilineEditorFontSize.js';
 
 const styles = css`
   position: fixed;
@@ -54,6 +55,7 @@ export const AiGraphCreatorInput: FC = () => {
   const [record, setRecord] = useState(true);
 
   const [show, setShow] = useAtom(showAiGraphCreatorInputState);
+  const { fontSize, handleKeyDown: handleMultilineEditorFontSizeKeyDown } = useMultilineEditorFontSize();
 
   const [abortController, setAbortController] = useState<AbortController | null>(null);
 
@@ -81,6 +83,12 @@ export const AiGraphCreatorInput: FC = () => {
   }, 'Apply AI graph prompt');
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (handleMultilineEditorFontSizeKeyDown(e.nativeEvent)) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
       runPrompt();
@@ -112,6 +120,7 @@ export const AiGraphCreatorInput: FC = () => {
           autoFocus
           onChange={(e) => setPrompt(e.target.value)}
           onKeyDown={handleKeyDown}
+          style={{ fontSize }}
         />
         <div className="model-selector">
           <Select
