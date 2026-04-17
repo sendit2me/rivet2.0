@@ -96,6 +96,9 @@ const styles = css`
 
   .dragger {
     visibility: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     cursor: grab;
   }
 

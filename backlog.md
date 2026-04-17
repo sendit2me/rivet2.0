@@ -1,12 +1,9 @@
-- In the graphs list, mark unused graphs. The ones that are not referenced anywhere.
-
-- The icon for dragging the graphs shopuld br a dragging icon, not a square
+- When multiple projects ar eopen at the same time, the tabs look confusing. Not clear which tab is open rigth now, they are all kind of gray. I want the active tab to be orange
 
 - HTTP node - emit fetch failed and other errors like invalid url as a separate output or something. So we can catch that in runtime instead of failing the workflow
 
 - When I move the canvas around, it's smooth but it not keeping up with the cursor movement. It feels like it's lagging behind
 
-- When multiple projects ar eopen at the same time, the tabs look confusing. Not clear which tab is open rigth now, they are all kind of gray. I want the active tab to be orange
 
 - I want to be able to adjust the node height when it's not hovered so I can see this much of the content in the output section
 

@@ -16,7 +16,6 @@ import { LoadingSpinner } from '../LoadingSpinner.js';
 import { type GraphId, type NodeGraph } from '@ironclad/rivet-core';
 import ArrowRightIcon from 'majesticons/line/arrow-right-line.svg?react';
 import ArrowDownIcon from 'majesticons/line/arrow-down-line.svg?react';
-import MenuLineIcon from 'majesticons/line/menu-line.svg?react';
 import { useStableCallback } from '../../hooks/useStableCallback.js';
 import TextField from '@atlaskit/textfield';
 import { expandedFoldersState } from '../../state/ui';
@@ -148,7 +147,7 @@ export const FolderItem: FC<{
               </span>
             )}
             <div className="dragger" {...listeners} {...attributes}>
-              <MenuLineIcon />
+              <DragHandleIcon />
             </div>
           </div>
           {item.type === 'folder' && (
@@ -178,6 +177,17 @@ export const FolderItem: FC<{
 );
 
 FolderItem.displayName = 'FolderItem';
+
+const DragHandleIcon: FC = () => (
+  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+    <circle cx="4" cy="3" r="1" fill="currentColor" />
+    <circle cx="10" cy="3" r="1" fill="currentColor" />
+    <circle cx="4" cy="7" r="1" fill="currentColor" />
+    <circle cx="10" cy="7" r="1" fill="currentColor" />
+    <circle cx="4" cy="11" r="1" fill="currentColor" />
+    <circle cx="10" cy="11" r="1" fill="currentColor" />
+  </svg>
+);
 
 const FolderItemRename: FC<{
   value: string;
