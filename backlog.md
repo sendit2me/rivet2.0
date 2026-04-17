@@ -4,12 +4,11 @@
 
 - When I move the canvas around, it's smooth but it not keeping up with the cursor movement. It feels like it's lagging behind
 
-
 - I want to be able to adjust the node height when it's not hovered so I can see this much of the content in the output section
 
 - When HTTP node gets "fetch failed", it just errors instead of generating a meaningful signal. Code node too. I'd want to have a "catch" output I guess
 
-- The run button is pudhing down the node settings window. It's better to put the run button to a place where it doesn't dishelp
+- The run button is pushing down the node settings window. It's better to put the run button to a place where it doesn't dishelp
 
 - The width of the node settings panel on te right - should be adjustable in width
 

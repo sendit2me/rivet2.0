@@ -13,12 +13,13 @@ import { useFeatureFlag } from '../hooks/useFeatureFlag';
 
 const styles = css`
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: flex-start;
   z-index: 200;
   position: absolute;
   top: var(--project-selector-height);
-  left: 300px;
+  left: 50%;
+  transform: translateX(-50%);
   height: 40px;
 
   .left-menu {
