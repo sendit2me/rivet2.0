@@ -1,7 +1,4 @@
 
-- The run button is pushing down the node settings window. It's better to put the run button to a place where it doesn't dishelp
-
-
 
 - New Nodes for working with lists: filtering, mapping, reducing, etc.
 

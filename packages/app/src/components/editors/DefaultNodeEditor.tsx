@@ -14,7 +14,7 @@ export const defaultEditorContainerStyles = css`
   align-items: stretch;
   width: 100%;
   align-content: start;
-  gap: 8px;
+  gap: 16px;
   flex: 1 1 auto;
   min-height: 0;
 
