@@ -189,7 +189,7 @@ const Container = styled.div<{ panelWidth: number }>`
   .node-metadata-fields {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 0px;
     min-width: 0;
   }
 
@@ -241,7 +241,7 @@ const Container = styled.div<{ panelWidth: number }>`
     min-width: 0;
     height: 40px;
     padding: 0 12px;
-    font-size: 20px;
+    font-size: 14px;
     line-height: 38px;
     box-sizing: border-box;
     font-family: var(--font-family-monospace);

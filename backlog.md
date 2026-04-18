@@ -1,5 +1,8 @@
 
 
+- In the max iteratrions field, let's limit the numbers. It should be 1-infinity, with no negative or zero numbers
+
+- Now, the description field is a one liner. I want it to be a multiline text area that takes up all the width of the settings panel. But the position of the description block should stay the same. I mean the coordinates of the top left corner
 
 
 - New Nodes for working with lists: filtering, mapping, reducing, etc.
