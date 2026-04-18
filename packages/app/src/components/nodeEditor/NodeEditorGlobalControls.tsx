@@ -1,8 +1,9 @@
-import { type FC, type ReactNode } from 'react';
+import { type FC, type ReactNode, useRef } from 'react';
 import { type ChartNode } from '@ironclad/rivet-core';
-import { InlineEditableTextfield } from '@atlaskit/inline-edit';
+import InlineEdit from '@atlaskit/inline-edit';
 import Toggle from '@atlaskit/toggle';
 import TextField from '@atlaskit/textfield';
+import Textarea from '@atlaskit/textarea';
 import Select from '@atlaskit/select';
 import Button from '@atlaskit/button';
 import { Tooltip } from '../Tooltip.js';
@@ -56,6 +57,7 @@ export const NodeEditorGlobalControls: FC<{
   onDeleteVariant,
   onSaveAsVariant,
 }) => {
+  const nodeTitleBeforeEditRef = useRef(node.title ?? '');
   const isVariant = selectedVariant !== undefined;
   const hasSavedVariants = variantOptions.length > 1;
   const showVariantEditor = hasSavedVariants || addVariantPopupOpen;
@@ -92,25 +94,81 @@ export const NodeEditorGlobalControls: FC<{
         </div>
         <div className="node-metadata-fields">
           <div className="node-title-field">
-            <InlineEditableTextfield
+            <InlineEdit
               key={`node-title-${node.id}`}
               label="Node title"
-              placeholder="Some title"
-              defaultValue={node.title}
-              onConfirm={onTitleChange}
+              defaultValue={node.title ?? ''}
+              onEdit={() => {
+                nodeTitleBeforeEditRef.current = node.title ?? '';
+              }}
+              onCancel={() => {
+                if ((node.title ?? '') !== nodeTitleBeforeEditRef.current) {
+                  onTitleChange(nodeTitleBeforeEditRef.current);
+                }
+              }}
+              onConfirm={(title) => {
+                if ((node.title ?? '') !== title) {
+                  onTitleChange(title);
+                }
+              }}
               hideActionButtons
               readViewFitContainerWidth
+              readView={() => (
+                <div className={node.title ? 'title-read-content' : 'title-read-content is-empty'}>
+                  {node.title || 'Some title'}
+                </div>
+              )}
+              editView={(fieldProps, ref) => (
+                <TextField
+                  ref={ref}
+                  id={fieldProps.id}
+                  name={fieldProps.name}
+                  value={fieldProps.value ?? ''}
+                  isRequired={fieldProps.isRequired}
+                  isDisabled={fieldProps.isDisabled}
+                  isInvalid={fieldProps.isInvalid}
+                  onBlur={fieldProps.onBlur}
+                  onFocus={fieldProps.onFocus}
+                  onChange={(event) => {
+                    const nextTitle = event.currentTarget.value;
+                    fieldProps.onChange(nextTitle);
+                    onTitleChange(nextTitle);
+                  }}
+                  placeholder="Some title"
+                />
+              )}
             />
           </div>
           <div className="node-description-field">
-            <InlineEditableTextfield
+            <InlineEdit
               key={`node-description-${node.id}`}
               label="Node description"
               defaultValue={node.description ?? ''}
               onConfirm={onDescriptionChange}
-              placeholder="Description..."
               hideActionButtons
               readViewFitContainerWidth
+              readView={() => (
+                <div className={node.description ? 'description-read-content' : 'description-read-content is-empty'}>
+                  {node.description || 'Description...'}
+                </div>
+              )}
+              editView={(fieldProps, ref) => (
+                <Textarea
+                  ref={ref}
+                  id={fieldProps.id}
+                  name={fieldProps.name}
+                  value={fieldProps.value ?? ''}
+                  isRequired={fieldProps.isRequired}
+                  isDisabled={fieldProps.isDisabled}
+                  isInvalid={fieldProps.isInvalid}
+                  onBlur={fieldProps.onBlur}
+                  onFocus={fieldProps.onFocus}
+                  onChange={(event) => fieldProps.onChange(event.currentTarget.value)}
+                  placeholder="Description..."
+                  minimumRows={3}
+                  resize="smart"
+                />
+              )}
             />
           </div>
         </div>
@@ -145,14 +203,19 @@ export const NodeEditorGlobalControls: FC<{
               <TextField
                 className="split-max-input"
                 type="number"
+                min={1}
+                step={1}
                 placeholder="Max"
                 value={node.splitRunMax ?? 10}
-                onChange={(event) =>
+                onChange={(event) => {
+                  const rawValue = (event.target as HTMLInputElement).valueAsNumber;
+                  const splitRunMax = Math.max(1, Math.trunc(Number.isFinite(rawValue) ? rawValue : 1));
+
                   onUpdateNode({
                     ...node,
-                    splitRunMax: (event.target as HTMLInputElement).valueAsNumber,
-                  })
-                }
+                    splitRunMax,
+                  });
+                }}
               />
             </div>
           )}

@@ -173,7 +173,7 @@ const Container = styled.div<{ panelWidth: number }>`
 
   .node-type-label {
     color: var(--grey-light);
-    font-size: 15px;
+    font-size: 14px;
     line-height: 1;
   }
 
@@ -189,26 +189,32 @@ const Container = styled.div<{ panelWidth: number }>`
   .node-metadata-fields {
     display: flex;
     flex-direction: column;
-    gap: 0px;
+    gap: 0;
     min-width: 0;
+    margin-left: 12px;
   }
 
-  .node-title-field,
+  .node-title-field {
+    margin-top: 0px;
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+    justify-self: stretch;
+    overflow: hidden;
+    font-weight: 900;
+  }
+
   .node-description-field {
     margin-top: -4px;
     min-width: 0;
     width: 100%;
     max-width: 100%;
     justify-self: stretch;
-    overflow: hidden;
   }
 
   .node-title-field > div,
-  .node-description-field > div,
   .node-title-field form,
-  .node-description-field form,
-  .node-title-field form > div,
-  .node-description-field form > div {
+  .node-title-field form > div {
     width: 100%;
     height: 40px;
     margin: 0;
@@ -222,8 +228,7 @@ const Container = styled.div<{ panelWidth: number }>`
     display: none;
   }
 
-  .node-title-field [data-read-view-fit-container-width='true'],
-  .node-description-field [data-read-view-fit-container-width='true'] {
+  .node-title-field [data-read-view-fit-container-width='true'] {
     width: 100%;
     max-width: none;
     min-width: 0;
@@ -235,8 +240,7 @@ const Container = styled.div<{ panelWidth: number }>`
     overflow: hidden;
   }
 
-  .node-title-field [data-read-view-fit-container-width='true'] > div,
-  .node-description-field [data-read-view-fit-container-width='true'] > div {
+  .node-title-field [data-read-view-fit-container-width='true'] > div {
     width: 100%;
     min-width: 0;
     height: 40px;
@@ -251,8 +255,11 @@ const Container = styled.div<{ panelWidth: number }>`
     text-overflow: ellipsis;
   }
 
-  .node-title-field input,
-  .node-description-field input {
+  .node-title-field .title-read-content.is-empty {
+    color: var(--foreground-muted);
+  }
+
+  .node-title-field input {
     width: 100%;
     height: 40px;
     min-height: 40px;
@@ -267,14 +274,12 @@ const Container = styled.div<{ panelWidth: number }>`
     color: var(--grey-light);
   }
 
-  .node-title-field input:focus,
-  .node-description-field input:focus {
+  .node-title-field input:focus {
     outline: none;
     border-color: var(--primary);
   }
 
-  .node-title-field > div > button,
-  .node-description-field > div > button {
+  .node-title-field > div > button {
     width: auto;
     height: auto;
     min-height: 0;
@@ -284,14 +289,67 @@ const Container = styled.div<{ panelWidth: number }>`
     border: 0;
   }
 
-  .node-title-field [data-read-view-fit-container-width='true']:hover,
+  .node-title-field [data-read-view-fit-container-width='true']:hover {
+    background-color: rgba(255, 255, 255, 0.04);
+  }
+
+  .node-description-field,
+  .node-description-field > form,
+  .node-description-field form > div,
+  .node-description-field [data-read-view-fit-container-width='true'] {
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+  }
+
+  .node-description-field form > div {
+    margin: 0;
+  }
+
+  .node-description-field [data-read-view-fit-container-width='true'] {
+    display: block;
+    min-height: 14px;
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
   .node-description-field [data-read-view-fit-container-width='true']:hover {
     background-color: rgba(255, 255, 255, 0.04);
   }
 
-  .node-description-field [data-read-view-fit-container-width='true'] > div,
-  .node-description-field input {
+  .node-description-field .description-read-content {
+    width: 100%;
+    min-height: 14px;
+    padding: 10px 12px;
+    box-sizing: border-box;
+    font-size: 14px;
+    line-height: 1.4;
     color: var(--grey-light);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .node-description-field .description-read-content.is-empty {
+    color: var(--foreground-muted);
+  }
+
+  .node-description-field textarea {
+    width: 100%;
+    min-height: 14px;
+    padding: 10px 12px;
+    box-sizing: border-box;
+    font-size: 14px;
+    line-height: 1.4;
+    font-family: var(--font-family-monospace);
+    background-color: var(--grey-darkerish);
+    border: 1px solid var(--grey);
+    border-radius: 2px;
+    color: var(--grey-light);
+  }
+
+  .node-description-field textarea:focus {
+    outline: none;
+    border-color: var(--primary);
   }
 
   .toggle-field {
@@ -393,6 +451,11 @@ const Container = styled.div<{ panelWidth: number }>`
     display: flex;
     align-items: center;
     margin-left: 4px;
+  }
+
+  .node-color-picker div {
+    width: 48px;
+    height: 48px;
   }
 `;
 
