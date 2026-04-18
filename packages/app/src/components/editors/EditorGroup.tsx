@@ -61,7 +61,7 @@ const styles = css`
   .editor-group {
     border-bottom: 1px solid var(--grey-darkish);
     margin-top: 0;
-    padding: 0;
+    padding: 0 0 18px;
 
     display: flex;
     flex-direction: column;
