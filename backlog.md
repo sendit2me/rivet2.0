@@ -1,6 +1,5 @@
 
 
-- When the connection between two nodes is established and I hover the end point, and click it, the connection is removed. It's expected. But let's show the X sign on the connector so it's more understandable that clicking it will remove the connection
 
 - New Nodes for working with lists: filtering, mapping, reducing, etc.
 

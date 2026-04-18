@@ -103,6 +103,37 @@ test('resolveWireDragAction treats dropping back on the original input as a no-o
   assert.deepEqual(action, { type: 'none', reason: 'sameEndpoint' });
 });
 
+test('resolveWireDragAction treats a zero-movement click on the original connected input as a disconnect', () => {
+  const originalConnection = makeConnection({
+    inputNodeId: 'input-a' as any,
+    inputId: 'in-a' as any,
+    outputNodeId: 'output-a' as any,
+    outputId: 'out-a' as any,
+  });
+
+  const action = resolveWireDragAction({
+    draggingWire: {
+      startNodeId: 'output-a' as any,
+      startPortId: 'out-a' as any,
+      originalConnection,
+      rewireSourceInput: {
+        nodeId: 'input-a' as any,
+        portId: 'in-a' as any,
+      },
+    },
+    didMove: false,
+    dropTarget: {
+      nodeId: 'input-a' as any,
+      portId: 'in-a' as any,
+    },
+  });
+
+  assert.deepEqual(action, {
+    type: 'breakConnection',
+    connection: originalConnection,
+  });
+});
+
 test('resolveWireDragAction treats empty-canvas release from a connected input as a disconnect', () => {
   const originalConnection = makeConnection({
     inputNodeId: 'input-a' as any,

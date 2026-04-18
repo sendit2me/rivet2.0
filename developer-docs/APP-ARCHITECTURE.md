@@ -358,6 +358,7 @@ Wire dragging now has an important transactional invariant:
 - `draggingWireState` carries `originalConnection` and `rewireSourceInput` metadata for input-origin rewires
 - output-port labels are valid drag activators in addition to the output circles themselves, but the preview wire must still originate from the real output connector because port-position math is keyed to the actual port element
 - drop resolution flows through [`packages/app/src/domain/graphEditing/wireDragActions.ts`](../packages/app/src/domain/graphEditing/wireDragActions.ts), which resolves a gesture into one semantic action: make connection, rewire connection, break connection, or no-op
+- rewiring from an already-connected input has one extra gesture rule: releasing off-port breaks the connection, a zero-movement click on the original connected input also breaks it, and only a real drag that returns to the same endpoint is treated as a no-op
 - a completed rewire or disconnect is therefore one undo step
 
 Canvas rendering during a rewire uses preview selectors instead of temporarily mutating the

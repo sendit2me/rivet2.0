@@ -40,14 +40,46 @@ export type ResolvedWireDragAction =
       reason: 'emptyCanvas' | 'sameEndpoint';
     };
 
+function isDroppingBackOnOriginalInput(options: {
+  draggingWire: DraggingWireActionState;
+  dropTarget: {
+    nodeId: NodeId;
+    portId: PortId;
+  };
+}): options is {
+  draggingWire: DraggingWireActionState & {
+    originalConnection: NodeConnection;
+    rewireSourceInput: {
+      nodeId: NodeId;
+      portId: PortId;
+    };
+  };
+  dropTarget: {
+    nodeId: NodeId;
+    portId: PortId;
+  };
+} {
+  const { draggingWire, dropTarget } = options;
+
+  return !!(
+    draggingWire.originalConnection &&
+    draggingWire.rewireSourceInput &&
+    draggingWire.rewireSourceInput.nodeId === dropTarget.nodeId &&
+    draggingWire.rewireSourceInput.portId === dropTarget.portId &&
+    draggingWire.originalConnection.outputNodeId === draggingWire.startNodeId &&
+    draggingWire.originalConnection.outputId === draggingWire.startPortId
+  );
+}
+
 export function resolveWireDragAction(options: {
   draggingWire: DraggingWireActionState;
+  didMove?: boolean;
   dropTarget?: {
     nodeId: NodeId;
     portId: PortId;
   };
 }): ResolvedWireDragAction {
-  const { draggingWire, dropTarget } = options;
+  const { draggingWire, dropTarget, didMove = true } = options;
 
   if (!dropTarget) {
     return draggingWire.originalConnection
@@ -55,14 +87,11 @@ export function resolveWireDragAction(options: {
       : { type: 'none', reason: 'emptyCanvas' };
   }
 
-  if (
-    draggingWire.originalConnection &&
-    draggingWire.rewireSourceInput &&
-    draggingWire.rewireSourceInput.nodeId === dropTarget.nodeId &&
-    draggingWire.rewireSourceInput.portId === dropTarget.portId &&
-    draggingWire.originalConnection.outputNodeId === draggingWire.startNodeId &&
-    draggingWire.originalConnection.outputId === draggingWire.startPortId
-  ) {
+  if (isDroppingBackOnOriginalInput({ draggingWire, dropTarget })) {
+    if (!didMove) {
+      return { type: 'breakConnection', connection: draggingWire.originalConnection! };
+    }
+
     return { type: 'none', reason: 'sameEndpoint' };
   }
 
@@ -72,17 +101,20 @@ export function resolveWireDragAction(options: {
     inputNodeId: dropTarget.nodeId,
     inputId: dropTarget.portId,
   };
+  const originalConnection = draggingWire.originalConnection;
 
-  return draggingWire.originalConnection
-    ? {
-        type: 'rewireConnection',
-        originalConnection: draggingWire.originalConnection,
-        params,
-      }
-    : {
-        type: 'makeConnection',
-        params,
-      };
+  if (originalConnection) {
+    return {
+      type: 'rewireConnection',
+      originalConnection,
+      params,
+    };
+  }
+
+  return {
+    type: 'makeConnection',
+    params,
+  };
 }
 
 export function shouldContinueDraggingAfterWireAction(

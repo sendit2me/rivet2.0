@@ -5,7 +5,6 @@ import { ConditionallyRenderWire, PartialWire, getConnectionCacheKeys, getNodePo
 import { canvasToClientPosition, useCanvasPositioning } from '../hooks/useCanvasPositioning.js';
 import { ErrorBoundary } from 'react-error-boundary';
 import { draggingWireClosestPortState } from '../state/graphBuilder.js';
-import { orderBy } from 'lodash-es';
 import { nodesByIdState } from '../state/graph';
 import { type PortPositions } from './NodeCanvas';
 import {
@@ -20,6 +19,7 @@ import { lineCrossesViewport } from '../utils/lineClipping';
 import { useAtom, useAtomValue, useStore } from 'jotai';
 import { getSelectedProcessData } from '../state/selectors/executionSelectors.js';
 import { canvasIoDefinitionsForNodeState } from '../state/selectors/canvasGraphSelectors.js';
+import { resolveClosestWireDropTargetFromPoint } from '../utils/wireDropTarget.js';
 
 const wiresStyles = css`
   width: 100%;
@@ -95,41 +95,14 @@ export const WireLayer: FC<WireLayerProps> = ({
       setMousePosition({ x: clientX, y: clientY });
 
       if (draggingWire) {
-        const hoverElems = document
-          .elementsFromPoint(clientX, clientY)
-          .filter((elem) => elem.classList.contains('port-hover-area'));
+        const dropTarget = resolveClosestWireDropTargetFromPoint({
+          clientX,
+          clientY,
+          getInputDefinition: (nodeId, portId) =>
+            store.get(canvasIoDefinitionsForNodeState(nodeId))?.inputDefinitions.find((definition) => definition.id === portId),
+        });
 
-        if (hoverElems.length === 0) {
-          setClosestPort(undefined);
-        } else {
-          const closestHoverElem = orderBy(hoverElems, (elem) => {
-            const elemPosition = elem.getBoundingClientRect();
-            const elemCenter = {
-              x: elemPosition.x + elemPosition.width / 2,
-              y: elemPosition.y + elemPosition.height / 2,
-            };
-            const distance = Math.sqrt(Math.pow(clientX - elemCenter.x, 2) + Math.pow(clientY - elemCenter.y, 2));
-            return distance;
-          })[0] as HTMLElement;
-
-          const portElement = closestHoverElem.parentElement as HTMLElement | null;
-          const portId = portElement?.dataset.portid as PortId | undefined;
-          const nodeId = portElement?.dataset.nodeid as NodeId | undefined;
-
-          if (portElement && portId && nodeId) {
-            const io = store.get(canvasIoDefinitionsForNodeState(nodeId));
-            const definition = io?.inputDefinitions.find((def) => def.id === portId);
-
-            if (!definition?.dataType) {
-              setClosestPort(undefined);
-              return;
-            }
-
-            setClosestPort({ nodeId, portId, element: portElement, definition });
-          } else {
-            setClosestPort(undefined);
-          }
-        }
+        setClosestPort(dropTarget);
       } else if (closestPort !== undefined) {
         setClosestPort(undefined);
       }
