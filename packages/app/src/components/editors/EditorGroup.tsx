@@ -7,7 +7,7 @@ import { DefaultNodeEditorField } from './DefaultNodeEditorField';
 import Collapsible from 'react-collapsible';
 import ChevronDownIcon from 'majesticons/line/chevron-down-line.svg?react';
 import ChevronUpIcon from 'majesticons/line/chevron-up-line.svg?react';
-import { getHelperMessage } from './editorUtils';
+import { getEditorListKey, getHelperMessage } from './editorUtils';
 import { HelperMessage } from '@atlaskit/form';
 
 const styles = css`
@@ -112,7 +112,14 @@ export const EditorGroup: FC<
           {editors.map((editor, i) => {
             const isDisabled = editor.disableIf?.(sharedProps.node.data) || sharedProps.isDisabled;
 
-            return <DefaultNodeEditorField key={i} {...sharedProps} editor={editor} isDisabled={isDisabled} />;
+            return (
+              <DefaultNodeEditorField
+                key={getEditorListKey(editor, i)}
+                {...sharedProps}
+                editor={editor}
+                isDisabled={isDisabled}
+              />
+            );
           })}
         </div>
       </Collapsible>

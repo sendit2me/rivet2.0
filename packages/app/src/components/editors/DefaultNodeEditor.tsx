@@ -7,6 +7,7 @@ import { useGetRivetUIContext } from '../../hooks/useGetRivetUIContext';
 import { useProjectNodeRegistry } from '../../hooks/useProjectNodeRegistry';
 import { produce } from 'immer';
 import { handleError } from '../../utils/errorHandling.js';
+import { getEditorListKey } from './editorUtils';
 
 export const defaultEditorContainerStyles = css`
   display: flex;
@@ -216,11 +217,11 @@ export const DefaultNodeEditor: FC<
 
   return (
     <div css={defaultEditorContainerStyles}>
-      {editors.map((editor) => {
+      {editors.map((editor, index) => {
         const isDisabled = editor.disableIf?.(node.data) ?? false;
         return (
           <DefaultNodeEditorField
-            key={editor.type === 'group' ? editor.label : editor.dataKey}
+            key={getEditorListKey(editor, index)}
             node={node}
             onChange={onChange}
             editor={editor}
