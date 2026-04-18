@@ -13,11 +13,9 @@ import { type NodeBodySpec } from '../NodeBodySpec.js';
 import { nodeDefinition } from '../NodeDefinition.js';
 import type { InternalProcessContext } from '../ProcessContext.js';
 import type { Inputs, Outputs } from '../GraphProcessor.js';
+import { resolveUniqueValueDerivedPortIds } from '../../utils/orderedStringPortIds.js';
 
 export type CodeNode = ChartNode<'code', CodeNodeData>;
-
-const maskInput = (name: string) => name.trim().replace(/[^a-zA-Z0-9_]/g, '_');
-const asValidNames = (names: string[]): string[] => Array(...new Set(names.map(maskInput))).filter(Boolean);
 
 export type CodeNodeData = {
   code: string;
@@ -73,7 +71,7 @@ export class CodeNodeImpl extends NodeImpl<CodeNode> {
         : [this.data.inputNames]
       : [];
 
-    return asValidNames(inputNames).map((inputName) => {
+    return resolveUniqueValueDerivedPortIds(inputNames).map((inputName) => {
       return {
         type: 'any',
         id: inputName.trim() as PortId,
@@ -91,7 +89,7 @@ export class CodeNodeImpl extends NodeImpl<CodeNode> {
         : [this.data.outputNames]
       : [];
 
-    return asValidNames(outputNames).map((outputName) => {
+    return resolveUniqueValueDerivedPortIds(outputNames).map((outputName) => {
       return {
         id: outputName.trim() as PortId,
         title: outputName.trim(),
@@ -118,11 +116,23 @@ export class CodeNodeImpl extends NodeImpl<CodeNode> {
         type: 'stringList',
         label: 'Inputs',
         dataKey: 'inputNames',
+        reorderable: true,
+        portBinding: {
+          side: 'input',
+          identity: 'value-derived',
+          valueToPortId: 'sanitize-identifier',
+        },
       },
       {
         type: 'stringList',
         label: 'Outputs',
         dataKey: 'outputNames',
+        reorderable: true,
+        portBinding: {
+          side: 'output',
+          identity: 'value-derived',
+          valueToPortId: 'sanitize-identifier',
+        },
       },
       {
         type: 'toggle',

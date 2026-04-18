@@ -1,4 +1,11 @@
-- In the code node settings, the inputs and output fields should be draggable so I can change the order of the fields. The order doesn't affect anything and is cometic
+
+- In the text editor (and similar editors), when I add variables, sometimes the input connections break. When I start typing out a new variable, the syntax breaks and the "12" var becomes "{{12" and the connection disappers
+{{11}}
+{{
+{{12}}
+{{13}}
+Also id I cut - paste the "{{12}}", it breaks on the way because Rivet sees that it's gone for a second. So I canr move the variables around the text
+
 
 - In the node context menu, the "Delete" item should be red
 

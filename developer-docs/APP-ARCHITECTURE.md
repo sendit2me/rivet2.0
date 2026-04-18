@@ -1071,6 +1071,11 @@ Current node-editor Monaco rules that matter for editor changes:
 - viewport height must not be included in the structural Monaco remount key because resizing should preserve cursor, selection, and editor state during layout-only changes
 - out-of-scope node-editor code fields such as markdown, prompt-like text, `jsonpath`, and `regex` should keep the non-resizable static layout path instead of reading or writing the persisted per-node-type viewport height
 - non-node Monaco consumers such as Trivet, project MCP configuration, dataset editing, and copy/test-case modals should stay outside the folding opt-in path unless they deliberately add their own product requirement for it
+- reorderable `stringList` editors are now declarative at the core editor-definition layer through `reorderable` and `portBinding` metadata on [`packages/core/src/model/EditorDefinition.ts`](../packages/core/src/model/EditorDefinition.ts)
+- the shared app editor in [`packages/app/src/components/editors/StringListEditor.tsx`](../packages/app/src/components/editors/StringListEditor.tsx) owns the add/delete controls plus the handle-only drag UI; node definitions opt in through metadata instead of rendering bespoke reorder UIs
+- connector-preserving list edits flow through [`packages/app/src/domain/graphEditing/stringListPortBinding.ts`](../packages/app/src/domain/graphEditing/stringListPortBinding.ts) plus [`packages/app/src/commands/editNodeWithConnectionsCommand.ts`](../packages/app/src/commands/editNodeWithConnectionsCommand.ts), so the editor UI can reorder/rename rows without scattering node-specific connection-remap code
+- `Code` node port ids stay value-derived because the node's runtime API is name-based (`inputs.foo` / returned output keys), while `Destructure` and `Match` use stored stable output ids so reorder/rename can preserve connector identity independently from the displayed row order
+- legacy `Destructure` / `Match` projects without stored stable id arrays convert lazily on first relevant list edit; there is no graph-wide migration pass on load
 
 ### Output rendering
 

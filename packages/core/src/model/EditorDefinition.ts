@@ -1,4 +1,5 @@
 import { type ChartNode, type DataRef, type DataType, type DataValue, type DatasetId } from '../index.js';
+import type { LegacyOrderedPortIdPattern } from '../utils/orderedStringPortIds.js';
 
 type ExcludeNeverValues<T> = Pick<
   T,
@@ -173,7 +174,22 @@ export type StringListEditorDefinition<T extends ChartNode> = SharedEditorDefini
   useInputToggleDataKey?: DataOfType<T, boolean>;
 
   placeholder?: string;
+  reorderable?: boolean;
+  portBinding?: StringListPortBinding<T>;
 };
+
+export type StringListPortBinding<T extends ChartNode> =
+  | {
+      side: 'input' | 'output';
+      identity: 'value-derived';
+      valueToPortId: 'sanitize-identifier';
+    }
+  | {
+      side: 'input' | 'output';
+      identity: 'stored-stable-id';
+      idDataKey: DataOfType<T, string[]>;
+      legacyPortIdPattern: LegacyOrderedPortIdPattern;
+    };
 
 export type EditorDefinitionGroup<T extends ChartNode> = SharedEditorDefinitionProps<T> & {
   type: 'group';

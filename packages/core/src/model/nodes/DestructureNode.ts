@@ -13,11 +13,13 @@ import { JSONPath } from 'jsonpath-plus';
 import { type EditorDefinition, type NodeBodySpec } from '../../index.js';
 import { dedent } from 'ts-dedent';
 import { coerceTypeOptional } from '../../utils/coerceType.js';
+import { resolveStoredOrderedPortIds } from '../../utils/orderedStringPortIds.js';
 
 export type DestructureNode = ChartNode<'destructure', DestructureNodeData>;
 
 export type DestructureNodeData = {
   paths: string[];
+  pathPortIds?: string[];
 };
 
 export class DestructureNodeImpl extends NodeImpl<DestructureNode> {
@@ -33,6 +35,7 @@ export class DestructureNodeImpl extends NodeImpl<DestructureNode> {
       },
       data: {
         paths: ['$.value'],
+        pathPortIds: [nanoid()],
       },
     };
 
@@ -51,8 +54,14 @@ export class DestructureNodeImpl extends NodeImpl<DestructureNode> {
   }
 
   getOutputDefinitions(): NodeOutputDefinition[] {
+    const portIds = resolveStoredOrderedPortIds(this.data.paths.length, this.data.pathPortIds, {
+      kind: 'prefix',
+      prefix: 'match_',
+      startIndex: 0,
+    });
+
     return this.data.paths.map((path, index) => ({
-      id: `match_${index}` as PortId,
+      id: portIds[index]! as PortId,
       title: path,
       dataType: 'any',
     }));
@@ -64,6 +73,17 @@ export class DestructureNodeImpl extends NodeImpl<DestructureNode> {
         type: 'stringList',
         label: 'Paths',
         dataKey: 'paths',
+        reorderable: true,
+        portBinding: {
+          side: 'output',
+          identity: 'stored-stable-id',
+          idDataKey: 'pathPortIds',
+          legacyPortIdPattern: {
+            kind: 'prefix',
+            prefix: 'match_',
+            startIndex: 0,
+          },
+        },
         helperMessage:
           'One or more JSONPath expressions. Each expression will correspond to an output port of the node.',
       },
@@ -87,6 +107,11 @@ export class DestructureNodeImpl extends NodeImpl<DestructureNode> {
 
   async process(inputs: Record<PortId, DataValue>): Promise<Record<PortId, DataValue>> {
     const inputObject = coerceTypeOptional(inputs['object' as PortId], 'object');
+    const portIds = resolveStoredOrderedPortIds(this.data.paths.length, this.data.pathPortIds, {
+      kind: 'prefix',
+      prefix: 'match_',
+      startIndex: 0,
+    });
 
     const output: Record<PortId, DataValue> = {};
 
@@ -98,7 +123,7 @@ export class DestructureNodeImpl extends NodeImpl<DestructureNode> {
         match = undefined;
       }
 
-      output[`match_${index}` as PortId] = {
+      output[portIds[index]! as PortId] = {
         type: 'any',
         value: match,
       };
