@@ -75,6 +75,8 @@ const styles = css`
 
   .add-item {
     margin-top: 8px;
+    min-width: 96px;
+    justify-content: center;
   }
 
   .delete-item {
