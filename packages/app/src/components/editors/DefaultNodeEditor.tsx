@@ -21,7 +21,11 @@ export const defaultEditorContainerStyles = css`
 
   .row {
     display: grid;
-    grid-template-columns: 1fr auto;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .row.has-side-control {
+    grid-template-columns: minmax(0, 1fr) auto;
     column-gap: 16px;
   }
 

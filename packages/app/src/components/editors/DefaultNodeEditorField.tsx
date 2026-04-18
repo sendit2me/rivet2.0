@@ -67,31 +67,31 @@ export const DefaultNodeEditorField: FC<
     .with({ type: 'directoryBrowser' }, (editor) => <DefaultDirectoryBrowserEditor {...sharedProps} editor={editor} />)
     .exhaustive();
 
-  const toggle =
-    editor.type !== 'group' && editor.useInputToggleDataKey ? (
+  const sideControlDataKey = editor.type !== 'group' ? editor.useInputToggleDataKey : undefined;
+  const hasSideControl = Boolean(sideControlDataKey);
+
+  const toggle = hasSideControl ? (
       <div className="use-input-toggle">
         <Tooltip content={`Use an input port for ${editor.label}`}>
           <Toggle
-            isChecked={data[editor.useInputToggleDataKey] as boolean | undefined}
+            isChecked={data[sideControlDataKey!] as boolean | undefined}
             isDisabled={isReadonly || sharedProps.isDisabled}
             onChange={(e) =>
               onChange({
                 ...node,
                 data: {
                   ...data,
-                  [editor.useInputToggleDataKey!]: e.target.checked,
+                  [sideControlDataKey!]: e.target.checked,
                 },
               })
             }
           />
         </Tooltip>
       </div>
-    ) : (
-      <div />
-    );
+    ) : null;
 
   return (
-    <div className={clsx('row', editor.type)}>
+    <div className={clsx('row', editor.type, hasSideControl && 'has-side-control')}>
       {input}
       {toggle}
     </div>

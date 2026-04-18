@@ -19,15 +19,16 @@ const styles = css`
   > .Collapsible .editor-group-toggle-container {
     display: flex;
     flex-direction: column;
+    padding-left: 16px;
+    padding-right: 16px;
+    border: 1px solid var(--grey-darkish);
+    border-radius: 8px;
+    background: var(--grey-darker);
   }
 
   > .Collapsible > .editor-group-toggle-container.open {
-    border: 1px solid var(--grey-darkish);
     border-bottom: none;
     border-radius: 8px 8px 0 0;
-    background: var(--grey-darker);
-    padding-left: 16px;
-    padding-right: 16px;
   }
 
   > .Collapsible > .editor-group-toggle-container.open + .Collapsible__contentOuter {

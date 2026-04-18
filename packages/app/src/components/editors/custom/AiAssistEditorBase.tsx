@@ -38,20 +38,28 @@ const styles = css`
   .ai-assist-toggle-container {
     display: flex;
     flex-direction: column;
+    padding-left: 16px;
+    padding-right: 16px;
+    border: 1px solid var(--grey-darkish);
+    border-radius: 8px;
+    background: var(--grey-darker);
+  }
+
+  .ai-assist-toggle-area {
+    display: flex;
+    flex-direction: column;
   }
 
   > .Collapsible > .ai-assist-toggle-container.open {
-    border: 1px solid var(--grey-darkish);
     border-bottom: none;
     border-radius: 8px 8px 0 0;
-    background: var(--grey-darkerish);
   }
 
   > .Collapsible > .ai-assist-toggle-container.open + .Collapsible__contentOuter {
     border: 1px solid var(--grey-darkish);
     border-top: none;
     border-radius: 0 0 8px 8px;
-    background: var(--grey-darkerish);
+    background: var(--grey-light-seethrougher);
   }
 
   .ai-assist-toggle {
@@ -88,6 +96,7 @@ const styles = css`
     display: flex;
     align-items: center;
     gap: 8px;
+    margin-top: 8px;
   }
 
   .ai-assist-panel {
@@ -292,7 +301,7 @@ export const AiAssistEditorBase = <TNodeData, TOutputs>({
   }
 
   const toggle = (isOpen?: boolean) => (
-    <div className="ai-assist-toggle-container">
+    <div className="ai-assist-toggle-area">
       <button type="button" className="ai-assist-toggle">
         <span className="label">{label}</span>
         <span className="indicator">{isOpen ? <ChevronUpIcon /> : <ChevronDownIcon />}</span>
