@@ -2,11 +2,12 @@
 
 
 
+- In the workspave navigation (Canvas, Plugins, Community, ...), when there's a "File" tab, I want it to be closed when I click elsewhere.
 
 
-- Some time ago we made "Generate Using AI" a foldable section on a code node, Let's do teh same with the Object node. Also check if some other nodes have it
 
-- Add mid points to connections so I can do neat wiring
+
+
 
 - I don't think the file icons in the project tabs are needed. They just take up space
 
@@ -15,7 +16,9 @@
 - The "Go to next graph" and "Go to previous graph" buttons that appear next to the graph list. When I collapse the left panel with the graphs list, the buttons should travel along, staying close to the right edge of the collapsed graphs list
 
 
-- Workspace tabs are not teh same as "File" tab. File is not a tab at all, it shouldn't be a tab
+
+
+- Add mid points to connections so I can do neat wiring
 
 
 - The each node's settings panel header is a mess. It takes up too much space
