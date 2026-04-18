@@ -5,6 +5,7 @@ import { editingNodeState, selectedNodesState, removeGraphBuilderNodeStateFamili
 import { type NodeConnection, type ChartNode, type NodeId } from '@ironclad/rivet-core';
 import { removeExecutionNodeStateFamilies } from '../state/dataFlow';
 import { deleteNodesFromGraph } from '../domain/graphEditing/nodeActions.js';
+import { recoverableNodeConnectionsStatePerGraph, removeRecoverableNodeConnectionsForGraphNodes } from '../state/recoverableNodeConnections';
 
 export const useDeleteNodesCommand = () => {
   const selectedNodeIds = useAtomValue(selectedNodesState);
@@ -13,6 +14,7 @@ export const useDeleteNodesCommand = () => {
   const setConnections = useSetAtom(connectionsState);
   const setSelectedNodeIds = useSetAtom(selectedNodesState);
   const setEditingNodeId = useSetAtom(editingNodeState);
+  const setRecoverableNodeConnections = useSetAtom(recoverableNodeConnectionsStatePerGraph);
 
   return useCommand<{ nodeIds: NodeId[] }, { removedNodes: ChartNode[]; removedConnections: NodeConnection[] }>({
     type: 'deleteNode',
@@ -31,6 +33,9 @@ export const useDeleteNodesCommand = () => {
 
       setNodes?.(newNodes);
       setConnections?.(newConnections);
+      setRecoverableNodeConnections((entries) =>
+        removeRecoverableNodeConnectionsForGraphNodes(entries, currentState.graphId, nodeIds),
+      );
       setSelectedNodeIds((current) => current.filter((id) => !nodeIds.includes(id)));
       for (const nodeId of nodeIds) {
         removeGraphNodeStateFamilies(nodeId);

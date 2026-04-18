@@ -11,6 +11,10 @@ import { connectionsState, graphMetadataState, nodesState } from '../state/graph
 import { useStableCallback } from '../hooks/useStableCallback';
 import { projectState, referencedProjectsState } from '../state/savedGraphs';
 import { editingNodeState } from '../state/graphBuilder';
+import {
+  clearRecoverableNodeConnectionsForGraph,
+  recoverableNodeConnectionsStatePerGraph,
+} from '../state/recoverableNodeConnections';
 
 export interface Command<T, U> {
   type: string;
@@ -31,6 +35,7 @@ export type CommandData<T, U> = {
 export type GraphCommandState = {
   nodes: ChartNode[];
   connections: NodeConnection[];
+  recoverableNodeConnections: Record<NodeId, NodeConnection[]>;
   project: Project;
   commandHistoryStack: CommandData<any, any>[];
   graphId: GraphId | undefined;
@@ -62,12 +67,15 @@ function useGraphCommandState(): GraphCommandState {
   const project = useAtomValue(projectState);
   const commandHistoryStacks = useAtomValue(commandHistoryStackStatePerGraph);
   const commandHistoryStack = graphId ? commandHistoryStacks[graphId] ?? [] : [];
+  const recoverableNodeConnectionsPerGraph = useAtomValue(recoverableNodeConnectionsStatePerGraph);
+  const recoverableNodeConnections = graphId ? recoverableNodeConnectionsPerGraph[graphId] ?? {} : {};
   const editingNodeId = useAtomValue(editingNodeState);
   const referencedProjects = useAtomValue(referencedProjectsState);
 
   return {
     nodes,
     connections,
+    recoverableNodeConnections,
     project,
     commandHistoryStack,
     graphId,
@@ -125,6 +133,7 @@ export function useCommand<T, U>(command: Command<T, U>) {
 export function useClearGraphHistory() {
   const setCommandHistoryStacks = useSetAtom(commandHistoryStackStatePerGraph);
   const setRedoStacks = useSetAtom(redoStackStatePerGraph);
+  const setRecoverableNodeConnections = useSetAtom(recoverableNodeConnectionsStatePerGraph);
 
   return useStableCallback((graphId: GraphId | undefined) => {
     if (!graphId) {
@@ -133,6 +142,7 @@ export function useClearGraphHistory() {
 
     setCommandHistoryStacks((stacks) => clearHistoryEntriesForGraph(stacks, graphId));
     setRedoStacks((redoStacks) => clearHistoryEntriesForGraph(redoStacks, graphId));
+    setRecoverableNodeConnections((entries) => clearRecoverableNodeConnectionsForGraph(entries, graphId));
   });
 }
 

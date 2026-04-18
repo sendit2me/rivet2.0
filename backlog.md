@@ -3,8 +3,6 @@
 
 
 
-- When in the text node, in the editor there's a {{foo}} varable and it is connected to something, and I select and cut the whole variavble declaration, the corresponding noide inpout disappears and teh connection is lost. When I do "Undo", the variable declaration is back and the corresponding node input is back but the connection is still lost. Which is reasonable. But is it possible to wire the "Undo" in a way that it would restore the connection too? it sounds like a massive rework so let's plan thoroughly so that it works but doesn't break anything else and doesn't make the architecture messy
-
 
 - Some time ago we made "Generate Using AI" a foldable section on a code node, Let's do teh same with the Object node. Also check if some other nodes have it
 
