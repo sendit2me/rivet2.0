@@ -40,6 +40,20 @@ const styles = css`
     flex-direction: column;
   }
 
+  > .Collapsible > .ai-assist-toggle-container.open {
+    border: 1px solid var(--grey-darkish);
+    border-bottom: none;
+    border-radius: 8px 8px 0 0;
+    background: var(--grey-darkerish);
+  }
+
+  > .Collapsible > .ai-assist-toggle-container.open + .Collapsible__contentOuter {
+    border: 1px solid var(--grey-darkish);
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+    background: var(--grey-darkerish);
+  }
+
   .ai-assist-toggle {
     display: flex;
     align-items: center;
@@ -77,9 +91,8 @@ const styles = css`
   }
 
   .ai-assist-panel {
-    border-bottom: 1px solid var(--grey-darkish);
-    margin-top: 2px;
-    padding: 8px 0 16px;
+    margin-top: 0;
+    padding: 6px 16px 16px;
   }
 
   .model-and-button {

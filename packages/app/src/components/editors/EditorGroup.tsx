@@ -21,6 +21,22 @@ const styles = css`
     flex-direction: column;
   }
 
+  > .Collapsible > .editor-group-toggle-container.open {
+    border: 1px solid var(--grey-darkish);
+    border-bottom: none;
+    border-radius: 8px 8px 0 0;
+    background: var(--grey-darker);
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  > .Collapsible > .editor-group-toggle-container.open + .Collapsible__contentOuter {
+    border: 1px solid var(--grey-darkish);
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+    background: var(--grey-light-seethrougher);
+  }
+
   .editor-group-toggle-area {
     display: flex;
     flex-direction: column;
@@ -59,9 +75,8 @@ const styles = css`
   }
 
   .editor-group {
-    border-bottom: 1px solid var(--grey-darkish);
     margin-top: 0;
-    padding: 0 0 18px;
+    padding: 6px 16px 18px;
 
     display: flex;
     flex-direction: column;
