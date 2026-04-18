@@ -124,6 +124,11 @@ export const defaultEditorContainerStyles = css`
   .row.toggle .toggle-editor-label {
     margin: 0;
     min-width: 75px;
+    cursor: pointer;
+  }
+
+  .row.toggle .toggle-editor-label label {
+    cursor: pointer;
   }
 
   .row.toggle .toggle-editor-helper {
