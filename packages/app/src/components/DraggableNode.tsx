@@ -5,9 +5,15 @@ import { VisualNode } from './VisualNode.js';
 import { ErrorBoundary } from 'react-error-boundary';
 import { type ProcessDataForNode } from '../state/dataFlow';
 import { useCanvasViewContext } from './CanvasContext';
-import { type DragActivatorModifierState, type DragMode } from '../hooks/useDraggingNode.js';
+import {
+  constrainDragDeltaToAxisLock,
+  type DragActivatorModifierState,
+  type DragAxisLock,
+  type DragMode,
+} from '../hooks/useDraggingNode.js';
 
 interface DraggableNodeProps {
+  dragAxisLock: DragAxisLock;
   dragMode: DragMode;
   renderSkeleton?: boolean;
   node: ChartNode;
@@ -22,6 +28,7 @@ interface DraggableNodeProps {
 }
 
 export const DraggableNode: FC<DraggableNodeProps> = ({
+  dragAxisLock,
   dragMode,
   node,
   connections = [],
@@ -37,14 +44,15 @@ export const DraggableNode: FC<DraggableNodeProps> = ({
   const { canvasZoom } = useCanvasViewContext();
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: node.id });
   const shouldKeepSourceNodeVisible = dragMode === 'duplicate' && isDragging;
+  const constrainedTransform = transform ? constrainDragDeltaToAxisLock(transform, dragAxisLock) : null;
   const handleAttributes = useMemo(
     () => ({
       ...(listeners ?? {}),
       onMouseDownCapture: (event: ReactMouseEvent<HTMLDivElement>) => {
-        onDragActivatorPointerDown({ altKey: event.altKey });
+        onDragActivatorPointerDown({ altKey: event.altKey, shiftKey: event.shiftKey });
       },
       onPointerDownCapture: (event: ReactPointerEvent<HTMLDivElement>) => {
-        onDragActivatorPointerDown({ altKey: event.altKey });
+        onDragActivatorPointerDown({ altKey: event.altKey, shiftKey: event.shiftKey });
       },
     }),
     [listeners, onDragActivatorPointerDown],
@@ -59,8 +67,8 @@ export const DraggableNode: FC<DraggableNodeProps> = ({
         node={node}
         connections={connections}
         isDragging={isDragging && !shouldKeepSourceNodeVisible}
-        xDelta={transform && !shouldKeepSourceNodeVisible ? transform.x / canvasZoom : 0}
-        yDelta={transform && !shouldKeepSourceNodeVisible ? transform.y / canvasZoom : 0}
+        xDelta={constrainedTransform && !shouldKeepSourceNodeVisible ? constrainedTransform.x / canvasZoom : 0}
+        yDelta={constrainedTransform && !shouldKeepSourceNodeVisible ? constrainedTransform.y / canvasZoom : 0}
         nodeAttributes={attributes}
         handleAttributes={handleAttributes}
         isKnownNodeType={isKnownNodeType}

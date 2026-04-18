@@ -306,6 +306,7 @@ This means refactors should usually start in those hooks before pushing more log
 
 - initial duplicate intent is captured from the node drag handle rather than inferred from `DragStartEvent`
 - live `Alt` press/release during a drag switches the session between move and duplicate mode
+- live `Shift` press/release during a drag enables or clears straight-line axis locking; the first non-zero drag delta while `Shift` is active chooses the locked axis and that same constrained delta is used for both the overlay preview and the final committed move
 - the drag cohort is canonicalized against `nodesById`, so stale selected node ids are filtered out before drop handling
 - the hook exposes explicit overlay policy through `draggingNodes` and `draggingConnectionSourceNodeIds` instead of relying on implicit render-side behavior
 
@@ -398,6 +399,7 @@ Key current behaviors:
 - duplicate drags keep the source nodes visible in place and show duplicate preview nodes in `DragOverlay`
 - drag-overlay wires only follow move drags; duplicate preview is intentionally node-only today
 - drag overlays inherit execution/error styling and expanded-output state from the source nodes; duplicate preview ids are only render ids and must not be treated as execution-history ids
+- the floating `Shift` selection-box mouse indicator should stay suppressed during active node drags so it does not conflict with the straight-line drag affordance
 - hover styling is a distinct render path from true selection; hovered nodes get lightweight visual treatment without reusing the stronger selected-node styling
 
 ### Contexts instead of prop drilling

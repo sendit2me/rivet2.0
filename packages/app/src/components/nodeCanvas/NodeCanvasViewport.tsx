@@ -4,7 +4,12 @@ import type { ChartNode, NodeConnection, NodeId } from '@ironclad/rivet-core';
 import { CanvasHandlersContext, CanvasViewContext } from '../CanvasContext.js';
 import { DraggableNode } from '../DraggableNode.js';
 import { VisualNode } from '../VisualNode.js';
-import { type DragActivatorModifierState, type DragMode } from '../../hooks/useDraggingNode.js';
+import {
+  constrainDragDeltaToAxisLock,
+  type DragActivatorModifierState,
+  type DragAxisLock,
+  type DragMode,
+} from '../../hooks/useDraggingNode.js';
 import type { useNodeTypes } from '../../hooks/useNodeTypes.js';
 import type { PageValue, ProcessDataForNode } from '../../state/dataFlow.js';
 import { resolveDraggingExecutionContext } from './dragOverlayExecutionContext.js';
@@ -19,6 +24,7 @@ export interface NodeCanvasViewportProps {
   canvasPositionY: number;
   canvasZoom: number;
   canvasViewContextValue: CanvasViewValue;
+  dragAxisLock: DragAxisLock;
   dragMode: DragMode;
   draggingNodeConnections: NodeConnection[];
   draggingNodes: ChartNode[];
@@ -41,6 +47,7 @@ export const NodeCanvasViewport: FC<NodeCanvasViewportProps> = ({
   canvasPositionY,
   canvasZoom,
   canvasViewContextValue,
+  dragAxisLock,
   dragMode,
   draggingNodeConnections,
   draggingNodes,
@@ -79,6 +86,7 @@ export const NodeCanvasViewport: FC<NodeCanvasViewportProps> = ({
               return (
                 <DraggableNode
                   key={node.id}
+                  dragAxisLock={dragAxisLock}
                   dragMode={dragMode}
                   node={node}
                   connections={nodeConnections}
@@ -97,12 +105,17 @@ export const NodeCanvasViewport: FC<NodeCanvasViewportProps> = ({
             dropAnimation={null}
             style={{ position: 'absolute', top: 0, left: 0 }}
             modifiers={[
-              (args) => ({
-                scaleX: 1,
-                scaleY: 1,
-                x: args.transform.x / canvasZoom,
-                y: args.transform.y / canvasZoom,
-              }),
+              (args) => {
+                const constrainedTransform = constrainDragDeltaToAxisLock(args.transform, dragAxisLock);
+
+                return {
+                  ...constrainedTransform,
+                  scaleX: 1,
+                  scaleY: 1,
+                  x: constrainedTransform.x / canvasZoom,
+                  y: constrainedTransform.y / canvasZoom,
+                };
+              },
             ]}
           >
             {draggingNodes.map((node, index) => {

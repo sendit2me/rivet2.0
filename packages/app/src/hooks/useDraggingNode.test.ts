@@ -2,12 +2,16 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { type ChartNode, type NodeId } from '@ironclad/rivet-core';
 import {
+  constrainDragDeltaToAxisLock,
   createDragDuplicatePreviewNodes,
   getDraggingConnectionSourceNodeIds,
   getDraggingPreviewNodes,
+  resolveDragAxisLock,
   resolveDraggedNodeIds,
   resolveDraggedSourceNodes,
   resolveDragModeFromAlt,
+  shouldDisableStraightLineDragOnKeyUp,
+  shouldEnableStraightLineDragOnKeyDown,
   shouldUseDuplicateDragModeOnKeyDown,
   shouldUseMoveDragModeOnKeyUp,
 } from './useDraggingNode.js';
@@ -53,6 +57,47 @@ test('resolveDragModeFromAlt maps modifier state to move vs duplicate drag mode'
   assert.equal(resolveDragModeFromAlt(false), 'move');
 });
 
+test('resolveDragAxisLock picks and preserves a straight-line axis only while shift is held', () => {
+  assert.equal(
+    resolveDragAxisLock({
+      axisLock: undefined,
+      shiftKey: true,
+      delta: { x: 20, y: 5 },
+    }),
+    'x',
+  );
+  assert.equal(
+    resolveDragAxisLock({
+      axisLock: undefined,
+      shiftKey: true,
+      delta: { x: 4, y: -9 },
+    }),
+    'y',
+  );
+  assert.equal(
+    resolveDragAxisLock({
+      axisLock: 'x',
+      shiftKey: true,
+      delta: { x: 1, y: 100 },
+    }),
+    'x',
+  );
+  assert.equal(
+    resolveDragAxisLock({
+      axisLock: 'y',
+      shiftKey: false,
+      delta: { x: 1, y: 100 },
+    }),
+    undefined,
+  );
+});
+
+test('constrainDragDeltaToAxisLock zeros the unlocked axis and preserves free dragging otherwise', () => {
+  assert.deepEqual(constrainDragDeltaToAxisLock({ x: 12, y: 7 }, 'x'), { x: 12, y: 0 });
+  assert.deepEqual(constrainDragDeltaToAxisLock({ x: 12, y: 7 }, 'y'), { x: 0, y: 7 });
+  assert.deepEqual(constrainDragDeltaToAxisLock({ x: 12, y: 7 }, undefined), { x: 12, y: 7 });
+});
+
 test('drag mode keyboard helpers switch into duplicate on keydown and back to move on keyup', () => {
   assert.equal(shouldUseDuplicateDragModeOnKeyDown({ key: 'Alt', altKey: false }), true);
   assert.equal(shouldUseDuplicateDragModeOnKeyDown({ key: 'x', altKey: true }), true);
@@ -61,6 +106,16 @@ test('drag mode keyboard helpers switch into duplicate on keydown and back to mo
   assert.equal(shouldUseMoveDragModeOnKeyUp({ key: 'Alt', altKey: false }), true);
   assert.equal(shouldUseMoveDragModeOnKeyUp({ key: 'x', altKey: false }), true);
   assert.equal(shouldUseMoveDragModeOnKeyUp({ key: 'x', altKey: true }), false);
+});
+
+test('shift drag keyboard helpers enable and disable straight-line locking from either modifier state or key transitions', () => {
+  assert.equal(shouldEnableStraightLineDragOnKeyDown({ key: 'Shift', shiftKey: false }), true);
+  assert.equal(shouldEnableStraightLineDragOnKeyDown({ key: 'x', shiftKey: true }), true);
+  assert.equal(shouldEnableStraightLineDragOnKeyDown({ key: 'x', shiftKey: false }), false);
+
+  assert.equal(shouldDisableStraightLineDragOnKeyUp({ key: 'Shift', shiftKey: false }), true);
+  assert.equal(shouldDisableStraightLineDragOnKeyUp({ key: 'x', shiftKey: false }), true);
+  assert.equal(shouldDisableStraightLineDragOnKeyUp({ key: 'x', shiftKey: true }), false);
 });
 
 test('createDragDuplicatePreviewNodes creates fresh ids without mutating source node positions', () => {

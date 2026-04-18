@@ -124,12 +124,14 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
   } = usePortHoverTooltip();
 
   const {
+    dragAxisLock,
     dragMode,
     draggingConnectionSourceNodeIds,
     draggingNodes,
     draggedSourceNodeIds,
     onNodeDragActivatorPointerDown,
     onNodeDragCancelled,
+    onNodeDraggedMove,
     onNodeStartDrag,
     onNodeDragged,
   } = useDraggingNode();
@@ -383,7 +385,12 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
   );
 
   return (
-    <DndContext onDragStart={onNodeStartDrag} onDragEnd={onNodeDragged} onDragCancel={onNodeDragCancelled}>
+    <DndContext
+      onDragStart={onNodeStartDrag}
+      onDragMove={onNodeDraggedMove}
+      onDragEnd={onNodeDragged}
+      onDragCancel={onNodeDragCancelled}
+    >
       <div
         ref={setCanvasRef}
         className="node-canvas"
@@ -399,7 +406,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
           backgroundSize: `${20 * canvasPosition.zoom}px ${20 * canvasPosition.zoom}px`,
         }}
       >
-        <MouseIcon />
+        <MouseIcon isDraggingNode={draggingNodes.length > 0} />
         <CopyNodesHotkeys />
         <DebugOverlay enabled={false} />
         <NodeCanvasViewport
@@ -408,6 +415,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
           canvasPositionY={canvasPosition.y}
           canvasZoom={canvasPosition.zoom}
           canvasViewContextValue={canvasViewContextValue}
+          dragAxisLock={dragAxisLock}
           dragMode={dragMode}
           draggingNodeConnections={draggingNodeConnections}
           draggingNodes={draggingNodes}

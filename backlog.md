@@ -2,7 +2,7 @@
 
 
 
-- When dragging nodes with Shift, I want it to drag the node in straight line
+- When dragging a node with Shift pressed, I want the node to trravel in a straight line 
 
 - When I dor Shift+scroll, I expect thezooming to be faster
 
@@ -13,7 +13,7 @@
 
 - When the output is large and it is paged, the page size seems to be too small. I need to check. It affects the search
 
-
+- The "Go to next graph" and "Go to previous graph" buttons that appear next to the graph list. When I collapse the left panel with the graphs list, the buttons should travel along, staying close to the right edge of the collapsed graphs list
 
 
 

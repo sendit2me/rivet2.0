@@ -1,4 +1,4 @@
-import { type DragStartEvent, type DragEndEvent } from '@dnd-kit/core';
+import { type DragStartEvent, type DragEndEvent, type DragMoveEvent } from '@dnd-kit/core';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { newId, type ChartNode, type NodeId } from '@ironclad/rivet-core';
 import { useAtomValue, useSetAtom } from 'jotai';
@@ -9,9 +9,12 @@ import { useMoveNodeCommand } from '../commands/moveNodeCommand';
 import { useDuplicateNodesCommand } from '../commands/duplicateNodesCommand.js';
 
 export type DragMode = 'move' | 'duplicate';
-export type DragActivatorModifierState = { altKey: boolean };
+export type DragAxisLock = 'x' | 'y' | undefined;
+export type DragActivatorModifierState = { altKey: boolean; shiftKey: boolean };
 type DragModifierKeyEvent = Pick<KeyboardEvent, 'altKey' | 'key'>;
+type DragShiftKeyEvent = Pick<KeyboardEvent, 'key' | 'shiftKey'>;
 type DragStartPositionMap = Map<NodeId, { x: number; y: number }>;
+type DragDelta = { x: number; y: number };
 
 export function resolveDraggedNodeIds(selectedNodeIds: NodeId[], draggedNodeId: NodeId): NodeId[] {
   return selectedNodeIds.length > 0 ? [...new Set([...selectedNodeIds, draggedNodeId])] : [draggedNodeId];
@@ -33,6 +36,42 @@ export function resolveDragModeFromAlt(altKey: boolean): DragMode {
   return altKey ? 'duplicate' : 'move';
 }
 
+export function resolveDragAxisLock({
+  axisLock,
+  shiftKey,
+  delta,
+}: {
+  axisLock: DragAxisLock;
+  shiftKey: boolean;
+  delta: DragDelta;
+}): DragAxisLock {
+  if (!shiftKey) {
+    return undefined;
+  }
+
+  if (axisLock) {
+    return axisLock;
+  }
+
+  if (delta.x === 0 && delta.y === 0) {
+    return undefined;
+  }
+
+  return Math.abs(delta.x) >= Math.abs(delta.y) ? 'x' : 'y';
+}
+
+export function constrainDragDeltaToAxisLock<T extends DragDelta>(delta: T, axisLock: DragAxisLock): T {
+  if (axisLock === 'x') {
+    return { ...delta, y: 0 };
+  }
+
+  if (axisLock === 'y') {
+    return { ...delta, x: 0 };
+  }
+
+  return delta;
+}
+
 export function createDragDuplicatePreviewNodes(nodes: ChartNode[]): ChartNode[] {
   return nodes.map((node) => ({
     ...node,
@@ -49,6 +88,14 @@ export function shouldUseDuplicateDragModeOnKeyDown(event: DragModifierKeyEvent)
 
 export function shouldUseMoveDragModeOnKeyUp(event: DragModifierKeyEvent): boolean {
   return event.key === 'Alt' || !event.altKey;
+}
+
+export function shouldEnableStraightLineDragOnKeyDown(event: DragShiftKeyEvent): boolean {
+  return event.key === 'Shift' || event.shiftKey;
+}
+
+export function shouldDisableStraightLineDragOnKeyUp(event: DragShiftKeyEvent): boolean {
+  return event.key === 'Shift' || !event.shiftKey;
 }
 
 export function getDraggingPreviewNodes(options: {
@@ -104,12 +151,17 @@ export const useDraggingNode = () => {
   const [draggedSourceNodes, setDraggedSourceNodesState] = useState<ChartNode[]>([]);
   const [duplicatePreviewNodes, setDuplicatePreviewNodesState] = useState<ChartNode[]>([]);
   const [dragMode, setDragMode] = useState<DragMode>('move');
+  const [dragAxisLock, setDragAxisLock] = useState<DragAxisLock>();
   const [isDragActive, setIsDragActive] = useState(false);
 
   const startPositionsRef = useRef<DragStartPositionMap>(new Map());
   const draggedSourceNodeIdsRef = useRef<NodeId[]>([]);
   const dragModeRef = useRef<DragMode>('move');
+  const dragAxisLockRef = useRef<DragAxisLock>();
+  const isShiftDragConstraintEnabledRef = useRef(false);
+  const lastDragDeltaRef = useRef<DragDelta>({ x: 0, y: 0 });
   const lastDragActivatorAltRef = useRef(false);
+  const lastDragActivatorShiftRef = useRef(false);
 
   const moveNode = useMoveNodeCommand();
   const duplicateNodes = useDuplicateNodesCommand();
@@ -135,15 +187,25 @@ export const useDraggingNode = () => {
     setDragMode(nextDragMode);
   }, []);
 
+  const setSessionDragAxisLock = useCallback((nextDragAxisLock: DragAxisLock) => {
+    dragAxisLockRef.current = nextDragAxisLock;
+    setDragAxisLock(nextDragAxisLock);
+  }, []);
+
   const resetDragSession = useCallback(() => {
     lastDragActivatorAltRef.current = false;
+    lastDragActivatorShiftRef.current = false;
+    isShiftDragConstraintEnabledRef.current = false;
+    lastDragDeltaRef.current = { x: 0, y: 0 };
     setSessionStartPositions(new Map());
     setSessionSourceNodeIds([]);
     setSessionSourceNodes([]);
     setSessionPreviewNodes([]);
     setSessionDragMode('move');
+    setSessionDragAxisLock(undefined);
     setIsDragActive(false);
   }, [
+    setSessionDragAxisLock,
     setSessionDragMode,
     setSessionPreviewNodes,
     setSessionSourceNodeIds,
@@ -160,16 +222,34 @@ export const useDraggingNode = () => {
       if (shouldUseDuplicateDragModeOnKeyDown(event)) {
         setSessionDragMode('duplicate');
       }
+
+      if (shouldEnableStraightLineDragOnKeyDown(event)) {
+        isShiftDragConstraintEnabledRef.current = true;
+        setSessionDragAxisLock(
+          resolveDragAxisLock({
+            axisLock: dragAxisLockRef.current,
+            shiftKey: true,
+            delta: lastDragDeltaRef.current,
+          }),
+        );
+      }
     };
 
     const handleKeyUp = (event: KeyboardEvent) => {
       if (shouldUseMoveDragModeOnKeyUp(event)) {
         setSessionDragMode('move');
       }
+
+      if (shouldDisableStraightLineDragOnKeyUp(event)) {
+        isShiftDragConstraintEnabledRef.current = false;
+        setSessionDragAxisLock(undefined);
+      }
     };
 
     const handleBlur = () => {
       setSessionDragMode('move');
+      isShiftDragConstraintEnabledRef.current = false;
+      setSessionDragAxisLock(undefined);
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -181,7 +261,7 @@ export const useDraggingNode = () => {
       window.removeEventListener('keyup', handleKeyUp);
       window.removeEventListener('blur', handleBlur);
     };
-  }, [isDragActive, setSessionDragMode]);
+  }, [isDragActive, setSessionDragAxisLock, setSessionDragMode]);
 
   const draggingNodes = useMemo(
     () =>
@@ -206,6 +286,7 @@ export const useDraggingNode = () => {
 
   const onNodeDragActivatorPointerDown = useCallback((modifierState: DragActivatorModifierState) => {
     lastDragActivatorAltRef.current = modifierState.altKey;
+    lastDragActivatorShiftRef.current = modifierState.shiftKey;
   }, []);
 
   const onNodeStartDrag = useCallback(
@@ -222,6 +303,9 @@ export const useDraggingNode = () => {
       setSessionSourceNodes(sourceNodes);
       setSessionPreviewNodes(createDragDuplicatePreviewNodes(sourceNodes));
       setSessionStartPositions(createDragStartPositionMap(sourceNodes));
+      isShiftDragConstraintEnabledRef.current = lastDragActivatorShiftRef.current;
+      lastDragDeltaRef.current = { x: 0, y: 0 };
+      setSessionDragAxisLock(undefined);
       setSessionDragMode(resolveDragModeFromAlt(lastDragActivatorAltRef.current));
       setIsDragActive(true);
     },
@@ -229,6 +313,7 @@ export const useDraggingNode = () => {
       nodesById,
       resetDragSession,
       selectedNodeIds,
+      setSessionDragAxisLock,
       setSessionDragMode,
       setSessionPreviewNodes,
       setSessionSourceNodeIds,
@@ -237,12 +322,34 @@ export const useDraggingNode = () => {
     ],
   );
 
+  const onNodeDraggedMove = useCallback(
+    ({ delta }: DragMoveEvent) => {
+      const nextDelta = {
+        x: delta.x,
+        y: delta.y,
+      };
+
+      lastDragDeltaRef.current = nextDelta;
+      setSessionDragAxisLock(
+        resolveDragAxisLock({
+          axisLock: dragAxisLockRef.current,
+          shiftKey: isShiftDragConstraintEnabledRef.current,
+          delta: nextDelta,
+        }),
+      );
+    },
+    [setSessionDragAxisLock],
+  );
+
   const onNodeDragged = useCallback(
     ({ delta }: DragEndEvent) => {
-      const actualDelta = {
-        x: delta.x / canvasPosition.zoom,
-        y: delta.y / canvasPosition.zoom,
-      };
+      const actualDelta = constrainDragDeltaToAxisLock(
+        {
+          x: delta.x / canvasPosition.zoom,
+          y: delta.y / canvasPosition.zoom,
+        },
+        dragAxisLockRef.current,
+      );
 
       const finalDragMode = dragModeRef.current;
       const sourceNodeIds = draggedSourceNodeIdsRef.current;
@@ -301,12 +408,14 @@ export const useDraggingNode = () => {
   }, [resetDragSession]);
 
   return {
+    dragAxisLock,
     dragMode,
     draggingConnectionSourceNodeIds,
     draggingNodes,
     draggedSourceNodeIds,
     onNodeDragActivatorPointerDown,
     onNodeDragCancelled,
+    onNodeDraggedMove,
     onNodeStartDrag,
     onNodeDragged,
   };
