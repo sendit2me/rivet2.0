@@ -123,7 +123,7 @@ const Container = styled.div<{ panelWidth: number }>`
   }
 
   .bottom-spacer {
-    height: 300px;
+    height: 0px;
   }
 
   .unknown-node {
