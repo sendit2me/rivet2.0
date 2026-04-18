@@ -25,7 +25,6 @@ const HeaderToggleField: FC<HeaderToggleFieldProps> = ({ id, isChecked, onChange
 
 export const NodeEditorGlobalControls: FC<{
   node: ChartNode;
-  displayName: string;
   selectedVariant: string | undefined;
   setSelectedVariant: (value: string | undefined) => void;
   addVariantPopupOpen: boolean;
@@ -42,7 +41,6 @@ export const NodeEditorGlobalControls: FC<{
   onSaveAsVariant: (id: string) => void;
 }> = ({
   node,
-  displayName,
   selectedVariant,
   setSelectedVariant,
   addVariantPopupOpen,
@@ -61,6 +59,7 @@ export const NodeEditorGlobalControls: FC<{
   const isVariant = selectedVariant !== undefined;
   const hasSavedVariants = variantOptions.length > 1;
   const showVariantEditor = hasSavedVariants || addVariantPopupOpen;
+  const showVariantsLink = !hasSavedVariants;
   const nodeEnabledToggleId = `node-enabled-${node.id}`;
   const conditionalToggleId = `node-conditional-${node.id}`;
   const splitToggleId = `node-split-${node.id}`;
@@ -75,37 +74,8 @@ export const NodeEditorGlobalControls: FC<{
           onChange={(isEnabled) => onDisabledChange(!isEnabled)}
           className="node-type-chip"
         >
-          <span className="node-type-label">{displayName}</span>
+          <span className="node-type-label">Active</span>
         </HeaderToggleField>
-      </div>
-      <div className="node-metadata-row">
-        <div className="node-color-picker">
-          <NodeColorPicker currentColor={node.visualData.color} onChange={onColorChange} />
-        </div>
-        <div className="node-title-field">
-          <InlineEditableTextfield
-            key={`node-title-${node.id}`}
-            label="Node title"
-            placeholder="Some title"
-            defaultValue={node.title}
-            onConfirm={onTitleChange}
-            hideActionButtons
-            readViewFitContainerWidth
-          />
-        </div>
-        <div className="node-description-field">
-          <InlineEditableTextfield
-            key={`node-description-${node.id}`}
-            label="Node description"
-            defaultValue={node.description ?? ''}
-            onConfirm={onDescriptionChange}
-            placeholder="Description..."
-            hideActionButtons
-            readViewFitContainerWidth
-          />
-        </div>
-      </div>
-      <div className="node-conditional-row">
         <Tooltip content="Exposes a conditional input port to the node, allowing to be executed only if the condition is met.">
           <HeaderToggleField
             id={conditionalToggleId}
@@ -116,15 +86,46 @@ export const NodeEditorGlobalControls: FC<{
           </HeaderToggleField>
         </Tooltip>
       </div>
+      <div className="node-metadata-row">
+        <div className="node-color-picker">
+          <NodeColorPicker currentColor={node.visualData.color} onChange={onColorChange} />
+        </div>
+        <div className="node-metadata-fields">
+          <div className="node-title-field">
+            <InlineEditableTextfield
+              key={`node-title-${node.id}`}
+              label="Node title"
+              placeholder="Some title"
+              defaultValue={node.title}
+              onConfirm={onTitleChange}
+              hideActionButtons
+              readViewFitContainerWidth
+            />
+          </div>
+          <div className="node-description-field">
+            <InlineEditableTextfield
+              key={`node-description-${node.id}`}
+              label="Node description"
+              defaultValue={node.description ?? ''}
+              onConfirm={onDescriptionChange}
+              placeholder="Description..."
+              hideActionButtons
+              readViewFitContainerWidth
+            />
+          </div>
+        </div>
+      </div>
       <div className="node-options-row">
         <section className="split-controls">
-          <HeaderToggleField
-            id={splitToggleId}
-            isChecked={node.isSplitRun ?? false}
-            onChange={(isSplitRun) => onUpdateNode({ ...node, isSplitRun })}
-          >
-            <span>Split</span>
-          </HeaderToggleField>
+          <div className="split-toggle-row">
+            <HeaderToggleField
+              id={splitToggleId}
+              isChecked={node.isSplitRun ?? false}
+              onChange={(isSplitRun) => onUpdateNode({ ...node, isSplitRun })}
+            >
+              <span>Split</span>
+            </HeaderToggleField>
+          </div>
 
           {node.isSplitRun && (
             <div className="split-max">
@@ -157,7 +158,7 @@ export const NodeEditorGlobalControls: FC<{
           )}
         </section>
         <section className="variants">
-          {!hasSavedVariants && (
+          {showVariantsLink && !showVariantEditor && (
             <Button appearance="subtle-link" onClick={() => setAddVariantPopupOpen(!addVariantPopupOpen)}>
               Variants...
             </Button>
@@ -194,6 +195,13 @@ export const NodeEditorGlobalControls: FC<{
                 }
               }}
             />
+          )}
+          {showVariantsLink && (
+            <section className="variants variants-inline">
+              <Button appearance="subtle-link" onClick={() => setAddVariantPopupOpen(!addVariantPopupOpen)}>
+                Variants...
+              </Button>
+            </section>
           )}
         </div>
       )}

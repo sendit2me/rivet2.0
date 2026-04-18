@@ -1,5 +1,7 @@
 
 
+- When I doubleclick a node on the content area, the node settings panel opens, But when I doubleclick the node header, it doesn't open. It should open the node settings panel too
+
 - New Nodes for working with lists: filtering, mapping, reducing, etc.
 
 

@@ -156,8 +156,7 @@ const Container = styled.div<{ panelWidth: number }>`
     border-bottom: 1px solid rgba(255, 255, 255, 0.18);
   }
 
-  .node-type-row,
-  .node-conditional-row {
+  .node-type-row {
     display: flex;
     align-items: center;
     gap: 16px;
@@ -180,12 +179,18 @@ const Container = styled.div<{ panelWidth: number }>`
 
   .node-metadata-row {
     display: grid;
-    grid-template-columns: 28px minmax(0, 1.25fr) minmax(0, 1fr);
-    align-items: center;
+    grid-template-columns: 28px minmax(0, 1fr);
+    align-items: start;
     gap: 14px;
     width: 100%;
     min-width: 0;
-    min-height: 40px;
+  }
+
+  .node-metadata-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
   }
 
   .node-title-field,
@@ -305,7 +310,7 @@ const Container = styled.div<{ panelWidth: number }>`
 
   .node-options-row {
     display: flex;
-    align-items: center;
+    align-items: flex-end;
     justify-content: space-between;
     gap: 24px;
     min-width: 0;
@@ -314,10 +319,18 @@ const Container = styled.div<{ panelWidth: number }>`
 
   .split-controls {
     display: flex;
-    align-items: center;
-    gap: 24px;
-    flex-wrap: nowrap;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
     min-width: 0;
+    min-height: 40px;
+    justify-content: flex-start;
+  }
+
+  .split-toggle-row {
+    display: flex;
+    align-items: center;
+    min-height: 40px;
   }
 
   .split-max {
@@ -325,7 +338,8 @@ const Container = styled.div<{ panelWidth: number }>`
     align-items: center;
     gap: 14px;
     flex-wrap: nowrap;
-    min-height: 40px;
+    min-height: 32px;
+    margin-top: -4px;
 
     .split-max-input {
       max-width: 80px;
@@ -345,6 +359,12 @@ const Container = styled.div<{ panelWidth: number }>`
     justify-content: flex-end;
     gap: 12px;
     min-width: 0;
+    min-height: 40px;
+    align-self: flex-end;
+  }
+
+  .variants-inline {
+    min-height: 0;
   }
 
   .variant-select {
@@ -483,7 +503,6 @@ export const NodeEditor: FC<NodeEditorProps> = ({ selectedNode, onDeselect }) =>
           {showGlobalControls && (
             <NodeEditorGlobalControls
               node={selectedNode}
-              displayName={nodeDisplayName}
               selectedVariant={selectedVariant}
               setSelectedVariant={setSelectedVariant}
               addVariantPopupOpen={addVariantPopupOpen}
@@ -519,7 +538,7 @@ export const NodeEditor: FC<NodeEditorProps> = ({ selectedNode, onDeselect }) =>
         </div>
         <div className="section section-footer">
           <span className="node-id" onClick={selectText}>
-            {selectedNode.id}
+            {`${nodeDisplayName}, ${selectedNode.id}`}
           </span>
         </div>
       </div>
