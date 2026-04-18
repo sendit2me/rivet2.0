@@ -86,6 +86,12 @@ const Container = styled.div<{ panelWidth: number }>`
     font-family: inherit;
   }
 
+  .panel-container input::placeholder,
+  .panel-container textarea::placeholder {
+    color: var(--foreground-muted);
+    opacity: 1;
+  }
+
   /* Atlaskit HelperMessage hardcodes its own font family, so reset it in the panel scope. */
   .panel-container [aria-live='polite'],
   .panel-container [aria-live='polite'] * {
@@ -325,7 +331,7 @@ const Container = styled.div<{ panelWidth: number }>`
     min-height: 40px;
 
     .split-max-input {
-      min-width: 112px;
+      max-width: 80px;
     }
   }
 
