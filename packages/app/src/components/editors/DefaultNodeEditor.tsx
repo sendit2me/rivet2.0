@@ -45,6 +45,11 @@ export const defaultEditorContainerStyles = css`
     position: relative;
   }
 
+  .row > :first-child label[id$='-label'],
+  .row .editor-wrapper-wrapper > label {
+    margin-bottom: 8px !important;
+  }
+
   .editor-viewport-shell {
     position: relative;
     min-height: 0;

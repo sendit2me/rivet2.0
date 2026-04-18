@@ -3,6 +3,8 @@
 
 - Foldable section, when unfolded should be rendered as a block with a distinct background color so it's easily visible that all the elements inside - are inside this block
 
+
+
 - New Nodes for working with lists: filtering, mapping, reducing, etc.
 
 
