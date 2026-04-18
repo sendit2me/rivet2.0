@@ -125,8 +125,6 @@ export const defaultEditorContainerStyles = css`
     min-width: unset;
   }
 
-  .helper-message {
-  }
 `;
 
 export const DefaultNodeEditor: FC<

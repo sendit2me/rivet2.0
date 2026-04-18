@@ -53,7 +53,7 @@ const styles = css`
     border-radius: 4px;
     transition: background 0.2s ease-out;
     font-size: 14px;
-    font-family: var(--label-font-family);
+    font-family: inherit;
     color: var(--label-color);
     font-weight: var(--label-font-weight);
 

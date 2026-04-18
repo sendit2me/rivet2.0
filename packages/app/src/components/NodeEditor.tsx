@@ -2,34 +2,16 @@ import { type FC, useMemo, useState, type MouseEvent } from 'react';
 import { editingNodeState } from '../state/graphBuilder.js';
 import { nodesByIdState } from '../state/graph.js';
 import styled from '@emotion/styled';
-import MultiplyIcon from 'majesticons/line/multiply-line.svg?react';
-import {
-  type ChartNode,
-  type NodeTestGroup,
-  type GraphId,
-  type DataId,
-} from '@ironclad/rivet-core';
+import { type ChartNode, type DataId } from '@ironclad/rivet-core';
 import { useUnknownNodeComponentDescriptorFor } from '../hooks/useNodeTypes.js';
 import { useProjectNodeRegistry } from '../hooks/useProjectNodeRegistry';
-import { produce } from 'immer';
 import { useHotkeys } from 'react-hotkeys-hook';
-import { InlineEditableTextfield } from '@atlaskit/inline-edit';
-import Toggle from '@atlaskit/toggle';
 import { useStableCallback } from '../hooks/useStableCallback.js';
-import Tabs, { Tab, TabList, TabPanel } from '@atlaskit/tabs';
-import { Field, Label } from '@atlaskit/form';
-import TextField from '@atlaskit/textfield';
-import Select from '@atlaskit/select';
-import Button from '@atlaskit/button';
-import Popup from '@atlaskit/popup';
 import { isEqual, orderBy } from 'lodash-es';
-import { nanoid } from 'nanoid/non-secure';
 import { ErrorBoundary } from 'react-error-boundary';
 import { useSetStaticData } from '../hooks/useSetStaticData';
 import { DefaultNodeEditor } from './editors/DefaultNodeEditor';
-import { NodeColorPicker } from './NodeColorPicker';
-import { Tooltip } from './Tooltip';
-import { useAtomValue, useAtom, useSetAtom } from 'jotai';
+import { useAtomValue, useAtom } from 'jotai';
 import { useEditNodeCommand } from '../commands/editNodeCommand';
 import { NodeEditorGlobalControls } from './nodeEditor/NodeEditorGlobalControls.js';
 import { ResizeHandle } from './ResizeHandle.js';
@@ -58,10 +40,10 @@ export const NodeEditorRenderer: FC = () => {
 
 const Container = styled.div<{ panelWidth: number }>`
   position: absolute;
-  top: calc(32px + var(--project-selector-height));
-  // tabpanel the parent has a padding of 8px on the left and right, so just move it over a bit...
-  right: -8px;
+  top: var(--project-selector-height);
+  right: 0;
   bottom: 0;
+  z-index: 210;
   width: ${({ panelWidth }) => `${panelWidth}px`};
   max-width: 1000px;
   min-width: 500px;
@@ -82,80 +64,40 @@ const Container = styled.div<{ panelWidth: number }>`
   .panel-container {
     display: flex;
     flex-direction: column;
+    height: 100%;
     color: var(--foreground);
+    --ds-text-subtlest: var(--grey-light);
+    --ds-font-family-body: var(--font-family-monospace);
+    --ds-font-family-heading: var(--font-family-monospace);
+    --ds-font-family-code: var(--font-family-monospace);
+    --label-font-family: var(--font-family-monospace);
     background-color: var(--grey-dark-bluish-seethrough);
     backdrop-filter: blur(2px);
-    font-family: 'Roboto Mono', monospace;
+    font-family: var(--font-family-monospace);
     width: 100%;
     box-shadow: -4px 0 3px rgba(0, 0, 0, 0.1);
     border-left: 1px solid var(--grey);
+  }
+
+  .panel-container input,
+  .panel-container textarea,
+  .panel-container button,
+  .panel-container label {
+    font-family: inherit;
+  }
+
+  /* Atlaskit HelperMessage hardcodes its own font family, so reset it in the panel scope. */
+  .panel-container [aria-live='polite'],
+  .panel-container [aria-live='polite'] * {
+    font-family: inherit !important;
   }
 
   .panel {
     display: flex;
     flex-grow: 1;
     flex-direction: column;
-    padding: 8px 16px 16px;
+    padding: 16px 24px 16px;
     overflow: auto;
-  }
-
-  .tabs,
-  .tabs > div {
-    height: 100%;
-    width: 100%;
-  }
-
-  .header {
-    display: flex;
-    justify-content: flex-end;
-    align-items: center;
-    margin-bottom: 20px;
-  }
-
-  .close-button {
-    position: absolute;
-    right: 20px;
-    top: 20px;
-    background-color: var(--primary);
-    border: none;
-    color: var(--foreground-on-primary);
-    cursor: pointer;
-    font-size: 20px;
-    padding: 5px 10px;
-    border: 2px solid var(--grey-dark);
-    font-size: 14px;
-    border-radius: 50%;
-    width: 25px;
-    height: 25px;
-    padding: 0;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-  }
-
-  .node-name {
-    padding: 5px 10px;
-    resize: none;
-    width: 100%;
-  }
-
-  .description-field {
-    min-height: 50px;
-    padding: 10px;
-    width: 100%;
-  }
-
-  .input-field {
-    font-family: 'Roboto Mono', monospace;
-    font-size: 14px;
-    background-color: var(--grey-dark);
-    border: 1px solid var(--grey);
-    color: var(--foreground);
-  }
-
-  .input-field:focus {
-    outline: none;
-    border-color: var(--primary);
   }
 
   .section-node {
@@ -163,7 +105,7 @@ const Container = styled.div<{ panelWidth: number }>`
     min-height: 0;
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 24px;
   }
 
   .section-node-content {
@@ -181,39 +123,6 @@ const Container = styled.div<{ panelWidth: number }>`
     color: var(--primary-text);
   }
 
-  .split-controls {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    align-items: center;
-    gap: 8px;
-
-    > label {
-      margin: 0;
-    }
-  }
-
-  .split-controls-toggle > div {
-    margin: 0;
-    display: flex;
-    align-items: center;
-  }
-
-  .variants {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-  }
-
-  .variant-select {
-    min-width: 150px;
-  }
-
-  .variant-buttons {
-    display: flex;
-    align-items: center;
-  }
-
   .section-footer {
     display: flex;
     justify-content: flex-end;
@@ -224,7 +133,7 @@ const Container = styled.div<{ panelWidth: number }>`
     .node-id {
       font-size: 12px;
       color: var(--foreground-muted);
-      font-family: 'Roboto Mono', monospace;
+      font-family: var(--font-family-monospace);
       padding: 0 16px;
       line-height: 24px;
       cursor: pointer;
@@ -232,47 +141,235 @@ const Container = styled.div<{ panelWidth: number }>`
   }
 
   .section-global-controls {
-    display: grid;
-    grid-template-columns: auto 1fr 1fr;
-    row-gap: 0;
-    column-gap: 16px;
-    margin-bottom: 16px;
-    padding-bottom: 16px;
-    border-bottom: 1px solid var(--grey-lightish);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 18px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.18);
+  }
 
-    form {
-      margin: 0;
-    }
+  .node-type-row,
+  .node-conditional-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    min-width: 0;
+    min-height: 30px;
+  }
+
+  .node-type-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 30px;
+  }
+
+  .node-type-label {
+    color: var(--grey-lightest);
+    font-size: 15px;
+    line-height: 1;
+  }
+
+  .node-metadata-row {
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1.25fr) minmax(0, 1fr);
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    min-width: 0;
+    min-height: 40px;
+  }
+
+  .node-title-field,
+  .node-description-field {
+    margin-top: -4px;
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+    justify-self: stretch;
+    overflow: hidden;
+  }
+
+  .node-title-field > div,
+  .node-description-field > div,
+  .node-title-field form,
+  .node-description-field form,
+  .node-title-field form > div,
+  .node-description-field form > div {
+    width: 100%;
+    height: 40px;
+    margin: 0;
+    display: flex;
+    align-items: stretch;
+    min-width: 0;
+  }
+
+  .node-title-field label,
+  .node-description-field label {
+    display: none;
+  }
+
+  .node-title-field [data-read-view-fit-container-width='true'],
+  .node-description-field [data-read-view-fit-container-width='true'] {
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+    height: 40px;
+    display: flex;
+    align-items: stretch;
+    box-sizing: border-box;
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .node-title-field [data-read-view-fit-container-width='true'] > div,
+  .node-description-field [data-read-view-fit-container-width='true'] > div {
+    width: 100%;
+    min-width: 0;
+    height: 40px;
+    padding: 0 12px;
+    font-size: 20px;
+    line-height: 38px;
+    box-sizing: border-box;
+    font-family: var(--font-family-monospace);
+    display: block;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .node-title-field input,
+  .node-description-field input {
+    width: 100%;
+    height: 40px;
+    min-height: 40px;
+    padding: 0 12px;
+    font-size: 14px;
+    line-height: 38px;
+    box-sizing: border-box;
+    font-family: var(--font-family-monospace);
+    background-color: var(--grey-darkerish);
+    border: 1px solid var(--grey);
+    border-radius: 2px;
+    color: var(--foreground);
+  }
+
+  .node-description-field input {
+    color: var(--grey-light);
+  }
+
+  .node-title-field input:focus,
+  .node-description-field input:focus {
+    outline: none;
+    border-color: var(--primary);
+  }
+
+  .node-title-field > div > button,
+  .node-description-field > div > button {
+    width: auto;
+    height: auto;
+    min-height: 0;
+    padding: 0;
+    line-height: 1;
+    background: transparent;
+    border: 0;
+  }
+
+  .node-title-field [data-read-view-fit-container-width='true']:hover,
+  .node-description-field [data-read-view-fit-container-width='true']:hover {
+    background-color: rgba(255, 255, 255, 0.04);
+  }
+
+  .node-description-field [data-read-view-fit-container-width='true'] > div,
+  .node-description-field input {
+    color: var(--grey-light);
+  }
+
+  .toggle-field {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--grey-light);
+    font-size: 14px;
+    white-space: nowrap;
+  }
+
+  .toggle-field label {
+    margin: 0;
+    cursor: pointer;
+  }
+
+  .node-options-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    min-width: 0;
+    min-height: 40px;
+  }
+
+  .split-controls {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    flex-wrap: nowrap;
+    min-width: 0;
   }
 
   .split-max {
     display: flex;
     align-items: center;
-    gap: 8px;
-
-    > label {
-      color: var(--foreground);
-      font-size: 12px;
-
-      display: flex;
-      align-items: center;
-      color: rgb(159, 173, 188);
-      font-weight: 600;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, 'Fira Sans', 'Droid Sans',
-        'Helvetica Neue', sans-serif;
-    }
+    gap: 14px;
+    flex-wrap: nowrap;
+    min-height: 40px;
 
     .split-max-input {
-      min-width: 75px;
+      min-width: 112px;
     }
+  }
+
+  .split-max-label {
+    color: var(--grey-light);
+    font-size: 14px;
+    white-space: nowrap;
+    flex: 0 0 auto;
+  }
+
+  .variants {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  .variant-select {
+    min-width: 150px;
+  }
+
+  .variant-buttons {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .variant-editor-row {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+    min-height: 40px;
+  }
+
+  .variant-name-input {
+    width: 280px;
   }
 
   .node-color-picker {
     display: flex;
-    flex-direction: column;
-    gap: 8px;
     align-items: center;
-    padding-top: 4px;
+    margin-left: 4px;
   }
 `;
 
@@ -363,31 +460,6 @@ export const NodeEditor: FC<NodeEditorProps> = ({ selectedNode, onDeselect }) =>
     setSelectedVariant(undefined);
   }
 
-  function updateTestGroupGraph(testGroup: NodeTestGroup, graphId: GraphId) {
-    updateNode(
-      produce(selectedNode, (draft) => {
-        const group = draft.tests?.find(({ id }) => id === testGroup.id);
-        if (group) {
-          group.evaluatorGraphId = graphId;
-        }
-      }),
-    );
-  }
-
-  function handleAddTestGroup() {
-    updateNode({
-      ...selectedNode,
-      tests: [
-        ...(selectedNode.tests ?? []),
-        {
-          evaluatorGraphId: '' as GraphId,
-          tests: [],
-          id: nanoid(),
-        },
-      ],
-    });
-  }
-
   const selectText = (event: MouseEvent<HTMLElement>) => {
     const range = document.createRange();
     range.selectNodeContents(event.target as HTMLElement);
@@ -398,65 +470,55 @@ export const NodeEditor: FC<NodeEditorProps> = ({ selectedNode, onDeselect }) =>
 
   const showGlobalControls = selectedNode.type !== 'comment';
   const projectNodeRegistry = useProjectNodeRegistry();
+  const nodeDisplayName = `${projectNodeRegistry.getDynamicDisplayName(selectedNode.type)} node`;
 
   return (
     <Container panelWidth={panelWidth}>
       <ResizeHandle className="node-editor-width-resize-handle" {...resizeHandleProps} />
-      <div className="tabs">
-        <Tabs id="node-editor-tabs">
-          <TabList>
-            <Tab>{projectNodeRegistry.getDynamicDisplayName(selectedNode.type)} Node</Tab>
-          </TabList>
-          <TabPanel>
-            <div className="panel-container">
-              <div className="panel">
-                <button className="close-button" onClick={onDeselect}>
-                  <MultiplyIcon />
-                </button>
-                {showGlobalControls && (
-                  <NodeEditorGlobalControls
-                    node={selectedNode}
-                    selectedVariant={selectedVariant}
-                    setSelectedVariant={setSelectedVariant}
-                    addVariantPopupOpen={addVariantPopupOpen}
-                    setAddVariantPopupOpen={setAddVariantPopupOpen}
-                    variantOptions={variantOptions}
-                    selectedVariantOption={selectedVariantOption}
-                    onTitleChange={nodeTitleChanged}
-                    onDescriptionChange={nodeDescriptionChanged}
-                    onColorChange={nodeColorChanged}
-                    onDisabledChange={nodeDisabledChanged}
-                    onUpdateNode={updateNode}
-                    onApplyVariant={handleApplyVariant}
-                    onDeleteVariant={handleDeleteVariant}
-                    onSaveAsVariant={handleSaveAsVariant}
-                  />
-                )}
+      <div className="panel-container">
+        <div className="panel">
+          {showGlobalControls && (
+            <NodeEditorGlobalControls
+              node={selectedNode}
+              displayName={nodeDisplayName}
+              selectedVariant={selectedVariant}
+              setSelectedVariant={setSelectedVariant}
+              addVariantPopupOpen={addVariantPopupOpen}
+              setAddVariantPopupOpen={setAddVariantPopupOpen}
+              variantOptions={variantOptions}
+              selectedVariantOption={selectedVariantOption}
+              onTitleChange={nodeTitleChanged}
+              onDescriptionChange={nodeDescriptionChanged}
+              onColorChange={nodeColorChanged}
+              onDisabledChange={nodeDisabledChanged}
+              onUpdateNode={updateNode}
+              onApplyVariant={handleApplyVariant}
+              onDeleteVariant={handleDeleteVariant}
+              onSaveAsVariant={handleSaveAsVariant}
+            />
+          )}
 
-                <div className="section section-node">
-                  <div className="section-node-content">
-                    {Editor ? (
-                      <Editor node={nodeForEditor} onChange={isVariant ? () => {} : updateNode} />
-                    ) : (
-                      <DefaultNodeEditor
-                        node={nodeForEditor}
-                        isReadonly={isVariant}
-                        onChange={isVariant ? () => {} : updateNode}
-                        onClose={onDeselect}
-                      />
-                    )}
-                  </div>
-                  <div className="bottom-spacer" />
-                </div>
-              </div>
-              <div className="section section-footer">
-                <span className="node-id" onClick={selectText}>
-                  {selectedNode.id}
-                </span>
-              </div>
+          <div className="section section-node">
+            <div className="section-node-content">
+              {Editor ? (
+                <Editor node={nodeForEditor} onChange={isVariant ? () => {} : updateNode} />
+              ) : (
+                <DefaultNodeEditor
+                  node={nodeForEditor}
+                  isReadonly={isVariant}
+                  onChange={isVariant ? () => {} : updateNode}
+                  onClose={onDeselect}
+                />
+              )}
             </div>
-          </TabPanel>
-        </Tabs>
+            <div className="bottom-spacer" />
+          </div>
+        </div>
+        <div className="section section-footer">
+          <span className="node-id" onClick={selectText}>
+            {selectedNode.id}
+          </span>
+        </div>
       </div>
     </Container>
   );

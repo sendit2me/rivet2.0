@@ -1,13 +1,15 @@
 - From time to time when I add nodes and not save yet, and then navigate around (opening other projects and other graphs) when I get back to the graph, the node dosappears.
 
 
+- In the node settings panel, the placeholders in the fields are too bright,, they must be more subtle in color
 
 
 
-- The each node's settings panel header is a mess. It takes up too much space
+- In the object and text nodes, the editor background has lost the dark geay color. It should be the same as the background color in the code node. Also check other similar nodes.
+
+- When a folded section gets unfolded, it shows a horizontal line separator both before and after the UI. Lose the one thet is before the UI.
 
 - The run button is pushing down the node settings window. It's better to put the run button to a place where it doesn't dishelp
-
 
 
 

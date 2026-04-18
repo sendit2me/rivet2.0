@@ -33,7 +33,7 @@ const styles = css`
   border-radius: 4px;
   border: 1px solid var(--grey-dark);
   height: 32px;
-  z-index: 50;
+  z-index: 220;
   display: flex;
   box-shadow: 3px 1px 10px rgba(0, 0, 0, 0.5);
   justify-content: flex-end;
