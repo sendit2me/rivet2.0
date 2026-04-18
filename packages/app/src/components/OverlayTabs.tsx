@@ -1,5 +1,5 @@
 import { css } from '@emotion/react';
-import { type FC, useState } from 'react';
+import { type FC, useEffect, useRef, useState } from 'react';
 
 import { useAtom, useAtomValue } from 'jotai';
 import clsx from 'clsx';
@@ -117,18 +117,15 @@ const styles = css`
   }
 
   .file-dropdown button {
-    display: flex;
-    align-items: center;
-    padding: 4px 8px;
+    display: block;
+    width: 100%;
+    background: transparent;
+    border: 0;
     border-radius: 4px;
     cursor: pointer;
     padding: 4px 8px;
-    white-space: nowrap;
-    background: transparent;
-    border: 0;
-    display: block;
-    width: 100%;
     justify-content: flex-start;
+    white-space: nowrap;
     text-align: left;
     font-size: 14px;
     transition:
@@ -180,6 +177,7 @@ export const OverlayTabs: FC = () => {
   const [openOverlay, setOpenOverlay] = useAtom(overlayOpenState);
   const runMenuCommandImpl = useRunMenuCommand();
   const [fileMenuOpen, setFileMenuOpen] = useState(false);
+  const fileMenuRef = useRef<HTMLDivElement>(null);
   const sidebarOpen = useAtomValue(sidebarOpenState);
 
   const trivet = useAtomValue(trivetState);
@@ -191,11 +189,31 @@ export const OverlayTabs: FC = () => {
 
   const communityEnabled = useFeatureFlag('community');
 
+  useEffect(() => {
+    if (!fileMenuOpen) {
+      return;
+    }
+
+    const handleWindowMouseDown = (event: MouseEvent) => {
+      if (fileMenuRef.current?.contains(event.target as Node)) {
+        return;
+      }
+
+      setFileMenuOpen(false);
+    };
+
+    window.addEventListener('mousedown', handleWindowMouseDown);
+
+    return () => {
+      window.removeEventListener('mousedown', handleWindowMouseDown);
+    };
+  }, [fileMenuOpen]);
+
   return (
     <div css={styles} className={clsx({ 'sidebar-open': sidebarOpen })}>
       <div className="left-menu">
         {!isInTauri() && (
-          <div className="menu-item file-menu">
+          <div ref={fileMenuRef} className="menu-item file-menu">
             <button
               className="dropdown-button"
               onMouseDown={(e) => {

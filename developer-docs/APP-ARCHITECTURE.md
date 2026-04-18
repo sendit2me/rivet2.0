@@ -215,6 +215,10 @@ The `Graphs` tab hosts `GraphList`, which is no longer a single all-in-one imple
 
 Acts as the switchboard for overlay-like product areas such as prompt designer, Trivet, chat viewer, community, and other auxiliary surfaces.
 
+Current rule that matters for maintenance:
+
+- the `File` tab dropdown in [`packages/app/src/components/OverlayTabs.tsx`](../packages/app/src/components/OverlayTabs.tsx) owns its own open state and outside-click dismissal locally; it is not routed through the shared canvas/context-menu infrastructure, so menu-close behavior changes should stay in `OverlayTabs` unless the whole workspace-nav menu model is being redesigned
+
 ## Graph Editor
 
 The graph editor is the heaviest interactive part of the app.

@@ -2,12 +2,6 @@
 
 
 
-- In the workspave navigation (Canvas, Plugins, Community, ...), when there's a "File" tab, I want it to be closed when I click elsewhere.
-
-
-
-
-
 
 - I don't think the file icons in the project tabs are needed. They just take up space
 
