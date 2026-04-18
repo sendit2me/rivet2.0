@@ -73,12 +73,6 @@ const styles = css`
     }
   }
 
-  .drag-handle-placeholder {
-    width: 28px;
-    height: 32px;
-    flex-shrink: 0;
-  }
-
   .add-item {
     margin-top: 8px;
   }
@@ -127,6 +121,7 @@ export const StringListEditor: FC<StringListEditorProps> = ({
   const helperMessage = getHelperMessage(editor, node.data);
   const canReorder = editor.reorderable === true && !isReadonly && !isDisabled;
   const [rows, setRows] = useState<EditableStringListRow[]>(() => createEditableStringListRows(stringList));
+  const [pendingAutoFocusUiId, setPendingAutoFocusUiId] = useState<string | null>(null);
   const nodeIdRef = useRef(node.id);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
@@ -168,7 +163,9 @@ export const StringListEditor: FC<StringListEditorProps> = ({
   };
 
   const handleAddItem = () => {
-    applyRowsChange((currentRows) => [...currentRows, createEditableStringListRow('')]);
+    const nextRow = createEditableStringListRow('');
+    setPendingAutoFocusUiId(nextRow.uiId);
+    applyRowsChange((currentRows) => [...currentRows, nextRow]);
   };
 
   const handleDeleteItem = (uiId: string) => {
@@ -192,12 +189,23 @@ export const StringListEditor: FC<StringListEditorProps> = ({
   useEffect(() => {
     if (nodeIdRef.current !== node.id) {
       nodeIdRef.current = node.id;
+      setPendingAutoFocusUiId(null);
       setRows(createEditableStringListRows(stringList));
       return;
     }
 
     setRows((previousRows) => reconcileEditableStringListRows(previousRows, stringList));
   }, [node.id, stringList]);
+
+  useEffect(() => {
+    if (!pendingAutoFocusUiId) {
+      return;
+    }
+
+    if (rows.some((row) => row.uiId === pendingAutoFocusUiId)) {
+      setPendingAutoFocusUiId(null);
+    }
+  }, [pendingAutoFocusUiId, rows]);
 
   return (
     <StringList
@@ -209,6 +217,7 @@ export const StringListEditor: FC<StringListEditorProps> = ({
       canReorder={canReorder}
       helperMessage={helperMessage}
       rows={rows}
+      pendingAutoFocusUiId={pendingAutoFocusUiId}
       onAddItem={handleAddItem}
       onDeleteItem={handleDeleteItem}
       onItemChange={handleItemChange}
@@ -227,6 +236,7 @@ type StringListProps = {
   isDisabled?: boolean;
   canReorder: boolean;
   rows: EditableStringListRow[];
+  pendingAutoFocusUiId: string | null;
   helperMessage?: string;
   onAddItem: () => void;
   onDeleteItem: (uiId: string) => void;
@@ -244,6 +254,7 @@ const StringList: FC<StringListProps> = ({
   isDisabled,
   canReorder,
   rows,
+  pendingAutoFocusUiId,
   helperMessage,
   onAddItem,
   onDeleteItem,
@@ -252,6 +263,8 @@ const StringList: FC<StringListProps> = ({
   onClose,
   sensors,
 }) => {
+  const showReorderHandle = canReorder && rows.length > 1;
+
   return (
     <div css={styles}>
       <Field name={dataKey} label={label} isDisabled={isDisabled}>
@@ -271,7 +284,8 @@ const StringList: FC<StringListProps> = ({
                       row={row}
                       fieldProps={fieldProps}
                       placeholder={placeholder}
-                      canReorder={canReorder}
+                      shouldAutoFocus={row.uiId === pendingAutoFocusUiId}
+                      showReorderHandle={showReorderHandle}
                       isDisabled={isDisabled}
                       isReadonly={isReadonly}
                       onDeleteItem={onDeleteItem}
@@ -296,16 +310,28 @@ const SortableStringListItem: FC<{
   row: EditableStringListRow;
   fieldProps: any;
   placeholder?: string;
-  canReorder: boolean;
+  shouldAutoFocus: boolean;
+  showReorderHandle: boolean;
   isDisabled?: boolean;
   isReadonly?: boolean;
   onDeleteItem: (uiId: string) => void;
   onItemChange: (uiId: string, value: string) => void;
   onClose?: () => void;
-}> = ({ row, fieldProps, placeholder, canReorder, isDisabled, isReadonly, onDeleteItem, onItemChange, onClose }) => {
+}> = ({
+  row,
+  fieldProps,
+  placeholder,
+  shouldAutoFocus,
+  showReorderHandle,
+  isDisabled,
+  isReadonly,
+  onDeleteItem,
+  onItemChange,
+  onClose,
+}) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: row.uiId,
-    disabled: !canReorder,
+    disabled: !showReorderHandle,
   });
 
   const style: CSSProperties = {
@@ -315,10 +341,22 @@ const SortableStringListItem: FC<{
 
   return (
     <div ref={setNodeRef} style={style} className={`string-item${isDragging ? ' dragging' : ''}`}>
+      {showReorderHandle ? (
+        <button
+          type="button"
+          className="drag-handle"
+          aria-label="Reorder item"
+          {...attributes}
+          {...listeners}
+        >
+          <DragHandleIcon />
+        </button>
+      ) : null}
       <div className="string-item-input">
         <TextField
           {...fieldProps}
           value={row.value}
+          autoFocus={shouldAutoFocus}
           onChange={(e) => onItemChange(row.uiId, (e.target as HTMLInputElement).value)}
           isDisabled={isDisabled}
           isReadOnly={isReadonly}
@@ -338,19 +376,6 @@ const SortableStringListItem: FC<{
       >
         <CrossIcon />
       </Button>
-      {canReorder ? (
-        <button
-          type="button"
-          className="drag-handle"
-          aria-label="Reorder item"
-          {...attributes}
-          {...listeners}
-        >
-          <DragHandleIcon />
-        </button>
-      ) : (
-        <div className="drag-handle-placeholder" />
-      )}
     </div>
   );
 };
