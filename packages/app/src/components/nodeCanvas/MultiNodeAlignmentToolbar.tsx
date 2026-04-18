@@ -189,21 +189,18 @@ const ToolbarButton: FC<{
 
 export interface MultiNodeAlignmentToolbarProps {
   canvasRootRef: RefObject<HTMLDivElement | null>;
-  isDraggingNode: boolean;
   selectedNodes: ChartNode[];
 }
 
 export function shouldShowMultiNodeAlignmentToolbar(options: {
   selectedNodeCount: number;
-  isDraggingNode: boolean;
   isReadOnlyGraph: boolean;
 }): boolean {
-  return options.selectedNodeCount >= 2 && !options.isDraggingNode && !options.isReadOnlyGraph;
+  return options.selectedNodeCount >= 2 && !options.isReadOnlyGraph;
 }
 
 export const MultiNodeAlignmentToolbar: FC<MultiNodeAlignmentToolbarProps> = ({
   canvasRootRef,
-  isDraggingNode,
   selectedNodes,
 }) => {
   const moveNode = useMoveNodeCommand();
@@ -226,7 +223,6 @@ export const MultiNodeAlignmentToolbar: FC<MultiNodeAlignmentToolbarProps> = ({
   if (
     !shouldShowMultiNodeAlignmentToolbar({
       selectedNodeCount: selectedNodes.length,
-      isDraggingNode,
       isReadOnlyGraph,
     })
   ) {

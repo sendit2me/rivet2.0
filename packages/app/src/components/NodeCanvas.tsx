@@ -465,7 +465,6 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
         )}
         <MultiNodeAlignmentToolbar
           canvasRootRef={canvasRef}
-          isDraggingNode={draggingNodes.length > 0}
           selectedNodes={selectedNodes}
         />
       </div>

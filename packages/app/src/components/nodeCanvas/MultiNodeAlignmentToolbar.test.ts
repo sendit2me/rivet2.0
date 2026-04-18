@@ -6,7 +6,6 @@ test('shouldShowMultiNodeAlignmentToolbar only shows for editable multi-selectio
   assert.equal(
     shouldShowMultiNodeAlignmentToolbar({
       selectedNodeCount: 1,
-      isDraggingNode: false,
       isReadOnlyGraph: false,
     }),
     false,
@@ -15,16 +14,6 @@ test('shouldShowMultiNodeAlignmentToolbar only shows for editable multi-selectio
   assert.equal(
     shouldShowMultiNodeAlignmentToolbar({
       selectedNodeCount: 2,
-      isDraggingNode: true,
-      isReadOnlyGraph: false,
-    }),
-    false,
-  );
-
-  assert.equal(
-    shouldShowMultiNodeAlignmentToolbar({
-      selectedNodeCount: 2,
-      isDraggingNode: false,
       isReadOnlyGraph: true,
     }),
     false,
@@ -33,7 +22,6 @@ test('shouldShowMultiNodeAlignmentToolbar only shows for editable multi-selectio
   assert.equal(
     shouldShowMultiNodeAlignmentToolbar({
       selectedNodeCount: 2,
-      isDraggingNode: false,
       isReadOnlyGraph: false,
     }),
     true,

@@ -4,6 +4,7 @@
 - New Nodes for working with lists: filtering, mapping, reducing, etc.
 
 
+- In the node settings panel, when there's reorderable lists, there's the "Add" button that adds new items to the list. I want it to have a minimal width so it's not that narrow
 
 
 - When the output is large and it is paged, the page size seems to be too small. I need to check. It affects the search
