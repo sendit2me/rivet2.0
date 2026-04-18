@@ -1,7 +1,6 @@
 
 
 
-- When the node is selected, it has a yellow shinig around it. Remove it. Just the yeallow borde ris enough
 
 - New Nodes for working with lists: filtering, mapping, reducing, etc.
 
