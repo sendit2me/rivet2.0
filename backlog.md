@@ -2,7 +2,7 @@
 
 
 
-
+- A special icon for "Use an input port for..." option in node editors instea dof the generic toggle
 
 - New Nodes for working with lists: filtering, mapping, reducing, etc.
 

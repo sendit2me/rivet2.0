@@ -151,9 +151,9 @@ const Container = styled.div<{ panelWidth: number }>`
     display: flex;
     flex-direction: column;
     gap: 12px;
-    margin-bottom: 18px;
-    padding-bottom: 18px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.18);
+    margin: -16px -24px 18px;
+    padding: 16px 24px 18px;
+    background-color: var(--black-seethrough);
   }
 
   .node-type-row {

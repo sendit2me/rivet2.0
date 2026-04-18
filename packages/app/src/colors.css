@@ -1,5 +1,6 @@
 :root {
   /* Greyscale colors */
+  --black-seethrough: rgba(0, 0, 0, 0.15);
   --grey-darkest: #1e1e1e;
   --grey-darker: #282c34;
   --grey-darkerish: #2b2b2b;
