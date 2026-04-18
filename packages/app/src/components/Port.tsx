@@ -10,6 +10,10 @@ import clsx from 'clsx';
 import { useStableCallback } from '../hooks/useStableCallback';
 import { getPortCompatibilityStatus } from '../domain/graphEditing/portCompatibility.js';
 
+export function canStartWireDragFromPortLabel(input: boolean): boolean {
+  return !input;
+}
+
 export const Port: FC<{
   input?: boolean;
   title: string;
@@ -70,6 +74,14 @@ export const Port: FC<{
       onMouseOut?.(event, nodeId, input, id, definition);
     });
 
+    const handleLabelMouseDown = useStableCallback((event: MouseEvent<HTMLDivElement>) => {
+      if (!canStartWireDragFromPortLabel(input)) {
+        return;
+      }
+
+      onMouseDown?.(event, id, input);
+    });
+
     const definitionAsNodeInputDefinition = definition as NodeInputDefinition;
     const accepted = useMemo(() => {
       const status = getPortCompatibilityStatus({
@@ -115,6 +127,7 @@ export const Port: FC<{
         </div>
         <div
           className={clsx('port-label', preservePortCase ? '' : 'port-label-uppercase')}
+          onMouseDown={handleLabelMouseDown}
           onMouseOver={handleMouseOver}
           onMouseOut={handleMouseOut}
         >
