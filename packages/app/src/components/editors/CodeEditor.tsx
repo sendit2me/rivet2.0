@@ -99,7 +99,8 @@ export const CodeEditor: FC<{
   const appTheme = useAtomValue(themeState);
   const resolvedTheme = resolveMonacoTheme(theme, appTheme);
   const isResizable = language != null && RESIZABLE_LANGUAGES.has(language);
-  const editorMountKey = `${id ?? 'node-editor'}::${name ?? label}::${language ?? 'language'}::${resolvedTheme ?? 'theme'}::${
+  const editorIdentityKey = name?.trim() || label;
+  const editorMountKey = `${id ?? 'node-editor'}::${editorIdentityKey}::${language ?? 'language'}::${resolvedTheme ?? 'theme'}::${
     enableFolding ? 'folding-on' : 'folding-off'
   }`;
 
@@ -159,6 +160,7 @@ export const CodeEditor: FC<{
             onKeyDown={handleKeyDown}
             autoFocus={autoFocus}
             enableFolding={enableFolding}
+            editorKey={editorIdentityKey}
             nodeType={nodeType}
             defaultHeight={defaultHeight}
           />
@@ -174,6 +176,7 @@ export const CodeEditor: FC<{
             onKeyDown={handleKeyDown}
             autoFocus={autoFocus}
             enableFolding={enableFolding}
+            editorKey={editorIdentityKey}
             defaultHeight={defaultHeight}
           />
         )}
@@ -194,6 +197,7 @@ type ViewportProps = {
   onKeyDown: (e: monaco.IKeyboardEvent) => void;
   autoFocus: boolean | undefined;
   enableFolding: boolean | undefined;
+  editorKey: string | undefined;
 };
 
 const ResizableCodeEditorViewport: FC<
@@ -204,6 +208,7 @@ const ResizableCodeEditorViewport: FC<
 > = ({ nodeType, defaultHeight, ...editorProps }) => {
   const { viewportHeight, resizeHandleProps } = useNodeEditorCodeViewportHeight({
     nodeType,
+    editorKey: editorProps.editorKey,
     defaultHeight,
   });
 

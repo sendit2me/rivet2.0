@@ -15,7 +15,8 @@ export const newProjectModalOpenState = atom<boolean>(false);
 
 export const expandedFoldersState = atomWithStorage<Record<string, boolean>>('expandedFoldersState', {}, storage);
 
-export const codeEditorHeightsByNodeTypeState = atomWithStorage<Record<string, number>>(
+// Keep the storage key stable so existing saved viewport heights still load.
+export const codeEditorHeightsByStorageKeyState = atomWithStorage<Record<string, number>>(
   'codeEditorHeightsByNodeTypeState',
   {},
   storage,
