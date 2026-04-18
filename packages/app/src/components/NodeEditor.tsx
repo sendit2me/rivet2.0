@@ -361,6 +361,12 @@ const Container = styled.div<{ panelWidth: number }>`
     white-space: nowrap;
   }
 
+  .toggle-field > label[data-size]:has(input:focus:not(:focus-visible)) {
+    border-color: transparent !important;
+    outline: none !important;
+    box-shadow: none !important;
+  }
+
   .toggle-field label {
     margin: 0;
     cursor: pointer;

@@ -136,6 +136,12 @@ export const defaultEditorContainerStyles = css`
     margin: 0 0 0 -4px !important;
   }
 
+  .row.toggle .toggle-editor-switch > label[data-size]:has(input:focus:not(:focus-visible)) {
+    border-color: transparent !important;
+    outline: none !important;
+    box-shadow: none !important;
+  }
+
   .row.toggle .toggle-editor-label {
     margin: 0;
     min-width: 75px;
