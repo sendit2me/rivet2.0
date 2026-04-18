@@ -54,6 +54,7 @@ import { MouseIcon } from './MouseIcon';
 import { type ContextMenuContext } from './ContextMenu.js';
 import { nodeCanvasStyles } from './nodeCanvas/nodeCanvasStyles.js';
 import { NodeCanvasOverlays } from './nodeCanvas/NodeCanvasOverlays.js';
+import { MultiNodeAlignmentToolbar } from './nodeCanvas/MultiNodeAlignmentToolbar.js';
 import { NodeCanvasViewport } from './nodeCanvas/NodeCanvasViewport.js';
 import { useNodeCanvasInteractions } from './nodeCanvas/useNodeCanvasInteractions.js';
 import type { HorizontalNodeResizeBounds } from '../utils/nodeResize.js';
@@ -80,6 +81,7 @@ export type PortPositions = Record<string, { x: number; y: number }>;
 export const NodeCanvas: FC<NodeCanvasProps> = ({
   nodes,
   connections: _connections,
+  selectedNodes,
   onNodesChanged,
   onConnectionsChanged,
   onNodeSelected,
@@ -461,6 +463,11 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
             showContextMenu={showContextMenu}
           />
         )}
+        <MultiNodeAlignmentToolbar
+          canvasRootRef={canvasRef}
+          isDraggingNode={draggingNodes.length > 0}
+          selectedNodes={selectedNodes}
+        />
       </div>
     </DndContext>
   );
