@@ -65,7 +65,8 @@ const Container = styled.div<{ panelWidth: number }>`
     display: flex;
     flex-direction: column;
     height: 100%;
-    color: var(--foreground);
+    color: var(--grey-light);
+    --label-color: var(--grey-light);
     --ds-text-subtlest: var(--grey-light);
     --ds-font-family-body: var(--font-family-monospace);
     --ds-font-family-heading: var(--font-family-monospace);
@@ -172,7 +173,7 @@ const Container = styled.div<{ panelWidth: number }>`
   }
 
   .node-type-label {
-    color: var(--grey-lightest);
+    color: var(--grey-light);
     font-size: 15px;
     line-height: 1;
   }
@@ -258,10 +259,6 @@ const Container = styled.div<{ panelWidth: number }>`
     background-color: var(--grey-darkerish);
     border: 1px solid var(--grey);
     border-radius: 2px;
-    color: var(--foreground);
-  }
-
-  .node-description-field input {
     color: var(--grey-light);
   }
 
