@@ -47,15 +47,17 @@ export const ToggleEditor: FC<{
   return (
     <div className="toggle-editor-field">
       <div className="toggle-editor-control-row">
+        <div className="toggle-editor-switch">
+          <Toggle
+            id={toggleId}
+            isChecked={value}
+            isDisabled={isReadonly || isDisabled}
+            onChange={(e) => onChange(e.target.checked)}
+          />
+        </div>
         <div className="toggle-editor-label">
           <Label htmlFor={toggleId}>{label}</Label>
         </div>
-        <Toggle
-          id={toggleId}
-          isChecked={value}
-          isDisabled={isReadonly || isDisabled}
-          onChange={(e) => onChange(e.target.checked)}
-        />
       </div>
       {helperMessage && (
         <div className="toggle-editor-helper">

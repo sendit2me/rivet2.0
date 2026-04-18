@@ -77,10 +77,9 @@ const styles = css`
   }
 
   .ai-assist-panel {
-    border-top: 1px solid var(--grey-darkish);
     border-bottom: 1px solid var(--grey-darkish);
-    margin-top: 5px;
-    padding: 16px 0;
+    margin-top: 2px;
+    padding: 8px 0 16px;
   }
 
   .model-and-button {

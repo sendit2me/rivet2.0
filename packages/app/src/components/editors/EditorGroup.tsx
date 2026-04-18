@@ -60,9 +60,8 @@ const styles = css`
 
   .editor-group {
     border-bottom: 1px solid var(--grey-darkish);
-    border-top: 1px solid var(--grey-darkish);
-    margin-top: 5px;
-    padding: 16px 0;
+    margin-top: 0;
+    padding: 0;
 
     display: flex;
     flex-direction: column;

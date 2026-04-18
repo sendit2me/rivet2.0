@@ -1,8 +1,5 @@
 
-- In the node settings panel all the normal text (headers, labels) are different color. Let's unify. Ignore the font color in the code and text editors, and ignore the placeholder text
-
-- When a folded section gets unfolded, it shows a horizontal line separator both before and after the UI. Lose the one thet is before the UI.
-
+- In the code node settings, remove the label "Code" at the code editor. In the text node, remove the label "Text" at the text editor.
 - The run button is pushing down the node settings window. It's better to put the run button to a place where it doesn't dishelp
 
 

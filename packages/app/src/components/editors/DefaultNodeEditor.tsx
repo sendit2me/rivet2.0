@@ -112,6 +112,15 @@ export const defaultEditorContainerStyles = css`
     gap: 4px;
   }
 
+  .row.toggle .toggle-editor-switch,
+  .row.toggle .toggle-editor-switch > * {
+    margin-left: 0 !important;
+  }
+
+  .row.toggle .toggle-editor-switch > label[data-size] {
+    margin: 0 0 0 -4px !important;
+  }
+
   .row.toggle .toggle-editor-label {
     margin: 0;
     min-width: 75px;
