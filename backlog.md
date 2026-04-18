@@ -7,7 +7,7 @@
 Also id I cut - paste the "{{12}}", it breaks on the way because Rivet sees that it's gone for a second. So I canr move the variables around the text
 
 
-- In the code node settings, the "Generate Using AI" UI must be foldable and folded by default.
+- The each node's settings panel header is a mess. It takes up too much space
 
 - In the code editor, when utocompletion triggers, there's no way to close it without closing the settings panel. Esc closes the whole panel.
 

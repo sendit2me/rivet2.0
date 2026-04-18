@@ -135,31 +135,38 @@ export class CodeNodeImpl extends NodeImpl<CodeNode> {
         },
       },
       {
-        type: 'toggle',
-        label: 'Allow using `fetch`',
-        dataKey: 'allowFetch',
-      },
-      {
-        type: 'toggle',
-        label: 'Allow using `require`',
-        dataKey: 'allowRequire',
-        helperMessage: 'This is only available when using the Node executor.',
-      },
-      {
-        type: 'toggle',
-        label: 'Allow using `Rivet`',
-        dataKey: 'allowRivet',
-      },
-      {
-        type: 'toggle',
-        label: 'Allow using `process`',
-        dataKey: 'allowProcess',
-        helperMessage: 'This is only available when using the Node executor.',
-      },
-      {
-        type: 'toggle',
-        label: 'Allow using `console`',
-        dataKey: 'allowConsole',
+        type: 'group',
+        label: 'Runtime Permissions',
+        defaultOpen: true,
+        editors: [
+          {
+            type: 'toggle',
+            label: 'Allow using `fetch`',
+            dataKey: 'allowFetch',
+          },
+          {
+            type: 'toggle',
+            label: 'Allow using `require`',
+            dataKey: 'allowRequire',
+            helperMessage: 'This is only available when using the Node executor.',
+          },
+          {
+            type: 'toggle',
+            label: 'Allow using `Rivet`',
+            dataKey: 'allowRivet',
+          },
+          {
+            type: 'toggle',
+            label: 'Allow using `process`',
+            dataKey: 'allowProcess',
+            helperMessage: 'This is only available when using the Node executor.',
+          },
+          {
+            type: 'toggle',
+            label: 'Allow using `console`',
+            dataKey: 'allowConsole',
+          },
+        ],
       },
     ];
   }

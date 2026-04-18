@@ -28,11 +28,60 @@ import { selectedAssistModelState } from '../../../state/ai';
 import { nativeCreateDir, nativeWriteFile } from '../../../utils/platform/fs.js';
 import { handleError } from '../../../utils/errorHandling.js';
 import { useMultilineEditorFontSize } from '../../../hooks/useMultilineEditorFontSize.js';
+import Collapsible from 'react-collapsible';
+import ChevronDownIcon from 'majesticons/line/chevron-down-line.svg?react';
+import ChevronUpIcon from 'majesticons/line/chevron-up-line.svg?react';
 
 const styles = css`
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  grid-column: span 2;
+
+  .ai-assist-toggle-container {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .ai-assist-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 16px;
+    margin: 0 -16px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    outline: none;
+    border-radius: 4px;
+    transition: background 0.2s ease-out;
+    font-size: 14px;
+    font-family: var(--label-font-family);
+    color: var(--label-color);
+    font-weight: var(--label-font-weight);
+
+    .indicator {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+    }
+
+    &:hover {
+      background: var(--grey-darkish);
+    }
+  }
+
+  .ai-assist-body {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .ai-assist-panel {
+    border-top: 1px solid var(--grey-darkish);
+    border-bottom: 1px solid var(--grey-darkish);
+    margin-top: 5px;
+    padding: 16px 0;
+  }
 
   .model-and-button {
     width: 350px;
@@ -53,6 +102,8 @@ export interface AiAssistEditorBaseProps<TNodeData, TOutputs> {
   updateData: (data: TNodeData, result: TOutputs) => TNodeData | null;
   placeholder: string;
   label?: string;
+  collapsible?: boolean;
+  defaultOpen?: boolean;
   onError?: (error: any) => void;
   onSuccess?: (updatedNode: ChartNode) => void;
   getErrorMessage?: (outputs: TOutputs) => string;
@@ -69,6 +120,8 @@ export const AiAssistEditorBase = <TNodeData, TOutputs>({
   updateData,
   placeholder,
   label = 'Generate Using AI',
+  collapsible = false,
+  defaultOpen = true,
   onError,
   onSuccess,
   getErrorMessage,
@@ -178,45 +231,76 @@ export const AiAssistEditorBase = <TNodeData, TOutputs>({
 
   const selectedModel = modelSelectorOptions.find((option) => option.value === modelAndApi);
 
-  return (
-    <Field name="aiAssist" label={label}>
-      {() => (
-        <div css={styles}>
-          <TextArea
-            isDisabled={isDisabled || working}
-            isReadOnly={isReadonly}
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            placeholder={placeholder}
-            className="text-area"
-            onKeyDown={(e) => {
-              if (handleMultilineEditorFontSizeKeyDown(e.nativeEvent)) {
-                e.preventDefault();
-                e.stopPropagation();
-                return;
-              }
+  const editorBody = (
+    <div className={collapsible ? 'ai-assist-panel' : undefined}>
+      <div className="ai-assist-body">
+        <TextArea
+          isDisabled={isDisabled || working}
+          isReadOnly={isReadonly}
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+          placeholder={placeholder}
+          className="text-area"
+          onKeyDown={(e) => {
+            if (handleMultilineEditorFontSizeKeyDown(e.nativeEvent)) {
+              e.preventDefault();
+              e.stopPropagation();
+              return;
+            }
 
-              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                generate();
-              }
-            }}
-            minimumRows={3}
-            style={{ fontSize }}
+            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+              generate();
+            }
+          }}
+          minimumRows={3}
+          style={{ fontSize }}
+        />
+        <div className="model-and-button">
+          <Select
+            options={modelSelectorOptions}
+            value={selectedModel}
+            onChange={(option) => setModelAndApi(option!.value)}
+            isDisabled={isDisabled || working}
+            className="model-selector"
           />
-          <div className="model-and-button">
-            <Select
-              options={modelSelectorOptions}
-              value={selectedModel}
-              onChange={(option) => setModelAndApi(option!.value)}
-              isDisabled={isDisabled || working}
-              className="model-selector"
-            />
-            <Button appearance="primary" onClick={() => void generate()} isDisabled={isDisabled || working}>
-              Generate
-            </Button>
-          </div>
+          <Button appearance="primary" onClick={() => void generate()} isDisabled={isDisabled || working}>
+            Generate
+          </Button>
         </div>
-      )}
-    </Field>
+      </div>
+    </div>
+  );
+
+  if (!collapsible) {
+    return (
+      <Field name="aiAssist" label={label}>
+        {() => <div css={styles}>{editorBody}</div>}
+      </Field>
+    );
+  }
+
+  const toggle = (isOpen?: boolean) => (
+    <div className="ai-assist-toggle-container">
+      <button type="button" className="ai-assist-toggle">
+        <span className="label">{label}</span>
+        <span className="indicator">{isOpen ? <ChevronUpIcon /> : <ChevronDownIcon />}</span>
+      </button>
+    </div>
+  );
+
+  return (
+    <div css={styles}>
+      <Collapsible
+        open={defaultOpen}
+        trigger={toggle(false)}
+        triggerClassName="ai-assist-toggle-container"
+        triggerOpenedClassName="ai-assist-toggle-container open"
+        triggerWhenOpen={toggle(true)}
+        transitionTime={150}
+        easing="ease-out"
+      >
+        {editorBody}
+      </Collapsible>
+    </div>
   );
 };

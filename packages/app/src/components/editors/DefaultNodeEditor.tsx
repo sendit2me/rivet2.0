@@ -99,7 +99,7 @@ export const defaultEditorContainerStyles = css`
     display: flex;
     flex-direction: column;
     gap: 2px;
-    margin-block: 10px 0;
+    margin-block: 6px;
   }
 
   .row.toggle .toggle-editor-control-row {
