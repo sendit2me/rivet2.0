@@ -2,14 +2,13 @@
 
 
 
-- When dragging a node with Shift pressed, I want the node to trravel in a straight line 
-
-- When I dor Shift+scroll, I expect thezooming to be faster
 
 - Add mid points to connections so I can do neat wiring
 
 
 - I don't think the file icons in the project tabs are needed. They just take up space
+
+- When I click a node with shoft, it geth selected but the border is white, not yellow. If I click several node in a row with whift, the last clicked node is with a white border intead of the yellow. What is the logic behind it? Why?
 
 - When the output is large and it is paged, the page size seems to be too small. I need to check. It affects the search
 

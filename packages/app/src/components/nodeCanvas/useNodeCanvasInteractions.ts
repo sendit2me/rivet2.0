@@ -4,6 +4,26 @@ import type { ChartNode, GraphId, NodeId } from '@ironclad/rivet-core';
 import { useStableCallback } from '../../hooks/useStableCallback.js';
 import type { CanvasPosition } from '../../state/graphBuilder.js';
 
+const SHIFT_WHEEL_ZOOM_MULTIPLIER = 6;
+const MAX_WHEEL_ZOOM_SPEED = 0.95;
+
+export function getWheelZoomFactor({
+  wheelDelta,
+  zoomSensitivity,
+  shiftKey,
+}: {
+  wheelDelta: number;
+  zoomSensitivity: number;
+  shiftKey: boolean;
+}): number {
+  const zoomSpeed = Math.min(
+    (zoomSensitivity / 10) * (shiftKey ? SHIFT_WHEEL_ZOOM_MULTIPLIER : 1),
+    MAX_WHEEL_ZOOM_SPEED,
+  );
+
+  return wheelDelta < 0 ? 1 + zoomSpeed : 1 - zoomSpeed;
+}
+
 export interface UseNodeCanvasInteractionsOptions {
   canvasPosition: CanvasPosition;
   clientToCanvasPosition: (x: number, y: number) => { x: number; y: number };
@@ -136,13 +156,12 @@ export const useNodeCanvasInteractions = ({
   );
 
   const zoomDebounced = useThrottleFn(
-    (target: HTMLElement, wheelDelta: number, clientX: number, clientY: number) => {
+    (target: HTMLElement, wheelDelta: number, clientX: number, clientY: number, shiftKey: boolean) => {
       if (isAnyParentScrollable(target)) {
         return;
       }
 
-      const zoomSpeed = zoomSensitivity / 10;
-      const zoomFactor = wheelDelta < 0 ? 1 + zoomSpeed : 1 - zoomSpeed;
+      const zoomFactor = getWheelZoomFactor({ wheelDelta, zoomSensitivity, shiftKey });
       const newZoom = canvasPosition.zoom * zoomFactor;
       const currentMousePosCanvas = clientToCanvasPosition(clientX, clientY);
       const newX = clientX / newZoom - canvasPosition.x;
@@ -164,7 +183,7 @@ export const useNodeCanvasInteractions = ({
   );
 
   const handleZoom = useStableCallback((event: React.WheelEvent<HTMLDivElement>) => {
-    zoomDebounced.run(event.target as HTMLElement, event.deltaY, event.clientX, event.clientY);
+    zoomDebounced.run(event.target as HTMLElement, event.deltaY, event.clientX, event.clientY, event.shiftKey);
   });
 
   const canvasMouseUp = useStableCallback((e: React.MouseEvent) => {

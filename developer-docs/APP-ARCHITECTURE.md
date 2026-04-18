@@ -281,6 +281,12 @@ Current structure:
 - mouse pan/zoom/selection-box/context-menu handlers live in [`packages/app/src/components/nodeCanvas/useNodeCanvasInteractions.ts`](../packages/app/src/components/nodeCanvas/useNodeCanvasInteractions.ts)
 - canvas styling lives in [`packages/app/src/components/nodeCanvas/nodeCanvasStyles.ts`](../packages/app/src/components/nodeCanvas/nodeCanvasStyles.ts)
 
+Current wheel-zoom behavior stays on that same interaction path:
+
+- base wheel zoom speed is driven by `zoomSensitivityState`
+- holding `Shift` while wheel-zooming applies a faster zoom-speed multiplier
+- the effective wheel zoom speed is clamped before factor calculation so high sensitivity plus the Shift multiplier cannot drive zoom-out through zero
+
 This keeps the top-level component closer to an orchestration layer and makes viewport math, overlay rendering, and interaction sequencing reviewable in isolation.
 
 ### Extracted hook seams in `NodeCanvas`
