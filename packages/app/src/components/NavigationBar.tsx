@@ -12,6 +12,7 @@ import { projectState } from '../state/savedGraphs';
 import clsx from 'clsx';
 import { useGoToNode } from '../hooks/useGoToNode';
 import { type NodeId } from '@ironclad/rivet-core';
+import { sidebarOpenState } from '../state/graphBuilder';
 
 const styles = css`
   position: fixed;
@@ -175,6 +176,7 @@ const styles = css`
 
 export const NavigationBar: FC = () => {
   const navigationStack = useGraphHistoryNavigation();
+  const sidebarOpen = useAtomValue(sidebarOpenState);
 
   const [searching, setSearching] = useAtom(searchingGraphState);
 
@@ -209,7 +211,7 @@ export const NavigationBar: FC = () => {
   }
 
   return (
-    <div css={styles}>
+    <div css={styles} className={clsx({ 'sidebar-closed': !sidebarOpen })}>
       {navigationStack.hasBackward ? (
         <Tooltip content="Go to previous graph" placement="bottom">
           <button onClick={navigationStack.navigateBack}>
