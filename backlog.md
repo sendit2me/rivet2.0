@@ -2,19 +2,16 @@
 
 
 
+- In text node when I type "{" in the editor, always automatically add a second pair so it's "{}". And when I delete the left one, automatically delete the paitr rigth one (if they are immediate neighbour symbols). This is how it works in the "Object" node.
+
 
 - Add mid points to connections so I can do neat wiring
 
-
 - I don't think the file icons in the project tabs are needed. They just take up space
-
-- When I click a node with shoft, it geth selected but the border is white, not yellow. If I click several node in a row with whift, the last clicked node is with a white border intead of the yellow. What is the logic behind it? Why?
 
 - When the output is large and it is paged, the page size seems to be too small. I need to check. It affects the search
 
 - The "Go to next graph" and "Go to previous graph" buttons that appear next to the graph list. When I collapse the left panel with the graphs list, the buttons should travel along, staying close to the right edge of the collapsed graphs list
-
-
 
 - In the text editor (and similar editors), when I add variables, sometimes the input connections break. When I start typing out a new variable, the syntax breaks and the "12" var becomes "{{12" and the connection disappers
 {{11}}

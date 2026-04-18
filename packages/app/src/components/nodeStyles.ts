@@ -21,6 +21,15 @@ export const nodeStyles = css`
     contain: layout;
   }
 
+  .node:focus {
+    outline: none;
+  }
+
+  .node:focus-visible:not(.selected):not(.hovered):not(.overlayNode) {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+
   .node.changed-added {
     border-color: var(--success);
   }
