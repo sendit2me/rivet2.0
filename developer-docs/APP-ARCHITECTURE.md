@@ -182,6 +182,7 @@ Current workspace behavior:
 - `useSyncCurrentStateIntoOpenedProjects` keeps tab metadata and inactive-project content snapshots in sync, while `useSyncCurrentProjectEditorState` mirrors the active project's navigation stack and canvas positions into `projectEditorStateByProjectIdState` after boot hydration
 - successful project saves clear any persisted inactive-project snapshot for that project and flush the grouped `project` storage so tab metadata and editor-view state are durable together
 - closing/reordering project tabs still lives in `ProjectSelector.tsx`, and closing a background tab no longer triggers a neighbor-project load
+- project-tab reordering is visually constrained to horizontal motion even while dragging, so any future reorder changes should preserve that left-right-only affordance instead of letting tabs drift vertically
 
 ### `ActionBar`
 

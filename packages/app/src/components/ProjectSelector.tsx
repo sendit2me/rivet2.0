@@ -358,12 +358,14 @@ export const SortableProject: FC<{
     id: projectId,
   });
 
+  const constrainedTransformX = transform?.x ?? 0;
+
   return (
     <div
       className="draggableProject"
       ref={setNodeRef}
       style={{
-        transform: `translate3d(${transform ? transform.x : 0}px, ${transform ? transform.y : 0}px, 0)`,
+        transform: `translate3d(${constrainedTransformX}px, 0px, 0)`,
         transition,
       }}
       {...attributes}

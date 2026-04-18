@@ -1,8 +1,11 @@
 
 
-- When I doubleclick a node on the content area, the node settings panel opens, But when I doubleclick the node header, it doesn't open. It should open the node settings panel too
+
+- When the node is selected, it has a yellow shinig around it. Remove it. Just the yeallow borde ris enough
 
 - New Nodes for working with lists: filtering, mapping, reducing, etc.
+
+
 
 
 - When the output is large and it is paged, the page size seems to be too small. I need to check. It affects the search
