@@ -1,8 +1,6 @@
 
 
 
-- In the HTTP CALL node settings, the toggles for using an input port for headers and body - they render after the corresponding code fields. I want these toggles to be on the right of the code fields, just like all other "us an input" toggles are sutiated - on the right from the field. 
-
 - Foldable section, when unfolded should be rendered as a block with a distinct background color so it's easily visible that all the elements inside - are inside this block
 
 - New Nodes for working with lists: filtering, mapping, reducing, etc.

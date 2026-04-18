@@ -72,9 +72,11 @@ export const defaultEditorContainerStyles = css`
   }
 
   .row.code {
-    flex: 0 0 auto;
-    display: flex;
-    flex-direction: column;
+    align-items: start;
+  }
+
+  .row.code > :first-child {
+    min-width: 0;
   }
 
   .node-editor-static-code-editor {
