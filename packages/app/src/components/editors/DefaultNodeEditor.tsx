@@ -48,15 +48,18 @@ export const defaultEditorContainerStyles = css`
     position: relative;
     min-height: 0;
     flex: 0 0 auto;
+    background-color: var(--grey-darker);
   }
 
   .editor-wrapper {
     height: 100%;
     min-height: 0;
+    background-color: var(--grey-darker);
   }
 
   .editor-container {
     height: 100%;
+    background-color: var(--grey-darker);
   }
 
   .row.code {
@@ -70,6 +73,7 @@ export const defaultEditorContainerStyles = css`
     flex: 1 1 auto;
     display: flex;
     flex-direction: column;
+    background-color: var(--grey-darker);
   }
 
   .node-editor-static-code-editor .editor-container {

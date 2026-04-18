@@ -28,9 +28,7 @@ const definePITheme = (name: string, colors: { primary: string }) =>
     base: 'vs-dark',
     inherit: true,
     rules: [{ token: 'prompt-replacement', foreground: colors.primary }],
-    colors: {
-      'editor.background': '#282c34',
-    },
+    colors: {},
   });
 
 definePITheme('molten', { primary: 'ff9900' });
