@@ -48,17 +48,25 @@ export const defaultEditorContainerStyles = css`
     position: relative;
     min-height: 0;
     flex: 0 0 auto;
-    background-color: var(--grey-darker);
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    padding: 10px 10px 14px;
+    background-color: var(--grey-darkest);
+    border-radius: 8px;
   }
 
   .editor-wrapper {
-    height: 100%;
+    flex: 1 1 auto;
     min-height: 0;
     background-color: var(--grey-darker);
+    border-radius: 6px;
+    overflow: hidden;
   }
 
   .editor-container {
     height: 100%;
+    min-height: 0;
     background-color: var(--grey-darker);
   }
 
@@ -73,11 +81,18 @@ export const defaultEditorContainerStyles = css`
     flex: 1 1 auto;
     display: flex;
     flex-direction: column;
-    background-color: var(--grey-darker);
+    box-sizing: border-box;
+    gap: 0;
+    padding: 10px;
+    background-color: var(--grey-dark);
+    border-radius: 8px;
   }
 
   .node-editor-static-code-editor .editor-container {
     flex: 1 1 auto;
+    min-height: 0;
+    border-radius: 6px;
+    overflow: hidden;
   }
 
   .editor-status-line {
@@ -95,8 +110,8 @@ export const defaultEditorContainerStyles = css`
     bottom: 0;
     height: 10px;
     cursor: ns-resize;
-    background: linear-gradient(to bottom, transparent 0%, rgba(255, 255, 255, 0.18) 100%);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.18);
+    background: transparent;
+    border-bottom: none;
   }
 
   .row.toggle .toggle-editor-field {
