@@ -12,6 +12,7 @@ import { resolveMonacoTheme } from '../codeEditorTheme.js';
 import { ResizeHandle } from '../ResizeHandle.js';
 import { isValidHeight, RESIZABLE_LANGUAGES, useNodeEditorCodeViewportHeight } from './useNodeEditorCodeViewportHeight.js';
 import { formatTextEditorStatsLine } from './textEditorStats.js';
+import { handleCodeEditorEscape } from './codeEditorEscape.js';
 
 export const DefaultCodeEditor: FC<
   SharedEditorProps & {
@@ -129,9 +130,15 @@ export const CodeEditor: FC<{
 
   const handleKeyDown = (e: monaco.IKeyboardEvent) => {
     if (e.keyCode === 9 /* Escape */) {
-      e.preventDefault();
-      e.stopPropagation();
-      onClose?.();
+      const escapeResult = handleCodeEditorEscape({
+        editor: editorInstance.current,
+        onClose,
+      });
+
+      if (escapeResult !== 'noop') {
+        e.preventDefault();
+        e.stopPropagation();
+      }
     }
   };
 
