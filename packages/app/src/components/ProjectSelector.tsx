@@ -4,7 +4,6 @@ import { DndContext, type DragEndEvent } from '@dnd-kit/core';
 import { type ProjectId } from '@ironclad/rivet-core';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import CloseIcon from 'majesticons/line/multiply-line.svg?react';
-import BlankFileIcon from 'majesticons/line/file-line.svg?react';
 import FileIcon from 'majesticons/line/file-plus-line.svg?react';
 import FolderIcon from 'majesticons/line/folder-line.svg?react';
 import {
@@ -406,7 +405,6 @@ export const ProjectTab: FC<{
       className={clsx('project', { active: currentProject.metadata.id === projectId, unsaved })}
       onMouseDown={handleMouseDown}
     >
-      <BlankFileIcon />
       <div className="project-name" {...dragListeners}>
         <span>{projectDisplayName}</span>
       </div>

@@ -3,8 +3,6 @@
 
 
 
-- I don't think the file icons in the project tabs are needed. They just take up space
-
 - When the output is large and it is paged, the page size seems to be too small. I need to check. It affects the search
 
 - The "Go to next graph" and "Go to previous graph" buttons that appear next to the graph list. When I collapse the left panel with the graphs list, the buttons should travel along, staying close to the right edge of the collapsed graphs list
