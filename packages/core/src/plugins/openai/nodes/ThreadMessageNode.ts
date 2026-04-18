@@ -7,7 +7,7 @@ import {
   type PluginNodeImpl,
 } from '../../../index.js';
 import { newId, coerceTypeOptional, getInputOrData, coerceType } from '../../../utils/index.js';
-import { interpolate } from '../../../utils/interpolation.js';
+import { extractInterpolationVariables, interpolate } from '../../../utils/interpolation.js';
 import { pluginNodeDefinition } from '../../../model/NodeDefinition.js';
 import type { CreateMessageBody } from '../../../utils/openai.js';
 import { mapValues } from 'lodash-es';
@@ -81,15 +81,14 @@ export const ThreadMessageNodeImpl: PluginNodeImpl<ThreadMessageNode> = {
       });
     }
 
-    // Extract inputs from promptText, everything like {{input}}
-    const inputNames = [...new Set(data.text.match(/\{\{([^}]+)\}\}/g))];
+    const inputNames = extractInterpolationVariables(data.text);
     inputs = [
       ...inputs,
       ...(inputNames?.map((inputName): NodeInputDefinition => {
         return {
           // id and title should not have the {{ and }}
-          id: inputName.slice(2, -2) as PortId,
-          title: inputName.slice(2, -2),
+          id: inputName as PortId,
+          title: inputName,
           dataType: 'string',
           required: false,
         };

@@ -3,6 +3,9 @@
 
 
 
+- When in the text node, in the editor there's a {{foo}} varable and it is connected to something, and I select and cut the whole variavble declaration, the corresponding noide inpout disappears and teh connection is lost. When I do "Undo", the variable declaration is back and the corresponding node input is back but the connection is still lost. Which is reasonable. But is it possible to wire the "Undo" in a way that it would restore the connection too? it sounds like a massive rework so let's plan thoroughly so that it works but doesn't break anything else and doesn't make the architecture messy
+
+
 - Some time ago we made "Generate Using AI" a foldable section on a code node, Let's do teh same with the Object node. Also check if some other nodes have it
 
 - Add mid points to connections so I can do neat wiring
@@ -13,11 +16,6 @@
 
 - The "Go to next graph" and "Go to previous graph" buttons that appear next to the graph list. When I collapse the left panel with the graphs list, the buttons should travel along, staying close to the right edge of the collapsed graphs list
 
-- In the text editor (and similar editors), when I add variables, sometimes the input connections break. When I start typing out a new variable, the syntax breaks and the "12" var becomes "{{12" and the connection disappers
-{{foo}}
-{{bar
-{{somevar}}
-Also id I cut - paste the "{{12}}", it breaks on the way because Rivet sees that it's gone for a second. So I canr move the variables around the text
 
 - Workspace tabs are not teh same as "File" tab. File is not a tab at all, it shouldn't be a tab
 

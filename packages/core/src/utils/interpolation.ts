@@ -2,10 +2,14 @@ import { dedent } from './misc.js';
 import type { DataValue } from '../model/DataValue.js';
 import { get as lodashGet } from 'lodash-es';
 
-// Simpler regex allowing spaces, relies on trim() later
-export const TOKEN_MATCH_REGEX = /\{\{([^}]+?)\}\}/g;
 export const ESCAPED_TOKEN_REGEX = /\{\{\{([^}]+?)\}\}\}/g;
 export const ESCAPED_ESCAPED_TOKEN_REGEX = /\\\{\\\{([^}]+?)\\\}\\\}/g;
+
+export type InterpolationTokenSpan = {
+  start: number;
+  end: number;
+  rawInner: string;
+};
 
 // Processing functions
 type ProcessingFunction = (input: string, param?: number) => string;
@@ -169,7 +173,6 @@ export function resolveExpressionRawValue(
   return finalValue;
 }
 
-// New function: Resolves and converts to string format suitable for TextNode
 export function resolveExpressionToString(
   source: Record<string, any> | undefined,
   expression: string,
@@ -206,7 +209,10 @@ function parseProcessing(instruction: string): { func: string; param?: number } 
 
 // Apply a chain of processing functions to a string
 function applyProcessing(value: string, processingChain: string): string {
-  const instructions = processingChain.split('|').slice(1); // Remove the token part
+  const instructions = processingChain
+    .split('|')
+    .map((instruction) => instruction.trim())
+    .filter((instruction) => instruction !== '');
 
   return instructions.reduce((result, instruction) => {
     const { func, param } = parseProcessing(instruction);
@@ -221,85 +227,131 @@ function applyProcessing(value: string, processingChain: string): string {
   }, value);
 }
 
+export function protectEscapedInterpolationTokens(template: string): string {
+  return template.replace(ESCAPED_TOKEN_REGEX, (_match, expression) => `\\{\\{${expression}\\}\\}`);
+}
+
+export function restoreEscapedInterpolationTokens(template: string): string {
+  return template.replace(ESCAPED_ESCAPED_TOKEN_REGEX, (_match, expression) => `{{${expression}}}`);
+}
+
+export function findInterpolationTokenSpans(template: string): InterpolationTokenSpan[] {
+  const spans: InterpolationTokenSpan[] = [];
+  let searchIndex = 0;
+
+  while (searchIndex < template.length) {
+    const openIndex = template.indexOf('{{', searchIndex);
+
+    if (openIndex === -1) {
+      break;
+    }
+
+    const closeIndex = template.indexOf('}}', openIndex + 2);
+
+    if (closeIndex === -1) {
+      break;
+    }
+
+    const nestedOpenIndex = template.indexOf('{{', openIndex + 2);
+
+    if (nestedOpenIndex !== -1 && nestedOpenIndex < closeIndex) {
+      searchIndex = nestedOpenIndex;
+      continue;
+    }
+
+    spans.push({
+      start: openIndex,
+      end: closeIndex + 2,
+      rawInner: template.slice(openIndex + 2, closeIndex),
+    });
+    searchIndex = closeIndex + 2;
+  }
+
+  return spans;
+}
+
+export function getInterpolationTokenName(rawInner: string): string | undefined {
+  const [tokenPart] = rawInner.split('|');
+
+  if (!tokenPart) {
+    return undefined;
+  }
+
+  const token = tokenPart.trim();
+
+  return token === '' ? undefined : token;
+}
+
 export function interpolate(
   template: string,
   variables: Record<string, DataValue | string | undefined>,
   graphInputValues?: Record<string, DataValue>,
   contextValues?: Record<string, DataValue>,
 ): string {
-  return template
-    .replace(ESCAPED_TOKEN_REGEX, (_match, expression) => {
-      // Replace with \{\{expression\}\} to escape
-      return `\\{\\{${expression}\\}\\}`; // Escaped token
-    })
-    .replace(/\{\{((?:@graphInputs|@context)\..*?|[^}]+?)\}\}/g, (_match, expressionWithMaybeProcessing) => {
-      const parts = expressionWithMaybeProcessing.split('|').map((s: string) => s.trim());
-      const expression = parts[0]!; // The variable name or path, e.g., @context.foo.bar or myVar
-      const processingChain = parts.slice(1).join('|'); // e.g., indent 2 | quote
+  const protectedTemplate = protectEscapedInterpolationTokens(template);
+  const tokenSpans = findInterpolationTokenSpans(protectedTemplate);
 
-      let resolvedValue: string | undefined;
+  if (tokenSpans.length === 0) {
+    return restoreEscapedInterpolationTokens(protectedTemplate);
+  }
 
-      if (expression.startsWith('@graphInputs.')) {
-        // Use the new string-converting function
-        resolvedValue = resolveExpressionToString(
-          graphInputValues,
-          expression.substring('@graphInputs.'.length),
-          'graphInputs',
-        );
-      } else if (expression.startsWith('@context.')) {
-        // Use the new string-converting function
-        resolvedValue = resolveExpressionToString(contextValues, expression.substring('@context.'.length), 'context');
+  let result = '';
+  let cursor = 0;
+
+  for (const tokenSpan of tokenSpans) {
+    result += protectedTemplate.slice(cursor, tokenSpan.start);
+
+    const parts = tokenSpan.rawInner.split('|').map((s: string) => s.trim());
+    const expression = parts[0]!; // The variable name or path, e.g., @context.foo.bar or myVar
+    const processingChain = parts.slice(1).join('|'); // e.g., indent 2 | quote
+
+    let resolvedValue: string | undefined;
+
+    if (expression.startsWith('@graphInputs.')) {
+      resolvedValue = resolveExpressionToString(
+        graphInputValues,
+        expression.substring('@graphInputs.'.length),
+        'graphInputs',
+      );
+    } else if (expression.startsWith('@context.')) {
+      resolvedValue = resolveExpressionToString(contextValues, expression.substring('@context.'.length), 'context');
+    } else {
+      const simpleVar = variables[expression];
+      if (simpleVar !== undefined) {
+        resolvedValue = String(unwrapPotentialDataValue(simpleVar) ?? '');
       } else {
-        const simpleVar = variables[expression];
-        if (simpleVar !== undefined) {
-          // Simple variables might be DataValue or raw strings
-          resolvedValue = String(unwrapPotentialDataValue(simpleVar) ?? '');
-        } else {
-          resolvedValue = undefined; // Variable not found
-        }
+        resolvedValue = undefined;
       }
+    }
 
-      if (resolvedValue === undefined) {
-        // Return an empty string if the variable is not found or resolves to undefined
-        console.warn(`Interpolation variable or path "${expression}" not found or resolved to undefined.`);
-        return '';
-      }
+    if (resolvedValue === undefined) {
+      console.warn(`Interpolation variable or path "${expression}" not found or resolved to undefined.`);
+      result += '';
+    } else if (processingChain) {
+      result += applyProcessing(resolvedValue, processingChain);
+    } else {
+      result += resolvedValue;
+    }
 
-      // Apply processing if any instructions exist
-      if (processingChain) {
-        return applyProcessing(resolvedValue, processingChain);
-      }
+    cursor = tokenSpan.end;
+  }
 
-      return resolvedValue;
-    })
-    .replace(ESCAPED_ESCAPED_TOKEN_REGEX, (_match, expression) => {
-      // Replace with {{expression}} to unescape
-      return `{{${expression}}}`; // Unescaped token
-    });
+  result += protectedTemplate.slice(cursor);
+
+  return restoreEscapedInterpolationTokens(result);
 }
 
 // Extract all unique variable names from a template string
 // Ignores variables starting with @graphInputs. or @context., as they are treated as special references.
 export function extractInterpolationVariables(template: string): string[] {
-  const matches = template
-    .replace(ESCAPED_TOKEN_REGEX, (_match, content) => {
-      // Replace escaped tokens with the escaped escaped version so they're not matched
-      return `\\{\\{${content}\\}\\}`;
-    })
-    .matchAll(TOKEN_MATCH_REGEX);
+  const protectedTemplate = protectEscapedInterpolationTokens(template);
   const variables = new Set<string>();
 
-  for (const match of matches) {
-    if (match[1]) {
-      const [tokenPart] = match[1].split('|');
-      if (tokenPart) {
-        const token = tokenPart.trim();
+  for (const match of findInterpolationTokenSpans(protectedTemplate)) {
+    const token = getInterpolationTokenName(match.rawInner);
 
-        // Filter out special prefixes
-        if (!token.startsWith('@graphInputs.') && !token.startsWith('@context.')) {
-          variables.add(token);
-        }
-      }
+    if (token && !token.startsWith('@graphInputs.') && !token.startsWith('@context.')) {
+      variables.add(token);
     }
   }
 

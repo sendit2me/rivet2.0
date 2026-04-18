@@ -12,7 +12,15 @@ import { type DataValue } from '../DataValue.js';
 import { dedent } from 'ts-dedent';
 import { type EditorDefinition } from '../EditorDefinition.js';
 import type { InternalProcessContext } from '../ProcessContext.js';
-import { resolveExpressionRawValue, unwrapPotentialDataValue } from '../../utils/interpolation.js';
+import {
+  extractInterpolationVariables,
+  findInterpolationTokenSpans,
+  getInterpolationTokenName,
+  protectEscapedInterpolationTokens,
+  resolveExpressionRawValue,
+  restoreEscapedInterpolationTokens,
+  unwrapPotentialDataValue,
+} from '../../utils/interpolation.js';
 
 export type ObjectNode = ChartNode<'object', ObjectNodeData>;
 
@@ -44,17 +52,9 @@ export class ObjectNodeImpl extends NodeImpl<ObjectNode> {
   }
 
   getInputDefinitions(): NodeInputDefinition[] {
-    // Provide default empty string for jsonTemplate if undefined
-    const jsonTemplate = this.chartNode.data.jsonTemplate ?? '';
-    const matches = jsonTemplate.match(/\{\{([^}]+?)\}\}/g); // matches is string[] | null
-    const allTokens = matches ?? []; // allTokens is now explicitly string[]
-    const inputTokens = allTokens
-      // id and title should not have the {{ and }}
-      .map((token) => token.slice(2, -2).trim())
-      .filter((tokenContent) => !tokenContent.startsWith('@graphInputs.') && !tokenContent.startsWith('@context.'))
-      .filter((token) => token !== '');
+    const inputTokens = extractInterpolationVariables(this.chartNode.data.jsonTemplate ?? '');
 
-    return [...new Set(inputTokens)].map((inputName) => {
+    return inputTokens.map((inputName) => {
       return {
         id: inputName as PortId,
         title: inputName,
@@ -113,9 +113,23 @@ export class ObjectNodeImpl extends NodeImpl<ObjectNode> {
     graphInputNodeValues?: Record<string, DataValue>,
     contextValues?: Record<string, DataValue>
   ): string {
-    return baseString.replace(/("?)\{\{([^}]+?)\}\}("?)/g, (_m, openQuote, key, _closeQuote) => {
-      const isQuoted = Boolean(openQuote);
-      const trimmedKey = key.trim(); // Use trimmedKey for lookups
+    const protectedBaseString = protectEscapedInterpolationTokens(baseString);
+    const tokenSpans = findInterpolationTokenSpans(protectedBaseString);
+
+    if (tokenSpans.length === 0) {
+      return restoreEscapedInterpolationTokens(protectedBaseString);
+    }
+
+    let result = '';
+    let cursor = 0;
+
+    for (const tokenSpan of tokenSpans) {
+      const hasLeadingQuote = tokenSpan.start > 0 && protectedBaseString[tokenSpan.start - 1] === '"';
+      const hasTrailingQuote = tokenSpan.end < protectedBaseString.length && protectedBaseString[tokenSpan.end] === '"';
+      const replacementStart = hasLeadingQuote ? tokenSpan.start - 1 : tokenSpan.start;
+      const replacementEnd = hasTrailingQuote ? tokenSpan.end + 1 : tokenSpan.end;
+      const trimmedKey = getInterpolationTokenName(tokenSpan.rawInner) ?? tokenSpan.rawInner.trim();
+      const isQuoted = hasLeadingQuote;
 
       let value: any;
 
@@ -138,20 +152,27 @@ export class ObjectNodeImpl extends NodeImpl<ObjectNode> {
         value = values[trimmedKey]; // Original logic for non-@ variables
       }
 
+      result += protectedBaseString.slice(cursor, replacementStart);
+
       if (value == null) {
-        return 'null';
-      }
-      if (isQuoted && typeof value === 'string') {
+        result += 'null';
+      } else if (isQuoted && typeof value === 'string') {
         // Adds double-quotes back.
-        return JSON.stringify(value);
-      }
-      if (isQuoted) {
+        result += JSON.stringify(value);
+      } else if (isQuoted) {
         // Non-strings require a double-stringify, first to turn them into a string, then to escape that string and add quotes.
-        return JSON.stringify(JSON.stringify(value));
+        result += JSON.stringify(JSON.stringify(value));
+      } else {
+        // Otherwise, it was not quoted, so no need to double-stringify
+        result += JSON.stringify(value);
       }
-      // Otherwise, it was not quoted, so no need to double-stringify
-      return JSON.stringify(value);
-    });
+
+      cursor = replacementEnd;
+    }
+
+    result += protectedBaseString.slice(cursor);
+
+    return restoreEscapedInterpolationTokens(result);
   }
 
   async process(inputs: Record<string, DataValue>, context: InternalProcessContext): Promise<Record<string, DataValue>> {

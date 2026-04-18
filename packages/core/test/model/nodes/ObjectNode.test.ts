@@ -137,4 +137,54 @@ describe('ObjectNodeImpl', () => {
     const result = await node.process(inputs, ctx);
     assert.deepStrictEqual(result['output'].value, { key: null });
   });
+
+  it('discovers later valid inputs even when an earlier interpolation opener is broken', () => {
+    const node = createNode({
+      jsonTemplate: ['{"first": "{{foo}}",', '"broken": "{{bar",', '"second": "{{somevar}}"}'].join('\n'),
+    });
+
+    assert.deepStrictEqual(
+      node.getInputDefinitions().map((definition) => definition.id),
+      ['foo', 'somevar'],
+    );
+  });
+
+  it('keeps broken interpolation text literal while still resolving later valid values', async () => {
+    const node = createNode({
+      jsonTemplate: `{"first":"{{foo}}","broken":"{{bar","second":"{{somevar}}"}`,
+    });
+    const inputs: Record<string, DataValue> = {
+      foo: { type: 'string', value: 'A' },
+      somevar: { type: 'string', value: 'B' },
+    };
+
+    const result = await node.process(inputs, ctx);
+
+    assert.deepStrictEqual(result['output'].value, {
+      first: 'A',
+      broken: '{{bar',
+      second: 'B',
+    });
+  });
+
+  it('keeps escaped interpolation tokens literal while still resolving normal tokens', async () => {
+    const node = createNode({
+      jsonTemplate: `{"literal":"{{{foo}}}","actual":"{{bar}}"}`,
+    });
+    const inputs: Record<string, DataValue> = {
+      bar: { type: 'string', value: 'B' },
+    };
+
+    assert.deepStrictEqual(
+      node.getInputDefinitions().map((definition) => definition.id),
+      ['bar'],
+    );
+
+    const result = await node.process(inputs, ctx);
+
+    assert.deepStrictEqual(result['output'].value, {
+      literal: '{{foo}}',
+      actual: 'B',
+    });
+  });
 });
