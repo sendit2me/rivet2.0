@@ -1,8 +1,14 @@
 import * as monaco from 'monaco-editor';
 
-import { language as promptInterpolationMarkdownLanguage } from './monaco/markdown';
+import { conf as promptInterpolationMarkdownConf, language as promptInterpolationMarkdownLanguage } from './monaco/markdown';
 
 export { monaco };
+
+const PROMPT_INTERPOLATION_BRACE_CONFIGURATION: monaco.languages.LanguageConfiguration = {
+  brackets: [['{', '}']],
+  autoClosingPairs: [{ open: '{', close: '}' }],
+  surroundingPairs: [{ open: '{', close: '}' }],
+};
 
 monaco.languages.register({ id: 'prompt-interpolation' });
 monaco.languages.register({ id: 'prompt-interpolation-markdown' });
@@ -14,6 +20,8 @@ monaco.languages.setMonarchTokensProvider('prompt-interpolation', {
 });
 
 monaco.languages.setMonarchTokensProvider('prompt-interpolation-markdown', promptInterpolationMarkdownLanguage);
+monaco.languages.setLanguageConfiguration('prompt-interpolation-markdown', promptInterpolationMarkdownConf);
+monaco.languages.setLanguageConfiguration('prompt-interpolation', PROMPT_INTERPOLATION_BRACE_CONFIGURATION);
 
 const definePITheme = (name: string, colors: { primary: string }) =>
   monaco.editor.defineTheme(`prompt-interpolation-${name}`, {
