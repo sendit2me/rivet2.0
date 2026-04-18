@@ -33,6 +33,8 @@ export type ContextMenuItem<Context = unknown, Data = unknown> = {
   label: string;
   subLabel?: string;
   icon?: ComponentType;
+  tone?: 'default' | 'danger';
+  separatorBefore?: boolean;
   data?: Data | ((context: Context) => Data);
   conditional?: (context: Context) => boolean;
   items?: readonly ContextMenuItem<Context>[];
@@ -67,9 +69,29 @@ export function useContextMenuConfiguration() {
             }>(),
             items: [
               {
+                id: 'node-run-to-here',
+                label: 'Run to here',
+                icon: PlayIcon,
+              },
+              {
+                id: 'node-run-from-here',
+                label: 'Run from here',
+                icon: PlayIcon,
+                conditional: (context) => {
+                  const { canRunFromHere } = context as { canRunFromHere: boolean };
+                  return canRunFromHere;
+                },
+              },
+              {
                 id: 'node-copy',
                 label: 'Copy',
                 icon: CopyIcon,
+                separatorBefore: true,
+              },
+              {
+                id: 'node-duplicate',
+                label: 'Duplicate',
+                icon: DuplicateIcon,
               },
               {
                 id: 'node-go-to-subgraph',
@@ -86,34 +108,17 @@ export function useContextMenuConfiguration() {
                 icon: SettingsCogIcon,
               },
               {
-                id: 'node-duplicate',
-                label: 'Duplicate',
-                icon: DuplicateIcon,
-              },
-              {
                 id: 'nodes-factor-into-subgraph',
                 label: 'Create Subgraph',
                 icon: DuplicateIcon,
                 conditional: () => selectedNodeIds.length > 0,
               },
               {
-                id: 'node-run-to-here',
-                label: 'Run to here',
-                icon: PlayIcon,
-              },
-              {
-                id: 'node-run-from-here',
-                label: 'Run from here',
-                icon: PlayIcon,
-                conditional: (context) => {
-                  const { canRunFromHere } = context as { canRunFromHere: boolean };
-                  return canRunFromHere;
-                },
-              },
-              {
                 id: 'node-delete',
                 label: 'Delete',
                 icon: DeleteIcon,
+                tone: 'danger',
+                separatorBefore: true,
               },
             ],
           },
