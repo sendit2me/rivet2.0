@@ -6,8 +6,8 @@ import { graphState } from '../state/graph.js';
 import { canvasPositionState, graphNavigationStackState, lastCanvasPositionByGraphState } from '../state/graphBuilder.js';
 import { openedProjectSnapshotsState, projectDataState, projectState } from '../state/savedGraphs.js';
 import { projectEditorStateByProjectIdState, type ProjectEditorState } from '../state/projectEditor.js';
+import { buildOpenedProjectSnapshot } from '../utils/openedProjectSnapshots.js';
 import { buildCurrentProjectEditorStateSnapshot } from '../utils/projectEditorState.js';
-import { mergeCurrentGraphIntoProject } from '../utils/workspaceTransitions.js';
 
 export function useCurrentProjectEditorSnapshot() {
   const currentProject = useAtomValue(projectState);
@@ -71,18 +71,32 @@ export function useCurrentProjectEditorSnapshot() {
     return nextProjectEditorState;
   }, [buildSnapshot, currentProject, setProjectEditorStateByProjectId]);
 
-  const persistCurrentOpenedProjectSnapshot = useCallback(() => {
-    if (!currentProject.metadata.id) {
+  const persistOpenedProjectSnapshot = useCallback((options: {
+    project?: typeof currentProject;
+    graph?: typeof currentGraph;
+    data?: typeof currentProjectData;
+  } = {}) => {
+    const snapshotProject = options.project ?? currentProject;
+    if (!snapshotProject.metadata.id) {
       return;
     }
 
-    setOpenedProjectSnapshots((previousSnapshots) => ({
-      ...previousSnapshots,
-      [currentProject.metadata.id]: {
-        project: mergeCurrentGraphIntoProject(currentProject, currentGraph),
-        data: currentProjectData,
-      },
-    }));
+    const nextSnapshot = buildOpenedProjectSnapshot({
+      project: snapshotProject,
+      graph: options.graph ?? currentGraph,
+      data: options.data ?? currentProjectData,
+    });
+
+    setOpenedProjectSnapshots((previousSnapshots) => {
+      if (isEqual(previousSnapshots[snapshotProject.metadata.id], nextSnapshot)) {
+        return previousSnapshots;
+      }
+
+      return {
+        ...previousSnapshots,
+        [snapshotProject.metadata.id]: nextSnapshot,
+      };
+    });
   }, [currentGraph, currentProject, currentProjectData, setOpenedProjectSnapshots]);
 
   return {
@@ -91,7 +105,7 @@ export function useCurrentProjectEditorSnapshot() {
     currentProject,
     graphNavigationStack,
     lastCanvasPositionsByGraph,
-    persistCurrentOpenedProjectSnapshot,
+    persistOpenedProjectSnapshot,
     buildCurrentProjectEditorSnapshot: buildSnapshot,
     persistCurrentProjectEditorSnapshot: persistSnapshot,
     projectEditorStateByProjectId,

@@ -62,7 +62,7 @@ export function useWorkspaceTransitions() {
     canvasPosition,
     graphNavigationStack,
     lastCanvasPositionsByGraph: lastSavedPositions,
-    persistCurrentOpenedProjectSnapshot,
+    persistOpenedProjectSnapshot,
     persistCurrentProjectEditorSnapshot,
     projectEditorStateByProjectId,
   } = useCurrentProjectEditorSnapshot();
@@ -123,8 +123,8 @@ export function useWorkspaceTransitions() {
           ? persistCurrentProjectEditorSnapshot()
           : undefined;
 
-        if (currentProjectEditorSnapshot && currentProjectId) {
-          persistCurrentOpenedProjectSnapshot();
+        if (shouldPersistCurrentProjectEditorState && currentProjectId) {
+          persistOpenedProjectSnapshot();
         }
 
         const persistedProjectEditorState =
@@ -210,7 +210,13 @@ export function useWorkspaceTransitions() {
         }
       }
 
-      saveCurrentGraph();
+      const savedCurrentGraph = saveCurrentGraph();
+
+      if (project.metadata.id && savedCurrentGraph) {
+        persistOpenedProjectSnapshot({
+          graph: savedCurrentGraph,
+        });
+      }
 
       const transition = createGraphSwitchTransition({
         currentGraph,

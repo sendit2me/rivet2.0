@@ -218,4 +218,16 @@ describe('workspaceTransitions', () => {
     assert.equal(merged.graphs['g-1' as GraphId]?.metadata?.name, 'New');
     assert.notEqual(merged, project);
   });
+
+  test('mergeCurrentGraphIntoProject preserves sibling graphs while persisting source graph changes', () => {
+    const originalGraph = makeGraph('g-1', 'Alpha');
+    const updatedGraph = makeGraph('g-1', 'Alpha', [{ id: 'node-1' } as any]);
+    const siblingGraph = makeGraph('g-2', 'Beta');
+    const project = makeProject([originalGraph, siblingGraph]);
+
+    const merged = mergeCurrentGraphIntoProject(project, updatedGraph);
+
+    assert.equal(merged.graphs['g-1' as GraphId], updatedGraph);
+    assert.equal(merged.graphs['g-2' as GraphId], siblingGraph);
+  });
 });
