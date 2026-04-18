@@ -107,7 +107,7 @@ export class CodeNodeImpl extends NodeImpl<CodeNode> {
       },
       {
         type: 'code',
-        label: 'Code',
+        label: '',
         dataKey: 'code',
         language: 'javascript',
         enableFolding: true,

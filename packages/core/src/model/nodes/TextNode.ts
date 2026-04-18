@@ -77,7 +77,7 @@ export class TextNodeImpl extends NodeImpl<TextNode> {
       },
       {
         type: 'code',
-        label: 'Text',
+        label: '',
         dataKey: 'text',
         language: 'prompt-interpolation-markdown',
         theme: 'prompt-interpolation',

@@ -1,5 +1,4 @@
 
-- In the code node settings, remove the label "Code" at the code editor. In the text node, remove the label "Text" at the text editor.
 - The run button is pushing down the node settings window. It's better to put the run button to a place where it doesn't dishelp
 
 

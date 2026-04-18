@@ -145,7 +145,7 @@ export const CodeEditor: FC<{
   return (
     <Suspense fallback={<div />}>
       <div className="editor-wrapper-wrapper">
-        <Label htmlFor="">{label}</Label>
+        {label && <Label htmlFor="">{label}</Label>}
         {helperMessage && <HelperMessage>{helperMessage}</HelperMessage>}
         {isResizable ? (
           <ResizableCodeEditorViewport
