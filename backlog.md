@@ -1,6 +1,4 @@
-- I noticed that in the code node, when the settings panel is opened, the colorized code preview is not 100% the same colorized preview that is visible in the nod eitself, when it's not opened. The code is still colored but a bit differently. I want the color just like in the actual code editor 
-
-- In the code node settings, the inputs and output fields should be draggable so I can change teh order of the fields. Th eorder doesn't affect anything and is cometic
+- In the code node settings, the inputs and output fields should be draggable so I can change the order of the fields. The order doesn't affect anything and is cometic
 
 - In the node context menu, the "Delete" item should be red
 

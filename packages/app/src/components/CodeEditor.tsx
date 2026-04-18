@@ -2,6 +2,7 @@ import { useLatest } from 'ahooks';
 import { type FC, type MutableRefObject, useEffect, useRef } from 'react';
 import { monaco } from '../utils/monaco.js';
 import { useMultilineEditorFontSize } from '../hooks/useMultilineEditorFontSize.js';
+import { DEFAULT_MONACO_THEME } from './codeEditorTheme.js';
 
 export const CodeEditor: FC<{
   text: string;
@@ -44,7 +45,7 @@ export const CodeEditor: FC<{
     const editor = monaco.editor.create(
       container,
       {
-        theme: theme ?? 'vs-dark',
+        theme: theme ?? DEFAULT_MONACO_THEME,
         lineNumbers: 'on',
         glyphMargin: false,
         folding: enableFolding ?? false,
