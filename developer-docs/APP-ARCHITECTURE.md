@@ -419,6 +419,7 @@ Key current behaviors:
 - medium-sized graphs keep offscreen node shells and ports but suspend expensive body/output rendering until the node is near the viewport again or pinned by selection, editing, output expansion, or drag state
 - wires are only rendered above a zoom threshold
 - static wire rendering is narrowed to candidate connections near the viewport or otherwise highlighted/running, and that narrowed set stays frozen while the viewport is moving
+- port-position measurement stays decoupled from viewport pan/zoom, but active node drags intentionally remeasure ports every animation frame so wires keep following overlay-transformed dragged nodes before drop
 - nodes use a distinct zoomed-out content renderer below zoom thresholds
 - move drags remove source nodes from the main render pass and show them via `DragOverlay`
 - duplicate drags keep the source nodes visible in place and show duplicate preview nodes in `DragOverlay`

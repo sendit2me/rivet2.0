@@ -13,6 +13,7 @@ import { nodesByIdState } from '../state/graph';
 export function useNodePortPositions({ enabled, isDraggingNode }: { enabled: boolean; isDraggingNode: boolean }) {
   const [nodePortPositions, setNodePortPositions] = useState<PortPositions>({});
   const nodePortPositionsRef = useRef(nodePortPositions);
+  const dragAnimationFrameRef = useRef<number | undefined>(undefined);
   const nodesById = useAtomValue(nodesByIdState);
   const canvasRef = useRef<HTMLDivElement>(null);
 
@@ -144,6 +145,35 @@ export function useNodePortPositions({ enabled, isDraggingNode }: { enabled: boo
     // Port positions are in canvas space, so viewport pan/zoom should not force a fresh DOM-measure pass.
     recalculate();
   }, [recalculate]);
+
+  useLayoutEffect(() => {
+    if (!enabled || !isDraggingNode) {
+      return;
+    }
+
+    let cancelled = false;
+
+    // Dragging uses overlay transforms that do not change node data, so keep port
+    // measurements live until the drag ends.
+    const tick = () => {
+      recalculate();
+
+      if (!cancelled) {
+        dragAnimationFrameRef.current = window.requestAnimationFrame(tick);
+      }
+    };
+
+    tick();
+
+    return () => {
+      cancelled = true;
+
+      if (dragAnimationFrameRef.current !== undefined) {
+        window.cancelAnimationFrame(dragAnimationFrameRef.current);
+        dragAnimationFrameRef.current = undefined;
+      }
+    };
+  }, [enabled, isDraggingNode, recalculate]);
 
   useLayoutEffect(() => {
     nodePortPositionsRef.current = nodePortPositions;
