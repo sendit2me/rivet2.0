@@ -40,6 +40,12 @@ function makeCodeNode(nodeId: string, outputNames: string[]): ChartNode {
   return node;
 }
 
+function makeArrayNode(nodeId: string): ChartNode {
+  const node = registry.createDynamic('array');
+  node.id = nodeId as NodeId;
+  return node;
+}
+
 function makeConnection(overrides: Partial<NodeConnection> = {}): NodeConnection {
   return {
     outputNodeId: 'source' as NodeId,
@@ -252,5 +258,102 @@ test('dynamic outputs restore their exact outgoing connections when the same id 
   });
 
   assert.deepEqual(result.nextConnections, [connection]);
+  assert.deepEqual(result.nextRecoverableConnections, []);
+});
+
+test('restoring an output-side recoverable connection does not steal an already-occupied downstream input', () => {
+  const originalSourceNode = makeCodeNode('code-node', ['foo']);
+  const replacementSourceNode = makeCodeNode('replacement-node', ['bar']);
+  const downstreamNode = makeTextNode('downstream', '{{input}}');
+  const recoverableConnection = makeConnection({
+    outputNodeId: originalSourceNode.id,
+    outputId: 'foo' as PortId,
+    inputNodeId: downstreamNode.id,
+    inputId: 'input' as PortId,
+  });
+  const liveConnection = makeConnection({
+    outputNodeId: replacementSourceNode.id,
+    outputId: 'bar' as PortId,
+    inputNodeId: downstreamNode.id,
+    inputId: 'input' as PortId,
+  });
+
+  const result = reconcileNodeEditConnections({
+    nodeId: originalSourceNode.id,
+    newNode: {
+      data: {
+        ...(originalSourceNode.data as Record<string, unknown>),
+        outputNames: ['foo'],
+      },
+    },
+    nodes: [originalSourceNode, replacementSourceNode, downstreamNode],
+    liveConnections: [liveConnection],
+    recoverableConnections: [recoverableConnection],
+    project,
+    referencedProjects: {},
+    projectNodeRegistry: registry,
+  });
+
+  assert.deepEqual(result.nextConnections, [liveConnection]);
+  assert.deepEqual(result.nextRecoverableConnections, []);
+});
+
+test('restoring an output-side recoverable connection does not revive a downstream port that no longer exists', () => {
+  const sourceNode = makeCodeNode('code-node', ['foo']);
+  const downstreamNode = makeTextNode('downstream', '');
+  const recoverableConnection = makeConnection({
+    outputNodeId: sourceNode.id,
+    outputId: 'foo' as PortId,
+    inputNodeId: downstreamNode.id,
+    inputId: 'foo' as PortId,
+  });
+
+  const result = reconcileNodeEditConnections({
+    nodeId: sourceNode.id,
+    newNode: {
+      data: {
+        ...(sourceNode.data as Record<string, unknown>),
+        outputNames: ['foo'],
+      },
+    },
+    nodes: [sourceNode, downstreamNode],
+    liveConnections: [],
+    recoverableConnections: [recoverableConnection],
+    project,
+    referencedProjects: {},
+    projectNodeRegistry: registry,
+  });
+
+  assert.deepEqual(result.nextConnections, []);
+  assert.deepEqual(result.nextRecoverableConnections, [recoverableConnection]);
+});
+
+test('restoring an output-side recoverable connection still works for dynamic downstream inputs', () => {
+  const sourceNode = makeCodeNode('code-node', ['foo']);
+  const downstreamNode = makeArrayNode('array-node');
+  const recoverableConnection = makeConnection({
+    outputNodeId: sourceNode.id,
+    outputId: 'foo' as PortId,
+    inputNodeId: downstreamNode.id,
+    inputId: 'input3' as PortId,
+  });
+
+  const result = reconcileNodeEditConnections({
+    nodeId: sourceNode.id,
+    newNode: {
+      data: {
+        ...(sourceNode.data as Record<string, unknown>),
+        outputNames: ['foo'],
+      },
+    },
+    nodes: [sourceNode, downstreamNode],
+    liveConnections: [],
+    recoverableConnections: [recoverableConnection],
+    project,
+    referencedProjects: {},
+    projectNodeRegistry: registry,
+  });
+
+  assert.deepEqual(result.nextConnections, [recoverableConnection]);
   assert.deepEqual(result.nextRecoverableConnections, []);
 });

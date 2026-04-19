@@ -79,22 +79,26 @@ function buildUpdatedNodes(
   });
 }
 
-function resolveNodePortIdsAfterEdit({
+function resolveNodePortIds({
   nodeId,
-  newNode,
-  nodes,
-  liveConnections,
+  nodesById,
+  connections,
   project,
   referencedProjects,
   projectNodeRegistry,
-}: Omit<ReconcileNodeEditConnectionsParams, 'recoverableConnections'>): NodePortIds {
-  const updatedNodes = buildUpdatedNodes(nodeId, newNode, nodes);
-  const nodeConnections = liveConnections.filter((connection) => isIncidentConnection(nodeId, connection));
-  const nodesById = Object.fromEntries(updatedNodes.map((node) => [node.id, node]));
+}: {
+  nodeId: NodeId;
+  nodesById: Record<NodeId, ChartNode>;
+  connections: readonly NodeConnection[];
+  project: Project;
+  referencedProjects: Record<ProjectId, Project>;
+  projectNodeRegistry: NodeRegistration<any, any>;
+}): NodePortIds | undefined {
+  const nodeConnections = connections.filter((connection) => isIncidentConnection(nodeId, connection));
   const updatedNode = nodesById[nodeId];
 
   if (!updatedNode) {
-    throw new Error(`Node with id ${nodeId} not found`);
+    return undefined;
   }
 
   const instance = projectNodeRegistry.createDynamicImpl(updatedNode);
@@ -112,16 +116,15 @@ function resolveNodePortIdsAfterEdit({
   };
 }
 
-function hasValidConnectionPort(
-  nodeId: NodeId,
+function hasValidConnectionPortIds(
   connection: NodeConnection,
-  portIds: NodePortIds,
+  outputPortIds: NodePortIds | undefined,
+  inputPortIds: NodePortIds | undefined,
 ): boolean {
-  if (connection.inputNodeId === nodeId) {
-    return portIds.inputPortIds.has(connection.inputId);
-  }
-
-  return portIds.outputPortIds.has(connection.outputId);
+  return !!(
+    outputPortIds?.outputPortIds.has(connection.outputId) &&
+    inputPortIds?.inputPortIds.has(connection.inputId)
+  );
 }
 
 export function reconcileNodeEditConnections({
@@ -134,27 +137,51 @@ export function reconcileNodeEditConnections({
   referencedProjects,
   projectNodeRegistry,
 }: ReconcileNodeEditConnectionsParams): ReconcileNodeEditConnectionsResult {
-  const validPortIds = resolveNodePortIdsAfterEdit({
+  const updatedNodes = buildUpdatedNodes(nodeId, newNode, nodes);
+  const nodesById = Object.fromEntries(updatedNodes.map((node) => [node.id, node])) as Record<NodeId, ChartNode>;
+  const editedNodePortIds = resolveNodePortIds({
     nodeId,
-    newNode,
-    nodes,
-    liveConnections,
+    nodesById,
+    connections: liveConnections,
     project,
     referencedProjects,
     projectNodeRegistry,
   });
   const newBrokenConnections = dedupeConnections(
     liveConnections.filter(
-      (connection) => isIncidentConnection(nodeId, connection) && !hasValidConnectionPort(nodeId, connection, validPortIds),
+      (connection) =>
+        isIncidentConnection(nodeId, connection) &&
+        !hasValidConnectionPortIds(
+          connection,
+          connection.outputNodeId === nodeId
+            ? editedNodePortIds
+            : resolveNodePortIds({
+                nodeId: connection.outputNodeId,
+                nodesById,
+                connections: liveConnections,
+                project,
+                referencedProjects,
+                projectNodeRegistry,
+              }),
+          connection.inputNodeId === nodeId
+            ? editedNodePortIds
+            : resolveNodePortIds({
+                nodeId: connection.inputNodeId,
+                nodesById,
+                connections: liveConnections,
+                project,
+                referencedProjects,
+                projectNodeRegistry,
+              }),
+        ),
     ),
   );
   const brokenConnectionKeys = new Set(newBrokenConnections.map(getNodeConnectionKey));
-  const currentLiveConnectionKeys = new Set(liveConnections.map(getNodeConnectionKey));
-  const occupiedIncomingSlots = new Set(
-    liveConnections
-      .filter((connection) => connection.inputNodeId === nodeId)
-      .map(getInputSlotKey),
+  const activeLiveConnections = liveConnections.filter(
+    (connection) => !brokenConnectionKeys.has(getNodeConnectionKey(connection)),
   );
+  const currentLiveConnectionKeys = new Set(activeLiveConnections.map(getNodeConnectionKey));
+  const occupiedIncomingSlots = new Set(activeLiveConnections.map(getInputSlotKey));
   const restorableConnections: NodeConnection[] = [];
   const stillRecoverableConnections: NodeConnection[] = [];
 
@@ -167,27 +194,46 @@ export function reconcileNodeEditConnections({
       continue;
     }
 
-    if (!hasValidConnectionPort(nodeId, recoverableConnection, validPortIds)) {
+    const inputSlotKey = getInputSlotKey(recoverableConnection);
+
+    if (occupiedIncomingSlots.has(inputSlotKey)) {
+      continue;
+    }
+
+    const candidateConnections = [
+      ...activeLiveConnections,
+      ...restorableConnections,
+      recoverableConnection,
+    ];
+    const outputPortIds = resolveNodePortIds({
+      nodeId: recoverableConnection.outputNodeId,
+      nodesById,
+      connections: candidateConnections,
+      project,
+      referencedProjects,
+      projectNodeRegistry,
+    });
+    const inputPortIds = resolveNodePortIds({
+      nodeId: recoverableConnection.inputNodeId,
+      nodesById,
+      connections: candidateConnections,
+      project,
+      referencedProjects,
+      projectNodeRegistry,
+    });
+
+    if (!hasValidConnectionPortIds(recoverableConnection, outputPortIds, inputPortIds)) {
       stillRecoverableConnections.push(recoverableConnection);
       continue;
     }
 
-    if (recoverableConnection.inputNodeId === nodeId) {
-      const inputSlotKey = getInputSlotKey(recoverableConnection);
-
-      if (occupiedIncomingSlots.has(inputSlotKey)) {
-        continue;
-      }
-
-      occupiedIncomingSlots.add(inputSlotKey);
-    }
-
+    occupiedIncomingSlots.add(inputSlotKey);
     currentLiveConnectionKeys.add(connectionKey);
     restorableConnections.push(recoverableConnection);
   }
 
   const nextConnections = dedupeConnections([
-    ...liveConnections.filter((connection) => !brokenConnectionKeys.has(getNodeConnectionKey(connection))),
+    ...activeLiveConnections,
     ...restorableConnections,
   ]);
   const nextRecoverableConnections = dedupeConnections([...stillRecoverableConnections, ...newBrokenConnections]);
