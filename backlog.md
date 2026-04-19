@@ -1,5 +1,4 @@
 
-- When I connect nodes with a connection, the connection is sometimes broken: it goesn not from I was fragging it and not where I was dragging it to. Lie, formally ot works, but visually it's broken
 
 
 - When the output is large and paged, the page size seems to be too small. I need to check. It affects the search

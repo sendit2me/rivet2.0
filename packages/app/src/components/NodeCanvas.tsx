@@ -143,6 +143,15 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
     onNodeDragged,
   } = useDraggingNode();
   const { draggingWire, onWireStartDrag, onWireEndDrag } = useDraggingWire(onConnectionsChanged);
+  const isDraggingNode = draggingNodes.length > 0;
+  const isDraggingWire = !!draggingWire;
+
+  const shouldRenderWires = canvasPosition.zoom > 0.15;
+  const viewportBounds = useViewportBounds();
+  const draggingViewportNodeIds = useMemo(
+    () => [...new Set([...draggedSourceNodeIds, ...draggingNodes.map((node) => node.id)])],
+    [draggedSourceNodeIds, draggingNodes],
+  );
 
   const {
     contextMenuRef,
@@ -152,27 +161,6 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
     setShowContextMenu,
     setContextMenuData,
   } = useContextMenu();
-
-  const shouldRenderWires = canvasPosition.zoom > 0.15;
-  const {
-    nodePortPositions,
-    canvasRef,
-    recalculate: recalculatePortPositions,
-  } = useNodePortPositions({ enabled: shouldRenderWires, isDraggingNode: draggingNodes.length > 0 });
-  const autoLayout = useAutoLayoutCommand(recalculatePortPositions);
-
-  useEffect(() => {
-    autoLayoutGraph.current = () => {
-      autoLayout({});
-    };
-  }, [autoLayout, autoLayoutGraph]);
-
-  useEffect(() => {
-    recalculatePortPositions();
-  }, [recalculatePortPositions, selectedGraphMetadata?.id]);
-
-  const { setNodeRef } = useDroppable({ id: 'NodeCanvas' });
-  const setCanvasRef = useMergeRefs([setNodeRef, canvasRef]);
 
   const connectionsByNodeId = useMemo(() => groupConnectionsByNode(previewConnections), [previewConnections]);
   const nodesWithConnections = useMemo(
@@ -275,12 +263,10 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
 
     return [...highlightedNodeIds];
   }, [hoveringNode, hoveringPort, selectedViewportNodeIds]);
+  // Freeze viewport visibility only for passive canvas motion. Interactive drags need
+  // newly revealed nodes and ports to mount immediately so wire previews stay accurate.
+  const shouldFreezeViewportVisibility = isViewportMoving && !isDraggingNode && !isDraggingWire;
 
-  const viewportBounds = useViewportBounds();
-  const draggingViewportNodeIds = useMemo(
-    () => [...new Set([...draggedSourceNodeIds, ...draggingNodes.map((node) => node.id)])],
-    [draggedSourceNodeIds, draggingNodes],
-  );
   const {
     heavyContentNodeIdSet,
     isViewportVisibilitySettled,
@@ -291,11 +277,32 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
     editingNodeId,
     expandedOutputNodeIds,
     hoveringNodeId: hoveringNode,
-    isViewportMoving,
+    isViewportMoving: shouldFreezeViewportVisibility,
     nodes,
     selectedNodeIds: selectedViewportNodeIds,
     viewportBounds,
   });
+
+  const {
+    nodePortPositions,
+    canvasRef,
+    recalculate: recalculatePortPositions,
+  } = useNodePortPositions({
+    enabled: shouldRenderWires,
+    isDraggingNode,
+    isDraggingWire,
+    visibleNodeIdSet,
+  });
+  const autoLayout = useAutoLayoutCommand(recalculatePortPositions);
+
+  useEffect(() => {
+    autoLayoutGraph.current = () => {
+      autoLayout({});
+    };
+  }, [autoLayout, autoLayoutGraph]);
+
+  const { setNodeRef } = useDroppable({ id: 'NodeCanvas' });
+  const setCanvasRef = useMergeRefs([setNodeRef, canvasRef]);
 
   const nodeSelected = useStableCallback((node: ChartNode, multi: boolean) => {
     onNodeSelected?.(node, multi);
@@ -437,7 +444,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
           backgroundSize: `${20 * canvasPosition.zoom}px ${20 * canvasPosition.zoom}px`,
         }}
       >
-        <MouseIcon isDraggingNode={draggingNodes.length > 0} />
+        <MouseIcon isDraggingNode={isDraggingNode} />
         <CopyNodesHotkeys />
         <DebugOverlay enabled={false} />
         <NodeCanvasViewport
@@ -471,7 +478,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
             contextMenuRef={contextMenuRef}
             contextMenuX={contextMenuData.x}
             contextMenuY={contextMenuData.y}
-            draggingNode={draggingNodes.length > 0}
+            draggingNode={isDraggingNode}
             draggingWire={draggingWire}
             floatingStyles={floatingStyles}
             highlightedNodes={highlightedNodes}

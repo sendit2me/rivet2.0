@@ -4,16 +4,50 @@ import { type PortPositions } from '../components/NodeCanvas';
 import { useAtomValue } from 'jotai';
 import { nodesByIdState } from '../state/graph';
 
+const OBSERVED_PORT_LAYOUT_SELECTOR = [
+  '.node:not(.overlayNode)',
+  '.node:not(.overlayNode) .node-ports',
+  '.node:not(.overlayNode) .input-ports',
+  '.node:not(.overlayNode) .output-ports',
+].join(', ');
+
+const PORT_LAYOUT_MUTATION_SELECTOR = [
+  '.node',
+  '.node-ports',
+  '.input-ports',
+  '.output-ports',
+  '.port',
+  '.port-circle',
+].join(', ');
+
+const OBSERVED_PORT_LAYOUT_ATTRIBUTE_FILTER = ['class', 'style'];
+
+function isPortLayoutMutationElement(element: Element): boolean {
+  return element.matches(PORT_LAYOUT_MUTATION_SELECTOR) || !!element.querySelector(PORT_LAYOUT_MUTATION_SELECTOR);
+}
+
 /**
  * Calculate the position of every port relative to the canvas root, in canvas space.
  * This is done in one pass per NodeCanvas render, and is used to draw the edges between nodes.
  * It's done this way with a nodePortPositions state using rounded numbers for performance reasons.
  * In the ideal case, no position will have changed, so the state does not update.
  */
-export function useNodePortPositions({ enabled, isDraggingNode }: { enabled: boolean; isDraggingNode: boolean }) {
+export function useNodePortPositions({
+  enabled,
+  isDraggingNode,
+  isDraggingWire,
+  visibleNodeIdSet,
+}: {
+  enabled: boolean;
+  isDraggingNode: boolean;
+  isDraggingWire: boolean;
+  visibleNodeIdSet: ReadonlySet<NodeId>;
+}) {
   const [nodePortPositions, setNodePortPositions] = useState<PortPositions>({});
   const nodePortPositionsRef = useRef(nodePortPositions);
-  const dragAnimationFrameRef = useRef<number | undefined>(undefined);
+  const liveMeasurementAnimationFrameRef = useRef<number | undefined>(undefined);
+  const scheduledRecalculateAnimationFrameRef = useRef<number | undefined>(undefined);
+  const observedPortLayoutElementsRef = useRef<HTMLElement[]>([]);
   const nodesById = useAtomValue(nodesByIdState);
   const canvasRef = useRef<HTMLDivElement>(null);
 
@@ -141,25 +175,111 @@ export function useNodePortPositions({ enabled, isDraggingNode }: { enabled: boo
     }
   }, [enabled, isDraggingNode, nodesById]);
 
-  useLayoutEffect(() => {
-    // Port positions are in canvas space, so viewport pan/zoom should not force a fresh DOM-measure pass.
-    recalculate();
-  }, [recalculate]);
+  const scheduleRecalculate = useCallback(() => {
+    if (!enabled || scheduledRecalculateAnimationFrameRef.current !== undefined) {
+      return;
+    }
+
+    scheduledRecalculateAnimationFrameRef.current = window.requestAnimationFrame(() => {
+      scheduledRecalculateAnimationFrameRef.current = undefined;
+      recalculate();
+    });
+  }, [enabled, recalculate]);
 
   useLayoutEffect(() => {
-    if (!enabled || !isDraggingNode) {
+    // Port positions are in canvas space, so viewport pan/zoom should not force a fresh DOM-measure pass.
+    // We do need to remeasure when the rendered node set changes, because visibility culling mounts and unmounts ports.
+    recalculate();
+  }, [recalculate, visibleNodeIdSet]);
+
+  useLayoutEffect(() => {
+    if (!enabled || !canvasRef.current) {
+      return;
+    }
+
+    const canvasElement = canvasRef.current;
+    const resizeObserver = new ResizeObserver(() => {
+      scheduleRecalculate();
+    });
+
+    const refreshObservedPortLayoutElements = () => {
+      for (const element of observedPortLayoutElementsRef.current) {
+        resizeObserver.unobserve(element);
+      }
+
+      observedPortLayoutElementsRef.current = Array.from(
+        canvasElement.querySelectorAll(OBSERVED_PORT_LAYOUT_SELECTOR),
+      ) as HTMLElement[];
+
+      for (const element of observedPortLayoutElementsRef.current) {
+        resizeObserver.observe(element);
+      }
+    };
+
+    refreshObservedPortLayoutElements();
+
+    const mutationObserver = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        if (mutation.target instanceof HTMLElement && isPortLayoutMutationElement(mutation.target)) {
+          refreshObservedPortLayoutElements();
+          scheduleRecalculate();
+          return;
+        }
+
+        for (const addedNode of mutation.addedNodes) {
+          if (addedNode instanceof HTMLElement && isPortLayoutMutationElement(addedNode)) {
+            refreshObservedPortLayoutElements();
+            scheduleRecalculate();
+            return;
+          }
+        }
+
+        for (const removedNode of mutation.removedNodes) {
+          if (removedNode instanceof HTMLElement && isPortLayoutMutationElement(removedNode)) {
+            refreshObservedPortLayoutElements();
+            scheduleRecalculate();
+            return;
+          }
+        }
+      }
+    });
+
+    mutationObserver.observe(canvasElement, {
+      attributes: true,
+      attributeFilter: OBSERVED_PORT_LAYOUT_ATTRIBUTE_FILTER,
+      childList: true,
+      subtree: true,
+    });
+
+    return () => {
+      mutationObserver.disconnect();
+      resizeObserver.disconnect();
+      observedPortLayoutElementsRef.current = [];
+
+      if (scheduledRecalculateAnimationFrameRef.current !== undefined) {
+        window.cancelAnimationFrame(scheduledRecalculateAnimationFrameRef.current);
+        scheduledRecalculateAnimationFrameRef.current = undefined;
+      }
+    };
+  }, [enabled, scheduleRecalculate]);
+
+  useLayoutEffect(() => {
+    const shouldMeasureLive = isDraggingNode || isDraggingWire;
+
+    if (!enabled || !shouldMeasureLive) {
       return;
     }
 
     let cancelled = false;
 
-    // Dragging uses overlay transforms that do not change node data, so keep port
-    // measurements live until the drag ends.
+    // Node drags use overlay transforms that do not change node data, and wire drags can
+    // reveal newly visible targets via auto-scroll. Keep port measurements live until the
+    // interaction ends so wire endpoints never fall back to stale coordinates.
     const tick = () => {
       recalculate();
 
       if (!cancelled) {
-        dragAnimationFrameRef.current = window.requestAnimationFrame(tick);
+        liveMeasurementAnimationFrameRef.current = window.requestAnimationFrame(tick);
       }
     };
 
@@ -168,12 +288,12 @@ export function useNodePortPositions({ enabled, isDraggingNode }: { enabled: boo
     return () => {
       cancelled = true;
 
-      if (dragAnimationFrameRef.current !== undefined) {
-        window.cancelAnimationFrame(dragAnimationFrameRef.current);
-        dragAnimationFrameRef.current = undefined;
+      if (liveMeasurementAnimationFrameRef.current !== undefined) {
+        window.cancelAnimationFrame(liveMeasurementAnimationFrameRef.current);
+        liveMeasurementAnimationFrameRef.current = undefined;
       }
     };
-  }, [enabled, isDraggingNode, recalculate]);
+  }, [enabled, isDraggingNode, isDraggingWire, recalculate]);
 
   useLayoutEffect(() => {
     nodePortPositionsRef.current = nodePortPositions;
