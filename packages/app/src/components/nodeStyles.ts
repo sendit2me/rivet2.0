@@ -2,6 +2,7 @@ import { css } from '@emotion/react';
 
 export const nodeStyles = css`
   .node {
+    --node-output-min-height: 46px;
     --node-output-collapsed-max-height: calc(3 * 1.4em + 200px);
     --node-output-hover-max-height: calc(20 * 1.4em + 36px);
     --node-output-multi-collapsed-max-height: calc(3 * 1.4em + 60px);
@@ -497,6 +498,7 @@ export const nodeStyles = css`
     font-size: 12px;
     line-height: 1.4;
     margin: 8px -12px -12px -12px;
+    min-height: var(--node-output-min-height);
     padding: 12px;
     position: relative;
     transition: border-color 0.2s ease-out;
@@ -669,6 +671,12 @@ export const nodeStyles = css`
   .node .output-toggle-button:hover,
   .node .prompt-designer-button:hover {
     opacity: 1;
+  }
+
+  .copy-button svg,
+  .expand-button svg {
+    width: 80%;
+    height: 80%;
   }
 
   .node.isOutputExpanded .output-toggle-button {

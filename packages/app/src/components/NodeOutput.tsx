@@ -445,7 +445,7 @@ const NodeOutputSingleProcess: FC<{
   return (
     <div className="node-output-inner">
       <div className="overlay-buttons">
-        <Tooltip content="Show Full Output">
+        <Tooltip content="Unfold output">
           <div
             className="output-toggle-button"
             onClick={(event) => {
@@ -469,15 +469,17 @@ const NodeOutputSingleProcess: FC<{
             </div>
           </Tooltip>
         )}
-        <div
-          className="expand-button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onOpenFullscreenModal?.();
-          }}
-        >
-          <ExpandIcon />
-        </div>
+        <Tooltip content="Show full output">
+          <div
+            className="expand-button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenFullscreenModal?.();
+            }}
+          >
+            <ExpandIcon />
+          </div>
+        </Tooltip>
       </div>
       {body}
       {warnings && (
