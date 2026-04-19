@@ -1,9 +1,6 @@
 
 
 
-- SHow more output without hover and wit it too
-
-
 - New Nodes for working with lists: filtering, mapping, reducing, etc.
 
 

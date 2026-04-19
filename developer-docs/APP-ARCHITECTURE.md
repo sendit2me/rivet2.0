@@ -1132,6 +1132,7 @@ Current structure:
   `success` uses a subtle green output tint, `error` / `interrupted` use a subtle red tint, `running` keeps the primary divider, and `not-ran` keeps the dashed divider lane
 - the inline `Show Full Output` toggle now lives in the node output action bar next to copy/fullscreen controls, not in the node header
 - inline compact-vs-full selection is resolved through [`packages/app/src/components/nodeOutput/nodeOutputPreviewMode.ts`](../packages/app/src/components/nodeOutput/nodeOutputPreviewMode.ts) so callers do not re-encode that policy ad hoc
+- regular in-canvas node output previews now stay at the larger preview height by default instead of only expanding on hover; the explicit output toggle is still reserved for the fully expanded scrollable state
 - fullscreen header controls for expanded node output now render through [`packages/app/src/components/nodeOutput/FullscreenNodeOutputToolbar.tsx`](../packages/app/src/components/nodeOutput/FullscreenNodeOutputToolbar.tsx), which stays presentational
 - output body selection lives in [`packages/app/src/components/nodeOutput/renderNodeOutputBody.tsx`](../packages/app/src/components/nodeOutput/renderNodeOutputBody.tsx)
 - copy-button side effects for node output live in [`packages/app/src/components/nodeOutput/nodeOutputCopyActions.ts`](../packages/app/src/components/nodeOutput/nodeOutputCopyActions.ts)

@@ -496,7 +496,7 @@ export const nodeStyles = css`
     padding: 12px;
     position: relative;
     transition: border-color 0.2s ease-out;
-    max-height: 50px;
+    max-height: 500px;
     transition: max-height 0.2s ease-out;
     overflow: hidden;
   }
@@ -519,7 +519,7 @@ export const nodeStyles = css`
     position: relative;
     transition: border-color 0.2s ease-out;
     margin-top: 8px;
-    max-height: 50px;
+    max-height: 500px;
     transition: max-height 0.2s ease-out;
     overflow: hidden;
   }
@@ -559,16 +559,6 @@ export const nodeStyles = css`
 
   .node-output.multi .node-output-inner.node-output-inner {
     border-top: 1px solid var(--grey-light);
-  }
-
-  .node:hover .node-output-warnings {
-    max-height: 500px;
-    overflow: hidden;
-  }
-
-  .node:hover .node-output-inner {
-    max-height: 500px;
-    overflow: hidden;
   }
 
   .node.isOutputExpanded .node-output-inner {
