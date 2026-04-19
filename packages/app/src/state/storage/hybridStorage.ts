@@ -8,9 +8,16 @@ import { initializeHybridStorage, memoryStorage } from './migrations';
 
 export const allInitializeStoreFns = new Set<() => Promise<void>>();
 
+type HybridStorageOptions = {
+  debounceMs?: number;
+};
+
 type GroupedStorageController = {
   asyncStorage: AsyncStorageBackend;
-  debouncedSave: DebouncedFunc<(value: any) => Promise<void>>;
+  debounceMs: number;
+  debouncedSave?: DebouncedFunc<(value: any) => Promise<void>>;
+  pendingSave: Promise<void>;
+  queueSave: (value: any) => Promise<void>;
   saveNow: (value: any) => Promise<void>;
 };
 
@@ -23,30 +30,70 @@ const groupedInitializeControllers = new Map<
   }
 >();
 
-function getOrCreateGroupedStorageController(mainKey: string, asyncStorage: AsyncStorageBackend): GroupedStorageController {
+function createDebouncedSave(
+  controller: GroupedStorageController,
+  debounceMs: number,
+): DebouncedFunc<(value: any) => Promise<void>> | undefined {
+  if (debounceMs <= 0) {
+    return undefined;
+  }
+
+  return debounce(async (value: any) => {
+    await controller.saveNow(value);
+  }, debounceMs);
+}
+
+function persistGroupedSnapshot(controller: GroupedStorageController, value: any): void {
+  if (controller.debouncedSave) {
+    controller.debouncedSave(value);
+  } else {
+    void controller.saveNow(value);
+  }
+}
+
+function getOrCreateGroupedStorageController(
+  mainKey: string,
+  asyncStorage: AsyncStorageBackend,
+  debounceMs: number,
+): GroupedStorageController {
   const existing = groupedStorageControllers.get(mainKey);
   if (existing) {
     existing.asyncStorage = asyncStorage;
+    if (existing.debounceMs !== debounceMs) {
+      existing.debouncedSave?.cancel();
+      existing.debounceMs = debounceMs;
+      existing.debouncedSave = createDebouncedSave(existing, debounceMs);
+    }
     return existing;
   }
 
   const controller: GroupedStorageController = {
     asyncStorage,
-    saveNow: async (value: any) => {
-      try {
-        await controller.asyncStorage.setItem(mainKey, JSON.stringify(value));
-      } catch (error) {
-        handleError(error, 'Failed to save persistent storage item', {
-          metadata: {
-            key: mainKey,
-          },
-        });
-      }
+    debounceMs,
+    pendingSave: Promise.resolve(),
+    queueSave: async (value: any) => {
+      const serializedValue = JSON.stringify(value);
+      const saveOperation = async () => {
+        try {
+          await controller.asyncStorage.setItem(mainKey, serializedValue);
+        } catch (error) {
+          handleError(error, 'Failed to save persistent storage item', {
+            metadata: {
+              key: mainKey,
+            },
+          });
+        }
+      };
+
+      controller.pendingSave = controller.pendingSave.then(saveOperation, saveOperation);
+      await controller.pendingSave;
     },
-    debouncedSave: debounce(async (value: any) => {
-      await controller.saveNow(value);
-    }, 1000),
+    saveNow: async (value: any) => {
+      await controller.queueSave(value);
+    },
+    debouncedSave: undefined,
   };
+  controller.debouncedSave = createDebouncedSave(controller, debounceMs);
 
   groupedStorageControllers.set(mainKey, controller);
   return controller;
@@ -58,7 +105,7 @@ export async function flushHybridStorageGroup(mainKey: string): Promise<void> {
     return;
   }
 
-  controller.debouncedSave.cancel();
+  controller.debouncedSave?.cancel();
 
   const value = memoryStorage.get(mainKey);
   if (value === undefined) {
@@ -92,11 +139,14 @@ function registerInitializeStoreFn(mainKey: string | undefined, asyncStorage: As
 export const createHybridStorage = (
   mainKey?: string,
   asyncStorage: AsyncStorageBackend = createDefaultAsyncStorage(),
+  options: HybridStorageOptions = {},
 ): {
   storage: SyncStorage<any>;
 } => {
   const jsonStorage = createJSONStorage<any>(() => localStorage);
-  const groupedController = mainKey ? getOrCreateGroupedStorageController(mainKey, asyncStorage) : undefined;
+  const groupedController = mainKey
+    ? getOrCreateGroupedStorageController(mainKey, asyncStorage, options.debounceMs ?? 1000)
+    : undefined;
 
   const storage: SyncStorage<any> = {
     getItem: (key, initialValue) => {
@@ -124,7 +174,7 @@ export const createHybridStorage = (
         const mainObject = memoryStorage.get(mainKey) ?? {};
         mainObject[key] = value;
         memoryStorage.set(mainKey, mainObject);
-        groupedController!.debouncedSave(mainObject);
+        persistGroupedSnapshot(groupedController!, mainObject);
       } catch (error) {
         handleError(error, 'Failed to update in-memory storage item', {
           metadata: {
@@ -152,7 +202,7 @@ export const createHybridStorage = (
       const mainObject = memoryStorage.get(mainKey) ?? {};
       delete mainObject[key];
       memoryStorage.set(mainKey, mainObject);
-      groupedController!.debouncedSave(mainObject);
+      persistGroupedSnapshot(groupedController!, mainObject);
     },
   };
 

@@ -242,7 +242,7 @@ export class HttpCallNodeImpl extends NodeImpl<HttpCallNode> {
       },
       {
         type: 'toggle',
-        label: 'Throw on non-2XX status code',
+        label: 'Fail on non-2XX status code',
         dataKey: 'errorOnNon200',
       },
       {

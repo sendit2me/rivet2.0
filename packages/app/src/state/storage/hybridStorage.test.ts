@@ -124,4 +124,31 @@ describe('createHybridStorage', () => {
 
     assert.equal(allInitializeStoreFns.size, initialSize + 1);
   });
+
+  it('can persist grouped keys immediately when debouncing is disabled', async () => {
+    const writes: Array<{ key: string; value: string }> = [];
+    const { storage } = createHybridStorage(
+      'grouped-immediate',
+      {
+        getItem: async () => null,
+        setItem: async (key, value) => {
+          writes.push({ key, value });
+        },
+        removeItem: async () => {},
+      },
+      { debounceMs: 0 },
+    );
+
+    storage.setItem('alpha', { value: 1 });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    assert.deepEqual(writes, [
+      {
+        key: 'grouped-immediate',
+        value: JSON.stringify({
+          alpha: { value: 1 },
+        }),
+      },
+    ]);
+  });
 });

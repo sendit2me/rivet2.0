@@ -6,7 +6,7 @@ import { DEFAULT_CHAT_NODE_TIMEOUT } from '../../../core/src/utils/defaults';
 import { createHybridStorage } from './storage.js';
 
 // Legacy storage key for recoil-persist to avoid breaking existing users' settings
-const { storage } = createHybridStorage('recoil-persist');
+const { storage } = createHybridStorage('recoil-persist', undefined, { debounceMs: 0 });
 
 export const settingsState = atomWithStorage<Settings>(
   'settings',

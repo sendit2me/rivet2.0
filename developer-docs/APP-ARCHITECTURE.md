@@ -749,6 +749,13 @@ Important distinction:
 - `debuggerDefaultUrlState` is the persisted external debugger URL default
 - the internal executor connection still uses `ws://localhost:21889/internal`
 
+Persistence contract:
+
+- settings/theme/executor atoms share the legacy grouped `recoil-persist` storage namespace through `createHybridStorage(...)`
+- that grouped settings namespace persists immediately rather than using the heavier debounced graph/project save path
+- storage-backed atoms based on that namespace must not mount before `allInitializeStoreFns` completes in `RivetAppLoader`, because `atomWithStorage(...)` reads synchronously on mount from the in-memory hybrid-storage snapshot
+- if a settings atom mounts before hybrid-storage initialization finishes, it can lock in defaults for that session even though the persisted IndexedDB snapshot exists
+
 ### Overlay and UI state
 
 The app also uses other state files such as `ui.ts`, `trivet.ts`, `promptDesigner.ts`, `userInput.ts`, `plugins.ts`, `community.ts`, and `dataStudio.ts` to drive overlay-specific behavior.

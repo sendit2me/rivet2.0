@@ -8,10 +8,25 @@ import { useDependsOnPlugins } from '../hooks/useDependsOnPlugins.js';
 import { fillMissingSettingsFromEnvironmentVariables } from '../utils/tauri.js';
 import { prefetchChatV2DiscoveredModelOptions } from '../utils/chatV2ModelCatalog.js';
 
-export const RivetAppLoader = () => {
-  const [isLoading, setIsLoading] = useState(true);
+// Storage-backed atoms read synchronously on mount, so this subtree must stay behind the
+// async hybrid-storage bootstrap or settings/theme atoms can lock in default values.
+const InitializedRivetApp = () => {
   const settings = useAtomValue(settingsState);
   const plugins = useDependsOnPlugins();
+
+  useAsyncEffect(async () => {
+    const resolvedSettings = await fillMissingSettingsFromEnvironmentVariables(settings, plugins);
+    prefetchChatV2DiscoveredModelOptions({
+      settings: resolvedSettings,
+      plugins,
+    });
+  }, [plugins, settings]);
+
+  return <RivetApp />;
+};
+
+export const RivetAppLoader = () => {
+  const [isLoading, setIsLoading] = useState(true);
 
   useAsyncEffect(async () => {
     for (const initializeFn of allInitializeStoreFns) {
@@ -21,21 +36,9 @@ export const RivetAppLoader = () => {
     setIsLoading(false);
   }, []);
 
-  useAsyncEffect(async () => {
-    if (isLoading) {
-      return;
-    }
-
-    const resolvedSettings = await fillMissingSettingsFromEnvironmentVariables(settings, plugins);
-    prefetchChatV2DiscoveredModelOptions({
-      settings: resolvedSettings,
-      plugins,
-    });
-  }, [isLoading, plugins, settings]);
-
   if (isLoading) {
     return <div>Loading...</div>;
   }
 
-  return <RivetApp />;
+  return <InitializedRivetApp />;
 };
