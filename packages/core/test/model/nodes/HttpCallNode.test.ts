@@ -61,13 +61,49 @@ describe('HttpCallNode', () => {
   });
 
   it('keeps success behavior unchanged when catchRequestFailed is disabled', async () => {
-    globalThis.fetch = async () => new Response('ok', { status: 201, headers: { 'content-type': 'text/plain' } });
+    globalThis.fetch = async () => new Response('ok', { status: 200, headers: { 'content-type': 'text/plain' } });
 
     const node = createNode({ method: 'GET', url: 'https://example.com' });
     const result = await node.process({}, createContext());
 
     assert.deepStrictEqual(result, {
       res_body: { type: 'string', value: 'ok' },
+      json: { type: 'control-flow-excluded', value: undefined },
+      statusCode: { type: 'number', value: 200 },
+      res_headers: { type: 'object', value: { 'content-type': 'text/plain' } },
+    });
+  });
+
+  it('throws on non-2XX responses when errorOnNon200 is enabled and catchRequestFailed is disabled', async () => {
+    globalThis.fetch = async () => new Response('missing', { status: 404, headers: { 'content-type': 'text/plain' } });
+
+    const node = createNode({ method: 'GET', url: 'https://example.com', errorOnNon200: true, catchRequestFailed: false });
+
+    await assert.rejects(() => node.process({}, createContext()), /HTTP call returned non-2XX status code: 404/);
+  });
+
+  it('does not throw on non-2XX responses when errorOnNon200 is disabled', async () => {
+    globalThis.fetch = async () => new Response('created', { status: 201, headers: { 'content-type': 'text/plain' } });
+
+    const node = createNode({ method: 'GET', url: 'https://example.com', errorOnNon200: false });
+    const result = await node.process({}, createContext());
+
+    assert.deepStrictEqual(result, {
+      res_body: { type: 'string', value: 'created' },
+      json: { type: 'control-flow-excluded', value: undefined },
+      statusCode: { type: 'number', value: 201 },
+      res_headers: { type: 'object', value: { 'content-type': 'text/plain' } },
+    });
+  });
+
+  it('does not throw on 2XX responses when errorOnNon200 is enabled', async () => {
+    globalThis.fetch = async () => new Response('created', { status: 201, headers: { 'content-type': 'text/plain' } });
+
+    const node = createNode({ method: 'GET', url: 'https://example.com', errorOnNon200: true, catchRequestFailed: false });
+    const result = await node.process({}, createContext());
+
+    assert.deepStrictEqual(result, {
+      res_body: { type: 'string', value: 'created' },
       json: { type: 'control-flow-excluded', value: undefined },
       statusCode: { type: 'number', value: 201 },
       res_headers: { type: 'object', value: { 'content-type': 'text/plain' } },
@@ -179,6 +215,36 @@ describe('HttpCallNode', () => {
     assert.deepStrictEqual(result.res_headers, { type: 'control-flow-excluded', value: undefined });
   });
 
+  it('treats non-2XX responses as requestFailed=true when both toggles are enabled', async () => {
+    globalThis.fetch = async () => new Response('missing', { status: 404, headers: { 'content-type': 'text/plain' } });
+
+    const node = createNode({ method: 'GET', url: 'https://example.com', errorOnNon200: true, catchRequestFailed: true });
+    const result = await node.process({}, createContext());
+
+    assert.deepStrictEqual(result, {
+      res_body: { type: 'control-flow-excluded', value: undefined },
+      json: { type: 'control-flow-excluded', value: undefined },
+      statusCode: { type: 'control-flow-excluded', value: undefined },
+      res_headers: { type: 'control-flow-excluded', value: undefined },
+      requestFailed: { type: 'boolean', value: true },
+    });
+  });
+
+  it('keeps 2XX responses out of the requestFailed path when both toggles are enabled', async () => {
+    globalThis.fetch = async () => new Response('created', { status: 201, headers: { 'content-type': 'text/plain' } });
+
+    const node = createNode({ method: 'GET', url: 'https://example.com', errorOnNon200: true, catchRequestFailed: true });
+    const result = await node.process({}, createContext());
+
+    assert.deepStrictEqual(result, {
+      res_body: { type: 'string', value: 'created' },
+      json: { type: 'control-flow-excluded', value: undefined },
+      statusCode: { type: 'number', value: 201 },
+      res_headers: { type: 'object', value: { 'content-type': 'text/plain' } },
+      requestFailed: { type: 'boolean', value: false },
+    });
+  });
+
   it('still throws runtime request failures when catchRequestFailed is disabled', async () => {
     globalThis.fetch = async () => {
       throw new TypeError('fetch failed');
@@ -212,6 +278,7 @@ describe('HttpCallNode', () => {
   it('does not catch response body read failures', async () => {
     globalThis.fetch = async () =>
       ({
+        ok: true,
         status: 200,
         headers: new Headers({ 'content-type': 'text/plain' }),
         text: async () => {

@@ -19,6 +19,10 @@ function isAbortError(error: unknown, signal: AbortSignal): boolean {
   return signal.aborted || getError(error).name === 'AbortError';
 }
 
+function buildNon2xxStatusCodeError(statusCode: number): Error {
+  return new Error(`HTTP call returned non-2XX status code: ${statusCode}`);
+}
+
 function getNestedErrorCause(error: unknown): unknown {
   return error && typeof error === 'object' && 'cause' in error ? (error as { cause?: unknown }).cause : undefined;
 }
@@ -201,7 +205,7 @@ export class HttpCallNodeImpl extends NodeImpl<HttpCallNode> {
         {
           dataType: 'object',
           id: 'json' as PortId,
-          title: 'JSON',
+          title: 'Parsed JSON',
         },
       );
     }
@@ -274,12 +278,12 @@ export class HttpCallNodeImpl extends NodeImpl<HttpCallNode> {
       },
       {
         type: 'toggle',
-        label: 'Error on non-200 status code',
+        label: 'Throw on non-2XX status code',
         dataKey: 'errorOnNon200',
       },
       {
         type: 'toggle',
-        label: 'Catch Request failed',
+        label: 'Catch request failures',
         dataKey: 'catchRequestFailed',
       },
     ];
@@ -296,7 +300,7 @@ export class HttpCallNodeImpl extends NodeImpl<HttpCallNode> {
             ? `\nHeaders: ${this.data.headers}`
             : ''
       }${this.data.useBodyInput ? '\nBody: (Using Input)' : this.data.body.trim() ? `\nBody: ${this.data.body}` : ''}${
-        this.data.errorOnNon200 ? '\nError on non-200' : ''
+        this.data.errorOnNon200 ? '\nThrow on non-2XX' : ''
       }${this.data.catchRequestFailed ? '\nCatch Request failed' : ''}
     `;
   }
@@ -390,6 +394,14 @@ export class HttpCallNodeImpl extends NodeImpl<HttpCallNode> {
       }
 
       throw err;
+    }
+
+    if (this.data.errorOnNon200 && !response.ok) {
+      if (this.data.catchRequestFailed) {
+        return buildCaughtRequestFailedResult({ isBinaryOutput: Boolean(this.data.isBinaryOutput) });
+      }
+
+      throw buildNon2xxStatusCodeError(response.status);
     }
 
     const output: Outputs = {

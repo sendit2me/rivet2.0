@@ -454,4 +454,68 @@ void describe('GraphProcessor', () => {
     assert.equal(nodeErrors.includes('http-node'), false);
     assert.equal(finishedNodes.includes('http-node'), true);
   });
+
+  void it('treats caught non-2XX Http Call responses as successful node finishes', async () => {
+    globalThis.fetch = async () => new Response('missing', { status: 404, headers: { 'content-type': 'text/plain' } });
+
+    const graph = {
+      metadata: {
+        id: 'http-call-catch-non-2xx',
+        name: 'HTTP Call Catch Non-2XX',
+        description: '',
+      },
+      nodes: [
+        {
+          id: 'http-node',
+          type: 'httpCall',
+          title: 'Http Call',
+          data: {
+            method: 'GET',
+            url: 'https://example.invalid',
+            headers: '',
+            body: '',
+            errorOnNon200: true,
+            catchRequestFailed: true,
+          },
+          visualData: { x: 0, y: 0, width: 250 },
+        },
+        {
+          id: 'output-node',
+          type: 'graphOutput',
+          title: 'Graph Output',
+          data: {
+            id: 'requestFailed',
+            dataType: 'boolean',
+          },
+          visualData: { x: 250, y: 0, width: 300 },
+        },
+      ],
+      connections: [
+        {
+          outputNodeId: 'http-node',
+          outputId: 'requestFailed',
+          inputNodeId: 'output-node',
+          inputId: 'value',
+        },
+      ],
+    };
+
+    const processor = new GraphProcessor(makeProject(graph), graph.metadata.id, globalRivetNodeRegistry);
+    const nodeErrors: string[] = [];
+    const finishedNodes: string[] = [];
+
+    processor.on('nodeError', ({ node }) => {
+      nodeErrors.push(node.id);
+    });
+
+    processor.on('nodeFinish', ({ node }) => {
+      finishedNodes.push(node.id);
+    });
+
+    const outputs = await processor.processGraph(testProcessContext());
+
+    assert.deepStrictEqual(outputs.requestFailed, { type: 'boolean', value: true });
+    assert.equal(nodeErrors.includes('http-node'), false);
+    assert.equal(finishedNodes.includes('http-node'), true);
+  });
 });
