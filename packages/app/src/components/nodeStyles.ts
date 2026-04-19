@@ -3,6 +3,7 @@ import { css } from '@emotion/react';
 export const nodeStyles = css`
   .node {
     background-color: var(--grey-dark-seethrough);
+    background-clip: padding-box;
     border-radius: 8px;
     border: 2px solid var(--node-border);
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
@@ -19,6 +20,7 @@ export const nodeStyles = css`
     transition-property: box-shadow, border-color;
     transform-origin: top left;
     contain: layout;
+    isolation: isolate;
   }
 
   .node:focus {
@@ -96,19 +98,36 @@ export const nodeStyles = css`
     transform: rotate(90deg);
   }
 
-  .node.isSplit::before {
-    content: "";
+  .node.isSplit::before,
+  .node.isSplit::after {
+    content: '';
     position: absolute;
-    top: -12px;
-    left: 10px;
-    width: 100%;
-    height: 100%;
-    border: 2px solid var(--node-border);
-    border-radius: inherit;
-    clip-path: polygon(0 0, 100% 0, 100% 100%, calc(100% - 12px) 100%, calc(100% - 12px) 10px, 0 10px);
-    -webkit-mask-image: linear-gradient(to bottom, black 0%, black calc(100% - 71px), transparent calc(100% - 30px));
+    left: 50%;
+    transform: translateX(-50%);
+    border-radius: 8px 8px 0 0;
+    pointer-events: none;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.16);
   }
 
+  .node.isSplit::before {
+    top: -13px;
+    height: 10px;
+    width: calc(100% - 12px);
+    background: var(--node-bg);
+    background: var(--node-stack-front-bg);
+    opacity: 0.35;
+    z-index: -1;
+  }
+
+  .node.isSplit::after {
+    top: -22px;
+    height: 8px;
+    width: calc(100% - 30px);
+    background: var(--node-bg);
+    background: var(--node-stack-back-bg);
+    opacity: 0.15;
+    z-index: -2;
+  }
 
   .node.node.isComment .node-title {
     padding: 4px;

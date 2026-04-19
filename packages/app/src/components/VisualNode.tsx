@@ -14,6 +14,7 @@ import { useDependsOnPlugins } from '../hooks/useDependsOnPlugins';
 import { useHistoricalNodeChangeInfo } from '../hooks/useHistoricalNodeChangeInfo';
 import { type ProcessDataForNode, resolvedGraphSelectionState, type NodeRunDataWithRefs } from '../state/dataFlow.js';
 import { getNodeExecutionClassFlags, getSelectedProcessRun } from '../state/selectors/executionSelectors.js';
+import { getSplitStackGhostColors } from '../utils/nodeSplitStackColors.js';
 import { useCanvasHandlersContext, useCanvasViewContext } from './CanvasContext';
 import { ZoomedOutVisualNodeContent } from './visualNode/ZoomedOutVisualNodeContent';
 import { NormalVisualNodeContent } from './visualNode/NormalVisualNodeContent';
@@ -77,6 +78,7 @@ export const VisualNode = memo(
       const style = useMemo(() => {
         const bgColor = node.visualData.color?.bg ?? 'var(--grey-darkish)';
         const borderColor = node.visualData.color?.border ?? 'var(--grey-darkish)';
+        const splitStackGhostColors = getSplitStackGhostColors(bgColor);
         let fgColor = 'var(--foreground-bright)';
 
         const colorMatch = bgColor.match(/node-color-(\d+)/);
@@ -93,6 +95,8 @@ export const VisualNode = memo(
           '--node-bg': bgColor,
           '--node-border': borderColor,
           '--node-bg-foreground': fgColor,
+          '--node-stack-front-bg': splitStackGhostColors.frontBackground,
+          '--node-stack-back-bg': splitStackGhostColors.backBackground,
         } as CSSProperties;
       }, [
         asCommentNode.data.height,

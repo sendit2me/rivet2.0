@@ -2,8 +2,6 @@
 
 
 
-- Better visual for split nodes: more stack like
-
 
 - New Nodes for working with lists: filtering, mapping, reducing, etc.
 
