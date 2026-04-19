@@ -5,7 +5,7 @@ export const nodeStyles = css`
     background-color: var(--grey-dark-seethrough);
     background-clip: padding-box;
     border-radius: 8px;
-    border: 2px solid var(--node-border);
+    border: 2px solid transparent;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
     display: flex;
     flex-direction: column;
@@ -17,7 +17,7 @@ export const nodeStyles = css`
     font-family: 'Roboto Mono', monospace;
     /* transition-duration: 0.2s; TODO */
     transition-timing-function: ease-out;
-    transition-property: box-shadow, border-color;
+    transition-property: box-shadow;
     transform-origin: top left;
     contain: layout;
     isolation: isolate;
@@ -33,11 +33,11 @@ export const nodeStyles = css`
   }
 
   .node.changed-added {
-    border-color: var(--success);
+    --node-frame-border-color: var(--success);
   }
 
   .node.changed {
-    border-color: var(--warning);
+    --node-frame-border-color: var(--warning);
   }
 
   .node.not-changed {
@@ -60,27 +60,37 @@ export const nodeStyles = css`
   }
 
   .node.overlayNode {
-    border-color: var(--primary);
+    --node-frame-border-color: var(--primary);
     transition-duration: 0;
     pointer-events: none;
     box-shadow: 10px 10px 16px rgba(0, 0, 0, 0.4);
   }
 
   .node.selected:not(.isComment) {
-    border-color: var(--primary);
+    --node-frame-border-color: var(--primary);
     z-index: 10000 !important;
   }
 
   .node.hovered:not(.isComment) {
-    border-color: var(--primary);
+    --node-frame-border-color: var(--primary);
+  }
+
+  .node-border-overlay {
+    position: absolute;
+    inset: 0;
+    border: 2px solid var(--node-frame-border-color, var(--node-border));
+    border-radius: inherit;
+    pointer-events: none;
+    z-index: 2;
+    transition: border-color 0.2s ease-out;
   }
 
   .node-title {
     background-color: var(--node-bg);
     color: var(--node-bg-foreground);
-    padding: 12px;
-    margin: -12px -12px 8px -12px;
-    border-radius: 6px 6px 0 0;
+    padding: 14px 14px 12px 14px;
+    margin: -12px -12px 8px -11px;
+    border-radius: 8px 8px 0 0;
     letter-spacing: 1px;
     display: flex;
     justify-content: space-between;
@@ -110,9 +120,9 @@ export const nodeStyles = css`
   }
 
   .node.isSplit::before {
-    top: -13px;
+    top: -11px;
     height: 10px;
-    width: calc(100% - 12px);
+    width: calc(100% - 16px);
     background: var(--node-bg);
     background: var(--node-stack-front-bg);
     opacity: 0.35;
@@ -120,9 +130,9 @@ export const nodeStyles = css`
   }
 
   .node.isSplit::after {
-    top: -22px;
+    top: -20px;
     height: 8px;
-    width: calc(100% - 30px);
+    width: calc(100% - 34px);
     background: var(--node-bg);
     background: var(--node-stack-back-bg);
     opacity: 0.15;
@@ -134,6 +144,10 @@ export const nodeStyles = css`
     background-color: var(--grey-darkish-seethrough);
     pointer-events: all;
     margin: 0;
+  }
+
+  .node.isComment .node-border-overlay {
+    display: none;
   }
 
   .node.zoomedOut .node-title {

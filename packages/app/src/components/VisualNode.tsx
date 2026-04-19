@@ -183,6 +183,7 @@ export const VisualNode = memo(
               isHistoricalChanged={isHistoricalChanged}
             />
           )}
+          <div className="node-border-overlay" aria-hidden="true" />
         </div>
       );
     },
