@@ -283,6 +283,7 @@ Current structure:
 - [`packages/app/src/components/NodeCanvas.tsx`](../packages/app/src/components/NodeCanvas.tsx) now coordinates canvas state, hotkeys, and command wiring
 - viewport transform application and node/drag-overlay rendering live in [`packages/app/src/components/nodeCanvas/NodeCanvasViewport.tsx`](../packages/app/src/components/nodeCanvas/NodeCanvasViewport.tsx)
 - context menu, selection box, wire layer, and port tooltip rendering live in [`packages/app/src/components/nodeCanvas/NodeCanvasOverlays.tsx`](../packages/app/src/components/nodeCanvas/NodeCanvasOverlays.tsx)
+- searchable empty-canvas context-menu results are grouped in [`packages/app/src/components/contextMenuSearchGrouping.ts`](../packages/app/src/components/contextMenuSearchGrouping.ts): node/add results stay first, graph jumps stay under a dedicated `Go to graphs` section, and graph hits render by graph name only
 - multi-node alignment/distribution affordances live in [`packages/app/src/components/nodeCanvas/MultiNodeAlignmentToolbar.tsx`](../packages/app/src/components/nodeCanvas/MultiNodeAlignmentToolbar.tsx) and should stay command-backed through `moveNode` so align/distribute actions remain undoable
 - mouse pan/zoom/selection-box/context-menu handlers live in [`packages/app/src/components/nodeCanvas/useNodeCanvasInteractions.ts`](../packages/app/src/components/nodeCanvas/useNodeCanvasInteractions.ts)
 - canvas styling lives in [`packages/app/src/components/nodeCanvas/nodeCanvasStyles.ts`](../packages/app/src/components/nodeCanvas/nodeCanvasStyles.ts)

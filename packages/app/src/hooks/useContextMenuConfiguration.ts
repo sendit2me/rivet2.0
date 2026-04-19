@@ -28,10 +28,13 @@ export type ContextMenuContextConfigContext<Context = unknown> = {
   items: readonly ContextMenuItem<Context>[];
 };
 
+export type ContextMenuSearchSection = 'graphs';
+
 export type ContextMenuItem<Context = unknown, Data = unknown> = {
   id: string;
   label: string;
   subLabel?: string;
+  searchSection?: ContextMenuSearchSection;
   icon?: ComponentType;
   tone?: 'default' | 'danger';
   separatorBefore?: boolean;

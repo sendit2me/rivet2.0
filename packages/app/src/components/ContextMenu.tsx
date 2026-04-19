@@ -13,6 +13,7 @@ import { useFuseSearch } from '../hooks/useFuseSearch.js';
 import { uniqBy } from 'lodash-es';
 import clsx from 'clsx';
 import { useMarkdown } from '../hooks/useMarkdown.js';
+import { getContextMenuSearchPresentation } from './contextMenuSearchGrouping.js';
 
 const menuReferenceStyles = css`
   position: absolute;
@@ -63,6 +64,15 @@ export const menuStyles = css`
       line-height: 14px;
     }
   }
+
+  .context-menu-search-section-header {
+    padding: 10px 12px 6px;
+    margin-top: 4px;
+    border-top: 1px solid var(--grey-darker);
+    color: var(--grey-lightish);
+    font-size: 12px;
+    line-height: 1;
+  }
 `;
 
 export type ContextMenuContext = {
@@ -79,6 +89,14 @@ export interface ContextMenuProps {
   disabled?: boolean;
   onMenuItemSelected?: (id: string, data: unknown, context: ContextMenuContext, meta: { x: number; y: number }) => void;
 }
+
+const isHiddenUntilSearched = <T extends object>(item: T & { hiddenUntilSearched?: boolean }) =>
+  item.hiddenUntilSearched === true;
+
+const isContextMenuItemVisible = <T extends object>(
+  item: T & { conditional?: (context: unknown) => boolean },
+  contextData: unknown,
+) => !item.conditional || item.conditional(contextData);
 
 export const ContextMenu = forwardRef<HTMLDivElement, ContextMenuProps>(
   ({ x, y, context, disabled, onMenuItemSelected }, ref) => {
@@ -138,47 +156,66 @@ export const ContextMenu = forwardRef<HTMLDivElement, ContextMenuProps>(
       onMenuItemSelected?.(id, data, context, { x, y });
     });
 
+    const isSearching = canSearch && searchTerm.trim().length > 0;
+
     const searchResults = useFuseSearch(searchItems, searchTerm, ['label', 'subLabel'], { max: 5 });
     const searchResultsItems = useMemo(() => searchResults.map((r) => r.item), [searchResults]);
 
     const shownItemsNotSearching = useMemo(
-      () => items.filter((i) => !(i as ContextMenuConfigItem).hiddenUntilSearched),
+      () => items.filter((item) => !isHiddenUntilSearched(item)),
       [items],
     );
 
-    const shownItems = canSearch && searchTerm.trim().length > 0 ? searchResultsItems : shownItemsNotSearching;
+    const visibleSearchItems = useMemo(
+      () => searchResultsItems.filter((item) => isContextMenuItemVisible(item, context.data)),
+      [context.data, searchResultsItems],
+    );
+
+    const searchPresentation = useMemo(
+      () => (isSearching ? getContextMenuSearchPresentation(visibleSearchItems) : null),
+      [isSearching, visibleSearchItems],
+    );
+
     const visibleShownItems = useMemo(
       () =>
-        shownItems.filter((item) => {
-          const configItem = item as ContextMenuConfigItem;
-          return !configItem.conditional || configItem.conditional(context.data);
-        }),
-      [context.data, shownItems],
+        isSearching
+          ? [...(searchPresentation?.primaryItems ?? []), ...(searchPresentation?.graphItems ?? [])]
+          : shownItemsNotSearching.filter((item) => isContextMenuItemVisible(item, context.data)),
+      [context.data, isSearching, searchPresentation, shownItemsNotSearching],
+    );
+
+    const visibleShownItemIndexes = useMemo(
+      () => new Map(visibleShownItems.map((item, index) => [item.id, index])),
+      [visibleShownItems],
     );
 
     useEffect(() => {
-      if (searchTerm.length > 0 && searchResults.length > 0 && selectedResultIndex >= searchResults.length) {
+      if (isSearching && visibleShownItems.length > 0 && selectedResultIndex >= visibleShownItems.length) {
         setSelectedResultIndex(0);
       }
-    }, [searchResults.length, searchTerm.length, selectedResultIndex]);
+    }, [isSearching, selectedResultIndex, visibleShownItems.length]);
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
       switch (e.key) {
         case 'ArrowUp':
-          setSelectedResultIndex((prevIndex) => (prevIndex > 0 ? prevIndex - 1 : searchResultsItems.length - 1));
-          e.preventDefault();
+          if (visibleShownItems.length > 0) {
+            setSelectedResultIndex((prevIndex) => (prevIndex > 0 ? prevIndex - 1 : visibleShownItems.length - 1));
+            e.preventDefault();
+          }
           break;
         case 'ArrowDown':
-          setSelectedResultIndex((prevIndex) => (prevIndex < searchResultsItems.length - 1 ? prevIndex + 1 : 0));
-          e.preventDefault();
+          if (visibleShownItems.length > 0) {
+            setSelectedResultIndex((prevIndex) => (prevIndex < visibleShownItems.length - 1 ? prevIndex + 1 : 0));
+            e.preventDefault();
+          }
           break;
         case 'Enter':
           e.preventDefault();
-          if (searchResultsItems[selectedResultIndex]) {
-            handleMenuItemSelected(
-              searchResultsItems[selectedResultIndex]!.id,
-              searchResultsItems[selectedResultIndex]!.data,
-            );
+          {
+            const selectedSearchItem = visibleShownItems[selectedResultIndex] as ContextMenuConfigItem | undefined;
+            if (selectedSearchItem) {
+              handleMenuItemSelected(selectedSearchItem.id, selectedSearchItem.data);
+            }
           }
           break;
         default:
@@ -220,17 +257,47 @@ export const ContextMenu = forwardRef<HTMLDivElement, ContextMenuProps>(
             </div>
           )}
           <div className="context-menu-items">
-            {visibleShownItems.map((item, index) => (
-              <ContextMenuItem
-                key={item.id}
-                config={item}
-                showSeparator={index > 0 && (item as ContextMenuConfigItem).separatorBefore === true}
-                onMenuItemSelected={handleMenuItemSelected}
-                onHover={() => setSelectedResultIndex(index)}
-                context={context.data}
-                active={searchTerm.length > 0 && index === selectedResultIndex}
-              />
-            ))}
+            {isSearching && searchPresentation ? (
+              <>
+                {searchPresentation.primaryItems.map((item, index) => (
+                  <ContextMenuItem
+                    key={item.id}
+                    config={item}
+                    showSeparator={index > 0 && (item as ContextMenuConfigItem).separatorBefore === true}
+                    onMenuItemSelected={handleMenuItemSelected}
+                    onHover={() => setSelectedResultIndex(visibleShownItemIndexes.get(item.id) ?? 0)}
+                    context={context.data}
+                    active={visibleShownItems[selectedResultIndex]?.id === item.id}
+                  />
+                ))}
+                {searchPresentation.graphItems.length > 0 && (
+                  <div className="context-menu-search-section-header">Go to graphs</div>
+                )}
+                {searchPresentation.graphItems.map((item) => (
+                  <ContextMenuItem
+                    key={item.id}
+                    config={item}
+                    showSeparator={false}
+                    onMenuItemSelected={handleMenuItemSelected}
+                    onHover={() => setSelectedResultIndex(visibleShownItemIndexes.get(item.id) ?? 0)}
+                    context={context.data}
+                    active={visibleShownItems[selectedResultIndex]?.id === item.id}
+                  />
+                ))}
+              </>
+            ) : (
+              visibleShownItems.map((item, index) => (
+                <ContextMenuItem
+                  key={item.id}
+                  config={item}
+                  showSeparator={index > 0 && (item as ContextMenuConfigItem).separatorBefore === true}
+                  onMenuItemSelected={handleMenuItemSelected}
+                  onHover={() => setSelectedResultIndex(index)}
+                  context={context.data}
+                  active={isSearching && visibleShownItems[selectedResultIndex]?.id === item.id}
+                />
+              ))
+            )}
           </div>
         </div>
       </div>
