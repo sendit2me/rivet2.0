@@ -21,6 +21,32 @@ export type TextNodeData = {
   normalizeLineEndings?: boolean;
 };
 
+const MAX_BODY_PREVIEW_LINES = 15;
+const MAX_BODY_PREVIEW_LINE_LENGTH = 240;
+const MAX_BODY_PREVIEW_CHARS = 3000;
+
+function buildTextNodeBodyPreview(text: string): string {
+  const allLines = text.split('\n');
+  const previewLines = allLines.slice(0, MAX_BODY_PREVIEW_LINES).map((line) =>
+    line.length > MAX_BODY_PREVIEW_LINE_LENGTH ? `${line.slice(0, MAX_BODY_PREVIEW_LINE_LENGTH)}...` : line,
+  );
+
+  const omittedLines = allLines.length > MAX_BODY_PREVIEW_LINES;
+  let previewText = previewLines.join('\n').trim();
+
+  if (previewText.length > MAX_BODY_PREVIEW_CHARS) {
+    previewText = previewText.slice(0, MAX_BODY_PREVIEW_CHARS).trimEnd();
+
+    return previewText.length === 0 ? '...' : `${previewText}\n...`;
+  }
+
+  if (omittedLines) {
+    return previewText.length === 0 ? '...' : `${previewText}\n...`;
+  }
+
+  return previewText;
+}
+
 export class TextNodeImpl extends NodeImpl<TextNode> {
   static create(): TextNode {
     const chartNode: TextNode = {
@@ -92,13 +118,11 @@ export class TextNodeImpl extends NodeImpl<TextNode> {
   }
 
   getBody(): string | NodeBodySpec | undefined {
-    const truncated = this.data.text.split('\n').slice(0, 15).join('\n').trim();
-
     return {
       type: 'colorized',
       language: 'prompt-interpolation-markdown',
       theme: 'prompt-interpolation',
-      text: truncated,
+      text: buildTextNodeBodyPreview(this.data.text),
     };
   }
 

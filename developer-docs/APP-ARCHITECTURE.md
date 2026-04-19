@@ -443,6 +443,12 @@ Current responsibilities:
 - reflect hover state separately from selection state
 - start node editing on double-click for known node types
 
+Canvas body previews also need to stay aggressively bounded. Text-like node previews should not
+rely on line-count truncation alone, because very large single-line payloads such as pasted base64
+blobs can still freeze drag and render paths if the full line is rendered into the node body.
+`TextNode` now trims preview lines to a fixed width and keeps a hard total preview character cap
+as a backstop.
+
 It also depends on both:
 
 - `useCanvasViewContext`

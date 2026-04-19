@@ -1,7 +1,5 @@
 
 
-Node settings panel resizing is laggy. let's maybe switch off the panel transparency and blur while resizing?
-
 
 - SHow more output without hover and wit it too
 
