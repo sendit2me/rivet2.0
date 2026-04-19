@@ -38,11 +38,22 @@ import { FullscreenNodeOutputToolbar } from './nodeOutput/FullscreenNodeOutputTo
 import { MATCH_ACTIVE_CLASS, MATCH_CLASS } from './nodeOutput/fullscreenOutputSearch.js';
 import { resolveNodeOutputPreviewMode } from './nodeOutput/nodeOutputPreviewMode.js';
 
-export const NodeOutput: FC<{ node: ChartNode }> = memo(({ node }) => {
+export const NodeOutput: FC<{ node: ChartNode; suspended?: boolean }> = memo(({ node, suspended = false }) => {
+  const isOutputExpanded = useAtomValue(expandedOutputNodeIdsState).includes(node.id);
+
+  if (suspended && !isOutputExpanded) {
+    return null;
+  }
+
+  return <ActiveNodeOutput node={node} isOutputExpanded={isOutputExpanded} />;
+});
+
+NodeOutput.displayName = 'NodeOutput';
+
+const ActiveNodeOutput: FC<{ node: ChartNode; isOutputExpanded: boolean }> = ({ node, isOutputExpanded }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   useDependsOnPlugins();
 
-  const isOutputExpanded = useAtomValue(expandedOutputNodeIdsState).includes(node.id);
   const setExpandedOutputNodeIds = useSetAtom(expandedOutputNodeIdsState);
 
   const handleWheel = useStableCallback((e: MouseEvent<HTMLDivElement>) => {
@@ -75,9 +86,7 @@ export const NodeOutput: FC<{ node: ChartNode }> = memo(({ node }) => {
       </div>
     </div>
   );
-});
-
-NodeOutput.displayName = 'NodeOutput';
+};
 
 const fullscreenOutputCss = css`
   position: relative;

@@ -284,6 +284,7 @@ Current structure:
 - [`packages/app/src/components/NodeCanvas.tsx`](../packages/app/src/components/NodeCanvas.tsx) now coordinates canvas state, hotkeys, and command wiring
 - viewport transform application and node/drag-overlay rendering live in [`packages/app/src/components/nodeCanvas/NodeCanvasViewport.tsx`](../packages/app/src/components/nodeCanvas/NodeCanvasViewport.tsx)
 - context menu, selection box, wire layer, and port tooltip rendering live in [`packages/app/src/components/nodeCanvas/NodeCanvasOverlays.tsx`](../packages/app/src/components/nodeCanvas/NodeCanvasOverlays.tsx)
+- canvas motion and visibility budgets are centralized in [`packages/app/src/components/nodeCanvas/canvasPerformanceBudget.ts`](../packages/app/src/components/nodeCanvas/canvasPerformanceBudget.ts); viewport-motion timing and medium-graph thresholds should stay there instead of being redefined ad hoc in render code
 - searchable empty-canvas context-menu results are grouped in [`packages/app/src/components/contextMenuSearchGrouping.ts`](../packages/app/src/components/contextMenuSearchGrouping.ts): node/add results stay first, graph jumps stay under a dedicated `Go to graphs` section, and graph hits render by graph name only
 - multi-node alignment/distribution affordances live in [`packages/app/src/components/nodeCanvas/MultiNodeAlignmentToolbar.tsx`](../packages/app/src/components/nodeCanvas/MultiNodeAlignmentToolbar.tsx) and should stay command-backed through `moveNode` so align/distribute actions remain undoable
 - mouse pan/zoom/selection-box/context-menu handlers live in [`packages/app/src/components/nodeCanvas/useNodeCanvasInteractions.ts`](../packages/app/src/components/nodeCanvas/useNodeCanvasInteractions.ts)
@@ -315,6 +316,12 @@ These are important refactor boundaries because they represent work already sepa
 - `useAutoLayoutGraph`
 
 This means refactors should usually start in those hooks before pushing more logic back into `NodeCanvas`.
+
+Current performance-oriented hook boundaries now carry explicit contracts:
+
+- `useNodeCanvasInteractions` exposes `isViewportMoving` and a short settle window so nonessential visuals can freeze during pan/zoom without hiding core interaction affordances
+- `useVisibleCanvasNodes` returns explicit visible, near-viewport, and heavy-content node id sets; medium-graph node shells stay mounted offscreen while expensive body/output rendering is reserved for nearby or pinned nodes
+- `useWireDragScrolling` now reports viewport motion back into that same settle path so edge auto-scroll during wire drags uses the same freeze policy as manual pan
 
 `useDraggingNode` now owns more than a thin `@dnd-kit` bridge. It is the drag-session state machine for node moves and `Alt`-drag duplication:
 
@@ -409,7 +416,9 @@ Important nuance:
 Key current behaviors:
 
 - nodes outside the visible viewport are skipped via `useVisibleCanvasNodes`
+- medium-sized graphs keep offscreen node shells and ports but suspend expensive body/output rendering until the node is near the viewport again or pinned by selection, editing, output expansion, or drag state
 - wires are only rendered above a zoom threshold
+- static wire rendering is narrowed to candidate connections near the viewport or otherwise highlighted/running, and that narrowed set stays frozen while the viewport is moving
 - nodes use a distinct zoomed-out content renderer below zoom thresholds
 - move drags remove source nodes from the main render pass and show them via `DragOverlay`
 - duplicate drags keep the source nodes visible in place and show duplicate preview nodes in `DragOverlay`
@@ -1131,7 +1140,8 @@ Current structure:
 - [`packages/app/src/components/NodeOutput.tsx`](../packages/app/src/components/NodeOutput.tsx) now focuses on output panel orchestration
 - process-page controls are kept local to `NodeOutput.tsx`
 - execution status emphasis for canvas nodes now lives on the node output shell rather than header glyphs:
-  `success` uses a subtle green output tint, `error` / `interrupted` use a subtle red tint, `running` keeps the primary divider, and `not-ran` keeps the dashed divider lane
+  `success` keeps the green output marker/divider without a background tint, `error` / `interrupted` use a subtle red tint, `running` keeps the primary divider, and `not-ran` keeps the dashed divider lane
+- `NodeOutput` can be suspended by the canvas render path for offscreen medium-graph nodes; collapsed outputs should return `null` in that state, while explicitly expanded outputs still render
 - the inline `Show Full Output` toggle now lives in the node output action bar next to copy/fullscreen controls, not in the node header
 - inline compact-vs-full selection is resolved through [`packages/app/src/components/nodeOutput/nodeOutputPreviewMode.ts`](../packages/app/src/components/nodeOutput/nodeOutputPreviewMode.ts) so callers do not re-encode that policy ad hoc
 - regular in-canvas node output previews now stay at the larger preview height by default instead of only expanding on hover; the explicit output toggle is still reserved for the fully expanded scrollable state

@@ -1,8 +1,8 @@
-import { type FC, useCallback, useEffect, useLayoutEffect, useState, useMemo } from 'react';
-import { type NodeConnection, type NodeId, type PortId } from '@ironclad/rivet-core';
+import { type FC, memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { type ChartNode, type NodeConnection, type NodeId, type PortId } from '@ironclad/rivet-core';
 import { css } from '@emotion/react';
 import { ConditionallyRenderWire, PartialWire, getConnectionCacheKeys, getNodePortPosition } from './Wire.js';
-import { canvasToClientPosition, useCanvasPositioning } from '../hooks/useCanvasPositioning.js';
+import { useCanvasPositioning } from '../hooks/useCanvasPositioning.js';
 import { ErrorBoundary } from 'react-error-boundary';
 import { draggingWireClosestPortState } from '../state/graphBuilder.js';
 import { nodesByIdState } from '../state/graph';
@@ -13,13 +13,14 @@ import {
   selectedProcessPageNodesState,
   type RunDataByNodeId,
 } from '../state/dataFlow';
-import select from '@atlaskit/select/dist/types/entry-points/select';
 import { useStableCallback } from '../hooks/useStableCallback';
 import { lineCrossesViewport } from '../utils/lineClipping';
 import { useAtom, useAtomValue, useStore } from 'jotai';
 import { getSelectedProcessData } from '../state/selectors/executionSelectors.js';
 import { canvasIoDefinitionsForNodeState } from '../state/selectors/canvasGraphSelectors.js';
 import { resolveClosestWireDropTargetFromPoint } from '../utils/wireDropTarget.js';
+import { markCanvasPerfEnd, markCanvasPerfStart, setCanvasPerf } from './nodeCanvas/canvasPerfDebug.js';
+import { getRenderableWireCandidates } from './nodeCanvas/getRenderableWireCandidates.js';
 
 const wiresStyles = css`
   width: 100%;
@@ -56,12 +57,16 @@ type WireLayerProps = {
   draggingWire?: WireDef;
   draggingNode: boolean;
   highlightedNodes?: NodeId[];
-  portPositions: PortPositions;
   highlightedPort?: {
-    nodeId: NodeId;
     isInput: boolean;
+    nodeId: NodeId;
     portId: PortId;
   };
+  isViewportMoving: boolean;
+  isViewportVisibilitySettled: boolean;
+  nearViewportNodeIdSet: ReadonlySet<NodeId>;
+  portPositions: PortPositions;
+  visibleNodeIdSet: ReadonlySet<NodeId>;
 };
 
 export const WireLayer: FC<WireLayerProps> = ({
@@ -69,8 +74,12 @@ export const WireLayer: FC<WireLayerProps> = ({
   draggingWire,
   draggingNode,
   highlightedNodes,
-  portPositions,
   highlightedPort,
+  isViewportMoving,
+  isViewportVisibilitySettled,
+  nearViewportNodeIdSet,
+  portPositions,
+  visibleNodeIdSet,
 }) => {
   const [mousePosition, setMousePosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [closestPort, setClosestPort] = useAtom(draggingWireClosestPortState);
@@ -107,7 +116,7 @@ export const WireLayer: FC<WireLayerProps> = ({
         setClosestPort(undefined);
       }
     },
-    [draggingWire, setClosestPort, draggingNode, store, closestPort],
+    [closestPort, draggingNode, draggingWire, setClosestPort, store],
   );
 
   useEffect(() => {
@@ -126,7 +135,7 @@ export const WireLayer: FC<WireLayerProps> = ({
     if (!definition?.dataType) {
       setClosestPort(undefined);
     }
-  }, [closestPort, setClosestPort, store, connections, draggingWire]);
+  }, [closestPort, setClosestPort, store]);
 
   useEffect(() => {
     window.addEventListener('mousedown', handleMouseDown, { capture: true });
@@ -135,17 +144,59 @@ export const WireLayer: FC<WireLayerProps> = ({
       window.removeEventListener('mousedown', handleMouseDown, { capture: true });
       window.removeEventListener('mousemove', handleMouseMove);
     };
-  }, [handleMouseMove, handleMouseDown]);
-
-  useLayoutEffect(() => {}, [draggingWire, mousePosition.x, mousePosition.y, setClosestPort]);
+  }, [handleMouseDown, handleMouseMove]);
 
   const { canvasPosition, clientToCanvasPosition, canvasToClientPosition } = useCanvasPositioning();
   const mousePositionCanvas = clientToCanvasPosition(mousePosition.x, mousePosition.y);
-
   const nodesById = useAtomValue(nodesByIdState);
 
-  const renderableWires = useMemo(() => {
-    return connections.filter((connection) => {
+  const runningNodeIdSet = useMemo(() => {
+    const nextRunningNodeIdSet = new Set<NodeId>();
+
+    for (const [nodeId, processData] of Object.entries(lastRunDataByNode) as Array<[NodeId, RunDataByNodeId[NodeId]]>) {
+      const selectedProcessData = getSelectedProcessData(
+        processData,
+        selectedProcessPageNodes[nodeId] ?? 0,
+        graphSelectionOptions,
+      );
+
+      if (selectedProcessData?.data.status?.type === 'running') {
+        nextRunningNodeIdSet.add(nodeId);
+      }
+    }
+
+    return nextRunningNodeIdSet;
+  }, [graphSelectionOptions, lastRunDataByNode, selectedProcessPageNodes]);
+
+  const candidateConnections = useMemo(
+    () =>
+      getRenderableWireCandidates({
+        connections,
+        draggingNode,
+        draggingWire: !!draggingWire,
+        highlightedNodes,
+        highlightedPort,
+        nearViewportNodeIdSet,
+        runningNodeIdSet,
+        visibleNodeIdSet,
+      }),
+    [
+      connections,
+      draggingNode,
+      draggingWire,
+      highlightedNodes,
+      highlightedPort,
+      nearViewportNodeIdSet,
+      runningNodeIdSet,
+      visibleNodeIdSet,
+    ],
+  );
+  const [renderableWires, setRenderableWires] = useState<NodeConnection[]>(candidateConnections);
+
+  const recalculateRenderableWires = useStableCallback(() => {
+    markCanvasPerfStart('WireLayer:recalculateRenderableWires');
+
+    const nextRenderableWires = candidateConnections.filter((connection) => {
       const inputNode = nodesById[connection.inputNodeId];
       const outputNode = nodesById[connection.outputNodeId];
 
@@ -158,12 +209,36 @@ export const WireLayer: FC<WireLayerProps> = ({
       const start = getNodePortPosition(outputNode, connection.outputId, outputCacheKey, portPositions);
       const end = getNodePortPosition(inputNode, connection.inputId, inputCacheKey, portPositions);
 
-      const startClient = canvasToClientPosition(start.x, start.y);
-      const endClient = canvasToClientPosition(end.x, end.y);
-
-      return lineCrossesViewport(startClient, endClient);
+      return lineCrossesViewport(canvasToClientPosition(start.x, start.y), canvasToClientPosition(end.x, end.y));
     });
-  }, [nodesById, canvasToClientPosition, connections, portPositions]);
+
+    setCanvasPerf('WireLayer:renderableWireCount', nextRenderableWires.length);
+    markCanvasPerfEnd('WireLayer:recalculateRenderableWires');
+
+    setRenderableWires((previousRenderableWires) =>
+      areConnectionListsEqual(previousRenderableWires, nextRenderableWires) ? previousRenderableWires : nextRenderableWires,
+    );
+  });
+
+  useEffect(() => {
+    const shouldFreezeStaticWires = isViewportMoving && !isViewportVisibilitySettled && !draggingWire && !draggingNode;
+
+    if (shouldFreezeStaticWires) {
+      return;
+    }
+
+    recalculateRenderableWires();
+  }, [
+    canvasToClientPosition,
+    candidateConnections,
+    draggingNode,
+    draggingWire,
+    isViewportMoving,
+    isViewportVisibilitySettled,
+    nodesById,
+    portPositions,
+    recalculateRenderableWires,
+  ]);
 
   return (
     <svg css={wiresStyles}>
@@ -197,42 +272,101 @@ export const WireLayer: FC<WireLayerProps> = ({
             )}
           </ErrorBoundary>
         )}
-        {renderableWires.map((connection) => {
-          const isHighlightedNode =
-            highlightedNodes?.includes(connection.inputNodeId) || highlightedNodes?.includes(connection.outputNodeId);
-
-          const isCurrentlyRunning =
-            getSelectedProcessData(
-              lastRunDataByNode[connection.inputNodeId],
-              selectedProcessPageNodes[connection.inputNodeId] ?? 0,
-              graphSelectionOptions,
-            )?.data.status?.type === 'running';
-
-          const isHighlightedPort =
-            highlightedPort &&
-            (highlightedPort.isInput ? connection.inputId : connection.outputId) === highlightedPort.portId &&
-            (highlightedPort.isInput ? connection.inputNodeId : connection.outputNodeId) === highlightedPort.nodeId;
-
-          const isNotRan = getIsNotRan(connection, selectedProcessPageNodes, lastRunDataByNode, graphSelectionOptions);
-
-          const highlighted = isHighlightedNode || isCurrentlyRunning || isHighlightedPort;
-          return (
-            <ErrorBoundary fallback={<></>} key={`wire-${connection.inputId}-${connection.inputNodeId}`}>
-              <ConditionallyRenderWire
-                connection={connection}
-                selected={false}
-                highlighted={!!highlighted}
-                nodesById={nodesById}
-                portPositions={portPositions}
-                isNotRan={isNotRan}
-              />
-            </ErrorBoundary>
-          );
-        })}
+        <StaticWireContents
+          graphSelectionOptions={graphSelectionOptions}
+          highlightedNodes={highlightedNodes}
+          highlightedPort={highlightedPort}
+          lastRunDataByNode={lastRunDataByNode}
+          nodesById={nodesById}
+          portPositions={portPositions}
+          renderableWires={renderableWires}
+          runningNodeIdSet={runningNodeIdSet}
+          selectedProcessPageNodes={selectedProcessPageNodes}
+        />
       </g>
     </svg>
   );
 };
+
+const StaticWireContents = memo(
+  ({
+    graphSelectionOptions,
+    highlightedNodes,
+    highlightedPort,
+    lastRunDataByNode,
+    nodesById,
+    portPositions,
+    renderableWires,
+    runningNodeIdSet,
+    selectedProcessPageNodes,
+  }: {
+    graphSelectionOptions: Parameters<typeof getSelectedProcessData>[2];
+    highlightedNodes: NodeId[] | undefined;
+    highlightedPort:
+      | {
+          isInput: boolean;
+          nodeId: NodeId;
+          portId: PortId;
+        }
+      | undefined;
+    lastRunDataByNode: RunDataByNodeId;
+    nodesById: Record<NodeId, ChartNode>;
+    portPositions: PortPositions;
+    renderableWires: NodeConnection[];
+    runningNodeIdSet: ReadonlySet<NodeId>;
+    selectedProcessPageNodes: Record<NodeId, number | 'latest'>;
+  }) => {
+    const highlightedNodeIdSet = useMemo(
+      () => (highlightedNodes ? new Set(highlightedNodes) : undefined),
+      [highlightedNodes],
+    );
+
+    return renderableWires.map((connection) => {
+      const isHighlightedNode =
+        highlightedNodeIdSet?.has(connection.inputNodeId) || highlightedNodeIdSet?.has(connection.outputNodeId);
+
+      const isCurrentlyRunning =
+        runningNodeIdSet.has(connection.inputNodeId) || runningNodeIdSet.has(connection.outputNodeId);
+
+      const isHighlightedPort =
+        highlightedPort &&
+        (highlightedPort.isInput ? connection.inputId : connection.outputId) === highlightedPort.portId &&
+        (highlightedPort.isInput ? connection.inputNodeId : connection.outputNodeId) === highlightedPort.nodeId;
+
+      const isNotRan = getIsNotRan(connection, selectedProcessPageNodes, lastRunDataByNode, graphSelectionOptions);
+
+      const highlighted = isHighlightedNode || isCurrentlyRunning || isHighlightedPort;
+      return (
+        <ErrorBoundary fallback={<></>} key={`wire-${connection.inputId}-${connection.inputNodeId}`}>
+          <ConditionallyRenderWire
+            connection={connection}
+            selected={false}
+            highlighted={!!highlighted}
+            nodesById={nodesById}
+            portPositions={portPositions}
+            isNotRan={isNotRan}
+          />
+        </ErrorBoundary>
+      );
+    });
+  },
+);
+
+StaticWireContents.displayName = 'StaticWireContents';
+
+function areConnectionListsEqual(previous: NodeConnection[], next: NodeConnection[]): boolean {
+  if (previous.length !== next.length) {
+    return false;
+  }
+
+  for (let i = 0; i < previous.length; i += 1) {
+    if (previous[i] !== next[i]) {
+      return false;
+    }
+  }
+
+  return true;
+}
 
 function getIsNotRan(
   connection: NodeConnection,

@@ -1,4 +1,4 @@
-import { type FC, memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { type FC, memo, useState } from 'react';
 import { type HeightCache, useNodeBodyHeight } from '../hooks/useNodeBodyHeight';
 import { useUnknownNodeComponentDescriptorFor } from '../hooks/useNodeTypes.js';
 import {
@@ -21,16 +21,31 @@ import { useProjectNodeRegistry } from '../hooks/useProjectNodeRegistry';
 import { useAsyncEffect } from 'use-async-effect';
 import { handleError } from '../utils/errorHandling.js';
 
-export const NodeBody: FC<{ heightCache: HeightCache; node: ChartNode }> = memo(({ heightCache, node }) => {
+export const NodeBody: FC<{ heightCache: HeightCache; node: ChartNode; suspended?: boolean }> = memo(
+  ({ heightCache, node, suspended = false }) =>
+    suspended ? <SuspendedNodeBody heightCache={heightCache} node={node} /> : <ActiveNodeBody heightCache={heightCache} node={node} />,
+);
+
+NodeBody.displayName = 'NodeBody';
+
+const ActiveNodeBody: FC<{ heightCache: HeightCache; node: ChartNode }> = ({ heightCache, node }) => {
   const { Body } = useUnknownNodeComponentDescriptorFor(node);
   useDependsOnPlugins();
 
   const body = Body ? <Body node={node} /> : <UnknownNodeBody heightCache={heightCache} node={node} />;
 
   return <div className="node-body">{body}</div>;
-});
+};
 
-NodeBody.displayName = 'NodeBody';
+const SuspendedNodeBody: FC<{ heightCache: HeightCache; node: ChartNode }> = ({ heightCache, node }) => {
+  const height = heightCache.get(node.id);
+
+  return (
+    <div className="node-body">
+      {height == null ? null : <div aria-hidden="true" style={{ height: `${height}px` }} />}
+    </div>
+  );
+};
 
 const UnknownNodeBodyWrapper = styled.div<{
   fontSize: number;

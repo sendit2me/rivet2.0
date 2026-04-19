@@ -45,6 +45,7 @@ export const NormalVisualNodeContent: FC<{
   handleAttributes?: HTMLAttributes<HTMLDivElement>;
   isKnownNodeType: boolean;
   isHistoricalChanged: boolean;
+  renderHeavyContent: boolean;
 }> = memo(
   ({
     heightCache,
@@ -53,6 +54,7 @@ export const NormalVisualNodeContent: FC<{
     handleAttributes,
     isKnownNodeType,
     isHistoricalChanged,
+    renderHeavyContent,
   }) => {
     useDependsOnPlugins();
     const { draggingWire, closestPortToDraggingWire } = useCanvasViewContext();
@@ -290,13 +292,17 @@ export const NormalVisualNodeContent: FC<{
         )}
 
         <ErrorBoundary fallback={<div>Error rendering node body</div>}>
-          {isKnownNodeType ? <NodeBody heightCache={heightCache} node={node} /> : <div>Unknown node type {node.type} - are you missing a plugin?</div>}
+          {isKnownNodeType ? (
+            <NodeBody heightCache={heightCache} node={node} suspended={!renderHeavyContent} />
+          ) : (
+            <div>Unknown node type {node.type} - are you missing a plugin?</div>
+          )}
         </ErrorBoundary>
 
         {isKnownNodeType && <NodePortsRenderer node={node} connections={connections} />}
 
         <ErrorBoundary fallback={<div>Error rendering node output</div>}>
-          <NodeOutput node={node} />
+          <NodeOutput node={node} suspended={!renderHeavyContent} />
         </ErrorBoundary>
         <div className="node-resize-handles">
           <ResizeHandle

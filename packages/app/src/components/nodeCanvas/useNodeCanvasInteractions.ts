@@ -1,8 +1,9 @@
 import { useThrottleFn } from 'ahooks';
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ChartNode, GraphId, NodeId } from '@ironclad/rivet-core';
 import { useStableCallback } from '../../hooks/useStableCallback.js';
 import type { CanvasPosition } from '../../state/graphBuilder.js';
+import { VIEWPORT_SETTLE_MS } from './canvasPerformanceBudget.js';
 
 const SHIFT_WHEEL_ZOOM_MULTIPLIER = 6;
 const MAX_WHEEL_ZOOM_SPEED = 0.95;
@@ -32,7 +33,6 @@ export interface UseNodeCanvasInteractionsOptions {
   isDraggingCanvas: boolean;
   nodes: ChartNode[];
   onCanvasContextMenu: (event: { clientX: number; clientY: number; target: EventTarget }) => void;
-  recalculatePortPositions: () => void;
   selectedGraphId: GraphId | undefined;
   selectedNodeIds: NodeId[];
   selectionBox: { x: number; y: number; width: number; height: number } | null;
@@ -64,7 +64,6 @@ export const useNodeCanvasInteractions = ({
   isDraggingCanvas,
   nodes,
   onCanvasContextMenu,
-  recalculatePortPositions,
   selectedGraphId,
   selectedNodeIds,
   selectionBox,
@@ -84,6 +83,11 @@ export const useNodeCanvasInteractions = ({
     y: 0,
     target: undefined,
   });
+  const persistCanvasPositionTimeoutRef = useRef<number | undefined>();
+  const viewportMotionTimeoutRef = useRef<number | undefined>();
+  const lastViewportMotionAtRef = useRef(0);
+  const isViewportMovingRef = useRef(false);
+  const [isViewportMoving, setIsViewportMoving] = useState(false);
 
   const isScrollable = (element: HTMLElement): boolean => {
     const style = window.getComputedStyle(element);
@@ -120,14 +124,62 @@ export const useNodeCanvasInteractions = ({
 
     setIsDraggingCanvas(true);
     setDragStart({ x: e.clientX, y: e.clientY, canvasStartX: canvasPosition.x, canvasStartY: canvasPosition.y });
+    reportViewportMotion();
+  });
+
+  const persistCanvasPosition = useStableCallback((position: CanvasPosition) => {
+    if (!selectedGraphId) {
+      return;
+    }
+
+    setLastSavedCanvasPosition((saved) => ({ ...saved, [selectedGraphId]: position }));
+  });
+
+  const schedulePersistCanvasPosition = useStableCallback((position: CanvasPosition) => {
+    if (persistCanvasPositionTimeoutRef.current) {
+      window.clearTimeout(persistCanvasPositionTimeoutRef.current);
+    }
+
+    persistCanvasPositionTimeoutRef.current = window.setTimeout(() => {
+      persistCanvasPosition(position);
+      persistCanvasPositionTimeoutRef.current = undefined;
+    }, 150);
+  });
+
+  const reportViewportMotion = useStableCallback(() => {
+    lastViewportMotionAtRef.current = Date.now();
+
+    if (!isViewportMovingRef.current) {
+      isViewportMovingRef.current = true;
+      setIsViewportMoving(true);
+    }
+
+    if (viewportMotionTimeoutRef.current) {
+      window.clearTimeout(viewportMotionTimeoutRef.current);
+    }
+
+    viewportMotionTimeoutRef.current = window.setTimeout(() => {
+      isViewportMovingRef.current = false;
+      setIsViewportMoving(false);
+      viewportMotionTimeoutRef.current = undefined;
+    }, VIEWPORT_SETTLE_MS);
+  });
+
+  const getCanvasDragPosition = useStableCallback((clientX: number, clientY: number): CanvasPosition => {
+    const dx = (clientX - dragStart.x) * (1 / canvasPosition.zoom);
+    const dy = (clientY - dragStart.y) * (1 / canvasPosition.zoom);
+
+    return {
+      x: dragStart.canvasStartX + dx,
+      y: dragStart.canvasStartY + dy,
+      zoom: canvasPosition.zoom,
+    };
   });
 
   const canvasMouseMove = useThrottleFn(
     (e: React.MouseEvent) => {
       setLastMousePosition({ x: e.clientX, y: e.clientY });
       lastMouseInfoRef.current = { x: e.clientX, y: e.clientY, target: e.target };
-
-      recalculatePortPositions();
 
       if (selectionBox) {
         const newSelectedNodeIds = updateSelectionBox(e.clientX, e.clientY, nodes, clientToCanvasPosition, selectedNodeIds);
@@ -141,16 +193,9 @@ export const useNodeCanvasInteractions = ({
         return;
       }
 
-      const dx = (e.clientX - dragStart.x) * (1 / canvasPosition.zoom);
-      const dy = (e.clientY - dragStart.y) * (1 / canvasPosition.zoom);
-      const position: CanvasPosition = {
-        x: dragStart.canvasStartX + dx,
-        y: dragStart.canvasStartY + dy,
-        zoom: canvasPosition.zoom,
-      };
-
+      const position = getCanvasDragPosition(e.clientX, e.clientY);
       setCanvasPosition(position);
-      setLastSavedCanvasPosition((saved) => ({ ...saved, [selectedGraphId!]: position }));
+      reportViewportMotion();
     },
     { wait: 10 },
   );
@@ -177,7 +222,8 @@ export const useNodeCanvasInteractions = ({
       };
 
       setCanvasPosition(position);
-      setLastSavedCanvasPosition((saved) => ({ ...saved, [selectedGraphId!]: position }));
+      reportViewportMotion();
+      schedulePersistCanvasPosition(position);
     },
     { wait: 25 },
   );
@@ -187,13 +233,26 @@ export const useNodeCanvasInteractions = ({
   });
 
   const canvasMouseUp = useStableCallback((e: React.MouseEvent) => {
+    const wasDraggingCanvas = isDraggingCanvas;
+
     if (selectionBox) {
       endSelectionBox();
     } else if (!isDraggingCanvas) {
       return;
     }
 
-    setIsDraggingCanvas(false);
+    if (wasDraggingCanvas) {
+      if (persistCanvasPositionTimeoutRef.current) {
+        window.clearTimeout(persistCanvasPositionTimeoutRef.current);
+        persistCanvasPositionTimeoutRef.current = undefined;
+      }
+
+      const finalPosition = getCanvasDragPosition(e.clientX, e.clientY);
+      setCanvasPosition(finalPosition);
+      persistCanvasPosition(finalPosition);
+      setIsDraggingCanvas(false);
+      reportViewportMotion();
+    }
 
     const clientDelta = {
       x: e.clientX - dragStart.x,
@@ -215,12 +274,28 @@ export const useNodeCanvasInteractions = ({
     });
   });
 
+  useEffect(
+    () => () => {
+      if (persistCanvasPositionTimeoutRef.current) {
+        window.clearTimeout(persistCanvasPositionTimeoutRef.current);
+      }
+
+      if (viewportMotionTimeoutRef.current) {
+        window.clearTimeout(viewportMotionTimeoutRef.current);
+      }
+    },
+    [],
+  );
+
   return {
     canvasMouseDown,
     canvasMouseMove,
     canvasMouseUp,
     handleCanvasContextMenu,
     handleZoom,
+    isViewportMoving,
     lastMouseInfoRef,
+    lastViewportMotionAt: lastViewportMotionAtRef.current,
+    reportViewportMotion,
   };
 };

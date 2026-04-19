@@ -1,9 +1,10 @@
 import { DragOverlay } from '@dnd-kit/core';
-import { type FC, type ContextType, useMemo } from 'react';
+import { type FC, type ContextType, memo, useMemo } from 'react';
 import type { ChartNode, NodeConnection, NodeId } from '@ironclad/rivet-core';
 import { CanvasHandlersContext, CanvasViewContext } from '../CanvasContext.js';
 import { DraggableNode } from '../DraggableNode.js';
 import { VisualNode } from '../VisualNode.js';
+import { countCanvasPerf } from './canvasPerfDebug.js';
 import {
   constrainDragDeltaToAxisLock,
   type DragActivatorModifierState,
@@ -29,8 +30,8 @@ export interface NodeCanvasViewportProps {
   draggingNodeConnections: NodeConnection[];
   draggingNodes: ChartNode[];
   draggingSourceNodeIds: NodeId[];
+  heavyContentNodeIdSet: ReadonlySet<NodeId>;
   hoveredNodeId: NodeId | undefined;
-  isNodeVisible: (node: ChartNode) => boolean;
   lastRunPerNode: Record<NodeId, ProcessDataForNode[] | undefined>;
   nodeTypes: NodeTypes;
   nodesWithConnections: Array<{ node: ChartNode; nodeConnections: NodeConnection[] }>;
@@ -39,35 +40,15 @@ export interface NodeCanvasViewportProps {
   searchMatchingNodeIds: NodeId[];
   selectedNodeIds: NodeId[];
   selectedProcessPagePerNode: Record<NodeId, PageValue>;
+  visibleNodeIdSet: ReadonlySet<NodeId>;
 }
 
 export const NodeCanvasViewport: FC<NodeCanvasViewportProps> = ({
-  canvasHandlersContextValue,
   canvasPositionX,
   canvasPositionY,
   canvasZoom,
-  canvasViewContextValue,
-  dragAxisLock,
-  dragMode,
-  draggingNodeConnections,
-  draggingNodes,
-  draggingSourceNodeIds,
-  hoveredNodeId,
-  isNodeVisible,
-  lastRunPerNode,
-  nodeTypes,
-  nodesWithConnections,
-  onNodeDragActivatorPointerDown,
-  expandedOutputNodeIds,
-  searchMatchingNodeIds,
-  selectedNodeIds,
-  selectedProcessPagePerNode,
+  ...sceneProps
 }) => {
-  const draggingNodeIdSet = useMemo(() => new Set(draggingNodes.map((node) => node.id)), [draggingNodes]);
-  const expandedOutputNodeIdSet = useMemo(() => new Set(expandedOutputNodeIds), [expandedOutputNodeIds]);
-  const selectedNodeIdSet = useMemo(() => new Set(selectedNodeIds), [selectedNodeIds]);
-  const searchMatchingNodeIdSet = useMemo(() => new Set(searchMatchingNodeIds), [searchMatchingNodeIds]);
-
   return (
     <div
       className="canvas-contents"
@@ -75,11 +56,45 @@ export const NodeCanvasViewport: FC<NodeCanvasViewportProps> = ({
         transform: `scale(${canvasZoom}, ${canvasZoom}) translate(${canvasPositionX}px, ${canvasPositionY}px)`,
       }}
     >
+      <NodeCanvasScene canvasZoom={canvasZoom} {...sceneProps} />
+    </div>
+  );
+};
+
+const NodeCanvasScene: FC<Omit<NodeCanvasViewportProps, 'canvasPositionX' | 'canvasPositionY'>> = memo(
+  ({
+    canvasHandlersContextValue,
+    canvasViewContextValue,
+    canvasZoom,
+    dragAxisLock,
+    dragMode,
+    draggingNodeConnections,
+    draggingNodes,
+    draggingSourceNodeIds,
+    heavyContentNodeIdSet,
+    hoveredNodeId,
+    lastRunPerNode,
+    nodeTypes,
+    nodesWithConnections,
+    onNodeDragActivatorPointerDown,
+    expandedOutputNodeIds,
+    searchMatchingNodeIds,
+    selectedNodeIds,
+    selectedProcessPagePerNode,
+    visibleNodeIdSet,
+  }) => {
+    countCanvasPerf('NodeCanvasScene:renders');
+    const draggingNodeIdSet = useMemo(() => new Set(draggingNodes.map((node) => node.id)), [draggingNodes]);
+    const expandedOutputNodeIdSet = useMemo(() => new Set(expandedOutputNodeIds), [expandedOutputNodeIds]);
+    const selectedNodeIdSet = useMemo(() => new Set(selectedNodeIds), [selectedNodeIds]);
+    const searchMatchingNodeIdSet = useMemo(() => new Set(searchMatchingNodeIds), [searchMatchingNodeIds]);
+
+    return (
       <CanvasViewContext.Provider value={canvasViewContextValue}>
         <CanvasHandlersContext.Provider value={canvasHandlersContextValue}>
           <div className="nodes">
             {nodesWithConnections.map(({ node, nodeConnections }) => {
-              if (!isNodeVisible(node) || draggingNodeIdSet.has(node.id)) {
+              if (!visibleNodeIdSet.has(node.id) || draggingNodeIdSet.has(node.id)) {
                 return null;
               }
 
@@ -97,6 +112,7 @@ export const NodeCanvasViewport: FC<NodeCanvasViewportProps> = ({
                   onDragActivatorPointerDown={onNodeDragActivatorPointerDown}
                   isOutputExpanded={expandedOutputNodeIdSet.has(node.id)}
                   processPage={selectedProcessPagePerNode[node.id]!}
+                  renderHeavyContent={heavyContentNodeIdSet.has(node.id)}
                 />
               );
             })}
@@ -139,12 +155,15 @@ export const NodeCanvasViewport: FC<NodeCanvasViewportProps> = ({
                   isOutputExpanded={isOutputExpanded}
                   lastRun={lastRun}
                   processPage={processPage}
+                  renderHeavyContent
                 />
               );
             })}
           </DragOverlay>
         </CanvasHandlersContext.Provider>
       </CanvasViewContext.Provider>
-    </div>
-  );
-};
+    );
+  },
+);
+
+NodeCanvasScene.displayName = 'NodeCanvasScene';

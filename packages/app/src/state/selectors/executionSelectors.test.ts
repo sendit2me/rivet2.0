@@ -89,12 +89,14 @@ describe('executionSelectors', () => {
     assert.deepEqual(getNodeExecutionClassFlags({ status: { type: 'error', error: 'boom' } }), {
       success: false,
       error: true,
+      interrupted: false,
       running: false,
       'not-ran': false,
     });
     assert.deepEqual(getNodeExecutionClassFlags({ status: { type: 'notRan', reason: 'skip' } }), {
       success: false,
       error: false,
+      interrupted: false,
       running: false,
       'not-ran': true,
     });

@@ -58,6 +58,11 @@ import { MultiNodeAlignmentToolbar } from './nodeCanvas/MultiNodeAlignmentToolba
 import { NodeCanvasViewport } from './nodeCanvas/NodeCanvasViewport.js';
 import { useNodeCanvasInteractions } from './nodeCanvas/useNodeCanvasInteractions.js';
 import type { HorizontalNodeResizeBounds } from '../utils/nodeResize.js';
+import { MEDIUM_GRAPH_NODE_THRESHOLD } from './nodeCanvas/canvasPerformanceBudget.js';
+import { getCanvasPerfSnapshot } from './nodeCanvas/canvasPerfDebug.js';
+import { groupConnectionsByNode } from './nodeCanvas/groupConnectionsByNode.js';
+
+const EMPTY_NODE_CONNECTIONS: NodeConnection[] = [];
 
 export interface NodeCanvasProps {
   nodes: ChartNode[];
@@ -138,7 +143,6 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
     onNodeDragged,
   } = useDraggingNode();
   const { draggingWire, onWireStartDrag, onWireEndDrag } = useDraggingWire(onConnectionsChanged);
-  useWireDragScrolling();
 
   const {
     contextMenuRef,
@@ -170,15 +174,14 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
   const { setNodeRef } = useDroppable({ id: 'NodeCanvas' });
   const setCanvasRef = useMergeRefs([setNodeRef, canvasRef]);
 
+  const connectionsByNodeId = useMemo(() => groupConnectionsByNode(previewConnections), [previewConnections]);
   const nodesWithConnections = useMemo(
     () =>
       nodes.map((node) => ({
         node,
-        nodeConnections: previewConnections.filter(
-          (connection) => connection.inputNodeId === node.id || connection.outputNodeId === node.id,
-        ),
+        nodeConnections: connectionsByNodeId[node.id] ?? EMPTY_NODE_CONNECTIONS,
       })),
-    [nodes, previewConnections],
+    [connectionsByNodeId, nodes],
   );
 
   const draggingNodeConnections = useMemo(
@@ -200,30 +203,38 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
     },
   );
 
-  const { canvasMouseDown, canvasMouseMove, canvasMouseUp, handleCanvasContextMenu, handleZoom, lastMouseInfoRef } =
-    useNodeCanvasInteractions({
-      canvasPosition,
-      clientToCanvasPosition,
-      dragStart,
-      endSelectionBox,
-      isDraggingCanvas,
-      nodes,
-      onCanvasContextMenu: handleContextMenu,
-      recalculatePortPositions,
-      selectedGraphId: selectedGraphMetadata?.id,
-      selectedNodeIds,
-      selectionBox,
-      setCanvasPosition,
-      setDragStart,
-      setEditingNodeId,
-      setIsDraggingCanvas,
-      setLastMousePosition,
-      setLastSavedCanvasPosition,
-      setSelectedNodeIds,
-      startSelectionBox,
-      updateSelectionBox,
-      zoomSensitivity,
-    });
+  const {
+    canvasMouseDown,
+    canvasMouseMove,
+    canvasMouseUp,
+    handleCanvasContextMenu,
+    handleZoom,
+    isViewportMoving,
+    lastMouseInfoRef,
+    reportViewportMotion,
+  } = useNodeCanvasInteractions({
+    canvasPosition,
+    clientToCanvasPosition,
+    dragStart,
+    endSelectionBox,
+    isDraggingCanvas,
+    nodes,
+    onCanvasContextMenu: handleContextMenu,
+    selectedGraphId: selectedGraphMetadata?.id,
+    selectedNodeIds,
+    selectionBox,
+    setCanvasPosition,
+    setDragStart,
+    setEditingNodeId,
+    setIsDraggingCanvas,
+    setLastMousePosition,
+    setLastSavedCanvasPosition,
+    setSelectedNodeIds,
+    startSelectionBox,
+    updateSelectionBox,
+    zoomSensitivity,
+  });
+  useWireDragScrolling(reportViewportMotion);
 
   const onNodeSizeChanged = useStableCallback((node: ChartNode, nextBounds: HorizontalNodeResizeBounds) => {
     onNodesChanged(
@@ -266,7 +277,25 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
   }, [hoveringNode, hoveringPort, selectedViewportNodeIds]);
 
   const viewportBounds = useViewportBounds();
-  const { isNodeVisible } = useVisibleCanvasNodes({ nodes, expandedOutputNodeIds, viewportBounds });
+  const draggingViewportNodeIds = useMemo(
+    () => [...new Set([...draggedSourceNodeIds, ...draggingNodes.map((node) => node.id)])],
+    [draggedSourceNodeIds, draggingNodes],
+  );
+  const {
+    heavyContentNodeIdSet,
+    isViewportVisibilitySettled,
+    nearViewportNodeIdSet,
+    visibleNodeIdSet,
+  } = useVisibleCanvasNodes({
+    draggingNodeIds: draggingViewportNodeIds,
+    editingNodeId,
+    expandedOutputNodeIds,
+    hoveringNodeId: hoveringNode,
+    isViewportMoving,
+    nodes,
+    selectedNodeIds: selectedViewportNodeIds,
+    viewportBounds,
+  });
 
   const nodeSelected = useStableCallback((node: ChartNode, multi: boolean) => {
     onNodeSelected?.(node, multi);
@@ -422,8 +451,8 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
           draggingNodeConnections={draggingNodeConnections}
           draggingNodes={draggingNodes}
           draggingSourceNodeIds={draggedSourceNodeIds}
+          heavyContentNodeIdSet={heavyContentNodeIdSet}
           hoveredNodeId={hoveringPort ? undefined : hoveringNode}
-          isNodeVisible={isNodeVisible}
           lastRunPerNode={lastRunPerNode}
           nodeTypes={nodeTypes}
           nodesWithConnections={nodesWithConnections}
@@ -432,6 +461,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
           searchMatchingNodeIds={searchMatchingNodes}
           selectedNodeIds={selectedViewportNodeIds}
           selectedProcessPagePerNode={selectedProcessPagePerNode}
+          visibleNodeIdSet={visibleNodeIdSet}
         />
         {hydratedContextMenuData && (
           <NodeCanvasOverlays
@@ -448,6 +478,9 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
             highlightedPort={hoveringPort}
             hoveringPort={hoveringPort}
             hoveringShowPortInfo={hoveringShowPortInfo}
+            isViewportMoving={isViewportMoving}
+            isViewportVisibilitySettled={isViewportVisibilitySettled}
+            nearViewportNodeIdSet={nearViewportNodeIdSet}
             nodePortPositions={nodePortPositions}
             onContextMenuEntered={() => {
               setContextMenuDisabled(false);
@@ -461,6 +494,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
             setFloating={floatingRefs.setFloating}
             shouldRenderWires={shouldRenderWires}
             showContextMenu={showContextMenu}
+            visibleNodeIdSet={visibleNodeIdSet}
           />
         )}
         <MultiNodeAlignmentToolbar
@@ -481,6 +515,8 @@ const DebugOverlay: FC<{ enabled: boolean }> = ({ enabled }) => {
     return null;
   }
 
+  const perfSnapshot = getCanvasPerfSnapshot();
+
   return (
     <div className="debug-overlay">
       <div>Translation: {`(${canvasPosition.x.toFixed(2)}, ${canvasPosition.y.toFixed(2)})`}</div>
@@ -493,6 +529,12 @@ const DebugOverlay: FC<{ enabled: boolean }> = ({ enabled }) => {
           lastMousePosition.y,
         ).y.toFixed(2)})`}
       </div>
+      <div>Medium graph threshold: {MEDIUM_GRAPH_NODE_THRESHOLD}</div>
+      {perfSnapshot.map(({ name, value }) => (
+        <div key={name}>
+          {name}: {value.toFixed(2)}
+        </div>
+      ))}
     </div>
   );
 };

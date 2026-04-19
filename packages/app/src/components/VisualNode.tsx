@@ -32,6 +32,7 @@ export type VisualNodeProps = {
   isOutputExpanded: boolean;
   lastRun?: ProcessDataForNode[];
   processPage: number | 'latest';
+  renderHeavyContent: boolean;
   renderSkeleton?: boolean;
   nodeAttributes?: HTMLAttributes<HTMLDivElement>;
   handleAttributes?: HTMLAttributes<HTMLDivElement>;
@@ -55,6 +56,7 @@ export const VisualNode = memo(
         isOutputExpanded,
         lastRun,
         processPage,
+        renderHeavyContent,
         renderSkeleton,
       },
       ref,
@@ -175,6 +177,7 @@ export const VisualNode = memo(
               handleAttributes={handleAttributes}
               isKnownNodeType={isKnownNodeType}
               isHistoricalChanged={isHistoricalChanged}
+              renderHeavyContent={renderHeavyContent}
             />
           )}
           <div className="node-border-overlay" aria-hidden="true" />

@@ -35,6 +35,9 @@ export interface NodeCanvasOverlaysProps {
     | undefined;
   hoveringPort: HoveringPort | undefined;
   hoveringShowPortInfo: boolean;
+  isViewportMoving: boolean;
+  isViewportVisibilitySettled: boolean;
+  nearViewportNodeIdSet: ReadonlySet<NodeId>;
   nodePortPositions: PortPositions;
   onContextMenuExited: () => void;
   onContextMenuEntered: () => void;
@@ -43,6 +46,7 @@ export interface NodeCanvasOverlaysProps {
   setFloating: (node: HTMLElement | null) => void;
   shouldRenderWires: boolean;
   showContextMenu: boolean;
+  visibleNodeIdSet: ReadonlySet<NodeId>;
 }
 
 export const NodeCanvasOverlays: FC<NodeCanvasOverlaysProps> = ({
@@ -59,6 +63,9 @@ export const NodeCanvasOverlays: FC<NodeCanvasOverlaysProps> = ({
   highlightedPort,
   hoveringPort,
   hoveringShowPortInfo,
+  isViewportMoving,
+  isViewportVisibilitySettled,
+  nearViewportNodeIdSet,
   nodePortPositions,
   onContextMenuExited,
   onContextMenuEntered,
@@ -67,6 +74,7 @@ export const NodeCanvasOverlays: FC<NodeCanvasOverlaysProps> = ({
   setFloating,
   shouldRenderWires,
   showContextMenu,
+  visibleNodeIdSet,
 }) => {
   return (
     <>
@@ -104,7 +112,11 @@ export const NodeCanvasOverlays: FC<NodeCanvasOverlaysProps> = ({
           draggingWire={draggingWire}
           highlightedNodes={highlightedNodes}
           highlightedPort={highlightedPort}
+          isViewportMoving={isViewportMoving}
+          isViewportVisibilitySettled={isViewportVisibilitySettled}
+          nearViewportNodeIdSet={nearViewportNodeIdSet}
           portPositions={nodePortPositions}
+          visibleNodeIdSet={visibleNodeIdSet}
           draggingNode={draggingNode}
         />
       )}

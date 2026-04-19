@@ -1,6 +1,6 @@
 import { useDraggable } from '@dnd-kit/core';
 import { type ChartNode, type NodeConnection } from '@ironclad/rivet-core';
-import { type FC, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, useMemo } from 'react';
+import { type FC, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, memo, useMemo } from 'react';
 import { VisualNode } from './VisualNode.js';
 import { ErrorBoundary } from 'react-error-boundary';
 import { type ProcessDataForNode } from '../state/dataFlow';
@@ -25,9 +25,10 @@ interface DraggableNodeProps {
   onDragActivatorPointerDown: (modifierState: DragActivatorModifierState) => void;
   processPage: number | 'latest';
   isOutputExpanded: boolean;
+  renderHeavyContent: boolean;
 }
 
-export const DraggableNode: FC<DraggableNodeProps> = ({
+export const DraggableNode: FC<DraggableNodeProps> = memo(({
   dragAxisLock,
   dragMode,
   node,
@@ -39,6 +40,7 @@ export const DraggableNode: FC<DraggableNodeProps> = ({
   onDragActivatorPointerDown,
   processPage,
   isOutputExpanded,
+  renderHeavyContent,
   renderSkeleton,
 }) => {
   const { canvasZoom } = useCanvasViewContext();
@@ -75,8 +77,11 @@ export const DraggableNode: FC<DraggableNodeProps> = ({
         lastRun={lastRun}
         processPage={processPage}
         isOutputExpanded={isOutputExpanded}
+        renderHeavyContent={renderHeavyContent}
         renderSkeleton={renderSkeleton}
       />
     </ErrorBoundary>
   );
-};
+});
+
+DraggableNode.displayName = 'DraggableNode';

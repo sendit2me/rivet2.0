@@ -12,6 +12,7 @@ import { nodesByIdState } from '../state/graph';
  */
 export function useNodePortPositions({ enabled, isDraggingNode }: { enabled: boolean; isDraggingNode: boolean }) {
   const [nodePortPositions, setNodePortPositions] = useState<PortPositions>({});
+  const nodePortPositionsRef = useRef(nodePortPositions);
   const nodesById = useAtomValue(nodesByIdState);
   const canvasRef = useRef<HTMLDivElement>(null);
 
@@ -20,13 +21,15 @@ export function useNodePortPositions({ enabled, isDraggingNode }: { enabled: boo
       return;
     }
 
+    const previousPositions = nodePortPositionsRef.current;
+
     // Lot of duplication but meh
     const normalPortElements = canvasRef.current?.querySelectorAll(
       '.node:not(.overlayNode) .port-circle',
     ) as NodeListOf<HTMLDivElement>;
     let changed = false;
 
-    const newPositions = { ...nodePortPositions };
+    const newPositions = { ...previousPositions };
     const seen = new Set<string>();
 
     for (const elem of normalPortElements) {
@@ -36,7 +39,7 @@ export function useNodePortPositions({ enabled, isDraggingNode }: { enabled: boo
       const key = `${nodeId}-${portType}-${portId}`;
 
       if (seen.has(key)) {
-        return;
+        continue;
       }
 
       // For most nodes we can grab the harcoded position from the node data for the root position of the node
@@ -60,7 +63,7 @@ export function useNodePortPositions({ enabled, isDraggingNode }: { enabled: boo
         y: Math.round((nodePos.y + positionFromNode.top + elem.offsetHeight / 2) * precision) / precision,
       };
 
-      const prevPos = nodePortPositions[key];
+      const prevPos = previousPositions[key];
 
       if (prevPos?.x !== pos.x || prevPos?.y !== pos.y) {
         changed = true;
@@ -87,7 +90,7 @@ export function useNodePortPositions({ enabled, isDraggingNode }: { enabled: boo
         const key = `${nodeId}-${portType}-${portId}`;
 
         if (seen.has(key)) {
-          return;
+          continue;
         }
 
         const node = nodesById[nodeId]!;
@@ -122,7 +125,7 @@ export function useNodePortPositions({ enabled, isDraggingNode }: { enabled: boo
           y: Math.round((nodePos.y + positionFromNode.top + elem.offsetHeight / 2) * precision) / precision,
         };
 
-        const prevPos = nodePortPositions[key];
+        const prevPos = previousPositions[key];
 
         if (prevPos?.x !== pos.x || prevPos?.y !== pos.y) {
           changed = true;
@@ -132,13 +135,19 @@ export function useNodePortPositions({ enabled, isDraggingNode }: { enabled: boo
     }
 
     if (changed) {
+      nodePortPositionsRef.current = newPositions;
       setNodePortPositions(newPositions);
     }
-  }, [nodePortPositions, nodesById, enabled, isDraggingNode]);
+  }, [enabled, isDraggingNode, nodesById]);
 
   useLayoutEffect(() => {
+    // Port positions are in canvas space, so viewport pan/zoom should not force a fresh DOM-measure pass.
     recalculate();
-  });
+  }, [recalculate]);
+
+  useLayoutEffect(() => {
+    nodePortPositionsRef.current = nodePortPositions;
+  }, [nodePortPositions]);
 
   return { nodePortPositions, canvasRef, recalculate };
 }
