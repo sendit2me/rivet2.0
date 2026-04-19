@@ -40,14 +40,16 @@ describe('HttpCallNode', () => {
     assert.equal(node.data.catchRequestFailed, false);
   });
 
-  it('includes the Catch Request failed toggle in the editor config', () => {
+  it('includes the Catch all request failures toggle in the editor config', () => {
     const node = new HttpCallNodeImpl(HttpCallNodeImpl.create());
     const editors = node.getEditors();
 
     assert.ok(
       editors.some(
         (editor) =>
-          editor.type === 'toggle' && editor.label === 'Catch Request failed' && editor.dataKey === 'catchRequestFailed',
+          editor.type === 'toggle' &&
+          editor.label === 'Catch all request failures' &&
+          editor.dataKey === 'catchRequestFailed',
       ),
     );
   });
@@ -255,12 +257,19 @@ describe('HttpCallNode', () => {
     await assert.rejects(() => node.process({}, createContext()), /fetch failed/);
   });
 
-  it('does not catch malformed JSON responses', async () => {
+  it('catches malformed JSON responses when enabled', async () => {
     globalThis.fetch = async () => new Response('{', { status: 200, headers: { 'content-type': 'application/json' } });
 
     const node = createNode({ method: 'GET', url: 'https://example.com', catchRequestFailed: true });
+    const result = await node.process({}, createContext());
 
-    await assert.rejects(() => node.process({}, createContext()), /Unexpected end|JSON/);
+    assert.deepStrictEqual(result, {
+      res_body: { type: 'control-flow-excluded', value: undefined },
+      json: { type: 'control-flow-excluded', value: undefined },
+      statusCode: { type: 'control-flow-excluded', value: undefined },
+      res_headers: { type: 'control-flow-excluded', value: undefined },
+      requestFailed: { type: 'boolean', value: true },
+    });
   });
 
   it('does not catch abort errors', async () => {
@@ -275,7 +284,7 @@ describe('HttpCallNode', () => {
     await assert.rejects(() => node.process({}, createContext()), /Aborted/);
   });
 
-  it('does not catch response body read failures', async () => {
+  it('catches response body read failures when enabled', async () => {
     globalThis.fetch = async () =>
       ({
         ok: true,
@@ -287,7 +296,27 @@ describe('HttpCallNode', () => {
       }) as Response;
 
     const node = createNode({ method: 'GET', url: 'https://example.com', catchRequestFailed: true });
+    const result = await node.process({}, createContext());
 
-    await assert.rejects(() => node.process({}, createContext()), /Body read failed/);
+    assert.deepStrictEqual(result, {
+      res_body: { type: 'control-flow-excluded', value: undefined },
+      json: { type: 'control-flow-excluded', value: undefined },
+      statusCode: { type: 'control-flow-excluded', value: undefined },
+      res_headers: { type: 'control-flow-excluded', value: undefined },
+      requestFailed: { type: 'boolean', value: true },
+    });
+  });
+
+  it('catches invalid configured headers JSON when enabled', async () => {
+    const node = createNode({ method: 'GET', url: 'https://example.com', headers: '{', catchRequestFailed: true });
+    const result = await node.process({}, createContext());
+
+    assert.deepStrictEqual(result, {
+      res_body: { type: 'control-flow-excluded', value: undefined },
+      json: { type: 'control-flow-excluded', value: undefined },
+      statusCode: { type: 'control-flow-excluded', value: undefined },
+      res_headers: { type: 'control-flow-excluded', value: undefined },
+      requestFailed: { type: 'boolean', value: true },
+    });
   });
 });

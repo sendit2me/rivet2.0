@@ -23,42 +23,6 @@ function buildNon2xxStatusCodeError(statusCode: number): Error {
   return new Error(`HTTP call returned non-2XX status code: ${statusCode}`);
 }
 
-function getNestedErrorCause(error: unknown): unknown {
-  return error && typeof error === 'object' && 'cause' in error ? (error as { cause?: unknown }).cause : undefined;
-}
-
-function getNestedErrorCode(error: unknown): string | undefined {
-  if (!error || typeof error !== 'object' || !('code' in error)) {
-    return undefined;
-  }
-
-  const code = (error as { code?: unknown }).code;
-  return typeof code === 'string' ? code : undefined;
-}
-
-function isCatchableHttpRequestFailureCandidate(error: unknown): boolean {
-  const { message } = getError(error);
-  const code = getNestedErrorCode(error);
-
-  return (
-    code === 'ERR_INVALID_URL' ||
-    message.includes('Invalid URL') ||
-    message.includes('Failed to parse URL from') ||
-    message.includes('Failed to fetch') ||
-    message.includes('Load failed') ||
-    message.includes('fetch failed')
-  );
-}
-
-function isCatchableHttpRequestFailure(params: { error: unknown; signal: AbortSignal }): boolean {
-  const { error, signal } = params;
-  if (isAbortError(error, signal)) {
-    return false;
-  }
-
-  return [error, getNestedErrorCause(error)].some((candidate) => candidate && isCatchableHttpRequestFailureCandidate(candidate));
-}
-
 function buildRequestFailedOutputs(params: { isBinaryOutput: boolean }): Outputs {
   const sharedOutputs: Outputs = {
     ['statusCode' as PortId]: {
@@ -283,7 +247,7 @@ export class HttpCallNodeImpl extends NodeImpl<HttpCallNode> {
       },
       {
         type: 'toggle',
-        label: 'Catch request failures',
+        label: 'Catch all request failures',
         dataKey: 'catchRequestFailed',
       },
     ];
@@ -301,7 +265,7 @@ export class HttpCallNodeImpl extends NodeImpl<HttpCallNode> {
             : ''
       }${this.data.useBodyInput ? '\nBody: (Using Input)' : this.data.body.trim() ? `\nBody: ${this.data.body}` : ''}${
         this.data.errorOnNon200 ? '\nThrow on non-2XX' : ''
-      }${this.data.catchRequestFailed ? '\nCatch Request failed' : ''}
+      }${this.data.catchRequestFailed ? '\nCatch all request failures' : ''}
     `;
   }
 
@@ -317,138 +281,125 @@ export class HttpCallNodeImpl extends NodeImpl<HttpCallNode> {
   }
 
   async process(inputs: Inputs, context: InternalProcessContext): Promise<Outputs> {
-    const method = getInputOrData(this.data, inputs, 'method', 'string');
-    const url = getInputOrData(this.data, inputs, 'url', 'string');
+    try {
+      const method = getInputOrData(this.data, inputs, 'method', 'string');
+      const url = getInputOrData(this.data, inputs, 'url', 'string');
 
-    let headers: Record<string, string> | undefined;
-    if (this.data.useHeadersInput) {
-      const headersInput = inputs['headers' as PortId];
-      if (headersInput?.type === 'string') {
-        headers = JSON.parse(headersInput!.value);
-      } else if (headersInput?.type === 'object') {
-        headers = headersInput!.value as Record<string, string>;
-      } else {
-        headers = coerceType(headersInput, 'object') as Record<string, string>;
+      let headers: Record<string, string> | undefined;
+      if (this.data.useHeadersInput) {
+        const headersInput = inputs['headers' as PortId];
+        if (headersInput?.type === 'string') {
+          headers = JSON.parse(headersInput!.value);
+        } else if (headersInput?.type === 'object') {
+          headers = headersInput!.value as Record<string, string>;
+        } else {
+          headers = coerceType(headersInput, 'object') as Record<string, string>;
+        }
+      } else if (this.data.headers.trim()) {
+        headers = JSON.parse(this.data.headers);
       }
-    } else if (this.data.headers.trim()) {
-      headers = JSON.parse(this.data.headers);
-    }
 
-    let body: string | undefined;
-    if (this.data.useBodyInput) {
-      const bodyInput = inputs['req_body' as PortId];
-      if (bodyInput?.type === 'string') {
-        body = bodyInput!.value;
-      } else if (bodyInput?.type === 'object') {
-        body = JSON.stringify(bodyInput!.value);
+      let body: string | undefined;
+      if (this.data.useBodyInput) {
+        const bodyInput = inputs['req_body' as PortId];
+        if (bodyInput?.type === 'string') {
+          body = bodyInput!.value;
+        } else if (bodyInput?.type === 'object') {
+          body = JSON.stringify(bodyInput!.value);
+        } else {
+          body = coerceType(bodyInput, 'string');
+        }
       } else {
-        body = coerceType(bodyInput, 'string');
+        body = this.data.body || undefined;
       }
-    } else {
-      body = this.data.body || undefined;
-    }
 
-    if (this.data.catchRequestFailed) {
       try {
         // TODO: Use URL.canParse when we drop support for Node 18
-        new URL(url);
-      } catch (error) {
-        if (isCatchableHttpRequestFailure({ error, signal: context.signal })) {
-          return buildCaughtRequestFailedResult({ isBinaryOutput: Boolean(this.data.isBinaryOutput) });
-        }
-
-        throw error;
-      }
-    } else {
-      // TODO: Use URL.canParse when we drop support for Node 18
-      try {
         new URL(url);
       } catch (_error) {
         throw new Error(`Invalid URL: ${url}`);
       }
-    }
 
-    let response: Response;
-    try {
-      response = await fetch(url, {
-        method,
-        headers,
-        body,
-        signal: context.signal,
-        mode: 'cors',
-      });
-    } catch (err) {
-      if (this.data.catchRequestFailed && isCatchableHttpRequestFailure({ error: err, signal: context.signal })) {
-        return buildCaughtRequestFailedResult({ isBinaryOutput: Boolean(this.data.isBinaryOutput) });
-      }
+      let response: Response;
+      try {
+        response = await fetch(url, {
+          method,
+          headers,
+          body,
+          signal: context.signal,
+          mode: 'cors',
+        });
+      } catch (err) {
+        if (isAbortError(err, context.signal)) {
+          throw err;
+        }
 
-      if (isAbortError(err, context.signal)) {
+        const { message } = getError(err);
+        if ((message.includes('Load failed') || message.includes('Failed to fetch')) && context.executor === 'browser') {
+          throw new Error(
+            'Failed to make HTTP call. You may be running into CORS problems. Try using the Node executor in the top-right menu.',
+          );
+        }
+
         throw err;
       }
 
-      const { message } = getError(err);
-      if ((message.includes('Load failed') || message.includes('Failed to fetch')) && context.executor === 'browser') {
-        throw new Error(
-          'Failed to make HTTP call. You may be running into CORS problems. Try using the Node executor in the top-right menu.',
-        );
+      if (this.data.errorOnNon200 && !response.ok) {
+        throw buildNon2xxStatusCodeError(response.status);
       }
 
-      throw err;
-    }
+      const output: Outputs = {
+        ['statusCode' as PortId]: {
+          type: 'number',
+          value: response.status,
+        },
+        ['res_headers' as PortId]: {
+          type: 'object',
+          value: Object.fromEntries(response.headers.entries()),
+        },
+      };
 
-    if (this.data.errorOnNon200 && !response.ok) {
+      if (this.data.isBinaryOutput) {
+        const responseBlob = await response.blob();
+        output['binary' as PortId] = {
+          type: 'binary',
+          value: new Uint8Array(await responseBlob.arrayBuffer()),
+        };
+      } else {
+        const responseText = await response.text();
+        output['res_body' as PortId] = {
+          type: 'string',
+          value: responseText,
+        };
+        if (response.headers.get('content-type')?.includes('application/json')) {
+          const jsonData = JSON.parse(responseText);
+          output['json' as PortId] = {
+            type: 'object',
+            value: jsonData,
+          };
+        } else {
+          output['json' as PortId] = {
+            type: 'control-flow-excluded',
+            value: undefined,
+          };
+        }
+      }
+
       if (this.data.catchRequestFailed) {
+        output[REQUEST_FAILED_OUTPUT_ID] = {
+          type: 'boolean',
+          value: false,
+        };
+      }
+
+      return output;
+    } catch (error) {
+      if (this.data.catchRequestFailed && !isAbortError(error, context.signal)) {
         return buildCaughtRequestFailedResult({ isBinaryOutput: Boolean(this.data.isBinaryOutput) });
       }
 
-      throw buildNon2xxStatusCodeError(response.status);
+      throw error;
     }
-
-    const output: Outputs = {
-      ['statusCode' as PortId]: {
-        type: 'number',
-        value: response.status,
-      },
-      ['res_headers' as PortId]: {
-        type: 'object',
-        value: Object.fromEntries(response.headers.entries()),
-      },
-    };
-
-    if (this.data.isBinaryOutput) {
-      const responseBlob = await response.blob();
-      output['binary' as PortId] = {
-        type: 'binary',
-        value: new Uint8Array(await responseBlob.arrayBuffer()),
-      };
-    } else {
-      const responseText = await response.text();
-      output['res_body' as PortId] = {
-        type: 'string',
-        value: responseText,
-      };
-      if (response.headers.get('content-type')?.includes('application/json')) {
-        const jsonData = JSON.parse(responseText);
-        output['json' as PortId] = {
-          type: 'object',
-          value: jsonData,
-        };
-      } else {
-        output['json' as PortId] = {
-          type: 'control-flow-excluded',
-          value: undefined,
-        };
-      }
-    }
-
-    if (this.data.catchRequestFailed) {
-      output[REQUEST_FAILED_OUTPUT_ID] = {
-        type: 'boolean',
-        value: false,
-      };
-    }
-
-    return output;
   }
 }
 

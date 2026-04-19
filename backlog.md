@@ -6,9 +6,6 @@
 - Add mid points to connections so I can do neat wiring
 
 
-- When HTTP node gets "fetch failed", it just errors instead of generating a meaningful signal. Code node too. I'd want to have a "catch" output I guess
-- HTTP node - emit fetch failed and other errors like invalid url as a separate output or something. So we can catch that in runtime instead of failing the workflow
-
 
 - I want to be able to adjust the node height when it's not hovered so I can see this much of the content in the output section
 
