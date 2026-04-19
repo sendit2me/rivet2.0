@@ -197,6 +197,7 @@ Current structure:
 - [`packages/app/src/components/settings/SettingsPages.tsx`](../packages/app/src/components/settings/SettingsPages.tsx) is now just a barrel export
 - individual settings pages live under [`packages/app/src/components/settings/pages/`](../packages/app/src/components/settings/pages)
 - shared plugin-config form rendering for the plugin pages lives in [`packages/app/src/components/settings/pages/PluginSettingsSection.tsx`](../packages/app/src/components/settings/pages/PluginSettingsSection.tsx)
+- the `UI` page owns presentation-oriented preferences such as theme selection, node-port text casing, and default node colors, while `General` is reserved for broader app/runtime behavior
 
 This is a better refactor seam because settings page changes no longer require editing one large file that mixes general preferences, OpenAI settings, plugin settings, custom plugin pages, and update behavior.
 

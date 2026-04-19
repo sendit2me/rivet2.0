@@ -12,6 +12,7 @@ export const settingsState = atomWithStorage<Settings>(
   'settings',
   {
     recordingPlaybackLatency: 1000,
+    defaultNodeColors: false,
 
     openAiKey: '',
     openAiOrganization: '',

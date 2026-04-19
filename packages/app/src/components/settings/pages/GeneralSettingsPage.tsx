@@ -8,52 +8,22 @@ import Range from '@atlaskit/range';
 import {
   defaultExecutorState,
   executorOptions,
-  preservePortTextCaseState,
   previousDataPerNodeToKeepState,
   recordExecutionsState,
   settingsState,
-  type Theme,
-  themeState,
-  themes,
   zoomSensitivityState,
 } from '../../../state/settings.js';
 import { fields } from '../settingsPageStyles.js';
 
 export const GeneralSettingsPage: FC = () => {
   const [settings, setSettings] = useAtom(settingsState);
-  const [theme, setTheme] = useAtom(themeState);
   const [recordExecutions, setRecordExecutions] = useAtom(recordExecutionsState);
   const [defaultExecutor, setDefaultExecutor] = useAtom(defaultExecutorState);
   const [previousDataPerNodeToKeep, setPreviousDataPerNodeToKeep] = useAtom(previousDataPerNodeToKeepState);
   const [zoomSensitivity, setZoomSensitivity] = useAtom(zoomSensitivityState);
-  const [preservePortTextCase, setPreservePortTextCase] = useAtom(preservePortTextCaseState);
 
   return (
     <div css={fields}>
-      <Field name="theme" label="Theme">
-        {() => (
-          <Select
-            value={themes.find((option) => option.value === theme)}
-            onChange={(event) => event && setTheme(event.value as Theme)}
-            options={themes}
-          />
-        )}
-      </Field>
-      <Field name="preserve-port-text-case" label="Preserve text case for node ports">
-        {() => (
-          <>
-            <Toggle
-              id="check-for-updates"
-              isChecked={preservePortTextCase}
-              onChange={(event) => setPreservePortTextCase(event.target.checked)}
-            />
-            <HelperMessage>
-              This WILL preserve the text format of the node port names. e.g. `newInputPort` will be shown instead of
-              `NEWINPUTPORT` when enabled
-            </HelperMessage>
-          </>
-        )}
-      </Field>
       <Field name="recording-speed" label="Recording delay between chats (ms)">
         {() => (
           <>

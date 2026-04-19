@@ -10,6 +10,7 @@ import {
   newId,
 } from '@ironclad/rivet-core';
 import { cloneDeep, partition } from 'lodash-es';
+import { getDefaultNodeColorForType } from './defaultNodeColors.js';
 
 export function createAddedNode(options: {
   nodeType: string;
@@ -17,6 +18,7 @@ export function createAddedNode(options: {
   registry: NodeRegistration<any, any>;
   referencedProjects: Record<ProjectId, Project>;
   appliedId?: NodeId;
+  applyDefaultColor?: boolean;
 }) {
   let nodeType = options.nodeType as string | undefined;
   let referencedProjectId: string | undefined;
@@ -40,6 +42,13 @@ export function createAddedNode(options: {
   }
 
   newNode.visualData.width = (newNode.visualData.width ?? 200) + 30;
+
+  if (options.applyDefaultColor && !newNode.visualData.color) {
+    const defaultNodeColor = getDefaultNodeColorForType(newNode.type);
+    if (defaultNodeColor) {
+      newNode.visualData.color = defaultNodeColor;
+    }
+  }
 
   if (newNode.type === 'referencedGraphAlias') {
     if (!referencedProjectId || !referencedGraphId) {

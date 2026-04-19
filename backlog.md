@@ -2,7 +2,8 @@
 
 
 
-- Default colors for node types (gated with a switcher in the Rivet settings)
+- Better visual for split nodes: more stack like
+
 
 - New Nodes for working with lists: filtering, mapping, reducing, etc.
 

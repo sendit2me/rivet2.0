@@ -1,7 +1,59 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createBuiltInRegistry } from '@ironclad/rivet-core';
-import { createPastedNodes, duplicateNodeWithConnections, duplicateNodesWithConnections } from './nodeActions';
+import { createAddedNode, createPastedNodes, duplicateNodeWithConnections, duplicateNodesWithConnections } from './nodeActions';
+
+test('createAddedNode applies configured default colors to supported node types', () => {
+  const registry = createBuiltInRegistry();
+
+  const graphInputNode = createAddedNode({
+    nodeType: 'graphInput',
+    position: { x: 10, y: 20 },
+    registry,
+    referencedProjects: {},
+    applyDefaultColor: true,
+  });
+  const graphOutputNode = createAddedNode({
+    nodeType: 'graphOutput',
+    position: { x: 30, y: 40 },
+    registry,
+    referencedProjects: {},
+    applyDefaultColor: true,
+  });
+  const httpCallNode = createAddedNode({
+    nodeType: 'httpCall',
+    position: { x: 50, y: 60 },
+    registry,
+    referencedProjects: {},
+    applyDefaultColor: true,
+  });
+
+  assert.deepEqual(graphInputNode.visualData.color, { bg: 'var(--node-color-3)', border: 'var(--node-color-3)' });
+  assert.deepEqual(graphOutputNode.visualData.color, { bg: 'var(--node-color-3)', border: 'var(--node-color-3)' });
+  assert.deepEqual(httpCallNode.visualData.color, { bg: 'var(--node-color-6)', border: 'var(--node-color-6)' });
+});
+
+test('createAddedNode leaves node colors untouched when default node colors are disabled or unsupported', () => {
+  const registry = createBuiltInRegistry();
+
+  const graphInputNode = createAddedNode({
+    nodeType: 'graphInput',
+    position: { x: 10, y: 20 },
+    registry,
+    referencedProjects: {},
+    applyDefaultColor: false,
+  });
+  const textNode = createAddedNode({
+    nodeType: 'text',
+    position: { x: 30, y: 40 },
+    registry,
+    referencedProjects: {},
+    applyDefaultColor: true,
+  });
+
+  assert.equal(graphInputNode.visualData.color, undefined);
+  assert.equal(textNode.visualData.color, undefined);
+});
 
 test('duplicateNodeWithConnections clones nested node data independently', () => {
   const registry = createBuiltInRegistry();
