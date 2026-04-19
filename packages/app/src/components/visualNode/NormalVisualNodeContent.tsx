@@ -13,7 +13,6 @@ import type { HeightCache } from '../../hooks/useNodeBodyHeight';
 import type { SelectedProcessRunProp } from '../VisualNode';
 import SettingsCogIcon from 'majesticons/line/settings-cog-line.svg?react';
 import SendIcon from 'majesticons/solid/send.svg?react';
-import GitForkLine from 'majesticons/line/git-fork-line.svg?react';
 import BookIcon from 'majesticons/line/book-open-line.svg?react';
 import { ResizeHandle } from '../ResizeHandle.js';
 import { useCanvasPositioning } from '../../hooks/useCanvasPositioning.js';
@@ -28,6 +27,7 @@ import { preservePortTextCaseState } from '../../state/settings';
 import { useCanvasHandlersContext, useCanvasViewContext } from '../CanvasContext';
 import { NodeBody } from '../NodeBody.js';
 import { NodeOutput } from '../NodeOutput.js';
+import { SplitRunModeIcon } from './SplitRunModeIcon.js';
 import {
   computeHorizontalNodeResizeBounds,
   DEFAULT_NODE_WIDTH,
@@ -200,13 +200,16 @@ export const NormalVisualNodeContent: FC<{
     const ifConnected =
       connections.some((connection) => connection.inputNodeId === node.id && connection.inputId === IF_PORT.id) ||
       (draggingWire?.endNodeId === node.id && draggingWire?.endPortId === IF_PORT.id);
+    const splitRunMaxLabel = `max ${node.splitRunMax ?? 10}`;
 
     return (
       <>
         <div className="node-title" onMouseMove={watchShift}>
           <div className={clsx('grab-area', { grabbable: !shiftHeld })} {...(shiftHeld ? {} : handleAttributes)} onClick={handleGrabClick}>
-            {node.isSplitRun ? <GitForkLine /> : <></>}
-            <div className="title-text">{node.title}</div>
+            {node.isSplitRun ? <SplitRunModeIcon isSequential={node.isSplitSequential} /> : <></>}
+            <div className="title-text">
+              <span className="title-text-label">{node.title}</span>
+            </div>
           </div>
           <div className="title-controls">
             {isHistoricalChanged && (
@@ -229,8 +232,16 @@ export const NormalVisualNodeContent: FC<{
                 <></>
               )}
             </div>
+            {node.isSplitRun && (
+              <Tooltip content="Edit Node">
+                <button type="button" className="split-run-max-button" onClick={handleEditClick} onMouseDown={handleEditMouseDown}>
+                  <span className="split-run-max-badge">{splitRunMaxLabel}</span>
+                </button>
+              </Tooltip>
+            )}
             <Tooltip content="Edit Node">
               <button
+                type="button"
                 className="edit-button"
                 onClick={(event) => {
                   if (isKnownNodeType) {

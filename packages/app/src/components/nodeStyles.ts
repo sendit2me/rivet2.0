@@ -104,10 +104,6 @@ export const nodeStyles = css`
     padding-left: 30px;
   }
 
-  .node.isSplit .node-title .grab-area svg {
-    transform: rotate(90deg);
-  }
-
   .node.isSplit::before,
   .node.isSplit::after {
     content: '';
@@ -170,10 +166,41 @@ export const nodeStyles = css`
     }
   }
 
+  .split-run-mode-icon {
+    flex: 0 0 auto;
+    width: 16px;
+    height: 16px;
+  }
+
   .title-text {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    min-width: 0;
     font-weight: bold;
     font-size: 14px;
     text-transform: uppercase;
+  }
+
+  .title-text-label {
+    flex: 1 1 0;
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .split-run-max-badge {
+    flex: 0 0 auto;
+    padding: 1px 6px;
+    border-radius: 6px;
+    background: var(--node-bg-foreground);
+    color: var(--node-bg);
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.4;
+    letter-spacing: 0.4px;
+    text-transform: none;
   }
 
   .node.isComment .title-text {
@@ -184,11 +211,17 @@ export const nodeStyles = css`
     font-size: 25px;
   }
 
+  .node.zoomedOut .split-run-max-badge {
+    font-size: 12px;
+    padding: 2px 8px;
+  }
+
   .title-controls {
     display: flex;
     align-items: center;
-    gap: 0;
+    gap: 6px;
     margin-right: -8px;
+    flex: 0 0 auto;
 
     .success,
     .error,
@@ -209,7 +242,8 @@ export const nodeStyles = css`
       color: var(--error);
     }
 
-    button {
+    .changed-button,
+    .edit-button {
       background-color: transparent;
       border: none;
       color: var(--node-bg-foreground);
@@ -229,9 +263,34 @@ export const nodeStyles = css`
       }
     }
 
-    button:hover {
+    .changed-button:hover,
+    .edit-button:hover {
       color: var(--primary-text);
     }
+  }
+
+  .title-controls .split-run-max-badge {
+    align-self: center;
+  }
+
+  .split-run-max-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: auto;
+    min-width: max-content;
+    height: auto;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .split-run-max-button:hover .split-run-max-badge {
+    background: var(--primary);
+    color: var(--highlighted-text-contrast);
   }
 
   .title-controls .tooltip {

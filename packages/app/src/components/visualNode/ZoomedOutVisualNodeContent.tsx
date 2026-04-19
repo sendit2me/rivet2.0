@@ -9,7 +9,6 @@ import {
 } from '@ironclad/rivet-core';
 import SettingsCogIcon from 'majesticons/line/settings-cog-line.svg?react';
 import SendIcon from 'majesticons/solid/send.svg?react';
-import GitForkLine from 'majesticons/line/git-fork-line.svg?react';
 import { useStableCallback } from '../../hooks/useStableCallback.js';
 import { LoadingSpinner } from '../LoadingSpinner.js';
 import { NodePortsRenderer } from '../NodePorts.js';
@@ -18,6 +17,7 @@ import { Port } from '../Port';
 import { preservePortTextCaseState } from '../../state/settings';
 import { useCanvasHandlersContext, useCanvasViewContext } from '../CanvasContext';
 import type { SelectedProcessRunProp } from '../VisualNode';
+import { SplitRunModeIcon } from './SplitRunModeIcon.js';
 
 export const ZoomedOutVisualNodeContent: FC<{
   node: ChartNode;
@@ -71,14 +71,17 @@ export const ZoomedOutVisualNodeContent: FC<{
     const ifConnected =
       connections.some((connection) => connection.inputNodeId === node.id && connection.inputId === IF_PORT.id) ||
       (draggingWire?.endNodeId === node.id && draggingWire?.endPortId === IF_PORT.id);
+    const splitRunMaxLabel = `max ${node.splitRunMax ?? 10}`;
 
     return (
       <>
         <div className="node-title">
           {!isReallyZoomedOut && (
             <div className="grab-area" {...handleAttributes} onClick={handleGrabClick}>
-              {node.isSplitRun ? <GitForkLine /> : <></>}
-              <div className="title-text">{node.title}</div>
+              {node.isSplitRun ? <SplitRunModeIcon isSequential={node.isSplitSequential} /> : <></>}
+              <div className="title-text">
+                <span className="title-text-label">{node.title}</span>
+              </div>
             </div>
           )}
           {!isReallyZoomedOut && (
@@ -94,14 +97,19 @@ export const ZoomedOutVisualNodeContent: FC<{
                     .exhaustive()
                 ) : (
                   <></>
-                )}
-              </div>
-              <button className="edit-button" onClick={handleEditClick} onMouseDown={handleEditMouseDown} title="Edit">
-                <SettingsCogIcon />
-              </button>
+              )}
             </div>
-          )}
-        </div>
+            {node.isSplitRun && (
+              <button type="button" className="split-run-max-button" onClick={handleEditClick} onMouseDown={handleEditMouseDown} title="Edit">
+                <span className="split-run-max-badge">{splitRunMaxLabel}</span>
+              </button>
+            )}
+            <button type="button" className="edit-button" onClick={handleEditClick} onMouseDown={handleEditMouseDown} title="Edit">
+              <SettingsCogIcon />
+            </button>
+          </div>
+        )}
+      </div>
 
         {node.isConditional && (
           <div className="node-title-ports input-ports">

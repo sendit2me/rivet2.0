@@ -1080,6 +1080,12 @@ Split-run mode UI is presentation-only:
 - persisted node state still uses the existing `isSplitSequential?: boolean` flag from [`packages/core/src/model/NodeBase.ts`](../packages/core/src/model/NodeBase.ts)
 - `parallel` must continue to map to `false`/`undefined`, and `sequential` must continue to map to `true`
 
+Current canvas header affordances for split nodes:
+
+- visual node headers render a split-mode icon in [`packages/app/src/components/visualNode/SplitRunModeIcon.tsx`](../packages/app/src/components/visualNode/SplitRunModeIcon.tsx)
+- split nodes also render a `max N` badge in the header controls area rather than inside the title flow
+- that badge is an edit affordance and should open the same node settings panel as the gear control
+
 Current node-editor Monaco rules that matter for editor changes:
 
 - `CodeEditorDefinition.enableFolding` is an explicit opt-in capability on core editor definitions; folding is intentionally enabled only for selected built-in code/JSON node-editor fields, not for every Monaco surface in the app
