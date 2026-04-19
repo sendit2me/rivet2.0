@@ -1,4 +1,4 @@
-import { it, describe } from 'node:test';
+import { afterEach, it, describe } from 'node:test';
 import { strict as assert } from 'node:assert';
 import {
   GraphProcessor,
@@ -18,6 +18,11 @@ import {
 import { loadTestGraphInProcessor, testProcessContext } from '../testUtils';
 
 type TrackedNode = ChartNode<'trackedTest', { delayMs: number }>;
+const originalFetch = globalThis.fetch;
+
+afterEach(() => {
+  globalThis.fetch = originalFetch;
+});
 
 function waitFor(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -382,5 +387,71 @@ void describe('GraphProcessor', () => {
 
     assert.deepEqual(outputs.output, { type: 'string[]', value: ['a', 'b', 'c', 'd'] });
     assert.equal(TrackedTestNodeImpl.maxActiveCount, 2);
+  });
+
+  void it('treats caught Http Call request failures as successful node finishes', async () => {
+    globalThis.fetch = async () => {
+      throw new TypeError('fetch failed');
+    };
+
+    const graph = {
+      metadata: {
+        id: 'http-call-catch-request-failed',
+        name: 'HTTP Call Catch Request Failed',
+        description: '',
+      },
+      nodes: [
+        {
+          id: 'http-node',
+          type: 'httpCall',
+          title: 'Http Call',
+          data: {
+            method: 'GET',
+            url: 'https://example.invalid',
+            headers: '',
+            body: '',
+            errorOnNon200: true,
+            catchRequestFailed: true,
+          },
+          visualData: { x: 0, y: 0, width: 250 },
+        },
+        {
+          id: 'output-node',
+          type: 'graphOutput',
+          title: 'Graph Output',
+          data: {
+            id: 'requestFailed',
+            dataType: 'boolean',
+          },
+          visualData: { x: 250, y: 0, width: 300 },
+        },
+      ],
+      connections: [
+        {
+          outputNodeId: 'http-node',
+          outputId: 'requestFailed',
+          inputNodeId: 'output-node',
+          inputId: 'value',
+        },
+      ],
+    };
+
+    const processor = new GraphProcessor(makeProject(graph), graph.metadata.id, globalRivetNodeRegistry);
+    const nodeErrors: string[] = [];
+    const finishedNodes: string[] = [];
+
+    processor.on('nodeError', ({ node }) => {
+      nodeErrors.push(node.id);
+    });
+
+    processor.on('nodeFinish', ({ node }) => {
+      finishedNodes.push(node.id);
+    });
+
+    const outputs = await processor.processGraph(testProcessContext());
+
+    assert.deepStrictEqual(outputs.requestFailed, { type: 'boolean', value: true });
+    assert.equal(nodeErrors.includes('http-node'), false);
+    assert.equal(finishedNodes.includes('http-node'), true);
   });
 });

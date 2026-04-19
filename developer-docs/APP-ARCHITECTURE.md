@@ -1089,6 +1089,7 @@ Current structure:
 - node metadata, split-run, variant, and conditional controls live in [`packages/app/src/components/nodeEditor/NodeEditorGlobalControls.tsx`](../packages/app/src/components/nodeEditor/NodeEditorGlobalControls.tsx)
 - default field dispatch still flows through [`packages/app/src/components/editors/DefaultNodeEditorField.tsx`](../packages/app/src/components/editors/DefaultNodeEditorField.tsx), which routes `type: 'code'` editor definitions through [`packages/app/src/components/editors/CodeEditor.tsx`](../packages/app/src/components/editors/CodeEditor.tsx)
 - built-in callback-list nodes such as `jsFilter` and `jsMap` intentionally stay on that generic `type: 'code'` editor path; their "body of `(item, index, array) => { ... }`" UX is a core-node contract created through seeded callback-body text, helper copy, and generated execution wrappers rather than an app-side custom editor
+- `Http Call` also stays on the generic node-editor path; its `Catch Request failed` toggle is a core-node contract that adds an optional `Request failed` boolean output and converts invalid-URL or transport-level request failures into `control-flow-excluded` normal outputs plus `Request failed = true` while still letting the node finish successfully, whereas aborts, response-parsing failures, and ordinary HTTP status responses still behave as hard node errors or normal outputs
 
 This keeps the real boundary in place without preserving a thin wrapper file that only forwarded editor props.
 

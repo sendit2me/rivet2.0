@@ -13,6 +13,93 @@ import { type EditorDefinition, type InternalProcessContext } from '../../index.
 import { coerceType, dedent, getInputOrData } from '../../utils/index.js';
 import { getError } from '../../utils/errors.js';
 
+const REQUEST_FAILED_OUTPUT_ID = 'requestFailed' as PortId;
+
+function isAbortError(error: unknown, signal: AbortSignal): boolean {
+  return signal.aborted || getError(error).name === 'AbortError';
+}
+
+function getNestedErrorCause(error: unknown): unknown {
+  return error && typeof error === 'object' && 'cause' in error ? (error as { cause?: unknown }).cause : undefined;
+}
+
+function getNestedErrorCode(error: unknown): string | undefined {
+  if (!error || typeof error !== 'object' || !('code' in error)) {
+    return undefined;
+  }
+
+  const code = (error as { code?: unknown }).code;
+  return typeof code === 'string' ? code : undefined;
+}
+
+function isCatchableHttpRequestFailureCandidate(error: unknown): boolean {
+  const { message } = getError(error);
+  const code = getNestedErrorCode(error);
+
+  return (
+    code === 'ERR_INVALID_URL' ||
+    message.includes('Invalid URL') ||
+    message.includes('Failed to parse URL from') ||
+    message.includes('Failed to fetch') ||
+    message.includes('Load failed') ||
+    message.includes('fetch failed')
+  );
+}
+
+function isCatchableHttpRequestFailure(params: { error: unknown; signal: AbortSignal }): boolean {
+  const { error, signal } = params;
+  if (isAbortError(error, signal)) {
+    return false;
+  }
+
+  return [error, getNestedErrorCause(error)].some((candidate) => candidate && isCatchableHttpRequestFailureCandidate(candidate));
+}
+
+function buildRequestFailedOutputs(params: { isBinaryOutput: boolean }): Outputs {
+  const sharedOutputs: Outputs = {
+    ['statusCode' as PortId]: {
+      type: 'control-flow-excluded',
+      value: undefined,
+    },
+    ['res_headers' as PortId]: {
+      type: 'control-flow-excluded',
+      value: undefined,
+    },
+  };
+
+  if (params.isBinaryOutput) {
+    return {
+      ...sharedOutputs,
+      ['binary' as PortId]: {
+        type: 'control-flow-excluded',
+        value: undefined,
+      },
+    };
+  }
+
+  return {
+    ...sharedOutputs,
+    ['res_body' as PortId]: {
+      type: 'control-flow-excluded',
+      value: undefined,
+    },
+    ['json' as PortId]: {
+      type: 'control-flow-excluded',
+      value: undefined,
+    },
+  };
+}
+
+function buildCaughtRequestFailedResult(params: { isBinaryOutput: boolean }): Outputs {
+  return {
+    ...buildRequestFailedOutputs(params),
+    [REQUEST_FAILED_OUTPUT_ID]: {
+      type: 'boolean',
+      value: true,
+    },
+  };
+}
+
 export type HttpCallNode = ChartNode<'httpCall', HttpCallNodeData>;
 
 export type HttpCallNodeData = {
@@ -31,6 +118,7 @@ export type HttpCallNodeData = {
   isBinaryOutput?: boolean;
 
   errorOnNon200?: boolean;
+  catchRequestFailed?: boolean;
 };
 
 export class HttpCallNodeImpl extends NodeImpl<HttpCallNode> {
@@ -50,6 +138,7 @@ export class HttpCallNodeImpl extends NodeImpl<HttpCallNode> {
         headers: '',
         body: '',
         errorOnNon200: true,
+        catchRequestFailed: false,
       },
     };
 
@@ -130,6 +219,14 @@ export class HttpCallNodeImpl extends NodeImpl<HttpCallNode> {
       },
     );
 
+    if (this.data.catchRequestFailed) {
+      outputDefinitions.push({
+        dataType: 'boolean',
+        id: REQUEST_FAILED_OUTPUT_ID,
+        title: 'Request failed',
+      });
+    }
+
     return outputDefinitions;
   }
 
@@ -180,6 +277,11 @@ export class HttpCallNodeImpl extends NodeImpl<HttpCallNode> {
         label: 'Error on non-200 status code',
         dataKey: 'errorOnNon200',
       },
+      {
+        type: 'toggle',
+        label: 'Catch Request failed',
+        dataKey: 'catchRequestFailed',
+      },
     ];
   }
 
@@ -195,7 +297,7 @@ export class HttpCallNodeImpl extends NodeImpl<HttpCallNode> {
             : ''
       }${this.data.useBodyInput ? '\nBody: (Using Input)' : this.data.body.trim() ? `\nBody: ${this.data.body}` : ''}${
         this.data.errorOnNon200 ? '\nError on non-200' : ''
-      }
+      }${this.data.catchRequestFailed ? '\nCatch Request failed' : ''}
     `;
   }
 
@@ -213,13 +315,6 @@ export class HttpCallNodeImpl extends NodeImpl<HttpCallNode> {
   async process(inputs: Inputs, context: InternalProcessContext): Promise<Outputs> {
     const method = getInputOrData(this.data, inputs, 'method', 'string');
     const url = getInputOrData(this.data, inputs, 'url', 'string');
-
-    // TODO: Use URL.canParse when we drop support for Node 18
-    try {
-      new URL(url);
-    } catch (err) {
-      throw new Error(`Invalid URL: ${url}`);
-    }
 
     let headers: Record<string, string> | undefined;
     if (this.data.useHeadersInput) {
@@ -249,65 +344,99 @@ export class HttpCallNodeImpl extends NodeImpl<HttpCallNode> {
       body = this.data.body || undefined;
     }
 
+    if (this.data.catchRequestFailed) {
+      try {
+        // TODO: Use URL.canParse when we drop support for Node 18
+        new URL(url);
+      } catch (error) {
+        if (isCatchableHttpRequestFailure({ error, signal: context.signal })) {
+          return buildCaughtRequestFailedResult({ isBinaryOutput: Boolean(this.data.isBinaryOutput) });
+        }
+
+        throw error;
+      }
+    } else {
+      // TODO: Use URL.canParse when we drop support for Node 18
+      try {
+        new URL(url);
+      } catch (_error) {
+        throw new Error(`Invalid URL: ${url}`);
+      }
+    }
+
+    let response: Response;
     try {
-      const response = await fetch(url, {
+      response = await fetch(url, {
         method,
         headers,
         body,
         signal: context.signal,
         mode: 'cors',
       });
-
-      const output: Outputs = {
-        ['statusCode' as PortId]: {
-          type: 'number',
-          value: response.status,
-        },
-        ['res_headers' as PortId]: {
-          type: 'object',
-          value: Object.fromEntries(response.headers.entries()),
-        },
-      };
-
-      if (this.data.isBinaryOutput) {
-        const responseBlob = await response.blob();
-        output['binary' as PortId] = {
-          type: 'binary',
-          value: new Uint8Array(await responseBlob.arrayBuffer()),
-        };
-      } else {
-        const responseText = await response.text();
-        output['res_body' as PortId] = {
-          type: 'string',
-          value: responseText,
-        };
-        if (response.headers.get('content-type')?.includes('application/json')) {
-          const jsonData = JSON.parse(responseText);
-          output['json' as PortId] = {
-            type: 'object',
-            value: jsonData,
-          };
-        } else {
-          output['json' as PortId] = {
-            type: 'control-flow-excluded',
-            value: undefined,
-          };
-        }
+    } catch (err) {
+      if (this.data.catchRequestFailed && isCatchableHttpRequestFailure({ error: err, signal: context.signal })) {
+        return buildCaughtRequestFailedResult({ isBinaryOutput: Boolean(this.data.isBinaryOutput) });
       }
 
-      return output;
-    } catch (err) {
+      if (isAbortError(err, context.signal)) {
+        throw err;
+      }
+
       const { message } = getError(err);
-      if (message.includes('Load failed') || message.includes('Failed to fetch')) {
-        if (context.executor === 'browser') {
-          throw new Error(
-            'Failed to make HTTP call. You may be running into CORS problems. Try using the Node executor in the top-right menu.',
-          );
-        }
+      if ((message.includes('Load failed') || message.includes('Failed to fetch')) && context.executor === 'browser') {
+        throw new Error(
+          'Failed to make HTTP call. You may be running into CORS problems. Try using the Node executor in the top-right menu.',
+        );
       }
 
       throw err;
     }
+
+    const output: Outputs = {
+      ['statusCode' as PortId]: {
+        type: 'number',
+        value: response.status,
+      },
+      ['res_headers' as PortId]: {
+        type: 'object',
+        value: Object.fromEntries(response.headers.entries()),
+      },
+    };
+
+    if (this.data.isBinaryOutput) {
+      const responseBlob = await response.blob();
+      output['binary' as PortId] = {
+        type: 'binary',
+        value: new Uint8Array(await responseBlob.arrayBuffer()),
+      };
+    } else {
+      const responseText = await response.text();
+      output['res_body' as PortId] = {
+        type: 'string',
+        value: responseText,
+      };
+      if (response.headers.get('content-type')?.includes('application/json')) {
+        const jsonData = JSON.parse(responseText);
+        output['json' as PortId] = {
+          type: 'object',
+          value: jsonData,
+        };
+      } else {
+        output['json' as PortId] = {
+          type: 'control-flow-excluded',
+          value: undefined,
+        };
+      }
+    }
+
+    if (this.data.catchRequestFailed) {
+      output[REQUEST_FAILED_OUTPUT_ID] = {
+        type: 'boolean',
+        value: false,
+      };
+    }
+
+    return output;
   }
 }
 
