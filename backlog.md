@@ -1,8 +1,10 @@
 
 
 
+- In general context menu, when typing in search, strictly visually divide the nodes and the found graphs "Go to ... graph"
 
-- A special icon for "Use an input port for..." option in node editors instea dof the generic toggle
+
+- A special icon for "Use an input port for..." option in node editors instead of the generic toggle
 
 - New Nodes for working with lists: filtering, mapping, reducing, etc.
 

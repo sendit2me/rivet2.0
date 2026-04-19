@@ -30,8 +30,58 @@ export const defaultEditorContainerStyles = css`
   }
 
   .use-input-toggle {
-    align-self: top;
+    align-self: start;
     margin-top: 36px;
+    display: flex;
+    align-items: flex-start;
+  }
+
+  .use-input-toggle-button {
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 1px solid var(--grey-darkish);
+    border-radius: 8px;
+    background: var(--grey-darkest);
+    color: var(--foreground-muted);
+    cursor: pointer;
+    transition:
+      background-color 0.15s ease-out,
+      border-color 0.15s ease-out,
+      color 0.15s ease-out;
+  }
+
+  .use-input-toggle-button:focus {
+    outline: none;
+  }
+
+  .use-input-toggle-button:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+
+  .use-input-toggle-button:hover:not(:disabled) {
+    background: var(--grey-darkerish);
+    color: var(--grey-light);
+  }
+
+  .use-input-toggle-button.is-active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: white;
+  }
+
+  .use-input-toggle-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .use-input-toggle-button svg {
+    width: 18px;
+    height: 18px;
   }
 
   .data-type-selector {

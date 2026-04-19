@@ -1,8 +1,8 @@
-import Toggle from '@atlaskit/toggle';
 import { type EditorDefinition, type ChartNode } from '@ironclad/rivet-core';
 import clsx from 'clsx';
 import { type FC } from 'react';
 import { match } from 'ts-pattern';
+import PlugIcon from '../../assets/icons/plug-icon.svg?react';
 import { type SharedEditorProps } from './SharedEditorProps';
 import { DefaultAnyDataEditor } from './AnyEditor';
 import { DefaultCodeEditor } from './CodeEditor';
@@ -69,26 +69,34 @@ export const DefaultNodeEditorField: FC<
 
   const sideControlDataKey = editor.type !== 'group' ? editor.useInputToggleDataKey : undefined;
   const hasSideControl = Boolean(sideControlDataKey);
+  const isUsingInputPort = sideControlDataKey ? Boolean(data[sideControlDataKey]) : false;
+  const useInputLabelSuffix = editor.label.trim();
+  const useInputTooltip = useInputLabelSuffix ? `Use an input port for ${useInputLabelSuffix}` : 'Use an input port';
 
   const toggle = hasSideControl ? (
-      <div className="use-input-toggle">
-        <Tooltip content={`Use an input port for ${editor.label}`}>
-          <Toggle
-            isChecked={data[sideControlDataKey!] as boolean | undefined}
-            isDisabled={isReadonly || sharedProps.isDisabled}
-            onChange={(e) =>
-              onChange({
-                ...node,
-                data: {
-                  ...data,
-                  [sideControlDataKey!]: e.target.checked,
-                },
-              })
-            }
-          />
-        </Tooltip>
-      </div>
-    ) : null;
+    <div className="use-input-toggle">
+      <Tooltip content={useInputTooltip}>
+        <button
+          type="button"
+          className={clsx('use-input-toggle-button', isUsingInputPort && 'is-active')}
+          aria-label={useInputTooltip}
+          aria-pressed={isUsingInputPort}
+          disabled={isReadonly || sharedProps.isDisabled}
+          onClick={() =>
+            onChange({
+              ...node,
+              data: {
+                ...data,
+                [sideControlDataKey!]: !isUsingInputPort,
+              },
+            })
+          }
+        >
+          <PlugIcon />
+        </button>
+      </Tooltip>
+    </div>
+  ) : null;
 
   return (
     <div className={clsx('row', editor.type, hasSideControl && 'has-side-control')}>
