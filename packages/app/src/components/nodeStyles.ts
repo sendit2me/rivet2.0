@@ -98,6 +98,11 @@ export const nodeStyles = css`
     overflow: hidden;
     word-break: break-word;
     hyphens: auto;
+    cursor: pointer;
+  }
+
+  .node-title.grabbable {
+    cursor: move;
   }
 
   .node.conditional .node-title {
@@ -159,11 +164,6 @@ export const nodeStyles = css`
     margin-top: -12px;
     margin-bottom: -12px;
     padding: 12px 0;
-    cursor: pointer;
-
-    &.grabbable {
-      cursor: move;
-    }
   }
 
   .split-run-mode-icon {
@@ -222,6 +222,7 @@ export const nodeStyles = css`
     gap: 6px;
     margin-right: -8px;
     flex: 0 0 auto;
+    pointer-events: none;
 
     .success,
     .error,
@@ -267,6 +268,10 @@ export const nodeStyles = css`
     .edit-button:hover {
       color: var(--primary-text);
     }
+  }
+
+  .title-controls > * {
+    pointer-events: auto;
   }
 
   .title-controls .split-run-max-badge {

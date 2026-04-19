@@ -1,5 +1,12 @@
 import clsx from 'clsx';
-import { type FC, type HTMLAttributes, type MouseEvent as ReactMouseEvent, memo, useState } from 'react';
+import {
+  type FC,
+  type HTMLAttributes,
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
+  memo,
+  useState,
+} from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { match } from 'ts-pattern';
@@ -98,6 +105,10 @@ export const NormalVisualNodeContent: FC<{
     const handleEditMouseDown = useStableCallback((event: ReactMouseEvent<HTMLButtonElement>) => {
       event.stopPropagation();
       event.preventDefault();
+    });
+
+    const handleEditPointerDown = useStableCallback((event: ReactPointerEvent<HTMLButtonElement>) => {
+      event.stopPropagation();
     });
 
     const getNextResizeBounds = useStableCallback((event: globalThis.MouseEvent) => {
@@ -204,8 +215,13 @@ export const NormalVisualNodeContent: FC<{
 
     return (
       <>
-        <div className="node-title" onMouseMove={watchShift}>
-          <div className={clsx('grab-area', { grabbable: !shiftHeld })} {...(shiftHeld ? {} : handleAttributes)} onClick={handleGrabClick}>
+        <div
+          className={clsx('node-title', { grabbable: !shiftHeld })}
+          {...(shiftHeld ? {} : handleAttributes)}
+          onMouseMove={watchShift}
+          onClick={handleGrabClick}
+        >
+          <div className="grab-area">
             {node.isSplitRun ? <SplitRunModeIcon isSequential={node.isSplitSequential} /> : <></>}
             <div className="title-text">
               <span className="title-text-label">{node.title}</span>
@@ -213,7 +229,16 @@ export const NormalVisualNodeContent: FC<{
           </div>
           <div className="title-controls">
             {isHistoricalChanged && (
-              <button onClick={viewChanges} className="changed-button">
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  viewChanges();
+                }}
+                onPointerDown={handleEditPointerDown}
+                onMouseDown={handleEditMouseDown}
+                className="changed-button"
+              >
                 <Tooltip content="This node was changed, click to view changes">
                   <BookIcon />
                 </Tooltip>
@@ -234,7 +259,13 @@ export const NormalVisualNodeContent: FC<{
             </div>
             {node.isSplitRun && (
               <Tooltip content="Edit Node">
-                <button type="button" className="split-run-max-button" onClick={handleEditClick} onMouseDown={handleEditMouseDown}>
+                <button
+                  type="button"
+                  className="split-run-max-button"
+                  onClick={handleEditClick}
+                  onPointerDown={handleEditPointerDown}
+                  onMouseDown={handleEditMouseDown}
+                >
                   <span className="split-run-max-badge">{splitRunMaxLabel}</span>
                 </button>
               </Tooltip>
@@ -248,6 +279,7 @@ export const NormalVisualNodeContent: FC<{
                     handleEditClick(event);
                   }
                 }}
+                onPointerDown={handleEditPointerDown}
                 onMouseDown={handleEditMouseDown}
               >
                 <SettingsCogIcon />

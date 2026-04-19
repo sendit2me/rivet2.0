@@ -1,4 +1,5 @@
-import { type FC, type HTMLAttributes, type MouseEvent, memo } from 'react';
+import clsx from 'clsx';
+import { type FC, type HTMLAttributes, type MouseEvent, type PointerEvent, memo } from 'react';
 import { useAtomValue } from 'jotai';
 import { match } from 'ts-pattern';
 import {
@@ -51,6 +52,10 @@ export const ZoomedOutVisualNodeContent: FC<{
       event.preventDefault();
     });
 
+    const handleEditPointerDown = useStableCallback((event: PointerEvent<HTMLButtonElement>) => {
+      event.stopPropagation();
+    });
+
     const handleGrabClick = useStableCallback((event: MouseEvent<HTMLDivElement>) => {
       event.stopPropagation();
       onNodeSelected?.(node, event.shiftKey);
@@ -75,9 +80,13 @@ export const ZoomedOutVisualNodeContent: FC<{
 
     return (
       <>
-        <div className="node-title">
+        <div
+          className={clsx('node-title', { grabbable: !isReallyZoomedOut })}
+          {...(isReallyZoomedOut ? {} : handleAttributes)}
+          onClick={isReallyZoomedOut ? undefined : handleGrabClick}
+        >
           {!isReallyZoomedOut && (
-            <div className="grab-area" {...handleAttributes} onClick={handleGrabClick}>
+            <div className="grab-area">
               {node.isSplitRun ? <SplitRunModeIcon isSequential={node.isSplitSequential} /> : <></>}
               <div className="title-text">
                 <span className="title-text-label">{node.title}</span>
@@ -97,19 +106,33 @@ export const ZoomedOutVisualNodeContent: FC<{
                     .exhaustive()
                 ) : (
                   <></>
+                )}
+              </div>
+              {node.isSplitRun && (
+                <button
+                  type="button"
+                  className="split-run-max-button"
+                  onClick={handleEditClick}
+                  onPointerDown={handleEditPointerDown}
+                  onMouseDown={handleEditMouseDown}
+                  title="Edit"
+                >
+                  <span className="split-run-max-badge">{splitRunMaxLabel}</span>
+                </button>
               )}
-            </div>
-            {node.isSplitRun && (
-              <button type="button" className="split-run-max-button" onClick={handleEditClick} onMouseDown={handleEditMouseDown} title="Edit">
-                <span className="split-run-max-badge">{splitRunMaxLabel}</span>
+              <button
+                type="button"
+                className="edit-button"
+                onClick={handleEditClick}
+                onPointerDown={handleEditPointerDown}
+                onMouseDown={handleEditMouseDown}
+                title="Edit"
+              >
+                <SettingsCogIcon />
               </button>
-            )}
-            <button type="button" className="edit-button" onClick={handleEditClick} onMouseDown={handleEditMouseDown} title="Edit">
-              <SettingsCogIcon />
-            </button>
-          </div>
-        )}
-      </div>
+            </div>
+          )}
+        </div>
 
         {node.isConditional && (
           <div className="node-title-ports input-ports">
