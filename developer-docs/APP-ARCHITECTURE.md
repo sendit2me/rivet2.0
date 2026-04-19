@@ -668,7 +668,7 @@ The app now also has a small selector/helper layer for canonical execution-state
 That layer centralizes:
 
 - selected process/run lookup for paged node output
-- node status-to-class derivation (`success`, `error`, `running`, `not-ran`)
+- node status-to-class derivation (`success`, `error`, `interrupted`, `running`, `not-ran`)
 - action-bar run/debugger visibility decisions derived from executor session state
 
 UI consumers such as `ActionBar`, `VisualNode`, `NodeOutput`, `PortInfo`, and the visual-node content renderers should prefer those helpers over recomputing execution semantics locally.
@@ -1122,6 +1122,8 @@ Current structure:
 
 - [`packages/app/src/components/NodeOutput.tsx`](../packages/app/src/components/NodeOutput.tsx) now focuses on output panel orchestration
 - process-page controls are kept local to `NodeOutput.tsx`
+- execution status emphasis for canvas nodes now lives on the node output shell rather than header glyphs:
+  `success` uses a subtle green output tint, `error` / `interrupted` use a subtle red tint, `running` keeps the primary divider, and `not-ran` keeps the dashed divider lane
 - the inline `Show Full Output` toggle now lives in the node output action bar next to copy/fullscreen controls, not in the node header
 - inline compact-vs-full selection is resolved through [`packages/app/src/components/nodeOutput/nodeOutputPreviewMode.ts`](../packages/app/src/components/nodeOutput/nodeOutputPreviewMode.ts) so callers do not re-encode that policy ad hoc
 - fullscreen header controls for expanded node output now render through [`packages/app/src/components/nodeOutput/FullscreenNodeOutputToolbar.tsx`](../packages/app/src/components/nodeOutput/FullscreenNodeOutputToolbar.tsx), which stays presentational

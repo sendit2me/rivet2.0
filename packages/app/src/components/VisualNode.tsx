@@ -12,7 +12,7 @@ import { type ChartNode, type CommentNode, type NodeConnection } from '@ironclad
 import { useAtomValue } from 'jotai';
 import { useDependsOnPlugins } from '../hooks/useDependsOnPlugins';
 import { useHistoricalNodeChangeInfo } from '../hooks/useHistoricalNodeChangeInfo';
-import { type ProcessDataForNode, resolvedGraphSelectionState, type NodeRunDataWithRefs } from '../state/dataFlow.js';
+import { type ProcessDataForNode, resolvedGraphSelectionState } from '../state/dataFlow.js';
 import { getNodeExecutionClassFlags, getSelectedProcessRun } from '../state/selectors/executionSelectors.js';
 import { getSplitStackGhostColors } from '../utils/nodeSplitStackColors.js';
 import { useCanvasHandlersContext, useCanvasViewContext } from './CanvasContext';
@@ -35,10 +35,6 @@ export type VisualNodeProps = {
   renderSkeleton?: boolean;
   nodeAttributes?: HTMLAttributes<HTMLDivElement>;
   handleAttributes?: HTMLAttributes<HTMLDivElement>;
-};
-
-export type SelectedProcessRunProp = {
-  selectedProcessRun?: NodeRunDataWithRefs;
 };
 
 export const VisualNode = memo(
@@ -169,7 +165,6 @@ export const VisualNode = memo(
               connections={connections}
               handleAttributes={handleAttributes}
               isKnownNodeType={isKnownNodeType}
-              selectedProcessRun={selectedProcessRun}
               isReallyZoomedOut={effectiveIsReallyZoomedOut}
             />
           ) : (
@@ -179,7 +174,6 @@ export const VisualNode = memo(
               connections={connections}
               handleAttributes={handleAttributes}
               isKnownNodeType={isKnownNodeType}
-              selectedProcessRun={selectedProcessRun}
               isHistoricalChanged={isHistoricalChanged}
             />
           )}

@@ -143,6 +143,7 @@ export function getNodeExecutionClassFlags(runData: NodeRunDataWithRefs | undefi
   return {
     success: status === 'ok',
     error: status === 'error',
+    interrupted: status === 'interrupted',
     running: status === 'running',
     'not-ran': status === 'notRan',
   };

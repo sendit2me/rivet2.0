@@ -224,25 +224,6 @@ export const nodeStyles = css`
     flex: 0 0 auto;
     pointer-events: none;
 
-    .success,
-    .error,
-    .interrupted,
-    .not-ran {
-      width: 24px;
-      height: 24px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .success {
-      color: var(--success);
-    }
-
-    .error {
-      color: var(--error);
-    }
-
     .changed-button,
     .edit-button {
       background-color: transparent;
@@ -301,13 +282,6 @@ export const nodeStyles = css`
   .title-controls .tooltip {
     display: flex;
     align-items: center;
-  }
-
-  .node.isComment .title-controls {
-    .success,
-    .error {
-      display: none;
-    }
   }
 
   .node.zoomedOut .title-controls {
@@ -555,6 +529,34 @@ export const nodeStyles = css`
     border-top-color: var(--primary);
   }
 
+  .node.success {
+    --node-output-status-bg: color-mix(in srgb, var(--success) 10%, var(--grey-darker) 90%);
+    --node-output-status-border: var(--success-light);
+  }
+
+  .node.error,
+  .node.interrupted {
+    --node-output-status-bg: color-mix(in srgb, var(--error) 10%, var(--grey-darker) 90%);
+    --node-output-status-border: var(--error-light);
+  }
+
+  .node.success .node-output:not(.multi) .node-output-inner,
+  .node.error .node-output:not(.multi) .node-output-inner,
+  .node.interrupted .node-output:not(.multi) .node-output-inner,
+  .node.error .multi-node-output,
+  .node.interrupted .multi-node-output,
+  .node.success .multi-node-output {
+    background-color: var(--node-output-status-bg);
+    background-image: none;
+    border-top-color: var(--node-output-status-border);
+  }
+
+  .node.not-ran .node-output:not(.multi) .node-output-inner,
+  .node.not-ran .multi-node-output {
+    border-top-style: dashed;
+    border-top-color: var(--grey-lightish);
+  }
+
   .node-output.multi .node-output-inner.node-output-inner {
     border-top: 1px solid var(--grey-light);
   }
@@ -562,17 +564,6 @@ export const nodeStyles = css`
   .node:hover .node-output-warnings {
     max-height: 500px;
     overflow: hidden;
-  }
-
-  .node.error .node-output:not(.multi) .node-output-inner,
-  .node.error .multi-node-output {
-    border-top-color: var(--error-light);
-  }
-
-  .node.not-ran .node-output:not(.multi) .node-output-inner,
-  .node.not-ran .multi-node-output {
-    border-top-style: dashed;
-    border-top-color: var(--grey-lightish);
   }
 
   .node:hover .node-output-inner {
@@ -608,11 +599,12 @@ export const nodeStyles = css`
   }
 
   .node.success .node-output:before {
-    border-top-color: var(--success-light);
+    border-top-color: var(--node-output-status-border);
   }
 
-  .node.error .node-output:before {
-    border-top-color: var(--error-light);
+  .node.error .node-output:before,
+  .node.interrupted .node-output:before {
+    border-top-color: var(--node-output-status-border);
   }
 
   .node.not-ran .node-output:before {

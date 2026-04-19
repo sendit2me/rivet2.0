@@ -1,7 +1,6 @@
 import clsx from 'clsx';
 import { type FC, type HTMLAttributes, type MouseEvent, type PointerEvent, memo } from 'react';
 import { useAtomValue } from 'jotai';
-import { match } from 'ts-pattern';
 import {
   type ChartNode,
   IF_PORT,
@@ -9,15 +8,12 @@ import {
   type PortId,
 } from '@ironclad/rivet-core';
 import SettingsCogIcon from 'majesticons/line/settings-cog-line.svg?react';
-import SendIcon from 'majesticons/solid/send.svg?react';
 import { useStableCallback } from '../../hooks/useStableCallback.js';
-import { LoadingSpinner } from '../LoadingSpinner.js';
 import { NodePortsRenderer } from '../NodePorts.js';
 import { useDependsOnPlugins } from '../../hooks/useDependsOnPlugins';
 import { Port } from '../Port';
 import { preservePortTextCaseState } from '../../state/settings';
 import { useCanvasHandlersContext, useCanvasViewContext } from '../CanvasContext';
-import type { SelectedProcessRunProp } from '../VisualNode';
 import { SplitRunModeIcon } from './SplitRunModeIcon.js';
 
 export const ZoomedOutVisualNodeContent: FC<{
@@ -25,7 +21,6 @@ export const ZoomedOutVisualNodeContent: FC<{
   connections?: NodeConnection[];
   handleAttributes?: HTMLAttributes<HTMLDivElement>;
   isKnownNodeType: boolean;
-  selectedProcessRun?: SelectedProcessRunProp['selectedProcessRun'];
   isReallyZoomedOut: boolean;
 }> = memo(
   ({
@@ -33,7 +28,6 @@ export const ZoomedOutVisualNodeContent: FC<{
     connections = [],
     handleAttributes,
     isKnownNodeType,
-    selectedProcessRun,
     isReallyZoomedOut,
   }) => {
     useDependsOnPlugins();
@@ -95,19 +89,6 @@ export const ZoomedOutVisualNodeContent: FC<{
           )}
           {!isReallyZoomedOut && (
             <div className="title-controls">
-              <div className="last-run-status">
-                {selectedProcessRun?.status ? (
-                  match(selectedProcessRun.status)
-                    .with({ type: 'ok' }, () => <div className="success"><SendIcon /></div>)
-                    .with({ type: 'error' }, () => <div className="error"><SendIcon /></div>)
-                    .with({ type: 'running' }, () => <div className="running"><LoadingSpinner /></div>)
-                    .with({ type: 'interrupted' }, () => <div className="interrupted"><SendIcon /></div>)
-                    .with({ type: 'notRan' }, () => <div className="not-ran"><SendIcon /></div>)
-                    .exhaustive()
-                ) : (
-                  <></>
-                )}
-              </div>
               {node.isSplitRun && (
                 <button
                   type="button"

@@ -2,7 +2,8 @@
 
 Node settings panel resizing is laggy. let's maybe switch off the panel transparency and blur while resizing?
 
-- Remove the green/red plane icon on run nodes. Instead, make the output node are more prominent. When it's successfully run, make the output area grren background but barely visible green. Like alpha 0.1 or something. Same thing with red - unsuccessful.
+
+- SHow more output without hover and wit it too
 
 
 - New Nodes for working with lists: filtering, mapping, reducing, etc.

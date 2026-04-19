@@ -9,7 +9,6 @@ import {
 } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
 import { useAtomValue, useSetAtom } from 'jotai';
-import { match } from 'ts-pattern';
 import {
   type ChartNode,
   IF_PORT,
@@ -17,14 +16,11 @@ import {
   type PortId,
 } from '@ironclad/rivet-core';
 import type { HeightCache } from '../../hooks/useNodeBodyHeight';
-import type { SelectedProcessRunProp } from '../VisualNode';
 import SettingsCogIcon from 'majesticons/line/settings-cog-line.svg?react';
-import SendIcon from 'majesticons/solid/send.svg?react';
 import BookIcon from 'majesticons/line/book-open-line.svg?react';
 import { ResizeHandle } from '../ResizeHandle.js';
 import { useCanvasPositioning } from '../../hooks/useCanvasPositioning.js';
 import { useStableCallback } from '../../hooks/useStableCallback.js';
-import { LoadingSpinner } from '../LoadingSpinner.js';
 import { NodePortsRenderer } from '../NodePorts.js';
 import { useDependsOnPlugins } from '../../hooks/useDependsOnPlugins';
 import { viewingNodeChangesState } from '../../state/graphBuilder';
@@ -48,14 +44,12 @@ export const NormalVisualNodeContent: FC<{
   connections?: NodeConnection[];
   handleAttributes?: HTMLAttributes<HTMLDivElement>;
   isKnownNodeType: boolean;
-  selectedProcessRun?: SelectedProcessRunProp['selectedProcessRun'];
   isHistoricalChanged: boolean;
 }> = memo(
   ({
     heightCache,
     node,
     connections = [],
-    selectedProcessRun,
     handleAttributes,
     isKnownNodeType,
     isHistoricalChanged,
@@ -244,19 +238,6 @@ export const NormalVisualNodeContent: FC<{
                 </Tooltip>
               </button>
             )}
-            <div className="last-run-status">
-              {selectedProcessRun?.status ? (
-                match(selectedProcessRun.status)
-                  .with({ type: 'ok' }, () => <Tooltip content="This node ran successfully"><div className="success"><SendIcon /></div></Tooltip>)
-                  .with({ type: 'error' }, () => <Tooltip content="This node errored"><div className="error"><SendIcon /></div></Tooltip>)
-                  .with({ type: 'running' }, () => <Tooltip content="This node is currently running"><div className="running"><LoadingSpinner /></div></Tooltip>)
-                  .with({ type: 'interrupted' }, () => <Tooltip content="This node was interrupted"><div className="interrupted"><SendIcon /></div></Tooltip>)
-                  .with({ type: 'notRan' }, () => <Tooltip content="This node was not ran due to control flow"><div className="not-ran"><SendIcon /></div></Tooltip>)
-                  .exhaustive()
-              ) : (
-                <></>
-              )}
-            </div>
             {node.isSplitRun && (
               <Tooltip content="Edit Node">
                 <button
