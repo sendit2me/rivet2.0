@@ -1,4 +1,4 @@
-import { type FC, useMemo, useState, type MouseEvent } from 'react';
+import { type CSSProperties, type FC, useMemo, useState, type MouseEvent } from 'react';
 import { editingNodeState } from '../state/graphBuilder.js';
 import { nodesByIdState } from '../state/graph.js';
 import styled from '@emotion/styled';
@@ -14,6 +14,7 @@ import { DefaultNodeEditor } from './editors/DefaultNodeEditor';
 import { useAtomValue, useAtom } from 'jotai';
 import { useEditNodeCommand } from '../commands/editNodeCommand';
 import { NodeEditorGlobalControls } from './nodeEditor/NodeEditorGlobalControls.js';
+import { NodeEditorResizeContext } from './nodeEditor/NodeEditorResizeContext.js';
 import { ResizeHandle } from './ResizeHandle.js';
 import { useNodeEditorWidth } from './nodeEditor/useNodeEditorWidth.js';
 
@@ -38,13 +39,13 @@ export const NodeEditorRenderer: FC = () => {
   );
 };
 
-const Container = styled.div<{ panelWidth: number }>`
+const Container = styled.div`
   position: absolute;
   top: var(--project-selector-height);
   right: 0;
   bottom: 0;
   z-index: 210;
-  width: ${({ panelWidth }) => `${panelWidth}px`};
+  width: var(--node-editor-panel-width);
   max-width: 1000px;
   min-width: 500px;
 
@@ -59,6 +60,10 @@ const Container = styled.div<{ panelWidth: number }>`
     z-index: 2;
     touch-action: none;
     background: transparent;
+  }
+
+  &[data-is-resizing='true'] .panel-container {
+    backdrop-filter: none;
   }
 
   .panel-container {
@@ -536,7 +541,7 @@ export type NodeChanged = (changed: ChartNode, newData?: Record<DataId, string>)
 export const NodeEditor: FC<NodeEditorProps> = ({ selectedNode, onDeselect }) => {
   const [selectedVariant, setSelectedVariant] = useState<string | undefined>();
   const [addVariantPopupOpen, setAddVariantPopupOpen] = useState(false);
-  const { panelWidth, resizeHandleProps } = useNodeEditorWidth();
+  const { containerRef, isResizing, panelWidth, resizeHandleProps } = useNodeEditorWidth();
 
   const setStaticData = useSetStaticData();
   const editNode = useEditNodeCommand();
@@ -627,54 +632,59 @@ export const NodeEditor: FC<NodeEditorProps> = ({ selectedNode, onDeselect }) =>
   const showGlobalControls = selectedNode.type !== 'comment';
   const projectNodeRegistry = useProjectNodeRegistry();
   const nodeDisplayName = `${projectNodeRegistry.getDynamicDisplayName(selectedNode.type)} node`;
+  const containerStyle = {
+    '--node-editor-panel-width': `${panelWidth}px`,
+  } as CSSProperties;
 
   return (
-    <Container panelWidth={panelWidth}>
-      <ResizeHandle className="node-editor-width-resize-handle" {...resizeHandleProps} />
-      <div className="panel-container">
-        <div className="panel">
-          {showGlobalControls && (
-            <NodeEditorGlobalControls
-              node={selectedNode}
-              selectedVariant={selectedVariant}
-              setSelectedVariant={setSelectedVariant}
-              addVariantPopupOpen={addVariantPopupOpen}
-              setAddVariantPopupOpen={setAddVariantPopupOpen}
-              variantOptions={variantOptions}
-              selectedVariantOption={selectedVariantOption}
-              onTitleChange={nodeTitleChanged}
-              onDescriptionChange={nodeDescriptionChanged}
-              onColorChange={nodeColorChanged}
-              onDisabledChange={nodeDisabledChanged}
-              onUpdateNode={updateNode}
-              onApplyVariant={handleApplyVariant}
-              onDeleteVariant={handleDeleteVariant}
-              onSaveAsVariant={handleSaveAsVariant}
-            />
-          )}
+    <NodeEditorResizeContext.Provider value={isResizing}>
+      <Container ref={containerRef} style={containerStyle} data-is-resizing={isResizing}>
+        <ResizeHandle className="node-editor-width-resize-handle" {...resizeHandleProps} />
+        <div className="panel-container">
+          <div className="panel">
+            {showGlobalControls && (
+              <NodeEditorGlobalControls
+                node={selectedNode}
+                selectedVariant={selectedVariant}
+                setSelectedVariant={setSelectedVariant}
+                addVariantPopupOpen={addVariantPopupOpen}
+                setAddVariantPopupOpen={setAddVariantPopupOpen}
+                variantOptions={variantOptions}
+                selectedVariantOption={selectedVariantOption}
+                onTitleChange={nodeTitleChanged}
+                onDescriptionChange={nodeDescriptionChanged}
+                onColorChange={nodeColorChanged}
+                onDisabledChange={nodeDisabledChanged}
+                onUpdateNode={updateNode}
+                onApplyVariant={handleApplyVariant}
+                onDeleteVariant={handleDeleteVariant}
+                onSaveAsVariant={handleSaveAsVariant}
+              />
+            )}
 
-          <div className="section section-node">
-            <div className="section-node-content">
-              {Editor ? (
-                <Editor node={nodeForEditor} onChange={isVariant ? () => {} : updateNode} />
-              ) : (
-                <DefaultNodeEditor
-                  node={nodeForEditor}
-                  isReadonly={isVariant}
-                  onChange={isVariant ? () => {} : updateNode}
-                  onClose={onDeselect}
-                />
-              )}
+            <div className="section section-node">
+              <div className="section-node-content">
+                {Editor ? (
+                  <Editor node={nodeForEditor} onChange={isVariant ? () => {} : updateNode} />
+                ) : (
+                  <DefaultNodeEditor
+                    node={nodeForEditor}
+                    isReadonly={isVariant}
+                    onChange={isVariant ? () => {} : updateNode}
+                    onClose={onDeselect}
+                  />
+                )}
+              </div>
+              <div className="bottom-spacer" />
             </div>
-            <div className="bottom-spacer" />
+          </div>
+          <div className="section section-footer">
+            <span className="node-id" onClick={selectText}>
+              {`${nodeDisplayName}, ${selectedNode.id}`}
+            </span>
           </div>
         </div>
-        <div className="section section-footer">
-          <span className="node-id" onClick={selectText}>
-            {`${nodeDisplayName}, ${selectedNode.id}`}
-          </span>
-        </div>
-      </div>
-    </Container>
+      </Container>
+    </NodeEditorResizeContext.Provider>
   );
 };

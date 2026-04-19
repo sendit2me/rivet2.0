@@ -3,6 +3,7 @@ import { type FC, type MutableRefObject, useEffect, useRef } from 'react';
 import { monaco } from '../utils/monaco.js';
 import { useMultilineEditorFontSize } from '../hooks/useMultilineEditorFontSize.js';
 import { DEFAULT_MONACO_THEME } from './codeEditorTheme.js';
+import { useIsNodeEditorResizing } from './nodeEditor/NodeEditorResizeContext.js';
 
 export const CodeEditor: FC<{
   text: string;
@@ -31,9 +32,14 @@ export const CodeEditor: FC<{
 }) => {
   const editorContainer = useRef<HTMLDivElement>(null);
   const editorInstance = useRef<monaco.editor.IStandaloneCodeEditor>();
+  const pendingResizeLayoutRef = useRef(false);
 
   const onChangeLatest = useLatest(onChange);
   const { fontSize, handleKeyDown: handleFontSizeKeyDown } = useMultilineEditorFontSize();
+  const isNodeEditorResizing = useIsNodeEditorResizing();
+  const isNodeEditorResizingRef = useRef(isNodeEditorResizing);
+
+  isNodeEditorResizingRef.current = isNodeEditorResizing;
 
   useEffect(() => {
     const container = editorContainer.current;
@@ -69,6 +75,14 @@ export const CodeEditor: FC<{
     editor.layout();
 
     const onResize = () => {
+      // Resizing the node settings panel can emit a dense stream of ResizeObserver
+      // events. Defer Monaco relayout until the drag ends to keep panel resize smooth.
+      if (isNodeEditorResizingRef.current) {
+        pendingResizeLayoutRef.current = true;
+        return;
+      }
+
+      pendingResizeLayoutRef.current = false;
       editor.layout();
     };
     const resizeObserver = new ResizeObserver(onResize);
@@ -141,6 +155,19 @@ export const CodeEditor: FC<{
     });
     editor.layout();
   }, [fontSize]);
+
+  useEffect(() => {
+    if (isNodeEditorResizing) {
+      return;
+    }
+
+    if (!pendingResizeLayoutRef.current) {
+      return;
+    }
+
+    pendingResizeLayoutRef.current = false;
+    editorInstance.current?.layout();
+  }, [isNodeEditorResizing]);
 
   return <div ref={editorContainer} className="editor-container" />;
 };

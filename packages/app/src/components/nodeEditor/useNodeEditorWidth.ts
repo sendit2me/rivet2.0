@@ -46,15 +46,44 @@ export function dragNodeEditorWidth({
 export function useNodeEditorWidth() {
   const [persistedWidth, setPersistedWidth] = useAtom(nodeEditorWidthState);
   const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
+  const [isResizing, setIsResizing] = useState(false);
   const dragStartWidth = useRef<number | undefined>(undefined);
   const dragStartClientX = useRef(0);
   const viewportWidthRef = useRef(viewportWidth);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const animationFrameRef = useRef<number | undefined>(undefined);
+  const pendingPanelWidthRef = useRef<number | undefined>(undefined);
   const resolvedWidth = resolveNodeEditorWidth({ persistedWidth, viewportWidth });
   const [panelWidth, setPanelWidth] = useState(resolvedWidth);
   const currentPanelWidthRef = useRef(panelWidth);
 
   currentPanelWidthRef.current = panelWidth;
   viewportWidthRef.current = viewportWidth;
+
+  // Update the live drag width through a CSS variable so the full node editor tree
+  // does not rerender on every mousemove.
+  const applyPanelWidth = (width: number) => {
+    containerRef.current?.style.setProperty('--node-editor-panel-width', `${width}px`);
+  };
+
+  const schedulePanelWidth = (width: number) => {
+    pendingPanelWidthRef.current = width;
+
+    if (animationFrameRef.current != null) {
+      return;
+    }
+
+    animationFrameRef.current = window.requestAnimationFrame(() => {
+      animationFrameRef.current = undefined;
+
+      if (pendingPanelWidthRef.current == null) {
+        return;
+      }
+
+      applyPanelWidth(pendingPanelWidthRef.current);
+      pendingPanelWidthRef.current = undefined;
+    });
+  };
 
   useLayoutEffect(() => {
     const onResize = () => {
@@ -69,13 +98,23 @@ export function useNodeEditorWidth() {
   }, []);
 
   useEffect(() => {
+    applyPanelWidth(resolvedWidth);
     setPanelWidth(resolvedWidth);
   }, [resolvedWidth]);
+
+  useEffect(() => {
+    return () => {
+      if (animationFrameRef.current != null) {
+        window.cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, []);
 
   const onResizeStart = (event: ResizeHandleMouseEvent) => {
     event.preventDefault();
     dragStartWidth.current = panelWidth;
     dragStartClientX.current = event.clientX;
+    setIsResizing(true);
   };
 
   const onResizeMove = (event: ResizeHandleMouseEvent) => {
@@ -93,7 +132,7 @@ export function useNodeEditorWidth() {
     });
 
     currentPanelWidthRef.current = nextPanelWidth;
-    setPanelWidth(nextPanelWidth);
+    schedulePanelWidth(nextPanelWidth);
   };
 
   const onResizeEnd = (event: ResizeHandleMouseEvent) => {
@@ -110,8 +149,16 @@ export function useNodeEditorWidth() {
             viewportWidth: viewportWidthRef.current,
           });
 
+    if (animationFrameRef.current != null) {
+      window.cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = undefined;
+    }
+
+    pendingPanelWidthRef.current = undefined;
     currentPanelWidthRef.current = finalPanelWidth;
+    applyPanelWidth(finalPanelWidth);
     setPanelWidth(finalPanelWidth);
+    setIsResizing(false);
     dragStartWidth.current = undefined;
 
     if (persistedWidth === finalPanelWidth) {
@@ -122,6 +169,8 @@ export function useNodeEditorWidth() {
   };
 
   return {
+    containerRef,
+    isResizing,
     panelWidth,
     resizeHandleProps: {
       onResizeStart,
