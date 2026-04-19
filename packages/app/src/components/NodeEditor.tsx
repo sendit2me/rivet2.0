@@ -179,7 +179,7 @@ const Container = styled.div<{ panelWidth: number }>`
 
   .node-metadata-row {
     display: grid;
-    grid-template-columns: 28px minmax(0, 1fr);
+    grid-template-columns: 68px minmax(0, 1fr);
     align-items: start;
     gap: 14px;
     width: 100%;
@@ -191,7 +191,7 @@ const Container = styled.div<{ panelWidth: number }>`
     flex-direction: column;
     gap: 0;
     min-width: 0;
-    margin-left: 12px;
+    margin-left: -8px;
   }
 
   .node-title-field {
@@ -507,12 +507,25 @@ const Container = styled.div<{ panelWidth: number }>`
   .node-color-picker {
     display: flex;
     align-items: center;
-    margin-left: 4px;
+    width: 100%;
+    margin-top: 11px;
+    margin-left: 3px;
   }
 
-  .node-color-picker div {
-    width: 48px;
-    height: 48px;
+  .node-color-picker .node-color-picker-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 56px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    box-sizing: border-box;
+  }
+
+  .node-color-picker .node-color-picker-swatch {
+    width: 100%;
+    height: 100%;
   }
 `;
 

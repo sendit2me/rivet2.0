@@ -5,18 +5,19 @@ import { useToggle } from 'ahooks';
 import { css } from '@emotion/react';
 
 const buttonStyles = css`
+  display: block;
   background-color: transparent;
   border: none;
   padding: 0;
   margin: 0;
   cursor: pointer;
 
-  > div {
+  > .node-color-picker-swatch {
     position: relative;
     width: 32px;
     height: 32px;
-    border-radius: 2px;
-    border: 1px solid var(--grey);
+    border-radius: 4px;
+    border: 2px solid var(--grey);
     overflow: hidden;
 
     &:hover {
@@ -30,13 +31,12 @@ const buttonStyles = css`
     display: flex;
     align-items: center;
     justify-content: center;
-    color: rgba(255, 255, 255, 0.94);
+    color: rgba(255, 255, 255, 0.3);
     pointer-events: none;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
 
     svg {
-      width: 18px;
-      height: 18px;
+      width: 28px;
+      height: 28px;
       display: block;
     }
   }
@@ -166,8 +166,14 @@ export const NodeColorPicker: FC<{
       isOpen={isOpen}
       placement="bottom-start"
       trigger={(triggerProps) => (
-        <button css={buttonStyles} {...triggerProps} onClick={toggleIsOpen.toggle}>
+        <button
+          className="node-color-picker-trigger"
+          css={buttonStyles}
+          {...triggerProps}
+          onClick={toggleIsOpen.toggle}
+        >
           <div
+            className="node-color-picker-swatch"
             style={{
               backgroundColor: currentColor.bg,
               borderColor: currentColor.border,
