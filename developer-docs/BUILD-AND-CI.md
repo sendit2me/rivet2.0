@@ -146,10 +146,12 @@ ESM-only packages that cannot be aliased (e.g. `mdast-util-to-markdown`, `@googl
 - `start`: Vite dev server
 - `dev`: `node scripts/dev.mjs`
 - `build`: `tsc && vite build`
+- `prepare:tauri`: rebuild `@ironclad/rivet-app-executor` before desktop launch/build steps
 
 Current dev/build detail:
 
 - `packages/app/scripts/dev.mjs` does a Windows-only cleanup pass for stale `src-tauri/target/*/app-executor.exe` processes before launching `tauri dev`, because Tauri's sidecar-copy step fails if a previous dev session left that copied sidecar binary locked
+- `packages/app/src-tauri/tauri.conf.json` now runs `yarn prepare:tauri` before both `beforeDevCommand` and `beforeBuildCommand`, so desktop Node executor runs cannot drift onto an older bundled sidecar when app/core code has changed
 - `packages/app/src-tauri/vendor/` now carries the small vendored Tauri v1 plugin crates (`tauri-plugin-persisted-scope` and `tauri-plugin-window-state`) so Cargo no longer has to parse the upstream `plugins-workspace` template manifest during metadata/check/dev runs
 
 ### App executor

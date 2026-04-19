@@ -105,6 +105,8 @@ export const useBuiltInNodeImages = (): Record<BuiltInNodeType, string> => {
     pop: popNodeImage,
     hash: hashNodeImage,
     filter: filterNodeImage,
+    jsFilter: filterNodeImage,
+    jsMap: codeNodeImage,
     boolean: boolNodeImage,
     number: numberNodeImage,
     compare: compareNodeImage,

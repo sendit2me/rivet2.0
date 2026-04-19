@@ -130,6 +130,12 @@ export * from './nodes/JoinNode.js';
 import { filterNode } from './nodes/FilterNode.js';
 export * from './nodes/FilterNode.js';
 
+import { jsFilterNode } from './nodes/JSFilterNode.js';
+export * from './nodes/JSFilterNode.js';
+
+import { jsMapNode } from './nodes/JSMapNode.js';
+export * from './nodes/JSMapNode.js';
+
 import { objectNode } from './nodes/ObjectNode.js';
 export * from './nodes/ObjectNode.js';
 
@@ -298,6 +304,8 @@ export const registerBuiltInNodes = (registry: NodeRegistration) => {
     .register(toJsonNode)
     .register(joinNode)
     .register(filterNode)
+    .register(jsFilterNode)
+    .register(jsMapNode)
     .register(objectNode)
     .register(booleanNode)
     .register(compareNode)

@@ -1,4 +1,5 @@
 
+- When I dreag around a node or many, the connectons are not updated live. Only when I release. That's a problem. Fix it
 
 
 - New Nodes for working with lists: filtering, mapping, reducing, etc.

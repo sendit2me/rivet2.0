@@ -978,6 +978,7 @@ Current architectural detail:
 - display-oriented node-output copy projection now lives in [`packages/app/src/utils/executionDataCopyValue.ts`](../packages/app/src/utils/executionDataCopyValue.ts), while node-specific visible-output overrides for copy behavior live in [`packages/app/src/utils/nodeOutputCopyValueProjectors.ts`](../packages/app/src/utils/nodeOutputCopyValueProjectors.ts)
 - large execution payloads are now stored preview-first through that same transform layer: oversized `string`, `string[]`, `object`, `any`, and media outputs can be moved into `globalDataRefs` under stable execution-scoped ref ids instead of being kept inline in reactive node state
 - new runs and output-clearing paths are also responsible for clearing those execution-scoped refs so stale large payloads do not accumulate in the in-memory cache
+- desktop Node-executor correctness depends on the bundled `app-executor` sidecar staying in lockstep with current app/core source, so the Tauri app now rebuilds `@ironclad/rivet-app-executor` before both `tauri dev` and desktop builds instead of assuming a previously built sidecar is still compatible
 
 ### Shared executor session
 
@@ -1086,6 +1087,7 @@ Current structure:
 - `NodeEditor.tsx` owns editor selection/fallback rendering and the editor panel shell
 - node metadata, split-run, variant, and conditional controls live in [`packages/app/src/components/nodeEditor/NodeEditorGlobalControls.tsx`](../packages/app/src/components/nodeEditor/NodeEditorGlobalControls.tsx)
 - default field dispatch still flows through [`packages/app/src/components/editors/DefaultNodeEditorField.tsx`](../packages/app/src/components/editors/DefaultNodeEditorField.tsx), which routes `type: 'code'` editor definitions through [`packages/app/src/components/editors/CodeEditor.tsx`](../packages/app/src/components/editors/CodeEditor.tsx)
+- built-in callback-list nodes such as `jsFilter` and `jsMap` intentionally stay on that generic `type: 'code'` editor path; their "body of `(item, index, array) => { ... }`" UX is a core-node contract created through seeded callback-body text, helper copy, and generated execution wrappers rather than an app-side custom editor
 
 This keeps the real boundary in place without preserving a thin wrapper file that only forwarded editor props.
 
