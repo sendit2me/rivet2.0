@@ -24,7 +24,7 @@ import { promptDesignerAttachedChatNodeState } from '../state/promptDesigner.js'
 import { overlayOpenState } from '../state/ui';
 import { useDependsOnPlugins } from '../hooks/useDependsOnPlugins';
 import { useToggle } from 'ahooks';
-import { expandedOutputNodeIdsState } from '../state/graphBuilder';
+import { expandedOutputNodeIdsState, hoveringNodeState } from '../state/graphBuilder';
 import { useNodeIO } from '../hooks/useGetNodeIO';
 import { Tooltip } from './Tooltip';
 import { useDataRefs } from '../providers/ProvidersContext';
@@ -389,6 +389,7 @@ const NodeOutputSingleProcess: FC<{
   onOpenFullscreenModal?: () => void;
 }> = ({ node, data, isOutputExpanded, processId, onToggleExpandedOutput, onOpenFullscreenModal }) => {
   const dataRefs = useDataRefs();
+  const hoveringNodeId = useAtomValue(hoveringNodeState);
   const { Output, OutputSimple, getCopyValueData } = useUnknownNodeComponentDescriptorFor(node);
 
   const setOverlayOpen = useSetAtom(overlayOpenState);
@@ -417,7 +418,10 @@ const NodeOutputSingleProcess: FC<{
     return null;
   }
 
-  const { isCompact, renderMode } = resolveNodeOutputPreviewMode(isOutputExpanded);
+  const { isCompact, renderMode } = resolveNodeOutputPreviewMode({
+    isOutputExpanded,
+    isHovered: hoveringNodeId === node.id,
+  });
 
   const body = renderNodeOutputBody({
     Output,

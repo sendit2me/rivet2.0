@@ -2,6 +2,10 @@ import { css } from '@emotion/react';
 
 export const nodeStyles = css`
   .node {
+    --node-output-collapsed-max-height: calc(3 * 1.4em + 200px);
+    --node-output-hover-max-height: calc(20 * 1.4em + 36px);
+    --node-output-multi-collapsed-max-height: calc(3 * 1.4em + 60px);
+    --node-output-multi-hover-max-height: calc(20 * 1.4em + 60px);
     background-color: var(--grey-dark-seethrough);
     background-clip: padding-box;
     border-radius: 8px;
@@ -496,14 +500,18 @@ export const nodeStyles = css`
     padding: 12px;
     position: relative;
     transition: border-color 0.2s ease-out;
-    max-height: 500px;
     transition: max-height 0.2s ease-out;
     overflow: hidden;
+  }
+
+  .node-output-inner {
+    max-height: var(--node-output-collapsed-max-height);
   }
 
   .multi-node-output {
     padding: 0;
     margin-bottom: -8px;
+    max-height: var(--node-output-multi-collapsed-max-height);
   }
 
   .node-output-warnings {
@@ -519,7 +527,7 @@ export const nodeStyles = css`
     position: relative;
     transition: border-color 0.2s ease-out;
     margin-top: 8px;
-    max-height: 500px;
+    max-height: var(--node-output-collapsed-max-height);
     transition: max-height 0.2s ease-out;
     overflow: hidden;
   }
@@ -529,11 +537,6 @@ export const nodeStyles = css`
     border-top-color: var(--primary);
   }
 
-  .node.success {
-    --node-output-status-bg: color-mix(in srgb, var(--success) 10%, var(--grey-darker) 90%);
-    --node-output-status-border: var(--success-light);
-  }
-
   .node.error,
   .node.interrupted {
     --node-output-status-bg: color-mix(in srgb, var(--error) 10%, var(--grey-darker) 90%);
@@ -541,11 +544,14 @@ export const nodeStyles = css`
   }
 
   .node.success .node-output:not(.multi) .node-output-inner,
+  .node.success .multi-node-output {
+    border-top-color: var(--success-light);
+  }
+
   .node.error .node-output:not(.multi) .node-output-inner,
   .node.interrupted .node-output:not(.multi) .node-output-inner,
   .node.error .multi-node-output,
-  .node.interrupted .multi-node-output,
-  .node.success .multi-node-output {
+  .node.interrupted .multi-node-output {
     background-color: var(--node-output-status-bg);
     background-image: none;
     border-top-color: var(--node-output-status-border);
@@ -561,9 +567,23 @@ export const nodeStyles = css`
     border-top: 1px solid var(--grey-light);
   }
 
+  .node:hover .node-output-inner,
+  .node:hover .node-output-warnings {
+    max-height: var(--node-output-hover-max-height);
+  }
+
+  .node:hover .multi-node-output {
+    max-height: var(--node-output-multi-hover-max-height);
+  }
+
   .node.isOutputExpanded .node-output-inner {
     max-height: unset;
     overflow: auto;
+  }
+
+  .node.isOutputExpanded .multi-node-output {
+    max-height: unset;
+    overflow: visible;
   }
 
   .node .node-output.errored:not(.multi) {
@@ -589,7 +609,7 @@ export const nodeStyles = css`
   }
 
   .node.success .node-output:before {
-    border-top-color: var(--node-output-status-border);
+    border-top-color: var(--success-light);
   }
 
   .node.error .node-output:before,

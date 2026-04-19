@@ -1,16 +1,30 @@
 import type { OutputRenderMode } from '../RenderDataValue.js';
 
-export function resolveNodeOutputPreviewMode(isOutputExpanded: boolean): {
+export function resolveNodeOutputPreviewMode(options: {
+  isOutputExpanded: boolean;
+  isHovered?: boolean;
+}): {
   isCompact: boolean;
   renderMode: OutputRenderMode;
 } {
-  return isOutputExpanded
-    ? {
-        isCompact: false,
-        renderMode: 'full',
-      }
-    : {
-        isCompact: true,
-        renderMode: 'compact',
-      };
+  const { isOutputExpanded, isHovered = false } = options;
+
+  if (isOutputExpanded) {
+    return {
+      isCompact: false,
+      renderMode: 'full',
+    };
+  }
+
+  if (isHovered) {
+    return {
+      isCompact: false,
+      renderMode: 'expanded-preview',
+    };
+  }
+
+  return {
+    isCompact: true,
+    renderMode: 'compact',
+  };
 }
