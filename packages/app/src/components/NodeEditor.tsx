@@ -404,10 +404,61 @@ const Container = styled.div<{ panelWidth: number }>`
     flex-wrap: nowrap;
     min-height: 32px;
     margin-top: -4px;
+    margin-left: 4px;
 
     .split-max-input {
       max-width: 80px;
     }
+  }
+
+  .split-mode {
+    flex: 0 0 auto;
+  }
+
+  .segmented-choice {
+    display: inline-flex;
+    align-items: stretch;
+    min-height: 21px;
+    gap: 2px;
+    background: transparent;
+  }
+
+  .segmented-choice-option {
+    min-width: 0;
+    height: 21px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: 0;
+    background: var(--ds-background-neutral-bold, #505f79);
+    color: var(--grey-darkest);
+    font: inherit;
+    font-size: 13px;
+    line-height: 21px;
+    cursor: pointer;
+  }
+
+  .segmented-choice-option:first-of-type {
+    border-radius: 999px 0 0 999px;
+    padding-left: 12px;
+  }
+
+  .segmented-choice-option:last-of-type {
+    border-radius: 0 999px 999px 0;
+    padding-right: 12px;
+  }
+
+  .segmented-choice-option:hover {
+    background: var(--ds-background-neutral-bold-hovered, #738496);
+  }
+
+  .segmented-choice-option.is-active {
+    background: var(--ds-background-success-bold, #4bce97);
+    color: var(--grey-darkest);
+  }
+
+  .segmented-choice-option:focus-visible {
+    outline: 2px solid var(--success-light);
+    outline-offset: 1px;
   }
 
   .split-max-label {

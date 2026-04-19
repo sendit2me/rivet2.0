@@ -1074,6 +1074,12 @@ Current structure:
 
 This keeps the real boundary in place without preserving a thin wrapper file that only forwarded editor props.
 
+Split-run mode UI is presentation-only:
+
+- the node editor may render split execution as an explicit `parallel` / `sequential` choice
+- persisted node state still uses the existing `isSplitSequential?: boolean` flag from [`packages/core/src/model/NodeBase.ts`](../packages/core/src/model/NodeBase.ts)
+- `parallel` must continue to map to `false`/`undefined`, and `sequential` must continue to map to `true`
+
 Current node-editor Monaco rules that matter for editor changes:
 
 - `CodeEditorDefinition.enableFolding` is an explicit opt-in capability on core editor definitions; folding is intentionally enabled only for selected built-in code/JSON node-editor fields, not for every Monaco surface in the app
