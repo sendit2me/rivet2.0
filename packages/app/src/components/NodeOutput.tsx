@@ -88,6 +88,10 @@ const ActiveNodeOutput: FC<{ node: ChartNode; isOutputExpanded: boolean }> = ({ 
   );
 };
 
+function shouldUseExpressionErrorOutput(node: ChartNode, data: NodeRunDataWithRefs): boolean {
+  return node.type === 'expression' && data.status?.type === 'error';
+}
+
 const fullscreenOutputCss = css`
   position: relative;
 
@@ -279,11 +283,13 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
     return null;
   }
 
-  if (data.status?.type === 'error') {
+  const shouldUseCustomErrorOutput = shouldUseExpressionErrorOutput(node, data);
+
+  if (data.status?.type === 'error' && !shouldUseCustomErrorOutput) {
     return <div className="errored">{data.status.error}</div>;
   }
 
-  if (!data.outputData && !data.splitOutputData) {
+  if (!data.outputData && !data.splitOutputData && !shouldUseCustomErrorOutput) {
     return null;
   }
 
@@ -418,12 +424,13 @@ const NodeOutputSingleProcess: FC<{
   );
 
   const warnings = useMemo(() => getStoredOutputWarnings(data, dataRefs), [data, dataRefs]);
+  const shouldUseCustomErrorOutput = shouldUseExpressionErrorOutput(node, data);
 
-  if (data.status?.type === 'error') {
+  if (data.status?.type === 'error' && !shouldUseCustomErrorOutput) {
     return <div className="node-output-inner errored">{data.status.error}</div>;
   }
 
-  if (!data.outputData && !data.splitOutputData) {
+  if (!data.outputData && !data.splitOutputData && !shouldUseCustomErrorOutput) {
     return null;
   }
 

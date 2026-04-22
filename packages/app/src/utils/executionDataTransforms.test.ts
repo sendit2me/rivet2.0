@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { DataValue, PortId } from '@ironclad/rivet-core';
+import type { DataValue, Outputs, PortId } from '@ironclad/rivet-core';
 import type { DataRefStore } from '../providers/ProvidersContext.js';
 import {
   clearExecutionDataRefs,
@@ -8,6 +8,7 @@ import {
   restoreStoredInputsOrOutputs,
   storeDataValueForHistory,
   storeInputsOrOutputsForHistory,
+  storeNodeDataForHistory,
 } from './executionDataTransforms.js';
 import { REF_STORAGE_THRESHOLD_CHARS } from './outputStorageLimits.js';
 
@@ -177,4 +178,63 @@ test('clearExecutionDataRefs removes all execution-scoped refs from previous run
   } as any);
 
   assert.equal(dataRefs.values.size, 0);
+});
+
+test('storeNodeDataForHistory omits undefined input and output fields so later updates do not clobber earlier run data', () => {
+  const dataRefs = createDataRefStore();
+
+  const stored = storeNodeDataForHistory(
+    {
+      status: { type: 'ok' },
+      outputData: {
+        output: {
+          type: 'number',
+          value: 42,
+        },
+      } as Outputs,
+    },
+    dataRefs,
+    {
+      nodeId: 'node-5',
+      processId: 'process-5',
+    },
+  );
+
+  assert.deepEqual(stored, {
+    status: { type: 'ok' },
+    outputData: {
+      output: {
+        type: 'number',
+        storage: 'inline',
+        value: 42,
+      },
+    },
+  });
+  assert.equal('inputData' in stored, false);
+  assert.equal('splitOutputData' in stored, false);
+});
+
+test('storeNodeDataForHistory preserves expression debug snapshots for later output rendering', () => {
+  const dataRefs = createDataRefStore();
+
+  const stored = storeNodeDataForHistory(
+    {
+      debugData: {
+        expressionSource: '{{a}} * 2',
+      },
+      status: { type: 'running' },
+    },
+    dataRefs,
+    {
+      nodeId: 'node-expression',
+      processId: 'process-expression',
+    },
+  );
+
+  assert.deepEqual(stored, {
+    debugData: {
+      expressionSource: '{{a}} * 2',
+    },
+    status: { type: 'running' },
+  });
 });

@@ -44,6 +44,9 @@ export type RunDataByNodeId = Record<NodeId, ProcessDataForNode[]>;
 export type NodeRunDataBase = {
   startedAt?: number;
   finishedAt?: number;
+  debugData?: {
+    expressionSource?: string;
+  };
 
   status?:
     | { type: 'ok' }

@@ -6,9 +6,9 @@ import { type InputsOrOutputsWithRefs, type NodeRunDataWithRefs } from '../../st
 import { type ChartNode } from '@ironclad/rivet-core';
 
 export function renderNodeOutputBody(options: {
-  Output?: ComponentType<{ node: ChartNode; isCompact: boolean }>;
+  Output?: ComponentType<{ node: ChartNode; data: NodeRunDataWithRefs; isCompact: boolean }>;
   OutputSimple?: ComponentType<{ outputs: InputsOrOutputsWithRefs; isCompact: boolean; renderMode?: OutputRenderMode }>;
-  FullscreenOutput?: ComponentType<{ node: ChartNode }>;
+  FullscreenOutput?: ComponentType<{ node: ChartNode; data: NodeRunDataWithRefs }>;
   FullscreenOutputSimple?: ComponentType<{ outputs: InputsOrOutputsWithRefs; renderMarkdown: boolean; renderMode?: OutputRenderMode }>;
   node: ChartNode;
   data: NodeRunDataWithRefs;
@@ -31,11 +31,11 @@ export function renderNodeOutputBody(options: {
   } = options;
 
   if (FullscreenOutput) {
-    return <FullscreenOutput node={node} />;
+    return <FullscreenOutput node={node} data={data} />;
   }
 
   if (Output) {
-    return <Output node={node} isCompact={isCompact} />;
+    return <Output node={node} data={data} isCompact={isCompact} />;
   }
 
   if (data.splitOutputData) {

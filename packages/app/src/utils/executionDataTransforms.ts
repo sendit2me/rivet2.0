@@ -122,26 +122,49 @@ export function storeNodeDataForHistory(
   refStore: DataRefStore,
   scope: Omit<RefScope, 'channel'>,
 ): Partial<NodeRunDataWithRefs> {
-  return {
-    ...data,
-    inputData: storeInputsOrOutputsForHistory(data.inputData, refStore, {
+  const storedData: Partial<NodeRunDataWithRefs> = {};
+
+  if (data.startedAt !== undefined) {
+    storedData.startedAt = data.startedAt;
+  }
+
+  if (data.finishedAt !== undefined) {
+    storedData.finishedAt = data.finishedAt;
+  }
+
+  if (data.debugData !== undefined) {
+    storedData.debugData = cloneDeep(data.debugData);
+  }
+
+  if (data.status !== undefined) {
+    storedData.status = data.status;
+  }
+
+  if (data.inputData !== undefined) {
+    storedData.inputData = storeInputsOrOutputsForHistory(data.inputData, refStore, {
       ...scope,
       channel: 'input',
-    }),
-    outputData: storeInputsOrOutputsForHistory(data.outputData, refStore, {
+    });
+  }
+
+  if (data.outputData !== undefined) {
+    storedData.outputData = storeInputsOrOutputsForHistory(data.outputData, refStore, {
       ...scope,
       channel: 'output',
-    }),
-    splitOutputData: data.splitOutputData
-      ? (mapValues(data.splitOutputData, (value, key) =>
-          storeInputsOrOutputsForHistory(value, refStore, {
-            ...scope,
-            channel: 'output',
-            splitIndex: Number(key),
-          }),
-        ) as NodeRunDataWithRefs['splitOutputData'])
-      : undefined,
-  };
+    });
+  }
+
+  if (data.splitOutputData !== undefined) {
+    storedData.splitOutputData = mapValues(data.splitOutputData, (value, key) =>
+      storeInputsOrOutputsForHistory(value, refStore, {
+        ...scope,
+        channel: 'output',
+        splitIndex: Number(key),
+      }),
+    ) as NodeRunDataWithRefs['splitOutputData'];
+  }
+
+  return storedData;
 }
 
 export function storeInputsOrOutputsForHistory(

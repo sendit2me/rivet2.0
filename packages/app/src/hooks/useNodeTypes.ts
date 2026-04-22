@@ -19,7 +19,8 @@ import { loadDatasetNodeDescriptor } from '../components/nodes/LoadDatasetNode';
 import { datasetNearestNeighborsNodeDescriptor } from '../components/nodes/DatasetNearestNeighborsNode';
 import { getDatasetRowNodeDescriptor } from '../components/nodes/GetDatasetRowNode';
 import { replaceDatasetNodeDescriptor } from '../components/nodes/ReplaceDatasetNode';
-import { type InputsOrOutputsWithRefs } from '../state/dataFlow';
+import { expressionNodeDescriptor } from '../components/nodes/ExpressionNode';
+import { type InputsOrOutputsWithRefs, type NodeRunDataWithRefs } from '../state/dataFlow';
 import { useAtomValue } from 'jotai';
 import { useProjectNodeRegistry } from './useProjectNodeRegistry';
 import type { OutputRenderMode } from '../components/RenderDataValue.js';
@@ -27,9 +28,9 @@ import type { NodeOutputCopyValueProjector } from '../utils/executionDataCopyVal
 
 export type UnknownNodeComponentDescriptor = {
   Body?: FC<{ node: ChartNode }>;
-  Output?: FC<{ node: ChartNode; isCompact: boolean }>;
+  Output?: FC<{ node: ChartNode; data: NodeRunDataWithRefs; isCompact: boolean }>;
   Editor?: FC<{ node: ChartNode; onChange?: (node: ChartNode) => void }>;
-  FullscreenOutput?: FC<{ node: ChartNode }>;
+  FullscreenOutput?: FC<{ node: ChartNode; data: NodeRunDataWithRefs }>;
   OutputSimple?: FC<{ outputs: InputsOrOutputsWithRefs; isCompact: boolean; renderMode?: OutputRenderMode }>;
   FullscreenOutputSimple?: FC<{ outputs: InputsOrOutputsWithRefs; renderMarkdown: boolean; renderMode?: OutputRenderMode }>;
   getCopyValueData?: NodeOutputCopyValueProjector;
@@ -38,9 +39,9 @@ export type UnknownNodeComponentDescriptor = {
 
 export type NodeComponentDescriptor<T extends BuiltInNodeType> = {
   Body?: FC<{ node: NodeOfType<T> }>;
-  Output?: FC<{ node: NodeOfType<T>; isCompact: boolean }>;
+  Output?: FC<{ node: NodeOfType<T>; data: NodeRunDataWithRefs; isCompact: boolean }>;
   Editor?: FC<{ node: NodeOfType<T>; onChange?: (node: NodeOfType<T>) => void }>;
-  FullscreenOutput?: FC<{ node: NodeOfType<T> }>;
+  FullscreenOutput?: FC<{ node: NodeOfType<T>; data: NodeRunDataWithRefs }>;
   OutputSimple?: FC<{ outputs: InputsOrOutputsWithRefs; isCompact: boolean; renderMode?: OutputRenderMode }>;
   FullscreenOutputSimple?: FC<{ outputs: InputsOrOutputsWithRefs; renderMarkdown: boolean; renderMode?: OutputRenderMode }>;
   getCopyValueData?: NodeOutputCopyValueProjector;
@@ -66,6 +67,7 @@ const overriddenDescriptors: Partial<NodeComponentDescriptors> = {
   datasetNearestNeighbors: datasetNearestNeighborsNodeDescriptor,
   getDatasetRow: getDatasetRowNodeDescriptor,
   replaceDataset: replaceDatasetNodeDescriptor,
+  expression: expressionNodeDescriptor,
 };
 
 export function useNodeTypes(): NodeComponentDescriptors {

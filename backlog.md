@@ -1,9 +1,11 @@
-- Extract Object Path must support variables too
-
 - Observability on where a certain graph is used
 
-- Mini code node that works like:
-{{a}} == "123" ? {{b}} : {{c}}
+- Should we add more useful information into red error outputs for some nodes? Like with the "expression" node. For the code node for example?
+
+
+- Support Python in all nodes that support javascript
+
+- Just like with the "Expression" node, the JS filter and JS map nodes must support variables interpolation. Same style a sin expression node — substitute variables with literals, no autoquoting or anything
 
 - Node for accessing headers of the request
 

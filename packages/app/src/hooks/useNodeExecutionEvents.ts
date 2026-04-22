@@ -1,6 +1,6 @@
 import { produce } from 'immer';
 import { useSetAtom } from 'jotai';
-import { type ProcessEvents } from '@ironclad/rivet-core';
+import { type ExpressionNode, type ProcessEvents } from '@ironclad/rivet-core';
 import { type ExecutionDataFlowApi } from './useExecutionDataFlow';
 import { lastRunDataByNodeState } from '../state/dataFlow';
 import {
@@ -29,6 +29,7 @@ export function useNodeExecutionEvents({
 
   const onNodeStart = ({ node, inputs, processId, execution }: ProcessEvents['nodeStart']) => {
     setDataForNode(node.id, processId, execution, {
+      ...getNodeRunDebugData(node),
       inputData: sanitizeInputsOrOutputs(inputs),
       status: { type: 'running' },
       startedAt: Date.now(),
@@ -47,6 +48,7 @@ export function useNodeExecutionEvents({
 
   const onNodeExcluded = ({ node, processId, inputs, outputs, reason, execution }: ProcessEvents['nodeExcluded']) => {
     setDataForNode(node.id, processId, execution, {
+      ...getNodeRunDebugData(node),
       inputData: sanitizeInputsOrOutputs(inputs),
       outputData: sanitizeInputsOrOutputs(outputs),
       status: { type: 'notRan', reason },
@@ -145,5 +147,17 @@ export function useNodeExecutionEvents({
     onNodeOutputsCleared,
     onNodeStart,
     onPartialOutput,
+  };
+}
+
+function getNodeRunDebugData(node: ProcessEvents['nodeStart']['node']) {
+  if (node.type !== 'expression') {
+    return {};
+  }
+
+  return {
+    debugData: {
+      expressionSource: (node as ExpressionNode).data.expression,
+    },
   };
 }
