@@ -11,9 +11,10 @@ import { nodeDefinition } from '../NodeDefinition.js';
 import { type DataValue } from '../DataValue.js';
 import { JSONPath } from 'jsonpath-plus';
 import { expectType } from '../../utils/expectType.js';
-import { type EditorDefinition, type NodeBodySpec } from '../../index.js';
+import { type EditorDefinition, type InternalProcessContext, type NodeBodySpec } from '../../index.js';
 import { dedent } from 'ts-dedent';
 import { coerceTypeOptional } from '../../utils/coerceType.js';
+import { extractInterpolationVariables, interpolate } from '../../utils/interpolation.js';
 
 export type ExtractObjectPathNode = ChartNode<'extractObjectPath', ExtractObjectPathNodeData>;
 
@@ -21,6 +22,9 @@ export type ExtractObjectPathNodeData = {
   path: string;
   usePathInput: boolean;
 };
+
+// Keep built-in ports from becoming implicit interpolation variables.
+const RESERVED_INPUT_IDS = new Set<PortId>(['object' as PortId]);
 
 export class ExtractObjectPathNodeImpl extends NodeImpl<ExtractObjectPathNode> {
   static create(): ExtractObjectPathNode {
@@ -42,7 +46,18 @@ export class ExtractObjectPathNodeImpl extends NodeImpl<ExtractObjectPathNode> {
     return chartNode;
   }
 
+  private getInterpolationTokenNames(): string[] {
+    return extractInterpolationVariables(this.chartNode.data.path ?? '');
+  }
+
+  private getInterpolationInputNames(): string[] {
+    return this.getInterpolationTokenNames().filter(
+      (inputName) => !RESERVED_INPUT_IDS.has(inputName as PortId),
+    );
+  }
+
   getInputDefinitions(): NodeInputDefinition[] {
+    const { usePathInput } = this.chartNode.data;
     const inputDefinitions: NodeInputDefinition[] = [
       {
         id: 'object' as PortId,
@@ -52,7 +67,7 @@ export class ExtractObjectPathNodeImpl extends NodeImpl<ExtractObjectPathNode> {
       },
     ];
 
-    if (this.chartNode.data.usePathInput) {
+    if (usePathInput) {
       inputDefinitions.push({
         id: 'path' as PortId,
         title: 'Path',
@@ -60,6 +75,15 @@ export class ExtractObjectPathNodeImpl extends NodeImpl<ExtractObjectPathNode> {
         required: true,
         coerced: false,
       });
+    } else {
+      for (const inputName of this.getInterpolationInputNames()) {
+        inputDefinitions.push({
+          id: inputName as PortId,
+          title: inputName,
+          dataType: 'any',
+          required: false,
+        });
+      }
     }
 
     return inputDefinitions;
@@ -107,15 +131,30 @@ export class ExtractObjectPathNodeImpl extends NodeImpl<ExtractObjectPathNode> {
     };
   }
 
-  async process(inputs: Record<PortId, DataValue>): Promise<Record<PortId, DataValue>> {
+  async process(
+    inputs: Record<PortId, DataValue>,
+    context: InternalProcessContext,
+  ): Promise<Record<PortId, DataValue>> {
+    const { usePathInput, path } = this.chartNode.data;
     const inputObject = coerceTypeOptional(inputs['object' as PortId], 'object');
-    const inputPath = this.chartNode.data.usePathInput
+    const rawPath = usePathInput
       ? expectType(inputs['path' as PortId], 'string')
-      : this.chartNode.data.path;
+      : path;
 
-    if (!inputPath) {
+    if (!rawPath) {
       throw new Error('Path input is not provided');
     }
+
+    const interpolationInputs = Object.fromEntries(
+      this.getInterpolationTokenNames().map((inputName) => [
+        inputName,
+        RESERVED_INPUT_IDS.has(inputName as PortId) ? '' : inputs[inputName as PortId],
+      ]),
+    ) as Record<string, DataValue | string | undefined>;
+
+    const inputPath = usePathInput
+      ? rawPath
+      : interpolate(rawPath, interpolationInputs, context.graphInputNodeValues, context.contextValues);
 
     let matches: unknown[];
     try {

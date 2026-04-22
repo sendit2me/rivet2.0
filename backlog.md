@@ -1,4 +1,47 @@
+- Extract Object Path must support variables too
 
+- Observability on where a certain graph is used
+
+- Mini code node that works like:
+{{a}} == "123" ? {{b}} : {{c}}
+
+- Node for accessing headers of the request
+
+- Convenient node type browser, just like in n8n
+
+- A way to throw the error into the workflow response whenever the workflow breaks and ends
+
+- A faster way to open a subgraph than from a context menu
+
+- In remote debugging, come up with some ID that can be passed when running so that I can "catch" only the target runs of the workflow
+
+- Make sure a long running node is visible enough
+
+- In the output full popup in the markdown mode some linebreaks disappear
+
+- In the comment node the layout of text seems to be broken. The colors look stupid too. Also need to checl if the comment node resizes in all directions
+
+- Get bacl the save and cancel buttons to the node title and description fields
+
+- The popup full view of the output - I want to be able to resize it from left and right as much as I want
+
+- Make sure text copies on Ctrl+C no problem from full view popup and output panel
+
+- The remote debugger window pops up somewher eon the left. It has to appear next to the button that I clicked to open it
+
+- Random number node
+
+- When a subgraph node has an input connection and then this input port is removed, the phantom connection persists (it shouldn't)
+
+- Nodes for working with lists: get element by index
+
+- When the "comment" node is partially out of view, it disappears
+
+- Show run time in eachnode
+
+- Destructure node: when adding a new line, auto isert "$." into it
+
+- Every node should have a "Do not throw" switcher so I can safely fallback with coalesce
 
 
 - When the output is large and paged, the page size seems to be too small. I need to check. It affects the search
