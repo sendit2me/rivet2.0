@@ -31,7 +31,6 @@ import { preservePortTextCaseState } from '../../state/settings';
 import { useCanvasHandlersContext, useCanvasViewContext } from '../CanvasContext';
 import { NodeBody } from '../NodeBody.js';
 import { NodeOutput } from '../NodeOutput.js';
-import { SplitRunModeIcon } from './SplitRunModeIcon.js';
 import {
   computeBoxNodeResizeBounds,
   computeHorizontalNodeResizeBounds,
@@ -259,7 +258,6 @@ export const NormalVisualNodeContent: FC<{
     const ifConnected =
       connections.some((connection) => connection.inputNodeId === node.id && connection.inputId === IF_PORT.id) ||
       (draggingWire?.endNodeId === node.id && draggingWire?.endPortId === IF_PORT.id);
-    const splitRunMaxLabel = `max ${node.splitRunMax ?? 10}`;
     const resizeDirections: BoxNodeResizeDirection[] = isComment
       ? ['top', 'right', 'bottom', 'left', 'top-left', 'top-right', 'bottom-left', 'bottom-right']
       : ['left', 'right'];
@@ -273,7 +271,6 @@ export const NormalVisualNodeContent: FC<{
           onClick={handleGrabClick}
         >
           <div className="grab-area">
-            {node.isSplitRun ? <SplitRunModeIcon isSequential={node.isSplitSequential} /> : <></>}
             <div className="title-text">
               <span className="title-text-label">{node.title}</span>
             </div>
@@ -294,19 +291,6 @@ export const NormalVisualNodeContent: FC<{
                   <BookIcon />
                 </Tooltip>
               </button>
-            )}
-            {node.isSplitRun && (
-              <Tooltip content="Edit Node">
-                <button
-                  type="button"
-                  className="split-run-max-button"
-                  onClick={handleEditClick}
-                  onPointerDown={handleEditPointerDown}
-                  onMouseDown={handleEditMouseDown}
-                >
-                  <span className="split-run-max-badge">{splitRunMaxLabel}</span>
-                </button>
-              </Tooltip>
             )}
             {isRunning && (
               <span className="node-running-indicator" aria-label="Node running" role="status" />

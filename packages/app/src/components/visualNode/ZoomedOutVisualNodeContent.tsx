@@ -14,7 +14,6 @@ import { useDependsOnPlugins } from '../../hooks/useDependsOnPlugins';
 import { Port } from '../Port';
 import { preservePortTextCaseState } from '../../state/settings';
 import { useCanvasHandlersContext, useCanvasViewContext } from '../CanvasContext';
-import { SplitRunModeIcon } from './SplitRunModeIcon.js';
 
 export const ZoomedOutVisualNodeContent: FC<{
   node: ChartNode;
@@ -72,7 +71,6 @@ export const ZoomedOutVisualNodeContent: FC<{
     const ifConnected =
       connections.some((connection) => connection.inputNodeId === node.id && connection.inputId === IF_PORT.id) ||
       (draggingWire?.endNodeId === node.id && draggingWire?.endPortId === IF_PORT.id);
-    const splitRunMaxLabel = `max ${node.splitRunMax ?? 10}`;
 
     return (
       <>
@@ -83,7 +81,6 @@ export const ZoomedOutVisualNodeContent: FC<{
         >
           {!isReallyZoomedOut && (
             <div className="grab-area">
-              {node.isSplitRun ? <SplitRunModeIcon isSequential={node.isSplitSequential} /> : <></>}
               <div className="title-text">
                 <span className="title-text-label">{node.title}</span>
               </div>
@@ -91,18 +88,6 @@ export const ZoomedOutVisualNodeContent: FC<{
           )}
           {!isReallyZoomedOut && (
             <div className="title-controls">
-              {node.isSplitRun && (
-                <button
-                  type="button"
-                  className="split-run-max-button"
-                  onClick={handleEditClick}
-                  onPointerDown={handleEditPointerDown}
-                  onMouseDown={handleEditMouseDown}
-                  title="Edit"
-                >
-                  <span className="split-run-max-badge">{splitRunMaxLabel}</span>
-                </button>
-              )}
               {isRunning && (
                 <span className="node-running-indicator" aria-label="Node running" role="status" />
               )}

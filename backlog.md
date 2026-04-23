@@ -1,11 +1,9 @@
 - Update the rivet version (at least in the Settings popup)
 
 
-- The popup full view of the output - I want to be able to resize it from left and right as much as I want so it remembers this as percent pargins so that when the Rivet window size changes, it affects the width of the popup
+- Color a subgraph node to default color
 
-- Make sure text copies on Ctrl+C no problem from full view popup and output panel
-
-
+- Parallel runs icon should be more parallel. Maybe move the split-related icons to the area on above the card?
 
 - A faster way to open a subgraph than from a context menu
 

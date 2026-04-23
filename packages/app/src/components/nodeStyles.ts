@@ -199,17 +199,50 @@ export const nodeStyles = css`
     overflow-wrap: anywhere;
   }
 
-  .split-run-max-badge {
-    flex: 0 0 auto;
-    padding: 1px 6px;
-    border-radius: 6px;
-    background: var(--node-bg-foreground);
-    color: var(--node-bg);
+  .split-run-summary-tooltip {
+    position: absolute;
+    top: -26px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 4;
+    pointer-events: auto;
+    width: max-content;
+  }
+
+  .split-run-summary {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 24px;
+    padding: 2px 8px;
+    border: 0;
+    border-radius: 3px;
+    background: var(--node-bg);
+    color: var(--node-bg-foreground);
+    cursor: pointer;
+    width: max-content;
+    white-space: nowrap;
+    font-family: inherit;
     font-size: 11px;
-    font-weight: 700;
+    font-weight: 900;
     line-height: 1.4;
     letter-spacing: 0.4px;
     text-transform: none;
+  }
+
+  .split-run-summary-label {
+    display: inline;
+  }
+
+  .split-run-summary-mode {
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+  }
+
+  .split-run-summary:hover {
+    background: var(--primary);
+    color: var(--highlighted-text-contrast);
   }
 
   .node.isComment .title-text {
@@ -218,11 +251,6 @@ export const nodeStyles = css`
 
   .node.zoomedOut .title-text {
     font-size: 25px;
-  }
-
-  .node.zoomedOut .split-run-max-badge {
-    font-size: 12px;
-    padding: 2px 8px;
   }
 
   .title-controls {
@@ -281,30 +309,6 @@ export const nodeStyles = css`
 
   .title-controls > :not(.node-running-indicator) {
     pointer-events: auto;
-  }
-
-  .title-controls .split-run-max-badge {
-    align-self: center;
-  }
-
-  .split-run-max-button {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex: 0 0 auto;
-    width: auto;
-    min-width: max-content;
-    height: auto;
-    margin: 0;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    cursor: pointer;
-  }
-
-  .split-run-max-button:hover .split-run-max-badge {
-    background: var(--primary);
-    color: var(--highlighted-text-contrast);
   }
 
   .title-controls .tooltip {
