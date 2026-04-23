@@ -538,6 +538,20 @@ This context is one of the most important extension surfaces in the runtime.
 
 That is especially true for nested execution correctness: `ProcessContextBuilder` is the seam that threads root lineage into child processors while assigning fresh child graph-run identity.
 
+### Code runner error locations
+
+`Code` nodes still execute through the configured `CodeRunner`; browser mode uses
+`IsomorphicCodeRunner`, and Node mode uses `NodeCodeRunner`. The node appends a
+generated `sourceURL` before calling the runner so runtime stack frames can be
+mapped back to the user's code-node editor lines when the run fails.
+
+Syntax-error diagnostics are deliberately failure-only. The core does not pre-parse
+successful `Code` node runs. If `AsyncFunction` construction throws a syntax error,
+the node then performs a small parser pass over a synthetic async-function wrapper
+and subtracts the wrapper offset to report the code-node line/column. Non-user-code
+errors, such as disabled dynamic execution or unavailable Node-only permissions, are
+left unchanged.
+
 ## Programmatic API
 
 The high-level API lives in [`packages/core/src/api/createProcessor.ts`](../packages/core/src/api/createProcessor.ts).

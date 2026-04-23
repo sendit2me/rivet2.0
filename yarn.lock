@@ -4289,6 +4289,7 @@ __metadata:
     "@types/yaml": "npm:^1.9.7"
     "@typescript-eslint/eslint-plugin": "npm:^8.24.0"
     "@typescript-eslint/parser": "npm:^8.24.0"
+    acorn: "npm:^8.14.0"
     ai: "npm:6.0.116"
     assemblyai: "npm:^4.6.0"
     autoevals: "npm:^0.0.26"

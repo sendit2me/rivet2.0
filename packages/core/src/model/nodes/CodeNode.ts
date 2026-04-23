@@ -14,6 +14,11 @@ import { nodeDefinition } from '../NodeDefinition.js';
 import type { InternalProcessContext } from '../ProcessContext.js';
 import type { Inputs, Outputs } from '../GraphProcessor.js';
 import { resolveUniqueValueDerivedPortIds } from '../../utils/orderedStringPortIds.js';
+import {
+  appendCodeNodeSourceUrl,
+  buildCodeNodeSourceUrl,
+  enrichCodeNodeErrorWithLocation,
+} from './codeNodeErrorDiagnostics.js';
 
 export type CodeNode = ChartNode<'code', CodeNodeData>;
 
@@ -195,19 +200,30 @@ export class CodeNodeImpl extends NodeImpl<CodeNode> {
   }
 
   async process(inputs: Inputs, context: InternalProcessContext): Promise<Outputs> {
-    const outputs = await context.codeRunner.runCode(
-      this.data.code,
-      inputs,
-      {
-        includeFetch: this.data.allowFetch ?? false,
-        includeRequire: this.data.allowRequire ?? false,
-        includeRivet: this.data.allowRivet ?? false,
-        includeProcess: this.data.allowProcess ?? false,
-        includeConsole: this.data.allowConsole ?? false,
-      },
-      context.graphInputNodeValues,
-      context.contextValues
-    );
+    const sourceUrl = buildCodeNodeSourceUrl(this.chartNode.id, context.processId);
+    let outputs: Outputs;
+
+    try {
+      outputs = await context.codeRunner.runCode(
+        appendCodeNodeSourceUrl(this.data.code, sourceUrl),
+        inputs,
+        {
+          includeFetch: this.data.allowFetch ?? false,
+          includeRequire: this.data.allowRequire ?? false,
+          includeRivet: this.data.allowRivet ?? false,
+          includeProcess: this.data.allowProcess ?? false,
+          includeConsole: this.data.allowConsole ?? false,
+        },
+        context.graphInputNodeValues,
+        context.contextValues,
+      );
+    } catch (error) {
+      throw await enrichCodeNodeErrorWithLocation({
+        code: this.data.code,
+        error,
+        sourceUrl,
+      });
+    }
 
     if (outputs == null || typeof outputs !== 'object' || ('then' in outputs && typeof outputs.then === 'function')) {
       throw new Error('Code node must return an object with output values.');

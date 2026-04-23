@@ -37,6 +37,7 @@ import { useFullscreenOutputSearch } from './nodeOutput/useFullscreenOutputSearc
 import { FullscreenNodeOutputToolbar } from './nodeOutput/FullscreenNodeOutputToolbar.js';
 import { MATCH_ACTIVE_CLASS, MATCH_CLASS } from './nodeOutput/fullscreenOutputSearch.js';
 import { resolveNodeOutputPreviewMode } from './nodeOutput/nodeOutputPreviewMode.js';
+import { CodeNodeErrorOutput } from './nodes/CodeNode.js';
 
 export const NodeOutput: FC<{ node: ChartNode; suspended?: boolean }> = memo(({ node, suspended = false }) => {
   const isOutputExpanded = useAtomValue(expandedOutputNodeIdsState).includes(node.id);
@@ -90,6 +91,10 @@ const ActiveNodeOutput: FC<{ node: ChartNode; isOutputExpanded: boolean }> = ({ 
 
 function shouldUseExpressionErrorOutput(node: ChartNode, data: NodeRunDataWithRefs): boolean {
   return node.type === 'expression' && data.status?.type === 'error';
+}
+
+function shouldUseCodeErrorOutput(node: ChartNode, data: NodeRunDataWithRefs): boolean {
+  return node.type === 'code' && data.status?.type === 'error';
 }
 
 const fullscreenOutputCss = css`
@@ -285,6 +290,10 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
 
   const shouldUseCustomErrorOutput = shouldUseExpressionErrorOutput(node, data);
 
+  if (shouldUseCodeErrorOutput(node, data)) {
+    return <CodeNodeErrorOutput data={data} />;
+  }
+
   if (data.status?.type === 'error' && !shouldUseCustomErrorOutput) {
     return <div className="errored">{data.status.error}</div>;
   }
@@ -425,6 +434,14 @@ const NodeOutputSingleProcess: FC<{
 
   const warnings = useMemo(() => getStoredOutputWarnings(data, dataRefs), [data, dataRefs]);
   const shouldUseCustomErrorOutput = shouldUseExpressionErrorOutput(node, data);
+
+  if (shouldUseCodeErrorOutput(node, data)) {
+    return (
+      <div className="node-output-inner errored">
+        <CodeNodeErrorOutput data={data} />
+      </div>
+    );
+  }
 
   if (data.status?.type === 'error' && !shouldUseCustomErrorOutput) {
     return <div className="node-output-inner errored">{data.status.error}</div>;

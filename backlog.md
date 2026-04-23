@@ -1,5 +1,6 @@
 - Observability on where a certain graph is used
 
+
 - Should we add more useful information into red error outputs for some nodes? Like with the "expression" node. For the code node for example?
 
 
