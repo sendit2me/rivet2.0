@@ -6,6 +6,8 @@
 - Parallel runs icon should be more parallel. Maybe move the split-related icons to the area on above the card?
 
 
+- Comment node doesn't get a primary color border when selected like any other node. It should. Not when hovered, but when selected
+
 
 - In remote debugging, come up with some ID that can be passed when running so that I can "catch" only the target runs of the workflow
 

@@ -13,6 +13,7 @@ export const settingsState = atomWithStorage<Settings>(
   {
     recordingPlaybackLatency: 1000,
     defaultNodeColors: false,
+    openNodeSettingsOnCreate: true,
 
     openAiKey: '',
     openAiOrganization: '',
@@ -24,6 +25,10 @@ export const settingsState = atomWithStorage<Settings>(
   },
   storage,
 );
+
+export function shouldOpenNodeSettingsOnCreate(settings: Pick<Settings, 'openNodeSettingsOnCreate'> | undefined): boolean {
+  return settings?.openNodeSettingsOnCreate ?? true;
+}
 
 export const themes = [
   {

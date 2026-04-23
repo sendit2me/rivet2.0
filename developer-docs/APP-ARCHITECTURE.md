@@ -197,7 +197,7 @@ Current structure:
 - [`packages/app/src/components/settings/SettingsPages.tsx`](../packages/app/src/components/settings/SettingsPages.tsx) is now just a barrel export
 - individual settings pages live under [`packages/app/src/components/settings/pages/`](../packages/app/src/components/settings/pages)
 - shared plugin-config form rendering for the plugin pages lives in [`packages/app/src/components/settings/pages/PluginSettingsSection.tsx`](../packages/app/src/components/settings/pages/PluginSettingsSection.tsx)
-- the `UI` page owns presentation-oriented preferences such as theme selection, node-port text casing, and default node colors, while `General` is reserved for broader app/runtime behavior
+- the `UI` page owns presentation-oriented preferences such as theme selection, node-port text casing, default node colors, and whether newly created nodes auto-open their settings panel, while `General` is reserved for broader app/runtime behavior
 
 This is a better refactor seam because settings page changes no longer require editing one large file that mixes general preferences, OpenAI settings, plugin settings, custom plugin pages, and update behavior.
 
@@ -349,6 +349,8 @@ The current command-backed canvas surface includes:
 - duplicate node / dragged node cohort
 - paste nodes
 - auto-layout
+
+`addNode` also owns one editor-side effect in addition to graph mutation: [`packages/app/src/commands/addNodeCommand.ts`](../packages/app/src/commands/addNodeCommand.ts) reads the persisted UI preference from `settingsState` and opens the newly created node in the settings panel when `shouldOpenNodeSettingsOnCreate(...)` resolves to `true`. Undo clears that editor selection if it is still pointing at the removed node.
 
 Node resize has a narrower contract than that generic list might imply:
 
@@ -741,9 +743,12 @@ The execution UI is now intentionally graph-view-aware:
 - default executor
 - node-history retention count
 - casing preference
+- UI creation preferences such as auto-opening node settings for newly added nodes
 - update preferences/state
 - zoom sensitivity
 - remote debugger default URL
+
+For the `openNodeSettingsOnCreate` preference specifically, the legacy/default behavior is intentionally centralized in [`packages/app/src/state/settings.ts`](../packages/app/src/state/settings.ts) via `shouldOpenNodeSettingsOnCreate(...)`: older persisted settings objects that do not yet carry the key still behave as enabled, and both the settings UI and the add-node command share that same helper so they cannot drift on fallback behavior.
 
 Important distinction:
 

@@ -177,6 +177,7 @@ export function coreCreateProcessor(project: Project, options: RunGraphOptions) 
             pluginSettings: options.pluginSettings ?? {},
             recordingPlaybackLatency: 1000,
             defaultNodeColors: options.defaultNodeColors ?? false,
+            openNodeSettingsOnCreate: options.openNodeSettingsOnCreate ?? true,
             chatNodeHeaders: options.chatNodeHeaders ?? {},
             chatNodeTimeout: options.chatNodeTimeout ?? DEFAULT_CHAT_NODE_TIMEOUT,
             throttleChatNode: options.throttleChatNode ?? 100,

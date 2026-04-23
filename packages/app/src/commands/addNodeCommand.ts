@@ -4,10 +4,12 @@ import { nodesState } from '../state/graph';
 import { type NodeId } from '@ironclad/rivet-core';
 import { createAddedNode } from '../domain/graphEditing/nodeActions.js';
 import { useProjectNodeRegistry } from '../hooks/useProjectNodeRegistry';
-import { settingsState } from '../state/settings.js';
+import { settingsState, shouldOpenNodeSettingsOnCreate } from '../state/settings.js';
+import { editingNodeState } from '../state/graphBuilder.js';
 
 export function useAddNodeCommand() {
   const setNodes = useSetAtom(nodesState);
+  const setEditingNodeId = useSetAtom(editingNodeState);
   const projectNodeRegistry = useProjectNodeRegistry();
   const settings = useAtomValue(settingsState);
 
@@ -24,11 +26,15 @@ export function useAddNodeCommand() {
       });
 
       setNodes([...currentState.nodes, newNode]);
+      if (shouldOpenNodeSettingsOnCreate(settings)) {
+        setEditingNodeId(newNode.id);
+      }
 
       return { id: newNode.id };
     },
     undo(_data, { id }) {
       setNodes((allNodes) => allNodes.filter((node) => node.id !== id));
+      setEditingNodeId((currentNodeId: NodeId | null) => (currentNodeId === id ? null : currentNodeId));
     },
   });
 }

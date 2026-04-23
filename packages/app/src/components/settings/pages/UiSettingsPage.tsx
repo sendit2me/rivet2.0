@@ -6,6 +6,7 @@ import Toggle from '@atlaskit/toggle';
 import {
   preservePortTextCaseState,
   settingsState,
+  shouldOpenNodeSettingsOnCreate,
   type Theme,
   themeState,
   themes,
@@ -58,6 +59,25 @@ export const UiSettingsPage: FC = () => {
             />
             <HelperMessage>
               When enabled, some newly added nodes use default colors.
+            </HelperMessage>
+          </>
+        )}
+      </Field>
+      <Field name="open-node-settings-on-create" label="Open node settings on create">
+        {() => (
+          <>
+            <Toggle
+              id="open-node-settings-on-create"
+              isChecked={shouldOpenNodeSettingsOnCreate(settings)}
+              onChange={(event) =>
+                setSettings((state) => ({
+                  ...state,
+                  openNodeSettingsOnCreate: event.target.checked,
+                }))
+              }
+            />
+            <HelperMessage>
+              When enabled, newly created nodes open their settings panel immediately.
             </HelperMessage>
           </>
         )}
