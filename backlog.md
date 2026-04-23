@@ -5,7 +5,7 @@
 
 - Parallel runs icon should be more parallel. Maybe move the split-related icons to the area on above the card?
 
-- A faster way to open a subgraph than from a context menu
+
 
 - In remote debugging, come up with some ID that can be passed when running so that I can "catch" only the target runs of the workflow
 

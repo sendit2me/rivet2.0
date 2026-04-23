@@ -13,6 +13,7 @@ import { selectedNodesState } from '../state/graphBuilder.js';
 import { useContextMenuCommands } from './useContextMenuCommands.js';
 import { clipboardState } from '../state/clipboard';
 import { useAtomValue } from 'jotai';
+import { SubgraphLinkIcon } from '../components/visualNode/SubgraphLinkIcon.js';
 
 export type ContextMenuConfig = {
   contexts: ContextMenuContextConfig;
@@ -98,8 +99,8 @@ export function useContextMenuConfiguration() {
               },
               {
                 id: 'node-go-to-subgraph',
-                label: 'Go To Subgraph',
-                icon: SettingsCogIcon,
+                label: 'Go to subgraph',
+                icon: SubgraphLinkIcon,
                 conditional: (context) => {
                   const { nodeType } = context as { nodeType: string };
                   return nodeType === 'subGraph';
