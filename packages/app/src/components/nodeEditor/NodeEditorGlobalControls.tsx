@@ -1,4 +1,4 @@
-import { type FC, type ReactNode, useRef } from 'react';
+import { type FC, type ReactNode, useRef, useState } from 'react';
 import { type ChartNode } from '@ironclad/rivet-core';
 import InlineEdit from '@atlaskit/inline-edit';
 import Toggle from '@atlaskit/toggle';
@@ -69,6 +69,60 @@ const splitModeOptions: readonly SegmentedChoiceOption<SplitModeChoice>[] = [
   { value: 'sequential', label: 'sequential' },
 ];
 
+const NodeTitleInlineEditor: FC<{
+  nodeId: string;
+  title: string | undefined;
+  onTitleChange: (title: string) => void;
+}> = ({ nodeId, title, onTitleChange }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const titleBeforeEditRef = useRef(title ?? '');
+  const currentTitle = title ?? '';
+
+  const startEditing = () => {
+    titleBeforeEditRef.current = currentTitle;
+    setIsEditing(true);
+  };
+
+  const cancelEditing = () => {
+    if (currentTitle !== titleBeforeEditRef.current) {
+      onTitleChange(titleBeforeEditRef.current);
+    }
+
+    setIsEditing(false);
+  };
+
+  if (isEditing) {
+    return (
+      <TextField
+        autoFocus
+        id={`node-title-${nodeId}`}
+        name={`node-title-${nodeId}`}
+        value={currentTitle}
+        onBlur={() => setIsEditing(false)}
+        onChange={(event) => onTitleChange(event.currentTarget.value)}
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') {
+            event.preventDefault();
+            cancelEditing();
+          } else if (event.key === 'Enter') {
+            event.preventDefault();
+            setIsEditing(false);
+          }
+        }}
+        placeholder="Some title"
+      />
+    );
+  }
+
+  return (
+    <button type="button" className="node-title-read-button" aria-label="Edit node title" onClick={startEditing}>
+      <div className={currentTitle ? 'title-read-content' : 'title-read-content is-empty'}>
+        {currentTitle || 'Some title'}
+      </div>
+    </button>
+  );
+};
+
 export const NodeEditorGlobalControls: FC<{
   node: ChartNode;
   selectedVariant: string | undefined;
@@ -102,7 +156,7 @@ export const NodeEditorGlobalControls: FC<{
   onDeleteVariant,
   onSaveAsVariant,
 }) => {
-  const nodeTitleBeforeEditRef = useRef(node.title ?? '');
+  const nodeDescriptionBeforeEditRef = useRef(node.description ?? '');
   const isVariant = selectedVariant !== undefined;
   const hasSavedVariants = variantOptions.length > 1;
   const showVariantEditor = hasSavedVariants || addVariantPopupOpen;
@@ -139,57 +193,26 @@ export const NodeEditorGlobalControls: FC<{
         </div>
         <div className="node-metadata-fields">
           <div className="node-title-field">
-            <InlineEdit
-              key={`node-title-${node.id}`}
-              label="Node title"
-              defaultValue={node.title ?? ''}
-              onEdit={() => {
-                nodeTitleBeforeEditRef.current = node.title ?? '';
-              }}
-              onCancel={() => {
-                if ((node.title ?? '') !== nodeTitleBeforeEditRef.current) {
-                  onTitleChange(nodeTitleBeforeEditRef.current);
-                }
-              }}
-              onConfirm={(title) => {
-                if ((node.title ?? '') !== title) {
-                  onTitleChange(title);
-                }
-              }}
-              hideActionButtons
-              readViewFitContainerWidth
-              readView={() => (
-                <div className={node.title ? 'title-read-content' : 'title-read-content is-empty'}>
-                  {node.title || 'Some title'}
-                </div>
-              )}
-              editView={(fieldProps, ref) => (
-                <TextField
-                  ref={ref}
-                  id={fieldProps.id}
-                  name={fieldProps.name}
-                  value={fieldProps.value ?? ''}
-                  isRequired={fieldProps.isRequired}
-                  isDisabled={fieldProps.isDisabled}
-                  isInvalid={fieldProps.isInvalid}
-                  onBlur={fieldProps.onBlur}
-                  onFocus={fieldProps.onFocus}
-                  onChange={(event) => {
-                    const nextTitle = event.currentTarget.value;
-                    fieldProps.onChange(nextTitle);
-                    onTitleChange(nextTitle);
-                  }}
-                  placeholder="Some title"
-                />
-              )}
-            />
+            <NodeTitleInlineEditor key={node.id} nodeId={node.id} title={node.title} onTitleChange={onTitleChange} />
           </div>
           <div className="node-description-field">
             <InlineEdit
               key={`node-description-${node.id}`}
               label="Node description"
               defaultValue={node.description ?? ''}
-              onConfirm={onDescriptionChange}
+              onEdit={() => {
+                nodeDescriptionBeforeEditRef.current = node.description ?? '';
+              }}
+              onCancel={() => {
+                if ((node.description ?? '') !== nodeDescriptionBeforeEditRef.current) {
+                  onDescriptionChange(nodeDescriptionBeforeEditRef.current);
+                }
+              }}
+              onConfirm={(description) => {
+                if ((node.description ?? '') !== description) {
+                  onDescriptionChange(description);
+                }
+              }}
               hideActionButtons
               readViewFitContainerWidth
               readView={() => (
@@ -208,7 +231,11 @@ export const NodeEditorGlobalControls: FC<{
                   isInvalid={fieldProps.isInvalid}
                   onBlur={fieldProps.onBlur}
                   onFocus={fieldProps.onFocus}
-                  onChange={(event) => fieldProps.onChange(event.currentTarget.value)}
+                  onChange={(event) => {
+                    const nextDescription = event.currentTarget.value;
+                    fieldProps.onChange(nextDescription);
+                    onDescriptionChange(nextDescription);
+                  }}
                   placeholder="Description..."
                   minimumRows={3}
                   resize="smart"

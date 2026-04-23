@@ -219,12 +219,11 @@ const Container = styled.div`
 
   .node-title-field > div,
   .node-title-field form,
-  .node-title-field form > div {
+  .node-title-field form > div,
+  .node-title-field .node-title-read-button {
     width: 100%;
-    height: 40px;
     margin: 0;
-    display: flex;
-    align-items: stretch;
+    max-width: none;
     min-width: 0;
   }
 
@@ -233,19 +232,22 @@ const Container = styled.div`
     display: none;
   }
 
-  .node-title-field [data-read-view-fit-container-width='true'] {
-    width: 100%;
-    max-width: none;
-    min-width: 0;
+  .node-title-field .node-title-read-button {
     height: 40px;
+    min-height: 0;
+    padding: 0;
+    line-height: 1;
+    background: transparent;
+    border: 0;
     display: flex;
     align-items: stretch;
     box-sizing: border-box;
     border-radius: 2px;
     overflow: hidden;
+    text-align: left;
   }
 
-  .node-title-field [data-read-view-fit-container-width='true'] > div {
+  .node-title-field .node-title-read-button .title-read-content {
     width: 100%;
     min-width: 0;
     height: 40px;
@@ -284,17 +286,7 @@ const Container = styled.div`
     border-color: var(--primary);
   }
 
-  .node-title-field > div > button {
-    width: auto;
-    height: auto;
-    min-height: 0;
-    padding: 0;
-    line-height: 1;
-    background: transparent;
-    border: 0;
-  }
-
-  .node-title-field [data-read-view-fit-container-width='true']:hover {
+  .node-title-field .node-title-read-button:hover {
     background-color: rgba(255, 255, 255, 0.04);
   }
 
