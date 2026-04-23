@@ -60,6 +60,10 @@ export const nodeStyles = css`
     padding: 0;
   }
 
+  .node.isComment .node-body {
+    pointer-events: all;
+  }
+
   .node.zoomedOut {
     min-width: 200px;
   }
@@ -720,12 +724,16 @@ export const nodeStyles = css`
 
   .resize-handle {
     position: absolute;
-    top: 0;
-    bottom: 0;
-    width: 12px;
     background: transparent;
     pointer-events: auto;
     touch-action: none;
+  }
+
+  .resize-handle-left,
+  .resize-handle-right {
+    top: 0;
+    bottom: 0;
+    width: 12px;
   }
 
   .resize-handle-left {
@@ -736,6 +744,56 @@ export const nodeStyles = css`
   .resize-handle-right {
     right: -8px;
     cursor: ew-resize;
+  }
+
+  .resize-handle-top,
+  .resize-handle-bottom {
+    left: 0;
+    right: 0;
+    height: 12px;
+  }
+
+  .resize-handle-top {
+    top: -8px;
+    cursor: ns-resize;
+  }
+
+  .resize-handle-bottom {
+    bottom: -8px;
+    cursor: ns-resize;
+  }
+
+  .resize-handle-top-left,
+  .resize-handle-top-right,
+  .resize-handle-bottom-left,
+  .resize-handle-bottom-right {
+    width: 18px;
+    height: 18px;
+    z-index: 1;
+  }
+
+  .resize-handle-top-left {
+    top: -9px;
+    left: -9px;
+    cursor: nwse-resize;
+  }
+
+  .resize-handle-top-right {
+    top: -9px;
+    right: -9px;
+    cursor: nesw-resize;
+  }
+
+  .resize-handle-bottom-left {
+    bottom: -9px;
+    left: -9px;
+    cursor: nesw-resize;
+  }
+
+  .resize-handle-bottom-right {
+    right: -9px;
+    bottom: -9px;
+    cursor: nwse-resize;
   }
 
   .node.isComment .resize-handle {

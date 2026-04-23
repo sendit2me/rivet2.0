@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  computeBoxNodeResizeBounds,
   computeHorizontalNodeResizeBounds,
   haveHorizontalNodeResizeBoundsChanged,
   MIN_NODE_WIDTH,
@@ -76,4 +77,42 @@ test('haveHorizontalNodeResizeBoundsChanged only reports real x or width changes
     ),
     true,
   );
+});
+
+test('computeBoxNodeResizeBounds resizes comments from the bottom-right corner', () => {
+  const resized = computeBoxNodeResizeBounds({
+    direction: 'bottom-right',
+    initialHeight: 200,
+    initialWidth: 300,
+    initialX: 120,
+    initialY: 80,
+    deltaX: 40,
+    deltaY: 25,
+  });
+
+  assert.deepEqual(resized, {
+    x: 120,
+    y: 80,
+    width: 340,
+    height: 225,
+  });
+});
+
+test('computeBoxNodeResizeBounds preserves the opposite corner when resizing from top-left', () => {
+  const resized = computeBoxNodeResizeBounds({
+    direction: 'top-left',
+    initialHeight: 200,
+    initialWidth: 300,
+    initialX: 120,
+    initialY: 80,
+    deltaX: 40,
+    deltaY: 25,
+  });
+
+  assert.deepEqual(resized, {
+    x: 160,
+    y: 105,
+    width: 260,
+    height: 175,
+  });
 });

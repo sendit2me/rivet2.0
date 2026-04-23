@@ -11,6 +11,7 @@ import { ErrorBoundary } from 'react-error-boundary';
 import { useAtomValue, useSetAtom } from 'jotai';
 import {
   type ChartNode,
+  type CommentNode,
   IF_PORT,
   type NodeConnection,
   type PortId,
@@ -32,10 +33,12 @@ import { NodeBody } from '../NodeBody.js';
 import { NodeOutput } from '../NodeOutput.js';
 import { SplitRunModeIcon } from './SplitRunModeIcon.js';
 import {
+  computeBoxNodeResizeBounds,
   computeHorizontalNodeResizeBounds,
   DEFAULT_NODE_WIDTH,
-  haveHorizontalNodeResizeBoundsChanged,
-  type HorizontalNodeResizeDirection,
+  haveNodeResizeBoundsChanged,
+  type BoxNodeResizeDirection,
+  type NodeResizeBounds,
 } from '../../utils/nodeResize.js';
 
 export const NormalVisualNodeContent: FC<{
@@ -75,24 +78,40 @@ export const NormalVisualNodeContent: FC<{
     const preservePortTextCase = useAtomValue(preservePortTextCaseState);
 
     const [resizeState, setResizeState] = useState<{
-      direction: HorizontalNodeResizeDirection;
+      direction: BoxNodeResizeDirection;
+      initialHeight: number;
       initialWidth: number;
       initialX: number;
+      initialY: number;
       initialMouseX: number;
+      initialMouseY: number;
       previousNodeOverride: Partial<ChartNode>;
     } | null>(null);
     const [shiftHeld, setShiftHeld] = useState(false);
+    const isComment = node.type === 'comment';
+    const getNodeHeight = () => (node.type === 'comment' ? (node as CommentNode).data.height : 0);
 
-    const getNodeCurrentWidth = (elementOrChild: HTMLElement): number => {
+    const getNodeCurrentBounds = (elementOrChild: HTMLElement): Required<NodeResizeBounds> => {
       const nodeElement = elementOrChild.closest('.node');
       if (!nodeElement) {
-        return DEFAULT_NODE_WIDTH;
+        return {
+          x: node.visualData.x,
+          y: node.visualData.y,
+          width: node.visualData.width ?? DEFAULT_NODE_WIDTH,
+          height: getNodeHeight(),
+        };
       }
 
-      const cssWidth = window.getComputedStyle(nodeElement).width;
-      const width = Number.parseFloat(cssWidth);
+      const computedStyle = window.getComputedStyle(nodeElement);
+      const width = Number.parseFloat(computedStyle.width);
+      const height = Number.parseFloat(computedStyle.height);
 
-      return Number.isFinite(width) ? width : (node.visualData.width ?? DEFAULT_NODE_WIDTH);
+      return {
+        x: node.visualData.x,
+        y: node.visualData.y,
+        width: Number.isFinite(width) ? width : (node.visualData.width ?? DEFAULT_NODE_WIDTH),
+        height: Number.isFinite(height) ? height : getNodeHeight(),
+      };
     };
 
     const handleEditClick = useStableCallback((event: ReactMouseEvent<HTMLButtonElement>) => {
@@ -114,27 +133,44 @@ export const NormalVisualNodeContent: FC<{
         return null;
       }
 
-      const initialMousePositionCanvas = clientToCanvasPosition(resizeState.initialMouseX, 0);
-      const newMousePositionCanvas = clientToCanvasPosition(event.clientX, 0);
+      const initialMousePositionCanvas = clientToCanvasPosition(resizeState.initialMouseX, resizeState.initialMouseY);
+      const newMousePositionCanvas = clientToCanvasPosition(event.clientX, event.clientY);
       const deltaX = newMousePositionCanvas.x - initialMousePositionCanvas.x;
+      const deltaY = newMousePositionCanvas.y - initialMousePositionCanvas.y;
+
+      if (isComment) {
+        return computeBoxNodeResizeBounds({
+          direction: resizeState.direction,
+          initialHeight: resizeState.initialHeight,
+          initialWidth: resizeState.initialWidth,
+          initialX: resizeState.initialX,
+          initialY: resizeState.initialY,
+          deltaX,
+          deltaY,
+        });
+      }
 
       return computeHorizontalNodeResizeBounds({
-        direction: resizeState.direction,
+        direction: resizeState.direction === 'left' ? 'left' : 'right',
         initialWidth: resizeState.initialWidth,
         initialX: resizeState.initialX,
         deltaX,
       });
     });
 
-    const handleResizeStart = useStableCallback((direction: HorizontalNodeResizeDirection, event: globalThis.MouseEvent) => {
+    const handleResizeStart = useStableCallback((direction: BoxNodeResizeDirection, event: globalThis.MouseEvent) => {
       event.preventDefault();
       event.stopPropagation();
+      const currentBounds = getNodeCurrentBounds(event.target as HTMLElement);
 
       setResizeState({
         direction,
-        initialWidth: getNodeCurrentWidth(event.target as HTMLElement),
-        initialX: node.visualData.x,
+        initialHeight: currentBounds.height,
+        initialWidth: currentBounds.width,
+        initialX: currentBounds.x,
+        initialY: currentBounds.y,
         initialMouseX: event.clientX,
+        initialMouseY: event.clientY,
         previousNodeOverride: structuredClone(node),
       });
     });
@@ -144,12 +180,19 @@ export const NormalVisualNodeContent: FC<{
       event.stopPropagation();
 
       const nextBounds = getNextResizeBounds(event);
-      const currentBounds = {
-        x: node.visualData.x,
-        width: node.visualData.width ?? resizeState?.initialWidth ?? DEFAULT_NODE_WIDTH,
-      };
+      const currentBounds = isComment
+        ? {
+            x: node.visualData.x,
+            y: node.visualData.y,
+            width: node.visualData.width ?? resizeState?.initialWidth ?? DEFAULT_NODE_WIDTH,
+            height: getNodeHeight(),
+          }
+        : {
+            x: node.visualData.x,
+            width: node.visualData.width ?? resizeState?.initialWidth ?? DEFAULT_NODE_WIDTH,
+          };
 
-      if (nextBounds && haveHorizontalNodeResizeBoundsChanged(currentBounds, nextBounds)) {
+      if (nextBounds && haveNodeResizeBoundsChanged(currentBounds, nextBounds)) {
         onNodeSizeChanged?.(node, nextBounds);
       }
     });
@@ -163,11 +206,18 @@ export const NormalVisualNodeContent: FC<{
       if (
         resizeState &&
         nextBounds &&
-        haveHorizontalNodeResizeBoundsChanged(
-          {
-            x: resizeState.initialX,
-            width: resizeState.initialWidth,
-          },
+        haveNodeResizeBoundsChanged(
+          isComment
+            ? {
+                x: resizeState.initialX,
+                y: resizeState.initialY,
+                width: resizeState.initialWidth,
+                height: resizeState.initialHeight,
+              }
+            : {
+                x: resizeState.initialX,
+                width: resizeState.initialWidth,
+              },
           nextBounds,
         )
       ) {
@@ -210,6 +260,9 @@ export const NormalVisualNodeContent: FC<{
       connections.some((connection) => connection.inputNodeId === node.id && connection.inputId === IF_PORT.id) ||
       (draggingWire?.endNodeId === node.id && draggingWire?.endPortId === IF_PORT.id);
     const splitRunMaxLabel = `max ${node.splitRunMax ?? 10}`;
+    const resizeDirections: BoxNodeResizeDirection[] = isComment
+      ? ['top', 'right', 'bottom', 'left', 'top-left', 'top-right', 'bottom-left', 'bottom-right']
+      : ['left', 'right'];
 
     return (
       <>
@@ -310,18 +363,15 @@ export const NormalVisualNodeContent: FC<{
           <NodeOutput node={node} suspended={!renderHeavyContent} />
         </ErrorBoundary>
         <div className="node-resize-handles">
-          <ResizeHandle
-            className="resize-handle resize-handle-left"
-            onResizeStart={(event) => handleResizeStart('left', event)}
-            onResizeMove={handleResizeMove}
-            onResizeEnd={handleResizeEnd}
-          />
-          <ResizeHandle
-            className="resize-handle resize-handle-right"
-            onResizeStart={(event) => handleResizeStart('right', event)}
-            onResizeMove={handleResizeMove}
-            onResizeEnd={handleResizeEnd}
-          />
+          {resizeDirections.map((direction) => (
+            <ResizeHandle
+              key={direction}
+              className={`resize-handle resize-handle-${direction}`}
+              onResizeStart={(event) => handleResizeStart(direction, event)}
+              onResizeMove={handleResizeMove}
+              onResizeEnd={handleResizeEnd}
+            />
+          ))}
         </div>
       </>
     );

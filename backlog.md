@@ -1,3 +1,12 @@
+- When a subgraph node has an input connection and then this input port is removed, the phantom connection persists (it shouldn't)
+
+- Get back the save and cancel buttons to the node title and description fields
+
+- Observability on where a certain graph is used
+
+- The popup full view of the output - I want to be able to resize it from left and right as much as I want so it remembers this as percent pargins so that when the Rivet window size changes, it affects the width of the popup
+
+- Make sure text copies on Ctrl+C no problem from full view popup and output panel
 
 
 
@@ -8,21 +17,16 @@
 
 - In the output full popup when the markdown mode is on, I wandt to make it better, just like in https://markdownlivepreview.com/
 
-- Observability on where a certain graph is used
 
 
 - Support Python in all nodes that support javascript
 
 
-- In the comment node the layout of text seems to be broken. The colors look stupid too. Also need to checl if the comment node resizes in all directions
 
-- Get bacl the save and cancel buttons to the node title and description fields
 
-- The popup full view of the output - I want to be able to resize it from left and right as much as I want
 
 - Convenient node type browser, just like in n8n
 
-- Make sure text copies on Ctrl+C no problem from full view popup and output panel
 
 - For all three nodes, add the "Show 'Parsed expression' in non-error outputs" switcher in the node settings (after the code snippet). Make it that default to off.
 
@@ -30,7 +34,7 @@
 
 
 
-- When a subgraph node has an input connection and then this input port is removed, the phantom connection persists (it shouldn't)
+
 
 - Nodes for working with lists: get element by index
 

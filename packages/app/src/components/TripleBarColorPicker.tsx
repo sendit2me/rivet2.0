@@ -14,7 +14,7 @@ export const TripleBarColorPicker = CustomPicker((props: CommonColorPickerProps)
     >
       <div
         css={css`
-          height: 48px;
+          aspect-ratio: 1 / 1;
           position: relative;
         `}
       >

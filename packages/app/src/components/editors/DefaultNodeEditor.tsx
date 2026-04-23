@@ -234,6 +234,17 @@ export const defaultEditorContainerStyles = css`
     cursor: not-allowed;
     opacity: 0.6;
   }
+
+  .inline-editor-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 180px));
+    gap: 16px;
+    align-items: start;
+  }
+
+  .node-editor-color-picker {
+    width: min(180px, 100%);
+  }
 `;
 
 export const DefaultNodeEditor: FC<
@@ -284,22 +295,47 @@ export const DefaultNodeEditor: FC<
     })();
   }, [editorRefreshNonce, getUIContext, node, projectNodeRegistry]);
 
+  const renderEditorField = (editor: EditorDefinition<ChartNode>, index: number) => {
+    const isDisabled = editor.disableIf?.(node.data) ?? false;
+
+    return (
+      <DefaultNodeEditorField
+        key={getEditorListKey(editor, index)}
+        node={node}
+        onChange={onChange}
+        editor={editor}
+        isReadonly={isReadonly}
+        isDisabled={isDisabled}
+        onClose={onClose}
+        onRefreshEditors={refreshEditors}
+      />
+    );
+  };
+
   return (
     <div css={defaultEditorContainerStyles}>
       {editors.map((editor, index) => {
-        const isDisabled = editor.disableIf?.(node.data) ?? false;
-        return (
-          <DefaultNodeEditorField
-            key={getEditorListKey(editor, index)}
-            node={node}
-            onChange={onChange}
-            editor={editor}
-            isReadonly={isReadonly}
-            isDisabled={isDisabled}
-            onClose={onClose}
-            onRefreshEditors={refreshEditors}
-          />
-        );
+        if (editor.layout === 'inline' && (index === 0 || editors[index - 1]?.layout !== 'inline')) {
+          let inlineEndIndex = index;
+          while (editors[inlineEndIndex]?.layout === 'inline') {
+            inlineEndIndex++;
+          }
+          const inlineEditors = editors.slice(index, inlineEndIndex);
+
+          return (
+            <div className="inline-editor-row" key={`inline-${getEditorListKey(editor, index)}`}>
+              {inlineEditors.map((inlineEditor, inlineIndex) => {
+                return renderEditorField(inlineEditor, index + inlineIndex);
+              })}
+            </div>
+          );
+        }
+
+        if (editor.layout === 'inline') {
+          return null;
+        }
+
+        return renderEditorField(editor, index);
       })}
     </div>
   );

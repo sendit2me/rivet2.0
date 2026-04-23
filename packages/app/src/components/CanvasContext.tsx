@@ -9,7 +9,7 @@ import type {
 import type { MouseEvent } from 'react';
 import type { HeightCache } from '../hooks/useNodeBodyHeight';
 import type { DraggingWireDef } from '../state/graphBuilder';
-import type { HorizontalNodeResizeBounds } from '../utils/nodeResize.js';
+import type { NodeResizeBounds } from '../utils/nodeResize.js';
 
 export type CanvasViewContextValue = {
   canvasZoom: number;
@@ -24,7 +24,7 @@ export type CanvasHandlersContextValue = {
   onNodeMouseEnter?: (event: MouseEvent<HTMLElement>, nodeId: NodeId) => void;
   onNodeMouseLeave?: (event: MouseEvent<HTMLElement>, nodeId: NodeId) => void;
   onNodeSelected?: (node: ChartNode, multi: boolean) => void;
-  onNodeSizeChanged?: (node: ChartNode, nextBounds: HorizontalNodeResizeBounds) => void;
+  onNodeSizeChanged?: (node: ChartNode, nextBounds: NodeResizeBounds) => void;
   onNodeStartEditing?: (node: ChartNode) => void;
   onPortMouseOut?: (
     event: MouseEvent<HTMLElement>,
@@ -42,7 +42,7 @@ export type CanvasHandlersContextValue = {
   ) => void;
   onResizeFinish?: (
     node: ChartNode,
-    nextBounds: HorizontalNodeResizeBounds,
+    nextBounds: NodeResizeBounds,
     previousNodeOverride?: Partial<ChartNode>,
   ) => void;
   onWireEndDrag?: (event: MouseEvent<HTMLElement>, endNodeId: NodeId, endPortId: PortId) => void;

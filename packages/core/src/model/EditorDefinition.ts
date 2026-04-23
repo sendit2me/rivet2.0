@@ -19,6 +19,8 @@ export type SharedEditorDefinitionProps<T extends ChartNode> = {
 
   autoFocus?: boolean;
 
+  layout?: 'inline';
+
   hideIf?: (data: T['data']) => boolean;
 
   disableIf?: (data: T['data']) => boolean;

@@ -12,6 +12,7 @@ import {
 } from 'react';
 import {
   type ChartNode,
+  type CommentNode,
   type NodeConnection,
   type NodeId,
 } from '@ironclad/rivet-core';
@@ -57,7 +58,7 @@ import { NodeCanvasOverlays } from './nodeCanvas/NodeCanvasOverlays.js';
 import { MultiNodeAlignmentToolbar } from './nodeCanvas/MultiNodeAlignmentToolbar.js';
 import { NodeCanvasViewport } from './nodeCanvas/NodeCanvasViewport.js';
 import { useNodeCanvasInteractions } from './nodeCanvas/useNodeCanvasInteractions.js';
-import type { HorizontalNodeResizeBounds } from '../utils/nodeResize.js';
+import type { NodeResizeBounds } from '../utils/nodeResize.js';
 import { MEDIUM_GRAPH_NODE_THRESHOLD } from './nodeCanvas/canvasPerformanceBudget.js';
 import { getCanvasPerfSnapshot } from './nodeCanvas/canvasPerfDebug.js';
 import { groupConnectionsByNode } from './nodeCanvas/groupConnectionsByNode.js';
@@ -224,13 +225,18 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
   });
   useWireDragScrolling(reportViewportMotion);
 
-  const onNodeSizeChanged = useStableCallback((node: ChartNode, nextBounds: HorizontalNodeResizeBounds) => {
+  const onNodeSizeChanged = useStableCallback((node: ChartNode, nextBounds: NodeResizeBounds) => {
     onNodesChanged(
       produce(nodes, (draft) => {
         const foundNode = draft.find((candidate) => candidate.id === node.id);
         if (foundNode) {
           foundNode.visualData.x = nextBounds.x;
+          foundNode.visualData.y = nextBounds.y ?? foundNode.visualData.y;
           foundNode.visualData.width = nextBounds.width;
+
+          if (foundNode.type === 'comment' && nextBounds.height != null) {
+            (foundNode as CommentNode).data.height = nextBounds.height;
+          }
         }
       }),
     );
@@ -367,18 +373,29 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
 
   const onResizeFinish = useStableCallback((
     node: ChartNode,
-    nextBounds: HorizontalNodeResizeBounds,
+    nextBounds: NodeResizeBounds,
     previousNodeOverride?: Partial<ChartNode>,
   ) => {
+    const newNode: Partial<ChartNode> = {
+      visualData: {
+        ...node.visualData,
+        x: nextBounds.x,
+        y: nextBounds.y ?? node.visualData.y,
+        width: nextBounds.width,
+      },
+    };
+
+    if (node.type === 'comment' && nextBounds.height != null) {
+      const commentNode = node as CommentNode;
+      newNode.data = {
+        ...commentNode.data,
+        height: nextBounds.height,
+      };
+    }
+
     editNode({
       nodeId: node.id,
-      newNode: {
-        visualData: {
-          ...node.visualData,
-          x: nextBounds.x,
-          width: nextBounds.width,
-        },
-      },
+      newNode,
       previousNodeOverride,
     });
   });
