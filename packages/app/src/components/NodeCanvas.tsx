@@ -29,6 +29,7 @@ import { useGlobalHotkey } from '../hooks/useGlobalHotkey.js';
 import { useNodeHeightCache } from '../hooks/useNodeBodyHeight';
 import { useNodePortPositions } from '../hooks/useNodePortPositions';
 import { useNodeTypes } from '../hooks/useNodeTypes';
+import { useProjectNodeRegistry } from '../hooks/useProjectNodeRegistry';
 import { usePortHoverTooltip } from '../hooks/usePortHoverTooltip.js';
 import { useSearchGraph } from '../hooks/useSearchGraph';
 import { useSelectionBox } from '../hooks/useSelectionBox.js';
@@ -49,8 +50,10 @@ import {
 } from '../state/graphBuilder';
 import { graphMetadataState } from '../state/graph.js';
 import { lastRunDataByNodeState, selectedProcessPageNodesState } from '../state/dataFlow';
+import { projectState, referencedProjectsState } from '../state/savedGraphs.js';
 import { zoomSensitivityState } from '../state/settings';
 import { canvasPreviewConnectionsState } from '../state/selectors/canvasGraphSelectors.js';
+import { nodesByIdState } from '../state/selectors/graphSelectors.js';
 import { MouseIcon } from './MouseIcon';
 import { type ContextMenuContext } from './ContextMenu.js';
 import { nodeCanvasStyles } from './nodeCanvas/nodeCanvasStyles.js';
@@ -62,6 +65,7 @@ import type { NodeResizeBounds } from '../utils/nodeResize.js';
 import { MEDIUM_GRAPH_NODE_THRESHOLD } from './nodeCanvas/canvasPerformanceBudget.js';
 import { getCanvasPerfSnapshot } from './nodeCanvas/canvasPerfDebug.js';
 import { groupConnectionsByNode } from './nodeCanvas/groupConnectionsByNode.js';
+import { filterValidSubGraphConnections } from '../domain/graphEditing/connectionValidation.js';
 
 const EMPTY_NODE_CONNECTIONS: NodeConnection[] = [];
 
@@ -110,7 +114,10 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
   const lastRunPerNode = useAtomValue(lastRunDataByNodeState);
   const selectedProcessPagePerNode = useAtomValue(selectedProcessPageNodesState);
   const zoomSensitivity = useAtomValue(zoomSensitivityState);
-  const previewConnections = useAtomValue(canvasPreviewConnectionsState);
+  const rawPreviewConnections = useAtomValue(canvasPreviewConnectionsState);
+  const nodesById = useAtomValue(nodesByIdState);
+  const project = useAtomValue(projectState);
+  const referencedProjects = useAtomValue(referencedProjectsState);
 
   const setLastSavedCanvasPosition = useSetAtom(lastCanvasPositionByGraphState);
   const setLastMousePosition = useSetAtom(lastMousePositionState);
@@ -120,6 +127,38 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
   const editNode = useEditNodeCommand();
   const cache = useNodeHeightCache();
   const nodeTypes = useNodeTypes();
+  const projectNodeRegistry = useProjectNodeRegistry();
+
+  const connections = useMemo(
+    () =>
+      filterValidSubGraphConnections({
+        connections: _connections,
+        nodesById,
+        project,
+        projectNodeRegistry,
+        referencedProjects,
+      }),
+    [_connections, nodesById, project, projectNodeRegistry, referencedProjects],
+  );
+  const previewConnections = useMemo(
+    () =>
+      filterValidSubGraphConnections({
+        connections: rawPreviewConnections,
+        nodesById,
+        project,
+        projectNodeRegistry,
+        referencedProjects,
+      }),
+    [nodesById, project, projectNodeRegistry, rawPreviewConnections, referencedProjects],
+  );
+
+  useEffect(() => {
+    if (connections.length === _connections.length) {
+      return;
+    }
+
+    onConnectionsChanged(connections);
+  }, [_connections.length, connections, onConnectionsChanged]);
 
   const { selectionBox, startSelectionBox, updateSelectionBox, endSelectionBox } = useSelectionBox();
   const {

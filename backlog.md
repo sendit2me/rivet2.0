@@ -1,4 +1,10 @@
-- When a subgraph node has an input connection and then this input port is removed, the phantom connection persists (it shouldn't)
+- Update the rivet version (at least in the Settings popup)
+
+- "Extract object path" should support the same "Parsed expression" as "Expression node". But only when interpolated variables exist. just like in the Expression node
+
+
+- When I rename the input in the subgraph, I expect the existing connections to it to be kept. Like, it's the sam einput, just a different name. But now when I rename it, the connections get removed.
+
 
 - Get back the save and cancel buttons to the node title and description fields
 

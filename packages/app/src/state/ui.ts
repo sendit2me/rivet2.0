@@ -1,7 +1,9 @@
 import { atom } from 'jotai';
 import { atomWithStorage } from 'jotai/utils';
+import type { NodeId } from '@ironclad/rivet-core';
 import { createHybridStorage } from './storage.js';
 import { DEFAULT_MULTILINE_EDITOR_FONT_SIZE } from '../utils/multilineEditorFontSize.js';
+import type { ConnectedGraphInputUsage } from '../domain/graphEditing/graphInputUsage.js';
 
 const { storage } = createHybridStorage('ui');
 
@@ -19,6 +21,13 @@ export type OverlayKey = 'promptDesigner' | 'trivet' | 'chatViewer' | 'dataStudi
 export const overlayOpenState = atom<OverlayKey | undefined>(undefined);
 
 export const newProjectModalOpenState = atom<boolean>(false);
+
+export type DeleteGraphInputConfirmState = {
+  nodeIds: NodeId[];
+  usages: ConnectedGraphInputUsage[];
+};
+
+export const deleteGraphInputConfirmState = atom<DeleteGraphInputConfirmState | null>(null);
 
 export const expandedFoldersState = atomWithStorage<Record<string, boolean>>('expandedFoldersState', {}, storage);
 

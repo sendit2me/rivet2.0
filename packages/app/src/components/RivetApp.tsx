@@ -38,6 +38,7 @@ import { AppErrorBoundary } from './AppErrorBoundary';
 import { wrapAsync } from '../utils/errorHandling';
 import { useExecutorSession } from '../hooks/useExecutorSession';
 import { useRestorePersistedWorkspace } from '../hooks/useRestorePersistedWorkspace.js';
+import { DeleteGraphInputConfirmModalRenderer } from './DeleteGraphInputConfirmModal';
 
 const styles = css`
   overflow: hidden;
@@ -113,6 +114,7 @@ export const RivetApp: FC = () => {
           <PluginsOverlayRenderer />
           <UpdateModalRenderer />
           <NewProjectModalRenderer />
+          <DeleteGraphInputConfirmModalRenderer />
           <CommunityOverlayRenderer />
         </>
       )}
