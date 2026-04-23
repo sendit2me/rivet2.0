@@ -45,6 +45,7 @@ export const NormalVisualNodeContent: FC<{
   handleAttributes?: HTMLAttributes<HTMLDivElement>;
   isKnownNodeType: boolean;
   isHistoricalChanged: boolean;
+  isRunning: boolean;
   renderHeavyContent: boolean;
 }> = memo(
   ({
@@ -54,6 +55,7 @@ export const NormalVisualNodeContent: FC<{
     handleAttributes,
     isKnownNodeType,
     isHistoricalChanged,
+    isRunning,
     renderHeavyContent,
   }) => {
     useDependsOnPlugins();
@@ -252,6 +254,9 @@ export const NormalVisualNodeContent: FC<{
                   <span className="split-run-max-badge">{splitRunMaxLabel}</span>
                 </button>
               </Tooltip>
+            )}
+            {isRunning && (
+              <span className="node-running-indicator" aria-label="Node running" role="status" />
             )}
             <Tooltip content="Edit Node">
               <button

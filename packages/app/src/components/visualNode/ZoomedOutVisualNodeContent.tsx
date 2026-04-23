@@ -22,6 +22,7 @@ export const ZoomedOutVisualNodeContent: FC<{
   handleAttributes?: HTMLAttributes<HTMLDivElement>;
   isKnownNodeType: boolean;
   isReallyZoomedOut: boolean;
+  isRunning: boolean;
 }> = memo(
   ({
     node,
@@ -29,6 +30,7 @@ export const ZoomedOutVisualNodeContent: FC<{
     handleAttributes,
     isKnownNodeType,
     isReallyZoomedOut,
+    isRunning,
   }) => {
     useDependsOnPlugins();
     const { draggingWire, closestPortToDraggingWire } = useCanvasViewContext();
@@ -100,6 +102,9 @@ export const ZoomedOutVisualNodeContent: FC<{
                 >
                   <span className="split-run-max-badge">{splitRunMaxLabel}</span>
                 </button>
+              )}
+              {isRunning && (
+                <span className="node-running-indicator" aria-label="Node running" role="status" />
               )}
               <button
                 type="button"

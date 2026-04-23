@@ -256,7 +256,26 @@ export const nodeStyles = css`
     }
   }
 
-  .title-controls > * {
+  .node-running-indicator {
+    color: var(--node-bg-foreground);
+    width: 16px;
+    height: 16px;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-bottom-color: transparent;
+    border-radius: 50%;
+    flex: 0 0 auto;
+    pointer-events: none;
+    animation: node-title-running-spin 0.8s linear infinite;
+  }
+
+  @keyframes node-title-running-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  .title-controls > :not(.node-running-indicator) {
     pointer-events: auto;
   }
 

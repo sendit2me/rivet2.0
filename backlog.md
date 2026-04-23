@@ -5,9 +5,8 @@
 
 - In remote debugging, come up with some ID that can be passed when running so that I can "catch" only the target runs of the workflow
 
-- Make sure a long running node is visible enough
 
-- In the output full popup in the markdown mode some linebreaks disappear
+- In the output full popup when the markdown mode is on, I wandt to make it better, just like in https://markdownlivepreview.com/
 
 - Observability on where a certain graph is used
 

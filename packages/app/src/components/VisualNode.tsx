@@ -168,6 +168,7 @@ export const VisualNode = memo(
               handleAttributes={handleAttributes}
               isKnownNodeType={isKnownNodeType}
               isReallyZoomedOut={effectiveIsReallyZoomedOut}
+              isRunning={executionClassFlags.running}
             />
           ) : (
             <NormalVisualNodeContent
@@ -177,6 +178,7 @@ export const VisualNode = memo(
               handleAttributes={handleAttributes}
               isKnownNodeType={isKnownNodeType}
               isHistoricalChanged={isHistoricalChanged}
+              isRunning={executionClassFlags.running}
               renderHeavyContent={renderHeavyContent}
             />
           )}
