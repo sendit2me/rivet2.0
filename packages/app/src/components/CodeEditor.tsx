@@ -17,6 +17,10 @@ export const CodeEditor: FC<{
   editorRef?: MutableRefObject<monaco.editor.IStandaloneCodeEditor | undefined>;
   scrollBeyondLastLine?: boolean;
   enableFolding?: boolean;
+  errorLineHighlight?: {
+    line: number;
+    source: string;
+  };
 }> = ({
   text,
   isReadonly,
@@ -29,9 +33,11 @@ export const CodeEditor: FC<{
   editorRef,
   scrollBeyondLastLine,
   enableFolding,
+  errorLineHighlight,
 }) => {
   const editorContainer = useRef<HTMLDivElement>(null);
   const editorInstance = useRef<monaco.editor.IStandaloneCodeEditor>();
+  const errorLineDecorationIds = useRef<string[]>([]);
   const pendingResizeLayoutRef = useRef(false);
 
   const onChangeLatest = useLatest(onChange);
@@ -155,6 +161,39 @@ export const CodeEditor: FC<{
     });
     editor.layout();
   }, [fontSize]);
+
+  useEffect(() => {
+    const editor = editorInstance.current;
+    const model = editor?.getModel();
+
+    if (!editor || !model) {
+      return;
+    }
+
+    const line =
+      errorLineHighlight &&
+      text === errorLineHighlight.source &&
+      errorLineHighlight.line >= 1 &&
+      errorLineHighlight.line <= model.getLineCount()
+        ? errorLineHighlight.line
+        : undefined;
+
+    errorLineDecorationIds.current = editor.deltaDecorations(
+      errorLineDecorationIds.current,
+      line
+        ? [
+            {
+              range: new monaco.Range(line, 1, line, 1),
+              options: {
+                className: 'code-node-runtime-error-line',
+                isWholeLine: true,
+                stickiness: monaco.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
+              },
+            },
+          ]
+        : [],
+    );
+  }, [errorLineHighlight, text]);
 
   useEffect(() => {
     if (isNodeEditorResizing) {

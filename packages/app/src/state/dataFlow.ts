@@ -45,6 +45,7 @@ export type NodeRunDataBase = {
   startedAt?: number;
   finishedAt?: number;
   debugData?: {
+    codeSource?: string;
     expressionSource?: string;
   };
 

@@ -1,6 +1,6 @@
 import { produce } from 'immer';
 import { useSetAtom } from 'jotai';
-import { type ExpressionNode, type ProcessEvents } from '@ironclad/rivet-core';
+import { type CodeNode, type ExpressionNode, type ProcessEvents } from '@ironclad/rivet-core';
 import { type ExecutionDataFlowApi } from './useExecutionDataFlow';
 import { lastRunDataByNodeState } from '../state/dataFlow';
 import {
@@ -151,13 +151,21 @@ export function useNodeExecutionEvents({
 }
 
 function getNodeRunDebugData(node: ProcessEvents['nodeStart']['node']) {
-  if (node.type !== 'expression') {
-    return {};
+  if (node.type === 'code') {
+    return {
+      debugData: {
+        codeSource: (node as CodeNode).data.code,
+      },
+    };
   }
 
-  return {
-    debugData: {
-      expressionSource: (node as ExpressionNode).data.expression,
-    },
-  };
+  if (node.type === 'expression') {
+    return {
+      debugData: {
+        expressionSource: (node as ExpressionNode).data.expression,
+      },
+    };
+  }
+
+  return {};
 }

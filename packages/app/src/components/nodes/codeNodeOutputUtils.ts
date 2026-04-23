@@ -1,6 +1,14 @@
+import { type ProcessDataForNode } from '../../state/dataFlow.js';
+
 export type CodeNodeErrorLocation = {
   column?: number;
   line: number;
+};
+
+export type CodeNodeErrorLineHighlight = {
+  line: number;
+  runKey: string;
+  source: string;
 };
 
 export type ParsedCodeNodeError = {
@@ -24,7 +32,7 @@ export function parseCodeNodeError(error: string): ParsedCodeNodeError {
   const line = Number(match[1]);
   const column = match[2] != null ? Number(match[2]) : undefined;
 
-  if (!Number.isFinite(line) || (column != null && !Number.isFinite(column))) {
+  if (!Number.isFinite(line) || line < 1 || (column != null && (!Number.isFinite(column) || column < 1))) {
     return { message: error };
   }
 
@@ -34,5 +42,26 @@ export function parseCodeNodeError(error: string): ParsedCodeNodeError {
       line,
     },
     message: error.slice(0, match.index).trimEnd(),
+  };
+}
+
+export function getCodeNodeErrorLineHighlight(
+  processData: ProcessDataForNode | undefined,
+): CodeNodeErrorLineHighlight | undefined {
+  if (processData?.data.status?.type !== 'error') {
+    return undefined;
+  }
+
+  const source = processData.data.debugData?.codeSource;
+  const location = parseCodeNodeError(processData.data.status.error).location;
+
+  if (!source || !location) {
+    return undefined;
+  }
+
+  return {
+    line: location.line,
+    runKey: processData.processId,
+    source,
   };
 }

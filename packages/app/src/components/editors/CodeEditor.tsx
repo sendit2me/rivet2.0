@@ -2,7 +2,7 @@ import { HelperMessage, Label } from '@atlaskit/form';
 import { type CodeEditorDefinition, type ChartNode } from '@ironclad/rivet-core';
 import { useLatest, useDebounceFn } from 'ahooks';
 import { useAtomValue } from 'jotai';
-import { type FC, type MutableRefObject, useRef, useEffect, Suspense, useState } from 'react';
+import { type FC, type MutableRefObject, useRef, useEffect, Suspense, useMemo, useState } from 'react';
 import { type monaco } from '../../utils/monaco';
 import { themeState } from '../../state/settings.js';
 import { LazyCodeEditor } from '../LazyComponents';
@@ -13,6 +13,20 @@ import { ResizeHandle } from '../ResizeHandle.js';
 import { isValidHeight, RESIZABLE_LANGUAGES, useNodeEditorCodeViewportHeight } from './useNodeEditorCodeViewportHeight.js';
 import { formatTextEditorStatsLine } from './textEditorStats.js';
 import { handleCodeEditorEscape } from './codeEditorEscape.js';
+import {
+  lastRunDataState,
+  resolvedGraphSelectionState,
+  selectedProcessPageState,
+} from '../../state/dataFlow.js';
+import { getSelectedProcessData } from '../../state/selectors/executionSelectors.js';
+import {
+  getCodeNodeErrorLineHighlight,
+  type CodeNodeErrorLineHighlight,
+} from '../nodes/codeNodeOutputUtils.js';
+
+function getErrorLineHighlightKey(highlight: CodeNodeErrorLineHighlight | undefined): string | undefined {
+  return highlight ? `${highlight.runKey}:${highlight.line}` : undefined;
+}
 
 export const DefaultCodeEditor: FC<
   SharedEditorProps & {
@@ -34,29 +48,49 @@ export const DefaultCodeEditor: FC<
     });
   };
 
-  return (
-    <CodeEditor
-      value={(node.data as Record<string, unknown> | undefined)?.[editorDef.dataKey] as string | undefined}
-      onChange={onEditorChange}
-      isReadonly={isReadonly}
-      isDisabled={isDisabled}
-      autoFocus={editorDef.autoFocus}
-      label={editorDef.label}
-      name={editorDef.dataKey}
-      helperMessage={helperMessage}
-      onClose={onClose}
-      language={editorDef.language}
-      theme={editorDef.theme}
-      enableFolding={editorDef.enableFolding}
-      id={node.id}
-      nodeType={node.type}
-      defaultHeight={editorDef.height}
-      showTextStats={node.type === 'text' && editorDef.dataKey === 'text'}
-    />
-  );
+  const editorProps: CodeEditorProps = {
+    value: (node.data as Record<string, unknown> | undefined)?.[editorDef.dataKey] as string | undefined,
+    onChange: onEditorChange,
+    isReadonly,
+    isDisabled,
+    autoFocus: editorDef.autoFocus,
+    label: editorDef.label,
+    name: editorDef.dataKey,
+    helperMessage,
+    onClose,
+    language: editorDef.language,
+    theme: editorDef.theme,
+    enableFolding: editorDef.enableFolding,
+    id: node.id,
+    nodeType: node.type,
+    defaultHeight: editorDef.height,
+    showTextStats: node.type === 'text' && editorDef.dataKey === 'text',
+  };
+
+  if (node.type === 'code' && editorDef.dataKey === 'code') {
+    return <CodeEditorWithCodeNodeErrorHighlight node={node} {...editorProps} />;
+  }
+
+  return <CodeEditor {...editorProps} />;
 };
 
-export const CodeEditor: FC<{
+const CodeEditorWithCodeNodeErrorHighlight: FC<CodeEditorProps & { node: ChartNode }> = ({ node, ...editorProps }) => {
+  const runData = useAtomValue(lastRunDataState(node.id));
+  const graphSelectionOptions = useAtomValue(resolvedGraphSelectionState);
+  const selectedPage = useAtomValue(selectedProcessPageState(node.id));
+  const selectedRun = useMemo(
+    () => getSelectedProcessData(runData, selectedPage, graphSelectionOptions),
+    [graphSelectionOptions, runData, selectedPage],
+  );
+  const errorLineHighlight = useMemo(
+    () => getCodeNodeErrorLineHighlight(selectedRun),
+    [selectedRun],
+  );
+
+  return <CodeEditor {...editorProps} errorLineHighlight={errorLineHighlight} />;
+};
+
+type CodeEditorProps = {
   value: string | undefined;
   onChange: (value: string) => void;
   isDisabled: boolean;
@@ -73,7 +107,10 @@ export const CodeEditor: FC<{
   nodeType?: string;
   defaultHeight?: number;
   showTextStats?: boolean;
-}> = ({
+  errorLineHighlight?: CodeNodeErrorLineHighlight;
+};
+
+export const CodeEditor: FC<CodeEditorProps> = ({
   value,
   onChange,
   isReadonly,
@@ -90,9 +127,11 @@ export const CodeEditor: FC<{
   nodeType,
   defaultHeight,
   showTextStats = false,
+  errorLineHighlight,
 }) => {
   const editorInstance = useRef<monaco.editor.IStandaloneCodeEditor>();
   const [displayValue, setDisplayValue] = useState(value ?? '');
+  const [dismissedErrorLineHighlightKey, setDismissedErrorLineHighlightKey] = useState<string>();
 
   const onChangeLatest = useLatest(onChange);
   const isEditorReadOnly = isReadonly || isDisabled;
@@ -103,6 +142,13 @@ export const CodeEditor: FC<{
   const editorMountKey = `${id ?? 'node-editor'}::${editorIdentityKey}::${language ?? 'language'}::${resolvedTheme ?? 'theme'}::${
     enableFolding ? 'folding-on' : 'folding-off'
   }`;
+  const errorLineHighlightKey = getErrorLineHighlightKey(errorLineHighlight);
+  const activeErrorLineHighlight =
+    errorLineHighlightKey &&
+    dismissedErrorLineHighlightKey !== errorLineHighlightKey &&
+    displayValue === errorLineHighlight?.source
+      ? errorLineHighlight
+      : undefined;
 
   useEffect(() => {
     if (editorInstance.current) {
@@ -126,6 +172,11 @@ export const CodeEditor: FC<{
 
   const handleEditorChange = (newText: string) => {
     setDisplayValue(newText);
+
+    if (errorLineHighlightKey && newText !== errorLineHighlight?.source) {
+      setDismissedErrorLineHighlightKey(errorLineHighlightKey);
+    }
+
     onChangeLatest.current(newText);
   };
 
@@ -163,6 +214,7 @@ export const CodeEditor: FC<{
             editorKey={editorIdentityKey}
             nodeType={nodeType}
             defaultHeight={defaultHeight}
+            errorLineHighlight={activeErrorLineHighlight}
           />
         ) : (
           <NonResizableCodeEditorViewport
@@ -178,6 +230,7 @@ export const CodeEditor: FC<{
             enableFolding={enableFolding}
             editorKey={editorIdentityKey}
             defaultHeight={defaultHeight}
+            errorLineHighlight={activeErrorLineHighlight}
           />
         )}
         {showTextStats && <div className="editor-status-line">{formatTextEditorStatsLine(displayValue)}</div>}
@@ -198,6 +251,7 @@ type ViewportProps = {
   autoFocus: boolean | undefined;
   enableFolding: boolean | undefined;
   editorKey: string | undefined;
+  errorLineHighlight?: CodeNodeErrorLineHighlight;
 };
 
 const ResizableCodeEditorViewport: FC<
@@ -226,6 +280,7 @@ const ResizableCodeEditorViewport: FC<
           onKeyDown={editorProps.onKeyDown}
           autoFocus={editorProps.autoFocus}
           enableFolding={editorProps.enableFolding}
+          errorLineHighlight={editorProps.errorLineHighlight}
         />
       </div>
       <ResizeHandle className="node-editor-code-resize-handle" {...resizeHandleProps} />
@@ -255,6 +310,7 @@ const NonResizableCodeEditorViewport: FC<
         onKeyDown={editorProps.onKeyDown}
         autoFocus={editorProps.autoFocus}
         enableFolding={editorProps.enableFolding}
+        errorLineHighlight={editorProps.errorLineHighlight}
       />
     </div>
   );
