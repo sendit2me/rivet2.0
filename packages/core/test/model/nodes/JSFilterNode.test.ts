@@ -2,14 +2,17 @@ import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 
 import {
+  GraphProcessor,
   IsomorphicCodeRunner,
   JSFilterNodeImpl,
   NotAllowedCodeRunner,
+  globalRivetNodeRegistry,
   type InternalProcessContext,
   type JSFilterNode,
   type NodeBodySpec,
   type PortId,
 } from '../../../src/index.js';
+import { testProcessContext } from '../../testUtils';
 
 const createNode = (data: Partial<JSFilterNode['data']>) => {
   return new JSFilterNodeImpl({
@@ -28,6 +31,20 @@ const createContext = (codeRunner = new IsomorphicCodeRunner()) =>
     contextValues: {},
   }) as InternalProcessContext;
 
+const makeProject = (graph: any) =>
+  ({
+    metadata: {
+      id: 'project-1',
+      title: 'Project',
+      description: '',
+      mainGraphId: graph.metadata.id,
+    },
+    graphs: {
+      [graph.metadata.id]: graph,
+    },
+    plugins: [],
+  }) as any;
+
 describe('JSFilterNode', () => {
   it('can create node', () => {
     const node = JSFilterNodeImpl.create();
@@ -43,7 +60,8 @@ describe('JSFilterNode', () => {
       {
         type: 'code',
         label: 'Callback Body',
-        helperMessage: 'Body of: (item, index, array) => { ... }',
+        helperMessage:
+          'Body of: (item, index, array) => { ... }. Use {{var}} for raw JS source inputs; strings need quotes.',
         dataKey: 'callbackBody',
         language: 'javascript',
         enableFolding: true,
@@ -67,6 +85,37 @@ describe('JSFilterNode', () => {
     } satisfies NodeBodySpec);
   });
 
+  it('creates raw-source interpolation input ports after the fixed array port', () => {
+    const node = createNode({
+      callbackBody: 'return item > {{min}} && item !== {{excluded}};',
+    });
+
+    assert.deepStrictEqual(
+      node.getInputDefinitions().map((definition) => ({
+        id: definition.id,
+        dataType: definition.dataType,
+        required: definition.required,
+      })),
+      [
+        {
+          id: 'array',
+          dataType: 'any[]',
+          required: true,
+        },
+        {
+          id: 'min',
+          dataType: 'string',
+          required: false,
+        },
+        {
+          id: 'excluded',
+          dataType: 'string',
+          required: false,
+        },
+      ],
+    );
+  });
+
   it('filters numbers with plain JS values', async () => {
     const node = createNode({ callbackBody: 'return item > 2;' });
     const result = await node.process(
@@ -82,6 +131,113 @@ describe('JSFilterNode', () => {
         value: [3, 4],
       },
     });
+  });
+
+  it('interpolates raw JS source snippets before filtering', async () => {
+    const node = createNode({
+      callbackBody: 'return item > {{min}} && item !== {{excluded}};',
+    });
+
+    const result = await node.process(
+      {
+        ['array' as PortId]: { type: 'number[]', value: [1, 2, 3, 4] },
+        ['min' as PortId]: { type: 'string', value: '2' },
+        ['excluded' as PortId]: { type: 'string', value: '4' },
+      },
+      createContext(),
+    );
+
+    assert.deepStrictEqual(result.filtered?.value, [3]);
+  });
+
+  it('receives interpolation inputs when run through the graph processor', async () => {
+    const graph = {
+      metadata: {
+        id: 'graph-1',
+        name: 'Graph',
+        description: '',
+      },
+      nodes: [
+        {
+          id: 'array-input',
+          type: 'graphInput',
+          title: 'Array',
+          data: {
+            id: 'array',
+            dataType: 'number[]',
+          },
+          visualData: { x: 0, y: 0, width: 300 },
+        },
+        {
+          id: 'min-input',
+          type: 'graphInput',
+          title: 'Minimum',
+          data: {
+            id: 'min',
+            dataType: 'string',
+          },
+          visualData: { x: 0, y: 100, width: 300 },
+        },
+        {
+          id: 'filter-node',
+          type: 'jsFilter',
+          title: 'JS Filter',
+          data: {
+            callbackBody: 'return item > {{min}};',
+          },
+          visualData: { x: 350, y: 0, width: 220 },
+        },
+        {
+          id: 'output-node',
+          type: 'graphOutput',
+          title: 'Graph Output',
+          data: {
+            id: 'filtered',
+            dataType: 'any[]',
+          },
+          visualData: { x: 650, y: 0, width: 300 },
+        },
+      ],
+      connections: [
+        {
+          outputNodeId: 'array-input',
+          outputId: 'data',
+          inputNodeId: 'filter-node',
+          inputId: 'array',
+        },
+        {
+          outputNodeId: 'min-input',
+          outputId: 'data',
+          inputNodeId: 'filter-node',
+          inputId: 'min',
+        },
+        {
+          outputNodeId: 'filter-node',
+          outputId: 'filtered',
+          inputNodeId: 'output-node',
+          inputId: 'value',
+        },
+      ],
+    };
+
+    const processor = new GraphProcessor(makeProject(graph), graph.metadata.id as any, globalRivetNodeRegistry);
+    const result = await processor.processGraph(testProcessContext(), {
+      array: { type: 'number[]', value: [1, 2, 3] },
+      min: { type: 'string', value: '1' },
+    });
+
+    assert.deepStrictEqual(result.filtered, { type: 'any[]', value: [2, 3] });
+  });
+
+  it('does not create interpolation ports for callback locals', () => {
+    const node = createNode({
+      callbackBody: 'return {{item}} !== {{array}} && {{index}} > -1;',
+    });
+
+    assert.deepStrictEqual(
+      node.getInputDefinitions().map((definition) => definition.id),
+      ['array'],
+    );
   });
 
   it('receives index and array callback parameters', async () => {

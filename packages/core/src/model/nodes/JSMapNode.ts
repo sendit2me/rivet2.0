@@ -15,6 +15,8 @@ import { nodeDefinition } from '../NodeDefinition.js';
 import {
   assertJSListNodeOutputs,
   buildJSMapWrapper,
+  getJSListCallbackInterpolationInputDefinitions,
+  interpolateJSListCallbackBody,
   wrapJSListCallbackPreview,
 } from './jsListCallbackHelpers.js';
 
@@ -53,6 +55,7 @@ export class JSMapNodeImpl extends NodeImpl<JSMapNode> {
         dataType: 'any[]',
         required: true,
       },
+      ...getJSListCallbackInterpolationInputDefinitions(this.data.callbackBody),
     ];
   }
 
@@ -71,7 +74,8 @@ export class JSMapNodeImpl extends NodeImpl<JSMapNode> {
       {
         type: 'code',
         label: 'Callback Body',
-        helperMessage: 'Body of: (item, index, array) => { ... }',
+        helperMessage:
+          'Body of: (item, index, array) => { ... }. Use {{var}} for raw JS source inputs; strings need quotes.',
         dataKey: 'callbackBody',
         language: 'javascript',
         enableFolding: true,
@@ -96,6 +100,7 @@ export class JSMapNodeImpl extends NodeImpl<JSMapNode> {
 
         Available callback parameters are <code>item</code>, <code>index</code>, and <code>array</code>.
         Write only the callback body and still use <code>return</code> to produce each mapped item.
+        Use <code>{{var}}</code> to add raw JavaScript source inputs; string literals should include their own quotes.
       `,
       infoBoxTitle: 'JS Map Node',
       contextMenuTitle: 'JS Map',
@@ -105,7 +110,7 @@ export class JSMapNodeImpl extends NodeImpl<JSMapNode> {
 
   async process(inputs: Inputs, context: InternalProcessContext): Promise<Outputs> {
     const outputs = await context.codeRunner.runCode(
-      buildJSMapWrapper(this.data.callbackBody),
+      buildJSMapWrapper(interpolateJSListCallbackBody(this.data.callbackBody, inputs)),
       inputs,
       {
         includeFetch: false,

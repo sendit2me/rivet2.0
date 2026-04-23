@@ -2,14 +2,17 @@ import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 
 import {
+  GraphProcessor,
   IsomorphicCodeRunner,
   JSMapNodeImpl,
   NotAllowedCodeRunner,
+  globalRivetNodeRegistry,
   type InternalProcessContext,
   type JSMapNode,
   type NodeBodySpec,
   type PortId,
 } from '../../../src/index.js';
+import { testProcessContext } from '../../testUtils';
 
 const createNode = (data: Partial<JSMapNode['data']>) => {
   return new JSMapNodeImpl({
@@ -28,6 +31,20 @@ const createContext = (codeRunner = new IsomorphicCodeRunner()) =>
     contextValues: {},
   }) as InternalProcessContext;
 
+const makeProject = (graph: any) =>
+  ({
+    metadata: {
+      id: 'project-1',
+      title: 'Project',
+      description: '',
+      mainGraphId: graph.metadata.id,
+    },
+    graphs: {
+      [graph.metadata.id]: graph,
+    },
+    plugins: [],
+  }) as any;
+
 describe('JSMapNode', () => {
   it('can create node', () => {
     const node = JSMapNodeImpl.create();
@@ -43,7 +60,8 @@ describe('JSMapNode', () => {
       {
         type: 'code',
         label: 'Callback Body',
-        helperMessage: 'Body of: (item, index, array) => { ... }',
+        helperMessage:
+          'Body of: (item, index, array) => { ... }. Use {{var}} for raw JS source inputs; strings need quotes.',
         dataKey: 'callbackBody',
         language: 'javascript',
         enableFolding: true,
@@ -65,6 +83,37 @@ describe('JSMapNode', () => {
     } satisfies NodeBodySpec);
   });
 
+  it('creates raw-source interpolation input ports after the fixed array port', () => {
+    const node = createNode({
+      callbackBody: 'return item * {{factor}} + {{offset}};',
+    });
+
+    assert.deepStrictEqual(
+      node.getInputDefinitions().map((definition) => ({
+        id: definition.id,
+        dataType: definition.dataType,
+        required: definition.required,
+      })),
+      [
+        {
+          id: 'array',
+          dataType: 'any[]',
+          required: true,
+        },
+        {
+          id: 'factor',
+          dataType: 'string',
+          required: false,
+        },
+        {
+          id: 'offset',
+          dataType: 'string',
+          required: false,
+        },
+      ],
+    );
+  });
+
   it('maps numbers with plain JS values', async () => {
     const node = createNode({ callbackBody: 'return item * 2;' });
     const result = await node.process(
@@ -80,6 +129,131 @@ describe('JSMapNode', () => {
         value: [2, 4, 6],
       },
     });
+  });
+
+  it('interpolates raw JS source snippets before mapping', async () => {
+    const node = createNode({
+      callbackBody: 'return { value: item * {{factor}}, label: {{label}} };',
+    });
+
+    const result = await node.process(
+      {
+        ['array' as PortId]: { type: 'number[]', value: [1, 2] },
+        ['factor' as PortId]: { type: 'string', value: '3' },
+        ['label' as PortId]: { type: 'string', value: '"scaled"' },
+      },
+      createContext(),
+    );
+
+    assert.deepStrictEqual(result.mapped?.value, [
+      { value: 3, label: 'scaled' },
+      { value: 6, label: 'scaled' },
+    ]);
+  });
+
+  it('receives interpolation inputs when run through the graph processor', async () => {
+    const graph = {
+      metadata: {
+        id: 'graph-1',
+        name: 'Graph',
+        description: '',
+      },
+      nodes: [
+        {
+          id: 'array-input',
+          type: 'graphInput',
+          title: 'Array',
+          data: {
+            id: 'array',
+            dataType: 'number[]',
+          },
+          visualData: { x: 0, y: 0, width: 300 },
+        },
+        {
+          id: 'factor-input',
+          type: 'graphInput',
+          title: 'Factor',
+          data: {
+            id: 'factor',
+            dataType: 'string',
+          },
+          visualData: { x: 0, y: 100, width: 300 },
+        },
+        {
+          id: 'map-node',
+          type: 'jsMap',
+          title: 'JS Map',
+          data: {
+            callbackBody: 'return item * {{factor}};',
+          },
+          visualData: { x: 350, y: 0, width: 220 },
+        },
+        {
+          id: 'output-node',
+          type: 'graphOutput',
+          title: 'Graph Output',
+          data: {
+            id: 'mapped',
+            dataType: 'any[]',
+          },
+          visualData: { x: 650, y: 0, width: 300 },
+        },
+      ],
+      connections: [
+        {
+          outputNodeId: 'array-input',
+          outputId: 'data',
+          inputNodeId: 'map-node',
+          inputId: 'array',
+        },
+        {
+          outputNodeId: 'factor-input',
+          outputId: 'data',
+          inputNodeId: 'map-node',
+          inputId: 'factor',
+        },
+        {
+          outputNodeId: 'map-node',
+          outputId: 'mapped',
+          inputNodeId: 'output-node',
+          inputId: 'value',
+        },
+      ],
+    };
+
+    const processor = new GraphProcessor(makeProject(graph), graph.metadata.id as any, globalRivetNodeRegistry);
+    const result = await processor.processGraph(testProcessContext(), {
+      array: { type: 'number[]', value: [1, 2] },
+      factor: { type: 'string', value: '3' },
+    });
+
+    assert.deepStrictEqual(result.mapped, { type: 'any[]', value: [3, 6] });
+  });
+
+  it('treats missing raw-source interpolation inputs as undefined', async () => {
+    const node = createNode({
+      callbackBody: 'return {{missing}};',
+    });
+
+    const result = await node.process(
+      {
+        ['array' as PortId]: { type: 'number[]', value: [1] },
+      },
+      createContext(),
+    );
+
+    assert.deepStrictEqual(result.mapped?.value, [undefined]);
+  });
+
+  it('keeps escaped interpolation tokens literal and does not create ports for them', () => {
+    const node = createNode({
+      callbackBody: 'return "{{{literal}}}";',
+    });
+
+    assert.deepStrictEqual(
+      node.getInputDefinitions().map((definition) => definition.id),
+      ['array'],
+    );
   });
 
   it('receives index and array callback parameters', async () => {

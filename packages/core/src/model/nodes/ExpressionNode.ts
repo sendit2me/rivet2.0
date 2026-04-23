@@ -12,14 +12,8 @@ import { dedent } from 'ts-dedent';
 import type { Inputs, Outputs } from '../GraphProcessor.js';
 import type { InternalProcessContext } from '../ProcessContext.js';
 import { nodeDefinition } from '../NodeDefinition.js';
-import { coerceTypeOptional } from '../../utils/coerceType.js';
-import {
-  extractInterpolationVariables,
-  findInterpolationTokenSpans,
-  getInterpolationTokenName,
-  protectEscapedInterpolationTokens,
-  restoreEscapedInterpolationTokens,
-} from '../../utils/interpolation.js';
+import { extractInterpolationVariables } from '../../utils/interpolation.js';
+import { interpolateRawJsSource } from './rawJsSourceInterpolation.js';
 
 export type ExpressionNode = ChartNode<'expression', ExpressionNodeData>;
 
@@ -35,46 +29,8 @@ function buildExpressionPreview(expression: string): string {
   return expression.split('\n').slice(0, MAX_BODY_PREVIEW_LINES).join('\n').trim();
 }
 
-function readExpressionInputSource(inputs: Inputs, inputName: string): string | undefined {
-  const wrappedInput = inputs[inputName as PortId];
-
-  if (wrappedInput === undefined) {
-    return undefined;
-  }
-
-  return coerceTypeOptional(wrappedInput, 'string');
-}
-
-function trimParsedExpressionSource(expressionSource: string): string {
-  return expressionSource.trim();
-}
-
 export function interpolateExpressionSource(expression: string, inputs: Inputs): string {
-  const protectedExpression = protectEscapedInterpolationTokens(expression);
-  const tokenSpans = findInterpolationTokenSpans(protectedExpression);
-
-  if (tokenSpans.length === 0) {
-    return trimParsedExpressionSource(restoreEscapedInterpolationTokens(protectedExpression));
-  }
-
-  let result = '';
-  let cursor = 0;
-
-  for (const tokenSpan of tokenSpans) {
-    result += protectedExpression.slice(cursor, tokenSpan.start);
-
-    const tokenName = getInterpolationTokenName(tokenSpan.rawInner);
-    // Expression inputs are raw JS source snippets. Missing values intentionally
-    // become the identifier `undefined` instead of an empty string.
-    const replacement = tokenName ? readExpressionInputSource(inputs, tokenName) : undefined;
-    result += replacement ?? 'undefined';
-
-    cursor = tokenSpan.end;
-  }
-
-  result += protectedExpression.slice(cursor);
-
-  return trimParsedExpressionSource(restoreEscapedInterpolationTokens(result));
+  return interpolateRawJsSource(expression, inputs);
 }
 
 function buildExpressionWrapper(expressionSource: string): string {

@@ -1,7 +1,11 @@
 import { dedent } from 'ts-dedent';
-import type { Outputs } from '../GraphProcessor.js';
+import type { Inputs, Outputs } from '../GraphProcessor.js';
+import type { NodeInputDefinition, PortId } from '../NodeBase.js';
+import { extractInterpolationVariables } from '../../utils/interpolation.js';
+import { interpolateRawJsSource } from './rawJsSourceInterpolation.js';
 
 const MAX_CALLBACK_PREVIEW_BODY_LINES = 13;
+const RESERVED_JS_LIST_CALLBACK_NAMES = new Set(['item', 'index', 'array']);
 
 function indentLines(text: string, prefix: string): string {
   return text
@@ -81,6 +85,23 @@ export function buildJSMapWrapper(callbackBody: string): string {
       },
     };
   `;
+}
+
+export function getJSListCallbackInterpolationInputDefinitions(callbackBody: string): NodeInputDefinition[] {
+  return extractInterpolationVariables(callbackBody)
+    .filter((inputName) => !RESERVED_JS_LIST_CALLBACK_NAMES.has(inputName))
+    .map((inputName) => ({
+      id: inputName as PortId,
+      title: inputName,
+      dataType: 'string',
+      required: false,
+    }));
+}
+
+export function interpolateJSListCallbackBody(callbackBody: string, inputs: Inputs): string {
+  return interpolateRawJsSource(callbackBody, inputs, {
+    ignoredInputNames: RESERVED_JS_LIST_CALLBACK_NAMES,
+  });
 }
 
 export function buildJSListNodeBodyPreview(callbackBody: string): string {
