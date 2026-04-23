@@ -3,6 +3,7 @@ import { useSetAtom } from 'jotai';
 import {
   type CodeNode,
   type ExpressionNode,
+  type ExtractObjectPathNode,
   type JSFilterNode,
   type JSMapNode,
   type ProcessEvents,
@@ -169,6 +170,15 @@ function getNodeRunDebugData(node: ProcessEvents['nodeStart']['node']) {
     return {
       debugData: {
         expressionSource: (node as ExpressionNode).data.expression,
+      },
+    };
+  }
+
+  if (node.type === 'extractObjectPath') {
+    return {
+      debugData: {
+        extractObjectPathSource: (node as ExtractObjectPathNode).data.path,
+        extractObjectPathUsePathInput: (node as ExtractObjectPathNode).data.usePathInput,
       },
     };
   }

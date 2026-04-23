@@ -214,13 +214,15 @@ test('storeNodeDataForHistory omits undefined input and output fields so later u
   assert.equal('splitOutputData' in stored, false);
 });
 
-test('storeNodeDataForHistory preserves expression debug snapshots for later output rendering', () => {
+test('storeNodeDataForHistory preserves node debug snapshots for later output rendering', () => {
   const dataRefs = createDataRefStore();
 
   const stored = storeNodeDataForHistory(
     {
       debugData: {
         expressionSource: '{{a}} * 2',
+        extractObjectPathSource: '$.aaa["{{field}}"]',
+        extractObjectPathUsePathInput: false,
       },
       status: { type: 'running' },
     },
@@ -234,6 +236,8 @@ test('storeNodeDataForHistory preserves expression debug snapshots for later out
   assert.deepEqual(stored, {
     debugData: {
       expressionSource: '{{a}} * 2',
+      extractObjectPathSource: '$.aaa["{{field}}"]',
+      extractObjectPathUsePathInput: false,
     },
     status: { type: 'running' },
   });

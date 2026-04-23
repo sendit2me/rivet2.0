@@ -26,6 +26,36 @@ export type ExtractObjectPathNodeData = {
 // Keep built-in ports from becoming implicit interpolation variables.
 const RESERVED_INPUT_IDS = new Set<PortId>(['object' as PortId]);
 
+export function getExtractObjectPathInterpolationInputNames(path: string): string[] {
+  return extractInterpolationVariables(path).filter((inputName) => !RESERVED_INPUT_IDS.has(inputName as PortId));
+}
+
+function buildExtractObjectPathInterpolationInputs(
+  path: string,
+  inputs: Record<PortId, DataValue>,
+): Record<string, DataValue | string | undefined> {
+  return Object.fromEntries(
+    extractInterpolationVariables(path).map((inputName) => [
+      inputName,
+      RESERVED_INPUT_IDS.has(inputName as PortId) ? '' : inputs[inputName as PortId],
+    ]),
+  ) as Record<string, DataValue | string | undefined>;
+}
+
+export function interpolateExtractObjectPathSource(
+  path: string,
+  inputs: Record<PortId, DataValue>,
+  graphInputValues?: Record<string, DataValue>,
+  contextValues?: Record<string, DataValue>,
+): string {
+  return interpolate(
+    path,
+    buildExtractObjectPathInterpolationInputs(path, inputs),
+    graphInputValues,
+    contextValues,
+  ).trim();
+}
+
 export class ExtractObjectPathNodeImpl extends NodeImpl<ExtractObjectPathNode> {
   static create(): ExtractObjectPathNode {
     const chartNode: ExtractObjectPathNode = {
@@ -46,14 +76,8 @@ export class ExtractObjectPathNodeImpl extends NodeImpl<ExtractObjectPathNode> {
     return chartNode;
   }
 
-  private getInterpolationTokenNames(): string[] {
-    return extractInterpolationVariables(this.chartNode.data.path ?? '');
-  }
-
   private getInterpolationInputNames(): string[] {
-    return this.getInterpolationTokenNames().filter(
-      (inputName) => !RESERVED_INPUT_IDS.has(inputName as PortId),
-    );
+    return getExtractObjectPathInterpolationInputNames(this.chartNode.data.path ?? '');
   }
 
   getInputDefinitions(): NodeInputDefinition[] {
@@ -137,29 +161,20 @@ export class ExtractObjectPathNodeImpl extends NodeImpl<ExtractObjectPathNode> {
   ): Promise<Record<PortId, DataValue>> {
     const { usePathInput, path } = this.chartNode.data;
     const inputObject = coerceTypeOptional(inputs['object' as PortId], 'object');
-    const rawPath = usePathInput
-      ? expectType(inputs['path' as PortId], 'string')
-      : path;
+    const rawPath = usePathInput ? expectType(inputs['path' as PortId], 'string') : path;
 
     if (!rawPath) {
       throw new Error('Path input is not provided');
     }
 
-    const interpolationInputs = Object.fromEntries(
-      this.getInterpolationTokenNames().map((inputName) => [
-        inputName,
-        RESERVED_INPUT_IDS.has(inputName as PortId) ? '' : inputs[inputName as PortId],
-      ]),
-    ) as Record<string, DataValue | string | undefined>;
-
     const inputPath = usePathInput
-      ? rawPath
-      : interpolate(rawPath, interpolationInputs, context.graphInputNodeValues, context.contextValues);
+      ? rawPath.trim()
+      : interpolateExtractObjectPathSource(rawPath, inputs, context.graphInputNodeValues, context.contextValues);
 
     let matches: unknown[];
     try {
       // Wrap doesn't seem to wrap when the input is undefined or null...
-      const match = JSONPath<unknown>({ json: inputObject ?? null, path: inputPath.trim(), wrap: true });
+      const match = JSONPath<unknown>({ json: inputObject ?? null, path: inputPath, wrap: true });
       matches = match == null ? [] : (match as unknown[]);
     } catch (err) {
       matches = [];

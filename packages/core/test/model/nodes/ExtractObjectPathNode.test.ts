@@ -5,6 +5,8 @@ import {
   type DataValue,
   type ExtractObjectPathNode,
   ExtractObjectPathNodeImpl,
+  getExtractObjectPathInterpolationInputNames,
+  interpolateExtractObjectPathSource,
   type InternalProcessContext,
 } from '../../../src/index.js';
 
@@ -253,6 +255,22 @@ describe('ExtractObjectPathNodeImpl', () => {
 
     assert.equal(result['match'].value, 99);
     assert.deepEqual(result['all_matches'].value, [99]);
+  });
+
+  it('exposes shared helpers for stored-path interpolation', () => {
+    assert.deepEqual(getExtractObjectPathInterpolationInputNames('$.aaa["{{bbb}}"]["{{@context.leaf}}"]'), ['bbb']);
+  });
+
+  it('trims the parsed stored path used at runtime', () => {
+    assert.equal(
+      interpolateExtractObjectPathSource('\n  $.aaa["{{bbb}}"]  \n', {
+        bbb: {
+          type: 'string',
+          value: 'ccc',
+        } as DataValue,
+      } as Record<any, DataValue>),
+      '$.aaa["ccc"]',
+    );
   });
 
   it('keeps usePathInput mode unchanged and does not expose interpolation-derived ports', async () => {

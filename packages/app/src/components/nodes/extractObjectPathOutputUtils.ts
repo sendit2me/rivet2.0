@@ -1,0 +1,71 @@
+import { type DataValue, type ExtractObjectPathNode, type Inputs, type PortId } from '@ironclad/rivet-core';
+import { type NodeRunDataWithRefs } from '../../state/dataFlow.js';
+import {
+  extractInterpolationVariables,
+  findInterpolationTokenSpans,
+  getInterpolationTokenName,
+  interpolate,
+  protectEscapedInterpolationTokens,
+  restoreEscapedInterpolationTokens,
+} from '../../../../core/src/utils/interpolation.js';
+
+const RESERVED_INPUT_IDS = new Set<PortId>(['object' as PortId]);
+
+function getExtractObjectPathInterpolationInputNames(path: string): string[] {
+  return extractInterpolationVariables(path).filter((inputName) => !RESERVED_INPUT_IDS.has(inputName as PortId));
+}
+
+function buildExtractObjectPathInterpolationInputs(
+  path: string,
+  inputs: Inputs,
+): Record<string, DataValue | string | undefined> {
+  return Object.fromEntries(
+    extractInterpolationVariables(path).map((inputName) => [
+      inputName,
+      RESERVED_INPUT_IDS.has(inputName as PortId) ? '' : inputs[inputName as PortId],
+    ]),
+  ) as Record<string, DataValue | string | undefined>;
+}
+
+export function getExtractObjectPathPreviewSource(node: ExtractObjectPathNode, data: NodeRunDataWithRefs): string {
+  return data.debugData?.extractObjectPathSource ?? node.data.path;
+}
+
+export function getExtractObjectPathUsePathInput(node: ExtractObjectPathNode, data: NodeRunDataWithRefs): boolean {
+  return data.debugData?.extractObjectPathUsePathInput ?? node.data.usePathInput;
+}
+
+export function hasExtractObjectPathInterpolationInputs(pathSource: string): boolean {
+  return getExtractObjectPathInterpolationInputNames(pathSource).length > 0;
+}
+
+export function getParsedExtractObjectPathPreviewSource(pathSource: string, inputs: Inputs): string {
+  const protectedPath = protectEscapedInterpolationTokens(pathSource);
+  const tokenSpans = findInterpolationTokenSpans(protectedPath);
+
+  if (tokenSpans.length === 0) {
+    return restoreEscapedInterpolationTokens(protectedPath).trim();
+  }
+
+  const interpolationInputs = buildExtractObjectPathInterpolationInputs(pathSource, inputs);
+  let result = '';
+  let cursor = 0;
+
+  for (const tokenSpan of tokenSpans) {
+    result += protectedPath.slice(cursor, tokenSpan.start);
+
+    const tokenName = getInterpolationTokenName(tokenSpan.rawInner);
+
+    if (tokenName?.startsWith('@graphInputs.') || tokenName?.startsWith('@context.')) {
+      result += protectedPath.slice(tokenSpan.start, tokenSpan.end);
+    } else {
+      result += interpolate(`{{${tokenSpan.rawInner}}}`, interpolationInputs);
+    }
+
+    cursor = tokenSpan.end;
+  }
+
+  result += protectedPath.slice(cursor);
+
+  return restoreEscapedInterpolationTokens(result).trim();
+}

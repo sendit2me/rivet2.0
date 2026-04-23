@@ -47,6 +47,8 @@ export type NodeRunDataBase = {
   debugData?: {
     codeSource?: string;
     expressionSource?: string;
+    extractObjectPathSource?: string;
+    extractObjectPathUsePathInput?: boolean;
     jsListCallbackBodySource?: string;
   };
 

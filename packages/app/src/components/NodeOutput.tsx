@@ -91,7 +91,10 @@ const ActiveNodeOutput: FC<{ node: ChartNode; isOutputExpanded: boolean }> = ({ 
 
 function shouldUseCustomNodeErrorOutput(node: ChartNode, data: NodeRunDataWithRefs): boolean {
   return (
-    (node.type === 'expression' || node.type === 'jsFilter' || node.type === 'jsMap') &&
+    (node.type === 'expression' ||
+      node.type === 'jsFilter' ||
+      node.type === 'jsMap' ||
+      node.type === 'extractObjectPath') &&
     data.status?.type === 'error'
   );
 }

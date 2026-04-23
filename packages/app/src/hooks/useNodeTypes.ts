@@ -21,6 +21,7 @@ import { getDatasetRowNodeDescriptor } from '../components/nodes/GetDatasetRowNo
 import { replaceDatasetNodeDescriptor } from '../components/nodes/ReplaceDatasetNode';
 import { expressionNodeDescriptor } from '../components/nodes/ExpressionNode';
 import { jsFilterNodeDescriptor, jsMapNodeDescriptor } from '../components/nodes/JSListNode';
+import { extractObjectPathNodeDescriptor } from '../components/nodes/ExtractObjectPathNode';
 import { type InputsOrOutputsWithRefs, type NodeRunDataWithRefs } from '../state/dataFlow';
 import { useAtomValue } from 'jotai';
 import { useProjectNodeRegistry } from './useProjectNodeRegistry';
@@ -71,6 +72,7 @@ const overriddenDescriptors: Partial<NodeComponentDescriptors> = {
   expression: expressionNodeDescriptor,
   jsFilter: jsFilterNodeDescriptor,
   jsMap: jsMapNodeDescriptor,
+  extractObjectPath: extractObjectPathNodeDescriptor,
 };
 
 export function useNodeTypes(): NodeComponentDescriptors {
