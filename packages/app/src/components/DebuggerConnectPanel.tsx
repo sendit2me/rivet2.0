@@ -1,15 +1,36 @@
 import Button from '@atlaskit/button';
 import TextField from '@atlaskit/textfield';
 import { css } from '@emotion/react';
-import { type ChangeEvent, type FC, useEffect, useRef, useState } from 'react';
+import { type ChangeEvent, type CSSProperties, type FC, useEffect, useRef, useState } from 'react';
 import { Field } from '@atlaskit/form';
 import { useRemoteDebugger } from '../hooks/useRemoteDebugger';
-import { debuggerPanelOpenState } from '../state/ui';
+import { debuggerPanelAnchorState, type DebuggerPanelAnchor, debuggerPanelOpenState } from '../state/ui';
 import { debuggerDefaultUrlState } from '../state/settings';
-import { useSetAtom, useAtom } from 'jotai';
+import { useSetAtom, useAtom, useAtomValue } from 'jotai';
+
+const PANEL_WIDTH = 400;
+const PANEL_MARGIN = 16;
+const PANEL_OFFSET = 4;
+
+function getDebuggerPanelPosition(anchor: DebuggerPanelAnchor | undefined): CSSProperties {
+  if (!anchor || typeof window === 'undefined') {
+    return {
+      right: 20,
+      top: 'calc(56px + var(--project-selector-height))',
+    };
+  }
+
+  const maxLeft = Math.max(PANEL_MARGIN, window.innerWidth - PANEL_WIDTH - PANEL_MARGIN);
+
+  return {
+    left: Math.min(Math.max(anchor.right - PANEL_WIDTH, PANEL_MARGIN), maxLeft),
+    top: Math.max(anchor.bottom + PANEL_OFFSET, PANEL_MARGIN),
+  };
+}
 
 export function useToggleRemoteDebugger() {
   const setDebuggerPanelOpen = useSetAtom(debuggerPanelOpenState);
+  const setDebuggerPanelAnchor = useSetAtom(debuggerPanelAnchorState);
   const { sessionState: remoteDebugger, connect, disconnect } = useRemoteDebugger();
   const isActuallyRemoteDebugging = remoteDebugger.status !== 'idle' && !remoteDebugger.isInternalExecutor;
 
@@ -17,6 +38,7 @@ export function useToggleRemoteDebugger() {
     if (isActuallyRemoteDebugging || remoteDebugger.reconnecting) {
       disconnect();
     } else {
+      setDebuggerPanelAnchor(undefined);
       setDebuggerPanelOpen(true);
     }
   };
@@ -24,11 +46,18 @@ export function useToggleRemoteDebugger() {
 
 export const DebuggerPanelRenderer: FC = () => {
   const [debuggerPanelOpen, setDebuggerPanelOpen] = useAtom(debuggerPanelOpenState);
+  const debuggerPanelAnchor = useAtomValue(debuggerPanelAnchorState);
+  const setDebuggerPanelAnchor = useSetAtom(debuggerPanelAnchorState);
 
   const { connect } = useRemoteDebugger();
 
-  function handleConnectRemoteDebugger(url: string) {
+  function closeDebuggerPanel() {
     setDebuggerPanelOpen(false);
+    setDebuggerPanelAnchor(undefined);
+  }
+
+  function handleConnectRemoteDebugger(url: string) {
+    closeDebuggerPanel();
     connect(url);
   }
 
@@ -36,7 +65,13 @@ export const DebuggerPanelRenderer: FC = () => {
     return null;
   }
 
-  return <DebuggerConnectPanel onConnect={handleConnectRemoteDebugger} onCancel={() => setDebuggerPanelOpen(false)} />;
+  return (
+    <DebuggerConnectPanel
+      anchor={debuggerPanelAnchor}
+      onConnect={handleConnectRemoteDebugger}
+      onCancel={closeDebuggerPanel}
+    />
+  );
 };
 
 const styles = css`
@@ -44,12 +79,10 @@ const styles = css`
   flex-direction: column;
   gap: 16px;
   position: fixed;
-  top: calc(48px + var(--project-selector-height));
-  left: 256px;
   background: var(--grey-darker);
   padding: 4px 16px 16px 16px; // atlaskit padding on top
   box-shadow: 0 8px 16px var(--shadow-dark);
-  width: 400px;
+  width: ${PANEL_WIDTH}px;
   z-index: 50;
 
   .inputs {
@@ -69,11 +102,12 @@ const styles = css`
 `;
 
 export type DebuggerConnectPanelProps = {
+  anchor?: DebuggerPanelAnchor;
   onConnect?: (url: string) => void;
   onCancel?: () => void;
 };
 
-export const DebuggerConnectPanel: FC<DebuggerConnectPanelProps> = ({ onConnect, onCancel }) => {
+export const DebuggerConnectPanel: FC<DebuggerConnectPanelProps> = ({ anchor, onConnect, onCancel }) => {
   const [defaultConnectUrl, setDefaultConnectUrl] = useAtom(debuggerDefaultUrlState);
   const [connectUrl, setConnectUrl] = useState(defaultConnectUrl);
 
@@ -92,7 +126,7 @@ export const DebuggerConnectPanel: FC<DebuggerConnectPanelProps> = ({ onConnect,
   }, []);
 
   return (
-    <div css={styles}>
+    <div css={styles} style={getDebuggerPanelPosition(anchor)}>
       <div className="inputs">
         <Field label="Connection URL (leave blank for default localhost)" name="url">
           {() => (

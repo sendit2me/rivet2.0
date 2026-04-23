@@ -1,20 +1,22 @@
 import Portal from '@atlaskit/portal';
 import Select from '@atlaskit/select';
 import { css } from '@emotion/react';
-import { type FC, useRef } from 'react';
+import { type FC, type MouseEvent, useRef } from 'react';
 import { useLoadRecording } from '../hooks/useLoadRecording';
 import { useExecutorSessionState } from '../hooks/useExecutorSession';
 import { defaultExecutorState, executorOptions } from '../state/settings';
-import { debuggerPanelOpenState, helpModalOpenState } from '../state/ui';
-import { isInTauri } from '../utils/tauri';
+import {
+  debuggerPanelAnchorState,
+  type DebuggerPanelAnchor,
+  debuggerPanelOpenState,
+  helpModalOpenState,
+} from '../state/ui';
 import { settingsModalOpenState } from './SettingsModal';
 import LinkIcon from 'majesticons/line/link-circle-line.svg?react';
 import GearIcon from 'majesticons/line/settings-cog-line.svg?react';
 import CpuIcon from 'majesticons/line/cpu-line.svg?react';
 import ForwardCircleIcon from 'majesticons/line/forward-circle-line.svg?react';
 import CopyIcon from 'majesticons/line/clipboard-plus-line.svg?react';
-import { CopyAsTestCaseModal } from './CopyAsTestCaseModal';
-import { useToggle } from 'ahooks';
 import QuestionIcon from 'majesticons/line/question-circle-line.svg?react';
 import { useSetAtom, useAtom } from 'jotai';
 
@@ -72,18 +74,25 @@ const moreMenuStyles = css`
 `;
 
 export const ActionBarMoreMenu: FC<{
+  getDebuggerPanelAnchor: () => DebuggerPanelAnchor | undefined;
   onClose: () => void;
   onCopyAsTestCase: () => void;
-}> = ({ onClose, onCopyAsTestCase }) => {
+}> = ({ getDebuggerPanelAnchor, onClose, onCopyAsTestCase }) => {
   const dropdownTarget = useRef<HTMLDivElement>(null);
   const setSettingsOpen = useSetAtom(settingsModalOpenState);
   const setDebuggerPanelOpen = useSetAtom(debuggerPanelOpenState);
+  const setDebuggerPanelAnchor = useSetAtom(debuggerPanelAnchorState);
   const [selectedExecutor, setSelectedExecutor] = useAtom(defaultExecutorState);
   const selectedExecutorOption = executorOptions.find((option) => option.value === selectedExecutor);
   const { loadRecording } = useLoadRecording();
   const setHelpModalOpen = useSetAtom(helpModalOpenState);
 
-  const openDebuggerPanel = () => {
+  const openDebuggerPanel = (event: MouseEvent<HTMLDivElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    setDebuggerPanelAnchor(getDebuggerPanelAnchor() ?? {
+      bottom: rect.bottom,
+      right: rect.right,
+    });
     setDebuggerPanelOpen(true);
     onClose();
   };

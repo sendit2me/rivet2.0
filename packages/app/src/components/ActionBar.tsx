@@ -1,6 +1,6 @@
 import { css } from '@emotion/react';
 import clsx from 'clsx';
-import { type FC } from 'react';
+import { type FC, useRef } from 'react';
 import { useAtomValue } from 'jotai';
 import { useLoadRecording } from '../hooks/useLoadRecording';
 import { useSaveRecording } from '../hooks/useSaveRecording';
@@ -24,6 +24,7 @@ import { graphMetadataState } from '../state/graph';
 import { type GraphId } from '@ironclad/rivet-core';
 import { wrapAsync } from '../utils/errorHandling';
 import { getActionBarExecutionState } from '../state/selectors/executionSelectors.js';
+import type { DebuggerPanelAnchor } from '../state/ui.js';
 
 const styles = css`
   position: fixed;
@@ -137,6 +138,7 @@ export type ActionBarProps = {
 };
 
 export const ActionBar: FC<ActionBarProps> = ({ onRunGraph, onAbortGraph, onPauseGraph, onResumeGraph }) => {
+  const actionBarRef = useRef<HTMLDivElement>(null);
   const graphMetadata = useAtomValue(graphMetadataState);
   const projectMetadata = useAtomValue(projectMetadataState);
   const lastRecording = useAtomValue(lastRecordingState);
@@ -167,8 +169,19 @@ export const ActionBar: FC<ActionBarProps> = ({ onRunGraph, onAbortGraph, onPaus
   const hasMainGraph = projectMetadata.mainGraphId != null;
   const isMainGraph = hasMainGraph && graphMetadata?.id === projectMetadata.mainGraphId;
 
+  const getDebuggerPanelAnchor = (): DebuggerPanelAnchor | undefined => {
+    const rect = actionBarRef.current?.getBoundingClientRect();
+
+    return rect
+      ? {
+          bottom: rect.bottom,
+          right: rect.right,
+        }
+      : undefined;
+  };
+
   return (
-    <div css={styles}>
+    <div css={styles} ref={actionBarRef}>
       {actionBarExecutionState.showRemoteDebuggerBanner && (
         <div
           className={clsx('remote-debugger-button active', {
@@ -252,6 +265,7 @@ export const ActionBar: FC<ActionBarProps> = ({ onRunGraph, onAbortGraph, onPaus
         onClose={toggleMenuIsOpen.setLeft}
         content={() => (
           <ActionBarMoreMenu
+            getDebuggerPanelAnchor={getDebuggerPanelAnchor}
             onClose={toggleMenuIsOpen.setLeft}
             onCopyAsTestCase={toggleCopyAsTestCaseModalOpen.setRight}
           />

@@ -1,12 +1,11 @@
-- For all three nodes, add the "Show 'Parsed expression' in non-error outputs" switcher in the node settings (after the code snippet). Make it that default to off.
 
-- All our latest changes with showing the parsed expressions and parsing for highlighting the error line in the oocde snippet - make sure these changes can't possibly break the workflow execution in production (when the workflow is run on the backend via the Rivet nodejs lib). Running workflows programmatically is a priority
 
-- Node for accessing headers of the request
+Random number node. Settings: 
+- Integer / float (pill switcher that we used in the each node's setting panel headr for "parallel runs/sequential")
+- Min (int num)
+- Max (int num)
+Min and max are included in the generated range
 
-- Convenient node type browser, just like in n8n
-
-- A way to throw the error into the workflow response whenever the workflow breaks and ends
 
 - A faster way to open a subgraph than from a context menu
 
@@ -28,11 +27,15 @@
 
 - The popup full view of the output - I want to be able to resize it from left and right as much as I want
 
+- Convenient node type browser, just like in n8n
+
 - Make sure text copies on Ctrl+C no problem from full view popup and output panel
 
-- The remote debugger window pops up somewher eon the left. It has to appear next to the button that I clicked to open it
+- For all three nodes, add the "Show 'Parsed expression' in non-error outputs" switcher in the node settings (after the code snippet). Make it that default to off.
 
-- Random number node
+- A way to throw the error into the workflow response whenever the workflow breaks and ends
+
+
 
 - When a subgraph node has an input connection and then this input port is removed, the phantom connection persists (it shouldn't)
 
