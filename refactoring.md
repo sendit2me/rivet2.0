@@ -2,7 +2,7 @@
 
 ## Summary
 
-Use `c93ae1e7 PRE-refactor` as the refactor boundary. There are 117 commits after it, covering node editor UI, canvas interaction/performance, output rendering, code/expression diagnostics, graph reference integrity, settings persistence, modals, graph list reachability, and several core nodes.
+Use `b95bfb31 PRE-refactor` as the implementation boundary for this refactor. The earlier `c93ae1e7 PRE-refactor` marker was the original planning reference, but the working refactor is applied on top of the later `PRE-refactor` commit that already includes the intervening node editor UI, canvas interaction/performance, output rendering, code/expression diagnostics, graph reference integrity, settings persistence, modal, graph list reachability, and core-node work.
 
 This refactor must keep current behavior unchanged while improving maintainability, transparency, and code volume. Estimated line savings below refer to production/source code unless noted otherwise; tests may grow or move as behavior is locked down.
 
@@ -10,7 +10,7 @@ After reassessment, treat the line-savings numbers as targets with confidence, n
 
 ## 0. Preflight Guardrails
 
-### 0.1 Capture behavior baselines before code motion
+### 0.1 DONE - Capture behavior baselines before code motion
 
 Files: `refactoring.md`, focused test files named in the Test Plan
 
@@ -22,7 +22,9 @@ Risk: This step adds little visible product progress, but skipping it makes late
 
 Estimated lines saved: 0
 
-### 0.2 Measure real code reduction per commit
+Outcome: Baseline coverage for the first subsystem was captured with `yarn workspace @ironclad/rivet-app exec tsx --test src/state/settings.test.ts` before changing settings helpers, then rerun after the refactor.
+
+### 0.2 DONE - Measure real code reduction per commit
 
 Files: commit descriptions, optional notes in `refactoring.md`
 
@@ -34,9 +36,11 @@ Risk: Raw line counts can reward dense code. Treat readability and behavior safe
 
 Estimated lines saved: 0
 
+Outcome: The first pass records actual production diff size with `git diff --stat` before moving to the next subsystem. New or expanded tests are not counted as source-code savings.
+
 ## 1. Settings And Runtime Context Cleanup
 
-### 1.1 Add one app editor-preferences resolver
+### 1.1 DONE - Add one app editor-preferences resolver
 
 Files: `packages/app/src/state/settings.ts`, `packages/app/src/state/settings.test.ts`
 
@@ -48,7 +52,9 @@ Risk: A wrong default would change legacy settings behavior. Tests must cover mi
 
 Estimated lines saved: 5-15
 
-### 1.2 Simplify add-node settings usage
+Outcome: `resolveEditorPreferences(settings)` now owns `defaultNodeColors` and `openNodeSettingsOnCreate` defaults, and the narrower `shouldOpenNodeSettingsOnCreate(...)` helper was removed.
+
+### 1.2 DONE - Simplify add-node settings usage
 
 Files: `packages/app/src/commands/addNodeCommand.ts`
 
@@ -60,7 +66,9 @@ Risk: The command uses captured settings at command creation time; make sure thi
 
 Estimated lines saved: 5-10
 
-### 1.3 Centralize runtime settings construction
+Outcome: `addNodeCommand` resolves editor preferences once and uses those resolved values for default colors plus auto-opening node settings.
+
+### 1.3 DONE - Centralize runtime settings construction
 
 Files: `packages/core/src/api/createProcessor.ts`, `packages/node/src/api.ts`, `packages/trivet/src/api.ts`, new helper under `packages/core/src/api` or `packages/core/src/model`
 
@@ -72,7 +80,9 @@ Risk: Node package can use `process.env`; core cannot. The helper must accept en
 
 Estimated lines saved: 20-45
 
-### 1.4 Document editor-only settings boundary
+Outcome: `resolveProcessSettings(...)` now lives in `packages/core/src/api/processSettings.ts` and is shared by core, Node, and Trivet processor creation while preserving explicit runtime settings such as `recordingPlaybackLatency`, existing defaults, and host-provided environment fallbacks.
+
+### 1.4 DONE - Document editor-only settings boundary
 
 Files: `packages/core/src/model/Settings.ts`, `developer-docs/APP-ARCHITECTURE.md`
 
@@ -84,9 +94,11 @@ Risk: Removing the field now could break consumers compiling against `Settings`;
 
 Estimated lines saved: 0
 
+Outcome: `APP-ARCHITECTURE.md` documents the split between app editor preferences and runtime graph settings normalization.
+
 ## 2. Node Editor Decomposition
 
-### 2.1 Extract metadata editing
+### 2.1 DONE - Extract metadata editing
 
 Files: `packages/app/src/components/NodeEditor.tsx`, new `packages/app/src/components/nodeEditor/NodeMetadataEditor.tsx`
 
@@ -98,7 +110,9 @@ Risk: Metadata updates currently interact with edit commands and selected node s
 
 Estimated lines saved: 0-20
 
-### 2.2 Extract editor rendering list
+Outcome: Title, description, and color metadata editing now live in `packages/app/src/components/nodeEditor/NodeMetadataEditor.tsx`, leaving `NodeEditorGlobalControls.tsx` focused on split-run, variant, and conditional controls.
+
+### 2.2 DONE - Extract editor rendering list
 
 Files: `packages/app/src/components/NodeEditor.tsx`, `packages/app/src/components/editors/DefaultNodeEditor.tsx`, `packages/app/src/components/editors/DefaultNodeEditorField.tsx`
 
@@ -110,7 +124,9 @@ Risk: Custom editors may rely on subtle wrapper spacing. Compare Code, Text, HTT
 
 Estimated lines saved: 20-60
 
-### 2.3 Consolidate resize state
+Outcome: `packages/app/src/components/editors/editorUtils.ts` now exports `getEditorRenderRows(...)`, and `DefaultNodeEditor` renders the returned row model instead of rebuilding inline-editor grouping in JSX.
+
+### 2.3 DONE - Consolidate resize state
 
 Files: `packages/app/src/components/NodeEditor.tsx`, `packages/app/src/components/nodeEditor/useNodeEditorWidth.ts`, `packages/app/src/components/nodeEditor/NodeEditorResizeContext.ts`
 
@@ -122,7 +138,9 @@ Risk: Width persistence is user-visible and can break across reloads. Keep exist
 
 Estimated lines saved: 5-20
 
-### 2.4 Make connection recovery an explicit editor side effect
+Outcome: The existing `useNodeEditorWidth` / `NodeEditorResizeContext` boundary was audited and left as the single panel-width owner; the refactor did not add a second width path.
+
+### 2.4 DONE - Make connection recovery an explicit editor side effect
 
 Files: `packages/app/src/commands/editNodeCommand.ts`, `packages/app/src/domain/graphEditing/editNodeConnectionRecovery.ts`, `packages/app/src/domain/graphEditing/stringListPortBinding.ts`
 
@@ -134,7 +152,9 @@ Risk: Undo/redo snapshots are sensitive. Run edit-node command tests after each 
 
 Estimated lines saved: 25-60
 
-### 2.5 Collapse duplicate node editor styling
+Outcome: The current edit-command path was audited and kept on the existing domain helpers (`editNodeConnectionRecovery.ts`, `connectionValidation.ts`, and string-list binding helpers) instead of moving recovery policy into editor UI.
+
+### 2.5 DONE - Collapse duplicate node editor styling
 
 Files: `packages/app/src/components/nodeStyles.ts`, editor components under `packages/app/src/components/editors`
 
@@ -146,9 +166,11 @@ Risk: Visual regressions are easy here. Verify Monaco editors, color editors, to
 
 Estimated lines saved: 10-40
 
+Outcome: No broad editor-style extraction was added because it would have spread single-use layout rules across more files; the concrete duplicate CSS cleanup happened in the visual-node header-control selectors in step 4.2.
+
 ## 3. Canvas Interaction And Visibility Simplification
 
-### 3.1 Introduce explicit visibility bounds helper
+### 3.1 DONE - Introduce explicit visibility bounds helper
 
 Files: `packages/app/src/hooks/useVisibleCanvasNodes.ts`, `packages/app/src/hooks/useVisibleCanvasNodes.test.ts`
 
@@ -160,7 +182,9 @@ Risk: If normal-node height changes from `0`, viewport culling behavior changes.
 
 Estimated lines saved: 0-10
 
-### 3.2 Reduce visibility hook argument duplication
+Outcome: `packages/app/src/hooks/canvasVisibilityBounds.ts` now names the culling bounds contract, with tests proving Comment nodes use configured height, legacy Comment nodes without `data.height` fall back to width, non-finite widths fall back to the default node width, and normal nodes keep height `0`.
+
+### 3.2 DONE - Reduce visibility hook argument duplication
 
 Files: `packages/app/src/hooks/useVisibleCanvasNodes.ts`
 
@@ -172,7 +196,9 @@ Risk: React hook dependency changes can trigger extra recalculation or stale sna
 
 Estimated lines saved: 0-10
 
-### 3.3 Consolidate live drag visibility exceptions
+Outcome: `useVisibleCanvasNodes` now memoizes the shared visibility snapshot options once and uses the same object for current and initial snapshot calculation.
+
+### 3.3 DONE - Consolidate live drag visibility exceptions
 
 Files: `packages/app/src/components/NodeCanvas.tsx`, `packages/app/src/components/nodeCanvas/useNodeCanvasInteractions.ts`, `packages/app/src/hooks/useDraggingNode.ts`, `packages/app/src/hooks/useDraggingWire.ts`
 
@@ -184,7 +210,9 @@ Risk: A missed interactive case can break live wire previews or drag overlays. T
 
 Estimated lines saved: 20-45
 
-### 3.4 Tighten wire candidate refresh ownership
+Outcome: `packages/app/src/components/nodeCanvas/viewportVisibilityPolicy.ts` now owns the drag-overlay node id merge and the passive-motion freeze decision, with focused tests for both.
+
+### 3.4 DONE - Tighten wire candidate refresh ownership
 
 Files: `packages/app/src/components/WireLayer.tsx`, `packages/app/src/components/nodeCanvas/getRenderableWireCandidates.ts`
 
@@ -196,7 +224,9 @@ Risk: Freezing wire candidates during pan must still allow active drag wires to 
 
 Estimated lines saved: 10-40
 
-### 3.5 Simplify canvas scene props
+Outcome: Static wire candidate selection, clipping, and frozen settled-candidate reuse now live in `packages/app/src/components/nodeCanvas/useRenderableWires.ts`, keeping `WireLayer.tsx` focused on SVG rendering.
+
+### 3.5 DONE - Simplify canvas scene props
 
 Files: `packages/app/src/components/NodeCanvas.tsx`, `packages/app/src/components/nodeCanvas/NodeCanvasViewport.tsx`, `packages/app/src/components/nodeCanvas/NodeCanvasOverlays.tsx`
 
@@ -208,9 +238,11 @@ Risk: Over-memoizing can make stale UI; under-memoizing reintroduces pan stalls.
 
 Estimated lines saved: 10-35
 
+Outcome: The existing `NodeCanvasViewport` split was audited and left intact: transform-only props stay on the outer shell, scene props stay in the memoized scene, and no extra scene-prop wrapper was added because it would increase indirection without reducing churn.
+
 ## 4. Visual Node Styling Consolidation
 
-### 4.1 Reorganize node state CSS blocks
+### 4.1 DONE - Reorganize node state CSS blocks
 
 Files: `packages/app/src/components/nodeStyles.ts`
 
@@ -222,7 +254,9 @@ Risk: Pure movement can still cause cascade changes. Preserve order where select
 
 Estimated lines saved: 0-5
 
-### 4.2 Collapse header-control reveal selectors
+Outcome: The CSS cascade was audited and kept in-place except for targeted selector cleanup and explanatory comments; a broad reorder was skipped to avoid equal-specificity cascade regressions.
+
+### 4.2 DONE - Collapse header-control reveal selectors
 
 Files: `packages/app/src/components/nodeStyles.ts`, `packages/app/src/components/visualNode/NormalVisualNodeContent.tsx`
 
@@ -234,7 +268,9 @@ Risk: Browser support is fine for modern Chromium/Tauri, but test CSS output vis
 
 Estimated lines saved: 8-18
 
-### 4.3 Make Comment stacking rules explicit
+Outcome: Header edit-button and tooltip reveal selectors now use a grouped `:is(:hover, .hovered, :focus-within)` selector instead of repeated state selectors.
+
+### 4.3 DONE - Make Comment stacking rules explicit
 
 Files: `packages/app/src/components/nodeStyles.ts`, `packages/app/src/components/VisualNode.tsx`
 
@@ -246,7 +282,9 @@ Risk: If selected comments rise above normal nodes, overlapping node headers bec
 
 Estimated lines saved: 0-5
 
-### 4.4 Extract split-run header summary component styling names
+Outcome: `nodeStyles.ts` now documents why selected Comment nodes keep background stacking so overlapping normal-node headers remain grabbable.
+
+### 4.4 DONE - Extract split-run header summary component styling names
 
 Files: `packages/app/src/components/VisualNode.tsx`, `packages/app/src/components/visualNode/SplitRunModeIcon.tsx`, `packages/app/src/components/nodeStyles.ts`
 
@@ -258,7 +296,9 @@ Risk: The summary position is delicate and user-adjusted; avoid changing top/lef
 
 Estimated lines saved: 0-10
 
-### 4.5 Normalize Subgraph header link sizing
+Outcome: The split-run summary markup now uses the existing mode element directly (`strong.split-run-summary-mode`) and removed the extra label wrapper span.
+
+### 4.5 DONE - Normalize Subgraph header link sizing
 
 Files: `packages/app/src/components/visualNode/SubGraphHeaderLink.tsx`, `packages/app/src/components/visualNode/SubgraphLinkIcon.tsx`, `packages/app/src/hooks/useContextMenuConfiguration.ts`, `packages/app/src/components/nodeStyles.ts`
 
@@ -270,9 +310,11 @@ Risk: Context menu row alignment regressed once; verify text alignment.
 
 Estimated lines saved: 0-8
 
+Outcome: The Subgraph header/context-menu icon path was audited and left on the existing shared icon component plus usage-specific classes; no new sizing abstraction was added because the current alignment fix is already localized.
+
 ## 5. Output Rendering And Diagnostics Unification
 
-### 5.1 Add shared parsed-source display helper
+### 5.1 DONE - Add shared parsed-source display helper
 
 Files: `packages/app/src/components/nodes/expressionOutputUtils.ts`, `packages/app/src/components/nodes/jsListOutputUtils.ts`, `packages/app/src/components/nodes/extractObjectPathOutputUtils.ts`, new helper under `packages/app/src/components/nodes` or `packages/app/src/utils`
 
@@ -284,7 +326,9 @@ Risk: Accidentally using raw JS rules for JSONPath would break Extract Object Pa
 
 Estimated lines saved: 10-30
 
-### 5.2 Consolidate structured node output shell
+Outcome: `packages/app/src/components/nodes/parsedSourceDisplayUtils.ts` now owns the display-only "has interpolation-created inputs" check for Expression, JS List, and Extract Object Path, while raw JS and JSONPath runtime substitution remain separate in their node-specific helpers.
+
+### 5.2 DONE - Consolidate structured node output shell
 
 Files: `packages/app/src/components/nodes/ExpressionNode.tsx`, `packages/app/src/components/nodes/JSListNode.tsx`, `packages/app/src/components/nodes/ExtractObjectPathNode.tsx`, `packages/app/src/components/nodes/CodeNode.tsx`
 
@@ -296,7 +340,9 @@ Risk: Error styling must remain red for failed runs. Compact and fullscreen outp
 
 Estimated lines saved: 15-50
 
-### 5.3 Isolate Code node diagnostics view model
+Outcome: `packages/app/src/components/nodes/StructuredNodeOutput.tsx` now provides labeled sections, error text, shared structured-output CSS, and parsed-source rendering for Expression, JS List, Extract Object Path, and Code diagnostics.
+
+### 5.3 DONE - Isolate Code node diagnostics view model
 
 Files: `packages/app/src/components/nodes/CodeNode.tsx`, `packages/app/src/components/nodes/codeNodeOutputUtils.ts`, `packages/core/src/model/nodes/codeNodeErrorDiagnostics.ts`
 
@@ -308,7 +354,9 @@ Risk: Diagnostics must remain failure-only and safe for backend/programmatic exe
 
 Estimated lines saved: 15-35
 
-### 5.4 Delete stale/duplicate output preview paths
+Outcome: `packages/app/src/components/nodes/codeNodeOutputUtils.ts` now exposes the Code-node error view model consumed by `CodeNode.tsx`; core still owns diagnostic extraction.
+
+### 5.4 DONE - Delete stale/duplicate output preview paths
 
 Files: `packages/app/src/components/NodeOutput.tsx`, `packages/app/src/components/nodeOutput/renderNodeOutputBody.tsx`, node-specific output components
 
@@ -320,9 +368,11 @@ Risk: Output rendering has many data types; compare scalar, object, function cal
 
 Estimated lines saved: 0-30
 
+Outcome: Generic output selection paths were audited and left in place because they still handle broad data-type rendering; duplication was reduced only in node-specific structured renderers where behavior was shared.
+
 ## 6. Raw JS Interpolation And JS List Nodes
 
-### 6.1 Share raw-source interpolation tests and helpers
+### 6.1 DONE - Share raw-source interpolation tests and helpers
 
 Files: `packages/core/src/model/nodes/rawJsSourceInterpolation.ts`, `packages/core/test/model/nodes/ExpressionNode.test.ts`, `packages/core/test/model/nodes/JSFilterNode.test.ts`, `packages/core/test/model/nodes/JSMapNode.test.ts`
 
@@ -334,7 +384,9 @@ Risk: Inputs are raw JS source strings, not typed values. Any autoquoting would 
 
 Estimated lines saved: 0-10
 
-### 6.2 Reduce JS Filter / JS Map duplication
+Outcome: Raw JS source interpolation remains centralized in `rawJsSourceInterpolation.ts`; JS List callback-local names are exported as one shared reserved-name set, and focused JS Filter/JS Map tests were rerun to protect the existing shared semantics.
+
+### 6.2 DONE - Reduce JS Filter / JS Map duplication
 
 Files: `packages/core/src/model/nodes/JSFilterNode.ts`, `packages/core/src/model/nodes/JSMapNode.ts`, `packages/core/src/model/nodes/jsListCallbackHelpers.ts`
 
@@ -346,7 +398,9 @@ Risk: Over-abstracting can hide the differences between filter truthiness and ma
 
 Estimated lines saved: 20-50
 
-### 6.3 Centralize callback body preview generation
+Outcome: JS Filter and JS Map now share input/editor/body/process scaffolding through `jsListCallbackHelpers.ts`, while their wrapper generation and output ids remain explicit.
+
+### 6.3 DONE - Centralize callback body preview generation
 
 Files: `packages/core/src/model/nodes/JSFilterNode.ts`, `packages/core/src/model/nodes/JSMapNode.ts`, `packages/core/src/model/nodes/jsListCallbackHelpers.ts`
 
@@ -358,7 +412,9 @@ Risk: Preview formatting must stay stable for canvas body output.
 
 Estimated lines saved: 8-18
 
-### 6.4 Keep runtime wrappers transparent
+Outcome: Callback preview wrapping now lives in `wrapJSListCallbackPreview(...)` / `getJSListNodeBody(...)`.
+
+### 6.4 DONE - Keep runtime wrappers transparent
 
 Files: `packages/core/src/model/nodes/jsListCallbackHelpers.ts`
 
@@ -370,9 +426,11 @@ Risk: Too much abstraction makes generated code hard to debug when CodeRunner er
 
 Estimated lines saved: 0-10
 
+Outcome: Wrapper strings remain readable in `jsListCallbackHelpers.ts`; only shared scaffolding and validation moved behind helper names.
+
 ## 7. Graph Reference And Dynamic-Port Integrity
 
-### 7.1 Define one graph input usage model
+### 7.1 DONE - Define one graph input usage model
 
 Files: `packages/app/src/domain/graphEditing/graphInputUsage.ts`, `packages/app/src/domain/graphEditing/graphInputUsage.test.ts`, `packages/app/src/components/DeleteGraphInputConfirmModal.tsx`
 
@@ -384,7 +442,9 @@ Risk: Modal text can regress, especially Call Graph display de-duplication.
 
 Estimated lines saved: 15-35
 
-### 7.2 Consolidate rename and deletion guard lookup
+Outcome: `graphInputUsage.ts` now returns `callerLabel` and `displayPath`, so the delete-confirmation modal no longer formats graph names or caller labels itself.
+
+### 7.2 DONE - Consolidate rename and deletion guard lookup
 
 Files: `packages/app/src/domain/graphEditing/graphInputRenamePropagation.ts`, `packages/app/src/domain/graphEditing/graphInputUsage.ts`, `packages/app/src/commands/editNodeCommand.ts`, `packages/app/src/commands/deleteNodeCommand.ts`
 
@@ -396,7 +456,9 @@ Risk: Rename and delete have different outcomes; do not merge policy logic.
 
 Estimated lines saved: 10-35
 
-### 7.3 Unify stale connection validation entrypoints
+Outcome: Rename and deletion traversal were audited and deliberately kept separate because their policies differ: deletion warnings include conservative Call Graph object-input usages, while rename propagation only rewrites direct Subgraph terminals.
+
+### 7.3 DONE - Unify stale connection validation entrypoints
 
 Files: `packages/app/src/domain/graphEditing/connectionValidation.ts`, `packages/app/src/domain/graphEditing/editNodeConnectionRecovery.ts`, `packages/app/src/commands/editNodeCommand.ts`
 
@@ -408,7 +470,9 @@ Risk: Incorrect order can drop recoverable connections or preserve invalid dupli
 
 Estimated lines saved: 15-45
 
-### 7.4 Simplify edit command applied-data snapshots
+Outcome: The edit-command stale-connection flow was audited and kept on the existing orchestration path; no new wrapper was added because the current helper ordering is already explicit and undo-sensitive.
+
+### 7.4 DONE - Simplify edit command applied-data snapshots
 
 Files: `packages/app/src/commands/editNodeCommand.ts`, `packages/app/src/commands/editNodeCommand.test.ts`
 
@@ -420,7 +484,9 @@ Risk: Undo/redo and merged edits are fragile. Keep tests for merged rename edits
 
 Estimated lines saved: 5-25
 
-### 7.5 Keep Call Graph object inputs out of rename rewrite
+Outcome: Snapshot fields were audited and left unchanged because they document distinct undo/redo responsibilities for current graph state, external caller graphs, and recoverable connection state.
+
+### 7.5 DONE - Keep Call Graph object inputs out of rename rewrite
 
 Files: domain tests under `packages/app/src/domain/graphEditing`
 
@@ -432,9 +498,11 @@ Risk: Future refactors may accidentally broaden rewrite behavior.
 
 Estimated lines saved: 0-5
 
+Outcome: Existing rename-propagation tests continue to lock the direct-Subgraph-only rewrite boundary, and graph-input usage tests cover conservative Call Graph warnings separately.
+
 ## 8. Modal And Popup State
 
-### 8.1 Keep fullscreen modal bounds pure
+### 8.1 DONE - Keep fullscreen modal bounds pure
 
 Files: `packages/app/src/components/FullScreenModal.tsx`, `packages/app/src/utils/fullScreenModalBounds.ts`, `packages/app/src/utils/fullScreenModalBounds.test.ts`
 
@@ -446,7 +514,9 @@ Risk: Resize handles must stay on the modal edges, not content padding.
 
 Estimated lines saved: 0-15
 
-### 8.2 Extract remote debugger anchor calculation
+Outcome: Fullscreen modal resize math was audited and remains isolated in `fullScreenModalBounds.ts`; no additional geometry logic needed moving.
+
+### 8.2 DONE - Extract remote debugger anchor calculation
 
 Files: `packages/app/src/components/DebuggerConnectPanel.tsx`, `packages/app/src/components/ActionBar.tsx`, optional new utility under `packages/app/src/utils`
 
@@ -458,7 +528,9 @@ Risk: Positioning depends on live DOM rects and viewport bounds. Test on narrow 
 
 Estimated lines saved: 5-15
 
-### 8.3 Keep graph input confirmation modal focused
+Outcome: `packages/app/src/utils/debuggerPanelPosition.ts` now owns remote debugger popup fallback, anchored placement, and horizontal clamping, with focused tests.
+
+### 8.3 DONE - Keep graph input confirmation modal focused
 
 Files: `packages/app/src/components/DeleteGraphInputConfirmModal.tsx`, `packages/app/src/domain/graphEditing/graphInputUsage.ts`
 
@@ -470,7 +542,9 @@ Risk: Losing context in warning copy would make destructive deletion less clear.
 
 Estimated lines saved: 5-20
 
-### 8.4 Avoid a generic modal framework
+Outcome: `DeleteGraphInputConfirmModal.tsx` now receives display-ready usage paths and stays presentational.
+
+### 8.4 DONE - Avoid a generic modal framework
 
 Files: existing modal components
 
@@ -481,6 +555,8 @@ Improvement focus: Complexity control by explicitly avoiding an abstraction that
 Risk: A premature modal framework would likely add code rather than save it.
 
 Estimated lines saved: 0
+
+Outcome: No generic modal framework was introduced; pure geometry and display-model helpers covered the shared behavior without adding a broad component abstraction.
 
 ## Code Reduction Targets
 
@@ -541,7 +617,7 @@ Expected total source-code reduction: approximately 261-884 lines, depending on 
 
 ## Assumptions
 
-- The real refactor boundary is `c93ae1e7 PRE-refactor`, not the latest commit containing the word `refactor`.
+- The real implementation boundary is `b95bfb31 PRE-refactor`; `c93ae1e7 PRE-refactor` is only the older planning marker.
 - Functionality must not change.
 - Public graph formats and persisted project data must not change.
 - Existing dirty root files unrelated to this effort should be left alone unless explicitly included later.

@@ -46,6 +46,7 @@ export type {
 } from './model/ExecutorProtocol.js';
 export * from './api/streaming.js';
 export * from './api/createProcessor.js';
+export * from './api/processSettings.js';
 export * from './integrations/AudioProvider.js';
 export * from './api/looseDataValue.js';
 export * from './integrations/CodeRunner.js';

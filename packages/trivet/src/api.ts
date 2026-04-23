@@ -5,10 +5,9 @@ import {
   type ReadDirOptions,
   GraphProcessor,
   globalRivetNodeRegistry,
-  type Settings,
   type GraphOutputNode,
   inferType,
-  DEFAULT_CHAT_NODE_TIMEOUT,
+  resolveProcessSettings,
 } from '@ironclad/rivet-core';
 import { GptTokenizerTokenizer } from '../../core/src/integrations/GptTokenizerTokenizer.js';
 import { cloneDeep, keyBy, mapValues, omit } from 'lodash-es';
@@ -59,19 +58,7 @@ export function createTestGraphRunner(opts: { openAiKey: string; executor?: 'nod
       {
         nativeApi: new DummyNativeApi(),
         tokenizer: new GptTokenizerTokenizer(),
-        settings: {
-          openAiKey: opts.openAiKey,
-          openAiOrganization: '',
-          openAiEndpoint: '',
-          pluginEnv: {},
-          pluginSettings: {},
-          recordingPlaybackLatency: 1000,
-          defaultNodeColors: false,
-          chatNodeHeaders: {},
-          chatNodeTimeout: DEFAULT_CHAT_NODE_TIMEOUT,
-          throttleChatNode: 100,
-          openNodeSettingsOnCreate: true,
-        } satisfies Required<Settings>,
+        settings: resolveProcessSettings({ openAiKey: opts.openAiKey }),
       },
       inputs,
       resolvedContextValues,

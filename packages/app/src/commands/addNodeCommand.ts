@@ -4,7 +4,7 @@ import { nodesState } from '../state/graph';
 import { type NodeId } from '@ironclad/rivet-core';
 import { createAddedNode } from '../domain/graphEditing/nodeActions.js';
 import { useProjectNodeRegistry } from '../hooks/useProjectNodeRegistry';
-import { settingsState, shouldOpenNodeSettingsOnCreate } from '../state/settings.js';
+import { resolveEditorPreferences, settingsState } from '../state/settings.js';
 import { editingNodeState } from '../state/graphBuilder.js';
 
 export function useAddNodeCommand() {
@@ -12,6 +12,7 @@ export function useAddNodeCommand() {
   const setEditingNodeId = useSetAtom(editingNodeState);
   const projectNodeRegistry = useProjectNodeRegistry();
   const settings = useAtomValue(settingsState);
+  const editorPreferences = resolveEditorPreferences(settings);
 
   return useCommand<{ nodeType: string; position: { x: number; y: number } }, { id: NodeId }>({
     type: 'addNode',
@@ -22,11 +23,11 @@ export function useAddNodeCommand() {
         registry: projectNodeRegistry,
         referencedProjects: currentState.referencedProjects,
         appliedId: appliedData?.id,
-        applyDefaultColor: settings.defaultNodeColors,
+        applyDefaultColor: editorPreferences.applyDefaultNodeColors,
       });
 
       setNodes([...currentState.nodes, newNode]);
-      if (shouldOpenNodeSettingsOnCreate(settings)) {
+      if (editorPreferences.openNodeSettingsOnCreate) {
         setEditingNodeId(newNode.id);
       }
 

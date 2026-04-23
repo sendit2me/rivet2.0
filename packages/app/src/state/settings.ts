@@ -26,8 +26,18 @@ export const settingsState = atomWithStorage<Settings>(
   storage,
 );
 
-export function shouldOpenNodeSettingsOnCreate(settings: Pick<Settings, 'openNodeSettingsOnCreate'> | undefined): boolean {
-  return settings?.openNodeSettingsOnCreate ?? true;
+export type EditorPreferences = {
+  applyDefaultNodeColors: boolean;
+  openNodeSettingsOnCreate: boolean;
+};
+
+export function resolveEditorPreferences(
+  settings: Partial<Pick<Settings, 'defaultNodeColors' | 'openNodeSettingsOnCreate'>> | undefined,
+): EditorPreferences {
+  return {
+    applyDefaultNodeColors: settings?.defaultNodeColors ?? false,
+    openNodeSettingsOnCreate: settings?.openNodeSettingsOnCreate ?? true,
+  };
 }
 
 export const themes = [

@@ -1,38 +1,28 @@
-import { css } from '@emotion/react';
 import { type FC } from 'react';
 import { type NodeRunDataWithRefs } from '../../state/dataFlow.js';
-import { parseCodeNodeError } from './codeNodeOutputUtils.js';
-
-const codeNodeErrorOutputCss = css`
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-
-  .code-node-error-message {
-    color: var(--error-light);
-  }
-`;
+import { getCodeNodeErrorViewModel } from './codeNodeOutputUtils.js';
+import {
+  StructuredNodeOutputError,
+  StructuredNodeOutputSection,
+  structuredNodeOutputCss,
+} from './StructuredNodeOutput.js';
 
 export const CodeNodeErrorOutput: FC<{
   data: NodeRunDataWithRefs;
 }> = ({ data }) => {
-  const errorMessage = data.status?.type === 'error' ? data.status.error : '';
-  const parsedError = parseCodeNodeError(errorMessage);
+  const parsedError = getCodeNodeErrorViewModel(data);
 
   return (
-    <div css={codeNodeErrorOutputCss}>
-      <div className="code-node-error-message">{parsedError.message}</div>
+    <div css={structuredNodeOutputCss}>
+      <StructuredNodeOutputError>{parsedError.message}</StructuredNodeOutputError>
 
       {parsedError.location && (
-        <div>
-          <div>
-            <em className="port-id-label">Error location</em>
-          </div>
+        <StructuredNodeOutputSection label="Error location">
           <div>
             line {parsedError.location.line}
             {parsedError.location.column != null ? `, column ${parsedError.location.column}` : ''}
           </div>
-        </div>
+        </StructuredNodeOutputSection>
       )}
     </div>
   );

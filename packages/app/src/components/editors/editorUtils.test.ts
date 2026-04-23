@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { getEditorListKey } from './editorUtils.js';
+import { getEditorListKey, getEditorRenderRows } from './editorUtils.js';
 
 test('getEditorListKey uses dataKey for standard editors', () => {
   assert.equal(
@@ -43,4 +43,28 @@ test('getEditorListKey falls back to label plus index for non-dataKey editors', 
     ),
     'group:Runtime Permissions:2',
   );
+});
+
+test('getEditorRenderRows groups consecutive inline editors', () => {
+  const rows = getEditorRenderRows([
+    { type: 'string', label: 'Name', dataKey: 'name' },
+    { type: 'number', label: 'Min', dataKey: 'min', layout: 'inline' },
+    { type: 'number', label: 'Max', dataKey: 'max', layout: 'inline' },
+    { type: 'toggle', label: 'Enabled', dataKey: 'enabled' },
+  ] as any);
+
+  assert.equal(rows.length, 3);
+  assert.deepEqual(
+    rows.map((row) => row.type),
+    ['single', 'inline', 'single'],
+  );
+  assert.deepEqual(rows[1], {
+    type: 'inline',
+    editors: [
+      { type: 'number', label: 'Min', dataKey: 'min', layout: 'inline' },
+      { type: 'number', label: 'Max', dataKey: 'max', layout: 'inline' },
+    ],
+    startIndex: 1,
+    key: 'inline-number:min',
+  });
 });

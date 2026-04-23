@@ -1,5 +1,5 @@
 import { useLayoutEffect, useMemo, useState } from 'react';
-import type { ChartNode, CommentNode, NodeId } from '@ironclad/rivet-core';
+import type { ChartNode, NodeId } from '@ironclad/rivet-core';
 import {
   HEAVY_CONTENT_PADDING_X,
   HEAVY_CONTENT_PADDING_Y,
@@ -8,17 +8,12 @@ import {
   VISIBLE_PADDING_Y,
 } from '../components/nodeCanvas/canvasPerformanceBudget.js';
 import { markCanvasPerfEnd, markCanvasPerfStart, setCanvasPerf } from '../components/nodeCanvas/canvasPerfDebug.js';
-import { DEFAULT_NODE_WIDTH } from '../utils/nodeResize.js';
+import { getCanvasVisibilityBounds } from './canvasVisibilityBounds.js';
 
 export interface CanvasNodeVisibilitySnapshot {
   heavyContentNodeIdSet: ReadonlySet<NodeId>;
   nearViewportNodeIdSet: ReadonlySet<NodeId>;
   visibleNodeIdSet: ReadonlySet<NodeId>;
-}
-
-// Comment nodes store their rendered vertical extent in data.height rather than visualData.
-function getNodeHeight(node: ChartNode): number {
-  return node.type === 'comment' ? (node as CommentNode).data.height : 0;
 }
 
 export function calculateCanvasNodeVisibilitySnapshot(options: {
@@ -61,8 +56,7 @@ export function calculateCanvasNodeVisibilitySnapshot(options: {
   const nearViewportNodeIdSet = new Set<NodeId>();
 
   for (const node of nodes) {
-    const width = node.visualData.width ?? DEFAULT_NODE_WIDTH;
-    const height = getNodeHeight(node);
+    const { width, height } = getCanvasVisibilityBounds(node);
     const isOutputExpanded = expandedOutputNodeIdSet.has(node.id);
 
     const intersectsVisibleBounds =
@@ -152,9 +146,8 @@ export function useVisibleCanvasNodes(options: {
     selectedNodeIds,
     viewportBounds,
   } = options;
-
-  const [settledSnapshot, setSettledSnapshot] = useState<CanvasNodeVisibilitySnapshot>(() =>
-    calculateCanvasNodeVisibilitySnapshot({
+  const visibilitySnapshotOptions = useMemo(
+    () => ({
       draggingNodeIds,
       editingNodeId,
       expandedOutputNodeIds,
@@ -163,32 +156,19 @@ export function useVisibleCanvasNodes(options: {
       selectedNodeIds,
       viewportBounds,
     }),
+    [draggingNodeIds, editingNodeId, expandedOutputNodeIds, hoveringNodeId, nodes, selectedNodeIds, viewportBounds],
+  );
+
+  const [settledSnapshot, setSettledSnapshot] = useState<CanvasNodeVisibilitySnapshot>(() =>
+    calculateCanvasNodeVisibilitySnapshot(visibilitySnapshotOptions),
   );
 
   const currentSnapshot = useMemo(
     () =>
       isViewportMoving
         ? settledSnapshot
-        : calculateCanvasNodeVisibilitySnapshot({
-            draggingNodeIds,
-            editingNodeId,
-            expandedOutputNodeIds,
-            hoveringNodeId,
-            nodes,
-            selectedNodeIds,
-            viewportBounds,
-          }),
-    [
-      draggingNodeIds,
-      editingNodeId,
-      expandedOutputNodeIds,
-      hoveringNodeId,
-      isViewportMoving,
-      nodes,
-      selectedNodeIds,
-      settledSnapshot,
-      viewportBounds,
-    ],
+        : calculateCanvasNodeVisibilitySnapshot(visibilitySnapshotOptions),
+    [isViewportMoving, settledSnapshot, visibilitySnapshotOptions],
   );
 
   useLayoutEffect(() => {

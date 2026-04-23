@@ -5,8 +5,8 @@ import Select from '@atlaskit/select';
 import Toggle from '@atlaskit/toggle';
 import {
   preservePortTextCaseState,
+  resolveEditorPreferences,
   settingsState,
-  shouldOpenNodeSettingsOnCreate,
   type Theme,
   themeState,
   themes,
@@ -17,6 +17,7 @@ export const UiSettingsPage: FC = () => {
   const [settings, setSettings] = useAtom(settingsState);
   const [theme, setTheme] = useAtom(themeState);
   const [preservePortTextCase, setPreservePortTextCase] = useAtom(preservePortTextCaseState);
+  const editorPreferences = resolveEditorPreferences(settings);
 
   return (
     <div css={fields}>
@@ -49,7 +50,7 @@ export const UiSettingsPage: FC = () => {
           <>
             <Toggle
               id="default-node-colors"
-              isChecked={settings.defaultNodeColors ?? false}
+              isChecked={editorPreferences.applyDefaultNodeColors}
               onChange={(event) =>
                 setSettings((state) => ({
                   ...state,
@@ -68,7 +69,7 @@ export const UiSettingsPage: FC = () => {
           <>
             <Toggle
               id="open-node-settings-on-create"
-              isChecked={shouldOpenNodeSettingsOnCreate(settings)}
+              isChecked={editorPreferences.openNodeSettingsOnCreate}
               onChange={(event) =>
                 setSettings((state) => ({
                   ...state,

@@ -1,11 +1,22 @@
 import { dedent } from 'ts-dedent';
 import type { Inputs, Outputs } from '../GraphProcessor.js';
-import type { NodeInputDefinition, PortId } from '../NodeBase.js';
+import type { ChartNode, NodeInputDefinition, PortId } from '../NodeBase.js';
+import type { EditorDefinition } from '../EditorDefinition.js';
+import type { NodeBodySpec } from '../NodeBodySpec.js';
+import type { InternalProcessContext } from '../ProcessContext.js';
 import { extractInterpolationVariables } from '../../utils/interpolation.js';
 import { interpolateRawJsSource } from './rawJsSourceInterpolation.js';
 
 const MAX_CALLBACK_PREVIEW_BODY_LINES = 13;
-const RESERVED_JS_LIST_CALLBACK_NAMES = new Set(['item', 'index', 'array']);
+const JS_LIST_CALLBACK_SIGNATURE = '(item, index, array)';
+export const JS_LIST_CALLBACK_LOCAL_NAMES: ReadonlySet<string> = new Set(['item', 'index', 'array']);
+const JS_LIST_CODE_RUNNER_OPTIONS = {
+  includeFetch: false,
+  includeRequire: false,
+  includeRivet: false,
+  includeProcess: false,
+  includeConsole: false,
+};
 
 function indentLines(text: string, prefix: string): string {
   return text
@@ -15,7 +26,12 @@ function indentLines(text: string, prefix: string): string {
 }
 
 export function assertSynchronousCallbackResult(result: unknown, nodeName: string): void {
-  if (result && (typeof result === 'object' || typeof result === 'function') && 'then' in result && typeof result.then === 'function') {
+  if (
+    result &&
+    (typeof result === 'object' || typeof result === 'function') &&
+    'then' in result &&
+    typeof result.then === 'function'
+  ) {
     throw new Error(`${nodeName} callbacks must be synchronous.`);
   }
 }
@@ -89,7 +105,7 @@ export function buildJSMapWrapper(callbackBody: string): string {
 
 export function getJSListCallbackInterpolationInputDefinitions(callbackBody: string): NodeInputDefinition[] {
   return extractInterpolationVariables(callbackBody)
-    .filter((inputName) => !RESERVED_JS_LIST_CALLBACK_NAMES.has(inputName))
+    .filter((inputName) => !JS_LIST_CALLBACK_LOCAL_NAMES.has(inputName))
     .map((inputName) => ({
       id: inputName as PortId,
       title: inputName,
@@ -98,9 +114,35 @@ export function getJSListCallbackInterpolationInputDefinitions(callbackBody: str
     }));
 }
 
+export function getJSListInputDefinitions(callbackBody: string): NodeInputDefinition[] {
+  return [
+    {
+      id: 'array' as PortId,
+      title: 'Array',
+      dataType: 'any[]',
+      required: true,
+    },
+    ...getJSListCallbackInterpolationInputDefinitions(callbackBody),
+  ];
+}
+
+export function getJSListEditors<T extends ChartNode>(): EditorDefinition<T>[] {
+  return [
+    {
+      type: 'code',
+      label: 'Callback Body',
+      helperMessage:
+        'Body of: (item, index, array) => { ... }. Use {{var}} for raw JS source inputs; strings need quotes.',
+      dataKey: 'callbackBody',
+      language: 'javascript',
+      enableFolding: true,
+    } as EditorDefinition<T>,
+  ];
+}
+
 export function interpolateJSListCallbackBody(callbackBody: string, inputs: Inputs): string {
   return interpolateRawJsSource(callbackBody, inputs, {
-    ignoredInputNames: RESERVED_JS_LIST_CALLBACK_NAMES,
+    ignoredInputNames: JS_LIST_CALLBACK_LOCAL_NAMES,
   });
 }
 
@@ -122,6 +164,16 @@ export function wrapJSListCallbackPreview(signature: string, callbackBody: strin
   `.trim();
 }
 
+export function getJSListNodeBody(callbackBody: string): NodeBodySpec {
+  return {
+    type: 'colorized',
+    text: wrapJSListCallbackPreview(JS_LIST_CALLBACK_SIGNATURE, callbackBody),
+    language: 'javascript',
+    fontSize: 12,
+    fontFamily: 'monospace',
+  };
+}
+
 export function assertJSListNodeOutputs(
   outputs: Outputs,
   outputId: string,
@@ -134,4 +186,31 @@ export function assertJSListNodeOutputs(
   if (!(outputId in outputs)) {
     throw new Error(`${nodeName} must return an object with an "${outputId}" output.`);
   }
+}
+
+export async function runJSListNodeCode({
+  buildWrapper,
+  callbackBody,
+  context,
+  inputs,
+  nodeName,
+  outputId,
+}: {
+  buildWrapper: (callbackBody: string) => string;
+  callbackBody: string;
+  context: InternalProcessContext;
+  inputs: Inputs;
+  nodeName: string;
+  outputId: string;
+}): Promise<Outputs> {
+  const outputs = await context.codeRunner.runCode(
+    buildWrapper(interpolateJSListCallbackBody(callbackBody, inputs)),
+    inputs,
+    JS_LIST_CODE_RUNNER_OPTIONS,
+    context.graphInputNodeValues,
+    context.contextValues,
+  );
+
+  assertJSListNodeOutputs(outputs, outputId, nodeName);
+  return outputs;
 }

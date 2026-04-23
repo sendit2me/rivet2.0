@@ -1,4 +1,3 @@
-import { css } from '@emotion/react';
 import {
   type ExpressionNode,
   type Inputs,
@@ -8,35 +7,18 @@ import {
   EXPRESSION_OUTPUT_PORT_ID,
   interpolateExpressionSource,
 } from '../../../../core/src/model/nodes/ExpressionNode.js';
-import ColorizedPreformattedText from '../ColorizedPreformattedText.js';
 import { RenderDataValue, type OutputRenderMode } from '../RenderDataValue.js';
 import { useDataRefs } from '../../providers/ProvidersContext.js';
 import { type NodeRunDataWithRefs } from '../../state/dataFlow.js';
 import { restoreStoredPortMap } from '../../utils/executionDataReaders.js';
 import { type NodeComponentDescriptor } from '../../hooks/useNodeTypes.js';
 import { getExpressionPreviewSource, hasExpressionInterpolationInputs } from './expressionOutputUtils.js';
-
-const expressionOutputCss = css`
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-
-  .expression-output-section {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-
-  .expression-output-source pre {
-    margin: 0;
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-  }
-`;
-
-const expressionOutputErrorCss = css`
-  color: var(--error-light);
-`;
+import {
+  ParsedSourceOutputSection,
+  StructuredNodeOutputError,
+  StructuredNodeOutputSection,
+  structuredNodeOutputCss,
+} from './StructuredNodeOutput.js';
 
 const ExpressionNodeOutputBody: FC<{
   node: ExpressionNode;
@@ -59,25 +41,17 @@ const ExpressionNodeOutputBody: FC<{
   );
 
   return (
-    <div css={expressionOutputCss}>
-      {errorMessage && <div css={expressionOutputErrorCss}>{errorMessage}</div>}
+    <div css={structuredNodeOutputCss}>
+      {errorMessage && <StructuredNodeOutputError>{errorMessage}</StructuredNodeOutputError>}
 
       {!errorMessage && (
-        <div className="expression-output-section">
-          <div>
-            <em className="port-id-label">Resulting value</em>
-          </div>
+        <StructuredNodeOutputSection label="Resulting value">
           <RenderDataValue value={data.outputData?.[EXPRESSION_OUTPUT_PORT_ID]} mode={renderMode} />
-        </div>
+        </StructuredNodeOutputSection>
       )}
 
       {shouldShowParsedExpression && (
-        <div className="expression-output-section expression-output-source">
-          <div>
-            <em className="port-id-label">Parsed expression</em>
-          </div>
-          <ColorizedPreformattedText text={parsedExpression ?? ''} language="javascript" />
-        </div>
+        <ParsedSourceOutputSection source={parsedExpression ?? ''} language="javascript" />
       )}
     </div>
   );

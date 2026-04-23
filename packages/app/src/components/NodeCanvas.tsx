@@ -65,6 +65,10 @@ import type { NodeResizeBounds } from '../utils/nodeResize.js';
 import { MEDIUM_GRAPH_NODE_THRESHOLD } from './nodeCanvas/canvasPerformanceBudget.js';
 import { getCanvasPerfSnapshot } from './nodeCanvas/canvasPerfDebug.js';
 import { groupConnectionsByNode } from './nodeCanvas/groupConnectionsByNode.js';
+import {
+  getDraggingViewportNodeIds,
+  shouldFreezeViewportVisibility,
+} from './nodeCanvas/viewportVisibilityPolicy.js';
 import { filterValidSubGraphConnections } from '../domain/graphEditing/connectionValidation.js';
 
 const EMPTY_NODE_CONNECTIONS: NodeConnection[] = [];
@@ -189,7 +193,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
   const shouldRenderWires = canvasPosition.zoom > 0.15;
   const viewportBounds = useViewportBounds();
   const draggingViewportNodeIds = useMemo(
-    () => [...new Set([...draggedSourceNodeIds, ...draggingNodes.map((node) => node.id)])],
+    () => getDraggingViewportNodeIds({ draggedSourceNodeIds, draggingNodes }),
     [draggedSourceNodeIds, draggingNodes],
   );
 
@@ -308,9 +312,11 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
 
     return [...highlightedNodeIds];
   }, [hoveringNode, hoveringPort, selectedViewportNodeIds]);
-  // Freeze viewport visibility only for passive canvas motion. Interactive drags need
-  // newly revealed nodes and ports to mount immediately so wire previews stay accurate.
-  const shouldFreezeViewportVisibility = isViewportMoving && !isDraggingNode && !isDraggingWire;
+  const freezeViewportVisibility = shouldFreezeViewportVisibility({
+    isDraggingNode,
+    isDraggingWire,
+    isViewportMoving,
+  });
 
   const {
     heavyContentNodeIdSet,
@@ -322,7 +328,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
     editingNodeId,
     expandedOutputNodeIds,
     hoveringNodeId: hoveringNode,
-    isViewportMoving: shouldFreezeViewportVisibility,
+    isViewportMoving: freezeViewportVisibility,
     nodes,
     selectedNodeIds: selectedViewportNodeIds,
     viewportBounds,

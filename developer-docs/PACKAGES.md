@@ -40,6 +40,7 @@ Shared runtime foundation for the entire repo.
 - runtime integration contracts
 - `emitDetached` — explicit fire-and-forget event emission helper
 - `pQueueCompat` — CJS/ESM interop for p-queue
+- shared runtime settings normalization through `resolveProcessSettings(...)`
 - public execution helpers and streaming APIs
 
 ### Important downstream consumers
@@ -84,7 +85,7 @@ This package is the shared Node runtime used by:
 - the CLI
 - parts of the app-executor stack
 
-It is not just a convenience wrapper. It sets Node-default providers, debugger integration, env-based plugin config fallback, and Node-specific reference loading.
+It is not just a convenience wrapper. It sets Node-default providers, debugger integration, env-based plugin config fallback, and Node-specific reference loading. Runtime settings still flow through core's shared `resolveProcessSettings(...)` helper instead of being rebuilt independently in the Node package.
 It also supplies a default tokenizer for Node-side runs when the caller does not provide one explicitly.
 
 ## `@ironclad/rivet-app` (`packages/app/`)
@@ -243,6 +244,8 @@ Trivet runs:
 3. boolean/truthy validation outputs to determine pass/fail
 
 The app integrates this package directly for test UI and persistence.
+
+`createTestGraphRunner(...)` also resolves runtime settings through core's shared `resolveProcessSettings(...)` helper, so Trivet inherits the same minimal runtime defaults as app and Node execution rather than carrying a separate settings shape.
 
 ## `packages/community/`
 

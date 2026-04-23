@@ -80,6 +80,7 @@ export const nodeStyles = css`
     z-index: 10000 !important;
   }
 
+  /* Keep selected Comment nodes behind normal nodes so overlapping node headers stay grabbable. */
   .node.isComment.selected {
     --node-frame-border-color: var(--primary);
   }
@@ -269,10 +270,6 @@ export const nodeStyles = css`
     text-transform: none;
   }
 
-  .split-run-summary-label {
-    display: inline;
-  }
-
   .split-run-summary-mode {
     font-weight: 900;
     text-transform: uppercase;
@@ -369,12 +366,7 @@ export const nodeStyles = css`
       color 0.2s ease-out;
   }
 
-  .node:hover .title-controls .edit-button,
-  .node:hover .title-controls .edit-button-tooltip,
-  .node.hovered .title-controls .edit-button,
-  .node.hovered .title-controls .edit-button-tooltip,
-  .node:focus-within .title-controls .edit-button,
-  .node:focus-within .title-controls .edit-button-tooltip {
+  .node:is(:hover, .hovered, :focus-within) .title-controls :is(.edit-button, .edit-button-tooltip) {
     opacity: 1;
     pointer-events: auto;
   }

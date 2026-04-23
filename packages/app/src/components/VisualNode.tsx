@@ -21,6 +21,7 @@ import { ZoomedOutVisualNodeContent } from './visualNode/ZoomedOutVisualNodeCont
 import { NormalVisualNodeContent } from './visualNode/NormalVisualNodeContent';
 import { SplitRunModeIcon } from './visualNode/SplitRunModeIcon.js';
 import { Tooltip } from './Tooltip.js';
+import { getCanvasCommentHeight } from '../hooks/canvasVisibilityBounds.js';
 
 export type VisualNodeProps = {
   node: ChartNode;
@@ -69,12 +70,11 @@ export const VisualNode = memo(
       const isComment = node.type === 'comment';
       const effectiveIsZoomedOut = isZoomedOut && !isComment;
       const effectiveIsReallyZoomedOut = isReallyZoomedOut && !isComment;
+      const commentHeight = isComment ? getCanvasCommentHeight(node as CommentNode) : undefined;
       const changeInfo = useHistoricalNodeChangeInfo(node.id);
       const graphSelectionOptions = useAtomValue(resolvedGraphSelectionState);
 
       useDependsOnPlugins();
-
-      const asCommentNode = node as CommentNode;
 
       const style = useMemo(() => {
         const bgColor = node.visualData.color?.bg ?? 'var(--grey-darkish)';
@@ -92,7 +92,7 @@ export const VisualNode = memo(
           transform: `translate(${node.visualData.x + xDelta}px, ${node.visualData.y + yDelta}px) scale(1)`,
           zIndex: isComment ? -10000 : node.visualData.zIndex ?? 0,
           width: node.visualData.width,
-          height: isComment ? asCommentNode.data.height : undefined,
+          height: commentHeight,
           '--node-bg': bgColor,
           '--node-border': borderColor,
           '--node-bg-foreground': fgColor,
@@ -100,7 +100,7 @@ export const VisualNode = memo(
           '--node-stack-back-bg': splitStackGhostColors.backBackground,
         } as CSSProperties;
       }, [
-        asCommentNode.data.height,
+        commentHeight,
         isComment,
         isDragging,
         node.visualData.color?.bg,
@@ -187,10 +187,8 @@ export const VisualNode = memo(
                 }}
               >
                 <SplitRunModeIcon isSequential={node.isSplitSequential} />
-                <span className="split-run-summary-label">
-                  <span className="split-run-summary-mode">{splitRunModeLabel}</span>
-                  {`, ${splitRunMaxLabel}`}
-                </span>
+                <strong className="split-run-summary-mode">{splitRunModeLabel}</strong>
+                {`, ${splitRunMaxLabel}`}
               </button>
             </Tooltip>
           )}

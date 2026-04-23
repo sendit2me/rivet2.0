@@ -149,9 +149,11 @@ test('findConnectedGraphInputUsages reports connected subgraph input ports remov
 
   assert.deepEqual(usages, [
     {
+      callerLabel: 'Call current graph (Subgraph)',
       graphId: parentGraphId,
       graphName: 'Parent Graph',
       inputId: 'input',
+      displayPath: 'Parent Graph / Call current graph (Subgraph) / input',
       callerNodeId: subGraphNode.id,
       callerNodeTitle: 'Call current graph',
       callerType: 'subGraph',
@@ -179,9 +181,11 @@ test('findConnectedGraphInputUsages reports call graph inputs passed through an 
 
   assert.deepEqual(usages, [
     {
+      callerLabel: 'Call by reference (Call Graph)',
       graphId: parentGraphId,
       graphName: 'Parent Graph',
       inputId: 'input',
+      displayPath: 'Parent Graph / Call by reference (Call Graph) / input',
       callerNodeId: callGraphNode.id,
       callerNodeTitle: 'Call by reference',
       callerType: 'callGraph',
@@ -210,6 +214,29 @@ test('findConnectedGraphInputUsages reports call graph inputs conservatively for
   assert.equal(usages.length, 1);
   assert.equal(usages[0]!.callerType, 'callGraph');
   assert.equal(usages[0]!.inputId, 'input');
+});
+
+test('findConnectedGraphInputUsages returns display-ready caller labels without duplicating default type names', () => {
+  const inputNode = makeGraphInput('input-node', 'input');
+  const graphReferenceNode = makeGraphReferenceNode('graph-reference');
+  const objectNode = makeObjectNode('object-source', '{ "input": "{{value}}" }');
+  const callGraphNode = makeCallGraphNode('call-graph');
+  callGraphNode.title = 'Call Graph';
+  const parentGraph = makeGraph(
+    parentGraphId,
+    [graphReferenceNode, objectNode, callGraphNode],
+    makeCallGraphConnections(),
+  );
+
+  const usages = findConnectedGraphInputUsages({
+    currentGraph: makeGraph(currentGraphId, [inputNode]),
+    currentGraphId,
+    nodeIdsToDelete: [inputNode.id],
+    project: makeProject([parentGraph]),
+  });
+
+  assert.equal(usages[0]!.callerLabel, 'Call Graph');
+  assert.equal(usages[0]!.displayPath, 'Parent Graph / Call Graph / input');
 });
 
 test('findConnectedGraphInputUsages ignores call graph object keys that do not include the removed input', () => {

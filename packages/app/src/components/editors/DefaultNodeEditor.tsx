@@ -7,7 +7,7 @@ import { useGetRivetUIContext } from '../../hooks/useGetRivetUIContext';
 import { useProjectNodeRegistry } from '../../hooks/useProjectNodeRegistry';
 import { produce } from 'immer';
 import { handleError } from '../../utils/errorHandling.js';
-import { getEditorListKey } from './editorUtils';
+import { getEditorListKey, getEditorRenderRows } from './editorUtils';
 
 export const defaultEditorContainerStyles = css`
   display: flex;
@@ -314,28 +314,18 @@ export const DefaultNodeEditor: FC<
 
   return (
     <div css={defaultEditorContainerStyles}>
-      {editors.map((editor, index) => {
-        if (editor.layout === 'inline' && (index === 0 || editors[index - 1]?.layout !== 'inline')) {
-          let inlineEndIndex = index;
-          while (editors[inlineEndIndex]?.layout === 'inline') {
-            inlineEndIndex++;
-          }
-          const inlineEditors = editors.slice(index, inlineEndIndex);
-
+      {getEditorRenderRows(editors).map((row) => {
+        if (row.type === 'inline') {
           return (
-            <div className="inline-editor-row" key={`inline-${getEditorListKey(editor, index)}`}>
-              {inlineEditors.map((inlineEditor, inlineIndex) => {
-                return renderEditorField(inlineEditor, index + inlineIndex);
+            <div className="inline-editor-row" key={row.key}>
+              {row.editors.map((inlineEditor, inlineIndex) => {
+                return renderEditorField(inlineEditor, row.startIndex + inlineIndex);
               })}
             </div>
           );
         }
 
-        if (editor.layout === 'inline') {
-          return null;
-        }
-
-        return renderEditorField(editor, index);
+        return renderEditorField(row.editor, row.index);
       })}
     </div>
   );

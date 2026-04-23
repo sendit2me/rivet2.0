@@ -8,7 +8,9 @@ import {
 } from '@ironclad/rivet-core';
 
 export type ConnectedGraphInputUsage = {
+  callerLabel: string;
   inputId: string;
+  displayPath: string;
   graphId: GraphId;
   graphName: string;
   callerNodeId: NodeId;
@@ -20,6 +22,35 @@ const CALL_GRAPH_GRAPH_INPUT_ID = 'graph';
 const CALL_GRAPH_INPUTS_INPUT_ID = 'inputs';
 const GRAPH_REFERENCE_OUTPUT_ID = 'graph';
 const OBJECT_OUTPUT_ID = 'output';
+
+function getCallerTypeLabel(callerType: ConnectedGraphInputUsage['callerType']) {
+  return callerType === 'callGraph' ? 'Call Graph' : 'Subgraph';
+}
+
+export function formatGraphInputUsageCallerLabel({
+  callerNodeTitle,
+  callerType,
+}: {
+  callerNodeTitle: string;
+  callerType: ConnectedGraphInputUsage['callerType'];
+}) {
+  const callerTypeLabel = getCallerTypeLabel(callerType);
+  const callerTitle = callerNodeTitle.trim() || callerTypeLabel;
+
+  return callerTitle === callerTypeLabel ? callerTitle : `${callerTitle} (${callerTypeLabel})`;
+}
+
+function createConnectedGraphInputUsage(
+  usage: Omit<ConnectedGraphInputUsage, 'callerLabel' | 'displayPath'>,
+): ConnectedGraphInputUsage {
+  const callerLabel = formatGraphInputUsageCallerLabel(usage);
+
+  return {
+    ...usage,
+    callerLabel,
+    displayPath: `${usage.graphName} / ${callerLabel} / ${usage.inputId}`,
+  };
+}
 
 function getGraphInputIdsRemovedByDeletingNodes(nodes: readonly ChartNode[], nodeIdsToDelete: ReadonlySet<NodeId>) {
   const deletedInputIds = new Set<string>();
@@ -275,7 +306,7 @@ export function findConnectedGraphInputUsages({
   const usages: ConnectedGraphInputUsage[] = [];
   const usageKeys = new Set<string>();
 
-  function addUsage(usage: ConnectedGraphInputUsage) {
+  function addUsage(usage: Omit<ConnectedGraphInputUsage, 'callerLabel' | 'displayPath'>) {
     const usageKey = `${usage.graphId}:${usage.callerType}:${usage.callerNodeId}:${usage.inputId}`;
 
     if (usageKeys.has(usageKey)) {
@@ -283,7 +314,7 @@ export function findConnectedGraphInputUsages({
     }
 
     usageKeys.add(usageKey);
-    usages.push(usage);
+    usages.push(createConnectedGraphInputUsage(usage));
   }
 
   for (const graphEntry of getGraphsToSearch({ currentGraph, currentGraphId, project })) {

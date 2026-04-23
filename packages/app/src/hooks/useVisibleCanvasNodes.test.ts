@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { ChartNode, CommentNode, NodeId } from '@ironclad/rivet-core';
 import { calculateCanvasNodeVisibilitySnapshot } from './useVisibleCanvasNodes.js';
+import { getCanvasVisibilityBounds } from './canvasVisibilityBounds.js';
 
 const asNodeId = (value: string) => value as NodeId;
 
@@ -163,4 +164,31 @@ test('calculateCanvasNodeVisibilitySnapshot keeps partially visible comment node
 
   assert.equal(snapshot.visibleNodeIdSet.has(asNodeId('comment-node')), true);
   assert.equal(snapshot.nearViewportNodeIdSet.has(asNodeId('comment-node')), true);
+});
+
+test('getCanvasVisibilityBounds uses comment height but keeps normal nodes heightless for culling', () => {
+  assert.deepEqual(getCanvasVisibilityBounds(createNode(asNodeId('normal-node'), 0, 0, 123)), {
+    width: 123,
+    height: 0,
+  });
+
+  assert.deepEqual(getCanvasVisibilityBounds(createCommentNode(asNodeId('comment-node'), 0, 0, 456, 789)), {
+    width: 456,
+    height: 789,
+  });
+
+  const legacyCommentNode = createCommentNode(asNodeId('legacy-comment-node'), 0, 0, 456, 789);
+  delete (legacyCommentNode.data as Partial<CommentNode['data']>).height;
+
+  assert.deepEqual(getCanvasVisibilityBounds(legacyCommentNode), {
+    width: 456,
+    height: 456,
+  });
+
+  const malformedWidthNode = createNode(asNodeId('malformed-width-node'), 0, 0, Number.NaN);
+
+  assert.deepEqual(getCanvasVisibilityBounds(malformedWidthNode), {
+    width: 300,
+    height: 0,
+  });
 });

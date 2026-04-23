@@ -1,7 +1,5 @@
-import { css } from '@emotion/react';
 import { type ExtractObjectPathNode, type Inputs, type PortId } from '@ironclad/rivet-core';
 import { type FC, useMemo } from 'react';
-import ColorizedPreformattedText from '../ColorizedPreformattedText.js';
 import { RenderDataValue, type OutputRenderMode } from '../RenderDataValue.js';
 import { type NodeComponentDescriptor } from '../../hooks/useNodeTypes.js';
 import { useDataRefs } from '../../providers/ProvidersContext.js';
@@ -13,28 +11,12 @@ import {
   getParsedExtractObjectPathPreviewSource,
   hasExtractObjectPathInterpolationInputs,
 } from './extractObjectPathOutputUtils.js';
-
-const extractObjectPathOutputCss = css`
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-
-  .extract-object-path-output-section {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-
-  .extract-object-path-output-source pre {
-    margin: 0;
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-  }
-`;
-
-const extractObjectPathOutputErrorCss = css`
-  color: var(--error-light);
-`;
+import {
+  ParsedSourceOutputSection,
+  StructuredNodeOutputError,
+  StructuredNodeOutputSection,
+  structuredNodeOutputCss,
+} from './StructuredNodeOutput.js';
 
 const outputDefinitions: Array<{ id: PortId; label: string }> = [
   {
@@ -76,22 +58,19 @@ const ExtractObjectPathNodeOutputBody: FC<{
 
   const renderOutputs = (outputs: NodeRunDataWithRefs['outputData']) =>
     outputDefinitions.map(({ id, label }) => (
-      <div className="extract-object-path-output-section" key={id}>
-        <div>
-          <em className="port-id-label">{label}</em>
-        </div>
+      <StructuredNodeOutputSection label={label} key={id}>
         <RenderDataValue value={outputs?.[id]} mode={renderMode} />
-      </div>
+      </StructuredNodeOutputSection>
     ));
 
   return (
-    <div css={extractObjectPathOutputCss}>
-      {errorMessage && <div css={extractObjectPathOutputErrorCss}>{errorMessage}</div>}
+    <div css={structuredNodeOutputCss}>
+      {errorMessage && <StructuredNodeOutputError>{errorMessage}</StructuredNodeOutputError>}
 
       {!errorMessage && data.splitOutputData && (
         <div className="split-output">
           {getSortedSplitOutputEntries(data).map(([key, outputs]) => (
-            <div className="extract-object-path-output-section" key={key}>
+            <div className="structured-node-output-section" key={key}>
               {renderOutputs(outputs)}
             </div>
           ))}
@@ -101,12 +80,7 @@ const ExtractObjectPathNodeOutputBody: FC<{
       {!errorMessage && !data.splitOutputData && renderOutputs(data.outputData)}
 
       {shouldShowParsedExpression && (
-        <div className="extract-object-path-output-section extract-object-path-output-source">
-          <div>
-            <em className="port-id-label">Parsed expression</em>
-          </div>
-          <ColorizedPreformattedText text={parsedExpression ?? ''} language="jsonpath" />
-        </div>
+        <ParsedSourceOutputSection source={parsedExpression ?? ''} language="jsonpath" />
       )}
     </div>
   );

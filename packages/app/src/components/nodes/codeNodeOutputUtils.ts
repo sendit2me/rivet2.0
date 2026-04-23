@@ -1,4 +1,4 @@
-import { type ProcessDataForNode } from '../../state/dataFlow.js';
+import { type NodeRunDataWithRefs, type ProcessDataForNode } from '../../state/dataFlow.js';
 
 export type CodeNodeErrorLocation = {
   column?: number;
@@ -43,6 +43,10 @@ export function parseCodeNodeError(error: string): ParsedCodeNodeError {
     },
     message: error.slice(0, match.index).trimEnd(),
   };
+}
+
+export function getCodeNodeErrorViewModel(data: NodeRunDataWithRefs): ParsedCodeNodeError {
+  return parseCodeNodeError(data.status?.type === 'error' ? data.status.error : '');
 }
 
 export function getCodeNodeErrorLineHighlight(

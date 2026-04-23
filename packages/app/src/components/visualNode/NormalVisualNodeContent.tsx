@@ -35,11 +35,11 @@ import { SubGraphHeaderLink } from './SubGraphHeaderLink.js';
 import {
   computeBoxNodeResizeBounds,
   computeHorizontalNodeResizeBounds,
-  DEFAULT_NODE_WIDTH,
   haveNodeResizeBoundsChanged,
   type BoxNodeResizeDirection,
   type NodeResizeBounds,
 } from '../../utils/nodeResize.js';
+import { getCanvasCommentHeight, getCanvasNodeWidth } from '../../hooks/canvasVisibilityBounds.js';
 
 export const NormalVisualNodeContent: FC<{
   heightCache: HeightCache;
@@ -89,7 +89,7 @@ export const NormalVisualNodeContent: FC<{
     } | null>(null);
     const [shiftHeld, setShiftHeld] = useState(false);
     const isComment = node.type === 'comment';
-    const getNodeHeight = () => (node.type === 'comment' ? (node as CommentNode).data.height : 0);
+    const getNodeHeight = () => (node.type === 'comment' ? getCanvasCommentHeight(node as CommentNode) : 0);
 
     const getNodeCurrentBounds = (elementOrChild: HTMLElement): Required<NodeResizeBounds> => {
       const nodeElement = elementOrChild.closest('.node');
@@ -97,7 +97,7 @@ export const NormalVisualNodeContent: FC<{
         return {
           x: node.visualData.x,
           y: node.visualData.y,
-          width: node.visualData.width ?? DEFAULT_NODE_WIDTH,
+          width: getCanvasNodeWidth(node),
           height: getNodeHeight(),
         };
       }
@@ -109,7 +109,7 @@ export const NormalVisualNodeContent: FC<{
       return {
         x: node.visualData.x,
         y: node.visualData.y,
-        width: Number.isFinite(width) ? width : (node.visualData.width ?? DEFAULT_NODE_WIDTH),
+        width: Number.isFinite(width) ? width : getCanvasNodeWidth(node),
         height: Number.isFinite(height) ? height : getNodeHeight(),
       };
     };
@@ -180,16 +180,19 @@ export const NormalVisualNodeContent: FC<{
       event.stopPropagation();
 
       const nextBounds = getNextResizeBounds(event);
+      const currentWidth = Number.isFinite(node.visualData.width)
+        ? node.visualData.width!
+        : (resizeState?.initialWidth ?? getCanvasNodeWidth(node));
       const currentBounds = isComment
         ? {
             x: node.visualData.x,
             y: node.visualData.y,
-            width: node.visualData.width ?? resizeState?.initialWidth ?? DEFAULT_NODE_WIDTH,
+            width: currentWidth,
             height: getNodeHeight(),
           }
         : {
             x: node.visualData.x,
-            width: node.visualData.width ?? resizeState?.initialWidth ?? DEFAULT_NODE_WIDTH,
+            width: currentWidth,
           };
 
       if (nextBounds && haveNodeResizeBoundsChanged(currentBounds, nextBounds)) {

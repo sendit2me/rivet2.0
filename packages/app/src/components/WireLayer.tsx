@@ -1,7 +1,7 @@
 import { type FC, memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { type ChartNode, type NodeConnection, type NodeId, type PortId } from '@ironclad/rivet-core';
 import { css } from '@emotion/react';
-import { ConditionallyRenderWire, PartialWire, getConnectionCacheKeys, getNodePortPosition } from './Wire.js';
+import { ConditionallyRenderWire, PartialWire } from './Wire.js';
 import { useCanvasPositioning } from '../hooks/useCanvasPositioning.js';
 import { ErrorBoundary } from 'react-error-boundary';
 import { draggingWireClosestPortState } from '../state/graphBuilder.js';
@@ -14,13 +14,11 @@ import {
   type RunDataByNodeId,
 } from '../state/dataFlow';
 import { useStableCallback } from '../hooks/useStableCallback';
-import { lineCrossesViewport } from '../utils/lineClipping';
 import { useAtom, useAtomValue, useStore } from 'jotai';
 import { getSelectedProcessData } from '../state/selectors/executionSelectors.js';
 import { canvasIoDefinitionsForNodeState } from '../state/selectors/canvasGraphSelectors.js';
 import { resolveClosestWireDropTargetFromPoint } from '../utils/wireDropTarget.js';
-import { markCanvasPerfEnd, markCanvasPerfStart, setCanvasPerf } from './nodeCanvas/canvasPerfDebug.js';
-import { getRenderableWireCandidates } from './nodeCanvas/getRenderableWireCandidates.js';
+import { useRenderableWires } from './nodeCanvas/useRenderableWires.js';
 
 const wiresStyles = css`
   width: 100%;
@@ -168,77 +166,21 @@ export const WireLayer: FC<WireLayerProps> = ({
     return nextRunningNodeIdSet;
   }, [graphSelectionOptions, lastRunDataByNode, selectedProcessPageNodes]);
 
-  const candidateConnections = useMemo(
-    () =>
-      getRenderableWireCandidates({
-        connections,
-        draggingNode,
-        draggingWire: !!draggingWire,
-        highlightedNodes,
-        highlightedPort,
-        nearViewportNodeIdSet,
-        runningNodeIdSet,
-        visibleNodeIdSet,
-      }),
-    [
-      connections,
-      draggingNode,
-      draggingWire,
-      highlightedNodes,
-      highlightedPort,
-      nearViewportNodeIdSet,
-      runningNodeIdSet,
-      visibleNodeIdSet,
-    ],
-  );
-  const [renderableWires, setRenderableWires] = useState<NodeConnection[]>(candidateConnections);
-
-  const recalculateRenderableWires = useStableCallback(() => {
-    markCanvasPerfStart('WireLayer:recalculateRenderableWires');
-
-    const nextRenderableWires = candidateConnections.filter((connection) => {
-      const inputNode = nodesById[connection.inputNodeId];
-      const outputNode = nodesById[connection.outputNodeId];
-
-      if (!inputNode || !outputNode) {
-        return false;
-      }
-
-      const [outputCacheKey, inputCacheKey] = getConnectionCacheKeys(connection);
-
-      const start = getNodePortPosition(outputNode, connection.outputId, outputCacheKey, portPositions);
-      const end = getNodePortPosition(inputNode, connection.inputId, inputCacheKey, portPositions);
-
-      return lineCrossesViewport(canvasToClientPosition(start.x, start.y), canvasToClientPosition(end.x, end.y));
-    });
-
-    setCanvasPerf('WireLayer:renderableWireCount', nextRenderableWires.length);
-    markCanvasPerfEnd('WireLayer:recalculateRenderableWires');
-
-    setRenderableWires((previousRenderableWires) =>
-      areConnectionListsEqual(previousRenderableWires, nextRenderableWires) ? previousRenderableWires : nextRenderableWires,
-    );
-  });
-
-  useEffect(() => {
-    const shouldFreezeStaticWires = isViewportMoving && !isViewportVisibilitySettled && !draggingWire && !draggingNode;
-
-    if (shouldFreezeStaticWires) {
-      return;
-    }
-
-    recalculateRenderableWires();
-  }, [
+  const renderableWires = useRenderableWires({
     canvasToClientPosition,
-    candidateConnections,
+    connections,
     draggingNode,
-    draggingWire,
+    draggingWire: !!draggingWire,
+    highlightedNodes,
+    highlightedPort,
     isViewportMoving,
     isViewportVisibilitySettled,
+    nearViewportNodeIdSet,
     nodesById,
     portPositions,
-    recalculateRenderableWires,
-  ]);
+    runningNodeIdSet,
+    visibleNodeIdSet,
+  });
 
   return (
     <svg css={wiresStyles}>
@@ -353,20 +295,6 @@ const StaticWireContents = memo(
 );
 
 StaticWireContents.displayName = 'StaticWireContents';
-
-function areConnectionListsEqual(previous: NodeConnection[], next: NodeConnection[]): boolean {
-  if (previous.length !== next.length) {
-    return false;
-  }
-
-  for (let i = 0; i < previous.length; i += 1) {
-    if (previous[i] !== next[i]) {
-      return false;
-    }
-  }
-
-  return true;
-}
 
 function getIsNotRan(
   connection: NodeConnection,

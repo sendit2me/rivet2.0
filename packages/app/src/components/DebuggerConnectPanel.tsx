@@ -1,32 +1,13 @@
 import Button from '@atlaskit/button';
 import TextField from '@atlaskit/textfield';
 import { css } from '@emotion/react';
-import { type ChangeEvent, type CSSProperties, type FC, useEffect, useRef, useState } from 'react';
+import { type ChangeEvent, type FC, useEffect, useRef, useState } from 'react';
 import { Field } from '@atlaskit/form';
 import { useRemoteDebugger } from '../hooks/useRemoteDebugger';
 import { debuggerPanelAnchorState, type DebuggerPanelAnchor, debuggerPanelOpenState } from '../state/ui';
 import { debuggerDefaultUrlState } from '../state/settings';
 import { useSetAtom, useAtom, useAtomValue } from 'jotai';
-
-const PANEL_WIDTH = 400;
-const PANEL_MARGIN = 16;
-const PANEL_OFFSET = 4;
-
-function getDebuggerPanelPosition(anchor: DebuggerPanelAnchor | undefined): CSSProperties {
-  if (!anchor || typeof window === 'undefined') {
-    return {
-      right: 20,
-      top: 'calc(56px + var(--project-selector-height))',
-    };
-  }
-
-  const maxLeft = Math.max(PANEL_MARGIN, window.innerWidth - PANEL_WIDTH - PANEL_MARGIN);
-
-  return {
-    left: Math.min(Math.max(anchor.right - PANEL_WIDTH, PANEL_MARGIN), maxLeft),
-    top: Math.max(anchor.bottom + PANEL_OFFSET, PANEL_MARGIN),
-  };
-}
+import { DEBUGGER_PANEL_WIDTH, resolveDebuggerPanelPosition } from '../utils/debuggerPanelPosition.js';
 
 export function useToggleRemoteDebugger() {
   const setDebuggerPanelOpen = useSetAtom(debuggerPanelOpenState);
@@ -82,7 +63,7 @@ const styles = css`
   background: var(--grey-darker);
   padding: 4px 16px 16px 16px; // atlaskit padding on top
   box-shadow: 0 8px 16px var(--shadow-dark);
-  width: ${PANEL_WIDTH}px;
+  width: ${DEBUGGER_PANEL_WIDTH}px;
   z-index: 50;
 
   .inputs {
@@ -126,7 +107,13 @@ export const DebuggerConnectPanel: FC<DebuggerConnectPanelProps> = ({ anchor, on
   }, []);
 
   return (
-    <div css={styles} style={getDebuggerPanelPosition(anchor)}>
+    <div
+      css={styles}
+      style={resolveDebuggerPanelPosition({
+        anchor,
+        viewportWidth: typeof window === 'undefined' ? 0 : window.innerWidth,
+      })}
+    >
       <div className="inputs">
         <Field label="Connection URL (leave blank for default localhost)" name="url">
           {() => (

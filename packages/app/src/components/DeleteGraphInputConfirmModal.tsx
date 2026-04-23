@@ -27,23 +27,6 @@ const modalBody = css`
   }
 `;
 
-function getCallerTypeLabel(callerType: 'subGraph' | 'callGraph') {
-  return callerType === 'callGraph' ? 'Call Graph' : 'Subgraph';
-}
-
-function formatGraphInputUsageCallerLabel({
-  callerNodeTitle,
-  callerType,
-}: {
-  callerNodeTitle: string;
-  callerType: 'subGraph' | 'callGraph';
-}) {
-  const callerTypeLabel = getCallerTypeLabel(callerType);
-  const callerTitle = callerNodeTitle.trim() || callerTypeLabel;
-
-  return callerTitle === callerTypeLabel ? callerTitle : `${callerTitle} (${callerTypeLabel})`;
-}
-
 export const DeleteGraphInputConfirmModalRenderer: FC = () => {
   const [confirmState, setConfirmState] = useAtom(deleteGraphInputConfirmState);
   const deleteNodes = useDeleteNodesCommand();
@@ -81,7 +64,7 @@ export const DeleteGraphInputConfirmModalRenderer: FC = () => {
               <ul>
                 {visibleUsages.map((usage) => (
                   <li key={`${usage.graphId}:${usage.callerType}:${usage.callerNodeId}:${usage.inputId}`}>
-                    {usage.graphName} / {formatGraphInputUsageCallerLabel(usage)} / {usage.inputId}
+                    {usage.displayPath}
                   </li>
                 ))}
               </ul>

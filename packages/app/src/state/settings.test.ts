@@ -1,13 +1,27 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { shouldOpenNodeSettingsOnCreate } from './settings.js';
+import { resolveEditorPreferences } from './settings.js';
 
-test('shouldOpenNodeSettingsOnCreate defaults to enabled when the setting is missing', () => {
-  assert.equal(shouldOpenNodeSettingsOnCreate(undefined), true);
-  assert.equal(shouldOpenNodeSettingsOnCreate({}), true);
+test('resolveEditorPreferences applies editor defaults when settings are missing', () => {
+  assert.deepEqual(resolveEditorPreferences(undefined), {
+    applyDefaultNodeColors: false,
+    openNodeSettingsOnCreate: true,
+  });
+  assert.deepEqual(resolveEditorPreferences({}), {
+    applyDefaultNodeColors: false,
+    openNodeSettingsOnCreate: true,
+  });
 });
 
-test('shouldOpenNodeSettingsOnCreate respects explicit values', () => {
-  assert.equal(shouldOpenNodeSettingsOnCreate({ openNodeSettingsOnCreate: true }), true);
-  assert.equal(shouldOpenNodeSettingsOnCreate({ openNodeSettingsOnCreate: false }), false);
+test('resolveEditorPreferences respects explicit editor settings', () => {
+  assert.deepEqual(
+    resolveEditorPreferences({
+      defaultNodeColors: true,
+      openNodeSettingsOnCreate: false,
+    }),
+    {
+      applyDefaultNodeColors: true,
+      openNodeSettingsOnCreate: false,
+    },
+  );
 });

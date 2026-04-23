@@ -8,12 +8,9 @@ import {
   protectEscapedInterpolationTokens,
   restoreEscapedInterpolationTokens,
 } from '../../../../core/src/utils/interpolation.js';
+import { hasDisplayableInterpolationInputs } from './parsedSourceDisplayUtils.js';
 
-const RESERVED_INPUT_IDS = new Set<PortId>(['object' as PortId]);
-
-function getExtractObjectPathInterpolationInputNames(path: string): string[] {
-  return extractInterpolationVariables(path).filter((inputName) => !RESERVED_INPUT_IDS.has(inputName as PortId));
-}
+const RESERVED_INPUT_NAMES = new Set(['object']);
 
 function buildExtractObjectPathInterpolationInputs(
   path: string,
@@ -22,7 +19,7 @@ function buildExtractObjectPathInterpolationInputs(
   return Object.fromEntries(
     extractInterpolationVariables(path).map((inputName) => [
       inputName,
-      RESERVED_INPUT_IDS.has(inputName as PortId) ? '' : inputs[inputName as PortId],
+      RESERVED_INPUT_NAMES.has(inputName) ? '' : inputs[inputName as PortId],
     ]),
   ) as Record<string, DataValue | string | undefined>;
 }
@@ -36,7 +33,9 @@ export function getExtractObjectPathUsePathInput(node: ExtractObjectPathNode, da
 }
 
 export function hasExtractObjectPathInterpolationInputs(pathSource: string): boolean {
-  return getExtractObjectPathInterpolationInputNames(pathSource).length > 0;
+  return hasDisplayableInterpolationInputs(pathSource, {
+    reservedInputNames: RESERVED_INPUT_NAMES,
+  });
 }
 
 export function getParsedExtractObjectPathPreviewSource(pathSource: string, inputs: Inputs): string {

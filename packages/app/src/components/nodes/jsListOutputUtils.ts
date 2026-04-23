@@ -1,10 +1,11 @@
 import { type Inputs, type JSFilterNode, type JSMapNode } from '@ironclad/rivet-core';
 import { type NodeRunDataWithRefs } from '../../state/dataFlow.js';
 import {
-  getJSListCallbackInterpolationInputDefinitions,
+  JS_LIST_CALLBACK_LOCAL_NAMES,
   interpolateJSListCallbackBody,
   wrapJSListCallbackPreview,
 } from '../../../../core/src/model/nodes/jsListCallbackHelpers.js';
+import { hasDisplayableInterpolationInputs } from './parsedSourceDisplayUtils.js';
 
 type JSListNode = JSFilterNode | JSMapNode;
 
@@ -13,7 +14,9 @@ export function getJSListCallbackPreviewSource(node: JSListNode, data: NodeRunDa
 }
 
 export function hasJSListCallbackInterpolationInputs(callbackBodySource: string): boolean {
-  return getJSListCallbackInterpolationInputDefinitions(callbackBodySource).length > 0;
+  return hasDisplayableInterpolationInputs(callbackBodySource, {
+    reservedInputNames: JS_LIST_CALLBACK_LOCAL_NAMES,
+  });
 }
 
 export function getParsedJSListCallbackPreviewSource(callbackBodySource: string, inputs: Inputs): string {

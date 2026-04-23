@@ -103,11 +103,15 @@ switcher to select the correct node data for display.
 
 ### How navigation creates view context
 
-The user can navigate to a graph in two ways:
+The user can navigate to a graph in two broad ways:
 
 1. **Sidebar click / Go to Node / most navigation paths**: Creates `createRootGraphViewContext(graphId)` → key is `root:${graphId}`.
 
-2. **"Go to subgraph" context menu on a subgraph node**: Creates `createSubgraphGraphViewContext(...)` → key is `subgraph:${parentGraphId}:${nodeId}:${graphId}`.
+2. **Direct Subgraph node navigation**: The Subgraph node header link and
+   `"Go to subgraph"` context-menu action both flow through
+   `useGoToSubgraphNode(...)`. They create
+   `createSubgraphGraphViewContext(...)` → key is
+   `subgraph:${parentGraphId}:${nodeId}:${graphId}`.
 
 Only path (2) produces a key that matches the execution-stored key. Path (1) produces
 a root key that does **not** match.
@@ -419,11 +423,13 @@ currentGraphViewState = atom((get) => {
 | Click graph in sidebar | `createRootGraphViewContext` | `root:${graphId}` |
 | "Go to node" (search) | `createRootGraphViewContext` | `root:${graphId}` |
 | Back/forward browser buttons | Restored from stack | Whatever was stored |
-| "Go to subgraph" context menu | `createSubgraphGraphViewContext` | `subgraph:${parent}:${node}:${graphId}` |
+| Subgraph header link / "Go to subgraph" context menu | `createSubgraphGraphViewContext` | `subgraph:${parent}:${node}:${graphId}` |
 | Load project | `createRootGraphViewContext` | `root:${graphId}` |
 
-The "Go to subgraph" context menu is the **only** navigation path that creates
-a subgraph view context. All other paths create root contexts.
+The Subgraph header link and the Subgraph node context-menu action are the
+intentional direct Subgraph navigation paths that create a subgraph view
+context. Sidebar graph clicks, search "Go to node", project load, and most
+other navigation paths create root contexts.
 
 ### Viewport per view
 
@@ -825,7 +831,8 @@ absence gracefully since the final `nodeFinish` event contains the complete outp
 | [`ProcessContext.ts`](../packages/core/src/model/ProcessContext.ts) | `GraphExecutionMetadata`, `SubgraphExecutorMetadata` type definitions |
 | [`GraphExecutionSelectorBar.tsx`](../packages/app/src/components/GraphExecutionSelectorBar.tsx) | Run switcher UI component |
 | [`useGoToNode.ts`](../packages/app/src/hooks/useGoToNode.ts) | Navigation to node — creates root view context |
-| [`useGraphBuilderContextMenuHandler.ts`](../packages/app/src/hooks/useGraphBuilderContextMenuHandler.ts) | "Go to subgraph" — creates subgraph view context |
+| [`useGoToSubgraphNode.ts`](../packages/app/src/hooks/useGoToSubgraphNode.ts) | Shared direct Subgraph navigation used by the header link and context menu |
+| [`useGraphBuilderContextMenuHandler.ts`](../packages/app/src/hooks/useGraphBuilderContextMenuHandler.ts) | Context-menu dispatch for "Go to subgraph" |
 | [`ExecutionRecorder.ts`](../packages/core/src/recording/ExecutionRecorder.ts) | Records execution events with metadata, serializes to `.rivet-recording` |
 | [`RecordedEvents.ts`](../packages/core/src/recording/RecordedEvents.ts) | `RecordedEventsMap` type definitions — serializable mirror of `ProcessEvents` |
 | [`RecordingPlayer.ts`](../packages/core/src/model/RecordingPlayer.ts) | `replayExecutionRecording` — replays recorded events through the same emitter/handler pipeline |

@@ -7,6 +7,9 @@
 
 
 
+- Move Zoom sensitivity into the UI tab
+
+- Reassess the Rivet settings. probbaly something needs reworking
 
 - get back the split node summary into node's header
 

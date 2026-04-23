@@ -163,7 +163,13 @@ The current built-in node list is registered through `registerBuiltInNodes(...)`
 
 Current `Random number` behavior lives on the existing `randomNumber` node type rather than a replacement type. Its `Float` / `Integer` pill editor is presentation over the existing `integers?: boolean` data field, and `Min` / `Max` remain number settings with optional input-port toggles. The runtime keeps the original `maxInclusive` behavior: it only changes integer generation by adding one to the effective max before `Math.floor(...)`.
 
-The repo currently has 84 files under `packages/core/src/model/nodes`.
+`Expression`, `JS Filter`, and `JS Map` are core built-ins that evaluate JavaScript through `context.codeRunner` with optional capabilities disabled. They use raw-JS-source interpolation from [`rawJsSourceInterpolation.ts`](../packages/core/src/model/nodes/rawJsSourceInterpolation.ts): `{{var}}` tokens create string input ports, connected values are inserted as source snippets without auto-quoting, and missing values become `undefined`. This is deliberately different from normal typed `DataValue` interpolation.
+
+`JS Filter` and `JS Map` share editor, input, body-preview, wrapper, and output-validation scaffolding in [`jsListCallbackHelpers.ts`](../packages/core/src/model/nodes/jsListCallbackHelpers.ts). Their callback bodies are still wrapped explicitly by each node so the filter/map runtime differences remain inspectable. The callback-local names `item`, `index`, and `array` are reserved and should be used directly inside the callback body rather than through `{{...}}` ports.
+
+`Extract Object Path` keeps the existing `extractObjectPath` node type and data shape. When `usePathInput` is false, the stored path uses the shared interpolation parser to add optional `any` input ports and to resolve the final JSONPath before execution. When `usePathInput` is true, the explicit `path` input remains the only path source and stored-path interpolation ports are not exposed.
+
+The built-in node directory is intentionally broad; prefer documenting behavior contracts and shared helper boundaries over hard-coding file counts that drift whenever a node is added or split.
 
 ### Plugin nodes
 
@@ -600,6 +606,8 @@ Current options include:
 - generated event callbacks like `onNodeStart`, `onGraphFinish`, etc.
 
 This option type is much broader than "just inputs and settings."
+
+Runtime settings are normalized through [`processSettings.ts`](../packages/core/src/api/processSettings.ts). `resolveProcessSettings(...)` is the shared boundary used by core, `rivet-node`, and Trivet so programmatic execution gets the same runtime defaults while still preserving explicit runtime options such as `recordingPlaybackLatency`, without depending on app-only editor preference fields that still exist on the legacy `Settings` object for compatibility.
 
 ## Event Streaming API
 

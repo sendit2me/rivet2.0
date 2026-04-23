@@ -1,7 +1,5 @@
-import { css } from '@emotion/react';
 import { type Inputs, type JSFilterNode, type JSMapNode, type PortId } from '@ironclad/rivet-core';
 import { type FC, useMemo } from 'react';
-import ColorizedPreformattedText from '../ColorizedPreformattedText.js';
 import { RenderDataValue, type OutputRenderMode } from '../RenderDataValue.js';
 import { useDataRefs } from '../../providers/ProvidersContext.js';
 import { type NodeRunDataWithRefs } from '../../state/dataFlow.js';
@@ -12,30 +10,14 @@ import {
   getParsedJSListCallbackPreviewSource,
   hasJSListCallbackInterpolationInputs,
 } from './jsListOutputUtils.js';
+import {
+  ParsedSourceOutputSection,
+  StructuredNodeOutputError,
+  StructuredNodeOutputSection,
+  structuredNodeOutputCss,
+} from './StructuredNodeOutput.js';
 
 type JSListNode = JSFilterNode | JSMapNode;
-
-const jsListOutputCss = css`
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-
-  .js-list-output-section {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-
-  .js-list-output-source pre {
-    margin: 0;
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-  }
-`;
-
-const jsListOutputErrorCss = css`
-  color: var(--error-light);
-`;
 
 function getSortedSplitOutputEntries(
   data: NodeRunDataWithRefs,
@@ -80,38 +62,27 @@ const JSListNodeOutputBody: FC<{
   );
 
   return (
-    <div css={jsListOutputCss}>
-      {errorMessage && <div css={jsListOutputErrorCss}>{errorMessage}</div>}
+    <div css={structuredNodeOutputCss}>
+      {errorMessage && <StructuredNodeOutputError>{errorMessage}</StructuredNodeOutputError>}
 
       {!errorMessage && data.splitOutputData && (
         <div className="split-output">
           {getSortedSplitOutputEntries(data).map(([key, outputs]) => (
-            <div className="js-list-output-section" key={key}>
-              <div>
-                <em className="port-id-label">{resultLabel}</em>
-              </div>
+            <StructuredNodeOutputSection label={resultLabel} key={key}>
               <RenderDataValue value={outputs[outputId]} mode={renderMode} />
-            </div>
+            </StructuredNodeOutputSection>
           ))}
         </div>
       )}
 
       {!errorMessage && !data.splitOutputData && (
-        <div className="js-list-output-section">
-          <div>
-            <em className="port-id-label">{resultLabel}</em>
-          </div>
+        <StructuredNodeOutputSection label={resultLabel}>
           <RenderDataValue value={data.outputData?.[outputId]} mode={renderMode} />
-        </div>
+        </StructuredNodeOutputSection>
       )}
 
       {shouldShowParsedExpression && (
-        <div className="js-list-output-section js-list-output-source">
-          <div>
-            <em className="port-id-label">Parsed expression</em>
-          </div>
-          <ColorizedPreformattedText text={parsedExpression ?? ''} language="javascript" />
-        </div>
+        <ParsedSourceOutputSection source={parsedExpression ?? ''} language="javascript" />
       )}
     </div>
   );

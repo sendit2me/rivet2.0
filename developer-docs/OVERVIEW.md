@@ -177,6 +177,10 @@ Several parts of the system intentionally keep large or auxiliary data outside t
 
 This split shows up repeatedly in app save/load code and should be treated as architectural, not incidental.
 
+### Runtime settings normalization
+
+Runtime execution settings are normalized in core through `resolveProcessSettings(...)`. The app, Node package, and Trivet should pass their available runtime/env values into that shared resolver instead of each package reconstructing a full legacy `Settings` object. Editor-only preferences may still live in persisted app settings, but they should not become required inputs for backend/programmatic workflow execution.
+
 ## Current Refactor Hotspots
 
 Based on the current code, the highest-risk/highest-value refactor areas are:

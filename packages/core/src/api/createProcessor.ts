@@ -17,11 +17,11 @@ import { getProcessorEvents, getProcessorSSEStream, getSingleNodeStream } from '
 // eslint-disable-next-line import/no-cycle -- GraphProcessor depends on CodeRunner, which exposes the package export surface.
 import { GraphProcessor } from '../model/GraphProcessor.js';
 import { deserializeProject } from '../utils/serialization/serialization.js';
-import { DEFAULT_CHAT_NODE_TIMEOUT } from '../utils/defaults.js';
 import { GptTokenizerTokenizer } from '../integrations/GptTokenizerTokenizer.js';
 import type { Tokenizer } from '../integrations/Tokenizer.js';
 import { looseDataValuesToDataValues, type LooseDataValue } from './looseDataValue.js';
 import type { ProjectReferenceLoader } from '../model/ProjectReferenceLoader.js';
+import { resolveProcessSettings } from './processSettings.js';
 
 export type RunGraphOptions = {
   graph?: string;
@@ -169,19 +169,7 @@ export function coreCreateProcessor(project: Project, options: RunGraphOptions) 
           tokenizer: options.tokenizer ?? new GptTokenizerTokenizer(),
           projectPath: options.projectPath,
           projectReferenceLoader: options.projectReferenceLoader,
-          settings: {
-            openAiKey: options.openAiKey ?? '',
-            openAiOrganization: options.openAiOrganization ?? '',
-            openAiEndpoint: options.openAiEndpoint ?? '',
-            pluginEnv: options.pluginEnv ?? {},
-            pluginSettings: options.pluginSettings ?? {},
-            recordingPlaybackLatency: 1000,
-            defaultNodeColors: options.defaultNodeColors ?? false,
-            openNodeSettingsOnCreate: options.openNodeSettingsOnCreate ?? true,
-            chatNodeHeaders: options.chatNodeHeaders ?? {},
-            chatNodeTimeout: options.chatNodeTimeout ?? DEFAULT_CHAT_NODE_TIMEOUT,
-            throttleChatNode: options.throttleChatNode ?? 100,
-          } satisfies Required<Settings>,
+          settings: resolveProcessSettings(options),
           getChatNodeEndpoint: options.getChatNodeEndpoint,
         },
         resolvedInputs,

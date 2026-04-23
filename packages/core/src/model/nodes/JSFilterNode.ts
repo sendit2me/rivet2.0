@@ -13,11 +13,11 @@ import type { Inputs, Outputs } from '../GraphProcessor.js';
 import type { InternalProcessContext } from '../ProcessContext.js';
 import { nodeDefinition } from '../NodeDefinition.js';
 import {
-  assertJSListNodeOutputs,
   buildJSFilterWrapper,
-  getJSListCallbackInterpolationInputDefinitions,
-  interpolateJSListCallbackBody,
-  wrapJSListCallbackPreview,
+  getJSListEditors,
+  getJSListInputDefinitions,
+  getJSListNodeBody,
+  runJSListNodeCode,
 } from './jsListCallbackHelpers.js';
 
 export type JSFilterNode = ChartNode<'jsFilter', JSFilterNodeData>;
@@ -48,15 +48,7 @@ export class JSFilterNodeImpl extends NodeImpl<JSFilterNode> {
   }
 
   getInputDefinitions(): NodeInputDefinition[] {
-    return [
-      {
-        id: 'array' as PortId,
-        title: 'Array',
-        dataType: 'any[]',
-        required: true,
-      },
-      ...getJSListCallbackInterpolationInputDefinitions(this.data.callbackBody),
-    ];
+    return getJSListInputDefinitions(this.data.callbackBody);
   }
 
   getOutputDefinitions(): NodeOutputDefinition[] {
@@ -70,27 +62,11 @@ export class JSFilterNodeImpl extends NodeImpl<JSFilterNode> {
   }
 
   getEditors(): EditorDefinition<JSFilterNode>[] {
-    return [
-      {
-        type: 'code',
-        label: 'Callback Body',
-        helperMessage:
-          'Body of: (item, index, array) => { ... }. Use {{var}} for raw JS source inputs; strings need quotes.',
-        dataKey: 'callbackBody',
-        language: 'javascript',
-        enableFolding: true,
-      },
-    ];
+    return getJSListEditors<JSFilterNode>();
   }
 
   getBody(): NodeBodySpec {
-    return {
-      type: 'colorized',
-      text: wrapJSListCallbackPreview('(item, index, array)', this.data.callbackBody),
-      language: 'javascript',
-      fontSize: 12,
-      fontFamily: 'monospace',
-    };
+    return getJSListNodeBody(this.data.callbackBody);
   }
 
   static getUIData(): NodeUIData {
@@ -109,22 +85,14 @@ export class JSFilterNodeImpl extends NodeImpl<JSFilterNode> {
   }
 
   async process(inputs: Inputs, context: InternalProcessContext): Promise<Outputs> {
-    const outputs = await context.codeRunner.runCode(
-      buildJSFilterWrapper(interpolateJSListCallbackBody(this.data.callbackBody, inputs)),
+    return runJSListNodeCode({
+      buildWrapper: buildJSFilterWrapper,
+      callbackBody: this.data.callbackBody,
+      context,
       inputs,
-      {
-        includeFetch: false,
-        includeRequire: false,
-        includeRivet: false,
-        includeProcess: false,
-        includeConsole: false,
-      },
-      context.graphInputNodeValues,
-      context.contextValues,
-    );
-
-    assertJSListNodeOutputs(outputs, 'filtered', 'JS Filter');
-    return outputs;
+      nodeName: 'JS Filter',
+      outputId: 'filtered',
+    });
   }
 }
 

@@ -13,11 +13,11 @@ import type { Inputs, Outputs } from '../GraphProcessor.js';
 import type { InternalProcessContext } from '../ProcessContext.js';
 import { nodeDefinition } from '../NodeDefinition.js';
 import {
-  assertJSListNodeOutputs,
   buildJSMapWrapper,
-  getJSListCallbackInterpolationInputDefinitions,
-  interpolateJSListCallbackBody,
-  wrapJSListCallbackPreview,
+  getJSListEditors,
+  getJSListInputDefinitions,
+  getJSListNodeBody,
+  runJSListNodeCode,
 } from './jsListCallbackHelpers.js';
 
 export type JSMapNode = ChartNode<'jsMap', JSMapNodeData>;
@@ -48,15 +48,7 @@ export class JSMapNodeImpl extends NodeImpl<JSMapNode> {
   }
 
   getInputDefinitions(): NodeInputDefinition[] {
-    return [
-      {
-        id: 'array' as PortId,
-        title: 'Array',
-        dataType: 'any[]',
-        required: true,
-      },
-      ...getJSListCallbackInterpolationInputDefinitions(this.data.callbackBody),
-    ];
+    return getJSListInputDefinitions(this.data.callbackBody);
   }
 
   getOutputDefinitions(): NodeOutputDefinition[] {
@@ -70,27 +62,11 @@ export class JSMapNodeImpl extends NodeImpl<JSMapNode> {
   }
 
   getEditors(): EditorDefinition<JSMapNode>[] {
-    return [
-      {
-        type: 'code',
-        label: 'Callback Body',
-        helperMessage:
-          'Body of: (item, index, array) => { ... }. Use {{var}} for raw JS source inputs; strings need quotes.',
-        dataKey: 'callbackBody',
-        language: 'javascript',
-        enableFolding: true,
-      },
-    ];
+    return getJSListEditors<JSMapNode>();
   }
 
   getBody(): NodeBodySpec {
-    return {
-      type: 'colorized',
-      text: wrapJSListCallbackPreview('(item, index, array)', this.data.callbackBody),
-      language: 'javascript',
-      fontSize: 12,
-      fontFamily: 'monospace',
-    };
+    return getJSListNodeBody(this.data.callbackBody);
   }
 
   static getUIData(): NodeUIData {
@@ -109,22 +85,14 @@ export class JSMapNodeImpl extends NodeImpl<JSMapNode> {
   }
 
   async process(inputs: Inputs, context: InternalProcessContext): Promise<Outputs> {
-    const outputs = await context.codeRunner.runCode(
-      buildJSMapWrapper(interpolateJSListCallbackBody(this.data.callbackBody, inputs)),
+    return runJSListNodeCode({
+      buildWrapper: buildJSMapWrapper,
+      callbackBody: this.data.callbackBody,
+      context,
       inputs,
-      {
-        includeFetch: false,
-        includeRequire: false,
-        includeRivet: false,
-        includeProcess: false,
-        includeConsole: false,
-      },
-      context.graphInputNodeValues,
-      context.contextValues,
-    );
-
-    assertJSListNodeOutputs(outputs, 'mapped', 'JS Map');
-    return outputs;
+      nodeName: 'JS Map',
+      outputId: 'mapped',
+    });
   }
 }
 
