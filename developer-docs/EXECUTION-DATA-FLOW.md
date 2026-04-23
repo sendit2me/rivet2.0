@@ -256,6 +256,9 @@ Each `ProcessDataForNode` contains:
   graphRunId?: GraphRunId;
   graphId?: GraphId;
   data: {
+    debugData?: {
+      expressionSource?: string;
+    };
     inputData?: Record<PortId, StoredDataValue>;
     outputData?: Record<PortId, StoredDataValue>;
     splitOutputData?: Record<number, Record<PortId, StoredDataValue>>;
@@ -268,6 +271,11 @@ Each `ProcessDataForNode` contains:
 
 Data is keyed by `processId` within the node's array. A node can have multiple
 entries from different graph runs or split-run iterations.
+
+Most nodes leave `debugData` empty. The current notable exception is `Expression`,
+which snapshots `expressionSource` when its run record is first created (`nodeStart`
+or `nodeExcluded`) so the app can keep rendering the historical `Parsed expression`
+preview from the source that actually executed, even if the node is edited later.
 
 `StoredDataValue` is an app-only wrapper around execution payloads:
 
@@ -467,6 +475,7 @@ Persisted app-side execution payloads now share one transform layer before being
 
 - `sanitizeInputsOrOutputs(...)` in `executionDataTransforms.ts` fixes Uint8Array-shaped values without destructively truncating them
 - `storeNodeDataForHistory(...)` / `storeInputsOrOutputsForHistory(...)` decide whether each payload stays inline or moves into `globalDataRefs`
+- `storeNodeDataForHistory(...)` only writes fields that are explicitly present, so start-time payloads such as `inputData` and small debug snapshots survive later finish/error updates instead of being overwritten with `undefined`
 - `useNodeExecutionEvents` uses that shared path for started, finished, excluded, and partial-output persistence
 - split-run partial outputs still keep their separate `splitOutputData[index]` storage model, but they now reuse the same storage transform and stable ref-id scheme before persistence
 - `onStart`, `onTrivetStart`, and node-output clearing paths clear the corresponding execution-scoped refs when they wipe prior run data
