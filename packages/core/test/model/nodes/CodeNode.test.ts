@@ -78,6 +78,7 @@ describe('CodeNode', () => {
       () => node.process({}, createContext()),
       (error: unknown) => {
         assert.ok(error instanceof Error);
+        assert.ok(error instanceof ReferenceError);
         assert.equal(error.name, 'ReferenceError');
         assert.match(error.message, /missingVariable is not defined/);
         assert.match(error.message, /Code node line 3, column \d+/);

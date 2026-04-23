@@ -135,6 +135,7 @@ export function createProcessor(
             chatNodeHeaders: options.chatNodeHeaders ?? {},
             chatNodeTimeout: options.chatNodeTimeout ?? DEFAULT_CHAT_NODE_TIMEOUT,
             throttleChatNode: options.throttleChatNode ?? 100,
+            defaultNodeColors: options.defaultNodeColors ?? false,
           } satisfies Required<Settings>,
           getChatNodeEndpoint: options.getChatNodeEndpoint,
         },

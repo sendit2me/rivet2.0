@@ -142,11 +142,8 @@ export async function enrichCodeNodeErrorWithLocation(params: {
     return originalError;
   }
 
-  const enrichedError = new Error(`${originalError.message} (${formatLocationSuffix(location)})`, {
-    cause: originalError,
-  });
-  enrichedError.name = originalError.name;
-  enrichedError.stack = replaceStackHeader(originalError.stack, enrichedError);
+  originalError.message = `${originalError.message} (${formatLocationSuffix(location)})`;
+  originalError.stack = replaceStackHeader(originalError.stack, originalError);
 
-  return enrichedError;
+  return originalError;
 }

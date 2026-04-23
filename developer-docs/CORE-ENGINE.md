@@ -550,7 +550,9 @@ successful `Code` node runs. If `AsyncFunction` construction throws a syntax err
 the node then performs a small parser pass over a synthetic async-function wrapper
 and subtracts the wrapper offset to report the code-node line/column. Non-user-code
 errors, such as disabled dynamic execution or unavailable Node-only permissions, are
-left unchanged.
+left unchanged. When a location is found, the original thrown error object is
+annotated in place rather than replaced, so programmatic callers keep the original
+error type and custom properties.
 
 ## Programmatic API
 

@@ -257,7 +257,9 @@ Each `ProcessDataForNode` contains:
   graphId?: GraphId;
   data: {
     debugData?: {
+      codeSource?: string;
       expressionSource?: string;
+      jsListCallbackBodySource?: string;
     };
     inputData?: Record<PortId, StoredDataValue>;
     outputData?: Record<PortId, StoredDataValue>;
@@ -272,10 +274,13 @@ Each `ProcessDataForNode` contains:
 Data is keyed by `processId` within the node's array. A node can have multiple
 entries from different graph runs or split-run iterations.
 
-Most nodes leave `debugData` empty. The current notable exception is `Expression`,
-which snapshots `expressionSource` when its run record is first created (`nodeStart`
-or `nodeExcluded`) so the app can keep rendering the historical `Parsed expression`
-preview from the source that actually executed, even if the node is edited later.
+Most nodes leave `debugData` empty. The current notable exceptions are app-side
+presentation/debug affordances: `Code` snapshots `codeSource` so the selected
+failed run can highlight the matching editor line, `Expression` snapshots
+`expressionSource` for historical `Parsed expression` rendering, and `JS Filter` /
+`JS Map` snapshot `jsListCallbackBodySource` for their callback parsed-source
+preview. These snapshots are stored only in app execution history; they are not
+part of the core graph-output contract used by programmatic workflow execution.
 
 `StoredDataValue` is an app-only wrapper around execution payloads:
 
