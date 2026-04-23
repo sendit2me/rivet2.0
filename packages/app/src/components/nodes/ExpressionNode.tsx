@@ -14,7 +14,7 @@ import { useDataRefs } from '../../providers/ProvidersContext.js';
 import { type NodeRunDataWithRefs } from '../../state/dataFlow.js';
 import { restoreStoredPortMap } from '../../utils/executionDataReaders.js';
 import { type NodeComponentDescriptor } from '../../hooks/useNodeTypes.js';
-import { getExpressionPreviewSource } from './expressionOutputUtils.js';
+import { getExpressionPreviewSource, hasExpressionInterpolationInputs } from './expressionOutputUtils.js';
 
 const expressionOutputCss = css`
   display: flex;
@@ -46,13 +46,16 @@ const ExpressionNodeOutputBody: FC<{
   const errorMessage = data.status?.type === 'error' ? data.status.error : undefined;
   const dataRefs = useDataRefs();
   const expressionSource = getExpressionPreviewSource(node, data);
-  const restoredInputs = useMemo(
-    () => (restoreStoredPortMap(data.inputData, dataRefs) as Inputs | undefined) ?? {},
-    [data.inputData, dataRefs],
-  );
+  const shouldShowParsedExpression = hasExpressionInterpolationInputs(expressionSource);
   const parsedExpression = useMemo(
-    () => interpolateExpressionSource(expressionSource, restoredInputs),
-    [expressionSource, restoredInputs],
+    () =>
+      shouldShowParsedExpression
+        ? interpolateExpressionSource(
+            expressionSource,
+            (restoreStoredPortMap(data.inputData, dataRefs) as Inputs | undefined) ?? {},
+          )
+        : undefined,
+    [data.inputData, dataRefs, expressionSource, shouldShowParsedExpression],
   );
 
   return (
@@ -68,12 +71,14 @@ const ExpressionNodeOutputBody: FC<{
         </div>
       )}
 
-      <div className="expression-output-section expression-output-source">
-        <div>
-          <em className="port-id-label">Parsed expression</em>
+      {shouldShowParsedExpression && (
+        <div className="expression-output-section expression-output-source">
+          <div>
+            <em className="port-id-label">Parsed expression</em>
+          </div>
+          <ColorizedPreformattedText text={parsedExpression ?? ''} language="javascript" />
         </div>
-        <ColorizedPreformattedText text={parsedExpression} language="javascript" />
-      </div>
+      )}
     </div>
   );
 };

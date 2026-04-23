@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { ExpressionNodeImpl } from '@ironclad/rivet-core';
-import { getExpressionPreviewSource } from './expressionOutputUtils.js';
+import { getExpressionPreviewSource, hasExpressionInterpolationInputs } from './expressionOutputUtils.js';
 
 test('getExpressionPreviewSource prefers the stored execution snapshot over the current node expression', () => {
   const node = {
@@ -31,4 +31,11 @@ test('getExpressionPreviewSource falls back to the current node expression when 
   const previewSource = getExpressionPreviewSource(node, {});
 
   assert.equal(previewSource, '{{a}} + 1');
+});
+
+test('hasExpressionInterpolationInputs returns true only for interpolation-created ports', () => {
+  assert.equal(hasExpressionInterpolationInputs('{{a}} + 1'), true);
+  assert.equal(hasExpressionInterpolationInputs('1 + 2'), false);
+  assert.equal(hasExpressionInterpolationInputs('{{{escaped}}} + 1'), false);
+  assert.equal(hasExpressionInterpolationInputs('{{broken + {{a}}'), true);
 });

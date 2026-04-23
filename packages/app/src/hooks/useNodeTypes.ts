@@ -20,6 +20,7 @@ import { datasetNearestNeighborsNodeDescriptor } from '../components/nodes/Datas
 import { getDatasetRowNodeDescriptor } from '../components/nodes/GetDatasetRowNode';
 import { replaceDatasetNodeDescriptor } from '../components/nodes/ReplaceDatasetNode';
 import { expressionNodeDescriptor } from '../components/nodes/ExpressionNode';
+import { jsFilterNodeDescriptor, jsMapNodeDescriptor } from '../components/nodes/JSListNode';
 import { type InputsOrOutputsWithRefs, type NodeRunDataWithRefs } from '../state/dataFlow';
 import { useAtomValue } from 'jotai';
 import { useProjectNodeRegistry } from './useProjectNodeRegistry';
@@ -68,6 +69,8 @@ const overriddenDescriptors: Partial<NodeComponentDescriptors> = {
   getDatasetRow: getDatasetRowNodeDescriptor,
   replaceDataset: replaceDatasetNodeDescriptor,
   expression: expressionNodeDescriptor,
+  jsFilter: jsFilterNodeDescriptor,
+  jsMap: jsMapNodeDescriptor,
 };
 
 export function useNodeTypes(): NodeComponentDescriptors {

@@ -1,6 +1,12 @@
 import { produce } from 'immer';
 import { useSetAtom } from 'jotai';
-import { type CodeNode, type ExpressionNode, type ProcessEvents } from '@ironclad/rivet-core';
+import {
+  type CodeNode,
+  type ExpressionNode,
+  type JSFilterNode,
+  type JSMapNode,
+  type ProcessEvents,
+} from '@ironclad/rivet-core';
 import { type ExecutionDataFlowApi } from './useExecutionDataFlow';
 import { lastRunDataByNodeState } from '../state/dataFlow';
 import {
@@ -163,6 +169,14 @@ function getNodeRunDebugData(node: ProcessEvents['nodeStart']['node']) {
     return {
       debugData: {
         expressionSource: (node as ExpressionNode).data.expression,
+      },
+    };
+  }
+
+  if (node.type === 'jsFilter' || node.type === 'jsMap') {
+    return {
+      debugData: {
+        jsListCallbackBodySource: (node as JSFilterNode | JSMapNode).data.callbackBody,
       },
     };
   }

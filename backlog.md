@@ -3,9 +3,9 @@
 
 - Support Python in all nodes that support javascript
 
-- Just like with the "Expression" node, the JS filter and JS map nodes must support variables interpolation. Same style a sin expression node — substitute variables with literals, no autoquoting or anything
-
 - In all expression node, JS filter and JS map nodes - if no interpolation variables are used (effectively no imput terminal fro valiables created), do not show the "Parsed expression" section in the node's output view. Otherwise - show it. For JS filter and JS map nodes too.
+
+- For all three nodes, add the "Show 'Parsed expression' in non-error outputs" switcher in the node settings (after the code snippet). Make it that default to off.
 
 - All our latest changes with showing the parsed expressions and parsing for highlighting the error line in the oocde snippet - make sure these changes can't possibly break the workflow execution in production (when the workflow is run on the backend via the Rivet nodejs lib). Running workflows programmatically is a priority
 

@@ -89,8 +89,11 @@ const ActiveNodeOutput: FC<{ node: ChartNode; isOutputExpanded: boolean }> = ({ 
   );
 };
 
-function shouldUseExpressionErrorOutput(node: ChartNode, data: NodeRunDataWithRefs): boolean {
-  return node.type === 'expression' && data.status?.type === 'error';
+function shouldUseCustomNodeErrorOutput(node: ChartNode, data: NodeRunDataWithRefs): boolean {
+  return (
+    (node.type === 'expression' || node.type === 'jsFilter' || node.type === 'jsMap') &&
+    data.status?.type === 'error'
+  );
 }
 
 function shouldUseCodeErrorOutput(node: ChartNode, data: NodeRunDataWithRefs): boolean {
@@ -288,7 +291,7 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
     return null;
   }
 
-  const shouldUseCustomErrorOutput = shouldUseExpressionErrorOutput(node, data);
+  const shouldUseCustomErrorOutput = shouldUseCustomNodeErrorOutput(node, data);
 
   if (shouldUseCodeErrorOutput(node, data)) {
     return <CodeNodeErrorOutput data={data} />;
@@ -433,7 +436,7 @@ const NodeOutputSingleProcess: FC<{
   );
 
   const warnings = useMemo(() => getStoredOutputWarnings(data, dataRefs), [data, dataRefs]);
-  const shouldUseCustomErrorOutput = shouldUseExpressionErrorOutput(node, data);
+  const shouldUseCustomErrorOutput = shouldUseCustomNodeErrorOutput(node, data);
 
   if (shouldUseCodeErrorOutput(node, data)) {
     return (

@@ -47,6 +47,7 @@ export type NodeRunDataBase = {
   debugData?: {
     codeSource?: string;
     expressionSource?: string;
+    jsListCallbackBodySource?: string;
   };
 
   status?:
