@@ -1,8 +1,8 @@
 import { P, match } from 'ts-pattern';
 import { useStableCallback } from './useStableCallback';
-import { type NodeId, type BuiltInNodes, type GraphId } from '@ironclad/rivet-core';
+import { type NodeId, type GraphId } from '@ironclad/rivet-core';
 import { type ContextMenuContext } from '../components/ContextMenu';
-import { createRootGraphViewContext, createSubgraphGraphViewContext } from '../domain/graphEditing/navigationActions.js';
+import { createRootGraphViewContext } from '../domain/graphEditing/navigationActions.js';
 import { editingNodeState } from '../state/graphBuilder';
 import { projectState } from '../state/savedGraphs';
 import { useCanvasPositioning } from './useCanvasPositioning';
@@ -10,13 +10,14 @@ import { useFactorIntoSubgraph } from './useFactorIntoSubgraph';
 import { useGraphExecutor } from './useGraphExecutor';
 import { useLoadGraph } from './useLoadGraph';
 import { usePasteNodes } from './usePasteNodes';
-import { graphMetadataState, nodesByIdState } from '../state/graph';
+import { nodesByIdState } from '../state/graph';
 import { useCopyNodes } from './useCopyNodes';
 import { useDuplicateNode } from './useDuplicateNode';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { useAddNodeCommand } from '../commands/addNodeCommand';
 import { useDeleteNodesCommand } from '../commands/deleteNodeCommand';
 import { copyToClipboard } from '../utils/copyToClipboard';
+import { useGoToSubgraphNode } from './useGoToSubgraphNode.js';
 
 export function useGraphBuilderContextMenuHandler({ onAutoLayoutGraph }: { onAutoLayoutGraph: () => void }) {
   const { clientToCanvasPosition } = useCanvasPositioning();
@@ -30,7 +31,7 @@ export function useGraphBuilderContextMenuHandler({ onAutoLayoutGraph }: { onAut
   const setEditingNodeId = useSetAtom(editingNodeState);
   const nodesById = useAtomValue(nodesByIdState);
   const removeNodes = useDeleteNodesCommand();
-  const graph = useAtomValue(graphMetadataState);
+  const goToSubgraphNode = useGoToSubgraphNode();
 
   const addNode = useAddNodeCommand();
 
@@ -67,31 +68,7 @@ export function useGraphBuilderContextMenuHandler({ onAutoLayoutGraph }: { onAut
         })
         .with('node-go-to-subgraph', () => {
           const { nodeId } = context.data as { nodeId: NodeId };
-          const node = nodesById[nodeId] as BuiltInNodes;
-
-          if (node?.type !== 'subGraph') {
-            return;
-          }
-
-          const { graphId } = node.data;
-
-          const subgraph = project.graphs[graphId];
-
-          if (!subgraph) {
-            return;
-          }
-
-          if (!graph?.id) {
-            return;
-          }
-
-          loadGraph(subgraph, {
-            graphView: createSubgraphGraphViewContext({
-              graphId,
-              parentGraphId: graph.id,
-              parentNodeId: nodeId,
-            }),
-          });
+          goToSubgraphNode(nodesById[nodeId]);
         })
         .with(P.string.startsWith('go-to-graph:'), () => {
           const graphId = data as GraphId;

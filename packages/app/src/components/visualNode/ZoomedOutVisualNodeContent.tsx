@@ -14,6 +14,7 @@ import { useDependsOnPlugins } from '../../hooks/useDependsOnPlugins';
 import { Port } from '../Port';
 import { preservePortTextCaseState } from '../../state/settings';
 import { useCanvasHandlersContext, useCanvasViewContext } from '../CanvasContext';
+import { SubGraphHeaderLink } from './SubGraphHeaderLink.js';
 
 export const ZoomedOutVisualNodeContent: FC<{
   node: ChartNode;
@@ -81,6 +82,7 @@ export const ZoomedOutVisualNodeContent: FC<{
         >
           {!isReallyZoomedOut && (
             <div className="grab-area">
+              <SubGraphHeaderLink node={node} />
               <div className="title-text">
                 <span className="title-text-label">{node.title}</span>
               </div>

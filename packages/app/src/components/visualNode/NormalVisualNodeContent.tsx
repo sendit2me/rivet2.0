@@ -31,6 +31,7 @@ import { preservePortTextCaseState } from '../../state/settings';
 import { useCanvasHandlersContext, useCanvasViewContext } from '../CanvasContext';
 import { NodeBody } from '../NodeBody.js';
 import { NodeOutput } from '../NodeOutput.js';
+import { SubGraphHeaderLink } from './SubGraphHeaderLink.js';
 import {
   computeBoxNodeResizeBounds,
   computeHorizontalNodeResizeBounds,
@@ -271,6 +272,7 @@ export const NormalVisualNodeContent: FC<{
           onClick={handleGrabClick}
         >
           <div className="grab-area">
+            <SubGraphHeaderLink node={node} />
             <div className="title-text">
               <span className="title-text-label">{node.title}</span>
             </div>

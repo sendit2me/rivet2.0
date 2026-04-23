@@ -181,6 +181,36 @@ export const nodeStyles = css`
     height: 16px;
   }
 
+  .subgraph-link-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 46px;
+    margin: -12px 0;
+    margin-left: -5px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--node-bg-foreground);
+    cursor: pointer;
+    transition: color 0.2s ease-out;
+
+    svg {
+      width: 20px;
+      height: 20px;
+    }
+  }
+
+  .subgraph-link-button:hover {
+    color: var(--primary-text);
+  }
+
+  .subgraph-link-tooltip {
+    display: flex;
+    align-items: center;
+  }
+
   .title-text {
     display: flex;
     align-items: center;
