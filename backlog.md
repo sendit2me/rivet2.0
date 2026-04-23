@@ -3,11 +3,9 @@
 
 - Color a subgraph node to default color
 
-- Parallel runs icon should be more parallel. Maybe move the split-related icons to the area on above the card?
+- Parallel runs icon should be more parallel. Maybe move the split-related icons to the area on above the card? Sequenrial - more sequentisl
 
 
-- Comment node doesn't get a primary color border when selected like any other node. It should. Not when hovered, but when selected
-- When the "comment" node is partially out of view, it disappears
 
 
 - get back the split node summary into node's header
