@@ -10,10 +10,7 @@ import {
 import { type FC, memo, useMemo, useState, type MouseEvent } from 'react';
 import { useUnknownNodeComponentDescriptorFor } from '../hooks/useNodeTypes.js';
 import { useStableCallback } from '../hooks/useStableCallback.js';
-import {
-  type ChartNode,
-  type ProcessId,
-} from '@ironclad/rivet-core';
+import { type ChartNode, type ProcessId } from '@ironclad/rivet-core';
 import { css } from '@emotion/react';
 import CopyIcon from 'majesticons/line/clipboard-line.svg?react';
 import ExpandIcon from 'majesticons/line/maximize-line.svg?react';
@@ -21,7 +18,7 @@ import FlaskIcon from 'majesticons/line/flask-line.svg?react';
 import ExpandDownStopIcon from '../assets/icons/expand-down-stop.svg?react';
 import { FullScreenModal } from './FullScreenModal.js';
 import { promptDesignerAttachedChatNodeState } from '../state/promptDesigner.js';
-import { overlayOpenState } from '../state/ui';
+import { fullscreenOutputModalBoundsState, overlayOpenState } from '../state/ui';
 import { useDependsOnPlugins } from '../hooks/useDependsOnPlugins';
 import { useToggle } from 'ahooks';
 import { expandedOutputNodeIdsState, hoveringNodeState } from '../state/graphBuilder';
@@ -38,6 +35,7 @@ import { FullscreenNodeOutputToolbar } from './nodeOutput/FullscreenNodeOutputTo
 import { MATCH_ACTIVE_CLASS, MATCH_CLASS } from './nodeOutput/fullscreenOutputSearch.js';
 import { resolveNodeOutputPreviewMode } from './nodeOutput/nodeOutputPreviewMode.js';
 import { CodeNodeErrorOutput } from './nodes/CodeNode.js';
+import type { HorizontalModalBounds } from '../utils/fullScreenModalBounds.js';
 
 export const NodeOutput: FC<{ node: ChartNode; suspended?: boolean }> = memo(({ node, suspended = false }) => {
   const isOutputExpanded = useAtomValue(expandedOutputNodeIdsState).includes(node.id);
@@ -74,9 +72,7 @@ const ActiveNodeOutput: FC<{ node: ChartNode; isOutputExpanded: boolean }> = ({ 
 
   return (
     <div className="node-output-outer">
-      <FullScreenModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
-        <NodeFullscreenOutput node={node} />
-      </FullScreenModal>
+      {isModalOpen ? <ResizableNodeFullscreenOutputModal node={node} onClose={() => setIsModalOpen(false)} /> : null}
       <div onWheel={handleWheel}>
         <NodeOutputBase
           node={node}
@@ -86,6 +82,25 @@ const ActiveNodeOutput: FC<{ node: ChartNode; isOutputExpanded: boolean }> = ({ 
         />
       </div>
     </div>
+  );
+};
+
+const ResizableNodeFullscreenOutputModal: FC<{ node: ChartNode; onClose: () => void }> = ({ node, onClose }) => {
+  const [fullscreenOutputModalBounds, setFullscreenOutputModalBounds] = useAtom(fullscreenOutputModalBoundsState);
+  const handleFullscreenOutputModalBoundsChange = useStableCallback((bounds: HorizontalModalBounds) => {
+    setFullscreenOutputModalBounds(bounds);
+  });
+
+  return (
+    <FullScreenModal
+      isOpen
+      horizontalBounds={fullscreenOutputModalBounds}
+      onClose={onClose}
+      onHorizontalBoundsChange={handleFullscreenOutputModalBoundsChange}
+      testId="fullscreen-output-modal"
+    >
+      <NodeFullscreenOutput node={node} />
+    </FullScreenModal>
   );
 };
 
@@ -242,9 +257,7 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
     });
   };
 
-  const handleCopyToClipboard = useStableCallback(() =>
-    copyOutputValue(data, dataRefs, getCopyValueData),
-  );
+  const handleCopyToClipboard = useStableCallback(() => copyOutputValue(data, dataRefs, getCopyValueData));
   const handleCopyToClipboardJson = useStableCallback(() => copyOutputJson(data, dataRefs));
   const contentVersion = useMemo(
     () => ({
@@ -434,9 +447,7 @@ const NodeOutputSingleProcess: FC<{
     });
   };
 
-  const handleCopyToClipboard = useStableCallback(() =>
-    copyOutputValue(data, dataRefs, getCopyValueData),
-  );
+  const handleCopyToClipboard = useStableCallback(() => copyOutputValue(data, dataRefs, getCopyValueData));
 
   const warnings = useMemo(() => getStoredOutputWarnings(data, dataRefs), [data, dataRefs]);
   const shouldUseCustomErrorOutput = shouldUseCustomNodeErrorOutput(node, data);

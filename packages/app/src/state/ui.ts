@@ -4,6 +4,7 @@ import type { NodeId } from '@ironclad/rivet-core';
 import { createHybridStorage } from './storage.js';
 import { DEFAULT_MULTILINE_EDITOR_FONT_SIZE } from '../utils/multilineEditorFontSize.js';
 import type { ConnectedGraphInputUsage } from '../domain/graphEditing/graphInputUsage.js';
+import { DEFAULT_HORIZONTAL_MODAL_BOUNDS, type HorizontalModalBounds } from '../utils/fullScreenModalBounds.js';
 
 const { storage } = createHybridStorage('ui');
 
@@ -39,6 +40,12 @@ export const codeEditorHeightsByStorageKeyState = atomWithStorage<Record<string,
 );
 
 export const nodeEditorWidthState = atomWithStorage<number | null>('nodeEditorWidthState', null, storage);
+
+export const fullscreenOutputModalBoundsState = atomWithStorage<HorizontalModalBounds>(
+  'fullscreenOutputModalBoundsState',
+  DEFAULT_HORIZONTAL_MODAL_BOUNDS,
+  storage,
+);
 
 export const multilineEditorFontSizeState = atomWithStorage<number>(
   'multilineEditorFontSizeState',
