@@ -3,18 +3,34 @@ import test from 'node:test';
 import {
   createBuiltInRegistry,
   type ChartNode,
+  type GraphId,
   type NodeConnection,
+  type NodeGraph,
   type NodeId,
   type PortId,
   type Project,
+  type ProjectId,
 } from '@ironclad/rivet-core';
 import type { GraphCommandState } from './Command.js';
 import { buildEditNodeAppliedData, shouldMergeEditNodeCommand } from './editNodeCommand.js';
 
 const registry = createBuiltInRegistry();
-const project = {
-  graphs: {},
-} as Project;
+const graphId = 'graph-1' as GraphId;
+const subGraphId = 'sub-graph' as GraphId;
+const parentGraphId = 'parent-graph' as GraphId;
+
+function makeProject(graphs: NodeGraph[] = []): Project {
+  return {
+    metadata: {
+      id: 'project' as ProjectId,
+      title: 'Project',
+      description: '',
+    },
+    graphs: Object.fromEntries(graphs.map((graph) => [graph.metadata!.id!, graph])),
+  } as Project;
+}
+
+const project = makeProject();
 
 function makeTextNode(nodeId: string, text: string): ChartNode {
   const node = registry.createDynamic('text');
@@ -29,6 +45,26 @@ function makeTextNode(nodeId: string, text: string): ChartNode {
   return node;
 }
 
+function makeGraphInputNode(nodeId: string, inputId: string): ChartNode {
+  const node = registry.createDynamic('graphInput');
+  node.id = nodeId as NodeId;
+  node.data = {
+    ...(node.data as Record<string, unknown>),
+    id: inputId,
+  };
+  return node;
+}
+
+function makeSubGraphNode(nodeId: string, targetGraphId = subGraphId): ChartNode {
+  const node = registry.createDynamic('subGraph');
+  node.id = nodeId as NodeId;
+  node.data = {
+    ...(node.data as Record<string, unknown>),
+    graphId: targetGraphId,
+  };
+  return node;
+}
+
 function makeConnection(overrides: Partial<NodeConnection> = {}): NodeConnection {
   return {
     outputNodeId: 'source' as NodeId,
@@ -39,13 +75,29 @@ function makeConnection(overrides: Partial<NodeConnection> = {}): NodeConnection
   };
 }
 
+function makeGraph(id: GraphId, nodes: ChartNode[], connections: NodeConnection[] = []): NodeGraph {
+  return {
+    metadata: {
+      id,
+      name: id,
+      description: '',
+    },
+    nodes,
+    connections,
+  };
+}
+
 function makeCommandState({
   nodes,
   connections,
+  graphId: stateGraphId = graphId,
+  project = makeProject(),
   recoverableNodeConnections = {},
 }: {
   nodes: ChartNode[];
   connections: NodeConnection[];
+  graphId?: GraphId;
+  project?: Project;
   recoverableNodeConnections?: Record<NodeId, NodeConnection[]>;
 }): GraphCommandState {
   return {
@@ -54,7 +106,7 @@ function makeCommandState({
     recoverableNodeConnections,
     project,
     commandHistoryStack: [],
-    graphId: 'graph-1' as any,
+    graphId: stateGraphId,
     editingNodeId: null,
     referencedProjects: {},
   };
@@ -131,6 +183,296 @@ test('editNode applied data restores pooled connections when the same port comes
 
   assert.deepEqual(appliedData.nextConnections, [connection]);
   assert.deepEqual(appliedData.nextRecoverableConnections, []);
+});
+
+test('editNode applied data snapshots external subgraph caller rewrites on graph input rename', () => {
+  const graphInputNode = makeGraphInputNode('input-node', 'old');
+  const nextGraphInputNode = {
+    ...graphInputNode,
+    data: {
+      ...(graphInputNode.data as Record<string, unknown>),
+      id: 'new',
+    },
+  } as ChartNode;
+  const sourceNode = makeTextNode('source', 'source');
+  const subGraphNode = makeSubGraphNode('subgraph', subGraphId);
+  const parentConnection = makeConnection({
+    outputNodeId: sourceNode.id,
+    inputNodeId: subGraphNode.id,
+    inputId: 'old' as PortId,
+  });
+  const parentGraph = makeGraph(parentGraphId, [sourceNode, subGraphNode], [parentConnection]);
+  const currentState = makeCommandState({
+    graphId: subGraphId,
+    nodes: [graphInputNode],
+    connections: [],
+    project: makeProject([makeGraph(subGraphId, [graphInputNode]), parentGraph]),
+  });
+
+  const appliedData = buildEditNodeAppliedData({
+    params: {
+      nodeId: graphInputNode.id,
+      newNode: nextGraphInputNode,
+    },
+    currentState,
+    previousNode: graphInputNode,
+    previousConnections: currentState.connections,
+    previousRecoverableConnections: [],
+    currentRecoverableConnections: [],
+    projectNodeRegistry: registry,
+  });
+
+  assert.deepEqual(appliedData.projectGraphSnapshots?.[parentGraphId]?.previousGraph.connections, [parentConnection]);
+  assert.deepEqual(appliedData.projectGraphSnapshots?.[parentGraphId]?.nextGraph.connections, [
+    {
+      ...parentConnection,
+      inputId: 'new' as PortId,
+    },
+  ]);
+});
+
+test('editNode merged graph input renames keep the original undo snapshot and final external rewrite', () => {
+  const graphInputNode = makeGraphInputNode('input-node', 'temp');
+  const nextGraphInputNode = {
+    ...graphInputNode,
+    data: {
+      ...(graphInputNode.data as Record<string, unknown>),
+      id: 'new',
+    },
+  } as ChartNode;
+  const sourceNode = makeTextNode('source', 'source');
+  const subGraphNode = makeSubGraphNode('subgraph', subGraphId);
+  const oldParentConnection = makeConnection({
+    outputNodeId: sourceNode.id,
+    inputNodeId: subGraphNode.id,
+    inputId: 'old' as PortId,
+  });
+  const tempParentConnection = {
+    ...oldParentConnection,
+    inputId: 'temp' as PortId,
+  };
+  const previousParentGraph = makeGraph(parentGraphId, [sourceNode, subGraphNode], [oldParentConnection]);
+  const currentParentGraph = makeGraph(parentGraphId, [sourceNode, subGraphNode], [tempParentConnection]);
+  const currentState = makeCommandState({
+    graphId: subGraphId,
+    nodes: [graphInputNode],
+    connections: [],
+    project: makeProject([makeGraph(subGraphId, [graphInputNode]), currentParentGraph]),
+  });
+
+  const appliedData = buildEditNodeAppliedData({
+    params: {
+      nodeId: graphInputNode.id,
+      newNode: nextGraphInputNode,
+    },
+    currentState,
+    previousNode: makeGraphInputNode('input-node', 'old'),
+    previousConnections: [],
+    previousRecoverableConnections: [],
+    currentRecoverableConnections: [],
+    previousProjectGraphSnapshots: {
+      [parentGraphId]: {
+        previousGraph: previousParentGraph,
+        nextGraph: currentParentGraph,
+      },
+    },
+    projectNodeRegistry: registry,
+  });
+
+  assert.deepEqual(appliedData.projectGraphSnapshots?.[parentGraphId]?.previousGraph.connections, [
+    oldParentConnection,
+  ]);
+  assert.deepEqual(appliedData.projectGraphSnapshots?.[parentGraphId]?.nextGraph.connections, [
+    {
+      ...oldParentConnection,
+      inputId: 'new' as PortId,
+    },
+  ]);
+});
+
+test('editNode merged graph input renames preserve original external connections after a transient collision', () => {
+  const graphInputNode = makeGraphInputNode('input-node', 'temp');
+  const nextGraphInputNode = {
+    ...graphInputNode,
+    data: {
+      ...(graphInputNode.data as Record<string, unknown>),
+      id: 'final',
+    },
+  } as ChartNode;
+  const oldSourceNode = makeTextNode('old-source', 'old source');
+  const tempSourceNode = makeTextNode('temp-source', 'temp source');
+  const subGraphNode = makeSubGraphNode('subgraph', subGraphId);
+  const oldParentConnection = makeConnection({
+    outputNodeId: oldSourceNode.id,
+    inputNodeId: subGraphNode.id,
+    inputId: 'old' as PortId,
+  });
+  const tempParentConnection = makeConnection({
+    outputNodeId: tempSourceNode.id,
+    inputNodeId: subGraphNode.id,
+    inputId: 'temp' as PortId,
+  });
+  const previousParentGraph = makeGraph(
+    parentGraphId,
+    [oldSourceNode, tempSourceNode, subGraphNode],
+    [oldParentConnection, tempParentConnection],
+  );
+  const currentParentGraph = makeGraph(
+    parentGraphId,
+    [oldSourceNode, tempSourceNode, subGraphNode],
+    [tempParentConnection],
+  );
+  const currentState = makeCommandState({
+    graphId: subGraphId,
+    nodes: [graphInputNode],
+    connections: [],
+    project: makeProject([makeGraph(subGraphId, [graphInputNode]), currentParentGraph]),
+  });
+
+  const appliedData = buildEditNodeAppliedData({
+    params: {
+      nodeId: graphInputNode.id,
+      newNode: nextGraphInputNode,
+    },
+    currentState,
+    previousNode: makeGraphInputNode('input-node', 'old'),
+    previousConnections: [],
+    previousRecoverableConnections: [],
+    currentRecoverableConnections: [],
+    isMergedEdit: true,
+    previousProjectGraphSnapshots: {
+      [parentGraphId]: {
+        previousGraph: previousParentGraph,
+        nextGraph: currentParentGraph,
+      },
+    },
+    projectNodeRegistry: registry,
+  });
+
+  assert.deepEqual(appliedData.projectGraphSnapshots?.[parentGraphId]?.nextGraph.connections, [
+    {
+      ...oldParentConnection,
+      inputId: 'final' as PortId,
+    },
+    tempParentConnection,
+  ]);
+});
+
+test('editNode merged graph input renames restore external callers when the final id returns to the original id', () => {
+  const graphInputNode = makeGraphInputNode('input-node', 'temp');
+  const nextGraphInputNode = {
+    ...graphInputNode,
+    data: {
+      ...(graphInputNode.data as Record<string, unknown>),
+      id: 'old',
+    },
+  } as ChartNode;
+  const oldSourceNode = makeTextNode('old-source', 'old source');
+  const tempSourceNode = makeTextNode('temp-source', 'temp source');
+  const subGraphNode = makeSubGraphNode('subgraph', subGraphId);
+  const oldParentConnection = makeConnection({
+    outputNodeId: oldSourceNode.id,
+    inputNodeId: subGraphNode.id,
+    inputId: 'old' as PortId,
+  });
+  const tempParentConnection = makeConnection({
+    outputNodeId: tempSourceNode.id,
+    inputNodeId: subGraphNode.id,
+    inputId: 'temp' as PortId,
+  });
+  const previousParentGraph = makeGraph(
+    parentGraphId,
+    [oldSourceNode, tempSourceNode, subGraphNode],
+    [oldParentConnection, tempParentConnection],
+  );
+  const currentParentGraph = makeGraph(
+    parentGraphId,
+    [oldSourceNode, tempSourceNode, subGraphNode],
+    [tempParentConnection],
+  );
+  const currentState = makeCommandState({
+    graphId: subGraphId,
+    nodes: [graphInputNode],
+    connections: [],
+    project: makeProject([makeGraph(subGraphId, [graphInputNode]), currentParentGraph]),
+  });
+
+  const appliedData = buildEditNodeAppliedData({
+    params: {
+      nodeId: graphInputNode.id,
+      newNode: nextGraphInputNode,
+    },
+    currentState,
+    previousNode: makeGraphInputNode('input-node', 'old'),
+    previousConnections: [],
+    previousRecoverableConnections: [],
+    currentRecoverableConnections: [],
+    isMergedEdit: true,
+    previousProjectGraphSnapshots: {
+      [parentGraphId]: {
+        previousGraph: previousParentGraph,
+        nextGraph: currentParentGraph,
+      },
+    },
+    projectNodeRegistry: registry,
+  });
+
+  assert.deepEqual(appliedData.projectGraphSnapshots?.[parentGraphId]?.nextGraph.connections, [
+    oldParentConnection,
+    tempParentConnection,
+  ]);
+});
+
+test('editNode merged graph input renames preserve original current-graph connections after a transient collision', () => {
+  const graphInputNode = makeGraphInputNode('input-node', 'temp');
+  const nextGraphInputNode = {
+    ...graphInputNode,
+    data: {
+      ...(graphInputNode.data as Record<string, unknown>),
+      id: 'final',
+    },
+  } as ChartNode;
+  const oldSourceNode = makeTextNode('old-source', 'old source');
+  const tempSourceNode = makeTextNode('temp-source', 'temp source');
+  const subGraphNode = makeSubGraphNode('subgraph', subGraphId);
+  const oldConnection = makeConnection({
+    outputNodeId: oldSourceNode.id,
+    inputNodeId: subGraphNode.id,
+    inputId: 'old' as PortId,
+  });
+  const tempConnection = makeConnection({
+    outputNodeId: tempSourceNode.id,
+    inputNodeId: subGraphNode.id,
+    inputId: 'temp' as PortId,
+  });
+  const currentState = makeCommandState({
+    graphId: subGraphId,
+    nodes: [graphInputNode, oldSourceNode, tempSourceNode, subGraphNode],
+    connections: [tempConnection],
+    project: makeProject([makeGraph(subGraphId, [graphInputNode, oldSourceNode, tempSourceNode, subGraphNode])]),
+  });
+
+  const appliedData = buildEditNodeAppliedData({
+    params: {
+      nodeId: graphInputNode.id,
+      newNode: nextGraphInputNode,
+    },
+    currentState,
+    previousNode: makeGraphInputNode('input-node', 'old'),
+    previousConnections: [oldConnection, tempConnection],
+    previousRecoverableConnections: [],
+    currentRecoverableConnections: [],
+    isMergedEdit: true,
+    projectNodeRegistry: registry,
+  });
+
+  assert.deepEqual(appliedData.nextConnections, [
+    {
+      ...oldConnection,
+      inputId: 'final' as PortId,
+    },
+    tempConnection,
+  ]);
 });
 
 test('editNode merge helper only merges recent edits for the same node and command type', () => {
