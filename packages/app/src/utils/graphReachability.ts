@@ -214,7 +214,7 @@ export function getGraphReachabilityReport(
     for (const edge of edges) {
       edge.warnings?.forEach((warning) => warnings.add(warning));
 
-      if (edge.kind === 'cross-project' || edge.kind === 'invalid') {
+      if (!isReachableGraphDependencyEdge(edge)) {
         continue;
       }
 
@@ -244,6 +244,38 @@ export function getGraphReachabilityReport(
     unsupportedReasons: [...unsupportedReasons].sort(),
     warnings: [...warnings],
   };
+}
+
+export function getGraphIdsReferencingGraph(project: ProjectWithGraphs, targetGraphId: GraphId): Set<GraphId> {
+  const referencingGraphIds = new Set<GraphId>();
+  const graphEntries = Object.entries(project.graphs) as Array<[GraphId, NodeGraph]>;
+  const allGraphIds = graphEntries.map(([graphId]) => graphId);
+  const namedGraphIds = graphEntries
+    .filter(([, graph]) => graph.metadata?.name && graph.metadata.name.trim().length > 0)
+    .map(([graphId]) => graphId);
+
+  for (const [graphId, graph] of graphEntries) {
+    if (graphId === targetGraphId) {
+      continue;
+    }
+
+    const referencesTarget = collectGraphDependencyEdges({
+      allGraphIds,
+      graph,
+      namedGraphIds,
+      project,
+    }).some((edge) => isReachableGraphDependencyEdge(edge) && edge.targets.includes(targetGraphId));
+
+    if (referencesTarget) {
+      referencingGraphIds.add(graphId);
+    }
+  }
+
+  return referencingGraphIds;
+}
+
+function isReachableGraphDependencyEdge(edge: GraphDependencyEdge): boolean {
+  return edge.kind !== 'cross-project' && edge.kind !== 'invalid';
 }
 
 function collectUnsupportedNodeTypes(options: {

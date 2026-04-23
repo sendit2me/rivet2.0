@@ -165,3 +165,8 @@ When the graph-list feature is implemented, use:
 - `unreachable`: the only bucket that should be visually marked as unreachable
 
 That preserves the three-bucket model without collapsing runtime-only dispatch into a false negative.
+
+The graph list also uses the same dependency-edge collector in reverse for local context: when a graph is open,
+every other graph with a supported same-project dependency edge to the open graph gets a small active-color dot beside
+its name. This is source-reference visibility, not reachability from Main, so it can mark direct static callers and
+dynamic dispatch callers even if those source graphs are themselves unreachable.

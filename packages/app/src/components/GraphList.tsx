@@ -16,7 +16,11 @@ import { useStableCallback } from '../hooks/useStableCallback.js';
 import { useGraphOperations } from '../hooks/useGraphOperations';
 import { useGraphListDragDrop } from '../hooks/useGraphListDragDrop';
 import { useProjectNodeRegistry } from '../hooks/useProjectNodeRegistry.js';
-import { getGraphReachabilityReport, resolveSupportedBuiltInPluginIds } from '../utils/graphReachability.js';
+import {
+  getGraphIdsReferencingGraph,
+  getGraphReachabilityReport,
+  resolveSupportedBuiltInPluginIds,
+} from '../utils/graphReachability.js';
 import { FolderItem } from './graphList/FolderItem';
 
 const styles = css`
@@ -71,9 +75,31 @@ const styles = css`
   }
 
   .graph-item-select {
+    position: relative;
     cursor: pointer;
     padding: 4px 8px;
     flex: 1;
+    min-width: 0;
+  }
+
+  .graph-item-name {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .graph-reference-dot {
+    position: absolute;
+    left: -3px;
+    top: 50%;
+    width: 6px;
+    height: 6px;
+    transform: translateY(-50%);
+    border-radius: 999px;
+    background: var(--primary);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18);
   }
 
   .depthSpacer {
@@ -281,6 +307,11 @@ export const GraphList: FC<{ onRunGraph?: (graphId: GraphId) => void }> = memo((
     [graphListPlugins, project.graphs, reachabilityReport],
   );
 
+  const referencingSelectedGraphIds = useMemo(() => {
+    const selectedGraphId = graph.metadata?.id;
+    return selectedGraphId ? getGraphIdsReferencingGraph(project, selectedGraphId) : new Set<GraphId>();
+  }, [graph.metadata?.id, project]);
+
   return (
     <div css={styles}>
       <div className="search">
@@ -315,6 +346,7 @@ export const GraphList: FC<{ onRunGraph?: (graphId: GraphId) => void }> = memo((
                 dragOverFolderName={dragOverFolderName}
                 draggingItemFolder={draggingItemFolder}
                 graphReachabilityByGraphId={graphListReachability.bucketByGraphId}
+                referencingSelectedGraphIds={referencingSelectedGraphIds}
                 depth={0}
                 onGraphSelected={loadGraph}
                 onRenameItem={renameFolderItem}

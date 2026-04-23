@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test, { describe } from 'node:test';
 import { type ChartNode, type GraphId, type NodeGraph, type Project, type ProjectId } from '@ironclad/rivet-core';
 import {
+  getGraphIdsReferencingGraph,
   getGraphReachabilityReport,
   resolveSupportedBuiltInPluginIds,
   type GraphReachabilityRegistry,
@@ -390,5 +391,64 @@ describe('graphReachability', () => {
     assert.deepEqual(report.unsupportedNodeTypes, []);
     assert.deepEqual(report.unsupportedReasons, []);
     assert.deepEqual(sortGraphIds(report.unreachable), ['spare']);
+  });
+
+  test('finds graphs that directly reference a target graph', () => {
+    const target = makeGraph('target', 'Target', [makeNode('subGraph', { graphId: 'target' as GraphId })]);
+    const directCaller = makeGraph('direct-caller', 'Direct Caller', [
+      makeNode('subGraph', { graphId: 'target' as GraphId }),
+    ]);
+    const transitiveCaller = makeGraph('transitive-caller', 'Transitive Caller', [
+      makeNode('subGraph', { graphId: 'direct-caller' as GraphId }),
+    ]);
+    const disabledCaller = makeGraph('disabled-caller', 'Disabled Caller', [
+      makeNode('subGraph', { graphId: 'target' as GraphId }, { disabled: true }),
+    ]);
+    const project = makeProject([target, directCaller, transitiveCaller, disabledCaller], 'target');
+
+    assert.deepEqual(sortGraphIds(getGraphIdsReferencingGraph(project, 'target' as GraphId)), ['direct-caller']);
+  });
+
+  test('finds static and dynamic Call Graph references to a target graph', () => {
+    const staticReference = makeNode(
+      'graphReference',
+      {
+        graphId: 'target' as GraphId,
+        useGraphIdOrNameInput: false,
+      },
+      { id: 'static-ref' },
+    );
+    const staticCallGraph = makeNode('callGraph', {}, { id: 'static-call' });
+    const staticCaller = makeGraph(
+      'static-caller',
+      'Static Caller',
+      [staticReference, staticCallGraph],
+      [makeConnection('static-ref', 'static-call', 'graph', 'graph')],
+    );
+
+    const dynamicReference = makeNode(
+      'graphReference',
+      {
+        graphId: 'other' as GraphId,
+        useGraphIdOrNameInput: true,
+      },
+      { id: 'dynamic-ref' },
+    );
+    const dynamicCallGraph = makeNode('callGraph', {}, { id: 'dynamic-call' });
+    const dynamicCaller = makeGraph(
+      'dynamic-caller',
+      'Dynamic Caller',
+      [dynamicReference, dynamicCallGraph],
+      [makeConnection('dynamic-ref', 'dynamic-call', 'graph', 'graph')],
+    );
+
+    const target = makeGraph('target', 'Target');
+    const other = makeGraph('other', 'Other');
+    const project = makeProject([target, other, staticCaller, dynamicCaller], 'target');
+
+    assert.deepEqual(sortGraphIds(getGraphIdsReferencingGraph(project, 'target' as GraphId)), [
+      'dynamic-caller',
+      'static-caller',
+    ]);
   });
 });

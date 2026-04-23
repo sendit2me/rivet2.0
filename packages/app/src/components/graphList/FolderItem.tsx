@@ -28,6 +28,7 @@ export const FolderItem: FC<{
   renamingItemFullPath: string | undefined;
   graph: NodeGraph;
   graphReachabilityByGraphId: Record<GraphId, GraphReachabilityBucket>;
+  referencingSelectedGraphIds: ReadonlySet<GraphId>;
   depth: number;
   dragOverFolderName: string | undefined;
   draggingItemFolder: string | undefined;
@@ -41,6 +42,7 @@ export const FolderItem: FC<{
     renamingItemFullPath,
     graph,
     graphReachabilityByGraphId,
+    referencingSelectedGraphIds,
     draggingItemFolder,
     onGraphSelected,
     onRenameItem,
@@ -58,6 +60,8 @@ export const FolderItem: FC<{
 
     const isRenaming = renamingItemFullPath === fullPath;
     const isSelected = graph.metadata?.id === savedGraph?.metadata?.id;
+    const referencesSelectedGraph =
+      item.type === 'graph' && savedGraph?.metadata?.id ? referencingSelectedGraphIds.has(savedGraph.metadata.id) : false;
     const isDraggingOver =
       item.type === 'folder' && dragOverFolderName === fullPath && draggingItemFolder !== dragOverFolderName;
     const graphReachability =
@@ -111,7 +115,7 @@ export const FolderItem: FC<{
             data-contextmenutype={item.type === 'folder' ? 'graph-folder' : 'graph-item'}
             data-graphid={savedGraph?.metadata?.id}
             data-folderpath={item.type === 'folder' ? item.fullPath : item.graph.metadata?.name}
-            title={fullPath}
+            title={referencesSelectedGraph ? `${fullPath}\nReferences the open graph.` : fullPath}
           >
             {range(virtualDepth + 1).map((idx) => {
               const isSpinner = idx === 0 && graphIsRunning;
@@ -138,7 +142,10 @@ export const FolderItem: FC<{
               {isRenaming ? (
                 <FolderItemRename value={fullPath.replace(/.*\//, '')} onSaved={handleRenameSaved} />
               ) : (
-                <span>{item.name}</span>
+                <>
+                  {referencesSelectedGraph && <span className="graph-reference-dot" aria-hidden="true" />}
+                  <span className="graph-item-name">{item.name}</span>
+                </>
               )}
             </div>
             {shouldShowUnreachableBadge && (
@@ -160,6 +167,7 @@ export const FolderItem: FC<{
                   renamingItemFullPath={renamingItemFullPath}
                   graph={graph}
                   graphReachabilityByGraphId={graphReachabilityByGraphId}
+                  referencingSelectedGraphIds={referencingSelectedGraphIds}
                   onGraphSelected={onGraphSelected}
                   onRenameItem={onRenameItem}
                   dragOverFolderName={dragOverFolderName}

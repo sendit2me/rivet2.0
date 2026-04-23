@@ -1,8 +1,6 @@
 - Update the rivet version (at least in the Settings popup)
 
 
-- Get back the save and cancel buttons to the node title and description fields
-
 - Observability on where a certain graph is used
 
 - The popup full view of the output - I want to be able to resize it from left and right as much as I want so it remembers this as percent pargins so that when the Rivet window size changes, it affects the width of the popup
