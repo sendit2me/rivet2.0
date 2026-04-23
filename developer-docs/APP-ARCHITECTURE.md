@@ -283,7 +283,7 @@ Current structure:
 
 - [`packages/app/src/components/NodeCanvas.tsx`](../packages/app/src/components/NodeCanvas.tsx) now coordinates canvas state, hotkeys, and command wiring
 - viewport transform application and node/drag-overlay rendering live in [`packages/app/src/components/nodeCanvas/NodeCanvasViewport.tsx`](../packages/app/src/components/nodeCanvas/NodeCanvasViewport.tsx)
-- split-run visual state is rendered by [`packages/app/src/components/VisualNode.tsx`](../packages/app/src/components/VisualNode.tsx) as a centered above-node summary pill (`parallel/sequential, max n`), not inside `NormalVisualNodeContent` / `ZoomedOutVisualNodeContent` headers; the header should stay reserved for title, running state, history-change affordance, and settings
+- split-run visual state is rendered by [`packages/app/src/components/VisualNode.tsx`](../packages/app/src/components/VisualNode.tsx) as a centered above-node summary pill (`parallel/sequential, max n`), not inside `NormalVisualNodeContent` / `ZoomedOutVisualNodeContent` headers; the header should stay reserved for title, running state, history-change affordance, and settings, and the gear/settings affordance is intentionally hidden until node hover or focus so dense graphs keep less persistent header noise
 - direct Subgraph navigation is intentionally available in two UI paths that share [`packages/app/src/hooks/useGoToSubgraphNode.ts`](../packages/app/src/hooks/useGoToSubgraphNode.ts): the node context menu's `Go To Subgraph` action and the Subgraph node header link icon
 - context menu, selection box, wire layer, and port tooltip rendering live in [`packages/app/src/components/nodeCanvas/NodeCanvasOverlays.tsx`](../packages/app/src/components/nodeCanvas/NodeCanvasOverlays.tsx)
 - canvas motion and visibility budgets are centralized in [`packages/app/src/components/nodeCanvas/canvasPerformanceBudget.ts`](../packages/app/src/components/nodeCanvas/canvasPerformanceBudget.ts); viewport-motion timing and medium-graph thresholds should stay there instead of being redefined ad hoc in render code
@@ -1118,8 +1118,8 @@ Split-run mode UI is presentation-only:
 Current canvas header affordances for split nodes:
 
 - visual node headers render a split-mode icon in [`packages/app/src/components/visualNode/SplitRunModeIcon.tsx`](../packages/app/src/components/visualNode/SplitRunModeIcon.tsx)
-- split nodes also render a `max N` badge in the header controls area rather than inside the title flow
-- that badge is an edit affordance and should open the same node settings panel as the gear control
+- split nodes also render the editable `parallel/sequential, max N` summary above the node rather than inside the title flow or header controls area
+- that summary is an edit affordance and should open the same node settings panel as the hover-revealed gear control
 
 Current node-editor Monaco rules that matter for editor changes:
 

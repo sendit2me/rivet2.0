@@ -346,6 +346,30 @@ export const nodeStyles = css`
     align-items: center;
   }
 
+  .title-controls .edit-button-tooltip {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease-out;
+  }
+
+  .title-controls .edit-button {
+    opacity: 0;
+    pointer-events: none;
+    transition:
+      opacity 0.15s ease-out,
+      color 0.2s ease-out;
+  }
+
+  .node:hover .title-controls .edit-button,
+  .node:hover .title-controls .edit-button-tooltip,
+  .node.hovered .title-controls .edit-button,
+  .node.hovered .title-controls .edit-button-tooltip,
+  .node:focus-within .title-controls .edit-button,
+  .node:focus-within .title-controls .edit-button-tooltip {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
   .node.zoomedOut .title-controls {
     position: absolute;
     right: 10px;

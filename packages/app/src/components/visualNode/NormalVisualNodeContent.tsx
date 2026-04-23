@@ -297,7 +297,7 @@ export const NormalVisualNodeContent: FC<{
             {isRunning && (
               <span className="node-running-indicator" aria-label="Node running" role="status" />
             )}
-            <Tooltip content="Edit Node">
+            <Tooltip className="edit-button-tooltip" content="Edit Node">
               <button
                 type="button"
                 className="edit-button"

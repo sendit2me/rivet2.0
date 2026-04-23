@@ -27,10 +27,18 @@ test('createAddedNode applies configured default colors to supported node types'
     referencedProjects: {},
     applyDefaultColor: true,
   });
+  const subGraphNode = createAddedNode({
+    nodeType: 'subGraph',
+    position: { x: 70, y: 80 },
+    registry,
+    referencedProjects: {},
+    applyDefaultColor: true,
+  });
 
   assert.deepEqual(graphInputNode.visualData.color, { bg: 'var(--node-color-3)', border: 'var(--node-color-3)' });
   assert.deepEqual(graphOutputNode.visualData.color, { bg: 'var(--node-color-3)', border: 'var(--node-color-3)' });
   assert.deepEqual(httpCallNode.visualData.color, { bg: 'var(--node-color-6)', border: 'var(--node-color-6)' });
+  assert.deepEqual(subGraphNode.visualData.color, { bg: 'var(--node-color-2)', border: 'var(--node-color-2)' });
 });
 
 test('createAddedNode leaves node colors untouched when default node colors are disabled or unsupported', () => {
