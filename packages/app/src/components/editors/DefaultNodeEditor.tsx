@@ -226,6 +226,14 @@ export const defaultEditorContainerStyles = css`
     min-width: unset;
   }
 
+  .row.segmented .segmented-choice {
+    margin-top: 2px;
+  }
+
+  .row.segmented .segmented-choice-option:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
 `;
 
 export const DefaultNodeEditor: FC<

@@ -1,11 +1,5 @@
 
 
-Random number node. Settings: 
-- Integer / float (pill switcher that we used in the each node's setting panel headr for "parallel runs/sequential")
-- Min (int num)
-- Max (int num)
-Min and max are included in the generated range
-
 
 - A faster way to open a subgraph than from a context menu
 

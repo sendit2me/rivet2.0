@@ -74,6 +74,20 @@ export type DropdownEditorDefinition<T extends ChartNode> = SharedEditorDefiniti
   useInputToggleDataKey?: DataOfType<T, boolean>;
 };
 
+export type SegmentedEditorDefinition<T extends ChartNode> = SharedEditorDefinitionProps<T> & {
+  type: 'segmented';
+
+  dataKey: DataOfType<T, string | boolean>;
+  ariaLabel?: string;
+  options: {
+    value: string | boolean;
+    label: string;
+  }[];
+  defaultValue?: string | boolean;
+
+  useInputToggleDataKey?: DataOfType<T, boolean>;
+};
+
 export type GraphSelectorEditorDefinition<T extends ChartNode> = SharedEditorDefinitionProps<T> & {
   type: 'graphSelector';
 
@@ -223,6 +237,7 @@ export type EditorDefinition<T extends ChartNode> =
   | DataTypeSelectorEditorDefinition<T>
   | AnyDataEditorDefinition<T>
   | DropdownEditorDefinition<T>
+  | SegmentedEditorDefinition<T>
   | NumberEditorDefinition<T>
   | CodeEditorDefinition<T>
   | GraphSelectorEditorDefinition<T>

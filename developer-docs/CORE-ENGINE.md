@@ -161,6 +161,8 @@ The current built-in node list is registered through `registerBuiltInNodes(...)`
 - built-in node constructors
 - built-in node type union information
 
+Current `Random number` behavior lives on the existing `randomNumber` node type rather than a replacement type. Its `Float` / `Integer` pill editor is presentation over the existing `integers?: boolean` data field, and `Min` / `Max` remain number settings with optional input-port toggles. The runtime keeps the original `maxInclusive` behavior: it only changes integer generation by adding one to the effective max before `Math.floor(...)`.
+
 The repo currently has 84 files under `packages/core/src/model/nodes`.
 
 ### Plugin nodes

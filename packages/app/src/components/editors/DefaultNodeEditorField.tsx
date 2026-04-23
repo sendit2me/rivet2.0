@@ -14,6 +14,7 @@ import { DefaultFileBrowserEditor, DefaultFilePathBrowserEditor } from './FileBr
 import { DefaultGraphSelectorEditor } from './GraphSelectorEditor';
 import { DefaultImageBrowserEditor } from './ImageBrowserEditor';
 import { DefaultNumberEditor } from './NumberEditor';
+import { DefaultSegmentedEditor } from './SegmentedEditor';
 import { DefaultStringEditor } from './StringEditor';
 import { DefaultToggleEditor } from './ToggleEditor';
 // eslint-disable-next-line import/no-cycle
@@ -51,6 +52,7 @@ export const DefaultNodeEditorField: FC<
     .with({ type: 'dataTypeSelector' }, (editor) => <DefaultDataTypeSelector {...sharedProps} editor={editor} />)
     .with({ type: 'anyData' }, (editor) => <DefaultAnyDataEditor {...sharedProps} editor={editor} />)
     .with({ type: 'dropdown' }, (editor) => <DefaultDropdownEditor {...sharedProps} editor={editor} />)
+    .with({ type: 'segmented' }, (editor) => <DefaultSegmentedEditor {...sharedProps} editor={editor} />)
     .with({ type: 'number' }, (editor) => <DefaultNumberEditor {...sharedProps} editor={editor} />)
     .with({ type: 'code' }, (editor) => <DefaultCodeEditor {...sharedProps} editor={editor} />)
     .with({ type: 'graphSelector' }, (editor) => <DefaultGraphSelectorEditor {...sharedProps} editor={editor} />)
