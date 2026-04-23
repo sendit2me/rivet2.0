@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { ChartNode, NodeId } from '@ironclad/rivet-core';
+import type { ChartNode, CommentNode, NodeId } from '@ironclad/rivet-core';
 import { calculateCanvasNodeVisibilitySnapshot } from './useVisibleCanvasNodes.js';
 
 const asNodeId = (value: string) => value as NodeId;
@@ -17,6 +17,25 @@ function createNode(id: NodeId, x: number, y: number, width = 320): ChartNode {
       width,
     },
   } as ChartNode;
+}
+
+function createCommentNode(id: NodeId, x: number, y: number, width: number, height: number): CommentNode {
+  return {
+    data: {
+      backgroundColor: 'rgba(0,0,0,0.05)',
+      color: 'rgba(255,255,255,1)',
+      height,
+      text: '',
+    },
+    id,
+    title: id,
+    type: 'comment',
+    visualData: {
+      width,
+      x,
+      y,
+    },
+  };
 }
 
 const viewportBounds = {
@@ -129,4 +148,19 @@ test('calculateCanvasNodeVisibilitySnapshot limits heavy content more aggressive
   assert.equal(mediumGraphSnapshot.visibleNodeIdSet.has(asNodeId('edge-node')), true);
   assert.equal(mediumGraphSnapshot.heavyContentNodeIdSet.has(asNodeId('edge-node')), false);
   assert.equal(smallGraphSnapshot.heavyContentNodeIdSet.has(asNodeId('edge-node')), true);
+});
+
+test('calculateCanvasNodeVisibilitySnapshot keeps partially visible comment nodes mounted', () => {
+  const snapshot = calculateCanvasNodeVisibilitySnapshot({
+    draggingNodeIds: [],
+    editingNodeId: null,
+    expandedOutputNodeIds: [],
+    hoveringNodeId: undefined,
+    nodes: [createCommentNode(asNodeId('comment-node'), 100, -1200, 600, 1400)],
+    selectedNodeIds: [],
+    viewportBounds,
+  });
+
+  assert.equal(snapshot.visibleNodeIdSet.has(asNodeId('comment-node')), true);
+  assert.equal(snapshot.nearViewportNodeIdSet.has(asNodeId('comment-node')), true);
 });

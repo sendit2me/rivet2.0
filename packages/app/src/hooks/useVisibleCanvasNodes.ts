@@ -1,5 +1,5 @@
 import { useLayoutEffect, useMemo, useState } from 'react';
-import type { ChartNode, NodeId } from '@ironclad/rivet-core';
+import type { ChartNode, CommentNode, NodeId } from '@ironclad/rivet-core';
 import {
   HEAVY_CONTENT_PADDING_X,
   HEAVY_CONTENT_PADDING_Y,
@@ -14,6 +14,11 @@ export interface CanvasNodeVisibilitySnapshot {
   heavyContentNodeIdSet: ReadonlySet<NodeId>;
   nearViewportNodeIdSet: ReadonlySet<NodeId>;
   visibleNodeIdSet: ReadonlySet<NodeId>;
+}
+
+// Comment nodes store their rendered vertical extent in data.height rather than visualData.
+function getNodeHeight(node: ChartNode): number {
+  return node.type === 'comment' ? (node as CommentNode).data.height : 0;
 }
 
 export function calculateCanvasNodeVisibilitySnapshot(options: {
@@ -57,13 +62,14 @@ export function calculateCanvasNodeVisibilitySnapshot(options: {
 
   for (const node of nodes) {
     const width = node.visualData.width ?? DEFAULT_NODE_WIDTH;
+    const height = getNodeHeight(node);
     const isOutputExpanded = expandedOutputNodeIdSet.has(node.id);
 
     const intersectsVisibleBounds =
       node.visualData.x >= viewportBounds.left - width - VISIBLE_PADDING_X &&
       node.visualData.x <= viewportBounds.right + width + VISIBLE_PADDING_X &&
-      node.visualData.y >= viewportBounds.top - VISIBLE_PADDING_Y &&
-      node.visualData.y <= viewportBounds.bottom + VISIBLE_PADDING_Y;
+      node.visualData.y >= viewportBounds.top - height - VISIBLE_PADDING_Y &&
+      node.visualData.y <= viewportBounds.bottom + height + VISIBLE_PADDING_Y;
 
     if (intersectsVisibleBounds || isOutputExpanded) {
       visibleNodeIdSet.add(node.id);
@@ -72,8 +78,8 @@ export function calculateCanvasNodeVisibilitySnapshot(options: {
     const intersectsHeavyContentBounds =
       node.visualData.x >= viewportBounds.left - width - HEAVY_CONTENT_PADDING_X &&
       node.visualData.x <= viewportBounds.right + width + HEAVY_CONTENT_PADDING_X &&
-      node.visualData.y >= viewportBounds.top - HEAVY_CONTENT_PADDING_Y &&
-      node.visualData.y <= viewportBounds.bottom + HEAVY_CONTENT_PADDING_Y;
+      node.visualData.y >= viewportBounds.top - height - HEAVY_CONTENT_PADDING_Y &&
+      node.visualData.y <= viewportBounds.bottom + height + HEAVY_CONTENT_PADDING_Y;
 
     if (intersectsHeavyContentBounds) {
       nearViewportNodeIdSet.add(node.id);
@@ -136,43 +142,70 @@ export function useVisibleCanvasNodes(options: {
   nearViewportNodeIdSet: ReadonlySet<NodeId>;
   visibleNodeIdSet: ReadonlySet<NodeId>;
 } {
+  const {
+    draggingNodeIds,
+    editingNodeId,
+    expandedOutputNodeIds,
+    hoveringNodeId,
+    isViewportMoving,
+    nodes,
+    selectedNodeIds,
+    viewportBounds,
+  } = options;
+
   const [settledSnapshot, setSettledSnapshot] = useState<CanvasNodeVisibilitySnapshot>(() =>
-    calculateCanvasNodeVisibilitySnapshot(options),
+    calculateCanvasNodeVisibilitySnapshot({
+      draggingNodeIds,
+      editingNodeId,
+      expandedOutputNodeIds,
+      hoveringNodeId,
+      nodes,
+      selectedNodeIds,
+      viewportBounds,
+    }),
   );
 
   const currentSnapshot = useMemo(
-    () => (options.isViewportMoving ? settledSnapshot : calculateCanvasNodeVisibilitySnapshot(options)),
+    () =>
+      isViewportMoving
+        ? settledSnapshot
+        : calculateCanvasNodeVisibilitySnapshot({
+            draggingNodeIds,
+            editingNodeId,
+            expandedOutputNodeIds,
+            hoveringNodeId,
+            nodes,
+            selectedNodeIds,
+            viewportBounds,
+          }),
     [
-      options.draggingNodeIds,
-      options.editingNodeId,
-      options.expandedOutputNodeIds,
-      options.hoveringNodeId,
-      options.isViewportMoving,
-      options.nodes,
-      options.selectedNodeIds,
-      options.viewportBounds.bottom,
-      options.viewportBounds.left,
-      options.viewportBounds.right,
-      options.viewportBounds.top,
+      draggingNodeIds,
+      editingNodeId,
+      expandedOutputNodeIds,
+      hoveringNodeId,
+      isViewportMoving,
+      nodes,
+      selectedNodeIds,
       settledSnapshot,
+      viewportBounds,
     ],
   );
 
   useLayoutEffect(() => {
-    if (options.isViewportMoving) {
+    if (isViewportMoving) {
       return;
     }
 
     setSettledSnapshot((previousSnapshot) =>
       areVisibilitySnapshotsEqual(previousSnapshot, currentSnapshot) ? previousSnapshot : currentSnapshot,
     );
-  }, [currentSnapshot, options.isViewportMoving]);
+  }, [currentSnapshot, isViewportMoving]);
 
-  const activeSnapshot = options.isViewportMoving ? settledSnapshot : currentSnapshot;
+  const activeSnapshot = isViewportMoving ? settledSnapshot : currentSnapshot;
 
   return {
     heavyContentNodeIdSet: activeSnapshot.heavyContentNodeIdSet,
-    isViewportVisibilitySettled: !options.isViewportMoving,
+    isViewportVisibilitySettled: !isViewportMoving,
     nearViewportNodeIdSet: activeSnapshot.nearViewportNodeIdSet,
     visibleNodeIdSet: activeSnapshot.visibleNodeIdSet,
   };

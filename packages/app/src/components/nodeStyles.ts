@@ -80,6 +80,10 @@ export const nodeStyles = css`
     z-index: 10000 !important;
   }
 
+  .node.isComment.selected {
+    --node-frame-border-color: var(--primary);
+  }
+
   .node.hovered:not(.isComment) {
     --node-frame-border-color: var(--primary);
   }
@@ -158,6 +162,11 @@ export const nodeStyles = css`
 
   .node.isComment .node-border-overlay {
     display: none;
+  }
+
+  .node.isComment.selected .node-border-overlay,
+  .node.isComment.overlayNode .node-border-overlay {
+    display: block;
   }
 
   .node.zoomedOut .node-title {

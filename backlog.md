@@ -7,7 +7,10 @@
 
 
 - Comment node doesn't get a primary color border when selected like any other node. It should. Not when hovered, but when selected
+- When the "comment" node is partially out of view, it disappears
 
+
+- get back the split node summary into node's header
 
 - In remote debugging, come up with some ID that can be passed when running so that I can "catch" only the target runs of the workflow
 
@@ -35,7 +38,6 @@
 
 - Nodes for working with lists: get element by index
 
-- When the "comment" node is partially out of view, it disappears
 
 - Show run time in eachnode
 

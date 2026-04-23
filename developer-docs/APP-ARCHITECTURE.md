@@ -420,6 +420,7 @@ Important nuance:
 Key current behaviors:
 
 - nodes outside the visible viewport are skipped via `useVisibleCanvasNodes`
+- Comment nodes are a special case in viewport culling because their rendered vertical extent lives in `data.height`; partially visible comments should stay mounted even when their top edge is offscreen
 - medium-sized graphs keep offscreen node shells and ports but suspend expensive body/output rendering until the node is near the viewport again or pinned by selection, editing, output expansion, or drag state
 - wires are only rendered above a zoom threshold
 - static wire rendering is narrowed to candidate connections near the viewport or otherwise highlighted/running, and that narrowed set stays frozen while the viewport is moving unless the user is actively dragging a node or wire
@@ -433,6 +434,7 @@ Key current behaviors:
 - drag overlays inherit execution/error styling and expanded-output state from the source nodes; duplicate preview ids are only render ids and must not be treated as execution-history ids
 - the floating `Shift` selection-box mouse indicator should stay suppressed during active node drags so it does not conflict with the straight-line drag affordance
 - hover styling is a distinct render path from true selection; hovered nodes get lightweight visual treatment without reusing the stronger selected-node styling
+- Comment nodes still behave like background elements when selected: they show the primary selection border, but should not be promoted above normal nodes in the stacking order
 - the multi-node alignment toolbar should only appear for editable multi-selection sessions; it stays hidden for single-node selection, read-only graphs, and active node drags
 
 ### Contexts instead of prop drilling
