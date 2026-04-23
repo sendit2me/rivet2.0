@@ -1,11 +1,7 @@
 import { type FC } from 'react';
 import { type NodeRunDataWithRefs } from '../../state/dataFlow.js';
 import { getCodeNodeErrorViewModel } from './codeNodeOutputUtils.js';
-import {
-  StructuredNodeOutputError,
-  StructuredNodeOutputSection,
-  structuredNodeOutputCss,
-} from './StructuredNodeOutput.js';
+import { StructuredNodeOutput, StructuredNodeOutputSection } from './StructuredNodeOutput.js';
 
 export const CodeNodeErrorOutput: FC<{
   data: NodeRunDataWithRefs;
@@ -13,9 +9,7 @@ export const CodeNodeErrorOutput: FC<{
   const parsedError = getCodeNodeErrorViewModel(data);
 
   return (
-    <div css={structuredNodeOutputCss}>
-      <StructuredNodeOutputError>{parsedError.message}</StructuredNodeOutputError>
-
+    <StructuredNodeOutput errorMessage={parsedError.message}>
       {parsedError.location && (
         <StructuredNodeOutputSection label="Error location">
           <div>
@@ -24,6 +18,6 @@ export const CodeNodeErrorOutput: FC<{
           </div>
         </StructuredNodeOutputSection>
       )}
-    </div>
+    </StructuredNodeOutput>
   );
 };

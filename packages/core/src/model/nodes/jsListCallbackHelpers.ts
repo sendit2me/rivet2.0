@@ -146,28 +146,20 @@ export function interpolateJSListCallbackBody(callbackBody: string, inputs: Inpu
   });
 }
 
-export function buildJSListNodeBodyPreview(callbackBody: string): string {
-  return callbackBody
+export function getJSListNodeBody(callbackBody: string): NodeBodySpec {
+  const previewBody = callbackBody
     .split('\n')
     .slice(0, MAX_CALLBACK_PREVIEW_BODY_LINES)
     .join('\n')
     .trim();
-}
 
-export function wrapJSListCallbackPreview(signature: string, callbackBody: string): string {
-  const previewBody = buildJSListNodeBodyPreview(callbackBody);
-
-  return dedent`
-    ${signature} => {
-    ${indentLines(previewBody, '  ')}
-    }
-  `.trim();
-}
-
-export function getJSListNodeBody(callbackBody: string): NodeBodySpec {
   return {
     type: 'colorized',
-    text: wrapJSListCallbackPreview(JS_LIST_CALLBACK_SIGNATURE, callbackBody),
+    text: dedent`
+      ${JS_LIST_CALLBACK_SIGNATURE} => {
+      ${indentLines(previewBody, '  ')}
+      }
+    `.trim(),
     language: 'javascript',
     fontSize: 12,
     fontFamily: 'monospace',

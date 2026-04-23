@@ -199,22 +199,22 @@ const Container = styled.div`
     margin-left: -8px;
   }
 
-  .node-title-field {
-    margin-top: 0px;
+  .node-title-field,
+  .node-description-field {
     min-width: 0;
     width: 100%;
     max-width: 100%;
     justify-self: stretch;
+  }
+
+  .node-title-field {
+    margin-top: 0px;
     overflow: hidden;
     font-weight: 900;
   }
 
   .node-description-field {
     margin-top: -4px;
-    min-width: 0;
-    width: 100%;
-    max-width: 100%;
-    justify-self: stretch;
   }
 
   .node-title-field > div,
@@ -262,17 +262,14 @@ const Container = styled.div`
     text-overflow: ellipsis;
   }
 
-  .node-title-field .title-read-content.is-empty {
+  .node-title-field .title-read-content.is-empty,
+  .node-description-field .description-read-content.is-empty {
     color: var(--foreground-muted);
   }
 
-  .node-title-field input {
+  .node-title-field input,
+  .node-description-field textarea {
     width: 100%;
-    height: 40px;
-    min-height: 40px;
-    padding: 0 12px;
-    font-size: 14px;
-    line-height: 38px;
     box-sizing: border-box;
     font-family: var(--font-family-monospace);
     background-color: var(--grey-darkerish);
@@ -281,12 +278,22 @@ const Container = styled.div`
     color: var(--grey-light);
   }
 
-  .node-title-field input:focus {
+  .node-title-field input {
+    height: 40px;
+    min-height: 40px;
+    padding: 0 12px;
+    font-size: 14px;
+    line-height: 38px;
+  }
+
+  .node-title-field input:focus,
+  .node-description-field textarea:focus {
     outline: none;
     border-color: var(--primary);
   }
 
-  .node-title-field .node-title-read-button:hover {
+  .node-title-field .node-title-read-button:hover,
+  .node-description-field [data-read-view-fit-container-width='true']:hover {
     background-color: rgba(255, 255, 255, 0.04);
   }
 
@@ -310,10 +317,6 @@ const Container = styled.div`
     overflow: hidden;
   }
 
-  .node-description-field [data-read-view-fit-container-width='true']:hover {
-    background-color: rgba(255, 255, 255, 0.04);
-  }
-
   .node-description-field .description-read-content {
     width: 100%;
     min-height: 14px;
@@ -326,27 +329,11 @@ const Container = styled.div`
     overflow-wrap: anywhere;
   }
 
-  .node-description-field .description-read-content.is-empty {
-    color: var(--foreground-muted);
-  }
-
   .node-description-field textarea {
-    width: 100%;
     min-height: 14px;
     padding: 10px 12px;
-    box-sizing: border-box;
     font-size: 14px;
     line-height: 1.4;
-    font-family: var(--font-family-monospace);
-    background-color: var(--grey-darkerish);
-    border: 1px solid var(--grey);
-    border-radius: 2px;
-    color: var(--grey-light);
-  }
-
-  .node-description-field textarea:focus {
-    outline: none;
-    border-color: var(--primary);
   }
 
   .toggle-field {

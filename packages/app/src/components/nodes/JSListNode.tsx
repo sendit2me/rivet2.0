@@ -11,42 +11,26 @@ import {
   hasJSListCallbackInterpolationInputs,
 } from './jsListOutputUtils.js';
 import {
-  ParsedSourceOutputSection,
-  StructuredNodeOutputError,
+  getSortedSplitOutputEntries,
+  StructuredNodeOutput,
   StructuredNodeOutputSection,
-  structuredNodeOutputCss,
 } from './StructuredNodeOutput.js';
 
 type JSListNode = JSFilterNode | JSMapNode;
 
-function getSortedSplitOutputEntries(
-  data: NodeRunDataWithRefs,
-): Array<[string, NonNullable<NodeRunDataWithRefs['splitOutputData']>[number]]> {
-  return Object.entries(data.splitOutputData ?? {}).sort(([left], [right]) => Number(left) - Number(right));
-}
-
-function getJSListOutputConfig(node: JSListNode): {
-  outputId: PortId;
-  resultLabel: string;
-} {
-  return node.type === 'jsFilter'
-    ? {
-        outputId: 'filtered' as PortId,
-        resultLabel: 'Filtered',
-      }
-    : {
-        outputId: 'mapped' as PortId,
-        resultLabel: 'Mapped',
-      };
-}
+const JS_LIST_OUTPUT_CONFIG = {
+  jsFilter: { outputId: 'filtered' as PortId, resultLabel: 'Filtered' },
+  jsMap: { outputId: 'mapped' as PortId, resultLabel: 'Mapped' },
+};
 
 const JSListNodeOutputBody: FC<{
   node: JSListNode;
   data: NodeRunDataWithRefs;
   renderMode: OutputRenderMode;
 }> = ({ node, data, renderMode }) => {
-  const { outputId, resultLabel } = getJSListOutputConfig(node);
+  const { outputId, resultLabel } = JS_LIST_OUTPUT_CONFIG[node.type];
   const errorMessage = data.status?.type === 'error' ? data.status.error : undefined;
+  const hasError = data.status?.type === 'error';
   const dataRefs = useDataRefs();
   const callbackBodySource = getJSListCallbackPreviewSource(node, data);
   const shouldShowParsedExpression = hasJSListCallbackInterpolationInputs(callbackBodySource);
@@ -62,12 +46,14 @@ const JSListNodeOutputBody: FC<{
   );
 
   return (
-    <div css={structuredNodeOutputCss}>
-      {errorMessage && <StructuredNodeOutputError>{errorMessage}</StructuredNodeOutputError>}
-
-      {!errorMessage && data.splitOutputData && (
+    <StructuredNodeOutput
+      errorMessage={errorMessage}
+      parsedSource={shouldShowParsedExpression ? (parsedExpression ?? '') : undefined}
+      parsedSourceLanguage="javascript"
+    >
+      {!hasError && data.splitOutputData && (
         <div className="split-output">
-          {getSortedSplitOutputEntries(data).map(([key, outputs]) => (
+          {getSortedSplitOutputEntries(data.splitOutputData).map(([key, outputs]) => (
             <StructuredNodeOutputSection label={resultLabel} key={key}>
               <RenderDataValue value={outputs[outputId]} mode={renderMode} />
             </StructuredNodeOutputSection>
@@ -75,62 +61,29 @@ const JSListNodeOutputBody: FC<{
         </div>
       )}
 
-      {!errorMessage && !data.splitOutputData && (
+      {!hasError && !data.splitOutputData && (
         <StructuredNodeOutputSection label={resultLabel}>
           <RenderDataValue value={data.outputData?.[outputId]} mode={renderMode} />
         </StructuredNodeOutputSection>
       )}
-
-      {shouldShowParsedExpression && (
-        <ParsedSourceOutputSection source={parsedExpression ?? ''} language="javascript" />
-      )}
-    </div>
+    </StructuredNodeOutput>
   );
 };
 
-const JSListNodeOutputBodyWrapper: FC<{
-  node: JSListNode;
-  data: NodeRunDataWithRefs;
-  isCompact: boolean;
-}> = ({ node, data, isCompact }) => {
-  return <JSListNodeOutputBody node={node} data={data} renderMode={isCompact ? 'compact' : 'full'} />;
-};
-
-const JSListNodeFullscreenOutputBodyWrapper: FC<{
-  node: JSListNode;
-  data: NodeRunDataWithRefs;
-}> = ({ node, data }) => {
-  return <JSListNodeOutputBody node={node} data={data} renderMode="expanded-preview" />;
-};
-
-const JSFilterNodeOutput: FC<{
-  node: JSFilterNode;
-  data: NodeRunDataWithRefs;
-  isCompact: boolean;
-}> = (props) => <JSListNodeOutputBodyWrapper {...props} />;
-
-const JSFilterNodeFullscreenOutput: FC<{
-  node: JSFilterNode;
-  data: NodeRunDataWithRefs;
-}> = (props) => <JSListNodeFullscreenOutputBodyWrapper {...props} />;
-
-const JSMapNodeOutput: FC<{
-  node: JSMapNode;
-  data: NodeRunDataWithRefs;
-  isCompact: boolean;
-}> = (props) => <JSListNodeOutputBodyWrapper {...props} />;
-
-const JSMapNodeFullscreenOutput: FC<{
-  node: JSMapNode;
-  data: NodeRunDataWithRefs;
-}> = (props) => <JSListNodeFullscreenOutputBodyWrapper {...props} />;
-
 export const jsFilterNodeDescriptor: NodeComponentDescriptor<'jsFilter'> = {
-  Output: JSFilterNodeOutput,
-  FullscreenOutput: JSFilterNodeFullscreenOutput,
+  Output: ({ node, data, isCompact }) => (
+    <JSListNodeOutputBody node={node} data={data} renderMode={isCompact ? 'compact' : 'full'} />
+  ),
+  FullscreenOutput: ({ node, data }) => (
+    <JSListNodeOutputBody node={node} data={data} renderMode="expanded-preview" />
+  ),
 };
 
 export const jsMapNodeDescriptor: NodeComponentDescriptor<'jsMap'> = {
-  Output: JSMapNodeOutput,
-  FullscreenOutput: JSMapNodeFullscreenOutput,
+  Output: ({ node, data, isCompact }) => (
+    <JSListNodeOutputBody node={node} data={data} renderMode={isCompact ? 'compact' : 'full'} />
+  ),
+  FullscreenOutput: ({ node, data }) => (
+    <JSListNodeOutputBody node={node} data={data} renderMode="expanded-preview" />
+  ),
 };

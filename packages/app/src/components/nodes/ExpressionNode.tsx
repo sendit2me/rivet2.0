@@ -14,10 +14,8 @@ import { restoreStoredPortMap } from '../../utils/executionDataReaders.js';
 import { type NodeComponentDescriptor } from '../../hooks/useNodeTypes.js';
 import { getExpressionPreviewSource, hasExpressionInterpolationInputs } from './expressionOutputUtils.js';
 import {
-  ParsedSourceOutputSection,
-  StructuredNodeOutputError,
+  StructuredNodeOutput,
   StructuredNodeOutputSection,
-  structuredNodeOutputCss,
 } from './StructuredNodeOutput.js';
 
 const ExpressionNodeOutputBody: FC<{
@@ -26,6 +24,7 @@ const ExpressionNodeOutputBody: FC<{
   renderMode: OutputRenderMode;
 }> = ({ node, data, renderMode }) => {
   const errorMessage = data.status?.type === 'error' ? data.status.error : undefined;
+  const hasError = data.status?.type === 'error';
   const dataRefs = useDataRefs();
   const expressionSource = getExpressionPreviewSource(node, data);
   const shouldShowParsedExpression = hasExpressionInterpolationInputs(expressionSource);
@@ -41,38 +40,25 @@ const ExpressionNodeOutputBody: FC<{
   );
 
   return (
-    <div css={structuredNodeOutputCss}>
-      {errorMessage && <StructuredNodeOutputError>{errorMessage}</StructuredNodeOutputError>}
-
-      {!errorMessage && (
+    <StructuredNodeOutput
+      errorMessage={errorMessage}
+      parsedSource={shouldShowParsedExpression ? (parsedExpression ?? '') : undefined}
+      parsedSourceLanguage="javascript"
+    >
+      {!hasError && (
         <StructuredNodeOutputSection label="Resulting value">
           <RenderDataValue value={data.outputData?.[EXPRESSION_OUTPUT_PORT_ID]} mode={renderMode} />
         </StructuredNodeOutputSection>
       )}
-
-      {shouldShowParsedExpression && (
-        <ParsedSourceOutputSection source={parsedExpression ?? ''} language="javascript" />
-      )}
-    </div>
+    </StructuredNodeOutput>
   );
 };
 
-const ExpressionNodeOutput: FC<{
-  node: ExpressionNode;
-  data: NodeRunDataWithRefs;
-  isCompact: boolean;
-}> = ({ node, data, isCompact }) => {
-  return <ExpressionNodeOutputBody node={node} data={data} renderMode={isCompact ? 'compact' : 'full'} />;
-};
-
-const ExpressionNodeFullscreenOutput: FC<{
-  node: ExpressionNode;
-  data: NodeRunDataWithRefs;
-}> = ({ node, data }) => {
-  return <ExpressionNodeOutputBody node={node} data={data} renderMode="expanded-preview" />;
-};
-
 export const expressionNodeDescriptor: NodeComponentDescriptor<'expression'> = {
-  Output: ExpressionNodeOutput,
-  FullscreenOutput: ExpressionNodeFullscreenOutput,
+  Output: ({ node, data, isCompact }) => (
+    <ExpressionNodeOutputBody node={node} data={data} renderMode={isCompact ? 'compact' : 'full'} />
+  ),
+  FullscreenOutput: ({ node, data }) => (
+    <ExpressionNodeOutputBody node={node} data={data} renderMode="expanded-preview" />
+  ),
 };

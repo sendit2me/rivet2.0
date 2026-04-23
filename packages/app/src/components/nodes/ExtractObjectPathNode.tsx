@@ -12,28 +12,15 @@ import {
   hasExtractObjectPathInterpolationInputs,
 } from './extractObjectPathOutputUtils.js';
 import {
-  ParsedSourceOutputSection,
-  StructuredNodeOutputError,
+  getSortedSplitOutputEntries,
+  StructuredNodeOutput,
   StructuredNodeOutputSection,
-  structuredNodeOutputCss,
 } from './StructuredNodeOutput.js';
 
-const outputDefinitions: Array<{ id: PortId; label: string }> = [
-  {
-    id: 'match' as PortId,
-    label: 'Match',
-  },
-  {
-    id: 'all_matches' as PortId,
-    label: 'All Matches',
-  },
+const outputDefinitions = [
+  { id: 'match' as PortId, label: 'Match' },
+  { id: 'all_matches' as PortId, label: 'All Matches' },
 ];
-
-function getSortedSplitOutputEntries(
-  data: NodeRunDataWithRefs,
-): Array<[string, NonNullable<NodeRunDataWithRefs['splitOutputData']>[number]]> {
-  return Object.entries(data.splitOutputData ?? {}).sort(([left], [right]) => Number(left) - Number(right));
-}
 
 const ExtractObjectPathNodeOutputBody: FC<{
   node: ExtractObjectPathNode;
@@ -41,6 +28,7 @@ const ExtractObjectPathNodeOutputBody: FC<{
   renderMode: OutputRenderMode;
 }> = ({ node, data, renderMode }) => {
   const errorMessage = data.status?.type === 'error' ? data.status.error : undefined;
+  const hasError = data.status?.type === 'error';
   const dataRefs = useDataRefs();
   const pathSource = getExtractObjectPathPreviewSource(node, data);
   const shouldShowParsedExpression =
@@ -56,52 +44,35 @@ const ExtractObjectPathNodeOutputBody: FC<{
     [data.inputData, dataRefs, pathSource, shouldShowParsedExpression],
   );
 
-  const renderOutputs = (outputs: NodeRunDataWithRefs['outputData']) =>
+  const renderOutputs = (outputs: NodeRunDataWithRefs['outputData'], keyPrefix = '') =>
     outputDefinitions.map(({ id, label }) => (
-      <StructuredNodeOutputSection label={label} key={id}>
+      <StructuredNodeOutputSection label={label} key={`${keyPrefix}${id}`}>
         <RenderDataValue value={outputs?.[id]} mode={renderMode} />
       </StructuredNodeOutputSection>
     ));
 
   return (
-    <div css={structuredNodeOutputCss}>
-      {errorMessage && <StructuredNodeOutputError>{errorMessage}</StructuredNodeOutputError>}
-
-      {!errorMessage && data.splitOutputData && (
+    <StructuredNodeOutput
+      errorMessage={errorMessage}
+      parsedSource={shouldShowParsedExpression ? (parsedExpression ?? '') : undefined}
+      parsedSourceLanguage="jsonpath"
+    >
+      {!hasError && data.splitOutputData && (
         <div className="split-output">
-          {getSortedSplitOutputEntries(data).map(([key, outputs]) => (
-            <div className="structured-node-output-section" key={key}>
-              {renderOutputs(outputs)}
-            </div>
-          ))}
+          {getSortedSplitOutputEntries(data.splitOutputData).map(([key, outputs]) => renderOutputs(outputs, `${key}:`))}
         </div>
       )}
 
-      {!errorMessage && !data.splitOutputData && renderOutputs(data.outputData)}
-
-      {shouldShowParsedExpression && (
-        <ParsedSourceOutputSection source={parsedExpression ?? ''} language="jsonpath" />
-      )}
-    </div>
+      {!hasError && !data.splitOutputData && renderOutputs(data.outputData)}
+    </StructuredNodeOutput>
   );
 };
 
-const ExtractObjectPathNodeOutput: FC<{
-  node: ExtractObjectPathNode;
-  data: NodeRunDataWithRefs;
-  isCompact: boolean;
-}> = ({ node, data, isCompact }) => {
-  return <ExtractObjectPathNodeOutputBody node={node} data={data} renderMode={isCompact ? 'compact' : 'full'} />;
-};
-
-const ExtractObjectPathNodeFullscreenOutput: FC<{
-  node: ExtractObjectPathNode;
-  data: NodeRunDataWithRefs;
-}> = ({ node, data }) => {
-  return <ExtractObjectPathNodeOutputBody node={node} data={data} renderMode="expanded-preview" />;
-};
-
 export const extractObjectPathNodeDescriptor: NodeComponentDescriptor<'extractObjectPath'> = {
-  Output: ExtractObjectPathNodeOutput,
-  FullscreenOutput: ExtractObjectPathNodeFullscreenOutput,
+  Output: ({ node, data, isCompact }) => (
+    <ExtractObjectPathNodeOutputBody node={node} data={data} renderMode={isCompact ? 'compact' : 'full'} />
+  ),
+  FullscreenOutput: ({ node, data }) => (
+    <ExtractObjectPathNodeOutputBody node={node} data={data} renderMode="expanded-preview" />
+  ),
 };

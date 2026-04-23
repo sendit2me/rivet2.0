@@ -5,7 +5,9 @@
 
 - Parallel runs icon should be more parallel. Maybe move the split-related icons to the area on above the card? Sequenrial - more sequentisl
 
+- In the nodes with the super long output, don't show the "Load full value" buttons when I hove rthe node
 
+- When I click oone of the 3 output buttons, and then unhover the node, the gear icon doesn't disappear
 
 - Move Zoom sensitivity into the UI tab
 

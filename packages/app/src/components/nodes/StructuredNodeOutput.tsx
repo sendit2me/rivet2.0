@@ -2,7 +2,7 @@ import { css } from '@emotion/react';
 import { type FC, type ReactNode } from 'react';
 import ColorizedPreformattedText from '../ColorizedPreformattedText.js';
 
-export const structuredNodeOutputCss = css`
+const structuredNodeOutputCss = css`
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -24,8 +24,19 @@ export const structuredNodeOutputCss = css`
   }
 `;
 
-export const StructuredNodeOutputError: FC<{ children: ReactNode }> = ({ children }) => (
-  <div className="structured-node-output-error">{children}</div>
+export const StructuredNodeOutput: FC<{
+  children?: ReactNode;
+  errorMessage?: string;
+  parsedSource?: string;
+  parsedSourceLanguage?: string;
+}> = ({ children, errorMessage, parsedSource, parsedSourceLanguage }) => (
+  <div css={structuredNodeOutputCss}>
+    {errorMessage !== undefined && <div className="structured-node-output-error">{errorMessage}</div>}
+    {children}
+    {parsedSource !== undefined && parsedSourceLanguage && (
+      <ParsedSourceOutputSection source={parsedSource} language={parsedSourceLanguage} />
+    )}
+  </div>
 );
 
 export const StructuredNodeOutputSection: FC<{
@@ -41,7 +52,7 @@ export const StructuredNodeOutputSection: FC<{
   </div>
 );
 
-export const ParsedSourceOutputSection: FC<{
+const ParsedSourceOutputSection: FC<{
   language: string;
   source: string;
 }> = ({ language, source }) => (
@@ -49,3 +60,7 @@ export const ParsedSourceOutputSection: FC<{
     <ColorizedPreformattedText text={source} language={language} />
   </StructuredNodeOutputSection>
 );
+
+export function getSortedSplitOutputEntries<T>(splitOutputData: Record<string, T> | undefined): Array<[string, T]> {
+  return Object.entries(splitOutputData ?? {}).sort(([left], [right]) => Number(left) - Number(right));
+}

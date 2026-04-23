@@ -7,23 +7,13 @@ export type DebuggerPanelAnchorBounds = {
   right: number;
 };
 
-export type DebuggerPanelPosition =
-  | {
-      left: number;
-      top: number;
-    }
-  | {
-      right: number;
-      top: string;
-    };
-
 export function resolveDebuggerPanelPosition({
   anchor,
   viewportWidth,
 }: {
   anchor?: DebuggerPanelAnchorBounds;
   viewportWidth: number;
-}): DebuggerPanelPosition {
+}) {
   if (!anchor || !Number.isFinite(viewportWidth) || viewportWidth <= 0) {
     return {
       right: 20,

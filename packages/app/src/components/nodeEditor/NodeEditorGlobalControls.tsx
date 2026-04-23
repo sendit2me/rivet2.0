@@ -5,11 +5,6 @@ import TextField from '@atlaskit/textfield';
 import Select from '@atlaskit/select';
 import Button from '@atlaskit/button';
 import { Tooltip } from '../Tooltip.js';
-import {
-  type SplitModeChoice,
-  isSplitSequentialFromSplitMode,
-  splitModeFromIsSplitSequential,
-} from './splitMode.js';
 import { NodeMetadataEditor } from './NodeMetadataEditor.js';
 
 type HeaderToggleFieldProps = {
@@ -27,28 +22,19 @@ const HeaderToggleField: FC<HeaderToggleFieldProps> = ({ id, isChecked, onChange
   </div>
 );
 
-type SegmentedChoiceOption<T extends string> = {
-  value: T;
-  label: string;
-};
+type SplitModeChoice = 'parallel' | 'sequential';
 
-type SegmentedChoiceProps<T extends string> = {
-  value: T;
-  options: readonly SegmentedChoiceOption<T>[];
-  ariaLabel: string;
-  onChange: (value: T) => void;
-  className?: string;
-};
+const splitModeOptions: readonly { value: SplitModeChoice; label: string }[] = [
+  { value: 'parallel', label: 'parallel runs' },
+  { value: 'sequential', label: 'sequential' },
+];
 
-const SegmentedChoice = <T extends string>({
-  value,
-  options,
-  ariaLabel,
-  onChange,
-  className,
-}: SegmentedChoiceProps<T>) => (
-  <div className={className ? `segmented-choice ${className}` : 'segmented-choice'} role="group" aria-label={ariaLabel}>
-    {options.map((option) => (
+const SplitModeChoiceControl: FC<{
+  value: SplitModeChoice;
+  onChange: (value: SplitModeChoice) => void;
+}> = ({ value, onChange }) => (
+  <div className="segmented-choice split-mode" role="group" aria-label="Split mode">
+    {splitModeOptions.map((option) => (
       <button
         key={option.value}
         type="button"
@@ -61,11 +47,6 @@ const SegmentedChoice = <T extends string>({
     ))}
   </div>
 );
-
-const splitModeOptions: readonly SegmentedChoiceOption<SplitModeChoice>[] = [
-  { value: 'parallel', label: 'parallel runs' },
-  { value: 'sequential', label: 'sequential' },
-];
 
 export const NodeEditorGlobalControls: FC<{
   node: ChartNode;
@@ -107,7 +88,7 @@ export const NodeEditorGlobalControls: FC<{
   const nodeEnabledToggleId = `node-enabled-${node.id}`;
   const conditionalToggleId = `node-conditional-${node.id}`;
   const splitToggleId = `node-split-${node.id}`;
-  const splitMode = splitModeFromIsSplitSequential(node.isSplitSequential);
+  const splitMode: SplitModeChoice = node.isSplitSequential ? 'sequential' : 'parallel';
 
   return (
     <div className="section section-global-controls">
@@ -150,15 +131,12 @@ export const NodeEditorGlobalControls: FC<{
 
           {node.isSplitRun && (
             <div className="split-max">
-              <SegmentedChoice
-                className="split-mode"
-                ariaLabel="Split mode"
+              <SplitModeChoiceControl
                 value={splitMode}
-                options={splitModeOptions}
                 onChange={(nextSplitMode) =>
                   onUpdateNode({
                     ...node,
-                    isSplitSequential: isSplitSequentialFromSplitMode(nextSplitMode),
+                    isSplitSequential: nextSplitMode === 'sequential',
                   })
                 }
               />

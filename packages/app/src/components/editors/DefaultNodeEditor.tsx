@@ -318,9 +318,9 @@ export const DefaultNodeEditor: FC<
         if (row.type === 'inline') {
           return (
             <div className="inline-editor-row" key={row.key}>
-              {row.editors.map((inlineEditor, inlineIndex) => {
-                return renderEditorField(inlineEditor, row.startIndex + inlineIndex);
-              })}
+              {row.editors.map((inlineEditor, inlineIndex) =>
+                renderEditorField(inlineEditor, row.startIndex + inlineIndex),
+              )}
             </div>
           );
         }

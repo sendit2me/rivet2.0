@@ -119,15 +119,5 @@ export function useRenderableWires({
 }
 
 function areConnectionListsEqual(previous: NodeConnection[], next: NodeConnection[]): boolean {
-  if (previous.length !== next.length) {
-    return false;
-  }
-
-  for (let i = 0; i < previous.length; i += 1) {
-    if (previous[i] !== next[i]) {
-      return false;
-    }
-  }
-
-  return true;
+  return previous.length === next.length && previous.every((connection, index) => connection === next[index]);
 }

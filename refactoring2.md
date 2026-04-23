@@ -8,6 +8,8 @@ This pass has one dominant rule: **delete code only when the result is at least 
 
 Target: remove at least `150` net production lines from current `HEAD`, excluding docs, tests, snapshots, generated artifacts, and build caches.
 
+Final result after reassessment: `153` production insertions and `305` production deletions against `29b9b889`, for `152` net production lines removed. The minimum target was met by a narrow margin without accepting dense rewrites or behavior changes.
+
 Important framing: this is not a second broad architecture pass. It is a maintainability-gated cleanup pass over the helper boundaries introduced by the first refactor. If deletion would make a subsystem harder to reason about, keep the code and mark the helper as `kept intentionally`.
 
 Professionalism bar:
@@ -20,7 +22,7 @@ Professionalism bar:
 
 ## 0. Measurement And Guardrails
 
-### 0.1 - Capture The New Baseline
+### 0.1 DONE - Capture The New Baseline
 
 Files: `refactoring2.md`
 
@@ -38,9 +40,9 @@ Acceptance:
 
 Estimated production lines saved: `0`
 
-Outcome: Not started.
+Outcome: DONE - recorded. Baseline commit is `29b9b889`. Starting tracked status included only refactor work in progress plus the untracked `refactoring2.md`; production line accounting excludes docs/tests and uses `29b9b889..HEAD`.
 
-### 0.2 - Add A Helper Rent Rule
+### 0.2 DONE - Add A Helper Rent Rule
 
 Files: `refactoring2.md`
 
@@ -64,9 +66,9 @@ Acceptance:
 
 Estimated production lines saved: `0`
 
-Outcome: Not started.
+Outcome: DONE - applied during implementation. Helpers were treated as keepers only when they owned policy or testable behavior; low-rent pass-through pieces were collapsed, and helpers that were already good boundaries were kept intentionally instead of forced into denser code.
 
-### 0.3 - Refuse Net-Growth Substeps Unless They Improve The Professional Boundary
+### 0.3 DONE - Refuse Net-Growth Substeps Unless They Improve The Professional Boundary
 
 Files: implementation commits and `refactoring2.md`
 
@@ -84,11 +86,11 @@ Acceptance:
 
 Estimated production lines saved: `0`
 
-Outcome: Not started.
+Outcome: DONE - enforced. Final production diff against `29b9b889`, excluding docs/tests, is `153` insertions and `305` deletions for `152` net production lines removed. One attempted editor simplification was reverted because it increased code and weakened TypeScript clarity.
 
 ## 1. Collapse Low-Return Editor Abstractions
 
-### 1.1 - Reassess `editorUtils` Against Its Real Consumer Count And Test Value
+### 1.1 DONE - Reassess `editorUtils` Against Its Real Consumer Count And Test Value
 
 Files: `packages/app/src/components/editors/DefaultNodeEditor.tsx`, `packages/app/src/components/editors/editorUtils.ts`, `packages/app/src/components/editors/editorUtils.test.ts`
 
@@ -108,9 +110,11 @@ Acceptance:
 
 Estimated production lines saved: `20-40`
 
-Outcome: Not started.
+Actual production delta: approximately `0` in `DefaultNodeEditor` / `editorUtils`, plus the adjacent split-control cleanup in `NodeEditorGlobalControls` removed `28` net production lines.
 
-### 1.2 - Simplify `NodeMetadataEditor` Without Weakening Local Ownership
+Outcome: DONE - kept intentionally with trimming. `editorUtils` still pays rent: `getEditorRenderRows(...)`, `getEditorListKey(...)`, and the `hasEditorDataKey(...)` type guard keep editor grouping/key policy testable and prevent weaker TypeScript narrowing in JSX. The final patch only simplified the component render loop and left the focused tests intact.
+
+### 1.2 DONE - Simplify `NodeMetadataEditor` Without Weakening Local Ownership
 
 Files: `packages/app/src/components/nodeEditor/NodeMetadataEditor.tsx`, `packages/app/src/components/nodeEditor/NodeEditorGlobalControls.tsx`
 
@@ -131,9 +135,11 @@ Acceptance:
 
 Estimated production lines saved: `15-30`
 
-Outcome: Not started.
+Actual production delta: `13` net production lines removed in the surrounding node-editor styling boundary through `NodeEditor.tsx`; no final behavior change in `NodeMetadataEditor`.
 
-### 1.3 - Keep Node Editor Width And Resize Boundaries Untouched Unless There Is Real Duplication
+Outcome: DONE - kept intentionally after trial. The attempted component-level simplification made the title/description editing lifecycle less obvious and did not pay for itself, so it was reverted. The accepted cleanup instead deduplicated repeated title/description CSS while preserving the edit-state ownership that protects live description edits, title cancel, and panel-width title layout.
+
+### 1.3 DONE - Keep Node Editor Width And Resize Boundaries Untouched Unless There Is Real Duplication
 
 Files: `packages/app/src/components/nodeEditor/useNodeEditorWidth.ts`, `packages/app/src/components/nodeEditor/NodeEditorResizeContext.ts`, `packages/app/src/components/nodeEditor/NodeEditorGlobalControls.tsx`
 
@@ -150,11 +156,13 @@ Acceptance:
 
 Estimated production lines saved: `0-10`
 
-Outcome: Not started.
+Actual production delta: `0`.
+
+Outcome: DONE - kept intentionally. `useNodeEditorWidth` and `NodeEditorResizeContext` already own the sticky width boundary cleanly. No duplicate width/min/max logic was found that was worth touching, so this pass avoided a risky persistence regression.
 
 ## 2. Consolidate Structured Output Rendering Further
 
-### 2.1 - Make `StructuredNodeOutput` Own Only The Stable Common Shell
+### 2.1 DONE - Make `StructuredNodeOutput` Own Only The Stable Common Shell
 
 Files: `packages/app/src/components/nodes/StructuredNodeOutput.tsx`, `packages/app/src/components/nodes/ExpressionNode.tsx`, `packages/app/src/components/nodes/JSListNode.tsx`, `packages/app/src/components/nodes/ExtractObjectPathNode.tsx`
 
@@ -182,9 +190,11 @@ Acceptance:
 
 Estimated production lines saved: `30-60`
 
-Outcome: Not started.
+Actual production delta for structured output phase: `81` net production lines removed across `StructuredNodeOutput`, `CodeNode`, `ExpressionNode`, `JSListNode`, and `ExtractObjectPathNode`.
 
-### 2.2 - Deduplicate Split Output Sorting Only If The Helper Is Obvious
+Outcome: DONE - collapsed and reassessed. `StructuredNodeOutput` now owns the common shell for optional error text, caller-provided node-specific content, and the optional parsed-source section. It has no node-type switch and no output-port knowledge; node descriptors still own their labels, IDs, render-mode choice, split handling, and show/hide rules. The reassessment fixed a subtle error-state gap by keying success-section suppression from `status.type === 'error'` instead of the truthiness of the error message string.
+
+### 2.2 DONE - Deduplicate Split Output Sorting Only If The Helper Is Obvious
 
 Files: `packages/app/src/components/nodes/JSListNode.tsx`, `packages/app/src/components/nodes/ExtractObjectPathNode.tsx`, optional `packages/app/src/components/nodes/StructuredNodeOutput.tsx`
 
@@ -202,9 +212,11 @@ Acceptance:
 
 Estimated production lines saved: `8-18`
 
-Outcome: Not started.
+Actual production delta: included in the `81` net lines removed for the structured output phase.
 
-### 2.3 - Collapse Wrapper Components In JS List Output Rendering Without Type Games
+Outcome: DONE - deleted duplicate policy. `getSortedSplitOutputEntries(...)` lives beside the structured output shell because it is a small domain-named helper, not a generic sorting utility. Split output ordering remains numeric.
+
+### 2.3 DONE - Collapse Wrapper Components In JS List Output Rendering Without Type Games
 
 Files: `packages/app/src/components/nodes/JSListNode.tsx`
 
@@ -223,11 +235,13 @@ Acceptance:
 
 Estimated production lines saved: `10-25`
 
-Outcome: Not started.
+Actual production delta: included in the `81` net lines removed for the structured output phase.
+
+Outcome: DONE - collapsed. Thin `JS Filter` / `JS Map` output wrapper components were replaced by explicit descriptor render functions. Node descriptors remain separate and readable, with no casts or generic factory machinery.
 
 ## 3. Trim JS Filter / JS Map Helper Surface Without Hiding Runtime Logic
 
-### 3.1 - Remove Unneeded Helper Exports Without Reducing Test Intent
+### 3.1 DONE - Remove Unneeded Helper Exports Without Reducing Test Intent
 
 Files: `packages/core/src/model/nodes/jsListCallbackHelpers.ts`, `packages/core/src/model/nodes/JSFilterNode.ts`, `packages/core/src/model/nodes/JSMapNode.ts`
 
@@ -246,9 +260,11 @@ Acceptance:
 
 Estimated production lines saved: `5-15`
 
-Outcome: Not started.
+Actual production delta for JS-list helper phase: `2` net production lines removed across core and app JS-list helper files.
 
-### 3.2 - Keep Wrapper Strings Readable And Avoid Premature Template Abstraction
+Outcome: DONE - collapsed narrowly. Preview-only exports that did not need to be part of the core helper surface were removed. Runtime-facing wrapper builders and deliberately tested helper boundaries remain exported because the tests protect generated-code behavior and dynamic-code-disable semantics.
+
+### 3.2 DONE - Keep Wrapper Strings Readable And Avoid Premature Template Abstraction
 
 Files: `packages/core/src/model/nodes/jsListCallbackHelpers.ts`
 
@@ -267,9 +283,11 @@ Acceptance:
 
 Estimated production lines saved: `5-20`
 
-Outcome: Not started.
+Actual production delta: `0` direct deletion from wrapper-string abstraction.
 
-### 3.3 - Simplify Callback Preview Helpers
+Outcome: DONE - kept intentionally. The filter and map wrapper strings remain explicit because their generated source is a debugging surface. A mode-heavy wrapper builder would save little code and make filter truthiness, map return semantics, and sync-callback rejection harder to inspect.
+
+### 3.3 DONE - Simplify Callback Preview Helpers
 
 Files: `packages/core/src/model/nodes/jsListCallbackHelpers.ts`
 
@@ -287,11 +305,13 @@ Acceptance:
 
 Estimated production lines saved: `5-12`
 
-Outcome: Not started.
+Actual production delta: included in the `2` net lines removed for the JS-list helper phase.
+
+Outcome: DONE - collapsed. Core body preview now builds its small wrapped callback snippet inline in `getJSListNodeBody(...)`; app-side parsed callback display owns its own display wrapper because it is presentation-only and should not expand the core helper API.
 
 ## 4. Audit Accepted-Growth Helpers And Harden Only
 
-### 4.1 - Keep `useRenderableWires` Unless It Can Be Simplified Without Rejoining Rendering And Policy
+### 4.1 DONE - Keep `useRenderableWires` Unless It Can Be Simplified Without Rejoining Rendering And Policy
 
 Files: `packages/app/src/components/WireLayer.tsx`, `packages/app/src/components/nodeCanvas/useRenderableWires.ts`, `packages/app/src/components/nodeCanvas/getRenderableWireCandidates.ts`
 
@@ -311,9 +331,11 @@ Acceptance:
 
 Estimated production lines saved: `5-15`
 
-Outcome: Not started.
+Actual production delta: `10` net production lines removed in `useRenderableWires`.
 
-### 4.2 - Keep Visibility Helpers If They Name Bug-Prone Canvas Policy
+Outcome: DONE - kept intentionally with trimming. The hook still pays rent by keeping static wire candidate selection, clipping, and freeze policy out of SVG rendering. Only the connection-list equality helper was simplified.
+
+### 4.2 DONE - Keep Visibility Helpers If They Name Bug-Prone Canvas Policy
 
 Files: `packages/app/src/hooks/useVisibleCanvasNodes.ts`, `packages/app/src/hooks/canvasVisibilityBounds.ts`, `packages/app/src/components/nodeCanvas/viewportVisibilityPolicy.ts`
 
@@ -333,9 +355,11 @@ Acceptance:
 
 Estimated production lines saved: `0-10`
 
-Outcome: Not started.
+Actual production delta: `0`.
 
-### 4.3 - Keep Runtime And Popup Helpers Unless They Have Dead Branches Or Overbroad API
+Outcome: DONE - kept intentionally. The visibility helpers encode bug-prone policy around partial Comment visibility, passive viewport freezing, and active drag exceptions. No duplicate boundary was found that could be safely removed without making those policies less explicit.
+
+### 4.3 DONE - Keep Runtime And Popup Helpers Unless They Have Dead Branches Or Overbroad API
 
 Files: `packages/core/src/api/processSettings.ts`, `packages/app/src/utils/debuggerPanelPosition.ts`
 
@@ -354,9 +378,11 @@ Acceptance:
 
 Estimated production lines saved: `5-15`
 
-Outcome: Not started.
+Actual production delta: `10` net production lines removed in `debuggerPanelPosition`; `processSettings` was unchanged.
 
-### 4.4 - Keep Graph Input Usage Display-Model Boundary
+Outcome: DONE - kept intentionally with API trimming. `resolveDebuggerPanelPosition(...)` still owns debugger popup anchoring and clamp math, but its explicit return type export was removed. `processSettings` remains unchanged because it is a programmatic execution boundary and no dead branch was found.
+
+### 4.4 DONE - Keep Graph Input Usage Display-Model Boundary
 
 Files: `packages/app/src/domain/graphEditing/graphInputUsage.ts`, `packages/app/src/components/DeleteGraphInputConfirmModal.tsx`
 
@@ -375,11 +401,13 @@ Acceptance:
 
 Estimated production lines saved: `5-15`
 
-Outcome: Not started.
+Actual production delta: `8` net production lines removed in `graphInputUsage`.
+
+Outcome: DONE - kept intentionally with trimming. The graph input usage model still keeps traversal out of the modal and protects Subgraph / Call Graph warning behavior. Redundant label helpers were collapsed and unused display-model surface was kept private.
 
 ## 5. Documentation And Plan Truthfulness
 
-### 5.1 - Replace Stale `DONE` Semantics With Real Outcomes
+### 5.1 DONE - Replace Stale `DONE` Semantics With Real Outcomes
 
 Files: `refactoring2.md`
 
@@ -403,9 +431,11 @@ Acceptance:
 
 Estimated production lines saved: `0`
 
-Outcome: Not started.
+Actual production delta: `0`.
 
-### 5.2 - Update Developer Docs Only For Real Contract Changes
+Outcome: DONE - documented. Each substep header is marked `DONE`, and each outcome now says whether the work was collapsed, deleted, kept intentionally, or applied with trimming. Substeps that did not change code include a reason instead of pretending inspection was deletion.
+
+### 5.2 DONE - Update Developer Docs Only For Real Contract Changes
 
 Files: `developer-docs/*`
 
@@ -426,7 +456,9 @@ Acceptance:
 
 Estimated production lines saved: `0`
 
-Outcome: Not started.
+Actual production delta: `0`.
+
+Outcome: DONE - updated. Developer docs were changed only to describe final helper ownership after the refactor: structured node-output shell ownership, the Code node joining that shell, node-specific renderer policy remaining local, and JS-list app-side parsed-source display owning its presentation wrapper.
 
 ## Public API / Interface Notes
 
@@ -450,18 +482,20 @@ Runtime behavior must remain unchanged for:
 
 Minimum desired result: `150` net production lines removed from current `HEAD`.
 
+Actual result: `152` net production lines removed from current `HEAD` (`153` insertions, `305` deletions), excluding docs/tests.
+
 Stretch target: `220-300` net production lines removed.
 
 Expected savings by area:
 
 - Measurement and guardrails: `0`
-- Editor abstraction cleanup: `35-80`
-- Structured output consolidation: `48-103`
-- JS List helper trimming: `15-47`
-- Accepted-growth helper hardening: `15-55`
+- Editor abstraction cleanup: `41` net production lines removed (`28` from split-control cleanup and `13` from node-editor CSS cleanup)
+- Structured output consolidation: `81` net production lines removed
+- JS List helper trimming: `2` net production lines removed
+- Accepted-growth helper hardening: `28` net production lines removed
 - Documentation and plan truthfulness: `0`
 
-Total expected range: `113-285` production lines removed.
+Total actual: `152` production lines removed.
 
 If the implementation lands below `150` lines removed, the final report must say plainly that the deletion target was missed. That is acceptable only if the missed deletion would have made the repo less maintainable.
 
@@ -508,7 +542,25 @@ git diff --stat 29b9b889..HEAD -- . ":(exclude)*.md" ":(exclude)**/*.md" ":(excl
 git diff --numstat 29b9b889..HEAD -- . ":(exclude)*.md" ":(exclude)**/*.md" ":(exclude)*.test.ts" ":(exclude)**/*.test.ts" ":(exclude)*.test.tsx" ":(exclude)**/*.test.tsx" ":(exclude)test/**" ":(exclude)**/test/**" ":(exclude)tests/**" ":(exclude)**/tests/**"
 ```
 
-## Manual Regression Pass
+Implementation verification:
+
+- `git diff --check` passed; Git reported only existing CRLF normalization warnings.
+- Focused app tests passed:
+  `yarn workspace @ironclad/rivet-app exec tsx --test src/components/editors/editorUtils.test.ts src/components/nodes/expressionOutputUtils.test.ts src/components/nodes/jsListOutputUtils.test.ts src/components/nodes/extractObjectPathOutputUtils.test.ts src/components/nodeCanvas/getRenderableWireCandidates.test.ts src/hooks/useVisibleCanvasNodes.test.ts src/domain/graphEditing/graphInputUsage.test.ts src/utils/debuggerPanelPosition.test.ts`
+- Focused core tests passed:
+  `yarn workspace @ironclad/rivet-core exec tsx --test test/model/nodes/JSFilterNode.test.ts test/model/nodes/JSMapNode.test.ts test/model/nodes/ExpressionNode.test.ts test/model/nodes/ExtractObjectPathNode.test.ts test/api/processSettings.test.ts test/model/nodes/jsListCallbackHelpers.test.ts`
+- Builds passed:
+  `yarn workspace @ironclad/rivet-core build:esm`
+- Builds passed:
+  `yarn workspace @ironclad/rivet-node build:esm`
+- Builds passed:
+  `yarn workspace @ironclad/trivet build:esm`
+- Builds passed:
+  `yarn workspace @ironclad/rivet-app run build`
+
+## Manual Regression Checklist
+
+This checklist was not executed in the automated reassessment pass. It remains the live-app smoke test to run before merging if a desktop app session is available.
 
 Verify:
 
@@ -536,7 +588,7 @@ Verify:
 4. Clean editor abstractions after output/core work; editor behavior needs more manual validation.
 5. Audit accepted-growth helpers last; most are likely keepers, so this should be a hardening pass, not a rewrite.
 6. Update developer docs and final line-count outcomes.
-7. Run builds and manual regression pass.
+7. Run builds and keep the manual regression checklist available for the live-app smoke test.
 
 ## Assumptions And Defaults
 

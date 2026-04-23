@@ -23,18 +23,14 @@ const CALL_GRAPH_INPUTS_INPUT_ID = 'inputs';
 const GRAPH_REFERENCE_OUTPUT_ID = 'graph';
 const OBJECT_OUTPUT_ID = 'output';
 
-function getCallerTypeLabel(callerType: ConnectedGraphInputUsage['callerType']) {
-  return callerType === 'callGraph' ? 'Call Graph' : 'Subgraph';
-}
-
-export function formatGraphInputUsageCallerLabel({
+function formatGraphInputUsageCallerLabel({
   callerNodeTitle,
   callerType,
 }: {
   callerNodeTitle: string;
   callerType: ConnectedGraphInputUsage['callerType'];
 }) {
-  const callerTypeLabel = getCallerTypeLabel(callerType);
+  const callerTypeLabel = callerType === 'callGraph' ? 'Call Graph' : 'Subgraph';
   const callerTitle = callerNodeTitle.trim() || callerTypeLabel;
 
   return callerTitle === callerTypeLabel ? callerTitle : `${callerTitle} (${callerTypeLabel})`;
@@ -127,13 +123,9 @@ function getConnectionsByInputNodeId(connections: readonly NodeConnection[]) {
   const byInputNodeId = new Map<NodeId, NodeConnection[]>();
 
   for (const connection of connections) {
-    const existingConnections = byInputNodeId.get(connection.inputNodeId);
-
-    if (existingConnections) {
-      existingConnections.push(connection);
-    } else {
-      byInputNodeId.set(connection.inputNodeId, [connection]);
-    }
+    const existingConnections = byInputNodeId.get(connection.inputNodeId) ?? [];
+    existingConnections.push(connection);
+    byInputNodeId.set(connection.inputNodeId, existingConnections);
   }
 
   return byInputNodeId;
