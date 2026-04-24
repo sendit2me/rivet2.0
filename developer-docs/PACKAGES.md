@@ -34,12 +34,12 @@ Shared runtime foundation for the entire repo.
 - `GraphProcessor` and extracted helpers (`NodeExecutionPlanner`, `SubprocessorBridge`, `SplitRunProcessor`)
 - built-in nodes
 - built-in plugins
-- `RegistryAssembly` — centralized registry creation and plugin assembly
+- `RegistryAssembly` - centralized registry creation and plugin assembly
 - serialization with shared V3/V4 helpers (`serializationHelpers.ts`)
 - recording/playback support
 - runtime integration contracts
-- `emitDetached` — explicit fire-and-forget event emission helper
-- `pQueueCompat` — CJS/ESM interop for p-queue
+- `emitDetached` - explicit fire-and-forget event emission helper
+- `pQueueCompat` - CJS/ESM interop for p-queue
 - shared runtime settings normalization through `resolveProcessSettings(...)`
 - public execution helpers and streaming APIs
 

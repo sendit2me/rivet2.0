@@ -59,6 +59,57 @@ That file re-exports:
 
 For refactors, `exports.ts` is the API contract that downstream packages rely on. Downstream package code should import core through `@ironclad/rivet-core`; it should not import `packages/core/src/...` files directly. The shared ESLint config enforces that boundary. When app presentation or another package needs to mirror runtime semantics, such as interpolation token parsing, warning-port handling, JS-list callback source interpolation, Gentrace app-facing utilities, `RivetUIContext`, tokenizer implementations, or project-reference loading, the shared contract should be exported intentionally from core instead of reaching into the source tree.
 
+## Runtime Logging And Diagnostics
+
+Runtime code must not log raw graph values by default.
+
+That includes:
+
+- graph inputs
+- graph outputs
+- `DataValue` payloads
+- prompts
+- provider stream chunks
+- tool-call arguments
+- processor traces
+
+Core exposes small logging helpers from [`runtimeLogging.ts`](../packages/core/src/utils/runtimeLogging.ts). Use these helpers from app, executor, Trivet, and provider paths when runtime diagnostics are needed:
+
+- `summarizeDataValueForLog(...)`
+- `summarizePortMapForLog(...)`
+- `summarizeUnknownForLog(...)`
+- `summarizeErrorForLog(...)`
+- `logRuntimeInfo(...)`
+- `logRuntimeWarn(...)`
+- `logRuntimeError(...)`
+- `logRuntimeDebug(...)`
+
+Default logs should contain lifecycle information and counts, not values. Useful default metadata includes ids, counts, durations, and status. Binary values, `ArrayBuffer`s, and typed-array views should be summarized by byte length rather than by enumerating their contents.
+
+Shape summaries from `summarizePortMapForLog(...)` are safer than raw values, but they can still expose user-authored port names. Use them only for explicit diagnostics, preferably behind `logRuntimeDebug(...)`, unless the call site has a clear reason to expose those names in normal logs.
+
+`logRuntimeDebug(...)` is gated by:
+
+- `RIVET_DEBUG_RUNTIME_LOGS=true` in Node-like runtimes
+- `localStorage.setItem('rivet.debugRuntimeLogs', 'true')` in browser-like runtimes
+
+Only use debug logging for details that would be too noisy or too sensitive for normal logs.
+
+Provider stream JSON parsing should use [`parseProviderJsonChunk(...)`](../packages/core/src/utils/providerStreamParsing.ts). That helper preserves parse failures while avoiding raw chunk logging. If a provider needs richer parse diagnostics, extend the helper rather than adding a provider-local raw `console.error(chunk)`.
+
+## GraphProcessor Loop-Control Boundary
+
+`GraphProcessor` remains the central execution engine and still owns scheduling, event emission, subprocessors, control-flow exclusion, and loop/race handling.
+
+Loop-controller break detection is intentionally isolated in [`loopControllerBreak.ts`](../packages/core/src/model/loopControllerBreak.ts):
+
+- `control-flow-excluded` with value `loop-not-broken` means the loop continues
+- missing break output means the loop is treated as broken
+- ordinary break output means the loop is broken
+- other `control-flow-excluded` values mean the loop is treated as broken
+
+Keep this policy covered by focused tests. The `loop-not-broken` sentinel is exported from the helper and reused by `GraphProcessor`; do not reintroduce duplicated string literals. If loop-controller behavior changes, update the helper and tests first, then wire `GraphProcessor` to the new policy. Avoid reintroducing inline type suppressions in loop/race control-flow branches.
+
 ## Graph Model
 
 Core graph model types live in `model/`.
@@ -218,10 +269,10 @@ Key APIs:
 
 [`RegistryAssembly.ts`](../packages/core/src/model/RegistryAssembly.ts) encapsulates the full registry lifecycle:
 
-- `createBuiltInRegistry()` — creates a fresh registry populated with all built-in nodes
-- `resolveBuiltInPlugin(id)` — resolves a built-in plugin by ID from `plugins.ts`
-- `registerPluginsIntoRegistry(registry, plugins)` — registers an array of plugins into an existing registry
-- `assembleRegistry(specs, loadPlugin)` — end-to-end helper: creates a built-in registry, then loads and registers plugin specs one by one so per-plugin load/registration failures are recorded without aborting the whole assembly
+- `createBuiltInRegistry()` - creates a fresh registry populated with all built-in nodes
+- `resolveBuiltInPlugin(id)` - resolves a built-in plugin by ID from `plugins.ts`
+- `registerPluginsIntoRegistry(registry, plugins)` - registers an array of plugins into an existing registry
+- `assembleRegistry(specs, loadPlugin)` - end-to-end helper: creates a built-in registry, then loads and registers plugin specs one by one so per-plugin load/registration failures are recorded without aborting the whole assembly
 
 The app uses `assembleRegistry()` + `replaceGlobalRivetNodeRegistry()` (from `Nodes.ts`) to rebuild the global registry when project plugins change. The sidecar (`app-executor`) uses the same `assembleRegistry()` helper but passes the result directly to `createProcessor()` without touching the global.
 
@@ -640,9 +691,9 @@ Serialization lives in [`packages/core/src/utils/serialization/`](../packages/co
 
 [`serializationHelpers.ts`](../packages/core/src/utils/serialization/serializationHelpers.ts) consolidates logic shared between V3 and V4 serializers:
 
-- `serializeConnection` / `deserializeConnection` — convert `NodeConnection` to/from the compact string format
-- `parseVisualData` / `packVisualDataV3` / `packVisualDataV4` — encode/decode node visual data (position, size, colors)
-- `wrapInYamlEnvelope` / `unwrapYamlEnvelope` — standard YAML version-envelope wrapping with validation
+- `serializeConnection` / `deserializeConnection` - convert `NodeConnection` to/from the compact string format
+- `parseVisualData` / `packVisualDataV3` / `packVisualDataV4` - encode/decode node visual data (position, size, colors)
+- `wrapInYamlEnvelope` / `unwrapYamlEnvelope` - standard YAML version-envelope wrapping with validation
 
 Both `serialization_v3.ts` and `serialization_v4.ts` delegate to these shared helpers instead of keeping their own copies.
 

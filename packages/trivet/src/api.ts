@@ -8,7 +8,11 @@ import {
   type GraphOutputNode,
   GptTokenizerTokenizer,
   inferType,
+  logRuntimeDebug,
+  logRuntimeInfo,
+  logRuntimeWarn,
   resolveProcessSettings,
+  summarizePortMapForLog,
 } from '@ironclad/rivet-core';
 import { cloneDeep, keyBy, mapValues, omit } from 'lodash-es';
 import {
@@ -81,11 +85,11 @@ export async function runTrivet(opts: TrivetOpts): Promise<TrivetResults> {
     const testGraph = graphsById[testSuite.testGraph];
     const validationGraph = graphsById[testSuite.validationGraph];
     if (testGraph === undefined) {
-      console.error('Missing test graph; skipping', testSuite.testGraph);
+      logRuntimeWarn('Missing Trivet test graph; skipping.', { testGraphId: testSuite.testGraph });
       continue;
     }
     if (validationGraph === undefined) {
-      console.error('Missing validation graph; skipping', testSuite.validationGraph);
+      logRuntimeWarn('Missing Trivet validation graph; skipping.', { validationGraphId: testSuite.validationGraph });
       continue;
     }
 
@@ -122,7 +126,19 @@ export async function runTrivet(opts: TrivetOpts): Promise<TrivetResults> {
           const costOutput = outputs.cost;
           const cost = costOutput && costOutput.type === 'number' ? costOutput.value : 0;
 
-          console.log('ran test graph', outputs);
+          logRuntimeInfo('Ran Trivet test graph', {
+            testSuiteId: testSuite.id,
+            testCaseId: testCase.id,
+            iteration: i + 1,
+            duration,
+            outputCount: Object.keys(outputs).length,
+          });
+          logRuntimeDebug('Trivet test graph output summary', {
+            testSuiteId: testSuite.id,
+            testCaseId: testCase.id,
+            iteration: i + 1,
+            outputs: summarizePortMapForLog(outputs),
+          });
 
           const validationInputs: Record<string, DataValue> = {
             input: {
@@ -139,7 +155,18 @@ export async function runTrivet(opts: TrivetOpts): Promise<TrivetResults> {
             },
           };
 
-          console.log('running validation graph', validationInputs);
+          logRuntimeInfo('Running Trivet validation graph', {
+            testSuiteId: testSuite.id,
+            testCaseId: testCase.id,
+            iteration: i + 1,
+            inputCount: Object.keys(validationInputs).length,
+          });
+          logRuntimeDebug('Trivet validation input summary', {
+            testSuiteId: testSuite.id,
+            testCaseId: testCase.id,
+            iteration: i + 1,
+            inputs: summarizePortMapForLog(validationInputs),
+          });
 
           const validationOutputs = omit(
             await runGraph(project, validationGraph.metadata!.id!, validationInputs),

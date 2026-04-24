@@ -43,6 +43,7 @@ import { getInputOrData, cleanHeaders } from '../../../utils/inputs.js';
 import { coercePromptToChatMessages } from '../../../model/chat/chatMessages.js';
 import { clampMaxTokensToModelLimit, setRequestAndResponseTokenOutputs } from '../../../model/chat/tokenBudget.js';
 import { createAssistantMessagesOutput } from '../../../model/chat/streamChatResponse.js';
+import { logRuntimeDebug, summarizeErrorForLog } from '../../../utils/runtimeLogging.js';
 
 export type ChatAnthropicNode = ChartNode<'chatAnthropic', ChatAnthropicNodeData>;
 
@@ -595,7 +596,10 @@ export const ChatAnthropicNodeImpl: PluginNodeImpl<ChatAnthropicNode> = {
                       const parsedJson = JSON.parse(accumulatedJsonString);
                       currentToolCall.input = parsedJson;
                     } catch (e) {
-                      console.warn('Failed to parse tool call JSON input:', accumulatedJsonString);
+                      logRuntimeDebug('Failed to parse Anthropic tool call JSON input', {
+                        accumulatedJsonLength: accumulatedJsonString.length,
+                        error: summarizeErrorForLog(e),
+                      });
                     }
                   }
 

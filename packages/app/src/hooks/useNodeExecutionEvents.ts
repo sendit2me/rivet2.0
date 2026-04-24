@@ -81,7 +81,7 @@ export function useNodeExecutionEvents({
       channel: 'output',
       splitIndex: node.isSplitRun ? index : undefined,
     });
-    let refIdsToDelete: string[] = [];
+    const refIdsToDelete: string[] = [];
 
     if (node.isSplitRun) {
       setLastRunData((prev) =>
@@ -126,7 +126,7 @@ export function useNodeExecutionEvents({
   };
 
   const onNodeOutputsCleared = ({ node, processId, execution }: ProcessEvents['nodeOutputsCleared']) => {
-    let refIdsToDelete: string[] = [];
+    const refIdsToDelete: string[] = [];
 
     setLastRunData((prev) =>
       produce(prev, (draft) => {

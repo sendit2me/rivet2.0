@@ -10,7 +10,7 @@ import {
   type NodeRunData,
   type NodeRunDataWithRefs,
   lastRunDataByNodeState,
-  selectedProcessPageNodesState
+  selectedProcessPageNodesState,
 } from '../state/dataFlow';
 import { previousDataPerNodeToKeepState } from '../state/settings';
 import { trivetTestsRunningState } from '../state/trivet';
@@ -61,7 +61,7 @@ export function useExecutionDataFlow(): ExecutionDataFlowApi {
       nodeId,
       processId,
     });
-    let refIdsToDelete: string[] = [];
+    const refIdsToDelete: string[] = [];
 
     setLastRunData((prev) =>
       produce(prev, (draft) => {
@@ -117,9 +117,7 @@ export function useExecutionDataFlow(): ExecutionDataFlowApi {
     const view = currentGraphViewLatest.current;
     const selectionByView = selectedGraphRunByViewLatest.current;
     const shouldFollowLatest =
-      view != null &&
-      execution?.graphId === view.graphId &&
-      (selectionByView[view.key] ?? 'latest') === 'latest';
+      view != null && execution?.graphId === view.graphId && (selectionByView[view.key] ?? 'latest') === 'latest';
 
     if (!shouldFollowLatest) {
       return;

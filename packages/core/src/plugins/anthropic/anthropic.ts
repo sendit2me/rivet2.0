@@ -1,4 +1,5 @@
 import fetchEventSource from './fetchEventSource.js';
+import { parseProviderJsonChunk } from '../../utils/providerStreamParsing.js';
 
 export type AnthropicModel = {
   maxTokens: number;
@@ -383,13 +384,7 @@ export async function* streamChatCompletions({
       continue;
     }
 
-    let data: ChatCompletionChunk;
-    try {
-      data = JSON.parse(chunk);
-    } catch (err) {
-      console.error('JSON parse failed on chunk: ', chunk);
-      throw err;
-    }
+    const data = parseProviderJsonChunk<ChatCompletionChunk>('Anthropic completions', chunk);
 
     yield data;
   }
@@ -472,13 +467,7 @@ export async function* streamMessageApi({
       continue;
     }
 
-    let data: ChatMessageChunk;
-    try {
-      data = JSON.parse(chunk);
-    } catch (err) {
-      console.error('JSON parse failed on chunk: ', chunk);
-      throw err;
-    }
+    const data = parseProviderJsonChunk<ChatMessageChunk>('Anthropic messages', chunk);
 
     yield data;
   }

@@ -5,14 +5,13 @@ import LeftIcon from 'majesticons/line/chevron-left-line.svg?react';
 import RightIcon from 'majesticons/line/chevron-right-line.svg?react';
 import CrossIcon from 'majesticons/line/multiply-line.svg?react';
 import { useAtom, useAtomValue } from 'jotai';
-import { goToSearchState, searchingGraphState } from '../state/graphBuilder';
+import { goToSearchState, searchingGraphState, sidebarOpenState } from '../state/graphBuilder';
 import { Tooltip } from './Tooltip';
 import { useSearchProject, type FuseResultMatch, type SearchedItem, type RangeTuple } from '../hooks/useSearchProject';
 import { projectState } from '../state/savedGraphs';
 import clsx from 'clsx';
 import { useGoToNode } from '../hooks/useGoToNode';
 import { type NodeId } from '@ironclad/rivet-core';
-import { sidebarOpenState } from '../state/graphBuilder';
 
 const styles = css`
   position: fixed;

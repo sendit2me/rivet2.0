@@ -1,10 +1,7 @@
 import { useEffect } from 'react';
 import { nanoid } from 'nanoid/non-secure';
 import { atom, useAtom, useAtomValue } from 'jotai';
-import {
-  promptDesignerAttachedChatNodeState,
-  promptDesignerConfigurationState,
-} from '../../state/promptDesigner.js';
+import { promptDesignerAttachedChatNodeState, promptDesignerConfigurationState } from '../../state/promptDesigner.js';
 import { nodesByIdState, nodesState } from '../../state/graph.js';
 import { lastRunDataByNodeState } from '../../state/dataFlow.js';
 import {
@@ -97,6 +94,7 @@ export const usePromptDesignerAttachedNode = ({
   }, [
     attachedNode,
     attachedNodeId,
+    dataRefs,
     lastPromptDesignerAttachedNode,
     nodeOutput,
     setConfig,
@@ -116,7 +114,9 @@ export const usePromptDesignerAttachedNode = ({
 
     attachedNodeChanged({
       ...attachedNode,
-      tests: (attachedNode.tests ?? []).map((testGroup, testGroupIndex) => (testGroupIndex === index ? newTestGroup : testGroup)),
+      tests: (attachedNode.tests ?? []).map((testGroup, testGroupIndex) =>
+        testGroupIndex === index ? newTestGroup : testGroup,
+      ),
     });
   };
 

@@ -9,6 +9,9 @@ import {
   type GraphId,
   type ProcessEvents,
   GptTokenizerTokenizer,
+  logRuntimeDebug,
+  logRuntimeError,
+  logRuntimeInfo,
 } from '@ironclad/rivet-core';
 import { produce } from 'immer';
 import { useRef } from 'react';
@@ -48,7 +51,7 @@ import { getDependentDataForNodeForPreload } from './remoteExecutorHelpers.js';
  * messages (macrotasks), giving the browser natural repaint opportunities.
  *
  * `MessageChannel` posts a macrotask with near-zero latency (unlike
- * `setTimeout(0)` which has a ≥4 ms minimum).  By returning a Promise that
+ * `setTimeout(0)` which has a >=4 ms minimum).  By returning a Promise that
  * resolves on the next macrotask, any `await yieldToMacrotask()` inside an
  * Emittery listener pauses the GraphProcessor (which `await`s the `emit()`
  * call), lets React flush and the browser repaint, then resumes processing.
@@ -122,7 +125,7 @@ export function useLocalExecutor() {
     });
     processor.on('graphFinish', currentExecution.onGraphFinish);
     processor.on('nodeOutputsCleared', currentExecution.onNodeOutputsCleared);
-    processor.on('trace', (log) => console.log(log));
+    processor.on('trace', (trace) => logRuntimeDebug('Local graph trace', { trace }));
     processor.on('pause', currentExecution.onPause);
     processor.on('resume', currentExecution.onResume);
     processor.on('error', currentExecution.onError);
@@ -222,7 +225,7 @@ export function useLocalExecutor() {
           setLastRecordingState(recorder.serialize());
         }
       } catch (e) {
-        console.log(e);
+        logRuntimeError('Local graph run failed.', e);
       }
     },
   );
@@ -232,7 +235,11 @@ export function useLocalExecutor() {
       toast.info(
         (options.iterationCount ?? 1) > 1 ? `Running Tests (${options.iterationCount!} iterations)` : 'Running Tests',
       );
-      console.log(`trying to run tests`);
+      logRuntimeInfo('Running local Trivet tests', {
+        selectedTestSuiteCount: options.testSuiteIds?.length,
+        selectedTestCaseCount: options.testCaseIds?.length,
+        iterationCount: options.iterationCount ?? 1,
+      });
       currentExecution.onTrivetStart();
 
       setTrivetState((s) => ({
@@ -290,7 +297,11 @@ export function useLocalExecutor() {
             result.testSuiteResults.filter((t) => t.passing).length
           } passing`,
         );
-        console.log(result);
+        logRuntimeInfo('Finished local Trivet tests', {
+          testSuiteCount: result.testSuiteResults.length,
+          passingTestSuiteCount: result.testSuiteResults.filter((testSuite) => testSuite.passing).length,
+          iterationCount: result.iterationCount,
+        });
       } catch (e) {
         setTrivetState((s) => ({
           ...s,

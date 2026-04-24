@@ -1081,7 +1081,7 @@ Current sequence:
 1. read plugin specs from `projectPluginsState`
 2. seed `pluginsState` with one loading entry per spec
 3. start a generation-tracked async load pass so stale completions from an older plugin set cannot overwrite the current UI state or active project registry
-4. call `assembleRegistry(specs, loadPlugin)` from core's `RegistryAssembly.ts` — this creates a fresh built-in registry and loads each plugin via a caller-provided loader
+4. call `assembleRegistry(specs, loadPlugin)` from core's `RegistryAssembly.ts`; this creates a fresh built-in registry and loads each plugin via a caller-provided loader
 5. mark per-plugin success/failure in app plugin state as results arrive
 6. ignore the finished result completely if a newer generation has superseded it
 7. show aggregated failure toasts for the active generation

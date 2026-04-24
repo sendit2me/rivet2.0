@@ -107,14 +107,12 @@ export const LLMChatV2ModelCatalogEditor: FC<Props> = ({ node, isReadonly, isDis
           message: `Loaded ${result.options.length} models from ${provider}.`,
         });
       } else {
-        updateStatus(
-          {
-            tone: 'warning',
-            message: `Using built-in ${provider} model list (${result.options.length}). ${
-              getMissingCredentialMessage(provider, resolvedSettings) ?? result.error ?? 'API fetch failed.'
-            }`,
-          },
-        );
+        updateStatus({
+          tone: 'warning',
+          message: `Using built-in ${provider} model list (${result.options.length}). ${
+            getMissingCredentialMessage(provider, resolvedSettings) ?? result.error ?? 'API fetch failed.'
+          }`,
+        });
       }
       onRefreshEditors?.();
     } catch (error) {
@@ -128,13 +126,11 @@ export const LLMChatV2ModelCatalogEditor: FC<Props> = ({ node, isReadonly, isDis
   return (
     <div css={styles}>
       <div className="actions">
-        <Button appearance="subtle" onClick={handleRefresh} isDisabled={isReadonly || isDisabled}>
+        <Button appearance="subtle" onClick={() => void handleRefresh()} isDisabled={isReadonly || isDisabled}>
           Re-fetch Model List
         </Button>
       </div>
-      {status ? (
-        <div className={`banner ${status.tone}`}>{status.message}</div>
-      ) : null}
+      {status ? <div className={`banner ${status.tone}`}>{status.message}</div> : null}
     </div>
   );
 };

@@ -1,12 +1,20 @@
-import { useEffect, useLayoutEffect, useRef, useState, type Dispatch, type RefObject, type SetStateAction } from 'react';
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type Dispatch,
+  type RefObject,
+  type SetStateAction,
+} from 'react';
 import { useFullscreenOutputSearchContext } from '../nodeOutput/FullscreenOutputSearchContext.js';
 import {
   applyHighlights,
   clearHighlights,
   collectTextNodes,
+  findMatchOffsets,
   PROVIDER_ATTRIBUTE,
 } from '../nodeOutput/fullscreenOutputSearch.js';
-import { findMatchOffsets } from '../nodeOutput/fullscreenOutputSearch.js';
 import { getLargeStoredValueChunkIndexForOffset, type LargeStoredValueChunk } from './largeStoredValueChunks.js';
 
 type ActiveSearchMatch = {

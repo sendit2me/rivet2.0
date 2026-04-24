@@ -1,3 +1,4 @@
+import { logRuntimeDebug } from '@ironclad/rivet-core';
 import { type NativeChildProcess } from '../utils/platform/core.js';
 import { createNativeSidecarCommand } from '../utils/platform/shell.js';
 import { handleError } from '../utils/errorHandling.js';
@@ -36,13 +37,16 @@ export async function startExecutorSidecar(
       const command = await createSidecarCommand('../../app-executor/dist/app-executor');
 
       command.stdout.on('data', (data) => {
-        console.log('sidecar stdout', data);
+        logRuntimeDebug('Executor sidecar stdout', { byteLength: String(data).length });
       });
 
       command.stderr.on('data', (data) => {
-        handleError(new Error(String(data)), 'Executor sidecar stderr', {
+        const byteLength = String(data).length;
+        logRuntimeDebug('Executor sidecar stderr', { byteLength });
+        handleError(new Error('Executor sidecar emitted stderr output'), 'Executor sidecar stderr', {
           metadata: {
             consumerCount: runtime.consumerCount,
+            byteLength,
           },
           toastError: false,
         });

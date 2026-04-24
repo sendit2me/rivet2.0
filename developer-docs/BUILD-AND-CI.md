@@ -41,10 +41,9 @@ yarn publish-docs
 
 Runs:
 
-1. `yarn workspace @ironclad/rivet-app-executor run build`
-2. `yarn workspace @ironclad/rivet-app run dev`
+1. `yarn workspace @ironclad/rivet-app run dev`
 
-This means repo-level app development depends on the sidecar being built first.
+That app dev script performs a Windows-only cleanup of stale copied `app-executor.exe` sidecars, then launches `tauri dev`. The Tauri dev command itself runs `yarn prepare:tauri && yarn start` through `beforeDevCommand`, so the Node sidecar is rebuilt before the desktop app starts.
 
 ### `yarn build`
 
@@ -120,12 +119,12 @@ Runs:
 
 The CJS bundle (built by `bundle.esbuild.ts`) targets Node 16 and aliases several ESM-only dependencies to older CJS-compatible versions:
 
-| ESM dependency | CJS alias        | Reason                         |
-|----------------|------------------|--------------------------------|
-| `lodash-es`    | `lodash`         | lodash-es is ESM-only          |
-| `p-queue`      | `p-queue-6`      | p-queue v7+ is ESM-only        |
-| `emittery`     | `emittery-0-13`  | emittery v1+ is ESM-only       |
-| `p-retry`      | `p-retry-4`      | p-retry v6+ is ESM-only        |
+| ESM dependency | CJS alias       | Reason                   |
+| -------------- | --------------- | ------------------------ |
+| `lodash-es`    | `lodash`        | lodash-es is ESM-only    |
+| `p-queue`      | `p-queue-6`     | p-queue v7+ is ESM-only  |
+| `emittery`     | `emittery-0-13` | emittery v1+ is ESM-only |
+| `p-retry`      | `p-retry-4`     | p-retry v6+ is ESM-only  |
 
 The alias packages are installed via `npm:` aliases in `package.json`. Because the CJS `p-queue` alias wraps the default export differently, [`pQueueCompat.ts`](../packages/core/src/utils/pQueueCompat.ts) normalizes the import at runtime so consumers never need an inline type check.
 
@@ -153,6 +152,24 @@ Current dev/build detail:
 - `packages/app/scripts/dev.mjs` does a Windows-only cleanup pass for stale `src-tauri/target/*/app-executor.exe` processes before launching `tauri dev`, because Tauri's sidecar-copy step fails if a previous dev session left that copied sidecar binary locked
 - `packages/app/src-tauri/tauri.conf.json` now runs `yarn prepare:tauri` before both `beforeDevCommand` and `beforeBuildCommand`, so desktop Node executor runs cannot drift onto an older bundled sidecar when app/core code has changed
 - `packages/app/src-tauri/vendor/` now carries the small vendored Tauri v1 plugin crates (`tauri-plugin-persisted-scope` and `tauri-plugin-window-state`) so Cargo no longer has to parse the upstream `plugins-workspace` template manifest during metadata/check/dev runs
+
+#### pnpm sidecar binaries
+
+The app also tracks `pnpm` sidecar binaries in [`packages/app/sidecars/pnpm`](../packages/app/sidecars/pnpm).
+
+These binaries are currently intentional tracked artifacts because:
+
+- Tauri lists `../sidecars/pnpm/pnpm` in `bundle.externalBin`
+- package-plugin installation starts that pnpm binary through the Tauri sidecar shell API
+- desktop builds should not depend on a user-installed global `pnpm`
+
+Maintenance rules:
+
+- Treat the directory as vendored binary artifacts.
+- Keep [`packages/app/sidecars/pnpm/SHA256SUMS`](../packages/app/sidecars/pnpm/SHA256SUMS) updated whenever the binaries change.
+- Keep [`packages/app/sidecars/pnpm/README.md`](../packages/app/sidecars/pnpm/README.md) updated with version/provenance notes.
+- Keep `.gitattributes` marking the sidecars as binary and vendored.
+- If the release pipeline later gains checksum-verified artifact downloads or Git LFS support, reassess whether these binaries should stay in normal Git history.
 
 ### App executor
 
@@ -289,8 +306,8 @@ Tauri config lives in [`packages/app/src-tauri/tauri.conf.json`](../packages/app
 
 ### Verified current details
 
-- `beforeDevCommand`: `yarn start`
-- `beforeBuildCommand`: `yarn build`
+- `beforeDevCommand`: `yarn prepare:tauri && yarn start`
+- `beforeBuildCommand`: `yarn prepare:tauri && yarn build`
 - `devPath`: `http://localhost:5173`
 - `distDir`: `../dist`
 - package version there: `1.11.3`

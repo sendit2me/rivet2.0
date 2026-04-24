@@ -1,11 +1,4 @@
-import {
-  type KeyboardEvent as ReactKeyboardEvent,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { type KeyboardEvent as ReactKeyboardEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useStableCallback } from '../../hooks/useStableCallback.js';
 import {
   applyHighlights,
@@ -28,9 +21,7 @@ export type FullscreenOutputSearchContentKey = {
   selectedPage: number | 'latest';
 };
 
-export function useFullscreenOutputSearch(args: {
-  contentKey: FullscreenOutputSearchContentKey;
-}) {
+export function useFullscreenOutputSearch(args: { contentKey: FullscreenOutputSearchContentKey }) {
   const { contentKey } = args;
 
   const [query, setQuery] = useState('');
@@ -195,7 +186,9 @@ export function useFullscreenOutputSearch(args: {
     }
 
     const effectiveCurrentMatchIndex =
-      queryChanged || contentChanged || currentMatchIndex >= matches.length || currentMatchIndex < 0 ? 0 : currentMatchIndex;
+      queryChanged || contentChanged || currentMatchIndex >= matches.length || currentMatchIndex < 0
+        ? 0
+        : currentMatchIndex;
 
     if (effectiveCurrentMatchIndex !== currentMatchIndex) {
       setCurrentMatchIndex(effectiveCurrentMatchIndex);
@@ -230,13 +223,15 @@ export function useFullscreenOutputSearch(args: {
   }, [contentKey, currentMatchIndex, providersVersion, query]);
 
   useEffect(() => {
+    const bodyElement = fullscreenOutputBodyRef.current;
+    const providers = providersRef.current;
+
     return () => {
-      const bodyElement = fullscreenOutputBodyRef.current;
       if (bodyElement) {
         clearHighlights(bodyElement);
       }
 
-      providersRef.current.forEach((provider) => provider.clearActiveMatch());
+      providers.forEach((provider) => provider.clearActiveMatch());
     };
   }, [fullscreenOutputBodyRef]);
 

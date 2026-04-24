@@ -1,6 +1,8 @@
 - Update the rivet version (at least in the Settings popup)
 
 
+- When the preloader is shown in the node, and the nod eis not hovered, show it in the right side of the node header. Now it is keeping the right side plcase for the gear icon even if it's not showb
+
 - Color a subgraph node to default color
 
 - Parallel runs icon should be more parallel. Maybe move the split-related icons to the area on above the card? Sequenrial - more sequentisl

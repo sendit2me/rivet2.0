@@ -1,4 +1,6 @@
 import {
+  logRuntimeDebug,
+  logRuntimeInfo,
   type NodeId,
   type RemoteRunRequestId,
   type StringArrayDataValue,
@@ -144,7 +146,7 @@ export function useRemoteExecutor() {
           break;
         case 'trace':
           if (shouldDispatchExecutionEvent) {
-            console.log(`remote: ${data}`);
+            logRuntimeDebug('Remote graph trace', { trace: data });
           }
           break;
         case 'pause':
@@ -201,10 +203,7 @@ export function useRemoteExecutor() {
               [graph.metadata!.id!]: graph,
             },
           },
-          settings: await fillMissingSettingsFromEnvironmentVariables(
-            savedSettings,
-            projectNodeRegistry.getPlugins(),
-          ),
+          settings: await fillMissingSettingsFromEnvironmentVariables(savedSettings, projectNodeRegistry.getPlugins()),
         });
 
         for (const [id, dataValue] of Object.entries(projectData ?? {})) {
@@ -217,7 +216,12 @@ export function useRemoteExecutor() {
       activeGraphRequestIdRef.current = requestId;
 
       if (options.from) {
-        const dependencyNodes = getDependencyNodesForRunFrom(project, graph.metadata!.id!, options.from, projectNodeRegistry);
+        const dependencyNodes = getDependencyNodesForRunFrom(
+          project,
+          graph.metadata!.id!,
+          options.from,
+          projectNodeRegistry,
+        );
         const preloadData = getDependentDataForNodeForPreload(dependencyNodes, lastRunData);
 
         remoteDebugger.send('preload', { nodeData: preloadData });
@@ -242,7 +246,11 @@ export function useRemoteExecutor() {
       toast.info(
         (options.iterationCount ?? 1) > 1 ? `Running Tests (${options.iterationCount!} iterations)` : 'Running Tests',
       );
-      console.log('trying to run tests');
+      logRuntimeInfo('Running remote Trivet tests', {
+        selectedTestSuiteCount: options.testSuiteIds?.length,
+        selectedTestCaseCount: options.testCaseIds?.length,
+        iterationCount: options.iterationCount ?? 1,
+      });
       currentExecution.onTrivetStart();
 
       setTrivetState((s) => ({
@@ -299,7 +307,11 @@ export function useRemoteExecutor() {
             result.testSuiteResults.filter((t) => t.passing).length
           } passing`,
         );
-        console.log(result);
+        logRuntimeInfo('Finished remote Trivet tests', {
+          testSuiteCount: result.testSuiteResults.length,
+          passingTestSuiteCount: result.testSuiteResults.filter((testSuite) => testSuite.passing).length,
+          iterationCount: result.iterationCount,
+        });
       } catch (e) {
         setTrivetState((s) => ({
           ...s,
@@ -311,17 +323,17 @@ export function useRemoteExecutor() {
   );
 
   function tryAbortGraph() {
-    console.log('Aborting via remote debugger');
+    logRuntimeInfo('Aborting via remote debugger');
     remoteDebugger.send('abort', undefined);
   }
 
   function tryPauseGraph() {
-    console.log('Pausing via remote debugger');
+    logRuntimeInfo('Pausing via remote debugger');
     remoteDebugger.send('pause', undefined);
   }
 
   function tryResumeGraph() {
-    console.log('Resuming via remote debugger');
+    logRuntimeInfo('Resuming via remote debugger');
     remoteDebugger.send('resume', undefined);
   }
 

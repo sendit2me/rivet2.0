@@ -9,6 +9,7 @@ import {
   type PortId,
   type RootRunId,
   GptTokenizerTokenizer,
+  logRuntimeDebug,
 } from '@ironclad/rivet-core';
 import { useCallback } from 'react';
 import { fillMissingSettingsFromEnvironmentVariables } from '../utils/tauri';
@@ -65,7 +66,7 @@ export function useGetAdHocInternalProcessContext() {
         raiseEvent: undefined!,
         setGlobal: undefined!,
         signal: options?.signal ?? new AbortController().signal,
-        trace: (value: string) => console.log(value),
+        trace: (trace: string) => logRuntimeDebug('Ad-hoc process trace', { trace }),
         waitEvent: undefined!,
         waitForGlobal: undefined!,
         onPartialOutputs: (outputs: Outputs) => {

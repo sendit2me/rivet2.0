@@ -164,6 +164,18 @@ Contains:
 - `package`
 - `tag`
 
+### Package plugin installation sidecar
+
+The desktop app installs package plugins with a bundled pnpm sidecar, not with a user-installed global `pnpm`.
+
+Relevant files:
+
+- `packages/app/src/hooks/useLoadPackagePlugin.ts`
+- `packages/app/src-tauri/tauri.conf.json`
+- `packages/app/sidecars/pnpm/`
+
+The sidecar policy is documented in [`BUILD-AND-CI.md`](./BUILD-AND-CI.md) and in [`packages/app/sidecars/pnpm/README.md`](../packages/app/sidecars/pnpm/README.md). If package-plugin loading changes, keep that sidecar contract and checksum metadata in sync.
+
 ## Built-In Plugins
 
 Built-in plugins are exported from core and currently include:

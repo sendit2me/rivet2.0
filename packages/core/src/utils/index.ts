@@ -13,3 +13,5 @@ export * from './handleEscapeCharacters.js';
 export * from './compatibility.js';
 export * from './defaults.js';
 export * from './orderedStringPortIds.js';
+export * from './runtimeLogging.js';
+export * from './providerStreamParsing.js';

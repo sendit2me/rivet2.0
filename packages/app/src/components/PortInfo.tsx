@@ -1,11 +1,6 @@
 import Portal from '@atlaskit/portal';
 import { css } from '@emotion/react';
-import {
-  type NodeId,
-  type NodeInputDefinition,
-  type NodeOutputDefinition,
-  type PortId,
-} from '@ironclad/rivet-core';
+import { type NodeId, type NodeInputDefinition, type NodeOutputDefinition, type PortId } from '@ironclad/rivet-core';
 import { type CSSProperties, forwardRef, useMemo } from 'react';
 import { useAtomValue } from 'jotai';
 import { draggingWireState } from '../state/graphBuilder';
@@ -120,6 +115,24 @@ export const PortInfo = forwardRef<
     return null;
   }
 
+  return <PortInfoContent port={port} definition={definition} floatingStyles={floatingStyles} ref={ref} />;
+});
+
+PortInfo.displayName = 'PortInfo';
+
+const PortInfoContent = forwardRef<
+  HTMLDivElement,
+  {
+    port: {
+      nodeId: NodeId;
+      isInput: boolean;
+      portId: PortId;
+      definition: NodeInputDefinition | NodeOutputDefinition;
+    };
+    definition: NodeInputDefinition | NodeOutputDefinition;
+    floatingStyles: CSSProperties;
+  }
+>(({ port, definition, floatingStyles }, ref) => {
   const { dataType, title, description, id } = definition;
 
   const lastRun = useAtomValue(lastRunDataState(port.nodeId));
@@ -212,8 +225,8 @@ export const PortInfo = forwardRef<
         )}
         {incompatible && (
           <div className="incompatible">
-            Your data of type <code>{draggingDataTypeDisplay}</code> is incompatible with{' '}
-            <code>{dataTypeDisplay}</code>. You may still connect it, but your graph may error.
+            Your data of type <code>{draggingDataTypeDisplay}</code> is incompatible with <code>{dataTypeDisplay}</code>
+            . You may still connect it, but your graph may error.
           </div>
         )}
         {didNotRun && port.isInput && (
@@ -235,4 +248,4 @@ export const PortInfo = forwardRef<
   );
 });
 
-PortInfo.displayName = 'PortInfo';
+PortInfoContent.displayName = 'PortInfoContent';

@@ -1,6 +1,5 @@
-import type { NativeCommand } from './core.js';
+import type { CommandLike, NativeCommand } from './core.js';
 import { isInTauri, unsupported } from './core.js';
-import type { CommandLike } from './core.js';
 
 export async function openExternalUrl(url: string): Promise<void> {
   if (!isInTauri()) {

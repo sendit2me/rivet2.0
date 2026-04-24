@@ -8,7 +8,15 @@ import {
   NodeProjectReferenceLoader,
 } from '@ironclad/rivet-node';
 import * as Rivet from '@ironclad/rivet-core';
-import { type RivetPluginInitializer, type PluginLoadSpec } from '@ironclad/rivet-core';
+import {
+  logRuntimeDebug,
+  logRuntimeError,
+  logRuntimeInfo,
+  logRuntimeWarn,
+  summarizePortMapForLog,
+  type RivetPluginInitializer,
+  type PluginLoadSpec,
+} from '@ironclad/rivet-core';
 import { match } from 'ts-pattern';
 import { join } from 'node:path';
 import { access, readFile } from 'node:fs/promises';
@@ -23,8 +31,13 @@ const datasetProvider = new DebuggerDatasetProvider();
  * extra `{ default: ... }` layer depending on the module format of the target.
  */
 async function importPluginInitializer(specifier: string, pluginId: string): Promise<RivetPluginInitializer> {
-  const imported = (await import(specifier)) as { default: RivetPluginInitializer | { default: RivetPluginInitializer } };
-  const mod = typeof imported.default === 'function' ? imported.default : (imported.default as { default: RivetPluginInitializer }).default;
+  const imported = (await import(specifier)) as {
+    default: RivetPluginInitializer | { default: RivetPluginInitializer };
+  };
+  const mod =
+    typeof imported.default === 'function'
+      ? imported.default
+      : (imported.default as { default: RivetPluginInitializer }).default;
   if (typeof mod !== 'function') {
     throw new Error(`Plugin ${pluginId} does not export a valid initializer function`);
   }
@@ -82,61 +95,69 @@ const rivetDebugger = startDebuggerServer({
   allowGraphUpload: true,
   datasetProvider,
   dynamicGraphRun: async ({ requestId, graphId, inputs, runToNodeIds, contextValues, runFromNodeId, projectPath }) => {
-    console.log(`Running graph ${graphId} with inputs:`, inputs);
+    logRuntimeInfo(`Running graph ${graphId}`, {
+      requestId,
+      inputCount: Object.keys(inputs ?? {}).length,
+      runToNodeCount: runToNodeIds?.length ?? 0,
+      hasRunFromNode: runFromNodeId != null,
+      contextValueCount: Object.keys(contextValues ?? {}).length,
+      hasProjectPath: projectPath != null,
+    });
+    logRuntimeDebug('Graph input summary', {
+      requestId,
+      inputs: summarizePortMapForLog(inputs),
+    });
 
     const project = currentDebuggerState.uploadedProject;
 
     if (project === undefined) {
-      console.warn(`Cannot run graph ${graphId} because no project is uploaded.`);
+      logRuntimeWarn(`Cannot run graph ${graphId} because no project is uploaded.`);
       return;
     }
 
-    const { registry, results } = await assembleRegistry(
-      project.plugins ?? [],
-      async (spec: PluginLoadSpec) => {
-        return match(spec)
-          .with({ type: 'built-in' }, async (s) => resolveBuiltInPlugin(s.id))
-          .with({ type: 'uri' }, async (s) => {
-            const mod = await importPluginInitializer(s.uri, s.id);
-            const initialized = mod(Rivet);
-            if (!initialized?.id) {
-              throw new Error(`Plugin ${s.id} does not have an id`);
-            }
-            return initialized;
-          })
-          .with({ type: 'package' }, async (s) => {
-            const localDataDir = getAppDataLocalPath();
-            const pluginDir = join(localDataDir, `plugins/${s.package}-${s.tag}/package`);
-            const packageJsonPath = join(pluginDir, 'package.json');
+    const { registry, results } = await assembleRegistry(project.plugins ?? [], async (spec: PluginLoadSpec) => {
+      return match(spec)
+        .with({ type: 'built-in' }, async (s) => resolveBuiltInPlugin(s.id))
+        .with({ type: 'uri' }, async (s) => {
+          const mod = await importPluginInitializer(s.uri, s.id);
+          const initialized = mod(Rivet);
+          if (!initialized?.id) {
+            throw new Error(`Plugin ${s.id} does not have an id`);
+          }
+          return initialized;
+        })
+        .with({ type: 'package' }, async (s) => {
+          const localDataDir = getAppDataLocalPath();
+          const pluginDir = join(localDataDir, `plugins/${s.package}-${s.tag}/package`);
+          const packageJsonPath = join(pluginDir, 'package.json');
 
-            try {
-              await access(packageJsonPath);
-            } catch (err) {
-              throw new Error(`Plugin ${s.id} is not installed, could not access ${packageJsonPath}`);
-            }
+          try {
+            await access(packageJsonPath);
+          } catch (err) {
+            throw new Error(`Plugin ${s.id} is not installed, could not access ${packageJsonPath}`);
+          }
 
-            const packageJson = JSON.parse(await readFile(packageJsonPath, 'utf-8'));
-            if (packageJson.name !== s.package) {
-              throw new Error(`Plugin ${s.id} is not installed, found ${packageJson.name} instead of ${s.package}`);
-            }
+          const packageJson = JSON.parse(await readFile(packageJsonPath, 'utf-8'));
+          if (packageJson.name !== s.package) {
+            throw new Error(`Plugin ${s.id} is not installed, found ${packageJson.name} instead of ${s.package}`);
+          }
 
-            const mainPath = join(pluginDir, packageJson.main);
-            const mod = await importPluginInitializer(pathToFileURL(mainPath).href, s.id);
-            const initialized = mod(Rivet);
-            if (!initialized?.id) {
-              throw new Error(`Plugin ${s.id} does not have an id`);
-            }
-            return initialized;
-          })
-          .exhaustive();
-      },
-    );
+          const mainPath = join(pluginDir, packageJson.main);
+          const mod = await importPluginInitializer(pathToFileURL(mainPath).href, s.id);
+          const initialized = mod(Rivet);
+          if (!initialized?.id) {
+            throw new Error(`Plugin ${s.id} does not have an id`);
+          }
+          return initialized;
+        })
+        .exhaustive();
+    });
 
     for (const plugin of results.loaded) {
-      console.log(`Enabled plugin ${plugin.id}.`);
+      logRuntimeInfo(`Enabled plugin ${plugin.id}.`);
     }
     for (const fail of results.failed) {
-      console.error(`Failed to enable plugin ${fail.id}: ${fail.error}`);
+      logRuntimeError(`Failed to enable plugin ${fail.id}.`, fail.error);
     }
 
     try {
@@ -149,7 +170,7 @@ const rivetDebugger = startDebuggerServer({
         registry,
         datasetProvider,
         onTrace: (trace) => {
-          console.log(trace);
+          logRuntimeDebug('Graph trace', { trace });
         },
         context: contextValues,
         projectPath,
@@ -166,7 +187,7 @@ const rivetDebugger = startDebuggerServer({
 
       await processor.run();
     } catch (err) {
-      console.error(err);
+      logRuntimeError(`Graph ${graphId} failed.`, err, { requestId });
       throw err;
     }
   },
@@ -176,4 +197,4 @@ process.on('SIGTERM', () => {
   rivetDebugger.webSocketServer.close();
 });
 
-console.log(`Node.js executor started on port ${port}.`);
+logRuntimeInfo(`Node.js executor started on port ${port}.`);

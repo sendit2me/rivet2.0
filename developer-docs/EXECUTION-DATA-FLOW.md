@@ -35,8 +35,8 @@ Each of these is a different **graph view**. The app tracks views through `Graph
 // packages/app/src/domain/graphEditing/navigationActions.ts
 
 type GraphViewContext = {
-  key: GraphViewKey;      // Unique string identifier
-  graphId: GraphId;       // Which graph definition
+  key: GraphViewKey; // Unique string identifier
+  graphId: GraphId; // Which graph definition
   parent?: {
     parentGraphId: GraphId;
     parentNodeId: NodeId;
@@ -46,10 +46,10 @@ type GraphViewContext = {
 
 ### Key formats
 
-| Context | Key format | `parent` |
-|---------|-----------|----------|
-| Root graph | `root:${graphId}` | `undefined` |
-| Subgraph | `subgraph:${parentGraphId}:${parentNodeId}:${graphId}` | `{ parentGraphId, parentNodeId }` |
+| Context    | Key format                                             | `parent`                          |
+| ---------- | ------------------------------------------------------ | --------------------------------- |
+| Root graph | `root:${graphId}`                                      | `undefined`                       |
+| Subgraph   | `subgraph:${parentGraphId}:${parentNodeId}:${graphId}` | `{ parentGraphId, parentNodeId }` |
 
 This distinction matters because execution data is **stored by the key that the
 execution engine computes** (always a subgraph key when the graph runs as a subgraph),
@@ -69,10 +69,10 @@ that includes an `executor` field:
 // packages/core/src/model/ProcessContext.ts
 
 type SubgraphExecutorMetadata = {
-  nodeId: NodeId;           // The subgraph node that invoked this
-  parentGraphId: GraphId;   // The parent graph
+  nodeId: NodeId; // The subgraph node that invoked this
+  parentGraphId: GraphId; // The parent graph
   processId: ProcessId;
-  splitIndex?: number;      // For split-run: which iteration
+  splitIndex?: number; // For split-run: which iteration
 };
 
 type GraphExecutionMetadata = {
@@ -97,7 +97,7 @@ The app converts this metadata into a `GraphViewKey` via `buildGraphViewKeyFromE
 
 This key is used to store **graph run records** in `graphRunHistoryByViewState[key]`.
 
-Per-node data (`ProcessDataForNode`) is tagged with `graphRunId` only — not with
+Per-node data (`ProcessDataForNode`) is tagged with `graphRunId` only, not with
 `graphViewKey`. The filtering pipeline uses the resolved `graphRunId` from the run
 switcher to select the correct node data for display.
 
@@ -105,12 +105,12 @@ switcher to select the correct node data for display.
 
 The user can navigate to a graph in two broad ways:
 
-1. **Sidebar click / Go to Node / most navigation paths**: Creates `createRootGraphViewContext(graphId)` → key is `root:${graphId}`.
+1. **Sidebar click / Go to Node / most navigation paths**: Creates `createRootGraphViewContext(graphId)`; key is `root:${graphId}`.
 
 2. **Direct Subgraph node navigation**: The Subgraph node header link and
    `"Go to subgraph"` context-menu action both flow through
    `useGoToSubgraphNode(...)`. They create
-   `createSubgraphGraphViewContext(...)` → key is
+   `createSubgraphGraphViewContext(...)`; key is
    `subgraph:${parentGraphId}:${nodeId}:${graphId}`.
 
 Only path (2) produces a key that matches the execution-stored key. Path (1) produces
@@ -122,7 +122,7 @@ If the user navigates to a subgraph via the sidebar after execution:
 
 - `currentGraphView.key` = `root:${subgraphId}`
 - Execution data is stored under `subgraph:${parentId}:${nodeId}:${subgraphId}`
-- Direct lookup finds nothing → no run switcher, no node data displayed
+- Direct lookup finds nothing, so no run switcher or node data is displayed
 
 ### How this is solved
 
@@ -148,31 +148,31 @@ after execution).
 
 ```
 User clicks "Run" on main graph
-└─ GraphProcessor created
-   ├─ rootRunId = nanoid()        // Shared across entire execution tree
-   ├─ graphRunId = nanoid()       // This processor's unique run ID
-   ├─ graphId = main graph ID
-   └─ executor = undefined        // This is the root
-      │
-      ├─ Subgraph node executes
-      │  └─ #createSubProcessor()
-      │     ├─ rootRunId = inherited from parent
-      │     ├─ graphRunId = nanoid()       // Fresh ID for this subgraph run
-      │     ├─ graphId = subgraph ID
-      │     ├─ parentGraphRunId = parent's graphRunId
-      │     └─ executor = {
-      │          nodeId: subgraph node ID,
-      │          parentGraphId: parent graph ID,
-      │          processId: ...,
-      │          splitIndex: 0              // If split-run
-      │        }
-      │
-      └─ Same subgraph node, split iteration 2
-         └─ #createSubProcessor()
-            ├─ rootRunId = same as above
-            ├─ graphRunId = nanoid()       // Different from iteration 1
-            ├─ parentGraphRunId = same parent
-            └─ executor.splitIndex = 1
+`- GraphProcessor created
+   |- rootRunId = nanoid()        // Shared across entire execution tree
+   |- graphRunId = nanoid()       // This processor's unique run ID
+   |- graphId = main graph ID
+   `- executor = undefined        // This is the root
+      |
+      |- Subgraph node executes
+      |  `- #createSubProcessor()
+      |     |- rootRunId = inherited from parent
+      |     |- graphRunId = nanoid()       // Fresh ID for this subgraph run
+      |     |- graphId = subgraph ID
+      |     |- parentGraphRunId = parent's graphRunId
+      |     `- executor = {
+      |          nodeId: subgraph node ID,
+      |          parentGraphId: parent graph ID,
+      |          processId: ...,
+      |          splitIndex: 0              // If split-run
+      |        }
+      |
+      `- Same subgraph node, split iteration 2
+         `- #createSubProcessor()
+            |- rootRunId = same as above
+            |- graphRunId = nanoid()       // Different from iteration 1
+            |- parentGraphRunId = same parent
+            `- executor.splitIndex = 1
 ```
 
 ### How events flow
@@ -189,11 +189,11 @@ execution tree, all with correct lineage metadata.
 
 ```
 SubProcessor emits nodeStart({ execution: { graphRunId: "child-run", ... } })
-  └─ wireSubprocessorEvents forwards to parentEmitter
-     └─ parentEmitter.emit('nodeStart', same event)
-        └─ App handler: onNodeStart(event)
-           └─ setDataForNode(nodeId, processId, event.execution, data)
-              └─ Stores with graphRunId from event.execution
+  `- wireSubprocessorEvents forwards to parentEmitter
+     `- parentEmitter.emit('nodeStart', same event)
+        `- App handler: onNodeStart(event)
+           `- setDataForNode(nodeId, processId, event.execution, data)
+              `- Stores with graphRunId from event.execution
 ```
 
 For **local execution** (`useLocalExecutor`), events are received directly on the
@@ -313,13 +313,13 @@ When rendering node output or execution status, the app filters the node's
 
 ```
 All ProcessDataForNode[] for this node
-  │
-  ├─ Stage 1: Filter by selected graphRunId
-  │  Match: process.graphRunId === resolvedSelectedGraphRunId
-  │  OR process.graphRunId is null (legacy/untagged data)
-  │  Falls back to showing all data if no match.
-  │
-  └─ Stage 2: Page selection
+  |
+  |- Stage 1: Filter by selected graphRunId
+  |  Match: process.graphRunId === resolvedSelectedGraphRunId
+  |  OR process.graphRunId is null (legacy/untagged data)
+  |  Falls back to showing all data if no match.
+  |
+  `- Stage 2: Page selection
      Pick entry by page index or 'latest'.
 ```
 
@@ -357,6 +357,7 @@ if (!currentGraphView || graphRuns.length <= 1) {
 ```
 
 The run switcher updates `selectedGraphRunByViewState[currentGraphView.key]`:
+
 - Moving to the last run sets selection to `'latest'`.
 - Moving to any other run sets it to a specific `GraphRunId`.
 
@@ -371,7 +372,7 @@ These are related but different concepts:
 - Each iteration's output is stored in `splitOutputData[index]`.
 - The UI shows a pager ("page 1 of N") within the node's output panel.
 - Split-output renderers sort those indexes numerically through `packages/app/src/components/nodeOutput/splitOutputEntries.ts`; do not rely on object-key order or string sorting for display order.
-- This is **not** multiple graph runs — it's one node execution with indexed outputs.
+- This is **not** multiple graph runs; it is one node execution with indexed outputs.
 
 ### Subgraph runs (multiple entries in run history)
 
@@ -387,10 +388,10 @@ When a split-run subgraph node processes an array of 3 items:
 
 ```
 Main graph run (graphRunId: "gr-1")
-  └─ Subgraph node (split-run, 3 iterations)
-     ├─ Iteration 0: subgraph run (graphRunId: "gr-2", splitIndex: 0)
-     ├─ Iteration 1: subgraph run (graphRunId: "gr-3", splitIndex: 1)
-     └─ Iteration 2: subgraph run (graphRunId: "gr-4", splitIndex: 2)
+  `- Subgraph node (split-run, 3 iterations)
+     |- Iteration 0: subgraph run (graphRunId: "gr-2", splitIndex: 0)
+     |- Iteration 1: subgraph run (graphRunId: "gr-3", splitIndex: 1)
+     `- Iteration 2: subgraph run (graphRunId: "gr-4", splitIndex: 2)
 ```
 
 In the main graph view: the subgraph node shows a pager with 3 split outputs.
@@ -419,13 +420,13 @@ currentGraphViewState = atom((get) => {
 
 ### Navigation paths and their view contexts
 
-| Action | View context created | Key format |
-|--------|---------------------|------------|
-| Click graph in sidebar | `createRootGraphViewContext` | `root:${graphId}` |
-| "Go to node" (search) | `createRootGraphViewContext` | `root:${graphId}` |
-| Back/forward browser buttons | Restored from stack | Whatever was stored |
+| Action                                               | View context created             | Key format                              |
+| ---------------------------------------------------- | -------------------------------- | --------------------------------------- |
+| Click graph in sidebar                               | `createRootGraphViewContext`     | `root:${graphId}`                       |
+| "Go to node" (search)                                | `createRootGraphViewContext`     | `root:${graphId}`                       |
+| Back/forward browser buttons                         | Restored from stack              | Whatever was stored                     |
 | Subgraph header link / "Go to subgraph" context menu | `createSubgraphGraphViewContext` | `subgraph:${parent}:${node}:${graphId}` |
-| Load project | `createRootGraphViewContext` | `root:${graphId}` |
+| Load project                                         | `createRootGraphViewContext`     | `root:${graphId}`                       |
 
 The Subgraph header link and the Subgraph node context-menu action are the
 intentional direct Subgraph navigation paths that create a subgraph view
@@ -506,13 +507,13 @@ Persisted app-side execution payloads now share one transform layer before being
 This section documents a critical difference between browser and remote execution
 modes that is invisible from the handler code but determines whether the UI
 updates during execution. **Getting this wrong causes the app to appear frozen
-during browser-mode execution — no running indicators, no dataflow, no progress —
+during browser-mode execution: no running indicators, no dataflow, no progress,
 even though all state updates happen correctly (visible only after execution ends).**
 
 ### The core problem
 
 React 18 batches all `setState` calls and only commits + paints at **macrotask
-boundaries**. The browser's rendering pipeline (style → layout → paint →
+boundaries**. The browser's rendering pipeline (style -> layout -> paint ->
 composite) runs between macrotasks, never in the middle of a microtask chain.
 
 This distinction is irrelevant for remote execution but critical for browser
@@ -525,9 +526,9 @@ In remote/Node execution mode, each event arrives as a separate **WebSocket
 message**. The browser delivers each message as its own macrotask:
 
 ```
-[macrotask] WebSocket message: nodeStart  → setState → React commit → browser paint ✅
-[macrotask] WebSocket message: nodeFinish → setState → React commit → browser paint ✅
-[macrotask] WebSocket message: nodeStart  → setState → React commit → browser paint ✅
+[macrotask] WebSocket message: nodeStart  -> setState -> React commit -> browser paint
+[macrotask] WebSocket message: nodeFinish -> setState -> React commit -> browser paint
+[macrotask] WebSocket message: nodeStart  -> setState -> React commit -> browser paint
 ```
 
 Each event gets its own render cycle automatically. No special handling is needed.
@@ -548,12 +549,12 @@ to repaint until the entire graph execution completes:
 
 ```
 [macrotask] processGraph() starts
-  [microtask] emit nodeStart  → setState (batched, not committed)
-  [microtask] emit nodeFinish → setState (batched, not committed)
-  [microtask] emit nodeStart  → setState (batched, not committed)
+  [microtask] emit nodeStart  -> setState (batched, not committed)
+  [microtask] emit nodeFinish -> setState (batched, not committed)
+  [microtask] emit nodeStart  -> setState (batched, not committed)
   ... hundreds more microtasks ...
-  [microtask] emit done       → setState (batched, not committed)
-[macrotask boundary] → React commits ALL state → browser paints ONCE ❌
+  [microtask] emit done       -> setState (batched, not committed)
+[macrotask boundary] -> React commits ALL state -> browser paints ONCE
 ```
 
 The user sees nothing change until execution is complete, then everything appears
@@ -576,7 +577,7 @@ await this.#emitter.emit('nodeStart', ...);   // processor waits for listeners
 await this.#emitter.emit('nodeFinish', ...);  // processor waits again
 ```
 
-Note: `emitDetached()` (which calls `void emitter.emit()`) is fire-and-forget —
+Note: `emitDetached()` (which calls `void emitter.emit()`) is fire-and-forget:
 the processor continues immediately regardless of what listeners do. With
 `emitDetached`, a listener's `await yieldToMacrotask()` would pause only that
 listener, not the processor. The processor would race ahead, emitting more events
@@ -597,8 +598,8 @@ function yieldToMacrotask(): Promise<void> {
 }
 
 processor.on('nodeStart', async (data) => {
-  currentExecution.onNodeStart(data);    // setState calls (batched by React)
-  await yieldToMacrotask();              // pause → React commits → browser paints
+  currentExecution.onNodeStart(data); // setState calls (batched by React)
+  await yieldToMacrotask(); // pause -> React commits -> browser paints
 });
 ```
 
@@ -613,14 +614,14 @@ macrotask, which means:
 4. The microtask queue drains. The macrotask ends.
 5. **React commits the batched state.** The browser paints.
 6. The `MessageChannel` macrotask fires, resolving the Promise.
-7. The handler resumes → Emittery resumes → the processor continues.
+7. The handler resumes, Emittery resumes, and the processor continues.
 
 ### Why `flushSync` doesn't work
 
 `flushSync` (from `react-dom`) forces React to synchronously commit state, but
 it does **not** trigger a browser repaint. The browser repaint only happens at
 macrotask boundaries. Since Emittery defers listeners to microtasks, even with
-`flushSync` the DOM updates happen but the browser never paints them — the next
+`flushSync` the DOM updates happen but the browser never paints them; the next
 microtask (next event) starts before the browser can composite a frame.
 
 ### Subgraph event propagation
@@ -636,7 +637,7 @@ processor.on('nodeStart', (event) => parentEmitter.emit('nodeStart', event));
 
 Because the child processor `await`s its own `emit()` calls, and those listeners
 return the Promise from `parentEmitter.emit()`, and the parent's listeners yield
-to macrotask — the pause propagates through the entire subprocessor tree. A
+to macrotask, the pause propagates through the entire subprocessor tree. A
 macrotask yield in a top-level handler pauses child processors too.
 
 ### Why only some events yield
@@ -680,7 +681,7 @@ const currentGraphViewLatest = useLatest(currentGraphView);
 const selectedGraphRunByViewLatest = useLatest(selectedGraphRunByView);
 
 const setSelectedNodePageLatest = (nodeId, execution) => {
-  const view = currentGraphViewLatest.current;           // always fresh
+  const view = currentGraphViewLatest.current; // always fresh
   const selectionByView = selectedGraphRunByViewLatest.current; // always fresh
   // ...
 };
@@ -688,7 +689,7 @@ const setSelectedNodePageLatest = (nodeId, execution) => {
 
 This is safe because `setSelectedNodePageLatest` is only called from event
 handlers (microtasks), and React updates refs synchronously during the commit
-phase of the previous render — so by the time a handler reads the ref, it
+phase of the previous render, so by the time a handler reads the ref, it
 reflects the latest committed state.
 
 ### When to use `useLatest` vs direct closure
@@ -711,7 +712,7 @@ with the same data flow behavior as a live run.
 `ExecutionRecorder` subscribes to every event on a `GraphProcessor` (or WebSocket
 channel) and serializes each event into a `RecordedEvents` array. The key detail
 is that **execution metadata is preserved in each recorded event** via the
-`withExecution()` helper — every graph-level and node-level event records its
+`withExecution()` helper; every graph-level and node-level event records its
 `GraphExecutionMetadata` alongside the event data.
 
 ```typescript
@@ -726,12 +727,12 @@ nodeStart: ({ node, inputs, processId, execution }) => withExecution({
 ```
 
 Recorded event types mirror `ProcessEvents` but replace runtime objects with
-serializable identifiers (e.g. `node: ChartNode` → `nodeId: NodeId`,
-`graph: NodeGraph` → `graphId: GraphId`). The full type mapping is in
+serializable identifiers (e.g. `node: ChartNode` -> `nodeId: NodeId`,
+`graph: NodeGraph` -> `graphId: GraphId`). The full type mapping is in
 `RecordedEventsMap` (`RecordedEvents.ts`).
 
 Recordings are serialized to `.rivet-recording` files with asset deduplication
-(Uint8Arrays → base64) and string deduplication (long strings → FNV-1a hash
+(Uint8Arrays -> base64) and string deduplication (long strings -> FNV-1a hash
 references).
 
 ### Replay (`replayExecutionRecording`)
@@ -759,15 +760,12 @@ on their events. `RecordingPlayer` handles this with `getExecution()`:
 const legacyRootRunId = nanoid() as RootRunId;
 const legacyGraphRunsByGraphId = new Map<GraphId, GraphRunId>();
 
-const getExecution = (
-  graphId: GraphId,
-  recordedExecution?: GraphExecutionMetadata,
-): GraphExecutionMetadata => {
+const getExecution = (graphId: GraphId, recordedExecution?: GraphExecutionMetadata): GraphExecutionMetadata => {
   if (recordedExecution) {
-    return recordedExecution;  // New recording — use as-is
+    return recordedExecution; // New recording; use as-is
   }
 
-  // Legacy recording — synthesize consistent IDs per graphId
+  // Legacy recording; synthesize consistent IDs per graphId
   let graphRunId = legacyGraphRunsByGraphId.get(graphId);
   if (!graphRunId) {
     graphRunId = nanoid() as GraphRunId;
@@ -786,18 +784,18 @@ while new recordings use the original metadata verbatim.
 
 All event types relevant to data flow are replayed:
 
-| Event | Effect on app state |
-|-------|-------------------|
-| `start` | Clears history, sets context values and inputs |
-| `graphStart` | Creates `GraphRunRecord` in history |
-| `graphFinish` / `graphError` / `graphAbort` | Updates run record status |
-| `nodeStart` / `nodeFinish` / `nodeError` | Stores per-node execution data |
-| `nodeExcluded` | Stores excluded status |
-| `partialOutput` | Stores streaming/split-run output |
-| `nodeOutputsCleared` | Removes node data entries |
-| `done` | Sets final outputs, marks not running |
-| `userInput` | Replays user input prompt (callback is `undefined`) |
-| `globalSet` | Replays global variable changes |
+| Event                                       | Effect on app state                                 |
+| ------------------------------------------- | --------------------------------------------------- |
+| `start`                                     | Clears history, sets context values and inputs      |
+| `graphStart`                                | Creates `GraphRunRecord` in history                 |
+| `graphFinish` / `graphError` / `graphAbort` | Updates run record status                           |
+| `nodeStart` / `nodeFinish` / `nodeError`    | Stores per-node execution data                      |
+| `nodeExcluded`                              | Stores excluded status                              |
+| `partialOutput`                             | Stores streaming/split-run output                   |
+| `nodeOutputsCleared`                        | Removes node data entries                           |
+| `done`                                      | Sets final outputs, marks not running               |
+| `userInput`                                 | Replays user input prompt (callback is `undefined`) |
+| `globalSet`                                 | Replays global variable changes                     |
 
 Chat nodes get an artificial delay (`recordingPlaybackChatLatency`) during replay
 to simulate streaming behavior.
@@ -809,59 +807,59 @@ to simulate streaming behavior.
 - `includePartialOutputs` (default `false`): Whether to record `partialOutput` events. Excluded by default to reduce recording size.
 - `includeTrace` (default `false`): Whether to record `trace` events.
 
-These same events are simply skipped during recording — replay handles their
+These same events are simply skipped during recording; replay handles their
 absence gracefully since the final `nodeFinish` event contains the complete outputs.
 
 ## File Reference
 
-| File | Role |
-|------|------|
-| [`navigationActions.ts`](../packages/app/src/domain/graphEditing/navigationActions.ts) | `GraphViewContext` types, `createRootGraphViewContext`, `createSubgraphGraphViewContext` |
-| [`executionIdentity.ts`](../packages/app/src/utils/executionIdentity.ts) | `buildGraphViewKeyFromExecution` — converts execution metadata to view key (used only for graph-level events) |
-| [`dataFlow.ts`](../packages/app/src/state/dataFlow.ts) | Core atoms: `currentGraphViewState`, `graphRunHistoryByViewState`, `selectedGraphRunByViewState`, `lastRunDataByNodeState`, `resolvedGraphSelectionState` |
-| [`executionSelectors.ts`](../packages/app/src/state/selectors/executionSelectors.ts) | `getGraphRunsForView`, `filterProcessDataForSelection`, `getSelectedProcessData`, `getGraphSelectionOptions` |
-| [`useExecutionDataFlow.ts`](../packages/app/src/hooks/useExecutionDataFlow.ts) | `setDataForNode`, `setSelectedNodePageLatest` — writes execution data to state |
-| [`useGraphExecutionEvents.ts`](../packages/app/src/hooks/useGraphExecutionEvents.ts) | Graph-level event handlers: `onStart`, `onGraphStart`, `onGraphFinish`, `onDone` |
-| [`useNodeExecutionEvents.ts`](../packages/app/src/hooks/useNodeExecutionEvents.ts) | Node-level event handlers: `onNodeStart`, `onNodeFinish`, `onPartialOutput`, `onNodeError` |
-| [`useLocalExecutor.ts`](../packages/app/src/hooks/useLocalExecutor.ts) | Browser-mode execution orchestration |
-| [`useRemoteExecutor.ts`](../packages/app/src/hooks/useRemoteExecutor.ts) | Sidecar/remote execution orchestration |
-| [`remoteExecutorHelpers.ts`](../packages/app/src/hooks/remoteExecutorHelpers.ts) | `createProcessEventDispatcher` — routes WebSocket messages to handlers |
-| [`GraphProcessor.ts`](../packages/core/src/model/GraphProcessor.ts) | Core execution engine, `#createSubProcessor`, `#buildExecutionMetadata` |
-| [`SubprocessorBridge.ts`](../packages/core/src/model/SubprocessorBridge.ts) | `wireSubprocessorEvents` — forwards child events to parent emitter |
-| [`SplitRunProcessor.ts`](../packages/core/src/model/SplitRunProcessor.ts) | `processSplitRunNode` — iterates split inputs, creates subprocessors per iteration |
-| [`ProcessContext.ts`](../packages/core/src/model/ProcessContext.ts) | `GraphExecutionMetadata`, `SubgraphExecutorMetadata` type definitions |
-| [`GraphExecutionSelectorBar.tsx`](../packages/app/src/components/GraphExecutionSelectorBar.tsx) | Run switcher UI component |
-| [`useGoToNode.ts`](../packages/app/src/hooks/useGoToNode.ts) | Navigation to node — creates root view context |
-| [`useGoToSubgraphNode.ts`](../packages/app/src/hooks/useGoToSubgraphNode.ts) | Shared direct Subgraph navigation used by the header link and context menu |
-| [`useGraphBuilderContextMenuHandler.ts`](../packages/app/src/hooks/useGraphBuilderContextMenuHandler.ts) | Context-menu dispatch for "Go to subgraph" |
-| [`ExecutionRecorder.ts`](../packages/core/src/recording/ExecutionRecorder.ts) | Records execution events with metadata, serializes to `.rivet-recording` |
-| [`RecordedEvents.ts`](../packages/core/src/recording/RecordedEvents.ts) | `RecordedEventsMap` type definitions — serializable mirror of `ProcessEvents` |
-| [`RecordingPlayer.ts`](../packages/core/src/model/RecordingPlayer.ts) | `replayExecutionRecording` — replays recorded events through the same emitter/handler pipeline |
+| File                                                                                                     | Role                                                                                                                                                      |
+| -------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`navigationActions.ts`](../packages/app/src/domain/graphEditing/navigationActions.ts)                   | `GraphViewContext` types, `createRootGraphViewContext`, `createSubgraphGraphViewContext`                                                                  |
+| [`executionIdentity.ts`](../packages/app/src/utils/executionIdentity.ts)                                 | `buildGraphViewKeyFromExecution` - converts execution metadata to view key (used only for graph-level events)                                             |
+| [`dataFlow.ts`](../packages/app/src/state/dataFlow.ts)                                                   | Core atoms: `currentGraphViewState`, `graphRunHistoryByViewState`, `selectedGraphRunByViewState`, `lastRunDataByNodeState`, `resolvedGraphSelectionState` |
+| [`executionSelectors.ts`](../packages/app/src/state/selectors/executionSelectors.ts)                     | `getGraphRunsForView`, `filterProcessDataForSelection`, `getSelectedProcessData`, `getGraphSelectionOptions`                                              |
+| [`useExecutionDataFlow.ts`](../packages/app/src/hooks/useExecutionDataFlow.ts)                           | `setDataForNode`, `setSelectedNodePageLatest` - writes execution data to state                                                                            |
+| [`useGraphExecutionEvents.ts`](../packages/app/src/hooks/useGraphExecutionEvents.ts)                     | Graph-level event handlers: `onStart`, `onGraphStart`, `onGraphFinish`, `onDone`                                                                          |
+| [`useNodeExecutionEvents.ts`](../packages/app/src/hooks/useNodeExecutionEvents.ts)                       | Node-level event handlers: `onNodeStart`, `onNodeFinish`, `onPartialOutput`, `onNodeError`                                                                |
+| [`useLocalExecutor.ts`](../packages/app/src/hooks/useLocalExecutor.ts)                                   | Browser-mode execution orchestration                                                                                                                      |
+| [`useRemoteExecutor.ts`](../packages/app/src/hooks/useRemoteExecutor.ts)                                 | Sidecar/remote execution orchestration                                                                                                                    |
+| [`remoteExecutorHelpers.ts`](../packages/app/src/hooks/remoteExecutorHelpers.ts)                         | `createProcessEventDispatcher` - routes WebSocket messages to handlers                                                                                    |
+| [`GraphProcessor.ts`](../packages/core/src/model/GraphProcessor.ts)                                      | Core execution engine, `#createSubProcessor`, `#buildExecutionMetadata`                                                                                   |
+| [`SubprocessorBridge.ts`](../packages/core/src/model/SubprocessorBridge.ts)                              | `wireSubprocessorEvents` - forwards child events to parent emitter                                                                                        |
+| [`SplitRunProcessor.ts`](../packages/core/src/model/SplitRunProcessor.ts)                                | `processSplitRunNode` - iterates split inputs, creates subprocessors per iteration                                                                        |
+| [`ProcessContext.ts`](../packages/core/src/model/ProcessContext.ts)                                      | `GraphExecutionMetadata`, `SubgraphExecutorMetadata` type definitions                                                                                     |
+| [`GraphExecutionSelectorBar.tsx`](../packages/app/src/components/GraphExecutionSelectorBar.tsx)          | Run switcher UI component                                                                                                                                 |
+| [`useGoToNode.ts`](../packages/app/src/hooks/useGoToNode.ts)                                             | Navigation to node - creates root view context                                                                                                            |
+| [`useGoToSubgraphNode.ts`](../packages/app/src/hooks/useGoToSubgraphNode.ts)                             | Shared direct Subgraph navigation used by the header link and context menu                                                                                |
+| [`useGraphBuilderContextMenuHandler.ts`](../packages/app/src/hooks/useGraphBuilderContextMenuHandler.ts) | Context-menu dispatch for "Go to subgraph"                                                                                                                |
+| [`ExecutionRecorder.ts`](../packages/core/src/recording/ExecutionRecorder.ts)                            | Records execution events with metadata, serializes to `.rivet-recording`                                                                                  |
+| [`RecordedEvents.ts`](../packages/core/src/recording/RecordedEvents.ts)                                  | `RecordedEventsMap` type definitions - serializable mirror of `ProcessEvents`                                                                             |
+| [`RecordingPlayer.ts`](../packages/core/src/model/RecordingPlayer.ts)                                    | `replayExecutionRecording` - replays recorded events through the same emitter/handler pipeline                                                            |
 
 ## Debugging Checklist
 
 When execution data is not showing up for a graph:
 
-1. **Check `currentGraphView.key`** — is it `root:` or `subgraph:`?
-2. **Check `graphRunHistoryByView` keys** — what keys have run records?
+1. **Check `currentGraphView.key`** - is it `root:` or `subgraph:`?
+2. **Check `graphRunHistoryByView` keys** - what keys have run records?
 3. **Do the keys match?** If not, `getGraphRunsForView()` should fall back to
    a broader search by `graphId`. Check that this fallback is finding runs.
-4. **Check `ProcessDataForNode.graphRunId`** for the node — does it match a
+4. **Check `ProcessDataForNode.graphRunId`** for the node - does it match a
    run in the resolved graph runs list?
-5. **Check that events are being forwarded** — is `wireSubprocessorEvents` wiring the event type you expect?
-6. **Check `filterProcessDataForSelection`** — is it filtering to the correct `graphRunId`?
-7. **For remote execution** — check that the sidecar serializes the event type and that `createProcessEventDispatcher` maps it.
+5. **Check that events are being forwarded** - is `wireSubprocessorEvents` wiring the event type you expect?
+6. **Check `filterProcessDataForSelection`** - is it filtering to the correct `graphRunId`?
+7. **For remote execution** - check that the sidecar serializes the event type and that `createProcessEventDispatcher` maps it.
 
-When execution data appears only *after* execution completes (no live updates):
+When execution data appears only _after_ execution completes (no live updates):
 
 8. **Browser mode only?** If the problem is exclusive to browser mode but works
    in Node mode, see "Browser vs Remote: Event Delivery and React Rendering"
    above. The most likely cause is that event handlers are not yielding to the
    macrotask queue, preventing React from committing intermediate state.
-9. **Check `emitDetached` vs `await emit()`** — if a new event type is added
+9. **Check `emitDetached` vs `await emit()`** - if a new event type is added
    to `GraphProcessor` and uses `emitDetached`, its listeners cannot pause the
    processor. If that event needs live UI updates, change it to `await emit()`.
-10. **Check for stale closure values** — if a handler reads a value that was
+10. **Check for stale closure values** - if a handler reads a value that was
     correct at registration time but wrong at call time, see "Stale Closures in
     Browser Execution Handlers" above. Use `useLatest` for values captured by
     long-lived handlers in `attachGraphEvents`.
