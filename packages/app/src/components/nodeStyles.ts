@@ -293,8 +293,11 @@ export const nodeStyles = css`
     display: flex;
     align-items: center;
     gap: 6px;
+    justify-content: flex-end;
+    min-height: 22px;
     margin-right: -8px;
-    flex: 0 0 auto;
+    flex: 0 0 66px;
+    width: 66px;
     position: relative;
     pointer-events: none;
 
