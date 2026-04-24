@@ -178,7 +178,7 @@ export const nodeStyles = css`
   .grab-area {
     flex: 1;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 8px;
     margin-top: -12px;
     margin-bottom: -12px;
@@ -317,7 +317,7 @@ export const nodeStyles = css`
 
   .title-controls {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 6px;
     justify-content: flex-end;
     min-height: 22px;
@@ -358,6 +358,7 @@ export const nodeStyles = css`
     color: var(--node-bg-foreground);
     width: 16px;
     height: 16px;
+    margin-top: 3px;
     border: 2px solid currentColor;
     border-right-color: transparent;
     border-bottom-color: transparent;
