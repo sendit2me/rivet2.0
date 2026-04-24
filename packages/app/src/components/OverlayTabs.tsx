@@ -20,12 +20,14 @@ const styles = css`
   top: var(--project-selector-height);
   left: 50%;
   transform: translateX(-50%);
-  height: 40px;
+  min-height: 40px;
+  max-width: calc(100vw - 16px);
 
   .left-menu {
     display: flex;
-    align-items: flex-start;
+    align-items: stretch;
     gap: 0;
+    max-width: 100%;
     user-select: none;
   }
 
@@ -44,7 +46,9 @@ const styles = css`
     border-right: none;
 
     margin: 0;
-    height: 24px;
+    display: flex;
+    min-width: 0;
+    min-height: 24px;
 
     border-radius: 0 0 8px 8px;
     background: var(--grey-darkerish);
@@ -54,7 +58,6 @@ const styles = css`
 
   .menu-item > button {
     width: 100%;
-    height: 100%;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -63,6 +66,12 @@ const styles = css`
     cursor: pointer;
     padding: 0.5rem 1rem;
     color: inherit;
+    line-height: 1.2;
+    min-height: 24px;
+    min-width: 0;
+    text-align: center;
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 
   .menu-item:hover {

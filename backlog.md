@@ -1,9 +1,6 @@
 - Check opening and saving files in the web rivet. Crtl+S and Ctrl+O don't work
 - In the "File" menu, probably need to have "Dave project" item. (not only "save as")
 
-- When the tabs in the workspace navigation get narrower and the text in them gets more than one line, we need to make the tabs taller. Now the multiline text just falls out. All the tabs should be the same height though. If one tab needed to become taller, all of them should. 
-
-- Parallel runs icon should be more parallel. Sequential - more sequential
 
 - When the node has a multiline title, keep the left and right icons to the top of the header, don't make them in the vertical center of the header
 

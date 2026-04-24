@@ -220,6 +220,7 @@ Acts as the switchboard for overlay-like product areas such as prompt designer, 
 Current rule that matters for maintenance:
 
 - the `File` tab dropdown in [`packages/app/src/components/OverlayTabs.tsx`](../packages/app/src/components/OverlayTabs.tsx) owns its own open state and outside-click dismissal locally; it is not routed through the shared canvas/context-menu infrastructure, so menu-close behavior changes should stay in `OverlayTabs` unless the whole workspace-nav menu model is being redesigned
+- workspace navigation tabs (`File`, `Canvas`, `Plugins`, `Community`, etc.) are allowed to wrap on narrow windows; the flex row stretches every tab to the tallest wrapped tab height so labels do not spill outside fixed-height pills
 
 ## Graph Editor
 
