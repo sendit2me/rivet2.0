@@ -191,6 +191,10 @@ export const nodeStyles = css`
     height: 16px;
   }
 
+  .split-run-mode-icon-sequential {
+    width: 20px;
+  }
+
   .subgraph-link-button {
     display: flex;
     align-items: center;

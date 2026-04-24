@@ -5,7 +5,7 @@
 
 - Parallel runs icon should be more parallel. Sequential - more sequential
 
-- When the node has  amultiline title, keep the left and right icons to the top of the header, don't make them in the vertical center of the header
+- When the node has a multiline title, keep the left and right icons to the top of the header, don't make them in the vertical center of the header
 
 - In the nodes with the super long output, don't show the "Load full value" buttons when I hove rthe node
 
