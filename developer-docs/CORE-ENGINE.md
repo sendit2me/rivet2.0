@@ -378,6 +378,8 @@ The processor also exposes:
 
 Fire-and-forget event emission uses [`emitDetached(emitter, event, data)`](../packages/core/src/utils/emitDetached.ts), a thin wrapper around `void emitter.emit(...)` that makes the intent explicit. All detached emissions in `GraphProcessor`, `RecordingPlayer`, and `ExecutionRecorder` use this helper instead of inline `eslint-disable` suppressions.
 
+Tokenizer `error` events are bridged into the processor's generic `error` event for the duration of a graph run only. `GraphProcessor` stores the tokenizer unsubscribe callback when the tokenizer provides one and clears it in the `processGraph(...)` `finally` path, including failed, aborted, and subgraph runs. Rejected overlapping `processGraph(...)` calls do not enter the cleanup path for the active run. If a custom tokenizer unsubscribe callback throws, the processor reports that as a generic `error` event instead of failing the graph result. Legacy custom tokenizers whose `on(...)` method still returns `void` remain accepted, but they cannot be cleaned up by the processor.
+
 Current lineage invariant:
 
 - execution-facing graph and node events now carry `GraphExecutionMetadata`
@@ -516,6 +518,8 @@ Caller-provided execution environment:
 - project reference loader
 - project path
 - optional chat-endpoint resolution hook
+
+The `Tokenizer` interface supports an optional listener cleanup contract: `on('error', listener)` may return an unsubscribe callback. Built-in tokenizers return that callback, and `GraphProcessor` uses it to keep tokenizer error listeners run-scoped when processors or tokenizer instances are reused.
 
 ### `InternalProcessContext`
 

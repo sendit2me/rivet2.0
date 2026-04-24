@@ -27,7 +27,9 @@ import { NodeProjectReferenceLoader } from './native/NodeProjectReferenceLoader.
 import { NodeMCPProvider } from './native/NodeMCPProvider.js';
 
 class FallbackTokenizer implements Tokenizer {
-  on(_event: 'error', _listener: (err: Error) => void): void {}
+  on(_event: 'error', _listener: (err: Error) => void): () => void {
+    return () => {};
+  }
 
   async getTokenCountForString(input: string, _info: TokenizerCallInfo): Promise<number> {
     return input.length;

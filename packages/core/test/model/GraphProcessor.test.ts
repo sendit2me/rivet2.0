@@ -14,6 +14,8 @@ import {
   type NodeOutputDefinition,
   type Outputs,
   type PortId,
+  type Tokenizer,
+  type TokenizerCallInfo,
 } from '../../src/index.js';
 import { loadTestGraphInProcessor, testProcessContext } from '../testUtils';
 
@@ -115,6 +117,45 @@ function makeProject(graph: any) {
     },
     plugins: [],
   } as any;
+}
+
+class CountingTokenizer implements Tokenizer {
+  readonly listeners = new Set<(error: Error) => void>();
+
+  on(_event: 'error', listener: (error: Error) => void): () => void {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  }
+
+  async getTokenCountForString(_input: string, _info: TokenizerCallInfo): Promise<number> {
+    return 0;
+  }
+
+  async getTokenCountForMessages(): Promise<number> {
+    return 0;
+  }
+
+  emitError(error = new Error('tokenizer failure')): void {
+    for (const listener of this.listeners) {
+      listener(error);
+    }
+  }
+}
+
+class ThrowingCleanupTokenizer extends CountingTokenizer {
+  cleanupCount = 0;
+
+  override on(event: 'error', listener: (error: Error) => void): () => void {
+    const unsubscribe = super.on(event, listener);
+
+    return () => {
+      unsubscribe();
+      this.cleanupCount += 1;
+      throw new Error('tokenizer cleanup failed');
+    };
+  }
 }
 
 void describe('GraphProcessor', () => {
@@ -268,6 +309,156 @@ void describe('GraphProcessor', () => {
 
     assert.deepEqual(firstOutputs.output, { type: 'string', value: 'hello' });
     assert.deepEqual(secondOutputs.output, { type: 'string', value: 'goodbye' });
+  });
+
+  void it('cleans up tokenizer error listeners after repeated runs', async () => {
+    const graph = {
+      metadata: {
+        id: 'empty-graph',
+        name: 'Empty Graph',
+        description: '',
+      },
+      nodes: [],
+      connections: [],
+    };
+    const tokenizer = new CountingTokenizer();
+    const processor = new GraphProcessor(makeProject(graph), graph.metadata.id, globalRivetNodeRegistry);
+    let errorEvents = 0;
+
+    processor.on('error', () => {
+      errorEvents += 1;
+    });
+
+    await processor.processGraph({ ...testProcessContext(), tokenizer });
+    await processor.processGraph({ ...testProcessContext(), tokenizer });
+    tokenizer.emitError();
+    await waitFor(0);
+
+    assert.equal(tokenizer.listeners.size, 0);
+    assert.equal(errorEvents, 0);
+  });
+
+  void it('does not clean up an active tokenizer listener when a second run is rejected', async () => {
+    TrackedTestNodeImpl.resetCounts();
+    const registry = createTrackedRegistry();
+    const trackedNode = registry.create('trackedTest');
+    trackedNode.id = 'tracked-node' as NodeId;
+    trackedNode.data = { delayMs: 40 };
+
+    const graph = {
+      metadata: {
+        id: 'overlapping-run-graph',
+        name: 'Overlapping Run Graph',
+        description: '',
+      },
+      nodes: [trackedNode],
+      connections: [],
+    };
+    const tokenizer = new CountingTokenizer();
+    const processor = new GraphProcessor(makeProject(graph), graph.metadata.id, registry);
+    let finishCount = 0;
+
+    processor.on('finish', () => {
+      finishCount += 1;
+    });
+
+    const runPromise = processor.processGraph({ ...testProcessContext(), tokenizer });
+    await waitFor(0);
+
+    assert.equal(tokenizer.listeners.size, 1);
+
+    await assert.rejects(
+      () => processor.processGraph({ ...testProcessContext(), tokenizer }),
+      /Cannot process graph while already processing/,
+    );
+
+    assert.equal(tokenizer.listeners.size, 1);
+    assert.equal(finishCount, 0);
+
+    await runPromise;
+
+    assert.equal(tokenizer.listeners.size, 0);
+    assert.equal(finishCount, 1);
+  });
+
+  void it('reports tokenizer cleanup errors without failing graph execution', async () => {
+    const graph = {
+      metadata: {
+        id: 'cleanup-error-graph',
+        name: 'Cleanup Error Graph',
+        description: '',
+      },
+      nodes: [],
+      connections: [],
+    };
+    const tokenizer = new ThrowingCleanupTokenizer();
+    const processor = new GraphProcessor(makeProject(graph), graph.metadata.id, globalRivetNodeRegistry);
+    let cleanupErrorEvents = 0;
+
+    processor.on('error', ({ error }) => {
+      if (error instanceof Error && error.message === 'tokenizer cleanup failed') {
+        cleanupErrorEvents += 1;
+      }
+    });
+
+    await processor.processGraph({ ...testProcessContext(), tokenizer });
+    await waitFor(0);
+
+    assert.equal(tokenizer.listeners.size, 0);
+    assert.equal(tokenizer.cleanupCount, 1);
+    assert.equal(cleanupErrorEvents, 1);
+  });
+
+  void it('cleans up tokenizer error listeners from subgraph runs', async () => {
+    const mainGraph = {
+      metadata: {
+        id: 'main-graph',
+        name: 'Main Graph',
+        description: '',
+      },
+      nodes: [
+        {
+          id: 'subgraph-node',
+          type: 'subGraph',
+          title: 'Subgraph',
+          data: {
+            graphId: 'child-graph',
+            useErrorOutput: false,
+            useAsGraphPartialOutput: false,
+          },
+          visualData: { x: 0, y: 0, width: 300 },
+        },
+      ],
+      connections: [],
+    };
+    const childGraph = {
+      metadata: {
+        id: 'child-graph',
+        name: 'Child Graph',
+        description: '',
+      },
+      nodes: [],
+      connections: [],
+    };
+    const project = {
+      metadata: {
+        id: 'project-1',
+        title: 'Project',
+        description: '',
+        mainGraphId: mainGraph.metadata.id,
+      },
+      graphs: {
+        [mainGraph.metadata.id]: mainGraph,
+        [childGraph.metadata.id]: childGraph,
+      },
+      plugins: [],
+    } as any;
+    const tokenizer = new CountingTokenizer();
+    const processor = new GraphProcessor(project, mainGraph.metadata.id as any, globalRivetNodeRegistry);
+
+    await processor.processGraph({ ...testProcessContext(), tokenizer });
+
+    assert.equal(tokenizer.listeners.size, 0);
   });
 
   void it('aborting a paused graph does not hang the run promise', async () => {

@@ -20,8 +20,8 @@ export class GptTokenizerTokenizer implements Tokenizer {
     error: Error;
   }>();
 
-  on(event: 'error', listener: (err: Error) => void): void {
-    this.emitter.on(event, listener);
+  on(event: 'error', listener: (err: Error) => void): () => void {
+    return this.emitter.on(event, listener);
   }
 
   async getTokenCountForString(input: string, _info: TokenizerCallInfo): Promise<number> {

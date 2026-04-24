@@ -7,7 +7,7 @@ export type TokenizerCallInfo = {
 };
 
 export type Tokenizer = {
-  on(event: 'error', listener: (err: Error) => void): void;
+  on(event: 'error', listener: (err: Error) => void): void | (() => void);
 
   getTokenCountForString(input: string, info: TokenizerCallInfo): Promise<number>;
 

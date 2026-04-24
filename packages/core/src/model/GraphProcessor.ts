@@ -294,6 +294,7 @@ export class GraphProcessor {
     { resolve: (values: StringArrayDataValue) => void; reject: (error: unknown) => void }
   > = undefined!;
   #finishEmitted = false;
+  #unsubscribeTokenizerError: (() => void) | undefined;
 
   get isRunning() {
     return this.#running;
@@ -646,11 +647,11 @@ export class GraphProcessor {
     /** Contextual data available to all graphs and subgraphs. Kind of like react context, avoids drilling down data into subgraphs. Be careful when using it. */
     contextValues: Record<string, DataValue> = {},
   ): Promise<GraphOutputs> {
-    try {
-      if (this.#running) {
-        throw new Error('Cannot process graph while already processing');
-      }
+    if (this.#running) {
+      throw new Error('Cannot process graph while already processing');
+    }
 
+    try {
       this.#initializeGraphRun(context, inputs, contextValues);
       await this.#loadProjectReferences();
       this.#preprocessGraph();
@@ -664,6 +665,7 @@ export class GraphProcessor {
       return await this.#finalizeGraphRun();
     } finally {
       this.#running = false;
+      this.#cleanupTokenizerErrorListener();
 
       await this.#emitFinishIfNeeded();
     }
@@ -693,9 +695,23 @@ export class GraphProcessor {
     this.#graphRunId = nanoid() as GraphRunId;
     this.#parentGraphRunId = this.#parent ? this.#parent.#graphRunId : undefined;
 
-    this.#context.tokenizer.on('error', (error) => {
+    this.#cleanupTokenizerErrorListener();
+    const unsubscribeTokenizerError = this.#context.tokenizer.on('error', (error) => {
       emitDetached(this.#emitter, 'error', { error });
     });
+    this.#unsubscribeTokenizerError =
+      typeof unsubscribeTokenizerError === 'function' ? unsubscribeTokenizerError : undefined;
+  }
+
+  #cleanupTokenizerErrorListener(): void {
+    const unsubscribeTokenizerError = this.#unsubscribeTokenizerError;
+    this.#unsubscribeTokenizerError = undefined;
+
+    try {
+      unsubscribeTokenizerError?.();
+    } catch (err) {
+      emitDetached(this.#emitter, 'error', { error: getError(err) });
+    }
   }
 
   async #emitGraphStart(): Promise<void> {
