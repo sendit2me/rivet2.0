@@ -1,9 +1,8 @@
 import { type ComponentType, type ReactNode } from 'react';
-import { orderBy } from 'lodash-es';
-import { entries } from '../../../../core/src/utils/typeSafety.js';
 import { RenderDataOutputs, type OutputRenderMode } from '../RenderDataValue.js';
 import { type InputsOrOutputsWithRefs, type NodeRunDataWithRefs } from '../../state/dataFlow.js';
 import { type ChartNode } from '@ironclad/rivet-core';
+import { getSortedSplitOutputEntries } from './splitOutputEntries.js';
 
 export function renderNodeOutputBody(options: {
   Output?: ComponentType<{ node: ChartNode; data: NodeRunDataWithRefs; isCompact: boolean }>;
@@ -39,14 +38,11 @@ export function renderNodeOutputBody(options: {
   }
 
   if (data.splitOutputData) {
-    const outputs = orderBy(
-      entries(data.splitOutputData).map(([key, value]) => ({ key, value })),
-      (entry) => entry.key,
-    );
+    const outputs = getSortedSplitOutputEntries(data.splitOutputData);
 
     return (
       <div className="split-output">
-        {outputs.map(({ key, value }) =>
+        {outputs.map(([key, value]) =>
           FullscreenOutputSimple ? (
             <FullscreenOutputSimple
               key={`outputs-${key}`}

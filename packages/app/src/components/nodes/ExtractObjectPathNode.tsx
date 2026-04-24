@@ -11,11 +11,8 @@ import {
   getParsedExtractObjectPathPreviewSource,
   hasExtractObjectPathInterpolationInputs,
 } from './extractObjectPathOutputUtils.js';
-import {
-  getSortedSplitOutputEntries,
-  StructuredNodeOutput,
-  StructuredNodeOutputSection,
-} from './StructuredNodeOutput.js';
+import { StructuredNodeOutput, StructuredNodeOutputSection } from './StructuredNodeOutput.js';
+import { getSortedSplitOutputEntries } from '../nodeOutput/splitOutputEntries.js';
 
 const outputDefinitions = [
   { id: 'match' as PortId, label: 'Match' },

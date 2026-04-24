@@ -10,11 +10,8 @@ import {
   getParsedJSListCallbackPreviewSource,
   hasJSListCallbackInterpolationInputs,
 } from './jsListOutputUtils.js';
-import {
-  getSortedSplitOutputEntries,
-  StructuredNodeOutput,
-  StructuredNodeOutputSection,
-} from './StructuredNodeOutput.js';
+import { StructuredNodeOutput, StructuredNodeOutputSection } from './StructuredNodeOutput.js';
+import { getSortedSplitOutputEntries } from '../nodeOutput/splitOutputEntries.js';
 
 type JSListNode = JSFilterNode | JSMapNode;
 

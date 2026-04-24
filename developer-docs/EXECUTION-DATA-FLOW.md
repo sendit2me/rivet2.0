@@ -370,6 +370,7 @@ These are related but different concepts:
 - All iterations share the same `processId` and `graphRunId`.
 - Each iteration's output is stored in `splitOutputData[index]`.
 - The UI shows a pager ("page 1 of N") within the node's output panel.
+- Split-output renderers sort those indexes numerically through `packages/app/src/components/nodeOutput/splitOutputEntries.ts`; do not rely on object-key order or string sorting for display order.
 - This is **not** multiple graph runs — it's one node execution with indexed outputs.
 
 ### Subgraph runs (multiple entries in run history)
