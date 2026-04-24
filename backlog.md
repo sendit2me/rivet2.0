@@ -2,7 +2,7 @@
 
 - If the node has description, show in in node's header under the title in smaller font
 
-- Parallel runs icon should be more parallel. Maybe move the split-related icons to the area on above the card? Sequenrial - more sequentisl
+- Parallel runs icon should be more parallel. Sequential - more sequential
 
 - In the nodes with the super long output, don't show the "Load full value" buttons when I hove rthe node
 

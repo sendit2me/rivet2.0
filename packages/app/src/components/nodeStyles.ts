@@ -223,20 +223,38 @@ export const nodeStyles = css`
 
   .title-text {
     display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 8px;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 3px;
     min-width: 0;
+  }
+
+  .title-text-label {
+    min-width: 0;
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
     font-weight: bold;
     font-size: 14px;
     text-transform: uppercase;
   }
 
-  .title-text-label {
-    flex: 1 1 0;
+  .title-text-description {
     min-width: 0;
-    white-space: normal;
+    max-width: 100%;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    color: currentColor;
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1.25;
+    letter-spacing: 0;
+    opacity: 0.72;
     overflow-wrap: anywhere;
+    text-transform: none;
   }
 
   .split-run-summary-tooltip {
@@ -285,8 +303,12 @@ export const nodeStyles = css`
     display: none;
   }
 
-  .node.zoomedOut .title-text {
+  .node.zoomedOut .title-text-label {
     font-size: 25px;
+  }
+
+  .node.zoomedOut .title-text-description {
+    font-size: 13px;
   }
 
   .title-controls {

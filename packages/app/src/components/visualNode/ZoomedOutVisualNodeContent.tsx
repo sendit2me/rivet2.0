@@ -1,12 +1,7 @@
 import clsx from 'clsx';
 import { type FC, type HTMLAttributes, type MouseEvent, type PointerEvent, memo } from 'react';
 import { useAtomValue } from 'jotai';
-import {
-  type ChartNode,
-  IF_PORT,
-  type NodeConnection,
-  type PortId,
-} from '@ironclad/rivet-core';
+import { type ChartNode, IF_PORT, type NodeConnection, type PortId } from '@ironclad/rivet-core';
 import SettingsCogIcon from 'majesticons/line/settings-cog-line.svg?react';
 import { useStableCallback } from '../../hooks/useStableCallback.js';
 import { NodePortsRenderer } from '../NodePorts.js';
@@ -23,114 +18,105 @@ export const ZoomedOutVisualNodeContent: FC<{
   isKnownNodeType: boolean;
   isReallyZoomedOut: boolean;
   isRunning: boolean;
-}> = memo(
-  ({
-    node,
-    connections = [],
-    handleAttributes,
-    isKnownNodeType,
-    isReallyZoomedOut,
-    isRunning,
-  }) => {
-    useDependsOnPlugins();
-    const { draggingWire, closestPortToDraggingWire } = useCanvasViewContext();
-    const { onNodeSelected, onNodeStartEditing, onPortMouseOut, onPortMouseOver, onWireEndDrag, onWireStartDrag } =
-      useCanvasHandlersContext();
-    const preservePortTextCase = useAtomValue(preservePortTextCaseState);
+}> = memo(({ node, connections = [], handleAttributes, isKnownNodeType, isReallyZoomedOut, isRunning }) => {
+  useDependsOnPlugins();
+  const { draggingWire, closestPortToDraggingWire } = useCanvasViewContext();
+  const { onNodeSelected, onNodeStartEditing, onPortMouseOut, onPortMouseOver, onWireEndDrag, onWireStartDrag } =
+    useCanvasHandlersContext();
+  const preservePortTextCase = useAtomValue(preservePortTextCaseState);
 
-    const handleEditClick = useStableCallback((event: MouseEvent<HTMLButtonElement>) => {
-      event.stopPropagation();
-      onNodeStartEditing?.(node);
-    });
+  const handleEditClick = useStableCallback((event: MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    onNodeStartEditing?.(node);
+  });
 
-    const handleEditMouseDown = useStableCallback((event: MouseEvent<HTMLButtonElement>) => {
+  const handleEditMouseDown = useStableCallback((event: MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    event.preventDefault();
+  });
+
+  const handleEditPointerDown = useStableCallback((event: PointerEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+  });
+
+  const handleGrabClick = useStableCallback((event: MouseEvent<HTMLDivElement>) => {
+    event.stopPropagation();
+    onNodeSelected?.(node, event.shiftKey);
+  });
+
+  const handleIfPortMouseDown = useStableCallback(
+    (event: MouseEvent<HTMLDivElement>, port: PortId, isInput: boolean) => {
       event.stopPropagation();
       event.preventDefault();
-    });
+      onWireStartDrag?.(event, node.id, port, isInput);
+    },
+  );
 
-    const handleEditPointerDown = useStableCallback((event: PointerEvent<HTMLButtonElement>) => {
-      event.stopPropagation();
-    });
+  const handleIfPortMouseUp = useStableCallback((event: MouseEvent<HTMLDivElement>, port: PortId) => {
+    onWireEndDrag?.(event, node.id, port);
+  });
 
-    const handleGrabClick = useStableCallback((event: MouseEvent<HTMLDivElement>) => {
-      event.stopPropagation();
-      onNodeSelected?.(node, event.shiftKey);
-    });
+  const ifConnected =
+    connections.some((connection) => connection.inputNodeId === node.id && connection.inputId === IF_PORT.id) ||
+    (draggingWire?.endNodeId === node.id && draggingWire?.endPortId === IF_PORT.id);
+  const nodeDescription = node.description?.trim();
 
-    const handleIfPortMouseDown = useStableCallback(
-      (event: MouseEvent<HTMLDivElement>, port: PortId, isInput: boolean) => {
-        event.stopPropagation();
-        event.preventDefault();
-        onWireStartDrag?.(event, node.id, port, isInput);
-      },
-    );
-
-    const handleIfPortMouseUp = useStableCallback((event: MouseEvent<HTMLDivElement>, port: PortId) => {
-      onWireEndDrag?.(event, node.id, port);
-    });
-
-    const ifConnected =
-      connections.some((connection) => connection.inputNodeId === node.id && connection.inputId === IF_PORT.id) ||
-      (draggingWire?.endNodeId === node.id && draggingWire?.endPortId === IF_PORT.id);
-
-    return (
-      <>
-        <div
-          className={clsx('node-title', { grabbable: !isReallyZoomedOut })}
-          {...(isReallyZoomedOut ? {} : handleAttributes)}
-          onClick={isReallyZoomedOut ? undefined : handleGrabClick}
-        >
-          {!isReallyZoomedOut && (
-            <div className="grab-area">
-              <SubGraphHeaderLink node={node} />
-              <div className="title-text">
-                <span className="title-text-label">{node.title}</span>
-              </div>
+  return (
+    <>
+      <div
+        className={clsx('node-title', { grabbable: !isReallyZoomedOut })}
+        {...(isReallyZoomedOut ? {} : handleAttributes)}
+        onClick={isReallyZoomedOut ? undefined : handleGrabClick}
+      >
+        {!isReallyZoomedOut && (
+          <div className="grab-area">
+            <SubGraphHeaderLink node={node} />
+            <div className="title-text">
+              <span className="title-text-label">{node.title}</span>
+              {nodeDescription && <span className="title-text-description">{nodeDescription}</span>}
             </div>
-          )}
-          {!isReallyZoomedOut && (
-            <div className="title-controls">
-              {isRunning && (
-                <span className="node-running-indicator" aria-label="Node running" role="status" />
-              )}
-              <button
-                type="button"
-                className="edit-button"
-                onClick={handleEditClick}
-                onPointerDown={handleEditPointerDown}
-                onMouseDown={handleEditMouseDown}
-                title="Edit"
-              >
-                <SettingsCogIcon />
-              </button>
-            </div>
-          )}
-        </div>
-
-        {node.isConditional && (
-          <div className="node-title-ports input-ports">
-            <Port
-              connected={ifConnected}
-              canDragTo={draggingWire ? !draggingWire.startPortIsInput : false}
-              closest={closestPortToDraggingWire?.nodeId === node.id && closestPortToDraggingWire.portId === IF_PORT.id}
-              id={'$if' as PortId}
-              definition={IF_PORT}
-              nodeId={node.id}
-              title="if"
-              input
-              preservePortCase={preservePortTextCase}
-              onMouseOver={onPortMouseOver}
-              onMouseOut={onPortMouseOut}
-              onMouseDown={handleIfPortMouseDown}
-              onMouseUp={handleIfPortMouseUp}
-            />
           </div>
         )}
+        {!isReallyZoomedOut && (
+          <div className="title-controls">
+            {isRunning && <span className="node-running-indicator" aria-label="Node running" role="status" />}
+            <button
+              type="button"
+              className="edit-button"
+              onClick={handleEditClick}
+              onPointerDown={handleEditPointerDown}
+              onMouseDown={handleEditMouseDown}
+              title="Edit"
+            >
+              <SettingsCogIcon />
+            </button>
+          </div>
+        )}
+      </div>
 
-        {isKnownNodeType && <NodePortsRenderer node={node} connections={connections} zoomedOut />}
-      </>
-    );
-  },
-);
+      {node.isConditional && (
+        <div className="node-title-ports input-ports">
+          <Port
+            connected={ifConnected}
+            canDragTo={draggingWire ? !draggingWire.startPortIsInput : false}
+            closest={closestPortToDraggingWire?.nodeId === node.id && closestPortToDraggingWire.portId === IF_PORT.id}
+            id={'$if' as PortId}
+            definition={IF_PORT}
+            nodeId={node.id}
+            title="if"
+            input
+            preservePortCase={preservePortTextCase}
+            onMouseOver={onPortMouseOver}
+            onMouseOut={onPortMouseOut}
+            onMouseDown={handleIfPortMouseDown}
+            onMouseUp={handleIfPortMouseUp}
+          />
+        </div>
+      )}
+
+      {isKnownNodeType && <NodePortsRenderer node={node} connections={connections} zoomedOut />}
+    </>
+  );
+});
 
 ZoomedOutVisualNodeContent.displayName = 'ZoomedOutVisualNodeContent';

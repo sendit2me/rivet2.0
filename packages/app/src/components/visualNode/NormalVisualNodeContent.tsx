@@ -9,13 +9,7 @@ import {
 } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
 import { useAtomValue, useSetAtom } from 'jotai';
-import {
-  type ChartNode,
-  type CommentNode,
-  IF_PORT,
-  type NodeConnection,
-  type PortId,
-} from '@ironclad/rivet-core';
+import { type ChartNode, type CommentNode, IF_PORT, type NodeConnection, type PortId } from '@ironclad/rivet-core';
 import type { HeightCache } from '../../hooks/useNodeBodyHeight';
 import SettingsCogIcon from 'majesticons/line/settings-cog-line.svg?react';
 import BookIcon from 'majesticons/line/book-open-line.svg?react';
@@ -182,7 +176,7 @@ export const NormalVisualNodeContent: FC<{
       const nextBounds = getNextResizeBounds(event);
       const currentWidth = Number.isFinite(node.visualData.width)
         ? node.visualData.width!
-        : (resizeState?.initialWidth ?? getCanvasNodeWidth(node));
+        : resizeState?.initialWidth ?? getCanvasNodeWidth(node);
       const currentBounds = isComment
         ? {
             x: node.visualData.x,
@@ -262,6 +256,7 @@ export const NormalVisualNodeContent: FC<{
     const ifConnected =
       connections.some((connection) => connection.inputNodeId === node.id && connection.inputId === IF_PORT.id) ||
       (draggingWire?.endNodeId === node.id && draggingWire?.endPortId === IF_PORT.id);
+    const nodeDescription = node.description?.trim();
     const resizeDirections: BoxNodeResizeDirection[] = isComment
       ? ['top', 'right', 'bottom', 'left', 'top-left', 'top-right', 'bottom-left', 'bottom-right']
       : ['left', 'right'];
@@ -278,6 +273,7 @@ export const NormalVisualNodeContent: FC<{
             <SubGraphHeaderLink node={node} />
             <div className="title-text">
               <span className="title-text-label">{node.title}</span>
+              {nodeDescription && <span className="title-text-description">{nodeDescription}</span>}
             </div>
           </div>
           <div className="title-controls">
@@ -297,9 +293,7 @@ export const NormalVisualNodeContent: FC<{
                 </Tooltip>
               </button>
             )}
-            {isRunning && (
-              <span className="node-running-indicator" aria-label="Node running" role="status" />
-            )}
+            {isRunning && <span className="node-running-indicator" aria-label="Node running" role="status" />}
             <Tooltip className="edit-button-tooltip" content="Edit Node">
               <button
                 type="button"
