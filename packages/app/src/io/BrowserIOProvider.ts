@@ -14,10 +14,11 @@ import {
   deserializeTrivetData,
   serializeTrivetData,
 } from '@ironclad/trivet';
+import { openBrowserFile } from './browserFileInput.js';
 
 export class BrowserIOProvider implements IOProvider {
   static isSupported(): boolean {
-    return 'showOpenFilePicker' in window && 'showSaveFilePicker' in window;
+    return 'showSaveFilePicker' in window;
   }
 
   async saveGraphData(graphData: NodeGraph): Promise<void> {
@@ -36,8 +37,9 @@ export class BrowserIOProvider implements IOProvider {
   }
 
   async loadGraphData(callback: (graphData: NodeGraph) => void): Promise<void> {
-    const [fileHandle] = await window.showOpenFilePicker();
-    const file = await fileHandle.getFile();
+    const file = await openBrowserFile({ accept: '.rivet-graph' });
+    if (!file) return;
+
     const text = await file.text();
     callback(deserializeGraph(text));
   }
@@ -45,8 +47,9 @@ export class BrowserIOProvider implements IOProvider {
   async loadProjectData(
     callback: (data: { project: Project; testData: TrivetData; path: string }) => void,
   ): Promise<void> {
-    const [fileHandle] = await window.showOpenFilePicker();
-    const file = await fileHandle.getFile();
+    const file = await openBrowserFile({ accept: '.rivet-project' });
+    if (!file) return;
+
     const text = await file.text();
 
     const [project, attachedData] = deserializeProject(text);
@@ -55,14 +58,15 @@ export class BrowserIOProvider implements IOProvider {
       ? deserializeTrivetData(attachedData.trivet as SerializedTrivetData)
       : { testSuites: [] };
 
-    callback({ project, testData, path: fileHandle.name });
+    callback({ project, testData, path: file.name });
   }
 
   async loadRecordingData(callback: (data: { recorder: ExecutionRecorder; path: string }) => void): Promise<void> {
-    const [fileHandle] = await window.showOpenFilePicker();
-    const file = await fileHandle.getFile();
+    const file = await openBrowserFile({ accept: '.rivet-recording' });
+    if (!file) return;
+
     const text = await file.text();
-    callback({ recorder: ExecutionRecorder.deserializeFromString(text), path: fileHandle.name });
+    callback({ recorder: ExecutionRecorder.deserializeFromString(text), path: file.name });
   }
 
   async saveString(content: string, defaultFileName: string): Promise<void> {
@@ -73,15 +77,17 @@ export class BrowserIOProvider implements IOProvider {
   }
 
   async readFileAsString(callback: (data: string, fileName: string) => void): Promise<void> {
-    const [fileHandle] = await window.showOpenFilePicker();
-    const file = await fileHandle.getFile();
+    const file = await openBrowserFile();
+    if (!file) return;
+
     const text = await file.text();
     callback(text, file.name);
   }
 
   async readFileAsBinary(callback: (data: Uint8Array, fileName: string) => void): Promise<void> {
-    const [fileHandle] = await window.showOpenFilePicker();
-    const file = await fileHandle.getFile();
+    const file = await openBrowserFile();
+    if (!file) return;
+
     const arrayBuffer = await file.arrayBuffer();
     callback(new Uint8Array(arrayBuffer), file.name);
   }

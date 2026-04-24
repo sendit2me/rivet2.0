@@ -1,12 +1,15 @@
+- Check opening and saving files in the web rivet. Crtl+S and Ctrl+O don't work
+- In the "File" menu, probably need to have "Dave project" item. (not only "save as")
 
-
-- If the node has description, show in in node's header under the title in smaller font
+- When the tabs in the workspace navigation get narrower and the text in them gets more than one line, we need to make the tabs taller. Now the multiline text just falls out. All the tabs should be the same height though. If one tab needed to become taller, all of them should. 
 
 - Parallel runs icon should be more parallel. Sequential - more sequential
 
+- When the node has  amultiline title, keep the left and right icons to the top of the header, don't make them in the vertical center of the header
+
 - In the nodes with the super long output, don't show the "Load full value" buttons when I hove rthe node
 
-- When I click oone of the 3 output buttons, and then unhover the node, the gear icon doesn't disappear
+- When I click one of the 3 output buttons, and then unhover the node, the gear icon doesn't disappear
 
 - Move Zoom sensitivity into the UI tab
 

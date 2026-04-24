@@ -880,10 +880,17 @@ The app has an IO abstraction under `src/io/`:
 That abstraction is used so the same app code can work in:
 
 - Tauri desktop mode
-- browser environments with modern file APIs
+- browser environments with File System Access saves
 - fallback browser flows
 
 The app also keeps separate provider abstractions for datasets, audio, and related execution-time services through React providers.
+
+Browser file reads intentionally use a standard hidden `<input type="file">` flow through
+[`packages/app/src/io/browserFileInput.ts`](../packages/app/src/io/browserFileInput.ts), even when the browser exposes
+the File System Access API. Embedded browsers can expose `showOpenFilePicker()` while blocking
+`FileSystemFileHandle.getFile()`, so project/graph/recording imports and binary/text file reads should not depend on
+file handles. `BrowserIOProvider` still uses `showSaveFilePicker()` for browser saves when available; the legacy browser
+provider uses download links for saves and the same shared input helper for reads.
 
 ## Platform Capability Boundary
 
