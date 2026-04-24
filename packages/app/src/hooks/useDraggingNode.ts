@@ -10,7 +10,12 @@ import { useDuplicateNodesCommand } from '../commands/duplicateNodesCommand.js';
 
 export type DragMode = 'move' | 'duplicate';
 export type DragAxisLock = 'x' | 'y' | undefined;
-export type DragActivatorModifierState = { altKey: boolean; shiftKey: boolean };
+export type DragActivatorModifierState = {
+  altKey: boolean;
+  hoverControlsVisible: boolean;
+  nodeId: NodeId;
+  shiftKey: boolean;
+};
 type DragModifierKeyEvent = Pick<KeyboardEvent, 'altKey' | 'key'>;
 type DragShiftKeyEvent = Pick<KeyboardEvent, 'key' | 'shiftKey'>;
 type DragStartPositionMap = Map<NodeId, { x: number; y: number }>;
@@ -106,10 +111,7 @@ export function getDraggingPreviewNodes(options: {
   return options.dragMode === 'duplicate' ? options.previewNodes : options.sourceNodes;
 }
 
-export function getDraggingConnectionSourceNodeIds(options: {
-  dragMode: DragMode;
-  sourceNodeIds: NodeId[];
-}): NodeId[] {
+export function getDraggingConnectionSourceNodeIds(options: { dragMode: DragMode; sourceNodeIds: NodeId[] }): NodeId[] {
   return options.dragMode === 'move' ? options.sourceNodeIds : [];
 }
 
@@ -149,6 +151,7 @@ export const useDraggingNode = () => {
   const setNodes = useSetAtom(nodesState);
 
   const [draggedSourceNodes, setDraggedSourceNodesState] = useState<ChartNode[]>([]);
+  const [draggedHoverControlSourceNodeIds, setDraggedHoverControlSourceNodeIds] = useState<NodeId[]>([]);
   const [duplicatePreviewNodes, setDuplicatePreviewNodesState] = useState<ChartNode[]>([]);
   const [dragMode, setDragMode] = useState<DragMode>('move');
   const [dragAxisLock, setDragAxisLock] = useState<DragAxisLock>();
@@ -161,6 +164,8 @@ export const useDraggingNode = () => {
   const isShiftDragConstraintEnabledRef = useRef(false);
   const lastDragDeltaRef = useRef<DragDelta>({ x: 0, y: 0 });
   const lastDragActivatorAltRef = useRef(false);
+  const lastDragActivatorHoverControlsVisibleRef = useRef(false);
+  const lastDragActivatorNodeIdRef = useRef<NodeId | undefined>();
   const lastDragActivatorShiftRef = useRef(false);
 
   const moveNode = useMoveNodeCommand();
@@ -194,12 +199,15 @@ export const useDraggingNode = () => {
 
   const resetDragSession = useCallback(() => {
     lastDragActivatorAltRef.current = false;
+    lastDragActivatorHoverControlsVisibleRef.current = false;
+    lastDragActivatorNodeIdRef.current = undefined;
     lastDragActivatorShiftRef.current = false;
     isShiftDragConstraintEnabledRef.current = false;
     lastDragDeltaRef.current = { x: 0, y: 0 };
     setSessionStartPositions(new Map());
     setSessionSourceNodeIds([]);
     setSessionSourceNodes([]);
+    setDraggedHoverControlSourceNodeIds([]);
     setSessionPreviewNodes([]);
     setSessionDragMode('move');
     setSessionDragAxisLock(undefined);
@@ -286,6 +294,8 @@ export const useDraggingNode = () => {
 
   const onNodeDragActivatorPointerDown = useCallback((modifierState: DragActivatorModifierState) => {
     lastDragActivatorAltRef.current = modifierState.altKey;
+    lastDragActivatorHoverControlsVisibleRef.current = modifierState.hoverControlsVisible;
+    lastDragActivatorNodeIdRef.current = modifierState.nodeId;
     lastDragActivatorShiftRef.current = modifierState.shiftKey;
   }, []);
 
@@ -301,6 +311,13 @@ export const useDraggingNode = () => {
 
       setSessionSourceNodeIds(sourceNodeIds);
       setSessionSourceNodes(sourceNodes);
+      setDraggedHoverControlSourceNodeIds(
+        lastDragActivatorHoverControlsVisibleRef.current &&
+          lastDragActivatorNodeIdRef.current &&
+          sourceNodeIds.includes(lastDragActivatorNodeIdRef.current)
+          ? [lastDragActivatorNodeIdRef.current]
+          : [],
+      );
       setSessionPreviewNodes(createDragDuplicatePreviewNodes(sourceNodes));
       setSessionStartPositions(createDragStartPositionMap(sourceNodes));
       isShiftDragConstraintEnabledRef.current = lastDragActivatorShiftRef.current;
@@ -394,13 +411,7 @@ export const useDraggingNode = () => {
         resetDragSession();
       }
     },
-    [
-      canvasPosition.zoom,
-      duplicateNodes,
-      moveNode,
-      resetDragSession,
-      setNodes,
-    ],
+    [canvasPosition.zoom, duplicateNodes, moveNode, resetDragSession, setNodes],
   );
 
   const onNodeDragCancelled = useCallback(() => {
@@ -413,6 +424,7 @@ export const useDraggingNode = () => {
     draggingConnectionSourceNodeIds,
     draggingNodes,
     draggedSourceNodeIds,
+    draggedHoverControlSourceNodeIds,
     onNodeDragActivatorPointerDown,
     onNodeDragCancelled,
     onNodeDraggedMove,

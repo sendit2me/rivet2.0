@@ -34,6 +34,7 @@ export type VisualNodeProps = {
   isHovered?: boolean;
   isKnownNodeType: boolean;
   isOutputExpanded: boolean;
+  shouldShowHoverControls?: boolean;
   lastRun?: ProcessDataForNode[];
   processPage: number | 'latest';
   renderHeavyContent: boolean;
@@ -58,6 +59,7 @@ export const VisualNode = memo(
         isHovered,
         isKnownNodeType,
         isOutputExpanded,
+        shouldShowHoverControls,
         lastRun,
         processPage,
         renderHeavyContent,
@@ -139,6 +141,7 @@ export const VisualNode = memo(
               overlayNode: isOverlay,
               selected: isSelected,
               hovered: isHovered,
+              showHoverControls: shouldShowHoverControls,
               ...executionClassFlags,
               zoomedOut: effectiveIsZoomedOut,
               isComment,

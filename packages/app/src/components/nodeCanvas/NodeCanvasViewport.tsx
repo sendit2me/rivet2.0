@@ -27,6 +27,7 @@ export interface NodeCanvasViewportProps {
   canvasViewContextValue: CanvasViewValue;
   dragAxisLock: DragAxisLock;
   dragMode: DragMode;
+  draggingHoverControlSourceNodeIds: NodeId[];
   draggingNodeConnections: NodeConnection[];
   draggingNodes: ChartNode[];
   draggingSourceNodeIds: NodeId[];
@@ -68,6 +69,7 @@ const NodeCanvasScene: FC<Omit<NodeCanvasViewportProps, 'canvasPositionX' | 'can
     canvasZoom,
     dragAxisLock,
     dragMode,
+    draggingHoverControlSourceNodeIds,
     draggingNodeConnections,
     draggingNodes,
     draggingSourceNodeIds,
@@ -85,6 +87,10 @@ const NodeCanvasScene: FC<Omit<NodeCanvasViewportProps, 'canvasPositionX' | 'can
   }) => {
     countCanvasPerf('NodeCanvasScene:renders');
     const draggingNodeIdSet = useMemo(() => new Set(draggingNodes.map((node) => node.id)), [draggingNodes]);
+    const draggingHoverControlSourceNodeIdSet = useMemo(
+      () => new Set(draggingHoverControlSourceNodeIds),
+      [draggingHoverControlSourceNodeIds],
+    );
     const expandedOutputNodeIdSet = useMemo(() => new Set(expandedOutputNodeIds), [expandedOutputNodeIds]);
     const selectedNodeIdSet = useMemo(() => new Set(selectedNodeIds), [selectedNodeIds]);
     const searchMatchingNodeIdSet = useMemo(() => new Set(searchMatchingNodeIds), [searchMatchingNodeIds]);
@@ -156,6 +162,9 @@ const NodeCanvasScene: FC<Omit<NodeCanvasViewportProps, 'canvasPositionX' | 'can
                   lastRun={lastRun}
                   processPage={processPage}
                   renderHeavyContent
+                  shouldShowHoverControls={draggingHoverControlSourceNodeIdSet.has(
+                    draggingSourceNodeIds[index] ?? node.id,
+                  )}
                 />
               );
             })}

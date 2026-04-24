@@ -1,8 +1,6 @@
 
 
-- When I'm dragging the node, the gear icon disappears although I'm still hovering it. Make it stay visible while dragging (if it was visible before dragging).
-
-- Show the node's description in the node
+- If the node has description, show in in node's header under the title in smaller font
 
 - Parallel runs icon should be more parallel. Maybe move the split-related icons to the area on above the card? Sequenrial - more sequentisl
 

@@ -2,20 +2,8 @@ import { DndContext, useDroppable } from '@dnd-kit/core';
 import { useMergeRefs } from '@floating-ui/react';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { produce } from 'immer';
-import {
-  type FC,
-  type MouseEvent,
-  type MutableRefObject,
-  useEffect,
-  useMemo,
-  useState,
-} from 'react';
-import {
-  type ChartNode,
-  type CommentNode,
-  type NodeConnection,
-  type NodeId,
-} from '@ironclad/rivet-core';
+import { type FC, type MouseEvent, type MutableRefObject, useEffect, useMemo, useState } from 'react';
+import { type ChartNode, type CommentNode, type NodeConnection, type NodeId } from '@ironclad/rivet-core';
 import { useAutoLayoutCommand } from '../commands/autoLayoutCommand';
 import { useDeleteNodesCommand } from '../commands/deleteNodeCommand';
 import { useEditNodeCommand } from '../commands/editNodeCommand';
@@ -65,10 +53,7 @@ import type { NodeResizeBounds } from '../utils/nodeResize.js';
 import { MEDIUM_GRAPH_NODE_THRESHOLD } from './nodeCanvas/canvasPerformanceBudget.js';
 import { getCanvasPerfSnapshot } from './nodeCanvas/canvasPerfDebug.js';
 import { groupConnectionsByNode } from './nodeCanvas/groupConnectionsByNode.js';
-import {
-  getDraggingViewportNodeIds,
-  shouldFreezeViewportVisibility,
-} from './nodeCanvas/viewportVisibilityPolicy.js';
+import { getDraggingViewportNodeIds, shouldFreezeViewportVisibility } from './nodeCanvas/viewportVisibilityPolicy.js';
 import { filterValidSubGraphConnections } from '../domain/graphEditing/connectionValidation.js';
 
 const EMPTY_NODE_CONNECTIONS: NodeConnection[] = [];
@@ -165,19 +150,14 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
   }, [_connections.length, connections, onConnectionsChanged]);
 
   const { selectionBox, startSelectionBox, updateSelectionBox, endSelectionBox } = useSelectionBox();
-  const {
-    hoveringPort,
-    hoveringShowPortInfo,
-    onPortMouseOver,
-    onPortMouseOut,
-    floatingStyles,
-    floatingRefs,
-  } = usePortHoverTooltip();
+  const { hoveringPort, hoveringShowPortInfo, onPortMouseOver, onPortMouseOut, floatingStyles, floatingRefs } =
+    usePortHoverTooltip();
 
   const {
     dragAxisLock,
     dragMode,
     draggingConnectionSourceNodeIds,
+    draggedHoverControlSourceNodeIds,
     draggingNodes,
     draggedSourceNodeIds,
     onNodeDragActivatorPointerDown,
@@ -216,17 +196,13 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
     [connectionsByNodeId, nodes],
   );
 
-  const draggingNodeConnections = useMemo(
-    () => {
-      const draggingNodeIdSet = new Set(draggingConnectionSourceNodeIds);
+  const draggingNodeConnections = useMemo(() => {
+    const draggingNodeIdSet = new Set(draggingConnectionSourceNodeIds);
 
-      return previewConnections.filter(
-        (connection) =>
-          draggingNodeIdSet.has(connection.inputNodeId) || draggingNodeIdSet.has(connection.outputNodeId),
-      );
-    },
-    [draggingConnectionSourceNodeIds, previewConnections],
-  );
+    return previewConnections.filter(
+      (connection) => draggingNodeIdSet.has(connection.inputNodeId) || draggingNodeIdSet.has(connection.outputNodeId),
+    );
+  }, [draggingConnectionSourceNodeIds, previewConnections]);
 
   const contextMenuItemSelected = useStableCallback(
     (itemId: string, data: unknown, context: ContextMenuContext, meta: { x: number; y: number }) => {
@@ -318,21 +294,17 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
     isViewportMoving,
   });
 
-  const {
-    heavyContentNodeIdSet,
-    isViewportVisibilitySettled,
-    nearViewportNodeIdSet,
-    visibleNodeIdSet,
-  } = useVisibleCanvasNodes({
-    draggingNodeIds: draggingViewportNodeIds,
-    editingNodeId,
-    expandedOutputNodeIds,
-    hoveringNodeId: hoveringNode,
-    isViewportMoving: freezeViewportVisibility,
-    nodes,
-    selectedNodeIds: selectedViewportNodeIds,
-    viewportBounds,
-  });
+  const { heavyContentNodeIdSet, isViewportVisibilitySettled, nearViewportNodeIdSet, visibleNodeIdSet } =
+    useVisibleCanvasNodes({
+      draggingNodeIds: draggingViewportNodeIds,
+      editingNodeId,
+      expandedOutputNodeIds,
+      hoveringNodeId: hoveringNode,
+      isViewportMoving: freezeViewportVisibility,
+      nodes,
+      selectedNodeIds: selectedViewportNodeIds,
+      viewportBounds,
+    });
 
   const {
     nodePortPositions,
@@ -416,34 +388,32 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
   const isZoomedOut = canvasPosition.zoom < 0.4;
   const isReallyZoomedOut = canvasPosition.zoom < 0.2;
 
-  const onResizeFinish = useStableCallback((
-    node: ChartNode,
-    nextBounds: NodeResizeBounds,
-    previousNodeOverride?: Partial<ChartNode>,
-  ) => {
-    const newNode: Partial<ChartNode> = {
-      visualData: {
-        ...node.visualData,
-        x: nextBounds.x,
-        y: nextBounds.y ?? node.visualData.y,
-        width: nextBounds.width,
-      },
-    };
-
-    if (node.type === 'comment' && nextBounds.height != null) {
-      const commentNode = node as CommentNode;
-      newNode.data = {
-        ...commentNode.data,
-        height: nextBounds.height,
+  const onResizeFinish = useStableCallback(
+    (node: ChartNode, nextBounds: NodeResizeBounds, previousNodeOverride?: Partial<ChartNode>) => {
+      const newNode: Partial<ChartNode> = {
+        visualData: {
+          ...node.visualData,
+          x: nextBounds.x,
+          y: nextBounds.y ?? node.visualData.y,
+          width: nextBounds.width,
+        },
       };
-    }
 
-    editNode({
-      nodeId: node.id,
-      newNode,
-      previousNodeOverride,
-    });
-  });
+      if (node.type === 'comment' && nextBounds.height != null) {
+        const commentNode = node as CommentNode;
+        newNode.data = {
+          ...commentNode.data,
+          height: nextBounds.height,
+        };
+      }
+
+      editNode({
+        nodeId: node.id,
+        newNode,
+        previousNodeOverride,
+      });
+    },
+  );
 
   const canvasViewContextValue = useMemo(
     () => ({
@@ -517,6 +487,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
           canvasViewContextValue={canvasViewContextValue}
           dragAxisLock={dragAxisLock}
           dragMode={dragMode}
+          draggingHoverControlSourceNodeIds={draggedHoverControlSourceNodeIds}
           draggingNodeConnections={draggingNodeConnections}
           draggingNodes={draggingNodes}
           draggingSourceNodeIds={draggedSourceNodeIds}
@@ -566,10 +537,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
             visibleNodeIdSet={visibleNodeIdSet}
           />
         )}
-        <MultiNodeAlignmentToolbar
-          canvasRootRef={canvasRef}
-          selectedNodes={selectedNodes}
-        />
+        <MultiNodeAlignmentToolbar canvasRootRef={canvasRef} selectedNodes={selectedNodes} />
       </div>
     </DndContext>
   );

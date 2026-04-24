@@ -376,7 +376,9 @@ export const nodeStyles = css`
       color 0.2s ease-out;
   }
 
-  .node:is(:hover, .hovered, :focus-within) .title-controls :is(.edit-button, .edit-button-tooltip) {
+  .node:is(:hover, .hovered, .showHoverControls, :focus-within)
+    .title-controls
+    :is(.edit-button, .edit-button-tooltip) {
     opacity: 1;
     position: static;
     pointer-events: auto;
