@@ -15,7 +15,7 @@ import { ErrorBoundary } from 'react-error-boundary';
 import { loadedRecordingState } from '../state/execution.js';
 import { useGraphHistoryNavigation } from '../hooks/useGraphHistoryNavigation';
 import { useProjectPlugins } from '../hooks/useProjectPlugins';
-import { entries } from '../../../core/src/utils/typeSafety';
+import { entries } from '../utils/typeSafety';
 import { useGraphBuilderContextMenuHandler } from '../hooks/useGraphBuilderContextMenuHandler';
 import { NavigationBar } from './NavigationBar';
 import { projectState } from '../state/savedGraphs';

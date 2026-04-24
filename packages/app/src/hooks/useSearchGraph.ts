@@ -1,7 +1,7 @@
 import { useAtomValue, useSetAtom } from 'jotai';
 import { nodesState } from '../state/graph';
 import { useEffect, useMemo } from 'react';
-import { entries } from '../../../core/src/utils/typeSafety';
+import { entries } from '../utils/typeSafety';
 import { searchMatchingNodeIdsState, searchingGraphState } from '../state/graphBuilder';
 import { useFuseSearch } from './useFuseSearch';
 import { useFocusOnNodes } from './useFocusOnNodes';

@@ -11,7 +11,7 @@ import TextField from '@atlaskit/textfield';
 import { DataType, type DataValue } from '@ironclad/rivet-core';
 import { produce } from 'immer';
 import Toggle from '@atlaskit/toggle';
-import { entries } from '../../../core/src/utils/typeSafety';
+import { entries } from '../utils/typeSafety';
 import { css } from '@emotion/react';
 import { ProjectRevisions } from './ProjectRevisionList';
 import { useAtom, useAtomValue } from 'jotai';

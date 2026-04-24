@@ -2,7 +2,7 @@ import { useSetAtom } from 'jotai';
 import { useStaticDataDatabase } from './useStaticDataDatabase';
 import { projectDataState } from '../state/savedGraphs';
 import { type DataId } from '@ironclad/rivet-core';
-import { entries } from '../../../core/src/utils/typeSafety';
+import { entries } from '../utils/typeSafety';
 import { handleError } from '../utils/errorHandling.js';
 
 export function useSetStaticData() {

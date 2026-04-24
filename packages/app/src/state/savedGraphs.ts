@@ -13,7 +13,7 @@ import {
   type DataValue,
 } from '@ironclad/rivet-core';
 import { blankProject } from '../utils/blankProject.js';
-import { entries, values } from '../../../core/src/utils/typeSafety';
+import { entries, values } from '../utils/typeSafety';
 import { createHybridStorage } from './storage.js';
 /** Project context values stored in the IDE and not in the project file. Available in Context nodes. */
 export type ProjectContext = Record<

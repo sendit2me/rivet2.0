@@ -1,13 +1,16 @@
-import { type DataValue, type ExtractObjectPathNode, type Inputs, type PortId } from '@ironclad/rivet-core';
-import { type NodeRunDataWithRefs } from '../../state/dataFlow.js';
 import {
+  type DataValue,
+  type ExtractObjectPathNode,
+  type Inputs,
+  type PortId,
   extractInterpolationVariables,
   findInterpolationTokenSpans,
   getInterpolationTokenName,
   interpolate,
   protectEscapedInterpolationTokens,
   restoreEscapedInterpolationTokens,
-} from '../../../../core/src/utils/interpolation.js';
+} from '@ironclad/rivet-core';
+import { type NodeRunDataWithRefs } from '../../state/dataFlow.js';
 import { hasDisplayableInterpolationInputs } from './parsedSourceDisplayUtils.js';
 
 const RESERVED_INPUT_NAMES = new Set(['object']);

@@ -1,5 +1,5 @@
 import { type DataValue, type NodeOutputDefinition } from '@ironclad/rivet-core';
-import { keys } from '../../../core/src/utils/typeSafety.js';
+import { keys } from '../utils/typeSafety.js';
 import { type FC } from 'react';
 import { type DataRefReader, useDataRefs } from '../providers/ProvidersContext.js';
 import { type DataValueWithRefs, type InputsOrOutputsWithRefs } from '../state/dataFlow.js';

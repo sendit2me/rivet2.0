@@ -3,8 +3,10 @@ import { cloneDeep, range, zip } from 'lodash-es';
 import { nanoid } from 'nanoid/non-secure';
 import {
   ChatNodeImpl,
+  GptTokenizerTokenizer,
   GraphProcessor,
   type ChatMessage,
+  type ChatNodeConfigData,
   type DataValue,
   type DatasetProvider,
   type GraphId,
@@ -22,8 +24,6 @@ import { settingsState } from '../../state/settings.js';
 import { useGetAdHocInternalProcessContext } from '../../hooks/useGetAdHocInternalProcessContext';
 import { useProjectNodeRegistry } from '../../hooks/useProjectNodeRegistry';
 import type { PromptDesignerTestGroupResults } from '../../state/promptDesigner';
-import type { ChatNodeConfigData } from '../../../../core/src/model/nodes/ChatNodeBase';
-import { GptTokenizerTokenizer } from '../../../../core/src/integrations/GptTokenizerTokenizer';
 
 export async function runAdHocChat(messages: ChatMessage[], data: ChatNodeConfigData, context: InternalProcessContext) {
   const chatNode = new ChatNodeImpl({

@@ -14,7 +14,7 @@ import {
 } from '@ironclad/rivet-core';
 import { cloneDeep, mapValues } from 'lodash-es';
 import { P, match } from 'ts-pattern';
-import { entries } from '../../../core/src/utils/typeSafety.js';
+import { entries } from './typeSafety.js';
 import type { DataRefReader, DataRefStore } from '../providers/ProvidersContext.js';
 import type {
   DataValueWithRefs,

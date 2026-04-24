@@ -65,6 +65,18 @@ export default [
       'import/no-duplicates': 'error',
       'import/no-cycle': 'error',
       'import/first': 'off',
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['**/core/src', '**/core/src/**', '@ironclad/rivet-core/src', '@ironclad/rivet-core/src/**'],
+              message:
+                'Import core through @ironclad/rivet-core. If a package needs a shared core contract, export it intentionally from core first.',
+            },
+          ],
+        },
+      ],
 
       // TypeScript-specific rules
       '@typescript-eslint/consistent-type-imports': [

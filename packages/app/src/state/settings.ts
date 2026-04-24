@@ -1,8 +1,7 @@
 import { atom } from 'jotai';
 import { atomWithStorage } from 'jotai/utils';
-import { type Settings } from '@ironclad/rivet-core';
+import { DEFAULT_CHAT_NODE_TIMEOUT, type Settings } from '@ironclad/rivet-core';
 import { isInTauri } from '../utils/tauri';
-import { DEFAULT_CHAT_NODE_TIMEOUT } from '../../../core/src/utils/defaults';
 import { createHybridStorage } from './storage.js';
 
 // Legacy storage key for recoil-persist to avoid breaking existing users' settings

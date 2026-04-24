@@ -1,6 +1,12 @@
-import { type DataValue, type PortId, getScalarTypeOf, inferType, isFunctionDataType } from '@ironclad/rivet-core';
+import {
+  type DataValue,
+  type PortId,
+  WarningsPort,
+  getScalarTypeOf,
+  inferType,
+  isFunctionDataType,
+} from '@ironclad/rivet-core';
 import prettyBytes from 'pretty-bytes';
-import { WarningsPort } from '../../../core/src/utils/symbols.js';
 import type { DataRefReader } from '../providers/ProvidersContext.js';
 import type { InputsOrOutputsWithRefs, NodeRunDataWithRefs } from '../state/dataFlow.js';
 import { restoreStoredPortMap, restoreStoredPortValue } from './executionDataReaders.js';

@@ -1,4 +1,4 @@
-import { extractInterpolationVariables } from '../../../../core/src/utils/interpolation.js';
+import { extractInterpolationVariables } from '@ironclad/rivet-core';
 
 export function hasDisplayableInterpolationInputs(
   source: string,

@@ -1,6 +1,12 @@
 import Popup from '@atlaskit/popup';
 import { css } from '@emotion/react';
-import { type DataValue, ExecutionRecorder } from '@ironclad/rivet-core';
+import { entries } from '../../utils/typeSafety';
+import {
+  type DataValue,
+  ExecutionRecorder,
+  runGentraceTests,
+  runRemoteGentraceTests,
+} from '@ironclad/rivet-core';
 import { useToggle } from 'ahooks';
 import clsx from 'clsx';
 import EditPen from 'majesticons/line/edit-pen-2-line.svg?react';
@@ -8,7 +14,6 @@ import TestTube from 'majesticons/line/test-tube-filled-line.svg?react';
 
 import GentraceImage from '../../assets/vendor_logos/gentrace.svg?react';
 import { toast } from 'react-toastify';
-import { runGentraceTests, runRemoteGentraceTests } from '../../../../core/src/plugins/gentrace/plugin';
 import { useRemoteDebugger } from '../../hooks/useRemoteDebugger';
 import { useExecutorSessionRuntime } from '../../providers/ExecutorSessionContext';
 import { useProjectNodeRegistry } from '../../hooks/useProjectNodeRegistry';
@@ -18,7 +23,6 @@ import { projectContextState, projectState } from '../../state/savedGraphs.js';
 import { settingsState } from '../../state/settings';
 import { fillMissingSettingsFromEnvironmentVariables } from '../../utils/tauri';
 import GentracePipelinePicker, { type GentracePipeline } from './GentracePipelinePicker';
-import { entries } from '../../../../core/src/utils/typeSafety';
 import { useAtomValue } from 'jotai';
 import { wrapAsync } from '../../utils/errorHandling';
 

@@ -8,6 +8,7 @@ import {
   type GraphOutputs,
   type GraphId,
   type ProcessEvents,
+  GptTokenizerTokenizer,
 } from '@ironclad/rivet-core';
 import { produce } from 'immer';
 import { useRef } from 'react';
@@ -24,13 +25,12 @@ import { lastRecordingState, loadedRecordingState } from '../state/execution';
 import { fillMissingSettingsFromEnvironmentVariables } from '../utils/tauri';
 import { trivetState } from '../state/trivet';
 import { runTrivet } from '@ironclad/trivet';
-import { entries } from '../../../core/src/utils/typeSafety';
+import { entries } from '../utils/typeSafety';
 import { lastRunDataByNodeState } from '../state/dataFlow';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { TauriProjectReferenceLoader } from '../model/TauriProjectReferenceLoader';
 import { useAudioProvider, useDatasetProvider } from '../providers/ProvidersContext';
 import { setUserInputSubmitHandler } from '../state/actions/userInputActions';
-import { GptTokenizerTokenizer } from '../../../core/src/integrations/GptTokenizerTokenizer';
 import { useProjectNodeRegistry } from './useProjectNodeRegistry';
 import { handleError } from '../utils/errorHandling.js';
 import { getDependentDataForNodeForPreload } from './remoteExecutorHelpers.js';

@@ -1,9 +1,11 @@
-import { type Inputs, type JSFilterNode, type JSMapNode } from '@ironclad/rivet-core';
-import { type NodeRunDataWithRefs } from '../../state/dataFlow.js';
 import {
   JS_LIST_CALLBACK_LOCAL_NAMES,
+  type Inputs,
+  type JSFilterNode,
+  type JSMapNode,
   interpolateJSListCallbackBody,
-} from '../../../../core/src/model/nodes/jsListCallbackHelpers.js';
+} from '@ironclad/rivet-core';
+import { type NodeRunDataWithRefs } from '../../state/dataFlow.js';
 import { hasDisplayableInterpolationInputs } from './parsedSourceDisplayUtils.js';
 
 type JSListNode = JSFilterNode | JSMapNode;

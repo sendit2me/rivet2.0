@@ -7,7 +7,7 @@ import DeleteBinIcon from 'majesticons/line/delete-bin-line.svg?react';
 import LightningIcon from 'majesticons/line/lightning-bolt-line.svg?react';
 import InfoIcon from 'majesticons/line/info-circle-line.svg?react';
 import { useToggle } from 'ahooks';
-import { type PluginLoadSpec } from '../../../core/src/model/PluginLoadSpec';
+import { type PluginLoadSpec } from '@ironclad/rivet-core';
 import { css } from '@emotion/react';
 import Popup from '@atlaskit/popup';
 import { MenuGroup, ButtonItem } from '@atlaskit/menu';

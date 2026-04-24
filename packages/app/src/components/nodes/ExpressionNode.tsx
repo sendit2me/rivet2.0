@@ -1,12 +1,10 @@
 import {
+  EXPRESSION_OUTPUT_PORT_ID,
   type ExpressionNode,
   type Inputs,
+  interpolateExpressionSource,
 } from '@ironclad/rivet-core';
 import { type FC, useMemo } from 'react';
-import {
-  EXPRESSION_OUTPUT_PORT_ID,
-  interpolateExpressionSource,
-} from '../../../../core/src/model/nodes/ExpressionNode.js';
 import { RenderDataValue, type OutputRenderMode } from '../RenderDataValue.js';
 import { useDataRefs } from '../../providers/ProvidersContext.js';
 import { type NodeRunDataWithRefs } from '../../state/dataFlow.js';

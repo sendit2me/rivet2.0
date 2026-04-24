@@ -116,6 +116,8 @@ Desktop IDE frontend plus Tauri app packaging layer.
 
 ### Important current boundaries
 
+- downstream package source imports core through `@ironclad/rivet-core`, not by reaching into `packages/core/src/...`; the shared root ESLint config enforces that boundary with `no-restricted-imports`
+- app-only convenience helpers, such as type-safe object iteration, live in the app package; shared behavior that must match core runtime semantics is exported intentionally by core first
 - execution transport/session ownership is centralized under `src/hooks/executorSession.ts` and `src/hooks/useExecutorSession.ts`
 - project/graph load-save-switch sequencing is centralized under `src/hooks/useWorkspaceTransitions.ts` and `src/utils/workspaceTransitions.ts`
 - remembered editor-view persistence is handled app-side through `src/state/projectEditor.ts`, `src/hooks/useSyncCurrentProjectEditorState.ts`, and `src/hooks/useRestorePersistedWorkspace.ts` rather than through project-file serialization

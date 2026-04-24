@@ -1,5 +1,4 @@
-import { type ProjectReference, type Project, deserializeProject } from '@ironclad/rivet-core';
-import { type ProjectReferenceLoader } from '../../../core/src/model/ProjectReferenceLoader';
+import { type ProjectReference, type Project, type ProjectReferenceLoader, deserializeProject } from '@ironclad/rivet-core';
 import { invokeNative } from '../utils/platform/core.js';
 import { handleError } from '../utils/errorHandling.js';
 

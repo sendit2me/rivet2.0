@@ -11,7 +11,7 @@ import { useAtomValue } from 'jotai';
 import { lastRunDataByNodeState } from '../state/dataFlow';
 import { graphState } from '../state/graph';
 import { projectState } from '../state/savedGraphs';
-import { entries } from '../../../core/src/utils/typeSafety';
+import { entries } from '../utils/typeSafety';
 import { useDataRefs } from '../providers/ProvidersContext.js';
 import { coerceStoredPortValue } from '../utils/executionDataReaders.js';
 

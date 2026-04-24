@@ -10,7 +10,7 @@ import type { monaco } from '../utils/monaco.js';
 import { useMarkdown } from '../hooks/useMarkdown.js';
 import { LazyCodeEditor } from './LazyComponents';
 import { projectState } from '../state/savedGraphs';
-import { values } from '../../../core/src/utils/typeSafety';
+import { values } from '../utils/typeSafety';
 import { toast } from 'react-toastify';
 import { nodesState } from '../state/graph';
 

@@ -24,7 +24,7 @@ import { useLoadProjectWithFileBrowser } from '../hooks/useLoadProjectWithFileBr
 import { newProjectModalOpenState } from '../state/ui';
 import DiscordLogo from '../assets/vendor_logos/discord-mark-white.svg?react';
 import { useOpenUrl } from '../hooks/useOpenUrl';
-import { keys } from '../../../core/src/utils/typeSafety';
+import { keys } from '../utils/typeSafety';
 import { wrapAsync } from '../utils/errorHandling';
 import { useCurrentProjectEditorSnapshot } from '../hooks/useCurrentProjectEditorSnapshot.js';
 

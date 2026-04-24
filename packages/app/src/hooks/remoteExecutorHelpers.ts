@@ -8,7 +8,7 @@ import {
   type ProcessEvents,
   type Project,
 } from '@ironclad/rivet-core';
-import { entries } from '../../../core/src/utils/typeSafety.js';
+import { entries } from '../utils/typeSafety.js';
 import type { RunDataByNodeId } from '../state/dataFlow.js';
 import type { ProjectContext } from '../state/savedGraphs.js';
 import type { DataRefReader } from '../providers/ProvidersContext.js';

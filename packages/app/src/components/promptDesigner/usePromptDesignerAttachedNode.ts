@@ -16,8 +16,8 @@ import {
   arrayizeDataValue,
   isFunctionDataType,
   type ScalarOrArrayDataValue,
+  getChatNodeMessages,
 } from '@ironclad/rivet-core';
-import { getChatNodeMessages } from '../../../../core/src/model/nodes/ChatNodeBase.js';
 import { useClearCurrentGraphHistory } from '../../commands/Command.js';
 import { useDataRefs } from '../../providers/ProvidersContext.js';
 import { restoreStoredPortMap } from '../../utils/executionDataReaders.js';

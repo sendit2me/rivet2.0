@@ -1052,6 +1052,12 @@ The session layer keeps those paths explicit so desktop Node execution does not 
 
 The desktop app still depends heavily on `@ironclad/rivet-core`, but `GraphProcessor` is less monolithic than before.
 
+Package-boundary rule:
+
+- app code imports core through `@ironclad/rivet-core`; direct `packages/core/src/...` imports are blocked by the shared ESLint config
+- if app UI needs to share runtime semantics with core, promote a deliberate core export first rather than coupling the app to core's file layout
+- generic app-only utilities should live under `packages/app/src`, not under core
+
 Relevant current seams in core:
 
 - [`packages/core/src/model/NodeExecutionPlanner.ts`](../packages/core/src/model/NodeExecutionPlanner.ts)

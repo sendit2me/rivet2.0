@@ -1,6 +1,5 @@
 import { atom } from 'jotai';
-import { createBuiltInRegistry } from '@ironclad/rivet-core';
-import { type PluginLoadSpec } from '../../../core/src/model/PluginLoadSpec';
+import { createBuiltInRegistry, type PluginLoadSpec } from '@ironclad/rivet-core';
 
 export type PluginState = {
   id: string;

@@ -16,7 +16,7 @@ import {
   type GraphRunRecord,
 } from '../state/dataFlow';
 import { userInputModalQuestionsState } from '../state/userInput';
-import { keys } from '../../../core/src/utils/typeSafety';
+import { keys } from '../utils/typeSafety';
 import { handleError } from '../utils/errorHandling.js';
 import { buildGraphViewKeyFromExecution } from '../utils/executionIdentity';
 import type { GraphViewKey } from '../domain/graphEditing/navigationActions.js';

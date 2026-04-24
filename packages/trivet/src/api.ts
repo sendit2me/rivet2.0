@@ -6,10 +6,10 @@ import {
   GraphProcessor,
   globalRivetNodeRegistry,
   type GraphOutputNode,
+  GptTokenizerTokenizer,
   inferType,
   resolveProcessSettings,
 } from '@ironclad/rivet-core';
-import { GptTokenizerTokenizer } from '../../core/src/integrations/GptTokenizerTokenizer.js';
 import { cloneDeep, keyBy, mapValues, omit } from 'lodash-es';
 import {
   type TrivetGraphRunner,

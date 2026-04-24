@@ -57,7 +57,7 @@ That file re-exports:
 - execution streaming APIs
 - create/run processor helpers
 
-For refactors, `exports.ts` is the API contract that downstream packages rely on.
+For refactors, `exports.ts` is the API contract that downstream packages rely on. Downstream package code should import core through `@ironclad/rivet-core`; it should not import `packages/core/src/...` files directly. The shared ESLint config enforces that boundary. When app presentation or another package needs to mirror runtime semantics, such as interpolation token parsing, warning-port handling, JS-list callback source interpolation, Gentrace app-facing utilities, `RivetUIContext`, tokenizer implementations, or project-reference loading, the shared contract should be exported intentionally from core instead of reaching into the source tree.
 
 ## Graph Model
 

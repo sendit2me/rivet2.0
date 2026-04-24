@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { projectGraphInfoState } from '../state/savedGraphs.js';
 import { useAtomValue } from 'jotai';
 import { type ContextMenuItem } from './useContextMenuConfiguration.js';
-import { values } from '../../../core/src/utils/typeSafety';
+import { values } from '../utils/typeSafety';
 
 export function useContextMenuCommands() {
   const projectInfo = useAtomValue(projectGraphInfoState);

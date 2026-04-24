@@ -8,9 +8,9 @@ import {
   type InternalProcessContext,
   type PortId,
   type RootRunId,
+  GptTokenizerTokenizer,
 } from '@ironclad/rivet-core';
 import { useCallback } from 'react';
-import { GptTokenizerTokenizer } from '../../../core/src/integrations/GptTokenizerTokenizer';
 import { fillMissingSettingsFromEnvironmentVariables } from '../utils/tauri';
 import { TauriNativeApi } from '../model/native/TauriNativeApi';
 import { nanoid } from 'nanoid/non-secure';

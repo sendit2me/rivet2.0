@@ -12,6 +12,8 @@ export * from './native/BaseDir.js';
 export * from './native/NativeApi.js';
 export * from './native/BrowserNativeApi.js';
 export * from './model/ProcessContext.js';
+export * from './model/ProjectReferenceLoader.js';
+export * from './model/RivetUIContext.js';
 export * from './model/chat-v2/index.js';
 export * from './integrations/integrations.js';
 import './integrations/enableIntegrations.js';
@@ -52,6 +54,16 @@ export * from './api/looseDataValue.js';
 export * from './integrations/CodeRunner.js';
 export * from './integrations/Tokenizer.js';
 export * from './integrations/GptTokenizerTokenizer.js';
+export { JS_LIST_CALLBACK_LOCAL_NAMES, interpolateJSListCallbackBody } from './model/nodes/jsListCallbackHelpers.js';
+export {
+  extractInterpolationVariables,
+  findInterpolationTokenSpans,
+  getInterpolationTokenName,
+  interpolate,
+  protectEscapedInterpolationTokens,
+  restoreEscapedInterpolationTokens,
+} from './utils/interpolation.js';
+export { WarningsPort } from './utils/symbols.js';
 
 import * as openai from './utils/openai.js';
 export { openai };

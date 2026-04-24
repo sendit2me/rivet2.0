@@ -1,10 +1,9 @@
 import Button from '@atlaskit/button';
 import Modal, { ModalTransition, ModalHeader, ModalBody, ModalFooter } from '@atlaskit/modal-dialog';
 import { css } from '@emotion/react';
-import { type RivetPlugin } from '@ironclad/rivet-core';
+import { type PluginLoadSpec, type RivetPlugin } from '@ironclad/rivet-core';
 import { useState, type FC } from 'react';
 import { match } from 'ts-pattern';
-import { type PluginLoadSpec } from '../../../core/src/model/PluginLoadSpec';
 import useAsyncEffect from 'use-async-effect';
 import { CopyToClipboardButton } from './CopyToClipboardButton';
 import { nativeAppLocalDataDir, nativeJoinPath } from '../utils/platform/path.js';

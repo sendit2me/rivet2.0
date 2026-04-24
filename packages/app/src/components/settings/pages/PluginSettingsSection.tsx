@@ -8,8 +8,8 @@ import {
   type RivetPluginConfigSpecs,
   type SecretPluginConfigurationSpec,
   type StringPluginConfigurationSpec,
-} from '../../../../../core/src/index.js';
-import { entries } from '../../../../../core/src/utils/typeSafety';
+} from '@ironclad/rivet-core';
+import { entries } from '../../../utils/typeSafety';
 import { settingsState } from '../../../state/settings.js';
 
 export const PluginSettingsSection: FC<{

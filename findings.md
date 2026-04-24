@@ -89,19 +89,81 @@ Remaining caveat:
 
 - Legacy custom tokenizers that return `void` still compile and run, but `GraphProcessor` cannot remove listeners they do not expose. Custom tokenizer authors should return an unsubscribe callback from `on(...)`.
 
-## Systemic Maintainability Risk
+## Resolved Maintainability Findings
 
 ### App Imports Core Internals Directly
 
-**Severity:** P2 maintainability issue
+**Former severity:** P2 maintainability issue
 
-`packages/app/src` still imports many files from `core/src/...` directly instead of using the `@ironclad/rivet-core` public package surface. Recent examples include interpolation, expression/list output helpers, type-safety helpers, settings defaults, plugin models, tokenizer internals, and symbols.
+**Status:** Fixed
 
-This makes package boundaries blurry and can create fragile coupling between app internals and core file layout.
+Before the fix, `packages/app/src` still imported files from `packages/core/src/...` directly instead of going through the `@ironclad/rivet-core` package surface.
 
-Recommended direction:
+Evidence from the pre-fix app source:
 
-- Decide which helpers are intentionally public and export them from core.
-- Move app-only helpers into the app package when they are presentation-only.
-- Prefer package imports over relative `core/src/...` imports.
-- Add a lightweight lint or grep check once the intended boundary is cleaned up.
+- `packages/app/src` has 315 `@ironclad/rivet-core` import occurrences.
+- It also has 46 direct `core/src` import occurrences.
+- 43 of those direct imports are in runtime app files; 3 are test-only.
+- The direct imports appear in 41 files total, 38 runtime files.
+
+This means the issue is real but not as broad as "the app ignores the core package." Most app code already uses the package import. The remaining problem is a smaller set of deep imports that blur the package boundary.
+
+Current direct-import clusters:
+
+| Direct core source area | Import count | Runtime count | Notes |
+| --- | ---: | ---: | --- |
+| `utils/typeSafety` | 19 | 19 | Used for `entries`, `values`, and similar small object helpers. These are convenience helpers, not obviously core-domain APIs. |
+| `model/PluginLoadSpec` | 5 | 5 | Already exported from `@ironclad/rivet-core`; these direct imports are unnecessary. |
+| `utils/symbols.js` | 5 | 2 | Used for `WarningsPort` in output-copy/read helpers and tests. This is a real cross-package contract today, but it is not publicly documented as one. |
+| `integrations/GptTokenizerTokenizer` | 3 | 3 | Already exported from `@ironclad/rivet-core`; these direct imports are unnecessary. |
+| `plugins/gentrace/plugin` | 2 | 2 | App UI calls `runGentraceTests`, `runRemoteGentraceTests`, and pipeline lookup helpers that are not exported through the top-level plugin surface. |
+| `utils/interpolation.js` | 2 | 2 | Used by app-side parsed-source previews to match core interpolation behavior. This is a legitimate shared-semantics need, but currently it is not a declared public helper surface. |
+| `utils/defaults` | 2 | 2 | Already exported through `utils/index.ts`; direct imports are unnecessary. |
+| `model/nodes/ChatNodeBase` | 2 | 2 | Already exported through `model/Nodes.ts`; direct imports are unnecessary. |
+| `core/src/index.js` | 2 | 2 | These should use `@ironclad/rivet-core` directly. |
+| `model/nodes/ExpressionNode.js` | 1 | 1 | Already exported through `model/Nodes.ts`; direct import is unnecessary. |
+| `model/nodes/jsListCallbackHelpers.js` | 1 | 1 | Used to keep JS Filter/Map parsed-source preview aligned with runtime interpolation; not currently public. |
+| `model/RivetUIContext` | 1 | 1 | UI context type lives in core but is not exported from the top-level package. The app's need for it is expected, but the import path is not declared public. |
+| `model/ProjectReferenceLoader` | 1 | 1 | App implements a Tauri loader for this core interface, but the interface is not exported from the top-level package. |
+
+Assumptions tested:
+
+- `packages/core/package.json` exports only the package root `"."`. There are no supported subpath exports for `@ironclad/rivet-core/...`, so direct `packages/core/src/...` imports are outside the package API.
+- `packages/core/src/index.ts` re-exports `exports.ts`, and `exports.ts` already exposes several things that the app currently imports directly, including `PluginLoadSpec`, `GptTokenizerTokenizer`, defaults, and node exports through `Nodes.ts`.
+- `packages/app/vite.config.ts` aliases `@ironclad/rivet-core` to `../core/src/index.ts`, so switching direct imports to `@ironclad/rivet-core` does not force app development to consume stale built `dist` output. It still points at live core source in the monorepo.
+- The pre-fix lint config enforced duplicate imports and cycles but did not forbid downstream package-to-core source imports. There was no guard preventing new direct `core/src` imports from being added.
+
+What this is not:
+
+- It is not currently a proven runtime bug.
+- It is not currently evidence of duplicate bundled core copies; the app Vite alias means the public package import also resolves to core source during app builds.
+- It is not a reason to add broad `@ironclad/rivet-core/src/...` subpath exports. That would make internals official instead of fixing the boundary.
+
+Actual risk:
+
+- Core files can be moved or refactored while the top-level package API remains stable, and the app can still break because it imports file-layout internals directly.
+- It is unclear which helpers are intended package contracts versus accidental shared implementation details.
+- Some UI presentation code depends on runtime helper internals to keep parsed-source previews aligned with execution behavior. That is a valid product need, but it should be represented by an intentional API.
+- The package boundary is not mechanically enforced, so future refactors can silently add more direct imports.
+
+Implemented fix:
+
+- `packages/app/src` now has zero direct `core/src` imports.
+- The same boundary cleanup was applied to adjacent downstream package source in `packages/node/src` and `packages/trivet/src`, which had one direct core-source import each for symbols that are now available through `@ironclad/rivet-core`.
+- Imports that already had public equivalents were switched to `@ironclad/rivet-core`, including plugin load specs, tokenizer implementation, defaults, `ChatNodeBase` helpers, `Expression` helpers, and direct `core/src/index.js` imports.
+- Small object iteration helpers from `utils/typeSafety` were moved to an app-owned helper at `packages/app/src/utils/typeSafety.ts`, avoiding a broad public core export for generic app convenience code.
+- Real app/core shared contracts are now exported intentionally from core:
+  - `RivetUIContext`
+  - `ProjectReferenceLoader`
+  - interpolation token helpers
+  - warning-port helpers
+  - JS list callback helpers used by parsed-source rendering
+  - Gentrace app-facing helpers
+- the shared root ESLint config now rejects new `**/core/src/**` imports and tells contributors to import through `@ironclad/rivet-core` or promote a shared contract intentionally.
+
+Current boundary rule:
+
+- Downstream package code imports core through `@ironclad/rivet-core`.
+- App-only presentation/convenience helpers live in the app package.
+- If app code needs behavior that must exactly match runtime core behavior, core must export a deliberate helper from the public package surface first.
+- Generated bundles can still contain `../core/src/...` module labels because the bundler records source module paths; those are build artifacts, not source-level imports.
