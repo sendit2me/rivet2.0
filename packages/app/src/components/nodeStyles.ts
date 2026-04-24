@@ -338,6 +338,10 @@ export const nodeStyles = css`
     animation: node-title-running-spin 0.8s linear infinite;
   }
 
+  .node:not(:hover):not(.hovered):not(:focus-within) .title-controls .node-running-indicator {
+    margin-right: 8px;
+  }
+
   @keyframes node-title-running-spin {
     to {
       transform: rotate(360deg);

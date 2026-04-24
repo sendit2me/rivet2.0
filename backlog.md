@@ -3,6 +3,8 @@
 
 - When I hover over a node, it seems like the node header becomes taller. Probably because of the appearing gear icon? Don't let it happen.
 
+- When the nod eis unhoverd but with a preloader, the preloader is too close to the right edge
+
 - When I type in the node title and node description, add some debounce so that it doesn't save it right after each keystroke, but when I stop typing for a bit, makle it save automatically. Otherwise the input is laggy
 
 - Color a subgraph node to default color
