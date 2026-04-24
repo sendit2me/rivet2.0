@@ -1221,6 +1221,7 @@ This keeps output selection logic separate from data-type rendering without pres
 Current output-rendering rules that matter for performance-sensitive changes:
 
 - hover-only inline output is preview-first; simple hover expansion should stay on the compact preview path
+- hover-only `expanded-preview` output must not expose `LargeStoredValuePreview` actions such as `Load Full Value`; those actions are reserved for explicit `full` inline output or fullscreen output surfaces that opt in with `allowLargeStoredValueActions`. Generic and custom output renderers both receive the resolved `renderMode` plus that opt-in flag through `renderNodeOutputBody(...)`; the shared renderer prop contract lives in [`packages/app/src/components/nodeOutput/nodeOutputRendererTypes.ts`](../packages/app/src/components/nodeOutput/nodeOutputRendererTypes.ts). Custom renderers must not infer `full` from `isCompact === false` because hover previews are also non-compact.
 - the `Unfold output` node action is the explicit inline opt-in to `renderMode: 'full'`; the separate fullscreen icon still opens the modal `expanded-preview` path
 - expanded inline output must still honor the large-output safety path in `LargeStoredValuePreview` rather than forcing unbounded raw text rendering
 - the inline full-output toggle should render the real full-output path for normal-sized values; it must not just restyle or resize the compact preview

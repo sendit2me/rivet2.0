@@ -1,13 +1,7 @@
 import { type FC } from 'react';
 import { css } from '@emotion/react';
 import { RenderDataValue } from '../RenderDataValue.js';
-import {
-  type DataValue,
-  type PortId,
-  coerceTypeOptional,
-  inferType,
-  isArrayDataValue,
-} from '@ironclad/rivet-core';
+import { type DataValue, type PortId, coerceTypeOptional, inferType, isArrayDataValue } from '@ironclad/rivet-core';
 import { type NodeComponentDescriptor } from '../../hooks/useNodeTypes.js';
 import styled from '@emotion/styled';
 import clsx from 'clsx';
@@ -35,7 +29,8 @@ export const ChatNodeOutput: FC<{
   fullscreen?: boolean;
   renderMarkdown?: boolean;
   renderMode?: OutputRenderMode;
-}> = ({ outputs, fullscreen, renderMarkdown, renderMode }) => {
+  allowLargeStoredValueActions?: boolean;
+}> = ({ outputs, fullscreen, renderMarkdown, renderMode, allowLargeStoredValueActions }) => {
   const dataRefs = useDataRefs();
   const responseValue = tryRestoreStoredDataValue(outputs['response' as PortId], dataRefs);
   const requestTokensValue = tryRestoreStoredDataValue(outputs['requestTokens' as PortId], dataRefs);
@@ -46,10 +41,7 @@ export const ChatNodeOutput: FC<{
     tryRestoreStoredDataValue(outputs['function-call' as PortId], dataRefs) ??
     tryRestoreStoredDataValue(outputs['function-calls' as PortId], dataRefs);
 
-  if (
-    isArrayDataValue(responseValue) ||
-    isArrayDataValue(requestTokensValue)
-  ) {
+  if (isArrayDataValue(responseValue) || isArrayDataValue(requestTokensValue)) {
     const outputTextAll = coerceTypeOptional(responseValue, 'string[]') ?? [];
 
     const requestTokensAll = coerceTypeOptional(requestTokensValue, 'number[]') ?? [];
@@ -58,7 +50,9 @@ export const ChatNodeOutput: FC<{
     const durationAll = coerceTypeOptional(durationValue, 'number[]') ?? [];
 
     const functionCallAll =
-      functionCallValue?.type === 'object[]' ? functionCallValue.value : coerceTypeOptional(functionCallValue, 'string[]');
+      functionCallValue?.type === 'object[]'
+        ? functionCallValue.value
+        : coerceTypeOptional(functionCallValue, 'string[]');
 
     return (
       <div className="multi-message" css={bodyStyles}>
@@ -81,6 +75,7 @@ export const ChatNodeOutput: FC<{
               fullscreen={fullscreen}
               renderMarkdown={renderMarkdown}
               renderMode={renderMode}
+              allowLargeStoredValueActions={allowLargeStoredValueActions}
             />
           );
         })}
@@ -105,6 +100,7 @@ export const ChatNodeOutput: FC<{
         fullscreen={fullscreen}
         renderMarkdown={renderMarkdown}
         renderMode={renderMode}
+        allowLargeStoredValueActions={allowLargeStoredValueActions}
       />
     );
   }
@@ -150,6 +146,7 @@ export const ChatNodeOutputSingle: FC<{
   fullscreen?: boolean;
   renderMarkdown?: boolean;
   renderMode?: OutputRenderMode;
+  allowLargeStoredValueActions?: boolean;
 }> = ({
   outputValue,
   functionCallValue,
@@ -160,6 +157,7 @@ export const ChatNodeOutputSingle: FC<{
   fullscreen,
   renderMarkdown,
   renderMode,
+  allowLargeStoredValueActions,
 }) => {
   const effectiveRenderMode = renderMode ?? (fullscreen ? 'expanded-preview' : 'compact');
 
@@ -194,14 +192,23 @@ export const ChatNodeOutputSingle: FC<{
 
       <div className={clsx('outputText', { markdown: renderMarkdown })}>
         <div className="pre-wrap">
-          <RenderDataValue value={outputValue} renderMarkdown={renderMarkdown} mode={effectiveRenderMode} />
+          <RenderDataValue
+            value={outputValue}
+            renderMarkdown={renderMarkdown}
+            mode={effectiveRenderMode}
+            allowLargeStoredValueActions={allowLargeStoredValueActions}
+          />
         </div>
       </div>
       {functionCallValue && (
         <div className="function-call">
           <h4>{Array.isArray(functionCallValue.value) ? 'Function Calls' : 'Function Call'}:</h4>
           <div className="pre-wrap">
-            <RenderDataValue value={functionCallValue} mode={effectiveRenderMode} />
+            <RenderDataValue
+              value={functionCallValue}
+              mode={effectiveRenderMode}
+              allowLargeStoredValueActions={allowLargeStoredValueActions}
+            />
           </div>
         </div>
       )}
@@ -213,8 +220,17 @@ const ChatNodeFullscreenOutput: FC<{
   outputs: InputsOrOutputsWithRefs;
   renderMarkdown: boolean;
   renderMode?: OutputRenderMode;
-}> = ({ outputs, renderMarkdown, renderMode }) => {
-  return <ChatNodeOutput outputs={outputs} fullscreen renderMarkdown={renderMarkdown} renderMode={renderMode} />;
+  allowLargeStoredValueActions?: boolean;
+}> = ({ outputs, renderMarkdown, renderMode, allowLargeStoredValueActions }) => {
+  return (
+    <ChatNodeOutput
+      outputs={outputs}
+      fullscreen
+      renderMarkdown={renderMarkdown}
+      renderMode={renderMode}
+      allowLargeStoredValueActions={allowLargeStoredValueActions}
+    />
+  );
 };
 
 export const chatNodeDescriptor: NodeComponentDescriptor<'chat'> = {

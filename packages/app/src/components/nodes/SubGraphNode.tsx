@@ -29,7 +29,8 @@ export const SubGraphNodeOutputSimple: FC<{
   renderMarkdown?: boolean;
   isCompact: boolean;
   renderMode?: OutputRenderMode;
-}> = ({ outputs, renderMarkdown, isCompact, renderMode }) => {
+  allowLargeStoredValueActions?: boolean;
+}> = ({ outputs, renderMarkdown, isCompact, renderMode, allowLargeStoredValueActions }) => {
   const dataRefs = useDataRefs();
   const cost = coerceTypeOptional(tryRestoreStoredDataValue(outputs['cost' as PortId], dataRefs), 'number');
   const duration = coerceTypeOptional(tryRestoreStoredDataValue(outputs['duration' as PortId], dataRefs), 'number');
@@ -54,6 +55,7 @@ export const SubGraphNodeOutputSimple: FC<{
           renderMarkdown={renderMarkdown}
           isCompact={isCompact}
           mode={renderMode}
+          allowLargeStoredValueActions={allowLargeStoredValueActions}
         />
       </div>
     </div>
@@ -64,8 +66,17 @@ export const FullscreenSubGraphNodeOutputSimple: FC<{
   outputs: InputsOrOutputsWithRefs;
   renderMarkdown: boolean;
   renderMode?: OutputRenderMode;
-}> = ({ outputs, renderMarkdown, renderMode }) => {
-  return <SubGraphNodeOutputSimple outputs={outputs} renderMarkdown={renderMarkdown} isCompact={false} renderMode={renderMode} />;
+  allowLargeStoredValueActions?: boolean;
+}> = ({ outputs, renderMarkdown, renderMode, allowLargeStoredValueActions }) => {
+  return (
+    <SubGraphNodeOutputSimple
+      outputs={outputs}
+      renderMarkdown={renderMarkdown}
+      isCompact={false}
+      renderMode={renderMode}
+      allowLargeStoredValueActions={allowLargeStoredValueActions}
+    />
+  );
 };
 
 export const subgraphNodeDescriptor: NodeComponentDescriptor<'subGraph'> = {

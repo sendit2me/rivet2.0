@@ -16,11 +16,12 @@ const questionsAndAnswersStyles = css`
   }
 `;
 
-export const UserInputNodeOutput: FC<{ outputs: InputsOrOutputsWithRefs; isCompact: boolean; renderMode?: OutputRenderMode }> = ({
-  outputs,
-  isCompact,
-  renderMode,
-}) => {
+export const UserInputNodeOutput: FC<{
+  outputs: InputsOrOutputsWithRefs;
+  isCompact: boolean;
+  renderMode?: OutputRenderMode;
+  allowLargeStoredValueActions?: boolean;
+}> = ({ outputs, isCompact, renderMode, allowLargeStoredValueActions }) => {
   const questionsAndAnswers = outputs['questionsAndAnswers' as PortId];
 
   if (!questionsAndAnswers || getScalarTypeOf(questionsAndAnswers.type) === 'control-flow-excluded') {
@@ -29,7 +30,12 @@ export const UserInputNodeOutput: FC<{ outputs: InputsOrOutputsWithRefs; isCompa
 
   return (
     <div css={questionsAndAnswersStyles}>
-      <RenderDataValue value={questionsAndAnswers} isCompact={isCompact} mode={renderMode} />
+      <RenderDataValue
+        value={questionsAndAnswers}
+        isCompact={isCompact}
+        mode={renderMode}
+        allowLargeStoredValueActions={allowLargeStoredValueActions}
+      />
     </div>
   );
 };

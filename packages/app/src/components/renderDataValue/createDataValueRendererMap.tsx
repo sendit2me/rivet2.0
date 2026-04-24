@@ -22,6 +22,7 @@ export type DataValueRendererProps = {
   truncateLength?: number;
   isCompact?: boolean;
   mode?: OutputRenderMode;
+  allowLargeStoredValueActions?: boolean;
 };
 
 export function createDataValueRendererMap(options: {
@@ -32,7 +33,15 @@ export function createDataValueRendererMap(options: {
 
   const rendererMap = Object.fromEntries(
     dataTypes.map((dataType) => {
-      const Renderer: FC<DataValueRendererProps> = ({ value, depth, renderMarkdown, truncateLength, isCompact, mode }) => {
+      const Renderer: FC<DataValueRendererProps> = ({
+        value,
+        depth,
+        renderMarkdown,
+        truncateLength,
+        isCompact,
+        mode,
+        allowLargeStoredValueActions,
+      }) => {
         if (!value) {
           return <>undefined</>;
         }
@@ -64,6 +73,7 @@ export function createDataValueRendererMap(options: {
                     truncateLength,
                     isCompact,
                     mode,
+                    allowLargeStoredValueActions,
                   })}
                 </div>
               ))}
@@ -94,6 +104,8 @@ export function createDataValueRendererMap(options: {
               renderMarkdown={renderMarkdown}
               truncateLength={truncateLength}
               isCompact={isCompact}
+              mode={mode}
+              allowLargeStoredValueActions={allowLargeStoredValueActions}
             />
           </div>
         );

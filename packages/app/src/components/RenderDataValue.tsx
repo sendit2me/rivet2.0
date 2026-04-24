@@ -25,6 +25,7 @@ export function RenderDataValue({
   truncateLength,
   isCompact,
   mode,
+  allowLargeStoredValueActions,
 }: {
   value: DataValueWithRefs | DataValue | undefined;
   depth?: number;
@@ -32,6 +33,7 @@ export function RenderDataValue({
   truncateLength?: number;
   isCompact?: boolean;
   mode?: OutputRenderMode;
+  allowLargeStoredValueActions?: boolean;
 }) {
   const dataRefs = useDataRefs();
   const effectiveMode = mode ?? (isCompact ? 'compact' : 'full');
@@ -46,7 +48,13 @@ export function RenderDataValue({
   }
 
   if (isStoredRefDataValue(value) && isPreviewOnlyStoredValue(value)) {
-    return <LargeStoredValuePreview value={value} mode={effectiveMode} />;
+    return (
+      <LargeStoredValuePreview
+        value={value}
+        mode={effectiveMode}
+        allowLargeStoredValueActions={allowLargeStoredValueActions}
+      />
+    );
   }
 
   const resolvedValue = toRenderableDataValue(value, dataRefs);
@@ -64,6 +72,7 @@ export function RenderDataValue({
       truncateLength={truncateLength}
       isCompact={isCompact}
       mode={effectiveMode}
+      allowLargeStoredValueActions={allowLargeStoredValueActions}
     />
   );
 }
@@ -74,14 +83,21 @@ export const RenderDataOutputs: FC<{
   renderMarkdown?: boolean;
   isCompact: boolean;
   mode?: OutputRenderMode;
-}> = ({ definitions, outputs, renderMarkdown, isCompact, mode }) => {
+  allowLargeStoredValueActions?: boolean;
+}> = ({ definitions, outputs, renderMarkdown, isCompact, mode, allowLargeStoredValueActions }) => {
   let outputPorts = keys(outputs);
   const effectiveMode = mode ?? (isCompact ? 'compact' : 'full');
 
   if (outputPorts.length === 1) {
     return (
       <div>
-        <RenderDataValue value={outputs[outputPorts[0]!]!} renderMarkdown={renderMarkdown} isCompact={isCompact} mode={effectiveMode} />
+        <RenderDataValue
+          value={outputs[outputPorts[0]!]!}
+          renderMarkdown={renderMarkdown}
+          isCompact={isCompact}
+          mode={effectiveMode}
+          allowLargeStoredValueActions={allowLargeStoredValueActions}
+        />
       </div>
     );
   }
@@ -101,7 +117,13 @@ export const RenderDataOutputs: FC<{
             <div>
               <em className="port-id-label">{label}</em>
             </div>
-            <RenderDataValue value={outputs[portId]!} renderMarkdown={renderMarkdown} isCompact={isCompact} mode={effectiveMode} />
+            <RenderDataValue
+              value={outputs[portId]!}
+              renderMarkdown={renderMarkdown}
+              isCompact={isCompact}
+              mode={effectiveMode}
+              allowLargeStoredValueActions={allowLargeStoredValueActions}
+            />
           </div>
         );
       })}
@@ -118,6 +140,7 @@ function getRendererMap(): ReturnType<typeof createDataValueRendererMap> {
       truncateLength?: number;
       isCompact?: boolean;
       mode?: OutputRenderMode;
+      allowLargeStoredValueActions?: boolean;
     }) => <RenderDataValue {...nestedProps} />;
 
     const scalarRenderers = createScalarRenderers({

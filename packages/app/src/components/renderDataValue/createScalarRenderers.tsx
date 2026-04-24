@@ -27,11 +27,11 @@ export type ScalarRendererProps<T extends DataType = DataType> = {
   renderMarkdown?: boolean;
   truncateLength?: number;
   isCompact?: boolean;
+  mode?: DataValueRendererProps['mode'];
+  allowLargeStoredValueActions?: boolean;
 };
 
-export function createScalarRenderers(options: {
-  renderValue: (props: DataValueRendererProps) => JSX.Element;
-}) {
+export function createScalarRenderers(options: { renderValue: (props: DataValueRendererProps) => JSX.Element }) {
   const { renderValue } = options;
 
   /* eslint-disable react-hooks/rules-of-hooks -- table-driven renderers */
@@ -52,7 +52,7 @@ export function createScalarRenderers(options: {
 
       return <pre className="pre-wrap">{truncated}</pre>;
     },
-    'chat-message': ({ value, renderMarkdown, isCompact }) => {
+    'chat-message': ({ value, renderMarkdown, isCompact, allowLargeStoredValueActions }) => {
       const { value: realValue } = value as ChatMessageDataValue;
       let parts = Array.isArray(realValue.message) ? realValue.message : [realValue.message];
 
@@ -62,7 +62,9 @@ export function createScalarRenderers(options: {
 
       const renderString = (part: string) => {
         const Renderer = scalarRenderers.string;
-        return <Renderer value={{ type: 'string', value: part }} renderMarkdown={renderMarkdown} isCompact={isCompact} />;
+        return (
+          <Renderer value={{ type: 'string', value: part }} renderMarkdown={renderMarkdown} isCompact={isCompact} />
+        );
       };
 
       const messageContent = (
@@ -103,7 +105,7 @@ export function createScalarRenderers(options: {
                 <h4>Function Calls:</h4>
                 <div className="pre-wrap">
                   {message.function_calls.map((fc, index) => (
-                    <div key={index}>{renderValue({ value: inferType(fc) })}</div>
+                    <div key={index}>{renderValue({ value: inferType(fc), allowLargeStoredValueActions })}</div>
                   ))}
                 </div>
               </div>
@@ -111,7 +113,9 @@ export function createScalarRenderers(options: {
               message.function_call && (
                 <div className="function-call">
                   <h4>Function Call:</h4>
-                  <div className="pre-wrap">{renderValue({ value: inferType(message.function_call) })}</div>
+                  <div className="pre-wrap">
+                    {renderValue({ value: inferType(message.function_call), allowLargeStoredValueActions })}
+                  </div>
                 </div>
               )
             )}
@@ -138,7 +142,7 @@ export function createScalarRenderers(options: {
     time: ({ value }) => <>{value.value}</>,
     datetime: ({ value }) => <>{value.value}</>,
     'control-flow-excluded': () => <>Not ran</>,
-    any: ({ value, depth, renderMarkdown, isCompact, truncateLength }) => {
+    any: ({ value, depth, renderMarkdown, isCompact, mode, truncateLength, allowLargeStoredValueActions }) => {
       const inferred = inferType(value.value);
       if (inferred.type === 'any') {
         return <>{JSON.stringify(inferred.value)}</>;
@@ -148,7 +152,9 @@ export function createScalarRenderers(options: {
         depth: (depth ?? 0) + 1,
         renderMarkdown,
         isCompact,
+        mode,
         truncateLength,
+        allowLargeStoredValueActions,
       });
     },
     object: ({ value, isCompact }) => {
@@ -215,7 +221,8 @@ export function createScalarRenderers(options: {
       return (
         <div>
           <p>
-            {documentValue.value.title ? `Document: ${documentValue.value.title}` : 'Document'} ({documentValue.value.mediaType})
+            {documentValue.value.title ? `Document: ${documentValue.value.title}` : 'Document'} (
+            {documentValue.value.mediaType})
           </p>
           {documentValue.value.context && <p>{documentValue.value.context}</p>}
           {documentValue.value.enableCitations && <p>(Citations enabled)</p>}

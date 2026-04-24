@@ -11,16 +11,14 @@ import { type NodeRunDataWithRefs } from '../../state/dataFlow.js';
 import { restoreStoredPortMap } from '../../utils/executionDataReaders.js';
 import { type NodeComponentDescriptor } from '../../hooks/useNodeTypes.js';
 import { getExpressionPreviewSource, hasExpressionInterpolationInputs } from './expressionOutputUtils.js';
-import {
-  StructuredNodeOutput,
-  StructuredNodeOutputSection,
-} from './StructuredNodeOutput.js';
+import { StructuredNodeOutput, StructuredNodeOutputSection } from './StructuredNodeOutput.js';
 
 const ExpressionNodeOutputBody: FC<{
   node: ExpressionNode;
   data: NodeRunDataWithRefs;
   renderMode: OutputRenderMode;
-}> = ({ node, data, renderMode }) => {
+  allowLargeStoredValueActions?: boolean;
+}> = ({ node, data, renderMode, allowLargeStoredValueActions }) => {
   const errorMessage = data.status?.type === 'error' ? data.status.error : undefined;
   const hasError = data.status?.type === 'error';
   const dataRefs = useDataRefs();
@@ -40,12 +38,16 @@ const ExpressionNodeOutputBody: FC<{
   return (
     <StructuredNodeOutput
       errorMessage={errorMessage}
-      parsedSource={shouldShowParsedExpression ? (parsedExpression ?? '') : undefined}
+      parsedSource={shouldShowParsedExpression ? parsedExpression ?? '' : undefined}
       parsedSourceLanguage="javascript"
     >
       {!hasError && (
         <StructuredNodeOutputSection label="Resulting value">
-          <RenderDataValue value={data.outputData?.[EXPRESSION_OUTPUT_PORT_ID]} mode={renderMode} />
+          <RenderDataValue
+            value={data.outputData?.[EXPRESSION_OUTPUT_PORT_ID]}
+            mode={renderMode}
+            allowLargeStoredValueActions={allowLargeStoredValueActions}
+          />
         </StructuredNodeOutputSection>
       )}
     </StructuredNodeOutput>
@@ -53,10 +55,20 @@ const ExpressionNodeOutputBody: FC<{
 };
 
 export const expressionNodeDescriptor: NodeComponentDescriptor<'expression'> = {
-  Output: ({ node, data, isCompact }) => (
-    <ExpressionNodeOutputBody node={node} data={data} renderMode={isCompact ? 'compact' : 'full'} />
+  Output: ({ node, data, renderMode = 'compact', allowLargeStoredValueActions }) => (
+    <ExpressionNodeOutputBody
+      node={node}
+      data={data}
+      renderMode={renderMode}
+      allowLargeStoredValueActions={allowLargeStoredValueActions}
+    />
   ),
-  FullscreenOutput: ({ node, data }) => (
-    <ExpressionNodeOutputBody node={node} data={data} renderMode="expanded-preview" />
+  FullscreenOutput: ({ node, data, renderMode = 'expanded-preview', allowLargeStoredValueActions }) => (
+    <ExpressionNodeOutputBody
+      node={node}
+      data={data}
+      renderMode={renderMode}
+      allowLargeStoredValueActions={allowLargeStoredValueActions}
+    />
   ),
 };

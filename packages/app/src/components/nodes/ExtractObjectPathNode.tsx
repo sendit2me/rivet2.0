@@ -23,7 +23,8 @@ const ExtractObjectPathNodeOutputBody: FC<{
   node: ExtractObjectPathNode;
   data: NodeRunDataWithRefs;
   renderMode: OutputRenderMode;
-}> = ({ node, data, renderMode }) => {
+  allowLargeStoredValueActions?: boolean;
+}> = ({ node, data, renderMode, allowLargeStoredValueActions }) => {
   const errorMessage = data.status?.type === 'error' ? data.status.error : undefined;
   const hasError = data.status?.type === 'error';
   const dataRefs = useDataRefs();
@@ -44,14 +45,18 @@ const ExtractObjectPathNodeOutputBody: FC<{
   const renderOutputs = (outputs: NodeRunDataWithRefs['outputData'], keyPrefix = '') =>
     outputDefinitions.map(({ id, label }) => (
       <StructuredNodeOutputSection label={label} key={`${keyPrefix}${id}`}>
-        <RenderDataValue value={outputs?.[id]} mode={renderMode} />
+        <RenderDataValue
+          value={outputs?.[id]}
+          mode={renderMode}
+          allowLargeStoredValueActions={allowLargeStoredValueActions}
+        />
       </StructuredNodeOutputSection>
     ));
 
   return (
     <StructuredNodeOutput
       errorMessage={errorMessage}
-      parsedSource={shouldShowParsedExpression ? (parsedExpression ?? '') : undefined}
+      parsedSource={shouldShowParsedExpression ? parsedExpression ?? '' : undefined}
       parsedSourceLanguage="jsonpath"
     >
       {!hasError && data.splitOutputData && (
@@ -66,10 +71,20 @@ const ExtractObjectPathNodeOutputBody: FC<{
 };
 
 export const extractObjectPathNodeDescriptor: NodeComponentDescriptor<'extractObjectPath'> = {
-  Output: ({ node, data, isCompact }) => (
-    <ExtractObjectPathNodeOutputBody node={node} data={data} renderMode={isCompact ? 'compact' : 'full'} />
+  Output: ({ node, data, renderMode = 'compact', allowLargeStoredValueActions }) => (
+    <ExtractObjectPathNodeOutputBody
+      node={node}
+      data={data}
+      renderMode={renderMode}
+      allowLargeStoredValueActions={allowLargeStoredValueActions}
+    />
   ),
-  FullscreenOutput: ({ node, data }) => (
-    <ExtractObjectPathNodeOutputBody node={node} data={data} renderMode="expanded-preview" />
+  FullscreenOutput: ({ node, data, renderMode = 'expanded-preview', allowLargeStoredValueActions }) => (
+    <ExtractObjectPathNodeOutputBody
+      node={node}
+      data={data}
+      renderMode={renderMode}
+      allowLargeStoredValueActions={allowLargeStoredValueActions}
+    />
   ),
 };

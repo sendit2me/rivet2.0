@@ -24,7 +24,8 @@ const JSListNodeOutputBody: FC<{
   node: JSListNode;
   data: NodeRunDataWithRefs;
   renderMode: OutputRenderMode;
-}> = ({ node, data, renderMode }) => {
+  allowLargeStoredValueActions?: boolean;
+}> = ({ node, data, renderMode, allowLargeStoredValueActions }) => {
   const { outputId, resultLabel } = JS_LIST_OUTPUT_CONFIG[node.type];
   const errorMessage = data.status?.type === 'error' ? data.status.error : undefined;
   const hasError = data.status?.type === 'error';
@@ -45,14 +46,18 @@ const JSListNodeOutputBody: FC<{
   return (
     <StructuredNodeOutput
       errorMessage={errorMessage}
-      parsedSource={shouldShowParsedExpression ? (parsedExpression ?? '') : undefined}
+      parsedSource={shouldShowParsedExpression ? parsedExpression ?? '' : undefined}
       parsedSourceLanguage="javascript"
     >
       {!hasError && data.splitOutputData && (
         <div className="split-output">
           {getSortedSplitOutputEntries(data.splitOutputData).map(([key, outputs]) => (
             <StructuredNodeOutputSection label={resultLabel} key={key}>
-              <RenderDataValue value={outputs[outputId]} mode={renderMode} />
+              <RenderDataValue
+                value={outputs[outputId]}
+                mode={renderMode}
+                allowLargeStoredValueActions={allowLargeStoredValueActions}
+              />
             </StructuredNodeOutputSection>
           ))}
         </div>
@@ -60,7 +65,11 @@ const JSListNodeOutputBody: FC<{
 
       {!hasError && !data.splitOutputData && (
         <StructuredNodeOutputSection label={resultLabel}>
-          <RenderDataValue value={data.outputData?.[outputId]} mode={renderMode} />
+          <RenderDataValue
+            value={data.outputData?.[outputId]}
+            mode={renderMode}
+            allowLargeStoredValueActions={allowLargeStoredValueActions}
+          />
         </StructuredNodeOutputSection>
       )}
     </StructuredNodeOutput>
@@ -68,19 +77,39 @@ const JSListNodeOutputBody: FC<{
 };
 
 export const jsFilterNodeDescriptor: NodeComponentDescriptor<'jsFilter'> = {
-  Output: ({ node, data, isCompact }) => (
-    <JSListNodeOutputBody node={node} data={data} renderMode={isCompact ? 'compact' : 'full'} />
+  Output: ({ node, data, renderMode = 'compact', allowLargeStoredValueActions }) => (
+    <JSListNodeOutputBody
+      node={node}
+      data={data}
+      renderMode={renderMode}
+      allowLargeStoredValueActions={allowLargeStoredValueActions}
+    />
   ),
-  FullscreenOutput: ({ node, data }) => (
-    <JSListNodeOutputBody node={node} data={data} renderMode="expanded-preview" />
+  FullscreenOutput: ({ node, data, renderMode = 'expanded-preview', allowLargeStoredValueActions }) => (
+    <JSListNodeOutputBody
+      node={node}
+      data={data}
+      renderMode={renderMode}
+      allowLargeStoredValueActions={allowLargeStoredValueActions}
+    />
   ),
 };
 
 export const jsMapNodeDescriptor: NodeComponentDescriptor<'jsMap'> = {
-  Output: ({ node, data, isCompact }) => (
-    <JSListNodeOutputBody node={node} data={data} renderMode={isCompact ? 'compact' : 'full'} />
+  Output: ({ node, data, renderMode = 'compact', allowLargeStoredValueActions }) => (
+    <JSListNodeOutputBody
+      node={node}
+      data={data}
+      renderMode={renderMode}
+      allowLargeStoredValueActions={allowLargeStoredValueActions}
+    />
   ),
-  FullscreenOutput: ({ node, data }) => (
-    <JSListNodeOutputBody node={node} data={data} renderMode="expanded-preview" />
+  FullscreenOutput: ({ node, data, renderMode = 'expanded-preview', allowLargeStoredValueActions }) => (
+    <JSListNodeOutputBody
+      node={node}
+      data={data}
+      renderMode={renderMode}
+      allowLargeStoredValueActions={allowLargeStoredValueActions}
+    />
   ),
 };

@@ -5,11 +5,13 @@ import { type NodeComponentDescriptor } from '../../hooks/useNodeTypes.js';
 import { type InputsOrOutputsWithRefs } from '../../state/dataFlow';
 import { getLoopControllerNodeCopyValueData } from '../../utils/nodeOutputCopyValueProjectors.js';
 
-export const LoopControllerNodeOutput: FC<{ outputs: InputsOrOutputsWithRefs; renderMarkdown?: boolean; isCompact: boolean; renderMode?: OutputRenderMode }> = ({
-  outputs,
-  isCompact,
-  renderMode,
-}) => {
+export const LoopControllerNodeOutput: FC<{
+  outputs: InputsOrOutputsWithRefs;
+  renderMarkdown?: boolean;
+  isCompact: boolean;
+  renderMode?: OutputRenderMode;
+  allowLargeStoredValueActions?: boolean;
+}> = ({ outputs, isCompact, renderMode, allowLargeStoredValueActions }) => {
   const outputKeys = Object.keys(outputs).filter((key) => key.startsWith('output'));
 
   const breakLoop = outputs['break' as PortId] != null && outputs['break' as PortId]!.type !== 'control-flow-excluded';
@@ -25,7 +27,13 @@ export const LoopControllerNodeOutput: FC<{ outputs: InputsOrOutputsWithRefs; re
           <div>
             <em>Output {i + 1}</em>
           </div>
-          <RenderDataValue key={key} value={outputs[key as PortId]} isCompact={isCompact} mode={renderMode} />
+          <RenderDataValue
+            key={key}
+            value={outputs[key as PortId]}
+            isCompact={isCompact}
+            mode={renderMode}
+            allowLargeStoredValueActions={allowLargeStoredValueActions}
+          />
         </div>
       ))}
     </div>

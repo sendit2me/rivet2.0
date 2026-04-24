@@ -332,6 +332,7 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
     isCompact: false,
     renderMarkdown,
     renderMode: 'expanded-preview',
+    allowLargeStoredValueActions: true,
   });
 
   return (

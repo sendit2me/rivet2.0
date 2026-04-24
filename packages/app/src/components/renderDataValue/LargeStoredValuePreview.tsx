@@ -8,11 +8,8 @@ import { tryRestoreStoredDataValue } from '../../utils/executionDataTransforms.j
 import { copyToClipboard } from '../../utils/copyToClipboard.js';
 import { handleError } from '../../utils/errorHandling.js';
 import ColorizedPreformattedText from '../ColorizedPreformattedText.js';
-import type { OutputRenderMode } from './outputRenderTypes.js';
-import {
-  buildLargeStoredValueChunks,
-  type LargeStoredValueChunk,
-} from './largeStoredValueChunks.js';
+import { shouldShowLargeStoredValueActions, type OutputRenderMode } from './outputRenderTypes.js';
+import { buildLargeStoredValueChunks, type LargeStoredValueChunk } from './largeStoredValueChunks.js';
 import { deriveLargeStoredValuePreviewFullText } from './largeStoredValuePreviewText.js';
 import { useLargeStoredValueFullscreenSearch } from './useLargeStoredValueFullscreenSearch.js';
 
@@ -78,7 +75,8 @@ const styles = css`
 export const LargeStoredValuePreview: FC<{
   value: Extract<StoredDataValue, { storage: 'ref' }>;
   mode: OutputRenderMode;
-}> = ({ value, mode }) => {
+  allowLargeStoredValueActions?: boolean;
+}> = ({ value, mode, allowLargeStoredValueActions }) => {
   const dataRefs = useDataRefs();
   const [showFull, setShowFull] = useState(mode === 'full');
   const [chunkPage, setChunkPage] = useState(0);
@@ -106,11 +104,13 @@ export const LargeStoredValuePreview: FC<{
     }
 
     if (!showFull || !shouldPageFullText) {
-      return chunks[0] ?? {
-        text: fullText,
-        startOffset: 0,
-        endOffset: fullText.length,
-      };
+      return (
+        chunks[0] ?? {
+          text: fullText,
+          startOffset: 0,
+          endOffset: fullText.length,
+        }
+      );
     }
 
     return chunks[chunkPage] ?? chunks[0];
@@ -133,7 +133,7 @@ export const LargeStoredValuePreview: FC<{
   }, [activeChunk?.text, fullText, shouldPageFullText, showFull]);
 
   const chunkCount = shouldPageFullText ? Math.max(1, chunks.length) : 1;
-  const showActions = mode !== 'compact';
+  const showActions = shouldShowLargeStoredValueActions({ mode, allowLargeStoredValueActions });
   const missingRef = mode !== 'compact' && restoredValue == null;
   const { providerRootProps, clearSearchAutoExpansion } = useLargeStoredValueFullscreenSearch({
     providerId: value.refId,
