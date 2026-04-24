@@ -1,7 +1,9 @@
 - Update the rivet version (at least in the Settings popup)
 
 
-- When the preloader is shown in the node, and the nod eis not hovered, show it in the right side of the node header. Now it is keeping the right side plcase for the gear icon even if it's not showb
+- When I hover over a node, it seems like the node header becomes taller. Probably because of the appearing gear icon? Don't let it happen.
+
+- When I type in the node title and node description, add some debounce so that it doesn't save it right after each keystroke, but when I stop typing for a bit, makle it save automatically. Otherwise the input is laggy
 
 - Color a subgraph node to default color
 

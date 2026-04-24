@@ -295,6 +295,7 @@ export const nodeStyles = css`
     gap: 6px;
     margin-right: -8px;
     flex: 0 0 auto;
+    position: relative;
     pointer-events: none;
 
     .changed-button,
@@ -352,10 +353,12 @@ export const nodeStyles = css`
     align-items: center;
   }
 
-  .title-controls .edit-button-tooltip {
+  .title-controls .edit-button-tooltip,
+  .title-controls > .edit-button {
     opacity: 0;
+    position: absolute;
+    right: 0;
     pointer-events: none;
-    transition: opacity 0.15s ease-out;
   }
 
   .title-controls .edit-button {
@@ -368,6 +371,7 @@ export const nodeStyles = css`
 
   .node:is(:hover, .hovered, :focus-within) .title-controls :is(.edit-button, .edit-button-tooltip) {
     opacity: 1;
+    position: static;
     pointer-events: auto;
   }
 
