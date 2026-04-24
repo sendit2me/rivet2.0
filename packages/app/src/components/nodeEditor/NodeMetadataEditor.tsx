@@ -1,9 +1,67 @@
-import { type FC, useRef, useState } from 'react';
+import { type FC, useCallback, useEffect, useRef, useState } from 'react';
 import InlineEdit from '@atlaskit/inline-edit';
 import Textarea from '@atlaskit/textarea';
 import TextField from '@atlaskit/textfield';
 import { type ChartNode } from '@ironclad/rivet-core';
 import { NodeColorPicker } from '../NodeColorPicker.js';
+
+const METADATA_AUTOSAVE_DEBOUNCE_MS = 300;
+
+function useDebouncedMetadataCommit(onCommit: (value: string) => void) {
+  const timeoutRef = useRef<number | null>(null);
+  const pendingValueRef = useRef<string | undefined>();
+  const onCommitRef = useRef(onCommit);
+
+  useEffect(() => {
+    onCommitRef.current = onCommit;
+  }, [onCommit]);
+
+  const clearPending = useCallback(() => {
+    if (timeoutRef.current != null) {
+      window.clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+  }, []);
+
+  const cancelPending = useCallback(() => {
+    clearPending();
+    pendingValueRef.current = undefined;
+  }, [clearPending]);
+
+  const commitNow = useCallback(
+    (value: string) => {
+      cancelPending();
+      onCommitRef.current(value);
+    },
+    [cancelPending],
+  );
+
+  const commitSoon = useCallback(
+    (value: string) => {
+      clearPending();
+      pendingValueRef.current = value;
+      timeoutRef.current = window.setTimeout(() => {
+        const pendingValue = pendingValueRef.current;
+        timeoutRef.current = null;
+        pendingValueRef.current = undefined;
+
+        if (pendingValue !== undefined) {
+          onCommitRef.current(pendingValue);
+        }
+      }, METADATA_AUTOSAVE_DEBOUNCE_MS);
+    },
+    [clearPending],
+  );
+
+  useEffect(
+    () => () => {
+      cancelPending();
+    },
+    [cancelPending],
+  );
+
+  return { cancelPending, commitNow, commitSoon };
+}
 
 const NodeTitleInlineEditor: FC<{
   nodeId: string;
@@ -11,19 +69,37 @@ const NodeTitleInlineEditor: FC<{
   onTitleChange: (title: string) => void;
 }> = ({ nodeId, title, onTitleChange }) => {
   const [isEditing, setIsEditing] = useState(false);
+  const [draftTitle, setDraftTitle] = useState(title ?? '');
+  const { commitNow, commitSoon } = useDebouncedMetadataCommit(onTitleChange);
+  const isEditingRef = useRef(isEditing);
   const titleBeforeEditRef = useRef(title ?? '');
-  const currentTitle = title ?? '';
+
+  useEffect(() => {
+    isEditingRef.current = isEditing;
+  }, [isEditing]);
+
+  useEffect(() => {
+    if (!isEditingRef.current) {
+      setDraftTitle(title ?? '');
+    }
+  }, [title]);
 
   const startEditing = () => {
-    titleBeforeEditRef.current = currentTitle;
+    titleBeforeEditRef.current = draftTitle;
     setIsEditing(true);
   };
 
   const cancelEditing = () => {
-    if (currentTitle !== titleBeforeEditRef.current) {
-      onTitleChange(titleBeforeEditRef.current);
+    if (draftTitle !== titleBeforeEditRef.current) {
+      setDraftTitle(titleBeforeEditRef.current);
+      commitNow(titleBeforeEditRef.current);
     }
 
+    setIsEditing(false);
+  };
+
+  const finishEditing = () => {
+    commitNow(draftTitle);
     setIsEditing(false);
   };
 
@@ -33,16 +109,20 @@ const NodeTitleInlineEditor: FC<{
         autoFocus
         id={`node-title-${nodeId}`}
         name={`node-title-${nodeId}`}
-        value={currentTitle}
-        onBlur={() => setIsEditing(false)}
-        onChange={(event) => onTitleChange(event.currentTarget.value)}
+        value={draftTitle}
+        onBlur={finishEditing}
+        onChange={(event) => {
+          const nextTitle = event.currentTarget.value;
+          setDraftTitle(nextTitle);
+          commitSoon(nextTitle);
+        }}
         onKeyDown={(event) => {
           if (event.key === 'Escape') {
             event.preventDefault();
             cancelEditing();
           } else if (event.key === 'Enter') {
             event.preventDefault();
-            setIsEditing(false);
+            finishEditing();
           }
         }}
         placeholder="Some title"
@@ -52,8 +132,8 @@ const NodeTitleInlineEditor: FC<{
 
   return (
     <button type="button" className="node-title-read-button" aria-label="Edit node title" onClick={startEditing}>
-      <div className={currentTitle ? 'title-read-content' : 'title-read-content is-empty'}>
-        {currentTitle || 'Some title'}
+      <div className={draftTitle ? 'title-read-content' : 'title-read-content is-empty'}>
+        {draftTitle || 'Some title'}
       </div>
     </button>
   );
@@ -65,7 +145,22 @@ export const NodeMetadataEditor: FC<{
   onDescriptionChange: (description: string) => void;
   onColorChange: (color: { bg: string; border: string } | undefined) => void;
 }> = ({ node, onTitleChange, onDescriptionChange, onColorChange }) => {
+  const latestNodeDescriptionRef = useRef(node.description ?? '');
   const nodeDescriptionBeforeEditRef = useRef(node.description ?? '');
+  const {
+    cancelPending: cancelPendingDescription,
+    commitNow: commitDescriptionNow,
+    commitSoon: commitDescriptionSoon,
+  } = useDebouncedMetadataCommit(onDescriptionChange);
+
+  useEffect(() => {
+    latestNodeDescriptionRef.current = node.description ?? '';
+  }, [node.description]);
+
+  useEffect(() => {
+    cancelPendingDescription();
+    nodeDescriptionBeforeEditRef.current = latestNodeDescriptionRef.current;
+  }, [cancelPendingDescription, node.id]);
 
   return (
     <div className="node-metadata-row">
@@ -82,16 +177,20 @@ export const NodeMetadataEditor: FC<{
             label="Node description"
             defaultValue={node.description ?? ''}
             onEdit={() => {
-              nodeDescriptionBeforeEditRef.current = node.description ?? '';
+              nodeDescriptionBeforeEditRef.current = latestNodeDescriptionRef.current;
             }}
             onCancel={() => {
-              if ((node.description ?? '') !== nodeDescriptionBeforeEditRef.current) {
-                onDescriptionChange(nodeDescriptionBeforeEditRef.current);
+              cancelPendingDescription();
+
+              if (latestNodeDescriptionRef.current !== nodeDescriptionBeforeEditRef.current) {
+                commitDescriptionNow(nodeDescriptionBeforeEditRef.current);
               }
             }}
             onConfirm={(description) => {
-              if ((node.description ?? '') !== description) {
-                onDescriptionChange(description);
+              cancelPendingDescription();
+
+              if (latestNodeDescriptionRef.current !== description) {
+                commitDescriptionNow(description);
               }
             }}
             hideActionButtons
@@ -112,10 +211,16 @@ export const NodeMetadataEditor: FC<{
                 isInvalid={fieldProps.isInvalid}
                 onBlur={fieldProps.onBlur}
                 onFocus={fieldProps.onFocus}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' && !event.shiftKey) {
+                    event.preventDefault();
+                    event.currentTarget.blur();
+                  }
+                }}
                 onChange={(event) => {
                   const nextDescription = event.currentTarget.value;
                   fieldProps.onChange(nextDescription);
-                  onDescriptionChange(nextDescription);
+                  commitDescriptionSoon(nextDescription);
                 }}
                 placeholder="Description..."
                 minimumRows={3}

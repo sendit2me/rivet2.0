@@ -1,11 +1,8 @@
-- Update the rivet version (at least in the Settings popup)
 
 
-- In the node settings panel, when I type in the node title and node description, add some small debounce (like 300ms) so that it doesn't save it right after each keystroke, but when I stop typing for a bit, make it save automatically. Otherwise the input is laggy
+- When I'm dragging the node, the gear icon disappears although I'm still hovering it. Make it stay visible while dragging (if it was visible before dragging).
 
 - Show the node's description in the node
-
-- Color a subgraph node to default color
 
 - Parallel runs icon should be more parallel. Maybe move the split-related icons to the area on above the card? Sequenrial - more sequentisl
 
@@ -29,6 +26,7 @@
 - Support Python in all nodes that support javascript
 
 
+- Update the rivet version (at least in the Settings popup)
 
 
 
