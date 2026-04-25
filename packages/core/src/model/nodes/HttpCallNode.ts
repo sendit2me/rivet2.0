@@ -14,6 +14,7 @@ import { coerceType, dedent, getInputOrData } from '../../utils/index.js';
 import { getError } from '../../utils/errors.js';
 
 const REQUEST_FAILED_OUTPUT_ID = 'requestFailed' as PortId;
+const REQUEST_ERROR_OUTPUT_ID = 'requestError' as PortId;
 const DEFAULT_RETRY_ON_NON_200_REPEAT_TIMES = 1;
 const DEFAULT_RETRY_ON_NON_200_COOLDOWN_MS = 0;
 
@@ -23,6 +24,48 @@ function isAbortError(error: unknown, signal: AbortSignal): boolean {
 
 function buildNon2xxStatusCodeError(statusCode: number): Error {
   return new Error(`HTTP call returned non-2XX status code: ${statusCode}`);
+}
+
+function stringifyNonErrorValue(value: unknown): string {
+  if (value == null) {
+    return String(value);
+  }
+
+  if (typeof value === 'string') {
+    return value;
+  }
+
+  if (typeof value !== 'object') {
+    return String(value);
+  }
+
+  try {
+    return JSON.stringify(value, null, 2) ?? String(value);
+  } catch (_error) {
+    return String(value);
+  }
+}
+
+function formatCaughtRequestFailureError(error: unknown, seen = new Set<unknown>()): string {
+  if (error && typeof error === 'object') {
+    if (seen.has(error)) {
+      return '[Circular error reference]';
+    }
+    seen.add(error);
+  }
+
+  if (error instanceof Error) {
+    const errorText = error.stack?.trim() || `${error.name}: ${error.message}`.trim();
+    const cause = (error as Error & { cause?: unknown }).cause;
+
+    if (cause == null) {
+      return errorText;
+    }
+
+    return `${errorText}\n\nCaused by: ${formatCaughtRequestFailureError(cause, seen)}`;
+  }
+
+  return stringifyNonErrorValue(error);
 }
 
 function normalizeHttpRetryCount(value: number | undefined): number {
@@ -112,13 +155,17 @@ function buildRequestFailedOutputs(params: { isBinaryOutput: boolean }): Outputs
   };
 }
 
-function buildCaughtRequestFailedResult(params: { isBinaryOutput: boolean }): Outputs {
+function buildCaughtRequestFailedResult(params: { isBinaryOutput: boolean; error: unknown }): Outputs {
   return {
-    ...buildRequestFailedOutputs(params),
+    [REQUEST_ERROR_OUTPUT_ID]: {
+      type: 'string',
+      value: formatCaughtRequestFailureError(params.error),
+    },
     [REQUEST_FAILED_OUTPUT_ID]: {
       type: 'boolean',
       value: true,
     },
+    ...buildRequestFailedOutputs(params),
   };
 }
 
@@ -287,11 +334,18 @@ export class HttpCallNodeImpl extends NodeImpl<HttpCallNode> {
     );
 
     if (this.data.catchRequestFailed) {
-      outputDefinitions.push({
-        dataType: 'boolean',
-        id: REQUEST_FAILED_OUTPUT_ID,
-        title: 'Request failed',
-      });
+      outputDefinitions.push(
+        {
+          dataType: 'boolean',
+          id: REQUEST_FAILED_OUTPUT_ID,
+          title: 'Request failed',
+        },
+        {
+          dataType: 'string',
+          id: REQUEST_ERROR_OUTPUT_ID,
+          title: 'Request error',
+        },
+      );
     }
 
     return outputDefinitions;
@@ -455,6 +509,7 @@ export class HttpCallNodeImpl extends NodeImpl<HttpCallNode> {
           ) {
             throw new Error(
               'Failed to make HTTP call. You may be running into CORS problems. Try using the Node executor in the top-right menu.',
+              { cause: err },
             );
           }
 
@@ -520,12 +575,16 @@ export class HttpCallNodeImpl extends NodeImpl<HttpCallNode> {
           type: 'boolean',
           value: false,
         };
+        output[REQUEST_ERROR_OUTPUT_ID] = {
+          type: 'control-flow-excluded',
+          value: undefined,
+        };
       }
 
       return output;
     } catch (error) {
       if (this.data.catchRequestFailed && !isAbortError(error, context.signal)) {
-        return buildCaughtRequestFailedResult({ isBinaryOutput: Boolean(this.data.isBinaryOutput) });
+        return buildCaughtRequestFailedResult({ isBinaryOutput: Boolean(this.data.isBinaryOutput), error });
       }
 
       throw error;

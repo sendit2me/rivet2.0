@@ -7,10 +7,21 @@ import {
   type EditorDefinition,
   type HttpCallNode,
   type InternalProcessContext,
+  type Outputs,
   type PortId,
 } from '../../../src/index.js';
 
 const originalFetch = globalThis.fetch;
+const requestFailedOutputId = 'requestFailed' as PortId;
+const requestErrorOutputId = 'requestError' as PortId;
+
+const expectedTextRequestFailedOutputs: Outputs = {
+  res_body: { type: 'control-flow-excluded', value: undefined },
+  json: { type: 'control-flow-excluded', value: undefined },
+  statusCode: { type: 'control-flow-excluded', value: undefined },
+  res_headers: { type: 'control-flow-excluded', value: undefined },
+  requestFailed: { type: 'boolean', value: true },
+};
 
 const createNode = (data: Partial<HttpCallNode['data']>) =>
   new HttpCallNodeImpl({
@@ -37,6 +48,27 @@ const createContext = ({
 
 const flattenEditors = (editors: EditorDefinition<HttpCallNode>[]): EditorDefinition<HttpCallNode>[] =>
   editors.flatMap((editor) => (editor.type === 'group' ? [editor, ...flattenEditors(editor.editors)] : [editor]));
+
+const getStringOutputValue = (outputs: Outputs, portId: PortId): string => {
+  const output = outputs[portId];
+  if (output?.type !== 'string') {
+    assert.fail(`Expected ${portId} to be a string output`);
+  }
+  return output.value;
+};
+
+const assertCaughtTextRequestFailure = (outputs: Outputs, expectedErrorParts: RegExp[]) => {
+  const { [requestErrorOutputId]: errorOutput, ...outputsExceptError } = outputs;
+
+  assert.equal(Object.keys(outputs)[0], requestErrorOutputId);
+  assert.deepStrictEqual(outputsExceptError, expectedTextRequestFailedOutputs);
+  assert.equal(errorOutput?.type, 'string');
+  const errorText = getStringOutputValue(outputs, requestErrorOutputId);
+
+  for (const expectedErrorPart of expectedErrorParts) {
+    assert.match(errorText, expectedErrorPart);
+  }
+};
 
 afterEach(() => {
   globalThis.fetch = originalFetch;
@@ -102,12 +134,16 @@ describe('HttpCallNode', () => {
     assert.equal(cooldownEditor?.helperMessage, 'Milliseconds to wait between repeats');
   });
 
-  it('only exposes the requestFailed output when enabled', () => {
+  it('only exposes request failure outputs when catch mode is enabled', () => {
     const withoutCatch = createNode({});
     const withCatch = createNode({ catchRequestFailed: true });
+    const withoutCatchOutputIds = withoutCatch.getOutputDefinitions().map((definition) => definition.id);
+    const withCatchOutputIds = withCatch.getOutputDefinitions().map((definition) => definition.id);
 
-    assert.equal(withoutCatch.getOutputDefinitions().some((definition) => definition.id === 'requestFailed'), false);
-    assert.equal(withCatch.getOutputDefinitions().some((definition) => definition.id === 'requestFailed'), true);
+    assert.equal(withoutCatchOutputIds.includes(requestFailedOutputId), false);
+    assert.equal(withoutCatchOutputIds.includes(requestErrorOutputId), false);
+    assert.equal(withCatchOutputIds.includes(requestFailedOutputId), true);
+    assert.equal(withCatchOutputIds.includes(requestErrorOutputId), true);
   });
 
   it('builds HTTP body preview sections for selected options', () => {
@@ -260,13 +296,7 @@ describe('HttpCallNode', () => {
     const result = await node.process({}, createContext());
 
     assert.equal(requestCount, 2);
-    assert.deepStrictEqual(result, {
-      res_body: { type: 'control-flow-excluded', value: undefined },
-      json: { type: 'control-flow-excluded', value: undefined },
-      statusCode: { type: 'control-flow-excluded', value: undefined },
-      res_headers: { type: 'control-flow-excluded', value: undefined },
-      requestFailed: { type: 'boolean', value: true },
-    });
+    assertCaughtTextRequestFailure(result, [/HTTP call returned non-2XX status code: 404/]);
   });
 
   it('does not swallow aborts during retry cooldown', async () => {
@@ -333,6 +363,7 @@ describe('HttpCallNode', () => {
       statusCode: { type: 'number', value: 200 },
       res_headers: { type: 'object', value: { 'content-type': 'application/json' } },
       requestFailed: { type: 'boolean', value: false },
+      requestError: { type: 'control-flow-excluded', value: undefined },
     });
   });
 
@@ -348,6 +379,7 @@ describe('HttpCallNode', () => {
       statusCode: { type: 'number', value: 200 },
       res_headers: { type: 'object', value: { 'content-type': 'text/plain' } },
       requestFailed: { type: 'boolean', value: false },
+      requestError: { type: 'control-flow-excluded', value: undefined },
     });
   });
 
@@ -366,6 +398,7 @@ describe('HttpCallNode', () => {
       value: { 'content-type': 'application/octet-stream' },
     });
     assert.deepStrictEqual(result.requestFailed, { type: 'boolean', value: false });
+    assert.deepStrictEqual(result.requestError, { type: 'control-flow-excluded', value: undefined });
   });
 
   it('still throws invalid URL when catchRequestFailed is disabled', async () => {
@@ -378,13 +411,7 @@ describe('HttpCallNode', () => {
     const node = createNode({ url: 'not a url', catchRequestFailed: true });
     const result = await node.process({}, createContext());
 
-    assert.deepStrictEqual(result, {
-      res_body: { type: 'control-flow-excluded', value: undefined },
-      json: { type: 'control-flow-excluded', value: undefined },
-      statusCode: { type: 'control-flow-excluded', value: undefined },
-      res_headers: { type: 'control-flow-excluded', value: undefined },
-      requestFailed: { type: 'boolean', value: true },
-    });
+    assertCaughtTextRequestFailure(result, [/Invalid URL: not a url/]);
   });
 
   it('catches browser-style Failed to fetch errors when enabled', async () => {
@@ -397,6 +424,9 @@ describe('HttpCallNode', () => {
 
     assert.deepStrictEqual(result.requestFailed, { type: 'boolean', value: true });
     assert.deepStrictEqual(result.res_body, { type: 'control-flow-excluded', value: undefined });
+    const errorText = getStringOutputValue(result, requestErrorOutputId);
+    assert.match(errorText, /CORS problems/);
+    assert.match(errorText, /Failed to fetch/);
   });
 
   it('catches browser-style Load failed errors when enabled', async () => {
@@ -409,6 +439,9 @@ describe('HttpCallNode', () => {
 
     assert.deepStrictEqual(result.requestFailed, { type: 'boolean', value: true });
     assert.deepStrictEqual(result.statusCode, { type: 'control-flow-excluded', value: undefined });
+    const errorText = getStringOutputValue(result, requestErrorOutputId);
+    assert.match(errorText, /CORS problems/);
+    assert.match(errorText, /Load failed/);
   });
 
   it('catches node-style fetch failed errors when enabled', async () => {
@@ -423,6 +456,9 @@ describe('HttpCallNode', () => {
 
     assert.deepStrictEqual(result.requestFailed, { type: 'boolean', value: true });
     assert.deepStrictEqual(result.res_headers, { type: 'control-flow-excluded', value: undefined });
+    const errorText = getStringOutputValue(result, requestErrorOutputId);
+    assert.match(errorText, /fetch failed/);
+    assert.match(errorText, /ENOTFOUND/);
   });
 
   it('treats non-2XX responses as requestFailed=true when both toggles are enabled', async () => {
@@ -431,13 +467,7 @@ describe('HttpCallNode', () => {
     const node = createNode({ method: 'GET', url: 'https://example.com', errorOnNon200: true, catchRequestFailed: true });
     const result = await node.process({}, createContext());
 
-    assert.deepStrictEqual(result, {
-      res_body: { type: 'control-flow-excluded', value: undefined },
-      json: { type: 'control-flow-excluded', value: undefined },
-      statusCode: { type: 'control-flow-excluded', value: undefined },
-      res_headers: { type: 'control-flow-excluded', value: undefined },
-      requestFailed: { type: 'boolean', value: true },
-    });
+    assertCaughtTextRequestFailure(result, [/HTTP call returned non-2XX status code: 404/]);
   });
 
   it('keeps 2XX responses out of the requestFailed path when both toggles are enabled', async () => {
@@ -452,6 +482,7 @@ describe('HttpCallNode', () => {
       statusCode: { type: 'number', value: 201 },
       res_headers: { type: 'object', value: { 'content-type': 'text/plain' } },
       requestFailed: { type: 'boolean', value: false },
+      requestError: { type: 'control-flow-excluded', value: undefined },
     });
   });
 
@@ -471,13 +502,7 @@ describe('HttpCallNode', () => {
     const node = createNode({ method: 'GET', url: 'https://example.com', catchRequestFailed: true });
     const result = await node.process({}, createContext());
 
-    assert.deepStrictEqual(result, {
-      res_body: { type: 'control-flow-excluded', value: undefined },
-      json: { type: 'control-flow-excluded', value: undefined },
-      statusCode: { type: 'control-flow-excluded', value: undefined },
-      res_headers: { type: 'control-flow-excluded', value: undefined },
-      requestFailed: { type: 'boolean', value: true },
-    });
+    assertCaughtTextRequestFailure(result, [/SyntaxError/]);
   });
 
   it('does not catch abort errors', async () => {
@@ -506,25 +531,13 @@ describe('HttpCallNode', () => {
     const node = createNode({ method: 'GET', url: 'https://example.com', catchRequestFailed: true });
     const result = await node.process({}, createContext());
 
-    assert.deepStrictEqual(result, {
-      res_body: { type: 'control-flow-excluded', value: undefined },
-      json: { type: 'control-flow-excluded', value: undefined },
-      statusCode: { type: 'control-flow-excluded', value: undefined },
-      res_headers: { type: 'control-flow-excluded', value: undefined },
-      requestFailed: { type: 'boolean', value: true },
-    });
+    assertCaughtTextRequestFailure(result, [/Body read failed/]);
   });
 
   it('catches invalid configured headers JSON when enabled', async () => {
     const node = createNode({ method: 'GET', url: 'https://example.com', headers: '{', catchRequestFailed: true });
     const result = await node.process({}, createContext());
 
-    assert.deepStrictEqual(result, {
-      res_body: { type: 'control-flow-excluded', value: undefined },
-      json: { type: 'control-flow-excluded', value: undefined },
-      statusCode: { type: 'control-flow-excluded', value: undefined },
-      res_headers: { type: 'control-flow-excluded', value: undefined },
-      requestFailed: { type: 'boolean', value: true },
-    });
+    assertCaughtTextRequestFailure(result, [/SyntaxError/]);
   });
 });

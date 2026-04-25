@@ -4,9 +4,6 @@
 
 - In the browser, the "File" tab should be in the bar where the opened files are, not in the top bar. In the very left
 
-- When "Catch all request failures" is on, the errors don't show up completely. But I want them to still be rendered in the output view even though the iutput view will be "successful", not red-error
-
-
 - Make the node cards border radiuses squircles
 
 - Every node (Or Code + Expression + HTTP) should have a "Do not throw" switcher so I can safely fallback with coalesce
