@@ -197,7 +197,7 @@ Current structure:
 - [`packages/app/src/components/settings/SettingsPages.tsx`](../packages/app/src/components/settings/SettingsPages.tsx) is now just a barrel export
 - individual settings pages live under [`packages/app/src/components/settings/pages/`](../packages/app/src/components/settings/pages)
 - shared plugin-config form rendering for the plugin pages lives in [`packages/app/src/components/settings/pages/PluginSettingsSection.tsx`](../packages/app/src/components/settings/pages/PluginSettingsSection.tsx)
-- the `UI` page owns presentation-oriented preferences such as theme selection, node-port text casing, default node colors, and whether newly created nodes auto-open their settings panel, while `General` is reserved for broader app/runtime behavior
+- the `UI` page owns presentation-oriented preferences such as theme selection, canvas zoom sensitivity, node-port text casing, default node colors, and whether newly created nodes auto-open their settings panel, while `General` is reserved for broader app/runtime behavior
 
 This is a better refactor seam because settings page changes no longer require editing one large file that mixes general preferences, OpenAI settings, plugin settings, custom plugin pages, and update behavior.
 
@@ -752,9 +752,8 @@ The execution UI is now intentionally graph-view-aware:
 - default executor
 - node-history retention count
 - casing preference
-- UI creation preferences such as auto-opening node settings for newly added nodes
 - update preferences/state
-- zoom sensitivity
+- UI preferences such as zoom sensitivity and auto-opening node settings for newly added nodes
 - remote debugger default URL
 
 For editor-only creation preferences, legacy/default behavior is intentionally centralized in [`packages/app/src/state/settings.ts`](../packages/app/src/state/settings.ts) via `resolveEditorPreferences(...)`: older persisted settings objects still treat `openNodeSettingsOnCreate` as enabled and `defaultNodeColors` as disabled, and both the settings UI and the add-node command share that resolver so they cannot drift on fallback behavior.

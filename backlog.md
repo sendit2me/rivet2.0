@@ -1,12 +1,9 @@
 - Check opening and saving files in the web rivet. Crtl+S and Ctrl+O don't work
 - In the "File" menu, probably need to have "Dave project" item. (not only "save as")
 
-
-
-
-- Move Zoom sensitivity into the UI tab
-
 - Reassess the Rivet settings. probbaly something needs reworking
+
+
 
 - get back the split node summary into node's header
 

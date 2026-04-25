@@ -4,14 +4,12 @@ import TextField from '@atlaskit/textfield';
 import { Field, HelperMessage, Label } from '@atlaskit/form';
 import Select from '@atlaskit/select';
 import Toggle from '@atlaskit/toggle';
-import Range from '@atlaskit/range';
 import {
   defaultExecutorState,
   executorOptions,
   previousDataPerNodeToKeepState,
   recordExecutionsState,
   settingsState,
-  zoomSensitivityState,
 } from '../../../state/settings.js';
 import { fields } from '../settingsPageStyles.js';
 
@@ -20,7 +18,6 @@ export const GeneralSettingsPage: FC = () => {
   const [recordExecutions, setRecordExecutions] = useAtom(recordExecutionsState);
   const [defaultExecutor, setDefaultExecutor] = useAtom(defaultExecutorState);
   const [previousDataPerNodeToKeep, setPreviousDataPerNodeToKeep] = useAtom(previousDataPerNodeToKeepState);
-  const [zoomSensitivity, setZoomSensitivity] = useAtom(zoomSensitivityState);
 
   return (
     <div css={fields}>
@@ -102,35 +99,8 @@ export const GeneralSettingsPage: FC = () => {
               />
             </div>
             <HelperMessage>
-              The number of previous data values to keep per node. Increasing this will increase memory usage, but
-              allow you to go back further in time. -1 to disable and keep all.
-            </HelperMessage>
-          </>
-        )}
-      </Field>
-      <Field name="zoomSensitivity">
-        {() => (
-          <>
-            <Label htmlFor="zoomSensitivity" testId="zoomSensitivity">
-              Zoom sensitivity
-            </Label>
-            <div className="toggle-field">
-              <Range
-                min={0.01}
-                max={2}
-                step={0.01}
-                value={zoomSensitivity}
-                onChange={(value) => {
-                  if (Number.isNaN(value) || value == null) {
-                    return;
-                  }
-
-                  setZoomSensitivity(value);
-                }}
-              />
-            </div>
-            <HelperMessage>
-              The sensitivity of the zoom when using the mouse wheel. Lower values will zoom slower.
+              The number of previous data values to keep per node. Increasing this will increase memory usage, but allow
+              you to go back further in time. -1 to disable and keep all.
             </HelperMessage>
           </>
         )}
