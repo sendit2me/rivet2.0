@@ -1,7 +1,8 @@
 import { useAtom, useAtomValue, useSetAtom, useStore } from 'jotai';
 import { type DataId, type Project } from '@ironclad/rivet-core';
+import { type TrivetData } from '@ironclad/trivet';
 import { toast, type Id as ToastId } from 'react-toastify';
-import { isPathBasedIOProvider } from '../io/IOProvider.js';
+import { type IOProvider, isPathBasedIOProvider } from '../io/IOProvider.js';
 import { useIOProvider } from '../providers/ProvidersContext.js';
 import { cleanupNodeAtomFamilies, graphState, historicalGraphState, isReadOnlyGraphState } from '../state/graph.js';
 import {
@@ -37,6 +38,27 @@ import {
 } from '../utils/projectEditorState.js';
 import { flushHybridStorageGroup } from '../state/storage.js';
 import { useCurrentProjectEditorSnapshot } from './useCurrentProjectEditorSnapshot.js';
+
+type ProjectSaveWithoutPromptProvider = IOProvider & {
+  saveProjectDataNoPrompt(project: Project, testData: TrivetData, path: string): Promise<void>;
+  canSaveProjectDataNoPrompt?(path: string): boolean;
+};
+
+function canSaveProjectDataNoPrompt(
+  ioProvider: IOProvider,
+  path: string | null,
+): ioProvider is ProjectSaveWithoutPromptProvider {
+  if (!path || typeof (ioProvider as Partial<ProjectSaveWithoutPromptProvider>).saveProjectDataNoPrompt !== 'function') {
+    return false;
+  }
+
+  const canSave = (ioProvider as Partial<ProjectSaveWithoutPromptProvider>).canSaveProjectDataNoPrompt;
+  if (typeof canSave === 'function') {
+    return canSave(path);
+  }
+
+  return isPathBasedIOProvider(ioProvider);
+}
 
 export function useWorkspaceTransitions() {
   const ioProvider = useIOProvider();
@@ -263,11 +285,9 @@ export function useWorkspaceTransitions() {
       const latestLoadedProject = store.get(loadedProjectState);
       const latestTestSuites = store.get(trivetState).testSuites;
       const projectToPersist = mergeCurrentGraphIntoProject(latestProject, saveCurrentGraph());
+      const canSaveInPlace = canSaveProjectDataNoPrompt(ioProvider, latestLoadedProject.path);
       const shouldUseSaveAs =
-        options.forceSaveAs ||
-        !latestLoadedProject.loaded ||
-        !latestLoadedProject.path ||
-        !isPathBasedIOProvider(ioProvider);
+        options.forceSaveAs || !latestLoadedProject.loaded || !latestLoadedProject.path || !canSaveInPlace;
 
       let saving: ToastId | undefined;
       const savingTimeout = setTimeout(() => {

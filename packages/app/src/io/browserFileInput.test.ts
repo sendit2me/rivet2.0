@@ -1,7 +1,19 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { type Project, serializeProject } from '@ironclad/rivet-core';
+import { serializeTrivetData } from '@ironclad/trivet';
 import { BrowserIOProvider } from './BrowserIOProvider.js';
 import { openBrowserFile } from './browserFileInput.js';
+
+const testProject = {
+  metadata: {
+    id: 'project-id',
+    title: 'Project',
+    description: '',
+  },
+  graphs: {},
+  plugins: [],
+} as unknown as Project;
 
 test('BrowserIOProvider support only depends on browser save picker support', () => {
   const originalWindow = globalThis.window;
@@ -16,6 +28,118 @@ test('BrowserIOProvider support only depends on browser save picker support', ()
     globalThis.window = {} as typeof window;
 
     assert.equal(BrowserIOProvider.isSupported(), false);
+  } finally {
+    globalThis.window = originalWindow;
+  }
+});
+
+test('BrowserIOProvider can save back to a project file handle after save-as', async () => {
+  const originalWindow = globalThis.window;
+  const writes: string[] = [];
+  const fileHandle = {
+    name: 'project.rivet-project',
+    createWritable: async () => ({
+      write: async (contents: string) => {
+        writes.push(contents);
+      },
+      close: async () => {},
+    }),
+  };
+
+  try {
+    globalThis.window = {
+      showSaveFilePicker: async () => fileHandle,
+    } as unknown as typeof window;
+
+    const provider = new BrowserIOProvider();
+    const path = await provider.saveProjectData(testProject, { testSuites: [] });
+
+    if (!path) {
+      throw new Error('Expected saveProjectData to return a browser project path');
+    }
+    assert.match(path, /project\.rivet-project$/);
+    assert.notEqual(path, fileHandle.name);
+    assert.equal(provider.canSaveProjectDataNoPrompt(path), true);
+
+    await provider.saveProjectDataNoPrompt(
+      {
+        ...testProject,
+        metadata: {
+          ...testProject.metadata,
+          title: 'Updated Project',
+        },
+      },
+      { testSuites: [] },
+      path,
+    );
+
+    assert.equal(writes.length, 2);
+    assert.match(writes[1]!, /Updated Project/);
+  } finally {
+    globalThis.window = originalWindow;
+  }
+});
+
+test('BrowserIOProvider remembers project file handles from supported browser open picker', async () => {
+  const originalWindow = globalThis.window;
+  const serializedProject = serializeProject(testProject, { trivet: serializeTrivetData({ testSuites: [] }) }) as string;
+  const file = {
+    name: 'opened-project.rivet-project',
+    text: async () => serializedProject,
+  } as File;
+  const fileHandle = {
+    name: file.name,
+    getFile: async () => file,
+  };
+
+  try {
+    globalThis.window = {
+      showSaveFilePicker: () => undefined,
+      showOpenFilePicker: async () => [fileHandle],
+    } as unknown as typeof window;
+
+    const provider = new BrowserIOProvider();
+    let loadedPath: string | undefined;
+
+    await provider.loadProjectData(({ path }) => {
+      loadedPath = path;
+    });
+
+    if (!loadedPath) {
+      throw new Error('Expected loadProjectData to return a browser project path');
+    }
+    assert.match(loadedPath, /opened-project\.rivet-project$/);
+    assert.notEqual(loadedPath, file.name);
+    assert.equal(provider.canSaveProjectDataNoPrompt(loadedPath), true);
+  } finally {
+    globalThis.window = originalWindow;
+  }
+});
+
+test('BrowserIOProvider stores same-name project file handles as separate save targets', async () => {
+  const originalWindow = globalThis.window;
+  const fileHandle = {
+    name: 'project.rivet-project',
+    createWritable: async () => ({
+      write: async () => {},
+      close: async () => {},
+    }),
+  };
+
+  try {
+    globalThis.window = {
+      showSaveFilePicker: async () => fileHandle,
+    } as unknown as typeof window;
+
+    const provider = new BrowserIOProvider();
+    const firstPath = await provider.saveProjectData(testProject, { testSuites: [] });
+    const secondPath = await provider.saveProjectData(testProject, { testSuites: [] });
+
+    assert.ok(firstPath);
+    assert.ok(secondPath);
+    assert.notEqual(firstPath, secondPath);
+    assert.equal(provider.canSaveProjectDataNoPrompt(firstPath), true);
+    assert.equal(provider.canSaveProjectDataNoPrompt(secondPath), true);
   } finally {
     globalThis.window = originalWindow;
   }

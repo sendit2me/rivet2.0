@@ -183,6 +183,8 @@ Current workspace behavior:
 - successful project saves clear any persisted inactive-project snapshot for that project and flush the grouped `project` storage so tab metadata and editor-view state are durable together
 - closing/reordering project tabs still lives in `ProjectSelector.tsx`, and closing a background tab no longer triggers a neighbor-project load
 - project-tab reordering is visually constrained to horizontal motion even while dragging, so any future reorder changes should preserve that left-right-only affordance instead of letting tabs drift vertically
+- in the browser build, the `File` menu is the leftmost item in the same top bar as the opened-project tabs, not part of the centered overlay-tab switcher; its dropdown owns local open state, outside-click dismissal, menu separators, and the browser-visible order `New project`, `Open project`, `Save project`, `Save project as...`, `Import graph`, `Export graph`, `Settings`
+- the browser `File` menu delegates to the shared menu command surface, so `Save project` is the same command used by app hotkeys and native menus; Tauri continues to omit this in-bar menu because native app menus handle file commands there
 
 ### `ActionBar`
 
@@ -219,8 +221,8 @@ Acts as the switchboard for overlay-like product areas such as prompt designer, 
 
 Current rule that matters for maintenance:
 
-- the `File` tab dropdown in [`packages/app/src/components/OverlayTabs.tsx`](../packages/app/src/components/OverlayTabs.tsx) owns its own open state and outside-click dismissal locally; it is not routed through the shared canvas/context-menu infrastructure, so menu-close behavior changes should stay in `OverlayTabs` unless the whole workspace-nav menu model is being redesigned
-- workspace navigation tabs (`File`, `Canvas`, `Plugins`, `Community`, etc.) are allowed to wrap on narrow windows; the flex row stretches every tab to the tallest wrapped tab height so labels do not spill outside fixed-height pills
+- browser-only file commands live beside opened-project tabs in [`packages/app/src/components/ProjectSelector.tsx`](../packages/app/src/components/ProjectSelector.tsx); `OverlayTabs` should only render overlay destinations such as `Canvas`, `Plugins`, `Community`, Prompt Designer, Trivet, Chat Viewer, and Data Studio
+- workspace navigation tabs (`Canvas`, `Plugins`, `Community`, etc.) are allowed to wrap on narrow windows; the flex row stretches every tab to the tallest wrapped tab height so labels do not spill outside fixed-height pills
 
 ## Graph Editor
 
@@ -830,7 +832,7 @@ Current behavior:
 - saves the current in-memory graph back into the project before persisting
 - builds the persisted project payload from the latest Jotai store values at call time rather than relying on render-time snapshots
 - persists an existing graph even if the current edit reduced it to zero nodes and zero connections
-- uses `saveProjectDataNoPrompt` when a path already exists
+- uses `saveProjectDataNoPrompt` when the loaded project has a path and the active IO provider can actually save that target without prompting
 - falls back to save-as when needed
 - persists Trivet test-suite data alongside the project
 - keeps the current open-project tab metadata intact when save/save-as updates the project's persisted path
@@ -885,12 +887,22 @@ That abstraction is used so the same app code can work in:
 
 The app also keeps separate provider abstractions for datasets, audio, and related execution-time services through React providers.
 
-Browser file reads intentionally use a standard hidden `<input type="file">` flow through
-[`packages/app/src/io/browserFileInput.ts`](../packages/app/src/io/browserFileInput.ts), even when the browser exposes
-the File System Access API. Embedded browsers can expose `showOpenFilePicker()` while blocking
-`FileSystemFileHandle.getFile()`, so project/graph/recording imports and binary/text file reads should not depend on
-file handles. `BrowserIOProvider` still uses `showSaveFilePicker()` for browser saves when available; the legacy browser
-provider uses download links for saves and the same shared input helper for reads.
+Browser file reads intentionally keep a standard hidden `<input type="file">` fallback through
+[`packages/app/src/io/browserFileInput.ts`](../packages/app/src/io/browserFileInput.ts). Embedded browsers can expose
+`showOpenFilePicker()` while blocking `FileSystemFileHandle.getFile()`, so graph/recording imports and binary/text file
+reads should not depend on file handles.
+
+`BrowserIOProvider` is more capable only for project files:
+
+- save-as uses `showSaveFilePicker()` and remembers the returned project file handle
+- opening a project first tries `showOpenFilePicker()` so browsers that support writable handles can later save in place
+- if browser file-handle opening is blocked, project opening falls back to the shared `<input type="file">` path
+- `Save project` writes back without prompting only when a remembered project file handle exists; otherwise the shared save flow falls back to save-as
+- remembered browser project handles use internal per-handle paths ending in the filename, so same-named project files do not collide while project tabs can still display the readable filename
+
+The browser provider intentionally does not implement the full `PathBasedIOProvider` interface, because remembered project
+file handles should not make arbitrary file-browser editors or runtime file-node path reads look available in browser mode.
+The legacy browser provider uses download links for saves and the same shared input helper for reads.
 
 ## Platform Capability Boundary
 

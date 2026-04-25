@@ -1,8 +1,16 @@
 
+
+
+
+
+
+
+
+
+
 - Поиск по всему прпоекту сейчас тупой, нужен лучше. Need to come up with a list of search scenarios
 
 
-- In the browser, the "File" tab should be in the bar where the opened files are, not in the top bar. In the very left
 
 - Make the node cards border radiuses squircles
 
