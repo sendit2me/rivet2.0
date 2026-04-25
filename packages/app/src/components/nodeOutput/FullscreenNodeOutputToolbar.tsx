@@ -1,8 +1,8 @@
 import { css } from '@emotion/react';
-import Toggle from '@atlaskit/toggle';
 import CopyIcon from 'majesticons/line/clipboard-line.svg?react';
 import FlaskIcon from 'majesticons/line/flask-line.svg?react';
 import { type FC, type KeyboardEventHandler, type Ref } from 'react';
+import { LabeledToggle } from '../LabeledToggle.js';
 
 const fullscreenOutputToolbarCss = css`
   display: inline-flex;
@@ -50,6 +50,7 @@ const fullscreenOutputToolbarCss = css`
     display: flex;
     align-items: center;
     user-select: none;
+    color: var(--foreground);
   }
 
   .search-group {
@@ -136,9 +137,13 @@ export const FullscreenNodeOutputToolbar: FC<FullscreenNodeOutputToolbarProps> =
 }) => {
   return (
     <div css={fullscreenOutputToolbarCss}>
-      <label className="markdown-toggle">
-        <Toggle isChecked={renderMarkdown} onChange={() => onToggleRenderMarkdown()} /> Render Markdown
-      </label>
+      <LabeledToggle
+        id="fullscreen-output-render-markdown"
+        isChecked={renderMarkdown}
+        onChange={onToggleRenderMarkdown}
+        label="Render Markdown"
+        className="markdown-toggle"
+      />
       <div className="search-group">
         <input
           ref={searchInputRef}

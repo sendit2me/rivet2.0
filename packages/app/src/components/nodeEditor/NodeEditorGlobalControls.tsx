@@ -1,11 +1,11 @@
 import { type FC, type ReactNode } from 'react';
 import { type ChartNode } from '@ironclad/rivet-core';
-import Toggle from '@atlaskit/toggle';
 import TextField from '@atlaskit/textfield';
 import Select from '@atlaskit/select';
 import Button from '@atlaskit/button';
 import { Tooltip } from '../Tooltip.js';
 import { NodeMetadataEditor } from './NodeMetadataEditor.js';
+import { LabeledToggle } from '../LabeledToggle.js';
 
 type HeaderToggleFieldProps = {
   id: string;
@@ -16,10 +16,13 @@ type HeaderToggleFieldProps = {
 };
 
 const HeaderToggleField: FC<HeaderToggleFieldProps> = ({ id, isChecked, onChange, children, className }) => (
-  <div className={className ? `toggle-field ${className}` : 'toggle-field'}>
-    <Toggle id={id} isChecked={isChecked} onChange={(event) => onChange(event.target.checked)} />
-    <label htmlFor={id}>{children}</label>
-  </div>
+  <LabeledToggle
+    id={id}
+    isChecked={isChecked}
+    onChange={onChange}
+    label={children}
+    className={className ? `toggle-field ${className}` : 'toggle-field'}
+  />
 );
 
 type SplitModeChoice = 'parallel' | 'sequential';

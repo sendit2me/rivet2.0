@@ -8,9 +8,9 @@ import Collapsible from 'react-collapsible';
 import ChevronDownIcon from 'majesticons/line/chevron-down-line.svg?react';
 import ChevronUpIcon from 'majesticons/line/chevron-up-line.svg?react';
 import { getEditorListKey, getEditorRenderRows, getHelperMessage } from './editorUtils';
-import { HelperMessage, Label } from '@atlaskit/form';
-import Toggle from '@atlaskit/toggle';
+import { HelperMessage } from '@atlaskit/form';
 import { ToggleEditor } from './ToggleEditor';
+import { LabeledToggle } from '../LabeledToggle';
 
 const styles = css`
   grid-column: span 2;
@@ -82,35 +82,11 @@ const styles = css`
 
   .editor-group-toggle-with-switch {
     justify-content: flex-start;
-    gap: 4px;
     cursor: default;
   }
 
   .editor-group-toggle-with-switch:hover {
     background: none;
-  }
-
-  .editor-group-toggle-switch,
-  .editor-group-toggle-switch > * {
-    margin-left: 0 !important;
-  }
-
-  .editor-group-toggle-switch > label[data-size] {
-    margin: 0 0 0 -4px !important;
-  }
-
-  .editor-group-toggle-switch > label[data-size]:has(input:focus:not(:focus-visible)) {
-    border-color: transparent !important;
-    outline: none !important;
-    box-shadow: none !important;
-  }
-
-  .editor-group-toggle-label {
-    cursor: pointer;
-  }
-
-  .editor-group-toggle-label label {
-    cursor: pointer;
   }
 
   .editor-group {
@@ -151,19 +127,16 @@ const ToggleHeader: FC<{
   onChange: (value: boolean) => void;
 }> = ({ isChecked, isDisabled, label, toggleId, helperMessage, onChange }) => (
   <div className="editor-group-toggle-area">
-    <div className="editor-group-toggle editor-group-toggle-with-switch">
-      <div className="editor-group-toggle-switch">
-        <Toggle
-          id={toggleId}
-          isChecked={isChecked}
-          isDisabled={isDisabled}
-          onChange={(e) => onChange(e.target.checked)}
-        />
-      </div>
-      <div className="editor-group-toggle-label">
-        <Label htmlFor={toggleId}>{label}</Label>
-      </div>
-    </div>
+    <LabeledToggle
+      id={toggleId}
+      isChecked={isChecked}
+      isDisabled={isDisabled}
+      onChange={onChange}
+      label={label}
+      className="editor-group-toggle editor-group-toggle-with-switch"
+      switchClassName="editor-group-toggle-switch"
+      labelClassName="editor-group-toggle-label"
+    />
     {helperMessage && <HelperMessage>{helperMessage}</HelperMessage>}
   </div>
 );

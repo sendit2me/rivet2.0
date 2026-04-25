@@ -379,6 +379,7 @@ const Container = styled.div`
     display: flex;
     align-items: flex-start;
     min-height: 40px;
+    margin-bottom: 5px;
   }
 
   .split-toggle-row .toggle-field {
@@ -414,8 +415,6 @@ const Container = styled.div`
     gap: 14px;
     flex-wrap: nowrap;
     min-height: 32px;
-    margin-top: -4px;
-    margin-left: 4px;
 
     .split-max-input {
       max-width: 80px;

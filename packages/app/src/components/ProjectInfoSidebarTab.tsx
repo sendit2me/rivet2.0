@@ -10,13 +10,13 @@ import { useToggle } from 'ahooks';
 import TextField from '@atlaskit/textfield';
 import { DataType, type DataValue } from '@ironclad/rivet-core';
 import { produce } from 'immer';
-import Toggle from '@atlaskit/toggle';
 import { entries } from '../utils/typeSafety';
 import { css } from '@emotion/react';
 import { ProjectRevisions } from './ProjectRevisionList';
 import { useAtom, useAtomValue } from 'jotai';
 import { ProjectReferencesConfiguration } from './ProjectReferencesConfiguration';
 import { ProjectMCPConfiguration } from './ProjectMCPConfiguration';
+import { LabeledToggle } from './LabeledToggle';
 
 const styles = css`
   .context-list {
@@ -306,12 +306,13 @@ const ValueEditorModal: FC<{
           </Field>
           <Field name="secret" label="Secret Value (Hidden in UI)">
             {() => (
-              <Toggle
+              <LabeledToggle
+                id="project-secret-hidden-value"
                 isChecked={secret}
-                onChange={(e) => setSecret(e.target.checked)}
+                onChange={setSecret}
                 label="Secret Value (Hidden in UI)"
                 size="large"
-              ></Toggle>
+              />
             )}
           </Field>
         </form>

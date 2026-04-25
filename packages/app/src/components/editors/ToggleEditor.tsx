@@ -1,9 +1,9 @@
-import { HelperMessage, Label } from '@atlaskit/form';
-import Toggle from '@atlaskit/toggle';
+import { HelperMessage } from '@atlaskit/form';
 import { type ToggleEditorDefinition, type ChartNode } from '@ironclad/rivet-core';
 import { type FC } from 'react';
 import { type SharedEditorProps } from './SharedEditorProps';
 import { getHelperMessage } from './editorUtils';
+import { LabeledToggle } from '../LabeledToggle';
 
 export const DefaultToggleEditor: FC<
   SharedEditorProps & {
@@ -46,19 +46,16 @@ export const ToggleEditor: FC<{
 
   return (
     <div className="toggle-editor-field">
-      <div className="toggle-editor-control-row">
-        <div className="toggle-editor-switch">
-          <Toggle
-            id={toggleId}
-            isChecked={value}
-            isDisabled={isReadonly || isDisabled}
-            onChange={(e) => onChange(e.target.checked)}
-          />
-        </div>
-        <div className="toggle-editor-label">
-          <Label htmlFor={toggleId}>{label}</Label>
-        </div>
-      </div>
+      <LabeledToggle
+        id={toggleId}
+        isChecked={value}
+        isDisabled={isReadonly || isDisabled}
+        onChange={onChange}
+        label={label}
+        className="toggle-editor-control-row"
+        switchClassName="toggle-editor-switch"
+        labelClassName="toggle-editor-label"
+      />
       {helperMessage && (
         <div className="toggle-editor-helper">
           <HelperMessage>{helperMessage}</HelperMessage>

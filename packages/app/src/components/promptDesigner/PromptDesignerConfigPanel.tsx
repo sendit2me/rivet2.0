@@ -3,10 +3,10 @@ import { Field } from '@atlaskit/form';
 import TextField from '@atlaskit/textfield';
 import Button from '@atlaskit/button';
 import Select from '@atlaskit/select';
-import Toggle from '@atlaskit/toggle';
 import { openai } from '@ironclad/rivet-core';
 import type { PromptDesignerConfigurationState } from '../../state/promptDesigner';
 import type { SetStateAction } from 'jotai';
+import { LabeledToggle } from '../LabeledToggle.js';
 
 export type PromptDesignerConfigPanelProps = {
   config: PromptDesignerConfigurationState;
@@ -49,17 +49,18 @@ export const PromptDesignerConfigPanel: FC<PromptDesignerConfigPanelProps> = ({ 
               />
             )}
           </Field>
-          <Field name="useTopP" label="Use Top P">
-            {({ fieldProps }) => (
-              <Toggle
-                {...fieldProps}
+          <Field name="useTopP">
+            {() => (
+              <LabeledToggle
+                id="useTopP"
                 isChecked={config.data.useTopP}
-                onChange={(e) =>
+                onChange={(value) =>
                   setConfig((s) => ({
                     ...s,
-                    data: { ...s.data, useTopP: (e.target as HTMLInputElement).checked },
+                    data: { ...s.data, useTopP: value },
                   }))
                 }
+                label="Use Top P"
               />
             )}
           </Field>

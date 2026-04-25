@@ -3,7 +3,6 @@ import { useAtom } from 'jotai';
 import TextField from '@atlaskit/textfield';
 import { Field, HelperMessage, Label } from '@atlaskit/form';
 import Select from '@atlaskit/select';
-import Toggle from '@atlaskit/toggle';
 import {
   defaultExecutorState,
   executorOptions,
@@ -12,6 +11,7 @@ import {
   settingsState,
 } from '../../../state/settings.js';
 import { fields } from '../settingsPageStyles.js';
+import { LabeledToggle } from '../../LabeledToggle.js';
 
 export const GeneralSettingsPage: FC = () => {
   const [settings, setSettings] = useAtom(settingsState);
@@ -44,16 +44,13 @@ export const GeneralSettingsPage: FC = () => {
       <Field name="recordExecutions">
         {() => (
           <>
-            <Label htmlFor="recordExecutions" testId="recordExecutions">
-              Record local graph executions
-            </Label>
-            <div className="toggle-field">
-              <Toggle
-                id="recordExecutions"
-                isChecked={recordExecutions}
-                onChange={(event) => setRecordExecutions(event.target.checked)}
-              />
-            </div>
+            <LabeledToggle
+              id="recordExecutions"
+              isChecked={recordExecutions}
+              onChange={setRecordExecutions}
+              label="Record local graph executions"
+              className="settings-toggle-field"
+            />
             <HelperMessage>Disabling may help performance when dealing with very large data values</HelperMessage>
           </>
         )}

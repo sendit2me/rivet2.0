@@ -4,7 +4,9 @@
 
 - In the browser, the "File" tab should be in the bar where the opened files are, not in the top bar. In the very left
 
-- When hovering the clickable label of the switcher, I wantr the switcher to trigger the hover mode too
+- When "Catch all request failures" is on, the errors don't show up completely. But I want them to still be rendered in the output view even though the iutput view will be "successful", not red-error
+
+- In the HTTP node, in the node body, output options with a bit of vertical gaps
 
 - Make the node cards border radiuses squircles
 

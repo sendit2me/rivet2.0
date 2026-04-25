@@ -10,4 +10,9 @@ export const fields = css`
     flex-direction: column;
     gap: 16px;
   }
+
+  .settings-toggle-field {
+    color: var(--grey-light);
+    font-size: 14px;
+  }
 `;
