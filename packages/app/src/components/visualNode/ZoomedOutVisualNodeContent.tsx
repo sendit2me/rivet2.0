@@ -11,6 +11,7 @@ import { preservePortTextCaseState } from '../../state/settings';
 import { useCanvasHandlersContext, useCanvasViewContext } from '../CanvasContext';
 import { SubGraphHeaderLink } from './SubGraphHeaderLink.js';
 import { SplitRunSummary } from './SplitRunSummary.js';
+import { NodeRunningIndicator } from './NodeRunningIndicator.js';
 
 export const ZoomedOutVisualNodeContent: FC<{
   node: ChartNode;
@@ -81,7 +82,7 @@ export const ZoomedOutVisualNodeContent: FC<{
         )}
         {!isReallyZoomedOut && (
           <div className="title-controls">
-            {isRunning && <span className="node-running-indicator" aria-label="Node running" role="status" />}
+            <NodeRunningIndicator isRunning={isRunning} />
             <button
               type="button"
               className="edit-button"

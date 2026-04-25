@@ -5,10 +5,8 @@
 
 
 
-- Update JS map and JS Filter nodes' variable interpolation the same way we did it for Expression node. The requirememnts ar ethe same, the uX should be the same. 
+- When a long node is running, it keeps some other nodes from finishing even if they are quick
 
-
-- Only show the preloader in a node if it actually runs more than 500ms
 
 - "Split runs" -> "Iterate through list inputs"
 

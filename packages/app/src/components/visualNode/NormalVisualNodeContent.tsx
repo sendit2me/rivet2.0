@@ -27,6 +27,7 @@ import { NodeBody } from '../NodeBody.js';
 import { NodeOutput } from '../NodeOutput.js';
 import { SubGraphHeaderLink } from './SubGraphHeaderLink.js';
 import { SplitRunSummary } from './SplitRunSummary.js';
+import { NodeRunningIndicator } from './NodeRunningIndicator.js';
 import {
   computeBoxNodeResizeBounds,
   computeHorizontalNodeResizeBounds,
@@ -295,7 +296,7 @@ export const NormalVisualNodeContent: FC<{
                 </Tooltip>
               </button>
             )}
-            {isRunning && <span className="node-running-indicator" aria-label="Node running" role="status" />}
+            <NodeRunningIndicator isRunning={isRunning} />
             <Tooltip className="edit-button-tooltip" content="Edit Node">
               <button
                 type="button"
