@@ -1,3 +1,15 @@
+- Destructure node: when adding a new line, auto isert "$." into it
+
+- Поиск по всему прпоекту сейчас тупой, нужен лучше. Need to come up with a list of search scenarios
+
+
+- Make the node cards border radiuses squircles
+
+- Every node (Or Code + Expression + HTTP) should have a "Do not throw" switcher so I can safely fallback with coalesce
+- HHTP node should have a "Retry N times setting"
+
+
+
 - Check opening and saving files in the web rivet. Crtl+S and Ctrl+O don't work
 - In the "File" menu, probably need to have "Dave project" item. (not only "save as")
 
@@ -12,10 +24,6 @@
 
 
 
-- In the output full popup when the markdown mode is on, I want to make it better, just like in https://markdownlivepreview.com/
-
-- When I'm fragging the node by the header, I want the cursor to be a fist icon. Like a frabbing nad that is closed
-
 - Support Python in all nodes that support javascript
 
 - Light color theme
@@ -23,7 +31,6 @@
 - Update the rivet version (at least in the Settings popup)
 
 
-- Make the node cards border radiuses squircles
 
 - Convenient node type browser, just like in n8n
 
@@ -33,19 +40,10 @@
 - A way to throw the error into the workflow response whenever the workflow breaks and ends
 
 
+- Show run time in each node
 
 
 
-
-
-- Show run time in eachnode
-
-- Destructure node: when adding a new line, auto isert "$." into it
-
-- Every node should have a "Do not throw" switcher so I can safely fallback with coalesce
-
-
-- When the output is large and paged, the page size seems to be too small. I need to check. It affects the search
 
 - Add mid points to connections so I can do neat wiring
 
@@ -58,5 +56,4 @@
 
 - Новый ИИ нод долен принимать низкоуровневые параметры типа массива инпутов где я сам проставляю роли. Но ризонинг например доложен быть унифицирован чтобы стаивть минимальный или нулевойю Также должен быть стриминг, но непонятно зачем — куда его пробрасывать - может перпедавать во внешний вызов функции? Или прям устанавливать вебсокет соединение с чем-то? 
 
-- Поиск по всему прпоекту сейчас тупой, нужен лучше
 

@@ -128,6 +128,7 @@ export const VisualNode = memo(
               overlayNode: isOverlay,
               selected: isSelected,
               hovered: isHovered,
+              dragging: isDragging,
               showHoverControls: shouldShowHoverControls,
               ...executionClassFlags,
               zoomedOut: effectiveIsZoomedOut,

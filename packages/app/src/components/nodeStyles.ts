@@ -120,6 +120,12 @@ export const nodeStyles = css`
     cursor: grab;
   }
 
+  .node-title.grabbable:active,
+  .node.dragging .node-title.grabbable,
+  .node.overlayNode .node-title.grabbable {
+    cursor: grabbing;
+  }
+
   .node.conditional .node-title {
     padding-left: 30px;
   }

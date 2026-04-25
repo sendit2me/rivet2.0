@@ -469,7 +469,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
     >
       <div
         ref={setCanvasRef}
-        className="node-canvas"
+        className={isDraggingNode ? 'node-canvas dragging-node' : 'node-canvas'}
         css={nodeCanvasStyles}
         onContextMenu={handleCanvasContextMenu}
         onMouseDown={canvasMouseDown}

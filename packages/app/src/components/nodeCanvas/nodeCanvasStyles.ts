@@ -13,6 +13,11 @@ export const nodeCanvasStyles = css`
   overflow: hidden;
   z-index: 0;
 
+  &.dragging-node,
+  &.dragging-node * {
+    cursor: grabbing !important;
+  }
+
   .nodes {
     position: relative;
     z-index: 0;
