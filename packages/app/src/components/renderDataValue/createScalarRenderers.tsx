@@ -47,7 +47,7 @@ export function createScalarRenderers(options: { renderValue: (props: DataValueR
       const markdownRendered = useMarkdown(truncated, markdownEnabled);
 
       if (markdownEnabled) {
-        return <div dangerouslySetInnerHTML={markdownRendered} />;
+        return <div className="markdown-body rivet-markdown-output" dangerouslySetInnerHTML={markdownRendered} />;
       }
 
       return <pre className="pre-wrap">{truncated}</pre>;

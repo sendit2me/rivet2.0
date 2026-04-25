@@ -4154,6 +4154,7 @@ __metadata:
     execa: "npm:^8.0.1"
     fast-deep-equal: "npm:^3.1.3"
     fuse.js: "npm:^6.6.2"
+    github-markdown-css: "npm:^5.8.1"
     immer: "npm:^10.0.3"
     jest-diff: "npm:^29.7.0"
     jotai: "npm:^2.11.0"
@@ -11958,6 +11959,13 @@ __metadata:
   version: 0.0.0
   resolution: "github-from-package@npm:0.0.0"
   checksum: 10/2a091ba07fbce22205642543b4ea8aaf068397e1433c00ae0f9de36a3607baf5bcc14da97fbb798cfca6393b3c402031fca06d8b491a44206d6efef391c58537
+  languageName: node
+  linkType: hard
+
+"github-markdown-css@npm:^5.8.1":
+  version: 5.9.0
+  resolution: "github-markdown-css@npm:5.9.0"
+  checksum: 10/64e5fd16573ef7356e50a7801e24e0ef1a728c0e2e243427c7cc3ea7ead10e0f89e28ea4ed679ac246c5f38c91d6f13ad52d4507d47845e8b89f62b58df6c88f
   languageName: node
   linkType: hard
 

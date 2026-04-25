@@ -7,17 +7,18 @@
 
 
 
-- When I hover the node's header, the cursor should be a hand, not the 4-side arrows
-
 - In remote debugging, come up with some ID that can be passed when running so that I can "catch" only the target runs of the workflow
+
+
 
 
 - In the output full popup when the markdown mode is on, I want to make it better, just like in https://markdownlivepreview.com/
 
-
+- When I'm fragging the node by the header, I want the cursor to be a fist icon. Like a frabbing nad that is closed
 
 - Support Python in all nodes that support javascript
 
+- Light color theme
 
 - Update the rivet version (at least in the Settings popup)
 

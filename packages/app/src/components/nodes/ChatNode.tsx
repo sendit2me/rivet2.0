@@ -191,7 +191,7 @@ export const ChatNodeOutputSingle: FC<{
       </div>
 
       <div className={clsx('outputText', { markdown: renderMarkdown })}>
-        <div className="pre-wrap">
+        <div className={clsx({ 'pre-wrap': !renderMarkdown })}>
           <RenderDataValue
             value={outputValue}
             renderMarkdown={renderMarkdown}

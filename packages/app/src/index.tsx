@@ -2,6 +2,7 @@ import './utils/deserializeProject';
 
 /// <reference types="vite-plugin-svgr/client" />
 import ReactDOM from 'react-dom/client';
+import 'github-markdown-css/github-markdown-dark-dimmed.css';
 import './index.css';
 import './colors.css';
 import App from './App.js';

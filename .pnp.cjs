@@ -7036,6 +7036,7 @@ const RAW_RUNTIME_STATE =
           ["execa", "npm:8.0.1"],\
           ["fast-deep-equal", "npm:3.1.3"],\
           ["fuse.js", "npm:6.6.2"],\
+          ["github-markdown-css", "npm:5.9.0"],\
           ["immer", "npm:10.0.3"],\
           ["jest-diff", "npm:29.7.0"],\
           ["jotai", "virtual:388c29633752d7c364e0487c276ae72861ce5d69c069bff16a49b35801303d87d39cb24723bbac1721c48df59f346575324fe3c6de8ead4fb7d83d6ae4a0e521#npm:2.11.0"],\
@@ -17636,6 +17637,15 @@ const RAW_RUNTIME_STATE =
         "packageLocation": "./.yarn/cache/github-from-package-npm-0.0.0-519f80c9a1-2a091ba07f.zip/node_modules/github-from-package/",\
         "packageDependencies": [\
           ["github-from-package", "npm:0.0.0"]\
+        ],\
+        "linkType": "HARD"\
+      }]\
+    ]],\
+    ["github-markdown-css", [\
+      ["npm:5.9.0", {\
+        "packageLocation": "./.yarn/cache/github-markdown-css-npm-5.9.0-0567cc4baf-64e5fd1657.zip/node_modules/github-markdown-css/",\
+        "packageDependencies": [\
+          ["github-markdown-css", "npm:5.9.0"]\
         ],\
         "linkType": "HARD"\
       }]\
