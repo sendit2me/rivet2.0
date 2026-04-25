@@ -53,7 +53,8 @@ const styles = css`
     min-width: 0;
     min-height: 24px;
 
-    border-radius: 0 0 8px 8px;
+    border-radius: 0 0 16px 16px;
+    corner-shape: squircle;
     background: var(--grey-darkerish);
 
     box-shadow: 0 3px 3px rgba(0, 0, 0, 0.2);
@@ -99,7 +100,8 @@ const styles = css`
     align-self: center;
     background: var(--grey-darker);
     border: 1px solid var(--grey);
-    border-radius: 4px;
+    border-radius: 8px;
+    corner-shape: squircle;
     margin-left: 8px;
     min-height: 24px;
 

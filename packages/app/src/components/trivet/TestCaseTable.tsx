@@ -136,7 +136,8 @@ const styles = css`
     &.selected {
       .cell.selected-cell-indicator {
         background-color: var(--primary);
-        border-radius: 4px;
+        border-radius: 8px;
+        corner-shape: squircle;
       }
     }
   }

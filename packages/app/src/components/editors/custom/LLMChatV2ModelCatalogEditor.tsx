@@ -27,7 +27,8 @@ const styles = css`
   .banner {
     width: 100%;
     padding: 10px 12px;
-    border-radius: 6px;
+    border-radius: 12px;
+    corner-shape: squircle;
     font-size: 12px;
     line-height: 1.4;
     border: 1px solid transparent;

@@ -67,7 +67,8 @@ const versionStyles = css`
     padding: 4px 8px;
     background: var(--grey-light);
     color: var(--grey-darker);
-    border-radius: 8px;
+    border-radius: 40px;
+    corner-shape: superellipse(1.15);
   }
 
   .pill + .pill {

@@ -25,21 +25,24 @@ const styles = css`
     padding-left: 16px;
     padding-right: 16px;
     border: 1px solid var(--grey-darkish);
-    border-radius: 8px;
+    border-radius: 16px;
+    corner-shape: squircle;
     background: var(--grey-darker);
   }
 
   > .editor-group-toggle-container.open,
   > .Collapsible > .editor-group-toggle-container.open {
     border-bottom: none;
-    border-radius: 8px 8px 0 0;
+    border-radius: 16px 16px 0 0;
+    corner-shape: squircle;
   }
 
   > .editor-group-toggle-container.open + .editor-group-static-content,
   > .Collapsible > .editor-group-toggle-container.open + .Collapsible__contentOuter {
     border: 1px solid var(--grey-darkish);
     border-top: none;
-    border-radius: 0 0 8px 8px;
+    border-radius: 0 0 16px 16px;
+    corner-shape: squircle;
     background: var(--grey-light-seethrougher);
   }
 
@@ -61,7 +64,8 @@ const styles = css`
     outline: none;
     font-size: 14px;
     font-weight: 500;
-    border-radius: 4px;
+    border-radius: 8px;
+    corner-shape: squircle;
     transition: background 0.2s ease-out;
     font-family: inherit;
     color: var(--label-color);

@@ -199,7 +199,8 @@ const styles = css`
 
   .test-group-result {
     border: 1px solid var(--grey);
-    border-radius: 10px;
+    border-radius: 20px;
+    corner-shape: squircle;
     padding: 10px;
     position: relative;
   }

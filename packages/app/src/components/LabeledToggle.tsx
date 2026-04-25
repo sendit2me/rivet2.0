@@ -31,6 +31,13 @@ const labeledToggleStyles = css`
 
   .labeled-toggle-switch > label[data-size] {
     margin: 0 0 0 -4px !important;
+    border-radius: 32px !important;
+    corner-shape: superellipse(1.15) !important;
+  }
+
+  .labeled-toggle-switch > label[data-size='large'] {
+    border-radius: 48px !important;
+    corner-shape: superellipse(1.15) !important;
   }
 
   .labeled-toggle-switch > label[data-size]:has(input:focus:not(:focus-visible)) {

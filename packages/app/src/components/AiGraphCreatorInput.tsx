@@ -15,7 +15,8 @@ const styles = css`
   left: 50%;
   transform: translateX(-50%);
   background: var(--grey-darker);
-  border-radius: 4px;
+  border-radius: 8px;
+  corner-shape: squircle;
   border: 1px solid var(--grey-dark);
   z-index: 50;
   gap: 8px;

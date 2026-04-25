@@ -159,7 +159,8 @@ const fullscreenOutputCss = css`
     background: var(--grey-darker);
     display: inline-flex;
     gap: 0;
-    border-radius: 4px;
+    border-radius: 8px;
+    corner-shape: squircle;
     box-shadow: 4px 4px 8px var(--shadow-dark);
     margin-bottom: 8px;
 
@@ -200,7 +201,8 @@ const fullscreenOutputCss = css`
 
   .${MATCH_CLASS} {
     background: rgba(255, 214, 10, 0.3);
-    border-radius: 2px;
+    border-radius: 4px;
+    corner-shape: squircle;
   }
 
   .${MATCH_ACTIVE_CLASS} {

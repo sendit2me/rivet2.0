@@ -25,7 +25,8 @@ const menuReferenceStyles = css`
 export const menuStyles = css`
   background-color: var(--grey-darkest);
   border: 2px solid var(--grey-darkish);
-  border-radius: 4px;
+  border-radius: 8px;
+  corner-shape: squircle;
   box-shadow: 0 8px 16px var(--shadow-dark);
   font-family: 'Roboto Mono', monospace;
   color: var(--foreground);
@@ -315,7 +316,8 @@ export const submenuStyles = css`
   margin-top: -4px;
   min-width: 150px;
   border: 2px solid var(--grey-darkish);
-  border-radius: 4px;
+  border-radius: 8px;
+  corner-shape: squircle;
   box-shadow: 0 8px 16px var(--shadow-dark);
   background-color: var(--grey-darkest);
   color: var(--foreground);
@@ -369,10 +371,10 @@ export const ContextMenuItemDiv = styled.div<{
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-radius: 4px;
+  border-radius: 8px;
+  corner-shape: squircle;
   cursor: pointer;
   padding: 8px 12px;
-  border-radius: 4px;
   white-space: nowrap;
   transition:
     background-color 0.1s ease-out,
@@ -572,13 +574,13 @@ export const ContextMenuItem: FC<ContextMenuItemProps> = ({
 
 const contextMenuInfoBoxStyles = css`
   border: 2px solid var(--grey-darkish);
-  border-radius: 4px;
+  border-radius: 8px;
+  corner-shape: squircle;
   box-shadow: 0 8px 16px var(--shadow-dark);
   background-color: var(--grey-darkest);
   color: var(--foreground);
   z-index: 1;
   padding: 16px 16px;
-  border-radius: 4px;
   width: 500px;
   font-family: 'Roboto', sans-serif;
   white-space: normal;

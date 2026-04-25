@@ -97,7 +97,7 @@ const styles = css`
     width: 6px;
     height: 6px;
     transform: translateY(-50%);
-    border-radius: 999px;
+    border-radius: 50%;
     background: var(--primary);
     box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18);
   }
@@ -170,7 +170,8 @@ const styles = css`
       height: 20px;
       background: var(--grey);
       border: 1px solid var(--grey-dark);
-      border-radius: 8px;
+      border-radius: 16px;
+      corner-shape: squircle;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -191,7 +192,8 @@ const styles = css`
     margin: 8px 12px 0;
     padding: 6px 8px;
     border: 1px solid var(--warning);
-    border-radius: 6px;
+    border-radius: 12px;
+    corner-shape: squircle;
     background: var(--warning-lighter);
     color: var(--warning-dark);
     font-size: 11px;
@@ -202,7 +204,8 @@ const styles = css`
     margin-right: 6px;
     padding: 4px 6px;
     border: 1px solid var(--grey-light);
-    border-radius: 999px;
+    border-radius: 40px;
+    corner-shape: superellipse(1.15);
     background: var(--grey-darkerish);
     color: var(--grey-lighter);
     font-size: 10px;

@@ -62,7 +62,8 @@ const styles = css`
     align-items: center;
     gap: 0.5rem;
     margin: 0;
-    border-radius: 5px;
+    border-radius: 10px;
+    corner-shape: squircle;
     background: transparent;
     padding: 8px;
     width: 32px;
@@ -83,7 +84,8 @@ const styles = css`
   .search {
     background: var(--grey-darker);
     border: 1px solid var(--grey-darkish);
-    border-radius: 6px;
+    border-radius: 12px;
+    corner-shape: squircle;
     box-shadow: 3px 1px 10px rgba(0, 0, 0, 0.4);
     display: flex;
     flex-direction: column;
@@ -108,7 +110,8 @@ const styles = css`
     input {
       background: var(--grey-darkish);
       border: none;
-      border-radius: 4px;
+      border-radius: 8px;
+      corner-shape: squircle;
       padding: 4px 8px;
       color: var(--grey-lightest);
       width: 200px;
@@ -205,7 +208,8 @@ const styles = css`
     .search-result-row {
       align-items: flex-start;
       background: rgba(255, 255, 255, 0.06);
-      border-radius: 6px;
+      border-radius: 12px;
+      corner-shape: squircle;
       box-shadow: none;
       color: var(--grey-lightest);
       display: flex;
@@ -255,7 +259,8 @@ const styles = css`
 
     .search-result-content-snippets {
       background: rgba(255, 255, 255, 0.08);
-      border-radius: 0 0 6px 6px;
+      border-radius: 0 0 12px 12px;
+      corner-shape: squircle;
       display: flex;
       flex-direction: column;
       gap: 4px;
@@ -290,7 +295,8 @@ const styles = css`
     input {
       background: var(--grey-dark);
       border: none;
-      border-radius: 4px;
+      border-radius: 8px;
+      corner-shape: squircle;
       padding: 18px 18px;
       color: var(--grey-lightest);
       width: 200px;
@@ -303,7 +309,8 @@ const styles = css`
     }
 
     .entries {
-      border-radius: 4px;
+      border-radius: 8px;
+      corner-shape: squircle;
       box-shadow: 3px 1px 10px rgba(0, 0, 0, 0.4);
       max-height: 300px;
       overflow-y: auto;
@@ -314,7 +321,8 @@ const styles = css`
 
         .search-result-item {
           padding: 8px;
-          border-radius: 4px;
+          border-radius: 8px;
+          corner-shape: squircle;
           background: var(--grey-darkerish);
 
           .title {

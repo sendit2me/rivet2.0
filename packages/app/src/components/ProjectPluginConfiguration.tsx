@@ -31,7 +31,8 @@ const styles = css`
     transition:
       color 0.2s ease,
       border-color 0.2s ease;
-    border-radius: 4px;
+    border-radius: 8px;
+    corner-shape: squircle;
     border: 0;
     width: 24px;
     height: 24px;

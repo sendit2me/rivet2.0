@@ -31,7 +31,8 @@ const styles = css`
   top: calc(20px + var(--project-selector-height));
   right: 20px;
   background: var(--grey-darker);
-  border-radius: 4px;
+  border-radius: 8px;
+  corner-shape: squircle;
   border: 1px solid var(--grey-dark);
   height: 32px;
   z-index: 220;
@@ -56,7 +57,8 @@ const styles = css`
     gap: 0.5rem;
     margin: 0;
     height: 32px;
-    border-radius: 5px;
+    border-radius: 10px;
+    corner-shape: squircle;
   }
 
   .run-button button {

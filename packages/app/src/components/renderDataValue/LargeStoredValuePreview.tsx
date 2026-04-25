@@ -35,7 +35,8 @@ const styles = css`
       border: 1px solid var(--grey);
       background: rgba(255, 255, 255, 0.05);
       color: inherit;
-      border-radius: 4px;
+      border-radius: 8px;
+      corner-shape: squircle;
       padding: 4px 8px;
     }
   }
@@ -61,7 +62,8 @@ const styles = css`
       border: 1px solid var(--grey);
       background: rgba(255, 255, 255, 0.05);
       color: inherit;
-      border-radius: 4px;
+      border-radius: 8px;
+      corner-shape: squircle;
       width: 28px;
       height: 28px;
     }

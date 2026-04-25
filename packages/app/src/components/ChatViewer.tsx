@@ -56,7 +56,8 @@ const styles = css`
 
   .controls-filters {
     padding: 12px 16px;
-    border-radius: 5px;
+    border-radius: 10px;
+    corner-shape: squircle;
     background-color: var(--grey-darkish);
     display: flex;
     align-items: center;
@@ -91,7 +92,8 @@ const styles = css`
     width: 500px;
 
     border: 1px solid var(--primary);
-    border-radius: 10px;
+    border-radius: 20px;
+    corner-shape: squircle;
     box-shadow: 0 0 10px var(--shadow-primary-bright);
 
     &.complete,
@@ -127,7 +129,8 @@ const styles = css`
     header {
       padding: 0 15px;
       background-color: var(--grey-darkish);
-      border-radius: 10px 10px 0 0;
+      border-radius: 20px 20px 0 0;
+      corner-shape: squircle;
       border-bottom: 1px solid var(--grey-light);
       display: flex;
       align-items: center;

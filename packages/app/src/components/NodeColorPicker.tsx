@@ -16,7 +16,8 @@ const buttonStyles = css`
     position: relative;
     width: 32px;
     height: 32px;
-    border-radius: 4px;
+    border-radius: 8px;
+    corner-shape: squircle;
     border: 2px solid var(--grey);
     overflow: hidden;
 
@@ -58,7 +59,8 @@ const popupStyles = css`
     > div {
       width: 32px;
       height: 32px;
-      border-radius: 2px;
+      border-radius: 4px;
+      corner-shape: squircle;
       border: 1px solid var(--grey);
       position: relative;
 

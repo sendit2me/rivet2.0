@@ -83,7 +83,8 @@ export const styles = css`
     left: 0;
     background-color: var(--grey-darkest);
     border: 2px solid var(--grey-darkish);
-    border-radius: 4px;
+    border-radius: 8px;
+    corner-shape: squircle;
     box-shadow: 0 8px 16px var(--shadow-dark);
     font-family: 'Roboto Mono', monospace;
     color: var(--foreground);
@@ -102,7 +103,8 @@ export const styles = css`
     width: 100%;
     background: transparent;
     border: 0;
-    border-radius: 4px;
+    border-radius: 8px;
+    corner-shape: squircle;
     color: inherit;
     cursor: pointer;
     padding: 4px 8px;
@@ -155,7 +157,8 @@ export const styles = css`
       display: flex;
       align-items: center;
       margin: 0;
-      border-radius: 5px;
+      border-radius: 10px;
+      corner-shape: squircle;
       background: transparent;
       padding: 8px;
       width: 32px;
@@ -177,7 +180,8 @@ export const styles = css`
       white-space: nowrap;
       padding: 4px 8px;
       background: var(--grey-darkish);
-      border-radius: 12px;
+      border-radius: 56px;
+      corner-shape: superellipse(1.15);
       min-width: 80px;
       flex-shrink: 0;
       height: 28px;
@@ -289,7 +293,8 @@ export const styles = css`
       color: var(--grey-light);
       width: 20px;
       height: 20px;
-      border-radius: 4px;
+      border-radius: 8px;
+      corner-shape: squircle;
 
       svg {
         width: 12px;

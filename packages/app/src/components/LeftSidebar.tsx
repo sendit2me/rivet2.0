@@ -49,7 +49,8 @@ const styles = css`
     border: 1px solid var(--grey);
     border-top: 0;
     border-left: 0;
-    border-radius: 0 8px 8px 0;
+    border-radius: 0 16px 16px 0;
+    corner-shape: squircle;
     width: 32px;
     height: 32px;
     font-size: 24px;

@@ -62,7 +62,8 @@ const container = css`
     padding: 6px 12px;
     background-color: var(--grey-darkish);
     border: 1px solid var(--grey);
-    border-radius: 4px;
+    border-radius: 8px;
+    corner-shape: squircle;
     color: var(--foreground);
     outline: none;
     transition: border-color 0.3s;

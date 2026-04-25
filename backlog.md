@@ -5,11 +5,9 @@
 - Set the default interface font size in the settings
 
 
-- Make the node cards border radiuses squircles
 
 - Every node (Or Code + Expression + HTTP) should have a "Do not throw" switcher so I can safely fallback with coalesce
 
-- When I make the node narrow, at some point the gear icon stays outside the visible header area. The gear icon (and other icons and preloaders that are supposed to be in the corne), should be visible regardless of the node's width)
 
 
 - Check opening and saving files in the web rivet. Crtl+S and Ctrl+O don't work

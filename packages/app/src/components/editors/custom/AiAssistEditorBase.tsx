@@ -41,7 +41,8 @@ const styles = css`
     padding-left: 16px;
     padding-right: 16px;
     border: 1px solid var(--grey-darkish);
-    border-radius: 8px;
+    border-radius: 16px;
+    corner-shape: squircle;
     background: var(--grey-darker);
   }
 
@@ -52,13 +53,15 @@ const styles = css`
 
   > .Collapsible > .ai-assist-toggle-container.open {
     border-bottom: none;
-    border-radius: 8px 8px 0 0;
+    border-radius: 16px 16px 0 0;
+    corner-shape: squircle;
   }
 
   > .Collapsible > .ai-assist-toggle-container.open + .Collapsible__contentOuter {
     border: 1px solid var(--grey-darkish);
     border-top: none;
-    border-radius: 0 0 8px 8px;
+    border-radius: 0 0 16px 16px;
+    corner-shape: squircle;
     background: var(--grey-light-seethrougher);
   }
 
@@ -72,7 +75,8 @@ const styles = css`
     background: none;
     cursor: pointer;
     outline: none;
-    border-radius: 4px;
+    border-radius: 8px;
+    corner-shape: squircle;
     transition: background 0.2s ease-out;
     font-size: 14px;
     font-family: inherit;

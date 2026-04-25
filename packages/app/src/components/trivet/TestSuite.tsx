@@ -115,7 +115,8 @@ const styles = css`
     align-items: center;
     box-shadow: 0 0 16px 0px rgba(0, 0, 0, 0.2);
     margin: 10px 0 0 0;
-    border-radius: 4px;
+    border-radius: 8px;
+    corner-shape: squircle;
 
     p {
       margin: 0;

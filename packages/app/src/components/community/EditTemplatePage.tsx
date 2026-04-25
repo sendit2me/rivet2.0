@@ -117,13 +117,15 @@ const styles = css`
     padding: 16px;
     margin-top: 16px;
     background: var(--grey-darkerish);
-    border-radius: 4px;
+    border-radius: 8px;
+    corner-shape: squircle;
   }
 
   .version-description {
     border: 1px solid var(--grey);
     padding: 8px;
-    border-radius: 4px;
+    border-radius: 8px;
+    corner-shape: squircle;
     flex: 1;
   }
 `;
@@ -271,7 +273,8 @@ const UnpublishTemplateModal: FC<{
                   background: var(--grey-dark);
                   color: var(--grey-light);
                   padding: 4px 8px;
-                  border-radius: 4px;
+                  border-radius: 8px;
+                  corner-shape: squircle;
                 }
               `}
             >

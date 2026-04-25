@@ -2,6 +2,8 @@ import { css } from '@emotion/react';
 
 export const nodeStyles = css`
   .node {
+    --node-card-radius: 16px;
+    --node-card-corner-shape: squircle;
     --node-output-min-height: 46px;
     --node-output-collapsed-max-height: calc(3 * 1.4em + 200px);
     --node-output-hover-max-height: calc(20 * 1.4em + 36px);
@@ -9,7 +11,8 @@ export const nodeStyles = css`
     --node-output-multi-hover-max-height: calc(20 * 1.4em + 60px);
     background-color: var(--grey-dark-seethrough);
     background-clip: padding-box;
-    border-radius: 8px;
+    border-radius: var(--node-card-radius);
+    corner-shape: var(--node-card-corner-shape);
     border: 2px solid transparent;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
     display: flex;
@@ -99,6 +102,7 @@ export const nodeStyles = css`
     inset: 0;
     border: 2px solid var(--node-frame-border-color, var(--node-border));
     border-radius: inherit;
+    corner-shape: inherit;
     pointer-events: none;
     z-index: 2;
     transition: border-color 0.2s ease-out;
@@ -109,7 +113,8 @@ export const nodeStyles = css`
     color: var(--node-bg-foreground);
     padding: 14px 14px 12px 14px;
     margin: -12px -12px 8px -11px;
-    border-radius: 8px 8px 0 0;
+    border-radius: var(--node-card-radius) var(--node-card-radius) 0 0;
+    corner-shape: var(--node-card-corner-shape);
     letter-spacing: 1px;
     display: flex;
     justify-content: space-between;
@@ -139,9 +144,8 @@ export const nodeStyles = css`
   .node.isSplit::after {
     content: '';
     position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
-    border-radius: 8px 8px 0 0;
+    border-radius: var(--node-card-radius) var(--node-card-radius) 0 0;
+    corner-shape: var(--node-card-corner-shape);
     pointer-events: none;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.16);
   }
@@ -149,7 +153,8 @@ export const nodeStyles = css`
   .node.isSplit::before {
     top: -11px;
     height: 10px;
-    width: calc(100% - 16px);
+    left: 8px;
+    right: 8px;
     background: var(--node-bg);
     background: var(--node-stack-front-bg);
     opacity: 0.35;
@@ -159,7 +164,8 @@ export const nodeStyles = css`
   .node.isSplit::after {
     top: -20px;
     height: 8px;
-    width: calc(100% - 34px);
+    left: 17px;
+    right: 17px;
     background: var(--node-bg);
     background: var(--node-stack-back-bg);
     opacity: 0.15;
@@ -290,7 +296,8 @@ export const nodeStyles = css`
     height: 24px;
     padding: 2px 6px 2px 4px;
     border: 0;
-    border-radius: 4px;
+    border-radius: 8px;
+    corner-shape: squircle;
     background: color-mix(in srgb, var(--node-bg-foreground) 85%, transparent);
     color: var(--node-bg);
     cursor: pointer;
@@ -488,7 +495,8 @@ export const nodeStyles = css`
       margin-left: -12px;
       font-size: 12px;
       font-family: var(--font-family-monospace);
-      border-radius: 0 4px 4px 0;
+      border-radius: 0 8px 8px 0;
+      corner-shape: squircle;
       user-select: none;
     }
   }
@@ -637,7 +645,8 @@ export const nodeStyles = css`
   .multi-node-output {
     background-color: var(--grey-darker);
     background-image: linear-gradient(to bottom, var(--grey-darker) 0%, var(--grey-darkest) 100%);
-    border-radius: 0 0 8px 8px;
+    border-radius: 0 0 var(--node-card-radius) var(--node-card-radius);
+    corner-shape: var(--node-card-corner-shape);
     border-top: 2px solid var(--success-light);
     color: var(--foreground-bright);
     font-size: 12px;
@@ -664,7 +673,8 @@ export const nodeStyles = css`
   .node-output-warnings {
     background-color: var(--grey-darker);
     background-image: linear-gradient(to bottom, var(--grey-darker) 0%, var(--grey-darkest) 100%);
-    border-radius: 0 0 8px 8px;
+    border-radius: 0 0 var(--node-card-radius) var(--node-card-radius);
+    corner-shape: var(--node-card-corner-shape);
     border-top: 2px solid var(--warning-light);
     color: var(--foreground-bright);
     font-size: 12px;

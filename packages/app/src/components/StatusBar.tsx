@@ -23,7 +23,8 @@ const styles = css`
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
   gap: 16px;
   font-size: 0.8rem;
-  border-radius: 5px;
+  border-radius: 10px;
+  corner-shape: squircle;
 `;
 
 export const StatusBar: FC<{}> = () => {

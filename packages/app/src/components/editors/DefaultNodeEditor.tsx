@@ -44,7 +44,8 @@ export const defaultEditorContainerStyles = css`
     justify-content: center;
     padding: 0;
     border: 1px solid var(--grey-darkish);
-    border-radius: 8px;
+    border-radius: 16px;
+    corner-shape: squircle;
     background: var(--grey-darkest);
     color: var(--foreground-muted);
     cursor: pointer;
@@ -113,14 +114,16 @@ export const defaultEditorContainerStyles = css`
     box-sizing: border-box;
     padding: 10px 10px 14px;
     background-color: var(--grey-darkest);
-    border-radius: 8px;
+    border-radius: 16px;
+    corner-shape: squircle;
   }
 
   .editor-wrapper {
     flex: 1 1 auto;
     min-height: 0;
     background-color: var(--grey-darker);
-    border-radius: 6px;
+    border-radius: 12px;
+    corner-shape: squircle;
     overflow: hidden;
   }
 
@@ -147,13 +150,15 @@ export const defaultEditorContainerStyles = css`
     gap: 0;
     padding: 10px;
     background-color: var(--grey-dark);
-    border-radius: 8px;
+    border-radius: 16px;
+    corner-shape: squircle;
   }
 
   .node-editor-static-code-editor .editor-container {
     flex: 1 1 auto;
     min-height: 0;
-    border-radius: 6px;
+    border-radius: 12px;
+    corner-shape: squircle;
     overflow: hidden;
   }
 

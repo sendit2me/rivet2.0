@@ -22,7 +22,8 @@ import { useSetAtom, useAtom } from 'jotai';
 
 const moreMenuStyles = css`
   background-color: var(--grey-darkish);
-  border-radius: 4px;
+  border-radius: 8px;
+  corner-shape: squircle;
   border: 1px solid var(--grey-dark);
   box-shadow: 3px 1px 10px rgba(0, 0, 0, 0.5);
   min-width: 250px;
@@ -41,7 +42,8 @@ const moreMenuStyles = css`
     gap: 0.5rem;
     margin: 0;
     height: 48px;
-    border-radius: 5px;
+    border-radius: 10px;
+    corner-shape: squircle;
     background-color: transparent;
     border: none;
     font-size: 14px;

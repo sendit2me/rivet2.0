@@ -91,7 +91,8 @@ const modalBodyStyles = css`
     span {
       background: var(--grey-darkest);
       padding: 4px 8px;
-      border-radius: 8px;
+      border-radius: 16px;
+      corner-shape: squircle;
     }
   }
 

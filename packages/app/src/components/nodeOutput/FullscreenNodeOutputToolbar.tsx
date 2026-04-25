@@ -10,7 +10,8 @@ const fullscreenOutputToolbarCss = css`
 
   border: 1px solid var(--grey);
   background: var(--grey-darker);
-  border-radius: 4px;
+  border-radius: 8px;
+  corner-shape: squircle;
   box-shadow: 4px 4px 8px var(--shadow-dark);
   margin-bottom: 8px;
   padding: 8px 12px;
@@ -69,7 +70,8 @@ const fullscreenOutputToolbarCss = css`
     border: 1px solid var(--grey);
     background: rgba(255, 255, 255, 0.05);
     color: var(--foreground);
-    border-radius: 4px;
+    border-radius: 8px;
+    corner-shape: squircle;
     padding: 4px 8px;
     font: inherit;
   }
@@ -84,7 +86,8 @@ const fullscreenOutputToolbarCss = css`
     border: 1px solid var(--grey);
     background: rgba(255, 255, 255, 0.05);
     color: inherit;
-    border-radius: 4px;
+    border-radius: 8px;
+    corner-shape: squircle;
     min-width: 28px;
     height: 28px;
     padding: 0 6px;

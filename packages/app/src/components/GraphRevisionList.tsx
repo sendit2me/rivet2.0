@@ -30,7 +30,8 @@ export const revisionStyles = css`
   }
 
   .hash {
-    border-radius: 8px;
+    border-radius: 16px;
+    corner-shape: squircle;
     background-color: black;
     display: inline-flex;
     padding: 2px 4px;

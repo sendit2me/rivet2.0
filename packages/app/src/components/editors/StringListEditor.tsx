@@ -51,7 +51,8 @@ const styles = css`
     height: 32px;
     padding: 0;
     border: none;
-    border-radius: 4px;
+    border-radius: 8px;
+    corner-shape: squircle;
     background: transparent;
     color: var(--foreground-muted);
     cursor: grab;

@@ -15,7 +15,8 @@ const style = css`
   position: absolute;
 
   padding: 12px;
-  border-radius: 5px;
+  border-radius: 10px;
+  corner-shape: squircle;
   background-color: var(--grey-darker);
   color: var(--foreground);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);

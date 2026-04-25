@@ -26,7 +26,8 @@ const styles = css`
   padding: 4px;
   background: var(--grey-darker);
   border: 1px solid var(--grey);
-  border-radius: 8px;
+  border-radius: 16px;
+  corner-shape: squircle;
   box-shadow: 0 10px 22px rgba(0, 0, 0, 0.28);
   pointer-events: auto;
 
@@ -55,7 +56,8 @@ const styles = css`
     padding: 0;
     border: none;
     background: transparent;
-    border-radius: 6px;
+    border-radius: 12px;
+    corner-shape: squircle;
     color: var(--grey-light);
     display: flex;
     align-items: center;

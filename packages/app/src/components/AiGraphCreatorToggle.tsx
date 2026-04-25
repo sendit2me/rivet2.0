@@ -20,6 +20,7 @@ const styles = css`
     height: 48px;
     background: var(--grey-darker);
     border-radius: 32px;
+    corner-shape: superellipse(1.15);
     border: 1px solid var(--grey-dark);
     z-index: 50;
     /* box-shadow: 3px 1px 10px rgba(0, 0, 0, 0.5); */

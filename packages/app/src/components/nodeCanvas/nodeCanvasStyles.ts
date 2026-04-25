@@ -62,7 +62,8 @@ export const nodeCanvasStyles = css`
     top: 50px;
     left: 50px;
     padding: 10px 20px;
-    border-radius: 5px;
+    border-radius: 10px;
+    corner-shape: squircle;
     background-color: rgba(255, 255, 255, 0.03);
     color: var(--foreground);
     box-shadow: 0 2px 4px var(--shadow);
