@@ -23,6 +23,8 @@ export const selectedNodesState = atom<NodeId[]>([]);
 
 export const editingNodeState = atom<NodeId | null>(null);
 
+export const fullscreenOutputNodeState = atom<NodeId | null>(null);
+
 export type CanvasPosition = { x: number; y: number; zoom: number; fromSaved?: boolean };
 
 export const canvasPositionState = atom<CanvasPosition>({

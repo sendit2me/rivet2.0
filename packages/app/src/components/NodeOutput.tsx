@@ -7,7 +7,7 @@ import {
   type NodeRunDataWithRefs,
 } from '../state/dataFlow.js';
 
-import { type FC, memo, useMemo, useState, type MouseEvent } from 'react';
+import { type FC, memo, useEffect, useMemo, useState, type MouseEvent } from 'react';
 import { useUnknownNodeComponentDescriptorFor } from '../hooks/useNodeTypes.js';
 import { useStableCallback } from '../hooks/useStableCallback.js';
 import { type ChartNode, type ProcessId } from '@ironclad/rivet-core';
@@ -21,7 +21,7 @@ import { promptDesignerAttachedChatNodeState } from '../state/promptDesigner.js'
 import { fullscreenOutputModalBoundsState, overlayOpenState } from '../state/ui';
 import { useDependsOnPlugins } from '../hooks/useDependsOnPlugins';
 import { useToggle } from 'ahooks';
-import { expandedOutputNodeIdsState, hoveringNodeState } from '../state/graphBuilder';
+import { expandedOutputNodeIdsState, fullscreenOutputNodeState, hoveringNodeState } from '../state/graphBuilder';
 import { useNodeIO } from '../hooks/useGetNodeIO';
 import { Tooltip } from './Tooltip';
 import { useDataRefs } from '../providers/ProvidersContext';
@@ -54,6 +54,17 @@ const ActiveNodeOutput: FC<{ node: ChartNode; isOutputExpanded: boolean }> = ({ 
   useDependsOnPlugins();
 
   const setExpandedOutputNodeIds = useSetAtom(expandedOutputNodeIdsState);
+  const setFullscreenOutputNodeId = useSetAtom(fullscreenOutputNodeState);
+  const setHoveringNode = useSetAtom(hoveringNodeState);
+
+  const clearNodeHover = useStableCallback(() => {
+    setHoveringNode((hoveringNodeId) => (hoveringNodeId === node.id ? undefined : hoveringNodeId));
+  });
+  const clearFullscreenOutputNode = useStableCallback(() => {
+    setFullscreenOutputNodeId((nodeId) => (nodeId === node.id ? null : nodeId));
+  });
+
+  useEffect(() => clearFullscreenOutputNode, [clearFullscreenOutputNode]);
 
   const handleWheel = useStableCallback((e: MouseEvent<HTMLDivElement>) => {
     if (isOutputExpanded) {
@@ -69,16 +80,26 @@ const ActiveNodeOutput: FC<{ node: ChartNode; isOutputExpanded: boolean }> = ({ 
       previous.includes(node.id) ? previous.filter((nodeId) => nodeId !== node.id) : [...previous, node.id],
     );
   });
+  const handleOpenFullscreenModal = useStableCallback(() => {
+    clearNodeHover();
+    setFullscreenOutputNodeId(node.id);
+    setIsModalOpen(true);
+  });
+  const handleCloseFullscreenModal = useStableCallback(() => {
+    clearNodeHover();
+    clearFullscreenOutputNode();
+    setIsModalOpen(false);
+  });
 
   return (
     <div className="node-output-outer">
-      {isModalOpen ? <ResizableNodeFullscreenOutputModal node={node} onClose={() => setIsModalOpen(false)} /> : null}
+      {isModalOpen ? <ResizableNodeFullscreenOutputModal node={node} onClose={handleCloseFullscreenModal} /> : null}
       <div onWheel={handleWheel}>
         <NodeOutputBase
           node={node}
           isOutputExpanded={isOutputExpanded}
           onToggleExpandedOutput={handleToggleExpandedOutput}
-          onOpenFullscreenModal={() => setIsModalOpen(true)}
+          onOpenFullscreenModal={handleOpenFullscreenModal}
         />
       </div>
     </div>
@@ -449,6 +470,15 @@ const NodeOutputSingleProcess: FC<{
   };
 
   const handleCopyToClipboard = useStableCallback(() => copyOutputValue(data, dataRefs, getCopyValueData));
+  const handleOutputActionMouseDown = useStableCallback((event: MouseEvent<HTMLDivElement>) => {
+    // Output controls are hover affordances. Do not let clicking them focus the
+    // draggable node root, otherwise the settings gear stays visible after leave.
+    event.preventDefault();
+    event.stopPropagation();
+  });
+  const handleOutputActionClick = useStableCallback((event: MouseEvent<HTMLDivElement>) => {
+    event.stopPropagation();
+  });
 
   const warnings = useMemo(() => getStoredOutputWarnings(data, dataRefs), [data, dataRefs]);
   const shouldUseCustomErrorOutput = shouldUseCustomNodeErrorOutput(node, data);
@@ -486,7 +516,7 @@ const NodeOutputSingleProcess: FC<{
 
   return (
     <div className="node-output-inner">
-      <div className="overlay-buttons">
+      <div className="overlay-buttons" onMouseDown={handleOutputActionMouseDown} onClick={handleOutputActionClick}>
         <Tooltip content="Unfold output">
           <div
             className="output-toggle-button"

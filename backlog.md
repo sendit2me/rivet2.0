@@ -3,7 +3,6 @@
 
 
 
-- When I click one of the 3 output buttons, and then unhover the node, the gear icon doesn't disappear
 
 - Move Zoom sensitivity into the UI tab
 

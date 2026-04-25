@@ -35,6 +35,7 @@ import {
   draggingWireClosestPortState,
   hoveringNodeState,
   expandedOutputNodeIdsState,
+  fullscreenOutputNodeState,
 } from '../state/graphBuilder';
 import { graphMetadataState } from '../state/graph.js';
 import { lastRunDataByNodeState, selectedProcessPageNodesState } from '../state/dataFlow';
@@ -100,6 +101,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
   const closestPort = useAtomValue(draggingWireClosestPortState);
   const searchMatchingNodes = useAtomValue(searchMatchingNodeIdsState);
   const expandedOutputNodeIds = useAtomValue(expandedOutputNodeIdsState);
+  const fullscreenOutputNodeId = useAtomValue(fullscreenOutputNodeState);
   const lastRunPerNode = useAtomValue(lastRunDataByNodeState);
   const selectedProcessPagePerNode = useAtomValue(selectedProcessPageNodesState);
   const zoomSensitivity = useAtomValue(zoomSensitivityState);
@@ -276,8 +278,12 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
       nextSelectedNodeIds.add(editingNodeId);
     }
 
+    if (fullscreenOutputNodeId) {
+      nextSelectedNodeIds.add(fullscreenOutputNodeId);
+    }
+
     return [...nextSelectedNodeIds];
-  }, [editingNodeId, selectedNodeIds]);
+  }, [editingNodeId, fullscreenOutputNodeId, selectedNodeIds]);
 
   const highlightedNodes = useMemo(() => {
     const highlightedNodeIds = new Set(selectedViewportNodeIds);
