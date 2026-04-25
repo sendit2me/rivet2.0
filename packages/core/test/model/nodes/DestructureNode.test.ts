@@ -14,6 +14,13 @@ const createNode = (data: Partial<DestructureNode['data']>) => {
 };
 
 describe('DestructureNode', () => {
+  it('seeds newly added path rows with JSONPath root syntax', () => {
+    const node = createNode({});
+    const pathsEditor = node.getEditors().find((editor) => editor.type === 'stringList');
+
+    assert.equal(pathsEditor?.newItemDefault, '$.');
+  });
+
   it('uses legacy output ids when stored path port ids are absent', async () => {
     const node = createNode({
       paths: ['$.value.name', '$.value.age'],

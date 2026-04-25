@@ -73,6 +73,7 @@ export class DestructureNodeImpl extends NodeImpl<DestructureNode> {
         type: 'stringList',
         label: 'Paths',
         dataKey: 'paths',
+        newItemDefault: '$.',
         reorderable: true,
         portBinding: {
           side: 'output',

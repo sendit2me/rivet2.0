@@ -190,6 +190,7 @@ export type StringListEditorDefinition<T extends ChartNode> = SharedEditorDefini
   useInputToggleDataKey?: DataOfType<T, boolean>;
 
   placeholder?: string;
+  newItemDefault?: string;
   reorderable?: boolean;
   portBinding?: StringListPortBinding<T>;
 };

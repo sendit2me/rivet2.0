@@ -165,7 +165,7 @@ export const StringListEditor: FC<StringListEditorProps> = ({
   };
 
   const handleAddItem = () => {
-    const nextRow = createEditableStringListRow('');
+    const nextRow = createEditableStringListRow(editor.newItemDefault ?? '');
     setPendingAutoFocusUiId(nextRow.uiId);
     applyRowsChange((currentRows) => [...currentRows, nextRow]);
   };
