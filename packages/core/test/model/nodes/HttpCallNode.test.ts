@@ -1,7 +1,13 @@
 import { afterEach, describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 
-import { HttpCallNodeImpl, type HttpCallNode, type InternalProcessContext, type PortId } from '../../../src/index.js';
+import {
+  HttpCallNodeImpl,
+  type EditorDefinition,
+  type HttpCallNode,
+  type InternalProcessContext,
+  type PortId,
+} from '../../../src/index.js';
 
 const originalFetch = globalThis.fetch;
 
@@ -28,6 +34,9 @@ const createContext = ({
     contextValues: {},
   }) as InternalProcessContext;
 
+const flattenEditors = (editors: EditorDefinition<HttpCallNode>[]): EditorDefinition<HttpCallNode>[] =>
+  editors.flatMap((editor) => (editor.type === 'group' ? [editor, ...flattenEditors(editor.editors)] : [editor]));
+
 afterEach(() => {
   globalThis.fetch = originalFetch;
 });
@@ -38,6 +47,9 @@ describe('HttpCallNode', () => {
 
     assert.equal(node.type, 'httpCall');
     assert.equal(node.data.catchRequestFailed, false);
+    assert.equal(node.data.retryOnNon200, false);
+    assert.equal(node.data.retryOnNon200RepeatTimes, 1);
+    assert.equal(node.data.retryOnNon200CooldownMs, 0);
   });
 
   it('includes the Catch all request failures toggle in the editor config', () => {
@@ -52,6 +64,41 @@ describe('HttpCallNode', () => {
           editor.dataKey === 'catchRequestFailed',
       ),
     );
+  });
+
+  it('includes retry-on-non-200 editors and hides retry details until enabled', () => {
+    const node = new HttpCallNodeImpl(HttpCallNodeImpl.create());
+    const editors = node.getEditors();
+    const flattenedEditors = flattenEditors(editors);
+
+    const bodyEditorIndex = editors.findIndex((editor) => editor.type === 'code' && editor.dataKey === 'body');
+    const binaryOutputIndex = editors.findIndex((editor) => editor.type === 'toggle' && editor.dataKey === 'isBinaryOutput');
+    const retryGroupIndex = editors.findIndex((editor) => editor.type === 'group' && editor.label === 'Retry on non-200');
+    const retryGroup = editors[retryGroupIndex];
+
+    assert.equal(retryGroupIndex, bodyEditorIndex + 1);
+    assert.equal(binaryOutputIndex, retryGroupIndex + 1);
+    assert.equal(retryGroup?.type, 'group');
+    assert.equal(retryGroup?.toggleDataKey, 'retryOnNon200');
+
+    const repeatTimesEditor = flattenedEditors.find(
+      (editor) => editor.type === 'number' && editor.dataKey === 'retryOnNon200RepeatTimes',
+    );
+    const cooldownEditor = flattenedEditors.find(
+      (editor) => editor.type === 'number' && editor.dataKey === 'retryOnNon200CooldownMs',
+    );
+
+    assert.equal(repeatTimesEditor?.label, 'Repeat times');
+    assert.equal(repeatTimesEditor?.defaultValue, 1);
+    assert.equal(repeatTimesEditor?.min, 1);
+    assert.equal(repeatTimesEditor?.layout, 'inline');
+    assert.equal(repeatTimesEditor?.helperMessage, 'Times to repeat after the initial request');
+
+    assert.equal(cooldownEditor?.label, 'Cooldown, ms');
+    assert.equal(cooldownEditor?.defaultValue, 0);
+    assert.equal(cooldownEditor?.min, 0);
+    assert.equal(cooldownEditor?.layout, 'inline');
+    assert.equal(cooldownEditor?.helperMessage, 'Milliseconds to wait between repeats');
   });
 
   it('only exposes the requestFailed output when enabled', () => {
@@ -82,6 +129,144 @@ describe('HttpCallNode', () => {
     const node = createNode({ method: 'GET', url: 'https://example.com', errorOnNon200: true, catchRequestFailed: false });
 
     await assert.rejects(() => node.process({}, createContext()), /HTTP call returned non-2XX status code: 404/);
+  });
+
+  it('retries non-200 responses before applying fail-on-non-2XX behavior', async () => {
+    let requestCount = 0;
+    globalThis.fetch = async () => {
+      requestCount++;
+      return requestCount === 1
+        ? new Response('server error', { status: 500, headers: { 'content-type': 'text/plain' } })
+        : new Response('ok', { status: 200, headers: { 'content-type': 'text/plain' } });
+    };
+
+    const node = createNode({
+      method: 'GET',
+      url: 'https://example.com',
+      errorOnNon200: true,
+      catchRequestFailed: false,
+      retryOnNon200: true,
+      retryOnNon200RepeatTimes: 1,
+    });
+    const result = await node.process({}, createContext());
+
+    assert.equal(requestCount, 2);
+    assert.deepStrictEqual(result.statusCode, { type: 'number', value: 200 });
+    assert.deepStrictEqual(result.res_body, { type: 'string', value: 'ok' });
+  });
+
+  it('retries 2XX responses that are not exactly 200', async () => {
+    let requestCount = 0;
+    globalThis.fetch = async () => {
+      requestCount++;
+      return requestCount === 1
+        ? new Response('created', { status: 201, headers: { 'content-type': 'text/plain' } })
+        : new Response('ok', { status: 200, headers: { 'content-type': 'text/plain' } });
+    };
+
+    const node = createNode({
+      method: 'GET',
+      url: 'https://example.com',
+      errorOnNon200: true,
+      retryOnNon200: true,
+      retryOnNon200RepeatTimes: 1,
+    });
+    const result = await node.process({}, createContext());
+
+    assert.equal(requestCount, 2);
+    assert.deepStrictEqual(result.statusCode, { type: 'number', value: 200 });
+  });
+
+  it('treats saved repeat counts below one as one repeat when retry is enabled', async () => {
+    let requestCount = 0;
+    globalThis.fetch = async () => {
+      requestCount++;
+      return requestCount === 1
+        ? new Response('server error', { status: 500, headers: { 'content-type': 'text/plain' } })
+        : new Response('ok', { status: 200, headers: { 'content-type': 'text/plain' } });
+    };
+
+    const node = createNode({
+      method: 'GET',
+      url: 'https://example.com',
+      retryOnNon200: true,
+      retryOnNon200RepeatTimes: 0,
+    });
+    const result = await node.process({}, createContext());
+
+    assert.equal(requestCount, 2);
+    assert.deepStrictEqual(result.statusCode, { type: 'number', value: 200 });
+  });
+
+  it('returns the final non-200 response after retries when fail-on-non-2XX is disabled', async () => {
+    let requestCount = 0;
+    globalThis.fetch = async () => {
+      requestCount++;
+      return new Response(`try ${requestCount}`, { status: 503, headers: { 'content-type': 'text/plain' } });
+    };
+
+    const node = createNode({
+      method: 'GET',
+      url: 'https://example.com',
+      errorOnNon200: false,
+      retryOnNon200: true,
+      retryOnNon200RepeatTimes: 2,
+    });
+    const result = await node.process({}, createContext());
+
+    assert.equal(requestCount, 3);
+    assert.deepStrictEqual(result.statusCode, { type: 'number', value: 503 });
+    assert.deepStrictEqual(result.res_body, { type: 'string', value: 'try 3' });
+  });
+
+  it('lets catchRequestFailed catch the final non-2XX failure after retries are exhausted', async () => {
+    let requestCount = 0;
+    globalThis.fetch = async () => {
+      requestCount++;
+      return new Response('missing', { status: 404, headers: { 'content-type': 'text/plain' } });
+    };
+
+    const node = createNode({
+      method: 'GET',
+      url: 'https://example.com',
+      errorOnNon200: true,
+      catchRequestFailed: true,
+      retryOnNon200: true,
+      retryOnNon200RepeatTimes: 1,
+    });
+    const result = await node.process({}, createContext());
+
+    assert.equal(requestCount, 2);
+    assert.deepStrictEqual(result, {
+      res_body: { type: 'control-flow-excluded', value: undefined },
+      json: { type: 'control-flow-excluded', value: undefined },
+      statusCode: { type: 'control-flow-excluded', value: undefined },
+      res_headers: { type: 'control-flow-excluded', value: undefined },
+      requestFailed: { type: 'boolean', value: true },
+    });
+  });
+
+  it('does not swallow aborts during retry cooldown', async () => {
+    let requestCount = 0;
+    globalThis.fetch = async () => {
+      requestCount++;
+      return new Response('missing', { status: 404, headers: { 'content-type': 'text/plain' } });
+    };
+
+    const abortController = new AbortController();
+    const node = createNode({
+      method: 'GET',
+      url: 'https://example.com',
+      catchRequestFailed: true,
+      retryOnNon200: true,
+      retryOnNon200RepeatTimes: 1,
+      retryOnNon200CooldownMs: 50,
+    });
+
+    setTimeout(() => abortController.abort(), 5);
+
+    await assert.rejects(() => node.process({}, createContext({ signal: abortController.signal })), /Aborted/);
+    assert.equal(requestCount, 1);
   });
 
   it('does not throw on non-2XX responses when errorOnNon200 is disabled', async () => {

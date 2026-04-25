@@ -211,6 +211,7 @@ export type StringListPortBinding<T extends ChartNode> =
 export type EditorDefinitionGroup<T extends ChartNode> = SharedEditorDefinitionProps<T> & {
   type: 'group';
   defaultOpen?: boolean;
+  toggleDataKey?: DataOfType<T, boolean>;
   editors: EditorDefinition<T>[];
 };
 

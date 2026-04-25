@@ -1,13 +1,14 @@
-- Destructure node: when adding a new line, auto isert "$." into it
 
 - Поиск по всему прпоекту сейчас тупой, нужен лучше. Need to come up with a list of search scenarios
 
 
+- When hovering the clickable label of the switcher, I wantr the switcher to trigger the hover mode too
+
 - Make the node cards border radiuses squircles
 
 - Every node (Or Code + Expression + HTTP) should have a "Do not throw" switcher so I can safely fallback with coalesce
-- HHTP node should have a "Retry N times setting"
 
+- When I make the node narrow, at some point the gear icon stays outside the visible header area. The gear icon (and other icons and preloaders that are supposed to be in the corne), should be visible regardless of the node's width)
 
 
 - Check opening and saving files in the web rivet. Crtl+S and Ctrl+O don't work

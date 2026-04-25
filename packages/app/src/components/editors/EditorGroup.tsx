@@ -7,8 +7,10 @@ import { DefaultNodeEditorField } from './DefaultNodeEditorField';
 import Collapsible from 'react-collapsible';
 import ChevronDownIcon from 'majesticons/line/chevron-down-line.svg?react';
 import ChevronUpIcon from 'majesticons/line/chevron-up-line.svg?react';
-import { getEditorListKey, getHelperMessage } from './editorUtils';
-import { HelperMessage } from '@atlaskit/form';
+import { getEditorListKey, getEditorRenderRows, getHelperMessage } from './editorUtils';
+import { HelperMessage, Label } from '@atlaskit/form';
+import Toggle from '@atlaskit/toggle';
+import { ToggleEditor } from './ToggleEditor';
 
 const styles = css`
   grid-column: span 2;
@@ -16,6 +18,7 @@ const styles = css`
   flex-direction: column;
   align-items: stretch;
 
+  > .editor-group-toggle-container,
   > .Collapsible .editor-group-toggle-container {
     display: flex;
     flex-direction: column;
@@ -26,11 +29,13 @@ const styles = css`
     background: var(--grey-darker);
   }
 
+  > .editor-group-toggle-container.open,
   > .Collapsible > .editor-group-toggle-container.open {
     border-bottom: none;
     border-radius: 8px 8px 0 0;
   }
 
+  > .editor-group-toggle-container.open + .editor-group-static-content,
   > .Collapsible > .editor-group-toggle-container.open + .Collapsible__contentOuter {
     border: 1px solid var(--grey-darkish);
     border-top: none;
@@ -75,6 +80,39 @@ const styles = css`
     }
   }
 
+  .editor-group-toggle-with-switch {
+    justify-content: flex-start;
+    gap: 4px;
+    cursor: default;
+  }
+
+  .editor-group-toggle-with-switch:hover {
+    background: none;
+  }
+
+  .editor-group-toggle-switch,
+  .editor-group-toggle-switch > * {
+    margin-left: 0 !important;
+  }
+
+  .editor-group-toggle-switch > label[data-size] {
+    margin: 0 0 0 -4px !important;
+  }
+
+  .editor-group-toggle-switch > label[data-size]:has(input:focus:not(:focus-visible)) {
+    border-color: transparent !important;
+    outline: none !important;
+    box-shadow: none !important;
+  }
+
+  .editor-group-toggle-label {
+    cursor: pointer;
+  }
+
+  .editor-group-toggle-label label {
+    cursor: pointer;
+  }
+
   .editor-group {
     margin-top: 0;
     padding: 6px 16px 18px;
@@ -90,7 +128,11 @@ const styles = css`
   }
 `;
 
-const Toggle: FC<{ isOpen?: boolean; label: string; helperMessage?: string }> = ({ isOpen, label, helperMessage }) => (
+const CollapsibleToggle: FC<{ isOpen?: boolean; label: string; helperMessage?: string }> = ({
+  isOpen,
+  label,
+  helperMessage,
+}) => (
   <div className="editor-group-toggle-area">
     <button type="button" className="editor-group-toggle">
       <span className="label">{label}</span>
@@ -100,44 +142,132 @@ const Toggle: FC<{ isOpen?: boolean; label: string; helperMessage?: string }> = 
   </div>
 );
 
+const ToggleHeader: FC<{
+  isChecked: boolean;
+  isDisabled: boolean;
+  label: string;
+  toggleId: string;
+  helperMessage?: string;
+  onChange: (value: boolean) => void;
+}> = ({ isChecked, isDisabled, label, toggleId, helperMessage, onChange }) => (
+  <div className="editor-group-toggle-area">
+    <div className="editor-group-toggle editor-group-toggle-with-switch">
+      <div className="editor-group-toggle-switch">
+        <Toggle
+          id={toggleId}
+          isChecked={isChecked}
+          isDisabled={isDisabled}
+          onChange={(e) => onChange(e.target.checked)}
+        />
+      </div>
+      <div className="editor-group-toggle-label">
+        <Label htmlFor={toggleId}>{label}</Label>
+      </div>
+    </div>
+    {helperMessage && <HelperMessage>{helperMessage}</HelperMessage>}
+  </div>
+);
+
 export const EditorGroup: FC<
   SharedEditorProps & {
     editor: EditorDefinitionGroup<ChartNode>;
   }
 > = ({ editor, ...sharedProps }) => {
-  const { editors, label, hideIf, defaultOpen = false } = editor;
+  const { editors, label, hideIf, defaultOpen = false, toggleDataKey } = editor;
 
   if (hideIf?.(sharedProps.node.data)) {
     return null;
   }
 
   const helperMessage = getHelperMessage(editor, sharedProps.node.data);
+  const data = sharedProps.node.data as Record<string, unknown>;
+  const isToggleGroupEnabled = toggleDataKey ? Boolean(data[toggleDataKey]) : false;
+  const renderEditorField = (editor: (typeof editors)[number], index: number) => {
+    const isDisabled = editor.disableIf?.(sharedProps.node.data) || sharedProps.isDisabled;
+
+    return (
+      <DefaultNodeEditorField
+        key={getEditorListKey(editor, index)}
+        {...sharedProps}
+        editor={editor}
+        isDisabled={isDisabled}
+      />
+    );
+  };
+  const renderedContent = (
+    <div className="editor-group">
+      {getEditorRenderRows(editors).map((row) => {
+        if (row.type === 'inline') {
+          return (
+            <div className="inline-editor-row" key={row.key}>
+              {row.editors.map((inlineEditor, inlineIndex) =>
+                renderEditorField(inlineEditor, row.startIndex + inlineIndex),
+              )}
+            </div>
+          );
+        }
+
+        return renderEditorField(row.editor, row.index);
+      })}
+    </div>
+  );
+
+  if (toggleDataKey) {
+    const toggleId = `editor-group-toggle-${sharedProps.node.id}-${String(toggleDataKey)}`;
+    const setToggleGroupEnabled = (value: boolean | undefined) =>
+      sharedProps.onChange({
+        ...sharedProps.node,
+        data: {
+          ...data,
+          [toggleDataKey]: value,
+        },
+      });
+
+    if (!isToggleGroupEnabled) {
+      return (
+        <div className="row toggle">
+          <ToggleEditor
+            value={data[toggleDataKey] as boolean | undefined}
+            isReadonly={sharedProps.isReadonly}
+            isDisabled={sharedProps.isDisabled}
+            onChange={setToggleGroupEnabled}
+            label={label}
+            name={String(toggleDataKey)}
+            helperMessage={helperMessage}
+          />
+        </div>
+      );
+    }
+
+    return (
+      <div css={styles}>
+        <div className="editor-group-toggle-container open">
+          <ToggleHeader
+            isChecked={isToggleGroupEnabled}
+            isDisabled={sharedProps.isReadonly || sharedProps.isDisabled}
+            label={label}
+            toggleId={toggleId}
+            helperMessage={helperMessage}
+            onChange={setToggleGroupEnabled}
+          />
+        </div>
+        {isToggleGroupEnabled && <div className="editor-group-static-content">{renderedContent}</div>}
+      </div>
+    );
+  }
 
   return (
     <div css={styles}>
       <Collapsible
         open={defaultOpen}
-        trigger={<Toggle label={label} helperMessage={helperMessage} />}
+        trigger={<CollapsibleToggle label={label} helperMessage={helperMessage} />}
         triggerClassName="editor-group-toggle-container"
         triggerOpenedClassName="editor-group-toggle-container open"
-        triggerWhenOpen={<Toggle label={label} isOpen helperMessage={helperMessage} />}
+        triggerWhenOpen={<CollapsibleToggle label={label} isOpen helperMessage={helperMessage} />}
         transitionTime={150}
         easing="ease-out"
       >
-        <div className="editor-group">
-          {editors.map((editor, i) => {
-            const isDisabled = editor.disableIf?.(sharedProps.node.data) || sharedProps.isDisabled;
-
-            return (
-              <DefaultNodeEditorField
-                key={getEditorListKey(editor, i)}
-                {...sharedProps}
-                editor={editor}
-                isDisabled={isDisabled}
-              />
-            );
-          })}
-        </div>
+        {renderedContent}
       </Collapsible>
     </div>
   );

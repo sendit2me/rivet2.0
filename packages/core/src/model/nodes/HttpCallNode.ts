@@ -14,6 +14,8 @@ import { coerceType, dedent, getInputOrData } from '../../utils/index.js';
 import { getError } from '../../utils/errors.js';
 
 const REQUEST_FAILED_OUTPUT_ID = 'requestFailed' as PortId;
+const DEFAULT_RETRY_ON_NON_200_REPEAT_TIMES = 1;
+const DEFAULT_RETRY_ON_NON_200_COOLDOWN_MS = 0;
 
 function isAbortError(error: unknown, signal: AbortSignal): boolean {
   return signal.aborted || getError(error).name === 'AbortError';
@@ -21,6 +23,58 @@ function isAbortError(error: unknown, signal: AbortSignal): boolean {
 
 function buildNon2xxStatusCodeError(statusCode: number): Error {
   return new Error(`HTTP call returned non-2XX status code: ${statusCode}`);
+}
+
+function normalizeHttpRetryCount(value: number | undefined): number {
+  const retryCount =
+    typeof value === 'number' && Number.isFinite(value) ? value : DEFAULT_RETRY_ON_NON_200_REPEAT_TIMES;
+  return Math.max(1, Math.floor(retryCount));
+}
+
+function normalizeHttpRetryCooldownMs(value: number | undefined): number {
+  const cooldownMs =
+    typeof value === 'number' && Number.isFinite(value) ? value : DEFAULT_RETRY_ON_NON_200_COOLDOWN_MS;
+  return Math.max(0, Math.floor(cooldownMs));
+}
+
+function buildAbortError(): Error {
+  const error = new Error('Aborted');
+  error.name = 'AbortError';
+  return error;
+}
+
+async function waitForRetryCooldown(cooldownMs: number, signal: AbortSignal): Promise<void> {
+  if (cooldownMs <= 0) {
+    return;
+  }
+
+  if (signal.aborted) {
+    throw buildAbortError();
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    const cleanup = () => {
+      if (timeout) {
+        clearTimeout(timeout);
+      }
+      signal.removeEventListener('abort', onAbort);
+    };
+    const onAbort = () => {
+      cleanup();
+      reject(buildAbortError());
+    };
+
+    timeout = setTimeout(() => {
+      cleanup();
+      resolve();
+    }, cooldownMs);
+
+    signal.addEventListener('abort', onAbort, { once: true });
+    if (signal.aborted) {
+      onAbort();
+    }
+  });
 }
 
 function buildRequestFailedOutputs(params: { isBinaryOutput: boolean }): Outputs {
@@ -87,6 +141,9 @@ export type HttpCallNodeData = {
 
   errorOnNon200?: boolean;
   catchRequestFailed?: boolean;
+  retryOnNon200?: boolean;
+  retryOnNon200RepeatTimes?: number;
+  retryOnNon200CooldownMs?: number;
 };
 
 export class HttpCallNodeImpl extends NodeImpl<HttpCallNode> {
@@ -107,6 +164,9 @@ export class HttpCallNodeImpl extends NodeImpl<HttpCallNode> {
         body: '',
         errorOnNon200: true,
         catchRequestFailed: false,
+        retryOnNon200: false,
+        retryOnNon200RepeatTimes: DEFAULT_RETRY_ON_NON_200_REPEAT_TIMES,
+        retryOnNon200CooldownMs: DEFAULT_RETRY_ON_NON_200_COOLDOWN_MS,
       },
     };
 
@@ -235,6 +295,33 @@ export class HttpCallNodeImpl extends NodeImpl<HttpCallNode> {
         enableFolding: true,
       },
       {
+        type: 'group',
+        label: 'Retry on non-200',
+        toggleDataKey: 'retryOnNon200',
+        editors: [
+          {
+            type: 'number',
+            label: 'Repeat times',
+            dataKey: 'retryOnNon200RepeatTimes',
+            defaultValue: DEFAULT_RETRY_ON_NON_200_REPEAT_TIMES,
+            min: 1,
+            step: 1,
+            layout: 'inline',
+            helperMessage: 'Times to repeat after the initial request',
+          },
+          {
+            type: 'number',
+            label: 'Cooldown, ms',
+            dataKey: 'retryOnNon200CooldownMs',
+            defaultValue: DEFAULT_RETRY_ON_NON_200_COOLDOWN_MS,
+            min: 0,
+            step: 1,
+            layout: 'inline',
+            helperMessage: 'Milliseconds to wait between repeats',
+          },
+        ],
+      },
+      {
         type: 'toggle',
         label: 'Binary Output',
         dataKey: 'isBinaryOutput',
@@ -265,7 +352,15 @@ export class HttpCallNodeImpl extends NodeImpl<HttpCallNode> {
             : ''
       }${this.data.useBodyInput ? '\nBody: (Using Input)' : this.data.body.trim() ? `\nBody: ${this.data.body}` : ''}${
         this.data.errorOnNon200 ? '\nThrow on non-2XX' : ''
-      }${this.data.catchRequestFailed ? '\nCatch all request failures' : ''}
+      }${this.data.catchRequestFailed ? '\nCatch all request failures' : ''}${
+        this.data.retryOnNon200
+          ? `\nRetry on non-200 (${normalizeHttpRetryCount(this.data.retryOnNon200RepeatTimes)} repeats${
+              normalizeHttpRetryCooldownMs(this.data.retryOnNon200CooldownMs)
+                ? `, ${normalizeHttpRetryCooldownMs(this.data.retryOnNon200CooldownMs)}ms cooldown`
+                : ''
+            })`
+          : ''
+      }
     `;
   }
 
@@ -320,28 +415,44 @@ export class HttpCallNodeImpl extends NodeImpl<HttpCallNode> {
         throw new Error(`Invalid URL: ${url}`);
       }
 
-      let response: Response;
-      try {
-        response = await fetch(url, {
-          method,
-          headers,
-          body,
-          signal: context.signal,
-          mode: 'cors',
-        });
-      } catch (err) {
-        if (isAbortError(err, context.signal)) {
+      const performRequest = async () => {
+        try {
+          return await fetch(url, {
+            method,
+            headers,
+            body,
+            signal: context.signal,
+            mode: 'cors',
+          });
+        } catch (err) {
+          if (isAbortError(err, context.signal)) {
+            throw err;
+          }
+
+          const { message } = getError(err);
+          if (
+            (message.includes('Load failed') || message.includes('Failed to fetch')) &&
+            context.executor === 'browser'
+          ) {
+            throw new Error(
+              'Failed to make HTTP call. You may be running into CORS problems. Try using the Node executor in the top-right menu.',
+            );
+          }
+
           throw err;
         }
+      };
 
-        const { message } = getError(err);
-        if ((message.includes('Load failed') || message.includes('Failed to fetch')) && context.executor === 'browser') {
-          throw new Error(
-            'Failed to make HTTP call. You may be running into CORS problems. Try using the Node executor in the top-right menu.',
-          );
+      let response = await performRequest();
+
+      if (this.data.retryOnNon200) {
+        const repeatTimes = normalizeHttpRetryCount(this.data.retryOnNon200RepeatTimes);
+        const cooldownMs = normalizeHttpRetryCooldownMs(this.data.retryOnNon200CooldownMs);
+
+        for (let attempt = 0; response.status !== 200 && attempt < repeatTimes; attempt++) {
+          await waitForRetryCooldown(cooldownMs, context.signal);
+          response = await performRequest();
         }
-
-        throw err;
       }
 
       if (this.data.errorOnNon200 && !response.ok) {
