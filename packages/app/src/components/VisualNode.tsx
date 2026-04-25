@@ -151,8 +151,9 @@ export const VisualNode = memo(
           onMouseLeave={(event: MouseEvent<HTMLElement>) => {
             onNodeMouseLeave?.(event, node.id);
           }}
-          onDoubleClick={() => {
+          onDoubleClick={(event) => {
             if (isKnownNodeType) {
+              event.currentTarget.blur();
               onNodeStartEditing?.(node);
             }
           }}

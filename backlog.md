@@ -2,6 +2,8 @@
 - Поиск по всему прпоекту сейчас тупой, нужен лучше. Need to come up with a list of search scenarios
 
 
+- In the browser, the "File" tab should be in the bar where the opened files are, not in the top bar. In the very left
+
 - When hovering the clickable label of the switcher, I wantr the switcher to trigger the hover mode too
 
 - Make the node cards border radiuses squircles

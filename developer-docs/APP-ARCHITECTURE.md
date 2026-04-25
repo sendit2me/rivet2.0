@@ -465,7 +465,7 @@ Current responsibilities:
 - reflect execution state classes (`success`, `error`, `running`, `not-ran`)
 - reflect graph/history state (`selected`, changed, output-expanded, disabled, conditional, split)
 - reflect hover state separately from selection state
-- start node editing on double-click for known node types
+- start node editing on double-click for known node types; the node root is blurred before opening settings so focus-only header affordances such as the gear icon do not stay visible after the pointer leaves
 
 Canvas body previews also need to stay aggressively bounded. Text-like node previews should not
 rely on line-count truncation alone, because very large single-line payloads such as pasted base64
