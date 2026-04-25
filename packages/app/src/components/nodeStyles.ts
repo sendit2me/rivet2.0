@@ -117,7 +117,7 @@ export const nodeStyles = css`
   }
 
   .node-title.grabbable {
-    cursor: move;
+    cursor: grab;
   }
 
   .node.conditional .node-title {
