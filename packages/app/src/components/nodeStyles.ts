@@ -189,6 +189,7 @@ export const nodeStyles = css`
 
   .grab-area {
     flex: 1;
+    min-width: 0;
     display: flex;
     align-items: flex-start;
     gap: 8px;
@@ -276,6 +277,7 @@ export const nodeStyles = css`
   .split-run-summary-tooltip {
     display: inline-flex;
     max-width: 100%;
+    min-width: 0;
   }
 
   .split-run-summary {
@@ -289,7 +291,7 @@ export const nodeStyles = css`
     background: color-mix(in srgb, var(--node-bg-foreground) 85%, transparent);
     color: var(--node-bg);
     cursor: pointer;
-    width: max-content;
+    width: auto;
     max-width: 100%;
     white-space: nowrap;
     font-family: inherit;
@@ -300,6 +302,14 @@ export const nodeStyles = css`
     text-transform: none;
     margin-top: 6px;
     margin-left: -1px;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .split-run-summary-text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .split-run-summary-mode {

@@ -1,6 +1,5 @@
 
 
-- Shift+Click adds a node election but a repeat shidt click doesn't remove the node from the selection. It should
 
 
 - Set the default interface font size in the settings
