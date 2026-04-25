@@ -61,7 +61,7 @@ describe('JSFilterNode', () => {
         type: 'code',
         label: 'Callback Body',
         helperMessage:
-          'Body of: (item, index, array) => { ... }. Use {{var}} for raw JS source inputs; strings need quotes.',
+          'Body of: (item, index, array) => { ... }. Use {{var}} to create input ports that evaluate as connected values.',
         dataKey: 'callbackBody',
         language: 'javascript',
         enableFolding: true,
@@ -76,16 +76,19 @@ describe('JSFilterNode', () => {
 
     assert.deepStrictEqual(node.getBody(), {
       type: 'colorized',
-      text: ['(item, index, array) => {', '  const allowed = index > 0;', '  return allowed && item != null;', '}'].join(
-        '\n',
-      ),
+      text: [
+        '(item, index, array) => {',
+        '  const allowed = index > 0;',
+        '  return allowed && item != null;',
+        '}',
+      ].join('\n'),
       language: 'javascript',
       fontSize: 12,
       fontFamily: 'monospace',
     } satisfies NodeBodySpec);
   });
 
-  it('creates raw-source interpolation input ports after the fixed array port', () => {
+  it('creates value interpolation input ports after the fixed array port', () => {
     const node = createNode({
       callbackBody: 'return item > {{min}} && item !== {{excluded}};',
     });
@@ -104,12 +107,12 @@ describe('JSFilterNode', () => {
         },
         {
           id: 'min',
-          dataType: 'string',
+          dataType: 'any',
           required: false,
         },
         {
           id: 'excluded',
-          dataType: 'string',
+          dataType: 'any',
           required: false,
         },
       ],
@@ -133,7 +136,7 @@ describe('JSFilterNode', () => {
     });
   });
 
-  it('interpolates raw JS source snippets before filtering', async () => {
+  it('evaluates interpolation inputs as connected values before filtering', async () => {
     const node = createNode({
       callbackBody: 'return item > {{min}} && item !== {{excluded}};',
     });
@@ -141,8 +144,8 @@ describe('JSFilterNode', () => {
     const result = await node.process(
       {
         ['array' as PortId]: { type: 'number[]', value: [1, 2, 3, 4] },
-        ['min' as PortId]: { type: 'string', value: '2' },
-        ['excluded' as PortId]: { type: 'string', value: '4' },
+        ['min' as PortId]: { type: 'number', value: 2 },
+        ['excluded' as PortId]: { type: 'number', value: 4 },
       },
       createContext(),
     );
@@ -174,7 +177,7 @@ describe('JSFilterNode', () => {
           title: 'Minimum',
           data: {
             id: 'min',
-            dataType: 'string',
+            dataType: 'number',
           },
           visualData: { x: 0, y: 100, width: 300 },
         },
@@ -223,7 +226,7 @@ describe('JSFilterNode', () => {
     const processor = new GraphProcessor(makeProject(graph), graph.metadata.id as any, globalRivetNodeRegistry);
     const result = await processor.processGraph(testProcessContext(), {
       array: { type: 'number[]', value: [1, 2, 3] },
-      min: { type: 'string', value: '1' },
+      min: { type: 'number', value: 1 },
     });
 
     assert.deepStrictEqual(result.filtered, { type: 'any[]', value: [2, 3] });
@@ -238,6 +241,62 @@ describe('JSFilterNode', () => {
       node.getInputDefinitions().map((definition) => definition.id),
       ['array'],
     );
+  });
+
+  it('allows callback locals to be written with interpolation braces', async () => {
+    const node = createNode({
+      callbackBody: 'return {{item}} > {{min}} && {{index}} > -1 && {{array}}.length === 3;',
+    });
+
+    assert.deepStrictEqual(
+      node.getInputDefinitions().map((definition) => definition.id),
+      ['array', 'min'],
+    );
+
+    const result = await node.process(
+      {
+        ['array' as PortId]: { type: 'number[]', value: [1, 2, 3] },
+        ['min' as PortId]: { type: 'number', value: 1 },
+      },
+      createContext(),
+    );
+
+    assert.deepStrictEqual(result.filtered?.value, [2, 3]);
+  });
+
+  it('does not mutate upstream callback array values', async () => {
+    const node = createNode({
+      callbackBody: 'item.seen = true; array.push({ value: 99 }); return item.value > 1;',
+    });
+    const array = [{ value: 1 }, { value: 2 }];
+
+    const result = await node.process(
+      {
+        ['array' as PortId]: { type: 'any[]', value: array },
+      },
+      createContext(),
+    );
+
+    assert.deepStrictEqual(result.filtered?.value, [{ value: 2, seen: true }]);
+    assert.deepStrictEqual(array, [{ value: 1 }, { value: 2 }]);
+  });
+
+  it('does not mutate upstream interpolation input values', async () => {
+    const node = createNode({
+      callbackBody: '{{allowed}}.push(4); return {{allowed}}.includes(item);',
+    });
+    const allowed = [2, 3];
+
+    const result = await node.process(
+      {
+        ['array' as PortId]: { type: 'number[]', value: [1, 2, 3, 4] },
+        ['allowed' as PortId]: { type: 'any[]', value: allowed },
+      },
+      createContext(),
+    );
+
+    assert.deepStrictEqual(result.filtered?.value, [2, 3, 4]);
+    assert.deepStrictEqual(allowed, [2, 3]);
   });
 
   it('receives index and array callback parameters', async () => {

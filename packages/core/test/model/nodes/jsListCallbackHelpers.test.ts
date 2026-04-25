@@ -21,7 +21,7 @@ describe('jsListCallbackHelpers', () => {
   });
 
   it('injects the JS Map callback body into a non-async callback wrapper', () => {
-    const wrapper = buildJSMapWrapper('return item \* 2;');
+    const wrapper = buildJSMapWrapper('return item * 2;');
 
     assert.match(wrapper, /const callback = \(item, index, array\) => \{/);
     assert.match(wrapper, /return item \* 2;/);
@@ -41,14 +41,14 @@ describe('jsListCallbackHelpers', () => {
     assert.doesNotThrow(() => assertSynchronousCallbackResult({ then: 'nope' }, 'JS Map'));
   });
 
-  it('discovers raw-source interpolation ports without duplicating callback locals', () => {
+  it('discovers value interpolation ports without duplicating callback locals', () => {
     assert.deepStrictEqual(
       getJSListCallbackInterpolationInputDefinitions('return {{item}} > {{min}} && {{index}} !== {{array}};'),
       [
         {
           id: 'min',
           title: 'min',
-          dataType: 'string',
+          dataType: 'any',
           required: false,
         },
       ],
@@ -62,22 +62,20 @@ describe('jsListCallbackHelpers', () => {
         {
           id: 'value',
           title: 'value',
-          dataType: 'string',
+          dataType: 'any',
           required: false,
         },
       ],
     );
   });
 
-  it('does not substitute callback locals through raw-source interpolation', () => {
+  it('renders callback locals and value inputs in parsed callback previews', () => {
     assert.strictEqual(
       interpolateJSListCallbackBody('return {{item}} ?? {{index}} ?? {{array}} ?? {{fallback}};', {
         ['array' as PortId]: { type: 'number[]', value: [1, 2, 3] },
-        ['item' as PortId]: { type: 'string', value: 'item' },
-        ['index' as PortId]: { type: 'string', value: 'index' },
-        ['fallback' as PortId]: { type: 'string', value: 'item' },
+        ['fallback' as PortId]: { type: 'string', value: 'value' },
       }),
-      'return undefined ?? undefined ?? undefined ?? item;',
+      'return item ?? index ?? array ?? "value";',
     );
   });
 });

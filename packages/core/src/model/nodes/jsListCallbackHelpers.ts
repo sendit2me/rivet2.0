@@ -4,12 +4,21 @@ import type { ChartNode, NodeInputDefinition, PortId } from '../NodeBase.js';
 import type { EditorDefinition } from '../EditorDefinition.js';
 import type { NodeBodySpec } from '../NodeBodySpec.js';
 import type { InternalProcessContext } from '../ProcessContext.js';
-import { extractInterpolationVariables } from '../../utils/interpolation.js';
-import { interpolateRawJsSource } from './rawJsSourceInterpolation.js';
+import { getError } from '../../utils/errors.js';
+import {
+  buildClonedInputValueAssignments,
+  buildCloneJsInputValueFunction,
+  buildJsValueInterpolatedSource,
+  getJsValueInterpolationInputNames,
+  interpolateJsValuePreviewSource,
+  sanitizeGeneratedJsValueText,
+} from './jsValueInterpolation.js';
 
 const MAX_CALLBACK_PREVIEW_BODY_LINES = 13;
 const JS_LIST_CALLBACK_SIGNATURE = '(item, index, array)';
 export const JS_LIST_CALLBACK_LOCAL_NAMES: ReadonlySet<string> = new Set(['item', 'index', 'array']);
+const JS_LIST_INPUTS_IDENTIFIER = '__jsListInputs';
+const JS_LIST_INPUT_CLONE_CACHE_IDENTIFIER = 'jsListInputCloneCache';
 const JS_LIST_CODE_RUNNER_OPTIONS = {
   includeFetch: false,
   includeRequire: false,
@@ -36,22 +45,67 @@ export function assertSynchronousCallbackResult(result: unknown, nodeName: strin
   }
 }
 
-export function buildJSFilterWrapper(callbackBody: string): string {
+function getJSListCallbackInterpolationInputNames(callbackBody: string): string[] {
+  return getJsValueInterpolationInputNames(callbackBody, {
+    localIdentifiers: JS_LIST_CALLBACK_LOCAL_NAMES,
+  });
+}
+
+function buildJSListRuntimePreamble(callbackBody: string): string {
+  const inputNames = getJSListCallbackInterpolationInputNames(callbackBody);
+
   return dedent`
     const assertSynchronousCallbackResult = ${assertSynchronousCallbackResult.toString()};
-    const array = inputs.array?.value;
+    ${buildCloneJsInputValueFunction()}
+    const ${JS_LIST_INPUTS_IDENTIFIER} = Object.create(null);
+    const ${JS_LIST_INPUT_CLONE_CACHE_IDENTIFIER} = new WeakMap();
+    const array = cloneJsInputValue(inputs.array?.value, ${JS_LIST_INPUT_CLONE_CACHE_IDENTIFIER});
+    ${buildClonedInputValueAssignments(inputNames, JS_LIST_INPUTS_IDENTIFIER, JS_LIST_INPUT_CLONE_CACHE_IDENTIFIER)}
+  `;
+}
+
+function buildJSListCallbackRuntimeSource(callbackBody: string): string {
+  return buildJsValueInterpolatedSource(callbackBody, JS_LIST_INPUTS_IDENTIFIER, {
+    localIdentifiers: JS_LIST_CALLBACK_LOCAL_NAMES,
+  });
+}
+
+function sanitizeJSListError(error: unknown, callbackBody: string, nodeName: string): Error {
+  const jsListError = getError(error);
+  const inputNames = getJSListCallbackInterpolationInputNames(callbackBody);
+  const fallbackLabel = `${nodeName} input`;
+
+  jsListError.message =
+    sanitizeGeneratedJsValueText(jsListError.message, inputNames, JS_LIST_INPUTS_IDENTIFIER, fallbackLabel) ??
+    jsListError.message;
+  jsListError.stack = sanitizeGeneratedJsValueText(
+    jsListError.stack,
+    inputNames,
+    JS_LIST_INPUTS_IDENTIFIER,
+    fallbackLabel,
+  );
+
+  return jsListError;
+}
+
+export function buildJSFilterWrapper(callbackBody: string): string {
+  const callbackBodySource = buildJSListCallbackRuntimeSource(callbackBody);
+
+  return dedent`
+    ${buildJSListRuntimePreamble(callbackBody)}
 
     if (!Array.isArray(array)) {
       throw new Error('JS Filter input "array" must be an array.');
     }
 
     const callback = (item, index, array) => {
-    ${indentLines(callbackBody, '  ')}
+    ${indentLines(callbackBodySource, '  ')}
     };
 
     const filtered = [];
+    const arrayLength = array.length;
 
-    for (let index = 0; index < array.length; index++) {
+    for (let index = 0; index < arrayLength; index++) {
       const item = array[index];
       const result = callback(item, index, array);
 
@@ -72,21 +126,23 @@ export function buildJSFilterWrapper(callbackBody: string): string {
 }
 
 export function buildJSMapWrapper(callbackBody: string): string {
+  const callbackBodySource = buildJSListCallbackRuntimeSource(callbackBody);
+
   return dedent`
-    const assertSynchronousCallbackResult = ${assertSynchronousCallbackResult.toString()};
-    const array = inputs.array?.value;
+    ${buildJSListRuntimePreamble(callbackBody)}
 
     if (!Array.isArray(array)) {
       throw new Error('JS Map input "array" must be an array.');
     }
 
     const callback = (item, index, array) => {
-    ${indentLines(callbackBody, '  ')}
+    ${indentLines(callbackBodySource, '  ')}
     };
 
     const mapped = [];
+    const arrayLength = array.length;
 
-    for (let index = 0; index < array.length; index++) {
+    for (let index = 0; index < arrayLength; index++) {
       const item = array[index];
       const result = callback(item, index, array);
 
@@ -104,14 +160,12 @@ export function buildJSMapWrapper(callbackBody: string): string {
 }
 
 export function getJSListCallbackInterpolationInputDefinitions(callbackBody: string): NodeInputDefinition[] {
-  return extractInterpolationVariables(callbackBody)
-    .filter((inputName) => !JS_LIST_CALLBACK_LOCAL_NAMES.has(inputName))
-    .map((inputName) => ({
-      id: inputName as PortId,
-      title: inputName,
-      dataType: 'string',
-      required: false,
-    }));
+  return getJSListCallbackInterpolationInputNames(callbackBody).map((inputName) => ({
+    id: inputName as PortId,
+    title: inputName,
+    dataType: 'any',
+    required: false,
+  }));
 }
 
 export function getJSListInputDefinitions(callbackBody: string): NodeInputDefinition[] {
@@ -132,7 +186,7 @@ export function getJSListEditors<T extends ChartNode>(): EditorDefinition<T>[] {
       type: 'code',
       label: 'Callback Body',
       helperMessage:
-        'Body of: (item, index, array) => { ... }. Use {{var}} for raw JS source inputs; strings need quotes.',
+        'Body of: (item, index, array) => { ... }. Use {{var}} to create input ports that evaluate as connected values.',
       dataKey: 'callbackBody',
       language: 'javascript',
       enableFolding: true,
@@ -141,17 +195,13 @@ export function getJSListEditors<T extends ChartNode>(): EditorDefinition<T>[] {
 }
 
 export function interpolateJSListCallbackBody(callbackBody: string, inputs: Inputs): string {
-  return interpolateRawJsSource(callbackBody, inputs, {
-    ignoredInputNames: JS_LIST_CALLBACK_LOCAL_NAMES,
+  return interpolateJsValuePreviewSource(callbackBody, inputs, {
+    localIdentifiers: JS_LIST_CALLBACK_LOCAL_NAMES,
   });
 }
 
 export function getJSListNodeBody(callbackBody: string): NodeBodySpec {
-  const previewBody = callbackBody
-    .split('\n')
-    .slice(0, MAX_CALLBACK_PREVIEW_BODY_LINES)
-    .join('\n')
-    .trim();
+  const previewBody = callbackBody.split('\n').slice(0, MAX_CALLBACK_PREVIEW_BODY_LINES).join('\n').trim();
 
   return {
     type: 'colorized',
@@ -195,14 +245,18 @@ export async function runJSListNodeCode({
   nodeName: string;
   outputId: string;
 }): Promise<Outputs> {
-  const outputs = await context.codeRunner.runCode(
-    buildWrapper(interpolateJSListCallbackBody(callbackBody, inputs)),
-    inputs,
-    JS_LIST_CODE_RUNNER_OPTIONS,
-    context.graphInputNodeValues,
-    context.contextValues,
-  );
+  try {
+    const outputs = await context.codeRunner.runCode(
+      buildWrapper(callbackBody),
+      inputs,
+      JS_LIST_CODE_RUNNER_OPTIONS,
+      context.graphInputNodeValues,
+      context.contextValues,
+    );
 
-  assertJSListNodeOutputs(outputs, outputId, nodeName);
-  return outputs;
+    assertJSListNodeOutputs(outputs, outputId, nodeName);
+    return outputs;
+  } catch (error) {
+    throw sanitizeJSListError(error, callbackBody, nodeName);
+  }
 }

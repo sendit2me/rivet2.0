@@ -61,7 +61,7 @@ describe('JSMapNode', () => {
         type: 'code',
         label: 'Callback Body',
         helperMessage:
-          'Body of: (item, index, array) => { ... }. Use {{var}} for raw JS source inputs; strings need quotes.',
+          'Body of: (item, index, array) => { ... }. Use {{var}} to create input ports that evaluate as connected values.',
         dataKey: 'callbackBody',
         language: 'javascript',
         enableFolding: true,
@@ -83,7 +83,7 @@ describe('JSMapNode', () => {
     } satisfies NodeBodySpec);
   });
 
-  it('creates raw-source interpolation input ports after the fixed array port', () => {
+  it('creates value interpolation input ports after the fixed array port', () => {
     const node = createNode({
       callbackBody: 'return item * {{factor}} + {{offset}};',
     });
@@ -102,12 +102,12 @@ describe('JSMapNode', () => {
         },
         {
           id: 'factor',
-          dataType: 'string',
+          dataType: 'any',
           required: false,
         },
         {
           id: 'offset',
-          dataType: 'string',
+          dataType: 'any',
           required: false,
         },
       ],
@@ -131,7 +131,7 @@ describe('JSMapNode', () => {
     });
   });
 
-  it('interpolates raw JS source snippets before mapping', async () => {
+  it('evaluates interpolation inputs as connected values before mapping', async () => {
     const node = createNode({
       callbackBody: 'return { value: item * {{factor}}, label: {{label}} };',
     });
@@ -139,8 +139,8 @@ describe('JSMapNode', () => {
     const result = await node.process(
       {
         ['array' as PortId]: { type: 'number[]', value: [1, 2] },
-        ['factor' as PortId]: { type: 'string', value: '3' },
-        ['label' as PortId]: { type: 'string', value: '"scaled"' },
+        ['factor' as PortId]: { type: 'number', value: 3 },
+        ['label' as PortId]: { type: 'string', value: 'scaled' },
       },
       createContext(),
     );
@@ -175,7 +175,7 @@ describe('JSMapNode', () => {
           title: 'Factor',
           data: {
             id: 'factor',
-            dataType: 'string',
+            dataType: 'number',
           },
           visualData: { x: 0, y: 100, width: 300 },
         },
@@ -224,13 +224,13 @@ describe('JSMapNode', () => {
     const processor = new GraphProcessor(makeProject(graph), graph.metadata.id as any, globalRivetNodeRegistry);
     const result = await processor.processGraph(testProcessContext(), {
       array: { type: 'number[]', value: [1, 2] },
-      factor: { type: 'string', value: '3' },
+      factor: { type: 'number', value: 3 },
     });
 
     assert.deepStrictEqual(result.mapped, { type: 'any[]', value: [3, 6] });
   });
 
-  it('treats missing raw-source interpolation inputs as undefined', async () => {
+  it('treats missing interpolation inputs as undefined', async () => {
     const node = createNode({
       callbackBody: 'return {{missing}};',
     });
@@ -243,6 +243,79 @@ describe('JSMapNode', () => {
     );
 
     assert.deepStrictEqual(result.mapped?.value, [undefined]);
+  });
+
+  it('allows callback locals to be written with interpolation braces', async () => {
+    const node = createNode({
+      callbackBody: 'return String({{index}}) + ":" + {{array}}.length + ":" + {{item}};',
+    });
+
+    assert.deepStrictEqual(
+      node.getInputDefinitions().map((definition) => definition.id),
+      ['array'],
+    );
+
+    const result = await node.process(
+      {
+        ['array' as PortId]: { type: 'string[]', value: ['a', 'b'] },
+      },
+      createContext(),
+    );
+
+    assert.deepStrictEqual(result.mapped?.value, ['0:2:a', '1:2:b']);
+  });
+
+  it('does not mutate upstream callback array values', async () => {
+    const node = createNode({
+      callbackBody: 'array[0].seen = true; array.push({ value: 99 }); return item;',
+    });
+    const array = [{ value: 1 }, { value: 2 }];
+
+    const result = await node.process(
+      {
+        ['array' as PortId]: { type: 'any[]', value: array },
+      },
+      createContext(),
+    );
+
+    assert.deepStrictEqual(result.mapped?.value, [{ value: 1, seen: true }, { value: 2 }]);
+    assert.deepStrictEqual(array, [{ value: 1 }, { value: 2 }]);
+  });
+
+  it('does not mutate upstream interpolation input values', async () => {
+    const node = createNode({
+      callbackBody: '{{config}}.seen = true; return { item, config: {{config}} };',
+    });
+    const config = { label: 'original' };
+
+    const result = await node.process(
+      {
+        ['array' as PortId]: { type: 'string[]', value: ['a'] },
+        ['config' as PortId]: { type: 'object', value: config },
+      },
+      createContext(),
+    );
+
+    assert.deepStrictEqual(result.mapped?.value, [{ item: 'a', config: { label: 'original', seen: true } }]);
+    assert.deepStrictEqual(config, { label: 'original' });
+  });
+
+  it('does not mutate upstream function object properties', async () => {
+    const node = createNode({
+      callbackBody: '{{fn}}.seen = true; return {{fn}}(item);',
+    });
+    const fn = (value: number) => value * 2;
+
+    const result = await node.process(
+      {
+        ['array' as PortId]: { type: 'number[]', value: [2] },
+        ['fn' as PortId]: { type: 'any', value: fn },
+      },
+      createContext(),
+    );
+
+    assert.deepStrictEqual(result.mapped?.value, [4]);
+    assert.equal((fn as { seen?: boolean }).seen, undefined);
   });
 
   it('keeps escaped interpolation tokens literal and does not create ports for them', () => {

@@ -76,7 +76,7 @@ export class JSFilterNodeImpl extends NodeImpl<JSFilterNode> {
 
         Available callback parameters are <code>item</code>, <code>index</code>, and <code>array</code>.
         Write only the callback body and still use <code>return</code> to decide whether each item is included.
-        Use <code>{{var}}</code> to add raw JavaScript source inputs; string literals should include their own quotes.
+        Use <code>{{var}}</code> to add input ports that evaluate as connected values.
       `,
       infoBoxTitle: 'JS Filter Node',
       contextMenuTitle: 'JS Filter',

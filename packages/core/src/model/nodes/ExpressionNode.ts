@@ -12,8 +12,15 @@ import { dedent } from 'ts-dedent';
 import type { Inputs, Outputs } from '../GraphProcessor.js';
 import type { InternalProcessContext } from '../ProcessContext.js';
 import { nodeDefinition } from '../NodeDefinition.js';
-import { extractInterpolationVariables, replaceInterpolationTokens } from '../../utils/interpolation.js';
 import { getError } from '../../utils/errors.js';
+import {
+  buildClonedInputValueAssignments,
+  buildCloneJsInputValueFunction,
+  buildJsValueInterpolatedSource,
+  getJsValueInterpolationInputNames,
+  interpolateJsValuePreviewSource,
+  sanitizeGeneratedJsValueText,
+} from './jsValueInterpolation.js';
 
 export type ExpressionNode = ChartNode<'expression', ExpressionNodeData>;
 
@@ -24,6 +31,7 @@ export type ExpressionNodeData = {
 const DEFAULT_EXPRESSION = '{{a}} == "123" ? {{b}} : {{c}}';
 const MAX_BODY_PREVIEW_LINES = 15;
 const EXPRESSION_INPUTS_IDENTIFIER = '__expressionInputs';
+const EXPRESSION_INPUT_CLONE_CACHE_IDENTIFIER = 'expressionInputCloneCache';
 export const EXPRESSION_OUTPUT_PORT_ID = 'output' as PortId;
 
 function buildExpressionPreview(expression: string): string {
@@ -31,168 +39,32 @@ function buildExpressionPreview(expression: string): string {
 }
 
 function getExpressionInputNames(expression: string): string[] {
-  return extractInterpolationVariables(expression);
-}
-
-function isSimpleIdentifier(value: string): boolean {
-  return /^[A-Za-z_$][\w$]*$/.test(value);
-}
-
-function getUserFacingInputName(inputName: string): string {
-  return isSimpleIdentifier(inputName) ? inputName : `{{${inputName}}}`;
-}
-
-function buildExpressionValueReference(inputName: string | undefined): string {
-  if (!inputName || inputName.startsWith('@graphInputs.') || inputName.startsWith('@context.')) {
-    return 'undefined';
-  }
-
-  return `${EXPRESSION_INPUTS_IDENTIFIER}[${JSON.stringify(inputName)}]`;
+  return getJsValueInterpolationInputNames(expression);
 }
 
 function buildExpressionRuntimeSource(expression: string): string {
-  return replaceInterpolationTokens(expression, (token) => buildExpressionValueReference(token.tokenName), {
-    trim: true,
-  });
+  return buildJsValueInterpolatedSource(expression, EXPRESSION_INPUTS_IDENTIFIER);
 }
 
 function buildExpressionInputsInitializer(inputNames: string[]): string {
-  const assignments = inputNames
-    .map(
-      (inputName) =>
-        `${EXPRESSION_INPUTS_IDENTIFIER}[${JSON.stringify(inputName)}] = cloneExpressionInputValue(inputs[${JSON.stringify(
-          inputName,
-        )}]?.value, expressionInputCloneCache);`,
-    )
-    .join('\n');
-
   return dedent`
-    const cloneExpressionInputValue = (value, seen = new WeakMap()) => {
-      if (value == null || typeof value !== 'object') {
-        return value;
-      }
-
-      if (seen.has(value)) {
-        return seen.get(value);
-      }
-
-      if (typeof structuredClone === 'function') {
-        try {
-          const clone = structuredClone(value);
-          seen.set(value, clone);
-          return clone;
-        } catch {
-          // Fall through to the smaller clone path for values structuredClone cannot copy.
-        }
-      }
-
-      if (Array.isArray(value)) {
-        const clone = [];
-        seen.set(value, clone);
-        for (const item of value) {
-          clone.push(cloneExpressionInputValue(item, seen));
-        }
-        return clone;
-      }
-
-      if (value instanceof Date) {
-        return new Date(value.getTime());
-      }
-
-      if (value instanceof Map) {
-        const clone = new Map();
-        seen.set(value, clone);
-        for (const [key, mapValue] of value.entries()) {
-          clone.set(cloneExpressionInputValue(key, seen), cloneExpressionInputValue(mapValue, seen));
-        }
-        return clone;
-      }
-
-      if (value instanceof Set) {
-        const clone = new Set();
-        seen.set(value, clone);
-        for (const item of value.values()) {
-          clone.add(cloneExpressionInputValue(item, seen));
-        }
-        return clone;
-      }
-
-      if (value instanceof ArrayBuffer) {
-        return value.slice(0);
-      }
-
-      if (ArrayBuffer.isView(value)) {
-        if (value instanceof DataView) {
-          return new DataView(value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength));
-        }
-
-        return new value.constructor(value);
-      }
-
-      const clone = Object.create(Object.getPrototypeOf(value));
-      seen.set(value, clone);
-      for (const key of Reflect.ownKeys(value)) {
-        const descriptor = Object.getOwnPropertyDescriptor(value, key);
-        if (descriptor?.enumerable && 'value' in descriptor) {
-          clone[key] = cloneExpressionInputValue(descriptor.value, seen);
-        }
-      }
-      return clone;
-    };
-
+    ${buildCloneJsInputValueFunction()}
     const ${EXPRESSION_INPUTS_IDENTIFIER} = Object.create(null);
-    const expressionInputCloneCache = new WeakMap();
-    ${assignments}
+    const ${EXPRESSION_INPUT_CLONE_CACHE_IDENTIFIER} = new WeakMap();
+    ${buildClonedInputValueAssignments(
+      inputNames,
+      EXPRESSION_INPUTS_IDENTIFIER,
+      EXPRESSION_INPUT_CLONE_CACHE_IDENTIFIER,
+    )}
   `;
 }
 
-function formatExpressionPreviewValue(inputName: string | undefined, inputs: Inputs): string {
-  if (!inputName || inputName.startsWith('@graphInputs.') || inputName.startsWith('@context.')) {
-    return 'undefined';
-  }
-
-  const value = inputs[inputName as PortId]?.value;
-
-  if (value === undefined) {
-    return 'undefined';
-  }
-
-  if (value === null) {
-    return 'null';
-  }
-
-  if (typeof value === 'string') {
-    return JSON.stringify(value);
-  }
-
-  if (typeof value === 'number' || typeof value === 'boolean') {
-    return String(value);
-  }
-
-  return getUserFacingInputName(inputName);
-}
-
 export function interpolateExpressionSource(expression: string, inputs: Inputs): string {
-  return replaceInterpolationTokens(expression, (token) => formatExpressionPreviewValue(token.tokenName, inputs), {
-    trim: true,
-  });
+  return interpolateJsValuePreviewSource(expression, inputs);
 }
 
 function sanitizeGeneratedExpressionText(text: string | undefined, inputNames: string[]): string | undefined {
-  if (!text) {
-    return text;
-  }
-
-  let sanitized = text;
-
-  for (const inputName of inputNames) {
-    const userFacingInputName = getUserFacingInputName(inputName);
-    sanitized = sanitized
-      .replaceAll(`${EXPRESSION_INPUTS_IDENTIFIER}[${JSON.stringify(inputName)}]`, userFacingInputName)
-      .replaceAll(`${EXPRESSION_INPUTS_IDENTIFIER}.${inputName}`, userFacingInputName);
-  }
-
-  return sanitized.replaceAll(EXPRESSION_INPUTS_IDENTIFIER, 'expression input');
+  return sanitizeGeneratedJsValueText(text, inputNames, EXPRESSION_INPUTS_IDENTIFIER, 'expression input');
 }
 
 function sanitizeExpressionError(error: unknown, inputNames: string[]): Error {
