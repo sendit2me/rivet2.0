@@ -377,8 +377,35 @@ const Container = styled.div`
 
   .split-toggle-row {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     min-height: 40px;
+  }
+
+  .split-toggle-row .toggle-field {
+    align-items: flex-start;
+  }
+
+  .split-toggle-row .toggle-field label:first-child {
+    margin-top: -2px;
+  }
+
+  .split-toggle-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    white-space: normal;
+  }
+
+  .split-toggle-label {
+    color: var(--grey-light);
+    font-weight: 600;
+    line-height: 1.2;
+  }
+
+  .split-toggle-description {
+    color: var(--grey-lightish);
+    font-size: 12px;
+    line-height: 1.25;
   }
 
   .split-max {

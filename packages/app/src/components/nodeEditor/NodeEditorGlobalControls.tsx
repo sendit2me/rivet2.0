@@ -125,7 +125,10 @@ export const NodeEditorGlobalControls: FC<{
               isChecked={node.isSplitRun ?? false}
               onChange={(isSplitRun) => onUpdateNode({ ...node, isSplitRun })}
             >
-              <span>Split runs</span>
+              <span className="split-toggle-copy">
+                <span className="split-toggle-label">Run per item</span>
+                <span className="split-toggle-description">Run the node for each item in the array input</span>
+              </span>
             </HeaderToggleField>
           </div>
 
