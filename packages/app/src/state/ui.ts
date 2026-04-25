@@ -47,6 +47,8 @@ export const fullscreenOutputModalBoundsState = atomWithStorage<HorizontalModalB
   storage,
 );
 
+export const graphSearchPanelHeightState = atomWithStorage<number>('graphSearchPanelHeightState', 420, storage);
+
 export const multilineEditorFontSizeState = atomWithStorage<number>(
   'multilineEditorFontSizeState',
   DEFAULT_MULTILINE_EDITOR_FONT_SIZE,

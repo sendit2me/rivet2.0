@@ -112,7 +112,8 @@ const NodeCanvasScene: FC<Omit<NodeCanvasViewportProps, 'canvasPositionX' | 'can
                   node={node}
                   connections={nodeConnections}
                   isHovered={hoveredNodeId === node.id}
-                  isSelected={selectedNodeIdSet.has(node.id) || searchMatchingNodeIdSet.has(node.id)}
+                  isSelected={selectedNodeIdSet.has(node.id)}
+                  isSearchMatch={searchMatchingNodeIdSet.has(node.id)}
                   isKnownNodeType={node.type in nodeTypes}
                   lastRun={lastRunPerNode[node.id]}
                   onDragActivatorPointerDown={onNodeDragActivatorPointerDown}

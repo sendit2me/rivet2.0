@@ -1,12 +1,17 @@
 import { css } from '@emotion/react';
 import { type FC } from 'react';
 
-import { useAtom, useAtomValue } from 'jotai';
+import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import clsx from 'clsx';
 import { trivetState } from '../state/trivet.js';
 import { LoadingSpinner } from './LoadingSpinner.js';
 import { overlayOpenState } from '../state/ui';
-import { sidebarOpenState } from '../state/graphBuilder';
+import {
+  emptyGraphSearchState,
+  openOrFocusGraphSearchState,
+  searchingGraphState,
+  sidebarOpenState,
+} from '../state/graphBuilder';
 import { useFeatureFlag } from '../hooks/useFeatureFlag';
 
 const styles = css`
@@ -90,6 +95,32 @@ const styles = css`
     border-right: 1px solid var(--grey);
   }
 
+  .search-menu {
+    align-self: center;
+    background: var(--grey-darker);
+    border: 1px solid var(--grey);
+    border-radius: 4px;
+    margin-left: 8px;
+    min-height: 24px;
+
+    > button {
+      gap: 6px;
+      min-height: 24px;
+      padding: 0.2rem 0.7rem;
+      white-space: nowrap;
+
+      svg {
+        flex: 0 0 auto;
+        height: 14px;
+        width: 14px;
+      }
+    }
+  }
+
+  .search-menu:hover {
+    background-color: var(--grey);
+  }
+
   .remote-debugger {
     position: relative;
   }
@@ -110,6 +141,7 @@ const styles = css`
 
 export const OverlayTabs: FC = () => {
   const [openOverlay, setOpenOverlay] = useAtom(overlayOpenState);
+  const setGraphSearch = useSetAtom(searchingGraphState);
   const sidebarOpen = useAtomValue(sidebarOpenState);
 
   const trivet = useAtomValue(trivetState);
@@ -125,6 +157,7 @@ export const OverlayTabs: FC = () => {
             onMouseDown={(e) => {
               if (e.button === 0) {
                 setOpenOverlay(undefined);
+                setGraphSearch(emptyGraphSearchState);
               }
             }}
           >
@@ -138,6 +171,7 @@ export const OverlayTabs: FC = () => {
             onMouseDown={(e) => {
               if (e.button === 0) {
                 setOpenOverlay((s) => (s === 'plugins' ? undefined : 'plugins'));
+                setGraphSearch(emptyGraphSearchState);
               }
             }}
           >
@@ -152,6 +186,7 @@ export const OverlayTabs: FC = () => {
               onMouseDown={(e) => {
                 if (e.button === 0) {
                   setOpenOverlay((s) => (s === 'community' ? undefined : 'community'));
+                  setGraphSearch(emptyGraphSearchState);
                 }
               }}
             >
@@ -166,6 +201,7 @@ export const OverlayTabs: FC = () => {
             onMouseDown={(e) => {
               if (e.button === 0) {
                 setOpenOverlay((s) => (s === 'promptDesigner' ? undefined : 'promptDesigner'));
+                setGraphSearch(emptyGraphSearchState);
               }
             }}
           >
@@ -178,6 +214,7 @@ export const OverlayTabs: FC = () => {
             onMouseDown={(e) => {
               if (e.button === 0) {
                 setOpenOverlay((s) => (s === 'trivet' ? undefined : 'trivet'));
+                setGraphSearch(emptyGraphSearchState);
               }
             }}
           >
@@ -195,6 +232,7 @@ export const OverlayTabs: FC = () => {
             onMouseDown={(e) => {
               if (e.button === 0) {
                 setOpenOverlay((s) => (s === 'chatViewer' ? undefined : 'chatViewer'));
+                setGraphSearch(emptyGraphSearchState);
               }
             }}
           >
@@ -207,13 +245,42 @@ export const OverlayTabs: FC = () => {
             onMouseDown={(e) => {
               if (e.button === 0) {
                 setOpenOverlay((s) => (s === 'dataStudio' ? undefined : 'dataStudio'));
+                setGraphSearch(emptyGraphSearchState);
               }
             }}
           >
             Data Studio
           </button>
         </div>
+        <div className="menu-item search-menu">
+          <button
+            className="dropdown-item"
+            onMouseDown={(e) => {
+              if (e.button === 0) {
+                setOpenOverlay(undefined);
+                setGraphSearch((state) =>
+                  state.searching ? emptyGraphSearchState : openOrFocusGraphSearchState(state),
+                );
+              }
+            }}
+          >
+            <SearchIcon />
+            Search
+          </button>
+        </div>
       </div>
     </div>
   );
 };
+
+const SearchIcon: FC = () => (
+  <svg aria-hidden="true" fill="none" viewBox="0 0 24 24">
+    <path
+      d="M10.75 17.5a6.75 6.75 0 1 1 0-13.5 6.75 6.75 0 0 1 0 13.5ZM16 16l4 4"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+    />
+  </svg>
+);

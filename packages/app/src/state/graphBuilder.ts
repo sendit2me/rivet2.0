@@ -14,6 +14,7 @@ import { type WireDef } from '../components/WireLayer.js';
 import type { GraphNavigationStack } from '../domain/graphEditing/navigationActions.js';
 import { createHybridStorage } from './storage.js';
 import { type SearchedItem, type SearchableItem } from '../hooks/useSearchProject';
+import type { GraphSearchMatch } from '../hooks/graphSearch.js';
 
 const { storage } = createHybridStorage('graphBuilder');
 
@@ -82,10 +83,31 @@ export const isNodeOutputExpandedState = atomFamily((nodeId: NodeId) =>
   atom((get) => get(expandedOutputNodeIdsState).includes(nodeId)),
 );
 
-export const searchingGraphState = atom({
+export type GraphSearchState = {
+  searching: boolean;
+  query: string;
+  selectedIndex: number;
+  matches: GraphSearchMatch[];
+  fallbackToTerms: boolean;
+  focusRequestId: number;
+};
+
+export const emptyGraphSearchState: GraphSearchState = {
   searching: false,
   query: '',
-});
+  selectedIndex: 0,
+  matches: [],
+  fallbackToTerms: false,
+  focusRequestId: 0,
+};
+
+export const searchingGraphState = atom<GraphSearchState>(emptyGraphSearchState);
+
+export function openOrFocusGraphSearchState(state: GraphSearchState): GraphSearchState {
+  return state.searching
+    ? { ...state, focusRequestId: state.focusRequestId + 1 }
+    : { ...emptyGraphSearchState, searching: true, focusRequestId: state.focusRequestId + 1 };
+}
 
 export const goToSearchState = atom<{
   searching: boolean;
@@ -98,8 +120,6 @@ export const goToSearchState = atom<{
   selectedIndex: 0,
   entries: [],
 });
-
-export const searchMatchingNodeIdsState = atom<NodeId[]>([]);
 
 export const hoveringNodeState = atom<NodeId | undefined>(undefined);
 

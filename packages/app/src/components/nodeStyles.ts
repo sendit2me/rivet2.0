@@ -90,6 +90,10 @@ export const nodeStyles = css`
     z-index: 10001 !important;
   }
 
+  .node.searchMatch:not(.selected):not(.hovered) {
+    --node-frame-border-color: color-mix(in srgb, var(--primary) 55%, var(--node-border) 45%);
+  }
+
   .node-border-overlay {
     position: absolute;
     inset: 0;
@@ -173,7 +177,8 @@ export const nodeStyles = css`
   }
 
   .node.isComment.selected .node-border-overlay,
-  .node.isComment.overlayNode .node-border-overlay {
+  .node.isComment.overlayNode .node-border-overlay,
+  .node.isComment.searchMatch .node-border-overlay {
     display: block;
   }
 

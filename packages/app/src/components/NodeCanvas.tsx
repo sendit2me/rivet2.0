@@ -14,6 +14,7 @@ import { useCopyNodesHotkeys } from '../hooks/useCopyNodesHotkeys';
 import { useDraggingNode } from '../hooks/useDraggingNode.js';
 import { useDraggingWire } from '../hooks/useDraggingWire.js';
 import { useGlobalHotkey } from '../hooks/useGlobalHotkey.js';
+import { isNodeGraphSearchMatch } from '../hooks/graphSearch.js';
 import { useNodeHeightCache } from '../hooks/useNodeBodyHeight';
 import { useNodePortPositions } from '../hooks/useNodePortPositions';
 import { useNodeTypes } from '../hooks/useNodeTypes';
@@ -28,10 +29,10 @@ import { useWireDragScrolling } from '../hooks/useWireDragScrolling';
 import {
   canvasPositionState,
   editingNodeState,
+  searchingGraphState,
   lastCanvasPositionByGraphState,
   lastMousePositionState,
   selectedNodesState,
-  searchMatchingNodeIdsState,
   draggingWireClosestPortState,
   hoveringNodeState,
   expandedOutputNodeIdsState,
@@ -58,6 +59,7 @@ import { getDraggingViewportNodeIds, shouldFreezeViewportVisibility } from './no
 import { filterValidSubGraphConnections } from '../domain/graphEditing/connectionValidation.js';
 
 const EMPTY_NODE_CONNECTIONS: NodeConnection[] = [];
+const EMPTY_NODE_IDS: NodeId[] = [];
 
 export interface NodeCanvasProps {
   nodes: ChartNode[];
@@ -99,7 +101,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
 
   const selectedGraphMetadata = useAtomValue(graphMetadataState);
   const closestPort = useAtomValue(draggingWireClosestPortState);
-  const searchMatchingNodes = useAtomValue(searchMatchingNodeIdsState);
+  const graphSearch = useAtomValue(searchingGraphState);
   const expandedOutputNodeIds = useAtomValue(expandedOutputNodeIdsState);
   const fullscreenOutputNodeId = useAtomValue(fullscreenOutputNodeState);
   const lastRunPerNode = useAtomValue(lastRunDataByNodeState);
@@ -284,6 +286,18 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
 
     return [...nextSelectedNodeIds];
   }, [editingNodeId, fullscreenOutputNodeId, selectedNodeIds]);
+
+  const hasGraphSearchQuery = graphSearch.searching && graphSearch.query.trim().length > 0;
+  const searchMatchingNodeIds = useMemo(
+    () =>
+      hasGraphSearchQuery
+        ? graphSearch.matches
+            .filter(isNodeGraphSearchMatch)
+            .filter((match) => match.graphId === selectedGraphMetadata?.id)
+            .map((match) => match.nodeId)
+        : EMPTY_NODE_IDS,
+    [graphSearch.matches, hasGraphSearchQuery, selectedGraphMetadata?.id],
+  );
 
   const highlightedNodes = useMemo(() => {
     const highlightedNodeIds = new Set(selectedViewportNodeIds);
@@ -504,7 +518,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
           nodesWithConnections={nodesWithConnections}
           onNodeDragActivatorPointerDown={onNodeDragActivatorPointerDown}
           expandedOutputNodeIds={expandedOutputNodeIds}
-          searchMatchingNodeIds={searchMatchingNodes}
+          searchMatchingNodeIds={searchMatchingNodeIds}
           selectedNodeIds={selectedViewportNodeIds}
           selectedProcessPagePerNode={selectedProcessPagePerNode}
           visibleNodeIdSet={visibleNodeIdSet}

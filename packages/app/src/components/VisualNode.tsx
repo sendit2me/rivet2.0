@@ -21,6 +21,7 @@ export type VisualNodeProps = {
   isOverlay?: boolean;
   isSelected?: boolean;
   isHovered?: boolean;
+  isSearchMatch?: boolean;
   isKnownNodeType: boolean;
   isOutputExpanded: boolean;
   shouldShowHoverControls?: boolean;
@@ -46,6 +47,7 @@ export const VisualNode = memo(
         isOverlay,
         isSelected,
         isHovered,
+        isSearchMatch,
         isKnownNodeType,
         isOutputExpanded,
         shouldShowHoverControls,
@@ -128,6 +130,7 @@ export const VisualNode = memo(
               overlayNode: isOverlay,
               selected: isSelected,
               hovered: isHovered,
+              searchMatch: isSearchMatch,
               dragging: isDragging,
               showHoverControls: shouldShowHoverControls,
               ...executionClassFlags,

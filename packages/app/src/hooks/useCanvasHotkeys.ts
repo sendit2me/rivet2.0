@@ -3,6 +3,7 @@ import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import {
   type CanvasPosition,
   canvasPositionState,
+  openOrFocusGraphSearchState,
   searchingGraphState,
   editingNodeState,
   hoveringNodeState,
@@ -15,16 +16,19 @@ import { useCanvasPositioning } from './useCanvasPositioning';
 import { useRedo, useUndo } from '../commands/Command';
 import { nodesState } from '../state/graph';
 import { showAiGraphCreatorInputState } from '../components/AiGraphCreatorInput';
+import { overlayOpenState } from '../state/ui';
 
 export function useCanvasHotkeys() {
   const [canvasPosition, setCanvasPosition] = useAtom(canvasPositionState);
   const viewportBounds = useViewportBounds();
   const { canvasToClientPosition } = useCanvasPositioning();
   const setSearching = useSetAtom(searchingGraphState);
+  const graphSearch = useAtomValue(searchingGraphState);
   const setEditingNode = useSetAtom(editingNodeState);
   const hoveringNode = useAtomValue(hoveringNodeState);
   const setGoToSearch = useSetAtom(goToSearchState);
   const setShowAiGraphCreatorInput = useSetAtom(showAiGraphCreatorInputState);
+  const setOpenOverlay = useSetAtom(overlayOpenState);
 
   const nodes = useAtomValue(nodesState);
   const [selectedNodeIds, setSelectedNodes] = useAtom(selectedNodesState);
@@ -33,6 +37,15 @@ export function useCanvasHotkeys() {
   const redo = useRedo();
 
   const latestHandler = useLatest((e: KeyboardEvent) => {
+    if (e.key === 'f' && (e.metaKey || e.ctrlKey) && !e.shiftKey && graphSearch.searching) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      setSearching(openOrFocusGraphSearchState);
+      setOpenOverlay(undefined);
+      return;
+    }
+
     // If we're in an input, don't do anything
     if (['input', 'textarea'].includes(document.activeElement?.tagName.toLowerCase()!)) {
       return;
@@ -100,7 +113,8 @@ export function useCanvasHotkeys() {
       e.preventDefault();
       e.stopPropagation();
 
-      setSearching({ searching: true, query: '' });
+      setSearching(openOrFocusGraphSearchState);
+      setOpenOverlay(undefined);
     }
 
     if (e.key === 'e' && !e.metaKey && !e.ctrlKey && !e.shiftKey) {

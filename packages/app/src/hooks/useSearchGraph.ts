@@ -1,61 +1,144 @@
-import { useAtomValue, useSetAtom } from 'jotai';
-import { nodesState } from '../state/graph';
-import { useEffect, useMemo } from 'react';
-import { entries } from '../utils/typeSafety';
-import { searchMatchingNodeIdsState, searchingGraphState } from '../state/graphBuilder';
-import { useFuseSearch } from './useFuseSearch';
-import { useFocusOnNodes } from './useFocusOnNodes';
+import { useAtom, useAtomValue } from 'jotai';
+import { useEffect, useMemo, useRef } from 'react';
+import type { ChartNode } from '@ironclad/rivet-core';
+import { graphState } from '../state/graph';
+import { searchingGraphState } from '../state/graphBuilder';
 import { useNodeTypes } from './useNodeTypes';
 import { useDependsOnPlugins } from './useDependsOnPlugins';
 import { useProjectNodeRegistry } from './useProjectNodeRegistry';
+import { projectState } from '../state/savedGraphs';
+import {
+  buildProjectGraphSearchItems,
+  clampGraphSearchSelectedIndex,
+  type GraphSearchNodeMetadata,
+  type GraphSearchMatch,
+  searchGraphNodesWithMode,
+} from './graphSearch';
+
+type SearchableEditorDefinition = {
+  type: string;
+  dataKey?: string;
+  editors?: SearchableEditorDefinition[];
+};
 
 export function useSearchGraph() {
-  const graphNodes = useAtomValue(nodesState);
-  const setSearchMatchingNodes = useSetAtom(searchMatchingNodeIdsState);
+  const project = useAtomValue(projectState);
+  const currentGraph = useAtomValue(graphState);
+  const [searchState, setSearchState] = useAtom(searchingGraphState);
 
   useDependsOnPlugins();
-  const focusOnNodes = useFocusOnNodes();
   const nodeTypes = useNodeTypes();
   const projectNodeRegistry = useProjectNodeRegistry();
+  const previousQueryRef = useRef(searchState.query);
+  const hasSearchQuery = searchState.searching && searchState.query.trim().length > 0;
 
   const searchableNodes = useMemo(() => {
-    return graphNodes.map((node) => {
-      const joinedData = entries(node.data as object).map(([key, value]) => {
-        return `${value}`;
-      });
+    if (!hasSearchQuery) {
+      return [];
+    }
 
-      const isKnownNodeType = node.type in nodeTypes;
+    const searchableGraphs =
+      currentGraph.metadata?.id != null
+        ? { ...project.graphs, [currentGraph.metadata.id]: currentGraph }
+        : project.graphs;
 
-      const searchableNode = {
-        title: node.title,
-        description: node.description,
-        id: node.id,
-        joinedData: joinedData.join(' '),
-        nodeType: isKnownNodeType ? projectNodeRegistry.getDynamicDisplayName(node.type) : '',
+    return buildProjectGraphSearchItems(searchableGraphs, (node: ChartNode): GraphSearchNodeMetadata => {
+      const nodeTypeLabel = node.type in nodeTypes ? projectNodeRegistry.getDynamicDisplayName(node.type) : node.type;
+
+      return {
+        nodeTypeLabel,
+        searchableContentKeys: getSearchableContentKeys(node, projectNodeRegistry),
       };
-
-      return searchableNode;
     });
-  }, [graphNodes, nodeTypes, projectNodeRegistry]);
+  }, [currentGraph, hasSearchQuery, nodeTypes, project.graphs, projectNodeRegistry]);
 
-  const searchState = useAtomValue(searchingGraphState);
-
-  const searchedNodes = useFuseSearch(
-    searchableNodes,
-    searchState.query,
-    ['title', 'description', 'joinedData', 'nodeType'],
-    {
-      enabled: searchState.searching,
-      noInputEmptyList: true,
-    },
+  const searchResult = useMemo(
+    () => (hasSearchQuery ? searchGraphNodesWithMode(searchableNodes, searchState.query) : { matches: [], fallbackToTerms: false }),
+    [hasSearchQuery, searchState.query, searchableNodes],
   );
 
   useEffect(() => {
-    setSearchMatchingNodes(searchedNodes.map((n) => n.item.id));
+    const queryChanged = previousQueryRef.current !== searchState.query;
+    previousQueryRef.current = searchState.query;
 
-    if (searchedNodes.length > 0) {
-      focusOnNodes(searchedNodes.map((n) => n.item.id));
+    setSearchState((current) => {
+      if (current.searching !== searchState.searching || current.query !== searchState.query) {
+        return current;
+      }
+
+      if (!current.searching) {
+        return current.matches.length === 0 && current.selectedIndex === 0 && !current.fallbackToTerms
+          ? current
+          : { ...current, matches: [], fallbackToTerms: false, selectedIndex: 0 };
+      }
+
+      const nextSelectedIndex = queryChanged ? 0 : clampGraphSearchSelectedIndex(current.selectedIndex, searchResult.matches.length);
+
+      if (
+        current.selectedIndex === nextSelectedIndex &&
+        current.fallbackToTerms === searchResult.fallbackToTerms &&
+        areGraphSearchMatchesEqual(current.matches, searchResult.matches)
+      ) {
+        return current;
+      }
+
+      return {
+        ...current,
+        matches: searchResult.matches,
+        fallbackToTerms: searchResult.fallbackToTerms,
+        selectedIndex: nextSelectedIndex,
+      };
+    });
+  }, [searchResult, searchState.query, searchState.searching, setSearchState]);
+}
+
+function getSearchableContentKeys(
+  node: ChartNode,
+  projectNodeRegistry: ReturnType<typeof useProjectNodeRegistry>,
+): string[] {
+  try {
+    const editors = projectNodeRegistry.createDynamicImpl(node).getEditors(undefined as never);
+    return Array.isArray(editors) ? getCodeEditorDataKeys(editors as SearchableEditorDefinition[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function getCodeEditorDataKeys(editors: readonly SearchableEditorDefinition[]): string[] {
+  const dataKeys = new Set<string>();
+
+  for (const editor of editors) {
+    if (editor.type === 'code' && typeof editor.dataKey === 'string') {
+      dataKeys.add(editor.dataKey);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- bleh
-  }, [searchState.query, searchState.searching]);
+
+    if (Array.isArray(editor.editors)) {
+      getCodeEditorDataKeys(editor.editors).forEach((dataKey) => dataKeys.add(dataKey));
+    }
+  }
+
+  return [...dataKeys];
+}
+
+function areGraphSearchMatchesEqual(first: readonly GraphSearchMatch[], second: readonly GraphSearchMatch[]): boolean {
+  return (
+    first.length === second.length &&
+    first.every((value, index) => {
+      const other = second[index];
+
+      return (
+        other != null &&
+        value.kind === other.kind &&
+        value.graphId === other.graphId &&
+        value.graphName === other.graphName &&
+        value.locations.join('|') === other.locations.join('|') &&
+        value.contentSnippets.join('|') === other.contentSnippets.join('|') &&
+        (value.kind !== 'node' ||
+          (other.kind === 'node' &&
+            value.nodeId === other.nodeId &&
+            value.nodeTitle === other.nodeTitle &&
+            value.nodeType === other.nodeType))
+      );
+    })
+  );
 }

@@ -26,6 +26,7 @@ interface DraggableNodeProps {
   connections?: NodeConnection[];
   isSelected?: boolean;
   isHovered?: boolean;
+  isSearchMatch?: boolean;
   isKnownNodeType: boolean;
   lastRun?: ProcessDataForNode[];
   onDragActivatorPointerDown: (modifierState: DragActivatorModifierState) => void;
@@ -42,6 +43,7 @@ export const DraggableNode: FC<DraggableNodeProps> = memo(
     connections = [],
     isSelected = false,
     isHovered = false,
+    isSearchMatch = false,
     isKnownNodeType,
     lastRun,
     onDragActivatorPointerDown,
@@ -84,6 +86,7 @@ export const DraggableNode: FC<DraggableNodeProps> = memo(
           ref={setNodeRef}
           isSelected={isSelected}
           isHovered={isHovered}
+          isSearchMatch={isSearchMatch}
           node={node}
           connections={connections}
           isDragging={isDragging && !shouldKeepSourceNodeVisible}

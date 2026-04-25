@@ -217,11 +217,11 @@ The `Graphs` tab hosts `GraphList`, which is no longer a single all-in-one imple
 
 ### `OverlayTabs`
 
-Acts as the switchboard for overlay-like product areas such as prompt designer, Trivet, chat viewer, community, and other auxiliary surfaces.
+Acts as the switchboard for overlay-like product areas such as prompt designer, Trivet, chat viewer, community, and other auxiliary workspace surfaces.
 
 Current rule that matters for maintenance:
 
-- browser-only file commands live beside opened-project tabs in [`packages/app/src/components/ProjectSelector.tsx`](../packages/app/src/components/ProjectSelector.tsx); `OverlayTabs` should only render overlay destinations such as `Canvas`, `Plugins`, `Community`, Prompt Designer, Trivet, Chat Viewer, and Data Studio
+- browser-only file commands live beside opened-project tabs in [`packages/app/src/components/ProjectSelector.tsx`](../packages/app/src/components/ProjectSelector.tsx); `OverlayTabs` renders workspace destinations such as `Canvas`, `Plugins`, `Community`, Prompt Designer, Trivet, Chat Viewer, Data Studio, and the graph `Search` control, which is visually styled as a separate pill button rather than as another workspace tab
 - workspace navigation tabs (`Canvas`, `Plugins`, `Community`, etc.) are allowed to wrap on narrow windows; the flex row stretches every tab to the tallest wrapped tab height so labels do not spill outside fixed-height pills
 
 ## Graph Editor
@@ -332,6 +332,18 @@ Current performance-oriented hook boundaries now carry explicit contracts:
 - `useVisibleCanvasNodes` returns explicit visible, near-viewport, and heavy-content node id sets; medium-graph node shells stay mounted offscreen while expensive body/output rendering is reserved for nearby or pinned nodes
 - `useRenderableWires` owns static wire candidate filtering, exact clipping after viewport settle, and frozen candidate reuse during passive viewport motion; active drag wires stay live outside that static candidate freeze
 - `useWireDragScrolling` now reports viewport motion back into that same settle path so edge auto-scroll during wire drags uses the same freeze policy as manual pan
+
+`Ctrl/Cmd+F` graph search is a project-wide node search, but it stays intentionally separate from `Ctrl/Cmd+P` Go To search:
+
+- `searchingGraphState` owns the graph-search lifecycle, query, ordered project-wide matches, and the last focused match index
+- `useSearchGraph` builds separate graph-level search entries from graph names plus node-level entries from every project graph's node title, description, id, node type label, and node content from code-editor-style fields only; project graph snapshots are deduped by graph metadata id with the project record key as a fallback so the current live graph wins over stale saved copies, then search runs against the whole query string first and falls back to separate-word matching only when no exact whole-query matches exist
+- graph-search node content deliberately comes from the node's `code` editor definitions, not from whole-node data serialization; this keeps searchable content focused on large user-authored fields such as Code source, Text content, HTTP headers/body, Expression bodies, and prompt/code editors while avoiding noisy default toggles, dropdown values, retry settings, booleans, and numeric settings
+- generated node IDs are searchable only for deliberate longer queries, not short one- or two-character searches, so random IDs do not make otherwise irrelevant nodes appear in the graph search panel
+- [`packages/app/src/hooks/graphSearch.ts`](../packages/app/src/hooks/graphSearch.ts) owns result metadata, field-aware match-location classification (`graph name`, `node name`, `node description`, `node type`, `node content`), content-context snippet extraction, and grouping by graph for the search panel; graph-name hits can produce graph groups even when a graph has no nodes, node type is shown as muted top-right metadata in each node result row rather than in the graph header, and snippets are shown only when the same node-data/content field itself satisfies the active exact or fallback search mode
+- graph search styling uses the lightweight `searchMatch` node presentation state for passive matches only; clicking a result uses normal `selectedNodesState` selection so the focused node keeps the standard selected-node border
+- `OverlayTabs` exposes graph search as the last workspace navigation control with compact button-like styling and a search icon; it is an action button rather than a selectable workspace tab, so opening search leaves the current workspace tab such as `Canvas` visually selected while closing active overlays and using the same `searchingGraphState` path as `Ctrl/Cmd+F`
+- `NavigationBar` owns the graph-search panel: it appears centered under workspace navigation at 30vw, focuses the lighter search input whenever search opens or an already-open search receives `Ctrl/Cmd+F` again, uses background-only input focus styling, stays as an input-only search bar until matches exist, discloses when results come from separate-word fallback matching, then persists a draggable bottom-edge max height in `graphSearchPanelHeightState` so short result lists can stay shorter, groups graph sections headed as `Graph <name>` with a lightweight `Graph` label and only the graph name emphasized, handles graph-title open actions, rounded result-row blocks, a lighter lower context section when node-content snippets are shown, long-line-safe snippet wrapping, stronger hover/focus styling, and close/Escape cleanup
+- clicking a graph-search result row opens the result's graph, centers the target node horizontally in the viewport and vertically in the visible area below the search panel at a gentler zoom than the older single-node focus path, and selects the node; clicking a graph title opens that graph without forcing a node focus; the panel remains open until the user explicitly closes it
 
 `useDraggingNode` now owns more than a thin `@dnd-kit` bridge. It is the drag-session state machine for node moves and `Alt`-drag duplication:
 
@@ -626,7 +638,7 @@ That cleanup runs during graph/project switching and is explicitly there to prev
 - closest valid port during wire drag
 - graph navigation stack
 - nodes with expanded inline output
-- search/go-to UI state
+- current-graph search state and project-wide go-to UI state
 - hovered node
 - sidebar visibility
 - viewing node changes
