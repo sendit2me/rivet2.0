@@ -278,7 +278,7 @@ export const nodeStyles = css`
     align-items: center;
     gap: 6px;
     height: 24px;
-    padding: 2px 4px;
+    padding: 2px 6px 2px 4px;
     border: 0;
     border-radius: 4px;
     background: color-mix(in srgb, var(--node-bg-foreground) 85%, transparent);
@@ -294,6 +294,7 @@ export const nodeStyles = css`
     letter-spacing: 0.4px;
     text-transform: none;
     margin-top: 6px;
+    margin-left: -1px;
   }
 
   .split-run-summary-mode {

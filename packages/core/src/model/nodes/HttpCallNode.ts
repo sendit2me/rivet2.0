@@ -146,6 +146,45 @@ export type HttpCallNodeData = {
   retryOnNon200CooldownMs?: number;
 };
 
+export function getHttpCallBodyPreviewSections(data: HttpCallNodeData): string[] {
+  const sections = [
+    `${data.useMethodInput ? '(Method Using Input)' : data.method} ${data.useUrlInput ? '(URL Using Input)' : data.url}`,
+  ];
+
+  if (data.useHeadersInput) {
+    sections.push('Headers: (Using Input)');
+  } else if (data.headers.trim()) {
+    sections.push(`Headers: ${data.headers}`);
+  }
+
+  if (data.useBodyInput) {
+    sections.push('Body: (Using Input)');
+  } else if (data.body.trim()) {
+    sections.push(`Body: ${data.body}`);
+  }
+
+  if (data.errorOnNon200) {
+    sections.push('Throw on non-2XX');
+  }
+
+  if (data.catchRequestFailed) {
+    sections.push('Catch all request failures');
+  }
+
+  if (data.retryOnNon200) {
+    const cooldownMs = normalizeHttpRetryCooldownMs(data.retryOnNon200CooldownMs);
+    const retrySummaryParts = [`${normalizeHttpRetryCount(data.retryOnNon200RepeatTimes)} repeats`];
+
+    if (cooldownMs) {
+      retrySummaryParts.push(`${cooldownMs}ms cooldown`);
+    }
+
+    sections.push(`Retry on non-200 (${retrySummaryParts.join(', ')})`);
+  }
+
+  return sections;
+}
+
 export class HttpCallNodeImpl extends NodeImpl<HttpCallNode> {
   static create(): HttpCallNode {
     const chartNode: HttpCallNode = {
@@ -341,27 +380,7 @@ export class HttpCallNodeImpl extends NodeImpl<HttpCallNode> {
   }
 
   getBody(): string {
-    return dedent`
-      ${this.data.useMethodInput ? '(Method Using Input)' : this.data.method} ${
-        this.data.useUrlInput ? '(URL Using Input)' : this.data.url
-      } ${
-        this.data.useHeadersInput
-          ? '\nHeaders: (Using Input)'
-          : this.data.headers.trim()
-            ? `\nHeaders: ${this.data.headers}`
-            : ''
-      }${this.data.useBodyInput ? '\nBody: (Using Input)' : this.data.body.trim() ? `\nBody: ${this.data.body}` : ''}${
-        this.data.errorOnNon200 ? '\nThrow on non-2XX' : ''
-      }${this.data.catchRequestFailed ? '\nCatch all request failures' : ''}${
-        this.data.retryOnNon200
-          ? `\nRetry on non-200 (${normalizeHttpRetryCount(this.data.retryOnNon200RepeatTimes)} repeats${
-              normalizeHttpRetryCooldownMs(this.data.retryOnNon200CooldownMs)
-                ? `, ${normalizeHttpRetryCooldownMs(this.data.retryOnNon200CooldownMs)}ms cooldown`
-                : ''
-            })`
-          : ''
-      }
-    `;
+    return getHttpCallBodyPreviewSections(this.data).join('\n');
   }
 
   static getUIData(): NodeUIData {

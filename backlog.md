@@ -6,7 +6,6 @@
 
 - When "Catch all request failures" is on, the errors don't show up completely. But I want them to still be rendered in the output view even though the iutput view will be "successful", not red-error
 
-- In the HTTP node, in the node body, output options with a bit of vertical gaps
 
 - Make the node cards border radiuses squircles
 

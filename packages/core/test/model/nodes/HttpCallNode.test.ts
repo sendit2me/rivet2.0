@@ -2,6 +2,7 @@ import { afterEach, describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 
 import {
+  getHttpCallBodyPreviewSections,
   HttpCallNodeImpl,
   type EditorDefinition,
   type HttpCallNode,
@@ -107,6 +108,28 @@ describe('HttpCallNode', () => {
 
     assert.equal(withoutCatch.getOutputDefinitions().some((definition) => definition.id === 'requestFailed'), false);
     assert.equal(withCatch.getOutputDefinitions().some((definition) => definition.id === 'requestFailed'), true);
+  });
+
+  it('builds HTTP body preview sections for selected options', () => {
+    const node = createNode({
+      method: 'POST',
+      url: 'https://google.com',
+      errorOnNon200: true,
+      catchRequestFailed: true,
+      retryOnNon200: true,
+      retryOnNon200RepeatTimes: 1,
+      retryOnNon200CooldownMs: 1000,
+    });
+
+    const expectedSections = [
+      'POST https://google.com',
+      'Throw on non-2XX',
+      'Catch all request failures',
+      'Retry on non-200 (1 repeats, 1000ms cooldown)',
+    ];
+
+    assert.deepStrictEqual(getHttpCallBodyPreviewSections(node.data), expectedSections);
+    assert.equal(node.getBody(), expectedSections.join('\n'));
   });
 
   it('keeps success behavior unchanged when catchRequestFailed is disabled', async () => {

@@ -18,6 +18,7 @@ import { replaceDatasetNodeDescriptor } from '../components/nodes/ReplaceDataset
 import { expressionNodeDescriptor } from '../components/nodes/ExpressionNode';
 import { jsFilterNodeDescriptor, jsMapNodeDescriptor } from '../components/nodes/JSListNode';
 import { extractObjectPathNodeDescriptor } from '../components/nodes/ExtractObjectPathNode';
+import { httpCallNodeDescriptor } from '../components/nodes/HttpCallNode.js';
 import { useAtomValue } from 'jotai';
 import { useProjectNodeRegistry } from './useProjectNodeRegistry';
 import type { NodeOutputCopyValueProjector } from '../utils/executionDataCopyValue.js';
@@ -73,6 +74,7 @@ const overriddenDescriptors: Partial<NodeComponentDescriptors> = {
   jsFilter: jsFilterNodeDescriptor,
   jsMap: jsMapNodeDescriptor,
   extractObjectPath: extractObjectPathNodeDescriptor,
+  httpCall: httpCallNodeDescriptor,
 };
 
 export function useNodeTypes(): NodeComponentDescriptors {
