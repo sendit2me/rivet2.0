@@ -234,6 +234,7 @@ export const NormalVisualNodeContent: FC<{
 
     const handleGrabClick = useStableCallback((event: ReactMouseEvent) => {
       event.stopPropagation();
+      event.currentTarget.closest<HTMLElement>('.node')?.blur();
       onNodeSelected?.(node, event.shiftKey);
     });
 

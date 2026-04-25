@@ -43,6 +43,7 @@ export const ZoomedOutVisualNodeContent: FC<{
 
   const handleGrabClick = useStableCallback((event: MouseEvent<HTMLDivElement>) => {
     event.stopPropagation();
+    event.currentTarget.closest<HTMLElement>('.node')?.blur();
     onNodeSelected?.(node, event.shiftKey);
   });
 

@@ -1,7 +1,5 @@
 
 
-- Поиск по всему проекту сейчас тупой, нужен лучше. Need to come up with a list of search scenarios
-
 - Shift+Click adds a node election but a repeat shidt click doesn't remove the node from the selection. It should
 
 

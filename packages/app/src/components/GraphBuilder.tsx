@@ -29,6 +29,7 @@ import { AiGraphCreatorToggle } from './AiGraphCreatorToggle';
 import { useReloadProjectReferences } from '../hooks/useReloadProjectReferences';
 import { submitUserInputAnswers } from '../state/actions/userInputActions';
 import { useSyncCurrentProjectEditorState } from '../hooks/useSyncCurrentProjectEditorState.js';
+import { toggleNodeSelection } from '../domain/graphEditing/nodeSelection.js';
 
 const Container = styled.div`
   position: relative;
@@ -95,7 +96,7 @@ export const GraphBuilder: FC = () => {
     if (!multi) {
       return; // Can only "select" a node if you're holding shift, for now
     }
-    setSelectedNodeIds((nodeIds) => [...new Set([...nodeIds, node.id])]);
+    setSelectedNodeIds((nodeIds) => toggleNodeSelection(nodeIds, node.id));
   });
 
   const nodeStartEditing = useStableCallback((node: ChartNode) => {
