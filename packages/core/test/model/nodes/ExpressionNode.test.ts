@@ -45,8 +45,7 @@ describe('ExpressionNode', () => {
       {
         type: 'code',
         label: 'Expression',
-        helperMessage:
-          'Use {{var}} to create input ports. Inputs are inserted as raw JS source, so string values should include quotes.',
+        helperMessage: 'Use {{var}} to create input ports. Interpolated variables evaluate as the connected values.',
         dataKey: 'expression',
         language: 'javascript',
         enableFolding: true,
@@ -76,9 +75,9 @@ describe('ExpressionNode', () => {
     assert.deepStrictEqual(
       node.getInputDefinitions().map((definition) => [definition.id, definition.dataType]),
       [
-        ['a', 'string'],
-        ['b', 'string'],
-        ['c', 'string'],
+        ['a', 'any'],
+        ['b', 'any'],
+        ['c', 'any'],
       ],
     );
     assert.deepStrictEqual(node.getOutputDefinitions(), [
@@ -90,16 +89,16 @@ describe('ExpressionNode', () => {
     ]);
   });
 
-  it('evaluates a raw-source ternary expression', async () => {
+  it('evaluates a value-based ternary expression', async () => {
     const node = createNode({
       expression: '{{a}} == "123" ? {{b}} : {{c}}',
     });
 
     const result = await node.process(
       {
-        ['a' as PortId]: { type: 'string', value: '"123"' },
-        ['b' as PortId]: { type: 'string', value: '"yes"' },
-        ['c' as PortId]: { type: 'string', value: '"no"' },
+        ['a' as PortId]: { type: 'string', value: '123' },
+        ['b' as PortId]: { type: 'string', value: 'yes' },
+        ['c' as PortId]: { type: 'string', value: 'no' },
       },
       createContext(),
     );
@@ -112,17 +111,18 @@ describe('ExpressionNode', () => {
     });
   });
 
-  it('supports raw JS source snippets for numbers, booleans, arrays, and objects', async () => {
+  it('supports real numbers, booleans, arrays, objects, and null values', async () => {
     const node = createNode({
-      expression: '({ num: {{num}}, bool: {{bool}}, arr: {{arr}}, obj: {{obj}} })',
+      expression: '({ num: {{num}}, bool: {{bool}}, first: {{arr}}[0], ok: {{obj}}.ok, nil: {{nil}} })',
     });
 
     const result = await node.process(
       {
-        ['num' as PortId]: { type: 'string', value: '1' },
-        ['bool' as PortId]: { type: 'string', value: 'true' },
-        ['arr' as PortId]: { type: 'string', value: '[1, 2, 3]' },
-        ['obj' as PortId]: { type: 'string', value: '{ ok: true }' },
+        ['num' as PortId]: { type: 'number', value: 1 },
+        ['bool' as PortId]: { type: 'boolean', value: true },
+        ['arr' as PortId]: { type: 'any[]', value: ['foo', 'bar'] },
+        ['obj' as PortId]: { type: 'object', value: { ok: true } },
+        ['nil' as PortId]: { type: 'any', value: null },
       },
       createContext(),
     );
@@ -130,9 +130,106 @@ describe('ExpressionNode', () => {
     assert.deepStrictEqual(result.output?.value, {
       num: 1,
       bool: true,
-      arr: [1, 2, 3],
-      obj: { ok: true },
+      first: 'foo',
+      ok: true,
+      nil: null,
     });
+  });
+
+  it('returns the first array item with bracket access', async () => {
+    const node = createNode({
+      expression: '{{array}}[0]',
+    });
+
+    const result = await node.process(
+      {
+        ['array' as PortId]: { type: 'any[]', value: ['foo', 'bar'] },
+      },
+      createContext(),
+    );
+
+    assert.deepStrictEqual(result.output?.value, 'foo');
+  });
+
+  it('returns a string input directly', async () => {
+    const node = createNode({
+      expression: '{{text}}',
+    });
+
+    const result = await node.process(
+      {
+        ['text' as PortId]: { type: 'string', value: 'foo bar' },
+      },
+      createContext(),
+    );
+
+    assert.deepStrictEqual(result.output?.value, 'foo bar');
+  });
+
+  it('returns object properties with dot access', async () => {
+    const node = createNode({
+      expression: '{{object}}.field',
+    });
+
+    const result = await node.process(
+      {
+        ['object' as PortId]: { type: 'object', value: { field: 'value' } },
+      },
+      createContext(),
+    );
+
+    assert.deepStrictEqual(result.output?.value, 'value');
+  });
+
+  it('does not mutate upstream array input values', async () => {
+    const node = createNode({
+      expression: '({{array}}.push("baz"), {{array}})',
+    });
+    const array = ['foo', 'bar'];
+
+    const result = await node.process(
+      {
+        ['array' as PortId]: { type: 'any[]', value: array },
+      },
+      createContext(),
+    );
+
+    assert.deepStrictEqual(result.output?.value, ['foo', 'bar', 'baz']);
+    assert.deepStrictEqual(array, ['foo', 'bar']);
+  });
+
+  it('does not mutate upstream object input values', async () => {
+    const node = createNode({
+      expression: '({{object}}.nested.key = "changed", {{object}})',
+    });
+    const object = { nested: { key: 'original' } };
+
+    const result = await node.process(
+      {
+        ['object' as PortId]: { type: 'object', value: object },
+      },
+      createContext(),
+    );
+
+    assert.deepStrictEqual(result.output?.value, { nested: { key: 'changed' } });
+    assert.deepStrictEqual(object, { nested: { key: 'original' } });
+  });
+
+  it('preserves shared identity across cloned input references', async () => {
+    const node = createNode({
+      expression: '{{a}} === {{b}}',
+    });
+    const shared = { key: 'value' };
+
+    const result = await node.process(
+      {
+        ['a' as PortId]: { type: 'object', value: shared },
+        ['b' as PortId]: { type: 'object', value: shared },
+      },
+      createContext(),
+    );
+
+    assert.deepStrictEqual(result.output?.value, true);
   });
 
   it('treats missing interpolation inputs as undefined', async () => {
@@ -152,7 +249,7 @@ describe('ExpressionNode', () => {
 
     const result = await node.process(
       {
-        ['a' as PortId]: { type: 'string', value: '41' },
+        ['a' as PortId]: { type: 'number', value: 41 },
       },
       createContext(),
     );
@@ -162,9 +259,9 @@ describe('ExpressionNode', () => {
 
   it('trims the parsed expression source used for debugging', () => {
     const parsedExpression = interpolateExpressionSource('\n  {{a}} == "123" ? {{b}} : {{c}}  \n', {
-      ['a' as PortId]: { type: 'string', value: '"123"' },
-      ['b' as PortId]: { type: 'string', value: '"yes"' },
-      ['c' as PortId]: { type: 'string', value: '"no"' },
+      ['a' as PortId]: { type: 'string', value: '123' },
+      ['b' as PortId]: { type: 'string', value: 'yes' },
+      ['c' as PortId]: { type: 'string', value: 'no' },
     });
 
     assert.equal(parsedExpression, '"123" == "123" ? "yes" : "no"');
@@ -200,7 +297,7 @@ describe('ExpressionNode', () => {
 
     const result = await node.process(
       {
-        ['value' as PortId]: { type: 'string', value: '42' },
+        ['value' as PortId]: { type: 'number', value: 42 },
       },
       createContext(),
     );
@@ -220,7 +317,7 @@ describe('ExpressionNode', () => {
       () =>
         node.process(
           {
-            ['a' as PortId]: { type: 'string', value: '1' },
+            ['a' as PortId]: { type: 'number', value: 1 },
           },
           createContext(),
         ),
@@ -236,6 +333,22 @@ describe('ExpressionNode', () => {
     await assert.rejects(
       () => node.process({}, createContext(new NotAllowedCodeRunner())),
       /Dynamic code execution is disabled\./,
+    );
+  });
+
+  it('does not expose generated internal input names in runtime errors', async () => {
+    const node = createNode({
+      expression: '{{missing}}()',
+    });
+
+    await assert.rejects(
+      () => node.process({}, createContext()),
+      (error) => {
+        assert.ok(error instanceof Error);
+        assert.match(error.message, /missing/);
+        assert.doesNotMatch(error.message, /__expressionInputs/);
+        return true;
+      },
     );
   });
 });

@@ -1,6 +1,10 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { extractInterpolationVariables, interpolate } from '../../src/utils/interpolation.js';
+import {
+  extractInterpolationVariables,
+  interpolate,
+  replaceInterpolationTokens,
+} from '../../src/utils/interpolation.js';
 
 describe('interpolation utilities', () => {
   it('extracts valid variables while skipping a broken opener across lines', () => {
@@ -47,6 +51,21 @@ describe('interpolation utilities', () => {
         baz: { type: 'string', value: 'OK' },
       }),
       'ABC {{bar ok',
+    );
+  });
+
+  it('replaces tokens through a caller-defined policy while preserving escaped tokens', () => {
+    const template = '  {{{escaped}}} {{foo | ignored}} {{missing}}  ';
+
+    assert.equal(
+      replaceInterpolationTokens(
+        template,
+        ({ tokenName }) => {
+          return tokenName === 'foo' ? 'BAR' : 'undefined';
+        },
+        { trim: true },
+      ),
+      '{{escaped}} BAR undefined',
     );
   });
 });

@@ -11,6 +11,16 @@ export type InterpolationTokenSpan = {
   rawInner: string;
 };
 
+export type InterpolationTokenReplacementInfo = {
+  rawInner: string;
+  span: InterpolationTokenSpan;
+  tokenName: string | undefined;
+};
+
+export type ReplaceInterpolationTokensOptions = {
+  trim?: boolean;
+};
+
 // Processing functions
 type ProcessingFunction = (input: string, param?: number) => string;
 
@@ -282,17 +292,17 @@ export function getInterpolationTokenName(rawInner: string): string | undefined 
   return token === '' ? undefined : token;
 }
 
-export function interpolate(
+export function replaceInterpolationTokens(
   template: string,
-  variables: Record<string, DataValue | string | undefined>,
-  graphInputValues?: Record<string, DataValue>,
-  contextValues?: Record<string, DataValue>,
+  getReplacement: (token: InterpolationTokenReplacementInfo) => string,
+  options: ReplaceInterpolationTokensOptions = {},
 ): string {
   const protectedTemplate = protectEscapedInterpolationTokens(template);
   const tokenSpans = findInterpolationTokenSpans(protectedTemplate);
 
   if (tokenSpans.length === 0) {
-    return restoreEscapedInterpolationTokens(protectedTemplate);
+    const restoredTemplate = restoreEscapedInterpolationTokens(protectedTemplate);
+    return options.trim ? restoredTemplate.trim() : restoredTemplate;
   }
 
   let result = '';
@@ -300,8 +310,28 @@ export function interpolate(
 
   for (const tokenSpan of tokenSpans) {
     result += protectedTemplate.slice(cursor, tokenSpan.start);
+    result += getReplacement({
+      rawInner: tokenSpan.rawInner,
+      span: tokenSpan,
+      tokenName: getInterpolationTokenName(tokenSpan.rawInner),
+    });
+    cursor = tokenSpan.end;
+  }
 
-    const parts = tokenSpan.rawInner.split('|').map((s: string) => s.trim());
+  result += protectedTemplate.slice(cursor);
+
+  const restoredResult = restoreEscapedInterpolationTokens(result);
+  return options.trim ? restoredResult.trim() : restoredResult;
+}
+
+export function interpolate(
+  template: string,
+  variables: Record<string, DataValue | string | undefined>,
+  graphInputValues?: Record<string, DataValue>,
+  contextValues?: Record<string, DataValue>,
+): string {
+  return replaceInterpolationTokens(template, ({ rawInner }) => {
+    const parts = rawInner.split('|').map((s: string) => s.trim());
     const expression = parts[0]!; // The variable name or path, e.g., @context.foo.bar or myVar
     const processingChain = parts.slice(1).join('|'); // e.g., indent 2 | quote
 
@@ -326,19 +356,13 @@ export function interpolate(
 
     if (resolvedValue === undefined) {
       console.warn(`Interpolation variable or path "${expression}" not found or resolved to undefined.`);
-      result += '';
+      return '';
     } else if (processingChain) {
-      result += applyProcessing(resolvedValue, processingChain);
-    } else {
-      result += resolvedValue;
+      return applyProcessing(resolvedValue, processingChain);
     }
 
-    cursor = tokenSpan.end;
-  }
-
-  result += protectedTemplate.slice(cursor);
-
-  return restoreEscapedInterpolationTokens(result);
+    return resolvedValue;
+  });
 }
 
 // Extract all unique variable names from a template string

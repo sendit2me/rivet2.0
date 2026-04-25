@@ -5,11 +5,24 @@
 
 
 
+- Update JS map and JS Filter nodes' variable interpolation the same way we did it for Expression node. The requirememnts ar ethe same, the uX should be the same. 
+
+
+- Only show the preloader in a node if it actually runs more than 500ms
+
+- "Split runs" -> "Iterate through list inputs"
+
+
+- When I create a node, make it selected automatically
+
+- When I hover a node, make it float to the top si I can see it even if was covered with other nodes
+
+- When I hover the node's header, the cursor should be a hand, not the 4-side arrows
 
 - In remote debugging, come up with some ID that can be passed when running so that I can "catch" only the target runs of the workflow
 
 
-- In the output full popup when the markdown mode is on, I wandt to make it better, just like in https://markdownlivepreview.com/
+- In the output full popup when the markdown mode is on, I want to make it better, just like in https://markdownlivepreview.com/
 
 
 
@@ -32,7 +45,6 @@
 
 
 
-- Nodes for working with lists: get element by index
 
 
 - Show run time in eachnode
