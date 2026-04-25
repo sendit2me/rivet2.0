@@ -5,7 +5,6 @@
 
 
 
-- get back the split node summary into node's header
 
 - In remote debugging, come up with some ID that can be passed when running so that I can "catch" only the target runs of the workflow
 
@@ -20,6 +19,7 @@
 - Update the rivet version (at least in the Settings popup)
 
 
+- Make the node cards border radiuses squircles
 
 - Convenient node type browser, just like in n8n
 

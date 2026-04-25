@@ -262,13 +262,8 @@ export const nodeStyles = css`
   }
 
   .split-run-summary-tooltip {
-    position: absolute;
-    top: -26px;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 4;
-    pointer-events: auto;
-    width: max-content;
+    display: inline-flex;
+    max-width: 100%;
   }
 
   .split-run-summary {
@@ -276,13 +271,14 @@ export const nodeStyles = css`
     align-items: center;
     gap: 6px;
     height: 24px;
-    padding: 2px 8px;
+    padding: 2px 4px;
     border: 0;
-    border-radius: 3px;
-    background: var(--node-bg);
-    color: var(--node-bg-foreground);
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--node-bg-foreground) 85%, transparent);
+    color: var(--node-bg);
     cursor: pointer;
     width: max-content;
+    max-width: 100%;
     white-space: nowrap;
     font-family: inherit;
     font-size: 11px;
@@ -290,6 +286,7 @@ export const nodeStyles = css`
     line-height: 1.4;
     letter-spacing: 0.4px;
     text-transform: none;
+    margin-top: 6px;
   }
 
   .split-run-summary-mode {
@@ -300,7 +297,7 @@ export const nodeStyles = css`
 
   .split-run-summary:hover {
     background: var(--primary);
-    color: var(--highlighted-text-contrast);
+    color: black;
   }
 
   .node.isComment .title-text {

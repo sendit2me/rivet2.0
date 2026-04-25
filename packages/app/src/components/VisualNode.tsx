@@ -1,14 +1,5 @@
 import clsx from 'clsx';
-import {
-  type CSSProperties,
-  type FC,
-  type HTMLAttributes,
-  type MouseEvent,
-  type PointerEvent,
-  forwardRef,
-  memo,
-  useMemo,
-} from 'react';
+import { type CSSProperties, type FC, type HTMLAttributes, type MouseEvent, forwardRef, memo, useMemo } from 'react';
 import { type ChartNode, type CommentNode, type NodeConnection } from '@ironclad/rivet-core';
 import { useAtomValue } from 'jotai';
 import { useDependsOnPlugins } from '../hooks/useDependsOnPlugins';
@@ -19,8 +10,6 @@ import { getSplitStackGhostColors } from '../utils/nodeSplitStackColors.js';
 import { useCanvasHandlersContext, useCanvasViewContext } from './CanvasContext';
 import { ZoomedOutVisualNodeContent } from './visualNode/ZoomedOutVisualNodeContent';
 import { NormalVisualNodeContent } from './visualNode/NormalVisualNodeContent';
-import { SplitRunModeIcon } from './visualNode/SplitRunModeIcon.js';
-import { Tooltip } from './Tooltip.js';
 import { getCanvasCommentHeight } from '../hooks/canvasVisibilityBounds.js';
 
 export type VisualNodeProps = {
@@ -121,8 +110,6 @@ export const VisualNode = memo(
 
       const selectedProcessRun = getSelectedProcessRun(lastRun, processPage, graphSelectionOptions);
       const executionClassFlags = getNodeExecutionClassFlags(selectedProcessRun);
-      const splitRunModeLabel = node.isSplitSequential ? 'sequential' : 'parallel';
-      const splitRunMaxLabel = `max ${node.splitRunMax ?? 10}`;
 
       const changedClass = changeInfo
         ? changeInfo.changed
@@ -169,32 +156,6 @@ export const VisualNode = memo(
             }
           }}
         >
-          {node.isSplitRun && !effectiveIsReallyZoomedOut && (
-            <Tooltip className="split-run-summary-tooltip" content="Edit Node" placement="top" tag="span">
-              <button
-                type="button"
-                className="split-run-summary"
-                aria-label={`Edit split run settings, ${splitRunModeLabel}, ${splitRunMaxLabel}`}
-                onClick={(event: MouseEvent<HTMLButtonElement>) => {
-                  event.stopPropagation();
-                  if (isKnownNodeType) {
-                    onNodeStartEditing?.(node);
-                  }
-                }}
-                onMouseDown={(event: MouseEvent<HTMLButtonElement>) => {
-                  event.stopPropagation();
-                  event.preventDefault();
-                }}
-                onPointerDown={(event: PointerEvent<HTMLButtonElement>) => {
-                  event.stopPropagation();
-                }}
-              >
-                <SplitRunModeIcon isSequential={node.isSplitSequential} />
-                <strong className="split-run-summary-mode">{splitRunModeLabel}</strong>
-                {`, ${splitRunMaxLabel}`}
-              </button>
-            </Tooltip>
-          )}
           {effectiveIsZoomedOut ? (
             <ZoomedOutVisualNodeContent
               node={node}

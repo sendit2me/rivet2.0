@@ -10,6 +10,7 @@ import { Port } from '../Port';
 import { preservePortTextCaseState } from '../../state/settings';
 import { useCanvasHandlersContext, useCanvasViewContext } from '../CanvasContext';
 import { SubGraphHeaderLink } from './SubGraphHeaderLink.js';
+import { SplitRunSummary } from './SplitRunSummary.js';
 
 export const ZoomedOutVisualNodeContent: FC<{
   node: ChartNode;
@@ -74,6 +75,7 @@ export const ZoomedOutVisualNodeContent: FC<{
             <div className="title-text">
               <span className="title-text-label">{node.title}</span>
               {nodeDescription && <span className="title-text-description">{nodeDescription}</span>}
+              <SplitRunSummary node={node} isKnownNodeType={isKnownNodeType} />
             </div>
           </div>
         )}

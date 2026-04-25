@@ -26,6 +26,7 @@ import { useCanvasHandlersContext, useCanvasViewContext } from '../CanvasContext
 import { NodeBody } from '../NodeBody.js';
 import { NodeOutput } from '../NodeOutput.js';
 import { SubGraphHeaderLink } from './SubGraphHeaderLink.js';
+import { SplitRunSummary } from './SplitRunSummary.js';
 import {
   computeBoxNodeResizeBounds,
   computeHorizontalNodeResizeBounds,
@@ -274,6 +275,7 @@ export const NormalVisualNodeContent: FC<{
             <div className="title-text">
               <span className="title-text-label">{node.title}</span>
               {nodeDescription && <span className="title-text-description">{nodeDescription}</span>}
+              <SplitRunSummary node={node} isKnownNodeType={isKnownNodeType} />
             </div>
           </div>
           <div className="title-controls">
