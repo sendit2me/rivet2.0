@@ -1152,6 +1152,7 @@ Current canvas header affordances for split nodes:
 - visual node headers render a split-mode icon in [`packages/app/src/components/visualNode/SplitRunModeIcon.tsx`](../packages/app/src/components/visualNode/SplitRunModeIcon.tsx)
 - split nodes also render the editable `parallel/sequential, max N` summary in [`packages/app/src/components/visualNode/SplitRunSummary.tsx`](../packages/app/src/components/visualNode/SplitRunSummary.tsx), directly under the node title/description, so split metadata stays with the header instead of floating above the card
 - that summary is an edit affordance and should open the same node settings panel as the hover-revealed gear control
+- hovered non-comment nodes temporarily rise above other normal and selected nodes through [`packages/app/src/components/nodeStyles.ts`](../packages/app/src/components/nodeStyles.ts) so partially covered nodes become readable on hover; Comment nodes intentionally keep their behind-normal-node stacking behavior so overlapping node headers remain grabbable
 
 Current node-editor Monaco rules that matter for editor changes:
 

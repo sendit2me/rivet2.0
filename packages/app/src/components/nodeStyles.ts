@@ -87,6 +87,7 @@ export const nodeStyles = css`
 
   .node.hovered:not(.isComment) {
     --node-frame-border-color: var(--primary);
+    z-index: 10001 !important;
   }
 
   .node-border-overlay {

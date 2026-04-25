@@ -5,12 +5,7 @@
 
 
 
-- "Split runs" -> "Iterate through list inputs"
 
-
-- When I create a node, make it selected automatically
-
-- When I hover a node, make it float to the top si I can see it even if was covered with other nodes
 
 - When I hover the node's header, the cursor should be a hand, not the 4-side arrows
 
