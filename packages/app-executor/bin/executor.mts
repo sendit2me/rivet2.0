@@ -22,6 +22,7 @@ import { join } from 'node:path';
 import { access, readFile } from 'node:fs/promises';
 import { platform, homedir } from 'node:os';
 import { pathToFileURL } from 'node:url';
+import { AppExecutorWorkerCodeRunner } from './AppExecutorWorkerCodeRunner.mjs';
 
 const datasetProvider = new DebuggerDatasetProvider();
 
@@ -169,6 +170,7 @@ const rivetDebugger = startDebuggerServer({
         remoteDebuggerRequestId: requestId,
         registry,
         datasetProvider,
+        codeRunner: new AppExecutorWorkerCodeRunner(),
         onTrace: (trace) => {
           logRuntimeDebug('Graph trace', { trace });
         },

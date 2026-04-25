@@ -1012,6 +1012,9 @@ Current architectural detail:
 - large execution payloads are now stored preview-first through that same transform layer: oversized `string`, `string[]`, `object`, `any`, and media outputs can be moved into `globalDataRefs` under stable execution-scoped ref ids instead of being kept inline in reactive node state
 - new runs and output-clearing paths are also responsible for clearing those execution-scoped refs so stale large payloads do not accumulate in the in-memory cache
 - desktop Node-executor correctness depends on the bundled `app-executor` sidecar staying in lockstep with current app/core source, so the Tauri app now rebuilds `@ironclad/rivet-app-executor` before both `tauri dev` and desktop builds instead of assuming a previously built sidecar is still compatible. If execution semantics in core change while a dev app is already running, restart the Tauri app so the active sidecar process is replaced; a browser refresh alone does not reload an already-running sidecar.
+- desktop Node-executor Code nodes use the sidecar-only `AppExecutorWorkerCodeRunner`: most dynamic JavaScript runs in a fresh Node worker thread so one long synchronous Code node does not block the sidecar event loop from finishing unrelated nodes and streaming their `nodeFinish` events back to the app.
+- that worker-backed runner is intentionally not the public `@ironclad/rivet-node` default. Programmatic Node callers still use `NodeCodeRunner` unless they explicitly pass a custom runner. Code nodes that enable the `Rivet` capability fall back to the current-thread sidecar runner for compatibility with packaged sidecar resolution.
+- worker isolation does not introduce a new timeout or cancellation contract. Graph cancellation remains the processor-level behavior; the sidecar worker runner only prevents safe Code execution from monopolizing the executor's main event loop.
 
 ### Shared executor session
 

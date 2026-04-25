@@ -148,8 +148,14 @@ The sidecar:
 - uses `assembleRegistry()` from core's `RegistryAssembly.ts` to build a fresh registry for each graph run
 - dynamically imports plugins through `importPluginInitializer()`, which handles CJS/ESM default-export interop
 - runs graphs dynamically using `rivet-node` APIs
+- injects a sidecar-only worker-backed `CodeRunner` so most Code-node JavaScript runs in a fresh Node worker thread instead of blocking unrelated node completion events on the sidecar's main event loop
 - supports preload, pause, resume, abort, and user-input messages
 - supports run-from execution by accepting preload data and a `runFromNodeId`
+
+The worker-backed runner is scoped to the app executor. `@ironclad/rivet-node`
+programmatic callers still use `NodeCodeRunner` by default unless they pass a
+custom `codeRunner`, and Code nodes that request the `Rivet` capability fall back
+to current-thread execution inside the sidecar for compatibility.
 
 ### Build model
 

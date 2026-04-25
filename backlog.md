@@ -5,9 +5,6 @@
 
 
 
-- When a long node is running, it keeps some other nodes from finishing even if they are quick
-
-
 - "Split runs" -> "Iterate through list inputs"
 
 

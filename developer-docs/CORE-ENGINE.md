@@ -603,10 +603,18 @@ That is especially true for nested execution correctness: `ProcessContextBuilder
 
 ### Code runner error locations
 
-`Code` nodes still execute through the configured `CodeRunner`; browser mode uses
-`IsomorphicCodeRunner`, and Node mode uses `NodeCodeRunner`. The node appends a
-generated `sourceURL` before calling the runner so runtime stack frames can be
-mapped back to the user's code-node editor lines when the run fails.
+`Code` nodes still execute through the configured `CodeRunner`. Browser mode uses
+`IsomorphicCodeRunner`. Programmatic Node execution through `@ironclad/rivet-node`
+still defaults to `NodeCodeRunner`, while the desktop app's internal
+`app-executor` sidecar passes its own worker-backed runner so most Code-node
+JavaScript runs off the sidecar's main event loop. The app-executor worker runner
+falls back to current-thread execution when the Code node requests the `Rivet`
+capability, because packaged sidecar module resolution for that capability must
+stay compatible.
+
+The Code node appends a generated `sourceURL` before calling whichever runner is
+configured so runtime stack frames can be mapped back to the user's code-node
+editor lines when the run fails.
 
 Syntax-error diagnostics are deliberately failure-only. The core does not pre-parse
 successful `Code` node runs. If `AsyncFunction` construction throws a syntax error,

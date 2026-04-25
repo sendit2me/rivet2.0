@@ -533,6 +533,14 @@ message**. The browser delivers each message as its own macrotask:
 
 Each event gets its own render cycle automatically. No special handling is needed.
 
+The desktop app's internal Node sidecar also uses an app-executor-only
+worker-backed `CodeRunner` for most Code-node JavaScript. That keeps the sidecar
+event loop free to process independent nodes and emit their `nodeFinish` events
+while an unrelated synchronous Code node is still running. This does not change
+the public `@ironclad/rivet-node` default runner, and Code nodes that request the
+`Rivet` capability may still run on the sidecar's current thread for
+compatibility.
+
 ### Browser execution: microtask avalanche
 
 In browser execution mode, `GraphProcessor` runs in the same thread as React.
