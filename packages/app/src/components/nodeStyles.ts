@@ -113,6 +113,7 @@ export const nodeStyles = css`
     letter-spacing: 1px;
     display: flex;
     justify-content: space-between;
+    position: relative;
     user-select: none;
     overflow: hidden;
     word-break: break-word;
@@ -198,6 +199,10 @@ export const nodeStyles = css`
     padding: 12px 0;
   }
 
+  .node:not(.isComment) .grab-area {
+    padding-right: 66px;
+  }
+
   .split-run-mode-icon {
     flex: 0 0 auto;
     width: 16px;
@@ -276,8 +281,6 @@ export const nodeStyles = css`
 
   .split-run-summary-tooltip {
     display: inline-flex;
-    max-width: 100%;
-    min-width: 0;
   }
 
   .split-run-summary {
@@ -291,8 +294,7 @@ export const nodeStyles = css`
     background: color-mix(in srgb, var(--node-bg-foreground) 85%, transparent);
     color: var(--node-bg);
     cursor: pointer;
-    width: auto;
-    max-width: 100%;
+    width: max-content;
     white-space: nowrap;
     font-family: inherit;
     font-size: 11px;
@@ -302,14 +304,6 @@ export const nodeStyles = css`
     text-transform: none;
     margin-top: 6px;
     margin-left: -1px;
-    min-width: 0;
-    overflow: hidden;
-  }
-
-  .split-run-summary-text {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
 
   .split-run-summary-mode {
@@ -372,6 +366,15 @@ export const nodeStyles = css`
     .edit-button:hover {
       color: var(--primary-text);
     }
+  }
+
+  .node:not(.isComment) .title-controls {
+    flex: none;
+    margin-right: 0;
+    position: absolute;
+    right: 6px;
+    top: 14px;
+    z-index: 4;
   }
 
   .node-running-indicator {
