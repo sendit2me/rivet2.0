@@ -105,6 +105,15 @@ export const defaultEditorContainerStyles = css`
     margin-bottom: 8px !important;
   }
 
+  .node-editor-code-helper {
+    margin-bottom: 10px;
+    white-space: pre-line;
+  }
+
+  .node-editor-code-helper > div {
+    margin-block: 0;
+  }
+
   .editor-viewport-shell {
     position: relative;
     min-height: 0;

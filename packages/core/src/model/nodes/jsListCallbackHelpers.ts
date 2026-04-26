@@ -186,7 +186,7 @@ export function getJSListEditors<T extends ChartNode>(): EditorDefinition<T>[] {
       type: 'code',
       label: 'Callback Body',
       helperMessage:
-        'Body of: (item, index, array) => { ... }. Use {{var}} to create input ports that evaluate as connected values.',
+        'Body of: (item, index, array) => { ... }\nUse {{var}} to create input ports that evaluate as connected values.',
       dataKey: 'callbackBody',
       language: 'javascript',
       enableFolding: true,

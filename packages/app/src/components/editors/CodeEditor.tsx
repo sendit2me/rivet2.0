@@ -198,7 +198,11 @@ export const CodeEditor: FC<CodeEditorProps> = ({
     <Suspense fallback={<div />}>
       <div className="editor-wrapper-wrapper">
         {label && <Label htmlFor="">{label}</Label>}
-        {helperMessage && <HelperMessage>{helperMessage}</HelperMessage>}
+        {helperMessage && (
+          <div className="node-editor-code-helper">
+            <HelperMessage>{helperMessage}</HelperMessage>
+          </div>
+        )}
         {isResizable ? (
           <ResizableCodeEditorViewport
             editorMountKey={editorMountKey}
