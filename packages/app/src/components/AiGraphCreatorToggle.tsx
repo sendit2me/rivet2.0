@@ -1,10 +1,12 @@
 import { css } from '@emotion/react';
-import { type FC } from 'react';
+import { type CSSProperties, type FC } from 'react';
 import SparklesIcon from '../assets/icons/ai-sparks-solid.svg?react';
 import { showAiGraphCreatorInputState } from './AiGraphCreatorInput';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { sidebarOpenState } from '../state/graphBuilder';
 import clsx from 'clsx';
+import { leftSidebarLiveWidthState } from '../state/ui';
+import { getLeftSidebarAttachedControlOffset } from '../utils/leftSidebarWidth';
 
 const styles = css`
   position: absolute;
@@ -12,7 +14,7 @@ const styles = css`
   bottom: 16px;
 
   &.sidebar-open {
-    left: 270px;
+    left: var(--ai-graph-creator-left);
   }
 
   button {
@@ -42,13 +44,18 @@ const styles = css`
 export const AiGraphCreatorToggle: FC = () => {
   const setShowAiGraphCreatorInput = useSetAtom(showAiGraphCreatorInputState);
   const isSidebarOpen = useAtomValue(sidebarOpenState);
+  const aiGraphCreatorLeft = getLeftSidebarAttachedControlOffset(useAtomValue(leftSidebarLiveWidthState));
 
   const handleClick = () => {
     setShowAiGraphCreatorInput((prev) => !prev);
   };
 
   return (
-    <div css={styles} className={clsx({ 'sidebar-open': isSidebarOpen })}>
+    <div
+      css={styles}
+      className={clsx({ 'sidebar-open': isSidebarOpen })}
+      style={{ '--ai-graph-creator-left': `${aiGraphCreatorLeft}px` } as CSSProperties}
+    >
       <button onClick={handleClick}>
         <SparklesIcon />
       </button>

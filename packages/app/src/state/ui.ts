@@ -4,6 +4,7 @@ import type { NodeId } from '@ironclad/rivet-core';
 import { createHybridStorage } from './storage.js';
 import { DEFAULT_MULTILINE_EDITOR_FONT_SIZE } from '../utils/multilineEditorFontSize.js';
 import { DEFAULT_UI_FONT_SIZE } from '../utils/uiFontSize.js';
+import { DEFAULT_LEFT_SIDEBAR_WIDTH } from '../utils/leftSidebarWidth.js';
 import type { ConnectedGraphInputUsage } from '../domain/graphEditing/graphInputUsage.js';
 import { DEFAULT_HORIZONTAL_MODAL_BOUNDS, type HorizontalModalBounds } from '../utils/fullScreenModalBounds.js';
 
@@ -49,6 +50,14 @@ export const fullscreenOutputModalBoundsState = atomWithStorage<HorizontalModalB
 );
 
 export const graphSearchPanelHeightState = atomWithStorage<number>('graphSearchPanelHeightState', 420, storage);
+
+export const leftSidebarWidthState = atomWithStorage<number>(
+  'leftSidebarWidthState',
+  DEFAULT_LEFT_SIDEBAR_WIDTH,
+  storage,
+);
+
+export const leftSidebarLiveWidthState = atom<number>(DEFAULT_LEFT_SIDEBAR_WIDTH);
 
 export const uiFontSizeState = atomWithStorage<number>('uiFontSizeState', DEFAULT_UI_FONT_SIZE, storage);
 

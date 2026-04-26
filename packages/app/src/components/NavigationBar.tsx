@@ -3,6 +3,7 @@ import {
   useEffect,
   useMemo,
   useRef,
+  type CSSProperties,
   type FC,
   type KeyboardEvent,
   type PointerEvent as ReactPointerEvent,
@@ -29,7 +30,8 @@ import { groupGraphSearchMatches, type GraphSearchNodeMatch } from '../hooks/gra
 import { useLoadGraph } from '../hooks/useLoadGraph';
 import { graphState } from '../state/graph';
 import { createRootGraphViewContext } from '../domain/graphEditing/navigationActions';
-import { graphSearchPanelHeightState } from '../state/ui';
+import { graphSearchPanelHeightState, leftSidebarLiveWidthState } from '../state/ui';
+import { getLeftSidebarAttachedControlOffset } from '../utils/leftSidebarWidth';
 
 const GRAPH_SEARCH_FOCUS_ZOOM = 0.8;
 const MIN_GRAPH_SEARCH_PANEL_HEIGHT = 180;
@@ -38,7 +40,7 @@ const GRAPH_SEARCH_PANEL_BOTTOM_MARGIN = 16;
 const styles = css`
   position: fixed;
   top: calc(50px + var(--project-selector-height));
-  left: 275px;
+  left: var(--graph-navigation-left);
   background: transparent;
   z-index: 50;
   display: flex;
@@ -372,6 +374,7 @@ const styles = css`
 export const NavigationBar: FC = () => {
   const navigationStack = useGraphHistoryNavigation();
   const sidebarOpen = useAtomValue(sidebarOpenState);
+  const graphNavigationLeft = getLeftSidebarAttachedControlOffset(useAtomValue(leftSidebarLiveWidthState));
 
   const [searching, setSearching] = useAtom(searchingGraphState);
   const [graphSearchPanelHeight, setGraphSearchPanelHeight] = useAtom(graphSearchPanelHeightState);
@@ -483,7 +486,11 @@ export const NavigationBar: FC = () => {
   }
 
   return (
-    <div css={styles} className={clsx({ 'sidebar-closed': !sidebarOpen })}>
+    <div
+      css={styles}
+      className={clsx({ 'sidebar-closed': !sidebarOpen })}
+      style={{ '--graph-navigation-left': `${graphNavigationLeft}px` } as CSSProperties}
+    >
       {navigationStack.hasBackward ? (
         <Tooltip content="Go to previous graph" placement="bottom">
           <button onClick={navigationStack.navigateBack}>
