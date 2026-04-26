@@ -1,9 +1,12 @@
 import { DndContext, useDroppable } from '@dnd-kit/core';
 import { css } from '@emotion/react';
-import { type FC, type MouseEvent, type KeyboardEvent, memo, useMemo } from 'react';
+import { type FC, type MouseEvent, type KeyboardEvent, memo, useMemo, useState } from 'react';
 import { useAtomValue } from 'jotai';
 import { DropdownItem } from '@atlaskit/dropdown-menu';
-import { type GraphId } from '@ironclad/rivet-core';
+import Button from '@atlaskit/button';
+import Modal, { ModalBody, ModalFooter, ModalHeader, ModalTitle, ModalTransition } from '@atlaskit/modal-dialog';
+import CrossIconCore from '@atlaskit/icon/glyph/cross';
+import { type GraphId, type NodeGraph } from '@ironclad/rivet-core';
 import clsx from 'clsx';
 import { runningGraphsState } from '../state/dataFlow.js';
 import { pluginsState } from '../state/plugins.js';
@@ -83,11 +86,54 @@ const styles = css`
   }
 
   .graph-item-name {
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .graph-item-name-text {
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .folder-graph-item .graph-item-name-text {
+    font-weight: 700;
+  }
+
+  .graph-folder-icon {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    color: currentColor;
+  }
+
+  .graph-main-icon {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    color: currentColor;
+  }
+
+  .graph-folder-count {
+    min-width: 18px;
+    padding: 2px 6px;
+    border-radius: 999px;
+    corner-shape: squircle;
+    background: var(--grey-darkish);
+    color: var(--grey-light);
+    flex-shrink: 0;
+    font-size: var(--ui-font-size-xs);
+    font-weight: 700;
+    line-height: 1.2;
+    text-align: center;
+  }
+
+  .selected .graph-folder-count {
+    background: rgba(0, 0, 0, 0.18);
+    color: rgba(0, 0, 0, 0.68);
   }
 
   .graph-reference-dot {
@@ -105,6 +151,17 @@ const styles = css`
   .depthSpacer {
     width: 10px;
     flex-shrink: 0;
+  }
+
+  .expander {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .expander svg {
+    width: 12px;
+    height: 12px;
   }
 
   .selected {
@@ -203,11 +260,11 @@ const styles = css`
   .unreachable-badge {
     margin-right: 6px;
     padding: 4px 6px;
-    border: 1px solid var(--grey-light);
+    border: 1px solid color-mix(in srgb, currentColor 42%, transparent);
     border-radius: 40px;
     corner-shape: superellipse(1.15);
-    background: var(--grey-darkerish);
-    color: var(--grey-lighter);
+    background: color-mix(in srgb, currentColor 10%, transparent);
+    color: color-mix(in srgb, currentColor 72%, transparent);
     font-size: var(--ui-font-size-2xs);
     font-weight: 600;
     line-height: 1;
@@ -216,9 +273,9 @@ const styles = css`
   }
 
   .selected .unreachable-badge {
-    border-color: rgba(255, 255, 255, 0.45);
-    background: rgba(0, 0, 0, 0.12);
-    color: rgba(255, 255, 255, 0.92);
+    border-color: color-mix(in srgb, currentColor 42%, transparent);
+    background: color-mix(in srgb, currentColor 10%, transparent);
+    color: color-mix(in srgb, currentColor 72%, transparent);
   }
 `;
 
@@ -232,6 +289,12 @@ const contextMenuStyles = css`
     // This fixes a bug in Ubuntu where the text is missing
     overflow-x: visible !important;
   }
+`;
+
+const deleteGraphConfirmBody = css`
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 `;
 
 export const GraphList: FC<{ onRunGraph?: (graphId: GraphId) => void }> = memo(({ onRunGraph }) => {
@@ -261,6 +324,7 @@ export const GraphList: FC<{ onRunGraph?: (graphId: GraphId) => void }> = memo((
   const project = useAtomValue(projectState);
   const plugins = useAtomValue(pluginsState);
   const projectNodeRegistry = useProjectNodeRegistry();
+  const [graphPendingDelete, setGraphPendingDelete] = useState<NodeGraph | null>(null);
 
   const { setShowContextMenu, showContextMenu, contextMenuData, handleContextMenu, floatingStyles, refs } =
     useContextMenu();
@@ -314,6 +378,15 @@ export const GraphList: FC<{ onRunGraph?: (graphId: GraphId) => void }> = memo((
     const selectedGraphId = graph.metadata?.id;
     return selectedGraphId ? getGraphIdsReferencingGraph(project, selectedGraphId) : new Set<GraphId>();
   }, [graph.metadata?.id, project]);
+
+  const confirmDeleteGraph = useStableCallback(() => {
+    if (!graphPendingDelete) {
+      return;
+    }
+
+    handleDelete(graphPendingDelete);
+    setGraphPendingDelete(null);
+  });
 
   return (
     <div css={styles}>
@@ -402,7 +475,9 @@ export const GraphList: FC<{ onRunGraph?: (graphId: GraphId) => void }> = memo((
                   </DropdownItem>
                   <DropdownItem
                     onClick={() => {
-                      handleDelete(selectedGraphForContextMenu!);
+                      if (selectedGraphForContextMenu) {
+                        setGraphPendingDelete(selectedGraphForContextMenu);
+                      }
                       setShowContextMenu(false);
                     }}
                   >
@@ -511,6 +586,11 @@ export const GraphList: FC<{ onRunGraph?: (graphId: GraphId) => void }> = memo((
             </div>
           )}
         </Portal>
+        <DeleteGraphConfirmModal
+          graph={graphPendingDelete}
+          onClose={() => setGraphPendingDelete(null)}
+          onConfirm={confirmDeleteGraph}
+        />
       </div>
     </div>
   );
@@ -525,3 +605,40 @@ export const GraphListSpacer: FC = memo(() => {
 });
 
 GraphListSpacer.displayName = 'GraphListSpacer';
+
+const DeleteGraphConfirmModal: FC<{
+  graph: NodeGraph | null;
+  onClose: () => void;
+  onConfirm: () => void;
+}> = ({ graph, onClose, onConfirm }) => {
+  const graphName = graph?.metadata?.name ?? 'Untitled Graph';
+
+  return (
+    <ModalTransition>
+      {graph && (
+        <Modal autoFocus={false} onClose={onClose} width="small">
+          <ModalHeader>
+            <ModalTitle>Delete Graph?</ModalTitle>
+            <Button appearance="subtle" onClick={onClose}>
+              <CrossIconCore label="Close Modal" primaryColor="currentColor" />
+            </Button>
+          </ModalHeader>
+          <ModalBody>
+            <div css={deleteGraphConfirmBody}>
+              <p>
+                Delete <strong>{graphName}</strong>?
+              </p>
+              <p>This cannot be undone.</p>
+            </div>
+          </ModalBody>
+          <ModalFooter>
+            <Button onClick={onClose}>Cancel</Button>
+            <Button appearance="danger" onClick={onConfirm}>
+              Delete
+            </Button>
+          </ModalFooter>
+        </Modal>
+      )}
+    </ModalTransition>
+  );
+};

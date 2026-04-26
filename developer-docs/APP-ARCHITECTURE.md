@@ -529,6 +529,8 @@ Responsibilities:
 - DnD container for graph/folder moves
 - rendering `FolderItem` recursively
 
+Folder rows are visually distinct from graph rows: folder names are bold, use the shared folder icon before the name, use chevron expanders, and show a filled pill with the recursive graph count after the name. Graph rows keep normal-weight text plus their reachability/reference indicators, and the configured Main Graph gets a small star icon before its name. The Project tab uses the same star next to the Main Graph field label so the marker has an obvious legend where the setting is configured. Deleting a graph from the graph-list context menu opens a confirmation modal before calling the shared graph deletion hook.
+
 ### `useGraphOperations`
 
 Owns graph/folder operations previously bundled into the component:

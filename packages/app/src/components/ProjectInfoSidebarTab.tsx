@@ -17,8 +17,21 @@ import { useAtom, useAtomValue } from 'jotai';
 import { ProjectReferencesConfiguration } from './ProjectReferencesConfiguration';
 import { ProjectMCPConfiguration } from './ProjectMCPConfiguration';
 import { LabeledToggle } from './LabeledToggle';
+import { MainGraphIcon } from './graphList/MainGraphIcon';
 
 const styles = css`
+  .main-graph-field-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .main-graph-field-label svg {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+  }
+
   .context-list {
     display: flex;
     flex-direction: column;
@@ -140,7 +153,7 @@ export const ProjectInfoSidebarTab: FC = () => {
       />
       <ProjectMCPConfiguration />
 
-      <Field name="mainGraph" label="Main Graph">
+      <Field name="mainGraph" label={<MainGraphFieldLabel />}>
         {() => (
           <Select
             options={graphOptions}
@@ -203,6 +216,13 @@ export const ProjectInfoSidebarTab: FC = () => {
     </div>
   );
 };
+
+const MainGraphFieldLabel: FC = () => (
+  <span className="main-graph-field-label">
+    <MainGraphIcon />
+    <span>Main Graph</span>
+  </span>
+);
 
 const ValueEditorModalRenderer: FC<{
   initialKey?: string;

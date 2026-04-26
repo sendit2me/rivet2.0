@@ -162,7 +162,7 @@ When the graph-list feature is implemented, use:
 
 - `definitely reachable`: normal graph styling
 - `dynamically reachable`: ambiguous styling / badge / tooltip, not "unreachable"
-- `unreachable`: the only bucket that should be visually marked as unreachable
+- `unreachable`: the only bucket that should be visually marked with the muted lowercase `unreachable` badge
 
 That preserves the three-bucket model without collapsing runtime-only dispatch into a false negative.
 

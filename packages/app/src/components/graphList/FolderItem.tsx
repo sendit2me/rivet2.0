@@ -14,13 +14,15 @@ import { range } from 'lodash-es';
 import clsx from 'clsx';
 import { LoadingSpinner } from '../LoadingSpinner.js';
 import { type GraphId, type NodeGraph } from '@ironclad/rivet-core';
-import ArrowRightIcon from 'majesticons/line/arrow-right-line.svg?react';
-import ArrowDownIcon from 'majesticons/line/arrow-down-line.svg?react';
+import ChevronRightIcon from 'majesticons/line/chevron-right-line.svg?react';
+import ChevronDownIcon from 'majesticons/line/chevron-down-line.svg?react';
+import FolderIcon from 'majesticons/line/folder-line.svg?react';
 import { useStableCallback } from '../../hooks/useStableCallback.js';
 import TextField from '@atlaskit/textfield';
 import { expandedFoldersState } from '../../state/ui';
-import { type NodeGraphFolderItem } from './graphFolders';
+import { countGraphsInFolder, type NodeGraphFolderItem } from './graphFolders';
 import { type GraphReachabilityBucket } from '../../utils/graphReachability.js';
+import { MainGraphIcon } from './MainGraphIcon';
 
 export const FolderItem: FC<{
   item: NodeGraphFolderItem;
@@ -60,12 +62,14 @@ export const FolderItem: FC<{
 
     const isRenaming = renamingItemFullPath === fullPath;
     const isSelected = graph.metadata?.id === savedGraph?.metadata?.id;
+    const isMainGraph = item.type === 'graph' && savedGraph?.metadata?.id === projectMetadata.mainGraphId;
     const referencesSelectedGraph =
       item.type === 'graph' && savedGraph?.metadata?.id ? referencingSelectedGraphIds.has(savedGraph.metadata.id) : false;
     const isDraggingOver =
       item.type === 'folder' && dragOverFolderName === fullPath && draggingItemFolder !== dragOverFolderName;
     const graphReachability =
       item.type === 'graph' && savedGraph?.metadata?.id ? graphReachabilityByGraphId[savedGraph.metadata.id] : undefined;
+    const folderGraphCount = item.type === 'folder' ? countGraphsInFolder(item) : undefined;
     const shouldShowUnreachableBadge =
       item.type === 'graph' &&
       !isRenaming &&
@@ -111,11 +115,17 @@ export const FolderItem: FC<{
           style={style}
         >
           <div
-            className={clsx('graph-item', { selected: isSelected })}
+            className={clsx('graph-item', { selected: isSelected, 'folder-graph-item': item.type === 'folder' })}
             data-contextmenutype={item.type === 'folder' ? 'graph-folder' : 'graph-item'}
             data-graphid={savedGraph?.metadata?.id}
             data-folderpath={item.type === 'folder' ? item.fullPath : item.graph.metadata?.name}
-            title={referencesSelectedGraph ? `${fullPath}\nReferences the open graph.` : fullPath}
+            title={[
+              fullPath,
+              isMainGraph ? 'Main graph.' : undefined,
+              referencesSelectedGraph ? 'References the open graph.' : undefined,
+            ]
+              .filter(Boolean)
+              .join('\n')}
           >
             {range(virtualDepth + 1).map((idx) => {
               const isSpinner = idx === 0 && graphIsRunning;
@@ -129,7 +139,7 @@ export const FolderItem: FC<{
                   )}
                   {isExpander && (
                     <div className="expander" onClick={() => setExpanded(!isExpanded)}>
-                      {isExpanded ? <ArrowDownIcon /> : <ArrowRightIcon />}
+                      {isExpanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
                     </div>
                   )}
                 </div>
@@ -144,13 +154,18 @@ export const FolderItem: FC<{
               ) : (
                 <>
                   {referencesSelectedGraph && <span className="graph-reference-dot" aria-hidden="true" />}
-                  <span className="graph-item-name">{item.name}</span>
+                  <span className="graph-item-name">
+                    {isMainGraph && <MainGraphIcon className="graph-main-icon" />}
+                    {item.type === 'folder' && <FolderIcon className="graph-folder-icon" aria-hidden="true" />}
+                    <span className="graph-item-name-text">{item.name}</span>
+                    {folderGraphCount != null && <span className="graph-folder-count">{folderGraphCount}</span>}
+                  </span>
                 </>
               )}
             </div>
             {shouldShowUnreachableBadge && (
               <span className="unreachable-badge" title="This graph is unreachable from the project's Main Graph.">
-                Unreachable
+                unreachable
               </span>
             )}
             <div className="dragger" {...listeners} {...attributes}>

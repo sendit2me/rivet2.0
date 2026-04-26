@@ -114,3 +114,13 @@ export function getFolderNames(folderedGraphs: NodeGraphFolderItem[]): string[] 
   folderedGraphs.forEach(traverseFolder);
   return folderNames;
 }
+
+export function countGraphsInFolder(folder: NodeGraphFolder): number {
+  return folder.children.reduce((count, child) => {
+    if (child.type === 'graph') {
+      return count + 1;
+    }
+
+    return count + countGraphsInFolder(child);
+  }, 0);
+}

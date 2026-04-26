@@ -1,9 +1,6 @@
 
 
 
-
-- Make the left panel width adjustable
-
 - Change how the node output view renders lists. I don't like how it renders them now with the lines between items
 
 - Every node (Or Code + Expression + HTTP) should have a "Do not throw" switcher so I can safely fallback with coalesce
