@@ -916,8 +916,12 @@ reads should not depend on file handles.
 
 - save-as uses `showSaveFilePicker()` and remembers the returned project file handle
 - opening a project first tries `showOpenFilePicker()` so browsers that support writable handles can later save in place
-- if browser file-handle opening is blocked, project opening falls back to the shared `<input type="file">` path
-- `Save project` writes back without prompting only when a remembered project file handle exists; otherwise the shared save flow falls back to save-as
+- browser File System Access project pickers intentionally omit `types.accept` filters for `.rivet-project`, because Chromium rejects hyphenated extensions in picker filter metadata even though the suggested filename and actual project filename can still use `.rivet-project`
+- because the browser picker cannot filter `.rivet-project`, selected handle names are validated before deserialization. Non-project selections fail with a clear project-file error instead of opening a second picker or trying to parse files such as `.rivet-data` as projects.
+- project opening never requests `readwrite`; remembered project handles are save-in-place targets, and the browser may ask for write permission only when `Save project` writes back to that handle
+- if the browser file-handle picker is unavailable, project opening falls back to the shared `<input type="file">` path. Once a handle has been selected, Rivet does not open a second fallback picker; read failures are reported directly so users do not accidentally open through upload-only mode and lose save-in-place.
+- `Save project` writes back without a file picker only when a remembered project file handle exists; otherwise the shared save flow falls back to save-as
+- provider capability checks such as `canSaveProjectDataNoPrompt()` are called as provider methods, not detached functions, because browser providers may keep save-target state in private instance fields
 - remembered browser project handles use internal per-handle paths ending in the filename, so same-named project files do not collide while project tabs can still display the readable filename
 
 The browser provider intentionally does not implement the full `PathBasedIOProvider` interface, because remembered project

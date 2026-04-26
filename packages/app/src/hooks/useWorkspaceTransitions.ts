@@ -1,8 +1,6 @@
 import { useAtom, useAtomValue, useSetAtom, useStore } from 'jotai';
 import { type DataId, type Project } from '@ironclad/rivet-core';
-import { type TrivetData } from '@ironclad/trivet';
 import { toast, type Id as ToastId } from 'react-toastify';
-import { type IOProvider, isPathBasedIOProvider } from '../io/IOProvider.js';
 import { useIOProvider } from '../providers/ProvidersContext.js';
 import { cleanupNodeAtomFamilies, graphState, historicalGraphState, isReadOnlyGraphState } from '../state/graph.js';
 import {
@@ -38,27 +36,7 @@ import {
 } from '../utils/projectEditorState.js';
 import { flushHybridStorageGroup } from '../state/storage.js';
 import { useCurrentProjectEditorSnapshot } from './useCurrentProjectEditorSnapshot.js';
-
-type ProjectSaveWithoutPromptProvider = IOProvider & {
-  saveProjectDataNoPrompt(project: Project, testData: TrivetData, path: string): Promise<void>;
-  canSaveProjectDataNoPrompt?(path: string): boolean;
-};
-
-function canSaveProjectDataNoPrompt(
-  ioProvider: IOProvider,
-  path: string | null,
-): ioProvider is ProjectSaveWithoutPromptProvider {
-  if (!path || typeof (ioProvider as Partial<ProjectSaveWithoutPromptProvider>).saveProjectDataNoPrompt !== 'function') {
-    return false;
-  }
-
-  const canSave = (ioProvider as Partial<ProjectSaveWithoutPromptProvider>).canSaveProjectDataNoPrompt;
-  if (typeof canSave === 'function') {
-    return canSave(path);
-  }
-
-  return isPathBasedIOProvider(ioProvider);
-}
+import { canSaveProjectDataNoPrompt } from '../utils/projectSaveCapabilities.js';
 
 export function useWorkspaceTransitions() {
   const ioProvider = useIOProvider();

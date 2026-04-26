@@ -19,11 +19,53 @@ import { openBrowserFile } from './browserFileInput.js';
 const PROJECT_FILE_EXTENSION = '.rivet-project';
 const PROJECT_FILE_HANDLE_PATH_PREFIX = 'browser-project-handle';
 
+type BrowserFilePermissionMode = 'read' | 'readwrite';
+
+type PermissionAwareFileHandle = FileSystemFileHandle & {
+  queryPermission?: (descriptor?: { mode?: BrowserFilePermissionMode }) => Promise<PermissionState>;
+  requestPermission?: (descriptor?: { mode?: BrowserFilePermissionMode }) => Promise<PermissionState>;
+};
+
 function isAbortError(error: unknown): boolean {
   return typeof error === 'object' && error != null && 'name' in error && error.name === 'AbortError';
 }
 
+function isProjectFileName(fileName: string): boolean {
+  return fileName.toLowerCase().endsWith(PROJECT_FILE_EXTENSION);
+}
+
+async function ensureFileHandlePermission(
+  fileHandle: FileSystemFileHandle,
+  mode: BrowserFilePermissionMode,
+): Promise<boolean> {
+  const permissionAwareFileHandle = fileHandle as PermissionAwareFileHandle;
+  const descriptor = { mode };
+
+  if (!permissionAwareFileHandle.queryPermission && !permissionAwareFileHandle.requestPermission) {
+    return true;
+  }
+
+  try {
+    const currentPermission = await permissionAwareFileHandle.queryPermission?.(descriptor);
+
+    if (currentPermission === 'granted') {
+      return true;
+    }
+
+    const requestedPermission = await permissionAwareFileHandle.requestPermission?.(descriptor);
+    return requestedPermission === 'granted';
+  } catch {
+    return false;
+  }
+}
+
 async function writeProjectFile(fileHandle: FileSystemFileHandle, project: Project, testData: TrivetData): Promise<void> {
+  const canWrite = await ensureFileHandlePermission(fileHandle, 'readwrite');
+
+  if (!canWrite) {
+    throw new Error('Browser write permission was not granted for this project file. Use Save project as...');
+  }
+
   const writable = await fileHandle.createWritable();
   await writable.write(serializeProject(project, { trivet: serializeTrivetData(testData) }) as string);
   await writable.close();
@@ -47,14 +89,6 @@ export class BrowserIOProvider implements IOProvider {
   async saveProjectData(project: Project, testData: TrivetData): Promise<string | undefined> {
     const fileHandle = await window.showSaveFilePicker({
       suggestedName: `${project.metadata?.title ?? 'project'}${PROJECT_FILE_EXTENSION}`,
-      types: [
-        {
-          description: 'Rivet Project',
-          accept: {
-            'application/json': [PROJECT_FILE_EXTENSION],
-          },
-        },
-      ],
     });
 
     await writeProjectFile(fileHandle, project, testData);
@@ -116,25 +150,12 @@ export class BrowserIOProvider implements IOProvider {
       return 'fallback';
     }
 
+    let fileHandle: FileSystemFileHandle | undefined;
+
     try {
-      const [fileHandle] = await window.showOpenFilePicker({
+      [fileHandle] = await window.showOpenFilePicker({
         multiple: false,
-        types: [
-          {
-            description: 'Rivet Project',
-            accept: {
-              'application/json': [PROJECT_FILE_EXTENSION],
-            },
-          },
-        ],
       });
-
-      if (!fileHandle) {
-        return undefined;
-      }
-
-      const file = await fileHandle.getFile();
-      return { file, path: this.rememberProjectFileHandle(fileHandle) };
     } catch (err) {
       if (isAbortError(err)) {
         return undefined;
@@ -142,6 +163,26 @@ export class BrowserIOProvider implements IOProvider {
 
       return 'fallback';
     }
+
+    if (!fileHandle) {
+      return undefined;
+    }
+
+    if (!isProjectFileName(fileHandle.name)) {
+      throw new Error(`Expected a ${PROJECT_FILE_EXTENSION} project file, but "${fileHandle.name}" was selected.`);
+    }
+
+    let file: File;
+    try {
+      file = await fileHandle.getFile();
+    } catch (err) {
+      throw new Error(
+        `Browser could not read "${fileHandle.name}" from the file picker. Try opening Rivet in a browser that supports writable local file handles, or use Save project as... after opening through the fallback file picker.`,
+        { cause: err },
+      );
+    }
+
+    return { file, path: this.rememberProjectFileHandle(fileHandle) };
   }
 
   private rememberProjectFileHandle(fileHandle: FileSystemFileHandle): string {
