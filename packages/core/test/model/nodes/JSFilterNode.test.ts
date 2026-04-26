@@ -60,8 +60,8 @@ describe('JSFilterNode', () => {
       {
         type: 'code',
         label: 'Callback Body',
-        helperMessage:
-          'Body of: (item, index, array) => { ... }. Use {{var}} to create input ports that evaluate as connected values.',
+        helperMessage: 'Body of: (item, index, array) => { ... }',
+        postEditorHelperMessage: 'Use {{var}} to create input ports that evaluate as connected values.',
         dataKey: 'callbackBody',
         language: 'javascript',
         enableFolding: true,

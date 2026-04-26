@@ -110,6 +110,11 @@ export const defaultEditorContainerStyles = css`
     white-space: pre-line;
   }
 
+  .node-editor-code-helper-after {
+    margin-top: 8px;
+    margin-bottom: 0;
+  }
+
   .node-editor-code-helper > div {
     margin-block: 0;
   }

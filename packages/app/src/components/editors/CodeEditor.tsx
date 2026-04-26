@@ -7,7 +7,7 @@ import { type monaco } from '../../utils/monaco';
 import { themeState } from '../../state/settings.js';
 import { LazyCodeEditor } from '../LazyComponents';
 import { type SharedEditorProps } from './SharedEditorProps';
-import { getHelperMessage } from './editorUtils';
+import { getHelperMessage, getPostEditorHelperMessage } from './editorUtils';
 import { resolveMonacoTheme } from '../codeEditorTheme.js';
 import { ResizeHandle } from '../ResizeHandle.js';
 import { isValidHeight, RESIZABLE_LANGUAGES, useNodeEditorCodeViewportHeight } from './useNodeEditorCodeViewportHeight.js';
@@ -34,6 +34,7 @@ export const DefaultCodeEditor: FC<
   }
 > = ({ node, isReadonly, isDisabled, onChange, editor: editorDef, onClose }) => {
   const helperMessage = getHelperMessage(editorDef, node.data);
+  const postEditorHelperMessage = getPostEditorHelperMessage(editorDef, node.data);
   const nodeLatest = useLatest(node);
 
   const debouncedOnChange = useDebounceFn<(node: ChartNode) => void>(onChange, { wait: 100 });
@@ -57,6 +58,7 @@ export const DefaultCodeEditor: FC<
     label: editorDef.label,
     name: editorDef.dataKey,
     helperMessage,
+    postEditorHelperMessage,
     onClose,
     language: editorDef.language,
     theme: editorDef.theme,
@@ -99,6 +101,7 @@ type CodeEditorProps = {
   label: string;
   name?: string;
   helperMessage?: string;
+  postEditorHelperMessage?: string;
   onClose?: () => void;
   theme?: string;
   language?: string;
@@ -119,6 +122,7 @@ export const CodeEditor: FC<CodeEditorProps> = ({
   label,
   name,
   helperMessage,
+  postEditorHelperMessage,
   onClose,
   theme,
   language,
@@ -236,6 +240,11 @@ export const CodeEditor: FC<CodeEditorProps> = ({
             defaultHeight={defaultHeight}
             errorLineHighlight={activeErrorLineHighlight}
           />
+        )}
+        {postEditorHelperMessage && (
+          <div className="node-editor-code-helper node-editor-code-helper-after">
+            <HelperMessage>{postEditorHelperMessage}</HelperMessage>
+          </div>
         )}
         {showTextStats && <div className="editor-status-line">{formatTextEditorStatsLine(displayValue)}</div>}
       </div>

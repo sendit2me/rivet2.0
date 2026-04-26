@@ -123,6 +123,7 @@ export type CodeEditorDefinition<T extends ChartNode> = SharedEditorDefinitionPr
 
   dataKey: DataOfType<T, string>;
   useInputToggleDataKey?: DataOfType<T, boolean>;
+  postEditorHelperMessage?: string | ((data: T['data']) => string | undefined);
 
   language: string;
   theme?: string;

@@ -1,18 +1,16 @@
 
 
+- When renaming a {{var}}, it removes the existing connection. It should just update the corresponding input port title
 
 - Change how the node output view renders lists. I don't like how it renders them now with the lines between items
 
-- Every node (Or Code + Expression + HTTP) should have a "Do not throw" switcher so I can safely fallback with coalesce
-
-
-
 - Check opening and saving files in the web rivet. Crtl+S and Ctrl+O don't work
-- In the "File" menu, probably need to have "Dave project" item. (not only "save as")
 
 - Reassess the Rivet settings. probbaly something needs reworking
 
+- Every node (Or Code + Expression + HTTP) should have a "Do not throw" switcher so I can safely fallback with coalesce
 
+- Update the rivet version (at least in the Settings popup)
 
 
 
@@ -25,7 +23,6 @@
 
 - Light color theme
 
-- Update the rivet version (at least in the Settings popup)
 
 
 

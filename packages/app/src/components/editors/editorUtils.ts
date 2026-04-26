@@ -6,6 +6,16 @@ export function getHelperMessage(editor: EditorDefinition<ChartNode>, data: Char
     : editor.helperMessage || undefined;
 }
 
+export function getPostEditorHelperMessage(editor: EditorDefinition<ChartNode>, data: ChartNode['data']) {
+  if (editor.type !== 'code') {
+    return undefined;
+  }
+
+  return typeof editor.postEditorHelperMessage === 'function'
+    ? editor.postEditorHelperMessage(data) || undefined
+    : editor.postEditorHelperMessage || undefined;
+}
+
 type EditorDefinitionWithDataKey = EditorDefinition<ChartNode> & { dataKey: unknown };
 
 function hasEditorDataKey(editor: EditorDefinition<ChartNode>): editor is EditorDefinitionWithDataKey {
