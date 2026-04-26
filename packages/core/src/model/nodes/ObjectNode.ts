@@ -21,6 +21,7 @@ import {
   restoreEscapedInterpolationTokens,
   unwrapPotentialDataValue,
 } from '../../utils/interpolation.js';
+import { createInterpolationInputDefinition } from '../interpolationInputDefinition.js';
 
 export type ObjectNode = ChartNode<'object', ObjectNodeData>;
 
@@ -55,12 +56,11 @@ export class ObjectNodeImpl extends NodeImpl<ObjectNode> {
     const inputTokens = extractInterpolationVariables(this.chartNode.data.jsonTemplate ?? '');
 
     return inputTokens.map((inputName) => {
-      return {
-        id: inputName as PortId,
-        title: inputName,
+      return createInterpolationInputDefinition({
+        interpolationName: inputName,
         dataType: 'any',
         required: false,
-      };
+      });
     });
   }
 

@@ -5,6 +5,7 @@ import type { EditorDefinition } from '../EditorDefinition.js';
 import type { NodeBodySpec } from '../NodeBodySpec.js';
 import type { InternalProcessContext } from '../ProcessContext.js';
 import { getError } from '../../utils/errors.js';
+import { createInterpolationInputDefinition } from '../interpolationInputDefinition.js';
 import {
   buildClonedInputValueAssignments,
   buildCloneJsInputValueFunction,
@@ -160,12 +161,13 @@ export function buildJSMapWrapper(callbackBody: string): string {
 }
 
 export function getJSListCallbackInterpolationInputDefinitions(callbackBody: string): NodeInputDefinition[] {
-  return getJSListCallbackInterpolationInputNames(callbackBody).map((inputName) => ({
-    id: inputName as PortId,
-    title: inputName,
-    dataType: 'any',
-    required: false,
-  }));
+  return getJSListCallbackInterpolationInputNames(callbackBody).map((inputName) =>
+    createInterpolationInputDefinition({
+      interpolationName: inputName,
+      dataType: 'any',
+      required: false,
+    }),
+  );
 }
 
 export function getJSListInputDefinitions(callbackBody: string): NodeInputDefinition[] {

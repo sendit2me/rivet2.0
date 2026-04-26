@@ -1,7 +1,13 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 
-import { TextNodeImpl, type TextNode, type NodeBodySpec } from '../../../src/index.js';
+import {
+  TextNodeImpl,
+  type DataValue,
+  type InternalProcessContext,
+  type NodeBodySpec,
+  type TextNode,
+} from '../../../src/index.js';
 
 const createNode = (data: Partial<TextNode['data']>) => {
   return new TextNodeImpl({
@@ -14,6 +20,48 @@ const createNode = (data: Partial<TextNode['data']>) => {
 };
 
 describe('TextNode', () => {
+  const context = {
+    graphInputNodeValues: {
+      graphValue: { type: 'string', value: 'from graph' },
+    },
+    contextValues: {
+      contextValue: { type: 'string', value: 'from context' },
+    },
+  } as InternalProcessContext;
+
+  it('interpolates string values with spaces and braces without reparsing them', async () => {
+    const node = createNode({
+      text: 'Value: {{input}}',
+    });
+
+    const result = await node.process(
+      {
+        input: { type: 'string', value: 'foo {{not-a-port}} bar' },
+      } satisfies Record<string, DataValue>,
+      context,
+    );
+
+    assert.deepStrictEqual(result.output, {
+      type: 'string',
+      value: 'Value: foo {{not-a-port}} bar',
+    });
+  });
+
+  it('resolves graph and context interpolation references without exposing input ports', async () => {
+    const node = createNode({
+      text: '{{@graphInputs.graphValue}} / {{@context.contextValue}}',
+    });
+
+    assert.deepStrictEqual(node.getInputDefinitions(), []);
+
+    const result = await node.process({}, context);
+
+    assert.deepStrictEqual(result.output, {
+      type: 'string',
+      value: 'from graph / from context',
+    });
+  });
+
   it('truncates long single-line previews so large blobs do not render in full', () => {
     const node = createNode({
       text: `prefix-${'a'.repeat(5000)}`,

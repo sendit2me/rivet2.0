@@ -16,6 +16,7 @@ import type { Inputs, Outputs } from '../GraphProcessor.js';
 import { keys } from '../../utils/typeSafety.js';
 import { coerceTypeOptional, coerceType } from '../../utils/coerceType.js';
 import { getInputOrData } from '../../utils/index.js';
+import { createInterpolationInputDefinition } from '../interpolationInputDefinition.js';
 
 export type GptFunctionNode = ChartNode<'gptFunction', GptFunctionNodeData>;
 
@@ -91,13 +92,12 @@ export class GptFunctionNodeImpl extends NodeImpl<GptFunctionNode> {
     inputs = [
       ...inputs,
       ...(inputNames?.map((inputName): NodeInputDefinition => {
-        return {
-          // id and title should not have the {{ and }}
+        return createInterpolationInputDefinition({
           id: `input-${inputName}` as PortId,
-          title: inputName,
+          interpolationName: inputName,
           dataType: 'string',
           description: `An interpolated value in the schema named '${inputName}'`,
-        };
+        });
       }) ?? []),
     ];
 

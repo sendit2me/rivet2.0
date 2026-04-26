@@ -31,6 +31,7 @@ export * from './model/RegistryAssembly.js';
 export type * from './model/Settings.js';
 export * from './model/EditorDefinition.js';
 export * from './model/NodeBodySpec.js';
+export * from './model/interpolationInputDefinition.js';
 export * from './integrations/DatasetProvider.js';
 export * from './model/Dataset.js';
 export type {

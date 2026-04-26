@@ -2,6 +2,8 @@
 
 - When renaming a {{var}}, it removes the existing connection. It should just update the corresponding input port title
 
+- When I have a text node with the contenbt "foo", and the settings panel is open, and then cretae  anew text node while the settings of the previous node is still open, the new node gets created and gets the same content. That's a bug. I also checked it with the code node and it reproduces. I guess it reproduces with other node types too.
+
 - Change how the node output view renders lists. I don't like how it renders them now with the lines between items
 
 - Check opening and saving files in the web rivet. Crtl+S and Ctrl+O don't work

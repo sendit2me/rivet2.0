@@ -242,3 +242,36 @@ test('storeNodeDataForHistory preserves node debug snapshots for later output re
     status: { type: 'running' },
   });
 });
+
+test('storeNodeDataForHistory preserves interpolation input snapshots for parsed-source rendering', () => {
+  const dataRefs = createDataRefStore();
+  const largeInput = {
+    type: 'string',
+    value: `prefix ${'x'.repeat(REF_STORAGE_THRESHOLD_CHARS)}`,
+  } as const;
+
+  const stored = storeNodeDataForHistory(
+    {
+      debugData: {
+        expressionSource: '{{value}}',
+      },
+      inputData: {
+        value: largeInput,
+      } as any,
+      status: { type: 'ok' },
+    },
+    dataRefs,
+    {
+      nodeId: 'node-expression-inputs',
+      processId: 'process-expression-inputs',
+    },
+  );
+
+  assert.equal((stored.inputData as any).value.storage, 'ref');
+  assert.deepEqual(restoreStoredInputsOrOutputs(stored.inputData as any, dataRefs), {
+    value: largeInput,
+  });
+  assert.deepEqual(stored.debugData, {
+    expressionSource: '{{value}}',
+  });
+});

@@ -68,4 +68,88 @@ describe('interpolation utilities', () => {
       '{{escaped}} BAR undefined',
     );
   });
+
+  it('dedupes repeated variables and ignores graph/context references during port discovery', () => {
+    const template = [
+      '{{foo}}',
+      '{{foo | uppercase}}',
+      '{{@graphInputs.shared}}',
+      '{{@context.value}}',
+      '{{bar}}',
+    ].join('\n');
+
+    assert.deepStrictEqual(extractInterpolationVariables(template), ['foo', 'bar']);
+  });
+
+  it('ignores empty and whitespace-only tokens during port discovery', () => {
+    assert.deepStrictEqual(extractInterpolationVariables('{{}} {{   }} {{valid}}'), ['valid']);
+  });
+
+  it('applies processor chains after resolving graph and context references', () => {
+    assert.equal(
+      interpolate(
+        '{{@graphInputs.name | uppercase}} {{@context.label | lowercase}}',
+        {},
+        {
+          name: { type: 'string', value: 'Rivet' },
+        },
+        {
+          label: { type: 'string', value: 'WORKFLOW' },
+        },
+      ),
+      'RIVET workflow',
+    );
+  });
+
+  it('handles escaped tokens adjacent to real tokens without merging them', () => {
+    assert.equal(
+      interpolate('{{{literal}}}{{real}}{{{again}}}', {
+        real: { type: 'string', value: 'VALUE' },
+      }),
+      '{{literal}}VALUE{{again}}',
+    );
+  });
+
+  it('does not throw while scanning malformed brace-heavy templates', () => {
+    const templates = [
+      '',
+      '{',
+      '}',
+      '{{',
+      '}}',
+      '{{{',
+      '}}}',
+      '{{a',
+      'a}}',
+      '{{a}}{{',
+      '{{a} } {{b}}',
+      '{{a{{b}}',
+      '{{{escaped}}} {{real}} {{broken',
+      Array.from({ length: 40 }, (_, index) => (index % 3 === 0 ? '{{x}}' : '{')).join(''),
+    ];
+
+    for (const template of templates) {
+      assert.doesNotThrow(() => extractInterpolationVariables(template), template);
+      assert.doesNotThrow(
+        () =>
+          replaceInterpolationTokens(template, ({ tokenName }) => {
+            return tokenName ?? '';
+          }),
+        template,
+      );
+    }
+  });
+
+  it('keeps repeated large templates to unique variables only', () => {
+    const template = Array.from({ length: 250 }, (_, index) => `{{same}} {{value${index % 5}}}`).join(' ');
+
+    assert.deepStrictEqual(extractInterpolationVariables(template), [
+      'same',
+      'value0',
+      'value1',
+      'value2',
+      'value3',
+      'value4',
+    ]);
+  });
 });

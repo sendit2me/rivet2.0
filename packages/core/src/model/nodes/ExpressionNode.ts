@@ -21,6 +21,7 @@ import {
   interpolateJsValuePreviewSource,
   sanitizeGeneratedJsValueText,
 } from './jsValueInterpolation.js';
+import { createInterpolationInputDefinition } from '../interpolationInputDefinition.js';
 
 export type ExpressionNode = ChartNode<'expression', ExpressionNodeData>;
 
@@ -113,12 +114,11 @@ export class ExpressionNodeImpl extends NodeImpl<ExpressionNode> {
 
   getInputDefinitions(): NodeInputDefinition[] {
     return getExpressionInputNames(this.data.expression).map((inputName) => {
-      return {
-        id: inputName as PortId,
-        title: inputName,
+      return createInterpolationInputDefinition({
+        interpolationName: inputName,
         dataType: 'any',
         required: false,
-      };
+      });
     });
   }
 

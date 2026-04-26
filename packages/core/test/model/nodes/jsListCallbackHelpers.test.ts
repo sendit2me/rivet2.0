@@ -43,7 +43,14 @@ describe('jsListCallbackHelpers', () => {
 
   it('discovers value interpolation ports without duplicating callback locals', () => {
     assert.deepStrictEqual(
-      getJSListCallbackInterpolationInputDefinitions('return {{item}} > {{min}} && {{index}} !== {{array}};'),
+      getJSListCallbackInterpolationInputDefinitions(
+        'return {{item}} > {{min}} && {{index}} !== {{array}};',
+      ).map((definition) => ({
+        id: definition.id,
+        title: definition.title,
+        dataType: definition.dataType,
+        required: definition.required,
+      })),
       [
         {
           id: 'min',
@@ -57,7 +64,14 @@ describe('jsListCallbackHelpers', () => {
 
   it('uses shared interpolation token rules for escaped and malformed tokens', () => {
     assert.deepStrictEqual(
-      getJSListCallbackInterpolationInputDefinitions('return "{{{literal}}}" + {{broken + {{value}};'),
+      getJSListCallbackInterpolationInputDefinitions('return "{{{literal}}}" + {{broken + {{value}};').map(
+        (definition) => ({
+          id: definition.id,
+          title: definition.title,
+          dataType: definition.dataType,
+          required: definition.required,
+        }),
+      ),
       [
         {
           id: 'value',

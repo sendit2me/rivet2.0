@@ -60,8 +60,9 @@ describe('JSMapNode', () => {
       {
         type: 'code',
         label: 'Callback Body',
-        helperMessage: 'Body of: (item, index, array) => { ... }',
-        postEditorHelperMessage: 'Use {{var}} to create input ports that evaluate as connected values.',
+        helperMessage: '(item, index, array) => {',
+        postEditorHelperMessage:
+          '};\n\n//Use {{var}} to create input ports that evaluate as connected values.',
         dataKey: 'callbackBody',
         language: 'javascript',
         enableFolding: true,

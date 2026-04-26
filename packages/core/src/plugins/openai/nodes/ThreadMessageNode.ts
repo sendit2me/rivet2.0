@@ -11,6 +11,7 @@ import { extractInterpolationVariables, interpolate } from '../../../utils/inter
 import { pluginNodeDefinition } from '../../../model/NodeDefinition.js';
 import type { CreateMessageBody } from '../../../utils/openai.js';
 import { mapValues } from 'lodash-es';
+import { createInterpolationInputDefinition } from '../../../model/interpolationInputDefinition.js';
 
 export type ThreadMessageNode = ChartNode<'threadMessage', ThreadMessageNodeData>;
 
@@ -85,13 +86,11 @@ export const ThreadMessageNodeImpl: PluginNodeImpl<ThreadMessageNode> = {
     inputs = [
       ...inputs,
       ...(inputNames?.map((inputName): NodeInputDefinition => {
-        return {
-          // id and title should not have the {{ and }}
-          id: inputName as PortId,
-          title: inputName,
+        return createInterpolationInputDefinition({
+          interpolationName: inputName,
           dataType: 'string',
           required: false,
-        };
+        });
       }) ?? []),
     ];
 

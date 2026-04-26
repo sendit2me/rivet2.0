@@ -13,6 +13,7 @@ import { type EditorDefinition, type NodeBodySpec } from '../../index.js';
 import { dedent } from 'ts-dedent';
 import { coerceTypeOptional } from '../../utils/coerceType.js';
 import { extractInterpolationVariables, interpolate } from '../../utils/interpolation.js';
+import { createInterpolationInputDefinition } from '../interpolationInputDefinition.js';
 
 export type TextNode = ChartNode<'text', TextNodeData>;
 
@@ -71,16 +72,13 @@ export class TextNodeImpl extends NodeImpl<TextNode> {
     // Extract inputs from text, everything like {{input}}
     const inputNames = extractInterpolationVariables(this.data.text);
     return (
-      inputNames?.map((inputName) => {
-        return {
-          type: 'string',
-          // id and title should not have the {{ and }}
-          id: inputName as PortId,
-          title: inputName,
+      inputNames?.map((inputName) =>
+        createInterpolationInputDefinition({
+          interpolationName: inputName,
           dataType: 'string',
           required: false,
-        };
-      }) ?? []
+        }),
+      ) ?? []
     );
   }
 

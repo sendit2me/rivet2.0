@@ -15,6 +15,7 @@ import { type EditorDefinition, type InternalProcessContext, type NodeBodySpec }
 import { dedent } from 'ts-dedent';
 import { coerceTypeOptional } from '../../utils/coerceType.js';
 import { extractInterpolationVariables, interpolate } from '../../utils/interpolation.js';
+import { createInterpolationInputDefinition } from '../interpolationInputDefinition.js';
 
 export type ExtractObjectPathNode = ChartNode<'extractObjectPath', ExtractObjectPathNodeData>;
 
@@ -101,12 +102,13 @@ export class ExtractObjectPathNodeImpl extends NodeImpl<ExtractObjectPathNode> {
       });
     } else {
       for (const inputName of this.getInterpolationInputNames()) {
-        inputDefinitions.push({
-          id: inputName as PortId,
-          title: inputName,
-          dataType: 'any',
-          required: false,
-        });
+        inputDefinitions.push(
+          createInterpolationInputDefinition({
+            interpolationName: inputName,
+            dataType: 'any',
+            required: false,
+          }),
+        );
       }
     }
 
