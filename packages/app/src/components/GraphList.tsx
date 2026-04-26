@@ -67,7 +67,7 @@ const styles = css`
     align-items: center;
     user-select: none;
     padding: 0 4px;
-    font-size: 12px;
+    font-size: var(--ui-font-size-sm);
 
     &:hover {
       background-color: var(--grey-darkish);
@@ -150,7 +150,7 @@ const styles = css`
 
     input {
       width: 100%;
-      font-size: 12px;
+      font-size: var(--ui-font-size-sm);
       background: var(--grey-darkerish);
       border: 0;
       border-bottom: 1px solid var(--grey);
@@ -196,7 +196,7 @@ const styles = css`
     corner-shape: squircle;
     background: var(--warning-lighter);
     color: var(--warning-dark);
-    font-size: 11px;
+    font-size: var(--ui-font-size-xs);
     line-height: 1.4;
   }
 
@@ -208,7 +208,7 @@ const styles = css`
     corner-shape: superellipse(1.15);
     background: var(--grey-darkerish);
     color: var(--grey-lighter);
-    font-size: 10px;
+    font-size: var(--ui-font-size-2xs);
     font-weight: 600;
     line-height: 1;
     white-space: nowrap;

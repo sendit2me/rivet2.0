@@ -24,7 +24,7 @@ const containerStyles = css`
     margin-top: 32px;
     margin-bottom: 0;
     padding: 0;
-    font-size: 16px;
+    font-size: var(--ui-font-size-lg);
   }
 `;
 
@@ -78,7 +78,7 @@ const styles = css`
       color: var(--success);
     }
 
-    font-size: 20px;
+    font-size: var(--ui-font-size-xl);
     line-height: 20px;
   }
 

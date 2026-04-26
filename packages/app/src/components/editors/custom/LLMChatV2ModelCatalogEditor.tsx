@@ -29,7 +29,7 @@ const styles = css`
     padding: 10px 12px;
     border-radius: 12px;
     corner-shape: squircle;
-    font-size: 12px;
+    font-size: var(--ui-font-size-sm);
     line-height: 1.4;
     border: 1px solid transparent;
   }

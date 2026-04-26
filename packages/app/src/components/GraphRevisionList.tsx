@@ -35,11 +35,11 @@ export const revisionStyles = css`
     background-color: black;
     display: inline-flex;
     padding: 2px 4px;
-    font-size: 11px;
+    font-size: var(--ui-font-size-xs);
   }
 
   .message {
-    font-size: 12px;
+    font-size: var(--ui-font-size-sm);
   }
 
   .loading-area {

@@ -36,7 +36,7 @@ const styles = css`
   }
 
   .feedback {
-    font-size: 12px;
+    font-size: var(--ui-font-size-sm);
     color: var(--grey-light);
     padding: 8px;
   }

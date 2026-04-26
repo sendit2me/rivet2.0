@@ -26,7 +26,7 @@ const styles = css`
   .add-plugin,
   .plugin-dropdown {
     cursor: pointer;
-    font-size: 16px;
+    font-size: var(--ui-font-size-lg);
     color: var(--grey);
     transition:
       color 0.2s ease,

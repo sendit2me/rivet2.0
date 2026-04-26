@@ -78,7 +78,7 @@ const styles = css`
     border-radius: 8px;
     corner-shape: squircle;
     transition: background 0.2s ease-out;
-    font-size: 14px;
+    font-size: var(--ui-font-size-base);
     font-family: inherit;
     color: var(--label-color);
     font-weight: var(--label-font-weight);

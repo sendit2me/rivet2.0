@@ -45,7 +45,7 @@ const datasetDisplayStyles = css`
       display: flex;
       gap: 8px;
       align-items: center;
-      font-size: 20px;
+      font-size: var(--ui-font-size-xl);
       margin: 0;
       margin-right: 32px;
 

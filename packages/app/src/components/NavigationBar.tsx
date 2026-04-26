@@ -117,7 +117,7 @@ const styles = css`
       width: 200px;
       flex: 1;
       height: 32px;
-      font-size: 14px;
+      font-size: var(--ui-font-size-base);
       font-family: var(--font-family);
       font-weight: 500;
       outline: none;
@@ -154,7 +154,7 @@ const styles = css`
 
     .search-results-fallback-note {
       color: var(--grey-light);
-      font-size: 12px;
+      font-size: var(--ui-font-size-sm);
       font-weight: 500;
       padding: 2px 12px 8px;
     }
@@ -174,7 +174,7 @@ const styles = css`
 
     .search-result-group-title {
       color: var(--grey-light);
-      font-size: 15px;
+      font-size: var(--ui-font-size-base);
       font-weight: 500;
       padding: 6px 12px 4px;
     }
@@ -215,7 +215,7 @@ const styles = css`
       display: flex;
       flex-direction: column;
       font-family: var(--font-family);
-      font-size: 13px;
+      font-size: var(--ui-font-size-compact);
       gap: 4px;
       height: auto;
       justify-content: flex-start;
@@ -247,7 +247,7 @@ const styles = css`
     .search-result-node-type {
       color: var(--grey-lighter);
       flex: 0 1 auto;
-      font-size: 11px;
+      font-size: var(--ui-font-size-xs);
       font-weight: 600;
       max-width: 45%;
       opacity: 0.5;
@@ -272,7 +272,7 @@ const styles = css`
     .search-result-content-snippet {
       color: var(--grey-light);
       display: block;
-      font-size: 12px;
+      font-size: var(--ui-font-size-sm);
       line-height: 1.35;
       overflow-wrap: anywhere;
       white-space: pre-wrap;
@@ -301,7 +301,7 @@ const styles = css`
       color: var(--grey-lightest);
       width: 200px;
       height: 32px;
-      font-size: 14px;
+      font-size: var(--ui-font-size-base);
       font-family: var(--font-family);
       font-weight: 500;
       box-shadow: 3px 1px 10px rgba(0, 0, 0, 0.4);
@@ -327,13 +327,13 @@ const styles = css`
 
           .title {
             font-weight: 500;
-            font-size: 16px;
+            font-size: var(--ui-font-size-lg);
             margin-bottom: 4px;
             display: inline;
           }
 
           .graph {
-            font-size: 12px;
+            font-size: var(--ui-font-size-sm);
             color: var(--grey-light);
             margin-bottom: 4px;
             display: inline;
@@ -341,7 +341,7 @@ const styles = css`
           }
 
           .description {
-            font-size: 14px;
+            font-size: var(--ui-font-size-base);
             color: var(--grey-light);
             margin-bottom: 4px;
             display: inline;
@@ -349,7 +349,7 @@ const styles = css`
           }
 
           .data {
-            font-size: 12px;
+            font-size: var(--ui-font-size-sm);
             color: var(--grey-light);
             display: inline;
             margin-left: 16px;

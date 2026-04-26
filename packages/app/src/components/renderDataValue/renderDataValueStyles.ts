@@ -55,6 +55,6 @@ export const multiOutputStyles = css`
 
   .array-info {
     color: var(--grey-light);
-    font-size: 0.8em;
+    font-size: var(--ui-font-size-sm);
   }
 `;

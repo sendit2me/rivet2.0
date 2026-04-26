@@ -19,7 +19,7 @@ const fullscreenOutputToolbarCss = css`
   .toolbar-icon {
     width: 24px;
     height: 24px;
-    font-size: 24px;
+    font-size: var(--ui-font-size-2xl);
     opacity: 0.2;
     cursor: pointer;
     transition: opacity 0.2s;
@@ -35,7 +35,7 @@ const fullscreenOutputToolbarCss = css`
     cursor: pointer;
     user-select: none;
     text-transform: uppercase;
-    font-size: 10px;
+    font-size: var(--ui-font-size-2xs);
     transition: opacity 0.2s;
     z-index: 1;
     height: 24px;
@@ -100,7 +100,7 @@ const fullscreenOutputToolbarCss = css`
 
   .search-count {
     color: var(--grey-lighter);
-    font-size: 12px;
+    font-size: var(--ui-font-size-sm);
     min-width: 52px;
     text-align: right;
     font-variant-numeric: tabular-nums;

@@ -44,7 +44,7 @@ const styles = css`
         }
 
         .value {
-          font-size: 12px;
+          font-size: var(--ui-font-size-sm);
           color: var(--grey-light);
           font-family: var(--font-family-monospace);
         }

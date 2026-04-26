@@ -13,6 +13,6 @@ export const fields = css`
 
   .settings-toggle-field {
     color: var(--grey-light);
-    font-size: 14px;
+    font-size: var(--ui-font-size-base);
   }
 `;

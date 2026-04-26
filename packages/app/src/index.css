@@ -22,6 +22,16 @@ body {
 
 :root {
   --project-selector-height: 38px;
+  --ui-font-scale: 1;
+  --ui-font-size-2xs: 10px;
+  --ui-font-size-xs: 11px;
+  --ui-font-size-sm: 12px;
+  --ui-font-size-compact: 13px;
+  --ui-font-size-base: 14px;
+  --ui-font-size-lg: 16px;
+  --ui-font-size-xl: 20px;
+  --ui-font-size-2xl: 24px;
+  --ui-font-size-icon-xl: 32px;
 }
 
 * {

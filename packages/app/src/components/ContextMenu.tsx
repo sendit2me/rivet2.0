@@ -30,7 +30,7 @@ export const menuStyles = css`
   box-shadow: 0 8px 16px var(--shadow-dark);
   font-family: 'Roboto Mono', monospace;
   color: var(--foreground);
-  font-size: 13px;
+  font-size: var(--ui-font-size-compact);
   padding: 0;
   z-index: 1;
   min-width: 150px;
@@ -61,7 +61,7 @@ export const menuStyles = css`
       border: none;
       outline: none;
       padding: 8px;
-      font-size: 14px;
+      font-size: var(--ui-font-size-base);
       line-height: 14px;
     }
   }
@@ -71,7 +71,7 @@ export const menuStyles = css`
     margin-top: 4px;
     border-top: 1px solid var(--grey-darker);
     color: var(--grey-lightish);
-    font-size: 12px;
+    font-size: var(--ui-font-size-sm);
     line-height: 1;
   }
 `;
@@ -399,7 +399,7 @@ export const ContextMenuItemDiv = styled.div<{
   }
 
   .sublabel {
-    font-size: 12px;
+    font-size: var(--ui-font-size-sm);
     color: var(--grey-lightish);
   }
 
@@ -592,12 +592,12 @@ const contextMenuInfoBoxStyles = css`
   }
 
   h1 {
-    font-size: 16px;
+    font-size: var(--ui-font-size-lg);
     margin-top: 0;
   }
 
   p {
-    font-size: 13px;
+    font-size: var(--ui-font-size-compact);
   }
 `;
 

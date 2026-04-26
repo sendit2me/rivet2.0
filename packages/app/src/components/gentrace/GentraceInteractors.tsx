@@ -130,7 +130,7 @@ export const GentraceInteractors = () => {
           <div>
             <code
               css={css`
-                font-size: 12px;
+                font-size: var(--ui-font-size-sm);
               `}
             >
               {serverResult}

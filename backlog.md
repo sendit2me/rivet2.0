@@ -4,7 +4,7 @@
 
 - Set the default interface font size in the settings
 
-
+- Make the left panel width adjustable
 
 - Every node (Or Code + Expression + HTTP) should have a "Do not throw" switcher so I can safely fallback with coalesce
 

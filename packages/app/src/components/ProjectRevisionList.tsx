@@ -97,7 +97,7 @@ const modalBodyStyles = css`
   }
 
   .date {
-    font-size: 12px;
+    font-size: var(--ui-font-size-sm);
     margin-left: 16px;
     margin-top: 4px;
   }

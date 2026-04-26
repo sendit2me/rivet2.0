@@ -30,7 +30,7 @@ const styles = css`
     height: 30px;
     min-width: 32px;
     color: var(--grey-light);
-    font-size: 12px;
+    font-size: var(--ui-font-size-sm);
     pointer-events: none;
     line-height: 32px;
   }

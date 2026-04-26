@@ -31,7 +31,7 @@ const styles = css`
   }
 
   label {
-    font-size: 12px;
+    font-size: var(--ui-font-size-sm);
   }
 
   .graph-info-section,
@@ -53,7 +53,7 @@ const styles = css`
     corner-shape: squircle;
     width: 32px;
     height: 32px;
-    font-size: 24px;
+    font-size: var(--ui-font-size-2xl);
     display: flex;
     align-items: center;
     justify-content: center;

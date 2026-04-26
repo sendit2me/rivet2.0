@@ -100,11 +100,13 @@ export const NodeEditorGlobalControls: FC<{
           id={nodeEnabledToggleId}
           isChecked={!node.disabled}
           onChange={(isEnabled) => onDisabledChange(!isEnabled)}
-          className="node-type-chip"
         >
-          <span className="node-type-label">Active</span>
+          <span>Active</span>
         </HeaderToggleField>
-        <Tooltip content="Exposes a conditional input port to the node, allowing to be executed only if the condition is met.">
+        <Tooltip
+          className="node-type-tooltip"
+          content="Exposes a conditional input port to the node, allowing to be executed only if the condition is met."
+        >
           <HeaderToggleField
             id={conditionalToggleId}
             isChecked={node.isConditional ?? false}

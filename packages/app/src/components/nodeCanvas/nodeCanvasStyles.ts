@@ -68,7 +68,7 @@ export const nodeCanvasStyles = css`
     color: var(--foreground);
     box-shadow: 0 2px 4px var(--shadow);
     z-index: 99999;
-    font-size: 12px;
+    font-size: var(--ui-font-size-sm);
     display: flex;
     flex-direction: column;
     gap: 4px;

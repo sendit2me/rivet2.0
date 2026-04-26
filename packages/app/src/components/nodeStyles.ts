@@ -264,7 +264,7 @@ export const nodeStyles = css`
     white-space: normal;
     overflow-wrap: anywhere;
     font-weight: bold;
-    font-size: 14px;
+    font-size: var(--ui-font-size-base);
     text-transform: uppercase;
   }
 
@@ -276,7 +276,7 @@ export const nodeStyles = css`
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
     color: currentColor;
-    font-size: 11px;
+    font-size: var(--ui-font-size-xs);
     font-weight: 500;
     line-height: 1.25;
     letter-spacing: 0;
@@ -304,7 +304,7 @@ export const nodeStyles = css`
     width: max-content;
     white-space: nowrap;
     font-family: inherit;
-    font-size: 11px;
+    font-size: var(--ui-font-size-xs);
     font-weight: 900;
     line-height: 1.4;
     letter-spacing: 0.4px;
@@ -329,11 +329,11 @@ export const nodeStyles = css`
   }
 
   .node.zoomedOut .title-text-label {
-    font-size: 25px;
+    font-size: calc(var(--ui-font-size-xl) * 1.25);
   }
 
   .node.zoomedOut .title-text-description {
-    font-size: 13px;
+    font-size: var(--ui-font-size-compact);
   }
 
   .title-controls {
@@ -354,7 +354,7 @@ export const nodeStyles = css`
       border: none;
       color: var(--node-bg-foreground);
       cursor: pointer;
-      font-size: 18px;
+      font-size: calc(var(--ui-font-size-base) * 1.2857142857);
       transition: color 0.2s ease-out;
       margin: -12px 0;
       width: 30px;
@@ -449,7 +449,7 @@ export const nodeStyles = css`
 
   .node-body {
     color: var(--foreground);
-    font-size: 12px;
+    font-size: var(--ui-font-size-sm);
     margin-bottom: 12px;
     line-height: 1.4;
   }
@@ -493,7 +493,7 @@ export const nodeStyles = css`
       align-self: flex-start;
       padding: 4px 8px;
       margin-left: -12px;
-      font-size: 12px;
+      font-size: var(--ui-font-size-sm);
       font-family: var(--font-family-monospace);
       border-radius: 0 8px 8px 0;
       corner-shape: squircle;
@@ -531,7 +531,7 @@ export const nodeStyles = css`
 
   .port-label {
     color: var(--grey-lighter);
-    font-size: 10px;
+    font-size: var(--ui-font-size-2xs);
     letter-spacing: 1px;
     margin: 0 4px;
     white-space: nowrap;
@@ -552,7 +552,7 @@ export const nodeStyles = css`
 
   .node.zoomedOut .port:hover .port-label {
     display: block;
-    font-size: 20px;
+    font-size: var(--ui-font-size-xl);
     line-height: 12px;
   }
 
@@ -649,7 +649,7 @@ export const nodeStyles = css`
     corner-shape: var(--node-card-corner-shape);
     border-top: 2px solid var(--success-light);
     color: var(--foreground-bright);
-    font-size: 12px;
+    font-size: var(--ui-font-size-sm);
     line-height: 1.4;
     margin: 8px -12px -12px -12px;
     min-height: var(--node-output-min-height);
@@ -677,7 +677,7 @@ export const nodeStyles = css`
     corner-shape: var(--node-card-corner-shape);
     border-top: 2px solid var(--warning-light);
     color: var(--foreground-bright);
-    font-size: 12px;
+    font-size: var(--ui-font-size-sm);
     line-height: 1.4;
     margin: -2px -12px -12px -12px;
     padding: 12px;
@@ -804,7 +804,7 @@ export const nodeStyles = css`
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 24px;
+    font-size: var(--ui-font-size-2xl);
     opacity: 0.2;
     cursor: pointer;
     transition:
@@ -1000,7 +1000,7 @@ export const nodeStyles = css`
       margin-top: 0;
       margin-bottom: 0;
       text-decoration: none;
-      font-size: 12px;
+      font-size: var(--ui-font-size-sm);
       font-weight: normal;
       color: var(--primary-text);
     }

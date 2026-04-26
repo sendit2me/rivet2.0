@@ -52,7 +52,7 @@ const UnknownNodeBodyWrapper = styled.div<{
   fontFamily: 'monospace' | 'sans-serif';
 }>`
   overflow: hidden;
-  font-size: ${(props) => props.fontSize}px;
+  font-size: calc(${(props) => props.fontSize}px * var(--ui-font-scale, 1));
   font-family: ${(props) => (props.fontFamily === 'monospace' ? "'Roboto Mono', monospace" : "'Roboto', sans-serif")};
 `;
 

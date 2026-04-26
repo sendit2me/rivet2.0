@@ -66,7 +66,7 @@ export const styles = css`
     margin: 0;
     min-width: 50px;
     padding: 0 16px;
-    font-size: 12px;
+    font-size: var(--ui-font-size-sm);
     user-select: none;
 
     &:hover,
@@ -88,7 +88,7 @@ export const styles = css`
     box-shadow: 0 8px 16px var(--shadow-dark);
     font-family: 'Roboto Mono', monospace;
     color: var(--foreground);
-    font-size: 13px;
+    font-size: var(--ui-font-size-compact);
     padding: 8px;
     z-index: 300;
     min-width: 150px;
@@ -111,7 +111,7 @@ export const styles = css`
     justify-content: flex-start;
     white-space: nowrap;
     text-align: left;
-    font-size: 14px;
+    font-size: var(--ui-font-size-base);
     transition:
       background-color 0.1s ease-out,
       color 0.1s ease-out;
@@ -211,7 +211,7 @@ export const styles = css`
     user-select: none;
     display: flex;
     gap: 8px;
-    font-size: 12px;
+    font-size: var(--ui-font-size-sm);
     height: calc(100% + 1px);
     margin-bottom: -1px;
     background: var(--grey-darkerish);

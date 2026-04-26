@@ -46,7 +46,7 @@ const moreMenuStyles = css`
     corner-shape: squircle;
     background-color: transparent;
     border: none;
-    font-size: 14px;
+    font-size: var(--ui-font-size-base);
     color: var(--grey-lighter);
 
     &:hover {
@@ -63,7 +63,7 @@ const moreMenuStyles = css`
     .executor-title,
     .select-executor-remote {
       color: var(--grey-lighter);
-      font-size: 14px;
+      font-size: var(--ui-font-size-base);
       display: flex;
       align-items: center;
       gap: 0.5rem;

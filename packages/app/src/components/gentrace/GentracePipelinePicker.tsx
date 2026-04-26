@@ -112,7 +112,7 @@ const GentracePipelinePicker: FC<GentracePipelinePickerProps> = ({ onClose }) =>
         css={css`
           margin-bottom: 10px;
           font-weight: 500;
-          font-size: 15px;
+          font-size: var(--ui-font-size-base);
         `}
       >
         Select Gentrace Pipeline

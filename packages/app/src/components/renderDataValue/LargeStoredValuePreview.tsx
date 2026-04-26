@@ -20,7 +20,7 @@ const styles = css`
 
   .preview-meta {
     color: var(--grey-lighter);
-    font-size: 11px;
+    font-size: var(--ui-font-size-xs);
     display: flex;
     gap: 8px;
     flex-wrap: wrap;
@@ -43,7 +43,7 @@ const styles = css`
 
   .missing-ref {
     color: var(--warning);
-    font-size: 12px;
+    font-size: var(--ui-font-size-sm);
   }
 
   pre {

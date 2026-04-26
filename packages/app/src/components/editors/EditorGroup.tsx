@@ -62,7 +62,7 @@ const styles = css`
     background: none;
     cursor: pointer;
     outline: none;
-    font-size: 14px;
+    font-size: var(--ui-font-size-base);
     font-weight: 500;
     border-radius: 8px;
     corner-shape: squircle;

@@ -113,7 +113,7 @@ const ChatNodeOutputContainer = styled.div`
     margin-top: 0;
     margin-bottom: 0;
     text-decoration: none;
-    font-size: 12px;
+    font-size: var(--ui-font-size-sm);
     font-weight: normal;
     color: var(--primary-text);
   }

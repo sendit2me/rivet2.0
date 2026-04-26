@@ -165,7 +165,7 @@ export const defaultEditorContainerStyles = css`
   .editor-status-line {
     margin-top: 6px;
     color: var(--foreground-muted);
-    font-size: 13px;
+    font-size: var(--ui-font-size-compact);
     font-family: 'Roboto Mono', monospace;
     line-height: 1.4;
   }

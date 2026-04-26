@@ -22,7 +22,7 @@ const style = css`
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
   border: 1px solid var(--grey);
   z-index: 1000;
-  font-size: 12px;
+  font-size: var(--ui-font-size-sm);
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -56,7 +56,7 @@ const style = css`
       .id {
         font-family: var(--font-family-monospace);
         font-weight: 400;
-        font-size: 12px;
+        font-size: var(--ui-font-size-sm);
       }
     }
 
@@ -70,7 +70,7 @@ const style = css`
 
     code {
       font-family: var(--font-family-monospace);
-      font-size: 12px;
+      font-size: var(--ui-font-size-sm);
     }
   }
 
@@ -79,7 +79,7 @@ const style = css`
 
     code {
       font-family: var(--font-family-monospace);
-      font-size: 12px;
+      font-size: var(--ui-font-size-sm);
     }
   }
 

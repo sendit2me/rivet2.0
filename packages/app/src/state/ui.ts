@@ -3,6 +3,7 @@ import { atomWithStorage } from 'jotai/utils';
 import type { NodeId } from '@ironclad/rivet-core';
 import { createHybridStorage } from './storage.js';
 import { DEFAULT_MULTILINE_EDITOR_FONT_SIZE } from '../utils/multilineEditorFontSize.js';
+import { DEFAULT_UI_FONT_SIZE } from '../utils/uiFontSize.js';
 import type { ConnectedGraphInputUsage } from '../domain/graphEditing/graphInputUsage.js';
 import { DEFAULT_HORIZONTAL_MODAL_BOUNDS, type HorizontalModalBounds } from '../utils/fullScreenModalBounds.js';
 
@@ -48,6 +49,8 @@ export const fullscreenOutputModalBoundsState = atomWithStorage<HorizontalModalB
 );
 
 export const graphSearchPanelHeightState = atomWithStorage<number>('graphSearchPanelHeightState', 420, storage);
+
+export const uiFontSizeState = atomWithStorage<number>('uiFontSizeState', DEFAULT_UI_FONT_SIZE, storage);
 
 export const multilineEditorFontSizeState = atomWithStorage<number>(
   'multilineEditorFontSizeState',

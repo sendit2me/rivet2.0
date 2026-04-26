@@ -9,7 +9,7 @@ import { deleteGraphInputConfirmState } from '../state/ui';
 
 const modalBody = css`
   color: var(--foreground);
-  font-size: 13px;
+  font-size: var(--ui-font-size-compact);
 
   p {
     margin: 0 0 12px;

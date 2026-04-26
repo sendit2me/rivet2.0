@@ -109,7 +109,7 @@ const styles = css`
 
   .more-menu {
     background-color: transparent;
-    font-size: 32px;
+    font-size: var(--ui-font-size-icon-xl);
     height: 32px;
     line-height: 0;
     padding: 0;

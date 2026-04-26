@@ -4,6 +4,13 @@ import { Field, HelperMessage, Label } from '@atlaskit/form';
 import Select from '@atlaskit/select';
 import Range from '@atlaskit/range';
 import {
+  DEFAULT_UI_FONT_SIZE,
+  MAX_UI_FONT_SIZE,
+  MIN_UI_FONT_SIZE,
+  UI_FONT_SIZE_STEP,
+  clampUiFontSize,
+} from '../../../utils/uiFontSize.js';
+import {
   preservePortTextCaseState,
   resolveEditorPreferences,
   settingsState,
@@ -12,15 +19,18 @@ import {
   themes,
   zoomSensitivityState,
 } from '../../../state/settings.js';
+import { uiFontSizeState } from '../../../state/ui.js';
 import { fields } from '../settingsPageStyles.js';
 import { LabeledToggle } from '../../LabeledToggle.js';
 
 export const UiSettingsPage: FC = () => {
   const [settings, setSettings] = useAtom(settingsState);
   const [theme, setTheme] = useAtom(themeState);
+  const [uiFontSize, setUiFontSize] = useAtom(uiFontSizeState);
   const [zoomSensitivity, setZoomSensitivity] = useAtom(zoomSensitivityState);
   const [preservePortTextCase, setPreservePortTextCase] = useAtom(preservePortTextCaseState);
   const editorPreferences = resolveEditorPreferences(settings);
+  const normalizedUiFontSize = clampUiFontSize(uiFontSize);
 
   return (
     <div css={fields}>
@@ -31,6 +41,34 @@ export const UiSettingsPage: FC = () => {
             onChange={(event) => event && setTheme(event.value as Theme)}
             options={themes}
           />
+        )}
+      </Field>
+      <Field name="uiFontSize">
+        {() => (
+          <>
+            <Label htmlFor="uiFontSize" testId="uiFontSize">
+              UI font size: {normalizedUiFontSize}px
+            </Label>
+            <div className="toggle-field">
+              <Range
+                min={MIN_UI_FONT_SIZE}
+                max={MAX_UI_FONT_SIZE}
+                step={UI_FONT_SIZE_STEP}
+                value={normalizedUiFontSize}
+                onChange={(value) => {
+                  if (Number.isNaN(value) || value == null) {
+                    setUiFontSize(DEFAULT_UI_FONT_SIZE);
+                    return;
+                  }
+
+                  setUiFontSize(clampUiFontSize(value));
+                }}
+              />
+            </div>
+            <HelperMessage>
+              Scales Rivet UI text and icon glyphs. Code editor text uses its separate editor font-size controls.
+            </HelperMessage>
+          </>
         )}
       </Field>
       <Field name="zoomSensitivity">

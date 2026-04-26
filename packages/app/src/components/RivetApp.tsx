@@ -1,7 +1,7 @@
 import { useWindowsHotkeysFix } from '../hooks/useWindowsHotkeysFix';
 import { GraphBuilder } from './GraphBuilder.js';
 import { OverlayTabs } from './OverlayTabs.js';
-import { type FC, useEffect } from 'react';
+import { type FC, useEffect, useMemo } from 'react';
 import { type GraphId } from '@ironclad/rivet-core';
 import { css } from '@emotion/react';
 import { SettingsModal } from './SettingsModal.js';
@@ -39,9 +39,12 @@ import { wrapAsync } from '../utils/errorHandling';
 import { useExecutorSession } from '../hooks/useExecutorSession';
 import { useRestorePersistedWorkspace } from '../hooks/useRestorePersistedWorkspace.js';
 import { DeleteGraphInputConfirmModalRenderer } from './DeleteGraphInputConfirmModal';
+import { uiFontSizeState } from '../state/ui.js';
+import { getUiFontSizeCssVariables } from '../utils/uiFontSize.js';
 
 const styles = css`
   overflow: hidden;
+  font-size: var(--ui-font-size-base);
 `;
 
 setGlobalTheme({
@@ -53,7 +56,9 @@ export const RivetApp: FC = () => {
   useExecutorSession(selectedExecutor);
   const { tryRunGraph, tryRunTests, tryAbortGraph, tryPauseGraph, tryResumeGraph } = useGraphExecutor();
   const theme = useAtomValue(themeState);
+  const uiFontSize = useAtomValue(uiFontSizeState);
   const openedProjectIds = useAtomValue(openedProjectsSortedIdsState);
+  const uiFontSizeCssVariables = useMemo(() => getUiFontSizeCssVariables(uiFontSize), [uiFontSize]);
 
   const noProjectOpen = openedProjectIds.length === 0;
 
@@ -79,8 +84,22 @@ export const RivetApp: FC = () => {
   useMonitorUpdateStatus();
   useWindowTitle();
 
+  useEffect(() => {
+    const rootStyle = document.documentElement.style;
+
+    for (const [name, value] of Object.entries(uiFontSizeCssVariables)) {
+      rootStyle.setProperty(name, value);
+    }
+
+    return () => {
+      for (const name of Object.keys(uiFontSizeCssVariables)) {
+        rootStyle.removeProperty(name);
+      }
+    };
+  }, [uiFontSizeCssVariables]);
+
   return (
-    <div className={clsx('app', theme ? `theme-${theme}` : 'theme-default')} css={styles}>
+    <div className={clsx('app', theme ? `theme-${theme}` : 'theme-default')} css={styles} style={uiFontSizeCssVariables}>
       {noProjectOpen ? (
         <>
           <NoProject />

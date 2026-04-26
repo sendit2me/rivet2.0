@@ -143,7 +143,7 @@ const Container = styled.div`
     background-color: rgba(0, 0, 0, 0.1);
 
     .node-id {
-      font-size: 12px;
+      font-size: var(--ui-font-size-sm);
       color: var(--foreground-muted);
       font-family: var(--font-family-monospace);
       padding: 0 16px;
@@ -169,17 +169,9 @@ const Container = styled.div`
     min-height: 30px;
   }
 
-  .node-type-chip {
+  .node-type-tooltip {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    min-height: 30px;
-  }
-
-  .node-type-label {
-    color: var(--grey-light);
-    font-size: 14px;
-    line-height: 1;
   }
 
   .node-metadata-row {
@@ -253,7 +245,7 @@ const Container = styled.div`
     min-width: 0;
     height: 40px;
     padding: 0 12px;
-    font-size: 14px;
+    font-size: var(--ui-font-size-base);
     line-height: 38px;
     box-sizing: border-box;
     font-family: var(--font-family-monospace);
@@ -284,7 +276,7 @@ const Container = styled.div`
     height: 40px;
     min-height: 40px;
     padding: 0 12px;
-    font-size: 14px;
+    font-size: var(--ui-font-size-base);
     line-height: 38px;
   }
 
@@ -325,7 +317,7 @@ const Container = styled.div`
     min-height: 14px;
     padding: 10px 12px;
     box-sizing: border-box;
-    font-size: 14px;
+    font-size: var(--ui-font-size-base);
     line-height: 1.4;
     color: var(--grey-light);
     white-space: pre-wrap;
@@ -335,7 +327,7 @@ const Container = styled.div`
   .node-description-field textarea {
     min-height: 14px;
     padding: 10px 12px;
-    font-size: 14px;
+    font-size: var(--ui-font-size-base);
     line-height: 1.4;
   }
 
@@ -344,7 +336,7 @@ const Container = styled.div`
     align-items: center;
     gap: 4px;
     color: var(--grey-light);
-    font-size: 14px;
+    font-size: var(--ui-font-size-base);
     white-space: nowrap;
   }
 
@@ -408,7 +400,7 @@ const Container = styled.div`
 
   .split-toggle-description {
     color: var(--grey-lightish);
-    font-size: 12px;
+    font-size: var(--ui-font-size-sm);
     line-height: 1.25;
   }
 
@@ -445,7 +437,7 @@ const Container = styled.div`
     background: var(--ds-background-neutral-bold, #505f79);
     color: var(--grey-darkest);
     font: inherit;
-    font-size: 13px;
+    font-size: var(--ui-font-size-compact);
     line-height: 21px;
     cursor: pointer;
   }
@@ -478,7 +470,7 @@ const Container = styled.div`
 
   .split-max-label {
     color: var(--grey-light);
-    font-size: 14px;
+    font-size: var(--ui-font-size-base);
     white-space: nowrap;
     flex: 0 0 auto;
   }
