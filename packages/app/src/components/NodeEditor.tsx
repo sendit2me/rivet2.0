@@ -33,7 +33,7 @@ export const NodeEditorRenderer: FC = () => {
   }
 
   return (
-    <ErrorBoundary fallback={null}>
+    <ErrorBoundary key={selectedNode.id} fallback={null}>
       <NodeEditor selectedNode={selectedNode} onDeselect={deselect} />
     </ErrorBoundary>
   );
