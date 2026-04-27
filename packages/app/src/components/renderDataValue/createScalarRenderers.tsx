@@ -20,6 +20,7 @@ import { RenderChatMessagePart } from './RenderChatMessagePart.js';
 import { COMPACT_PREVIEW_MAX_CHARS, COMPACT_PREVIEW_MAX_LINES } from '../../utils/outputStorageLimits.js';
 import { getRenderedStringText } from './stringPreview.js';
 import { buildTextPreviewExcerpt } from '../../utils/textPreview.js';
+import { getRenderableAssistantFunctionCall } from './chatMessageRenderUtils.js';
 
 export type ScalarRendererProps<T extends DataType = DataType> = {
   value: Extract<ScalarDataValue, { type: T }>;
@@ -94,33 +95,37 @@ export function createScalarRenderers(options: { renderValue: (props: DataValueR
             {messageContent}
           </div>
         ))
-        .with({ type: 'assistant' }, (message) => (
-          <div className="chat-message assistant">
-            <header>
-              <em>assistant</em>
-            </header>
-            {messageContent}
-            {message.function_calls ? (
-              <div className="function-calls">
-                <h4>Function Calls:</h4>
-                <div className="pre-wrap">
-                  {message.function_calls.map((fc, index) => (
-                    <div key={index}>{renderValue({ value: inferType(fc), allowLargeStoredValueActions })}</div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              message.function_call && (
-                <div className="function-call">
-                  <h4>Function Call:</h4>
+        .with({ type: 'assistant' }, (message) => {
+          const functionCall = getRenderableAssistantFunctionCall(message);
+
+          return (
+            <div className="chat-message assistant">
+              <header>
+                <em>assistant</em>
+              </header>
+              {messageContent}
+              {functionCall?.type === 'multiple' ? (
+                <div className="function-calls">
+                  <h4>Function Calls:</h4>
                   <div className="pre-wrap">
-                    {renderValue({ value: inferType(message.function_call), allowLargeStoredValueActions })}
+                    {functionCall.functionCalls.map((fc, index) => (
+                      <div key={index}>{renderValue({ value: inferType(fc), allowLargeStoredValueActions })}</div>
+                    ))}
                   </div>
                 </div>
-              )
-            )}
-          </div>
-        ))
+              ) : (
+                functionCall?.type === 'single' && (
+                  <div className="function-call">
+                    <h4>Function Call:</h4>
+                    <div className="pre-wrap">
+                      {renderValue({ value: inferType(functionCall.functionCall), allowLargeStoredValueActions })}
+                    </div>
+                  </div>
+                )
+              )}
+            </div>
+          );
+        })
         .with({ type: 'function' }, (message) => (
           <div className="chat-message function">
             <header>

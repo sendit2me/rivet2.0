@@ -200,7 +200,7 @@ export const ChatNodeOutputSingle: FC<{
           />
         </div>
       </div>
-      {functionCallValue && (
+      {hasRenderableFunctionCallValue(functionCallValue) && (
         <div className="function-call">
           <h4>{Array.isArray(functionCallValue.value) ? 'Function Calls' : 'Function Call'}:</h4>
           <div className="pre-wrap">
@@ -215,6 +215,14 @@ export const ChatNodeOutputSingle: FC<{
     </ChatNodeOutputContainer>
   );
 };
+
+function hasRenderableFunctionCallValue(value: DataValue | undefined): value is DataValue {
+  if (!value) {
+    return false;
+  }
+
+  return !Array.isArray(value.value) || value.value.length > 0;
+}
 
 const ChatNodeFullscreenOutput: FC<{
   outputs: InputsOrOutputsWithRefs;
