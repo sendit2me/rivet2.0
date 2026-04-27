@@ -3,8 +3,6 @@
 
 - Change how the node output view renders lists. I don't like how it renders them now with the lines between items
 
-- Check opening and saving files in the web rivet. Crtl+S and Ctrl+O don't work
-
 - Reassess the Rivet settings. probbaly something needs reworking
 
 - Every node (Or Code + Expression + HTTP) should have a "Do not throw" switcher so I can safely fallback with coalesce

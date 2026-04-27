@@ -1,8 +1,8 @@
 import type { CSSProperties } from 'react';
 
 export const DEFAULT_UI_FONT_SIZE = 14;
-export const MIN_UI_FONT_SIZE = 12;
-export const MAX_UI_FONT_SIZE = 18;
+export const MIN_UI_FONT_SIZE = 14;
+export const MAX_UI_FONT_SIZE = 20;
 export const UI_FONT_SIZE_STEP = 1;
 
 export const UI_FONT_SIZE_TOKENS = {
