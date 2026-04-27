@@ -27,6 +27,8 @@ import { getActionBarExecutionState } from '../state/selectors/executionSelector
 import type { DebuggerPanelAnchor } from '../state/ui.js';
 
 const styles = css`
+  --action-bar-height: calc(32px * var(--ui-font-scale));
+
   position: fixed;
   top: calc(20px + var(--project-selector-height));
   right: 20px;
@@ -34,9 +36,11 @@ const styles = css`
   border-radius: 8px;
   corner-shape: squircle;
   border: 1px solid var(--grey-dark);
-  height: 32px;
+  height: var(--action-bar-height);
   z-index: 220;
   display: flex;
+  align-items: stretch;
+  font-size: var(--ui-font-size-base);
   box-shadow: 3px 1px 10px rgba(0, 0, 0, 0.5);
   justify-content: flex-end;
   gap: 8px;
@@ -56,7 +60,7 @@ const styles = css`
     align-items: center;
     gap: 0.5rem;
     margin: 0;
-    height: 32px;
+    height: var(--action-bar-height);
     border-radius: 10px;
     corner-shape: squircle;
   }
@@ -110,11 +114,10 @@ const styles = css`
   .more-menu {
     background-color: transparent;
     font-size: var(--ui-font-size-icon-xl);
-    height: 32px;
+    height: var(--action-bar-height);
     line-height: 0;
     padding: 0;
-    width: 32px;
-    height: 32px;
+    width: var(--action-bar-height);
 
     &:hover {
       background-color: rgba(255, 255, 255, 0.1);

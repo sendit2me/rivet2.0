@@ -13,6 +13,7 @@ body {
   width: 100%;
   height: 100%;
   overflow: hidden;
+  font-size: var(--ui-font-size-base);
 
   --label-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, 'Fira Sans', 'Droid Sans',
     'Helvetica Neue', sans-serif;
@@ -36,6 +37,41 @@ body {
 
 * {
   box-sizing: border-box;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+input:not(.inputarea),
+textarea:not(.inputarea) {
+  font-size: var(--ui-font-size-base) !important;
+}
+
+label[class],
+legend[class],
+[id$='-helper'],
+[id$='-error'],
+[id$='-valid'] {
+  font-size: var(--ui-font-size-sm) !important;
+}
+
+[class*='-singleValue'],
+[class*='-placeholder'],
+[role='option'] {
+  font-size: var(--ui-font-size-base) !important;
+}
+
+[class*='-control']:has(input[id^='react-select-']) {
+  min-height: calc(40px * var(--ui-font-scale)) !important;
+}
+
+[class*='-singleValue'] {
+  line-height: 1.25 !important;
 }
 
 code {

@@ -3,13 +3,18 @@
 
 - Change how the node output view renders lists. I don't like how it renders them now with the lines between items
 
+- Clone the latest Rivet repo and ask AI to go through some user's issues from their github to see if we fixed it in Rivet 2.0
+
+- Change the AI workflow generation feature
+
+
 - Reassess the Rivet settings. probbaly something needs reworking
 
 - Every node (Or Code + Expression + HTTP) should have a "Do not throw" switcher so I can safely fallback with coalesce
 
 - Update the rivet version (at least in the Settings popup)
 
-
+- Get back to MCP and see if it works and how it works. I don't see an MCP node. I think we need it
 
 - In remote debugging, come up with some ID that can be passed when running so that I can "catch" only the target runs of the workflow
 

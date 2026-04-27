@@ -423,35 +423,35 @@ const Container = styled.div`
   .segmented-choice {
     display: inline-flex;
     align-items: stretch;
-    min-height: 21px;
+    min-height: calc(21px * var(--ui-font-scale));
     gap: 2px;
     background: transparent;
   }
 
   .segmented-choice-option {
     min-width: 0;
-    height: 21px;
-    padding: 0 10px;
+    height: calc(21px * var(--ui-font-scale));
+    padding: 0 calc(10px * var(--ui-font-scale));
     border: 0;
     border-radius: 0;
     background: var(--ds-background-neutral-bold, #505f79);
     color: var(--grey-darkest);
     font: inherit;
     font-size: var(--ui-font-size-compact);
-    line-height: 21px;
+    line-height: calc(21px * var(--ui-font-scale));
     cursor: pointer;
   }
 
   .segmented-choice-option:first-of-type {
     border-radius: 42px 0 0 42px;
     corner-shape: superellipse(1.15);
-    padding-left: 12px;
+    padding-left: calc(12px * var(--ui-font-scale));
   }
 
   .segmented-choice-option:last-of-type {
     border-radius: 0 42px 42px 0;
     corner-shape: superellipse(1.15);
-    padding-right: 12px;
+    padding-right: calc(12px * var(--ui-font-scale));
   }
 
   .segmented-choice-option:hover {
