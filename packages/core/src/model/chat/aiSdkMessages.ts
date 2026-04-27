@@ -114,7 +114,7 @@ export async function rivetMessagesToAiSdk(messages: ChatMessage[]): Promise<Mod
             {
               type: 'tool-result',
               toolCallId: msg.name,
-              toolName: msg.name,
+              toolName: msg.toolName ?? msg.name,
               output: { type: 'text', value: textContent },
             } satisfies ToolResultPart,
           ],

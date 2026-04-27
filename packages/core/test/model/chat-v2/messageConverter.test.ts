@@ -68,4 +68,25 @@ describe('chatMessagesToModelMessages', () => {
       type: 'ephemeral',
     });
   });
+
+  it('preserves function response tool names for AI SDK tool-result messages', async () => {
+    const messages: ChatMessage[] = [
+      {
+        type: 'function',
+        name: 'call_1',
+        toolName: 'lookup_weather',
+        message: 'Sunny',
+      },
+    ];
+
+    const result = await chatMessagesToModelMessages(messages, {
+      provider: 'openai',
+    });
+
+    assert.equal(result[0]?.role, 'tool');
+    const parts = result[0]?.content as any[];
+    assert.equal(parts[0]?.type, 'tool-result');
+    assert.equal(parts[0]?.toolCallId, 'call_1');
+    assert.equal(parts[0]?.toolName, 'lookup_weather');
+  });
 });

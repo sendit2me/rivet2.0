@@ -57,7 +57,7 @@ function buildCommonOutputs(
   response: string,
   functionCalls: StreamedFunctionCall[],
   usage: ChatV2NormalizedUsage | undefined,
-  options: Pick<RunChatV2PipelineOptions, 'outputUsage' | 'functionCallMode'>,
+  options: Pick<RunChatV2PipelineOptions, 'outputUsage' | 'includeFunctionCalls' | 'functionCallMode'>,
 ): Outputs {
   const outputs: Outputs = {
     ['response' as PortId]: { type: 'string', value: response },
@@ -72,6 +72,11 @@ function buildCommonOutputs(
     outputs['function-calls' as PortId] = {
       type: 'object[]',
       value: functionCalls.map(toFunctionCallOutputValue),
+    };
+  } else if (options.includeFunctionCalls) {
+    outputs['function-calls' as PortId] = {
+      type: 'control-flow-excluded',
+      value: undefined,
     };
   }
 
@@ -128,6 +133,7 @@ export async function runChatV2Pipeline(options: RunChatV2PipelineOptions): Prom
             options.context.onPartialOutputs?.(
               buildCommonOutputs(requestMessages, text, functionCalls, undefined, {
                 outputUsage: false,
+                includeFunctionCalls: options.includeFunctionCalls,
                 functionCallMode: options.functionCallMode,
               }),
             );
@@ -137,6 +143,7 @@ export async function runChatV2Pipeline(options: RunChatV2PipelineOptions): Prom
   const usage = normalizeUsage(streamed.usage, options);
   const commonOutputs = buildCommonOutputs(requestMessages, streamed.responseText, streamed.functionCalls, usage, {
     outputUsage: options.outputUsage,
+    includeFunctionCalls: options.includeFunctionCalls,
     functionCallMode: options.functionCallMode,
   });
   const allMessagesOutput = commonOutputs['all-messages' as PortId];

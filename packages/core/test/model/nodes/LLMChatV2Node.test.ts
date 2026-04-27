@@ -19,6 +19,9 @@ describe('LLMChatV2NodeImpl', () => {
     assert.equal(node.type, 'llmChatV2');
     assert.equal(node.title, 'LLM Chat v2');
     assert.equal(node.data.provider, 'openai');
+    assert.equal(node.data.parallelToolCalls, false);
+    assert.equal(node.data.autoContinueToolCalls, false);
+    assert.equal(node.data.maxToolRounds, 3);
   });
 
   it('adds function-call output when provider built-in tools are enabled', () => {
@@ -52,5 +55,23 @@ describe('LLMChatV2NodeImpl', () => {
     assert.ok(!anthropicInputs.some((input) => input.id === 'googleThinkingBudget'));
     assert.ok(googleInputs.some((input) => input.id === 'googleThinkingBudget'));
     assert.ok(!googleInputs.some((input) => input.id === 'anthropicThinkingBudget'));
+  });
+
+  it('groups Rivet tool calling controls under Tools', async () => {
+    const node = createNode({
+      useToolCalling: true,
+    });
+
+    const editors = await node.getEditors({});
+    const toolsGroup = editors.find((editor) => editor.type === 'group' && editor.label === 'Tools') as any;
+    const outputGroup = editors.find((editor) => editor.type === 'group' && editor.label === 'Outputs') as any;
+
+    assert.ok(toolsGroup);
+    assert.ok(outputGroup);
+    assert.ok(toolsGroup.editors.some((editor: any) => editor.dataKey === 'useToolCalling'));
+    assert.ok(toolsGroup.editors.some((editor: any) => editor.dataKey === 'parallelToolCalls'));
+    assert.ok(toolsGroup.editors.some((editor: any) => editor.dataKey === 'autoContinueToolCalls'));
+    assert.ok(toolsGroup.editors.some((editor: any) => editor.dataKey === 'maxToolRounds'));
+    assert.ok(!outputGroup.editors.some((editor: any) => editor.dataKey === 'useToolCalling'));
   });
 });

@@ -135,14 +135,14 @@ describe('rivetMessagesToAiSdk', () => {
 
   it('converts a function response message to tool role', async () => {
     const messages: ChatMessage[] = [
-      { type: 'function', message: '{"result": 42}', name: 'search' },
+      { type: 'function', message: '{"result": 42}', name: 'call_1', toolName: 'search' },
     ];
     const result = await rivetMessagesToAiSdk(messages);
 
     assert.equal(result[0]!.role, 'tool');
     const parts = result[0]!.content as any[];
     assert.equal(parts[0].type, 'tool-result');
-    assert.equal(parts[0].toolCallId, 'search');
+    assert.equal(parts[0].toolCallId, 'call_1');
     assert.equal(parts[0].toolName, 'search');
     assert.deepEqual(parts[0].output, { type: 'text', value: '{"result": 42}' });
   });

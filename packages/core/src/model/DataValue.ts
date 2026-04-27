@@ -56,6 +56,7 @@ export type FunctionResponseChatMessage = {
   type: 'function';
   message: ChatMessageMessagePart | ChatMessageMessagePart[];
   name: string;
+  toolName?: string;
 
   /** If true, this message marks a breakpoint when used with prompt caching (as of right now, Anthropic-only). */
   isCacheBreakpoint?: boolean;

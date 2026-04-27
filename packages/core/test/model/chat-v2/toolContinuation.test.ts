@@ -1,0 +1,268 @@
+import { describe, it } from 'node:test';
+import { strict as assert } from 'node:assert';
+import type { ChatMessage, ChatMessageDataValue, GptFunction } from '../../../src/model/DataValue.js';
+import type { Outputs } from '../../../src/model/GraphProcessor.js';
+import type { ChatV2PipelineResult, RunChatV2PipelineOptions } from '../../../src/model/chat-v2/chatV2Types.js';
+import {
+  runChatV2PipelineWithToolContinuation,
+  type ToolContinuationToolResult,
+} from '../../../src/model/chat-v2/toolContinuation.js';
+import type { StreamedFunctionCall } from '../../../src/model/chat/streamChatResponse.js';
+
+function makeToolCall(id: string, name: string, args: object = {}): StreamedFunctionCall {
+  return {
+    type: 'function',
+    id,
+    name,
+    arguments: JSON.stringify(args),
+    lastParsedArguments: args,
+  };
+}
+
+function makeToolResultMessage(toolCall: StreamedFunctionCall, value: string): ChatMessageDataValue {
+  return {
+    type: 'chat-message',
+    value: {
+      type: 'function',
+      name: toolCall.id,
+      toolName: toolCall.name,
+      message: value,
+    },
+  };
+}
+
+function makeDelegatedToolResultMessage(toolCall: StreamedFunctionCall, value: string): ToolContinuationToolResult {
+  const message = makeToolResultMessage(toolCall, value).value;
+
+  return {
+    type: 'chat-message',
+    value: message,
+    delegatedToolCall: {
+      delegatedToolCall: true,
+      name: toolCall.name,
+      arguments: toolCall.lastParsedArguments ?? {},
+      id: toolCall.id,
+      output: value,
+      message,
+    },
+  };
+}
+
+function makePipelineResult(
+  response: string,
+  functionCalls: StreamedFunctionCall[],
+  requestMessages: ChatMessage[] = [{ type: 'user', message: 'Hello' }],
+): ChatV2PipelineResult {
+  const allMessages: ChatMessage[] = [
+    ...requestMessages,
+    {
+      type: 'assistant',
+      message: response,
+      function_call:
+        functionCalls.length === 1
+          ? {
+              id: functionCalls[0]!.id,
+              name: functionCalls[0]!.name,
+              arguments: functionCalls[0]!.arguments,
+            }
+          : undefined,
+      function_calls:
+        functionCalls.length > 0
+          ? functionCalls.map((call) => ({
+              id: call.id,
+              name: call.name,
+              arguments: call.arguments,
+            }))
+          : undefined,
+    },
+  ];
+  const commonOutputs: Outputs = {
+    response: { type: 'string', value: response },
+    'in-messages': { type: 'chat-message[]', value: requestMessages },
+    'all-messages': { type: 'chat-message[]', value: allMessages },
+    responseTokens: { type: 'number', value: 0 },
+  };
+
+  return {
+    commonOutputs,
+    requestMessages,
+    allMessages,
+    response,
+    functionCalls,
+    reasoning: '',
+    usage: undefined,
+    rawUsage: undefined,
+    finishReason: functionCalls.length > 0 ? 'tool-calls' : 'stop',
+    providerMetadata: undefined,
+  };
+}
+
+function makeFunction(name: string): GptFunction {
+  return {
+    name,
+    description: `${name} tool`,
+    parameters: {},
+    strict: false,
+  };
+}
+
+function baseOptions(
+  overrides: Partial<Parameters<typeof runChatV2PipelineWithToolContinuation>[0]> = {},
+): Parameters<typeof runChatV2PipelineWithToolContinuation>[0] {
+  return {
+    provider: 'openai',
+    model: {} as any,
+    modelId: 'gpt-test',
+    prompt: { type: 'string', value: 'Hello' },
+    functions: [makeFunction('foo')],
+    context: {
+      signal: new AbortController().signal,
+    },
+    autoContinue: true,
+    maxToolRounds: 3,
+    delegateToolCall: async (toolCall) => makeToolResultMessage(toolCall, `${toolCall.name} result`),
+    runPipeline: async () => makePipelineResult('done', []),
+    ...overrides,
+  };
+}
+
+describe('runChatV2PipelineWithToolContinuation', () => {
+  it('returns the first model result when auto-continue is disabled', async () => {
+    const firstResult = makePipelineResult('', [makeToolCall('call_1', 'foo')]);
+    let runCount = 0;
+
+    const result = await runChatV2PipelineWithToolContinuation(
+      baseOptions({
+        autoContinue: false,
+        runPipeline: async () => {
+          runCount++;
+          return firstResult;
+        },
+      }),
+    );
+
+    assert.equal(runCount, 1);
+    assert.equal(result, firstResult);
+  });
+
+  it('delegates all tool calls in a round before asking the model again', async () => {
+    const fooCall = makeToolCall('call_foo', 'foo');
+    const barCall = makeToolCall('call_bar', 'bar');
+    const prompts: unknown[] = [];
+    const pipelineFunctions: Array<GptFunction[] | undefined> = [];
+    const delegated: string[] = [];
+
+    const result = await runChatV2PipelineWithToolContinuation(
+      baseOptions({
+        functions: [makeFunction('foo'), makeFunction('bar')],
+        runPipeline: async (options: RunChatV2PipelineOptions) => {
+          prompts.push(options.prompt);
+          pipelineFunctions.push(options.functions);
+
+          return prompts.length === 1
+            ? makePipelineResult('', [fooCall, barCall])
+            : makePipelineResult('final answer', [], (options.prompt as any).value);
+        },
+        delegateToolCall: async (toolCall) => {
+          delegated.push(toolCall.name);
+          return makeToolResultMessage(toolCall, `${toolCall.name} result`);
+        },
+      }),
+    );
+
+    assert.deepEqual(delegated, ['foo', 'bar']);
+    assert.equal(result.response, 'final answer');
+    assert.equal(prompts.length, 2);
+    assert.deepEqual(
+      pipelineFunctions.map((functions) => functions?.map((fn) => fn.name)),
+      [
+        ['foo', 'bar'],
+        ['foo', 'bar'],
+      ],
+    );
+
+    const secondPromptMessages = (prompts[1] as any).value as ChatMessage[];
+    assert.equal(secondPromptMessages.at(-2)?.type, 'function');
+    assert.equal((secondPromptMessages.at(-2) as any).toolName, 'foo');
+    assert.equal(secondPromptMessages.at(-1)?.type, 'function');
+    assert.equal((secondPromptMessages.at(-1) as any).toolName, 'bar');
+  });
+
+  it('emits delegated tool call records when auto-continue reaches a final answer', async () => {
+    const fooCall = makeToolCall('call_foo', 'foo');
+    const barCall = makeToolCall('call_bar', 'bar');
+    const delegated: string[] = [];
+
+    const result = await runChatV2PipelineWithToolContinuation(
+      baseOptions({
+        functions: [makeFunction('foo'), makeFunction('bar')],
+        includeFunctionCalls: true,
+        runPipeline: async (options: RunChatV2PipelineOptions) =>
+          delegated.length === 0
+            ? makePipelineResult('', [fooCall, barCall])
+            : makePipelineResult('final answer', [], (options.prompt as any).value),
+        delegateToolCall: async (toolCall) => {
+          delegated.push(toolCall.name);
+          return makeDelegatedToolResultMessage(toolCall, `${toolCall.name} result`);
+        },
+      }),
+    );
+
+    const functionCallsOutput = result.commonOutputs['function-calls' as keyof Outputs];
+
+    assert.equal(result.response, 'final answer');
+    assert.equal(functionCallsOutput?.type, 'object[]');
+    assert.deepEqual(
+      functionCallsOutput?.value.map((record: any) => ({
+        delegatedToolCall: record.delegatedToolCall,
+        name: record.name,
+        output: record.output,
+      })),
+      [
+        { delegatedToolCall: true, name: 'foo', output: 'foo result' },
+        { delegatedToolCall: true, name: 'bar', output: 'bar result' },
+      ],
+    );
+  });
+
+  it('stops auto-continuing after max tool rounds', async () => {
+    const delegated: string[] = [];
+    let runCount = 0;
+
+    const result = await runChatV2PipelineWithToolContinuation(
+      baseOptions({
+        maxToolRounds: 1,
+        runPipeline: async () => {
+          runCount++;
+          return makePipelineResult('', [makeToolCall(`call_${runCount}`, 'foo')]);
+        },
+        delegateToolCall: async (toolCall) => {
+          delegated.push(toolCall.id);
+          return makeToolResultMessage(toolCall, 'result');
+        },
+      }),
+    );
+
+    assert.equal(runCount, 2);
+    assert.deepEqual(delegated, ['call_1']);
+    assert.equal(result.functionCalls[0]?.id, 'call_2');
+  });
+
+  it('does not auto-continue unknown tool calls', async () => {
+    let delegated = false;
+
+    const result = await runChatV2PipelineWithToolContinuation(
+      baseOptions({
+        functions: [makeFunction('foo')],
+        runPipeline: async () => makePipelineResult('', [makeToolCall('call_bar', 'bar')]),
+        delegateToolCall: async (toolCall) => {
+          delegated = true;
+          return makeToolResultMessage(toolCall, 'result');
+        },
+      }),
+    );
+
+    assert.equal(delegated, false);
+    assert.equal(result.functionCalls[0]?.name, 'bar');
+  });
+});

@@ -170,4 +170,40 @@ describe('runChatV2Pipeline', () => {
       },
     ]);
   });
+
+  it('excludes the function-calls output when tools are enabled but the model returns no tool calls', async () => {
+    const executeStream: ChatV2StreamExecutor = async () => ({
+      fullStream: mockStream([
+        { type: 'text-start', id: 'text_1' },
+        { type: 'text-delta', id: 'text_1', text: 'Final answer' },
+        { type: 'text-end', id: 'text_1' },
+        {
+          type: 'finish',
+          finishReason: 'stop',
+          rawFinishReason: undefined,
+        },
+      ]),
+      finishReason: 'stop',
+    });
+
+    const result = await runChatV2Pipeline({
+      provider: 'openai',
+      model: createMockModel(),
+      modelId: 'gpt-4o',
+      prompt: { type: 'string', value: 'Answer normally.' },
+      includeFunctionCalls: true,
+      context: {
+        signal: new AbortController().signal,
+      },
+      executeStream,
+    });
+
+    assert.equal(result.response, 'Final answer');
+    assert.equal(result.functionCalls.length, 0);
+    assert.equal((result.allMessages.at(-1) as any)?.function_calls, undefined);
+    assert.deepEqual(result.commonOutputs['function-calls' as PortId], {
+      type: 'control-flow-excluded',
+      value: undefined,
+    });
+  });
 });

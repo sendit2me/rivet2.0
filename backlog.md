@@ -1,7 +1,6 @@
 
 
-- Get back to the new LLM node
-
+- How does "Strict" setting work in the Tool node
 
 - Ctrl+X functionality for nodes
 

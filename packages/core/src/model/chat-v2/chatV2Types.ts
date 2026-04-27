@@ -77,6 +77,7 @@ export type RunChatV2PipelineOptions = {
   providerOptions?: ChatV2ProviderOptions | undefined;
   anthropicCacheControlTtl?: '5m' | '1h' | undefined;
   outputUsage?: boolean | undefined;
+  includeFunctionCalls?: boolean | undefined;
   emitPartialOutputs?: boolean | undefined;
   functionCallMode?: AssistantMessageFunctionCallMode | undefined;
   context: Pick<InternalProcessContext, 'signal' | 'onPartialOutputs'>;

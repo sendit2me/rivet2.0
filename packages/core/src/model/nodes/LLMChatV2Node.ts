@@ -12,6 +12,7 @@ import type { ChartNode, NodeId, NodeInputDefinition, NodeOutputDefinition, Port
 import type { InternalProcessContext } from '../ProcessContext.js';
 import { createChatV2CommonNodeData, getCommonChatV2Inputs, getCommonChatV2Outputs, type ChatV2CommonNodeData } from '../chat-v2/chatV2Shared.js';
 import { runChatV2Pipeline } from '../chat-v2/chatV2Pipeline.js';
+import { runChatV2PipelineWithToolContinuation } from '../chat-v2/toolContinuation.js';
 import {
   anthropicCacheControlTtlOptions,
   anthropicThinkingModeOptions,
@@ -27,6 +28,7 @@ import {
 } from '../chat-v2/index.js';
 import type { ChatV2Provider, ChatV2ProviderOptions, ChatV2ToolSet } from '../chat-v2/chatV2Types.js';
 import type { GptFunction } from '../DataValue.js';
+import { delegateToolCall } from './toolCallDelegation.js';
 
 export type LLMChatV2NodeConfigData = ChatV2CommonNodeData & {
   provider: ChatV2Provider;
@@ -50,6 +52,9 @@ export type LLMChatV2NodeConfigData = ChatV2CommonNodeData & {
   googleStructuredOutputs: boolean;
   enableGoogleSearchGrounding: boolean;
   enableGoogleUrlContext: boolean;
+  parallelToolCalls?: boolean;
+  autoContinueToolCalls?: boolean;
+  maxToolRounds?: number;
 };
 
 export type LLMChatV2NodeData = LLMChatV2NodeConfigData;
@@ -117,6 +122,19 @@ function getProviderOptions(data: LLMChatV2NodeData, inputs: Inputs): ChatV2Prov
     providerOptions.google = {
       ...(thinkingBudget != null ? { thinkingConfig: { thinkingBudget } } : {}),
       ...(data.googleStructuredOutputs ? { structuredOutputs: true } : {}),
+    };
+  }
+
+  return Object.keys(providerOptions).length > 0 ? providerOptions : undefined;
+}
+
+function getRuntimeProviderOptions(data: LLMChatV2NodeData, inputs: Inputs): ChatV2ProviderOptions | undefined {
+  const providerOptions = getProviderOptions(data, inputs) ?? {};
+
+  if (data.provider === 'openai' && data.useToolCalling) {
+    providerOptions.openai = {
+      ...(providerOptions.openai ?? {}),
+      parallelToolCalls: !!data.parallelToolCalls,
     };
   }
 
@@ -219,6 +237,9 @@ export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
         googleStructuredOutputs: false,
         enableGoogleSearchGrounding: false,
         enableGoogleUrlContext: false,
+        parallelToolCalls: false,
+        autoContinueToolCalls: false,
+        maxToolRounds: 3,
       },
     };
 
@@ -378,13 +399,39 @@ export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
       },
       {
         type: 'group',
-        label: 'Tools And Outputs',
+        label: 'Tools',
         editors: [
           {
             type: 'toggle',
             label: 'Enable Rivet Tool Calling',
             dataKey: 'useToolCalling',
           },
+          {
+            type: 'toggle',
+            label: 'Parallel toolcalls',
+            dataKey: 'parallelToolCalls',
+            hideIf: (data) => !data.useToolCalling,
+          },
+          {
+            type: 'toggle',
+            label: 'Auto-continue after toolcalls run',
+            dataKey: 'autoContinueToolCalls',
+            hideIf: (data) => !data.useToolCalling,
+          },
+          {
+            type: 'number',
+            label: 'Max tool rounds',
+            dataKey: 'maxToolRounds',
+            min: 1,
+            step: 1,
+            hideIf: (data) => !data.useToolCalling || !data.autoContinueToolCalls,
+          },
+        ],
+      },
+      {
+        type: 'group',
+        label: 'Outputs',
+        editors: [
           {
             type: 'toggle',
             label: 'Output Usage',
@@ -569,7 +616,7 @@ export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
             prompt,
             systemPrompt,
             functions,
-            providerOptions: getProviderOptions(this.data, inputs),
+            providerOptions: getRuntimeProviderOptions(this.data, inputs),
           })
         : undefined;
 
@@ -580,7 +627,9 @@ export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
       return cachedOutputs;
     }
 
-    const result = await runChatV2Pipeline({
+    const providerOptions = getRuntimeProviderOptions(this.data, inputs);
+    const includeFunctionCalls = this.data.useToolCalling || hasBuiltInToolsEnabled(this.data);
+    const runOptions = {
       provider,
       model,
       modelId,
@@ -593,11 +642,35 @@ export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
       topP: getInputOrData(this.data, inputs, 'topP', 'number'),
       topK: getInputOrData(this.data, inputs, 'topK', 'number'),
       outputUsage: this.data.outputUsage,
+      includeFunctionCalls,
       emitPartialOutputs: this.data.useAsGraphPartialOutput,
-      providerOptions: getProviderOptions(this.data, inputs),
+      providerOptions,
       anthropicCacheControlTtl: provider === 'anthropic' ? this.data.anthropicCacheControlTtl || undefined : undefined,
       context,
-    });
+    };
+    const result = this.data.autoContinueToolCalls && this.data.useToolCalling
+      ? await runChatV2PipelineWithToolContinuation({
+          ...runOptions,
+          autoContinue: true,
+          maxToolRounds: this.data.maxToolRounds ?? 3,
+          functions,
+          delegateToolCall: async (toolCall) => {
+            const delegated = await delegateToolCall(toolCall, context, {
+              handlers: [],
+              unknownHandler: undefined,
+              autoDelegate: true,
+              fallBackToExternalCall: true,
+              passthroughErrors: true,
+            });
+
+            return {
+              type: 'chat-message',
+              value: delegated.message,
+              delegatedToolCall: delegated.record,
+            };
+          },
+        })
+      : await runChatV2Pipeline(runOptions);
 
     if (cacheKey != null) {
       context.executionCache.set(cacheKey, result.commonOutputs);
