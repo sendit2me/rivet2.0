@@ -3,7 +3,7 @@
 
 - Clone the latest Rivet repo and ask AI to go through some user's issues from their github to see if we fixed it in Rivet 2.0
 
-- Change the AI workflow generation feature
+- Check  the AI workflow generation feature
 
 - Remote debugger modal must be over everything
 

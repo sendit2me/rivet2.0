@@ -7,7 +7,11 @@ import { useRemoteDebugger } from '../hooks/useRemoteDebugger';
 import { debuggerPanelAnchorState, type DebuggerPanelAnchor, debuggerPanelOpenState } from '../state/ui';
 import { debuggerDefaultUrlState } from '../state/settings';
 import { useSetAtom, useAtom, useAtomValue } from 'jotai';
-import { DEBUGGER_PANEL_WIDTH, resolveDebuggerPanelPosition } from '../utils/debuggerPanelPosition.js';
+import {
+  DEBUGGER_PANEL_WIDTH,
+  DEBUGGER_PANEL_Z_INDEX,
+  resolveDebuggerPanelPosition,
+} from '../utils/debuggerPanelPosition.js';
 
 export function useToggleRemoteDebugger() {
   const setDebuggerPanelOpen = useSetAtom(debuggerPanelOpenState);
@@ -64,7 +68,7 @@ const styles = css`
   padding: 4px 16px 16px 16px; // atlaskit padding on top
   box-shadow: 0 8px 16px var(--shadow-dark);
   width: ${DEBUGGER_PANEL_WIDTH}px;
-  z-index: 50;
+  z-index: ${DEBUGGER_PANEL_Z_INDEX};
 
   .inputs {
   }

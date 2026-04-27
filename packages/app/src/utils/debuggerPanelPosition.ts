@@ -1,6 +1,7 @@
 export const DEBUGGER_PANEL_WIDTH = 400;
 export const DEBUGGER_PANEL_MARGIN = 16;
 export const DEBUGGER_PANEL_OFFSET = 4;
+export const DEBUGGER_PANEL_Z_INDEX = 1_000_000;
 
 export type DebuggerPanelAnchorBounds = {
   bottom: number;

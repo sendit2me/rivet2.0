@@ -703,7 +703,7 @@ Important nuance:
 - the persisted debugger config still lives in `execution.ts`
 - compatibility booleans like `started`/`reconnecting` are still exposed there for older consumers
 - the authoritative runtime socket/session lifecycle now lives in `executorSession.ts`
-- remote debugger connect-popup geometry is intentionally small and pure in [`packages/app/src/utils/debuggerPanelPosition.ts`](../packages/app/src/utils/debuggerPanelPosition.ts); [`packages/app/src/components/DebuggerConnectPanel.tsx`](../packages/app/src/components/DebuggerConnectPanel.tsx) supplies the button/action-bar rects and should not reimplement clamping math
+- remote debugger connect-popup geometry and top-layer z-index are intentionally small and pure in [`packages/app/src/utils/debuggerPanelPosition.ts`](../packages/app/src/utils/debuggerPanelPosition.ts); [`packages/app/src/components/DebuggerConnectPanel.tsx`](../packages/app/src/components/DebuggerConnectPanel.tsx) supplies the button/action-bar rects and should not reimplement clamping math or lower the panel below app overlays
 
 `dataFlow.ts` owns:
 
