@@ -1018,15 +1018,4 @@ export const nodeStyles = css`
     }
   }
 
-  .port-id-label {
-    font-style: normal;
-    color: var(--primary);
-    font-family: var(--font-family-monospace);
-  }
-
-  .rendered-data-outputs {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
 `;

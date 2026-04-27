@@ -29,6 +29,27 @@ export const renderDataValueStyles = css`
   }
 `;
 
+export const outputSectionLabelStyles = css`
+  color: var(--primary);
+  font-family: var(--font-family-monospace);
+  font-size: var(--ui-font-size-sm);
+  font-style: normal;
+  font-weight: 700;
+  line-height: 1.25;
+`;
+
+export const renderedDataOutputsStyles = css`
+  display: flex;
+  flex-direction: column;
+  gap: calc(18px * var(--ui-font-scale));
+
+  .port-value {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+`;
+
 export const multiOutputStyles = css`
   display: flex;
   flex-direction: column;

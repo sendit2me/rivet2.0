@@ -1,6 +1,7 @@
 import { css } from '@emotion/react';
 import { type FC, type ReactNode } from 'react';
 import ColorizedPreformattedText from '../ColorizedPreformattedText.js';
+import { outputSectionLabelStyles } from '../renderDataValue/renderDataValueStyles.js';
 
 const structuredNodeOutputCss = css`
   display: flex;
@@ -46,7 +47,9 @@ export const StructuredNodeOutputSection: FC<{
 }> = ({ children, className, label }) => (
   <div className={className ? `structured-node-output-section ${className}` : 'structured-node-output-section'}>
     <div>
-      <em className="port-id-label">{label}</em>
+      <em css={outputSectionLabelStyles} className="port-id-label">
+        {label}
+      </em>
     </div>
     {children}
   </div>

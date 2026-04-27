@@ -13,6 +13,7 @@ import { createDataValueRendererMap } from './renderDataValue/createDataValueRen
 import { createScalarRenderers } from './renderDataValue/createScalarRenderers.js';
 import { LargeStoredValuePreview } from './renderDataValue/LargeStoredValuePreview.js';
 import type { OutputRenderMode } from './renderDataValue/outputRenderTypes.js';
+import { outputSectionLabelStyles, renderedDataOutputsStyles } from './renderDataValue/renderDataValueStyles.js';
 
 export type { OutputRenderMode } from './renderDataValue/outputRenderTypes.js';
 
@@ -107,7 +108,7 @@ export const RenderDataOutputs: FC<{
   }
 
   return (
-    <div className="rendered-data-outputs">
+    <div css={renderedDataOutputsStyles} className="rendered-data-outputs">
       {outputPorts.map((portId) => {
         const def = definitions?.find((d) => d.id === portId);
         const label = def?.title ?? portId;
@@ -115,7 +116,9 @@ export const RenderDataOutputs: FC<{
         return (
           <div className="port-value" key={portId}>
             <div>
-              <em className="port-id-label">{label}</em>
+              <em css={outputSectionLabelStyles} className="port-id-label">
+                {label}
+              </em>
             </div>
             <RenderDataValue
               value={outputs[portId]!}

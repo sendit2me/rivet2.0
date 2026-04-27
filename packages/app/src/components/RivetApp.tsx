@@ -17,7 +17,7 @@ import { ActionBar } from './ActionBar';
 import { DebuggerPanelRenderer } from './DebuggerConnectPanel';
 import { ChatViewerRenderer } from './ChatViewer';
 import { useAtomValue } from 'jotai';
-import { defaultExecutorState, themeState } from '../state/settings';
+import { defaultExecutorState, themeState, themes } from '../state/settings';
 import clsx from 'clsx';
 import { useLoadStaticData } from '../hooks/useLoadStaticData';
 import { DataStudioRenderer } from './dataStudio/DataStudio';
@@ -97,6 +97,19 @@ export const RivetApp: FC = () => {
       }
     };
   }, [uiFontSizeCssVariables]);
+
+  useEffect(() => {
+    const rootElement = document.documentElement;
+    const themeClasses = ['theme-default', ...themes.map(({ value }) => `theme-${value}`)];
+    const themeClass = theme ? `theme-${theme}` : 'theme-default';
+
+    rootElement.classList.remove(...themeClasses);
+    rootElement.classList.add(themeClass);
+
+    return () => {
+      rootElement.classList.remove(themeClass);
+    };
+  }, [theme]);
 
   return (
     <div className={clsx('app', theme ? `theme-${theme}` : 'theme-default')} css={styles} style={uiFontSizeCssVariables}>

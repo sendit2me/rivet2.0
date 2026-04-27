@@ -90,6 +90,9 @@
   --text-color-accent-4: #00b74c;
 }
 
+:root,
+:root.theme-default,
+:root.theme-molten,
 .app.theme-default,
 .app.theme-molten {
   /* Primary colors */
@@ -103,6 +106,7 @@
   --shadow-primary-bright: rgba(255, 140, 0, 0.8);
 }
 
+:root.theme-grapefruit,
 .app.theme-grapefruit {
   /* Primary colors */
   --primary: #ff8862;
@@ -143,6 +147,7 @@
   --grey-subtle-accent: rgba(255, 136, 98, 0.02);
 }
 
+:root.theme-taffy,
 .app.theme-taffy {
   /* Primary colors */
   --primary: #a55fff;
