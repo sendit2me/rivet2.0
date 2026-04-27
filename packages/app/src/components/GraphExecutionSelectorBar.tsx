@@ -49,7 +49,7 @@ const styles = css`
     transition:
       color 0.2s ease-out,
       background 0.2s ease-out;
-    border-radius: 8px;
+    border-radius: var(--ui-button-radius-sm);
     corner-shape: squircle;
 
     svg {

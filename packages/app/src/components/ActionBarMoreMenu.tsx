@@ -42,7 +42,7 @@ const moreMenuStyles = css`
     gap: 0.5rem;
     margin: 0;
     height: 48px;
-    border-radius: 10px;
+    border-radius: var(--ui-button-radius);
     corner-shape: squircle;
     background-color: transparent;
     border: none;

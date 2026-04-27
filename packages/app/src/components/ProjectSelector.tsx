@@ -83,7 +83,7 @@ export const styles = css`
     left: 0;
     background-color: var(--grey-darkest);
     border: 2px solid var(--grey-darkish);
-    border-radius: 8px;
+    border-radius: var(--ui-button-radius-sm);
     corner-shape: squircle;
     box-shadow: 0 8px 16px var(--shadow-dark);
     font-family: 'Roboto Mono', monospace;
@@ -103,7 +103,7 @@ export const styles = css`
     width: 100%;
     background: transparent;
     border: 0;
-    border-radius: 8px;
+    border-radius: var(--ui-button-radius-sm);
     corner-shape: squircle;
     color: inherit;
     cursor: pointer;
@@ -157,7 +157,7 @@ export const styles = css`
       display: flex;
       align-items: center;
       margin: 0;
-      border-radius: 10px;
+      border-radius: var(--ui-button-radius);
       corner-shape: squircle;
       background: transparent;
       padding: 8px;
@@ -293,7 +293,7 @@ export const styles = css`
       color: var(--grey-light);
       width: 20px;
       height: 20px;
-      border-radius: 8px;
+      border-radius: var(--ui-button-radius-sm);
       corner-shape: squircle;
 
       svg {

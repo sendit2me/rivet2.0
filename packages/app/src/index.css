@@ -14,6 +14,29 @@ body {
   height: 100%;
   overflow: hidden;
   font-size: var(--ui-font-size-base);
+  --ds-font-size-050: var(--ui-font-size-xs);
+  --ds-font-size-075: var(--ui-font-size-sm);
+  --ds-font-size-100: var(--ui-font-size-base);
+  --ds-font-size-200: var(--ui-font-size-lg);
+  --ds-font-size-300: var(--ui-font-size-xl);
+  --ds-font-size-400: var(--ui-font-size-2xl);
+  --ds-font-lineHeight-100: calc(16px * var(--ui-font-scale));
+  --ds-font-lineHeight-200: calc(20px * var(--ui-font-scale));
+  --ds-font-lineHeight-300: calc(24px * var(--ui-font-scale));
+  --ds-font-lineHeight-400: calc(28px * var(--ui-font-scale));
+  --ds-font-lineHeight-500: calc(32px * var(--ui-font-scale));
+  --ds-font-body: normal 400 var(--ui-font-size-base) / calc(20px * var(--ui-font-scale))
+    var(--ds-font-family-body, var(--font-family));
+  --ds-font-body-small: normal 400 var(--ui-font-size-xs) / calc(20px * var(--ui-font-scale))
+    var(--ds-font-family-body, var(--font-family));
+  --ds-font-body-large: normal 400 var(--ui-font-size-lg) / calc(24px * var(--ui-font-scale))
+    var(--ds-font-family-body, var(--font-family));
+  --ds-font-ui: normal 400 var(--ui-font-size-base) / 1 var(--ds-font-family-body, var(--font-family));
+  --ds-font-ui-small: normal 400 var(--ui-font-size-xs) / 1 var(--ds-font-family-body, var(--font-family));
+  --ds-text-inverse: #fff;
+  --ds-border-radius: var(--ui-button-radius);
+  --ds-border-radius-050: var(--ui-button-radius-sm);
+  --ds-border-radius-100: var(--ui-button-radius);
 
   --label-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, 'Fira Sans', 'Droid Sans',
     'Helvetica Neue', sans-serif;
@@ -33,6 +56,12 @@ body {
   --ui-font-size-xl: 20px;
   --ui-font-size-2xl: 24px;
   --ui-font-size-icon-xl: 32px;
+  --ui-button-radius: calc(10px * var(--ui-font-scale));
+  --ui-button-radius-sm: calc(8px * var(--ui-font-scale));
+  --ds-text-inverse: #fff;
+  --ds-border-radius: var(--ui-button-radius);
+  --ds-border-radius-050: var(--ui-button-radius-sm);
+  --ds-border-radius-100: var(--ui-button-radius);
 }
 
 * {
@@ -45,6 +74,11 @@ select,
 textarea {
   font-family: inherit;
   font-size: inherit;
+}
+
+button {
+  border-radius: var(--ui-button-radius);
+  corner-shape: squircle;
 }
 
 input:not(.inputarea),

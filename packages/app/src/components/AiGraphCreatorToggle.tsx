@@ -21,7 +21,7 @@ const styles = css`
     width: 48px;
     height: 48px;
     background: var(--grey-darker);
-    border-radius: 32px;
+    border-radius: calc(32px * var(--ui-font-scale));
     corner-shape: superellipse(1.15);
     border: 1px solid var(--grey-dark);
     z-index: 50;

@@ -13,6 +13,12 @@ import { ToggleEditor } from './ToggleEditor';
 import { LabeledToggle } from '../LabeledToggle';
 
 const styles = css`
+  --editor-group-radius: calc(16px * var(--ui-font-scale));
+  --editor-group-toggle-radius: calc(8px * var(--ui-font-scale));
+  --editor-group-padding-x: calc(16px * var(--ui-font-scale));
+  --editor-group-toggle-padding-y: calc(8px * var(--ui-font-scale));
+  --editor-group-toggle-icon-size: calc(24px * var(--ui-font-scale));
+
   grid-column: span 2;
   display: flex;
   flex-direction: column;
@@ -22,10 +28,10 @@ const styles = css`
   > .Collapsible .editor-group-toggle-container {
     display: flex;
     flex-direction: column;
-    padding-left: 16px;
-    padding-right: 16px;
+    padding-left: var(--editor-group-padding-x);
+    padding-right: var(--editor-group-padding-x);
     border: 1px solid var(--grey-darkish);
-    border-radius: 16px;
+    border-radius: var(--editor-group-radius);
     corner-shape: squircle;
     background: var(--grey-darker);
   }
@@ -33,7 +39,7 @@ const styles = css`
   > .editor-group-toggle-container.open,
   > .Collapsible > .editor-group-toggle-container.open {
     border-bottom: none;
-    border-radius: 16px 16px 0 0;
+    border-radius: var(--editor-group-radius) var(--editor-group-radius) 0 0;
     corner-shape: squircle;
   }
 
@@ -41,7 +47,7 @@ const styles = css`
   > .Collapsible > .editor-group-toggle-container.open + .Collapsible__contentOuter {
     border: 1px solid var(--grey-darkish);
     border-top: none;
-    border-radius: 0 0 16px 16px;
+    border-radius: 0 0 var(--editor-group-radius) var(--editor-group-radius);
     corner-shape: squircle;
     background: var(--grey-light-seethrougher);
   }
@@ -56,15 +62,16 @@ const styles = css`
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 8px 16px;
-    margin: 0 -16px;
+    padding: var(--editor-group-toggle-padding-y) var(--editor-group-padding-x);
+    margin: 0 calc(-1 * var(--editor-group-padding-x));
     border: none;
     background: none;
     cursor: pointer;
     outline: none;
     font-size: var(--ui-font-size-base);
+    line-height: 1.25;
     font-weight: 500;
-    border-radius: 8px;
+    border-radius: var(--editor-group-toggle-radius);
     corner-shape: squircle;
     transition: background 0.2s ease-out;
     font-family: inherit;
@@ -75,8 +82,9 @@ const styles = css`
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 24px;
-      height: 24px;
+      width: var(--editor-group-toggle-icon-size);
+      height: var(--editor-group-toggle-icon-size);
+      flex: 0 0 var(--editor-group-toggle-icon-size);
     }
 
     &:hover {

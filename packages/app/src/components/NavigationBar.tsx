@@ -64,7 +64,7 @@ const styles = css`
     align-items: center;
     gap: 0.5rem;
     margin: 0;
-    border-radius: 10px;
+    border-radius: var(--ui-button-radius);
     corner-shape: squircle;
     background: transparent;
     padding: 8px;
@@ -112,7 +112,7 @@ const styles = css`
     input {
       background: var(--grey-darkish);
       border: none;
-      border-radius: 8px;
+      border-radius: var(--ui-button-radius-sm);
       corner-shape: squircle;
       padding: 4px 8px;
       color: var(--grey-lightest);
@@ -297,7 +297,7 @@ const styles = css`
     input {
       background: var(--grey-dark);
       border: none;
-      border-radius: 8px;
+      border-radius: var(--ui-button-radius-sm);
       corner-shape: squircle;
       padding: 18px 18px;
       color: var(--grey-lightest);
@@ -311,7 +311,7 @@ const styles = css`
     }
 
     .entries {
-      border-radius: 8px;
+      border-radius: var(--ui-button-radius-sm);
       corner-shape: squircle;
       box-shadow: 3px 1px 10px rgba(0, 0, 0, 0.4);
       max-height: 300px;

@@ -61,7 +61,7 @@ const styles = css`
     gap: 0.5rem;
     margin: 0;
     height: var(--action-bar-height);
-    border-radius: 10px;
+    border-radius: var(--ui-button-radius);
     corner-shape: squircle;
   }
 

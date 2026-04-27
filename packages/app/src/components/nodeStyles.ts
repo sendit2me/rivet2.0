@@ -2,7 +2,7 @@ import { css } from '@emotion/react';
 
 export const nodeStyles = css`
   .node {
-    --node-card-radius: 16px;
+    --node-card-radius: calc(16px * var(--ui-font-scale));
     --node-card-corner-shape: squircle;
     --node-output-min-height: 46px;
     --node-output-collapsed-max-height: calc(3 * 1.4em + 200px);
@@ -151,10 +151,10 @@ export const nodeStyles = css`
   }
 
   .node.isSplit::before {
-    top: -11px;
-    height: 10px;
-    left: 8px;
-    right: 8px;
+    top: calc(-11px * var(--ui-font-scale));
+    height: calc(10px * var(--ui-font-scale));
+    left: calc(8px * var(--ui-font-scale));
+    right: calc(8px * var(--ui-font-scale));
     background: var(--node-bg);
     background: var(--node-stack-front-bg);
     opacity: 0.35;
@@ -162,10 +162,10 @@ export const nodeStyles = css`
   }
 
   .node.isSplit::after {
-    top: -20px;
-    height: 8px;
-    left: 17px;
-    right: 17px;
+    top: calc(-20px * var(--ui-font-scale));
+    height: calc(8px * var(--ui-font-scale));
+    left: calc(17px * var(--ui-font-scale));
+    right: calc(17px * var(--ui-font-scale));
     background: var(--node-bg);
     background: var(--node-stack-back-bg);
     opacity: 0.15;
@@ -206,27 +206,27 @@ export const nodeStyles = css`
   }
 
   .node:not(.isComment) .grab-area {
-    padding-right: 66px;
+    padding-right: calc(66px * var(--ui-font-scale));
   }
 
   .split-run-mode-icon {
     flex: 0 0 auto;
-    width: 16px;
-    height: 16px;
+    width: calc(16px * var(--ui-font-scale));
+    height: calc(16px * var(--ui-font-scale));
   }
 
   .split-run-mode-icon-sequential {
-    width: 20px;
+    width: calc(20px * var(--ui-font-scale));
   }
 
   .subgraph-link-button {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 24px;
-    height: 46px;
-    margin: -12px 0;
-    margin-left: -5px;
+    width: calc(24px * var(--ui-font-scale));
+    height: calc(46px * var(--ui-font-scale));
+    margin: calc(-12px * var(--ui-font-scale)) 0;
+    margin-left: calc(-5px * var(--ui-font-scale));
     padding: 0;
     border: 0;
     background: transparent;
@@ -292,11 +292,12 @@ export const nodeStyles = css`
   .split-run-summary {
     display: flex;
     align-items: center;
-    gap: 6px;
-    height: 24px;
-    padding: 2px 6px 2px 4px;
+    gap: calc(6px * var(--ui-font-scale));
+    min-height: calc(24px * var(--ui-font-scale));
+    padding: calc(2px * var(--ui-font-scale)) calc(6px * var(--ui-font-scale))
+      calc(2px * var(--ui-font-scale)) calc(4px * var(--ui-font-scale));
     border: 0;
-    border-radius: 8px;
+    border-radius: calc(8px * var(--ui-font-scale));
     corner-shape: squircle;
     background: color-mix(in srgb, var(--node-bg-foreground) 85%, transparent);
     color: var(--node-bg);
@@ -307,16 +308,16 @@ export const nodeStyles = css`
     font-size: var(--ui-font-size-xs);
     font-weight: 900;
     line-height: 1.4;
-    letter-spacing: 0.4px;
+    letter-spacing: calc(0.4px * var(--ui-font-scale));
     text-transform: none;
-    margin-top: 6px;
-    margin-left: -1px;
+    margin-top: calc(6px * var(--ui-font-scale));
+    margin-left: calc(-1px * var(--ui-font-scale));
   }
 
   .split-run-summary-mode {
     font-weight: 900;
     text-transform: uppercase;
-    letter-spacing: 1.2px;
+    letter-spacing: calc(1.2px * var(--ui-font-scale));
   }
 
   .split-run-summary:hover {
@@ -339,12 +340,12 @@ export const nodeStyles = css`
   .title-controls {
     display: flex;
     align-items: flex-start;
-    gap: 6px;
+    gap: calc(6px * var(--ui-font-scale));
     justify-content: flex-end;
-    min-height: 22px;
-    margin-right: -8px;
+    min-height: calc(22px * var(--ui-font-scale));
+    margin-right: calc(-8px * var(--ui-font-scale));
     flex: 0 0 66px;
-    width: 66px;
+    width: calc(66px * var(--ui-font-scale));
     position: relative;
     pointer-events: none;
 
@@ -356,16 +357,17 @@ export const nodeStyles = css`
       cursor: pointer;
       font-size: calc(var(--ui-font-size-base) * 1.2857142857);
       transition: color 0.2s ease-out;
-      margin: -12px 0;
-      width: 30px;
-      height: 46px;
+      margin: calc(-12px * var(--ui-font-scale)) 0;
+      width: calc(30px * var(--ui-font-scale));
+      height: calc(46px * var(--ui-font-scale));
       display: flex;
       align-items: center;
       justify-content: center;
       padding: 0;
 
       svg {
-        width: 18px;
+        width: calc(18px * var(--ui-font-scale));
+        height: calc(18px * var(--ui-font-scale));
       }
     }
 
@@ -386,10 +388,10 @@ export const nodeStyles = css`
 
   .node-running-indicator {
     color: var(--node-bg-foreground);
-    width: 16px;
-    height: 16px;
-    margin-top: 3px;
-    border: 2px solid currentColor;
+    width: calc(16px * var(--ui-font-scale));
+    height: calc(16px * var(--ui-font-scale));
+    margin-top: calc(3px * var(--ui-font-scale));
+    border: calc(2px * var(--ui-font-scale)) solid currentColor;
     border-right-color: transparent;
     border-bottom-color: transparent;
     border-radius: 50%;
@@ -791,7 +793,7 @@ export const nodeStyles = css`
     top: 8px;
     right: 4px;
     display: flex;
-    gap: 8px;
+    gap: calc(8px * var(--ui-font-scale));
     z-index: 10;
   }
 
@@ -799,8 +801,8 @@ export const nodeStyles = css`
   .expand-button,
   .output-toggle-button,
   .prompt-designer-button {
-    width: 24px;
-    height: 24px;
+    width: calc(24px * var(--ui-font-scale));
+    height: calc(24px * var(--ui-font-scale));
     display: flex;
     align-items: center;
     justify-content: center;
@@ -829,7 +831,9 @@ export const nodeStyles = css`
   }
 
   .copy-button svg,
-  .expand-button svg {
+  .expand-button svg,
+  .output-toggle-button svg,
+  .prompt-designer-button svg {
     width: 80%;
     height: 80%;
   }

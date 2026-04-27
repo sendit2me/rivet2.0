@@ -5,6 +5,9 @@ import { type FC, type KeyboardEventHandler, type Ref } from 'react';
 import { LabeledToggle } from '../LabeledToggle.js';
 
 const fullscreenOutputToolbarCss = css`
+  --fullscreen-output-toolbar-control-height: calc(28px * var(--ui-font-scale));
+  --fullscreen-output-toolbar-icon-size: calc(24px * var(--ui-font-scale));
+
   display: inline-flex;
   gap: 8px;
 
@@ -17,8 +20,8 @@ const fullscreenOutputToolbarCss = css`
   padding: 8px 12px;
 
   .toolbar-icon {
-    width: 24px;
-    height: 24px;
+    width: var(--fullscreen-output-toolbar-icon-size);
+    height: var(--fullscreen-output-toolbar-icon-size);
     font-size: var(--ui-font-size-2xl);
     opacity: 0.2;
     cursor: pointer;
@@ -36,9 +39,11 @@ const fullscreenOutputToolbarCss = css`
     user-select: none;
     text-transform: uppercase;
     font-size: var(--ui-font-size-2xs);
+    line-height: 1;
     transition: opacity 0.2s;
     z-index: 1;
-    height: 24px;
+    height: var(--fullscreen-output-toolbar-control-height);
+    padding: 0 calc(6px * var(--ui-font-scale));
     display: inline-flex;
     align-items: center;
 
@@ -70,8 +75,9 @@ const fullscreenOutputToolbarCss = css`
     border: 1px solid var(--grey);
     background: rgba(255, 255, 255, 0.05);
     color: var(--foreground);
-    border-radius: 8px;
+    border-radius: var(--ui-button-radius-sm);
     corner-shape: squircle;
+    height: var(--fullscreen-output-toolbar-control-height);
     padding: 4px 8px;
     font: inherit;
   }
@@ -86,11 +92,13 @@ const fullscreenOutputToolbarCss = css`
     border: 1px solid var(--grey);
     background: rgba(255, 255, 255, 0.05);
     color: inherit;
-    border-radius: 8px;
+    border-radius: var(--ui-button-radius-sm);
     corner-shape: squircle;
-    min-width: 28px;
-    height: 28px;
+    min-width: var(--fullscreen-output-toolbar-control-height);
+    height: var(--fullscreen-output-toolbar-control-height);
     padding: 0 6px;
+    font: inherit;
+    line-height: 1;
   }
 
   .search-nav-button:disabled {

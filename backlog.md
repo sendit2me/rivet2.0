@@ -7,6 +7,7 @@
 
 - Change the AI workflow generation feature
 
+- Remote debugger modal must be over everything
 
 - Reassess the Rivet settings. probbaly something needs reworking
 
