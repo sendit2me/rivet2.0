@@ -124,6 +124,7 @@ export async function runChatV2Pipeline(options: RunChatV2PipelineOptions): Prom
     topK: options.topK,
     stopSequences: options.stopSequences,
     providerOptions: options.providerOptions,
+    toolChoice: options.toolChoice,
     abortSignal: options.context.signal,
     executeStream: options.executeStream,
     onPartialOutput:

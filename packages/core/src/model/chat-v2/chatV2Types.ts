@@ -12,6 +12,7 @@ export type ChatV2Provider = 'openai' | 'anthropic' | 'google';
 export type ChatV2Model = StreamTextArgs['model'];
 export type ChatV2ProviderOptions = StreamTextArgs['providerOptions'];
 export type ChatV2ToolSet = NonNullable<StreamTextArgs['tools']>;
+export type ChatV2ToolChoice = StreamTextArgs['toolChoice'];
 export type ChatV2MessageList = ModelMessage[];
 export type ChatV2StreamPart = TextStreamPart<ToolSet>;
 
@@ -47,6 +48,7 @@ export type StreamChatV2Options = {
   topK?: number | undefined;
   stopSequences?: string[] | undefined;
   providerOptions?: ChatV2ProviderOptions | undefined;
+  toolChoice?: ChatV2ToolChoice | undefined;
   abortSignal?: AbortSignal | undefined;
   executeStream?: ChatV2StreamExecutor | undefined;
   onPartialOutput?: ((partial: { text: string; functionCalls: StreamedFunctionCall[] }) => void) | undefined;
@@ -75,6 +77,7 @@ export type RunChatV2PipelineOptions = {
   topK?: number | undefined;
   stopSequences?: string[] | undefined;
   providerOptions?: ChatV2ProviderOptions | undefined;
+  toolChoice?: ChatV2ToolChoice | undefined;
   anthropicCacheControlTtl?: '5m' | '1h' | undefined;
   outputUsage?: boolean | undefined;
   includeFunctionCalls?: boolean | undefined;

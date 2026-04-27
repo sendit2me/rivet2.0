@@ -26,9 +26,11 @@ import {
   parseChatV2Provider,
   resolveChatV2ProviderConfig,
 } from '../chat-v2/index.js';
-import type { ChatV2Provider, ChatV2ProviderOptions, ChatV2ToolSet } from '../chat-v2/chatV2Types.js';
+import type { ChatV2Provider, ChatV2ProviderOptions, ChatV2ToolChoice, ChatV2ToolSet } from '../chat-v2/chatV2Types.js';
 import type { GptFunction } from '../DataValue.js';
 import { delegateToolCall } from './toolCallDelegation.js';
+
+type LLMChatV2ToolChoiceMode = '' | 'auto' | 'function' | 'required';
 
 export type LLMChatV2NodeConfigData = ChatV2CommonNodeData & {
   provider: ChatV2Provider;
@@ -52,6 +54,8 @@ export type LLMChatV2NodeConfigData = ChatV2CommonNodeData & {
   googleStructuredOutputs: boolean;
   enableGoogleSearchGrounding: boolean;
   enableGoogleUrlContext: boolean;
+  toolChoice?: LLMChatV2ToolChoiceMode;
+  toolChoiceFunction?: string;
   parallelToolCalls?: boolean;
   autoContinueToolCalls?: boolean;
   maxToolRounds?: number;
@@ -139,6 +143,27 @@ function getRuntimeProviderOptions(data: LLMChatV2NodeData, inputs: Inputs): Cha
   }
 
   return Object.keys(providerOptions).length > 0 ? providerOptions : undefined;
+}
+
+function resolveToolChoice(data: LLMChatV2NodeData): ChatV2ToolChoice | undefined {
+  if (!data.useToolCalling || !data.toolChoice) {
+    return undefined;
+  }
+
+  if (data.toolChoice === 'function') {
+    const toolName = data.toolChoiceFunction?.trim();
+
+    if (!toolName) {
+      throw new Error('Tool name is required when Tool choice is Specific tool.');
+    }
+
+    return {
+      type: 'tool',
+      toolName,
+    } as ChatV2ToolChoice;
+  }
+
+  return data.toolChoice;
 }
 
 function getBuiltInTools(
@@ -237,6 +262,8 @@ export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
         googleStructuredOutputs: false,
         enableGoogleSearchGrounding: false,
         enableGoogleUrlContext: false,
+        toolChoice: '',
+        toolChoiceFunction: '',
         parallelToolCalls: false,
         autoContinueToolCalls: false,
         maxToolRounds: 3,
@@ -403,12 +430,34 @@ export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
         editors: [
           {
             type: 'toggle',
-            label: 'Enable Rivet Tool Calling',
+            label: 'Tool use',
             dataKey: 'useToolCalling',
           },
           {
+            type: 'dropdown',
+            label: 'Tool choice',
+            dataKey: 'toolChoice',
+            options: [
+              { value: '', label: 'Default' },
+              { value: 'auto', label: 'Auto' },
+              { value: 'function', label: 'Specific tool' },
+              { value: 'required', label: 'Required' },
+            ],
+            defaultValue: '',
+            helperMessage:
+              'Controls whether the model may call tools. Default lets the model/provider choose.',
+            hideIf: (data) => !data.useToolCalling,
+          },
+          {
+            type: 'string',
+            label: 'Tool name',
+            dataKey: 'toolChoiceFunction',
+            helperMessage: 'The name of the tool to force the model to call.',
+            hideIf: (data) => !data.useToolCalling || data.toolChoice !== 'function',
+          },
+          {
             type: 'toggle',
-            label: 'Parallel toolcalls',
+            label: 'Allow parallel toolcalls',
             dataKey: 'parallelToolCalls',
             hideIf: (data) => !data.useToolCalling,
           },
@@ -605,6 +654,7 @@ export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
         ? (coerceTypeOptional(inputs['functions' as PortId], 'gpt-function[]') as GptFunction[] | undefined)
         : undefined;
     const builtInTools = getBuiltInTools(this.data, context, providerConfig);
+    const toolChoice = resolveToolChoice(this.data);
 
     const cacheKey =
       this.data.cache
@@ -617,6 +667,7 @@ export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
             systemPrompt,
             functions,
             providerOptions: getRuntimeProviderOptions(this.data, inputs),
+            toolChoice,
           })
         : undefined;
 
@@ -645,6 +696,7 @@ export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
       includeFunctionCalls,
       emitPartialOutputs: this.data.useAsGraphPartialOutput,
       providerOptions,
+      toolChoice,
       anthropicCacheControlTtl: provider === 'anthropic' ? this.data.anthropicCacheControlTtl || undefined : undefined,
       context,
     };

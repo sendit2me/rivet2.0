@@ -40,6 +40,7 @@ async function executeStream(
     topK: options.topK,
     stopSequences: options.stopSequences,
     providerOptions: options.providerOptions,
+    toolChoice: options.toolChoice,
     abortSignal: options.abortSignal,
   });
 

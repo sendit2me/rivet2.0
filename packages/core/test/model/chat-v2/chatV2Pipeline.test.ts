@@ -66,6 +66,30 @@ describe('streamChatV2', () => {
     assert.deepEqual(result.providerMetadata, providerMetadata);
     assert.equal(result.usage?.inputTokens, 10);
   });
+
+  it('forwards tool choice to the AI SDK stream executor', async () => {
+    let capturedToolChoice: unknown;
+    const executeStream: ChatV2StreamExecutor = async (args) => {
+      capturedToolChoice = args.toolChoice;
+
+      return {
+        fullStream: mockStream([
+          { type: 'text-start', id: 'text_1' },
+          { type: 'text-delta', id: 'text_1', text: 'Hello' },
+          { type: 'text-end', id: 'text_1' },
+        ]),
+      };
+    };
+
+    await streamChatV2({
+      model: createMockModel(),
+      messages: [],
+      toolChoice: 'required',
+      executeStream,
+    });
+
+    assert.equal(capturedToolChoice, 'required');
+  });
 });
 
 describe('runChatV2Pipeline', () => {
@@ -204,6 +228,56 @@ describe('runChatV2Pipeline', () => {
     assert.deepEqual(result.commonOutputs['function-calls' as PortId], {
       type: 'control-flow-excluded',
       value: undefined,
+    });
+  });
+
+  it('forwards function tool choice in the AI SDK tool-choice format', async () => {
+    let capturedToolChoice: unknown;
+    const executeStream: ChatV2StreamExecutor = async (args) => {
+      capturedToolChoice = args.toolChoice;
+
+      return {
+        fullStream: mockStream([
+          { type: 'text-start', id: 'text_1' },
+          { type: 'text-delta', id: 'text_1', text: 'Final answer' },
+          { type: 'text-end', id: 'text_1' },
+          {
+            type: 'finish',
+            finishReason: 'stop',
+            rawFinishReason: undefined,
+          },
+        ]),
+      };
+    };
+
+    await runChatV2Pipeline({
+      provider: 'openai',
+      model: createMockModel(),
+      modelId: 'gpt-4o',
+      prompt: { type: 'string', value: 'Use the lookup tool.' },
+      functions: [
+        {
+          name: 'lookup_weather',
+          description: 'Looks up weather.',
+          parameters: {
+            type: 'object',
+            properties: {},
+          },
+        },
+      ],
+      toolChoice: {
+        type: 'tool',
+        toolName: 'lookup_weather',
+      },
+      context: {
+        signal: new AbortController().signal,
+      },
+      executeStream,
+    });
+
+    assert.deepEqual(capturedToolChoice, {
+      type: 'tool',
+      toolName: 'lookup_weather',
     });
   });
 });

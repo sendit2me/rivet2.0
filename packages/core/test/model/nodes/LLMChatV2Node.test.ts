@@ -19,6 +19,9 @@ describe('LLMChatV2NodeImpl', () => {
     assert.equal(node.type, 'llmChatV2');
     assert.equal(node.title, 'LLM Chat v2');
     assert.equal(node.data.provider, 'openai');
+    assert.equal(node.data.useToolCalling, false);
+    assert.equal(node.data.toolChoice, '');
+    assert.equal(node.data.toolChoiceFunction, '');
     assert.equal(node.data.parallelToolCalls, false);
     assert.equal(node.data.autoContinueToolCalls, false);
     assert.equal(node.data.maxToolRounds, 3);
@@ -68,8 +71,32 @@ describe('LLMChatV2NodeImpl', () => {
 
     assert.ok(toolsGroup);
     assert.ok(outputGroup);
-    assert.ok(toolsGroup.editors.some((editor: any) => editor.dataKey === 'useToolCalling'));
-    assert.ok(toolsGroup.editors.some((editor: any) => editor.dataKey === 'parallelToolCalls'));
+    const toolEditorKeys = toolsGroup.editors.map((editor: any) => editor.dataKey);
+
+    assert.deepEqual(toolEditorKeys.slice(0, 5), [
+      'useToolCalling',
+      'toolChoice',
+      'toolChoiceFunction',
+      'parallelToolCalls',
+      'autoContinueToolCalls',
+    ]);
+    assert.equal(toolsGroup.editors.find((editor: any) => editor.dataKey === 'useToolCalling')?.label, 'Tool use');
+    assert.deepEqual(
+      toolsGroup.editors.find((editor: any) => editor.dataKey === 'toolChoice')?.options,
+      [
+        { value: '', label: 'Default' },
+        { value: 'auto', label: 'Auto' },
+        { value: 'function', label: 'Specific tool' },
+        { value: 'required', label: 'Required' },
+      ],
+    );
+    assert.equal(toolsGroup.editors.find((editor: any) => editor.dataKey === 'toolChoiceFunction')?.label, 'Tool name');
+    assert.equal(
+      toolsGroup.editors.find((editor: any) => editor.dataKey === 'parallelToolCalls')?.label,
+      'Allow parallel toolcalls',
+    );
+    assert.ok(toolsGroup.editors.some((editor: any) => editor.dataKey === 'toolChoice'));
+    assert.ok(toolsGroup.editors.some((editor: any) => editor.dataKey === 'toolChoiceFunction'));
     assert.ok(toolsGroup.editors.some((editor: any) => editor.dataKey === 'autoContinueToolCalls'));
     assert.ok(toolsGroup.editors.some((editor: any) => editor.dataKey === 'maxToolRounds'));
     assert.ok(!outputGroup.editors.some((editor: any) => editor.dataKey === 'useToolCalling'));

@@ -6,7 +6,7 @@
 
 - Make it easier and faster to create input and output nodes for the graph
 
-- Clone the latest Rivet repo and ask AI to go through some user's issues from their github to see if we fixed it in Rivet 2.0
+- Compare the current Rivet 2.0 to the rivet in Rivet Server and make sure the new rivet will work there
 
 - Check  the AI workflow generation feature
 
