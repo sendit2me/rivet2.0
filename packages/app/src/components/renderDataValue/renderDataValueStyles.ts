@@ -75,23 +75,6 @@ export const multiOutputStyles = css`
     }
   }
 
-  &.chat-message-list {
-    gap: 0;
-
-    .multi-output-item {
-      border-bottom: 1px solid var(--grey-lightish);
-      padding: 4px 0 16px;
-
-      &::before {
-        display: none;
-      }
-
-      &:last-child {
-        border-bottom: none;
-      }
-    }
-  }
-
   .array-info {
     color: var(--grey-light);
     font-size: var(--ui-font-size-sm);

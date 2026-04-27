@@ -9,7 +9,6 @@ import {
   type ScalarOrArrayDataValue,
   type DataValue,
 } from '@ironclad/rivet-core';
-import clsx from 'clsx';
 import { type FC, type ReactElement } from 'react';
 import { multiOutputStyles, renderDataValueStyles } from './renderDataValueStyles.js';
 import { type createScalarRenderers, type ScalarRendererProps } from './createScalarRenderers.js';
@@ -55,12 +54,7 @@ export function createDataValueRendererMap(options: {
           }
 
           return (
-            <div
-              css={multiOutputStyles}
-              className={clsx({
-                'chat-message-list': value.type === 'chat-message[]',
-              })}
-            >
+            <div css={multiOutputStyles}>
               <div className="array-info">
                 {count.toLocaleString()} item{count === 1 ? '' : 's'}
               </div>

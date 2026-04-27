@@ -1,11 +1,13 @@
 
 
+- Get back to the new LLM node
+
+- Ctrl+X functionality for nodes
 
 - Clone the latest Rivet repo and ask AI to go through some user's issues from their github to see if we fixed it in Rivet 2.0
 
 - Check  the AI workflow generation feature
 
-- Remote debugger modal must be over everything
 
 - Reassess the Rivet settings. probbaly something needs reworking
 
