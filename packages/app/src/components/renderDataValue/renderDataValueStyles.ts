@@ -32,15 +32,25 @@ export const renderDataValueStyles = css`
 export const multiOutputStyles = css`
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: calc(10px * var(--ui-font-scale));
 
   .multi-output-item {
-    border-bottom: 1px solid var(--grey-lightish);
-    padding-bottom: 8px;
+    position: relative;
+    padding-left: calc(10px * var(--ui-font-scale));
 
-    &:last-child {
-      border-bottom: none;
-      padding-bottom: 0;
+    .pre-wrap {
+      margin: 0;
+    }
+
+    &::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: calc(2px * var(--ui-font-scale));
+      border-radius: 999px;
+      background: var(--grey-lightish);
     }
   }
 
@@ -50,6 +60,14 @@ export const multiOutputStyles = css`
     .multi-output-item {
       border-bottom: 1px solid var(--grey-lightish);
       padding: 4px 0 16px;
+
+      &::before {
+        display: none;
+      }
+
+      &:last-child {
+        border-bottom: none;
+      }
     }
   }
 

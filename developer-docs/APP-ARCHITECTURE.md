@@ -1266,6 +1266,7 @@ Current structure:
 - [`packages/app/src/components/RenderDataValue.tsx`](../packages/app/src/components/RenderDataValue.tsx) is narrower and delegates renderer-specific work
 - scalar/type renderer setup lives in [`packages/app/src/components/renderDataValue/createScalarRenderers.tsx`](../packages/app/src/components/renderDataValue/createScalarRenderers.tsx)
 - full data-type dispatch now lives in [`packages/app/src/components/renderDataValue/createDataValueRendererMap.tsx`](../packages/app/src/components/renderDataValue/createDataValueRendererMap.tsx)
+- array-like outputs render through the shared multi-output styles in [`packages/app/src/components/renderDataValue/renderDataValueStyles.ts`](../packages/app/src/components/renderDataValue/renderDataValueStyles.ts): the renderer shows an `N item(s)` count and each item gets a CSS left rail via `::before` rather than literal pipe characters or horizontal dividers
 - chat-part rendering lives in [`packages/app/src/components/renderDataValue/RenderChatMessagePart.tsx`](../packages/app/src/components/renderDataValue/RenderChatMessagePart.tsx)
 - shared output-rendering styles live in [`packages/app/src/components/renderDataValue/renderDataValueStyles.ts`](../packages/app/src/components/renderDataValue/renderDataValueStyles.ts)
 

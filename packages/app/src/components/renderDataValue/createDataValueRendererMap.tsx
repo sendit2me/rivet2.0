@@ -62,7 +62,7 @@ export function createDataValueRendererMap(options: {
               })}
             >
               <div className="array-info">
-                ({count.toLocaleString()} element{count === 1 ? '' : 's'})
+                {count.toLocaleString()} item{count === 1 ? '' : 's'}
               </div>
               {items.map((item, index) => (
                 <div className="multi-output-item" key={index}>
