@@ -2,7 +2,10 @@
 
 - Get back to the new LLM node
 
+
 - Ctrl+X functionality for nodes
+
+- Make it easier and faster to create input and output nodes for the graph
 
 - Clone the latest Rivet repo and ask AI to go through some user's issues from their github to see if we fixed it in Rivet 2.0
 

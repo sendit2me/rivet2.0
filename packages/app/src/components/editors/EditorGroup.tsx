@@ -11,6 +11,9 @@ import { getEditorListKey, getEditorRenderRows, getHelperMessage } from './edito
 import { HelperMessage } from '@atlaskit/form';
 import { ToggleEditor } from './ToggleEditor';
 import { LabeledToggle } from '../LabeledToggle';
+import { useAtom } from 'jotai';
+import { nodeEditorGroupOpenState } from '../../state/ui.js';
+import { resolveNodeEditorGroupOpen, setNodeEditorGroupOpen } from '../../utils/nodeEditorGroupState.js';
 
 const styles = css`
   --editor-group-radius: calc(16px * var(--ui-font-scale));
@@ -156,9 +159,11 @@ const ToggleHeader: FC<{
 export const EditorGroup: FC<
   SharedEditorProps & {
     editor: EditorDefinitionGroup<ChartNode>;
+    editorKey: string;
   }
-> = ({ editor, ...sharedProps }) => {
+> = ({ editor, editorKey, ...sharedProps }) => {
   const { editors, label, hideIf, defaultOpen = false, toggleDataKey } = editor;
+  const [nodeEditorGroupOpen, setNodeEditorGroupOpenState] = useAtom(nodeEditorGroupOpenState);
 
   if (hideIf?.(sharedProps.node.data)) {
     return null;
@@ -167,14 +172,32 @@ export const EditorGroup: FC<
   const helperMessage = getHelperMessage(editor, sharedProps.node.data);
   const data = sharedProps.node.data as Record<string, unknown>;
   const isToggleGroupEnabled = toggleDataKey ? Boolean(data[toggleDataKey]) : false;
+  const groupKey = editorKey;
+  const isOpen = resolveNodeEditorGroupOpen({
+    state: nodeEditorGroupOpen,
+    nodeType: sharedProps.node.type,
+    groupKey,
+    defaultOpen,
+  });
+  const setOpen = (nextOpen: boolean) => {
+    setNodeEditorGroupOpenState((state) =>
+      setNodeEditorGroupOpen(state, {
+        nodeType: sharedProps.node.type,
+        groupKey,
+        isOpen: nextOpen,
+      }),
+    );
+  };
   const renderEditorField = (editor: (typeof editors)[number], index: number) => {
     const isDisabled = editor.disableIf?.(sharedProps.node.data) || sharedProps.isDisabled;
+    const childEditorKey = `${editorKey}/${getEditorListKey(editor, index)}`;
 
     return (
       <DefaultNodeEditorField
-        key={getEditorListKey(editor, index)}
+        key={childEditorKey}
         {...sharedProps}
         editor={editor}
+        editorKey={childEditorKey}
         isDisabled={isDisabled}
       />
     );
@@ -244,7 +267,8 @@ export const EditorGroup: FC<
   return (
     <div css={styles}>
       <Collapsible
-        open={defaultOpen}
+        open={isOpen}
+        handleTriggerClick={() => setOpen(!isOpen)}
         trigger={<CollapsibleToggle label={label} helperMessage={helperMessage} />}
         triggerClassName="editor-group-toggle-container"
         triggerOpenedClassName="editor-group-toggle-container open"

@@ -29,8 +29,9 @@ import { DefaultDirectoryBrowserEditor } from './DirectoryBrowserEditor';
 export const DefaultNodeEditorField: FC<
   SharedEditorProps & {
     editor: EditorDefinition<ChartNode>;
+    editorKey: string;
   }
-> = ({ node, onChange, editor, isReadonly, isDisabled, onClose, onRefreshEditors }) => {
+> = ({ node, onChange, editor, editorKey, isReadonly, isDisabled, onClose, onRefreshEditors }) => {
   const data = node.data as Record<string, unknown>;
 
   if (editor.hideIf?.(node.data)) {
@@ -60,7 +61,7 @@ export const DefaultNodeEditorField: FC<
     .with({ type: 'color' }, (editor) => <DefaultColorEditor {...sharedProps} editor={editor} />)
     .with({ type: 'fileBrowser' }, (editor) => <DefaultFileBrowserEditor {...sharedProps} editor={editor} />)
     .with({ type: 'imageBrowser' }, (editor) => <DefaultImageBrowserEditor {...sharedProps} editor={editor} />)
-    .with({ type: 'group' }, (editor) => <EditorGroup {...sharedProps} editor={editor} />)
+    .with({ type: 'group' }, (editor) => <EditorGroup {...sharedProps} editor={editor} editorKey={editorKey} />)
     .with({ type: 'keyValuePair' }, (editor) => <KeyValuePairEditor {...sharedProps} editor={editor} />)
     .with({ type: 'stringList' }, (editor) => <StringListEditor {...sharedProps} editor={editor} />)
     .with({ type: 'custom' }, (editor) => <CustomEditor {...sharedProps} editor={editor} />)

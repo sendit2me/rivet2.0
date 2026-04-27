@@ -316,13 +316,15 @@ export const DefaultNodeEditor: FC<
 
   const renderEditorField = (editor: EditorDefinition<ChartNode>, index: number) => {
     const isDisabled = editor.disableIf?.(node.data) ?? false;
+    const editorKey = getEditorListKey(editor, index);
 
     return (
       <DefaultNodeEditorField
-        key={getEditorListKey(editor, index)}
+        key={editorKey}
         node={node}
         onChange={onChange}
         editor={editor}
+        editorKey={editorKey}
         isReadonly={isReadonly}
         isDisabled={isDisabled}
         onClose={onClose}

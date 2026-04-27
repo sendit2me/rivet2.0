@@ -7,6 +7,7 @@ import { DEFAULT_UI_FONT_SIZE } from '../utils/uiFontSize.js';
 import { DEFAULT_LEFT_SIDEBAR_WIDTH } from '../utils/leftSidebarWidth.js';
 import type { ConnectedGraphInputUsage } from '../domain/graphEditing/graphInputUsage.js';
 import { DEFAULT_HORIZONTAL_MODAL_BOUNDS, type HorizontalModalBounds } from '../utils/fullScreenModalBounds.js';
+import type { NodeEditorGroupOpenState } from '../utils/nodeEditorGroupState.js';
 
 const { storage } = createHybridStorage('ui');
 
@@ -42,6 +43,12 @@ export const codeEditorHeightsByStorageKeyState = atomWithStorage<Record<string,
 );
 
 export const nodeEditorWidthState = atomWithStorage<number | null>('nodeEditorWidthState', null, storage);
+
+export const nodeEditorGroupOpenState = atomWithStorage<NodeEditorGroupOpenState>(
+  'nodeEditorGroupOpenState',
+  {},
+  storage,
+);
 
 export const fullscreenOutputModalBoundsState = atomWithStorage<HorizontalModalBounds>(
   'fullscreenOutputModalBoundsState',
