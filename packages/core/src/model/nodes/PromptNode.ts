@@ -196,9 +196,9 @@ export class PromptNodeImpl extends NodeImpl<PromptNode> {
     return [
       {
         type: 'markdown',
-        text: dedent`
-          _${typeDisplay[this.data.type]}${this.data.name ? ` (${this.data.name})` : ''}_ ${this.data.isCacheBreakpoint ? ' (Cache Breakpoint)' : ''}
-      `,
+        text: `_${typeDisplay[this.data.type]}${this.data.name ? ` (${this.data.name})` : ''}_${
+          this.data.isCacheBreakpoint ? ' (Cache Breakpoint)' : ''
+        }`,
       },
       {
         type: 'colorized',

@@ -492,6 +492,21 @@ rely on line-count truncation alone, because very large single-line payloads suc
 blobs can still freeze drag and render paths if the full line is rendered into the node body.
 `TextNode` now trims preview lines to a fixed width and keeps a hard total preview character cap
 as a backstop.
+Markdown body previews should avoid formatting-only blank lines. The app overrides `PromptNode`
+with [`packages/app/src/components/nodes/PromptNode.tsx`](../packages/app/src/components/nodes/PromptNode.tsx)
+so its role label and prompt preview live in one compact DOM block with no spacer line while
+preserving user-authored blank prompt lines; that custom prompt preview uses a lightweight inline
+interpolation-token highlighter instead of Monaco colorization, because Monaco preserves code spaces
+in a way that prevents normal word wrapping. Empty prompt lines render as real line boxes so blank
+lines in the middle of a prompt remain visible in the card preview.
+`ToolNode` renders the tool name as a bold markdown line followed immediately by its description. The app-side
+[`NodeBody`](../packages/app/src/components/NodeBody.tsx) markdown renderer trims first/last child
+margins and resets body-local `pre` margins for node bodies so Markdown paragraph defaults and
+colorized preview defaults do not reintroduce visual spacer lines. Generic node body previews
+default to the shared monospace UI font so plain, markdown, and prompt-like bodies use the same
+node-card typography unless a body spec explicitly opts into sans-serif text; the shared
+[`nodeStyles`](../packages/app/src/components/nodeStyles.ts) also forces body-local `<pre>`
+elements to inherit that font so custom body renderers do not fall back to browser-default monospace.
 
 It also depends on both:
 

@@ -154,7 +154,10 @@ export class GptFunctionNodeImpl extends NodeImpl<GptFunctionNode> {
   }
 
   getBody(): string | NodeBodySpec | undefined {
-    return `!markdown_${this.data.name}_: ${this.data.description}`;
+    return {
+      type: 'markdown',
+      text: `**${this.data.name}**\n${this.data.description}`,
+    };
   }
 
   static getUIData(): NodeUIData {

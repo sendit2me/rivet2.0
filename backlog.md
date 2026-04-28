@@ -4,12 +4,6 @@
 
 
 
-
-
-- Custom LLM provider key for LLM Chat v2. Probbaly a pill control for "Model" section: key in env variable VS pass the API key into the node
-
-
-
 - Make it work with OpenAPI compatible LLM providers like Cerebras and OpenRouter
 
 

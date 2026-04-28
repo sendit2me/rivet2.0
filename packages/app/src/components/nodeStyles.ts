@@ -451,9 +451,14 @@ export const nodeStyles = css`
 
   .node-body {
     color: var(--foreground);
+    font-family: var(--font-family-monospace);
     font-size: var(--ui-font-size-sm);
     margin-bottom: 12px;
     line-height: 1.4;
+  }
+
+  .node-body pre {
+    font-family: inherit;
   }
 
   .node.isComment .node-body {
