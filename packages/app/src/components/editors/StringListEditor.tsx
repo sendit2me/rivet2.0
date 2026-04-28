@@ -23,6 +23,10 @@ import { useAtomValue } from 'jotai';
 import { connectionsState } from '../../state/graph';
 
 const styles = css`
+  & > div:first-of-type {
+    margin-top: 0 !important;
+  }
+
   .string-list {
     display: flex;
     flex-direction: column;

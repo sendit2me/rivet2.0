@@ -17,6 +17,10 @@ type KVPair = {
 };
 
 const styles = css`
+  & > div:first-of-type {
+    margin-top: 0 !important;
+  }
+
   .key-value-pairs-container {
     display: flex;
     flex-direction: column;
@@ -36,7 +40,8 @@ const styles = css`
   }
 
   .add-pair {
-    margin-top: 8px;
+    min-width: 96px;
+    justify-content: center;
   }
 
   .delete-pair {
@@ -148,40 +153,42 @@ export const KeyValuePairs: FC<KeyValuePairsProps> = ({
         {({ fieldProps }) => (
           <div className="key-value-pairs-container">
             {helperMessage && <HelperMessage>{helperMessage}</HelperMessage>}
-            <div className="key-value-pairs">
-              {keyValuePairs.map((pair, index) => (
-                <div key={index} className="key-value-pair">
-                  <TextField
-                    {...fieldProps}
-                    value={pair.key}
-                    onChange={(e) => onPairChange(index, 'key', (e.target as HTMLInputElement).value)}
-                    isDisabled={isDisabled}
-                    isReadOnly={isReadonly}
-                    placeholder="Key"
-                    style={{ marginRight: '8px' }}
-                  />
-                  <TextField
-                    {...fieldProps}
-                    type={isValuesSecret ? (showingValues ? 'text' : 'password') : 'text'}
-                    value={pair.value}
-                    onChange={(e) => onPairChange(index, 'value', (e.target as HTMLInputElement).value)}
-                    isDisabled={isDisabled}
-                    isReadOnly={isReadonly}
-                    placeholder="Value"
-                    style={{ marginRight: '8px' }}
-                  />
-                  <Button
-                    className="delete-pair"
-                    appearance="subtle"
-                    onClick={() => onDeletePair(index)}
-                    isDisabled={isDisabled || isReadonly}
-                    style={{ marginRight: '8px' }}
-                  >
-                    <CrossIcon />
-                  </Button>
-                </div>
-              ))}
-            </div>
+            {keyValuePairs.length > 0 && (
+              <div className="key-value-pairs">
+                {keyValuePairs.map((pair, index) => (
+                  <div key={index} className="key-value-pair">
+                    <TextField
+                      {...fieldProps}
+                      value={pair.key}
+                      onChange={(e) => onPairChange(index, 'key', (e.target as HTMLInputElement).value)}
+                      isDisabled={isDisabled}
+                      isReadOnly={isReadonly}
+                      placeholder="Key"
+                      style={{ marginRight: '8px' }}
+                    />
+                    <TextField
+                      {...fieldProps}
+                      type={isValuesSecret ? (showingValues ? 'text' : 'password') : 'text'}
+                      value={pair.value}
+                      onChange={(e) => onPairChange(index, 'value', (e.target as HTMLInputElement).value)}
+                      isDisabled={isDisabled}
+                      isReadOnly={isReadonly}
+                      placeholder="Value"
+                      style={{ marginRight: '8px' }}
+                    />
+                    <Button
+                      className="delete-pair"
+                      appearance="subtle"
+                      onClick={() => onDeletePair(index)}
+                      isDisabled={isDisabled || isReadonly}
+                      style={{ marginRight: '8px' }}
+                    >
+                      <CrossIcon />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
             <div className="buttons">
               <Button
                 className="add-pair"

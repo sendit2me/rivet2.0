@@ -41,10 +41,16 @@ export const defaultEditorContainerStyles = css`
   }
 
   .use-input-toggle {
-    align-self: start;
-    margin-top: 36px;
+    align-self: end;
+    margin-bottom: calc(4px * var(--ui-font-scale));
     display: flex;
     align-items: flex-start;
+  }
+
+  .row.code .use-input-toggle {
+    align-self: start;
+    margin-top: calc(36px * var(--ui-font-scale));
+    margin-bottom: 0;
   }
 
   .use-input-toggle-button {
@@ -123,7 +129,7 @@ export const defaultEditorContainerStyles = css`
 
   .row [aria-live='polite'] {
     margin-top: 0 !important;
-    margin-bottom: 12px !important;
+    margin-bottom: 0.4em !important;
   }
 
   .node-editor-code-helper {
