@@ -90,6 +90,98 @@ describe('streamChatV2', () => {
 
     assert.equal(capturedToolChoice, 'required');
   });
+
+  it('forwards provider options to the AI SDK stream executor', async () => {
+    let capturedProviderOptions: unknown;
+    const providerOptions = {
+      openai: {
+        parallelToolCalls: false,
+      },
+    };
+    const executeStream: ChatV2StreamExecutor = async (args) => {
+      capturedProviderOptions = args.providerOptions;
+
+      return {
+        fullStream: mockStream([
+          { type: 'text-start', id: 'text_1' },
+          { type: 'text-delta', id: 'text_1', text: 'Hello' },
+          { type: 'text-end', id: 'text_1' },
+        ]),
+      };
+    };
+
+    await streamChatV2({
+      model: createMockModel(),
+      messages: [],
+      providerOptions,
+      executeStream,
+    });
+
+    assert.deepEqual(capturedProviderOptions, providerOptions);
+  });
+
+  it('forwards generation settings to the AI SDK stream executor', async () => {
+    let capturedArgs: Record<string, unknown> | undefined;
+    const executeStream: ChatV2StreamExecutor = async (args) => {
+      capturedArgs = args as Record<string, unknown>;
+
+      return {
+        fullStream: mockStream([
+          { type: 'text-start', id: 'text_1' },
+          { type: 'text-delta', id: 'text_1', text: 'Hello' },
+          { type: 'text-end', id: 'text_1' },
+        ]),
+      };
+    };
+
+    await streamChatV2({
+      model: createMockModel(),
+      messages: [],
+      maxTokens: 100,
+      temperature: 0.4,
+      topP: 0.8,
+      topK: 20,
+      presencePenalty: 0.2,
+      frequencyPenalty: 0.3,
+      stopSequences: ['END'],
+      seed: 123,
+      executeStream,
+    });
+
+    assert.equal(capturedArgs?.maxOutputTokens, 100);
+    assert.equal(capturedArgs?.temperature, 0.4);
+    assert.equal(capturedArgs?.topP, 0.8);
+    assert.equal(capturedArgs?.topK, 20);
+    assert.equal(capturedArgs?.presencePenalty, 0.2);
+    assert.equal(capturedArgs?.frequencyPenalty, 0.3);
+    assert.deepEqual(capturedArgs?.stopSequences, ['END']);
+    assert.equal(capturedArgs?.seed, 123);
+  });
+
+  it('forwards response output to the AI SDK stream executor', async () => {
+    let capturedResponseOutput: unknown;
+    const responseOutput = { name: 'json' };
+    const executeStream: ChatV2StreamExecutor = async (args) => {
+      capturedResponseOutput = (args as Record<string, unknown>).output;
+
+      return {
+        fullStream: mockStream([
+          { type: 'text-start', id: 'text_1' },
+          { type: 'text-delta', id: 'text_1', text: '{}' },
+          { type: 'text-end', id: 'text_1' },
+        ]),
+      };
+    };
+
+    await streamChatV2({
+      model: createMockModel(),
+      messages: [],
+      responseOutput,
+      executeStream,
+    });
+
+    assert.equal(capturedResponseOutput, responseOutput);
+  });
 });
 
 describe('runChatV2Pipeline', () => {
@@ -279,5 +371,78 @@ describe('runChatV2Pipeline', () => {
       type: 'tool',
       toolName: 'lookup_weather',
     });
+  });
+
+  it('forwards generation settings from the pipeline to the stream executor', async () => {
+    let capturedArgs: Record<string, unknown> | undefined;
+    const executeStream: ChatV2StreamExecutor = async (args) => {
+      capturedArgs = args as Record<string, unknown>;
+
+      return {
+        fullStream: mockStream([
+          { type: 'text-start', id: 'text_1' },
+          { type: 'text-delta', id: 'text_1', text: 'Final answer' },
+          { type: 'text-end', id: 'text_1' },
+        ]),
+      };
+    };
+
+    await runChatV2Pipeline({
+      provider: 'openai',
+      model: createMockModel(),
+      modelId: 'gpt-4o',
+      prompt: { type: 'string', value: 'Answer normally.' },
+      maxTokens: 100,
+      temperature: 0.4,
+      topP: 0.8,
+      topK: 20,
+      presencePenalty: 0.2,
+      frequencyPenalty: 0.3,
+      stopSequences: ['END'],
+      seed: 123,
+      context: {
+        signal: new AbortController().signal,
+      },
+      executeStream,
+    });
+
+    assert.equal(capturedArgs?.maxOutputTokens, 100);
+    assert.equal(capturedArgs?.temperature, 0.4);
+    assert.equal(capturedArgs?.topP, 0.8);
+    assert.equal(capturedArgs?.topK, 20);
+    assert.equal(capturedArgs?.presencePenalty, 0.2);
+    assert.equal(capturedArgs?.frequencyPenalty, 0.3);
+    assert.deepEqual(capturedArgs?.stopSequences, ['END']);
+    assert.equal(capturedArgs?.seed, 123);
+  });
+
+  it('forwards response output from the pipeline to the stream executor', async () => {
+    let capturedResponseOutput: unknown;
+    const responseOutput = { name: 'json' };
+    const executeStream: ChatV2StreamExecutor = async (args) => {
+      capturedResponseOutput = (args as Record<string, unknown>).output;
+
+      return {
+        fullStream: mockStream([
+          { type: 'text-start', id: 'text_1' },
+          { type: 'text-delta', id: 'text_1', text: '{}' },
+          { type: 'text-end', id: 'text_1' },
+        ]),
+      };
+    };
+
+    await runChatV2Pipeline({
+      provider: 'openai',
+      model: createMockModel(),
+      modelId: 'gpt-4o',
+      prompt: { type: 'string', value: 'Answer normally.' },
+      responseOutput,
+      context: {
+        signal: new AbortController().signal,
+      },
+      executeStream,
+    });
+
+    assert.equal(capturedResponseOutput, responseOutput);
   });
 });

@@ -105,6 +105,16 @@ export const defaultEditorContainerStyles = css`
     margin-bottom: 8px !important;
   }
 
+  .row > :first-child:has([aria-live='polite']) label[id$='-label'],
+  .row .editor-wrapper-wrapper:has(.node-editor-code-helper) > label {
+    margin-bottom: 2px !important;
+  }
+
+  .row [aria-live='polite'] {
+    margin-top: 0 !important;
+    margin-bottom: 12px !important;
+  }
+
   .node-editor-code-helper {
     margin-bottom: 10px;
     white-space: pre-line;
@@ -117,6 +127,12 @@ export const defaultEditorContainerStyles = css`
 
   .node-editor-code-helper > div {
     margin-block: 0;
+  }
+
+  .node-editor-code-helper [aria-live='polite'],
+  .node-editor-code-helper-after [aria-live='polite'],
+  .labeled-toggle-label [aria-live='polite'] {
+    margin-bottom: 0 !important;
   }
 
   .editor-viewport-shell {

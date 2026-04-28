@@ -151,8 +151,8 @@ const ToggleHeader: FC<{
       className="editor-group-toggle editor-group-toggle-with-switch"
       switchClassName="editor-group-toggle-switch"
       labelClassName="editor-group-toggle-label"
+      helperMessage={helperMessage}
     />
-    {helperMessage && <HelperMessage>{helperMessage}</HelperMessage>}
   </div>
 );
 

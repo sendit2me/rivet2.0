@@ -49,8 +49,8 @@ export const GraphSelector: FC<{
     <Field name={name} label={label} isDisabled={isReadonly}>
       {({ fieldProps }) => (
         <>
-          <GraphSelectorSelect {...fieldProps} value={value} isReadonly={isReadonly} onChange={onChange} />
           {helperMessage && <HelperMessage>{helperMessage}</HelperMessage>}
+          <GraphSelectorSelect {...fieldProps} value={value} isReadonly={isReadonly} onChange={onChange} />
         </>
       )}
     </Field>

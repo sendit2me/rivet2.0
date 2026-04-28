@@ -73,6 +73,7 @@ export const DropdownEditor: FC<{
     <Field name={name ?? label} label={label} isDisabled={isReadonly || isDisabled}>
       {({ fieldProps }) => (
         <>
+          {helperMessage && <HelperMessage>{helperMessage}</HelperMessage>}
           <Select
             {...fieldProps}
             options={options}
@@ -84,7 +85,6 @@ export const DropdownEditor: FC<{
           <Portal>
             <div ref={setMenuPortalTarget} />
           </Portal>
-          {helperMessage && <HelperMessage>{helperMessage}</HelperMessage>}
         </>
       )}
     </Field>

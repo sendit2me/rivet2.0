@@ -67,10 +67,10 @@ export const DefaultImageBrowserEditor: FC<
     <Field name={editor.dataKey} label={editor.label}>
       {() => (
         <div>
+          {helperMessage && <HelperMessage>{helperMessage}</HelperMessage>}
           <Button onClick={pickFile} isDisabled={isReadonly || isDisabled}>
             Pick Image
           </Button>
-          {helperMessage && <HelperMessage>{helperMessage}</HelperMessage>}
 
           <div className="current">
             <img src={dataUri} alt="" />

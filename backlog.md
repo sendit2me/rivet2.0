@@ -1,5 +1,15 @@
 
 
+- Human readable Loop node
+
+- Audit the "OpenAI" section and make it Vercel compatible instead of OpenAI-specific
+
+- What is "Use As Graph Partial Output"???
+
+- Custom LLM provider key for LLM Chat v2. Probbaly a pill control for "Model" section: key in env variable VS pass the API key into the node
+
+- In split node, parallel one, is there a limit on the max concurrent parallel runs?
+
 - How does "Strict" setting work in the Tool node
 
 - Ctrl+X functionality for nodes
@@ -8,7 +18,7 @@
 
 - Compare the current Rivet 2.0 to the rivet in Rivet Server and make sure the new rivet will work there
 
-- Check  the AI workflow generation feature
+- Check the AI workflow generation feature
 
 
 - Reassess the Rivet settings. probbaly something needs reworking

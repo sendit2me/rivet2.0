@@ -1,4 +1,3 @@
-import { HelperMessage } from '@atlaskit/form';
 import { type ToggleEditorDefinition, type ChartNode } from '@ironclad/rivet-core';
 import { type FC } from 'react';
 import { type SharedEditorProps } from './SharedEditorProps';
@@ -55,12 +54,8 @@ export const ToggleEditor: FC<{
         className="toggle-editor-control-row"
         switchClassName="toggle-editor-switch"
         labelClassName="toggle-editor-label"
+        helperMessage={helperMessage}
       />
-      {helperMessage && (
-        <div className="toggle-editor-helper">
-          <HelperMessage>{helperMessage}</HelperMessage>
-        </div>
-      )}
     </div>
   );
 };

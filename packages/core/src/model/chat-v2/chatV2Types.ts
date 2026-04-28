@@ -13,6 +13,7 @@ export type ChatV2Model = StreamTextArgs['model'];
 export type ChatV2ProviderOptions = StreamTextArgs['providerOptions'];
 export type ChatV2ToolSet = NonNullable<StreamTextArgs['tools']>;
 export type ChatV2ToolChoice = StreamTextArgs['toolChoice'];
+export type ChatV2ResponseOutput = StreamTextArgs['output'];
 export type ChatV2MessageList = ModelMessage[];
 export type ChatV2StreamPart = TextStreamPart<ToolSet>;
 
@@ -46,7 +47,11 @@ export type StreamChatV2Options = {
   temperature?: number | undefined;
   topP?: number | undefined;
   topK?: number | undefined;
+  presencePenalty?: number | undefined;
+  frequencyPenalty?: number | undefined;
   stopSequences?: string[] | undefined;
+  seed?: number | undefined;
+  responseOutput?: ChatV2ResponseOutput | undefined;
   providerOptions?: ChatV2ProviderOptions | undefined;
   toolChoice?: ChatV2ToolChoice | undefined;
   abortSignal?: AbortSignal | undefined;
@@ -75,7 +80,11 @@ export type RunChatV2PipelineOptions = {
   temperature?: number | undefined;
   topP?: number | undefined;
   topK?: number | undefined;
+  presencePenalty?: number | undefined;
+  frequencyPenalty?: number | undefined;
   stopSequences?: string[] | undefined;
+  seed?: number | undefined;
+  responseOutput?: ChatV2ResponseOutput | undefined;
   providerOptions?: ChatV2ProviderOptions | undefined;
   toolChoice?: ChatV2ToolChoice | undefined;
   anthropicCacheControlTtl?: '5m' | '1h' | undefined;

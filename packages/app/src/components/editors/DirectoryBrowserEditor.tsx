@@ -38,11 +38,11 @@ export const DefaultDirectoryBrowserEditor: FC<
     <Field name={editor.dataKey} label={editor.label}>
       {() => (
         <div>
+          {helperMessage && <HelperMessage>{helperMessage}</HelperMessage>}
           <Button onClick={pickDirectory} isDisabled={isReadonly || isDisabled}>
             Pick Directory
           </Button>
           <div className="current">{data[editor.dataKey] != null && <span>{data[editor.dataKey] as string}</span>}</div>
-          {helperMessage && <HelperMessage>{helperMessage}</HelperMessage>}
         </div>
       )}
     </Field>

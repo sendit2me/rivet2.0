@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { type LLMChatV2Node, LLMChatV2NodeImpl } from '../../../src/index.js';
+import { resolveLLMChatV2RuntimeProviderOptions } from '../../../src/model/nodes/LLMChatV2Node.js';
 
 function createNode(data: Partial<LLMChatV2Node['data']> = {}) {
   return new LLMChatV2NodeImpl({
@@ -20,6 +21,27 @@ describe('LLMChatV2NodeImpl', () => {
     assert.equal(node.title, 'LLM Chat v2');
     assert.equal(node.data.provider, 'openai');
     assert.equal(node.data.useToolCalling, false);
+    assert.equal(node.data.presencePenalty, undefined);
+    assert.equal(node.data.usePresencePenaltyInput, false);
+    assert.equal(node.data.frequencyPenalty, undefined);
+    assert.equal(node.data.useFrequencyPenaltyInput, false);
+    assert.deepEqual(node.data.stopSequences, []);
+    assert.equal(node.data.useStopSequencesInput, false);
+    assert.equal(node.data.seed, undefined);
+    assert.equal(node.data.useSeedInput, false);
+    assert.equal(node.data.responseFormat, '');
+    assert.equal(node.data.responseSchemaName, '');
+    assert.equal(node.data.useResponseSchemaNameInput, false);
+    assert.equal(node.data.responseSchemaDescription, '');
+    assert.equal(node.data.useResponseSchemaDescriptionInput, false);
+    assert.equal(node.data.anthropicThinkingMode, '');
+    assert.equal(node.data.anthropicThinkingBudget, undefined);
+    assert.equal(node.data.useAnthropicThinkingBudgetInput, false);
+    assert.equal(node.data.anthropicEffort, '');
+    assert.equal(node.data.googleThinkingBudget, undefined);
+    assert.equal(node.data.useGoogleThinkingBudgetInput, false);
+    assert.equal(node.data.googleThinkingLevel, '');
+    assert.equal(node.data.googleIncludeThoughts, false);
     assert.equal(node.data.toolChoice, '');
     assert.equal(node.data.toolChoiceFunction, '');
     assert.equal(node.data.parallelToolCalls, false);
@@ -95,10 +117,223 @@ describe('LLMChatV2NodeImpl', () => {
       toolsGroup.editors.find((editor: any) => editor.dataKey === 'parallelToolCalls')?.label,
       'Allow parallel toolcalls',
     );
+    assert.equal(toolsGroup.editors.find((editor: any) => editor.dataKey === 'parallelToolCalls')?.helperMessage, undefined);
+    assert.match(
+      toolsGroup.editors.find((editor: any) => editor.dataKey === 'autoContinueToolCalls')?.helperMessage,
+      /sends all tool results back to the model/,
+    );
     assert.ok(toolsGroup.editors.some((editor: any) => editor.dataKey === 'toolChoice'));
     assert.ok(toolsGroup.editors.some((editor: any) => editor.dataKey === 'toolChoiceFunction'));
     assert.ok(toolsGroup.editors.some((editor: any) => editor.dataKey === 'autoContinueToolCalls'));
     assert.ok(toolsGroup.editors.some((editor: any) => editor.dataKey === 'maxToolRounds'));
     assert.ok(!outputGroup.editors.some((editor: any) => editor.dataKey === 'useToolCalling'));
+  });
+
+  it('groups provider reasoning settings after Parameters', async () => {
+    const node = createNode();
+
+    const editors = await node.getEditors({});
+    const groupLabels = editors.filter((editor) => editor.type === 'group').map((editor) => editor.label);
+    const reasoningGroup = editors.find((editor) => editor.type === 'group' && editor.label === 'Reasoning') as any;
+    const openAIGroup = editors.find((editor) => editor.type === 'group' && editor.label === 'OpenAI') as any;
+    const anthropicGroup = editors.find((editor) => editor.type === 'group' && editor.label === 'Anthropic') as any;
+    const googleGroup = editors.find((editor) => editor.type === 'group' && editor.label === 'Google') as any;
+
+    assert.equal(groupLabels.indexOf('Reasoning'), groupLabels.indexOf('Parameters') + 1);
+    assert.ok(reasoningGroup);
+    assert.deepEqual(
+      reasoningGroup.editors.map((editor: any) => editor.dataKey),
+      [
+        'openAIReasoningEffort',
+        'openAIReasoningSummary',
+        'anthropicThinkingMode',
+        'anthropicEffort',
+        'anthropicThinkingBudget',
+        'googleThinkingLevel',
+        'googleThinkingBudget',
+        'googleIncludeThoughts',
+      ],
+    );
+    assert.equal(
+      reasoningGroup.editors.find((editor: any) => editor.dataKey === 'openAIReasoningEffort')?.hideIf({
+        provider: 'openai',
+      }),
+      false,
+    );
+    assert.equal(
+      reasoningGroup.editors.find((editor: any) => editor.dataKey === 'anthropicThinkingMode')?.hideIf({
+        provider: 'anthropic',
+      }),
+      false,
+    );
+    assert.deepEqual(
+      reasoningGroup.editors.find((editor: any) => editor.dataKey === 'anthropicThinkingMode')?.options,
+      [
+        { value: '', label: 'Default' },
+        { value: 'adaptive', label: 'Adaptive' },
+        { value: 'enabled', label: 'Enabled' },
+        { value: 'disabled', label: 'Disabled' },
+      ],
+    );
+    assert.deepEqual(
+      reasoningGroup.editors.find((editor: any) => editor.dataKey === 'anthropicEffort')?.options,
+      [
+        { value: '', label: 'Default' },
+        { value: 'low', label: 'Low' },
+        { value: 'medium', label: 'Medium' },
+        { value: 'high', label: 'High' },
+        { value: 'max', label: 'Max' },
+      ],
+    );
+    assert.equal(
+      reasoningGroup.editors.find((editor: any) => editor.dataKey === 'googleThinkingBudget')?.hideIf({
+        provider: 'google',
+      }),
+      false,
+    );
+    assert.deepEqual(
+      reasoningGroup.editors.find((editor: any) => editor.dataKey === 'googleThinkingLevel')?.options,
+      [
+        { value: '', label: 'Default' },
+        { value: 'minimal', label: 'Minimal' },
+        { value: 'low', label: 'Low' },
+        { value: 'medium', label: 'Medium' },
+        { value: 'high', label: 'High' },
+      ],
+    );
+    assert.ok(!openAIGroup.editors.some((editor: any) => editor.dataKey === 'openAIReasoningEffort'));
+    assert.ok(!anthropicGroup.editors.some((editor: any) => editor.dataKey === 'anthropicThinkingMode'));
+    assert.ok(!googleGroup.editors.some((editor: any) => editor.dataKey === 'googleThinkingBudget'));
+  });
+
+  it('resolves provider-specific reasoning options in the Vercel providerOptions shape', () => {
+    assert.equal(resolveLLMChatV2RuntimeProviderOptions(createNode({ provider: 'openai' }).data, {}), undefined);
+
+    assert.deepEqual(
+      resolveLLMChatV2RuntimeProviderOptions(
+        createNode({
+          provider: 'openai',
+          openAIReasoningEffort: 'high',
+          openAIReasoningSummary: 'auto',
+        }).data,
+        {},
+      ),
+      {
+        openai: {
+          reasoningEffort: 'high',
+          reasoningSummary: 'auto',
+        },
+      },
+    );
+
+    assert.equal(resolveLLMChatV2RuntimeProviderOptions(createNode({ provider: 'anthropic' }).data, {}), undefined);
+    assert.deepEqual(
+      resolveLLMChatV2RuntimeProviderOptions(
+        createNode({
+          provider: 'anthropic',
+          anthropicThinkingMode: 'enabled',
+          anthropicThinkingBudget: 12000,
+          anthropicEffort: 'low',
+        }).data,
+        {},
+      ),
+      {
+        anthropic: {
+          effort: 'low',
+          thinking: {
+            type: 'enabled',
+            budgetTokens: 12000,
+          },
+        },
+      },
+    );
+
+    assert.deepEqual(
+      resolveLLMChatV2RuntimeProviderOptions(
+        createNode({
+          provider: 'google',
+          googleThinkingBudget: 8192,
+          googleThinkingLevel: 'high',
+          googleIncludeThoughts: true,
+        }).data,
+        {},
+      ),
+      {
+        google: {
+          thinkingConfig: {
+            thinkingBudget: 8192,
+            thinkingLevel: 'high',
+            includeThoughts: true,
+          },
+        },
+      },
+    );
+  });
+
+  it('exposes expanded generation parameters and matching input ports', async () => {
+    const node = createNode({
+      useTopKInput: true,
+      usePresencePenaltyInput: true,
+      useFrequencyPenaltyInput: true,
+      useStopSequencesInput: true,
+      useSeedInput: true,
+      useMaxTokensInput: true,
+    });
+
+    const editors = await node.getEditors({});
+    const parametersGroup = editors.find((editor) => editor.type === 'group' && editor.label === 'Parameters') as any;
+    const parameterLabels = parametersGroup.editors.map((editor: any) => editor.label);
+
+    assert.deepEqual(parameterLabels.slice(0, 2), ['Temperature', 'Max output tokens']);
+    assert.ok(parameterLabels.includes('Presence penalty'));
+    assert.ok(parameterLabels.includes('Frequency penalty'));
+    assert.ok(parameterLabels.includes('Stop sequences'));
+    assert.ok(parameterLabels.includes('Seed'));
+    assert.ok(parameterLabels.includes('Max output tokens'));
+    assert.equal(
+      parametersGroup.editors.find((editor: any) => editor.dataKey === 'topK')?.helperMessage,
+      'Provider-dependent; some providers or models may ignore this setting.',
+    );
+
+    const inputs = node.getInputDefinitions();
+    const inputById = new Map(inputs.map((input) => [input.id, input]));
+
+    assert.equal(inputById.get('presencePenalty' as any)?.dataType, 'number');
+    assert.equal(inputById.get('frequencyPenalty' as any)?.dataType, 'number');
+    assert.deepEqual(inputById.get('stopSequences' as any)?.dataType, ['string', 'string[]']);
+    assert.equal(inputById.get('seed' as any)?.dataType, 'number');
+    assert.equal(inputById.get('maxTokens' as any)?.title, 'Max output tokens');
+  });
+
+  it('exposes response-format settings and JSON schema input ports only when needed', async () => {
+    const defaultNode = createNode();
+    const jsonSchemaNode = createNode({
+      responseFormat: 'json_schema',
+      useResponseSchemaNameInput: true,
+      useResponseSchemaDescriptionInput: true,
+    });
+
+    const editors = await defaultNode.getEditors({});
+    const responseFormatGroup = editors.find((editor) => editor.type === 'group' && editor.label === 'Response format') as any;
+
+    assert.ok(responseFormatGroup);
+    assert.deepEqual(
+      responseFormatGroup.editors.find((editor: any) => editor.dataKey === 'responseFormat')?.options,
+      [
+        { value: '', label: 'Default' },
+        { value: 'text', label: 'Text' },
+        { value: 'json', label: 'JSON' },
+        { value: 'json_schema', label: 'JSON schema' },
+      ],
+    );
+    assert.ok(!defaultNode.getInputDefinitions().some((input) => input.id === 'responseSchema'));
+
+    const inputs = jsonSchemaNode.getInputDefinitions();
+    const inputById = new Map(inputs.map((input) => [input.id, input]));
+
+    assert.deepEqual(inputById.get('responseSchema' as any)?.dataType, ['object', 'gpt-function']);
+    assert.equal(inputById.get('responseSchema' as any)?.required, true);
+    assert.equal(inputById.get('responseSchemaName' as any)?.dataType, 'string');
+    assert.equal(inputById.get('responseSchemaDescription' as any)?.dataType, 'string');
   });
 });

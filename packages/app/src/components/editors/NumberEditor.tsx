@@ -75,6 +75,7 @@ export const NumberEditor: FC<{
     <Field name={name ?? label} label={label} isDisabled={isDisabled}>
       {({ fieldProps }) => (
         <>
+          {helperMessage && <HelperMessage>{helperMessage}</HelperMessage>}
           <TextField
             {...fieldProps}
             type="number"
@@ -97,7 +98,6 @@ export const NumberEditor: FC<{
               }
             }}
           />
-          {helperMessage && <HelperMessage>{helperMessage}</HelperMessage>}
         </>
       )}
     </Field>

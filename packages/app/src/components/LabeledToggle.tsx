@@ -3,6 +3,7 @@ import { Label } from '@atlaskit/form';
 import clsx from 'clsx';
 import { type FC, type ReactNode } from 'react';
 import { ScalableToggle } from './ScalableToggle.js';
+import { FieldHelperMessage } from './FieldHelperMessage.js';
 
 const labeledToggleStyles = css`
   display: inline-flex;
@@ -12,6 +13,14 @@ const labeledToggleStyles = css`
     display: inline-flex;
     align-items: center;
     gap: 8px;
+  }
+
+  .labeled-toggle-control.has-helper-message {
+    align-items: flex-start;
+  }
+
+  .labeled-toggle-control.has-helper-message .labeled-toggle-switch {
+    margin-top: 2px;
   }
 
   &:not(.is-disabled) .labeled-toggle-control,
@@ -35,12 +44,17 @@ const labeledToggleStyles = css`
   .labeled-toggle-label label {
     margin: 0;
   }
+
+  .labeled-toggle-helper {
+    margin-bottom: 0;
+  }
 `;
 
 export const LabeledToggle: FC<{
   id: string;
   isChecked: boolean | undefined;
   label: ReactNode;
+  helperMessage?: ReactNode;
   onChange: (value: boolean) => void;
   className?: string;
   isDisabled?: boolean;
@@ -52,6 +66,7 @@ export const LabeledToggle: FC<{
   isChecked,
   isDisabled = false,
   label,
+  helperMessage,
   onChange,
   className,
   labelClassName,
@@ -59,7 +74,7 @@ export const LabeledToggle: FC<{
   switchClassName,
 }) => (
   <div className={clsx('labeled-toggle-field', className, isDisabled && 'is-disabled')} css={labeledToggleStyles}>
-    <div className="labeled-toggle-control">
+    <div className={clsx('labeled-toggle-control', helperMessage && 'has-helper-message')}>
       <ScalableToggle
         id={id}
         isChecked={isChecked}
@@ -70,6 +85,7 @@ export const LabeledToggle: FC<{
       />
       <div className={clsx('labeled-toggle-label', labelClassName)}>
         <Label htmlFor={id}>{label}</Label>
+        {helperMessage && <FieldHelperMessage className="labeled-toggle-helper">{helperMessage}</FieldHelperMessage>}
       </div>
     </div>
   </div>

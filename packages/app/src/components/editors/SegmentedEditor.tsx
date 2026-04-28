@@ -54,6 +54,7 @@ export const SegmentedEditor: FC<{
   const effectiveAriaLabel = ariaLabel ?? visibleLabel ?? name ?? 'Segmented choice';
   const control = (
     <>
+      {helperMessage && <HelperMessage>{helperMessage}</HelperMessage>}
       <div className="segmented-choice" role="group" aria-label={effectiveAriaLabel}>
         {options.map((option) => (
           <button
@@ -68,7 +69,6 @@ export const SegmentedEditor: FC<{
           </button>
         ))}
       </div>
-      {helperMessage && <HelperMessage>{helperMessage}</HelperMessage>}
     </>
   );
 

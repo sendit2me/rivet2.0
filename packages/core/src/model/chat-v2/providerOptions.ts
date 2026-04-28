@@ -30,9 +30,26 @@ export const openAIWebSearchContextSizeOptions = [
 ];
 
 export const anthropicThinkingModeOptions = [
+  { value: '', label: 'Default' },
   { value: 'adaptive', label: 'Adaptive' },
   { value: 'enabled', label: 'Enabled' },
   { value: 'disabled', label: 'Disabled' },
+];
+
+export const anthropicEffortOptions = [
+  { value: '', label: 'Default' },
+  { value: 'low', label: 'Low' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'high', label: 'High' },
+  { value: 'max', label: 'Max' },
+];
+
+export const googleThinkingLevelOptions = [
+  { value: '', label: 'Default' },
+  { value: 'minimal', label: 'Minimal' },
+  { value: 'low', label: 'Low' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'high', label: 'High' },
 ];
 
 export const anthropicCacheControlTtlOptions = [

@@ -29,6 +29,7 @@ export const DefaultColorEditor: FC<
       <Field name={editor.dataKey} label={editor.label}>
         {() => (
           <>
+            {helperMessage && <HelperMessage>{helperMessage}</HelperMessage>}
             <div className="node-editor-color-picker">
               <LazyTripleBarColorPicker
                 color={{ r, g, b, a }}
@@ -43,7 +44,6 @@ export const DefaultColorEditor: FC<
                 }}
               />
             </div>
-            {helperMessage && <HelperMessage>{helperMessage}</HelperMessage>}
           </>
         )}
       </Field>

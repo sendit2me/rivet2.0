@@ -10,6 +10,14 @@ export type ChatV2CommonNodeData = {
   useTopPInput: boolean;
   topK?: number;
   useTopKInput: boolean;
+  presencePenalty?: number;
+  usePresencePenaltyInput: boolean;
+  frequencyPenalty?: number;
+  useFrequencyPenaltyInput: boolean;
+  stopSequences?: string[];
+  useStopSequencesInput: boolean;
+  seed?: number;
+  useSeedInput: boolean;
   maxTokens: number;
   useMaxTokensInput: boolean;
   useToolCalling: boolean;
@@ -52,6 +60,14 @@ export function createChatV2CommonNodeData(
     useTopPInput: false,
     topK: undefined,
     useTopKInput: false,
+    presencePenalty: undefined,
+    usePresencePenaltyInput: false,
+    frequencyPenalty: undefined,
+    useFrequencyPenaltyInput: false,
+    stopSequences: [],
+    useStopSequencesInput: false,
+    seed: undefined,
+    useSeedInput: false,
     maxTokens: 1024,
     useMaxTokensInput: false,
     useToolCalling: false,
@@ -118,10 +134,44 @@ export function getCommonChatV2Inputs(
     });
   }
 
+  if (data.usePresencePenaltyInput) {
+    inputs.push({
+      id: 'presencePenalty' as PortId,
+      title: 'Presence Penalty',
+      dataType: 'number',
+    });
+  }
+
+  if (data.useFrequencyPenaltyInput) {
+    inputs.push({
+      id: 'frequencyPenalty' as PortId,
+      title: 'Frequency Penalty',
+      dataType: 'number',
+    });
+  }
+
+  if (data.useStopSequencesInput) {
+    inputs.push({
+      id: 'stopSequences' as PortId,
+      title: 'Stop Sequences',
+      dataType: ['string', 'string[]'] as const,
+      required: false,
+      coerced: true,
+    });
+  }
+
+  if (data.useSeedInput) {
+    inputs.push({
+      id: 'seed' as PortId,
+      title: 'Seed',
+      dataType: 'number',
+    });
+  }
+
   if (data.useMaxTokensInput) {
     inputs.push({
       id: 'maxTokens' as PortId,
-      title: 'Max Tokens',
+      title: 'Max output tokens',
       dataType: 'number',
     });
   }
@@ -221,11 +271,20 @@ export function getCommonChatV2Editors<T extends ChatV2SharedNode>(
         {
           type: 'number',
           label: 'Temperature',
+          helperMessage: 'Provider-dependent; some reasoning models may ignore this setting.',
           dataKey: 'temperature',
           useInputToggleDataKey: 'useTemperatureInput',
           min: 0,
           max: 2,
           step: 0.1,
+        },
+        {
+          type: 'number',
+          label: 'Max output tokens',
+          dataKey: 'maxTokens',
+          useInputToggleDataKey: 'useMaxTokensInput',
+          min: 1,
+          step: 1,
         },
         {
           type: 'number',
@@ -240,6 +299,7 @@ export function getCommonChatV2Editors<T extends ChatV2SharedNode>(
         {
           type: 'number',
           label: 'Top K',
+          helperMessage: 'Provider-dependent; some providers or models may ignore this setting.',
           dataKey: 'topK',
           useInputToggleDataKey: 'useTopKInput',
           allowEmpty: true,
@@ -248,10 +308,39 @@ export function getCommonChatV2Editors<T extends ChatV2SharedNode>(
         },
         {
           type: 'number',
-          label: 'Max Tokens',
-          dataKey: 'maxTokens',
-          useInputToggleDataKey: 'useMaxTokensInput',
-          min: 1,
+          label: 'Presence penalty',
+          dataKey: 'presencePenalty',
+          useInputToggleDataKey: 'usePresencePenaltyInput',
+          allowEmpty: true,
+          min: -1,
+          max: 1,
+          step: 0.1,
+        },
+        {
+          type: 'number',
+          label: 'Frequency penalty',
+          dataKey: 'frequencyPenalty',
+          useInputToggleDataKey: 'useFrequencyPenaltyInput',
+          allowEmpty: true,
+          min: -1,
+          max: 1,
+          step: 0.1,
+        },
+        {
+          type: 'stringList',
+          label: 'Stop sequences',
+          dataKey: 'stopSequences',
+          useInputToggleDataKey: 'useStopSequencesInput',
+          placeholder: 'Stop sequence',
+          newItemDefault: '',
+        },
+        {
+          type: 'number',
+          label: 'Seed',
+          dataKey: 'seed',
+          useInputToggleDataKey: 'useSeedInput',
+          allowEmpty: true,
+          min: 0,
           step: 1,
         },
       ],

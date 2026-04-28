@@ -1,5 +1,6 @@
 export * from './aiSdkBridge.js';
 export * from './chatV2Pipeline.js';
+export * from './chatV2ResponseFormat.js';
 export * from './chatV2Shared.js';
 export * from './chatV2Types.js';
 export * from './messageConverter.js';

@@ -121,7 +121,7 @@ const scalableToggleStyles = css`
   }
 
   .scalable-toggle-icon-check::before {
-    content: '✔';
+    content: '\\2714';
   }
 
   .scalable-toggle-icon-cross {

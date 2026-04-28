@@ -15,18 +15,23 @@ import { runChatV2Pipeline } from '../chat-v2/chatV2Pipeline.js';
 import { runChatV2PipelineWithToolContinuation } from '../chat-v2/toolContinuation.js';
 import {
   anthropicCacheControlTtlOptions,
+  anthropicEffortOptions,
   anthropicThinkingModeOptions,
+  createChatV2ResponseOutput,
   chatV2ProviderOptions,
   createChatV2Model,
   getChatV2ModelInfo,
   getChatV2ModelOptions,
   getChatV2ProviderLabel,
+  googleThinkingLevelOptions,
   openAIReasoningEffortOptions,
   openAIWebSearchContextSizeOptions,
   parseChatV2Provider,
+  resolveChatV2ResponseFormatParameters,
   resolveChatV2ProviderConfig,
 } from '../chat-v2/index.js';
 import type { ChatV2Provider, ChatV2ProviderOptions, ChatV2ToolChoice, ChatV2ToolSet } from '../chat-v2/chatV2Types.js';
+import type { ChatV2ResponseFormat } from '../chat-v2/chatV2ResponseFormat.js';
 import type { GptFunction } from '../DataValue.js';
 import { delegateToolCall } from './toolCallDelegation.js';
 
@@ -45,15 +50,23 @@ export type LLMChatV2NodeConfigData = ChatV2CommonNodeData & {
   enableOpenAIWebSearch: boolean;
   openAIWebSearchContextSize: 'low' | 'medium' | 'high';
   enableOpenAICodeInterpreter: boolean;
-  anthropicThinkingMode: 'adaptive' | 'enabled' | 'disabled';
+  anthropicThinkingMode: '' | 'adaptive' | 'enabled' | 'disabled';
   anthropicThinkingBudget?: number;
   useAnthropicThinkingBudgetInput: boolean;
+  anthropicEffort?: '' | 'low' | 'medium' | 'high' | 'max';
   anthropicCacheControlTtl: '' | '5m' | '1h';
   googleThinkingBudget?: number;
   useGoogleThinkingBudgetInput: boolean;
+  googleThinkingLevel?: '' | 'minimal' | 'low' | 'medium' | 'high';
+  googleIncludeThoughts?: boolean;
   googleStructuredOutputs: boolean;
   enableGoogleSearchGrounding: boolean;
   enableGoogleUrlContext: boolean;
+  responseFormat?: ChatV2ResponseFormat;
+  responseSchemaName?: string;
+  useResponseSchemaNameInput?: boolean;
+  responseSchemaDescription?: string;
+  useResponseSchemaDescriptionInput?: boolean;
   toolChoice?: LLMChatV2ToolChoiceMode;
   toolChoiceFunction?: string;
   parallelToolCalls?: boolean;
@@ -90,11 +103,15 @@ function getProviderOptions(data: LLMChatV2NodeData, inputs: Inputs): ChatV2Prov
         ? coerceTypeOptional(inputs['previousResponseId' as PortId], 'string')
         : data.openAIPreviousResponseId;
 
-    providerOptions.openai = {
+    const openAIOptions = {
       ...(data.openAIReasoningEffort ? { reasoningEffort: data.openAIReasoningEffort } : {}),
       ...(data.openAIReasoningSummary ? { reasoningSummary: data.openAIReasoningSummary } : {}),
       ...(previousResponseId?.trim() ? { previousResponseId: previousResponseId.trim() } : {}),
     };
+
+    if (Object.keys(openAIOptions).length > 0) {
+      providerOptions.openai = openAIOptions;
+    }
   }
 
   if (data.provider === 'anthropic') {
@@ -103,7 +120,8 @@ function getProviderOptions(data: LLMChatV2NodeData, inputs: Inputs): ChatV2Prov
         ? coerceTypeOptional(inputs['anthropicThinkingBudget' as PortId], 'number')
         : data.anthropicThinkingBudget;
 
-    providerOptions.anthropic = {
+    const anthropicOptions = {
+      ...(data.anthropicEffort ? { effort: data.anthropicEffort } : {}),
       ...(data.anthropicThinkingMode === 'enabled'
         ? {
             thinking: {
@@ -113,8 +131,14 @@ function getProviderOptions(data: LLMChatV2NodeData, inputs: Inputs): ChatV2Prov
           }
         : data.anthropicThinkingMode === 'disabled'
           ? { thinking: { type: 'disabled' } }
-          : { thinking: { type: 'adaptive' } }),
+          : data.anthropicThinkingMode === 'adaptive'
+            ? { thinking: { type: 'adaptive' } }
+            : {}),
     };
+
+    if (Object.keys(anthropicOptions).length > 0) {
+      providerOptions.anthropic = anthropicOptions;
+    }
   }
 
   if (data.provider === 'google') {
@@ -123,16 +147,28 @@ function getProviderOptions(data: LLMChatV2NodeData, inputs: Inputs): ChatV2Prov
         ? coerceTypeOptional(inputs['googleThinkingBudget' as PortId], 'number')
         : data.googleThinkingBudget;
 
-    providerOptions.google = {
-      ...(thinkingBudget != null ? { thinkingConfig: { thinkingBudget } } : {}),
+    const thinkingConfig = {
+      ...(thinkingBudget != null ? { thinkingBudget } : {}),
+      ...(data.googleThinkingLevel ? { thinkingLevel: data.googleThinkingLevel } : {}),
+      ...(data.googleIncludeThoughts ? { includeThoughts: true } : {}),
+    };
+    const googleOptions = {
+      ...(Object.keys(thinkingConfig).length > 0 ? { thinkingConfig } : {}),
       ...(data.googleStructuredOutputs ? { structuredOutputs: true } : {}),
     };
+
+    if (Object.keys(googleOptions).length > 0) {
+      providerOptions.google = googleOptions;
+    }
   }
 
   return Object.keys(providerOptions).length > 0 ? providerOptions : undefined;
 }
 
-function getRuntimeProviderOptions(data: LLMChatV2NodeData, inputs: Inputs): ChatV2ProviderOptions | undefined {
+export function resolveLLMChatV2RuntimeProviderOptions(
+  data: LLMChatV2NodeData,
+  inputs: Inputs,
+): ChatV2ProviderOptions | undefined {
   const providerOptions = getProviderOptions(data, inputs) ?? {};
 
   if (data.provider === 'openai' && data.useToolCalling) {
@@ -164,6 +200,20 @@ function resolveToolChoice(data: LLMChatV2NodeData): ChatV2ToolChoice | undefine
   }
 
   return data.toolChoice;
+}
+
+function normalizeStopSequences(stopSequences: string[] | undefined): string[] | undefined {
+  const normalized = (stopSequences ?? []).filter((sequence) => sequence.length > 0);
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function resolveStopSequences(data: LLMChatV2NodeData, inputs: Inputs): string[] | undefined {
+  const stopSequences =
+    data.useStopSequencesInput && inputs['stopSequences' as PortId] != null
+      ? coerceTypeOptional(inputs['stopSequences' as PortId], 'string[]')
+      : data.stopSequences;
+
+  return normalizeStopSequences(stopSequences);
 }
 
 function getBuiltInTools(
@@ -253,15 +303,23 @@ export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
         enableOpenAIWebSearch: false,
         openAIWebSearchContextSize: 'medium',
         enableOpenAICodeInterpreter: false,
-        anthropicThinkingMode: 'adaptive',
+        anthropicThinkingMode: '',
         anthropicThinkingBudget: undefined,
         useAnthropicThinkingBudgetInput: false,
+        anthropicEffort: '',
         anthropicCacheControlTtl: '',
         googleThinkingBudget: undefined,
         useGoogleThinkingBudgetInput: false,
+        googleThinkingLevel: '',
+        googleIncludeThoughts: false,
         googleStructuredOutputs: false,
         enableGoogleSearchGrounding: false,
         enableGoogleUrlContext: false,
+        responseFormat: '',
+        responseSchemaName: '',
+        useResponseSchemaNameInput: false,
+        responseSchemaDescription: '',
+        useResponseSchemaDescriptionInput: false,
         toolChoice: '',
         toolChoiceFunction: '',
         parallelToolCalls: false,
@@ -319,6 +377,40 @@ export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
         id: 'googleThinkingBudget' as PortId,
         title: 'Thinking Budget',
         dataType: 'number',
+        required: false,
+      });
+    }
+
+    if (this.data.responseFormat === 'json_schema') {
+      inputs.push({
+        id: 'responseSchema' as PortId,
+        title: 'Response Schema',
+        dataType: ['object', 'gpt-function'] as const,
+        required: true,
+        coerced: true,
+      });
+    }
+
+    if (
+      (this.data.responseFormat === 'json' || this.data.responseFormat === 'json_schema') &&
+      this.data.useResponseSchemaNameInput
+    ) {
+      inputs.push({
+        id: 'responseSchemaName' as PortId,
+        title: 'Schema Name',
+        dataType: 'string',
+        required: false,
+      });
+    }
+
+    if (
+      (this.data.responseFormat === 'json' || this.data.responseFormat === 'json_schema') &&
+      this.data.useResponseSchemaDescriptionInput
+    ) {
+      inputs.push({
+        id: 'responseSchemaDescription' as PortId,
+        title: 'Schema Description',
+        dataType: 'string',
         required: false,
       });
     }
@@ -389,11 +481,20 @@ export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
           {
             type: 'number',
             label: 'Temperature',
+            helperMessage: 'Provider-dependent; some reasoning models may ignore this setting.',
             dataKey: 'temperature',
             useInputToggleDataKey: 'useTemperatureInput',
             min: 0,
             max: 2,
             step: 0.1,
+          },
+          {
+            type: 'number',
+            label: 'Max output tokens',
+            dataKey: 'maxTokens',
+            useInputToggleDataKey: 'useMaxTokensInput',
+            min: 1,
+            step: 1,
           },
           {
             type: 'number',
@@ -408,6 +509,7 @@ export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
           {
             type: 'number',
             label: 'Top K',
+            helperMessage: 'Provider-dependent; some providers or models may ignore this setting.',
             dataKey: 'topK',
             useInputToggleDataKey: 'useTopKInput',
             allowEmpty: true,
@@ -416,11 +518,155 @@ export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
           },
           {
             type: 'number',
-            label: 'Max Tokens',
-            dataKey: 'maxTokens',
-            useInputToggleDataKey: 'useMaxTokensInput',
-            min: 1,
+            label: 'Presence penalty',
+            dataKey: 'presencePenalty',
+            useInputToggleDataKey: 'usePresencePenaltyInput',
+            allowEmpty: true,
+            min: -1,
+            max: 1,
+            step: 0.1,
+          },
+          {
+            type: 'number',
+            label: 'Frequency penalty',
+            dataKey: 'frequencyPenalty',
+            useInputToggleDataKey: 'useFrequencyPenaltyInput',
+            allowEmpty: true,
+            min: -1,
+            max: 1,
+            step: 0.1,
+          },
+          {
+            type: 'stringList',
+            label: 'Stop sequences',
+            dataKey: 'stopSequences',
+            useInputToggleDataKey: 'useStopSequencesInput',
+            placeholder: 'Stop sequence',
+            newItemDefault: '',
+          },
+          {
+            type: 'number',
+            label: 'Seed',
+            dataKey: 'seed',
+            useInputToggleDataKey: 'useSeedInput',
+            allowEmpty: true,
+            min: 0,
             step: 1,
+          },
+        ],
+      },
+      {
+        type: 'group',
+        label: 'Reasoning',
+        editors: [
+          {
+            type: 'dropdown',
+            label: 'Reasoning effort',
+            dataKey: 'openAIReasoningEffort',
+            options: openAIReasoningEffortOptions,
+            helperMessage:
+              'OpenAI-compatible Vercel provider option for reasoning models. Some models only support a subset of effort levels.',
+            hideIf: (data) => data.provider !== 'openai',
+          },
+          {
+            type: 'string',
+            label: 'Reasoning summary',
+            dataKey: 'openAIReasoningSummary',
+            placeholder: 'auto, detailed, concise...',
+            helperMessage:
+              'OpenAI-compatible Vercel provider option that asks reasoning models to include a reasoning summary when supported.',
+            hideIf: (data) => data.provider !== 'openai',
+          },
+          {
+            type: 'dropdown',
+            label: 'Thinking mode',
+            dataKey: 'anthropicThinkingMode',
+            options: anthropicThinkingModeOptions,
+            helperMessage: 'Anthropic Vercel provider option for Claude extended thinking.',
+            hideIf: (data) => data.provider !== 'anthropic',
+          },
+          {
+            type: 'dropdown',
+            label: 'Effort',
+            dataKey: 'anthropicEffort',
+            options: anthropicEffortOptions,
+            helperMessage:
+              'Anthropic provider option for newer Claude models. It affects thinking, text responses, and tool calls when supported.',
+            hideIf: (data) => data.provider !== 'anthropic',
+          },
+          {
+            type: 'number',
+            label: 'Thinking budget',
+            dataKey: 'anthropicThinkingBudget',
+            useInputToggleDataKey: 'useAnthropicThinkingBudgetInput',
+            allowEmpty: true,
+            step: 1,
+            min: 0,
+            helperMessage: 'Optional token budget for Anthropic extended thinking when thinking mode is enabled.',
+            hideIf: (data) => data.provider !== 'anthropic' || data.anthropicThinkingMode !== 'enabled',
+          },
+          {
+            type: 'dropdown',
+            label: 'Thinking level',
+            dataKey: 'googleThinkingLevel',
+            options: googleThinkingLevelOptions,
+            helperMessage: 'Google provider option for Gemini 3 thinking depth when supported by the selected model.',
+            hideIf: (data) => data.provider !== 'google',
+          },
+          {
+            type: 'number',
+            label: 'Thinking budget',
+            dataKey: 'googleThinkingBudget',
+            useInputToggleDataKey: 'useGoogleThinkingBudgetInput',
+            allowEmpty: true,
+            step: 1,
+            min: 0,
+            helperMessage: 'Google provider option for Gemini 2.5 thinking budget when supported by the selected model.',
+            hideIf: (data) => data.provider !== 'google',
+          },
+          {
+            type: 'toggle',
+            label: 'Include thoughts',
+            dataKey: 'googleIncludeThoughts',
+            helperMessage: 'Requests Google reasoning summaries when supported by the selected model.',
+            hideIf: (data) => data.provider !== 'google',
+          },
+        ],
+      },
+      {
+        type: 'group',
+        label: 'Response format',
+        editors: [
+          {
+            type: 'dropdown',
+            label: 'Response format',
+            dataKey: 'responseFormat',
+            options: [
+              { value: '', label: 'Default' },
+              { value: 'text', label: 'Text' },
+              { value: 'json', label: 'JSON' },
+              { value: 'json_schema', label: 'JSON schema' },
+            ],
+            defaultValue: '',
+            helperMessage:
+              'Uses Vercel AI SDK structured-output response formatting when supported by the provider. JSON schema adds a Response Schema input port.',
+          },
+          {
+            type: 'string',
+            label: 'Schema name',
+            dataKey: 'responseSchemaName',
+            useInputToggleDataKey: 'useResponseSchemaNameInput',
+            placeholder: 'response_schema',
+            helperMessage: 'Optional name passed to the provider for JSON or JSON schema responses.',
+            hideIf: (data) => data.responseFormat !== 'json' && data.responseFormat !== 'json_schema',
+          },
+          {
+            type: 'string',
+            label: 'Schema description',
+            dataKey: 'responseSchemaDescription',
+            useInputToggleDataKey: 'useResponseSchemaDescriptionInput',
+            helperMessage: 'Optional description passed to the provider for JSON or JSON schema responses.',
+            hideIf: (data) => data.responseFormat !== 'json' && data.responseFormat !== 'json_schema',
           },
         ],
       },
@@ -465,6 +711,8 @@ export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
             type: 'toggle',
             label: 'Auto-continue after toolcalls run',
             dataKey: 'autoContinueToolCalls',
+            helperMessage:
+              'When the model calls tools, Rivet runs them, sends all tool results back to the model, and repeats until a normal answer is produced or max rounds is reached.',
             hideIf: (data) => !data.useToolCalling,
           },
           {
@@ -525,18 +773,6 @@ export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
         hideIf: (data) => data.provider !== 'openai',
         editors: [
           {
-            type: 'dropdown',
-            label: 'Reasoning Effort',
-            dataKey: 'openAIReasoningEffort',
-            options: openAIReasoningEffortOptions,
-          },
-          {
-            type: 'string',
-            label: 'Reasoning Summary',
-            dataKey: 'openAIReasoningSummary',
-            placeholder: 'auto, detailed, concise...',
-          },
-          {
             type: 'string',
             label: 'Previous Response ID',
             dataKey: 'openAIPreviousResponseId',
@@ -568,22 +804,6 @@ export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
         editors: [
           {
             type: 'dropdown',
-            label: 'Thinking Mode',
-            dataKey: 'anthropicThinkingMode',
-            options: anthropicThinkingModeOptions,
-          },
-          {
-            type: 'number',
-            label: 'Thinking Budget',
-            dataKey: 'anthropicThinkingBudget',
-            useInputToggleDataKey: 'useAnthropicThinkingBudgetInput',
-            allowEmpty: true,
-            step: 1,
-            min: 0,
-            hideIf: (data) => data.anthropicThinkingMode !== 'enabled',
-          },
-          {
-            type: 'dropdown',
             label: 'Cache Breakpoint TTL',
             dataKey: 'anthropicCacheControlTtl',
             options: anthropicCacheControlTtlOptions,
@@ -596,15 +816,6 @@ export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
         label: 'Google',
         hideIf: (data) => data.provider !== 'google',
         editors: [
-          {
-            type: 'number',
-            label: 'Thinking Budget',
-            dataKey: 'googleThinkingBudget',
-            useInputToggleDataKey: 'useGoogleThinkingBudgetInput',
-            allowEmpty: true,
-            step: 1,
-            min: 0,
-          },
           {
             type: 'toggle',
             label: 'Structured Outputs',
@@ -633,7 +844,7 @@ export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
       ${providerLabel}
       ${modelInfo?.displayName ?? this.data.model}
       Temperature: ${this.data.useTemperatureInput ? '(Using Input)' : this.data.temperature}
-      Max Tokens: ${this.data.useMaxTokensInput ? '(Using Input)' : this.data.maxTokens}
+      Max output tokens: ${this.data.useMaxTokensInput ? '(Using Input)' : this.data.maxTokens}
     `;
   }
 
@@ -655,6 +866,18 @@ export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
         : undefined;
     const builtInTools = getBuiltInTools(this.data, context, providerConfig);
     const toolChoice = resolveToolChoice(this.data);
+    const responseFormatParameters = resolveChatV2ResponseFormatParameters(this.data, inputs);
+    const generationParameters = {
+      maxTokens: getInputOrData(this.data, inputs, 'maxTokens', 'number'),
+      temperature: getInputOrData(this.data, inputs, 'temperature', 'number'),
+      topP: getInputOrData(this.data, inputs, 'topP', 'number'),
+      topK: getInputOrData(this.data, inputs, 'topK', 'number'),
+      presencePenalty: getInputOrData(this.data, inputs, 'presencePenalty', 'number'),
+      frequencyPenalty: getInputOrData(this.data, inputs, 'frequencyPenalty', 'number'),
+      stopSequences: resolveStopSequences(this.data, inputs),
+      seed: getInputOrData(this.data, inputs, 'seed', 'number'),
+    };
+    const responseOutput = createChatV2ResponseOutput(responseFormatParameters);
 
     const cacheKey =
       this.data.cache
@@ -666,7 +889,9 @@ export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
             prompt,
             systemPrompt,
             functions,
-            providerOptions: getRuntimeProviderOptions(this.data, inputs),
+            generationParameters,
+            responseFormatParameters,
+            providerOptions: resolveLLMChatV2RuntimeProviderOptions(this.data, inputs),
             toolChoice,
           })
         : undefined;
@@ -678,7 +903,7 @@ export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
       return cachedOutputs;
     }
 
-    const providerOptions = getRuntimeProviderOptions(this.data, inputs);
+    const providerOptions = resolveLLMChatV2RuntimeProviderOptions(this.data, inputs);
     const includeFunctionCalls = this.data.useToolCalling || hasBuiltInToolsEnabled(this.data);
     const runOptions = {
       provider,
@@ -688,10 +913,8 @@ export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
       systemPrompt,
       functions,
       additionalTools: builtInTools,
-      maxTokens: getInputOrData(this.data, inputs, 'maxTokens', 'number'),
-      temperature: getInputOrData(this.data, inputs, 'temperature', 'number'),
-      topP: getInputOrData(this.data, inputs, 'topP', 'number'),
-      topK: getInputOrData(this.data, inputs, 'topK', 'number'),
+      ...generationParameters,
+      responseOutput,
       outputUsage: this.data.outputUsage,
       includeFunctionCalls,
       emitPartialOutputs: this.data.useAsGraphPartialOutput,
