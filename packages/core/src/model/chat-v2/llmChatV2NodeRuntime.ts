@@ -105,6 +105,53 @@ function resolveHeaders(data: LLMChatV2NodeData, inputs: Inputs): Record<string,
   return Object.keys(cleaned).length > 0 ? cleaned : undefined;
 }
 
+function resolveConfiguredProviderApiKey(
+  data: LLMChatV2NodeData,
+  context: Pick<InternalProcessContext, 'getPluginConfig' | 'settings'>,
+): string | undefined {
+  switch (data.provider) {
+    case 'openai':
+      return context.settings.openAiKey || undefined;
+    case 'anthropic':
+      return context.getPluginConfig('anthropicApiKey') || undefined;
+    case 'google':
+      return context.getPluginConfig('googleApiKey') || undefined;
+  }
+}
+
+function resolveApiKey(
+  data: LLMChatV2NodeData,
+  inputs: Inputs,
+  context: Pick<InternalProcessContext, 'getPluginConfig' | 'settings'>,
+): string | undefined {
+  if (data.apiKeySource !== 'input') {
+    return resolveConfiguredProviderApiKey(data, context);
+  }
+
+  const apiKey = coerceTypeOptional(inputs['apiKey' as PortId], 'string')?.trim();
+
+  if (!apiKey) {
+    throw new Error('API Key input is required when API key source is Input port.');
+  }
+
+  return apiKey;
+}
+
+function fingerprintSecret(secret: string | undefined): string | undefined {
+  if (!secret) {
+    return undefined;
+  }
+
+  let hash = 2166136261;
+
+  for (let i = 0; i < secret.length; i++) {
+    hash ^= secret.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+
+  return `${secret.length}:${(hash >>> 0).toString(36)}`;
+}
+
 function resolveProviderOptions(data: LLMChatV2NodeData, inputs: Inputs): ChatV2ProviderOptions | undefined {
   const providerOptions: ChatV2ProviderOptions = {};
 
@@ -246,6 +293,7 @@ function resolveBuiltInTools(
   data: LLMChatV2NodeData,
   context: Pick<InternalProcessContext, 'getPluginConfig' | 'settings'>,
   config: ResolvedChatV2ProviderConfig,
+  apiKey: string | undefined,
 ): ChatV2ToolSet | undefined {
   switch (data.provider) {
     case 'openai': {
@@ -254,7 +302,7 @@ function resolveBuiltInTools(
       }
 
       const provider = createOpenAI({
-        apiKey: context.settings.openAiKey || undefined,
+        apiKey: apiKey || context.settings.openAiKey || undefined,
         organization: context.settings.openAiOrganization || undefined,
         baseURL: config.baseURL,
         headers: config.headers,
@@ -280,7 +328,7 @@ function resolveBuiltInTools(
       }
 
       const provider = createGoogleGenerativeAI({
-        apiKey: context.getPluginConfig('googleApiKey') || undefined,
+        apiKey: apiKey || context.getPluginConfig('googleApiKey') || undefined,
         baseURL: config.baseURL,
         headers: config.headers,
       });
@@ -313,11 +361,12 @@ export async function resolveLLMChatV2RuntimeConfig(params: {
   const modelId = getInputOrData(data, inputs, 'model', 'string');
   const baseURL = getInputOrData(data, inputs, 'baseURL', 'string', 'useBaseURLInput')?.trim() || undefined;
   const nodeHeaders = resolveHeaders(data, inputs);
+  const apiKey = resolveApiKey(data, inputs, context);
   const providerConfig = await resolveChatV2ProviderConfig(provider, modelId, context, {
     baseURL,
     headers: nodeHeaders,
   });
-  const model = createChatV2Model(provider, modelId, context, providerConfig);
+  const model = createChatV2Model(provider, modelId, context, { ...providerConfig, apiKey });
   const prompt = inputs['prompt' as PortId];
   const systemPrompt = inputs['systemPrompt' as PortId];
   const functions =
@@ -335,7 +384,7 @@ export async function resolveLLMChatV2RuntimeConfig(params: {
     prompt,
     systemPrompt,
     functions,
-    additionalTools: resolveBuiltInTools(data, context, providerConfig),
+    additionalTools: resolveBuiltInTools(data, context, providerConfig, apiKey),
     ...generationParameters,
     responseOutput: createChatV2ResponseOutput(responseFormatParameters),
     outputUsage: data.outputUsage,
@@ -356,6 +405,7 @@ export async function resolveLLMChatV2RuntimeConfig(params: {
           provider,
           modelId,
           providerConfig,
+          apiKeyFingerprint: fingerprintSecret(apiKey),
           prompt,
           systemPrompt,
           functions,

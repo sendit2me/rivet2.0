@@ -59,6 +59,18 @@ function getModelEditors(modelOptions: { value: string; label: string }[]): LLMC
         label: 'Model Catalog',
         customEditorId: 'LLMChatV2ModelCatalog',
       },
+      {
+        type: 'segmented',
+        label: 'API key',
+        ariaLabel: 'API key source',
+        dataKey: 'apiKeySource',
+        defaultValue: 'environment',
+        options: [
+          { value: 'environment', label: 'Env variable' },
+          { value: 'input', label: 'Input port' },
+        ],
+        helperMessage: 'Whether to use the configured provider API key or get one through an input port.',
+      },
     ],
     true,
   );

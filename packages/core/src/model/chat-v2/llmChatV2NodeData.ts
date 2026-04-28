@@ -4,9 +4,11 @@ import type { ChatV2Provider } from './chatV2Types.js';
 import type { ChartNode, NodeId } from '../NodeBase.js';
 
 export type LLMChatV2ToolChoiceMode = '' | 'auto' | 'function' | 'required';
+export type LLMChatV2ApiKeySource = 'environment' | 'input';
 
 export type LLMChatV2NodeConfigData = ChatV2CommonNodeData & {
   provider: ChatV2Provider;
+  apiKeySource?: LLMChatV2ApiKeySource;
   baseURL: string;
   useBaseURLInput: boolean;
   headers: { key: string; value: string }[];
@@ -50,6 +52,7 @@ export type LLMChatV2EditorCacheKeyParts = {
   provider: ChatV2Provider;
   modelId: string;
   providerConfig: unknown;
+  apiKeyFingerprint?: string;
   prompt: unknown;
   systemPrompt: unknown;
   functions: unknown;
@@ -65,6 +68,7 @@ export function createLLMChatV2NodeData(): LLMChatV2NodeData {
       model: 'gpt-5',
     }),
     provider: 'openai',
+    apiKeySource: 'environment',
     baseURL: '',
     useBaseURLInput: false,
     headers: [],

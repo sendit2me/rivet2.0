@@ -127,7 +127,7 @@ export const LLMChatV2ModelCatalogEditor: FC<Props> = ({ node, isReadonly, isDis
   return (
     <div css={styles}>
       <div className="actions">
-        <Button appearance="subtle" onClick={() => void handleRefresh()} isDisabled={isReadonly || isDisabled}>
+        <Button appearance="primary" onClick={() => void handleRefresh()} isDisabled={isReadonly || isDisabled}>
           Re-fetch Model List
         </Button>
       </div>

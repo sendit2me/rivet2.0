@@ -5,7 +5,10 @@ import {
   buildLLMChatV2EditorCacheKey,
   resolveLLMChatV2RuntimeProviderOptions,
 } from '../../../src/model/nodes/LLMChatV2Node.js';
-import { cloneLLMChatV2EditorCacheOutputs } from '../../../src/model/chat-v2/llmChatV2NodeRuntime.js';
+import {
+  cloneLLMChatV2EditorCacheOutputs,
+  resolveLLMChatV2RuntimeConfig,
+} from '../../../src/model/chat-v2/llmChatV2NodeRuntime.js';
 
 function createNode(data: Partial<LLMChatV2Node['data']> = {}) {
   return new LLMChatV2NodeImpl({
@@ -17,6 +20,30 @@ function createNode(data: Partial<LLMChatV2Node['data']> = {}) {
   });
 }
 
+function createRuntimeContext(overrides: Record<string, unknown> = {}) {
+  return {
+    settings: {
+      openAiKey: 'env-openai-key',
+      openAiEndpoint: 'https://api.openai.test/v1/responses',
+      openAiOrganization: '',
+      chatNodeHeaders: {},
+    },
+    getPluginConfig: (key: string) => {
+      if (key === 'anthropicApiKey') {
+        return 'env-anthropic-key';
+      }
+
+      if (key === 'googleApiKey') {
+        return 'env-google-key';
+      }
+
+      return '';
+    },
+    editorExecutionCache: new Map<string, unknown>(),
+    ...overrides,
+  } as any;
+}
+
 describe('LLMChatV2NodeImpl', () => {
   it('creates the unified chat node', () => {
     const node = LLMChatV2NodeImpl.create();
@@ -24,6 +51,7 @@ describe('LLMChatV2NodeImpl', () => {
     assert.equal(node.type, 'llmChatV2');
     assert.equal(node.title, 'LLM Chat v2');
     assert.equal(node.data.provider, 'openai');
+    assert.equal(node.data.apiKeySource, 'environment');
     assert.equal(node.data.useToolCalling, false);
     assert.equal(node.data.presencePenalty, undefined);
     assert.equal(node.data.usePresencePenaltyInput, false);
@@ -51,6 +79,33 @@ describe('LLMChatV2NodeImpl', () => {
     assert.equal(node.data.parallelToolCalls, false);
     assert.equal(node.data.autoContinueToolCalls, false);
     assert.equal(node.data.maxToolRounds, 3);
+  });
+
+  it('adds an API key input only when the Model section is set to input port', async () => {
+    const defaultNode = createNode();
+    const inputNode = createNode({
+      apiKeySource: 'input',
+    });
+
+    const defaultInputs = defaultNode.getInputDefinitions();
+    const inputPort = inputNode.getInputDefinitions().find((input) => input.id === 'apiKey');
+    const editors = await inputNode.getEditors({});
+    const modelGroup = editors.find((editor) => editor.type === 'group' && editor.label === 'Model') as any;
+    const apiKeySourceEditor = modelGroup.editors.find((editor: any) => editor.dataKey === 'apiKeySource');
+
+    assert.ok(!defaultInputs.some((input) => input.id === 'apiKey'));
+    assert.deepEqual(inputPort, {
+      id: 'apiKey',
+      title: 'API Key',
+      dataType: 'string',
+      required: false,
+    });
+    assert.equal(apiKeySourceEditor?.type, 'segmented');
+    assert.equal(apiKeySourceEditor?.label, 'API key');
+    assert.deepEqual(apiKeySourceEditor?.options, [
+      { value: 'environment', label: 'Env variable' },
+      { value: 'input', label: 'Input port' },
+    ]);
   });
 
   it('adds function-call output when provider built-in tools are enabled', () => {
@@ -385,7 +440,7 @@ describe('LLMChatV2NodeImpl', () => {
       nodeData: firstNode.data,
       provider: 'openai' as const,
       modelId: 'gpt-5',
-      providerConfig: { apiKey: 'test' },
+      providerConfig: { baseURL: 'https://example.test' },
       prompt: { type: 'string', value: 'Hello' },
       systemPrompt: undefined,
       functions: undefined,
@@ -414,6 +469,61 @@ describe('LLMChatV2NodeImpl', () => {
         ...commonParts,
         nodeId: secondNode.id,
       }),
+    );
+  });
+
+  it('scopes editor cache keys by API key input without storing the raw secret', async () => {
+    const node = createNode({
+      apiKeySource: 'input',
+      cache: true,
+    });
+    const context = createRuntimeContext();
+    const commonInputs = {
+      prompt: { type: 'string', value: 'Hello' },
+    } as any;
+
+    const first = await resolveLLMChatV2RuntimeConfig({
+      data: node.data,
+      nodeId: node.chartNode.id,
+      inputs: {
+        ...commonInputs,
+        apiKey: { type: 'string', value: 'sk-secret-a' },
+      },
+      context,
+    });
+    const second = await resolveLLMChatV2RuntimeConfig({
+      data: node.data,
+      nodeId: node.chartNode.id,
+      inputs: {
+        ...commonInputs,
+        apiKey: { type: 'string', value: 'sk-secret-b' },
+      },
+      context,
+    });
+
+    assert.ok(first.cacheKey);
+    assert.ok(second.cacheKey);
+    assert.notEqual(first.cacheKey, second.cacheKey);
+    assert.doesNotMatch(first.cacheKey!, /sk-secret-a/);
+    assert.doesNotMatch(second.cacheKey!, /sk-secret-b/);
+  });
+
+  it('fails clearly when the API key input source is selected but no key is provided', async () => {
+    const node = createNode({
+      apiKeySource: 'input',
+    });
+
+    await assert.rejects(
+      () =>
+        resolveLLMChatV2RuntimeConfig({
+          data: node.data,
+          nodeId: node.chartNode.id,
+          inputs: {
+            prompt: { type: 'string', value: 'Hello' },
+          } as any,
+          context: createRuntimeContext(),
+        }),
+      /API Key input is required/,
     );
   });
 

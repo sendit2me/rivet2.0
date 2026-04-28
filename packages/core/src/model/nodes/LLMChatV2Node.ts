@@ -26,6 +26,7 @@ import { runChatV2PipelineWithToolContinuation } from '../chat-v2/toolContinuati
 import { delegateToolCall } from './toolCallDelegation.js';
 
 export type {
+  LLMChatV2ApiKeySource,
   LLMChatV2EditorCacheKeyParts,
   LLMChatV2Node,
   LLMChatV2NodeConfigData,
@@ -53,6 +54,15 @@ export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
     const inputs = getCommonChatV2Inputs(this.data, {
       includeFunctions: this.data.useToolCalling,
     });
+
+    if (this.data.apiKeySource === 'input') {
+      inputs.push({
+        id: 'apiKey' as PortId,
+        title: 'API Key',
+        dataType: 'string',
+        required: false,
+      });
+    }
 
     if (this.data.useBaseURLInput) {
       inputs.unshift({
