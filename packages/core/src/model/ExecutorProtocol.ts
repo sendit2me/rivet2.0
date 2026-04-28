@@ -107,6 +107,7 @@ export type OutgoingMessageMap = {
     runFromNodeId?: NodeId;
     inputs?: GraphInputs;
     projectPath?: string | null;
+    useEditorCache?: boolean;
   };
   abort: undefined;
   pause: undefined;

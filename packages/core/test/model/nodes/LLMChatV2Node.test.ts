@@ -1,7 +1,10 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { type LLMChatV2Node, LLMChatV2NodeImpl } from '../../../src/index.js';
-import { resolveLLMChatV2RuntimeProviderOptions } from '../../../src/model/nodes/LLMChatV2Node.js';
+import {
+  buildLLMChatV2EditorCacheKey,
+  resolveLLMChatV2RuntimeProviderOptions,
+} from '../../../src/model/nodes/LLMChatV2Node.js';
 
 function createNode(data: Partial<LLMChatV2Node['data']> = {}) {
   return new LLMChatV2NodeImpl({
@@ -127,6 +130,34 @@ describe('LLMChatV2NodeImpl', () => {
     assert.ok(toolsGroup.editors.some((editor: any) => editor.dataKey === 'autoContinueToolCalls'));
     assert.ok(toolsGroup.editors.some((editor: any) => editor.dataKey === 'maxToolRounds'));
     assert.ok(!outputGroup.editors.some((editor: any) => editor.dataKey === 'useToolCalling'));
+    assert.equal(
+      outputGroup.editors.find((editor: any) => editor.dataKey === 'outputUsage')?.label,
+      'Output usage details',
+    );
+    assert.match(
+      outputGroup.editors.find((editor: any) => editor.dataKey === 'outputUsage')?.helperMessage,
+      /Vercel AI SDK usage metadata/,
+    );
+    assert.equal(
+      outputGroup.editors.find((editor: any) => editor.dataKey === 'useAsGraphPartialOutput')?.label,
+      'Stream response',
+    );
+    assert.match(
+      outputGroup.editors.find((editor: any) => editor.dataKey === 'useAsGraphPartialOutput')?.helperMessage,
+      /Other nodes only receive the final response/,
+    );
+    assert.equal(
+      outputGroup.editors.find((editor: any) => editor.dataKey === 'cache')?.label,
+      'Cache outputs (editor only)',
+    );
+    assert.match(
+      outputGroup.editors.find((editor: any) => editor.dataKey === 'cache')?.helperMessage,
+      /this node's previous outputs/,
+    );
+    assert.match(
+      outputGroup.editors.find((editor: any) => editor.dataKey === 'cache')?.helperMessage,
+      /while the Rivet app is open/,
+    );
   });
 
   it('groups provider reasoning settings after Parameters', async () => {
@@ -139,6 +170,11 @@ describe('LLMChatV2NodeImpl', () => {
     const anthropicGroup = editors.find((editor) => editor.type === 'group' && editor.label === 'Anthropic') as any;
     const googleGroup = editors.find((editor) => editor.type === 'group' && editor.label === 'Google') as any;
 
+    assert.deepEqual(groupLabels.slice(groupLabels.indexOf('Model') + 1, groupLabels.indexOf('Model') + 4), [
+      'OpenAI',
+      'Anthropic',
+      'Google',
+    ]);
     assert.equal(groupLabels.indexOf('Reasoning'), groupLabels.indexOf('Parameters') + 1);
     assert.ok(reasoningGroup);
     assert.deepEqual(
@@ -204,6 +240,7 @@ describe('LLMChatV2NodeImpl', () => {
     assert.ok(!openAIGroup.editors.some((editor: any) => editor.dataKey === 'openAIReasoningEffort'));
     assert.ok(!anthropicGroup.editors.some((editor: any) => editor.dataKey === 'anthropicThinkingMode'));
     assert.ok(!googleGroup.editors.some((editor: any) => editor.dataKey === 'googleThinkingBudget'));
+    assert.ok(!googleGroup.editors.some((editor: any) => editor.dataKey === 'googleStructuredOutputs'));
   });
 
   it('resolves provider-specific reasoning options in the Vercel providerOptions shape', () => {
@@ -335,5 +372,47 @@ describe('LLMChatV2NodeImpl', () => {
     assert.equal(inputById.get('responseSchema' as any)?.required, true);
     assert.equal(inputById.get('responseSchemaName' as any)?.dataType, 'string');
     assert.equal(inputById.get('responseSchemaDescription' as any)?.dataType, 'string');
+  });
+
+  it('scopes editor cache keys by node id', () => {
+    const firstNode = LLMChatV2NodeImpl.create();
+    const secondNode = {
+      ...LLMChatV2NodeImpl.create(),
+      data: firstNode.data,
+    };
+    const commonParts = {
+      nodeData: firstNode.data,
+      provider: 'openai' as const,
+      modelId: 'gpt-5',
+      providerConfig: { apiKey: 'test' },
+      prompt: { type: 'string', value: 'Hello' },
+      systemPrompt: undefined,
+      functions: undefined,
+      generationParameters: { temperature: 0.5 },
+      responseFormatParameters: undefined,
+      providerOptions: undefined,
+      toolChoice: undefined,
+    };
+
+    assert.equal(
+      buildLLMChatV2EditorCacheKey({
+        ...commonParts,
+        nodeId: firstNode.id,
+      }),
+      buildLLMChatV2EditorCacheKey({
+        ...commonParts,
+        nodeId: firstNode.id,
+      }),
+    );
+    assert.notEqual(
+      buildLLMChatV2EditorCacheKey({
+        ...commonParts,
+        nodeId: firstNode.id,
+      }),
+      buildLLMChatV2EditorCacheKey({
+        ...commonParts,
+        nodeId: secondNode.id,
+      }),
+    );
   });
 });

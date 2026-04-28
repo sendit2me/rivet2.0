@@ -47,6 +47,7 @@ export type DynamicGraphRunOptions = {
   runFromNodeId?: NodeId;
   contextValues: Record<string, DataValue>;
   projectPath: string | undefined;
+  useEditorCache?: boolean;
 };
 
 export type DynamicGraphRun = (data: DynamicGraphRunOptions) => Promise<void>;
@@ -103,7 +104,7 @@ export function startDebuggerServer(
 
         await match(message)
           .with({ type: 'run' }, async () => {
-            const { requestId, graphId, inputs, runToNodeIds, contextValues, runFromNodeId, projectPath } = message.data as {
+            const runData = message.data as {
               requestId: RemoteRunRequestId;
               graphId: GraphId;
               inputs: GraphInputs;
@@ -111,7 +112,10 @@ export function startDebuggerServer(
               runFromNodeId?: NodeId;
               contextValues: Record<string, DataValue>;
               projectPath: string | undefined;
+              useEditorCache?: boolean;
             };
+            const { requestId, graphId, inputs, runToNodeIds, contextValues, runFromNodeId, projectPath, useEditorCache } =
+              runData;
 
             await options.dynamicGraphRun?.({
               client: socket,
@@ -122,6 +126,7 @@ export function startDebuggerServer(
               contextValues,
               runFromNodeId,
               projectPath,
+              useEditorCache,
             });
           })
           .with({ type: 'set-dynamic-data' }, async () => {

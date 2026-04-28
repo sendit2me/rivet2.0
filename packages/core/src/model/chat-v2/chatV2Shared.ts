@@ -356,13 +356,17 @@ export function getCommonChatV2Editors<T extends ChatV2SharedNode>(
         },
         {
           type: 'toggle',
-          label: 'Output Usage',
+          label: 'Output usage details',
           dataKey: 'outputUsage',
+          helperMessage:
+            'Adds a Usage output built from Vercel AI SDK usage metadata: prompt, completion, total, cached, reasoning tokens, and estimated cost when available.',
         },
         {
           type: 'toggle',
-          label: 'Use As Graph Partial Output',
+          label: 'Stream response',
           dataKey: 'useAsGraphPartialOutput',
+          helperMessage:
+            'Shows streamed response updates in the node output while running in the editor. Other nodes only receive the final response after it is complete.',
         },
       ],
     },

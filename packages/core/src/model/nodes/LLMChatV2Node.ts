@@ -37,6 +37,21 @@ import { delegateToolCall } from './toolCallDelegation.js';
 
 type LLMChatV2ToolChoiceMode = '' | 'auto' | 'function' | 'required';
 
+export type LLMChatV2EditorCacheKeyParts = {
+  nodeId: NodeId;
+  nodeData: LLMChatV2NodeData;
+  provider: ChatV2Provider;
+  modelId: string;
+  providerConfig: unknown;
+  prompt: unknown;
+  systemPrompt: unknown;
+  functions: unknown;
+  generationParameters: unknown;
+  responseFormatParameters: unknown;
+  providerOptions: unknown;
+  toolChoice: unknown;
+};
+
 export type LLMChatV2NodeConfigData = ChatV2CommonNodeData & {
   provider: ChatV2Provider;
   baseURL: string;
@@ -59,7 +74,6 @@ export type LLMChatV2NodeConfigData = ChatV2CommonNodeData & {
   useGoogleThinkingBudgetInput: boolean;
   googleThinkingLevel?: '' | 'minimal' | 'low' | 'medium' | 'high';
   googleIncludeThoughts?: boolean;
-  googleStructuredOutputs: boolean;
   enableGoogleSearchGrounding: boolean;
   enableGoogleUrlContext: boolean;
   responseFormat?: ChatV2ResponseFormat;
@@ -154,7 +168,6 @@ function getProviderOptions(data: LLMChatV2NodeData, inputs: Inputs): ChatV2Prov
     };
     const googleOptions = {
       ...(Object.keys(thinkingConfig).length > 0 ? { thinkingConfig } : {}),
-      ...(data.googleStructuredOutputs ? { structuredOutputs: true } : {}),
     };
 
     if (Object.keys(googleOptions).length > 0) {
@@ -205,6 +218,10 @@ function resolveToolChoice(data: LLMChatV2NodeData): ChatV2ToolChoice | undefine
 function normalizeStopSequences(stopSequences: string[] | undefined): string[] | undefined {
   const normalized = (stopSequences ?? []).filter((sequence) => sequence.length > 0);
   return normalized.length > 0 ? normalized : undefined;
+}
+
+export function buildLLMChatV2EditorCacheKey(parts: LLMChatV2EditorCacheKeyParts): string {
+  return JSON.stringify(parts);
 }
 
 function resolveStopSequences(data: LLMChatV2NodeData, inputs: Inputs): string[] | undefined {
@@ -312,7 +329,6 @@ export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
         useGoogleThinkingBudgetInput: false,
         googleThinkingLevel: '',
         googleIncludeThoughts: false,
-        googleStructuredOutputs: false,
         enableGoogleSearchGrounding: false,
         enableGoogleUrlContext: false,
         responseFormat: '',
@@ -470,6 +486,67 @@ export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
             type: 'custom',
             label: 'Model Catalog',
             customEditorId: 'LLMChatV2ModelCatalog',
+          },
+        ],
+      },
+      {
+        type: 'group',
+        label: 'OpenAI',
+        hideIf: (data) => data.provider !== 'openai',
+        editors: [
+          {
+            type: 'string',
+            label: 'Previous Response ID',
+            dataKey: 'openAIPreviousResponseId',
+            useInputToggleDataKey: 'useOpenAIPreviousResponseIdInput',
+          },
+          {
+            type: 'toggle',
+            label: 'Enable Web Search',
+            dataKey: 'enableOpenAIWebSearch',
+          },
+          {
+            type: 'dropdown',
+            label: 'Web Search Context',
+            dataKey: 'openAIWebSearchContextSize',
+            options: openAIWebSearchContextSizeOptions,
+            hideIf: (data) => !data.enableOpenAIWebSearch,
+          },
+          {
+            type: 'toggle',
+            label: 'Enable Code Interpreter',
+            dataKey: 'enableOpenAICodeInterpreter',
+          },
+        ],
+      },
+      {
+        type: 'group',
+        label: 'Anthropic',
+        hideIf: (data) => data.provider !== 'anthropic',
+        editors: [
+          {
+            type: 'dropdown',
+            label: 'Cache Breakpoint TTL',
+            dataKey: 'anthropicCacheControlTtl',
+            options: anthropicCacheControlTtlOptions,
+            helperMessage: 'Applies when incoming chat messages mark a cache breakpoint.',
+          },
+        ],
+      },
+      {
+        type: 'group',
+        label: 'Google',
+        hideIf: (data) => data.provider !== 'google',
+        editors: [
+          {
+            type: 'toggle',
+            label: 'Enable Google Search Grounding',
+            dataKey: 'enableGoogleSearchGrounding',
+          },
+          {
+            type: 'toggle',
+            label: 'Enable URL Context',
+            dataKey: 'enableGoogleUrlContext',
           },
         ],
       },
@@ -731,18 +808,24 @@ export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
         editors: [
           {
             type: 'toggle',
-            label: 'Output Usage',
+            label: 'Output usage details',
             dataKey: 'outputUsage',
+            helperMessage:
+              'Adds a Usage output built from Vercel AI SDK usage metadata: prompt, completion, total, cached, reasoning tokens, and estimated cost when available.',
           },
           {
             type: 'toggle',
-            label: 'Use As Graph Partial Output',
+            label: 'Stream response',
             dataKey: 'useAsGraphPartialOutput',
+            helperMessage:
+              'Shows streamed response updates in the node output while running in the editor. Other nodes only receive the final response after it is complete.',
           },
           {
             type: 'toggle',
-            label: 'Cache (same inputs, same outputs)',
+            label: 'Cache outputs (editor only)',
             dataKey: 'cache',
+            helperMessage:
+              "Reuses this node's previous outputs if the input is the same (provider config, prompt and generation settings). The cache persists while the Rivet app is open.",
           },
         ],
       },
@@ -764,72 +847,6 @@ export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
             useInputToggleDataKey: 'useHeadersInput',
             keyPlaceholder: 'Header',
             valuePlaceholder: 'Value',
-          },
-        ],
-      },
-      {
-        type: 'group',
-        label: 'OpenAI',
-        hideIf: (data) => data.provider !== 'openai',
-        editors: [
-          {
-            type: 'string',
-            label: 'Previous Response ID',
-            dataKey: 'openAIPreviousResponseId',
-            useInputToggleDataKey: 'useOpenAIPreviousResponseIdInput',
-          },
-          {
-            type: 'toggle',
-            label: 'Enable Web Search',
-            dataKey: 'enableOpenAIWebSearch',
-          },
-          {
-            type: 'dropdown',
-            label: 'Web Search Context',
-            dataKey: 'openAIWebSearchContextSize',
-            options: openAIWebSearchContextSizeOptions,
-            hideIf: (data) => !data.enableOpenAIWebSearch,
-          },
-          {
-            type: 'toggle',
-            label: 'Enable Code Interpreter',
-            dataKey: 'enableOpenAICodeInterpreter',
-          },
-        ],
-      },
-      {
-        type: 'group',
-        label: 'Anthropic',
-        hideIf: (data) => data.provider !== 'anthropic',
-        editors: [
-          {
-            type: 'dropdown',
-            label: 'Cache Breakpoint TTL',
-            dataKey: 'anthropicCacheControlTtl',
-            options: anthropicCacheControlTtlOptions,
-            helperMessage: 'Applies when incoming chat messages mark a cache breakpoint.',
-          },
-        ],
-      },
-      {
-        type: 'group',
-        label: 'Google',
-        hideIf: (data) => data.provider !== 'google',
-        editors: [
-          {
-            type: 'toggle',
-            label: 'Structured Outputs',
-            dataKey: 'googleStructuredOutputs',
-          },
-          {
-            type: 'toggle',
-            label: 'Enable Google Search Grounding',
-            dataKey: 'enableGoogleSearchGrounding',
-          },
-          {
-            type: 'toggle',
-            label: 'Enable URL Context',
-            dataKey: 'enableGoogleUrlContext',
           },
         ],
       },
@@ -879,9 +896,11 @@ export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
     };
     const responseOutput = createChatV2ResponseOutput(responseFormatParameters);
 
+    const editorCache = this.data.cache ? context.editorExecutionCache : undefined;
     const cacheKey =
-      this.data.cache
-        ? JSON.stringify({
+      editorCache != null
+        ? buildLLMChatV2EditorCacheKey({
+            nodeId: this.chartNode.id,
             nodeData: this.data,
             provider,
             modelId,
@@ -897,7 +916,7 @@ export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
         : undefined;
 
     const cachedOutputs =
-      cacheKey != null ? (context.executionCache.get(cacheKey) as Outputs | undefined) : undefined;
+      cacheKey != null && editorCache != null ? (editorCache.get(cacheKey) as Outputs | undefined) : undefined;
 
     if (cachedOutputs != null) {
       return cachedOutputs;
@@ -947,8 +966,8 @@ export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
         })
       : await runChatV2Pipeline(runOptions);
 
-    if (cacheKey != null) {
-      context.executionCache.set(cacheKey, result.commonOutputs);
+    if (cacheKey != null && editorCache != null) {
+      editorCache.set(cacheKey, result.commonOutputs);
     }
 
     return result.commonOutputs;

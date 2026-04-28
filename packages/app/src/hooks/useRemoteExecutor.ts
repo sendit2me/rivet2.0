@@ -234,6 +234,7 @@ export function useRemoteExecutor() {
         contextValues,
         runFromNodeId: options.from,
         projectPath: loadedProject.path,
+        useEditorCache: true,
       });
     } catch (e) {
       handleError(e, 'Failed to start remote graph run');

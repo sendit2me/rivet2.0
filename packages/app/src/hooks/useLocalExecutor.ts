@@ -83,6 +83,18 @@ export function useLocalExecutor() {
   const projectContext = useAtomValue(projectContextState(project.metadata.id));
   const lastRunData = useAtomValue(lastRunDataByNodeState);
   const loadedProject = useAtomValue(loadedProjectState);
+  const editorExecutionCachesByProjectId = useRef(new Map<string, Map<string, unknown>>());
+
+  function getEditorExecutionCache(projectId: string) {
+    let cache = editorExecutionCachesByProjectId.current.get(projectId);
+
+    if (!cache) {
+      cache = new Map<string, unknown>();
+      editorExecutionCachesByProjectId.current.set(projectId, cache);
+    }
+
+    return cache;
+  }
 
   function attachGraphEvents(processor: GraphProcessor) {
     // nodeStart and nodeFinish use awaited emit in GraphProcessor, so returning
@@ -215,6 +227,7 @@ export function useLocalExecutor() {
               tokenizer: new GptTokenizerTokenizer(),
               projectPath: loadedProject.path ?? undefined,
               projectReferenceLoader: new TauriProjectReferenceLoader(),
+              editorExecutionCache: getEditorExecutionCache(tempProject.metadata.id),
             },
             {},
             contextValues,

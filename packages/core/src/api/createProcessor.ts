@@ -46,6 +46,7 @@ export type RunGraphOptions = {
   codeRunner?: ProcessContext['codeRunner'];
   projectPath?: string;
   projectReferenceLoader?: ProjectReferenceLoader;
+  editorExecutionCache?: ProcessContext['editorExecutionCache'];
 } & {
   [P in keyof ProcessEvents as `on${PascalCase<P>}`]?: (params: ProcessEvents[P]) => void;
 } & Settings;
@@ -169,6 +170,7 @@ export function coreCreateProcessor(project: Project, options: RunGraphOptions) 
           tokenizer: options.tokenizer ?? new GptTokenizerTokenizer(),
           projectPath: options.projectPath,
           projectReferenceLoader: options.projectReferenceLoader,
+          editorExecutionCache: options.editorExecutionCache,
           settings: resolveProcessSettings(options),
           getChatNodeEndpoint: options.getChatNodeEndpoint,
         },

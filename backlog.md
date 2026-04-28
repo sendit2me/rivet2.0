@@ -2,11 +2,18 @@
 
 - Human readable Loop node
 
-- Audit the "OpenAI" section and make it Vercel compatible instead of OpenAI-specific
 
-- What is "Use As Graph Partial Output"???
+
+- Prompt and Tool nodes: make the node body more neat with nice gaps and colors. Current italic is too poor and subtle.
+
 
 - Custom LLM provider key for LLM Chat v2. Probbaly a pill control for "Model" section: key in env variable VS pass the API key into the node
+
+- Make it work with OpenAPI compatible LLM providers like Cerebras and OpenRouter
+
+
+
+- Make the controls in the Rivet settings modal the same as in node settings: hint before the control, not after it; switcher hint align with the left edge of the label, not the switcher
 
 - In split node, parallel one, is there a limit on the max concurrent parallel runs?
 

@@ -25,6 +25,18 @@ import { pathToFileURL } from 'node:url';
 import { AppExecutorWorkerCodeRunner } from './AppExecutorWorkerCodeRunner.mjs';
 
 const datasetProvider = new DebuggerDatasetProvider();
+const editorExecutionCachesByProjectId = new Map<string, Map<string, unknown>>();
+
+function getEditorExecutionCache(project: Rivet.Project) {
+  let cache = editorExecutionCachesByProjectId.get(project.metadata.id);
+
+  if (!cache) {
+    cache = new Map<string, unknown>();
+    editorExecutionCachesByProjectId.set(project.metadata.id, cache);
+  }
+
+  return cache;
+}
 
 /**
  * Dynamically import a module and resolve its default export. Handles the
@@ -95,7 +107,16 @@ const rivetDebugger = startDebuggerServer({
   port,
   allowGraphUpload: true,
   datasetProvider,
-  dynamicGraphRun: async ({ requestId, graphId, inputs, runToNodeIds, contextValues, runFromNodeId, projectPath }) => {
+  dynamicGraphRun: async ({
+    requestId,
+    graphId,
+    inputs,
+    runToNodeIds,
+    contextValues,
+    runFromNodeId,
+    projectPath,
+    useEditorCache,
+  }) => {
     logRuntimeInfo(`Running graph ${graphId}`, {
       requestId,
       inputCount: Object.keys(inputs ?? {}).length,
@@ -171,6 +192,7 @@ const rivetDebugger = startDebuggerServer({
         registry,
         datasetProvider,
         codeRunner: new AppExecutorWorkerCodeRunner(),
+        editorExecutionCache: useEditorCache ? getEditorExecutionCache(project) : undefined,
         onTrace: (trace) => {
           logRuntimeDebug('Graph trace', { trace });
         },

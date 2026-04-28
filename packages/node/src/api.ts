@@ -126,6 +126,7 @@ export function createProcessor(
           codeRunner: options.codeRunner ?? new NodeCodeRunner(),
           projectPath: options.projectPath,
           projectReferenceLoader: options.projectReferenceLoader ?? new NodeProjectReferenceLoader(),
+          editorExecutionCache: options.editorExecutionCache,
           settings: resolveProcessSettings(
             { ...options, pluginEnv },
             {
