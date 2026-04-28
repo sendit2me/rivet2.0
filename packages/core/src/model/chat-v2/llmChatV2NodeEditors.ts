@@ -61,12 +61,12 @@ function getModelEditors(modelOptions: { value: string; label: string }[]): LLMC
       },
       {
         type: 'segmented',
-        label: 'API key',
+        label: 'API key source',
         ariaLabel: 'API key source',
         dataKey: 'apiKeySource',
         defaultValue: 'environment',
         options: [
-          { value: 'environment', label: 'Env variable' },
+          { value: 'environment', label: 'Configured key' },
           { value: 'input', label: 'Input port' },
         ],
         helperMessage: 'Whether to use the configured provider API key or get one through an input port.',

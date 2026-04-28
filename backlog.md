@@ -13,7 +13,6 @@
 - Make it work with OpenAPI compatible LLM providers like Cerebras and OpenRouter
 
 
-
 - Prompt and Tool nodes: make the node body more neat with nice gaps and colors. Current italic is too poor and subtle.
 
 - In the output (node or full view), when I hover the item in the list-output, let's make the vertical bar left to the item more bright.
@@ -21,9 +20,8 @@
 - In the full output modal, make the control panel more neat and when the content scrolls, make it less iriitating
 
 
-- Make the controls in the Rivet settings modal the same as in node settings: hint before the control, not after it; switcher hint align with the left edge of the label, not the switcher
 
-- In split node, parallel one, is there a limit on the max concurrent parallel runs?
+- In split node, parallel one, is there a limit on the max concurrent parallel runs? If not, it's bad
 
 - How does "Strict" setting work in the Tool node
 

@@ -1,7 +1,7 @@
 import { type FC, useState } from 'react';
 import { useAtom, useAtomValue } from 'jotai';
 import Button from '@atlaskit/button';
-import { Field, HelperMessage, Label } from '@atlaskit/form';
+import { Field, Label } from '@atlaskit/form';
 import useAsyncEffect from 'use-async-effect';
 import { useCheckForUpdate } from '../../../hooks/useCheckForUpdate.js';
 import { wrapAsync } from '../../../utils/errorHandling.js';
@@ -33,9 +33,9 @@ export const UpdatesSettingsPage: FC = () => {
               isChecked={checkForUpdates}
               onChange={setCheckForUpdates}
               label="Check for updates on startup"
+              helperMessage="Automatically check for updates on startup"
               className="settings-toggle-field"
             />
-            <HelperMessage>Automatically check for updates on startup</HelperMessage>
           </>
         )}
       </Field>

@@ -6,6 +6,7 @@ import Button from '@atlaskit/button';
 import { Tooltip } from '../Tooltip.js';
 import { NodeMetadataEditor } from './NodeMetadataEditor.js';
 import { LabeledToggle } from '../LabeledToggle.js';
+import { SegmentedEditor } from '../editors/SegmentedEditor.js';
 
 type HeaderToggleFieldProps = {
   id: string;
@@ -28,27 +29,23 @@ const HeaderToggleField: FC<HeaderToggleFieldProps> = ({ id, isChecked, onChange
 type SplitModeChoice = 'parallel' | 'sequential';
 
 const splitModeOptions: readonly { value: SplitModeChoice; label: string }[] = [
-  { value: 'parallel', label: 'parallel runs' },
-  { value: 'sequential', label: 'sequential' },
+  { value: 'parallel', label: 'Parallel runs' },
+  { value: 'sequential', label: 'Sequential' },
 ];
 
 const SplitModeChoiceControl: FC<{
   value: SplitModeChoice;
   onChange: (value: SplitModeChoice) => void;
 }> = ({ value, onChange }) => (
-  <div className="segmented-choice split-mode" role="group" aria-label="Split mode">
-    {splitModeOptions.map((option) => (
-      <button
-        key={option.value}
-        type="button"
-        className={`segmented-choice-option${option.value === value ? ' is-active' : ''}`}
-        aria-pressed={option.value === value}
-        onClick={() => onChange(option.value)}
-      >
-        {option.label}
-      </button>
-    ))}
-  </div>
+  <SegmentedEditor
+    value={value}
+    onChange={(nextValue) => onChange(nextValue as SplitModeChoice)}
+    isReadonly={false}
+    isDisabled={false}
+    label=""
+    ariaLabel="Split mode"
+    options={splitModeOptions}
+  />
 );
 
 export const NodeEditorGlobalControls: FC<{

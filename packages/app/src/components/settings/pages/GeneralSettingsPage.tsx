@@ -1,7 +1,7 @@
 import { type FC } from 'react';
 import { useAtom } from 'jotai';
 import TextField from '@atlaskit/textfield';
-import { Field, HelperMessage, Label } from '@atlaskit/form';
+import { Field, Label } from '@atlaskit/form';
 import Select from '@atlaskit/select';
 import {
   defaultExecutorState,
@@ -12,6 +12,7 @@ import {
 } from '../../../state/settings.js';
 import { fields } from '../settingsPageStyles.js';
 import { LabeledToggle } from '../../LabeledToggle.js';
+import { FieldHelperMessage } from '../../FieldHelperMessage.js';
 
 export const GeneralSettingsPage: FC = () => {
   const [settings, setSettings] = useAtom(settingsState);
@@ -24,6 +25,10 @@ export const GeneralSettingsPage: FC = () => {
       <Field name="recording-speed" label="Recording delay between chats (ms)">
         {() => (
           <>
+            <FieldHelperMessage>
+              This is the delay between each chat message when playing back a recording. Lower values will play
+              recordings back faster.
+            </FieldHelperMessage>
             <TextField
               type="number"
               value={settings.recordingPlaybackLatency}
@@ -34,10 +39,6 @@ export const GeneralSettingsPage: FC = () => {
                 }))
               }
             />
-            <HelperMessage>
-              This is the delay between each chat message when playing back a recording. Lower values will play
-              recordings back faster.
-            </HelperMessage>
           </>
         )}
       </Field>
@@ -49,9 +50,9 @@ export const GeneralSettingsPage: FC = () => {
               isChecked={recordExecutions}
               onChange={setRecordExecutions}
               label="Record local graph executions"
+              helperMessage="Disabling may help performance when dealing with very large data values"
               className="settings-toggle-field"
             />
-            <HelperMessage>Disabling may help performance when dealing with very large data values</HelperMessage>
           </>
         )}
       </Field>
@@ -61,6 +62,10 @@ export const GeneralSettingsPage: FC = () => {
             <Label htmlFor="defaultExecutor" testId="defaultExecutor">
               Default executor
             </Label>
+            <FieldHelperMessage>
+              The default executor to use when starting the application. The browser executor is more stable, but the
+              node executor is required for some features and plugins.
+            </FieldHelperMessage>
             <div className="toggle-field">
               <Select
                 value={executorOptions.find((option) => option.value === defaultExecutor)}
@@ -68,10 +73,6 @@ export const GeneralSettingsPage: FC = () => {
                 options={executorOptions}
               />
             </div>
-            <HelperMessage>
-              The default executor to use when starting the application. The browser executor is more stable, but the
-              node executor is required for some features and plugins.
-            </HelperMessage>
           </>
         )}
       </Field>
@@ -81,6 +82,10 @@ export const GeneralSettingsPage: FC = () => {
             <Label htmlFor="previousDataPerNodeToKeep" testId="previousDataPerNodeToKeep">
               Previous data per node to keep
             </Label>
+            <FieldHelperMessage>
+              The number of previous data values to keep per node. Increasing this will increase memory usage, but allow
+              you to go back further in time. -1 to disable and keep all.
+            </FieldHelperMessage>
             <div className="toggle-field">
               <TextField
                 type="number"
@@ -95,10 +100,6 @@ export const GeneralSettingsPage: FC = () => {
                 }}
               />
             </div>
-            <HelperMessage>
-              The number of previous data values to keep per node. Increasing this will increase memory usage, but allow
-              you to go back further in time. -1 to disable and keep all.
-            </HelperMessage>
           </>
         )}
       </Field>
@@ -108,6 +109,10 @@ export const GeneralSettingsPage: FC = () => {
             <Label htmlFor="throttleChatNode" testId="throttleChatNode">
               Chat node throttle milliseconds
             </Label>
+            <FieldHelperMessage>
+              Throttles the stream of chat node data into Rivet. Increasing this can improve performance. Set to 0 to
+              disable.
+            </FieldHelperMessage>
             <div className="toggle-field">
               <TextField
                 type="number"
@@ -122,10 +127,6 @@ export const GeneralSettingsPage: FC = () => {
                 }}
               />
             </div>
-            <HelperMessage>
-              Throttles the stream of chat node data into Rivet. Increasing this can improve performance. Set to 0 to
-              disable.
-            </HelperMessage>
           </>
         )}
       </Field>

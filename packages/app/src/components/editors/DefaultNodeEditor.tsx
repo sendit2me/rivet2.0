@@ -10,18 +10,29 @@ import { handleError } from '../../utils/errorHandling.js';
 import { getEditorListKey, getEditorRenderRows } from './editorUtils';
 
 export const defaultEditorContainerStyles = css`
+  --node-editor-row-gap: calc(18px * var(--ui-font-scale));
+
   display: flex;
   flex-direction: column;
   align-items: stretch;
   width: 100%;
   align-content: start;
-  gap: 16px;
+  gap: 0;
   flex: 1 1 auto;
   min-height: 0;
 
   .row {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .row > :first-child {
+    margin-top: 0 !important;
+  }
+
+  > .row:not(:last-child),
+  > .inline-editor-row:not(:last-child) {
+    margin-bottom: var(--node-editor-row-gap);
   }
 
   .row.has-side-control {
@@ -215,7 +226,7 @@ export const defaultEditorContainerStyles = css`
     display: flex;
     flex-direction: column;
     gap: 2px;
-    margin-block: 6px;
+    margin-block: 0;
   }
 
   .row.toggle .toggle-editor-control-row {
@@ -262,7 +273,7 @@ export const defaultEditorContainerStyles = css`
   }
 
   .row.segmented .segmented-choice {
-    margin-top: 2px;
+    margin-top: 0;
   }
 
   .row.segmented .segmented-choice-option:disabled {
@@ -273,7 +284,7 @@ export const defaultEditorContainerStyles = css`
   .inline-editor-row {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(160px, 180px));
-    gap: 16px;
+    gap: var(--node-editor-row-gap);
     align-items: start;
   }
 

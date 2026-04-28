@@ -38,10 +38,15 @@ const labeledToggleStyles = css`
   }
 
   &:not(.is-disabled) .labeled-toggle-control:hover .labeled-toggle-switch.is-checked .scalable-toggle-track {
-    background-color: var(--ds-background-success-bold-hovered, #7ee2b8);
+    background-color: var(--primary-light);
   }
 
   .labeled-toggle-label label {
+    margin: 0;
+  }
+
+  .labeled-toggle-helper-label {
+    display: block;
     margin: 0;
   }
 
@@ -85,7 +90,11 @@ export const LabeledToggle: FC<{
       />
       <div className={clsx('labeled-toggle-label', labelClassName)}>
         <Label htmlFor={id}>{label}</Label>
-        {helperMessage && <FieldHelperMessage className="labeled-toggle-helper">{helperMessage}</FieldHelperMessage>}
+        {helperMessage && (
+          <label className="labeled-toggle-helper-label" htmlFor={id}>
+            <FieldHelperMessage className="labeled-toggle-helper">{helperMessage}</FieldHelperMessage>
+          </label>
+        )}
       </div>
     </div>
   </div>

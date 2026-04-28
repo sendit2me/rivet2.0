@@ -62,7 +62,7 @@ const scalableToggleStyles = css`
   }
 
   &.is-checked .scalable-toggle-track {
-    background-color: var(--ds-background-success-bold, #4bce97);
+    background-color: var(--primary);
   }
 
   &:not(.is-disabled):hover:not(.is-checked) .scalable-toggle-track {
@@ -70,7 +70,7 @@ const scalableToggleStyles = css`
   }
 
   &:not(.is-disabled):hover.is-checked .scalable-toggle-track {
-    background-color: var(--ds-background-success-bold-hovered, #7ee2b8);
+    background-color: var(--primary-light);
   }
 
   .scalable-toggle-input:focus-visible + .scalable-toggle-track {

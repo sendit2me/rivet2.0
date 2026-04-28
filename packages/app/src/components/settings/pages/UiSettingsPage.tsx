@@ -1,7 +1,6 @@
 import { type FC } from 'react';
 import { useAtom } from 'jotai';
-import { Field, HelperMessage, Label } from '@atlaskit/form';
-import Select from '@atlaskit/select';
+import { Field, Label } from '@atlaskit/form';
 import Range from '@atlaskit/range';
 import {
   DEFAULT_UI_FONT_SIZE,
@@ -22,6 +21,8 @@ import {
 import { uiFontSizeState } from '../../../state/ui.js';
 import { fields } from '../settingsPageStyles.js';
 import { LabeledToggle } from '../../LabeledToggle.js';
+import { FieldHelperMessage } from '../../FieldHelperMessage.js';
+import { SegmentedEditor } from '../../editors/SegmentedEditor.js';
 
 export const UiSettingsPage: FC = () => {
   const [settings, setSettings] = useAtom(settingsState);
@@ -34,21 +35,24 @@ export const UiSettingsPage: FC = () => {
 
   return (
     <div css={fields}>
-      <Field name="theme" label="Theme">
-        {() => (
-          <Select
-            value={themes.find((option) => option.value === theme)}
-            onChange={(event) => event && setTheme(event.value as Theme)}
-            options={themes}
-          />
-        )}
-      </Field>
+      <SegmentedEditor
+        value={theme}
+        onChange={(value) => setTheme(value as Theme)}
+        isReadonly={false}
+        isDisabled={false}
+        label="Theme"
+        name="theme"
+        options={themes}
+      />
       <Field name="uiFontSize">
         {() => (
           <>
             <Label htmlFor="uiFontSize" testId="uiFontSize">
               UI font size: {normalizedUiFontSize}px
             </Label>
+            <FieldHelperMessage>
+              Scales Rivet UI text and icon glyphs. Code editor text uses its separate editor font-size controls.
+            </FieldHelperMessage>
             <div className="toggle-field">
               <Range
                 min={MIN_UI_FONT_SIZE}
@@ -65,9 +69,6 @@ export const UiSettingsPage: FC = () => {
                 }}
               />
             </div>
-            <HelperMessage>
-              Scales Rivet UI text and icon glyphs. Code editor text uses its separate editor font-size controls.
-            </HelperMessage>
           </>
         )}
       </Field>
@@ -77,6 +78,9 @@ export const UiSettingsPage: FC = () => {
             <Label htmlFor="zoomSensitivity" testId="zoomSensitivity">
               Zoom sensitivity
             </Label>
+            <FieldHelperMessage>
+              The sensitivity of the zoom when using the mouse wheel. Lower values will zoom slower.
+            </FieldHelperMessage>
             <div className="toggle-field">
               <Range
                 min={0.01}
@@ -92,9 +96,6 @@ export const UiSettingsPage: FC = () => {
                 }}
               />
             </div>
-            <HelperMessage>
-              The sensitivity of the zoom when using the mouse wheel. Lower values will zoom slower.
-            </HelperMessage>
           </>
         )}
       </Field>
@@ -106,12 +107,14 @@ export const UiSettingsPage: FC = () => {
               isChecked={preservePortTextCase}
               onChange={setPreservePortTextCase}
               label="Preserve text case for node ports"
+              helperMessage={
+                <>
+                  This WILL preserve the text format of the node port names. e.g. `newInputPort` will be shown instead
+                  of `NEWINPUTPORT` when enabled
+                </>
+              }
               className="settings-toggle-field"
             />
-            <HelperMessage>
-              This WILL preserve the text format of the node port names. e.g. `newInputPort` will be shown instead of
-              `NEWINPUTPORT` when enabled
-            </HelperMessage>
           </>
         )}
       </Field>
@@ -128,9 +131,9 @@ export const UiSettingsPage: FC = () => {
                 }))
               }
               label="Default node colors"
+              helperMessage="When enabled, some newly added nodes use default colors."
               className="settings-toggle-field"
             />
-            <HelperMessage>When enabled, some newly added nodes use default colors.</HelperMessage>
           </>
         )}
       </Field>
@@ -147,9 +150,9 @@ export const UiSettingsPage: FC = () => {
                 }))
               }
               label="Open node settings on create"
+              helperMessage="When enabled, newly created nodes open their settings panel immediately."
               className="settings-toggle-field"
             />
-            <HelperMessage>When enabled, newly created nodes open their settings panel immediately.</HelperMessage>
           </>
         )}
       </Field>

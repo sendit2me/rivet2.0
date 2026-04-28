@@ -106,16 +106,21 @@ const styles = css`
 
   .editor-group {
     margin-top: 0;
-    padding: 6px 16px 18px;
+    padding: 16px 16px 18px;
 
     display: flex;
     flex-direction: column;
     align-items: stretch;
     width: 100%;
     align-content: start;
-    gap: 10px;
+    gap: 0;
     flex: 1 1 auto;
     min-height: 0;
+  }
+
+  .editor-group > .row:not(:last-child),
+  .editor-group > .inline-editor-row:not(:last-child) {
+    margin-bottom: var(--node-editor-row-gap, calc(24px * var(--ui-font-scale)));
   }
 `;
 
