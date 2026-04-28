@@ -1,5 +1,5 @@
 import type { ChatMessageDataValue, GptFunction } from '../DataValue.js';
-import type { ChatV2PipelineResult, RunChatV2PipelineOptions } from './chatV2Types.js';
+import type { ChatV2NormalizedUsage, ChatV2PipelineResult, RunChatV2PipelineOptions } from './chatV2Types.js';
 import type { StreamedFunctionCall } from '../chat/streamChatResponse.js';
 import { runChatV2Pipeline } from './chatV2Pipeline.js';
 import type { DelegatedToolCallRecord } from '../nodes/toolCallDelegation.js';
@@ -25,6 +25,54 @@ function canAutoContinue(functionCalls: StreamedFunctionCall[], toolNames: Set<s
   return functionCalls.length > 0 && functionCalls.every((call) => toolNames.has(call.name));
 }
 
+function addUsage(
+  accumulated: ChatV2NormalizedUsage | undefined,
+  usage: ChatV2NormalizedUsage | undefined,
+): ChatV2NormalizedUsage | undefined {
+  if (usage == null) {
+    return accumulated;
+  }
+
+  if (accumulated == null) {
+    return { ...usage };
+  }
+
+  return {
+    promptTokens: accumulated.promptTokens + usage.promptTokens,
+    completionTokens: accumulated.completionTokens + usage.completionTokens,
+    totalTokens: accumulated.totalTokens + usage.totalTokens,
+    cachedTokens: accumulated.cachedTokens + usage.cachedTokens,
+    reasoningTokens: accumulated.reasoningTokens + usage.reasoningTokens,
+    totalCost:
+      accumulated.totalCost == null || usage.totalCost == null
+        ? undefined
+        : accumulated.totalCost + usage.totalCost,
+  };
+}
+
+function applyAccumulatedUsage(
+  result: ChatV2PipelineResult,
+  usage: ChatV2NormalizedUsage | undefined,
+  outputUsage: boolean | undefined,
+) {
+  if (usage == null) {
+    return;
+  }
+
+  result.usage = usage;
+  result.commonOutputs['responseTokens' as PortId] = {
+    type: 'number',
+    value: usage.completionTokens,
+  };
+
+  if (outputUsage) {
+    result.commonOutputs['usage' as PortId] = {
+      type: 'object',
+      value: usage,
+    };
+  }
+}
+
 export async function runChatV2PipelineWithToolContinuation(
   options: ToolContinuationOptions,
 ): Promise<ChatV2PipelineResult> {
@@ -42,6 +90,7 @@ export async function runChatV2PipelineWithToolContinuation(
   let currentPrompt = pipelineOptions.prompt;
   let currentSystemPrompt = pipelineOptions.systemPrompt;
   const delegatedToolCalls: DelegatedToolCallRecord[] = [];
+  let accumulatedUsage: ChatV2NormalizedUsage | undefined;
 
   for (let completedRounds = 0; ; completedRounds++) {
     const result = await runPipeline({
@@ -50,6 +99,7 @@ export async function runChatV2PipelineWithToolContinuation(
       prompt: currentPrompt,
       systemPrompt: currentSystemPrompt,
     });
+    accumulatedUsage = autoContinue ? addUsage(accumulatedUsage, result.usage) : undefined;
 
     if (
       !autoContinue ||
@@ -61,6 +111,10 @@ export async function runChatV2PipelineWithToolContinuation(
           type: 'object[]',
           value: delegatedToolCalls,
         };
+      }
+
+      if (autoContinue) {
+        applyAccumulatedUsage(result, accumulatedUsage, pipelineOptions.outputUsage);
       }
 
       return result;

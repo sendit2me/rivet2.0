@@ -2,7 +2,11 @@ import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import type { ChatMessage, ChatMessageDataValue, GptFunction } from '../../../src/model/DataValue.js';
 import type { Outputs } from '../../../src/model/GraphProcessor.js';
-import type { ChatV2PipelineResult, RunChatV2PipelineOptions } from '../../../src/model/chat-v2/chatV2Types.js';
+import type {
+  ChatV2NormalizedUsage,
+  ChatV2PipelineResult,
+  RunChatV2PipelineOptions,
+} from '../../../src/model/chat-v2/chatV2Types.js';
 import {
   runChatV2PipelineWithToolContinuation,
   type ToolContinuationToolResult,
@@ -52,6 +56,8 @@ function makePipelineResult(
   response: string,
   functionCalls: StreamedFunctionCall[],
   requestMessages: ChatMessage[] = [{ type: 'user', message: 'Hello' }],
+  usage?: ChatV2NormalizedUsage,
+  outputUsage = false,
 ): ChatV2PipelineResult {
   const allMessages: ChatMessage[] = [
     ...requestMessages,
@@ -80,8 +86,22 @@ function makePipelineResult(
     response: { type: 'string', value: response },
     'in-messages': { type: 'chat-message[]', value: requestMessages },
     'all-messages': { type: 'chat-message[]', value: allMessages },
-    responseTokens: { type: 'number', value: 0 },
+    responseTokens: { type: 'number', value: usage?.completionTokens ?? 0 },
   };
+
+  if (outputUsage) {
+    commonOutputs.usage = {
+      type: 'object',
+      value: usage ?? {
+        promptTokens: 0,
+        completionTokens: 0,
+        totalTokens: 0,
+        cachedTokens: 0,
+        reasoningTokens: 0,
+        totalCost: undefined,
+      },
+    };
+  }
 
   return {
     commonOutputs,
@@ -90,10 +110,28 @@ function makePipelineResult(
     response,
     functionCalls,
     reasoning: '',
-    usage: undefined,
+    usage,
     rawUsage: undefined,
     finishReason: functionCalls.length > 0 ? 'tool-calls' : 'stop',
     providerMetadata: undefined,
+  };
+}
+
+function makeUsage(
+  promptTokens: number,
+  completionTokens: number,
+  totalTokens: number,
+  cachedTokens: number,
+  reasoningTokens: number,
+  totalCost: number | undefined,
+): ChatV2NormalizedUsage {
+  return {
+    promptTokens,
+    completionTokens,
+    totalTokens,
+    cachedTokens,
+    reasoningTokens,
+    totalCost,
   };
 }
 
@@ -225,16 +263,56 @@ describe('runChatV2PipelineWithToolContinuation', () => {
     );
   });
 
+  it('sums token usage across auto-continued model rounds', async () => {
+    const toolRoundUsage = makeUsage(10, 2, 12, 1, 0, 0.001);
+    const finalRoundUsage = makeUsage(20, 5, 25, 3, 1, 0.004);
+    const fooCall = makeToolCall('call_foo', 'foo');
+    let runCount = 0;
+
+    const result = await runChatV2PipelineWithToolContinuation(
+      baseOptions({
+        outputUsage: true,
+        runPipeline: async (options: RunChatV2PipelineOptions) => {
+          runCount++;
+
+          return runCount === 1
+            ? makePipelineResult('', [fooCall], undefined, toolRoundUsage, options.outputUsage)
+            : makePipelineResult('final answer', [], (options.prompt as any).value, finalRoundUsage, options.outputUsage);
+        },
+        delegateToolCall: async (toolCall) => makeToolResultMessage(toolCall, `${toolCall.name} result`),
+      }),
+    );
+
+    assert.equal(runCount, 2);
+    assert.deepEqual(result.usage, {
+      promptTokens: 30,
+      completionTokens: 7,
+      totalTokens: 37,
+      cachedTokens: 4,
+      reasoningTokens: 1,
+      totalCost: 0.005,
+    });
+    assert.deepEqual(result.commonOutputs.responseTokens, { type: 'number', value: 7 });
+    assert.deepEqual(result.commonOutputs.usage, { type: 'object', value: result.usage });
+  });
+
   it('stops auto-continuing after max tool rounds', async () => {
     const delegated: string[] = [];
     let runCount = 0;
 
     const result = await runChatV2PipelineWithToolContinuation(
       baseOptions({
+        outputUsage: true,
         maxToolRounds: 1,
-        runPipeline: async () => {
+        runPipeline: async (options: RunChatV2PipelineOptions) => {
           runCount++;
-          return makePipelineResult('', [makeToolCall(`call_${runCount}`, 'foo')]);
+          return makePipelineResult(
+            '',
+            [makeToolCall(`call_${runCount}`, 'foo')],
+            undefined,
+            makeUsage(runCount * 10, runCount, runCount * 10 + runCount, 0, 0, undefined),
+            options.outputUsage,
+          );
         },
         delegateToolCall: async (toolCall) => {
           delegated.push(toolCall.id);
@@ -246,6 +324,16 @@ describe('runChatV2PipelineWithToolContinuation', () => {
     assert.equal(runCount, 2);
     assert.deepEqual(delegated, ['call_1']);
     assert.equal(result.functionCalls[0]?.id, 'call_2');
+    assert.deepEqual(result.usage, {
+      promptTokens: 30,
+      completionTokens: 3,
+      totalTokens: 33,
+      cachedTokens: 0,
+      reasoningTokens: 0,
+      totalCost: undefined,
+    });
+    assert.deepEqual(result.commonOutputs.responseTokens, { type: 'number', value: 3 });
+    assert.deepEqual(result.commonOutputs.usage, { type: 'object', value: result.usage });
   });
 
   it('does not auto-continue unknown tool calls', async () => {

@@ -5,6 +5,7 @@ import {
   buildLLMChatV2EditorCacheKey,
   resolveLLMChatV2RuntimeProviderOptions,
 } from '../../../src/model/nodes/LLMChatV2Node.js';
+import { cloneLLMChatV2EditorCacheOutputs } from '../../../src/model/chat-v2/llmChatV2NodeRuntime.js';
 
 function createNode(data: Partial<LLMChatV2Node['data']> = {}) {
   return new LLMChatV2NodeImpl({
@@ -414,5 +415,119 @@ describe('LLMChatV2NodeImpl', () => {
         nodeId: secondNode.id,
       }),
     );
+  });
+
+  it('builds stable editor cache keys for equivalent object inputs', () => {
+    const node = LLMChatV2NodeImpl.create();
+    const firstSchema = {
+      type: 'object',
+      properties: {
+        city: { type: 'string' },
+        units: { type: 'string' },
+      },
+      required: ['city'],
+    };
+    const secondSchema = {
+      required: ['city'],
+      properties: {
+        units: { type: 'string' },
+        city: { type: 'string' },
+      },
+      type: 'object',
+    };
+    const commonParts = {
+      nodeId: node.id,
+      nodeData: node.data,
+      provider: 'openai' as const,
+      modelId: 'gpt-5',
+      providerConfig: { headers: { b: '2', a: '1' }, baseURL: 'https://example.test' },
+      prompt: { type: 'string', value: 'Hello' },
+      systemPrompt: undefined,
+      generationParameters: { temperature: 0.5 },
+      responseFormatParameters: undefined,
+      providerOptions: undefined,
+      toolChoice: undefined,
+    };
+
+    assert.equal(
+      buildLLMChatV2EditorCacheKey({
+        ...commonParts,
+        functions: [
+          {
+            name: 'weather',
+            description: 'Get weather',
+            parameters: firstSchema,
+            strict: false,
+          },
+        ],
+      }),
+      buildLLMChatV2EditorCacheKey({
+        ...commonParts,
+        functions: [
+          {
+            strict: false,
+            parameters: secondSchema,
+            description: 'Get weather',
+            name: 'weather',
+          },
+        ],
+      }),
+    );
+  });
+
+  it('builds editor cache keys without throwing on circular input metadata', () => {
+    const node = LLMChatV2NodeImpl.create();
+    const providerConfig: Record<string, unknown> = { baseURL: 'https://example.test' };
+    providerConfig.self = providerConfig;
+
+    assert.doesNotThrow(() =>
+      buildLLMChatV2EditorCacheKey({
+        nodeId: node.id,
+        nodeData: node.data,
+        provider: 'openai',
+        modelId: 'gpt-5',
+        providerConfig,
+        prompt: { type: 'string', value: 'Hello' },
+        systemPrompt: undefined,
+        functions: undefined,
+        generationParameters: { temperature: 0.5 },
+        responseFormatParameters: undefined,
+        providerOptions: undefined,
+        toolChoice: undefined,
+      }),
+    );
+  });
+
+  it('clones editor cache outputs while preserving excluded output values', () => {
+    const outputs = {
+      response: {
+        type: 'string',
+        value: 'Hello',
+      },
+      'function-calls': {
+        type: 'object[]',
+        value: [
+          {
+            name: 'tool',
+            arguments: { city: 'Paris' },
+          },
+        ],
+      },
+      usage: {
+        type: 'control-flow-excluded',
+        value: undefined,
+      },
+    } as const;
+
+    const cloned = cloneLLMChatV2EditorCacheOutputs(outputs as any);
+
+    assert.deepEqual(cloned, outputs);
+    assert.notEqual(cloned, outputs);
+    assert.notEqual(cloned['function-calls' as any].value, outputs['function-calls'].value);
+
+    (cloned['function-calls' as any].value[0].arguments as any).city = 'Berlin';
+
+    assert.equal((outputs['function-calls'].value[0].arguments as any).city, 'Paris');
+    assert.ok(Object.hasOwn(cloned.usage, 'value'));
   });
 });

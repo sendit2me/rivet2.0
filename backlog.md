@@ -4,13 +4,21 @@
 
 
 
-- Prompt and Tool nodes: make the node body more neat with nice gaps and colors. Current italic is too poor and subtle.
 
 
 - Custom LLM provider key for LLM Chat v2. Probbaly a pill control for "Model" section: key in env variable VS pass the API key into the node
 
+
+
 - Make it work with OpenAPI compatible LLM providers like Cerebras and OpenRouter
 
+
+
+- Prompt and Tool nodes: make the node body more neat with nice gaps and colors. Current italic is too poor and subtle.
+
+- In the output (node or full view), when I hover the item in the list-output, let's make the vertical bar left to the item more bright.
+
+- In the full output modal, make the control panel more neat and when the content scrolls, make it less iriitating
 
 
 - Make the controls in the Rivet settings modal the same as in node settings: hint before the control, not after it; switcher hint align with the left edge of the label, not the switcher
