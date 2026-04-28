@@ -11,13 +11,19 @@ const fullscreenOutputToolbarCss = css`
   display: inline-flex;
   gap: 8px;
 
-  border: 1px solid var(--grey);
-  background: var(--grey-darker);
+  border: 1px solid var(--grey-darkish);
+  background: transparent;
   border-radius: 8px;
   corner-shape: squircle;
-  box-shadow: 4px 4px 8px var(--shadow-dark);
+  box-shadow: none;
   margin-bottom: 8px;
   padding: 8px 12px;
+
+  &.is-over-content {
+    border-color: var(--grey);
+    background: var(--grey-darker);
+    box-shadow: 4px 4px 8px var(--shadow-dark);
+  }
 
   .toolbar-icon {
     width: var(--fullscreen-output-toolbar-icon-size);
@@ -87,6 +93,14 @@ const fullscreenOutputToolbarCss = css`
     border-color: var(--primary);
   }
 
+  .search-match-controls {
+    display: inline-flex;
+    align-items: center;
+    gap: calc(4px * var(--ui-font-scale));
+    color: var(--grey-lighter);
+    white-space: nowrap;
+  }
+
   .search-nav-button {
     cursor: pointer;
     border: 1px solid var(--grey);
@@ -99,6 +113,10 @@ const fullscreenOutputToolbarCss = css`
     padding: 0 6px;
     font: inherit;
     line-height: 1;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
   }
 
   .search-nav-button:disabled {
@@ -107,16 +125,16 @@ const fullscreenOutputToolbarCss = css`
   }
 
   .search-count {
-    color: var(--grey-lighter);
     font-size: var(--ui-font-size-sm);
-    min-width: 52px;
-    text-align: right;
+    min-width: max-content;
+    text-align: center;
     font-variant-numeric: tabular-nums;
   }
 `;
 
 export type FullscreenNodeOutputToolbarProps = {
   renderMarkdown: boolean;
+  isOverContent?: boolean;
   onToggleRenderMarkdown: () => void;
   query: string;
   onQueryChange: (query: string) => void;
@@ -133,6 +151,7 @@ export type FullscreenNodeOutputToolbarProps = {
 
 export const FullscreenNodeOutputToolbar: FC<FullscreenNodeOutputToolbarProps> = ({
   renderMarkdown,
+  isOverContent = false,
   onToggleRenderMarkdown,
   query,
   onQueryChange,
@@ -147,7 +166,7 @@ export const FullscreenNodeOutputToolbar: FC<FullscreenNodeOutputToolbarProps> =
   onOpenPromptDesigner,
 }) => {
   return (
-    <div css={fullscreenOutputToolbarCss}>
+    <div css={fullscreenOutputToolbarCss} className={isOverContent ? 'is-over-content' : undefined}>
       <LabeledToggle
         id="fullscreen-output-render-markdown"
         isChecked={renderMarkdown}
@@ -165,15 +184,19 @@ export const FullscreenNodeOutputToolbar: FC<FullscreenNodeOutputToolbarProps> =
           onChange={(event) => onQueryChange(event.target.value)}
           onKeyDown={onSearchInputKeyDown}
         />
-        <button className="search-nav-button" onClick={onPreviousMatch} disabled={totalMatchCount === 0} title="Previous match">
-          {'<'}
-        </button>
-        <button className="search-nav-button" onClick={onNextMatch} disabled={totalMatchCount === 0} title="Next match">
-          {'>'}
-        </button>
-        <span className="search-count">
-          {totalMatchCount === 0 ? '0 / 0' : `${Math.min(currentMatchIndex + 1, totalMatchCount)} / ${totalMatchCount}`}
-        </span>
+        {totalMatchCount > 0 && (
+          <div className="search-match-controls">
+            <button className="search-nav-button" onClick={onPreviousMatch} title="Previous match">
+              {'<'}
+            </button>
+            <span className="search-count">
+              {`${Math.min(currentMatchIndex + 1, totalMatchCount)} / ${totalMatchCount}`}
+            </span>
+            <button className="search-nav-button" onClick={onNextMatch} title="Next match">
+              {'>'}
+            </button>
+          </div>
+        )}
       </div>
       <div className="toolbar-icon copy-button" onClick={onCopyValue} title="Copy Value">
         <CopyIcon />

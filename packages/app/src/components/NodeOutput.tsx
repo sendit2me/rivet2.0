@@ -7,7 +7,7 @@ import {
   type NodeRunDataWithRefs,
 } from '../state/dataFlow.js';
 
-import { type FC, memo, useEffect, useMemo, useState, type MouseEvent } from 'react';
+import { type FC, memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { useUnknownNodeComponentDescriptorFor } from '../hooks/useNodeTypes.js';
 import { useStableCallback } from '../hooks/useStableCallback.js';
 import { type ChartNode, type ProcessId } from '@ironclad/rivet-core';
@@ -140,11 +140,13 @@ function shouldUseCodeErrorOutput(node: ChartNode, data: NodeRunDataWithRefs): b
 }
 
 const fullscreenOutputCss = css`
+  --fullscreen-output-header-sticky-top: 16px;
+
   position: relative;
 
   .fullscreen-header {
     position: sticky;
-    top: 0;
+    top: var(--fullscreen-output-header-sticky-top);
     z-index: 1;
     display: flex;
     align-items: center;
@@ -152,16 +154,13 @@ const fullscreenOutputCss = css`
   }
 
   .picker {
-    position: sticky;
-    top: 0;
-    left: 0;
-    border: 1px solid var(--grey);
-    background: var(--grey-darker);
+    border: 1px solid var(--grey-darkish);
+    background: transparent;
     display: inline-flex;
     gap: 0;
     border-radius: 8px;
     corner-shape: squircle;
-    box-shadow: 4px 4px 8px var(--shadow-dark);
+    box-shadow: none;
     margin-bottom: 8px;
 
     .picker-left,
@@ -199,6 +198,12 @@ const fullscreenOutputCss = css`
     }
   }
 
+  .fullscreen-header.is-over-content .picker {
+    border-color: var(--grey);
+    background: var(--grey-darker);
+    box-shadow: 4px 4px 8px var(--shadow-dark);
+  }
+
   .${MATCH_CLASS} {
     background: rgba(255, 214, 10, 0.3);
     border-radius: 4px;
@@ -210,6 +215,47 @@ const fullscreenOutputCss = css`
     color: #000;
   }
 `;
+
+function isScrollableOverflow(overflowValue: string): boolean {
+  return overflowValue === 'auto' || overflowValue === 'scroll' || overflowValue === 'overlay';
+}
+
+function findScrollContainer(element: HTMLElement): HTMLElement | Window {
+  let current: HTMLElement | null = element.parentElement;
+
+  while (current && current !== document.body) {
+    const style = window.getComputedStyle(current);
+    if (isScrollableOverflow(style.overflowY)) {
+      return current;
+    }
+
+    current = current.parentElement;
+  }
+
+  return window;
+}
+
+function isWindowScrollContainer(scrollContainer: HTMLElement | Window): scrollContainer is Window {
+  return scrollContainer === window;
+}
+
+function getScrollContainerTop(scrollContainer: HTMLElement | Window): number {
+  if (isWindowScrollContainer(scrollContainer)) {
+    return window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0;
+  }
+
+  return scrollContainer.scrollTop;
+}
+
+function getStickyTopForHeader(headerElement: HTMLElement, scrollContainer: HTMLElement | Window): number {
+  const headerTop = headerElement.getBoundingClientRect().top;
+
+  if (isWindowScrollContainer(scrollContainer)) {
+    return headerTop;
+  }
+
+  return headerTop - scrollContainer.getBoundingClientRect().top;
+}
 
 const renderNodeOutputPager = ({
   onNextPage,
@@ -244,6 +290,9 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
   const output = useAtomValue(lastRunDataState(node.id));
   const [selectedPage, setSelectedPage] = useAtom(selectedProcessPageState(node.id));
   const graphSelectionOptions = useAtomValue(resolvedGraphSelectionState);
+  const fullscreenOutputRootRef = useRef<HTMLDivElement>(null);
+  const fullscreenHeaderRef = useRef<HTMLElement>(null);
+  const [isHeaderOverContent, setIsHeaderOverContent] = useState(false);
 
   const filteredOutput = useMemo(
     () => filterProcessDataForSelection({ ...graphSelectionOptions, processData: output }) ?? output,
@@ -306,6 +355,51 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
     contentKey: contentVersion,
   });
 
+  useLayoutEffect(() => {
+    const rootElement = fullscreenOutputRootRef.current;
+    const headerElement = fullscreenHeaderRef.current;
+    if (!rootElement || !headerElement || typeof window === 'undefined') {
+      return;
+    }
+
+    const scrollContainer = findScrollContainer(rootElement);
+    let animationFrame: number | undefined;
+
+    const updateHeaderStickyTop = () => {
+      rootElement.style.setProperty(
+        '--fullscreen-output-header-sticky-top',
+        `${getStickyTopForHeader(headerElement, scrollContainer)}px`,
+      );
+    };
+
+    const updateHeaderElevation = () => {
+      if (animationFrame !== undefined) {
+        window.cancelAnimationFrame(animationFrame);
+      }
+
+      animationFrame = window.requestAnimationFrame(() => {
+        animationFrame = undefined;
+        setIsHeaderOverContent(getScrollContainerTop(scrollContainer) > 0);
+      });
+    };
+
+    updateHeaderStickyTop();
+    updateHeaderElevation();
+    scrollContainer.addEventListener('scroll', updateHeaderElevation, { passive: true });
+    window.addEventListener('resize', updateHeaderStickyTop);
+    window.addEventListener('resize', updateHeaderElevation);
+
+    return () => {
+      if (animationFrame !== undefined) {
+        window.cancelAnimationFrame(animationFrame);
+      }
+
+      scrollContainer.removeEventListener('scroll', updateHeaderElevation);
+      window.removeEventListener('resize', updateHeaderStickyTop);
+      window.removeEventListener('resize', updateHeaderElevation);
+    };
+  }, [contentVersion]);
+
   const prevPage = useStableCallback(() => {
     if (!filteredOutput) {
       return;
@@ -359,8 +453,8 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
   });
 
   return (
-    <div css={fullscreenOutputCss}>
-      <header className="fullscreen-header">
+    <div css={fullscreenOutputCss} ref={fullscreenOutputRootRef}>
+      <header ref={fullscreenHeaderRef} className={`fullscreen-header${isHeaderOverContent ? ' is-over-content' : ''}`}>
         {filteredOutput.length > 1 ? (
           renderNodeOutputPager({
             selectedPage,
@@ -373,6 +467,7 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
         )}
         <FullscreenNodeOutputToolbar
           renderMarkdown={renderMarkdown}
+          isOverContent={isHeaderOverContent}
           onToggleRenderMarkdown={toggleRenderMarkdown.toggle}
           query={query}
           onQueryChange={setQuery}
