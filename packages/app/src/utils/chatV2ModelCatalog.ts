@@ -6,7 +6,7 @@ import {
   type Settings,
 } from '@ironclad/rivet-core';
 
-type ChatV2Provider = 'openai' | 'anthropic' | 'google';
+type ChatV2Provider = 'openai' | 'anthropic' | 'google' | 'custom';
 type ChatModelOption = { value: string; label: string };
 
 type ChatModelCatalogContext = {
@@ -185,7 +185,7 @@ async function fetchGoogleModels(context: ChatModelCatalogContext): Promise<Chat
   }
 
   const requestURL = `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`;
-  logModelCatalogDebug('google', `Fetching model catalog from ${requestURL}`);
+  logModelCatalogDebug('google', 'Fetching model catalog from https://generativelanguage.googleapis.com/v1beta/models?key=<redacted>');
   const response = await fetch(requestURL, {
     headers: context.settings.chatNodeHeaders ?? {},
   });
@@ -238,6 +238,9 @@ function getCacheKey(provider: ChatV2Provider, context: ChatModelCatalogContext)
       const plugin = getPluginById(context.plugins, 'google');
       return JSON.stringify([provider, plugin ? getPluginConfig(plugin, context.settings, 'googleApiKey') || '' : '']);
     }
+
+    case 'custom':
+      return JSON.stringify([provider]);
   }
 }
 
@@ -277,6 +280,11 @@ export async function getChatV2DiscoveredModelOptionsWithStatus(
           return {
             options: await fetchGoogleModels(context),
             source: 'api' as const,
+          };
+        case 'custom':
+          return {
+            options: [],
+            source: 'fallback' as const,
           };
       }
     } catch (error) {

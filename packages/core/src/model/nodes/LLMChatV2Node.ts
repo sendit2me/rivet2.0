@@ -82,6 +82,16 @@ export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
       });
     }
 
+    if (this.data.useExtraProviderOptionsInput) {
+      inputs.push({
+        id: 'extraProviderOptions' as PortId,
+        title: 'Extra Provider Options',
+        dataType: ['string', 'object'] as const,
+        required: false,
+        coerced: true,
+      });
+    }
+
     if (this.data.provider === 'openai' && this.data.useOpenAIPreviousResponseIdInput) {
       inputs.push({
         id: 'previousResponseId' as PortId,
@@ -150,6 +160,7 @@ export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
     return getCommonChatV2Outputs(this.data, {
       includeFunctionCalls: this.data.useToolCalling || hasLLMChatV2BuiltInToolsEnabled(this.data),
       includeUsage: this.data.outputUsage,
+      includeReasoning: this.data.outputReasoning,
     });
   }
 
@@ -158,7 +169,7 @@ export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
       infoBoxBody: dedent`
         Vendor-agnostic chat node built on the Vercel AI SDK.
 
-        Choose OpenAI, Anthropic, or Google inside the node without rewiring the graph.
+        Choose OpenAI, Anthropic, Google, or a custom OpenAI-compatible provider inside the node without rewiring the graph.
         Common behavior stays shared; provider-specific settings only appear in advanced sections when relevant.
       `,
       contextMenuTitle: 'LLM Chat v2',

@@ -29,6 +29,10 @@ function group(label: string, editors: LLMChatV2EditorDefinition[], defaultOpen?
 }
 
 async function getResolvedModelOptions(data: LLMChatV2NodeData, context: RivetUIContext) {
+  if (data.provider === 'custom') {
+    return data.model ? [{ value: data.model, label: data.model }] : [];
+  }
+
   const modelOptions =
     (await context.getChatModelOptions?.(data.provider).catch(() => undefined)) ?? getChatV2ModelOptions(data.provider);
 
@@ -66,6 +70,24 @@ function getModelEditors(modelOptions: { value: string; label: string }[]): LLMC
           { value: 'input', label: 'Input port' },
         ],
         helperMessage: 'Whether to use the configured provider API key or get one through an input port.',
+      },
+      {
+        type: 'string',
+        label: 'API key env var name',
+        dataKey: 'customProviderApiKeyEnvVarName',
+        placeholder: 'CUSTOM_PROVIDER_API_KEY',
+        helperMessage: 'Only used for Custom provider when API key source is Configured key.',
+        hideIf: (data) => data.provider !== 'custom' || data.apiKeySource === 'input',
+      },
+      {
+        type: 'string',
+        label: 'Provider base URL',
+        dataKey: 'baseURL',
+        useInputToggleDataKey: 'useBaseURLInput',
+        placeholder: 'https://api.cerebras.ai/v1',
+        helperMessage:
+          'OpenAI-compatible provider base URL. Full /chat/completions URLs are accepted and normalized.',
+        hideIf: hideUnlessProvider('custom'),
       },
     ],
     true,
@@ -234,6 +256,13 @@ function getReasoningEditors(): LLMChatV2EditorDefinition {
       hideIf: hideUnlessProvider('openai'),
     },
     {
+      type: 'toggle',
+      label: 'Output reasoning',
+      dataKey: 'outputReasoning',
+      helperMessage:
+        'Adds a Reasoning output when the provider/model exposes reasoning or thinking text through the Vercel AI SDK. Some providers only expose token counts or summaries.',
+    },
+    {
       type: 'string',
       label: 'Reasoning summary',
       dataKey: 'openAIReasoningSummary',
@@ -367,7 +396,7 @@ function getToolEditors(): LLMChatV2EditorDefinition {
       type: 'toggle',
       label: 'Allow parallel toolcalls',
       dataKey: 'parallelToolCalls',
-      hideIf: (data) => !data.useToolCalling,
+      hideIf: (data) => !data.useToolCalling || data.provider === 'custom',
     },
     {
       type: 'toggle',
@@ -422,6 +451,7 @@ function getProviderAdvancedEditors(): LLMChatV2EditorDefinition {
       dataKey: 'baseURL',
       useInputToggleDataKey: 'useBaseURLInput',
       placeholder: 'Optional provider base URL override',
+      hideIf: (data) => data.provider === 'custom',
     },
     {
       type: 'keyValuePair',
@@ -430,6 +460,16 @@ function getProviderAdvancedEditors(): LLMChatV2EditorDefinition {
       useInputToggleDataKey: 'useHeadersInput',
       keyPlaceholder: 'Header',
       valuePlaceholder: 'Value',
+    },
+    {
+      type: 'code',
+      label: 'Extra provider options',
+      dataKey: 'extraProviderOptions',
+      useInputToggleDataKey: 'useExtraProviderOptionsInput',
+      language: 'json',
+      helperMessage:
+        'Power-user Vercel providerOptions for the selected provider. Enter a JSON object; visible settings above override conflicting fields.',
+      enableFolding: true,
     },
   ]);
 }

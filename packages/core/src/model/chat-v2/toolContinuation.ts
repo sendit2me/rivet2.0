@@ -1,5 +1,10 @@
 import type { ChatMessageDataValue, GptFunction } from '../DataValue.js';
-import type { ChatV2NormalizedUsage, ChatV2PipelineResult, RunChatV2PipelineOptions } from './chatV2Types.js';
+import type {
+  ChatV2NormalizedUsage,
+  ChatV2PipelineResult,
+  ChatV2ReasoningOutput,
+  RunChatV2PipelineOptions,
+} from './chatV2Types.js';
 import type { StreamedFunctionCall } from '../chat/streamChatResponse.js';
 import { runChatV2Pipeline } from './chatV2Pipeline.js';
 import type { DelegatedToolCallRecord } from '../nodes/toolCallDelegation.js';
@@ -73,6 +78,33 @@ function applyAccumulatedUsage(
   }
 }
 
+function appendReasoningRound(accumulated: string[], reasoning: ChatV2ReasoningOutput) {
+  const roundReasoning = Array.isArray(reasoning) ? reasoning : [reasoning];
+  const nonEmptyReasoning = roundReasoning.map((part) => part.trim()).filter((part) => part.length > 0);
+
+  if (nonEmptyReasoning.length === 0) {
+    return;
+  }
+
+  accumulated.push(...nonEmptyReasoning);
+}
+
+function applyAccumulatedReasoning(result: ChatV2PipelineResult, reasoningRounds: string[], outputReasoning: boolean | undefined) {
+  if (reasoningRounds.length === 0) {
+    return;
+  }
+
+  const reasoning = [...reasoningRounds];
+  result.reasoning = reasoning;
+
+  if (outputReasoning) {
+    result.commonOutputs['reasoning' as PortId] = {
+      type: 'string[]',
+      value: reasoning,
+    };
+  }
+}
+
 export async function runChatV2PipelineWithToolContinuation(
   options: ToolContinuationOptions,
 ): Promise<ChatV2PipelineResult> {
@@ -91,6 +123,7 @@ export async function runChatV2PipelineWithToolContinuation(
   let currentSystemPrompt = pipelineOptions.systemPrompt;
   const delegatedToolCalls: DelegatedToolCallRecord[] = [];
   let accumulatedUsage: ChatV2NormalizedUsage | undefined;
+  const reasoningRounds: string[] = [];
 
   for (let completedRounds = 0; ; completedRounds++) {
     const result = await runPipeline({
@@ -100,6 +133,9 @@ export async function runChatV2PipelineWithToolContinuation(
       systemPrompt: currentSystemPrompt,
     });
     accumulatedUsage = autoContinue ? addUsage(accumulatedUsage, result.usage) : undefined;
+    if (autoContinue) {
+      appendReasoningRound(reasoningRounds, result.reasoning);
+    }
 
     if (
       !autoContinue ||
@@ -115,6 +151,7 @@ export async function runChatV2PipelineWithToolContinuation(
 
       if (autoContinue) {
         applyAccumulatedUsage(result, accumulatedUsage, pipelineOptions.outputUsage);
+        applyAccumulatedReasoning(result, reasoningRounds, pipelineOptions.outputReasoning);
       }
 
       return result;

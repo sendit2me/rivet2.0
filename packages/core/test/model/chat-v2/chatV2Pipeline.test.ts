@@ -323,6 +323,37 @@ describe('runChatV2Pipeline', () => {
     });
   });
 
+  it('emits reasoning output when requested and the stream exposes reasoning text', async () => {
+    const executeStream: ChatV2StreamExecutor = async () => ({
+      fullStream: mockStream([
+        { type: 'reasoning-start', id: 'reasoning_1' } as ChatV2StreamPart,
+        { type: 'reasoning-delta', id: 'reasoning_1', text: 'Think first.' } as ChatV2StreamPart,
+        { type: 'reasoning-end', id: 'reasoning_1' } as ChatV2StreamPart,
+        { type: 'text-start', id: 'text_1' },
+        { type: 'text-delta', id: 'text_1', text: 'Final answer' },
+        { type: 'text-end', id: 'text_1' },
+      ]),
+    });
+
+    const result = await runChatV2Pipeline({
+      provider: 'custom',
+      model: createMockModel(),
+      modelId: 'reasoning-model',
+      prompt: { type: 'string', value: 'Think.' },
+      outputReasoning: true,
+      context: {
+        signal: new AbortController().signal,
+      },
+      executeStream,
+    });
+
+    assert.equal(result.reasoning, 'Think first.');
+    assert.deepEqual(result.commonOutputs['reasoning' as PortId], {
+      type: 'string',
+      value: 'Think first.',
+    });
+  });
+
   it('forwards function tool choice in the AI SDK tool-choice format', async () => {
     let capturedToolChoice: unknown;
     const executeStream: ChatV2StreamExecutor = async (args) => {

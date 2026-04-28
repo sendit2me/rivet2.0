@@ -22,6 +22,7 @@ export type ChatV2CommonNodeData = {
   useMaxTokensInput: boolean;
   useToolCalling: boolean;
   outputUsage: boolean;
+  outputReasoning: boolean;
   cache: boolean;
   useAsGraphPartialOutput?: boolean;
 };
@@ -44,8 +45,10 @@ export type CommonChatV2OutputOptions = {
   functionCallsPortId?: PortId;
   responseTokensPortId?: PortId;
   usagePortId?: PortId;
+  reasoningPortId?: PortId;
   includeFunctionCalls?: boolean;
   includeUsage?: boolean;
+  includeReasoning?: boolean;
 };
 
 export function createChatV2CommonNodeData(
@@ -72,6 +75,7 @@ export function createChatV2CommonNodeData(
     useMaxTokensInput: false,
     useToolCalling: false,
     outputUsage: false,
+    outputReasoning: false,
     cache: false,
     useAsGraphPartialOutput: true,
     ...overrides,
@@ -207,8 +211,10 @@ export function getCommonChatV2Outputs(
     functionCallsPortId = 'function-calls' as PortId,
     responseTokensPortId = 'responseTokens' as PortId,
     usagePortId = 'usage' as PortId,
+    reasoningPortId = 'reasoning' as PortId,
     includeFunctionCalls = data.useToolCalling,
     includeUsage = data.outputUsage,
+    includeReasoning = data.outputReasoning,
   } = options;
 
   const outputs: NodeOutputDefinition[] = [
@@ -247,6 +253,14 @@ export function getCommonChatV2Outputs(
       id: usagePortId,
       title: 'Usage',
       dataType: 'object',
+    });
+  }
+
+  if (includeReasoning) {
+    outputs.push({
+      id: reasoningPortId,
+      title: 'Reasoning',
+      dataType: ['string', 'string[]'] as const,
     });
   }
 

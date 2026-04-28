@@ -7,7 +7,7 @@ import type { AssistantMessageFunctionCallMode, StreamedFunctionCall } from '../
 type StreamTextArgs = Parameters<typeof streamText>[0];
 type MaybePromiseLike<T> = T | PromiseLike<T>;
 
-export type ChatV2Provider = 'openai' | 'anthropic' | 'google';
+export type ChatV2Provider = 'openai' | 'anthropic' | 'google' | 'custom';
 
 export type ChatV2Model = StreamTextArgs['model'];
 export type ChatV2ProviderOptions = StreamTextArgs['providerOptions'];
@@ -18,6 +18,7 @@ export type ChatV2MessageList = ModelMessage[];
 export type ChatV2StreamPart = TextStreamPart<ToolSet>;
 
 export type ChatV2ProviderMetadata = Record<string, Record<string, unknown>>;
+export type ChatV2ReasoningOutput = string | string[];
 
 export type ChatV2NormalizedUsage = {
   promptTokens: number;
@@ -89,6 +90,7 @@ export type RunChatV2PipelineOptions = {
   toolChoice?: ChatV2ToolChoice | undefined;
   anthropicCacheControlTtl?: '5m' | '1h' | undefined;
   outputUsage?: boolean | undefined;
+  outputReasoning?: boolean | undefined;
   includeFunctionCalls?: boolean | undefined;
   emitPartialOutputs?: boolean | undefined;
   functionCallMode?: AssistantMessageFunctionCallMode | undefined;
@@ -102,7 +104,7 @@ export type ChatV2PipelineResult = {
   allMessages: ChatMessage[];
   response: string;
   functionCalls: StreamedFunctionCall[];
-  reasoning: string;
+  reasoning: ChatV2ReasoningOutput;
   usage: ChatV2NormalizedUsage | undefined;
   rawUsage: LanguageModelUsage | undefined;
   finishReason: string | undefined;

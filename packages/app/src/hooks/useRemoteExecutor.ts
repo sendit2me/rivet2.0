@@ -34,6 +34,7 @@ import {
   selectTestSuitesToRun,
 } from './remoteExecutorHelpers.js';
 import { handleError } from '../utils/errorHandling.js';
+import { getLLMChatV2CustomProviderApiKeyEnvVarNames } from '../utils/chatV2CustomProviderEnv.js';
 
 export function useRemoteExecutor() {
   const executorSession = useExecutorSessionRuntime();
@@ -201,15 +202,21 @@ export function useRemoteExecutor() {
 
     try {
       if (remoteDebugger.sessionState.remoteUploadAllowed) {
-        remoteDebugger.send('set-dynamic-data', {
-          project: {
-            ...project,
-            graphs: {
-              ...project.graphs,
-              [graph.metadata!.id!]: graph,
-            },
+        const projectToUpload = {
+          ...project,
+          graphs: {
+            ...project.graphs,
+            [graph.metadata!.id!]: graph,
           },
-          settings: await fillMissingSettingsFromEnvironmentVariables(savedSettings, projectNodeRegistry.getPlugins()),
+        };
+
+        remoteDebugger.send('set-dynamic-data', {
+          project: projectToUpload,
+          settings: await fillMissingSettingsFromEnvironmentVariables(
+            savedSettings,
+            projectNodeRegistry.getPlugins(),
+            getLLMChatV2CustomProviderApiKeyEnvVarNames(projectToUpload),
+          ),
         });
 
         for (const [id, dataValue] of Object.entries(projectData ?? {})) {
@@ -279,17 +286,20 @@ export function useRemoteExecutor() {
           },
           runGraph: async (project, graphId, inputs) => {
             if (remoteDebugger.sessionState.remoteUploadAllowed) {
-              remoteDebugger.send('set-dynamic-data', {
-                project: {
-                  ...project,
-                  graphs: {
-                    ...project.graphs,
-                    [graph.metadata!.id!]: graph,
-                  },
+              const projectToUpload = {
+                ...project,
+                graphs: {
+                  ...project.graphs,
+                  [graph.metadata!.id!]: graph,
                 },
+              };
+
+              remoteDebugger.send('set-dynamic-data', {
+                project: projectToUpload,
                 settings: await fillMissingSettingsFromEnvironmentVariables(
                   savedSettings,
                   projectNodeRegistry.getPlugins(),
+                  getLLMChatV2CustomProviderApiKeyEnvVarNames(projectToUpload),
                 ),
               });
             }

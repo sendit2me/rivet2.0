@@ -16,6 +16,7 @@ const chatV2ModelRegistry = {
   openai: openaiModels,
   anthropic: anthropicModels,
   google: generativeAiGoogleModels,
+  custom: {},
 } as const;
 
 export function getChatV2ModelRegistry() {

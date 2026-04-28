@@ -34,6 +34,7 @@
     ]
   },
   "dependencies": {
+    "@ai-sdk/openai-compatible": "1.0.17",
     "@atlaskit/banner": "^12.1.18",
     "@atlaskit/button": "^16.11.0",
     "@atlaskit/checkbox": "^12.6.11",
@@ -139,7 +140,8 @@
     "vite-tsconfig-paths": "^4.2.1",
     "ws": "^8.18.0",
     "yaml": "^2.3.3",
-    "yargs": "^17.7.2"
+    "yargs": "^17.7.2",
+    "zod": "^4.3.6"
   },
   "packageManager": "yarn@3.5.0",
   "resolutions": {

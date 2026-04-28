@@ -26,6 +26,7 @@ import { recordExecutionsState, settingsState } from '../state/settings';
 import { graphState } from '../state/graph';
 import { lastRecordingState, loadedRecordingState } from '../state/execution';
 import { fillMissingSettingsFromEnvironmentVariables } from '../utils/tauri';
+import { getLLMChatV2CustomProviderApiKeyEnvVarNames } from '../utils/chatV2CustomProviderEnv';
 import { trivetState } from '../state/trivet';
 import { runTrivet } from '@ironclad/trivet';
 import { entries } from '../utils/typeSafety';
@@ -220,6 +221,7 @@ export function useLocalExecutor() {
               settings: await fillMissingSettingsFromEnvironmentVariables(
                 savedSettings,
                 projectNodeRegistry.getPlugins(),
+                getLLMChatV2CustomProviderApiKeyEnvVarNames(tempProject),
               ),
               nativeApi: new TauriNativeApi(),
               datasetProvider,
@@ -290,6 +292,7 @@ export function useLocalExecutor() {
                 settings: await fillMissingSettingsFromEnvironmentVariables(
                   savedSettings,
                   projectNodeRegistry.getPlugins(),
+                  getLLMChatV2CustomProviderApiKeyEnvVarNames(project),
                 ),
                 nativeApi: new TauriNativeApi(),
                 datasetProvider,

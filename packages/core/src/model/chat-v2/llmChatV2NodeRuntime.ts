@@ -41,6 +41,9 @@ type LLMChatV2GenerationParameters = Pick<
   | 'seed'
 >;
 
+type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue | undefined };
+type JsonObject = { [key: string]: JsonValue | undefined };
+
 export type LLMChatV2RuntimeConfig = {
   runOptions: RunChatV2PipelineOptions;
   functions: GptFunction[] | undefined;
@@ -116,6 +119,26 @@ function resolveConfiguredProviderApiKey(
       return context.getPluginConfig('anthropicApiKey') || undefined;
     case 'google':
       return context.getPluginConfig('googleApiKey') || undefined;
+    case 'custom': {
+      const envVarName = data.customProviderApiKeyEnvVarName?.trim();
+
+      if (!envVarName) {
+        return undefined;
+      }
+
+      const pluginEnvValue = context.settings.pluginEnv?.[envVarName];
+      const processEnv = (globalThis as typeof globalThis & { process?: { env?: Record<string, string | undefined> } })
+        .process?.env;
+      const apiKey = pluginEnvValue || processEnv?.[envVarName];
+
+      if (!apiKey) {
+        throw new Error(
+          `Custom provider API key env var ${envVarName} is not set. Use Input port or configure the environment variable.`,
+        );
+      }
+
+      return apiKey;
+    }
   }
 }
 
@@ -152,8 +175,87 @@ function fingerprintSecret(secret: string | undefined): string | undefined {
   return `${secret.length}:${(hash >>> 0).toString(36)}`;
 }
 
+function fingerprintProviderConfigForCache(config: ResolvedChatV2ProviderConfig): ResolvedChatV2ProviderConfig {
+  if (config.headers == null) {
+    return config;
+  }
+
+  return {
+    ...config,
+    headers: Object.fromEntries(
+      Object.entries(config.headers).map(([key, value]) => [key, fingerprintSecret(value) ?? '']),
+    ),
+  };
+}
+
+function fingerprintNodeDataForCache(data: LLMChatV2NodeData): LLMChatV2NodeData {
+  return {
+    ...data,
+    extraProviderOptions: data.useExtraProviderOptionsInput ? '' : fingerprintSecret(data.extraProviderOptions) ?? '',
+    headers: (data.headers ?? []).map(({ key, value }) => ({
+      key,
+      value: fingerprintSecret(value) ?? '',
+    })),
+  };
+}
+
+function fingerprintProviderOptionsForCache(providerOptions: ChatV2ProviderOptions | undefined): string | undefined {
+  if (providerOptions == null) {
+    return undefined;
+  }
+
+  return fingerprintSecret(stableStringify(providerOptions) ?? '');
+}
+
+function parseExtraProviderOptionsText(rawText: string): JsonObject | undefined {
+  const raw = rawText.trim();
+
+  if (!raw) {
+    return undefined;
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Extra provider options must be valid JSON: ${message}`);
+  }
+
+  return normalizeExtraProviderOptions(parsed);
+}
+
+function normalizeExtraProviderOptions(value: unknown): JsonObject | undefined {
+  if (value == null) {
+    return undefined;
+  }
+
+  if (typeof value === 'string') {
+    return parseExtraProviderOptionsText(value);
+  }
+
+  if (typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('Extra provider options must be a JSON object.');
+  }
+
+  return value as JsonObject;
+}
+
+function resolveExtraProviderOptions(data: LLMChatV2NodeData, inputs: Inputs): JsonObject | undefined {
+  if (!data.useExtraProviderOptionsInput) {
+    return parseExtraProviderOptionsText(data.extraProviderOptions ?? '');
+  }
+
+  return normalizeExtraProviderOptions(coerceTypeOptional(inputs['extraProviderOptions' as PortId], 'object'));
+}
+
 function resolveProviderOptions(data: LLMChatV2NodeData, inputs: Inputs): ChatV2ProviderOptions | undefined {
   const providerOptions: ChatV2ProviderOptions = {};
+  const extraProviderOptions = resolveExtraProviderOptions(data, inputs);
+
+  if (extraProviderOptions) {
+    providerOptions[data.provider] = extraProviderOptions;
+  }
 
   if (data.provider === 'openai') {
     const previousResponseId =
@@ -168,7 +270,10 @@ function resolveProviderOptions(data: LLMChatV2NodeData, inputs: Inputs): ChatV2
     };
 
     if (Object.keys(openAIOptions).length > 0) {
-      providerOptions.openai = openAIOptions;
+      providerOptions.openai = {
+        ...(providerOptions.openai ?? {}),
+        ...openAIOptions,
+      };
     }
   }
 
@@ -195,7 +300,10 @@ function resolveProviderOptions(data: LLMChatV2NodeData, inputs: Inputs): ChatV2
     };
 
     if (Object.keys(anthropicOptions).length > 0) {
-      providerOptions.anthropic = anthropicOptions;
+      providerOptions.anthropic = {
+        ...(providerOptions.anthropic ?? {}),
+        ...anthropicOptions,
+      };
     }
   }
 
@@ -215,7 +323,10 @@ function resolveProviderOptions(data: LLMChatV2NodeData, inputs: Inputs): ChatV2
     };
 
     if (Object.keys(googleOptions).length > 0) {
-      providerOptions.google = googleOptions;
+      providerOptions.google = {
+        ...(providerOptions.google ?? {}),
+        ...googleOptions,
+      };
     }
   }
 
@@ -347,6 +458,9 @@ function resolveBuiltInTools(
 
     case 'anthropic':
       return undefined;
+
+    case 'custom':
+      return undefined;
   }
 }
 
@@ -388,6 +502,7 @@ export async function resolveLLMChatV2RuntimeConfig(params: {
     ...generationParameters,
     responseOutput: createChatV2ResponseOutput(responseFormatParameters),
     outputUsage: data.outputUsage,
+    outputReasoning: data.outputReasoning,
     includeFunctionCalls: data.useToolCalling || hasLLMChatV2BuiltInToolsEnabled(data),
     emitPartialOutputs: data.useAsGraphPartialOutput,
     providerOptions,
@@ -401,17 +516,17 @@ export async function resolveLLMChatV2RuntimeConfig(params: {
     editorCache != null
       ? buildLLMChatV2EditorCacheKey({
           nodeId,
-          nodeData: data,
+          nodeData: fingerprintNodeDataForCache(data),
           provider,
           modelId,
-          providerConfig,
+          providerConfig: fingerprintProviderConfigForCache(providerConfig),
           apiKeyFingerprint: fingerprintSecret(apiKey),
           prompt,
           systemPrompt,
           functions,
           generationParameters,
           responseFormatParameters,
-          providerOptions,
+          providerOptions: fingerprintProviderOptionsForCache(providerOptions),
           toolChoice,
         })
       : undefined;

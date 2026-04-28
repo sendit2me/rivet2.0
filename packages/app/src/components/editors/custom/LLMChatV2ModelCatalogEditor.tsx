@@ -1,11 +1,12 @@
 import Button from '@atlaskit/button';
 import { Field } from '@atlaskit/form';
 import Select from '@atlaskit/select';
+import TextField from '@atlaskit/textfield';
 import Portal from '@atlaskit/portal';
 import { type ChartNode, type CustomEditorDefinition } from '@ironclad/rivet-core';
 import { css } from '@emotion/react';
 import { useAtomValue } from 'jotai';
-import { type FC, useState } from 'react';
+import { type FC, useEffect, useState } from 'react';
 import clsx from 'clsx';
 import { settingsState } from '../../../state/settings.js';
 import { useDependsOnPlugins } from '../../../hooks/useDependsOnPlugins.js';
@@ -28,6 +29,10 @@ const styles = css`
     grid-template-columns: minmax(0, 1fr) auto auto;
     align-items: center;
     gap: 8px;
+  }
+
+  .model-row.is-custom-provider {
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 
   .model-input-toggle {
@@ -126,7 +131,7 @@ type ModelOption = {
 const modelCatalogRefreshStatus = new Map<string, RefreshStatus>();
 
 function getMissingCredentialMessage(
-  provider: 'openai' | 'anthropic' | 'google',
+  provider: 'openai' | 'anthropic' | 'google' | 'custom',
   resolvedSettings: Awaited<ReturnType<typeof fillMissingSettingsFromEnvironmentVariables>>,
 ): string | undefined {
   switch (provider) {
@@ -135,6 +140,8 @@ function getMissingCredentialMessage(
     case 'anthropic':
       return undefined;
     case 'google':
+      return undefined;
+    case 'custom':
       return undefined;
   }
 }
@@ -149,15 +156,16 @@ export const LLMChatV2ModelCatalogEditor: FC<Props> = ({
 }) => {
   const settings = useAtomValue(settingsState);
   const plugins = useDependsOnPlugins();
-  const statusKey = `${node.id}:${(node.data as { provider?: 'openai' | 'anthropic' | 'google' }).provider ?? 'openai'}`;
+  const statusKey = `${node.id}:${(node.data as { provider?: 'openai' | 'anthropic' | 'google' | 'custom' }).provider ?? 'openai'}`;
   const [status, setStatus] = useState<RefreshStatus>(() => modelCatalogRefreshStatus.get(statusKey));
   const [menuPortalTarget, setMenuPortalTarget] = useState<HTMLDivElement | null>(null);
   const data = node.data as Record<string, unknown>;
-  const provider = (node.data as { provider?: 'openai' | 'anthropic' | 'google' }).provider ?? 'openai';
+  const provider = (node.data as { provider?: 'openai' | 'anthropic' | 'google' | 'custom' }).provider ?? 'openai';
   const modelOptions = ((editor.data as { modelOptions?: ModelOption[] } | undefined)?.modelOptions ?? []) as ModelOption[];
   const selectedValue = modelOptions.find((option) => option.value === data.model);
   const isUsingModelInput = Boolean(data.useModelInput);
   const isControlDisabled = isReadonly || isDisabled;
+  const isCustomProvider = provider === 'custom';
 
   const updateStatus = (nextStatus: RefreshStatus) => {
     if (nextStatus == null) {
@@ -167,6 +175,10 @@ export const LLMChatV2ModelCatalogEditor: FC<Props> = ({
     }
     setStatus(nextStatus);
   };
+
+  useEffect(() => {
+    setStatus(modelCatalogRefreshStatus.get(statusKey));
+  }, [statusKey]);
 
   const handleRefresh = async () => {
     updateStatus({
@@ -206,23 +218,44 @@ export const LLMChatV2ModelCatalogEditor: FC<Props> = ({
     <div css={styles}>
       <Field name="model" label={editor.label} isDisabled={isControlDisabled}>
         {({ fieldProps }) => (
-          <div className="model-row">
-            <Select
-              {...fieldProps}
-              options={modelOptions}
-              value={selectedValue}
-              menuPortalTarget={menuPortalTarget}
-              onChange={(selected) =>
-                selected &&
-                onChange({
-                  ...node,
-                  data: {
-                    ...data,
-                    model: selected.value,
-                  },
-                })
-              }
-            />
+          <div className={clsx('model-row', isCustomProvider && 'is-custom-provider')}>
+            {isCustomProvider ? (
+              <TextField
+                {...fieldProps}
+                value={(data.model as string | undefined) ?? ''}
+                isReadOnly={isReadonly}
+                isDisabled={isDisabled}
+                autoComplete="off"
+                spellCheck={false}
+                placeholder="model-id"
+                onChange={(event) =>
+                  onChange({
+                    ...node,
+                    data: {
+                      ...data,
+                      model: (event.target as HTMLInputElement).value,
+                    },
+                  })
+                }
+              />
+            ) : (
+              <Select
+                {...fieldProps}
+                options={modelOptions}
+                value={selectedValue}
+                menuPortalTarget={menuPortalTarget}
+                onChange={(selected) =>
+                  selected &&
+                  onChange({
+                    ...node,
+                    data: {
+                      ...data,
+                      model: selected.value,
+                    },
+                  })
+                }
+              />
+            )}
             <Tooltip content="Use an input port for Model">
               <button
                 type="button"
@@ -243,14 +276,16 @@ export const LLMChatV2ModelCatalogEditor: FC<Props> = ({
                 <PlugIcon />
               </button>
             </Tooltip>
-            <Button
-              className="refresh-models"
-              appearance="primary"
-              onClick={() => void handleRefresh()}
-              isDisabled={isControlDisabled}
-            >
-              Re-fetch Model List
-            </Button>
+            {!isCustomProvider ? (
+              <Button
+                className="refresh-models"
+                appearance="primary"
+                onClick={() => void handleRefresh()}
+                isDisabled={isControlDisabled}
+              >
+                Re-fetch Model List
+              </Button>
+            ) : null}
             <Portal>
               <div ref={setMenuPortalTarget} />
             </Portal>

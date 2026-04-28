@@ -1,6 +1,7 @@
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createOpenAI } from '@ai-sdk/openai';
+import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import { DEFAULT_CHAT_ENDPOINT } from '../../utils/defaults.js';
 import { cleanHeaders } from '../../utils/inputs.js';
 import type { InternalProcessContext } from '../ProcessContext.js';
@@ -11,6 +12,7 @@ export const chatV2ProviderOptions = [
   { value: 'openai', label: 'OpenAI' },
   { value: 'anthropic', label: 'Anthropic' },
   { value: 'google', label: 'Google' },
+  { value: 'custom', label: 'Custom provider' },
 ] as const;
 
 export const openAIReasoningEffortOptions = [
@@ -81,6 +83,8 @@ export function getDefaultChatV2Model(provider: ChatV2Provider): string {
       return 'claude-sonnet-4-20250514';
     case 'google':
       return 'gemini-2.5-flash';
+    case 'custom':
+      return 'model-id';
   }
 }
 
@@ -89,6 +93,7 @@ export function parseChatV2Provider(value: string): ChatV2Provider {
     case 'openai':
     case 'anthropic':
     case 'google':
+    case 'custom':
       return value;
     default:
       throw new Error(`Unsupported LLM Chat v2 provider: ${value}`);
@@ -123,6 +128,10 @@ function openAIEndpointToBaseURL(endpoint: string): string {
   } catch {
     return removeTrailingSlash(normalized);
   }
+}
+
+export function openAICompatibleEndpointToBaseURL(endpoint: string): string {
+  return openAIEndpointToBaseURL(endpoint);
 }
 
 function openAIBaseURLToEndpoint(baseURL: string): string {
@@ -183,6 +192,19 @@ export async function resolveChatV2ProviderConfig(
         baseURL: options.baseURL || undefined,
         headers: Object.keys(headers).length > 0 ? headers : undefined,
       };
+
+    case 'custom': {
+      const configuredBaseURL = options.baseURL?.trim();
+
+      if (!configuredBaseURL) {
+        throw new Error('Provider base URL is required when provider is Custom provider.');
+      }
+
+      return {
+        baseURL: openAICompatibleEndpointToBaseURL(configuredBaseURL),
+        headers: Object.keys(headers).length > 0 ? headers : undefined,
+      };
+    }
   }
 }
 
@@ -222,6 +244,22 @@ export function createChatV2Model(
       });
 
       return providerInstance.chat(modelId);
+    }
+
+    case 'custom': {
+      if (!options.baseURL) {
+        throw new Error('Provider base URL is required when provider is Custom provider.');
+      }
+
+      const providerInstance = createOpenAICompatible({
+        name: 'custom',
+        apiKey: options.apiKey,
+        baseURL: options.baseURL,
+        headers: options.headers,
+        includeUsage: true,
+      });
+
+      return providerInstance.chatModel(modelId);
     }
   }
 }

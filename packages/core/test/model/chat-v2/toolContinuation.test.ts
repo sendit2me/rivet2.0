@@ -5,6 +5,7 @@ import type { Outputs } from '../../../src/model/GraphProcessor.js';
 import type {
   ChatV2NormalizedUsage,
   ChatV2PipelineResult,
+  ChatV2ReasoningOutput,
   RunChatV2PipelineOptions,
 } from '../../../src/model/chat-v2/chatV2Types.js';
 import {
@@ -58,6 +59,8 @@ function makePipelineResult(
   requestMessages: ChatMessage[] = [{ type: 'user', message: 'Hello' }],
   usage?: ChatV2NormalizedUsage,
   outputUsage = false,
+  reasoning: ChatV2ReasoningOutput = '',
+  outputReasoning = false,
 ): ChatV2PipelineResult {
   const allMessages: ChatMessage[] = [
     ...requestMessages,
@@ -103,13 +106,20 @@ function makePipelineResult(
     };
   }
 
+  if (outputReasoning) {
+    commonOutputs.reasoning = {
+      type: Array.isArray(reasoning) ? 'string[]' : 'string',
+      value: reasoning,
+    };
+  }
+
   return {
     commonOutputs,
     requestMessages,
     allMessages,
     response,
     functionCalls,
-    reasoning: '',
+    reasoning,
     usage,
     rawUsage: undefined,
     finishReason: functionCalls.length > 0 ? 'tool-calls' : 'stop',
@@ -294,6 +304,40 @@ describe('runChatV2PipelineWithToolContinuation', () => {
     });
     assert.deepEqual(result.commonOutputs.responseTokens, { type: 'number', value: 7 });
     assert.deepEqual(result.commonOutputs.usage, { type: 'object', value: result.usage });
+  });
+
+  it('accumulates reasoning output across auto-continued model rounds', async () => {
+    const fooCall = makeToolCall('call_foo', 'foo');
+    let runCount = 0;
+
+    const result = await runChatV2PipelineWithToolContinuation(
+      baseOptions({
+        outputReasoning: true,
+        runPipeline: async (options: RunChatV2PipelineOptions) => {
+          runCount++;
+
+          return runCount === 1
+            ? makePipelineResult('', [fooCall], undefined, undefined, false, 'Need a tool.', options.outputReasoning)
+            : makePipelineResult(
+                'final answer',
+                [],
+                (options.prompt as any).value,
+                undefined,
+                false,
+                'Use the tool result.',
+                options.outputReasoning,
+              );
+        },
+        delegateToolCall: async (toolCall) => makeToolResultMessage(toolCall, `${toolCall.name} result`),
+      }),
+    );
+
+    assert.equal(runCount, 2);
+    assert.deepEqual(result.reasoning, ['Need a tool.', 'Use the tool result.']);
+    assert.deepEqual(result.commonOutputs.reasoning, {
+      type: 'string[]',
+      value: result.reasoning,
+    });
   });
 
   it('stops auto-continuing after max tool rounds', async () => {

@@ -26,7 +26,11 @@ export async function getEnvVar(name: string): Promise<string | undefined> {
   }
 }
 
-export async function fillMissingSettingsFromEnvironmentVariables(settings: Partial<Settings>, plugins: RivetPlugin[]) {
+export async function fillMissingSettingsFromEnvironmentVariables(
+  settings: Partial<Settings>,
+  plugins: RivetPlugin[],
+  extraEnvVarNames: string[] = [],
+) {
   const fullSettings: Settings = {
     ...settings,
     openAiKey: (settings.openAiKey || (await getEnvVar('OPENAI_API_KEY'))) ?? '',
@@ -56,6 +60,13 @@ export async function fillMissingSettingsFromEnvironmentVariables(settings: Part
           }
         }
       }
+    }
+  }
+
+  for (const envVarName of new Set(extraEnvVarNames.map((name) => name.trim()).filter(Boolean))) {
+    const envVarValue = await getEnvVar(envVarName);
+    if (envVarValue) {
+      fullSettings.pluginEnv![envVarName] = envVarValue;
     }
   }
 

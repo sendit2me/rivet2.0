@@ -202,7 +202,39 @@ const RAW_RUNTIME_STATE =
         "linkType": "HARD"\
       }]\
     ]],\
+    ["@ai-sdk/openai-compatible", [\
+      ["npm:1.0.17", {\
+        "packageLocation": "./.yarn/cache/@ai-sdk-openai-compatible-npm-1.0.17-0d68ec1df3-8db4dbdd04.zip/node_modules/@ai-sdk/openai-compatible/",\
+        "packageDependencies": [\
+          ["@ai-sdk/openai-compatible", "npm:1.0.17"]\
+        ],\
+        "linkType": "SOFT"\
+      }],\
+      ["virtual:36b10b38a2f3e49d8cd162fbeda8e49e065ae2d0ebbbd25b0a3339d0203e0ec0394d852d27989cf9f4297d5cf181367ebbc4ea51690fe53337f9c0c2783178a4#npm:1.0.17", {\
+        "packageLocation": "./.yarn/__virtual__/@ai-sdk-openai-compatible-virtual-cb34cdbd97/0/cache/@ai-sdk-openai-compatible-npm-1.0.17-0d68ec1df3-8db4dbdd04.zip/node_modules/@ai-sdk/openai-compatible/",\
+        "packageDependencies": [\
+          ["@ai-sdk/openai-compatible", "virtual:36b10b38a2f3e49d8cd162fbeda8e49e065ae2d0ebbbd25b0a3339d0203e0ec0394d852d27989cf9f4297d5cf181367ebbc4ea51690fe53337f9c0c2783178a4#npm:1.0.17"],\
+          ["@ai-sdk/provider", "npm:2.0.0"],\
+          ["@ai-sdk/provider-utils", "virtual:cb34cdbd97f540a8d64ead08323b3166a66952b72227c243b62bcb7b8f56c378d2eeb19503c09c9d6311f978857a75049b9413b0535bc851611246b07e1d4388#npm:3.0.9"],\
+          ["@types/zod", null],\
+          ["zod", "npm:4.3.6"]\
+        ],\
+        "packagePeers": [\
+          "@types/zod",\
+          "zod"\
+        ],\
+        "linkType": "HARD"\
+      }]\
+    ]],\
     ["@ai-sdk/provider", [\
+      ["npm:2.0.0", {\
+        "packageLocation": "./.yarn/cache/@ai-sdk-provider-npm-2.0.0-3c34d402f4-e6d5460f0c.zip/node_modules/@ai-sdk/provider/",\
+        "packageDependencies": [\
+          ["@ai-sdk/provider", "npm:2.0.0"],\
+          ["json-schema", "npm:0.4.0"]\
+        ],\
+        "linkType": "HARD"\
+      }],\
       ["npm:3.0.8", {\
         "packageLocation": "./.yarn/cache/@ai-sdk-provider-npm-3.0.8-8ed5bd3c88-85fb7b9c7c.zip/node_modules/@ai-sdk/provider/",\
         "packageDependencies": [\
@@ -213,6 +245,13 @@ const RAW_RUNTIME_STATE =
       }]\
     ]],\
     ["@ai-sdk/provider-utils", [\
+      ["npm:3.0.9", {\
+        "packageLocation": "./.yarn/cache/@ai-sdk-provider-utils-npm-3.0.9-a1fcf189ea-a58d61502d.zip/node_modules/@ai-sdk/provider-utils/",\
+        "packageDependencies": [\
+          ["@ai-sdk/provider-utils", "npm:3.0.9"]\
+        ],\
+        "linkType": "SOFT"\
+      }],\
       ["npm:4.0.19", {\
         "packageLocation": "./.yarn/cache/@ai-sdk-provider-utils-npm-4.0.19-9b41d056a4-7f3822c782.zip/node_modules/@ai-sdk/provider-utils/",\
         "packageDependencies": [\
@@ -228,6 +267,22 @@ const RAW_RUNTIME_STATE =
           ["@standard-schema/spec", "npm:1.1.0"],\
           ["@types/zod", null],\
           ["eventsource-parser", "npm:3.0.6"],\
+          ["zod", "npm:4.3.6"]\
+        ],\
+        "packagePeers": [\
+          "@types/zod",\
+          "zod"\
+        ],\
+        "linkType": "HARD"\
+      }],\
+      ["virtual:cb34cdbd97f540a8d64ead08323b3166a66952b72227c243b62bcb7b8f56c378d2eeb19503c09c9d6311f978857a75049b9413b0535bc851611246b07e1d4388#npm:3.0.9", {\
+        "packageLocation": "./.yarn/__virtual__/@ai-sdk-provider-utils-virtual-beb9992dd8/0/cache/@ai-sdk-provider-utils-npm-3.0.9-a1fcf189ea-a58d61502d.zip/node_modules/@ai-sdk/provider-utils/",\
+        "packageDependencies": [\
+          ["@ai-sdk/provider-utils", "virtual:cb34cdbd97f540a8d64ead08323b3166a66952b72227c243b62bcb7b8f56c378d2eeb19503c09c9d6311f978857a75049b9413b0535bc851611246b07e1d4388#npm:3.0.9"],\
+          ["@ai-sdk/provider", "npm:2.0.0"],\
+          ["@standard-schema/spec", "npm:1.1.0"],\
+          ["@types/zod", null],\
+          ["eventsource-parser", "npm:3.0.8"],\
           ["zod", "npm:4.3.6"]\
         ],\
         "packagePeers": [\
@@ -6965,6 +7020,7 @@ const RAW_RUNTIME_STATE =
         "packageLocation": "./packages/app/",\
         "packageDependencies": [\
           ["@ironclad/rivet-app", "workspace:packages/app"],\
+          ["@ai-sdk/openai-compatible", "virtual:36b10b38a2f3e49d8cd162fbeda8e49e065ae2d0ebbbd25b0a3339d0203e0ec0394d852d27989cf9f4297d5cf181367ebbc4ea51690fe53337f9c0c2783178a4#npm:1.0.17"],\
           ["@atlaskit/banner", "virtual:388c29633752d7c364e0487c276ae72861ce5d69c069bff16a49b35801303d87d39cb24723bbac1721c48df59f346575324fe3c6de8ead4fb7d83d6ae4a0e521#npm:12.1.18"],\
           ["@atlaskit/button", "virtual:388c29633752d7c364e0487c276ae72861ce5d69c069bff16a49b35801303d87d39cb24723bbac1721c48df59f346575324fe3c6de8ead4fb7d83d6ae4a0e521#npm:16.11.0"],\
           ["@atlaskit/checkbox", "virtual:388c29633752d7c364e0487c276ae72861ce5d69c069bff16a49b35801303d87d39cb24723bbac1721c48df59f346575324fe3c6de8ead4fb7d83d6ae4a0e521#npm:12.6.11"],\
@@ -7090,7 +7146,8 @@ const RAW_RUNTIME_STATE =
           ["vite-tsconfig-paths", "virtual:388c29633752d7c364e0487c276ae72861ce5d69c069bff16a49b35801303d87d39cb24723bbac1721c48df59f346575324fe3c6de8ead4fb7d83d6ae4a0e521#npm:4.2.1"],\
           ["ws", "virtual:498cce1f4eda8d77a87f1aae7cc3510c0e5a3145415c99e0370fc9584499551dc6728802e0b78c27a277c76b77913284942004f69a94260e92b2ec1ca56a99e7#npm:8.18.0"],\
           ["yaml", "npm:2.3.3"],\
-          ["yargs", "npm:17.7.2"]\
+          ["yargs", "npm:17.7.2"],\
+          ["zod", "npm:4.3.6"]\
         ],\
         "linkType": "SOFT"\
       }]\
@@ -7192,6 +7249,7 @@ const RAW_RUNTIME_STATE =
           ["@ai-sdk/anthropic", "virtual:36b10b38a2f3e49d8cd162fbeda8e49e065ae2d0ebbbd25b0a3339d0203e0ec0394d852d27989cf9f4297d5cf181367ebbc4ea51690fe53337f9c0c2783178a4#npm:3.0.58"],\
           ["@ai-sdk/google", "virtual:36b10b38a2f3e49d8cd162fbeda8e49e065ae2d0ebbbd25b0a3339d0203e0ec0394d852d27989cf9f4297d5cf181367ebbc4ea51690fe53337f9c0c2783178a4#npm:3.0.43"],\
           ["@ai-sdk/openai", "virtual:36b10b38a2f3e49d8cd162fbeda8e49e065ae2d0ebbbd25b0a3339d0203e0ec0394d852d27989cf9f4297d5cf181367ebbc4ea51690fe53337f9c0c2783178a4#npm:3.0.41"],\
+          ["@ai-sdk/openai-compatible", "virtual:36b10b38a2f3e49d8cd162fbeda8e49e065ae2d0ebbbd25b0a3339d0203e0ec0394d852d27989cf9f4297d5cf181367ebbc4ea51690fe53337f9c0c2783178a4#npm:1.0.17"],\
           ["@gentrace/core", "npm:2.2.5"],\
           ["@google-cloud/vertexai", "npm:0.1.3"],\
           ["@google/genai", "npm:0.12.0"],\
@@ -16678,6 +16736,13 @@ const RAW_RUNTIME_STATE =
         "packageLocation": "./.yarn/cache/eventsource-parser-npm-3.0.6-17d4172da2-febf7058b9.zip/node_modules/eventsource-parser/",\
         "packageDependencies": [\
           ["eventsource-parser", "npm:3.0.6"]\
+        ],\
+        "linkType": "HARD"\
+      }],\
+      ["npm:3.0.8", {\
+        "packageLocation": "./.yarn/cache/eventsource-parser-npm-3.0.8-f65bc6e4d2-286a84a700.zip/node_modules/eventsource-parser/",\
+        "packageDependencies": [\
+          ["eventsource-parser", "npm:3.0.8"]\
         ],\
         "linkType": "HARD"\
       }]\
