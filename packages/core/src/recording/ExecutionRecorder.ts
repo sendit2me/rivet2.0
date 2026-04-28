@@ -251,6 +251,10 @@ export class ExecutionRecorder {
           return;
         }
 
+        if (message === 'codeConsole') {
+          return;
+        }
+
         this.#events.push(toRecordedEvent(message, data) as RecordedEvents);
 
         if (message === 'done' || message === 'abort' || message === 'error') {

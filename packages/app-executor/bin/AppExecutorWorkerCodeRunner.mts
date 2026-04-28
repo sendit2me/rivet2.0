@@ -1,7 +1,16 @@
-import type { CodeRunner, CodeRunnerOptions, DataValue, Inputs, Outputs } from '@ironclad/rivet-core';
+import type {
+  CodeConsoleLevel,
+  CodeConsoleMessage,
+  CodeRunner,
+  CodeRunnerOptions,
+  DataValue,
+  Inputs,
+  Outputs,
+} from '@ironclad/rivet-core';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import * as process from 'node:process';
+import { inspect } from 'node:util';
 import { Worker } from 'node:worker_threads';
 
 type SerializedWorkerError = {
@@ -12,12 +21,18 @@ type SerializedWorkerError = {
 
 type WorkerResponse =
   | {
+      type: 'result';
       ok: true;
       outputs: Outputs;
     }
   | {
+      type: 'result';
       error: SerializedWorkerError;
       ok: false;
+    }
+  | {
+      type: 'console';
+      message: CodeConsoleMessage;
     };
 
 const runtimeRequire = createRequire(join(process.cwd(), '__rivet_node_code_runner__.cjs'));
@@ -26,6 +41,9 @@ const WORKER_SOURCE = String.raw`
 const { parentPort, workerData } = require('node:worker_threads');
 const { createRequire } = require('node:module');
 const { join } = require('node:path');
+const { inspect } = require('node:util');
+
+const CONSOLE_LEVELS = ['debug', 'error', 'info', 'log', 'warn'];
 
 function serializeError(error) {
   if (error instanceof Error) {
@@ -41,6 +59,37 @@ function serializeError(error) {
   };
 }
 
+function serializeConsoleArg(arg) {
+  if (typeof arg === 'string') {
+    return arg;
+  }
+
+  return inspect(arg, {
+    breakLength: 120,
+    depth: 6,
+    maxArrayLength: 100,
+    maxStringLength: 10000,
+  });
+}
+
+function createBridgedConsole() {
+  const bridgedConsole = Object.create(console);
+
+  for (const level of CONSOLE_LEVELS) {
+    bridgedConsole[level] = (...args) => {
+      parentPort.postMessage({
+        type: 'console',
+        message: {
+          level,
+          args: args.map(serializeConsoleArg),
+        },
+      });
+    };
+  }
+
+  return bridgedConsole;
+}
+
 async function runCode() {
   const { code, contextValues, graphInputs, inputs, options } = workerData;
   const argNames = ['inputs'];
@@ -48,7 +97,7 @@ async function runCode() {
 
   if (options.includeConsole) {
     argNames.push('console');
-    args.push(console);
+    args.push(createBridgedConsole());
   }
 
   if (options.includeRequire) {
@@ -86,16 +135,18 @@ async function runCode() {
 runCode().then(
   (outputs) => {
     try {
-      parentPort.postMessage({ ok: true, outputs });
+      parentPort.postMessage({ type: 'result', ok: true, outputs });
     } catch (error) {
-      parentPort.postMessage({ ok: false, error: serializeError(error) });
+      parentPort.postMessage({ type: 'result', ok: false, error: serializeError(error) });
     }
   },
-  (error) => parentPort.postMessage({ ok: false, error: serializeError(error) }),
+  (error) => parentPort.postMessage({ type: 'result', ok: false, error: serializeError(error) }),
 );
 `;
 
 export class AppExecutorWorkerCodeRunner implements CodeRunner {
+  constructor(private readonly onConsole?: (message: CodeConsoleMessage) => void) {}
+
   async runCode(
     code: string,
     inputs: Inputs,
@@ -104,10 +155,10 @@ export class AppExecutorWorkerCodeRunner implements CodeRunner {
     contextValues?: Record<string, DataValue>,
   ): Promise<Outputs> {
     if (options.includeRivet) {
-      return runCodeInCurrentThread(code, inputs, options, graphInputs, contextValues);
+      return runCodeInCurrentThread(code, inputs, options, graphInputs, contextValues, this.onConsole);
     }
 
-    return runCodeInWorker(code, inputs, options, graphInputs, contextValues);
+    return runCodeInWorker(code, inputs, options, graphInputs, contextValues, this.onConsole);
   }
 }
 
@@ -117,6 +168,7 @@ async function runCodeInWorker(
   options: CodeRunnerOptions,
   graphInputs?: Record<string, DataValue>,
   contextValues?: Record<string, DataValue>,
+  onConsole?: (message: CodeConsoleMessage) => void,
 ): Promise<Outputs> {
   return await new Promise<Outputs>((resolve, reject) => {
     const worker = new Worker(WORKER_SOURCE, {
@@ -136,7 +188,12 @@ async function runCodeInWorker(
       void worker.terminate();
     };
 
-    worker.once('message', (response: WorkerResponse) => {
+    worker.on('message', (response: WorkerResponse) => {
+      if (response.type === 'console') {
+        emitConsoleMessage(onConsole, response.message);
+        return;
+      }
+
       settled = true;
       cleanup();
 
@@ -173,13 +230,14 @@ async function runCodeInCurrentThread(
   options: CodeRunnerOptions,
   graphInputs?: Record<string, DataValue>,
   contextValues?: Record<string, DataValue>,
+  onConsole?: (message: CodeConsoleMessage) => void,
 ): Promise<Outputs> {
   const argNames = ['inputs'];
   const args: unknown[] = [inputs];
 
   if (options.includeConsole) {
     argNames.push('console');
-    args.push(console);
+    args.push(createBridgedConsole(onConsole));
   }
 
   if (options.includeRequire) {
@@ -219,6 +277,44 @@ async function runCodeInCurrentThread(
   const AsyncFunction = async function () {}.constructor as new (...args: string[]) => Function;
   const codeFunction = new AsyncFunction(...argNames);
   return (await codeFunction(...args)) as Outputs;
+}
+
+const CONSOLE_LEVELS: CodeConsoleLevel[] = ['debug', 'error', 'info', 'log', 'warn'];
+
+function createBridgedConsole(onConsole?: (message: CodeConsoleMessage) => void) {
+  const bridgedConsole = Object.create(console) as Pick<Console, CodeConsoleLevel>;
+
+  for (const level of CONSOLE_LEVELS) {
+    bridgedConsole[level] = (...args: unknown[]) => {
+      emitConsoleMessage(onConsole, {
+        level,
+        args: args.map(serializeConsoleArg),
+      });
+    };
+  }
+
+  return bridgedConsole;
+}
+
+function emitConsoleMessage(onConsole: ((message: CodeConsoleMessage) => void) | undefined, message: CodeConsoleMessage) {
+  try {
+    onConsole?.(message);
+  } catch {
+    // Console forwarding is observability-only and must not change Code node execution.
+  }
+}
+
+function serializeConsoleArg(arg: unknown): unknown {
+  if (typeof arg === 'string') {
+    return arg;
+  }
+
+  return inspect(arg, {
+    breakLength: 120,
+    depth: 6,
+    maxArrayLength: 100,
+    maxStringLength: 10000,
+  });
 }
 
 function deserializeWorkerError(error: SerializedWorkerError): Error {

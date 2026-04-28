@@ -200,9 +200,11 @@ For **local execution** (`useLocalExecutor`), events are received directly on th
 root processor via `attachGraphEvents()`.
 
 For **remote execution** (`useRemoteExecutor`), events arrive as WebSocket messages
-from `app-executor`. The sidecar serializes all events including full execution
-metadata. `createProcessEventDispatcher()` deserializes and dispatches to the same
-handler functions.
+from `app-executor`. The sidecar serializes processor events including full
+execution metadata; app-only observability messages such as `codeConsole` are
+handled separately and are not treated as replayable execution events.
+`createProcessEventDispatcher()` deserializes and dispatches processor events to
+the same handler functions.
 
 ## State Storage
 
@@ -540,6 +542,12 @@ while an unrelated synchronous Code node is still running. This does not change
 the public `@ironclad/rivet-node` default runner, and Code nodes that request the
 `Rivet` capability may still run on the sidecar's current thread for
 compatibility.
+
+Code-node `console` output in Node executor mode is an executor-session message,
+not sidecar stdout. When the node's console permission is enabled, the
+app-executor runner sends `codeConsole` messages for `debug`, `info`, `log`,
+`warn`, and `error`; [`useRemoteExecutor`](../packages/app/src/hooks/useRemoteExecutor.ts)
+only replays messages for the active editor run into the renderer console.
 
 ### Browser execution: microtask avalanche
 

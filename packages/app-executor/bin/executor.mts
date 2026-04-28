@@ -183,6 +183,13 @@ const rivetDebugger = startDebuggerServer({
     }
 
     try {
+      let processorForConsole: ReturnType<typeof createProcessor>['processor'] | undefined;
+      const codeRunner = new AppExecutorWorkerCodeRunner((message) => {
+        if (processorForConsole) {
+          rivetDebugger.broadcast(processorForConsole, 'codeConsole', message, requestId);
+        }
+      });
+
       const processor = createProcessor(project, {
         graph: graphId,
         inputs,
@@ -191,7 +198,7 @@ const rivetDebugger = startDebuggerServer({
         remoteDebuggerRequestId: requestId,
         registry,
         datasetProvider,
-        codeRunner: new AppExecutorWorkerCodeRunner(),
+        codeRunner,
         editorExecutionCache: useEditorCache ? getEditorExecutionCache(project) : undefined,
         onTrace: (trace) => {
           logRuntimeDebug('Graph trace', { trace });
@@ -200,6 +207,7 @@ const rivetDebugger = startDebuggerServer({
         projectPath,
         projectReferenceLoader: new NodeProjectReferenceLoader(),
       });
+      processorForConsole = processor.processor;
 
       if (runToNodeIds) {
         processor.processor.runToNodeIds = runToNodeIds;

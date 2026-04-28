@@ -1,6 +1,7 @@
 import {
   logRuntimeDebug,
   logRuntimeInfo,
+  type CodeConsoleMessage,
   type NodeId,
   type RemoteRunRequestId,
   type StringArrayDataValue,
@@ -71,6 +72,11 @@ export function useRemoteExecutor() {
       const shouldDispatchExecutionEvent = requestId == null || requestId === activeGraphRequestIdRef.current;
 
       switch (message) {
+        case 'codeConsole':
+          if (shouldDispatchExecutionEvent) {
+            logCodeConsoleMessage(data as CodeConsoleMessage);
+          }
+          break;
         case 'nodeStart':
           if (shouldDispatchExecutionEvent) {
             eventDispatcher.nodeStart(data);
@@ -347,4 +353,25 @@ export function useRemoteExecutor() {
     active: remoteDebugger.sessionState.status === 'ready',
     tryRunTests,
   };
+}
+
+function logCodeConsoleMessage(message: CodeConsoleMessage) {
+  switch (message.level) {
+    case 'debug':
+      console.debug(...message.args);
+      break;
+    case 'error':
+      console.error(...message.args);
+      break;
+    case 'info':
+      console.info(...message.args);
+      break;
+    case 'warn':
+      console.warn(...message.args);
+      break;
+    case 'log':
+    default:
+      console.log(...message.args);
+      break;
+  }
 }

@@ -173,6 +173,37 @@ test('delivers process messages to all subscribed handlers', async () => {
   assert.deepEqual(receivedBySecond, ['trace']);
 });
 
+test('delivers Code console messages to subscribers', async () => {
+  const received: unknown[] = [];
+  const unsubscribe = runtime.subscribeMessages((message, data) => {
+    received.push({ data, message });
+  });
+
+  await runtime.connect('ws://localhost:8889');
+  const socket = FakeWebSocket.instances[0]!;
+  socket.open();
+  socket.emitMessage({
+    message: 'codeConsole',
+    data: {
+      level: 'log',
+      args: ['hello from code'],
+    },
+    requestId: 'request-1',
+  });
+
+  unsubscribe();
+
+  assert.deepEqual(received, [
+    {
+      message: 'codeConsole',
+      data: {
+        level: 'log',
+        args: ['hello from code'],
+      },
+    },
+  ]);
+});
+
 test('clears remote upload capability when replacing the active session', async () => {
   await runtime.connect('ws://localhost:1111');
   const firstSocket = FakeWebSocket.instances[0]!;

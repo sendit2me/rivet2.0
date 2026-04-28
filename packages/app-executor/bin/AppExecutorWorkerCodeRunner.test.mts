@@ -195,6 +195,37 @@ void describe('AppExecutorWorkerCodeRunner', () => {
     });
   });
 
+  void it('bridges console output from the worker', async () => {
+    const messages: unknown[][] = [];
+    const runner = new AppExecutorWorkerCodeRunner((message) => {
+      messages.push([message.level, ...message.args]);
+    });
+
+    const outputs = await runner.runCode(
+      `
+        console.log('worker log', { value: 1 });
+        console.warn('worker warning');
+        return { output1: { type: 'string', value: 'done' } };
+      `,
+      {},
+      {
+        includeConsole: true,
+        includeFetch: false,
+        includeProcess: false,
+        includeRequire: false,
+        includeRivet: false,
+      },
+    );
+
+    assert.deepEqual(outputs, {
+      output1: { type: 'string', value: 'done' },
+    });
+    assert.deepEqual(messages, [
+      ['log', 'worker log', '{ value: 1 }'],
+      ['warn', 'worker warning'],
+    ]);
+  });
+
   void it('falls back to current-thread execution for Rivet capability', async () => {
     const runner = new AppExecutorWorkerCodeRunner();
 
@@ -213,6 +244,33 @@ void describe('AppExecutorWorkerCodeRunner', () => {
     assert.deepEqual(outputs, {
       output1: { type: 'boolean', value: true },
     });
+  });
+
+  void it('bridges console output from the Rivet-capability fallback runner', async () => {
+    const messages: unknown[][] = [];
+    const runner = new AppExecutorWorkerCodeRunner((message) => {
+      messages.push([message.level, ...message.args]);
+    });
+
+    const outputs = await runner.runCode(
+      `
+        console.info('fallback log', [1, 2]);
+        return { output1: { type: 'boolean', value: typeof Rivet.createProcessor === 'function' } };
+      `,
+      {},
+      {
+        includeConsole: true,
+        includeFetch: false,
+        includeProcess: false,
+        includeRequire: false,
+        includeRivet: true,
+      },
+    );
+
+    assert.deepEqual(outputs, {
+      output1: { type: 'boolean', value: true },
+    });
+    assert.deepEqual(messages, [['info', 'fallback log', '[ 1, 2 ]']]);
   });
 
   void it('propagates worker errors with readable messages', async () => {

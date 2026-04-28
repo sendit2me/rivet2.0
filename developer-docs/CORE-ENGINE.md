@@ -620,6 +620,13 @@ The Code node appends a generated `sourceURL` before calling whichever runner is
 configured so runtime stack frames can be mapped back to the user's code-node
 editor lines when the run fails.
 
+In the desktop app's Node executor, `AppExecutorWorkerCodeRunner` also owns
+Code-node console observability. When `console` is enabled, it injects a
+bridged console into worker-backed runs and the `Rivet`-capability fallback path;
+those calls become `codeConsole` executor messages that the app replays in the
+renderer console. This is app-executor-specific and does not change the public
+`NodeCodeRunner` default used by programmatic `@ironclad/rivet-node` callers.
+
 Syntax-error diagnostics are deliberately failure-only. The core does not pre-parse
 successful `Code` node runs. If `AsyncFunction` construction throws a syntax error,
 the node then performs a small parser pass over a synthetic async-function wrapper

@@ -38,6 +38,8 @@ export type {
   DatasetRequestMap,
   DatasetRequestMessage,
   DatasetRequestPayload,
+  CodeConsoleLevel,
+  CodeConsoleMessage,
   GraphUploadAllowedMessage,
   IncomingMessage,
   OutgoingMessage,
