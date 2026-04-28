@@ -408,7 +408,7 @@ const Container = styled.div`
     display: flex;
     align-items: center;
     gap: 14px;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     min-height: 32px;
 
     .split-max-input {

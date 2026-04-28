@@ -119,6 +119,62 @@ function makeProject(graph: any) {
   } as any;
 }
 
+function createTrackedSplitGraph(
+  registry: ReturnType<typeof createTrackedRegistry>,
+  {
+    graphId,
+    splitRunMax,
+    splitRunConcurrency,
+  }: { graphId: string; splitRunMax: number; splitRunConcurrency?: number },
+) {
+  const inputNode = registry.create('graphInput');
+  inputNode.id = 'input-node' as NodeId;
+  inputNode.data = {
+    ...inputNode.data,
+    id: 'items',
+    dataType: 'string[]',
+    useDefaultValueInput: false,
+  };
+
+  const trackedNode = registry.create('trackedTest');
+  trackedNode.id = 'tracked-node' as NodeId;
+  trackedNode.title = 'Tracked Split Node';
+  trackedNode.isSplitRun = true;
+  trackedNode.splitRunMax = splitRunMax;
+  trackedNode.splitRunConcurrency = splitRunConcurrency;
+
+  const outputNode = registry.create('graphOutput');
+  outputNode.id = 'output-node' as NodeId;
+  outputNode.data = {
+    ...outputNode.data,
+    id: 'output',
+    dataType: 'string[]',
+  };
+
+  return {
+    metadata: {
+      id: graphId,
+      name: graphId,
+      description: '',
+    },
+    nodes: [inputNode, trackedNode, outputNode],
+    connections: [
+      {
+        outputNodeId: inputNode.id,
+        outputId: 'data' as PortId,
+        inputNodeId: trackedNode.id,
+        inputId: 'input1' as PortId,
+      },
+      {
+        outputNodeId: trackedNode.id,
+        outputId: 'output1' as PortId,
+        inputNodeId: outputNode.id,
+        inputId: 'value' as PortId,
+      },
+    ],
+  };
+}
+
 class CountingTokenizer implements Tokenizer {
   readonly listeners = new Set<(error: Error) => void>();
 
@@ -521,52 +577,52 @@ void describe('GraphProcessor', () => {
   void it('bounds split-run parallel concurrency', async () => {
     TrackedTestNodeImpl.resetCounts();
     const registry = createTrackedRegistry();
+    const graph = createTrackedSplitGraph(registry, {
+      graphId: 'bounded-split-concurrency',
+      splitRunMax: 4,
+    });
 
-    const inputNode = registry.create('graphInput');
-    inputNode.id = 'input-node' as NodeId;
-    inputNode.data = {
-      ...inputNode.data,
-      id: 'items',
-      dataType: 'string[]',
-      useDefaultValueInput: false,
-    };
+    const processor = new GraphProcessor(makeProject(graph), graph.metadata.id, registry, true, {
+      concurrency: { splitRunConcurrency: 2 },
+    });
 
-    const trackedNode = registry.create('trackedTest');
-    trackedNode.id = 'tracked-node' as NodeId;
-    trackedNode.title = 'Tracked Split Node';
-    trackedNode.isSplitRun = true;
-    trackedNode.splitRunMax = 4;
+    const outputs = await processor.processGraph(testProcessContext(), {
+      items: { type: 'string[]', value: ['a', 'b', 'c', 'd'] },
+    });
 
-    const outputNode = registry.create('graphOutput');
-    outputNode.id = 'output-node' as NodeId;
-    outputNode.data = {
-      ...outputNode.data,
-      id: 'output',
-      dataType: 'string[]',
-    };
+    assert.deepEqual(outputs.output, { type: 'string[]', value: ['a', 'b', 'c', 'd'] });
+    assert.equal(TrackedTestNodeImpl.maxActiveCount, 2);
+  });
 
-    const graph = {
-      metadata: {
-        id: 'bounded-split-concurrency',
-        name: 'Bounded Split Concurrency',
-        description: '',
-      },
-      nodes: [inputNode, trackedNode, outputNode],
-      connections: [
-        {
-          outputNodeId: inputNode.id,
-          outputId: 'data' as PortId,
-          inputNodeId: trackedNode.id,
-          inputId: 'input1' as PortId,
-        },
-        {
-          outputNodeId: trackedNode.id,
-          outputId: 'output1' as PortId,
-          inputNodeId: outputNode.id,
-          inputId: 'value' as PortId,
-        },
-      ],
-    };
+  void it('uses node-specific split-run parallel concurrency when set', async () => {
+    TrackedTestNodeImpl.resetCounts();
+    const registry = createTrackedRegistry();
+    const graph = createTrackedSplitGraph(registry, {
+      graphId: 'node-specific-split-concurrency',
+      splitRunMax: 5,
+      splitRunConcurrency: 3,
+    });
+
+    const processor = new GraphProcessor(makeProject(graph), graph.metadata.id, registry, true, {
+      concurrency: { splitRunConcurrency: 4 },
+    });
+
+    const outputs = await processor.processGraph(testProcessContext(), {
+      items: { type: 'string[]', value: ['a', 'b', 'c', 'd', 'e'] },
+    });
+
+    assert.deepEqual(outputs.output, { type: 'string[]', value: ['a', 'b', 'c', 'd', 'e'] });
+    assert.equal(TrackedTestNodeImpl.maxActiveCount, 3);
+  });
+
+  void it('falls back to processor split-run concurrency when node-specific concurrency is invalid', async () => {
+    TrackedTestNodeImpl.resetCounts();
+    const registry = createTrackedRegistry();
+    const graph = createTrackedSplitGraph(registry, {
+      graphId: 'invalid-node-split-concurrency',
+      splitRunMax: 4,
+      splitRunConcurrency: 1,
+    });
 
     const processor = new GraphProcessor(makeProject(graph), graph.metadata.id, registry, true, {
       concurrency: { splitRunConcurrency: 2 },

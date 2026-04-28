@@ -6,7 +6,6 @@
 
 
 
-
 - In split node, parallel one, is there a limit on the max concurrent parallel runs? If not, it's bad
 
 - How does "Strict" setting work in the Tool node

@@ -174,7 +174,7 @@ export type GraphProcessorConcurrency = {
 };
 
 const DEFAULT_NODE_CONCURRENCY = 8;
-const DEFAULT_SPLIT_RUN_CONCURRENCY = 4;
+export const DEFAULT_SPLIT_RUN_CONCURRENCY = 4;
 
 function normalizeConcurrencyValue(value: number | undefined, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value) && value >= 1 ? Math.floor(value) : fallback;

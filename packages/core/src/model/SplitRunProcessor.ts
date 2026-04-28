@@ -123,7 +123,7 @@ async function runParallel(
   processId: ProcessId,
   deps: SplitRunDeps,
 ): Promise<SplitResult[]> {
-  const queue = new PQueue({ concurrency: deps.splitRunConcurrency });
+  const queue = new PQueue({ concurrency: getParallelSplitRunConcurrency(node, deps.splitRunConcurrency) });
 
   return Promise.all(
     range(0, splittingAmount).map(async (i: number) => {
@@ -149,6 +149,11 @@ async function runParallel(
       return result;
     }),
   );
+}
+
+function getParallelSplitRunConcurrency(node: ChartNode, defaultConcurrency: number): number {
+  const value = node.splitRunConcurrency;
+  return typeof value === 'number' && Number.isFinite(value) && value >= 2 ? Math.floor(value) : defaultConcurrency;
 }
 
 function splitInputsAtIndex(inputValues: Inputs, index: number): Inputs {

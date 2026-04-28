@@ -458,7 +458,7 @@ Current execution policy details:
 - `GraphProcessor` resolves a `GraphProcessorConcurrency` policy per processor instance
 - queued node execution uses a bounded `nodeConcurrency` limit instead of `Infinity`
 - child subprocessors inherit the parent processor's concurrency policy
-- split-run parallel execution uses its own bounded `splitRunConcurrency` limit instead of raw `Promise.all`
+- split-run parallel execution uses its own bounded `splitRunConcurrency` limit instead of raw `Promise.all`; individual nodes can override that limit with `node.splitRunConcurrency`, while undefined nodes keep the processor-level default so older workflows that do not have the per-node field keep their existing behavior
 
 The readiness/dependency logic used by this flow now lives largely in `NodeExecutionPlanner.ts`, while `GraphProcessor` coordinates queueing and mutable execution state.
 
@@ -539,7 +539,7 @@ This is one of the clearest recent refactor seams in core:
 - determines split count from array-valued inputs and `splitRunMax`
 - emits `nodeStart`
 - runs sequentially when `isSplitSequential` is set
-- otherwise runs in parallel through a bounded queue
+- otherwise runs in parallel through a bounded queue using `node.splitRunConcurrency` when present, or the processor's `splitRunConcurrency` fallback when the node has no override
 - emits partial outputs for each split item
 - aggregates split outputs back into array outputs
 - emits `nodeFinish` or routes errors back through the injected `nodeErrored(...)`

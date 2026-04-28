@@ -1,5 +1,5 @@
 import { type FC, type ReactNode } from 'react';
-import { type ChartNode } from '@ironclad/rivet-core';
+import { DEFAULT_SPLIT_RUN_CONCURRENCY, type ChartNode } from '@ironclad/rivet-core';
 import TextField from '@atlaskit/textfield';
 import Select from '@atlaskit/select';
 import Button from '@atlaskit/button';
@@ -32,6 +32,10 @@ const splitModeOptions: readonly { value: SplitModeChoice; label: string }[] = [
   { value: 'parallel', label: 'Parallel runs' },
   { value: 'sequential', label: 'Sequential' },
 ];
+
+function normalizePositiveInteger(value: number, min: number): number {
+  return Math.max(min, Math.trunc(Number.isFinite(value) ? value : min));
+}
 
 const SplitModeChoiceControl: FC<{
   value: SplitModeChoice;
@@ -155,7 +159,7 @@ export const NodeEditorGlobalControls: FC<{
                 value={node.splitRunMax ?? 10}
                 onChange={(event) => {
                   const rawValue = (event.target as HTMLInputElement).valueAsNumber;
-                  const splitRunMax = Math.max(1, Math.trunc(Number.isFinite(rawValue) ? rawValue : 1));
+                  const splitRunMax = normalizePositiveInteger(rawValue, 1);
 
                   onUpdateNode({
                     ...node,
@@ -163,6 +167,28 @@ export const NodeEditorGlobalControls: FC<{
                   });
                 }}
               />
+              {!node.isSplitSequential && (
+                <>
+                  <label className="split-max-label">Max concurrent runs:</label>
+                  <TextField
+                    className="split-max-input"
+                    type="number"
+                    min={2}
+                    step={1}
+                    placeholder="Concurrent"
+                    value={node.splitRunConcurrency ?? DEFAULT_SPLIT_RUN_CONCURRENCY}
+                    onChange={(event) => {
+                      const rawValue = (event.target as HTMLInputElement).valueAsNumber;
+                      const splitRunConcurrency = normalizePositiveInteger(rawValue, 2);
+
+                      onUpdateNode({
+                        ...node,
+                        splitRunConcurrency,
+                      });
+                    }}
+                  />
+                </>
+              )}
             </div>
           )}
         </section>
