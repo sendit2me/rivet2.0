@@ -48,16 +48,12 @@ function getModelEditors(modelOptions: { value: string; label: string }[]): LLMC
         options: [...chatV2ProviderOptions],
       },
       {
-        type: 'dropdown',
-        label: 'Model',
-        dataKey: 'model',
-        useInputToggleDataKey: 'useModelInput',
-        options: modelOptions,
-      },
-      {
         type: 'custom',
-        label: 'Model Catalog',
+        label: 'Model',
         customEditorId: 'LLMChatV2ModelCatalog',
+        data: {
+          modelOptions,
+        },
       },
       {
         type: 'segmented',

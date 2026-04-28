@@ -1,8 +1,12 @@
 import Button from '@atlaskit/button';
+import { Field } from '@atlaskit/form';
+import Select from '@atlaskit/select';
+import Portal from '@atlaskit/portal';
 import { type ChartNode, type CustomEditorDefinition } from '@ironclad/rivet-core';
 import { css } from '@emotion/react';
 import { useAtomValue } from 'jotai';
 import { type FC, useState } from 'react';
+import clsx from 'clsx';
 import { settingsState } from '../../../state/settings.js';
 import { useDependsOnPlugins } from '../../../hooks/useDependsOnPlugins.js';
 import { fillMissingSettingsFromEnvironmentVariables } from '../../../utils/tauri.js';
@@ -11,17 +15,73 @@ import {
   invalidateChatV2DiscoveredModelOptions,
 } from '../../../utils/chatV2ModelCatalog.js';
 import { type SharedEditorProps } from '../SharedEditorProps';
+import PlugIcon from '../../../assets/icons/plug-icon.svg?react';
+import { Tooltip } from '../../Tooltip';
 
 const styles = css`
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 12px;
+  gap: 8px;
 
-  .actions {
-    display: flex;
+  .model-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
     align-items: center;
     gap: 8px;
+  }
+
+  .model-input-toggle {
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 1px solid var(--grey-darkish);
+    border-radius: 16px;
+    corner-shape: squircle;
+    background: var(--grey-darkest);
+    color: var(--foreground-muted);
+    cursor: pointer;
+    transition:
+      background-color 0.15s ease-out,
+      border-color 0.15s ease-out,
+      color 0.15s ease-out;
+  }
+
+  .model-input-toggle:focus {
+    outline: none;
+  }
+
+  .model-input-toggle:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+
+  .model-input-toggle:hover:not(:disabled) {
+    background: var(--grey-darkerish);
+    color: var(--grey-light);
+  }
+
+  .model-input-toggle.is-active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: white;
+  }
+
+  .model-input-toggle:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .model-input-toggle svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .refresh-models {
+    margin-left: 18px;
+    white-space: nowrap;
   }
 
   .banner {
@@ -58,6 +118,11 @@ type Props = SharedEditorProps & {
   editor: CustomEditorDefinition<ChartNode>;
 };
 
+type ModelOption = {
+  value: string;
+  label: string;
+};
+
 const modelCatalogRefreshStatus = new Map<string, RefreshStatus>();
 
 function getMissingCredentialMessage(
@@ -74,12 +139,25 @@ function getMissingCredentialMessage(
   }
 }
 
-export const LLMChatV2ModelCatalogEditor: FC<Props> = ({ node, isReadonly, isDisabled, onRefreshEditors }) => {
+export const LLMChatV2ModelCatalogEditor: FC<Props> = ({
+  node,
+  onChange,
+  isReadonly,
+  isDisabled,
+  editor,
+  onRefreshEditors,
+}) => {
   const settings = useAtomValue(settingsState);
   const plugins = useDependsOnPlugins();
   const statusKey = `${node.id}:${(node.data as { provider?: 'openai' | 'anthropic' | 'google' }).provider ?? 'openai'}`;
   const [status, setStatus] = useState<RefreshStatus>(() => modelCatalogRefreshStatus.get(statusKey));
+  const [menuPortalTarget, setMenuPortalTarget] = useState<HTMLDivElement | null>(null);
+  const data = node.data as Record<string, unknown>;
   const provider = (node.data as { provider?: 'openai' | 'anthropic' | 'google' }).provider ?? 'openai';
+  const modelOptions = ((editor.data as { modelOptions?: ModelOption[] } | undefined)?.modelOptions ?? []) as ModelOption[];
+  const selectedValue = modelOptions.find((option) => option.value === data.model);
+  const isUsingModelInput = Boolean(data.useModelInput);
+  const isControlDisabled = isReadonly || isDisabled;
 
   const updateStatus = (nextStatus: RefreshStatus) => {
     if (nextStatus == null) {
@@ -126,11 +204,59 @@ export const LLMChatV2ModelCatalogEditor: FC<Props> = ({ node, isReadonly, isDis
 
   return (
     <div css={styles}>
-      <div className="actions">
-        <Button appearance="primary" onClick={() => void handleRefresh()} isDisabled={isReadonly || isDisabled}>
-          Re-fetch Model List
-        </Button>
-      </div>
+      <Field name="model" label={editor.label} isDisabled={isControlDisabled}>
+        {({ fieldProps }) => (
+          <div className="model-row">
+            <Select
+              {...fieldProps}
+              options={modelOptions}
+              value={selectedValue}
+              menuPortalTarget={menuPortalTarget}
+              onChange={(selected) =>
+                selected &&
+                onChange({
+                  ...node,
+                  data: {
+                    ...data,
+                    model: selected.value,
+                  },
+                })
+              }
+            />
+            <Tooltip content="Use an input port for Model">
+              <button
+                type="button"
+                className={clsx('model-input-toggle', isUsingModelInput && 'is-active')}
+                aria-label="Use an input port for Model"
+                aria-pressed={isUsingModelInput}
+                disabled={isControlDisabled}
+                onClick={() =>
+                  onChange({
+                    ...node,
+                    data: {
+                      ...data,
+                      useModelInput: !isUsingModelInput,
+                    },
+                  })
+                }
+              >
+                <PlugIcon />
+              </button>
+            </Tooltip>
+            <Button
+              className="refresh-models"
+              appearance="primary"
+              onClick={() => void handleRefresh()}
+              isDisabled={isControlDisabled}
+            >
+              Re-fetch Model List
+            </Button>
+            <Portal>
+              <div ref={setMenuPortalTarget} />
+            </Portal>
+          </div>
+        )}
+      </Field>
       {status ? <div className={`banner ${status.tone}`}>{status.message}</div> : null}
     </div>
   );
