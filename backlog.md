@@ -4,10 +4,6 @@
 
 
 
-- Make it work with OpenAPI compatible LLM providers like Cerebras and OpenRouter
-
-
-- Prompt and Tool nodes: make the node body more neat with nice gaps and colors. Current italic is too poor and subtle.
 
 - In the output (node or full view), when I hover the item in the list-output, let's make the vertical bar left to the item more bright.
 

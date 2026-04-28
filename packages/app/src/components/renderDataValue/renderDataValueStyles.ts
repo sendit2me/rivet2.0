@@ -58,9 +58,15 @@ export const multiOutputStyles = css`
   .multi-output-item {
     position: relative;
     padding-left: calc(10px * var(--ui-font-scale));
+    border-radius: calc(4px * var(--ui-font-scale));
+    transition: background-color 120ms ease;
 
     .pre-wrap {
       margin: 0;
+    }
+
+    &:hover {
+      background-color: var(--grey-light-seethrougher);
     }
 
     &::before {
