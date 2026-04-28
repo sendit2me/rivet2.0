@@ -26,12 +26,19 @@ const HeaderToggleField: FC<HeaderToggleFieldProps> = ({ id, isChecked, onChange
   />
 );
 
-type SplitModeChoice = 'parallel' | 'sequential';
+type SplitModeChoice = 'once' | 'parallel' | 'sequential';
 
 const splitModeOptions: readonly { value: SplitModeChoice; label: string }[] = [
-  { value: 'parallel', label: 'Parallel runs' },
-  { value: 'sequential', label: 'Sequential' },
+  { value: 'once', label: 'Run once' },
+  { value: 'parallel', label: 'Many parallel runs' },
+  { value: 'sequential', label: 'Many sequential runs' },
 ];
+
+const splitModeHints: Record<SplitModeChoice, string> = {
+  once: 'Run the node once. If the input is an array, the whole array is treated as a single input.',
+  parallel: 'Run the node for each item in the array input. Runs are parallel.',
+  sequential: 'Run the node for each item in the array input. Runs are sequential.',
+};
 
 function normalizePositiveInteger(value: number, min: number): number {
   return Math.max(min, Math.trunc(Number.isFinite(value) ? value : min));
@@ -47,10 +54,18 @@ const SplitModeChoiceControl: FC<{
     isReadonly={false}
     isDisabled={false}
     label=""
-    ariaLabel="Split mode"
+    ariaLabel="Run mode"
     options={splitModeOptions}
   />
 );
+
+function getSplitMode(node: ChartNode): SplitModeChoice {
+  if (!node.isSplitRun) {
+    return 'once';
+  }
+
+  return node.isSplitSequential ? 'sequential' : 'parallel';
+}
 
 export const NodeEditorGlobalControls: FC<{
   node: ChartNode;
@@ -91,8 +106,8 @@ export const NodeEditorGlobalControls: FC<{
   const showVariantsLink = !hasSavedVariants;
   const nodeEnabledToggleId = `node-enabled-${node.id}`;
   const conditionalToggleId = `node-conditional-${node.id}`;
-  const splitToggleId = `node-split-${node.id}`;
-  const splitMode: SplitModeChoice = node.isSplitSequential ? 'sequential' : 'parallel';
+  const splitMode = getSplitMode(node);
+  const showSplitRunFields = splitMode !== 'once';
 
   return (
     <div className="section section-global-controls">
@@ -125,30 +140,20 @@ export const NodeEditorGlobalControls: FC<{
       />
       <div className="node-options-row">
         <section className="split-controls">
-          <div className="split-toggle-row">
-            <HeaderToggleField
-              id={splitToggleId}
-              isChecked={node.isSplitRun ?? false}
-              onChange={(isSplitRun) => onUpdateNode({ ...node, isSplitRun })}
-            >
-              <span className="split-toggle-copy">
-                <span className="split-toggle-label">Run per item</span>
-                <span className="split-toggle-description">Run the node for each item in the array input</span>
-              </span>
-            </HeaderToggleField>
-          </div>
+          <SplitModeChoiceControl
+            value={splitMode}
+            onChange={(nextSplitMode) =>
+              onUpdateNode({
+                ...node,
+                isSplitRun: nextSplitMode !== 'once',
+                isSplitSequential: nextSplitMode === 'sequential',
+              })
+            }
+          />
+          <span className="split-mode-hint">{splitModeHints[splitMode]}</span>
 
-          {node.isSplitRun && (
+          {showSplitRunFields && (
             <div className="split-max">
-              <SplitModeChoiceControl
-                value={splitMode}
-                onChange={(nextSplitMode) =>
-                  onUpdateNode({
-                    ...node,
-                    isSplitSequential: nextSplitMode === 'sequential',
-                  })
-                }
-              />
               <label className="split-max-label">Max runs:</label>
               <TextField
                 className="split-max-input"
@@ -167,7 +172,7 @@ export const NodeEditorGlobalControls: FC<{
                   });
                 }}
               />
-              {!node.isSplitSequential && (
+              {splitMode === 'parallel' && (
                 <>
                   <label className="split-max-label">Max concurrent runs:</label>
                   <TextField

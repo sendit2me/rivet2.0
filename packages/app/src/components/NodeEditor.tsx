@@ -364,44 +364,17 @@ const Container = styled.div`
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 0;
+    gap: 8px;
     min-width: 0;
     min-height: 40px;
     justify-content: flex-start;
   }
 
-  .split-toggle-row {
-    display: flex;
-    align-items: flex-start;
-    min-height: 40px;
-    margin-bottom: 5px;
-  }
-
-  .split-toggle-row .toggle-field {
-    align-items: flex-start;
-  }
-
-  .split-toggle-row .toggle-field label:first-child {
-    margin-top: -2px;
-  }
-
-  .split-toggle-copy {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    white-space: normal;
-  }
-
-  .split-toggle-label {
-    color: var(--grey-light);
-    font-weight: 600;
-    line-height: 1.2;
-  }
-
-  .split-toggle-description {
+  .split-mode-hint {
     color: var(--grey-lightish);
     font-size: var(--ui-font-size-sm);
     line-height: 1.25;
+    max-width: 560px;
   }
 
   .split-max {
