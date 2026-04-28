@@ -5,6 +5,7 @@
 
 
 
+- When a graph has a "Delegate Tool Call" node, any other graph when opened, shows this graph as "References" teh open graph. Thi sis wrong
 
 
 - How does "Strict" setting work in the Tool node
