@@ -2,6 +2,9 @@
 
 - Human readable Loop node
 
+- Remove the "line" when hivering the left and right node edges
+
+
 - Compare the current Rivet 2.0 to the rivet in Rivet Server and make sure the new rivet will work there
 
 - Get back to MCP and see if it works and how it works. I don't see an MCP node. I think we need it
@@ -12,6 +15,7 @@
 
 
 
+- Test structured outputs with LLM chat
 
 - Make it easier and faster to create input and output nodes for the graph
 

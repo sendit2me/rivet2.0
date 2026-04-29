@@ -125,7 +125,37 @@ describe('executionSelectors', () => {
         graphPaused: false,
         graphRunning: false,
         isActuallyRemoteDebugging: true,
+        showRunButton: true,
         showRemoteDebuggerBanner: true,
+      },
+    );
+  });
+
+  test('action bar keeps node executor run controls visible while internal sidecar reconnects', () => {
+    const session = {
+      status: 'reconnecting',
+      started: true,
+      reconnecting: true,
+      socket: null,
+      url: 'ws://127.0.0.1:21889/internal',
+      remoteUploadAllowed: true,
+      isInternalExecutor: true,
+    } as const;
+
+    assert.deepEqual(
+      getActionBarExecutionState({
+        graphPaused: false,
+        graphRunning: false,
+        selectedExecutor: 'nodejs',
+        session,
+      }),
+      {
+        canRun: false,
+        graphPaused: false,
+        graphRunning: false,
+        isActuallyRemoteDebugging: false,
+        showRunButton: true,
+        showRemoteDebuggerBanner: false,
       },
     );
   });

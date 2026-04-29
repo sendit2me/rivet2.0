@@ -9,6 +9,7 @@ import {
 } from '@ironclad/rivet-node';
 import * as Rivet from '@ironclad/rivet-core';
 import {
+  getError,
   logRuntimeDebug,
   logRuntimeError,
   logRuntimeInfo,
@@ -102,12 +103,52 @@ function parsePortFromArgs(argv: string[]) {
 }
 
 const port = parsePortFromArgs(process.argv.slice(2));
+const host = '127.0.0.1';
+const executorReadyMessage = `Rivet app executor websocket listening on ${host}:${port}`;
+let executorWebSocketReady = false;
+let exitingAfterStartupError = false;
+
+process.on('unhandledRejection', (reason) => {
+  handleTopLevelSidecarError('Unhandled promise rejection in app executor sidecar.', reason);
+});
+
+process.on('uncaughtException', (error) => {
+  handleTopLevelSidecarError('Uncaught exception in app executor sidecar.', error);
+});
+
+function handleTopLevelSidecarError(message: string, error: unknown) {
+  logRuntimeError(message, error);
+
+  if (!executorWebSocketReady && !exitingAfterStartupError) {
+    exitingAfterStartupError = true;
+    process.exitCode = 1;
+    setImmediate(() => process.exit(1));
+  }
+}
+
+function sendGraphRunError(client: { send(data: string): void }, requestId: Rivet.RemoteRunRequestId, error: unknown) {
+  try {
+    client.send(
+      JSON.stringify({
+        message: 'error',
+        data: {
+          error: getError(error).toString(),
+        },
+        requestId,
+      }),
+    );
+  } catch (sendError) {
+    logRuntimeError('Failed to report graph run error to executor client.', sendError, { requestId });
+  }
+}
 
 const rivetDebugger = startDebuggerServer({
   port,
+  host,
   allowGraphUpload: true,
   datasetProvider,
   dynamicGraphRun: async ({
+    client,
     requestId,
     graphId,
     inputs,
@@ -134,56 +175,58 @@ const rivetDebugger = startDebuggerServer({
 
     if (project === undefined) {
       logRuntimeWarn(`Cannot run graph ${graphId} because no project is uploaded.`);
+      sendGraphRunError(client, requestId, new Error(`Cannot run graph ${graphId} because no project is uploaded.`));
       return;
     }
 
-    const { registry, results } = await assembleRegistry(project.plugins ?? [], async (spec: PluginLoadSpec) => {
-      return match(spec)
-        .with({ type: 'built-in' }, async (s) => resolveBuiltInPlugin(s.id))
-        .with({ type: 'uri' }, async (s) => {
-          const mod = await importPluginInitializer(s.uri, s.id);
-          const initialized = mod(Rivet);
-          if (!initialized?.id) {
-            throw new Error(`Plugin ${s.id} does not have an id`);
-          }
-          return initialized;
-        })
-        .with({ type: 'package' }, async (s) => {
-          const localDataDir = getAppDataLocalPath();
-          const pluginDir = join(localDataDir, `plugins/${s.package}-${s.tag}/package`);
-          const packageJsonPath = join(pluginDir, 'package.json');
-
-          try {
-            await access(packageJsonPath);
-          } catch (err) {
-            throw new Error(`Plugin ${s.id} is not installed, could not access ${packageJsonPath}`);
-          }
-
-          const packageJson = JSON.parse(await readFile(packageJsonPath, 'utf-8'));
-          if (packageJson.name !== s.package) {
-            throw new Error(`Plugin ${s.id} is not installed, found ${packageJson.name} instead of ${s.package}`);
-          }
-
-          const mainPath = join(pluginDir, packageJson.main);
-          const mod = await importPluginInitializer(pathToFileURL(mainPath).href, s.id);
-          const initialized = mod(Rivet);
-          if (!initialized?.id) {
-            throw new Error(`Plugin ${s.id} does not have an id`);
-          }
-          return initialized;
-        })
-        .exhaustive();
-    });
-
-    for (const plugin of results.loaded) {
-      logRuntimeInfo(`Enabled plugin ${plugin.id}.`);
-    }
-    for (const fail of results.failed) {
-      logRuntimeError(`Failed to enable plugin ${fail.id}.`, fail.error);
-    }
+    let processorForConsole: ReturnType<typeof createProcessor>['processor'] | undefined;
 
     try {
-      let processorForConsole: ReturnType<typeof createProcessor>['processor'] | undefined;
+      const { registry, results } = await assembleRegistry(project.plugins ?? [], async (spec: PluginLoadSpec) => {
+        return match(spec)
+          .with({ type: 'built-in' }, async (s) => resolveBuiltInPlugin(s.id))
+          .with({ type: 'uri' }, async (s) => {
+            const mod = await importPluginInitializer(s.uri, s.id);
+            const initialized = mod(Rivet);
+            if (!initialized?.id) {
+              throw new Error(`Plugin ${s.id} does not have an id`);
+            }
+            return initialized;
+          })
+          .with({ type: 'package' }, async (s) => {
+            const localDataDir = getAppDataLocalPath();
+            const pluginDir = join(localDataDir, `plugins/${s.package}-${s.tag}/package`);
+            const packageJsonPath = join(pluginDir, 'package.json');
+
+            try {
+              await access(packageJsonPath);
+            } catch (err) {
+              throw new Error(`Plugin ${s.id} is not installed, could not access ${packageJsonPath}`);
+            }
+
+            const packageJson = JSON.parse(await readFile(packageJsonPath, 'utf-8'));
+            if (packageJson.name !== s.package) {
+              throw new Error(`Plugin ${s.id} is not installed, found ${packageJson.name} instead of ${s.package}`);
+            }
+
+            const mainPath = join(pluginDir, packageJson.main);
+            const mod = await importPluginInitializer(pathToFileURL(mainPath).href, s.id);
+            const initialized = mod(Rivet);
+            if (!initialized?.id) {
+              throw new Error(`Plugin ${s.id} does not have an id`);
+            }
+            return initialized;
+          })
+          .exhaustive();
+      });
+
+      for (const plugin of results.loaded) {
+        logRuntimeInfo(`Enabled plugin ${plugin.id}.`);
+      }
+      for (const fail of results.failed) {
+        logRuntimeError(`Failed to enable plugin ${fail.id}.`, fail.error);
+      }
+
       const codeRunner = new AppExecutorWorkerCodeRunner((message) => {
         if (processorForConsole) {
           rivetDebugger.broadcast(processorForConsole, 'codeConsole', message, requestId);
@@ -220,7 +263,11 @@ const rivetDebugger = startDebuggerServer({
       await processor.run();
     } catch (err) {
       logRuntimeError(`Graph ${graphId} failed.`, err, { requestId });
-      throw err;
+      sendGraphRunError(client, requestId, err);
+    } finally {
+      if (processorForConsole) {
+        rivetDebugger.detach(processorForConsole);
+      }
     }
   },
 });
@@ -229,4 +276,15 @@ process.on('SIGTERM', () => {
   rivetDebugger.webSocketServer.close();
 });
 
-logRuntimeInfo(`Node.js executor started on port ${port}.`);
+function announceExecutorReady() {
+  executorWebSocketReady = true;
+  logRuntimeInfo(executorReadyMessage);
+}
+
+if (rivetDebugger.webSocketServer.address()) {
+  announceExecutorReady();
+} else {
+  rivetDebugger.webSocketServer.once('listening', () => {
+    announceExecutorReady();
+  });
+}

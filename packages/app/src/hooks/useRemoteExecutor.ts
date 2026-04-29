@@ -9,7 +9,7 @@ import {
 } from '@ironclad/rivet-core';
 import { useCurrentExecution } from './useCurrentExecution';
 import { graphState } from '../state/graph';
-import { defaultExecutorState, settingsState } from '../state/settings';
+import { settingsState } from '../state/settings';
 import { useExecutorSessionRuntime } from '../providers/ExecutorSessionContext.js';
 import { useRemoteDebugger } from './useRemoteDebugger';
 import { fillMissingSettingsFromEnvironmentVariables } from '../utils/tauri';
@@ -23,7 +23,6 @@ import { userInputModalQuestionsState } from '../state/userInput';
 import { lastRunDataByNodeState } from '../state/dataFlow';
 import { useAtomValue, useSetAtom, useAtom } from 'jotai';
 import { setUserInputSubmitHandler } from '../state/actions/userInputActions';
-import { INTERNAL_EXECUTOR_URL } from './executorSession';
 import { useEffect, useRef } from 'react';
 import { useProjectNodeRegistry } from './useProjectNodeRegistry';
 import {
@@ -50,7 +49,6 @@ export function useRemoteExecutor() {
   const savedSettings = useAtomValue(settingsState);
   const [{ testSuites }, setTrivetState] = useAtom(trivetState);
   const setUserInputQuestions = useSetAtom(userInputModalQuestionsState);
-  const selectedExecutor = useAtomValue(defaultExecutorState);
   const lastRunData = useAtomValue(lastRunDataByNodeState);
   const loadedProject = useAtomValue(loadedProjectState);
 
@@ -58,11 +56,6 @@ export function useRemoteExecutor() {
     onDisconnect: () => {
       activeGraphRequestIdRef.current = null;
       currentExecution.onStop();
-
-      // If we're using the node executor, disconnecting means reconnecting to the internal executor
-      if (selectedExecutor === 'nodejs') {
-        remoteDebugger.connect(INTERNAL_EXECUTOR_URL);
-      }
     },
   });
 
@@ -186,6 +179,9 @@ export function useRemoteExecutor() {
 
   const tryRunGraph = async (options: { to?: NodeId[]; from?: NodeId; graphId?: GraphId } = {}) => {
     if (!executorSession.isReady()) {
+      logRuntimeDebug('Remote graph run skipped because executor session is not ready.', {
+        status: executorSession.getRuntimeState().status,
+      });
       return;
     }
 

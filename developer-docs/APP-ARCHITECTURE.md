@@ -801,7 +801,7 @@ Important distinction:
 
 - `defaultExecutorState` picks browser vs node sidecar by default
 - `debuggerDefaultUrlState` is the persisted external debugger URL default
-- the internal executor connection still uses `ws://localhost:21889/internal`
+- the internal executor connection uses `ws://127.0.0.1:21889/internal`
 - graph execution settings are normalized separately by [`packages/core/src/api/processSettings.ts`](../packages/core/src/api/processSettings.ts); that resolver owns runtime defaults for app/node/trivet execution and should not become the owner for editor-only UI behavior, even though the legacy `Settings` object still carries a few editor-facing fields for compatibility
 - newer pure-UI preferences that do not need plugin/core settings access, such as app UI font size, live in [`packages/app/src/state/ui.ts`](../packages/app/src/state/ui.ts) instead of the legacy `Settings` object
 
@@ -1044,7 +1044,6 @@ rather than keeping separate local-only preload derivation logic.
 
 Current responsibilities:
 
-- reconnect to the internal executor when appropriate
 - bridge remote debugger events into `useCurrentExecution`
 - upload dynamic project/settings/static data when remote upload is enabled
 - send preload data for run-from execution
@@ -1056,6 +1055,7 @@ Current architectural detail:
 - `useRemoteExecutor` no longer owns the websocket/session lifecycle directly
 - it consumes a shared executor session that owns connection state and pending remote run coordination
 - this keeps run/test behavior separate from transport/session behavior
+- it does not reconnect the internal sidecar directly on disconnect; `executorSession` owns reconnect timing so callers do not race ahead of Tauri sidecar startup
 - remote graph/test runs now carry request IDs through the debugger protocol so multiple pending remote runs can resolve independently
 - read-only UI consumers should use shared session/debugger state directly rather than mounting `useRemoteExecutor`, because that hook still owns remote event subscriptions and execution side effects
 - plain run/test orchestration helpers now live in [`packages/app/src/hooks/remoteExecutorHelpers.ts`](../packages/app/src/hooks/remoteExecutorHelpers.ts)
@@ -1068,7 +1068,13 @@ Current architectural detail:
 - desktop Node-executor correctness depends on the bundled `app-executor` sidecar staying in lockstep with current app/core source, so the Tauri app now rebuilds `@ironclad/rivet-app-executor` before both `tauri dev` and desktop builds instead of assuming a previously built sidecar is still compatible. If execution semantics in core change while a dev app is already running, restart the Tauri app so the active sidecar process is replaced; a browser refresh alone does not reload an already-running sidecar.
 - desktop Node-executor Code nodes use the sidecar-only `AppExecutorWorkerCodeRunner`: most dynamic JavaScript runs in a fresh Node worker thread so one long synchronous Code node does not block the sidecar event loop from finishing unrelated nodes and streaming their `nodeFinish` events back to the app.
 - that worker-backed runner is intentionally not the public `@ironclad/rivet-node` default. Programmatic Node callers still use `NodeCodeRunner` unless they explicitly pass a custom runner. Code nodes that enable the `Rivet` capability fall back to the current-thread sidecar runner for compatibility with packaged sidecar resolution.
+- Node executor mode is desktop-only because it depends on Tauri's sidecar launcher. [`packages/app/src/hooks/useExecutorSession.ts`](../packages/app/src/hooks/useExecutorSession.ts) starts the app-executor sidecar and waits for the sidecar runtime to report that its websocket server is listening before connecting to `ws://127.0.0.1:21889/internal`. The app-executor sidecar binds that internal server to `127.0.0.1` as well, avoiding localhost IPv4/IPv6 resolution mismatches. If a stale persisted `nodejs` executor setting is loaded in the plain web app, the app resets it to Browser mode instead of repeatedly attempting a sidecar connection that cannot exist outside Tauri.
 - when a Code node enables `console`, the app-executor runner injects a bridged `console` object instead of the worker or sidecar process console. `console.debug/info/log/warn/error` calls are serialized into `codeConsole` executor messages and replayed in the renderer console for the active editor run. This keeps Browser and Node executor observability aligned without changing programmatic `@ironclad/rivet-node` console behavior.
+- sidecar graph-run failures are request-scoped protocol results, not sidecar lifecycle failures. [`packages/app-executor/bin/executor.mts`](../packages/app-executor/bin/executor.mts) catches dynamic run failures, reports an `error` message with the active request id, detaches the processor from the debugger server, and keeps the websocket session alive so the ActionBar can return to its normal Run state after node/provider failures.
+- the ActionBar separates Run-button visibility from executor readiness. Node executor mode keeps the Run controls visible while the internal sidecar is connecting or reconnecting, but disables the buttons until the shared executor session is ready; handled provider/node failures must not hide the Run button.
+- the app logs sidecar/session lifecycle transitions at the executor boundary through `logRuntimeDebug`, enabled with `localStorage.setItem('rivet.debugRuntimeLogs', 'true')`. These logs cover sidecar start/readiness/stop, websocket status changes, close/reconnect scheduling, and skipped Node-mode runs when the session is not ready. They deliberately avoid graph input values and API keys while giving enough phase information to diagnose whether the breakage is process startup, websocket lifecycle, or request handling.
+- sidecar stdout/stderr is treated as sidecar telemetry, not as a renderer error boundary. The packaged executor can write Node warnings and provider failure logs to stderr during otherwise correctly handled graph failures; [`packages/app/src/hooks/executorSidecarRuntime.ts`](../packages/app/src/hooks/executorSidecarRuntime.ts) records byte-count debug telemetry only and relies on the websocket protocol events above to drive UI state. The app-executor process also installs top-level `unhandledRejection` and `uncaughtException` handlers so late provider/stream failures after websocket startup are recorded instead of terminating the sidecar after the graph failure has already been sent as a request-scoped executor error. Startup-phase top-level failures still terminate the sidecar so broken startup does not masquerade as a healthy executor.
+- sidecar startup readiness is intentionally stronger than process spawn. [`packages/app/src/hooks/executorSidecarRuntime.ts`](../packages/app/src/hooks/executorSidecarRuntime.ts) waits for the app-executor's `Rivet app executor websocket listening` stdout marker before reporting the sidecar as started, so the renderer does not connect while the spawned process is still binding the internal websocket.
 - worker isolation does not introduce a new timeout or cancellation contract. Graph cancellation remains the processor-level behavior; the sidecar worker runner only prevents safe Code execution from monopolizing the executor's main event loop.
 
 ### Shared executor session
@@ -1106,7 +1112,7 @@ Current ownership detail:
 
 There are two related but different concepts:
 
-- internal sidecar executor: `ws://localhost:21889/internal`
+- internal sidecar executor: `ws://127.0.0.1:21889/internal`
 - configurable remote debugger endpoint: default persisted as `ws://localhost:21888`
 
 Conflating those will produce wrong behavior and wrong docs.

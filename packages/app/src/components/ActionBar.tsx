@@ -72,6 +72,13 @@ const styles = css`
     &:hover {
       background-color: var(--success-dark);
     }
+
+    &:disabled {
+      background-color: var(--grey-darkish);
+      color: var(--grey-light);
+      cursor: wait;
+      opacity: 0.8;
+    }
   }
 
   .run-gentrace-button button,
@@ -228,8 +235,11 @@ export const ActionBar: FC<ActionBarProps> = ({ onRunGraph, onAbortGraph, onPaus
         </div>
       )}
       <div className={clsx('run-button', { running: graphRunning, recording: !!loadedRecording })}>
-        {actionBarExecutionState.canRun && (
-          <button onClick={() => (graphRunning ? onAbortGraph?.() : onRunGraph?.({ graphId: graphMetadata?.id }))}>
+        {actionBarExecutionState.showRunButton && (
+          <button
+            disabled={!actionBarExecutionState.canRun && !graphRunning}
+            onClick={() => (graphRunning ? onAbortGraph?.() : onRunGraph?.({ graphId: graphMetadata?.id }))}
+          >
             {graphRunning ? (
               <>
                 Abort <MultiplyIcon />
@@ -248,8 +258,9 @@ export const ActionBar: FC<ActionBarProps> = ({ onRunGraph, onAbortGraph, onPaus
       </div>
       {hasMainGraph && !isMainGraph && !graphRunning && (
         <div className={clsx('run-button', { running: graphRunning })}>
-          {actionBarExecutionState.canRun && (
+          {actionBarExecutionState.showRunButton && (
             <button
+              disabled={!actionBarExecutionState.canRun}
               onClick={() => (graphRunning ? onAbortGraph?.() : onRunGraph?.({ graphId: projectMetadata.mainGraphId }))}
             >
               {graphRunning ? (

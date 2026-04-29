@@ -126,7 +126,7 @@ Used by the desktop app when `defaultExecutorState` is `browser`.
 Used by the desktop app when `defaultExecutorState` is `nodejs`.
 
 - the app starts or connects to `app-executor`
-- communication happens over `ws://localhost:21889/internal`
+- communication happens over `ws://127.0.0.1:21889/internal`
 - execution runs via the debugger/server protocol
 - supports Node-specific APIs and plugin installation scenarios
 - connection ownership is centralized in the app's shared `executorSession` layer rather than in `useRemoteExecutor` itself

@@ -10,12 +10,13 @@ import type {
   GraphOutputs,
   RemoteRunRequestId,
 } from '@ironclad/rivet-core';
+import { logRuntimeDebug } from '@ironclad/rivet-core';
 import type { AppDatasetProvider } from '../providers/ProvidersContext.js';
 import type { RemoteDebuggerConfig, RemoteDebuggerConnectionState } from '../state/execution.js';
 import { handleError } from '../utils/errorHandling.js';
 
 export const DEFAULT_REMOTE_DEBUGGER_URL = 'ws://localhost:21888';
-export const INTERNAL_EXECUTOR_URL = 'ws://localhost:21889/internal';
+export const INTERNAL_EXECUTOR_URL = 'ws://127.0.0.1:21889/internal';
 
 export type ExecutorSessionStatus = 'idle' | 'connecting' | 'ready' | 'reconnecting';
 
@@ -103,6 +104,15 @@ export function createExecutorSessionRuntime(options: {
   }
 
   function setConnectionStatus(status: ExecutorSessionStatus) {
+    if (status !== currentStatus) {
+      logRuntimeDebug('Executor session status changed.', {
+        from: currentStatus,
+        to: status,
+        target: currentUrl === INTERNAL_EXECUTOR_URL ? 'internal-sidecar' : currentUrl ? 'external-debugger' : 'none',
+        socketReadyState: currentSocket?.readyState ?? null,
+      });
+    }
+
     currentStatus = status;
     options.setConnectionState(legacyConnectionStateFor(status));
   }
@@ -155,6 +165,10 @@ export function createExecutorSessionRuntime(options: {
         sameUrl &&
         (currentSocket.readyState === WebSocket.OPEN || currentSocket.readyState === WebSocket.CONNECTING)
       ) {
+        logRuntimeDebug('Executor session reused existing websocket.', {
+          target: normalizedUrl === INTERNAL_EXECUTOR_URL ? 'internal-sidecar' : 'external-debugger',
+          socketReadyState: currentSocket.readyState,
+        });
         setDebuggerConfig((prev) => ({
           ...prev,
           url: normalizedUrl,
@@ -166,9 +180,17 @@ export function createExecutorSessionRuntime(options: {
 
       if (currentSocket.readyState !== WebSocket.CLOSED) {
         currentSocketGeneration += 1;
+        logRuntimeDebug('Executor session closing previous websocket before reconnect.', {
+          target: normalizedUrl === INTERNAL_EXECUTOR_URL ? 'internal-sidecar' : 'external-debugger',
+          previousSocketReadyState: currentSocket.readyState,
+        });
         currentSocket.close();
       }
     }
+
+    logRuntimeDebug('Executor session opening websocket.', {
+      target: normalizedUrl === INTERNAL_EXECUTOR_URL ? 'internal-sidecar' : 'external-debugger',
+    });
 
     const socket = new WebSocket(normalizedUrl);
     const socketGeneration = ++currentSocketGeneration;
@@ -188,6 +210,9 @@ export function createExecutorSessionRuntime(options: {
       }
 
       retryDelay = 0;
+      logRuntimeDebug('Executor websocket opened.', {
+        target: socket.url === INTERNAL_EXECUTOR_URL ? 'internal-sidecar' : 'external-debugger',
+      });
       setConnectionStatus('ready');
       notifyConnect();
     };
@@ -199,6 +224,10 @@ export function createExecutorSessionRuntime(options: {
 
       currentSocket = null;
       setDebuggerConfig((prev) => ({ ...prev, remoteUploadAllowed: false }));
+      logRuntimeDebug('Executor websocket closed.', {
+        target: socket.url === INTERNAL_EXECUTOR_URL ? 'internal-sidecar' : 'external-debugger',
+        manuallyDisconnecting,
+      });
 
       if (manuallyDisconnecting) {
         manuallyDisconnecting = false;
@@ -214,6 +243,10 @@ export function createExecutorSessionRuntime(options: {
 
       const nextRetryDelay = Math.min(2000, (retryDelay + 100) * 1.5);
       retryDelay = nextRetryDelay;
+      logRuntimeDebug('Executor websocket reconnect scheduled.', {
+        target: currentUrl === INTERNAL_EXECUTOR_URL ? 'internal-sidecar' : 'external-debugger',
+        retryDelayMs: nextRetryDelay,
+      });
 
       reconnectingTimeout = setTimeout(() => {
         void connect(currentUrl);
@@ -280,6 +313,10 @@ export function createExecutorSessionRuntime(options: {
 
   function disconnect() {
     const hadActiveSession = currentSocket != null || currentStatus !== 'idle';
+    logRuntimeDebug('Executor session disconnect requested.', {
+      hadActiveSession,
+      target: currentUrl === INTERNAL_EXECUTOR_URL ? 'internal-sidecar' : currentUrl ? 'external-debugger' : 'none',
+    });
     setConnectionStatus('idle');
     manuallyDisconnecting = true;
     retryDelay = 0;

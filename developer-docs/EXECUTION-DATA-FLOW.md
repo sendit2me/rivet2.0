@@ -535,6 +535,44 @@ message**. The browser delivers each message as its own macrotask:
 
 Each event gets its own render cycle automatically. No special handling is needed.
 
+Node executor mode is available only in the desktop/Tauri app because it relies
+on Tauri's sidecar launcher. When Node mode is selected, the renderer starts the
+app-executor sidecar and waits until the sidecar reports that its websocket
+server is listening before opening the internal websocket at
+`ws://127.0.0.1:21889/internal`. The sidecar binds that internal debugger server
+to `127.0.0.1`, matching the renderer URL and avoiding localhost IPv4/IPv6
+resolution mismatches. If the plain web app loads a stale persisted Node
+executor preference, it resets to Browser mode instead of attempting an internal
+sidecar connection that cannot be created in a normal browser.
+
+The app-executor sidecar treats graph failures as request-scoped execution
+events rather than process/session failures. If a dynamic run throws because a
+node fails, provider setup fails, or plugin assembly fails, the sidecar sends an
+`error` protocol message with the active request id, detaches that processor
+from the debugger server, and keeps the websocket connection alive. The app can
+then clear `graphRunningState` through the normal remote event dispatcher
+without forcing the user to reconnect the Node executor.
+The ActionBar intentionally keeps Node-mode Run controls rendered while the
+internal sidecar is connecting or reconnecting; readiness only disables the
+button, it must not collapse the control and make a handled node failure look
+like the executor UI disappeared.
+The app logs the internal Node executor lifecycle at the sidecar/session seam.
+Sidecar spawn, readiness marker vs timeout fallback, socket close/reconnect
+scheduling, disconnect requests, and skipped run attempts are runtime debug logs
+gated by `rivet.debugRuntimeLogs`. These logs intentionally describe the phase
+and internal/external target, not full graph input values or secrets.
+
+The renderer does not treat app-executor stderr as an execution-state signal.
+The sidecar can write expected Node warnings or logged provider failures to
+stderr while still delivering the request-scoped websocket `error` event. The
+renderer records stdout/stderr byte counts as debug telemetry only; run state is
+driven by `start`, `done`, `abort`, and `error` protocol messages.
+The app-executor also logs top-level unhandled promise rejections and uncaught
+exceptions. Startup-phase top-level failures still terminate the sidecar, while
+late provider/stream failures after websocket startup are recorded without
+terminating the sidecar after a graph failure has already been reported through
+the normal request-scoped protocol.
+
 The desktop app's internal Node sidecar also uses an app-executor-only
 worker-backed `CodeRunner` for most Code-node JavaScript. That keeps the sidecar
 event loop free to process independent nodes and emit their `nodeFinish` events
