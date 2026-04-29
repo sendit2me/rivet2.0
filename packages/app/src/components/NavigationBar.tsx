@@ -32,6 +32,7 @@ import { graphState } from '../state/graph';
 import { createRootGraphViewContext } from '../domain/graphEditing/navigationActions';
 import { graphSearchPanelHeightState, leftSidebarLiveWidthState } from '../state/ui';
 import { getLeftSidebarAttachedControlOffset } from '../utils/leftSidebarWidth';
+import { resizeCursorStyles } from '../utils/resizeCursors';
 
 const GRAPH_SEARCH_FOCUS_ZOOM = 0.8;
 const MIN_GRAPH_SEARCH_PANEL_HEIGHT = 180;
@@ -163,11 +164,28 @@ const styles = css`
 
     .search-resize-handle {
       bottom: 0;
-      cursor: ns-resize;
+      cursor: var(--resize-edge-vertical-cursor);
       height: 8px;
       left: 0;
       position: absolute;
       width: 100%;
+    }
+
+    .search-resize-handle::after {
+      background: var(--primary);
+      bottom: 2px;
+      content: '';
+      height: 2px;
+      left: 12px;
+      opacity: 0;
+      pointer-events: none;
+      position: absolute;
+      right: 12px;
+      transition: opacity 120ms ease;
+    }
+
+    .search-resize-handle:hover::after {
+      opacity: 0.65;
     }
 
     .search-result-group + .search-result-group {
@@ -415,10 +433,14 @@ export const NavigationBar: FC = () => {
     const panelRect = panel?.getBoundingClientRect();
     const startY = e.clientY;
     const startHeight = panelRect?.height ?? graphSearchPanelHeight;
+    const previousCursor = document.body.style.cursor;
+    const previousUserSelect = document.body.style.userSelect;
     const maxHeight = Math.max(
       MIN_GRAPH_SEARCH_PANEL_HEIGHT,
       window.innerHeight - (panelRect?.top ?? 0) - GRAPH_SEARCH_PANEL_BOTTOM_MARGIN,
     );
+    document.body.style.cursor = resizeCursorStyles.vertical;
+    document.body.style.userSelect = 'none';
 
     const resize = (event: PointerEvent) => {
       const nextHeight = Math.min(maxHeight, Math.max(MIN_GRAPH_SEARCH_PANEL_HEIGHT, startHeight + event.clientY - startY));
@@ -428,10 +450,14 @@ export const NavigationBar: FC = () => {
     const stopResize = () => {
       window.removeEventListener('pointermove', resize);
       window.removeEventListener('pointerup', stopResize);
+      window.removeEventListener('pointercancel', stopResize);
+      document.body.style.cursor = previousCursor;
+      document.body.style.userSelect = previousUserSelect;
     };
 
     window.addEventListener('pointermove', resize);
     window.addEventListener('pointerup', stopResize, { once: true });
+    window.addEventListener('pointercancel', stopResize, { once: true });
   }
 
   function selectGraphSearchMatch(match: GraphSearchNodeMatch, selectedIndex: number) {

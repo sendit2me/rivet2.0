@@ -17,6 +17,7 @@ import { NodeEditorGlobalControls } from './nodeEditor/NodeEditorGlobalControls.
 import { NodeEditorResizeContext } from './nodeEditor/NodeEditorResizeContext.js';
 import { ResizeHandle } from './ResizeHandle.js';
 import { useNodeEditorWidth } from './nodeEditor/useNodeEditorWidth.js';
+import { resizeCursorStyles } from '../utils/resizeCursors.js';
 
 export const NodeEditorRenderer: FC = () => {
   const nodesById = useAtomValue(nodesByIdState);
@@ -56,10 +57,28 @@ const Container = styled.div`
     bottom: 0;
     width: 14px;
     transform: translateX(-50%);
-    cursor: col-resize;
+    cursor: var(--resize-edge-horizontal-cursor);
     z-index: 2;
     touch-action: none;
     background: transparent;
+  }
+
+  .node-editor-width-resize-handle::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 6px;
+    width: 2px;
+    background: var(--primary);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 120ms ease;
+  }
+
+  .node-editor-width-resize-handle:hover::after,
+  .node-editor-width-resize-handle.is-resizing::after {
+    opacity: 0.65;
   }
 
   &[data-is-resizing='true'] .panel-container {
@@ -563,7 +582,11 @@ export const NodeEditor: FC<NodeEditorProps> = ({ selectedNode, onDeselect }) =>
   return (
     <NodeEditorResizeContext.Provider value={isResizing}>
       <Container ref={containerRef} style={containerStyle} data-is-resizing={isResizing}>
-        <ResizeHandle className="node-editor-width-resize-handle" {...resizeHandleProps} />
+        <ResizeHandle
+          className="node-editor-width-resize-handle"
+          dragCursor={resizeCursorStyles.horizontal}
+          {...resizeHandleProps}
+        />
         <div className="panel-container">
           <div className="panel">
             {showGlobalControls && (

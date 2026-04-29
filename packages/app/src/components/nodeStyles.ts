@@ -870,6 +870,20 @@ export const nodeStyles = css`
     touch-action: none;
   }
 
+  .resize-handle::after {
+    content: '';
+    position: absolute;
+    background: var(--primary);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 120ms ease;
+  }
+
+  .resize-handle:hover::after,
+  .resize-handle.is-resizing::after {
+    opacity: 0.65;
+  }
+
   .resize-handle-left,
   .resize-handle-right {
     top: 0;
@@ -879,12 +893,26 @@ export const nodeStyles = css`
 
   .resize-handle-left {
     left: -8px;
-    cursor: ew-resize;
+    cursor: var(--resize-edge-horizontal-cursor);
+  }
+
+  .resize-handle-left::after {
+    top: 0;
+    right: 3px;
+    bottom: 0;
+    width: 2px;
   }
 
   .resize-handle-right {
     right: -8px;
-    cursor: ew-resize;
+    cursor: var(--resize-edge-horizontal-cursor);
+  }
+
+  .resize-handle-right::after {
+    top: 0;
+    bottom: 0;
+    left: 3px;
+    width: 2px;
   }
 
   .resize-handle-top,
@@ -896,12 +924,26 @@ export const nodeStyles = css`
 
   .resize-handle-top {
     top: -8px;
-    cursor: ns-resize;
+    cursor: var(--resize-edge-vertical-cursor);
+  }
+
+  .resize-handle-top::after {
+    right: 0;
+    bottom: 3px;
+    left: 0;
+    height: 2px;
   }
 
   .resize-handle-bottom {
     bottom: -8px;
-    cursor: ns-resize;
+    cursor: var(--resize-edge-vertical-cursor);
+  }
+
+  .resize-handle-bottom::after {
+    top: 3px;
+    right: 0;
+    left: 0;
+    height: 2px;
   }
 
   .resize-handle-top-left,
@@ -916,25 +958,55 @@ export const nodeStyles = css`
   .resize-handle-top-left {
     top: -9px;
     left: -9px;
-    cursor: nwse-resize;
+    cursor: var(--resize-edge-diagonal-down-cursor);
+  }
+
+  .resize-handle-top-left::after,
+  .resize-handle-top-right::after,
+  .resize-handle-bottom-left::after,
+  .resize-handle-bottom-right::after {
+    width: 7px;
+    height: 7px;
+    border-radius: 3px;
+    corner-shape: squircle;
+  }
+
+  .resize-handle-top-left::after {
+    right: 2px;
+    bottom: 2px;
   }
 
   .resize-handle-top-right {
     top: -9px;
     right: -9px;
-    cursor: nesw-resize;
+    cursor: var(--resize-edge-diagonal-up-cursor);
+  }
+
+  .resize-handle-top-right::after {
+    bottom: 2px;
+    left: 2px;
   }
 
   .resize-handle-bottom-left {
     bottom: -9px;
     left: -9px;
-    cursor: nesw-resize;
+    cursor: var(--resize-edge-diagonal-up-cursor);
+  }
+
+  .resize-handle-bottom-left::after {
+    top: 2px;
+    right: 2px;
   }
 
   .resize-handle-bottom-right {
     right: -9px;
     bottom: -9px;
-    cursor: nwse-resize;
+    cursor: var(--resize-edge-diagonal-down-cursor);
+  }
+
+  .resize-handle-bottom-right::after {
+    top: 2px;
+    left: 2px;
   }
 
   .node.isComment .resize-handle {

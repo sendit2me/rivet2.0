@@ -12,6 +12,7 @@ import { ProjectInfoSidebarTab } from './ProjectInfoSidebarTab';
 import { GraphInfoSidebarTab } from './GraphInfoSidebarTab';
 import { leftSidebarLiveWidthState, leftSidebarWidthState } from '../state/ui.js';
 import { clampLeftSidebarWidth } from '../utils/leftSidebarWidth.js';
+import { resizeCursorStyles } from '../utils/resizeCursors.js';
 
 const styles = css`
   position: fixed;
@@ -74,7 +75,7 @@ const styles = css`
     bottom: 0;
     width: 8px;
     z-index: 100;
-    cursor: ew-resize;
+    cursor: var(--resize-edge-horizontal-cursor);
     touch-action: none;
   }
 
@@ -92,7 +93,7 @@ const styles = css`
 
   .resize-handle:hover::after,
   &.resizing .resize-handle::after {
-    opacity: 0.55;
+    opacity: 0.65;
   }
 
   .tabs,
@@ -145,7 +146,7 @@ export const LeftSidebar: FC<{
 
     const previousCursor = document.body.style.cursor;
     const previousUserSelect = document.body.style.userSelect;
-    document.body.style.cursor = 'ew-resize';
+    document.body.style.cursor = resizeCursorStyles.horizontal;
     document.body.style.userSelect = 'none';
 
     return () => {

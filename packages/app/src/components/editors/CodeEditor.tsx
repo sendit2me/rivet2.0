@@ -10,6 +10,7 @@ import { type SharedEditorProps } from './SharedEditorProps';
 import { getHelperMessage, getPostEditorHelperMessage } from './editorUtils';
 import { resolveMonacoTheme } from '../codeEditorTheme.js';
 import { ResizeHandle } from '../ResizeHandle.js';
+import { resizeCursorStyles } from '../../utils/resizeCursors.js';
 import { isValidHeight, RESIZABLE_LANGUAGES, useNodeEditorCodeViewportHeight } from './useNodeEditorCodeViewportHeight.js';
 import { formatTextEditorStatsLine } from './textEditorStats.js';
 import { handleCodeEditorEscape } from './codeEditorEscape.js';
@@ -296,7 +297,11 @@ const ResizableCodeEditorViewport: FC<
           errorLineHighlight={editorProps.errorLineHighlight}
         />
       </div>
-      <ResizeHandle className="node-editor-code-resize-handle" {...resizeHandleProps} />
+      <ResizeHandle
+        className="node-editor-code-resize-handle"
+        dragCursor={resizeCursorStyles.vertical}
+        {...resizeHandleProps}
+      />
     </div>
   );
 };

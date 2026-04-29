@@ -5,8 +5,6 @@
 - Compare the current Rivet 2.0 to the rivet in Rivet Server and make sure the new rivet will work there
 
 
-- In the parallel summary output the concurrent number
-
 - All draggable edges (for resizing) must be highlighted when hovering
 
 - How does "Strict" setting work in the Tool node

@@ -223,9 +223,27 @@ export const defaultEditorContainerStyles = css`
     right: 0;
     bottom: 0;
     height: 10px;
-    cursor: ns-resize;
+    cursor: var(--resize-edge-vertical-cursor);
     background: transparent;
     border-bottom: none;
+  }
+
+  .node-editor-code-resize-handle::after {
+    content: '';
+    position: absolute;
+    right: 10px;
+    bottom: 3px;
+    left: 10px;
+    height: 2px;
+    background: var(--primary);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 120ms ease;
+  }
+
+  .node-editor-code-resize-handle:hover::after,
+  .node-editor-code-resize-handle.is-resizing::after {
+    opacity: 0.65;
   }
 
   .row.toggle .toggle-editor-field {

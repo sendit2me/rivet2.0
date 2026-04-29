@@ -1,4 +1,4 @@
-import { type CSSProperties, type FC, type PointerEvent, type ReactNode, useEffect, useMemo, useState } from 'react';
+import { type FC, type PointerEvent, type ReactNode, useEffect, useMemo, useState } from 'react';
 import { css, Global } from '@emotion/react';
 import Modal, { ModalBody, ModalTransition } from '@atlaskit/modal-dialog';
 import {
@@ -7,6 +7,7 @@ import {
   normalizeHorizontalModalBounds,
   resizeHorizontalModalBounds,
 } from '../utils/fullScreenModalBounds.js';
+import { resizeCursorStyles } from '../utils/resizeCursors.js';
 
 interface FullScreenModalProps {
   isOpen: boolean;
@@ -25,20 +26,19 @@ const styles = css`
 
 const resizableStyles = css`
   .fullscreen-modal-content {
-    position: relative;
     height: 100%;
   }
 
   .fullscreen-modal-resize-handle {
-    position: fixed;
-    top: 16px;
-    bottom: 16px;
+    position: absolute;
+    top: 0;
+    bottom: 0;
     z-index: 9999;
     width: 16px;
     border: 0;
     padding: 0;
     background: transparent;
-    cursor: ew-resize;
+    cursor: var(--resize-edge-horizontal-cursor);
   }
 
   .fullscreen-modal-resize-handle::after {
@@ -54,15 +54,23 @@ const resizableStyles = css`
 
   .fullscreen-modal-resize-handle:hover::after,
   .fullscreen-modal-resize-handle.resizing::after {
-    opacity: 0.55;
+    opacity: 0.65;
   }
 
   .fullscreen-modal-resize-handle-left::after {
-    left: 7px;
+    left: 8px;
+  }
+
+  .fullscreen-modal-resize-handle-left {
+    left: -8px;
   }
 
   .fullscreen-modal-resize-handle-right::after {
-    right: 7px;
+    right: 8px;
+  }
+
+  .fullscreen-modal-resize-handle-right {
+    right: -8px;
   }
 `;
 
@@ -78,6 +86,7 @@ function getResizableModalShellStyles(testId: string, bounds: HorizontalModalBou
     }
 
     [data-testid='${testId}'] {
+      position: relative !important;
       width: 100% !important;
       max-width: 100% !important;
     }
@@ -107,24 +116,6 @@ export const FullScreenModal: FC<FullScreenModalProps> = ({
     () => (horizontalBounds ? normalizeHorizontalModalBounds(horizontalBounds, getViewportWidth()) : undefined),
     [horizontalBounds],
   );
-  const leftResizeHandleStyle = useMemo(
-    () =>
-      normalizedHorizontalBounds
-        ? ({
-            left: `calc(${normalizedHorizontalBounds.leftPercent}vw - 8px)`,
-          } as CSSProperties)
-        : undefined,
-    [normalizedHorizontalBounds],
-  );
-  const rightResizeHandleStyle = useMemo(
-    () =>
-      normalizedHorizontalBounds
-        ? ({
-            right: `calc(${normalizedHorizontalBounds.rightPercent}vw - 8px)`,
-          } as CSSProperties)
-        : undefined,
-    [normalizedHorizontalBounds],
-  );
   useEffect(() => {
     if (activeResizeEdge == null || typeof document === 'undefined') {
       return;
@@ -132,7 +123,7 @@ export const FullScreenModal: FC<FullScreenModalProps> = ({
 
     const previousCursor = document.body.style.cursor;
     const previousUserSelect = document.body.style.userSelect;
-    document.body.style.cursor = 'ew-resize';
+    document.body.style.cursor = resizeCursorStyles.horizontal;
     document.body.style.userSelect = 'none';
 
     return () => {
@@ -171,54 +162,51 @@ export const FullScreenModal: FC<FullScreenModalProps> = ({
     setActiveResizeEdge(null);
   };
 
+  const resizeHandles =
+    isHorizontallyResizable && normalizedHorizontalBounds ? (
+      <>
+        <div
+          aria-label="Resize fullscreen output modal from the left edge"
+          aria-orientation="vertical"
+          className={`fullscreen-modal-resize-handle fullscreen-modal-resize-handle-left${
+            activeResizeEdge === 'left' ? ' resizing' : ''
+          }`}
+          onLostPointerCapture={handleResizePointerEnd}
+          onPointerCancel={handleResizePointerEnd}
+          onPointerDown={handleResizePointerDown('left')}
+          onPointerMove={handleResizePointerMove('left')}
+          onPointerUp={handleResizePointerEnd}
+          role="separator"
+        />
+        <div
+          aria-label="Resize fullscreen output modal from the right edge"
+          aria-orientation="vertical"
+          className={`fullscreen-modal-resize-handle fullscreen-modal-resize-handle-right${
+            activeResizeEdge === 'right' ? ' resizing' : ''
+          }`}
+          onLostPointerCapture={handleResizePointerEnd}
+          onPointerCancel={handleResizePointerEnd}
+          onPointerDown={handleResizePointerDown('right')}
+          onPointerMove={handleResizePointerMove('right')}
+          onPointerUp={handleResizePointerEnd}
+          role="separator"
+        />
+      </>
+    ) : null;
+
   return (
     <ModalTransition>
       {isOpen && (
         <>
+          {isHorizontallyResizable ? <Global styles={resizableStyles} /> : null}
           {isHorizontallyResizable && normalizedHorizontalBounds && modalTestId ? (
             <Global styles={getResizableModalShellStyles(modalTestId, normalizedHorizontalBounds)} />
           ) : null}
           <Modal onClose={onClose} width="100%" height="100%" testId={modalTestId}>
+            {resizeHandles}
             <ModalBody>
-              <div
-                css={[styles, isHorizontallyResizable && resizableStyles]}
-                onWheel={(e) => e.stopPropagation()}
-              >
-                {isHorizontallyResizable ? (
-                  <div className="fullscreen-modal-content">
-                    <div
-                      aria-label="Resize fullscreen output modal from the left edge"
-                      aria-orientation="vertical"
-                      className={`fullscreen-modal-resize-handle fullscreen-modal-resize-handle-left${
-                        activeResizeEdge === 'left' ? ' resizing' : ''
-                      }`}
-                      onLostPointerCapture={handleResizePointerEnd}
-                      onPointerCancel={handleResizePointerEnd}
-                      onPointerDown={handleResizePointerDown('left')}
-                      onPointerMove={handleResizePointerMove('left')}
-                      onPointerUp={handleResizePointerEnd}
-                      role="separator"
-                      style={leftResizeHandleStyle}
-                    />
-                    <div
-                      aria-label="Resize fullscreen output modal from the right edge"
-                      aria-orientation="vertical"
-                      className={`fullscreen-modal-resize-handle fullscreen-modal-resize-handle-right${
-                        activeResizeEdge === 'right' ? ' resizing' : ''
-                      }`}
-                      onLostPointerCapture={handleResizePointerEnd}
-                      onPointerCancel={handleResizePointerEnd}
-                      onPointerDown={handleResizePointerDown('right')}
-                      onPointerMove={handleResizePointerMove('right')}
-                      onPointerUp={handleResizePointerEnd}
-                      role="separator"
-                      style={rightResizeHandleStyle}
-                    />
-                    {children}
-                  </div>
-                ) : (
-                  children
-                )}
+              <div css={styles} onWheel={(e) => e.stopPropagation()}>
+                {isHorizontallyResizable ? <div className="fullscreen-modal-content">{children}</div> : children}
               </div>
             </ModalBody>
           </Modal>

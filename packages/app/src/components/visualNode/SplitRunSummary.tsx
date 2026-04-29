@@ -1,4 +1,4 @@
-import { type ChartNode } from '@ironclad/rivet-core';
+import { DEFAULT_SPLIT_RUN_CONCURRENCY, type ChartNode } from '@ironclad/rivet-core';
 import { type FC, type MouseEvent, type PointerEvent } from 'react';
 import { Tooltip } from '../Tooltip.js';
 import { useCanvasHandlersContext } from '../CanvasContext.js';
@@ -16,13 +16,19 @@ export const SplitRunSummary: FC<{
 
   const splitRunModeLabel = node.isSplitSequential ? 'sequential' : 'parallel';
   const splitRunMaxLabel = `max ${node.splitRunMax ?? 10}`;
+  const splitRunConcurrencyLabel = node.isSplitSequential
+    ? undefined
+    : `conc ${node.splitRunConcurrency ?? DEFAULT_SPLIT_RUN_CONCURRENCY}`;
+  const splitRunDetailsLabel = splitRunConcurrencyLabel
+    ? `${splitRunMaxLabel}, ${splitRunConcurrencyLabel}`
+    : splitRunMaxLabel;
 
   return (
     <Tooltip className="split-run-summary-tooltip" content="Edit Node" placement="top" tag="span">
       <button
         type="button"
         className="split-run-summary"
-        aria-label={`Edit split run settings, ${splitRunModeLabel}, ${splitRunMaxLabel}`}
+        aria-label={`Edit split run settings, ${splitRunModeLabel}, ${splitRunDetailsLabel}`}
         onClick={(event: MouseEvent<HTMLButtonElement>) => {
           event.stopPropagation();
           if (isKnownNodeType) {
@@ -40,7 +46,7 @@ export const SplitRunSummary: FC<{
         <SplitRunModeIcon isSequential={node.isSplitSequential} />
         <span className="split-run-summary-text">
           <strong className="split-run-summary-mode">{splitRunModeLabel}</strong>
-          {`, ${splitRunMaxLabel}`}
+          {`, ${splitRunDetailsLabel}`}
         </span>
       </button>
     </Tooltip>

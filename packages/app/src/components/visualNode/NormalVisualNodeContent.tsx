@@ -36,6 +36,7 @@ import {
   type NodeResizeBounds,
 } from '../../utils/nodeResize.js';
 import { getCanvasCommentHeight, getCanvasNodeWidth } from '../../hooks/canvasVisibilityBounds.js';
+import { getBoxResizeCursor } from '../../utils/resizeCursors.js';
 
 export const NormalVisualNodeContent: FC<{
   heightCache: HeightCache;
@@ -354,6 +355,7 @@ export const NormalVisualNodeContent: FC<{
             <ResizeHandle
               key={direction}
               className={`resize-handle resize-handle-${direction}`}
+              dragCursor={getBoxResizeCursor(direction)}
               onResizeStart={(event) => handleResizeStart(direction, event)}
               onResizeMove={handleResizeMove}
               onResizeEnd={handleResizeEnd}
