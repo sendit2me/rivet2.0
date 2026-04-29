@@ -378,6 +378,23 @@ Current outcome:
 - the OpenAI execution loop is isolated from the node-definition surface
 - Google and Anthropic nodes now share more chat-pipeline helpers instead of each keeping their own prompt/token/output plumbing
 
+### LLM Chat v2 seams
+
+The built-in `LLM Chat v2` node is intentionally split under
+[`packages/core/src/model/chat-v2/`](../packages/core/src/model/chat-v2/):
+
+- `llmChatV2NodeData.ts` owns the persisted data/default shape.
+- `llmChatV2NodeEditors.ts` owns the settings manifest and keeps provider-specific editor groups named in place.
+- `chatV2RuntimeOptions.ts` owns credential lookup, provider factory config, generation parameters, provider options, built-in provider tools, tool-choice conversion, and OpenAI-specific parallel-tool-call option mapping.
+- `chatV2EditorCache.ts` owns editor-only cache key construction, secret fingerprinting, and cached-output cloning.
+- `llmChatV2NodeRuntime.ts` is a coordinator that assembles those policies for the runtime and re-exports compatibility helpers used by existing tests/imports.
+- `chatV2Errors.ts` owns provider/Vercel SDK error normalization and must not stringify whole provider data objects into user-visible node errors.
+- `chatV2Pipeline.ts` and `toolContinuation.ts` stay focused on provider-neutral streaming, output assembly, and auto-continuation behavior.
+
+Keep future Chat v2 changes inside the smallest relevant seam. Do not add provider
+option parsing, cache-key fingerprinting, or credential-source behavior back into
+the node class.
+
 ### Current state model inside `GraphProcessor`
 
 The class maintains both:

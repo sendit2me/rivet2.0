@@ -123,17 +123,31 @@ type Props = SharedEditorProps & {
   editor: CustomEditorDefinition<ChartNode>;
 };
 
+type ProviderName = 'openai' | 'anthropic' | 'google' | 'custom';
+
 type ModelOption = {
   value: string;
   label: string;
 };
 
+type ModelRefreshResult = Awaited<ReturnType<typeof getChatV2DiscoveredModelOptionsWithStatus>>;
+type ResolvedSettings = Awaited<ReturnType<typeof fillMissingSettingsFromEnvironmentVariables>>;
+
 const modelCatalogRefreshStatus = new Map<string, RefreshStatus>();
 
-function getMissingCredentialMessage(
-  provider: 'openai' | 'anthropic' | 'google' | 'custom',
-  resolvedSettings: Awaited<ReturnType<typeof fillMissingSettingsFromEnvironmentVariables>>,
-): string | undefined {
+function getProvider(data: unknown): ProviderName {
+  return ((data as { provider?: ProviderName }).provider ?? 'openai') as ProviderName;
+}
+
+function getStatusKey(nodeId: string, provider: ProviderName): string {
+  return `${nodeId}:${provider}`;
+}
+
+function getModelOptions(editor: CustomEditorDefinition<ChartNode>): ModelOption[] {
+  return ((editor.data as { modelOptions?: ModelOption[] } | undefined)?.modelOptions ?? []) as ModelOption[];
+}
+
+function getMissingCredentialMessage(provider: ProviderName, resolvedSettings: ResolvedSettings): string | undefined {
   switch (provider) {
     case 'openai':
       return resolvedSettings.openAiKey ? undefined : 'OpenAI API key is not configured.';
@@ -146,6 +160,22 @@ function getMissingCredentialMessage(
   }
 }
 
+function getRefreshStatus(provider: ProviderName, result: ModelRefreshResult, resolvedSettings: ResolvedSettings): RefreshStatus {
+  if (result.source === 'api') {
+    return {
+      tone: 'success',
+      message: `Loaded ${result.options.length} models from ${provider}.`,
+    };
+  }
+
+  return {
+    tone: 'warning',
+    message: `Using built-in ${provider} model list (${result.options.length}). ${
+      getMissingCredentialMessage(provider, resolvedSettings) ?? result.error ?? 'API fetch failed.'
+    }`,
+  };
+}
+
 export const LLMChatV2ModelCatalogEditor: FC<Props> = ({
   node,
   onChange,
@@ -156,12 +186,12 @@ export const LLMChatV2ModelCatalogEditor: FC<Props> = ({
 }) => {
   const settings = useAtomValue(settingsState);
   const plugins = useDependsOnPlugins();
-  const statusKey = `${node.id}:${(node.data as { provider?: 'openai' | 'anthropic' | 'google' | 'custom' }).provider ?? 'openai'}`;
+  const provider = getProvider(node.data);
+  const statusKey = getStatusKey(node.id, provider);
   const [status, setStatus] = useState<RefreshStatus>(() => modelCatalogRefreshStatus.get(statusKey));
   const [menuPortalTarget, setMenuPortalTarget] = useState<HTMLDivElement | null>(null);
   const data = node.data as Record<string, unknown>;
-  const provider = (node.data as { provider?: 'openai' | 'anthropic' | 'google' | 'custom' }).provider ?? 'openai';
-  const modelOptions = ((editor.data as { modelOptions?: ModelOption[] } | undefined)?.modelOptions ?? []) as ModelOption[];
+  const modelOptions = getModelOptions(editor);
   const selectedValue = modelOptions.find((option) => option.value === data.model);
   const isUsingModelInput = Boolean(data.useModelInput);
   const isControlDisabled = isReadonly || isDisabled;
@@ -192,19 +222,7 @@ export const LLMChatV2ModelCatalogEditor: FC<Props> = ({
 
       invalidateChatV2DiscoveredModelOptions(provider, context);
       const result = await getChatV2DiscoveredModelOptionsWithStatus(provider, context);
-      if (result.source === 'api') {
-        updateStatus({
-          tone: 'success',
-          message: `Loaded ${result.options.length} models from ${provider}.`,
-        });
-      } else {
-        updateStatus({
-          tone: 'warning',
-          message: `Using built-in ${provider} model list (${result.options.length}). ${
-            getMissingCredentialMessage(provider, resolvedSettings) ?? result.error ?? 'API fetch failed.'
-          }`,
-        });
-      }
+      updateStatus(getRefreshStatus(provider, result, resolvedSettings));
       onRefreshEditors?.();
     } catch (error) {
       updateStatus({

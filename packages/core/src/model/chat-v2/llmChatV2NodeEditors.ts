@@ -28,6 +28,19 @@ function group(label: string, editors: LLMChatV2EditorDefinition[], defaultOpen?
   };
 }
 
+function providerGroup(
+  provider: LLMChatV2NodeData['provider'],
+  label: string,
+  editors: LLMChatV2EditorDefinition[],
+): LLMChatV2EditorDefinition {
+  return {
+    type: 'group',
+    label,
+    hideIf: hideUnlessProvider(provider),
+    editors,
+  };
+}
+
 async function getResolvedModelOptions(data: LLMChatV2NodeData, context: RivetUIContext) {
   if (data.provider === 'custom') {
     return data.model ? [{ value: data.model, label: data.model }] : [];
@@ -96,68 +109,65 @@ function getModelEditors(modelOptions: { value: string; label: string }[]): LLMC
 
 function getProviderEditors(): LLMChatV2EditorDefinition[] {
   return [
-    {
-      type: 'group',
-      label: 'OpenAI',
-      hideIf: hideUnlessProvider('openai'),
-      editors: [
-        {
-          type: 'string',
-          label: 'Previous Response ID',
-          dataKey: 'openAIPreviousResponseId',
-          useInputToggleDataKey: 'useOpenAIPreviousResponseIdInput',
-        },
-        {
-          type: 'toggle',
-          label: 'Enable Web Search',
-          dataKey: 'enableOpenAIWebSearch',
-        },
-        {
-          type: 'dropdown',
-          label: 'Web Search Context',
-          dataKey: 'openAIWebSearchContextSize',
-          options: openAIWebSearchContextSizeOptions,
-          hideIf: (data) => !data.enableOpenAIWebSearch,
-        },
-        {
-          type: 'toggle',
-          label: 'Enable Code Interpreter',
-          dataKey: 'enableOpenAICodeInterpreter',
-        },
-      ],
-    },
-    {
-      type: 'group',
-      label: 'Anthropic',
-      hideIf: hideUnlessProvider('anthropic'),
-      editors: [
-        {
-          type: 'dropdown',
-          label: 'Cache Breakpoint TTL',
-          dataKey: 'anthropicCacheControlTtl',
-          options: anthropicCacheControlTtlOptions,
-          helperMessage: 'Applies when incoming chat messages mark a cache breakpoint.',
-        },
-      ],
-    },
-    {
-      type: 'group',
-      label: 'Google',
-      hideIf: hideUnlessProvider('google'),
-      editors: [
-        {
-          type: 'toggle',
-          label: 'Enable Google Search Grounding',
-          dataKey: 'enableGoogleSearchGrounding',
-        },
-        {
-          type: 'toggle',
-          label: 'Enable URL Context',
-          dataKey: 'enableGoogleUrlContext',
-        },
-      ],
-    },
+    getOpenAIProviderEditors(),
+    getAnthropicProviderEditors(),
+    getGoogleProviderEditors(),
   ];
+}
+
+function getOpenAIProviderEditors(): LLMChatV2EditorDefinition {
+  return providerGroup('openai', 'OpenAI', [
+    {
+      type: 'string',
+      label: 'Previous Response ID',
+      dataKey: 'openAIPreviousResponseId',
+      useInputToggleDataKey: 'useOpenAIPreviousResponseIdInput',
+    },
+    {
+      type: 'toggle',
+      label: 'Enable Web Search',
+      dataKey: 'enableOpenAIWebSearch',
+    },
+    {
+      type: 'dropdown',
+      label: 'Web Search Context',
+      dataKey: 'openAIWebSearchContextSize',
+      options: openAIWebSearchContextSizeOptions,
+      hideIf: (data) => !data.enableOpenAIWebSearch,
+    },
+    {
+      type: 'toggle',
+      label: 'Enable Code Interpreter',
+      dataKey: 'enableOpenAICodeInterpreter',
+    },
+  ]);
+}
+
+function getAnthropicProviderEditors(): LLMChatV2EditorDefinition {
+  return providerGroup('anthropic', 'Anthropic', [
+    {
+      type: 'dropdown',
+      label: 'Cache Breakpoint TTL',
+      dataKey: 'anthropicCacheControlTtl',
+      options: anthropicCacheControlTtlOptions,
+      helperMessage: 'Applies when incoming chat messages mark a cache breakpoint.',
+    },
+  ]);
+}
+
+function getGoogleProviderEditors(): LLMChatV2EditorDefinition {
+  return providerGroup('google', 'Google', [
+    {
+      type: 'toggle',
+      label: 'Enable Google Search Grounding',
+      dataKey: 'enableGoogleSearchGrounding',
+    },
+    {
+      type: 'toggle',
+      label: 'Enable URL Context',
+      dataKey: 'enableGoogleUrlContext',
+    },
+  ]);
 }
 
 function getParameterEditors(): LLMChatV2EditorDefinition {

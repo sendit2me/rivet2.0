@@ -38,6 +38,7 @@ Shared runtime foundation for the entire repo.
 - serialization with shared V3/V4 helpers (`serializationHelpers.ts`)
 - recording/playback support
 - runtime integration contracts
+- Vercel AI SDK provider adapters used by `LLM Chat v2`, including the OpenAI-compatible provider factory for Custom provider mode
 - `emitDetached` - explicit fire-and-forget event emission helper
 - `pQueueCompat` - CJS/ESM interop for p-queue
 - shared runtime settings normalization through `resolveProcessSettings(...)`
@@ -122,6 +123,7 @@ Desktop IDE frontend plus Tauri app packaging layer.
 - project/graph load-save-switch sequencing is centralized under `src/hooks/useWorkspaceTransitions.ts` and `src/utils/workspaceTransitions.ts`
 - remembered editor-view persistence is handled app-side through `src/state/projectEditor.ts`, `src/hooks/useSyncCurrentProjectEditorState.ts`, and `src/hooks/useRestorePersistedWorkspace.ts` rather than through project-file serialization
 - platform-specific capabilities are split under `src/utils/platform/*`; the old `nativeApp.ts` barrel has been removed so desktop integrations import only the capability they actually use
+- because the app's Vite dev/build path resolves `@ironclad/rivet-core` to core source, browser-reachable provider dependencies that are imported by core Chat v2 code may also need visibility in `packages/app/package.json`; `@ai-sdk/openai-compatible` is intentionally listed in both core and app for that PnP/Vite source-resolution boundary
 - the Tauri backend under `src-tauri/` also vendors the two small Tauri v1 plugin crates it depends on under `src-tauri/vendor/` to avoid current Cargo/git-workspace metadata breakage from the upstream plugins workspace template
 
 ### Version caveat

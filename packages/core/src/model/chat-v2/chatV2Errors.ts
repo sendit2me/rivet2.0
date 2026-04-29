@@ -66,11 +66,11 @@ function findProviderMessage(value: unknown): string | undefined {
   }
 
   const nestedError = value.error;
-  if (isRecord(nestedError)) {
+  if (nestedError != null) {
     return findProviderMessage(nestedError);
   }
 
-  return stringifyProviderValue(value);
+  return undefined;
 }
 
 function parseResponseBodyMessage(responseBody: string | undefined): string | undefined {

@@ -11,6 +11,12 @@ import { getEditorListKey, getEditorRenderRows } from './editorUtils';
 
 export const defaultEditorContainerStyles = css`
   --node-editor-row-gap: calc(18px * var(--ui-font-scale));
+  --node-editor-side-control-gap: calc(16px * var(--ui-font-scale));
+  --node-editor-label-gap: calc(8px * var(--ui-font-scale));
+  --node-editor-label-helper-gap: calc(2px * var(--ui-font-scale));
+  --node-editor-helper-control-gap: 0.4em;
+  --node-editor-code-helper-gap: calc(10px * var(--ui-font-scale));
+  --node-editor-toggle-gap: calc(8px * var(--ui-font-scale));
 
   display: flex;
   flex-direction: column;
@@ -37,7 +43,7 @@ export const defaultEditorContainerStyles = css`
 
   .row.has-side-control {
     grid-template-columns: minmax(0, 1fr) auto;
-    column-gap: 16px;
+    column-gap: var(--node-editor-side-control-gap);
   }
 
   .use-input-toggle {
@@ -106,7 +112,7 @@ export const defaultEditorContainerStyles = css`
     display: grid;
     grid-template-columns: 1fr auto;
     align-items: center;
-    column-gap: 16px;
+    column-gap: var(--node-editor-side-control-gap);
   }
 
   .editor-wrapper-wrapper {
@@ -119,21 +125,21 @@ export const defaultEditorContainerStyles = css`
 
   .row > :first-child label[id$='-label'],
   .row .editor-wrapper-wrapper > label {
-    margin-bottom: 8px !important;
+    margin-bottom: var(--node-editor-label-gap) !important;
   }
 
   .row > :first-child:has([aria-live='polite']) label[id$='-label'],
   .row .editor-wrapper-wrapper:has(.node-editor-code-helper) > label {
-    margin-bottom: 2px !important;
+    margin-bottom: var(--node-editor-label-helper-gap) !important;
   }
 
   .row [aria-live='polite'] {
     margin-top: 0 !important;
-    margin-bottom: 0.4em !important;
+    margin-bottom: var(--node-editor-helper-control-gap) !important;
   }
 
   .node-editor-code-helper {
-    margin-bottom: 10px;
+    margin-bottom: var(--node-editor-code-helper-gap);
     white-space: pre-line;
   }
 
@@ -256,7 +262,7 @@ export const defaultEditorContainerStyles = css`
   .row.toggle .toggle-editor-control-row {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: var(--node-editor-toggle-gap);
   }
 
   .row.toggle .toggle-editor-switch,

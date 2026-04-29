@@ -19,6 +19,8 @@ const styles = css`
   --editor-group-radius: calc(16px * var(--ui-font-scale));
   --editor-group-toggle-radius: calc(8px * var(--ui-font-scale));
   --editor-group-padding-x: calc(16px * var(--ui-font-scale));
+  --editor-group-padding-y: calc(16px * var(--ui-font-scale));
+  --editor-group-padding-bottom: calc(18px * var(--ui-font-scale));
   --editor-group-toggle-padding-y: calc(8px * var(--ui-font-scale));
   --editor-group-toggle-icon-size: calc(24px * var(--ui-font-scale));
 
@@ -106,7 +108,7 @@ const styles = css`
 
   .editor-group {
     margin-top: 0;
-    padding: 16px 16px 18px;
+    padding: var(--editor-group-padding-y) var(--editor-group-padding-x) var(--editor-group-padding-bottom);
 
     display: flex;
     flex-direction: column;

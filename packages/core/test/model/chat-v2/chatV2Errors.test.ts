@@ -52,6 +52,72 @@ describe('normalizeChatV2ProviderError', () => {
     assert.doesNotMatch(normalized.message, /fragment/);
   });
 
+  it('does not dump provider data objects without a clear message', () => {
+    const normalized = normalizeChatV2ProviderError(
+      createApiError({
+        statusCode: 401,
+        data: {
+          requestBodyValues: {
+            apiKey: 'sk-secret-from-request',
+          },
+        },
+        responseBody: JSON.stringify({
+          requestBodyValues: {
+            apiKey: 'sk-secret-from-response',
+          },
+        }),
+      }),
+      {
+        provider: 'openai',
+        modelId: 'gpt-5',
+      },
+    );
+
+    assert.ok(normalized instanceof Error);
+    assert.match(normalized.message, /401 Unauthorized/);
+    assert.match(normalized.message, /API key source/);
+    assert.doesNotMatch(normalized.message, /sk-secret/);
+    assert.doesNotMatch(normalized.message, /requestBodyValues/);
+  });
+
+  it('uses scalar nested provider errors without dumping sibling data', () => {
+    const normalized = normalizeChatV2ProviderError(
+      createApiError({
+        data: {
+          error: 'Model is not available.',
+          requestBodyValues: {
+            apiKey: 'sk-secret-from-request',
+          },
+        },
+        responseBody: undefined,
+      }),
+      {
+        provider: 'custom',
+        modelId: 'wrong-model',
+      },
+    );
+
+    assert.ok(normalized instanceof Error);
+    assert.match(normalized.message, /Provider message: Model is not available/);
+    assert.doesNotMatch(normalized.message, /sk-secret/);
+    assert.doesNotMatch(normalized.message, /requestBodyValues/);
+  });
+
+  it('adds guidance for known SDK API key errors', () => {
+    const error = new Error('Missing API key.');
+    error.name = 'LoadAPIKeyError';
+
+    const normalized = normalizeChatV2ProviderError(error, {
+      provider: 'anthropic',
+      modelId: 'claude-sonnet-4',
+    });
+
+    assert.ok(normalized instanceof Error);
+    assert.match(normalized.message, /LLM API key could not be loaded/);
+    assert.match(normalized.message, /Provider: Anthropic/);
+    assert.match(normalized.message, /configured provider credentials/);
+  });
+
   it('keeps unrelated runtime errors unchanged', () => {
     const error = new Error('Tool execution failed.');
 

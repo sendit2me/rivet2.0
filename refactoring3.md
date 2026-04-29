@@ -37,7 +37,7 @@ Approximate current source-code growth after `a36014d5`, excluding tests/docs an
 
 ## 0. Preflight And Measurement
 
-### 0.1 Confirm The Actual Post-Refactor Boundary
+### 0.1 DONE - Confirm The Actual Post-Refactor Boundary
 
 Files: `refactoring3.md`, Git history only.
 
@@ -55,7 +55,9 @@ Acceptance:
 
 Estimated production lines saved: `0`.
 
-### 0.2 Classify Post-Refactor Growth Before Editing
+Outcome: DONE - Confirmed the plan boundary remains `a36014d5`; `git log --oneline --reverse a36014d5..HEAD` lists the post-refactor commits from `c2c7c8b3 Add input-port API key mode to LLM Chat v2` through `3d40a7eb PRE-refactor`. Baseline diff measurement remains separated from docs/tests/generated bundle files.
+
+### 0.2 DONE - Classify Post-Refactor Growth Before Editing
 
 Files: `refactoring3.md`.
 
@@ -81,7 +83,9 @@ Acceptance:
 
 Estimated production lines saved: `0`.
 
-### 0.3 Set A Realistic Deletion Target
+Outcome: DONE - The plan buckets still match the live diff concentration: Chat v2 runtime/provider/cache/tooling, provider error normalization, Chat v2 settings/model catalog, shared settings controls, output/fullscreen presentation, app-executor worker isolation, package metadata, and small graph/UI patches. No older `refactoring.md` or `refactoring2.md` subsystem was reopened without a post-refactor reason.
+
+### 0.3 DONE - Set A Realistic Deletion Target
 
 Files: `refactoring3.md`.
 
@@ -98,9 +102,11 @@ Acceptance:
 
 Estimated production lines saved: `0`.
 
+Outcome: DONE - Reassessed after implementation: tracked production-source edits excluding docs/tests/generated executor bundle are `172 insertions / 554 deletions`, but the two new Chat v2 helper files add `415` production-source lines. Counting those untracked files, the honest source delta is `587 insertions / 554 deletions`, or `+33` net production lines. The original deletion target was not met; the tradeoff is accepted because the extra lines moved credential, provider-option, tool-option, and editor-cache policy out of the runtime coordinator into two cohesive high-risk seams instead of hiding that policy in one large file.
+
 ## 1. Thin The LLM Chat v2 Runtime Coordinator
 
-### 1.1 Extract Credential Resolution
+### 1.1 DONE - Extract Credential Resolution
 
 Files:
 
@@ -134,7 +140,9 @@ Acceptance:
 
 Estimated production lines saved: `5-25`.
 
-### 1.2 Extract Editor Cache Policy
+Outcome: DONE - credential source policy now lives in the cohesive Chat v2 runtime-options boundary rather than inside the runtime coordinator. The helper preserves configured-provider keys, custom-provider env lookup through `settings.pluginEnv` / guarded `globalThis.process.env`, input-port validation, and user-facing missing-key errors. Focused `LLMChatV2Node.test.ts` passed after the split.
+
+### 1.2 DONE - Extract Editor Cache Policy
 
 Files:
 
@@ -170,7 +178,9 @@ Acceptance:
 
 Estimated production lines saved: `10-40`.
 
-### 1.3 Extract Generation And Provider Options Resolution
+Outcome: DONE - editor-only cache key construction, secret/provider-option fingerprinting, provider-config fingerprinting, cache-output cloning, and cache-hit lookup now live in `chatV2EditorCache.ts`. The runtime coordinator only asks for the cache result. Focused cache tests in `LLMChatV2Node.test.ts` passed.
+
+### 1.3 DONE - Extract Generation And Provider Options Resolution
 
 Files:
 
@@ -207,7 +217,9 @@ Acceptance:
 
 Estimated production lines saved: `20-60`.
 
-### 1.4 Extract Tool Runtime Policy
+Outcome: DONE - generation parameters and providerOptions resolution now live in the cohesive `chatV2RuntimeOptions.ts` boundary, keeping provider-specific SDK shapes explicit while removing JSON parsing and provider-option assembly from the runtime coordinator. Focused provider-option tests passed.
+
+### 1.4 DONE - Extract Tool Runtime Policy
 
 Files:
 
@@ -242,7 +254,9 @@ Acceptance:
 
 Estimated production lines saved: `5-30`.
 
-### 1.5 Leave The Runtime Coordinator As A Readable Assembly Function
+Outcome: DONE - tool choice and built-in OpenAI/Google provider tool assembly now live in `chatV2RuntimeOptions.ts`; tool auto-continuation remains in `toolContinuation.ts`. Focused Tool-choice and built-in-tool tests in `LLMChatV2Node.test.ts` passed.
+
+### 1.5 DONE - Leave The Runtime Coordinator As A Readable Assembly Function
 
 Files:
 
@@ -271,7 +285,9 @@ Acceptance:
 
 Estimated production lines saved: `0-20`.
 
-### 1.6 Harden Provider Error Normalization Without Turning It Into A Sink
+Outcome: DONE - `resolveLLMChatV2RuntimeConfig(...)` is now a high-level assembly function for provider/model/base URL, credentials, provider config/model instance, inputs/functions, runtime options/tools/response format, and editor cache lookup. The split added only two cohesive source modules for this runtime phase.
+
+### 1.6 DONE - Harden Provider Error Normalization Without Turning It Into A Sink
 
 Files:
 
@@ -297,9 +313,11 @@ Acceptance:
 
 Estimated production lines saved: `10-40`.
 
+Outcome: DONE - Chat v2 provider error normalization now avoids rendering whole provider data objects when no clear provider message exists, still preserves scalar/nested provider messages, and keeps original errors attached as causes. Focused tests cover custom-provider 404 guidance, endpoint query stripping, auth failures without secret/request-body leaks, scalar provider messages, known SDK API-key errors, unknown errors, and abort passthrough.
+
 ## 2. Make LLM Chat v2 Settings Definitions Easier To Audit
 
-### 2.1 Split Provider-Specific Editor Definitions Into Named Blocks
+### 2.1 DONE - Split Provider-Specific Editor Definitions Into Named Blocks
 
 Files:
 
@@ -328,7 +346,9 @@ Acceptance:
 
 Estimated production lines saved: `0-20`.
 
-### 2.2 Add Small Field Builder Helpers Only Where They Remove Repetition
+Outcome: DONE - Provider-specific editor sections now have named in-file builders for OpenAI, Anthropic, and Google, with a small `providerGroup(...)` helper preserving the existing `hideIf` policy. Section order remains Model, provider-specific groups, Parameters, Reasoning, Response format, Tools, Outputs, Provider Advanced.
+
+### 2.2 DONE - Add Small Field Builder Helpers Only Where They Remove Repetition
 
 Files:
 
@@ -357,7 +377,9 @@ Acceptance:
 
 Estimated production lines saved: `15-60`.
 
-### 2.3 Create A Settings Snapshot Test For LLM Chat v2 Editors
+Outcome: DONE - Audited the editor manifest and intentionally did not add generic field-builder helpers. The repeated fields carry enough local labels, helper text, ranges, input toggles, and visibility rules that a generic mini-DSL would increase indirection without deleting meaningful code. The only helper added is provider-section specific and keeps the call sites readable.
+
+### 2.3 DONE - Create A Settings Snapshot Test For LLM Chat v2 Editors
 
 Files:
 
@@ -379,9 +401,11 @@ Acceptance:
 
 Estimated production lines saved: `0`; tests may grow.
 
+Outcome: DONE - Existing structural `LLMChatV2Node` tests already cover section order, provider-specific grouping, Tools/Outputs placement, reasoning placement, Custom provider editor behavior, and parameter/input-port contracts. No brittle snapshot file was added; the focused test suite passes after the editor split.
+
 ## 3. Simplify The LLM Chat v2 Model Catalog Editor
 
-### 3.1 Keep Or Collapse Refresh Status State
+### 3.1 DONE - Keep Or Collapse Refresh Status State
 
 Files:
 
@@ -403,7 +427,9 @@ Acceptance:
 
 Estimated production lines saved: `0-10`.
 
-### 3.2 Extract Refresh Flow Only If It Removes Render Noise
+Outcome: DONE - Refresh status remains a small module-level map in the component file. Provider and status-key derivation are now named helpers, so the persistence scope is explicit: same node plus same provider keeps its refresh message, different node/provider does not inherit it.
+
+### 3.2 DONE - Extract Refresh Flow Only If It Removes Render Noise
 
 Files:
 
@@ -434,7 +460,9 @@ Acceptance:
 
 Estimated production lines saved: `10-30`.
 
-### 3.3 Extract The Model Row Only If The Parent Remains Too Large
+Outcome: DONE - Refresh message construction was moved into a small pure helper in the same file. The async refresh flow still lives in the component because it owns current settings/plugins and editor refresh callbacks, but the success/fallback message policy is no longer embedded in the render-local handler.
+
+### 3.3 DONE - Extract The Model Row Only If The Parent Remains Too Large
 
 Files:
 
@@ -457,9 +485,11 @@ Acceptance:
 
 Estimated production lines saved: `0-20`.
 
+Outcome: DONE - The model row remains in the same component. After local helper cleanup, extracting a separate row component would add prop plumbing without reducing meaningful complexity; the existing layout contract for dropdown/text input, input-port plug, refresh button, and select portal stays intact.
+
 ## 4. Standardize Settings Field Layout Without A New Framework
 
-### 4.1 Standardize Field Layout With The Smallest Effective Mechanism
+### 4.1 DONE - Standardize Field Layout With The Smallest Effective Mechanism
 
 Files:
 
@@ -496,7 +526,9 @@ Acceptance:
 
 Estimated production lines saved: `25-100`.
 
-### 4.2 Move Settings Spacing To Named CSS Variables
+Outcome: DONE - Node-editor field layout remains owned by `DefaultNodeEditor` and `EditorGroup`, without a new React shell. The important gaps are now named CSS variables, so label, helper, side-control, toggle, row, and group-content spacing can be adjusted from one place instead of scattered literals.
+
+### 4.2 DONE - Move Settings Spacing To Named CSS Variables
 
 Files:
 
@@ -527,7 +559,9 @@ Acceptance:
 
 Estimated production lines saved: `10-40`.
 
-### 4.3 Consolidate Toggle And Segmented Control Sizing
+Outcome: DONE - Settings-modal page spacing now uses named CSS variables in `settingsPageStyles.ts`, while node-editor group padding and row gaps are named and font-scale aware. No shared global settings framework was added because the current CSS owners are still clearer.
+
+### 4.3 DONE - Consolidate Toggle And Segmented Control Sizing
 
 Files:
 
@@ -553,9 +587,11 @@ Acceptance:
 
 Estimated production lines saved: `10-35`.
 
+Outcome: DONE - Toggle label/control spacing now scales through the shared `LabeledToggle` component, and node-editor toggle row spacing is named in `DefaultNodeEditor`. The existing segmented editor already had a single scaled sizing owner, so it was intentionally left in place instead of being wrapped in another abstraction.
+
 ## 5. Reunify Output And Fullscreen Presentation Polishes
 
-### 5.1 Move List Item Hover Styling Into Shared Output Styles
+### 5.1 DONE - Move List Item Hover Styling Into Shared Output Styles
 
 Files:
 
@@ -578,7 +614,9 @@ Acceptance:
 
 Estimated production lines saved: `20-60`.
 
-### 5.2 Keep Fullscreen Toolbar Ownership Clear Without Moving For Its Own Sake
+Outcome: DONE - Compact and fullscreen generic outputs already share `RenderDataOutputs`, `multiOutputStyles`, and `outputSectionLabelStyles`. The shared list-item hover and section-label color live in render-data-value styles, so Array and LLM Chat v2 list outputs use the same presentation path.
+
+### 5.2 DONE - Keep Fullscreen Toolbar Ownership Clear Without Moving For Its Own Sake
 
 Files:
 
@@ -601,7 +639,9 @@ Acceptance:
 
 Estimated production lines saved: `10-40`.
 
-### 5.3 Keep Structured Node Output Shell Intact
+Outcome: DONE - `FullScreenModal` continues to own modal geometry, edge resize, and shell bounds, while `FullscreenNodeOutputToolbar` owns markdown/search/copy/prompt-designer controls. No additional extraction was made because the current boundary is already clear and avoids reintroducing toolbar-jump risk.
+
+### 5.3 DONE - Keep Structured Node Output Shell Intact
 
 Files:
 
@@ -620,9 +660,11 @@ Acceptance:
 
 Estimated production lines saved: `0`.
 
+Outcome: DONE - `StructuredNodeOutput` remains the single structured-output shell for Expression, JS list nodes, Extract Object Path, and Code error presentation. Parsed-source and section-label styling continue to reuse shared output label styles instead of node-specific copies.
+
 ## 6. App-Executor Worker Code Runner Cleanup
 
-### 6.1 Extract Shared Console Serialization
+### 6.1 DONE - Extract Shared Console Serialization
 
 Files:
 
@@ -643,7 +685,9 @@ Acceptance:
 
 Estimated production lines saved: `0-15`.
 
-### 6.2 Document The Worker Fallback Boundary
+Outcome: DONE - Audited the worker and fallback console paths and intentionally kept the small serialization duplication. The worker source is string-evaluated, so sharing host functions would require bundling/string-generation complexity and make debugging harder. Existing worker and fallback console tests cover both paths.
+
+### 6.2 DONE - Document The Worker Fallback Boundary
 
 Files:
 
@@ -664,9 +708,11 @@ Acceptance:
 
 Estimated production lines saved: `0`.
 
+Outcome: DONE - Added an inline code comment documenting why `includeRivet` falls back to current-thread execution in the app executor sidecar: ordinary Code node JavaScript remains worker-isolated, while Rivet-capable code preserves packaged sidecar module-resolution compatibility.
+
 ## 7. Prompt And Tool Body Preview Polishing Without App-Specific Drift
 
-### 7.1 Extract Reusable Body Line Rendering Only If There Is A Second Consumer
+### 7.1 DONE - Extract Reusable Body Line Rendering Only If There Is A Second Consumer
 
 Files:
 
@@ -689,7 +735,9 @@ Acceptance:
 
 Estimated production lines saved: `0-20`.
 
-### 7.2 Keep Tool Description Editor Reuse Explicit
+Outcome: DONE - Prompt remains the only node body that needs line-by-line empty-line preservation plus interpolation-token highlighting. No reusable body-line renderer was created because Tool uses markdown body rendering and generic bodies use `NodeBody`; forcing them through the Prompt preview path would increase coupling.
+
+### 7.2 DONE - Keep Tool Description Editor Reuse Explicit
 
 Files:
 
@@ -710,9 +758,11 @@ Acceptance:
 
 Estimated production lines saved: `0`.
 
+Outcome: DONE - Tool Description continues to use the resizable code editor shell with prompt-interpolation markdown styling, while schema interpolation remains the only Tool `{{var}}` source that creates ports. The Strict hint stays explicit as legacy Chat-only behavior.
+
 ## 8. Package And Dependency Hygiene
 
-### 8.1 Audit The OpenAI-Compatible Provider Dependency
+### 8.1 DONE - Audit The OpenAI-Compatible Provider Dependency
 
 Files:
 
@@ -740,7 +790,9 @@ Acceptance:
 
 Estimated production lines saved: `0-10`; dependency metadata may stay net-positive if the dependency is required.
 
-### 8.2 Keep Binary Cache And Lockfile Churn Out Of Source Metrics
+Outcome: DONE - `@ai-sdk/openai-compatible` is intentionally declared in `packages/core` for runtime provider construction and in `packages/app` because the app/Vite workspace resolves Chat v2 core source during development/builds under PnP. No package metadata was removed; this avoids reintroducing the Vite resolution failure for Custom provider support.
+
+### 8.2 DONE - Keep Binary Cache And Lockfile Churn Out Of Source Metrics
 
 Files:
 
@@ -760,9 +812,11 @@ Acceptance:
 
 Estimated production lines saved: `0`.
 
+Outcome: DONE - No binary cache or lockfile changes were made in this refactor pass. Source-code changes remain separate from dependency metadata in the verification/reporting scope.
+
 ## 9. Small Post-Refactor Patch Audit
 
-### 9.1 Audit Small UI And Graph Patches Before Refactoring Them
+### 9.1 DONE - Audit Small UI And Graph Patches Before Refactoring Them
 
 Files:
 
@@ -789,7 +843,9 @@ Acceptance:
 
 Estimated production lines saved: `0-25`.
 
-### 9.2 Explicitly Skip Stable Completed Areas
+Outcome: DONE - Audited Ctrl+X hotkeys, graph-reference reachability, split-run summary/concurrency, split-run core concurrency, and resize cursor ownership. Each patch is small and cohesive; no refactor was applied because the current files already keep the relevant policy local and readable.
+
+### 9.2 DONE - Explicitly Skip Stable Completed Areas
 
 Files:
 
@@ -806,6 +862,8 @@ Acceptance:
 - Implementation phases do not edit these areas unless they document a post-refactor reason.
 
 Estimated production lines saved: `0`.
+
+Outcome: DONE - Stable completed areas remain untouched in this implementation pass: graph-input rename/recovery, interpolation rename preservation, structured output shell internals, and canvas visibility/wire policy. They should only be reopened for concrete regressions, not refactor churn.
 
 ## 10. Verification Plan
 
@@ -880,6 +938,8 @@ Verify in the app:
 ## Expected Savings
 
 Conservative target: `180-250` net production lines removed. The lower end is acceptable if the plan avoids unnecessary new abstractions and leaves cohesive code in place intentionally.
+
+Actual implementation result after counting untracked helper files: `+33` net production lines. This missed the deletion target, but avoided denser code and kept the new helper count to two cohesive Chat v2 runtime seams. The main win is maintainability and auditability of high-risk LLM runtime policy, not net source shrinkage.
 
 Possible savings by phase:
 

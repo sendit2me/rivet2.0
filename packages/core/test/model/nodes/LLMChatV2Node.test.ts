@@ -1025,4 +1025,22 @@ describe('LLMChatV2NodeImpl', () => {
     assert.equal((outputs['function-calls'].value[0].arguments as any).city, 'Paris');
     assert.ok(Object.hasOwn(cloned.usage, 'value'));
   });
+
+  it('clones editor cache outputs with circular arrays when structuredClone cannot copy a value', () => {
+    const circularValue: unknown[] = [() => 'not structured-cloneable'];
+    circularValue.push(circularValue);
+    const outputs = {
+      response: {
+        type: 'object[]',
+        value: circularValue,
+      },
+    } as const;
+
+    const cloned = cloneLLMChatV2EditorCacheOutputs(outputs as any);
+    const clonedValue = cloned.response.value as unknown[];
+
+    assert.notEqual(clonedValue, circularValue);
+    assert.equal(clonedValue[0], circularValue[0]);
+    assert.equal(clonedValue[1], clonedValue);
+  });
 });
