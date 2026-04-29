@@ -250,9 +250,6 @@ export function getGraphIdsReferencingGraph(project: ProjectWithGraphs, targetGr
   const referencingGraphIds = new Set<GraphId>();
   const graphEntries = Object.entries(project.graphs) as Array<[GraphId, NodeGraph]>;
   const allGraphIds = graphEntries.map(([graphId]) => graphId);
-  const namedGraphIds = graphEntries
-    .filter(([, graph]) => graph.metadata?.name && graph.metadata.name.trim().length > 0)
-    .map(([graphId]) => graphId);
 
   for (const [graphId, graph] of graphEntries) {
     if (graphId === targetGraphId) {
@@ -262,7 +259,8 @@ export function getGraphIdsReferencingGraph(project: ProjectWithGraphs, targetGr
     const referencesTarget = collectGraphDependencyEdges({
       allGraphIds,
       graph,
-      namedGraphIds,
+      includeDelegateFunctionCallEdges: false,
+      namedGraphIds: [],
       project,
     }).some((edge) => isReachableGraphDependencyEdge(edge) && edge.targets.includes(targetGraphId));
 
@@ -334,10 +332,11 @@ function buildBlockedReport(options: {
 function collectGraphDependencyEdges(options: {
   allGraphIds: GraphId[];
   graph: NodeGraph;
+  includeDelegateFunctionCallEdges?: boolean;
   namedGraphIds: GraphId[];
   project: ProjectWithGraphs;
 }): GraphDependencyEdge[] {
-  const { allGraphIds, graph, namedGraphIds, project } = options;
+  const { allGraphIds, graph, includeDelegateFunctionCallEdges = true, namedGraphIds, project } = options;
   const nodesById = Object.fromEntries(graph.nodes.map((node) => [node.id, node])) as Record<NodeId, ChartNode>;
   const connectionsByInputNodeId = graph.connections.reduce((accumulator, connection) => {
     accumulator[connection.inputNodeId] ??= [];
@@ -427,6 +426,10 @@ function collectGraphDependencyEdges(options: {
       }
 
       case 'delegateFunctionCall': {
+        if (!includeDelegateFunctionCallEdges) {
+          break;
+        }
+
         const data = node.data as DelegateFunctionCallNodeData;
         if (data.autoDelegate) {
           addDynamicTargets('dynamic-name-match', namedGraphIds);

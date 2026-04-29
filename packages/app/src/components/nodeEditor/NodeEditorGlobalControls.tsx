@@ -35,7 +35,7 @@ const splitModeOptions: readonly { value: SplitModeChoice; label: string }[] = [
 ];
 
 const splitModeHints: Record<SplitModeChoice, string> = {
-  once: 'Run the node once. If the input is an array, the whole array is treated as a single input.',
+  once: "Run the node once. If the input is an array, it's treated as a single input.",
   parallel: 'Run the node for each item in the array input. Runs are parallel.',
   sequential: 'Run the node for each item in the array input. Runs are sequential.',
 };

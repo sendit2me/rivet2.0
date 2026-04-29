@@ -451,4 +451,25 @@ describe('graphReachability', () => {
       'static-caller',
     ]);
   });
+
+  test('does not mark Delegate Tool Call graphs as referencing every possible target graph', () => {
+    const delegateAuto = makeNode('delegateFunctionCall', {
+      autoDelegate: true,
+      handlers: [],
+      unknownHandler: undefined,
+    });
+    const delegateManual = makeNode('delegateFunctionCall', {
+      autoDelegate: false,
+      handlers: [{ key: 'tool', value: 'target' as GraphId }],
+      unknownHandler: 'target' as GraphId,
+    });
+    const delegateCaller = makeGraph('delegate-caller', 'Delegate Caller', [delegateAuto, delegateManual]);
+    const directCaller = makeGraph('direct-caller', 'Direct Caller', [
+      makeNode('subGraph', { graphId: 'target' as GraphId }),
+    ]);
+    const target = makeGraph('target', 'Target');
+    const project = makeProject([target, delegateCaller, directCaller], 'target');
+
+    assert.deepEqual(sortGraphIds(getGraphIdsReferencingGraph(project, 'target' as GraphId)), ['direct-caller']);
+  });
 });

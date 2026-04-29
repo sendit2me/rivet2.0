@@ -169,4 +169,7 @@ That preserves the three-bucket model without collapsing runtime-only dispatch i
 The graph list also uses the same dependency-edge collector in reverse for local context: when a graph is open,
 every other graph with a supported same-project dependency edge to the open graph gets a small active-color dot beside
 its name. This is source-reference visibility, not reachability from Main, so it can mark direct static callers and
-dynamic dispatch callers even if those source graphs are themselves unreachable.
+Call Graph dynamic-dispatch callers even if those source graphs are themselves unreachable. `Delegate Tool Call` nodes
+are intentionally excluded from this reverse marker entirely, including manual handler and fallback edges, because
+auto-delegate can theoretically route to any named graph and would make one delegate node appear to reference almost
+every graph in the sidebar.
