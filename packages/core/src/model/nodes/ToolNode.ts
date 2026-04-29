@@ -118,29 +118,24 @@ export class GptFunctionNodeImpl extends NodeImpl<GptFunctionNode> {
   getEditors(): EditorDefinition<GptFunctionNode>[] {
     return [
       {
+        type: 'custom',
+        customEditorId: 'GptFunctionNodeJsonSchemaAiAssist',
+        label: 'AI Assist',
+      },
+      {
         type: 'string',
         label: 'Name',
         dataKey: 'name',
         useInputToggleDataKey: 'useNameInput',
       },
       {
-        type: 'toggle',
-        label: 'Strict',
-        dataKey: 'strict',
-        helperMessage: 'Sets the strict parameter, which determines if OpenAI Structured Outputs are used.',
-      },
-      {
         type: 'code',
         label: 'Description',
         dataKey: 'description',
         useInputToggleDataKey: 'useDescriptionInput',
-        language: 'markdown',
+        language: 'prompt-interpolation-markdown',
+        theme: 'prompt-interpolation',
         height: 100,
-      },
-      {
-        type: 'custom',
-        customEditorId: 'GptFunctionNodeJsonSchemaAiAssist',
-        label: 'AI Assist',
       },
       {
         type: 'code',
@@ -149,6 +144,13 @@ export class GptFunctionNodeImpl extends NodeImpl<GptFunctionNode> {
         language: 'json',
         useInputToggleDataKey: 'useSchemaInput',
         enableFolding: true,
+      },
+      {
+        type: 'toggle',
+        label: 'Strict',
+        dataKey: 'strict',
+        helperMessage:
+          "Legacy Chat node only. Sets OpenAI's strict tool/function parameter for Structured Outputs; LLM Chat v2 does not use this setting.",
       },
     ];
   }
