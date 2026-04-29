@@ -2,7 +2,13 @@ import { type CSSProperties, type FC, useMemo, useState, type MouseEvent } from 
 import { editingNodeState } from '../state/graphBuilder.js';
 import { nodesByIdState } from '../state/graph.js';
 import styled from '@emotion/styled';
-import { type ChartNode, type DataId } from '@ironclad/rivet-core';
+import {
+  createsLLMChatV2ToolResponseFormatConflictForEdit,
+  LLM_CHAT_V2_TOOL_RESPONSE_FORMAT_CONFLICT_COPY,
+  type ChartNode,
+  type DataId,
+  type LLMChatV2Node,
+} from '@ironclad/rivet-core';
 import { useUnknownNodeComponentDescriptorFor } from '../hooks/useNodeTypes.js';
 import { useProjectNodeRegistry } from '../hooks/useProjectNodeRegistry';
 import { useHotkeys } from 'react-hotkeys-hook';
@@ -18,6 +24,8 @@ import { NodeEditorResizeContext } from './nodeEditor/NodeEditorResizeContext.js
 import { ResizeHandle } from './ResizeHandle.js';
 import { useNodeEditorWidth } from './nodeEditor/useNodeEditorWidth.js';
 import { resizeCursorStyles } from '../utils/resizeCursors.js';
+import Modal, { ModalBody, ModalFooter, ModalHeader, ModalTitle, ModalTransition } from '@atlaskit/modal-dialog';
+import Button from '@atlaskit/button';
 
 export const NodeEditorRenderer: FC = () => {
   const nodesById = useAtomValue(nodesByIdState);
@@ -484,6 +492,7 @@ export type NodeChanged = (changed: ChartNode, newData?: Record<DataId, string>)
 export const NodeEditor: FC<NodeEditorProps> = ({ selectedNode, onDeselect }) => {
   const [selectedVariant, setSelectedVariant] = useState<string | undefined>();
   const [addVariantPopupOpen, setAddVariantPopupOpen] = useState(false);
+  const [llmChatFeatureConflictOpen, setLlmChatFeatureConflictOpen] = useState(false);
   const { containerRef, isResizing, panelWidth, resizeHandleProps } = useNodeEditorWidth();
 
   const setStaticData = useSetStaticData();
@@ -492,6 +501,19 @@ export const NodeEditor: FC<NodeEditorProps> = ({ selectedNode, onDeselect }) =>
   const updateNode = useStableCallback((node: ChartNode, newData?: Record<DataId, string>) => {
     // Otherwise the editor "changes" and causes deleted nodes to reappear...
     if (isEqual(node, selectedNode)) {
+      return;
+    }
+
+    const llmChatConflict =
+      selectedNode.type === 'llmChatV2' && node.type === 'llmChatV2'
+        ? createsLLMChatV2ToolResponseFormatConflictForEdit(
+            selectedNode.data as LLMChatV2Node['data'],
+            node.data as LLMChatV2Node['data'],
+          )
+        : false;
+
+    if (llmChatConflict) {
+      setLlmChatFeatureConflictOpen(true);
       return;
     }
 
@@ -510,7 +532,16 @@ export const NodeEditor: FC<NodeEditorProps> = ({ selectedNode, onDeselect }) =>
     data: isVariant ? selectedNode.variants?.find(({ id }) => id === selectedVariant)?.data : selectedNode.data,
   };
 
-  useHotkeys('esc', onDeselect, [onDeselect]);
+  const handleEscape = useStableCallback(() => {
+    if (llmChatFeatureConflictOpen) {
+      setLlmChatFeatureConflictOpen(false);
+      return;
+    }
+
+    onDeselect();
+  });
+
+  useHotkeys('esc', handleEscape, [handleEscape]);
 
   const nodeDescriptionChanged = useStableCallback((description: string) => {
     updateNode({ ...selectedNode, description });
@@ -631,7 +662,38 @@ export const NodeEditor: FC<NodeEditorProps> = ({ selectedNode, onDeselect }) =>
             </span>
           </div>
         </div>
+        <LLMChatFeatureConflictModal
+          isOpen={llmChatFeatureConflictOpen}
+          onClose={() => setLlmChatFeatureConflictOpen(false)}
+        />
       </Container>
     </NodeEditorResizeContext.Provider>
+  );
+};
+
+const LLMChatFeatureConflictModal: FC<{
+  isOpen: boolean;
+  onClose: () => void;
+}> = ({ isOpen, onClose }) => {
+  return (
+    <ModalTransition>
+      {isOpen && (
+        <Modal autoFocus={false} onClose={onClose} width="small">
+          <ModalHeader>
+            <ModalTitle>{LLM_CHAT_V2_TOOL_RESPONSE_FORMAT_CONFLICT_COPY.title}</ModalTitle>
+          </ModalHeader>
+          <ModalBody>
+            {LLM_CHAT_V2_TOOL_RESPONSE_FORMAT_CONFLICT_COPY.paragraphs.map((paragraph) => (
+              <p key={paragraph}>{paragraph}</p>
+            ))}
+          </ModalBody>
+          <ModalFooter>
+            <Button appearance="primary" onClick={onClose}>
+              OK
+            </Button>
+          </ModalFooter>
+        </Modal>
+      )}
+    </ModalTransition>
   );
 };

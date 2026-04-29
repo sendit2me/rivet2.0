@@ -2,6 +2,11 @@ import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { type LLMChatV2Node, LLMChatV2NodeImpl } from '../../../src/index.js';
 import {
+  createsLLMChatV2ToolResponseFormatConflictForEdit,
+  hasLLMChatV2ToolResponseFormatConflict,
+  LLM_CHAT_V2_TOOL_RESPONSE_FORMAT_CONFLICT_COPY,
+} from '../../../src/model/chat-v2/chatV2FeatureCompatibility.js';
+import {
   buildLLMChatV2EditorCacheKey,
   resolveLLMChatV2RuntimeProviderOptions,
 } from '../../../src/model/nodes/LLMChatV2Node.js';
@@ -635,6 +640,61 @@ describe('LLMChatV2NodeImpl', () => {
     assert.equal(inputById.get('responseSchema' as any)?.required, true);
     assert.equal(inputById.get('responseSchemaName' as any)?.dataType, 'string');
     assert.equal(inputById.get('responseSchemaDescription' as any)?.dataType, 'string');
+  });
+
+  it('treats Tool use and structured response formats as mutually exclusive', () => {
+    assert.equal(hasLLMChatV2ToolResponseFormatConflict({ useToolCalling: true, responseFormat: '' }), false);
+    assert.equal(hasLLMChatV2ToolResponseFormatConflict({ useToolCalling: true, responseFormat: 'text' }), false);
+    assert.equal(hasLLMChatV2ToolResponseFormatConflict({ useToolCalling: false, responseFormat: 'json_schema' }), false);
+
+    assert.equal(hasLLMChatV2ToolResponseFormatConflict({ useToolCalling: true, responseFormat: 'json_schema' }), true);
+    assert.deepEqual(LLM_CHAT_V2_TOOL_RESPONSE_FORMAT_CONFLICT_COPY, {
+      title: '"Tool use" conflicts with "Structured outputs"',
+      paragraphs: [
+        '"Tool use" and "Structured outputs" cannot be used at the same time.',
+        'Use "Tool use" with Default/Text response format, or turn "Tool use" off before choosing JSON/JSON schema.',
+      ],
+    });
+  });
+
+  it('detects only edits that create a Tool use and structured response-format conflict', () => {
+    assert.equal(
+      createsLLMChatV2ToolResponseFormatConflictForEdit(
+        { useToolCalling: false, responseFormat: 'json_schema' },
+        { useToolCalling: true, responseFormat: 'json_schema' },
+      ),
+      true,
+    );
+    assert.equal(
+      createsLLMChatV2ToolResponseFormatConflictForEdit(
+        { useToolCalling: true, responseFormat: '' },
+        { useToolCalling: true, responseFormat: 'json' },
+      ),
+      true,
+    );
+    assert.equal(
+      createsLLMChatV2ToolResponseFormatConflictForEdit(
+        { useToolCalling: true, responseFormat: 'json' },
+        { useToolCalling: true, responseFormat: 'json_schema' },
+      ),
+      false,
+    );
+  });
+
+  it('fails fast before execution when Tool use and structured response format are both enabled', async () => {
+    await assert.rejects(
+      () =>
+        resolveLLMChatV2RuntimeConfig({
+          data: createNode({
+            useToolCalling: true,
+            responseFormat: 'json_schema',
+          }).data,
+          nodeId: 'node-id' as any,
+          inputs: {},
+          context: createRuntimeContext(),
+        }),
+      { message: LLM_CHAT_V2_TOOL_RESPONSE_FORMAT_CONFLICT_COPY.paragraphs[0] },
+    );
   });
 
   it('scopes editor cache keys by node id', () => {

@@ -30,23 +30,26 @@ async function executeStream(
   options: StreamChatV2Options,
   executor: ChatV2StreamExecutor,
 ): Promise<StreamChatV2Result> {
-  const handle = await executor({
+  const args: Parameters<typeof streamText>[0] = {
     model: options.model,
     messages: options.messages,
-    tools: options.tools,
-    maxOutputTokens: options.maxTokens,
-    temperature: options.temperature,
-    topP: options.topP,
-    topK: options.topK,
-    presencePenalty: options.presencePenalty,
-    frequencyPenalty: options.frequencyPenalty,
-    stopSequences: options.stopSequences,
-    seed: options.seed,
-    output: options.responseOutput,
-    providerOptions: options.providerOptions,
-    toolChoice: options.toolChoice,
-    abortSignal: options.abortSignal,
-  });
+  };
+
+  if (options.tools !== undefined) args.tools = options.tools;
+  if (options.maxTokens !== undefined) args.maxOutputTokens = options.maxTokens;
+  if (options.temperature !== undefined) args.temperature = options.temperature;
+  if (options.topP !== undefined) args.topP = options.topP;
+  if (options.topK !== undefined) args.topK = options.topK;
+  if (options.presencePenalty !== undefined) args.presencePenalty = options.presencePenalty;
+  if (options.frequencyPenalty !== undefined) args.frequencyPenalty = options.frequencyPenalty;
+  if (options.stopSequences !== undefined) args.stopSequences = options.stopSequences;
+  if (options.seed !== undefined) args.seed = options.seed;
+  if (options.responseOutput !== undefined) args.output = options.responseOutput;
+  if (options.providerOptions !== undefined) args.providerOptions = options.providerOptions;
+  if (options.toolChoice !== undefined) args.toolChoice = options.toolChoice;
+  if (options.abortSignal !== undefined) args.abortSignal = options.abortSignal;
+
+  const handle = await executor(args);
 
   const streamed = await consumeAiSdkStream(handle.fullStream, (text, functionCalls) => {
     options.onPartialOutput?.({ text, functionCalls });

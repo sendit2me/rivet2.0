@@ -159,10 +159,10 @@ describe('streamChatV2', () => {
   });
 
   it('forwards response output to the AI SDK stream executor', async () => {
-    let capturedResponseOutput: unknown;
+    let capturedArgs: Record<string, unknown> | undefined;
     const responseOutput = { name: 'json' };
     const executeStream: ChatV2StreamExecutor = async (args) => {
-      capturedResponseOutput = (args as Record<string, unknown>).output;
+      capturedArgs = args as Record<string, unknown>;
 
       return {
         fullStream: mockStream([
@@ -180,7 +180,36 @@ describe('streamChatV2', () => {
       executeStream,
     });
 
-    assert.equal(capturedResponseOutput, responseOutput);
+    assert.equal(capturedArgs?.output, responseOutput);
+    assert.equal('tools' in capturedArgs!, false);
+  });
+
+  it('omits undefined optional AI SDK arguments instead of forwarding empty request-shape hints', async () => {
+    let capturedArgs: Record<string, unknown> | undefined;
+    const executeStream: ChatV2StreamExecutor = async (args) => {
+      capturedArgs = args as Record<string, unknown>;
+
+      return {
+        fullStream: mockStream([
+          { type: 'text-start', id: 'text_1' },
+          { type: 'text-delta', id: 'text_1', text: 'Hello' },
+          { type: 'text-end', id: 'text_1' },
+        ]),
+      };
+    };
+
+    await streamChatV2({
+      model: createMockModel(),
+      messages: [],
+      executeStream,
+    });
+
+    assert.ok(capturedArgs);
+    assert.equal('tools' in capturedArgs, false);
+    assert.equal('toolChoice' in capturedArgs, false);
+    assert.equal('output' in capturedArgs, false);
+    assert.equal('providerOptions' in capturedArgs, false);
+    assert.equal('maxOutputTokens' in capturedArgs, false);
   });
 });
 

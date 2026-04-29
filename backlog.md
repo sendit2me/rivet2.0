@@ -2,8 +2,6 @@
 
 - Human readable Loop node
 
-- Remove the "line" when hivering the left and right node edges
-
 
 - Compare the current Rivet 2.0 to the rivet in Rivet Server and make sure the new rivet will work there
 

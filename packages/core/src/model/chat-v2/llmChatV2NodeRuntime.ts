@@ -6,6 +6,10 @@ import type { PortId } from '../NodeBase.js';
 import type { InternalProcessContext } from '../ProcessContext.js';
 import { createChatV2ResponseOutput, resolveChatV2ResponseFormatParameters } from './chatV2ResponseFormat.js';
 import {
+  hasLLMChatV2ToolResponseFormatConflict,
+  LLM_CHAT_V2_TOOL_RESPONSE_FORMAT_CONFLICT_COPY,
+} from './chatV2FeatureCompatibility.js';
+import {
   createChatV2Model,
   parseChatV2Provider,
   resolveChatV2ProviderConfig,
@@ -50,6 +54,11 @@ export async function resolveLLMChatV2RuntimeConfig(params: {
   context: InternalProcessContext;
 }): Promise<LLMChatV2RuntimeConfig> {
   const { data, nodeId, inputs, context } = params;
+
+  if (hasLLMChatV2ToolResponseFormatConflict(data)) {
+    throw new Error(LLM_CHAT_V2_TOOL_RESPONSE_FORMAT_CONFLICT_COPY.paragraphs[0]);
+  }
+
   const provider = parseChatV2Provider(data.provider);
   const modelId = getInputOrData(data, inputs, 'model', 'string');
   const baseURL = getInputOrData(data, inputs, 'baseURL', 'string', 'useBaseURLInput')?.trim() || undefined;
