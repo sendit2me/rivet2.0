@@ -398,7 +398,7 @@ export const ChatAnthropicNodeImpl: PluginNodeImpl<ChatAnthropicNode> = {
       infoBoxBody: dedent`
           Legacy Anthropic chat node.
 
-          For new work, prefer \`LLM Chat v2\`, which keeps provider selection inside one shared node.
+          For new work, prefer \`LLM Chat\`, which keeps provider selection inside one shared node.
         `,
       infoBoxTitle: 'Chat (Anthropic) Node (Legacy)',
       contextMenuTitle: 'Chat (Anthropic, Legacy)',

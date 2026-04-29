@@ -150,7 +150,7 @@ export class GptFunctionNodeImpl extends NodeImpl<GptFunctionNode> {
         label: 'Strict',
         dataKey: 'strict',
         helperMessage:
-          "Legacy Chat node only. Sets OpenAI's strict tool/function parameter for Structured Outputs; LLM Chat v2 does not use this setting.",
+          "Legacy Chat node only. Sets OpenAI's strict tool/function parameter for Structured Outputs; LLM Chat does not use this setting.",
       },
     ];
   }

@@ -221,7 +221,7 @@ export function normalizeChatV2ProviderError(error: unknown, context: ChatV2Erro
   }
 
   const normalized = new Error(message);
-  normalized.name = 'LLM Chat v2 error';
+  normalized.name = 'LLM Chat error';
   normalized.cause = error;
   return normalized;
 }

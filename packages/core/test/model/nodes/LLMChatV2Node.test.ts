@@ -49,7 +49,7 @@ describe('LLMChatV2NodeImpl', () => {
     const node = LLMChatV2NodeImpl.create();
 
     assert.equal(node.type, 'llmChatV2');
-    assert.equal(node.title, 'LLM Chat v2');
+    assert.equal(node.title, 'LLM Chat');
     assert.equal(node.data.provider, 'openai');
     assert.equal(node.data.apiKeySource, 'environment');
     assert.equal(node.data.customProviderApiKeyEnvVarName, 'CUSTOM_PROVIDER_API_KEY');

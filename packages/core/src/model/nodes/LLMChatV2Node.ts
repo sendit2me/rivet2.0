@@ -39,7 +39,7 @@ export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
   static create(): LLMChatV2Node {
     return {
       type: 'llmChatV2',
-      title: 'LLM Chat v2',
+      title: 'LLM Chat',
       id: nanoid() as NodeId,
       visualData: {
         x: 0,
@@ -172,8 +172,8 @@ export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
         Choose OpenAI, Anthropic, Google, or a custom OpenAI-compatible provider inside the node without rewiring the graph.
         Common behavior stays shared; provider-specific settings only appear in advanced sections when relevant.
       `,
-      contextMenuTitle: 'LLM Chat v2',
-      infoBoxTitle: 'LLM Chat v2 Node',
+      contextMenuTitle: 'LLM Chat',
+      infoBoxTitle: 'LLM Chat Node',
       group: ['Common', 'AI'],
     };
   }
@@ -238,4 +238,4 @@ export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
   }
 }
 
-export const llmChatV2Node = nodeDefinition(LLMChatV2NodeImpl, 'LLM Chat v2');
+export const llmChatV2Node = nodeDefinition(LLMChatV2NodeImpl, 'LLM Chat');

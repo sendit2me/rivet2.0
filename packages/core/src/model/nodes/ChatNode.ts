@@ -40,7 +40,7 @@ export class ChatNodeImpl extends NodeImpl<ChatNode> {
       infoBoxBody: dedent`
         Legacy OpenAI-compatible chat node.
 
-        For new work, prefer \`LLM Chat v2\`, which provides a shared vendor-agnostic chat experience across OpenAI, Anthropic, and Google.
+        For new work, prefer \`LLM Chat\`, which provides a shared vendor-agnostic chat experience across OpenAI, Anthropic, and Google.
 
         The \`System Prompt\` input specifies a system prompt as the first message to the model. This is useful for providing context to the model.
 

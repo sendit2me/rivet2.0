@@ -3,7 +3,7 @@ import { strict as assert } from 'node:assert';
 import { getLLMChatV2CustomProviderApiKeyEnvVarNames } from './chatV2CustomProviderEnv';
 
 describe('getLLMChatV2CustomProviderApiKeyEnvVarNames', () => {
-  it('collects unique configured-key env vars from custom LLM Chat v2 nodes', () => {
+  it('collects unique configured-key env vars from custom LLM Chat nodes', () => {
     const project = {
       graphs: {
         main: {

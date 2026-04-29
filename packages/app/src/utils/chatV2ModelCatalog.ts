@@ -63,7 +63,7 @@ function isOpenAIChatLikeModelId(id: string): boolean {
 }
 
 function logModelCatalogDebug(provider: ChatV2Provider, message: string, details?: unknown): void {
-  const prefix = `[LLM Chat v2][${provider} models]`;
+  const prefix = `[LLM Chat][${provider} models]`;
   if (details === undefined) {
     console.info(`${prefix} ${message}`);
   } else {

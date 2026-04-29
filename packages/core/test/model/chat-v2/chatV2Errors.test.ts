@@ -26,7 +26,7 @@ describe('normalizeChatV2ProviderError', () => {
     });
 
     assert.ok(normalized instanceof Error);
-    assert.equal(normalized.name, 'LLM Chat v2 error');
+    assert.equal(normalized.name, 'LLM Chat error');
     assert.match(normalized.message, /404 Not Found/);
     assert.match(normalized.message, /Provider: Custom provider/);
     assert.match(normalized.message, /Model: llama-does-not-exist/);

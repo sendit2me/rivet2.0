@@ -96,7 +96,7 @@ export function parseChatV2Provider(value: string): ChatV2Provider {
     case 'custom':
       return value;
     default:
-      throw new Error(`Unsupported LLM Chat v2 provider: ${value}`);
+      throw new Error(`Unsupported LLM Chat provider: ${value}`);
   }
 }
 

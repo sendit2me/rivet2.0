@@ -378,9 +378,11 @@ Current outcome:
 - the OpenAI execution loop is isolated from the node-definition surface
 - Google and Anthropic nodes now share more chat-pipeline helpers instead of each keeping their own prompt/token/output plumbing
 
-### LLM Chat v2 seams
+### LLM Chat seams
 
-The built-in `LLM Chat v2` node is intentionally split under
+The built-in user-facing `LLM Chat` node keeps the internal `llmChatV2`
+node type and `LLMChatV2*` implementation names for compatibility. Its code is
+intentionally split under
 [`packages/core/src/model/chat-v2/`](../packages/core/src/model/chat-v2/):
 
 - `llmChatV2NodeData.ts` owns the persisted data/default shape.
