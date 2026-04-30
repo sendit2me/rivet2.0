@@ -7,7 +7,17 @@ const httpCallNodeBodyStyles = css`
   display: flex;
   flex-direction: column;
   gap: var(--http-call-node-body-section-gap, 6px);
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
   white-space: pre-wrap;
+
+  .http-call-node-body-section {
+    max-width: 100%;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: clip;
+  }
 `;
 
 const HttpCallNodeBody: FC<{ node: HttpCallNode }> = ({ node }) => (
