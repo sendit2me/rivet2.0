@@ -192,6 +192,8 @@ The build script (`scripts/build-executor.mts`) bundles the ESM source to CJS us
 
 The CLI now includes a small smoke suite so root `yarn test` / `npm run test` validates the package instead of failing on an empty test glob.
 
+The CLI Dockerfile installs the published CLI package by explicit version (`@ironclad/rivet-cli@2.0.0`). Keep that pin aligned with `packages/cli/package.json` whenever the product version changes.
+
 ### Trivet
 
 `packages/trivet/package.json`:
@@ -310,7 +312,7 @@ Tauri config lives in [`packages/app/src-tauri/tauri.conf.json`](../packages/app
 - `beforeBuildCommand`: `yarn prepare:tauri && yarn build`
 - `devPath`: `http://localhost:5173`
 - `distDir`: `../dist`
-- package version there: `1.11.3`
+- package version there: `2.0`
 - updater is active
 - updater endpoint points at GitHub release `latest.json`
 - external binaries include app-executor and bundled `pnpm`

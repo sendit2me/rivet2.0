@@ -23,7 +23,7 @@ Shared runtime foundation for the entire repo.
 
 ### Package metadata
 
-- Version: `1.26.0`
+- Version: `2.0.0`
 - Main: `dist/cjs/bundle.cjs`
 - Module: `dist/esm/index.js`
 - Types: `dist/types/index.d.ts`
@@ -59,7 +59,7 @@ Node-native runtime wrapper around core.
 
 ### Package metadata
 
-- Version: `1.26.0`
+- Version: `2.0.0`
 - Main: `dist/cjs/bundle.cjs`
 - Module: `dist/esm/index.js`
 - Types: `dist/types/index.d.ts`
@@ -97,7 +97,7 @@ Desktop IDE frontend plus Tauri app packaging layer.
 
 ### Package metadata
 
-- Version: `1.1.0`
+- Version: `2.0.0`
 - Private: yes
 
 ### Runtime shape
@@ -128,7 +128,7 @@ Desktop IDE frontend plus Tauri app packaging layer.
 
 ### Version caveat
 
-The desktop product version is also tracked in `packages/app/src-tauri/tauri.conf.json`, which currently reports `1.11.3`.
+The desktop product version is also tracked in `packages/app/src-tauri/tauri.conf.json`, which currently reports `2.0`.
 
 ## `@ironclad/rivet-app-executor` (`packages/app-executor/`)
 
@@ -138,7 +138,7 @@ Node sidecar process used by the desktop app for Node-capable execution.
 
 ### Package metadata
 
-- Version: `1.0.1`
+- Version: `2.0.0`
 - Bin: `./bin/executor-bundle.cjs`
 
 ### Main behavior
@@ -177,7 +177,7 @@ Operational CLI for running or serving Rivet graphs.
 
 ### Package metadata
 
-- Version: `1.26.0`
+- Version: `2.0.0`
 - Source entry: `src/cli.ts`
 - Published bin mapping: `rivet -> bin/cli.js`
 - Types: `dist/types/cli.d.ts`
@@ -233,7 +233,7 @@ Graph-oriented testing package.
 
 ### Package metadata
 
-- Version: `1.26.0`
+- Version: `2.0.0`
 - Main: `dist/cjs/bundle.cjs`
 - Module: `dist/esm/index.js`
 - Types: `dist/types/index.d.ts`
@@ -272,7 +272,7 @@ Docusaurus documentation site package.
 
 ### Package metadata
 
-- Version: `1.0.0`
+- Version: `2.0.0`
 - Private: yes
 
 ### Script surface
