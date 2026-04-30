@@ -181,6 +181,19 @@ Maintenance rules:
 
 The build script (`scripts/build-executor.mts`) bundles the ESM source to CJS using esbuild, then compiles the CJS bundle into a native binary via `pkg`. CJS format is required because `pkg` needs static analysis of `require()` calls. A custom esbuild plugin (`resolveRivet`) inlines `@ironclad/rivet-*` packages from source, so the final bundle has zero external workspace dependencies.
 
+The app-executor binary accepts `--port` / `-p` and `--host` flags. The default
+host is `127.0.0.1` for the desktop internal sidecar; hosted/container wrappers
+can pass `--host 0.0.0.0` or set `RIVET_EXECUTOR_HOST=0.0.0.0` without patching
+`executor.mts`. If no port flag is passed, `RIVET_EXECUTOR_PORT` can override
+the default `21889`; custom ports must be valid TCP ports from `1` to `65535`.
+Code-node `require()` resolution can likewise be redirected
+with `RIVET_CODE_RUNNER_REQUIRE_ROOT` or `RIVET_CODE_RUNNER_REQUIRE_ANCHOR` so
+wrapper runtimes can provide per-project libraries without string-rewriting
+`NodeCodeRunner` or the app-executor worker runner. Hosted bootstrap code can
+also expose `globalThis.__RIVET_PREPARE_RUNTIME_LIBRARIES__`; the app-executor
+worker runner calls it before require-enabled/Rivet-capable Code nodes so Docker
+or server wrappers can synchronize runtime libraries before module resolution.
+
 ### CLI
 
 `packages/cli/package.json`:

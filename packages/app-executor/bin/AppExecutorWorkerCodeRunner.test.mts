@@ -1,5 +1,8 @@
 import { describe, it } from 'node:test';
 import * as assert from 'node:assert/strict';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import {
   CodeNodeImpl,
   GraphProcessor,
@@ -115,6 +118,78 @@ void describe('AppExecutorWorkerCodeRunner', () => {
     assert.deepEqual(outputs, {
       output1: { type: 'string', value: 'two.txt' },
     });
+  });
+
+  void it('prepares hosted runtime libraries before require-enabled code runs', async () => {
+    let prepareCount = 0;
+    const globalWithPrepareHook = globalThis as typeof globalThis & {
+      __RIVET_PREPARE_RUNTIME_LIBRARIES__?: (force?: boolean) => Promise<void>;
+    };
+    const previousPrepareHook = globalWithPrepareHook.__RIVET_PREPARE_RUNTIME_LIBRARIES__;
+    globalWithPrepareHook.__RIVET_PREPARE_RUNTIME_LIBRARIES__ = async (force) => {
+      assert.equal(force, true);
+      prepareCount += 1;
+    };
+
+    try {
+      const runner = new AppExecutorWorkerCodeRunner();
+
+      await runner.runCode(
+        `return { output1: { type: 'string', value: require('node:path').basename('a/b') } };`,
+        {},
+        {
+          includeConsole: false,
+          includeFetch: false,
+          includeProcess: false,
+          includeRequire: true,
+          includeRivet: false,
+        },
+      );
+
+      assert.equal(prepareCount, 1);
+    } finally {
+      globalWithPrepareHook.__RIVET_PREPARE_RUNTIME_LIBRARIES__ = previousPrepareHook;
+    }
+  });
+
+  void it('resolves worker require from the configured runtime root', async () => {
+    const runtimeRoot = await mkdtemp(join(tmpdir(), 'rivet-app-executor-require-'));
+    const moduleDir = join(runtimeRoot, 'node_modules', 'rivet-worker-test-module');
+    const previousRoot = process.env.RIVET_CODE_RUNNER_REQUIRE_ROOT;
+
+    try {
+      await mkdir(moduleDir, { recursive: true });
+      await writeFile(join(moduleDir, 'index.js'), `module.exports = 'from-worker-runtime-root';`);
+
+      process.env.RIVET_CODE_RUNNER_REQUIRE_ROOT = runtimeRoot;
+      const runner = new AppExecutorWorkerCodeRunner();
+
+      const outputs = await runner.runCode(
+        `
+          const value = require('rivet-worker-test-module');
+          return { output1: { type: 'string', value } };
+        `,
+        {},
+        {
+          includeConsole: false,
+          includeFetch: false,
+          includeProcess: false,
+          includeRequire: true,
+          includeRivet: false,
+        },
+      );
+
+      assert.deepEqual(outputs, {
+        output1: { type: 'string', value: 'from-worker-runtime-root' },
+      });
+    } finally {
+      if (previousRoot === undefined) {
+        delete process.env.RIVET_CODE_RUNNER_REQUIRE_ROOT;
+      } else {
+        process.env.RIVET_CODE_RUNNER_REQUIRE_ROOT = previousRoot;
+      }
+      await rm(runtimeRoot, { force: true, recursive: true });
+    }
   });
 
   void it('passes inputs, graph inputs, and context values into the worker', async () => {

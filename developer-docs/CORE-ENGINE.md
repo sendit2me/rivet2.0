@@ -646,6 +646,15 @@ those calls become `codeConsole` executor messages that the app replays in the
 renderer console. This is app-executor-specific and does not change the public
 `NodeCodeRunner` default used by programmatic `@ironclad/rivet-node` callers.
 
+`NodeCodeRunner` exposes its CommonJS `require()` resolution policy through
+`createCodeRunnerRequire(...)`, `getCodeRunnerRequireRoot(...)`, and
+`getCodeRunnerRequireAnchorPath(...)` from `@ironclad/rivet-node`. The default
+anchor remains `process.cwd()/__rivet_node_code_runner__.cjs`, so programmatic
+callers keep the old behavior. Hosted wrappers can set
+`RIVET_CODE_RUNNER_REQUIRE_ROOT` or `RIVET_CODE_RUNNER_REQUIRE_ANCHOR` before the
+runner is constructed to resolve Code-node `require()` from a runtime-library
+directory without patching source.
+
 Syntax-error diagnostics are deliberately failure-only. The core does not pre-parse
 successful `Code` node runs. If `AsyncFunction` construction throws a syntax error,
 the node then performs a small parser pass over a synthetic async-function wrapper

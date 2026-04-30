@@ -1364,6 +1364,35 @@ Current boundary expectation:
 - app-level orchestration, workspace flows, and execution-selection logic stay platform-neutral where possible
 - a future browser client should be able to reuse those higher-level layers while swapping the capability adapters
 
+### Hosted/wrapper embedding seam
+
+Hosted applications that embed Rivet's editor from source should import
+[`RivetAppHost`](../packages/app/src/host.tsx) from `packages/app/src/host.tsx`
+instead of rendering [`RivetApp`](../packages/app/src/components/RivetApp.tsx)
+directly. `RivetAppHost` is the stable wrapper seam for external hosts:
+
+- it creates or accepts a React Query `QueryClient`
+- it wraps the editor in `ProvidersProvider` and `ExecutorSessionProvider`
+- it runs the same async storage bootstrap as the desktop app through
+  `RivetAppLoader`
+- it accepts optional `providers` for custom IO/dataset/audio/data-ref adapters
+- it accepts an optional `executor.internalExecutorUrl` for hosted wrappers that
+  run the app executor as an already-managed websocket service instead of a
+  Tauri sidecar
+- it renders optional `children` after the app is initialized, so wrapper bridges
+  can mount inside the same provider/session context
+
+The host barrel also re-exports the provider/session types, executor-session
+runtime factory, sidecar lifecycle helpers, environment-backed settings filler,
+and LLM Chat custom-provider env-var discovery helper that hosted shells need to
+stay aligned with current app execution behavior. This is the preferred seam for
+projects such as Self-hosted Rivet; direct imports of private app components or
+old per-hook shims should be treated as compatibility debt. When
+`executor.internalExecutorUrl` is configured and the user selects Node executor
+mode, [`useExecutorSession`](../packages/app/src/hooks/useExecutorSession.ts)
+connects to that hosted executor URL directly and does not start or stop a local
+sidecar. The desktop/Tauri default remains unchanged.
+
 ## Important Refactor Seams
 
 If planning significant refactors, these are the highest-value seams already visible in the code:

@@ -119,6 +119,7 @@ Desktop IDE frontend plus Tauri app packaging layer.
 
 - downstream package source imports core through `@ironclad/rivet-core`, not by reaching into `packages/core/src/...`; the shared root ESLint config enforces that boundary with `no-restricted-imports`
 - app-only convenience helpers, such as type-safe object iteration, live in the app package; shared behavior that must match core runtime semantics is exported intentionally by core first
+- hosted/wrapper applications that mount Rivet's editor from source should import [`packages/app/src/host.tsx`](../packages/app/src/host.tsx) and render `RivetAppHost` instead of rendering `RivetApp` directly; that host shell owns QueryClient, provider context, executor-session context, async storage bootstrap, optional post-app bridge children, and optional hosted executor websocket configuration through `executor.internalExecutorUrl`
 - execution transport/session ownership is centralized under `src/hooks/executorSession.ts` and `src/hooks/useExecutorSession.ts`
 - project/graph load-save-switch sequencing is centralized under `src/hooks/useWorkspaceTransitions.ts` and `src/utils/workspaceTransitions.ts`
 - remembered editor-view persistence is handled app-side through `src/state/projectEditor.ts`, `src/hooks/useSyncCurrentProjectEditorState.ts`, and `src/hooks/useRestorePersistedWorkspace.ts` rather than through project-file serialization
@@ -146,6 +147,7 @@ Node sidecar process used by the desktop app for Node-capable execution.
 The sidecar:
 
 - starts a debugger/WebSocket server
+- binds to `127.0.0.1:21889` by default for the desktop internal sidecar, but accepts `--host <host>` / `RIVET_EXECUTOR_HOST` and `--port` / `RIVET_EXECUTOR_PORT` for hosted wrappers that need to expose the executor server from a container; custom ports must be valid TCP ports from `1` to `65535`
 - accepts uploaded project/settings/static-data state
 - uses `assembleRegistry()` from core's `RegistryAssembly.ts` to build a fresh registry for each graph run
 - dynamically imports plugins through `importPluginInitializer()`, which handles CJS/ESM default-export interop
@@ -159,6 +161,18 @@ The worker-backed runner is scoped to the app executor. `@ironclad/rivet-node`
 programmatic callers still use `NodeCodeRunner` by default unless they pass a
 custom `codeRunner`, and Code nodes that request the `Rivet` capability fall back
 to current-thread execution inside the sidecar for compatibility.
+
+Code-node `require()` resolution is intentionally configurable for hosted runtimes.
+Both public `NodeCodeRunner` and the app-executor worker runner honor
+`RIVET_CODE_RUNNER_REQUIRE_ROOT` and `RIVET_CODE_RUNNER_REQUIRE_ANCHOR`. By
+default they resolve modules from the process working directory through the
+synthetic `__rivet_node_code_runner__.cjs` anchor. Hosted wrappers can point the
+root at a runtime-library directory instead of patching Rivet source.
+Before a require-enabled or Rivet-capable Code node runs, the app-executor worker
+runner also calls an optional global
+`__RIVET_PREPARE_RUNTIME_LIBRARIES__(true)` hook when a hosted bootstrap layer
+provides one. That keeps managed runtime-library sync outside Rivet core while
+still giving hosted executors a stable "prepare, then resolve" seam.
 
 ### Build model
 

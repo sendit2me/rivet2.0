@@ -5,6 +5,17 @@ import { remoteDebuggerConfigState, remoteDebuggerConnectionState } from '../sta
 import { useDatasetProvider } from './ProvidersContext.js';
 
 const ExecutorSessionRuntimeContext = createContext<ExecutorSessionRuntime | null>(null);
+const ExecutorSessionHostConfigContext = createContext<ExecutorSessionHostConfig | undefined>(undefined);
+
+export type ExecutorSessionHostConfig = {
+  /**
+   * Hosted wrappers can provide the editor executor websocket URL here. When
+   * set, Node executor mode connects to this URL instead of starting a Tauri
+   * sidecar, so browser-hosted Rivet shells can use the same executor hooks as
+   * the desktop app.
+   */
+  internalExecutorUrl?: string;
+};
 
 export function useExecutorSessionRuntime(): ExecutorSessionRuntime {
   const context = useContext(ExecutorSessionRuntimeContext);
@@ -16,7 +27,14 @@ export function useExecutorSessionRuntime(): ExecutorSessionRuntime {
   return context;
 }
 
-export const ExecutorSessionProvider: FC<{ children: ReactNode }> = ({ children }) => {
+export function useExecutorSessionHostConfig(): ExecutorSessionHostConfig | undefined {
+  return useContext(ExecutorSessionHostConfigContext);
+}
+
+export const ExecutorSessionProvider: FC<{ children: ReactNode; hostConfig?: ExecutorSessionHostConfig }> = ({
+  children,
+  hostConfig,
+}) => {
   const datasetProvider = useDatasetProvider();
   const [, setDebuggerConfig] = useAtom(remoteDebuggerConfigState);
   const [, setConnectionState] = useAtom(remoteDebuggerConnectionState);
@@ -44,5 +62,9 @@ export const ExecutorSessionProvider: FC<{ children: ReactNode }> = ({ children 
     };
   }, [runtime]);
 
-  return <ExecutorSessionRuntimeContext.Provider value={runtime}>{children}</ExecutorSessionRuntimeContext.Provider>;
+  return (
+    <ExecutorSessionHostConfigContext.Provider value={hostConfig}>
+      <ExecutorSessionRuntimeContext.Provider value={runtime}>{children}</ExecutorSessionRuntimeContext.Provider>
+    </ExecutorSessionHostConfigContext.Provider>
+  );
 };

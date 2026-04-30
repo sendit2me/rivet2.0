@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { allInitializeStoreFns } from '../state/storage';
 import useAsyncEffect from 'use-async-effect';
 import { RivetApp } from './RivetApp';
@@ -10,7 +10,7 @@ import { prefetchChatV2DiscoveredModelOptions } from '../utils/chatV2ModelCatalo
 
 // Storage-backed atoms read synchronously on mount, so this subtree must stay behind the
 // async hybrid-storage bootstrap or settings/theme atoms can lock in default values.
-const InitializedRivetApp = () => {
+const InitializedRivetApp = ({ children }: { children?: ReactNode }) => {
   const settings = useAtomValue(settingsState);
   const plugins = useDependsOnPlugins();
 
@@ -22,10 +22,21 @@ const InitializedRivetApp = () => {
     });
   }, [plugins, settings]);
 
-  return <RivetApp />;
+  return (
+    <>
+      <RivetApp />
+      {children}
+    </>
+  );
 };
 
-export const RivetAppLoader = () => {
+export const RivetAppLoader = ({
+  children,
+  loadingFallback = <div>Loading...</div>,
+}: {
+  children?: ReactNode;
+  loadingFallback?: ReactNode;
+}) => {
   const [isLoading, setIsLoading] = useState(true);
 
   useAsyncEffect(async () => {
@@ -37,8 +48,8 @@ export const RivetAppLoader = () => {
   }, []);
 
   if (isLoading) {
-    return <div>Loading...</div>;
+    return loadingFallback;
   }
 
-  return <InitializedRivetApp />;
+  return <InitializedRivetApp>{children}</InitializedRivetApp>;
 };

@@ -24,6 +24,7 @@ import { access, readFile } from 'node:fs/promises';
 import { platform, homedir } from 'node:os';
 import { pathToFileURL } from 'node:url';
 import { AppExecutorWorkerCodeRunner } from './AppExecutorWorkerCodeRunner.mjs';
+import { parseExecutorHostFromArgs, parseExecutorPortFromArgs } from './executorConfig.mjs';
 
 const datasetProvider = new DebuggerDatasetProvider();
 const editorExecutionCachesByProjectId = new Map<string, Map<string, unknown>>();
@@ -74,36 +75,9 @@ function getAppDataLocalPath() {
     });
 }
 
-function parsePortFromArgs(argv: string[]) {
-  const defaultPort = 21889;
-
-  for (let index = 0; index < argv.length; index += 1) {
-    const arg = argv[index];
-
-    if (arg === '--port' || arg === '-p') {
-      const value = argv[index + 1];
-      const parsed = Number(value);
-      if (!value || Number.isNaN(parsed) || !Number.isInteger(parsed) || parsed <= 0) {
-        throw new Error(`Invalid port value: ${value ?? '(missing)'}`);
-      }
-      return parsed;
-    }
-
-    if (arg?.startsWith('--port=')) {
-      const value = arg.slice('--port='.length);
-      const parsed = Number(value);
-      if (!value || Number.isNaN(parsed) || !Number.isInteger(parsed) || parsed <= 0) {
-        throw new Error(`Invalid port value: ${value || '(missing)'}`);
-      }
-      return parsed;
-    }
-  }
-
-  return defaultPort;
-}
-
-const port = parsePortFromArgs(process.argv.slice(2));
-const host = '127.0.0.1';
+const executorArgs = process.argv.slice(2);
+const port = parseExecutorPortFromArgs(executorArgs);
+const host = parseExecutorHostFromArgs(executorArgs);
 const executorReadyMessage = `Rivet app executor websocket listening on ${host}:${port}`;
 let executorWebSocketReady = false;
 let exitingAfterStartupError = false;

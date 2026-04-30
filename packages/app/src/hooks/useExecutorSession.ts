@@ -1,6 +1,6 @@
 import { useAtomValue, useSetAtom } from 'jotai';
 import { useEffect } from 'react';
-import { useExecutorSessionRuntime } from '../providers/ExecutorSessionContext.js';
+import { useExecutorSessionHostConfig, useExecutorSessionRuntime } from '../providers/ExecutorSessionContext.js';
 import { remoteDebuggerConfigState, remoteDebuggerConnectionState } from '../state/execution.js';
 import { defaultExecutorState } from '../state/settings.js';
 import { isInTauri } from '../utils/platform/core.js';
@@ -13,12 +13,21 @@ import { useRemoteDebugger } from './useRemoteDebugger';
 
 export function useExecutorSession(selectedExecutor: 'browser' | 'nodejs') {
   const runtime = useExecutorSessionRuntime();
+  const hostConfig = useExecutorSessionHostConfig();
   const remoteDebugger = useRemoteDebugger();
   const setDefaultExecutor = useSetAtom(defaultExecutorState);
 
   useEffect(() => {
     if (selectedExecutor !== 'nodejs') {
       runtime.disconnect();
+      return () => {
+        runtime.disconnect();
+      };
+    }
+
+    if (hostConfig?.internalExecutorUrl) {
+      void runtime.connect(hostConfig.internalExecutorUrl);
+
       return () => {
         runtime.disconnect();
       };
@@ -45,7 +54,7 @@ export function useExecutorSession(selectedExecutor: 'browser' | 'nodejs') {
       runtime.disconnect();
       void detachAndStopExecutorSidecar();
     };
-  }, [runtime, selectedExecutor, setDefaultExecutor]);
+  }, [hostConfig?.internalExecutorUrl, runtime, selectedExecutor, setDefaultExecutor]);
 
   return remoteDebugger;
 }

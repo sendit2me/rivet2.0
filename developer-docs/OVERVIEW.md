@@ -131,6 +131,16 @@ Used by the desktop app when `defaultExecutorState` is `nodejs`.
 - supports Node-specific APIs and plugin installation scenarios
 - connection ownership is centralized in the app's shared `executorSession` layer rather than in `useRemoteExecutor` itself
 - sidecar process lifecycle is now isolated in a small runtime helper (`executorSidecarRuntime.ts`) instead of being reassembled inside the React hook that mounts it
+- hosted wrappers can bind the app-executor server to a non-loopback host with `--host` or `RIVET_EXECUTOR_HOST`, override the port with `--port` / `-p` or `RIVET_EXECUTOR_PORT` using a valid TCP port from `1` to `65535`, and redirect Code-node `require()` resolution with `RIVET_CODE_RUNNER_REQUIRE_ROOT` / `RIVET_CODE_RUNNER_REQUIRE_ANCHOR`
+- hosted wrappers that mount through `RivetAppHost` can pass `executor.internalExecutorUrl` so browser-hosted Node executor mode connects to an externally managed app-executor websocket instead of trying to start a Tauri sidecar
+
+### Hosted editor embedding
+
+Hosted or wrapper applications that mount the Rivet editor from source should use
+`packages/app/src/host.tsx` and render `RivetAppHost`. That host seam provides
+the same React Query, provider, executor-session, and storage-bootstrap wrapper
+used by the desktop app while still allowing external shells to inject IO
+providers, an external executor websocket URL, and post-app bridge components.
 
 ### Standalone Node execution
 

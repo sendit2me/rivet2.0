@@ -6,3 +6,4 @@ export * from './debugger.js';
 export * from './native/NodeDatasetProvider.js';
 export * from './native/DebuggerDatasetProvider.js';
 export * from './native/NodeProjectReferenceLoader.js';
+export * from './native/codeRunnerRequire.js';

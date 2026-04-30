@@ -540,10 +540,23 @@ on Tauri's sidecar launcher. When Node mode is selected, the renderer starts the
 app-executor sidecar and waits until the sidecar reports that its websocket
 server is listening before opening the internal websocket at
 `ws://127.0.0.1:21889/internal`. The sidecar binds that internal debugger server
-to `127.0.0.1`, matching the renderer URL and avoiding localhost IPv4/IPv6
-resolution mismatches. If the plain web app loads a stale persisted Node
-executor preference, it resets to Browser mode instead of attempting an internal
-sidecar connection that cannot be created in a normal browser.
+to `127.0.0.1` by default, matching the renderer URL and avoiding localhost
+IPv4/IPv6 resolution mismatches. Hosted wrappers that run the executor in a
+container can override the bind address with `--host` or `RIVET_EXECUTOR_HOST`,
+and can override the default port with `--port` / `-p` or `RIVET_EXECUTOR_PORT`;
+custom ports must be valid TCP ports from `1` to `65535`. The desktop app keeps
+the loopback default. If the plain web app loads a stale
+persisted Node executor preference, it resets to Browser mode instead of
+attempting an internal sidecar connection that cannot be created in a normal
+browser.
+
+Hosted wrappers that mount the editor through
+[`RivetAppHost`](../packages/app/src/host.tsx) can opt back into Node executor
+mode in a browser shell by passing `executor.internalExecutorUrl`. In that mode
+the shared executor-session hook connects to the provided websocket URL directly
+and skips Tauri sidecar start/stop ownership; all run/upload/message handling
+continues through the same `useRemoteExecutor` and executor-session runtime as
+the desktop app.
 
 The app-executor sidecar treats graph failures as request-scoped execution
 events rather than process/session failures. If a dynamic run throws because a
@@ -586,6 +599,19 @@ not sidecar stdout. When the node's console permission is enabled, the
 app-executor runner sends `codeConsole` messages for `debug`, `info`, `log`,
 `warn`, and `error`; [`useRemoteExecutor`](../packages/app/src/hooks/useRemoteExecutor.ts)
 only replays messages for the active editor run into the renderer console.
+
+Code-node `require()` resolution has a stable hosted-runtime seam. Public
+`NodeCodeRunner` and the app-executor worker runner default to resolving from the
+process working directory, but `RIVET_CODE_RUNNER_REQUIRE_ROOT` can point them at
+a runtime-library directory and `RIVET_CODE_RUNNER_REQUIRE_ANCHOR` can provide a
+fully custom `.cjs` anchor path. This keeps hosted wrappers from patching runner
+source while preserving the programmatic default for normal `@ironclad/rivet-node`
+callers.
+For app-executor hosted runtimes, a bootstrap layer may also install
+`globalThis.__RIVET_PREPARE_RUNTIME_LIBRARIES__`. The worker runner invokes that
+hook before require-enabled or Rivet-capable Code nodes run, so hosted wrappers
+can synchronize managed runtime-library artifacts just before module resolution
+without rewriting Rivet's runner source.
 
 ### Browser execution: microtask avalanche
 

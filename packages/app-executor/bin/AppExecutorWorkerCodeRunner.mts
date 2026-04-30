@@ -7,11 +7,10 @@ import type {
   Inputs,
   Outputs,
 } from '@ironclad/rivet-core';
-import { createRequire } from 'node:module';
-import { join } from 'node:path';
 import * as process from 'node:process';
 import { inspect } from 'node:util';
 import { Worker } from 'node:worker_threads';
+import { createCodeRunnerRequire, getCodeRunnerRequireAnchorPath } from './codeRunnerRequire.mjs';
 
 type SerializedWorkerError = {
   message: string;
@@ -35,12 +34,9 @@ type WorkerResponse =
       message: CodeConsoleMessage;
     };
 
-const runtimeRequire = createRequire(join(process.cwd(), '__rivet_node_code_runner__.cjs'));
-
 const WORKER_SOURCE = String.raw`
 const { parentPort, workerData } = require('node:worker_threads');
 const { createRequire } = require('node:module');
-const { join } = require('node:path');
 const { inspect } = require('node:util');
 
 const CONSOLE_LEVELS = ['debug', 'error', 'info', 'log', 'warn'];
@@ -91,7 +87,7 @@ function createBridgedConsole() {
 }
 
 async function runCode() {
-  const { code, contextValues, graphInputs, inputs, options } = workerData;
+  const { code, contextValues, graphInputs, inputs, options, requireAnchorPath } = workerData;
   const argNames = ['inputs'];
   const args = [inputs];
 
@@ -102,7 +98,7 @@ async function runCode() {
 
   if (options.includeRequire) {
     argNames.push('require');
-    args.push(createRequire(join(process.cwd(), '__rivet_node_code_runner__.cjs')));
+    args.push(createRequire(requireAnchorPath));
   }
 
   if (options.includeProcess) {
@@ -145,6 +141,8 @@ runCode().then(
 `;
 
 export class AppExecutorWorkerCodeRunner implements CodeRunner {
+  private readonly runtimeRequire = createCodeRunnerRequire();
+
   constructor(private readonly onConsole?: (message: CodeConsoleMessage) => void) {}
 
   async runCode(
@@ -154,14 +152,30 @@ export class AppExecutorWorkerCodeRunner implements CodeRunner {
     graphInputs?: Record<string, DataValue>,
     contextValues?: Record<string, DataValue>,
   ): Promise<Outputs> {
+    if (options.includeRequire || options.includeRivet) {
+      await prepareRuntimeLibrariesForCodeRunner();
+    }
+
     if (options.includeRivet) {
       // The app sidecar isolates ordinary Code node JavaScript in workers, but
       // Rivet-capable code imports @ironclad/rivet-node. Keep that path on the
       // current thread so packaged sidecar module resolution stays compatible.
-      return runCodeInCurrentThread(code, inputs, options, graphInputs, contextValues, this.onConsole);
+      return runCodeInCurrentThread(code, inputs, options, graphInputs, contextValues, this.runtimeRequire, this.onConsole);
     }
 
     return runCodeInWorker(code, inputs, options, graphInputs, contextValues, this.onConsole);
+  }
+}
+
+async function prepareRuntimeLibrariesForCodeRunner() {
+  const prepare = (
+    globalThis as typeof globalThis & {
+      __RIVET_PREPARE_RUNTIME_LIBRARIES__?: (force?: boolean) => Promise<void> | void;
+    }
+  ).__RIVET_PREPARE_RUNTIME_LIBRARIES__;
+
+  if (typeof prepare === 'function') {
+    await prepare(true);
   }
 }
 
@@ -169,8 +183,8 @@ async function runCodeInWorker(
   code: string,
   inputs: Inputs,
   options: CodeRunnerOptions,
-  graphInputs?: Record<string, DataValue>,
-  contextValues?: Record<string, DataValue>,
+  graphInputs: Record<string, DataValue> | undefined,
+  contextValues: Record<string, DataValue> | undefined,
   onConsole?: (message: CodeConsoleMessage) => void,
 ): Promise<Outputs> {
   return await new Promise<Outputs>((resolve, reject) => {
@@ -182,6 +196,7 @@ async function runCodeInWorker(
         graphInputs,
         inputs,
         options,
+        requireAnchorPath: getCodeRunnerRequireAnchorPath(),
       },
     });
     let settled = false;
@@ -231,8 +246,9 @@ async function runCodeInCurrentThread(
   code: string,
   inputs: Inputs,
   options: CodeRunnerOptions,
-  graphInputs?: Record<string, DataValue>,
-  contextValues?: Record<string, DataValue>,
+  graphInputs: Record<string, DataValue> | undefined,
+  contextValues: Record<string, DataValue> | undefined,
+  runtimeRequire: NodeJS.Require,
   onConsole?: (message: CodeConsoleMessage) => void,
 ): Promise<Outputs> {
   const argNames = ['inputs'];
