@@ -550,6 +550,19 @@ persisted Node executor preference, it resets to Browser mode instead of
 attempting an internal sidecar connection that cannot be created in a normal
 browser.
 
+If the user connects an external remote debugger while Node executor mode is
+selected, that external websocket temporarily replaces the internal sidecar
+session. Manual remote-debugger disconnect must restore the internal Node
+executor session immediately when Node mode is still selected, using
+`executor.internalExecutorUrl` in hosted shells or
+`ws://127.0.0.1:21889/internal` in Tauri, so the Run button becomes usable again
+without requiring a Browser -> Node mode toggle.
+
+Hosted executor URLs are still internal executor sessions: callers must connect
+them through `executorSession.connectInternal(...)`, not through the external
+remote-debugger `connect(...)` path, so ActionBar/debugger UI does not mistake
+the hosted executor for a user-attached remote debugger.
+
 Hosted wrappers that mount the editor through
 [`RivetAppHost`](../packages/app/src/host.tsx) can opt back into Node executor
 mode in a browser shell by passing `executor.internalExecutorUrl`. In that mode

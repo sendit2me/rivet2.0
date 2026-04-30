@@ -233,6 +233,34 @@ test('buildExecutorSessionState derives legacy connection flags from runtime sta
   assert.equal(sessionState.reconnecting, false);
 });
 
+test('connectInternal marks custom hosted executor URLs as internal sessions', async () => {
+  await runtime.connectInternal('ws://executor.example/internal');
+  const socket = FakeWebSocket.instances[0]!;
+  socket.open();
+
+  const sessionState = runtime.buildSessionState(debuggerConfig, connectionState);
+
+  assert.equal(sessionState.status, 'ready');
+  assert.equal(sessionState.url, 'ws://executor.example/internal');
+  assert.equal(sessionState.isInternalExecutor, true);
+});
+
+test('connectInternal replaces an external session even when the URL matches', async () => {
+  await runtime.connect('ws://executor.example/internal');
+  const externalSocket = FakeWebSocket.instances[0]!;
+  externalSocket.open();
+
+  await runtime.connectInternal('ws://executor.example/internal');
+  const internalSocket = FakeWebSocket.instances[1]!;
+  internalSocket.open();
+
+  const sessionState = runtime.buildSessionState(debuggerConfig, connectionState);
+
+  assert.equal(FakeWebSocket.instances.length, 2);
+  assert.equal(sessionState.socket, internalSocket);
+  assert.equal(sessionState.isInternalExecutor, true);
+});
+
 test('tracks overlapping pending graph executions by request id', async () => {
   const first = runtime.createPendingGraphExecution('request-1');
   const second = runtime.createPendingGraphExecution('request-2');

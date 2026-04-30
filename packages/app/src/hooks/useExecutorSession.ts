@@ -26,7 +26,7 @@ export function useExecutorSession(selectedExecutor: 'browser' | 'nodejs') {
     }
 
     if (hostConfig?.internalExecutorUrl) {
-      void runtime.connect(hostConfig.internalExecutorUrl);
+      void runtime.connectInternal(hostConfig.internalExecutorUrl);
 
       return () => {
         runtime.disconnect();

@@ -3,6 +3,9 @@
 
 - Compare the current Rivet 2.0 to the rivet in Rivet Server and make sure the new rivet will work there
 
+- Check how "Check for updates" button works
+
+- Check the links that lead to the documentation
 
 - Get back to MCP and see if it works and how it works. I don't see an MCP node. I think we need it
 - Check the AI workflow generation feature
