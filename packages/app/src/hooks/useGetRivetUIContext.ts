@@ -1,5 +1,5 @@
 import { type ChartNode, type RivetUIContext, getPluginConfig } from '@ironclad/rivet-core';
-import { defaultExecutorState, settingsState } from '../state/settings';
+import { selectedExecutorState, settingsState } from '../state/settings';
 import { fillMissingSettingsFromEnvironmentVariables } from '../utils/tauri';
 import { useDependsOnPlugins } from './useDependsOnPlugins';
 import { useProjectNodeRegistry } from './useProjectNodeRegistry';
@@ -14,7 +14,7 @@ import { getChatV2DiscoveredModelOptions } from '../utils/chatV2ModelCatalog.js'
 export function useGetRivetUIContext() {
   const datasetProvider = useDatasetProvider();
   const environmentProvider = useEnvironmentProvider();
-  const selectedExecutor = useAtomValue(defaultExecutorState);
+  const selectedExecutor = useAtomValue(selectedExecutorState);
   const settings = useAtomValue(settingsState);
   const plugins = useDependsOnPlugins();
   const projectNodeRegistry = useProjectNodeRegistry();

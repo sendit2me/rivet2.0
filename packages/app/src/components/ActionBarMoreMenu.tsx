@@ -2,7 +2,8 @@ import { css } from '@emotion/react';
 import { type FC, type MouseEvent } from 'react';
 import { useLoadRecording } from '../hooks/useLoadRecording';
 import { useExecutorSessionState } from '../hooks/useExecutorSession';
-import { defaultExecutorState, executorOptions } from '../state/settings';
+import { getExecutorOptions, selectedExecutorState } from '../state/settings';
+import { useExecutorSessionHostConfig } from '../providers/ExecutorSessionContext.js';
 import {
   debuggerPanelAnchorState,
   type DebuggerPanelAnchor,
@@ -101,9 +102,11 @@ export const ActionBarMoreMenu: FC<{
   const setSettingsOpen = useSetAtom(settingsModalOpenState);
   const setDebuggerPanelOpen = useSetAtom(debuggerPanelOpenState);
   const setDebuggerPanelAnchor = useSetAtom(debuggerPanelAnchorState);
-  const [selectedExecutor, setSelectedExecutor] = useAtom(defaultExecutorState);
+  const [selectedExecutor, setSelectedExecutor] = useAtom(selectedExecutorState);
   const { loadRecording } = useLoadRecording();
   const setHelpModalOpen = useSetAtom(helpModalOpenState);
+  const hostConfig = useExecutorSessionHostConfig();
+  const executorOptions = getExecutorOptions({ hasInternalExecutorUrl: !!hostConfig?.internalExecutorUrl });
 
   const openDebuggerPanel = (event: MouseEvent<HTMLDivElement>) => {
     const rect = event.currentTarget.getBoundingClientRect();

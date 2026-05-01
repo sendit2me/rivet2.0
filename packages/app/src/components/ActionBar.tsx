@@ -6,7 +6,7 @@ import { useLoadRecording } from '../hooks/useLoadRecording';
 import { useSaveRecording } from '../hooks/useSaveRecording';
 import { graphRunningState, graphPausedState } from '../state/dataFlow';
 import { lastRecordingState, loadedRecordingState } from '../state/execution';
-import { defaultExecutorState } from '../state/settings';
+import { selectedExecutorState } from '../state/settings';
 import ChevronRightIcon from 'majesticons/line/chevron-right-line.svg?react';
 import MultiplyIcon from 'majesticons/line/multiply-line.svg?react';
 import PauseIcon from 'majesticons/line/pause-circle-line.svg?react';
@@ -163,7 +163,7 @@ export const ActionBar: FC<ActionBarProps> = ({ onRunGraph, onAbortGraph, onPaus
   const loadedRecording = useAtomValue(loadedRecordingState);
   const { unloadRecording } = useLoadRecording();
   const [menuIsOpen, toggleMenuIsOpen] = useToggle();
-  const selectedExecutor = useAtomValue(defaultExecutorState);
+  const selectedExecutor = useAtomValue(selectedExecutorState);
 
   const { sessionState: remoteDebugger, disconnect } = useRemoteDebugger();
   const actionBarExecutionState = getActionBarExecutionState({

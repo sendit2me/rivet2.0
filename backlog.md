@@ -3,7 +3,7 @@
 
 - Retry behevior for the LLM chat node
 
-- Default executor in the settings should be a segmented control, just like in the run context menu
+- The close button in the modals is not in the corner
 
 - Reassess Ctrl+N window
 
@@ -11,9 +11,7 @@
 
 - Make the workspace navigation less annoying
 
-- Make default base font size 15px instead of 14px. I mean when someone starts Rivet for the first time. If the user has already chosen some size, don't change it.
 
-- Compare the current Rivet 2.0 to the rivet in Rivet Server and make sure the new rivet will work there
 
 - Check how "Check for updates" button works
 

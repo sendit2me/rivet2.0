@@ -1,12 +1,12 @@
 import { useAtomValue } from 'jotai';
-import { defaultExecutorState } from '../state/settings';
+import { selectedExecutorState } from '../state/settings';
 import { shouldUseRemoteExecutor } from '../state/selectors/executionSelectors.js';
 import { useLocalExecutor } from './useLocalExecutor';
 import { useRemoteExecutor } from './useRemoteExecutor';
 import { useExecutorSessionState } from './useExecutorSession';
 
 export function useGraphExecutor() {
-  const selectedExecutor = useAtomValue(defaultExecutorState);
+  const selectedExecutor = useAtomValue(selectedExecutorState);
   const localExecutor = useLocalExecutor();
   const remoteExecutor = useRemoteExecutor();
   const session = useExecutorSessionState();

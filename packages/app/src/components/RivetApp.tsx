@@ -16,8 +16,8 @@ import { TrivetRenderer } from './trivet/Trivet.js';
 import { ActionBar } from './ActionBar';
 import { DebuggerPanelRenderer } from './DebuggerConnectPanel';
 import { ChatViewerRenderer } from './ChatViewer';
-import { useAtomValue } from 'jotai';
-import { defaultExecutorState, themeState, themes } from '../state/settings';
+import { useAtomValue, useSetAtom } from 'jotai';
+import { selectedExecutorState, themeState, themes } from '../state/settings';
 import clsx from 'clsx';
 import { useLoadStaticData } from '../hooks/useLoadStaticData';
 import { DataStudioRenderer } from './dataStudio/DataStudio';
@@ -52,7 +52,15 @@ setGlobalTheme({
 });
 
 export const RivetApp: FC = () => {
-  const selectedExecutor = useAtomValue(defaultExecutorState);
+  const selectedExecutor = useAtomValue(selectedExecutorState);
+  const setSelectedExecutor = useSetAtom(selectedExecutorState);
+
+  useEffect(() => {
+    setSelectedExecutor(selectedExecutor);
+    // Freeze the startup default into the live executor selection. The app
+    // settings default should only affect future app starts.
+  }, [selectedExecutor, setSelectedExecutor]);
+
   useExecutorSession(selectedExecutor);
   const { tryRunGraph, tryRunTests, tryAbortGraph, tryPauseGraph, tryResumeGraph } = useGraphExecutor();
   const theme = useAtomValue(themeState);

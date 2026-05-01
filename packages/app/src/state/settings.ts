@@ -1,8 +1,8 @@
 import { atom } from 'jotai';
-import { atomWithStorage } from 'jotai/utils';
+import { atomWithDefault, atomWithStorage } from 'jotai/utils';
 import { DEFAULT_CHAT_NODE_TIMEOUT, type Settings } from '@ironclad/rivet-core';
 import { isInTauri } from '../utils/tauri';
-import { createHybridStorage } from './storage.js';
+import { createHybridStorage, memoryStorage } from './storage.js';
 
 // Legacy storage key for recoil-persist to avoid breaking existing users' settings
 const { storage } = createHybridStorage('recoil-persist', undefined, { debounceMs: 0 });
@@ -64,12 +64,29 @@ export type DefaultExecutor = 'browser' | 'nodejs';
 
 export const defaultExecutorState = atomWithStorage<DefaultExecutor>('defaultExecutor', 'browser', storage);
 
-export const executorOptions = isInTauri()
-  ? ([
-      { label: 'Browser', value: 'browser' },
-      { label: 'Node', value: 'nodejs' },
-    ] as const)
-  : ([{ label: 'Browser', value: 'browser' }] as const);
+export function getStartupDefaultExecutor(): DefaultExecutor {
+  const value = memoryStorage.get('recoil-persist')?.defaultExecutor;
+  return value === 'nodejs' || value === 'browser' ? value : 'browser';
+}
+
+export const selectedExecutorState = atomWithDefault<DefaultExecutor>(() => getStartupDefaultExecutor());
+
+const browserExecutorOption = { label: 'Browser', value: 'browser' } as const;
+const nodeExecutorOption = { label: 'Node', value: 'nodejs' } as const;
+const browserExecutorOptions = [browserExecutorOption] as const;
+const browserAndNodeExecutorOptions = [browserExecutorOption, nodeExecutorOption] as const;
+
+export type ExecutorOption = typeof browserExecutorOption | typeof nodeExecutorOption;
+
+export function getExecutorOptions({
+  hasInternalExecutorUrl = false,
+  isDesktop = isInTauri(),
+}: {
+  hasInternalExecutorUrl?: boolean;
+  isDesktop?: boolean;
+} = {}): readonly ExecutorOption[] {
+  return isDesktop || hasInternalExecutorUrl ? browserAndNodeExecutorOptions : browserExecutorOptions;
+}
 
 export const previousDataPerNodeToKeepState = atomWithStorage<number>('previousDataPerNodeToKeep', -1, storage);
 

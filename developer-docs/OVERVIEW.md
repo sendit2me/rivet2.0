@@ -114,7 +114,7 @@ There are three execution contexts worth distinguishing:
 
 ### Browser execution
 
-Used by the desktop app when `defaultExecutorState` is `browser`.
+Used by the desktop app when the live `selectedExecutorState` is `browser`.
 
 - runs `GraphProcessor` in-process inside the app
 - uses browser/Tauri-facing adapters
@@ -123,7 +123,7 @@ Used by the desktop app when `defaultExecutorState` is `browser`.
 
 ### Sidecar Node execution
 
-Used by the desktop app when `defaultExecutorState` is `nodejs`.
+Used by the desktop app when the live `selectedExecutorState` is `nodejs`.
 
 - the app starts or connects to `app-executor`
 - communication happens over `ws://127.0.0.1:21889/internal`
