@@ -36,6 +36,10 @@ export const defaultEditorContainerStyles = css`
     margin-top: 0 !important;
   }
 
+  .row.custom > :first-child > :first-child {
+    margin-top: 0 !important;
+  }
+
   > .row:not(:last-child),
   > .inline-editor-row:not(:last-child) {
     margin-bottom: var(--node-editor-row-gap);
