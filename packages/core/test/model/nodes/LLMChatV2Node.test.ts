@@ -49,6 +49,28 @@ function createRuntimeContext(overrides: Record<string, unknown> = {}) {
   } as any;
 }
 
+function createRuntimeContextWithPluginEnv(pluginEnv: Record<string, string>) {
+  const context = createRuntimeContext();
+  return createRuntimeContext({
+    settings: {
+      ...context.settings,
+      pluginEnv,
+    },
+  });
+}
+
+function createPromptInputs(inputs: Record<string, unknown> = {}) {
+  return {
+    prompt: { type: 'string', value: 'Hello' },
+    ...inputs,
+  } as any;
+}
+
+function getCacheProviderConfig(runtime: Awaited<ReturnType<typeof resolveLLMChatV2RuntimeConfig>>) {
+  assert.ok(runtime.cacheKey);
+  return JSON.parse(runtime.cacheKey!).providerConfig;
+}
+
 describe('LLMChatV2NodeImpl', () => {
   it('creates the unified chat node', () => {
     const node = LLMChatV2NodeImpl.create();
@@ -58,6 +80,10 @@ describe('LLMChatV2NodeImpl', () => {
     assert.equal(node.data.provider, 'openai');
     assert.equal(node.data.apiKeySource, 'environment');
     assert.equal(node.data.customProviderApiKeyEnvVarName, 'CUSTOM_PROVIDER_API_KEY');
+    assert.equal(node.data.customProviderBaseURL, '');
+    assert.equal(node.data.useCustomProviderBaseURLInput, false);
+    assert.equal(node.data.baseURL, '');
+    assert.equal(node.data.useBaseURLInput, false);
     assert.equal(node.data.extraProviderOptions, '');
     assert.equal(node.data.useExtraProviderOptionsInput, false);
     assert.equal(node.data.useToolCalling, false);
@@ -132,7 +158,7 @@ describe('LLMChatV2NodeImpl', () => {
     const providerEditor = modelGroup.editors.find((editor: any) => editor.dataKey === 'provider');
     const modelEditor = modelGroup.editors.find((editor: any) => editor.customEditorId === 'LLMChatV2ModelCatalog');
     const envVarEditor = modelGroup.editors.find((editor: any) => editor.dataKey === 'customProviderApiKeyEnvVarName');
-    const customBaseUrlEditor = modelGroup.editors.find((editor: any) => editor.dataKey === 'baseURL');
+    const customBaseUrlEditor = modelGroup.editors.find((editor: any) => editor.dataKey === 'customProviderBaseURL');
     const providerAdvancedGroup = editors.find(
       (editor) => editor.type === 'group' && editor.label === 'Provider Advanced',
     ) as any;
@@ -147,7 +173,7 @@ describe('LLMChatV2NodeImpl', () => {
     assert.equal(envVarEditor.hideIf({ provider: 'custom', apiKeySource: 'environment' }), false);
     assert.equal(envVarEditor.hideIf({ provider: 'custom', apiKeySource: 'input' }), true);
     assert.equal(customBaseUrlEditor.label, 'Provider base URL');
-    assert.equal(customBaseUrlEditor.useInputToggleDataKey, 'useBaseURLInput');
+    assert.equal(customBaseUrlEditor.useInputToggleDataKey, 'useCustomProviderBaseURLInput');
     assert.equal(customBaseUrlEditor.hideIf({ provider: 'custom' }), false);
     assert.equal(advancedBaseUrlEditor.hideIf({ provider: 'custom' }), true);
     assert.equal(advancedBaseUrlEditor.hideIf({ provider: 'openai' }), false);
@@ -155,6 +181,36 @@ describe('LLMChatV2NodeImpl', () => {
     assert.equal(extraProviderOptionsEditor.language, 'json');
     assert.equal(extraProviderOptionsEditor.useInputToggleDataKey, 'useExtraProviderOptionsInput');
     assert.match(extraProviderOptionsEditor.helperMessage, /providerOptions/);
+  });
+
+  it('adds the base URL input for the active provider URL field', () => {
+    const customInputNode = createNode({
+      provider: 'custom',
+      useCustomProviderBaseURLInput: true,
+    });
+    const builtInInputNode = createNode({
+      provider: 'openai',
+      useBaseURLInput: true,
+    });
+
+    assert.deepEqual(
+      customInputNode.getInputDefinitions().find((input) => input.id === 'customProviderBaseURL'),
+      {
+        id: 'customProviderBaseURL',
+        title: 'Provider base URL',
+        dataType: 'string',
+        required: false,
+      },
+    );
+    assert.deepEqual(
+      builtInInputNode.getInputDefinitions().find((input) => input.id === 'baseURL'),
+      {
+        id: 'baseURL',
+        title: 'Base URL',
+        dataType: 'string',
+        required: false,
+      },
+    );
   });
 
   it('adds an extra provider options input when enabled', () => {
@@ -745,9 +801,7 @@ describe('LLMChatV2NodeImpl', () => {
       cache: true,
     });
     const context = createRuntimeContext();
-    const commonInputs = {
-      prompt: { type: 'string', value: 'Hello' },
-    } as any;
+    const commonInputs = createPromptInputs();
 
     const first = await resolveLLMChatV2RuntimeConfig({
       data: node.data,
@@ -785,9 +839,7 @@ describe('LLMChatV2NodeImpl', () => {
         resolveLLMChatV2RuntimeConfig({
           data: node.data,
           nodeId: node.chartNode.id,
-          inputs: {
-            prompt: { type: 'string', value: 'Hello' },
-          } as any,
+          inputs: createPromptInputs(),
           context: createRuntimeContext(),
         }),
       /API Key input is required/,
@@ -798,92 +850,214 @@ describe('LLMChatV2NodeImpl', () => {
     const node = createNode({
       provider: 'custom',
       model: 'llama-custom',
-      baseURL: 'https://api.cerebras.ai/v1/chat/completions',
+      customProviderBaseURL: 'https://api.cerebras.ai/v1/chat/completions',
       customProviderApiKeyEnvVarName: 'CEREBRAS_API_KEY',
       cache: true,
     });
-    const context = createRuntimeContext({
-      settings: {
-        ...createRuntimeContext().settings,
-        pluginEnv: {
-          CEREBRAS_API_KEY: 'sk-cerebras-secret',
-        },
-      },
+    const context = createRuntimeContextWithPluginEnv({
+      CEREBRAS_API_KEY: 'sk-cerebras-secret',
     });
 
     const runtime = await resolveLLMChatV2RuntimeConfig({
       data: node.data,
       nodeId: node.chartNode.id,
-      inputs: {
-        prompt: { type: 'string', value: 'Hello' },
-      } as any,
+      inputs: createPromptInputs(),
       context,
     });
 
     assert.equal(runtime.runOptions.provider, 'custom');
     assert.equal(runtime.runOptions.modelId, 'llama-custom');
-    assert.ok(runtime.cacheKey);
-    assert.equal(JSON.parse(runtime.cacheKey!).providerConfig.baseURL, 'https://api.cerebras.ai/v1');
+    assert.equal(getCacheProviderConfig(runtime).baseURL, 'https://api.cerebras.ai/v1');
     assert.doesNotMatch(runtime.cacheKey!, /sk-cerebras-secret/);
+  });
+
+  it('resolves Custom provider base URL from the active input port', async () => {
+    const node = createNode({
+      provider: 'custom',
+      model: 'llama-custom',
+      customProviderBaseURL: 'https://static.example.ai/v1',
+      useCustomProviderBaseURLInput: true,
+      customProviderApiKeyEnvVarName: 'CUSTOM_INPUT_API_KEY',
+      cache: true,
+    });
+    const context = createRuntimeContextWithPluginEnv({
+      CUSTOM_INPUT_API_KEY: 'sk-input-secret',
+    });
+
+    const runtime = await resolveLLMChatV2RuntimeConfig({
+      data: node.data,
+      nodeId: node.chartNode.id,
+      inputs: createPromptInputs({
+        customProviderBaseURL: { type: 'string', value: 'https://input.example.ai/v1/chat/completions' },
+      }),
+      context,
+    });
+
+    assert.equal(getCacheProviderConfig(runtime).baseURL, 'https://input.example.ai/v1');
+  });
+
+  it('keeps Custom provider and built-in provider base URL input ports separate', async () => {
+    const customNode = createNode({
+      provider: 'custom',
+      model: 'llama-custom',
+      customProviderBaseURL: 'https://static-custom.example.ai/v1',
+      useCustomProviderBaseURLInput: true,
+      customProviderApiKeyEnvVarName: 'CUSTOM_SEPARATE_API_KEY',
+      cache: true,
+    });
+    const openAiNode = createNode({
+      provider: 'openai',
+      model: 'gpt-5',
+      baseURL: 'https://static-openai.example.test/v1',
+      useBaseURLInput: true,
+      customProviderBaseURL: 'https://stale-custom.example.ai/v1',
+      cache: true,
+    });
+    const context = createRuntimeContextWithPluginEnv({
+      CUSTOM_SEPARATE_API_KEY: 'sk-custom-secret',
+    });
+    const inputs = createPromptInputs({
+      baseURL: { type: 'string', value: 'https://input-openai.example.test/v1' },
+      customProviderBaseURL: { type: 'string', value: 'https://input-custom.example.ai/v1/chat/completions' },
+    });
+
+    const customRuntime = await resolveLLMChatV2RuntimeConfig({
+      data: customNode.data,
+      nodeId: customNode.chartNode.id,
+      inputs,
+      context,
+    });
+    const openAiRuntime = await resolveLLMChatV2RuntimeConfig({
+      data: openAiNode.data,
+      nodeId: openAiNode.chartNode.id,
+      inputs,
+      context,
+    });
+
+    assert.equal(getCacheProviderConfig(customRuntime).baseURL, 'https://input-custom.example.ai/v1');
+    assert.equal(getCacheProviderConfig(openAiRuntime).baseURL, 'https://input-openai.example.test/v1');
+  });
+
+  it('does not reuse the Custom provider base URL as a built-in provider override', async () => {
+    const node = createNode({
+      provider: 'openai',
+      model: 'gpt-5',
+      customProviderBaseURL: 'https://api.cerebras.ai/v1',
+      cache: true,
+    });
+
+    const runtime = await resolveLLMChatV2RuntimeConfig({
+      data: node.data,
+      nodeId: node.chartNode.id,
+      inputs: createPromptInputs(),
+      context: createRuntimeContext(),
+    });
+
+    assert.equal(getCacheProviderConfig(runtime).baseURL, 'https://api.openai.test/v1');
+  });
+
+  it('ignores inactive base URL fields in editor cache keys', async () => {
+    const context = createRuntimeContextWithPluginEnv({
+      CUSTOM_CACHE_API_KEY: 'sk-custom-secret',
+    });
+    const commonInputs = createPromptInputs();
+    const firstOpenAIRuntime = await resolveLLMChatV2RuntimeConfig({
+      data: createNode({
+        provider: 'openai',
+        model: 'gpt-5',
+        customProviderBaseURL: 'https://custom-a.example.ai/v1',
+        cache: true,
+      }).data,
+      nodeId: 'same-openai-node-id' as any,
+      inputs: commonInputs,
+      context,
+    });
+    const secondOpenAIRuntime = await resolveLLMChatV2RuntimeConfig({
+      data: createNode({
+        provider: 'openai',
+        model: 'gpt-5',
+        customProviderBaseURL: 'https://custom-b.example.ai/v1',
+        useCustomProviderBaseURLInput: true,
+        cache: true,
+      }).data,
+      nodeId: 'same-openai-node-id' as any,
+      inputs: commonInputs,
+      context,
+    });
+    const firstCustomRuntime = await resolveLLMChatV2RuntimeConfig({
+      data: createNode({
+        provider: 'custom',
+        model: 'llama-custom',
+        customProviderBaseURL: 'https://custom-cache.example.ai/v1',
+        baseURL: 'https://hidden-a.example.test/v1',
+        useBaseURLInput: true,
+        customProviderApiKeyEnvVarName: 'CUSTOM_CACHE_API_KEY',
+        cache: true,
+      }).data,
+      nodeId: 'same-custom-node-id' as any,
+      inputs: commonInputs,
+      context,
+    });
+    const secondCustomRuntime = await resolveLLMChatV2RuntimeConfig({
+      data: createNode({
+        provider: 'custom',
+        model: 'llama-custom',
+        customProviderBaseURL: 'https://custom-cache.example.ai/v1',
+        baseURL: 'https://hidden-b.example.test/v1',
+        customProviderApiKeyEnvVarName: 'CUSTOM_CACHE_API_KEY',
+        cache: true,
+      }).data,
+      nodeId: 'same-custom-node-id' as any,
+      inputs: commonInputs,
+      context,
+    });
+
+    assert.equal(firstOpenAIRuntime.cacheKey, secondOpenAIRuntime.cacheKey);
+    assert.equal(firstCustomRuntime.cacheKey, secondCustomRuntime.cacheKey);
   });
 
   it('fingerprints provider header values in editor cache keys', async () => {
     const node = createNode({
       provider: 'custom',
       model: 'llama-custom',
-      baseURL: 'https://api.cerebras.ai/v1',
+      customProviderBaseURL: 'https://api.cerebras.ai/v1',
       customProviderApiKeyEnvVarName: 'CEREBRAS_API_KEY',
       headers: [{ key: 'Authorization', value: 'Bearer raw-header-secret' }],
       cache: true,
     });
-    const context = createRuntimeContext({
-      settings: {
-        ...createRuntimeContext().settings,
-        pluginEnv: {
-          CEREBRAS_API_KEY: 'sk-cerebras-secret',
-        },
-      },
+    const context = createRuntimeContextWithPluginEnv({
+      CEREBRAS_API_KEY: 'sk-cerebras-secret',
     });
 
     const runtime = await resolveLLMChatV2RuntimeConfig({
       data: node.data,
       nodeId: node.chartNode.id,
-      inputs: {
-        prompt: { type: 'string', value: 'Hello' },
-      } as any,
+      inputs: createPromptInputs(),
       context,
     });
 
-    assert.ok(runtime.cacheKey);
     assert.doesNotMatch(runtime.cacheKey!, /raw-header-secret/);
     assert.doesNotMatch(runtime.cacheKey!, /sk-cerebras-secret/);
-    assert.equal(JSON.parse(runtime.cacheKey!).providerConfig.headers.Authorization.startsWith('24:'), true);
+    assert.equal(getCacheProviderConfig(runtime).headers.Authorization.startsWith('24:'), true);
   });
 
   it('fingerprints extra provider option values in editor cache keys without changing runtime options', async () => {
     const node = createNode({
       provider: 'custom',
       model: 'llama-custom',
-      baseURL: 'https://api.cerebras.ai/v1',
+      customProviderBaseURL: 'https://api.cerebras.ai/v1',
       customProviderApiKeyEnvVarName: 'CEREBRAS_API_KEY',
       extraProviderOptions: '{ "reasoningEffort": "high", "byok": { "apiKey": "raw-provider-option-secret" } }',
       cache: true,
     });
-    const context = createRuntimeContext({
-      settings: {
-        ...createRuntimeContext().settings,
-        pluginEnv: {
-          CEREBRAS_API_KEY: 'sk-cerebras-secret',
-        },
-      },
+    const context = createRuntimeContextWithPluginEnv({
+      CEREBRAS_API_KEY: 'sk-cerebras-secret',
     });
 
     const runtime = await resolveLLMChatV2RuntimeConfig({
       data: node.data,
       nodeId: node.chartNode.id,
-      inputs: {
-        prompt: { type: 'string', value: 'Hello' },
-      } as any,
+      inputs: createPromptInputs(),
       context,
     });
 
@@ -904,7 +1078,7 @@ describe('LLMChatV2NodeImpl', () => {
     const firstNode = createNode({
       provider: 'custom',
       model: 'llama-custom',
-      baseURL: 'https://api.cerebras.ai/v1',
+      customProviderBaseURL: 'https://api.cerebras.ai/v1',
       customProviderApiKeyEnvVarName: 'CEREBRAS_API_KEY',
       extraProviderOptions: '{ "stale": "first" }',
       useExtraProviderOptionsInput: true,
@@ -914,21 +1088,15 @@ describe('LLMChatV2NodeImpl', () => {
       ...firstNode.data,
       extraProviderOptions: '{ "stale": "second" }',
     });
-    const context = createRuntimeContext({
-      settings: {
-        ...createRuntimeContext().settings,
-        pluginEnv: {
-          CEREBRAS_API_KEY: 'sk-cerebras-secret',
-        },
-      },
+    const context = createRuntimeContextWithPluginEnv({
+      CEREBRAS_API_KEY: 'sk-cerebras-secret',
     });
-    const inputs = {
-      prompt: { type: 'string', value: 'Hello' },
+    const inputs = createPromptInputs({
       extraProviderOptions: {
         type: 'string',
         value: '{ "reasoningEffort": "high", "byok": { "apiKey": "input-option-secret" } }',
       },
-    } as any;
+    });
 
     const firstRuntime = await resolveLLMChatV2RuntimeConfig({
       data: firstNode.data,
@@ -954,7 +1122,7 @@ describe('LLMChatV2NodeImpl', () => {
     const node = createNode({
       provider: 'custom',
       model: 'llama-custom',
-      baseURL: 'https://api.cerebras.ai/v1',
+      customProviderBaseURL: 'https://api.cerebras.ai/v1',
       customProviderApiKeyEnvVarName: 'MISSING_CUSTOM_KEY',
     });
 
@@ -963,9 +1131,7 @@ describe('LLMChatV2NodeImpl', () => {
         resolveLLMChatV2RuntimeConfig({
           data: node.data,
           nodeId: node.chartNode.id,
-          inputs: {
-            prompt: { type: 'string', value: 'Hello' },
-          } as any,
+          inputs: createPromptInputs(),
           context: createRuntimeContext(),
         }),
       /Custom provider API key env var MISSING_CUSTOM_KEY is not set/,

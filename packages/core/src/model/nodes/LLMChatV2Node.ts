@@ -35,6 +35,10 @@ export type {
 
 export { buildLLMChatV2EditorCacheKey, resolveLLMChatV2RuntimeProviderOptions };
 
+function usesBaseURLInput(data: LLMChatV2Node['data']): boolean {
+  return data.provider === 'custom' ? data.useCustomProviderBaseURLInput : data.useBaseURLInput;
+}
+
 export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
   static create(): LLMChatV2Node {
     return {
@@ -64,10 +68,10 @@ export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
       });
     }
 
-    if (this.data.useBaseURLInput) {
+    if (usesBaseURLInput(this.data)) {
       inputs.unshift({
-        id: 'baseURL' as PortId,
-        title: 'Base URL',
+        id: (this.data.provider === 'custom' ? 'customProviderBaseURL' : 'baseURL') as PortId,
+        title: this.data.provider === 'custom' ? 'Provider base URL' : 'Base URL',
         dataType: 'string',
         required: false,
       });

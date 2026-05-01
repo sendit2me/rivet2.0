@@ -80,8 +80,14 @@ function fingerprintProviderConfigForCache(config: ResolvedChatV2ProviderConfig)
 }
 
 function fingerprintNodeDataForCache(data: LLMChatV2NodeData): LLMChatV2NodeData {
+  const isCustomProvider = data.provider === 'custom';
+
   return {
     ...data,
+    baseURL: isCustomProvider ? '' : data.baseURL,
+    useBaseURLInput: isCustomProvider ? false : data.useBaseURLInput,
+    customProviderBaseURL: isCustomProvider ? data.customProviderBaseURL : '',
+    useCustomProviderBaseURLInput: isCustomProvider ? data.useCustomProviderBaseURLInput : false,
     extraProviderOptions: data.useExtraProviderOptionsInput ? '' : fingerprintSecret(data.extraProviderOptions) ?? '',
     headers: (data.headers ?? []).map(({ key, value }) => ({
       key,

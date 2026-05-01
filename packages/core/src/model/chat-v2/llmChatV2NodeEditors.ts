@@ -95,8 +95,8 @@ function getModelEditors(modelOptions: { value: string; label: string }[]): LLMC
       {
         type: 'string',
         label: 'Provider base URL',
-        dataKey: 'baseURL',
-        useInputToggleDataKey: 'useBaseURLInput',
+        dataKey: 'customProviderBaseURL',
+        useInputToggleDataKey: 'useCustomProviderBaseURLInput',
         placeholder: 'https://api.cerebras.ai/v1',
         helperMessage:
           'OpenAI-compatible provider base URL. Full /chat/completions URLs are accepted and normalized.',

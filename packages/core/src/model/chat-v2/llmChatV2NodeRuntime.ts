@@ -47,6 +47,18 @@ export type LLMChatV2RuntimeConfig = {
   maxToolRounds: number;
 };
 
+function resolveLLMChatV2BaseURL(data: LLMChatV2NodeData, inputs: Inputs): string | undefined {
+  return data.provider === 'custom'
+    ? getInputOrData(
+        data,
+        inputs,
+        'customProviderBaseURL',
+        'string',
+        'useCustomProviderBaseURLInput',
+      )?.trim() || undefined
+    : getInputOrData(data, inputs, 'baseURL', 'string', 'useBaseURLInput')?.trim() || undefined;
+}
+
 export async function resolveLLMChatV2RuntimeConfig(params: {
   data: LLMChatV2NodeData;
   nodeId: LLMChatV2EditorCacheKeyParts['nodeId'];
@@ -61,7 +73,7 @@ export async function resolveLLMChatV2RuntimeConfig(params: {
 
   const provider = parseChatV2Provider(data.provider);
   const modelId = getInputOrData(data, inputs, 'model', 'string');
-  const baseURL = getInputOrData(data, inputs, 'baseURL', 'string', 'useBaseURLInput')?.trim() || undefined;
+  const baseURL = resolveLLMChatV2BaseURL(data, inputs);
   const nodeHeaders = resolveLLMChatV2Headers(data, inputs);
   const apiKey = resolveLLMChatV2ApiKey(data, inputs, context);
   const providerConfig = await resolveChatV2ProviderConfig(provider, modelId, context, {
