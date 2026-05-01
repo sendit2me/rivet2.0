@@ -16,7 +16,6 @@ const shortcutToMenuId: Record<string, MenuIds> = {
   'CmdOrCtrl+O': 'open_project',
   'CmdOrCtrl+S': 'save_project',
   'CmdOrCtrl+Shift+E': 'export_graph',
-  'CmdOrCtrl+Shift+I': 'import_graph',
   'CmdOrCtrl+Shift+S': 'save_project_as',
   'CmdOrCtrl+ENTER': 'run',
 };

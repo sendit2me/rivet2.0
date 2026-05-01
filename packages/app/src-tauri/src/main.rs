@@ -141,7 +141,8 @@ fn create_menu() -> Menu {
         Menu::new()
             .add_item(CustomMenuItem::new("get_help", "Get Help"))
             .add_item(
-                CustomMenuItem::new("toggle_devtools", "Toggle Developer Tools").accelerator("F12"),
+                CustomMenuItem::new("toggle_devtools", "Toggle Developer Tools")
+                    .accelerator("CmdOrCtrl+Shift+I"),
             ),
     );
 
@@ -171,10 +172,7 @@ fn create_menu() -> Menu {
                     CustomMenuItem::new("export_graph", "Export Graph...")
                         .accelerator("CmdOrCtrl+Shift+E"),
                 )
-                .add_item(
-                    CustomMenuItem::new("import_graph", "Import Graph...")
-                        .accelerator("CmdOrCtrl+Shift+I"),
-                ),
+                .add_item(CustomMenuItem::new("import_graph", "Import Graph...")),
         ))
         .add_submenu(edit_menu)
         .add_submenu(Submenu::new(
