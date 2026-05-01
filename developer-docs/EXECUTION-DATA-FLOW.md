@@ -574,8 +574,8 @@ the desktop app.
 `executor.internalExecutorUrl` is also a UI/session classification contract. A
 hosted executor URL connected through `connectInternal(...)` is treated as the
 active internal Node executor, so manual remote-debugger disconnect restores that
-session and the ActionBar keeps Node-mode run controls disabled only while the
-internal executor is genuinely connecting. External remote debuggers should
+session and the ActionBar keeps Node-mode run controls in an explicit disabled loading
+state only while the internal executor is genuinely connecting. External remote debuggers should
 continue to use the public `connect(...)` path.
 
 The app-executor sidecar treats graph failures as request-scoped execution
@@ -586,9 +586,11 @@ from the debugger server, and keeps the websocket connection alive. The app can
 then clear `graphRunningState` through the normal remote event dispatcher
 without forcing the user to reconnect the Node executor.
 The ActionBar intentionally keeps Node-mode Run controls rendered while the
-internal sidecar is connecting or reconnecting; readiness only disables the
-button, it must not collapse the control and make a handled node failure look
-like the executor UI disappeared.
+internal sidecar is starting, connecting, or reconnecting; readiness only moves
+the button into a disabled loading state that keeps its normal text and swaps
+the action glyph for the same ring indicator used by running node headers, it
+must not collapse the control or make a handled node failure look like the
+executor UI disappeared.
 The app logs the internal Node executor lifecycle at the sidecar/session seam.
 Sidecar spawn, readiness marker vs timeout fallback, socket close/reconnect
 scheduling, disconnect requests, and skipped run attempts are runtime debug logs

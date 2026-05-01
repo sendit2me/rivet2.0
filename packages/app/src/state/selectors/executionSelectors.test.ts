@@ -122,6 +122,7 @@ describe('executionSelectors', () => {
       }),
       {
         canRun: false,
+        executorLoading: false,
         graphPaused: false,
         graphRunning: false,
         isActuallyRemoteDebugging: true,
@@ -151,6 +152,37 @@ describe('executionSelectors', () => {
       }),
       {
         canRun: false,
+        executorLoading: true,
+        graphPaused: false,
+        graphRunning: false,
+        isActuallyRemoteDebugging: false,
+        showRunButton: true,
+        showRemoteDebuggerBanner: false,
+      },
+    );
+  });
+
+  test('action bar shows node executor startup as loading before the internal socket connects', () => {
+    const session = {
+      status: 'idle',
+      started: false,
+      reconnecting: false,
+      socket: null,
+      url: '',
+      remoteUploadAllowed: false,
+      isInternalExecutor: false,
+    } as const;
+
+    assert.deepEqual(
+      getActionBarExecutionState({
+        graphPaused: false,
+        graphRunning: false,
+        selectedExecutor: 'nodejs',
+        session,
+      }),
+      {
+        canRun: false,
+        executorLoading: true,
         graphPaused: false,
         graphRunning: false,
         isActuallyRemoteDebugging: false,

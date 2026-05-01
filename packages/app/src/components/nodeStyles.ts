@@ -386,28 +386,13 @@ export const nodeStyles = css`
     z-index: 4;
   }
 
-  .node-running-indicator {
+  .title-controls .node-running-indicator {
     color: var(--node-bg-foreground);
-    width: calc(16px * var(--ui-font-scale));
-    height: calc(16px * var(--ui-font-scale));
     margin-top: calc(3px * var(--ui-font-scale));
-    border: calc(2px * var(--ui-font-scale)) solid currentColor;
-    border-right-color: transparent;
-    border-bottom-color: transparent;
-    border-radius: 50%;
-    flex: 0 0 auto;
-    pointer-events: none;
-    animation: node-title-running-spin 0.8s linear infinite;
   }
 
   .node:not(:hover):not(.hovered):not(:focus-within) .title-controls .node-running-indicator {
     margin-right: 8px;
-  }
-
-  @keyframes node-title-running-spin {
-    to {
-      transform: rotate(360deg);
-    }
   }
 
   .title-controls > :not(.node-running-indicator) {

@@ -64,7 +64,7 @@ const VariantsButton: FC<{
   onClick: () => void;
 }> = ({ onClick }) => (
   <Tooltip content="Variants" tag="span" className="variants-tooltip">
-    <button type="button" className="variants-button" aria-label="Variants" title="Variants" onClick={onClick}>
+    <button type="button" className="variants-button" aria-label="Variants" onClick={onClick}>
       <GitBranchIcon />
     </button>
   </Tooltip>
