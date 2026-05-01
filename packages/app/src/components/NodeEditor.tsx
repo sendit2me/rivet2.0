@@ -1,4 +1,12 @@
-import { type CSSProperties, type FC, useMemo, useState, type MouseEvent } from 'react';
+import {
+  type CSSProperties,
+  type FC,
+  useLayoutEffect,
+  useMemo,
+  type RefObject,
+  useState,
+  type MouseEvent,
+} from 'react';
 import { editingNodeState } from '../state/graphBuilder.js';
 import { nodesByIdState } from '../state/graph.js';
 import styled from '@emotion/styled';
@@ -184,14 +192,17 @@ const Container = styled.div`
     flex-direction: column;
     gap: 12px;
     margin: -16px -24px 18px;
-    padding: 16px 24px 18px;
+    padding: calc(16px + var(--node-editor-action-bar-top-reserve, 0px)) 24px 18px;
     background-color: var(--black-seethrough);
   }
 
   .node-type-row {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 16px;
+    box-sizing: border-box;
+    padding-right: var(--node-editor-action-bar-row-reserve, 0px);
     min-width: 0;
     min-height: 30px;
   }
@@ -321,6 +332,7 @@ const Container = styled.div`
   .node-description-field,
   .node-description-field > form,
   .node-description-field form > div,
+  .node-description-field textarea,
   .node-description-field [data-read-view-fit-container-width='true'] {
     width: 100%;
     max-width: none;
@@ -331,12 +343,22 @@ const Container = styled.div`
     margin: 0;
   }
 
+  .node-description-field form > div > div {
+    padding: 0;
+  }
+
   .node-description-field [data-read-view-fit-container-width='true'] {
     display: block;
     min-height: 14px;
+    padding: 0 !important;
     border-radius: 4px;
     corner-shape: squircle;
     overflow: hidden;
+  }
+
+  .node-description-field [data-read-view-fit-container-width='true'] > * {
+    padding-left: 0;
+    padding-right: 0;
   }
 
   .node-description-field .description-read-content {
@@ -379,10 +401,11 @@ const Container = styled.div`
   }
 
   .node-options-row {
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(0, 560px) auto;
     align-items: flex-end;
     justify-content: space-between;
-    gap: 24px;
+    column-gap: 24px;
     min-width: 0;
     min-height: 40px;
   }
@@ -392,28 +415,48 @@ const Container = styled.div`
     flex-direction: column;
     align-items: flex-start;
     gap: 8px;
+    width: 100%;
+    max-width: 560px;
     min-width: 0;
     min-height: 40px;
     justify-content: flex-start;
   }
 
+  .split-controls .segmented-editor-field,
+  .split-controls .segmented-editor-control {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
   .split-mode-hint {
-    color: var(--grey-lightish);
+    color: var(--grey-light);
     font-size: var(--ui-font-size-sm);
     line-height: 1.25;
+    width: 100%;
     max-width: 560px;
   }
 
   .split-max {
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: 8px 18px;
     flex-wrap: wrap;
     min-height: 32px;
+  }
 
-    .split-max-input {
-      max-width: 80px;
-    }
+  .split-max-field {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex: 0 0 auto;
+    max-width: 100%;
+    min-height: 32px;
+  }
+
+  .split-max-input {
+    width: 80px;
+    max-width: 80px;
   }
 
   .split-max-label {
@@ -430,7 +473,47 @@ const Container = styled.div`
     gap: 12px;
     min-width: 0;
     min-height: 40px;
+    justify-self: end;
     align-self: flex-end;
+  }
+
+  .variants-tooltip {
+    display: inline-flex;
+  }
+
+  .variants-button {
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: var(--ui-button-radius);
+    corner-shape: squircle;
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--grey-light);
+    cursor: pointer;
+    transition:
+      background-color 0.15s ease-out,
+      border-color 0.15s ease-out,
+      color 0.15s ease-out;
+  }
+
+  .variants-button:hover {
+    background: rgba(255, 255, 255, 0.14);
+    border-color: rgba(255, 255, 255, 0.2);
+    color: var(--grey-lightest);
+  }
+
+  .variants-button:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+
+  .variants-button svg {
+    width: 18px;
+    height: 18px;
   }
 
   .variants-inline {
@@ -447,10 +530,24 @@ const Container = styled.div`
     gap: 8px;
   }
 
+  .variant-editor-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .variant-editor-heading {
+    color: var(--grey-light);
+    font-size: var(--ui-font-size-base);
+    font-weight: 700;
+    line-height: 1.25;
+  }
+
   .variant-editor-row {
     display: flex;
     align-items: center;
-    justify-content: flex-end;
+    justify-content: flex-start;
     gap: 12px;
     min-height: 40px;
   }
@@ -488,6 +585,111 @@ const Container = styled.div`
 type NodeEditorProps = { selectedNode: ChartNode; onDeselect: () => void };
 
 export type NodeChanged = (changed: ChartNode, newData?: Record<DataId, string>) => void;
+
+const NODE_EDITOR_ACTION_BAR_GAP_PX = 16;
+const NODE_EDITOR_ACTION_BAR_VERTICAL_GAP_PX = 12;
+const NODE_EDITOR_HORIZONTAL_PADDING_PX = 24;
+const NODE_EDITOR_TOP_PADDING_PX = 16;
+
+type NodeEditorActionBarAvoidance = { rowReserve: number; topReserve: number };
+
+const NO_ACTION_BAR_AVOIDANCE: NodeEditorActionBarAvoidance = { rowReserve: 0, topReserve: 0 };
+
+function isSameActionBarAvoidance(a: NodeEditorActionBarAvoidance, b: NodeEditorActionBarAvoidance) {
+  return a.rowReserve === b.rowReserve && a.topReserve === b.topReserve;
+}
+
+function useNodeEditorActionBarAvoidance(containerRef: RefObject<HTMLDivElement | null>) {
+  const [avoidance, setAvoidance] = useState<NodeEditorActionBarAvoidance>(NO_ACTION_BAR_AVOIDANCE);
+
+  useLayoutEffect(() => {
+    const container = containerRef.current;
+    const actionBar = document.querySelector<HTMLElement>('[data-node-editor-action-bar]');
+
+    if (!container || !actionBar) {
+      setAvoidance(NO_ACTION_BAR_AVOIDANCE);
+      return;
+    }
+
+    let animationFrame = 0;
+
+    const applyAvoidance = (nextAvoidance: NodeEditorActionBarAvoidance) => {
+      setAvoidance((currentAvoidance) =>
+        isSameActionBarAvoidance(currentAvoidance, nextAvoidance) ? currentAvoidance : nextAvoidance,
+      );
+    };
+
+    const updateAvoidance = () => {
+      if (animationFrame) {
+        cancelAnimationFrame(animationFrame);
+      }
+
+      animationFrame = requestAnimationFrame(() => {
+        const panelRect = container.getBoundingClientRect();
+        const actionBarRect = actionBar.getBoundingClientRect();
+        const overlapsPanel =
+          actionBarRect.right > panelRect.left &&
+          actionBarRect.left < panelRect.right &&
+          actionBarRect.bottom > panelRect.top &&
+          actionBarRect.top < panelRect.bottom;
+
+        if (!overlapsPanel) {
+          applyAvoidance(NO_ACTION_BAR_AVOIDANCE);
+          return;
+        }
+
+        const availableBeforeActionBar =
+          actionBarRect.left - panelRect.left - NODE_EDITOR_HORIZONTAL_PADDING_PX - NODE_EDITOR_ACTION_BAR_GAP_PX;
+        const firstNodeTypeControl = container.querySelector<HTMLElement>('.node-type-row > *:first-child');
+        const minimumInlineWidth = firstNodeTypeControl
+          ? Math.ceil(firstNodeTypeControl.getBoundingClientRect().width)
+          : 0;
+        const shouldMoveBelowActionBar = availableBeforeActionBar < minimumInlineWidth;
+
+        if (shouldMoveBelowActionBar) {
+          applyAvoidance({
+            rowReserve: 0,
+            topReserve: Math.ceil(
+              Math.max(
+                0,
+                actionBarRect.bottom -
+                  panelRect.top +
+                  NODE_EDITOR_ACTION_BAR_VERTICAL_GAP_PX -
+                  NODE_EDITOR_TOP_PADDING_PX,
+              ),
+            ),
+          });
+          return;
+        }
+
+        const contentRight = panelRect.right - NODE_EDITOR_HORIZONTAL_PADDING_PX;
+
+        applyAvoidance({
+          rowReserve: Math.ceil(Math.max(0, contentRight - actionBarRect.left + NODE_EDITOR_ACTION_BAR_GAP_PX)),
+          topReserve: 0,
+        });
+      });
+    };
+
+    updateAvoidance();
+
+    const resizeObserver = new ResizeObserver(updateAvoidance);
+    resizeObserver.observe(container);
+    resizeObserver.observe(actionBar);
+    window.addEventListener('resize', updateAvoidance);
+
+    return () => {
+      if (animationFrame) {
+        cancelAnimationFrame(animationFrame);
+      }
+
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', updateAvoidance);
+    };
+  }, [containerRef]);
+
+  return avoidance;
+}
 
 export const NodeEditor: FC<NodeEditorProps> = ({ selectedNode, onDeselect }) => {
   const [selectedVariant, setSelectedVariant] = useState<string | undefined>();
@@ -606,8 +808,11 @@ export const NodeEditor: FC<NodeEditorProps> = ({ selectedNode, onDeselect }) =>
   const showGlobalControls = selectedNode.type !== 'comment';
   const projectNodeRegistry = useProjectNodeRegistry();
   const nodeDisplayName = `${projectNodeRegistry.getDynamicDisplayName(selectedNode.type)} node`;
+  const actionBarAvoidance = useNodeEditorActionBarAvoidance(containerRef);
   const containerStyle = {
     '--node-editor-panel-width': `${panelWidth}px`,
+    '--node-editor-action-bar-row-reserve': `${actionBarAvoidance.rowReserve}px`,
+    '--node-editor-action-bar-top-reserve': `${actionBarAvoidance.topReserve}px`,
   } as CSSProperties;
 
   return (

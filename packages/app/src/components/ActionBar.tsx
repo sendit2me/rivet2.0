@@ -193,7 +193,7 @@ export const ActionBar: FC<ActionBarProps> = ({ onRunGraph, onAbortGraph, onPaus
   };
 
   return (
-    <div css={styles} ref={actionBarRef}>
+    <div css={styles} ref={actionBarRef} data-node-editor-action-bar>
       {actionBarExecutionState.showRemoteDebuggerBanner && (
         <div
           className={clsx('remote-debugger-button active', {

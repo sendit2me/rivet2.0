@@ -7,6 +7,7 @@ import { Tooltip } from '../Tooltip.js';
 import { NodeMetadataEditor } from './NodeMetadataEditor.js';
 import { LabeledToggle } from '../LabeledToggle.js';
 import { SegmentedEditor } from '../editors/SegmentedEditor.js';
+import GitBranchIcon from 'majesticons/line/git-branch-line.svg?react';
 
 type HeaderToggleFieldProps = {
   id: string;
@@ -59,6 +60,16 @@ const SplitModeChoiceControl: FC<{
   />
 );
 
+const VariantsButton: FC<{
+  onClick: () => void;
+}> = ({ onClick }) => (
+  <Tooltip content="Variants" tag="span" className="variants-tooltip">
+    <button type="button" className="variants-button" aria-label="Variants" title="Variants" onClick={onClick}>
+      <GitBranchIcon />
+    </button>
+  </Tooltip>
+);
+
 function getSplitMode(node: ChartNode): SplitModeChoice {
   if (!node.isSplitRun) {
     return 'once';
@@ -103,7 +114,7 @@ export const NodeEditorGlobalControls: FC<{
   const isVariant = selectedVariant !== undefined;
   const hasSavedVariants = variantOptions.length > 1;
   const showVariantEditor = hasSavedVariants || addVariantPopupOpen;
-  const showVariantsLink = !hasSavedVariants;
+  const showVariantsButton = !hasSavedVariants;
   const nodeEnabledToggleId = `node-enabled-${node.id}`;
   const conditionalToggleId = `node-conditional-${node.id}`;
   const splitMode = getSplitMode(node);
@@ -154,26 +165,28 @@ export const NodeEditorGlobalControls: FC<{
 
           {showSplitRunFields && (
             <div className="split-max">
-              <label className="split-max-label">Max runs:</label>
-              <TextField
-                className="split-max-input"
-                type="number"
-                min={1}
-                step={1}
-                placeholder="Max"
-                value={node.splitRunMax ?? 10}
-                onChange={(event) => {
-                  const rawValue = (event.target as HTMLInputElement).valueAsNumber;
-                  const splitRunMax = normalizePositiveInteger(rawValue, 1);
+              <div className="split-max-field">
+                <label className="split-max-label">Max runs:</label>
+                <TextField
+                  className="split-max-input"
+                  type="number"
+                  min={1}
+                  step={1}
+                  placeholder="Max"
+                  value={node.splitRunMax ?? 10}
+                  onChange={(event) => {
+                    const rawValue = (event.target as HTMLInputElement).valueAsNumber;
+                    const splitRunMax = normalizePositiveInteger(rawValue, 1);
 
-                  onUpdateNode({
-                    ...node,
-                    splitRunMax,
-                  });
-                }}
-              />
+                    onUpdateNode({
+                      ...node,
+                      splitRunMax,
+                    });
+                  }}
+                />
+              </div>
               {splitMode === 'parallel' && (
-                <>
+                <div className="split-max-field">
                   <label className="split-max-label">Max concurrent runs:</label>
                   <TextField
                     className="split-max-input"
@@ -192,57 +205,57 @@ export const NodeEditorGlobalControls: FC<{
                       });
                     }}
                   />
-                </>
+                </div>
               )}
             </div>
           )}
         </section>
         <section className="variants">
-          {showVariantsLink && !showVariantEditor && (
-            <Button appearance="subtle-link" onClick={() => setAddVariantPopupOpen(!addVariantPopupOpen)}>
-              Variants...
-            </Button>
+          {showVariantsButton && !showVariantEditor && (
+            <VariantsButton onClick={() => setAddVariantPopupOpen(true)} />
           )}
         </section>
       </div>
       {showVariantEditor && (
-        <div className="variant-editor-row">
-          {hasSavedVariants && (
-            <Select
-              className="variant-select"
-              options={variantOptions}
-              value={selectedVariantOption}
-              onChange={(val) => setSelectedVariant(val!.value === '' ? undefined : val!.value)}
-            />
-          )}
-          {isVariant ? (
-            <div className="variant-buttons">
-              <Button appearance="primary" onClick={onApplyVariant}>
-                Apply
-              </Button>
-              <Button appearance="danger" onClick={onDeleteVariant}>
-                Delete Variant
-              </Button>
-            </div>
-          ) : (
-            <TextField
-              className="variant-name-input"
-              placeholder="Enter a name for the variant..."
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') {
-                  onSaveAsVariant((event.target as HTMLInputElement).value);
-                  setAddVariantPopupOpen(false);
-                }
-              }}
-            />
-          )}
-          {showVariantsLink && (
-            <section className="variants variants-inline">
-              <Button appearance="subtle-link" onClick={() => setAddVariantPopupOpen(!addVariantPopupOpen)}>
-                Variants...
-              </Button>
-            </section>
-          )}
+        <div className="variant-editor-section">
+          <div className="variant-editor-heading">Variants</div>
+          <div className="variant-editor-row">
+            {hasSavedVariants && (
+              <Select
+                className="variant-select"
+                options={variantOptions}
+                value={selectedVariantOption}
+                onChange={(val) => setSelectedVariant(val!.value === '' ? undefined : val!.value)}
+              />
+            )}
+            {isVariant ? (
+              <div className="variant-buttons">
+                <Button appearance="primary" onClick={onApplyVariant}>
+                  Apply
+                </Button>
+                <Button appearance="danger" onClick={onDeleteVariant}>
+                  Delete Variant
+                </Button>
+              </div>
+            ) : (
+              <TextField
+                autoFocus
+                className="variant-name-input"
+                placeholder="Enter a name for the variant..."
+                onBlur={() => {
+                  if (!hasSavedVariants) {
+                    setAddVariantPopupOpen(false);
+                  }
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    onSaveAsVariant((event.target as HTMLInputElement).value);
+                    setAddVariantPopupOpen(false);
+                  }
+                }}
+              />
+            )}
+          </div>
         </div>
       )}
     </div>

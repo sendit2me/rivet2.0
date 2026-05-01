@@ -1,6 +1,11 @@
 - Human readable Loop node
 
-- When there's not enough width, the pultiposition switcher labels go multiline and fall out of the sockets (snd the selected one get's clipped)
+- Unreachable and referenced features allow disabling them in the UI settings
+
+- Retry behevior for LLM chat node
+
+- Provider Advanced - Base URL - should be a separate edit from the "Provider base URL" that we see in the "Model" section when we choose "Custom provider". Now, when I choose "Custom provider", and set "Provider base URL" and then change the model to OpenAI for instance, the "Base URL" in the "Provider Advanced" section changes to what I entered for the custom provider. That's bad UX.
+
 
 - Make the workspace navigation less annoying
 
