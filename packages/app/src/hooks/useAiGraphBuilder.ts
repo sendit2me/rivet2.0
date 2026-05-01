@@ -32,12 +32,14 @@ import { buildAiGraphBuilderExternalFunctions } from './aiGraphBuilderHelpers.js
 import { useProjectNodeRegistry } from './useProjectNodeRegistry';
 import { handleError } from '../utils/errorHandling.js';
 import { useClearCurrentGraphHistory } from '../commands/Command.js';
+import { useEnvironmentProvider } from '../providers/ProvidersContext.js';
 
 export function useAiGraphBuilder({ record, onFeedback }: { record: boolean; onFeedback: (feedback: string) => void }) {
   const [graph, setGraph] = useAtom(graphState);
 
   const settings = useAtomValue(settingsState);
   const plugins = useDependsOnPlugins();
+  const environmentProvider = useEnvironmentProvider();
   const projectNodeRegistry = useProjectNodeRegistry();
 
   const centerView = useCenterViewOnGraph();
@@ -368,7 +370,9 @@ export function useAiGraphBuilder({ record, onFeedback }: { record: boolean; onF
         nativeApi: new TauriNativeApi(),
         datasetProvider: new InMemoryDatasetProvider(data),
         registry,
-        ...(await fillMissingSettingsFromEnvironmentVariables(settings, plugins)),
+        ...(await fillMissingSettingsFromEnvironmentVariables(settings, plugins, {
+          environmentProvider,
+        })),
       });
 
       if (record) {

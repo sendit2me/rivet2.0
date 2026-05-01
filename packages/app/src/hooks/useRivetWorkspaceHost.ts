@@ -1,0 +1,263 @@
+import { useMemo } from 'react';
+import { useAtom, useAtomValue, useSetAtom } from 'jotai';
+import type { GraphId, NodeGraph, Project, ProjectId } from '@ironclad/rivet-core';
+import type { TrivetState } from '../state/trivet.js';
+import { isPathBasedIOProvider } from '../io/IOProvider.js';
+import { useIOProvider } from '../providers/ProvidersContext.js';
+import { useRivetAppHostCallbacks } from '../providers/HostCallbacksContext.js';
+import {
+  clearProjectContextState,
+  loadedProjectState,
+  openedProjectSnapshotsState,
+  openedProjectsSortedIdsState,
+  projectsState,
+  projectState,
+} from '../state/savedGraphs.js';
+import { handleError } from '../utils/errorHandling.js';
+import {
+  addOpenedProject,
+  moveOpenedProjectPaths,
+  normalizeProjectPathMoves,
+  removeOpenedProject,
+  type ProjectPathMovesInput,
+} from '../utils/openedProjects.js';
+import { useCurrentProjectEditorSnapshot } from './useCurrentProjectEditorSnapshot.js';
+import { useLoadProject } from './useLoadProject.js';
+import { useStableCallback } from './useStableCallback.js';
+import { useWorkspaceTransitions } from './useWorkspaceTransitions.js';
+
+export type RivetProjectSnapshotInput = {
+  project: Project | Omit<Project, 'data'>;
+  data?: Project['data'];
+  path?: string | null;
+  openedGraph?: GraphId;
+  graphToLoad?: NodeGraph;
+  testSuites?: TrivetState['testSuites'];
+};
+
+export type MoveProjectPathsInput = ProjectPathMovesInput;
+
+export type RivetWorkspaceHost = {
+  openProjectSnapshot(snapshot: RivetProjectSnapshotInput): Promise<boolean>;
+  openProjectPath(path: string): Promise<boolean>;
+  closeProject(projectId?: ProjectId): Promise<boolean>;
+  moveProjectPaths(moves: MoveProjectPathsInput): void;
+  replaceCurrent(snapshot: RivetProjectSnapshotInput): Promise<boolean>;
+};
+
+type NormalizedProjectSnapshot = {
+  project: Omit<Project, 'data'>;
+  data?: Project['data'];
+};
+
+export function normalizeProjectSnapshot(snapshot: RivetProjectSnapshotInput): NormalizedProjectSnapshot {
+  const { data: attachedData, ...project } = snapshot.project as Project;
+
+  return {
+    project,
+    data: snapshot.data ?? attachedData,
+  };
+}
+
+export function useRivetWorkspaceHost(): RivetWorkspaceHost {
+  const ioProvider = useIOProvider();
+  const callbacks = useRivetAppHostCallbacks();
+  const workspaceTransitions = useWorkspaceTransitions();
+  const loadProject = useLoadProject();
+  const [projects, setProjects] = useAtom(projectsState);
+  const currentProject = useAtomValue(projectState);
+  const loadedProject = useAtomValue(loadedProjectState);
+  const openedProjectIds = useAtomValue(openedProjectsSortedIdsState);
+  const setLoadedProject = useSetAtom(loadedProjectState);
+  const setOpenedProjectSnapshots = useSetAtom(openedProjectSnapshotsState);
+  const { persistCurrentProjectEditorSnapshot } = useCurrentProjectEditorSnapshot();
+
+  const openProjectSnapshot = useStableCallback(
+    async (snapshot: RivetProjectSnapshotInput, options: { replaceCurrent?: boolean } = {}) => {
+      const normalized = normalizeProjectSnapshot(snapshot);
+      const projectId = normalized.project.metadata.id as ProjectId;
+      const currentProjectId = currentProject.metadata.id as ProjectId | undefined;
+
+      try {
+        const loaded = await workspaceTransitions.loadProject({
+          project: normalized.project,
+          data: normalized.data,
+          fsPath: snapshot.path,
+          openedGraph: snapshot.openedGraph,
+          graphToLoad: snapshot.graphToLoad,
+          testSuites: snapshot.testSuites,
+        });
+
+        if (!loaded) {
+          return false;
+        }
+
+        setProjects((previousProjects) => {
+          const replacedProjectIndex =
+            currentProjectId && currentProjectId !== projectId
+              ? previousProjects.openedProjectsSortedIds.indexOf(currentProjectId)
+              : -1;
+          const withoutReplacedProject =
+            options.replaceCurrent && currentProjectId && currentProjectId !== projectId
+              ? removeOpenedProject(previousProjects, currentProjectId)
+              : previousProjects;
+
+          const withOpenedProject = addOpenedProject(
+            withoutReplacedProject,
+            {
+              ...normalized.project,
+              data: normalized.data,
+            },
+            {
+              fsPath: snapshot.path,
+              openedGraph: snapshot.openedGraph ?? snapshot.graphToLoad?.metadata?.id,
+            },
+          );
+
+          if (!options.replaceCurrent || replacedProjectIndex < 0) {
+            return withOpenedProject;
+          }
+
+          const reorderedProjectIds = withOpenedProject.openedProjectsSortedIds.filter((id) => id !== projectId);
+          reorderedProjectIds.splice(Math.min(replacedProjectIndex, reorderedProjectIds.length), 0, projectId);
+
+          return {
+            ...withOpenedProject,
+            openedProjectsSortedIds: reorderedProjectIds,
+          };
+        });
+
+        if (options.replaceCurrent && currentProjectId && currentProjectId !== projectId) {
+          setOpenedProjectSnapshots((snapshots) => {
+            const nextSnapshots = { ...snapshots };
+            delete nextSnapshots[currentProjectId];
+            return nextSnapshots;
+          });
+          clearProjectContextState(currentProjectId);
+        }
+
+        return true;
+      } catch (error) {
+        callbacks.onOpenError?.({
+          error,
+          operation: 'openProjectSnapshot',
+          path: snapshot.path,
+          projectId,
+          openedGraph: snapshot.openedGraph,
+        });
+        handleError(error, 'Failed to open project snapshot', {
+          metadata: {
+            openedGraph: snapshot.openedGraph,
+            projectId,
+            projectPath: snapshot.path,
+          },
+        });
+        return false;
+      }
+    },
+  );
+
+  const openProjectPath = useStableCallback(async (path: string) => {
+    try {
+      const alreadyOpenedProject = Object.values(projects.openedProjects).find((project) => project.fsPath === path);
+
+      if (alreadyOpenedProject) {
+        return await loadProject(alreadyOpenedProject);
+      }
+
+      if (!isPathBasedIOProvider(ioProvider)) {
+        throw new Error('The active IO provider does not support opening projects by path.');
+      }
+
+      const { project, testData } = await ioProvider.loadProjectDataNoPrompt(path);
+      const { data, ...projectWithoutData } = project;
+
+      return await openProjectSnapshot({
+        project: projectWithoutData,
+        data,
+        path,
+        testSuites: testData.testSuites,
+      });
+    } catch (error) {
+      callbacks.onOpenError?.({
+        error,
+        operation: 'openProjectPath',
+        path,
+      });
+      handleError(error, 'Failed to open project path', {
+        metadata: {
+          projectPath: path,
+        },
+      });
+      return false;
+    }
+  });
+
+  const closeProject = useStableCallback(async (projectId = currentProject.metadata.id as ProjectId) => {
+    const indexOfProject = openedProjectIds.indexOf(projectId);
+    if (indexOfProject === -1) {
+      return false;
+    }
+
+    const closingCurrentProject = currentProject.metadata.id === projectId;
+    if (closingCurrentProject) {
+      persistCurrentProjectEditorSnapshot();
+    }
+
+    const sortedOpenedProjects = openedProjectIds
+      .map((id) => ({
+        id,
+        project: projects.openedProjects[id],
+      }))
+      .filter((item) => item.project != null);
+    const closestProject = sortedOpenedProjects[indexOfProject + 1] || sortedOpenedProjects[indexOfProject - 1];
+
+    if (closingCurrentProject && closestProject?.project) {
+      const loaded = await loadProject(closestProject.project);
+      if (!loaded) {
+        return false;
+      }
+    }
+
+    setProjects((previousProjects) => removeOpenedProject(previousProjects, projectId));
+    setOpenedProjectSnapshots((snapshots) => {
+      const nextSnapshots = { ...snapshots };
+      delete nextSnapshots[projectId];
+      return nextSnapshots;
+    });
+    clearProjectContextState(projectId);
+
+    return true;
+  });
+
+  const moveProjectPaths = useStableCallback((moves: MoveProjectPathsInput) => {
+    const normalizedMoves = normalizeProjectPathMoves(moves);
+    setProjects((previousProjects) => moveOpenedProjectPaths(previousProjects, normalizedMoves));
+
+    const nextLoadedProjectPath = loadedProject.path
+      ? normalizedMoves.find((move) => move.from === loadedProject.path)?.to
+      : undefined;
+
+    if (nextLoadedProjectPath) {
+      setLoadedProject({
+        ...loadedProject,
+        path: nextLoadedProjectPath,
+      });
+    }
+  });
+
+  const replaceCurrent = useStableCallback(async (snapshot: RivetProjectSnapshotInput) => {
+    return await openProjectSnapshot(snapshot, { replaceCurrent: true });
+  });
+
+  return useMemo(
+    () => ({
+      openProjectSnapshot,
+      openProjectPath,
+      closeProject,
+      moveProjectPaths,
+      replaceCurrent,
+    }),
+    [closeProject, moveProjectPaths, openProjectPath, openProjectSnapshot, replaceCurrent],
+  );
+}

@@ -6,6 +6,6 @@ name = "Rivet2.0"
 script = ""
 
 [[actions]]
-name = "Run"
+name = "Run Rivet2.0"
 icon = "run"
 command = "yarn dev"

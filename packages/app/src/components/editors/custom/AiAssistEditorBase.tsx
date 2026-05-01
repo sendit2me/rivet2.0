@@ -31,6 +31,7 @@ import { useMultilineEditorFontSize } from '../../../hooks/useMultilineEditorFon
 import Collapsible from 'react-collapsible';
 import ChevronDownIcon from 'majesticons/line/chevron-down-line.svg?react';
 import ChevronUpIcon from 'majesticons/line/chevron-up-line.svg?react';
+import { useEnvironmentProvider } from '../../../providers/ProvidersContext.js';
 
 const styles = css`
   --ai-assist-radius: calc(16px * var(--ui-font-scale));
@@ -165,6 +166,7 @@ export const AiAssistEditorBase = <TNodeData, TOutputs>({
 
   const settings = useAtomValue(settingsState);
   const plugins = useDependsOnPlugins();
+  const environmentProvider = useEnvironmentProvider();
 
   const record = true;
 
@@ -189,7 +191,9 @@ export const AiAssistEditorBase = <TNodeData, TOutputs>({
           api: api!,
         },
         registry,
-        ...(await fillMissingSettingsFromEnvironmentVariables(settings, plugins)),
+        ...(await fillMissingSettingsFromEnvironmentVariables(settings, plugins, {
+          environmentProvider,
+        })),
       });
 
       if (record) {

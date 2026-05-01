@@ -5,6 +5,17 @@
   "private": true,
   "license": "MIT",
   "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/host.tsx",
+      "import": "./src/host.tsx"
+    },
+    "./host": {
+      "types": "./src/host.tsx",
+      "import": "./src/host.tsx"
+    },
+    "./styles": "./src/host.css"
+  },
   "scripts": {
     "dev": "node scripts/dev.mjs",
     "start": "vite",

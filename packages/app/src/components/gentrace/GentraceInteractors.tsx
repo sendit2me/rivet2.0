@@ -1,12 +1,7 @@
 import Popup from '@atlaskit/popup';
 import { css } from '@emotion/react';
 import { entries } from '../../utils/typeSafety';
-import {
-  type DataValue,
-  ExecutionRecorder,
-  runGentraceTests,
-  runRemoteGentraceTests,
-} from '@ironclad/rivet-core';
+import { type DataValue, ExecutionRecorder, runGentraceTests, runRemoteGentraceTests } from '@ironclad/rivet-core';
 import { useToggle } from 'ahooks';
 import clsx from 'clsx';
 import EditPen from 'majesticons/line/edit-pen-2-line.svg?react';
@@ -25,6 +20,7 @@ import { fillMissingSettingsFromEnvironmentVariables } from '../../utils/tauri';
 import GentracePipelinePicker, { type GentracePipeline } from './GentracePipelinePicker';
 import { useAtomValue } from 'jotai';
 import { wrapAsync } from '../../utils/errorHandling';
+import { useEnvironmentProvider } from '../../providers/ProvidersContext.js';
 
 export const GentraceInteractors = () => {
   const project = useAtomValue(projectState);
@@ -32,6 +28,7 @@ export const GentraceInteractors = () => {
   const savedSettings = useAtomValue(settingsState);
   const projectContext = useAtomValue(projectContextState(project.metadata.id));
   const executorSessionRuntime = useExecutorSessionRuntime();
+  const environmentProvider = useEnvironmentProvider();
   const projectNodeRegistry = useProjectNodeRegistry();
 
   const remoteDebugger = useRemoteDebugger();
@@ -46,6 +43,9 @@ export const GentraceInteractors = () => {
     const settings = await fillMissingSettingsFromEnvironmentVariables(
       savedSettings,
       projectNodeRegistry.getPlugins(),
+      {
+        environmentProvider,
+      },
     );
 
     if (!graph.metadata?.id) {
@@ -80,6 +80,9 @@ export const GentraceInteractors = () => {
                 settings: await fillMissingSettingsFromEnvironmentVariables(
                   savedSettings,
                   projectNodeRegistry.getPlugins(),
+                  {
+                    environmentProvider,
+                  },
                 ),
               });
             }

@@ -1,6 +1,13 @@
 import type { GraphId, Project, ProjectId } from '@ironclad/rivet-core';
 import type { OpenedProjectsInfo } from '../state/savedGraphs.js';
 
+export type ProjectPathMove = {
+  from: string;
+  to: string;
+};
+
+export type ProjectPathMovesInput = Record<string, string> | ProjectPathMove[];
+
 export function addOpenedProject(
   current: OpenedProjectsInfo,
   project: Project,
@@ -8,8 +15,7 @@ export function addOpenedProject(
 ): OpenedProjectsInfo {
   const projectId = project.metadata.id as ProjectId;
   const existingProject = current.openedProjects[projectId];
-  const nextFsPath =
-    'fsPath' in options ? options.fsPath ?? null : existingProject?.fsPath ?? null;
+  const nextFsPath = 'fsPath' in options ? options.fsPath ?? null : existingProject?.fsPath ?? null;
   const nextOpenedGraph =
     'openedGraph' in options ? options.openedGraph : existingProject?.openedGraph ?? project.metadata.mainGraphId;
 
@@ -28,4 +34,71 @@ export function addOpenedProject(
       ? current.openedProjectsSortedIds
       : [...current.openedProjectsSortedIds, projectId],
   };
+}
+
+export function removeOpenedProject(current: OpenedProjectsInfo, projectId: ProjectId): OpenedProjectsInfo {
+  const openedProjects = { ...current.openedProjects };
+  delete openedProjects[projectId];
+
+  const openedProjectsSortedIds = current.openedProjectsSortedIds.filter(
+    (id) => id !== projectId && openedProjects[id] != null,
+  );
+
+  for (const id of Object.keys(openedProjects) as ProjectId[]) {
+    if (!openedProjectsSortedIds.includes(id)) {
+      delete openedProjects[id];
+    }
+  }
+
+  return {
+    openedProjects,
+    openedProjectsSortedIds,
+  };
+}
+
+export function normalizeProjectPathMoves(moves: ProjectPathMovesInput): ProjectPathMove[] {
+  return Array.isArray(moves)
+    ? moves
+    : Object.entries(moves).map(([from, to]) => ({
+        from,
+        to,
+      }));
+}
+
+export function moveOpenedProjectPaths(current: OpenedProjectsInfo, moves: ProjectPathMovesInput): OpenedProjectsInfo {
+  const normalizedMoves = normalizeProjectPathMoves(moves).filter(
+    (move) => move.from && move.to && move.from !== move.to,
+  );
+
+  if (normalizedMoves.length === 0) {
+    return current;
+  }
+
+  const pathsByPreviousPath = new Map(normalizedMoves.map((move) => [move.from, move.to]));
+  let changed = false;
+
+  const openedProjects = Object.fromEntries(
+    Object.entries(current.openedProjects).map(([projectId, projectInfo]) => {
+      const nextPath = projectInfo.fsPath ? pathsByPreviousPath.get(projectInfo.fsPath) : undefined;
+      if (!nextPath) {
+        return [projectId, projectInfo];
+      }
+
+      changed = true;
+      return [
+        projectId,
+        {
+          ...projectInfo,
+          fsPath: nextPath,
+        },
+      ];
+    }),
+  ) as OpenedProjectsInfo['openedProjects'];
+
+  return changed
+    ? {
+        ...current,
+        openedProjects,
+      }
+    : current;
 }

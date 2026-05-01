@@ -34,9 +34,11 @@ import {
 } from './remoteExecutorHelpers.js';
 import { handleError } from '../utils/errorHandling.js';
 import { getLLMChatV2CustomProviderApiKeyEnvVarNames } from '../utils/chatV2CustomProviderEnv.js';
+import { useEnvironmentProvider } from '../providers/ProvidersContext.js';
 
 export function useRemoteExecutor() {
   const executorSession = useExecutorSessionRuntime();
+  const environmentProvider = useEnvironmentProvider();
   const activeGraphRequestIdRef = useRef<RemoteRunRequestId | null>(null);
   const projectNodeRegistry = useProjectNodeRegistry();
   const project = useAtomValue(projectState);
@@ -208,11 +210,10 @@ export function useRemoteExecutor() {
 
         remoteDebugger.send('set-dynamic-data', {
           project: projectToUpload,
-          settings: await fillMissingSettingsFromEnvironmentVariables(
-            savedSettings,
-            projectNodeRegistry.getPlugins(),
-            getLLMChatV2CustomProviderApiKeyEnvVarNames(projectToUpload),
-          ),
+          settings: await fillMissingSettingsFromEnvironmentVariables(savedSettings, projectNodeRegistry.getPlugins(), {
+            environmentProvider,
+            extraEnvVarNames: getLLMChatV2CustomProviderApiKeyEnvVarNames(projectToUpload),
+          }),
         });
 
         for (const [id, dataValue] of Object.entries(projectData ?? {})) {
@@ -295,7 +296,10 @@ export function useRemoteExecutor() {
                 settings: await fillMissingSettingsFromEnvironmentVariables(
                   savedSettings,
                   projectNodeRegistry.getPlugins(),
-                  getLLMChatV2CustomProviderApiKeyEnvVarNames(projectToUpload),
+                  {
+                    environmentProvider,
+                    extraEnvVarNames: getLLMChatV2CustomProviderApiKeyEnvVarNames(projectToUpload),
+                  },
                 ),
               });
             }

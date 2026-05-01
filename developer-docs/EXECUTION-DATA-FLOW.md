@@ -571,6 +571,13 @@ and skips Tauri sidecar start/stop ownership; all run/upload/message handling
 continues through the same `useRemoteExecutor` and executor-session runtime as
 the desktop app.
 
+`executor.internalExecutorUrl` is also a UI/session classification contract. A
+hosted executor URL connected through `connectInternal(...)` is treated as the
+active internal Node executor, so manual remote-debugger disconnect restores that
+session and the ActionBar keeps Node-mode run controls disabled only while the
+internal executor is genuinely connecting. External remote debuggers should
+continue to use the public `connect(...)` path.
+
 The app-executor sidecar treats graph failures as request-scoped execution
 events rather than process/session failures. If a dynamic run throws because a
 node fails, provider setup fails, or plugin assembly fails, the sidecar sends an

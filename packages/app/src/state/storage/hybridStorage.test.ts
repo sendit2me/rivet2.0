@@ -1,6 +1,11 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { allInitializeStoreFns, createHybridStorage, flushHybridStorageGroup } from './hybridStorage';
+import {
+  allInitializeStoreFns,
+  configureHybridStorageBackend,
+  createHybridStorage,
+  flushHybridStorageGroup,
+} from './hybridStorage';
 
 describe('createHybridStorage', () => {
   it('buffers values in memory for grouped keys', () => {
@@ -150,5 +155,68 @@ describe('createHybridStorage', () => {
         }),
       },
     ]);
+  });
+
+  it('can swap the async storage backend before hosted initialization', async () => {
+    const writes: Array<{ key: string; value: string }> = [];
+    createHybridStorage('grouped-host-storage');
+
+    const previousBackend = configureHybridStorageBackend({
+      getItem: async () => null,
+      setItem: async (key, value) => {
+        writes.push({ key, value });
+      },
+      removeItem: async () => {},
+    });
+
+    try {
+      const { storage } = createHybridStorage('grouped-host-storage');
+      storage.setItem('alpha', { value: 1 });
+      await flushHybridStorageGroup('grouped-host-storage');
+
+      assert.deepEqual(writes, [
+        {
+          key: 'grouped-host-storage',
+          value: JSON.stringify({
+            alpha: { value: 1 },
+          }),
+        },
+      ]);
+    } finally {
+      configureHybridStorageBackend(previousBackend);
+    }
+  });
+
+  it('resets hosted storage controllers to the built-in backend when storage is omitted', async () => {
+    const writes: Array<{ key: string; value: string }> = [];
+    createHybridStorage('grouped-host-storage-reset');
+
+    const previousBackend = configureHybridStorageBackend({
+      getItem: async () => null,
+      setItem: async (key, value) => {
+        writes.push({ key, value });
+      },
+      removeItem: async () => {},
+    });
+
+    try {
+      const { storage } = createHybridStorage('grouped-host-storage-reset');
+      storage.setItem('alpha', { value: 1 });
+      await flushHybridStorageGroup('grouped-host-storage-reset');
+
+      configureHybridStorageBackend(undefined);
+      storage.setItem('beta', { value: 2 });
+      await flushHybridStorageGroup('grouped-host-storage-reset');
+
+      assert.equal(writes.length, 1);
+      assert.deepEqual(writes[0], {
+        key: 'grouped-host-storage-reset',
+        value: JSON.stringify({
+          alpha: { value: 1 },
+        }),
+      });
+    } finally {
+      configureHybridStorageBackend(previousBackend);
+    }
   });
 });

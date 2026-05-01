@@ -1,10 +1,16 @@
 import { type Project, deserializeDatasets, serializeDatasets } from '@ironclad/rivet-core';
 import { allowDataFileNeighbor } from '../utils/tauri.js';
 import { type AppDatasetProvider } from '../providers/ProvidersContext.js';
+import type { PathPolicyProvider } from '../providers/ProvidersContext.js';
 import { nativeExists, nativeReadTextFile, nativeWriteFile } from '../utils/platform/fs.js';
 
-export async function saveDatasetsFile(projectFilePath: string, project: Project, datasetProvider: AppDatasetProvider) {
-  await allowDataFileNeighbor(projectFilePath);
+export async function saveDatasetsFile(
+  projectFilePath: string,
+  project: Project,
+  datasetProvider: AppDatasetProvider,
+  pathPolicy?: PathPolicyProvider,
+) {
+  await (pathPolicy?.allowDataFileNeighbor ?? allowDataFileNeighbor)(projectFilePath);
 
   const dataPath = projectFilePath.replace('.rivet-project', '.rivet-data');
   const datasets = await datasetProvider.exportDatasetsForProject(project.metadata.id);
@@ -19,8 +25,13 @@ export async function saveDatasetsFile(projectFilePath: string, project: Project
   }
 }
 
-export async function loadDatasetsFile(projectFilePath: string, project: Project, datasetProvider: AppDatasetProvider) {
-  await allowDataFileNeighbor(projectFilePath);
+export async function loadDatasetsFile(
+  projectFilePath: string,
+  project: Project,
+  datasetProvider: AppDatasetProvider,
+  pathPolicy?: PathPolicyProvider,
+) {
+  await (pathPolicy?.allowDataFileNeighbor ?? allowDataFileNeighbor)(projectFilePath);
 
   const datasetsFilePath = projectFilePath.replace('.rivet-project', '.rivet-data');
 

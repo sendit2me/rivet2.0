@@ -7,6 +7,8 @@ import { handleError } from '../../utils/errorHandling.js';
 import { initializeHybridStorage, memoryStorage } from './migrations';
 
 export const allInitializeStoreFns = new Set<() => Promise<void>>();
+const builtInAsyncStorage = createDefaultAsyncStorage();
+let defaultAsyncStorage = builtInAsyncStorage;
 
 type HybridStorageOptions = {
   debounceMs?: number;
@@ -136,9 +138,30 @@ function registerInitializeStoreFn(mainKey: string | undefined, asyncStorage: As
   allInitializeStoreFns.add(controller.initialize);
 }
 
+export function configureHybridStorageBackend(asyncStorage: AsyncStorageBackend | undefined): AsyncStorageBackend {
+  const previousAsyncStorage = defaultAsyncStorage;
+  const nextAsyncStorage = asyncStorage ?? builtInAsyncStorage;
+
+  if (nextAsyncStorage === defaultAsyncStorage) {
+    return previousAsyncStorage;
+  }
+
+  defaultAsyncStorage = nextAsyncStorage;
+
+  for (const controller of groupedStorageControllers.values()) {
+    controller.asyncStorage = nextAsyncStorage;
+  }
+
+  for (const controller of groupedInitializeControllers.values()) {
+    controller.asyncStorage = nextAsyncStorage;
+  }
+
+  return previousAsyncStorage;
+}
+
 export const createHybridStorage = (
   mainKey?: string,
-  asyncStorage: AsyncStorageBackend = createDefaultAsyncStorage(),
+  asyncStorage: AsyncStorageBackend = defaultAsyncStorage,
   options: HybridStorageOptions = {},
 ): {
   storage: SyncStorage<any>;

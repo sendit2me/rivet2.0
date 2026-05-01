@@ -138,6 +138,21 @@ ESM-only packages that cannot be aliased (e.g. `mdast-util-to-markdown`, `@googl
 - CJS bundle reuses core's esbuild bundler script (same alias strategy applies)
 - `pretest`: builds `@ironclad/rivet-core` ESM output first, because the node tests import the workspace package through its published-style export surface
 
+Wrappers that embed this checkout but consume `@ironclad/rivet-core` and
+`@ironclad/rivet-node` as built packages should not create symlinks inside the
+Rivet workspace or change Rivet's package-manager mode. After building both
+workspaces, run `yarn build:packages:local` or
+`node scripts/create-built-package-artifacts.mjs --out-dir <dir>`. The script
+validates the built `dist/esm`, `dist/cjs`, and `dist/types` outputs, writes
+package-manager-neutral `file:` package directories, and rewrites
+`@ironclad/rivet-node` to depend on the generated local `@ironclad/rivet-core`
+package. npm, Yarn, and pnpm based wrappers can then depend on those generated
+local directories without pulling stale public registry packages and without
+mutating this checkout's PnP/node-modules layout. The artifact script recreates
+its output directory, so it refuses targets that are the repo root, a parent of
+the repo root, inside this checkout outside `.rivet-built-packages`, or
+overlapping a source package directory.
+
 ### App
 
 `packages/app/package.json`:

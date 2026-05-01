@@ -1,7 +1,7 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { GraphId, Project, ProjectId } from '@ironclad/rivet-core';
-import { addOpenedProject } from './openedProjects.js';
+import { addOpenedProject, moveOpenedProjectPaths, removeOpenedProject } from './openedProjects.js';
 
 function makeProject(id: string, title: string): Project {
   return {
@@ -104,5 +104,61 @@ describe('openedProjects helpers', () => {
     assert.equal(result.openedProjects[project.metadata.id]?.title, 'Updated');
     assert.equal(result.openedProjects[project.metadata.id]?.fsPath, '/tmp/project-1.rivet-project');
     assert.equal(result.openedProjects[project.metadata.id]?.openedGraph, 'graph-2');
+  });
+
+  test('removes closed projects and prunes stale sorted ids', () => {
+    const firstProject = makeProject('project-1', 'First');
+    const secondProject = makeProject('project-2', 'Second');
+
+    const result = removeOpenedProject(
+      {
+        openedProjects: {
+          [firstProject.metadata.id]: {
+            projectId: firstProject.metadata.id,
+            title: firstProject.metadata.title,
+          },
+          [secondProject.metadata.id]: {
+            projectId: secondProject.metadata.id,
+            title: secondProject.metadata.title,
+          },
+        },
+        openedProjectsSortedIds: [firstProject.metadata.id, secondProject.metadata.id, 'stale-project' as ProjectId],
+      },
+      firstProject.metadata.id,
+    );
+
+    assert.deepEqual(result.openedProjectsSortedIds, [secondProject.metadata.id]);
+    assert.equal(result.openedProjects[firstProject.metadata.id], undefined);
+    assert.equal(result.openedProjects[secondProject.metadata.id]?.title, 'Second');
+  });
+
+  test('moves open project paths without changing project order', () => {
+    const firstProject = makeProject('project-1', 'First');
+    const secondProject = makeProject('project-2', 'Second');
+
+    const result = moveOpenedProjectPaths(
+      {
+        openedProjects: {
+          [firstProject.metadata.id]: {
+            projectId: firstProject.metadata.id,
+            title: firstProject.metadata.title,
+            fsPath: '/old/first.rivet-project',
+          },
+          [secondProject.metadata.id]: {
+            projectId: secondProject.metadata.id,
+            title: secondProject.metadata.title,
+            fsPath: '/old/second.rivet-project',
+          },
+        },
+        openedProjectsSortedIds: [firstProject.metadata.id, secondProject.metadata.id],
+      },
+      {
+        '/old/second.rivet-project': '/new/second.rivet-project',
+      },
+    );
+
+    assert.deepEqual(result.openedProjectsSortedIds, [firstProject.metadata.id, secondProject.metadata.id]);
+    assert.equal(result.openedProjects[firstProject.metadata.id]?.fsPath, '/old/first.rivet-project');
+    assert.equal(result.openedProjects[secondProject.metadata.id]?.fsPath, '/new/second.rivet-project');
   });
 });

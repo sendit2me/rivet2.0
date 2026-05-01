@@ -1,7 +1,8 @@
 import { useAtom, useAtomValue, useSetAtom, useStore } from 'jotai';
-import { type DataId, type Project } from '@ironclad/rivet-core';
+import { type DataId, type GraphId, type Project } from '@ironclad/rivet-core';
 import { toast, type Id as ToastId } from 'react-toastify';
 import { useIOProvider } from '../providers/ProvidersContext.js';
+import { useRivetAppHostCallbacks } from '../providers/HostCallbacksContext.js';
 import { cleanupNodeAtomFamilies, graphState, historicalGraphState, isReadOnlyGraphState } from '../state/graph.js';
 import {
   canvasPositionState,
@@ -40,6 +41,7 @@ import { canSaveProjectDataNoPrompt } from '../utils/projectSaveCapabilities.js'
 
 export function useWorkspaceTransitions() {
   const ioProvider = useIOProvider();
+  const hostCallbacks = useRivetAppHostCallbacks();
   const store = useStore();
   const database = useStaticDataDatabase();
   const [currentGraph, setGraph] = useAtom(graphState);
@@ -107,7 +109,7 @@ export function useWorkspaceTransitions() {
       project: Omit<Project, 'data'>;
       data?: Project['data'];
       fsPath?: string | null;
-      openedGraph?: string;
+      openedGraph?: GraphId;
       testSuites?: typeof testSuites;
       graphToLoad?: typeof currentGraph;
       graphView?: GraphViewContext;
@@ -136,7 +138,7 @@ export function useWorkspaceTransitions() {
           persistedProjectEditorState,
           explicitGraphToLoad: projectInfo.graphToLoad,
           explicitGraphView: projectInfo.graphView,
-          openedGraphId: projectInfo.openedGraph as any,
+          openedGraphId: projectInfo.openedGraph,
           legacyCanvasPositionsByGraph: lastSavedPositions,
         });
 
@@ -178,6 +180,13 @@ export function useWorkspaceTransitions() {
         setTrivetState(createDefaultTrivetState(projectInfo.testSuites ?? []));
         return true;
       } catch (err) {
+        hostCallbacks.onOpenError?.({
+          error: err,
+          operation: 'loadProject',
+          path: projectInfo.fsPath,
+          projectId: projectInfo.project.metadata.id,
+          openedGraph: projectInfo.openedGraph,
+        });
         handleError(err, 'Failed to load project', {
           metadata: {
             currentGraphId: currentGraph.metadata?.id,
@@ -190,7 +199,10 @@ export function useWorkspaceTransitions() {
       }
     },
 
-    switchGraph(savedGraph: typeof currentGraph, options: { graphView?: GraphViewContext; pushHistory?: boolean } = {}) {
+    switchGraph(
+      savedGraph: typeof currentGraph,
+      options: { graphView?: GraphViewContext; pushHistory?: boolean } = {},
+    ) {
       const currentGraphId = currentGraph.metadata?.id;
 
       if (project.metadata.id) {
@@ -268,6 +280,7 @@ export function useWorkspaceTransitions() {
         options.forceSaveAs || !latestLoadedProject.loaded || !latestLoadedProject.path || !canSaveInPlace;
 
       let saving: ToastId | undefined;
+      let savedPath: string | null = null;
       const savingTimeout = setTimeout(() => {
         saving = toast.info('Saving project');
       }, 500);
@@ -284,6 +297,7 @@ export function useWorkspaceTransitions() {
           const filePath = await ioProvider.saveProjectData(projectToPersist, { testSuites: latestTestSuites });
 
           if (filePath) {
+            savedPath = filePath;
             setLoadedProject({ loaded: true, path: filePath });
             setOpenedProjectSnapshots((snapshots) => {
               const nextSnapshots = { ...snapshots };
@@ -298,6 +312,7 @@ export function useWorkspaceTransitions() {
         } else {
           const projectPath = latestLoadedProject.path!;
           await ioProvider.saveProjectDataNoPrompt(projectToPersist, { testSuites: latestTestSuites }, projectPath);
+          savedPath = projectPath;
           setLoadedProject({ loaded: true, path: projectPath });
           setOpenedProjectSnapshots((snapshots) => {
             const nextSnapshots = { ...snapshots };
@@ -307,6 +322,14 @@ export function useWorkspaceTransitions() {
           await flushHybridStorageGroup('graph');
           await flushHybridStorageGroup('project');
           toast.success('Project saved');
+        }
+
+        if (savedPath) {
+          hostCallbacks.onProjectSaved?.({
+            project: projectToPersist,
+            path: savedPath,
+            saveAs: shouldUseSaveAs,
+          });
         }
       } catch (err) {
         handleError(err, 'Failed to save project', {

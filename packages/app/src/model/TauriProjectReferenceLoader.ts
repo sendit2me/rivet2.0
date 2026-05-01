@@ -1,10 +1,21 @@
-import { type ProjectReference, type Project, type ProjectReferenceLoader, deserializeProject } from '@ironclad/rivet-core';
-import { invokeNative } from '../utils/platform/core.js';
+import {
+  type ProjectReference,
+  type Project,
+  type ProjectReferenceLoader,
+  deserializeProject,
+} from '@ironclad/rivet-core';
 import { handleError } from '../utils/errorHandling.js';
+import type { PathPolicyProvider } from '../providers/ProvidersContext.js';
+import { getDefaultPathPolicyProvider } from '../utils/tauri.js';
 
 export class TauriProjectReferenceLoader implements ProjectReferenceLoader {
-  async loadProject(currentProjectPath: string | undefined, reference: ProjectReference): Promise<Project> {
+  readonly #pathPolicy: PathPolicyProvider;
 
+  constructor(pathPolicy: PathPolicyProvider = getDefaultPathPolicyProvider()) {
+    this.#pathPolicy = pathPolicy;
+  }
+
+  async loadProject(currentProjectPath: string | undefined, reference: ProjectReference): Promise<Project> {
     if (currentProjectPath === undefined) {
       throw new Error(
         `Could not load project "${reference.title} (${reference.id})": current project path is undefined.`,
@@ -13,12 +24,13 @@ export class TauriProjectReferenceLoader implements ProjectReferenceLoader {
 
     for (const path of reference.hintPaths ?? []) {
       try {
-        const projectData = await invokeNative<string>('read_relative_project_file', {
-          relativeFrom: currentProjectPath,
-          projectFilePath: path,
-        });
+        if (!this.#pathPolicy.readRelativeProjectFile) {
+          throw new Error('The active path policy does not support relative project references.');
+        }
 
-        const [project, attachedData] = deserializeProject(projectData);
+        const projectData = await this.#pathPolicy.readRelativeProjectFile(currentProjectPath, path);
+
+        const [project] = deserializeProject(projectData);
         return project;
       } catch (err) {
         handleError(err, 'Failed to load referenced project from hint path', {

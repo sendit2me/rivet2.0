@@ -6,29 +6,20 @@ import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import CloseIcon from 'majesticons/line/multiply-line.svg?react';
 import FileIcon from 'majesticons/line/file-plus-line.svg?react';
 import FolderIcon from 'majesticons/line/folder-line.svg?react';
-import {
-  clearProjectContextState,
-  openedProjectSnapshotsState,
-  openedProjectsSortedIdsState,
-  openedProjectsState,
-  projectState,
-  projectsState,
-} from '../state/savedGraphs';
+import { openedProjectsSortedIdsState, openedProjectsState, projectState } from '../state/savedGraphs';
 import clsx from 'clsx';
 import { useLoadProject } from '../hooks/useLoadProject';
 import { useSyncCurrentStateIntoOpenedProjects } from '../hooks/useSyncCurrentStateIntoOpenedProjects';
-import { produce } from 'immer';
 import { type SyntheticListenerMap } from '@dnd-kit/core/dist/hooks/utilities';
 import { SortableContext, horizontalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { useLoadProjectWithFileBrowser } from '../hooks/useLoadProjectWithFileBrowser';
 import { newProjectModalOpenState } from '../state/ui';
 import DiscordLogo from '../assets/vendor_logos/discord-mark-white.svg?react';
 import { useOpenUrl } from '../hooks/useOpenUrl';
-import { keys } from '../utils/typeSafety';
 import { wrapAsync } from '../utils/errorHandling';
-import { useCurrentProjectEditorSnapshot } from '../hooks/useCurrentProjectEditorSnapshot.js';
 import { isInTauri } from '../utils/tauri.js';
 import { useRunMenuCommand } from '../hooks/useMenuCommands.js';
+import { useRivetWorkspaceHost } from '../hooks/useRivetWorkspaceHost.js';
 
 export const styles = css`
   position: absolute;
@@ -320,11 +311,10 @@ export const styles = css`
 `;
 
 export const ProjectSelector: FC = () => {
-  const setProjects = useSetAtom(projectsState);
-  const setOpenedProjectSnapshots = useSetAtom(openedProjectSnapshotsState);
   const openedProjects = useAtomValue(openedProjectsState);
   const [openedProjectsSortedIds, setOpenedProjectsSortedIds] = useAtom(openedProjectsSortedIdsState);
-  const { currentProject, persistCurrentProjectEditorSnapshot } = useCurrentProjectEditorSnapshot();
+  const currentProject = useAtomValue(projectState);
+  const { closeProject } = useRivetWorkspaceHost();
 
   const sortedOpenedProjects = useMemo(() => {
     return openedProjectsSortedIds
@@ -348,45 +338,6 @@ export const ProjectSelector: FC = () => {
         const newIndex = prev.indexOf(over?.id as ProjectId);
         return arrayMove(prev, oldIndex, newIndex);
       });
-    }
-  };
-
-  const handleCloseProject = (projectId: ProjectId) => {
-    const indexOfProject = openedProjectsSortedIds.indexOf(projectId);
-    if (indexOfProject === -1) {
-      return;
-    }
-
-    const closingCurrentProject = currentProject.metadata.id === projectId;
-    if (closingCurrentProject) {
-      persistCurrentProjectEditorSnapshot();
-    }
-
-    setProjects((projects) =>
-      produce(projects, (draft) => {
-        delete draft.openedProjects[projectId];
-
-        draft.openedProjectsSortedIds = draft.openedProjectsSortedIds.filter(
-          (id) => id !== projectId && draft.openedProjects[id] != null,
-        );
-
-        for (const projectId of keys(draft.openedProjects)) {
-          if (draft.openedProjectsSortedIds.includes(projectId) === false) {
-            delete draft.openedProjects[projectId];
-          }
-        }
-      }),
-    );
-    setOpenedProjectSnapshots((snapshots) =>
-      produce(snapshots, (draft) => {
-        delete draft[projectId];
-      }),
-    );
-    clearProjectContextState(projectId);
-
-    const closestProject = sortedOpenedProjects[indexOfProject + 1] || sortedOpenedProjects[indexOfProject - 1];
-    if (closingCurrentProject && closestProject) {
-      loadProject(closestProject.project);
     }
   };
 
@@ -415,7 +366,7 @@ export const ProjectSelector: FC = () => {
                   <SortableProject
                     key={project.id}
                     projectId={project.project.projectId}
-                    onCloseProject={() => handleCloseProject(project.project.projectId)}
+                    onCloseProject={() => void closeProject(project.project.projectId)}
                     onSelectProject={() => handleSelectProject(project.project.projectId)}
                   />
                 );
@@ -428,7 +379,11 @@ export const ProjectSelector: FC = () => {
         <button className="new-project" onClick={() => setNewProjectModalOpen(true)} title="New Project">
           <FileIcon />
         </button>
-        <button className="open-project" onClick={wrapAsync(loadProjectWithFileBrowser, 'Open project')} title="Open Project">
+        <button
+          className="open-project"
+          onClick={wrapAsync(loadProjectWithFileBrowser, 'Open project')}
+          title="Open Project"
+        >
           <FolderIcon />
         </button>
         <button className="get-help" onClick={openDiscord}>
@@ -531,7 +486,13 @@ export const SortableProject: FC<{
       }}
       {...attributes}
     >
-      <ProjectTab projectId={projectId} dragListeners={listeners} isDragging={isDragging} onCloseProject={onCloseProject} onSelectProject={onSelectProject} />
+      <ProjectTab
+        projectId={projectId}
+        dragListeners={listeners}
+        isDragging={isDragging}
+        onCloseProject={onCloseProject}
+        onSelectProject={onSelectProject}
+      />
     </div>
   );
 };

@@ -18,6 +18,7 @@ import {
 import { type SharedEditorProps } from '../SharedEditorProps';
 import PlugIcon from '../../../assets/icons/plug-icon.svg?react';
 import { Tooltip } from '../../Tooltip';
+import { useEnvironmentProvider } from '../../../providers/ProvidersContext.js';
 
 const styles = css`
   display: flex;
@@ -160,7 +161,11 @@ function getMissingCredentialMessage(provider: ProviderName, resolvedSettings: R
   }
 }
 
-function getRefreshStatus(provider: ProviderName, result: ModelRefreshResult, resolvedSettings: ResolvedSettings): RefreshStatus {
+function getRefreshStatus(
+  provider: ProviderName,
+  result: ModelRefreshResult,
+  resolvedSettings: ResolvedSettings,
+): RefreshStatus {
   if (result.source === 'api') {
     return {
       tone: 'success',
@@ -186,6 +191,7 @@ export const LLMChatV2ModelCatalogEditor: FC<Props> = ({
 }) => {
   const settings = useAtomValue(settingsState);
   const plugins = useDependsOnPlugins();
+  const environmentProvider = useEnvironmentProvider();
   const provider = getProvider(node.data);
   const statusKey = getStatusKey(node.id, provider);
   const [status, setStatus] = useState<RefreshStatus>(() => modelCatalogRefreshStatus.get(statusKey));
@@ -217,7 +223,9 @@ export const LLMChatV2ModelCatalogEditor: FC<Props> = ({
     });
 
     try {
-      const resolvedSettings = await fillMissingSettingsFromEnvironmentVariables(settings, plugins);
+      const resolvedSettings = await fillMissingSettingsFromEnvironmentVariables(settings, plugins, {
+        environmentProvider,
+      });
       const context = { settings: resolvedSettings, plugins };
 
       invalidateChatV2DiscoveredModelOptions(provider, context);

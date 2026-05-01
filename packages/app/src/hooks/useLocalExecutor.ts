@@ -33,7 +33,12 @@ import { entries } from '../utils/typeSafety';
 import { lastRunDataByNodeState } from '../state/dataFlow';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { TauriProjectReferenceLoader } from '../model/TauriProjectReferenceLoader';
-import { useAudioProvider, useDatasetProvider } from '../providers/ProvidersContext';
+import {
+  useAudioProvider,
+  useDatasetProvider,
+  useEnvironmentProvider,
+  usePathPolicyProvider,
+} from '../providers/ProvidersContext';
 import { setUserInputSubmitHandler } from '../state/actions/userInputActions';
 import { useProjectNodeRegistry } from './useProjectNodeRegistry';
 import { handleError } from '../utils/errorHandling.js';
@@ -68,6 +73,8 @@ function yieldToMacrotask(): Promise<void> {
 export function useLocalExecutor() {
   const audioProvider = useAudioProvider();
   const datasetProvider = useDatasetProvider();
+  const environmentProvider = useEnvironmentProvider();
+  const pathPolicy = usePathPolicyProvider();
   const projectNodeRegistry = useProjectNodeRegistry();
   const project = useAtomValue(projectState);
   const graph = useAtomValue(graphState);
@@ -221,14 +228,17 @@ export function useLocalExecutor() {
               settings: await fillMissingSettingsFromEnvironmentVariables(
                 savedSettings,
                 projectNodeRegistry.getPlugins(),
-                getLLMChatV2CustomProviderApiKeyEnvVarNames(tempProject),
+                {
+                  environmentProvider,
+                  extraEnvVarNames: getLLMChatV2CustomProviderApiKeyEnvVarNames(tempProject),
+                },
               ),
               nativeApi: new TauriNativeApi(),
               datasetProvider,
               audioProvider,
               tokenizer: new GptTokenizerTokenizer(),
               projectPath: loadedProject.path ?? undefined,
-              projectReferenceLoader: new TauriProjectReferenceLoader(),
+              projectReferenceLoader: new TauriProjectReferenceLoader(pathPolicy),
               editorExecutionCache: getEditorExecutionCache(tempProject.metadata.id),
             },
             {},
@@ -292,7 +302,10 @@ export function useLocalExecutor() {
                 settings: await fillMissingSettingsFromEnvironmentVariables(
                   savedSettings,
                   projectNodeRegistry.getPlugins(),
-                  getLLMChatV2CustomProviderApiKeyEnvVarNames(project),
+                  {
+                    environmentProvider,
+                    extraEnvVarNames: getLLMChatV2CustomProviderApiKeyEnvVarNames(project),
+                  },
                 ),
                 nativeApi: new TauriNativeApi(),
                 datasetProvider,

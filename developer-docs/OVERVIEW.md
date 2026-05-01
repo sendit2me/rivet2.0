@@ -136,11 +136,29 @@ Used by the desktop app when `defaultExecutorState` is `nodejs`.
 
 ### Hosted editor embedding
 
-Hosted or wrapper applications that mount the Rivet editor from source should use
-`packages/app/src/host.tsx` and render `RivetAppHost`. That host seam provides
-the same React Query, provider, executor-session, and storage-bootstrap wrapper
-used by the desktop app while still allowing external shells to inject IO
-providers, an external executor websocket URL, and post-app bridge components.
+Hosted or wrapper applications that mount the Rivet editor from source should
+import directly from their embedded/custom `rivet/` checkout rather than from
+public npm packages. A wrapper that vendors Rivet at `wrapper-repo/rivet` should
+import the host component and styles from local source paths:
+
+```ts
+import { RivetAppHost } from '../rivet/packages/app/src/host';
+import '../rivet/packages/app/src/host.css';
+```
+
+That host seam provides the same React Query, provider, executor-session, and
+storage-bootstrap wrapper used by the desktop app while still allowing external
+shells to inject IO, datasets, environment variables, storage, path policies, an
+internal executor websocket URL, and post-app bridge components.
+
+Wrapper shells can receive a stable imperative workspace handle through
+`RivetAppHost`'s `onWorkspaceHostReady` callback, render
+`RivetWorkspaceHostBridge`, or call `useRivetWorkspaceHost()` from their own
+bridge component inside the host tree. That handle opens snapshots, opens
+path-backed projects, closes projects, moves remembered project paths, and
+replaces the active project without wrapper-specific Jotai access. Project
+save/open lifecycle notifications should go through `RivetAppHost` callbacks
+rather than wrapper-specific subscriptions.
 
 ### Standalone Node execution
 

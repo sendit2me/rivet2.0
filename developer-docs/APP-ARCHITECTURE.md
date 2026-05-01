@@ -1368,32 +1368,73 @@ Current boundary expectation:
 
 ### Hosted/wrapper embedding seam
 
-Hosted applications that embed Rivet's editor from source should import
-[`RivetAppHost`](../packages/app/src/host.tsx) from `packages/app/src/host.tsx`
-instead of rendering [`RivetApp`](../packages/app/src/components/RivetApp.tsx)
-directly. `RivetAppHost` is the stable wrapper seam for external hosts:
+Hosted applications that embed Rivet's editor from source should treat their
+local `rivet/` checkout as the source of truth and import the host seam directly
+from that checkout instead of depending on public npm packages. For a wrapper
+repo that vendors Rivet at `wrapper-repo/rivet`, the intended shape is:
+
+```ts
+import { RivetAppHost } from '../rivet/packages/app/src/host';
+import '../rivet/packages/app/src/host.css';
+```
+
+[`packages/app/src/host.tsx`](../packages/app/src/host.tsx) is the stable
+source-level wrapper seam for external hosts. Wrappers should render it instead
+of [`RivetApp`](../packages/app/src/components/RivetApp.tsx) directly:
 
 - it creates or accepts a React Query `QueryClient`
 - it wraps the editor in `ProvidersProvider` and `ExecutorSessionProvider`
 - it runs the same async storage bootstrap as the desktop app through
   `RivetAppLoader`
-- it accepts optional `providers` for custom IO/dataset/audio/data-ref adapters
+- it accepts optional `providers` for custom IO, dataset, audio, data-ref,
+  environment-variable, storage, and path-policy adapters
+- a custom `providers.storage` backend is applied before storage-backed atoms
+  initialize; omitting it uses Rivet's built-in IndexedDB/memory backend rather
+  than carrying a previous hosted backend across remounts
 - it accepts an optional `executor.internalExecutorUrl` for hosted wrappers that
   run the app executor as an already-managed websocket service instead of a
   Tauri sidecar
+- it exposes first-class lifecycle callbacks: `onProjectSaved`,
+  `onActiveProjectChanged`, `onOpenProjectCountChanged`, and `onOpenError`
+- it can hand wrappers a stable imperative workspace handle through
+  `onWorkspaceHostReady`, with `onWorkspaceHostDisposed` for cleanup
 - it renders optional `children` after the app is initialized, so wrapper bridges
   can mount inside the same provider/session context
 
-The host barrel also re-exports the provider/session types, executor-session
-runtime factory, sidecar lifecycle helpers, environment-backed settings filler,
-and LLM Chat custom-provider env-var discovery helper that hosted shells need to
-stay aligned with current app execution behavior. This is the preferred seam for
-projects such as Self-hosted Rivet; direct imports of private app components or
-old per-hook shims should be treated as compatibility debt. When
-`executor.internalExecutorUrl` is configured and the user selects Node executor
-mode, [`useExecutorSession`](../packages/app/src/hooks/useExecutorSession.ts)
+The local source host barrel also re-exports the provider/session types,
+executor-session runtime factory, sidecar lifecycle helpers, storage backend
+type, IO provider types, environment/path-policy provider types, and LLM Chat
+custom-provider env-var discovery helper that hosted shells need to stay aligned
+with current app execution behavior. This is the preferred seam for projects
+such as Self-hosted Rivet; direct imports of other private app components,
+direct aliasing of globals such as `ioProvider`, or old per-hook shims should be
+treated as compatibility debt unless a custom embedded Rivet fork deliberately
+adds a wrapper-specific extension.
+
+Wrappers that need to drive the workspace after mount can pass
+`onWorkspaceHostReady` to `RivetAppHost`, render
+[`RivetWorkspaceHostBridge`](../packages/app/src/components/RivetWorkspaceHostBridge.tsx)
+inside the host tree, or call
+[`useRivetWorkspaceHost`](../packages/app/src/hooks/useRivetWorkspaceHost.ts)
+from their own bridge component. The workspace host is a stable imperative
+handle; its methods always act on the latest Rivet state after mount, so host
+apps do not need to resubscribe just because project state changes. It exposes
+`openProjectSnapshot`, `openProjectPath`, `closeProject`, `moveProjectPaths`,
+and `replaceCurrent` so wrapper shells can coordinate their own project list or
+file model without reaching into Jotai atoms. Open, replace, and close commands
+return `false` when Rivet cannot complete the requested transition, including
+when closing the active project would fail to load the fallback tab. Project
+open and close behavior still funnels through
+[`useWorkspaceTransitions`](../packages/app/src/hooks/useWorkspaceTransitions.ts)
+so graph cleanup, editor-state persistence, static-data hydration, and Trivet
+test-suite state remain centralized.
+
+When `executor.internalExecutorUrl` is configured and the user selects Node
+executor mode, [`useExecutorSession`](../packages/app/src/hooks/useExecutorSession.ts)
 connects to that hosted executor URL directly and does not start or stop a local
-sidecar. The desktop/Tauri default remains unchanged.
+sidecar. Hosted internal executor URLs must use the internal session path so UI
+classification, reconnect behavior, and remote-debugger handoff match desktop
+Node mode. The desktop/Tauri default remains unchanged.
 
 ## Important Refactor Seams
 
