@@ -184,7 +184,7 @@ Current workspace behavior:
 - closing/reordering project tabs still lives in `ProjectSelector.tsx`, and closing a background tab no longer triggers a neighbor-project load
 - project-tab reordering is visually constrained to horizontal motion even while dragging, so any future reorder changes should preserve that left-right-only affordance instead of letting tabs drift vertically
 - in the browser build, the `File` menu is the leftmost item in the same top bar as the opened-project tabs, not part of the centered overlay-tab switcher; its dropdown owns local open state, outside-click dismissal, menu separators, and the browser-visible order `New project`, `Open project`, `Save project`, `Save project as...`, `Import graph`, `Export graph`, `Settings`
-- the browser `File` menu delegates to the shared menu command surface, so `Save project` is the same command used by app hotkeys and native menus; Tauri continues to omit this in-bar menu because native app menus handle file commands there
+- the browser `File` menu delegates to the shared menu command surface, so `Save project` is the same command used by app hotkeys and native menus; Tauri continues to omit this in-bar menu because native app menus handle file commands there. The active menu-command handler is mirrored on `window` so browser file-menu actions, native menu events, and the Windows hotkey shim keep dispatching to the current handler across Vite Fast Refresh updates. The Windows shortcut shim listens on capture-phase `keydown`, prevents the browser default for mapped commands such as `Ctrl+S`, and accepts common Windows user-agent/platform variants rather than only `Win64`.
 
 ### `ActionBar`
 

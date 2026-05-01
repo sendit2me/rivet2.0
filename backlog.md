@@ -6,6 +6,7 @@
 
 - Provider Advanced - Base URL - should be a separate edit from the "Provider base URL" that we see in the "Model" section when we choose "Custom provider". Now, when I choose "Custom provider", and set "Provider base URL" and then change the model to OpenAI for instance, the "Base URL" in the "Provider Advanced" section changes to what I entered for the custom provider. That's bad UX.
 
+- Check if refetch model list works with the input port key
 
 - Make the workspace navigation less annoying
 
