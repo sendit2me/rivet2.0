@@ -173,3 +173,8 @@ Call Graph dynamic-dispatch callers even if those source graphs are themselves u
 are intentionally excluded from this reverse marker entirely, including manual handler and fallback edges, because
 auto-delegate can theoretically route to any named graph and would make one delegate node appear to reference almost
 every graph in the sidebar.
+
+Both graph-list indicators are user-facing presentation preferences. The Settings modal's `Graphs` page can hide the
+`unreachable` badge feature and the reverse-reference dot feature independently, and both settings default to enabled.
+When `unreachable` badges are hidden, the sidebar also skips reachability analysis and does not show reachability
+notices.

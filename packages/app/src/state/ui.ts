@@ -35,6 +35,14 @@ export const deleteGraphInputConfirmState = atom<DeleteGraphInputConfirmState | 
 
 export const expandedFoldersState = atomWithStorage<Record<string, boolean>>('expandedFoldersState', {}, storage);
 
+export const showUnreachableGraphTagsState = atomWithStorage<boolean>('showUnreachableGraphTagsState', true, storage);
+
+export const showGraphReferenceIndicatorsState = atomWithStorage<boolean>(
+  'showGraphReferenceIndicatorsState',
+  true,
+  storage,
+);
+
 // Keep the storage key stable so existing saved viewport heights still load.
 export const codeEditorHeightsByStorageKeyState = atomWithStorage<Record<string, number>>(
   'codeEditorHeightsByNodeTypeState',

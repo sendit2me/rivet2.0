@@ -201,6 +201,7 @@ Current structure:
 - [`packages/app/src/components/settings/SettingsPages.tsx`](../packages/app/src/components/settings/SettingsPages.tsx) is now just a barrel export
 - individual settings pages live under [`packages/app/src/components/settings/pages/`](../packages/app/src/components/settings/pages)
 - shared plugin-config form rendering for the plugin pages lives in [`packages/app/src/components/settings/pages/PluginSettingsSection.tsx`](../packages/app/src/components/settings/pages/PluginSettingsSection.tsx)
+- the `Graphs` page owns graph-tree presentation preferences such as whether to show `unreachable` graph tags and whether to show reverse reference indicators for the currently open graph. Both preferences are stored as UI atoms in [`packages/app/src/state/ui.ts`](../packages/app/src/state/ui.ts) and default to enabled.
 - the `UI` page owns presentation-oriented preferences such as theme selection, app UI font size, canvas zoom sensitivity, node-port text casing, default node colors, and whether newly created nodes auto-open their settings panel, while `General` is reserved for broader app/runtime behavior. Theme selection uses the shared segmented editor instead of a dropdown so settings-modal segmented choices match node settings.
 - settings-page helper text follows the node-settings pattern: render hints before the control with [`packages/app/src/components/FieldHelperMessage.tsx`](../packages/app/src/components/FieldHelperMessage.tsx), and pass switcher hints through [`packages/app/src/components/LabeledToggle.tsx`](../packages/app/src/components/LabeledToggle.tsx) so the hint aligns under the label text rather than under the switch and remains clickable together with the switch label
 
@@ -549,7 +550,7 @@ Responsibilities:
 - DnD container for graph/folder moves
 - rendering `FolderItem` recursively
 
-Folder rows are visually distinct from graph rows: folder names are bold, use the shared folder icon before the name, use chevron expanders, and show a filled pill with the recursive graph count after the name. Graph rows keep normal-weight text plus their reachability/reference indicators, and the configured Main Graph gets a small star icon before its name. The graph-reference dot is reverse dependency visibility for the currently open graph, but it intentionally excludes `Delegate Tool Call` nodes entirely because auto-delegate can theoretically route to any named graph and would otherwise make one delegate node mark nearly every graph as referenced. The Project tab uses the same star next to the Main Graph field label so the marker has an obvious legend where the setting is configured. Deleting a graph from the graph-list context menu opens a confirmation modal before calling the shared graph deletion hook.
+Folder rows are visually distinct from graph rows: folder names are bold, use the shared folder icon before the name, use chevron expanders, and show a filled pill with the recursive graph count after the name. Graph rows keep normal-weight text plus their reachability/reference indicators, and the configured Main Graph gets a small star icon before its name. The `Graphs` settings page can hide the `unreachable` badges and can hide reverse reference dots independently; when unreachable badges are hidden, `GraphList` also skips reachability analysis and its notices. The graph-reference dot is reverse dependency visibility for the currently open graph, but it intentionally excludes `Delegate Tool Call` nodes entirely because auto-delegate can theoretically route to any named graph and would otherwise make one delegate node mark nearly every graph as referenced. The Project tab uses the same star next to the Main Graph field label so the marker has an obvious legend where the setting is configured. Deleting a graph from the graph-list context menu opens a confirmation modal before calling the shared graph deletion hook.
 
 ### `useGraphOperations`
 
@@ -805,7 +806,7 @@ Important distinction:
 - `debuggerDefaultUrlState` is the persisted external debugger URL default
 - the internal executor connection uses `ws://127.0.0.1:21889/internal`
 - graph execution settings are normalized separately by [`packages/core/src/api/processSettings.ts`](../packages/core/src/api/processSettings.ts); that resolver owns runtime defaults for app/node/trivet execution and should not become the owner for editor-only UI behavior, even though the legacy `Settings` object still carries a few editor-facing fields for compatibility
-- newer pure-UI preferences that do not need plugin/core settings access, such as app UI font size, live in [`packages/app/src/state/ui.ts`](../packages/app/src/state/ui.ts) instead of the legacy `Settings` object
+- newer pure-UI preferences that do not need plugin/core settings access, such as app UI font size and graph-list indicator visibility, live in [`packages/app/src/state/ui.ts`](../packages/app/src/state/ui.ts) instead of the legacy `Settings` object
 
 Persistence contract:
 
