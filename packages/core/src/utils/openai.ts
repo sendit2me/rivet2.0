@@ -1,6 +1,7 @@
 import { orderBy } from 'lodash-es';
 import { DEFAULT_CHAT_NODE_TIMEOUT } from './defaults.js';
 import fetchEventSource from './fetchEventSource.js';
+import { parseProviderJsonChunk } from './providerStreamParsing.js';
 
 // https://github.com/openai/openai-node/issues/18#issuecomment-1518715285
 
@@ -549,13 +550,7 @@ export async function* streamChatCompletions({
     if (chunk === '[DONE]' || abortSignal?.aborted) {
       return;
     }
-    let data: ChatCompletionChunk;
-    try {
-      data = JSON.parse(chunk);
-    } catch (err) {
-      console.error('JSON parse failed on chunk: ', chunk);
-      throw err;
-    }
+    const data = parseProviderJsonChunk<ChatCompletionChunk>('OpenAI', chunk);
 
     yield data;
   }

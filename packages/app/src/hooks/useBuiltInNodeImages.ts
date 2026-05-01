@@ -83,7 +83,7 @@ import mcpGetPromptNodeImage from '../assets/node_images/mcp_get_prompt_node.png
 import libraryNode from '../assets/node_images/library_node.png';
 import { type BuiltInNodeType } from '@ironclad/rivet-core';
 
-export const useBuiltInNodeImages = (): Record<BuiltInNodeType, string> => {
+export const useBuiltInNodeImages = (): Partial<Record<BuiltInNodeType, string>> => {
   return {
     text: textNodeImage,
     chat: chatNodeImage,
@@ -105,6 +105,8 @@ export const useBuiltInNodeImages = (): Record<BuiltInNodeType, string> => {
     pop: popNodeImage,
     hash: hashNodeImage,
     filter: filterNodeImage,
+    jsFilter: filterNodeImage,
+    jsMap: codeNodeImage,
     boolean: boolNodeImage,
     number: numberNodeImage,
     compare: compareNodeImage,
@@ -169,5 +171,5 @@ export const useBuiltInNodeImages = (): Record<BuiltInNodeType, string> => {
     mcpToolCall: mcpToolCallNodeImage,
     mcpGetPrompt: mcpGetPromptNodeImage,
     referencedGraphAlias: libraryNode,
-  };
+  } satisfies Partial<Record<BuiltInNodeType, string>>;
 };

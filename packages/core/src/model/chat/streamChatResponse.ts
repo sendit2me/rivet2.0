@@ -133,7 +133,7 @@ export function createAssistantMessagesOutput(
               id: singleFunctionCall.id,
             }
           : undefined,
-        function_calls: functionCalls
+        function_calls: functionCalls && functionCalls.length > 0
           ? functionCalls.map((fc) => ({
               name: fc.name,
               arguments: fc.arguments,

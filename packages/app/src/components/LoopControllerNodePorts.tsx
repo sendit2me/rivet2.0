@@ -5,7 +5,7 @@ import {
   type NodeInputDefinition,
 } from '@ironclad/rivet-core';
 import { type FC, type MouseEvent } from 'react';
-import { useNodeIO } from '../hooks/useGetNodeIO.js';
+import { useCanvasNodeIO } from '../hooks/useGetNodeIO.js';
 import { useStableCallback } from '../hooks/useStableCallback.js';
 import { Port } from './Port.js';
 import { useDependsOnPlugins } from '../hooks/useDependsOnPlugins';
@@ -25,7 +25,7 @@ export const LoopControllerNodePorts: FC<NodePortsProps> = ({
 }) => {
   const { draggingWire, closestPortToDraggingWire } = useCanvasViewContext();
   const { onPortMouseOut, onPortMouseOver, onWireEndDrag, onWireStartDrag } = useCanvasHandlersContext();
-  const { inputDefinitions, outputDefinitions } = useNodeIO(node.id)!;
+  const { inputDefinitions, outputDefinitions } = useCanvasNodeIO(node.id)!;
 
   const preservePortTextCase = useAtomValue(preservePortTextCaseState);
 

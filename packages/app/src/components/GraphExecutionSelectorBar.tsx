@@ -13,7 +13,8 @@ const styles = css`
   left: 50%;
   transform: translateX(-50%);
   background: var(--grey-darker);
-  border-radius: 4px;
+  border-radius: 8px;
+  corner-shape: squircle;
   border: 1px solid var(--grey-dark);
   height: 32px;
   z-index: 50;
@@ -29,7 +30,7 @@ const styles = css`
     height: 30px;
     min-width: 32px;
     color: var(--grey-light);
-    font-size: 12px;
+    font-size: var(--ui-font-size-sm);
     pointer-events: none;
     line-height: 32px;
   }
@@ -48,7 +49,8 @@ const styles = css`
     transition:
       color 0.2s ease-out,
       background 0.2s ease-out;
-    border-radius: 4px;
+    border-radius: var(--ui-button-radius-sm);
+    corner-shape: squircle;
 
     svg {
       width: 16px;
@@ -123,8 +125,9 @@ export const GraphExecutionSelectorBar: FC = () => {
     }
   };
 
-  const selectedExecutionText =
+  const selectedExecutionFraction =
     selectedExecutionIndex === -1 ? '0 / 0' : `${selectedExecutionIndex + 1} / ${graphRuns.length}`;
+  const selectedExecutionLabel = `Run ${selectedExecutionFraction}`;
 
   if (!currentGraphView || graphRuns.length <= 1) {
     return null;
@@ -138,10 +141,10 @@ export const GraphExecutionSelectorBar: FC = () => {
         </button>
       </Tooltip>
       <Tooltip
-        content={`This graph view has executed ${graphRuns.length} times. You are viewing execution ${selectedExecutionText}.`}
+        content={`This graph view has executed ${graphRuns.length} times. You are viewing ${selectedExecutionLabel.toLowerCase()}.`}
         placement="bottom"
       >
-        <div className="current">{selectedExecutionText}</div>
+        <div className="current">{selectedExecutionLabel}</div>
       </Tooltip>
       <Tooltip content="Next execution (all nodes)" placement="bottom">
         <button className="next" onClick={onNext}>

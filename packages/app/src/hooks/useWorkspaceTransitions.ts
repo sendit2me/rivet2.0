@@ -1,8 +1,8 @@
-import { useAtom, useAtomValue, useSetAtom } from 'jotai';
-import { emptyNodeGraph, type DataId, type Project } from '@ironclad/rivet-core';
+import { useAtom, useAtomValue, useSetAtom, useStore } from 'jotai';
+import { type DataId, type GraphId, type Project } from '@ironclad/rivet-core';
 import { toast, type Id as ToastId } from 'react-toastify';
-import { isPathBasedIOProvider } from '../io/IOProvider.js';
 import { useIOProvider } from '../providers/ProvidersContext.js';
+import { useRivetAppHostCallbacks } from '../providers/HostCallbacksContext.js';
 import { cleanupNodeAtomFamilies, graphState, historicalGraphState, isReadOnlyGraphState } from '../state/graph.js';
 import {
   canvasPositionState,
@@ -14,15 +14,14 @@ import {
   loadedProjectState,
   openedProjectSnapshotsState,
   projectDataState,
-  projectState,
   projectsState,
+  projectState,
 } from '../state/savedGraphs.js';
 import { trivetState } from '../state/trivet.js';
 import { useCenterViewOnGraph } from './useCenterViewOnGraph.js';
 import { useSaveCurrentGraph } from './useSaveCurrentGraph.js';
 import type { GraphViewContext } from '../domain/graphEditing/navigationActions.js';
 import {
-  chooseProjectGraph,
   createDefaultTrivetState,
   createGraphSwitchTransition,
   createProjectLoadTransition,
@@ -31,9 +30,19 @@ import {
 import { handleError } from '../utils/errorHandling.js';
 import { useStaticDataDatabase } from './useStaticDataDatabase.js';
 import { addOpenedProject } from '../utils/openedProjects.js';
+import {
+  resolveCanvasPositionsForProject,
+  resolvePersistedCanvasPositionsForLegacyCache,
+  resolveProjectEditorRestoreTarget,
+} from '../utils/projectEditorState.js';
+import { flushHybridStorageGroup } from '../state/storage.js';
+import { useCurrentProjectEditorSnapshot } from './useCurrentProjectEditorSnapshot.js';
+import { canSaveProjectDataNoPrompt } from '../utils/projectSaveCapabilities.js';
 
 export function useWorkspaceTransitions() {
   const ioProvider = useIOProvider();
+  const hostCallbacks = useRivetAppHostCallbacks();
+  const store = useStore();
   const database = useStaticDataDatabase();
   const [currentGraph, setGraph] = useAtom(graphState);
   const [project, setProject] = useAtom(projectState);
@@ -45,13 +54,20 @@ export function useWorkspaceTransitions() {
   const setHistoricalGraph = useSetAtom(historicalGraphState);
   const setSelectedNodes = useSetAtom(selectedNodesState);
   const setPosition = useSetAtom(canvasPositionState);
-  const lastSavedPositions = useAtomValue(lastCanvasPositionByGraphState);
-  const graphNavigationStack = useAtomValue(graphNavigationStackState);
+  const setLastSavedPositions = useSetAtom(lastCanvasPositionByGraphState);
   const setOpenedProjectSnapshots = useSetAtom(openedProjectSnapshotsState);
   const setProjects = useSetAtom(projectsState);
   const centerViewOnGraph = useCenterViewOnGraph();
   const saveCurrentGraph = useSaveCurrentGraph();
   const { testSuites } = useAtomValue(trivetState);
+  const {
+    canvasPosition,
+    graphNavigationStack,
+    lastCanvasPositionsByGraph: lastSavedPositions,
+    persistOpenedProjectSnapshot,
+    persistCurrentProjectEditorSnapshot,
+    projectEditorStateByProjectId,
+  } = useCurrentProjectEditorSnapshot();
 
   async function applyStaticData(data: Project['data'] | undefined) {
     setProjectData(data);
@@ -93,23 +109,46 @@ export function useWorkspaceTransitions() {
       project: Omit<Project, 'data'>;
       data?: Project['data'];
       fsPath?: string | null;
-      openedGraph?: string;
+      openedGraph?: GraphId;
       testSuites?: typeof testSuites;
       graphToLoad?: typeof currentGraph;
+      graphView?: GraphViewContext;
     }): Promise<boolean> {
       try {
-        const graphToLoad =
-          projectInfo.graphToLoad ??
-          chooseProjectGraph(projectInfo.project, {
-            openedGraphId: projectInfo.openedGraph as any,
-          });
+        const currentProjectId = project.metadata.id;
+        const targetProjectId = projectInfo.project.metadata.id;
+        const shouldPersistCurrentProjectEditorState =
+          Boolean(currentProjectId) &&
+          (loadedProject.loaded || Object.keys(project.graphs).length > 0 || graphNavigationStack.stack.length > 0);
+
+        const currentProjectEditorSnapshot = shouldPersistCurrentProjectEditorState
+          ? persistCurrentProjectEditorSnapshot()
+          : undefined;
+
+        if (shouldPersistCurrentProjectEditorState && currentProjectId) {
+          persistOpenedProjectSnapshot();
+        }
+
+        const persistedProjectEditorState =
+          targetProjectId === currentProjectId
+            ? currentProjectEditorSnapshot ?? projectEditorStateByProjectId[targetProjectId]
+            : projectEditorStateByProjectId[targetProjectId];
+        const restoreTarget = resolveProjectEditorRestoreTarget({
+          project: projectInfo.project,
+          persistedProjectEditorState,
+          explicitGraphToLoad: projectInfo.graphToLoad,
+          explicitGraphView: projectInfo.graphView,
+          openedGraphId: projectInfo.openedGraph,
+          legacyCanvasPositionsByGraph: lastSavedPositions,
+        });
 
         const transition = createProjectLoadTransition({
           currentGraph,
-          graphToLoad,
-          lastSavedPositions,
+          graphToLoad: restoreTarget.graph,
+          navigationStack: restoreTarget.navigationStack,
           path: projectInfo.fsPath,
           project: projectInfo.project,
+          viewport: restoreTarget.viewport,
         });
 
         setProject(transition.project);
@@ -118,6 +157,17 @@ export function useWorkspaceTransitions() {
         setIsReadOnlyGraph(false);
         setHistoricalGraph(null);
         setGraph(transition.graph);
+        const persistedCanvasPositionsByGraph = resolvePersistedCanvasPositionsForLegacyCache({
+          project: projectInfo.project,
+          persistedProjectEditorState,
+        });
+        if (Object.keys(persistedCanvasPositionsByGraph).length > 0) {
+          setLastSavedPositions((previousPositionsByGraph) => ({
+            ...previousPositionsByGraph,
+            ...persistedCanvasPositionsByGraph,
+          }));
+        }
+
         if (transition.viewport.type === 'saved') {
           setPosition(transition.viewport.position);
         } else if (transition.viewport.type === 'center') {
@@ -130,6 +180,13 @@ export function useWorkspaceTransitions() {
         setTrivetState(createDefaultTrivetState(projectInfo.testSuites ?? []));
         return true;
       } catch (err) {
+        hostCallbacks.onOpenError?.({
+          error: err,
+          operation: 'loadProject',
+          path: projectInfo.fsPath,
+          projectId: projectInfo.project.metadata.id,
+          openedGraph: projectInfo.openedGraph,
+        });
         handleError(err, 'Failed to load project', {
           metadata: {
             currentGraphId: currentGraph.metadata?.id,
@@ -142,15 +199,45 @@ export function useWorkspaceTransitions() {
       }
     },
 
-    switchGraph(savedGraph: typeof currentGraph, options: { graphView?: GraphViewContext; pushHistory?: boolean } = {}) {
-      if (currentGraph.nodes.length > 0 || currentGraph.metadata?.name !== emptyNodeGraph().metadata!.name) {
-        saveCurrentGraph();
+    switchGraph(
+      savedGraph: typeof currentGraph,
+      options: { graphView?: GraphViewContext; pushHistory?: boolean } = {},
+    ) {
+      const currentGraphId = currentGraph.metadata?.id;
+
+      if (project.metadata.id) {
+        persistCurrentProjectEditorSnapshot({
+          currentGraphId,
+        });
+
+        if (currentGraphId) {
+          setLastSavedPositions((previousPositionsByGraph) => ({
+            ...previousPositionsByGraph,
+            [currentGraphId]: {
+              x: canvasPosition.x,
+              y: canvasPosition.y,
+              zoom: canvasPosition.zoom,
+            },
+          }));
+        }
+      }
+
+      const savedCurrentGraph = saveCurrentGraph();
+
+      if (project.metadata.id && savedCurrentGraph) {
+        persistOpenedProjectSnapshot({
+          graph: savedCurrentGraph,
+        });
       }
 
       const transition = createGraphSwitchTransition({
         currentGraph,
         graphToLoad: savedGraph,
-        lastSavedPositions,
+        lastSavedPositions: resolveCanvasPositionsForProject({
+          project,
+          persistedProjectEditorState: projectEditorStateByProjectId[project.metadata.id],
+          legacyCanvasPositionsByGraph: lastSavedPositions,
+        }),
         nextGraphView: options.graphView,
         previousNavigationStack: graphNavigationStack,
         pushHistory: options.pushHistory ?? true,
@@ -180,24 +267,37 @@ export function useWorkspaceTransitions() {
 
     buildProjectForSave() {
       const savedGraph = saveCurrentGraph();
-      return mergeCurrentGraphIntoProject(project, savedGraph);
+      return mergeCurrentGraphIntoProject(store.get(projectState), savedGraph);
     },
 
     async saveProject(options: { forceSaveAs?: boolean } = {}) {
-      const projectToPersist = mergeCurrentGraphIntoProject(project, saveCurrentGraph());
+      const latestProject = store.get(projectState);
+      const latestLoadedProject = store.get(loadedProjectState);
+      const latestTestSuites = store.get(trivetState).testSuites;
+      const projectToPersist = mergeCurrentGraphIntoProject(latestProject, saveCurrentGraph());
+      const canSaveInPlace = canSaveProjectDataNoPrompt(ioProvider, latestLoadedProject.path);
       const shouldUseSaveAs =
-        options.forceSaveAs || !loadedProject.loaded || !loadedProject.path || !isPathBasedIOProvider(ioProvider);
+        options.forceSaveAs || !latestLoadedProject.loaded || !latestLoadedProject.path || !canSaveInPlace;
 
       let saving: ToastId | undefined;
+      let savedPath: string | null = null;
       const savingTimeout = setTimeout(() => {
         saving = toast.info('Saving project');
       }, 500);
 
       try {
+        setProject(projectToPersist);
+        persistCurrentProjectEditorSnapshot({
+          project: projectToPersist,
+        });
+        await flushHybridStorageGroup('graph');
+        await flushHybridStorageGroup('project');
+
         if (shouldUseSaveAs) {
-          const filePath = await ioProvider.saveProjectData(projectToPersist, { testSuites });
+          const filePath = await ioProvider.saveProjectData(projectToPersist, { testSuites: latestTestSuites });
 
           if (filePath) {
+            savedPath = filePath;
             setLoadedProject({ loaded: true, path: filePath });
             setOpenedProjectSnapshots((snapshots) => {
               const nextSnapshots = { ...snapshots };
@@ -205,25 +305,38 @@ export function useWorkspaceTransitions() {
               return nextSnapshots;
             });
             setProjects((prev) => addOpenedProject(prev, projectToPersist, { fsPath: filePath }));
+            await flushHybridStorageGroup('graph');
+            await flushHybridStorageGroup('project');
             toast.success('Project saved');
           }
         } else {
-          const projectPath = loadedProject.path!;
-          await ioProvider.saveProjectDataNoPrompt(projectToPersist, { testSuites }, projectPath);
+          const projectPath = latestLoadedProject.path!;
+          await ioProvider.saveProjectDataNoPrompt(projectToPersist, { testSuites: latestTestSuites }, projectPath);
+          savedPath = projectPath;
           setLoadedProject({ loaded: true, path: projectPath });
           setOpenedProjectSnapshots((snapshots) => {
             const nextSnapshots = { ...snapshots };
             delete nextSnapshots[projectToPersist.metadata.id];
             return nextSnapshots;
           });
+          await flushHybridStorageGroup('graph');
+          await flushHybridStorageGroup('project');
           toast.success('Project saved');
+        }
+
+        if (savedPath) {
+          hostCallbacks.onProjectSaved?.({
+            project: projectToPersist,
+            path: savedPath,
+            saveAs: shouldUseSaveAs,
+          });
         }
       } catch (err) {
         handleError(err, 'Failed to save project', {
           metadata: {
             forceSaveAs: options.forceSaveAs ?? false,
             projectId: projectToPersist.metadata.id,
-            projectPath: loadedProject.path,
+            projectPath: latestLoadedProject.path,
             usedSaveAs: shouldUseSaveAs,
           },
         });

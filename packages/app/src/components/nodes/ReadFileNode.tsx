@@ -1,5 +1,4 @@
 import { type FC } from 'react';
-import Toggle from '@atlaskit/toggle';
 import { css } from '@emotion/react';
 import Button from '@atlaskit/button';
 import { type ChartNode, type ReadFileNode } from '@ironclad/rivet-core';
@@ -7,6 +6,7 @@ import { type NodeComponentDescriptor } from '../../hooks/useNodeTypes.js';
 import { isPathBasedIOProvider } from '../../io/IOProvider.js';
 import { wrapAsync } from '../../utils/errorHandling';
 import { useIOProvider } from '../../providers/ProvidersContext.js';
+import { ScalableToggle } from '../ScalableToggle.js';
 
 type ReadFileNodeBodyProps = {
   node: ReadFileNode;
@@ -62,7 +62,8 @@ const container = css`
     padding: 6px 12px;
     background-color: var(--grey-darkish);
     border: 1px solid var(--grey);
-    border-radius: 4px;
+    border-radius: 8px;
+    corner-shape: squircle;
     color: var(--foreground);
     outline: none;
     transition: border-color 0.3s;
@@ -111,7 +112,7 @@ export const ReadFileNodeEditor: FC<ReadFileNodeEditorProps> = ({ node, onChange
             <Button onClick={handleBrowseClick}>Browse...</Button>
           </>
         )}
-        <Toggle
+        <ScalableToggle
           id="usePathInput"
           isChecked={node.data.usePathInput}
           onChange={(e) =>

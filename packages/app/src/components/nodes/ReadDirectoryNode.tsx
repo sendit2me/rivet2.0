@@ -1,6 +1,5 @@
 import { type FC } from 'react';
 import { css } from '@emotion/react';
-import Toggle from '@atlaskit/toggle';
 import Button from '@atlaskit/button';
 import {
   type ChartNode,
@@ -15,6 +14,7 @@ import { isPathBasedIOProvider } from '../../io/IOProvider.js';
 import { type InputsOrOutputsWithRefs } from '../../state/dataFlow';
 import { wrapAsync } from '../../utils/errorHandling';
 import { useIOProvider } from '../../providers/ProvidersContext.js';
+import { ScalableToggle } from '../ScalableToggle.js';
 
 const container = css`
   font-family: 'Roboto', sans-serif;
@@ -41,7 +41,8 @@ const container = css`
     padding: 6px 12px;
     background-color: var(--grey-darkish);
     border: 1px solid var(--grey);
-    border-radius: 4px;
+    border-radius: 8px;
+    corner-shape: squircle;
     color: var(--foreground);
     outline: none;
     transition: border-color 0.3s;
@@ -92,7 +93,7 @@ export const ReadDirectoryNodeEditor: FC<ReadDirectoryNodeEditorProps> = ({ node
           <Button onClick={handleBrowseClick}>Browse...</Button>
           <div>Current Directory: {node.data.path}</div>
         </div>
-        <Toggle
+        <ScalableToggle
           id="usePathInput"
           isChecked={node.data.usePathInput}
           onChange={() =>
@@ -107,12 +108,12 @@ export const ReadDirectoryNodeEditor: FC<ReadDirectoryNodeEditorProps> = ({ node
         <label className="label" htmlFor="recursive">
           Recursive
         </label>
-        <Toggle
+        <ScalableToggle
           id="recursive"
           isChecked={node.data.recursive}
           onChange={(e) => onChange?.({ ...node, data: { ...node.data, recursive: e.target.checked } })}
         />
-        <Toggle
+        <ScalableToggle
           id="useRecursiveInput"
           isChecked={node.data.useRecursiveInput}
           onChange={(e) =>
@@ -127,7 +128,7 @@ export const ReadDirectoryNodeEditor: FC<ReadDirectoryNodeEditorProps> = ({ node
         <label className="label" htmlFor="includeDirectories">
           Include Directories
         </label>
-        <Toggle
+        <ScalableToggle
           id="includeDirectories"
           isChecked={node.data.includeDirectories}
           onChange={(e) =>
@@ -137,7 +138,7 @@ export const ReadDirectoryNodeEditor: FC<ReadDirectoryNodeEditorProps> = ({ node
             })
           }
         />
-        <Toggle
+        <ScalableToggle
           id="useIncludeDirectoriesInput"
           isChecked={node.data.useIncludeDirectoriesInput}
           onChange={(e) =>
@@ -152,7 +153,7 @@ export const ReadDirectoryNodeEditor: FC<ReadDirectoryNodeEditorProps> = ({ node
         <label className="label" htmlFor="relative">
           Relative
         </label>
-        <Toggle
+        <ScalableToggle
           id="relative"
           isChecked={node.data.relative}
           onChange={(e) =>
@@ -162,7 +163,7 @@ export const ReadDirectoryNodeEditor: FC<ReadDirectoryNodeEditorProps> = ({ node
             })
           }
         />
-        <Toggle
+        <ScalableToggle
           id="useRelativeInput"
           isChecked={node.data.useRelativeInput}
           onChange={(e) =>
@@ -189,7 +190,7 @@ export const ReadDirectoryNodeEditor: FC<ReadDirectoryNodeEditorProps> = ({ node
             })
           }
         />
-        <Toggle
+        <ScalableToggle
           id="useFilterGlobsInput"
           isChecked={node.data.useFilterGlobsInput}
           onChange={(e) =>
@@ -216,7 +217,7 @@ export const ReadDirectoryNodeEditor: FC<ReadDirectoryNodeEditorProps> = ({ node
             })
           }
         />
-        <Toggle
+        <ScalableToggle
           id="useIgnoresInput"
           isChecked={node.data.useIgnoresInput}
           onChange={(e) =>

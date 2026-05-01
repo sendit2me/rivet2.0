@@ -66,6 +66,7 @@ export const StringEditor: FC<{
     <Field name={name ?? label} label={label} isDisabled={isDisabled}>
       {({ fieldProps }) => (
         <>
+          {helperMessage && <HelperMessage>{helperMessage}</HelperMessage>}
           <TextField
             {...fieldProps}
             value={value}
@@ -82,7 +83,6 @@ export const StringEditor: FC<{
               }
             }}
           />
-          {helperMessage && <HelperMessage>{helperMessage}</HelperMessage>}
         </>
       )}
     </Field>

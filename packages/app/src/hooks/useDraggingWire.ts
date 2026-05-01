@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { type NodeConnection, type NodeId, type PortId } from '@ironclad/rivet-core';
 import { useAtom, useAtomValue, useStore } from 'jotai';
 import { connectionsState, ioDefinitionsForNodeState, nodesByIdState } from '../state/graph.js';
@@ -6,6 +6,20 @@ import { draggingWireClosestPortState, draggingWireState } from '../state/graphB
 import { useLatest } from 'ahooks';
 import { useMakeConnectionCommand } from '../commands/makeConnectionCommand';
 import { useBreakConnectionCommand } from '../commands/breakConnectionCommand';
+import { useRewireConnectionCommand } from '../commands/rewireConnectionCommand.js';
+import { resolveWireDragAction, shouldContinueDraggingAfterWireAction } from '../domain/graphEditing/wireDragActions.js';
+import { canvasIoDefinitionsForNodeState } from '../state/selectors/canvasGraphSelectors.js';
+import { resolveClosestWireDropTargetFromPoint } from '../utils/wireDropTarget.js';
+
+const WIRE_CLICK_DISCONNECT_MOVE_THRESHOLD_PX = 3;
+
+function shouldHandleGlobalWireMouseUpTarget(target: EventTarget | null): boolean {
+  if (typeof Element !== 'undefined' && target instanceof Element && target.closest('.port-circle')) {
+    return false;
+  }
+
+  return true;
+}
 
 export const useDraggingWire = (onConnectionsChanged: (connections: NodeConnection[]) => void) => {
   const [draggingWire, setDraggingWire] = useAtom(draggingWireState);
@@ -15,10 +29,12 @@ export const useDraggingWire = (onConnectionsChanged: (connections: NodeConnecti
   const [closestPortToDraggingWire, setClosestPortToDraggingWire] = useAtom(draggingWireClosestPortState);
   const isDragging = !!draggingWire;
 
-  const latestClosestPort = useLatest(closestPortToDraggingWire);
+  const latestDraggingWire = useLatest(draggingWire);
+  const wireGestureStartRef = useRef<{ x: number; y: number } | undefined>(undefined);
 
   const makeConnection = useMakeConnectionCommand();
   const breakConnection = useBreakConnectionCommand();
+  const rewireConnection = useRewireConnectionCommand();
 
   useEffect(() => {
     if (closestPortToDraggingWire && isDragging) {
@@ -32,123 +48,213 @@ export const useDraggingWire = (onConnectionsChanged: (connections: NodeConnecti
     }
   }, [closestPortToDraggingWire, setDraggingWire, isDragging]);
 
+  const clearDraggingWire = useCallback(() => {
+    wireGestureStartRef.current = undefined;
+    setDraggingWire(undefined);
+    setClosestPortToDraggingWire(undefined);
+  }, [setClosestPortToDraggingWire, setDraggingWire]);
+
+  const resolveDropTargetFromPointerPosition = useCallback(
+    (clientX: number, clientY: number) =>
+      resolveClosestWireDropTargetFromPoint({
+        clientX,
+        clientY,
+        getInputDefinition: (nodeId, portId) =>
+          store.get(canvasIoDefinitionsForNodeState(nodeId))?.inputDefinitions.find((definition) => definition.id === portId),
+      }),
+    [store],
+  );
+
+  const continueDraggingWire = useCallback(
+    (wire: NonNullable<typeof draggingWire>) => {
+      wireGestureStartRef.current = undefined;
+      setDraggingWire({
+        startNodeId: wire.startNodeId,
+        startPortId: wire.startPortId,
+        startPortIsInput: false,
+        dataType: wire.dataType,
+      });
+      setClosestPortToDraggingWire(undefined);
+    },
+    [setClosestPortToDraggingWire, setDraggingWire],
+  );
+
+  const didCurrentWireGestureMove = useCallback((clientX: number, clientY: number) => {
+    const start = wireGestureStartRef.current;
+    if (!start) {
+      return true;
+    }
+
+    return Math.hypot(clientX - start.x, clientY - start.y) >= WIRE_CLICK_DISCONNECT_MOVE_THRESHOLD_PX;
+  }, []);
+
+  const getValidatedDropTarget = useCallback(
+    (
+      wire: NonNullable<typeof draggingWire>,
+      dropTarget:
+        | {
+            nodeId: NodeId;
+            portId: PortId;
+          }
+        | undefined,
+    ) => {
+      if (!dropTarget) {
+        return undefined;
+      }
+
+      const inputNode = nodesById[dropTarget.nodeId];
+      const outputNode = nodesById[wire.startNodeId];
+
+      if (!inputNode || !outputNode) {
+        return undefined;
+      }
+
+      const inputNodeIO = store.get(canvasIoDefinitionsForNodeState(inputNode.id));
+      const outputNodeIO = store.get(canvasIoDefinitionsForNodeState(outputNode.id));
+
+      const input = inputNodeIO?.inputDefinitions.find((definition) => definition.id === dropTarget.portId);
+      const output = outputNodeIO?.outputDefinitions.find((definition) => definition.id === wire.startPortId);
+
+      return input && output ? dropTarget : undefined;
+    },
+    [nodesById, store],
+  );
+
+  const finalizeWireDrag = useCallback(
+    (options: {
+      didMove: boolean;
+      dropTarget?:
+        | {
+            nodeId: NodeId;
+            portId: PortId;
+          }
+        | undefined;
+      keepDragging: boolean;
+    }) => {
+      const activeDraggingWire = latestDraggingWire.current;
+
+      if (!activeDraggingWire) {
+        return;
+      }
+
+      const validatedDropTarget = getValidatedDropTarget(activeDraggingWire, options.dropTarget);
+      const action = resolveWireDragAction({
+        draggingWire: activeDraggingWire,
+        didMove: options.didMove,
+        dropTarget: validatedDropTarget,
+      });
+
+      if (action.type === 'makeConnection') {
+        makeConnection(action.params);
+      } else if (action.type === 'rewireConnection') {
+        rewireConnection({
+          originalConnection: action.originalConnection,
+          ...action.params,
+        });
+      } else if (action.type === 'breakConnection') {
+        breakConnection({ connectionToBreak: action.connection });
+      }
+
+      if (shouldContinueDraggingAfterWireAction(action, options.keepDragging)) {
+        continueDraggingWire(activeDraggingWire);
+      } else {
+        clearDraggingWire();
+      }
+    },
+    [
+      breakConnection,
+      clearDraggingWire,
+      continueDraggingWire,
+      getValidatedDropTarget,
+      latestDraggingWire,
+      makeConnection,
+      rewireConnection,
+    ],
+  );
+
   const onWireStartDrag = useCallback(
     (event: React.MouseEvent<HTMLElement>, startNodeId: NodeId, startPortId: PortId, isInput: boolean) => {
       event.stopPropagation();
 
       if (isInput) {
-        // If the input port is already connected, remove the existing connection
-        const existingConnectionIndex = connections.findIndex(
-          (conn) => conn.inputNodeId === startNodeId && conn.inputId === startPortId,
-        );
+        const existingConnection = connections.find((conn) => conn.inputNodeId === startNodeId && conn.inputId === startPortId);
 
-        if (existingConnectionIndex !== -1) {
-          breakConnection({ connectionToBreak: connections[existingConnectionIndex]! });
+        if (existingConnection) {
+          const { outputId, outputNodeId } = existingConnection;
 
-          const { outputId, outputNodeId } = connections[existingConnectionIndex]!;
+          const def = store.get(ioDefinitionsForNodeState(outputNodeId))?.outputDefinitions.find((o) => o.id === outputId);
 
-          const def = store.get(ioDefinitionsForNodeState(outputNodeId))!.outputDefinitions.find((o) => o.id === outputId)!;
+          if (!def?.dataType) {
+            clearDraggingWire();
+            return;
+          }
 
+          wireGestureStartRef.current = { x: event.clientX, y: event.clientY };
           setDraggingWire({
             startNodeId: outputNodeId,
             startPortId: outputId,
             startPortIsInput: false,
             dataType: def.dataType,
+            originalConnection: existingConnection,
+            rewireSourceInput: {
+              nodeId: startNodeId,
+              portId: startPortId,
+            },
           });
           return;
         }
         return;
       }
 
-      const def = store.get(ioDefinitionsForNodeState(startNodeId))!.outputDefinitions.find((o) => o.id === startPortId)!;
+      const def = store.get(ioDefinitionsForNodeState(startNodeId))?.outputDefinitions.find((o) => o.id === startPortId);
+      if (!def?.dataType) {
+        clearDraggingWire();
+        return;
+      }
+      wireGestureStartRef.current = { x: event.clientX, y: event.clientY };
       setDraggingWire({ startNodeId, startPortId, startPortIsInput: isInput, dataType: def.dataType });
     },
-    [connections, store, setDraggingWire, breakConnection],
+    [clearDraggingWire, connections, store, setDraggingWire],
   );
 
   const onWireEndDrag = useCallback(
     (event: React.MouseEvent<HTMLElement>) => {
-      if (!draggingWire) {
+      if (!latestDraggingWire.current) {
         return;
       }
 
-      const { nodeId: endNodeId, portId: endPortId } = closestPortToDraggingWire ?? {};
-
-      if (!endNodeId || !endPortId) {
-        return;
-      }
-
+      const dropTarget = resolveDropTargetFromPointerPosition(event.clientX, event.clientY);
       event.stopPropagation();
 
-      let inputNode = nodesById[endNodeId];
-      let outputNode = nodesById[draggingWire.startNodeId];
-
-      let inputNodeIO = inputNode ? store.get(ioDefinitionsForNodeState(inputNode.id)) : null;
-      let outputNodeIO = outputNode ? store.get(ioDefinitionsForNodeState(outputNode.id)) : null;
-
-      let input = inputNode ? inputNodeIO?.inputDefinitions.find((i) => i.id === endPortId) : null;
-      let output = outputNode ? outputNodeIO?.outputDefinitions.find((o) => o.id === draggingWire.startPortId) : null;
-
-      if (!inputNode || !outputNode || !input || !output) {
-        const tmp = inputNode;
-        inputNode = outputNode;
-        outputNode = tmp;
-
-        inputNodeIO = inputNode ? store.get(ioDefinitionsForNodeState(inputNode.id)) : null;
-        outputNodeIO = outputNode ? store.get(ioDefinitionsForNodeState(outputNode.id)) : null;
-
-        input = inputNode ? inputNodeIO?.inputDefinitions.find((i) => i.id === endPortId) : null;
-        output = outputNode ? outputNodeIO?.outputDefinitions.find((o) => o.id === draggingWire.startPortId) : null;
-
-        if (!inputNode || !outputNode || !input || !output) {
-          setDraggingWire(undefined);
-          setClosestPortToDraggingWire(undefined);
-          return;
-        }
-      }
-
-      makeConnection({
-        outputNodeId: outputNode.id,
-        outputId: draggingWire.startPortId,
-        inputNodeId: inputNode.id,
-        inputId: endPortId,
+      finalizeWireDrag({
+        didMove: didCurrentWireGestureMove(event.clientX, event.clientY),
+        dropTarget: dropTarget ? { nodeId: dropTarget.nodeId, portId: dropTarget.portId } : undefined,
+        keepDragging: event.ctrlKey || event.metaKey,
       });
-
-      const isControlPressed = event.ctrlKey || event.metaKey;
-
-      if (!isControlPressed) {
-        setDraggingWire(undefined);
-        setClosestPortToDraggingWire(undefined);
-      }
     },
-    [
-      draggingWire,
-      nodesById,
-      store,
-      setDraggingWire,
-      closestPortToDraggingWire,
-      setClosestPortToDraggingWire,
-      makeConnection,
-    ],
+    [didCurrentWireGestureMove, finalizeWireDrag, latestDraggingWire, resolveDropTargetFromPointerPosition],
   );
 
   useEffect(() => {
-    const handleWindowClick = (event: MouseEvent) => {
-      const isControlPressed = event.ctrlKey || event.metaKey;
-
-      // If mouse is released without connecting to another port, remove the dragging wire
-      if (draggingWire && event.type === 'mouseup' && !isControlPressed) {
-        if (!latestClosestPort.current) {
-          setDraggingWire(undefined);
-        }
+    const handleWindowMouseUp = (event: MouseEvent) => {
+      if (!latestDraggingWire.current || !shouldHandleGlobalWireMouseUpTarget(event.target)) {
+        return;
       }
+
+      const dropTarget = resolveDropTargetFromPointerPosition(event.clientX, event.clientY);
+
+      finalizeWireDrag({
+        didMove: didCurrentWireGestureMove(event.clientX, event.clientY),
+        dropTarget: dropTarget ? { nodeId: dropTarget.nodeId, portId: dropTarget.portId } : undefined,
+        keepDragging: event.ctrlKey || event.metaKey,
+      });
     };
 
-    window.addEventListener('mouseup', handleWindowClick);
+    window.addEventListener('mouseup', handleWindowMouseUp, { capture: true });
     return () => {
-      window.removeEventListener('mouseup', handleWindowClick);
+      window.removeEventListener('mouseup', handleWindowMouseUp, { capture: true });
     };
-  }, [draggingWire, setDraggingWire, latestClosestPort]);
+  }, [didCurrentWireGestureMove, finalizeWireDrag, latestDraggingWire, resolveDropTargetFromPointerPosition]);
 
   return {
     draggingWire,

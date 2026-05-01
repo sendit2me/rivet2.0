@@ -1,35 +1,26 @@
 import { useAtomValue } from 'jotai';
-import { type GraphId } from '@ironclad/rivet-core';
 import { isPathBasedIOProvider } from '../io/IOProvider.js';
 import { useIOProvider } from '../providers/ProvidersContext.js';
-import {
-  openedProjectSnapshotsState,
-  type OpenedProjectInfo,
-  projectDataState,
-  projectState,
-} from '../state/savedGraphs.js';
+import { openedProjectSnapshotsState, type OpenedProjectInfo, projectState } from '../state/savedGraphs.js';
 import { handleError } from '../utils/errorHandling.js';
-import { chooseProjectGraph } from '../utils/workspaceTransitions.js';
 import { useWorkspaceTransitions } from './useWorkspaceTransitions.js';
 import type { TrivetState } from '../state/trivet.js';
+import { useRivetAppHostCallbacks } from '../providers/HostCallbacksContext.js';
 
 export function useLoadProject() {
   const ioProvider = useIOProvider();
+  const callbacks = useRivetAppHostCallbacks();
   const workspaceTransitions = useWorkspaceTransitions();
   const currentProject = useAtomValue(projectState);
-  const currentProjectData = useAtomValue(projectDataState);
   const openedProjectSnapshots = useAtomValue(openedProjectSnapshotsState);
 
-  return async (projectInfo: OpenedProjectInfo) => {
+  return async (projectInfo: OpenedProjectInfo): Promise<boolean> => {
     try {
-      const activeProjectSnapshot =
-        currentProject.metadata.id === projectInfo.projectId
-          ? {
-              project: currentProject,
-              data: currentProjectData,
-            }
-          : undefined;
-      const storedSnapshot = activeProjectSnapshot ?? openedProjectSnapshots[projectInfo.projectId];
+      if (currentProject.metadata.id === projectInfo.projectId) {
+        return true;
+      }
+
+      const storedSnapshot = openedProjectSnapshots[projectInfo.projectId];
 
       let project = storedSnapshot?.project;
       let data = storedSnapshot?.data;
@@ -49,19 +40,21 @@ export function useLoadProject() {
         throw new Error(`No in-memory snapshot is available for "${projectInfo.title}".`);
       }
 
-      await workspaceTransitions.loadProject({
+      return await workspaceTransitions.loadProject({
         project,
         data,
         fsPath: projectInfo.fsPath,
         openedGraph: projectInfo.openedGraph,
-        graphToLoad: chooseProjectGraph(project, {
-          openedGraphId: projectInfo.openedGraph as GraphId | undefined,
-          fallbackToMainGraph: true,
-          fallbackToSortedProjectGraph: true,
-        }),
         testSuites,
       });
     } catch (err) {
+      callbacks.onOpenError?.({
+        error: err,
+        operation: 'loadProject',
+        path: projectInfo.fsPath,
+        projectId: projectInfo.projectId,
+        openedGraph: projectInfo.openedGraph,
+      });
       handleError(err, 'Failed to load opened project', {
         metadata: {
           fsPath: projectInfo.fsPath,
@@ -70,6 +63,7 @@ export function useLoadProject() {
           projectTitle: projectInfo.title,
         },
       });
+      return false;
     }
   };
 }

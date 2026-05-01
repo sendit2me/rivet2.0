@@ -13,11 +13,14 @@ import { type NodeBodySpec } from '../NodeBodySpec.js';
 import { nodeDefinition } from '../NodeDefinition.js';
 import type { InternalProcessContext } from '../ProcessContext.js';
 import type { Inputs, Outputs } from '../GraphProcessor.js';
+import { resolveUniqueValueDerivedPortIds } from '../../utils/orderedStringPortIds.js';
+import {
+  appendCodeNodeSourceUrl,
+  buildCodeNodeSourceUrl,
+  enrichCodeNodeErrorWithLocation,
+} from './codeNodeErrorDiagnostics.js';
 
 export type CodeNode = ChartNode<'code', CodeNodeData>;
-
-const maskInput = (name: string) => name.trim().replace(/[^a-zA-Z0-9_]/g, '_');
-const asValidNames = (names: string[]): string[] => Array(...new Set(names.map(maskInput))).filter(Boolean);
 
 export type CodeNodeData = {
   code: string;
@@ -73,7 +76,7 @@ export class CodeNodeImpl extends NodeImpl<CodeNode> {
         : [this.data.inputNames]
       : [];
 
-    return asValidNames(inputNames).map((inputName) => {
+    return resolveUniqueValueDerivedPortIds(inputNames).map((inputName) => {
       return {
         type: 'any',
         id: inputName.trim() as PortId,
@@ -91,7 +94,7 @@ export class CodeNodeImpl extends NodeImpl<CodeNode> {
         : [this.data.outputNames]
       : [];
 
-    return asValidNames(outputNames).map((outputName) => {
+    return resolveUniqueValueDerivedPortIds(outputNames).map((outputName) => {
       return {
         id: outputName.trim() as PortId,
         title: outputName.trim(),
@@ -109,57 +112,72 @@ export class CodeNodeImpl extends NodeImpl<CodeNode> {
       },
       {
         type: 'code',
-        label: 'Code',
+        label: '',
         dataKey: 'code',
         language: 'javascript',
+        enableFolding: true,
       },
       {
         type: 'stringList',
         label: 'Inputs',
         dataKey: 'inputNames',
+        reorderable: true,
+        portBinding: {
+          side: 'input',
+          identity: 'value-derived',
+          valueToPortId: 'sanitize-identifier',
+        },
       },
       {
         type: 'stringList',
         label: 'Outputs',
         dataKey: 'outputNames',
+        reorderable: true,
+        portBinding: {
+          side: 'output',
+          identity: 'value-derived',
+          valueToPortId: 'sanitize-identifier',
+        },
       },
       {
-        type: 'toggle',
-        label: 'Allow using `fetch`',
-        dataKey: 'allowFetch',
-      },
-      {
-        type: 'toggle',
-        label: 'Allow using `require`',
-        dataKey: 'allowRequire',
-        helperMessage: 'This is only available when using the Node executor.',
-      },
-      {
-        type: 'toggle',
-        label: 'Allow using `Rivet`',
-        dataKey: 'allowRivet',
-      },
-      {
-        type: 'toggle',
-        label: 'Allow using `process`',
-        dataKey: 'allowProcess',
-        helperMessage: 'This is only available when using the Node executor.',
-      },
-      {
-        type: 'toggle',
-        label: 'Allow using `console`',
-        dataKey: 'allowConsole',
+        type: 'group',
+        label: 'Runtime Permissions',
+        defaultOpen: true,
+        editors: [
+          {
+            type: 'toggle',
+            label: 'fetch',
+            dataKey: 'allowFetch',
+          },
+          {
+            type: 'toggle',
+            label: 'Rivet',
+            dataKey: 'allowRivet',
+          },
+          {
+            type: 'toggle',
+            label: 'console',
+            dataKey: 'allowConsole',
+          },
+          {
+            type: 'toggle',
+            label: 'require',
+            dataKey: 'allowRequire',
+            helperMessage: 'This is only available when using the Node executor.',
+          },
+          {
+            type: 'toggle',
+            label: 'process',
+            dataKey: 'allowProcess',
+            helperMessage: 'This is only available when using the Node executor.',
+          },
+        ],
       },
     ];
   }
 
   getBody(): string | NodeBodySpec | undefined {
-    const trimmed = this.data.code
-      .split('\n')
-      .slice(0, 15)
-      .map((line) => (line.length > 50 ? line.slice(0, 50) + '...' : line))
-      .join('\n')
-      .trim();
+    const trimmed = this.data.code.split('\n').slice(0, 15).join('\n').trim();
 
     return {
       type: 'colorized',
@@ -182,19 +200,30 @@ export class CodeNodeImpl extends NodeImpl<CodeNode> {
   }
 
   async process(inputs: Inputs, context: InternalProcessContext): Promise<Outputs> {
-    const outputs = await context.codeRunner.runCode(
-      this.data.code,
-      inputs,
-      {
-        includeFetch: this.data.allowFetch ?? false,
-        includeRequire: this.data.allowRequire ?? false,
-        includeRivet: this.data.allowRivet ?? false,
-        includeProcess: this.data.allowProcess ?? false,
-        includeConsole: this.data.allowConsole ?? false,
-      },
-      context.graphInputNodeValues,
-      context.contextValues
-    );
+    const sourceUrl = buildCodeNodeSourceUrl(this.chartNode.id, context.processId);
+    let outputs: Outputs;
+
+    try {
+      outputs = await context.codeRunner.runCode(
+        appendCodeNodeSourceUrl(this.data.code, sourceUrl),
+        inputs,
+        {
+          includeFetch: this.data.allowFetch ?? false,
+          includeRequire: this.data.allowRequire ?? false,
+          includeRivet: this.data.allowRivet ?? false,
+          includeProcess: this.data.allowProcess ?? false,
+          includeConsole: this.data.allowConsole ?? false,
+        },
+        context.graphInputNodeValues,
+        context.contextValues,
+      );
+    } catch (error) {
+      throw await enrichCodeNodeErrorWithLocation({
+        code: this.data.code,
+        error,
+        sourceUrl,
+      });
+    }
 
     if (outputs == null || typeof outputs !== 'object' || ('then' in outputs && typeof outputs.then === 'function')) {
       throw new Error('Code node must return an object with output values.');

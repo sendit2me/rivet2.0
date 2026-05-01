@@ -1,8 +1,13 @@
 import Button from '@atlaskit/button';
+import { Field } from '@atlaskit/form';
+import Select from '@atlaskit/select';
+import TextField from '@atlaskit/textfield';
+import Portal from '@atlaskit/portal';
 import { type ChartNode, type CustomEditorDefinition } from '@ironclad/rivet-core';
 import { css } from '@emotion/react';
 import { useAtomValue } from 'jotai';
-import { type FC, useState } from 'react';
+import { type FC, useEffect, useState } from 'react';
+import clsx from 'clsx';
 import { settingsState } from '../../../state/settings.js';
 import { useDependsOnPlugins } from '../../../hooks/useDependsOnPlugins.js';
 import { fillMissingSettingsFromEnvironmentVariables } from '../../../utils/tauri.js';
@@ -11,24 +16,86 @@ import {
   invalidateChatV2DiscoveredModelOptions,
 } from '../../../utils/chatV2ModelCatalog.js';
 import { type SharedEditorProps } from '../SharedEditorProps';
+import PlugIcon from '../../../assets/icons/plug-icon.svg?react';
+import { Tooltip } from '../../Tooltip';
+import { useEnvironmentProvider } from '../../../providers/ProvidersContext.js';
 
 const styles = css`
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 12px;
+  gap: 8px;
 
-  .actions {
-    display: flex;
+  .model-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
     align-items: center;
     gap: 8px;
+  }
+
+  .model-row.is-custom-provider {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .model-input-toggle {
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 1px solid var(--grey-darkish);
+    border-radius: 16px;
+    corner-shape: squircle;
+    background: var(--grey-darkest);
+    color: var(--foreground-muted);
+    cursor: pointer;
+    transition:
+      background-color 0.15s ease-out,
+      border-color 0.15s ease-out,
+      color 0.15s ease-out;
+  }
+
+  .model-input-toggle:focus {
+    outline: none;
+  }
+
+  .model-input-toggle:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+
+  .model-input-toggle:hover:not(:disabled) {
+    background: var(--grey-darkerish);
+    color: var(--grey-light);
+  }
+
+  .model-input-toggle.is-active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: white;
+  }
+
+  .model-input-toggle:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .model-input-toggle svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .refresh-models {
+    margin-left: 18px;
+    white-space: nowrap;
   }
 
   .banner {
     width: 100%;
     padding: 10px 12px;
-    border-radius: 6px;
-    font-size: 12px;
+    border-radius: 12px;
+    corner-shape: squircle;
+    font-size: var(--ui-font-size-sm);
     line-height: 1.4;
     border: 1px solid transparent;
   }
@@ -57,12 +124,31 @@ type Props = SharedEditorProps & {
   editor: CustomEditorDefinition<ChartNode>;
 };
 
+type ProviderName = 'openai' | 'anthropic' | 'google' | 'custom';
+
+type ModelOption = {
+  value: string;
+  label: string;
+};
+
+type ModelRefreshResult = Awaited<ReturnType<typeof getChatV2DiscoveredModelOptionsWithStatus>>;
+type ResolvedSettings = Awaited<ReturnType<typeof fillMissingSettingsFromEnvironmentVariables>>;
+
 const modelCatalogRefreshStatus = new Map<string, RefreshStatus>();
 
-function getMissingCredentialMessage(
-  provider: 'openai' | 'anthropic' | 'google',
-  resolvedSettings: Awaited<ReturnType<typeof fillMissingSettingsFromEnvironmentVariables>>,
-): string | undefined {
+function getProvider(data: unknown): ProviderName {
+  return ((data as { provider?: ProviderName }).provider ?? 'openai') as ProviderName;
+}
+
+function getStatusKey(nodeId: string, provider: ProviderName): string {
+  return `${nodeId}:${provider}`;
+}
+
+function getModelOptions(editor: CustomEditorDefinition<ChartNode>): ModelOption[] {
+  return ((editor.data as { modelOptions?: ModelOption[] } | undefined)?.modelOptions ?? []) as ModelOption[];
+}
+
+function getMissingCredentialMessage(provider: ProviderName, resolvedSettings: ResolvedSettings): string | undefined {
   switch (provider) {
     case 'openai':
       return resolvedSettings.openAiKey ? undefined : 'OpenAI API key is not configured.';
@@ -70,15 +156,52 @@ function getMissingCredentialMessage(
       return undefined;
     case 'google':
       return undefined;
+    case 'custom':
+      return undefined;
   }
 }
 
-export const LLMChatV2ModelCatalogEditor: FC<Props> = ({ node, isReadonly, isDisabled, onRefreshEditors }) => {
+function getRefreshStatus(
+  provider: ProviderName,
+  result: ModelRefreshResult,
+  resolvedSettings: ResolvedSettings,
+): RefreshStatus {
+  if (result.source === 'api') {
+    return {
+      tone: 'success',
+      message: `Loaded ${result.options.length} models from ${provider}.`,
+    };
+  }
+
+  return {
+    tone: 'warning',
+    message: `Using built-in ${provider} model list (${result.options.length}). ${
+      getMissingCredentialMessage(provider, resolvedSettings) ?? result.error ?? 'API fetch failed.'
+    }`,
+  };
+}
+
+export const LLMChatV2ModelCatalogEditor: FC<Props> = ({
+  node,
+  onChange,
+  isReadonly,
+  isDisabled,
+  editor,
+  onRefreshEditors,
+}) => {
   const settings = useAtomValue(settingsState);
   const plugins = useDependsOnPlugins();
-  const statusKey = `${node.id}:${(node.data as { provider?: 'openai' | 'anthropic' | 'google' }).provider ?? 'openai'}`;
+  const environmentProvider = useEnvironmentProvider();
+  const provider = getProvider(node.data);
+  const statusKey = getStatusKey(node.id, provider);
   const [status, setStatus] = useState<RefreshStatus>(() => modelCatalogRefreshStatus.get(statusKey));
-  const provider = (node.data as { provider?: 'openai' | 'anthropic' | 'google' }).provider ?? 'openai';
+  const [menuPortalTarget, setMenuPortalTarget] = useState<HTMLDivElement | null>(null);
+  const data = node.data as Record<string, unknown>;
+  const modelOptions = getModelOptions(editor);
+  const selectedValue = modelOptions.find((option) => option.value === data.model);
+  const isUsingModelInput = Boolean(data.useModelInput);
+  const isControlDisabled = isReadonly || isDisabled;
+  const isCustomProvider = provider === 'custom';
 
   const updateStatus = (nextStatus: RefreshStatus) => {
     if (nextStatus == null) {
@@ -89,6 +212,10 @@ export const LLMChatV2ModelCatalogEditor: FC<Props> = ({ node, isReadonly, isDis
     setStatus(nextStatus);
   };
 
+  useEffect(() => {
+    setStatus(modelCatalogRefreshStatus.get(statusKey));
+  }, [statusKey]);
+
   const handleRefresh = async () => {
     updateStatus({
       tone: 'warning',
@@ -96,26 +223,14 @@ export const LLMChatV2ModelCatalogEditor: FC<Props> = ({ node, isReadonly, isDis
     });
 
     try {
-      const resolvedSettings = await fillMissingSettingsFromEnvironmentVariables(settings, plugins);
+      const resolvedSettings = await fillMissingSettingsFromEnvironmentVariables(settings, plugins, {
+        environmentProvider,
+      });
       const context = { settings: resolvedSettings, plugins };
 
       invalidateChatV2DiscoveredModelOptions(provider, context);
       const result = await getChatV2DiscoveredModelOptionsWithStatus(provider, context);
-      if (result.source === 'api') {
-        updateStatus({
-          tone: 'success',
-          message: `Loaded ${result.options.length} models from ${provider}.`,
-        });
-      } else {
-        updateStatus(
-          {
-            tone: 'warning',
-            message: `Using built-in ${provider} model list (${result.options.length}). ${
-              getMissingCredentialMessage(provider, resolvedSettings) ?? result.error ?? 'API fetch failed.'
-            }`,
-          },
-        );
-      }
+      updateStatus(getRefreshStatus(provider, result, resolvedSettings));
       onRefreshEditors?.();
     } catch (error) {
       updateStatus({
@@ -127,14 +242,83 @@ export const LLMChatV2ModelCatalogEditor: FC<Props> = ({ node, isReadonly, isDis
 
   return (
     <div css={styles}>
-      <div className="actions">
-        <Button appearance="subtle" onClick={handleRefresh} isDisabled={isReadonly || isDisabled}>
-          Re-fetch Model List
-        </Button>
-      </div>
-      {status ? (
-        <div className={`banner ${status.tone}`}>{status.message}</div>
-      ) : null}
+      <Field name="model" label={editor.label} isDisabled={isControlDisabled}>
+        {({ fieldProps }) => (
+          <div className={clsx('model-row', isCustomProvider && 'is-custom-provider')}>
+            {isCustomProvider ? (
+              <TextField
+                {...fieldProps}
+                value={(data.model as string | undefined) ?? ''}
+                isReadOnly={isReadonly}
+                isDisabled={isDisabled}
+                autoComplete="off"
+                spellCheck={false}
+                placeholder="model-id"
+                onChange={(event) =>
+                  onChange({
+                    ...node,
+                    data: {
+                      ...data,
+                      model: (event.target as HTMLInputElement).value,
+                    },
+                  })
+                }
+              />
+            ) : (
+              <Select
+                {...fieldProps}
+                options={modelOptions}
+                value={selectedValue}
+                menuPortalTarget={menuPortalTarget}
+                onChange={(selected) =>
+                  selected &&
+                  onChange({
+                    ...node,
+                    data: {
+                      ...data,
+                      model: selected.value,
+                    },
+                  })
+                }
+              />
+            )}
+            <Tooltip content="Use an input port for Model">
+              <button
+                type="button"
+                className={clsx('model-input-toggle', isUsingModelInput && 'is-active')}
+                aria-label="Use an input port for Model"
+                aria-pressed={isUsingModelInput}
+                disabled={isControlDisabled}
+                onClick={() =>
+                  onChange({
+                    ...node,
+                    data: {
+                      ...data,
+                      useModelInput: !isUsingModelInput,
+                    },
+                  })
+                }
+              >
+                <PlugIcon />
+              </button>
+            </Tooltip>
+            {!isCustomProvider ? (
+              <Button
+                className="refresh-models"
+                appearance="primary"
+                onClick={() => void handleRefresh()}
+                isDisabled={isControlDisabled}
+              >
+                Re-fetch Model List
+              </Button>
+            ) : null}
+            <Portal>
+              <div ref={setMenuPortalTarget} />
+            </Portal>
+          </div>
+        )}
+      </Field>
+      {status ? <div className={`banner ${status.tone}`}>{status.message}</div> : null}
     </div>
   );
 };

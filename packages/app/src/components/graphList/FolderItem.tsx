@@ -14,35 +14,43 @@ import { range } from 'lodash-es';
 import clsx from 'clsx';
 import { LoadingSpinner } from '../LoadingSpinner.js';
 import { type GraphId, type NodeGraph } from '@ironclad/rivet-core';
-import ArrowRightIcon from 'majesticons/line/arrow-right-line.svg?react';
-import ArrowDownIcon from 'majesticons/line/arrow-down-line.svg?react';
-import MenuLineIcon from 'majesticons/line/menu-line.svg?react';
+import ChevronRightIcon from 'majesticons/line/chevron-right-line.svg?react';
+import ChevronDownIcon from 'majesticons/line/chevron-down-line.svg?react';
+import FolderIcon from 'majesticons/line/folder-line.svg?react';
 import { useStableCallback } from '../../hooks/useStableCallback.js';
 import TextField from '@atlaskit/textfield';
 import { expandedFoldersState } from '../../state/ui';
-import { type NodeGraphFolderItem } from './graphFolders';
+import { countGraphsInFolder, type NodeGraphFolderItem } from './graphFolders';
+import { type GraphReachabilityBucket } from '../../utils/graphReachability.js';
+import { MainGraphIcon } from './MainGraphIcon';
 
 export const FolderItem: FC<{
   item: NodeGraphFolderItem;
   runningGraphs: GraphId[];
   renamingItemFullPath: string | undefined;
   graph: NodeGraph;
+  graphReachabilityByGraphId: Record<GraphId, GraphReachabilityBucket>;
+  referencingSelectedGraphIds: ReadonlySet<GraphId>;
   depth: number;
   dragOverFolderName: string | undefined;
   draggingItemFolder: string | undefined;
   onGraphSelected?: (savedGraph: NodeGraph) => void;
   onRenameItem: (fullPath: string, newFullPath: string) => void;
+  showUnreachableBadges: boolean;
 }> = memo(
   ({
     item,
     runningGraphs,
     renamingItemFullPath,
     graph,
+    graphReachabilityByGraphId,
+    referencingSelectedGraphIds,
     draggingItemFolder,
     onGraphSelected,
     onRenameItem,
     depth,
     dragOverFolderName,
+    showUnreachableBadges,
   }) => {
     const projectMetadata = useAtomValue(projectMetadataState);
     const [expandedFolders, setExpandedFolders] = useAtom(expandedFoldersState);
@@ -54,8 +62,19 @@ export const FolderItem: FC<{
 
     const isRenaming = renamingItemFullPath === fullPath;
     const isSelected = graph.metadata?.id === savedGraph?.metadata?.id;
+    const isMainGraph = item.type === 'graph' && savedGraph?.metadata?.id === projectMetadata.mainGraphId;
+    const referencesSelectedGraph =
+      item.type === 'graph' && savedGraph?.metadata?.id ? referencingSelectedGraphIds.has(savedGraph.metadata.id) : false;
     const isDraggingOver =
       item.type === 'folder' && dragOverFolderName === fullPath && draggingItemFolder !== dragOverFolderName;
+    const graphReachability =
+      item.type === 'graph' && savedGraph?.metadata?.id ? graphReachabilityByGraphId[savedGraph.metadata.id] : undefined;
+    const folderGraphCount = item.type === 'folder' ? countGraphsInFolder(item) : undefined;
+    const shouldShowUnreachableBadge =
+      item.type === 'graph' &&
+      !isRenaming &&
+      showUnreachableBadges &&
+      graphReachability === 'unreachable';
 
     const handleRenameSaved = useStableCallback((newName: string) => {
       onRenameItem(fullPath, fullPath.replace(/[^/]+$/, newName));
@@ -96,11 +115,17 @@ export const FolderItem: FC<{
           style={style}
         >
           <div
-            className={clsx('graph-item', { selected: isSelected })}
+            className={clsx('graph-item', { selected: isSelected, 'folder-graph-item': item.type === 'folder' })}
             data-contextmenutype={item.type === 'folder' ? 'graph-folder' : 'graph-item'}
             data-graphid={savedGraph?.metadata?.id}
             data-folderpath={item.type === 'folder' ? item.fullPath : item.graph.metadata?.name}
-            title={fullPath}
+            title={[
+              fullPath,
+              isMainGraph ? 'Main graph.' : undefined,
+              referencesSelectedGraph ? 'References the open graph.' : undefined,
+            ]
+              .filter(Boolean)
+              .join('\n')}
           >
             {range(virtualDepth + 1).map((idx) => {
               const isSpinner = idx === 0 && graphIsRunning;
@@ -114,7 +139,7 @@ export const FolderItem: FC<{
                   )}
                   {isExpander && (
                     <div className="expander" onClick={() => setExpanded(!isExpanded)}>
-                      {isExpanded ? <ArrowDownIcon /> : <ArrowRightIcon />}
+                      {isExpanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
                     </div>
                   )}
                 </div>
@@ -127,11 +152,24 @@ export const FolderItem: FC<{
               {isRenaming ? (
                 <FolderItemRename value={fullPath.replace(/.*\//, '')} onSaved={handleRenameSaved} />
               ) : (
-                <span>{item.name}</span>
+                <>
+                  {referencesSelectedGraph && <span className="graph-reference-dot" aria-hidden="true" />}
+                  <span className="graph-item-name">
+                    {isMainGraph && <MainGraphIcon className="graph-main-icon" />}
+                    {item.type === 'folder' && <FolderIcon className="graph-folder-icon" aria-hidden="true" />}
+                    <span className="graph-item-name-text">{item.name}</span>
+                    {folderGraphCount != null && <span className="graph-folder-count">{folderGraphCount}</span>}
+                  </span>
+                </>
               )}
             </div>
+            {shouldShowUnreachableBadge && (
+              <span className="unreachable-badge" title="This graph is unreachable from the project's Main Graph.">
+                unreachable
+              </span>
+            )}
             <div className="dragger" {...listeners} {...attributes}>
-              <MenuLineIcon />
+              <DragHandleIcon />
             </div>
           </div>
           {item.type === 'folder' && (
@@ -143,11 +181,14 @@ export const FolderItem: FC<{
                   runningGraphs={runningGraphs}
                   renamingItemFullPath={renamingItemFullPath}
                   graph={graph}
+                  graphReachabilityByGraphId={graphReachabilityByGraphId}
+                  referencingSelectedGraphIds={referencingSelectedGraphIds}
                   onGraphSelected={onGraphSelected}
                   onRenameItem={onRenameItem}
                   dragOverFolderName={dragOverFolderName}
                   depth={virtualDepth + 1}
                   draggingItemFolder={draggingItemFolder}
+                  showUnreachableBadges={showUnreachableBadges}
                 />
               ))}
             </div>
@@ -159,6 +200,17 @@ export const FolderItem: FC<{
 );
 
 FolderItem.displayName = 'FolderItem';
+
+const DragHandleIcon: FC = () => (
+  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+    <circle cx="4" cy="3" r="1" fill="currentColor" />
+    <circle cx="10" cy="3" r="1" fill="currentColor" />
+    <circle cx="4" cy="7" r="1" fill="currentColor" />
+    <circle cx="10" cy="7" r="1" fill="currentColor" />
+    <circle cx="4" cy="11" r="1" fill="currentColor" />
+    <circle cx="10" cy="11" r="1" fill="currentColor" />
+  </svg>
+);
 
 const FolderItemRename: FC<{
   value: string;

@@ -48,6 +48,12 @@ export type ProcessContext = {
   projectPath?: string;
 
   /**
+   * Optional editor-owned cache that can outlive a single graph run while the app is open.
+   * Runtime/library callers normally omit this; editor-only nodes/features can opt into it.
+   */
+  editorExecutionCache?: Map<string, unknown>;
+
+  /**
    * If implemented, chat nodes will first call this to resolve their configured endpoint to a final endpoint.
    * You can use this for adding auth headers, or to load balance between multiple endpoints.
    */

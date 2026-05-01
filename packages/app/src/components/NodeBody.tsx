@@ -1,4 +1,4 @@
-import { type FC, memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { type FC, memo, useState } from 'react';
 import { type HeightCache, useNodeBodyHeight } from '../hooks/useNodeBodyHeight';
 import { useUnknownNodeComponentDescriptorFor } from '../hooks/useNodeTypes.js';
 import {
@@ -21,24 +21,52 @@ import { useProjectNodeRegistry } from '../hooks/useProjectNodeRegistry';
 import { useAsyncEffect } from 'use-async-effect';
 import { handleError } from '../utils/errorHandling.js';
 
-export const NodeBody: FC<{ heightCache: HeightCache; node: ChartNode }> = memo(({ heightCache, node }) => {
+export const NodeBody: FC<{ heightCache: HeightCache; node: ChartNode; suspended?: boolean }> = memo(
+  ({ heightCache, node, suspended = false }) =>
+    suspended ? <SuspendedNodeBody heightCache={heightCache} node={node} /> : <ActiveNodeBody heightCache={heightCache} node={node} />,
+);
+
+NodeBody.displayName = 'NodeBody';
+
+const ActiveNodeBody: FC<{ heightCache: HeightCache; node: ChartNode }> = ({ heightCache, node }) => {
   const { Body } = useUnknownNodeComponentDescriptorFor(node);
   useDependsOnPlugins();
 
   const body = Body ? <Body node={node} /> : <UnknownNodeBody heightCache={heightCache} node={node} />;
 
   return <div className="node-body">{body}</div>;
-});
+};
 
-NodeBody.displayName = 'NodeBody';
+const SuspendedNodeBody: FC<{ heightCache: HeightCache; node: ChartNode }> = ({ heightCache, node }) => {
+  const height = heightCache.get(node.id);
+
+  return (
+    <div className="node-body">
+      {height == null ? null : <div aria-hidden="true" style={{ height: `${height}px` }} />}
+    </div>
+  );
+};
 
 const UnknownNodeBodyWrapper = styled.div<{
   fontSize: number;
   fontFamily: 'monospace' | 'sans-serif';
 }>`
   overflow: hidden;
-  font-size: ${(props) => props.fontSize}px;
-  font-family: ${(props) => (props.fontFamily === 'monospace' ? "'Roboto Mono', monospace" : "'Roboto', sans-serif")};
+  font-size: calc(${(props) => props.fontSize}px * var(--ui-font-scale, 1));
+  font-family: ${(props) =>
+    props.fontFamily === 'monospace' ? 'var(--font-family-monospace)' : 'var(--font-family)'};
+
+  .node-body-markdown > :first-child {
+    margin-top: 0;
+  }
+
+  .node-body-markdown > :last-child {
+    margin-bottom: 0;
+  }
+
+  pre {
+    margin: 0;
+  }
 `;
 
 // Fixes flickering due to async rendering of node body by caching the last rendered body
@@ -93,7 +121,7 @@ const UnknownNodeBody: FC<{ heightCache: HeightCache; node: ChartNode }> = ({ he
   return (
     <div ref={ref} style={{ height }}>
       {renderedSpecs.map(({ spec, rendered }, i) => (
-        <UnknownNodeBodyWrapper key={i} fontFamily={spec.fontFamily ?? 'sans-serif'} fontSize={spec.fontSize ?? 12}>
+        <UnknownNodeBodyWrapper key={i} fontFamily={spec.fontFamily ?? 'monospace'} fontSize={spec.fontSize ?? 12}>
           {rendered}
         </UnknownNodeBodyWrapper>
       ))}
@@ -110,7 +138,7 @@ PlainNodeBody.displayName = 'PlainNodeBody';
 export const MarkdownNodeBody: FC<MarkdownNodeBodySpec> = memo(({ text }) => {
   const markdownBody = useMarkdown(text);
 
-  return <div className="pre-wrap" dangerouslySetInnerHTML={markdownBody} />;
+  return <div className="pre-wrap node-body-markdown" dangerouslySetInnerHTML={markdownBody} />;
 });
 
 MarkdownNodeBody.displayName = 'MarkdownNodeBody';

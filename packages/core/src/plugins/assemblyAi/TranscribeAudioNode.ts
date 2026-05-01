@@ -81,6 +81,7 @@ export const TranscribeAudioNodeImpl: PluginNodeImpl<TranscribeAudioNode> = {
         label: 'Transcript Parameters (JSON)',
         language: 'json',
         dataKey: 'transcriptParameters',
+        enableFolding: true,
         helperMessage: `Configure additional parameters using a JSON object. This will override any other fields you have set.
         For a detailed list of parameters, see [the AssemblyAI API documentation](https://www.assemblyai.com/docs/api-reference/transcripts/submit?utm_source=rivet).`,
       },

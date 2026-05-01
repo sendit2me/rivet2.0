@@ -15,7 +15,7 @@ const styles = css`
   }
 `;
 
-export const MouseIcon: FC = () => {
+export const MouseIcon: FC<{ isDraggingNode?: boolean }> = ({ isDraggingNode = false }) => {
   const lastMousePosition = useAtomValue(lastMousePositionState);
   const [shiftPressed, setShiftPressed] = useState(false);
 
@@ -46,7 +46,7 @@ export const MouseIcon: FC = () => {
   }, []);
 
   const icon =
-    shiftPressed && !['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName ?? '') ? (
+    shiftPressed && !isDraggingNode && !['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName ?? '') ? (
       <div className="selection-box-indicator" />
     ) : null;
 

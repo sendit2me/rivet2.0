@@ -28,6 +28,8 @@ export const ObjectNodeAiAssistEditor: FC<
       graphName="Object Node Generator"
       placeholder="What would you like your Object node to do?"
       label="Generate Using AI"
+      collapsible
+      defaultOpen={false}
       updateData={(currentData, outputs) => {
         const object = coerceTypeOptional(outputs.object, 'string');
 

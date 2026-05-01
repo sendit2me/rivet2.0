@@ -1,30 +1,36 @@
 import { css } from '@emotion/react';
-import { type FC, useState } from 'react';
+import { type FC } from 'react';
 
-import { useAtom, useAtomValue } from 'jotai';
+import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import clsx from 'clsx';
 import { trivetState } from '../state/trivet.js';
-import { useRunMenuCommand } from '../hooks/useMenuCommands.js';
-import { isInTauri } from '../utils/tauri.js';
 import { LoadingSpinner } from './LoadingSpinner.js';
 import { overlayOpenState } from '../state/ui';
-import { sidebarOpenState } from '../state/graphBuilder';
+import {
+  emptyGraphSearchState,
+  openOrFocusGraphSearchState,
+  searchingGraphState,
+  sidebarOpenState,
+} from '../state/graphBuilder';
 import { useFeatureFlag } from '../hooks/useFeatureFlag';
 
 const styles = css`
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: flex-start;
   z-index: 200;
   position: absolute;
   top: var(--project-selector-height);
-  left: 300px;
-  height: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  min-height: 40px;
+  max-width: calc(100vw - 16px);
 
   .left-menu {
     display: flex;
-    align-items: flex-start;
+    align-items: stretch;
     gap: 0;
+    max-width: 100%;
     user-select: none;
   }
 
@@ -33,16 +39,22 @@ const styles = css`
     background-color: transparent;
     color: var(--grey-light);
     border: none;
-    transition: height 0.2s ease-out;
+    transition:
+      background-color 0.2s ease-out,
+      color 0.2s ease-out,
+      border-color 0.2s ease-out;
 
     border: 1px solid var(--grey);
     border-top: none;
     border-right: none;
 
     margin: 0;
-    height: 24px;
+    display: flex;
+    min-width: 0;
+    min-height: 24px;
 
-    border-radius: 0 0 8px 8px;
+    border-radius: 0 0 16px 16px;
+    corner-shape: squircle;
     background: var(--grey-darkerish);
 
     box-shadow: 0 3px 3px rgba(0, 0, 0, 0.2);
@@ -50,7 +62,6 @@ const styles = css`
 
   .menu-item > button {
     width: 100%;
-    height: 100%;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -59,10 +70,12 @@ const styles = css`
     cursor: pointer;
     padding: 0.5rem 1rem;
     color: inherit;
-  }
-
-  .menu-item.active {
-    height: 28px;
+    line-height: 1.2;
+    min-height: 24px;
+    min-width: 0;
+    text-align: center;
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 
   .menu-item:hover {
@@ -83,79 +96,31 @@ const styles = css`
     border-right: 1px solid var(--grey);
   }
 
-  .dropdown-menu .dropdown-button {
-    background-color: transparent;
-    color: var(--grey-lightest);
-    border: none;
-    padding: 0.5rem 1rem;
-    cursor: pointer;
+  .search-menu {
+    align-self: center;
+    background: var(--grey-darker);
+    border: 1px solid var(--grey);
+    border-radius: 8px;
+    corner-shape: squircle;
+    margin-left: 8px;
+    min-height: 24px;
 
-    &:hover {
-      background-color: var(--grey);
+    > button {
+      gap: 6px;
+      min-height: 24px;
+      padding: 0.2rem 0.7rem;
+      white-space: nowrap;
+
+      svg {
+        flex: 0 0 auto;
+        height: 14px;
+        width: 14px;
+      }
     }
   }
 
-  .file-menu {
-    position: relative;
-  }
-
-  .file-dropdown {
-    display: none;
-    position: absolute;
-    top: 100%;
-    left: 0;
-    background-color: var(--grey-darkest);
-    border: 2px solid var(--grey-darkish);
-    border-radius: 4px;
-    box-shadow: 0 8px 16px var(--shadow-dark);
-    font-family: 'Roboto Mono', monospace;
-    color: var(--foreground);
-    font-size: 13px;
-    padding: 8px;
-    z-index: 1;
-    min-width: 150px;
-  }
-
-  .file-dropdown button {
-    display: flex;
-    align-items: center;
-    padding: 4px 8px;
-    border-radius: 4px;
-    cursor: pointer;
-    padding: 4px 8px;
-    white-space: nowrap;
-    background: transparent;
-    border: 0;
-    display: block;
-    width: 100%;
-    justify-content: flex-start;
-    text-align: left;
-    font-size: 14px;
-    transition:
-      background-color 0.1s ease-out,
-      color 0.1s ease-out;
-
-    &:hover {
-      background-color: var(--tertiary-light);
-      color: var(--primary-text);
-    }
-  }
-
-  .dropdown-button {
-    background-color: transparent;
-    color: var(--grey-lightest);
-    border: none;
-    padding: 0.5rem 1rem;
-    cursor: pointer;
-
-    &:hover {
-      background-color: var(--grey);
-      color: var(--primary-text);
-    }
-  }
-
-  .file-dropdown.open {
-    display: block;
+  .search-menu:hover {
+    background-color: var(--grey);
   }
 
   .remote-debugger {
@@ -178,51 +143,23 @@ const styles = css`
 
 export const OverlayTabs: FC = () => {
   const [openOverlay, setOpenOverlay] = useAtom(overlayOpenState);
-  const runMenuCommandImpl = useRunMenuCommand();
-  const [fileMenuOpen, setFileMenuOpen] = useState(false);
+  const setGraphSearch = useSetAtom(searchingGraphState);
   const sidebarOpen = useAtomValue(sidebarOpenState);
 
   const trivet = useAtomValue(trivetState);
-
-  const runMenuCommand: typeof runMenuCommandImpl = (command) => {
-    setFileMenuOpen(false);
-    runMenuCommandImpl(command);
-  };
 
   const communityEnabled = useFeatureFlag('community');
 
   return (
     <div css={styles} className={clsx({ 'sidebar-open': sidebarOpen })}>
       <div className="left-menu">
-        {!isInTauri() && (
-          <div className="menu-item file-menu">
-            <button
-              className="dropdown-button"
-              onMouseDown={(e) => {
-                if (e.button === 0) {
-                  setFileMenuOpen((open) => !open);
-                }
-              }}
-            >
-              File
-            </button>
-            <div className={clsx('file-dropdown', { open: fileMenuOpen })}>
-              <button onMouseUp={() => runMenuCommand('new_project')}>New Project</button>
-              <button onMouseUp={() => runMenuCommand('open_project')}>Open Project...</button>
-              <button onMouseUp={() => runMenuCommand('save_project_as')}>Save Project As...</button>
-              <button onMouseUp={() => runMenuCommand('settings')}>Settings</button>
-              <button onMouseUp={() => runMenuCommand('export_graph')}>Export Graph</button>
-              <button onMouseUp={() => runMenuCommand('import_graph')}>Import Graph</button>
-            </div>
-          </div>
-        )}
-
         <div className={clsx('menu-item canvas-menu', { active: openOverlay === undefined })}>
           <button
             className="dropdown-item"
             onMouseDown={(e) => {
               if (e.button === 0) {
                 setOpenOverlay(undefined);
+                setGraphSearch(emptyGraphSearchState);
               }
             }}
           >
@@ -236,6 +173,7 @@ export const OverlayTabs: FC = () => {
             onMouseDown={(e) => {
               if (e.button === 0) {
                 setOpenOverlay((s) => (s === 'plugins' ? undefined : 'plugins'));
+                setGraphSearch(emptyGraphSearchState);
               }
             }}
           >
@@ -250,6 +188,7 @@ export const OverlayTabs: FC = () => {
               onMouseDown={(e) => {
                 if (e.button === 0) {
                   setOpenOverlay((s) => (s === 'community' ? undefined : 'community'));
+                  setGraphSearch(emptyGraphSearchState);
                 }
               }}
             >
@@ -264,6 +203,7 @@ export const OverlayTabs: FC = () => {
             onMouseDown={(e) => {
               if (e.button === 0) {
                 setOpenOverlay((s) => (s === 'promptDesigner' ? undefined : 'promptDesigner'));
+                setGraphSearch(emptyGraphSearchState);
               }
             }}
           >
@@ -276,6 +216,7 @@ export const OverlayTabs: FC = () => {
             onMouseDown={(e) => {
               if (e.button === 0) {
                 setOpenOverlay((s) => (s === 'trivet' ? undefined : 'trivet'));
+                setGraphSearch(emptyGraphSearchState);
               }
             }}
           >
@@ -293,6 +234,7 @@ export const OverlayTabs: FC = () => {
             onMouseDown={(e) => {
               if (e.button === 0) {
                 setOpenOverlay((s) => (s === 'chatViewer' ? undefined : 'chatViewer'));
+                setGraphSearch(emptyGraphSearchState);
               }
             }}
           >
@@ -305,13 +247,42 @@ export const OverlayTabs: FC = () => {
             onMouseDown={(e) => {
               if (e.button === 0) {
                 setOpenOverlay((s) => (s === 'dataStudio' ? undefined : 'dataStudio'));
+                setGraphSearch(emptyGraphSearchState);
               }
             }}
           >
             Data Studio
           </button>
         </div>
+        <div className="menu-item search-menu">
+          <button
+            className="dropdown-item"
+            onMouseDown={(e) => {
+              if (e.button === 0) {
+                setOpenOverlay(undefined);
+                setGraphSearch((state) =>
+                  state.searching ? emptyGraphSearchState : openOrFocusGraphSearchState(state),
+                );
+              }
+            }}
+          >
+            <SearchIcon />
+            Search
+          </button>
+        </div>
       </div>
     </div>
   );
 };
+
+const SearchIcon: FC = () => (
+  <svg aria-hidden="true" fill="none" viewBox="0 0 24 24">
+    <path
+      d="M10.75 17.5a6.75 6.75 0 1 1 0-13.5 6.75 6.75 0 0 1 0 13.5ZM16 16l4 4"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+    />
+  </svg>
+);

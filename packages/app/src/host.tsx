@@ -1,0 +1,154 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useMemo, useState, type ReactNode } from 'react';
+import { ExecutorSessionProvider, type ExecutorSessionHostConfig } from './providers/ExecutorSessionContext.js';
+import { ProvidersProvider, type ProviderOverrides } from './providers/ProvidersContext.js';
+import {
+  HostCallbacksProvider,
+  type RivetAppHostActiveProjectChangedEvent,
+  type RivetAppHostCallbacks,
+  type RivetAppHostOpenErrorEvent,
+  type RivetAppHostOpenProjectCountChangedEvent,
+  type RivetAppHostProjectSavedEvent,
+} from './providers/HostCallbacksContext.js';
+import { RivetAppLoader } from './components/RivetAppLoader.js';
+import { RivetAppHostLifecycle } from './components/RivetAppHostLifecycle.js';
+import { RivetWorkspaceHostBridge } from './components/RivetWorkspaceHostBridge.js';
+import type { RivetWorkspaceHost } from './hooks/useRivetWorkspaceHost.js';
+
+export type RivetAppHostProps = {
+  children?: ReactNode;
+  executor?: ExecutorSessionHostConfig;
+  loadingFallback?: ReactNode;
+  onActiveProjectChanged?: (event: RivetAppHostActiveProjectChangedEvent) => void;
+  onOpenError?: (event: RivetAppHostOpenErrorEvent) => void;
+  onOpenProjectCountChanged?: (event: RivetAppHostOpenProjectCountChangedEvent) => void;
+  onProjectSaved?: (event: RivetAppHostProjectSavedEvent) => void;
+  onWorkspaceHostDisposed?: (workspaceHost: RivetWorkspaceHost) => void;
+  onWorkspaceHostReady?: (workspaceHost: RivetWorkspaceHost) => void;
+  providers?: ProviderOverrides;
+  queryClient?: QueryClient;
+};
+
+/**
+ * Stable embedding shell for hosted/wrapper applications that mount Rivet's app
+ * UI from source. Use this instead of rendering RivetApp directly so required
+ * providers and async storage bootstrap stay in sync with the desktop app.
+ */
+export function RivetAppHost({
+  children,
+  executor,
+  loadingFallback,
+  onActiveProjectChanged,
+  onOpenError,
+  onOpenProjectCountChanged,
+  onProjectSaved,
+  onWorkspaceHostDisposed,
+  onWorkspaceHostReady,
+  providers,
+  queryClient,
+}: RivetAppHostProps) {
+  const [defaultQueryClient] = useState(() => new QueryClient());
+  const storage = providers?.storage;
+  const runtimeProviders = useMemo(() => {
+    if (!providers) {
+      return undefined;
+    }
+
+    const { storage: _storage, ...providerOverrides } = providers;
+    return providerOverrides;
+  }, [providers]);
+  const callbacks: RivetAppHostCallbacks = useMemo(
+    () => ({
+      onActiveProjectChanged,
+      onOpenError,
+      onOpenProjectCountChanged,
+      onProjectSaved,
+    }),
+    [onActiveProjectChanged, onOpenError, onOpenProjectCountChanged, onProjectSaved],
+  );
+
+  return (
+    <QueryClientProvider client={queryClient ?? defaultQueryClient}>
+      <HostCallbacksProvider callbacks={callbacks}>
+        <ProvidersProvider providers={runtimeProviders}>
+          <ExecutorSessionProvider hostConfig={executor}>
+            <RivetAppLoader loadingFallback={loadingFallback} storage={storage}>
+              <RivetAppHostLifecycle />
+              {onWorkspaceHostReady ? (
+                <RivetWorkspaceHostBridge onReady={onWorkspaceHostReady} onDispose={onWorkspaceHostDisposed} />
+              ) : null}
+              {children}
+            </RivetAppLoader>
+          </ExecutorSessionProvider>
+        </ProvidersProvider>
+      </HostCallbacksProvider>
+    </QueryClientProvider>
+  );
+}
+
+export { RivetApp } from './components/RivetApp.js';
+export { RivetAppLoader } from './components/RivetAppLoader.js';
+export {
+  ExecutorSessionProvider,
+  useExecutorSessionHostConfig,
+  useExecutorSessionRuntime,
+  type ExecutorSessionHostConfig,
+} from './providers/ExecutorSessionContext.js';
+export {
+  getDefaultProviders,
+  ProvidersProvider,
+  useAudioProvider,
+  useDataRefs,
+  useDatasetProvider,
+  useEnvironmentProvider,
+  useIOProvider,
+  usePathPolicyProvider,
+  useProviders,
+  type AppDatasetProvider,
+  type DataRefReader,
+  type DataRefStore,
+  type EnvironmentProvider,
+  type PathPolicyProvider,
+  type ProviderOverrides,
+  type Providers,
+} from './providers/ProvidersContext.js';
+export {
+  HostCallbacksProvider,
+  useRivetAppHostCallbacks,
+  type RivetAppHostActiveProjectChangedEvent,
+  type RivetAppHostCallbacks,
+  type RivetAppHostOpenErrorEvent,
+  type RivetAppHostOpenProjectCountChangedEvent,
+  type RivetAppHostProjectSavedEvent,
+} from './providers/HostCallbacksContext.js';
+export { RivetWorkspaceHostBridge, type RivetWorkspaceHostBridgeProps } from './components/RivetWorkspaceHostBridge.js';
+export {
+  createExecutorSessionRuntime,
+  DEFAULT_REMOTE_DEBUGGER_URL,
+  INTERNAL_EXECUTOR_URL,
+  type ExecutorSessionRuntime,
+  type ExecutorSessionState,
+  type ExecutorSessionStatus,
+  type PendingGraphExecution,
+} from './hooks/executorSession.js';
+export { useRivetWorkspaceHost } from './hooks/useRivetWorkspaceHost.js';
+export type {
+  MoveProjectPathsInput,
+  RivetProjectSnapshotInput,
+  RivetWorkspaceHost,
+} from './hooks/useRivetWorkspaceHost.js';
+export {
+  attachAndStartExecutorSidecar,
+  detachAndStopExecutorSidecar,
+  executorSidecarRuntime,
+} from './hooks/useExecutorSidecar.js';
+export {
+  fillMissingSettingsFromEnvironmentVariables,
+  getDefaultEnvironmentProvider,
+  getDefaultPathPolicyProvider,
+  getEnvVar,
+  isInTauri,
+} from './utils/tauri.js';
+export { getLLMChatV2CustomProviderApiKeyEnvVarNames } from './utils/chatV2CustomProviderEnv.js';
+export { configureHybridStorageBackend, IndexedDBStorage, type AsyncStorageBackend } from './state/storage.js';
+export type { IOProvider, PathBasedIOProvider } from './io/IOProvider.js';

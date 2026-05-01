@@ -16,7 +16,7 @@ const styles = css`
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
-    font-size: 16px;
+    font-size: var(--ui-font-size-lg);
 
     svg {
       color: white;

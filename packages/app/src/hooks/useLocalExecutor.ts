@@ -8,6 +8,10 @@ import {
   type GraphOutputs,
   type GraphId,
   type ProcessEvents,
+  GptTokenizerTokenizer,
+  logRuntimeDebug,
+  logRuntimeError,
+  logRuntimeInfo,
 } from '@ironclad/rivet-core';
 import { produce } from 'immer';
 import { useRef } from 'react';
@@ -22,15 +26,20 @@ import { recordExecutionsState, settingsState } from '../state/settings';
 import { graphState } from '../state/graph';
 import { lastRecordingState, loadedRecordingState } from '../state/execution';
 import { fillMissingSettingsFromEnvironmentVariables } from '../utils/tauri';
+import { getLLMChatV2CustomProviderApiKeyEnvVarNames } from '../utils/chatV2CustomProviderEnv';
 import { trivetState } from '../state/trivet';
 import { runTrivet } from '@ironclad/trivet';
-import { entries } from '../../../core/src/utils/typeSafety';
+import { entries } from '../utils/typeSafety';
 import { lastRunDataByNodeState } from '../state/dataFlow';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { TauriProjectReferenceLoader } from '../model/TauriProjectReferenceLoader';
-import { useAudioProvider, useDatasetProvider } from '../providers/ProvidersContext';
+import {
+  useAudioProvider,
+  useDatasetProvider,
+  useEnvironmentProvider,
+  usePathPolicyProvider,
+} from '../providers/ProvidersContext';
 import { setUserInputSubmitHandler } from '../state/actions/userInputActions';
-import { GptTokenizerTokenizer } from '../../../core/src/integrations/GptTokenizerTokenizer';
 import { useProjectNodeRegistry } from './useProjectNodeRegistry';
 import { handleError } from '../utils/errorHandling.js';
 import { getDependentDataForNodeForPreload } from './remoteExecutorHelpers.js';
@@ -48,7 +57,7 @@ import { getDependentDataForNodeForPreload } from './remoteExecutorHelpers.js';
  * messages (macrotasks), giving the browser natural repaint opportunities.
  *
  * `MessageChannel` posts a macrotask with near-zero latency (unlike
- * `setTimeout(0)` which has a ≥4 ms minimum).  By returning a Promise that
+ * `setTimeout(0)` which has a >=4 ms minimum).  By returning a Promise that
  * resolves on the next macrotask, any `await yieldToMacrotask()` inside an
  * Emittery listener pauses the GraphProcessor (which `await`s the `emit()`
  * call), lets React flush and the browser repaint, then resumes processing.
@@ -64,6 +73,8 @@ function yieldToMacrotask(): Promise<void> {
 export function useLocalExecutor() {
   const audioProvider = useAudioProvider();
   const datasetProvider = useDatasetProvider();
+  const environmentProvider = useEnvironmentProvider();
+  const pathPolicy = usePathPolicyProvider();
   const projectNodeRegistry = useProjectNodeRegistry();
   const project = useAtomValue(projectState);
   const graph = useAtomValue(graphState);
@@ -80,6 +91,18 @@ export function useLocalExecutor() {
   const projectContext = useAtomValue(projectContextState(project.metadata.id));
   const lastRunData = useAtomValue(lastRunDataByNodeState);
   const loadedProject = useAtomValue(loadedProjectState);
+  const editorExecutionCachesByProjectId = useRef(new Map<string, Map<string, unknown>>());
+
+  function getEditorExecutionCache(projectId: string) {
+    let cache = editorExecutionCachesByProjectId.current.get(projectId);
+
+    if (!cache) {
+      cache = new Map<string, unknown>();
+      editorExecutionCachesByProjectId.current.set(projectId, cache);
+    }
+
+    return cache;
+  }
 
   function attachGraphEvents(processor: GraphProcessor) {
     // nodeStart and nodeFinish use awaited emit in GraphProcessor, so returning
@@ -122,7 +145,7 @@ export function useLocalExecutor() {
     });
     processor.on('graphFinish', currentExecution.onGraphFinish);
     processor.on('nodeOutputsCleared', currentExecution.onNodeOutputsCleared);
-    processor.on('trace', (log) => console.log(log));
+    processor.on('trace', (trace) => logRuntimeDebug('Local graph trace', { trace }));
     processor.on('pause', currentExecution.onPause);
     processor.on('resume', currentExecution.onResume);
     processor.on('error', currentExecution.onError);
@@ -205,13 +228,18 @@ export function useLocalExecutor() {
               settings: await fillMissingSettingsFromEnvironmentVariables(
                 savedSettings,
                 projectNodeRegistry.getPlugins(),
+                {
+                  environmentProvider,
+                  extraEnvVarNames: getLLMChatV2CustomProviderApiKeyEnvVarNames(tempProject),
+                },
               ),
               nativeApi: new TauriNativeApi(),
               datasetProvider,
               audioProvider,
               tokenizer: new GptTokenizerTokenizer(),
               projectPath: loadedProject.path ?? undefined,
-              projectReferenceLoader: new TauriProjectReferenceLoader(),
+              projectReferenceLoader: new TauriProjectReferenceLoader(pathPolicy),
+              editorExecutionCache: getEditorExecutionCache(tempProject.metadata.id),
             },
             {},
             contextValues,
@@ -222,7 +250,7 @@ export function useLocalExecutor() {
           setLastRecordingState(recorder.serialize());
         }
       } catch (e) {
-        console.log(e);
+        logRuntimeError('Local graph run failed.', e);
       }
     },
   );
@@ -232,7 +260,11 @@ export function useLocalExecutor() {
       toast.info(
         (options.iterationCount ?? 1) > 1 ? `Running Tests (${options.iterationCount!} iterations)` : 'Running Tests',
       );
-      console.log(`trying to run tests`);
+      logRuntimeInfo('Running local Trivet tests', {
+        selectedTestSuiteCount: options.testSuiteIds?.length,
+        selectedTestCaseCount: options.testCaseIds?.length,
+        iterationCount: options.iterationCount ?? 1,
+      });
       currentExecution.onTrivetStart();
 
       setTrivetState((s) => ({
@@ -270,6 +302,10 @@ export function useLocalExecutor() {
                 settings: await fillMissingSettingsFromEnvironmentVariables(
                   savedSettings,
                   projectNodeRegistry.getPlugins(),
+                  {
+                    environmentProvider,
+                    extraEnvVarNames: getLLMChatV2CustomProviderApiKeyEnvVarNames(project),
+                  },
                 ),
                 nativeApi: new TauriNativeApi(),
                 datasetProvider,
@@ -290,7 +326,11 @@ export function useLocalExecutor() {
             result.testSuiteResults.filter((t) => t.passing).length
           } passing`,
         );
-        console.log(result);
+        logRuntimeInfo('Finished local Trivet tests', {
+          testSuiteCount: result.testSuiteResults.length,
+          passingTestSuiteCount: result.testSuiteResults.filter((testSuite) => testSuite.passing).length,
+          iterationCount: result.iterationCount,
+        });
       } catch (e) {
         setTrivetState((s) => ({
           ...s,

@@ -91,12 +91,13 @@ const modalBodyStyles = css`
     span {
       background: var(--grey-darkest);
       padding: 4px 8px;
-      border-radius: 8px;
+      border-radius: 16px;
+      corner-shape: squircle;
     }
   }
 
   .date {
-    font-size: 12px;
+    font-size: var(--ui-font-size-sm);
     margin-left: 16px;
     margin-top: 4px;
   }

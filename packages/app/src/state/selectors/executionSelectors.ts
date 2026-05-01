@@ -143,6 +143,7 @@ export function getNodeExecutionClassFlags(runData: NodeRunDataWithRefs | undefi
   return {
     success: status === 'ok',
     error: status === 'error',
+    interrupted: status === 'interrupted',
     running: status === 'running',
     'not-ran': status === 'notRan',
   };
@@ -156,6 +157,7 @@ export function getActionBarExecutionState(options: {
 }) {
   const { graphPaused, graphRunning, selectedExecutor, session } = options;
   const canRun = session.status === 'ready' || selectedExecutor === 'browser';
+  const showRunButton = selectedExecutor === 'nodejs' || canRun;
   const isActuallyRemoteDebugging = session.status !== 'idle' && !session.isInternalExecutor;
   const showRemoteDebuggerBanner = isActuallyRemoteDebugging || (!session.isInternalExecutor && session.reconnecting);
 
@@ -164,6 +166,7 @@ export function getActionBarExecutionState(options: {
     graphPaused,
     graphRunning,
     isActuallyRemoteDebugging,
+    showRunButton,
     showRemoteDebuggerBanner,
   };
 }

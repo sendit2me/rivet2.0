@@ -17,14 +17,18 @@ import {
 } from '@ironclad/trivet';
 import { saveDatasetsFile, loadDatasetsFile } from './datasets.js';
 import { type AppDatasetProvider } from '../providers/ProvidersContext.js';
+import type { PathPolicyProvider } from '../providers/ProvidersContext.js';
 import { openDialog, saveDialog } from '../utils/platform/dialog.js';
 import { nativeReadBinaryFile, nativeReadTextFile, nativeWriteFile } from '../utils/platform/fs.js';
+import { getDefaultPathPolicyProvider } from '../utils/tauri.js';
 
 export class TauriIOProvider implements PathBasedIOProvider {
   readonly #datasetProvider: AppDatasetProvider;
+  readonly #pathPolicy: PathPolicyProvider;
 
-  constructor(datasetProvider: AppDatasetProvider) {
+  constructor(datasetProvider: AppDatasetProvider, pathPolicy: PathPolicyProvider = getDefaultPathPolicyProvider()) {
     this.#datasetProvider = datasetProvider;
+    this.#pathPolicy = pathPolicy;
   }
 
   static isSupported(): boolean {
@@ -75,7 +79,7 @@ export class TauriIOProvider implements PathBasedIOProvider {
         path: filePath,
       });
 
-      await saveDatasetsFile(filePath, project, this.#datasetProvider);
+      await saveDatasetsFile(filePath, project, this.#datasetProvider, this.#pathPolicy);
 
       return filePath;
     }
@@ -93,7 +97,7 @@ export class TauriIOProvider implements PathBasedIOProvider {
       path,
     });
 
-    await saveDatasetsFile(path, project, this.#datasetProvider);
+    await saveDatasetsFile(path, project, this.#datasetProvider, this.#pathPolicy);
   }
 
   async loadGraphData(callback: (graphData: NodeGraph) => void) {
@@ -145,7 +149,7 @@ export class TauriIOProvider implements PathBasedIOProvider {
       ? deserializeTrivetData(attachedData.trivet as SerializedTrivetData)
       : { testSuites: [] };
 
-    await loadDatasetsFile(path, projectData, this.#datasetProvider);
+    await loadDatasetsFile(path, projectData, this.#datasetProvider, this.#pathPolicy);
 
     return { project: projectData, testData: trivetData };
   }

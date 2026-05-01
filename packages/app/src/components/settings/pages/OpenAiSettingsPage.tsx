@@ -2,12 +2,13 @@ import { type FC, useState } from 'react';
 import { useAtom } from 'jotai';
 import TextField from '@atlaskit/textfield';
 import Button from '@atlaskit/button';
-import { Field, HelperMessage } from '@atlaskit/form';
-import { DEFAULT_CHAT_NODE_TIMEOUT } from '../../../../../core/src/utils/defaults';
-import { entries } from '../../../../../core/src/utils/typeSafety';
+import { Field } from '@atlaskit/form';
+import { DEFAULT_CHAT_NODE_TIMEOUT } from '@ironclad/rivet-core';
+import { entries } from '../../../utils/typeSafety';
 import { KeyValuePairs } from '../../editors/KeyValuePairEditor.js';
 import { settingsState } from '../../../state/settings.js';
 import { fields } from '../settingsPageStyles.js';
+import { FieldHelperMessage } from '../../FieldHelperMessage.js';
 
 export const OpenAiSettingsPage: FC = () => {
   const [settings, setSettings] = useAtom(settingsState);
@@ -47,6 +48,7 @@ export const OpenAiSettingsPage: FC = () => {
       <Field name="api-key" label="OpenAI API Key">
         {() => (
           <>
+            <FieldHelperMessage>You may also set the OPENAI_API_KEY environment variable</FieldHelperMessage>
             <TextField
               type="password"
               value={settings.openAiKey}
@@ -54,13 +56,16 @@ export const OpenAiSettingsPage: FC = () => {
                 setSettings((state) => ({ ...state, openAiKey: (event.target as HTMLInputElement).value }))
               }
             />
-            <HelperMessage>You may also set the OPENAI_API_KEY environment variable</HelperMessage>
           </>
         )}
       </Field>
       <Field name="organization" label="OpenAI Organization">
         {() => (
           <>
+            <FieldHelperMessage>
+              You may also set the OPENAI_ORG_ID environment variable. This is only required if you are a member of a
+              shared organization.
+            </FieldHelperMessage>
             <TextField
               value={settings.openAiOrganization}
               onChange={(event) =>
@@ -70,16 +75,17 @@ export const OpenAiSettingsPage: FC = () => {
                 }))
               }
             />
-            <HelperMessage>
-              You may also set the OPENAI_ORG_ID environment variable. This is only required if you are a member of a
-              shared organization.
-            </HelperMessage>
           </>
         )}
       </Field>
       <Field name="timeout" label="OpenAI Timeout (ms)">
         {() => (
           <>
+            <FieldHelperMessage>
+              The timeout for the initial response for a Chat node. If you are using local models, you may need to
+              increase this. Chat nodes are automatically retried if they time out. If you notice a chat node hanging
+              for a long time, you may want to increase this.
+            </FieldHelperMessage>
             <TextField
               type="number"
               value={settings.chatNodeTimeout ?? DEFAULT_CHAT_NODE_TIMEOUT}
@@ -92,11 +98,6 @@ export const OpenAiSettingsPage: FC = () => {
                 }
               }}
             />
-            <HelperMessage>
-              The timeout for the initial response for a Chat node. If you are using local models, you may need to
-              increase this. Chat nodes are automatically retried if they time out. If you notice a chat node hanging
-              for a long time, you may want to increase this.
-            </HelperMessage>
           </>
         )}
       </Field>
@@ -105,22 +106,22 @@ export const OpenAiSettingsPage: FC = () => {
           {() => (
             <div className="auto-configurations">
               <div className="configure-azure">
+                <FieldHelperMessage>
+                  You can click this button to set up a configuration for Azure OpenAI. You will have to fill in
+                  placeholder fields in the OpenAI Endpoint, and fill in your API key header.
+                </FieldHelperMessage>
                 <Button appearance="primary" onClick={configureAzure}>
                   Configure For Azure OpenAI
                 </Button>
-                <HelperMessage>
-                  You can click this button to set up a configuration for Azure OpenAI. You will have to fill in
-                  placeholder fields in the OpenAI Endpoint, and fill in your API key header.
-                </HelperMessage>
               </div>
               <div className="configure-lmstudio">
+                <FieldHelperMessage>
+                  You can click this button to set up a configuration for LM Studio. You will also need to either use
+                  the Node executor, or enable CORS in your LM Studio settings.
+                </FieldHelperMessage>
                 <Button appearance="primary" onClick={configureLmStudio}>
                   Configure For LM Studio
                 </Button>
-                <HelperMessage>
-                  You can click this button to set up a configuration for LM Studio. You will also need to either use
-                  the Node executor, or enable CORS in your LM Studio settings.
-                </HelperMessage>
               </div>
             </div>
           )}
@@ -129,16 +130,16 @@ export const OpenAiSettingsPage: FC = () => {
       <Field name="organization" label="OpenAI Endpoint">
         {() => (
           <>
+            <FieldHelperMessage>
+              Default endpoint to use for Chat nodes. Set to any OpenAI-compatible API endpoint. Leave blank to use
+              OpenAI itself. You may also set the OPENAI_API_ENDPOINT environment variable.
+            </FieldHelperMessage>
             <TextField
               value={settings.openAiEndpoint}
               onChange={(event) =>
                 setSettings((state) => ({ ...state, openAiEndpoint: (event.target as HTMLInputElement).value }))
               }
             />
-            <HelperMessage>
-              Default endpoint to use for Chat nodes. Set to any OpenAI-compatible API endpoint. Leave blank to use
-              OpenAI itself. You may also set the OPENAI_API_ENDPOINT environment variable.
-            </HelperMessage>
           </>
         )}
       </Field>

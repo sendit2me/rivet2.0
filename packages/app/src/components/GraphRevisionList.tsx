@@ -30,15 +30,16 @@ export const revisionStyles = css`
   }
 
   .hash {
-    border-radius: 8px;
+    border-radius: 16px;
+    corner-shape: squircle;
     background-color: black;
     display: inline-flex;
     padding: 2px 4px;
-    font-size: 11px;
+    font-size: var(--ui-font-size-xs);
   }
 
   .message {
-    font-size: 12px;
+    font-size: var(--ui-font-size-sm);
   }
 
   .loading-area {

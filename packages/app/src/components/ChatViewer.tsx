@@ -7,16 +7,14 @@ import clsx from 'clsx';
 import {
   type BuiltInNodes,
   type ChartNode,
-  type DataValue,
   type NodeId,
   type PortId,
   type ProcessId,
-  type ScalarOrArrayDataValue,
   arrayizeDataValue,
-  coerceTypeOptional,
+  isFunctionDataType,
+  type ScalarOrArrayDataValue,
 } from '@ironclad/rivet-core';
 import {
-  type NodeRunData,
   lastRunDataByNodeState,
   graphRunningState,
   type NodeRunDataWithRefs,
@@ -30,6 +28,9 @@ import MaximizeIcon from 'majesticons/line/maximize-line.svg?react';
 import MinimizeIcon from 'majesticons/line/minimize-line.svg?react';
 import { useToggle } from 'ahooks';
 import { FixedSizeList } from 'react-window';
+import { RenderDataValue } from './RenderDataValue.js';
+import { useDataRefs } from '../providers/ProvidersContext.js';
+import { restoreStoredPortValue } from '../utils/executionDataReaders.js';
 
 export const ChatViewerRenderer: FC = () => {
   const [openOverlay, setOpenOverlay] = useAtom(overlayOpenState);
@@ -55,7 +56,8 @@ const styles = css`
 
   .controls-filters {
     padding: 12px 16px;
-    border-radius: 5px;
+    border-radius: 10px;
+    corner-shape: squircle;
     background-color: var(--grey-darkish);
     display: flex;
     align-items: center;
@@ -90,7 +92,8 @@ const styles = css`
     width: 500px;
 
     border: 1px solid var(--primary);
-    border-radius: 10px;
+    border-radius: 20px;
+    corner-shape: squircle;
     box-shadow: 0 0 10px var(--shadow-primary-bright);
 
     &.complete,
@@ -126,7 +129,8 @@ const styles = css`
     header {
       padding: 0 15px;
       background-color: var(--grey-darkish);
-      border-radius: 10px 10px 0 0;
+      border-radius: 20px 20px 0 0;
+      corner-shape: squircle;
       border-bottom: 1px solid var(--grey-light);
       display: flex;
       align-items: center;
@@ -334,30 +338,38 @@ const ChatBubble: FC<{
   style?: CSSProperties;
   onGoToNode?: (nodeId: NodeId) => void;
 }> = ({ nodeId, nodeTitle, splitIndex, data, graphName, style, onGoToNode }) => {
+  const dataRefs = useDataRefs();
   const promptRef = useRef<HTMLDivElement>(null);
   const responseRef = useRef<HTMLDivElement>(null);
   const [expanded, toggleExpanded] = useToggle();
 
-  let prompt: DataValueWithRefs;
-
-  if (splitIndex === -1) {
-    prompt = data.inputData?.['prompt' as PortId]!;
-  } else {
-    const values = arrayizeDataValue(data.inputData?.['prompt' as PortId] as ScalarOrArrayDataValue);
-    if (values.length === 1) {
-      prompt = values[0]! as DataValueWithRefs;
-    } else {
-      prompt = values[splitIndex]! as DataValueWithRefs;
+  const prompt = useMemo(() => {
+    const promptValue = data.inputData?.['prompt' as PortId];
+    if (!promptValue) {
+      return undefined;
     }
-  }
 
-  const chatOutput =
-    splitIndex === -1
-      ? data.outputData?.['response' as PortId]
-      : data.splitOutputData![splitIndex]!['response' as PortId];
+    if (splitIndex === -1) {
+      return promptValue;
+    }
 
-  const promptText = coerceTypeOptional(prompt as DataValue, 'string');
-  const responseText = coerceTypeOptional(chatOutput as DataValue, 'string');
+    const restoredPromptValue = restoreStoredPortValue(data.inputData, 'prompt' as PortId, dataRefs);
+    if (!restoredPromptValue || isFunctionDataType(restoredPromptValue.type)) {
+      return promptValue;
+    }
+
+    const values = arrayizeDataValue(restoredPromptValue as ScalarOrArrayDataValue);
+    return values[splitIndex] ?? values[0] ?? promptValue;
+  }, [data.inputData, dataRefs, splitIndex]);
+
+  const chatOutput = useMemo(
+    () =>
+      splitIndex === -1
+        ? data.outputData?.['response' as PortId]
+        : data.splitOutputData?.[splitIndex]?.['response' as PortId],
+    [data.outputData, data.splitOutputData, splitIndex],
+  );
+  const renderMode = expanded || data.status?.type !== 'ok' ? 'expanded-preview' : 'compact';
 
   useLayoutEffect(() => {
     if (promptRef.current) {
@@ -367,7 +379,7 @@ const ChatBubble: FC<{
         promptRef.current.scrollTop = promptRef.current.scrollHeight;
       }
     }
-  }, [promptText, data.status?.type]);
+  }, [data.status?.type, prompt]);
 
   useLayoutEffect(() => {
     if (responseRef.current) {
@@ -377,7 +389,7 @@ const ChatBubble: FC<{
         responseRef.current.scrollTop = responseRef.current.scrollHeight;
       }
     }
-  }, [responseText, data.status?.type]);
+  }, [chatOutput, data.status?.type]);
 
   if (!chatOutput) {
     return null;
@@ -407,12 +419,12 @@ const ChatBubble: FC<{
       </header>
       {expanded || data.status?.type !== 'ok' ? (
         <div className="prompt" ref={promptRef}>
-          {promptText}
+          <RenderDataValue value={prompt} mode={renderMode} />
         </div>
       ) : null}
       <div className="line" />
       <div className="response" ref={responseRef}>
-        {responseText}
+        <RenderDataValue value={chatOutput as DataValueWithRefs | undefined} mode={renderMode} />
       </div>
     </div>
   );

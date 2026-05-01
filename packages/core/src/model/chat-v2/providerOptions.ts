@@ -1,6 +1,7 @@
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createOpenAI } from '@ai-sdk/openai';
+import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import { DEFAULT_CHAT_ENDPOINT } from '../../utils/defaults.js';
 import { cleanHeaders } from '../../utils/inputs.js';
 import type { InternalProcessContext } from '../ProcessContext.js';
@@ -11,6 +12,7 @@ export const chatV2ProviderOptions = [
   { value: 'openai', label: 'OpenAI' },
   { value: 'anthropic', label: 'Anthropic' },
   { value: 'google', label: 'Google' },
+  { value: 'custom', label: 'Custom provider' },
 ] as const;
 
 export const openAIReasoningEffortOptions = [
@@ -30,9 +32,26 @@ export const openAIWebSearchContextSizeOptions = [
 ];
 
 export const anthropicThinkingModeOptions = [
+  { value: '', label: 'Default' },
   { value: 'adaptive', label: 'Adaptive' },
   { value: 'enabled', label: 'Enabled' },
   { value: 'disabled', label: 'Disabled' },
+];
+
+export const anthropicEffortOptions = [
+  { value: '', label: 'Default' },
+  { value: 'low', label: 'Low' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'high', label: 'High' },
+  { value: 'max', label: 'Max' },
+];
+
+export const googleThinkingLevelOptions = [
+  { value: '', label: 'Default' },
+  { value: 'minimal', label: 'Minimal' },
+  { value: 'low', label: 'Low' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'high', label: 'High' },
 ];
 
 export const anthropicCacheControlTtlOptions = [
@@ -64,6 +83,8 @@ export function getDefaultChatV2Model(provider: ChatV2Provider): string {
       return 'claude-sonnet-4-20250514';
     case 'google':
       return 'gemini-2.5-flash';
+    case 'custom':
+      return 'model-id';
   }
 }
 
@@ -72,13 +93,15 @@ export function parseChatV2Provider(value: string): ChatV2Provider {
     case 'openai':
     case 'anthropic':
     case 'google':
+    case 'custom':
       return value;
     default:
-      throw new Error(`Unsupported LLM Chat v2 provider: ${value}`);
+      throw new Error(`Unsupported LLM Chat provider: ${value}`);
   }
 }
 
 export type CreateChatV2ModelOptions = {
+  apiKey?: string | undefined;
   baseURL?: string | undefined;
   headers?: Record<string, string> | undefined;
 };
@@ -105,6 +128,10 @@ function openAIEndpointToBaseURL(endpoint: string): string {
   } catch {
     return removeTrailingSlash(normalized);
   }
+}
+
+export function openAICompatibleEndpointToBaseURL(endpoint: string): string {
+  return openAIEndpointToBaseURL(endpoint);
 }
 
 function openAIBaseURLToEndpoint(baseURL: string): string {
@@ -165,6 +192,19 @@ export async function resolveChatV2ProviderConfig(
         baseURL: options.baseURL || undefined,
         headers: Object.keys(headers).length > 0 ? headers : undefined,
       };
+
+    case 'custom': {
+      const configuredBaseURL = options.baseURL?.trim();
+
+      if (!configuredBaseURL) {
+        throw new Error('Provider base URL is required when provider is Custom provider.');
+      }
+
+      return {
+        baseURL: openAICompatibleEndpointToBaseURL(configuredBaseURL),
+        headers: Object.keys(headers).length > 0 ? headers : undefined,
+      };
+    }
   }
 }
 
@@ -177,7 +217,7 @@ export function createChatV2Model(
   switch (provider) {
     case 'openai': {
       const providerInstance = createOpenAI({
-        apiKey: context.settings.openAiKey || undefined,
+        apiKey: options.apiKey || context.settings.openAiKey || undefined,
         organization: context.settings.openAiOrganization || undefined,
         baseURL: options.baseURL || undefined,
         headers: options.headers,
@@ -188,7 +228,7 @@ export function createChatV2Model(
 
     case 'anthropic': {
       const providerInstance = createAnthropic({
-        apiKey: context.getPluginConfig('anthropicApiKey') || undefined,
+        apiKey: options.apiKey || context.getPluginConfig('anthropicApiKey') || undefined,
         baseURL: options.baseURL || context.getPluginConfig('anthropicApiEndpoint') || undefined,
         headers: options.headers,
       });
@@ -198,12 +238,28 @@ export function createChatV2Model(
 
     case 'google': {
       const providerInstance = createGoogleGenerativeAI({
-        apiKey: context.getPluginConfig('googleApiKey') || undefined,
+        apiKey: options.apiKey || context.getPluginConfig('googleApiKey') || undefined,
         baseURL: options.baseURL || undefined,
         headers: options.headers,
       });
 
       return providerInstance.chat(modelId);
+    }
+
+    case 'custom': {
+      if (!options.baseURL) {
+        throw new Error('Provider base URL is required when provider is Custom provider.');
+      }
+
+      const providerInstance = createOpenAICompatible({
+        name: 'custom',
+        apiKey: options.apiKey,
+        baseURL: options.baseURL,
+        headers: options.headers,
+        includeUsage: true,
+      });
+
+      return providerInstance.chatModel(modelId);
     }
   }
 }

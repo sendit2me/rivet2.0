@@ -23,6 +23,7 @@ import { coerceType, coerceTypeOptional } from '../../utils/coerceType.js';
 import { getInputOrData } from '../../utils/index.js';
 import { interpolate, extractInterpolationVariables } from '../../utils/interpolation.js';
 import { match } from 'ts-pattern';
+import { createInterpolationInputDefinition } from '../interpolationInputDefinition.js';
 
 export type PromptNode = ChartNode<'prompt', PromptNodeData>;
 
@@ -103,12 +104,11 @@ export class PromptNodeImpl extends NodeImpl<PromptNode> {
     inputs = [
       ...inputs,
       ...(inputNames?.map((inputName): NodeInputDefinition => {
-        return {
-          id: inputName as PortId,
-          title: inputName,
+        return createInterpolationInputDefinition({
+          interpolationName: inputName,
           dataType: 'string',
           required: false,
-        };
+        });
       }) ?? []),
     ];
 
@@ -196,9 +196,9 @@ export class PromptNodeImpl extends NodeImpl<PromptNode> {
     return [
       {
         type: 'markdown',
-        text: dedent`
-          _${typeDisplay[this.data.type]}${this.data.name ? ` (${this.data.name})` : ''}_ ${this.data.isCacheBreakpoint ? ' (Cache Breakpoint)' : ''}
-      `,
+        text: `_${typeDisplay[this.data.type]}${this.data.name ? ` (${this.data.name})` : ''}_${
+          this.data.isCacheBreakpoint ? ' (Cache Breakpoint)' : ''
+        }`,
       },
       {
         type: 'colorized',

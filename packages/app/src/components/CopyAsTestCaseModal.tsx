@@ -1,19 +1,20 @@
 import Modal, { ModalTransition, ModalBody, ModalHeader, ModalFooter, ModalTitle } from '@atlaskit/modal-dialog';
 import { type FC, useState } from 'react';
 import Select from '@atlaskit/select';
-import TextField from '@atlaskit/textfield';
 import { LazyCodeEditor } from './LazyComponents';
 import { useAtomValue, useAtom, useSetAtom } from 'jotai';
 import { lastRunDataByNodeState } from '../state/dataFlow';
 import { graphState } from '../state/graph';
-import { BuiltInNodeType, type BuiltInNodes, type GraphInputNode, type PortId } from '@ironclad/rivet-core';
-import { max, maxBy, range } from 'lodash-es';
-import { Field, Label } from '@atlaskit/form';
+import { type BuiltInNodes, type GraphInputNode, type PortId } from '@ironclad/rivet-core';
+import { max, range } from 'lodash-es';
+import { Label } from '@atlaskit/form';
 import { css } from '@emotion/react';
 import { trivetState } from '../state/trivet';
 import { useTestSuite } from '../hooks/useTestSuite';
 import Button from '@atlaskit/button';
 import { overlayOpenState } from '../state/ui';
+import { useDataRefs } from '../providers/ProvidersContext.js';
+import { restoreStoredPortValue } from '../utils/executionDataReaders.js';
 
 const body = css`
   min-height: 500px;
@@ -49,6 +50,7 @@ export const CopyAsTestCaseModal: FC<{
   const [{ testSuites }, setTrivetState] = useAtom(trivetState);
   const { addTestCase } = useTestSuite(selectedTestSuiteId);
   const setOverlay = useSetAtom(overlayOpenState);
+  const dataRefs = useDataRefs();
 
   const inputNodes = graph.nodes.filter((n) => (n as BuiltInNodes).type === 'graphInput') as GraphInputNode[];
   const lastRunDataForInputNodes = inputNodes.map((n) => lastRunData[n.id]);
@@ -77,9 +79,9 @@ export const CopyAsTestCaseModal: FC<{
 
     return {
       ...acc,
-      [node.data.id]: data.data.outputData?.['data' as PortId]?.value ?? null,
+      [node.data.id]: restoreStoredPortValue(data.data.outputData, 'data' as PortId, dataRefs)?.value ?? null,
     };
-  }, {});
+  }, {} as Record<string, unknown>);
 
   const testSuiteOptions = testSuites.map((ts) => ({
     label: ts.name,

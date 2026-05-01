@@ -28,6 +28,8 @@ export const GptFunctionNodeJsonSchemaAiAssistEditor: FC<
       graphName="Structured Outputs JSON Schema Generator"
       placeholder="What would you like your schema to be?"
       label="Generate Using AI"
+      collapsible
+      defaultOpen={false}
       updateData={(currentData, outputs) => {
         const schema = coerceTypeOptional(outputs.schema, 'string');
 

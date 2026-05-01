@@ -11,9 +11,11 @@ import { nodeDefinition } from '../NodeDefinition.js';
 import { type DataValue } from '../DataValue.js';
 import { JSONPath } from 'jsonpath-plus';
 import { expectType } from '../../utils/expectType.js';
-import { type EditorDefinition, type NodeBodySpec } from '../../index.js';
+import { type EditorDefinition, type InternalProcessContext, type NodeBodySpec } from '../../index.js';
 import { dedent } from 'ts-dedent';
 import { coerceTypeOptional } from '../../utils/coerceType.js';
+import { extractInterpolationVariables, interpolate } from '../../utils/interpolation.js';
+import { createInterpolationInputDefinition } from '../interpolationInputDefinition.js';
 
 export type ExtractObjectPathNode = ChartNode<'extractObjectPath', ExtractObjectPathNodeData>;
 
@@ -21,6 +23,39 @@ export type ExtractObjectPathNodeData = {
   path: string;
   usePathInput: boolean;
 };
+
+// Keep built-in ports from becoming implicit interpolation variables.
+const RESERVED_INPUT_IDS = new Set<PortId>(['object' as PortId]);
+
+export function getExtractObjectPathInterpolationInputNames(path: string): string[] {
+  return extractInterpolationVariables(path).filter((inputName) => !RESERVED_INPUT_IDS.has(inputName as PortId));
+}
+
+function buildExtractObjectPathInterpolationInputs(
+  path: string,
+  inputs: Record<PortId, DataValue>,
+): Record<string, DataValue | string | undefined> {
+  return Object.fromEntries(
+    extractInterpolationVariables(path).map((inputName) => [
+      inputName,
+      RESERVED_INPUT_IDS.has(inputName as PortId) ? '' : inputs[inputName as PortId],
+    ]),
+  ) as Record<string, DataValue | string | undefined>;
+}
+
+export function interpolateExtractObjectPathSource(
+  path: string,
+  inputs: Record<PortId, DataValue>,
+  graphInputValues?: Record<string, DataValue>,
+  contextValues?: Record<string, DataValue>,
+): string {
+  return interpolate(
+    path,
+    buildExtractObjectPathInterpolationInputs(path, inputs),
+    graphInputValues,
+    contextValues,
+  ).trim();
+}
 
 export class ExtractObjectPathNodeImpl extends NodeImpl<ExtractObjectPathNode> {
   static create(): ExtractObjectPathNode {
@@ -42,7 +77,12 @@ export class ExtractObjectPathNodeImpl extends NodeImpl<ExtractObjectPathNode> {
     return chartNode;
   }
 
+  private getInterpolationInputNames(): string[] {
+    return getExtractObjectPathInterpolationInputNames(this.chartNode.data.path ?? '');
+  }
+
   getInputDefinitions(): NodeInputDefinition[] {
+    const { usePathInput } = this.chartNode.data;
     const inputDefinitions: NodeInputDefinition[] = [
       {
         id: 'object' as PortId,
@@ -52,7 +92,7 @@ export class ExtractObjectPathNodeImpl extends NodeImpl<ExtractObjectPathNode> {
       },
     ];
 
-    if (this.chartNode.data.usePathInput) {
+    if (usePathInput) {
       inputDefinitions.push({
         id: 'path' as PortId,
         title: 'Path',
@@ -60,6 +100,16 @@ export class ExtractObjectPathNodeImpl extends NodeImpl<ExtractObjectPathNode> {
         required: true,
         coerced: false,
       });
+    } else {
+      for (const inputName of this.getInterpolationInputNames()) {
+        inputDefinitions.push(
+          createInterpolationInputDefinition({
+            interpolationName: inputName,
+            dataType: 'any',
+            required: false,
+          }),
+        );
+      }
     }
 
     return inputDefinitions;
@@ -107,20 +157,26 @@ export class ExtractObjectPathNodeImpl extends NodeImpl<ExtractObjectPathNode> {
     };
   }
 
-  async process(inputs: Record<PortId, DataValue>): Promise<Record<PortId, DataValue>> {
+  async process(
+    inputs: Record<PortId, DataValue>,
+    context: InternalProcessContext,
+  ): Promise<Record<PortId, DataValue>> {
+    const { usePathInput, path } = this.chartNode.data;
     const inputObject = coerceTypeOptional(inputs['object' as PortId], 'object');
-    const inputPath = this.chartNode.data.usePathInput
-      ? expectType(inputs['path' as PortId], 'string')
-      : this.chartNode.data.path;
+    const rawPath = usePathInput ? expectType(inputs['path' as PortId], 'string') : path;
 
-    if (!inputPath) {
+    if (!rawPath) {
       throw new Error('Path input is not provided');
     }
+
+    const inputPath = usePathInput
+      ? rawPath.trim()
+      : interpolateExtractObjectPathSource(rawPath, inputs, context.graphInputNodeValues, context.contextValues);
 
     let matches: unknown[];
     try {
       // Wrap doesn't seem to wrap when the input is undefined or null...
-      const match = JSONPath<unknown>({ json: inputObject ?? null, path: inputPath.trim(), wrap: true });
+      const match = JSONPath<unknown>({ json: inputObject ?? null, path: inputPath, wrap: true });
       matches = match == null ? [] : (match as unknown[]);
     } catch (err) {
       matches = [];

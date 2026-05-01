@@ -1,4 +1,7 @@
 import {
+  logRuntimeDebug,
+  logRuntimeInfo,
+  type CodeConsoleMessage,
   type NodeId,
   type RemoteRunRequestId,
   type StringArrayDataValue,
@@ -6,7 +9,7 @@ import {
 } from '@ironclad/rivet-core';
 import { useCurrentExecution } from './useCurrentExecution';
 import { graphState } from '../state/graph';
-import { defaultExecutorState, settingsState } from '../state/settings';
+import { settingsState } from '../state/settings';
 import { useExecutorSessionRuntime } from '../providers/ExecutorSessionContext.js';
 import { useRemoteDebugger } from './useRemoteDebugger';
 import { fillMissingSettingsFromEnvironmentVariables } from '../utils/tauri';
@@ -20,7 +23,6 @@ import { userInputModalQuestionsState } from '../state/userInput';
 import { lastRunDataByNodeState } from '../state/dataFlow';
 import { useAtomValue, useSetAtom, useAtom } from 'jotai';
 import { setUserInputSubmitHandler } from '../state/actions/userInputActions';
-import { INTERNAL_EXECUTOR_URL } from './executorSession';
 import { useEffect, useRef } from 'react';
 import { useProjectNodeRegistry } from './useProjectNodeRegistry';
 import {
@@ -31,9 +33,12 @@ import {
   selectTestSuitesToRun,
 } from './remoteExecutorHelpers.js';
 import { handleError } from '../utils/errorHandling.js';
+import { getLLMChatV2CustomProviderApiKeyEnvVarNames } from '../utils/chatV2CustomProviderEnv.js';
+import { useEnvironmentProvider } from '../providers/ProvidersContext.js';
 
 export function useRemoteExecutor() {
   const executorSession = useExecutorSessionRuntime();
+  const environmentProvider = useEnvironmentProvider();
   const activeGraphRequestIdRef = useRef<RemoteRunRequestId | null>(null);
   const projectNodeRegistry = useProjectNodeRegistry();
   const project = useAtomValue(projectState);
@@ -46,7 +51,6 @@ export function useRemoteExecutor() {
   const savedSettings = useAtomValue(settingsState);
   const [{ testSuites }, setTrivetState] = useAtom(trivetState);
   const setUserInputQuestions = useSetAtom(userInputModalQuestionsState);
-  const selectedExecutor = useAtomValue(defaultExecutorState);
   const lastRunData = useAtomValue(lastRunDataByNodeState);
   const loadedProject = useAtomValue(loadedProjectState);
 
@@ -54,11 +58,6 @@ export function useRemoteExecutor() {
     onDisconnect: () => {
       activeGraphRequestIdRef.current = null;
       currentExecution.onStop();
-
-      // If we're using the node executor, disconnecting means reconnecting to the internal executor
-      if (selectedExecutor === 'nodejs') {
-        remoteDebugger.connect(INTERNAL_EXECUTOR_URL);
-      }
     },
   });
 
@@ -69,6 +68,11 @@ export function useRemoteExecutor() {
       const shouldDispatchExecutionEvent = requestId == null || requestId === activeGraphRequestIdRef.current;
 
       switch (message) {
+        case 'codeConsole':
+          if (shouldDispatchExecutionEvent) {
+            logCodeConsoleMessage(data as CodeConsoleMessage);
+          }
+          break;
         case 'nodeStart':
           if (shouldDispatchExecutionEvent) {
             eventDispatcher.nodeStart(data);
@@ -144,7 +148,7 @@ export function useRemoteExecutor() {
           break;
         case 'trace':
           if (shouldDispatchExecutionEvent) {
-            console.log(`remote: ${data}`);
+            logRuntimeDebug('Remote graph trace', { trace: data });
           }
           break;
         case 'pause':
@@ -177,6 +181,9 @@ export function useRemoteExecutor() {
 
   const tryRunGraph = async (options: { to?: NodeId[]; from?: NodeId; graphId?: GraphId } = {}) => {
     if (!executorSession.isReady()) {
+      logRuntimeDebug('Remote graph run skipped because executor session is not ready.', {
+        status: executorSession.getRuntimeState().status,
+      });
       return;
     }
 
@@ -193,18 +200,20 @@ export function useRemoteExecutor() {
 
     try {
       if (remoteDebugger.sessionState.remoteUploadAllowed) {
-        remoteDebugger.send('set-dynamic-data', {
-          project: {
-            ...project,
-            graphs: {
-              ...project.graphs,
-              [graph.metadata!.id!]: graph,
-            },
+        const projectToUpload = {
+          ...project,
+          graphs: {
+            ...project.graphs,
+            [graph.metadata!.id!]: graph,
           },
-          settings: await fillMissingSettingsFromEnvironmentVariables(
-            savedSettings,
-            projectNodeRegistry.getPlugins(),
-          ),
+        };
+
+        remoteDebugger.send('set-dynamic-data', {
+          project: projectToUpload,
+          settings: await fillMissingSettingsFromEnvironmentVariables(savedSettings, projectNodeRegistry.getPlugins(), {
+            environmentProvider,
+            extraEnvVarNames: getLLMChatV2CustomProviderApiKeyEnvVarNames(projectToUpload),
+          }),
         });
 
         for (const [id, dataValue] of Object.entries(projectData ?? {})) {
@@ -217,7 +226,12 @@ export function useRemoteExecutor() {
       activeGraphRequestIdRef.current = requestId;
 
       if (options.from) {
-        const dependencyNodes = getDependencyNodesForRunFrom(project, graph.metadata!.id!, options.from, projectNodeRegistry);
+        const dependencyNodes = getDependencyNodesForRunFrom(
+          project,
+          graph.metadata!.id!,
+          options.from,
+          projectNodeRegistry,
+        );
         const preloadData = getDependentDataForNodeForPreload(dependencyNodes, lastRunData);
 
         remoteDebugger.send('preload', { nodeData: preloadData });
@@ -230,6 +244,7 @@ export function useRemoteExecutor() {
         contextValues,
         runFromNodeId: options.from,
         projectPath: loadedProject.path,
+        useEditorCache: true,
       });
     } catch (e) {
       handleError(e, 'Failed to start remote graph run');
@@ -242,7 +257,11 @@ export function useRemoteExecutor() {
       toast.info(
         (options.iterationCount ?? 1) > 1 ? `Running Tests (${options.iterationCount!} iterations)` : 'Running Tests',
       );
-      console.log('trying to run tests');
+      logRuntimeInfo('Running remote Trivet tests', {
+        selectedTestSuiteCount: options.testSuiteIds?.length,
+        selectedTestCaseCount: options.testCaseIds?.length,
+        iterationCount: options.iterationCount ?? 1,
+      });
       currentExecution.onTrivetStart();
 
       setTrivetState((s) => ({
@@ -264,17 +283,23 @@ export function useRemoteExecutor() {
           },
           runGraph: async (project, graphId, inputs) => {
             if (remoteDebugger.sessionState.remoteUploadAllowed) {
-              remoteDebugger.send('set-dynamic-data', {
-                project: {
-                  ...project,
-                  graphs: {
-                    ...project.graphs,
-                    [graph.metadata!.id!]: graph,
-                  },
+              const projectToUpload = {
+                ...project,
+                graphs: {
+                  ...project.graphs,
+                  [graph.metadata!.id!]: graph,
                 },
+              };
+
+              remoteDebugger.send('set-dynamic-data', {
+                project: projectToUpload,
                 settings: await fillMissingSettingsFromEnvironmentVariables(
                   savedSettings,
                   projectNodeRegistry.getPlugins(),
+                  {
+                    environmentProvider,
+                    extraEnvVarNames: getLLMChatV2CustomProviderApiKeyEnvVarNames(projectToUpload),
+                  },
                 ),
               });
             }
@@ -299,7 +324,11 @@ export function useRemoteExecutor() {
             result.testSuiteResults.filter((t) => t.passing).length
           } passing`,
         );
-        console.log(result);
+        logRuntimeInfo('Finished remote Trivet tests', {
+          testSuiteCount: result.testSuiteResults.length,
+          passingTestSuiteCount: result.testSuiteResults.filter((testSuite) => testSuite.passing).length,
+          iterationCount: result.iterationCount,
+        });
       } catch (e) {
         setTrivetState((s) => ({
           ...s,
@@ -311,17 +340,17 @@ export function useRemoteExecutor() {
   );
 
   function tryAbortGraph() {
-    console.log('Aborting via remote debugger');
+    logRuntimeInfo('Aborting via remote debugger');
     remoteDebugger.send('abort', undefined);
   }
 
   function tryPauseGraph() {
-    console.log('Pausing via remote debugger');
+    logRuntimeInfo('Pausing via remote debugger');
     remoteDebugger.send('pause', undefined);
   }
 
   function tryResumeGraph() {
-    console.log('Resuming via remote debugger');
+    logRuntimeInfo('Resuming via remote debugger');
     remoteDebugger.send('resume', undefined);
   }
 
@@ -334,4 +363,25 @@ export function useRemoteExecutor() {
     active: remoteDebugger.sessionState.status === 'ready',
     tryRunTests,
   };
+}
+
+function logCodeConsoleMessage(message: CodeConsoleMessage) {
+  switch (message.level) {
+    case 'debug':
+      console.debug(...message.args);
+      break;
+    case 'error':
+      console.error(...message.args);
+      break;
+    case 'info':
+      console.info(...message.args);
+      break;
+    case 'warn':
+      console.warn(...message.args);
+      break;
+    case 'log':
+    default:
+      console.log(...message.args);
+      break;
+  }
 }

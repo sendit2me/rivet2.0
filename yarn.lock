@@ -49,6 +49,18 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@ai-sdk/openai-compatible@npm:1.0.17":
+  version: 1.0.17
+  resolution: "@ai-sdk/openai-compatible@npm:1.0.17"
+  dependencies:
+    "@ai-sdk/provider": "npm:2.0.0"
+    "@ai-sdk/provider-utils": "npm:3.0.9"
+  peerDependencies:
+    zod: ^3.25.76 || ^4
+  checksum: 10/8db4dbdd0488e6f489d85f7315bae39d5a98e36a4a107250bdf2ffdea238af482ec10ee9a3624960d695543b9316cc638763ceb4841904d042bf8fc424eb229c
+  languageName: node
+  linkType: hard
+
 "@ai-sdk/openai@npm:3.0.41":
   version: 3.0.41
   resolution: "@ai-sdk/openai@npm:3.0.41"
@@ -58,6 +70,19 @@ __metadata:
   peerDependencies:
     zod: ^3.25.76 || ^4.1.8
   checksum: 10/c4a696aeebcc621c02636fee9d03fb780d1d03c611fda1801924a5a07ed4a7b03faa48749094cb9084633d374ec70a11d0880905188b94d5b74b494b09670adc
+  languageName: node
+  linkType: hard
+
+"@ai-sdk/provider-utils@npm:3.0.9":
+  version: 3.0.9
+  resolution: "@ai-sdk/provider-utils@npm:3.0.9"
+  dependencies:
+    "@ai-sdk/provider": "npm:2.0.0"
+    "@standard-schema/spec": "npm:^1.0.0"
+    eventsource-parser: "npm:^3.0.5"
+  peerDependencies:
+    zod: ^3.25.76 || ^4
+  checksum: 10/a58d61502d3f73dc615b19bc2cfef0931cdd2dbec4e58b20e523461622a23671a91cf65290bc8f245905c918b8db4712387343bdaf8c6aba871d4838fb756ef4
   languageName: node
   linkType: hard
 
@@ -71,6 +96,15 @@ __metadata:
   peerDependencies:
     zod: ^3.25.76 || ^4.1.8
   checksum: 10/7f3822c7820a46d49800f3e9582164486f4d5a6ec87ca0d0042e350cd9872727eeb6a1ee8c6496cd712e741aea2c2ce90a8fbddf672dd0c3ce3f39ab9740dd1d
+  languageName: node
+  linkType: hard
+
+"@ai-sdk/provider@npm:2.0.0":
+  version: 2.0.0
+  resolution: "@ai-sdk/provider@npm:2.0.0"
+  dependencies:
+    json-schema: "npm:^0.4.0"
+  checksum: 10/e6d5460f0c52e64033ccc5d20787ab9ff5251646e6263daa76a006367fda8ad527dadc959110113c42796d293d4e669c3ae911062086574cd46f0707357dedb5
   languageName: node
   linkType: hard
 
@@ -4083,6 +4117,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ironclad/rivet-app@workspace:packages/app"
   dependencies:
+    "@ai-sdk/openai-compatible": "npm:1.0.17"
     "@atlaskit/banner": "npm:^12.1.18"
     "@atlaskit/button": "npm:^16.11.0"
     "@atlaskit/checkbox": "npm:^12.6.11"
@@ -4154,6 +4189,7 @@ __metadata:
     execa: "npm:^8.0.1"
     fast-deep-equal: "npm:^3.1.3"
     fuse.js: "npm:^6.6.2"
+    github-markdown-css: "npm:^5.8.1"
     immer: "npm:^10.0.3"
     jest-diff: "npm:^29.7.0"
     jotai: "npm:^2.11.0"
@@ -4208,6 +4244,7 @@ __metadata:
     ws: "npm:^8.18.0"
     yaml: "npm:^2.3.3"
     yargs: "npm:^17.7.2"
+    zod: "npm:^4.3.6"
   languageName: unknown
   linkType: soft
 
@@ -4276,6 +4313,7 @@ __metadata:
     "@ai-sdk/anthropic": "npm:3.0.58"
     "@ai-sdk/google": "npm:3.0.43"
     "@ai-sdk/openai": "npm:3.0.41"
+    "@ai-sdk/openai-compatible": "npm:1.0.17"
     "@gentrace/core": "npm:^2.2.5"
     "@google-cloud/vertexai": "npm:^0.1.3"
     "@google/genai": "npm:^0.12.0"
@@ -4289,6 +4327,7 @@ __metadata:
     "@types/yaml": "npm:^1.9.7"
     "@typescript-eslint/eslint-plugin": "npm:^8.24.0"
     "@typescript-eslint/parser": "npm:^8.24.0"
+    acorn: "npm:^8.14.0"
     ai: "npm:6.0.116"
     assemblyai: "npm:^4.6.0"
     autoevals: "npm:^0.0.26"
@@ -5454,7 +5493,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@standard-schema/spec@npm:^1.1.0":
+"@standard-schema/spec@npm:^1.0.0, @standard-schema/spec@npm:^1.1.0":
   version: 1.1.0
   resolution: "@standard-schema/spec@npm:1.1.0"
   checksum: 10/a209615c9e8b2ea535d7db0a5f6aa0f962fd4ab73ee86a46c100fb78116964af1f55a27c1794d4801e534a196794223daa25ff5135021e03c7828aa3d95e1763
@@ -11132,6 +11171,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"eventsource-parser@npm:^3.0.5":
+  version: 3.0.8
+  resolution: "eventsource-parser@npm:3.0.8"
+  checksum: 10/286a84a7005e3e669e94dce0bb48f00acfda0d3973671ae2790e48a93f7b27a85b1828df8f3876c70afe4d577b6a7e4f8794cb596072585b584b4f207bc35c15
+  languageName: node
+  linkType: hard
+
 "eventsource-parser@npm:^3.0.6":
   version: 3.0.6
   resolution: "eventsource-parser@npm:3.0.6"
@@ -11957,6 +12003,13 @@ __metadata:
   version: 0.0.0
   resolution: "github-from-package@npm:0.0.0"
   checksum: 10/2a091ba07fbce22205642543b4ea8aaf068397e1433c00ae0f9de36a3607baf5bcc14da97fbb798cfca6393b3c402031fca06d8b491a44206d6efef391c58537
+  languageName: node
+  linkType: hard
+
+"github-markdown-css@npm:^5.8.1":
+  version: 5.9.0
+  resolution: "github-markdown-css@npm:5.9.0"
+  checksum: 10/64e5fd16573ef7356e50a7801e24e0ef1a728c0e2e243427c7cc3ea7ead10e0f89e28ea4ed679ac246c5f38c91d6f13ad52d4507d47845e8b89f62b58df6c88f
   languageName: node
   linkType: hard
 

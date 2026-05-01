@@ -8,13 +8,19 @@ import {
   currentGraphViewState,
   selectedGraphRunByViewState,
   type NodeRunData,
+  type NodeRunDataWithRefs,
   lastRunDataByNodeState,
-  selectedProcessPageNodesState
+  selectedProcessPageNodesState,
 } from '../state/dataFlow';
 import { previousDataPerNodeToKeepState } from '../state/settings';
 import { trivetTestsRunningState } from '../state/trivet';
 import { type ProcessQuestions, userInputModalQuestionsState } from '../state/userInput';
-import { cloneNodeDataForHistory } from '../utils/executionDataTransforms';
+import {
+  clearExecutionDataRefs,
+  collectStoredRefIds,
+  deleteStoredRefIds,
+  storeNodeDataForHistory,
+} from '../utils/executionDataTransforms';
 
 export type ExecutionDataFlowApi = {
   onTrivetStart: () => void;
@@ -40,8 +46,10 @@ export function useExecutionDataFlow(): ExecutionDataFlowApi {
   const previousDataPerNodeToKeep = useAtomValue(previousDataPerNodeToKeepState);
   const currentGraphView = useAtomValue(currentGraphViewState);
   const selectedGraphRunByView = useAtomValue(selectedGraphRunByViewState);
+  const lastRunData = useAtomValue(lastRunDataByNodeState);
   const currentGraphViewLatest = useLatest(currentGraphView);
   const selectedGraphRunByViewLatest = useLatest(selectedGraphRunByView);
+  const lastRunDataLatest = useLatest(lastRunData);
 
   const setDataForNode = (
     nodeId: NodeId,
@@ -49,6 +57,12 @@ export function useExecutionDataFlow(): ExecutionDataFlowApi {
     execution: GraphExecutionMetadata | undefined,
     data: Partial<NodeRunData>,
   ) => {
+    const storedData = storeNodeDataForHistory(data, dataRefs, {
+      nodeId,
+      processId,
+    });
+    const refIdsToDelete: string[] = [];
+
     setLastRunData((prev) =>
       produce(prev, (draft) => {
         if (!draft[nodeId]) {
@@ -60,9 +74,10 @@ export function useExecutionDataFlow(): ExecutionDataFlowApi {
           existingProcess.graphId = execution?.graphId ?? existingProcess.graphId;
           existingProcess.graphRunId = execution?.graphRunId ?? existingProcess.graphRunId;
           existingProcess.rootRunId = execution?.rootRunId ?? existingProcess.rootRunId;
+          refIdsToDelete.push(...collectReplacedRefIds(existingProcess.data, storedData));
           existingProcess.data = {
             ...existingProcess.data,
-            ...cloneNodeDataForHistory(data, dataRefs),
+            ...storedData,
           };
           return;
         }
@@ -72,6 +87,7 @@ export function useExecutionDataFlow(): ExecutionDataFlowApi {
             previousDataPerNodeToKeep === 0 ? draft[nodeId]! : draft[nodeId]!.slice(0, -previousDataPerNodeToKeep);
 
           for (const previousProcess of dataNotKept) {
+            refIdsToDelete.push(...collectStoredRefIds(previousProcess.data));
             if (previousProcess.data.inputData) {
               previousProcess.data.inputData = {};
             }
@@ -89,19 +105,19 @@ export function useExecutionDataFlow(): ExecutionDataFlowApi {
           graphId: execution?.graphId,
           graphRunId: execution?.graphRunId,
           rootRunId: execution?.rootRunId,
-          data: cloneNodeDataForHistory(data, dataRefs)!,
+          data: storedData as NodeRunDataWithRefs,
         });
       }),
     );
+
+    deleteStoredRefIds(dataRefs, refIdsToDelete);
   };
 
   const setSelectedNodePageLatest = (nodeId: NodeId, execution: GraphExecutionMetadata | undefined) => {
     const view = currentGraphViewLatest.current;
     const selectionByView = selectedGraphRunByViewLatest.current;
     const shouldFollowLatest =
-      view != null &&
-      execution?.graphId === view.graphId &&
-      (selectionByView[view.key] ?? 'latest') === 'latest';
+      view != null && execution?.graphId === view.graphId && (selectionByView[view.key] ?? 'latest') === 'latest';
 
     if (!shouldFollowLatest) {
       return;
@@ -131,6 +147,7 @@ export function useExecutionDataFlow(): ExecutionDataFlowApi {
   const onTrivetStart = () => {
     setLastRecordingState(undefined);
     setUserInputQuestions({});
+    clearExecutionDataRefs(dataRefs, lastRunDataLatest.current);
     setLastRunData({});
   };
 
@@ -141,4 +158,40 @@ export function useExecutionDataFlow(): ExecutionDataFlowApi {
     setSelectedNodePageLatest,
     trivetRunningLatest,
   };
+}
+
+function collectReplacedRefIds(previousData: NodeRunDataWithRefs, nextData: Partial<NodeRunDataWithRefs>): string[] {
+  const previousRefIds = new Set<string>();
+  const nextRefIds = new Set<string>();
+
+  if (nextData.inputData !== undefined) {
+    for (const refId of collectStoredRefIds(previousData.inputData)) {
+      previousRefIds.add(refId);
+    }
+    for (const refId of collectStoredRefIds(nextData.inputData)) {
+      nextRefIds.add(refId);
+    }
+  }
+
+  if (nextData.outputData !== undefined) {
+    for (const refId of collectStoredRefIds(previousData.outputData)) {
+      previousRefIds.add(refId);
+    }
+    for (const refId of collectStoredRefIds(nextData.outputData)) {
+      nextRefIds.add(refId);
+    }
+  }
+
+  if (nextData.splitOutputData !== undefined) {
+    for (const [index, nextSplitData] of Object.entries(nextData.splitOutputData)) {
+      for (const refId of collectStoredRefIds(previousData.splitOutputData?.[Number(index)])) {
+        previousRefIds.add(refId);
+      }
+      for (const refId of collectStoredRefIds(nextSplitData)) {
+        nextRefIds.add(refId);
+      }
+    }
+  }
+
+  return [...previousRefIds].filter((refId) => !nextRefIds.has(refId));
 }

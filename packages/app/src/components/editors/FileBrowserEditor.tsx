@@ -69,11 +69,11 @@ export const DefaultFileBrowserEditor: FC<
     <Field name={editor.dataKey} label={editor.label}>
       {() => (
         <div>
+          {helperMessage && <HelperMessage>{helperMessage}</HelperMessage>}
           <Button onClick={pickFile} isDisabled={isReadonly || isDisabled}>
             Pick File
           </Button>
           <div className="current">{dataUri && <span>Data ({prettyBytes(dataByteLength ?? NaN)})</span>}</div>
-          {helperMessage && <HelperMessage>{helperMessage}</HelperMessage>}
         </div>
       )}
     </Field>
@@ -110,11 +110,11 @@ export const DefaultFilePathBrowserEditor: FC<
     <Field name={editor.dataKey} label={editor.label}>
       {() => (
         <div>
+          {helperMessage && <HelperMessage>{helperMessage}</HelperMessage>}
           <Button onClick={pickFile} isDisabled={isReadonly || isDisabled}>
             Pick File
           </Button>
           <div className="current">{data[editor.dataKey] != null && <span>{data[editor.dataKey] as string}</span>}</div>
-          {helperMessage && <HelperMessage>{helperMessage}</HelperMessage>}
         </div>
       )}
     </Field>

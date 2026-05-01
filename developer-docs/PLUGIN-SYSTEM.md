@@ -100,6 +100,8 @@ Plugin node implementations are object-based and currently provide:
 
 Unlike built-in nodes, plugin nodes do not subclass `NodeImpl` directly. They are wrapped by the registry into `PluginNodeImplClass`.
 
+Plugin nodes that create input ports from user-authored `{{var}}` interpolation must use the same [`createInterpolationInputDefinition(...)`](../packages/core/src/model/interpolationInputDefinition.ts) helper as built-in nodes. This is the compatibility hook that lets the app recognize interpolation-created ports and preserve existing wires across clear token renames. The helper keeps the visible id/title/data-type behavior unchanged but marks the definition as interpolation-derived for app-side edit reconciliation. Fixed/toggle ports should not carry this marker. The built-in OpenAI `Thread Message` plugin node follows this rule for its text interpolation ports while leaving `fileIds` and `metadata` toggle ports unmarked.
+
 ## Registry Behavior
 
 `NodeRegistration` is the bridge between plugin declarations and executable nodes.
@@ -163,6 +165,18 @@ Contains:
 - `id`
 - `package`
 - `tag`
+
+### Package plugin installation sidecar
+
+The desktop app installs package plugins with a bundled pnpm sidecar, not with a user-installed global `pnpm`.
+
+Relevant files:
+
+- `packages/app/src/hooks/useLoadPackagePlugin.ts`
+- `packages/app/src-tauri/tauri.conf.json`
+- `packages/app/sidecars/pnpm/`
+
+The sidecar policy is documented in [`BUILD-AND-CI.md`](./BUILD-AND-CI.md) and in [`packages/app/sidecars/pnpm/README.md`](../packages/app/sidecars/pnpm/README.md). If package-plugin loading changes, keep that sidecar contract and checksum metadata in sync.
 
 ## Built-In Plugins
 

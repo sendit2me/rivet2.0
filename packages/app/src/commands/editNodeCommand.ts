@@ -1,109 +1,397 @@
-import { useAtomValue, useSetAtom } from 'jotai';
-import { type GraphCommandState, commandHistoryStackStatePerGraph, useCommand } from './Command';
+import { useSetAtom } from 'jotai';
+import { type GraphCommandState, commandHistoryStackStatePerGraph, type CommandData, useCommand } from './Command';
 import {
   type NodeId,
   type NodeConnection,
   type ChartNode,
-  type Project,
+  type GraphId,
+  type NodeGraph,
+  type NodeRegistration,
 } from '@ironclad/rivet-core';
 import { nodesState, connectionsState } from '../state/graph';
 import { produce } from 'immer';
-import { referencedProjectsState } from '../state/savedGraphs';
 import { useProjectNodeRegistry } from '../hooks/useProjectNodeRegistry';
+import {
+  getRecoverableNodeConnectionsForNode,
+  recoverableNodeConnectionsStatePerGraph,
+  setRecoverableNodeConnectionsForGraphNode,
+} from '../state/recoverableNodeConnections';
+import { reconcileNodeEditConnections } from '../domain/graphEditing/editNodeConnectionRecovery';
+import {
+  propagateGraphInputRename,
+  rewriteSubGraphCallerGraphForGraphInputRename,
+  type GraphInputRenameProjectGraphSnapshots,
+} from '../domain/graphEditing/graphInputRenamePropagation';
+import { projectState } from '../state/savedGraphs';
 
-const MERGE_WINDOW_MS = 5000; // 5 seconds in milliseconds
+const MERGE_WINDOW_MS = 5000;
+
+type EditNodeParams = {
+  nodeId: NodeId;
+  newNode: Partial<ChartNode>;
+  previousNodeOverride?: Partial<ChartNode>;
+};
+
+type EditNodeAppliedData = {
+  previousNode: Partial<ChartNode>;
+  previousConnections: NodeConnection[];
+  previousCurrentNodes?: ChartNode[];
+  nextCurrentNodes?: ChartNode[];
+  nextConnections: NodeConnection[];
+  previousRecoverableConnections: NodeConnection[];
+  nextRecoverableConnections: NodeConnection[];
+  projectGraphSnapshots?: GraphInputRenameProjectGraphSnapshots;
+};
+
+type GraphInputRename = {
+  newInputId: string;
+  oldInputId: string;
+  targetGraphId: GraphId;
+};
+
+function cloneConnections(connections: readonly NodeConnection[]): NodeConnection[] {
+  return structuredClone([...connections]);
+}
+
+function cloneNodes(nodes: readonly ChartNode[]): ChartNode[] {
+  return structuredClone([...nodes]);
+}
+
+function getGraphInputId(node: Partial<ChartNode> | undefined): string | undefined {
+  if ((node as { type?: string } | undefined)?.type !== 'graphInput') {
+    return undefined;
+  }
+
+  const id = (node?.data as { id?: unknown } | undefined)?.id;
+  return typeof id === 'string' ? id : undefined;
+}
+
+export function shouldMergeEditNodeCommand(
+  lastCommand: CommandData<any, any> | undefined,
+  nodeId: NodeId,
+  now = Date.now(),
+): boolean {
+  return !!(
+    lastCommand &&
+    now - lastCommand.timestamp <= MERGE_WINDOW_MS &&
+    lastCommand.command.type === 'editNode' &&
+    lastCommand.data.nodeId === nodeId
+  );
+}
+
+function replaceNodeInGraph(nodes: readonly ChartNode[], nodeId: NodeId, newNode: Partial<ChartNode>): ChartNode[] {
+  return produce([...nodes], (draft) => {
+    const index = draft.findIndex((node) => node.id === nodeId);
+
+    if (index < 0) {
+      throw new Error(`Node with id ${nodeId} not found`);
+    }
+
+    draft[index] = {
+      ...draft[index],
+      ...structuredClone(newNode),
+    } as ChartNode;
+  });
+}
+
+function removeLastCommandHistoryEntryForGraph(
+  stacks: Record<string, CommandData<any, any>[]>,
+  graphId: string | undefined,
+): Record<string, CommandData<any, any>[]> {
+  if (!graphId) {
+    return stacks;
+  }
+
+  const stack = stacks[graphId] ?? [];
+
+  return {
+    ...stacks,
+    [graphId]: stack.slice(0, -1),
+  };
+}
+
+function getNextProjectFromGraphSnapshots(
+  project: GraphCommandState['project'],
+  snapshots: GraphInputRenameProjectGraphSnapshots | undefined,
+  snapshotKey: 'nextGraph' | 'previousGraph',
+) {
+  if (!snapshots || Object.keys(snapshots).length === 0) {
+    return project;
+  }
+
+  return produce(project, (draft) => {
+    for (const [graphId, snapshot] of Object.entries(snapshots) as Array<
+      [GraphId, GraphInputRenameProjectGraphSnapshots[GraphId]]
+    >) {
+      draft.graphs[graphId] = structuredClone(snapshot[snapshotKey]);
+    }
+  });
+}
+
+function mergeProjectGraphSnapshots({
+  currentProject,
+  originalRename,
+  previousSnapshots,
+  nextSnapshots,
+}: {
+  currentProject: GraphCommandState['project'];
+  originalRename: GraphInputRename | undefined;
+  previousSnapshots: GraphInputRenameProjectGraphSnapshots | undefined;
+  nextSnapshots: GraphInputRenameProjectGraphSnapshots;
+}): GraphInputRenameProjectGraphSnapshots | undefined {
+  const mergedSnapshots: GraphInputRenameProjectGraphSnapshots = structuredClone(nextSnapshots);
+
+  for (const [graphId, previousSnapshot] of Object.entries(previousSnapshots ?? {}) as Array<
+    [GraphId, GraphInputRenameProjectGraphSnapshots[GraphId]]
+  >) {
+    const nextGraph = originalRename
+      ? getNextGraphFromOriginalRenameSnapshot(previousSnapshot.previousGraph, originalRename)
+      : mergedSnapshots[graphId]?.nextGraph ?? currentProject.graphs[graphId] ?? previousSnapshot.nextGraph;
+
+    mergedSnapshots[graphId] = {
+      previousGraph: structuredClone(previousSnapshot.previousGraph),
+      nextGraph: structuredClone(nextGraph),
+    };
+  }
+
+  return Object.keys(mergedSnapshots).length > 0 ? mergedSnapshots : undefined;
+}
+
+function getNextGraphFromOriginalRenameSnapshot(graph: NodeGraph, rename: GraphInputRename): NodeGraph {
+  if (rename.oldInputId === rename.newInputId) {
+    return structuredClone(graph);
+  }
+
+  return rewriteSubGraphCallerGraphForGraphInputRename({
+    graph,
+    newInputId: rename.newInputId,
+    oldInputId: rename.oldInputId,
+    targetGraphId: rename.targetGraphId,
+  }).graph;
+}
+
+function getOriginalGraphInputRename({
+  currentGraphId,
+  editedNodeId,
+  nextCurrentNodes,
+  previousNode,
+}: {
+  currentGraphId: GraphId | undefined;
+  editedNodeId: NodeId;
+  nextCurrentNodes: readonly ChartNode[];
+  previousNode: Partial<ChartNode>;
+}): GraphInputRename | undefined {
+  if (!currentGraphId) {
+    return undefined;
+  }
+
+  const oldInputId = getGraphInputId(previousNode);
+  const newInputId = getGraphInputId(nextCurrentNodes.find((node) => node.id === editedNodeId));
+
+  if (oldInputId == null || newInputId == null) {
+    return undefined;
+  }
+
+  const oldInputStillExists = nextCurrentNodes.some(
+    (node) => node.id !== editedNodeId && getGraphInputId(node) === oldInputId,
+  );
+
+  if (oldInputStillExists) {
+    return undefined;
+  }
+
+  return {
+    newInputId,
+    oldInputId,
+    targetGraphId: currentGraphId,
+  };
+}
+
+function buildPreviousCurrentNodesForMergedEdit({
+  currentNodes,
+  editedNodeId,
+  previousCurrentNodes,
+  previousNode,
+}: {
+  currentNodes: readonly ChartNode[];
+  editedNodeId: NodeId;
+  previousCurrentNodes: readonly ChartNode[] | undefined;
+  previousNode: Partial<ChartNode>;
+}): ChartNode[] {
+  return previousCurrentNodes
+    ? cloneNodes(previousCurrentNodes)
+    : replaceNodeInGraph(currentNodes, editedNodeId, previousNode);
+}
+
+function getMergedGraphInputRenameResult({
+  currentGraphId,
+  graphInputRenameResult,
+  isMergedEdit,
+  nextNodes,
+  originalRename,
+  params,
+  previousConnections,
+  previousCurrentNodes,
+  previousNode,
+}: {
+  currentGraphId: GraphId | undefined;
+  graphInputRenameResult: ReturnType<typeof propagateGraphInputRename>;
+  isMergedEdit: boolean | undefined;
+  nextNodes: readonly ChartNode[];
+  originalRename: GraphInputRename | undefined;
+  params: EditNodeParams;
+  previousConnections: readonly NodeConnection[];
+  previousCurrentNodes: readonly ChartNode[] | undefined;
+  previousNode: Partial<ChartNode>;
+}): ReturnType<typeof propagateGraphInputRename> {
+  if (!isMergedEdit || !currentGraphId || !originalRename) {
+    return graphInputRenameResult;
+  }
+
+  const previousNodes = buildPreviousCurrentNodesForMergedEdit({
+    currentNodes: nextNodes,
+    editedNodeId: params.nodeId,
+    previousCurrentNodes,
+    previousNode,
+  });
+  const nextNodesFromOriginalRename = replaceNodeInGraph(previousNodes, params.nodeId, params.newNode);
+  const nextCurrentGraph = getNextGraphFromOriginalRenameSnapshot(
+    {
+      metadata: {
+        id: currentGraphId,
+      },
+      nodes: nextNodesFromOriginalRename,
+      connections: cloneConnections(previousConnections),
+    },
+    originalRename,
+  );
+
+  return {
+    ...graphInputRenameResult,
+    nextCurrentConnections: nextCurrentGraph.connections,
+    nextCurrentNodes: nextCurrentGraph.nodes,
+  };
+}
+
+export function buildEditNodeAppliedData({
+  params,
+  currentState,
+  previousNode,
+  previousConnections,
+  previousCurrentNodes,
+  previousRecoverableConnections,
+  currentRecoverableConnections,
+  isMergedEdit,
+  previousProjectGraphSnapshots,
+  projectNodeRegistry,
+}: {
+  params: EditNodeParams;
+  currentState: GraphCommandState;
+  previousNode: Partial<ChartNode>;
+  previousConnections: readonly NodeConnection[];
+  previousCurrentNodes?: readonly ChartNode[];
+  previousRecoverableConnections: readonly NodeConnection[];
+  currentRecoverableConnections: readonly NodeConnection[];
+  isMergedEdit?: boolean;
+  previousProjectGraphSnapshots?: GraphInputRenameProjectGraphSnapshots;
+  projectNodeRegistry: NodeRegistration<any, any>;
+}): EditNodeAppliedData {
+  const nextNodes = replaceNodeInGraph(currentState.nodes, params.nodeId, params.newNode);
+  const { nextConnections, nextRecoverableConnections } = reconcileNodeEditConnections({
+    nodeId: params.nodeId,
+    newNode: params.newNode,
+    nodes: currentState.nodes,
+    liveConnections: currentState.connections,
+    recoverableConnections: currentRecoverableConnections,
+    project: currentState.project,
+    referencedProjects: currentState.referencedProjects,
+    projectNodeRegistry,
+  });
+  const graphInputRenameResult = propagateGraphInputRename({
+    currentGraphId: currentState.graphId,
+    editedNodeId: params.nodeId,
+    nextCurrentConnections: nextConnections,
+    nextCurrentNodes: nextNodes,
+    previousCurrentNodes: currentState.nodes,
+    project: currentState.project,
+  });
+  const originalRename = getOriginalGraphInputRename({
+    currentGraphId: currentState.graphId,
+    editedNodeId: params.nodeId,
+    nextCurrentNodes: nextNodes,
+    previousNode,
+  });
+  const effectiveGraphInputRenameResult = getMergedGraphInputRenameResult({
+    currentGraphId: currentState.graphId,
+    graphInputRenameResult,
+    isMergedEdit,
+    nextNodes,
+    originalRename,
+    params,
+    previousConnections,
+    previousCurrentNodes,
+    previousNode,
+  });
+  const currentNodesChangedByRename =
+    effectiveGraphInputRenameResult.nextCurrentNodes.length !== nextNodes.length ||
+    effectiveGraphInputRenameResult.nextCurrentNodes.some((node, index) => node !== nextNodes[index]);
+  const shouldSnapshotCurrentNodes = !!previousCurrentNodes || currentNodesChangedByRename;
+  const projectGraphSnapshots = mergeProjectGraphSnapshots({
+    currentProject: currentState.project,
+    originalRename: isMergedEdit ? originalRename : undefined,
+    previousSnapshots: previousProjectGraphSnapshots,
+    nextSnapshots: graphInputRenameResult.projectGraphSnapshots,
+  });
+
+  return {
+    previousNode: structuredClone(previousNode),
+    previousConnections: cloneConnections(previousConnections),
+    previousCurrentNodes: shouldSnapshotCurrentNodes
+      ? cloneNodes(previousCurrentNodes ?? currentState.nodes)
+      : undefined,
+    nextCurrentNodes: shouldSnapshotCurrentNodes
+      ? cloneNodes(effectiveGraphInputRenameResult.nextCurrentNodes)
+      : undefined,
+    nextConnections: cloneConnections(effectiveGraphInputRenameResult.nextCurrentConnections),
+    previousRecoverableConnections: cloneConnections(previousRecoverableConnections),
+    nextRecoverableConnections: cloneConnections(nextRecoverableConnections),
+    projectGraphSnapshots,
+  };
+}
 
 export function useEditNodeCommand() {
   const setNodes = useSetAtom(nodesState);
   const setConnections = useSetAtom(connectionsState);
+  const setProject = useSetAtom(projectState);
   const setCommandHistories = useSetAtom(commandHistoryStackStatePerGraph);
+  const setRecoverableNodeConnections = useSetAtom(recoverableNodeConnectionsStatePerGraph);
   const projectNodeRegistry = useProjectNodeRegistry();
-  const referencedProjects = useAtomValue(referencedProjectsState);
 
-  const findBrokenConnections = (
-    nodeId: NodeId,
-    newNode: Partial<ChartNode>,
-    nodes: ChartNode[],
-    connections: NodeConnection[],
-    project: Project,
-  ) => {
-    const updatedNodes = produce(nodes, (draft) => {
-      const index = draft.findIndex((n) => n.id === nodeId);
-      draft[index] = {
-        ...draft[index],
-        ...newNode,
-      } as ChartNode;
-    });
-
-    const connectionsForNode = connections.filter(
-      (conn) => conn.inputNodeId === nodeId || conn.outputNodeId === nodeId,
-    );
-
-    const nodesById = Object.fromEntries(updatedNodes.map((n) => [n.id, n]));
-    const updatedNode = nodesById[nodeId]!;
-    const instance = projectNodeRegistry.createDynamicImpl(updatedNode);
-
-    const inputDefs = instance.getInputDefinitionsIncludingBuiltIn(
-      connectionsForNode,
-      nodesById,
-      project,
-      referencedProjects,
-    );
-    const outputDefs = instance.getOutputDefinitions(connectionsForNode, nodesById, project, referencedProjects);
-
-    return connectionsForNode.filter((connection) => {
-      if (connection.inputNodeId === nodeId) {
-        return !inputDefs.find((def) => def.id === connection.inputId);
-      } else {
-        return !outputDefs.find((def) => def.id === connection.outputId);
-      }
-    });
-  };
-
-  const updateNodeAndConnections = (
-    nodeId: NodeId,
-    newNode: Partial<ChartNode>,
+  const applyNodeAndGraphState = (
+    params: EditNodeParams,
+    nextConnections: readonly NodeConnection[],
+    nextRecoverableConnections: readonly NodeConnection[],
     currentState: GraphCommandState,
-    existingBrokenConnections: NodeConnection[] = [],
+    appliedData?: EditNodeAppliedData,
   ) => {
-    // Find any new broken connections
-    const newBrokenConnections = findBrokenConnections(
-      nodeId,
-      newNode,
-      currentState.nodes,
-      currentState.connections.filter((conn) => !existingBrokenConnections.includes(conn)),
-      currentState.project,
-    );
-
-    // Update the node
-    setNodes(
-      produce(currentState.nodes, (draft) => {
-        const index = draft.findIndex((n) => n.id === nodeId);
-        draft[index] = {
-          ...draft[index],
-          ...structuredClone(newNode),
-        } as ChartNode;
-      }),
-    );
-
-    // Remove broken connections
-    if (newBrokenConnections.length > 0) {
-      setConnections(currentState.connections.filter((conn) => !newBrokenConnections.includes(conn)));
+    setNodes(appliedData?.nextCurrentNodes ?? replaceNodeInGraph(currentState.nodes, params.nodeId, params.newNode));
+    setConnections(cloneConnections(nextConnections));
+    if (appliedData?.projectGraphSnapshots) {
+      setProject((project) =>
+        getNextProjectFromGraphSnapshots(project, appliedData.projectGraphSnapshots, 'nextGraph'),
+      );
     }
-
-    return newBrokenConnections;
+    setRecoverableNodeConnections((entries) =>
+      setRecoverableNodeConnectionsForGraphNode(
+        entries,
+        currentState.graphId,
+        params.nodeId,
+        nextRecoverableConnections,
+      ),
+    );
   };
 
-  return useCommand<
-    {
-      nodeId: NodeId;
-      newNode: Partial<ChartNode>;
-    },
-    {
-      previousNode: Partial<ChartNode>;
-      brokenConnections: NodeConnection[];
-    }
-  >({
+  return useCommand<EditNodeParams, EditNodeAppliedData>({
     type: 'editNode',
     apply(params, appliedData, currentState) {
       const nodeToEdit = currentState.nodes.find((node) => node.id === params.nodeId);
@@ -112,69 +400,102 @@ export function useEditNodeCommand() {
         throw new Error(`Node with id ${params.nodeId} not found`);
       }
 
-      // Check if we should merge with the previous edit
+      if (appliedData) {
+        applyNodeAndGraphState(
+          params,
+          appliedData.nextConnections,
+          appliedData.nextRecoverableConnections,
+          currentState,
+          appliedData,
+        );
+        return appliedData;
+      }
+
+      const currentRecoverableConnections = getRecoverableNodeConnectionsForNode(
+        currentState.recoverableNodeConnections,
+        params.nodeId,
+      );
       const lastCommand = currentState.commandHistoryStack.at(-1);
-      const withinMergeWindow = lastCommand && Date.now() - lastCommand.timestamp <= MERGE_WINDOW_MS;
-      const shouldMerge =
-        !appliedData &&
-        withinMergeWindow &&
-        lastCommand.command.type === 'editNode' &&
-        lastCommand.data.nodeId === params.nodeId;
+      const shouldMerge = shouldMergeEditNodeCommand(lastCommand, params.nodeId);
 
       if (shouldMerge) {
-        // Remove the previous command
-        setCommandHistories((stacks) => {
-          if (!currentState.graphId) {
-            return stacks;
-          }
+        setCommandHistories((stacks) => removeLastCommandHistoryEntryForGraph(stacks, currentState.graphId));
 
-          const stack = stacks[currentState.graphId] ?? [];
-          return {
-            ...stacks,
-            [currentState.graphId]: stack.slice(0, -1),
-          };
+        const commandToMergeWith = lastCommand!;
+        const nextAppliedData = buildEditNodeAppliedData({
+          params,
+          currentState,
+          previousNode: commandToMergeWith.appliedData.previousNode,
+          previousConnections: commandToMergeWith.appliedData.previousConnections,
+          previousCurrentNodes: commandToMergeWith.appliedData.previousCurrentNodes,
+          previousRecoverableConnections: commandToMergeWith.appliedData.previousRecoverableConnections,
+          currentRecoverableConnections,
+          isMergedEdit: true,
+          previousProjectGraphSnapshots: commandToMergeWith.appliedData.projectGraphSnapshots,
+          projectNodeRegistry,
         });
 
-        const commandToMergeWith = lastCommand;
-
-        const newBrokenConnections = updateNodeAndConnections(
-          params.nodeId,
-          params.newNode,
+        applyNodeAndGraphState(
+          params,
+          nextAppliedData.nextConnections,
+          nextAppliedData.nextRecoverableConnections,
           currentState,
-          commandToMergeWith.appliedData.brokenConnections,
+          nextAppliedData,
         );
 
-        return {
-          previousNode: commandToMergeWith.appliedData.previousNode,
-          brokenConnections: [...commandToMergeWith.appliedData.brokenConnections, ...newBrokenConnections],
-        };
+        return nextAppliedData;
       }
 
-      // Normal case - not merging
-      const previousNode = structuredClone(nodeToEdit);
-      const brokenConnections = updateNodeAndConnections(params.nodeId, params.newNode, currentState);
+      const nextAppliedData = buildEditNodeAppliedData({
+        params,
+        currentState,
+        previousNode: params.previousNodeOverride ?? nodeToEdit,
+        previousConnections: currentState.connections,
+        previousRecoverableConnections: currentRecoverableConnections,
+        currentRecoverableConnections,
+        projectNodeRegistry,
+      });
 
-      return {
-        previousNode,
-        brokenConnections,
-      };
-    },
-    undo({ nodeId }, appliedData, currentState) {
-      // Restore the node's previous properties
-      setNodes(
-        produce(currentState.nodes, (draft) => {
-          const index = draft.findIndex((n) => n.id === nodeId);
-          draft[index] = {
-            ...draft[index],
-            ...structuredClone(appliedData.previousNode),
-          } as ChartNode;
-        }),
+      applyNodeAndGraphState(
+        params,
+        nextAppliedData.nextConnections,
+        nextAppliedData.nextRecoverableConnections,
+        currentState,
+        nextAppliedData,
       );
 
-      // Restore all broken connections
-      if (appliedData.brokenConnections.length > 0) {
-        setConnections([...currentState.connections, ...appliedData.brokenConnections]);
+      return nextAppliedData;
+    },
+    undo({ nodeId }, appliedData, currentState) {
+      setNodes(
+        appliedData.previousCurrentNodes ??
+          produce(currentState.nodes, (draft) => {
+            const index = draft.findIndex((node) => node.id === nodeId);
+
+            if (index < 0) {
+              throw new Error(`Node with id ${nodeId} not found`);
+            }
+
+            draft[index] = {
+              ...draft[index],
+              ...structuredClone(appliedData.previousNode),
+            } as ChartNode;
+          }),
+      );
+      setConnections(cloneConnections(appliedData.previousConnections));
+      if (appliedData.projectGraphSnapshots) {
+        setProject((project) =>
+          getNextProjectFromGraphSnapshots(project, appliedData.projectGraphSnapshots, 'previousGraph'),
+        );
       }
+      setRecoverableNodeConnections((entries) =>
+        setRecoverableNodeConnectionsForGraphNode(
+          entries,
+          currentState.graphId,
+          nodeId,
+          appliedData.previousRecoverableConnections,
+        ),
+      );
     },
   });
 }

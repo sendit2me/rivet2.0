@@ -7,7 +7,7 @@ import DeleteBinIcon from 'majesticons/line/delete-bin-line.svg?react';
 import LightningIcon from 'majesticons/line/lightning-bolt-line.svg?react';
 import InfoIcon from 'majesticons/line/info-circle-line.svg?react';
 import { useToggle } from 'ahooks';
-import { type PluginLoadSpec } from '../../../core/src/model/PluginLoadSpec';
+import { type PluginLoadSpec } from '@ironclad/rivet-core';
 import { css } from '@emotion/react';
 import Popup from '@atlaskit/popup';
 import { MenuGroup, ButtonItem } from '@atlaskit/menu';
@@ -26,12 +26,13 @@ const styles = css`
   .add-plugin,
   .plugin-dropdown {
     cursor: pointer;
-    font-size: 16px;
+    font-size: var(--ui-font-size-lg);
     color: var(--grey);
     transition:
       color 0.2s ease,
       border-color 0.2s ease;
-    border-radius: 4px;
+    border-radius: 8px;
+    corner-shape: squircle;
     border: 0;
     width: 24px;
     height: 24px;

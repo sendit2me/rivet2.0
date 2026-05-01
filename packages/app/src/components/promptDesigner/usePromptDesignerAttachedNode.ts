@@ -1,25 +1,24 @@
 import { useEffect } from 'react';
 import { nanoid } from 'nanoid/non-secure';
-import { mapValues } from 'lodash-es';
 import { atom, useAtom, useAtomValue } from 'jotai';
-import {
-  promptDesignerAttachedChatNodeState,
-  promptDesignerConfigurationState,
-} from '../../state/promptDesigner.js';
+import { promptDesignerAttachedChatNodeState, promptDesignerConfigurationState } from '../../state/promptDesigner.js';
 import { nodesByIdState, nodesState } from '../../state/graph.js';
-import { type InputsOrOutputsWithRefs, lastRunDataByNodeState } from '../../state/dataFlow.js';
+import { lastRunDataByNodeState } from '../../state/dataFlow.js';
 import {
   type ChatNode,
-  type DataValue,
   type GraphId,
   type Inputs,
   type NodeId,
   type NodeTestGroup,
   arrayizeDataValue,
-  isArrayDataValue,
-  type ScalarDataValue,
+  isFunctionDataType,
+  type ScalarOrArrayDataValue,
+  getChatNodeMessages,
 } from '@ironclad/rivet-core';
-import { getChatNodeMessages } from '../../../../core/src/model/nodes/ChatNodeBase.js';
+import { useClearCurrentGraphHistory } from '../../commands/Command.js';
+import { useDataRefs } from '../../providers/ProvidersContext.js';
+import { restoreStoredPortMap } from '../../utils/executionDataReaders.js';
+import { handleError } from '../../utils/errorHandling.js';
 
 const lastPromptDesignerAttachedNodeState = atom<NodeId | undefined>(undefined);
 
@@ -36,6 +35,8 @@ export const usePromptDesignerAttachedNode = ({
   const [lastPromptDesignerAttachedNode, setLastPromptDesignerAttachedNode] = useAtom(
     lastPromptDesignerAttachedNodeState,
   );
+  const clearCurrentGraphHistory = useClearCurrentGraphHistory();
+  const dataRefs = useDataRefs();
 
   const attachedNode = attachedNodeId?.nodeId ? (nodesById[attachedNodeId.nodeId] as ChatNode) : undefined;
   const testGroups = attachedNode?.tests ?? [];
@@ -68,20 +69,32 @@ export const usePromptDesignerAttachedNode = ({
       : undefined;
 
     if (nodeDataForAttachedNodeProcess?.inputData) {
-      let inputData = nodeDataForAttachedNodeProcess.inputData;
-      if (attachedNode.isSplitRun) {
-        inputData = mapValues(inputData, (value) =>
-          isArrayDataValue(value as DataValue) ? arrayizeDataValue(value as ScalarDataValue)[0] : value,
-        ) as InputsOrOutputsWithRefs;
+      try {
+        let inputData = restoreStoredPortMap(nodeDataForAttachedNodeProcess.inputData, dataRefs) as Inputs;
+        if (attachedNode.isSplitRun) {
+          inputData = Object.fromEntries(
+            Object.entries(inputData).map(([portId, value]) => {
+              if (!value || isFunctionDataType(value.type)) {
+                return [portId, value];
+              }
+
+              const arrayized = arrayizeDataValue(value as ScalarOrArrayDataValue);
+              return [portId, arrayized[0] ?? value];
+            }),
+          ) as Inputs;
+        }
+        const { messages } = getChatNodeMessages(inputData);
+        setMessages({ messages });
+      } catch (error) {
+        handleError(error, 'Failed to load prompt designer input data');
       }
-      const { messages } = getChatNodeMessages(inputData as Inputs);
-      setMessages({ messages });
     }
 
     setLastPromptDesignerAttachedNode(attachedNode.id);
   }, [
     attachedNode,
     attachedNodeId,
+    dataRefs,
     lastPromptDesignerAttachedNode,
     nodeOutput,
     setConfig,
@@ -90,6 +103,7 @@ export const usePromptDesignerAttachedNode = ({
   ]);
 
   const attachedNodeChanged = (newNode: ChatNode) => {
+    clearCurrentGraphHistory();
     setNodes((prev) => prev.map((node) => (node.id === newNode.id ? newNode : node)));
   };
 
@@ -100,7 +114,9 @@ export const usePromptDesignerAttachedNode = ({
 
     attachedNodeChanged({
       ...attachedNode,
-      tests: (attachedNode.tests ?? []).map((testGroup, testGroupIndex) => (testGroupIndex === index ? newTestGroup : testGroup)),
+      tests: (attachedNode.tests ?? []).map((testGroup, testGroupIndex) =>
+        testGroupIndex === index ? newTestGroup : testGroup,
+      ),
     });
   };
 

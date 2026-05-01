@@ -60,7 +60,7 @@ export const pluginsOverlayBodyStyles = css`
 
     code {
       line-height: 11px;
-      font-size: 11px;
+      font-size: var(--ui-font-size-xs);
     }
 
     .copy-plugin-dir-button {

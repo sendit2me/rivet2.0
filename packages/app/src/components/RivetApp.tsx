@@ -1,7 +1,7 @@
 import { useWindowsHotkeysFix } from '../hooks/useWindowsHotkeysFix';
 import { GraphBuilder } from './GraphBuilder.js';
 import { OverlayTabs } from './OverlayTabs.js';
-import { type FC, useEffect } from 'react';
+import { type FC, useEffect, useMemo } from 'react';
 import { type GraphId } from '@ironclad/rivet-core';
 import { css } from '@emotion/react';
 import { SettingsModal } from './SettingsModal.js';
@@ -17,7 +17,7 @@ import { ActionBar } from './ActionBar';
 import { DebuggerPanelRenderer } from './DebuggerConnectPanel';
 import { ChatViewerRenderer } from './ChatViewer';
 import { useAtomValue } from 'jotai';
-import { defaultExecutorState, themeState } from '../state/settings';
+import { defaultExecutorState, themeState, themes } from '../state/settings';
 import clsx from 'clsx';
 import { useLoadStaticData } from '../hooks/useLoadStaticData';
 import { DataStudioRenderer } from './dataStudio/DataStudio';
@@ -34,13 +34,17 @@ import { CommunityOverlayRenderer } from './community/CommunityOverlay';
 import { HelpModal } from './HelpModal';
 import { openedProjectsSortedIdsState } from '../state/savedGraphs';
 import { NoProject } from './NoProject';
-import { allInitializeStoreFns } from '../state/storage';
 import { AppErrorBoundary } from './AppErrorBoundary';
 import { wrapAsync } from '../utils/errorHandling';
 import { useExecutorSession } from '../hooks/useExecutorSession';
+import { useRestorePersistedWorkspace } from '../hooks/useRestorePersistedWorkspace.js';
+import { DeleteGraphInputConfirmModalRenderer } from './DeleteGraphInputConfirmModal';
+import { uiFontSizeState } from '../state/ui.js';
+import { getUiFontSizeCssVariables } from '../utils/uiFontSize.js';
 
 const styles = css`
   overflow: hidden;
+  font-size: var(--ui-font-size-base);
 `;
 
 setGlobalTheme({
@@ -52,11 +56,14 @@ export const RivetApp: FC = () => {
   useExecutorSession(selectedExecutor);
   const { tryRunGraph, tryRunTests, tryAbortGraph, tryPauseGraph, tryResumeGraph } = useGraphExecutor();
   const theme = useAtomValue(themeState);
+  const uiFontSize = useAtomValue(uiFontSizeState);
   const openedProjectIds = useAtomValue(openedProjectsSortedIdsState);
+  const uiFontSizeCssVariables = useMemo(() => getUiFontSizeCssVariables(uiFontSize), [uiFontSize]);
 
   const noProjectOpen = openedProjectIds.length === 0;
 
   useLoadStaticData();
+  useRestorePersistedWorkspace();
 
   const runGraph = wrapAsync(tryRunGraph, 'Run graph');
   const runTests = wrapAsync(tryRunTests, 'Run tests');
@@ -77,8 +84,35 @@ export const RivetApp: FC = () => {
   useMonitorUpdateStatus();
   useWindowTitle();
 
+  useEffect(() => {
+    const rootStyle = document.documentElement.style;
+
+    for (const [name, value] of Object.entries(uiFontSizeCssVariables)) {
+      rootStyle.setProperty(name, value);
+    }
+
+    return () => {
+      for (const name of Object.keys(uiFontSizeCssVariables)) {
+        rootStyle.removeProperty(name);
+      }
+    };
+  }, [uiFontSizeCssVariables]);
+
+  useEffect(() => {
+    const rootElement = document.documentElement;
+    const themeClasses = ['theme-default', ...themes.map(({ value }) => `theme-${value}`)];
+    const themeClass = theme ? `theme-${theme}` : 'theme-default';
+
+    rootElement.classList.remove(...themeClasses);
+    rootElement.classList.add(themeClass);
+
+    return () => {
+      rootElement.classList.remove(themeClass);
+    };
+  }, [theme]);
+
   return (
-    <div className={clsx('app', theme ? `theme-${theme}` : 'theme-default')} css={styles}>
+    <div className={clsx('app', theme ? `theme-${theme}` : 'theme-default')} css={styles} style={uiFontSizeCssVariables}>
       {noProjectOpen ? (
         <>
           <NoProject />
@@ -112,6 +146,7 @@ export const RivetApp: FC = () => {
           <PluginsOverlayRenderer />
           <UpdateModalRenderer />
           <NewProjectModalRenderer />
+          <DeleteGraphInputConfirmModalRenderer />
           <CommunityOverlayRenderer />
         </>
       )}

@@ -2,14 +2,12 @@ import { css } from '@emotion/react';
 import { useState, type FC, type KeyboardEvent } from 'react';
 import TextArea from '@atlaskit/textarea';
 import { useAiGraphBuilder } from '../hooks/useAiGraphBuilder';
-import { openai } from '@ironclad/rivet-core';
 import Select from '@atlaskit/select';
 import Button from '@atlaskit/button';
 import { atom, useAtom } from 'jotai';
-import Toggle from '@atlaskit/toggle';
-import { Label } from '@atlaskit/form';
 import { modelSelectorOptions } from '../utils/modelSelectorOptions';
 import { wrapAsync } from '../utils/errorHandling';
+import { useMultilineEditorFontSize } from '../hooks/useMultilineEditorFontSize.js';
 
 const styles = css`
   position: fixed;
@@ -17,7 +15,8 @@ const styles = css`
   left: 50%;
   transform: translateX(-50%);
   background: var(--grey-darker);
-  border-radius: 4px;
+  border-radius: 8px;
+  corner-shape: squircle;
   border: 1px solid var(--grey-dark);
   z-index: 50;
   gap: 8px;
@@ -37,7 +36,7 @@ const styles = css`
   }
 
   .feedback {
-    font-size: 12px;
+    font-size: var(--ui-font-size-sm);
     color: var(--grey-light);
     padding: 8px;
   }
@@ -54,6 +53,7 @@ export const AiGraphCreatorInput: FC = () => {
   const [record, setRecord] = useState(true);
 
   const [show, setShow] = useAtom(showAiGraphCreatorInputState);
+  const { fontSize, handleKeyDown: handleMultilineEditorFontSizeKeyDown } = useMultilineEditorFontSize();
 
   const [abortController, setAbortController] = useState<AbortController | null>(null);
 
@@ -81,6 +81,12 @@ export const AiGraphCreatorInput: FC = () => {
   }, 'Apply AI graph prompt');
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (handleMultilineEditorFontSizeKeyDown(e.nativeEvent)) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
       runPrompt();
@@ -112,6 +118,7 @@ export const AiGraphCreatorInput: FC = () => {
           autoFocus
           onChange={(e) => setPrompt(e.target.value)}
           onKeyDown={handleKeyDown}
+          style={{ fontSize }}
         />
         <div className="model-selector">
           <Select

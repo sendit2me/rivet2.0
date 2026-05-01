@@ -14,6 +14,7 @@ import {
   deserializeTrivetData,
   serializeTrivetData,
 } from '@ironclad/trivet';
+import { openBrowserFile } from './browserFileInput.js';
 
 export class LegacyBrowserIOProvider implements IOProvider {
   async saveGraphData(graphData: NodeGraph): Promise<void> {
@@ -38,48 +39,36 @@ export class LegacyBrowserIOProvider implements IOProvider {
   }
 
   async loadGraphData(callback: (graphData: NodeGraph) => void): Promise<void> {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.rivet-graph';
-    input.onchange = async (event) => {
-      const file = (event.target as HTMLInputElement)!.files![0]!;
-      const text = await file.text();
-      callback(deserializeGraph(text));
-    };
-    input.click();
+    const file = await openBrowserFile({ accept: '.rivet-graph' });
+    if (!file) return;
+
+    const text = await file.text();
+    callback(deserializeGraph(text));
   }
 
   async loadProjectData(
     callback: (data: { project: Project; testData: TrivetData; path: string }) => void,
   ): Promise<void> {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.rivet-project';
-    input.onchange = async (event) => {
-      const file = (event.target as HTMLInputElement)!.files![0]!;
-      const text = await file.text();
+    const file = await openBrowserFile({ accept: '.rivet-project' });
+    if (!file) return;
 
-      const [project, attachedData] = deserializeProject(text);
+    const text = await file.text();
 
-      const testData = attachedData?.trivet
-        ? deserializeTrivetData(attachedData.trivet as SerializedTrivetData)
-        : { testSuites: [] };
+    const [project, attachedData] = deserializeProject(text);
 
-      callback({ project, testData, path: file.name });
-    };
-    input.click();
+    const testData = attachedData?.trivet
+      ? deserializeTrivetData(attachedData.trivet as SerializedTrivetData)
+      : { testSuites: [] };
+
+    callback({ project, testData, path: file.name });
   }
 
   async loadRecordingData(callback: (data: { recorder: ExecutionRecorder; path: string }) => void): Promise<void> {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.rivet-recording';
-    input.onchange = async (event) => {
-      const file = (event.target as HTMLInputElement)!.files![0]!;
-      const text = await file.text();
-      callback({ recorder: ExecutionRecorder.deserializeFromString(text), path: file.name });
-    };
-    input.click();
+    const file = await openBrowserFile({ accept: '.rivet-recording' });
+    if (!file) return;
+
+    const text = await file.text();
+    callback({ recorder: ExecutionRecorder.deserializeFromString(text), path: file.name });
   }
 
   async saveString(content: string, defaultFileName: string): Promise<void> {
@@ -92,27 +81,18 @@ export class LegacyBrowserIOProvider implements IOProvider {
   }
 
   async readFileAsString(callback: (data: string, fileName: string) => void): Promise<void> {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.onchange = async (event) => {
-      const file = (event.target as HTMLInputElement)!.files![0]!;
-      const text = await file.text();
-      callback(text, file.name);
-    };
-    input.click();
+    const file = await openBrowserFile();
+    if (!file) return;
+
+    const text = await file.text();
+    callback(text, file.name);
   }
 
   async readFileAsBinary(callback: (data: Uint8Array, fileName: string) => void): Promise<void> {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.onchange = async (event) => {
-      const file = (event.target as HTMLInputElement)!.files![0]!;
-      const reader = new FileReader();
-      reader.onload = () => {
-        callback(new Uint8Array(reader.result as ArrayBuffer), file.name);
-      };
-      reader.readAsArrayBuffer(file);
-    };
-    input.click();
+    const file = await openBrowserFile();
+    if (!file) return;
+
+    const arrayBuffer = await file.arrayBuffer();
+    callback(new Uint8Array(arrayBuffer), file.name);
   }
 }

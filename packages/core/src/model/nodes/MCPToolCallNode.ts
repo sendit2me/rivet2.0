@@ -159,6 +159,7 @@ export class MCPToolCallNodeImpl extends NodeImpl<MCPToolCallNode> {
         dataKey: 'toolArguments',
         language: 'json',
         useInputToggleDataKey: 'useToolArgumentsInput',
+        enableFolding: true,
       },
       {
         type: 'string',

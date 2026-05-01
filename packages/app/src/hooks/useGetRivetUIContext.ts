@@ -1,6 +1,5 @@
-import { type ChartNode, getPluginConfig } from '@ironclad/rivet-core';
+import { type ChartNode, type RivetUIContext, getPluginConfig } from '@ironclad/rivet-core';
 import { defaultExecutorState, settingsState } from '../state/settings';
-import { type RivetUIContext } from '../../../core/src/model/RivetUIContext';
 import { fillMissingSettingsFromEnvironmentVariables } from '../utils/tauri';
 import { useDependsOnPlugins } from './useDependsOnPlugins';
 import { useProjectNodeRegistry } from './useProjectNodeRegistry';
@@ -9,11 +8,12 @@ import { graphState } from '../state/graph';
 import { useStableCallback } from './useStableCallback';
 import { useAtomValue } from 'jotai';
 import { TauriNativeApi } from '../model/native/TauriNativeApi';
-import { useDatasetProvider } from '../providers/ProvidersContext';
+import { useDatasetProvider, useEnvironmentProvider } from '../providers/ProvidersContext';
 import { getChatV2DiscoveredModelOptions } from '../utils/chatV2ModelCatalog.js';
 
 export function useGetRivetUIContext() {
   const datasetProvider = useDatasetProvider();
+  const environmentProvider = useEnvironmentProvider();
   const selectedExecutor = useAtomValue(defaultExecutorState);
   const settings = useAtomValue(settingsState);
   const plugins = useDependsOnPlugins();
@@ -23,7 +23,9 @@ export function useGetRivetUIContext() {
   const referencedProjects = useAtomValue(referencedProjectsState);
 
   return useStableCallback(async ({ node }: { node?: ChartNode }) => {
-    const resolvedSettings = await fillMissingSettingsFromEnvironmentVariables(settings, plugins);
+    const resolvedSettings = await fillMissingSettingsFromEnvironmentVariables(settings, plugins, {
+      environmentProvider,
+    });
     let getPluginConfigFn: RivetUIContext['getPluginConfig'] = () => undefined;
     if (node) {
       const nodePlugin = projectNodeRegistry.getPluginFor(node?.type);

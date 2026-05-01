@@ -1,14 +1,26 @@
 {
   "name": "@ironclad/rivet-app",
   "repository": "https://github.com/ironclad/rivet",
-  "version": "1.1.0",
+  "version": "2.0.0",
   "private": true,
   "license": "MIT",
   "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/host.tsx",
+      "import": "./src/host.tsx"
+    },
+    "./host": {
+      "types": "./src/host.tsx",
+      "import": "./src/host.tsx"
+    },
+    "./styles": "./src/host.css"
+  },
   "scripts": {
     "dev": "node scripts/dev.mjs",
     "start": "vite",
     "build": "tsc && vite build",
+    "prepare:tauri": "node scripts/prepare-tauri.mjs",
     "release": "tsx scripts/release.ts",
     "context": "echo \"$(cat context.txt && ts-node tree.ts)\" | pbcopy && echo \"Copied to clipboard\"",
     "executor": "ts-node bin/executor.ts",
@@ -33,6 +45,7 @@
     ]
   },
   "dependencies": {
+    "@ai-sdk/openai-compatible": "1.0.17",
     "@atlaskit/banner": "^12.1.18",
     "@atlaskit/button": "^16.11.0",
     "@atlaskit/checkbox": "^12.6.11",
@@ -87,6 +100,7 @@
     "eslint-config-react-app": "^7.0.1",
     "fast-deep-equal": "^3.1.3",
     "fuse.js": "^6.6.2",
+    "github-markdown-css": "^5.8.1",
     "immer": "^10.0.3",
     "jest-diff": "^29.7.0",
     "jotai": "^2.11.0",
@@ -137,7 +151,8 @@
     "vite-tsconfig-paths": "^4.2.1",
     "ws": "^8.18.0",
     "yaml": "^2.3.3",
-    "yargs": "^17.7.2"
+    "yargs": "^17.7.2",
+    "zod": "^4.3.6"
   },
   "packageManager": "yarn@3.5.0",
   "resolutions": {

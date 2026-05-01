@@ -8,9 +8,10 @@ import {
   type InternalProcessContext,
   type PortId,
   type RootRunId,
+  GptTokenizerTokenizer,
+  logRuntimeDebug,
 } from '@ironclad/rivet-core';
 import { useCallback } from 'react';
-import { GptTokenizerTokenizer } from '../../../core/src/integrations/GptTokenizerTokenizer';
 import { fillMissingSettingsFromEnvironmentVariables } from '../utils/tauri';
 import { TauriNativeApi } from '../model/native/TauriNativeApi';
 import { nanoid } from 'nanoid/non-secure';
@@ -19,11 +20,18 @@ import { settingsState } from '../state/settings';
 import { useDependsOnPlugins } from './useDependsOnPlugins';
 import { loadedProjectState, referencedProjectsState } from '../state/savedGraphs';
 import { TauriProjectReferenceLoader } from '../model/TauriProjectReferenceLoader';
-import { useAudioProvider, useDatasetProvider } from '../providers/ProvidersContext';
+import {
+  useAudioProvider,
+  useDatasetProvider,
+  useEnvironmentProvider,
+  usePathPolicyProvider,
+} from '../providers/ProvidersContext';
 
 export function useGetAdHocInternalProcessContext() {
   const audioProvider = useAudioProvider();
   const datasetProvider = useDatasetProvider();
+  const environmentProvider = useEnvironmentProvider();
+  const pathPolicy = usePathPolicyProvider();
   const settings = useAtomValue(settingsState);
   const plugins = useDependsOnPlugins();
   const referencedProjects = useAtomValue(referencedProjectsState);
@@ -44,7 +52,9 @@ export function useGetAdHocInternalProcessContext() {
         contextValues: {},
 
         createSubProcessor: undefined!,
-        settings: await fillMissingSettingsFromEnvironmentVariables(settings, plugins),
+        settings: await fillMissingSettingsFromEnvironmentVariables(settings, plugins, {
+          environmentProvider,
+        }),
         nativeApi: new TauriNativeApi(),
         datasetProvider,
         audioProvider,
@@ -65,7 +75,7 @@ export function useGetAdHocInternalProcessContext() {
         raiseEvent: undefined!,
         setGlobal: undefined!,
         signal: options?.signal ?? new AbortController().signal,
-        trace: (value: string) => console.log(value),
+        trace: (trace: string) => logRuntimeDebug('Ad-hoc process trace', { trace }),
         waitEvent: undefined!,
         waitForGlobal: undefined!,
         onPartialOutputs: (outputs: Outputs) => {
@@ -81,9 +91,18 @@ export function useGetAdHocInternalProcessContext() {
         codeRunner: undefined!,
         referencedProjects,
         projectPath: loadedProject.path ?? undefined,
-        projectReferenceLoader: new TauriProjectReferenceLoader(),
+        projectReferenceLoader: new TauriProjectReferenceLoader(pathPolicy),
       };
     },
-    [audioProvider, datasetProvider, plugins, settings, loadedProject, referencedProjects],
+    [
+      audioProvider,
+      datasetProvider,
+      environmentProvider,
+      loadedProject,
+      pathPolicy,
+      plugins,
+      referencedProjects,
+      settings,
+    ],
   );
 }

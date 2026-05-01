@@ -29,19 +29,21 @@ export const DefaultColorEditor: FC<
       <Field name={editor.dataKey} label={editor.label}>
         {() => (
           <>
-            <LazyTripleBarColorPicker
-              color={{ r, g, b, a }}
-              onChange={(newColor) => {
-                onChange({
-                  ...node,
-                  data: {
-                    ...data,
-                    [editor.dataKey]: `rgba(${newColor.rgb.r},${newColor.rgb.g},${newColor.rgb.b},${newColor.rgb.a})`,
-                  },
-                });
-              }}
-            />
             {helperMessage && <HelperMessage>{helperMessage}</HelperMessage>}
+            <div className="node-editor-color-picker">
+              <LazyTripleBarColorPicker
+                color={{ r, g, b, a }}
+                onChange={(newColor) => {
+                  onChange({
+                    ...node,
+                    data: {
+                      ...data,
+                      [editor.dataKey]: `rgba(${newColor.rgb.r},${newColor.rgb.g},${newColor.rgb.b},${newColor.rgb.a})`,
+                    },
+                  });
+                }}
+              />
+            </div>
           </>
         )}
       </Field>

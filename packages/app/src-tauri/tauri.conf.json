@@ -1,13 +1,13 @@
 {
   "build": {
-    "beforeBuildCommand": "yarn build",
-    "beforeDevCommand": "yarn start",
+    "beforeBuildCommand": "yarn prepare:tauri && yarn build",
+    "beforeDevCommand": "yarn prepare:tauri && yarn start",
     "devPath": "http://localhost:5173",
     "distDir": "../dist"
   },
   "package": {
     "productName": "Rivet",
-    "version": "1.11.3"
+    "version": "2.0.0"
   },
   "tauri": {
     "allowlist": {

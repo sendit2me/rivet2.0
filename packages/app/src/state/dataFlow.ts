@@ -44,6 +44,13 @@ export type RunDataByNodeId = Record<NodeId, ProcessDataForNode[]>;
 export type NodeRunDataBase = {
   startedAt?: number;
   finishedAt?: number;
+  debugData?: {
+    codeSource?: string;
+    expressionSource?: string;
+    extractObjectPathSource?: string;
+    extractObjectPathUsePathInput?: boolean;
+    jsListCallbackBodySource?: string;
+  };
 
   status?:
     | { type: 'ok' }
@@ -63,26 +70,57 @@ export type NodeRunData = NodeRunDataBase & {
   };
 };
 
-export type NodeRunDataWithRefs = NodeRunDataBase & {
-  inputData?: InputsOrOutputsWithRefs;
+export type StoredDataPreview =
+  | {
+      kind: 'text';
+      excerpt: string;
+      totalChars: number;
+      lineCount: number;
+      encodedHint?: 'base64' | 'data-uri';
+    }
+  | {
+      kind: 'json';
+      excerpt: string;
+      totalChars: number;
+      itemCount?: number;
+    }
+  | {
+      kind: 'summary';
+      label: string;
+      totalBytes?: number;
+      itemCount?: number;
+    };
 
-  outputData?: InputsOrOutputsWithRefs;
+export type StoredDataValue = {
+  [P in DataType]:
+    | {
+        type: P;
+        storage: 'inline';
+        value: Extract<DataValue, { type: P }>['value'];
+      }
+    | {
+        type: P;
+        storage: 'ref';
+        refId: string;
+        preview: StoredDataPreview;
+      };
+}[DataType];
+
+export type StoredInputsOrOutputs = Record<PortId, StoredDataValue>;
+
+export type NodeRunDataWithRefs = NodeRunDataBase & {
+  inputData?: StoredInputsOrOutputs;
+
+  outputData?: StoredInputsOrOutputs;
 
   splitOutputData?: {
-    [index: number]: InputsOrOutputsWithRefs;
+    [index: number]: StoredInputsOrOutputs;
   };
 };
 
-export type InputsOrOutputsWithRefs = Record<PortId, DataValueWithRefs>;
+export type InputsOrOutputsWithRefs = StoredInputsOrOutputs;
 
-export type DataValueWithRefs = {
-  [P in DataType]: {
-    type: P;
-    value: P extends 'binary' | 'audio' | 'image' | 'document' | 'chat-message'
-      ? { ref: string }
-      : Extract<DataValue, { type: P }>['value'];
-  };
-}[DataType];
+export type DataValueWithRefs = StoredDataValue;
 
 export type PageValue = number | 'latest';
 

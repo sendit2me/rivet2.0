@@ -7,6 +7,31 @@ export type ConnectionActionParams = {
   inputId: PortId;
 };
 
+export function areConnectionsEqual(a: NodeConnection, b: NodeConnection): boolean {
+  return (
+    a.inputNodeId === b.inputNodeId &&
+    a.inputId === b.inputId &&
+    a.outputNodeId === b.outputNodeId &&
+    a.outputId === b.outputId
+  );
+}
+
+export function removeMatchingConnection(
+  connections: NodeConnection[],
+  connectionToRemove: NodeConnection,
+): NodeConnection[] {
+  let removed = false;
+
+  return connections.filter((connection) => {
+    if (!removed && areConnectionsEqual(connection, connectionToRemove)) {
+      removed = true;
+      return false;
+    }
+
+    return true;
+  });
+}
+
 export function createConnectionChange(
   connections: NodeConnection[],
   params: ConnectionActionParams,
@@ -22,7 +47,7 @@ export function createConnectionChange(
   );
 
   if (previousConnectionToInput) {
-    nextConnections = nextConnections.filter((connection) => connection !== previousConnectionToInput);
+    nextConnections = removeMatchingConnection(nextConnections, previousConnectionToInput);
   }
 
   const newConnection: NodeConnection = {
@@ -40,7 +65,61 @@ export function createConnectionChange(
 }
 
 export function removeConnection(connections: NodeConnection[], connectionToBreak: NodeConnection): NodeConnection[] {
-  return connections.filter((connection) => connection !== connectionToBreak);
+  return removeMatchingConnection(connections, connectionToBreak);
+}
+
+export function createRewireConnectionChange(
+  connections: NodeConnection[],
+  originalConnection: NodeConnection,
+  params: ConnectionActionParams,
+): {
+  connections: NodeConnection[];
+  newConnection: NodeConnection;
+  originalConnection: NodeConnection;
+  replacedTargetConnection: NodeConnection | undefined;
+} {
+  const replacedTargetConnection = connections.find(
+    (connection) => connection.inputNodeId === params.inputNodeId && connection.inputId === params.inputId,
+  );
+
+  let nextConnections = removeMatchingConnection(connections, originalConnection);
+
+  if (replacedTargetConnection && !areConnectionsEqual(replacedTargetConnection, originalConnection)) {
+    nextConnections = removeMatchingConnection(nextConnections, replacedTargetConnection);
+  }
+
+  const newConnection: NodeConnection = {
+    inputNodeId: params.inputNodeId,
+    inputId: params.inputId,
+    outputNodeId: params.outputNodeId,
+    outputId: params.outputId,
+  };
+
+  return {
+    connections: [...nextConnections, newConnection],
+    newConnection,
+    originalConnection,
+    replacedTargetConnection,
+  };
+}
+
+export function undoRewireConnectionChange(options: {
+  connections: NodeConnection[];
+  newConnection: NodeConnection;
+  originalConnection: NodeConnection;
+  replacedTargetConnection?: NodeConnection;
+}): NodeConnection[] {
+  let nextConnections = removeMatchingConnection(options.connections, options.newConnection);
+  nextConnections = [...nextConnections, options.originalConnection];
+
+  if (
+    options.replacedTargetConnection &&
+    !areConnectionsEqual(options.replacedTargetConnection, options.originalConnection)
+  ) {
+    nextConnections = [...nextConnections, options.replacedTargetConnection];
+  }
+
+  return nextConnections;
 }
 
 export function undoConnectionChange(options: {
@@ -48,15 +127,7 @@ export function undoConnectionChange(options: {
   newConnection: NodeConnection;
   previousConnectionToInput?: NodeConnection;
 }): NodeConnection[] {
-  const withoutNewConnection = options.connections.filter(
-    (connection) =>
-      !(
-        connection.inputId === options.newConnection.inputId &&
-        connection.inputNodeId === options.newConnection.inputNodeId &&
-        connection.outputId === options.newConnection.outputId &&
-        connection.outputNodeId === options.newConnection.outputNodeId
-      ),
-  );
+  const withoutNewConnection = removeMatchingConnection(options.connections, options.newConnection);
 
   return options.previousConnectionToInput
     ? [...withoutNewConnection, options.previousConnectionToInput]

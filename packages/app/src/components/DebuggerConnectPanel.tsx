@@ -4,12 +4,18 @@ import { css } from '@emotion/react';
 import { type ChangeEvent, type FC, useEffect, useRef, useState } from 'react';
 import { Field } from '@atlaskit/form';
 import { useRemoteDebugger } from '../hooks/useRemoteDebugger';
-import { debuggerPanelOpenState } from '../state/ui';
+import { debuggerPanelAnchorState, type DebuggerPanelAnchor, debuggerPanelOpenState } from '../state/ui';
 import { debuggerDefaultUrlState } from '../state/settings';
-import { useSetAtom, useAtom } from 'jotai';
+import { useSetAtom, useAtom, useAtomValue } from 'jotai';
+import {
+  DEBUGGER_PANEL_WIDTH,
+  DEBUGGER_PANEL_Z_INDEX,
+  resolveDebuggerPanelPosition,
+} from '../utils/debuggerPanelPosition.js';
 
 export function useToggleRemoteDebugger() {
   const setDebuggerPanelOpen = useSetAtom(debuggerPanelOpenState);
+  const setDebuggerPanelAnchor = useSetAtom(debuggerPanelAnchorState);
   const { sessionState: remoteDebugger, connect, disconnect } = useRemoteDebugger();
   const isActuallyRemoteDebugging = remoteDebugger.status !== 'idle' && !remoteDebugger.isInternalExecutor;
 
@@ -17,6 +23,7 @@ export function useToggleRemoteDebugger() {
     if (isActuallyRemoteDebugging || remoteDebugger.reconnecting) {
       disconnect();
     } else {
+      setDebuggerPanelAnchor(undefined);
       setDebuggerPanelOpen(true);
     }
   };
@@ -24,11 +31,18 @@ export function useToggleRemoteDebugger() {
 
 export const DebuggerPanelRenderer: FC = () => {
   const [debuggerPanelOpen, setDebuggerPanelOpen] = useAtom(debuggerPanelOpenState);
+  const debuggerPanelAnchor = useAtomValue(debuggerPanelAnchorState);
+  const setDebuggerPanelAnchor = useSetAtom(debuggerPanelAnchorState);
 
   const { connect } = useRemoteDebugger();
 
-  function handleConnectRemoteDebugger(url: string) {
+  function closeDebuggerPanel() {
     setDebuggerPanelOpen(false);
+    setDebuggerPanelAnchor(undefined);
+  }
+
+  function handleConnectRemoteDebugger(url: string) {
+    closeDebuggerPanel();
     connect(url);
   }
 
@@ -36,7 +50,13 @@ export const DebuggerPanelRenderer: FC = () => {
     return null;
   }
 
-  return <DebuggerConnectPanel onConnect={handleConnectRemoteDebugger} onCancel={() => setDebuggerPanelOpen(false)} />;
+  return (
+    <DebuggerConnectPanel
+      anchor={debuggerPanelAnchor}
+      onConnect={handleConnectRemoteDebugger}
+      onCancel={closeDebuggerPanel}
+    />
+  );
 };
 
 const styles = css`
@@ -44,13 +64,11 @@ const styles = css`
   flex-direction: column;
   gap: 16px;
   position: fixed;
-  top: calc(48px + var(--project-selector-height));
-  left: 256px;
   background: var(--grey-darker);
   padding: 4px 16px 16px 16px; // atlaskit padding on top
   box-shadow: 0 8px 16px var(--shadow-dark);
-  width: 400px;
-  z-index: 50;
+  width: ${DEBUGGER_PANEL_WIDTH}px;
+  z-index: ${DEBUGGER_PANEL_Z_INDEX};
 
   .inputs {
   }
@@ -69,11 +87,12 @@ const styles = css`
 `;
 
 export type DebuggerConnectPanelProps = {
+  anchor?: DebuggerPanelAnchor;
   onConnect?: (url: string) => void;
   onCancel?: () => void;
 };
 
-export const DebuggerConnectPanel: FC<DebuggerConnectPanelProps> = ({ onConnect, onCancel }) => {
+export const DebuggerConnectPanel: FC<DebuggerConnectPanelProps> = ({ anchor, onConnect, onCancel }) => {
   const [defaultConnectUrl, setDefaultConnectUrl] = useAtom(debuggerDefaultUrlState);
   const [connectUrl, setConnectUrl] = useState(defaultConnectUrl);
 
@@ -92,7 +111,13 @@ export const DebuggerConnectPanel: FC<DebuggerConnectPanelProps> = ({ onConnect,
   }, []);
 
   return (
-    <div css={styles}>
+    <div
+      css={styles}
+      style={resolveDebuggerPanelPosition({
+        anchor,
+        viewportWidth: typeof window === 'undefined' ? 0 : window.innerWidth,
+      })}
+    >
       <div className="inputs">
         <Field label="Connection URL (leave blank for default localhost)" name="url">
           {() => (

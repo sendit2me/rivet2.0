@@ -29,6 +29,8 @@ export const ExtractRegexNodeAiAssistEditor: FC<
       graphName="Extract Regex Node Generator"
       placeholder="What would you like your Extract Regex node to do?"
       label="Generate Using AI"
+      collapsible
+      defaultOpen={false}
       updateData={(currentData, outputs) => {
         const regex = coerceTypeOptional(outputs.regex, 'string');
         const multiline = coerceTypeOptional(outputs.multiline, 'boolean');

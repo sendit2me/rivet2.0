@@ -1,15 +1,18 @@
 import {
+  type DataType,
   type NodeInputDefinition,
   type NodeId,
   type PortId,
   type NodeOutputDefinition,
-  type DataType,
-  isDataTypeAccepted,
-  canBeCoercedAny,
 } from '@ironclad/rivet-core';
 import { type FC, useRef, type MouseEvent, memo, useMemo } from 'react';
 import clsx from 'clsx';
 import { useStableCallback } from '../hooks/useStableCallback';
+import { getPortCompatibilityStatus } from '../domain/graphEditing/portCompatibility.js';
+
+export function canStartWireDragFromPortLabel(input: boolean): boolean {
+  return !input;
+}
 
 export const Port: FC<{
   input?: boolean;
@@ -71,22 +74,28 @@ export const Port: FC<{
       onMouseOut?.(event, nodeId, input, id, definition);
     });
 
+    const handleLabelMouseDown = useStableCallback((event: MouseEvent<HTMLDivElement>) => {
+      if (!canStartWireDragFromPortLabel(input)) {
+        return;
+      }
+
+      onMouseDown?.(event, id, input);
+    });
+
     const definitionAsNodeInputDefinition = definition as NodeInputDefinition;
     const accepted = useMemo(() => {
-      if (!draggingDataType || !input) {
+      const status = getPortCompatibilityStatus({
+        draggingDataType,
+        portDataType: definition.dataType,
+        canCoerce: definitionAsNodeInputDefinition.coerced ?? true,
+        isInput: input,
+      });
+
+      if (status === 'none') {
         return '';
       }
 
-      if (isDataTypeAccepted(draggingDataType, definition.dataType)) {
-        return 'compatible';
-      }
-
-      // We almost always coerce so default it to true for now...
-      if (definitionAsNodeInputDefinition.coerced ?? true) {
-        return canBeCoercedAny(draggingDataType, definition.dataType) ? 'coerced' : 'incompatible';
-      }
-
-      return 'incompatible';
+      return status;
     }, [draggingDataType, definition.dataType, definitionAsNodeInputDefinition.coerced, input]);
 
     return (
@@ -118,6 +127,7 @@ export const Port: FC<{
         </div>
         <div
           className={clsx('port-label', preservePortCase ? '' : 'port-label-uppercase')}
+          onMouseDown={handleLabelMouseDown}
           onMouseOver={handleMouseOver}
           onMouseOut={handleMouseOut}
         >

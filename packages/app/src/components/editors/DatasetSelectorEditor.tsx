@@ -64,13 +64,13 @@ export const DatasetSelector: FC<{
     <Field name={name} label={label} isDisabled={isReadonly || isDisabled}>
       {({ fieldProps }) => (
         <>
+          {helperMessage && <HelperMessage>{helperMessage}</HelperMessage>}
           <Select
             {...fieldProps}
             options={datasetOptions}
             value={selectedOption}
             onChange={(selected) => onChange?.(selected!.value)}
           />
-          {helperMessage && <HelperMessage>{helperMessage}</HelperMessage>}
         </>
       )}
     </Field>

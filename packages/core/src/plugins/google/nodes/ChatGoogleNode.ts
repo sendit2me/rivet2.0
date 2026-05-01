@@ -361,7 +361,7 @@ export const ChatGoogleNodeImpl: PluginNodeImpl<ChatGoogleNode> = {
       infoBoxBody: dedent`
           Legacy Google chat node.
 
-          For new work, prefer \`LLM Chat v2\`, which keeps provider selection inside one shared node.
+          For new work, prefer \`LLM Chat\`, which keeps provider selection inside one shared node.
         `,
       infoBoxTitle: 'Chat (Google) Node (Legacy)',
       contextMenuTitle: 'Chat (Google, Legacy)',

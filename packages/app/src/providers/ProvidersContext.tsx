@@ -6,16 +6,34 @@ import { LegacyBrowserIOProvider } from '../io/LegacyBrowserIOProvider.js';
 import { TauriIOProvider } from '../io/TauriIOProvider.js';
 import { BrowserDatasetProvider } from '../io/BrowserDatasetProvider.js';
 import { TauriBrowserAudioProvider } from '../io/TauriBrowserAudioProvider.js';
-import { getGlobalDataRef, setGlobalDataRef } from '../utils/globals/globalDataRefs.js';
+import { deleteGlobalDataRef, getGlobalDataRef, setGlobalDataRef } from '../utils/globals/globalDataRefs.js';
+import { getDefaultEnvironmentProvider, getDefaultPathPolicyProvider } from '../utils/tauri.js';
+import type { AsyncStorageBackend } from '../state/storage/indexedDB.js';
 
 export type DataRefStore = {
   get(key: string): ReturnType<typeof getGlobalDataRef>;
-  set(key: string, value: Parameters<typeof setGlobalDataRef>[1]): void;
+  set(
+    key: string,
+    value: Parameters<typeof setGlobalDataRef>[1],
+    options?: Parameters<typeof setGlobalDataRef>[2],
+  ): void;
+  delete(key: string): void;
 };
+
+export type DataRefReader = Pick<DataRefStore, 'get'>;
 
 export type AppDatasetProvider = DatasetProvider & {
   loadDatasets?(projectId: ProjectId): Promise<void>;
   importDatasetsForProject?(projectId: ProjectId, datasets: CombinedDataset[]): Promise<void>;
+};
+
+export type EnvironmentProvider = {
+  getEnvVar(name: string): Promise<string | undefined>;
+};
+
+export type PathPolicyProvider = {
+  allowDataFileNeighbor(projectFilePath: string): Promise<void>;
+  readRelativeProjectFile?(currentProjectPath: string, projectFilePath: string): Promise<string>;
 };
 
 export type Providers = {
@@ -23,6 +41,13 @@ export type Providers = {
   datasets: AppDatasetProvider;
   audio: AudioProvider;
   dataRefs: DataRefStore;
+  environment: EnvironmentProvider;
+  pathPolicy: PathPolicyProvider;
+};
+
+export type ProviderOverrides = Partial<Omit<Providers, 'dataRefs'>> & {
+  dataRefs?: Partial<DataRefStore>;
+  storage?: AsyncStorageBackend;
 };
 
 const ProvidersContext = createContext<Providers | null>(null);
@@ -51,12 +76,29 @@ export function useDataRefs(): DataRefStore {
   return useProviders().dataRefs;
 }
 
-function createDefaultProviders(): Providers {
-  const datasets = new BrowserDatasetProvider();
+export function useEnvironmentProvider(): EnvironmentProvider {
+  return useProviders().environment;
+}
+
+export function usePathPolicyProvider(): PathPolicyProvider {
+  return useProviders().pathPolicy;
+}
+
+function createDefaultDataRefs(): DataRefStore {
+  return {
+    get: getGlobalDataRef,
+    set: setGlobalDataRef,
+    delete: deleteGlobalDataRef,
+  };
+}
+
+function createDefaultProviders(overrides: Pick<ProviderOverrides, 'datasets' | 'pathPolicy'> = {}): Providers {
+  const datasets = overrides.datasets ?? new BrowserDatasetProvider();
+  const pathPolicy = overrides.pathPolicy ?? getDefaultPathPolicyProvider();
 
   let io: IOProvider;
   if (TauriIOProvider.isSupported()) {
-    io = new TauriIOProvider(datasets);
+    io = new TauriIOProvider(datasets, pathPolicy);
   } else if (BrowserIOProvider.isSupported()) {
     io = new BrowserIOProvider();
   } else {
@@ -67,10 +109,9 @@ function createDefaultProviders(): Providers {
     io,
     datasets,
     audio: new TauriBrowserAudioProvider(),
-    dataRefs: {
-      get: getGlobalDataRef,
-      set: setGlobalDataRef,
-    },
+    dataRefs: createDefaultDataRefs(),
+    environment: getDefaultEnvironmentProvider(),
+    pathPolicy,
   };
 }
 
@@ -84,8 +125,26 @@ export function getDefaultProviders(): Providers {
   return defaultProviders;
 }
 
-export const ProvidersProvider: FC<{ providers?: Providers; children: ReactNode }> = ({ providers, children }) => {
-  const value = useMemo(() => providers ?? getDefaultProviders(), [providers]);
+export const ProvidersProvider: FC<{ providers?: ProviderOverrides; children: ReactNode }> = ({
+  providers,
+  children,
+}) => {
+  const value = useMemo(() => {
+    if (!providers) {
+      return getDefaultProviders();
+    }
+
+    const { storage: _storage, ...runtimeProviders } = providers;
+    const defaults = createDefaultProviders(runtimeProviders);
+    return {
+      ...defaults,
+      ...runtimeProviders,
+      dataRefs: {
+        ...defaults.dataRefs,
+        ...runtimeProviders.dataRefs,
+      },
+    } satisfies Providers;
+  }, [providers]);
 
   return <ProvidersContext.Provider value={value}>{children}</ProvidersContext.Provider>;
 };

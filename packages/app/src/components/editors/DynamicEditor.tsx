@@ -145,6 +145,7 @@ export const DefaultDynamicEditor: FC<
         helperMessage={helperMessage}
         onClose={onClose}
         language="plaintext"
+        id={node.id}
       />
     ))
     .otherwise(() => null);

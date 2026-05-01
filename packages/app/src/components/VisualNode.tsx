@@ -1,23 +1,16 @@
 import clsx from 'clsx';
-import {
-  type CSSProperties,
-  type FC,
-  type HTMLAttributes,
-  type MouseEvent,
-  forwardRef,
-  memo,
-  useMemo,
-  useState,
-} from 'react';
+import { type CSSProperties, type FC, type HTMLAttributes, type MouseEvent, forwardRef, memo, useMemo } from 'react';
 import { type ChartNode, type CommentNode, type NodeConnection } from '@ironclad/rivet-core';
 import { useAtomValue } from 'jotai';
 import { useDependsOnPlugins } from '../hooks/useDependsOnPlugins';
 import { useHistoricalNodeChangeInfo } from '../hooks/useHistoricalNodeChangeInfo';
-import { type ProcessDataForNode, resolvedGraphSelectionState, type NodeRunDataWithRefs } from '../state/dataFlow.js';
+import { type ProcessDataForNode, resolvedGraphSelectionState } from '../state/dataFlow.js';
 import { getNodeExecutionClassFlags, getSelectedProcessRun } from '../state/selectors/executionSelectors.js';
+import { getSplitStackGhostColors } from '../utils/nodeSplitStackColors.js';
 import { useCanvasHandlersContext, useCanvasViewContext } from './CanvasContext';
 import { ZoomedOutVisualNodeContent } from './visualNode/ZoomedOutVisualNodeContent';
 import { NormalVisualNodeContent } from './visualNode/NormalVisualNodeContent';
+import { getCanvasCommentHeight } from '../hooks/canvasVisibilityBounds.js';
 
 export type VisualNodeProps = {
   node: ChartNode;
@@ -27,17 +20,17 @@ export type VisualNodeProps = {
   isDragging?: boolean;
   isOverlay?: boolean;
   isSelected?: boolean;
+  isHovered?: boolean;
+  isSearchMatch?: boolean;
   isKnownNodeType: boolean;
-  isPinned: boolean;
+  isOutputExpanded: boolean;
+  shouldShowHoverControls?: boolean;
   lastRun?: ProcessDataForNode[];
   processPage: number | 'latest';
+  renderHeavyContent: boolean;
   renderSkeleton?: boolean;
   nodeAttributes?: HTMLAttributes<HTMLDivElement>;
   handleAttributes?: HTMLAttributes<HTMLDivElement>;
-};
-
-export type SelectedProcessRunProp = {
-  selectedProcessRun?: NodeRunDataWithRefs;
 };
 
 export const VisualNode = memo(
@@ -53,30 +46,33 @@ export const VisualNode = memo(
         isDragging,
         isOverlay,
         isSelected,
+        isHovered,
+        isSearchMatch,
         isKnownNodeType,
-        isPinned,
+        isOutputExpanded,
+        shouldShowHoverControls,
         lastRun,
         processPage,
+        renderHeavyContent,
         renderSkeleton,
       },
       ref,
     ) => {
       const { heightCache, isReallyZoomedOut, isZoomedOut } = useCanvasViewContext();
-      const { onMouseOut, onMouseOver, onNodeStartEditing } = useCanvasHandlersContext();
+      const { onNodeMouseEnter, onNodeMouseLeave, onNodeStartEditing } = useCanvasHandlersContext();
       const isComment = node.type === 'comment';
       const effectiveIsZoomedOut = isZoomedOut && !isComment;
       const effectiveIsReallyZoomedOut = isReallyZoomedOut && !isComment;
+      const commentHeight = isComment ? getCanvasCommentHeight(node as CommentNode) : undefined;
       const changeInfo = useHistoricalNodeChangeInfo(node.id);
       const graphSelectionOptions = useAtomValue(resolvedGraphSelectionState);
 
       useDependsOnPlugins();
 
-      const [isHovered, setIsHovered] = useState(false);
-      const asCommentNode = node as CommentNode;
-
       const style = useMemo(() => {
         const bgColor = node.visualData.color?.bg ?? 'var(--grey-darkish)';
         const borderColor = node.visualData.color?.border ?? 'var(--grey-darkish)';
+        const splitStackGhostColors = getSplitStackGhostColors(bgColor);
         let fgColor = 'var(--foreground-bright)';
 
         const colorMatch = bgColor.match(/node-color-(\d+)/);
@@ -89,13 +85,15 @@ export const VisualNode = memo(
           transform: `translate(${node.visualData.x + xDelta}px, ${node.visualData.y + yDelta}px) scale(1)`,
           zIndex: isComment ? -10000 : node.visualData.zIndex ?? 0,
           width: node.visualData.width,
-          height: isComment ? asCommentNode.data.height : undefined,
+          height: commentHeight,
           '--node-bg': bgColor,
           '--node-border': borderColor,
           '--node-bg-foreground': fgColor,
+          '--node-stack-front-bg': splitStackGhostColors.frontBackground,
+          '--node-stack-back-bg': splitStackGhostColors.backBackground,
         } as CSSProperties;
       }, [
-        asCommentNode.data.height,
+        commentHeight,
         isComment,
         isDragging,
         node.visualData.color?.bg,
@@ -131,10 +129,14 @@ export const VisualNode = memo(
             {
               overlayNode: isOverlay,
               selected: isSelected,
+              hovered: isHovered,
+              searchMatch: isSearchMatch,
+              dragging: isDragging,
+              showHoverControls: shouldShowHoverControls,
               ...executionClassFlags,
               zoomedOut: effectiveIsZoomedOut,
               isComment,
-              isPinned,
+              isOutputExpanded,
               isSplit: node.isSplitRun,
               disabled: node.disabled,
               conditional: !!node.isConditional,
@@ -146,16 +148,15 @@ export const VisualNode = memo(
           {...nodeAttributes}
           data-nodeid={node.id}
           data-contextmenutype={`node-${node.type}`}
-          onMouseOver={(event: MouseEvent<HTMLElement>) => {
-            onMouseOver?.(event, node.id);
-            setIsHovered(true);
+          onMouseEnter={(event: MouseEvent<HTMLElement>) => {
+            onNodeMouseEnter?.(event, node.id);
           }}
-          onMouseOut={(event: MouseEvent<HTMLElement>) => {
-            onMouseOut?.(event, node.id);
-            setIsHovered(false);
+          onMouseLeave={(event: MouseEvent<HTMLElement>) => {
+            onNodeMouseLeave?.(event, node.id);
           }}
-          onDoubleClick={() => {
+          onDoubleClick={(event) => {
             if (isKnownNodeType) {
+              event.currentTarget.blur();
               onNodeStartEditing?.(node);
             }
           }}
@@ -166,8 +167,8 @@ export const VisualNode = memo(
               connections={connections}
               handleAttributes={handleAttributes}
               isKnownNodeType={isKnownNodeType}
-              selectedProcessRun={selectedProcessRun}
               isReallyZoomedOut={effectiveIsReallyZoomedOut}
+              isRunning={executionClassFlags.running}
             />
           ) : (
             <NormalVisualNodeContent
@@ -176,12 +177,12 @@ export const VisualNode = memo(
               connections={connections}
               handleAttributes={handleAttributes}
               isKnownNodeType={isKnownNodeType}
-              selectedProcessRun={selectedProcessRun}
-              isPinned={isPinned}
               isHistoricalChanged={isHistoricalChanged}
-              isHovered={isHovered}
+              isRunning={executionClassFlags.running}
+              renderHeavyContent={renderHeavyContent}
             />
           )}
+          <div className="node-border-overlay" aria-hidden="true" />
         </div>
       );
     },

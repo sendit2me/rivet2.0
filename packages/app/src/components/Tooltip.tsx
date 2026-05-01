@@ -31,9 +31,10 @@ const style = css`
     box-shadow:
       0 0 0 1px rgba(0, 0, 0, 0.1),
       0 2px 4px rgba(0, 0, 0, 0.2);
-    border-radius: 4px;
+    border-radius: 8px;
+    corner-shape: squircle;
     padding: 4px 8px;
-    font-size: 12px;
+    font-size: var(--ui-font-size-sm);
     transition:
       opacity ${TRANSITION_TIME}ms ease-out,
       transform ${TRANSITION_TIME}ms ease-out;

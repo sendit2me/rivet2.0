@@ -11,11 +11,12 @@ import { nodeDefinition } from '../NodeDefinition.js';
 import { dedent } from 'ts-dedent';
 import { type EditorDefinition } from '../EditorDefinition.js';
 import { type NodeBodySpec } from '../NodeBodySpec.js';
-import { interpolate } from '../../utils/interpolation.js';
+import { extractInterpolationVariables, interpolate } from '../../utils/interpolation.js';
 import type { Inputs, Outputs } from '../GraphProcessor.js';
 import { keys } from '../../utils/typeSafety.js';
 import { coerceTypeOptional, coerceType } from '../../utils/coerceType.js';
 import { getInputOrData } from '../../utils/index.js';
+import { createInterpolationInputDefinition } from '../interpolationInputDefinition.js';
 
 export type GptFunctionNode = ChartNode<'gptFunction', GptFunctionNodeData>;
 
@@ -87,19 +88,16 @@ export class GptFunctionNodeImpl extends NodeImpl<GptFunctionNode> {
       });
     }
 
-    // Extract inputs from promptText, everything like {{input}}
-    const inputNames = this.data.useSchemaInput ? [] : [...new Set(this.data.schema.match(/\{\{([^}]+)\}\}/g))];
+    const inputNames = this.data.useSchemaInput ? [] : extractInterpolationVariables(this.data.schema);
     inputs = [
       ...inputs,
       ...(inputNames?.map((inputName): NodeInputDefinition => {
-        const name = inputName.slice(2, -2);
-        return {
-          // id and title should not have the {{ and }}
-          id: `input-${name}` as PortId,
-          title: name,
+        return createInterpolationInputDefinition({
+          id: `input-${inputName}` as PortId,
+          interpolationName: inputName,
           dataType: 'string',
-          description: `An interpolated value in the schema named '${name}'`,
-        };
+          description: `An interpolated value in the schema named '${inputName}'`,
+        });
       }) ?? []),
     ];
 
@@ -120,29 +118,24 @@ export class GptFunctionNodeImpl extends NodeImpl<GptFunctionNode> {
   getEditors(): EditorDefinition<GptFunctionNode>[] {
     return [
       {
+        type: 'custom',
+        customEditorId: 'GptFunctionNodeJsonSchemaAiAssist',
+        label: 'AI Assist',
+      },
+      {
         type: 'string',
         label: 'Name',
         dataKey: 'name',
         useInputToggleDataKey: 'useNameInput',
       },
       {
-        type: 'toggle',
-        label: 'Strict',
-        dataKey: 'strict',
-        helperMessage: 'Sets the strict parameter, which determines if OpenAI Structured Outputs are used.',
-      },
-      {
         type: 'code',
         label: 'Description',
         dataKey: 'description',
         useInputToggleDataKey: 'useDescriptionInput',
-        language: 'markdown',
+        language: 'prompt-interpolation-markdown',
+        theme: 'prompt-interpolation',
         height: 100,
-      },
-      {
-        type: 'custom',
-        customEditorId: 'GptFunctionNodeJsonSchemaAiAssist',
-        label: 'AI Assist',
       },
       {
         type: 'code',
@@ -150,12 +143,23 @@ export class GptFunctionNodeImpl extends NodeImpl<GptFunctionNode> {
         dataKey: 'schema',
         language: 'json',
         useInputToggleDataKey: 'useSchemaInput',
+        enableFolding: true,
+      },
+      {
+        type: 'toggle',
+        label: 'Strict',
+        dataKey: 'strict',
+        helperMessage:
+          "Legacy Chat node only. Sets OpenAI's strict tool/function parameter for Structured Outputs; LLM Chat does not use this setting.",
       },
     ];
   }
 
   getBody(): string | NodeBodySpec | undefined {
-    return `!markdown_${this.data.name}_: ${this.data.description}`;
+    return {
+      type: 'markdown',
+      text: `**${this.data.name}**\n${this.data.description}`,
+    };
   }
 
   static getUIData(): NodeUIData {

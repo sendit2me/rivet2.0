@@ -1,37 +1,31 @@
-import { type FC, useMemo, useState, type MouseEvent } from 'react';
+import { type CSSProperties, type FC, useMemo, useState, type MouseEvent } from 'react';
 import { editingNodeState } from '../state/graphBuilder.js';
 import { nodesByIdState } from '../state/graph.js';
 import styled from '@emotion/styled';
-import MultiplyIcon from 'majesticons/line/multiply-line.svg?react';
 import {
+  createsLLMChatV2ToolResponseFormatConflictForEdit,
+  LLM_CHAT_V2_TOOL_RESPONSE_FORMAT_CONFLICT_COPY,
   type ChartNode,
-  type NodeTestGroup,
-  type GraphId,
   type DataId,
+  type LLMChatV2Node,
 } from '@ironclad/rivet-core';
 import { useUnknownNodeComponentDescriptorFor } from '../hooks/useNodeTypes.js';
 import { useProjectNodeRegistry } from '../hooks/useProjectNodeRegistry';
-import { produce } from 'immer';
 import { useHotkeys } from 'react-hotkeys-hook';
-import { InlineEditableTextfield } from '@atlaskit/inline-edit';
-import Toggle from '@atlaskit/toggle';
 import { useStableCallback } from '../hooks/useStableCallback.js';
-import Tabs, { Tab, TabList, TabPanel } from '@atlaskit/tabs';
-import { Field, Label } from '@atlaskit/form';
-import TextField from '@atlaskit/textfield';
-import Select from '@atlaskit/select';
-import Button from '@atlaskit/button';
-import Popup from '@atlaskit/popup';
 import { isEqual, orderBy } from 'lodash-es';
-import { nanoid } from 'nanoid/non-secure';
 import { ErrorBoundary } from 'react-error-boundary';
 import { useSetStaticData } from '../hooks/useSetStaticData';
 import { DefaultNodeEditor } from './editors/DefaultNodeEditor';
-import { NodeColorPicker } from './NodeColorPicker';
-import { Tooltip } from './Tooltip';
-import { useAtomValue, useAtom, useSetAtom } from 'jotai';
+import { useAtomValue, useAtom } from 'jotai';
 import { useEditNodeCommand } from '../commands/editNodeCommand';
 import { NodeEditorGlobalControls } from './nodeEditor/NodeEditorGlobalControls.js';
+import { NodeEditorResizeContext } from './nodeEditor/NodeEditorResizeContext.js';
+import { ResizeHandle } from './ResizeHandle.js';
+import { useNodeEditorWidth } from './nodeEditor/useNodeEditorWidth.js';
+import { resizeCursorStyles } from '../utils/resizeCursors.js';
+import Modal, { ModalBody, ModalFooter, ModalHeader, ModalTitle, ModalTransition } from '@atlaskit/modal-dialog';
+import Button from '@atlaskit/button';
 
 export const NodeEditorRenderer: FC = () => {
   const nodesById = useAtomValue(nodesByIdState);
@@ -48,7 +42,7 @@ export const NodeEditorRenderer: FC = () => {
   }
 
   return (
-    <ErrorBoundary fallback={null}>
+    <ErrorBoundary key={selectedNode.id} fallback={null}>
       <NodeEditor selectedNode={selectedNode} onDeselect={deselect} />
     </ErrorBoundary>
   );
@@ -56,91 +50,93 @@ export const NodeEditorRenderer: FC = () => {
 
 const Container = styled.div`
   position: absolute;
-  top: calc(32px + var(--project-selector-height));
-  // tabpanel the parent has a padding of 8px on the left and right, so just move it over a bit...
-  right: -8px;
+  top: var(--project-selector-height);
+  right: 0;
   bottom: 0;
-  width: 45%;
+  z-index: 210;
+  width: var(--node-editor-panel-width);
   max-width: 1000px;
   min-width: 500px;
+
+  .node-editor-width-resize-handle {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 14px;
+    transform: translateX(-50%);
+    cursor: var(--resize-edge-horizontal-cursor);
+    z-index: 2;
+    touch-action: none;
+    background: transparent;
+  }
+
+  .node-editor-width-resize-handle::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 6px;
+    width: 2px;
+    background: var(--primary);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 120ms ease;
+  }
+
+  .node-editor-width-resize-handle:hover::after,
+  .node-editor-width-resize-handle.is-resizing::after {
+    opacity: 0.65;
+  }
+
+  &[data-is-resizing='true'] .panel-container {
+    backdrop-filter: none;
+  }
 
   .panel-container {
     display: flex;
     flex-direction: column;
-    color: var(--foreground);
+    height: 100%;
+    color: var(--grey-light);
+    --label-color: var(--grey-light);
+    --ds-text-subtlest: var(--grey-light);
+    --ds-font-family-body: var(--font-family-monospace);
+    --ds-font-family-heading: var(--font-family-monospace);
+    --ds-font-family-code: var(--font-family-monospace);
+    --label-font-family: var(--font-family-monospace);
     background-color: var(--grey-dark-bluish-seethrough);
     backdrop-filter: blur(2px);
-    font-family: 'Roboto Mono', monospace;
+    font-family: var(--font-family-monospace);
     width: 100%;
     box-shadow: -4px 0 3px rgba(0, 0, 0, 0.1);
     border-left: 1px solid var(--grey);
+  }
+
+  .panel-container input,
+  .panel-container textarea,
+  .panel-container button,
+  .panel-container label {
+    font-family: inherit;
+  }
+
+  .panel-container input::placeholder,
+  .panel-container textarea::placeholder {
+    color: var(--foreground-muted);
+    opacity: 1;
+  }
+
+  /* Atlaskit HelperMessage hardcodes its own font family, so reset it in the panel scope. */
+  .panel-container [aria-live='polite'],
+  .panel-container [aria-live='polite'] * {
+    font-family: inherit !important;
   }
 
   .panel {
     display: flex;
     flex-grow: 1;
     flex-direction: column;
-    padding: 8px 16px 16px;
+    padding: 16px 24px 16px;
     overflow: auto;
-  }
-
-  .tabs,
-  .tabs > div {
-    height: 100%;
-    width: 100%;
-  }
-
-  .header {
-    display: flex;
-    justify-content: flex-end;
-    align-items: center;
-    margin-bottom: 20px;
-  }
-
-  .close-button {
-    position: absolute;
-    right: 20px;
-    top: 20px;
-    background-color: var(--primary);
-    border: none;
-    color: var(--foreground-on-primary);
-    cursor: pointer;
-    font-size: 20px;
-    padding: 5px 10px;
-    border: 2px solid var(--grey-dark);
-    font-size: 14px;
-    border-radius: 50%;
-    width: 25px;
-    height: 25px;
-    padding: 0;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-  }
-
-  .node-name {
-    padding: 5px 10px;
-    resize: none;
-    width: 100%;
-  }
-
-  .description-field {
-    min-height: 50px;
-    padding: 10px;
-    width: 100%;
-  }
-
-  .input-field {
-    font-family: 'Roboto Mono', monospace;
-    font-size: 14px;
-    background-color: var(--grey-dark);
-    border: 1px solid var(--grey);
-    color: var(--foreground);
-  }
-
-  .input-field:focus {
-    outline: none;
-    border-color: var(--primary);
   }
 
   .section-node {
@@ -148,7 +144,7 @@ const Container = styled.div`
     min-height: 0;
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 24px;
   }
 
   .section-node-content {
@@ -159,44 +155,11 @@ const Container = styled.div`
   }
 
   .bottom-spacer {
-    height: 300px;
+    height: 0px;
   }
 
   .unknown-node {
     color: var(--primary-text);
-  }
-
-  .split-controls {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    align-items: center;
-    gap: 8px;
-
-    > label {
-      margin: 0;
-    }
-  }
-
-  .split-controls-toggle > div {
-    margin: 0;
-    display: flex;
-    align-items: center;
-  }
-
-  .variants {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-  }
-
-  .variant-select {
-    min-width: 150px;
-  }
-
-  .variant-buttons {
-    display: flex;
-    align-items: center;
   }
 
   .section-footer {
@@ -207,9 +170,9 @@ const Container = styled.div`
     background-color: rgba(0, 0, 0, 0.1);
 
     .node-id {
-      font-size: 12px;
+      font-size: var(--ui-font-size-sm);
       color: var(--foreground-muted);
-      font-family: 'Roboto Mono', monospace;
+      font-family: var(--font-family-monospace);
       padding: 0 16px;
       line-height: 24px;
       cursor: pointer;
@@ -217,47 +180,308 @@ const Container = styled.div`
   }
 
   .section-global-controls {
-    display: grid;
-    grid-template-columns: auto 1fr 1fr;
-    row-gap: 0;
-    column-gap: 16px;
-    margin-bottom: 16px;
-    padding-bottom: 16px;
-    border-bottom: 1px solid var(--grey-lightish);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin: -16px -24px 18px;
+    padding: 16px 24px 18px;
+    background-color: var(--black-seethrough);
+  }
 
-    form {
-      margin: 0;
-    }
+  .node-type-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    min-width: 0;
+    min-height: 30px;
+  }
+
+  .node-type-tooltip {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .node-metadata-row {
+    display: grid;
+    grid-template-columns: 68px minmax(0, 1fr);
+    align-items: start;
+    gap: 14px;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .node-metadata-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    min-width: 0;
+    margin-left: -8px;
+  }
+
+  .node-title-field,
+  .node-description-field {
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+    justify-self: stretch;
+  }
+
+  .node-title-field {
+    margin-top: 0px;
+    overflow: hidden;
+    font-weight: 900;
+  }
+
+  .node-description-field {
+    margin-top: -4px;
+  }
+
+  .node-title-field > div,
+  .node-title-field form,
+  .node-title-field form > div,
+  .node-title-field .node-title-read-button {
+    width: 100%;
+    margin: 0;
+    max-width: none;
+    min-width: 0;
+  }
+
+  .node-title-field label,
+  .node-description-field label {
+    display: none;
+  }
+
+  .node-title-field .node-title-read-button {
+    height: 40px;
+    min-height: 0;
+    padding: 0;
+    line-height: 1;
+    background: transparent;
+    border: 0;
+    display: flex;
+    align-items: stretch;
+    box-sizing: border-box;
+    border-radius: 4px;
+    corner-shape: squircle;
+    overflow: hidden;
+    text-align: left;
+  }
+
+  .node-title-field .node-title-read-button .title-read-content {
+    width: 100%;
+    min-width: 0;
+    height: 40px;
+    padding: 0 12px;
+    font-size: var(--ui-font-size-base);
+    line-height: 38px;
+    box-sizing: border-box;
+    font-family: var(--font-family-monospace);
+    display: block;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .node-title-field .title-read-content.is-empty,
+  .node-description-field .description-read-content.is-empty {
+    color: var(--foreground-muted);
+  }
+
+  .node-title-field input,
+  .node-description-field textarea {
+    width: 100%;
+    box-sizing: border-box;
+    font-family: var(--font-family-monospace);
+    background-color: var(--grey-darkerish);
+    border: 1px solid var(--grey);
+    border-radius: 4px;
+    corner-shape: squircle;
+    color: var(--grey-light);
+  }
+
+  .node-title-field input {
+    height: 40px;
+    min-height: 40px;
+    padding: 0 12px;
+    font-size: var(--ui-font-size-base);
+    line-height: 38px;
+  }
+
+  .node-title-field input:focus,
+  .node-description-field textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+  }
+
+  .node-title-field .node-title-read-button:hover,
+  .node-description-field [data-read-view-fit-container-width='true']:hover {
+    background-color: rgba(255, 255, 255, 0.04);
+  }
+
+  .node-description-field,
+  .node-description-field > form,
+  .node-description-field form > div,
+  .node-description-field [data-read-view-fit-container-width='true'] {
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+  }
+
+  .node-description-field form > div {
+    margin: 0;
+  }
+
+  .node-description-field [data-read-view-fit-container-width='true'] {
+    display: block;
+    min-height: 14px;
+    border-radius: 4px;
+    corner-shape: squircle;
+    overflow: hidden;
+  }
+
+  .node-description-field .description-read-content {
+    width: 100%;
+    min-height: 14px;
+    padding: 10px 12px;
+    box-sizing: border-box;
+    font-size: var(--ui-font-size-base);
+    line-height: 1.4;
+    color: var(--grey-light);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .node-description-field textarea {
+    min-height: 14px;
+    padding: 10px 12px;
+    font-size: var(--ui-font-size-base);
+    line-height: 1.4;
+  }
+
+  .toggle-field {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--grey-light);
+    font-size: var(--ui-font-size-base);
+    white-space: nowrap;
+  }
+
+  .toggle-field > label[data-size]:has(input:focus:not(:focus-visible)) {
+    border-color: transparent !important;
+    outline: none !important;
+    box-shadow: none !important;
+  }
+
+  .toggle-field label {
+    margin: 0;
+    cursor: pointer;
+  }
+
+  .node-options-row {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 24px;
+    min-width: 0;
+    min-height: 40px;
+  }
+
+  .split-controls {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    min-width: 0;
+    min-height: 40px;
+    justify-content: flex-start;
+  }
+
+  .split-mode-hint {
+    color: var(--grey-lightish);
+    font-size: var(--ui-font-size-sm);
+    line-height: 1.25;
+    max-width: 560px;
   }
 
   .split-max {
     display: flex;
     align-items: center;
-    gap: 8px;
-
-    > label {
-      color: var(--foreground);
-      font-size: 12px;
-
-      display: flex;
-      align-items: center;
-      color: rgb(159, 173, 188);
-      font-weight: 600;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, 'Fira Sans', 'Droid Sans',
-        'Helvetica Neue', sans-serif;
-    }
+    gap: 14px;
+    flex-wrap: wrap;
+    min-height: 32px;
 
     .split-max-input {
-      min-width: 75px;
+      max-width: 80px;
     }
+  }
+
+  .split-max-label {
+    color: var(--grey-light);
+    font-size: var(--ui-font-size-base);
+    white-space: nowrap;
+    flex: 0 0 auto;
+  }
+
+  .variants {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+    min-width: 0;
+    min-height: 40px;
+    align-self: flex-end;
+  }
+
+  .variants-inline {
+    min-height: 0;
+  }
+
+  .variant-select {
+    min-width: 150px;
+  }
+
+  .variant-buttons {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .variant-editor-row {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+    min-height: 40px;
+  }
+
+  .variant-name-input {
+    width: 280px;
   }
 
   .node-color-picker {
     display: flex;
-    flex-direction: column;
-    gap: 8px;
     align-items: center;
-    padding-top: 4px;
+    width: 100%;
+    margin-top: 11px;
+    margin-left: 3px;
+  }
+
+  .node-color-picker .node-color-picker-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 56px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    corner-shape: squircle;
+    box-sizing: border-box;
+  }
+
+  .node-color-picker .node-color-picker-swatch {
+    width: 100%;
+    height: 100%;
   }
 `;
 
@@ -268,6 +492,8 @@ export type NodeChanged = (changed: ChartNode, newData?: Record<DataId, string>)
 export const NodeEditor: FC<NodeEditorProps> = ({ selectedNode, onDeselect }) => {
   const [selectedVariant, setSelectedVariant] = useState<string | undefined>();
   const [addVariantPopupOpen, setAddVariantPopupOpen] = useState(false);
+  const [llmChatFeatureConflictOpen, setLlmChatFeatureConflictOpen] = useState(false);
+  const { containerRef, isResizing, panelWidth, resizeHandleProps } = useNodeEditorWidth();
 
   const setStaticData = useSetStaticData();
   const editNode = useEditNodeCommand();
@@ -275,6 +501,19 @@ export const NodeEditor: FC<NodeEditorProps> = ({ selectedNode, onDeselect }) =>
   const updateNode = useStableCallback((node: ChartNode, newData?: Record<DataId, string>) => {
     // Otherwise the editor "changes" and causes deleted nodes to reappear...
     if (isEqual(node, selectedNode)) {
+      return;
+    }
+
+    const llmChatConflict =
+      selectedNode.type === 'llmChatV2' && node.type === 'llmChatV2'
+        ? createsLLMChatV2ToolResponseFormatConflictForEdit(
+            selectedNode.data as LLMChatV2Node['data'],
+            node.data as LLMChatV2Node['data'],
+          )
+        : false;
+
+    if (llmChatConflict) {
+      setLlmChatFeatureConflictOpen(true);
       return;
     }
 
@@ -293,7 +532,16 @@ export const NodeEditor: FC<NodeEditorProps> = ({ selectedNode, onDeselect }) =>
     data: isVariant ? selectedNode.variants?.find(({ id }) => id === selectedVariant)?.data : selectedNode.data,
   };
 
-  useHotkeys('esc', onDeselect, [onDeselect]);
+  const handleEscape = useStableCallback(() => {
+    if (llmChatFeatureConflictOpen) {
+      setLlmChatFeatureConflictOpen(false);
+      return;
+    }
+
+    onDeselect();
+  });
+
+  useHotkeys('esc', handleEscape, [handleEscape]);
 
   const nodeDescriptionChanged = useStableCallback((description: string) => {
     updateNode({ ...selectedNode, description });
@@ -347,31 +595,6 @@ export const NodeEditor: FC<NodeEditorProps> = ({ selectedNode, onDeselect }) =>
     setSelectedVariant(undefined);
   }
 
-  function updateTestGroupGraph(testGroup: NodeTestGroup, graphId: GraphId) {
-    updateNode(
-      produce(selectedNode, (draft) => {
-        const group = draft.tests?.find(({ id }) => id === testGroup.id);
-        if (group) {
-          group.evaluatorGraphId = graphId;
-        }
-      }),
-    );
-  }
-
-  function handleAddTestGroup() {
-    updateNode({
-      ...selectedNode,
-      tests: [
-        ...(selectedNode.tests ?? []),
-        {
-          evaluatorGraphId: '' as GraphId,
-          tests: [],
-          id: nanoid(),
-        },
-      ],
-    });
-  }
-
   const selectText = (event: MouseEvent<HTMLElement>) => {
     const range = document.createRange();
     range.selectNodeContents(event.target as HTMLElement);
@@ -382,65 +605,95 @@ export const NodeEditor: FC<NodeEditorProps> = ({ selectedNode, onDeselect }) =>
 
   const showGlobalControls = selectedNode.type !== 'comment';
   const projectNodeRegistry = useProjectNodeRegistry();
+  const nodeDisplayName = `${projectNodeRegistry.getDynamicDisplayName(selectedNode.type)} node`;
+  const containerStyle = {
+    '--node-editor-panel-width': `${panelWidth}px`,
+  } as CSSProperties;
 
   return (
-    <Container>
-      <div className="tabs">
-        <Tabs id="node-editor-tabs">
-          <TabList>
-            <Tab>{projectNodeRegistry.getDynamicDisplayName(selectedNode.type)} Node</Tab>
-          </TabList>
-          <TabPanel>
-            <div className="panel-container">
-              <div className="panel">
-                <button className="close-button" onClick={onDeselect}>
-                  <MultiplyIcon />
-                </button>
-                {showGlobalControls && (
-                  <NodeEditorGlobalControls
-                    node={selectedNode}
-                    selectedVariant={selectedVariant}
-                    setSelectedVariant={setSelectedVariant}
-                    addVariantPopupOpen={addVariantPopupOpen}
-                    setAddVariantPopupOpen={setAddVariantPopupOpen}
-                    variantOptions={variantOptions}
-                    selectedVariantOption={selectedVariantOption}
-                    onTitleChange={nodeTitleChanged}
-                    onDescriptionChange={nodeDescriptionChanged}
-                    onColorChange={nodeColorChanged}
-                    onDisabledChange={nodeDisabledChanged}
-                    onUpdateNode={updateNode}
-                    onApplyVariant={handleApplyVariant}
-                    onDeleteVariant={handleDeleteVariant}
-                    onSaveAsVariant={handleSaveAsVariant}
+    <NodeEditorResizeContext.Provider value={isResizing}>
+      <Container ref={containerRef} style={containerStyle} data-is-resizing={isResizing}>
+        <ResizeHandle
+          className="node-editor-width-resize-handle"
+          dragCursor={resizeCursorStyles.horizontal}
+          {...resizeHandleProps}
+        />
+        <div className="panel-container">
+          <div className="panel">
+            {showGlobalControls && (
+              <NodeEditorGlobalControls
+                node={selectedNode}
+                selectedVariant={selectedVariant}
+                setSelectedVariant={setSelectedVariant}
+                addVariantPopupOpen={addVariantPopupOpen}
+                setAddVariantPopupOpen={setAddVariantPopupOpen}
+                variantOptions={variantOptions}
+                selectedVariantOption={selectedVariantOption}
+                onTitleChange={nodeTitleChanged}
+                onDescriptionChange={nodeDescriptionChanged}
+                onColorChange={nodeColorChanged}
+                onDisabledChange={nodeDisabledChanged}
+                onUpdateNode={updateNode}
+                onApplyVariant={handleApplyVariant}
+                onDeleteVariant={handleDeleteVariant}
+                onSaveAsVariant={handleSaveAsVariant}
+              />
+            )}
+
+            <div className="section section-node">
+              <div className="section-node-content">
+                {Editor ? (
+                  <Editor node={nodeForEditor} onChange={isVariant ? () => {} : updateNode} />
+                ) : (
+                  <DefaultNodeEditor
+                    node={nodeForEditor}
+                    isReadonly={isVariant}
+                    onChange={isVariant ? () => {} : updateNode}
+                    onClose={onDeselect}
                   />
                 )}
-
-                <div className="section section-node">
-                  <div className="section-node-content">
-                    {Editor ? (
-                      <Editor node={nodeForEditor} onChange={isVariant ? () => {} : updateNode} />
-                    ) : (
-                      <DefaultNodeEditor
-                        node={nodeForEditor}
-                        isReadonly={isVariant}
-                        onChange={isVariant ? () => {} : updateNode}
-                        onClose={onDeselect}
-                      />
-                    )}
-                  </div>
-                  <div className="bottom-spacer" />
-                </div>
               </div>
-              <div className="section section-footer">
-                <span className="node-id" onClick={selectText}>
-                  {selectedNode.id}
-                </span>
-              </div>
+              <div className="bottom-spacer" />
             </div>
-          </TabPanel>
-        </Tabs>
-      </div>
-    </Container>
+          </div>
+          <div className="section section-footer">
+            <span className="node-id" onClick={selectText}>
+              {`${nodeDisplayName}, ${selectedNode.id}`}
+            </span>
+          </div>
+        </div>
+        <LLMChatFeatureConflictModal
+          isOpen={llmChatFeatureConflictOpen}
+          onClose={() => setLlmChatFeatureConflictOpen(false)}
+        />
+      </Container>
+    </NodeEditorResizeContext.Provider>
+  );
+};
+
+const LLMChatFeatureConflictModal: FC<{
+  isOpen: boolean;
+  onClose: () => void;
+}> = ({ isOpen, onClose }) => {
+  return (
+    <ModalTransition>
+      {isOpen && (
+        <Modal autoFocus={false} onClose={onClose} width="small">
+          <ModalHeader>
+            <ModalTitle>{LLM_CHAT_V2_TOOL_RESPONSE_FORMAT_CONFLICT_COPY.title}</ModalTitle>
+          </ModalHeader>
+          <ModalBody>
+            {LLM_CHAT_V2_TOOL_RESPONSE_FORMAT_CONFLICT_COPY.paragraphs.map((paragraph) => (
+              <p key={paragraph}>{paragraph}</p>
+            ))}
+          </ModalBody>
+          <ModalFooter>
+            <Button appearance="primary" onClick={onClose}>
+              OK
+            </Button>
+          </ModalFooter>
+        </Modal>
+      )}
+    </ModalTransition>
   );
 };

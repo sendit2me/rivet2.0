@@ -126,11 +126,39 @@ Used by the desktop app when `defaultExecutorState` is `browser`.
 Used by the desktop app when `defaultExecutorState` is `nodejs`.
 
 - the app starts or connects to `app-executor`
-- communication happens over `ws://localhost:21889/internal`
+- communication happens over `ws://127.0.0.1:21889/internal`
 - execution runs via the debugger/server protocol
 - supports Node-specific APIs and plugin installation scenarios
 - connection ownership is centralized in the app's shared `executorSession` layer rather than in `useRemoteExecutor` itself
 - sidecar process lifecycle is now isolated in a small runtime helper (`executorSidecarRuntime.ts`) instead of being reassembled inside the React hook that mounts it
+- hosted wrappers can bind the app-executor server to a non-loopback host with `--host` or `RIVET_EXECUTOR_HOST`, override the port with `--port` / `-p` or `RIVET_EXECUTOR_PORT` using a valid TCP port from `1` to `65535`, and redirect Code-node `require()` resolution with `RIVET_CODE_RUNNER_REQUIRE_ROOT` / `RIVET_CODE_RUNNER_REQUIRE_ANCHOR`
+- hosted wrappers that mount through `RivetAppHost` can pass `executor.internalExecutorUrl` so browser-hosted Node executor mode connects to an externally managed app-executor websocket instead of trying to start a Tauri sidecar
+
+### Hosted editor embedding
+
+Hosted or wrapper applications that mount the Rivet editor from source should
+import directly from their embedded/custom `rivet/` checkout rather than from
+public npm packages. A wrapper that vendors Rivet at `wrapper-repo/rivet` should
+import the host component and styles from local source paths:
+
+```ts
+import { RivetAppHost } from '../rivet/packages/app/src/host';
+import '../rivet/packages/app/src/host.css';
+```
+
+That host seam provides the same React Query, provider, executor-session, and
+storage-bootstrap wrapper used by the desktop app while still allowing external
+shells to inject IO, datasets, environment variables, storage, path policies, an
+internal executor websocket URL, and post-app bridge components.
+
+Wrapper shells can receive a stable imperative workspace handle through
+`RivetAppHost`'s `onWorkspaceHostReady` callback, render
+`RivetWorkspaceHostBridge`, or call `useRivetWorkspaceHost()` from their own
+bridge component inside the host tree. That handle opens snapshots, opens
+path-backed projects, closes projects, moves remembered project paths, and
+replaces the active project without wrapper-specific Jotai access. Project
+save/open lifecycle notifications should go through `RivetAppHost` callbacks
+rather than wrapper-specific subscriptions.
 
 ### Standalone Node execution
 
@@ -171,10 +199,15 @@ Current repo-visible serialized artifacts include:
 Several parts of the system intentionally keep large or auxiliary data outside the central graph structures:
 
 - static project data can live separately from `projectState`
+- remembered graph/subgraph/viewport state lives separately in `projectEditorStateByProjectIdState`
 - app state stores Trivet and runtime context separately
 - recording and debugger flows serialize execution data separately
 
 This split shows up repeatedly in app save/load code and should be treated as architectural, not incidental.
+
+### Runtime settings normalization
+
+Runtime execution settings are normalized in core through `resolveProcessSettings(...)`. The app, Node package, and Trivet should pass their available runtime/env values into that shared resolver instead of each package reconstructing a full legacy `Settings` object. Editor-only preferences may still live in persisted app settings, but they should not become required inputs for backend/programmatic workflow execution.
 
 ## Current Refactor Hotspots
 

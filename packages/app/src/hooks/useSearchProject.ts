@@ -1,6 +1,6 @@
 import { useAtomValue } from 'jotai';
 import { useMemo } from 'react';
-import { entries } from '../../../core/src/utils/typeSafety';
+import { entries } from '../utils/typeSafety';
 import { useFuseSearch } from './useFuseSearch';
 import { type GraphId } from '@ironclad/rivet-core';
 import { useNodeTypes } from './useNodeTypes';

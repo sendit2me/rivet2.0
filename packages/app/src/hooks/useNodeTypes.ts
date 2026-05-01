@@ -1,9 +1,4 @@
-import {
-  type NodeOfType,
-  type BuiltInNodeType,
-  type Outputs,
-  type ChartNode,
-} from '@ironclad/rivet-core';
+import { type NodeOfType, type BuiltInNodeType, type ChartNode } from '@ironclad/rivet-core';
 import { type FC, useMemo } from 'react';
 import { chatNodeDescriptor } from '../components/nodes/ChatNode.js';
 import { loopControllerNodeDescriptor } from '../components/nodes/LoopControllerNode.js';
@@ -20,27 +15,40 @@ import { loadDatasetNodeDescriptor } from '../components/nodes/LoadDatasetNode';
 import { datasetNearestNeighborsNodeDescriptor } from '../components/nodes/DatasetNearestNeighborsNode';
 import { getDatasetRowNodeDescriptor } from '../components/nodes/GetDatasetRowNode';
 import { replaceDatasetNodeDescriptor } from '../components/nodes/ReplaceDatasetNode';
-import { type InputsOrOutputsWithRefs } from '../state/dataFlow';
+import { expressionNodeDescriptor } from '../components/nodes/ExpressionNode';
+import { jsFilterNodeDescriptor, jsMapNodeDescriptor } from '../components/nodes/JSListNode';
+import { extractObjectPathNodeDescriptor } from '../components/nodes/ExtractObjectPathNode';
+import { httpCallNodeDescriptor } from '../components/nodes/HttpCallNode.js';
+import { promptNodeDescriptor } from '../components/nodes/PromptNode.js';
 import { useAtomValue } from 'jotai';
 import { useProjectNodeRegistry } from './useProjectNodeRegistry';
+import type { NodeOutputCopyValueProjector } from '../utils/executionDataCopyValue.js';
+import type {
+  FullscreenNodeOutputRenderer,
+  FullscreenNodeOutputSimpleRenderer,
+  NodeOutputRenderer,
+  NodeOutputSimpleRenderer,
+} from '../components/nodeOutput/nodeOutputRendererTypes.js';
 
 export type UnknownNodeComponentDescriptor = {
   Body?: FC<{ node: ChartNode }>;
-  Output?: FC<{ node: ChartNode; isCompact: boolean }>;
+  Output?: NodeOutputRenderer<ChartNode>;
   Editor?: FC<{ node: ChartNode; onChange?: (node: ChartNode) => void }>;
-  FullscreenOutput?: FC<{ node: ChartNode }>;
-  OutputSimple?: FC<{ outputs: InputsOrOutputsWithRefs; isCompact: boolean }>;
-  FullscreenOutputSimple?: FC<{ outputs: InputsOrOutputsWithRefs; renderMarkdown: boolean }>;
+  FullscreenOutput?: FullscreenNodeOutputRenderer<ChartNode>;
+  OutputSimple?: NodeOutputSimpleRenderer;
+  FullscreenOutputSimple?: FullscreenNodeOutputSimpleRenderer;
+  getCopyValueData?: NodeOutputCopyValueProjector;
   defaultRenderMarkdown?: boolean;
 };
 
 export type NodeComponentDescriptor<T extends BuiltInNodeType> = {
   Body?: FC<{ node: NodeOfType<T> }>;
-  Output?: FC<{ node: NodeOfType<T>; isCompact: boolean }>;
+  Output?: NodeOutputRenderer<NodeOfType<T>>;
   Editor?: FC<{ node: NodeOfType<T>; onChange?: (node: NodeOfType<T>) => void }>;
-  FullscreenOutput?: FC<{ node: NodeOfType<T> }>;
-  OutputSimple?: FC<{ outputs: InputsOrOutputsWithRefs; isCompact: boolean }>;
-  FullscreenOutputSimple?: FC<{ outputs: InputsOrOutputsWithRefs; renderMarkdown: boolean }>;
+  FullscreenOutput?: FullscreenNodeOutputRenderer<NodeOfType<T>>;
+  OutputSimple?: NodeOutputSimpleRenderer;
+  FullscreenOutputSimple?: FullscreenNodeOutputSimpleRenderer;
+  getCopyValueData?: NodeOutputCopyValueProjector;
   defaultRenderMarkdown?: boolean;
 };
 
@@ -63,6 +71,12 @@ const overriddenDescriptors: Partial<NodeComponentDescriptors> = {
   datasetNearestNeighbors: datasetNearestNeighborsNodeDescriptor,
   getDatasetRow: getDatasetRowNodeDescriptor,
   replaceDataset: replaceDatasetNodeDescriptor,
+  expression: expressionNodeDescriptor,
+  jsFilter: jsFilterNodeDescriptor,
+  jsMap: jsMapNodeDescriptor,
+  extractObjectPath: extractObjectPathNodeDescriptor,
+  httpCall: httpCallNodeDescriptor,
+  prompt: promptNodeDescriptor,
 };
 
 export function useNodeTypes(): NodeComponentDescriptors {

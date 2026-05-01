@@ -13,6 +13,7 @@ import { selectedNodesState } from '../state/graphBuilder.js';
 import { useContextMenuCommands } from './useContextMenuCommands.js';
 import { clipboardState } from '../state/clipboard';
 import { useAtomValue } from 'jotai';
+import { SubgraphLinkIcon } from '../components/visualNode/SubgraphLinkIcon.js';
 
 export type ContextMenuConfig = {
   contexts: ContextMenuContextConfig;
@@ -28,11 +29,16 @@ export type ContextMenuContextConfigContext<Context = unknown> = {
   items: readonly ContextMenuItem<Context>[];
 };
 
+export type ContextMenuSearchSection = 'graphs';
+
 export type ContextMenuItem<Context = unknown, Data = unknown> = {
   id: string;
   label: string;
   subLabel?: string;
+  searchSection?: ContextMenuSearchSection;
   icon?: ComponentType;
+  tone?: 'default' | 'danger';
+  separatorBefore?: boolean;
   data?: Data | ((context: Context) => Data);
   conditional?: (context: Context) => boolean;
   items?: readonly ContextMenuItem<Context>[];
@@ -67,36 +73,6 @@ export function useContextMenuConfiguration() {
             }>(),
             items: [
               {
-                id: 'node-copy',
-                label: 'Copy',
-                icon: CopyIcon,
-              },
-              {
-                id: 'node-go-to-subgraph',
-                label: 'Go To Subgraph',
-                icon: SettingsCogIcon,
-                conditional: (context) => {
-                  const { nodeType } = context as { nodeType: string };
-                  return nodeType === 'subGraph';
-                },
-              },
-              {
-                id: 'node-edit',
-                label: 'Edit',
-                icon: SettingsCogIcon,
-              },
-              {
-                id: 'node-duplicate',
-                label: 'Duplicate',
-                icon: DuplicateIcon,
-              },
-              {
-                id: 'nodes-factor-into-subgraph',
-                label: 'Create Subgraph',
-                icon: DuplicateIcon,
-                conditional: () => selectedNodeIds.length > 0,
-              },
-              {
                 id: 'node-run-to-here',
                 label: 'Run to here',
                 icon: PlayIcon,
@@ -111,9 +87,42 @@ export function useContextMenuConfiguration() {
                 },
               },
               {
+                id: 'node-copy',
+                label: 'Copy',
+                icon: CopyIcon,
+                separatorBefore: true,
+              },
+              {
+                id: 'node-duplicate',
+                label: 'Duplicate',
+                icon: DuplicateIcon,
+              },
+              {
+                id: 'node-go-to-subgraph',
+                label: 'Go to subgraph',
+                icon: SubgraphLinkIcon,
+                conditional: (context) => {
+                  const { nodeType } = context as { nodeType: string };
+                  return nodeType === 'subGraph';
+                },
+              },
+              {
+                id: 'node-edit',
+                label: 'Edit',
+                icon: SettingsCogIcon,
+              },
+              {
+                id: 'nodes-factor-into-subgraph',
+                label: 'Create Subgraph',
+                icon: DuplicateIcon,
+                conditional: () => selectedNodeIds.length > 0,
+              },
+              {
                 id: 'node-delete',
                 label: 'Delete',
                 icon: DeleteIcon,
+                tone: 'danger',
+                separatorBefore: true,
               },
             ],
           },

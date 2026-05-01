@@ -29,6 +29,8 @@ export const TextNodeAiAssistEditor: FC<
       graphName="Text Node Generator"
       placeholder="Generate text using AI"
       label="Generate Using AI"
+      collapsible
+      defaultOpen={false}
       updateData={(currentData, outputs) => {
         const outputText = coerceTypeOptional(outputs.output, 'string');
 

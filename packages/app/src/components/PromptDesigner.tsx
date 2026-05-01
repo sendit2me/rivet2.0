@@ -61,7 +61,7 @@ const styles = css`
     border-bottom: 1px solid var(--grey);
     padding: 10px 5px;
     cursor: pointer;
-    font-size: 14px;
+    font-size: var(--ui-font-size-base);
     line-height: 22px;
     font-family: 'Roboto', sans-serif;
     display: flex;
@@ -117,7 +117,7 @@ const styles = css`
 
   .message-editor {
     width: 100%;
-    font-size: 14px;
+    font-size: var(--ui-font-size-base);
     font-family: 'Roboto', sans-serif;
     line-height: 22px;
     resize: none;
@@ -199,7 +199,8 @@ const styles = css`
 
   .test-group-result {
     border: 1px solid var(--grey);
-    border-radius: 10px;
+    border-radius: 20px;
+    corner-shape: squircle;
     padding: 10px;
     position: relative;
   }
@@ -245,7 +246,7 @@ const styles = css`
     justify-self: stretch;
     display: flex;
     justify-content: center;
-    font-size: 12px;
+    font-size: var(--ui-font-size-sm);
 
     &:hover {
       background-color: rgba(0, 0, 0, 0.1);

@@ -13,6 +13,162 @@ import { type EditorDefinition, type InternalProcessContext } from '../../index.
 import { coerceType, dedent, getInputOrData } from '../../utils/index.js';
 import { getError } from '../../utils/errors.js';
 
+const REQUEST_FAILED_OUTPUT_ID = 'requestFailed' as PortId;
+const REQUEST_ERROR_OUTPUT_ID = 'requestError' as PortId;
+const DEFAULT_RETRY_ON_NON_200_REPEAT_TIMES = 1;
+const DEFAULT_RETRY_ON_NON_200_COOLDOWN_MS = 0;
+
+function isAbortError(error: unknown, signal: AbortSignal): boolean {
+  return signal.aborted || getError(error).name === 'AbortError';
+}
+
+function buildNon2xxStatusCodeError(statusCode: number): Error {
+  return new Error(`HTTP call returned non-2XX status code: ${statusCode}`);
+}
+
+function stringifyNonErrorValue(value: unknown): string {
+  if (value == null) {
+    return String(value);
+  }
+
+  if (typeof value === 'string') {
+    return value;
+  }
+
+  if (typeof value !== 'object') {
+    return String(value);
+  }
+
+  try {
+    return JSON.stringify(value, null, 2) ?? String(value);
+  } catch (_error) {
+    return String(value);
+  }
+}
+
+function formatCaughtRequestFailureError(error: unknown, seen = new Set<unknown>()): string {
+  if (error && typeof error === 'object') {
+    if (seen.has(error)) {
+      return '[Circular error reference]';
+    }
+    seen.add(error);
+  }
+
+  if (error instanceof Error) {
+    const errorText = error.stack?.trim() || `${error.name}: ${error.message}`.trim();
+    const cause = (error as Error & { cause?: unknown }).cause;
+
+    if (cause == null) {
+      return errorText;
+    }
+
+    return `${errorText}\n\nCaused by: ${formatCaughtRequestFailureError(cause, seen)}`;
+  }
+
+  return stringifyNonErrorValue(error);
+}
+
+function normalizeHttpRetryCount(value: number | undefined): number {
+  const retryCount =
+    typeof value === 'number' && Number.isFinite(value) ? value : DEFAULT_RETRY_ON_NON_200_REPEAT_TIMES;
+  return Math.max(1, Math.floor(retryCount));
+}
+
+function normalizeHttpRetryCooldownMs(value: number | undefined): number {
+  const cooldownMs =
+    typeof value === 'number' && Number.isFinite(value) ? value : DEFAULT_RETRY_ON_NON_200_COOLDOWN_MS;
+  return Math.max(0, Math.floor(cooldownMs));
+}
+
+function buildAbortError(): Error {
+  const error = new Error('Aborted');
+  error.name = 'AbortError';
+  return error;
+}
+
+async function waitForRetryCooldown(cooldownMs: number, signal: AbortSignal): Promise<void> {
+  if (cooldownMs <= 0) {
+    return;
+  }
+
+  if (signal.aborted) {
+    throw buildAbortError();
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    const cleanup = () => {
+      if (timeout) {
+        clearTimeout(timeout);
+      }
+      signal.removeEventListener('abort', onAbort);
+    };
+    const onAbort = () => {
+      cleanup();
+      reject(buildAbortError());
+    };
+
+    timeout = setTimeout(() => {
+      cleanup();
+      resolve();
+    }, cooldownMs);
+
+    signal.addEventListener('abort', onAbort, { once: true });
+    if (signal.aborted) {
+      onAbort();
+    }
+  });
+}
+
+function buildRequestFailedOutputs(params: { isBinaryOutput: boolean }): Outputs {
+  const sharedOutputs: Outputs = {
+    ['statusCode' as PortId]: {
+      type: 'control-flow-excluded',
+      value: undefined,
+    },
+    ['res_headers' as PortId]: {
+      type: 'control-flow-excluded',
+      value: undefined,
+    },
+  };
+
+  if (params.isBinaryOutput) {
+    return {
+      ...sharedOutputs,
+      ['binary' as PortId]: {
+        type: 'control-flow-excluded',
+        value: undefined,
+      },
+    };
+  }
+
+  return {
+    ...sharedOutputs,
+    ['res_body' as PortId]: {
+      type: 'control-flow-excluded',
+      value: undefined,
+    },
+    ['json' as PortId]: {
+      type: 'control-flow-excluded',
+      value: undefined,
+    },
+  };
+}
+
+function buildCaughtRequestFailedResult(params: { isBinaryOutput: boolean; error: unknown }): Outputs {
+  return {
+    [REQUEST_ERROR_OUTPUT_ID]: {
+      type: 'string',
+      value: formatCaughtRequestFailureError(params.error),
+    },
+    [REQUEST_FAILED_OUTPUT_ID]: {
+      type: 'boolean',
+      value: true,
+    },
+    ...buildRequestFailedOutputs(params),
+  };
+}
+
 export type HttpCallNode = ChartNode<'httpCall', HttpCallNodeData>;
 
 export type HttpCallNodeData = {
@@ -31,7 +187,50 @@ export type HttpCallNodeData = {
   isBinaryOutput?: boolean;
 
   errorOnNon200?: boolean;
+  catchRequestFailed?: boolean;
+  retryOnNon200?: boolean;
+  retryOnNon200RepeatTimes?: number;
+  retryOnNon200CooldownMs?: number;
 };
+
+export function getHttpCallBodyPreviewSections(data: HttpCallNodeData): string[] {
+  const sections = [
+    `${data.useMethodInput ? '(Method Using Input)' : data.method} ${data.useUrlInput ? '(URL Using Input)' : data.url}`,
+  ];
+
+  if (data.useHeadersInput) {
+    sections.push('Headers: (Using Input)');
+  } else if (data.headers.trim()) {
+    sections.push(`Headers: ${data.headers}`);
+  }
+
+  if (data.useBodyInput) {
+    sections.push('Body: (Using Input)');
+  } else if (data.body.trim()) {
+    sections.push(`Body: ${data.body}`);
+  }
+
+  if (data.errorOnNon200) {
+    sections.push('Throw on non-2XX');
+  }
+
+  if (data.catchRequestFailed) {
+    sections.push('Catch all request failures');
+  }
+
+  if (data.retryOnNon200) {
+    const cooldownMs = normalizeHttpRetryCooldownMs(data.retryOnNon200CooldownMs);
+    const retrySummaryParts = [`${normalizeHttpRetryCount(data.retryOnNon200RepeatTimes)} repeats`];
+
+    if (cooldownMs) {
+      retrySummaryParts.push(`${cooldownMs}ms cooldown`);
+    }
+
+    sections.push(`Retry on non-200 (${retrySummaryParts.join(', ')})`);
+  }
+
+  return sections;
+}
 
 export class HttpCallNodeImpl extends NodeImpl<HttpCallNode> {
   static create(): HttpCallNode {
@@ -50,6 +249,10 @@ export class HttpCallNodeImpl extends NodeImpl<HttpCallNode> {
         headers: '',
         body: '',
         errorOnNon200: true,
+        catchRequestFailed: false,
+        retryOnNon200: false,
+        retryOnNon200RepeatTimes: DEFAULT_RETRY_ON_NON_200_REPEAT_TIMES,
+        retryOnNon200CooldownMs: DEFAULT_RETRY_ON_NON_200_COOLDOWN_MS,
       },
     };
 
@@ -112,7 +315,7 @@ export class HttpCallNodeImpl extends NodeImpl<HttpCallNode> {
         {
           dataType: 'object',
           id: 'json' as PortId,
-          title: 'JSON',
+          title: 'Parsed JSON',
         },
       );
     }
@@ -129,6 +332,21 @@ export class HttpCallNodeImpl extends NodeImpl<HttpCallNode> {
         title: 'Headers',
       },
     );
+
+    if (this.data.catchRequestFailed) {
+      outputDefinitions.push(
+        {
+          dataType: 'boolean',
+          id: REQUEST_FAILED_OUTPUT_ID,
+          title: 'Request failed',
+        },
+        {
+          dataType: 'string',
+          id: REQUEST_ERROR_OUTPUT_ID,
+          title: 'Request error',
+        },
+      );
+    }
 
     return outputDefinitions;
   }
@@ -159,6 +377,7 @@ export class HttpCallNodeImpl extends NodeImpl<HttpCallNode> {
         dataKey: 'headers',
         useInputToggleDataKey: 'useHeadersInput',
         language: 'json',
+        enableFolding: true,
       },
       {
         type: 'code',
@@ -166,6 +385,34 @@ export class HttpCallNodeImpl extends NodeImpl<HttpCallNode> {
         dataKey: 'body',
         useInputToggleDataKey: 'useBodyInput',
         language: 'json',
+        enableFolding: true,
+      },
+      {
+        type: 'group',
+        label: 'Retry on non-200',
+        toggleDataKey: 'retryOnNon200',
+        editors: [
+          {
+            type: 'number',
+            label: 'Repeat times',
+            dataKey: 'retryOnNon200RepeatTimes',
+            defaultValue: DEFAULT_RETRY_ON_NON_200_REPEAT_TIMES,
+            min: 1,
+            step: 1,
+            layout: 'inline',
+            helperMessage: 'Times to repeat after the initial request',
+          },
+          {
+            type: 'number',
+            label: 'Cooldown, ms',
+            dataKey: 'retryOnNon200CooldownMs',
+            defaultValue: DEFAULT_RETRY_ON_NON_200_COOLDOWN_MS,
+            min: 0,
+            step: 1,
+            layout: 'inline',
+            helperMessage: 'Milliseconds to wait between repeats',
+          },
+        ],
       },
       {
         type: 'toggle',
@@ -175,26 +422,19 @@ export class HttpCallNodeImpl extends NodeImpl<HttpCallNode> {
       },
       {
         type: 'toggle',
-        label: 'Error on non-200 status code',
+        label: 'Fail on non-2XX status code',
         dataKey: 'errorOnNon200',
+      },
+      {
+        type: 'toggle',
+        label: 'Catch all request failures',
+        dataKey: 'catchRequestFailed',
       },
     ];
   }
 
   getBody(): string {
-    return dedent`
-      ${this.data.useMethodInput ? '(Method Using Input)' : this.data.method} ${
-        this.data.useUrlInput ? '(URL Using Input)' : this.data.url
-      } ${
-        this.data.useHeadersInput
-          ? '\nHeaders: (Using Input)'
-          : this.data.headers.trim()
-            ? `\nHeaders: ${this.data.headers}`
-            : ''
-      }${this.data.useBodyInput ? '\nBody: (Using Input)' : this.data.body.trim() ? `\nBody: ${this.data.body}` : ''}${
-        this.data.errorOnNon200 ? '\nError on non-200' : ''
-      }
-    `;
+    return getHttpCallBodyPreviewSections(this.data).join('\n');
   }
 
   static getUIData(): NodeUIData {
@@ -209,52 +449,89 @@ export class HttpCallNodeImpl extends NodeImpl<HttpCallNode> {
   }
 
   async process(inputs: Inputs, context: InternalProcessContext): Promise<Outputs> {
-    const method = getInputOrData(this.data, inputs, 'method', 'string');
-    const url = getInputOrData(this.data, inputs, 'url', 'string');
-
-    // TODO: Use URL.canParse when we drop support for Node 18
     try {
-      new URL(url);
-    } catch (err) {
-      throw new Error(`Invalid URL: ${url}`);
-    }
+      const method = getInputOrData(this.data, inputs, 'method', 'string');
+      const url = getInputOrData(this.data, inputs, 'url', 'string');
 
-    let headers: Record<string, string> | undefined;
-    if (this.data.useHeadersInput) {
-      const headersInput = inputs['headers' as PortId];
-      if (headersInput?.type === 'string') {
-        headers = JSON.parse(headersInput!.value);
-      } else if (headersInput?.type === 'object') {
-        headers = headersInput!.value as Record<string, string>;
-      } else {
-        headers = coerceType(headersInput, 'object') as Record<string, string>;
+      let headers: Record<string, string> | undefined;
+      if (this.data.useHeadersInput) {
+        const headersInput = inputs['headers' as PortId];
+        if (headersInput?.type === 'string') {
+          headers = JSON.parse(headersInput!.value);
+        } else if (headersInput?.type === 'object') {
+          headers = headersInput!.value as Record<string, string>;
+        } else {
+          headers = coerceType(headersInput, 'object') as Record<string, string>;
+        }
+      } else if (this.data.headers.trim()) {
+        headers = JSON.parse(this.data.headers);
       }
-    } else if (this.data.headers.trim()) {
-      headers = JSON.parse(this.data.headers);
-    }
 
-    let body: string | undefined;
-    if (this.data.useBodyInput) {
-      const bodyInput = inputs['req_body' as PortId];
-      if (bodyInput?.type === 'string') {
-        body = bodyInput!.value;
-      } else if (bodyInput?.type === 'object') {
-        body = JSON.stringify(bodyInput!.value);
+      let body: string | undefined;
+      if (this.data.useBodyInput) {
+        const bodyInput = inputs['req_body' as PortId];
+        if (bodyInput?.type === 'string') {
+          body = bodyInput!.value;
+        } else if (bodyInput?.type === 'object') {
+          body = JSON.stringify(bodyInput!.value);
+        } else {
+          body = coerceType(bodyInput, 'string');
+        }
       } else {
-        body = coerceType(bodyInput, 'string');
+        body = this.data.body || undefined;
       }
-    } else {
-      body = this.data.body || undefined;
-    }
 
-    try {
-      const response = await fetch(url, {
-        method,
-        headers,
-        body,
-        signal: context.signal,
-        mode: 'cors',
-      });
+      try {
+        // TODO: Use URL.canParse when we drop support for Node 18
+        new URL(url);
+      } catch (_error) {
+        throw new Error(`Invalid URL: ${url}`);
+      }
+
+      const performRequest = async () => {
+        try {
+          return await fetch(url, {
+            method,
+            headers,
+            body,
+            signal: context.signal,
+            mode: 'cors',
+          });
+        } catch (err) {
+          if (isAbortError(err, context.signal)) {
+            throw err;
+          }
+
+          const { message } = getError(err);
+          if (
+            (message.includes('Load failed') || message.includes('Failed to fetch')) &&
+            context.executor === 'browser'
+          ) {
+            throw new Error(
+              'Failed to make HTTP call. You may be running into CORS problems. Try using the Node executor in the top-right menu.',
+              { cause: err },
+            );
+          }
+
+          throw err;
+        }
+      };
+
+      let response = await performRequest();
+
+      if (this.data.retryOnNon200) {
+        const repeatTimes = normalizeHttpRetryCount(this.data.retryOnNon200RepeatTimes);
+        const cooldownMs = normalizeHttpRetryCooldownMs(this.data.retryOnNon200CooldownMs);
+
+        for (let attempt = 0; response.status !== 200 && attempt < repeatTimes; attempt++) {
+          await waitForRetryCooldown(cooldownMs, context.signal);
+          response = await performRequest();
+        }
+      }
+
+      if (this.data.errorOnNon200 && !response.ok) {
+        throw buildNon2xxStatusCodeError(response.status);
+      }
 
       const output: Outputs = {
         ['statusCode' as PortId]: {
@@ -293,18 +570,24 @@ export class HttpCallNodeImpl extends NodeImpl<HttpCallNode> {
         }
       }
 
-      return output;
-    } catch (err) {
-      const { message } = getError(err);
-      if (message.includes('Load failed') || message.includes('Failed to fetch')) {
-        if (context.executor === 'browser') {
-          throw new Error(
-            'Failed to make HTTP call. You may be running into CORS problems. Try using the Node executor in the top-right menu.',
-          );
-        }
+      if (this.data.catchRequestFailed) {
+        output[REQUEST_FAILED_OUTPUT_ID] = {
+          type: 'boolean',
+          value: false,
+        };
+        output[REQUEST_ERROR_OUTPUT_ID] = {
+          type: 'control-flow-excluded',
+          value: undefined,
+        };
       }
 
-      throw err;
+      return output;
+    } catch (error) {
+      if (this.data.catchRequestFailed && !isAbortError(error, context.signal)) {
+        return buildCaughtRequestFailedResult({ isBinaryOutput: Boolean(this.data.isBinaryOutput), error });
+      }
+
+      throw error;
     }
   }
 }

@@ -66,6 +66,151 @@ describe('streamChatV2', () => {
     assert.deepEqual(result.providerMetadata, providerMetadata);
     assert.equal(result.usage?.inputTokens, 10);
   });
+
+  it('forwards tool choice to the AI SDK stream executor', async () => {
+    let capturedToolChoice: unknown;
+    const executeStream: ChatV2StreamExecutor = async (args) => {
+      capturedToolChoice = args.toolChoice;
+
+      return {
+        fullStream: mockStream([
+          { type: 'text-start', id: 'text_1' },
+          { type: 'text-delta', id: 'text_1', text: 'Hello' },
+          { type: 'text-end', id: 'text_1' },
+        ]),
+      };
+    };
+
+    await streamChatV2({
+      model: createMockModel(),
+      messages: [],
+      toolChoice: 'required',
+      executeStream,
+    });
+
+    assert.equal(capturedToolChoice, 'required');
+  });
+
+  it('forwards provider options to the AI SDK stream executor', async () => {
+    let capturedProviderOptions: unknown;
+    const providerOptions = {
+      openai: {
+        parallelToolCalls: false,
+      },
+    };
+    const executeStream: ChatV2StreamExecutor = async (args) => {
+      capturedProviderOptions = args.providerOptions;
+
+      return {
+        fullStream: mockStream([
+          { type: 'text-start', id: 'text_1' },
+          { type: 'text-delta', id: 'text_1', text: 'Hello' },
+          { type: 'text-end', id: 'text_1' },
+        ]),
+      };
+    };
+
+    await streamChatV2({
+      model: createMockModel(),
+      messages: [],
+      providerOptions,
+      executeStream,
+    });
+
+    assert.deepEqual(capturedProviderOptions, providerOptions);
+  });
+
+  it('forwards generation settings to the AI SDK stream executor', async () => {
+    let capturedArgs: Record<string, unknown> | undefined;
+    const executeStream: ChatV2StreamExecutor = async (args) => {
+      capturedArgs = args as Record<string, unknown>;
+
+      return {
+        fullStream: mockStream([
+          { type: 'text-start', id: 'text_1' },
+          { type: 'text-delta', id: 'text_1', text: 'Hello' },
+          { type: 'text-end', id: 'text_1' },
+        ]),
+      };
+    };
+
+    await streamChatV2({
+      model: createMockModel(),
+      messages: [],
+      maxTokens: 100,
+      temperature: 0.4,
+      topP: 0.8,
+      topK: 20,
+      presencePenalty: 0.2,
+      frequencyPenalty: 0.3,
+      stopSequences: ['END'],
+      seed: 123,
+      executeStream,
+    });
+
+    assert.equal(capturedArgs?.maxOutputTokens, 100);
+    assert.equal(capturedArgs?.temperature, 0.4);
+    assert.equal(capturedArgs?.topP, 0.8);
+    assert.equal(capturedArgs?.topK, 20);
+    assert.equal(capturedArgs?.presencePenalty, 0.2);
+    assert.equal(capturedArgs?.frequencyPenalty, 0.3);
+    assert.deepEqual(capturedArgs?.stopSequences, ['END']);
+    assert.equal(capturedArgs?.seed, 123);
+  });
+
+  it('forwards response output to the AI SDK stream executor', async () => {
+    let capturedArgs: Record<string, unknown> | undefined;
+    const responseOutput = { name: 'json' };
+    const executeStream: ChatV2StreamExecutor = async (args) => {
+      capturedArgs = args as Record<string, unknown>;
+
+      return {
+        fullStream: mockStream([
+          { type: 'text-start', id: 'text_1' },
+          { type: 'text-delta', id: 'text_1', text: '{}' },
+          { type: 'text-end', id: 'text_1' },
+        ]),
+      };
+    };
+
+    await streamChatV2({
+      model: createMockModel(),
+      messages: [],
+      responseOutput,
+      executeStream,
+    });
+
+    assert.equal(capturedArgs?.output, responseOutput);
+    assert.equal('tools' in capturedArgs!, false);
+  });
+
+  it('omits undefined optional AI SDK arguments instead of forwarding empty request-shape hints', async () => {
+    let capturedArgs: Record<string, unknown> | undefined;
+    const executeStream: ChatV2StreamExecutor = async (args) => {
+      capturedArgs = args as Record<string, unknown>;
+
+      return {
+        fullStream: mockStream([
+          { type: 'text-start', id: 'text_1' },
+          { type: 'text-delta', id: 'text_1', text: 'Hello' },
+          { type: 'text-end', id: 'text_1' },
+        ]),
+      };
+    };
+
+    await streamChatV2({
+      model: createMockModel(),
+      messages: [],
+      executeStream,
+    });
+
+    assert.ok(capturedArgs);
+    assert.equal('tools' in capturedArgs, false);
+    assert.equal('toolChoice' in capturedArgs, false);
+    assert.equal('output' in capturedArgs, false);
+    assert.equal('providerOptions' in capturedArgs, false);
+    assert.equal('maxOutputTokens' in capturedArgs, false);
+  });
 });
 
 describe('runChatV2Pipeline', () => {
@@ -169,5 +314,195 @@ describe('runChatV2Pipeline', () => {
         id: 'call_1',
       },
     ]);
+  });
+
+  it('excludes the function-calls output when tools are enabled but the model returns no tool calls', async () => {
+    const executeStream: ChatV2StreamExecutor = async () => ({
+      fullStream: mockStream([
+        { type: 'text-start', id: 'text_1' },
+        { type: 'text-delta', id: 'text_1', text: 'Final answer' },
+        { type: 'text-end', id: 'text_1' },
+        {
+          type: 'finish',
+          finishReason: 'stop',
+          rawFinishReason: undefined,
+        },
+      ]),
+      finishReason: 'stop',
+    });
+
+    const result = await runChatV2Pipeline({
+      provider: 'openai',
+      model: createMockModel(),
+      modelId: 'gpt-4o',
+      prompt: { type: 'string', value: 'Answer normally.' },
+      includeFunctionCalls: true,
+      context: {
+        signal: new AbortController().signal,
+      },
+      executeStream,
+    });
+
+    assert.equal(result.response, 'Final answer');
+    assert.equal(result.functionCalls.length, 0);
+    assert.equal((result.allMessages.at(-1) as any)?.function_calls, undefined);
+    assert.deepEqual(result.commonOutputs['function-calls' as PortId], {
+      type: 'control-flow-excluded',
+      value: undefined,
+    });
+  });
+
+  it('emits reasoning output when requested and the stream exposes reasoning text', async () => {
+    const executeStream: ChatV2StreamExecutor = async () => ({
+      fullStream: mockStream([
+        { type: 'reasoning-start', id: 'reasoning_1' } as ChatV2StreamPart,
+        { type: 'reasoning-delta', id: 'reasoning_1', text: 'Think first.' } as ChatV2StreamPart,
+        { type: 'reasoning-end', id: 'reasoning_1' } as ChatV2StreamPart,
+        { type: 'text-start', id: 'text_1' },
+        { type: 'text-delta', id: 'text_1', text: 'Final answer' },
+        { type: 'text-end', id: 'text_1' },
+      ]),
+    });
+
+    const result = await runChatV2Pipeline({
+      provider: 'custom',
+      model: createMockModel(),
+      modelId: 'reasoning-model',
+      prompt: { type: 'string', value: 'Think.' },
+      outputReasoning: true,
+      context: {
+        signal: new AbortController().signal,
+      },
+      executeStream,
+    });
+
+    assert.equal(result.reasoning, 'Think first.');
+    assert.deepEqual(result.commonOutputs['reasoning' as PortId], {
+      type: 'string',
+      value: 'Think first.',
+    });
+  });
+
+  it('forwards function tool choice in the AI SDK tool-choice format', async () => {
+    let capturedToolChoice: unknown;
+    const executeStream: ChatV2StreamExecutor = async (args) => {
+      capturedToolChoice = args.toolChoice;
+
+      return {
+        fullStream: mockStream([
+          { type: 'text-start', id: 'text_1' },
+          { type: 'text-delta', id: 'text_1', text: 'Final answer' },
+          { type: 'text-end', id: 'text_1' },
+          {
+            type: 'finish',
+            finishReason: 'stop',
+            rawFinishReason: undefined,
+          },
+        ]),
+      };
+    };
+
+    await runChatV2Pipeline({
+      provider: 'openai',
+      model: createMockModel(),
+      modelId: 'gpt-4o',
+      prompt: { type: 'string', value: 'Use the lookup tool.' },
+      functions: [
+        {
+          name: 'lookup_weather',
+          description: 'Looks up weather.',
+          parameters: {
+            type: 'object',
+            properties: {},
+          },
+        },
+      ],
+      toolChoice: {
+        type: 'tool',
+        toolName: 'lookup_weather',
+      },
+      context: {
+        signal: new AbortController().signal,
+      },
+      executeStream,
+    });
+
+    assert.deepEqual(capturedToolChoice, {
+      type: 'tool',
+      toolName: 'lookup_weather',
+    });
+  });
+
+  it('forwards generation settings from the pipeline to the stream executor', async () => {
+    let capturedArgs: Record<string, unknown> | undefined;
+    const executeStream: ChatV2StreamExecutor = async (args) => {
+      capturedArgs = args as Record<string, unknown>;
+
+      return {
+        fullStream: mockStream([
+          { type: 'text-start', id: 'text_1' },
+          { type: 'text-delta', id: 'text_1', text: 'Final answer' },
+          { type: 'text-end', id: 'text_1' },
+        ]),
+      };
+    };
+
+    await runChatV2Pipeline({
+      provider: 'openai',
+      model: createMockModel(),
+      modelId: 'gpt-4o',
+      prompt: { type: 'string', value: 'Answer normally.' },
+      maxTokens: 100,
+      temperature: 0.4,
+      topP: 0.8,
+      topK: 20,
+      presencePenalty: 0.2,
+      frequencyPenalty: 0.3,
+      stopSequences: ['END'],
+      seed: 123,
+      context: {
+        signal: new AbortController().signal,
+      },
+      executeStream,
+    });
+
+    assert.equal(capturedArgs?.maxOutputTokens, 100);
+    assert.equal(capturedArgs?.temperature, 0.4);
+    assert.equal(capturedArgs?.topP, 0.8);
+    assert.equal(capturedArgs?.topK, 20);
+    assert.equal(capturedArgs?.presencePenalty, 0.2);
+    assert.equal(capturedArgs?.frequencyPenalty, 0.3);
+    assert.deepEqual(capturedArgs?.stopSequences, ['END']);
+    assert.equal(capturedArgs?.seed, 123);
+  });
+
+  it('forwards response output from the pipeline to the stream executor', async () => {
+    let capturedResponseOutput: unknown;
+    const responseOutput = { name: 'json' };
+    const executeStream: ChatV2StreamExecutor = async (args) => {
+      capturedResponseOutput = (args as Record<string, unknown>).output;
+
+      return {
+        fullStream: mockStream([
+          { type: 'text-start', id: 'text_1' },
+          { type: 'text-delta', id: 'text_1', text: '{}' },
+          { type: 'text-end', id: 'text_1' },
+        ]),
+      };
+    };
+
+    await runChatV2Pipeline({
+      provider: 'openai',
+      model: createMockModel(),
+      modelId: 'gpt-4o',
+      prompt: { type: 'string', value: 'Answer normally.' },
+      responseOutput,
+      context: {
+        signal: new AbortController().signal,
+      },
+      executeStream,
+    });
+
+    assert.equal(capturedResponseOutput, responseOutput);
   });
 });

@@ -31,16 +31,20 @@ import { nativeAppLogDir } from '../utils/platform/path.js';
 import { buildAiGraphBuilderExternalFunctions } from './aiGraphBuilderHelpers.js';
 import { useProjectNodeRegistry } from './useProjectNodeRegistry';
 import { handleError } from '../utils/errorHandling.js';
+import { useClearCurrentGraphHistory } from '../commands/Command.js';
+import { useEnvironmentProvider } from '../providers/ProvidersContext.js';
 
 export function useAiGraphBuilder({ record, onFeedback }: { record: boolean; onFeedback: (feedback: string) => void }) {
   const [graph, setGraph] = useAtom(graphState);
 
   const settings = useAtomValue(settingsState);
   const plugins = useDependsOnPlugins();
+  const environmentProvider = useEnvironmentProvider();
   const projectNodeRegistry = useProjectNodeRegistry();
 
   const centerView = useCenterViewOnGraph();
   const autoLayout = useAutoLayoutGraph();
+  const clearCurrentGraphHistory = useClearCurrentGraphHistory();
 
   const referencedProjects = useAtomValue(referencedProjectsState);
 
@@ -60,6 +64,7 @@ export function useAiGraphBuilder({ record, onFeedback }: { record: boolean; onF
           ...workingGraph,
           nodes: autoLayout(workingGraph),
         };
+        clearCurrentGraphHistory();
         setGraph(workingGraph);
         centerView(workingGraph);
       };
@@ -365,7 +370,9 @@ export function useAiGraphBuilder({ record, onFeedback }: { record: boolean; onF
         nativeApi: new TauriNativeApi(),
         datasetProvider: new InMemoryDatasetProvider(data),
         registry,
-        ...(await fillMissingSettingsFromEnvironmentVariables(settings, plugins)),
+        ...(await fillMissingSettingsFromEnvironmentVariables(settings, plugins, {
+          environmentProvider,
+        })),
       });
 
       if (record) {

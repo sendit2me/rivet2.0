@@ -8,13 +8,14 @@ import {
   type ProcessEvents,
   type Project,
 } from '@ironclad/rivet-core';
-import { entries } from '../../../core/src/utils/typeSafety.js';
-import type { InputsOrOutputsWithRefs, RunDataByNodeId } from '../state/dataFlow.js';
+import { entries } from '../utils/typeSafety.js';
+import type { RunDataByNodeId } from '../state/dataFlow.js';
 import type { ProjectContext } from '../state/savedGraphs.js';
-import { restoreDataValueFromHistory } from '../utils/executionDataTransforms.js';
+import type { DataRefReader } from '../providers/ProvidersContext.js';
+import { restoreStoredPortMap } from '../utils/executionDataReaders.js';
 import { getGlobalDataRef } from '../utils/globals/globalDataRefs.js';
 
-const dataRefs = {
+const dataRefs: DataRefReader = {
   get: getGlobalDataRef,
 };
 
@@ -32,13 +33,13 @@ export function getDependentDataForNodeForPreload(dependencyNodes: NodeId[], pre
   const preloadData: Record<NodeId, Outputs> = {};
 
   for (const dependencyNode of dependencyNodes) {
-    const dependencyNodeData = previousRunData[dependencyNode as keyof RunDataByNodeId];
+    const dependencyNodeData = previousRunData[dependencyNode];
 
     if (!dependencyNodeData) {
       throw new Error(`Node ${dependencyNode} was not found in the previous run data, cannot continue preloading data`);
     }
 
-    const firstExecution = dependencyNodeData[0] as (typeof dependencyNodeData)[number] | undefined;
+    const firstExecution = dependencyNodeData[0];
 
     if (!firstExecution?.data.outputData) {
       throw new Error(
@@ -46,11 +47,22 @@ export function getDependentDataForNodeForPreload(dependencyNodes: NodeId[], pre
       );
     }
 
-    const outputData = firstExecution.data.outputData as InputsOrOutputsWithRefs;
+    const outputData = firstExecution.data.outputData;
+    let outputDataWithoutRefs: Outputs | undefined;
 
-    const outputDataWithoutRefs = Object.fromEntries(
-      Object.entries(outputData).map(([portId, dataValueWithRefs]) => [portId, restoreDataValueFromHistory(dataValueWithRefs, dataRefs)]),
-    ) as Outputs;
+    try {
+      outputDataWithoutRefs = restoreStoredPortMap(outputData, dataRefs);
+    } catch (error) {
+      throw new Error(
+        `Node ${dependencyNode} output data was cleared from execution memory and cannot be preloaded: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+
+    if (!outputDataWithoutRefs) {
+      throw new Error(
+        `Node ${dependencyNode} output data could not be restored from execution memory, cannot continue preloading data`,
+      );
+    }
 
     preloadData[dependencyNode] = outputDataWithoutRefs;
   }

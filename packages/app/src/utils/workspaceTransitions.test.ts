@@ -1,13 +1,14 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { type GraphId, type NodeGraph, type Project, type ProjectId } from '@ironclad/rivet-core';
-import { createRootGraphViewContext } from '../domain/graphEditing/navigationActions.js';
+import { createRootGraphViewContext, createSubgraphGraphViewContext } from '../domain/graphEditing/navigationActions.js';
 import {
   chooseProjectGraph,
   createDefaultTrivetState,
   createGraphSwitchTransition,
   createProjectLoadTransition,
   mergeCurrentGraphIntoProject,
+  resolveProjectGraphForLoad,
 } from './workspaceTransitions.js';
 
 function makeGraph(id: string, name: string, nodes: NodeGraph['nodes'] = []): NodeGraph {
@@ -58,6 +59,60 @@ describe('workspaceTransitions', () => {
     assert.equal(chooseProjectGraph(project, { fallbackToSortedProjectGraph: true }).metadata?.id, 'g-1');
   });
 
+  test('resolveProjectGraphForLoad returns the project-owned graph for a valid explicit graph id', () => {
+    const alpha = makeGraph('g-1', 'Alpha');
+    const detachedAlpha = makeGraph('g-1', 'Detached Alpha');
+    const project = makeProject([alpha]);
+
+    const resolved = resolveProjectGraphForLoad(project, { graphToLoad: detachedAlpha });
+
+    assert.equal(resolved, alpha);
+  });
+
+  test('resolveProjectGraphForLoad falls back from invalid explicit graph to opened graph, main graph, and sorted graph', () => {
+    const alpha = makeGraph('g-1', 'Alpha');
+    const beta = makeGraph('g-2', 'Beta');
+
+    const withOpenedGraph = makeProject([beta, alpha], { mainGraphId: 'g-2' });
+    assert.equal(
+      resolveProjectGraphForLoad(withOpenedGraph, {
+        graphToLoad: makeGraph('missing', 'Missing'),
+        openedGraphId: 'g-1' as GraphId,
+      }).metadata?.id,
+      'g-1',
+    );
+
+    const withMainGraph = makeProject([beta, alpha], { mainGraphId: 'g-2' });
+    assert.equal(
+      resolveProjectGraphForLoad(withMainGraph, {
+        graphToLoad: makeGraph('missing', 'Missing'),
+      }).metadata?.id,
+      'g-2',
+    );
+
+    const withSortedFallback = makeProject([beta, alpha]);
+    assert.equal(
+      resolveProjectGraphForLoad(withSortedFallback, {
+        graphToLoad: makeGraph('missing', 'Missing'),
+      }).metadata?.id,
+      'g-1',
+    );
+  });
+
+  test('resolveProjectGraphForLoad returns a temporary empty graph only when the project has zero graphs', () => {
+    const emptyProject = makeProject([]);
+
+    const resolved = resolveProjectGraphForLoad(emptyProject, {
+      graphToLoad: makeGraph('missing', 'Missing'),
+      openedGraphId: 'missing' as GraphId,
+    });
+
+    assert.equal(Object.keys(emptyProject.graphs).length, 0);
+    assert.equal(resolved.metadata?.name, 'Untitled Graph');
+    assert.equal(resolved.nodes.length, 0);
+    assert.equal(resolved.connections.length, 0);
+  });
+
   test('createProjectLoadTransition resets workspace state and loads requested graph', () => {
     const currentGraph = makeGraph('current', 'Current', [{ id: 'n-1' } as any]);
     const targetGraph = makeGraph('next', 'Next', [{ id: 'n-2', visualData: { x: 0, y: 0 } } as any]);
@@ -66,7 +121,6 @@ describe('workspaceTransitions', () => {
     const transition = createProjectLoadTransition({
       currentGraph,
       graphToLoad: targetGraph,
-      lastSavedPositions: {} as Record<GraphId, any>,
       path: '/tmp/project.rivet-project',
       project,
     });
@@ -86,7 +140,6 @@ describe('workspaceTransitions', () => {
     const transition = createProjectLoadTransition({
       currentGraph,
       graphToLoad: targetGraph,
-      lastSavedPositions: {} as Record<GraphId, any>,
       path: null,
       project,
     });
@@ -95,21 +148,35 @@ describe('workspaceTransitions', () => {
     assert.deepEqual(transition.viewport, { type: 'reset' });
   });
 
-  test('createProjectLoadTransition restores the saved viewport for the loaded graph', () => {
+  test('createProjectLoadTransition accepts an explicit restored navigation stack and viewport', () => {
     const currentGraph = makeGraph('current', 'Current');
     const targetGraph = makeGraph('next', 'Next', [{ id: 'n-2', visualData: { x: 0, y: 0 } } as any]);
     const project = makeProject([targetGraph]);
+    const restoredNavigationStack = {
+      stack: [
+        createRootGraphViewContext('current' as GraphId),
+        createSubgraphGraphViewContext({
+          graphId: 'next' as GraphId,
+          parentGraphId: 'current' as GraphId,
+          parentNodeId: 'n-1' as any,
+        }),
+      ],
+      index: 1,
+    };
 
     const transition = createProjectLoadTransition({
       currentGraph,
       graphToLoad: targetGraph,
-      lastSavedPositions: {
-        next: { x: 12, y: 24, zoom: 1.5 },
-      } as Record<GraphId, any>,
       path: '/tmp/project.rivet-project',
       project,
+      navigationStack: restoredNavigationStack,
+      viewport: {
+        type: 'saved',
+        position: { x: 12, y: 24, zoom: 1.5 },
+      },
     });
 
+    assert.deepEqual(transition.navigationStack, restoredNavigationStack);
     assert.deepEqual(transition.viewport, {
       type: 'saved',
       position: { x: 12, y: 24, zoom: 1.5 },
@@ -150,5 +217,17 @@ describe('workspaceTransitions', () => {
 
     assert.equal(merged.graphs['g-1' as GraphId]?.metadata?.name, 'New');
     assert.notEqual(merged, project);
+  });
+
+  test('mergeCurrentGraphIntoProject preserves sibling graphs while persisting source graph changes', () => {
+    const originalGraph = makeGraph('g-1', 'Alpha');
+    const updatedGraph = makeGraph('g-1', 'Alpha', [{ id: 'node-1' } as any]);
+    const siblingGraph = makeGraph('g-2', 'Beta');
+    const project = makeProject([originalGraph, siblingGraph]);
+
+    const merged = mergeCurrentGraphIntoProject(project, updatedGraph);
+
+    assert.equal(merged.graphs['g-1' as GraphId], updatedGraph);
+    assert.equal(merged.graphs['g-2' as GraphId], siblingGraph);
   });
 });

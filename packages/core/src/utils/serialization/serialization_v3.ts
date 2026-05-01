@@ -47,6 +47,7 @@ export type SerializedNode = {
   description?: string;
   isSplitRun?: boolean;
   splitRunMax?: number;
+  splitRunConcurrency?: number;
 
   // x/y/width/zIndex
   visualData: `${string}/${string}/${string}/${string}`;
@@ -137,6 +138,7 @@ function toSerializedNode(node: ChartNode, allNodes: ChartNode[], allConnections
     visualData: packVisualDataV3(node) as SerializedNode['visualData'],
     isSplitRun: node.isSplitRun,
     splitRunMax: node.splitRunMax,
+    splitRunConcurrency: node.splitRunConcurrency,
     data: node.data,
     outgoingConnections: allConnections
       .filter((connection) => connection.outputNodeId === node.id)
@@ -161,6 +163,7 @@ function fromSerializedNode(serializedNode: SerializedNode): [ChartNode, NodeCon
       type: serializedNode.type,
       isSplitRun: serializedNode.isSplitRun,
       splitRunMax: serializedNode.splitRunMax,
+      splitRunConcurrency: serializedNode.splitRunConcurrency,
       visualData: { x, y, width, zIndex },
       data: serializedNode.data,
       variants: serializedNode.variants,

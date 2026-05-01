@@ -5,16 +5,18 @@ import { TauriProjectReferenceLoader } from '../model/TauriProjectReferenceLoade
 import { type Project, type ProjectId } from '@ironclad/rivet-core';
 import useAsyncEffect from 'use-async-effect';
 import { handleError } from '../utils/errorHandling.js';
+import { usePathPolicyProvider } from '../providers/ProvidersContext.js';
 
 export function useReloadProjectReferences() {
   const project = useAtomValue(projectState);
   const loadedProject = useAtomValue(loadedProjectState);
+  const pathPolicy = usePathPolicyProvider();
 
   const setReferencedProjects = useSetAtom(referencedProjectsState);
 
   const reloadReferences = useCallback(async () => {
     try {
-      const loader = new TauriProjectReferenceLoader();
+      const loader = new TauriProjectReferenceLoader(pathPolicy);
 
       const collectedProjects: Record<ProjectId, Project> = {};
 
@@ -33,7 +35,7 @@ export function useReloadProjectReferences() {
         },
       });
     }
-  }, [project, loadedProject, setReferencedProjects]);
+  }, [loadedProject, pathPolicy, project, setReferencedProjects]);
 
   useAsyncEffect(async () => {
     await reloadReferences();

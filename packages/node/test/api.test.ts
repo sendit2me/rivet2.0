@@ -1,7 +1,50 @@
 import { describe, it } from 'node:test';
 import * as assert from 'node:assert/strict';
 import { loadTestGraphs } from './testUtils';
-import { createProcessor } from '../src/index.js';
+import {
+  CodeNodeImpl,
+  createProcessor,
+  type CodeRunner,
+  type GraphId,
+  type NodeGraph,
+  type NodeId,
+  type Outputs,
+  type PortId,
+  type Project,
+} from '../src/index.js';
+
+function makeCodeProject(code: string): Project {
+  const codeNode = CodeNodeImpl.create();
+  codeNode.id = 'code-node' as NodeId;
+  codeNode.data = {
+    ...codeNode.data,
+    allowProcess: true,
+    code,
+    inputNames: [],
+    outputNames: ['output1'],
+  };
+
+  const graph: NodeGraph = {
+    connections: [],
+    metadata: {
+      description: '',
+      id: 'code-graph' as GraphId,
+      name: 'Code Graph',
+    },
+    nodes: [codeNode],
+  };
+
+  return {
+    graphs: {
+      [graph.metadata!.id!]: graph,
+    },
+    metadata: {
+      id: 'node-api-test-project' as GraphId,
+      mainGraphId: graph.metadata!.id,
+      title: 'Node API Test Project',
+    },
+  } as Project;
+}
 
 describe('api', () => {
   it('can stream processor events', async () => {
@@ -104,5 +147,60 @@ describe('api', () => {
     });
 
     assert.equal(attachedRequestId, 'request-123');
+  });
+
+  it('keeps the default programmatic Code runner behavior', async () => {
+    let codeOutput: Outputs | undefined;
+    const processor = createProcessor(
+      makeCodeProject(`return { output1: { type: 'string', value: process.release.name } };`),
+      {
+        graph: 'code-graph',
+        onNodeFinish: ({ outputs }) => {
+          codeOutput = outputs;
+        },
+      },
+    );
+
+    await processor.run();
+
+    assert.deepEqual(codeOutput?.['output1' as PortId], {
+      type: 'string',
+      value: 'node',
+    });
+  });
+
+  it('keeps custom programmatic Code runners opt-in and unchanged', async () => {
+    let runCount = 0;
+    const customCodeRunner: CodeRunner = {
+      async runCode() {
+        runCount += 1;
+        return {
+          output1: {
+            type: 'string',
+            value: 'custom runner',
+          },
+        };
+      },
+    };
+    let codeOutput: Outputs | undefined;
+
+    const processor = createProcessor(
+      makeCodeProject(`throw new Error('the custom runner should replace this code');`),
+      {
+        codeRunner: customCodeRunner,
+        graph: 'code-graph',
+        onNodeFinish: ({ outputs }) => {
+          codeOutput = outputs;
+        },
+      },
+    );
+
+    await processor.run();
+
+    assert.equal(runCount, 1);
+    assert.deepEqual(codeOutput?.['output1' as PortId], {
+      type: 'string',
+      value: 'custom runner',
+    });
   });
 });

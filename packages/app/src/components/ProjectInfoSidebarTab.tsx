@@ -10,15 +10,28 @@ import { useToggle } from 'ahooks';
 import TextField from '@atlaskit/textfield';
 import { DataType, type DataValue } from '@ironclad/rivet-core';
 import { produce } from 'immer';
-import Toggle from '@atlaskit/toggle';
-import { entries } from '../../../core/src/utils/typeSafety';
+import { entries } from '../utils/typeSafety';
 import { css } from '@emotion/react';
 import { ProjectRevisions } from './ProjectRevisionList';
 import { useAtom, useAtomValue } from 'jotai';
 import { ProjectReferencesConfiguration } from './ProjectReferencesConfiguration';
 import { ProjectMCPConfiguration } from './ProjectMCPConfiguration';
+import { LabeledToggle } from './LabeledToggle';
+import { MainGraphIcon } from './graphList/MainGraphIcon';
 
 const styles = css`
+  .main-graph-field-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .main-graph-field-label svg {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+  }
+
   .context-list {
     display: flex;
     flex-direction: column;
@@ -44,7 +57,7 @@ const styles = css`
         }
 
         .value {
-          font-size: 12px;
+          font-size: var(--ui-font-size-sm);
           color: var(--grey-light);
           font-family: var(--font-family-monospace);
         }
@@ -140,7 +153,7 @@ export const ProjectInfoSidebarTab: FC = () => {
       />
       <ProjectMCPConfiguration />
 
-      <Field name="mainGraph" label="Main Graph">
+      <Field name="mainGraph" label={<MainGraphFieldLabel />}>
         {() => (
           <Select
             options={graphOptions}
@@ -203,6 +216,13 @@ export const ProjectInfoSidebarTab: FC = () => {
     </div>
   );
 };
+
+const MainGraphFieldLabel: FC = () => (
+  <span className="main-graph-field-label">
+    <MainGraphIcon />
+    <span>Main Graph</span>
+  </span>
+);
 
 const ValueEditorModalRenderer: FC<{
   initialKey?: string;
@@ -306,12 +326,13 @@ const ValueEditorModal: FC<{
           </Field>
           <Field name="secret" label="Secret Value (Hidden in UI)">
             {() => (
-              <Toggle
+              <LabeledToggle
+                id="project-secret-hidden-value"
                 isChecked={secret}
-                onChange={(e) => setSecret(e.target.checked)}
+                onChange={setSecret}
                 label="Secret Value (Hidden in UI)"
                 size="large"
-              ></Toggle>
+              />
             )}
           </Field>
         </form>

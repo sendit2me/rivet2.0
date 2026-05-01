@@ -152,6 +152,21 @@ data:
       visualData: 10/20/140/1//
 `;
 
+const v4SplitGraphWithoutConcurrency = `version: 4
+data:
+  metadata:
+    id: graph-1
+    name: Main Graph
+    description: Test graph
+  nodes:
+    "[node-1]:text \\"Text\\"":
+      visualData: 10/20/140/1//
+      isSplitRun: true
+      splitRunMax: 7
+      data:
+        text: hello
+`;
+
 describe('serialization compatibility', () => {
   it('detects legacy and current serialization versions explicitly', () => {
     assert.equal(detectSerializationVersion(v1Project), 1);
@@ -195,6 +210,15 @@ describe('serialization compatibility', () => {
     assert.equal(detectSerializationVersion(serialized), 3);
   });
 
+  it('deserializes older split-run nodes without per-node concurrency', () => {
+    const graph = deserializeGraph(v4SplitGraphWithoutConcurrency);
+    const node = graph.nodes[0]!;
+
+    assert.equal(node.isSplitRun, true);
+    assert.equal(node.splitRunMax, 7);
+    assert.equal(node.splitRunConcurrency, undefined);
+  });
+
   it('round-trips project through V4 serialize/deserialize', () => {
     const projectWithConnections: Project = {
       metadata: {
@@ -210,6 +234,9 @@ describe('serialization compatibility', () => {
               id: 'n1',
               type: 'text',
               title: 'Text Node',
+              isSplitRun: true,
+              splitRunMax: 7,
+              splitRunConcurrency: 3,
               visualData: { x: 100, y: 200, width: 300, zIndex: 5, color: { border: '#ff0000', bg: '#00ff00' } },
               data: { text: 'hello' },
               variants: [],
@@ -246,6 +273,9 @@ describe('serialization compatibility', () => {
 
     const n1 = graph.nodes.find((n) => n.id === 'n1')!;
     assert.equal(n1.visualData.x, 100);
+    assert.equal(n1.isSplitRun, true);
+    assert.equal(n1.splitRunMax, 7);
+    assert.equal(n1.splitRunConcurrency, 3);
     assert.equal(n1.visualData.color?.border, '#ff0000');
     assert.equal(n1.visualData.color?.bg, '#00ff00');
     assert.deepEqual(n1.data, { text: 'hello' });

@@ -1,12 +1,17 @@
 import { type FC } from 'react';
-import { type Outputs, type PortId } from '@ironclad/rivet-core';
-import { RenderDataValue } from '../RenderDataValue.js';
+import { type PortId } from '@ironclad/rivet-core';
+import { RenderDataValue, type OutputRenderMode } from '../RenderDataValue.js';
 import { type NodeComponentDescriptor } from '../../hooks/useNodeTypes.js';
-import { type InputsOrOutputsWithRefs, type DataValueWithRefs } from '../../state/dataFlow';
+import { type InputsOrOutputsWithRefs } from '../../state/dataFlow';
+import { getLoopControllerNodeCopyValueData } from '../../utils/nodeOutputCopyValueProjectors.js';
 
-export const LoopControllerNodeOutput: FC<{ outputs: InputsOrOutputsWithRefs; renderMarkdown?: boolean }> = ({
-  outputs,
-}) => {
+export const LoopControllerNodeOutput: FC<{
+  outputs: InputsOrOutputsWithRefs;
+  renderMarkdown?: boolean;
+  isCompact: boolean;
+  renderMode?: OutputRenderMode;
+  allowLargeStoredValueActions?: boolean;
+}> = ({ outputs, isCompact, renderMode, allowLargeStoredValueActions }) => {
   const outputKeys = Object.keys(outputs).filter((key) => key.startsWith('output'));
 
   const breakLoop = outputs['break' as PortId] != null && outputs['break' as PortId]!.type !== 'control-flow-excluded';
@@ -22,7 +27,13 @@ export const LoopControllerNodeOutput: FC<{ outputs: InputsOrOutputsWithRefs; re
           <div>
             <em>Output {i + 1}</em>
           </div>
-          <RenderDataValue key={key} value={outputs[key as PortId] as DataValueWithRefs} />
+          <RenderDataValue
+            key={key}
+            value={outputs[key as PortId]}
+            isCompact={isCompact}
+            mode={renderMode}
+            allowLargeStoredValueActions={allowLargeStoredValueActions}
+          />
         </div>
       ))}
     </div>
@@ -31,4 +42,5 @@ export const LoopControllerNodeOutput: FC<{ outputs: InputsOrOutputsWithRefs; re
 
 export const loopControllerNodeDescriptor: NodeComponentDescriptor<'loopController'> = {
   OutputSimple: LoopControllerNodeOutput,
+  getCopyValueData: getLoopControllerNodeCopyValueData,
 };

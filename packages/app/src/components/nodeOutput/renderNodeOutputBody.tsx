@@ -1,21 +1,29 @@
 import { type ComponentType, type ReactNode } from 'react';
-import { orderBy } from 'lodash-es';
-import { entries } from '../../../../core/src/utils/typeSafety.js';
 import { RenderDataOutputs } from '../RenderDataValue.js';
 import { type InputsOrOutputsWithRefs, type NodeRunDataWithRefs } from '../../state/dataFlow.js';
 import { type ChartNode } from '@ironclad/rivet-core';
+import { getSortedSplitOutputEntries } from './splitOutputEntries.js';
+import type {
+  FullscreenNodeOutputRendererProps,
+  FullscreenNodeOutputSimpleRendererProps,
+  NodeOutputRendererProps,
+  NodeOutputRenderPolicyProps,
+  NodeOutputSimpleRendererProps,
+} from './nodeOutputRendererTypes.js';
 
-export function renderNodeOutputBody(options: {
-  Output?: ComponentType<{ node: ChartNode; isCompact: boolean }>;
-  OutputSimple?: ComponentType<{ outputs: InputsOrOutputsWithRefs; isCompact: boolean }>;
-  FullscreenOutput?: ComponentType<{ node: ChartNode }>;
-  FullscreenOutputSimple?: ComponentType<{ outputs: InputsOrOutputsWithRefs; renderMarkdown: boolean }>;
+type RenderNodeOutputBodyOptions = NodeOutputRenderPolicyProps & {
+  Output?: ComponentType<NodeOutputRendererProps>;
+  OutputSimple?: ComponentType<NodeOutputSimpleRendererProps>;
+  FullscreenOutput?: ComponentType<FullscreenNodeOutputRendererProps>;
+  FullscreenOutputSimple?: ComponentType<FullscreenNodeOutputSimpleRendererProps>;
   node: ChartNode;
   data: NodeRunDataWithRefs;
   definitions: any;
   isCompact: boolean;
   renderMarkdown?: boolean;
-}): ReactNode {
+};
+
+export function renderNodeOutputBody(options: RenderNodeOutputBodyOptions): ReactNode {
   const {
     Output,
     OutputSimple,
@@ -26,33 +34,55 @@ export function renderNodeOutputBody(options: {
     definitions,
     isCompact,
     renderMarkdown,
+    renderMode,
+    allowLargeStoredValueActions,
   } = options;
 
   if (FullscreenOutput) {
-    return <FullscreenOutput node={node} />;
+    return (
+      <FullscreenOutput
+        node={node}
+        data={data}
+        renderMode={renderMode}
+        allowLargeStoredValueActions={allowLargeStoredValueActions}
+      />
+    );
   }
 
   if (Output) {
-    return <Output node={node} isCompact={isCompact} />;
+    return (
+      <Output
+        node={node}
+        data={data}
+        isCompact={isCompact}
+        renderMode={renderMode}
+        allowLargeStoredValueActions={allowLargeStoredValueActions}
+      />
+    );
   }
 
   if (data.splitOutputData) {
-    const outputs = orderBy(
-      entries(data.splitOutputData).map(([key, value]) => ({ key, value })),
-      (entry) => entry.key,
-    );
+    const outputs = getSortedSplitOutputEntries(data.splitOutputData);
 
     return (
       <div className="split-output">
-        {outputs.map(({ key, value }) =>
+        {outputs.map(([key, value]) =>
           FullscreenOutputSimple ? (
             <FullscreenOutputSimple
               key={`outputs-${key}`}
               outputs={value as InputsOrOutputsWithRefs}
               renderMarkdown={renderMarkdown ?? false}
+              renderMode={renderMode}
+              allowLargeStoredValueActions={allowLargeStoredValueActions}
             />
           ) : OutputSimple ? (
-            <OutputSimple key={`outputs-${key}`} outputs={value as InputsOrOutputsWithRefs} isCompact={isCompact} />
+            <OutputSimple
+              key={`outputs-${key}`}
+              outputs={value as InputsOrOutputsWithRefs}
+              isCompact={isCompact}
+              renderMode={renderMode}
+              allowLargeStoredValueActions={allowLargeStoredValueActions}
+            />
           ) : (
             <RenderDataOutputs
               key={`outputs-${key}`}
@@ -60,6 +90,8 @@ export function renderNodeOutputBody(options: {
               outputs={value as InputsOrOutputsWithRefs}
               renderMarkdown={renderMarkdown}
               isCompact={isCompact}
+              mode={renderMode}
+              allowLargeStoredValueActions={allowLargeStoredValueActions}
             />
           ),
         )}
@@ -68,12 +100,35 @@ export function renderNodeOutputBody(options: {
   }
 
   if (FullscreenOutputSimple) {
-    return <FullscreenOutputSimple outputs={data.outputData!} renderMarkdown={renderMarkdown ?? false} />;
+    return (
+      <FullscreenOutputSimple
+        outputs={data.outputData!}
+        renderMarkdown={renderMarkdown ?? false}
+        renderMode={renderMode}
+        allowLargeStoredValueActions={allowLargeStoredValueActions}
+      />
+    );
   }
 
   if (OutputSimple) {
-    return <OutputSimple outputs={data.outputData!} isCompact={isCompact} />;
+    return (
+      <OutputSimple
+        outputs={data.outputData!}
+        isCompact={isCompact}
+        renderMode={renderMode}
+        allowLargeStoredValueActions={allowLargeStoredValueActions}
+      />
+    );
   }
 
-  return <RenderDataOutputs definitions={definitions} outputs={data.outputData!} renderMarkdown={renderMarkdown} isCompact={isCompact} />;
+  return (
+    <RenderDataOutputs
+      definitions={definitions}
+      outputs={data.outputData!}
+      renderMarkdown={renderMarkdown}
+      isCompact={isCompact}
+      mode={renderMode}
+      allowLargeStoredValueActions={allowLargeStoredValueActions}
+    />
+  );
 }

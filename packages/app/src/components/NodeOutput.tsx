@@ -1,6 +1,5 @@
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import {
-  type NodeRunData,
   type ProcessDataForNode,
   lastRunDataState,
   resolvedGraphSelectionState,
@@ -8,72 +7,146 @@ import {
   type NodeRunDataWithRefs,
 } from '../state/dataFlow.js';
 
-import { type FC, type ReactNode, memo, useMemo, useState, type MouseEvent } from 'react';
+import { type FC, memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { useUnknownNodeComponentDescriptorFor } from '../hooks/useNodeTypes.js';
 import { useStableCallback } from '../hooks/useStableCallback.js';
-import { copyToClipboard } from '../utils/copyToClipboard.js';
-import {
-  type ChartNode,
-  type PortId,
-  type ProcessId,
-  getWarnings,
-  type Outputs,
-  type ChatMessageDataValue,
-} from '@ironclad/rivet-core';
+import { type ChartNode, type ProcessId } from '@ironclad/rivet-core';
 import { css } from '@emotion/react';
 import CopyIcon from 'majesticons/line/clipboard-line.svg?react';
 import ExpandIcon from 'majesticons/line/maximize-line.svg?react';
 import FlaskIcon from 'majesticons/line/flask-line.svg?react';
+import ExpandDownStopIcon from '../assets/icons/expand-down-stop.svg?react';
 import { FullScreenModal } from './FullScreenModal.js';
-import { RenderDataOutputs } from './RenderDataValue.js';
 import { promptDesignerAttachedChatNodeState } from '../state/promptDesigner.js';
-import { overlayOpenState } from '../state/ui';
+import { fullscreenOutputModalBoundsState, overlayOpenState } from '../state/ui';
 import { useDependsOnPlugins } from '../hooks/useDependsOnPlugins';
 import { useToggle } from 'ahooks';
-import Toggle from '@atlaskit/toggle';
-import { pinnedNodesState } from '../state/graphBuilder';
+import { expandedOutputNodeIdsState, fullscreenOutputNodeState, hoveringNodeState } from '../state/graphBuilder';
 import { useNodeIO } from '../hooks/useGetNodeIO';
 import { Tooltip } from './Tooltip';
 import { useDataRefs } from '../providers/ProvidersContext';
 import { filterProcessDataForSelection, getSelectedProcessData } from '../state/selectors/executionSelectors.js';
 import { renderNodeOutputBody } from './nodeOutput/renderNodeOutputBody.js';
+import { getStoredOutputWarnings } from '../utils/executionDataReaders.js';
+import { copyOutputJson, copyOutputValue } from './nodeOutput/nodeOutputCopyActions.js';
+import { FullscreenOutputSearchContext } from './nodeOutput/FullscreenOutputSearchContext.js';
+import { useFullscreenOutputSearch } from './nodeOutput/useFullscreenOutputSearch.js';
+import { FullscreenNodeOutputToolbar } from './nodeOutput/FullscreenNodeOutputToolbar.js';
+import { MATCH_ACTIVE_CLASS, MATCH_CLASS } from './nodeOutput/fullscreenOutputSearch.js';
+import { resolveNodeOutputPreviewMode } from './nodeOutput/nodeOutputPreviewMode.js';
+import { CodeNodeErrorOutput } from './nodes/CodeNode.js';
+import type { HorizontalModalBounds } from '../utils/fullScreenModalBounds.js';
 
-export const NodeOutput: FC<{ node: ChartNode; isHovered: boolean }> = memo(({ node, isHovered }) => {
-  const dataRefs = useDataRefs();
+export const NodeOutput: FC<{ node: ChartNode; suspended?: boolean }> = memo(({ node, suspended = false }) => {
+  const isOutputExpanded = useAtomValue(expandedOutputNodeIdsState).includes(node.id);
+
+  if (suspended && !isOutputExpanded) {
+    return null;
+  }
+
+  return <ActiveNodeOutput node={node} isOutputExpanded={isOutputExpanded} />;
+});
+
+NodeOutput.displayName = 'NodeOutput';
+
+const ActiveNodeOutput: FC<{ node: ChartNode; isOutputExpanded: boolean }> = ({ node, isOutputExpanded }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   useDependsOnPlugins();
 
-  const isPinned = useAtomValue(pinnedNodesState).includes(node.id);
+  const setExpandedOutputNodeIds = useSetAtom(expandedOutputNodeIdsState);
+  const setFullscreenOutputNodeId = useSetAtom(fullscreenOutputNodeState);
+  const setHoveringNode = useSetAtom(hoveringNodeState);
+
+  const clearNodeHover = useStableCallback(() => {
+    setHoveringNode((hoveringNodeId) => (hoveringNodeId === node.id ? undefined : hoveringNodeId));
+  });
+  const clearFullscreenOutputNode = useStableCallback(() => {
+    setFullscreenOutputNodeId((nodeId) => (nodeId === node.id ? null : nodeId));
+  });
+
+  useEffect(() => clearFullscreenOutputNode, [clearFullscreenOutputNode]);
 
   const handleWheel = useStableCallback((e: MouseEvent<HTMLDivElement>) => {
-    if (isPinned) {
-      return; // Scroll is allowed because there's no scroll bar when pinned
+    if (isOutputExpanded) {
+      return; // Scroll is allowed because the output is already expanded.
     }
 
     // Prevent zooming the graph when scrolling the output
     e.stopPropagation();
   });
 
+  const handleToggleExpandedOutput = useStableCallback(() => {
+    setExpandedOutputNodeIds((previous) =>
+      previous.includes(node.id) ? previous.filter((nodeId) => nodeId !== node.id) : [...previous, node.id],
+    );
+  });
+  const handleOpenFullscreenModal = useStableCallback(() => {
+    clearNodeHover();
+    setFullscreenOutputNodeId(node.id);
+    setIsModalOpen(true);
+  });
+  const handleCloseFullscreenModal = useStableCallback(() => {
+    clearNodeHover();
+    clearFullscreenOutputNode();
+    setIsModalOpen(false);
+  });
+
   return (
     <div className="node-output-outer">
-      <FullScreenModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
-        <NodeFullscreenOutput node={node} />
-      </FullScreenModal>
+      {isModalOpen ? <ResizableNodeFullscreenOutputModal node={node} onClose={handleCloseFullscreenModal} /> : null}
       <div onWheel={handleWheel}>
-        <NodeOutputBase node={node} onOpenFullscreenModal={() => setIsModalOpen(true)} isHovered={isHovered} />
+        <NodeOutputBase
+          node={node}
+          isOutputExpanded={isOutputExpanded}
+          onToggleExpandedOutput={handleToggleExpandedOutput}
+          onOpenFullscreenModal={handleOpenFullscreenModal}
+        />
       </div>
     </div>
   );
-});
+};
 
-NodeOutput.displayName = 'NodeOutput';
+const ResizableNodeFullscreenOutputModal: FC<{ node: ChartNode; onClose: () => void }> = ({ node, onClose }) => {
+  const [fullscreenOutputModalBounds, setFullscreenOutputModalBounds] = useAtom(fullscreenOutputModalBoundsState);
+  const handleFullscreenOutputModalBoundsChange = useStableCallback((bounds: HorizontalModalBounds) => {
+    setFullscreenOutputModalBounds(bounds);
+  });
+
+  return (
+    <FullScreenModal
+      isOpen
+      horizontalBounds={fullscreenOutputModalBounds}
+      onClose={onClose}
+      onHorizontalBoundsChange={handleFullscreenOutputModalBoundsChange}
+      testId="fullscreen-output-modal"
+    >
+      <NodeFullscreenOutput node={node} />
+    </FullScreenModal>
+  );
+};
+
+function shouldUseCustomNodeErrorOutput(node: ChartNode, data: NodeRunDataWithRefs): boolean {
+  return (
+    (node.type === 'expression' ||
+      node.type === 'jsFilter' ||
+      node.type === 'jsMap' ||
+      node.type === 'extractObjectPath') &&
+    data.status?.type === 'error'
+  );
+}
+
+function shouldUseCodeErrorOutput(node: ChartNode, data: NodeRunDataWithRefs): boolean {
+  return node.type === 'code' && data.status?.type === 'error';
+}
 
 const fullscreenOutputCss = css`
+  --fullscreen-output-header-sticky-top: 16px;
+
   position: relative;
 
   .fullscreen-header {
     position: sticky;
-    top: 0;
+    top: var(--fullscreen-output-header-sticky-top);
     z-index: 1;
     display: flex;
     align-items: center;
@@ -81,15 +154,13 @@ const fullscreenOutputCss = css`
   }
 
   .picker {
-    position: sticky;
-    top: 0;
-    left: 0;
-    border: 1px solid var(--grey);
-    background: var(--grey-darker);
+    border: 1px solid var(--grey-darkish);
+    background: transparent;
     display: inline-flex;
     gap: 0;
-    border-radius: 4px;
-    box-shadow: 4px 4px 8px var(--shadow-dark);
+    border-radius: 8px;
+    corner-shape: squircle;
+    box-shadow: none;
     margin-bottom: 8px;
 
     .picker-left,
@@ -126,58 +197,65 @@ const fullscreenOutputCss = css`
       height: 32px;
     }
   }
+
+  .fullscreen-header.is-over-content .picker {
+    border-color: var(--grey);
+    background: var(--grey-darker);
+    box-shadow: 4px 4px 8px var(--shadow-dark);
+  }
+
+  .${MATCH_CLASS} {
+    background: rgba(255, 214, 10, 0.3);
+    border-radius: 4px;
+    corner-shape: squircle;
+  }
+
+  .${MATCH_ACTIVE_CLASS} {
+    background: rgba(255, 214, 10, 0.75);
+    color: #000;
+  }
 `;
 
-const fullscreenOutputButtonsCss = css`
-  display: inline-flex;
-  gap: 8px;
+function isScrollableOverflow(overflowValue: string): boolean {
+  return overflowValue === 'auto' || overflowValue === 'scroll' || overflowValue === 'overlay';
+}
 
-  border: 1px solid var(--grey);
-  background: var(--grey-darker);
-  border-radius: 4px;
-  box-shadow: 4px 4px 8px var(--shadow-dark);
-  margin-bottom: 8px;
-  padding: 8px 12px;
+function findScrollContainer(element: HTMLElement): HTMLElement | Window {
+  let current: HTMLElement | null = element.parentElement;
 
-  .copy-button,
-  .prompt-designer-button {
-    width: 24px;
-    height: 24px;
-    font-size: 24px;
-    opacity: 0.2;
-    cursor: pointer;
-    transition: opacity 0.2s;
-    z-index: 1;
-  }
-
-  .copy-button:hover,
-  .prompt-designer-button:hover {
-    opacity: 1;
-  }
-
-  .copy-json-button {
-    opacity: 0.2;
-    cursor: pointer;
-    user-select: none;
-    text-transform: uppercase;
-    font-size: 10px;
-    transition: opacity 0.2s;
-    z-index: 1;
-    height: 24px;
-    display: inline-flex;
-    align-items: center;
-
-    &:hover {
-      opacity: 1;
+  while (current && current !== document.body) {
+    const style = window.getComputedStyle(current);
+    if (isScrollableOverflow(style.overflowY)) {
+      return current;
     }
+
+    current = current.parentElement;
   }
 
-  .markdown-toggle {
-    display: flex;
-    align-items: center;
-    user-select: none;
+  return window;
+}
+
+function isWindowScrollContainer(scrollContainer: HTMLElement | Window): scrollContainer is Window {
+  return scrollContainer === window;
+}
+
+function getScrollContainerTop(scrollContainer: HTMLElement | Window): number {
+  if (isWindowScrollContainer(scrollContainer)) {
+    return window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0;
   }
-`;
+
+  return scrollContainer.scrollTop;
+}
+
+function getStickyTopForHeader(headerElement: HTMLElement, scrollContainer: HTMLElement | Window): number {
+  const headerTop = headerElement.getBoundingClientRect().top;
+
+  if (isWindowScrollContainer(scrollContainer)) {
+    return headerTop;
+  }
+
+  return headerTop - scrollContainer.getBoundingClientRect().top;
+}
 
 const renderNodeOutputPager = ({
   onNextPage,
@@ -212,13 +290,16 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
   const output = useAtomValue(lastRunDataState(node.id));
   const [selectedPage, setSelectedPage] = useAtom(selectedProcessPageState(node.id));
   const graphSelectionOptions = useAtomValue(resolvedGraphSelectionState);
+  const fullscreenOutputRootRef = useRef<HTMLDivElement>(null);
+  const fullscreenHeaderRef = useRef<HTMLElement>(null);
+  const [isHeaderOverContent, setIsHeaderOverContent] = useState(false);
 
   const filteredOutput = useMemo(
     () => filterProcessDataForSelection({ ...graphSelectionOptions, processData: output }) ?? output,
     [graphSelectionOptions, output],
   );
 
-  const { FullscreenOutput, Output, OutputSimple, FullscreenOutputSimple, defaultRenderMarkdown } =
+  const { FullscreenOutput, Output, OutputSimple, FullscreenOutputSimple, defaultRenderMarkdown, getCopyValueData } =
     useUnknownNodeComponentDescriptorFor(node);
 
   const [renderMarkdown, toggleRenderMarkdown] = useToggle(defaultRenderMarkdown ?? false);
@@ -237,53 +318,87 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
   }, [filteredOutput, selectedPage]);
 
   const handleOpenPromptDesigner = () => {
+    if (!processId) {
+      return;
+    }
+
     setOverlayOpen('promptDesigner');
     setPromptDesignerAttachedNode({
       nodeId: node.id,
-      processId: processId!,
+      processId,
     });
   };
 
-  const handleCopyToClipboard = useStableCallback(() => {
-    if (!data) {
-      return;
-    }
-    const keys = Object.keys(data.outputData ?? {}) as PortId[];
-
-    if (keys.length > 1) {
-      copyToClipboard(JSON.stringify(data.outputData, null, 2));
-      return;
-    }
-
-    const outputValue = data.outputData![keys[0]!]!;
-    if (outputValue.type === 'string') {
-      copyToClipboard(outputValue.value);
-    } else if (outputValue.type === 'chat-message') {
-      const resolved = dataRefs.get(outputValue.value.ref);
-
-      if (!resolved) {
-        return;
-      }
-
-      const chatMessage = resolved as ChatMessageDataValue | ChatMessageDataValue[];
-
-      if (Array.isArray(chatMessage)) {
-        const singleString = chatMessage.map((v) => (typeof v === 'string' ? v : '(Image)')).join('\n\n');
-        copyToClipboard(singleString);
-      } else {
-        copyToClipboard(typeof chatMessage.value.message === 'string' ? chatMessage.value.message : '(Image)');
-      }
-    } else {
-      copyToClipboard(JSON.stringify(outputValue, null, 2));
-    }
+  const handleCopyToClipboard = useStableCallback(() => copyOutputValue(data, dataRefs, getCopyValueData));
+  const handleCopyToClipboardJson = useStableCallback(() => copyOutputJson(data, dataRefs));
+  const contentVersion = useMemo(
+    () => ({
+      data,
+      processId,
+      renderMarkdown,
+      selectedPage,
+    }),
+    [data, processId, renderMarkdown, selectedPage],
+  );
+  const {
+    contextValue: fullscreenOutputSearchContext,
+    currentMatchIndex,
+    fullscreenOutputBodyRef,
+    goToNextMatch,
+    goToPreviousMatch,
+    handleSearchInputKeyDown,
+    query,
+    searchInputRef,
+    setQuery,
+    totalMatchCount,
+  } = useFullscreenOutputSearch({
+    contentKey: contentVersion,
   });
 
-  const handleCopyToClipboardJson = useStableCallback(() => {
-    if (!data) {
+  useLayoutEffect(() => {
+    const rootElement = fullscreenOutputRootRef.current;
+    const headerElement = fullscreenHeaderRef.current;
+    if (!rootElement || !headerElement || typeof window === 'undefined') {
       return;
     }
-    copyToClipboard(JSON.stringify(data.outputData, null, 2));
-  });
+
+    const scrollContainer = findScrollContainer(rootElement);
+    let animationFrame: number | undefined;
+
+    const updateHeaderStickyTop = () => {
+      rootElement.style.setProperty(
+        '--fullscreen-output-header-sticky-top',
+        `${getStickyTopForHeader(headerElement, scrollContainer)}px`,
+      );
+    };
+
+    const updateHeaderElevation = () => {
+      if (animationFrame !== undefined) {
+        window.cancelAnimationFrame(animationFrame);
+      }
+
+      animationFrame = window.requestAnimationFrame(() => {
+        animationFrame = undefined;
+        setIsHeaderOverContent(getScrollContainerTop(scrollContainer) > 0);
+      });
+    };
+
+    updateHeaderStickyTop();
+    updateHeaderElevation();
+    scrollContainer.addEventListener('scroll', updateHeaderElevation, { passive: true });
+    window.addEventListener('resize', updateHeaderStickyTop);
+    window.addEventListener('resize', updateHeaderElevation);
+
+    return () => {
+      if (animationFrame !== undefined) {
+        window.cancelAnimationFrame(animationFrame);
+      }
+
+      scrollContainer.removeEventListener('scroll', updateHeaderElevation);
+      window.removeEventListener('resize', updateHeaderStickyTop);
+      window.removeEventListener('resize', updateHeaderElevation);
+    };
+  }, [contentVersion]);
 
   const prevPage = useStableCallback(() => {
     if (!filteredOutput) {
@@ -309,11 +424,17 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
     return null;
   }
 
-  if (data.status?.type === 'error') {
+  const shouldUseCustomErrorOutput = shouldUseCustomNodeErrorOutput(node, data);
+
+  if (shouldUseCodeErrorOutput(node, data)) {
+    return <CodeNodeErrorOutput data={data} />;
+  }
+
+  if (data.status?.type === 'error' && !shouldUseCustomErrorOutput) {
     return <div className="errored">{data.status.error}</div>;
   }
 
-  if (!data.outputData && !data.splitOutputData) {
+  if (!data.outputData && !data.splitOutputData && !shouldUseCustomErrorOutput) {
     return null;
   }
 
@@ -327,11 +448,13 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
     definitions: io.outputDefinitions,
     isCompact: false,
     renderMarkdown,
+    renderMode: 'expanded-preview',
+    allowLargeStoredValueActions: true,
   });
 
   return (
-    <div css={fullscreenOutputCss}>
-      <header className="fullscreen-header">
+    <div css={fullscreenOutputCss} ref={fullscreenOutputRootRef}>
+      <header ref={fullscreenHeaderRef} className={`fullscreen-header${isHeaderOverContent ? ' is-over-content' : ''}`}>
         {filteredOutput.length > 1 ? (
           renderNodeOutputPager({
             selectedPage,
@@ -342,35 +465,39 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
         ) : (
           <div />
         )}
-        <div css={fullscreenOutputButtonsCss}>
-          <label className="markdown-toggle">
-            <Toggle isChecked={renderMarkdown} onChange={toggleRenderMarkdown.toggle} /> Render Markdown
-          </label>
-          <div className="copy-button" onClick={handleCopyToClipboard} title="Copy Value">
-            <CopyIcon />
-          </div>
-          <div className="copy-json-button" onClick={handleCopyToClipboardJson} title="Copy as JSON">
-            JSON
-          </div>
-          {node.type === 'chat' && (
-            <div className="prompt-designer-button" onClick={handleOpenPromptDesigner}>
-              <FlaskIcon />
-            </div>
-          )}
-        </div>
+        <FullscreenNodeOutputToolbar
+          renderMarkdown={renderMarkdown}
+          isOverContent={isHeaderOverContent}
+          onToggleRenderMarkdown={toggleRenderMarkdown.toggle}
+          query={query}
+          onQueryChange={setQuery}
+          currentMatchIndex={currentMatchIndex}
+          totalMatchCount={totalMatchCount}
+          onPreviousMatch={goToPreviousMatch}
+          onNextMatch={goToNextMatch}
+          searchInputRef={searchInputRef}
+          onSearchInputKeyDown={handleSearchInputKeyDown}
+          onCopyValue={handleCopyToClipboard}
+          onCopyJson={handleCopyToClipboardJson}
+          onOpenPromptDesigner={node.type === 'chat' ? handleOpenPromptDesigner : undefined}
+        />
       </header>
 
-      <div className="fullscreen-output-body">{body}</div>
+      <FullscreenOutputSearchContext.Provider value={fullscreenOutputSearchContext}>
+        <div ref={fullscreenOutputBodyRef} className="fullscreen-output-body">
+          {body}
+        </div>
+      </FullscreenOutputSearchContext.Provider>
     </div>
   );
 };
 
 const NodeOutputBase: FC<{
   node: ChartNode;
-  children?: ReactNode;
+  isOutputExpanded: boolean;
+  onToggleExpandedOutput: () => void;
   onOpenFullscreenModal?: () => void;
-  isHovered: boolean;
-}> = ({ node, onOpenFullscreenModal, isHovered }) => {
+}> = ({ node, isOutputExpanded, onToggleExpandedOutput, onOpenFullscreenModal }) => {
   const output = useAtomValue(lastRunDataState(node.id));
   const graphSelectionOptions = useAtomValue(resolvedGraphSelectionState);
   const filteredOutput = useMemo(
@@ -383,14 +510,20 @@ const NodeOutputBase: FC<{
   }
 
   if (filteredOutput.length === 1) {
+    const firstOutput = filteredOutput[0];
+    if (!firstOutput) {
+      return null;
+    }
+
     return (
       <div className="node-output">
         <NodeOutputSingleProcess
           node={node}
-          data={filteredOutput[0]!.data}
-          processId={filteredOutput[0]!.processId}
+          data={firstOutput.data}
+          isOutputExpanded={isOutputExpanded}
+          processId={firstOutput.processId}
+          onToggleExpandedOutput={onToggleExpandedOutput}
           onOpenFullscreenModal={onOpenFullscreenModal}
-          isHovered={isHovered}
         />
       </div>
     );
@@ -400,8 +533,9 @@ const NodeOutputBase: FC<{
         <NodeOutputMultiProcess
           node={node}
           data={filteredOutput}
+          isOutputExpanded={isOutputExpanded}
+          onToggleExpandedOutput={onToggleExpandedOutput}
           onOpenFullscreenModal={onOpenFullscreenModal}
-          isHovered={isHovered}
         />
       </div>
     );
@@ -411,12 +545,14 @@ const NodeOutputBase: FC<{
 const NodeOutputSingleProcess: FC<{
   node: ChartNode;
   data: NodeRunDataWithRefs;
+  isOutputExpanded: boolean;
   processId: ProcessId;
-  isHovered: boolean;
+  onToggleExpandedOutput: () => void;
   onOpenFullscreenModal?: () => void;
-}> = ({ node, data, processId, isHovered, onOpenFullscreenModal }) => {
+}> = ({ node, data, isOutputExpanded, processId, onToggleExpandedOutput, onOpenFullscreenModal }) => {
   const dataRefs = useDataRefs();
-  const { Output, OutputSimple } = useUnknownNodeComponentDescriptorFor(node);
+  const hoveringNodeId = useAtomValue(hoveringNodeState);
+  const { Output, OutputSimple, getCopyValueData } = useUnknownNodeComponentDescriptorFor(node);
 
   const setOverlayOpen = useSetAtom(overlayOpenState);
   const setPromptDesignerAttachedNode = useSetAtom(promptDesignerAttachedChatNodeState);
@@ -426,48 +562,44 @@ const NodeOutputSingleProcess: FC<{
     setOverlayOpen('promptDesigner');
     setPromptDesignerAttachedNode({
       nodeId: node.id,
-      processId: processId!,
+      processId,
     });
   };
 
-  const handleCopyToClipboard = useStableCallback(() => {
-    const keys = Object.keys(data.outputData ?? {}) as PortId[];
-
-    if (keys.length === 1) {
-      const outputValue = data.outputData![keys[0]!]!;
-      if (outputValue.type === 'string') {
-        copyToClipboard(outputValue.value);
-      } else if (outputValue.type === 'chat-message') {
-        const resolved = dataRefs.get(outputValue.value.ref);
-
-        if (!resolved) {
-          return;
-        }
-
-        const chatMessage = resolved as ChatMessageDataValue | ChatMessageDataValue;
-
-        if (Array.isArray(chatMessage.value)) {
-          const singleString = chatMessage.value.map((v) => (typeof v === 'string' ? v : '(Image)')).join('\n\n');
-          copyToClipboard(singleString);
-        } else {
-          copyToClipboard(typeof chatMessage.value.message === 'string' ? chatMessage.value.message : '(Image)');
-        }
-      } else {
-        copyToClipboard(JSON.stringify(outputValue, null, 2));
-      }
-      return;
-    }
-
-    copyToClipboard(JSON.stringify(data.outputData, null, 2));
+  const handleCopyToClipboard = useStableCallback(() => copyOutputValue(data, dataRefs, getCopyValueData));
+  const handleOutputActionMouseDown = useStableCallback((event: MouseEvent<HTMLDivElement>) => {
+    // Output controls are hover affordances. Do not let clicking them focus the
+    // draggable node root, otherwise the settings gear stays visible after leave.
+    event.preventDefault();
+    event.stopPropagation();
+  });
+  const handleOutputActionClick = useStableCallback((event: MouseEvent<HTMLDivElement>) => {
+    event.stopPropagation();
   });
 
-  if (data.status?.type === 'error') {
+  const warnings = useMemo(() => getStoredOutputWarnings(data, dataRefs), [data, dataRefs]);
+  const shouldUseCustomErrorOutput = shouldUseCustomNodeErrorOutput(node, data);
+
+  if (shouldUseCodeErrorOutput(node, data)) {
+    return (
+      <div className="node-output-inner errored">
+        <CodeNodeErrorOutput data={data} />
+      </div>
+    );
+  }
+
+  if (data.status?.type === 'error' && !shouldUseCustomErrorOutput) {
     return <div className="node-output-inner errored">{data.status.error}</div>;
   }
 
-  if (!data.outputData && !data.splitOutputData) {
+  if (!data.outputData && !data.splitOutputData && !shouldUseCustomErrorOutput) {
     return null;
   }
+
+  const { isCompact, renderMode } = resolveNodeOutputPreviewMode({
+    isOutputExpanded,
+    isHovered: hoveringNodeId === node.id,
+  });
 
   const body = renderNodeOutputBody({
     Output,
@@ -475,12 +607,24 @@ const NodeOutputSingleProcess: FC<{
     node,
     data,
     definitions: io.outputDefinitions,
-    isCompact: !isHovered,
+    isCompact,
+    renderMode,
   });
 
   return (
     <div className="node-output-inner">
-      <div className="overlay-buttons">
+      <div className="overlay-buttons" onMouseDown={handleOutputActionMouseDown} onClick={handleOutputActionClick}>
+        <Tooltip content="Unfold output">
+          <div
+            className="output-toggle-button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onToggleExpandedOutput();
+            }}
+          >
+            <ExpandDownStopIcon />
+          </div>
+        </Tooltip>
         <Tooltip content="Copy node output to clipboard">
           <div className="copy-button" onClick={handleCopyToClipboard}>
             <CopyIcon />
@@ -494,20 +638,22 @@ const NodeOutputSingleProcess: FC<{
             </div>
           </Tooltip>
         )}
-        <div
-          className="expand-button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onOpenFullscreenModal?.();
-          }}
-        >
-          <ExpandIcon />
-        </div>
+        <Tooltip content="Show full output">
+          <div
+            className="expand-button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenFullscreenModal?.();
+            }}
+          >
+            <ExpandIcon />
+          </div>
+        </Tooltip>
       </div>
       {body}
-      {getWarnings(data.outputData as Outputs) && (
+      {warnings && (
         <div className="node-output-warnings">
-          {getWarnings(data.outputData as Outputs)!.map((warning) => (
+          {warnings.map((warning) => (
             <div className="node-output-warning" key={warning}>
               {warning}
             </div>
@@ -521,9 +667,10 @@ const NodeOutputSingleProcess: FC<{
 const NodeOutputMultiProcess: FC<{
   node: ChartNode;
   data: ProcessDataForNode[];
-  isHovered: boolean;
+  isOutputExpanded: boolean;
+  onToggleExpandedOutput: () => void;
   onOpenFullscreenModal?: () => void;
-}> = ({ node, data, isHovered, onOpenFullscreenModal }) => {
+}> = ({ node, data, isOutputExpanded, onToggleExpandedOutput, onOpenFullscreenModal }) => {
   const [selectedPage, setSelectedPage] = useAtom(selectedProcessPageState(node.id));
 
   const prevPage = useStableCallback(() => {
@@ -559,10 +706,11 @@ const NodeOutputMultiProcess: FC<{
       {selectedData && (
         <NodeOutputSingleProcess
           data={selectedData.data}
+          isOutputExpanded={isOutputExpanded}
           node={node}
           processId={selectedData.processId}
+          onToggleExpandedOutput={onToggleExpandedOutput}
           onOpenFullscreenModal={onOpenFullscreenModal}
-          isHovered={isHovered}
         />
       )}
     </div>

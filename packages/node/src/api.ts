@@ -9,8 +9,7 @@ import {
   loadProjectFromString,
   loadProjectAndAttachedDataFromString,
   type RunGraphOptions,
-  DEFAULT_CHAT_NODE_TIMEOUT,
-  type Settings,
+  resolveProcessSettings,
   type Tokenizer,
   type TokenizerCallInfo,
   type ChatMessage,
@@ -28,7 +27,9 @@ import { NodeProjectReferenceLoader } from './native/NodeProjectReferenceLoader.
 import { NodeMCPProvider } from './native/NodeMCPProvider.js';
 
 class FallbackTokenizer implements Tokenizer {
-  on(_event: 'error', _listener: (err: Error) => void): void {}
+  on(_event: 'error', _listener: (err: Error) => void): () => void {
+    return () => {};
+  }
 
   async getTokenCountForString(input: string, _info: TokenizerCallInfo): Promise<number> {
     return input.length;
@@ -125,17 +126,15 @@ export function createProcessor(
           codeRunner: options.codeRunner ?? new NodeCodeRunner(),
           projectPath: options.projectPath,
           projectReferenceLoader: options.projectReferenceLoader ?? new NodeProjectReferenceLoader(),
-          settings: {
-            openAiKey: options.openAiKey ?? process.env.OPENAI_API_KEY ?? '',
-            openAiOrganization: options.openAiOrganization ?? process.env.OPENAI_ORG_ID ?? '',
-            openAiEndpoint: options.openAiEndpoint ?? process.env.OPENAI_ENDPOINT ?? '',
-            pluginEnv: pluginEnv ?? {},
-            pluginSettings: options.pluginSettings ?? {},
-            recordingPlaybackLatency: 1000,
-            chatNodeHeaders: options.chatNodeHeaders ?? {},
-            chatNodeTimeout: options.chatNodeTimeout ?? DEFAULT_CHAT_NODE_TIMEOUT,
-            throttleChatNode: options.throttleChatNode ?? 100,
-          } satisfies Required<Settings>,
+          editorExecutionCache: options.editorExecutionCache,
+          settings: resolveProcessSettings(
+            { ...options, pluginEnv },
+            {
+              openAiKey: process.env.OPENAI_API_KEY ?? '',
+              openAiOrganization: process.env.OPENAI_ORG_ID ?? '',
+              openAiEndpoint: process.env.OPENAI_ENDPOINT ?? '',
+            },
+          ),
           getChatNodeEndpoint: options.getChatNodeEndpoint,
         },
         processor.inputs,

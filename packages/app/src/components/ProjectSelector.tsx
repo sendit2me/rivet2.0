@@ -1,32 +1,25 @@
 import { css } from '@emotion/react';
-import { useMemo, type FC, type MouseEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FC, type MouseEvent as ReactMouseEvent } from 'react';
 import { DndContext, type DragEndEvent } from '@dnd-kit/core';
 import { type ProjectId } from '@ironclad/rivet-core';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import CloseIcon from 'majesticons/line/multiply-line.svg?react';
-import BlankFileIcon from 'majesticons/line/file-line.svg?react';
 import FileIcon from 'majesticons/line/file-plus-line.svg?react';
 import FolderIcon from 'majesticons/line/folder-line.svg?react';
-import {
-  clearProjectContextState,
-  openedProjectSnapshotsState,
-  openedProjectsSortedIdsState,
-  openedProjectsState,
-  projectState,
-  projectsState,
-} from '../state/savedGraphs';
+import { openedProjectsSortedIdsState, openedProjectsState, projectState } from '../state/savedGraphs';
 import clsx from 'clsx';
 import { useLoadProject } from '../hooks/useLoadProject';
 import { useSyncCurrentStateIntoOpenedProjects } from '../hooks/useSyncCurrentStateIntoOpenedProjects';
-import { produce } from 'immer';
 import { type SyntheticListenerMap } from '@dnd-kit/core/dist/hooks/utilities';
 import { SortableContext, horizontalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { useLoadProjectWithFileBrowser } from '../hooks/useLoadProjectWithFileBrowser';
 import { newProjectModalOpenState } from '../state/ui';
 import DiscordLogo from '../assets/vendor_logos/discord-mark-white.svg?react';
 import { useOpenUrl } from '../hooks/useOpenUrl';
-import { keys } from '../../../core/src/utils/typeSafety';
 import { wrapAsync } from '../utils/errorHandling';
+import { isInTauri } from '../utils/tauri.js';
+import { useRunMenuCommand } from '../hooks/useMenuCommands.js';
+import { useRivetWorkspaceHost } from '../hooks/useRivetWorkspaceHost.js';
 
 export const styles = css`
   position: absolute;
@@ -35,17 +28,101 @@ export const styles = css`
   top: 0;
   right: 0;
   height: var(--project-selector-height);
-  z-index: 101;
+  z-index: 250;
 
   background: var(--grey-darkerish);
   border-bottom: 1px solid var(--grey);
 
   display: flex;
-  align-items: space-between;
+  align-items: stretch;
+
+  .file-menu {
+    position: relative;
+    flex-shrink: 0;
+    height: calc(100% + 1px);
+    margin-bottom: -1px;
+  }
+
+  .file-menu-button {
+    align-items: center;
+    background: var(--grey-darkerish);
+    border: 0;
+    border-bottom: 1px solid var(--grey);
+    border-right: 1px solid var(--grey-darkest);
+    color: var(--grey-lightest);
+    cursor: pointer;
+    display: flex;
+    height: 100%;
+    justify-content: center;
+    margin: 0;
+    min-width: 50px;
+    padding: 0 16px;
+    font-size: var(--ui-font-size-sm);
+    user-select: none;
+
+    &:hover,
+    .file-menu.open & {
+      background-color: var(--grey-darkish);
+      border-bottom-color: var(--grey);
+    }
+  }
+
+  .file-dropdown {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    background-color: var(--grey-darkest);
+    border: 2px solid var(--grey-darkish);
+    border-radius: var(--ui-button-radius-sm);
+    corner-shape: squircle;
+    box-shadow: 0 8px 16px var(--shadow-dark);
+    font-family: 'Roboto Mono', monospace;
+    color: var(--foreground);
+    font-size: var(--ui-font-size-compact);
+    padding: 8px;
+    z-index: 300;
+    min-width: 150px;
+  }
+
+  .file-dropdown.open {
+    display: block;
+  }
+
+  .file-dropdown button {
+    display: block;
+    width: 100%;
+    background: transparent;
+    border: 0;
+    border-radius: var(--ui-button-radius-sm);
+    corner-shape: squircle;
+    color: inherit;
+    cursor: pointer;
+    padding: 4px 8px;
+    justify-content: flex-start;
+    white-space: nowrap;
+    text-align: left;
+    font-size: var(--ui-font-size-base);
+    transition:
+      background-color 0.1s ease-out,
+      color 0.1s ease-out;
+
+    &:hover {
+      background-color: var(--tertiary-light);
+      color: var(--primary-text);
+    }
+  }
+
+  .file-dropdown-separator {
+    height: 1px;
+    margin: 6px 4px;
+    background: var(--grey-darkish);
+  }
 
   .projects-container {
     display: flex;
     flex: 1;
+    min-width: 0;
     width: 100%;
     overflow: hidden;
   }
@@ -71,7 +148,8 @@ export const styles = css`
       display: flex;
       align-items: center;
       margin: 0;
-      border-radius: 5px;
+      border-radius: var(--ui-button-radius);
+      corner-shape: squircle;
       background: transparent;
       padding: 8px;
       width: 32px;
@@ -93,7 +171,8 @@ export const styles = css`
       white-space: nowrap;
       padding: 4px 8px;
       background: var(--grey-darkish);
-      border-radius: 12px;
+      border-radius: 56px;
+      corner-shape: superellipse(1.15);
       min-width: 80px;
       flex-shrink: 0;
       height: 28px;
@@ -123,7 +202,7 @@ export const styles = css`
     user-select: none;
     display: flex;
     gap: 8px;
-    font-size: 12px;
+    font-size: var(--ui-font-size-sm);
     height: calc(100% + 1px);
     margin-bottom: -1px;
     background: var(--grey-darkerish);
@@ -160,8 +239,23 @@ export const styles = css`
     }
 
     &.active {
-      background-color: var(--grey-darkish);
+      background-color: var(--primary);
       border-bottom: 1px solid var(--primary);
+      color: var(--foreground-on-primary);
+    }
+
+    &.active:hover {
+      background-color: var(--primary-dark);
+      border-bottom-color: var(--primary-dark);
+    }
+
+    &.active .close-project {
+      color: rgba(255, 255, 255, 0.88);
+    }
+
+    &.active .close-project:hover {
+      color: var(--foreground-on-primary);
+      background-color: rgba(0, 0, 0, 0.16);
     }
 
     &.unsaved {
@@ -190,7 +284,8 @@ export const styles = css`
       color: var(--grey-light);
       width: 20px;
       height: 20px;
-      border-radius: 4px;
+      border-radius: var(--ui-button-radius-sm);
+      corner-shape: squircle;
 
       svg {
         width: 12px;
@@ -216,10 +311,10 @@ export const styles = css`
 `;
 
 export const ProjectSelector: FC = () => {
-  const setProjects = useSetAtom(projectsState);
-  const setOpenedProjectSnapshots = useSetAtom(openedProjectSnapshotsState);
   const openedProjects = useAtomValue(openedProjectsState);
   const [openedProjectsSortedIds, setOpenedProjectsSortedIds] = useAtom(openedProjectsSortedIdsState);
+  const currentProject = useAtomValue(projectState);
+  const { closeProject } = useRivetWorkspaceHost();
 
   const sortedOpenedProjects = useMemo(() => {
     return openedProjectsSortedIds
@@ -246,41 +341,11 @@ export const ProjectSelector: FC = () => {
     }
   };
 
-  const handleCloseProject = (projectId: ProjectId) => {
-    const indexOfProject = openedProjectsSortedIds.indexOf(projectId);
-    if (indexOfProject === -1) {
+  const handleSelectProject = (projectId: ProjectId) => {
+    if (projectId === currentProject.metadata.id) {
       return;
     }
 
-    setProjects((projects) =>
-      produce(projects, (draft) => {
-        delete draft.openedProjects[projectId];
-
-        draft.openedProjectsSortedIds = draft.openedProjectsSortedIds.filter(
-          (id) => id !== projectId && draft.openedProjects[id] != null,
-        );
-
-        for (const projectId of keys(draft.openedProjects)) {
-          if (draft.openedProjectsSortedIds.includes(projectId) === false) {
-            delete draft.openedProjects[projectId];
-          }
-        }
-      }),
-    );
-    setOpenedProjectSnapshots((snapshots) =>
-      produce(snapshots, (draft) => {
-        delete draft[projectId];
-      }),
-    );
-    clearProjectContextState(projectId);
-
-    const closestProject = sortedOpenedProjects[indexOfProject + 1] || sortedOpenedProjects[indexOfProject - 1];
-    if (closestProject) {
-      loadProject(closestProject.project);
-    }
-  };
-
-  const handleSelectProject = (projectId: ProjectId) => {
     const projectInfo = openedProjects[projectId];
     if (projectInfo) {
       loadProject(projectInfo);
@@ -291,6 +356,7 @@ export const ProjectSelector: FC = () => {
 
   return (
     <div css={styles}>
+      {!isInTauri() && <ProjectFileMenu />}
       <div className="projects-container">
         <div className="projects">
           <DndContext onDragEnd={handleDragEnd}>
@@ -300,7 +366,7 @@ export const ProjectSelector: FC = () => {
                   <SortableProject
                     key={project.id}
                     projectId={project.project.projectId}
-                    onCloseProject={() => handleCloseProject(project.project.projectId)}
+                    onCloseProject={() => void closeProject(project.project.projectId)}
                     onSelectProject={() => handleSelectProject(project.project.projectId)}
                   />
                 );
@@ -313,11 +379,86 @@ export const ProjectSelector: FC = () => {
         <button className="new-project" onClick={() => setNewProjectModalOpen(true)} title="New Project">
           <FileIcon />
         </button>
-        <button className="open-project" onClick={wrapAsync(loadProjectWithFileBrowser, 'Open project')} title="Open Project">
+        <button
+          className="open-project"
+          onClick={wrapAsync(loadProjectWithFileBrowser, 'Open project')}
+          title="Open Project"
+        >
           <FolderIcon />
         </button>
         <button className="get-help" onClick={openDiscord}>
           <DiscordLogo /> Discord
+        </button>
+      </div>
+    </div>
+  );
+};
+
+const ProjectFileMenu: FC = () => {
+  const [fileMenuOpen, setFileMenuOpen] = useState(false);
+  const fileMenuRef = useRef<HTMLDivElement>(null);
+  const runMenuCommandImpl = useRunMenuCommand();
+
+  const runMenuCommand: typeof runMenuCommandImpl = (command) => {
+    setFileMenuOpen(false);
+    runMenuCommandImpl(command);
+  };
+
+  useEffect(() => {
+    if (!fileMenuOpen) {
+      return;
+    }
+
+    const handleWindowMouseDown = (event: MouseEvent) => {
+      if (fileMenuRef.current?.contains(event.target as Node)) {
+        return;
+      }
+
+      setFileMenuOpen(false);
+    };
+
+    window.addEventListener('mousedown', handleWindowMouseDown);
+
+    return () => {
+      window.removeEventListener('mousedown', handleWindowMouseDown);
+    };
+  }, [fileMenuOpen]);
+
+  return (
+    <div ref={fileMenuRef} className={clsx('file-menu', { open: fileMenuOpen })}>
+      <button
+        type="button"
+        className="file-menu-button"
+        aria-expanded={fileMenuOpen}
+        aria-haspopup="menu"
+        onClick={() => setFileMenuOpen((open) => !open)}
+      >
+        File
+      </button>
+      <div className={clsx('file-dropdown', { open: fileMenuOpen })} role="menu">
+        <button type="button" role="menuitem" onClick={() => runMenuCommand('new_project')}>
+          New project
+        </button>
+        <button type="button" role="menuitem" onClick={() => runMenuCommand('open_project')}>
+          Open project
+        </button>
+        <div className="file-dropdown-separator" role="separator" />
+        <button type="button" role="menuitem" onClick={() => runMenuCommand('save_project')}>
+          Save project
+        </button>
+        <button type="button" role="menuitem" onClick={() => runMenuCommand('save_project_as')}>
+          Save project as...
+        </button>
+        <div className="file-dropdown-separator" role="separator" />
+        <button type="button" role="menuitem" onClick={() => runMenuCommand('import_graph')}>
+          Import graph
+        </button>
+        <button type="button" role="menuitem" onClick={() => runMenuCommand('export_graph')}>
+          Export graph
+        </button>
+        <div className="file-dropdown-separator" role="separator" />
+        <button type="button" role="menuitem" onClick={() => runMenuCommand('settings')}>
+          Settings
         </button>
       </div>
     </div>
@@ -333,17 +474,25 @@ export const SortableProject: FC<{
     id: projectId,
   });
 
+  const constrainedTransformX = transform?.x ?? 0;
+
   return (
     <div
       className="draggableProject"
       ref={setNodeRef}
       style={{
-        transform: `translate3d(${transform ? transform.x : 0}px, ${transform ? transform.y : 0}px, 0)`,
+        transform: `translate3d(${constrainedTransformX}px, 0px, 0)`,
         transition,
       }}
       {...attributes}
     >
-      <ProjectTab projectId={projectId} dragListeners={listeners} isDragging={isDragging} onCloseProject={onCloseProject} onSelectProject={onSelectProject} />
+      <ProjectTab
+        projectId={projectId}
+        dragListeners={listeners}
+        isDragging={isDragging}
+        onCloseProject={onCloseProject}
+        onSelectProject={onSelectProject}
+      />
     </div>
   );
 };
@@ -364,13 +513,13 @@ export const ProjectTab: FC<{
   const fileName = unsaved ? 'Unsaved' : project.fsPath!.split('/').pop();
   const projectDisplayName = `${project?.title}${fileName ? ` [${fileName}]` : ''}`;
 
-  const handleMouseDown = (e: MouseEvent<HTMLDivElement>) => {
+  const handleMouseDown = (e: ReactMouseEvent<HTMLDivElement>) => {
     if (e.button === 0) {
       onSelectProject?.();
     }
   };
 
-  const closeProject = (e: MouseEvent<HTMLButtonElement>) => {
+  const closeProject = (e: ReactMouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
     onCloseProject?.();
   };
@@ -380,7 +529,6 @@ export const ProjectTab: FC<{
       className={clsx('project', { active: currentProject.metadata.id === projectId, unsaved })}
       onMouseDown={handleMouseDown}
     >
-      <BlankFileIcon />
       <div className="project-name" {...dragListeners}>
         <span>{projectDisplayName}</span>
       </div>

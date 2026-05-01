@@ -1,35 +1,42 @@
 import clsx from 'clsx';
-import { type FC, type HTMLAttributes, type MouseEvent as ReactMouseEvent, memo, useState } from 'react';
+import {
+  type FC,
+  type HTMLAttributes,
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
+  memo,
+  useState,
+} from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
 import { useAtomValue, useSetAtom } from 'jotai';
-import { match } from 'ts-pattern';
-import {
-  type ChartNode,
-  IF_PORT,
-  type NodeConnection,
-  type PortId,
-} from '@ironclad/rivet-core';
+import { type ChartNode, type CommentNode, IF_PORT, type NodeConnection, type PortId } from '@ironclad/rivet-core';
 import type { HeightCache } from '../../hooks/useNodeBodyHeight';
-import type { SelectedProcessRunProp } from '../VisualNode';
 import SettingsCogIcon from 'majesticons/line/settings-cog-line.svg?react';
-import SendIcon from 'majesticons/solid/send.svg?react';
-import GitForkLine from 'majesticons/line/git-fork-line.svg?react';
-import PinIcon from 'majesticons/line/pin-line.svg?react';
-import PinSolidIcon from 'majesticons/solid/pin.svg?react';
 import BookIcon from 'majesticons/line/book-open-line.svg?react';
 import { ResizeHandle } from '../ResizeHandle.js';
 import { useCanvasPositioning } from '../../hooks/useCanvasPositioning.js';
 import { useStableCallback } from '../../hooks/useStableCallback.js';
-import { LoadingSpinner } from '../LoadingSpinner.js';
 import { NodePortsRenderer } from '../NodePorts.js';
 import { useDependsOnPlugins } from '../../hooks/useDependsOnPlugins';
-import { pinnedNodesState, viewingNodeChangesState } from '../../state/graphBuilder';
+import { viewingNodeChangesState } from '../../state/graphBuilder';
 import { Tooltip } from '../Tooltip';
 import { Port } from '../Port';
 import { preservePortTextCaseState } from '../../state/settings';
 import { useCanvasHandlersContext, useCanvasViewContext } from '../CanvasContext';
 import { NodeBody } from '../NodeBody.js';
 import { NodeOutput } from '../NodeOutput.js';
+import { SubGraphHeaderLink } from './SubGraphHeaderLink.js';
+import { SplitRunSummary } from './SplitRunSummary.js';
+import { NodeRunningIndicator } from './NodeRunningIndicator.js';
+import {
+  computeBoxNodeResizeBounds,
+  computeHorizontalNodeResizeBounds,
+  haveNodeResizeBoundsChanged,
+  type BoxNodeResizeDirection,
+  type NodeResizeBounds,
+} from '../../utils/nodeResize.js';
+import { getCanvasCommentHeight, getCanvasNodeWidth } from '../../hooks/canvasVisibilityBounds.js';
+import { getBoxResizeCursor } from '../../utils/resizeCursors.js';
 
 export const NormalVisualNodeContent: FC<{
   heightCache: HeightCache;
@@ -37,21 +44,19 @@ export const NormalVisualNodeContent: FC<{
   connections?: NodeConnection[];
   handleAttributes?: HTMLAttributes<HTMLDivElement>;
   isKnownNodeType: boolean;
-  selectedProcessRun?: SelectedProcessRunProp['selectedProcessRun'];
-  isPinned: boolean;
   isHistoricalChanged: boolean;
-  isHovered: boolean;
+  isRunning: boolean;
+  renderHeavyContent: boolean;
 }> = memo(
   ({
     heightCache,
     node,
     connections = [],
-    selectedProcessRun,
-    isPinned,
     handleAttributes,
     isKnownNodeType,
     isHistoricalChanged,
-    isHovered,
+    isRunning,
+    renderHeavyContent,
   }) => {
     useDependsOnPlugins();
     const { draggingWire, closestPortToDraggingWire } = useCanvasViewContext();
@@ -66,26 +71,44 @@ export const NormalVisualNodeContent: FC<{
       onWireStartDrag,
     } = useCanvasHandlersContext();
     const { clientToCanvasPosition } = useCanvasPositioning();
-    const setPinnedNodes = useSetAtom(pinnedNodesState);
     const setViewingNodeChanges = useSetAtom(viewingNodeChangesState);
     const preservePortTextCase = useAtomValue(preservePortTextCaseState);
 
-    const [initialHeight, setInitialHeight] = useState<number | undefined>();
-    const [initialWidth, setInitialWidth] = useState<number | undefined>();
-    const [initialMouseX, setInitialMouseX] = useState(0);
-    const [initialMouseY, setInitialMouseY] = useState(0);
+    const [resizeState, setResizeState] = useState<{
+      direction: BoxNodeResizeDirection;
+      initialHeight: number;
+      initialWidth: number;
+      initialX: number;
+      initialY: number;
+      initialMouseX: number;
+      initialMouseY: number;
+      previousNodeOverride: Partial<ChartNode>;
+    } | null>(null);
     const [shiftHeld, setShiftHeld] = useState(false);
+    const isComment = node.type === 'comment';
+    const getNodeHeight = () => (node.type === 'comment' ? getCanvasCommentHeight(node as CommentNode) : 0);
 
-    const getNodeCurrentDimensions = (elementOrChild: HTMLElement): [number, number] => {
+    const getNodeCurrentBounds = (elementOrChild: HTMLElement): Required<NodeResizeBounds> => {
       const nodeElement = elementOrChild.closest('.node');
       if (!nodeElement) {
-        return [100, 100];
+        return {
+          x: node.visualData.x,
+          y: node.visualData.y,
+          width: getCanvasNodeWidth(node),
+          height: getNodeHeight(),
+        };
       }
 
-      const cssWidth = window.getComputedStyle(nodeElement).width;
-      const cssHeight = window.getComputedStyle(nodeElement).height;
+      const computedStyle = window.getComputedStyle(nodeElement);
+      const width = Number.parseFloat(computedStyle.width);
+      const height = Number.parseFloat(computedStyle.height);
 
-      return [parseInt(cssWidth, 10), parseInt(cssHeight, 10)];
+      return {
+        x: node.visualData.x,
+        y: node.visualData.y,
+        width: Number.isFinite(width) ? width : getCanvasNodeWidth(node),
+        height: Number.isFinite(height) ? height : getNodeHeight(),
+      };
     };
 
     const handleEditClick = useStableCallback((event: ReactMouseEvent<HTMLButtonElement>) => {
@@ -98,31 +121,79 @@ export const NormalVisualNodeContent: FC<{
       event.preventDefault();
     });
 
-    const handleResizeStart = useStableCallback((event: globalThis.MouseEvent) => {
+    const handleEditPointerDown = useStableCallback((event: ReactPointerEvent<HTMLButtonElement>) => {
+      event.stopPropagation();
+    });
+
+    const getNextResizeBounds = useStableCallback((event: globalThis.MouseEvent) => {
+      if (!resizeState) {
+        return null;
+      }
+
+      const initialMousePositionCanvas = clientToCanvasPosition(resizeState.initialMouseX, resizeState.initialMouseY);
+      const newMousePositionCanvas = clientToCanvasPosition(event.clientX, event.clientY);
+      const deltaX = newMousePositionCanvas.x - initialMousePositionCanvas.x;
+      const deltaY = newMousePositionCanvas.y - initialMousePositionCanvas.y;
+
+      if (isComment) {
+        return computeBoxNodeResizeBounds({
+          direction: resizeState.direction,
+          initialHeight: resizeState.initialHeight,
+          initialWidth: resizeState.initialWidth,
+          initialX: resizeState.initialX,
+          initialY: resizeState.initialY,
+          deltaX,
+          deltaY,
+        });
+      }
+
+      return computeHorizontalNodeResizeBounds({
+        direction: resizeState.direction === 'left' ? 'left' : 'right',
+        initialWidth: resizeState.initialWidth,
+        initialX: resizeState.initialX,
+        deltaX,
+      });
+    });
+
+    const handleResizeStart = useStableCallback((direction: BoxNodeResizeDirection, event: globalThis.MouseEvent) => {
       event.preventDefault();
       event.stopPropagation();
+      const currentBounds = getNodeCurrentBounds(event.target as HTMLElement);
 
-      const [width, height] = getNodeCurrentDimensions(event.target as HTMLElement);
-      setInitialWidth(width);
-      setInitialHeight(height);
-      setInitialMouseX(event.clientX);
-      setInitialMouseY(event.clientY);
+      setResizeState({
+        direction,
+        initialHeight: currentBounds.height,
+        initialWidth: currentBounds.width,
+        initialX: currentBounds.x,
+        initialY: currentBounds.y,
+        initialMouseX: event.clientX,
+        initialMouseY: event.clientY,
+        previousNodeOverride: structuredClone(node),
+      });
     });
 
     const handleResizeMove = useStableCallback((event: globalThis.MouseEvent) => {
       event.preventDefault();
       event.stopPropagation();
 
-      const initialMousePositionCanvas = clientToCanvasPosition(initialMouseX, initialMouseY);
-      const newMousePositionCanvas = clientToCanvasPosition(event.clientX, event.clientY);
-      const deltaX = newMousePositionCanvas.x - initialMousePositionCanvas.x;
-      const deltaY = newMousePositionCanvas.y - initialMousePositionCanvas.y;
+      const nextBounds = getNextResizeBounds(event);
+      const currentWidth = Number.isFinite(node.visualData.width)
+        ? node.visualData.width!
+        : resizeState?.initialWidth ?? getCanvasNodeWidth(node);
+      const currentBounds = isComment
+        ? {
+            x: node.visualData.x,
+            y: node.visualData.y,
+            width: currentWidth,
+            height: getNodeHeight(),
+          }
+        : {
+            x: node.visualData.x,
+            width: currentWidth,
+          };
 
-      const newWidth = initialWidth != null ? initialWidth + deltaX : initialWidth;
-      const newHeight = initialHeight != null ? initialHeight + deltaY : initialHeight;
-
-      if (newWidth != null && newHeight != null && (newWidth !== initialWidth || newHeight !== initialHeight)) {
-        onNodeSizeChanged?.(node, newWidth, newHeight);
+      if (nextBounds && haveNodeResizeBoundsChanged(currentBounds, nextBounds)) {
+        onNodeSizeChanged?.(node, nextBounds);
       }
     });
 
@@ -130,11 +201,30 @@ export const NormalVisualNodeContent: FC<{
       event.preventDefault();
       event.stopPropagation();
 
-      onResizeFinish?.(node, initialWidth ?? 200, initialHeight ?? 200);
-      setInitialWidth(undefined);
-      setInitialHeight(undefined);
-      setInitialMouseX(0);
-      setInitialMouseY(0);
+      const nextBounds = getNextResizeBounds(event);
+
+      if (
+        resizeState &&
+        nextBounds &&
+        haveNodeResizeBoundsChanged(
+          isComment
+            ? {
+                x: resizeState.initialX,
+                y: resizeState.initialY,
+                width: resizeState.initialWidth,
+                height: resizeState.initialHeight,
+              }
+            : {
+                x: resizeState.initialX,
+                width: resizeState.initialWidth,
+              },
+          nextBounds,
+        )
+      ) {
+        onResizeFinish?.(node, nextBounds, resizeState.previousNodeOverride);
+      }
+
+      setResizeState(null);
     });
 
     const watchShift = useStableCallback((event: ReactMouseEvent) => {
@@ -145,13 +235,8 @@ export const NormalVisualNodeContent: FC<{
 
     const handleGrabClick = useStableCallback((event: ReactMouseEvent) => {
       event.stopPropagation();
+      event.currentTarget.closest<HTMLElement>('.node')?.blur();
       onNodeSelected?.(node, event.shiftKey);
-    });
-
-    const togglePinned = useStableCallback(() => {
-      setPinnedNodes((previous) =>
-        previous.includes(node.id) ? previous.filter((nodeId) => nodeId !== node.id) : [...previous, node.id],
-      );
     });
 
     const viewChanges = () => {
@@ -175,46 +260,55 @@ export const NormalVisualNodeContent: FC<{
     const ifConnected =
       connections.some((connection) => connection.inputNodeId === node.id && connection.inputId === IF_PORT.id) ||
       (draggingWire?.endNodeId === node.id && draggingWire?.endPortId === IF_PORT.id);
+    const nodeDescription = node.description?.trim();
+    const resizeDirections: BoxNodeResizeDirection[] = isComment
+      ? ['top', 'right', 'bottom', 'left', 'top-left', 'top-right', 'bottom-left', 'bottom-right']
+      : ['left', 'right'];
 
     return (
       <>
-        <div className="node-title" onMouseMove={watchShift}>
-          <div className={clsx('grab-area', { grabbable: !shiftHeld })} {...(shiftHeld ? {} : handleAttributes)} onClick={handleGrabClick}>
-            {node.isSplitRun ? <GitForkLine /> : <></>}
-            <div className="title-text">{node.title}</div>
+        <div
+          className={clsx('node-title', { grabbable: !shiftHeld })}
+          {...(shiftHeld ? {} : handleAttributes)}
+          onMouseMove={watchShift}
+          onClick={handleGrabClick}
+        >
+          <div className="grab-area">
+            <SubGraphHeaderLink node={node} />
+            <div className="title-text">
+              <span className="title-text-label">{node.title}</span>
+              {nodeDescription && <span className="title-text-description">{nodeDescription}</span>}
+              <SplitRunSummary node={node} isKnownNodeType={isKnownNodeType} />
+            </div>
           </div>
           <div className="title-controls">
             {isHistoricalChanged && (
-              <button onClick={viewChanges} className="changed-button">
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  viewChanges();
+                }}
+                onPointerDown={handleEditPointerDown}
+                onMouseDown={handleEditMouseDown}
+                className="changed-button"
+              >
                 <Tooltip content="This node was changed, click to view changes">
                   <BookIcon />
                 </Tooltip>
               </button>
             )}
-            <button className={clsx('pin-button', { pinned: isPinned })} onClick={togglePinned}>
-              <Tooltip content="Pin node (always show entire output)">{isPinned ? <PinSolidIcon /> : <PinIcon />}</Tooltip>
-            </button>
-            <div className="last-run-status">
-              {selectedProcessRun?.status ? (
-                match(selectedProcessRun.status)
-                  .with({ type: 'ok' }, () => <Tooltip content="This node ran successfully"><div className="success"><SendIcon /></div></Tooltip>)
-                  .with({ type: 'error' }, () => <Tooltip content="This node errored"><div className="error"><SendIcon /></div></Tooltip>)
-                  .with({ type: 'running' }, () => <Tooltip content="This node is currently running"><div className="running"><LoadingSpinner /></div></Tooltip>)
-                  .with({ type: 'interrupted' }, () => <Tooltip content="This node was interrupted"><div className="interrupted"><SendIcon /></div></Tooltip>)
-                  .with({ type: 'notRan' }, () => <Tooltip content="This node was not ran due to control flow"><div className="not-ran"><SendIcon /></div></Tooltip>)
-                  .exhaustive()
-              ) : (
-                <></>
-              )}
-            </div>
-            <Tooltip content="Edit Node">
+            <NodeRunningIndicator isRunning={isRunning} />
+            <Tooltip className="edit-button-tooltip" content="Edit Node">
               <button
+                type="button"
                 className="edit-button"
                 onClick={(event) => {
                   if (isKnownNodeType) {
                     handleEditClick(event);
                   }
                 }}
+                onPointerDown={handleEditPointerDown}
                 onMouseDown={handleEditMouseDown}
               >
                 <SettingsCogIcon />
@@ -244,16 +338,29 @@ export const NormalVisualNodeContent: FC<{
         )}
 
         <ErrorBoundary fallback={<div>Error rendering node body</div>}>
-          {isKnownNodeType ? <NodeBody heightCache={heightCache} node={node} /> : <div>Unknown node type {node.type} - are you missing a plugin?</div>}
+          {isKnownNodeType ? (
+            <NodeBody heightCache={heightCache} node={node} suspended={!renderHeavyContent} />
+          ) : (
+            <div>Unknown node type {node.type} - are you missing a plugin?</div>
+          )}
         </ErrorBoundary>
 
         {isKnownNodeType && <NodePortsRenderer node={node} connections={connections} />}
 
         <ErrorBoundary fallback={<div>Error rendering node output</div>}>
-          <NodeOutput node={node} isHovered={isHovered} />
+          <NodeOutput node={node} suspended={!renderHeavyContent} />
         </ErrorBoundary>
-        <div className="node-resize">
-          <ResizeHandle onResizeStart={handleResizeStart} onResizeMove={handleResizeMove} onResizeEnd={handleResizeEnd} />
+        <div className="node-resize-handles">
+          {resizeDirections.map((direction) => (
+            <ResizeHandle
+              key={direction}
+              className={`resize-handle resize-handle-${direction}`}
+              dragCursor={getBoxResizeCursor(direction)}
+              onResizeStart={(event) => handleResizeStart(direction, event)}
+              onResizeMove={handleResizeMove}
+              onResizeEnd={handleResizeEnd}
+            />
+          ))}
         </div>
       </>
     );

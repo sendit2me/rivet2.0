@@ -1,16 +1,17 @@
 import { type FC } from 'react';
 import { useAtom } from 'jotai';
 import TextField from '@atlaskit/textfield';
-import { Field, HelperMessage } from '@atlaskit/form';
+import { Field } from '@atlaskit/form';
 import { Header } from '@atlaskit/side-navigation';
 import { match } from 'ts-pattern';
 import {
   type RivetPluginConfigSpecs,
   type SecretPluginConfigurationSpec,
   type StringPluginConfigurationSpec,
-} from '../../../../../core/src/index.js';
-import { entries } from '../../../../../core/src/utils/typeSafety';
+} from '@ironclad/rivet-core';
+import { entries } from '../../../utils/typeSafety';
 import { settingsState } from '../../../state/settings.js';
+import { FieldHelperMessage } from '../../FieldHelperMessage.js';
 
 export const PluginSettingsSection: FC<{
   pluginId: string;
@@ -31,6 +32,7 @@ export const PluginSettingsSection: FC<{
                 { type: 'secret' },
                 (typedConfig: StringPluginConfigurationSpec | SecretPluginConfigurationSpec) => (
                   <>
+                    {typedConfig.helperText && <FieldHelperMessage>{typedConfig.helperText}</FieldHelperMessage>}
                     <TextField
                       value={(settings.pluginSettings?.[pluginId]?.[key] as string | undefined) ?? ''}
                       type={typedConfig.type === 'secret' ? 'password' : 'text'}
@@ -47,7 +49,6 @@ export const PluginSettingsSection: FC<{
                         }))
                       }
                     />
-                    {typedConfig.helperText && <HelperMessage>{typedConfig.helperText}</HelperMessage>}
                   </>
                 ),
               )

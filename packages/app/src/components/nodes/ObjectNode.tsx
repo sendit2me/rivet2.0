@@ -9,7 +9,7 @@ export type ObjectNodeBodyProps = {
 };
 
 const Body = styled.div`
-  font-size: 12px;
+  font-size: var(--ui-font-size-sm);
 
   pre {
     white-space: pre-wrap;

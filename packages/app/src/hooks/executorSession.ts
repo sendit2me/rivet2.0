@@ -10,12 +10,13 @@ import type {
   GraphOutputs,
   RemoteRunRequestId,
 } from '@ironclad/rivet-core';
+import { logRuntimeDebug } from '@ironclad/rivet-core';
 import type { AppDatasetProvider } from '../providers/ProvidersContext.js';
 import type { RemoteDebuggerConfig, RemoteDebuggerConnectionState } from '../state/execution.js';
 import { handleError } from '../utils/errorHandling.js';
 
 export const DEFAULT_REMOTE_DEBUGGER_URL = 'ws://localhost:21888';
-export const INTERNAL_EXECUTOR_URL = 'ws://localhost:21889/internal';
+export const INTERNAL_EXECUTOR_URL = 'ws://127.0.0.1:21889/internal';
 
 export type ExecutorSessionStatus = 'idle' | 'connecting' | 'ready' | 'reconnecting';
 
@@ -34,7 +35,9 @@ type LifecycleCallback = () => void;
 type ConnectionStateSetter = (
   updater: RemoteDebuggerConnectionState | ((prev: RemoteDebuggerConnectionState) => RemoteDebuggerConnectionState),
 ) => void;
-type ConfigStateSetter = (updater: RemoteDebuggerConfig | ((prev: RemoteDebuggerConfig) => RemoteDebuggerConfig)) => void;
+type ConfigStateSetter = (
+  updater: RemoteDebuggerConfig | ((prev: RemoteDebuggerConfig) => RemoteDebuggerConfig),
+) => void;
 
 type PendingExecution = {
   requestId: RemoteRunRequestId;
@@ -58,7 +61,7 @@ export type ExecutorSessionRuntime = {
     connectionState: RemoteDebuggerConnectionState,
   ): ExecutorSessionState;
   connect(url: string): Promise<void>;
-  connectInternal(): Promise<void>;
+  connectInternal(url?: string): Promise<void>;
   disconnect(): void;
   sendMessage<T extends keyof OutgoingMessageMap>(type: T, data: OutgoingMessageMap[T]): void;
   sendRaw(data: string): void;
@@ -80,6 +83,7 @@ export function createExecutorSessionRuntime(options: {
   let retryDelay = 0;
   let manuallyDisconnecting = false;
   let currentUrl = '';
+  let currentIsInternalExecutor = false;
   let currentStatus: ExecutorSessionStatus = 'idle';
   let currentSocketGeneration = 0;
   let pendingRequestCounter = 0;
@@ -103,6 +107,15 @@ export function createExecutorSessionRuntime(options: {
   }
 
   function setConnectionStatus(status: ExecutorSessionStatus) {
+    if (status !== currentStatus) {
+      logRuntimeDebug('Executor session status changed.', {
+        from: currentStatus,
+        to: status,
+        target: currentUrl ? targetLabel(currentIsInternalExecutor) : 'none',
+        socketReadyState: currentSocket?.readyState ?? null,
+      });
+    }
+
     currentStatus = status;
     options.setConnectionState(legacyConnectionStateFor(status));
   }
@@ -141,24 +154,33 @@ export function createExecutorSessionRuntime(options: {
     pendingExecutions.clear();
   }
 
-  async function connect(url: string) {
+  async function connect(url: string, options: { isInternalExecutor?: boolean } = {}) {
     const normalizedUrl = url || DEFAULT_REMOTE_DEBUGGER_URL;
+    const nextIsInternalExecutor = options.isInternalExecutor ?? normalizedUrl === INTERNAL_EXECUTOR_URL;
+    const previousIsInternalExecutor = currentIsInternalExecutor;
 
     currentUrl = normalizedUrl;
+    currentIsInternalExecutor = nextIsInternalExecutor;
     manuallyDisconnecting = false;
     retryDelay = 0;
     clearReconnectTimeout();
 
     if (currentSocket) {
       const sameUrl = currentSocket.url === normalizedUrl;
+      const sameTarget = previousIsInternalExecutor === nextIsInternalExecutor;
       if (
         sameUrl &&
+        sameTarget &&
         (currentSocket.readyState === WebSocket.OPEN || currentSocket.readyState === WebSocket.CONNECTING)
       ) {
+        logRuntimeDebug('Executor session reused existing websocket.', {
+          target: targetLabel(nextIsInternalExecutor),
+          socketReadyState: currentSocket.readyState,
+        });
         setDebuggerConfig((prev) => ({
           ...prev,
           url: normalizedUrl,
-          isInternalExecutor: normalizedUrl === INTERNAL_EXECUTOR_URL,
+          isInternalExecutor: nextIsInternalExecutor,
         }));
         setConnectionStatus(currentSocket.readyState === WebSocket.OPEN ? 'ready' : 'connecting');
         return;
@@ -166,19 +188,28 @@ export function createExecutorSessionRuntime(options: {
 
       if (currentSocket.readyState !== WebSocket.CLOSED) {
         currentSocketGeneration += 1;
+        logRuntimeDebug('Executor session closing previous websocket before reconnect.', {
+          target: targetLabel(nextIsInternalExecutor),
+          previousSocketReadyState: currentSocket.readyState,
+        });
         currentSocket.close();
       }
     }
 
+    logRuntimeDebug('Executor session opening websocket.', {
+      target: targetLabel(nextIsInternalExecutor),
+    });
+
     const socket = new WebSocket(normalizedUrl);
     const socketGeneration = ++currentSocketGeneration;
+    const socketIsInternalExecutor = nextIsInternalExecutor;
     currentSocket = socket;
 
     setDebuggerConfig((prev) => ({
       ...prev,
       remoteUploadAllowed: false,
       url: normalizedUrl,
-      isInternalExecutor: normalizedUrl === INTERNAL_EXECUTOR_URL,
+      isInternalExecutor: nextIsInternalExecutor,
     }));
     setConnectionStatus('connecting');
 
@@ -188,6 +219,9 @@ export function createExecutorSessionRuntime(options: {
       }
 
       retryDelay = 0;
+      logRuntimeDebug('Executor websocket opened.', {
+        target: targetLabel(socketIsInternalExecutor),
+      });
       setConnectionStatus('ready');
       notifyConnect();
     };
@@ -199,6 +233,10 @@ export function createExecutorSessionRuntime(options: {
 
       currentSocket = null;
       setDebuggerConfig((prev) => ({ ...prev, remoteUploadAllowed: false }));
+      logRuntimeDebug('Executor websocket closed.', {
+        target: targetLabel(socketIsInternalExecutor),
+        manuallyDisconnecting,
+      });
 
       if (manuallyDisconnecting) {
         manuallyDisconnecting = false;
@@ -214,6 +252,10 @@ export function createExecutorSessionRuntime(options: {
 
       const nextRetryDelay = Math.min(2000, (retryDelay + 100) * 1.5);
       retryDelay = nextRetryDelay;
+      logRuntimeDebug('Executor websocket reconnect scheduled.', {
+        target: targetLabel(currentIsInternalExecutor),
+        retryDelayMs: nextRetryDelay,
+      });
 
       reconnectingTimeout = setTimeout(() => {
         void connect(currentUrl);
@@ -280,6 +322,10 @@ export function createExecutorSessionRuntime(options: {
 
   function disconnect() {
     const hadActiveSession = currentSocket != null || currentStatus !== 'idle';
+    logRuntimeDebug('Executor session disconnect requested.', {
+      hadActiveSession,
+      target: currentUrl ? targetLabel(currentIsInternalExecutor) : 'none',
+    });
     setConnectionStatus('idle');
     manuallyDisconnecting = true;
     retryDelay = 0;
@@ -330,8 +376,8 @@ export function createExecutorSessionRuntime(options: {
       };
     },
     connect,
-    connectInternal() {
-      return connect(INTERNAL_EXECUTOR_URL);
+    connectInternal(url = INTERNAL_EXECUTOR_URL) {
+      return connect(url, { isInternalExecutor: true });
     },
     disconnect,
     sendMessage(type, data) {
@@ -403,6 +449,10 @@ function legacyConnectionStateFor(status: ExecutorSessionStatus): RemoteDebugger
     started: status === 'connecting' || status === 'ready',
     reconnecting: status === 'reconnecting',
   };
+}
+
+function targetLabel(isInternalExecutor: boolean) {
+  return isInternalExecutor ? 'internal-sidecar' : 'external-debugger';
 }
 
 function sendDatasetResponse(socket: WebSocket, requestId: string, payload: unknown) {

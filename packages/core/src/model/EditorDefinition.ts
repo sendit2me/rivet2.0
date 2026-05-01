@@ -1,4 +1,5 @@
 import { type ChartNode, type DataRef, type DataType, type DataValue, type DatasetId } from '../index.js';
+import type { LegacyOrderedPortIdPattern } from '../utils/orderedStringPortIds.js';
 
 type ExcludeNeverValues<T> = Pick<
   T,
@@ -17,6 +18,8 @@ export type SharedEditorDefinitionProps<T extends ChartNode> = {
   helperMessage?: string | ((data: T['data']) => string | undefined);
 
   autoFocus?: boolean;
+
+  layout?: 'inline';
 
   hideIf?: (data: T['data']) => boolean;
 
@@ -73,6 +76,20 @@ export type DropdownEditorDefinition<T extends ChartNode> = SharedEditorDefiniti
   useInputToggleDataKey?: DataOfType<T, boolean>;
 };
 
+export type SegmentedEditorDefinition<T extends ChartNode> = SharedEditorDefinitionProps<T> & {
+  type: 'segmented';
+
+  dataKey: DataOfType<T, string | boolean>;
+  ariaLabel?: string;
+  options: {
+    value: string | boolean;
+    label: string;
+  }[];
+  defaultValue?: string | boolean;
+
+  useInputToggleDataKey?: DataOfType<T, boolean>;
+};
+
 export type GraphSelectorEditorDefinition<T extends ChartNode> = SharedEditorDefinitionProps<T> & {
   type: 'graphSelector';
 
@@ -106,10 +123,12 @@ export type CodeEditorDefinition<T extends ChartNode> = SharedEditorDefinitionPr
 
   dataKey: DataOfType<T, string>;
   useInputToggleDataKey?: DataOfType<T, boolean>;
+  postEditorHelperMessage?: string | ((data: T['data']) => string | undefined);
 
   language: string;
   theme?: string;
   height?: number;
+  enableFolding?: boolean;
 };
 
 export type ColorEditorDefinition<T extends ChartNode> = SharedEditorDefinitionProps<T> & {
@@ -172,11 +191,28 @@ export type StringListEditorDefinition<T extends ChartNode> = SharedEditorDefini
   useInputToggleDataKey?: DataOfType<T, boolean>;
 
   placeholder?: string;
+  newItemDefault?: string;
+  reorderable?: boolean;
+  portBinding?: StringListPortBinding<T>;
 };
+
+export type StringListPortBinding<T extends ChartNode> =
+  | {
+      side: 'input' | 'output';
+      identity: 'value-derived';
+      valueToPortId: 'sanitize-identifier';
+    }
+  | {
+      side: 'input' | 'output';
+      identity: 'stored-stable-id';
+      idDataKey: DataOfType<T, string[]>;
+      legacyPortIdPattern: LegacyOrderedPortIdPattern;
+    };
 
 export type EditorDefinitionGroup<T extends ChartNode> = SharedEditorDefinitionProps<T> & {
   type: 'group';
   defaultOpen?: boolean;
+  toggleDataKey?: DataOfType<T, boolean>;
   editors: EditorDefinition<T>[];
 };
 
@@ -206,6 +242,7 @@ export type EditorDefinition<T extends ChartNode> =
   | DataTypeSelectorEditorDefinition<T>
   | AnyDataEditorDefinition<T>
   | DropdownEditorDefinition<T>
+  | SegmentedEditorDefinition<T>
   | NumberEditorDefinition<T>
   | CodeEditorDefinition<T>
   | GraphSelectorEditorDefinition<T>

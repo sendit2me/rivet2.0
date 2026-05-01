@@ -1,13 +1,6 @@
 import Portal from '@atlaskit/portal';
 import { css } from '@emotion/react';
-import {
-  canBeCoercedAny,
-  isDataTypeAccepted,
-  type NodeId,
-  type NodeInputDefinition,
-  type NodeOutputDefinition,
-  type PortId,
-} from '@ironclad/rivet-core';
+import { type NodeId, type NodeInputDefinition, type NodeOutputDefinition, type PortId } from '@ironclad/rivet-core';
 import { type CSSProperties, forwardRef, useMemo } from 'react';
 import { useAtomValue } from 'jotai';
 import { draggingWireState } from '../state/graphBuilder';
@@ -15,18 +8,21 @@ import { lastRunDataState, resolvedGraphSelectionState, selectedProcessPageState
 import { getSelectedProcessData } from '../state/selectors/executionSelectors.js';
 import clsx from 'clsx';
 import { RenderDataValue } from './RenderDataValue';
+import { getPortCompatibilityStatus } from '../domain/graphEditing/portCompatibility.js';
+import { canvasIoDefinitionsForNodeState } from '../state/selectors/canvasGraphSelectors.js';
 
 const style = css`
   position: absolute;
 
   padding: 12px;
-  border-radius: 5px;
+  border-radius: 10px;
+  corner-shape: squircle;
   background-color: var(--grey-darker);
   color: var(--foreground);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
   border: 1px solid var(--grey);
   z-index: 1000;
-  font-size: 12px;
+  font-size: var(--ui-font-size-sm);
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -60,7 +56,7 @@ const style = css`
       .id {
         font-family: var(--font-family-monospace);
         font-weight: 400;
-        font-size: 12px;
+        font-size: var(--ui-font-size-sm);
       }
     }
 
@@ -74,7 +70,7 @@ const style = css`
 
     code {
       font-family: var(--font-family-monospace);
-      font-size: 12px;
+      font-size: var(--ui-font-size-sm);
     }
   }
 
@@ -83,7 +79,7 @@ const style = css`
 
     code {
       font-family: var(--font-family-monospace);
-      font-size: 12px;
+      font-size: var(--ui-font-size-sm);
     }
   }
 
@@ -107,7 +103,37 @@ export const PortInfo = forwardRef<
     floatingStyles: CSSProperties;
   }
 >(({ port, floatingStyles }, ref) => {
-  const { definition } = port;
+  const liveIo = useAtomValue(canvasIoDefinitionsForNodeState(port.nodeId));
+  const definition = useMemo(
+    () =>
+      port.isInput
+        ? liveIo.inputDefinitions.find((candidate) => candidate.id === port.portId)
+        : liveIo.outputDefinitions.find((candidate) => candidate.id === port.portId),
+    [liveIo.inputDefinitions, liveIo.outputDefinitions, port.isInput, port.portId],
+  );
+
+  if (!definition?.dataType) {
+    return null;
+  }
+
+  return <PortInfoContent port={port} definition={definition} floatingStyles={floatingStyles} ref={ref} />;
+});
+
+PortInfo.displayName = 'PortInfo';
+
+const PortInfoContent = forwardRef<
+  HTMLDivElement,
+  {
+    port: {
+      nodeId: NodeId;
+      isInput: boolean;
+      portId: PortId;
+      definition: NodeInputDefinition | NodeOutputDefinition;
+    };
+    definition: NodeInputDefinition | NodeOutputDefinition;
+    floatingStyles: CSSProperties;
+  }
+>(({ port, definition, floatingStyles }, ref) => {
   const { dataType, title, description, id } = definition;
 
   const lastRun = useAtomValue(lastRunDataState(port.nodeId));
@@ -136,7 +162,8 @@ export const PortInfo = forwardRef<
 
   const draggingWire = useAtomValue(draggingWireState);
 
-  const dataTypeDisplay: string = Array.isArray(dataType) ? dataType.join(' or ') : (dataType as string);
+  const dataTypeDisplay: string =
+    dataType == null ? 'Unknown' : Array.isArray(dataType) ? dataType.join(' or ') : (dataType as string);
   let dataTypeDisplayWithCoerced = dataTypeDisplay;
 
   let canCoerce = false;
@@ -145,16 +172,20 @@ export const PortInfo = forwardRef<
     dataTypeDisplayWithCoerced += ' (coerced)';
   }
 
-  const willCoerce =
-    canCoerce &&
-    draggingWire &&
-    canBeCoercedAny(draggingWire.dataType, definition.dataType) &&
-    !isDataTypeAccepted(draggingWire.dataType, definition.dataType);
-
-  const incompatible =
-    draggingWire &&
-    !isDataTypeAccepted(draggingWire.dataType, definition.dataType) &&
-    (!canCoerce || !canBeCoercedAny(draggingWire.dataType, definition.dataType));
+  const compatibilityStatus = getPortCompatibilityStatus({
+    draggingDataType: draggingWire?.dataType,
+    portDataType: definition.dataType,
+    canCoerce,
+    isInput: port.isInput,
+  });
+  const willCoerce = compatibilityStatus === 'coerced';
+  const incompatible = compatibilityStatus === 'incompatible';
+  const draggingDataTypeDisplay =
+    draggingWire?.dataType == null
+      ? 'Unknown'
+      : Array.isArray(draggingWire.dataType)
+        ? draggingWire.dataType.join(' or ')
+        : draggingWire.dataType;
 
   const displayExecutionNum = portData ? (selectedPage === 'latest' ? lastRun!.length : selectedPage + 1) : undefined;
 
@@ -189,14 +220,14 @@ export const PortInfo = forwardRef<
         </dl>
         {willCoerce && (
           <div className="will-be-coerced">
-            Your data of type <code>{draggingWire.dataType}</code> will be coerced to <code>{dataTypeDisplay}</code> if
-            you connect it here.
+            Your data of type <code>{draggingDataTypeDisplay}</code> will be coerced to <code>{dataTypeDisplay}</code>{' '}
+            if you connect it here.
           </div>
         )}
         {incompatible && (
           <div className="incompatible">
-            Your data of type <code>{draggingWire.dataType}</code> is incompatible with <code>{dataTypeDisplay}</code>.
-            You may still connect it, but your graph may error.
+            Your data of type <code>{draggingDataTypeDisplay}</code> is incompatible with <code>{dataTypeDisplay}</code>
+            . You may still connect it, but your graph may error.
           </div>
         )}
         {didNotRun && port.isInput && (
@@ -209,7 +240,7 @@ export const PortInfo = forwardRef<
           <>
             <h6>Execution {displayExecutionNum}</h6>
             <div className="last-value">
-              <RenderDataValue truncateLength={1500} value={portData[port.portId]} />
+              <RenderDataValue truncateLength={1500} value={portData[port.portId]} mode="compact" />
             </div>
           </>
         )}
@@ -218,4 +249,4 @@ export const PortInfo = forwardRef<
   );
 });
 
-PortInfo.displayName = 'PortInfo';
+PortInfoContent.displayName = 'PortInfoContent';

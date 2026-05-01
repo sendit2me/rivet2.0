@@ -29,6 +29,9 @@ export interface NodeBase {
 
   splitRunMax?: number;
 
+  /** Maximum concurrent item executions for parallel split runs. */
+  splitRunConcurrency?: number;
+
   /** The visual data of the node, including its position. Visual data does not affect its processing. */
   visualData: {
     /** The x-coordinate of the node's position. */

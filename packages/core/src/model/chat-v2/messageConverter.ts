@@ -223,7 +223,7 @@ export async function chatMessagesToModelMessages(
           {
             type: 'tool-result',
             toolCallId: msg.name,
-            toolName: msg.name,
+            toolName: msg.toolName ?? msg.name,
             output: { type: 'text', value: textContent },
           },
         ];

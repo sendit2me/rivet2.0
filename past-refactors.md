@@ -576,3 +576,165 @@ was reduced from 93 lines to about 20 by removing a project-scanning inference p
 After the larger execution identity cleanup, the app still had a second layer of smaller but persistent complexity in its execution plumbing. Local and remote run-from execution each had their own preload logic, node event handlers repeated the same sanitization work in multiple branches, graph finish/error/abort handlers repeated the same graph-run history mutation, and `VisualNode` children were recomputing the same selected run that the parent had already resolved. None of that changed the app's behavior, but it kept the execution layer noisier and harder to audit than it needed to be.
 
 This refactor removed that leftover glue code without changing the underlying execution model. Run-from preload derivation is now shared between local and remote execution through `getDependentDataForNodeForPreload(...)`, node input/output sanitization is centralized in `sanitizeInputsOrOutputs(...)`, and graph run completion updates now flow through one small `finishGraphRun(...)` helper inside `useGraphExecutionEvents`. The visual node tree also computes `selectedProcessRun` once at the `VisualNode` boundary and passes it down as a prop instead of resubscribing in child components, while dead selector and re-export leftovers were removed. During audit, the same sanitization path was extended to excluded-node and partial-output persistence so all stored execution payloads go through one consistent app-side transform layer.
+
+## 50. Make canvas undo/redo transactional and preview-driven
+
+Canvas editing still had a structural integrity problem around wire dragging. Rewiring from an
+already-connected input used to break the old connection on drag start and create the new one on
+drop, so one gesture produced two history entries. That meant a single undo could land on the
+broken intermediate state and appear to remove random connections. At the same time, common canvas
+edits such as duplicate, paste, and auto-layout still bypassed command history entirely, so
+`Ctrl/Cmd+Z` could undo an older action instead of the edit the user had just made.
+
+This refactor made the canvas edit surface more coherent. Input-origin wire drags now keep the
+real graph intact until drop, carry the original connection in drag state, resolve the gesture
+into one semantic action, and use preview-aware selectors so wires, dynamic ports, connected
+badges, hover targets, and tooltips stay aligned during drag. Duplicate, paste, and auto-layout
+now flow through commands, while graph-replacement paths that still mutate nodes or connections out
+of band clear the current graph's history instead of replaying stale commands against a different
+graph shape. The result is a safer per-graph undo model, targeted regression coverage around the
+new wire/preview behavior, and a graph editor that no longer corrupts connections during rewires or
+drag-to-disconnect gestures.
+
+## 51. Seed blank projects with a real default graph and normalize project-load graph selection
+
+Blank project creation had an integrity gap between the editor canvas and project state. Creating a
+new blank project loaded an `emptyNodeGraph()` into the canvas, but that graph was not inserted into
+`project.graphs` yet. The UI therefore showed a project with no graphs while edits were landing in a
+hidden in-memory graph that only became visible later through a save or graph-switch path. That was
+confusing on its own, and it also meant project-open tab metadata could momentarily point at no
+concrete graph until a later synchronization effect ran.
+
+This refactor made blank-project initialization explicit and project-owned from the start. New blank
+projects now create one real `Untitled Graph`, store it in `project.graphs`, set it as
+`mainGraphId`, and open that exact graph through the normal workspace transition path. The project
+loader was also tightened so an explicit `graphToLoad` is only honored when it actually belongs to
+the target project's graph map; otherwise it falls back through `openedGraph`, `mainGraphId`, and a
+stable sorted graph choice. Open-tab metadata now seeds `openedGraph` immediately when a project is
+opened instead of depending on a later sync pass. The result is a blank-project UX that matches the
+real saved state from the first edit onward, with less chance of detached graph state reappearing
+through future project-open flows.
+
+## 52. Make large execution outputs preview-first and ref-backed instead of canvas-heavy
+
+Large node outputs had become a performance trap because the app kept big text-like payloads inline
+in reactive execution state and some output surfaces would still try to render nearly all of that
+data just from hover or compact display. Single-line base64 blobs, large JSON objects, and growing
+partial outputs could therefore make the whole canvas sluggish even when the user had not explicitly
+opened the full output.
+
+This refactor moved oversized execution payloads into ref-backed storage with stable execution-scoped
+ids, keeping only preview metadata in node run history while preserving the full original value for
+copy, preload, and inspection. Output rendering was updated to be preview-first across node output,
+fullscreen inspection, chat viewer, and tooltips, with compact and expanded-preview modes that avoid
+eager markdown parsing, full JSON rendering, and hover-triggered full-output mounts. Copy/export and
+run-from preload paths now restore the real stored payload before using it, and execution ref entries
+are cleared when runs reset or node outputs are removed so large in-memory blobs do not leak across
+runs.
+
+## 53. Clean up large-output handling boundaries and hot render paths
+
+The large-output performance refactor fixed the main user-facing problem, but its first landing still
+left too much reader logic scattered across output surfaces and one avoidable hot-path cost in the
+renderer setup. Node output, chat viewer, prompt-designer hydration, clipboard export, total-cost
+derivation, and executor preload were all solving slightly different versions of "restore stored
+execution data back into real values," which made the new storage model harder to audit and easier to
+regress. At the same time, `RenderDataValue` was still building its renderer registry per component
+instance even though the dispatch table itself is static.
+
+This cleanup kept the behavior the same while making the ownership boundaries clearer. App-level
+stored-data reading now flows through `executionDataReaders.ts`, which centralizes displayed-output
+restore, port-level restore/coercion, and warnings extraction. The old component-local node-output
+reader helper was removed, `RenderDataValue` now uses a module-level lazy renderer registry,
+display-aligned clipboard serialization later moved into `executionDataCopyValue.ts`, and readonly
+ref access was tightened through a shared `DataRefReader` type. The result is a more coherent
+large-output architecture with less repeated logic and less unnecessary work in a hot render path.
+
+## 54. Add scoped Monaco code folding to built-in node editors
+
+The app already used Monaco in several places, but folding behavior needed to be added narrowly
+rather than flipped on globally. The requirement was specifically for built-in node editors with
+real code- or JSON-style fields, while prompt-like editors, regex/jsonpath editors, and unrelated
+Monaco surfaces such as Trivet or project configuration needed to stay unchanged.
+
+This refactor added an explicit `enableFolding` opt-in to `CodeEditorDefinition` and enabled it only
+for the targeted built-in node fields such as Code, Object JSON Template, HTTP Call headers/body,
+Tool schema, MCP tool argument editors, and the AssemblyAI transcript-parameter editor. On the app
+side, Monaco create options now live inline in the shared `CodeEditor.tsx` wrapper, the node-editor
+wrapper remounts Monaco when node, field, language, resolved theme, or folding mode changes, and
+the shared editor component stays generic by treating its theme prop as already resolved.
+Prompt-interpolation theme expansion is shared through `codeEditorTheme.ts` across node editors and
+colorized text surfaces, which keeps folding scoped to the selected node-editor path without
+leaking Monaco state or theme behavior into unrelated editors.
+
+## 55. Add persistent per-node-type resizing for code and JSON node-editor viewports
+
+Monaco-based node editors for code and JSON fields were cramped, and the app had no way for users
+to make those viewports taller without changing source definitions. The requirement was to support
+bottom-edge drag resizing in the node editor, remember the chosen height across app sessions, and
+scope that preference to editor UI state rather than project data.
+
+This refactor added a resizable viewport shell for node-editor `javascript` and `json` Monaco
+fields, persisted the remembered height in app UI storage keyed by `node.type`, and kept the shared
+Monaco wrapper generic by handling persistence and drag behavior in the node-editor layer instead of
+inside the base editor. The final shape centralizes resize eligibility, height validation, drag
+state, and final persisted-height resolution in `useNodeEditorCodeViewportHeight.ts`, while keeping
+markdown, prompt-like, `jsonpath`, `regex`, and other out-of-scope code editors on a separate
+non-resizable layout path.
+
+## 56. Make node-output `Copy value` match the displayed output shape
+
+The fullscreen node-output copy actions had drifted away from what the UI actually showed. Generic
+structured outputs such as Object nodes were copying wrapped `DataValue` objects like `{ type,
+value }` instead of the plain displayed value, and custom output nodes such as Chat, User Input,
+Loop Controller, and SubGraph each had visible-field rules that the old generic copy path did not
+mirror reliably.
+
+This refactor fixed the behavior and then cleaned up the architecture around it without changing
+`Copy as JSON`. Generic display-aligned copy projection now lives in `executionDataCopyValue.ts`,
+restore/coerce and warning extraction stay in `executionDataReaders.ts`, node-specific visible-output
+overrides live in `nodeOutputCopyValueProjectors.ts`, and `NodeOutput.tsx` delegates clipboard side
+effects through `nodeOutputCopyActions.ts`. The result is that `Copy value` now copies the same
+value shape the user sees in the output preview, including ref-backed large outputs, while the
+internal `DataValue` wire format remains reserved for JSON/debug-style export paths.
+
+## 57. Add fullscreen in-preview search for node output
+
+Fullscreen node output inspection had copy controls and markdown toggling, but it still relied on
+the app-wide find behavior instead of providing search within the output the user was actually
+looking at. That was especially limiting for large structured outputs and ref-backed payloads,
+where the user needed a current-page search experience inside the fullscreen preview rather than a
+global find bar for the whole app.
+
+This refactor added a fullscreen-only search bar to node output with modal-scoped `Ctrl/Cmd+F`,
+browser-like next/previous navigation, match counts, and highlight behavior that follows the
+currently displayed representation, including markdown-toggle changes. The implementation kept the
+feature scoped by making `NodeOutput.tsx` the fullscreen orchestration layer, moving the toolbar
+into `FullscreenNodeOutputToolbar.tsx`, consolidating fullscreen search logic in
+`fullscreenOutputSearch.ts`, and letting `useFullscreenOutputSearch.ts` own the modal-scoped
+two-phase rebuild and active-match flow. Large ref-backed previews integrate through
+`useLargeStoredValueFullscreenSearch.ts` so provider-backed search can target the full restored
+text rather than generic DOM excerpts, and the old large-preview paging model was replaced with
+contiguous chunking so later-chunk search matches can reliably map back to the correct preview
+page without skipped or duplicated content.
+
+## 58. Remember the per-project editor view on reopen without changing the project file
+
+The workspace had been remembering pieces of editor state through several unrelated mechanisms, but
+that behavior was incomplete and unreliable. Open-project tabs stored an `openedGraph` hint,
+`lastCanvasPositionByGraphState` cached viewport by bare `graphId`, and the live
+`graphNavigationStackState` was never persisted at all. As a result, closing and reopening a
+project could lose the active subgraph context, restore the wrong pan/zoom, or race debounced app
+storage writes after a save.
+
+This refactor moved remembered editor view into a dedicated app-side persistence layer. The new
+`projectEditor.ts` state stores exact graph-navigation context plus per-graph canvas positions,
+keyed by `project.metadata.id` and kept in grouped `project` hybrid storage rather than in the
+`.rivet-project` file. Restore resolution now lives in `projectEditorState.ts`, which sanitizes
+persisted graph-view state, resolves explicit-vs-persisted-vs-fallback graph selection, and
+prefers project-scoped viewport state over the old global graph-id cache. The app restores this
+view once on boot through `useRestorePersistedWorkspace.ts`, keeps it synchronized from shared
+state through `useSyncCurrentProjectEditorState.ts`, and snapshots the current project centrally
+through `useCurrentProjectEditorSnapshot.ts` during project loads, graph switches, tab changes, and
+saves. Save flows also flush grouped `project` storage before completion so the latest remembered
+graph, subgraph, scroll position, and zoom survive immediate close-and-reopen paths.

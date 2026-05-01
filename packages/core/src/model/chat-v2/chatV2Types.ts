@@ -7,15 +7,18 @@ import type { AssistantMessageFunctionCallMode, StreamedFunctionCall } from '../
 type StreamTextArgs = Parameters<typeof streamText>[0];
 type MaybePromiseLike<T> = T | PromiseLike<T>;
 
-export type ChatV2Provider = 'openai' | 'anthropic' | 'google';
+export type ChatV2Provider = 'openai' | 'anthropic' | 'google' | 'custom';
 
 export type ChatV2Model = StreamTextArgs['model'];
 export type ChatV2ProviderOptions = StreamTextArgs['providerOptions'];
 export type ChatV2ToolSet = NonNullable<StreamTextArgs['tools']>;
+export type ChatV2ToolChoice = StreamTextArgs['toolChoice'];
+export type ChatV2ResponseOutput = StreamTextArgs['output'];
 export type ChatV2MessageList = ModelMessage[];
 export type ChatV2StreamPart = TextStreamPart<ToolSet>;
 
 export type ChatV2ProviderMetadata = Record<string, Record<string, unknown>>;
+export type ChatV2ReasoningOutput = string | string[];
 
 export type ChatV2NormalizedUsage = {
   promptTokens: number;
@@ -45,8 +48,13 @@ export type StreamChatV2Options = {
   temperature?: number | undefined;
   topP?: number | undefined;
   topK?: number | undefined;
+  presencePenalty?: number | undefined;
+  frequencyPenalty?: number | undefined;
   stopSequences?: string[] | undefined;
+  seed?: number | undefined;
+  responseOutput?: ChatV2ResponseOutput | undefined;
   providerOptions?: ChatV2ProviderOptions | undefined;
+  toolChoice?: ChatV2ToolChoice | undefined;
   abortSignal?: AbortSignal | undefined;
   executeStream?: ChatV2StreamExecutor | undefined;
   onPartialOutput?: ((partial: { text: string; functionCalls: StreamedFunctionCall[] }) => void) | undefined;
@@ -73,10 +81,17 @@ export type RunChatV2PipelineOptions = {
   temperature?: number | undefined;
   topP?: number | undefined;
   topK?: number | undefined;
+  presencePenalty?: number | undefined;
+  frequencyPenalty?: number | undefined;
   stopSequences?: string[] | undefined;
+  seed?: number | undefined;
+  responseOutput?: ChatV2ResponseOutput | undefined;
   providerOptions?: ChatV2ProviderOptions | undefined;
+  toolChoice?: ChatV2ToolChoice | undefined;
   anthropicCacheControlTtl?: '5m' | '1h' | undefined;
   outputUsage?: boolean | undefined;
+  outputReasoning?: boolean | undefined;
+  includeFunctionCalls?: boolean | undefined;
   emitPartialOutputs?: boolean | undefined;
   functionCallMode?: AssistantMessageFunctionCallMode | undefined;
   context: Pick<InternalProcessContext, 'signal' | 'onPartialOutputs'>;
@@ -89,7 +104,7 @@ export type ChatV2PipelineResult = {
   allMessages: ChatMessage[];
   response: string;
   functionCalls: StreamedFunctionCall[];
-  reasoning: string;
+  reasoning: ChatV2ReasoningOutput;
   usage: ChatV2NormalizedUsage | undefined;
   rawUsage: LanguageModelUsage | undefined;
   finishReason: string | undefined;

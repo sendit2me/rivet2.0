@@ -1,17 +1,18 @@
 import { atom } from 'jotai';
 import { atomWithStorage } from 'jotai/utils';
-import { type Settings } from '@ironclad/rivet-core';
+import { DEFAULT_CHAT_NODE_TIMEOUT, type Settings } from '@ironclad/rivet-core';
 import { isInTauri } from '../utils/tauri';
-import { DEFAULT_CHAT_NODE_TIMEOUT } from '../../../core/src/utils/defaults';
 import { createHybridStorage } from './storage.js';
 
 // Legacy storage key for recoil-persist to avoid breaking existing users' settings
-const { storage } = createHybridStorage('recoil-persist');
+const { storage } = createHybridStorage('recoil-persist', undefined, { debounceMs: 0 });
 
 export const settingsState = atomWithStorage<Settings>(
   'settings',
   {
     recordingPlaybackLatency: 1000,
+    defaultNodeColors: false,
+    openNodeSettingsOnCreate: true,
 
     openAiKey: '',
     openAiOrganization: '',
@@ -23,6 +24,20 @@ export const settingsState = atomWithStorage<Settings>(
   },
   storage,
 );
+
+export type EditorPreferences = {
+  applyDefaultNodeColors: boolean;
+  openNodeSettingsOnCreate: boolean;
+};
+
+export function resolveEditorPreferences(
+  settings: Partial<Pick<Settings, 'defaultNodeColors' | 'openNodeSettingsOnCreate'>> | undefined,
+): EditorPreferences {
+  return {
+    applyDefaultNodeColors: settings?.defaultNodeColors ?? false,
+    openNodeSettingsOnCreate: settings?.openNodeSettingsOnCreate ?? true,
+  };
+}
 
 export const themes = [
   {

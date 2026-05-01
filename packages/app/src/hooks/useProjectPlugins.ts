@@ -1,9 +1,14 @@
 import { useEffect, useRef } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { projectPluginsState } from '../state/savedGraphs';
-import { assembleRegistry, resolveBuiltInPlugin } from '@ironclad/rivet-core';
+import { assembleRegistry, logRuntimeDebug, logRuntimeInfo, resolveBuiltInPlugin } from '@ironclad/rivet-core';
 import type { PluginLoadSpec } from '@ironclad/rivet-core';
-import { pluginRefreshCounterState, pluginRetryCounterState, pluginsState, projectNodeRegistryState } from '../state/plugins';
+import {
+  pluginRefreshCounterState,
+  pluginRetryCounterState,
+  pluginsState,
+  projectNodeRegistryState,
+} from '../state/plugins';
 import { produce } from 'immer';
 import { match } from 'ts-pattern';
 import * as Rivet from '@ironclad/rivet-core';
@@ -21,7 +26,7 @@ export function useProjectPlugins() {
   const setPluginRefreshCounter = useSetAtom(pluginRefreshCounterState);
   const loadGenerationRef = useRef(0);
   const { loadPackagePlugin } = useLoadPackagePlugin({
-    onLog: (message) => console.log(message),
+    onLog: (message) => logRuntimeDebug('Package plugin loader log', { message }),
   });
 
   const updatePluginState = (id: string, updates: { loaded?: boolean; error?: string }) => {
@@ -73,7 +78,7 @@ export function useProjectPlugins() {
 
       updatePluginState(spec.id, { loaded: true });
 
-      console.log(`Loaded plugin: ${plugin.id}`);
+      logRuntimeInfo(`Loaded plugin: ${plugin.id}`);
       return plugin;
     });
 

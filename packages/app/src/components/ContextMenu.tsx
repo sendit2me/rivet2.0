@@ -13,6 +13,7 @@ import { useFuseSearch } from '../hooks/useFuseSearch.js';
 import { uniqBy } from 'lodash-es';
 import clsx from 'clsx';
 import { useMarkdown } from '../hooks/useMarkdown.js';
+import { getContextMenuSearchPresentation } from './contextMenuSearchGrouping.js';
 
 const menuReferenceStyles = css`
   position: absolute;
@@ -24,11 +25,12 @@ const menuReferenceStyles = css`
 export const menuStyles = css`
   background-color: var(--grey-darkest);
   border: 2px solid var(--grey-darkish);
-  border-radius: 4px;
+  border-radius: 8px;
+  corner-shape: squircle;
   box-shadow: 0 8px 16px var(--shadow-dark);
   font-family: 'Roboto Mono', monospace;
   color: var(--foreground);
-  font-size: 13px;
+  font-size: var(--ui-font-size-compact);
   padding: 0;
   z-index: 1;
   min-width: 150px;
@@ -59,9 +61,18 @@ export const menuStyles = css`
       border: none;
       outline: none;
       padding: 8px;
-      font-size: 14px;
+      font-size: var(--ui-font-size-base);
       line-height: 14px;
     }
+  }
+
+  .context-menu-search-section-header {
+    padding: 10px 12px 6px;
+    margin-top: 4px;
+    border-top: 1px solid var(--grey-darker);
+    color: var(--grey-lightish);
+    font-size: var(--ui-font-size-sm);
+    line-height: 1;
   }
 `;
 
@@ -80,8 +91,17 @@ export interface ContextMenuProps {
   onMenuItemSelected?: (id: string, data: unknown, context: ContextMenuContext, meta: { x: number; y: number }) => void;
 }
 
+const isHiddenUntilSearched = <T extends object>(item: T & { hiddenUntilSearched?: boolean }) =>
+  item.hiddenUntilSearched === true;
+
+const isContextMenuItemVisible = <T extends object>(
+  item: T & { conditional?: (context: unknown) => boolean },
+  contextData: unknown,
+) => !item.conditional || item.conditional(contextData);
+
 export const ContextMenu = forwardRef<HTMLDivElement, ContextMenuProps>(
   ({ x, y, context, disabled, onMenuItemSelected }, ref) => {
+    const canSearch = context.type !== 'node';
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedResultIndex, setSelectedResultIndex] = useState(0);
 
@@ -98,7 +118,7 @@ export const ContextMenu = forwardRef<HTMLDivElement, ContextMenuProps>(
 
     // Flatten the items into a single array
     const searchItems = useMemo(() => {
-      if (disabled) {
+      if (disabled || !canSearch) {
         return [];
       }
 
@@ -122,52 +142,81 @@ export const ContextMenu = forwardRef<HTMLDivElement, ContextMenuProps>(
       };
 
       return flattenItems(items);
-    }, [items, commands, disabled]);
+    }, [items, commands, disabled, canSearch]);
 
     const searchRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
       update();
-      searchRef.current?.focus();
-    }, [update, x, y]);
+      if (canSearch) {
+        searchRef.current?.focus();
+      }
+    }, [canSearch, update, x, y]);
 
     const handleMenuItemSelected = useStableCallback((id: string, data: unknown) => {
       onMenuItemSelected?.(id, data, context, { x, y });
     });
 
+    const isSearching = canSearch && searchTerm.trim().length > 0;
+
     const searchResults = useFuseSearch(searchItems, searchTerm, ['label', 'subLabel'], { max: 5 });
     const searchResultsItems = useMemo(() => searchResults.map((r) => r.item), [searchResults]);
 
     const shownItemsNotSearching = useMemo(
-      () => items.filter((i) => !(i as ContextMenuConfigItem).hiddenUntilSearched),
+      () => items.filter((item) => !isHiddenUntilSearched(item)),
       [items],
     );
 
-    const shownItems = searchTerm.trim().length > 0 ? searchResultsItems : shownItemsNotSearching;
+    const visibleSearchItems = useMemo(
+      () => searchResultsItems.filter((item) => isContextMenuItemVisible(item, context.data)),
+      [context.data, searchResultsItems],
+    );
+
+    const searchPresentation = useMemo(
+      () => (isSearching ? getContextMenuSearchPresentation(visibleSearchItems) : null),
+      [isSearching, visibleSearchItems],
+    );
+
+    const visibleShownItems = useMemo(
+      () =>
+        isSearching
+          ? [...(searchPresentation?.primaryItems ?? []), ...(searchPresentation?.graphItems ?? [])]
+          : shownItemsNotSearching.filter((item) => isContextMenuItemVisible(item, context.data)),
+      [context.data, isSearching, searchPresentation, shownItemsNotSearching],
+    );
+
+    const visibleShownItemIndexes = useMemo(
+      () => new Map(visibleShownItems.map((item, index) => [item.id, index])),
+      [visibleShownItems],
+    );
 
     useEffect(() => {
-      if (searchTerm.length > 0 && searchResults.length > 0 && selectedResultIndex >= searchResults.length) {
+      if (isSearching && visibleShownItems.length > 0 && selectedResultIndex >= visibleShownItems.length) {
         setSelectedResultIndex(0);
       }
-    }, [searchResults.length, searchTerm.length, selectedResultIndex]);
+    }, [isSearching, selectedResultIndex, visibleShownItems.length]);
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
       switch (e.key) {
         case 'ArrowUp':
-          setSelectedResultIndex((prevIndex) => (prevIndex > 0 ? prevIndex - 1 : searchResultsItems.length - 1));
-          e.preventDefault();
+          if (visibleShownItems.length > 0) {
+            setSelectedResultIndex((prevIndex) => (prevIndex > 0 ? prevIndex - 1 : visibleShownItems.length - 1));
+            e.preventDefault();
+          }
           break;
         case 'ArrowDown':
-          setSelectedResultIndex((prevIndex) => (prevIndex < searchResultsItems.length - 1 ? prevIndex + 1 : 0));
-          e.preventDefault();
+          if (visibleShownItems.length > 0) {
+            setSelectedResultIndex((prevIndex) => (prevIndex < visibleShownItems.length - 1 ? prevIndex + 1 : 0));
+            e.preventDefault();
+          }
           break;
         case 'Enter':
           e.preventDefault();
-          if (searchResultsItems[selectedResultIndex]) {
-            handleMenuItemSelected(
-              searchResultsItems[selectedResultIndex]!.id,
-              searchResultsItems[selectedResultIndex]!.data,
-            );
+          {
+            const selectedSearchItem = visibleShownItems[selectedResultIndex] as ContextMenuConfigItem | undefined;
+            if (selectedSearchItem) {
+              handleMenuItemSelected(selectedSearchItem.id, selectedSearchItem.data);
+            }
           }
           break;
         default:
@@ -179,10 +228,10 @@ export const ContextMenu = forwardRef<HTMLDivElement, ContextMenuProps>(
         setSearchTerm('');
         setSelectedResultIndex(0);
         searchRef.current?.blur();
-      } else {
+      } else if (canSearch) {
         searchRef.current?.focus();
       }
-    }, [disabled]);
+    }, [canSearch, disabled]);
 
     return (
       <div
@@ -193,30 +242,63 @@ export const ContextMenu = forwardRef<HTMLDivElement, ContextMenuProps>(
         onClick={(e) => e.stopPropagation()}
       >
         <div style={floatingStyles} css={menuStyles} ref={refs.setFloating}>
-          <div className="context-menu-search">
-            <input
-              autoComplete="off"
-              spellCheck={false}
-              ref={searchRef}
-              autoFocus
-              placeholder="Search..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm((e.target as HTMLInputElement).value)}
-              onKeyDown={handleKeyDown}
-              disabled={disabled}
-            />
-          </div>
-          <div className="context-menu-items">
-            {shownItems.map((item, index) => (
-              <ContextMenuItem
-                key={item.id}
-                config={item}
-                onMenuItemSelected={handleMenuItemSelected}
-                onHover={() => setSelectedResultIndex(index)}
-                context={context.data}
-                active={searchTerm.length > 0 && index === selectedResultIndex}
+          {canSearch && (
+            <div className="context-menu-search">
+              <input
+                autoComplete="off"
+                spellCheck={false}
+                ref={searchRef}
+                autoFocus
+                placeholder="Search..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm((e.target as HTMLInputElement).value)}
+                onKeyDown={handleKeyDown}
+                disabled={disabled}
               />
-            ))}
+            </div>
+          )}
+          <div className="context-menu-items">
+            {isSearching && searchPresentation ? (
+              <>
+                {searchPresentation.primaryItems.map((item, index) => (
+                  <ContextMenuItem
+                    key={item.id}
+                    config={item}
+                    showSeparator={index > 0 && (item as ContextMenuConfigItem).separatorBefore === true}
+                    onMenuItemSelected={handleMenuItemSelected}
+                    onHover={() => setSelectedResultIndex(visibleShownItemIndexes.get(item.id) ?? 0)}
+                    context={context.data}
+                    active={visibleShownItems[selectedResultIndex]?.id === item.id}
+                  />
+                ))}
+                {searchPresentation.graphItems.length > 0 && (
+                  <div className="context-menu-search-section-header">Go to graphs</div>
+                )}
+                {searchPresentation.graphItems.map((item) => (
+                  <ContextMenuItem
+                    key={item.id}
+                    config={item}
+                    showSeparator={false}
+                    onMenuItemSelected={handleMenuItemSelected}
+                    onHover={() => setSelectedResultIndex(visibleShownItemIndexes.get(item.id) ?? 0)}
+                    context={context.data}
+                    active={visibleShownItems[selectedResultIndex]?.id === item.id}
+                  />
+                ))}
+              </>
+            ) : (
+              visibleShownItems.map((item, index) => (
+                <ContextMenuItem
+                  key={item.id}
+                  config={item}
+                  showSeparator={index > 0 && (item as ContextMenuConfigItem).separatorBefore === true}
+                  onMenuItemSelected={handleMenuItemSelected}
+                  onHover={() => setSelectedResultIndex(index)}
+                  context={context.data}
+                  active={isSearching && visibleShownItems[selectedResultIndex]?.id === item.id}
+                />
+              ))
+            )}
           </div>
         </div>
       </div>
@@ -234,7 +316,8 @@ export const submenuStyles = css`
   margin-top: -4px;
   min-width: 150px;
   border: 2px solid var(--grey-darkish);
-  border-radius: 4px;
+  border-radius: 8px;
+  corner-shape: squircle;
   box-shadow: 0 8px 16px var(--shadow-dark);
   background-color: var(--grey-darkest);
   color: var(--foreground);
@@ -279,19 +362,34 @@ const infoBoxTransitionStyles = css`
   }
 `;
 
-export const ContextMenuItemDiv = styled.div<{ hasSubmenu?: boolean }>`
+export const ContextMenuItemDiv = styled.div<{
+  hasSubmenu?: boolean;
+  tone?: 'default' | 'danger';
+  showSeparator?: boolean;
+}>`
   position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-radius: 4px;
+  border-radius: 8px;
+  corner-shape: squircle;
   cursor: pointer;
   padding: 8px 12px;
-  border-radius: 4px;
   white-space: nowrap;
   transition:
     background-color 0.1s ease-out,
+    border-color 0.1s ease-out,
     color 0.1s ease-out;
+
+  ${(props) =>
+    props.showSeparator &&
+    css`
+      margin-top: 4px;
+      padding-top: 12px;
+      border-top: 1px solid var(--grey-darker);
+      border-top-left-radius: 0;
+      border-top-right-radius: 0;
+    `}
 
   .label {
     display: flex;
@@ -301,15 +399,35 @@ export const ContextMenuItemDiv = styled.div<{ hasSubmenu?: boolean }>`
   }
 
   .sublabel {
-    font-size: 12px;
+    font-size: var(--ui-font-size-sm);
     color: var(--grey-lightish);
   }
+
+  ${(props) =>
+    props.tone === 'danger' &&
+    css`
+      color: var(--error);
+
+      .sublabel {
+        color: var(--error-light);
+      }
+    `}
 
   &:hover,
   &.active {
     background-color: var(--tertiary-light);
     color: var(--primary-text);
   }
+
+  ${(props) =>
+    props.tone === 'danger' &&
+    css`
+      &:hover,
+      &.active {
+        background-color: var(--error-light);
+        color: var(--foreground);
+      }
+    `}
 
   ${(props) =>
     props.hasSubmenu &&
@@ -337,11 +455,19 @@ export interface ContextMenuItemProps {
   config: ContextMenuConfigItem;
   context: unknown;
   active?: boolean;
+  showSeparator?: boolean;
   onMenuItemSelected?: (id: string, data: unknown) => void;
   onHover?: () => void;
 }
 
-export const ContextMenuItem: FC<ContextMenuItemProps> = ({ config, context, active, onMenuItemSelected, onHover }) => {
+export const ContextMenuItem: FC<ContextMenuItemProps> = ({
+  config,
+  context,
+  active,
+  showSeparator,
+  onMenuItemSelected,
+  onHover,
+}) => {
   const [isSubMenuVisible, setIsSubMenuVisible] = useState(false);
   const [isInfoVisible, setIsInfoVisible] = useState(false);
   const hasSubMenu = (config.items?.length ?? 0) > 0;
@@ -389,6 +515,8 @@ export const ContextMenuItem: FC<ContextMenuItemProps> = ({ config, context, act
   return (
     <ContextMenuItemDiv
       hasSubmenu={hasSubMenu}
+      tone={config.tone}
+      showSeparator={showSeparator}
       onClick={handleClick}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
@@ -412,10 +540,11 @@ export const ContextMenuItem: FC<ContextMenuItemProps> = ({ config, context, act
       >
         <div ref={submenuFloating.refs.setFloating} css={submenuStyles} style={submenuFloating.floatingStyles}>
           {hasSubMenu &&
-            config.items!.map((subItem) => (
+            config.items!.map((subItem, index) => (
               <ContextMenuItem
                 key={subItem.id}
                 config={subItem}
+                showSeparator={index > 0 && (subItem as ContextMenuConfigItem).separatorBefore === true}
                 onMenuItemSelected={onMenuItemSelected}
                 context={context}
               />
@@ -445,13 +574,13 @@ export const ContextMenuItem: FC<ContextMenuItemProps> = ({ config, context, act
 
 const contextMenuInfoBoxStyles = css`
   border: 2px solid var(--grey-darkish);
-  border-radius: 4px;
+  border-radius: 8px;
+  corner-shape: squircle;
   box-shadow: 0 8px 16px var(--shadow-dark);
   background-color: var(--grey-darkest);
   color: var(--foreground);
   z-index: 1;
   padding: 16px 16px;
-  border-radius: 4px;
   width: 500px;
   font-family: 'Roboto', sans-serif;
   white-space: normal;
@@ -463,12 +592,12 @@ const contextMenuInfoBoxStyles = css`
   }
 
   h1 {
-    font-size: 16px;
+    font-size: var(--ui-font-size-lg);
     margin-top: 0;
   }
 
   p {
-    font-size: 13px;
+    font-size: var(--ui-font-size-compact);
   }
 `;
 

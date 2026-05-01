@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import {
   attachExecutorSidecarConsumer,
   createExecutorSidecarRuntimeState,
@@ -7,23 +6,14 @@ import {
   stopExecutorSidecar,
 } from './executorSidecarRuntime.js';
 
-const runtime = createExecutorSidecarRuntimeState();
+export const executorSidecarRuntime = createExecutorSidecarRuntimeState();
 
-export function useExecutorSidecar(options: { enabled?: boolean } = {}) {
-  const { enabled = true } = options;
+export async function attachAndStartExecutorSidecar() {
+  attachExecutorSidecarConsumer(executorSidecarRuntime);
+  await startExecutorSidecar(executorSidecarRuntime);
+}
 
-  useEffect(() => {
-    if (!enabled) {
-      return;
-    }
-
-    attachExecutorSidecarConsumer(runtime);
-
-    void startExecutorSidecar(runtime);
-
-    return () => {
-      detachExecutorSidecarConsumer(runtime);
-      void stopExecutorSidecar(runtime);
-    };
-  }, [enabled]);
+export async function detachAndStopExecutorSidecar() {
+  detachExecutorSidecarConsumer(executorSidecarRuntime);
+  await stopExecutorSidecar(executorSidecarRuntime);
 }

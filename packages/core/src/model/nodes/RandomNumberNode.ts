@@ -24,11 +24,16 @@ export type RandomNumberNodeData = {
   useMaxInput?: boolean;
 };
 
+const randomNumberTypeOptions = [
+  { value: false, label: 'Float' },
+  { value: true, label: 'Integer' },
+];
+
 export class RandomNumberNodeImpl extends NodeImpl<RandomNumberNode> {
   static create(): RandomNumberNode {
     const chartNode: RandomNumberNode = {
       type: 'randomNumber',
-      title: 'RNG',
+      title: 'Random number',
       id: nanoid() as NodeId,
       visualData: {
         x: 0,
@@ -77,9 +82,16 @@ export class RandomNumberNodeImpl extends NodeImpl<RandomNumberNode> {
 
   getEditors(): EditorDefinition<RandomNumberNode>[] {
     return [
+      {
+        type: 'segmented',
+        label: '',
+        ariaLabel: 'Random number type',
+        dataKey: 'integers',
+        defaultValue: false,
+        options: randomNumberTypeOptions,
+      },
       { type: 'number', label: 'Min', dataKey: 'min', useInputToggleDataKey: 'useMinInput' },
       { type: 'number', label: 'Max', dataKey: 'max', useInputToggleDataKey: 'useMaxInput' },
-      { type: 'toggle', label: 'Integers', dataKey: 'integers' },
       { type: 'toggle', label: 'Max Inclusive', dataKey: 'maxInclusive' },
     ];
   }
@@ -100,8 +112,8 @@ export class RandomNumberNodeImpl extends NodeImpl<RandomNumberNode> {
 
         Can be configured to output only integers, and whether the max value is inclusive or exclusive.
       `,
-      infoBoxTitle: 'RNG Node',
-      contextMenuTitle: 'RNG',
+      infoBoxTitle: 'Random number node',
+      contextMenuTitle: 'Random number',
       group: ['Numbers'],
     };
   }
@@ -133,4 +145,4 @@ export class RandomNumberNodeImpl extends NodeImpl<RandomNumberNode> {
   }
 }
 
-export const randomNumberNode = nodeDefinition(RandomNumberNodeImpl, 'Random Number');
+export const randomNumberNode = nodeDefinition(RandomNumberNodeImpl, 'Random number');

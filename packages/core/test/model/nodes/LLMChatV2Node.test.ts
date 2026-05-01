@@ -1,6 +1,19 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { type LLMChatV2Node, LLMChatV2NodeImpl } from '../../../src/index.js';
+import {
+  createsLLMChatV2ToolResponseFormatConflictForEdit,
+  hasLLMChatV2ToolResponseFormatConflict,
+  LLM_CHAT_V2_TOOL_RESPONSE_FORMAT_CONFLICT_COPY,
+} from '../../../src/model/chat-v2/chatV2FeatureCompatibility.js';
+import {
+  buildLLMChatV2EditorCacheKey,
+  resolveLLMChatV2RuntimeProviderOptions,
+} from '../../../src/model/nodes/LLMChatV2Node.js';
+import {
+  cloneLLMChatV2EditorCacheOutputs,
+  resolveLLMChatV2RuntimeConfig,
+} from '../../../src/model/chat-v2/llmChatV2NodeRuntime.js';
 
 function createNode(data: Partial<LLMChatV2Node['data']> = {}) {
   return new LLMChatV2NodeImpl({
@@ -12,13 +25,155 @@ function createNode(data: Partial<LLMChatV2Node['data']> = {}) {
   });
 }
 
+function createRuntimeContext(overrides: Record<string, unknown> = {}) {
+  return {
+    settings: {
+      openAiKey: 'env-openai-key',
+      openAiEndpoint: 'https://api.openai.test/v1/responses',
+      openAiOrganization: '',
+      chatNodeHeaders: {},
+    },
+    getPluginConfig: (key: string) => {
+      if (key === 'anthropicApiKey') {
+        return 'env-anthropic-key';
+      }
+
+      if (key === 'googleApiKey') {
+        return 'env-google-key';
+      }
+
+      return '';
+    },
+    editorExecutionCache: new Map<string, unknown>(),
+    ...overrides,
+  } as any;
+}
+
 describe('LLMChatV2NodeImpl', () => {
   it('creates the unified chat node', () => {
     const node = LLMChatV2NodeImpl.create();
 
     assert.equal(node.type, 'llmChatV2');
-    assert.equal(node.title, 'LLM Chat v2');
+    assert.equal(node.title, 'LLM Chat');
     assert.equal(node.data.provider, 'openai');
+    assert.equal(node.data.apiKeySource, 'environment');
+    assert.equal(node.data.customProviderApiKeyEnvVarName, 'CUSTOM_PROVIDER_API_KEY');
+    assert.equal(node.data.extraProviderOptions, '');
+    assert.equal(node.data.useExtraProviderOptionsInput, false);
+    assert.equal(node.data.useToolCalling, false);
+    assert.equal(node.data.outputReasoning, false);
+    assert.equal(node.data.presencePenalty, undefined);
+    assert.equal(node.data.usePresencePenaltyInput, false);
+    assert.equal(node.data.frequencyPenalty, undefined);
+    assert.equal(node.data.useFrequencyPenaltyInput, false);
+    assert.deepEqual(node.data.stopSequences, []);
+    assert.equal(node.data.useStopSequencesInput, false);
+    assert.equal(node.data.seed, undefined);
+    assert.equal(node.data.useSeedInput, false);
+    assert.equal(node.data.responseFormat, '');
+    assert.equal(node.data.responseSchemaName, '');
+    assert.equal(node.data.useResponseSchemaNameInput, false);
+    assert.equal(node.data.responseSchemaDescription, '');
+    assert.equal(node.data.useResponseSchemaDescriptionInput, false);
+    assert.equal(node.data.anthropicThinkingMode, '');
+    assert.equal(node.data.anthropicThinkingBudget, undefined);
+    assert.equal(node.data.useAnthropicThinkingBudgetInput, false);
+    assert.equal(node.data.anthropicEffort, '');
+    assert.equal(node.data.googleThinkingBudget, undefined);
+    assert.equal(node.data.useGoogleThinkingBudgetInput, false);
+    assert.equal(node.data.googleThinkingLevel, '');
+    assert.equal(node.data.googleIncludeThoughts, false);
+    assert.equal(node.data.toolChoice, '');
+    assert.equal(node.data.toolChoiceFunction, '');
+    assert.equal(node.data.parallelToolCalls, false);
+    assert.equal(node.data.autoContinueToolCalls, false);
+    assert.equal(node.data.maxToolRounds, 3);
+  });
+
+  it('adds an API key input only when the Model section is set to input port', async () => {
+    const defaultNode = createNode();
+    const inputNode = createNode({
+      apiKeySource: 'input',
+    });
+
+    const defaultInputs = defaultNode.getInputDefinitions();
+    const inputPort = inputNode.getInputDefinitions().find((input) => input.id === 'apiKey');
+    const editors = await inputNode.getEditors({});
+    const modelGroup = editors.find((editor) => editor.type === 'group' && editor.label === 'Model') as any;
+    const apiKeySourceEditor = modelGroup.editors.find((editor: any) => editor.dataKey === 'apiKeySource');
+
+    assert.ok(!defaultInputs.some((input) => input.id === 'apiKey'));
+    assert.deepEqual(inputPort, {
+      id: 'apiKey',
+      title: 'API Key',
+      dataType: 'string',
+      required: false,
+    });
+    assert.equal(apiKeySourceEditor?.type, 'segmented');
+    assert.equal(apiKeySourceEditor?.label, 'API key source');
+    assert.deepEqual(apiKeySourceEditor?.options, [
+      { value: 'environment', label: 'Configured key' },
+      { value: 'input', label: 'Input port' },
+    ]);
+  });
+
+  it('exposes Custom provider as an OpenAI-compatible provider mode', async () => {
+    const node = createNode({
+      provider: 'custom',
+      model: 'llama-custom',
+    });
+
+    const editors = await node.getEditors({
+      getChatModelOptions: async () => {
+        throw new Error('Custom provider should not request a model catalog.');
+      },
+    } as any);
+    const modelGroup = editors.find((editor) => editor.type === 'group' && editor.label === 'Model') as any;
+    const providerEditor = modelGroup.editors.find((editor: any) => editor.dataKey === 'provider');
+    const modelEditor = modelGroup.editors.find((editor: any) => editor.customEditorId === 'LLMChatV2ModelCatalog');
+    const envVarEditor = modelGroup.editors.find((editor: any) => editor.dataKey === 'customProviderApiKeyEnvVarName');
+    const customBaseUrlEditor = modelGroup.editors.find((editor: any) => editor.dataKey === 'baseURL');
+    const providerAdvancedGroup = editors.find(
+      (editor) => editor.type === 'group' && editor.label === 'Provider Advanced',
+    ) as any;
+    const advancedBaseUrlEditor = providerAdvancedGroup.editors.find((editor: any) => editor.dataKey === 'baseURL');
+    const extraProviderOptionsEditor = providerAdvancedGroup.editors.find(
+      (editor: any) => editor.dataKey === 'extraProviderOptions',
+    );
+
+    assert.ok(providerEditor.options.some((option: any) => option.value === 'custom' && option.label === 'Custom provider'));
+    assert.deepEqual(modelEditor.data.modelOptions, [{ value: 'llama-custom', label: 'llama-custom' }]);
+    assert.equal(envVarEditor.label, 'API key env var name');
+    assert.equal(envVarEditor.hideIf({ provider: 'custom', apiKeySource: 'environment' }), false);
+    assert.equal(envVarEditor.hideIf({ provider: 'custom', apiKeySource: 'input' }), true);
+    assert.equal(customBaseUrlEditor.label, 'Provider base URL');
+    assert.equal(customBaseUrlEditor.useInputToggleDataKey, 'useBaseURLInput');
+    assert.equal(customBaseUrlEditor.hideIf({ provider: 'custom' }), false);
+    assert.equal(advancedBaseUrlEditor.hideIf({ provider: 'custom' }), true);
+    assert.equal(advancedBaseUrlEditor.hideIf({ provider: 'openai' }), false);
+    assert.equal(extraProviderOptionsEditor.type, 'code');
+    assert.equal(extraProviderOptionsEditor.language, 'json');
+    assert.equal(extraProviderOptionsEditor.useInputToggleDataKey, 'useExtraProviderOptionsInput');
+    assert.match(extraProviderOptionsEditor.helperMessage, /providerOptions/);
+  });
+
+  it('adds an extra provider options input when enabled', () => {
+    const defaultNode = createNode();
+    const inputNode = createNode({
+      useExtraProviderOptionsInput: true,
+    });
+
+    assert.ok(!defaultNode.getInputDefinitions().some((input) => input.id === 'extraProviderOptions'));
+    assert.deepEqual(
+      inputNode.getInputDefinitions().find((input) => input.id === 'extraProviderOptions'),
+      {
+        id: 'extraProviderOptions',
+        title: 'Extra Provider Options',
+        dataType: ['string', 'object'],
+        required: false,
+        coerced: true,
+      },
+    );
   });
 
   it('adds function-call output when provider built-in tools are enabled', () => {
@@ -33,6 +188,23 @@ describe('LLMChatV2NodeImpl', () => {
 
     assert.ok(functionCalls);
     assert.equal(functionCalls?.dataType, 'object[]');
+  });
+
+  it('adds reasoning output when enabled', () => {
+    const defaultNode = createNode();
+    const reasoningNode = createNode({
+      outputReasoning: true,
+    });
+
+    assert.ok(!defaultNode.getOutputDefinitions().some((output) => output.id === 'reasoning'));
+    assert.deepEqual(
+      reasoningNode.getOutputDefinitions().find((output) => output.id === 'reasoning'),
+      {
+        id: 'reasoning',
+        title: 'Reasoning',
+        dataType: ['string', 'string[]'],
+      },
+    );
   });
 
   it('exposes provider-specific thinking budget inputs only for the active provider', () => {
@@ -52,5 +224,883 @@ describe('LLMChatV2NodeImpl', () => {
     assert.ok(!anthropicInputs.some((input) => input.id === 'googleThinkingBudget'));
     assert.ok(googleInputs.some((input) => input.id === 'googleThinkingBudget'));
     assert.ok(!googleInputs.some((input) => input.id === 'anthropicThinkingBudget'));
+  });
+
+  it('groups Rivet tool calling controls under Tools', async () => {
+    const node = createNode({
+      useToolCalling: true,
+    });
+
+    const editors = await node.getEditors({});
+    const toolsGroup = editors.find((editor) => editor.type === 'group' && editor.label === 'Tools') as any;
+    const outputGroup = editors.find((editor) => editor.type === 'group' && editor.label === 'Outputs') as any;
+
+    assert.ok(toolsGroup);
+    assert.ok(outputGroup);
+    const toolEditorKeys = toolsGroup.editors.map((editor: any) => editor.dataKey);
+
+    assert.deepEqual(toolEditorKeys.slice(0, 5), [
+      'useToolCalling',
+      'toolChoice',
+      'toolChoiceFunction',
+      'parallelToolCalls',
+      'autoContinueToolCalls',
+    ]);
+    assert.equal(toolsGroup.editors.find((editor: any) => editor.dataKey === 'useToolCalling')?.label, 'Tool use');
+    assert.deepEqual(
+      toolsGroup.editors.find((editor: any) => editor.dataKey === 'toolChoice')?.options,
+      [
+        { value: '', label: 'Default' },
+        { value: 'auto', label: 'Auto' },
+        { value: 'function', label: 'Specific tool' },
+        { value: 'required', label: 'Required' },
+      ],
+    );
+    assert.equal(toolsGroup.editors.find((editor: any) => editor.dataKey === 'toolChoiceFunction')?.label, 'Tool name');
+    assert.equal(
+      toolsGroup.editors.find((editor: any) => editor.dataKey === 'parallelToolCalls')?.label,
+      'Allow parallel toolcalls',
+    );
+    assert.equal(toolsGroup.editors.find((editor: any) => editor.dataKey === 'parallelToolCalls')?.helperMessage, undefined);
+    assert.equal(
+      toolsGroup.editors.find((editor: any) => editor.dataKey === 'parallelToolCalls')?.hideIf({
+        provider: 'custom',
+        useToolCalling: true,
+      }),
+      true,
+    );
+    assert.equal(
+      toolsGroup.editors.find((editor: any) => editor.dataKey === 'parallelToolCalls')?.hideIf({
+        provider: 'openai',
+        useToolCalling: true,
+      }),
+      false,
+    );
+    assert.match(
+      toolsGroup.editors.find((editor: any) => editor.dataKey === 'autoContinueToolCalls')?.helperMessage,
+      /sends all tool results back to the model/,
+    );
+    assert.ok(toolsGroup.editors.some((editor: any) => editor.dataKey === 'toolChoice'));
+    assert.ok(toolsGroup.editors.some((editor: any) => editor.dataKey === 'toolChoiceFunction'));
+    assert.ok(toolsGroup.editors.some((editor: any) => editor.dataKey === 'autoContinueToolCalls'));
+    assert.ok(toolsGroup.editors.some((editor: any) => editor.dataKey === 'maxToolRounds'));
+    assert.ok(!outputGroup.editors.some((editor: any) => editor.dataKey === 'useToolCalling'));
+    assert.equal(
+      outputGroup.editors.find((editor: any) => editor.dataKey === 'outputUsage')?.label,
+      'Output usage details',
+    );
+    assert.match(
+      outputGroup.editors.find((editor: any) => editor.dataKey === 'outputUsage')?.helperMessage,
+      /Vercel AI SDK usage metadata/,
+    );
+    assert.ok(!outputGroup.editors.some((editor: any) => editor.dataKey === 'outputReasoning'));
+    assert.equal(
+      outputGroup.editors.find((editor: any) => editor.dataKey === 'useAsGraphPartialOutput')?.label,
+      'Stream response',
+    );
+    assert.match(
+      outputGroup.editors.find((editor: any) => editor.dataKey === 'useAsGraphPartialOutput')?.helperMessage,
+      /Other nodes only receive the final response/,
+    );
+    assert.equal(
+      outputGroup.editors.find((editor: any) => editor.dataKey === 'cache')?.label,
+      'Cache outputs (editor only)',
+    );
+    assert.match(
+      outputGroup.editors.find((editor: any) => editor.dataKey === 'cache')?.helperMessage,
+      /this node's previous outputs/,
+    );
+    assert.match(
+      outputGroup.editors.find((editor: any) => editor.dataKey === 'cache')?.helperMessage,
+      /while the Rivet app is open/,
+    );
+  });
+
+  it('groups provider reasoning settings after Parameters', async () => {
+    const node = createNode();
+
+    const editors = await node.getEditors({});
+    const groupLabels = editors.filter((editor) => editor.type === 'group').map((editor) => editor.label);
+    const reasoningGroup = editors.find((editor) => editor.type === 'group' && editor.label === 'Reasoning') as any;
+    const openAIGroup = editors.find((editor) => editor.type === 'group' && editor.label === 'OpenAI') as any;
+    const anthropicGroup = editors.find((editor) => editor.type === 'group' && editor.label === 'Anthropic') as any;
+    const googleGroup = editors.find((editor) => editor.type === 'group' && editor.label === 'Google') as any;
+
+    assert.deepEqual(groupLabels.slice(groupLabels.indexOf('Model') + 1, groupLabels.indexOf('Model') + 4), [
+      'OpenAI',
+      'Anthropic',
+      'Google',
+    ]);
+    assert.equal(groupLabels.indexOf('Reasoning'), groupLabels.indexOf('Parameters') + 1);
+    assert.ok(reasoningGroup);
+    assert.deepEqual(
+      reasoningGroup.editors.map((editor: any) => editor.dataKey),
+      [
+        'openAIReasoningEffort',
+        'outputReasoning',
+        'openAIReasoningSummary',
+        'anthropicThinkingMode',
+        'anthropicEffort',
+        'anthropicThinkingBudget',
+        'googleThinkingLevel',
+        'googleThinkingBudget',
+        'googleIncludeThoughts',
+      ],
+    );
+    assert.equal(
+      reasoningGroup.editors.find((editor: any) => editor.dataKey === 'outputReasoning')?.label,
+      'Output reasoning',
+    );
+    assert.match(
+      reasoningGroup.editors.find((editor: any) => editor.dataKey === 'outputReasoning')?.helperMessage,
+      /reasoning or thinking text/,
+    );
+    assert.equal(
+      reasoningGroup.editors.find((editor: any) => editor.dataKey === 'openAIReasoningEffort')?.hideIf({
+        provider: 'openai',
+      }),
+      false,
+    );
+    assert.equal(
+      reasoningGroup.editors.find((editor: any) => editor.dataKey === 'anthropicThinkingMode')?.hideIf({
+        provider: 'anthropic',
+      }),
+      false,
+    );
+    assert.deepEqual(
+      reasoningGroup.editors.find((editor: any) => editor.dataKey === 'anthropicThinkingMode')?.options,
+      [
+        { value: '', label: 'Default' },
+        { value: 'adaptive', label: 'Adaptive' },
+        { value: 'enabled', label: 'Enabled' },
+        { value: 'disabled', label: 'Disabled' },
+      ],
+    );
+    assert.deepEqual(
+      reasoningGroup.editors.find((editor: any) => editor.dataKey === 'anthropicEffort')?.options,
+      [
+        { value: '', label: 'Default' },
+        { value: 'low', label: 'Low' },
+        { value: 'medium', label: 'Medium' },
+        { value: 'high', label: 'High' },
+        { value: 'max', label: 'Max' },
+      ],
+    );
+    assert.equal(
+      reasoningGroup.editors.find((editor: any) => editor.dataKey === 'googleThinkingBudget')?.hideIf({
+        provider: 'google',
+      }),
+      false,
+    );
+    assert.deepEqual(
+      reasoningGroup.editors.find((editor: any) => editor.dataKey === 'googleThinkingLevel')?.options,
+      [
+        { value: '', label: 'Default' },
+        { value: 'minimal', label: 'Minimal' },
+        { value: 'low', label: 'Low' },
+        { value: 'medium', label: 'Medium' },
+        { value: 'high', label: 'High' },
+      ],
+    );
+    assert.ok(!openAIGroup.editors.some((editor: any) => editor.dataKey === 'openAIReasoningEffort'));
+    assert.ok(!anthropicGroup.editors.some((editor: any) => editor.dataKey === 'anthropicThinkingMode'));
+    assert.ok(!googleGroup.editors.some((editor: any) => editor.dataKey === 'googleThinkingBudget'));
+    assert.ok(!googleGroup.editors.some((editor: any) => editor.dataKey === 'googleStructuredOutputs'));
+  });
+
+  it('resolves provider-specific reasoning options in the Vercel providerOptions shape', () => {
+    assert.equal(resolveLLMChatV2RuntimeProviderOptions(createNode({ provider: 'openai' }).data, {}), undefined);
+
+    assert.deepEqual(
+      resolveLLMChatV2RuntimeProviderOptions(
+        createNode({
+          provider: 'openai',
+          openAIReasoningEffort: 'high',
+          openAIReasoningSummary: 'auto',
+        }).data,
+        {},
+      ),
+      {
+        openai: {
+          reasoningEffort: 'high',
+          reasoningSummary: 'auto',
+        },
+      },
+    );
+
+    assert.equal(resolveLLMChatV2RuntimeProviderOptions(createNode({ provider: 'anthropic' }).data, {}), undefined);
+    assert.deepEqual(
+      resolveLLMChatV2RuntimeProviderOptions(
+        createNode({
+          provider: 'anthropic',
+          anthropicThinkingMode: 'enabled',
+          anthropicThinkingBudget: 12000,
+          anthropicEffort: 'low',
+        }).data,
+        {},
+      ),
+      {
+        anthropic: {
+          effort: 'low',
+          thinking: {
+            type: 'enabled',
+            budgetTokens: 12000,
+          },
+        },
+      },
+    );
+
+    assert.deepEqual(
+      resolveLLMChatV2RuntimeProviderOptions(
+        createNode({
+          provider: 'google',
+          googleThinkingBudget: 8192,
+          googleThinkingLevel: 'high',
+          googleIncludeThoughts: true,
+        }).data,
+        {},
+      ),
+      {
+        google: {
+          thinkingConfig: {
+            thinkingBudget: 8192,
+            thinkingLevel: 'high',
+            includeThoughts: true,
+          },
+        },
+      },
+    );
+  });
+
+  it('merges extra provider options into the selected Vercel provider namespace', () => {
+    assert.deepEqual(
+      resolveLLMChatV2RuntimeProviderOptions(
+        createNode({
+          provider: 'custom',
+          extraProviderOptions: '{ "reasoningEffort": "high", "customFlag": true }',
+        }).data,
+        {},
+      ),
+      {
+        custom: {
+          reasoningEffort: 'high',
+          customFlag: true,
+        },
+      },
+    );
+
+    assert.deepEqual(
+      resolveLLMChatV2RuntimeProviderOptions(
+        createNode({
+          provider: 'openai',
+          extraProviderOptions: '{ "reasoningEffort": "low", "store": false }',
+          openAIReasoningEffort: 'high',
+        }).data,
+        {},
+      ),
+      {
+        openai: {
+          reasoningEffort: 'high',
+          store: false,
+        },
+      },
+    );
+  });
+
+  it('resolves extra provider options from an input port', () => {
+    assert.deepEqual(
+      resolveLLMChatV2RuntimeProviderOptions(
+        createNode({
+          provider: 'custom',
+          useExtraProviderOptionsInput: true,
+          extraProviderOptions: '{ "ignored": true }',
+        }).data,
+        {
+          extraProviderOptions: {
+            type: 'string',
+            value: '{ "reasoningEffort": "high", "customFlag": true }',
+          },
+        } as any,
+      ),
+      {
+        custom: {
+          reasoningEffort: 'high',
+          customFlag: true,
+        },
+      },
+    );
+
+    assert.deepEqual(
+      resolveLLMChatV2RuntimeProviderOptions(
+        createNode({
+          provider: 'custom',
+          useExtraProviderOptionsInput: true,
+        }).data,
+        {
+          extraProviderOptions: {
+            type: 'object',
+            value: { reasoningEffort: 'medium' },
+          },
+        } as any,
+      ),
+      {
+        custom: {
+          reasoningEffort: 'medium',
+        },
+      },
+    );
+  });
+
+  it('rejects invalid extra provider options', () => {
+    assert.throws(
+      () =>
+        resolveLLMChatV2RuntimeProviderOptions(
+          createNode({
+            extraProviderOptions: '{',
+          }).data,
+          {},
+        ),
+      /Extra provider options must be valid JSON/,
+    );
+
+    assert.throws(
+      () =>
+        resolveLLMChatV2RuntimeProviderOptions(
+          createNode({
+            extraProviderOptions: '[]',
+          }).data,
+          {},
+        ),
+      /Extra provider options must be a JSON object/,
+    );
+  });
+
+  it('exposes expanded generation parameters and matching input ports', async () => {
+    const node = createNode({
+      useTopKInput: true,
+      usePresencePenaltyInput: true,
+      useFrequencyPenaltyInput: true,
+      useStopSequencesInput: true,
+      useSeedInput: true,
+      useMaxTokensInput: true,
+    });
+
+    const editors = await node.getEditors({});
+    const parametersGroup = editors.find((editor) => editor.type === 'group' && editor.label === 'Parameters') as any;
+    const parameterLabels = parametersGroup.editors.map((editor: any) => editor.label);
+
+    assert.deepEqual(parameterLabels.slice(0, 2), ['Temperature', 'Max output tokens']);
+    assert.ok(parameterLabels.includes('Presence penalty'));
+    assert.ok(parameterLabels.includes('Frequency penalty'));
+    assert.ok(parameterLabels.includes('Stop sequences'));
+    assert.ok(parameterLabels.includes('Seed'));
+    assert.ok(parameterLabels.includes('Max output tokens'));
+    assert.equal(
+      parametersGroup.editors.find((editor: any) => editor.dataKey === 'topK')?.helperMessage,
+      'Provider-dependent; some providers or models may ignore this setting.',
+    );
+
+    const inputs = node.getInputDefinitions();
+    const inputById = new Map(inputs.map((input) => [input.id, input]));
+
+    assert.equal(inputById.get('presencePenalty' as any)?.dataType, 'number');
+    assert.equal(inputById.get('frequencyPenalty' as any)?.dataType, 'number');
+    assert.deepEqual(inputById.get('stopSequences' as any)?.dataType, ['string', 'string[]']);
+    assert.equal(inputById.get('seed' as any)?.dataType, 'number');
+    assert.equal(inputById.get('maxTokens' as any)?.title, 'Max output tokens');
+  });
+
+  it('exposes response-format settings and JSON schema input ports only when needed', async () => {
+    const defaultNode = createNode();
+    const jsonSchemaNode = createNode({
+      responseFormat: 'json_schema',
+      useResponseSchemaNameInput: true,
+      useResponseSchemaDescriptionInput: true,
+    });
+
+    const editors = await defaultNode.getEditors({});
+    const responseFormatGroup = editors.find((editor) => editor.type === 'group' && editor.label === 'Response format') as any;
+
+    assert.ok(responseFormatGroup);
+    assert.deepEqual(
+      responseFormatGroup.editors.find((editor: any) => editor.dataKey === 'responseFormat')?.options,
+      [
+        { value: '', label: 'Default' },
+        { value: 'text', label: 'Text' },
+        { value: 'json', label: 'JSON' },
+        { value: 'json_schema', label: 'JSON schema' },
+      ],
+    );
+    assert.ok(!defaultNode.getInputDefinitions().some((input) => input.id === 'responseSchema'));
+
+    const inputs = jsonSchemaNode.getInputDefinitions();
+    const inputById = new Map(inputs.map((input) => [input.id, input]));
+
+    assert.deepEqual(inputById.get('responseSchema' as any)?.dataType, ['object', 'gpt-function']);
+    assert.equal(inputById.get('responseSchema' as any)?.required, true);
+    assert.equal(inputById.get('responseSchemaName' as any)?.dataType, 'string');
+    assert.equal(inputById.get('responseSchemaDescription' as any)?.dataType, 'string');
+  });
+
+  it('treats Tool use and structured response formats as mutually exclusive', () => {
+    assert.equal(hasLLMChatV2ToolResponseFormatConflict({ useToolCalling: true, responseFormat: '' }), false);
+    assert.equal(hasLLMChatV2ToolResponseFormatConflict({ useToolCalling: true, responseFormat: 'text' }), false);
+    assert.equal(hasLLMChatV2ToolResponseFormatConflict({ useToolCalling: false, responseFormat: 'json_schema' }), false);
+
+    assert.equal(hasLLMChatV2ToolResponseFormatConflict({ useToolCalling: true, responseFormat: 'json_schema' }), true);
+    assert.deepEqual(LLM_CHAT_V2_TOOL_RESPONSE_FORMAT_CONFLICT_COPY, {
+      title: '"Tool use" conflicts with "Structured outputs"',
+      paragraphs: [
+        '"Tool use" and "Structured outputs" cannot be used at the same time.',
+        'Use "Tool use" with Default/Text response format, or turn "Tool use" off before choosing JSON/JSON schema.',
+      ],
+    });
+  });
+
+  it('detects only edits that create a Tool use and structured response-format conflict', () => {
+    assert.equal(
+      createsLLMChatV2ToolResponseFormatConflictForEdit(
+        { useToolCalling: false, responseFormat: 'json_schema' },
+        { useToolCalling: true, responseFormat: 'json_schema' },
+      ),
+      true,
+    );
+    assert.equal(
+      createsLLMChatV2ToolResponseFormatConflictForEdit(
+        { useToolCalling: true, responseFormat: '' },
+        { useToolCalling: true, responseFormat: 'json' },
+      ),
+      true,
+    );
+    assert.equal(
+      createsLLMChatV2ToolResponseFormatConflictForEdit(
+        { useToolCalling: true, responseFormat: 'json' },
+        { useToolCalling: true, responseFormat: 'json_schema' },
+      ),
+      false,
+    );
+  });
+
+  it('fails fast before execution when Tool use and structured response format are both enabled', async () => {
+    await assert.rejects(
+      () =>
+        resolveLLMChatV2RuntimeConfig({
+          data: createNode({
+            useToolCalling: true,
+            responseFormat: 'json_schema',
+          }).data,
+          nodeId: 'node-id' as any,
+          inputs: {},
+          context: createRuntimeContext(),
+        }),
+      { message: LLM_CHAT_V2_TOOL_RESPONSE_FORMAT_CONFLICT_COPY.paragraphs[0] },
+    );
+  });
+
+  it('scopes editor cache keys by node id', () => {
+    const firstNode = LLMChatV2NodeImpl.create();
+    const secondNode = {
+      ...LLMChatV2NodeImpl.create(),
+      data: firstNode.data,
+    };
+    const commonParts = {
+      nodeData: firstNode.data,
+      provider: 'openai' as const,
+      modelId: 'gpt-5',
+      providerConfig: { baseURL: 'https://example.test' },
+      prompt: { type: 'string', value: 'Hello' },
+      systemPrompt: undefined,
+      functions: undefined,
+      generationParameters: { temperature: 0.5 },
+      responseFormatParameters: undefined,
+      providerOptions: undefined,
+      toolChoice: undefined,
+    };
+
+    assert.equal(
+      buildLLMChatV2EditorCacheKey({
+        ...commonParts,
+        nodeId: firstNode.id,
+      }),
+      buildLLMChatV2EditorCacheKey({
+        ...commonParts,
+        nodeId: firstNode.id,
+      }),
+    );
+    assert.notEqual(
+      buildLLMChatV2EditorCacheKey({
+        ...commonParts,
+        nodeId: firstNode.id,
+      }),
+      buildLLMChatV2EditorCacheKey({
+        ...commonParts,
+        nodeId: secondNode.id,
+      }),
+    );
+  });
+
+  it('scopes editor cache keys by API key input without storing the raw secret', async () => {
+    const node = createNode({
+      apiKeySource: 'input',
+      cache: true,
+    });
+    const context = createRuntimeContext();
+    const commonInputs = {
+      prompt: { type: 'string', value: 'Hello' },
+    } as any;
+
+    const first = await resolveLLMChatV2RuntimeConfig({
+      data: node.data,
+      nodeId: node.chartNode.id,
+      inputs: {
+        ...commonInputs,
+        apiKey: { type: 'string', value: 'sk-secret-a' },
+      },
+      context,
+    });
+    const second = await resolveLLMChatV2RuntimeConfig({
+      data: node.data,
+      nodeId: node.chartNode.id,
+      inputs: {
+        ...commonInputs,
+        apiKey: { type: 'string', value: 'sk-secret-b' },
+      },
+      context,
+    });
+
+    assert.ok(first.cacheKey);
+    assert.ok(second.cacheKey);
+    assert.notEqual(first.cacheKey, second.cacheKey);
+    assert.doesNotMatch(first.cacheKey!, /sk-secret-a/);
+    assert.doesNotMatch(second.cacheKey!, /sk-secret-b/);
+  });
+
+  it('fails clearly when the API key input source is selected but no key is provided', async () => {
+    const node = createNode({
+      apiKeySource: 'input',
+    });
+
+    await assert.rejects(
+      () =>
+        resolveLLMChatV2RuntimeConfig({
+          data: node.data,
+          nodeId: node.chartNode.id,
+          inputs: {
+            prompt: { type: 'string', value: 'Hello' },
+          } as any,
+          context: createRuntimeContext(),
+        }),
+      /API Key input is required/,
+    );
+  });
+
+  it('resolves Custom provider config from base URL and configured API key env var', async () => {
+    const node = createNode({
+      provider: 'custom',
+      model: 'llama-custom',
+      baseURL: 'https://api.cerebras.ai/v1/chat/completions',
+      customProviderApiKeyEnvVarName: 'CEREBRAS_API_KEY',
+      cache: true,
+    });
+    const context = createRuntimeContext({
+      settings: {
+        ...createRuntimeContext().settings,
+        pluginEnv: {
+          CEREBRAS_API_KEY: 'sk-cerebras-secret',
+        },
+      },
+    });
+
+    const runtime = await resolveLLMChatV2RuntimeConfig({
+      data: node.data,
+      nodeId: node.chartNode.id,
+      inputs: {
+        prompt: { type: 'string', value: 'Hello' },
+      } as any,
+      context,
+    });
+
+    assert.equal(runtime.runOptions.provider, 'custom');
+    assert.equal(runtime.runOptions.modelId, 'llama-custom');
+    assert.ok(runtime.cacheKey);
+    assert.equal(JSON.parse(runtime.cacheKey!).providerConfig.baseURL, 'https://api.cerebras.ai/v1');
+    assert.doesNotMatch(runtime.cacheKey!, /sk-cerebras-secret/);
+  });
+
+  it('fingerprints provider header values in editor cache keys', async () => {
+    const node = createNode({
+      provider: 'custom',
+      model: 'llama-custom',
+      baseURL: 'https://api.cerebras.ai/v1',
+      customProviderApiKeyEnvVarName: 'CEREBRAS_API_KEY',
+      headers: [{ key: 'Authorization', value: 'Bearer raw-header-secret' }],
+      cache: true,
+    });
+    const context = createRuntimeContext({
+      settings: {
+        ...createRuntimeContext().settings,
+        pluginEnv: {
+          CEREBRAS_API_KEY: 'sk-cerebras-secret',
+        },
+      },
+    });
+
+    const runtime = await resolveLLMChatV2RuntimeConfig({
+      data: node.data,
+      nodeId: node.chartNode.id,
+      inputs: {
+        prompt: { type: 'string', value: 'Hello' },
+      } as any,
+      context,
+    });
+
+    assert.ok(runtime.cacheKey);
+    assert.doesNotMatch(runtime.cacheKey!, /raw-header-secret/);
+    assert.doesNotMatch(runtime.cacheKey!, /sk-cerebras-secret/);
+    assert.equal(JSON.parse(runtime.cacheKey!).providerConfig.headers.Authorization.startsWith('24:'), true);
+  });
+
+  it('fingerprints extra provider option values in editor cache keys without changing runtime options', async () => {
+    const node = createNode({
+      provider: 'custom',
+      model: 'llama-custom',
+      baseURL: 'https://api.cerebras.ai/v1',
+      customProviderApiKeyEnvVarName: 'CEREBRAS_API_KEY',
+      extraProviderOptions: '{ "reasoningEffort": "high", "byok": { "apiKey": "raw-provider-option-secret" } }',
+      cache: true,
+    });
+    const context = createRuntimeContext({
+      settings: {
+        ...createRuntimeContext().settings,
+        pluginEnv: {
+          CEREBRAS_API_KEY: 'sk-cerebras-secret',
+        },
+      },
+    });
+
+    const runtime = await resolveLLMChatV2RuntimeConfig({
+      data: node.data,
+      nodeId: node.chartNode.id,
+      inputs: {
+        prompt: { type: 'string', value: 'Hello' },
+      } as any,
+      context,
+    });
+
+    assert.deepEqual(runtime.runOptions.providerOptions, {
+      custom: {
+        reasoningEffort: 'high',
+        byok: {
+          apiKey: 'raw-provider-option-secret',
+        },
+      },
+    });
+    assert.ok(runtime.cacheKey);
+    assert.doesNotMatch(runtime.cacheKey!, /raw-provider-option-secret/);
+    assert.doesNotMatch(runtime.cacheKey!, /reasoningEffort/);
+  });
+
+  it('ignores stale static extra provider options in cache keys when input mode is enabled', async () => {
+    const firstNode = createNode({
+      provider: 'custom',
+      model: 'llama-custom',
+      baseURL: 'https://api.cerebras.ai/v1',
+      customProviderApiKeyEnvVarName: 'CEREBRAS_API_KEY',
+      extraProviderOptions: '{ "stale": "first" }',
+      useExtraProviderOptionsInput: true,
+      cache: true,
+    });
+    const secondNode = createNode({
+      ...firstNode.data,
+      extraProviderOptions: '{ "stale": "second" }',
+    });
+    const context = createRuntimeContext({
+      settings: {
+        ...createRuntimeContext().settings,
+        pluginEnv: {
+          CEREBRAS_API_KEY: 'sk-cerebras-secret',
+        },
+      },
+    });
+    const inputs = {
+      prompt: { type: 'string', value: 'Hello' },
+      extraProviderOptions: {
+        type: 'string',
+        value: '{ "reasoningEffort": "high", "byok": { "apiKey": "input-option-secret" } }',
+      },
+    } as any;
+
+    const firstRuntime = await resolveLLMChatV2RuntimeConfig({
+      data: firstNode.data,
+      nodeId: firstNode.chartNode.id,
+      inputs,
+      context,
+    });
+    const secondRuntime = await resolveLLMChatV2RuntimeConfig({
+      data: secondNode.data,
+      nodeId: firstNode.chartNode.id,
+      inputs,
+      context,
+    });
+
+    assert.deepEqual(firstRuntime.runOptions.providerOptions, secondRuntime.runOptions.providerOptions);
+    assert.equal(firstRuntime.cacheKey, secondRuntime.cacheKey);
+    assert.ok(firstRuntime.cacheKey);
+    assert.doesNotMatch(firstRuntime.cacheKey!, /input-option-secret/);
+    assert.doesNotMatch(firstRuntime.cacheKey!, /stale/);
+  });
+
+  it('fails clearly when Custom provider configured-key env var is missing', async () => {
+    const node = createNode({
+      provider: 'custom',
+      model: 'llama-custom',
+      baseURL: 'https://api.cerebras.ai/v1',
+      customProviderApiKeyEnvVarName: 'MISSING_CUSTOM_KEY',
+    });
+
+    await assert.rejects(
+      () =>
+        resolveLLMChatV2RuntimeConfig({
+          data: node.data,
+          nodeId: node.chartNode.id,
+          inputs: {
+            prompt: { type: 'string', value: 'Hello' },
+          } as any,
+          context: createRuntimeContext(),
+        }),
+      /Custom provider API key env var MISSING_CUSTOM_KEY is not set/,
+    );
+  });
+
+  it('builds stable editor cache keys for equivalent object inputs', () => {
+    const node = LLMChatV2NodeImpl.create();
+    const firstSchema = {
+      type: 'object',
+      properties: {
+        city: { type: 'string' },
+        units: { type: 'string' },
+      },
+      required: ['city'],
+    };
+    const secondSchema = {
+      required: ['city'],
+      properties: {
+        units: { type: 'string' },
+        city: { type: 'string' },
+      },
+      type: 'object',
+    };
+    const commonParts = {
+      nodeId: node.id,
+      nodeData: node.data,
+      provider: 'openai' as const,
+      modelId: 'gpt-5',
+      providerConfig: { headers: { b: '2', a: '1' }, baseURL: 'https://example.test' },
+      prompt: { type: 'string', value: 'Hello' },
+      systemPrompt: undefined,
+      generationParameters: { temperature: 0.5 },
+      responseFormatParameters: undefined,
+      providerOptions: undefined,
+      toolChoice: undefined,
+    };
+
+    assert.equal(
+      buildLLMChatV2EditorCacheKey({
+        ...commonParts,
+        functions: [
+          {
+            name: 'weather',
+            description: 'Get weather',
+            parameters: firstSchema,
+            strict: false,
+          },
+        ],
+      }),
+      buildLLMChatV2EditorCacheKey({
+        ...commonParts,
+        functions: [
+          {
+            strict: false,
+            parameters: secondSchema,
+            description: 'Get weather',
+            name: 'weather',
+          },
+        ],
+      }),
+    );
+  });
+
+  it('builds editor cache keys without throwing on circular input metadata', () => {
+    const node = LLMChatV2NodeImpl.create();
+    const providerConfig: Record<string, unknown> = { baseURL: 'https://example.test' };
+    providerConfig.self = providerConfig;
+
+    assert.doesNotThrow(() =>
+      buildLLMChatV2EditorCacheKey({
+        nodeId: node.id,
+        nodeData: node.data,
+        provider: 'openai',
+        modelId: 'gpt-5',
+        providerConfig,
+        prompt: { type: 'string', value: 'Hello' },
+        systemPrompt: undefined,
+        functions: undefined,
+        generationParameters: { temperature: 0.5 },
+        responseFormatParameters: undefined,
+        providerOptions: undefined,
+        toolChoice: undefined,
+      }),
+    );
+  });
+
+  it('clones editor cache outputs while preserving excluded output values', () => {
+    const outputs = {
+      response: {
+        type: 'string',
+        value: 'Hello',
+      },
+      'function-calls': {
+        type: 'object[]',
+        value: [
+          {
+            name: 'tool',
+            arguments: { city: 'Paris' },
+          },
+        ],
+      },
+      usage: {
+        type: 'control-flow-excluded',
+        value: undefined,
+      },
+    } as const;
+
+    const cloned = cloneLLMChatV2EditorCacheOutputs(outputs as any);
+
+    assert.deepEqual(cloned, outputs);
+    assert.notEqual(cloned, outputs);
+    assert.notEqual(cloned['function-calls' as any].value, outputs['function-calls'].value);
+
+    (cloned['function-calls' as any].value[0].arguments as any).city = 'Berlin';
+
+    assert.equal((outputs['function-calls'].value[0].arguments as any).city, 'Paris');
+    assert.ok(Object.hasOwn(cloned.usage, 'value'));
+  });
+
+  it('clones editor cache outputs with circular arrays when structuredClone cannot copy a value', () => {
+    const circularValue: unknown[] = [() => 'not structured-cloneable'];
+    circularValue.push(circularValue);
+    const outputs = {
+      response: {
+        type: 'object[]',
+        value: circularValue,
+      },
+    } as const;
+
+    const cloned = cloneLLMChatV2EditorCacheOutputs(outputs as any);
+    const clonedValue = cloned.response.value as unknown[];
+
+    assert.notEqual(clonedValue, circularValue);
+    assert.equal(clonedValue[0], circularValue[0]);
+    assert.equal(clonedValue[1], clonedValue);
   });
 });

@@ -1,8 +1,8 @@
-import Toggle from '@atlaskit/toggle';
 import { type EditorDefinition, type ChartNode } from '@ironclad/rivet-core';
 import clsx from 'clsx';
 import { type FC } from 'react';
 import { match } from 'ts-pattern';
+import PlugIcon from '../../assets/icons/plug-icon.svg?react';
 import { type SharedEditorProps } from './SharedEditorProps';
 import { DefaultAnyDataEditor } from './AnyEditor';
 import { DefaultCodeEditor } from './CodeEditor';
@@ -14,6 +14,7 @@ import { DefaultFileBrowserEditor, DefaultFilePathBrowserEditor } from './FileBr
 import { DefaultGraphSelectorEditor } from './GraphSelectorEditor';
 import { DefaultImageBrowserEditor } from './ImageBrowserEditor';
 import { DefaultNumberEditor } from './NumberEditor';
+import { DefaultSegmentedEditor } from './SegmentedEditor';
 import { DefaultStringEditor } from './StringEditor';
 import { DefaultToggleEditor } from './ToggleEditor';
 // eslint-disable-next-line import/no-cycle
@@ -28,8 +29,9 @@ import { DefaultDirectoryBrowserEditor } from './DirectoryBrowserEditor';
 export const DefaultNodeEditorField: FC<
   SharedEditorProps & {
     editor: EditorDefinition<ChartNode>;
+    editorKey: string;
   }
-> = ({ node, onChange, editor, isReadonly, isDisabled, onClose, onRefreshEditors }) => {
+> = ({ node, onChange, editor, editorKey, isReadonly, isDisabled, onClose, onRefreshEditors }) => {
   const data = node.data as Record<string, unknown>;
 
   if (editor.hideIf?.(node.data)) {
@@ -51,6 +53,7 @@ export const DefaultNodeEditorField: FC<
     .with({ type: 'dataTypeSelector' }, (editor) => <DefaultDataTypeSelector {...sharedProps} editor={editor} />)
     .with({ type: 'anyData' }, (editor) => <DefaultAnyDataEditor {...sharedProps} editor={editor} />)
     .with({ type: 'dropdown' }, (editor) => <DefaultDropdownEditor {...sharedProps} editor={editor} />)
+    .with({ type: 'segmented' }, (editor) => <DefaultSegmentedEditor {...sharedProps} editor={editor} />)
     .with({ type: 'number' }, (editor) => <DefaultNumberEditor {...sharedProps} editor={editor} />)
     .with({ type: 'code' }, (editor) => <DefaultCodeEditor {...sharedProps} editor={editor} />)
     .with({ type: 'graphSelector' }, (editor) => <DefaultGraphSelectorEditor {...sharedProps} editor={editor} />)
@@ -58,7 +61,7 @@ export const DefaultNodeEditorField: FC<
     .with({ type: 'color' }, (editor) => <DefaultColorEditor {...sharedProps} editor={editor} />)
     .with({ type: 'fileBrowser' }, (editor) => <DefaultFileBrowserEditor {...sharedProps} editor={editor} />)
     .with({ type: 'imageBrowser' }, (editor) => <DefaultImageBrowserEditor {...sharedProps} editor={editor} />)
-    .with({ type: 'group' }, (editor) => <EditorGroup {...sharedProps} editor={editor} />)
+    .with({ type: 'group' }, (editor) => <EditorGroup {...sharedProps} editor={editor} editorKey={editorKey} />)
     .with({ type: 'keyValuePair' }, (editor) => <KeyValuePairEditor {...sharedProps} editor={editor} />)
     .with({ type: 'stringList' }, (editor) => <StringListEditor {...sharedProps} editor={editor} />)
     .with({ type: 'custom' }, (editor) => <CustomEditor {...sharedProps} editor={editor} />)
@@ -67,33 +70,39 @@ export const DefaultNodeEditorField: FC<
     .with({ type: 'directoryBrowser' }, (editor) => <DefaultDirectoryBrowserEditor {...sharedProps} editor={editor} />)
     .exhaustive();
 
-  const toggle =
-    editor.type !== 'group' && editor.useInputToggleDataKey ? (
-      <div className="use-input-toggle">
-        <Tooltip content={`Use an input port for ${editor.label}`}>
-          <Toggle
-            isChecked={data[editor.useInputToggleDataKey] as boolean | undefined}
-            isDisabled={isReadonly || sharedProps.isDisabled}
-            onChange={(e) =>
-              onChange({
-                ...node,
-                data: {
-                  ...data,
-                  [editor.useInputToggleDataKey!]: e.target.checked,
-                },
-              })
-            }
-          />
-        </Tooltip>
-      </div>
-    ) : (
-      <div />
-    );
+  const sideControlDataKey = editor.type !== 'group' ? editor.useInputToggleDataKey : undefined;
+  const hasSideControl = Boolean(sideControlDataKey);
+  const isUsingInputPort = sideControlDataKey ? Boolean(data[sideControlDataKey]) : false;
+  const useInputLabelSuffix = editor.label.trim();
+  const useInputTooltip = useInputLabelSuffix ? `Use an input port for ${useInputLabelSuffix}` : 'Use an input port';
 
-  const style = editor.type === 'code' && editor.height != null ? { minHeight: editor.height } : {};
+  const toggle = hasSideControl ? (
+    <div className="use-input-toggle">
+      <Tooltip content={useInputTooltip}>
+        <button
+          type="button"
+          className={clsx('use-input-toggle-button', isUsingInputPort && 'is-active')}
+          aria-label={useInputTooltip}
+          aria-pressed={isUsingInputPort}
+          disabled={isReadonly || sharedProps.isDisabled}
+          onClick={() =>
+            onChange({
+              ...node,
+              data: {
+                ...data,
+                [sideControlDataKey!]: !isUsingInputPort,
+              },
+            })
+          }
+        >
+          <PlugIcon />
+        </button>
+      </Tooltip>
+    </div>
+  ) : null;
 
   return (
-    <div className={clsx('row', editor.type)} style={style}>
+    <div className={clsx('row', editor.type, hasSideControl && 'has-side-control')}>
       {input}
       {toggle}
     </div>

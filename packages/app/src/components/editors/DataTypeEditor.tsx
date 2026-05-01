@@ -66,14 +66,17 @@ export const DataTypeSelector: FC<{
     <div className="data-type-selector">
       <Field name="data-type" label="Data Type" isDisabled={isReadonly || isDisabled}>
         {({ fieldProps }) => (
-          <Select
-            {...fieldProps}
-            options={dataTypeOptions}
-            value={selectedOption}
-            onChange={(selected) =>
-              onChange?.(selected ? (isArray ? (`${selected.value}[]` as DataType) : selected.value) : undefined)
-            }
-          />
+          <>
+            {helperMessage && <HelperMessage>{helperMessage}</HelperMessage>}
+            <Select
+              {...fieldProps}
+              options={dataTypeOptions}
+              value={selectedOption}
+              onChange={(selected) =>
+                onChange?.(selected ? (isArray ? (`${selected.value}[]` as DataType) : selected.value) : undefined)
+              }
+            />
+          </>
         )}
       </Field>
       <Field label=" " name="is-array" isDisabled={isReadonly}>
@@ -90,7 +93,6 @@ export const DataTypeSelector: FC<{
           />
         )}
       </Field>
-      {helperMessage && <HelperMessage>{helperMessage}</HelperMessage>}
     </div>
   );
 };

@@ -1,5 +1,6 @@
 :root {
   /* Greyscale colors */
+  --black-seethrough: rgba(0, 0, 0, 0.15);
   --grey-darkest: #1e1e1e;
   --grey-darker: #282c34;
   --grey-darkerish: #2b2b2b;
@@ -13,11 +14,12 @@
   --grey-lightish: #6e6e6e;
   --grey-light: #bbb;
   --grey-light-seethrough: rgba(187, 187, 187, 0.5);
+  --grey-light-seethrougher: rgba(187, 187, 187, 0.05);
   --grey-lighter: #ddd;
   --grey-lightest: #fff;
   --foreground: #f0f0f0;
   --foreground-bright: #fff;
-  --foreground-muted: #8d8d8d;
+  --foreground-muted: #727272;
   --foreground-on-primary: #1e1e1e;
 
   /* Tertiary colors */
@@ -88,6 +90,9 @@
   --text-color-accent-4: #00b74c;
 }
 
+:root,
+:root.theme-default,
+:root.theme-molten,
 .app.theme-default,
 .app.theme-molten {
   /* Primary colors */
@@ -101,6 +106,7 @@
   --shadow-primary-bright: rgba(255, 140, 0, 0.8);
 }
 
+:root.theme-grapefruit,
 .app.theme-grapefruit {
   /* Primary colors */
   --primary: #ff8862;
@@ -141,6 +147,7 @@
   --grey-subtle-accent: rgba(255, 136, 98, 0.02);
 }
 
+:root.theme-taffy,
 .app.theme-taffy {
   /* Primary colors */
   --primary: #a55fff;

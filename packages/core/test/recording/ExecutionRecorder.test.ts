@@ -32,6 +32,29 @@ const graph: NodeGraph = {
   connections: [],
 };
 
+class FakeSocket {
+  #listeners = new Set<(event: MessageEvent) => void>();
+
+  addEventListener(type: 'message', listener: (event: MessageEvent) => void) {
+    if (type === 'message') {
+      this.#listeners.add(listener);
+    }
+  }
+
+  removeEventListener(type: 'message', listener: (event: MessageEvent) => void) {
+    if (type === 'message') {
+      this.#listeners.delete(listener);
+    }
+  }
+
+  emit(message: unknown) {
+    const event = { data: JSON.stringify(message) } as MessageEvent;
+    for (const listener of this.#listeners) {
+      listener(event);
+    }
+  }
+}
+
 async function addEvents(recorder: ExecutionRecorder, options: { includeIntermediateEvents?: boolean } = {}) {
   const { includeIntermediateEvents = false } = options;
   const emitter = new Emittery<ProcessEvents>();
@@ -171,6 +194,35 @@ void describe('ExecutionRecorder', () => {
         { type: 'nodeOutputsCleared', execution: execution, processId },
         { type: 'graphFinish', execution: execution },
       ],
+    );
+  });
+
+  void it('ignores app-executor Code console messages when recording remote sockets', async () => {
+    const recorder = new ExecutionRecorder();
+    const socket = new FakeSocket();
+    const recordingFinished = recorder.recordSocket(socket as unknown as WebSocket);
+
+    socket.emit({
+      message: 'codeConsole',
+      data: {
+        level: 'log',
+        args: ['debug-only'],
+      },
+    });
+    socket.emit({
+      message: 'done',
+      data: {
+        results: {
+          output: { type: 'string', value: 'output' },
+        },
+      },
+    });
+
+    await recordingFinished;
+
+    assert.deepEqual(
+      recorder.events.map((event) => event.type),
+      ['done'],
     );
   });
 });

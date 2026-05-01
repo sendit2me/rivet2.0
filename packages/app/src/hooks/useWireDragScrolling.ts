@@ -5,12 +5,13 @@ import { useCanvasPositioning } from './useCanvasPositioning';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLatest } from 'ahooks';
 
-export function useWireDragScrolling() {
+export function useWireDragScrolling(reportViewportMotion?: () => void) {
   const draggingWire = useAtomValue(draggingWireState);
   const viewport = useViewportBounds();
   const { clientToCanvasPosition } = useCanvasPositioning();
   const [canvasPosition, setCanvasPosition] = useAtom(canvasPositionState);
   const draggingWireLatest = useLatest(draggingWire);
+  const reportViewportMotionLatest = useLatest(reportViewportMotion);
 
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   useEffect(() => {
@@ -87,6 +88,7 @@ export function useWireDragScrolling() {
         x: pos.x + (dx * 10) / latestCanvasPosition.current.zoom,
         y: pos.y + (dy * 10) / latestCanvasPosition.current.zoom,
       }));
+      reportViewportMotionLatest.current?.();
     }, 25);
   }, [
     isMouseNearEdge,
@@ -98,5 +100,6 @@ export function useWireDragScrolling() {
     nearLatest,
     setCanvasPosition,
     latestCanvasPosition,
+    reportViewportMotionLatest,
   ]);
 }

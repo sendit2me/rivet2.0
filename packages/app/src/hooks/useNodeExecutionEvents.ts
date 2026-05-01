@@ -1,9 +1,21 @@
 import { produce } from 'immer';
 import { useSetAtom } from 'jotai';
-import { type ProcessEvents } from '@ironclad/rivet-core';
+import {
+  type CodeNode,
+  type ExpressionNode,
+  type ExtractObjectPathNode,
+  type JSFilterNode,
+  type JSMapNode,
+  type ProcessEvents,
+} from '@ironclad/rivet-core';
 import { type ExecutionDataFlowApi } from './useExecutionDataFlow';
 import { lastRunDataByNodeState } from '../state/dataFlow';
-import { cloneNodeInputOrOutputDataForHistory, sanitizeInputsOrOutputs } from '../utils/executionDataTransforms';
+import {
+  collectStoredRefIds,
+  deleteStoredRefIds,
+  sanitizeInputsOrOutputs,
+  storeInputsOrOutputsForHistory,
+} from '../utils/executionDataTransforms';
 import { useDataRefs } from '../providers/ProvidersContext';
 
 export type NodeExecutionEventsApi = {
@@ -24,6 +36,7 @@ export function useNodeExecutionEvents({
 
   const onNodeStart = ({ node, inputs, processId, execution }: ProcessEvents['nodeStart']) => {
     setDataForNode(node.id, processId, execution, {
+      ...getNodeRunDebugData(node),
       inputData: sanitizeInputsOrOutputs(inputs),
       status: { type: 'running' },
       startedAt: Date.now(),
@@ -42,6 +55,7 @@ export function useNodeExecutionEvents({
 
   const onNodeExcluded = ({ node, processId, inputs, outputs, reason, execution }: ProcessEvents['nodeExcluded']) => {
     setDataForNode(node.id, processId, execution, {
+      ...getNodeRunDebugData(node),
       inputData: sanitizeInputsOrOutputs(inputs),
       outputData: sanitizeInputsOrOutputs(outputs),
       status: { type: 'notRan', reason },
@@ -61,6 +75,13 @@ export function useNodeExecutionEvents({
 
   const onPartialOutput = ({ node, outputs, index, processId, execution }: ProcessEvents['partialOutput']) => {
     const sanitizedOutputs = sanitizeInputsOrOutputs(outputs);
+    const storedOutputs = storeInputsOrOutputsForHistory(sanitizedOutputs, dataRefs, {
+      nodeId: node.id,
+      processId,
+      channel: 'output',
+      splitIndex: node.isSplitRun ? index : undefined,
+    });
+    const refIdsToDelete: string[] = [];
 
     if (node.isSplitRun) {
       setLastRunData((prev) =>
@@ -74,9 +95,10 @@ export function useNodeExecutionEvents({
             existingProcess.graphId = execution.graphId;
             existingProcess.graphRunId = execution.graphRunId;
             existingProcess.rootRunId = execution.rootRunId;
+            refIdsToDelete.push(...collectStoredRefIds(existingProcess.data.splitOutputData?.[index]));
             existingProcess.data.splitOutputData = {
               ...existingProcess.data.splitOutputData,
-              [index]: cloneNodeInputOrOutputDataForHistory(sanitizedOutputs, dataRefs)!,
+              [index]: storedOutputs!,
             };
           } else {
             draft[node.id]!.push({
@@ -86,7 +108,7 @@ export function useNodeExecutionEvents({
               rootRunId: execution.rootRunId,
               data: {
                 splitOutputData: {
-                  [index]: cloneNodeInputOrOutputDataForHistory(sanitizedOutputs, dataRefs)!,
+                  [index]: storedOutputs!,
                 },
               },
             });
@@ -99,23 +121,29 @@ export function useNodeExecutionEvents({
       });
     }
 
+    deleteStoredRefIds(dataRefs, refIdsToDelete);
     setSelectedNodePageLatest(node.id, execution);
   };
 
   const onNodeOutputsCleared = ({ node, processId, execution }: ProcessEvents['nodeOutputsCleared']) => {
+    const refIdsToDelete: string[] = [];
+
     setLastRunData((prev) =>
       produce(prev, (draft) => {
         if (processId) {
           const index = draft[node.id]?.findIndex((process) => process.processId === processId);
           if (index !== undefined && index !== -1) {
+            refIdsToDelete.push(...collectStoredRefIds(draft[node.id]![index]!.data));
             draft[node.id]!.splice(index, 1);
           }
         } else {
+          refIdsToDelete.push(...(draft[node.id] ?? []).flatMap((process) => collectStoredRefIds(process.data)));
           delete draft[node.id];
         }
       }),
     );
 
+    deleteStoredRefIds(dataRefs, refIdsToDelete);
     setSelectedNodePageLatest(node.id, execution);
   };
 
@@ -127,4 +155,41 @@ export function useNodeExecutionEvents({
     onNodeStart,
     onPartialOutput,
   };
+}
+
+function getNodeRunDebugData(node: ProcessEvents['nodeStart']['node']) {
+  if (node.type === 'code') {
+    return {
+      debugData: {
+        codeSource: (node as CodeNode).data.code,
+      },
+    };
+  }
+
+  if (node.type === 'expression') {
+    return {
+      debugData: {
+        expressionSource: (node as ExpressionNode).data.expression,
+      },
+    };
+  }
+
+  if (node.type === 'extractObjectPath') {
+    return {
+      debugData: {
+        extractObjectPathSource: (node as ExtractObjectPathNode).data.path,
+        extractObjectPathUsePathInput: (node as ExtractObjectPathNode).data.usePathInput,
+      },
+    };
+  }
+
+  if (node.type === 'jsFilter' || node.type === 'jsMap') {
+    return {
+      debugData: {
+        jsListCallbackBodySource: (node as JSFilterNode | JSMapNode).data.callbackBody,
+      },
+    };
+  }
+
+  return {};
 }

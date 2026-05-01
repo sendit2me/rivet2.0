@@ -19,6 +19,7 @@ export const DefaultAnyDataEditor: FC<
     <Field name={editor.dataKey} label={editor.label}>
       {({ fieldProps }) => (
         <>
+          {helperMessage && <HelperMessage>{helperMessage}</HelperMessage>}
           <TextField
             {...fieldProps}
             isDisabled={isDisabled}
@@ -40,7 +41,6 @@ export const DefaultAnyDataEditor: FC<
               }
             }}
           />
-          {helperMessage && <HelperMessage>{helperMessage}</HelperMessage>}
         </>
       )}
     </Field>

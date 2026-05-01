@@ -2,7 +2,6 @@ import { useAtom } from 'jotai';
 import { projectsState, type OpenedProjectInfo, type OpenedProjectsInfo } from '../state/savedGraphs.js';
 import { toast } from 'react-toastify';
 import { useIOProvider } from '../providers/ProvidersContext.js';
-import { chooseProjectGraph } from '../utils/workspaceTransitions.js';
 import { addOpenedProject } from '../utils/openedProjects.js';
 import { handleError } from '../utils/errorHandling.js';
 import { useWorkspaceTransitions } from './useWorkspaceTransitions.js';
@@ -36,22 +35,20 @@ export function useLoadProjectWithFileBrowser() {
           return;
         }
 
-        const graphToLoad = chooseProjectGraph(projectData, {
-          fallbackToMainGraph: true,
-          fallbackToSortedProjectGraph: true,
-        });
-
         void (async () => {
           const loaded = await workspaceTransitions.loadProject({
             project: projectData,
             data,
             fsPath: path,
-            graphToLoad,
             testSuites: testData.testSuites,
           });
 
           if (loaded) {
-            setProjects((prev: OpenedProjectsInfo) => addOpenedProject(prev, project, { fsPath: path }));
+            setProjects((prev: OpenedProjectsInfo) =>
+              addOpenedProject(prev, project, {
+                fsPath: path,
+              }),
+            );
           }
         })();
       });

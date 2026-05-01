@@ -2,9 +2,16 @@ import { type ChatMessage, type DataValue } from '@ironclad/rivet-core';
 import { LRUCache } from 'lru-cache';
 import { P, match } from 'ts-pattern';
 
+const globalDataRefSizeHints = new Map<string, number>();
+
 const globalDataRefs = new LRUCache<string, DataValue>({
   maxSize: 500 * 1024 * 1024, // 500MB
-  sizeCalculation: (value) => {
+  sizeCalculation: (value, key) => {
+    const hintedSize = globalDataRefSizeHints.get(key);
+    if (hintedSize != null) {
+      return hintedSize;
+    }
+
     return match(value)
       .with({ type: 'image' }, (v) => v.value.data.byteLength)
       .with({ type: 'binary' }, (v) => v.value.byteLength)
@@ -24,11 +31,22 @@ export function getGlobalDataRef(key: string): DataValue | undefined {
   return globalDataRefs.get(key);
 }
 
-export function setGlobalDataRef(key: string, value: DataValue): void {
+export function setGlobalDataRef(key: string, value: DataValue, options?: { sizeHint?: number }): void {
+  if (options?.sizeHint != null) {
+    globalDataRefSizeHints.set(key, options.sizeHint);
+  } else {
+    globalDataRefSizeHints.delete(key);
+  }
+
   globalDataRefs.set(key, value);
 }
 
-function getSizeOfChatMessage(value: ChatMessage): any {
+export function deleteGlobalDataRef(key: string): void {
+  globalDataRefSizeHints.delete(key);
+  globalDataRefs.delete(key);
+}
+
+function getSizeOfChatMessage(value: ChatMessage): number {
   const parts = Array.isArray(value.message) ? value.message : [value.message];
 
   const size = parts.reduce(

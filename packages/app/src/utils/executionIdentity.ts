@@ -1,4 +1,4 @@
-import { type GraphExecutionMetadata } from '@ironclad/rivet-core';
+import { type GraphExecutionMetadata, type GraphId } from '@ironclad/rivet-core';
 import {
   createRootGraphViewContext,
   createSubgraphGraphViewContext,
@@ -7,23 +7,30 @@ import {
 } from '../domain/graphEditing/navigationActions.js';
 
 export function buildGraphViewContextFromExecution(options: {
-  execution: GraphExecutionMetadata;
+  execution?: GraphExecutionMetadata;
+  graphIdFallback?: GraphId;
 }): GraphViewContext {
-  const { execution } = options;
+  const { execution, graphIdFallback } = options;
+  const graphId = execution?.graphId ?? graphIdFallback;
 
-  if (!execution.executor) {
-    return createRootGraphViewContext(execution.graphId);
+  if (!graphId) {
+    throw new Error('Cannot build graph view context without graph execution metadata or a graph id fallback.');
+  }
+
+  if (!execution?.executor) {
+    return createRootGraphViewContext(graphId);
   }
 
   return createSubgraphGraphViewContext({
-    graphId: execution.graphId,
+    graphId,
     parentGraphId: execution.executor.parentGraphId,
     parentNodeId: execution.executor.nodeId,
   });
 }
 
 export function buildGraphViewKeyFromExecution(options: {
-  execution: GraphExecutionMetadata;
+  execution?: GraphExecutionMetadata;
+  graphIdFallback?: GraphId;
 }): GraphViewKey {
   return buildGraphViewContextFromExecution(options).key;
 }

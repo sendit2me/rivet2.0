@@ -8,14 +8,37 @@ import {
   NodeProjectReferenceLoader,
 } from '@ironclad/rivet-node';
 import * as Rivet from '@ironclad/rivet-core';
-import { type RivetPluginInitializer, type PluginLoadSpec } from '@ironclad/rivet-core';
+import {
+  getError,
+  logRuntimeDebug,
+  logRuntimeError,
+  logRuntimeInfo,
+  logRuntimeWarn,
+  summarizePortMapForLog,
+  type RivetPluginInitializer,
+  type PluginLoadSpec,
+} from '@ironclad/rivet-core';
 import { match } from 'ts-pattern';
 import { join } from 'node:path';
 import { access, readFile } from 'node:fs/promises';
 import { platform, homedir } from 'node:os';
 import { pathToFileURL } from 'node:url';
+import { AppExecutorWorkerCodeRunner } from './AppExecutorWorkerCodeRunner.mjs';
+import { parseExecutorHostFromArgs, parseExecutorPortFromArgs } from './executorConfig.mjs';
 
 const datasetProvider = new DebuggerDatasetProvider();
+const editorExecutionCachesByProjectId = new Map<string, Map<string, unknown>>();
+
+function getEditorExecutionCache(project: Rivet.Project) {
+  let cache = editorExecutionCachesByProjectId.get(project.metadata.id);
+
+  if (!cache) {
+    cache = new Map<string, unknown>();
+    editorExecutionCachesByProjectId.set(project.metadata.id, cache);
+  }
+
+  return cache;
+}
 
 /**
  * Dynamically import a module and resolve its default export. Handles the
@@ -23,8 +46,13 @@ const datasetProvider = new DebuggerDatasetProvider();
  * extra `{ default: ... }` layer depending on the module format of the target.
  */
 async function importPluginInitializer(specifier: string, pluginId: string): Promise<RivetPluginInitializer> {
-  const imported = (await import(specifier)) as { default: RivetPluginInitializer | { default: RivetPluginInitializer } };
-  const mod = typeof imported.default === 'function' ? imported.default : (imported.default as { default: RivetPluginInitializer }).default;
+  const imported = (await import(specifier)) as {
+    default: RivetPluginInitializer | { default: RivetPluginInitializer };
+  };
+  const mod =
+    typeof imported.default === 'function'
+      ? imported.default
+      : (imported.default as { default: RivetPluginInitializer }).default;
   if (typeof mod !== 'function') {
     throw new Error(`Plugin ${pluginId} does not export a valid initializer function`);
   }
@@ -47,53 +75,88 @@ function getAppDataLocalPath() {
     });
 }
 
-function parsePortFromArgs(argv: string[]) {
-  const defaultPort = 21889;
+const executorArgs = process.argv.slice(2);
+const port = parseExecutorPortFromArgs(executorArgs);
+const host = parseExecutorHostFromArgs(executorArgs);
+const executorReadyMessage = `Rivet app executor websocket listening on ${host}:${port}`;
+let executorWebSocketReady = false;
+let exitingAfterStartupError = false;
 
-  for (let index = 0; index < argv.length; index += 1) {
-    const arg = argv[index];
+process.on('unhandledRejection', (reason) => {
+  handleTopLevelSidecarError('Unhandled promise rejection in app executor sidecar.', reason);
+});
 
-    if (arg === '--port' || arg === '-p') {
-      const value = argv[index + 1];
-      const parsed = Number(value);
-      if (!value || Number.isNaN(parsed) || !Number.isInteger(parsed) || parsed <= 0) {
-        throw new Error(`Invalid port value: ${value ?? '(missing)'}`);
-      }
-      return parsed;
-    }
+process.on('uncaughtException', (error) => {
+  handleTopLevelSidecarError('Uncaught exception in app executor sidecar.', error);
+});
 
-    if (arg?.startsWith('--port=')) {
-      const value = arg.slice('--port='.length);
-      const parsed = Number(value);
-      if (!value || Number.isNaN(parsed) || !Number.isInteger(parsed) || parsed <= 0) {
-        throw new Error(`Invalid port value: ${value || '(missing)'}`);
-      }
-      return parsed;
-    }
+function handleTopLevelSidecarError(message: string, error: unknown) {
+  logRuntimeError(message, error);
+
+  if (!executorWebSocketReady && !exitingAfterStartupError) {
+    exitingAfterStartupError = true;
+    process.exitCode = 1;
+    setImmediate(() => process.exit(1));
   }
-
-  return defaultPort;
 }
 
-const port = parsePortFromArgs(process.argv.slice(2));
+function sendGraphRunError(client: { send(data: string): void }, requestId: Rivet.RemoteRunRequestId, error: unknown) {
+  try {
+    client.send(
+      JSON.stringify({
+        message: 'error',
+        data: {
+          error: getError(error).toString(),
+        },
+        requestId,
+      }),
+    );
+  } catch (sendError) {
+    logRuntimeError('Failed to report graph run error to executor client.', sendError, { requestId });
+  }
+}
 
 const rivetDebugger = startDebuggerServer({
   port,
+  host,
   allowGraphUpload: true,
   datasetProvider,
-  dynamicGraphRun: async ({ requestId, graphId, inputs, runToNodeIds, contextValues, runFromNodeId, projectPath }) => {
-    console.log(`Running graph ${graphId} with inputs:`, inputs);
+  dynamicGraphRun: async ({
+    client,
+    requestId,
+    graphId,
+    inputs,
+    runToNodeIds,
+    contextValues,
+    runFromNodeId,
+    projectPath,
+    useEditorCache,
+  }) => {
+    logRuntimeInfo(`Running graph ${graphId}`, {
+      requestId,
+      inputCount: Object.keys(inputs ?? {}).length,
+      runToNodeCount: runToNodeIds?.length ?? 0,
+      hasRunFromNode: runFromNodeId != null,
+      contextValueCount: Object.keys(contextValues ?? {}).length,
+      hasProjectPath: projectPath != null,
+    });
+    logRuntimeDebug('Graph input summary', {
+      requestId,
+      inputs: summarizePortMapForLog(inputs),
+    });
 
     const project = currentDebuggerState.uploadedProject;
 
     if (project === undefined) {
-      console.warn(`Cannot run graph ${graphId} because no project is uploaded.`);
+      logRuntimeWarn(`Cannot run graph ${graphId} because no project is uploaded.`);
+      sendGraphRunError(client, requestId, new Error(`Cannot run graph ${graphId} because no project is uploaded.`));
       return;
     }
 
-    const { registry, results } = await assembleRegistry(
-      project.plugins ?? [],
-      async (spec: PluginLoadSpec) => {
+    let processorForConsole: ReturnType<typeof createProcessor>['processor'] | undefined;
+
+    try {
+      const { registry, results } = await assembleRegistry(project.plugins ?? [], async (spec: PluginLoadSpec) => {
         return match(spec)
           .with({ type: 'built-in' }, async (s) => resolveBuiltInPlugin(s.id))
           .with({ type: 'uri' }, async (s) => {
@@ -129,17 +192,21 @@ const rivetDebugger = startDebuggerServer({
             return initialized;
           })
           .exhaustive();
-      },
-    );
+      });
 
-    for (const plugin of results.loaded) {
-      console.log(`Enabled plugin ${plugin.id}.`);
-    }
-    for (const fail of results.failed) {
-      console.error(`Failed to enable plugin ${fail.id}: ${fail.error}`);
-    }
+      for (const plugin of results.loaded) {
+        logRuntimeInfo(`Enabled plugin ${plugin.id}.`);
+      }
+      for (const fail of results.failed) {
+        logRuntimeError(`Failed to enable plugin ${fail.id}.`, fail.error);
+      }
 
-    try {
+      const codeRunner = new AppExecutorWorkerCodeRunner((message) => {
+        if (processorForConsole) {
+          rivetDebugger.broadcast(processorForConsole, 'codeConsole', message, requestId);
+        }
+      });
+
       const processor = createProcessor(project, {
         graph: graphId,
         inputs,
@@ -148,13 +215,16 @@ const rivetDebugger = startDebuggerServer({
         remoteDebuggerRequestId: requestId,
         registry,
         datasetProvider,
+        codeRunner,
+        editorExecutionCache: useEditorCache ? getEditorExecutionCache(project) : undefined,
         onTrace: (trace) => {
-          console.log(trace);
+          logRuntimeDebug('Graph trace', { trace });
         },
         context: contextValues,
         projectPath,
         projectReferenceLoader: new NodeProjectReferenceLoader(),
       });
+      processorForConsole = processor.processor;
 
       if (runToNodeIds) {
         processor.processor.runToNodeIds = runToNodeIds;
@@ -166,8 +236,12 @@ const rivetDebugger = startDebuggerServer({
 
       await processor.run();
     } catch (err) {
-      console.error(err);
-      throw err;
+      logRuntimeError(`Graph ${graphId} failed.`, err, { requestId });
+      sendGraphRunError(client, requestId, err);
+    } finally {
+      if (processorForConsole) {
+        rivetDebugger.detach(processorForConsole);
+      }
     }
   },
 });
@@ -176,4 +250,15 @@ process.on('SIGTERM', () => {
   rivetDebugger.webSocketServer.close();
 });
 
-console.log(`Node.js executor started on port ${port}.`);
+function announceExecutorReady() {
+  executorWebSocketReady = true;
+  logRuntimeInfo(executorReadyMessage);
+}
+
+if (rivetDebugger.webSocketServer.address()) {
+  announceExecutorReady();
+} else {
+  rivetDebugger.webSocketServer.once('listening', () => {
+    announceExecutorReady();
+  });
+}

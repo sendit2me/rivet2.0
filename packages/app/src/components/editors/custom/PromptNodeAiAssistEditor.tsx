@@ -29,6 +29,8 @@ export const PromptNodeAiAssistEditor: FC<
       graphName="Prompt Node Generator"
       placeholder="Generate a prompt using AI"
       label="Generate Using AI"
+      collapsible
+      defaultOpen={false}
       updateData={(currentData, outputs) => {
         const outputPrompt = coerceTypeOptional(outputs.output, 'string');
 

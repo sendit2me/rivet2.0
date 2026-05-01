@@ -1,6 +1,5 @@
 import { Field, HelperMessage } from '@atlaskit/form';
 import TextField from '@atlaskit/textfield';
-import Toggle from '@atlaskit/toggle';
 import { type GraphId } from '@ironclad/rivet-core';
 import clsx from 'clsx';
 import { orderBy } from 'lodash-es';
@@ -13,6 +12,7 @@ import Button from '@atlaskit/button';
 import { type TemplateResponse } from '../../utils/communityApi';
 import { inc } from 'semver';
 import { isNotNull } from '../../utils/genericUtilFunctions';
+import { ScalableToggle } from '../ScalableToggle.js';
 
 const styles = css`
   .graphs-to-include {
@@ -192,7 +192,7 @@ export const CreateTemplateForm: FC<{
                     <span className="name">{g.metadata!.name!}</span>
                   </div>
                   <div className="selected">
-                    <Toggle isChecked={graphsToInclude.includes(g.metadata!.id!)} isDisabled={working} />
+                    <ScalableToggle isChecked={graphsToInclude.includes(g.metadata!.id!)} isDisabled={working} />
                   </div>
                 </div>
               ))}

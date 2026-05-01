@@ -2,23 +2,11 @@ import { DndContext, useDroppable } from '@dnd-kit/core';
 import { useMergeRefs } from '@floating-ui/react';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { produce } from 'immer';
-import {
-  type FC,
-  type MouseEvent,
-  type MutableRefObject,
-  useEffect,
-  useMemo,
-  useState,
-} from 'react';
-import {
-  type ChartNode,
-  type CommentNode,
-  type NodeConnection,
-  type NodeId,
-} from '@ironclad/rivet-core';
+import { type FC, type MouseEvent, type MutableRefObject, useEffect, useMemo, useState } from 'react';
+import { type ChartNode, type CommentNode, type NodeConnection, type NodeId } from '@ironclad/rivet-core';
+import { useAutoLayoutCommand } from '../commands/autoLayoutCommand';
 import { useDeleteNodesCommand } from '../commands/deleteNodeCommand';
 import { useEditNodeCommand } from '../commands/editNodeCommand';
-import { useAutoLayoutGraph } from '../hooks/useAutoLayoutGraph';
 import { useCanvasHotkeys } from '../hooks/useCanvasHotkeys';
 import { useCanvasPositioning } from '../hooks/useCanvasPositioning.js';
 import { useContextMenu } from '../hooks/useContextMenu.js';
@@ -26,9 +14,11 @@ import { useCopyNodesHotkeys } from '../hooks/useCopyNodesHotkeys';
 import { useDraggingNode } from '../hooks/useDraggingNode.js';
 import { useDraggingWire } from '../hooks/useDraggingWire.js';
 import { useGlobalHotkey } from '../hooks/useGlobalHotkey.js';
+import { isNodeGraphSearchMatch } from '../hooks/graphSearch.js';
 import { useNodeHeightCache } from '../hooks/useNodeBodyHeight';
 import { useNodePortPositions } from '../hooks/useNodePortPositions';
 import { useNodeTypes } from '../hooks/useNodeTypes';
+import { useProjectNodeRegistry } from '../hooks/useProjectNodeRegistry';
 import { usePortHoverTooltip } from '../hooks/usePortHoverTooltip.js';
 import { useSearchGraph } from '../hooks/useSearchGraph';
 import { useSelectionBox } from '../hooks/useSelectionBox.js';
@@ -39,23 +29,37 @@ import { useWireDragScrolling } from '../hooks/useWireDragScrolling';
 import {
   canvasPositionState,
   editingNodeState,
+  searchingGraphState,
   lastCanvasPositionByGraphState,
   lastMousePositionState,
   selectedNodesState,
-  searchMatchingNodeIdsState,
   draggingWireClosestPortState,
   hoveringNodeState,
-  pinnedNodesState,
+  expandedOutputNodeIdsState,
+  fullscreenOutputNodeState,
 } from '../state/graphBuilder';
-import { graphMetadataState, graphState, nodesState } from '../state/graph.js';
+import { graphMetadataState } from '../state/graph.js';
 import { lastRunDataByNodeState, selectedProcessPageNodesState } from '../state/dataFlow';
+import { projectState, referencedProjectsState } from '../state/savedGraphs.js';
 import { zoomSensitivityState } from '../state/settings';
+import { canvasPreviewConnectionsState } from '../state/selectors/canvasGraphSelectors.js';
+import { nodesByIdState } from '../state/selectors/graphSelectors.js';
 import { MouseIcon } from './MouseIcon';
 import { type ContextMenuContext } from './ContextMenu.js';
 import { nodeCanvasStyles } from './nodeCanvas/nodeCanvasStyles.js';
 import { NodeCanvasOverlays } from './nodeCanvas/NodeCanvasOverlays.js';
+import { MultiNodeAlignmentToolbar } from './nodeCanvas/MultiNodeAlignmentToolbar.js';
 import { NodeCanvasViewport } from './nodeCanvas/NodeCanvasViewport.js';
 import { useNodeCanvasInteractions } from './nodeCanvas/useNodeCanvasInteractions.js';
+import type { NodeResizeBounds } from '../utils/nodeResize.js';
+import { MEDIUM_GRAPH_NODE_THRESHOLD } from './nodeCanvas/canvasPerformanceBudget.js';
+import { getCanvasPerfSnapshot } from './nodeCanvas/canvasPerfDebug.js';
+import { groupConnectionsByNode } from './nodeCanvas/groupConnectionsByNode.js';
+import { getDraggingViewportNodeIds, shouldFreezeViewportVisibility } from './nodeCanvas/viewportVisibilityPolicy.js';
+import { filterValidSubGraphConnections } from '../domain/graphEditing/connectionValidation.js';
+
+const EMPTY_NODE_CONNECTIONS: NodeConnection[] = [];
+const EMPTY_NODE_IDS: NodeId[] = [];
 
 export interface NodeCanvasProps {
   nodes: ChartNode[];
@@ -78,7 +82,8 @@ export type PortPositions = Record<string, { x: number; y: number }>;
 
 export const NodeCanvas: FC<NodeCanvasProps> = ({
   nodes,
-  connections,
+  connections: _connections,
+  selectedNodes,
   onNodesChanged,
   onConnectionsChanged,
   onNodeSelected,
@@ -95,37 +100,86 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
   const [contextMenuDisabled, setContextMenuDisabled] = useState(true);
 
   const selectedGraphMetadata = useAtomValue(graphMetadataState);
-  const graph = useAtomValue(graphState);
   const closestPort = useAtomValue(draggingWireClosestPortState);
-  const searchMatchingNodes = useAtomValue(searchMatchingNodeIdsState);
-  const pinnedNodes = useAtomValue(pinnedNodesState);
+  const graphSearch = useAtomValue(searchingGraphState);
+  const expandedOutputNodeIds = useAtomValue(expandedOutputNodeIdsState);
+  const fullscreenOutputNodeId = useAtomValue(fullscreenOutputNodeState);
   const lastRunPerNode = useAtomValue(lastRunDataByNodeState);
   const selectedProcessPagePerNode = useAtomValue(selectedProcessPageNodesState);
   const zoomSensitivity = useAtomValue(zoomSensitivityState);
+  const rawPreviewConnections = useAtomValue(canvasPreviewConnectionsState);
+  const nodesById = useAtomValue(nodesByIdState);
+  const project = useAtomValue(projectState);
+  const referencedProjects = useAtomValue(referencedProjectsState);
 
   const setLastSavedCanvasPosition = useSetAtom(lastCanvasPositionByGraphState);
   const setLastMousePosition = useSetAtom(lastMousePositionState);
-  const setNodes = useSetAtom(nodesState);
 
   const { clientToCanvasPosition } = useCanvasPositioning();
   const removeNodes = useDeleteNodesCommand();
   const editNode = useEditNodeCommand();
   const cache = useNodeHeightCache();
   const nodeTypes = useNodeTypes();
+  const projectNodeRegistry = useProjectNodeRegistry();
+
+  const connections = useMemo(
+    () =>
+      filterValidSubGraphConnections({
+        connections: _connections,
+        nodesById,
+        project,
+        projectNodeRegistry,
+        referencedProjects,
+      }),
+    [_connections, nodesById, project, projectNodeRegistry, referencedProjects],
+  );
+  const previewConnections = useMemo(
+    () =>
+      filterValidSubGraphConnections({
+        connections: rawPreviewConnections,
+        nodesById,
+        project,
+        projectNodeRegistry,
+        referencedProjects,
+      }),
+    [nodesById, project, projectNodeRegistry, rawPreviewConnections, referencedProjects],
+  );
+
+  useEffect(() => {
+    if (connections.length === _connections.length) {
+      return;
+    }
+
+    onConnectionsChanged(connections);
+  }, [_connections.length, connections, onConnectionsChanged]);
 
   const { selectionBox, startSelectionBox, updateSelectionBox, endSelectionBox } = useSelectionBox();
-  const {
-    hoveringPort,
-    hoveringShowPortInfo,
-    onPortMouseOver,
-    onPortMouseOut,
-    floatingStyles,
-    floatingRefs,
-  } = usePortHoverTooltip();
+  const { hoveringPort, hoveringShowPortInfo, onPortMouseOver, onPortMouseOut, floatingStyles, floatingRefs } =
+    usePortHoverTooltip();
 
-  const { draggingNodes, onNodeStartDrag, onNodeDragged } = useDraggingNode(onNodesChanged);
+  const {
+    dragAxisLock,
+    dragMode,
+    draggingConnectionSourceNodeIds,
+    draggedHoverControlSourceNodeIds,
+    draggingNodes,
+    draggedSourceNodeIds,
+    onNodeDragActivatorPointerDown,
+    onNodeDragCancelled,
+    onNodeDraggedMove,
+    onNodeStartDrag,
+    onNodeDragged,
+  } = useDraggingNode();
   const { draggingWire, onWireStartDrag, onWireEndDrag } = useDraggingWire(onConnectionsChanged);
-  useWireDragScrolling();
+  const isDraggingNode = draggingNodes.length > 0;
+  const isDraggingWire = !!draggingWire;
+
+  const shouldRenderWires = canvasPosition.zoom > 0.15;
+  const viewportBounds = useViewportBounds();
+  const draggingViewportNodeIds = useMemo(
+    () => getDraggingViewportNodeIds({ draggedSourceNodeIds, draggingNodes }),
+    [draggedSourceNodeIds, draggingNodes],
+  );
 
   const {
     contextMenuRef,
@@ -136,46 +190,23 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
     setContextMenuData,
   } = useContextMenu();
 
-  const shouldRenderWires = canvasPosition.zoom > 0.15;
-  const {
-    nodePortPositions,
-    canvasRef,
-    recalculate: recalculatePortPositions,
-  } = useNodePortPositions({ enabled: shouldRenderWires, isDraggingNode: draggingNodes.length > 0 });
-
-  const autoLayout = useAutoLayoutGraph();
-
-  useEffect(() => {
-    autoLayoutGraph.current = () => {
-      const updatedNodes = autoLayout(graph);
-      setNodes(updatedNodes);
-      recalculatePortPositions();
-    };
-  }, [autoLayout, autoLayoutGraph, graph, recalculatePortPositions, setNodes]);
-
-  useEffect(() => {
-    recalculatePortPositions();
-  }, [recalculatePortPositions, selectedGraphMetadata?.id]);
-
-  const { setNodeRef } = useDroppable({ id: 'NodeCanvas' });
-  const setCanvasRef = useMergeRefs([setNodeRef, canvasRef]);
-
+  const connectionsByNodeId = useMemo(() => groupConnectionsByNode(previewConnections), [previewConnections]);
   const nodesWithConnections = useMemo(
     () =>
       nodes.map((node) => ({
         node,
-        nodeConnections: connections.filter((connection) => connection.inputNodeId === node.id || connection.outputNodeId === node.id),
+        nodeConnections: connectionsByNodeId[node.id] ?? EMPTY_NODE_CONNECTIONS,
       })),
-    [connections, nodes],
+    [connectionsByNodeId, nodes],
   );
 
-  const draggingNodeConnections = useMemo(
-    () =>
-      draggingNodes.flatMap((draggingNode) =>
-        connections.filter((connection) => connection.inputNodeId === draggingNode.id || connection.outputNodeId === draggingNode.id),
-      ),
-    [connections, draggingNodes],
-  );
+  const draggingNodeConnections = useMemo(() => {
+    const draggingNodeIdSet = new Set(draggingConnectionSourceNodeIds);
+
+    return previewConnections.filter(
+      (connection) => draggingNodeIdSet.has(connection.inputNodeId) || draggingNodeIdSet.has(connection.outputNodeId),
+    );
+  }, [draggingConnectionSourceNodeIds, previewConnections]);
 
   const contextMenuItemSelected = useStableCallback(
     (itemId: string, data: unknown, context: ContextMenuContext, meta: { x: number; y: number }) => {
@@ -184,70 +215,137 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
     },
   );
 
-  const { canvasMouseDown, canvasMouseMove, canvasMouseUp, handleCanvasContextMenu, handleZoom, lastMouseInfoRef } =
-    useNodeCanvasInteractions({
-      canvasPosition,
-      clientToCanvasPosition,
-      dragStart,
-      endSelectionBox,
-      isDraggingCanvas,
-      nodes,
-      onCanvasContextMenu: handleContextMenu,
-      recalculatePortPositions,
-      selectedGraphId: selectedGraphMetadata?.id,
-      selectedNodeIds,
-      selectionBox,
-      setCanvasPosition,
-      setDragStart,
-      setEditingNodeId,
-      setIsDraggingCanvas,
-      setLastMousePosition,
-      setLastSavedCanvasPosition,
-      setSelectedNodeIds,
-      startSelectionBox,
-      updateSelectionBox,
-      zoomSensitivity,
-    });
+  const {
+    canvasMouseDown,
+    canvasMouseMove,
+    canvasMouseUp,
+    handleCanvasContextMenu,
+    handleZoom,
+    isViewportMoving,
+    lastMouseInfoRef,
+    reportViewportMotion,
+  } = useNodeCanvasInteractions({
+    canvasPosition,
+    clientToCanvasPosition,
+    dragStart,
+    endSelectionBox,
+    isDraggingCanvas,
+    nodes,
+    onCanvasContextMenu: handleContextMenu,
+    selectedGraphId: selectedGraphMetadata?.id,
+    selectedNodeIds,
+    selectionBox,
+    setCanvasPosition,
+    setDragStart,
+    setEditingNodeId,
+    setIsDraggingCanvas,
+    setLastMousePosition,
+    setLastSavedCanvasPosition,
+    setSelectedNodeIds,
+    startSelectionBox,
+    updateSelectionBox,
+    zoomSensitivity,
+  });
+  useWireDragScrolling(reportViewportMotion);
 
-  const onNodeSizeChanged = useStableCallback((node: ChartNode, width: number, height: number) => {
+  const onNodeSizeChanged = useStableCallback((node: ChartNode, nextBounds: NodeResizeBounds) => {
     onNodesChanged(
       produce(nodes, (draft) => {
         const foundNode = draft.find((candidate) => candidate.id === node.id);
         if (foundNode) {
-          foundNode.visualData.width = width;
-        }
+          foundNode.visualData.x = nextBounds.x;
+          foundNode.visualData.y = nextBounds.y ?? foundNode.visualData.y;
+          foundNode.visualData.width = nextBounds.width;
 
-        if (foundNode?.type === 'comment') {
-          (foundNode as CommentNode).data.height = height;
+          if (foundNode.type === 'comment' && nextBounds.height != null) {
+            (foundNode as CommentNode).data.height = nextBounds.height;
+          }
         }
       }),
     );
   });
 
-  const onNodeMouseOver = useStableCallback((_e: MouseEvent<HTMLElement>, nodeId: NodeId) => {
+  const onNodeMouseEnter = useStableCallback((_e: MouseEvent<HTMLElement>, nodeId: NodeId) => {
     setHoveringNode(nodeId);
   });
 
-  const onNodeMouseOut = useStableCallback(() => {
+  const onNodeMouseLeave = useStableCallback(() => {
     setHoveringNode(undefined);
   });
 
-  const highlightedNodes = useMemo(() => {
-    const highlightedNodeIds = new Set(selectedNodeIds);
+  const selectedViewportNodeIds = useMemo(() => {
+    const nextSelectedNodeIds = new Set(selectedNodeIds);
 
     if (editingNodeId) {
-      highlightedNodeIds.add(editingNodeId);
+      nextSelectedNodeIds.add(editingNodeId);
     }
+
+    if (fullscreenOutputNodeId) {
+      nextSelectedNodeIds.add(fullscreenOutputNodeId);
+    }
+
+    return [...nextSelectedNodeIds];
+  }, [editingNodeId, fullscreenOutputNodeId, selectedNodeIds]);
+
+  const hasGraphSearchQuery = graphSearch.searching && graphSearch.query.trim().length > 0;
+  const searchMatchingNodeIds = useMemo(
+    () =>
+      hasGraphSearchQuery
+        ? graphSearch.matches
+            .filter(isNodeGraphSearchMatch)
+            .filter((match) => match.graphId === selectedGraphMetadata?.id)
+            .map((match) => match.nodeId)
+        : EMPTY_NODE_IDS,
+    [graphSearch.matches, hasGraphSearchQuery, selectedGraphMetadata?.id],
+  );
+
+  const highlightedNodes = useMemo(() => {
+    const highlightedNodeIds = new Set(selectedViewportNodeIds);
 
     if (hoveringNode && !hoveringPort) {
       highlightedNodeIds.add(hoveringNode);
     }
 
     return [...highlightedNodeIds];
-  }, [editingNodeId, hoveringNode, hoveringPort, selectedNodeIds]);
+  }, [hoveringNode, hoveringPort, selectedViewportNodeIds]);
+  const freezeViewportVisibility = shouldFreezeViewportVisibility({
+    isDraggingNode,
+    isDraggingWire,
+    isViewportMoving,
+  });
 
-  const viewportBounds = useViewportBounds();
-  const { isNodeVisible } = useVisibleCanvasNodes({ nodes, pinnedNodeIds: pinnedNodes, viewportBounds });
+  const { heavyContentNodeIdSet, isViewportVisibilitySettled, nearViewportNodeIdSet, visibleNodeIdSet } =
+    useVisibleCanvasNodes({
+      draggingNodeIds: draggingViewportNodeIds,
+      editingNodeId,
+      expandedOutputNodeIds,
+      hoveringNodeId: hoveringNode,
+      isViewportMoving: freezeViewportVisibility,
+      nodes,
+      selectedNodeIds: selectedViewportNodeIds,
+      viewportBounds,
+    });
+
+  const {
+    nodePortPositions,
+    canvasRef,
+    recalculate: recalculatePortPositions,
+  } = useNodePortPositions({
+    enabled: shouldRenderWires,
+    isDraggingNode,
+    isDraggingWire,
+    visibleNodeIdSet,
+  });
+  const autoLayout = useAutoLayoutCommand(recalculatePortPositions);
+
+  useEffect(() => {
+    autoLayoutGraph.current = () => {
+      autoLayout({});
+    };
+  }, [autoLayout, autoLayoutGraph]);
+
+  const { setNodeRef } = useDroppable({ id: 'NodeCanvas' });
+  const setCanvasRef = useMergeRefs([setNodeRef, canvasRef]);
 
   const nodeSelected = useStableCallback((node: ChartNode, multi: boolean) => {
     onNodeSelected?.(node, multi);
@@ -310,17 +408,32 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
   const isZoomedOut = canvasPosition.zoom < 0.4;
   const isReallyZoomedOut = canvasPosition.zoom < 0.2;
 
-  const onResizeFinish = useStableCallback((node: ChartNode, width: number, height: number) => {
-    editNode({
-      nodeId: node.id,
-      newNode: {
+  const onResizeFinish = useStableCallback(
+    (node: ChartNode, nextBounds: NodeResizeBounds, previousNodeOverride?: Partial<ChartNode>) => {
+      const newNode: Partial<ChartNode> = {
         visualData: {
           ...node.visualData,
-          width,
+          x: nextBounds.x,
+          y: nextBounds.y ?? node.visualData.y,
+          width: nextBounds.width,
         },
-      },
-    });
-  });
+      };
+
+      if (node.type === 'comment' && nextBounds.height != null) {
+        const commentNode = node as CommentNode;
+        newNode.data = {
+          ...commentNode.data,
+          height: nextBounds.height,
+        };
+      }
+
+      editNode({
+        nodeId: node.id,
+        newNode,
+        previousNodeOverride,
+      });
+    },
+  );
 
   const canvasViewContextValue = useMemo(
     () => ({
@@ -336,8 +449,8 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
 
   const canvasHandlersContextValue = useMemo(
     () => ({
-      onMouseOut: onNodeMouseOut,
-      onMouseOver: onNodeMouseOver,
+      onNodeMouseEnter,
+      onNodeMouseLeave,
       onNodeSelected: nodeSelected,
       onNodeSizeChanged,
       onNodeStartEditing: nodeStartEditing,
@@ -350,8 +463,8 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
     [
       nodeSelected,
       nodeStartEditing,
-      onNodeMouseOut,
-      onNodeMouseOver,
+      onNodeMouseEnter,
+      onNodeMouseLeave,
       onNodeSizeChanged,
       onPortMouseOut,
       onPortMouseOver,
@@ -362,10 +475,15 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
   );
 
   return (
-    <DndContext onDragStart={onNodeStartDrag} onDragEnd={onNodeDragged}>
+    <DndContext
+      onDragStart={onNodeStartDrag}
+      onDragMove={onNodeDraggedMove}
+      onDragEnd={onNodeDragged}
+      onDragCancel={onNodeDragCancelled}
+    >
       <div
         ref={setCanvasRef}
-        className="node-canvas"
+        className={isDraggingNode ? 'node-canvas dragging-node' : 'node-canvas'}
         css={nodeCanvasStyles}
         onContextMenu={handleCanvasContextMenu}
         onMouseDown={canvasMouseDown}
@@ -378,7 +496,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
           backgroundSize: `${20 * canvasPosition.zoom}px ${20 * canvasPosition.zoom}px`,
         }}
       >
-        <MouseIcon />
+        <MouseIcon isDraggingNode={isDraggingNode} />
         <CopyNodesHotkeys />
         <DebugOverlay enabled={false} />
         <NodeCanvasViewport
@@ -387,32 +505,42 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
           canvasPositionY={canvasPosition.y}
           canvasZoom={canvasPosition.zoom}
           canvasViewContextValue={canvasViewContextValue}
+          dragAxisLock={dragAxisLock}
+          dragMode={dragMode}
+          draggingHoverControlSourceNodeIds={draggedHoverControlSourceNodeIds}
           draggingNodeConnections={draggingNodeConnections}
           draggingNodes={draggingNodes}
-          highlightedNodeIds={highlightedNodes}
-          isNodeVisible={isNodeVisible}
+          draggingSourceNodeIds={draggedSourceNodeIds}
+          heavyContentNodeIdSet={heavyContentNodeIdSet}
+          hoveredNodeId={hoveringPort ? undefined : hoveringNode}
           lastRunPerNode={lastRunPerNode}
           nodeTypes={nodeTypes}
           nodesWithConnections={nodesWithConnections}
-          pinnedNodeIds={pinnedNodes}
-          searchMatchingNodeIds={searchMatchingNodes}
+          onNodeDragActivatorPointerDown={onNodeDragActivatorPointerDown}
+          expandedOutputNodeIds={expandedOutputNodeIds}
+          searchMatchingNodeIds={searchMatchingNodeIds}
+          selectedNodeIds={selectedViewportNodeIds}
           selectedProcessPagePerNode={selectedProcessPagePerNode}
+          visibleNodeIdSet={visibleNodeIdSet}
         />
         {hydratedContextMenuData && (
           <NodeCanvasOverlays
-            connections={connections}
+            connections={previewConnections}
             context={hydratedContextMenuData}
             contextMenuDisabled={contextMenuDisabled}
             contextMenuRef={contextMenuRef}
             contextMenuX={contextMenuData.x}
             contextMenuY={contextMenuData.y}
-            draggingNode={draggingNodes.length > 0}
+            draggingNode={isDraggingNode}
             draggingWire={draggingWire}
             floatingStyles={floatingStyles}
             highlightedNodes={highlightedNodes}
             highlightedPort={hoveringPort}
             hoveringPort={hoveringPort}
             hoveringShowPortInfo={hoveringShowPortInfo}
+            isViewportMoving={isViewportMoving}
+            isViewportVisibilitySettled={isViewportVisibilitySettled}
+            nearViewportNodeIdSet={nearViewportNodeIdSet}
             nodePortPositions={nodePortPositions}
             onContextMenuEntered={() => {
               setContextMenuDisabled(false);
@@ -426,8 +554,10 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
             setFloating={floatingRefs.setFloating}
             shouldRenderWires={shouldRenderWires}
             showContextMenu={showContextMenu}
+            visibleNodeIdSet={visibleNodeIdSet}
           />
         )}
+        <MultiNodeAlignmentToolbar canvasRootRef={canvasRef} selectedNodes={selectedNodes} />
       </div>
     </DndContext>
   );
@@ -442,6 +572,8 @@ const DebugOverlay: FC<{ enabled: boolean }> = ({ enabled }) => {
     return null;
   }
 
+  const perfSnapshot = getCanvasPerfSnapshot();
+
   return (
     <div className="debug-overlay">
       <div>Translation: {`(${canvasPosition.x.toFixed(2)}, ${canvasPosition.y.toFixed(2)})`}</div>
@@ -454,6 +586,12 @@ const DebugOverlay: FC<{ enabled: boolean }> = ({ enabled }) => {
           lastMousePosition.y,
         ).y.toFixed(2)})`}
       </div>
+      <div>Medium graph threshold: {MEDIUM_GRAPH_NODE_THRESHOLD}</div>
+      {perfSnapshot.map(({ name, value }) => (
+        <div key={name}>
+          {name}: {value.toFixed(2)}
+        </div>
+      ))}
     </div>
   );
 };

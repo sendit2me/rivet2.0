@@ -130,6 +130,8 @@ export function useMenuCommands(
     importGraph,
     toggleRemoteDebugger,
     setLastRunData,
+    setGraphRunHistoryByView,
+    setSelectedGraphRunByView,
     setNewProjectModalOpen,
     setHelpModalOpen,
   ]);

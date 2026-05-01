@@ -1,14 +1,14 @@
 import { type FC, useState } from 'react';
 import { useAtom, useAtomValue } from 'jotai';
 import Button from '@atlaskit/button';
-import { Field, HelperMessage, Label } from '@atlaskit/form';
-import Toggle from '@atlaskit/toggle';
+import { Field, Label } from '@atlaskit/form';
 import useAsyncEffect from 'use-async-effect';
 import { useCheckForUpdate } from '../../../hooks/useCheckForUpdate.js';
 import { wrapAsync } from '../../../utils/errorHandling.js';
 import { getAppVersion } from '../../../utils/platform/app.js';
 import { checkForUpdatesState, skippedMaxVersionState } from '../../../state/settings.js';
 import { fields } from '../settingsPageStyles.js';
+import { LabeledToggle } from '../../LabeledToggle.js';
 
 export const UpdatesSettingsPage: FC = () => {
   const checkForUpdatesNow = useCheckForUpdate({ notifyNoUpdates: true, force: true });
@@ -28,17 +28,14 @@ export const UpdatesSettingsPage: FC = () => {
       <Field name="check-for-updates">
         {() => (
           <>
-            <Label htmlFor="check-for-updates" testId="check-for-updates">
-              Check for updates on startup
-            </Label>
-            <div className="toggle-field">
-              <Toggle
-                id="check-for-updates"
-                isChecked={checkForUpdates}
-                onChange={(event) => setCheckForUpdates(event.target.checked)}
-              />
-            </div>
-            <HelperMessage>Automatically check for updates on startup</HelperMessage>
+            <LabeledToggle
+              id="check-for-updates"
+              isChecked={checkForUpdates}
+              onChange={setCheckForUpdates}
+              label="Check for updates on startup"
+              helperMessage="Automatically check for updates on startup"
+              className="settings-toggle-field"
+            />
           </>
         )}
       </Field>

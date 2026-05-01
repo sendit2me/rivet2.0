@@ -1,5 +1,4 @@
 import { nanoid } from 'nanoid';
-import type { DataValue, ParsedAssistantChatMessageFunctionCall } from '../DataValue.js';
 import type { ChartNode, NodeId, NodeInputDefinition, NodeOutputDefinition, PortId } from '../NodeBase.js';
 import type { GraphId } from '../NodeGraph.js';
 import { NodeImpl, type NodeBody, type NodeUIData } from '../NodeImpl.js';
@@ -9,9 +8,8 @@ import type { RivetUIContext } from '../RivetUIContext.js';
 import { nodeDefinition } from '../NodeDefinition.js';
 import type { InternalProcessContext } from '../ProcessContext.js';
 import type { Inputs, Outputs } from '../GraphProcessor.js';
-import { coerceType, coerceTypeOptional } from '../../utils/coerceType.js';
-import { getError } from '../../utils/errors.js';
-import { omit } from 'lodash-es';
+import { coerceType } from '../../utils/coerceType.js';
+import { delegateToolCall, isDelegatedToolCallRecord, type DelegatedToolCallRecord } from './toolCallDelegation.js';
 
 export type DelegateFunctionCallNode = ChartNode<'delegateFunctionCall', DelegateFunctionCallNodeData>;
 
@@ -66,14 +64,14 @@ export class DelegateFunctionCallNodeImpl extends NodeImpl<DelegateFunctionCallN
 
     outputs.push({
       id: 'output' as PortId,
-      dataType: 'string',
+      dataType: ['string', 'string[]'] as const,
       title: 'Output',
       description: 'The output of the tool call.',
     });
 
     outputs.push({
       id: 'message' as PortId,
-      dataType: 'object',
+      dataType: ['chat-message', 'chat-message[]', 'object', 'object[]'] as const,
       title: 'Message Output',
       description: 'Maps the output for use directly with an Assemble Prompt node and GPT.',
     });
@@ -159,129 +157,62 @@ export class DelegateFunctionCallNodeImpl extends NodeImpl<DelegateFunctionCallN
   }
 
   async process(inputs: Inputs, context: InternalProcessContext): Promise<Outputs> {
-    const functionCall = coerceType(
-      inputs['function-call' as PortId],
-      'object',
-    ) as ParsedAssistantChatMessageFunctionCall;
+    const functionCallInput = coerceType(inputs['function-call' as PortId], 'object');
+    const delegatedRecords = getDelegatedToolCallRecords(functionCallInput);
 
-    let handler: { key: string; value: GraphId } | undefined;
-
-    if (this.data.autoDelegate) {
-      const matchingGraph = Object.values(context.project.graphs).find((graph) =>
-        graph.metadata?.name?.includes(functionCall.name),
-      );
-      if (matchingGraph) {
-        handler = { key: undefined!, value: matchingGraph.metadata!.id! };
-      }
-    } else {
-      handler = this.data.handlers.find((handler) => handler.key === functionCall.name);
+    if (delegatedRecords.length > 0) {
+      return buildDelegatedToolCallOutputs(delegatedRecords);
     }
 
-    if (!handler) {
-      // Try external function call first (if enabled)
-      if (this.data.autoDelegate && this.data.fallBackToExternalCall) {
-        const externalFunction = context.externalFunctions[functionCall.name];
-        if (externalFunction) {
-          try {
-            const externalContext = omit(context, ['setGlobal']);
-            const result = await externalFunction(externalContext, functionCall.arguments ?? {});
-
-            const outputString = typeof result === 'string' ? result : JSON.stringify(result);
-
-            return {
-              ['output' as PortId]: {
-                type: 'string',
-                value: outputString,
-              },
-              ['message' as PortId]: {
-                type: 'chat-message',
-                value: {
-                  type: 'function',
-                  message: outputString,
-                  name: functionCall.id ?? '',
-                },
-              },
-            };
-          } catch (error) {
-            if (this.data.passthroughErrors) {
-              // Return error as string output instead of throwing
-              const errorMessage = `Error: ${getError(error).message}`;
-              return {
-                ['output' as PortId]: {
-                  type: 'string',
-                  value: errorMessage,
-                },
-                ['message' as PortId]: {
-                  type: 'chat-message',
-                  value: {
-                    type: 'function',
-                    message: errorMessage,
-                    name: functionCall.id ?? '',
-                  },
-                },
-              };
-            } else {
-              throw new Error(`External function call failed for ${functionCall.name}: ${getError(error).message}`);
-            }
-          }
-        }
-      }
-
-      // Fall back to unknown handler if external function wasn't found/enabled
-      if (this.data.unknownHandler) {
-        handler = { key: undefined!, value: this.data.unknownHandler };
-      } else {
-        if (this.data.autoDelegate) {
-          const errorMessage = this.data.fallBackToExternalCall
-            ? `No handler found for tool call: ${functionCall.name}, no graph containing the name "${functionCall.name}" was found, and no external function with that name was registered.`
-            : `No handler found for tool call: ${functionCall.name}, no graph containing the name "${functionCall.name}" was found.`;
-          throw new Error(errorMessage);
-        } else {
-          throw new Error(`No handler found for tool call: ${functionCall.name}`);
-        }
-      }
-    }
-
-    const subgraphInputs: Record<string, DataValue> = {
-      _function_name: {
-        type: 'string',
-        value: functionCall.name,
-      },
-      _arguments: {
-        type: 'object',
-        value: functionCall.arguments,
-      },
-    };
-
-    for (const [argName, argument] of Object.entries(functionCall.arguments ?? {})) {
-      subgraphInputs[argName] = {
-        type: 'any',
-        value: argument,
-      };
-    }
-
-    const handlerGraphId = handler.value;
-    const subprocessor = context.createSubProcessor(handlerGraphId, { signal: context.signal });
-
-    const outputs = await subprocessor.processGraph(context, subgraphInputs, context.contextValues);
-
-    const outputString = coerceTypeOptional(outputs.output, 'string') ?? '';
+    const result = await delegateToolCall(functionCallInput, context, this.data);
 
     return {
       ['output' as PortId]: {
         type: 'string',
-        value: outputString,
+        value: result.outputString,
       },
       ['message' as PortId]: {
         type: 'chat-message',
-        value: {
-          type: 'function',
-          message: outputString,
-          name: functionCall.id ?? '',
-        },
+        value: result.message,
       },
     };
   }
+}
+
+function getDelegatedToolCallRecords(input: object): DelegatedToolCallRecord[] {
+  if (Array.isArray(input)) {
+    return input.every(isDelegatedToolCallRecord) ? input : [];
+  }
+
+  return isDelegatedToolCallRecord(input) ? [input] : [];
+}
+
+function buildDelegatedToolCallOutputs(records: DelegatedToolCallRecord[]): Outputs {
+  if (records.length === 1) {
+    const [record] = records;
+
+    return {
+      ['output' as PortId]: {
+        type: 'string',
+        value: record!.output,
+      },
+      ['message' as PortId]: {
+        type: 'chat-message',
+        value: record!.message,
+      },
+    };
+  }
+
+  return {
+    ['output' as PortId]: {
+      type: 'string[]',
+      value: records.map((record) => record.output),
+    },
+    ['message' as PortId]: {
+      type: 'chat-message[]',
+      value: records.map((record) => record.message),
+    },
+  };
 }
 
 export const delegateFunctionCallNode = nodeDefinition(DelegateFunctionCallNodeImpl, 'Delegate Tool Call');

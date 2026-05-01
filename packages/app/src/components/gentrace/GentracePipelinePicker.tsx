@@ -4,7 +4,7 @@ import { css } from '@emotion/react';
 import { type FC, useEffect, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import { useAtom, useAtomValue } from 'jotai';
-import { getGentracePipelines } from '../../../../core/src/plugins/gentrace/plugin';
+import { getGentracePipelines } from '@ironclad/rivet-core';
 import { graphState } from '../../state/graph';
 import { settingsState } from '../../state/settings';
 import { handleError } from '../../utils/errorHandling.js';
@@ -18,7 +18,8 @@ export type GentracePipeline = ArrayType<Awaited<ReturnType<typeof getGentracePi
 
 const pickerContainerStyles = css`
   background-color: var(--grey-darkish);
-  border-radius: 4px;
+  border-radius: 8px;
+  corner-shape: squircle;
   border: 1px solid var(--grey-dark);
   box-shadow: 3px 1px 10px rgba(0, 0, 0, 0.5);
   min-width: 400px;
@@ -111,7 +112,7 @@ const GentracePipelinePicker: FC<GentracePipelinePickerProps> = ({ onClose }) =>
         css={css`
           margin-bottom: 10px;
           font-weight: 500;
-          font-size: 15px;
+          font-size: var(--ui-font-size-base);
         `}
       >
         Select Gentrace Pipeline
@@ -148,7 +149,8 @@ const GentracePipelinePicker: FC<GentracePipelinePickerProps> = ({ onClose }) =>
             gap: 0.5rem;
             margin: 0px;
             height: 32px;
-            border-radius: 5px;
+            border-radius: 10px;
+            corner-shape: squircle;
             background: ${selectedPipelineOption ? 'var(--success)' : 'var(--grey-darker)'};
           `}
           disabled={!selectedPipelineOption}

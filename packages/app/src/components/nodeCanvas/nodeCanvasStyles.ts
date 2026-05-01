@@ -13,6 +13,11 @@ export const nodeCanvasStyles = css`
   overflow: hidden;
   z-index: 0;
 
+  &.dragging-node,
+  &.dragging-node * {
+    cursor: grabbing !important;
+  }
+
   .nodes {
     position: relative;
     z-index: 0;
@@ -57,12 +62,13 @@ export const nodeCanvasStyles = css`
     top: 50px;
     left: 50px;
     padding: 10px 20px;
-    border-radius: 5px;
+    border-radius: 10px;
+    corner-shape: squircle;
     background-color: rgba(255, 255, 255, 0.03);
     color: var(--foreground);
     box-shadow: 0 2px 4px var(--shadow);
     z-index: 99999;
-    font-size: 12px;
+    font-size: var(--ui-font-size-sm);
     display: flex;
     flex-direction: column;
     gap: 4px;

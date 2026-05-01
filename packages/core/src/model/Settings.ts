@@ -1,6 +1,12 @@
 export interface Settings<PluginSettings = Record<string, Record<string, unknown>>> {
   recordingPlaybackLatency?: number;
 
+  /** Apply predefined colors to supported newly added node types in the editor UI. */
+  defaultNodeColors?: boolean;
+
+  /** Automatically open the node settings panel after creating a new node in the editor UI. */
+  openNodeSettingsOnCreate?: boolean;
+
   /** Configurable settings that a plugin can get and set. Settings can be available in the settings modal and are stored  */
   pluginSettings?: PluginSettings;
 

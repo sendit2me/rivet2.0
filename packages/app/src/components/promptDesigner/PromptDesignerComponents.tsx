@@ -4,6 +4,7 @@ import TextArea from '@atlaskit/textarea';
 import { type ChatMessage, type GraphId, type NodeTestGroup, type PortId, coerceType } from '@ironclad/rivet-core';
 import { findIndex } from 'lodash-es';
 import { useStableCallback } from '../../hooks/useStableCallback.js';
+import { useMultilineEditorFontSize } from '../../hooks/useMultilineEditorFontSize.js';
 import { GraphSelector } from '../editors/GraphSelectorEditor';
 import type { PromptDesignerTestGroupResults } from '../../state/promptDesigner';
 
@@ -14,6 +15,8 @@ export const PromptDesignerMessage: FC<{
   onChange: (message: ChatMessage) => void;
   onDelete: () => void;
 }> = ({ message, onChange, onDelete }) => {
+  const { fontSize, handleKeyDown: handleMultilineEditorFontSizeKeyDown } = useMultilineEditorFontSize();
+
   const toggleAuthorType = useStableCallback(() => {
     const index = findIndex(CHAT_MESSAGE_TYPES, (type) => message.type === type);
     const nextMessageType = CHAT_MESSAGE_TYPES[(index + 1) % CHAT_MESSAGE_TYPES.length]!;
@@ -40,7 +43,7 @@ export const PromptDesignerMessage: FC<{
       textarea.style.height = `${textarea.scrollHeight + 10}px`;
       textarea.style.marginBottom = 'unset';
     }
-  }, [message.message]);
+  }, [fontSize, message.message]);
 
   const stringMessage = coerceType({ type: 'chat-message', value: message }, 'string');
 
@@ -58,7 +61,14 @@ export const PromptDesignerMessage: FC<{
           value={stringMessage}
           onClick={(event) => event.stopPropagation()}
           onChange={onTextChange}
+          onKeyDown={(event) => {
+            if (handleMultilineEditorFontSizeKeyDown(event.nativeEvent)) {
+              event.preventDefault();
+              event.stopPropagation();
+            }
+          }}
           ref={textareaRef}
+          style={{ fontSize }}
         />
       </div>
       <div className="message-delete-button-container">
@@ -78,6 +88,8 @@ export const PromptDesignerTestGroup: FC<{
   inProgress: boolean;
   onCancel?: () => void;
 }> = ({ testGroup, onChange, onStart, onDelete, inProgress, onCancel }) => {
+  const { fontSize, handleKeyDown: handleMultilineEditorFontSizeKeyDown } = useMultilineEditorFontSize();
+
   return (
     <div className="test-group">
       <Button appearance="subtle" className="delete-test-group-button" onClick={() => onDelete(testGroup)}>
@@ -97,6 +109,12 @@ export const PromptDesignerTestGroup: FC<{
               <TextArea
                 placeholder="Enter test condition"
                 value={test.conditionText}
+                onKeyDown={(event) => {
+                  if (handleMultilineEditorFontSizeKeyDown(event.nativeEvent)) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                  }
+                }}
                 onChange={(event) =>
                   onChange({
                     ...testGroup,
@@ -107,6 +125,7 @@ export const PromptDesignerTestGroup: FC<{
                     ),
                   })
                 }
+                style={{ fontSize }}
               />
               <Button
                 appearance="subtle"

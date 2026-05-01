@@ -27,7 +27,7 @@ const toastStyle = css`
     align-items: center;
     justify-content: center;
     white-space: nowrap;
-    font-size: 14px;
+    font-size: var(--ui-font-size-base);
     cursor: pointer;
 
     &.primary {

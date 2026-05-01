@@ -1,6 +1,7 @@
 import { produce } from 'immer';
-import { useSetAtom } from 'jotai';
+import { useAtomValue, useSetAtom } from 'jotai';
 import { type GraphId, type GraphRunId, type ProcessEvents } from '@ironclad/rivet-core';
+import { useLatest } from 'ahooks';
 import { lastRecordingState } from '../state/execution';
 import {
   graphRunHistoryByViewState,
@@ -15,35 +16,14 @@ import {
   type GraphRunRecord,
 } from '../state/dataFlow';
 import { userInputModalQuestionsState } from '../state/userInput';
-import { keys } from '../../../core/src/utils/typeSafety';
+import { keys } from '../utils/typeSafety';
 import { handleError } from '../utils/errorHandling.js';
 import { buildGraphViewKeyFromExecution } from '../utils/executionIdentity';
 import type { GraphViewKey } from '../domain/graphEditing/navigationActions.js';
 import type { ExecutionDataFlowApi } from './useExecutionDataFlow';
-
-export function removeRunningGraphEntry(runningGraphs: GraphId[], graphId: GraphId): GraphId[] {
-  const nextRunningGraphs = [...runningGraphs];
-  const graphIndex = nextRunningGraphs.indexOf(graphId);
-  if (graphIndex !== -1) {
-    nextRunningGraphs.splice(graphIndex, 1);
-  }
-  return nextRunningGraphs;
-}
-
-export function updateSelectedGraphRunForGraphStart(
-  previousSelections: Record<GraphViewKey, GraphRunSelection>,
-  graphViewKey: GraphViewKey,
-): Record<GraphViewKey, GraphRunSelection> {
-  const previousSelection = previousSelections[graphViewKey];
-  if (previousSelection != null && previousSelection !== 'latest') {
-    return previousSelections;
-  }
-
-  return {
-    ...previousSelections,
-    [graphViewKey]: 'latest',
-  };
-}
+import { useDataRefs } from '../providers/ProvidersContext.js';
+import { clearExecutionDataRefs } from '../utils/executionDataTransforms.js';
+import { removeRunningGraphEntry, updateSelectedGraphRunForGraphStart } from './graphExecutionEventHelpers.js';
 
 export type GraphExecutionEventsApi = {
   onAbort: (data: ProcessEvents['abort']) => void;
@@ -62,6 +42,7 @@ export type GraphExecutionEventsApi = {
 export function useGraphExecutionEvents({
   trivetRunningLatest,
 }: Pick<ExecutionDataFlowApi, 'trivetRunningLatest'>): GraphExecutionEventsApi {
+  const dataRefs = useDataRefs();
   const setLastRecordingState = useSetAtom(lastRecordingState);
   const setUserInputQuestions = useSetAtom(userInputModalQuestionsState);
   const setGraphRunning = useSetAtom(graphRunningState);
@@ -69,9 +50,11 @@ export function useGraphExecutionEvents({
   const setRunningGraphsState = useSetAtom(runningGraphsState);
   const setRootGraph = useSetAtom(rootGraphState);
   const setLastRunData = useSetAtom(lastRunDataByNodeState);
+  const lastRunData = useAtomValue(lastRunDataByNodeState);
   const setGraphStartTime = useSetAtom(graphStartTimeState);
   const setGraphRunHistoryByView = useSetAtom(graphRunHistoryByViewState);
   const setSelectedGraphRunByView = useSetAtom(selectedGraphRunByViewState);
+  const lastRunDataLatest = useLatest(lastRunData);
 
   const stopAll = () => {
     setGraphRunning(false);
@@ -102,6 +85,7 @@ export function useGraphExecutionEvents({
     setGraphStartTime(Date.now());
 
     if (!trivetRunningLatest.current) {
+      clearExecutionDataRefs(dataRefs, lastRunDataLatest.current);
       setLastRunData({});
       setGraphRunHistoryByView({});
       setSelectedGraphRunByView({});
@@ -122,17 +106,23 @@ export function useGraphExecutionEvents({
   };
 
   const onGraphAbort = (data: ProcessEvents['graphAbort']) => {
-    const graphViewKey = buildGraphViewKeyFromExecution({ execution: data.execution });
+    const graphViewKey = buildGraphViewKeyFromExecution({
+      execution: data.execution,
+      graphIdFallback: data.graph.metadata!.id!,
+    });
 
     setRunningGraphsState((running) => removeRunningGraphEntry(running, data.graph.metadata!.id!));
-    finishGraphRun(graphViewKey, data.execution.graphRunId, 'aborted');
+    finishGraphRun(graphViewKey, data.execution?.graphRunId, 'aborted');
   };
 
   const onGraphError = (data: ProcessEvents['graphError']) => {
-    const graphViewKey = buildGraphViewKeyFromExecution({ execution: data.execution });
+    const graphViewKey = buildGraphViewKeyFromExecution({
+      execution: data.execution,
+      graphIdFallback: data.graph.metadata!.id!,
+    });
 
     setRunningGraphsState((running) => removeRunningGraphEntry(running, data.graph.metadata!.id!));
-    finishGraphRun(graphViewKey, data.execution.graphRunId, 'error');
+    finishGraphRun(graphViewKey, data.execution?.graphRunId, 'error');
   };
 
   const onError = (data: ProcessEvents['error']) => {
@@ -145,7 +135,15 @@ export function useGraphExecutionEvents({
   const onGraphStart = (data: ProcessEvents['graphStart']) => {
     setRunningGraphsState((running) => [...running, data.graph.metadata!.id!]);
 
-    const graphViewKey = buildGraphViewKeyFromExecution({ execution: data.execution });
+    const graphViewKey = buildGraphViewKeyFromExecution({
+      execution: data.execution,
+      graphIdFallback: data.graph.metadata!.id!,
+    });
+
+    if (!data.execution) {
+      setSelectedGraphRunByView((prev) => updateSelectedGraphRunForGraphStart(prev, graphViewKey));
+      return;
+    }
 
     setGraphRunHistoryByView((prev) =>
       produce(prev, (draft) => {
@@ -172,8 +170,11 @@ export function useGraphExecutionEvents({
       setRunningGraphsState((running) => removeRunningGraphEntry(running, data.graph.metadata!.id!));
     }
 
-    const graphViewKey = buildGraphViewKeyFromExecution({ execution: data.execution });
-    finishGraphRun(graphViewKey, data.execution.graphRunId, 'ok');
+    const graphViewKey = buildGraphViewKeyFromExecution({
+      execution: data.execution,
+      graphIdFallback: data.graph.metadata!.id!,
+    });
+    finishGraphRun(graphViewKey, data.execution?.graphRunId, 'ok');
   };
 
   const onPause = () => {
@@ -184,7 +185,15 @@ export function useGraphExecutionEvents({
     setGraphPaused(false);
   };
 
-  const finishGraphRun = (graphViewKey: GraphViewKey, graphRunId: GraphRunId, status: GraphRunRecord['status']) => {
+  const finishGraphRun = (
+    graphViewKey: GraphViewKey,
+    graphRunId: GraphRunId | undefined,
+    status: GraphRunRecord['status'],
+  ) => {
+    if (!graphRunId) {
+      return;
+    }
+
     setGraphRunHistoryByView((prev) =>
       produce(prev, (draft) => {
         const run = draft[graphViewKey]?.find((graphRun) => graphRun.graphRunId === graphRunId);

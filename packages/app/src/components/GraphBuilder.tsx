@@ -15,7 +15,7 @@ import { ErrorBoundary } from 'react-error-boundary';
 import { loadedRecordingState } from '../state/execution.js';
 import { useGraphHistoryNavigation } from '../hooks/useGraphHistoryNavigation';
 import { useProjectPlugins } from '../hooks/useProjectPlugins';
-import { entries } from '../../../core/src/utils/typeSafety';
+import { entries } from '../utils/typeSafety';
 import { useGraphBuilderContextMenuHandler } from '../hooks/useGraphBuilderContextMenuHandler';
 import { NavigationBar } from './NavigationBar';
 import { projectState } from '../state/savedGraphs';
@@ -28,6 +28,8 @@ import { AiGraphCreatorInput } from './AiGraphCreatorInput';
 import { AiGraphCreatorToggle } from './AiGraphCreatorToggle';
 import { useReloadProjectReferences } from '../hooks/useReloadProjectReferences';
 import { submitUserInputAnswers } from '../state/actions/userInputActions';
+import { useSyncCurrentProjectEditorState } from '../hooks/useSyncCurrentProjectEditorState.js';
+import { toggleNodeSelection } from '../domain/graphEditing/nodeSelection.js';
 
 const Container = styled.div`
   position: relative;
@@ -72,6 +74,7 @@ export const GraphBuilder: FC = () => {
   const autoLayoutGraph = useRef(() => {});
 
   useReloadProjectReferences();
+  useSyncCurrentProjectEditorState();
 
   useDatasets(project.metadata.id);
 
@@ -93,7 +96,7 @@ export const GraphBuilder: FC = () => {
     if (!multi) {
       return; // Can only "select" a node if you're holding shift, for now
     }
-    setSelectedNodeIds((nodeIds) => [...new Set([...nodeIds, node.id])]);
+    setSelectedNodeIds((nodeIds) => toggleNodeSelection(nodeIds, node.id));
   });
 
   const nodeStartEditing = useStableCallback((node: ChartNode) => {

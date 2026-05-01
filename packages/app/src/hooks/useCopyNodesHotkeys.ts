@@ -5,6 +5,21 @@ import { useEffect } from 'react';
 import { useCopyNodes } from './useCopyNodes';
 import { usePasteNodes } from './usePasteNodes';
 import { useDuplicateNode } from './useDuplicateNode';
+import { useDeleteNodesCommand } from '../commands/deleteNodeCommand';
+
+function isNodeClipboardShortcutBlocked() {
+  const activeElement = document.activeElement;
+
+  if (!(activeElement instanceof HTMLElement)) {
+    return false;
+  }
+
+  return ['INPUT', 'TEXTAREA'].includes(activeElement.tagName) || activeElement.isContentEditable;
+}
+
+function isNodeClipboardShortcut(e: KeyboardEvent, key: string) {
+  return e.key.toLowerCase() === key && (e.metaKey || e.ctrlKey) && !e.shiftKey;
+}
 
 export function useCopyNodesHotkeys() {
   const selectedNodeIds = useAtomValue(selectedNodesState);
@@ -15,13 +30,14 @@ export function useCopyNodesHotkeys() {
   const copyNodes = useCopyNodes();
   const pasteNodes = usePasteNodes();
   const duplicateNode = useDuplicateNode();
+  const deleteNodes = useDeleteNodesCommand();
 
   const latestListener = useLatest((e: KeyboardEvent) => {
-    if (['input', 'textarea'].includes(document.activeElement?.tagName.toLowerCase()!)) {
+    if (isNodeClipboardShortcutBlocked()) {
       return;
     }
 
-    const isCopy = e.key === 'c' && (e.metaKey || e.ctrlKey) && !e.shiftKey;
+    const isCopy = isNodeClipboardShortcut(e, 'c');
     if (isCopy && selectedNodeIds.length > 0 && !editingNodeId) {
       e.preventDefault();
       e.stopPropagation();
@@ -29,7 +45,16 @@ export function useCopyNodesHotkeys() {
       copyNodes();
     }
 
-    const isPaste = e.key === 'v' && (e.metaKey || e.ctrlKey) && !e.shiftKey;
+    const isCut = isNodeClipboardShortcut(e, 'x');
+    if (isCut && selectedNodeIds.length > 0 && !editingNodeId) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      copyNodes();
+      deleteNodes({ nodeIds: selectedNodeIds });
+    }
+
+    const isPaste = isNodeClipboardShortcut(e, 'v');
     if (isPaste && !editingNodeId) {
       e.preventDefault();
       e.stopPropagation();
@@ -37,7 +62,7 @@ export function useCopyNodesHotkeys() {
       pasteNodes({ x: mousePosition.x, y: mousePosition.y });
     }
 
-    const isDuplicate = e.key === 'd' && (e.metaKey || e.ctrlKey) && !e.shiftKey;
+    const isDuplicate = isNodeClipboardShortcut(e, 'd');
     if (isDuplicate && selectedNodeIds.length === 1 && !editingNodeId) {
       e.preventDefault();
       e.stopPropagation();

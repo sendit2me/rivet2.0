@@ -22,6 +22,9 @@ export * from './nodes/ExtractRegexNode.js';
 import { codeNode } from './nodes/CodeNode.js';
 export * from './nodes/CodeNode.js';
 
+import { expressionNode } from './nodes/ExpressionNode.js';
+export * from './nodes/ExpressionNode.js';
+
 import { matchNode } from './nodes/MatchNode.js';
 export * from './nodes/MatchNode.js';
 
@@ -129,6 +132,12 @@ export * from './nodes/JoinNode.js';
 
 import { filterNode } from './nodes/FilterNode.js';
 export * from './nodes/FilterNode.js';
+
+import { jsFilterNode } from './nodes/JSFilterNode.js';
+export * from './nodes/JSFilterNode.js';
+
+import { jsMapNode } from './nodes/JSMapNode.js';
+export * from './nodes/JSMapNode.js';
 
 import { objectNode } from './nodes/ObjectNode.js';
 export * from './nodes/ObjectNode.js';
@@ -263,6 +272,7 @@ export const registerBuiltInNodes = (registry: NodeRegistration) => {
     .register(promptNode)
     .register(extractRegexNode)
     .register(codeNode)
+    .register(expressionNode)
     .register(matchNode)
     .register(ifNode)
     .register(readDirectoryNode)
@@ -298,6 +308,8 @@ export const registerBuiltInNodes = (registry: NodeRegistration) => {
     .register(toJsonNode)
     .register(joinNode)
     .register(filterNode)
+    .register(jsFilterNode)
+    .register(jsMapNode)
     .register(objectNode)
     .register(booleanNode)
     .register(compareNode)

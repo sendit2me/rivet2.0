@@ -12,6 +12,13 @@ export type Inputs = Record<PortId, DataValue | undefined>;
 export type Outputs = Record<PortId, DataValue | undefined>;
 export type RemoteRunRequestId = string;
 
+export type CodeConsoleLevel = 'debug' | 'error' | 'info' | 'log' | 'warn';
+
+export type CodeConsoleMessage = {
+  args: unknown[];
+  level: CodeConsoleLevel;
+};
+
 type WithExecution<T extends object> = T & { execution: GraphExecutionMetadata };
 
 export type SerializedProcessEventMap = {
@@ -48,6 +55,7 @@ export type ProcessEventMessage = {
 }[keyof ProcessEventMessageMap];
 
 export type ProcessEventMessageMap = {
+  codeConsole: CodeConsoleMessage;
   nodeStart: SerializedProcessEventMap['nodeStart'];
   nodeFinish: SerializedProcessEventMap['nodeFinish'];
   nodeError: SerializedProcessEventMap['nodeError'];
@@ -107,6 +115,7 @@ export type OutgoingMessageMap = {
     runFromNodeId?: NodeId;
     inputs?: GraphInputs;
     projectPath?: string | null;
+    useEditorCache?: boolean;
   };
   abort: undefined;
   pause: undefined;

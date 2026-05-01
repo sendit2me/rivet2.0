@@ -48,21 +48,23 @@ export class CommentNodeImpl extends NodeImpl<CommentNode> {
   getEditors(): EditorDefinition<CommentNode>[] {
     return [
       {
-        type: 'color',
-        label: 'Color',
-        dataKey: 'color',
-      },
-      {
-        type: 'color',
-        label: 'Background Color',
-        dataKey: 'backgroundColor',
-      },
-      {
         type: 'code',
         label: 'Text',
         dataKey: 'text',
         language: 'markdown',
         theme: 'vs-dark',
+      },
+      {
+        type: 'color',
+        label: 'Text color',
+        dataKey: 'color',
+        layout: 'inline',
+      },
+      {
+        type: 'color',
+        label: 'Background color',
+        dataKey: 'backgroundColor',
+        layout: 'inline',
       },
     ];
   }

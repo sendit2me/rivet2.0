@@ -17,7 +17,7 @@ const styles = css`
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
     padding: 32px;
     background: var(--grey-dark);
-    font-size: 16px;
+    font-size: var(--ui-font-size-lg);
     line-height: 24px;
 
     p {

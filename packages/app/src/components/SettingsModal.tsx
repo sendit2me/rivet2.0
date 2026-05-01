@@ -12,6 +12,7 @@ import {
   GeneralSettingsPage,
   OpenAiSettingsPage,
   PluginsSettingsPage,
+  UiSettingsPage,
   UpdatesSettingsPage,
 } from './settings/SettingsPages';
 
@@ -33,10 +34,16 @@ const modalBody = css`
   }
 `;
 
-type DefaultPages = 'general' | 'openai' | 'plugins' | 'updates';
+type DefaultPages = 'general' | 'ui' | 'openai' | 'plugins' | 'updates';
 type Pages = DefaultPages | string;
 
 const buttonsContainer = css`
+  button,
+  button span {
+    font-size: var(--ui-font-size-base) !important;
+    line-height: 1.25 !important;
+  }
+
   > button span {
     overflow-x: visible !important;
   }
@@ -71,6 +78,9 @@ export const SettingsModal: FC<SettingsModalProps> = () => {
                       <ButtonItem isSelected={page === 'general'} onClick={() => setPage('general')}>
                         General
                       </ButtonItem>
+                      <ButtonItem isSelected={page === 'ui'} onClick={() => setPage('ui')}>
+                        UI
+                      </ButtonItem>
                       <ButtonItem isSelected={page === 'openai'} onClick={() => setPage('openai')}>
                         OpenAI
                       </ButtonItem>
@@ -92,6 +102,7 @@ export const SettingsModal: FC<SettingsModalProps> = () => {
               <main>
                 {match(page)
                   .with('general', () => <GeneralSettingsPage />)
+                  .with('ui', () => <UiSettingsPage />)
                   .with('openai', () => <OpenAiSettingsPage />)
                   .with('plugins', () => <PluginsSettingsPage />)
                   .with('updates', () => <UpdatesSettingsPage />)

@@ -29,6 +29,8 @@ export const CodeNodeAIAssistEditor: FC<
       graphName="Code Node Generator"
       placeholder="What would you like your code node to do?"
       label="Generate Using AI"
+      collapsible
+      defaultOpen={false}
       updateData={(currentData, outputs) => {
         const code = coerceTypeOptional(outputs.code, 'string');
         const configuration = coerceTypeOptional(outputs.configuration, 'object') as {

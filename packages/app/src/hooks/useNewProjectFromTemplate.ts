@@ -3,7 +3,6 @@ import {
   type GraphId,
   type NodeGraph,
   deserializeProject,
-  type BuiltInNodes,
   type ProjectId,
 } from '@ironclad/rivet-core';
 import { duplicateGraph } from '../utils/duplicateGraph';
@@ -13,6 +12,7 @@ import { addOpenedProject } from '../utils/openedProjects.js';
 import { projectsState } from '../state/savedGraphs.js';
 import { chooseProjectGraph } from '../utils/workspaceTransitions.js';
 import { useWorkspaceTransitions } from './useWorkspaceTransitions.js';
+import { remapTemplateProjectGraphIds } from '../utils/templateProjectGraphIds.js';
 
 export function useNewProjectFromTemplate() {
   const setProjects = useSetAtom(projectsState);
@@ -32,22 +32,6 @@ export function useNewProjectFromTemplate() {
         oldNewGraphIdMapping[graph.metadata!.id!] = duplicated.metadata!.id!;
       }
 
-      // Subgraph node and Loop Until node are the only nodes that maintain a reference to another graph,
-      // so we need to update the graphId for them
-      for (const graph of newGraphs) {
-        for (const node of graph.nodes) {
-          const builtInNode = node as BuiltInNodes;
-          if (builtInNode.type === 'subGraph') {
-            builtInNode.data.graphId = oldNewGraphIdMapping[builtInNode.data.graphId]!;
-          }
-          if (builtInNode.type === 'loopUntil') {
-            builtInNode.data.targetGraph = builtInNode.data.targetGraph
-              ? oldNewGraphIdMapping[builtInNode.data.targetGraph]
-              : undefined;
-          }
-        }
-      }
-
       draft.graphs = newGraphs.reduce(
         (acc, graph) => {
           acc[graph.metadata!.id!] = graph;
@@ -56,10 +40,7 @@ export function useNewProjectFromTemplate() {
         {} as Record<GraphId, NodeGraph>,
       );
 
-      // Also need to update the main graph if it's set
-      if (draft.metadata.mainGraphId) {
-        draft.metadata.mainGraphId = oldNewGraphIdMapping[draft.metadata.mainGraphId]!;
-      }
+      remapTemplateProjectGraphIds(draft, oldNewGraphIdMapping);
     });
 
     const projectWithNewId = {
@@ -83,7 +64,11 @@ export function useNewProjectFromTemplate() {
     });
 
     if (loaded) {
-      setProjects((prev) => addOpenedProject(prev, projectWithNewId));
+      setProjects((prev) =>
+        addOpenedProject(prev, projectWithNewId, {
+          openedGraph: graphToLoad.metadata?.id,
+        }),
+      );
     }
 
     return loaded;

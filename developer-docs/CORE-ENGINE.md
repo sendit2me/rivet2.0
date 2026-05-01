@@ -57,7 +57,58 @@ That file re-exports:
 - execution streaming APIs
 - create/run processor helpers
 
-For refactors, `exports.ts` is the API contract that downstream packages rely on.
+For refactors, `exports.ts` is the API contract that downstream packages rely on. Downstream package code should import core through `@ironclad/rivet-core`; it should not import `packages/core/src/...` files directly. The shared ESLint config enforces that boundary. When app presentation or another package needs to mirror runtime semantics, such as interpolation token parsing, warning-port handling, JS-list callback source interpolation, Gentrace app-facing utilities, `RivetUIContext`, tokenizer implementations, or project-reference loading, the shared contract should be exported intentionally from core instead of reaching into the source tree.
+
+## Runtime Logging And Diagnostics
+
+Runtime code must not log raw graph values by default.
+
+That includes:
+
+- graph inputs
+- graph outputs
+- `DataValue` payloads
+- prompts
+- provider stream chunks
+- tool-call arguments
+- processor traces
+
+Core exposes small logging helpers from [`runtimeLogging.ts`](../packages/core/src/utils/runtimeLogging.ts). Use these helpers from app, executor, Trivet, and provider paths when runtime diagnostics are needed:
+
+- `summarizeDataValueForLog(...)`
+- `summarizePortMapForLog(...)`
+- `summarizeUnknownForLog(...)`
+- `summarizeErrorForLog(...)`
+- `logRuntimeInfo(...)`
+- `logRuntimeWarn(...)`
+- `logRuntimeError(...)`
+- `logRuntimeDebug(...)`
+
+Default logs should contain lifecycle information and counts, not values. Useful default metadata includes ids, counts, durations, and status. Binary values, `ArrayBuffer`s, and typed-array views should be summarized by byte length rather than by enumerating their contents.
+
+Shape summaries from `summarizePortMapForLog(...)` are safer than raw values, but they can still expose user-authored port names. Use them only for explicit diagnostics, preferably behind `logRuntimeDebug(...)`, unless the call site has a clear reason to expose those names in normal logs.
+
+`logRuntimeDebug(...)` is gated by:
+
+- `RIVET_DEBUG_RUNTIME_LOGS=true` in Node-like runtimes
+- `localStorage.setItem('rivet.debugRuntimeLogs', 'true')` in browser-like runtimes
+
+Only use debug logging for details that would be too noisy or too sensitive for normal logs.
+
+Provider stream JSON parsing should use [`parseProviderJsonChunk(...)`](../packages/core/src/utils/providerStreamParsing.ts). That helper preserves parse failures while avoiding raw chunk logging. If a provider needs richer parse diagnostics, extend the helper rather than adding a provider-local raw `console.error(chunk)`.
+
+## GraphProcessor Loop-Control Boundary
+
+`GraphProcessor` remains the central execution engine and still owns scheduling, event emission, subprocessors, control-flow exclusion, and loop/race handling.
+
+Loop-controller break detection is intentionally isolated in [`loopControllerBreak.ts`](../packages/core/src/model/loopControllerBreak.ts):
+
+- `control-flow-excluded` with value `loop-not-broken` means the loop continues
+- missing break output means the loop is treated as broken
+- ordinary break output means the loop is broken
+- other `control-flow-excluded` values mean the loop is treated as broken
+
+Keep this policy covered by focused tests. The `loop-not-broken` sentinel is exported from the helper and reused by `GraphProcessor`; do not reintroduce duplicated string literals. If loop-controller behavior changes, update the helper and tests first, then wire `GraphProcessor` to the new policy. Avoid reintroducing inline type suppressions in loop/race control-flow branches.
 
 ## Graph Model
 
@@ -161,7 +212,19 @@ The current built-in node list is registered through `registerBuiltInNodes(...)`
 - built-in node constructors
 - built-in node type union information
 
-The repo currently has 84 files under `packages/core/src/model/nodes`.
+Current `Random number` behavior lives on the existing `randomNumber` node type rather than a replacement type. Its `Float` / `Integer` pill editor is presentation over the existing `integers?: boolean` data field, and `Min` / `Max` remain number settings with optional input-port toggles. The runtime keeps the original `maxInclusive` behavior: it only changes integer generation by adding one to the effective max before `Math.floor(...)`.
+
+`Expression`, `JS Filter`, and `JS Map` are core built-ins that evaluate JavaScript through `context.codeRunner` with optional capabilities disabled and share value-backed interpolation from [`jsValueInterpolation.ts`](../packages/core/src/model/nodes/jsValueInterpolation.ts). `{{var}}` tokens create `any` input ports and evaluate as connected values through generated internal references; input objects/arrays are cloned before evaluation so expression-side or callback-side mutation cannot mutate upstream graph data. Function-valued inputs are wrapped so property mutation stays local, but invoking a function can still perform whatever side effects that function implements. Missing interpolation inputs become `undefined`.
+
+`JS Filter` and `JS Map` share editor, input, body-preview, wrapper, interpolation, and output-validation scaffolding in [`jsListCallbackHelpers.ts`](../packages/core/src/model/nodes/jsListCallbackHelpers.ts). Their settings editor uses the generic code-editor contract with a pre-editor callback-signature helper and a post-editor interpolation note, keeping the body-only UX in core metadata instead of custom app UI. Their callback bodies are still wrapped explicitly by each node so the filter/map runtime differences remain inspectable. The callback-local names `item`, `index`, and `array` are reserved and do not create input ports; if written as `{{item}}`, `{{index}}`, or `{{array}}`, they resolve to the existing callback parameters. App-side parsed-callback previews use their own presentation wrapper instead of expanding the core helper API; the core helper stays focused on runtime and node-body contracts.
+
+`Extract Object Path` keeps the existing `extractObjectPath` node type and data shape. When `usePathInput` is false, the stored path uses the shared interpolation parser to add optional `any` input ports and to resolve the final JSONPath before execution. When `usePathInput` is true, the explicit `path` input remains the only path source and stored-path interpolation ports are not exposed.
+
+Input definitions that are generated from user-authored `{{var}}` interpolation and exposed as connectable input ports must be created through [`packages/core/src/model/interpolationInputDefinition.ts`](../packages/core/src/model/interpolationInputDefinition.ts). This is a core maintainability rule for all current and future nodes, not just a convenience helper. The helper preserves the existing port id/title contract while adding `NodeInputDefinition.data` metadata that says the port came from interpolation and records the original interpolation name. The app relies on that metadata to preserve connections when a user clearly renames an interpolation token, so manually creating interpolation ports with plain input-definition objects will make rename preservation fail for that node. The metadata is runtime/editor-only and is not persisted in graph files. Built-in interpolation producers currently marked this way include Text, Prompt, Object, Tool schema interpolation, Expression, JS Filter, JS Map, Extract Object Path, and the built-in OpenAI Thread Message plugin node. Nodes such as `To Tree` that use `{{...}}` only against per-item object properties do not expose connectable interpolation ports and therefore should not use this marker.
+
+Interpolation safety coverage should stay broad whenever this contract changes: core tests cover parser edge cases and built-in input-definition marking, negative tests cover runtime-only consumers such as `To Tree`, app graph-editing tests cover rename preservation for marked built-ins and plugin nodes, and execution-data tests cover parsed-source previews using the captured run inputs rather than current editor state.
+
+The built-in node directory is intentionally broad; prefer documenting behavior contracts and shared helper boundaries over hard-coding file counts that drift whenever a node is added or split.
 
 ### Plugin nodes
 
@@ -210,10 +273,10 @@ Key APIs:
 
 [`RegistryAssembly.ts`](../packages/core/src/model/RegistryAssembly.ts) encapsulates the full registry lifecycle:
 
-- `createBuiltInRegistry()` — creates a fresh registry populated with all built-in nodes
-- `resolveBuiltInPlugin(id)` — resolves a built-in plugin by ID from `plugins.ts`
-- `registerPluginsIntoRegistry(registry, plugins)` — registers an array of plugins into an existing registry
-- `assembleRegistry(specs, loadPlugin)` — end-to-end helper: creates a built-in registry, then loads and registers plugin specs one by one so per-plugin load/registration failures are recorded without aborting the whole assembly
+- `createBuiltInRegistry()` - creates a fresh registry populated with all built-in nodes
+- `resolveBuiltInPlugin(id)` - resolves a built-in plugin by ID from `plugins.ts`
+- `registerPluginsIntoRegistry(registry, plugins)` - registers an array of plugins into an existing registry
+- `assembleRegistry(specs, loadPlugin)` - end-to-end helper: creates a built-in registry, then loads and registers plugin specs one by one so per-plugin load/registration failures are recorded without aborting the whole assembly
 
 The app uses `assembleRegistry()` + `replaceGlobalRivetNodeRegistry()` (from `Nodes.ts`) to rebuild the global registry when project plugins change. The sidecar (`app-executor`) uses the same `assembleRegistry()` helper but passes the result directly to `createProcessor()` without touching the global.
 
@@ -315,6 +378,25 @@ Current outcome:
 - the OpenAI execution loop is isolated from the node-definition surface
 - Google and Anthropic nodes now share more chat-pipeline helpers instead of each keeping their own prompt/token/output plumbing
 
+### LLM Chat seams
+
+The built-in user-facing `LLM Chat` node keeps the internal `llmChatV2`
+node type and `LLMChatV2*` implementation names for compatibility. Its code is
+intentionally split under
+[`packages/core/src/model/chat-v2/`](../packages/core/src/model/chat-v2/):
+
+- `llmChatV2NodeData.ts` owns the persisted data/default shape.
+- `llmChatV2NodeEditors.ts` owns the settings manifest and keeps provider-specific editor groups named in place.
+- `chatV2RuntimeOptions.ts` owns credential lookup, provider factory config, generation parameters, provider options, built-in provider tools, tool-choice conversion, and OpenAI-specific parallel-tool-call option mapping.
+- `chatV2EditorCache.ts` owns editor-only cache key construction, secret fingerprinting, and cached-output cloning.
+- `llmChatV2NodeRuntime.ts` is a coordinator that assembles those policies for the runtime and re-exports compatibility helpers used by existing tests/imports.
+- `chatV2Errors.ts` owns provider/Vercel SDK error normalization and must not stringify whole provider data objects into user-visible node errors.
+- `chatV2Pipeline.ts` and `toolContinuation.ts` stay focused on provider-neutral streaming, output assembly, and auto-continuation behavior.
+
+Keep future Chat v2 changes inside the smallest relevant seam. Do not add provider
+option parsing, cache-key fingerprinting, or credential-source behavior back into
+the node class.
+
 ### Current state model inside `GraphProcessor`
 
 The class maintains both:
@@ -370,6 +452,8 @@ The processor also exposes:
 
 Fire-and-forget event emission uses [`emitDetached(emitter, event, data)`](../packages/core/src/utils/emitDetached.ts), a thin wrapper around `void emitter.emit(...)` that makes the intent explicit. All detached emissions in `GraphProcessor`, `RecordingPlayer`, and `ExecutionRecorder` use this helper instead of inline `eslint-disable` suppressions.
 
+Tokenizer `error` events are bridged into the processor's generic `error` event for the duration of a graph run only. `GraphProcessor` stores the tokenizer unsubscribe callback when the tokenizer provides one and clears it in the `processGraph(...)` `finally` path, including failed, aborted, and subgraph runs. Rejected overlapping `processGraph(...)` calls do not enter the cleanup path for the active run. If a custom tokenizer unsubscribe callback throws, the processor reports that as a generic `error` event instead of failing the graph result. Legacy custom tokenizers whose `on(...)` method still returns `void` remain accepted, but they cannot be cleaned up by the processor.
+
 Current lineage invariant:
 
 - execution-facing graph and node events now carry `GraphExecutionMetadata`
@@ -393,7 +477,7 @@ Current execution policy details:
 - `GraphProcessor` resolves a `GraphProcessorConcurrency` policy per processor instance
 - queued node execution uses a bounded `nodeConcurrency` limit instead of `Infinity`
 - child subprocessors inherit the parent processor's concurrency policy
-- split-run parallel execution uses its own bounded `splitRunConcurrency` limit instead of raw `Promise.all`
+- split-run parallel execution uses its own bounded `splitRunConcurrency` limit instead of raw `Promise.all`; individual nodes can override that limit with `node.splitRunConcurrency`, while undefined nodes keep the processor-level default so older workflows that do not have the per-node field keep their existing behavior
 
 The readiness/dependency logic used by this flow now lives largely in `NodeExecutionPlanner.ts`, while `GraphProcessor` coordinates queueing and mutable execution state.
 
@@ -474,7 +558,7 @@ This is one of the clearest recent refactor seams in core:
 - determines split count from array-valued inputs and `splitRunMax`
 - emits `nodeStart`
 - runs sequentially when `isSplitSequential` is set
-- otherwise runs in parallel through a bounded queue
+- otherwise runs in parallel through a bounded queue using `node.splitRunConcurrency` when present, or the processor's `splitRunConcurrency` fallback when the node has no override
 - emits partial outputs for each split item
 - aggregates split outputs back into array outputs
 - emits `nodeFinish` or routes errors back through the injected `nodeErrored(...)`
@@ -509,6 +593,8 @@ Caller-provided execution environment:
 - project path
 - optional chat-endpoint resolution hook
 
+The `Tokenizer` interface supports an optional listener cleanup contract: `on('error', listener)` may return an unsubscribe callback. Built-in tokenizers return that callback, and `GraphProcessor` uses it to keep tokenizer error listeners run-scoped when processors or tokenizer instances are reused.
+
 ### `InternalProcessContext`
 
 Processor-built node execution context:
@@ -537,6 +623,46 @@ Processor-built node execution context:
 This context is one of the most important extension surfaces in the runtime.
 
 That is especially true for nested execution correctness: `ProcessContextBuilder` is the seam that threads root lineage into child processors while assigning fresh child graph-run identity.
+
+### Code runner error locations
+
+`Code` nodes still execute through the configured `CodeRunner`. Browser mode uses
+`IsomorphicCodeRunner`. Programmatic Node execution through `@ironclad/rivet-node`
+still defaults to `NodeCodeRunner`, while the desktop app's internal
+`app-executor` sidecar passes its own worker-backed runner so most Code-node
+JavaScript runs off the sidecar's main event loop. The app-executor worker runner
+falls back to current-thread execution when the Code node requests the `Rivet`
+capability, because packaged sidecar module resolution for that capability must
+stay compatible.
+
+The Code node appends a generated `sourceURL` before calling whichever runner is
+configured so runtime stack frames can be mapped back to the user's code-node
+editor lines when the run fails.
+
+In the desktop app's Node executor, `AppExecutorWorkerCodeRunner` also owns
+Code-node console observability. When `console` is enabled, it injects a
+bridged console into worker-backed runs and the `Rivet`-capability fallback path;
+those calls become `codeConsole` executor messages that the app replays in the
+renderer console. This is app-executor-specific and does not change the public
+`NodeCodeRunner` default used by programmatic `@ironclad/rivet-node` callers.
+
+`NodeCodeRunner` exposes its CommonJS `require()` resolution policy through
+`createCodeRunnerRequire(...)`, `getCodeRunnerRequireRoot(...)`, and
+`getCodeRunnerRequireAnchorPath(...)` from `@ironclad/rivet-node`. The default
+anchor remains `process.cwd()/__rivet_node_code_runner__.cjs`, so programmatic
+callers keep the old behavior. Hosted wrappers can set
+`RIVET_CODE_RUNNER_REQUIRE_ROOT` or `RIVET_CODE_RUNNER_REQUIRE_ANCHOR` before the
+runner is constructed to resolve Code-node `require()` from a runtime-library
+directory without patching source.
+
+Syntax-error diagnostics are deliberately failure-only. The core does not pre-parse
+successful `Code` node runs. If `AsyncFunction` construction throws a syntax error,
+the node then performs a small parser pass over a synthetic async-function wrapper
+and subtracts the wrapper offset to report the code-node line/column. Non-user-code
+errors, such as disabled dynamic execution or unavailable Node-only permissions, are
+left unchanged. When a location is found, the original thrown error object is
+annotated in place rather than replaced, so programmatic callers keep the original
+error type and custom properties.
 
 ## Programmatic API
 
@@ -583,6 +709,8 @@ Current options include:
 
 This option type is much broader than "just inputs and settings."
 
+Runtime settings are normalized through [`processSettings.ts`](../packages/core/src/api/processSettings.ts). `resolveProcessSettings(...)` is the shared boundary used by core, `rivet-node`, and Trivet so programmatic execution gets the same runtime defaults while still preserving explicit runtime options such as `recordingPlaybackLatency`, without depending on app-only editor preference fields that still exist on the legacy `Settings` object for compatibility.
+
 ## Event Streaming API
 
 Streaming helpers live in [`packages/core/src/api/streaming.ts`](../packages/core/src/api/streaming.ts).
@@ -610,9 +738,9 @@ Serialization lives in [`packages/core/src/utils/serialization/`](../packages/co
 
 [`serializationHelpers.ts`](../packages/core/src/utils/serialization/serializationHelpers.ts) consolidates logic shared between V3 and V4 serializers:
 
-- `serializeConnection` / `deserializeConnection` — convert `NodeConnection` to/from the compact string format
-- `parseVisualData` / `packVisualDataV3` / `packVisualDataV4` — encode/decode node visual data (position, size, colors)
-- `wrapInYamlEnvelope` / `unwrapYamlEnvelope` — standard YAML version-envelope wrapping with validation
+- `serializeConnection` / `deserializeConnection` - convert `NodeConnection` to/from the compact string format
+- `parseVisualData` / `packVisualDataV3` / `packVisualDataV4` - encode/decode node visual data (position, size, colors)
+- `wrapInYamlEnvelope` / `unwrapYamlEnvelope` - standard YAML version-envelope wrapping with validation
 
 Both `serialization_v3.ts` and `serialization_v4.ts` delegate to these shared helpers instead of keeping their own copies.
 
