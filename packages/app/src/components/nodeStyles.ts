@@ -502,12 +502,13 @@ export const nodeStyles = css`
   }
 
   .input-ports .port {
-    flex-direction: row-reverse;
-    justify-content: flex-end;
+    flex-direction: row;
+    justify-content: flex-start;
   }
 
   .output-ports .port {
-    justify-content: flex-end;
+    flex-direction: row-reverse;
+    justify-content: flex-start;
   }
 
   .port {
@@ -577,12 +578,22 @@ export const nodeStyles = css`
   }
 
   .input-ports .port-label {
+    text-align: left;
+    position: static;
+  }
+
+  .output-ports .port-label {
+    text-align: right;
+    position: static;
+  }
+
+  .node.zoomedOut .input-ports .port-label {
     text-align: right;
     position: absolute;
     right: calc(100% + 8px);
   }
 
-  .output-ports .port-label {
+  .node.zoomedOut .output-ports .port-label {
     text-align: left;
     position: absolute;
     left: calc(100% + 8px);
@@ -608,20 +619,6 @@ export const nodeStyles = css`
 
   .port.connected .port-label {
     color: var(--primary-text);
-  }
-
-  .port.connected .port-label {
-    position: static;
-  }
-
-  .input-ports .port.connected {
-    flex-direction: row;
-    justify-content: flex-start;
-  }
-
-  .output-ports .port.connected {
-    flex-direction: row-reverse;
-    justify-content: flex-start;
   }
 
   .node-output {

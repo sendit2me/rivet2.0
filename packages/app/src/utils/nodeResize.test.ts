@@ -49,6 +49,21 @@ test('computeHorizontalNodeResizeBounds clamps left-edge resize at the minimum w
   });
 });
 
+test('computeHorizontalNodeResizeBounds accepts a node-specific minimum width', () => {
+  const resized = computeHorizontalNodeResizeBounds({
+    direction: 'right',
+    initialWidth: 300,
+    initialX: 120,
+    deltaX: -120,
+    minWidth: 240,
+  });
+
+  assert.deepEqual(resized, {
+    x: 120,
+    width: 240,
+  });
+});
+
 test('computeHorizontalNodeResizeBounds preserves the right edge for subpixel left-edge resizes', () => {
   const resized = computeHorizontalNodeResizeBounds({
     direction: 'left',

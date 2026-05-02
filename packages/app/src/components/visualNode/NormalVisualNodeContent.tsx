@@ -47,6 +47,7 @@ export const NormalVisualNodeContent: FC<{
   isHistoricalChanged: boolean;
   isRunning: boolean;
   renderHeavyContent: boolean;
+  minimumNodeWidth: number;
 }> = memo(
   ({
     heightCache,
@@ -57,6 +58,7 @@ export const NormalVisualNodeContent: FC<{
     isHistoricalChanged,
     isRunning,
     renderHeavyContent,
+    minimumNodeWidth,
   }) => {
     useDependsOnPlugins();
     const { draggingWire, closestPortToDraggingWire } = useCanvasViewContext();
@@ -144,6 +146,7 @@ export const NormalVisualNodeContent: FC<{
           initialY: resizeState.initialY,
           deltaX,
           deltaY,
+          minWidth: minimumNodeWidth,
         });
       }
 
@@ -152,6 +155,7 @@ export const NormalVisualNodeContent: FC<{
         initialWidth: resizeState.initialWidth,
         initialX: resizeState.initialX,
         deltaX,
+        minWidth: minimumNodeWidth,
       });
     });
 

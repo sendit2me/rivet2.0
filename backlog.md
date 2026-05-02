@@ -2,8 +2,6 @@
 
 - The close button in the modals is not in the corner
 
-- In any node type, unconnected ports stick outside and connected - stick inside. I want them to always stick inside
-- A node can be so narrow, the sticking in ports fal out. Don't
 
 - Human readable Loop node
 
