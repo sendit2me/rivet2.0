@@ -119,6 +119,8 @@ RivetApp
 
 This is important for refactors because many "global" behaviors are actually distributed across overlay renderers rather than centralized in a router or modal manager.
 
+Atlaskit modal headers should render through [`packages/app/src/components/AppModalHeader.tsx`](../packages/app/src/components/AppModalHeader.tsx). It centralizes `ModalHeader` / `ModalTitle` usage and optional close-button rendering, including the shared right-edge visual compensation so the close icon's right margin matches its top margin. Special modal shells can stay custom when they do not use the standard Atlaskit header.
+
 ## Main Architectural Areas
 
 The app can be thought of as six cooperating subsystems:

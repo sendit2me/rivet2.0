@@ -32,8 +32,9 @@ import { NodeEditorResizeContext } from './nodeEditor/NodeEditorResizeContext.js
 import { ResizeHandle } from './ResizeHandle.js';
 import { useNodeEditorWidth } from './nodeEditor/useNodeEditorWidth.js';
 import { resizeCursorStyles } from '../utils/resizeCursors.js';
-import Modal, { ModalBody, ModalFooter, ModalHeader, ModalTitle, ModalTransition } from '@atlaskit/modal-dialog';
+import Modal, { ModalBody, ModalFooter, ModalTransition } from '@atlaskit/modal-dialog';
 import Button from '@atlaskit/button';
+import { AppModalHeader } from './AppModalHeader';
 
 export const NodeEditorRenderer: FC = () => {
   const nodesById = useAtomValue(nodesByIdState);
@@ -884,9 +885,7 @@ const LLMChatFeatureConflictModal: FC<{
     <ModalTransition>
       {isOpen && (
         <Modal autoFocus={false} onClose={onClose} width="small">
-          <ModalHeader>
-            <ModalTitle>{LLM_CHAT_V2_TOOL_RESPONSE_FORMAT_CONFLICT_COPY.title}</ModalTitle>
-          </ModalHeader>
+          <AppModalHeader title={LLM_CHAT_V2_TOOL_RESPONSE_FORMAT_CONFLICT_COPY.title} />
           <ModalBody>
             {LLM_CHAT_V2_TOOL_RESPONSE_FORMAT_CONFLICT_COPY.paragraphs.map((paragraph) => (
               <p key={paragraph}>{paragraph}</p>

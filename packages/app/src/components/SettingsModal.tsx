@@ -1,9 +1,7 @@
 import { type FC, useState } from 'react';
 import { atom, useAtom } from 'jotai';
-import Modal, { ModalTransition, ModalHeader, ModalTitle, ModalBody } from '@atlaskit/modal-dialog';
-import Button from '@atlaskit/button';
+import Modal, { ModalTransition, ModalBody } from '@atlaskit/modal-dialog';
 import { SideNavigation, ButtonItem, NavigationContent } from '@atlaskit/side-navigation';
-import CrossIcon from '@atlaskit/icon/glyph/cross';
 import { css } from '@emotion/react';
 import { P, match } from 'ts-pattern';
 import { useDependsOnPlugins } from '../hooks/useDependsOnPlugins';
@@ -16,6 +14,7 @@ import {
   UiSettingsPage,
   UpdatesSettingsPage,
 } from './settings/SettingsPages';
+import { AppModalHeader } from './AppModalHeader';
 
 interface SettingsModalProps {}
 
@@ -64,12 +63,7 @@ export const SettingsModal: FC<SettingsModalProps> = () => {
     <ModalTransition>
       {isOpen && (
         <Modal onClose={() => setIsOpen(false)} width="80%">
-          <ModalHeader>
-            <ModalTitle>Settings</ModalTitle>
-            <Button appearance="link" onClick={() => setIsOpen(false)}>
-              <CrossIcon label="Close Modal" primaryColor="currentColor" />
-            </Button>
-          </ModalHeader>
+          <AppModalHeader title="Settings" onClose={() => setIsOpen(false)} />
           <ModalBody>
             <div css={modalBody}>
               <nav>

@@ -6,12 +6,13 @@ import CrossIcon from 'majesticons/line/multiply-line.svg?react';
 import { EditTemplateVersionPage } from './EditTemplateVersionPage';
 import TextField from '@atlaskit/textfield';
 import { Field } from '@atlaskit/form';
-import Modal, { ModalTransition, ModalHeader, ModalTitle, ModalBody, ModalFooter } from '@atlaskit/modal-dialog';
+import Modal, { ModalTransition, ModalBody, ModalFooter } from '@atlaskit/modal-dialog';
 import { myTemplatesQueryKey, unpublishTemplate } from '../../utils/communityTemplates';
 import { CreateTemplateVersionPage } from './CreateTemplateVersionPage';
 import { orderBy } from 'lodash-es';
 import { useHandledMutation } from '../../hooks/useHandledMutation';
 import { useMarkdown } from '../../hooks/useMarkdown';
+import { AppModalHeader } from '../AppModalHeader';
 
 const styles = css`
   display: flex;
@@ -263,9 +264,7 @@ const UnpublishTemplateModal: FC<{
     <ModalTransition>
       {isOpen && (
         <Modal onClose={onClose}>
-          <ModalHeader>
-            <ModalTitle>Unpublish Template</ModalTitle>
-          </ModalHeader>
+          <AppModalHeader title="Unpublish Template" />
           <ModalBody>
             <div
               css={css`

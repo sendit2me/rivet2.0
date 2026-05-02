@@ -5,7 +5,7 @@ import { Field, Label } from '@atlaskit/form';
 import Select from '@atlaskit/select';
 import { projectContextState, projectState, savedGraphsState } from '../state/savedGraphs';
 import Button from '@atlaskit/button';
-import Modal, { ModalTransition, ModalHeader, ModalTitle, ModalBody, ModalFooter } from '@atlaskit/modal-dialog';
+import Modal, { ModalTransition, ModalBody, ModalFooter } from '@atlaskit/modal-dialog';
 import { useToggle } from 'ahooks';
 import TextField from '@atlaskit/textfield';
 import { DataType, type DataValue } from '@ironclad/rivet-core';
@@ -18,6 +18,7 @@ import { ProjectReferencesConfiguration } from './ProjectReferencesConfiguration
 import { ProjectMCPConfiguration } from './ProjectMCPConfiguration';
 import { LabeledToggle } from './LabeledToggle';
 import { MainGraphIcon } from './graphList/MainGraphIcon';
+import { AppModalHeader } from './AppModalHeader';
 
 const styles = css`
   .main-graph-field-label {
@@ -279,9 +280,7 @@ const ValueEditorModal: FC<{
 
   return (
     <Modal onClose={onClose}>
-      <ModalHeader>
-        <ModalTitle>Edit Context Value</ModalTitle>
-      </ModalHeader>
+      <AppModalHeader title="Edit Context Value" />
       <ModalBody>
         <form
           onSubmit={(e) => {

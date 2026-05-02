@@ -1,6 +1,6 @@
 import { type FC } from 'react';
 import { helpModalOpenState } from '../state/ui';
-import Modal, { ModalTransition, ModalHeader, ModalTitle, ModalBody, ModalFooter } from '@atlaskit/modal-dialog';
+import Modal, { ModalTransition, ModalBody, ModalFooter } from '@atlaskit/modal-dialog';
 import Button from '@atlaskit/button';
 import DiscordIcon from '../assets/vendor_logos/discord-mark-white.svg?react';
 import GithubIcon from '../assets/vendor_logos/github-mark-white.svg?react';
@@ -9,6 +9,7 @@ import YoutubeIcon from '../assets/vendor_logos/youtube-icon.png';
 import QuestionIcon from 'majesticons/line/question-circle-line.svg?react';
 import { css } from '@emotion/react';
 import { useAtom } from 'jotai';
+import { AppModalHeader } from './AppModalHeader';
 
 const styles = css`
   ul li a,
@@ -36,9 +37,7 @@ export const HelpModal: FC = () => {
     <ModalTransition>
       {helpModalOpen && (
         <Modal onClose={() => setHelpModalOpen(false)}>
-          <ModalHeader>
-            <ModalTitle>Help</ModalTitle>
-          </ModalHeader>
+          <AppModalHeader title="Help" />
           <ModalBody>
             <div css={styles}>
               <p>Need help with Rivet? Check out the following places!</p>

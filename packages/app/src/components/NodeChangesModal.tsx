@@ -1,10 +1,11 @@
 import { type FC } from 'react';
-import Modal, { ModalBody, ModalTransition, ModalTitle, ModalFooter, ModalHeader } from '@atlaskit/modal-dialog';
+import Modal, { ModalBody, ModalTransition, ModalFooter } from '@atlaskit/modal-dialog';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { viewingNodeChangesState } from '../state/graphBuilder';
 import { useHistoricalNodeChangeInfo } from '../hooks/useHistoricalNodeChangeInfo';
 import * as yaml from 'yaml';
 import { diffStringsUnified } from 'jest-diff';
+import { AppModalHeader } from './AppModalHeader';
 
 export const NodeChangesModalRenderer: FC = () => {
   const changes = useAtomValue(viewingNodeChangesState);
@@ -41,9 +42,7 @@ export const NodeChangesModal: FC = () => {
         setViewingNodeChanges(undefined);
       }}
     >
-      <ModalHeader>
-        <ModalTitle>Node Changes</ModalTitle>
-      </ModalHeader>
+      <AppModalHeader title="Node Changes" />
       <ModalBody>
         <pre style={{ whiteSpace: 'pre-wrap' }} dangerouslySetInnerHTML={{ __html: yamlDiff }} />
       </ModalBody>

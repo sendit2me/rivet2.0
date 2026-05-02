@@ -4,8 +4,7 @@ import { type FC, type MouseEvent, type KeyboardEvent, memo, useMemo, useState }
 import { useAtomValue } from 'jotai';
 import { DropdownItem } from '@atlaskit/dropdown-menu';
 import Button from '@atlaskit/button';
-import Modal, { ModalBody, ModalFooter, ModalHeader, ModalTitle, ModalTransition } from '@atlaskit/modal-dialog';
-import CrossIconCore from '@atlaskit/icon/glyph/cross';
+import Modal, { ModalBody, ModalFooter, ModalTransition } from '@atlaskit/modal-dialog';
 import { type GraphId, type NodeGraph } from '@ironclad/rivet-core';
 import clsx from 'clsx';
 import { runningGraphsState } from '../state/dataFlow.js';
@@ -29,6 +28,7 @@ import {
   resolveSupportedBuiltInPluginIds,
 } from '../utils/graphReachability.js';
 import { FolderItem } from './graphList/FolderItem';
+import { AppModalHeader } from './AppModalHeader';
 
 const styles = css`
   display: flex;
@@ -625,12 +625,7 @@ const DeleteGraphConfirmModal: FC<{
     <ModalTransition>
       {graph && (
         <Modal autoFocus={false} onClose={onClose} width="small">
-          <ModalHeader>
-            <ModalTitle>Delete Graph?</ModalTitle>
-            <Button appearance="subtle" onClick={onClose}>
-              <CrossIconCore label="Close Modal" primaryColor="currentColor" />
-            </Button>
-          </ModalHeader>
+          <AppModalHeader title="Delete Graph?" onClose={onClose} />
           <ModalBody>
             <div css={deleteGraphConfirmBody}>
               <p>

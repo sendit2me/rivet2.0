@@ -2,7 +2,7 @@ import { type FC, Suspense, useEffect, useRef, useState, useMemo } from 'react';
 import { useAtom, useAtomValue } from 'jotai';
 import { type UserInputNode, type ArrayDataValue, type StringDataValue, type NodeId } from '@ironclad/rivet-core';
 import { lastAnswersState } from '../state/userInput.js';
-import Modal, { ModalBody, ModalFooter, ModalHeader, ModalTitle, ModalTransition } from '@atlaskit/modal-dialog';
+import Modal, { ModalBody, ModalFooter, ModalTransition } from '@atlaskit/modal-dialog';
 import Button from '@atlaskit/button';
 import { Field } from '@atlaskit/form';
 import { css } from '@emotion/react';
@@ -13,6 +13,7 @@ import { projectState } from '../state/savedGraphs';
 import { values } from '../utils/typeSafety';
 import { toast } from 'react-toastify';
 import { nodesState } from '../state/graph';
+import { AppModalHeader } from './AppModalHeader';
 
 const styles = css`
   .question {
@@ -96,9 +97,7 @@ export const UserInputModal: FC<UserInputModalProps> = ({ open, questions, quest
     <ModalTransition>
       {open && (
         <Modal width="x-large" onClose={onClose}>
-          <ModalHeader>
-            <ModalTitle>User Input</ModalTitle>
-          </ModalHeader>
+          <AppModalHeader title="User Input" />
           <ModalBody>
             <div css={styles}>
               {questions.map((question, index) => (

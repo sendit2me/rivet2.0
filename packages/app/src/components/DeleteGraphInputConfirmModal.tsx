@@ -1,11 +1,11 @@
 import Button from '@atlaskit/button';
-import CrossIcon from '@atlaskit/icon/glyph/cross';
-import Modal, { ModalBody, ModalFooter, ModalHeader, ModalTitle, ModalTransition } from '@atlaskit/modal-dialog';
+import Modal, { ModalBody, ModalFooter, ModalTransition } from '@atlaskit/modal-dialog';
 import { css } from '@emotion/react';
 import { useAtom } from 'jotai';
 import type { FC } from 'react';
 import { useDeleteNodesCommand } from '../commands/deleteNodeCommand';
 import { deleteGraphInputConfirmState } from '../state/ui';
+import { AppModalHeader } from './AppModalHeader';
 
 const modalBody = css`
   color: var(--foreground);
@@ -50,12 +50,7 @@ export const DeleteGraphInputConfirmModalRenderer: FC = () => {
     <ModalTransition>
       {confirmState && (
         <Modal autoFocus={false} onClose={close} width="small">
-          <ModalHeader>
-            <ModalTitle>Delete Graph Input?</ModalTitle>
-            <Button appearance="link" onClick={close}>
-              <CrossIcon label="Close Modal" primaryColor="currentColor" />
-            </Button>
-          </ModalHeader>
+          <AppModalHeader title="Delete Graph Input?" onClose={close} />
           <ModalBody>
             <div css={modalBody}>
               <p>

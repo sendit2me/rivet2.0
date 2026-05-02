@@ -1,11 +1,8 @@
 
 
-- The close button in the modals is not in the corner
-
-
 - Human readable Loop node
 
-
+- Only show the run UI in the "Canvas" workspace
 
 - Reassess Ctrl+N window
 
@@ -19,9 +16,10 @@
 - Check the links that lead to the documentation
 
 - Get back to MCP and see if it works and how it works. I don't see an MCP node. I think we need it
-- Check the AI workflow generation feature
-- Reassess all the "Generate using AI" in different nodes.
+- Reassess all the "Generate using AI" in different nodes. The model picker is clipped by the section border
 
+
+- Reassess prompt designer. 
 
 
 - Make it easier and faster to create input and output nodes for the graph
@@ -34,6 +32,9 @@
 
 - Support Python in all nodes that support javascript
 - Light color theme
+
+- Check the AI workflow generation feature
+
 
 
 - Convenient node type browser, just like in n8n
