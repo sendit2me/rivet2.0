@@ -13,6 +13,7 @@ import { createDataValueRendererMap } from './renderDataValue/createDataValueRen
 import { createScalarRenderers } from './renderDataValue/createScalarRenderers.js';
 import { LargeStoredValuePreview } from './renderDataValue/LargeStoredValuePreview.js';
 import type { OutputRenderMode } from './renderDataValue/outputRenderTypes.js';
+import { getOutputPortsToRender, shouldRenderOutputValueExpanded } from './renderDataValue/outputPortPreviewPolicy.js';
 import { outputSectionLabelStyles, renderedDataOutputsStyles } from './renderDataValue/renderDataValueStyles.js';
 
 export type { OutputRenderMode } from './renderDataValue/outputRenderTypes.js';
@@ -86,7 +87,7 @@ export const RenderDataOutputs: FC<{
   mode?: OutputRenderMode;
   allowLargeStoredValueActions?: boolean;
 }> = ({ definitions, outputs, renderMarkdown, isCompact, mode, allowLargeStoredValueActions }) => {
-  let outputPorts = keys(outputs);
+  const outputPorts = getOutputPortsToRender(keys(outputs), isCompact);
   const effectiveMode = mode ?? (isCompact ? 'compact' : 'full');
 
   if (outputPorts.length === 1) {
@@ -101,10 +102,6 @@ export const RenderDataOutputs: FC<{
         />
       </div>
     );
-  }
-
-  if (isCompact) {
-    outputPorts = outputPorts.slice(0, 1);
   }
 
   return (
@@ -123,8 +120,8 @@ export const RenderDataOutputs: FC<{
             <RenderDataValue
               value={outputs[portId]!}
               renderMarkdown={renderMarkdown}
-              isCompact={isCompact}
-              mode={effectiveMode}
+              isCompact={isCompact && !shouldRenderOutputValueExpanded(portId)}
+              mode={shouldRenderOutputValueExpanded(portId) ? 'full' : effectiveMode}
               allowLargeStoredValueActions={allowLargeStoredValueActions}
             />
           </div>

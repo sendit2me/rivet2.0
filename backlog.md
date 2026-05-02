@@ -1,5 +1,9 @@
 
 
+- The close button in the modals is not in the corner
+
+
+
 - Retry behevior for the LLM chat node
 
 
@@ -8,7 +12,6 @@
 - Human readable Loop node
 
 
-- The close button in the modals is not in the corner
 
 - Reassess Ctrl+N window
 

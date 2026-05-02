@@ -114,4 +114,6 @@ export type ChatV2PipelineResult = {
   finishReason: string | undefined;
   providerMetadata: ChatV2ProviderMetadata | undefined;
   requestStatus: number | undefined;
+  requestStatuses?: number[] | undefined;
+  requestErrors?: string[] | undefined;
 };

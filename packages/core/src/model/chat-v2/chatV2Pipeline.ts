@@ -30,6 +30,30 @@ import {
 
 const REQUEST_STATUS_PORT_ID = 'requestStatus' as PortId;
 const REQUEST_ERROR_PORT_ID = 'requestError' as PortId;
+const REQUEST_STATUSES_PORT_ID = 'requestStatuses' as PortId;
+const REQUEST_ERRORS_PORT_ID = 'requestErrors' as PortId;
+
+type StreamChatV2WithRetryResult = {
+  result: StreamChatV2Result;
+  requestStatuses: number[];
+  requestErrors: unknown[];
+  responseError?: unknown;
+};
+
+class StreamChatV2RetryFailure extends Error {
+  constructor(
+    public readonly error: unknown,
+    public readonly requestStatuses: number[],
+    public readonly requestErrors: unknown[],
+  ) {
+    super('Chat v2 retry attempts failed');
+    this.name = 'StreamChatV2RetryFailure';
+  }
+}
+
+function isStreamChatV2RetryFailure(error: unknown): error is StreamChatV2RetryFailure {
+  return error instanceof StreamChatV2RetryFailure;
+}
 
 function toFunctionCallOutputValue(functionCall: StreamedFunctionCall) {
   let argumentsValue = functionCall.lastParsedArguments;
@@ -81,9 +105,17 @@ function buildCommonOutputs(
   usage: ChatV2NormalizedUsage | undefined,
   reasoning: ChatV2ReasoningOutput,
   requestStatus: number | undefined,
+  responseError: string | undefined,
+  requestStatuses: number[],
+  requestErrors: string[],
   options: Pick<
     RunChatV2PipelineOptions,
-    'outputUsage' | 'outputReasoning' | 'outputRequestStatus' | 'includeFunctionCalls' | 'functionCallMode'
+    | 'outputUsage'
+    | 'outputReasoning'
+    | 'outputRequestStatus'
+    | 'includeFunctionCalls'
+    | 'functionCallMode'
+    | 'retryOnNon200'
   >,
 ): Outputs {
   const outputs: Outputs = {
@@ -138,10 +170,20 @@ function buildCommonOutputs(
       type: 'number',
       value: requestStatus ?? 200,
     };
-    outputs[REQUEST_ERROR_PORT_ID] = {
-      type: 'control-flow-excluded',
-      value: undefined,
-    };
+    outputs[REQUEST_ERROR_PORT_ID] =
+      responseError != null
+        ? {
+            type: 'string',
+            value: responseError,
+          }
+        : {
+            type: 'control-flow-excluded',
+            value: undefined,
+          };
+
+    if (options.retryOnNon200) {
+      addRetryAttemptOutputs(outputs, requestStatuses, requestErrors);
+    }
   }
 
   return outputs;
@@ -157,24 +199,32 @@ function getProviderFailureMessage(error: unknown): string {
 
 function buildProviderFailureOutputs(
   requestMessages: ChatMessage[],
-  requestStatus: number | undefined,
-  requestError: string,
-  options: Pick<RunChatV2PipelineOptions, 'outputUsage' | 'outputReasoning' | 'includeFunctionCalls'>,
+  responseStatus: number | undefined,
+  responseError: string,
+  requestStatuses: number[],
+  requestErrors: string[],
+  options: Pick<RunChatV2PipelineOptions, 'outputUsage' | 'outputReasoning' | 'includeFunctionCalls' | 'retryOnNon200'>,
 ): Outputs {
-  const outputs: Outputs = {
+  const outputs: Outputs = {};
+
+  if (options.retryOnNon200) {
+    addRetryAttemptOutputs(outputs, requestStatuses, requestErrors);
+  }
+
+  Object.assign(outputs, {
     [REQUEST_ERROR_PORT_ID]: {
       type: 'string',
-      value: requestError,
+      value: responseError,
     },
     [REQUEST_STATUS_PORT_ID]:
-      requestStatus == null
+      responseStatus == null
         ? {
             type: 'control-flow-excluded',
             value: undefined,
           }
         : {
             type: 'number',
-            value: requestStatus,
+            value: responseStatus,
           },
     ['response' as PortId]: {
       type: 'control-flow-excluded',
@@ -192,7 +242,7 @@ function buildProviderFailureOutputs(
       type: 'control-flow-excluded',
       value: undefined,
     },
-  };
+  } satisfies Outputs);
 
   if (options.includeFunctionCalls) {
     outputs['function-calls' as PortId] = {
@@ -218,33 +268,104 @@ function buildProviderFailureOutputs(
   return outputs;
 }
 
+function addRetryAttemptOutputs(outputs: Outputs, requestStatuses: number[], requestErrors: string[]): void {
+  outputs[REQUEST_STATUSES_PORT_ID] =
+    requestStatuses.length > 0
+      ? {
+          type: 'number[]',
+          value: requestStatuses,
+        }
+      : {
+          type: 'control-flow-excluded',
+          value: undefined,
+        };
+  outputs[REQUEST_ERRORS_PORT_ID] =
+    requestErrors.length > 0
+      ? {
+          type: 'string[]',
+          value: requestErrors,
+        }
+      : {
+          type: 'control-flow-excluded',
+          value: undefined,
+        };
+}
+
+function buildNon200StatusError(statusCode: number): Error & { statusCode: number } {
+  const error = new Error(`Provider request returned non-200 status: ${statusCode}`) as Error & {
+    statusCode: number;
+  };
+  error.name = 'AI_APICallError';
+  error.statusCode = statusCode;
+  return error;
+}
+
+function normalizeProviderFailureMessage(
+  error: unknown,
+  options: Pick<RunChatV2PipelineOptions, 'provider' | 'modelId'>,
+): string {
+  return getProviderFailureMessage(
+    normalizeChatV2ProviderError(error, {
+      provider: options.provider,
+      modelId: options.modelId,
+    }),
+  );
+}
+
+function normalizeProviderFailureMessages(
+  errors: unknown[],
+  options: Pick<RunChatV2PipelineOptions, 'provider' | 'modelId'>,
+): string[] {
+  return errors.map((error) => normalizeProviderFailureMessage(error, options));
+}
+
 async function streamChatV2WithRetry(
   streamOptions: StreamChatV2Options,
   retryOptions: Pick<
     RunChatV2PipelineOptions,
     'context' | 'retryOnNon200' | 'retryOnNon200RepeatTimes' | 'retryOnNon200CooldownMs'
   >,
-): Promise<StreamChatV2Result> {
+): Promise<StreamChatV2WithRetryResult> {
   const repeatTimes = retryOptions.retryOnNon200
     ? normalizeLLMChatV2RetryCount(retryOptions.retryOnNon200RepeatTimes)
     : 0;
   const cooldownMs = normalizeLLMChatV2RetryCooldownMs(retryOptions.retryOnNon200CooldownMs);
+  const requestStatuses: number[] = [];
+  const requestErrors: unknown[] = [];
 
   for (let attempt = 0; ; attempt++) {
     try {
       const result = await streamChatV2(streamOptions);
       const statusCode = result.requestStatus ?? 200;
 
-      if (!retryOptions.retryOnNon200 || statusCode === 200 || attempt >= repeatTimes) {
-        return result;
+      if (retryOptions.retryOnNon200) {
+        requestStatuses.push(statusCode);
+      }
+
+      if (!retryOptions.retryOnNon200 || statusCode === 200) {
+        return { result, requestStatuses, requestErrors };
+      }
+
+      const responseError = buildNon200StatusError(statusCode);
+      requestErrors.push(responseError);
+
+      if (attempt >= repeatTimes) {
+        return { result, requestStatuses, requestErrors, responseError };
       }
 
       await waitForLLMChatV2RetryCooldown(cooldownMs, retryOptions.context.signal);
     } catch (error) {
       const statusCode = getChatV2ProviderErrorStatusCode(error);
 
-      if (statusCode == null || statusCode === 200 || attempt >= repeatTimes) {
+      if (!retryOptions.retryOnNon200 || statusCode == null || statusCode === 200) {
         throw error;
+      }
+
+      requestStatuses.push(statusCode);
+      requestErrors.push(error);
+
+      if (attempt >= repeatTimes) {
+        throw new StreamChatV2RetryFailure(error, requestStatuses, requestErrors);
       }
 
       await waitForLLMChatV2RetryCooldown(cooldownMs, retryOptions.context.signal);
@@ -257,6 +378,8 @@ function buildProviderFailureResult(
   options: RunChatV2PipelineOptions,
   normalizedError: unknown,
   rawError: unknown,
+  requestStatuses: number[],
+  requestErrors: string[],
 ): ChatV2PipelineResult | undefined {
   if (!options.outputRequestStatus) {
     return undefined;
@@ -266,15 +389,27 @@ function buildProviderFailureResult(
   if (statusCode == null && !isChatV2ProviderApiCallError(rawError) && !isChatV2ProviderFetchError(rawError)) {
     return undefined;
   }
+  const responseError = getProviderFailureMessage(normalizedError);
+  const retryRequestStatuses = options.retryOnNon200
+    ? requestStatuses.length > 0
+      ? requestStatuses
+      : statusCode == null
+        ? []
+        : [statusCode]
+    : [];
+  const retryRequestErrors = options.retryOnNon200 ? (requestErrors.length > 0 ? requestErrors : [responseError]) : [];
 
   const commonOutputs = buildProviderFailureOutputs(
     requestMessages,
     statusCode,
-    getProviderFailureMessage(normalizedError),
+    responseError,
+    retryRequestStatuses,
+    retryRequestErrors,
     {
       outputUsage: options.outputUsage,
       outputReasoning: options.outputReasoning,
       includeFunctionCalls: options.includeFunctionCalls,
+      retryOnNon200: options.retryOnNon200,
     },
   );
   const allMessagesOutput = commonOutputs['all-messages' as PortId];
@@ -295,6 +430,8 @@ function buildProviderFailureResult(
     finishReason: undefined,
     providerMetadata: undefined,
     requestStatus: statusCode,
+    requestStatuses: options.retryOnNon200 ? retryRequestStatuses : undefined,
+    requestErrors: options.retryOnNon200 ? retryRequestErrors : undefined,
   };
 }
 
@@ -339,23 +476,35 @@ export async function runChatV2Pipeline(options: RunChatV2PipelineOptions): Prom
           ? undefined
           : ({ text, functionCalls }) => {
               options.context.onPartialOutputs?.(
-                buildCommonOutputs(requestMessages, text, functionCalls, undefined, '', undefined, {
+                buildCommonOutputs(requestMessages, text, functionCalls, undefined, '', undefined, undefined, [], [], {
                   outputUsage: false,
                   outputReasoning: false,
                   outputRequestStatus: false,
                   includeFunctionCalls: options.includeFunctionCalls,
                   functionCallMode: options.functionCallMode,
+                  retryOnNon200: false,
                 }),
               );
             },
     },
     options,
-  ).catch((error: unknown) => {
-    const normalizedError = normalizeChatV2ProviderError(error, {
+  ).catch((caughtError: unknown) => {
+    const retryFailure = isStreamChatV2RetryFailure(caughtError) ? caughtError : undefined;
+    const rawError = retryFailure?.error ?? caughtError;
+    const normalizedError = normalizeChatV2ProviderError(rawError, {
       provider: options.provider,
       modelId: options.modelId,
     });
-    const failureResult = buildProviderFailureResult(requestMessages, options, normalizedError, error);
+    const requestStatuses = retryFailure?.requestStatuses ?? [];
+    const requestErrors = normalizeProviderFailureMessages(retryFailure?.requestErrors ?? [], options);
+    const failureResult = buildProviderFailureResult(
+      requestMessages,
+      options,
+      normalizedError,
+      rawError,
+      requestStatuses,
+      requestErrors,
+    );
     if (failureResult) {
       return failureResult;
     }
@@ -366,20 +515,29 @@ export async function runChatV2Pipeline(options: RunChatV2PipelineOptions): Prom
     return streamed;
   }
 
-  const usage = normalizeUsage(streamed.usage, options);
+  const usage = normalizeUsage(streamed.result.usage, options);
+  const requestStatuses = streamed.requestStatuses;
+  const requestErrors = normalizeProviderFailureMessages(streamed.requestErrors, options);
+  const responseError = streamed.responseError
+    ? normalizeProviderFailureMessage(streamed.responseError, options)
+    : undefined;
   const commonOutputs = buildCommonOutputs(
     requestMessages,
-    streamed.responseText,
-    streamed.functionCalls,
+    streamed.result.responseText,
+    streamed.result.functionCalls,
     usage,
-    streamed.reasoning,
-    streamed.requestStatus,
+    streamed.result.reasoning,
+    streamed.result.requestStatus,
+    responseError,
+    requestStatuses,
+    requestErrors,
     {
       outputUsage: options.outputUsage,
       outputReasoning: options.outputReasoning,
       outputRequestStatus: options.outputRequestStatus,
       includeFunctionCalls: options.includeFunctionCalls,
       functionCallMode: options.functionCallMode,
+      retryOnNon200: options.retryOnNon200,
     },
   );
   const allMessagesOutput = commonOutputs['all-messages' as PortId];
@@ -392,13 +550,15 @@ export async function runChatV2Pipeline(options: RunChatV2PipelineOptions): Prom
     commonOutputs,
     requestMessages,
     allMessages: allMessagesOutput.value,
-    response: streamed.responseText,
-    functionCalls: streamed.functionCalls,
-    reasoning: streamed.reasoning,
+    response: streamed.result.responseText,
+    functionCalls: streamed.result.functionCalls,
+    reasoning: streamed.result.reasoning,
     usage,
-    rawUsage: streamed.usage,
-    finishReason: streamed.finishReason,
-    providerMetadata: streamed.providerMetadata,
-    requestStatus: streamed.requestStatus ?? 200,
+    rawUsage: streamed.result.usage,
+    finishReason: streamed.result.finishReason,
+    providerMetadata: streamed.result.providerMetadata,
+    requestStatus: streamed.result.requestStatus ?? 200,
+    requestStatuses: options.retryOnNon200 ? requestStatuses : undefined,
+    requestErrors: options.retryOnNon200 ? requestErrors : undefined,
   };
 }

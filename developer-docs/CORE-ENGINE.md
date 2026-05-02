@@ -392,7 +392,7 @@ intentionally split under
 - `llmChatV2NodeRuntime.ts` is a coordinator that assembles those policies for the runtime and re-exports compatibility helpers used by existing tests/imports.
 - `chatV2Errors.ts` owns provider/Vercel SDK error normalization, including API-call and browser/runtime fetch-failure classification for request-status outputs where no HTTP response is observable. It extracts HTTP status codes from common raw/normalized error shapes for retry and request-status outputs, and must not stringify whole provider data objects into user-visible node errors.
 - `chatV2Retry.ts` owns `Retry on non-200` defaults, repeat/cooldown normalization, and abort-safe repeat waits for LLM provider retries, including the zero-cooldown path before a repeat starts.
-- `chatV2Pipeline.ts` and `toolContinuation.ts` stay focused on provider-neutral streaming, output assembly, request-status/request-error output assembly, and auto-continuation behavior.
+- `chatV2Pipeline.ts` and `toolContinuation.ts` stay focused on provider-neutral streaming, output assembly, request-status/request-error output assembly, retry-attempt status/error list assembly, and auto-continuation behavior.
 
 Keep future Chat v2 changes inside the smallest relevant seam. Do not add provider
 option parsing, cache-key fingerprinting, or credential-source behavior back into

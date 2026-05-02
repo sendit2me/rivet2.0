@@ -172,15 +172,30 @@ export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
       outputs.push(
         {
           id: 'requestStatus' as PortId,
-          title: 'Request Status',
+          title: 'Response Status',
           dataType: 'number',
         },
         {
           id: 'requestError' as PortId,
-          title: 'Request Error',
+          title: 'Response Error',
           dataType: 'string',
         },
       );
+
+      if (this.data.retryOnNon200) {
+        outputs.push(
+          {
+            id: 'requestStatuses' as PortId,
+            title: 'Request Statuses',
+            dataType: 'number[]',
+          },
+          {
+            id: 'requestErrors' as PortId,
+            title: 'Request Errors',
+            dataType: 'string[]',
+          },
+        );
+      }
     }
 
     return outputs;

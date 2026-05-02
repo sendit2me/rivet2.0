@@ -222,6 +222,10 @@ describe('LLMChatV2NodeImpl', () => {
     const statusNode = createNode({
       outputRequestStatus: true,
     });
+    const retryStatusNode = createNode({
+      outputRequestStatus: true,
+      retryOnNon200: true,
+    });
 
     assert.ok(!defaultNode.getOutputDefinitions().some((output) => output.id === 'requestStatus'));
     assert.ok(!defaultNode.getOutputDefinitions().some((output) => output.id === 'requestError'));
@@ -229,7 +233,15 @@ describe('LLMChatV2NodeImpl', () => {
       statusNode.getOutputDefinitions().find((output) => output.id === 'requestStatus'),
       {
         id: 'requestStatus',
-        title: 'Request Status',
+        title: 'Response Status',
+        dataType: 'number',
+      },
+    );
+    assert.deepEqual(
+      retryStatusNode.getOutputDefinitions().find((output) => output.id === 'requestStatus'),
+      {
+        id: 'requestStatus',
+        title: 'Response Status',
         dataType: 'number',
       },
     );
@@ -237,8 +249,32 @@ describe('LLMChatV2NodeImpl', () => {
       statusNode.getOutputDefinitions().find((output) => output.id === 'requestError'),
       {
         id: 'requestError',
-        title: 'Request Error',
+        title: 'Response Error',
         dataType: 'string',
+      },
+    );
+    assert.deepEqual(
+      retryStatusNode.getOutputDefinitions().find((output) => output.id === 'requestError'),
+      {
+        id: 'requestError',
+        title: 'Response Error',
+        dataType: 'string',
+      },
+    );
+    assert.deepEqual(
+      retryStatusNode.getOutputDefinitions().find((output) => output.id === 'requestStatuses'),
+      {
+        id: 'requestStatuses',
+        title: 'Request Statuses',
+        dataType: 'number[]',
+      },
+    );
+    assert.deepEqual(
+      retryStatusNode.getOutputDefinitions().find((output) => output.id === 'requestErrors'),
+      {
+        id: 'requestErrors',
+        title: 'Request Errors',
+        dataType: 'string[]',
       },
     );
   });

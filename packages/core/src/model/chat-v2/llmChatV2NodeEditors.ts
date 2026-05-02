@@ -517,7 +517,8 @@ function getTechnicalDetailsEditors(): LLMChatV2EditorDefinition {
       type: 'toggle',
       label: 'Output request status',
       dataKey: 'outputRequestStatus',
-      helperMessage: 'Adds Request Status and Request Error outputs for provider transport failures.',
+      helperMessage:
+        'Adds Response Status and Response Error outputs. Retry mode also adds per-attempt Request Statuses and Request Errors outputs.',
     },
   ]);
 }
