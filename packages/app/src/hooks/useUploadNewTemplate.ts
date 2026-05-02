@@ -1,11 +1,14 @@
 import { useAtomValue } from 'jotai';
 import { projectState } from '../state/savedGraphs';
+import { graphState } from '../state/graph';
 import { type GraphId } from '@ironclad/rivet-core';
 import { type UseMutationResult } from '@tanstack/react-query';
 import { type PostTemplateBody, type PutTemplateVersionBody } from '../utils/communityApi';
 import { createTemplate, serializeTemplateProject, unpublishTemplate, uploadTemplateVersion } from '../utils/communityTemplates';
-import { useDependsOnPlugins } from './useDependsOnPlugins';
 import { useHandledMutation } from './useHandledMutation';
+import { pluginsState } from '../state/plugins';
+import { useProjectNodeRegistry } from './useProjectNodeRegistry';
+import { withDerivedProjectPluginSpecs } from '../utils/pluginUsage';
 
 export function useUploadNewTemplate({ onCompleted }: { onCompleted: () => void }): UseMutationResult<
   void,
@@ -20,7 +23,9 @@ export function useUploadNewTemplate({ onCompleted }: { onCompleted: () => void 
   unknown
 > {
   const project = useAtomValue(projectState);
-  const plugins = useDependsOnPlugins();
+  const graph = useAtomValue(graphState);
+  const pluginStates = useAtomValue(pluginsState);
+  const projectNodeRegistry = useProjectNodeRegistry();
 
   const mutation = useHandledMutation({
     mutationFn: async (params: {
@@ -30,7 +35,21 @@ export function useUploadNewTemplate({ onCompleted }: { onCompleted: () => void 
       versionDescription: string;
       graphsToInclude: GraphId[];
     }) => {
-      const serializedProject = serializeTemplateProject(project, params.graphsToInclude);
+      const projectToUpload = withDerivedProjectPluginSpecs(
+        {
+          ...project,
+          graphs: {
+            ...project.graphs,
+            [graph.metadata!.id!]: graph,
+          },
+        },
+        {
+          appPluginStates: pluginStates,
+          currentGraph: graph,
+          registry: projectNodeRegistry,
+        },
+      );
+      const serializedProject = serializeTemplateProject(projectToUpload, params.graphsToInclude);
       const template = await createTemplate({
         name: params.templateName,
         tags: [],
@@ -43,7 +62,7 @@ export function useUploadNewTemplate({ onCompleted }: { onCompleted: () => void 
           {
             descriptionMarkdown: params.description,
             versionDescriptionMarkdown: params.versionDescription,
-            plugins: plugins.map((plugin) => plugin.id),
+            plugins: (projectToUpload.plugins ?? []).map((plugin) => plugin.id),
             serializedProject: serializedProject as string,
           } satisfies PutTemplateVersionBody,
         );

@@ -27,7 +27,7 @@ export function buildGraphListReachabilityPresentation(options: {
     return {
       bucketByGraphId,
       showUnreachableBadges: false,
-      notice: 'Unreachable graph analysis is waiting for project plugins to load.',
+      notice: 'Unreachable graph analysis is waiting for app plugins to load.',
     };
   }
 

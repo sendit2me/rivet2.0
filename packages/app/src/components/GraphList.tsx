@@ -364,7 +364,9 @@ export const GraphList: FC<{ onRunGraph?: (graphId: GraphId) => void }> = memo((
 
     const builtInPluginIds = resolveSupportedBuiltInPluginIds(project.plugins);
     const pluginStatesById = new Map(plugins.map((plugin) => [plugin.id, plugin]));
-    const graphListPlugins = (project.plugins ?? []).map((spec) => pluginStatesById.get(spec.id) ?? { loaded: false });
+    const graphListPlugins = (project.plugins ?? [])
+      .map((spec) => pluginStatesById.get(spec.id))
+      .filter((plugin) => plugin != null);
 
     const report = getGraphReachabilityReport(project, {
       registry: projectNodeRegistry,

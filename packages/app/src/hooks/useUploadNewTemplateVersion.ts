@@ -1,11 +1,14 @@
 import { projectState } from '../state/savedGraphs';
+import { graphState } from '../state/graph';
 import { type GraphId } from '@ironclad/rivet-core';
 import { type UseMutationResult } from '@tanstack/react-query';
 import { type PutTemplateVersionBody } from '../utils/communityApi';
 import { myTemplatesQueryKey, serializeTemplateProject, uploadTemplateVersion } from '../utils/communityTemplates';
-import { useDependsOnPlugins } from './useDependsOnPlugins';
 import { useAtomValue } from 'jotai';
 import { useHandledMutation } from './useHandledMutation';
+import { pluginsState } from '../state/plugins';
+import { useProjectNodeRegistry } from './useProjectNodeRegistry';
+import { withDerivedProjectPluginSpecs } from '../utils/pluginUsage';
 
 export type UseUploadNewTemplateVersionParams = {
   version: string;
@@ -22,11 +25,27 @@ export function useUploadNewTemplateVersion({
   onCompleted: () => void;
 }): UseMutationResult<void, Error, UseUploadNewTemplateVersionParams, unknown> {
   const project = useAtomValue(projectState);
-  const plugins = useDependsOnPlugins();
+  const graph = useAtomValue(graphState);
+  const pluginStates = useAtomValue(pluginsState);
+  const projectNodeRegistry = useProjectNodeRegistry();
 
   const mutation = useHandledMutation({
     mutationFn: async (params: UseUploadNewTemplateVersionParams) => {
-      const serializedProject = serializeTemplateProject(project, params.graphsToInclude);
+      const projectToUpload = withDerivedProjectPluginSpecs(
+        {
+          ...project,
+          graphs: {
+            ...project.graphs,
+            [graph.metadata!.id!]: graph,
+          },
+        },
+        {
+          appPluginStates: pluginStates,
+          currentGraph: graph,
+          registry: projectNodeRegistry,
+        },
+      );
+      const serializedProject = serializeTemplateProject(projectToUpload, params.graphsToInclude);
 
       await uploadTemplateVersion(
         templateId,
@@ -34,7 +53,7 @@ export function useUploadNewTemplateVersion({
         {
           descriptionMarkdown: params.description,
           versionDescriptionMarkdown: params.versionDescription,
-          plugins: plugins.map((plugin) => plugin.id),
+          plugins: (projectToUpload.plugins ?? []).map((plugin) => plugin.id),
           serializedProject: serializedProject as string,
         } satisfies PutTemplateVersionBody,
       );

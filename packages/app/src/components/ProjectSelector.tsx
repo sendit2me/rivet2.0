@@ -2,24 +2,18 @@ import { css } from '@emotion/react';
 import { useEffect, useMemo, useRef, useState, type FC, type MouseEvent as ReactMouseEvent } from 'react';
 import { DndContext, type DragEndEvent } from '@dnd-kit/core';
 import { type ProjectId } from '@ironclad/rivet-core';
-import { useAtom, useAtomValue, useSetAtom } from 'jotai';
+import { useAtom, useAtomValue } from 'jotai';
 import CloseIcon from 'majesticons/line/multiply-line.svg?react';
-import FileIcon from 'majesticons/line/file-plus-line.svg?react';
-import FolderIcon from 'majesticons/line/folder-line.svg?react';
 import { openedProjectsSortedIdsState, openedProjectsState, projectState } from '../state/savedGraphs';
 import clsx from 'clsx';
 import { useLoadProject } from '../hooks/useLoadProject';
 import { useSyncCurrentStateIntoOpenedProjects } from '../hooks/useSyncCurrentStateIntoOpenedProjects';
 import { type SyntheticListenerMap } from '@dnd-kit/core/dist/hooks/utilities';
 import { SortableContext, horizontalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
-import { useLoadProjectWithFileBrowser } from '../hooks/useLoadProjectWithFileBrowser';
-import { newProjectModalOpenState } from '../state/ui';
-import DiscordLogo from '../assets/vendor_logos/discord-mark-white.svg?react';
-import { useOpenUrl } from '../hooks/useOpenUrl';
-import { wrapAsync } from '../utils/errorHandling';
 import { isInTauri } from '../utils/tauri.js';
 import { useRunMenuCommand } from '../hooks/useMenuCommands.js';
 import { useRivetWorkspaceHost } from '../hooks/useRivetWorkspaceHost.js';
+import { OverlayTabs } from './OverlayTabs.js';
 
 export const styles = css`
   position: absolute;
@@ -121,9 +115,8 @@ export const styles = css`
 
   .projects-container {
     display: flex;
-    flex: 1;
+    flex: 1 1 auto;
     min-width: 0;
-    width: 100%;
     overflow: hidden;
   }
 
@@ -134,57 +127,6 @@ export const styles = css`
     gap: 1px;
     padding-right: 1px;
     width: 100%;
-  }
-
-  > .actions {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-right: 8px;
-
-    button {
-      border: none;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      margin: 0;
-      border-radius: var(--ui-button-radius);
-      corner-shape: squircle;
-      background: transparent;
-      padding: 8px;
-      width: 32px;
-      height: 32px;
-      justify-content: center;
-
-      &:hover {
-        background-color: rgba(255, 255, 255, 0.2);
-      }
-
-      svg {
-        width: 16px;
-        height: 16px;
-      }
-    }
-
-    .get-help {
-      display: flex;
-      white-space: nowrap;
-      padding: 4px 8px;
-      background: var(--grey-darkish);
-      border-radius: 56px;
-      corner-shape: superellipse(1.15);
-      min-width: 80px;
-      flex-shrink: 0;
-      height: 28px;
-      align-items: center;
-      gap: 6px;
-
-      svg {
-        width: 16px;
-        height: 16px;
-        fill: #5865f2;
-      }
-    }
   }
 
   .draggableProject {
@@ -326,8 +268,6 @@ export const ProjectSelector: FC = () => {
   }, [openedProjectsSortedIds, openedProjects]);
 
   const loadProject = useLoadProject();
-  const setNewProjectModalOpen = useSetAtom(newProjectModalOpenState);
-  const loadProjectWithFileBrowser = useLoadProjectWithFileBrowser();
 
   useSyncCurrentStateIntoOpenedProjects();
 
@@ -352,8 +292,6 @@ export const ProjectSelector: FC = () => {
     }
   };
 
-  const openDiscord = useOpenUrl('https://discord.gg/qT8B2gv9Mg');
-
   return (
     <div css={styles}>
       {!isInTauri() && <ProjectFileMenu />}
@@ -375,21 +313,7 @@ export const ProjectSelector: FC = () => {
           </DndContext>
         </div>
       </div>
-      <div className="actions">
-        <button className="new-project" onClick={() => setNewProjectModalOpen(true)} title="New Project">
-          <FileIcon />
-        </button>
-        <button
-          className="open-project"
-          onClick={wrapAsync(loadProjectWithFileBrowser, 'Open project')}
-          title="Open Project"
-        >
-          <FolderIcon />
-        </button>
-        <button className="get-help" onClick={openDiscord}>
-          <DiscordLogo /> Discord
-        </button>
-      </div>
+      <OverlayTabs />
     </div>
   );
 };

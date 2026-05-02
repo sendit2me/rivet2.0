@@ -1,18 +1,15 @@
-import { Label } from '@atlaskit/form';
+import { HelperMessage, Label } from '@atlaskit/form';
 import { type FC } from 'react';
-import { useAtom } from 'jotai';
+import { useAtomValue } from 'jotai';
 import { projectPluginsState } from '../state/savedGraphs';
-import MoreMenuVerticalIcon from 'majesticons/line/more-menu-vertical-line.svg?react';
-import DeleteBinIcon from 'majesticons/line/delete-bin-line.svg?react';
 import LightningIcon from 'majesticons/line/lightning-bolt-line.svg?react';
 import InfoIcon from 'majesticons/line/info-circle-line.svg?react';
 import { useToggle } from 'ahooks';
 import { type PluginLoadSpec } from '@ironclad/rivet-core';
 import { css } from '@emotion/react';
-import Popup from '@atlaskit/popup';
-import { MenuGroup, ButtonItem } from '@atlaskit/menu';
-import { useDependsOnPlugins } from '../hooks/useDependsOnPlugins';
 import { PluginInfoModal } from './PluginInfoModal';
+import { pluginsState } from '../state/plugins';
+import { getPluginSpecLabel } from '../utils/pluginUsage';
 
 const styles = css`
   margin-top: 16px;
@@ -23,8 +20,7 @@ const styles = css`
     justify-content: space-between;
   }
 
-  .add-plugin,
-  .plugin-dropdown {
+  .plugin-info-button {
     cursor: pointer;
     font-size: var(--ui-font-size-lg);
     color: var(--grey);
@@ -47,6 +43,10 @@ const styles = css`
       border: 1px solid var(--foreground-bright);
       color: var(--foreground-bright);
     }
+  }
+
+  .helper {
+    margin-top: 4px;
   }
 
   .plugins-list {
@@ -86,22 +86,22 @@ const styles = css`
 `;
 
 export const ProjectPluginsConfiguration: FC = () => {
-  const [pluginSpecs, setPluginSpecs] = useAtom(projectPluginsState);
-
-  const deletePlugin = (spec: PluginLoadSpec) => {
-    setPluginSpecs((prev) => (prev || []).filter((s) => s.id !== spec.id));
-  };
+  const pluginSpecs = useAtomValue(projectPluginsState);
 
   return (
     <div css={styles}>
       <div className="label">
-        <Label htmlFor="">Plugins</Label>
+        <Label htmlFor="">Plugins used by this project</Label>
+      </div>
+      <div className="helper">
+        <HelperMessage>
+          A plugin is listed here when one of its nodes exists in a project graph. Remove all of that plugin's nodes to
+          remove it from this project.
+        </HelperMessage>
       </div>
       <ul className="plugins-list">
         {pluginSpecs.length > 0 ? (
-          pluginSpecs.map((spec, i) => (
-            <PluginConfigurationItem spec={spec} key={`spec-${i}`} onDelete={deletePlugin} />
-          ))
+          pluginSpecs.map((spec, i) => <PluginConfigurationItem spec={spec} key={`spec-${i}`} />)
         ) : (
           <li>None</li>
         )}
@@ -110,18 +110,12 @@ export const ProjectPluginsConfiguration: FC = () => {
   );
 };
 
-const PluginConfigurationItem: FC<{ spec: PluginLoadSpec; onDelete?: (spec: PluginLoadSpec) => void }> = ({
-  spec,
-  onDelete,
-}) => {
-  const [isOpen, toggleOpen] = useToggle();
+const PluginConfigurationItem: FC<{ spec: PluginLoadSpec }> = ({ spec }) => {
   const [infoModalOpen, toggleInfoModal] = useToggle();
 
-  const loadedPlugins = useDependsOnPlugins();
-
-  const displayId = spec.type === 'package' ? spec.package : spec.id;
-  const loadedPlugin = loadedPlugins.find((p) => p.id === displayId);
-  const pluginName = loadedPlugins.find((p) => p.id === displayId)?.name ?? displayId;
+  const pluginStates = useAtomValue(pluginsState);
+  const loadedPlugin = pluginStates.find((p) => p.spec.id === spec.id)?.plugin;
+  const pluginName = loadedPlugin?.name ?? getPluginSpecLabel(spec);
 
   return (
     <li className="plugin">
@@ -131,39 +125,9 @@ const PluginConfigurationItem: FC<{ spec: PluginLoadSpec; onDelete?: (spec: Plug
           {pluginName}
         </div>
       </div>
-      <Popup
-        isOpen={isOpen}
-        onClose={toggleOpen.setLeft}
-        content={() => (
-          <MenuGroup>
-            <ButtonItem
-              iconBefore={<InfoIcon />}
-              onClick={() => {
-                toggleInfoModal.setRight();
-                toggleOpen.setLeft();
-              }}
-            >
-              Info
-            </ButtonItem>
-
-            <ButtonItem
-              iconBefore={<DeleteBinIcon />}
-              onClick={() => {
-                onDelete?.(spec);
-                toggleOpen.setLeft();
-              }}
-            >
-              Delete
-            </ButtonItem>
-          </MenuGroup>
-        )}
-        placement="bottom-end"
-        trigger={(triggerProps) => (
-          <button className="plugin-dropdown" {...triggerProps} onClick={toggleOpen.setRight}>
-            <MoreMenuVerticalIcon />
-          </button>
-        )}
-      />
+      <button className="plugin-info-button" onClick={toggleInfoModal.setRight} aria-label="Plugin info">
+        <InfoIcon />
+      </button>
       <PluginInfoModal
         isOpen={infoModalOpen}
         onClose={toggleInfoModal.setLeft}

@@ -2,8 +2,10 @@ import { type FC } from 'react';
 import TextField from '@atlaskit/textfield';
 import Button from '@atlaskit/button';
 import { css } from '@emotion/react';
+import type { PluginLoadSpec } from '@ironclad/rivet-core';
 import { type PluginInfo } from '../../plugins.js';
 import { PluginCatalogItem } from './PluginCatalogItem.js';
+import { getPluginSpecId, getPluginSpecLabel, pluginSpecMatchesSearch } from '../../utils/pluginUsage.js';
 
 const pluginCatalogStyles = css`
   .plugin-search {
@@ -46,6 +48,7 @@ const pluginCatalogStyles = css`
     display: flex;
     align-items: center;
     align-self: end;
+    gap: 8px;
     grid-column: -1;
   }
 
@@ -72,16 +75,37 @@ const pluginCatalogStyles = css`
     grid-column: 3;
     grid-row: 1 / -1;
   }
+
+  .extra-plugin-id {
+    color: var(--grey-light);
+    font-family: var(--font-family-monospace);
+    font-size: 12px;
+  }
 `;
 
 export const PluginCatalog: FC<{
   searchText: string;
   onSearchTextChange: (value: string) => void;
   plugins: PluginInfo[];
+  installedExtraSpecs: PluginLoadSpec[];
   isInstalled: (plugin: PluginInfo) => boolean;
   onAddPlugin: (plugin: PluginInfo) => void;
+  onRemovePlugin: (plugin: PluginInfo) => void;
+  onRemovePluginSpec: (spec: PluginLoadSpec) => void;
   onAddManualPlugin: () => void;
-}> = ({ searchText, onSearchTextChange, plugins, isInstalled, onAddPlugin, onAddManualPlugin }) => {
+}> = ({
+  searchText,
+  onSearchTextChange,
+  plugins,
+  installedExtraSpecs,
+  isInstalled,
+  onAddPlugin,
+  onRemovePlugin,
+  onRemovePluginSpec,
+  onAddManualPlugin,
+}) => {
+  const extraSpecs = installedExtraSpecs.filter((spec) => pluginSpecMatchesSearch(spec, searchText));
+
   return (
     <div className="plugin-list" css={pluginCatalogStyles}>
       <div className="plugin-search">
@@ -94,12 +118,36 @@ export const PluginCatalog: FC<{
         />
       </div>
       <div className="plugins">
+        {extraSpecs.map((spec) => {
+          const label = getPluginSpecLabel(spec);
+
+          return (
+            <div className="plugin custom-plugin" key={`installed-extra-plugin-${getPluginSpecId(spec)}`}>
+              <div className="plugin-icon" />
+              <div className="plugin-name-author">
+                <div className="plugin-name">{label}</div>
+                <div className="plugin-author">Installed in this Rivet app</div>
+              </div>
+              <div className="plugin-description">
+                This plugin is installed from outside the catalog.
+                <div className="extra-plugin-id">{getPluginSpecId(spec)}</div>
+              </div>
+              <div className="plugin-actions">
+                <span className="installed">Installed</span>
+                <Button appearance="danger" onClick={() => onRemovePluginSpec(spec)}>
+                  Remove
+                </Button>
+              </div>
+            </div>
+          );
+        })}
         {plugins.map((pluginInfo) => (
           <PluginCatalogItem
             key={pluginInfo.id}
             plugin={pluginInfo}
             isInstalled={isInstalled(pluginInfo)}
             onAddPlugin={onAddPlugin}
+            onRemovePlugin={onRemovePlugin}
           />
         ))}
         {!searchText && (

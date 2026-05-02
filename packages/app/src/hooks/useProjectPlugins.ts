@@ -1,9 +1,9 @@
 import { useEffect, useRef } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
-import { projectPluginsState } from '../state/savedGraphs';
 import { assembleRegistry, logRuntimeDebug, logRuntimeInfo, resolveBuiltInPlugin } from '@ironclad/rivet-core';
-import type { PluginLoadSpec } from '@ironclad/rivet-core';
+import type { PluginLoadSpec, RivetPlugin } from '@ironclad/rivet-core';
 import {
+  appPluginSpecsState,
   pluginRefreshCounterState,
   pluginRetryCounterState,
   pluginsState,
@@ -19,7 +19,7 @@ import { importPluginInitializer } from '../utils/pluginInitializer.js';
 import { handleError } from '../utils/errorHandling.js';
 
 export function useProjectPlugins() {
-  const pluginSpecs = useAtomValue(projectPluginsState);
+  const pluginSpecs = useAtomValue(appPluginSpecsState);
   const retryCounter = useAtomValue(pluginRetryCounterState);
   const setPlugins = useSetAtom(pluginsState);
   const setProjectNodeRegistry = useSetAtom(projectNodeRegistryState);
@@ -29,7 +29,7 @@ export function useProjectPlugins() {
     onLog: (message) => logRuntimeDebug('Package plugin loader log', { message }),
   });
 
-  const updatePluginState = (id: string, updates: { loaded?: boolean; error?: string }) => {
+  const updatePluginState = (id: string, updates: { loaded?: boolean; error?: string; plugin?: RivetPlugin }) => {
     setPlugins((oldPlugins) =>
       produce(oldPlugins, (draft) => {
         const entry = draft.find((p) => p.id === id);
@@ -76,7 +76,7 @@ export function useProjectPlugins() {
         return plugin;
       }
 
-      updatePluginState(spec.id, { loaded: true });
+      updatePluginState(spec.id, { loaded: true, plugin });
 
       logRuntimeInfo(`Loaded plugin: ${plugin.id}`);
       return plugin;
@@ -91,7 +91,7 @@ export function useProjectPlugins() {
       handleError(new Error(fail.error), `Failed to load plugin "${fail.id}"`, {
         metadata: {
           pluginId: fail.id,
-          projectPluginCount: pluginSpecs.length,
+          appPluginCount: pluginSpecs.length,
         },
         toastError: false,
       });

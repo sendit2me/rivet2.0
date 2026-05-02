@@ -110,7 +110,7 @@ test('plugin loading hides badges and shows the loading notice', () => {
   });
 
   assert.equal(presentation.showUnreachableBadges, false);
-  assert.equal(presentation.notice, 'Unreachable graph analysis is waiting for project plugins to load.');
+  assert.equal(presentation.notice, 'Unreachable graph analysis is waiting for app plugins to load.');
 });
 
 test('plugin load failures do not suppress badges by themselves', () => {

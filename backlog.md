@@ -7,9 +7,6 @@
 - Reassess Ctrl+N window
 
 
-- Make the workspace navigation less annoying
-
-
 
 - Check how "Check for updates" button works
 

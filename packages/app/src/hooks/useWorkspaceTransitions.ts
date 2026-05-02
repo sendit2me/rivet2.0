@@ -38,6 +38,8 @@ import {
 import { flushHybridStorageGroup } from '../state/storage.js';
 import { useCurrentProjectEditorSnapshot } from './useCurrentProjectEditorSnapshot.js';
 import { canSaveProjectDataNoPrompt } from '../utils/projectSaveCapabilities.js';
+import { pluginsState, projectNodeRegistryState } from '../state/plugins.js';
+import { withDerivedProjectPluginSpecs } from '../utils/pluginUsage.js';
 
 export function useWorkspaceTransitions() {
   const ioProvider = useIOProvider();
@@ -267,14 +269,24 @@ export function useWorkspaceTransitions() {
 
     buildProjectForSave() {
       const savedGraph = saveCurrentGraph();
-      return mergeCurrentGraphIntoProject(store.get(projectState), savedGraph);
+      const projectToPersist = mergeCurrentGraphIntoProject(store.get(projectState), savedGraph);
+      return withDerivedProjectPluginSpecs(projectToPersist, {
+        appPluginStates: store.get(pluginsState),
+        currentGraph: savedGraph,
+        registry: store.get(projectNodeRegistryState),
+      });
     },
 
     async saveProject(options: { forceSaveAs?: boolean } = {}) {
       const latestProject = store.get(projectState);
       const latestLoadedProject = store.get(loadedProjectState);
       const latestTestSuites = store.get(trivetState).testSuites;
-      const projectToPersist = mergeCurrentGraphIntoProject(latestProject, saveCurrentGraph());
+      const savedGraph = saveCurrentGraph();
+      const projectToPersist = withDerivedProjectPluginSpecs(mergeCurrentGraphIntoProject(latestProject, savedGraph), {
+        appPluginStates: store.get(pluginsState),
+        currentGraph: savedGraph,
+        registry: store.get(projectNodeRegistryState),
+      });
       const canSaveInPlace = canSaveProjectDataNoPrompt(ioProvider, latestLoadedProject.path);
       const shouldUseSaveAs =
         options.forceSaveAs || !latestLoadedProject.loaded || !latestLoadedProject.path || !canSaveInPlace;

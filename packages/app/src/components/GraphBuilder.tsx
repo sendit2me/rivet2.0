@@ -14,7 +14,6 @@ import { isNotNull } from '../utils/genericUtilFunctions.js';
 import { ErrorBoundary } from 'react-error-boundary';
 import { loadedRecordingState } from '../state/execution.js';
 import { useGraphHistoryNavigation } from '../hooks/useGraphHistoryNavigation';
-import { useProjectPlugins } from '../hooks/useProjectPlugins';
 import { entries } from '../utils/typeSafety';
 import { useGraphBuilderContextMenuHandler } from '../hooks/useGraphBuilderContextMenuHandler';
 import { NavigationBar } from './NavigationBar';
@@ -30,6 +29,7 @@ import { useReloadProjectReferences } from '../hooks/useReloadProjectReferences'
 import { submitUserInputAnswers } from '../state/actions/userInputActions';
 import { useSyncCurrentProjectEditorState } from '../hooks/useSyncCurrentProjectEditorState.js';
 import { toggleNodeSelection } from '../domain/graphEditing/nodeSelection.js';
+import { useSyncProjectPluginsFromGraphUsage } from '../hooks/useSyncProjectPluginsFromGraphUsage.js';
 
 const Container = styled.div`
   position: relative;
@@ -79,7 +79,7 @@ export const GraphBuilder: FC = () => {
   useDatasets(project.metadata.id);
 
   const historyNav = useGraphHistoryNavigation();
-  useProjectPlugins();
+  useSyncProjectPluginsFromGraphUsage();
 
   const nodesChanged = useStableCallback((newNodes: ChartNode[]) => {
     setNodes?.(newNodes);

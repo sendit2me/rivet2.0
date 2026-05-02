@@ -1,6 +1,5 @@
 import { useWindowsHotkeysFix } from '../hooks/useWindowsHotkeysFix';
 import { GraphBuilder } from './GraphBuilder.js';
-import { OverlayTabs } from './OverlayTabs.js';
 import { type FC, useEffect, useMemo } from 'react';
 import { type GraphId } from '@ironclad/rivet-core';
 import { css } from '@emotion/react';
@@ -39,8 +38,10 @@ import { wrapAsync } from '../utils/errorHandling';
 import { useExecutorSession } from '../hooks/useExecutorSession';
 import { useRestorePersistedWorkspace } from '../hooks/useRestorePersistedWorkspace.js';
 import { DeleteGraphInputConfirmModalRenderer } from './DeleteGraphInputConfirmModal';
-import { uiFontSizeState } from '../state/ui.js';
+import { overlayOpenState, uiFontSizeState } from '../state/ui.js';
 import { getUiFontSizeCssVariables } from '../utils/uiFontSize.js';
+import { useProjectPlugins } from '../hooks/useProjectPlugins.js';
+import { MissingAppPluginsModalRenderer } from './MissingAppPluginsModal.js';
 
 const styles = css`
   overflow: hidden;
@@ -65,13 +66,16 @@ export const RivetApp: FC = () => {
   const { tryRunGraph, tryRunTests, tryAbortGraph, tryPauseGraph, tryResumeGraph } = useGraphExecutor();
   const theme = useAtomValue(themeState);
   const uiFontSize = useAtomValue(uiFontSizeState);
+  const openOverlay = useAtomValue(overlayOpenState);
   const openedProjectIds = useAtomValue(openedProjectsSortedIdsState);
   const uiFontSizeCssVariables = useMemo(() => getUiFontSizeCssVariables(uiFontSize), [uiFontSize]);
 
   const noProjectOpen = openedProjectIds.length === 0;
+  const isCanvasMode = openOverlay === undefined;
 
   useLoadStaticData();
   useRestorePersistedWorkspace();
+  useProjectPlugins();
 
   const runGraph = wrapAsync(tryRunGraph, 'Run graph');
   const runTests = wrapAsync(tryRunTests, 'Run tests');
@@ -132,16 +136,17 @@ export const RivetApp: FC = () => {
       ) : (
         <>
           <ProjectSelector />
-          <OverlayTabs />
-          <ActionBar
-            onRunGraph={runGraph}
-            onRunTests={runTests}
-            onAbortGraph={tryAbortGraph}
-            onPauseGraph={tryPauseGraph}
-            onResumeGraph={tryResumeGraph}
-          />
+          {isCanvasMode && (
+            <ActionBar
+              onRunGraph={runGraph}
+              onRunTests={runTests}
+              onAbortGraph={tryAbortGraph}
+              onPauseGraph={tryPauseGraph}
+              onResumeGraph={tryResumeGraph}
+            />
+          )}
           <StatusBar />
-          <DebuggerPanelRenderer />
+          {isCanvasMode && <DebuggerPanelRenderer />}
           <LeftSidebar onRunGraph={runGraphFromSidebar} />
           <GraphBuilder />
           <AppErrorBoundary context="Settings Modal" fallback={<div>Failed to render Settings</div>}>
@@ -154,6 +159,7 @@ export const RivetApp: FC = () => {
           <PluginsOverlayRenderer />
           <UpdateModalRenderer />
           <NewProjectModalRenderer />
+          <MissingAppPluginsModalRenderer />
           <DeleteGraphInputConfirmModalRenderer />
           <CommunityOverlayRenderer />
         </>

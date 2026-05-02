@@ -278,7 +278,7 @@ Key APIs:
 - `registerPluginsIntoRegistry(registry, plugins)` - registers an array of plugins into an existing registry
 - `assembleRegistry(specs, loadPlugin)` - end-to-end helper: creates a built-in registry, then loads and registers plugin specs one by one so per-plugin load/registration failures are recorded without aborting the whole assembly
 
-The app uses `assembleRegistry()` + `replaceGlobalRivetNodeRegistry()` (from `Nodes.ts`) to rebuild the global registry when project plugins change. The sidecar (`app-executor`) uses the same `assembleRegistry()` helper but passes the result directly to `createProcessor()` without touching the global.
+The app uses `assembleRegistry()` to rebuild `projectNodeRegistryState` from app-installed plugin specs. The sidecar (`app-executor`) uses the same helper for each uploaded project's YAML plugin specs and passes the result directly to `createProcessor()` without touching app state.
 
 Architectural significance:
 

@@ -86,10 +86,10 @@ Current composition:
 ```text
 RivetApp
 |- ProjectSelector
-|- OverlayTabs
-|- ActionBar
+|  `- OverlayTabs
+|- ActionBar (Canvas mode only)
 |- StatusBar
-|- DebuggerPanelRenderer
+|- DebuggerPanelRenderer (Canvas mode only)
 |- LeftSidebar
 |  |- GraphList
 |  |- GraphInfoSidebarTab
@@ -112,6 +112,7 @@ RivetApp
 |- PluginsOverlayRenderer
 |- UpdateModalRenderer
 |- NewProjectModalRenderer
+|- MissingAppPluginsModalRenderer
 |- CommunityOverlayRenderer
 |- HelpModal
 `- ToastContainer(s)
@@ -192,6 +193,8 @@ Current workspace behavior:
 
 Surface for run, test, pause, resume, abort, and related execution actions. It delegates actual behavior to `useGraphExecutor`.
 
+`ActionBar` is a Canvas-mode control: `RivetApp` renders it only when `overlayOpenState === undefined`. Auxiliary workspaces such as Plugins, Community, Prompt Designer, Trivet, Chat Viewer, and Data Studio should not show Run, Disconnect Remote Debugger, or the action-bar overflow menu. `DebuggerPanelRenderer` follows the same Canvas-mode render gate so the remote-debugger connect popup cannot float over auxiliary workspaces.
+
 The overflow menu lives in [`packages/app/src/components/ActionBarMoreMenu.tsx`](../packages/app/src/components/ActionBarMoreMenu.tsx). Rows in that menu should share the same base UI font size, and the executor mode row uses a two-line layout: a plain `Executor` label with no icon, then the shared segmented editor control for Browser/Node switching rather than a dropdown. The segmented track gets a small left visual compensation inside this menu so it aligns with the label despite the capsule border radius. This control writes the live, non-persisted `selectedExecutorState`; the settings modal's `Default executor` control writes only the next-start persisted default.
 
 ### `SettingsModal`
@@ -232,8 +235,11 @@ Acts as the switchboard for overlay-like product areas such as prompt designer, 
 
 Current rule that matters for maintenance:
 
-- browser-only file commands live beside opened-project tabs in [`packages/app/src/components/ProjectSelector.tsx`](../packages/app/src/components/ProjectSelector.tsx); `OverlayTabs` renders workspace destinations such as `Canvas`, `Plugins`, `Community`, Prompt Designer, Trivet, Chat Viewer, Data Studio, and the graph `Search` control, which is visually styled as a separate pill button rather than as another workspace tab
-- workspace navigation tabs (`Canvas`, `Plugins`, `Community`, etc.) are allowed to wrap on narrow windows; the flex row stretches every tab to the tallest wrapped tab height so labels do not spill outside fixed-height pills
+- [`ProjectSelector`](../packages/app/src/components/ProjectSelector.tsx) is the top app bar. It owns the File menu, opened-project tabs, and inline workspace navigation.
+- `Canvas` is the normal app state, represented by `overlayOpenState === undefined`, not a visible workspace tab. Selecting an already-open workspace tab returns to Canvas.
+- `OverlayTabs` renders only auxiliary workspace destinations such as `Plugins`, `Community`, Prompt Designer, Trivet, Chat Viewer, Data Studio, plus the graph `Search` action. It is mounted inside the top app bar after the opened-project tabs.
+- New/open project commands stay in the File menu and command layer rather than also appearing as separate top-bar icon buttons. The Discord shortcut is not part of the project top bar.
+- workspace navigation in the top bar stays single-line and horizontally scrollable when space is tight, so the project tabs keep the remaining top-bar width and the app avoids a second floating workspace-tab row.
 
 ## Graph Editor
 
@@ -264,7 +270,7 @@ Current responsibilities:
 - read/write nodes and connections through Jotai
 - drive selection and editing state
 - install graph-history mouse navigation
-- trigger project-plugin loading with `useProjectPlugins`
+- sync project-used plugin specs from graph node usage
 - reload project references
 - attach dataset lifecycle hooks
 - host user-input modal behavior
@@ -354,7 +360,7 @@ Current performance-oriented hook boundaries now carry explicit contracts:
 - generated node IDs are searchable only for deliberate longer queries, not short one- or two-character searches, so random IDs do not make otherwise irrelevant nodes appear in the graph search panel
 - [`packages/app/src/hooks/graphSearch.ts`](../packages/app/src/hooks/graphSearch.ts) owns result metadata, field-aware match-location classification (`graph name`, `node name`, `node description`, `node type`, `node content`), content-context snippet extraction, and grouping by graph for the search panel; graph-name hits can produce graph groups even when a graph has no nodes, node type is shown as muted top-right metadata in each node result row rather than in the graph header, and snippets are shown only when the same node-data/content field itself satisfies the active exact or fallback search mode
 - graph search styling uses the lightweight `searchMatch` node presentation state for passive matches only; clicking a result uses normal `selectedNodesState` selection so the focused node keeps the standard selected-node border
-- `OverlayTabs` exposes graph search as the last workspace navigation control with compact button-like styling and a search icon; it is an action button rather than a selectable workspace tab, so opening search leaves the current workspace tab such as `Canvas` visually selected while closing active overlays and using the same `searchingGraphState` path as `Ctrl/Cmd+F`
+- `OverlayTabs` exposes graph search as the last top-bar workspace control with compact button-like styling and a search icon; it is an action button rather than a selectable workspace tab, so opening search returns overlay state to Canvas while using the same `searchingGraphState` path as `Ctrl/Cmd+F`
 - `NavigationBar` owns the graph-search panel: it appears centered under workspace navigation at 30vw, focuses the lighter search input whenever search opens or an already-open search receives `Ctrl/Cmd+F` again, uses background-only input focus styling, stays as an input-only search bar until matches exist, discloses when results come from separate-word fallback matching, then persists a draggable bottom-edge max height in `graphSearchPanelHeightState` so short result lists can stay shorter, groups graph sections headed as `Graph <name>` with a lightweight `Graph` label and only the graph name emphasized, handles graph-title open actions, rounded result-row blocks, a lighter lower context section when node-content snippets are shown, long-line-safe snippet wrapping, stronger hover/focus styling, and close/Escape cleanup
 - clicking a graph-search result row opens the result's graph, centers the target node horizontally in the viewport and vertically in the visible area below the search panel at a gentler zoom than the older single-node focus path, and selects the node; clicking a graph title opens that graph without forcing a node focus; the panel remains open until the user explicitly closes it
 
@@ -687,7 +693,7 @@ It owns:
 - project static data
 - loaded project path state
 - graph list derived from the project
-- project plugin specs
+- project plugin specs, derived from plugin nodes rather than manually installed
 - open-project workspace state
 - per-project context values
 
@@ -1157,15 +1163,15 @@ Current architectural detail:
 
 ### `useProjectPlugins`
 
-This hook is the main project-plugin loading pipeline.
+This hook is the main app-plugin loading pipeline. `RivetApp` mounts it so app-installed plugins are available even before a specific canvas operation needs them.
 
 Current sequence:
 
-1. read plugin specs from `projectPluginsState`
+1. read persistent app-installed specs from `appPluginSpecsState`
 2. seed `pluginsState` with one loading entry per spec
-3. start a generation-tracked async load pass so stale completions from an older plugin set cannot overwrite the current UI state or active project registry
+3. start a generation-tracked async load pass so stale completions from an older plugin set cannot overwrite the current UI state or active editor registry
 4. call `assembleRegistry(specs, loadPlugin)` from core's `RegistryAssembly.ts`; this creates a fresh built-in registry and loads each plugin via a caller-provided loader
-5. mark per-plugin success/failure in app plugin state as results arrive
+5. mark per-plugin success/failure in app plugin state as results arrive, including the runtime plugin object
 6. ignore the finished result completely if a newer generation has superseded it
 7. show aggregated failure toasts for the active generation
 8. publish the assembled registry into `projectNodeRegistryState`
@@ -1177,7 +1183,23 @@ Supported load paths (inside the `loadPlugin` callback):
 - URI plugin via dynamic import, with initializer resolution that tolerates wrapped `default` exports from CJS/ESM interop
 - package plugin via `useLoadPackagePlugin`, using the same initializer-resolution behavior after loading the installed module
 
-This matters for refactors because node availability in the editor is partially rebuilt from scratch whenever project plugins change. The generation guard is part of the behavioral contract now: plugin retries or rapid project/plugin switching must not let an older async load pass replace newer plugin state or the active project registry. The `assembleRegistry()` helper is shared with the sidecar, so registry construction logic stays in one place.
+This matters for refactors because node availability in the editor is rebuilt from app-installed plugin specs, while project YAML plugin specs are derived later from node usage. The generation guard is part of the behavioral contract now: plugin retries or rapid app-plugin changes must not let an older async load pass replace newer plugin state or the active editor registry. The `assembleRegistry()` helper is shared with the sidecar, so registry construction logic stays in one place.
+
+### Project plugin derivation
+
+Projects still serialize plugin usage through the existing `Project.plugins` field. The UX no longer lets users add or delete that list directly.
+
+[`packages/app/src/utils/pluginUsage.ts`](../packages/app/src/utils/pluginUsage.ts) derives project-used plugin specs by scanning all project graphs plus the active unsaved graph, asking the current registry which plugin owns each node type, and mapping the runtime plugin id back to the app-installed `PluginLoadSpec`.
+
+[`useSyncProjectPluginsFromGraphUsage`](../packages/app/src/hooks/useSyncProjectPluginsFromGraphUsage.ts) keeps the Project sidebar in sync. Save, browser run, Node/remote upload, and community-template upload paths also derive specs before serializing or sending the project so newly added plugin nodes are not lost to a render-timing race.
+
+If a project declares a plugin that is not installed in the app, has just been removed from the app, failed to load, or the current graph contains unknown node types, the spec is preserved. Rivet cannot prove that all corresponding nodes were removed until plugin ownership can be resolved.
+
+### Missing app plugins
+
+[`MissingAppPluginsModal`](../packages/app/src/components/MissingAppPluginsModal.tsx) compares the current project's YAML plugin specs with `appPluginSpecsState`. Missing specs are shown with explicit Install buttons.
+
+Opening a project does not automatically install its declared plugins into the app. If the user closes the modal, the project stays as-is and unknown plugin nodes continue to render through the existing unknown-node fallback.
 
 ### `PluginsOverlay`
 
@@ -1190,6 +1212,10 @@ Current structure:
 - per-plugin row rendering lives in [`packages/app/src/components/pluginsOverlay/PluginCatalogItem.tsx`](../packages/app/src/components/pluginsOverlay/PluginCatalogItem.tsx)
 - install/log modals live in [`packages/app/src/components/pluginsOverlay/PluginInstallModals.tsx`](../packages/app/src/components/pluginsOverlay/PluginInstallModals.tsx)
 - shared overlay styles live in [`packages/app/src/components/pluginsOverlay/pluginsOverlayStyles.ts`](../packages/app/src/components/pluginsOverlay/pluginsOverlayStyles.ts)
+
+The Add action writes to `appPluginSpecsState`, not to the current project. The catalog's Installed marker therefore means "installed in this Rivet app." Installed catalog rows expose a Remove action that deletes the matching app plugin spec; non-catalog specs installed through the manual package/missing-plugin flows are listed separately in the Plugins workspace with the same Remove behavior and participate in plugin search by spec label/id. Removing an app plugin updates editor availability, but project YAML remains usage-derived and unresolved project plugin specs are preserved until Rivet can resolve plugin ownership and prove those nodes are gone.
+
+A project only receives the plugin in YAML after one of that plugin's node types appears in one of its graphs.
 
 This keeps plugin search/install orchestration separate from the catalog UI and modal UI, which makes later changes to install flows or overlay presentation easier to review.
 
@@ -1482,6 +1508,10 @@ If planning significant refactors, these are the highest-value seams already vis
 ### Plugin seams
 
 - `useProjectPlugins`
+- `appPluginSpecsState`
+- `pluginUsage.ts`
+- `useSyncProjectPluginsFromGraphUsage`
+- `MissingAppPluginsModal`
 - package-plugin loading path
 - registry reset/rebuild behavior
 
@@ -1499,7 +1529,7 @@ These are visible from the current code and matter for planning:
 - `NodeCanvas` remains large even after some extraction.
 - `GraphBuilder` mixes orchestration, overlays, and some execution-adjacent UI behavior.
 - executor selection, sidecar lifecycle, and remote debugger concerns are better separated than before, but shared session state is still read directly in several UI surfaces.
-- project plugin loading still forces broad editor/runtime fan-out because many surfaces depend on the active project registry, even though that registry is now explicit state instead of a global singleton.
+- app plugin loading still forces broad editor/runtime fan-out because many surfaces depend on the active editor registry, even though that registry is now explicit state instead of a global singleton.
 - project loading/saving and graph switching rely on explicit cleanup discipline.
 - some multi-project and multi-surface flows still rely on the currently selected project's registry being the only active editor/runtime surface in view.
 

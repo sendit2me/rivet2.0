@@ -9,7 +9,8 @@ export const PluginCatalogItem: FC<{
   plugin: PluginInfo;
   isInstalled: boolean;
   onAddPlugin: (plugin: PluginInfo) => void;
-}> = ({ plugin, isInstalled, onAddPlugin }) => {
+  onRemovePlugin: (plugin: PluginInfo) => void;
+}> = ({ plugin, isInstalled, onAddPlugin, onRemovePlugin }) => {
   const markdownDescription = useMarkdown(plugin.description);
   const itemRef = useRef<HTMLDivElement>(null);
 
@@ -51,7 +52,12 @@ export const PluginCatalogItem: FC<{
       <div className="plugin-description" dangerouslySetInnerHTML={markdownDescription}></div>
       <div className="plugin-actions">
         {isInstalled ? (
-          <span className="installed">Installed</span>
+          <>
+            <span className="installed">Installed</span>
+            <Button appearance="danger" onClick={() => onRemovePlugin(plugin)}>
+              Remove
+            </Button>
+          </>
         ) : (
           <Button appearance="primary" onClick={() => onAddPlugin(plugin)}>
             Add
