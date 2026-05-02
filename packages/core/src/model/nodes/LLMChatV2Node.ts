@@ -6,6 +6,7 @@ import type { NodeId, NodeInputDefinition, NodeOutputDefinition, PortId } from '
 import { nodeDefinition } from '../NodeDefinition.js';
 import { NodeImpl, type NodeUIData } from '../NodeImpl.js';
 import type { InternalProcessContext } from '../ProcessContext.js';
+import type { RivetUIContext } from '../RivetUIContext.js';
 import { getCommonChatV2Inputs, getCommonChatV2Outputs } from '../chat-v2/chatV2Shared.js';
 import { getLLMChatV2Editors } from '../chat-v2/llmChatV2NodeEditors.js';
 import {
@@ -161,11 +162,28 @@ export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
   }
 
   getOutputDefinitions(): NodeOutputDefinition[] {
-    return getCommonChatV2Outputs(this.data, {
+    const outputs = getCommonChatV2Outputs(this.data, {
       includeFunctionCalls: this.data.useToolCalling || hasLLMChatV2BuiltInToolsEnabled(this.data),
       includeUsage: this.data.outputUsage,
       includeReasoning: this.data.outputReasoning,
     });
+
+    if (this.data.outputRequestStatus) {
+      outputs.push(
+        {
+          id: 'requestStatus' as PortId,
+          title: 'Request Status',
+          dataType: 'number',
+        },
+        {
+          id: 'requestError' as PortId,
+          title: 'Request Error',
+          dataType: 'string',
+        },
+      );
+    }
+
+    return outputs;
   }
 
   static getUIData(): NodeUIData {
@@ -182,7 +200,7 @@ export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
     };
   }
 
-  async getEditors(context: import('../RivetUIContext.js').RivetUIContext): Promise<EditorDefinition<LLMChatV2Node>[]> {
+  async getEditors(context: RivetUIContext): Promise<EditorDefinition<LLMChatV2Node>[]> {
     return getLLMChatV2Editors(this.data, context);
   }
 

@@ -1,6 +1,10 @@
 import type { EditorDefinition } from '../EditorDefinition.js';
 import type { RivetUIContext } from '../RivetUIContext.js';
 import {
+  DEFAULT_LLM_CHAT_V2_RETRY_ON_NON_200_COOLDOWN_MS,
+  DEFAULT_LLM_CHAT_V2_RETRY_ON_NON_200_REPEAT_TIMES,
+} from './chatV2Retry.js';
+import {
   anthropicCacheControlTtlOptions,
   anthropicEffortOptions,
   anthropicThinkingModeOptions,
@@ -98,8 +102,7 @@ function getModelEditors(modelOptions: { value: string; label: string }[]): LLMC
         dataKey: 'customProviderBaseURL',
         useInputToggleDataKey: 'useCustomProviderBaseURLInput',
         placeholder: 'https://api.cerebras.ai/v1',
-        helperMessage:
-          'OpenAI-compatible provider base URL. Full /chat/completions URLs are accepted and normalized.',
+        helperMessage: 'OpenAI-compatible provider base URL. Full /chat/completions URLs are accepted and normalized.',
         hideIf: hideUnlessProvider('custom'),
       },
     ],
@@ -108,11 +111,7 @@ function getModelEditors(modelOptions: { value: string; label: string }[]): LLMC
 }
 
 function getProviderEditors(): LLMChatV2EditorDefinition[] {
-  return [
-    getOpenAIProviderEditors(),
-    getAnthropicProviderEditors(),
-    getGoogleProviderEditors(),
-  ];
+  return [getOpenAIProviderEditors(), getAnthropicProviderEditors(), getGoogleProviderEditors()];
 }
 
 function getOpenAIProviderEditors(): LLMChatV2EditorDefinition {
@@ -484,6 +483,45 @@ function getProviderAdvancedEditors(): LLMChatV2EditorDefinition {
   ]);
 }
 
+function getTechnicalDetailsEditors(): LLMChatV2EditorDefinition {
+  return group('Technical details', [
+    {
+      type: 'toggle',
+      label: 'Retry on non-200',
+      dataKey: 'retryOnNon200',
+      helperMessage: 'Retries provider requests when Vercel reports a non-200 HTTP status.',
+    },
+    {
+      type: 'number',
+      label: 'Repeat times',
+      dataKey: 'retryOnNon200RepeatTimes',
+      defaultValue: DEFAULT_LLM_CHAT_V2_RETRY_ON_NON_200_REPEAT_TIMES,
+      min: 1,
+      step: 1,
+      layout: 'inline',
+      helperMessage: 'Times to repeat after the initial model request',
+      hideIf: (data) => !data.retryOnNon200,
+    },
+    {
+      type: 'number',
+      label: 'Cooldown, ms',
+      dataKey: 'retryOnNon200CooldownMs',
+      defaultValue: DEFAULT_LLM_CHAT_V2_RETRY_ON_NON_200_COOLDOWN_MS,
+      min: 0,
+      step: 1,
+      layout: 'inline',
+      helperMessage: 'Milliseconds to wait between repeats',
+      hideIf: (data) => !data.retryOnNon200,
+    },
+    {
+      type: 'toggle',
+      label: 'Output request status',
+      dataKey: 'outputRequestStatus',
+      helperMessage: 'Adds Request Status and Request Error outputs for provider transport failures.',
+    },
+  ]);
+}
+
 export async function getLLMChatV2Editors(
   data: LLMChatV2NodeData,
   context: RivetUIContext,
@@ -497,5 +535,6 @@ export async function getLLMChatV2Editors(
     getToolEditors(),
     getOutputEditors(),
     getProviderAdvancedEditors(),
+    getTechnicalDetailsEditors(),
   ];
 }

@@ -3,7 +3,12 @@ import { strict as assert } from 'node:assert';
 import type { LanguageModelUsage } from 'ai';
 import type { Outputs } from '../../../src/model/GraphProcessor.js';
 import type { PortId } from '../../../src/model/NodeBase.js';
-import type { ChatV2Model, ChatV2ProviderMetadata, ChatV2StreamExecutor, ChatV2StreamPart } from '../../../src/model/chat-v2/chatV2Types.js';
+import type {
+  ChatV2Model,
+  ChatV2ProviderMetadata,
+  ChatV2StreamExecutor,
+  ChatV2StreamPart,
+} from '../../../src/model/chat-v2/chatV2Types.js';
 import { runChatV2Pipeline } from '../../../src/model/chat-v2/chatV2Pipeline.js';
 import { streamChatV2 } from '../../../src/model/chat-v2/aiSdkBridge.js';
 import { calculateChatV2Cost } from '../../../src/model/chat-v2/modelRegistry.js';
@@ -53,6 +58,7 @@ describe('streamChatV2', () => {
       ]),
       finishReason: 'stop',
       providerMetadata,
+      requestStatus: 201,
     });
 
     const result = await streamChatV2({
@@ -65,6 +71,43 @@ describe('streamChatV2', () => {
     assert.equal(result.finishReason, 'stop');
     assert.deepEqual(result.providerMetadata, providerMetadata);
     assert.equal(result.usage?.inputTokens, 10);
+    assert.equal(result.requestStatus, 201);
+  });
+
+  it('handles unused AI SDK metadata promise rejections when the stream fails', async () => {
+    const unhandledRejections: unknown[] = [];
+    const onUnhandledRejection = (reason: unknown) => {
+      unhandledRejections.push(reason);
+    };
+    process.on('unhandledRejection', onUnhandledRejection);
+
+    try {
+      const executeStream: ChatV2StreamExecutor = async () => ({
+        fullStream: mockStream([
+          {
+            type: 'error',
+            error: new TypeError('Failed to fetch'),
+          } as ChatV2StreamPart,
+        ]),
+        finishReason: Promise.reject(new Error('No output generated. Check the stream for errors.')),
+        usage: Promise.reject(new Error('No usage generated. Check the stream for errors.')),
+      });
+
+      await assert.rejects(
+        () =>
+          streamChatV2({
+            model: createMockModel(),
+            messages: [],
+            executeStream,
+          }),
+        /Failed to fetch/,
+      );
+      await new Promise((resolve) => setImmediate(resolve));
+
+      assert.deepEqual(unhandledRejections, []);
+    } finally {
+      process.off('unhandledRejection', onUnhandledRejection);
+    }
   });
 
   it('forwards tool choice to the AI SDK stream executor', async () => {
@@ -214,6 +257,376 @@ describe('streamChatV2', () => {
 });
 
 describe('runChatV2Pipeline', () => {
+  it('retries Vercel provider stream errors with non-200 status codes before failing', async () => {
+    let attempt = 0;
+    const executeStream: ChatV2StreamExecutor = async () => {
+      attempt += 1;
+
+      if (attempt === 1) {
+        const error = new Error('Provider unavailable') as Error & { statusCode: number };
+        error.name = 'AI_APICallError';
+        error.statusCode = 503;
+
+        return {
+          fullStream: mockStream([
+            {
+              type: 'error',
+              error,
+            } as ChatV2StreamPart,
+          ]),
+        };
+      }
+
+      return {
+        fullStream: mockStream([
+          { type: 'text-start', id: 'text_1' },
+          { type: 'text-delta', id: 'text_1', text: 'Recovered' },
+          { type: 'text-end', id: 'text_1' },
+        ]),
+      };
+    };
+
+    const result = await runChatV2Pipeline({
+      provider: 'openai',
+      model: createMockModel(),
+      modelId: 'gpt-5',
+      prompt: { type: 'string', value: 'Hello' },
+      retryOnNon200: true,
+      retryOnNon200RepeatTimes: 1,
+      context: {
+        signal: new AbortController().signal,
+      },
+      executeStream,
+    });
+
+    assert.equal(attempt, 2);
+    assert.equal(result.response, 'Recovered');
+  });
+
+  it('normalizes the final Vercel status error after retry attempts are exhausted', async () => {
+    let attempt = 0;
+    const executeStream: ChatV2StreamExecutor = async () => {
+      attempt += 1;
+      const error = new Error('Rate limited') as Error & { statusCode: number };
+      error.name = 'AI_APICallError';
+      error.statusCode = 429;
+
+      throw error;
+    };
+
+    await assert.rejects(
+      () =>
+        runChatV2Pipeline({
+          provider: 'anthropic',
+          model: createMockModel(),
+          modelId: 'claude-sonnet-4',
+          prompt: { type: 'string', value: 'Hello' },
+          retryOnNon200: true,
+          retryOnNon200RepeatTimes: 1,
+          context: {
+            signal: new AbortController().signal,
+          },
+          executeStream,
+        }),
+      (error: unknown) => {
+        assert.ok(error instanceof Error);
+        assert.equal(error.name, 'LLM Chat error');
+        assert.match(error.message, /429 Rate Limited/);
+        assert.equal((error as Error & { statusCode?: number }).statusCode, 429);
+        return true;
+      },
+    );
+
+    assert.equal(attempt, 2);
+  });
+
+  it('does not start a zero-cooldown retry after cancellation', async () => {
+    let attempt = 0;
+    const abortController = new AbortController();
+    const executeStream: ChatV2StreamExecutor = async () => {
+      attempt += 1;
+      const error = new Error('Provider unavailable') as Error & { statusCode: number };
+      error.name = 'AI_APICallError';
+      error.statusCode = 503;
+      throw error;
+    };
+
+    abortController.abort();
+
+    await assert.rejects(
+      () =>
+        runChatV2Pipeline({
+          provider: 'openai',
+          model: createMockModel(),
+          modelId: 'gpt-5',
+          prompt: { type: 'string', value: 'Hello' },
+          retryOnNon200: true,
+          retryOnNon200RepeatTimes: 1,
+          retryOnNon200CooldownMs: 0,
+          context: {
+            signal: abortController.signal,
+          },
+          executeStream,
+        }),
+      (error: unknown) => {
+        assert.ok(error instanceof Error);
+        assert.equal(error.name, 'AbortError');
+        return true;
+      },
+    );
+
+    assert.equal(attempt, 1);
+  });
+
+  it('returns request status outputs for Vercel status failures when requested', async () => {
+    let attempt = 0;
+    const executeStream: ChatV2StreamExecutor = async () => {
+      attempt += 1;
+      const error = new Error('Rate limited') as Error & { statusCode: number };
+      error.name = 'AI_APICallError';
+      error.statusCode = 429;
+
+      throw error;
+    };
+
+    const result = await runChatV2Pipeline({
+      provider: 'anthropic',
+      model: createMockModel(),
+      modelId: 'claude-sonnet-4',
+      prompt: { type: 'string', value: 'Hello' },
+      outputRequestStatus: true,
+      retryOnNon200: true,
+      retryOnNon200RepeatTimes: 1,
+      context: {
+        signal: new AbortController().signal,
+      },
+      executeStream,
+    });
+
+    assert.equal(attempt, 2);
+    assert.equal(result.requestStatus, 429);
+    assert.deepEqual(result.commonOutputs['requestStatus' as PortId], {
+      type: 'number',
+      value: 429,
+    });
+    assert.equal(result.commonOutputs['requestError' as PortId]?.type, 'string');
+    assert.match(String(result.commonOutputs['requestError' as PortId]?.value), /429 Rate Limited/);
+    assert.deepEqual(result.commonOutputs['response' as PortId], {
+      type: 'control-flow-excluded',
+      value: undefined,
+    });
+  });
+
+  it('returns request status outputs for string-shaped Vercel status failures when requested', async () => {
+    const executeStream: ChatV2StreamExecutor = async () => {
+      const error = new Error('Incorrect API key') as Error & {
+        responseBody: string;
+        statusCode: string;
+        url: string;
+      };
+      error.name = 'AI_APICallError';
+      error.statusCode = '401';
+      error.url = 'https://api.openai.com/v1/responses';
+      error.responseBody = JSON.stringify({
+        error: {
+          message: 'Incorrect API key provided.',
+        },
+      });
+
+      throw error;
+    };
+
+    const result = await runChatV2Pipeline({
+      provider: 'openai',
+      model: createMockModel(),
+      modelId: 'gpt-5.4-mini',
+      prompt: { type: 'string', value: 'Hello' },
+      outputRequestStatus: true,
+      context: {
+        signal: new AbortController().signal,
+      },
+      executeStream,
+    });
+
+    assert.equal(result.requestStatus, 401);
+    assert.deepEqual(result.commonOutputs['requestStatus' as PortId], {
+      type: 'number',
+      value: 401,
+    });
+    assert.equal(result.commonOutputs['requestError' as PortId]?.type, 'string');
+    assert.match(String(result.commonOutputs['requestError' as PortId]?.value), /401 Unauthorized/);
+    assert.match(String(result.commonOutputs['requestError' as PortId]?.value), /API key source/);
+    assert.match(
+      String(result.commonOutputs['requestError' as PortId]?.value),
+      /Provider message: Incorrect API key provided/,
+    );
+    assert.deepEqual(result.commonOutputs['response' as PortId], {
+      type: 'control-flow-excluded',
+      value: undefined,
+    });
+  });
+
+  it('returns request-error output for browser fetch failures when status output is requested', async () => {
+    const executeStream: ChatV2StreamExecutor = async () => {
+      throw new TypeError('Failed to fetch');
+    };
+
+    const result = await runChatV2Pipeline({
+      provider: 'openai',
+      model: createMockModel(),
+      modelId: 'gpt-5.4-mini',
+      prompt: { type: 'string', value: 'Hello' },
+      outputRequestStatus: true,
+      context: {
+        signal: new AbortController().signal,
+      },
+      executeStream,
+    });
+
+    assert.equal(result.requestStatus, undefined);
+    assert.deepEqual(result.commonOutputs['requestStatus' as PortId], {
+      type: 'control-flow-excluded',
+      value: undefined,
+    });
+    assert.equal(result.commonOutputs['requestError' as PortId]?.type, 'string');
+    assert.match(
+      String(result.commonOutputs['requestError' as PortId]?.value),
+      /before Rivet could read an HTTP response/,
+    );
+    assert.match(String(result.commonOutputs['requestError' as PortId]?.value), /API key source/);
+    assert.deepEqual(result.commonOutputs['response' as PortId], {
+      type: 'control-flow-excluded',
+      value: undefined,
+    });
+  });
+
+  it('returns request-error output for status-less Vercel API call failures when requested', async () => {
+    const executeStream: ChatV2StreamExecutor = async () => {
+      const error = new Error('Provider request failed') as Error & { url: string };
+      error.name = 'AI_APICallError';
+      error.url = 'https://api.openai.com/v1/responses';
+      throw error;
+    };
+
+    const result = await runChatV2Pipeline({
+      provider: 'openai',
+      model: createMockModel(),
+      modelId: 'gpt-5.4-mini',
+      prompt: { type: 'string', value: 'Hello' },
+      outputRequestStatus: true,
+      context: {
+        signal: new AbortController().signal,
+      },
+      executeStream,
+    });
+
+    assert.equal(result.requestStatus, undefined);
+    assert.deepEqual(result.commonOutputs['requestStatus' as PortId], {
+      type: 'control-flow-excluded',
+      value: undefined,
+    });
+    assert.equal(result.commonOutputs['requestError' as PortId]?.type, 'string');
+    assert.match(String(result.commonOutputs['requestError' as PortId]?.value), /request failed/);
+    assert.deepEqual(result.commonOutputs['response' as PortId], {
+      type: 'control-flow-excluded',
+      value: undefined,
+    });
+  });
+
+  it('keeps non-request SDK setup errors as node failures when request outputs are enabled', async () => {
+    const executeStream: ChatV2StreamExecutor = async () => {
+      const error = new Error('Missing API key.');
+      error.name = 'LoadAPIKeyError';
+      throw error;
+    };
+
+    await assert.rejects(
+      () =>
+        runChatV2Pipeline({
+          provider: 'openai',
+          model: createMockModel(),
+          modelId: 'gpt-5.4-mini',
+          prompt: { type: 'string', value: 'Hello' },
+          outputRequestStatus: true,
+          context: {
+            signal: new AbortController().signal,
+          },
+          executeStream,
+        }),
+      (error: unknown) => {
+        assert.ok(error instanceof Error);
+        assert.equal(error.name, 'LLM Chat error');
+        assert.match(error.message, /LLM API key could not be loaded/);
+        return true;
+      },
+    );
+  });
+
+  it('outputs the final provider request status when requested', async () => {
+    const executeStream: ChatV2StreamExecutor = async () => ({
+      fullStream: mockStream([
+        { type: 'text-start', id: 'text_1' },
+        { type: 'text-delta', id: 'text_1', text: 'Accepted' },
+        { type: 'text-end', id: 'text_1' },
+      ]),
+      requestStatus: 202,
+    });
+
+    const result = await runChatV2Pipeline({
+      provider: 'custom',
+      model: createMockModel(),
+      modelId: 'custom-model',
+      prompt: { type: 'string', value: 'Hello' },
+      outputRequestStatus: true,
+      context: {
+        signal: new AbortController().signal,
+      },
+      executeStream,
+    });
+
+    assert.equal(result.requestStatus, 202);
+    assert.deepEqual(result.commonOutputs['requestStatus' as PortId], {
+      type: 'number',
+      value: 202,
+    });
+    assert.deepEqual(result.commonOutputs['requestError' as PortId], {
+      type: 'control-flow-excluded',
+      value: undefined,
+    });
+  });
+
+  it('defaults successful Vercel provider calls to request status 200 when no raw status is exposed', async () => {
+    const executeStream: ChatV2StreamExecutor = async () => ({
+      fullStream: mockStream([
+        { type: 'text-start', id: 'text_1' },
+        { type: 'text-delta', id: 'text_1', text: 'OK' },
+        { type: 'text-end', id: 'text_1' },
+      ]),
+    });
+
+    const result = await runChatV2Pipeline({
+      provider: 'openai',
+      model: createMockModel(),
+      modelId: 'gpt-5',
+      prompt: { type: 'string', value: 'Hello' },
+      outputRequestStatus: true,
+      context: {
+        signal: new AbortController().signal,
+      },
+      executeStream,
+    });
+
+    assert.equal(result.requestStatus, 200);
+    assert.deepEqual(result.commonOutputs['requestStatus' as PortId], {
+      type: 'number',
+      value: 200,
+    });
+    assert.deepEqual(result.commonOutputs['requestError' as PortId], {
+      type: 'control-flow-excluded',
+      value: undefined,
+    });
+  });
+
   it('builds common outputs from a mocked streamed response', async () => {
     const partialOutputs: Outputs[] = [];
     const usage: LanguageModelUsage = {

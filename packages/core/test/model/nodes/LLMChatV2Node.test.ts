@@ -114,6 +114,10 @@ describe('LLMChatV2NodeImpl', () => {
     assert.equal(node.data.parallelToolCalls, false);
     assert.equal(node.data.autoContinueToolCalls, false);
     assert.equal(node.data.maxToolRounds, 3);
+    assert.equal(node.data.retryOnNon200, false);
+    assert.equal(node.data.retryOnNon200RepeatTimes, 1);
+    assert.equal(node.data.retryOnNon200CooldownMs, 0);
+    assert.equal(node.data.outputRequestStatus, false);
   });
 
   it('adds an API key input only when the Model section is set to input port', async () => {
@@ -167,7 +171,9 @@ describe('LLMChatV2NodeImpl', () => {
       (editor: any) => editor.dataKey === 'extraProviderOptions',
     );
 
-    assert.ok(providerEditor.options.some((option: any) => option.value === 'custom' && option.label === 'Custom provider'));
+    assert.ok(
+      providerEditor.options.some((option: any) => option.value === 'custom' && option.label === 'Custom provider'),
+    );
     assert.deepEqual(modelEditor.data.modelOptions, [{ value: 'llama-custom', label: 'llama-custom' }]);
     assert.equal(envVarEditor.label, 'API key env var name');
     assert.equal(envVarEditor.hideIf({ provider: 'custom', apiKeySource: 'environment' }), false);
@@ -181,6 +187,60 @@ describe('LLMChatV2NodeImpl', () => {
     assert.equal(extraProviderOptionsEditor.language, 'json');
     assert.equal(extraProviderOptionsEditor.useInputToggleDataKey, 'useExtraProviderOptionsInput');
     assert.match(extraProviderOptionsEditor.helperMessage, /providerOptions/);
+  });
+
+  it('places technical details after all LLM settings sections', async () => {
+    const node = createNode();
+    const editors = await node.getEditors({});
+    const groupLabels = editors.filter((editor) => editor.type === 'group').map((editor) => editor.label);
+    const technicalDetailsGroup = editors.at(-1) as any;
+
+    assert.deepEqual(groupLabels, [
+      'Model',
+      'OpenAI',
+      'Anthropic',
+      'Google',
+      'Parameters',
+      'Reasoning',
+      'Response format',
+      'Tools',
+      'Outputs',
+      'Provider Advanced',
+      'Technical details',
+    ]);
+    assert.equal(technicalDetailsGroup.label, 'Technical details');
+    assert.equal(technicalDetailsGroup.editors[0]?.dataKey, 'retryOnNon200');
+    assert.equal(technicalDetailsGroup.editors[1]?.dataKey, 'retryOnNon200RepeatTimes');
+    assert.equal(technicalDetailsGroup.editors[1]?.hideIf({ retryOnNon200: false }), true);
+    assert.equal(technicalDetailsGroup.editors[1]?.hideIf({ retryOnNon200: true }), false);
+    assert.equal(technicalDetailsGroup.editors[2]?.dataKey, 'retryOnNon200CooldownMs');
+    assert.equal(technicalDetailsGroup.editors[3]?.dataKey, 'outputRequestStatus');
+  });
+
+  it('adds request transport outputs only when technical details request them', () => {
+    const defaultNode = createNode();
+    const statusNode = createNode({
+      outputRequestStatus: true,
+    });
+
+    assert.ok(!defaultNode.getOutputDefinitions().some((output) => output.id === 'requestStatus'));
+    assert.ok(!defaultNode.getOutputDefinitions().some((output) => output.id === 'requestError'));
+    assert.deepEqual(
+      statusNode.getOutputDefinitions().find((output) => output.id === 'requestStatus'),
+      {
+        id: 'requestStatus',
+        title: 'Request Status',
+        dataType: 'number',
+      },
+    );
+    assert.deepEqual(
+      statusNode.getOutputDefinitions().find((output) => output.id === 'requestError'),
+      {
+        id: 'requestError',
+        title: 'Request Error',
+        dataType: 'string',
+      },
+    );
   });
 
   it('adds the base URL input for the active provider URL field', () => {
@@ -303,33 +363,37 @@ describe('LLMChatV2NodeImpl', () => {
       'autoContinueToolCalls',
     ]);
     assert.equal(toolsGroup.editors.find((editor: any) => editor.dataKey === 'useToolCalling')?.label, 'Tool use');
-    assert.deepEqual(
-      toolsGroup.editors.find((editor: any) => editor.dataKey === 'toolChoice')?.options,
-      [
-        { value: '', label: 'Default' },
-        { value: 'auto', label: 'Auto' },
-        { value: 'function', label: 'Specific tool' },
-        { value: 'required', label: 'Required' },
-      ],
-    );
+    assert.deepEqual(toolsGroup.editors.find((editor: any) => editor.dataKey === 'toolChoice')?.options, [
+      { value: '', label: 'Default' },
+      { value: 'auto', label: 'Auto' },
+      { value: 'function', label: 'Specific tool' },
+      { value: 'required', label: 'Required' },
+    ]);
     assert.equal(toolsGroup.editors.find((editor: any) => editor.dataKey === 'toolChoiceFunction')?.label, 'Tool name');
     assert.equal(
       toolsGroup.editors.find((editor: any) => editor.dataKey === 'parallelToolCalls')?.label,
       'Allow parallel toolcalls',
     );
-    assert.equal(toolsGroup.editors.find((editor: any) => editor.dataKey === 'parallelToolCalls')?.helperMessage, undefined);
     assert.equal(
-      toolsGroup.editors.find((editor: any) => editor.dataKey === 'parallelToolCalls')?.hideIf({
-        provider: 'custom',
-        useToolCalling: true,
-      }),
+      toolsGroup.editors.find((editor: any) => editor.dataKey === 'parallelToolCalls')?.helperMessage,
+      undefined,
+    );
+    assert.equal(
+      toolsGroup.editors
+        .find((editor: any) => editor.dataKey === 'parallelToolCalls')
+        ?.hideIf({
+          provider: 'custom',
+          useToolCalling: true,
+        }),
       true,
     );
     assert.equal(
-      toolsGroup.editors.find((editor: any) => editor.dataKey === 'parallelToolCalls')?.hideIf({
-        provider: 'openai',
-        useToolCalling: true,
-      }),
+      toolsGroup.editors
+        .find((editor: any) => editor.dataKey === 'parallelToolCalls')
+        ?.hideIf({
+          provider: 'openai',
+          useToolCalling: true,
+        }),
       false,
     );
     assert.match(
@@ -412,15 +476,19 @@ describe('LLMChatV2NodeImpl', () => {
       /reasoning or thinking text/,
     );
     assert.equal(
-      reasoningGroup.editors.find((editor: any) => editor.dataKey === 'openAIReasoningEffort')?.hideIf({
-        provider: 'openai',
-      }),
+      reasoningGroup.editors
+        .find((editor: any) => editor.dataKey === 'openAIReasoningEffort')
+        ?.hideIf({
+          provider: 'openai',
+        }),
       false,
     );
     assert.equal(
-      reasoningGroup.editors.find((editor: any) => editor.dataKey === 'anthropicThinkingMode')?.hideIf({
-        provider: 'anthropic',
-      }),
+      reasoningGroup.editors
+        .find((editor: any) => editor.dataKey === 'anthropicThinkingMode')
+        ?.hideIf({
+          provider: 'anthropic',
+        }),
       false,
     );
     assert.deepEqual(
@@ -432,32 +500,28 @@ describe('LLMChatV2NodeImpl', () => {
         { value: 'disabled', label: 'Disabled' },
       ],
     );
-    assert.deepEqual(
-      reasoningGroup.editors.find((editor: any) => editor.dataKey === 'anthropicEffort')?.options,
-      [
-        { value: '', label: 'Default' },
-        { value: 'low', label: 'Low' },
-        { value: 'medium', label: 'Medium' },
-        { value: 'high', label: 'High' },
-        { value: 'max', label: 'Max' },
-      ],
-    );
+    assert.deepEqual(reasoningGroup.editors.find((editor: any) => editor.dataKey === 'anthropicEffort')?.options, [
+      { value: '', label: 'Default' },
+      { value: 'low', label: 'Low' },
+      { value: 'medium', label: 'Medium' },
+      { value: 'high', label: 'High' },
+      { value: 'max', label: 'Max' },
+    ]);
     assert.equal(
-      reasoningGroup.editors.find((editor: any) => editor.dataKey === 'googleThinkingBudget')?.hideIf({
-        provider: 'google',
-      }),
+      reasoningGroup.editors
+        .find((editor: any) => editor.dataKey === 'googleThinkingBudget')
+        ?.hideIf({
+          provider: 'google',
+        }),
       false,
     );
-    assert.deepEqual(
-      reasoningGroup.editors.find((editor: any) => editor.dataKey === 'googleThinkingLevel')?.options,
-      [
-        { value: '', label: 'Default' },
-        { value: 'minimal', label: 'Minimal' },
-        { value: 'low', label: 'Low' },
-        { value: 'medium', label: 'Medium' },
-        { value: 'high', label: 'High' },
-      ],
-    );
+    assert.deepEqual(reasoningGroup.editors.find((editor: any) => editor.dataKey === 'googleThinkingLevel')?.options, [
+      { value: '', label: 'Default' },
+      { value: 'minimal', label: 'Minimal' },
+      { value: 'low', label: 'Low' },
+      { value: 'medium', label: 'Medium' },
+      { value: 'high', label: 'High' },
+    ]);
     assert.ok(!openAIGroup.editors.some((editor: any) => editor.dataKey === 'openAIReasoningEffort'));
     assert.ok(!anthropicGroup.editors.some((editor: any) => editor.dataKey === 'anthropicThinkingMode'));
     assert.ok(!googleGroup.editors.some((editor: any) => editor.dataKey === 'googleThinkingBudget'));
@@ -675,18 +739,17 @@ describe('LLMChatV2NodeImpl', () => {
     });
 
     const editors = await defaultNode.getEditors({});
-    const responseFormatGroup = editors.find((editor) => editor.type === 'group' && editor.label === 'Response format') as any;
+    const responseFormatGroup = editors.find(
+      (editor) => editor.type === 'group' && editor.label === 'Response format',
+    ) as any;
 
     assert.ok(responseFormatGroup);
-    assert.deepEqual(
-      responseFormatGroup.editors.find((editor: any) => editor.dataKey === 'responseFormat')?.options,
-      [
-        { value: '', label: 'Default' },
-        { value: 'text', label: 'Text' },
-        { value: 'json', label: 'JSON' },
-        { value: 'json_schema', label: 'JSON schema' },
-      ],
-    );
+    assert.deepEqual(responseFormatGroup.editors.find((editor: any) => editor.dataKey === 'responseFormat')?.options, [
+      { value: '', label: 'Default' },
+      { value: 'text', label: 'Text' },
+      { value: 'json', label: 'JSON' },
+      { value: 'json_schema', label: 'JSON schema' },
+    ]);
     assert.ok(!defaultNode.getInputDefinitions().some((input) => input.id === 'responseSchema'));
 
     const inputs = jsonSchemaNode.getInputDefinitions();
@@ -701,7 +764,10 @@ describe('LLMChatV2NodeImpl', () => {
   it('treats Tool use and structured response formats as mutually exclusive', () => {
     assert.equal(hasLLMChatV2ToolResponseFormatConflict({ useToolCalling: true, responseFormat: '' }), false);
     assert.equal(hasLLMChatV2ToolResponseFormatConflict({ useToolCalling: true, responseFormat: 'text' }), false);
-    assert.equal(hasLLMChatV2ToolResponseFormatConflict({ useToolCalling: false, responseFormat: 'json_schema' }), false);
+    assert.equal(
+      hasLLMChatV2ToolResponseFormatConflict({ useToolCalling: false, responseFormat: 'json_schema' }),
+      false,
+    );
 
     assert.equal(hasLLMChatV2ToolResponseFormatConflict({ useToolCalling: true, responseFormat: 'json_schema' }), true);
     assert.deepEqual(LLM_CHAT_V2_TOOL_RESPONSE_FORMAT_CONFLICT_COPY, {

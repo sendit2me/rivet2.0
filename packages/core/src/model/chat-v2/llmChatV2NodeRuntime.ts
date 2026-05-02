@@ -9,11 +9,7 @@ import {
   hasLLMChatV2ToolResponseFormatConflict,
   LLM_CHAT_V2_TOOL_RESPONSE_FORMAT_CONFLICT_COPY,
 } from './chatV2FeatureCompatibility.js';
-import {
-  createChatV2Model,
-  parseChatV2Provider,
-  resolveChatV2ProviderConfig,
-} from './providerOptions.js';
+import { createChatV2Model, parseChatV2Provider, resolveChatV2ProviderConfig } from './providerOptions.js';
 import type { RunChatV2PipelineOptions } from './chatV2Types.js';
 import {
   buildLLMChatV2EditorCacheKey,
@@ -49,13 +45,8 @@ export type LLMChatV2RuntimeConfig = {
 
 function resolveLLMChatV2BaseURL(data: LLMChatV2NodeData, inputs: Inputs): string | undefined {
   return data.provider === 'custom'
-    ? getInputOrData(
-        data,
-        inputs,
-        'customProviderBaseURL',
-        'string',
-        'useCustomProviderBaseURLInput',
-      )?.trim() || undefined
+    ? getInputOrData(data, inputs, 'customProviderBaseURL', 'string', 'useCustomProviderBaseURLInput')?.trim() ||
+        undefined
     : getInputOrData(data, inputs, 'baseURL', 'string', 'useBaseURLInput')?.trim() || undefined;
 }
 
@@ -103,11 +94,15 @@ export async function resolveLLMChatV2RuntimeConfig(params: {
     responseOutput: createChatV2ResponseOutput(responseFormatParameters),
     outputUsage: data.outputUsage,
     outputReasoning: data.outputReasoning,
+    outputRequestStatus: data.outputRequestStatus,
     includeFunctionCalls: data.useToolCalling || hasLLMChatV2BuiltInToolsEnabled(data),
     emitPartialOutputs: data.useAsGraphPartialOutput,
     providerOptions,
     toolChoice,
     anthropicCacheControlTtl: provider === 'anthropic' ? data.anthropicCacheControlTtl || undefined : undefined,
+    retryOnNon200: data.retryOnNon200,
+    retryOnNon200RepeatTimes: data.retryOnNon200RepeatTimes,
+    retryOnNon200CooldownMs: data.retryOnNon200CooldownMs,
     context,
   };
 

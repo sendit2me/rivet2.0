@@ -1,5 +1,9 @@
 import type { ChatV2ResponseFormat } from './chatV2ResponseFormat.js';
 import { createChatV2CommonNodeData, type ChatV2CommonNodeData } from './chatV2Shared.js';
+import {
+  DEFAULT_LLM_CHAT_V2_RETRY_ON_NON_200_COOLDOWN_MS,
+  DEFAULT_LLM_CHAT_V2_RETRY_ON_NON_200_REPEAT_TIMES,
+} from './chatV2Retry.js';
 import type { ChatV2Provider } from './chatV2Types.js';
 import type { ChartNode, NodeId } from '../NodeBase.js';
 
@@ -46,6 +50,10 @@ export type LLMChatV2NodeConfigData = ChatV2CommonNodeData & {
   parallelToolCalls?: boolean;
   autoContinueToolCalls?: boolean;
   maxToolRounds?: number;
+  retryOnNon200?: boolean;
+  retryOnNon200RepeatTimes?: number;
+  retryOnNon200CooldownMs?: number;
+  outputRequestStatus?: boolean;
 };
 
 export type LLMChatV2NodeData = LLMChatV2NodeConfigData;
@@ -111,6 +119,10 @@ export function createLLMChatV2NodeData(): LLMChatV2NodeData {
     parallelToolCalls: false,
     autoContinueToolCalls: false,
     maxToolRounds: 3,
+    retryOnNon200: false,
+    retryOnNon200RepeatTimes: DEFAULT_LLM_CHAT_V2_RETRY_ON_NON_200_REPEAT_TIMES,
+    retryOnNon200CooldownMs: DEFAULT_LLM_CHAT_V2_RETRY_ON_NON_200_COOLDOWN_MS,
+    outputRequestStatus: false,
   };
 }
 
