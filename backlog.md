@@ -2,10 +2,8 @@
 
 - The close button in the modals is not in the corner
 
-- Check if refetch model list works with the input port key
-
-
-
+- In any node type, unconnected ports stick outside and connected - stick inside. I want them to always stick inside
+- A node can be so narrow, the sticking in ports fal out. Don't
 
 - Human readable Loop node
 

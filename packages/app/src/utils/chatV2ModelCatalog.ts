@@ -12,6 +12,7 @@ type ChatModelOption = { value: string; label: string };
 type ChatModelCatalogContext = {
   settings: Settings;
   plugins: RivetPlugin[];
+  apiKey?: string;
 };
 
 type ChatModelCatalogResult = {
@@ -93,8 +94,24 @@ function getPluginById(plugins: RivetPlugin[], id: string): RivetPlugin | undefi
   return plugins.find((plugin) => plugin.id === id);
 }
 
+function fingerprintSecret(secret: string | undefined): string {
+  if (!secret) {
+    return '';
+  }
+
+  let hash = 2166136261;
+  for (let i = 0; i < secret.length; i++) {
+    hash ^= secret.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+
+  return `${secret.length}:${(hash >>> 0).toString(36)}`;
+}
+
 async function fetchOpenAIModels(context: ChatModelCatalogContext): Promise<ChatModelOption[]> {
-  if (!context.settings.openAiKey) {
+  const apiKey = context.apiKey || context.settings.openAiKey;
+
+  if (!apiKey) {
     logModelCatalogDebug('openai', 'No API key configured. Using built-in fallback list.');
     throw new Error('OpenAI API key is not configured.');
   }
@@ -104,10 +121,8 @@ async function fetchOpenAIModels(context: ChatModelCatalogContext): Promise<Chat
   logModelCatalogDebug('openai', `Fetching model catalog from ${requestURL}`);
   const response = await fetch(`${baseURL}/models`, {
     headers: {
-      Authorization: `Bearer ${context.settings.openAiKey}`,
-      ...(context.settings.openAiOrganization
-        ? { 'OpenAI-Organization': context.settings.openAiOrganization }
-        : {}),
+      Authorization: `Bearer ${apiKey}`,
+      ...(context.settings.openAiOrganization ? { 'OpenAI-Organization': context.settings.openAiOrganization } : {}),
       ...(context.settings.chatNodeHeaders ?? {}),
     },
   });
@@ -122,14 +137,18 @@ async function fetchOpenAIModels(context: ChatModelCatalogContext): Promise<Chat
     .filter((modelId): modelId is string => !!modelId && isOpenAIChatLikeModelId(modelId))
     .map((modelId) => ({ value: modelId, label: modelId }));
 
-  logModelCatalogDebug('openai', `Fetched ${discovered.length} filtered models from API.`, discovered.map((model) => model.value));
+  logModelCatalogDebug(
+    'openai',
+    `Fetched ${discovered.length} filtered models from API.`,
+    discovered.map((model) => model.value),
+  );
 
   return mergeWithStaticFallback('openai', discovered);
 }
 
 async function fetchAnthropicModels(context: ChatModelCatalogContext): Promise<ChatModelOption[]> {
   const plugin = getPluginById(context.plugins, 'anthropic');
-  const apiKey = plugin ? getPluginConfig(plugin, context.settings, 'anthropicApiKey') : undefined;
+  const apiKey = context.apiKey || (plugin ? getPluginConfig(plugin, context.settings, 'anthropicApiKey') : undefined);
   const apiEndpoint = plugin ? getPluginConfig(plugin, context.settings, 'anthropicApiEndpoint') : undefined;
 
   if (!apiKey) {
@@ -177,7 +196,7 @@ async function fetchAnthropicModels(context: ChatModelCatalogContext): Promise<C
 
 async function fetchGoogleModels(context: ChatModelCatalogContext): Promise<ChatModelOption[]> {
   const plugin = getPluginById(context.plugins, 'google');
-  const apiKey = plugin ? getPluginConfig(plugin, context.settings, 'googleApiKey') : undefined;
+  const apiKey = context.apiKey || (plugin ? getPluginConfig(plugin, context.settings, 'googleApiKey') : undefined);
 
   if (!apiKey) {
     logModelCatalogDebug('google', 'No API key configured. Using built-in fallback list.');
@@ -185,7 +204,10 @@ async function fetchGoogleModels(context: ChatModelCatalogContext): Promise<Chat
   }
 
   const requestURL = `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`;
-  logModelCatalogDebug('google', 'Fetching model catalog from https://generativelanguage.googleapis.com/v1beta/models?key=<redacted>');
+  logModelCatalogDebug(
+    'google',
+    'Fetching model catalog from https://generativelanguage.googleapis.com/v1beta/models?key=<redacted>',
+  );
   const response = await fetch(requestURL, {
     headers: context.settings.chatNodeHeaders ?? {},
   });
@@ -210,7 +232,11 @@ async function fetchGoogleModels(context: ChatModelCatalogContext): Promise<Chat
     })
     .filter((option): option is ChatModelOption => option != null);
 
-  logModelCatalogDebug('google', `Fetched ${discovered.length} models from API.`, discovered.map((model) => model.value));
+  logModelCatalogDebug(
+    'google',
+    `Fetched ${discovered.length} models from API.`,
+    discovered.map((model) => model.value),
+  );
 
   return mergeWithStaticFallback('google', discovered);
 }
@@ -222,7 +248,7 @@ function getCacheKey(provider: ChatV2Provider, context: ChatModelCatalogContext)
         provider,
         context.settings.openAiEndpoint || DEFAULT_CHAT_ENDPOINT,
         context.settings.openAiOrganization || '',
-        context.settings.openAiKey || '',
+        fingerprintSecret(context.apiKey || context.settings.openAiKey),
       ]);
 
     case 'anthropic': {
@@ -230,13 +256,18 @@ function getCacheKey(provider: ChatV2Provider, context: ChatModelCatalogContext)
       return JSON.stringify([
         provider,
         plugin ? getPluginConfig(plugin, context.settings, 'anthropicApiEndpoint') || '' : '',
-        plugin ? getPluginConfig(plugin, context.settings, 'anthropicApiKey') || '' : '',
+        fingerprintSecret(
+          context.apiKey || (plugin ? getPluginConfig(plugin, context.settings, 'anthropicApiKey') : ''),
+        ),
       ]);
     }
 
     case 'google': {
       const plugin = getPluginById(context.plugins, 'google');
-      return JSON.stringify([provider, plugin ? getPluginConfig(plugin, context.settings, 'googleApiKey') || '' : '']);
+      return JSON.stringify([
+        provider,
+        fingerprintSecret(context.apiKey || (plugin ? getPluginConfig(plugin, context.settings, 'googleApiKey') : '')),
+      ]);
     }
 
     case 'custom':

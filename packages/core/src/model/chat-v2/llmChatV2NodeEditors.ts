@@ -69,6 +69,15 @@ function getModelEditors(modelOptions: { value: string; label: string }[]): LLMC
         options: [...chatV2ProviderOptions],
       },
       {
+        type: 'string',
+        label: 'Provider base URL',
+        dataKey: 'customProviderBaseURL',
+        useInputToggleDataKey: 'useCustomProviderBaseURLInput',
+        placeholder: 'https://api.cerebras.ai/v1',
+        helperMessage: 'OpenAI-compatible provider base URL. Full /chat/completions URLs are accepted and normalized.',
+        hideIf: hideUnlessProvider('custom'),
+      },
+      {
         type: 'custom',
         label: 'Model',
         customEditorId: 'LLMChatV2ModelCatalog',
@@ -95,15 +104,6 @@ function getModelEditors(modelOptions: { value: string; label: string }[]): LLMC
         placeholder: 'CUSTOM_PROVIDER_API_KEY',
         helperMessage: 'Only used for Custom provider when API key source is Configured key.',
         hideIf: (data) => data.provider !== 'custom' || data.apiKeySource === 'input',
-      },
-      {
-        type: 'string',
-        label: 'Provider base URL',
-        dataKey: 'customProviderBaseURL',
-        useInputToggleDataKey: 'useCustomProviderBaseURLInput',
-        placeholder: 'https://api.cerebras.ai/v1',
-        helperMessage: 'OpenAI-compatible provider base URL. Full /chat/completions URLs are accepted and normalized.',
-        hideIf: hideUnlessProvider('custom'),
       },
     ],
     true,
@@ -499,7 +499,7 @@ function getTechnicalDetailsEditors(): LLMChatV2EditorDefinition {
       min: 1,
       step: 1,
       layout: 'inline',
-      helperMessage: 'Times to repeat after the initial model request',
+      helperMessage: 'Times to repeat after the initial request',
       hideIf: (data) => !data.retryOnNon200,
     },
     {
@@ -517,8 +517,7 @@ function getTechnicalDetailsEditors(): LLMChatV2EditorDefinition {
       type: 'toggle',
       label: 'Output request status',
       dataKey: 'outputRequestStatus',
-      helperMessage:
-        'Adds Response Status and Response Error outputs. Retry mode also adds per-attempt Request Statuses and Request Errors outputs.',
+      helperMessage: 'Adds Response Status and Response Error outputs. Retry mode changes them to per-attempt arrays.',
     },
   ]);
 }

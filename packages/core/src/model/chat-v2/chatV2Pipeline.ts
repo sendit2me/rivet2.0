@@ -30,8 +30,6 @@ import {
 
 const REQUEST_STATUS_PORT_ID = 'requestStatus' as PortId;
 const REQUEST_ERROR_PORT_ID = 'requestError' as PortId;
-const REQUEST_STATUSES_PORT_ID = 'requestStatuses' as PortId;
-const REQUEST_ERRORS_PORT_ID = 'requestErrors' as PortId;
 
 type StreamChatV2WithRetryResult = {
   result: StreamChatV2Result;
@@ -166,23 +164,27 @@ function buildCommonOutputs(
   }
 
   if (options.outputRequestStatus) {
-    outputs[REQUEST_STATUS_PORT_ID] = {
-      type: 'number',
-      value: requestStatus ?? 200,
-    };
-    outputs[REQUEST_ERROR_PORT_ID] =
-      responseError != null
-        ? {
-            type: 'string',
-            value: responseError,
-          }
-        : {
-            type: 'control-flow-excluded',
-            value: undefined,
-          };
-
     if (options.retryOnNon200) {
-      addRetryAttemptOutputs(outputs, requestStatuses, requestErrors);
+      outputs[REQUEST_STATUS_PORT_ID] = buildRetryAttemptOutput(
+        'number[]',
+        requestStatuses.length > 0 ? requestStatuses : [requestStatus ?? 200],
+      );
+      outputs[REQUEST_ERROR_PORT_ID] = buildRetryAttemptOutput('string[]', requestErrors);
+    } else {
+      outputs[REQUEST_STATUS_PORT_ID] = {
+        type: 'number',
+        value: requestStatus ?? 200,
+      };
+      outputs[REQUEST_ERROR_PORT_ID] =
+        responseError != null
+          ? {
+              type: 'string',
+              value: responseError,
+            }
+          : {
+              type: 'control-flow-excluded',
+              value: undefined,
+            };
     }
   }
 
@@ -207,17 +209,16 @@ function buildProviderFailureOutputs(
 ): Outputs {
   const outputs: Outputs = {};
 
-  if (options.retryOnNon200) {
-    addRetryAttemptOutputs(outputs, requestStatuses, requestErrors);
-  }
-
   Object.assign(outputs, {
-    [REQUEST_ERROR_PORT_ID]: {
-      type: 'string',
-      value: responseError,
-    },
-    [REQUEST_STATUS_PORT_ID]:
-      responseStatus == null
+    [REQUEST_ERROR_PORT_ID]: options.retryOnNon200
+      ? buildRetryAttemptOutput('string[]', requestErrors)
+      : {
+          type: 'string',
+          value: responseError,
+        },
+    [REQUEST_STATUS_PORT_ID]: options.retryOnNon200
+      ? buildRetryAttemptOutput('number[]', requestStatuses)
+      : responseStatus == null
         ? {
             type: 'control-flow-excluded',
             value: undefined,
@@ -268,27 +269,24 @@ function buildProviderFailureOutputs(
   return outputs;
 }
 
-function addRetryAttemptOutputs(outputs: Outputs, requestStatuses: number[], requestErrors: string[]): void {
-  outputs[REQUEST_STATUSES_PORT_ID] =
-    requestStatuses.length > 0
-      ? {
-          type: 'number[]',
-          value: requestStatuses,
-        }
-      : {
-          type: 'control-flow-excluded',
-          value: undefined,
-        };
-  outputs[REQUEST_ERRORS_PORT_ID] =
-    requestErrors.length > 0
-      ? {
-          type: 'string[]',
-          value: requestErrors,
-        }
-      : {
-          type: 'control-flow-excluded',
-          value: undefined,
-        };
+function buildRetryAttemptOutput(
+  type: 'number[]',
+  values: number[],
+): { type: 'number[]'; value: number[] } | { type: 'control-flow-excluded'; value: undefined };
+function buildRetryAttemptOutput(
+  type: 'string[]',
+  values: string[],
+): { type: 'string[]'; value: string[] } | { type: 'control-flow-excluded'; value: undefined };
+function buildRetryAttemptOutput(type: 'number[]' | 'string[]', values: number[] | string[]) {
+  return values.length > 0
+    ? {
+        type,
+        value: values,
+      }
+    : {
+        type: 'control-flow-excluded' as const,
+        value: undefined,
+      };
 }
 
 function buildNon200StatusError(statusCode: number): Error & { statusCode: number } {
@@ -430,8 +428,6 @@ function buildProviderFailureResult(
     finishReason: undefined,
     providerMetadata: undefined,
     requestStatus: statusCode,
-    requestStatuses: options.retryOnNon200 ? retryRequestStatuses : undefined,
-    requestErrors: options.retryOnNon200 ? retryRequestErrors : undefined,
   };
 }
 
@@ -558,7 +554,5 @@ export async function runChatV2Pipeline(options: RunChatV2PipelineOptions): Prom
     finishReason: streamed.result.finishReason,
     providerMetadata: streamed.result.providerMetadata,
     requestStatus: streamed.result.requestStatus ?? 200,
-    requestStatuses: options.retryOnNon200 ? requestStatuses : undefined,
-    requestErrors: options.retryOnNon200 ? requestErrors : undefined,
   };
 }

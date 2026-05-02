@@ -21,7 +21,12 @@ import {
   resolveLLMChatV2RuntimeConfig,
   resolveLLMChatV2RuntimeProviderOptions,
 } from '../chat-v2/llmChatV2NodeRuntime.js';
-import { getChatV2ProviderLabel } from '../chat-v2/providerOptions.js';
+import {
+  anthropicEffortOptions,
+  getChatV2ProviderLabel,
+  googleThinkingLevelOptions,
+  openAIReasoningEffortOptions,
+} from '../chat-v2/providerOptions.js';
 import { runChatV2Pipeline } from '../chat-v2/chatV2Pipeline.js';
 import { runChatV2PipelineWithToolContinuation } from '../chat-v2/toolContinuation.js';
 import { delegateToolCall } from './toolCallDelegation.js';
@@ -38,6 +43,36 @@ export { buildLLMChatV2EditorCacheKey, resolveLLMChatV2RuntimeProviderOptions };
 
 function usesBaseURLInput(data: LLMChatV2Node['data']): boolean {
   return data.provider === 'custom' ? data.useCustomProviderBaseURLInput : data.useBaseURLInput;
+}
+
+function getCustomProviderBaseURLBodyLine(data: LLMChatV2Node['data']): string | undefined {
+  if (data.provider !== 'custom') {
+    return undefined;
+  }
+
+  if (data.useCustomProviderBaseURLInput) {
+    return 'Provider base URL: (Using Input)';
+  }
+
+  const baseURL = data.customProviderBaseURL.trim();
+  return baseURL ? `Provider base URL: ${baseURL}` : undefined;
+}
+
+function getOptionLabel(options: readonly { value: string; label: string }[], value: string | undefined): string {
+  return options.find((option) => option.value === (value ?? ''))?.label ?? value ?? 'Default';
+}
+
+function getReasoningEffortBodyLine(data: LLMChatV2Node['data']): string | undefined {
+  switch (data.provider) {
+    case 'openai':
+      return `Reasoning effort: ${getOptionLabel(openAIReasoningEffortOptions, data.openAIReasoningEffort)}`;
+    case 'anthropic':
+      return `Reasoning effort: ${getOptionLabel(anthropicEffortOptions, data.anthropicEffort)}`;
+    case 'google':
+      return `Reasoning effort: ${getOptionLabel(googleThinkingLevelOptions, data.googleThinkingLevel)}`;
+    case 'custom':
+      return undefined;
+  }
 }
 
 export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
@@ -173,29 +208,14 @@ export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
         {
           id: 'requestStatus' as PortId,
           title: 'Response Status',
-          dataType: 'number',
+          dataType: this.data.retryOnNon200 ? 'number[]' : 'number',
         },
         {
           id: 'requestError' as PortId,
           title: 'Response Error',
-          dataType: 'string',
+          dataType: this.data.retryOnNon200 ? 'string[]' : 'string',
         },
       );
-
-      if (this.data.retryOnNon200) {
-        outputs.push(
-          {
-            id: 'requestStatuses' as PortId,
-            title: 'Request Statuses',
-            dataType: 'number[]',
-          },
-          {
-            id: 'requestErrors' as PortId,
-            title: 'Request Errors',
-            dataType: 'string[]',
-          },
-        );
-      }
     }
 
     return outputs;
@@ -222,13 +242,17 @@ export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
   getBody() {
     const modelInfo = getChatV2ModelInfo(this.data.provider, this.data.model);
     const providerLabel = getChatV2ProviderLabel(this.data.provider);
+    const baseURLLine = getCustomProviderBaseURLBodyLine(this.data);
+    const modelLine = modelInfo?.displayName ?? this.data.model;
+    const providerDetails = baseURLLine ? [providerLabel, baseURLLine, modelLine] : [providerLabel, modelLine];
+    const reasoningEffortLine = getReasoningEffortBodyLine(this.data);
 
-    return dedent`
-      ${providerLabel}
-      ${modelInfo?.displayName ?? this.data.model}
-      Temperature: ${this.data.useTemperatureInput ? '(Using Input)' : this.data.temperature}
-      Max output tokens: ${this.data.useMaxTokensInput ? '(Using Input)' : this.data.maxTokens}
-    `;
+    return [
+      ...providerDetails,
+      ...(reasoningEffortLine ? [reasoningEffortLine] : []),
+      `Temperature: ${this.data.useTemperatureInput ? '(Using Input)' : this.data.temperature}`,
+      `Max output tokens: ${this.data.useMaxTokensInput ? '(Using Input)' : this.data.maxTokens}`,
+    ].join('\n');
   }
 
   async process(inputs: Inputs, context: InternalProcessContext): Promise<Outputs> {

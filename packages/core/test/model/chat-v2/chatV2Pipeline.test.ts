@@ -303,24 +303,17 @@ describe('runChatV2Pipeline', () => {
     assert.equal(attempt, 2);
     assert.equal(result.response, 'Recovered');
     assert.equal(result.requestStatus, 200);
-    assert.deepEqual(result.requestStatuses, [503, 200]);
     assert.deepEqual(result.commonOutputs['requestStatus' as PortId], {
-      type: 'number',
-      value: 200,
-    });
-    assert.deepEqual(result.commonOutputs['requestStatuses' as PortId], {
       type: 'number[]',
       value: [503, 200],
     });
-    assert.deepEqual(result.commonOutputs['requestError' as PortId], {
-      type: 'control-flow-excluded',
-      value: undefined,
-    });
-    const requestErrors = result.commonOutputs['requestErrors' as PortId];
+    assert.equal('requestStatuses' in result.commonOutputs, false);
+    const requestErrors = result.commonOutputs['requestError' as PortId];
     assert.equal(requestErrors?.type, 'string[]');
     assert.ok(Array.isArray(requestErrors?.value));
     assert.equal(requestErrors.value.length, 1);
     assert.match(requestErrors.value[0]!, /503 HTTP error/);
+    assert.equal('requestErrors' in result.commonOutputs, false);
   });
 
   it('normalizes the final Vercel status error after retry attempts are exhausted', async () => {
@@ -425,23 +418,18 @@ describe('runChatV2Pipeline', () => {
 
     assert.equal(attempt, 2);
     assert.equal(result.requestStatus, 429);
-    assert.deepEqual(result.requestStatuses, [429, 429]);
     assert.deepEqual(result.commonOutputs['requestStatus' as PortId], {
-      type: 'number',
-      value: 429,
-    });
-    assert.deepEqual(result.commonOutputs['requestStatuses' as PortId], {
       type: 'number[]',
       value: [429, 429],
     });
-    assert.equal(result.commonOutputs['requestError' as PortId]?.type, 'string');
-    assert.match(String(result.commonOutputs['requestError' as PortId]?.value), /429 Rate Limited/);
-    const requestErrors = result.commonOutputs['requestErrors' as PortId];
+    assert.equal('requestStatuses' in result.commonOutputs, false);
+    const requestErrors = result.commonOutputs['requestError' as PortId];
     assert.equal(requestErrors?.type, 'string[]');
     assert.ok(Array.isArray(requestErrors?.value));
     assert.equal(requestErrors.value.length, 2);
     assert.match(requestErrors.value[0]!, /429 Rate Limited/);
     assert.match(requestErrors.value[1]!, /429 Rate Limited/);
+    assert.equal('requestErrors' in result.commonOutputs, false);
     assert.deepEqual(result.commonOutputs['response' as PortId], {
       type: 'control-flow-excluded',
       value: undefined,
@@ -480,19 +468,18 @@ describe('runChatV2Pipeline', () => {
     assert.equal(attempt, 2);
     assert.equal(result.response, 'Still failing 2');
     assert.equal(result.requestStatus, 503);
-    assert.deepEqual(result.requestStatuses, [503, 503]);
     assert.deepEqual(result.commonOutputs['requestStatus' as PortId], {
-      type: 'number',
-      value: 503,
+      type: 'number[]',
+      value: [503, 503],
     });
-    assert.equal(result.commonOutputs['requestError' as PortId]?.type, 'string');
-    assert.match(String(result.commonOutputs['requestError' as PortId]?.value), /503 HTTP error/);
-    const requestErrors = result.commonOutputs['requestErrors' as PortId];
+    assert.equal('requestStatuses' in result.commonOutputs, false);
+    const requestErrors = result.commonOutputs['requestError' as PortId];
     assert.equal(requestErrors?.type, 'string[]');
     assert.ok(Array.isArray(requestErrors?.value));
     assert.equal(requestErrors.value.length, 2);
     assert.match(requestErrors.value[0]!, /503 HTTP error/);
     assert.match(requestErrors.value[1]!, /503 HTTP error/);
+    assert.equal('requestErrors' in result.commonOutputs, false);
   });
 
   it('returns per-attempt request status and error outputs for retried string-shaped Vercel status failures', async () => {
@@ -532,19 +519,12 @@ describe('runChatV2Pipeline', () => {
 
     assert.equal(attempt, 2);
     assert.equal(result.requestStatus, 401);
-    assert.deepEqual(result.requestStatuses, [401, 401]);
     assert.deepEqual(result.commonOutputs['requestStatus' as PortId], {
-      type: 'number',
-      value: 401,
-    });
-    assert.deepEqual(result.commonOutputs['requestStatuses' as PortId], {
       type: 'number[]',
       value: [401, 401],
     });
-    assert.equal(result.commonOutputs['requestError' as PortId]?.type, 'string');
-    assert.match(String(result.commonOutputs['requestError' as PortId]?.value), /401 Unauthorized/);
-    assert.match(String(result.commonOutputs['requestError' as PortId]?.value), /attempt 2/);
-    const requestErrors = result.commonOutputs['requestErrors' as PortId];
+    assert.equal('requestStatuses' in result.commonOutputs, false);
+    const requestErrors = result.commonOutputs['requestError' as PortId];
     assert.equal(requestErrors?.type, 'string[]');
     assert.ok(Array.isArray(requestErrors?.value));
     assert.equal(requestErrors.value.length, 2);
@@ -552,6 +532,7 @@ describe('runChatV2Pipeline', () => {
     assert.match(requestErrors.value[0]!, /attempt 1/);
     assert.match(requestErrors.value[1]!, /401 Unauthorized/);
     assert.match(requestErrors.value[1]!, /attempt 2/);
+    assert.equal('requestErrors' in result.commonOutputs, false);
     assert.deepEqual(result.commonOutputs['response' as PortId], {
       type: 'control-flow-excluded',
       value: undefined,

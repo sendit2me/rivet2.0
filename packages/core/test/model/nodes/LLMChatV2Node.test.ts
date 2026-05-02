@@ -171,6 +171,10 @@ describe('LLMChatV2NodeImpl', () => {
       (editor: any) => editor.dataKey === 'extraProviderOptions',
     );
 
+    assert.deepEqual(
+      modelGroup.editors.map((editor: any) => editor.dataKey ?? editor.customEditorId),
+      ['provider', 'customProviderBaseURL', 'LLMChatV2ModelCatalog', 'apiKeySource', 'customProviderApiKeyEnvVarName'],
+    );
     assert.ok(
       providerEditor.options.some((option: any) => option.value === 'custom' && option.label === 'Custom provider'),
     );
@@ -187,6 +191,48 @@ describe('LLMChatV2NodeImpl', () => {
     assert.equal(extraProviderOptionsEditor.language, 'json');
     assert.equal(extraProviderOptionsEditor.useInputToggleDataKey, 'useExtraProviderOptionsInput');
     assert.match(extraProviderOptionsEditor.helperMessage, /providerOptions/);
+  });
+
+  it('shows the custom provider base URL in the node body', () => {
+    const node = createNode({
+      provider: 'custom',
+      model: 'llama-custom',
+      customProviderBaseURL: 'https://api.cerebras.ai/v1',
+    });
+
+    assert.equal(
+      node.getBody(),
+      [
+        'Custom provider',
+        'Provider base URL: https://api.cerebras.ai/v1',
+        'llama-custom',
+        'Temperature: 0.5',
+        'Max output tokens: 1024',
+      ].join('\n'),
+    );
+  });
+
+  it('shows when the custom provider base URL comes from an input port', () => {
+    const node = createNode({
+      provider: 'custom',
+      model: 'llama-custom',
+      customProviderBaseURL: 'https://api.cerebras.ai/v1',
+      useCustomProviderBaseURLInput: true,
+    });
+
+    assert.match(node.getBody(), /Provider base URL: \(Using Input\)/);
+    assert.doesNotMatch(node.getBody(), /api\.cerebras/);
+  });
+
+  it('shows built-in provider reasoning effort in the node body', () => {
+    assert.match(createNode().getBody(), /Reasoning effort: Default/);
+    assert.match(createNode({ provider: 'openai', openAIReasoningEffort: 'high' }).getBody(), /Reasoning effort: High/);
+    assert.match(createNode({ provider: 'anthropic', anthropicEffort: 'max' }).getBody(), /Reasoning effort: Max/);
+    assert.match(
+      createNode({ provider: 'google', googleThinkingLevel: 'minimal' }).getBody(),
+      /Reasoning effort: Minimal/,
+    );
+    assert.doesNotMatch(createNode({ provider: 'custom' }).getBody(), /Reasoning effort:/);
   });
 
   it('places technical details after all LLM settings sections', async () => {
@@ -242,7 +288,7 @@ describe('LLMChatV2NodeImpl', () => {
       {
         id: 'requestStatus',
         title: 'Response Status',
-        dataType: 'number',
+        dataType: 'number[]',
       },
     );
     assert.deepEqual(
@@ -258,24 +304,16 @@ describe('LLMChatV2NodeImpl', () => {
       {
         id: 'requestError',
         title: 'Response Error',
-        dataType: 'string',
-      },
-    );
-    assert.deepEqual(
-      retryStatusNode.getOutputDefinitions().find((output) => output.id === 'requestStatuses'),
-      {
-        id: 'requestStatuses',
-        title: 'Request Statuses',
-        dataType: 'number[]',
-      },
-    );
-    assert.deepEqual(
-      retryStatusNode.getOutputDefinitions().find((output) => output.id === 'requestErrors'),
-      {
-        id: 'requestErrors',
-        title: 'Request Errors',
         dataType: 'string[]',
       },
+    );
+    assert.equal(
+      retryStatusNode.getOutputDefinitions().some((output) => output.id === 'requestStatuses'),
+      false,
+    );
+    assert.equal(
+      retryStatusNode.getOutputDefinitions().some((output) => output.id === 'requestErrors'),
+      false,
     );
   });
 
