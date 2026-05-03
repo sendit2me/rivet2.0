@@ -22,6 +22,12 @@ export type GraphSearchNodeMetadata = {
   searchableContentKeys?: readonly string[];
 };
 
+type SearchableEditorDefinition = {
+  type: string;
+  dataKey?: string;
+  editors?: SearchableEditorDefinition[];
+};
+
 export type GraphSearchMatchLocation =
   | 'graph name'
   | 'node name'
@@ -259,6 +265,24 @@ export function serializeSearchableContentFields(
   return contentParts.join('\n\n');
 }
 
+export function getSynchronousCodeEditorDataKeys(loadEditors: () => unknown): string[] {
+  let editors: unknown;
+
+  try {
+    editors = loadEditors();
+  } catch {
+    return [];
+  }
+
+  if (isPromiseLike(editors)) {
+    // Graph search only indexes synchronous editor metadata; async editor loaders need the inspector UI context.
+    void Promise.resolve(editors).catch(() => undefined);
+    return [];
+  }
+
+  return Array.isArray(editors) ? getCodeEditorDataKeys(editors as SearchableEditorDefinition[]) : [];
+}
+
 export function getGraphSearchContentSnippets(content: string, queryTerms: readonly string[]): string[] {
   const terms = queryTerms.map((term) => normalizeSearchText(term)).filter(Boolean);
 
@@ -406,6 +430,30 @@ function normalizeGraphSearchNodeMetadata(
     nodeTypeLabel: metadata.nodeTypeLabel,
     searchableContentKeys: metadata.searchableContentKeys ?? [],
   };
+}
+
+function getCodeEditorDataKeys(editors: readonly SearchableEditorDefinition[]): string[] {
+  const dataKeys = new Set<string>();
+
+  for (const editor of editors) {
+    if (editor.type === 'code' && typeof editor.dataKey === 'string') {
+      dataKeys.add(editor.dataKey);
+    }
+
+    if (Array.isArray(editor.editors)) {
+      getCodeEditorDataKeys(editor.editors).forEach((dataKey) => dataKeys.add(dataKey));
+    }
+  }
+
+  return [...dataKeys];
+}
+
+function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
+  return (
+    value != null &&
+    (typeof value === 'object' || typeof value === 'function') &&
+    typeof (value as { then?: unknown }).then === 'function'
+  );
 }
 
 function getMatchLocations(item: GraphSearchItem, queryTerms: readonly string[]): GraphSearchMatchLocation[] {

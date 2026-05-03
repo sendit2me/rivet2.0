@@ -557,8 +557,6 @@ export const NavigationBar: FC = () => {
                   ...state,
                   query: e.target.value,
                   selectedIndex: 0,
-                  matches: [],
-                  fallbackToTerms: false,
                   searching: true,
                 }))
               }

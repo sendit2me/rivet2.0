@@ -6,6 +6,7 @@ import {
   buildProjectGraphSearchItems,
   clampGraphSearchSelectedIndex,
   getGraphSearchContentSnippets,
+  getSynchronousCodeEditorDataKeys,
   groupGraphSearchMatches,
   isNodeGraphSearchMatch,
   searchGraphNodes,
@@ -489,6 +490,36 @@ test('serializeSearchableContentFields serializes only selected top-level fields
   assert.equal(serialized.includes('needle'), true);
   assert.equal(serialized.includes('false'), false);
   assert.equal(serialized.includes('ignored'), false);
+});
+
+test('getSynchronousCodeEditorDataKeys reads nested synchronous code editor keys', () => {
+  const dataKeys = getSynchronousCodeEditorDataKeys(() => [
+    {
+      type: 'group',
+      editors: [
+        { type: 'string', dataKey: 'title' },
+        { type: 'code', dataKey: 'prompt' },
+        {
+          type: 'group',
+          editors: [
+            { type: 'code', dataKey: 'body' },
+            { type: 'code' },
+          ],
+        },
+      ],
+    },
+  ]);
+
+  assert.deepEqual(dataKeys, ['prompt', 'body']);
+});
+
+test('getSynchronousCodeEditorDataKeys ignores async editor loaders without leaking rejections', async () => {
+  const dataKeys = getSynchronousCodeEditorDataKeys(() =>
+    Promise.reject(new Error("Cannot read properties of undefined (reading 'getChatModelOptions')")),
+  );
+
+  assert.deepEqual(dataKeys, []);
+  await Promise.resolve();
 });
 
 test('getGraphSearchContentSnippets returns separate context snippets for separated content matches', () => {
