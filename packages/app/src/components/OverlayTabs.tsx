@@ -116,13 +116,41 @@ const styles = css`
   }
 `;
 
-const WORKSPACE_TABS: Array<{ key: OverlayKey; label: string; className: string }> = [
+type WorkspaceTabDefinition = { key: OverlayKey; label: string; className: string };
+
+const WORKSPACE_TABS: WorkspaceTabDefinition[] = [
   { key: 'community', label: 'Community', className: 'community' },
-  { key: 'promptDesigner', label: 'Prompt Designer', className: 'prompt-designer-menu' },
   { key: 'trivet', label: 'Trivet Tests', className: 'trivet-menu' },
   { key: 'chatViewer', label: 'Chat Viewer', className: 'chat-viewer-menu' },
   { key: 'dataStudio', label: 'Data Studio', className: 'data-studio' },
 ];
+
+const PROMPT_DESIGNER_TAB: WorkspaceTabDefinition = {
+  key: 'promptDesigner',
+  label: 'Prompt Designer',
+  className: 'prompt-designer-menu',
+};
+
+function getVisibleWorkspaceTabs({
+  communityEnabled,
+  openOverlay,
+}: {
+  communityEnabled: boolean;
+  openOverlay: OverlayKey | undefined;
+}): WorkspaceTabDefinition[] {
+  const workspaceTabs = WORKSPACE_TABS.filter((tab) => tab.key !== 'community' || communityEnabled);
+
+  if (openOverlay !== 'promptDesigner') {
+    return workspaceTabs;
+  }
+
+  const promptDesignerTabIndex = communityEnabled ? 1 : 0;
+  return [
+    ...workspaceTabs.slice(0, promptDesignerTabIndex),
+    PROMPT_DESIGNER_TAB,
+    ...workspaceTabs.slice(promptDesignerTabIndex),
+  ];
+}
 
 export const OverlayTabs: FC<{
   showGraphSearch?: boolean;
@@ -139,7 +167,7 @@ export const OverlayTabs: FC<{
     setGraphSearch(emptyGraphSearchState);
   };
 
-  const visibleWorkspaceTabs = WORKSPACE_TABS.filter((tab) => tab.key !== 'community' || communityEnabled);
+  const visibleWorkspaceTabs = getVisibleWorkspaceTabs({ communityEnabled, openOverlay });
 
   return (
     <nav css={styles} aria-label="Workspace navigation">

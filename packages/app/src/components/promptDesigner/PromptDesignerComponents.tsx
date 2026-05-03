@@ -89,6 +89,7 @@ export const PromptDesignerTestGroup: FC<{
   onCancel?: () => void;
 }> = ({ testGroup, onChange, onStart, onDelete, inProgress, onCancel }) => {
   const { fontSize, handleKeyDown: handleMultilineEditorFontSizeKeyDown } = useMultilineEditorFontSize();
+  const hasEvaluatorGraph = Boolean(testGroup.evaluatorGraphId);
 
   return (
     <div className="test-group">
@@ -97,10 +98,11 @@ export const PromptDesignerTestGroup: FC<{
       </Button>
       <GraphSelector
         label="Evaluator Graph"
-        value={testGroup.evaluatorGraphId}
+        value={testGroup.evaluatorGraphId || undefined}
         onChange={(selected) => onChange({ ...testGroup, evaluatorGraphId: selected as GraphId })}
         isReadonly={false}
         name={`evaluator-graph-${testGroup.id}`}
+        helperMessage="Required. The evaluator graph receives the generated response on input and the condition texts on conditions, then returns output as boolean[]."
       />
       <div className="test-group-tests">
         {testGroup.tests.map((test, index) => (
@@ -165,7 +167,7 @@ export const PromptDesignerTestGroup: FC<{
             Cancel
           </Button>
         ) : (
-          <Button appearance="primary" onClick={() => onStart(testGroup)}>
+          <Button appearance="primary" onClick={() => onStart(testGroup)} isDisabled={!hasEvaluatorGraph}>
             Start
           </Button>
         )}
