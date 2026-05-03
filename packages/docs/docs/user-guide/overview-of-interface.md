@@ -84,7 +84,7 @@ This area contains the editors for the currently selected node. The editor will 
 
 ## Workspaces
 
-The top app bar contains workspace tabs. Canvas is the normal graph-editing workspace. Other workspaces, such as Trivet Tests, Chat Viewer, and Data Studio, open full-screen workspace views. Run/debug controls are shown only while Canvas is active.
+The top app bar contains workspace tabs. Canvas is the normal graph-editing workspace. Other workspaces, such as Trivet Tests, Chat Viewer, and Data Studio, open full-screen workspace views. When no project is open, the top bar shows a Welcome screen tab so you can return to the centered welcome screen after opening a project-independent workspace. Run/debug controls are shown only while Canvas is active.
 
 ### Prompt Designer
 

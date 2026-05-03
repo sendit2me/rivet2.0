@@ -37,3 +37,20 @@ test('workspace tabs show active Prompt Designer only while it is open', () => {
     ['trivet', 'dataStudio', 'promptDesigner'],
   );
 });
+
+test('workspace tabs show Welcome screen only in no-project mode', () => {
+  const tabs = getVisibleWorkspaceTabs({
+    chatViewerAvailable: false,
+    openOverlay: undefined,
+    welcomeScreenAvailable: true,
+  });
+
+  assert.deepEqual(
+    tabs.map((tab) => [tab.key, tab.targetOverlay]),
+    [
+      ['welcomeScreen', undefined],
+      ['trivet', 'trivet'],
+      ['dataStudio', 'dataStudio'],
+    ],
+  );
+});

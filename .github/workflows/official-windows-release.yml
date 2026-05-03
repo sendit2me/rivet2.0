@@ -1,9 +1,9 @@
-name: Developer Windows Release
+name: Official Windows Release
 
 on:
   push:
     branches:
-      - develop
+      - main
   workflow_dispatch:
 
 permissions:
@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   build-windows:
-    if: github.ref == 'refs/heads/develop'
+    if: github.ref == 'refs/heads/main'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v5
@@ -47,13 +47,13 @@ jobs:
         env:
           NODE_OPTIONS: --max-old-space-size=6000
 
-      - name: Add developer release downloads to docs site
+      - name: Add official release downloads to docs site
         run: node .github/scripts/prepare-windows-release-pages.mjs
         env:
-          RELEASE_CHANNEL: developer
-          RELEASE_LABEL: develop-${{ github.run_number }}-${{ github.sha }}
+          RELEASE_CHANNEL: official
+          RELEASE_LABEL: official-${{ github.run_number }}-${{ github.sha }}
           RELEASE_STANDALONE_PAGE: 'false'
-          PRESERVE_RELEASE_METADATA_FILES: official-release.json
+          PRESERVE_RELEASE_METADATA_FILES: developer-release.json
           PAGES_SITE_URL: https://valerypopoff.github.io/rivet2.0/
           PAGES_OUT_DIR: packages/docs/build
           SOURCE_BUNDLE_DIR: packages/app/src-tauri/target/release/bundle
@@ -67,11 +67,11 @@ jobs:
           retention-days: 7
 
   publish-pages:
-    if: github.ref == 'refs/heads/develop'
+    if: github.ref == 'refs/heads/main'
     needs: build-windows
     runs-on: ubuntu-latest
     environment:
-      name: developer-windows-pages
+      name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     env:
       PAGES_ENABLEMENT_TOKEN: ${{ secrets.PAGES_ENABLEMENT_TOKEN }}

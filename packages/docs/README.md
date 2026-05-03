@@ -10,7 +10,7 @@ The docs should describe the current Rivet 2.0 package and app shape:
 - app-level plugin installation with project YAML plugin declarations derived from actual plugin-node usage
 - LLM Chat as the recommended chat node for new graphs
 - Browser, Node, and remote executor behavior
-- `/download`, including official release placeholders and developer release metadata from the develop-branch Pages workflow
+- `/download`, including official Windows release metadata from the main-branch Pages workflow and developer Windows release metadata from the develop-branch Pages workflow
 - wrapper/embedding seams documented in the repo's developer docs
 
 The GitHub Pages deployment uses `baseUrl: /rivet2.0/` and serves docs from the site root. The custom Docusaurus pages plugin is disabled so the first page is the documentation introduction rather than a marketing landing page.

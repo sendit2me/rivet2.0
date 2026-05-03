@@ -319,30 +319,64 @@ Current workflow references:
 - `TAURI_KEY_PASSWORD`
 - Apple signing/notarization-related secrets
 
-## `developer-windows-release.yml`
+## Windows Pages release workflows
+
+Rivet publishes installer download metadata through the Docusaurus GitHub Pages site:
+
+- [`.github/workflows/official-windows-release.yml`](../.github/workflows/official-windows-release.yml) runs on `main`
+- [`.github/workflows/developer-windows-release.yml`](../.github/workflows/developer-windows-release.yml) runs on `develop`
+
+Both workflows build installer artifacts only with `yarn tauri build --verbose --ci --bundles "msi,nsis"`. They intentionally avoid updater zip bundles, so they do not need `TAURI_PRIVATE_KEY` or `TAURI_KEY_PASSWORD`.
+
+Both workflows use [`.github/scripts/prepare-windows-release-pages.mjs`](../.github/scripts/prepare-windows-release-pages.mjs) to collect files from `packages/app/src-tauri/target/release/bundle`, copy original installer artifacts under channel-specific `downloads/<channel>/original/` paths, create stable download aliases, and generate a channel metadata file.
+
+Generated metadata and aliases:
+
+- official workflow: `official-release.json`, `downloads/official/Rivet-Windows-Setup.exe`, and `downloads/official/Rivet-Windows.msi`
+- developer workflow: `developer-release.json`, `downloads/developer/Rivet-Developer-Windows-Setup.exe`, and `downloads/developer/Rivet-Developer-Windows.msi`
+
+The `/download` docs page reads both metadata files. A Pages deploy replaces the whole site, so each release workflow preserves the other channel from the currently published Pages site before writing its own current channel:
+
+- `main` official runs preserve `developer-release.json` and the developer assets referenced by that metadata
+- `develop` developer runs preserve `official-release.json` and the official assets referenced by that metadata
+
+The release workflows share the `rivet-docs-pages` concurrency group with `cancel-in-progress: false`, so official and developer Pages deployments queue instead of racing and accidentally publishing a site that only contains one release channel.
+
+### `official-windows-release.yml`
+
+#### Trigger conditions
+
+- pushes to `main`
+- manual `workflow_dispatch` runs, guarded so jobs only execute when the selected ref is `main`
+
+#### Current behavior
+
+The workflow has two jobs:
+
+1. `build-windows` runs on `windows-latest`, checks out the repo, sets up Node `20.4.x`, installs Rust stable, runs `yarn --immutable`, runs the root `yarn build`, then runs `yarn tauri build --verbose --ci --bundles "msi,nsis"` from `packages/app`.
+2. The same Windows job builds the Docusaurus docs site from `packages/docs`, preserves the current developer release feed from Pages if it exists, writes official release metadata and installer files into `packages/docs/build`, and uploads that complete docs-site artifact.
+3. `publish-pages` runs on `ubuntu-latest`, downloads the generated docs-site artifact, configures GitHub Pages, uploads it as a GitHub Pages artifact, and deploys it with `actions/deploy-pages`.
+
+The official deploy job uses the `github-pages` environment. If that environment has branch restrictions, it must allow `main`.
+
+### `developer-windows-release.yml`
 
 ### Trigger conditions
 
 - pushes to `develop`
 - manual `workflow_dispatch` runs, guarded so jobs only execute when the selected ref is `develop`
 
-This workflow is intentionally develop-only. It does not run for `main`, and it should stay separate from the production tag-driven desktop release flow until main-branch release publishing is explicitly added.
+This workflow is intentionally develop-only. It does not run for `main`.
 
 ### Current behavior
 
 The workflow has two jobs:
 
 1. `build-windows` runs on `windows-latest`, checks out the repo, sets up Node `20.4.x`, installs Rust stable, runs `yarn --immutable`, runs the root `yarn build`, then runs `yarn tauri build --verbose --ci --bundles "msi,nsis"` from `packages/app`.
-2. The same Windows job builds the Docusaurus docs site from `packages/docs`, writes the developer release metadata and installer files into `packages/docs/build`, and uploads that complete docs-site artifact.
+2. The same Windows job builds the Docusaurus docs site from `packages/docs`, preserves the current official release feed from Pages if it exists, writes developer release metadata and installer files into `packages/docs/build`, and uploads that complete docs-site artifact.
 3. `publish-pages` runs on `ubuntu-latest`, downloads the generated docs-site artifact, configures GitHub Pages, uploads it as a GitHub Pages artifact, and deploys it with `actions/deploy-pages`.
 
-The Windows build job uses [`.github/scripts/prepare-developer-windows-pages.mjs`](../.github/scripts/prepare-developer-windows-pages.mjs) to collect files from `packages/app/src-tauri/target/release/bundle`, copy original installer artifacts under `downloads/original/`, create stable download aliases, and generate:
-
-- `developer-release.json`
-- `downloads/Rivet-Developer-Windows-Setup.exe` when an NSIS setup executable is present
-- `downloads/Rivet-Developer-Windows.msi` when an MSI installer is present
-
-In the GitHub workflow, `DEVELOPER_RELEASE_STANDALONE_PAGE=false`, so the script does not write a standalone `index.html`. Docusaurus owns the site root and reads `developer-release.json` on the `/download` page. The generated Pages site represents the current public docs plus the latest successful developer Windows release from `develop`. Each new successful run replaces the previous Pages deployment.
+Docusaurus owns the site root and reads `developer-release.json` on the `/download` page. The generated Pages site represents the current public docs plus the latest successful developer Windows release from `develop`, while preserving the official release feed that was already published from `main`.
 
 ### Pages requirements
 
@@ -353,23 +387,24 @@ The repository's GitHub Pages source must be configured for GitHub Actions deplo
 
 `PAGES_ENABLEMENT_TOKEN` must be stronger than the default `GITHUB_TOKEN`; `actions/configure-pages` requires a separate token for enablement. Use a fine-grained token with Pages write access for this repository, a classic token with `repo` scope, or a GitHub App token with `administration:write` and `pages:write`. After Pages is enabled, the normal deployment still uses the workflow's `pages: write` and `id-token: write` permissions.
 
-The deploy job uses the `developer-windows-pages` environment instead of the default `github-pages` environment. This keeps the develop-branch installer feed from being blocked by production-oriented `github-pages` environment protection rules, such as "only main can deploy." If the `developer-windows-pages` environment is later given branch restrictions, it must allow `develop`.
+The developer deploy job uses the `developer-windows-pages` environment instead of the default `github-pages` environment. This keeps the develop-branch installer feed from being blocked by production-oriented `github-pages` environment protection rules, such as "only main can deploy." If the `developer-windows-pages` environment is later given branch restrictions, it must allow `develop`.
 
-The workflow uses Node 24-compatible artifact action majors (`actions/upload-artifact@v7`, `actions/download-artifact@v7`, and `actions/upload-pages-artifact@v5`) and no longer forces Node 24 globally with `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24`. The build itself still uses Node `20.4.x`; that is the project toolchain, not the JavaScript runtime used by GitHub's actions.
+The Pages release workflows use Node 24-compatible artifact action majors (`actions/upload-artifact@v7`, `actions/download-artifact@v7`, and `actions/upload-pages-artifact@v5`) and do not force Node 24 globally with `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24`. The build itself still uses Node `20.4.x`; that is the project toolchain, not the JavaScript runtime used by GitHub's actions.
 
 ### Secrets/environment
 
-The developer Pages workflow does not pass updater-signing secrets. It explicitly requests only the Windows installer bundles with `--bundles "msi,nsis"`, so Tauri does not create updater zip bundles and does not need `TAURI_PRIVATE_KEY` or `TAURI_KEY_PASSWORD`.
+The Pages release workflows do not pass updater-signing secrets. They explicitly request only the Windows installer bundles with `--bundles "msi,nsis"`, so Tauri does not create updater zip bundles and does not need `TAURI_PRIVATE_KEY` or `TAURI_KEY_PASSWORD`.
 
-Optional developer-release secret:
+Optional Pages-release secret:
 
 - `PAGES_ENABLEMENT_TOKEN`: only needed if the workflow should enable GitHub Pages automatically instead of relying on the one-time repository setting described above.
 
 Deployment environment:
 
+- `github-pages`: used by the main-branch official release deployment. It should allow `main`.
 - `developer-windows-pages`: used by the develop-branch Pages deployment. Leave it unrestricted or allow the `develop` branch.
 
-Production desktop release workflows still use the updater-enabled Tauri packaging contract and therefore continue to require updater signing secrets. Keep the developer Pages workflow installer-only unless it is intentionally promoted into an updater feed.
+Production updater/tagged desktop release workflows still use the updater-enabled Tauri packaging contract and therefore continue to require updater signing secrets. Keep the Pages release workflows installer-only unless one is intentionally promoted into an updater feed.
 
 ## `publish-npm-packages.yml`
 
@@ -547,8 +582,8 @@ This script is intentionally aggressive and should be treated carefully. It only
 The current effective release flow is:
 
 1. update versions in package manifests and Tauri config
-2. push to `main` to publish npm packages
-3. push `app-v*` tag for desktop release
+2. push to `main` to publish npm packages and the current official Windows installer feed on GitHub Pages
+3. push `app-v*` tag for updater-enabled desktop release drafts when that path is needed
 4. let `release.yml` create draft desktop artifacts
 5. let `rename-release-assets.yml` normalize asset names
 6. publish docs separately if needed via `yarn publish-docs`

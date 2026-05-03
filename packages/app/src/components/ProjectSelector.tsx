@@ -321,7 +321,7 @@ export const ProjectSelector: FC<{
           </DndContext>
         </div>
       </div>
-      <OverlayTabs showGraphSearch={projectMode} />
+      <OverlayTabs showGraphSearch={projectMode} showWelcomeScreen={!projectMode} />
     </div>
   );
 };

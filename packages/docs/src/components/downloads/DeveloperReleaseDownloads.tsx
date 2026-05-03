@@ -3,29 +3,31 @@ import useBaseUrl from '@docusaurus/useBaseUrl';
 
 import styles from './DeveloperReleaseDownloads.module.css';
 
-type DeveloperDownload = {
+type ReleaseDownload = {
   label: string;
   name: string;
   url: string;
   size: number;
 };
 
-type DeveloperArtifact = {
+type ReleaseArtifact = {
   name: string;
   originalPath: string;
   url: string;
   size: number;
 };
 
-type DeveloperReleaseMetadata = {
+type ReleaseMetadata = {
+  channel?: string;
+  title?: string;
   label: string;
   generatedAt: string;
   branch: string;
   commit: string;
   runUrl: string | null;
   commitUrl: string | null;
-  stableDownloads: DeveloperDownload[];
-  artifacts: DeveloperArtifact[];
+  stableDownloads: ReleaseDownload[];
+  artifacts: ReleaseArtifact[];
 };
 
 function formatBytes(bytes: number) {
@@ -50,10 +52,22 @@ function releaseDateLabel(value: string) {
   return date.toLocaleString();
 }
 
-export function DeveloperReleaseDownloads() {
-  const metadataUrl = useBaseUrl('/developer-release.json');
+type ReleaseDownloadsProps = {
+  emptyMetadataMessage: string;
+  emptyStableDownloadsMessage: string;
+  loadingMessage: string;
+  metadataFile: string;
+};
+
+function ReleaseDownloads({
+  emptyMetadataMessage,
+  emptyStableDownloadsMessage,
+  loadingMessage,
+  metadataFile,
+}: ReleaseDownloadsProps) {
+  const metadataUrl = useBaseUrl(`/${metadataFile}`);
   const siteRoot = useBaseUrl('/');
-  const [metadata, setMetadata] = useState<DeveloperReleaseMetadata | null>(null);
+  const [metadata, setMetadata] = useState<ReleaseMetadata | null>(null);
   const [didLoad, setDidLoad] = useState(false);
 
   const toSiteUrl = (url: string) => `${siteRoot.replace(/\/$/, '')}/${url.replace(/^\//, '')}`;
@@ -84,16 +98,13 @@ export function DeveloperReleaseDownloads() {
   }, [metadataUrl]);
 
   if (!didLoad) {
-    return <p className={styles.empty}>Loading developer release information...</p>;
+    return <p className={styles.empty}>{loadingMessage}</p>;
   }
 
   if (!metadata) {
     return (
       <div className={styles.releaseCard}>
-        <p className={styles.empty}>
-          Developer release metadata is not available in this local documentation build. On GitHub Pages, this section
-          is populated by the latest successful develop-branch Windows build.
-        </p>
+        <p className={styles.empty}>{emptyMetadataMessage}</p>
       </div>
     );
   }
@@ -102,7 +113,11 @@ export function DeveloperReleaseDownloads() {
     <div className={styles.releaseCard}>
       <p className={styles.meta}>
         Branch: {metadata.branch} | Commit:{' '}
-        {metadata.commitUrl ? <a href={metadata.commitUrl}>{metadata.commit.slice(0, 7)}</a> : metadata.commit.slice(0, 7)}{' '}
+        {metadata.commitUrl ? (
+          <a href={metadata.commitUrl}>{metadata.commit.slice(0, 7)}</a>
+        ) : (
+          metadata.commit.slice(0, 7)
+        )}{' '}
         | Build: {metadata.runUrl ? <a href={metadata.runUrl}>{metadata.label}</a> : metadata.label} | Generated:{' '}
         {releaseDateLabel(metadata.generatedAt)}
       </p>
@@ -119,7 +134,7 @@ export function DeveloperReleaseDownloads() {
           ))}
         </div>
       ) : (
-        <p className={styles.empty}>No stable developer installer aliases were produced for this build.</p>
+        <p className={styles.empty}>{emptyStableDownloadsMessage}</p>
       )}
 
       {metadata.artifacts.length > 0 && (
@@ -148,5 +163,27 @@ export function DeveloperReleaseDownloads() {
         </>
       )}
     </div>
+  );
+}
+
+export function OfficialReleaseDownloads() {
+  return (
+    <ReleaseDownloads
+      metadataFile="official-release.json"
+      loadingMessage="Loading official release information..."
+      emptyMetadataMessage="Official release metadata is not available yet. On GitHub Pages, this section is populated by the latest successful main-branch Windows build."
+      emptyStableDownloadsMessage="No stable official installer aliases were produced for this build."
+    />
+  );
+}
+
+export function DeveloperReleaseDownloads() {
+  return (
+    <ReleaseDownloads
+      metadataFile="developer-release.json"
+      loadingMessage="Loading developer release information..."
+      emptyMetadataMessage="Developer release metadata is not available in this local documentation build. On GitHub Pages, this section is populated by the latest successful develop-branch Windows build."
+      emptyStableDownloadsMessage="No stable developer installer aliases were produced for this build."
+    />
   );
 }

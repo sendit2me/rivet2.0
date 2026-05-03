@@ -122,7 +122,8 @@ const styles = css`
 
 export const OverlayTabs: FC<{
   showGraphSearch?: boolean;
-}> = ({ showGraphSearch = true }) => {
+  showWelcomeScreen?: boolean;
+}> = ({ showGraphSearch = true, showWelcomeScreen = false }) => {
   const [openOverlay, setOpenOverlay] = useAtom(overlayOpenState);
   const setGraphSearch = useSetAtom(searchingGraphState);
 
@@ -142,12 +143,16 @@ export const OverlayTabs: FC<{
     }
   }, [chatViewerAvailable, openOverlay, setOpenOverlay]);
 
-  const openWorkspace = (workspace: OverlayKey) => {
+  const openWorkspace = (workspace: OverlayKey | undefined) => {
     setOpenOverlay((current) => (current === workspace ? undefined : workspace));
     setGraphSearch(hideGraphSearchPanelState);
   };
 
-  const visibleWorkspaceTabs = getVisibleWorkspaceTabs({ chatViewerAvailable, openOverlay });
+  const visibleWorkspaceTabs = getVisibleWorkspaceTabs({
+    chatViewerAvailable,
+    openOverlay,
+    welcomeScreenAvailable: showWelcomeScreen,
+  });
 
   return (
     <nav css={styles} aria-label="Workspace navigation">
@@ -156,8 +161,8 @@ export const OverlayTabs: FC<{
           <WorkspaceTab
             key={tab.key}
             className={tab.className}
-            active={openOverlay === tab.key}
-            onOpen={() => openWorkspace(tab.key)}
+            active={openOverlay === tab.targetOverlay}
+            onOpen={() => openWorkspace(tab.targetOverlay)}
           >
             {tab.label}
             {tab.key === 'trivet' && trivet.runningTests && (
