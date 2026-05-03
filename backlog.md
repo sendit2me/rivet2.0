@@ -4,8 +4,6 @@
 
 - Reassess Ctrl+N window
 
-- Cleaner search content
-- Close search on focus leave but don't flush the search content until the user deliberately closes the search window or clears the search field
 
 - Check how "Check for updates" button works
 

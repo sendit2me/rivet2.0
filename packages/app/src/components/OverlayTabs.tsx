@@ -6,7 +6,7 @@ import clsx from 'clsx';
 import { trivetState } from '../state/trivet.js';
 import { LoadingSpinner } from './LoadingSpinner.js';
 import { type OverlayKey, overlayOpenState } from '../state/ui';
-import { emptyGraphSearchState, openOrFocusGraphSearchState, searchingGraphState } from '../state/graphBuilder';
+import { hideGraphSearchPanelState, openOrFocusGraphSearchState, searchingGraphState } from '../state/graphBuilder';
 import { useFeatureFlag } from '../hooks/useFeatureFlag';
 import { projectState } from '../state/savedGraphs.js';
 import { graphState } from '../state/graph.js';
@@ -146,7 +146,7 @@ export const OverlayTabs: FC<{
 
   const openWorkspace = (workspace: OverlayKey) => {
     setOpenOverlay((current) => (current === workspace ? undefined : workspace));
-    setGraphSearch(emptyGraphSearchState);
+    setGraphSearch(hideGraphSearchPanelState);
   };
 
   const visibleWorkspaceTabs = getVisibleWorkspaceTabs({ chatViewerAvailable, communityEnabled, openOverlay });
@@ -177,9 +177,7 @@ export const OverlayTabs: FC<{
               onMouseDown={(e) => {
                 if (e.button === 0) {
                   setOpenOverlay(undefined);
-                  setGraphSearch((state) =>
-                    state.searching ? emptyGraphSearchState : openOrFocusGraphSearchState(state),
-                  );
+                  setGraphSearch(openOrFocusGraphSearchState);
                 }
               }}
             >
