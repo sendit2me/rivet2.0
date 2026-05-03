@@ -4,56 +4,56 @@ slug: /
 
 # Introduction to Rivet
 
-Welcome to the Rivet User Guide. Rivet 2.0 is a visual AI programming environment for building, debugging, testing, and running graph-based AI workflows.
+Welcome to the Rivet User Guide. Rivet 2 is a desktop app for building, debugging, testing, and running AI workflows visually.
 
-Rivet 2.0 continues the previous open-source Rivet project as an independently maintained codebase. It keeps the visual graph workflow, but modernizes the editor, execution runtime, plugin model, package names, and wrapper/embedding seams.
+You create `.rivet-project` files by placing nodes on a canvas, connecting them with wires, configuring each node, and running the graph while Rivet shows you the data moving through it.
 
-## Key Components
+Rivet is built for creating AI workflows, but non-AI workflows work well too. You can build workflows without writing code at all, or use special code nodes when a particular operation is easier to express in JavaScript. That makes Rivet a low-code tool: visual by default, code-friendly when you want it.
 
-Rivet consists of several cooperating parts:
+Rivet can be used for quick experiments and for production-ready workflows that power high-load products and features. It can also run as a self-hosted web app through [Rivet Studio Server](https://github.com/valerypopoff/Rivet-Studio-Server).
 
-### Rivet Application
+This guide is written for people using the Rivet desktop app. If you are integrating Rivet into another TypeScript, JavaScript, server, or wrapper application, start with the [Rivet API Reference](/api-reference).
 
-The Rivet application is the desktop editor/IDE for creating graph-based AI workflows. It lets you build `.rivet-project` files, inspect every node, run graphs in Browser or Node executor mode, connect to remote debugger servers, manage app-installed plugins, work with datasets, and use tools such as Prompt Designer, Chat Viewer, and Trivet tests.
+## What You Can Do In The App
 
-See this User Guide and the [tutorial](/tutorial) for more information on how to use the Rivet Application.
+### Build Graphs Visually
 
-### Runtime Packages
+Rivet's node-based editor helps you create AI workflows without hiding the flow of data. You can inspect every node, follow each wire, and see intermediate values while a graph is running.
 
-The public runtime packages are published under the `@valerypopoff` npm scope:
+Start with the [overview of the interface](/user-guide/overview-of-interface), then learn how to [add and connect nodes](/user-guide/adding-connecting-nodes).
 
-- `@valerypopoff/rivet2-core` contains the graph model, execution engine, built-in nodes, plugin contracts, and shared runtime APIs.
-- `@valerypopoff/rivet2-node` adds Node-specific defaults, filesystem loading, Node native APIs, MCP support, Code-node `require()` support, and remote-debugger helpers.
-- `@valerypopoff/rivet2-cli` runs and serves Rivet graphs from the command line.
+### Use Built-In Nodes
 
-See the [API Reference](/api-reference) for more information on the APIs available and see [integration getting started](/api-reference/getting-started-integration) for more information on how to integrate Rivet into your application.
+Rivet includes built-in nodes for text, LLM chat, HTTP calls, JSON and YAML extraction, loops, matching, subgraphs, datasets, files, MCP tools, and code. These nodes can be combined into larger workflows and reused across projects.
 
-### Embeddable Source Checkout
+Documentation for every built-in node is available in the [Node Reference](/node-reference).
 
-Wrapper applications can vendor this repository as a local `rivet/` source folder and import from source-level app seams such as `packages/app/src/host`. This is useful for custom wrappers that need to ship a custom Rivet 2.0 checkout instead of depending on published npm packages.
+### Run And Debug Workflows
 
-## Node-Based Editor
+You can run graphs directly from the desktop app in Browser or Node executor mode. Browser mode is convenient for simple workflows. Node mode is better for serious local workflows that need local files, MCP, package-backed code, or fewer browser limitations.
 
-Rivet's node-based editor enables you to create, configure, and debug complex AI workflows visually. This makes it easier to understand data flow, inspect state, and fix behavior while a graph is running. Check out the [overview of the interface](/user-guide/overview-of-interface) and [adding & connecting nodes](/user-guide/adding-connecting-nodes) for more information.
+Rivet also gives you live run data, node outputs, run history, and debugging views so you can see what happened at each step.
 
-## Library of Nodes
+### Work With Projects
 
-Rivet features a library of built-in node types. Some essential nodes include Text, LLM Chat, HTTP Call, Match, Loop Controller, Extract YAML, Extract JSON, Chunk, Trim Chat Messages, MCP nodes, and Code. These nodes can be connected together using wires, allowing data to flow between them.
+Rivet projects can contain multiple graphs, datasets, plugin usage, and app-specific workflow settings. The graph tree, project sidebar, and workspace tools help you organize larger projects without leaving the app.
 
-Documentation for all nodes can be found in the [**Node Reference**](/node-reference).
+See [working with projects](/user-guide/working-with-projects), [working with graphs](/user-guide/working-with-graphs), and [executing AI chains](/user-guide/executing-ai-chains).
 
-## Live Debugging
+### Use App Workspaces
 
-Rivet offers live debugging of AI chains as they run, allowing you to monitor the state of your AI agent in real-time and quickly identify any issues that may arise.
+The desktop app includes workspaces for Prompt Designer, Chat Viewer, Data Studio, and Trivet tests. These tools help you tune prompts, inspect chat outputs, manage datasets, and test graphs from the same Rivet window.
 
-### Remote Debugging
+### Extend Rivet With Plugins
 
-Rivet also supports remote debugging, allowing you to debug AI chains running on a remote server. This is useful for debugging AI agents that are running in a production environment. See the [remote debugging](/user-guide/remote-debugging) section for more information.
+Plugins add node types to the desktop app. You install plugins in Settings > Plugins, then add their nodes to any graph. Rivet tracks which plugin nodes a project actually uses when the project is saved.
 
-### Node Executor
-
-Rivet 2.0 includes an app-executor sidecar for Node-mode graph execution. Node mode is the recommended mode for serious local workflows that need Node APIs, MCP, package-backed Code-node `require()`, or execution behavior that should not be limited by browser CORS.
+See [Plugins](/user-guide/plugins) for more information.
 
 ## Get Started
 
-Now that you have an overview of Rivet and its capabilities, it's time to dive into the documentation and explore its features in more detail. The following sections will guide you through the process of installing Rivet, creating your first AI agent, and using the various tools and nodes available to build powerful AI-driven applications.
+1. [Install Rivet](/getting-started/installation)
+2. [Set up providers and app settings](/getting-started/setup)
+3. [Build your first AI agent](/getting-started/first-ai-agent)
+4. [Learn the interface](/user-guide/overview-of-interface)
+5. [Browse the node library](/node-reference)

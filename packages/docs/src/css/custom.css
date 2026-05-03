@@ -31,3 +31,14 @@
 [data-theme='dark'] img[src$='img/logo.svg'] {
   filter: invert(1);
 }
+
+.theme-doc-markdown.markdown
+  :is(h1, h2, h3, h4, h5, h6):has(+ :is(p, ul, ol, blockquote)) {
+  margin-bottom: 0.45rem;
+}
+
+.theme-doc-markdown.markdown
+  :is(h1, h2, h3, h4, h5, h6):has(+ :is(p, ul, ol, blockquote))
+  + :is(p, ul, ol, blockquote) {
+  margin-top: 0;
+}

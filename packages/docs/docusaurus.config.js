@@ -123,24 +123,11 @@ const config = {
             ],
           },
           {
-            title: 'Community',
-            items: [
-              {
-                label: 'Discord',
-                href: 'https://discord.gg/qT8B2gv9Mg',
-              },
-            ],
-          },
-          {
             title: 'More',
             items: [
               {
                 label: 'GitHub',
                 href: 'https://github.com/valerypopoff/rivet2.0',
-              },
-              {
-                label: 'YouTube',
-                href: 'https://www.youtube.com/@rivet_ts',
               },
             ],
           },

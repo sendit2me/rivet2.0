@@ -12,9 +12,13 @@
 - Check how "Check for updates" button works
 
 
+- Update documentations
 
 
 - Reassess rivet example project
+rivet2.0/packages/app/src/assets/tutorials
+/documentation-tutorial.rivet-project
+
 
 - Check the links that lead to the documentation
 

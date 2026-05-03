@@ -1,8 +1,18 @@
 # Rivet API Reference
 
-This section of the Rivet documentation goes over the TypeScript APIs for `@valerypopoff/rivet2-core` and `@valerypopoff/rivet2-node`.
+The Rivet API Reference is for developers who want to run Rivet projects from code, embed Rivet in another app, build plugins, or use Rivet's runtime packages directly.
+
+If you only want to use the desktop app, start with the [User Guide](/).
 
 To get started with integrating Rivet into your existing TypeScript or JavaScript application, see the [Integration - Getting Started](./api-reference/getting-started-integration.mdx) page.
+
+## Runtime Packages
+
+The public runtime packages are published under the `@valerypopoff` npm scope:
+
+- `@valerypopoff/rivet2-core` contains the graph model, execution engine, built-in nodes, plugin contracts, serialization, and shared runtime APIs.
+- `@valerypopoff/rivet2-node` adds Node-specific defaults, filesystem loading, Node native APIs, MCP support, Code-node `require()` support, and remote-debugger helpers.
+- `@valerypopoff/rivet2-cli` runs and serves Rivet graphs from the command line.
 
 ## `@valerypopoff/rivet2-core`
 
@@ -25,6 +35,12 @@ See the [Rivet node overview](./api-reference/node/overview.mdx) for more inform
 The Rivet CLI is a command-line interface for running Rivet graphs from the command line. It is built on top of Rivet node and provides a convenient way to run graphs from the command line, as well as a local HTTP server for running graphs via HTTP requests.
 
 See the [Rivet CLI overview](./cli.md) for more information.
+
+## Embeddable Source Checkout
+
+Wrapper applications can vendor this repository as a local `rivet/` source folder and import from source-level app seams such as `packages/app/src/host`. This is useful for custom wrappers that need to ship a custom Rivet 2 checkout instead of depending on published npm package versions.
+
+The npm package names describe the runtime package boundaries. A source-vendored wrapper can resolve those package boundaries to its local checkout and built artifacts so the wrapper uses the exact Rivet source tree it ships.
 
 ### Requirements
 
