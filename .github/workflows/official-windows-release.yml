@@ -31,6 +31,9 @@ jobs:
       - name: Install dependencies
         run: yarn --immutable
 
+      - name: Sync desktop version metadata
+        run: yarn sync:desktop-version
+
       - name: Build Rivet
         run: yarn build
         env:

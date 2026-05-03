@@ -97,7 +97,7 @@ Desktop IDE frontend plus Tauri app packaging layer.
 
 ### Package metadata
 
-- Version: `2.0.0`
+- Version: `2.0.1`
 - Private: yes
 
 ### Runtime shape
@@ -137,9 +137,18 @@ Desktop IDE frontend plus Tauri app packaging layer.
 - Documentation logo assets use the black mark by default. [`packages/docs/src/css/custom.css`](../packages/docs/src/css/custom.css) inverts `img/logo.svg` in dark mode so the logo is white on dark backgrounds without adding an underlay.
 - There is no single checked-in logo generator yet. When the Rivet 2 logo changes, update the app welcome image, regenerate/replace the Tauri icon set, and update the docs static images together so the desktop shell, installer, and documentation site stay visually aligned.
 
-### Version caveat
+### Desktop version metadata
 
-The desktop product version is also tracked in `packages/app/src-tauri/tauri.conf.json`, which currently reports `2.0`.
+The desktop app package version is the version developers should bump first.
+Tauri still reads `packages/app/src-tauri/tauri.conf.json` `package.version`
+when naming installer bundles, and the Rust package version is tracked in
+`packages/app/src-tauri/Cargo.toml` / `Cargo.lock`. Those secondary files are
+generated from `packages/app/package.json` by
+[`scripts/sync-desktop-version.mjs`](../scripts/sync-desktop-version.mjs).
+Run `yarn sync:desktop-version` after bumping the app package version if you
+want the generated metadata checked in. The release workflows and Tauri
+`prepare:tauri` path also run the sync automatically before building, so stale
+Tauri metadata cannot publish mis-versioned Windows filenames.
 
 ## `@valerypopoff/rivet-app-executor` (`packages/app-executor/`)
 

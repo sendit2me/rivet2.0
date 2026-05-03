@@ -78,6 +78,9 @@ yarn workspace @valerypopoff/rivet-app run build
 
 # Build local package artifacts for package-consumer checks
 yarn build:packages:local
+
+# Sync desktop installer metadata from packages/app/package.json
+yarn sync:desktop-version
 ```
 
 To create a Tauri desktop bundle locally:
@@ -139,7 +142,7 @@ The public npm packages are published under the `@valerypopoff` scope:
 
 Package versions are lockstep and start at `2.x`. The `package.json` version in those four packages is the source of truth: patch releases are `2.0.1`, compatible feature releases are `2.1.0`, and the workflow refuses to publish anything outside major version `2`.
 
-On pushes to `main`, `.github/workflows/publish-npm-packages.yml` builds those four workspaces, stages package-manager-neutral npm package directories, rewrites internal `workspace:^` dependencies to the same public `^2.x` version, and publishes versions that do not already exist on npm.
+On pushes to `main`, `.github/workflows/publish-npm-packages.yml` builds those four workspaces, stages package-manager-neutral npm package directories, rewrites internal `workspace:^` dependencies to the same public `^2.x` version, and publishes versions that do not already exist on npm. The npm package manifests are the source of truth for npm versions.
 
 Configure npm publishing with either an `NPM_TOKEN` repository secret or npm trusted publishing for the `publish-npm-packages.yml` workflow. Trusted publishing is preferred once the packages exist and npm package settings are configured for this repository.
 
@@ -162,6 +165,11 @@ On pushes to `develop`, the workflow:
 6. Publishes the docs site to GitHub Pages.
 
 On pushes to `main`, the stable release workflow runs the same Windows installer and documentation build path, but writes `official-release.json` and stable download aliases instead of the developer feed.
+
+For desktop releases, `packages/app/package.json` is the version source of
+truth. The release workflows run `yarn sync:desktop-version` before packaging so
+Tauri/Cargo metadata and Windows installer filenames follow that package
+version automatically.
 
 The GitHub Pages site is the public documentation website at `https://valerypopoff.github.io/rivet2.0/`. Its top-right Download link opens a downloads page with the latest stable Windows installer from `main` and latest developer Windows installer from `develop`.
 

@@ -29,6 +29,8 @@ Current root scripts from `package.json`:
 yarn dev
 yarn build
 yarn build:all
+yarn sync:desktop-version
+yarn verify:desktop-version
 yarn test
 yarn test:all
 yarn lint
@@ -59,6 +61,31 @@ Runs builds in fixed order:
 ### `yarn build:all`
 
 Alias for `yarn build`.
+
+### `yarn sync:desktop-version`
+
+Runs:
+
+- `node scripts/sync-desktop-version.mjs`
+
+This reads `packages/app/package.json` and writes the matching desktop version
+to Tauri and Cargo metadata:
+
+- `packages/app/src-tauri/tauri.conf.json` `package.version`
+- `packages/app/src-tauri/Cargo.toml` `[package].version`
+- the app package entry in `packages/app/src-tauri/Cargo.lock`
+
+The app package manifest is the source of truth. Tauri uses
+`tauri.conf.json` `package.version` for installer filenames, so this sync is
+what makes Windows bundle names follow `packages/app/package.json`.
+
+### `yarn verify:desktop-version`
+
+Runs:
+
+- `node scripts/sync-desktop-version.mjs --check`
+
+This verifies the same metadata without writing files.
 
 ### `yarn test`
 
@@ -169,6 +196,7 @@ overlapping a source package directory.
 Current dev/build detail:
 
 - `packages/app/scripts/dev.mjs` does a Windows-only cleanup pass for stale `src-tauri/target/*/app-executor.exe` processes before launching `tauri dev`, because Tauri's sidecar-copy step fails if a previous dev session left that copied sidecar binary locked
+- `packages/app/scripts/prepare-tauri.mjs` syncs desktop version metadata from `packages/app/package.json` before rebuilding the app executor sidecar
 - `packages/app/src-tauri/tauri.conf.json` now runs `yarn prepare:tauri` before both `beforeDevCommand` and `beforeBuildCommand`, so desktop Node executor runs cannot drift onto an older bundled sidecar when app/core code has changed
 - `packages/app/src-tauri/vendor/` now carries the small vendored Tauri v1 plugin crates (`tauri-plugin-persisted-scope` and `tauri-plugin-window-state`) so Cargo no longer has to parse the upstream `plugins-workspace` template manifest during metadata/check/dev runs
 
@@ -329,6 +357,13 @@ Rivet publishes installer download metadata through the Docusaurus GitHub Pages 
 Both workflows build installer artifacts only with `yarn tauri build --verbose --ci --bundles "msi,nsis"`. They intentionally avoid updater zip bundles, so they do not need `TAURI_PRIVATE_KEY` or `TAURI_KEY_PASSWORD`.
 
 Both workflows use [`.github/scripts/prepare-windows-release-pages.mjs`](../.github/scripts/prepare-windows-release-pages.mjs) to collect files from `packages/app/src-tauri/target/release/bundle`, copy original installer artifacts under channel-specific `downloads/<channel>/original/` paths, create stable download aliases, and generate a channel metadata file.
+Before building installers, both workflows run `yarn sync:desktop-version`.
+That sync copies `packages/app/package.json` `version` into
+`packages/app/src-tauri/tauri.conf.json`, `packages/app/src-tauri/Cargo.toml`,
+and the app entry in `Cargo.lock`. Tauri uses `tauri.conf.json`
+`package.version` for Windows bundle filenames, so this is what lets a
+developer bump only the app package version and still get correctly versioned
+developer/stable installer names.
 
 Generated metadata and aliases:
 
@@ -353,7 +388,7 @@ The release workflows share the `rivet-docs-pages` concurrency group with `cance
 
 The workflow has two jobs:
 
-1. `build-windows` runs on `windows-latest`, checks out the repo, sets up Node `20.4.x`, installs Rust stable, runs `yarn --immutable`, runs the root `yarn build`, then runs `yarn tauri build --verbose --ci --bundles "msi,nsis"` from `packages/app`.
+1. `build-windows` runs on `windows-latest`, checks out the repo, sets up Node `20.4.x`, installs Rust stable, runs `yarn --immutable`, syncs desktop version metadata, runs the root `yarn build`, then runs `yarn tauri build --verbose --ci --bundles "msi,nsis"` from `packages/app`.
 2. The same Windows job builds the Docusaurus docs site from `packages/docs`, preserves the current developer release feed from Pages if it exists, writes stable release metadata and installer files into `packages/docs/build`, and uploads that complete docs-site artifact.
 3. `publish-pages` runs on `ubuntu-latest`, downloads the generated docs-site artifact, configures GitHub Pages, uploads it as a GitHub Pages artifact, and deploys it with `actions/deploy-pages`.
 
@@ -372,7 +407,7 @@ This workflow is intentionally develop-only. It does not run for `main`.
 
 The workflow has two jobs:
 
-1. `build-windows` runs on `windows-latest`, checks out the repo, sets up Node `20.4.x`, installs Rust stable, runs `yarn --immutable`, runs the root `yarn build`, then runs `yarn tauri build --verbose --ci --bundles "msi,nsis"` from `packages/app`.
+1. `build-windows` runs on `windows-latest`, checks out the repo, sets up Node `20.4.x`, installs Rust stable, runs `yarn --immutable`, syncs desktop version metadata, runs the root `yarn build`, then runs `yarn tauri build --verbose --ci --bundles "msi,nsis"` from `packages/app`.
 2. The same Windows job builds the Docusaurus docs site from `packages/docs`, preserves the current stable release feed from Pages if it exists, writes developer release metadata and installer files into `packages/docs/build`, and uploads that complete docs-site artifact.
 3. `publish-pages` runs on `ubuntu-latest`, downloads the generated docs-site artifact, configures GitHub Pages, uploads it as a GitHub Pages artifact, and deploys it with `actions/deploy-pages`.
 
@@ -531,7 +566,7 @@ Tauri config lives in [`packages/app/src-tauri/tauri.conf.json`](../packages/app
 - `devPath`: `http://localhost:5173`
 - `distDir`: `../dist`
 - product name/window title: `Rivet 2`, so installed desktop builds are distinguishable from the older Rivet app
-- package version there: the desktop app version used by Tauri packaging and the release metadata generator
+- `package.version`: the version Tauri uses for installer filenames; it must match `packages/app/package.json`
 - the legacy Tauri updater endpoint still exists in the default config, but the app's Settings > Updates flow does not call it
 - external binaries include app-executor and bundled `pnpm`
 
@@ -543,7 +578,7 @@ Settings > Updates uses the GitHub Pages stable release feed at `https://valeryp
 
 The current app shell does not mount the old updater modal or Tauri updater event monitor. Update availability is announced directly from `useCheckForUpdate` through a toast with a `Download` action that opens the public download page.
 
-The Pages release metadata includes an explicit `version` field from `packages/app/src-tauri/tauri.conf.json`. The app also keeps a fallback parser for existing metadata that only has versioned original artifact filenames, so already-published Pages metadata can still be understood until the next stable release regenerates the file.
+The Pages release metadata includes an explicit `version` field from `packages/app/package.json`, after confirming that Tauri's synced `package.version` matches it. The app also keeps a fallback parser for existing metadata that only has versioned original artifact filenames, so already-published Pages metadata can still be understood until the next stable release regenerates the file.
 
 Startup checks stay quiet when the stable feed is missing or temporarily unavailable. Manual checks from Settings > Updates show a friendly status such as "No stable release has been published yet" instead of surfacing the stale Tauri `latest.json` error.
 
@@ -600,7 +635,7 @@ This script is intentionally aggressive and should be treated carefully. It only
 
 The current effective release flow is:
 
-1. update versions in package manifests and Tauri config
+1. update versions in package manifests; for desktop app releases, `packages/app/package.json` is the source and `yarn sync:desktop-version` updates Tauri/Cargo metadata
 2. push to `main` to publish npm packages and the current stable Windows installer feed on GitHub Pages
 3. push `app-v*` tag for updater-enabled desktop release drafts when that path is needed
 4. let `release.yml` create draft desktop artifacts

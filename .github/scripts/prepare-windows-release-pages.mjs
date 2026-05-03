@@ -161,15 +161,28 @@ function formatReleaseLabel(shortSha) {
 }
 
 async function readAppVersion() {
+  const appPackagePath = path.join(repoRoot, 'packages', 'app', 'package.json');
   const tauriConfigPath = path.join(repoRoot, 'packages', 'app', 'src-tauri', 'tauri.conf.json');
+  const appPackage = JSON.parse(await readFile(appPackagePath, 'utf8'));
   const tauriConfig = JSON.parse(await readFile(tauriConfigPath, 'utf8'));
+  const appVersion = appPackage?.version;
   const version = tauriConfig?.package?.version;
+
+  if (typeof appVersion !== 'string' || appVersion.length === 0) {
+    throw new Error(`Could not read version from ${appPackagePath}`);
+  }
 
   if (typeof version !== 'string' || version.length === 0) {
     throw new Error(`Could not read package.version from ${tauriConfigPath}`);
   }
 
-  return version;
+  if (version !== appVersion) {
+    throw new Error(
+      `Desktop version mismatch: ${appPackagePath} has ${appVersion}, but ${tauriConfigPath} has ${version}. Tauri bundle filenames use tauri.conf.json package.version.`,
+    );
+  }
+
+  return appVersion;
 }
 
 async function main() {
