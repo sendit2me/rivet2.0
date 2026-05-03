@@ -32,11 +32,27 @@ jobs:
       - name: Install dependencies
         run: node .yarn/releases/yarn-4.6.0.cjs install --immutable
 
+      - name: Verify clean checkout
+        run: |
+          status="$(git status --porcelain=v1 --untracked-files=all -- . ':!packages/*/dist/**' ':!packages/cli/bin/**' ':!**/*.tsbuildinfo')"
+          if [ -n "$status" ]; then
+            echo "$status"
+            exit 1
+          fi
+
       - name: Build publishable packages
         run: |
           node .yarn/releases/yarn-4.6.0.cjs workspace @valerypopoff/rivet2-core run build
           node .yarn/releases/yarn-4.6.0.cjs workspace @valerypopoff/rivet2-node run build
           node .yarn/releases/yarn-4.6.0.cjs workspace @valerypopoff/rivet2-cli run build
+
+      - name: Verify package build changed only generated artifacts
+        run: |
+          status="$(git status --porcelain=v1 --untracked-files=all -- . ':!packages/*/dist/**' ':!packages/cli/bin/**' ':!**/*.tsbuildinfo')"
+          if [ -n "$status" ]; then
+            echo "$status"
+            exit 1
+          fi
 
       - name: Set up publish Node
         uses: actions/setup-node@v5
@@ -48,7 +64,7 @@ jobs:
         run: npm install -g npm@11.5.1
 
       - name: Publish packages
-        run: node scripts/publish-npm-packages.mjs
+        run: node scripts/publish-npm-packages.mjs --skip-clean-check
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: true
