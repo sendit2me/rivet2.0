@@ -12,6 +12,7 @@ The public runtime packages are published under the `@valerypopoff` npm scope:
 
 - `@valerypopoff/rivet2-core` contains the graph model, execution engine, built-in nodes, plugin contracts, serialization, and shared runtime APIs.
 - `@valerypopoff/rivet2-node` adds Node-specific defaults, filesystem loading, Node native APIs, MCP support, Code-node `require()` support, and remote-debugger helpers.
+- `@valerypopoff/trivet` provides programmatic graph test utilities and Trivet test serialization.
 - `@valerypopoff/rivet2-cli` runs and serves Rivet graphs from the command line.
 
 ## `@valerypopoff/rivet2-core`
@@ -29,6 +30,12 @@ Rivet node is the Node.js runtime adapter for Rivet core. It includes helper API
 You will most likely want to use Rivet node in your application. All types from Rivet core are re-exported from Rivet node, so you can use Rivet node as a drop-in replacement for Rivet core.
 
 See the [Rivet node overview](./api-reference/node/overview.mdx) for more information.
+
+## `@valerypopoff/trivet`
+
+Trivet is the graph-oriented test package used by Rivet's Trivet Tests workspace and by programmatic test runners. It provides test-suite/test-case/result types, serialization helpers, `runTrivet(...)`, and graph-runner helpers for validating one Rivet graph with another graph.
+
+See the [Trivet Library](./user-guide/trivet-library.md) page for more information.
 
 ## `@valerypopoff/rivet2-cli`
 

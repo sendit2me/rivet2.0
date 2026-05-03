@@ -134,11 +134,12 @@ The public npm packages are published under the `@valerypopoff` scope:
 
 - `@valerypopoff/rivet2-core`
 - `@valerypopoff/rivet2-node`
+- `@valerypopoff/trivet`
 - `@valerypopoff/rivet2-cli`
 
-Package versions are lockstep and start at `2.x`. The `package.json` version in those three packages is the source of truth: patch releases are `2.0.1`, compatible feature releases are `2.1.0`, and the workflow refuses to publish anything outside major version `2`.
+Package versions are lockstep and start at `2.x`. The `package.json` version in those four packages is the source of truth: patch releases are `2.0.1`, compatible feature releases are `2.1.0`, and the workflow refuses to publish anything outside major version `2`.
 
-On pushes to `main`, `.github/workflows/publish-npm-packages.yml` builds those three workspaces, stages package-manager-neutral npm package directories, rewrites internal `workspace:^` dependencies to the same public `^2.x` version, and publishes versions that do not already exist on npm.
+On pushes to `main`, `.github/workflows/publish-npm-packages.yml` builds those four workspaces, stages package-manager-neutral npm package directories, rewrites internal `workspace:^` dependencies to the same public `^2.x` version, and publishes versions that do not already exist on npm.
 
 Configure npm publishing with either an `NPM_TOKEN` repository secret or npm trusted publishing for the `publish-npm-packages.yml` workflow. Trusted publishing is preferred once the packages exist and npm package settings are configured for this repository.
 

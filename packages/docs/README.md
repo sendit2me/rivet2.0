@@ -5,7 +5,7 @@ This package contains the Docusaurus documentation site for Rivet 2.0.
 The docs should describe the current Rivet 2.0 package and app shape:
 
 - User Guide pages, especially the introduction, are for desktop app users; introduce Rivet as a visual low-code tool for AI and non-AI workflows, quick experiments, production workflows, and the optional self-hosted web-app form through Rivet Studio Server, while runtime package, CLI, source-checkout, and wrapper embedding details belong in the API Reference
-- public runtime packages: `@valerypopoff/rivet2-core`, `@valerypopoff/rivet2-node`, and `@valerypopoff/rivet2-cli`
+- public runtime packages: `@valerypopoff/rivet2-core`, `@valerypopoff/rivet2-node`, `@valerypopoff/trivet`, and `@valerypopoff/rivet2-cli`
 - desktop/editor package: `@valerypopoff/rivet-app`
 - Node executor package: `@valerypopoff/rivet-app-executor`
 - app-level plugin installation with project YAML plugin declarations derived from actual plugin-node usage

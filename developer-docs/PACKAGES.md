@@ -23,7 +23,7 @@ Shared runtime foundation for the entire repo.
 
 ### Package metadata
 
-- Version: `2.0.0`
+- Version: `2.0.1`
 - Main: `dist/cjs/bundle.cjs`
 - Module: `dist/esm/index.js`
 - Types: `dist/types/index.d.ts`
@@ -59,7 +59,7 @@ Node-native runtime wrapper around core.
 
 ### Package metadata
 
-- Version: `2.0.0`
+- Version: `2.0.1`
 - Main: `dist/cjs/bundle.cjs`
 - Module: `dist/esm/index.js`
 - Types: `dist/types/index.d.ts`
@@ -201,7 +201,7 @@ Operational CLI for running or serving Rivet graphs.
 
 ### Package metadata
 
-- Version: `2.0.0`
+- Version: `2.0.1`
 - Source entry: `src/cli.ts`
 - Published bin mapping: `rivet -> bin/cli.js`
 - Types: `dist/types/cli.d.ts`
@@ -263,7 +263,7 @@ Graph-oriented testing package.
 
 ### Package metadata
 
-- Version: `2.0.0`
+- Version: `2.0.1`
 - Main: `dist/cjs/bundle.cjs`
 - Module: `dist/esm/index.js`
 - Types: `dist/types/index.d.ts`
@@ -320,7 +320,7 @@ describe the current Rivet 2.0 surface:
 - Tutorial pages must use current app-facing labels rather than old internal names. In particular, the old `Splitting` tutorial URL is kept for link stability, but the visible tutorial is `Running Many Items` and should describe the current node run-mode control: `Run once`, `Many parallel runs`, and `Many sequential runs`
 - Tutorial pages for YAML and Subgraphs should stay as practical desktop-app walkthroughs, not placeholders. They should explain the current Extract YAML / To YAML and Graph Input / Graph Output / Subgraph node flows before sending readers to the node reference
 - API Reference pages under both core and node are source-backed reference pages, not empty stubs. Keep `GraphProcessor`, `DataValue`, `NodeGraph`, `Project`, `Settings`, `DebuggerEvents`, `LooseDataValue`, `RivetDebuggerServer`, and `RunGraphOptions` aligned with the current TypeScript definitions
-- public packages under `@valerypopoff`: `rivet2-core`, `rivet2-node`, and `rivet2-cli`
+- public packages under `@valerypopoff`: `rivet2-core`, `rivet2-node`, `trivet`, and `rivet2-cli`
 - app package names and root workspace scripts from the current manifests
 - LLM Chat as the recommended chat node for new graphs, with legacy Chat called out as legacy
 - Getting Started, User Guide, and Node Reference pages should teach `LLM Chat` as the default chat node for new workflows. Legacy `Chat` examples are acceptable only when the page is explicitly documenting old project/tutorial content or the legacy node itself
@@ -349,21 +349,21 @@ Current behavior:
 - refuses to run on a dirty git tree unless `--skip-clean-check` is passed
 - verifies the public package names and lockstep package versions
 - rejects non-semver versions and versions outside major `2`
-- validates built outputs for `@valerypopoff/rivet2-core`, `@valerypopoff/rivet2-node`, and `@valerypopoff/rivet2-cli`
+- validates built outputs for `@valerypopoff/rivet2-core`, `@valerypopoff/rivet2-node`, `@valerypopoff/trivet`, and `@valerypopoff/rivet2-cli`
 - stages clean npm package directories from built artifacts
 - rewrites internal `workspace:^` dependencies to the same public `^2.x` package version
 - skips package versions that already exist on npm
-- publishes only core, node, and cli under the `@valerypopoff` scope
+- publishes only core, node, Trivet, and cli under the `@valerypopoff` scope
 
-It does not publish `@valerypopoff/trivet`, the app, the app executor, or Docker
-images. The main-branch npm workflow is the canonical automation path for this
-script. That workflow verifies a clean checkout before installing dependencies,
-then verifies after the build that only Yarn install artifacts and generated
-publish artifacts changed. It then verifies the repository `NPM_TOKEN` secret
-with `npm whoami` before publishing. It calls this script with `--skip-clean-check` so
-ignored `.pnp.cjs`, `.yarn/cache`, `packages/core/dist`, `packages/node/dist`,
-`packages/cli/dist`, `packages/cli/bin`, and `packages/cli/tsconfig.tsbuildinfo`
-outputs do not block publishing.
+It does not publish the app, the app executor, or Docker images. The main-branch
+npm workflow is the canonical automation path for this script. That workflow
+verifies a clean checkout before installing dependencies, then verifies after
+the build that only Yarn install artifacts and generated publish artifacts
+changed. It then verifies the repository `NPM_TOKEN` secret with `npm whoami`
+before publishing. It calls this script with `--skip-clean-check` so ignored
+`.pnp.cjs`, `.yarn/cache`, `packages/core/dist`, `packages/node/dist`,
+`packages/trivet/dist`, `packages/cli/dist`, `packages/cli/bin`, and
+`packages/cli/tsconfig.tsbuildinfo` outputs do not block publishing.
 
 ## `publish-docs.mts`
 

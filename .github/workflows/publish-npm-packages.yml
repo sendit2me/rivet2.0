@@ -44,6 +44,7 @@ jobs:
         run: |
           node .yarn/releases/yarn-4.6.0.cjs workspace @valerypopoff/rivet2-core run build
           node .yarn/releases/yarn-4.6.0.cjs workspace @valerypopoff/rivet2-node run build
+          node .yarn/releases/yarn-4.6.0.cjs workspace @valerypopoff/trivet run build
           node .yarn/releases/yarn-4.6.0.cjs workspace @valerypopoff/rivet2-cli run build
 
       - name: Verify package build changed only generated artifacts
@@ -56,6 +57,7 @@ jobs:
             ':!.yarn/install-state.gz' \
             ':!packages/core/dist/**' \
             ':!packages/node/dist/**' \
+            ':!packages/trivet/dist/**' \
             ':!packages/cli/dist/**' \
             ':!packages/cli/bin/**' \
             ':!packages/cli/tsconfig.tsbuildinfo')"

@@ -99,8 +99,8 @@ Runs:
 - `node scripts/publish-npm-packages.mjs`
 
 This publishes only the public npm package set: `@valerypopoff/rivet2-core`,
-`@valerypopoff/rivet2-node`, and `@valerypopoff/rivet2-cli`. Build those
-workspaces before publishing.
+`@valerypopoff/rivet2-node`, `@valerypopoff/trivet`, and
+`@valerypopoff/rivet2-cli`. Build those workspaces before publishing.
 
 ### `yarn publish-docs`
 
@@ -224,7 +224,7 @@ or server wrappers can synchronize runtime libraries before module resolution.
 
 The CLI now includes a small smoke suite so root `yarn test` / `npm run test` validates the package instead of failing on an empty test glob.
 
-The CLI Dockerfile installs the published CLI package by explicit version (`@valerypopoff/rivet2-cli@2.0.0`). Keep that pin aligned with `packages/cli/package.json` whenever the product version changes.
+The CLI Dockerfile installs the published CLI package through its `RIVET_CLI_VERSION` build argument, and `docker-publish.sh` reads that value from `packages/cli/package.json`. Keep the package version and Docker publish flow aligned whenever the product version changes.
 
 ### Trivet
 
@@ -424,7 +424,7 @@ The workflow:
 2. verifies the checkout starts clean
 3. sets up Node `20.4.x` for the build, matching the repo development toolchain
 4. installs dependencies with the checked-in Yarn release and `--immutable`
-5. builds `@valerypopoff/rivet2-core`, `@valerypopoff/rivet2-node`, and `@valerypopoff/rivet2-cli`
+5. builds `@valerypopoff/rivet2-core`, `@valerypopoff/rivet2-node`, `@valerypopoff/trivet`, and `@valerypopoff/rivet2-cli`
 6. verifies that dependency install and package build touched only generated artifacts
 7. switches to Node `22.14.x` and npm `11.5.1` for npm trusted-publishing compatibility
 8. verifies that the repository `NPM_TOKEN` secret is present and accepted by `npm whoami`
@@ -434,20 +434,20 @@ The publish step intentionally skips the script's clean-tree check because this
 job installs dependencies and builds ignored publish artifacts immediately
 before publishing. The workflow performs cleanliness checks before install and
 after build instead, so source changes still fail while Yarn install artifacts,
-generated `packages/core/dist`, `packages/node/dist`, `packages/cli/dist`,
-`packages/cli/bin`, and `packages/cli/tsconfig.tsbuildinfo` files do not block
-publishing.
+generated `packages/core/dist`, `packages/node/dist`, `packages/trivet/dist`,
+`packages/cli/dist`, `packages/cli/bin`, and
+`packages/cli/tsconfig.tsbuildinfo` files do not block publishing.
 
 ### Versioning policy
 
-The package manifest version is the release source of truth. The three public
+The package manifest version is the release source of truth. The four public
 npm packages are versioned in lockstep and must stay on major version `2`.
 
 - patch releases: `2.0.1`, `2.0.2`, etc. for compatible fixes
 - minor releases: `2.1.0`, `2.2.0`, etc. for compatible features
 - prereleases: `2.1.0-beta.1`, etc. publish with the `next` dist-tag unless `NPM_DIST_TAG` overrides it
 
-The publish script refuses to publish if the three package versions disagree, if
+The publish script refuses to publish if the four package versions disagree, if
 the version is not semver, or if the major version is not `2`. It also checks
 npm before publishing each package and skips package versions that are already
 present in the registry, so re-running the same main-branch workflow does not
@@ -485,12 +485,13 @@ not publish directly from the workspace package directories. It stages clean
 temporary package directories containing only package metadata, README/LICENSE
 files, and built outputs:
 
-- `dist/cjs`, `dist/esm`, and `dist/types` for `rivet2-core` and `rivet2-node`
+- `dist/cjs`, `dist/esm`, and `dist/types` for `rivet2-core`, `rivet2-node`, and `trivet`
 - `bin` and `dist` for `rivet2-cli`
 
 During staging, internal `workspace:^` dependencies are rewritten to the same
 published `^2.x` version. For example, `@valerypopoff/rivet2-node` receives a
-normal npm dependency on `@valerypopoff/rivet2-core`, and
+normal npm dependency on `@valerypopoff/rivet2-core`,
+`@valerypopoff/trivet` receives the same normal npm dependency on core, and
 `@valerypopoff/rivet2-cli` receives a normal npm dependency on
 `@valerypopoff/rivet2-node`.
 
@@ -554,13 +555,13 @@ Current behavior:
 
 1. load local `.env` publish authentication when present
 2. fail if git tree is dirty, unless `--skip-clean-check` is passed
-3. verify the three public package manifests are named correctly
+3. verify the four public package manifests are named correctly
 4. require lockstep semver package versions on major version `2`
 5. validate required built output exists
 6. stage clean temporary npm package directories
 7. rewrite internal workspace dependencies to public `^2.x` package ranges
 8. skip already-published package versions
-9. publish core, node, and cli with `npm publish --access public --registry https://registry.npmjs.org/`
+9. publish core, node, Trivet, and cli with `npm publish --access public --registry https://registry.npmjs.org/`
 
 ### Operational implication
 

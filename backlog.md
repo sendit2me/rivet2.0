@@ -6,8 +6,6 @@
 
 - When in the non-main graph, make the run buttons different color
 
-- Check how "Check for updates" button works
-
 
 - There's 2 similar mono width fonts. Let's only keep one
 
