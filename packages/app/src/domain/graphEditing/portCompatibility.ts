@@ -1,4 +1,4 @@
-import { canBeCoercedAny, isDataTypeAccepted, type DataType } from '@ironclad/rivet-core';
+import { canBeCoercedAny, isDataTypeAccepted, type DataType } from '@rivet2/rivet-core';
 
 export type PortCompatibilityStatus = 'none' | 'compatible' | 'coerced' | 'incompatible';
 

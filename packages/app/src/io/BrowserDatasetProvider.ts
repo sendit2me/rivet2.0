@@ -6,7 +6,7 @@ import {
   type ProjectId,
   type Dataset,
   type CombinedDataset,
-} from '@ironclad/rivet-core';
+} from '@rivet2/rivet-core';
 import { cloneDeep } from 'lodash-es';
 
 export class BrowserDatasetProvider implements DatasetProvider {

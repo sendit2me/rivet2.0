@@ -14,7 +14,7 @@ const { otp } = yargs(hideBin(process.argv))
   .parseSync();
 
 // Define the packages to publish
-const packages = ['@ironclad/rivet-core', '@ironclad/rivet-node', '@ironclad/rivet-cli', '@ironclad/trivet'];
+const packages = ['@rivet2/rivet-core', '@rivet2/rivet-node', '@rivet2/rivet-cli', '@rivet2/trivet'];
 
 // Helper function to check if a workspace exists
 async function workspaceExists(workspace: string): Promise<boolean> {

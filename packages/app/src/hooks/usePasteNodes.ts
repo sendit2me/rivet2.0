@@ -1,5 +1,5 @@
 import { clipboardState } from '../state/clipboard';
-import { type ChartNode, type NodeConnection } from '@ironclad/rivet-core';
+import { type ChartNode, type NodeConnection } from '@rivet2/rivet-core';
 import { useCanvasPositioning } from './useCanvasPositioning';
 import { useAtomValue } from 'jotai';
 import { usePasteNodesCommand } from '../commands/pasteNodesCommand.js';

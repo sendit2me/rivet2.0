@@ -1,4 +1,4 @@
-import type { NodeConnection, NodeId, PortId } from '@ironclad/rivet-core';
+import type { NodeConnection, NodeId, PortId } from '@rivet2/rivet-core';
 import { markCanvasPerfEnd, markCanvasPerfStart, setCanvasPerf } from './canvasPerfDebug.js';
 
 export interface GetRenderableWireCandidatesOptions {

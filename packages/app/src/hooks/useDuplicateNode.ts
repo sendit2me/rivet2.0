@@ -1,4 +1,4 @@
-import { type NodeId } from '@ironclad/rivet-core';
+import { type NodeId } from '@rivet2/rivet-core';
 import { useDuplicateNodeCommand } from '../commands/duplicateNodeCommand.js';
 
 export function useDuplicateNode() {

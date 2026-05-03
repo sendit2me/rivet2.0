@@ -8,7 +8,7 @@ import {
   type RivetPluginConfigSpecs,
   type SecretPluginConfigurationSpec,
   type StringPluginConfigurationSpec,
-} from '@ironclad/rivet-core';
+} from '@rivet2/rivet-core';
 import { entries } from '../../../utils/typeSafety';
 import { settingsState } from '../../../state/settings.js';
 import { FieldHelperMessage } from '../../FieldHelperMessage.js';

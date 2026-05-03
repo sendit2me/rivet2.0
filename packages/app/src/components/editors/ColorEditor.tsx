@@ -1,5 +1,5 @@
 import { Field, HelperMessage } from '@atlaskit/form';
-import { type ChartNode, type ColorEditorDefinition } from '@ironclad/rivet-core';
+import { type ChartNode, type ColorEditorDefinition } from '@rivet2/rivet-core';
 import { type FC, Suspense } from 'react';
 import { LazyTripleBarColorPicker } from '../LazyComponents';
 import { type SharedEditorProps } from './SharedEditorProps';

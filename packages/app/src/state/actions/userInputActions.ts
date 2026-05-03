@@ -1,4 +1,4 @@
-import { type ArrayDataValue, type NodeId, type StringDataValue } from '@ironclad/rivet-core';
+import { type ArrayDataValue, type NodeId, type StringDataValue } from '@rivet2/rivet-core';
 
 type UserInputSubmitHandler = (nodeId: NodeId, answers: ArrayDataValue<StringDataValue>) => void;
 

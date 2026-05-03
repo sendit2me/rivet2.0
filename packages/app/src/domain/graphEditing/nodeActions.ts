@@ -8,7 +8,7 @@ import {
   type ProjectId,
   type ReferencedGraphAliasNode,
   newId,
-} from '@ironclad/rivet-core';
+} from '@rivet2/rivet-core';
 import { cloneDeep, partition } from 'lodash-es';
 import { getDefaultNodeColorForType } from './defaultNodeColors.js';
 

@@ -7,7 +7,7 @@ import PlayIcon from 'majesticons/line/play-circle-line.svg?react';
 import CopyIcon from '../assets/icons/copy-icon.svg?react';
 import PasteIcon from '../assets/icons/paste-icon.svg?react';
 import PlusIcon from 'majesticons/line/plus-line.svg?react';
-import { type NodeId } from '@ironclad/rivet-core';
+import { type NodeId } from '@rivet2/rivet-core';
 import { selectedNodesState } from '../state/graphBuilder.js';
 import { useContextMenuCommands } from './useContextMenuCommands.js';
 import { clipboardState } from '../state/clipboard';

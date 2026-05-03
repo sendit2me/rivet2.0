@@ -1,4 +1,4 @@
-import type { ChartNode, GraphId, NodeGraph, NodeId } from '@ironclad/rivet-core';
+import type { ChartNode, GraphId, NodeGraph, NodeId } from '@rivet2/rivet-core';
 
 const MAX_SERIALIZED_CHARS = 12_000;
 const MAX_SERIALIZED_DEPTH = 5;

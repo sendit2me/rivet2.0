@@ -1,4 +1,4 @@
-import { emptyNodeGraph, type GraphId, type NodeGraph, type Project } from '@ironclad/rivet-core';
+import { emptyNodeGraph, type GraphId, type NodeGraph, type Project } from '@rivet2/rivet-core';
 import {
   createRootGraphViewContext,
   createSubgraphGraphViewContext,

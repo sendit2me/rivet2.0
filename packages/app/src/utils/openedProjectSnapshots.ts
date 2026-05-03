@@ -1,4 +1,4 @@
-import type { NodeGraph, Project } from '@ironclad/rivet-core';
+import type { NodeGraph, Project } from '@rivet2/rivet-core';
 import type { OpenedProjectSnapshot } from '../state/savedGraphs.js';
 import { mergeCurrentGraphIntoProject } from './workspaceTransitions.js';
 

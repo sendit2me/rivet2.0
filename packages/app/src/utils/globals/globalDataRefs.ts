@@ -1,4 +1,4 @@
-import { type ChatMessage, type DataValue } from '@ironclad/rivet-core';
+import { type ChatMessage, type DataValue } from '@rivet2/rivet-core';
 import { LRUCache } from 'lru-cache';
 import { P, match } from 'ts-pattern';
 

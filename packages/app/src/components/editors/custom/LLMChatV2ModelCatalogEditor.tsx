@@ -9,7 +9,7 @@ import {
   type CustomEditorDefinition,
   type NodeGraph,
   type PortId,
-} from '@ironclad/rivet-core';
+} from '@rivet2/rivet-core';
 import { css } from '@emotion/react';
 import { useAtomValue } from 'jotai';
 import { type FC, useEffect, useState } from 'react';

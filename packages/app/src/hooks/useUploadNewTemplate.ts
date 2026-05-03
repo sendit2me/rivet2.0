@@ -1,7 +1,7 @@
 import { useAtomValue } from 'jotai';
 import { projectState } from '../state/savedGraphs';
 import { graphState } from '../state/graph';
-import { type GraphId } from '@ironclad/rivet-core';
+import { type GraphId } from '@rivet2/rivet-core';
 import { type UseMutationResult } from '@tanstack/react-query';
 import { type PostTemplateBody, type PutTemplateVersionBody } from '../utils/communityApi';
 import { createTemplate, serializeTemplateProject, unpublishTemplate, uploadTemplateVersion } from '../utils/communityTemplates';

@@ -1,4 +1,4 @@
-import { type GraphExecutionMetadata, type GraphId } from '@ironclad/rivet-core';
+import { type GraphExecutionMetadata, type GraphId } from '@rivet2/rivet-core';
 import {
   createRootGraphViewContext,
   createSubgraphGraphViewContext,

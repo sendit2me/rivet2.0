@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { WarningsPort, type DataValue } from '@ironclad/rivet-core';
+import { WarningsPort, type DataValue } from '@rivet2/rivet-core';
 import type { DataRefReader } from '../providers/ProvidersContext.js';
 import type { NodeRunDataWithRefs } from '../state/dataFlow.js';
 import { projectDisplayedOutputs } from './executionDataCopyValue.js';

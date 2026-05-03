@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { type NodeConnection, type NodeId, type PortId } from '@ironclad/rivet-core';
+import { type NodeConnection, type NodeId, type PortId } from '@rivet2/rivet-core';
 import { useAtom, useAtomValue, useStore } from 'jotai';
 import { connectionsState, ioDefinitionsForNodeState, nodesByIdState } from '../state/graph.js';
 import { draggingWireClosestPortState, draggingWireState } from '../state/graphBuilder.js';

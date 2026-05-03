@@ -1,4 +1,4 @@
-import type { RivetPluginInitializer } from '@ironclad/rivet-core';
+import type { RivetPluginInitializer } from '@rivet2/rivet-core';
 
 export function resolvePluginInitializer(moduleExport: unknown, pluginId: string): RivetPluginInitializer {
   let resolved = moduleExport;

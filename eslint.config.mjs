@@ -70,9 +70,9 @@ export default [
         {
           patterns: [
             {
-              group: ['**/core/src', '**/core/src/**', '@ironclad/rivet-core/src', '@ironclad/rivet-core/src/**'],
+              group: ['**/core/src', '**/core/src/**', '@rivet2/rivet-core/src', '@rivet2/rivet-core/src/**'],
               message:
-                'Import core through @ironclad/rivet-core. If a package needs a shared core contract, export it intentionally from core first.',
+                'Import core through @rivet2/rivet-core. If a package needs a shared core contract, export it intentionally from core first.',
             },
           ],
         },

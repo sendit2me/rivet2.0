@@ -1,6 +1,6 @@
 import { produce } from 'immer';
 import { nanoid } from 'nanoid/non-secure';
-import { type GraphId, type NodeGraph } from '@ironclad/rivet-core';
+import { type GraphId, type NodeGraph } from '@rivet2/rivet-core';
 
 export type PreparedCurrentGraphSave = {
   currentGraph: NodeGraph;

@@ -25,13 +25,13 @@ export function useDownloadUrl() {
   const downloadUrl = useMemo(() => {
     switch (platform) {
       case 'mac':
-        return 'https://github.com/Ironclad/rivet/releases/latest/download/Rivet.dmg';
+        return 'https://github.com/valerypopoff/rivet2.0/releases/latest/download/Rivet.dmg';
       case 'windows':
-        return 'https://github.com/Ironclad/rivet/releases/latest/download/Rivet-Setup.exe';
+        return 'https://github.com/valerypopoff/rivet2.0/releases/latest/download/Rivet-Setup.exe';
       case 'linux':
-        return 'https://github.com/Ironclad/rivet/releases/latest/download/rivet.AppImage';
+        return 'https://github.com/valerypopoff/rivet2.0/releases/latest/download/rivet.AppImage';
       default:
-        return 'https://github.com/Ironclad/rivet/releases/latest';
+        return 'https://github.com/valerypopoff/rivet2.0/releases/latest';
     }
   }, [platform]);
 

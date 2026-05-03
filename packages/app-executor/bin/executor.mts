@@ -6,8 +6,8 @@ import {
   resolveBuiltInPlugin,
   DebuggerDatasetProvider,
   NodeProjectReferenceLoader,
-} from '@ironclad/rivet-node';
-import * as Rivet from '@ironclad/rivet-core';
+} from '@rivet2/rivet-node';
+import * as Rivet from '@rivet2/rivet-core';
 import {
   getError,
   logRuntimeDebug,
@@ -17,7 +17,7 @@ import {
   summarizePortMapForLog,
   type RivetPluginInitializer,
   type PluginLoadSpec,
-} from '@ironclad/rivet-core';
+} from '@rivet2/rivet-core';
 import { match } from 'ts-pattern';
 import { join } from 'node:path';
 import { access, readFile } from 'node:fs/promises';
@@ -61,7 +61,7 @@ async function importPluginInitializer(specifier: string, pluginId: string): Pro
 
 // Roughly https://github.com/demurgos/appdata-path/blob/master/lib/index.js but appdata local and .local/share, try to match `dirs` from rust
 function getAppDataLocalPath() {
-  const identifier = 'com.ironcladapp.rivet';
+  const identifier = 'com.valerypopoff.rivet2';
   return match(platform())
     .with('win32', () => join(homedir(), 'AppData', 'Local', identifier))
     .with('darwin', () => join(homedir(), 'Library', 'Application Support', identifier))

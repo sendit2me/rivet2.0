@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
-import { assembleRegistry, logRuntimeDebug, logRuntimeInfo, resolveBuiltInPlugin } from '@ironclad/rivet-core';
-import type { PluginLoadSpec, RivetPlugin } from '@ironclad/rivet-core';
+import { assembleRegistry, logRuntimeDebug, logRuntimeInfo, resolveBuiltInPlugin } from '@rivet2/rivet-core';
+import type { PluginLoadSpec, RivetPlugin } from '@rivet2/rivet-core';
 import {
   appPluginSpecsState,
   pluginRefreshCounterState,
@@ -11,7 +11,7 @@ import {
 } from '../state/plugins';
 import { produce } from 'immer';
 import { match } from 'ts-pattern';
-import * as Rivet from '@ironclad/rivet-core';
+import * as Rivet from '@rivet2/rivet-core';
 import { useLoadPackagePlugin } from './useLoadPackagePlugin';
 import useAsyncEffect from 'use-async-effect';
 import { toast } from 'react-toastify';

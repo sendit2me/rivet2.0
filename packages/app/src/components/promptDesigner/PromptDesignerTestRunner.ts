@@ -17,7 +17,7 @@ import {
   type PortId,
   coerceType,
   coerceTypeOptional,
-} from '@ironclad/rivet-core';
+} from '@rivet2/rivet-core';
 import { TauriNativeApi } from '../../model/native/TauriNativeApi.js';
 import { projectState } from '../../state/savedGraphs.js';
 import { settingsState } from '../../state/settings.js';

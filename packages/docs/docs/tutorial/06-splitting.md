@@ -6,7 +6,7 @@ title: 06 - Splitting
 
 Let's say you want to summarize a long document. You could divide the document into an array of smaller pieces of text (chunking), and then iterate over each piece of text to summarize it (splitting), before summarizing the summaries.
 
-> For this tutorial, we will use the graph in the "6. Splitting" folder. Download the [documentation-tutorial.rivet-project here](https://github.com/Ironclad/rivet/blob/main/packages/app/src/assets/tutorials/documentation-tutorial.rivet-project) and open it in Rivet to follow along!
+> For this tutorial, we will use the graph in the "6. Splitting" folder. Download the [documentation-tutorial.rivet-project here](https://github.com/valerypopoff/rivet2.0/blob/main/packages/app/src/assets/tutorials/documentation-tutorial.rivet-project) and open it in Rivet to follow along!
 
 ## Chunking
 

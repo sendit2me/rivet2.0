@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { createBuiltInRegistry, type NodeConnection } from '@ironclad/rivet-core';
+import { createBuiltInRegistry, type NodeConnection } from '@rivet2/rivet-core';
 import { createStore } from 'jotai/vanilla';
 import { graphState } from '../atoms/graph';
 import { draggingWireState } from '../graphBuilder';

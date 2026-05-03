@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import { type CSSProperties, type FC, type HTMLAttributes, type MouseEvent, forwardRef, memo, useMemo } from 'react';
-import { type ChartNode, type CommentNode, type NodeConnection } from '@ironclad/rivet-core';
+import { type ChartNode, type CommentNode, type NodeConnection } from '@rivet2/rivet-core';
 import { useAtomValue } from 'jotai';
 import { useDependsOnPlugins } from '../hooks/useDependsOnPlugins';
 import { useHistoricalNodeChangeInfo } from '../hooks/useHistoricalNodeChangeInfo';

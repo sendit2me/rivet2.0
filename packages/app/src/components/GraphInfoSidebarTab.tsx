@@ -3,7 +3,7 @@ import { useAtom, useSetAtom } from 'jotai';
 import { graphState } from '../state/graph.js';
 import { savedGraphsState } from '../state/savedGraphs.js';
 import { InlineEditableTextfield } from '@atlaskit/inline-edit';
-import { type NodeGraph } from '@ironclad/rivet-core';
+import { type NodeGraph } from '@rivet2/rivet-core';
 import { Label } from '@atlaskit/form';
 import { GraphRevisions } from './GraphRevisionList';
 

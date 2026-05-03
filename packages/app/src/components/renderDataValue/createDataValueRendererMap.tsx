@@ -8,7 +8,7 @@ import {
   type ScalarDataType,
   type ScalarOrArrayDataValue,
   type DataValue,
-} from '@ironclad/rivet-core';
+} from '@rivet2/rivet-core';
 import { type FC, type ReactElement } from 'react';
 import { multiOutputStyles, renderDataValueStyles } from './renderDataValueStyles.js';
 import { type createScalarRenderers, type ScalarRendererProps } from './createScalarRenderers.js';

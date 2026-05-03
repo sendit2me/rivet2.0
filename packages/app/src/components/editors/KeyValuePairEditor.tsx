@@ -1,6 +1,6 @@
 import { useState, type FC, useEffect } from 'react';
 import { type SharedEditorProps } from './SharedEditorProps';
-import { type ChartNode, type KeyValuePairEditorDefinition } from '@ironclad/rivet-core';
+import { type ChartNode, type KeyValuePairEditorDefinition } from '@rivet2/rivet-core';
 import TextField from '@atlaskit/textfield';
 import Button from '@atlaskit/button';
 import { Field, HelperMessage } from '@atlaskit/form';

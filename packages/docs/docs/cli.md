@@ -1,20 +1,20 @@
 # Rivet CLI
 
 The Rivet CLI is a command line companion tool for Rivet that provides a number of useful commands for working with Rivet projects. The CLI is published under
-NPM as [@ironclad/rivet-cli](https://www.npmjs.com/package/@ironclad/rivet-cli).
+NPM as [@rivet2/rivet-cli](https://www.npmjs.com/package/@rivet2/rivet-cli).
 
 ## Installation
 
 The Rivet CLI does not need to be installed, and can be run using `npx` or `yarn dlx`. For example:
 
 ```bash
-npx @ironclad/rivet-cli --help
+npx @rivet2/rivet-cli --help
 ```
 
 If you would like to install the CLI globally, you can do so using NPM:
 
 ```bash
-npm install -g @ironclad/rivet-cli
+npm install -g @rivet2/rivet-cli
 ```
 
 Then, rivet is available under the command `rivet`:
@@ -37,7 +37,7 @@ See the documentation for each command for more information.
 The Rivet CLI `serve` command is also available as a Docker image. You can run the Rivet server using Docker with the following command:
 
 ```bash
-docker run -p 3000:3000 -v $(pwd):/app abrenenkeironclad/rivet-server
+docker run -p 3000:3000 -v $(pwd):/app valerypopoff/rivet-server
 ```
 
 See the [Docker page](./cli/docker) for more information.

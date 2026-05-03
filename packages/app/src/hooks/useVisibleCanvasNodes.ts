@@ -1,5 +1,5 @@
 import { useLayoutEffect, useMemo, useState } from 'react';
-import type { ChartNode, NodeId } from '@ironclad/rivet-core';
+import type { ChartNode, NodeId } from '@rivet2/rivet-core';
 import {
   HEAVY_CONTENT_PADDING_X,
   HEAVY_CONTENT_PADDING_Y,

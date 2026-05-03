@@ -13,7 +13,7 @@ import { projectMetadataState } from '../../state/savedGraphs.js';
 import { range } from 'lodash-es';
 import clsx from 'clsx';
 import { LoadingSpinner } from '../LoadingSpinner.js';
-import { type GraphId, type NodeGraph } from '@ironclad/rivet-core';
+import { type GraphId, type NodeGraph } from '@rivet2/rivet-core';
 import ChevronRightIcon from 'majesticons/line/chevron-right-line.svg?react';
 import ChevronDownIcon from 'majesticons/line/chevron-down-line.svg?react';
 import FolderIcon from 'majesticons/line/folder-line.svg?react';

@@ -20,15 +20,9 @@ export const HeroSection: React.FC<{ id?: string }> = ({ id }) => {
           </>
         )}
       </a>
-      <a className={styles.latestRelease} href="https://github.com/Ironclad/rivet/releases/latest">
+      <a className={styles.latestRelease} href="https://github.com/valerypopoff/rivet2.0/releases/latest">
         Latest Release
       </a>
-      <div className={styles.builtByIronclad}>
-        <div className={styles.builtByIroncladText}>Built and used by</div>
-        <a href="https://www.ironcladapp.com/" target="_blank" className={styles.ironcladLink}>
-          <img src="img/ironclad-logo-white.png" height="40px" width="209px" alt="Link to Ironclad" />
-        </a>
-      </div>
       <div className={styles.imgContainer}>
         <img className={styles.img} height="300px" src="img/graph.png" alt="Rivet Graph" />
       </div>

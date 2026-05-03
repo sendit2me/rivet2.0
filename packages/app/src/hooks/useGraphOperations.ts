@@ -6,7 +6,7 @@ import { useDeleteGraph } from './useDeleteGraph.js';
 import { useLoadGraph } from './useLoadGraph.js';
 import { useDuplicateGraph } from './useDuplicateGraph.js';
 import { useImportGraph } from './useImportGraph';
-import { emptyNodeGraph, type GraphId, type NodeGraph } from '@ironclad/rivet-core';
+import { emptyNodeGraph, type GraphId, type NodeGraph } from '@rivet2/rivet-core';
 import { useStableCallback } from './useStableCallback.js';
 import { expandedFoldersState } from '../state/ui';
 import { toast } from 'react-toastify';

@@ -1,5 +1,5 @@
 import { orderBy } from 'lodash-es';
-import { type NodeGraph } from '@ironclad/rivet-core';
+import { type NodeGraph } from '@rivet2/rivet-core';
 
 export interface NodeGraphFolder {
   type: 'folder';

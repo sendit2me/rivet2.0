@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import type { ChartNode, NodeGraph, NodeId, PortId } from '@ironclad/rivet-core';
+import type { ChartNode, NodeGraph, NodeId, PortId } from '@rivet2/rivet-core';
 
 import { getStaticInputApiKey } from './chatV2ModelCatalogInputKey.js';
 

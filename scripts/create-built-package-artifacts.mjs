@@ -13,16 +13,16 @@ const outDir =
 
 const packages = [
   {
-    name: '@ironclad/rivet-core',
+    name: '@rivet2/rivet-core',
     sourceDir: path.join(repoRoot, 'packages/core'),
-    artifactDir: 'ironclad-rivet-core',
+    artifactDir: 'rivet2-rivet-core',
   },
   {
-    name: '@ironclad/rivet-node',
+    name: '@rivet2/rivet-node',
     sourceDir: path.join(repoRoot, 'packages/node'),
-    artifactDir: 'ironclad-rivet-node',
+    artifactDir: 'rivet2-rivet-node',
     rewriteDependencies: {
-      '@ironclad/rivet-core': 'file:../ironclad-rivet-core',
+      '@rivet2/rivet-core': 'file:../rivet2-rivet-core',
     },
   },
 ];

@@ -1,4 +1,4 @@
-import { type Inputs, type JSFilterNode, type JSMapNode, type PortId } from '@ironclad/rivet-core';
+import { type Inputs, type JSFilterNode, type JSMapNode, type PortId } from '@rivet2/rivet-core';
 import { type FC, useMemo } from 'react';
 import { RenderDataValue, type OutputRenderMode } from '../RenderDataValue.js';
 import { useDataRefs } from '../../providers/ProvidersContext.js';

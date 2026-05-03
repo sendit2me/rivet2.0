@@ -1,6 +1,6 @@
 import { atom } from 'jotai';
 import { atomWithStorage } from 'jotai/utils';
-import { type GraphId, type ProjectId } from '@ironclad/rivet-core';
+import { type GraphId, type ProjectId } from '@rivet2/rivet-core';
 import type { GraphNavigationStack } from '../domain/graphEditing/navigationActions.js';
 import { createHybridStorage } from './storage.js';
 

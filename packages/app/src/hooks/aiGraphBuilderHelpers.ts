@@ -6,7 +6,7 @@ import {
   type NodeRegistration,
   type PortId,
   type Project,
-} from '@ironclad/rivet-core';
+} from '@rivet2/rivet-core';
 
 export function parseConnectionOptions(options: unknown) {
   if (

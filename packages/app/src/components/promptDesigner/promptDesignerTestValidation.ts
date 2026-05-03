@@ -1,4 +1,4 @@
-import type { GraphId, NodeGraph, NodeTestGroup, Project } from '@ironclad/rivet-core';
+import type { GraphId, NodeGraph, NodeTestGroup, Project } from '@rivet2/rivet-core';
 
 export function resolvePromptDesignerEvaluatorGraph(
   project: Pick<Project, 'graphs'>,

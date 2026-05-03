@@ -1,4 +1,4 @@
-import type { ChartNode } from '@ironclad/rivet-core';
+import type { ChartNode } from '@rivet2/rivet-core';
 
 type NodeColor = NonNullable<ChartNode['visualData']['color']>;
 

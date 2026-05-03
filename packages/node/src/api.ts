@@ -15,7 +15,7 @@ import {
   type ChatMessage,
   type GptFunction,
   type RemoteRunRequestId,
-} from '@ironclad/rivet-core';
+} from '@rivet2/rivet-core';
 
 import { readFile } from 'node:fs/promises';
 

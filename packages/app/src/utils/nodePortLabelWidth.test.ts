@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import type { NodeInputDefinition, NodeOutputDefinition } from '@ironclad/rivet-core';
+import type { NodeInputDefinition, NodeOutputDefinition } from '@rivet2/rivet-core';
 
 import { MIN_NODE_WIDTH } from './nodeResize.js';
 import {

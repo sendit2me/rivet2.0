@@ -4,7 +4,7 @@ import {
   type JSFilterNode,
   type JSMapNode,
   interpolateJSListCallbackBody,
-} from '@ironclad/rivet-core';
+} from '@rivet2/rivet-core';
 import { type NodeRunDataWithRefs } from '../../state/dataFlow.js';
 import { hasDisplayableInterpolationInputs } from './parsedSourceDisplayUtils.js';
 

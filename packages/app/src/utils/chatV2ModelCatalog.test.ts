@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 
-import type { Settings } from '@ironclad/rivet-core';
+import type { Settings } from '@rivet2/rivet-core';
 
 import {
   getChatV2DiscoveredModelOptionsWithStatus,

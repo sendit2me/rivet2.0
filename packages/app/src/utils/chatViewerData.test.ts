@@ -9,7 +9,7 @@ import {
   type PortId,
   type ProcessId,
   type Project,
-} from '@ironclad/rivet-core';
+} from '@rivet2/rivet-core';
 import type { DataRefReader } from '../providers/ProvidersContext.js';
 import type { NodeRunDataWithRefs, RunDataByNodeId } from '../state/dataFlow.js';
 import {

@@ -4,7 +4,7 @@ import {
   getChatV2ModelOptions,
   getPluginConfig,
   type Settings,
-} from '@ironclad/rivet-core';
+} from '@rivet2/rivet-core';
 
 type ChatV2Provider = 'openai' | 'anthropic' | 'google' | 'custom';
 type ChatModelOption = { value: string; label: string };

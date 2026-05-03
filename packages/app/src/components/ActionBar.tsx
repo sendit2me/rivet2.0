@@ -21,7 +21,7 @@ import { useDependsOnPlugins } from '../hooks/useDependsOnPlugins';
 import { GentraceInteractors } from './gentrace/GentraceInteractors';
 import { projectMetadataState } from '../state/savedGraphs';
 import { graphMetadataState } from '../state/graph';
-import { type GraphId } from '@ironclad/rivet-core';
+import { type GraphId } from '@rivet2/rivet-core';
 import { wrapAsync } from '../utils/errorHandling';
 import { getActionBarExecutionState } from '../state/selectors/executionSelectors.js';
 import type { DebuggerPanelAnchor } from '../state/ui.js';

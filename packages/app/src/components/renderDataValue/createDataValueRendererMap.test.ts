@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import type { DataValue } from '@ironclad/rivet-core';
+import type { DataValue } from '@rivet2/rivet-core';
 
 import { createDataValueRendererMap } from './createDataValueRendererMap.js';
 import type { createScalarRenderers } from './createScalarRenderers.js';

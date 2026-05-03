@@ -1,4 +1,4 @@
-import { getError, type Project } from '@ironclad/rivet-core';
+import { getError, type Project } from '@rivet2/rivet-core';
 import { nanoid } from 'nanoid';
 import { handleError } from './errorHandling.js';
 

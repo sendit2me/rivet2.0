@@ -9,7 +9,7 @@ import {
   type NodeRegistration,
   type NodeInputDefinition,
   isInterpolationInputDefinition,
-} from '@ironclad/rivet-core';
+} from '@rivet2/rivet-core';
 
 export type ReconcileNodeEditConnectionsResult = {
   nextConnections: NodeConnection[];

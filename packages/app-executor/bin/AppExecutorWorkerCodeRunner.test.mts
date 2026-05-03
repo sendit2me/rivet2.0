@@ -18,7 +18,7 @@ import {
   type ProcessContext,
   type Project,
   type Tokenizer,
-} from '@ironclad/rivet-core';
+} from '@rivet2/rivet-core';
 import { AppExecutorWorkerCodeRunner } from './AppExecutorWorkerCodeRunner.mjs';
 
 const tokenizer: Tokenizer = {

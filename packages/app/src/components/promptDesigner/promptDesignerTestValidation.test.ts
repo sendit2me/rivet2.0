@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import type { GraphId, NodeGraph, Project } from '@ironclad/rivet-core';
+import type { GraphId, NodeGraph, Project } from '@rivet2/rivet-core';
 import { resolvePromptDesignerEvaluatorGraph } from './promptDesignerTestValidation.js';
 
 const graphId = 'evaluator-graph' as GraphId;

@@ -1,7 +1,7 @@
 {
-  "name": "@ironclad/rivet-cli",
+  "name": "@rivet2/rivet-cli",
   "license": "MIT",
-  "repository": "https://github.com/ironclad/rivet",
+  "repository": "https://github.com/valerypopoff/rivet2.0",
   "version": "2.0.0",
   "src": "bin/cli.ts",
   "bin": {
@@ -24,7 +24,7 @@
   },
   "dependencies": {
     "@hono/node-server": "^1.13.8",
-    "@ironclad/rivet-node": "workspace:^",
+    "@rivet2/rivet-node": "workspace:^",
     "@types/dotenv": "^8.2.3",
     "chalk": "^5.4.1",
     "didyoumean2": "^7.0.4",

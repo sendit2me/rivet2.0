@@ -1,6 +1,6 @@
 import { P, match } from 'ts-pattern';
 import { useStableCallback } from './useStableCallback';
-import { type NodeId, type GraphId } from '@ironclad/rivet-core';
+import { type NodeId, type GraphId } from '@rivet2/rivet-core';
 import { type ContextMenuContext } from '../components/ContextMenu';
 import { createRootGraphViewContext } from '../domain/graphEditing/navigationActions.js';
 import { editingNodeState } from '../state/graphBuilder';

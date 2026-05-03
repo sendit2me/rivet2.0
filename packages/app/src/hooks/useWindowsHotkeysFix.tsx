@@ -32,7 +32,7 @@ if (isWindowsPlatform) {
 export const useWindowsHotkeysFix = () => {
   const runMenuCommandImpl = useRunMenuCommand();
 
-  // @see https://github.com/Ironclad/rivet/issues/261
+  // @see https://github.com/valerypopoff/rivet2.0/issues/261
   useEffect(() => {
     if (typeof window === 'undefined' || !isWindowsPlatform) {
       return;

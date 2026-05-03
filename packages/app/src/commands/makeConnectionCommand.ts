@@ -1,4 +1,4 @@
-import { type NodeConnection, type NodeId, type PortId } from '@ironclad/rivet-core';
+import { type NodeConnection, type NodeId, type PortId } from '@rivet2/rivet-core';
 import { useCommand } from './Command';
 import { useSetAtom } from 'jotai';
 import { connectionsState } from '../state/graph';

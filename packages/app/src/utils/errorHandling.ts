@@ -1,4 +1,4 @@
-import { getError } from '@ironclad/rivet-core';
+import { getError } from '@rivet2/rivet-core';
 import { toast } from 'react-toastify';
 
 const recentErrorTimestamps = new Map<string, number>();

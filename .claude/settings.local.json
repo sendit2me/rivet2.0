@@ -2,9 +2,9 @@
   "permissions": {
     "allow": [
       "Read(//d/**)",
-      "Bash(yarn workspace @ironclad/rivet-app exec npx tsx --test:*)",
+      "Bash(yarn workspace @rivet2/rivet-app exec npx tsx --test:*)",
       "Bash(yarn tsc:*)",
-      "Bash(yarn workspace @ironclad/rivet-app exec yarn build:*)",
+      "Bash(yarn workspace @rivet2/rivet-app exec yarn build:*)",
       "WebFetch(domain:www.aihero.dev)",
       "WebFetch(domain:www.npmjs.com)",
       "Bash(yarn workspace:*)",

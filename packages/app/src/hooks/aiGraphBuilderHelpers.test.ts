@@ -9,7 +9,7 @@ import {
   type ProjectId,
   type TextNode,
   type ExtractJsonNode,
-} from '@ironclad/rivet-core';
+} from '@rivet2/rivet-core';
 import { buildAiGraphBuilderExternalFunctions } from './aiGraphBuilderHelpers';
 
 test('getPorts only reports connections that belong to the requested node', async () => {

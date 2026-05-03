@@ -17,7 +17,7 @@ export const GetStartedSection: React.FC<{ id?: string }> = ({ id }) => {
         </li>
         <li>
           Experiment with the{' '}
-          <a href="https://github.com/Ironclad/rivet-example" target="_blank">
+          <a href="https://github.com/valerypopoff/rivet2.0-example" target="_blank">
             Rivet example application
           </a>
           , to get a sense for what developing and debugging a chat application looks like in Rivet.

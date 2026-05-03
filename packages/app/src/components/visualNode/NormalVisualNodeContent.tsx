@@ -9,7 +9,7 @@ import {
 } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
 import { useAtomValue, useSetAtom } from 'jotai';
-import { type ChartNode, type CommentNode, IF_PORT, type NodeConnection, type PortId } from '@ironclad/rivet-core';
+import { type ChartNode, type CommentNode, IF_PORT, type NodeConnection, type PortId } from '@rivet2/rivet-core';
 import type { HeightCache } from '../../hooks/useNodeBodyHeight';
 import SettingsCogIcon from 'majesticons/line/settings-cog-line.svg?react';
 import BookIcon from 'majesticons/line/book-open-line.svg?react';

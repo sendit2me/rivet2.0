@@ -9,8 +9,8 @@ import type {
   ProcessEventMessageMap,
   GraphOutputs,
   RemoteRunRequestId,
-} from '@ironclad/rivet-core';
-import { logRuntimeDebug } from '@ironclad/rivet-core';
+} from '@rivet2/rivet-core';
+import { logRuntimeDebug } from '@rivet2/rivet-core';
 import type { AppDatasetProvider } from '../providers/ProvidersContext.js';
 import type { RemoteDebuggerConfig, RemoteDebuggerConnectionState } from '../state/execution.js';
 import { handleError } from '../utils/errorHandling.js';

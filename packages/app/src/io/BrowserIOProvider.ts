@@ -6,14 +6,14 @@ import {
   deserializeProject,
   serializeGraph,
   serializeProject,
-} from '@ironclad/rivet-core';
+} from '@rivet2/rivet-core';
 import { type IOProvider } from './IOProvider.js';
 import {
   type SerializedTrivetData,
   type TrivetData,
   deserializeTrivetData,
   serializeTrivetData,
-} from '@ironclad/trivet';
+} from '@rivet2/trivet';
 import { openBrowserFile } from './browserFileInput.js';
 
 const PROJECT_FILE_EXTENSION = '.rivet-project';

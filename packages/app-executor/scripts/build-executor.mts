@@ -7,8 +7,8 @@ import { resolve } from 'node:path';
 const resolveRivet: esbuild.Plugin = {
   name: 'resolve-rivet',
   setup(build) {
-    build.onResolve({ filter: /^@ironclad\/rivet-/ }, (args) => {
-      const rivetPackage = args.path.replace(/^@ironclad\/rivet-/, '');
+    build.onResolve({ filter: /^@rivet2\/rivet-/ }, (args) => {
+      const rivetPackage = args.path.replace(/^@rivet2\/rivet-/, '');
       return {
         path: resolve(`../${rivetPackage}/src/index.ts`),
       };
@@ -20,7 +20,7 @@ console.log(`Bundling to ${chalk.cyan('bin/executor-bundle.cjs')}...`);
 
 // The executor source is ESM (.mts) but the bundle must be CJS so that `pkg`
 // can statically analyze and package it into a self-contained native binary.
-// The resolveRivet plugin inlines @ironclad/rivet-* from source so that the
+// The resolveRivet plugin inlines @rivet2/rivet-* from source so that the
 // bundle has zero external workspace dependencies at runtime.
 await esbuild.build({
   entryPoints: ['bin/executor.mts'],

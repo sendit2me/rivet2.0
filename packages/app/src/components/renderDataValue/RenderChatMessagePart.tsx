@@ -1,5 +1,5 @@
 import { type FC } from 'react';
-import { type ChatMessageMessagePart } from '@ironclad/rivet-core';
+import { type ChatMessageMessagePart } from '@rivet2/rivet-core';
 import { P, match } from 'ts-pattern';
 import prettyBytes from 'pretty-bytes';
 

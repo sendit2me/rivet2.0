@@ -5,7 +5,7 @@ import { useAtomValue } from 'jotai';
 import { DropdownItem } from '@atlaskit/dropdown-menu';
 import Button from '@atlaskit/button';
 import Modal, { ModalBody, ModalFooter, ModalTransition } from '@atlaskit/modal-dialog';
-import { type GraphId, type NodeGraph } from '@ironclad/rivet-core';
+import { type GraphId, type NodeGraph } from '@rivet2/rivet-core';
 import clsx from 'clsx';
 import { runningGraphsState } from '../state/dataFlow.js';
 import { pluginsState } from '../state/plugins.js';

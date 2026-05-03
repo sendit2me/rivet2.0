@@ -2,7 +2,7 @@ import { useAtom, useSetAtom } from 'jotai';
 import { loadedProjectState, projectDataState } from '../state/savedGraphs';
 import { useEffect } from 'react';
 import { useStaticDataDatabase } from './useStaticDataDatabase';
-import { type DataId } from '@ironclad/rivet-core';
+import { type DataId } from '@rivet2/rivet-core';
 
 export function useLoadStaticData() {
   const [data, setData] = useAtom(projectDataState);

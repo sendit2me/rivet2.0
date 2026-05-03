@@ -77,9 +77,8 @@ export const UseCasesSection: React.FC<{ id?: string }> = ({ id }) => {
           profileAlt="Domenic Donato"
           profileUrl="img/use-case-quotes/profile-domenic-donato.jpeg"
           quote="Rivet is an amazing tool for rapidly prototyping and visually understanding complex AI workflows. It's been
-          wonderful collaborating with Ironclad to integrate AssemblyAI's audio transcription and understanding models
-          into the Rivet ecosystem. We're excited to see what developers create equipped with such a powerful and
-          capable toolkit!"
+          wonderful seeing AssemblyAI's audio transcription and understanding models integrated into the Rivet
+          ecosystem. We're excited to see what developers create equipped with such a powerful and capable toolkit!"
         />
         <Quote
           attribution="Beyang Liu, CTO"

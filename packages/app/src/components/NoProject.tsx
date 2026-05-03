@@ -83,7 +83,7 @@ const styles = css`
 `;
 
 export const NoProject: FC = () => {
-  const openDocumentation = useOpenUrl('https://rivet.ironcladapp.com/docs');
+  const openDocumentation = useOpenUrl('https://github.com/valerypopoff/rivet2.0/docs');
   const joinDiscord = useOpenUrl('https://discord.gg/qT8B2gv9Mg');
   const setNewProjectModalOpen = useSetAtom(newProjectModalOpenState);
   const setSettingsModalOpen = useSetAtom(settingsModalOpenState);

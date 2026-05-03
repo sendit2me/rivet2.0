@@ -1,5 +1,5 @@
 import type { GraphRunRecord, GraphRunSelection, ProcessDataForNode, NodeRunDataWithRefs, PageValue } from '../dataFlow.js';
-import type { GraphRunId } from '@ironclad/rivet-core';
+import type { GraphRunId } from '@rivet2/rivet-core';
 import type { DefaultExecutor } from '../settings.js';
 import type { ExecutorSessionState } from '../../hooks/executorSession.js';
 import type { GraphViewContext, GraphViewKey } from '../../domain/graphEditing/navigationActions.js';

@@ -1,4 +1,4 @@
-export * from '@ironclad/rivet-core';
+export * from '@rivet2/rivet-core';
 
 export * from './native/NodeNativeApi.js';
 export * from './api.js';

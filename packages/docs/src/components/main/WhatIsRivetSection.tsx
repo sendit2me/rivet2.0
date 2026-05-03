@@ -14,26 +14,9 @@ export const WhatIsRivetSection: React.FC<{ id?: string }> = ({ id }) => {
           collaborate on complex LLM prompt graphs, and deploy them in their own environment.
         </p>
         <p>
-          At Ironclad, we struggled to build AI agents programmatically. Rivet's visual environment, easy debugger, and
-          remote executor unlocked our team's ability to collaborate on increasingly complex and powerful LLM prompt
-          graphs.
-        </p>
-        <p>
-          <img alt="Ironclad" className={styles.inlineLogo} src="img/ironclad-logo.png" height="16px" /> is the leading
-          digital contracting platform.{' '}
-          <a href="https://ironcladapp.com/product/ai-based-contract-management/" target="_blank">
-            Ironclad AI
-          </a>{' '}
-          helps legal teams with everything from reviewing contracts faster to answering questions about their
-          obligations. Learn more at{' '}
-          <a href="https://www.ironcladapp.com/" target="_blank">
-            ironcladapp.com
-          </a>
-          .
-        </p>
-        <p>
-          Rivet is built and used by{' '}
-          <img alt="Ironclad" className={styles.inlineLogo} src="img/ironclad-logo.png" height="16px" /> Research.
+          Rivet's visual environment, debugger, and executor model make complex AI workflows easier to design, inspect,
+          and embed than a code-only prompt-chain setup. Rivet 2.0 keeps that graph-first workflow while tightening the
+          runtime, app, plugin, and wrapper integration seams.
         </p>
       </div>
     </Section>

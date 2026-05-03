@@ -18,7 +18,7 @@ The Context Node allows you to access these values in your graph. It is useful f
 Context can currently only be set when Rivet is embedded in a host application. It is passed in using the `contextValues` parameter to `runGraphInFile` or `createProcessor`:
 
 ```ts
-import * as Rivet from '@ironclad/rivet-node';
+import * as Rivet from '@rivet2/rivet-node';
 
 const contextValues = {
   stringContext: 'str',
@@ -78,7 +78,7 @@ The context node has no inputs besides optional ones from the Editor Settings pa
 In your parent application, pass a string value into `contextValues`:
 
 ```ts
-import * as Rivet from '@ironclad/rivet-node';
+import * as Rivet from '@rivet2/rivet-node';
 
 const contextValues = {
   stringContext: 'str',

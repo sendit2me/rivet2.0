@@ -9,7 +9,7 @@ const yarnPath = resolve(repoRoot, '.yarn', 'releases', 'yarn-4.6.0.cjs');
 
 const result = spawnSync(
   process.execPath,
-  ['--max-old-space-size=8192', yarnPath, 'workspace', '@ironclad/rivet-app-executor', 'run', 'build'],
+  ['--max-old-space-size=8192', yarnPath, 'workspace', '@rivet2/rivet-app-executor', 'run', 'build'],
   {
     cwd: repoRoot,
     env: process.env,

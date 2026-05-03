@@ -1,6 +1,6 @@
 import { atom } from 'jotai';
 import { atomFamily } from 'jotai/utils';
-import { type ChartNode, type NodeConnection, type NodeId } from '@ironclad/rivet-core';
+import { type ChartNode, type NodeConnection, type NodeId } from '@rivet2/rivet-core';
 import { connectionsState, nodesState } from '../atoms/graph';
 
 export const nodesByIdState = atom((get) =>

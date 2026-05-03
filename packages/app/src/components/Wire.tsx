@@ -1,5 +1,5 @@
 import { type FC, memo } from 'react';
-import { type ChartNode, type NodeConnection, type NodeId, type PortId } from '@ironclad/rivet-core';
+import { type ChartNode, type NodeConnection, type NodeId, type PortId } from '@rivet2/rivet-core';
 import { useAtomValue } from 'jotai';
 import clsx from 'clsx';
 import { ErrorBoundary } from 'react-error-boundary';

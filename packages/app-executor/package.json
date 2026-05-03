@@ -1,7 +1,7 @@
 {
-  "name": "@ironclad/rivet-app-executor",
+  "name": "@rivet2/rivet-app-executor",
   "license": "MIT",
-  "repository": "https://github.com/ironclad/rivet",
+  "repository": "https://github.com/valerypopoff/rivet2.0",
   "version": "2.0.0",
   "bin": "./bin/executor-bundle.cjs",
   "type": "module",
@@ -13,8 +13,8 @@
     "lint": "eslint ."
   },
   "devDependencies": {
-    "@ironclad/rivet-core": "workspace:^",
-    "@ironclad/rivet-node": "workspace:^",
+    "@rivet2/rivet-core": "workspace:^",
+    "@rivet2/rivet-node": "workspace:^",
     "@swc/core": "^1.3.94",
     "@types/yargs": "^17.0.29",
     "@typescript-eslint/eslint-plugin": "^8.24.0",

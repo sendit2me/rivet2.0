@@ -1,4 +1,4 @@
-import { type DataValue } from '@ironclad/rivet-core';
+import { type DataValue } from '@rivet2/rivet-core';
 
 // Re-export individual singletons for backward compatibility.
 // New code should use useProviders() from '../providers/ProvidersContext' instead.

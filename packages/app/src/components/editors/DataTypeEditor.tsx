@@ -10,7 +10,7 @@ import {
   getScalarTypeOf,
   isArrayDataType,
   dataTypeDisplayNames,
-} from '@ironclad/rivet-core';
+} from '@rivet2/rivet-core';
 import { type FC } from 'react';
 import { type SharedEditorProps } from './SharedEditorProps';
 import { getHelperMessage } from './editorUtils';

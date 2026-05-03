@@ -2,7 +2,7 @@ import { useAtomValue } from 'jotai';
 import { useMemo } from 'react';
 import { entries } from '../utils/typeSafety';
 import { useFuseSearch } from './useFuseSearch';
-import { type GraphId } from '@ironclad/rivet-core';
+import { type GraphId } from '@rivet2/rivet-core';
 import { useNodeTypes } from './useNodeTypes';
 import { useDependsOnPlugins } from './useDependsOnPlugins';
 import { useProjectNodeRegistry } from './useProjectNodeRegistry';

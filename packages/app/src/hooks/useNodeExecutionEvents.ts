@@ -7,7 +7,7 @@ import {
   type JSFilterNode,
   type JSMapNode,
   type ProcessEvents,
-} from '@ironclad/rivet-core';
+} from '@rivet2/rivet-core';
 import { type ExecutionDataFlowApi } from './useExecutionDataFlow';
 import { lastRunDataByNodeState } from '../state/dataFlow';
 import {

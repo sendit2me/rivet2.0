@@ -1,4 +1,4 @@
-import { type ProjectReference, type Project, type ProjectReferenceLoader, deserializeProject } from '@ironclad/rivet-core';
+import { type ProjectReference, type Project, type ProjectReferenceLoader, deserializeProject } from '@rivet2/rivet-core';
 
 import { dirname, resolve } from 'node:path';
 import { readFile } from 'node:fs/promises';

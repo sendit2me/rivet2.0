@@ -1,6 +1,6 @@
 import { useSetAtom } from 'jotai';
 import { type GraphCommandState, commandHistoryStackStatePerGraph, type CommandData, useCommand } from './Command';
-import { type NodeConnection, type ChartNode, type NodeId } from '@ironclad/rivet-core';
+import { type NodeConnection, type ChartNode, type NodeId } from '@rivet2/rivet-core';
 import { nodesState, connectionsState } from '../state/graph';
 import { produce } from 'immer';
 import {

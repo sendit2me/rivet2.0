@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { GraphId, GraphRunId } from '@ironclad/rivet-core';
+import type { GraphId, GraphRunId } from '@rivet2/rivet-core';
 import type { GraphViewKey } from '../domain/graphEditing/navigationActions';
 import { removeRunningGraphEntry, updateSelectedGraphRunForGraphStart } from './graphExecutionEventHelpers';
 

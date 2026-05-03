@@ -3,7 +3,7 @@ import { Field } from '@atlaskit/form';
 import Button from '@atlaskit/button';
 import Modal, { ModalTransition, ModalBody, ModalFooter } from '@atlaskit/modal-dialog';
 import { css } from '@emotion/react';
-import { type MCP } from '@ironclad/rivet-core';
+import { type MCP } from '@rivet2/rivet-core';
 import { useAtom } from 'jotai';
 import { Suspense, useState, type FC } from 'react';
 import { toast } from 'react-toastify';

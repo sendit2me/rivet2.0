@@ -2,7 +2,7 @@ import { type FC } from 'react';
 import TextField from '@atlaskit/textfield';
 import Button from '@atlaskit/button';
 import { css } from '@emotion/react';
-import type { PluginLoadSpec } from '@ironclad/rivet-core';
+import type { PluginLoadSpec } from '@rivet2/rivet-core';
 import { type PluginInfo } from '../../plugins.js';
 import { PluginCatalogItem } from './PluginCatalogItem.js';
 import { getPluginSpecId, getPluginSpecLabel, pluginSpecMatchesSearch } from '../../utils/pluginUsage.js';

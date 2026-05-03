@@ -6,7 +6,7 @@ import { css } from '@emotion/react';
 import Button from '@atlaskit/button';
 import { type CalculatedRevision } from '../utils/ProjectRevisionCalculator';
 import { graphState, historicalGraphState, isReadOnlyGraphState } from '../state/graph';
-import { GraphId, type NodeGraph } from '@ironclad/rivet-core';
+import { GraphId, type NodeGraph } from '@rivet2/rivet-core';
 import { useChooseHistoricalGraph } from '../hooks/useChooseHistoricalGraph';
 
 export const revisionStyles = css`

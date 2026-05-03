@@ -10,11 +10,11 @@ const config = {
   tagline: 'IDE and Library for Creating AI Agents',
   favicon: 'img/favicon.png',
 
-  url: 'https://rivet.ironcladapp.com',
+  url: 'https://github.com/valerypopoff/rivet2.0',
   baseUrl: '/',
 
-  organizationName: 'ironclad',
-  projectName: 'rivet',
+  organizationName: 'valerypopoff',
+  projectName: 'rivet2.0',
 
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
@@ -42,7 +42,7 @@ const config = {
         docs: {
           routeBasePath: '/docs/',
           sidebarPath: require.resolve('./sidebars.js'),
-          editUrl: 'https://github.com/ironclad/rivet/tree/main/packages/docs',
+          editUrl: 'https://github.com/valerypopoff/rivet2.0/tree/main/packages/docs',
         },
         theme: {
           customCss: require.resolve('./src/css/custom.css'),
@@ -96,7 +96,7 @@ const config = {
             label: 'CLI',
           },
           {
-            href: 'https://github.com/ironclad/rivet',
+            href: 'https://github.com/valerypopoff/rivet2.0',
             label: 'GitHub',
             position: 'right',
           },
@@ -136,7 +136,7 @@ const config = {
             items: [
               {
                 label: 'GitHub',
-                href: 'https://github.com/ironclad/rivet',
+                href: 'https://github.com/valerypopoff/rivet2.0',
               },
               {
                 label: 'YouTube',
@@ -145,7 +145,7 @@ const config = {
             ],
           },
         ],
-        copyright: `Copyright © ${new Date().getFullYear()} Ironclad. Built with Docusaurus.`,
+        copyright: `Copyright © ${new Date().getFullYear()} Val P. Built with Docusaurus.`,
       },
       prism: {
         theme: lightCodeTheme,

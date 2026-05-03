@@ -1,10 +1,10 @@
 import { useCallback, useMemo } from 'react';
 import { useStableCallback } from './useStableCallback';
-import { type TrivetTestSuite } from '@ironclad/trivet';
+import { type TrivetTestSuite } from '@rivet2/trivet';
 import { nanoid } from 'nanoid/non-secure';
 import { useAtom, useAtomValue } from 'jotai';
 import { trivetState } from '../state/trivet';
-import { type GraphInputNode, type GraphOutputNode, type NodeGraph } from '@ironclad/rivet-core';
+import { type GraphInputNode, type GraphOutputNode, type NodeGraph } from '@rivet2/rivet-core';
 import { keyBy } from 'lodash-es';
 import { savedGraphsState } from '../state/savedGraphs';
 

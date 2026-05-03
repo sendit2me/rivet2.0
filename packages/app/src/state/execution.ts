@@ -1,6 +1,6 @@
 import { atom } from 'jotai';
 import { atomWithStorage } from 'jotai/utils';
-import { type ExecutionRecorder } from '@ironclad/rivet-core';
+import { type ExecutionRecorder } from '@rivet2/rivet-core';
 import { createHybridStorage } from './storage.js';
 
 const { storage } = createHybridStorage('execution');

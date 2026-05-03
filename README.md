@@ -1,12 +1,14 @@
-<h1 align="center"><img src="https://rivet.ironcladapp.com/img/logo-banner-wide.png" alt="Rivet Logo"></h1>
-
-![License](https://img.shields.io/github/license/Ironclad/rivet)
-
 # Rivet 2.0
+
+![License](https://img.shields.io/github/license/valerypopoff/rivet2.0)
 
 Rivet is a visual IDE and runtime for building AI workflows, agents, prompt chains, graph-based tools, and reusable automation flows. This repository is the Rivet 2.0 monorepo: it contains the desktop app, graph runtime, Node runtime, CLI, app executor sidecar, Trivet test tooling, documentation site, and maintainer developer docs.
 
+Rivet 2.0 continues the previous Rivet codebase as an independently maintained project.
+
 This checkout is also designed to be embedded by wrapper applications that vendor Rivet source in a local `rivet/` folder. Wrappers can import from local source paths and use the supported app-host seams without depending on stale public npm packages.
+
+For a self-hosted Rivet 2 wrapper, see [Rivet Studio Server](https://github.com/valerypopoff/Rivet-Studio-Server/tree/main-rivet2).
 
 ## Contents
 
@@ -26,12 +28,12 @@ Rivet 2.0 is organized as a Yarn workspace monorepo:
 
 | Package | Purpose |
 | --- | --- |
-| `@ironclad/rivet-core` | Shared graph model, execution engine, built-in nodes, serialization, provider integrations, plugin assembly, and runtime contracts. |
-| `@ironclad/rivet-app` | Tauri and React desktop IDE, graph editor, settings, plugins UI, debugger surfaces, prompt designer, chat viewer, data studio, and hosted app entrypoints. |
-| `@ironclad/rivet-app-executor` | Node executor sidecar used by the app for Node-mode graph execution. |
-| `@ironclad/rivet-node` | Node runtime adapter for loading and running Rivet projects programmatically. |
-| `@ironclad/rivet-cli` | CLI commands for running and serving Rivet graphs. |
-| `@ironclad/trivet` | Graph-oriented test utilities and test serialization. |
+| `@rivet2/rivet-core` | Shared graph model, execution engine, built-in nodes, serialization, provider integrations, plugin assembly, and runtime contracts. |
+| `@rivet2/rivet-app` | Tauri and React desktop IDE, graph editor, settings, plugins UI, debugger surfaces, prompt designer, chat viewer, data studio, and hosted app entrypoints. |
+| `@rivet2/rivet-app-executor` | Node executor sidecar used by the app for Node-mode graph execution. |
+| `@rivet2/rivet-node` | Node runtime adapter for loading and running Rivet projects programmatically. |
+| `@rivet2/rivet-cli` | CLI commands for running and serving Rivet graphs. |
+| `@rivet2/trivet` | Graph-oriented test utilities and test serialization. |
 | `packages/docs` | Docusaurus documentation site. |
 
 The repo also includes `developer-docs/`, which documents current architecture and integration contracts, and `refactor-history.md`, which consolidates historical refactor notes for future planning.
@@ -71,7 +73,7 @@ yarn test
 yarn lint
 
 # Build only the desktop app frontend/package
-yarn workspace @ironclad/rivet-app run build
+yarn workspace @rivet2/rivet-app run build
 
 # Build local package artifacts for package-consumer checks
 yarn build:packages:local
@@ -89,8 +91,8 @@ yarn tauri build --verbose
 Rivet supports several execution surfaces:
 
 - Browser execution runs graphs in-process inside the app for lightweight local execution.
-- Node execution uses `@ironclad/rivet-app-executor`, a websocket sidecar that runs graph work in Node.
-- Programmatic Node execution uses `@ironclad/rivet-node` and the CLI without the desktop editor.
+- Node execution uses `@rivet2/rivet-app-executor`, a websocket sidecar that runs graph work in Node.
+- Programmatic Node execution uses `@rivet2/rivet-node` and the CLI without the desktop editor.
 - Hosted editor execution lets wrappers provide an internal executor websocket URL instead of asking browser-hosted Rivet to start a Tauri sidecar.
 
 The app executor defaults to a desktop-safe loopback websocket host, and hosted/containerized environments can override it with `RIVET_EXECUTOR_HOST`, `RIVET_EXECUTOR_PORT`, and `executor.internalExecutorUrl`. Code-node runtime-library resolution can be redirected with `RIVET_CODE_RUNNER_REQUIRE_ROOT`.
@@ -135,6 +137,8 @@ On pushes to `develop`, the workflow:
 2. Builds the monorepo with `yarn build`.
 3. Builds Windows MSI and NSIS installer bundles from `packages/app`.
 4. Publishes a small GitHub Pages download page with the latest developer installers.
+
+GitHub Pages must either be enabled once in repository settings with Source set to GitHub Actions, or the repository must provide a `PAGES_ENABLEMENT_TOKEN` Actions secret that can enable Pages for the workflow. The workflow opts JavaScript actions into Node 24 so current runner deprecation warnings do not become a release blocker.
 
 The developer release workflow intentionally builds installer artifacts only. It does not sign updater bundles and does not require Tauri updater private-key secrets. Production/tagged release workflows are separate.
 

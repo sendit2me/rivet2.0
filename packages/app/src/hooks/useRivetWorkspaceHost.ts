@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
-import type { GraphId, NodeGraph, Project, ProjectId } from '@ironclad/rivet-core';
+import type { GraphId, NodeGraph, Project, ProjectId } from '@rivet2/rivet-core';
 import type { TrivetState } from '../state/trivet.js';
 import { isPathBasedIOProvider } from '../io/IOProvider.js';
 import { useIOProvider } from '../providers/ProvidersContext.js';

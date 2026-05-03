@@ -1,4 +1,4 @@
-import { type BaseDir, type NativeApi, type ReadDirOptions } from '@ironclad/rivet-core';
+import { type BaseDir, type NativeApi, type ReadDirOptions } from '@rivet2/rivet-core';
 
 import { minimatch } from 'minimatch';
 import { nativeReadBinaryFile, nativeReadDir, nativeReadTextFile, nativeWriteFile } from '../../utils/platform/fs.js';
@@ -61,7 +61,7 @@ export class TauriNativeApi implements NativeApi {
       }
     }
 
-    // TODO approximate, will fail on ironclad/ironclad for example
+    // TODO approximate, will fail when the parent directory name repeats.
     filteredResults = filteredResults.map((result) =>
       relative ? result.slice(result.indexOf(path) + path.length + 1) : result,
     );

@@ -41,7 +41,7 @@ yarn publish-docs
 
 Runs:
 
-1. `yarn workspace @ironclad/rivet-app run dev`
+1. `yarn workspace @rivet2/rivet-app run dev`
 
 That app dev script performs a Windows-only cleanup of stale copied `app-executor.exe` sidecars, then launches `tauri dev`. The Tauri dev command itself runs `yarn prepare:tauri && yarn start` through `beforeDevCommand`, so the Node sidecar is rebuilt before the desktop app starts.
 
@@ -64,10 +64,10 @@ Alias for `yarn build`.
 
 Runs all currently defined workspace test suites:
 
-- `yarn workspace @ironclad/rivet-core run test`
-- `yarn workspace @ironclad/rivet-node run test`
-- `yarn workspace @ironclad/rivet-app run test`
-- `yarn workspace @ironclad/rivet-cli run test`
+- `yarn workspace @rivet2/rivet-core run test`
+- `yarn workspace @rivet2/rivet-node run test`
+- `yarn workspace @rivet2/rivet-app run test`
+- `yarn workspace @rivet2/rivet-cli run test`
 
 Packages without a `test` script are not included.
 
@@ -136,16 +136,16 @@ ESM-only packages that cannot be aliased (e.g. `mdast-util-to-markdown`, `@googl
 
 - `build`: `build:esm` then `build:cjs`
 - CJS bundle reuses core's esbuild bundler script (same alias strategy applies)
-- `pretest`: builds `@ironclad/rivet-core` ESM output first, because the node tests import the workspace package through its published-style export surface
+- `pretest`: builds `@rivet2/rivet-core` ESM output first, because the node tests import the workspace package through its published-style export surface
 
-Wrappers that embed this checkout but consume `@ironclad/rivet-core` and
-`@ironclad/rivet-node` as built packages should not create symlinks inside the
+Wrappers that embed this checkout but consume `@rivet2/rivet-core` and
+`@rivet2/rivet-node` as built packages should not create symlinks inside the
 Rivet workspace or change Rivet's package-manager mode. After building both
 workspaces, run `yarn build:packages:local` or
 `node scripts/create-built-package-artifacts.mjs --out-dir <dir>`. The script
 validates the built `dist/esm`, `dist/cjs`, and `dist/types` outputs, writes
 package-manager-neutral `file:` package directories, and rewrites
-`@ironclad/rivet-node` to depend on the generated local `@ironclad/rivet-core`
+`@rivet2/rivet-node` to depend on the generated local `@rivet2/rivet-core`
 package. npm, Yarn, and pnpm based wrappers can then depend on those generated
 local directories without pulling stale public registry packages and without
 mutating this checkout's PnP/node-modules layout. The artifact script recreates
@@ -160,7 +160,7 @@ overlapping a source package directory.
 - `start`: Vite dev server
 - `dev`: `node scripts/dev.mjs`
 - `build`: `tsc && vite build`
-- `prepare:tauri`: rebuild `@ironclad/rivet-app-executor` before desktop launch/build steps
+- `prepare:tauri`: rebuild `@rivet2/rivet-app-executor` before desktop launch/build steps
 
 Current dev/build detail:
 
@@ -194,7 +194,7 @@ Maintenance rules:
 - `dev`: `tsx watch --inspect=9228 --experimental-network-imports bin/executor.mts`
 - `start`: build then run bundled executor
 
-The build script (`scripts/build-executor.mts`) bundles the ESM source to CJS using esbuild, then compiles the CJS bundle into a native binary via `pkg`. CJS format is required because `pkg` needs static analysis of `require()` calls. A custom esbuild plugin (`resolveRivet`) inlines `@ironclad/rivet-*` packages from source, so the final bundle has zero external workspace dependencies.
+The build script (`scripts/build-executor.mts`) bundles the ESM source to CJS using esbuild, then compiles the CJS bundle into a native binary via `pkg`. CJS format is required because `pkg` needs static analysis of `require()` calls. A custom esbuild plugin (`resolveRivet`) inlines `@rivet2/rivet-*` packages from source, so the final bundle has zero external workspace dependencies.
 
 The app-executor binary accepts `--port` / `-p` and `--host` flags. The default
 host is `127.0.0.1` for the desktop internal sidecar; hosted/container wrappers
@@ -220,7 +220,7 @@ or server wrappers can synchronize runtime libraries before module resolution.
 
 The CLI now includes a small smoke suite so root `yarn test` / `npm run test` validates the package instead of failing on an empty test glob.
 
-The CLI Dockerfile installs the published CLI package by explicit version (`@ironclad/rivet-cli@2.0.0`). Keep that pin aligned with `packages/cli/package.json` whenever the product version changes.
+The CLI Dockerfile installs the published CLI package by explicit version (`@rivet2/rivet-cli@2.0.0`). Keep that pin aligned with `packages/cli/package.json` whenever the product version changes.
 
 ### Trivet
 
@@ -323,7 +323,7 @@ This workflow is intentionally develop-only. It does not run for `main`, and it 
 The workflow has two jobs:
 
 1. `build-windows` runs on `windows-latest`, checks out the repo, sets up Node `20.4.x`, installs Rust stable, runs `yarn --immutable`, runs the root `yarn build`, then runs `yarn tauri build --verbose --ci --bundles "msi,nsis"` from `packages/app`.
-2. `publish-pages` runs on `ubuntu-latest`, downloads the generated static page artifact, uploads it as a GitHub Pages artifact, and deploys it with `actions/deploy-pages`.
+2. `publish-pages` runs on `ubuntu-latest`, downloads the generated static page artifact, configures GitHub Pages, uploads it as a GitHub Pages artifact, and deploys it with `actions/deploy-pages`.
 
 The Windows build job uses [`.github/scripts/prepare-developer-windows-pages.mjs`](../.github/scripts/prepare-developer-windows-pages.mjs) to collect files from `packages/app/src-tauri/target/release/bundle`, copy original installer artifacts under `downloads/original/`, create stable download aliases, and generate:
 
@@ -336,11 +336,22 @@ The generated Pages site represents the latest successful developer Windows rele
 
 ### Pages requirements
 
-The repository's GitHub Pages source must be configured for GitHub Actions deployments. If the repository is still configured to serve a branch directly, this workflow can build the Windows artifacts but the Pages deployment step will not become the active Pages site until the repository setting is changed.
+The repository's GitHub Pages source must be configured for GitHub Actions deployments. There are two supported setup paths:
+
+- Enable Pages once in repository settings: **Settings > Pages > Build and deployment > Source > GitHub Actions**.
+- Or add a `PAGES_ENABLEMENT_TOKEN` Actions secret. When that secret exists, the workflow passes `enablement: true` to `actions/configure-pages` so the workflow can create/enable the Pages site before deploying.
+
+`PAGES_ENABLEMENT_TOKEN` must be stronger than the default `GITHUB_TOKEN`; `actions/configure-pages` requires a separate token for enablement. Use a fine-grained token with Pages write access for this repository, a classic token with `repo` scope, or a GitHub App token with `administration:write` and `pages:write`. After Pages is enabled, the normal deployment still uses the workflow's `pages: write` and `id-token: write` permissions.
+
+The workflow sets `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true` and uses the current Node 24 compatible Pages action majors where available. Keep that env var until all artifact actions used by GitHub Pages publish with Node 24 runtimes by default.
 
 ### Secrets/environment
 
 The developer Pages workflow does not pass updater-signing secrets. It explicitly requests only the Windows installer bundles with `--bundles "msi,nsis"`, so Tauri does not create updater zip bundles and does not need `TAURI_PRIVATE_KEY` or `TAURI_KEY_PASSWORD`.
+
+Optional developer-release secret:
+
+- `PAGES_ENABLEMENT_TOKEN`: only needed if the workflow should enable GitHub Pages automatically instead of relying on the one-time repository setting described above.
 
 Production desktop release workflows still use the updater-enabled Tauri packaging contract and therefore continue to require updater signing secrets. Keep the developer Pages workflow installer-only unless it is intentionally promoted into an updater feed.
 
@@ -385,6 +396,8 @@ Tauri config lives in [`packages/app/src-tauri/tauri.conf.json`](../packages/app
 ### Packaging significance
 
 The app package is not standalone frontend output. Tauri packaging, sidecars, updater behavior, and shell permissions are part of the build contract. CI workflows that only need installer artifacts can override the bundle targets at build time to avoid updater signing.
+
+Startup update checks are intentionally quiet when that `latest.json` feed does not exist or cannot be parsed. This keeps local builds and unsigned developer installer builds from showing an unhandled-rejection toast before a production updater feed has been published. Manual checks from Settings > Updates still surface the failure.
 
 ## Publish Scripts
 

@@ -32,14 +32,14 @@ const reactDevTools = (): PluginOption => {
 // https://vitejs.dev/config/
 export default defineConfig({
   optimizeDeps: {
-    exclude: ['@ironclad/rivet-core', '@ironclad/trivet'],
+    exclude: ['@rivet2/rivet-core', '@rivet2/trivet'],
   },
   resolve: {
     preserveSymlinks: true,
 
     alias: {
-      '@ironclad/rivet-core': resolve('../core/src/index.ts'),
-      '@ironclad/trivet': resolve('../trivet/src/index.ts'),
+      '@rivet2/rivet-core': resolve('../core/src/index.ts'),
+      '@rivet2/trivet': resolve('../trivet/src/index.ts'),
       '@google-cloud/vertexai': resolve('./src/utils/browser/vertexAiBrowserStub.ts'),
     },
   },

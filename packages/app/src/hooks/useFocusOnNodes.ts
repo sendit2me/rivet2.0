@@ -1,4 +1,4 @@
-import { type NodeId } from '@ironclad/rivet-core';
+import { type NodeId } from '@rivet2/rivet-core';
 import { useStableCallback } from './useStableCallback';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { canvasPositionState } from '../state/graphBuilder';

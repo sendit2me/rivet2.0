@@ -3,7 +3,7 @@ import { useAtom } from 'jotai';
 import TextField from '@atlaskit/textfield';
 import Button from '@atlaskit/button';
 import { Field } from '@atlaskit/form';
-import { DEFAULT_CHAT_NODE_TIMEOUT } from '@ironclad/rivet-core';
+import { DEFAULT_CHAT_NODE_TIMEOUT } from '@rivet2/rivet-core';
 import { entries } from '../../../utils/typeSafety';
 import { KeyValuePairs } from '../../editors/KeyValuePairEditor.js';
 import { settingsState } from '../../../state/settings.js';

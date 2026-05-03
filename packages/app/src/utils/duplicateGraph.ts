@@ -1,4 +1,4 @@
-import { type GraphId, type NodeGraph, type NodeId } from '@ironclad/rivet-core';
+import { type GraphId, type NodeGraph, type NodeId } from '@rivet2/rivet-core';
 import { produce } from 'immer';
 import { nanoid } from 'nanoid/non-secure';
 

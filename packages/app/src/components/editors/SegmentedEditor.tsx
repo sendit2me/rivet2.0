@@ -1,6 +1,6 @@
 import { Field } from '@atlaskit/form';
 import { css } from '@emotion/react';
-import { type ChartNode, type SegmentedEditorDefinition } from '@ironclad/rivet-core';
+import { type ChartNode, type SegmentedEditorDefinition } from '@rivet2/rivet-core';
 import { type FC, useLayoutEffect, useRef, useState } from 'react';
 import { FieldHelperMessage } from '../FieldHelperMessage.js';
 import { type SharedEditorProps } from './SharedEditorProps';

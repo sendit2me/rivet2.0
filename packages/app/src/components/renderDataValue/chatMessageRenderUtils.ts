@@ -1,4 +1,4 @@
-import type { AssistantChatMessage, AssistantChatMessageFunctionCall } from '@ironclad/rivet-core';
+import type { AssistantChatMessage, AssistantChatMessageFunctionCall } from '@rivet2/rivet-core';
 
 export type RenderableAssistantFunctionCall =
   | {

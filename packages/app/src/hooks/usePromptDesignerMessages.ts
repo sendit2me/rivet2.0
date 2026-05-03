@@ -1,6 +1,6 @@
 import { useAtom } from 'jotai';
 import { produce } from 'immer';
-import { type ChatMessage } from '@ironclad/rivet-core';
+import { type ChatMessage } from '@rivet2/rivet-core';
 import { promptDesignerMessagesState } from '../state/promptDesigner';
 import { useStableCallback } from './useStableCallback.js';
 

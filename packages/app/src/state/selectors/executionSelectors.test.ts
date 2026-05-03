@@ -1,6 +1,6 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import type { GraphId, GraphRunId, NodeId, ProcessId, RootRunId } from '@ironclad/rivet-core';
+import type { GraphId, GraphRunId, NodeId, ProcessId, RootRunId } from '@rivet2/rivet-core';
 import type { ProcessDataForNode } from '../dataFlow.js';
 import {
   filterProcessDataForSelection,

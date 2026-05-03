@@ -1,4 +1,4 @@
-import { type ExpressionNode } from '@ironclad/rivet-core';
+import { type ExpressionNode } from '@rivet2/rivet-core';
 import { type NodeRunDataWithRefs } from '../../state/dataFlow.js';
 import { hasDisplayableInterpolationInputs } from './parsedSourceDisplayUtils.js';
 

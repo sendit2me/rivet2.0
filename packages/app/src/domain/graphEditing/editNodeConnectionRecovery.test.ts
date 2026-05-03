@@ -13,7 +13,7 @@ import {
   type NodeRegistration,
   type PortId,
   type Project,
-} from '@ironclad/rivet-core';
+} from '@rivet2/rivet-core';
 import { reconcileNodeEditConnections } from './editNodeConnectionRecovery.js';
 
 const registry = createBuiltInRegistry();

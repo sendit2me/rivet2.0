@@ -9,12 +9,12 @@ Rivet is a monorepo organized around one shared graph runtime and several produc
 
 At a high level:
 
-1. `@ironclad/rivet-core` defines the graph model, execution engine, built-in nodes, built-in plugins, serialization, and shared runtime contracts.
-2. `@ironclad/rivet-app` is the Tauri/React desktop IDE.
-3. `@ironclad/rivet-node` adapts core for Node environments.
-4. `@ironclad/rivet-cli` exposes run/serve workflows on top of `rivet-node`.
-5. `@ironclad/rivet-app-executor` is the Node sidecar used by the desktop app.
-6. `@ironclad/trivet` provides graph-oriented testing utilities and serialization.
+1. `@rivet2/rivet-core` defines the graph model, execution engine, built-in nodes, built-in plugins, serialization, and shared runtime contracts.
+2. `@rivet2/rivet-app` is the Tauri/React desktop IDE.
+3. `@rivet2/rivet-node` adapts core for Node environments.
+4. `@rivet2/rivet-cli` exposes run/serve workflows on top of `rivet-node`.
+5. `@rivet2/rivet-app-executor` is the Node sidecar used by the desktop app.
+6. `@rivet2/trivet` provides graph-oriented testing utilities and serialization.
 7. `packages/docs` is the Docusaurus documentation site.
 
 ## Workspace Layout

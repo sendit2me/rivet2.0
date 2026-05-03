@@ -1,4 +1,4 @@
-import { logRuntimeDebug } from '@ironclad/rivet-core';
+import { logRuntimeDebug } from '@rivet2/rivet-core';
 import { type NativeChildProcess } from '../utils/platform/core.js';
 import { createNativeSidecarCommand } from '../utils/platform/shell.js';
 import { handleError } from '../utils/errorHandling.js';

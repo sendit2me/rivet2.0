@@ -1,7 +1,7 @@
 import { type ChangeEvent, type FC, useLayoutEffect, useRef, useState } from 'react';
 import Button from '@atlaskit/button';
 import TextArea from '@atlaskit/textarea';
-import { type ChatMessage, type GraphId, type NodeTestGroup, type PortId, coerceType } from '@ironclad/rivet-core';
+import { type ChatMessage, type GraphId, type NodeTestGroup, type PortId, coerceType } from '@rivet2/rivet-core';
 import { findIndex } from 'lodash-es';
 import { useStableCallback } from '../../hooks/useStableCallback.js';
 import { useMultilineEditorFontSize } from '../../hooks/useMultilineEditorFontSize.js';

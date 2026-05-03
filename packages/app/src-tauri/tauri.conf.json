@@ -74,7 +74,7 @@
       },
       "externalBin": ["../../app-executor/dist/app-executor", "../sidecars/pnpm/pnpm"],
       "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
-      "identifier": "com.ironcladapp.rivet",
+      "identifier": "com.valerypopoff.rivet2",
       "longDescription": "",
       "macOS": {
         "entitlements": "../entitlements.plist",
@@ -97,7 +97,7 @@
     },
     "updater": {
       "active": true,
-      "endpoints": ["https://github.com/Ironclad/rivet/releases/latest/download/latest.json"],
+      "endpoints": ["https://github.com/valerypopoff/rivet2.0/releases/latest/download/latest.json"],
       "dialog": false,
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDQwRTgxNDEzODJDREJDNzkKUldSNXZNMkNFeFRvUU5VK0NXdEIwNlc3NTREUWpNSmpaeGFwWjFwc21ZT0U5cFlzcy81QndDOXYK"
     },

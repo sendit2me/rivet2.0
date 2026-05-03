@@ -1,4 +1,4 @@
-import { type GraphInputNode, type GraphOutputNode, type NodeGraph } from '@ironclad/rivet-core';
+import { type GraphInputNode, type GraphOutputNode, type NodeGraph } from '@rivet2/rivet-core';
 import { type TrivetTestCase } from './trivetTypes.js';
 
 export function validateTestCaseFormat(

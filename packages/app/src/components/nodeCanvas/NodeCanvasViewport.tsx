@@ -1,6 +1,6 @@
 import { DragOverlay } from '@dnd-kit/core';
 import { type FC, type ContextType, memo, useMemo } from 'react';
-import type { ChartNode, NodeConnection, NodeId } from '@ironclad/rivet-core';
+import type { ChartNode, NodeConnection, NodeId } from '@rivet2/rivet-core';
 import { CanvasHandlersContext, CanvasViewContext } from '../CanvasContext.js';
 import { DraggableNode } from '../DraggableNode.js';
 import { VisualNode } from '../VisualNode.js';

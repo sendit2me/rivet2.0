@@ -1,6 +1,6 @@
 import { produce } from 'immer';
 import { useAtomValue, useSetAtom } from 'jotai';
-import { type GraphId, type GraphRunId, type ProcessEvents } from '@ironclad/rivet-core';
+import { type GraphId, type GraphRunId, type ProcessEvents } from '@rivet2/rivet-core';
 import { useLatest } from 'ahooks';
 import { lastRecordingState } from '../state/execution';
 import {

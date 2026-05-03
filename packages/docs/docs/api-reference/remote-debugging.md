@@ -2,7 +2,7 @@
 
 ## Introduction
 
-One of the powerful features of Rivet is the ability to debug your graphs remotely. This means that you can execute a graph in your application and connect to it from Rivet to inspect the graph execution in real-time. This is achieved by using the `RivetDebuggerServer` which is included in the `@ironclad/rivet-node` package.
+One of the powerful features of Rivet is the ability to debug your graphs remotely. This means that you can execute a graph in your application and connect to it from Rivet to inspect the graph execution in real-time. This is achieved by using the `RivetDebuggerServer` which is included in the `@rivet2/rivet-node` package.
 
 ## Setting Up Remote Debugging
 
@@ -13,7 +13,7 @@ You should only call `startDebuggerServer` once in your application. You can the
 Here's an example of how you can do this:
 
 ```typescript
-import { startDebuggerServer, runGraphInFile } from '@ironclad/rivet-node';
+import { startDebuggerServer, runGraphInFile } from '@rivet2/rivet-node';
 
 // Start the debugger server
 const debuggerServer = startDebuggerServer({

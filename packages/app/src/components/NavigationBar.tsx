@@ -30,7 +30,7 @@ import { useSearchProject, type FuseResultMatch, type SearchedItem, type RangeTu
 import { projectState } from '../state/savedGraphs';
 import clsx from 'clsx';
 import { useGoToNode } from '../hooks/useGoToNode';
-import { type GraphId, type NodeId } from '@ironclad/rivet-core';
+import { type GraphId, type NodeId } from '@rivet2/rivet-core';
 import { groupGraphSearchMatches, type GraphSearchNodeMatch } from '../hooks/graphSearch';
 import { useLoadGraph } from '../hooks/useLoadGraph';
 import { graphState } from '../state/graph';

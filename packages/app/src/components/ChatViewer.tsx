@@ -4,7 +4,7 @@ import { orderBy } from 'lodash-es';
 import { overlayOpenState } from '../state/ui';
 import { css } from '@emotion/react';
 import clsx from 'clsx';
-import { type NodeId } from '@ironclad/rivet-core';
+import { type NodeId } from '@rivet2/rivet-core';
 import {
   lastRunDataByNodeState,
   graphRunningState,

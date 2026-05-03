@@ -6,7 +6,7 @@ import type {
   DataValue,
   Inputs,
   Outputs,
-} from '@ironclad/rivet-core';
+} from '@rivet2/rivet-core';
 import * as process from 'node:process';
 import { inspect } from 'node:util';
 import { Worker } from 'node:worker_threads';
@@ -158,7 +158,7 @@ export class AppExecutorWorkerCodeRunner implements CodeRunner {
 
     if (options.includeRivet) {
       // The app sidecar isolates ordinary Code node JavaScript in workers, but
-      // Rivet-capable code imports @ironclad/rivet-node. Keep that path on the
+      // Rivet-capable code imports @rivet2/rivet-node. Keep that path on the
       // current thread so packaged sidecar module resolution stays compatible.
       return runCodeInCurrentThread(code, inputs, options, graphInputs, contextValues, this.runtimeRequire, this.onConsole);
     }
@@ -275,7 +275,7 @@ async function runCodeInCurrentThread(
   }
 
   if (options.includeRivet) {
-    const Rivet = await import('@ironclad/rivet-node');
+    const Rivet = await import('@rivet2/rivet-node');
 
     argNames.push('Rivet');
     args.push(Rivet);

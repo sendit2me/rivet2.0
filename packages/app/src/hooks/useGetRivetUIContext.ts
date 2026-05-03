@@ -1,4 +1,4 @@
-import { type ChartNode, type RivetUIContext, getPluginConfig } from '@ironclad/rivet-core';
+import { type ChartNode, type RivetUIContext, getPluginConfig } from '@rivet2/rivet-core';
 import { selectedExecutorState, settingsState } from '../state/settings';
 import { fillMissingSettingsFromEnvironmentVariables } from '../utils/tauri';
 import { useDependsOnPlugins } from './useDependsOnPlugins';

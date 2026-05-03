@@ -5,7 +5,7 @@ import { LazyCodeEditor } from './LazyComponents';
 import { useAtomValue, useAtom, useSetAtom } from 'jotai';
 import { lastRunDataByNodeState } from '../state/dataFlow';
 import { graphState } from '../state/graph';
-import { type BuiltInNodes, type GraphInputNode, type PortId } from '@ironclad/rivet-core';
+import { type BuiltInNodes, type GraphInputNode, type PortId } from '@rivet2/rivet-core';
 import { max, range } from 'lodash-es';
 import { Label } from '@atlaskit/form';
 import { css } from '@emotion/react';

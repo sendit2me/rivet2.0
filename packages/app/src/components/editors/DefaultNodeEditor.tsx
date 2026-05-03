@@ -1,5 +1,5 @@
 import { type FC, useEffect, useState } from 'react';
-import { type ChartNode, type EditorDefinition } from '@ironclad/rivet-core';
+import { type ChartNode, type EditorDefinition } from '@rivet2/rivet-core';
 import { css } from '@emotion/react';
 import { type SharedEditorProps } from './SharedEditorProps';
 import { DefaultNodeEditorField } from './DefaultNodeEditorField';

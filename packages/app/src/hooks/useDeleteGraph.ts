@@ -1,5 +1,5 @@
 import { useSetAtom } from 'jotai';
-import { type NodeGraph, emptyNodeGraph } from '@ironclad/rivet-core';
+import { type NodeGraph, emptyNodeGraph } from '@rivet2/rivet-core';
 import { graphState } from '../state/graph.js';
 import { savedGraphsState } from '../state/savedGraphs.js';
 import { useCallback } from 'react';

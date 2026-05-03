@@ -9,7 +9,7 @@ import {
   type PlainNodeBodySpec,
   type NodeBody as RenderedNodeBody,
   type NodeId,
-} from '@ironclad/rivet-core';
+} from '@rivet2/rivet-core';
 
 import { useMarkdown } from '../hooks/useMarkdown';
 import { match } from 'ts-pattern';

@@ -1,10 +1,10 @@
-# Core Engine (`@ironclad/rivet-core`)
+# Core Engine (`@rivet2/rivet-core`)
 
 > Detailed internal reference for the shared runtime package.
 
 ## Purpose
 
-`@ironclad/rivet-core` is the foundational package in the repo.
+`@rivet2/rivet-core` is the foundational package in the repo.
 
 It owns:
 
@@ -57,7 +57,7 @@ That file re-exports:
 - execution streaming APIs
 - create/run processor helpers
 
-For refactors, `exports.ts` is the API contract that downstream packages rely on. Downstream package code should import core through `@ironclad/rivet-core`; it should not import `packages/core/src/...` files directly. The shared ESLint config enforces that boundary. When app presentation or another package needs to mirror runtime semantics, such as interpolation token parsing, warning-port handling, JS-list callback source interpolation, Gentrace app-facing utilities, `RivetUIContext`, tokenizer implementations, or project-reference loading, the shared contract should be exported intentionally from core instead of reaching into the source tree.
+For refactors, `exports.ts` is the API contract that downstream packages rely on. Downstream package code should import core through `@rivet2/rivet-core`; it should not import `packages/core/src/...` files directly. The shared ESLint config enforces that boundary. When app presentation or another package needs to mirror runtime semantics, such as interpolation token parsing, warning-port handling, JS-list callback source interpolation, Gentrace app-facing utilities, `RivetUIContext`, tokenizer implementations, or project-reference loading, the shared contract should be exported intentionally from core instead of reaching into the source tree.
 
 ## Runtime Logging And Diagnostics
 
@@ -631,7 +631,7 @@ That is especially true for nested execution correctness: `ProcessContextBuilder
 ### Code runner error locations
 
 `Code` nodes still execute through the configured `CodeRunner`. Browser mode uses
-`IsomorphicCodeRunner`. Programmatic Node execution through `@ironclad/rivet-node`
+`IsomorphicCodeRunner`. Programmatic Node execution through `@rivet2/rivet-node`
 still defaults to `NodeCodeRunner`, while the desktop app's internal
 `app-executor` sidecar passes its own worker-backed runner so most Code-node
 JavaScript runs off the sidecar's main event loop. The app-executor worker runner
@@ -648,11 +648,11 @@ Code-node console observability. When `console` is enabled, it injects a
 bridged console into worker-backed runs and the `Rivet`-capability fallback path;
 those calls become `codeConsole` executor messages that the app replays in the
 renderer console. This is app-executor-specific and does not change the public
-`NodeCodeRunner` default used by programmatic `@ironclad/rivet-node` callers.
+`NodeCodeRunner` default used by programmatic `@rivet2/rivet-node` callers.
 
 `NodeCodeRunner` exposes its CommonJS `require()` resolution policy through
 `createCodeRunnerRequire(...)`, `getCodeRunnerRequireRoot(...)`, and
-`getCodeRunnerRequireAnchorPath(...)` from `@ironclad/rivet-node`. The default
+`getCodeRunnerRequireAnchorPath(...)` from `@rivet2/rivet-node`. The default
 anchor remains `process.cwd()/__rivet_node_code_runner__.cjs`, so programmatic
 callers keep the old behavior. Hosted wrappers can set
 `RIVET_CODE_RUNNER_REQUIRE_ROOT` or `RIVET_CODE_RUNNER_REQUIRE_ANCHOR` before the

@@ -16,7 +16,7 @@ import {
   type ChartNode,
   type DataId,
   type LLMChatV2Node,
-} from '@ironclad/rivet-core';
+} from '@rivet2/rivet-core';
 import { useUnknownNodeComponentDescriptorFor } from '../hooks/useNodeTypes.js';
 import { useProjectNodeRegistry } from '../hooks/useProjectNodeRegistry';
 import { useHotkeys } from 'react-hotkeys-hook';

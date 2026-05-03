@@ -70,7 +70,7 @@ export const pluginInfos: PluginInfo[] = [
     `,
     author: 'Rivet Team',
     logoImage: AnthropicLogo,
-    documentation: 'https://rivet.ironcladapp.com/docs/user-guide/plugins/built-in/anthropic',
+    documentation: 'https://github.com/valerypopoff/rivet2.0/docs/user-guide/plugins/built-in/anthropic',
   },
   {
     type: 'built-in',
@@ -83,7 +83,7 @@ export const pluginInfos: PluginInfo[] = [
     `,
     author: 'Braintrust',
     logoImage: BraintrustLogo,
-    documentation: 'https://rivet.ironcladapp.com/docs/user-guide/plugins/built-in/autoevals',
+    documentation: 'https://github.com/valerypopoff/rivet2.0/docs/user-guide/plugins/built-in/autoevals',
   },
   {
     type: 'built-in',
@@ -92,17 +92,17 @@ export const pluginInfos: PluginInfo[] = [
     description: dedent`
       Use [AssemblyAI](https://www.assemblyai.com/?utm_source=rivet) to build AI applications with voice data.
 
-      - [Transcribe audio files](https://rivet.ironcladapp.com/docs/user-guide/plugins/built-in/assemblyai#transcribe-audio-node)
-      - [Summarize audio files using LeMUR](https://rivet.ironcladapp.com/docs/user-guide/plugins/built-in/assemblyai#lemur-summary-node)
-      - [Answer questions about audio files using LeMUR Q&A](https://rivet.ironcladapp.com/docs/user-guide/plugins/built-in/assemblyai#lemur-qa)
-      - [Extract action items from audio files using LeMUR](https://rivet.ironcladapp.com/docs/user-guide/plugins/built-in/assemblyai#lemur-action-items)
-      - [Run custom LLM tasks against audio files using LeMUR](https://rivet.ironcladapp.com/docs/user-guide/plugins/built-in/assemblyai#lemur-custom-task)
+      - [Transcribe audio files](https://github.com/valerypopoff/rivet2.0/docs/user-guide/plugins/built-in/assemblyai#transcribe-audio-node)
+      - [Summarize audio files using LeMUR](https://github.com/valerypopoff/rivet2.0/docs/user-guide/plugins/built-in/assemblyai#lemur-summary-node)
+      - [Answer questions about audio files using LeMUR Q&A](https://github.com/valerypopoff/rivet2.0/docs/user-guide/plugins/built-in/assemblyai#lemur-qa)
+      - [Extract action items from audio files using LeMUR](https://github.com/valerypopoff/rivet2.0/docs/user-guide/plugins/built-in/assemblyai#lemur-action-items)
+      - [Run custom LLM tasks against audio files using LeMUR](https://github.com/valerypopoff/rivet2.0/docs/user-guide/plugins/built-in/assemblyai#lemur-custom-task)
 
       Follow this [step-by-step tutorial to see these capabilities in action](https://www.assemblyai.com/blog/podcast-qa-application-rivet?utm_source=rivet).
     `,
     author: 'AssemblyAI',
     logoImage: AssemblyAiLogo,
-    documentation: 'https://rivet.ironcladapp.com/docs/user-guide/plugins/built-in/assemblyai',
+    documentation: 'https://github.com/valerypopoff/rivet2.0/docs/user-guide/plugins/built-in/assemblyai',
   },
   {
     type: 'built-in',
@@ -136,7 +136,7 @@ export const pluginInfos: PluginInfo[] = [
     `,
     author: 'Gentrace',
     logoImage: GentraceLogo,
-    documentation: 'https://rivet.ironcladapp.com/docs/user-guide/plugins/built-in/gentrace',
+    documentation: 'https://github.com/valerypopoff/rivet2.0/docs/user-guide/plugins/built-in/gentrace',
   },
   {
     type: 'package',
@@ -241,7 +241,7 @@ export const pluginInfos: PluginInfo[] = [
     `,
     author: 'Rivet Team',
     logoImage: GoogleLogo,
-    documentation: 'https://rivet.ironcladapp.com/docs/user-guide/plugins/built-in/google',
+    documentation: 'https://github.com/valerypopoff/rivet2.0/docs/user-guide/plugins/built-in/google',
   },
   {
     type: 'package',

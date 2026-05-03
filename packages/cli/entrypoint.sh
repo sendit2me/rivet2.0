@@ -7,4 +7,4 @@ if [ ! -d "$PROJECT_DIR" ]; then
   exit 1
 fi
 
-exec npx @ironclad/rivet-cli serve "$PROJECT_DIR" "$@"
+exec npx @rivet2/rivet-cli serve "$PROJECT_DIR" "$@"

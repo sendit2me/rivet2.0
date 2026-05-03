@@ -1,7 +1,7 @@
 import { css } from '@emotion/react';
 import { useEffect, useMemo, useRef, useState, type FC, type MouseEvent as ReactMouseEvent } from 'react';
 import { DndContext, type DragEndEvent } from '@dnd-kit/core';
-import { type ProjectId } from '@ironclad/rivet-core';
+import { type ProjectId } from '@rivet2/rivet-core';
 import { useAtom, useAtomValue } from 'jotai';
 import CloseIcon from 'majesticons/line/multiply-line.svg?react';
 import { openedProjectsSortedIdsState, openedProjectsState, projectState } from '../state/savedGraphs';

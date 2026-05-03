@@ -1,6 +1,6 @@
 import { HelperMessage } from '@atlaskit/form';
 import { css } from '@emotion/react';
-import { type PackagePluginLoadSpec, type PluginLoadSpec, getError } from '@ironclad/rivet-core';
+import { type PackagePluginLoadSpec, type PluginLoadSpec, getError } from '@rivet2/rivet-core';
 import { useToggle } from 'ahooks';
 import { useAtom } from 'jotai';
 import CopyIcon from 'majesticons/line/clipboard-line.svg?react';

@@ -1,6 +1,6 @@
 import { Field, HelperMessage } from '@atlaskit/form';
 import TextField from '@atlaskit/textfield';
-import { type GraphId } from '@ironclad/rivet-core';
+import { type GraphId } from '@rivet2/rivet-core';
 import clsx from 'clsx';
 import { orderBy } from 'lodash-es';
 import { type FormEvent, Suspense, useMemo, useState, type FC } from 'react';

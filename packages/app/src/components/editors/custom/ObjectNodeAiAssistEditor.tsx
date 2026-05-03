@@ -6,7 +6,7 @@ import {
   type ObjectNodeData,
   coerceTypeOptional,
   type DataValue,
-} from '@ironclad/rivet-core';
+} from '@rivet2/rivet-core';
 import { toast } from 'react-toastify';
 import { AiAssistEditorBase } from './AiAssistEditorBase';
 

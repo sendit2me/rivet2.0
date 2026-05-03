@@ -1,5 +1,5 @@
 import { array } from '@recoiljs/refine';
-import { type GraphId, type Project, serializeProject } from '@ironclad/rivet-core';
+import { type GraphId, type Project, serializeProject } from '@rivet2/rivet-core';
 import {
   type PostTemplateBody,
   type PutTemplateVersionBody,

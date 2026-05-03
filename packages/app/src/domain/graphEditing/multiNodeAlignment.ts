@@ -1,4 +1,4 @@
-import type { NodeId } from '@ironclad/rivet-core';
+import type { NodeId } from '@rivet2/rivet-core';
 
 export type MultiNodeAlignmentAction =
   | 'align-left'

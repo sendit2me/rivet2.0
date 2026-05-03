@@ -1,4 +1,4 @@
-import { type DataValue } from '@ironclad/rivet-core';
+import { type DataValue } from '@rivet2/rivet-core';
 
 export function deriveLargeStoredValuePreviewFullText(restoredValue: DataValue | undefined): string | undefined {
   if (!restoredValue) {

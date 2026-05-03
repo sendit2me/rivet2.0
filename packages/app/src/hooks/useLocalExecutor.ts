@@ -12,7 +12,7 @@ import {
   logRuntimeDebug,
   logRuntimeError,
   logRuntimeInfo,
-} from '@ironclad/rivet-core';
+} from '@rivet2/rivet-core';
 import { produce } from 'immer';
 import { useRef } from 'react';
 import { toast } from 'react-toastify';
@@ -28,7 +28,7 @@ import { lastRecordingState, loadedRecordingState } from '../state/execution';
 import { fillMissingSettingsFromEnvironmentVariables } from '../utils/tauri';
 import { getLLMChatV2CustomProviderApiKeyEnvVarNames } from '../utils/chatV2CustomProviderEnv';
 import { trivetState } from '../state/trivet';
-import { runTrivet } from '@ironclad/trivet';
+import { runTrivet } from '@rivet2/trivet';
 import { entries } from '../utils/typeSafety';
 import { lastRunDataByNodeState } from '../state/dataFlow';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';

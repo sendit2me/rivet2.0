@@ -57,7 +57,7 @@ export const NoTestCasesSplash: FC<{
 }> = ({ onCreateNewTestCase }) => {
   const contentHtml = useMarkdown(content);
 
-  const viewDocumentation = useOpenUrl('https://rivet.ironcladapp.com/docs/trivet');
+  const viewDocumentation = useOpenUrl('https://github.com/valerypopoff/rivet2.0/docs/trivet');
 
   return (
     <div css={styles}>

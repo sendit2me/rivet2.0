@@ -1,4 +1,4 @@
-import { type DatasetId, type DatasetMetadata, type ProjectId } from '@ironclad/rivet-core';
+import { type DatasetId, type DatasetMetadata, type ProjectId } from '@rivet2/rivet-core';
 import { useEffect } from 'react';
 import { datasetsState } from '../state/dataStudio';
 import { useAtom } from 'jotai';

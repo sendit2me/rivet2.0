@@ -7,7 +7,11 @@
 - Build apps when deploying (develop + main branches)
 - Check how "Check for updates" button works
 
-- Eliminate @ironclad references
+
+- publish the libs on npm (make it a part of the build process when pushing to main)
+
+
+- Reassess rivet example project
 
 - Check the links that lead to the documentation
 

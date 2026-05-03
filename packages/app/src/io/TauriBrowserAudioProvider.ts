@@ -1,4 +1,4 @@
-import { type AudioDataValue, type AudioProvider } from '@ironclad/rivet-core';
+import { type AudioDataValue, type AudioProvider } from '@rivet2/rivet-core';
 
 export class TauriBrowserAudioProvider implements AudioProvider {
   async playAudio(audio: AudioDataValue, abort: AbortSignal): Promise<void> {

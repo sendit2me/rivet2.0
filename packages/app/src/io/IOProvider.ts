@@ -1,5 +1,5 @@
-import { type NodeGraph, type Project, type ExecutionRecorder } from '@ironclad/rivet-core';
-import { type TrivetData } from '@ironclad/trivet';
+import { type NodeGraph, type Project, type ExecutionRecorder } from '@rivet2/rivet-core';
+import { type TrivetData } from '@rivet2/trivet';
 
 /** Base IO interface - all platforms (browser, Tauri, web) support these methods. */
 export interface IOProvider {

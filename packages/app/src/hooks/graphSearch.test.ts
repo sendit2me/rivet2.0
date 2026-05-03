@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { ChartNode, GraphId, NodeGraph, NodeId } from '@ironclad/rivet-core';
+import type { ChartNode, GraphId, NodeGraph, NodeId } from '@rivet2/rivet-core';
 import {
   buildGraphSearchItems,
   buildProjectGraphSearchItems,

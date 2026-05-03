@@ -1,6 +1,6 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { deserializeProject, type GraphId, type Project, type ProjectId } from '@ironclad/rivet-core';
+import { deserializeProject, type GraphId, type Project, type ProjectId } from '@rivet2/rivet-core';
 import { serializeTemplateProject } from './communityTemplates.js';
 
 const graphAId = 'graph-a' as GraphId;

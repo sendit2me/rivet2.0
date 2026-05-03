@@ -1,4 +1,4 @@
-import { type ToggleEditorDefinition, type ChartNode } from '@ironclad/rivet-core';
+import { type ToggleEditorDefinition, type ChartNode } from '@rivet2/rivet-core';
 import { type FC } from 'react';
 import { type SharedEditorProps } from './SharedEditorProps';
 import { getHelperMessage } from './editorUtils';

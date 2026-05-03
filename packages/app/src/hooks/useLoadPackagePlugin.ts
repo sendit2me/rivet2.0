@@ -1,5 +1,5 @@
-import { type PackagePluginLoadSpec, type RivetPlugin } from '@ironclad/rivet-core';
-import * as Rivet from '@ironclad/rivet-core';
+import { type PackagePluginLoadSpec, type RivetPlugin } from '@rivet2/rivet-core';
+import * as Rivet from '@rivet2/rivet-core';
 import semverGt from 'semver/functions/gt';
 import { useState } from 'react';
 import {

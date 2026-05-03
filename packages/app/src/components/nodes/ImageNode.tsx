@@ -1,6 +1,6 @@
 import { type FC } from 'react';
 import { type NodeComponentDescriptor } from '../../hooks/useNodeTypes';
-import { type ImageNode } from '@ironclad/rivet-core';
+import { type ImageNode } from '@rivet2/rivet-core';
 import { css } from '@emotion/react';
 import { useAtomValue } from 'jotai';
 import { projectDataState } from '../../state/savedGraphs';

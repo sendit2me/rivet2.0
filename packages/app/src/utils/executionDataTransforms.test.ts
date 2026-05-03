@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { DataValue, Outputs, PortId } from '@ironclad/rivet-core';
+import type { DataValue, Outputs, PortId } from '@rivet2/rivet-core';
 import type { DataRefStore } from '../providers/ProvidersContext.js';
 import {
   clearExecutionDataRefs,

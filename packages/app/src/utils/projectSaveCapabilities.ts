@@ -1,5 +1,5 @@
-import { type Project } from '@ironclad/rivet-core';
-import { type TrivetData } from '@ironclad/trivet';
+import { type Project } from '@rivet2/rivet-core';
+import { type TrivetData } from '@rivet2/trivet';
 import { type IOProvider, isPathBasedIOProvider } from '../io/IOProvider.js';
 
 type ProjectSaveWithoutPromptProvider = IOProvider & {

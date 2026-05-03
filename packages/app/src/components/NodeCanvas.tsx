@@ -3,7 +3,7 @@ import { useMergeRefs } from '@floating-ui/react';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { produce } from 'immer';
 import { type FC, type MouseEvent, useEffect, useMemo, useState } from 'react';
-import { type ChartNode, type CommentNode, type NodeConnection, type NodeId } from '@ironclad/rivet-core';
+import { type ChartNode, type CommentNode, type NodeConnection, type NodeId } from '@rivet2/rivet-core';
 import { useDeleteNodesCommand } from '../commands/deleteNodeCommand';
 import { useEditNodeCommand } from '../commands/editNodeCommand';
 import { useCanvasHotkeys } from '../hooks/useCanvasHotkeys';

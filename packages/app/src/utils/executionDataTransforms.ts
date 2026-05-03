@@ -11,7 +11,7 @@ import {
   type Outputs,
   type PortId,
   type ScalarOrArrayDataValue,
-} from '@ironclad/rivet-core';
+} from '@rivet2/rivet-core';
 import { cloneDeep, mapValues } from 'lodash-es';
 import { P, match } from 'ts-pattern';
 import { entries } from './typeSafety.js';

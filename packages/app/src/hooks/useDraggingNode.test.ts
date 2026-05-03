@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { type ChartNode, type NodeId } from '@ironclad/rivet-core';
+import { type ChartNode, type NodeId } from '@rivet2/rivet-core';
 import {
   constrainDragDeltaToAxisLock,
   createDragDuplicatePreviewNodes,

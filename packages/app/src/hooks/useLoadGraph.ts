@@ -1,4 +1,4 @@
-import { type NodeGraph } from '@ironclad/rivet-core';
+import { type NodeGraph } from '@rivet2/rivet-core';
 import type { GraphViewContext } from '../domain/graphEditing/navigationActions.js';
 import { useStableCallback } from './useStableCallback.js';
 import { useWorkspaceTransitions } from './useWorkspaceTransitions.js';

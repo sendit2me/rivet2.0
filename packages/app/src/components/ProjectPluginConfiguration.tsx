@@ -5,7 +5,7 @@ import { projectPluginsState } from '../state/savedGraphs';
 import LightningIcon from 'majesticons/line/lightning-bolt-line.svg?react';
 import InfoIcon from 'majesticons/line/info-circle-line.svg?react';
 import { useToggle } from 'ahooks';
-import { type PluginLoadSpec } from '@ironclad/rivet-core';
+import { type PluginLoadSpec } from '@rivet2/rivet-core';
 import { css } from '@emotion/react';
 import { PluginInfoModal } from './PluginInfoModal';
 import { pluginsState } from '../state/plugins';

@@ -1,6 +1,6 @@
 import { atom } from 'jotai';
 import { atomWithDefault, atomWithStorage } from 'jotai/utils';
-import { DEFAULT_CHAT_NODE_TIMEOUT, type Settings } from '@ironclad/rivet-core';
+import { DEFAULT_CHAT_NODE_TIMEOUT, type Settings } from '@rivet2/rivet-core';
 import { isInTauri } from '../utils/tauri';
 import { createHybridStorage, memoryStorage } from './storage.js';
 

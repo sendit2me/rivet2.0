@@ -52,7 +52,7 @@ export const HelpModal: FC = () => {
                 engineering, and more!
               </p>
               <h2>
-                <a href="https://rivet.ironcladapp.com/docs" target="_blank" rel="noreferrer">
+                <a href="https://github.com/valerypopoff/rivet2.0/docs" target="_blank" rel="noreferrer">
                   <QuestionIcon /> Rivet Documentation
                 </a>
               </h2>
@@ -61,7 +61,7 @@ export const HelpModal: FC = () => {
                 node, and instructions for integrating Rivet into your own application.
               </p>
               <h2>
-                <a href="https://github.com/Ironclad/rivet/issues" target="_blank" rel="noreferrer">
+                <a href="https://github.com/valerypopoff/rivet2.0/issues" target="_blank" rel="noreferrer">
                   <GithubIcon viewBox="0 0 100 100" /> GitHub Issues
                 </a>
               </h2>

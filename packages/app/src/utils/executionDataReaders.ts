@@ -6,7 +6,7 @@ import {
   WarningsPort,
   coerceTypeOptional,
   getWarnings,
-} from '@ironclad/rivet-core';
+} from '@rivet2/rivet-core';
 import type { DataRefReader } from '../providers/ProvidersContext.js';
 import type { InputsOrOutputsWithRefs, NodeRunDataWithRefs } from '../state/dataFlow.js';
 import { restoreStoredInputsOrOutputs, tryRestoreStoredDataValue } from './executionDataTransforms.js';

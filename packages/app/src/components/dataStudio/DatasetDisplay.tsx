@@ -8,7 +8,7 @@ import {
   newId,
   getIntegration,
   type DatasetId,
-} from '@ironclad/rivet-core';
+} from '@rivet2/rivet-core';
 import { useState, type FC, useEffect } from 'react';
 import { useContextMenu } from '../../hooks/useContextMenu';
 import { useDataset } from '../../hooks/useDataset';

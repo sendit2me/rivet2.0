@@ -34,7 +34,7 @@ export const Header: React.FC = () => {
               </a>
             </li>
             <li className={styles.github}>
-              <a className={styles.navLink} href="https://github.com/Ironclad/rivet" target="_blank">
+              <a className={styles.navLink} href="https://github.com/valerypopoff/rivet2.0" target="_blank">
                 <GithubLogo viewBox="0 0 100 100" />
                 <span className={styles.menuText}>GitHub</span>
               </a>

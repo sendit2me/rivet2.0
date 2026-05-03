@@ -45,25 +45,6 @@
   margin-top: 60px;
 }
 
-.builtByIronclad.builtByIronclad {
-  margin-top: 40px;
-  font-size: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 8px 16px;
-}
-
-.builtByIroncladText {
-  display: block;
-}
-
-.ironcladLink {
-  display: block;
-  line-height: 1;
-}
-
 .scrollIcon {
   display: block;
   opacity: 0.5;

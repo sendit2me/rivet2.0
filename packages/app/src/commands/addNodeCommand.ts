@@ -1,7 +1,7 @@
 import { useAtomValue, useSetAtom } from 'jotai';
 import { useCommand } from './Command';
 import { nodesState } from '../state/graph';
-import { type NodeId } from '@ironclad/rivet-core';
+import { type NodeId } from '@rivet2/rivet-core';
 import { createAddedNode } from '../domain/graphEditing/nodeActions.js';
 import { useProjectNodeRegistry } from '../hooks/useProjectNodeRegistry';
 import { resolveEditorPreferences, settingsState } from '../state/settings.js';

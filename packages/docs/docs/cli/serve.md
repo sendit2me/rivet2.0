@@ -11,13 +11,13 @@ Serve a Rivet project using a local server.
 
 ```bash
 # Start server with default settings
-npx @ironclad/rivet-cli serve
+npx @rivet2/rivet-cli serve
 
 # Start server on custom port
-npx @ironclad/rivet-cli serve --port 8080
+npx @rivet2/rivet-cli serve --port 8080
 
 # Start server in development mode
-npx @ironclad/rivet-cli serve --dev
+npx @rivet2/rivet-cli serve --dev
 ```
 
 ## Description
@@ -34,13 +34,13 @@ The `serve` command starts a local HTTP server that hosts your Rivet project, al
 The basic usage will serve the project file in the current directory, using the default port of 3000:
 
 ```bash
-npx @ironclad/rivet-cli serve
+npx @rivet2/rivet-cli serve
 ```
 
 You can also specify a different project file or port:
 
 ```bash
-npx @ironclad/rivet-cli serve my-project.rivet-project --port 8080
+npx @rivet2/rivet-cli serve my-project.rivet-project --port 8080
 ```
 
 Once the server is running, you can make POST requests to the server to run graphs.

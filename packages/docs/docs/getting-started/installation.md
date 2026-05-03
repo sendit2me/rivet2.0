@@ -16,7 +16,7 @@
 
 ## Releases
 
-### [Latest Release on GitHub](https://github.com/Ironclad/rivet/releases/latest)
+### [Latest Release on GitHub](https://github.com/valerypopoff/rivet2.0/releases/latest)
 
 Download the latest release for your platform from the above link. Rivet is currently available for MacOS, Linux, and Windows.
 
@@ -35,8 +35,8 @@ To build and run Rivet from source, you will need:
 A [blobless clone](https://github.blog/2020-12-21-get-up-to-speed-with-partial-clone-and-shallow-clone/) is recommended to download the repository more quickly. After cloning the repository, install the dependencies with `yarn`:
 
 ```bash
-git clone --filter=blob:none git@github.com:Ironclad/rivet.git
-cd rivet
+git clone --filter=blob:none git@github.com:valerypopoff/rivet2.0.git
+cd rivet2.0
 yarn
 ```
 

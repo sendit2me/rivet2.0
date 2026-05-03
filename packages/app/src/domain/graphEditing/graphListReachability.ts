@@ -1,4 +1,4 @@
-import { type GraphId } from '@ironclad/rivet-core';
+import { type GraphId } from '@rivet2/rivet-core';
 import { type PluginState } from '../../state/plugins.js';
 import { type GraphReachabilityBucket, type GraphReachabilityReport } from '../../utils/graphReachability.js';
 

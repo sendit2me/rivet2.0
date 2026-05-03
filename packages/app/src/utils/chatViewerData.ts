@@ -9,7 +9,7 @@ import {
   type ProcessId,
   type Project,
   type ScalarOrArrayDataValue,
-} from '@ironclad/rivet-core';
+} from '@rivet2/rivet-core';
 import type { DataRefReader } from '../providers/ProvidersContext.js';
 import type { DataValueWithRefs, NodeRunDataWithRefs, ProcessDataForNode, RunDataByNodeId } from '../state/dataFlow.js';
 import { restoreStoredPortValue } from './executionDataReaders.js';

@@ -1,5 +1,5 @@
 import { type FC } from 'react';
-import { type PortId } from '@ironclad/rivet-core';
+import { type PortId } from '@rivet2/rivet-core';
 import { RenderDataValue, type OutputRenderMode } from '../RenderDataValue.js';
 import { type NodeComponentDescriptor } from '../../hooks/useNodeTypes.js';
 import { type InputsOrOutputsWithRefs } from '../../state/dataFlow';

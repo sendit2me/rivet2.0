@@ -1,4 +1,4 @@
-import { type DatasetNearestNeighborsNode } from '@ironclad/rivet-core';
+import { type DatasetNearestNeighborsNode } from '@rivet2/rivet-core';
 import { type NodeComponentDescriptor } from '../../hooks/useNodeTypes';
 import { type FC } from 'react';
 import { useDatasets } from '../../hooks/useDatasets';

@@ -2,7 +2,7 @@ import { type FC, useMemo, type MouseEvent, useState } from 'react';
 import Button from '@atlaskit/button';
 import clsx from 'clsx';
 import { css } from '@emotion/react';
-import { type TrivetTestCase, type TrivetTestCaseResult } from '@ironclad/trivet';
+import { type TrivetTestCase, type TrivetTestCaseResult } from '@rivet2/trivet';
 import { keyBy } from 'lodash-es';
 import { LoadingSpinner } from '../LoadingSpinner';
 import { useContextMenu } from '../../hooks/useContextMenu';

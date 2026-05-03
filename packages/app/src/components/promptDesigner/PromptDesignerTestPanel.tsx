@@ -2,7 +2,7 @@ import { type FC } from 'react';
 import { Field } from '@atlaskit/form';
 import TextField from '@atlaskit/textfield';
 import Button from '@atlaskit/button';
-import { type NodeTestGroup } from '@ironclad/rivet-core';
+import { type NodeTestGroup } from '@rivet2/rivet-core';
 import { PromptDesignerTestGroup } from './PromptDesignerComponents';
 import type { PromptDesignerState } from '../../state/promptDesigner';
 import type { SetStateAction } from 'jotai';

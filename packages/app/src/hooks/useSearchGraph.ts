@@ -1,6 +1,6 @@
 import { useAtom, useAtomValue } from 'jotai';
 import { useEffect, useMemo, useRef } from 'react';
-import type { ChartNode } from '@ironclad/rivet-core';
+import type { ChartNode } from '@rivet2/rivet-core';
 import { graphState } from '../state/graph';
 import { searchingGraphState } from '../state/graphBuilder';
 import { useNodeTypes } from './useNodeTypes';

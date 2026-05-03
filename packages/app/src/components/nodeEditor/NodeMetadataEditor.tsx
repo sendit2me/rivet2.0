@@ -2,7 +2,7 @@ import { type FC, useCallback, useEffect, useRef, useState } from 'react';
 import InlineEdit from '@atlaskit/inline-edit';
 import Textarea from '@atlaskit/textarea';
 import TextField from '@atlaskit/textfield';
-import { type ChartNode } from '@ironclad/rivet-core';
+import { type ChartNode } from '@rivet2/rivet-core';
 import { NodeColorPicker } from '../NodeColorPicker.js';
 
 const METADATA_AUTOSAVE_DEBOUNCE_MS = 300;

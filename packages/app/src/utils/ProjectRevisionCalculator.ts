@@ -1,4 +1,4 @@
-import { deserializeProject, type GraphId, type Project } from '@ironclad/rivet-core';
+import { deserializeProject, type GraphId, type Project } from '@rivet2/rivet-core';
 import isEqual from 'fast-deep-equal';
 import Emittery from 'emittery';
 import { deserializeProjectAsync } from './deserializeProject';

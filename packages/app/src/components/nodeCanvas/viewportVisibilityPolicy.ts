@@ -1,4 +1,4 @@
-import type { ChartNode, NodeId } from '@ironclad/rivet-core';
+import type { ChartNode, NodeId } from '@rivet2/rivet-core';
 
 export function getDraggingViewportNodeIds({
   draggedSourceNodeIds,

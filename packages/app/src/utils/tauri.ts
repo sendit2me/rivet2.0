@@ -1,4 +1,4 @@
-import { type RivetPlugin, type Settings, type StringPluginConfigurationSpec } from '@ironclad/rivet-core';
+import { type RivetPlugin, type Settings, type StringPluginConfigurationSpec } from '@rivet2/rivet-core';
 import { entries } from './typeSafety';
 import { invokeNative, isInTauri as detectTauri } from './platform/core.js';
 import type { EnvironmentProvider, PathPolicyProvider } from '../providers/ProvidersContext.js';
