@@ -142,7 +142,7 @@ A: No, it can also work with arrays and other JavaScript values that have proper
 
 **Q: Can I split the Extract Object Path Node in order to execute a command on an array of objects?**
 
-A: It is recommended to simply use the `*` operator and the `All Matches` output, but there can be cases where splitting the node is appropriate. For example with an array of objects that themselves contain arrays, and you want to extract all sub-arrays, you can either to `$[*].someArray` or split the node and use `$.someArray` on the split node.
+A: It is recommended to simply use the `*` operator and the `All Matches` output, but there can be cases where setting the node to [run many items](../user-guide/splitting.md) is appropriate. For example with an array of objects that themselves contain arrays, and you want to extract all sub-arrays, you can either use `$[*].someArray` or run the node many times and use `$.someArray` for each item.
 
 **Q: Can I use the Extract Object Path Node to extract data from a JSON object returned by an API?**
 

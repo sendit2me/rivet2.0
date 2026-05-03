@@ -1,5 +1,5 @@
 import { produce } from 'immer';
-import { type GraphId, emptyNodeGraph, type NodeGraph } from '@valerypopoff/rivet2-core';
+import { emptyNodeGraph, type NodeGraph } from '@valerypopoff/rivet2-core';
 import {
   createFoldersFromGraphs,
   getFolderNames,
@@ -127,8 +127,4 @@ export function createFolderedGraphs(graphs: NodeGraph[], folderNames: string[])
 
 export function preserveFolderNames(folderedGraphs: NodeGraphFolderItem[]): string[] {
   return getFolderNames(folderedGraphs);
-}
-
-export function findRunnableGraphId(savedGraphs: NodeGraph[], fullPath: string): GraphId | undefined {
-  return savedGraphs.find((graph) => graph.metadata?.name === fullPath)?.metadata?.id;
 }

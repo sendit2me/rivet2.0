@@ -38,7 +38,7 @@ Rivet also gives you live run data, node outputs, run history, and debugging vie
 
 Rivet projects can contain multiple graphs, datasets, plugin usage, and app-specific workflow settings. The graph tree, project sidebar, and workspace tools help you organize larger projects without leaving the app.
 
-See [working with projects](/user-guide/working-with-projects), [working with graphs](/user-guide/working-with-graphs), and [executing AI chains](/user-guide/executing-ai-chains).
+See [working with projects](/user-guide/working-with-projects), [working with graphs](/user-guide/working-with-graphs), and [executing workflows](/user-guide/executing-ai-chains).
 
 ### Use App Workspaces
 
@@ -54,6 +54,6 @@ See [Plugins](/user-guide/plugins) for more information.
 
 1. [Install Rivet](/getting-started/installation)
 2. [Set up providers and app settings](/getting-started/setup)
-3. [Build your first AI agent](/getting-started/first-ai-agent)
+3. [Build your first AI workflow](/getting-started/first-ai-agent)
 4. [Learn the interface](/user-guide/overview-of-interface)
 5. [Browse the node library](/node-reference)

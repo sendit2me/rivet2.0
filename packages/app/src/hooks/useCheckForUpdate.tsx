@@ -1,10 +1,12 @@
 import { toast } from 'react-toastify';
 import { css } from '@emotion/react';
-import { useAtom, useAtomValue, useSetAtom } from 'jotai';
-import { checkForUpdatesState, skippedMaxVersionState, updateModalOpenState } from '../state/settings';
+import { useAtom, useAtomValue } from 'jotai';
+import { checkForUpdatesState, skippedMaxVersionState } from '../state/settings';
 import { lte } from 'semver';
 import { isInTauri } from '../utils/platform/core.js';
 import { checkForAppUpdate } from '../utils/platform/updater.js';
+import { openExternalUrl } from '../utils/platform/shell.js';
+import { wrapAsync } from '../utils/errorHandling.js';
 
 const toastStyle = css`
   display: flex;
@@ -42,7 +44,6 @@ export function useCheckForUpdate({
   force = false,
   notifyErrors,
 }: { notifyNoUpdates?: boolean; force?: boolean; notifyErrors?: boolean } = {}) {
-  const setUpdateModalOpen = useSetAtom(updateModalOpenState);
   const checkForUpdates = useAtomValue(checkForUpdatesState);
   const [skippedMaxVersion, setSkippedMaxVersion] = useAtom(skippedMaxVersionState);
   const shouldNotifyErrors = notifyErrors ?? (notifyNoUpdates || force);
@@ -64,10 +65,13 @@ export function useCheckForUpdate({
       return;
     }
 
-    const { shouldUpdate, manifest } = updateResult;
+    const { shouldUpdate, manifest, unavailableReason } = updateResult;
 
     if (!manifest) {
-      console.log('No manifest found');
+      console.log(unavailableReason ?? 'No update manifest found');
+      if (notifyNoUpdates) {
+        toast.info(unavailableReason ?? 'Rivet is up to date!');
+      }
       return;
     }
 
@@ -83,10 +87,23 @@ export function useCheckForUpdate({
           <div css={toastStyle}>
             <div className="info">Rivet version {manifest?.version} is now available!</div>
             <div className="actions">
-              <button className="primary" onClick={() => setUpdateModalOpen(true)}>
-                Install
+              <button
+                className="primary"
+                onClick={wrapAsync(async () => {
+                  await openExternalUrl(manifest.downloadPageUrl);
+                  closeToast?.();
+                }, 'Open download page')}
+              >
+                Download
               </button>
-              <button onClick={() => setSkippedMaxVersion(manifest?.version)}>Skip</button>
+              <button
+                onClick={() => {
+                  setSkippedMaxVersion(manifest.version);
+                  closeToast?.();
+                }}
+              >
+                Skip
+              </button>
               <button onClick={() => closeToast?.()}>Not Now</button>
             </div>
           </div>

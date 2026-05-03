@@ -1,4 +1,3 @@
-import { atom } from 'jotai';
 import { atomWithDefault, atomWithStorage } from 'jotai/utils';
 import { DEFAULT_CHAT_NODE_TIMEOUT, type Settings } from '@valerypopoff/rivet2-core';
 import { isInTauri } from '../utils/tauri';
@@ -95,10 +94,6 @@ export const preservePortTextCaseState = atomWithStorage<boolean>('preservePortT
 export const checkForUpdatesState = atomWithStorage<boolean>('checkForUpdates', true, storage);
 
 export const skippedMaxVersionState = atomWithStorage<string | undefined>('skippedMaxVersion', undefined, storage);
-
-export const updateModalOpenState = atom<boolean>(false);
-
-export const updateStatusState = atom<string | undefined>(undefined);
 
 export const zoomSensitivityState = atomWithStorage<number>('zoomSensitivity', 0.25, storage);
 

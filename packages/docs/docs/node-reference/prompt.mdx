@@ -82,7 +82,7 @@ A useful pattern is to use the default message `{{input}}` to convert any text i
 ## Example 2: Convert an LLM response into an Assistant message
 
 1. Create a Prompt Node. Leave the content as the default `{{input}}`. Set the `Type` to `assistant`.
-2. Create a Chat Node and connect its `Output` to the `input` of the Prompt Node.
+2. Create an LLM Chat Node and connect its `Response` output to the `input` of the Prompt Node.
 3. Give the LLM a prompt text and run the graph. You should see the LLM response as an Assistant message in the Prompt Node.
 
 ![Prompt Node Example 2](./assets/prompt-node-example-02.png)
@@ -99,6 +99,6 @@ A: Yes, you can use the `Function Call` input to attach a function call to the c
 
 ## See Also
 
-- [Chat Node](./chat.mdx)
+- [LLM Chat Node](./llm-chat.mdx)
 - [Text Node](./text.mdx)
 - [GPT Function Node](./gpt-function.mdx)

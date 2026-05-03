@@ -67,11 +67,11 @@ If you do not have any capture groups in your regex, you can still use the `Matc
 
 ## Example 1: Extract a command from an LLM response
 
-1. Create a [Chat Node](./chat.mdx) and pass a [Prompt Node](./text.mdx) set to `System` into its `prompt` input, with something like the following:
+1. Create an [LLM Chat Node](./llm-chat.mdx) and pass a [Text Node](./text.mdx) into its `System Prompt` input, with something like the following:
    ```
    Your reply can initiate commands, for example `!hello` will cause "Hello world" to appear for the user. Try it out now!
    ```
-2. Feed the output of the Chat node into an Extract With Regex node with the following regular expression:
+2. Feed the `Response` output of the LLM Chat node into an Extract With Regex node with the following regular expression:
    ```
    !([a-zA-Z]+)
    ```

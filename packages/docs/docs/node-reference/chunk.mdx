@@ -11,7 +11,7 @@ import TabItem from '@theme/TabItem';
 
 The Chunk node is used to split a string into an array of strings based on a token count.
 
-Chunking a string is useful to avoid hitting token count limited in LLMs. You can split a string into multiple chunks and then feed each chunk into a separate Chat node, then combine the outputs of the chat nodes back together to effectively answer questions
+Chunking a string is useful to avoid hitting token count limits in LLMs. You can split a string into multiple chunks and then feed each chunk into an LLM Chat node that runs many items, then combine the outputs back together to answer questions
 about strings of text longer than the LLM can handle.
 
 The Chunk node can also be used to truncate a string to a certain token count, from the beginning or the end, by using the `first` or `last` outputs.
@@ -81,7 +81,7 @@ The chunk node has no notable error handling behavior. If the input is not a str
 
 ## See Also
 
-- [Splitting](../user-guide/splitting.md)
-- [Chat Node](./chat.mdx)
+- [Running Many Items](../user-guide/splitting.md)
+- [LLM Chat Node](./llm-chat.mdx)
 - [Text Node](./text.mdx)
 - [Trim Chat Messages Node](./trim-chat-messages.mdx)

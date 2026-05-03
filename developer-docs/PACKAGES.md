@@ -23,7 +23,7 @@ Shared runtime foundation for the entire repo.
 
 ### Package metadata
 
-- Version: `2.0.0`
+- Version: `2.0.1`
 - Main: `dist/cjs/bundle.cjs`
 - Module: `dist/esm/index.js`
 - Types: `dist/types/index.d.ts`
@@ -59,7 +59,7 @@ Node-native runtime wrapper around core.
 
 ### Package metadata
 
-- Version: `2.0.0`
+- Version: `2.0.1`
 - Main: `dist/cjs/bundle.cjs`
 - Module: `dist/esm/index.js`
 - Types: `dist/types/index.d.ts`
@@ -97,7 +97,7 @@ Desktop IDE frontend plus Tauri app packaging layer.
 
 ### Package metadata
 
-- Version: `2.0.0`
+- Version: `2.0.1`
 - Private: yes
 
 ### Runtime shape
@@ -133,13 +133,22 @@ Desktop IDE frontend plus Tauri app packaging layer.
 - The source mark is [`packages/app/src-tauri/icons/rivet-2-logo.svg`](../packages/app/src-tauri/icons/rivet-2-logo.svg). It is intentionally only the logo shape, with no colored underlay.
 - The no-project welcome screen imports [`packages/app/src/rivet-logo-1024-full.png`](../packages/app/src/rivet-logo-1024-full.png) directly. This asset is the white mark on transparent pixels because the welcome card is dark.
 - Desktop app and installer icons are generated assets under [`packages/app/src-tauri/icons/`](../packages/app/src-tauri/icons/) and are referenced from `tauri.conf.json` through the `tauri.bundle.icon` list. Keep the existing filenames when replacing them, including the Windows `Square*Logo.png` and `StoreLogo.png` assets. These standalone icon assets use the black mark on transparent pixels.
-- The documentation site uses [`packages/docs/static/img/logo.svg`](../packages/docs/static/img/logo.svg), [`packages/docs/static/img/favicon.png`](../packages/docs/static/img/favicon.png), [`packages/docs/static/img/social-card.png`](../packages/docs/static/img/social-card.png), and [`packages/docs/static/img/logo-banner-wide.png`](../packages/docs/static/img/logo-banner-wide.png). Docusaurus reads these through `packages/docs/docusaurus.config.js` and the docs landing/social-card pages.
+- The documentation site uses [`packages/docs/static/img/logo.svg`](../packages/docs/static/img/logo.svg), [`packages/docs/static/img/favicon.png`](../packages/docs/static/img/favicon.png), [`packages/docs/static/img/social-card.png`](../packages/docs/static/img/social-card.png), and [`packages/docs/static/img/logo-banner-wide.png`](../packages/docs/static/img/logo-banner-wide.png). Docusaurus reads these through `packages/docs/docusaurus.config.js`; the checked-in static images are the source of truth for social cards and banner images.
 - Documentation logo assets use the black mark by default. [`packages/docs/src/css/custom.css`](../packages/docs/src/css/custom.css) inverts `img/logo.svg` in dark mode so the logo is white on dark backgrounds without adding an underlay.
 - There is no single checked-in logo generator yet. When the Rivet 2 logo changes, update the app welcome image, regenerate/replace the Tauri icon set, and update the docs static images together so the desktop shell, installer, and documentation site stay visually aligned.
 
-### Version caveat
+### Desktop version metadata
 
-The desktop product version is also tracked in `packages/app/src-tauri/tauri.conf.json`, which currently reports `2.0`.
+The desktop app package version is the version developers should bump first.
+Tauri still reads `packages/app/src-tauri/tauri.conf.json` `package.version`
+when naming installer bundles, and the Rust package version is tracked in
+`packages/app/src-tauri/Cargo.toml` / `Cargo.lock`. Those secondary files are
+generated from `packages/app/package.json` by
+[`scripts/sync-desktop-version.mjs`](../scripts/sync-desktop-version.mjs).
+Run `yarn sync:desktop-version` after bumping the app package version if you
+want the generated metadata checked in. The release workflows and Tauri
+`prepare:tauri` path also run the sync automatically before building, so stale
+Tauri metadata cannot publish mis-versioned Windows filenames.
 
 ## `@valerypopoff/rivet-app-executor` (`packages/app-executor/`)
 
@@ -201,10 +210,11 @@ Operational CLI for running or serving Rivet graphs.
 
 ### Package metadata
 
-- Version: `2.0.0`
+- Version: `2.0.1`
 - Source entry: `src/cli.ts`
 - Published bin mapping: `rivet -> bin/cli.js`
 - Types: `dist/types/cli.d.ts`
+- TypeScript build input: `src/` only; `bin/` is generated output
 
 ### Commands
 
@@ -220,7 +230,7 @@ Implemented in `src/commands/run.ts`.
 Supports:
 
 - graph selection by name/ID
-- stdin JSON inputs
+- stdin JSON object inputs through `--inputs-stdin`
 - repeated `--input key=value`
 - repeated `--context key=value`
 - optional cost suppression
@@ -229,6 +239,7 @@ Internally:
 
 - resolves the project file
 - loads the project through `rivet-node`
+- parses command input through `src/commandInputs.ts`, which rejects non-object JSON, allows empty string values, and preserves `=` characters inside values
 - builds a processor
 - runs it
 - prints JSON outputs
@@ -247,7 +258,11 @@ Supports:
 - optional single-node streaming
 - OpenAI-related option overrides
 
-Architecturally, it is a thin HTTP wrapper around `rivet-node` processor creation and streaming helpers.
+Architecturally, it is a thin HTTP wrapper around `rivet-node` processor creation and streaming helpers. Request bodies are parsed through the same object-input helper as `run`, so empty bodies become `{}` and arrays/primitives are rejected before execution. Project-file lookup resolves relative paths to absolute paths, handles directory inputs, and uses platform path helpers for suggestions so Windows paths do not get split with POSIX-only separators. Graph validation also checks that a stored main graph ID actually exists before the server starts.
+
+### Docker image behavior
+
+The CLI Docker image entrypoint runs the globally installed `rivet` binary as `rivet serve /project`, so project files should be mounted at `/project` and the container does not need `npx` or package resolution at runtime. `docker-publish.sh` reads the package version from `packages/cli/package.json`, passes it into the Dockerfile as `RIVET_CLI_VERSION`, and tags both amd64 and arm64 images with that same version. Do not hardcode a separate package version in the Dockerfile.
 
 ## `@valerypopoff/trivet` (`packages/trivet/`)
 
@@ -257,7 +272,7 @@ Graph-oriented testing package.
 
 ### Package metadata
 
-- Version: `2.0.0`
+- Version: `2.0.1`
 - Main: `dist/cjs/bundle.cjs`
 - Module: `dist/esm/index.js`
 - Types: `dist/types/index.d.ts`
@@ -314,16 +329,21 @@ describe the current Rivet 2.0 surface:
 - Tutorial pages must use current app-facing labels rather than old internal names. In particular, the old `Splitting` tutorial URL is kept for link stability, but the visible tutorial is `Running Many Items` and should describe the current node run-mode control: `Run once`, `Many parallel runs`, and `Many sequential runs`
 - Tutorial pages for YAML and Subgraphs should stay as practical desktop-app walkthroughs, not placeholders. They should explain the current Extract YAML / To YAML and Graph Input / Graph Output / Subgraph node flows before sending readers to the node reference
 - API Reference pages under both core and node are source-backed reference pages, not empty stubs. Keep `GraphProcessor`, `DataValue`, `NodeGraph`, `Project`, `Settings`, `DebuggerEvents`, `LooseDataValue`, `RivetDebuggerServer`, and `RunGraphOptions` aligned with the current TypeScript definitions
-- public packages under `@valerypopoff`: `rivet2-core`, `rivet2-node`, and `rivet2-cli`
+- public packages under `@valerypopoff`: `rivet2-core`, `rivet2-node`, `trivet`, and `rivet2-cli`
 - app package names and root workspace scripts from the current manifests
 - LLM Chat as the recommended chat node for new graphs, with legacy Chat called out as legacy
+- Getting Started, User Guide, and Node Reference pages should teach `LLM Chat` as the default chat node for new workflows. Legacy `Chat` examples are acceptable only when the page is explicitly documenting old project/tutorial content or the legacy node itself
+- User-facing docs should use `Running Many Items`, `Run once`, `Many parallel runs`, and `Many sequential runs` for node run modes. The old `Splitting` URL may remain for link stability, but new prose should avoid presenting "Split node" as the current UI label
+- User-facing docs should say `workflow` / `Executing Workflows` for current graph execution concepts. The old `executing-ai-chains` URL may remain for link stability, but visible labels and prose should not present "AI chains" as the current product language
 - Browser, Node, and remote executor behavior, including hosted/internal executor URL seams
 - app-level plugin installation, derived project plugin YAML, missing-plugin install prompts, and read-only project-used plugin settings
 - Code-node runtime permissions, Node-only `require` / `process`, and configurable require-root behavior
 - HTTP Call and LLM Chat retry/status/error output contracts
 - wrapper/source-checkout guidance pointing to app host seams and generated built-package artifacts rather than stale npm names
-- GitHub Pages docs deployment at `/rivet2.0/`, with Docusaurus docs at the site root and a top-right `/download` page that reads official Windows release metadata generated by the main-branch workflow plus developer Windows release metadata generated by the develop-branch workflow
-- Docusaurus footer links limited to current Rivet 2 surfaces; do not re-add the old Community/Discord section or legacy YouTube link unless those destinations become current Rivet 2 support surfaces
+- GitHub Pages docs deployment at `/rivet2.0/`, with Docusaurus docs at the site root and a top-right `/download` page that reads stable Windows release metadata generated by the main-branch workflow plus developer Windows release metadata generated by the develop-branch workflow
+- `packages/docs/docusaurus.config.js` intentionally disables the Docusaurus pages plugin (`pages: false`). The published site root is the docs plugin's introduction page, not a custom `src/pages/index.tsx` landing page. Do not add a second landing shell unless the pages plugin is intentionally re-enabled and this contract is updated.
+- Docusaurus footer and header links should stay limited to current Rivet 2 surfaces; do not re-add the old Community/Discord section, legacy YouTube link, or old embedded demo/testimonial sections unless those destinations become current Rivet 2 support surfaces
+- Release-download actions should route to the site's `/download` page rather than direct GitHub release asset URLs, because the docs page owns the current stable/developer release channel presentation
 - article typography is tuned globally in `packages/docs/src/css/custom.css`; keep body text that follows a heading visually close to that heading while preserving the larger default gap between adjacent headings
 
 When those implementation contracts change, update `packages/docs/docs/` and
@@ -338,21 +358,21 @@ Current behavior:
 - refuses to run on a dirty git tree unless `--skip-clean-check` is passed
 - verifies the public package names and lockstep package versions
 - rejects non-semver versions and versions outside major `2`
-- validates built outputs for `@valerypopoff/rivet2-core`, `@valerypopoff/rivet2-node`, and `@valerypopoff/rivet2-cli`
+- validates built outputs for `@valerypopoff/rivet2-core`, `@valerypopoff/rivet2-node`, `@valerypopoff/trivet`, and `@valerypopoff/rivet2-cli`
 - stages clean npm package directories from built artifacts
 - rewrites internal `workspace:^` dependencies to the same public `^2.x` package version
 - skips package versions that already exist on npm
-- publishes only core, node, and cli under the `@valerypopoff` scope
+- publishes only core, node, Trivet, and cli under the `@valerypopoff` scope
 
-It does not publish `@valerypopoff/trivet`, the app, the app executor, or Docker
-images. The main-branch npm workflow is the canonical automation path for this
-script. That workflow verifies a clean checkout before installing dependencies,
-then verifies after the build that only Yarn install artifacts and generated
-publish artifacts changed. It then verifies the repository `NPM_TOKEN` secret
-with `npm whoami` before publishing. It calls this script with `--skip-clean-check` so
-ignored `.pnp.cjs`, `.yarn/cache`, `packages/core/dist`, `packages/node/dist`,
-`packages/cli/dist`, `packages/cli/bin`, and `packages/cli/tsconfig.tsbuildinfo`
-outputs do not block publishing.
+It does not publish the app, the app executor, or Docker images. The main-branch
+npm workflow is the canonical automation path for this script. That workflow
+verifies a clean checkout before installing dependencies, then verifies after
+the build that only Yarn install artifacts and generated publish artifacts
+changed. It then verifies the repository `NPM_TOKEN` secret with `npm whoami`
+before publishing. It calls this script with `--skip-clean-check` so ignored
+`.pnp.cjs`, `.yarn/cache`, `packages/core/dist`, `packages/node/dist`,
+`packages/trivet/dist`, `packages/cli/dist`, `packages/cli/bin`, and
+`packages/cli/tsconfig.tsbuildinfo` outputs do not block publishing.
 
 ## `publish-docs.mts`
 

@@ -49,6 +49,8 @@ Once the server is running, you can make POST requests to the server to run grap
 
 Inputs to graphs are provided via the request body of the HTTP request. The request body should be a JSON object with the input values.
 
+An empty request body is treated as `{}`. Non-object JSON values such as arrays, strings, numbers, booleans, and `null` are rejected before the graph runs.
+
 Input values should be provided as [Data Values](../user-guide/data-types.md), except for simple types like strings, numbers, and booleans.
 
 For example, for a graph with two inputs, `input1` (string) and `input2` (object),
@@ -96,13 +98,15 @@ Run the main graph in the project file. The request body should contain the inpu
 
 Outputs a JSON object with the output values of the graph.
 
-### `POST/:graphId`
+### `POST /:graphId`
 
 This is only enabled if the `--allow-specifying-graph-id` flag is used. This endpoint runs a specific graph in the project file.
 
 The request body should contain the input values as described above.
 
 Outputs a JSON object with the output values of the graph.
+
+The path graph is validated against the project on every request. In `--dev` mode, that validation uses the freshly reloaded project file.
 
 ## Options
 

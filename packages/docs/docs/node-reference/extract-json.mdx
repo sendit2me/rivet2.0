@@ -67,8 +67,8 @@ This node has no configurable editor settings.
    ```
    Please reply to this message with a JSON object.
    ```
-2. Create a [Chat Node](./chat.mdx), and connect the Text node to its `Prompt` input.
-3. Create an Extract JSON node, and connect the Chat node to its `Input` input.
+2. Create an [LLM Chat Node](./llm-chat.mdx), and connect the Text node to its `Prompt` input.
+3. Create an Extract JSON node, and connect the LLM Chat node's `Response` output to its `Input` input.
 4. Run the graph, and note that you see the JSON object that you replied with in the Extract JSON node's output. The `No Match` output is not ran, because there was a match.
 
 ![Extract JSON Example 1](./assets/extract-json-node-example-01.png)

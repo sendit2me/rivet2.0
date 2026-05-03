@@ -9,8 +9,9 @@ const octokit = new Octokit({
   auth: process.env.GITHUB_TOKEN,
 });
 
-const owner = 'ironclad';
-const repo = 'rivet';
+const [owner = 'valerypopoff', repo = 'rivet2.0'] = (process.env.GITHUB_REPOSITORY ?? 'valerypopoff/rivet2.0').split(
+  '/',
+);
 
 if (GITHUB_TOKEN == null || GITHUB_RELEASE_ID == null) {
   throw new Error('GITHUB_TOKEN and GITHUB_RELEASE_ID must be set');
@@ -38,11 +39,10 @@ for (const asset of assets) {
     });
     const assetData = assetResponse.data as Buffer;
 
-    let newFileName = file.replace(/_.*/, '') + '.' + file.split('.').pop();
+    let newFileName = `Rivet-2.${file.split('.').pop()}`;
 
-    if (newFileName === 'Rivet.exe') {
-      // good enough
-      newFileName = 'Rivet-Setup.exe';
+    if (/x64-setup\.exe$/i.test(file)) {
+      newFileName = 'Rivet-2-Setup.exe';
     }
 
     console.log(`Renamed ${file} to ${newFileName}`);

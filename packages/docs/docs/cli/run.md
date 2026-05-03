@@ -61,6 +61,14 @@ echo '{"input1": 5, "input2": 10}' | npx @valerypopoff/rivet2-cli run my-project
 
 This is useful for more complex input values, such as arrays or objects, as well as piping input values from other commands or scripts.
 
+Standard-input JSON must be an object. Arrays, strings, numbers, booleans, and `null` are rejected because Rivet graph inputs are keyed by input name.
+
+For `--input` and `--context`, the CLI splits on the first `=`. Empty string values are allowed, and additional `=` characters stay inside the value:
+
+```bash
+npx @valerypopoff/rivet2-cli run my-project.rivet-project --input query="name=Alice" --input optional=
+```
+
 ## Outputs
 
 The Rivet CLI outputs JSON data to standard output. Each Graph Output node in the graph will correspond to a key in the output JSON object.
@@ -74,7 +82,7 @@ For example, if a graph has two Graph Output Nodes, `output1` (a string) and `ou
   "output1": {
     "type": "string",
     "value": "Hello, World!"
-  }
+  },
   "output2": {
     "type": "number",
     "value": 42

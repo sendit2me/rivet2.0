@@ -27,8 +27,8 @@ rivet --help
 
 The Rivet CLI provides the following commands:
 
-- [`rivet run`](./cli/run.md) - Runs a rivet graph in a project using provided input values.
-- [`rivet serve`](./cli/serve.md) - Serves a rivet project using a local server.
+- [`rivet run`](./cli/run.md) - Runs a Rivet graph in a project using provided input values.
+- [`rivet serve`](./cli/serve.md) - Serves a Rivet project using a local server.
 
 See the documentation for each command for more information.
 
@@ -37,7 +37,7 @@ See the documentation for each command for more information.
 The Rivet CLI `serve` command is also available as a Docker image. You can run the Rivet server using Docker with the following command:
 
 ```bash
-docker run -p 3000:3000 -v $(pwd):/app valerypopoff/rivet-server
+docker run -p 3000:3000 -v $(pwd):/project valerypopoff/rivet-server
 ```
 
 See the [Docker page](./cli/docker) for more information.

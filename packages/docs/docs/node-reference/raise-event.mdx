@@ -73,12 +73,12 @@ In the Rivet application, there is a special event named `toast` which can show 
 
 ![Raise Event Node Example 1](./assets/raise-event-node-toast.png)
 
-## Example 2: Wait for an Chat call to finish before continuing another part of a graph
+## Example 2: Wait for an LLM call to finish before continuing another part of a graph
 
-1. Create a [Chat Node](./chat.mdx) and give it a prompt using a [Text Node](./text.mdx) such as "What is your name?".
-2. Create a Raise Event Node, set the Event Name to `chat`, and connect the `Response` output of the Chat Node to the `Data` input of the Raise Event Node.
+1. Create an [LLM Chat Node](./llm-chat.mdx) and give it a prompt using a [Text Node](./text.mdx) such as "What is your name?".
+2. Create a Raise Event Node, set the Event Name to `chat`, and connect the `Response` output of the LLM Chat Node to the `Data` input of the Raise Event Node.
 3. In a separate part of the graph, add a [Wait For Event Node](./wait-for-event.mdx) and set the Event Name to `chat`.
-4. Run the graph. Notice that the Wait For Event Node will not continue until the Chat Node has finished.
+4. Run the graph. Notice that the Wait For Event Node will not continue until the LLM Chat Node has finished.
 
 ![Raise Event Node Example 2](./assets/raise-event-node-example-02.png)
 

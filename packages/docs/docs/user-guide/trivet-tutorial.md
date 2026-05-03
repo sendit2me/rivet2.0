@@ -4,17 +4,17 @@ sidebar_label: Tutorial
 
 # Trivet - Tutorial
 
-Suppose that we want to test a simple graph that executes a call against GPT-3.5, but that names the assistant:
+Suppose that we want to test a simple graph that executes an LLM call, but that names the assistant:
 
-![Simple GPT-3.5 graph](assets/trivet-example-01.png)
+![Simple LLM graph](assets/trivet-example-01.png)
 
 Let's make a wrapper test graph, so that we don't need to pass the name of the assistant in every test case:
 
-![Simple GPT-3.5 wrapper graph](assets/trivet-example-02.png)
+![Simple LLM wrapper graph](assets/trivet-example-02.png)
 
 Next, let's make a validator graph. It must have `input`, `output`, and `expectedOutput` [Graph Input](../node-reference/graph-input) nodes, and they must all be of type Object. In this case, we will use all 3 input nodes.
 
-We extract the validation question from the `expectedOutput`, and the actual output from `output`, and the question from `input`. We then ask GPT if the validation passes. The following prompt is used for this example:
+We extract the validation question from the `expectedOutput`, and the actual output from `output`, and the question from `input`. We then ask an LLM if the validation passes. The following prompt is used for this example:
 
 ```markdown
 An AI was asked the following question:
@@ -50,7 +50,7 @@ You reply NO and explain why when validations do not pass.
 
 The full validation graph looks as follows:
 
-![Simple GPT-3.5 validation graph](assets/trivet-example-05.png)
+![Simple LLM validation graph](assets/trivet-example-05.png)
 
 Next, let's make a test suite for this graph. Open the `Trivet Tests` tab and create a new test suite with the following configuration:
 
@@ -60,7 +60,7 @@ Add a new test case with the following configuration:
 
 ![Trivet test case configuration](assets/trivet-example-04.png)
 
-Note that for the input, you are asking GPT to perform the validation on this output, instead of validating the output directly. This is a useful pattern because you can check many more things than you can check programmatically, such as the tone and grammar strings!
+Note that for the input, you are asking a model to perform the validation on this output, instead of validating the output directly. This is a useful pattern because you can check many more things than you can check programmatically, such as tone, grammar, and phrasing.
 
 Next, click the `Run Test Suite` button. You should see something like the following output appear in the test case editor:
 

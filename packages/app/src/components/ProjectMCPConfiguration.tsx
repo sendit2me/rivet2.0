@@ -55,7 +55,7 @@ export const ProjectMCPConfiguration: FC = () => {
     <Field name="mcp-config" label="MCP Configuration">
       {() => (
         <>
-          <div className="mcp-config-action">
+          <div className="project-info-action">
             <Button appearance="default" onClick={toggleModalOpen.setRight}>
               Edit MCP Configuration
             </Button>

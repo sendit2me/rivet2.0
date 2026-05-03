@@ -6,7 +6,6 @@ import {
   buildUniqueNewFolderPath,
   buildUntitledGraph,
   deleteFolderGraphs,
-  findRunnableGraphId,
   renameFolderItemInGraphs,
 } from './graphListActions';
 
@@ -48,11 +47,6 @@ test('deleteFolderGraphs also removes nested folder descendants', () => {
   const remaining = deleteFolderGraphs(graphs, 'folder');
 
   assert.deepEqual(remaining.map((graph) => graph.metadata?.id), ['g-2']);
-});
-
-test('findRunnableGraphId resolves a graph by full path', () => {
-  const graphs = [makeGraph('g-1', 'folder/One')];
-  assert.equal(findRunnableGraphId(graphs, 'folder/One'), 'g-1');
 });
 
 test('renameFolderItemInGraphs renames matching graph paths and folder names', () => {

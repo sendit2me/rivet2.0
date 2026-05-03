@@ -355,8 +355,13 @@ if (!currentGraphView || graphRuns.length <= 1) {
   return null; // No switcher needed
 }
 
-// Render prev/next buttons and "N / M" indicator
+// Render prev/next buttons and "Execution: N/M" indicator
 ```
+
+The control is fixed in the same top canvas row as the main run controls, uses
+the same scaled action height, and follows the graph-search panel's dark
+bordered surface style. Its stacking order stays below graph search so an open
+search panel always wins when the two overlays occupy the same row.
 
 The run switcher updates `selectedGraphRunByViewState[currentGraphView.key]`:
 

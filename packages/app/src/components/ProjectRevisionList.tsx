@@ -19,7 +19,7 @@ export const ProjectRevisions: FC = () => {
   const hasRevisions = useHasGitHistory();
 
   if (!projectState.loaded || !projectState.path || !hasRevisions) {
-    return <div>No git history</div>;
+    return <div>No Git history for this project file</div>;
   }
 
   if (!enabled) {
