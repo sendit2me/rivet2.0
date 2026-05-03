@@ -218,6 +218,7 @@ Plugin availability is app-level, while project YAML plugin specs are derived fr
 - registry state is explicit and app-installed, not project-installed
 - editor behavior that depends on node constructors must tolerate registry refreshes
 - the app and sidecar share the same `assembleRegistry()` helper, keeping registry construction logic in one place
+- built-in plugin lookup stays in `plugins.ts` via `resolveBuiltInPlugin(id)`, while `RegistryAssembly.ts` stays independent of the plugin catalogue to avoid import cycles through plugins that depend on execution APIs
 - the app normalizes wrapped default exports for external plugin modules before invoking the initializer, so editor-side loading matches sidecar/runtime behavior for mixed CJS/ESM plugins
 - the generation guard is now part of the app-side contract: older async plugin loads must never replace newer plugin state or the active editor registry
 
@@ -274,7 +275,7 @@ Related runtime assumptions appear in multiple places:
 `packages/app-executor/bin/executor.mts` uses `assembleRegistry(specs, loadPlugin)` from core's `RegistryAssembly.ts` to build a fresh registry for each graph run:
 
 - the `assembleRegistry()` call creates a built-in registry and loads each plugin spec via a callback
-- built-in plugins are resolved through `resolveBuiltInPlugin(id)`
+- built-in plugins are resolved through `resolveBuiltInPlugin(id)` from the core plugin catalogue
 - URI and package plugins are dynamically imported through `importPluginInitializer(specifier, pluginId)`, a local helper that normalizes CJS/ESM default-export wrapping
 - package plugins are loaded from the already-installed package files in the app-data plugin directory, using `pathToFileURL(mainPath)` so Windows file URLs are constructed correctly
 - the assembled registry is passed directly to `createProcessor()` without mutating the global

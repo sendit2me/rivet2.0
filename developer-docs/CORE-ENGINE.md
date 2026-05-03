@@ -271,14 +271,15 @@ Key APIs:
 
 ### Registry Assembly
 
-[`RegistryAssembly.ts`](../packages/core/src/model/RegistryAssembly.ts) encapsulates the full registry lifecycle:
+[`RegistryAssembly.ts`](../packages/core/src/model/RegistryAssembly.ts) encapsulates the registry assembly lifecycle:
 
 - `createBuiltInRegistry()` - creates a fresh registry populated with all built-in nodes
-- `resolveBuiltInPlugin(id)` - resolves a built-in plugin by ID from `plugins.ts`
 - `registerPluginsIntoRegistry(registry, plugins)` - registers an array of plugins into an existing registry
 - `assembleRegistry(specs, loadPlugin)` - end-to-end helper: creates a built-in registry, then loads and registers plugin specs one by one so per-plugin load/registration failures are recorded without aborting the whole assembly
 
 The app uses `assembleRegistry()` to rebuild `projectNodeRegistryState` from app-installed plugin specs. The sidecar (`app-executor`) uses the same helper for each uploaded project's YAML plugin specs and passes the result directly to `createProcessor()` without touching app state.
+
+Built-in plugin resolution stays with the plugin catalogue in [`plugins.ts`](../packages/core/src/plugins.ts) through `resolveBuiltInPlugin(id)`. `RegistryAssembly.ts` deliberately does not import that catalogue; keeping registry assembly plugin-catalogue-free avoids cycles through plugins that need execution engine APIs, such as Gentrace.
 
 Architectural significance:
 
@@ -290,6 +291,8 @@ Architectural significance:
 ## Built-In Plugins
 
 Built-in plugins are exported from [`packages/core/src/plugins.ts`](../packages/core/src/plugins.ts).
+
+`resolveBuiltInPlugin(id)` resolves one of these catalogue entries for app/executor loading paths and throws for unknown ids.
 
 Current built-in plugin families present in the repo:
 

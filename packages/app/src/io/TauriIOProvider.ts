@@ -8,7 +8,7 @@ import {
   serializeProject,
 } from '@ironclad/rivet-core';
 import { type PathBasedIOProvider } from './IOProvider.js';
-import { isInTauri } from '../utils/tauri.js';
+import { getDefaultPathPolicyProvider, isInTauri } from '../utils/tauri.js';
 import {
   type SerializedTrivetData,
   type TrivetData,
@@ -16,11 +16,9 @@ import {
   serializeTrivetData,
 } from '@ironclad/trivet';
 import { saveDatasetsFile, loadDatasetsFile } from './datasets.js';
-import { type AppDatasetProvider } from '../providers/ProvidersContext.js';
-import type { PathPolicyProvider } from '../providers/ProvidersContext.js';
+import { type AppDatasetProvider, type PathPolicyProvider } from '../providers/ProvidersContext.js';
 import { openDialog, saveDialog } from '../utils/platform/dialog.js';
 import { nativeReadBinaryFile, nativeReadTextFile, nativeWriteFile } from '../utils/platform/fs.js';
-import { getDefaultPathPolicyProvider } from '../utils/tauri.js';
 
 export class TauriIOProvider implements PathBasedIOProvider {
   readonly #datasetProvider: AppDatasetProvider;

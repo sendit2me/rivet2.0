@@ -437,6 +437,7 @@ export const NavigationBar: FC = () => {
     searching.focusRequestId,
     searching.panelOpen,
     searching.query,
+    searching.resultsScrollTop,
     searching.searching,
   ]);
 

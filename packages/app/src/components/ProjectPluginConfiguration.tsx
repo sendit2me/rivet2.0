@@ -95,7 +95,7 @@ export const ProjectPluginsConfiguration: FC = () => {
       </div>
       <div className="helper">
         <HelperMessage>
-          A plugin is listed here when one of its nodes exists in a project graph. Remove all of that plugin's nodes to
+          A plugin is listed here when one of its nodes exists in a project graph. Remove all nodes from that plugin to
           remove it from this project.
         </HelperMessage>
       </div>

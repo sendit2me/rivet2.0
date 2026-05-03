@@ -1204,11 +1204,11 @@ Current sequence:
 
 Supported load paths (inside the `loadPlugin` callback):
 
-- built-in plugin via `resolveBuiltInPlugin(id)` from `RegistryAssembly.ts`
+- built-in plugin via `resolveBuiltInPlugin(id)` from the core plugin catalogue
 - URI plugin via dynamic import, with initializer resolution that tolerates wrapped `default` exports from CJS/ESM interop
 - package plugin via `useLoadPackagePlugin`, using the same initializer-resolution behavior after loading the installed module
 
-This matters for refactors because node availability in the editor is rebuilt from app-installed plugin specs, while project YAML plugin specs are derived later from node usage. The generation guard is part of the behavioral contract now: plugin retries or rapid app-plugin changes must not let an older async load pass replace newer plugin state or the active editor registry. The `assembleRegistry()` helper is shared with the sidecar, so registry construction logic stays in one place.
+This matters for refactors because node availability in the editor is rebuilt from app-installed plugin specs, while project YAML plugin specs are derived later from node usage. The generation guard is part of the behavioral contract now: plugin retries or rapid app-plugin changes must not let an older async load pass replace newer plugin state or the active editor registry. The `assembleRegistry()` helper is shared with the sidecar, so registry construction logic stays in one place. Keep `RegistryAssembly.ts` independent from the built-in plugin catalogue; plugins such as Gentrace depend on execution APIs, so importing the catalogue from registry assembly reintroduces import cycles.
 
 ### Project plugin derivation
 

@@ -1,7 +1,6 @@
 import { type Project, deserializeDatasets, serializeDatasets } from '@ironclad/rivet-core';
 import { allowDataFileNeighbor } from '../utils/tauri.js';
-import { type AppDatasetProvider } from '../providers/ProvidersContext.js';
-import type { PathPolicyProvider } from '../providers/ProvidersContext.js';
+import { type AppDatasetProvider, type PathPolicyProvider } from '../providers/ProvidersContext.js';
 import { nativeExists, nativeReadTextFile, nativeWriteFile } from '../utils/platform/fs.js';
 
 export async function saveDatasetsFile(
