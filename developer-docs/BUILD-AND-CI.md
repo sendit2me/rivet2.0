@@ -237,14 +237,16 @@ The CLI Dockerfile installs the published CLI package by explicit version (`@iro
 
 ## CI Workflows
 
-Workflows live under [`_.github/workflows/`](../_.github/workflows/).
+Workflows live under [`.github/workflows/`](../.github/workflows/).
 
 ## `build.yml`
 
 ### Trigger conditions
 
-- all pushes
-- all pull requests
+- pushes to `develop`
+- pull requests targeting `develop`
+
+This general build workflow is also develop-only for now. It should not be widened to `main` until main-branch CI/release behavior is deliberately introduced.
 
 ### Current behavior
 
@@ -306,6 +308,44 @@ Current workflow references:
 - `TAURI_PRIVATE_KEY`
 - `TAURI_KEY_PASSWORD`
 - Apple signing/notarization-related secrets
+
+## `developer-windows-release.yml`
+
+### Trigger conditions
+
+- pushes to `develop`
+- manual `workflow_dispatch` runs, guarded so jobs only execute when the selected ref is `develop`
+
+This workflow is intentionally develop-only. It does not run for `main`, and it should stay separate from the production tag-driven desktop release flow until main-branch release publishing is explicitly added.
+
+### Current behavior
+
+The workflow has two jobs:
+
+1. `build-windows` runs on `windows-latest`, checks out the repo, sets up Node `20.4.x`, installs Rust stable, runs `yarn --immutable`, runs the root `yarn build`, then runs `yarn tauri build --verbose` from `packages/app`.
+2. `publish-pages` runs on `ubuntu-latest`, downloads the generated static page artifact, uploads it as a GitHub Pages artifact, and deploys it with `actions/deploy-pages`.
+
+The Windows build job uses [`.github/scripts/prepare-developer-windows-pages.mjs`](../.github/scripts/prepare-developer-windows-pages.mjs) to collect files from `packages/app/src-tauri/target/release/bundle`, copy original installer/updater artifacts under `downloads/original/`, create stable download aliases, and generate:
+
+- `index.html`
+- `developer-release.json`
+- `downloads/Rivet-Developer-Windows-Setup.exe` when an NSIS setup executable is present
+- `downloads/Rivet-Developer-Windows.msi` when an MSI installer is present
+
+The generated Pages site represents the latest successful developer Windows release from `develop`. Each new successful run replaces the previous Pages deployment.
+
+### Pages requirements
+
+The repository's GitHub Pages source must be configured for GitHub Actions deployments. If the repository is still configured to serve a branch directly, this workflow can build the Windows artifacts but the Pages deployment step will not become the active Pages site until the repository setting is changed.
+
+### Secrets/environment
+
+The Tauri build step passes:
+
+- `TAURI_PRIVATE_KEY`
+- `TAURI_KEY_PASSWORD`
+
+Those are needed for the current updater-enabled Tauri packaging contract, matching the existing desktop release workflow. The developer Pages workflow does not use Apple signing secrets because it only builds Windows.
 
 ## `rename-release-assets.yml`
 

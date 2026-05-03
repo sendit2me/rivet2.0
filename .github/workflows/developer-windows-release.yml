@@ -1,0 +1,86 @@
+name: Developer Windows Release
+
+on:
+  push:
+    branches:
+      - develop
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: developer-windows-release-pages
+  cancel-in-progress: true
+
+jobs:
+  build-windows:
+    if: github.ref == 'refs/heads/develop'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.4.x'
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install dependencies
+        run: yarn --immutable
+
+      - name: Build Rivet
+        run: yarn build
+        env:
+          NODE_OPTIONS: --max-old-space-size=6000
+
+      - name: Build Tauri Windows bundle
+        working-directory: packages/app
+        run: yarn tauri build --verbose
+        env:
+          NODE_OPTIONS: --max-old-space-size=6000
+          TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+
+      - name: Prepare Pages content
+        run: node .github/scripts/prepare-developer-windows-pages.mjs
+        env:
+          DEVELOPER_RELEASE_LABEL: develop-${{ github.run_number }}-${{ github.sha }}
+          PAGES_OUT_DIR: developer-release-pages
+          SOURCE_BUNDLE_DIR: packages/app/src-tauri/target/release/bundle
+
+      - name: Upload Pages content
+        uses: actions/upload-artifact@v4
+        with:
+          name: developer-windows-pages
+          path: developer-release-pages
+          if-no-files-found: error
+          retention-days: 7
+
+  publish-pages:
+    if: github.ref == 'refs/heads/develop'
+    needs: build-windows
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Download Pages content
+        uses: actions/download-artifact@v4
+        with:
+          name: developer-windows-pages
+          path: developer-release-pages
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: developer-release-pages
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
