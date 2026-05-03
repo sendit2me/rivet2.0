@@ -164,6 +164,14 @@ const styles = css`
     border-bottom: 1px solid var(--grey);
   }
 
+  .test-empty-state {
+    padding: 16px 20px;
+    color: var(--grey-lightest);
+    font-size: var(--ui-font-size-sm);
+    line-height: 1.4;
+    border-bottom: 1px solid var(--grey);
+  }
+
   .test-group {
     border-bottom: 1px solid var(--grey);
     padding: 10px;
@@ -275,7 +283,7 @@ export type PromptDesignerProps = {
 export const PromptDesigner: FC<PromptDesignerProps> = ({ onClose }) => {
   const { messages, setMessages, messageChanged, deleteMessage, addMessage } = usePromptDesignerMessages();
   const [promptDesigner, setPromptDesigner] = useAtom(promptDesignerState);
-  const { config, setConfig, testGroups, addTestGroup, deleteTestGroup, testGroupChanged } =
+  const { attachedNode, config, setConfig, testGroups, addTestGroup, deleteTestGroup, testGroupChanged } =
     usePromptDesignerAttachedNode({
       setMessages,
     });
@@ -320,6 +328,7 @@ export const PromptDesigner: FC<PromptDesignerProps> = ({ onClose }) => {
             <TabPanel>
               <PromptDesignerTestPanel
                 testGroups={testGroups}
+                canEditTestGroups={attachedNode != null}
                 promptDesigner={promptDesigner}
                 setPromptDesigner={setPromptDesigner}
                 onTestGroupChanged={testGroupChanged}

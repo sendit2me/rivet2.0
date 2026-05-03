@@ -10,6 +10,7 @@ import { wrapAsync } from '../../utils/errorHandling';
 
 export type PromptDesignerTestPanelProps = {
   testGroups: NodeTestGroup[];
+  canEditTestGroups: boolean;
   promptDesigner: PromptDesignerState;
   setPromptDesigner: (update: SetStateAction<PromptDesignerState>) => void;
   onTestGroupChanged: (newTestGroup: NodeTestGroup, index: number) => void;
@@ -22,6 +23,7 @@ export type PromptDesignerTestPanelProps = {
 
 export const PromptDesignerTestPanel: FC<PromptDesignerTestPanelProps> = ({
   testGroups,
+  canEditTestGroups,
   promptDesigner,
   setPromptDesigner,
   onTestGroupChanged,
@@ -55,6 +57,12 @@ export const PromptDesignerTestPanel: FC<PromptDesignerTestPanelProps> = ({
           </Field>
         </div>
         <div className="test-list">
+          {!canEditTestGroups && (
+            <div className="test-empty-state">
+              Test groups are saved on a Chat node. Open Prompt Designer from a Chat node output to add and edit test
+              groups for that node.
+            </div>
+          )}
           {testGroups.map((testGroup, index) => (
             <PromptDesignerTestGroup
               testGroup={testGroup}
@@ -66,7 +74,7 @@ export const PromptDesignerTestPanel: FC<PromptDesignerTestPanelProps> = ({
               onCancel={onCancel}
             />
           ))}
-          <Button className="add-test" appearance="subtle-link" onClick={onAddTestGroup}>
+          <Button className="add-test" appearance="subtle-link" onClick={onAddTestGroup} isDisabled={!canEditTestGroups}>
             Add Test Group
           </Button>
         </div>

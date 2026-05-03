@@ -166,7 +166,7 @@ export const GraphBuilder: FC = () => {
         />
         {loadedRecording && <div className="recording-border" />}
         {isReadOnly && <div className="read-only-border" />}
-        <NodeEditorRenderer />
+        {overlay === undefined && <NodeEditorRenderer />}
         {firstNodeQuestions && firstNodeQuestions.length > 0 && (
           <Button onClick={handleOpenUserInputModal} className="user-input-modal-open" appearance="primary">
             User Input Needed

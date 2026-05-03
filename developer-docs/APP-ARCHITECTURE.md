@@ -284,6 +284,7 @@ Current responsibilities:
 - host user-input modal behavior
 - show read-only or recording borders
 - host secondary canvas-adjacent UI like navigation bar and graph execution selector
+- render the node settings panel only in Canvas mode. `NodeEditorRenderer` should stay gated behind `overlayOpenState === undefined` so selecting Prompt Designer, Trivet, Chat Viewer, Data Studio, Community, or another auxiliary workspace cannot leave node settings floating over that workspace.
 
 Notable detail: user-input flow is not owned by the executor hooks alone. `GraphBuilder` also participates by reading `userInputModalQuestionsState`, showing the modal, and passing results back through `submitUserInputAnswers(...)`.
 The AI graph-builder path now also depends on extracted plain helpers in [`packages/app/src/hooks/aiGraphBuilderHelpers.ts`](../packages/app/src/hooks/aiGraphBuilderHelpers.ts); those helpers must resolve port connectivity relative to the requested node, not just by shared port ids like `input` or `output`, or graph review/edit operations can report the wrong edges.
@@ -639,6 +640,7 @@ Current architectural detail:
 - attached-node syncing, config hydration, and test-group mutation logic live in [`packages/app/src/components/promptDesigner/usePromptDesignerAttachedNode.ts`](../packages/app/src/components/promptDesigner/usePromptDesignerAttachedNode.ts)
 - ad-hoc run/test orchestration and abort handling live in [`packages/app/src/components/promptDesigner/usePromptDesignerRunActions.ts`](../packages/app/src/components/promptDesigner/usePromptDesignerRunActions.ts)
 - the left and center panes are rendered through [`packages/app/src/components/promptDesigner/PromptDesignerMessageList.tsx`](../packages/app/src/components/promptDesigner/PromptDesignerMessageList.tsx) and [`packages/app/src/components/promptDesigner/PromptDesignerResponsePane.tsx`](../packages/app/src/components/promptDesigner/PromptDesignerResponsePane.tsx)
+- the Test tab edits `NodeTestGroup[]` on the attached Chat node only. When Prompt Designer is opened as a standalone workspace without an attached node, `PromptDesignerTestPanel` shows an explanatory empty state and disables `Add Test Group` rather than presenting a button that cannot mutate anything.
 
 This keeps prompt-designer overlay composition separate from chat-node syncing and run/test execution state, which makes future changes easier to localize.
 
