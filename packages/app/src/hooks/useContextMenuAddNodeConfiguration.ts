@@ -1,4 +1,4 @@
-import { type BuiltInNodeType, type NodeUIData } from '@ironclad/rivet-core';
+import { type BuiltInNodeType, type NodeUIData } from '@valerypopoff/rivet2-core';
 import { type ContextMenuItem } from './useContextMenuConfiguration';
 import { useMemo, useState } from 'react';
 import { useBuiltInNodeImages } from './useBuiltInNodeImages';

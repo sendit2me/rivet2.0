@@ -1,4 +1,4 @@
-import { type NodeOfType, type BuiltInNodeType, type ChartNode } from '@ironclad/rivet-core';
+import { type NodeOfType, type BuiltInNodeType, type ChartNode } from '@valerypopoff/rivet2-core';
 import { type FC, useMemo } from 'react';
 import { chatNodeDescriptor } from '../components/nodes/ChatNode.js';
 import { loopControllerNodeDescriptor } from '../components/nodes/LoopControllerNode.js';

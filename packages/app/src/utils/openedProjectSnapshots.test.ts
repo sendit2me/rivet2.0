@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { type GraphId, type NodeGraph, type Project, type ProjectId } from '@ironclad/rivet-core';
+import { type GraphId, type NodeGraph, type Project, type ProjectId } from '@valerypopoff/rivet2-core';
 import { buildOpenedProjectSnapshot } from './openedProjectSnapshots.js';
 
 function makeGraph(id: string, name: string, nodes: NodeGraph['nodes'] = []): NodeGraph {

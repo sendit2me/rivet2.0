@@ -7,7 +7,7 @@ import {
   uint8ArrayToBase64,
   type DataRef,
   type FilePathBrowserEditorDefinition,
-} from '@ironclad/rivet-core';
+} from '@valerypopoff/rivet2-core';
 import { nanoid } from 'nanoid/non-secure';
 import prettyBytes from 'pretty-bytes';
 import { type FC } from 'react';

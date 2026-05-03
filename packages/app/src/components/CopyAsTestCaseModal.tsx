@@ -1,11 +1,11 @@
-import Modal, { ModalTransition, ModalBody, ModalHeader, ModalFooter, ModalTitle } from '@atlaskit/modal-dialog';
+import Modal, { ModalTransition, ModalBody, ModalFooter } from '@atlaskit/modal-dialog';
 import { type FC, useState } from 'react';
 import Select from '@atlaskit/select';
 import { LazyCodeEditor } from './LazyComponents';
 import { useAtomValue, useAtom, useSetAtom } from 'jotai';
 import { lastRunDataByNodeState } from '../state/dataFlow';
 import { graphState } from '../state/graph';
-import { type BuiltInNodes, type GraphInputNode, type PortId } from '@ironclad/rivet-core';
+import { type BuiltInNodes, type GraphInputNode, type PortId } from '@valerypopoff/rivet2-core';
 import { max, range } from 'lodash-es';
 import { Label } from '@atlaskit/form';
 import { css } from '@emotion/react';
@@ -15,6 +15,7 @@ import Button from '@atlaskit/button';
 import { overlayOpenState } from '../state/ui';
 import { useDataRefs } from '../providers/ProvidersContext.js';
 import { restoreStoredPortValue } from '../utils/executionDataReaders.js';
+import { AppModalHeader } from './AppModalHeader';
 
 const body = css`
   min-height: 500px;
@@ -107,9 +108,7 @@ export const CopyAsTestCaseModal: FC<{
     <ModalTransition>
       {open && (
         <Modal onClose={onClose} width="large">
-          <ModalHeader>
-            <ModalTitle>Copy as Test Case</ModalTitle>
-          </ModalHeader>
+          <AppModalHeader title="Copy as Test Case" />
           <ModalBody>
             {numExecutions === 0 ? (
               <p>Could not find any graph input nodes that have executed.</p>

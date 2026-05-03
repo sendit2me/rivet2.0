@@ -574,8 +574,8 @@ the desktop app.
 `executor.internalExecutorUrl` is also a UI/session classification contract. A
 hosted executor URL connected through `connectInternal(...)` is treated as the
 active internal Node executor, so manual remote-debugger disconnect restores that
-session and the ActionBar keeps Node-mode run controls disabled only while the
-internal executor is genuinely connecting. External remote debuggers should
+session and the ActionBar keeps Node-mode run controls in an explicit disabled loading
+state only while the internal executor is genuinely connecting. External remote debuggers should
 continue to use the public `connect(...)` path.
 
 The app-executor sidecar treats graph failures as request-scoped execution
@@ -586,9 +586,11 @@ from the debugger server, and keeps the websocket connection alive. The app can
 then clear `graphRunningState` through the normal remote event dispatcher
 without forcing the user to reconnect the Node executor.
 The ActionBar intentionally keeps Node-mode Run controls rendered while the
-internal sidecar is connecting or reconnecting; readiness only disables the
-button, it must not collapse the control and make a handled node failure look
-like the executor UI disappeared.
+internal sidecar is starting, connecting, or reconnecting; readiness only moves
+the button into a disabled loading state that keeps its normal text and swaps
+the action glyph for the same ring indicator used by running node headers, it
+must not collapse the control or make a handled node failure look like the
+executor UI disappeared.
 The app logs the internal Node executor lifecycle at the sidecar/session seam.
 Sidecar spawn, readiness marker vs timeout fallback, socket close/reconnect
 scheduling, disconnect requests, and skipped run attempts are runtime debug logs
@@ -610,7 +612,7 @@ The desktop app's internal Node sidecar also uses an app-executor-only
 worker-backed `CodeRunner` for most Code-node JavaScript. That keeps the sidecar
 event loop free to process independent nodes and emit their `nodeFinish` events
 while an unrelated synchronous Code node is still running. This does not change
-the public `@ironclad/rivet-node` default runner, and Code nodes that request the
+the public `@valerypopoff/rivet2-node` default runner, and Code nodes that request the
 `Rivet` capability may still run on the sidecar's current thread for
 compatibility.
 
@@ -625,7 +627,7 @@ Code-node `require()` resolution has a stable hosted-runtime seam. Public
 process working directory, but `RIVET_CODE_RUNNER_REQUIRE_ROOT` can point them at
 a runtime-library directory and `RIVET_CODE_RUNNER_REQUIRE_ANCHOR` can provide a
 fully custom `.cjs` anchor path. This keeps hosted wrappers from patching runner
-source while preserving the programmatic default for normal `@ironclad/rivet-node`
+source while preserving the programmatic default for normal `@valerypopoff/rivet2-node`
 callers.
 For app-executor hosted runtimes, a bootstrap layer may also install
 `globalThis.__RIVET_PREPARE_RUNTIME_LIBRARIES__`. The worker runner invokes that

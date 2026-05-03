@@ -2,7 +2,7 @@ import { useAtomValue } from 'jotai';
 import { loadedProjectState } from '../state/savedGraphs';
 import useAsyncEffect from 'use-async-effect';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { deserializeProject, type GraphId, serializeGraph, type Project } from '@ironclad/rivet-core';
+import { deserializeProject, type GraphId, serializeGraph, type Project } from '@valerypopoff/rivet2-core';
 import { graphState } from '../state/graph';
 import isEqual from 'fast-deep-equal';
 import { type CalculatedRevision, ProjectRevisionCalculator } from '../utils/ProjectRevisionCalculator';

@@ -1,4 +1,4 @@
-import { emptyNodeGraph, type Project, type ProjectId, newId } from '@ironclad/rivet-core';
+import { emptyNodeGraph, type Project, type ProjectId, newId } from '@valerypopoff/rivet2-core';
 
 export function blankProject(): Project {
   return {

@@ -10,8 +10,13 @@ type ErrorLike = Error & {
   cause?: unknown;
   data?: unknown;
   functionality?: string;
+  response?: {
+    status?: unknown;
+    statusCode?: unknown;
+  };
   responseBody?: string;
-  statusCode?: number;
+  status?: unknown;
+  statusCode?: unknown;
   url?: string;
 };
 
@@ -96,8 +101,8 @@ function formatEndpoint(url: string): string {
   }
 }
 
-function getApiCallRecommendation(error: ErrorLike, context: ChatV2ErrorContext): string {
-  switch (error.statusCode) {
+function getApiCallRecommendation(statusCode: number | undefined, context: ChatV2ErrorContext): string {
+  switch (statusCode) {
     case 400:
     case 422:
       return 'Check the model name, messages, response format, tools, and generation parameters. The provider rejected the request shape.';
@@ -116,7 +121,7 @@ function getApiCallRecommendation(error: ErrorLike, context: ChatV2ErrorContext)
     case 429:
       return 'The provider rate-limited the request. Check quota, billing, and retry later.';
     default:
-      if (error.statusCode != null && error.statusCode >= 500) {
+      if (statusCode != null && statusCode >= 500) {
         return 'The provider returned a server error. Retry later or check the provider status page.';
       }
 
@@ -128,7 +133,7 @@ function hasSdkErrorName(error: ErrorLike, namePart: string): boolean {
   return error.name.toLowerCase().includes(namePart.toLowerCase());
 }
 
-function isApiCallError(error: unknown): error is ErrorLike {
+export function isChatV2ProviderApiCallError(error: unknown): error is ErrorLike {
   if (!(error instanceof Error)) {
     return false;
   }
@@ -136,15 +141,101 @@ function isApiCallError(error: unknown): error is ErrorLike {
   return (
     error.name.toLowerCase().includes('apicallerror') ||
     (typeof (error as ErrorLike).url === 'string' &&
-      ('statusCode' in error || 'responseBody' in error || 'requestBodyValues' in error))
+      ('statusCode' in error ||
+        'status' in error ||
+        'response' in error ||
+        'responseBody' in error ||
+        'requestBodyValues' in error))
   );
 }
 
+export function isChatV2ProviderFetchError(error: unknown): error is ErrorLike {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  const message = error.message.toLowerCase();
+  return (
+    error.name === 'TypeError' &&
+    (message.includes('failed to fetch') || message.includes('load failed') || message.includes('fetch failed'))
+  );
+}
+
+function coerceHttpStatusCode(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isInteger(value)) {
+    return value >= 100 && value <= 599 ? value : undefined;
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    const parsed = Number(trimmed);
+    return /^\d{3}$/.test(trimmed) && Number.isInteger(parsed) && parsed >= 100 && parsed <= 599 ? parsed : undefined;
+  }
+
+  return undefined;
+}
+
+function getRecordStatusCode(record: Record<string, unknown>): number | undefined {
+  return coerceHttpStatusCode(record.statusCode) ?? coerceHttpStatusCode(record.status);
+}
+
+export function getChatV2ProviderErrorStatusCode(error: unknown, seen = new Set<unknown>()): number | undefined {
+  if (!isRecord(error)) {
+    return undefined;
+  }
+
+  if (seen.has(error)) {
+    return undefined;
+  }
+  seen.add(error);
+
+  const directStatusCode = getRecordStatusCode(error);
+  if (directStatusCode != null) {
+    return directStatusCode;
+  }
+
+  const response = error.response;
+  if (isRecord(response)) {
+    const responseStatusCode = getRecordStatusCode(response);
+    if (responseStatusCode != null) {
+      return responseStatusCode;
+    }
+  }
+
+  const data = error.data;
+  if (isRecord(data)) {
+    const dataStatusCode = getRecordStatusCode(data);
+    if (dataStatusCode != null) {
+      return dataStatusCode;
+    }
+
+    const dataError = data.error;
+    if (isRecord(dataError)) {
+      const dataErrorStatusCode = getRecordStatusCode(dataError);
+      if (dataErrorStatusCode != null) {
+        return dataErrorStatusCode;
+      }
+    }
+  }
+
+  return getChatV2ProviderErrorStatusCode(error.cause, seen);
+}
+
+function formatProviderFetchError(error: ErrorLike, context: ChatV2ErrorContext): string {
+  return [
+    'LLM provider request failed before Rivet could read an HTTP response.',
+    `Provider: ${getChatV2ProviderLabel(context.provider)}`,
+    `Model: ${context.modelId}`,
+    'The browser/runtime fetch layer hid the provider response. In Browser executor mode this commonly happens because of CORS or a provider-side request rejection.',
+    'Check the API key source, provider URL, and network access. Use the Node executor when you need the exact provider HTTP status.',
+    compact(error.message),
+  ].join('\n');
+}
+
 function formatApiCallError(error: ErrorLike, context: ChatV2ErrorContext): string {
+  const statusCode = getChatV2ProviderErrorStatusCode(error);
   const statusLabel =
-    error.statusCode == null
-      ? 'request failed'
-      : `${error.statusCode} ${STATUS_TEXT[error.statusCode] ?? 'HTTP error'}`;
+    statusCode == null ? 'request failed' : `${statusCode} ${STATUS_TEXT[statusCode] ?? 'HTTP error'}`;
   const providerMessage = findProviderMessage(error.data) ?? parseResponseBodyMessage(error.responseBody);
   const lines = [
     `LLM provider request failed (${statusLabel}).`,
@@ -156,7 +247,7 @@ function formatApiCallError(error: ErrorLike, context: ChatV2ErrorContext): stri
     lines.push(`Endpoint: ${formatEndpoint(error.url)}`);
   }
 
-  lines.push(getApiCallRecommendation(error, context));
+  lines.push(getApiCallRecommendation(statusCode, context));
 
   if (providerMessage && providerMessage !== compact(error.message)) {
     lines.push(`Provider message: ${providerMessage}`);
@@ -212,9 +303,11 @@ export function normalizeChatV2ProviderError(error: unknown, context: ChatV2Erro
     return error;
   }
 
-  const message = isApiCallError(error)
+  const message = isChatV2ProviderApiCallError(error)
     ? formatApiCallError(error, context)
-    : formatKnownSdkError(error as ErrorLike, context);
+    : isChatV2ProviderFetchError(error)
+      ? formatProviderFetchError(error, context)
+      : formatKnownSdkError(error as ErrorLike, context);
 
   if (message == null) {
     return error;
@@ -223,5 +316,9 @@ export function normalizeChatV2ProviderError(error: unknown, context: ChatV2Erro
   const normalized = new Error(message);
   normalized.name = 'LLM Chat error';
   normalized.cause = error;
+  const statusCode = getChatV2ProviderErrorStatusCode(error);
+  if (statusCode != null) {
+    (normalized as ErrorLike).statusCode = statusCode;
+  }
   return normalized;
 }

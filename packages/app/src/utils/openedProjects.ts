@@ -1,4 +1,4 @@
-import type { GraphId, Project, ProjectId } from '@ironclad/rivet-core';
+import type { GraphId, Project, ProjectId } from '@valerypopoff/rivet2-core';
 import type { OpenedProjectsInfo } from '../state/savedGraphs.js';
 
 export type ProjectPathMove = {

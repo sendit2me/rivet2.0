@@ -1,4 +1,4 @@
-import { type ChartNode } from '@ironclad/rivet-core';
+import { type ChartNode } from '@valerypopoff/rivet2-core';
 import { type NodeChanged } from '../NodeEditor';
 
 export type SharedEditorProps = {

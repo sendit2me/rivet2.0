@@ -40,18 +40,31 @@ const toastStyle = css`
 export function useCheckForUpdate({
   notifyNoUpdates = false,
   force = false,
-}: { notifyNoUpdates?: boolean; force?: boolean } = {}) {
+  notifyErrors,
+}: { notifyNoUpdates?: boolean; force?: boolean; notifyErrors?: boolean } = {}) {
   const setUpdateModalOpen = useSetAtom(updateModalOpenState);
   const checkForUpdates = useAtomValue(checkForUpdatesState);
   const [skippedMaxVersion, setSkippedMaxVersion] = useAtom(skippedMaxVersionState);
+  const shouldNotifyErrors = notifyErrors ?? (notifyNoUpdates || force);
 
   return async () => {
-    if (!checkForUpdates || !isInTauri()) {
+    if ((!force && !checkForUpdates) || !isInTauri()) {
       console.log('Skipping update check');
       return;
     }
 
-    const { shouldUpdate, manifest } = await checkForAppUpdate();
+    let updateResult: Awaited<ReturnType<typeof checkForAppUpdate>>;
+    try {
+      updateResult = await checkForAppUpdate();
+    } catch (error) {
+      console.warn('Update check failed', error);
+      if (shouldNotifyErrors) {
+        throw error;
+      }
+      return;
+    }
+
+    const { shouldUpdate, manifest } = updateResult;
 
     if (!manifest) {
       console.log('No manifest found');

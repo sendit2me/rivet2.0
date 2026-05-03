@@ -6,6 +6,7 @@ import type { NodeId, NodeInputDefinition, NodeOutputDefinition, PortId } from '
 import { nodeDefinition } from '../NodeDefinition.js';
 import { NodeImpl, type NodeUIData } from '../NodeImpl.js';
 import type { InternalProcessContext } from '../ProcessContext.js';
+import type { RivetUIContext } from '../RivetUIContext.js';
 import { getCommonChatV2Inputs, getCommonChatV2Outputs } from '../chat-v2/chatV2Shared.js';
 import { getLLMChatV2Editors } from '../chat-v2/llmChatV2NodeEditors.js';
 import {
@@ -20,7 +21,12 @@ import {
   resolveLLMChatV2RuntimeConfig,
   resolveLLMChatV2RuntimeProviderOptions,
 } from '../chat-v2/llmChatV2NodeRuntime.js';
-import { getChatV2ProviderLabel } from '../chat-v2/providerOptions.js';
+import {
+  anthropicEffortOptions,
+  getChatV2ProviderLabel,
+  googleThinkingLevelOptions,
+  openAIReasoningEffortOptions,
+} from '../chat-v2/providerOptions.js';
 import { runChatV2Pipeline } from '../chat-v2/chatV2Pipeline.js';
 import { runChatV2PipelineWithToolContinuation } from '../chat-v2/toolContinuation.js';
 import { delegateToolCall } from './toolCallDelegation.js';
@@ -34,6 +40,40 @@ export type {
 } from '../chat-v2/llmChatV2NodeData.js';
 
 export { buildLLMChatV2EditorCacheKey, resolveLLMChatV2RuntimeProviderOptions };
+
+function usesBaseURLInput(data: LLMChatV2Node['data']): boolean {
+  return data.provider === 'custom' ? data.useCustomProviderBaseURLInput : data.useBaseURLInput;
+}
+
+function getCustomProviderBaseURLBodyLine(data: LLMChatV2Node['data']): string | undefined {
+  if (data.provider !== 'custom') {
+    return undefined;
+  }
+
+  if (data.useCustomProviderBaseURLInput) {
+    return 'Provider base URL: (Using Input)';
+  }
+
+  const baseURL = data.customProviderBaseURL.trim();
+  return baseURL ? `Provider base URL: ${baseURL}` : undefined;
+}
+
+function getOptionLabel(options: readonly { value: string; label: string }[], value: string | undefined): string {
+  return options.find((option) => option.value === (value ?? ''))?.label ?? value ?? 'Default';
+}
+
+function getReasoningEffortBodyLine(data: LLMChatV2Node['data']): string | undefined {
+  switch (data.provider) {
+    case 'openai':
+      return `Reasoning effort: ${getOptionLabel(openAIReasoningEffortOptions, data.openAIReasoningEffort)}`;
+    case 'anthropic':
+      return `Reasoning effort: ${getOptionLabel(anthropicEffortOptions, data.anthropicEffort)}`;
+    case 'google':
+      return `Reasoning effort: ${getOptionLabel(googleThinkingLevelOptions, data.googleThinkingLevel)}`;
+    case 'custom':
+      return undefined;
+  }
+}
 
 export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
   static create(): LLMChatV2Node {
@@ -64,10 +104,10 @@ export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
       });
     }
 
-    if (this.data.useBaseURLInput) {
+    if (usesBaseURLInput(this.data)) {
       inputs.unshift({
-        id: 'baseURL' as PortId,
-        title: 'Base URL',
+        id: (this.data.provider === 'custom' ? 'customProviderBaseURL' : 'baseURL') as PortId,
+        title: this.data.provider === 'custom' ? 'Provider base URL' : 'Base URL',
         dataType: 'string',
         required: false,
       });
@@ -157,11 +197,28 @@ export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
   }
 
   getOutputDefinitions(): NodeOutputDefinition[] {
-    return getCommonChatV2Outputs(this.data, {
+    const outputs = getCommonChatV2Outputs(this.data, {
       includeFunctionCalls: this.data.useToolCalling || hasLLMChatV2BuiltInToolsEnabled(this.data),
       includeUsage: this.data.outputUsage,
       includeReasoning: this.data.outputReasoning,
     });
+
+    if (this.data.outputRequestStatus) {
+      outputs.push(
+        {
+          id: 'requestStatus' as PortId,
+          title: 'Response Status',
+          dataType: this.data.retryOnNon200 ? 'number[]' : 'number',
+        },
+        {
+          id: 'requestError' as PortId,
+          title: 'Response Error',
+          dataType: this.data.retryOnNon200 ? 'string[]' : 'string',
+        },
+      );
+    }
+
+    return outputs;
   }
 
   static getUIData(): NodeUIData {
@@ -178,20 +235,24 @@ export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
     };
   }
 
-  async getEditors(context: import('../RivetUIContext.js').RivetUIContext): Promise<EditorDefinition<LLMChatV2Node>[]> {
+  async getEditors(context: RivetUIContext): Promise<EditorDefinition<LLMChatV2Node>[]> {
     return getLLMChatV2Editors(this.data, context);
   }
 
   getBody() {
     const modelInfo = getChatV2ModelInfo(this.data.provider, this.data.model);
     const providerLabel = getChatV2ProviderLabel(this.data.provider);
+    const baseURLLine = getCustomProviderBaseURLBodyLine(this.data);
+    const modelLine = modelInfo?.displayName ?? this.data.model;
+    const providerDetails = baseURLLine ? [providerLabel, baseURLLine, modelLine] : [providerLabel, modelLine];
+    const reasoningEffortLine = getReasoningEffortBodyLine(this.data);
 
-    return dedent`
-      ${providerLabel}
-      ${modelInfo?.displayName ?? this.data.model}
-      Temperature: ${this.data.useTemperatureInput ? '(Using Input)' : this.data.temperature}
-      Max output tokens: ${this.data.useMaxTokensInput ? '(Using Input)' : this.data.maxTokens}
-    `;
+    return [
+      ...providerDetails,
+      ...(reasoningEffortLine ? [reasoningEffortLine] : []),
+      `Temperature: ${this.data.useTemperatureInput ? '(Using Input)' : this.data.temperature}`,
+      `Max output tokens: ${this.data.useMaxTokensInput ? '(Using Input)' : this.data.maxTokens}`,
+    ].join('\n');
   }
 
   async process(inputs: Inputs, context: InternalProcessContext): Promise<Outputs> {

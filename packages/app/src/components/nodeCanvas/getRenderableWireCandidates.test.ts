@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { NodeConnection, NodeId, PortId } from '@ironclad/rivet-core';
+import type { NodeConnection, NodeId, PortId } from '@valerypopoff/rivet2-core';
 import { getRenderableWireCandidates } from './getRenderableWireCandidates.js';
 
 const asNodeId = (value: string) => value as NodeId;

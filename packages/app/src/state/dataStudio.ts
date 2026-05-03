@@ -1,4 +1,4 @@
-import { Dataset, type DatasetId, type DatasetMetadata } from '@ironclad/rivet-core';
+import { Dataset, type DatasetId, type DatasetMetadata } from '@valerypopoff/rivet2-core';
 import { atom } from 'jotai';
 
 export const datasetsState = atom<DatasetMetadata[]>([]);

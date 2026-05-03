@@ -9,7 +9,7 @@ import {
   interpolate,
   protectEscapedInterpolationTokens,
   restoreEscapedInterpolationTokens,
-} from '@ironclad/rivet-core';
+} from '@valerypopoff/rivet2-core';
 import { type NodeRunDataWithRefs } from '../../state/dataFlow.js';
 import { hasDisplayableInterpolationInputs } from './parsedSourceDisplayUtils.js';
 

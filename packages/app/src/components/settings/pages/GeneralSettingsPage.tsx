@@ -2,23 +2,29 @@ import { type FC } from 'react';
 import { useAtom } from 'jotai';
 import TextField from '@atlaskit/textfield';
 import { Field, Label } from '@atlaskit/form';
-import Select from '@atlaskit/select';
 import {
   defaultExecutorState,
-  executorOptions,
+  getExecutorOptions,
   previousDataPerNodeToKeepState,
-  recordExecutionsState,
   settingsState,
 } from '../../../state/settings.js';
 import { fields } from '../settingsPageStyles.js';
-import { LabeledToggle } from '../../LabeledToggle.js';
 import { FieldHelperMessage } from '../../FieldHelperMessage.js';
+import { SegmentedEditor } from '../../editors/SegmentedEditor.js';
+import { useExecutorSessionHostConfig } from '../../../providers/ExecutorSessionContext.js';
 
 export const GeneralSettingsPage: FC = () => {
   const [settings, setSettings] = useAtom(settingsState);
-  const [recordExecutions, setRecordExecutions] = useAtom(recordExecutionsState);
   const [defaultExecutor, setDefaultExecutor] = useAtom(defaultExecutorState);
   const [previousDataPerNodeToKeep, setPreviousDataPerNodeToKeep] = useAtom(previousDataPerNodeToKeepState);
+  const hostConfig = useExecutorSessionHostConfig();
+  const executorOptions = getExecutorOptions({ hasInternalExecutorUrl: !!hostConfig?.internalExecutorUrl });
+
+  const setDefaultExecutorMode = (value: string | boolean) => {
+    if (value === 'browser' || value === 'nodejs') {
+      setDefaultExecutor(value);
+    }
+  };
 
   return (
     <div css={fields}>
@@ -32,50 +38,32 @@ export const GeneralSettingsPage: FC = () => {
             <TextField
               type="number"
               value={settings.recordingPlaybackLatency}
-              onChange={(event) =>
+              onChange={(event) => {
+                const value = (event.target as HTMLInputElement).valueAsNumber;
+
+                if (!Number.isFinite(value) || value < 0) {
+                  return;
+                }
+
                 setSettings((state) => ({
                   ...state,
-                  recordingPlaybackLatency: (event.target as HTMLInputElement).valueAsNumber,
-                }))
-              }
+                  recordingPlaybackLatency: value,
+                }));
+              }}
             />
           </>
         )}
       </Field>
-      <Field name="recordExecutions">
-        {() => (
-          <>
-            <LabeledToggle
-              id="recordExecutions"
-              isChecked={recordExecutions}
-              onChange={setRecordExecutions}
-              label="Record local graph executions"
-              helperMessage="Disabling may help performance when dealing with very large data values"
-              className="settings-toggle-field"
-            />
-          </>
-        )}
-      </Field>
-      <Field name="defaultExecutor">
-        {() => (
-          <>
-            <Label htmlFor="defaultExecutor" testId="defaultExecutor">
-              Default executor
-            </Label>
-            <FieldHelperMessage>
-              The default executor to use when starting the application. The browser executor is more stable, but the
-              node executor is required for some features and plugins.
-            </FieldHelperMessage>
-            <div className="toggle-field">
-              <Select
-                value={executorOptions.find((option) => option.value === defaultExecutor)}
-                onChange={(event) => setDefaultExecutor(event!.value)}
-                options={executorOptions}
-              />
-            </div>
-          </>
-        )}
-      </Field>
+      <SegmentedEditor
+        value={defaultExecutor}
+        onChange={setDefaultExecutorMode}
+        isReadonly={false}
+        isDisabled={false}
+        label="Default executor"
+        name="defaultExecutor"
+        helperMessage="The default executor to use when starting the application. The browser executor is more stable, but the node executor is required for some features and plugins."
+        options={executorOptions}
+      />
       <Field name="previousDataPerNodeToKeep">
         {() => (
           <>
@@ -118,12 +106,16 @@ export const GeneralSettingsPage: FC = () => {
                 type="number"
                 value={settings.throttleChatNode ?? 100}
                 onChange={(event) => {
-                  if ((event.target as HTMLInputElement).valueAsNumber >= 0) {
-                    setSettings((state) => ({
-                      ...state,
-                      throttleChatNode: (event.target as HTMLInputElement).valueAsNumber,
-                    }));
+                  const value = (event.target as HTMLInputElement).valueAsNumber;
+
+                  if (!Number.isFinite(value) || value < 0) {
+                    return;
                   }
+
+                  setSettings((state) => ({
+                    ...state,
+                    throttleChatNode: value,
+                  }));
                 }}
               />
             </div>

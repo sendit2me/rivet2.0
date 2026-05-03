@@ -50,4 +50,4 @@ If any other input port to the loop controller receives a `control-flow-excluded
 
 ## See Also
 
-- [`GraphProcessor.ts`](https://github.com/Ironclad/rivet/blob/main/packages/core/src/model/GraphProcessor.ts)
+- [`GraphProcessor.ts`](https://github.com/valerypopoff/rivet2.0/blob/main/packages/core/src/model/GraphProcessor.ts)

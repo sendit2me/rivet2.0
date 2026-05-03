@@ -1,6 +1,6 @@
 import { Field, HelperMessage } from '@atlaskit/form';
 import Select from '@atlaskit/select';
-import { type DatasetSelectorEditorDefinition, type ChartNode } from '@ironclad/rivet-core';
+import { type DatasetSelectorEditorDefinition, type ChartNode } from '@valerypopoff/rivet2-core';
 import { orderBy } from 'lodash-es';
 import { type FC } from 'react';
 import { useAtomValue } from 'jotai';

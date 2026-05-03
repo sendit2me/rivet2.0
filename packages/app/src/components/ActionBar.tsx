@@ -6,7 +6,7 @@ import { useLoadRecording } from '../hooks/useLoadRecording';
 import { useSaveRecording } from '../hooks/useSaveRecording';
 import { graphRunningState, graphPausedState } from '../state/dataFlow';
 import { lastRecordingState, loadedRecordingState } from '../state/execution';
-import { defaultExecutorState } from '../state/settings';
+import { selectedExecutorState } from '../state/settings';
 import ChevronRightIcon from 'majesticons/line/chevron-right-line.svg?react';
 import MultiplyIcon from 'majesticons/line/multiply-line.svg?react';
 import PauseIcon from 'majesticons/line/pause-circle-line.svg?react';
@@ -21,10 +21,11 @@ import { useDependsOnPlugins } from '../hooks/useDependsOnPlugins';
 import { GentraceInteractors } from './gentrace/GentraceInteractors';
 import { projectMetadataState } from '../state/savedGraphs';
 import { graphMetadataState } from '../state/graph';
-import { type GraphId } from '@ironclad/rivet-core';
+import { type GraphId } from '@valerypopoff/rivet2-core';
 import { wrapAsync } from '../utils/errorHandling';
 import { getActionBarExecutionState } from '../state/selectors/executionSelectors.js';
 import type { DebuggerPanelAnchor } from '../state/ui.js';
+import { NodeRunningIndicator } from './visualNode/NodeRunningIndicator.js';
 
 const styles = css`
   --action-bar-height: calc(32px * var(--ui-font-scale));
@@ -162,7 +163,7 @@ export const ActionBar: FC<ActionBarProps> = ({ onRunGraph, onAbortGraph, onPaus
   const loadedRecording = useAtomValue(loadedRecordingState);
   const { unloadRecording } = useLoadRecording();
   const [menuIsOpen, toggleMenuIsOpen] = useToggle();
-  const selectedExecutor = useAtomValue(defaultExecutorState);
+  const selectedExecutor = useAtomValue(selectedExecutorState);
 
   const { sessionState: remoteDebugger, disconnect } = useRemoteDebugger();
   const actionBarExecutionState = getActionBarExecutionState({
@@ -171,6 +172,7 @@ export const ActionBar: FC<ActionBarProps> = ({ onRunGraph, onAbortGraph, onPaus
     selectedExecutor,
     session: remoteDebugger,
   });
+  const runButtonsBlocked = !actionBarExecutionState.canRun && !graphRunning;
   const [copyAsTestCaseModalOpen, toggleCopyAsTestCaseModalOpen] = useToggle();
 
   const plugins = useDependsOnPlugins();
@@ -192,8 +194,37 @@ export const ActionBar: FC<ActionBarProps> = ({ onRunGraph, onAbortGraph, onPaus
       : undefined;
   };
 
+  const runGraph = (graphId?: GraphId) => {
+    if (runButtonsBlocked) {
+      return;
+    }
+
+    if (graphRunning) {
+      onAbortGraph?.();
+    } else {
+      onRunGraph?.({ graphId });
+    }
+  };
+
+  const renderRunButtonContents = (label: string) => {
+    if (actionBarExecutionState.executorLoading) {
+      return (
+        <>
+          {label}
+          <NodeRunningIndicator isRunning delayMs={0} label="Node executor starting" />
+        </>
+      );
+    }
+
+    return (
+      <>
+        {label} <ChevronRightIcon />
+      </>
+    );
+  };
+
   return (
-    <div css={styles} ref={actionBarRef}>
+    <div css={styles} ref={actionBarRef} data-node-editor-action-bar>
       {actionBarExecutionState.showRemoteDebuggerBanner && (
         <div
           className={clsx('remote-debugger-button active', {
@@ -234,24 +265,26 @@ export const ActionBar: FC<ActionBarProps> = ({ onRunGraph, onAbortGraph, onPaus
           <button onClick={saveRecording}>Save Recording</button>
         </div>
       )}
-      <div className={clsx('run-button', { running: graphRunning, recording: !!loadedRecording })}>
+      <div
+        className={clsx('run-button', {
+          running: graphRunning,
+          recording: !!loadedRecording,
+        })}
+      >
         {actionBarExecutionState.showRunButton && (
           <button
-            disabled={!actionBarExecutionState.canRun && !graphRunning}
-            onClick={() => (graphRunning ? onAbortGraph?.() : onRunGraph?.({ graphId: graphMetadata?.id }))}
+            disabled={runButtonsBlocked}
+            aria-disabled={runButtonsBlocked || undefined}
+            onClick={() => runGraph(graphMetadata?.id)}
           >
             {graphRunning ? (
               <>
                 Abort <MultiplyIcon />
               </>
             ) : loadedRecording ? (
-              <>
-                Play Recording <ChevronRightIcon />
-              </>
+              renderRunButtonContents('Play Recording')
             ) : (
-              <>
-                {hasMainGraph && !isMainGraph ? `Run ${graphMetadata?.name}` : 'Run'} <ChevronRightIcon />
-              </>
+              renderRunButtonContents(hasMainGraph && !isMainGraph ? `Run ${graphMetadata?.name}` : 'Run')
             )}
           </button>
         )}
@@ -260,17 +293,16 @@ export const ActionBar: FC<ActionBarProps> = ({ onRunGraph, onAbortGraph, onPaus
         <div className={clsx('run-button', { running: graphRunning })}>
           {actionBarExecutionState.showRunButton && (
             <button
-              disabled={!actionBarExecutionState.canRun}
-              onClick={() => (graphRunning ? onAbortGraph?.() : onRunGraph?.({ graphId: projectMetadata.mainGraphId }))}
+              disabled={runButtonsBlocked}
+              aria-disabled={runButtonsBlocked || undefined}
+              onClick={() => runGraph(projectMetadata.mainGraphId)}
             >
               {graphRunning ? (
                 <>
                   Abort <MultiplyIcon />
                 </>
               ) : (
-                <>
-                  Run Main <ChevronRightIcon />
-                </>
+                renderRunButtonContents('Run Main')
               )}
             </button>
           )}

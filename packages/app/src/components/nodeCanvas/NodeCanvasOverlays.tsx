@@ -1,6 +1,6 @@
 import { CSSTransition } from 'react-transition-group';
 import { type FC, type RefObject, type CSSProperties, type Ref } from 'react';
-import type { NodeConnection, NodeId, PortId } from '@ironclad/rivet-core';
+import type { NodeConnection, NodeId, PortId } from '@valerypopoff/rivet2-core';
 import { ContextMenu, type ContextMenuContext } from '../ContextMenu.js';
 import { PortInfo } from '../PortInfo.js';
 import { WireLayer } from '../WireLayer.js';

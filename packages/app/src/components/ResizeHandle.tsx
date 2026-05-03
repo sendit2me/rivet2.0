@@ -1,5 +1,5 @@
 import { useLatest } from 'ahooks';
-import { type FC, type MouseEvent as ReactMouseEvent, useEffect, useRef, useState } from 'react';
+import { type FC, type MouseEvent as ReactMouseEvent, useCallback, useEffect, useRef, useState } from 'react';
 
 type ResizeHandleMouseEvent = globalThis.MouseEvent;
 
@@ -40,7 +40,7 @@ export const ResizeHandle: FC<ResizeHandleProps> = ({
     document.body.style.userSelect = 'none';
   };
 
-  const restoreBodyResizeCursor = () => {
+  const restoreBodyResizeCursor = useCallback(() => {
     if (typeof document === 'undefined' || !previousBodyStylesRef.current) {
       return;
     }
@@ -48,9 +48,9 @@ export const ResizeHandle: FC<ResizeHandleProps> = ({
     document.body.style.cursor = previousBodyStylesRef.current.cursor;
     document.body.style.userSelect = previousBodyStylesRef.current.userSelect;
     previousBodyStylesRef.current = null;
-  };
+  }, []);
 
-  const removeWindowListeners = (options: { resetResizeState?: boolean } = {}) => {
+  const removeWindowListeners = useCallback((options: { resetResizeState?: boolean } = {}) => {
     window.removeEventListener('mousemove', onResizeMoveRef.current, {
       capture: true,
     });
@@ -59,13 +59,13 @@ export const ResizeHandle: FC<ResizeHandleProps> = ({
     if (options.resetResizeState) {
       setIsResizing(false);
     }
-  };
+  }, [restoreBodyResizeCursor]);
 
   useEffect(() => {
     return () => {
       removeWindowListeners();
     };
-  }, []);
+  }, [removeWindowListeners]);
 
   const handleMouseDown = (event: ReactMouseEvent<HTMLDivElement>) => {
     event.preventDefault();

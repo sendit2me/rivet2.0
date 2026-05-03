@@ -3,7 +3,7 @@ import {
   type ExpressionNode,
   type Inputs,
   interpolateExpressionSource,
-} from '@ironclad/rivet-core';
+} from '@valerypopoff/rivet2-core';
 import { type FC, useMemo } from 'react';
 import { RenderDataValue, type OutputRenderMode } from '../RenderDataValue.js';
 import { useDataRefs } from '../../providers/ProvidersContext.js';

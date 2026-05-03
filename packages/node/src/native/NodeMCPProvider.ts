@@ -1,4 +1,4 @@
-import { type MCP, type MCPProvider } from '@ironclad/rivet-core';
+import { type MCP, type MCPProvider } from '@valerypopoff/rivet2-core';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';

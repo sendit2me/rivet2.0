@@ -1,4 +1,4 @@
-import { type NodeId } from '@ironclad/rivet-core';
+import { type NodeId } from '@valerypopoff/rivet2-core';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { selectedNodesState } from '../state/graphBuilder';
 import { connectionsState, nodesByIdState } from '../state/graph';

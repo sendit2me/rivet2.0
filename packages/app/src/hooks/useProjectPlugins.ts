@@ -1,9 +1,9 @@
 import { useEffect, useRef } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
-import { projectPluginsState } from '../state/savedGraphs';
-import { assembleRegistry, logRuntimeDebug, logRuntimeInfo, resolveBuiltInPlugin } from '@ironclad/rivet-core';
-import type { PluginLoadSpec } from '@ironclad/rivet-core';
+import { assembleRegistry, logRuntimeDebug, logRuntimeInfo, resolveBuiltInPlugin } from '@valerypopoff/rivet2-core';
+import type { PluginLoadSpec, RivetPlugin } from '@valerypopoff/rivet2-core';
 import {
+  appPluginSpecsState,
   pluginRefreshCounterState,
   pluginRetryCounterState,
   pluginsState,
@@ -11,7 +11,7 @@ import {
 } from '../state/plugins';
 import { produce } from 'immer';
 import { match } from 'ts-pattern';
-import * as Rivet from '@ironclad/rivet-core';
+import * as Rivet from '@valerypopoff/rivet2-core';
 import { useLoadPackagePlugin } from './useLoadPackagePlugin';
 import useAsyncEffect from 'use-async-effect';
 import { toast } from 'react-toastify';
@@ -19,7 +19,7 @@ import { importPluginInitializer } from '../utils/pluginInitializer.js';
 import { handleError } from '../utils/errorHandling.js';
 
 export function useProjectPlugins() {
-  const pluginSpecs = useAtomValue(projectPluginsState);
+  const pluginSpecs = useAtomValue(appPluginSpecsState);
   const retryCounter = useAtomValue(pluginRetryCounterState);
   const setPlugins = useSetAtom(pluginsState);
   const setProjectNodeRegistry = useSetAtom(projectNodeRegistryState);
@@ -29,7 +29,7 @@ export function useProjectPlugins() {
     onLog: (message) => logRuntimeDebug('Package plugin loader log', { message }),
   });
 
-  const updatePluginState = (id: string, updates: { loaded?: boolean; error?: string }) => {
+  const updatePluginState = (id: string, updates: { loaded?: boolean; error?: string; plugin?: RivetPlugin }) => {
     setPlugins((oldPlugins) =>
       produce(oldPlugins, (draft) => {
         const entry = draft.find((p) => p.id === id);
@@ -76,7 +76,7 @@ export function useProjectPlugins() {
         return plugin;
       }
 
-      updatePluginState(spec.id, { loaded: true });
+      updatePluginState(spec.id, { loaded: true, plugin });
 
       logRuntimeInfo(`Loaded plugin: ${plugin.id}`);
       return plugin;
@@ -91,7 +91,7 @@ export function useProjectPlugins() {
       handleError(new Error(fail.error), `Failed to load plugin "${fail.id}"`, {
         metadata: {
           pluginId: fail.id,
-          projectPluginCount: pluginSpecs.length,
+          appPluginCount: pluginSpecs.length,
         },
         toastError: false,
       });
@@ -102,7 +102,7 @@ export function useProjectPlugins() {
     if (results.failed.length === 1) {
       toast.error(`Plugin "${results.failed[0]!.id}" failed to load: ${results.failed[0]!.error}`);
     } else if (results.failed.length > 1) {
-      toast.error(`${results.failed.length} plugins failed to load. Check Settings > Plugins for details.`);
+      toast.error(`${results.failed.length} plugins failed to load. Check Settings > Plugins settings for details.`);
     }
 
     setProjectNodeRegistry(registry);

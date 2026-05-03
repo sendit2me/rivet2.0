@@ -1,4 +1,4 @@
-import { getError } from '@ironclad/rivet-core';
+import { getError } from '@valerypopoff/rivet2-core';
 import { createJSONStorage } from 'jotai/utils';
 import type { SyncStorage } from 'jotai/vanilla/utils/atomWithStorage';
 import { debounce, type DebouncedFunc } from 'lodash-es';

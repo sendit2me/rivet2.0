@@ -1,7 +1,8 @@
 import type { CSSProperties } from 'react';
 
-export const DEFAULT_UI_FONT_SIZE = 14;
-export const MIN_UI_FONT_SIZE = 14;
+export const UI_FONT_SIZE_SCALE_BASE = 14;
+export const DEFAULT_UI_FONT_SIZE = 15;
+export const MIN_UI_FONT_SIZE = UI_FONT_SIZE_SCALE_BASE;
 export const MAX_UI_FONT_SIZE = 20;
 export const UI_FONT_SIZE_STEP = 1;
 
@@ -10,7 +11,7 @@ export const UI_FONT_SIZE_TOKENS = {
   '--ui-font-size-xs': 11,
   '--ui-font-size-sm': 12,
   '--ui-font-size-compact': 13,
-  '--ui-font-size-base': 14,
+  '--ui-font-size-base': UI_FONT_SIZE_SCALE_BASE,
   '--ui-font-size-lg': 16,
   '--ui-font-size-xl': 20,
   '--ui-font-size-2xl': 24,
@@ -30,7 +31,7 @@ export function clampUiFontSize(fontSize: number): number {
 }
 
 export function getUiFontScale(fontSize: number): number {
-  return clampUiFontSize(fontSize) / DEFAULT_UI_FONT_SIZE;
+  return clampUiFontSize(fontSize) / UI_FONT_SIZE_SCALE_BASE;
 }
 
 export function getUiFontSizeCssVariables(fontSize: number): UiFontSizeCssVariables {

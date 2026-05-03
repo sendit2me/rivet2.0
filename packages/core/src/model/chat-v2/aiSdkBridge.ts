@@ -1,6 +1,31 @@
 import { streamText } from 'ai';
 import { consumeAiSdkStream } from '../chat/aiSdkStreaming.js';
-import type { ChatV2StreamExecutor, ChatV2StreamHandle, StreamChatV2Options, StreamChatV2Result } from './chatV2Types.js';
+import type {
+  ChatV2StreamExecutor,
+  ChatV2StreamHandle,
+  StreamChatV2Options,
+  StreamChatV2Result,
+} from './chatV2Types.js';
+
+function keepPromiseHandled<T>(value: PromiseLike<T>): Promise<T> {
+  const promise = Promise.resolve(value);
+  void promise.catch(() => undefined);
+  return promise;
+}
+
+function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
+  return (
+    value != null &&
+    (typeof value === 'object' || typeof value === 'function') &&
+    typeof (value as { then?: unknown }).then === 'function'
+  );
+}
+
+function markOptionalPromiseHandled(value: unknown): void {
+  if (isPromiseLike(value)) {
+    void keepPromiseHandled(value);
+  }
+}
 
 function defaultStreamExecutor(args: Parameters<typeof streamText>[0]): ChatV2StreamHandle {
   const result = streamText(args);
@@ -9,15 +34,20 @@ function defaultStreamExecutor(args: Parameters<typeof streamText>[0]): ChatV2St
     fullStream: result.fullStream,
     finishReason:
       'finishReason' in result
-        ? Promise.resolve(result.finishReason).then((value) => (value == null ? undefined : String(value)))
+        ? keepPromiseHandled(
+            Promise.resolve(result.finishReason).then((value) => (value == null ? undefined : String(value))),
+          )
         : undefined,
     providerMetadata:
       'providerMetadata' in result
-        ? Promise.resolve(result.providerMetadata as unknown as StreamChatV2Result['providerMetadata'])
+        ? keepPromiseHandled(
+            Promise.resolve(result.providerMetadata as unknown as StreamChatV2Result['providerMetadata']),
+          )
         : undefined,
+    requestStatus: 200,
     usage:
       'usage' in result
-        ? Promise.resolve(result.usage as unknown as StreamChatV2Result['usage'])
+        ? keepPromiseHandled(Promise.resolve(result.usage as unknown as StreamChatV2Result['usage']))
         : undefined,
   };
 }
@@ -50,6 +80,10 @@ async function executeStream(
   if (options.abortSignal !== undefined) args.abortSignal = options.abortSignal;
 
   const handle = await executor(args);
+  markOptionalPromiseHandled(handle.finishReason);
+  markOptionalPromiseHandled(handle.providerMetadata);
+  markOptionalPromiseHandled(handle.requestStatus);
+  markOptionalPromiseHandled(handle.usage);
 
   const streamed = await consumeAiSdkStream(handle.fullStream, (text, functionCalls) => {
     options.onPartialOutput?.({ text, functionCalls });
@@ -62,6 +96,7 @@ async function executeStream(
     reasoning: streamed.reasoning,
     finishReason: await resolveOptionalValue(handle.finishReason),
     providerMetadata: await resolveOptionalValue(handle.providerMetadata),
+    requestStatus: await resolveOptionalValue(handle.requestStatus),
   };
 }
 

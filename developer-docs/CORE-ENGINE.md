@@ -1,10 +1,10 @@
-# Core Engine (`@ironclad/rivet-core`)
+# Core Engine (`@valerypopoff/rivet2-core`)
 
 > Detailed internal reference for the shared runtime package.
 
 ## Purpose
 
-`@ironclad/rivet-core` is the foundational package in the repo.
+`@valerypopoff/rivet2-core` is the foundational package in the repo.
 
 It owns:
 
@@ -57,7 +57,7 @@ That file re-exports:
 - execution streaming APIs
 - create/run processor helpers
 
-For refactors, `exports.ts` is the API contract that downstream packages rely on. Downstream package code should import core through `@ironclad/rivet-core`; it should not import `packages/core/src/...` files directly. The shared ESLint config enforces that boundary. When app presentation or another package needs to mirror runtime semantics, such as interpolation token parsing, warning-port handling, JS-list callback source interpolation, Gentrace app-facing utilities, `RivetUIContext`, tokenizer implementations, or project-reference loading, the shared contract should be exported intentionally from core instead of reaching into the source tree.
+For refactors, `exports.ts` is the API contract that downstream packages rely on. Downstream package code should import core through `@valerypopoff/rivet2-core`; it should not import `packages/core/src/...` files directly. The shared ESLint config enforces that boundary. When app presentation or another package needs to mirror runtime semantics, such as interpolation token parsing, warning-port handling, JS-list callback source interpolation, Gentrace app-facing utilities, `RivetUIContext`, tokenizer implementations, or project-reference loading, the shared contract should be exported intentionally from core instead of reaching into the source tree.
 
 ## Runtime Logging And Diagnostics
 
@@ -271,14 +271,15 @@ Key APIs:
 
 ### Registry Assembly
 
-[`RegistryAssembly.ts`](../packages/core/src/model/RegistryAssembly.ts) encapsulates the full registry lifecycle:
+[`RegistryAssembly.ts`](../packages/core/src/model/RegistryAssembly.ts) encapsulates the registry assembly lifecycle:
 
 - `createBuiltInRegistry()` - creates a fresh registry populated with all built-in nodes
-- `resolveBuiltInPlugin(id)` - resolves a built-in plugin by ID from `plugins.ts`
 - `registerPluginsIntoRegistry(registry, plugins)` - registers an array of plugins into an existing registry
 - `assembleRegistry(specs, loadPlugin)` - end-to-end helper: creates a built-in registry, then loads and registers plugin specs one by one so per-plugin load/registration failures are recorded without aborting the whole assembly
 
-The app uses `assembleRegistry()` + `replaceGlobalRivetNodeRegistry()` (from `Nodes.ts`) to rebuild the global registry when project plugins change. The sidecar (`app-executor`) uses the same `assembleRegistry()` helper but passes the result directly to `createProcessor()` without touching the global.
+The app uses `assembleRegistry()` to rebuild `projectNodeRegistryState` from app-installed plugin specs. The sidecar (`app-executor`) uses the same helper for each uploaded project's YAML plugin specs and passes the result directly to `createProcessor()` without touching app state.
+
+Built-in plugin resolution stays with the plugin catalogue in [`plugins.ts`](../packages/core/src/plugins.ts) through `resolveBuiltInPlugin(id)`. `RegistryAssembly.ts` deliberately does not import that catalogue; keeping registry assembly plugin-catalogue-free avoids cycles through plugins that need execution engine APIs, such as Gentrace.
 
 Architectural significance:
 
@@ -290,6 +291,8 @@ Architectural significance:
 ## Built-In Plugins
 
 Built-in plugins are exported from [`packages/core/src/plugins.ts`](../packages/core/src/plugins.ts).
+
+`resolveBuiltInPlugin(id)` resolves one of these catalogue entries for app/executor loading paths and throws for unknown ids.
 
 Current built-in plugin families present in the repo:
 
@@ -390,8 +393,9 @@ intentionally split under
 - `chatV2RuntimeOptions.ts` owns credential lookup, provider factory config, generation parameters, provider options, built-in provider tools, tool-choice conversion, and OpenAI-specific parallel-tool-call option mapping.
 - `chatV2EditorCache.ts` owns editor-only cache key construction, secret fingerprinting, and cached-output cloning.
 - `llmChatV2NodeRuntime.ts` is a coordinator that assembles those policies for the runtime and re-exports compatibility helpers used by existing tests/imports.
-- `chatV2Errors.ts` owns provider/Vercel SDK error normalization and must not stringify whole provider data objects into user-visible node errors.
-- `chatV2Pipeline.ts` and `toolContinuation.ts` stay focused on provider-neutral streaming, output assembly, and auto-continuation behavior.
+- `chatV2Errors.ts` owns provider/Vercel SDK error normalization, including API-call and browser/runtime fetch-failure classification for request-status outputs where no HTTP response is observable. It extracts HTTP status codes from common raw/normalized error shapes for retry and request-status outputs, and must not stringify whole provider data objects into user-visible node errors.
+- `chatV2Retry.ts` owns `Retry on non-200` defaults, repeat/cooldown normalization, and abort-safe repeat waits for LLM provider retries, including the zero-cooldown path before a repeat starts.
+- `chatV2Pipeline.ts` and `toolContinuation.ts` stay focused on provider-neutral streaming, output assembly, request-status/request-error output assembly, retry-attempt status/error list assembly, and auto-continuation behavior.
 
 Keep future Chat v2 changes inside the smallest relevant seam. Do not add provider
 option parsing, cache-key fingerprinting, or credential-source behavior back into
@@ -627,7 +631,7 @@ That is especially true for nested execution correctness: `ProcessContextBuilder
 ### Code runner error locations
 
 `Code` nodes still execute through the configured `CodeRunner`. Browser mode uses
-`IsomorphicCodeRunner`. Programmatic Node execution through `@ironclad/rivet-node`
+`IsomorphicCodeRunner`. Programmatic Node execution through `@valerypopoff/rivet2-node`
 still defaults to `NodeCodeRunner`, while the desktop app's internal
 `app-executor` sidecar passes its own worker-backed runner so most Code-node
 JavaScript runs off the sidecar's main event loop. The app-executor worker runner
@@ -644,11 +648,11 @@ Code-node console observability. When `console` is enabled, it injects a
 bridged console into worker-backed runs and the `Rivet`-capability fallback path;
 those calls become `codeConsole` executor messages that the app replays in the
 renderer console. This is app-executor-specific and does not change the public
-`NodeCodeRunner` default used by programmatic `@ironclad/rivet-node` callers.
+`NodeCodeRunner` default used by programmatic `@valerypopoff/rivet2-node` callers.
 
 `NodeCodeRunner` exposes its CommonJS `require()` resolution policy through
 `createCodeRunnerRequire(...)`, `getCodeRunnerRequireRoot(...)`, and
-`getCodeRunnerRequireAnchorPath(...)` from `@ironclad/rivet-node`. The default
+`getCodeRunnerRequireAnchorPath(...)` from `@valerypopoff/rivet2-node`. The default
 anchor remains `process.cwd()/__rivet_node_code_runner__.cjs`, so programmatic
 callers keep the old behavior. Hosted wrappers can set
 `RIVET_CODE_RUNNER_REQUIRE_ROOT` or `RIVET_CODE_RUNNER_REQUIRE_ANCHOR` before the

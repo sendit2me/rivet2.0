@@ -1,4 +1,4 @@
-import { type NodeId } from '@ironclad/rivet-core';
+import { type NodeId } from '@valerypopoff/rivet2-core';
 import { connectionsForSingleNodeState } from './selectors/graphSelectors';
 import { ioDefinitionsForNodeState } from './selectors/ioDefinitions';
 import { nodeByIdState, nodeInstanceByIdState } from './selectors/nodeSelectors';

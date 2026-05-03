@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { useAtom, useAtomValue } from 'jotai';
-import { type NodeTestGroup } from '@ironclad/rivet-core';
+import { type NodeTestGroup } from '@valerypopoff/rivet2-core';
 import {
   promptDesignerAttachedChatNodeState,
   promptDesignerResponseState,

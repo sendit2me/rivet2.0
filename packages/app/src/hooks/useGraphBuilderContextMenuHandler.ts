@@ -1,6 +1,6 @@
 import { P, match } from 'ts-pattern';
 import { useStableCallback } from './useStableCallback';
-import { type NodeId, type GraphId } from '@ironclad/rivet-core';
+import { type NodeId, type GraphId } from '@valerypopoff/rivet2-core';
 import { type ContextMenuContext } from '../components/ContextMenu';
 import { createRootGraphViewContext } from '../domain/graphEditing/navigationActions.js';
 import { editingNodeState } from '../state/graphBuilder';
@@ -19,7 +19,7 @@ import { useDeleteNodesCommand } from '../commands/deleteNodeCommand';
 import { copyToClipboard } from '../utils/copyToClipboard';
 import { useGoToSubgraphNode } from './useGoToSubgraphNode.js';
 
-export function useGraphBuilderContextMenuHandler({ onAutoLayoutGraph }: { onAutoLayoutGraph: () => void }) {
+export function useGraphBuilderContextMenuHandler() {
   const { clientToCanvasPosition } = useCanvasPositioning();
   const loadGraph = useLoadGraph();
   const project = useAtomValue(projectState);
@@ -51,9 +51,6 @@ export function useGraphBuilderContextMenuHandler({ onAutoLayoutGraph }: { onAut
         })
         .with('paste', () => {
           pasteNodes(meta);
-        })
-        .with('auto-layout', () => {
-          onAutoLayoutGraph();
         })
         .with('node-edit', () => {
           const { nodeId } = context.data as { nodeId: NodeId };

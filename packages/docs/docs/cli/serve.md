@@ -11,13 +11,13 @@ Serve a Rivet project using a local server.
 
 ```bash
 # Start server with default settings
-npx @ironclad/rivet-cli serve
+npx @valerypopoff/rivet2-cli serve
 
 # Start server on custom port
-npx @ironclad/rivet-cli serve --port 8080
+npx @valerypopoff/rivet2-cli serve --port 8080
 
 # Start server in development mode
-npx @ironclad/rivet-cli serve --dev
+npx @valerypopoff/rivet2-cli serve --dev
 ```
 
 ## Description
@@ -34,13 +34,13 @@ The `serve` command starts a local HTTP server that hosts your Rivet project, al
 The basic usage will serve the project file in the current directory, using the default port of 3000:
 
 ```bash
-npx @ironclad/rivet-cli serve
+npx @valerypopoff/rivet2-cli serve
 ```
 
 You can also specify a different project file or port:
 
 ```bash
-npx @ironclad/rivet-cli serve my-project.rivet-project --port 8080
+npx @valerypopoff/rivet2-cli serve my-project.rivet-project --port 8080
 ```
 
 Once the server is running, you can make POST requests to the server to run graphs.
@@ -116,11 +116,13 @@ Outputs a JSON object with the output values of the graph.
 - `--graph <graphNameOrId>`: The name or ID of the graph to run. If not provided, the main graph will be run. If there is no main graph, an error will be returned.
 - `--allow-specifying-graph-id`: Allows specifying the graph ID in the URL path. This is disabled by default.
 
-### OpenAI Configuration
+### Provider Configuration
 
-- `--openai-api-key`: The OpenAI API key to use for the Chat node. Required if the project uses OpenAI functionality or otherwise requires an API key. If omitted, the environment variable `OPENAI_API_KEY` will be used.
-- `--openai-endpoint`: The OpenAI API endpoint to use for the Chat node. Default is `https://api.openai.com/v1/chat/completions`. If omitted, the environment variable `OPENAI_ENDPOINT` will be used.
-- `--openai-organization`: The OpenAI organization ID to use. If omitted, the environment variable `OPENAI_ORGANIZATION` will be used.
+- `--openai-api-key`: The OpenAI API key to use for OpenAI-backed nodes. If omitted, Node execution falls back to `OPENAI_API_KEY` where supported.
+- `--openai-endpoint`: Endpoint override for legacy OpenAI-compatible Chat behavior. If omitted, Node execution falls back to `OPENAI_ENDPOINT` where supported.
+- `--openai-organization`: OpenAI organization ID. If omitted, the CLI option description uses `OPENAI_ORGANIZATION`; the Node runtime also supports the current `OPENAI_ORG_ID` default in direct package usage.
+
+For LLM Chat, the node's API key source controls where the key comes from. If a graph connects the LLM Chat API Key input port, pass that key through the graph inputs rather than through these CLI OpenAI options.
 
 ### Monitoring
 
@@ -340,4 +342,4 @@ data: " This will help me assist you better!"
 
 You can see that each `data` event contains a delta of the response text from the node.
 
-You should only specify Chat nodes for this mode, as other nodes may not have partial outputs that support this.
+You should only specify Chat or LLM Chat nodes for this mode, as other nodes may not have partial outputs that support this.

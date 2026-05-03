@@ -1,16 +1,16 @@
-import { Field,  } from '@atlaskit/form';
-import { Suspense, useState, type FC } from 'react';
-import { useAtom,  } from 'jotai';
-import { projectMetadataState, } from '../state/savedGraphs';
 import { useToggle } from 'ahooks';
-import Modal, { ModalTransition, ModalHeader, ModalTitle, ModalBody, ModalFooter } from '@atlaskit/modal-dialog';
-import { css } from '@emotion/react';
+import { Field } from '@atlaskit/form';
 import Button from '@atlaskit/button';
-import { type MCP } from '@ironclad/rivet-core';
+import Modal, { ModalTransition, ModalBody, ModalFooter } from '@atlaskit/modal-dialog';
+import { css } from '@emotion/react';
+import { type MCP } from '@valerypopoff/rivet2-core';
+import { useAtom } from 'jotai';
+import { Suspense, useState, type FC } from 'react';
 import { toast } from 'react-toastify';
-import { LazyCodeEditor } from './LazyComponents';
+import { projectMetadataState } from '../state/savedGraphs';
 import { handleError } from '../utils/errorHandling.js';
-
+import { AppModalHeader } from './AppModalHeader';
+import { LazyCodeEditor } from './LazyComponents';
 
 export const ProjectMCPConfiguration: FC = () => {
   const [projectMetadata, setProjectMetadata] = useAtom(projectMetadataState);
@@ -18,10 +18,10 @@ export const ProjectMCPConfiguration: FC = () => {
   const mcpConfig = projectMetadata.mcpServer ?? {
     mcpServers: {
       serverName: {
-        command: "",
-        args: [""]
-      }
-    }
+        command: '',
+        args: [''],
+      },
+    },
   } as unknown as MCP.Config;
 
   const [isModalOpen, toggleModalOpen] = useToggle(false);
@@ -33,10 +33,10 @@ export const ProjectMCPConfiguration: FC = () => {
   const onSave = (newConfig: string) => {
     try {
       const cleanQuoteConfig = newConfig
-      .replace(/[\u2018\u2019]/g, "'")
-      .replace(/[\u201C\u201D]/g, '"');
+        .replace(/[\u2018\u2019]/g, "'")
+        .replace(/[\u201C\u201D]/g, '"');
       const config: MCP.Config = JSON.parse(cleanQuoteConfig);
-      setProjectMetadata({...projectMetadata, mcpServer: config});
+      setProjectMetadata({ ...projectMetadata, mcpServer: config });
       toast.success('MCP Configuration saved successfully');
       onClose();
     } catch (err) {
@@ -51,62 +51,59 @@ export const ProjectMCPConfiguration: FC = () => {
     }
   };
 
-
   return (
     <Field name="mcp-config" label="MCP Configuration">
-        {() => (
-          <>
-            <div className="mcp-config-action">
-              <Button appearance="default" onClick={toggleModalOpen.setRight}>
-                Edit MCP Configuration
-              </Button>
-            </div>
+      {() => (
+        <>
+          <div className="mcp-config-action">
+            <Button appearance="default" onClick={toggleModalOpen.setRight}>
+              Edit MCP Configuration
+            </Button>
+          </div>
 
-            <ModalTransition>
-                  {isModalOpen && (
-                    <MCPConfigModal
-                      initialConfig={mcpConfig}
-                      onSave={onSave}
-                      onClose={onClose}
-                    />
-                  )}
-                </ModalTransition>
-          </>
-        )}
-      </Field>
+          <ModalTransition>
+            {isModalOpen && (
+              <MCPConfigModal
+                initialConfig={mcpConfig}
+                onSave={onSave}
+                onClose={onClose}
+              />
+            )}
+          </ModalTransition>
+        </>
+      )}
+    </Field>
   );
 };
-
 
 export const MCPConfigModal: FC<{
   initialConfig?: MCP.Config;
   onSave: (config: string) => void;
   onClose: () => void;
-}> = ({initialConfig, onSave, onClose}) => {
-
+}> = ({ initialConfig, onSave, onClose }) => {
   const [config, setConfig] = useState(JSON.stringify(initialConfig, null, 2) ?? '');
 
   const handleSave = () => {
-      onSave?.(config);
+    onSave(config);
   };
 
+  return (
+    <Modal onClose={onClose}>
+      <AppModalHeader title="Edit MCP Configuration" />
+      <ModalBody>
+        <div
+          css={css`
+            .editor {
+              height: 400px;
+              display: flex;
+              resize: vertical;
 
-  return (<Modal onClose={onClose}>
-        <ModalHeader>
-          <ModalTitle>Edit MCP Configuration</ModalTitle>
-        </ModalHeader>
-        <ModalBody>
-          <div css={css`
-          .editor {
-            height: 400px;
-            display: flex;
-            resize: vertical;
-
-            > div {
-              width: 100%;
+              > div {
+                width: 100%;
+              }
             }
-          }
-          `}>
+          `}
+        >
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -120,35 +117,34 @@ export const MCPConfigModal: FC<{
             </p>
 
             <Field name="config" label="Configuration (JSON)">
-            {() => <div className="editor">
+              {() => (
+                <div className="editor">
                   <Suspense fallback={<div />}>
-                    <LazyCodeEditor
-                      text={config}
-                      onChange={(v) => setConfig(v)}
-                      autoFocus
-                    />
+                    <LazyCodeEditor text={config} onChange={(v) => setConfig(v)} autoFocus />
                   </Suspense>
-                </div>}
+                </div>
+              )}
             </Field>
           </form>
-          </div>
-        </ModalBody>
-        <ModalFooter>
-          <div
-            css={css`
-              display: flex;
-              flex-direction: row;
-              justify-content: flex-end;
-              gap: 8px;
-            `}
-          >
-            <Button appearance="default" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button appearance="primary" onClick={handleSave}>
-              Save
-            </Button>
-          </div>
-        </ModalFooter>
-      </Modal>);
+        </div>
+      </ModalBody>
+      <ModalFooter>
+        <div
+          css={css`
+            display: flex;
+            flex-direction: row;
+            justify-content: flex-end;
+            gap: 8px;
+          `}
+        >
+          <Button appearance="default" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button appearance="primary" onClick={handleSave}>
+            Save
+          </Button>
+        </div>
+      </ModalFooter>
+    </Modal>
+  );
 };

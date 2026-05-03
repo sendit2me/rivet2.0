@@ -1,4 +1,4 @@
-import { createProcessor, loadProjectFromFile, type LooseDataValue } from '@ironclad/rivet-node';
+import { createProcessor, loadProjectFromFile, type LooseDataValue } from '@valerypopoff/rivet2-node';
 import { resolve } from 'node:path';
 import type * as yargs from 'yargs';
 

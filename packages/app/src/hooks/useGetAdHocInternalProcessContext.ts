@@ -10,7 +10,7 @@ import {
   type RootRunId,
   GptTokenizerTokenizer,
   logRuntimeDebug,
-} from '@ironclad/rivet-core';
+} from '@valerypopoff/rivet2-core';
 import { useCallback } from 'react';
 import { fillMissingSettingsFromEnvironmentVariables } from '../utils/tauri';
 import { TauriNativeApi } from '../model/native/TauriNativeApi';

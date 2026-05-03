@@ -6,15 +6,15 @@ const darkCodeTheme = require('prism-react-renderer').themes.dracula;
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
-  title: 'Rivet',
-  tagline: 'IDE and Library for Creating AI Agents',
+  title: 'Rivet 2.0',
+  tagline: 'Visual AI programming environment and runtime packages',
   favicon: 'img/favicon.png',
 
-  url: 'https://rivet.ironcladapp.com',
-  baseUrl: '/',
+  url: 'https://valerypopoff.github.io',
+  baseUrl: '/rivet2.0/',
 
-  organizationName: 'ironclad',
-  projectName: 'rivet',
+  organizationName: 'valerypopoff',
+  projectName: 'rivet2.0',
 
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
@@ -33,16 +33,11 @@ const config = {
       'classic',
       /** @type {import('@docusaurus/preset-classic').Options} */
       ({
-        pages: {
-          path: 'src/pages',
-          routeBasePath: '/',
-          include: ['**/*.{js,jsx,ts,tsx,md,mdx}'],
-          exclude: ['**/_*.{js,jsx,ts,tsx,md,mdx}', '**/_*/**', '**/*.test.{js,jsx,ts,tsx}', '**/__tests__/**'],
-        },
+        pages: false,
         docs: {
-          routeBasePath: '/docs/',
+          routeBasePath: '/',
           sidebarPath: require.resolve('./sidebars.js'),
-          editUrl: 'https://github.com/ironclad/rivet/tree/main/packages/docs',
+          editUrl: 'https://github.com/valerypopoff/rivet2.0/tree/main/packages/docs',
         },
         theme: {
           customCss: require.resolve('./src/css/custom.css'),
@@ -59,7 +54,7 @@ const config = {
         defaultMode: 'dark',
       },
       navbar: {
-        title: 'Rivet',
+        title: 'Rivet 2.0',
         logo: {
           alt: 'Rivet Logo',
           src: 'img/logo.svg',
@@ -96,7 +91,12 @@ const config = {
             label: 'CLI',
           },
           {
-            href: 'https://github.com/ironclad/rivet',
+            to: '/download',
+            label: 'Download',
+            position: 'right',
+          },
+          {
+            href: 'https://github.com/valerypopoff/rivet2.0',
             label: 'GitHub',
             position: 'right',
           },
@@ -110,15 +110,15 @@ const config = {
             items: [
               {
                 label: 'Getting Started',
-                to: '/docs/getting-started/installation',
+                to: '/getting-started/installation',
               },
               {
                 label: 'User Guide',
-                to: '/docs',
+                to: '/',
               },
               {
                 label: 'API Reference',
-                to: '/docs/api-reference',
+                to: '/api-reference',
               },
             ],
           },
@@ -136,7 +136,7 @@ const config = {
             items: [
               {
                 label: 'GitHub',
-                href: 'https://github.com/ironclad/rivet',
+                href: 'https://github.com/valerypopoff/rivet2.0',
               },
               {
                 label: 'YouTube',
@@ -145,7 +145,7 @@ const config = {
             ],
           },
         ],
-        copyright: `Copyright © ${new Date().getFullYear()} Ironclad. Built with Docusaurus.`,
+        copyright: `Copyright (c) ${new Date().getFullYear()} Val P. Built with Docusaurus.`,
       },
       prism: {
         theme: lightCodeTheme,

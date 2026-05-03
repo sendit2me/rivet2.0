@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { getCodeNodeErrorLineHighlight, parseCodeNodeError } from './codeNodeOutputUtils.js';
-import { type ProcessId } from '@ironclad/rivet-core';
+import { type ProcessId } from '@valerypopoff/rivet2-core';
 import { type ProcessDataForNode } from '../../state/dataFlow.js';
 
 test('parseCodeNodeError separates the user error from the code-node location', () => {

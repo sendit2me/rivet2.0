@@ -1,7 +1,7 @@
 {
-  "name": "@ironclad/rivet-core",
+  "name": "@valerypopoff/rivet2-core",
   "license": "MIT",
-  "repository": "https://github.com/ironclad/rivet",
+  "repository": "https://github.com/valerypopoff/rivet2.0",
   "version": "2.0.0",
   "packageManager": "yarn@3.5.0",
   "main": "dist/cjs/bundle.cjs",

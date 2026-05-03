@@ -42,12 +42,15 @@ The HTTP call node only has inputs when the [Editor Settings](#editor-settings) 
 
 ## Outputs
 
-| Title       | Data Type | Description                                                                             | Notes                                                                   |
-| ----------- | --------- | --------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| Body        | `string`  | The body of the HTTP response.                                                          | If the response body is not a string, this output will not be ran.      |
-| JSON        | `object`  | If the response body is a JSON object, this output will contain the parsed JSON object. | If the response body is not a JSON object, this output will not be ran. |
-| Status Code | `number`  | The status code of the HTTP response.                                                   |                                                                         |
-| Headers     | `object`  | The headers of the HTTP response.                                                       |                                                                         |
+| Title | Data Type | Description | Notes |
+| --- | --- | --- | --- |
+| Body | `string` | The body of the HTTP response. | Hidden when Binary Output is enabled. |
+| Parsed JSON | `object` | Parsed response body when the response content type is JSON. | Excluded when the response is not JSON. Hidden when Binary Output is enabled. |
+| Binary | `binary` | Raw response bytes. | Available when Binary Output is enabled. |
+| Status Code | `number` or `number[]` | The HTTP status code. | When Retry on non-200 is enabled, this becomes one status code per attempt. |
+| Headers | `object` | The headers of the HTTP response. | |
+| Request failed | `boolean` or `boolean[]` | Whether the request attempt failed. | Available when Catch all request failures or Retry on non-200 is enabled. Retry mode returns one value per attempt. |
+| Request error | `string` or `string[]` | Error text for failed attempts. | Available when Catch all request failures or Retry on non-200 is enabled. Retry mode returns one value per failed attempt. |
 
 </TabItem>
 
@@ -55,13 +58,18 @@ The HTTP call node only has inputs when the [Editor Settings](#editor-settings) 
 
 ## Editor Settings
 
-| Setting                      | Description                                                                                                                                                                                         | Default Value | Use Input Toggle | Input Data Type |
-| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- | ---------------- | --------------- |
-| Method                       | The HTTP method to use for the request (GET, POST, PUT, DELETE, etc.).                                                                                                                              | GET           | Yes              | `string`        |
-| URL                          | The URL to make the HTTP request to.                                                                                                                                                                | (empty)       | Yes              | `string`        |
-| Headers                      | An object representing the headers to include in the HTTP request.                                                                                                                                  | (empty)       | Yes              | `object`        |
-| Body                         | The body of the HTTP request. This is typically used for POST or PUT requests. The value passed in here is not JSON stringified, so if you need a JSON body, use the [To JSON](./to-json.mdx) node. | (empty)       | Yes              | `string`        |
-| Error on non-200 status code | If enabled, the node will error if the status code of the HTTP response is not 200.                                                                                                                 | True          | No               | N/A             |
+| Setting | Description | Default Value | Use Input Toggle | Input Data Type |
+| --- | --- | --- | --- | --- |
+| Method | The HTTP method to use for the request (GET, POST, PUT, DELETE, etc.). | GET | Yes | `string` |
+| URL | The URL to make the HTTP request to. | (empty) | Yes | `string` |
+| Headers | An object representing the headers to include in the HTTP request. | (empty) | Yes | `object` |
+| Body | The body of the HTTP request. If you need a JSON body, use the [To JSON](./to-json.mdx) node or provide an object through the Body input port. | (empty) | Yes | `string` |
+| Retry on non-200 | Repeats the request when the status code is not 200. | Off | No | N/A |
+| Repeat times | Number of repeats after the initial request. | 1 | No | N/A |
+| Cooldown, ms | Milliseconds to wait between repeats. | 0 | No | N/A |
+| Binary Output | Reads the response as bytes and exposes the Binary output instead of Body/Parsed JSON. | Off | No | N/A |
+| Fail on non-2XX status code | If enabled, the node errors when the final response is not in the 2XX range. | On | No | N/A |
+| Catch all request failures | If enabled, request failures are returned through Request failed and Request error instead of throwing. | Off | No | N/A |
 
 </TabItem>
 
@@ -95,7 +103,11 @@ The HTTP call node only has inputs when the [Editor Settings](#editor-settings) 
 
 ## Error Handling
 
-The HTTP Call Node will error if the HTTP request fails for any reason, such as a network error or if the server returns an error status code. If the `Error on non-200 status code` setting is enabled, the node will also error if the status code of the HTTP response is not 200.
+The HTTP Call Node errors when the request throws, the URL is invalid, or the final response violates `Fail on non-2XX status code`.
+
+Enable `Catch all request failures` when you want failures to flow through node outputs instead of stopping the graph. The node will output `Request failed` as `true` and `Request error` as readable error text.
+
+Enable `Retry on non-200` when you want Rivet to repeat responses whose status code is not `200`. Retry mode changes the existing `Status Code`, `Request failed`, and `Request error` outputs to arrays. Rivet does not create extra ad-hoc retry outputs; downstream nodes should read those same output ports.
 
 ## FAQ
 

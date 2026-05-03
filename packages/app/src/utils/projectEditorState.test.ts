@@ -1,6 +1,6 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { type GraphId, type NodeGraph, type Project, type ProjectId } from '@ironclad/rivet-core';
+import { type GraphId, type NodeGraph, type Project, type ProjectId } from '@valerypopoff/rivet2-core';
 import { createRootGraphViewContext, createSubgraphGraphViewContext } from '../domain/graphEditing/navigationActions.js';
 import {
   buildCurrentProjectEditorStateSnapshot,

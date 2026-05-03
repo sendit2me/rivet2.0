@@ -1,0 +1,52 @@
+.releaseCard {
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: 8px;
+  padding: 20px;
+  margin: 16px 0 24px;
+  background: var(--ifm-background-surface-color);
+}
+
+.meta {
+  color: var(--ifm-color-emphasis-700);
+  font-size: 0.9rem;
+  margin: 0 0 16px;
+}
+
+.downloads {
+  display: grid;
+  gap: 12px;
+  margin: 0 0 20px;
+}
+
+.downloadLink {
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: 6px;
+  display: block;
+  padding: 14px 16px;
+  text-decoration: none;
+}
+
+.downloadLink:hover {
+  text-decoration: none;
+}
+
+.downloadLabel {
+  display: block;
+  font-weight: 700;
+}
+
+.downloadName {
+  color: var(--ifm-color-emphasis-700);
+  display: block;
+  font-size: 0.9rem;
+  margin-top: 4px;
+}
+
+.artifactTable {
+  width: 100%;
+}
+
+.empty {
+  color: var(--ifm-color-emphasis-700);
+  margin: 0;
+}

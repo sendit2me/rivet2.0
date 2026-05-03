@@ -1,4 +1,4 @@
-import { type FC, useEffect, useMemo, useState, type MouseEvent, useRef } from 'react';
+import { type FC, useEffect, useMemo, useState, type MouseEvent } from 'react';
 import { NodeCanvas } from './NodeCanvas.js';
 import { useAtomValue, useAtom, useSetAtom } from 'jotai';
 import { connectionsState, isReadOnlyGraphState, nodesByIdState, nodesState } from '../state/graph.js';
@@ -6,7 +6,7 @@ import { editingNodeState, selectedNodesState } from '../state/graphBuilder.js';
 import { NodeEditorRenderer } from './NodeEditor.js';
 import styled from '@emotion/styled';
 import { useStableCallback } from '../hooks/useStableCallback.js';
-import { type ArrayDataValue, type ChartNode, type StringDataValue } from '@ironclad/rivet-core';
+import { type ArrayDataValue, type ChartNode, type StringDataValue } from '@valerypopoff/rivet2-core';
 import { type ProcessQuestions, userInputModalQuestionsState } from '../state/userInput.js';
 import { UserInputModal } from './UserInputModal.js';
 import Button from '@atlaskit/button';
@@ -14,7 +14,6 @@ import { isNotNull } from '../utils/genericUtilFunctions.js';
 import { ErrorBoundary } from 'react-error-boundary';
 import { loadedRecordingState } from '../state/execution.js';
 import { useGraphHistoryNavigation } from '../hooks/useGraphHistoryNavigation';
-import { useProjectPlugins } from '../hooks/useProjectPlugins';
 import { entries } from '../utils/typeSafety';
 import { useGraphBuilderContextMenuHandler } from '../hooks/useGraphBuilderContextMenuHandler';
 import { NavigationBar } from './NavigationBar';
@@ -30,6 +29,7 @@ import { useReloadProjectReferences } from '../hooks/useReloadProjectReferences'
 import { submitUserInputAnswers } from '../state/actions/userInputActions';
 import { useSyncCurrentProjectEditorState } from '../hooks/useSyncCurrentProjectEditorState.js';
 import { toggleNodeSelection } from '../domain/graphEditing/nodeSelection.js';
+import { useSyncProjectPluginsFromGraphUsage } from '../hooks/useSyncProjectPluginsFromGraphUsage.js';
 
 const Container = styled.div`
   position: relative;
@@ -71,7 +71,6 @@ export const GraphBuilder: FC = () => {
   const setEditingNodeId = useSetAtom(editingNodeState);
   const loadedRecording = useAtomValue(loadedRecordingState);
   const project = useAtomValue(projectState);
-  const autoLayoutGraph = useRef(() => {});
 
   useReloadProjectReferences();
   useSyncCurrentProjectEditorState();
@@ -79,18 +78,14 @@ export const GraphBuilder: FC = () => {
   useDatasets(project.metadata.id);
 
   const historyNav = useGraphHistoryNavigation();
-  useProjectPlugins();
+  useSyncProjectPluginsFromGraphUsage();
 
   const nodesChanged = useStableCallback((newNodes: ChartNode[]) => {
     setNodes?.(newNodes);
   });
 
   const nodesById = useAtomValue(nodesByIdState);
-  const contextMenuHandler = useGraphBuilderContextMenuHandler({
-    onAutoLayoutGraph: () => {
-      autoLayoutGraph.current();
-    },
-  });
+  const contextMenuHandler = useGraphBuilderContextMenuHandler();
 
   const nodeSelected = useStableCallback((node: ChartNode, multi: boolean) => {
     if (!multi) {
@@ -162,11 +157,10 @@ export const GraphBuilder: FC = () => {
           selectedNodes={selectedNodes}
           onNodeStartEditing={nodeStartEditing}
           onContextMenuItemSelected={contextMenuHandler}
-          autoLayoutGraph={autoLayoutGraph}
         />
         {loadedRecording && <div className="recording-border" />}
         {isReadOnly && <div className="read-only-border" />}
-        <NodeEditorRenderer />
+        {overlay === undefined && <NodeEditorRenderer />}
         {firstNodeQuestions && firstNodeQuestions.length > 0 && (
           <Button onClick={handleOpenUserInputModal} className="user-input-modal-open" appearance="primary">
             User Input Needed

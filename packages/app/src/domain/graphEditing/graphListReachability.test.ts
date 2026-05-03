@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { type GraphId } from '@ironclad/rivet-core';
+import { type GraphId } from '@valerypopoff/rivet2-core';
 import { buildGraphListReachabilityPresentation } from './graphListReachability.js';
 import { type GraphReachabilityReport } from '../../utils/graphReachability.js';
 
@@ -110,7 +110,7 @@ test('plugin loading hides badges and shows the loading notice', () => {
   });
 
   assert.equal(presentation.showUnreachableBadges, false);
-  assert.equal(presentation.notice, 'Unreachable graph analysis is waiting for project plugins to load.');
+  assert.equal(presentation.notice, 'Unreachable graph analysis is waiting for app plugins to load.');
 });
 
 test('plugin load failures do not suppress badges by themselves', () => {

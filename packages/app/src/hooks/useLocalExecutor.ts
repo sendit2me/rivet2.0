@@ -12,7 +12,7 @@ import {
   logRuntimeDebug,
   logRuntimeError,
   logRuntimeInfo,
-} from '@ironclad/rivet-core';
+} from '@valerypopoff/rivet2-core';
 import { produce } from 'immer';
 import { useRef } from 'react';
 import { toast } from 'react-toastify';
@@ -28,7 +28,7 @@ import { lastRecordingState, loadedRecordingState } from '../state/execution';
 import { fillMissingSettingsFromEnvironmentVariables } from '../utils/tauri';
 import { getLLMChatV2CustomProviderApiKeyEnvVarNames } from '../utils/chatV2CustomProviderEnv';
 import { trivetState } from '../state/trivet';
-import { runTrivet } from '@ironclad/trivet';
+import { runTrivet } from '@valerypopoff/trivet';
 import { entries } from '../utils/typeSafety';
 import { lastRunDataByNodeState } from '../state/dataFlow';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
@@ -43,6 +43,8 @@ import { setUserInputSubmitHandler } from '../state/actions/userInputActions';
 import { useProjectNodeRegistry } from './useProjectNodeRegistry';
 import { handleError } from '../utils/errorHandling.js';
 import { getDependentDataForNodeForPreload } from './remoteExecutorHelpers.js';
+import { pluginsState } from '../state/plugins.js';
+import { withDerivedProjectPluginSpecs } from '../utils/pluginUsage.js';
 
 /**
  * Yield to the macrotask queue so the browser can repaint.
@@ -91,6 +93,7 @@ export function useLocalExecutor() {
   const projectContext = useAtomValue(projectContextState(project.metadata.id));
   const lastRunData = useAtomValue(lastRunDataByNodeState);
   const loadedProject = useAtomValue(loadedProjectState);
+  const pluginStates = useAtomValue(pluginsState);
   const editorExecutionCachesByProjectId = useRef(new Map<string, Map<string, unknown>>());
 
   function getEditorExecutionCache(projectId: string) {
@@ -168,7 +171,7 @@ export function useLocalExecutor() {
       } = {},
     ) => {
       try {
-        saveGraph();
+        const savedGraph = saveGraph() ?? graph;
 
         const graphToRun = options.graphId ?? graph.metadata!.id!;
 
@@ -176,15 +179,22 @@ export function useLocalExecutor() {
           return;
         }
 
-        const tempProject = {
-          ...project,
-          // Include the just-saved version of the currently selected graph, because saveGraph won't update the `project` until next render
-          graphs: {
-            ...project.graphs,
-            [graph.metadata!.id!]: graph,
+        const tempProject = withDerivedProjectPluginSpecs(
+          {
+            ...project,
+            // Include the just-saved version of the currently selected graph, because saveGraph won't update the `project` until next render
+            graphs: {
+              ...project.graphs,
+              [savedGraph.metadata!.id!]: savedGraph,
+            },
+            data: projectData,
           },
-          data: projectData,
-        };
+          {
+            appPluginStates: pluginStates,
+            currentGraph: savedGraph,
+            registry: projectNodeRegistry,
+          },
+        );
 
         const recorder = new ExecutionRecorder();
         const processor = new GraphProcessor(tempProject, graphToRun, projectNodeRegistry, true);
@@ -283,8 +293,23 @@ export function useLocalExecutor() {
             }))
         : testSuites;
       try {
+        const projectForTests = withDerivedProjectPluginSpecs(
+          {
+            ...project,
+            graphs: {
+              ...project.graphs,
+              [graph.metadata!.id!]: graph,
+            },
+          },
+          {
+            appPluginStates: pluginStates,
+            currentGraph: graph,
+            registry: projectNodeRegistry,
+          },
+        );
+
         const result = await runTrivet({
-          project,
+          project: projectForTests,
           iterationCount: options.iterationCount,
           testSuites: testSuitesToRun,
           onUpdate: (results) => {

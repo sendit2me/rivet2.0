@@ -3,14 +3,29 @@ import { Field } from '@atlaskit/form';
 import Select from '@atlaskit/select';
 import TextField from '@atlaskit/textfield';
 import Portal from '@atlaskit/portal';
-import { type ChartNode, type CustomEditorDefinition } from '@ironclad/rivet-core';
+import {
+  coerceTypeOptional,
+  type ChartNode,
+  type CustomEditorDefinition,
+  type NodeGraph,
+  type PortId,
+} from '@valerypopoff/rivet2-core';
 import { css } from '@emotion/react';
 import { useAtomValue } from 'jotai';
 import { type FC, useEffect, useState } from 'react';
 import clsx from 'clsx';
 import { settingsState } from '../../../state/settings.js';
+import {
+  lastRunDataState,
+  resolvedGraphSelectionState,
+  type GraphRunRecord,
+  type GraphRunSelection,
+  type ProcessDataForNode,
+} from '../../../state/dataFlow.js';
 import { useDependsOnPlugins } from '../../../hooks/useDependsOnPlugins.js';
 import { fillMissingSettingsFromEnvironmentVariables } from '../../../utils/tauri.js';
+import { tryRestoreStoredDataValue } from '../../../utils/executionDataTransforms.js';
+import { getStaticInputApiKey } from '../../../utils/chatV2ModelCatalogInputKey.js';
 import {
   getChatV2DiscoveredModelOptionsWithStatus,
   invalidateChatV2DiscoveredModelOptions,
@@ -18,7 +33,9 @@ import {
 import { type SharedEditorProps } from '../SharedEditorProps';
 import PlugIcon from '../../../assets/icons/plug-icon.svg?react';
 import { Tooltip } from '../../Tooltip';
-import { useEnvironmentProvider } from '../../../providers/ProvidersContext.js';
+import { useDataRefs, useEnvironmentProvider, type DataRefReader } from '../../../providers/ProvidersContext.js';
+import { getSelectedProcessData } from '../../../state/selectors/executionSelectors.js';
+import { graphState } from '../../../state/graph.js';
 
 const styles = css`
   display: flex;
@@ -140,18 +157,22 @@ function getProvider(data: unknown): ProviderName {
   return ((data as { provider?: ProviderName }).provider ?? 'openai') as ProviderName;
 }
 
-function getStatusKey(nodeId: string, provider: ProviderName): string {
-  return `${nodeId}:${provider}`;
+function getStatusKey(nodeId: string, provider: ProviderName, apiKeySource: string): string {
+  return `${nodeId}:${provider}:${apiKeySource}`;
 }
 
 function getModelOptions(editor: CustomEditorDefinition<ChartNode>): ModelOption[] {
   return ((editor.data as { modelOptions?: ModelOption[] } | undefined)?.modelOptions ?? []) as ModelOption[];
 }
 
-function getMissingCredentialMessage(provider: ProviderName, resolvedSettings: ResolvedSettings): string | undefined {
+function getMissingCredentialMessage(
+  provider: ProviderName,
+  resolvedSettings: ResolvedSettings,
+  apiKey?: string,
+): string | undefined {
   switch (provider) {
     case 'openai':
-      return resolvedSettings.openAiKey ? undefined : 'OpenAI API key is not configured.';
+      return apiKey || resolvedSettings.openAiKey ? undefined : 'OpenAI API key is not configured.';
     case 'anthropic':
       return undefined;
     case 'google':
@@ -161,10 +182,39 @@ function getMissingCredentialMessage(provider: ProviderName, resolvedSettings: R
   }
 }
 
+function getApiKeySource(data: unknown): string {
+  return (data as { apiKeySource?: string }).apiKeySource ?? 'environment';
+}
+
+function getLatestInputApiKey(options: {
+  graph: NodeGraph | undefined;
+  nodeId: ChartNode['id'];
+  lastRun: ProcessDataForNode[] | undefined;
+  graphSelectionOptions: {
+    graphRuns?: GraphRunRecord[];
+    selectedGraphRun?: GraphRunSelection;
+  };
+  dataRefs: DataRefReader;
+}): string | undefined {
+  const staticApiKey = getStaticInputApiKey({
+    graph: options.graph,
+    nodeId: options.nodeId,
+  });
+  if (staticApiKey) {
+    return staticApiKey;
+  }
+
+  const storedApiKey = getSelectedProcessData(options.lastRun, 'latest', options.graphSelectionOptions)?.data
+    .inputData?.['apiKey' as PortId];
+
+  return coerceTypeOptional(tryRestoreStoredDataValue(storedApiKey, options.dataRefs), 'string')?.trim();
+}
+
 function getRefreshStatus(
   provider: ProviderName,
   result: ModelRefreshResult,
   resolvedSettings: ResolvedSettings,
+  apiKey?: string,
 ): RefreshStatus {
   if (result.source === 'api') {
     return {
@@ -176,7 +226,7 @@ function getRefreshStatus(
   return {
     tone: 'warning',
     message: `Using built-in ${provider} model list (${result.options.length}). ${
-      getMissingCredentialMessage(provider, resolvedSettings) ?? result.error ?? 'API fetch failed.'
+      getMissingCredentialMessage(provider, resolvedSettings, apiKey) ?? result.error ?? 'API fetch failed.'
     }`,
   };
 }
@@ -190,13 +240,18 @@ export const LLMChatV2ModelCatalogEditor: FC<Props> = ({
   onRefreshEditors,
 }) => {
   const settings = useAtomValue(settingsState);
+  const graph = useAtomValue(graphState);
+  const lastRun = useAtomValue(lastRunDataState(node.id));
+  const graphSelectionOptions = useAtomValue(resolvedGraphSelectionState);
   const plugins = useDependsOnPlugins();
+  const dataRefs = useDataRefs();
   const environmentProvider = useEnvironmentProvider();
   const provider = getProvider(node.data);
-  const statusKey = getStatusKey(node.id, provider);
+  const data = node.data as Record<string, unknown>;
+  const apiKeySource = getApiKeySource(data);
+  const statusKey = getStatusKey(node.id, provider, apiKeySource);
   const [status, setStatus] = useState<RefreshStatus>(() => modelCatalogRefreshStatus.get(statusKey));
   const [menuPortalTarget, setMenuPortalTarget] = useState<HTMLDivElement | null>(null);
-  const data = node.data as Record<string, unknown>;
   const modelOptions = getModelOptions(editor);
   const selectedValue = modelOptions.find((option) => option.value === data.model);
   const isUsingModelInput = Boolean(data.useModelInput);
@@ -226,11 +281,22 @@ export const LLMChatV2ModelCatalogEditor: FC<Props> = ({
       const resolvedSettings = await fillMissingSettingsFromEnvironmentVariables(settings, plugins, {
         environmentProvider,
       });
-      const context = { settings: resolvedSettings, plugins };
+      const apiKey =
+        apiKeySource === 'input'
+          ? getLatestInputApiKey({ graph, nodeId: node.id, lastRun, graphSelectionOptions, dataRefs })
+          : undefined;
+
+      if (apiKeySource === 'input' && !apiKey) {
+        throw new Error(
+          'API Key input is required when API key source is Input port. Connect API Key to a static Text node or another resolvable source before re-fetching the model list.',
+        );
+      }
+
+      const context = { settings: resolvedSettings, plugins, apiKey };
 
       invalidateChatV2DiscoveredModelOptions(provider, context);
       const result = await getChatV2DiscoveredModelOptionsWithStatus(provider, context);
-      updateStatus(getRefreshStatus(provider, result, resolvedSettings));
+      updateStatus(getRefreshStatus(provider, result, resolvedSettings, apiKey));
       onRefreshEditors?.();
     } catch (error) {
       updateStatus({

@@ -1,4 +1,4 @@
-import { type ChartNode, type GraphId, type Project } from '@ironclad/rivet-core';
+import { type ChartNode, type GraphId, type Project } from '@valerypopoff/rivet2-core';
 
 type TemplateProject = Pick<Project, 'metadata' | 'graphs'>;
 

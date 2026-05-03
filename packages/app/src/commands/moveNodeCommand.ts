@@ -1,7 +1,7 @@
 import { useSetAtom } from 'jotai';
 import { useCommand } from './Command';
 import { nodesState } from '../state/graph';
-import { type NodeId } from '@ironclad/rivet-core';
+import { type NodeId } from '@valerypopoff/rivet2-core';
 
 export type NodePosition = {
   nodeId: NodeId;

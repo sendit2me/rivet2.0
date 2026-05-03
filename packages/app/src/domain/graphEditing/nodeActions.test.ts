@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createBuiltInRegistry } from '@ironclad/rivet-core';
+import { createBuiltInRegistry } from '@valerypopoff/rivet2-core';
 import { createAddedNode, createPastedNodes, duplicateNodeWithConnections, duplicateNodesWithConnections } from './nodeActions';
 
 test('createAddedNode applies configured default colors to supported node types', () => {

@@ -2,7 +2,7 @@ import { useAtomValue, useSetAtom } from 'jotai';
 import { connectionsState, graphMetadataState, nodesState, removeGraphNodeStateFamilies } from '../state/graph';
 import { useCommand } from './Command';
 import { editingNodeState, selectedNodesState, removeGraphBuilderNodeStateFamilies } from '../state/graphBuilder';
-import { type NodeConnection, type ChartNode, type NodeId } from '@ironclad/rivet-core';
+import { type NodeConnection, type ChartNode, type NodeId } from '@valerypopoff/rivet2-core';
 import { removeExecutionNodeStateFamilies } from '../state/dataFlow';
 import { deleteNodesFromGraph } from '../domain/graphEditing/nodeActions.js';
 import { recoverableNodeConnectionsStatePerGraph, removeRecoverableNodeConnectionsForGraphNodes } from '../state/recoverableNodeConnections';

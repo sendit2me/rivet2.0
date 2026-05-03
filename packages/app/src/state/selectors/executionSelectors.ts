@@ -1,5 +1,5 @@
 import type { GraphRunRecord, GraphRunSelection, ProcessDataForNode, NodeRunDataWithRefs, PageValue } from '../dataFlow.js';
-import type { GraphRunId } from '@ironclad/rivet-core';
+import type { GraphRunId } from '@valerypopoff/rivet2-core';
 import type { DefaultExecutor } from '../settings.js';
 import type { ExecutorSessionState } from '../../hooks/executorSession.js';
 import type { GraphViewContext, GraphViewKey } from '../../domain/graphEditing/navigationActions.js';
@@ -160,9 +160,11 @@ export function getActionBarExecutionState(options: {
   const showRunButton = selectedExecutor === 'nodejs' || canRun;
   const isActuallyRemoteDebugging = session.status !== 'idle' && !session.isInternalExecutor;
   const showRemoteDebuggerBanner = isActuallyRemoteDebugging || (!session.isInternalExecutor && session.reconnecting);
+  const executorLoading = selectedExecutor === 'nodejs' && !graphRunning && !canRun && !isActuallyRemoteDebugging;
 
   return {
     canRun,
+    executorLoading,
     graphPaused,
     graphRunning,
     isActuallyRemoteDebugging,

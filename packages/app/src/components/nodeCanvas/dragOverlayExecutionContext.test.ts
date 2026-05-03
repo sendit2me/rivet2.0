@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { NodeId } from '@ironclad/rivet-core';
+import type { NodeId } from '@valerypopoff/rivet2-core';
 import { resolveDraggingExecutionContext } from './dragOverlayExecutionContext.js';
 import type { PageValue, ProcessDataForNode } from '../../state/dataFlow.js';
 

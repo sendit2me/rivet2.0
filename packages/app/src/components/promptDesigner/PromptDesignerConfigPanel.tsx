@@ -3,7 +3,7 @@ import { Field } from '@atlaskit/form';
 import TextField from '@atlaskit/textfield';
 import Button from '@atlaskit/button';
 import Select from '@atlaskit/select';
-import { openai } from '@ironclad/rivet-core';
+import { openai } from '@valerypopoff/rivet2-core';
 import type { PromptDesignerConfigurationState } from '../../state/promptDesigner';
 import type { SetStateAction } from 'jotai';
 import { LabeledToggle } from '../LabeledToggle.js';

@@ -1,0 +1,108 @@
+import assert from 'node:assert/strict';
+import { afterEach, test } from 'node:test';
+
+import type { Settings } from '@valerypopoff/rivet2-core';
+
+import {
+  getChatV2DiscoveredModelOptionsWithStatus,
+  invalidateChatV2DiscoveredModelOptions,
+} from './chatV2ModelCatalog.js';
+
+const originalFetch = globalThis.fetch;
+
+function createContext(apiKey?: string) {
+  return {
+    settings: {
+      openAiEndpoint: 'https://api.openai.com/v1/responses',
+      openAiKey: 'configured-openai-key',
+    } as Settings,
+    plugins: [],
+    apiKey,
+  };
+}
+
+afterEach(() => {
+  globalThis.fetch = originalFetch;
+});
+
+test('OpenAI model refresh uses the explicit API key override', async () => {
+  const context = createContext('input-openai-key');
+  let authorization: string | null = null;
+
+  globalThis.fetch = async (_input, init) => {
+    authorization = new Headers(init?.headers).get('Authorization');
+    return new Response(JSON.stringify({ data: [{ id: 'gpt-test-model' }] }));
+  };
+
+  invalidateChatV2DiscoveredModelOptions('openai', context);
+  const result = await getChatV2DiscoveredModelOptionsWithStatus('openai', context);
+
+  assert.equal(result.source, 'api');
+  assert.equal(authorization, 'Bearer input-openai-key');
+});
+
+test('OpenAI model refresh cache stays scoped by explicit API key override', async () => {
+  const firstContext = createContext('input-openai-key-a');
+  const secondContext = createContext('input-openai-key-b');
+  const authorizations: string[] = [];
+
+  globalThis.fetch = async (_input, init) => {
+    authorizations.push(new Headers(init?.headers).get('Authorization') ?? '');
+    return new Response(JSON.stringify({ data: [{ id: `gpt-test-model-${authorizations.length}` }] }));
+  };
+
+  invalidateChatV2DiscoveredModelOptions('openai', firstContext);
+  invalidateChatV2DiscoveredModelOptions('openai', secondContext);
+
+  const firstResult = await getChatV2DiscoveredModelOptionsWithStatus('openai', firstContext);
+  const secondResult = await getChatV2DiscoveredModelOptionsWithStatus('openai', secondContext);
+  const cachedFirstResult = await getChatV2DiscoveredModelOptionsWithStatus('openai', firstContext);
+
+  assert.equal(firstResult.source, 'api');
+  assert.equal(secondResult.source, 'api');
+  assert.equal(cachedFirstResult.source, 'api');
+  assert.deepEqual(authorizations, ['Bearer input-openai-key-a', 'Bearer input-openai-key-b']);
+});
+
+test('Anthropic model refresh uses the explicit API key override without configured plugin credentials', async () => {
+  const context = createContext('input-anthropic-key');
+  let apiKey: string | null = null;
+
+  globalThis.fetch = async (_input, init) => {
+    apiKey = new Headers(init?.headers).get('x-api-key');
+    return new Response(JSON.stringify({ data: [{ id: 'claude-test-model', display_name: 'Claude Test' }] }));
+  };
+
+  invalidateChatV2DiscoveredModelOptions('anthropic', context);
+  const result = await getChatV2DiscoveredModelOptionsWithStatus('anthropic', context);
+
+  assert.equal(result.source, 'api');
+  assert.equal(apiKey, 'input-anthropic-key');
+});
+
+test('Google model refresh uses the explicit API key override in the model-list URL', async () => {
+  const context = createContext('input-google-key');
+  let requestUrl = '';
+
+  globalThis.fetch = async (input) => {
+    requestUrl = String(input);
+    return new Response(
+      JSON.stringify({
+        models: [
+          {
+            name: 'models/gemini-test-model',
+            displayName: 'Gemini Test',
+            supportedGenerationMethods: ['generateContent'],
+          },
+        ],
+      }),
+    );
+  };
+
+  invalidateChatV2DiscoveredModelOptions('google', context);
+  const result = await getChatV2DiscoveredModelOptionsWithStatus('google', context);
+
+  assert.equal(result.source, 'api');
+  assert.match(requestUrl, /key=input-google-key/);
+  assert.doesNotMatch(requestUrl, /configured-openai-key/);
+});

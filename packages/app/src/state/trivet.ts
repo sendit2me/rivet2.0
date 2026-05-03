@@ -1,4 +1,4 @@
-import { type TrivetResults, type TrivetTestSuite } from '@ironclad/trivet';
+import { type TrivetResults, type TrivetTestSuite } from '@valerypopoff/trivet';
 import { atom } from 'jotai';
 import { atomWithStorage } from 'jotai/utils';
 import { createHybridStorage } from './storage.js';

@@ -1,4 +1,4 @@
-import { type EditorDefinition, type ChartNode } from '@ironclad/rivet-core';
+import { type EditorDefinition, type ChartNode } from '@valerypopoff/rivet2-core';
 import clsx from 'clsx';
 import { type FC } from 'react';
 import { match } from 'ts-pattern';

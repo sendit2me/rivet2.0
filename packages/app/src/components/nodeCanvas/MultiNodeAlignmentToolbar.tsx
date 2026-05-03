@@ -1,5 +1,5 @@
 import { css } from '@emotion/react';
-import { type ChartNode, type NodeId } from '@ironclad/rivet-core';
+import { type ChartNode, type NodeId } from '@valerypopoff/rivet2-core';
 import { useAtomValue } from 'jotai';
 import { type FC, type ReactNode, type RefObject } from 'react';
 import { useMoveNodeCommand } from '../../commands/moveNodeCommand.js';

@@ -4,7 +4,7 @@ import { css } from '@emotion/react';
 import { type FC } from 'react';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { loadedProjectState, projectState } from '../state/savedGraphs';
-import { type ProjectReference } from '@ironclad/rivet-core';
+import { type ProjectReference } from '@valerypopoff/rivet2-core';
 import { useIOProvider } from '../providers/ProvidersContext';
 
 const styles = css`

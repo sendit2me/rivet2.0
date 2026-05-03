@@ -8,7 +8,7 @@ import {
   serializeDatasets,
   type DatasetMetadata,
   type DatasetRow,
-} from '@ironclad/rivet-core';
+} from '@valerypopoff/rivet2-core';
 import { readFile, writeFile } from 'node:fs/promises';
 
 export type NodeDatasetProviderOptions = {

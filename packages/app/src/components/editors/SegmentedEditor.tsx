@@ -1,16 +1,24 @@
 import { Field } from '@atlaskit/form';
 import { css } from '@emotion/react';
-import { type ChartNode, type SegmentedEditorDefinition } from '@ironclad/rivet-core';
-import { type FC } from 'react';
+import { type ChartNode, type SegmentedEditorDefinition } from '@valerypopoff/rivet2-core';
+import { type FC, useLayoutEffect, useRef, useState } from 'react';
 import { FieldHelperMessage } from '../FieldHelperMessage.js';
 import { type SharedEditorProps } from './SharedEditorProps';
 import { getHelperMessage } from './editorUtils';
 
 const segmentedEditorStyles = css`
+  .segmented-editor-control {
+    max-width: 100%;
+    min-width: 0;
+  }
+
   .segmented-choice {
     display: inline-flex;
-    align-items: center;
+    align-items: stretch;
+    width: fit-content;
+    max-width: 100%;
     min-height: calc(32px * var(--ui-font-scale));
+    overflow: hidden;
     gap: calc(3px * var(--ui-font-scale));
     padding: calc(3px * var(--ui-font-scale));
     margin-left: -0.2em;
@@ -24,10 +32,19 @@ const segmentedEditorStyles = css`
       0 1px 2px rgba(0, 0, 0, 0.18);
   }
 
+  .segmented-choice[data-wrap='true'] {
+    width: 100%;
+    overflow: visible;
+  }
+
   .segmented-choice-option {
-    min-width: 0;
-    height: calc(24px * var(--ui-font-scale));
-    padding: 0 calc(12px * var(--ui-font-scale));
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 max-content;
+    min-height: calc(24px * var(--ui-font-scale));
+    padding: calc(4px * var(--ui-font-scale)) calc(12px * var(--ui-font-scale));
+    box-sizing: border-box;
     border: 0;
     border-radius: calc(24px * var(--ui-font-scale));
     corner-shape: superellipse(1.15);
@@ -36,12 +53,22 @@ const segmentedEditorStyles = css`
     font: inherit;
     font-size: var(--ui-font-size-compact);
     font-weight: 700;
-    line-height: calc(24px * var(--ui-font-scale));
+    line-height: 1.2;
+    text-align: center;
+    white-space: nowrap;
+    overflow-wrap: normal;
     cursor: pointer;
     transition:
       background-color 0.14s ease-out,
       color 0.14s ease-out,
       box-shadow 0.14s ease-out;
+  }
+
+  .segmented-choice[data-wrap='true'] .segmented-choice-option {
+    flex: 1 1 0;
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: break-word;
   }
 
   .segmented-choice-option:first-of-type {
@@ -119,10 +146,72 @@ export const SegmentedEditor: FC<{
   const disabled = isReadonly || isDisabled;
   const visibleLabel = label.trim() ? label : undefined;
   const effectiveAriaLabel = ariaLabel ?? visibleLabel ?? name ?? 'Segmented choice';
+  const choiceRef = useRef<HTMLDivElement>(null);
+  const [shouldWrap, setShouldWrap] = useState(false);
+
+  useLayoutEffect(() => {
+    const choice = choiceRef.current;
+
+    if (!choice) {
+      return;
+    }
+
+    let measureAnimationFrame = 0;
+    let observedParentWidth = -1;
+    const parent = choice.parentElement;
+
+    const readAvailableWidth = () => parent?.getBoundingClientRect().width ?? choice.clientWidth;
+
+    const measure = (availableWidth = readAvailableWidth()) => {
+      cancelAnimationFrame(measureAnimationFrame);
+
+      measureAnimationFrame = requestAnimationFrame(() => {
+        if (availableWidth <= 0) {
+          return;
+        }
+
+        choice.dataset.wrap = 'false';
+
+        const wraps = choice.scrollWidth > availableWidth + 1;
+        choice.dataset.wrap = wraps ? 'true' : 'false';
+        setShouldWrap(wraps);
+      });
+    };
+
+    observedParentWidth = readAvailableWidth();
+    measure(observedParentWidth);
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      const availableWidth = entries[0]?.contentRect.width ?? readAvailableWidth();
+
+      if (Math.abs(availableWidth - observedParentWidth) <= 0.5) {
+        return;
+      }
+
+      observedParentWidth = availableWidth;
+      measure(availableWidth);
+    });
+
+    if (parent) {
+      resizeObserver.observe(parent);
+    }
+
+    return () => {
+      cancelAnimationFrame(measureAnimationFrame);
+      resizeObserver.disconnect();
+    };
+  }, [options]);
+
   const control = (
     <div className="segmented-editor-control" css={segmentedEditorStyles}>
       {helperMessage && <FieldHelperMessage>{helperMessage}</FieldHelperMessage>}
-      <div className="segmented-choice" role="group" aria-label={effectiveAriaLabel}>
+      <div
+        ref={choiceRef}
+        className="segmented-choice"
+        role="group"
+        aria-label={effectiveAriaLabel}
+        data-wrap={shouldWrap ? 'true' : 'false'}
+      >
         {options.map((option) => (
           <button
             key={String(option.value)}

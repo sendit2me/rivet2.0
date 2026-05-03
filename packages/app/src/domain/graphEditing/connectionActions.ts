@@ -1,4 +1,4 @@
-import { type NodeConnection, type NodeId, type PortId } from '@ironclad/rivet-core';
+import { type NodeConnection, type NodeId, type PortId } from '@valerypopoff/rivet2-core';
 
 export type ConnectionActionParams = {
   outputNodeId: NodeId;

@@ -1,6 +1,6 @@
 import { useAtom, useAtomValue } from 'jotai';
 import { useEffect, useMemo, useRef } from 'react';
-import type { ChartNode } from '@ironclad/rivet-core';
+import type { ChartNode } from '@valerypopoff/rivet2-core';
 import { graphState } from '../state/graph';
 import { searchingGraphState } from '../state/graphBuilder';
 import { useNodeTypes } from './useNodeTypes';
@@ -10,16 +10,11 @@ import { projectState } from '../state/savedGraphs';
 import {
   buildProjectGraphSearchItems,
   clampGraphSearchSelectedIndex,
+  getSynchronousCodeEditorDataKeys,
   type GraphSearchNodeMetadata,
   type GraphSearchMatch,
   searchGraphNodesWithMode,
 } from './graphSearch';
-
-type SearchableEditorDefinition = {
-  type: string;
-  dataKey?: string;
-  editors?: SearchableEditorDefinition[];
-};
 
 export function useSearchGraph() {
   const project = useAtomValue(projectState);
@@ -96,28 +91,9 @@ function getSearchableContentKeys(
   node: ChartNode,
   projectNodeRegistry: ReturnType<typeof useProjectNodeRegistry>,
 ): string[] {
-  try {
-    const editors = projectNodeRegistry.createDynamicImpl(node).getEditors(undefined as never);
-    return Array.isArray(editors) ? getCodeEditorDataKeys(editors as SearchableEditorDefinition[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-function getCodeEditorDataKeys(editors: readonly SearchableEditorDefinition[]): string[] {
-  const dataKeys = new Set<string>();
-
-  for (const editor of editors) {
-    if (editor.type === 'code' && typeof editor.dataKey === 'string') {
-      dataKeys.add(editor.dataKey);
-    }
-
-    if (Array.isArray(editor.editors)) {
-      getCodeEditorDataKeys(editor.editors).forEach((dataKey) => dataKeys.add(dataKey));
-    }
-  }
-
-  return [...dataKeys];
+  return getSynchronousCodeEditorDataKeys(() =>
+    projectNodeRegistry.createDynamicImpl(node).getEditors(undefined as never),
+  );
 }
 
 function areGraphSearchMatchesEqual(first: readonly GraphSearchMatch[], second: readonly GraphSearchMatch[]): boolean {

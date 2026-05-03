@@ -17,13 +17,14 @@ import {
   type PortId,
   coerceType,
   coerceTypeOptional,
-} from '@ironclad/rivet-core';
+} from '@valerypopoff/rivet2-core';
 import { TauriNativeApi } from '../../model/native/TauriNativeApi.js';
 import { projectState } from '../../state/savedGraphs.js';
 import { settingsState } from '../../state/settings.js';
 import { useGetAdHocInternalProcessContext } from '../../hooks/useGetAdHocInternalProcessContext';
 import { useProjectNodeRegistry } from '../../hooks/useProjectNodeRegistry';
 import type { PromptDesignerTestGroupResults } from '../../state/promptDesigner';
+import { resolvePromptDesignerEvaluatorGraph } from './promptDesignerTestValidation.js';
 
 export async function runAdHocChat(messages: ChatMessage[], data: ChatNodeConfigData, context: InternalProcessContext) {
   const chatNode = new ChatNodeImpl({
@@ -73,8 +74,9 @@ export function useRunPromptDesignerTestGroup(datasetProvider: DatasetProvider) 
     data: ChatNodeConfigData,
     context: InternalProcessContext,
   ): Promise<PromptDesignerTestGroupResults> => {
+    const { graphId } = resolvePromptDesignerEvaluatorGraph(project, testGroup);
     const response = await runAdHocChat(messages, data, context);
-    const processor = new GraphProcessor(project, testGroup.evaluatorGraphId, projectNodeRegistry, true);
+    const processor = new GraphProcessor(project, graphId, projectNodeRegistry, true);
     processor.executor = 'browser';
 
     processor.on('trace', (value) => console.log(value));

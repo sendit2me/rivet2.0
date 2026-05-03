@@ -4,17 +4,20 @@ import { type FC, type MouseEvent, type KeyboardEvent, memo, useMemo, useState }
 import { useAtomValue } from 'jotai';
 import { DropdownItem } from '@atlaskit/dropdown-menu';
 import Button from '@atlaskit/button';
-import Modal, { ModalBody, ModalFooter, ModalHeader, ModalTitle, ModalTransition } from '@atlaskit/modal-dialog';
-import CrossIconCore from '@atlaskit/icon/glyph/cross';
-import { type GraphId, type NodeGraph } from '@ironclad/rivet-core';
+import Modal, { ModalBody, ModalFooter, ModalTransition } from '@atlaskit/modal-dialog';
+import { type GraphId, type NodeGraph } from '@valerypopoff/rivet2-core';
 import clsx from 'clsx';
 import { runningGraphsState } from '../state/dataFlow.js';
 import { pluginsState } from '../state/plugins.js';
 import { projectState } from '../state/savedGraphs.js';
+import { showGraphReferenceIndicatorsState, showUnreachableGraphTagsState } from '../state/ui.js';
 import { useContextMenu } from '../hooks/useContextMenu.js';
 import Portal from '@atlaskit/portal';
 import CrossIcon from 'majesticons/line/multiply-line.svg?react';
-import { buildGraphListReachabilityPresentation } from '../domain/graphEditing/graphListReachability.js';
+import {
+  buildGraphListReachabilityPresentation,
+  type GraphListReachabilityPresentation,
+} from '../domain/graphEditing/graphListReachability.js';
 import { useStableCallback } from '../hooks/useStableCallback.js';
 import { useGraphOperations } from '../hooks/useGraphOperations';
 import { useGraphListDragDrop } from '../hooks/useGraphListDragDrop';
@@ -25,6 +28,7 @@ import {
   resolveSupportedBuiltInPluginIds,
 } from '../utils/graphReachability.js';
 import { FolderItem } from './graphList/FolderItem';
+import { AppModalHeader } from './AppModalHeader';
 
 const styles = css`
   display: flex;
@@ -325,6 +329,8 @@ export const GraphList: FC<{ onRunGraph?: (graphId: GraphId) => void }> = memo((
   const plugins = useAtomValue(pluginsState);
   const projectNodeRegistry = useProjectNodeRegistry();
   const [graphPendingDelete, setGraphPendingDelete] = useState<NodeGraph | null>(null);
+  const showUnreachableGraphTags = useAtomValue(showUnreachableGraphTagsState);
+  const showGraphReferenceIndicators = useAtomValue(showGraphReferenceIndicatorsState);
 
   const { setShowContextMenu, showContextMenu, contextMenuData, handleContextMenu, floatingStyles, refs } =
     useContextMenu();
@@ -348,36 +354,40 @@ export const GraphList: FC<{ onRunGraph?: (graphId: GraphId) => void }> = memo((
     }
   });
 
-  const builtInPluginIds = useMemo(() => resolveSupportedBuiltInPluginIds(project.plugins), [project.plugins]);
+  const graphListReachability = useMemo<GraphListReachabilityPresentation>(() => {
+    if (!showUnreachableGraphTags) {
+      return {
+        bucketByGraphId: {},
+        showUnreachableBadges: false,
+      };
+    }
 
-  const graphListPlugins = useMemo(() => {
+    const builtInPluginIds = resolveSupportedBuiltInPluginIds(project.plugins);
     const pluginStatesById = new Map(plugins.map((plugin) => [plugin.id, plugin]));
-    return (project.plugins ?? []).map((spec) => pluginStatesById.get(spec.id) ?? { loaded: false });
-  }, [plugins, project.plugins]);
+    const graphListPlugins = (project.plugins ?? [])
+      .map((spec) => pluginStatesById.get(spec.id))
+      .filter((plugin) => plugin != null);
 
-  const reachabilityReport = useMemo(
-    () =>
-      getGraphReachabilityReport(project, {
-        registry: projectNodeRegistry,
-        builtInPluginIds,
-      }),
-    [project, projectNodeRegistry, builtInPluginIds],
-  );
+    const report = getGraphReachabilityReport(project, {
+      registry: projectNodeRegistry,
+      builtInPluginIds,
+    });
 
-  const graphListReachability = useMemo(
-    () =>
-      buildGraphListReachabilityPresentation({
-        report: reachabilityReport,
-        graphIds: Object.keys(project.graphs) as GraphId[],
-        plugins: graphListPlugins,
-      }),
-    [graphListPlugins, project.graphs, reachabilityReport],
-  );
+    return buildGraphListReachabilityPresentation({
+      report,
+      graphIds: Object.keys(project.graphs) as GraphId[],
+      plugins: graphListPlugins,
+    });
+  }, [plugins, project, projectNodeRegistry, showUnreachableGraphTags]);
 
   const referencingSelectedGraphIds = useMemo(() => {
+    if (!showGraphReferenceIndicators) {
+      return new Set<GraphId>();
+    }
+
     const selectedGraphId = graph.metadata?.id;
     return selectedGraphId ? getGraphIdsReferencingGraph(project, selectedGraphId) : new Set<GraphId>();
-  }, [graph.metadata?.id, project]);
+  }, [graph.metadata?.id, project, showGraphReferenceIndicators]);
 
   const confirmDeleteGraph = useStableCallback(() => {
     if (!graphPendingDelete) {
@@ -617,12 +627,7 @@ const DeleteGraphConfirmModal: FC<{
     <ModalTransition>
       {graph && (
         <Modal autoFocus={false} onClose={onClose} width="small">
-          <ModalHeader>
-            <ModalTitle>Delete Graph?</ModalTitle>
-            <Button appearance="subtle" onClick={onClose}>
-              <CrossIconCore label="Close Modal" primaryColor="currentColor" />
-            </Button>
-          </ModalHeader>
+          <AppModalHeader title="Delete Graph?" onClose={onClose} />
           <ModalBody>
             <div css={deleteGraphConfirmBody}>
               <p>

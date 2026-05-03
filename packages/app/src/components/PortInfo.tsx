@@ -1,6 +1,6 @@
 import Portal from '@atlaskit/portal';
 import { css } from '@emotion/react';
-import { type NodeId, type NodeInputDefinition, type NodeOutputDefinition, type PortId } from '@ironclad/rivet-core';
+import { type NodeId, type NodeInputDefinition, type NodeOutputDefinition, type PortId } from '@valerypopoff/rivet2-core';
 import { type CSSProperties, forwardRef, useMemo } from 'react';
 import { useAtomValue } from 'jotai';
 import { draggingWireState } from '../state/graphBuilder';

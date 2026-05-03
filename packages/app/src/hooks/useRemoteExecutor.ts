@@ -6,7 +6,7 @@ import {
   type RemoteRunRequestId,
   type StringArrayDataValue,
   type GraphId,
-} from '@ironclad/rivet-core';
+} from '@valerypopoff/rivet2-core';
 import { useCurrentExecution } from './useCurrentExecution';
 import { graphState } from '../state/graph';
 import { settingsState } from '../state/settings';
@@ -17,7 +17,7 @@ import { loadedProjectState, projectContextState, projectDataState, projectState
 import { useStableCallback } from './useStableCallback';
 import { toast } from 'react-toastify';
 import { trivetState } from '../state/trivet';
-import { runTrivet } from '@ironclad/trivet';
+import { runTrivet } from '@valerypopoff/trivet';
 import { produce } from 'immer';
 import { userInputModalQuestionsState } from '../state/userInput';
 import { lastRunDataByNodeState } from '../state/dataFlow';
@@ -35,6 +35,8 @@ import {
 import { handleError } from '../utils/errorHandling.js';
 import { getLLMChatV2CustomProviderApiKeyEnvVarNames } from '../utils/chatV2CustomProviderEnv.js';
 import { useEnvironmentProvider } from '../providers/ProvidersContext.js';
+import { pluginsState } from '../state/plugins.js';
+import { withDerivedProjectPluginSpecs } from '../utils/pluginUsage.js';
 
 export function useRemoteExecutor() {
   const executorSession = useExecutorSessionRuntime();
@@ -53,6 +55,7 @@ export function useRemoteExecutor() {
   const setUserInputQuestions = useSetAtom(userInputModalQuestionsState);
   const lastRunData = useAtomValue(lastRunDataByNodeState);
   const loadedProject = useAtomValue(loadedProjectState);
+  const pluginStates = useAtomValue(pluginsState);
 
   const remoteDebugger = useRemoteDebugger({
     onDisconnect: () => {
@@ -199,14 +202,23 @@ export function useRemoteExecutor() {
     const graphToRun = options.graphId ?? graph.metadata!.id!;
 
     try {
-      if (remoteDebugger.sessionState.remoteUploadAllowed) {
-        const projectToUpload = {
+      const projectWithCurrentGraph = withDerivedProjectPluginSpecs(
+        {
           ...project,
           graphs: {
             ...project.graphs,
             [graph.metadata!.id!]: graph,
           },
-        };
+        },
+        {
+          appPluginStates: pluginStates,
+          currentGraph: graph,
+          registry: projectNodeRegistry,
+        },
+      );
+
+      if (remoteDebugger.sessionState.remoteUploadAllowed) {
+        const projectToUpload = projectWithCurrentGraph;
 
         remoteDebugger.send('set-dynamic-data', {
           project: projectToUpload,
@@ -227,7 +239,7 @@ export function useRemoteExecutor() {
 
       if (options.from) {
         const dependencyNodes = getDependencyNodesForRunFrom(
-          project,
+          projectWithCurrentGraph,
           graph.metadata!.id!,
           options.from,
           projectNodeRegistry,
@@ -271,8 +283,23 @@ export function useRemoteExecutor() {
       }));
       const testSuitesToRun = selectTestSuitesToRun(testSuites, options);
       try {
+        const projectForTests = withDerivedProjectPluginSpecs(
+          {
+            ...project,
+            graphs: {
+              ...project.graphs,
+              [graph.metadata!.id!]: graph,
+            },
+          },
+          {
+            appPluginStates: pluginStates,
+            currentGraph: graph,
+            registry: projectNodeRegistry,
+          },
+        );
+
         const result = await runTrivet({
-          project,
+          project: projectForTests,
           iterationCount: options.iterationCount,
           testSuites: testSuitesToRun,
           onUpdate: (results) => {
@@ -283,13 +310,20 @@ export function useRemoteExecutor() {
           },
           runGraph: async (project, graphId, inputs) => {
             if (remoteDebugger.sessionState.remoteUploadAllowed) {
-              const projectToUpload = {
-                ...project,
-                graphs: {
-                  ...project.graphs,
-                  [graph.metadata!.id!]: graph,
+              const projectToUpload = withDerivedProjectPluginSpecs(
+                {
+                  ...project,
+                  graphs: {
+                    ...project.graphs,
+                    [graph.metadata!.id!]: graph,
+                  },
                 },
-              };
+                {
+                  appPluginStates: pluginStates,
+                  currentGraph: graph,
+                  registry: projectNodeRegistry,
+                },
+              );
 
               remoteDebugger.send('set-dynamic-data', {
                 project: projectToUpload,

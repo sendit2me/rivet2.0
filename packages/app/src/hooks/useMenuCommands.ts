@@ -30,16 +30,58 @@ export type MenuIds =
   | 'clear_outputs'
   | 'get_help';
 
+type MenuCommandEvent = { payload: MenuIds };
+type MenuCommandHandler = (e: MenuCommandEvent) => void;
+
+interface MenuCommandWindow extends Window {
+  __rivetMenuCommandHandler?: MenuCommandHandler;
+}
+
+const noopMenuCommandHandler: MenuCommandHandler = () => {};
+
 const handlerState: {
-  handler: (e: { payload: MenuIds }) => void;
-} = { handler: () => {} };
+  handler: MenuCommandHandler;
+} = { handler: noopMenuCommandHandler };
+
+function getMenuCommandWindow() {
+  return typeof window === 'undefined' ? undefined : (window as MenuCommandWindow);
+}
+
+function getCurrentMenuCommandHandler() {
+  return getMenuCommandWindow()?.__rivetMenuCommandHandler ?? handlerState.handler;
+}
+
+function setCurrentMenuCommandHandler(handler: MenuCommandHandler) {
+  handlerState.handler = handler;
+  const currentWindow = getMenuCommandWindow();
+
+  if (currentWindow) {
+    currentWindow.__rivetMenuCommandHandler = handler;
+  }
+}
+
+function clearCurrentMenuCommandHandler(handler: MenuCommandHandler) {
+  if (handlerState.handler === handler) {
+    handlerState.handler = noopMenuCommandHandler;
+  }
+
+  const currentWindow = getMenuCommandWindow();
+
+  if (currentWindow?.__rivetMenuCommandHandler === handler) {
+    delete currentWindow.__rivetMenuCommandHandler;
+  }
+}
+
+function dispatchMenuCommand(event: MenuCommandEvent) {
+  getCurrentMenuCommandHandler()(event);
+}
+
+export function runMenuCommand(command: MenuIds) {
+  dispatchMenuCommand({ payload: command });
+}
 
 export function useRunMenuCommand() {
-  return (command: MenuIds) => {
-    const { handler } = handlerState;
-
-    handler({ payload: command });
-  };
+  return runMenuCommand;
 }
 
 export function useMenuCommands(
@@ -64,7 +106,7 @@ export function useMenuCommands(
   const mainWindowRef = useRef<NativeWindowHandle | null>(null);
 
   useEffect(() => {
-    const handler: (e: { payload: MenuIds }) => void = ({ payload }) => {
+    const handler: MenuCommandHandler = ({ payload }) => {
       match(payload as MenuIds)
         .with('settings', () => {
           setSettingsOpen(true);
@@ -111,12 +153,10 @@ export function useMenuCommands(
         .exhaustive();
     };
 
-    handlerState.handler = handler;
+    setCurrentMenuCommandHandler(handler);
 
     return () => {
-      if (handlerState.handler === handler) {
-        handlerState.handler = () => {};
-      }
+      clearCurrentMenuCommandHandler(handler);
     };
   }, [
     saveProject,
@@ -144,7 +184,7 @@ export function useMenuCommands(
         mainWindowRef.current = windowHandle;
         if (windowHandle?.onMenuClicked) {
           unlistenMenu = await windowHandle.onMenuClicked((e) => {
-            handlerState.handler(e as { payload: MenuIds });
+            dispatchMenuCommand(e as MenuCommandEvent);
           });
         }
       })

@@ -8,16 +8,16 @@ data:
           testCases:
             - expectedOutput:
                 has_mission: YES
-                mission_statement: Ironclad is on a mission to power the world's contracts.
+                mission_statement: Acme is on a mission to make project planning easier.
               id: hxRYlHF68ZmmpMT0lo037
               input:
-                statement: Ironclad is on a mission to power the world's contracts.
+                statement: Acme is on a mission to make project planning easier.
             - expectedOutput:
                 has_mission: NO
                 mission_statement: Not applicable
               id: ngJC1XL42jQCTRZW5fhRG
               input:
-                statement: Ironclad is a contract lifecycle management system
+                statement: Acme is a project planning system
           testGraph: rUcgbRwgkovsnv8X5xyVF
           validationGraph: fVykgHFjTZ8dWoJmnxEha
       version: 1
@@ -827,13 +827,13 @@ data:
         '[LmPob-xavvr3oj4TUQ1K_]:text "Text"':
           data:
             text: >-
-              ABOUT IRONCLAD
+              ABOUT ACME
 
 
               We're on a mission to power the world's contracts.
 
 
-              Ironclad is a Contract Lifecycle Management (CLM) platform that helps business and legal teams manage every aspect of the contracting process.
+              Acme is a project planning platform that helps teams manage tasks, timelines, and collaboration in one place.
           outgoingConnections:
             - output->"Graph Input" hiGbJvedGXiOex0h93GDN/default
           visualData: 373/319/300/null

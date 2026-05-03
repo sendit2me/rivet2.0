@@ -11,7 +11,7 @@ import {
   type ProjectId,
   type ChartNode,
   type DataValue,
-} from '@ironclad/rivet-core';
+} from '@valerypopoff/rivet2-core';
 import { blankProject } from '../utils/blankProject.js';
 import { entries, values } from '../utils/typeSafety';
 import { createHybridStorage } from './storage.js';

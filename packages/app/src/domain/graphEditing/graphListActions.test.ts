@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { type GraphId, type NodeGraph } from '@ironclad/rivet-core';
+import { type GraphId, type NodeGraph } from '@valerypopoff/rivet2-core';
 import {
   buildNewFolderPath,
   buildUniqueNewFolderPath,

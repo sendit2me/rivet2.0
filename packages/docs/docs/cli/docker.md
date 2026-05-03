@@ -11,7 +11,7 @@ The `serve` command from the Rivet CLI is available as a Docker image, allowing 
 
 ```bash
 # Start a server on port 3000 with a mounted project directory
-docker run -p 3000:3000 -v /path/to-project:/project abrennekeironclad/rivet-server:latest
+docker run -p 3000:3000 -v /path/to-project:/project valerypopoff/rivet-server:latest
 ```
 
 ## Description
@@ -30,7 +30,7 @@ Mount your project directory and expose the server port:
 docker run \
   -p 3000:3000 \
   -v /path/to/project:/project \
-  abrennekeironclad/rivet-server:latest
+  valerypopoff/rivet-server:latest
 ```
 
 ### With OpenAI Configuration
@@ -42,7 +42,7 @@ docker run \
   -p 3000:3000 \
   -v /path/to/project:/project \
   -e OPENAI_API_KEY=your-api-key \
-  abrennekeironclad/rivet-server:latest
+  valerypopoff/rivet-server:latest
 ```
 
 ### Custom Port
@@ -53,7 +53,7 @@ To use a different port:
 docker run \
   -p 8080:3000 \
   -v /path/to/project:/project \
-  abrennekeironclad/rivet-server:latest
+  valerypopoff/rivet-server:latest
 ```
 
 ### To Pass Additional Arguments
@@ -64,7 +64,7 @@ To pass additional arguments to the server, append them to the end of the comman
 docker run \
   -p 3000:3000 \
   -v /path/to/project:/project \
-  abrennekeironclad/rivet-server:latest --dev --allow-specifying-graph-id
+  valerypopoff/rivet-server:latest --dev --allow-specifying-graph-id
 ```
 
 ## Building Custom Images
@@ -78,7 +78,7 @@ Instead of mounting your project at runtime, you can create your own Docker imag
 ### Basic Example
 
 ```dockerfile
-FROM abrennekeironclad/rivet-server:latest
+FROM valerypopoff/rivet-server:latest
 
 # Copy project files into the image
 COPY ./my-project-dir /project
@@ -110,7 +110,7 @@ The container expects your Rivet project file to be mounted at `/project` inside
 version: '3'
 services:
   rivet:
-    image: abrennekeironclad/rivet-server:latest
+    image: valerypopoff/rivet-server:latest
     ports:
       - '3000:3000'
     volumes:
@@ -148,7 +148,7 @@ spec:
     spec:
       containers:
         - name: rivet-server
-          image: abrennekeironclad/rivet-server:latest
+          image: valerypopoff/rivet-server:latest
           ports:
             - containerPort: 3000
           volumeMounts:

@@ -2,9 +2,9 @@
  * Registry assembly helpers.
  *
  * Encapsulates the three explicit operations on a node registry:
- *   1. createBuiltInRegistry – fresh registry with only built-in nodes
- *   2. registerProjectPlugins – extend a registry with loaded plugins
- *   3. assembleRegistry – 1 + 2 in one step
+ *   1. createBuiltInRegistry - fresh registry with only built-in nodes
+ *   2. registerProjectPlugins - extend a registry with loaded plugins
+ *   3. assembleRegistry - 1 + 2 in one step
  *
  * Both the app (useProjectPlugins) and the sidecar (executor.mts) share
  * this flow.  Plugin *loading* is environment-specific, so callers supply
@@ -15,20 +15,10 @@ import { NodeRegistration } from './NodeRegistration.js';
 import { registerBuiltInNodes } from './Nodes.js';
 import type { RivetPlugin } from './RivetPlugin.js';
 import type { PluginLoadSpec } from './PluginLoadSpec.js';
-import { plugins as builtInPlugins } from '../plugins.js';
 
 /** Create a fresh registry containing only built-in nodes (no plugins). */
 export function createBuiltInRegistry(): NodeRegistration<any, any> {
   return registerBuiltInNodes(new NodeRegistration());
-}
-
-/** Resolve a built-in plugin spec by id. Throws for unknown ids. */
-export function resolveBuiltInPlugin(id: string): RivetPlugin {
-  const plugin = builtInPlugins[id as keyof typeof builtInPlugins];
-  if (!plugin) {
-    throw new Error(`Unknown built-in plugin: ${id}`);
-  }
-  return plugin;
 }
 
 export type PluginLoadResult = {

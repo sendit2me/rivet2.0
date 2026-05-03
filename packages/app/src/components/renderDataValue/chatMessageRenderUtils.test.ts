@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { AssistantChatMessage } from '@ironclad/rivet-core';
+import type { AssistantChatMessage } from '@valerypopoff/rivet2-core';
 
 import { getRenderableAssistantFunctionCall } from './chatMessageRenderUtils.js';
 

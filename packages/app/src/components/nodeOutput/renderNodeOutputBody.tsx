@@ -1,7 +1,7 @@
 import { type ComponentType, type ReactNode } from 'react';
 import { RenderDataOutputs } from '../RenderDataValue.js';
 import { type InputsOrOutputsWithRefs, type NodeRunDataWithRefs } from '../../state/dataFlow.js';
-import { type ChartNode } from '@ironclad/rivet-core';
+import { type ChartNode } from '@valerypopoff/rivet2-core';
 import { getSortedSplitOutputEntries } from './splitOutputEntries.js';
 import type {
   FullscreenNodeOutputRendererProps,

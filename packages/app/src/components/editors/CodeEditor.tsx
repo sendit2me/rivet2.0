@@ -1,5 +1,5 @@
 import { HelperMessage, Label } from '@atlaskit/form';
-import { type CodeEditorDefinition, type ChartNode } from '@ironclad/rivet-core';
+import { type CodeEditorDefinition, type ChartNode } from '@valerypopoff/rivet2-core';
 import { useLatest, useDebounceFn } from 'ahooks';
 import { useAtomValue } from 'jotai';
 import { type FC, type MutableRefObject, useRef, useEffect, Suspense, useMemo, useState } from 'react';

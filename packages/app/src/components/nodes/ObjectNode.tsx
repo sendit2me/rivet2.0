@@ -1,6 +1,6 @@
 import { type FC, useMemo } from 'react';
 import styled from '@emotion/styled';
-import { type ObjectNode } from '@ironclad/rivet-core';
+import { type ObjectNode } from '@valerypopoff/rivet2-core';
 import { type NodeComponentDescriptor } from '../../hooks/useNodeTypes';
 import ColorizedPreformattedText from '../ColorizedPreformattedText';
 

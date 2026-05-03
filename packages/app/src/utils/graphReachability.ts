@@ -8,7 +8,7 @@ import {
   type PluginLoadSpec,
   type Project,
   resolveBuiltInPlugin,
-} from '@ironclad/rivet-core';
+} from '@valerypopoff/rivet2-core';
 
 export type GraphReachabilityBucket = 'definitely-reachable' | 'dynamically-reachable' | 'unreachable';
 

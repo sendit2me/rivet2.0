@@ -2,11 +2,25 @@ import { useEffect } from 'react';
 import { type MenuIds, useRunMenuCommand } from './useMenuCommands';
 
 interface HotkeyFixWindow extends Window {
-  __tauri_hotkey?: boolean;
+  __rivetWindowsHotkeysCleanup?: () => void;
 }
 declare let window: HotkeyFixWindow;
 
-const isWindowsPlatform = typeof navigator !== 'undefined' && navigator.userAgent.includes('Win64');
+const isWindowsPlatform =
+  typeof navigator !== 'undefined' && /Windows|Win32|Win64|WOW64/i.test(`${navigator.userAgent} ${navigator.platform}`);
+
+const shortcutToMenuId: Record<string, MenuIds> = {
+  F5: 'remote_debugger',
+  'CmdOrCtrl+Shift+O': 'load_recording',
+  'CmdOrCtrl+N': 'new_project',
+  'CmdOrCtrl+O': 'open_project',
+  'CmdOrCtrl+S': 'save_project',
+  'CmdOrCtrl+Shift+E': 'export_graph',
+  'CmdOrCtrl+Shift+S': 'save_project_as',
+  'CmdOrCtrl+ENTER': 'run',
+};
+
+const hotkeyListenerOptions = { capture: true };
 
 if (isWindowsPlatform) {
   console.warn('Fix applied for Windows platform');
@@ -18,37 +32,45 @@ if (isWindowsPlatform) {
 export const useWindowsHotkeysFix = () => {
   const runMenuCommandImpl = useRunMenuCommand();
 
-  // @see https://github.com/Ironclad/rivet/issues/261
+  // @see https://github.com/valerypopoff/rivet2.0/issues/261
   useEffect(() => {
-    if (typeof window === 'undefined' || !isWindowsPlatform || window.__tauri_hotkey) {
+    if (typeof window === 'undefined' || !isWindowsPlatform) {
       return;
     }
 
-    const onKeyUp = ({ key, ctrlKey, shiftKey }: KeyboardEvent) => {
-      const code = `${ctrlKey ? 'CmdOrCtrl+' : ''}${shiftKey ? 'Shift+' : ''}${key.toUpperCase()}`;
-      const codeToMenuId: Record<string, MenuIds> = {
-        F5: 'remote_debugger',
-        'CmdOrCtrl+Shift+O': 'load_recording',
-        'CmdOrCtrl+N': 'new_project',
-        'CmdOrCtrl+O': 'open_project',
-        'CmdOrCtrl+S': 'save_project',
-        'CmdOrCtrl+Shift+E': 'export_graph',
-        'CmdOrCtrl+Shift+I': 'import_graph',
-        'CmdOrCtrl+Shift+S': 'save_project_as',
-        'CmdOrCtrl+ENTER': 'run',
-      };
-      if (codeToMenuId[code]) {
-        console.warn(`Hotkey Fix: ${code} -> ${codeToMenuId[code]}`);
-        runMenuCommandImpl(codeToMenuId[code]!);
+    window.__rivetWindowsHotkeysCleanup?.();
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      const { key, ctrlKey, metaKey, shiftKey } = event;
+      const code = `${ctrlKey || metaKey ? 'CmdOrCtrl+' : ''}${shiftKey ? 'Shift+' : ''}${key.toUpperCase()}`;
+      const command = shortcutToMenuId[code];
+
+      if (command) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        if (event.repeat) {
+          return;
+        }
+
+        console.warn(`Hotkey Fix: ${code} -> ${command}`);
+        runMenuCommandImpl(command);
       }
     };
 
-    window.__tauri_hotkey = true; // protects against double usage of hook by mistake
-    window.addEventListener('keyup', onKeyUp);
+    window.addEventListener('keydown', onKeyDown, hotkeyListenerOptions);
+
+    const cleanup = () => {
+      window.removeEventListener('keydown', onKeyDown, hotkeyListenerOptions);
+    };
+
+    window.__rivetWindowsHotkeysCleanup = cleanup;
 
     return () => {
-      window.removeEventListener('keyup', onKeyUp);
-      window.__tauri_hotkey = false;
+      if (window.__rivetWindowsHotkeysCleanup === cleanup) {
+        cleanup();
+        delete window.__rivetWindowsHotkeysCleanup;
+      }
     };
   }, [runMenuCommandImpl]);
 

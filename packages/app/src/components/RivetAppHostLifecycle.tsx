@@ -15,14 +15,14 @@ export function RivetAppHostLifecycle() {
       projectId: openedProjectIds.length > 0 ? project.metadata.id : null,
       path: openedProjectIds.length > 0 ? loadedProject.path : null,
     });
-  }, [callbacks, loadedProject.path, openedProjectIds.length, project.metadata.id]);
+  }, [callbacks, loadedProject.path, openedProjectIds, project]);
 
   useEffect(() => {
     callbacks.onOpenProjectCountChanged?.({
       count: openedProjectIds.length,
       projectIds: openedProjectIds,
     });
-  }, [callbacks, openedProjectIds.length]);
+  }, [callbacks, openedProjectIds]);
 
   return null;
 }

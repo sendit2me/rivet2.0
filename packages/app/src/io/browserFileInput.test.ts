@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { type Project, serializeProject } from '@ironclad/rivet-core';
-import { serializeTrivetData } from '@ironclad/trivet';
+import { type Project, serializeProject } from '@valerypopoff/rivet2-core';
+import { serializeTrivetData } from '@valerypopoff/trivet';
 import { BrowserIOProvider } from './BrowserIOProvider.js';
 import { openBrowserFile } from './browserFileInput.js';
 

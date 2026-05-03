@@ -9,7 +9,7 @@ import {
   type PortId,
   type DataType,
   type NodeGraph,
-} from '@ironclad/rivet-core';
+} from '@valerypopoff/rivet2-core';
 import { type WireDef } from '../components/WireLayer.js';
 import type { GraphNavigationStack } from '../domain/graphEditing/navigationActions.js';
 import { createHybridStorage } from './storage.js';
@@ -85,28 +85,49 @@ export const isNodeOutputExpandedState = atomFamily((nodeId: NodeId) =>
 
 export type GraphSearchState = {
   searching: boolean;
+  panelOpen: boolean;
   query: string;
   selectedIndex: number;
   matches: GraphSearchMatch[];
   fallbackToTerms: boolean;
   focusRequestId: number;
+  resultsScrollTop: number;
 };
 
 export const emptyGraphSearchState: GraphSearchState = {
   searching: false,
+  panelOpen: false,
   query: '',
   selectedIndex: 0,
   matches: [],
   fallbackToTerms: false,
   focusRequestId: 0,
+  resultsScrollTop: 0,
 };
 
 export const searchingGraphState = atom<GraphSearchState>(emptyGraphSearchState);
 
 export function openOrFocusGraphSearchState(state: GraphSearchState): GraphSearchState {
   return state.searching
-    ? { ...state, focusRequestId: state.focusRequestId + 1 }
-    : { ...emptyGraphSearchState, searching: true, focusRequestId: state.focusRequestId + 1 };
+    ? { ...state, panelOpen: true, focusRequestId: state.focusRequestId + 1 }
+    : { ...emptyGraphSearchState, searching: true, panelOpen: true, focusRequestId: state.focusRequestId + 1 };
+}
+
+export function hideGraphSearchPanelState(state: GraphSearchState): GraphSearchState {
+  return state.searching && state.panelOpen ? { ...state, panelOpen: false } : state;
+}
+
+export function clearGraphSearchQueryState(state: GraphSearchState): GraphSearchState {
+  return {
+    ...state,
+    query: '',
+    selectedIndex: 0,
+    matches: [],
+    fallbackToTerms: false,
+    searching: true,
+    panelOpen: true,
+    resultsScrollTop: 0,
+  };
 }
 
 export const goToSearchState = atom<{

@@ -1,4 +1,4 @@
-import { streamText, type LanguageModelUsage, type ModelMessage, type TextStreamPart, type ToolSet } from 'ai';
+import type { streamText, LanguageModelUsage, ModelMessage, TextStreamPart, ToolSet } from 'ai';
 import type { ChatMessage, GptFunction } from '../DataValue.js';
 import type { Outputs } from '../GraphProcessor.js';
 import type { InternalProcessContext } from '../ProcessContext.js';
@@ -33,12 +33,11 @@ export type ChatV2StreamHandle = {
   fullStream: AsyncIterable<ChatV2StreamPart>;
   finishReason?: MaybePromiseLike<string | undefined> | undefined;
   providerMetadata?: MaybePromiseLike<ChatV2ProviderMetadata | undefined> | undefined;
+  requestStatus?: MaybePromiseLike<number | undefined> | undefined;
   usage?: MaybePromiseLike<LanguageModelUsage | undefined> | undefined;
 };
 
-export type ChatV2StreamExecutor = (
-  args: StreamTextArgs,
-) => ChatV2StreamHandle | Promise<ChatV2StreamHandle>;
+export type ChatV2StreamExecutor = (args: StreamTextArgs) => ChatV2StreamHandle | Promise<ChatV2StreamHandle>;
 
 export type StreamChatV2Options = {
   model: ChatV2Model;
@@ -67,6 +66,7 @@ export type StreamChatV2Result = {
   reasoning: string;
   finishReason: string | undefined;
   providerMetadata: ChatV2ProviderMetadata | undefined;
+  requestStatus: number | undefined;
 };
 
 export type RunChatV2PipelineOptions = {
@@ -91,9 +91,13 @@ export type RunChatV2PipelineOptions = {
   anthropicCacheControlTtl?: '5m' | '1h' | undefined;
   outputUsage?: boolean | undefined;
   outputReasoning?: boolean | undefined;
+  outputRequestStatus?: boolean | undefined;
   includeFunctionCalls?: boolean | undefined;
   emitPartialOutputs?: boolean | undefined;
   functionCallMode?: AssistantMessageFunctionCallMode | undefined;
+  retryOnNon200?: boolean | undefined;
+  retryOnNon200RepeatTimes?: number | undefined;
+  retryOnNon200CooldownMs?: number | undefined;
   context: Pick<InternalProcessContext, 'signal' | 'onPartialOutputs'>;
   executeStream?: ChatV2StreamExecutor | undefined;
 };
@@ -109,4 +113,5 @@ export type ChatV2PipelineResult = {
   rawUsage: LanguageModelUsage | undefined;
   finishReason: string | undefined;
   providerMetadata: ChatV2ProviderMetadata | undefined;
+  requestStatus: number | undefined;
 };

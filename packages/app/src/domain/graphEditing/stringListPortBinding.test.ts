@@ -5,7 +5,7 @@ import {
   type NodeConnection,
   type NodeId,
   type PortId,
-} from '@ironclad/rivet-core';
+} from '@valerypopoff/rivet2-core';
 import {
   createEditableStringListRows,
   moveEditableStringListRows,

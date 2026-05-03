@@ -4,15 +4,12 @@ import clsx from 'clsx';
 
 import layout from '../../css/layout.module.css';
 import styles from './Header.module.css';
-import { useDownloadUrl } from '../../hooks/useDownloadUrl';
-
 import GithubLogo from './logos/github-mark-white.svg';
 import DiscordLogo from './logos/discord-mark-white.svg';
 import YouTubeLogo from './logos/youtube-mark-white.svg';
 
 export const Header: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const { downloadUrl } = useDownloadUrl();
 
   return (
     <header className={clsx(styles.header, { [styles.menuOpen]: isMenuOpen })}>
@@ -34,7 +31,7 @@ export const Header: React.FC = () => {
               </a>
             </li>
             <li className={styles.github}>
-              <a className={styles.navLink} href="https://github.com/Ironclad/rivet" target="_blank">
+              <a className={styles.navLink} href="https://github.com/valerypopoff/rivet2.0" target="_blank">
                 <GithubLogo viewBox="0 0 100 100" />
                 <span className={styles.menuText}>GitHub</span>
               </a>
@@ -46,12 +43,12 @@ export const Header: React.FC = () => {
               </a>
             </li>
             <li className={styles.documentation}>
-              <a className={styles.navLink} href="/docs">
+              <a className={styles.navLink} href="/">
                 Documentation
               </a>
             </li>
             <li className={styles.download}>
-              <a className={clsx(styles.navLink, styles.primary)} href={downloadUrl} target="_blank">
+              <a className={clsx(styles.navLink, styles.primary)} href="/download">
                 Download
               </a>
             </li>

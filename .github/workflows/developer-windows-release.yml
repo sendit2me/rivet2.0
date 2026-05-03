@@ -1,0 +1,103 @@
+name: Developer Windows Release
+
+on:
+  push:
+    branches:
+      - develop
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: rivet-docs-pages
+  cancel-in-progress: false
+
+jobs:
+  build-windows:
+    if: github.ref == 'refs/heads/develop'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '20.4.x'
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install dependencies
+        run: yarn --immutable
+
+      - name: Build Rivet
+        run: yarn build
+        env:
+          NODE_OPTIONS: --max-old-space-size=6000
+
+      - name: Build Tauri Windows bundle
+        working-directory: packages/app
+        run: yarn tauri build --verbose --ci --bundles "msi,nsis"
+        env:
+          NODE_OPTIONS: --max-old-space-size=6000
+
+      - name: Build documentation site
+        run: node .yarn/releases/yarn-4.6.0.cjs workspace docs run build
+        env:
+          NODE_OPTIONS: --max-old-space-size=6000
+
+      - name: Add developer release downloads to docs site
+        run: node .github/scripts/prepare-windows-release-pages.mjs
+        env:
+          RELEASE_CHANNEL: developer
+          RELEASE_LABEL: develop-${{ github.run_number }}-${{ github.sha }}
+          RELEASE_STANDALONE_PAGE: 'false'
+          PRESERVE_RELEASE_METADATA_FILES: official-release.json
+          PAGES_SITE_URL: https://valerypopoff.github.io/rivet2.0/
+          PAGES_OUT_DIR: packages/docs/build
+          SOURCE_BUNDLE_DIR: packages/app/src-tauri/target/release/bundle
+
+      - name: Upload Pages content
+        uses: actions/upload-artifact@v7
+        with:
+          name: rivet-docs-pages
+          path: packages/docs/build
+          if-no-files-found: error
+          retention-days: 7
+
+  publish-pages:
+    if: github.ref == 'refs/heads/develop'
+    needs: build-windows
+    runs-on: ubuntu-latest
+    environment:
+      name: developer-windows-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    env:
+      PAGES_ENABLEMENT_TOKEN: ${{ secrets.PAGES_ENABLEMENT_TOKEN }}
+    steps:
+      - name: Download Pages content
+        uses: actions/download-artifact@v7
+        with:
+          name: rivet-docs-pages
+          path: rivet-docs-pages
+
+      - name: Configure Pages
+        if: env.PAGES_ENABLEMENT_TOKEN == ''
+        uses: actions/configure-pages@v6
+
+      - name: Configure Pages and enable site
+        if: env.PAGES_ENABLEMENT_TOKEN != ''
+        uses: actions/configure-pages@v6
+        with:
+          enablement: true
+          token: ${{ env.PAGES_ENABLEMENT_TOKEN }}
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: rivet-docs-pages
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5

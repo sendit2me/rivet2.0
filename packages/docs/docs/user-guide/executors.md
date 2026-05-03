@@ -2,20 +2,32 @@
 title: Executors
 ---
 
-Executors are responsible for running the graphs in Rivet. The executor can be chosen using the dropdown in the menu bar of the application.
+Executors are responsible for running graphs in Rivet. In Canvas mode, choose the active executor from the Run context menu in the top app bar. The Settings modal also has a `Default executor` setting; that setting only chooses the executor Rivet starts with next time, and does not change an already-running session.
 
 There are 3 possible executors in use at any one time:
 
 ## Browser
 
-This is the default executor. Rivet itself is a browser application running in a web view. The browser executor runs in the same process as the Rivet application, and runs the graph there. This is the simplest executor to use, but is limited by the capabilities of the browser (and a few file-system APIs).
+The browser executor runs inside the same browser/webview process as the Rivet application. It is the simplest executor and is useful for graph logic that does not need Node APIs.
+
+Browser mode is limited by browser security rules. For example, HTTP calls to services that do not allow the Rivet origin can fail with CORS errors. Browser mode also cannot expose Code-node `require` or `process`.
 
 ## Node
 
-This executor runs a separate Node.js process to execute graphs, and communicates with it using the remote debugger protocol. This executor is more powerful than the browser executor, but can be more temperamental and does not support every feature of the browser executor yet.
+The Node executor runs graphs through the app-executor sidecar and communicates with the app over the internal executor WebSocket. It is the recommended executor for serious local workflows, including:
+
+- HTTP calls that should not be limited by browser CORS
+- MCP nodes
+- file-system native APIs
+- package-backed Code-node `require`
+- workflows that should behave like a Node process rather than a browser tab
+
+The desktop app binds its internal executor to `127.0.0.1:21889` by default. Hosted or containerized wrappers can run the same executor on a different bind host or port with `RIVET_EXECUTOR_HOST`, `RIVET_EXECUTOR_PORT`, `--host`, and `--port`.
 
 ## Remote
 
-This executor connects to a remote Rivet server to execute graphs. It requires the remote debugger to be set up on another application, and requires that `dynamicGraphRun` is implemented on the remote server, so that the graph shown in the Rivet application can be ran remotely. You may also enable `allowGraphUpload` on the remote executor to allow the graph to be uploaded to the remote server, and then ran there.
+This executor connects to an external Rivet debugger server and lets another process run or debug graphs while Rivet shows live execution. It requires the remote debugger to be set up in that process. If the remote process implements `dynamicGraphRun`, Rivet can ask it to run the graph shown in the editor. If it enables graph upload, Rivet can upload the current project before running it remotely.
 
 To use the remote executor, connect via the **Remote Debugger** option in the dropdown of the Rivet action bar.
+
+When you disconnect a remote debugger while Node mode is selected, Rivet restores the internal Node executor session. Hosted wrappers can pass an internal executor URL through `RivetAppHost` so the app classifies that URL as the internal executor rather than as an external remote debugger.

@@ -1,7 +1,7 @@
 import { useLatest } from 'ahooks';
 import { produce } from 'immer';
 import { useAtomValue, useSetAtom } from 'jotai';
-import { type GraphExecutionMetadata, type NodeId, type ProcessEvents, type ProcessId } from '@ironclad/rivet-core';
+import { type GraphExecutionMetadata, type NodeId, type ProcessEvents, type ProcessId } from '@valerypopoff/rivet2-core';
 import { useDataRefs } from '../providers/ProvidersContext';
 import { lastRecordingState } from '../state/execution';
 import {

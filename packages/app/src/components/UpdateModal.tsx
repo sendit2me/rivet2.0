@@ -1,6 +1,6 @@
 import { useState, type FC } from 'react';
 
-import Modal, { ModalTransition, ModalBody, ModalFooter, ModalHeader, ModalTitle } from '@atlaskit/modal-dialog';
+import Modal, { ModalTransition, ModalBody, ModalFooter } from '@atlaskit/modal-dialog';
 import { useAtom, useSetAtom } from 'jotai';
 import { skippedMaxVersionState, updateModalOpenState, updateStatusState } from '../state/settings';
 import Button from '@atlaskit/button';
@@ -10,6 +10,7 @@ import { useMarkdown } from '../hooks/useMarkdown';
 import { getAppVersion, relaunchApp } from '../utils/platform/app.js';
 import { checkForAppUpdate, installAppUpdate } from '../utils/platform/updater.js';
 import { wrapAsync } from '../utils/errorHandling.js';
+import { AppModalHeader } from './AppModalHeader';
 
 const bodyStyle = css`
   pre {
@@ -85,9 +86,7 @@ export const UpdateModal: FC = () => {
   return (
     canRender && (
       <Modal width="large" onClose={handleModalClose}>
-        <ModalHeader>
-          <ModalTitle>🎉 Update Available</ModalTitle>
-        </ModalHeader>
+        <AppModalHeader title="🎉 Update Available" />
         <ModalBody>
           <div css={bodyStyle}>
             <p>

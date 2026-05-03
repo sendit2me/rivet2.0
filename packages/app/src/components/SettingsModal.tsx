@@ -1,40 +1,60 @@
 import { type FC, useState } from 'react';
 import { atom, useAtom } from 'jotai';
-import Modal, { ModalTransition, ModalHeader, ModalTitle, ModalBody } from '@atlaskit/modal-dialog';
-import Button from '@atlaskit/button';
+import Modal, { ModalTransition, ModalBody } from '@atlaskit/modal-dialog';
 import { SideNavigation, ButtonItem, NavigationContent } from '@atlaskit/side-navigation';
-import CrossIcon from '@atlaskit/icon/glyph/cross';
 import { css } from '@emotion/react';
 import { P, match } from 'ts-pattern';
 import { useDependsOnPlugins } from '../hooks/useDependsOnPlugins';
 import {
   CustomPluginsSettingsPage,
   GeneralSettingsPage,
+  GraphsSettingsPage,
   OpenAiSettingsPage,
+  PluginsCatalogPage,
   PluginsSettingsPage,
   UiSettingsPage,
   UpdatesSettingsPage,
 } from './settings/SettingsPages';
+import { AppModalHeader } from './AppModalHeader';
 
 interface SettingsModalProps {}
 
 export const settingsModalOpenState = atom(false);
 
 const modalBody = css`
+  height: 100%;
   min-height: 300px;
   display: grid;
-  grid-template-columns: 240px 1fr;
+  grid-template-columns: 240px minmax(0, 1fr);
+  min-width: 0;
+  overflow: hidden;
 
   nav {
+    min-height: 0;
+    overflow: auto;
     padding-bottom: 20px;
   }
 
   main {
-    padding: 0 30px 100px 30px;
+    min-width: 0;
+    min-height: 0;
+    overflow: auto;
+    padding: 0 30px 30px 30px;
+  }
+
+  main.fill-page {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+
+    > * {
+      flex: 1 1 auto;
+      min-height: 0;
+    }
   }
 `;
 
-type DefaultPages = 'general' | 'ui' | 'openai' | 'plugins' | 'updates';
+type DefaultPages = 'general' | 'graphs' | 'ui' | 'openai' | 'plugins' | 'pluginsSettings' | 'updates';
 type Pages = DefaultPages | string;
 
 const buttonsContainer = css`
@@ -62,13 +82,8 @@ export const SettingsModal: FC<SettingsModalProps> = () => {
   return (
     <ModalTransition>
       {isOpen && (
-        <Modal onClose={() => setIsOpen(false)} width="80%">
-          <ModalHeader>
-            <ModalTitle>Settings</ModalTitle>
-            <Button appearance="link" onClick={() => setIsOpen(false)}>
-              <CrossIcon label="Close Modal" primaryColor="currentColor" />
-            </Button>
-          </ModalHeader>
+        <Modal onClose={() => setIsOpen(false)} width="80%" height="80%">
+          <AppModalHeader title="Settings" onClose={() => setIsOpen(false)} />
           <ModalBody>
             <div css={modalBody}>
               <nav>
@@ -78,6 +93,9 @@ export const SettingsModal: FC<SettingsModalProps> = () => {
                       <ButtonItem isSelected={page === 'general'} onClick={() => setPage('general')}>
                         General
                       </ButtonItem>
+                      <ButtonItem isSelected={page === 'graphs'} onClick={() => setPage('graphs')}>
+                        Graphs
+                      </ButtonItem>
                       <ButtonItem isSelected={page === 'ui'} onClick={() => setPage('ui')}>
                         UI
                       </ButtonItem>
@@ -86,6 +104,9 @@ export const SettingsModal: FC<SettingsModalProps> = () => {
                       </ButtonItem>
                       <ButtonItem isSelected={page === 'plugins'} onClick={() => setPage('plugins')}>
                         Plugins
+                      </ButtonItem>
+                      <ButtonItem isSelected={page === 'pluginsSettings'} onClick={() => setPage('pluginsSettings')}>
+                        Plugins settings
                       </ButtonItem>
                       <ButtonItem isSelected={page === 'updates'} onClick={() => setPage('updates')}>
                         Updates
@@ -99,12 +120,14 @@ export const SettingsModal: FC<SettingsModalProps> = () => {
                   </NavigationContent>
                 </SideNavigation>
               </nav>
-              <main>
+              <main className={page === 'plugins' ? 'fill-page' : undefined}>
                 {match(page)
                   .with('general', () => <GeneralSettingsPage />)
+                  .with('graphs', () => <GraphsSettingsPage />)
                   .with('ui', () => <UiSettingsPage />)
                   .with('openai', () => <OpenAiSettingsPage />)
-                  .with('plugins', () => <PluginsSettingsPage />)
+                  .with('plugins', () => <PluginsCatalogPage />)
+                  .with('pluginsSettings', () => <PluginsSettingsPage />)
                   .with('updates', () => <UpdatesSettingsPage />)
                   .with(P.string, (id) => customPluginsPages[id])
                   .exhaustive()}

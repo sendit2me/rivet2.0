@@ -1,16 +1,16 @@
 # Chat Viewer
 
-The Chat Viewer gives you a live view of all Chat nodes that are running in your Rivet graphs. It is accessible by clicking the "Chat Viewer" tab at the top of Rivet.
+The Chat Viewer gives you a live view of Chat and LLM Chat nodes that have produced chat content in your Rivet graphs. The top-bar "Chat Viewer" tab appears only when there is something to inspect.
 
 ![Chat Viewer](./assets/chat-viewer.png)
 
-Each Chat that executes will show as a bubble in the Chat Viewer, with live text streamed in.
+Each Chat or LLM Chat node that executes will show as a bubble in the Chat Viewer, with live text streamed in when the provider supports streaming.
 
-At the top of each bubble, you will see what graph contains the executing Chat node, and you can qucikly navigate to that graph without interrupting execution.
+At the top of each bubble, you will see what graph contains the executing chat node, and you can quickly navigate to that graph without interrupting execution.
 
-The top half of each bubble contains the input to the Chat node, and the bottom half contains the output.
+The top half of each bubble contains the input messages, and the bottom half contains the output.
 
-If a Chat node is [split](../splitting.md), then it will appear as multiple bubbles in the Chat Viewer!
+If a chat node is [split](../splitting.md), then it will appear as multiple bubbles in the Chat Viewer.
 
 ## Filter
 

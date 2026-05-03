@@ -1,9 +1,10 @@
 import clsx from 'clsx';
 import { type CSSProperties, type FC, type HTMLAttributes, type MouseEvent, forwardRef, memo, useMemo } from 'react';
-import { type ChartNode, type CommentNode, type NodeConnection } from '@ironclad/rivet-core';
+import { type ChartNode, type CommentNode, type NodeConnection } from '@valerypopoff/rivet2-core';
 import { useAtomValue } from 'jotai';
 import { useDependsOnPlugins } from '../hooks/useDependsOnPlugins';
 import { useHistoricalNodeChangeInfo } from '../hooks/useHistoricalNodeChangeInfo';
+import { useNodePortLabelMinWidth } from '../hooks/useNodePortLabelMinWidth';
 import { type ProcessDataForNode, resolvedGraphSelectionState } from '../state/dataFlow.js';
 import { getNodeExecutionClassFlags, getSelectedProcessRun } from '../state/selectors/executionSelectors.js';
 import { getSplitStackGhostColors } from '../utils/nodeSplitStackColors.js';
@@ -64,6 +65,7 @@ export const VisualNode = memo(
       const effectiveIsZoomedOut = isZoomedOut && !isComment;
       const effectiveIsReallyZoomedOut = isReallyZoomedOut && !isComment;
       const commentHeight = isComment ? getCanvasCommentHeight(node as CommentNode) : undefined;
+      const minimumNodeWidth = useNodePortLabelMinWidth(node);
       const changeInfo = useHistoricalNodeChangeInfo(node.id);
       const graphSelectionOptions = useAtomValue(resolvedGraphSelectionState);
 
@@ -85,6 +87,7 @@ export const VisualNode = memo(
           transform: `translate(${node.visualData.x + xDelta}px, ${node.visualData.y + yDelta}px) scale(1)`,
           zIndex: isComment ? -10000 : node.visualData.zIndex ?? 0,
           width: node.visualData.width,
+          minWidth: isComment || effectiveIsZoomedOut ? undefined : minimumNodeWidth,
           height: commentHeight,
           '--node-bg': bgColor,
           '--node-border': borderColor,
@@ -94,8 +97,10 @@ export const VisualNode = memo(
         } as CSSProperties;
       }, [
         commentHeight,
+        effectiveIsZoomedOut,
         isComment,
         isDragging,
+        minimumNodeWidth,
         node.visualData.color?.bg,
         node.visualData.color?.border,
         node.visualData.width,
@@ -180,6 +185,7 @@ export const VisualNode = memo(
               isHistoricalChanged={isHistoricalChanged}
               isRunning={executionClassFlags.running}
               renderHeavyContent={renderHeavyContent}
+              minimumNodeWidth={minimumNodeWidth}
             />
           )}
           <div className="node-border-overlay" aria-hidden="true" />

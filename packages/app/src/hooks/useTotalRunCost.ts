@@ -5,7 +5,7 @@ import {
   type PortId,
   type GraphId,
   type NodeGraph,
-} from '@ironclad/rivet-core';
+} from '@valerypopoff/rivet2-core';
 import { useMemo } from 'react';
 import { useAtomValue } from 'jotai';
 import { lastRunDataByNodeState } from '../state/dataFlow';

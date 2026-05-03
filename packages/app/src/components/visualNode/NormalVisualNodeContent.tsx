@@ -9,7 +9,7 @@ import {
 } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
 import { useAtomValue, useSetAtom } from 'jotai';
-import { type ChartNode, type CommentNode, IF_PORT, type NodeConnection, type PortId } from '@ironclad/rivet-core';
+import { type ChartNode, type CommentNode, IF_PORT, type NodeConnection, type PortId } from '@valerypopoff/rivet2-core';
 import type { HeightCache } from '../../hooks/useNodeBodyHeight';
 import SettingsCogIcon from 'majesticons/line/settings-cog-line.svg?react';
 import BookIcon from 'majesticons/line/book-open-line.svg?react';
@@ -47,6 +47,7 @@ export const NormalVisualNodeContent: FC<{
   isHistoricalChanged: boolean;
   isRunning: boolean;
   renderHeavyContent: boolean;
+  minimumNodeWidth: number;
 }> = memo(
   ({
     heightCache,
@@ -57,6 +58,7 @@ export const NormalVisualNodeContent: FC<{
     isHistoricalChanged,
     isRunning,
     renderHeavyContent,
+    minimumNodeWidth,
   }) => {
     useDependsOnPlugins();
     const { draggingWire, closestPortToDraggingWire } = useCanvasViewContext();
@@ -144,6 +146,7 @@ export const NormalVisualNodeContent: FC<{
           initialY: resizeState.initialY,
           deltaX,
           deltaY,
+          minWidth: minimumNodeWidth,
         });
       }
 
@@ -152,6 +155,7 @@ export const NormalVisualNodeContent: FC<{
         initialWidth: resizeState.initialWidth,
         initialX: resizeState.initialX,
         deltaX,
+        minWidth: minimumNodeWidth,
       });
     });
 

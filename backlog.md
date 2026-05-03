@@ -1,21 +1,28 @@
+
+
 - Human readable Loop node
 
-- When there's not enough width, the pultiposition switcher labels go multiline and fall out of the sockets (snd the selected one get's clipped)
+- Reassess Ctrl+N window
 
-- Make the workspace navigation less annoying
 
-- Make default base font size 15px instead of 14px. I mean when someone starts Rivet for the first time. If the user has already chosen some size, don't change it.
+- Build apps when deploying (main branch)
+- publish the libs on npm (make it a part of the build process when pushing to main)
 
-- Compare the current Rivet 2.0 to the rivet in Rivet Server and make sure the new rivet will work there
 
 - Check how "Check for updates" button works
+
+
+
+
+- Reassess rivet example project
 
 - Check the links that lead to the documentation
 
 - Get back to MCP and see if it works and how it works. I don't see an MCP node. I think we need it
-- Check the AI workflow generation feature
-- Reassess all the "Generate using AI" in different nodes.
+- Reassess all the "Generate using AI" in different nodes. The model picker is clipped by the section border
 
+
+- Reassess prompt designer. 
 
 
 - Make it easier and faster to create input and output nodes for the graph
@@ -28,6 +35,9 @@
 
 - Support Python in all nodes that support javascript
 - Light color theme
+
+- Check the AI workflow generation feature
+
 
 
 - Convenient node type browser, just like in n8n

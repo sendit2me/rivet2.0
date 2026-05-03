@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { type NodeId, type StringArrayDataValue } from '@ironclad/rivet-core';
+import { type NodeId, type StringArrayDataValue } from '@valerypopoff/rivet2-core';
 import { clearUserInputSubmitHandler, setUserInputSubmitHandler, submitUserInputAnswers } from './userInputActions';
 
 describe('userInputActions', () => {

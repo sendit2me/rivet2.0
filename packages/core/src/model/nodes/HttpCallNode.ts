@@ -15,8 +15,20 @@ import { getError } from '../../utils/errors.js';
 
 const REQUEST_FAILED_OUTPUT_ID = 'requestFailed' as PortId;
 const REQUEST_ERROR_OUTPUT_ID = 'requestError' as PortId;
+const STATUS_CODE_OUTPUT_ID = 'statusCode' as PortId;
 const DEFAULT_RETRY_ON_NON_200_REPEAT_TIMES = 1;
 const DEFAULT_RETRY_ON_NON_200_COOLDOWN_MS = 0;
+
+type HttpCallRequestAttempts = {
+  statusCodeValues: number[];
+  requestFailedValues: boolean[];
+  requestErrorMessages: string[];
+};
+
+type ExcludedOutput = {
+  type: 'control-flow-excluded';
+  value: undefined;
+};
 
 function isAbortError(error: unknown, signal: AbortSignal): boolean {
   return signal.aborted || getError(error).name === 'AbortError';
@@ -68,6 +80,92 @@ function formatCaughtRequestFailureError(error: unknown, seen = new Set<unknown>
   return stringifyNonErrorValue(error);
 }
 
+function createHttpCallRequestAttempts(): HttpCallRequestAttempts {
+  return {
+    statusCodeValues: [],
+    requestFailedValues: [],
+    requestErrorMessages: [],
+  };
+}
+
+function recordHttpCallResponseAttempt(attempts: HttpCallRequestAttempts, response: Response): void {
+  const requestFailed = response.status !== 200;
+
+  attempts.statusCodeValues.push(response.status);
+  attempts.requestFailedValues.push(requestFailed);
+
+  if (requestFailed) {
+    attempts.requestErrorMessages.push(formatCaughtRequestFailureError(buildNon2xxStatusCodeError(response.status)));
+  }
+}
+
+function recordHttpCallThrownAttempt(attempts: HttpCallRequestAttempts, error: unknown, signal: AbortSignal): void {
+  if (isAbortError(error, signal)) {
+    return;
+  }
+
+  attempts.requestFailedValues.push(true);
+  attempts.requestErrorMessages.push(formatCaughtRequestFailureError(error));
+}
+
+function buildRetryAttemptOutput(
+  type: 'number[]',
+  values: number[],
+): { type: 'number[]'; value: number[] } | ExcludedOutput;
+function buildRetryAttemptOutput(
+  type: 'boolean[]',
+  values: boolean[],
+): { type: 'boolean[]'; value: boolean[] } | ExcludedOutput;
+function buildRetryAttemptOutput(
+  type: 'string[]',
+  values: string[],
+): { type: 'string[]'; value: string[] } | ExcludedOutput;
+function buildRetryAttemptOutput(type: 'number[]' | 'boolean[]' | 'string[]', values: number[] | boolean[] | string[]) {
+  return values.length > 0
+    ? {
+        type,
+        value: values,
+      }
+    : {
+        type: 'control-flow-excluded' as const,
+        value: undefined,
+      };
+}
+
+function isCaughtFailureAlreadyRecorded(attempts: HttpCallRequestAttempts, error: unknown): boolean {
+  const formattedError = formatCaughtRequestFailureError(error);
+  if (attempts.requestErrorMessages.at(-1) === formattedError) {
+    return true;
+  }
+
+  const lastStatusCode = attempts.statusCodeValues.at(-1);
+
+  if (lastStatusCode == null || !(error instanceof Error)) {
+    return false;
+  }
+
+  const expectedStatusErrorMessage = buildNon2xxStatusCodeError(lastStatusCode).message;
+  return (
+    error.message === expectedStatusErrorMessage &&
+    attempts.requestErrorMessages.at(-1)?.includes(error.message) === true
+  );
+}
+
+function withCaughtFailureAttemptFallback(attempts: HttpCallRequestAttempts, error: unknown): HttpCallRequestAttempts {
+  if (isCaughtFailureAlreadyRecorded(attempts, error)) {
+    return attempts;
+  }
+
+  const requestFailedValues = attempts.requestFailedValues.length > 0 ? [...attempts.requestFailedValues] : [true];
+  requestFailedValues[requestFailedValues.length - 1] = true;
+
+  return {
+    statusCodeValues: attempts.statusCodeValues,
+    requestFailedValues,
+    requestErrorMessages: [...attempts.requestErrorMessages, formatCaughtRequestFailureError(error)],
+  };
+}
+
 function normalizeHttpRetryCount(value: number | undefined): number {
   const retryCount =
     typeof value === 'number' && Number.isFinite(value) ? value : DEFAULT_RETRY_ON_NON_200_REPEAT_TIMES;
@@ -75,8 +173,7 @@ function normalizeHttpRetryCount(value: number | undefined): number {
 }
 
 function normalizeHttpRetryCooldownMs(value: number | undefined): number {
-  const cooldownMs =
-    typeof value === 'number' && Number.isFinite(value) ? value : DEFAULT_RETRY_ON_NON_200_COOLDOWN_MS;
+  const cooldownMs = typeof value === 'number' && Number.isFinite(value) ? value : DEFAULT_RETRY_ON_NON_200_COOLDOWN_MS;
   return Math.max(0, Math.floor(cooldownMs));
 }
 
@@ -96,22 +193,20 @@ async function waitForRetryCooldown(cooldownMs: number, signal: AbortSignal): Pr
   }
 
   await new Promise<void>((resolve, reject) => {
-    let timeout: ReturnType<typeof setTimeout> | undefined;
-    const cleanup = () => {
-      if (timeout) {
-        clearTimeout(timeout);
-      }
-      signal.removeEventListener('abort', onAbort);
-    };
-    const onAbort = () => {
-      cleanup();
-      reject(buildAbortError());
-    };
-
-    timeout = setTimeout(() => {
+    const timeout = setTimeout(() => {
       cleanup();
       resolve();
     }, cooldownMs);
+
+    function cleanup() {
+      clearTimeout(timeout);
+      signal.removeEventListener('abort', onAbort);
+    }
+
+    function onAbort() {
+      cleanup();
+      reject(buildAbortError());
+    }
 
     signal.addEventListener('abort', onAbort, { once: true });
     if (signal.aborted) {
@@ -120,12 +215,18 @@ async function waitForRetryCooldown(cooldownMs: number, signal: AbortSignal): Pr
   });
 }
 
-function buildRequestFailedOutputs(params: { isBinaryOutput: boolean }): Outputs {
+function buildRequestFailedOutputs(params: {
+  isBinaryOutput: boolean;
+  retryOnNon200: boolean;
+  attempts: HttpCallRequestAttempts;
+}): Outputs {
   const sharedOutputs: Outputs = {
-    ['statusCode' as PortId]: {
-      type: 'control-flow-excluded',
-      value: undefined,
-    },
+    [STATUS_CODE_OUTPUT_ID]: params.retryOnNon200
+      ? buildRetryAttemptOutput('number[]', params.attempts.statusCodeValues)
+      : {
+          type: 'control-flow-excluded',
+          value: undefined,
+        },
     ['res_headers' as PortId]: {
       type: 'control-flow-excluded',
       value: undefined,
@@ -155,18 +256,37 @@ function buildRequestFailedOutputs(params: { isBinaryOutput: boolean }): Outputs
   };
 }
 
-function buildCaughtRequestFailedResult(params: { isBinaryOutput: boolean; error: unknown }): Outputs {
-  return {
-    [REQUEST_ERROR_OUTPUT_ID]: {
-      type: 'string',
-      value: formatCaughtRequestFailureError(params.error),
-    },
-    [REQUEST_FAILED_OUTPUT_ID]: {
-      type: 'boolean',
-      value: true,
-    },
-    ...buildRequestFailedOutputs(params),
+function buildCaughtRequestFailedResult(params: {
+  isBinaryOutput: boolean;
+  error: unknown;
+  retryOnNon200: boolean;
+  attempts: HttpCallRequestAttempts;
+}): Outputs {
+  const attempts = params.retryOnNon200
+    ? withCaughtFailureAttemptFallback(params.attempts, params.error)
+    : params.attempts;
+
+  const outputs: Outputs = {
+    [REQUEST_ERROR_OUTPUT_ID]: params.retryOnNon200
+      ? buildRetryAttemptOutput('string[]', attempts.requestErrorMessages)
+      : {
+          type: 'string',
+          value: formatCaughtRequestFailureError(params.error),
+        },
+    [REQUEST_FAILED_OUTPUT_ID]: params.retryOnNon200
+      ? buildRetryAttemptOutput('boolean[]', attempts.requestFailedValues)
+      : {
+          type: 'boolean',
+          value: true,
+        },
+    ...buildRequestFailedOutputs({
+      isBinaryOutput: params.isBinaryOutput,
+      retryOnNon200: params.retryOnNon200,
+      attempts,
+    }),
   };
+
+  return outputs;
 }
 
 export type HttpCallNode = ChartNode<'httpCall', HttpCallNodeData>;
@@ -322,8 +442,8 @@ export class HttpCallNodeImpl extends NodeImpl<HttpCallNode> {
 
     outputDefinitions.push(
       {
-        dataType: 'number',
-        id: 'statusCode' as PortId,
+        dataType: this.data.retryOnNon200 ? 'number[]' : 'number',
+        id: STATUS_CODE_OUTPUT_ID,
         title: 'Status Code',
       },
       {
@@ -333,15 +453,15 @@ export class HttpCallNodeImpl extends NodeImpl<HttpCallNode> {
       },
     );
 
-    if (this.data.catchRequestFailed) {
+    if (this.data.catchRequestFailed || this.data.retryOnNon200) {
       outputDefinitions.push(
         {
-          dataType: 'boolean',
+          dataType: this.data.retryOnNon200 ? 'boolean[]' : 'boolean',
           id: REQUEST_FAILED_OUTPUT_ID,
           title: 'Request failed',
         },
         {
-          dataType: 'string',
+          dataType: this.data.retryOnNon200 ? 'string[]' : 'string',
           id: REQUEST_ERROR_OUTPUT_ID,
           title: 'Request error',
         },
@@ -449,6 +569,8 @@ export class HttpCallNodeImpl extends NodeImpl<HttpCallNode> {
   }
 
   async process(inputs: Inputs, context: InternalProcessContext): Promise<Outputs> {
+    const requestAttempts = createHttpCallRequestAttempts();
+
     try {
       const method = getInputOrData(this.data, inputs, 'method', 'string');
       const url = getInputOrData(this.data, inputs, 'url', 'string');
@@ -517,7 +639,18 @@ export class HttpCallNodeImpl extends NodeImpl<HttpCallNode> {
         }
       };
 
-      let response = await performRequest();
+      const performTrackedRequest = async () => {
+        try {
+          const response = await performRequest();
+          recordHttpCallResponseAttempt(requestAttempts, response);
+          return response;
+        } catch (error) {
+          recordHttpCallThrownAttempt(requestAttempts, error, context.signal);
+          throw error;
+        }
+      };
+
+      let response = await performTrackedRequest();
 
       if (this.data.retryOnNon200) {
         const repeatTimes = normalizeHttpRetryCount(this.data.retryOnNon200RepeatTimes);
@@ -525,7 +658,7 @@ export class HttpCallNodeImpl extends NodeImpl<HttpCallNode> {
 
         for (let attempt = 0; response.status !== 200 && attempt < repeatTimes; attempt++) {
           await waitForRetryCooldown(cooldownMs, context.signal);
-          response = await performRequest();
+          response = await performTrackedRequest();
         }
       }
 
@@ -534,10 +667,12 @@ export class HttpCallNodeImpl extends NodeImpl<HttpCallNode> {
       }
 
       const output: Outputs = {
-        ['statusCode' as PortId]: {
-          type: 'number',
-          value: response.status,
-        },
+        [STATUS_CODE_OUTPUT_ID]: this.data.retryOnNon200
+          ? buildRetryAttemptOutput('number[]', requestAttempts.statusCodeValues)
+          : {
+              type: 'number',
+              value: response.status,
+            },
         ['res_headers' as PortId]: {
           type: 'object',
           value: Object.fromEntries(response.headers.entries()),
@@ -570,21 +705,30 @@ export class HttpCallNodeImpl extends NodeImpl<HttpCallNode> {
         }
       }
 
-      if (this.data.catchRequestFailed) {
-        output[REQUEST_FAILED_OUTPUT_ID] = {
-          type: 'boolean',
-          value: false,
-        };
-        output[REQUEST_ERROR_OUTPUT_ID] = {
-          type: 'control-flow-excluded',
-          value: undefined,
-        };
+      if (this.data.catchRequestFailed || this.data.retryOnNon200) {
+        output[REQUEST_FAILED_OUTPUT_ID] = this.data.retryOnNon200
+          ? buildRetryAttemptOutput('boolean[]', requestAttempts.requestFailedValues)
+          : {
+              type: 'boolean',
+              value: false,
+            };
+        output[REQUEST_ERROR_OUTPUT_ID] = this.data.retryOnNon200
+          ? buildRetryAttemptOutput('string[]', requestAttempts.requestErrorMessages)
+          : {
+              type: 'control-flow-excluded',
+              value: undefined,
+            };
       }
 
       return output;
     } catch (error) {
       if (this.data.catchRequestFailed && !isAbortError(error, context.signal)) {
-        return buildCaughtRequestFailedResult({ isBinaryOutput: Boolean(this.data.isBinaryOutput), error });
+        return buildCaughtRequestFailedResult({
+          isBinaryOutput: Boolean(this.data.isBinaryOutput),
+          error,
+          retryOnNon200: Boolean(this.data.retryOnNon200),
+          attempts: requestAttempts,
+        });
       }
 
       throw error;

@@ -1,4 +1,4 @@
-import { type CustomEditorDefinition, type ChartNode } from '@ironclad/rivet-core';
+import { type CustomEditorDefinition, type ChartNode } from '@valerypopoff/rivet2-core';
 import { type FC } from 'react';
 import { type SharedEditorProps } from './SharedEditorProps';
 import { match } from 'ts-pattern';

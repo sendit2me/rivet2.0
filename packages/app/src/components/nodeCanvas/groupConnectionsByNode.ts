@@ -1,4 +1,4 @@
-import type { NodeConnection, NodeId } from '@ironclad/rivet-core';
+import type { NodeConnection, NodeId } from '@valerypopoff/rivet2-core';
 import { markCanvasPerfEnd, markCanvasPerfStart, setCanvasPerf } from './canvasPerfDebug.js';
 
 export function groupConnectionsByNode(connections: NodeConnection[]): Record<NodeId, NodeConnection[]> {

@@ -1,4 +1,4 @@
-import { type GraphId, type NodeId, type Project } from '@ironclad/rivet-core';
+import { type GraphId, type NodeId, type Project } from '@valerypopoff/rivet2-core';
 
 export type GraphViewKey = string;
 

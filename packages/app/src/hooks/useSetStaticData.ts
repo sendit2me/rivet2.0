@@ -1,7 +1,7 @@
 import { useSetAtom } from 'jotai';
 import { useStaticDataDatabase } from './useStaticDataDatabase';
 import { projectDataState } from '../state/savedGraphs';
-import { type DataId } from '@ironclad/rivet-core';
+import { type DataId } from '@valerypopoff/rivet2-core';
 import { entries } from '../utils/typeSafety';
 import { handleError } from '../utils/errorHandling.js';
 

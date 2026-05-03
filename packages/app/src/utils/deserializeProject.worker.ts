@@ -1,4 +1,4 @@
-import { deserializeProject } from '@ironclad/rivet-core';
+import { deserializeProject } from '@valerypopoff/rivet2-core';
 
 self.addEventListener('message', (event) => {
   const { id, type, data } = event.data;

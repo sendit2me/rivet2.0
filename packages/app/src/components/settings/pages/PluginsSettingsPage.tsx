@@ -9,17 +9,12 @@ import { PluginSettingsSection } from './PluginSettingsSection.js';
 
 export const PluginsSettingsPage: FC = () => {
   const plugins = useDependsOnPlugins();
-  const projectPlugins = useAtomValue(pluginsState);
-  const failedPlugins = projectPlugins.filter((plugin) => plugin.error);
+  const appPlugins = useAtomValue(pluginsState);
+  const failedPlugins = appPlugins.filter((plugin) => plugin.error);
   const [, setPluginRetryCounter] = useAtom(pluginRetryCounterState);
 
   if (plugins.length === 0 && failedPlugins.length === 0) {
-    return (
-      <div>
-        No plugins are enabled in this workspace. Enable plugins in the project settings panel and their settings will
-        appear here.
-      </div>
-    );
+    return <div>No plugins are installed in this Rivet app. Add plugins from Settings &gt; Plugins.</div>;
   }
 
   return (

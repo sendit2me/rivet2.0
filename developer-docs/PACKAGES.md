@@ -6,16 +6,16 @@
 
 The root `yarn build` script currently builds packages in this order:
 
-1. `@ironclad/rivet-core`
-2. `@ironclad/rivet-node`
-3. `@ironclad/rivet-app-executor`
-4. `@ironclad/trivet`
-5. `@ironclad/rivet-app`
-6. `@ironclad/rivet-cli`
+1. `@valerypopoff/rivet2-core`
+2. `@valerypopoff/rivet2-node`
+3. `@valerypopoff/rivet-app-executor`
+4. `@valerypopoff/trivet`
+5. `@valerypopoff/rivet-app`
+6. `@valerypopoff/rivet2-cli`
 
 That order is encoded directly in the root `package.json` and reflects actual runtime dependencies.
 
-## `@ironclad/rivet-core` (`packages/core/`)
+## `@valerypopoff/rivet2-core` (`packages/core/`)
 
 ### Role
 
@@ -51,7 +51,7 @@ Shared runtime foundation for the entire repo.
 - app-executor
 - trivet
 
-## `@ironclad/rivet-node` (`packages/node/`)
+## `@valerypopoff/rivet2-node` (`packages/node/`)
 
 ### Role
 
@@ -89,7 +89,7 @@ This package is the shared Node runtime used by:
 It is not just a convenience wrapper. It sets Node-default providers, debugger integration, env-based plugin config fallback, and Node-specific reference loading. Runtime settings still flow through core's shared `resolveProcessSettings(...)` helper instead of being rebuilt independently in the Node package.
 It also supplies a default tokenizer for Node-side runs when the caller does not provide one explicitly.
 
-## `@ironclad/rivet-app` (`packages/app/`)
+## `@valerypopoff/rivet-app` (`packages/app/`)
 
 ### Role
 
@@ -113,11 +113,11 @@ Desktop IDE frontend plus Tauri app packaging layer.
 - plugin loading/install UI
 - prompt designer
 - Trivet UI
-- debugger/community/data/update overlays
+- debugger/data/update overlays
 
 ### Important current boundaries
 
-- downstream package source imports core through `@ironclad/rivet-core`, not by reaching into `packages/core/src/...`; the shared root ESLint config enforces that boundary with `no-restricted-imports`
+- downstream package source imports core through `@valerypopoff/rivet2-core`, not by reaching into `packages/core/src/...`; the shared root ESLint config enforces that boundary with `no-restricted-imports`
 - app-only convenience helpers, such as type-safe object iteration, live in the app package; shared behavior that must match core runtime semantics is exported intentionally by core first
 - hosted/wrapper applications that mount Rivet's editor from a vendored `rivet/` folder should import directly from local source paths such as `../rivet/packages/app/src/host` and `../rivet/packages/app/src/host.css`, then render `RivetAppHost` instead of rendering `RivetApp` directly; that host shell owns QueryClient, provider context, executor-session context, async storage bootstrap, optional post-app bridge children, lifecycle callbacks, a stable imperative workspace-host handle through `onWorkspaceHostReady` / `RivetWorkspaceHostBridge` / `useRivetWorkspaceHost`, and optional hosted executor websocket configuration through `executor.internalExecutorUrl`
 - `RivetAppHost` provider overrides are the supported hosted integration layer for IO, datasets, env vars, storage, and path policy behavior; wrappers should inject those providers instead of aliasing private globals or Tauri modules
@@ -125,14 +125,23 @@ Desktop IDE frontend plus Tauri app packaging layer.
 - project/graph load-save-switch sequencing is centralized under `src/hooks/useWorkspaceTransitions.ts` and `src/utils/workspaceTransitions.ts`
 - remembered editor-view persistence is handled app-side through `src/state/projectEditor.ts`, `src/hooks/useSyncCurrentProjectEditorState.ts`, and `src/hooks/useRestorePersistedWorkspace.ts` rather than through project-file serialization
 - platform-specific capabilities are split under `src/utils/platform/*`; the old `nativeApp.ts` barrel has been removed so desktop integrations import only the capability they actually use
-- because the app's Vite dev/build path resolves `@ironclad/rivet-core` to core source, browser-reachable provider dependencies that are imported by core Chat v2 code may also need visibility in `packages/app/package.json`; `@ai-sdk/openai-compatible` is intentionally listed in both core and app for that PnP/Vite source-resolution boundary
+- because the app's Vite dev/build path resolves `@valerypopoff/rivet2-core` to core source, browser-reachable provider dependencies that are imported by core Chat v2 code may also need visibility in `packages/app/package.json`; `@ai-sdk/openai-compatible` is intentionally listed in both core and app for that PnP/Vite source-resolution boundary
 - the Tauri backend under `src-tauri/` also vendors the two small Tauri v1 plugin crates it depends on under `src-tauri/vendor/` to avoid current Cargo/git-workspace metadata breakage from the upstream plugins workspace template
+
+### Branding assets
+
+- The source mark is [`packages/app/src-tauri/icons/rivet-2-logo.svg`](../packages/app/src-tauri/icons/rivet-2-logo.svg). It is intentionally only the logo shape, with no colored underlay.
+- The no-project welcome screen imports [`packages/app/src/rivet-logo-1024-full.png`](../packages/app/src/rivet-logo-1024-full.png) directly. This asset is the white mark on transparent pixels because the welcome card is dark.
+- Desktop app and installer icons are generated assets under [`packages/app/src-tauri/icons/`](../packages/app/src-tauri/icons/) and are referenced from `tauri.conf.json` through the `tauri.bundle.icon` list. Keep the existing filenames when replacing them, including the Windows `Square*Logo.png` and `StoreLogo.png` assets. These standalone icon assets use the black mark on transparent pixels.
+- The documentation site uses [`packages/docs/static/img/logo.svg`](../packages/docs/static/img/logo.svg), [`packages/docs/static/img/favicon.png`](../packages/docs/static/img/favicon.png), [`packages/docs/static/img/social-card.png`](../packages/docs/static/img/social-card.png), and [`packages/docs/static/img/logo-banner-wide.png`](../packages/docs/static/img/logo-banner-wide.png). Docusaurus reads these through `packages/docs/docusaurus.config.js` and the docs landing/social-card pages.
+- Documentation logo assets use the black mark by default. [`packages/docs/src/css/custom.css`](../packages/docs/src/css/custom.css) inverts `img/logo.svg` in dark mode so the logo is white on dark backgrounds without adding an underlay.
+- There is no single checked-in logo generator yet. When the Rivet 2 logo changes, update the app welcome image, regenerate/replace the Tauri icon set, and update the docs static images together so the desktop shell, installer, and documentation site stay visually aligned.
 
 ### Version caveat
 
 The desktop product version is also tracked in `packages/app/src-tauri/tauri.conf.json`, which currently reports `2.0`.
 
-## `@ironclad/rivet-app-executor` (`packages/app-executor/`)
+## `@valerypopoff/rivet-app-executor` (`packages/app-executor/`)
 
 ### Role
 
@@ -158,7 +167,7 @@ The sidecar:
 - supports preload, pause, resume, abort, and user-input messages
 - supports run-from execution by accepting preload data and a `runFromNodeId`
 
-The worker-backed runner is scoped to the app executor. `@ironclad/rivet-node`
+The worker-backed runner is scoped to the app executor. `@valerypopoff/rivet2-node`
 programmatic callers still use `NodeCodeRunner` by default unless they pass a
 custom `codeRunner`, and Code nodes that request the `Rivet` capability fall back
 to current-thread execution inside the sidecar for compatibility.
@@ -177,14 +186,14 @@ still giving hosted executors a stable "prepare, then resolve" seam.
 
 ### Build model
 
-The executor source is ESM (`.mts`) but is bundled to CJS (`executor-bundle.cjs`) by esbuild so that `pkg` can statically analyze it for native binary compilation. A custom esbuild plugin inlines all `@ironclad/rivet-*` workspace packages from source.
+The executor source is ESM (`.mts`) but is bundled to CJS (`executor-bundle.cjs`) by esbuild so that `pkg` can statically analyze it for native binary compilation. A custom esbuild plugin inlines all `@valerypopoff/rivet-*` workspace packages from source.
 
 ### Architectural significance
 
 This package is effectively the app's Node execution backend. It shares the same `assembleRegistry()` helper as the app for registry construction, keeping plugin/runtime assembly logic in one place.
 It is paired with the app-side shared executor session rather than being managed independently by each remote execution hook consumer.
 
-## `@ironclad/rivet-cli` (`packages/cli/`)
+## `@valerypopoff/rivet2-cli` (`packages/cli/`)
 
 ### Role
 
@@ -240,7 +249,7 @@ Supports:
 
 Architecturally, it is a thin HTTP wrapper around `rivet-node` processor creation and streaming helpers.
 
-## `@ironclad/trivet` (`packages/trivet/`)
+## `@valerypopoff/trivet` (`packages/trivet/`)
 
 ### Role
 
@@ -273,12 +282,6 @@ The app integrates this package directly for test UI and persistence.
 
 `createTestGraphRunner(...)` also resolves runtime settings through core's shared `resolveProcessSettings(...)` helper, so Trivet inherits the same minimal runtime defaults as app and Node execution rather than carrying a separate settings shape.
 
-## `packages/community/`
-
-Internal package used by the app for community/template features.
-
-Not published as a public npm package from this repo.
-
 ## `packages/docs/`
 
 ### Role
@@ -302,17 +305,42 @@ Docusaurus documentation site package.
 
 Docs publishing is handled from the repo root by `publish-docs.mts`, not by package-local deploy automation.
 
-## `publish-packages.mts`
+### Current content contract
+
+The docs package is not an archival copy of the pre-fork Rivet docs. It should
+describe the current Rivet 2.0 surface:
+
+- public packages under `@valerypopoff`: `rivet2-core`, `rivet2-node`, and `rivet2-cli`
+- app package names and root workspace scripts from the current manifests
+- LLM Chat as the recommended chat node for new graphs, with legacy Chat called out as legacy
+- Browser, Node, and remote executor behavior, including hosted/internal executor URL seams
+- app-level plugin installation, derived project plugin YAML, missing-plugin install prompts, and read-only project-used plugin settings
+- Code-node runtime permissions, Node-only `require` / `process`, and configurable require-root behavior
+- HTTP Call and LLM Chat retry/status/error output contracts
+- wrapper/source-checkout guidance pointing to app host seams and generated built-package artifacts rather than stale npm names
+- GitHub Pages docs deployment at `/rivet2.0/`, with Docusaurus docs at the site root and a top-right `/download` page that reads official Windows release metadata generated by the main-branch workflow plus developer Windows release metadata generated by the develop-branch workflow
+
+When those implementation contracts change, update `packages/docs/docs/` and
+this developer-doc package reference together.
+
+## `scripts/publish-npm-packages.mjs`
 
 Although not itself a package, this root script is part of the operational package story.
 
 Current behavior:
 
-- requires an OTP argument
-- refuses to run on a dirty git tree
-- verifies expected workspaces exist
-- publishes `rivet-core`, `rivet-node`, `rivet-cli`, and `trivet`
-- then runs Docker publishing for the CLI
+- refuses to run on a dirty git tree unless `--skip-clean-check` is passed
+- verifies the public package names and lockstep package versions
+- rejects non-semver versions and versions outside major `2`
+- validates built outputs for `@valerypopoff/rivet2-core`, `@valerypopoff/rivet2-node`, and `@valerypopoff/rivet2-cli`
+- stages clean npm package directories from built artifacts
+- rewrites internal `workspace:^` dependencies to the same public `^2.x` package version
+- skips package versions that already exist on npm
+- publishes only core, node, and cli under the `@valerypopoff` scope
+
+It does not publish `@valerypopoff/trivet`, the app, the app executor, or Docker
+images. The main-branch npm workflow is the canonical automation path for this
+script.
 
 ## `publish-docs.mts`
 

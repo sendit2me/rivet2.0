@@ -1,5 +1,6 @@
 import { css } from '@emotion/react';
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -7,6 +8,8 @@ import {
   type FC,
   type KeyboardEvent,
   type PointerEvent as ReactPointerEvent,
+  type RefObject,
+  type UIEvent,
 } from 'react';
 import { useGraphHistoryNavigation } from '../hooks/useGraphHistoryNavigation';
 import LeftIcon from 'majesticons/line/chevron-left-line.svg?react';
@@ -14,8 +17,10 @@ import RightIcon from 'majesticons/line/chevron-right-line.svg?react';
 import CrossIcon from 'majesticons/line/multiply-line.svg?react';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import {
+  clearGraphSearchQueryState,
   emptyGraphSearchState,
   goToSearchState,
+  hideGraphSearchPanelState,
   searchingGraphState,
   selectedNodesState,
   sidebarOpenState,
@@ -25,7 +30,7 @@ import { useSearchProject, type FuseResultMatch, type SearchedItem, type RangeTu
 import { projectState } from '../state/savedGraphs';
 import clsx from 'clsx';
 import { useGoToNode } from '../hooks/useGoToNode';
-import { type GraphId, type NodeId } from '@ironclad/rivet-core';
+import { type GraphId, type NodeId } from '@valerypopoff/rivet2-core';
 import { groupGraphSearchMatches, type GraphSearchNodeMatch } from '../hooks/graphSearch';
 import { useLoadGraph } from '../hooks/useLoadGraph';
 import { graphState } from '../state/graph';
@@ -93,12 +98,12 @@ const styles = css`
     display: flex;
     flex-direction: column;
     left: 50%;
-    max-height: calc(100vh - var(--project-selector-height) - 64px);
+    max-height: calc(100vh - var(--project-selector-height) - 36px);
     max-width: calc(100vw - 32px);
     min-width: 360px;
     overflow: hidden;
     position: fixed;
-    top: calc(var(--project-selector-height) + 48px);
+    top: calc(var(--project-selector-height) + 20px);
     transform: translateX(-50%);
     width: 30vw;
 
@@ -171,23 +176,6 @@ const styles = css`
       width: 100%;
     }
 
-    .search-resize-handle::after {
-      background: var(--primary);
-      bottom: 2px;
-      content: '';
-      height: 2px;
-      left: 12px;
-      opacity: 0;
-      pointer-events: none;
-      position: absolute;
-      right: 12px;
-      transition: opacity 120ms ease;
-    }
-
-    .search-resize-handle:hover::after {
-      opacity: 0.65;
-    }
-
     .search-result-group + .search-result-group {
       margin-top: 8px;
     }
@@ -240,15 +228,17 @@ const styles = css`
       height: auto;
       justify-content: flex-start;
       line-height: 1.3;
-      margin: 4px 8px;
+      margin: 8px 8px;
       min-width: 0;
+      outline: 1px solid transparent;
+      outline-offset: -1px;
       padding: 7px 12px;
       text-align: left;
       width: calc(100% - 16px);
 
       &:hover,
       &:focus-visible {
-        background-color: rgba(255, 255, 255, 0.14);
+        outline-color: var(--primary);
       }
     }
 
@@ -403,6 +393,7 @@ export const NavigationBar: FC = () => {
   const currentGraph = useAtomValue(graphState);
   const graphSearchInputRef = useRef<HTMLInputElement>(null);
   const graphSearchPanelRef = useRef<HTMLDivElement>(null);
+  const graphSearchResultsRef = useRef<HTMLDivElement>(null);
 
   const [goToSearch, setGoToSearch] = useAtom(goToSearchState);
 
@@ -410,8 +401,15 @@ export const NavigationBar: FC = () => {
   const graphSearchGroups = useMemo(() => groupGraphSearchMatches(searching.matches), [searching.matches]);
   const graphSearchHasResults = graphSearchHasQuery && graphSearchGroups.length > 0;
 
+  const hideGraphSearchPanel = useCallback(() => {
+    const resultsScrollTop = graphSearchResultsRef.current?.scrollTop;
+    setSearching((state) =>
+      hideGraphSearchPanelState(resultsScrollTop == null ? state : { ...state, resultsScrollTop }),
+    );
+  }, [setSearching]);
+
   useEffect(() => {
-    if (!searching.searching) {
+    if (!searching.searching || !searching.panelOpen) {
       return;
     }
 
@@ -420,10 +418,74 @@ export const NavigationBar: FC = () => {
     });
 
     return () => cancelAnimationFrame(frame);
-  }, [searching.focusRequestId, searching.searching]);
+  }, [searching.focusRequestId, searching.panelOpen, searching.searching]);
+
+  useEffect(() => {
+    if (!searching.searching || !searching.panelOpen || !graphSearchHasResults) {
+      return;
+    }
+
+    const frame = requestAnimationFrame(() => {
+      if (graphSearchResultsRef.current) {
+        graphSearchResultsRef.current.scrollTop = searching.resultsScrollTop;
+      }
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [
+    graphSearchHasResults,
+    searching.focusRequestId,
+    searching.panelOpen,
+    searching.query,
+    searching.resultsScrollTop,
+    searching.searching,
+  ]);
+
+  useEffect(() => {
+    if (!searching.searching || !searching.panelOpen) {
+      return;
+    }
+
+    const handleWindowPointerDown = (event: PointerEvent) => {
+      if (graphSearchPanelRef.current?.contains(event.target as Node)) {
+        return;
+      }
+
+      hideGraphSearchPanel();
+    };
+
+    window.addEventListener('pointerdown', handleWindowPointerDown, true);
+
+    return () => {
+      window.removeEventListener('pointerdown', handleWindowPointerDown, true);
+    };
+  }, [hideGraphSearchPanel, searching.panelOpen, searching.searching]);
 
   function closeGraphSearch() {
     setSearching(emptyGraphSearchState);
+  }
+
+  function updateGraphSearchQuery(query: string) {
+    if (query.trim().length === 0) {
+      setSearching(clearGraphSearchQueryState);
+      return;
+    }
+
+    setSearching((state) => ({
+      ...state,
+      query,
+      selectedIndex: 0,
+      searching: true,
+      panelOpen: true,
+      resultsScrollTop: 0,
+    }));
+  }
+
+  function updateGraphSearchResultsScroll(e: UIEvent<HTMLDivElement>) {
+    const resultsScrollTop = e.currentTarget.scrollTop;
+    setSearching((state) =>
+      state.resultsScrollTop === resultsScrollTop ? state : { ...state, resultsScrollTop },
+    );
   }
 
   function startGraphSearchPanelResize(e: ReactPointerEvent<HTMLDivElement>) {
@@ -537,7 +599,7 @@ export const NavigationBar: FC = () => {
         <div className="button-placeholder" />
       )}
 
-      {searching.searching && (
+      {searching.searching && searching.panelOpen && (
         <div
           ref={graphSearchPanelRef}
           className={clsx('search', { 'has-results': graphSearchHasResults })}
@@ -552,20 +614,11 @@ export const NavigationBar: FC = () => {
               autoComplete="off"
               spellCheck={false}
               value={searching.query}
-              onChange={(e) =>
-                setSearching((state) => ({
-                  ...state,
-                  query: e.target.value,
-                  selectedIndex: 0,
-                  matches: [],
-                  fallbackToTerms: false,
-                  searching: true,
-                }))
-              }
+              onChange={(e) => updateGraphSearchQuery(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Escape') {
                   e.preventDefault();
-                  closeGraphSearch();
+                  hideGraphSearchPanel();
                 }
               }}
             />
@@ -578,8 +631,10 @@ export const NavigationBar: FC = () => {
               groups={graphSearchGroups}
               fallbackToTerms={searching.fallbackToTerms}
               query={searching.query}
+              resultsRef={graphSearchResultsRef}
               onSelectGraph={selectGraphSearchGroup}
               onSelect={selectGraphSearchMatch}
+              onScroll={updateGraphSearchResultsScroll}
             />
           )}
           {graphSearchHasResults && <div className="search-resize-handle" onPointerDown={startGraphSearchPanelResize} />}
@@ -642,15 +697,17 @@ const GraphSearchResults: FC<{
   groups: ReturnType<typeof groupGraphSearchMatches>;
   fallbackToTerms: boolean;
   query: string;
+  resultsRef: RefObject<HTMLDivElement>;
   onSelectGraph: (graphId: GraphId) => void;
   onSelect: (match: GraphSearchNodeMatch, selectedIndex: number) => void;
-}> = ({ groups, fallbackToTerms, query, onSelectGraph, onSelect }) => {
+  onScroll: (e: UIEvent<HTMLDivElement>) => void;
+}> = ({ groups, fallbackToTerms, query, resultsRef, onSelectGraph, onSelect, onScroll }) => {
   if (groups.length === 0) {
     return null;
   }
 
   return (
-    <div className="search-results">
+    <div ref={resultsRef} className="search-results" onScroll={onScroll}>
       {fallbackToTerms && (
         <div className="search-results-fallback-note">No exact match found. Showing results that match separate words.</div>
       )}

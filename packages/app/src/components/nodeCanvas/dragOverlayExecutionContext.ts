@@ -1,4 +1,4 @@
-import type { NodeId } from '@ironclad/rivet-core';
+import type { NodeId } from '@valerypopoff/rivet2-core';
 import type { PageValue, ProcessDataForNode } from '../../state/dataFlow.js';
 import type { DragMode } from '../../hooks/useDraggingNode.js';
 

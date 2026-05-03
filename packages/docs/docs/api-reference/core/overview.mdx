@@ -1,1 +1,18 @@
-# API Overview
+# Core API Overview
+
+`@valerypopoff/rivet2-core` is the shared runtime foundation for Rivet 2.0. It contains the graph/project data model, node definitions, execution engine, plugin contracts, serialization helpers, and provider/runtime abstractions used by the app, Node package, CLI, app executor, and Trivet.
+
+Use core directly when you need an environment-neutral graph engine and you will provide the host capabilities yourself. Use `@valerypopoff/rivet2-node` when you are integrating from Node.js and want filesystem loading, native APIs, MCP defaults, plugin environment fallback, Code-node `require`, and remote-debugger helpers.
+
+## Important Exports
+
+- graph and project types such as [Project](./Project.mdx) and [NodeGraph](./NodeGraph.mdx)
+- data value types such as [DataValue](./DataValue.mdx)
+- [GraphProcessor](./GraphProcessor.md)
+- [Settings](./Settings.mdx)
+- built-in node registration and plugin APIs
+- `RunGraphOptions`, `coreCreateProcessor`, `coreRunGraph`, and project deserialization helpers
+
+## Runtime Boundaries
+
+Core does not own app storage, file dialogs, Tauri APIs, package installation UI, or the desktop Node sidecar. Those are app or Node-package responsibilities. When a graph needs host behavior, pass providers through run options: `nativeApi`, `datasetProvider`, `audioProvider`, `mcpProvider`, `codeRunner`, `projectReferenceLoader`, or a custom node `registry`.

@@ -1,4 +1,4 @@
-import { type GraphId } from '@ironclad/rivet-core';
+import { type GraphId } from '@valerypopoff/rivet2-core';
 import { type PluginState } from '../../state/plugins.js';
 import { type GraphReachabilityBucket, type GraphReachabilityReport } from '../../utils/graphReachability.js';
 
@@ -27,7 +27,7 @@ export function buildGraphListReachabilityPresentation(options: {
     return {
       bucketByGraphId,
       showUnreachableBadges: false,
-      notice: 'Unreachable graph analysis is waiting for project plugins to load.',
+      notice: 'Unreachable graph analysis is waiting for app plugins to load.',
     };
   }
 

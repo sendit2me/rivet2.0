@@ -1,4 +1,4 @@
-import type { ChartNode, CommentNode } from '@ironclad/rivet-core';
+import type { ChartNode, CommentNode } from '@valerypopoff/rivet2-core';
 import { DEFAULT_NODE_WIDTH } from '../utils/nodeResize.js';
 
 export type CanvasVisibilityBounds = {

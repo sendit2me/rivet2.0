@@ -6,7 +6,7 @@ import {
   type DataId,
   uint8ArrayToBase64,
   type DataRef,
-} from '@ironclad/rivet-core';
+} from '@valerypopoff/rivet2-core';
 import { nanoid } from 'nanoid/non-secure';
 import { type FC } from 'react';
 import { useAtomValue } from 'jotai';

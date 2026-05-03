@@ -1,6 +1,6 @@
 import TextField from '@atlaskit/textfield';
 import { css } from '@emotion/react';
-import { type DatasetMetadata } from '@ironclad/rivet-core';
+import { type DatasetMetadata } from '@valerypopoff/rivet2-core';
 import clsx from 'clsx';
 import { type FC } from 'react';
 

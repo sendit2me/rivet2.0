@@ -1,185 +1,187 @@
-<h1 align="center"><img src="https://rivet.ironcladapp.com/img/logo-banner-wide.png" alt="Rivet Logo"></h1>
+# Rivet 2.0
 
-[![All Contributors](https://img.shields.io/github/all-contributors/Ironclad/rivet?color=ee8449&style=flat-square)](#contributors-) ![GitHub issues](https://img.shields.io/github/issues/Ironclad/rivet) ![GitHub pull requests](https://img.shields.io/github/issues-pr/Ironclad/rivet) ![License](https://img.shields.io/github/license/Ironclad/rivet) [![Discord](https://img.shields.io/discord/1149376303070466110?style=flat&logo=discord)](https://discord.gg/qT8B2gv9Mg)
+![License](https://img.shields.io/github/license/valerypopoff/rivet2.0)
 
-<h3 align="center"><a href="https://github.com/Ironclad/rivet/releases">Download</a> | <a href="https://rivet.ironcladapp.com">Website</a> | <a href="https://rivet.ironcladapp.com/docs">Documentation</a></h3>
+Rivet is a visual IDE and runtime for building AI workflows, agents, prompt chains, graph-based tools, and reusable automation flows. This repository is the Rivet 2.0 monorepo: it contains the desktop app, graph runtime, Node runtime, CLI, app executor sidecar, Trivet test tooling, documentation site, and maintainer developer docs.
 
-<p align="center">
-  <a href="https://rivet.ironcladapp.com">Rivet</a>, the IDE for creating complex AI agents and prompt chaining, and embedding it in your application.
-  <br />
-  <br />
-  <a href="https://github.com/Ironclad/rivet/issues">Report Bug</a>
-  ·
-  <a href="https://github.com/Ironclad/rivet/issues">Request Feature</a>
-  ·
-  <a href="https://github.com/Ironclad/rivet/discussions">Discussions</a>
-  ·
-  <a href="https://discord.gg/qT8B2gv9Mg">Chat</a>
-</p>
+Rivet 2.0 continues the previous Rivet codebase as an independently maintained project.
 
-Have a question? Need some help? Check out the Rivet [Discord server](https://discord.gg/qT8B2gv9Mg)!
+This checkout is also designed to be embedded by wrapper applications that vendor Rivet source in a local `rivet/` folder. Wrappers can import from local source paths and use the supported app-host seams without depending on stale public npm packages.
 
-https://github.com/Ironclad/rivet/assets/448108/ad1d5e74-fe05-444e-8da7-66a1fc5b6848
+For a self-hosted Rivet 2 wrapper, see [Rivet Studio Server](https://github.com/valerypopoff/Rivet-Studio-Server/tree/main-rivet2).
 
-- [About Rivet](#about-rivet)
-  - [Rivet Application](#rivet-application)
-  - [Rivet Core](#rivet-core)
+## Contents
+
+- [What This Repo Contains](#what-this-repo-contains)
 - [Getting Started](#getting-started)
-  - [Prebuilt Binaries](#prebuilt-binaries)
-    - [Latest downloads](#latest-downloads)
-    - [All Releases](#all-releases)
-  - [Running from Source](#running-from-source)
-- [Contributing](#contributing)
-  - [Code of Conduct](#code-of-conduct)
-- [Troubleshooting](#troubleshooting)
-- [Contributors ✨](#contributors-)
+- [Common Commands](#common-commands)
+- [Execution Modes](#execution-modes)
+- [Plugins](#plugins)
+- [Embedding Rivet In A Wrapper](#embedding-rivet-in-a-wrapper)
+- [npm Packages](#npm-packages)
+- [Official and Developer Releases](#official-and-developer-releases)
+- [Documentation](#documentation)
+- [License](#license)
 
-## About Rivet
+## What This Repo Contains
 
-### Rivet Application
+Rivet 2.0 is organized as a Yarn workspace monorepo:
 
-Rivet is a desktop application for creating complex AI agents and prompt chaining, and embedding it in your application.
+| Package | Purpose |
+| --- | --- |
+| `@valerypopoff/rivet2-core` | Shared graph model, execution engine, built-in nodes, serialization, provider integrations, plugin assembly, and runtime contracts. |
+| `@valerypopoff/rivet-app` | Tauri and React desktop IDE, graph editor, settings, plugins UI, debugger surfaces, prompt designer, chat viewer, data studio, and hosted app entrypoints. |
+| `@valerypopoff/rivet-app-executor` | Node executor sidecar used by the app for Node-mode graph execution. |
+| `@valerypopoff/rivet2-node` | Node runtime adapter for loading and running Rivet projects programmatically. |
+| `@valerypopoff/rivet2-cli` | CLI commands for running and serving Rivet graphs. |
+| `@valerypopoff/trivet` | Graph-oriented test utilities and test serialization. |
+| `packages/docs` | Docusaurus documentation site. |
 
-Rivet currently has LLM support for:
-
-- [OpenAI GPT-3.5 and GPT-4](https://openai.com/gpt-4)
-- [Anthropic Claude Instant and Claude 2](https://www.anthropic.com/index/claude-2)
-- [Anthropic Claude 3 Haiku, Sonnet, and Opus] (https://www.anthropic.com/news/claude-3-family)
-- [AssemblyAI LeMUR framework for voice data](https://www.assemblyai.com/products/speech-understanding?utm_source=rivet)
-
-Rivet has embedding/vector database support for:
-
-- [OpenAI Embeddings](https://platform.openai.com/docs/guides/embeddings)
-- [Pinecone](https://www.pinecone.io/)
-
-Rivet also supports these additional integrations:
-
-- [Speech-to-Text from AssemblyAI](https://www.assemblyai.com/discover/products/speech-to-text?utm_source=rivet)
-
-For more information on how to use the application and all of its capabilities, see [the documentation](https://rivet.ironcladapp.com/docs)!
-
-### Rivet Core
-
-Rivet core is a TypeScript library for running graphs created in Rivet. It is used by the Rivet application, but can also be used in your own applications, so that Rivet can call into your own application's code, and your application can call into Rivet graphs.
-
-For more information on using Rivet Core, see the [Rivet Integration Getting Started](https://rivet.ironcladapp.com/docs/api-reference/getting-started-integration) page and the related API documentation.
-
-Rivet core is available on NPM as `@ironclad/rivet-core`. Rivet node is available as `@ironclad/rivet-node`. Documentation for each is available on the [Rivet website](https://rivet.ironcladapp.com/docs/api-reference).
+The repo also includes `developer-docs/`, which documents current architecture and integration contracts, and `refactor-history.md`, which consolidates historical refactor notes for future planning.
 
 ## Getting Started
 
-### Prebuilt Binaries
+### Prerequisites
 
-#### Latest downloads
+- Node.js 20.4.x or a compatible Node 20 runtime.
+- Yarn through the checked-in Yarn release (`packageManager` currently points at Yarn 4.6.0).
+- Rust stable and the Tauri platform prerequisites if you are building desktop bundles.
 
-- **[Download for MacOS](https://github.com/Ironclad/rivet/releases/latest/download/Rivet.dmg)**
-- **[Download for Linux (AppImage)](https://github.com/Ironclad/rivet/releases/latest/download/Rivet.AppImage)**
-- **[Download for Linux (dmg)](https://github.com/Ironclad/rivet/releases/latest/download/Rivet.dmg)**
-- **[Download for Windows](https://github.com/Ironclad/rivet/releases/latest/download/Rivet-Setup.exe)**
+### Install Dependencies
 
-#### All Releases
+```powershell
+yarn install --immutable
+```
 
-Check out the [releases page](https://github.com/Ironclad/rivet/releases) for all available releases.
+### Start The Desktop App In Development
 
-### Running from Source
+```powershell
+yarn dev
+```
 
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for information on building and running Rivet from source.
+The root `dev` script starts the Rivet app workspace and opens the Vite/Tauri development flow used by the desktop IDE.
 
-## Contributing
+## Common Commands
 
-All types of contributions are welcome - from code to documentation, bug reports, user experience feedback, and new feature suggestions!
+```powershell
+# Build all main workspaces in dependency order
+yarn build
 
-Take a moment to read through the `CONTRIBUTING.md` file for help with setting up your development environment, and how to get started contributing to Rivet.
+# Run workspace tests
+yarn test
 
-We use the All Contributors bot to recognize all our contributors, so every contribution is acknowledged. See the [Contributors](#contributors-) section below for everyone!
+# Run workspace lint checks
+yarn lint
 
-### Code of Conduct
+# Build only the desktop app frontend/package
+yarn workspace @valerypopoff/rivet-app run build
 
-The Rivet project is welcome to all contributors, and as such, we have a [Code of Conduct](./CODE_OF_CONDUCT.md) that all contributors must follow.
+# Build local package artifacts for package-consumer checks
+yarn build:packages:local
+```
 
-## Troubleshooting
+To create a Tauri desktop bundle locally:
 
-If you have run into any issues while running the Rivet application, or when integrating it into your code, please check the [Issues](https://github.com/Ironclad/rivet/issues) page for any existing issues, and if you can't find any, please open a new issue!
+```powershell
+cd packages/app
+yarn tauri build --verbose
+```
 
-If you have any other questions on using Rivet, or have any other ideas, feel free to open a [discussion](https://github.com/Ironclad/rivet/discussions)!
+## Execution Modes
 
-## Contributors ✨
+Rivet supports several execution surfaces:
 
-Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/docs/en/emoji-key)):
+- Browser execution runs graphs in-process inside the app for lightweight local execution.
+- Node execution uses `@valerypopoff/rivet-app-executor`, a websocket sidecar that runs graph work in Node.
+- Programmatic Node execution uses `@valerypopoff/rivet2-node` and the CLI without the desktop editor.
+- Hosted editor execution lets wrappers provide an internal executor websocket URL instead of asking browser-hosted Rivet to start a Tauri sidecar.
 
-<!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
-<!-- prettier-ignore-start -->
-<!-- markdownlint-disable -->
-<table>
-  <tbody>
-    <tr>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/abrenneke"><img src="https://avatars.githubusercontent.com/u/342540?v=4?s=100" width="100px;" alt="Andy Brenneke"/><br /><sub><b>Andy Brenneke</b></sub></a><br /><a href="https://github.com/Ironclad/rivet/commits?author=abrenneke" title="Code">💻</a> <a href="#ideas-abrenneke" title="Ideas, Planning, & Feedback">🤔</a> <a href="#research-abrenneke" title="Research">🔬</a> <a href="https://github.com/Ironclad/rivet/commits?author=abrenneke" title="Tests">⚠️</a> <a href="#tool-abrenneke" title="Tools">🔧</a> <a href="https://github.com/Ironclad/rivet/pulls?q=is%3Apr+reviewed-by%3Aabrenneke" title="Reviewed Pull Requests">👀</a> <a href="#question-abrenneke" title="Answering Questions">💬</a> <a href="#mentoring-abrenneke" title="Mentoring">🧑‍🏫</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/gogwilt"><img src="https://avatars.githubusercontent.com/u/448108?v=4?s=100" width="100px;" alt="Cai GoGwilt"/><br /><sub><b>Cai GoGwilt</b></sub></a><br /><a href="https://github.com/Ironclad/rivet/commits?author=gogwilt" title="Code">💻</a> <a href="#business-gogwilt" title="Business development">💼</a> <a href="#ideas-gogwilt" title="Ideas, Planning, & Feedback">🤔</a> <a href="#maintenance-gogwilt" title="Maintenance">🚧</a> <a href="#promotion-gogwilt" title="Promotion">📣</a> <a href="https://github.com/Ironclad/rivet/pulls?q=is%3Apr+reviewed-by%3Agogwilt" title="Reviewed Pull Requests">👀</a> <a href="https://github.com/Ironclad/rivet/issues?q=author%3Agogwilt" title="Bug reports">🐛</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/teddycoleman"><img src="https://avatars.githubusercontent.com/u/15386324?v=4?s=100" width="100px;" alt="Teddy Coleman"/><br /><sub><b>Teddy Coleman</b></sub></a><br /><a href="https://github.com/Ironclad/rivet/commits?author=teddycoleman" title="Code">💻</a> <a href="https://github.com/Ironclad/rivet/issues?q=author%3Ateddycoleman" title="Bug reports">🐛</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/tberman"><img src="https://avatars.githubusercontent.com/u/183738?v=4?s=100" width="100px;" alt="Todd Berman"/><br /><sub><b>Todd Berman</b></sub></a><br /><a href="https://github.com/Ironclad/rivet/commits?author=tberman" title="Code">💻</a> <a href="https://github.com/Ironclad/rivet/issues?q=author%3Atberman" title="Bug reports">🐛</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/AryamanAgrawal"><img src="https://avatars.githubusercontent.com/u/107009412?v=4?s=100" width="100px;" alt="Aryaman Agrawal"/><br /><sub><b>Aryaman Agrawal</b></sub></a><br /><a href="https://github.com/Ironclad/rivet/commits?author=AryamanAgrawalIronclad" title="Code">💻</a> <a href="https://github.com/Ironclad/rivet/commits?author=AryamanAgrawalIronclad" title="Documentation">📖</a> <a href="#ideas-AryamanAgrawalIronclad" title="Ideas, Planning, & Feedback">🤔</a> <a href="#promotion-AryamanAgrawalIronclad" title="Promotion">📣</a> <a href="https://github.com/Ironclad/rivet/issues?q=author%3AAryamanAgrawalIronclad" title="Bug reports">🐛</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/a-rothwell"><img src="https://avatars.githubusercontent.com/u/12634659?v=4?s=100" width="100px;" alt="Andrew Rothwell"/><br /><sub><b>Andrew Rothwell</b></sub></a><br /><a href="#tutorial-a-rothwell" title="Tutorials">✅</a> <a href="https://github.com/Ironclad/rivet/commits?author=a-rothwell" title="Documentation">📖</a> <a href="https://github.com/Ironclad/rivet/commits?author=a-rothwell" title="Code">💻</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="http://twitter.com/dominiccooney"><img src="https://avatars.githubusercontent.com/u/55120?v=4?s=100" width="100px;" alt="Dominic Cooney"/><br /><sub><b>Dominic Cooney</b></sub></a><br /><a href="#ideas-dominiccooney" title="Ideas, Planning, & Feedback">🤔</a> <a href="https://github.com/Ironclad/rivet/issues?q=author%3Adominiccooney" title="Bug reports">🐛</a></td>
-    </tr>
-    <tr>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/ankrgyl"><img src="https://avatars.githubusercontent.com/u/565363?v=4?s=100" width="100px;" alt="Ankur Goyal"/><br /><sub><b>Ankur Goyal</b></sub></a><br /><a href="https://github.com/Ironclad/rivet/commits?author=ankrgyl" title="Documentation">📖</a> <a href="https://github.com/Ironclad/rivet/commits?author=ankrgyl" title="Code">💻</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/scottbessler"><img src="https://avatars.githubusercontent.com/u/293802?v=4?s=100" width="100px;" alt="Scott Bessler"/><br /><sub><b>Scott Bessler</b></sub></a><br /><a href="#example-scottbessler" title="Examples">💡</a> <a href="https://github.com/Ironclad/rivet/commits?author=scottbessler" title="Code">💻</a> <a href="https://github.com/Ironclad/rivet/issues?q=author%3Ascottbessler" title="Bug reports">🐛</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/meeow"><img src="https://avatars.githubusercontent.com/u/18222559?v=4?s=100" width="100px;" alt="Brandon Hong"/><br /><sub><b>Brandon Hong</b></sub></a><br /><a href="https://github.com/Ironclad/rivet/commits?author=meeow" title="Code">💻</a> <a href="https://github.com/Ironclad/rivet/issues?q=author%3Ameeow" title="Bug reports">🐛</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://swimburger.net"><img src="https://avatars.githubusercontent.com/u/3382717?v=4?s=100" width="100px;" alt="Niels Swimberghe"/><br /><sub><b>Niels Swimberghe</b></sub></a><br /><a href="https://github.com/Ironclad/rivet/commits?author=Swimburger" title="Code">💻</a> <a href="https://github.com/Ironclad/rivet/commits?author=Swimburger" title="Documentation">📖</a> <a href="https://github.com/Ironclad/rivet/issues?q=author%3ASwimburger" title="Bug reports">🐛</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/tcgj"><img src="https://avatars.githubusercontent.com/u/7994529?v=4?s=100" width="100px;" alt="Terence C"/><br /><sub><b>Terence C</b></sub></a><br /><a href="https://github.com/Ironclad/rivet/commits?author=tcgj" title="Code">💻</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/tbrodahl-ironclad"><img src="https://avatars.githubusercontent.com/u/142630410?v=4?s=100" width="100px;" alt="Thomas Brodahl"/><br /><sub><b>Thomas Brodahl</b></sub></a><br /><a href="#design-tbrodahl-ironclad" title="Design">🎨</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/Jkwok0714"><img src="https://avatars.githubusercontent.com/u/28716303?v=4?s=100" width="100px;" alt="Justin Kwok"/><br /><sub><b>Justin Kwok</b></sub></a><br /><a href="https://github.com/Ironclad/rivet/issues?q=author%3AJkwok0714" title="Bug reports">🐛</a></td>
-    </tr>
-    <tr>
-      <td align="center" valign="top" width="14.28%"><a href="https://meebleforp.com/"><img src="https://avatars.githubusercontent.com/u/445650?v=4?s=100" width="100px;" alt="Zhang Yi Jiang"/><br /><sub><b>Zhang Yi Jiang</b></sub></a><br /><a href="https://github.com/Ironclad/rivet/commits?author=ZhangYiJiang" title="Documentation">📖</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/Crystalix007"><img src="https://avatars.githubusercontent.com/u/4603729?v=4?s=100" width="100px;" alt="Michael Kuc"/><br /><sub><b>Michael Kuc</b></sub></a><br /><a href="https://github.com/Ironclad/rivet/commits?author=Crystalix007" title="Code">💻</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/eltociear"><img src="https://avatars.githubusercontent.com/u/22633385?v=4?s=100" width="100px;" alt="Ikko Eltociear Ashimine"/><br /><sub><b>Ikko Eltociear Ashimine</b></sub></a><br /><a href="https://github.com/Ironclad/rivet/commits?author=eltociear" title="Documentation">📖</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="http://ohshutit.com"><img src="https://avatars.githubusercontent.com/u/54246375?v=4?s=100" width="100px;" alt="HU$H"/><br /><sub><b>HU$H</b></sub></a><br /><a href="https://github.com/Ironclad/rivet/commits?author=hushaudio" title="Code">💻</a> <a href="#ideas-hushaudio" title="Ideas, Planning, & Feedback">🤔</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/kcwhite"><img src="https://avatars.githubusercontent.com/u/3812801?v=4?s=100" width="100px;" alt="kcwhite"/><br /><sub><b>kcwhite</b></sub></a><br /><a href="https://github.com/Ironclad/rivet/commits?author=kcwhite" title="Documentation">📖</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://gentrace.ai"><img src="https://avatars.githubusercontent.com/u/1203039?v=4?s=100" width="100px;" alt="Vivek Nair"/><br /><sub><b>Vivek Nair</b></sub></a><br /><a href="https://github.com/Ironclad/rivet/commits?author=viveknair" title="Code">💻</a> <a href="https://github.com/Ironclad/rivet/commits?author=viveknair" title="Documentation">📖</a> <a href="https://github.com/Ironclad/rivet/issues?q=author%3Aviveknair" title="Bug reports">🐛</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/CongYun22"><img src="https://avatars.githubusercontent.com/u/115971962?v=4?s=100" width="100px;" alt="丛云"/><br /><sub><b>丛云</b></sub></a><br /><a href="#ideas-CongYun22" title="Ideas, Planning, & Feedback">🤔</a></td>
-    </tr>
-    <tr>
-      <td align="center" valign="top" width="14.28%"><a href="https://www.linkedin.com/in/vianneystroebel/"><img src="https://avatars.githubusercontent.com/u/628818?v=4?s=100" width="100px;" alt="Vianney Stroebel"/><br /><sub><b>Vianney Stroebel</b></sub></a><br /><a href="https://github.com/Ironclad/rivet/issues?q=author%3Avibl" title="Bug reports">🐛</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/advisely"><img src="https://avatars.githubusercontent.com/u/29242247?v=4?s=100" width="100px;" alt="HumanBot"/><br /><sub><b>HumanBot</b></sub></a><br /><a href="https://github.com/Ironclad/rivet/issues?q=author%3Aadvisely" title="Bug reports">🐛</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/bradstallion"><img src="https://avatars.githubusercontent.com/u/37795833?v=4?s=100" width="100px;" alt="bradstallion"/><br /><sub><b>bradstallion</b></sub></a><br /><a href="https://github.com/Ironclad/rivet/issues?q=author%3Abradstallion" title="Bug reports">🐛</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/Wannabeasmartguy"><img src="https://avatars.githubusercontent.com/u/107250451?v=4?s=100" width="100px;" alt="Wannabeasmartguy"/><br /><sub><b>Wannabeasmartguy</b></sub></a><br /><a href="#ideas-Wannabeasmartguy" title="Ideas, Planning, & Feedback">🤔</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/mhamadeus"><img src="https://avatars.githubusercontent.com/u/77891233?v=4?s=100" width="100px;" alt="mhamadeus"/><br /><sub><b>mhamadeus</b></sub></a><br /><a href="#ideas-mhamadeus" title="Ideas, Planning, & Feedback">🤔</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://www.linkedin.com/in/moalturfi/"><img src="https://avatars.githubusercontent.com/u/71999644?v=4?s=100" width="100px;" alt="Mohamed Alturfi"/><br /><sub><b>Mohamed Alturfi</b></sub></a><br /><a href="#maintenance-altaiiiir" title="Maintenance">🚧</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/kojikeneda"><img src="https://avatars.githubusercontent.com/u/2552616?v=4?s=100" width="100px;" alt="kojikeneda"/><br /><sub><b>kojikeneda</b></sub></a><br /><a href="#ideas-kojikeneda" title="Ideas, Planning, & Feedback">🤔</a></td>
-    </tr>
-    <tr>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/Sandesh-Pyakurel"><img src="https://avatars.githubusercontent.com/u/82999440?v=4?s=100" width="100px;" alt="Sandesh  Pyakurel"/><br /><sub><b>Sandesh  Pyakurel</b></sub></a><br /><a href="#maintenance-Sandesh-Pyakurel" title="Maintenance">🚧</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="http://www.linkedin.com/in/jasonlgill"><img src="https://avatars.githubusercontent.com/u/241711?v=4?s=100" width="100px;" alt="Jason Gill"/><br /><sub><b>Jason Gill</b></sub></a><br /><a href="https://github.com/Ironclad/rivet/issues?q=author%3Ajasongill" title="Bug reports">🐛</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://andriydruk.com"><img src="https://avatars.githubusercontent.com/u/1927559?v=4?s=100" width="100px;" alt="Andriy Druk"/><br /><sub><b>Andriy Druk</b></sub></a><br /><a href="https://github.com/Ironclad/rivet/issues?q=author%3Aandriydruk" title="Bug reports">🐛</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/bardia-pourvakil"><img src="https://avatars.githubusercontent.com/u/132475166?v=4?s=100" width="100px;" alt="bardia-pourvakil"/><br /><sub><b>bardia-pourvakil</b></sub></a><br /><a href="https://github.com/Ironclad/rivet/commits?author=bardia-pourvakil" title="Documentation">📖</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/Cinerar"><img src="https://avatars.githubusercontent.com/u/120550?v=4?s=100" width="100px;" alt="Cinerar"/><br /><sub><b>Cinerar</b></sub></a><br /><a href="https://github.com/Ironclad/rivet/commits?author=Cinerar" title="Documentation">📖</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/vpckso"><img src="https://avatars.githubusercontent.com/u/40294053?v=4?s=100" width="100px;" alt="Kit"/><br /><sub><b>Kit</b></sub></a><br /><a href="https://github.com/Ironclad/rivet/commits?author=vpckso" title="Code">💻</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://reactgular.com"><img src="https://avatars.githubusercontent.com/u/50146659?v=4?s=100" width="100px;" alt="Nick Foscarini"/><br /><sub><b>Nick Foscarini</b></sub></a><br /><a href="https://github.com/Ironclad/rivet/commits?author=codemile" title="Code">💻</a> <a href="https://github.com/Ironclad/rivet/commits?author=codemile" title="Documentation">📖</a></td>
-    </tr>
-    <tr>
-      <td align="center" valign="top" width="14.28%"><a href="https://chang.com"><img src="https://avatars.githubusercontent.com/u/969364?v=4?s=100" width="100px;" alt="Wayne Chang"/><br /><sub><b>Wayne Chang</b></sub></a><br /><a href="https://github.com/Ironclad/rivet/commits?author=wayne-chang" title="Code">💻</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="http://twitter.com/lou7s"><img src="https://avatars.githubusercontent.com/u/35469434?v=4?s=100" width="100px;" alt="loui7"/><br /><sub><b>loui7</b></sub></a><br /><a href="https://github.com/Ironclad/rivet/commits?author=loui7" title="Code">💻</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://aschen.tech"><img src="https://avatars.githubusercontent.com/u/4447392?v=4?s=100" width="100px;" alt="Adrien Maret"/><br /><sub><b>Adrien Maret</b></sub></a><br /><a href="https://github.com/Ironclad/rivet/commits?author=Aschen" title="Code">💻</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/ShravanSunder"><img src="https://avatars.githubusercontent.com/u/5294949?v=4?s=100" width="100px;" alt="Shravan Sunder"/><br /><sub><b>Shravan Sunder</b></sub></a><br /><a href="https://github.com/Ironclad/rivet/commits?author=ShravanSunder" title="Code">💻</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://www.liaujianjie.com"><img src="https://avatars.githubusercontent.com/u/3143132?v=4?s=100" width="100px;" alt="Liau Jian Jie"/><br /><sub><b>Liau Jian Jie</b></sub></a><br /><a href="https://github.com/Ironclad/rivet/commits?author=liaujianjie" title="Code">💻</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/d-debrock"><img src="https://avatars.githubusercontent.com/u/38040249?v=4?s=100" width="100px;" alt="d-debrock"/><br /><sub><b>d-debrock</b></sub></a><br /><a href="https://github.com/Ironclad/rivet/commits?author=d-debrock" title="Code">💻</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/cyppan"><img src="https://avatars.githubusercontent.com/u/1446201?v=4?s=100" width="100px;" alt="Cyprien Pannier"/><br /><sub><b>Cyprien Pannier</b></sub></a><br /><a href="https://github.com/Ironclad/rivet/commits?author=cyppan" title="Code">💻</a></td>
-    </tr>
-    <tr>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/StephenGrider"><img src="https://avatars.githubusercontent.com/u/5003903?v=4?s=100" width="100px;" alt="Stephen Grider"/><br /><sub><b>Stephen Grider</b></sub></a><br /><a href="https://github.com/Ironclad/rivet/commits?author=StephenGrider" title="Code">💻</a> <a href="#ideas-StephenGrider" title="Ideas, Planning, & Feedback">🤔</a> <a href="#maintenance-StephenGrider" title="Maintenance">🚧</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/suhail-ak-s"><img src="https://avatars.githubusercontent.com/u/157091287?v=4?s=100" width="100px;" alt="Suhail AK"/><br /><sub><b>Suhail AK</b></sub></a><br /><a href="https://github.com/Ironclad/rivet/commits?author=suhail-ak-s" title="Code">💻</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="http://getenter.ai"><img src="https://avatars.githubusercontent.com/u/65794514?v=4?s=100" width="100px;" alt="Juliano Amadeu"/><br /><sub><b>Juliano Amadeu</b></sub></a><br /><a href="https://github.com/Ironclad/rivet/commits?author=julianolm" title="Code">💻</a> <a href="#ideas-julianolm" title="Ideas, Planning, & Feedback">🤔</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="http://valerypopoff.ru"><img src="https://avatars.githubusercontent.com/u/5064630?v=4?s=100" width="100px;" alt="Valera Popov"/><br /><sub><b>Valera Popov</b></sub></a><br /><a href="https://github.com/Ironclad/rivet/commits?author=valerypopoff" title="Code">💻</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/mariankassovic"><img src="https://avatars.githubusercontent.com/u/13512633?v=4?s=100" width="100px;" alt="Majo"/><br /><sub><b>Majo</b></sub></a><br /><a href="https://github.com/Ironclad/rivet/commits?author=mariankassovic" title="Code">💻</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/mukulverm4"><img src="https://avatars.githubusercontent.com/u/28561738?v=4?s=100" width="100px;" alt="Mukul"/><br /><sub><b>Mukul</b></sub></a><br /><a href="https://github.com/Ironclad/rivet/commits?author=mukulverm4" title="Code">💻</a></td>
-    </tr>
-  </tbody>
-</table>
+The app executor defaults to a desktop-safe loopback websocket host, and hosted/containerized environments can override it with `RIVET_EXECUTOR_HOST`, `RIVET_EXECUTOR_PORT`, and `executor.internalExecutorUrl`. Code-node runtime-library resolution can be redirected with `RIVET_CODE_RUNNER_REQUIRE_ROOT`.
 
-<!-- markdownlint-restore -->
-<!-- prettier-ignore-end -->
+## Plugins
 
-<!-- ALL-CONTRIBUTORS-LIST:END -->
+Rivet 2.0 treats plugin installation as app-level state:
 
-This project follows the [all-contributors](https://github.com/all-contributors/all-contributors) specification. Contributions of any kind are welcome!
+- Installing a plugin makes its nodes available in the node picker for every project.
+- A project records a plugin in its YAML only when a graph actually uses a node owned by that plugin.
+- Removing all nodes from that plugin removes the plugin from the project's serialized plugin list.
+- Opening a project that references plugins not installed in the app shows an explicit install-choice modal instead of silently installing them.
+
+The YAML project format remains unchanged; the app derives the `plugins` list from graph contents when saving, running, and uploading project data.
+
+## Embedding Rivet In A Wrapper
+
+Wrapper apps that vendor this repository as a local `rivet/` folder should import from the vendored source tree they ship. For example:
+
+```ts
+import { RivetAppHost } from '../rivet/packages/app/src/host';
+import '../rivet/packages/app/src/host.css';
+```
+
+`RivetAppHost` provides the app shell needed for embedding the full Rivet editor:
+
+- React Query, providers, async storage bootstrap, and executor-session wiring.
+- Hosted executor configuration through `executor.internalExecutorUrl`.
+- First-class lifecycle callbacks such as project save/open notifications.
+- Workspace host APIs for opening snapshots, opening path-backed projects, closing projects, moving project paths, and replacing the active project.
+- Provider-only integration points for IO, datasets, environment variables, storage, path policies, and wrapper bridge components.
+
+Wrappers should prefer these source-level seams over private editor internals. The npm package names describe the workspace boundaries, but a wrapper that ships a custom Rivet checkout should resolve those boundaries to its local `rivet/` source and build outputs.
+
+## npm Packages
+
+The public npm packages are published under the `@valerypopoff` scope:
+
+- `@valerypopoff/rivet2-core`
+- `@valerypopoff/rivet2-node`
+- `@valerypopoff/rivet2-cli`
+
+Package versions are lockstep and start at `2.x`. The `package.json` version in those three packages is the source of truth: patch releases are `2.0.1`, compatible feature releases are `2.1.0`, and the workflow refuses to publish anything outside major version `2`.
+
+On pushes to `main`, `.github/workflows/publish-npm-packages.yml` builds those three workspaces, stages package-manager-neutral npm package directories, rewrites internal `workspace:^` dependencies to the same public `^2.x` version, and publishes versions that do not already exist on npm.
+
+Configure npm publishing with either an `NPM_TOKEN` repository secret or npm trusted publishing for the `publish-npm-packages.yml` workflow. Trusted publishing is preferred once the packages exist and npm package settings are configured for this repository.
+
+For local publishes, `scripts/publish-npm-packages.mjs` also reads `NPM_TOKEN` from a repo-root `.env` file and passes it to npm through a temporary `.npmrc` that is removed after the publish attempt. `.env` is ignored by Git and must stay local; GitHub Actions cannot read it, so CI publishing still needs a repository secret or trusted publishing.
+
+## Official and Developer Releases
+
+This repo publishes Windows installer downloads to the GitHub Pages documentation site:
+
+- `.github/workflows/official-windows-release.yml` runs on pushes to `main` and publishes the current official Windows release metadata.
+- `.github/workflows/developer-windows-release.yml` runs on pushes to `develop` and publishes the latest developer Windows release metadata.
+
+On pushes to `develop`, the workflow:
+
+1. Installs dependencies with `yarn install --immutable`.
+2. Builds the monorepo with `yarn build`.
+3. Builds Windows MSI and NSIS installer bundles from `packages/app`.
+4. Builds the Docusaurus documentation site from `packages/docs`.
+5. Adds the latest developer installer metadata and download files to the docs build.
+6. Publishes the docs site to GitHub Pages.
+
+On pushes to `main`, the official workflow runs the same Windows installer and documentation build path, but writes `official-release.json` and stable official download aliases instead of the developer feed.
+
+The GitHub Pages site is the public documentation website at `https://valerypopoff.github.io/rivet2.0/`. Its top-right Download link opens a downloads page with official Windows installers from `main` and developer Windows installers from `develop`.
+
+GitHub Pages must either be enabled once in repository settings with Source set to GitHub Actions, or the repository must provide a `PAGES_ENABLEMENT_TOKEN` Actions secret that can enable Pages for the workflows. The official workflow deploys through the `github-pages` environment and should be allowed from `main`. The developer workflow deploys through `developer-windows-pages` so develop-branch installer deployments are not blocked by production `github-pages` environment rules; if that environment is protected later, it must allow `develop`.
+
+Both Pages release workflows intentionally build installer artifacts only. They do not sign updater bundles and do not require Tauri updater private-key secrets. Production/tagged updater release workflows are separate.
+
+## Documentation
+
+Useful current docs:
+
+- [Developer Docs Overview](developer-docs/OVERVIEW.md)
+- [Package Boundaries](developer-docs/PACKAGES.md)
+- [Build And CI](developer-docs/BUILD-AND-CI.md)
+- [App Architecture](developer-docs/APP-ARCHITECTURE.md)
+- [Plugin System](developer-docs/PLUGIN-SYSTEM.md)
+- [Execution Data Flow](developer-docs/EXECUTION-DATA-FLOW.md)
+- [Refactor History](refactor-history.md)
+
+The public docs site lives in `packages/docs`.
+
+## License
+
+Rivet is licensed under the [MIT License](LICENSE).

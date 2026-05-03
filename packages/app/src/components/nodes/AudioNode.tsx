@@ -1,6 +1,6 @@
 import { type FC, useLayoutEffect, useRef, useMemo } from 'react';
 import { type NodeComponentDescriptor } from '../../hooks/useNodeTypes';
-import { type AudioNode } from '@ironclad/rivet-core';
+import { type AudioNode } from '@valerypopoff/rivet2-core';
 import { css } from '@emotion/react';
 import { useAtomValue } from 'jotai';
 import { projectDataState } from '../../state/savedGraphs';

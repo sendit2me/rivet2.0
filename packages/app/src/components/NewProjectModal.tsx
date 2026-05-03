@@ -1,7 +1,7 @@
 import { useState, type FC, type FormEvent } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { newProjectModalOpenState } from '../state/ui';
-import Modal, { ModalTransition, ModalBody, ModalHeader, ModalTitle, ModalFooter } from '@atlaskit/modal-dialog';
+import Modal, { ModalTransition, ModalBody, ModalFooter } from '@atlaskit/modal-dialog';
 import { ButtonItem, SideNavigation, Section } from '@atlaskit/side-navigation';
 import { css } from '@emotion/react';
 import { Field } from '@atlaskit/form';
@@ -16,6 +16,7 @@ import aiAgentTemplateProject from '../assets/templates/ai_agent_template.rivet-
 import mcpAiAgentTemplateProject from '../assets/templates/mcp_ai_agent_template.rivet-project?raw';
 import { useNewProjectFromTemplate } from '../hooks/useNewProjectFromTemplate';
 import { useMultilineEditorFontSize } from '../hooks/useMultilineEditorFontSize.js';
+import { AppModalHeader } from './AppModalHeader';
 
 export const NewProjectModalRenderer: FC = () => {
   const newProjectModalOpen = useAtomValue(newProjectModalOpenState);
@@ -61,9 +62,7 @@ export const NewProjectModal: FC = () => {
 
   return (
     <Modal onClose={() => setNewProjectModalOpen(false)} width="75%">
-      <ModalHeader>
-        <ModalTitle>New Rivet Project</ModalTitle>
-      </ModalHeader>
+      <AppModalHeader title="New Rivet Project" />
       <ModalBody>
         <div css={modalBody}>
           <nav>
@@ -106,8 +105,6 @@ export const NewProjectModal: FC = () => {
               .with('tutorial', () => <FromTutorialTemplate onCreated={onProjectCreated} />)
               .with('ai_agent', () => <AiAgentTemplate onCreated={onProjectCreated}/>)
               .with('mcp_ai_agent', () => <MCPAiAgentTemplate onCreated={onProjectCreated}/>)
-              .with('community_templates', () => <div>Coming soon!</div>)
-              .with('community_examples', () => <div>Coming soon!</div>)
               .otherwise((template) => (
                 <div>Unknown template: {template}</div>
               ))}

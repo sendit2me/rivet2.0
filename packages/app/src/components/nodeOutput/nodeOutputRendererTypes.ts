@@ -1,4 +1,4 @@
-import type { ChartNode } from '@ironclad/rivet-core';
+import type { ChartNode } from '@valerypopoff/rivet2-core';
 import type { FC } from 'react';
 import type { InputsOrOutputsWithRefs, NodeRunDataWithRefs } from '../../state/dataFlow.js';
 import type { OutputRenderMode } from '../renderDataValue/outputRenderTypes.js';

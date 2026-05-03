@@ -1,6 +1,6 @@
 import { atom } from 'jotai';
 import { atomWithStorage } from 'jotai/utils';
-import type { NodeId } from '@ironclad/rivet-core';
+import type { NodeId } from '@valerypopoff/rivet2-core';
 import { createHybridStorage } from './storage.js';
 import { DEFAULT_MULTILINE_EDITOR_FONT_SIZE } from '../utils/multilineEditorFontSize.js';
 import { DEFAULT_UI_FONT_SIZE } from '../utils/uiFontSize.js';
@@ -20,7 +20,7 @@ export type DebuggerPanelAnchor = {
 
 export const debuggerPanelAnchorState = atom<DebuggerPanelAnchor | undefined>(undefined);
 
-export type OverlayKey = 'promptDesigner' | 'trivet' | 'chatViewer' | 'dataStudio' | 'plugins' | 'community';
+export type OverlayKey = 'promptDesigner' | 'trivet' | 'chatViewer' | 'dataStudio';
 
 export const overlayOpenState = atom<OverlayKey | undefined>(undefined);
 
@@ -34,6 +34,14 @@ export type DeleteGraphInputConfirmState = {
 export const deleteGraphInputConfirmState = atom<DeleteGraphInputConfirmState | null>(null);
 
 export const expandedFoldersState = atomWithStorage<Record<string, boolean>>('expandedFoldersState', {}, storage);
+
+export const showUnreachableGraphTagsState = atomWithStorage<boolean>('showUnreachableGraphTagsState', true, storage);
+
+export const showGraphReferenceIndicatorsState = atomWithStorage<boolean>(
+  'showGraphReferenceIndicatorsState',
+  true,
+  storage,
+);
 
 // Keep the storage key stable so existing saved viewport heights still load.
 export const codeEditorHeightsByStorageKeyState = atomWithStorage<Record<string, number>>(

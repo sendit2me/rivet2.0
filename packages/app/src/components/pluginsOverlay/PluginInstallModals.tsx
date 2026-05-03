@@ -2,8 +2,9 @@ import { HelperMessage, Field } from '@atlaskit/form';
 import { type FC, useLayoutEffect, useRef, useState } from 'react';
 import TextField from '@atlaskit/textfield';
 import Button from '@atlaskit/button';
-import Modal, { ModalTransition, ModalHeader, ModalTitle, ModalBody, ModalFooter } from '@atlaskit/modal-dialog';
+import Modal, { ModalTransition, ModalBody, ModalFooter } from '@atlaskit/modal-dialog';
 import { type PackagePluginInfo } from '../../plugins.js';
+import { AppModalHeader } from '../AppModalHeader';
 
 export const PluginLogModal: FC<{
   isOpen: boolean;
@@ -22,9 +23,7 @@ export const PluginLogModal: FC<{
     <ModalTransition>
       {isOpen && (
         <Modal width="large" onClose={onClose}>
-          <ModalHeader>
-            <ModalTitle>Installing...</ModalTitle>
-          </ModalHeader>
+          <AppModalHeader title="Installing..." />
           <ModalBody>
             <div className="plugin-log">
               <pre style={{ whiteSpace: 'pre-wrap' }} ref={logPreRef}>
@@ -67,9 +66,7 @@ export const AddNpmPluginModal: FC<{
     <ModalTransition>
       {isOpen && (
         <Modal width="large" onClose={onClose}>
-          <ModalHeader>
-            <ModalTitle>Add NPM Plugin</ModalTitle>
-          </ModalHeader>
+          <AppModalHeader title="Add NPM Plugin" />
           <ModalBody>
             <div className="add-npm-plugin">
               <div className="inputs">

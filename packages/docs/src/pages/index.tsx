@@ -5,7 +5,6 @@ import { WhatIsRivetSection } from '../components/main/WhatIsRivetSection';
 import { FeaturesSection } from '../components/main/FeaturesSection';
 import { DemoVideoSection } from '../components/main/DemoVideoSection';
 import { UseCasesSection } from '../components/main/UseCasesSection';
-import { IroncladContractAiSection } from '../components/main/IroncladContractAiSection';
 import { GetStartedSection } from '../components/main/GetStartedSection';
 import { Footer } from '../components/main/Footer';
 
@@ -16,18 +15,18 @@ export default function Home() {
   return (
     <main className={styles.main}>
       <Head>
-        <meta property="og:title" content="Rivet" />
+        <meta property="og:title" content="Rivet 2.0" />
         <meta
           property="og:description"
-          content="An open-source AI programming environment using a visual, node-based graph editor"
+          content="A visual AI programming environment and runtime package set for graph-based AI workflows"
         />
-        <meta property="og:image" content="https://rivet.ironcladapp.com/img/social-card.png" />
-        <meta name="twitter:title" content="Rivet" />
+        <meta property="og:image" content="https://valerypopoff.github.io/img/social-card.png" />
+        <meta name="twitter:title" content="Rivet 2.0" />
         <meta
           name="twitter:description"
-          content="An open-source AI programming environment using a visual, node-based graph editor"
+          content="A visual AI programming environment and runtime package set for graph-based AI workflows"
         />
-        <meta name="twitter:image" content="https://rivet.ironcladapp.com/img/social-card.png" />
+        <meta name="twitter:image" content="https://valerypopoff.github.io/img/social-card.png" />
         <meta name="twitter:card" content="summary_large_image" />
       </Head>
       <Header />
@@ -37,7 +36,6 @@ export default function Home() {
       <FeaturesSection id="features" />
       <DemoVideoSection id="demo-video" />
       <UseCasesSection id="use-cases" />
-      <IroncladContractAiSection id="ironclad-contract-ai" />
       <GetStartedSection id="get-started" />
 
       <Footer />

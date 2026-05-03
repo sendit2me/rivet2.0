@@ -1,7 +1,7 @@
 import { type FC } from 'react';
 import { css } from '@emotion/react';
 import Button from '@atlaskit/button';
-import { type ChartNode, type ReadFileNode } from '@ironclad/rivet-core';
+import { type ChartNode, type ReadFileNode } from '@valerypopoff/rivet2-core';
 import { type NodeComponentDescriptor } from '../../hooks/useNodeTypes.js';
 import { isPathBasedIOProvider } from '../../io/IOProvider.js';
 import { wrapAsync } from '../../utils/errorHandling';

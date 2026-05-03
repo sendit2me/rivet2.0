@@ -4,7 +4,7 @@ import {
   type NodeId,
   type PortId,
   type NodeOutputDefinition,
-} from '@ironclad/rivet-core';
+} from '@valerypopoff/rivet2-core';
 import { type FC, useRef, type MouseEvent, memo, useMemo } from 'react';
 import clsx from 'clsx';
 import { useStableCallback } from '../hooks/useStableCallback';

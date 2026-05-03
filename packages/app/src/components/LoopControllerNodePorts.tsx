@@ -3,7 +3,7 @@ import {
   type NodeConnection,
   type PortId,
   type NodeInputDefinition,
-} from '@ironclad/rivet-core';
+} from '@valerypopoff/rivet2-core';
 import { type FC, type MouseEvent } from 'react';
 import { useCanvasNodeIO } from '../hooks/useGetNodeIO.js';
 import { useStableCallback } from '../hooks/useStableCallback.js';

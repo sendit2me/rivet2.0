@@ -1,4 +1,4 @@
-import { plugins } from '@ironclad/rivet-core';
+import { plugins } from '@valerypopoff/rivet2-core';
 import { orderBy } from 'lodash-es';
 
 const pluginOptions = orderBy(

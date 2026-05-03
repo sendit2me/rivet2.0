@@ -14,6 +14,7 @@ import {
 const originalFetch = globalThis.fetch;
 const requestFailedOutputId = 'requestFailed' as PortId;
 const requestErrorOutputId = 'requestError' as PortId;
+const statusCodeOutputId = 'statusCode' as PortId;
 
 const expectedTextRequestFailedOutputs: Outputs = {
   res_body: { type: 'control-flow-excluded', value: undefined },
@@ -70,6 +71,45 @@ const assertCaughtTextRequestFailure = (outputs: Outputs, expectedErrorParts: Re
   }
 };
 
+const assertStringArrayOutputMatches = (outputs: Outputs, portId: PortId, expectedErrorParts: RegExp[][]) => {
+  const output = outputs[portId];
+
+  assert.equal(output?.type, 'string[]');
+  assert.ok(output?.type === 'string[]');
+  assert.equal(output.value.length, expectedErrorParts.length);
+
+  expectedErrorParts.forEach((errorParts, index) => {
+    for (const errorPart of errorParts) {
+      assert.match(output.value[index]!, errorPart);
+    }
+  });
+};
+
+const assertRetryAttemptOutputs = (
+  outputs: Outputs,
+  {
+    statusCodeValues,
+    requestFailedValues,
+    requestErrorParts,
+  }: {
+    statusCodeValues?: number[];
+    requestFailedValues: boolean[];
+    requestErrorParts: RegExp[][];
+  },
+) => {
+  assert.deepStrictEqual(
+    outputs[statusCodeOutputId],
+    statusCodeValues == null
+      ? { type: 'control-flow-excluded', value: undefined }
+      : { type: 'number[]', value: statusCodeValues },
+  );
+  assert.deepStrictEqual(outputs[requestFailedOutputId], {
+    type: 'boolean[]',
+    value: requestFailedValues,
+  });
+  assertStringArrayOutputMatches(outputs, requestErrorOutputId, requestErrorParts);
+};
+
 afterEach(() => {
   globalThis.fetch = originalFetch;
 });
@@ -105,8 +145,12 @@ describe('HttpCallNode', () => {
     const flattenedEditors = flattenEditors(editors);
 
     const bodyEditorIndex = editors.findIndex((editor) => editor.type === 'code' && editor.dataKey === 'body');
-    const binaryOutputIndex = editors.findIndex((editor) => editor.type === 'toggle' && editor.dataKey === 'isBinaryOutput');
-    const retryGroupIndex = editors.findIndex((editor) => editor.type === 'group' && editor.label === 'Retry on non-200');
+    const binaryOutputIndex = editors.findIndex(
+      (editor) => editor.type === 'toggle' && editor.dataKey === 'isBinaryOutput',
+    );
+    const retryGroupIndex = editors.findIndex(
+      (editor) => editor.type === 'group' && editor.label === 'Retry on non-200',
+    );
     const retryGroup = editors[retryGroupIndex];
 
     assert.equal(retryGroupIndex, bodyEditorIndex + 1);
@@ -134,16 +178,32 @@ describe('HttpCallNode', () => {
     assert.equal(cooldownEditor?.helperMessage, 'Milliseconds to wait between repeats');
   });
 
-  it('only exposes request failure outputs when catch mode is enabled', () => {
+  it('exposes request failure and retry-attempt outputs only for their enabled modes', () => {
     const withoutCatch = createNode({});
     const withCatch = createNode({ catchRequestFailed: true });
-    const withoutCatchOutputIds = withoutCatch.getOutputDefinitions().map((definition) => definition.id);
-    const withCatchOutputIds = withCatch.getOutputDefinitions().map((definition) => definition.id);
+    const withRetry = createNode({ retryOnNon200: true });
+    const withoutCatchOutputs = withoutCatch.getOutputDefinitions();
+    const withCatchOutputs = withCatch.getOutputDefinitions();
+    const withRetryOutputs = withRetry.getOutputDefinitions();
+    const withoutCatchOutputIds = withoutCatchOutputs.map((definition) => definition.id);
+    const withCatchOutputIds = withCatchOutputs.map((definition) => definition.id);
+    const withRetryOutputIds = withRetryOutputs.map((definition) => definition.id);
 
     assert.equal(withoutCatchOutputIds.includes(requestFailedOutputId), false);
     assert.equal(withoutCatchOutputIds.includes(requestErrorOutputId), false);
+    assert.equal(withoutCatchOutputs.find((definition) => definition.id === statusCodeOutputId)?.dataType, 'number');
+
     assert.equal(withCatchOutputIds.includes(requestFailedOutputId), true);
     assert.equal(withCatchOutputIds.includes(requestErrorOutputId), true);
+    assert.equal(withCatchOutputs.find((definition) => definition.id === statusCodeOutputId)?.dataType, 'number');
+    assert.equal(withCatchOutputs.find((definition) => definition.id === requestFailedOutputId)?.dataType, 'boolean');
+    assert.equal(withCatchOutputs.find((definition) => definition.id === requestErrorOutputId)?.dataType, 'string');
+
+    assert.equal(withRetryOutputIds.includes(requestFailedOutputId), true);
+    assert.equal(withRetryOutputIds.includes(requestErrorOutputId), true);
+    assert.equal(withRetryOutputs.find((definition) => definition.id === statusCodeOutputId)?.dataType, 'number[]');
+    assert.equal(withRetryOutputs.find((definition) => definition.id === requestFailedOutputId)?.dataType, 'boolean[]');
+    assert.equal(withRetryOutputs.find((definition) => definition.id === requestErrorOutputId)?.dataType, 'string[]');
   });
 
   it('builds HTTP body preview sections for selected options', () => {
@@ -185,7 +245,12 @@ describe('HttpCallNode', () => {
   it('throws on non-2XX responses when errorOnNon200 is enabled and catchRequestFailed is disabled', async () => {
     globalThis.fetch = async () => new Response('missing', { status: 404, headers: { 'content-type': 'text/plain' } });
 
-    const node = createNode({ method: 'GET', url: 'https://example.com', errorOnNon200: true, catchRequestFailed: false });
+    const node = createNode({
+      method: 'GET',
+      url: 'https://example.com',
+      errorOnNon200: true,
+      catchRequestFailed: false,
+    });
 
     await assert.rejects(() => node.process({}, createContext()), /HTTP call returned non-2XX status code: 404/);
   });
@@ -210,8 +275,12 @@ describe('HttpCallNode', () => {
     const result = await node.process({}, createContext());
 
     assert.equal(requestCount, 2);
-    assert.deepStrictEqual(result.statusCode, { type: 'number', value: 200 });
     assert.deepStrictEqual(result.res_body, { type: 'string', value: 'ok' });
+    assertRetryAttemptOutputs(result, {
+      statusCodeValues: [500, 200],
+      requestFailedValues: [true, false],
+      requestErrorParts: [[/HTTP call returned non-2XX status code: 500/]],
+    });
   });
 
   it('retries 2XX responses that are not exactly 200', async () => {
@@ -233,7 +302,11 @@ describe('HttpCallNode', () => {
     const result = await node.process({}, createContext());
 
     assert.equal(requestCount, 2);
-    assert.deepStrictEqual(result.statusCode, { type: 'number', value: 200 });
+    assertRetryAttemptOutputs(result, {
+      statusCodeValues: [201, 200],
+      requestFailedValues: [true, false],
+      requestErrorParts: [[/HTTP call returned non-2XX status code: 201/]],
+    });
   });
 
   it('treats saved repeat counts below one as one repeat when retry is enabled', async () => {
@@ -254,7 +327,11 @@ describe('HttpCallNode', () => {
     const result = await node.process({}, createContext());
 
     assert.equal(requestCount, 2);
-    assert.deepStrictEqual(result.statusCode, { type: 'number', value: 200 });
+    assertRetryAttemptOutputs(result, {
+      statusCodeValues: [500, 200],
+      requestFailedValues: [true, false],
+      requestErrorParts: [[/HTTP call returned non-2XX status code: 500/]],
+    });
   });
 
   it('returns the final non-200 response after retries when fail-on-non-2XX is disabled', async () => {
@@ -274,8 +351,16 @@ describe('HttpCallNode', () => {
     const result = await node.process({}, createContext());
 
     assert.equal(requestCount, 3);
-    assert.deepStrictEqual(result.statusCode, { type: 'number', value: 503 });
     assert.deepStrictEqual(result.res_body, { type: 'string', value: 'try 3' });
+    assertRetryAttemptOutputs(result, {
+      statusCodeValues: [503, 503, 503],
+      requestFailedValues: [true, true, true],
+      requestErrorParts: [
+        [/HTTP call returned non-2XX status code: 503/],
+        [/HTTP call returned non-2XX status code: 503/],
+        [/HTTP call returned non-2XX status code: 503/],
+      ],
+    });
   });
 
   it('lets catchRequestFailed catch the final non-2XX failure after retries are exhausted', async () => {
@@ -296,7 +381,163 @@ describe('HttpCallNode', () => {
     const result = await node.process({}, createContext());
 
     assert.equal(requestCount, 2);
-    assertCaughtTextRequestFailure(result, [/HTTP call returned non-2XX status code: 404/]);
+    assert.equal(Object.keys(result)[0], requestErrorOutputId);
+    assert.deepStrictEqual(result.res_body, { type: 'control-flow-excluded', value: undefined });
+    assert.deepStrictEqual(result.json, { type: 'control-flow-excluded', value: undefined });
+    assert.deepStrictEqual(result.res_headers, { type: 'control-flow-excluded', value: undefined });
+    assertRetryAttemptOutputs(result, {
+      statusCodeValues: [404, 404],
+      requestFailedValues: [true, true],
+      requestErrorParts: [
+        [/HTTP call returned non-2XX status code: 404/],
+        [/HTTP call returned non-2XX status code: 404/],
+      ],
+    });
+  });
+
+  it('records thrown request failures in existing retry transport outputs when catch mode is enabled', async () => {
+    globalThis.fetch = async () => {
+      throw new TypeError('fetch failed');
+    };
+
+    const node = createNode({
+      method: 'GET',
+      url: 'https://example.com',
+      catchRequestFailed: true,
+      retryOnNon200: true,
+    });
+    const result = await node.process({}, createContext());
+
+    assert.equal(Object.keys(result)[0], requestErrorOutputId);
+    assert.deepStrictEqual(result.res_body, { type: 'control-flow-excluded', value: undefined });
+    assert.deepStrictEqual(result.json, { type: 'control-flow-excluded', value: undefined });
+    assert.deepStrictEqual(result.res_headers, { type: 'control-flow-excluded', value: undefined });
+    assertRetryAttemptOutputs(result, {
+      statusCodeValues: undefined,
+      requestFailedValues: [true],
+      requestErrorParts: [[/fetch failed/]],
+    });
+  });
+
+  it('uses existing retry transport outputs for invalid URLs before any request starts', async () => {
+    const node = createNode({ url: 'not a url', catchRequestFailed: true, retryOnNon200: true });
+    const result = await node.process({}, createContext());
+
+    assert.equal(Object.keys(result)[0], requestErrorOutputId);
+    assertRetryAttemptOutputs(result, {
+      statusCodeValues: undefined,
+      requestFailedValues: [true],
+      requestErrorParts: [[/Invalid URL: not a url/]],
+    });
+  });
+
+  it('keeps response processing failures visible in existing retry transport outputs', async () => {
+    globalThis.fetch = async () => new Response('{', { status: 200, headers: { 'content-type': 'application/json' } });
+
+    const node = createNode({
+      method: 'GET',
+      url: 'https://example.com',
+      catchRequestFailed: true,
+      retryOnNon200: true,
+    });
+    const result = await node.process({}, createContext());
+
+    assert.deepStrictEqual(result.res_body, { type: 'control-flow-excluded', value: undefined });
+    assertRetryAttemptOutputs(result, {
+      statusCodeValues: [200],
+      requestFailedValues: [true],
+      requestErrorParts: [[/SyntaxError/]],
+    });
+  });
+
+  it('returns excluded request error when retry mode succeeds without failed attempts', async () => {
+    globalThis.fetch = async () => new Response('ok', { status: 200, headers: { 'content-type': 'text/plain' } });
+
+    const node = createNode({
+      method: 'GET',
+      url: 'https://example.com',
+      catchRequestFailed: true,
+      retryOnNon200: true,
+    });
+    const result = await node.process({}, createContext());
+
+    assert.deepStrictEqual(result.statusCode, { type: 'number[]', value: [200] });
+    assert.deepStrictEqual(result.requestFailed, { type: 'boolean[]', value: [false] });
+    assert.deepStrictEqual(result.requestError, { type: 'control-flow-excluded', value: undefined });
+  });
+
+  it('keeps old HTTP retry-attempt output IDs out of the runtime contract', async () => {
+    globalThis.fetch = async () => new Response('ok', { status: 200, headers: { 'content-type': 'text/plain' } });
+
+    const node = createNode({
+      method: 'GET',
+      url: 'https://example.com',
+      retryOnNon200: true,
+    });
+    const result = await node.process({}, createContext());
+
+    assert.equal('statusCodes' in result, false);
+    assert.equal('requestFailedAttempts' in result, false);
+    assert.equal('requestErrors' in result, false);
+  });
+
+  it('does not expose old HTTP retry-attempt output definitions', () => {
+    const node = createNode({ retryOnNon200: true });
+    const outputIds = node.getOutputDefinitions().map((definition) => definition.id);
+
+    assert.equal(outputIds.includes('statusCodes' as PortId), false);
+    assert.equal(outputIds.includes('requestFailedAttempts' as PortId), false);
+    assert.equal(outputIds.includes('requestErrors' as PortId), false);
+  });
+
+  it('records request errors from each failed retry attempt in existing Request error output', async () => {
+    let requestCount = 0;
+    globalThis.fetch = async () => {
+      requestCount++;
+      return new Response(`try ${requestCount}`, { status: requestCount === 1 ? 502 : 503 });
+    };
+
+    const node = createNode({
+      method: 'GET',
+      url: 'https://example.com',
+      errorOnNon200: false,
+      retryOnNon200: true,
+      retryOnNon200RepeatTimes: 1,
+    });
+    const result = await node.process({}, createContext());
+
+    assertRetryAttemptOutputs(result, {
+      statusCodeValues: [502, 503],
+      requestFailedValues: [true, true],
+      requestErrorParts: [
+        [/HTTP call returned non-2XX status code: 502/],
+        [/HTTP call returned non-2XX status code: 503/],
+      ],
+    });
+  });
+
+  it('records final caught retry errors as an array on the existing Request error output', async () => {
+    let requestCount = 0;
+    globalThis.fetch = async () => {
+      requestCount++;
+      return new Response('missing', { status: 404, headers: { 'content-type': 'text/plain' } });
+    };
+
+    const node = createNode({
+      method: 'GET',
+      url: 'https://example.com',
+      errorOnNon200: true,
+      catchRequestFailed: true,
+      retryOnNon200: true,
+      retryOnNon200RepeatTimes: 1,
+    });
+    const result = await node.process({}, createContext());
+
+    assert.equal(requestCount, 2);
+    assertStringArrayOutputMatches(result, requestErrorOutputId, [
+      [/HTTP call returned non-2XX status code: 404/],
+      [/HTTP call returned non-2XX status code: 404/],
+    ]);
   });
 
   it('does not swallow aborts during retry cooldown', async () => {
@@ -339,7 +580,12 @@ describe('HttpCallNode', () => {
   it('does not throw on 2XX responses when errorOnNon200 is enabled', async () => {
     globalThis.fetch = async () => new Response('created', { status: 201, headers: { 'content-type': 'text/plain' } });
 
-    const node = createNode({ method: 'GET', url: 'https://example.com', errorOnNon200: true, catchRequestFailed: false });
+    const node = createNode({
+      method: 'GET',
+      url: 'https://example.com',
+      errorOnNon200: true,
+      catchRequestFailed: false,
+    });
     const result = await node.process({}, createContext());
 
     assert.deepStrictEqual(result, {
@@ -385,9 +631,17 @@ describe('HttpCallNode', () => {
 
   it('returns requestFailed=false on successful binary responses when enabled', async () => {
     globalThis.fetch = async () =>
-      new Response(Uint8Array.from([1, 2, 3]), { status: 200, headers: { 'content-type': 'application/octet-stream' } });
+      new Response(Uint8Array.from([1, 2, 3]), {
+        status: 200,
+        headers: { 'content-type': 'application/octet-stream' },
+      });
 
-    const node = createNode({ method: 'GET', url: 'https://example.com', catchRequestFailed: true, isBinaryOutput: true });
+    const node = createNode({
+      method: 'GET',
+      url: 'https://example.com',
+      catchRequestFailed: true,
+      isBinaryOutput: true,
+    });
     const result = await node.process({}, createContext());
 
     assert.equal(result.binary?.type, 'binary');
@@ -464,7 +718,12 @@ describe('HttpCallNode', () => {
   it('treats non-2XX responses as requestFailed=true when both toggles are enabled', async () => {
     globalThis.fetch = async () => new Response('missing', { status: 404, headers: { 'content-type': 'text/plain' } });
 
-    const node = createNode({ method: 'GET', url: 'https://example.com', errorOnNon200: true, catchRequestFailed: true });
+    const node = createNode({
+      method: 'GET',
+      url: 'https://example.com',
+      errorOnNon200: true,
+      catchRequestFailed: true,
+    });
     const result = await node.process({}, createContext());
 
     assertCaughtTextRequestFailure(result, [/HTTP call returned non-2XX status code: 404/]);
@@ -473,7 +732,12 @@ describe('HttpCallNode', () => {
   it('keeps 2XX responses out of the requestFailed path when both toggles are enabled', async () => {
     globalThis.fetch = async () => new Response('created', { status: 201, headers: { 'content-type': 'text/plain' } });
 
-    const node = createNode({ method: 'GET', url: 'https://example.com', errorOnNon200: true, catchRequestFailed: true });
+    const node = createNode({
+      method: 'GET',
+      url: 'https://example.com',
+      errorOnNon200: true,
+      catchRequestFailed: true,
+    });
     const result = await node.process({}, createContext());
 
     assert.deepStrictEqual(result, {

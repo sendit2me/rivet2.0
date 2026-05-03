@@ -9,7 +9,7 @@ Rivet plugins extend the system by registering node types and exposing configura
 The plugin system spans multiple packages:
 
 - core defines plugin contracts and registry behavior
-- the app loads plugin specs from projects and mutates the global registry
+- the app loads app-installed plugin specs and publishes an editor registry
 - the app-executor and node runtime must construct compatible registries for execution
 
 Because of that, plugin work is cross-package by default.
@@ -198,14 +198,15 @@ These plugins are not "special cased out of band." They still participate via th
 ## App-Side Plugin Loading
 
 The app's main plugin-loading path is [`useProjectPlugins.ts`](../packages/app/src/hooks/useProjectPlugins.ts).
+Plugin availability is app-level, while project YAML plugin specs are derived from actual plugin-node usage.
 
 ### Current sequence
 
-1. read plugin specs from `projectPluginsState`
+1. read persistent app-installed specs from `appPluginSpecsState`
 2. seed `pluginsState` with one loading entry per spec
-3. start a generation-tracked async load pass so stale completions from an older plugin set cannot overwrite the current UI state or active project registry
+3. start a generation-tracked async load pass so stale completions from an older plugin set cannot overwrite the current UI state or active editor registry
 4. call `assembleRegistry(specs, loadPlugin)` from `RegistryAssembly.ts`, which creates a fresh built-in registry and then loads/registers each plugin via a caller-provided loader
-5. record per-plugin success/failure in `pluginsState` as results arrive
+5. record per-plugin success/failure in `pluginsState` as results arrive, including the runtime `RivetPlugin` so node types can be mapped back to their app-installed spec
 6. ignore the finished result completely if a newer generation has superseded it
 7. show aggregate failure toasts for the active generation
 8. publish the assembled registry into the app's `projectNodeRegistryState`
@@ -213,12 +214,29 @@ The app's main plugin-loading path is [`useProjectPlugins.ts`](../packages/app/s
 
 ### Implications
 
-- plugin availability is rebuilt whenever project plugin specs or retry state changes
-- registry state is explicit and project-dependent
+- plugin availability is rebuilt whenever app plugin specs or retry state changes
+- registry state is explicit and app-installed, not project-installed
 - editor behavior that depends on node constructors must tolerate registry refreshes
 - the app and sidecar share the same `assembleRegistry()` helper, keeping registry construction logic in one place
+- built-in plugin lookup stays in `plugins.ts` via `resolveBuiltInPlugin(id)`, while `RegistryAssembly.ts` stays independent of the plugin catalogue to avoid import cycles through plugins that depend on execution APIs
 - the app normalizes wrapped default exports for external plugin modules before invoking the initializer, so editor-side loading matches sidecar/runtime behavior for mixed CJS/ESM plugins
-- the generation guard is now part of the app-side contract: older async plugin loads must never replace newer plugin state or the active project registry
+- the generation guard is now part of the app-side contract: older async plugin loads must never replace newer plugin state or the active editor registry
+
+### App-installed vs project-used plugins
+
+`appPluginSpecsState` is persisted app state. Adding a plugin from Settings > Plugins writes there, so the plugin's nodes appear in the node picker for every project. Removing a plugin from Settings > Plugins removes that spec from `appPluginSpecsState`; it unregisters the plugin from the app registry, but it does not directly edit any project YAML.
+
+`projectPluginsState` still writes the existing `Project.plugins` YAML field, but users do not manually add or delete entries there. [`pluginUsage.ts`](../packages/app/src/utils/pluginUsage.ts) derives project plugin specs by scanning project graphs, asking the loaded registry which plugin owns each node type, and mapping the runtime plugin id back to the app-installed `PluginLoadSpec`. It also centralizes plugin spec identity, display labels, details, and search matching so Settings > Plugins and the missing-plugin modal describe specs consistently.
+
+Save, run, and remote-upload paths derive project plugin specs before serializing or sending a project. This prevents a newly added plugin node from racing ahead of the background sync hook.
+
+Unresolved project specs are preserved. If a project declares a plugin that is not installed in the app, has just been removed from the app, failed to load, or the current graph contains unknown node types, Rivet cannot prove whether all corresponding nodes are gone, so the YAML spec is kept until plugin ownership can be resolved.
+
+### Missing app plugins
+
+Opening a project whose YAML declares plugins not present in `appPluginSpecsState` shows [`MissingAppPluginsModal`](../packages/app/src/components/MissingAppPluginsModal.tsx). The modal lists the missing specs and offers explicit Install buttons.
+
+Rivet does not install project-declared plugins automatically. If the user closes the modal, unknown plugin nodes continue to render through the normal "Unknown node type ... are you missing a plugin?" fallback.
 
 ## URI Plugin Loading
 
@@ -257,7 +275,7 @@ Related runtime assumptions appear in multiple places:
 `packages/app-executor/bin/executor.mts` uses `assembleRegistry(specs, loadPlugin)` from core's `RegistryAssembly.ts` to build a fresh registry for each graph run:
 
 - the `assembleRegistry()` call creates a built-in registry and loads each plugin spec via a callback
-- built-in plugins are resolved through `resolveBuiltInPlugin(id)`
+- built-in plugins are resolved through `resolveBuiltInPlugin(id)` from the core plugin catalogue
 - URI and package plugins are dynamically imported through `importPluginInitializer(specifier, pluginId)`, a local helper that normalizes CJS/ESM default-export wrapping
 - package plugins are loaded from the already-installed package files in the app-data plugin directory, using `pathToFileURL(mainPath)` so Windows file URLs are constructed correctly
 - the assembled registry is passed directly to `createProcessor()` without mutating the global
@@ -287,6 +305,8 @@ Meaningful plugin-system seams:
 - core contracts in `RivetPlugin.ts`
 - `NodeRegistration` and its generated plugin wrappers
 - app plugin loading in `useProjectPlugins`
+- project plugin derivation in `pluginUsage.ts`
+- missing app-plugin prompt in `MissingAppPluginsModal`
 - package-plugin installation/loading paths
 - sidecar runtime plugin loading in `app-executor`
 - plugin config resolution in `GraphProcessor`
@@ -295,7 +315,7 @@ Meaningful plugin-system seams:
 
 Visible in current code:
 
-- plugin loading mutates shared global registry state in the app
+- plugin loading publishes shared registry state in the app
 - package plugin installation/loading spans frontend, Tauri, and sidecar behavior
 - plugin config resolution depends on registry ownership and runtime settings being kept aligned
 - built-in plugins and external plugins share most plumbing but not always the same loading path
@@ -305,5 +325,5 @@ Visible in current code:
 - Treat plugin changes as cross-package work by default.
 - Keep plugin contracts, registry behavior, app loading, and sidecar loading in sync.
 - Be careful changing plugin IDs or node type IDs; those are persistence/runtime identifiers.
-- Preserve the distinction between node registration, plugin metadata, and plugin configuration resolution.
+- Preserve the distinction between app-installed availability, project-used YAML specs, node registration, plugin metadata, and plugin configuration resolution.
 - Test both editor-side availability and runtime execution when touching plugin code paths.

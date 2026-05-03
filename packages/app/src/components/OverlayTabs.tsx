@@ -1,37 +1,41 @@
 import { css } from '@emotion/react';
-import { type FC } from 'react';
+import { type FC, type ReactNode, useEffect, useMemo } from 'react';
 
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import clsx from 'clsx';
 import { trivetState } from '../state/trivet.js';
 import { LoadingSpinner } from './LoadingSpinner.js';
-import { overlayOpenState } from '../state/ui';
-import {
-  emptyGraphSearchState,
-  openOrFocusGraphSearchState,
-  searchingGraphState,
-  sidebarOpenState,
-} from '../state/graphBuilder';
-import { useFeatureFlag } from '../hooks/useFeatureFlag';
+import { type OverlayKey, overlayOpenState } from '../state/ui';
+import { hideGraphSearchPanelState, openOrFocusGraphSearchState, searchingGraphState } from '../state/graphBuilder';
+import { projectState } from '../state/savedGraphs.js';
+import { graphState } from '../state/graph.js';
+import { lastRunDataByNodeState } from '../state/dataFlow.js';
+import { hasChatViewerRows } from '../utils/chatViewerData.js';
+import { getVisibleWorkspaceTabs } from '../utils/workspaceTabs.js';
 
 const styles = css`
   display: flex;
-  justify-content: center;
-  align-items: flex-start;
+  align-items: stretch;
+  align-self: stretch;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: min(760px, 65vw);
   z-index: 200;
-  position: absolute;
-  top: var(--project-selector-height);
-  left: 50%;
-  transform: translateX(-50%);
-  min-height: 40px;
-  max-width: calc(100vw - 16px);
+  border-left: 1px solid var(--grey-darkest);
 
   .left-menu {
     display: flex;
     align-items: stretch;
     gap: 0;
+    min-width: 0;
     max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
     user-select: none;
+  }
+
+  .left-menu::-webkit-scrollbar {
+    display: none;
   }
 
   .menu-item {
@@ -44,20 +48,17 @@ const styles = css`
       color 0.2s ease-out,
       border-color 0.2s ease-out;
 
-    border: 1px solid var(--grey);
-    border-top: none;
-    border-right: none;
+    border-bottom: 1px solid var(--grey);
+    border-right: 1px solid var(--grey-darkest);
 
     margin: 0;
     display: flex;
+    flex: 0 0 auto;
     min-width: 0;
-    min-height: 24px;
+    height: calc(100% + 1px);
+    margin-bottom: -1px;
 
-    border-radius: 0 0 16px 16px;
-    corner-shape: squircle;
     background: var(--grey-darkerish);
-
-    box-shadow: 0 3px 3px rgba(0, 0, 0, 0.2);
   }
 
   .menu-item > button {
@@ -68,48 +69,34 @@ const styles = css`
     background: transparent;
     border: none;
     cursor: pointer;
-    padding: 0.5rem 1rem;
+    padding: 0 12px;
     color: inherit;
-    line-height: 1.2;
-    min-height: 24px;
+    font-size: var(--ui-font-size-sm);
+    line-height: 1;
+    min-height: 0;
     min-width: 0;
     text-align: center;
-    white-space: normal;
-    overflow-wrap: anywhere;
+    white-space: nowrap;
   }
 
   .menu-item:hover {
-    background-color: var(--grey);
+    background-color: var(--grey-darkish);
   }
 
   .menu-item.active {
     background-color: var(--primary);
     color: var(--foreground-on-primary);
-    border-top: 1px solid var(--primary);
+    border-bottom-color: var(--primary);
 
     &:hover {
-      background-color: var(--primary-light);
+      background-color: var(--primary-dark);
+      border-bottom-color: var(--primary-dark);
     }
   }
 
-  .menu-item:last-of-type {
-    border-right: 1px solid var(--grey);
-  }
-
   .search-menu {
-    align-self: center;
-    background: var(--grey-darker);
-    border: 1px solid var(--grey);
-    border-radius: 8px;
-    corner-shape: squircle;
-    margin-left: 8px;
-    min-height: 24px;
-
     > button {
       gap: 6px;
-      min-height: 24px;
-      padding: 0.2rem 0.7rem;
-      white-space: nowrap;
 
       svg {
         flex: 0 0 auto;
@@ -119,14 +106,6 @@ const styles = css`
     }
   }
 
-  .search-menu:hover {
-    background-color: var(--grey);
-  }
-
-  .remote-debugger {
-    position: relative;
-  }
-
   .trivet-menu button {
     display: flex;
     flex-direction: row;
@@ -134,146 +113,107 @@ const styles = css`
     .spinner {
       margin-left: 4px;
     }
+  }
 
-    &.active .spinner svg {
-      color: var(--grey-dark);
-    }
+  .trivet-menu.active .spinner svg {
+    color: var(--grey-dark);
   }
 `;
 
-export const OverlayTabs: FC = () => {
+export const OverlayTabs: FC<{
+  showGraphSearch?: boolean;
+  showWelcomeScreen?: boolean;
+}> = ({ showGraphSearch = true, showWelcomeScreen = false }) => {
   const [openOverlay, setOpenOverlay] = useAtom(overlayOpenState);
   const setGraphSearch = useSetAtom(searchingGraphState);
-  const sidebarOpen = useAtomValue(sidebarOpenState);
 
   const trivet = useAtomValue(trivetState);
+  const project = useAtomValue(projectState);
+  const currentGraph = useAtomValue(graphState);
+  const allLastRunData = useAtomValue(lastRunDataByNodeState);
 
-  const communityEnabled = useFeatureFlag('community');
+  const chatViewerAvailable = useMemo(
+    () => hasChatViewerRows(project.graphs, currentGraph, allLastRunData),
+    [allLastRunData, currentGraph, project.graphs],
+  );
+
+  useEffect(() => {
+    if (openOverlay === 'chatViewer' && !chatViewerAvailable) {
+      setOpenOverlay(undefined);
+    }
+  }, [chatViewerAvailable, openOverlay, setOpenOverlay]);
+
+  const openWorkspace = (workspace: OverlayKey | undefined) => {
+    setOpenOverlay((current) => (current === workspace ? undefined : workspace));
+    setGraphSearch(hideGraphSearchPanelState);
+  };
+
+  const visibleWorkspaceTabs = getVisibleWorkspaceTabs({
+    chatViewerAvailable,
+    openOverlay,
+    welcomeScreenAvailable: showWelcomeScreen,
+  });
 
   return (
-    <div css={styles} className={clsx({ 'sidebar-open': sidebarOpen })}>
+    <nav css={styles} aria-label="Workspace navigation">
       <div className="left-menu">
-        <div className={clsx('menu-item canvas-menu', { active: openOverlay === undefined })}>
-          <button
-            className="dropdown-item"
-            onMouseDown={(e) => {
-              if (e.button === 0) {
-                setOpenOverlay(undefined);
-                setGraphSearch(emptyGraphSearchState);
-              }
-            }}
+        {visibleWorkspaceTabs.map((tab) => (
+          <WorkspaceTab
+            key={tab.key}
+            className={tab.className}
+            active={openOverlay === tab.targetOverlay}
+            onOpen={() => openWorkspace(tab.targetOverlay)}
           >
-            Canvas
-          </button>
-        </div>
-
-        <div className={clsx('menu-item plugins', { active: openOverlay === 'plugins' })}>
-          <button
-            className="dropdown-item"
-            onMouseDown={(e) => {
-              if (e.button === 0) {
-                setOpenOverlay((s) => (s === 'plugins' ? undefined : 'plugins'));
-                setGraphSearch(emptyGraphSearchState);
-              }
-            }}
-          >
-            Plugins
-          </button>
-        </div>
-
-        {communityEnabled && (
-          <div className={clsx('menu-item community', { active: openOverlay === 'community' })}>
-            <button
-              className="dropdown-item"
-              onMouseDown={(e) => {
-                if (e.button === 0) {
-                  setOpenOverlay((s) => (s === 'community' ? undefined : 'community'));
-                  setGraphSearch(emptyGraphSearchState);
-                }
-              }}
-            >
-              Community
-            </button>
-          </div>
-        )}
-
-        <div className={clsx('menu-item prompt-designer-menu', { active: openOverlay === 'promptDesigner' })}>
-          <button
-            className="dropdown-item"
-            onMouseDown={(e) => {
-              if (e.button === 0) {
-                setOpenOverlay((s) => (s === 'promptDesigner' ? undefined : 'promptDesigner'));
-                setGraphSearch(emptyGraphSearchState);
-              }
-            }}
-          >
-            Prompt Designer
-          </button>
-        </div>
-        <div className={clsx('menu-item trivet-menu', { active: openOverlay === 'trivet' })}>
-          <button
-            className="dropdown-item"
-            onMouseDown={(e) => {
-              if (e.button === 0) {
-                setOpenOverlay((s) => (s === 'trivet' ? undefined : 'trivet'));
-                setGraphSearch(emptyGraphSearchState);
-              }
-            }}
-          >
-            Trivet Tests
-            {trivet.runningTests && (
+            {tab.label}
+            {tab.key === 'trivet' && trivet.runningTests && (
               <div className="spinner">
                 <LoadingSpinner />
               </div>
             )}
-          </button>
-        </div>
-        <div className={clsx('menu-item chat-viewer-menu', { active: openOverlay === 'chatViewer' })}>
-          <button
-            className="dropdown-item"
-            onMouseDown={(e) => {
-              if (e.button === 0) {
-                setOpenOverlay((s) => (s === 'chatViewer' ? undefined : 'chatViewer'));
-                setGraphSearch(emptyGraphSearchState);
-              }
-            }}
-          >
-            Chat Viewer
-          </button>
-        </div>
-        <div className={clsx('menu-item data-studio', { active: openOverlay === 'dataStudio' })}>
-          <button
-            className="dropdown-item"
-            onMouseDown={(e) => {
-              if (e.button === 0) {
-                setOpenOverlay((s) => (s === 'dataStudio' ? undefined : 'dataStudio'));
-                setGraphSearch(emptyGraphSearchState);
-              }
-            }}
-          >
-            Data Studio
-          </button>
-        </div>
-        <div className="menu-item search-menu">
-          <button
-            className="dropdown-item"
-            onMouseDown={(e) => {
-              if (e.button === 0) {
-                setOpenOverlay(undefined);
-                setGraphSearch((state) =>
-                  state.searching ? emptyGraphSearchState : openOrFocusGraphSearchState(state),
-                );
-              }
-            }}
-          >
-            <SearchIcon />
-            Search
-          </button>
-        </div>
+          </WorkspaceTab>
+        ))}
+        {showGraphSearch && (
+          <div className="menu-item search-menu">
+            <button
+              type="button"
+              className="dropdown-item"
+              onMouseDown={(e) => {
+                if (e.button === 0) {
+                  setOpenOverlay(undefined);
+                  setGraphSearch(openOrFocusGraphSearchState);
+                }
+              }}
+            >
+              <SearchIcon />
+              Search
+            </button>
+          </div>
+        )}
       </div>
-    </div>
+    </nav>
   );
 };
+
+const WorkspaceTab: FC<{
+  active: boolean;
+  children: ReactNode;
+  className: string;
+  onOpen: () => void;
+}> = ({ active, children, className, onOpen }) => (
+  <div className={clsx('menu-item', className, { active })}>
+    <button
+      type="button"
+      className="dropdown-item"
+      onMouseDown={(e) => {
+        if (e.button === 0) {
+          onOpen();
+        }
+      }}
+    >
+      {children}
+    </button>
+  </div>
+);
 
 const SearchIcon: FC = () => (
   <svg aria-hidden="true" fill="none" viewBox="0 0 24 24">

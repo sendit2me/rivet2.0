@@ -1,0 +1,54 @@
+name: Publish npm Packages
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+concurrency:
+  group: publish-npm-packages
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up build Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20.4.x'
+
+      - name: Install dependencies
+        run: node .yarn/releases/yarn-4.6.0.cjs install --immutable
+
+      - name: Build publishable packages
+        run: |
+          node .yarn/releases/yarn-4.6.0.cjs workspace @valerypopoff/rivet2-core run build
+          node .yarn/releases/yarn-4.6.0.cjs workspace @valerypopoff/rivet2-node run build
+          node .yarn/releases/yarn-4.6.0.cjs workspace @valerypopoff/rivet2-cli run build
+
+      - name: Set up publish Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22.14.x'
+          registry-url: https://registry.npmjs.org
+
+      - name: Install trusted-publishing capable npm
+        run: npm install -g npm@11.5.1
+
+      - name: Publish packages
+        run: node scripts/publish-npm-packages.mjs
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: true

@@ -9,12 +9,12 @@ Rivet is a monorepo organized around one shared graph runtime and several produc
 
 At a high level:
 
-1. `@ironclad/rivet-core` defines the graph model, execution engine, built-in nodes, built-in plugins, serialization, and shared runtime contracts.
-2. `@ironclad/rivet-app` is the Tauri/React desktop IDE.
-3. `@ironclad/rivet-node` adapts core for Node environments.
-4. `@ironclad/rivet-cli` exposes run/serve workflows on top of `rivet-node`.
-5. `@ironclad/rivet-app-executor` is the Node sidecar used by the desktop app.
-6. `@ironclad/trivet` provides graph-oriented testing utilities and serialization.
+1. `@valerypopoff/rivet2-core` defines the graph model, execution engine, built-in nodes, built-in plugins, serialization, and shared runtime contracts.
+2. `@valerypopoff/rivet-app` is the Tauri/React desktop IDE.
+3. `@valerypopoff/rivet2-node` adapts core for Node environments.
+4. `@valerypopoff/rivet2-cli` exposes run/serve workflows on top of `rivet-node`.
+5. `@valerypopoff/rivet-app-executor` is the Node sidecar used by the desktop app.
+6. `@valerypopoff/trivet` provides graph-oriented testing utilities and serialization.
 7. `packages/docs` is the Docusaurus documentation site.
 
 ## Workspace Layout
@@ -24,13 +24,13 @@ packages/
   app/            Desktop app
   app-executor/   Node sidecar for the app
   cli/            CLI for running and serving graphs
-  community/      Internal app/community package
   core/           Runtime engine, graph model, built-in nodes/plugins
   docs/           Docusaurus site
   node/           Node integration library
   trivet/         Test-runner package
 developer-docs/   These internal docs
-_.github/         CI workflows and release scripts
+refactor-history.md  Consolidated refactor history and future planning source
+.github/         CI workflows and release scripts
 ```
 
 ## Dependency Structure
@@ -82,7 +82,7 @@ Contains:
 - plugin installation/loading UX
 - Trivet integration
 - prompt-designer integration
-- updater/debugger/community/data overlays
+- updater/debugger/data overlays
 - Tauri-native bridging
 
 ### 3. Node runtime layer
@@ -114,7 +114,7 @@ There are three execution contexts worth distinguishing:
 
 ### Browser execution
 
-Used by the desktop app when `defaultExecutorState` is `browser`.
+Used by the desktop app when the live `selectedExecutorState` is `browser`.
 
 - runs `GraphProcessor` in-process inside the app
 - uses browser/Tauri-facing adapters
@@ -123,7 +123,7 @@ Used by the desktop app when `defaultExecutorState` is `browser`.
 
 ### Sidecar Node execution
 
-Used by the desktop app when `defaultExecutorState` is `nodejs`.
+Used by the desktop app when the live `selectedExecutorState` is `nodejs`.
 
 - the app starts or connects to `app-executor`
 - communication happens over `ws://127.0.0.1:21889/internal`

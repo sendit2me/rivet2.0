@@ -1,10 +1,10 @@
 import { useLatest } from 'ahooks';
 import { useAtomValue } from 'jotai';
 import { useEffect } from 'react';
-import type { OutgoingMessageMap } from '@ironclad/rivet-core';
+import type { OutgoingMessageMap } from '@valerypopoff/rivet2-core';
 import { useExecutorSessionHostConfig, useExecutorSessionRuntime } from '../providers/ExecutorSessionContext.js';
 import { remoteDebuggerConfigState, remoteDebuggerConnectionState } from '../state/execution.js';
-import { defaultExecutorState, type DefaultExecutor } from '../state/settings.js';
+import { selectedExecutorState, type DefaultExecutor } from '../state/settings.js';
 import { type ExecutorSessionState } from './executorSession';
 import { isInTauri } from '../utils/platform/core.js';
 
@@ -25,7 +25,7 @@ export function shouldRestoreInternalNodeExecutorAfterDebuggerDisconnect(options
 export function useRemoteDebugger(options: { onConnect?: () => void; onDisconnect?: () => void } = {}) {
   const runtime = useExecutorSessionRuntime();
   const hostConfig = useExecutorSessionHostConfig();
-  const selectedExecutor = useAtomValue(defaultExecutorState);
+  const selectedExecutor = useAtomValue(selectedExecutorState);
   const debuggerConfig = useAtomValue(remoteDebuggerConfigState);
   const connectionState = useAtomValue(remoteDebuggerConnectionState);
   const onConnectLatest = useLatest(options.onConnect ?? (() => {}));

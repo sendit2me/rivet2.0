@@ -1,8 +1,7 @@
 import { useWindowsHotkeysFix } from '../hooks/useWindowsHotkeysFix';
 import { GraphBuilder } from './GraphBuilder.js';
-import { OverlayTabs } from './OverlayTabs.js';
 import { type FC, useEffect, useMemo } from 'react';
-import { type GraphId } from '@ironclad/rivet-core';
+import { type GraphId } from '@valerypopoff/rivet2-core';
 import { css } from '@emotion/react';
 import { SettingsModal } from './SettingsModal.js';
 import { setGlobalTheme } from '@atlaskit/tokens';
@@ -16,13 +15,12 @@ import { TrivetRenderer } from './trivet/Trivet.js';
 import { ActionBar } from './ActionBar';
 import { DebuggerPanelRenderer } from './DebuggerConnectPanel';
 import { ChatViewerRenderer } from './ChatViewer';
-import { useAtomValue } from 'jotai';
-import { defaultExecutorState, themeState, themes } from '../state/settings';
+import { useAtomValue, useSetAtom } from 'jotai';
+import { selectedExecutorState, themeState, themes } from '../state/settings';
 import clsx from 'clsx';
 import { useLoadStaticData } from '../hooks/useLoadStaticData';
 import { DataStudioRenderer } from './dataStudio/DataStudio';
 import { StatusBar } from './StatusBar';
-import { PluginsOverlayRenderer } from './PluginsOverlay';
 import { useCheckForUpdate } from '../hooks/useCheckForUpdate';
 import useAsyncEffect from 'use-async-effect';
 import { UpdateModalRenderer } from './UpdateModal';
@@ -30,7 +28,6 @@ import { useMonitorUpdateStatus } from '../hooks/useMonitorUpdateStatus';
 import { ProjectSelector } from './ProjectSelector';
 import { NewProjectModalRenderer } from './NewProjectModal';
 import { useWindowTitle } from '../hooks/useWindowTitle';
-import { CommunityOverlayRenderer } from './community/CommunityOverlay';
 import { HelpModal } from './HelpModal';
 import { openedProjectsSortedIdsState } from '../state/savedGraphs';
 import { NoProject } from './NoProject';
@@ -39,8 +36,10 @@ import { wrapAsync } from '../utils/errorHandling';
 import { useExecutorSession } from '../hooks/useExecutorSession';
 import { useRestorePersistedWorkspace } from '../hooks/useRestorePersistedWorkspace.js';
 import { DeleteGraphInputConfirmModalRenderer } from './DeleteGraphInputConfirmModal';
-import { uiFontSizeState } from '../state/ui.js';
+import { overlayOpenState, uiFontSizeState } from '../state/ui.js';
 import { getUiFontSizeCssVariables } from '../utils/uiFontSize.js';
+import { useProjectPlugins } from '../hooks/useProjectPlugins.js';
+import { MissingAppPluginsModalRenderer } from './MissingAppPluginsModal.js';
 
 const styles = css`
   overflow: hidden;
@@ -52,18 +51,29 @@ setGlobalTheme({
 });
 
 export const RivetApp: FC = () => {
-  const selectedExecutor = useAtomValue(defaultExecutorState);
+  const selectedExecutor = useAtomValue(selectedExecutorState);
+  const setSelectedExecutor = useSetAtom(selectedExecutorState);
+
+  useEffect(() => {
+    setSelectedExecutor(selectedExecutor);
+    // Freeze the startup default into the live executor selection. The app
+    // settings default should only affect future app starts.
+  }, [selectedExecutor, setSelectedExecutor]);
+
   useExecutorSession(selectedExecutor);
   const { tryRunGraph, tryRunTests, tryAbortGraph, tryPauseGraph, tryResumeGraph } = useGraphExecutor();
   const theme = useAtomValue(themeState);
   const uiFontSize = useAtomValue(uiFontSizeState);
+  const openOverlay = useAtomValue(overlayOpenState);
   const openedProjectIds = useAtomValue(openedProjectsSortedIdsState);
   const uiFontSizeCssVariables = useMemo(() => getUiFontSizeCssVariables(uiFontSize), [uiFontSize]);
 
   const noProjectOpen = openedProjectIds.length === 0;
+  const isCanvasMode = openOverlay === undefined;
 
   useLoadStaticData();
   useRestorePersistedWorkspace();
+  useProjectPlugins();
 
   const runGraph = wrapAsync(tryRunGraph, 'Run graph');
   const runTests = wrapAsync(tryRunTests, 'Run tests');
@@ -115,7 +125,12 @@ export const RivetApp: FC = () => {
     <div className={clsx('app', theme ? `theme-${theme}` : 'theme-default')} css={styles} style={uiFontSizeCssVariables}>
       {noProjectOpen ? (
         <>
+          <ProjectSelector mode="workspace" />
           <NoProject />
+          <PromptDesignerRenderer />
+          <TrivetRenderer tryRunTests={tryRunTests} />
+          <ChatViewerRenderer />
+          <DataStudioRenderer />
           <NewProjectModalRenderer />
           <AppErrorBoundary context="Settings Modal" fallback={<div>Failed to render Settings</div>}>
             <SettingsModal />
@@ -124,16 +139,17 @@ export const RivetApp: FC = () => {
       ) : (
         <>
           <ProjectSelector />
-          <OverlayTabs />
-          <ActionBar
-            onRunGraph={runGraph}
-            onRunTests={runTests}
-            onAbortGraph={tryAbortGraph}
-            onPauseGraph={tryPauseGraph}
-            onResumeGraph={tryResumeGraph}
-          />
+          {isCanvasMode && (
+            <ActionBar
+              onRunGraph={runGraph}
+              onRunTests={runTests}
+              onAbortGraph={tryAbortGraph}
+              onPauseGraph={tryPauseGraph}
+              onResumeGraph={tryResumeGraph}
+            />
+          )}
           <StatusBar />
-          <DebuggerPanelRenderer />
+          {isCanvasMode && <DebuggerPanelRenderer />}
           <LeftSidebar onRunGraph={runGraphFromSidebar} />
           <GraphBuilder />
           <AppErrorBoundary context="Settings Modal" fallback={<div>Failed to render Settings</div>}>
@@ -143,11 +159,10 @@ export const RivetApp: FC = () => {
           <TrivetRenderer tryRunTests={tryRunTests} />
           <ChatViewerRenderer />
           <DataStudioRenderer />
-          <PluginsOverlayRenderer />
           <UpdateModalRenderer />
           <NewProjectModalRenderer />
+          <MissingAppPluginsModalRenderer />
           <DeleteGraphInputConfirmModalRenderer />
-          <CommunityOverlayRenderer />
         </>
       )}
       <HelpModal />

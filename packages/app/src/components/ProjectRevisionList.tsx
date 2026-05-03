@@ -5,10 +5,11 @@ import { revisionStyles } from './GraphRevisionList';
 import Button from '@atlaskit/button';
 import { useHasGitHistory, useProjectRevisions } from '../hooks/useGraphRevisions';
 import { type CalculatedRevision } from '../utils/ProjectRevisionCalculator';
-import Modal, { ModalTransition, ModalHeader, ModalTitle, ModalBody, ModalFooter } from '@atlaskit/modal-dialog';
+import Modal, { ModalTransition, ModalBody, ModalFooter } from '@atlaskit/modal-dialog';
 import { css } from '@emotion/react';
-import { type GraphId } from '@ironclad/rivet-core';
+import { type GraphId } from '@valerypopoff/rivet2-core';
 import { useChooseHistoricalGraph } from '../hooks/useChooseHistoricalGraph';
+import { AppModalHeader } from './AppModalHeader';
 
 export const ProjectRevisions: FC = () => {
   const projectState = useAtomValue(loadedProjectState);
@@ -116,9 +117,7 @@ const ProjectRevisionChangesModal: FC<{
     <ModalTransition>
       {revision && (
         <Modal onClose={() => onClose()}>
-          <ModalHeader>
-            <ModalTitle>Revision {revision.hash}</ModalTitle>
-          </ModalHeader>
+          <AppModalHeader title={`Revision ${revision.hash}`} />
           <ModalBody>
             <div css={modalBodyStyles}>
               <div className="author">

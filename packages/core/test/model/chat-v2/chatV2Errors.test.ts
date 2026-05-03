@@ -1,6 +1,9 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { normalizeChatV2ProviderError } from '../../../src/model/chat-v2/chatV2Errors.js';
+import {
+  getChatV2ProviderErrorStatusCode,
+  normalizeChatV2ProviderError,
+} from '../../../src/model/chat-v2/chatV2Errors.js';
 
 function createApiError(overrides: Partial<Error & Record<string, unknown>> = {}) {
   const error = new Error('Not Found') as Error & Record<string, unknown>;
@@ -33,6 +36,73 @@ describe('normalizeChatV2ProviderError', () => {
     assert.match(normalized.message, /Provider base URL/);
     assert.match(normalized.message, /Model llama-does-not-exist does not exist/);
     assert.doesNotMatch(normalized.message, /AI_APICallError/);
+  });
+
+  it('preserves the Vercel API status code on normalized provider errors', () => {
+    const error = createApiError({
+      statusCode: 503,
+    });
+    const normalized = normalizeChatV2ProviderError(error, {
+      provider: 'openai',
+      modelId: 'gpt-5',
+    });
+
+    assert.ok(normalized instanceof Error);
+    assert.equal((normalized as Error & { statusCode?: number }).statusCode, 503);
+    assert.equal(normalized.cause, error);
+  });
+
+  it('normalizes string-shaped Vercel API status codes for guidance and output handling', () => {
+    const normalized = normalizeChatV2ProviderError(
+      createApiError({
+        statusCode: '401',
+      }),
+      {
+        provider: 'openai',
+        modelId: 'gpt-5.4-mini',
+      },
+    );
+
+    assert.ok(normalized instanceof Error);
+    assert.match(normalized.message, /401 Unauthorized/);
+    assert.match(normalized.message, /API key source/);
+    assert.equal((normalized as Error & { statusCode?: number }).statusCode, 401);
+  });
+
+  it('turns browser fetch failures into provider guidance instead of raw TypeError output', () => {
+    const normalized = normalizeChatV2ProviderError(new TypeError('Failed to fetch'), {
+      provider: 'openai',
+      modelId: 'gpt-5.4-mini',
+    });
+
+    assert.ok(normalized instanceof Error);
+    assert.equal(normalized.name, 'LLM Chat error');
+    assert.match(normalized.message, /before Rivet could read an HTTP response/);
+    assert.match(normalized.message, /Provider: OpenAI/);
+    assert.match(normalized.message, /Model: gpt-5\.4-mini/);
+    assert.match(normalized.message, /API key source/);
+    assert.match(normalized.message, /Node executor/);
+  });
+
+  it('finds provider status codes on nested response and provider data shapes', () => {
+    assert.equal(
+      getChatV2ProviderErrorStatusCode({
+        response: {
+          status: '403',
+        },
+      }),
+      403,
+    );
+    assert.equal(
+      getChatV2ProviderErrorStatusCode({
+        data: {
+          error: {
+            statusCode: '429',
+          },
+        },
+      }),
+      429,
+    );
   });
 
   it('does not include endpoint query strings in formatted API errors', () => {

@@ -1,6 +1,6 @@
 import { atom } from 'jotai';
 import { atomFamily } from 'jotai/utils';
-import { type NodeId, type NodeInputDefinition, type NodeOutputDefinition } from '@ironclad/rivet-core';
+import { type NodeId, type NodeInputDefinition, type NodeOutputDefinition } from '@valerypopoff/rivet2-core';
 import { projectState, referencedProjectsState } from '../savedGraphs';
 import { connectionsForSingleNodeState, nodesByIdState } from './graphSelectors';
 import { nodeInstanceByIdState } from './nodeSelectors';

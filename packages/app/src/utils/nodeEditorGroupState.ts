@@ -1,4 +1,4 @@
-import type { ChartNode } from '@ironclad/rivet-core';
+import type { ChartNode } from '@valerypopoff/rivet2-core';
 
 export type NodeEditorGroupOpenState = Record<string, Record<string, boolean>>;
 

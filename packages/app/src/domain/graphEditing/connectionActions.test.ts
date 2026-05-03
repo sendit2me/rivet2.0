@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { type NodeConnection } from '@ironclad/rivet-core';
+import { type NodeConnection } from '@valerypopoff/rivet2-core';
 import {
   areConnectionsEqual,
   createRewireConnectionChange,

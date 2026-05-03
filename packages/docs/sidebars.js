@@ -107,7 +107,7 @@ const sidebars = {
     'api-reference/remote-debugging',
     {
       type: 'category',
-      label: '@rivet/node',
+      label: '@valerypopoff/rivet2-node',
       collapsible: true,
       collapsed: false,
       items: [
@@ -134,7 +134,7 @@ const sidebars = {
     },
     {
       type: 'category',
-      label: '@rivet/core',
+      label: '@valerypopoff/rivet2-core',
       collapsible: true,
       collapsed: false,
       items: [
@@ -185,6 +185,7 @@ const sidebars = {
         'node-reference/assemble-message',
         'node-reference/assemble-prompt',
         'node-reference/chat',
+        'node-reference/llm-chat',
         'node-reference/gpt-function',
         'node-reference/get-embedding',
         'node-reference/trim-chat-messages',

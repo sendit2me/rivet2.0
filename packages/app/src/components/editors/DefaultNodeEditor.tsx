@@ -1,5 +1,5 @@
 import { type FC, useEffect, useState } from 'react';
-import { type ChartNode, type EditorDefinition } from '@ironclad/rivet-core';
+import { type ChartNode, type EditorDefinition } from '@valerypopoff/rivet2-core';
 import { css } from '@emotion/react';
 import { type SharedEditorProps } from './SharedEditorProps';
 import { DefaultNodeEditorField } from './DefaultNodeEditorField';
@@ -33,6 +33,10 @@ export const defaultEditorContainerStyles = css`
   }
 
   .row > :first-child {
+    margin-top: 0 !important;
+  }
+
+  .row.custom > :first-child > :first-child {
     margin-top: 0 !important;
   }
 

@@ -3,7 +3,7 @@ import {
   type Project,
   type ProjectReferenceLoader,
   deserializeProject,
-} from '@ironclad/rivet-core';
+} from '@valerypopoff/rivet2-core';
 import { handleError } from '../utils/errorHandling.js';
 import type { PathPolicyProvider } from '../providers/ProvidersContext.js';
 import { getDefaultPathPolicyProvider } from '../utils/tauri.js';

@@ -1,4 +1,4 @@
-import { type ChartNode, type NodeId } from '@ironclad/rivet-core';
+import { type ChartNode, type NodeId } from '@valerypopoff/rivet2-core';
 import { useAtomValue } from 'jotai';
 import { graphState, historicalGraphState } from '../state/graph';
 import isEqual from 'fast-deep-equal';

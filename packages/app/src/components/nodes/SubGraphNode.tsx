@@ -1,7 +1,7 @@
 import { type FC } from 'react';
 import { useAtomValue } from 'jotai';
 import { projectState } from '../../state/savedGraphs.js';
-import { type PortId, type SubGraphNode, coerceTypeOptional } from '@ironclad/rivet-core';
+import { type PortId, type SubGraphNode, coerceTypeOptional } from '@valerypopoff/rivet2-core';
 import { type NodeComponentDescriptor } from '../../hooks/useNodeTypes.js';
 import { RenderDataOutputs, type OutputRenderMode } from '../RenderDataValue.js';
 import { omit } from 'lodash-es';

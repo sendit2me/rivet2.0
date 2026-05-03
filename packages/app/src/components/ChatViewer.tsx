@@ -4,23 +4,14 @@ import { orderBy } from 'lodash-es';
 import { overlayOpenState } from '../state/ui';
 import { css } from '@emotion/react';
 import clsx from 'clsx';
-import {
-  type BuiltInNodes,
-  type ChartNode,
-  type NodeId,
-  type PortId,
-  type ProcessId,
-  arrayizeDataValue,
-  isFunctionDataType,
-  type ScalarOrArrayDataValue,
-} from '@ironclad/rivet-core';
+import { type NodeId } from '@valerypopoff/rivet2-core';
 import {
   lastRunDataByNodeState,
   graphRunningState,
   type NodeRunDataWithRefs,
-  type DataValueWithRefs,
 } from '../state/dataFlow';
 import { projectState } from '../state/savedGraphs';
+import { graphState } from '../state/graph';
 import { ErrorBoundary } from 'react-error-boundary';
 import TextField from '@atlaskit/textfield';
 import { useGoToNode } from '../hooks/useGoToNode';
@@ -30,7 +21,17 @@ import { useToggle } from 'ahooks';
 import { FixedSizeList } from 'react-window';
 import { RenderDataValue } from './RenderDataValue.js';
 import { useDataRefs } from '../providers/ProvidersContext.js';
-import { restoreStoredPortValue } from '../utils/executionDataReaders.js';
+import {
+  getChatViewerChatNodes,
+  getChatViewerErrorValue,
+  getChatViewerGraphEntries,
+  getChatViewerNodeGraphNameMap,
+  getChatViewerNodeProcesses,
+  getChatViewerProcessKey,
+  getChatViewerProcessRows,
+  getChatViewerPromptValue,
+  getChatViewerResponseValue,
+} from '../utils/chatViewerData.js';
 
 export const ChatViewerRenderer: FC = () => {
   const [openOverlay, setOpenOverlay] = useAtom(overlayOpenState);
@@ -204,50 +205,38 @@ export const ChatViewer: FC<{
   onClose: () => void;
 }> = ({ onClose }) => {
   const project = useAtomValue(projectState);
+  const currentGraph = useAtomValue(graphState);
   const allLastRunData = useAtomValue(lastRunDataByNodeState);
   const [graphFilter, setGraphFilter] = useState('');
   const goToNode = useGoToNode();
   const graphRunning = useAtomValue(graphRunningState);
 
+  const graphEntries = useMemo(
+    () => getChatViewerGraphEntries(project.graphs, currentGraph),
+    [currentGraph, project.graphs],
+  );
+
   const nodesToGraphNameMap = useMemo(() => {
-    const map: Record<NodeId, string> = {};
-    Object.values(project.graphs).forEach((graph) => {
-      graph.nodes.forEach((node) => {
-        map[node.id] = graph.metadata?.name ?? 'Unknown Graph';
-      });
-    });
-    return map;
-  }, [project.graphs]);
+    return getChatViewerNodeGraphNameMap(graphEntries);
+  }, [graphEntries]);
 
   const chatNodes = useMemo(() => {
-    const allNodes = Object.values(project.graphs).flatMap((g) => g.nodes) as BuiltInNodes[];
-    const nodes = (allNodes as ChartNode[]).filter((node) => node.type === 'chat' || node.type === 'chatAnthropic');
+    const nodes = getChatViewerChatNodes(graphEntries);
     if (graphFilter === '') {
       return nodes;
     }
 
-    return nodes.filter((node) => nodesToGraphNameMap[node.id]!.toLowerCase().includes(graphFilter.toLowerCase()));
-  }, [project, graphFilter, nodesToGraphNameMap]);
+    return nodes.filter((node) =>
+      (nodesToGraphNameMap[node.id] ?? '').toLowerCase().includes(graphFilter.toLowerCase()),
+    );
+  }, [graphEntries, graphFilter, nodesToGraphNameMap]);
 
   const processes = useMemo(() => {
-    const nodesWithData = chatNodes.filter((node) => allLastRunData[node.id] != null);
-    const processes = nodesWithData.flatMap((node) =>
-      allLastRunData[node.id]!.map((data) => ({ node, process: data })),
-    );
-
-    return processes;
+    return getChatViewerNodeProcesses(chatNodes, allLastRunData);
   }, [chatNodes, allLastRunData]);
 
   const processesWithIndex = useMemo(() => {
-    return processes.flatMap((process) => {
-      if (process.process.data.splitOutputData) {
-        return Object.entries(process.process.data.splitOutputData).map(([index, data]) => {
-          return { ...process, index: parseInt(index) };
-        });
-      }
-
-      return [{ ...process, index: -1 }];
-    });
+    return getChatViewerProcessRows(processes);
   }, [processes]);
 
   const [runningProcesses, completedProcesses] = useMemo(() => {
@@ -272,15 +261,14 @@ export const ChatViewer: FC<{
 
   const CompletedRow = ({ index, style }: { index: number; style: any }) => {
     const { node, process, index: processIndex } = completedProcesses[index]!;
-    const graphName = nodesToGraphNameMap[node.id]!;
+    const graphName = nodesToGraphNameMap[node.id] ?? 'Unknown Graph';
     return (
       <ChatBubble
         style={style}
         nodeId={node.id}
         nodeTitle={node.title}
-        processId={process.processId}
         data={process.data}
-        key={`${node.id}-${process.processId}-${index}`}
+        key={getChatViewerProcessKey(node.id, process.processId, processIndex)}
         graphName={graphName}
         onGoToNode={doGoToNode}
         splitIndex={processIndex}
@@ -301,14 +289,13 @@ export const ChatViewer: FC<{
         {graphRunning && (
           <section className="in-progress-chats">
             {runningProcesses.map(({ node, process, index }) => {
-              const graphName = nodesToGraphNameMap[node.id]!;
+              const graphName = nodesToGraphNameMap[node.id] ?? 'Unknown Graph';
               return (
                 <ChatBubble
                   nodeId={node.id}
                   nodeTitle={node.title}
-                  processId={process.processId}
                   data={process.data}
-                  key={`${node.id}-${process.processId}-${index}`}
+                  key={getChatViewerProcessKey(node.id, process.processId, index)}
                   graphName={graphName}
                   onGoToNode={doGoToNode}
                   splitIndex={index}
@@ -332,7 +319,6 @@ const ChatBubble: FC<{
   graphName: string;
   nodeId: NodeId;
   nodeTitle: string;
-  processId: ProcessId;
   data: NodeRunDataWithRefs;
   splitIndex: number;
   style?: CSSProperties;
@@ -343,31 +329,11 @@ const ChatBubble: FC<{
   const responseRef = useRef<HTMLDivElement>(null);
   const [expanded, toggleExpanded] = useToggle();
 
-  const prompt = useMemo(() => {
-    const promptValue = data.inputData?.['prompt' as PortId];
-    if (!promptValue) {
-      return undefined;
-    }
-
-    if (splitIndex === -1) {
-      return promptValue;
-    }
-
-    const restoredPromptValue = restoreStoredPortValue(data.inputData, 'prompt' as PortId, dataRefs);
-    if (!restoredPromptValue || isFunctionDataType(restoredPromptValue.type)) {
-      return promptValue;
-    }
-
-    const values = arrayizeDataValue(restoredPromptValue as ScalarOrArrayDataValue);
-    return values[splitIndex] ?? values[0] ?? promptValue;
-  }, [data.inputData, dataRefs, splitIndex]);
+  const prompt = useMemo(() => getChatViewerPromptValue(data, splitIndex, dataRefs), [data, dataRefs, splitIndex]);
 
   const chatOutput = useMemo(
-    () =>
-      splitIndex === -1
-        ? data.outputData?.['response' as PortId]
-        : data.splitOutputData?.[splitIndex]?.['response' as PortId],
-    [data.outputData, data.splitOutputData, splitIndex],
+    () => getChatViewerResponseValue(data, splitIndex) ?? getChatViewerErrorValue(data),
+    [data, splitIndex],
   );
   const renderMode = expanded || data.status?.type !== 'ok' ? 'expanded-preview' : 'compact';
 
@@ -424,7 +390,7 @@ const ChatBubble: FC<{
       ) : null}
       <div className="line" />
       <div className="response" ref={responseRef}>
-        <RenderDataValue value={chatOutput as DataValueWithRefs | undefined} mode={renderMode} />
+        <RenderDataValue value={chatOutput} mode={renderMode} />
       </div>
     </div>
   );

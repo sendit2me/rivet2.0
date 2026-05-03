@@ -1,4 +1,4 @@
-import { type DataValue, type NodeOutputDefinition } from '@ironclad/rivet-core';
+import { type DataValue, type NodeOutputDefinition } from '@valerypopoff/rivet2-core';
 import { keys } from '../utils/typeSafety.js';
 import { type FC } from 'react';
 import { type DataRefReader, useDataRefs } from '../providers/ProvidersContext.js';
@@ -86,7 +86,7 @@ export const RenderDataOutputs: FC<{
   mode?: OutputRenderMode;
   allowLargeStoredValueActions?: boolean;
 }> = ({ definitions, outputs, renderMarkdown, isCompact, mode, allowLargeStoredValueActions }) => {
-  let outputPorts = keys(outputs);
+  const outputPorts = isCompact ? keys(outputs).slice(0, 1) : keys(outputs);
   const effectiveMode = mode ?? (isCompact ? 'compact' : 'full');
 
   if (outputPorts.length === 1) {
@@ -101,10 +101,6 @@ export const RenderDataOutputs: FC<{
         />
       </div>
     );
-  }
-
-  if (isCompact) {
-    outputPorts = outputPorts.slice(0, 1);
   }
 
   return (

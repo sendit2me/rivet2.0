@@ -5,7 +5,7 @@ import { useContextMenu } from '../../hooks/useContextMenu';
 import { useStableCallback } from '../../hooks/useStableCallback';
 import Portal from '@atlaskit/portal';
 import { DropdownItem } from '@atlaskit/dropdown-menu';
-import { type TrivetTestSuite } from '@ironclad/trivet';
+import { type TrivetTestSuite } from '@valerypopoff/trivet';
 import Tabs, { Tab, TabList, TabPanel } from '@atlaskit/tabs';
 import { LoadingSpinner } from '../LoadingSpinner';
 

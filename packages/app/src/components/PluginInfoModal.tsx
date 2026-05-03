@@ -1,10 +1,11 @@
 import Button from '@atlaskit/button';
-import Modal, { ModalTransition, ModalHeader, ModalBody, ModalFooter } from '@atlaskit/modal-dialog';
+import Modal, { ModalTransition, ModalBody, ModalFooter } from '@atlaskit/modal-dialog';
 import { css } from '@emotion/react';
-import { type PluginLoadSpec, type RivetPlugin } from '@ironclad/rivet-core';
+import { type PluginLoadSpec, type RivetPlugin } from '@valerypopoff/rivet2-core';
 import { useState, type FC } from 'react';
 import { match } from 'ts-pattern';
 import useAsyncEffect from 'use-async-effect';
+import { AppModalHeader } from './AppModalHeader';
 import { CopyToClipboardButton } from './CopyToClipboardButton';
 import { nativeAppLocalDataDir, nativeJoinPath } from '../utils/platform/path.js';
 
@@ -58,9 +59,7 @@ export const PluginInfoModal: FC<PluginInfoModalProps> = ({ isOpen, onClose, plu
     <ModalTransition>
       {isOpen && (
         <Modal onClose={onClose} width="large">
-          <ModalHeader>
-            <h3>{pluginName}</h3>
-          </ModalHeader>
+          <AppModalHeader title={pluginName} />
           <ModalBody>
             <div css={pluginInfoModalBody}>
               {match(spec)

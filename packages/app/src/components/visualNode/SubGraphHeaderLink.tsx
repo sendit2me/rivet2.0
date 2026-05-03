@@ -1,4 +1,4 @@
-import { type ChartNode, type SubGraphNode } from '@ironclad/rivet-core';
+import { type ChartNode, type SubGraphNode } from '@valerypopoff/rivet2-core';
 import { useAtomValue } from 'jotai';
 import { type FC, type MouseEvent, type PointerEvent } from 'react';
 import { useGoToSubgraphNode } from '../../hooks/useGoToSubgraphNode.js';

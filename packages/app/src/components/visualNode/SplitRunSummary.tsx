@@ -1,4 +1,4 @@
-import { DEFAULT_SPLIT_RUN_CONCURRENCY, type ChartNode } from '@ironclad/rivet-core';
+import { DEFAULT_SPLIT_RUN_CONCURRENCY, type ChartNode } from '@valerypopoff/rivet2-core';
 import { type FC, type MouseEvent, type PointerEvent } from 'react';
 import { Tooltip } from '../Tooltip.js';
 import { useCanvasHandlersContext } from '../CanvasContext.js';
