@@ -36,11 +36,6 @@ export type NativeWindowHandle = {
   setTitle?(title: string): Promise<void>;
 };
 
-export type NativeUpdaterEvent = {
-  error?: string;
-  status: string;
-};
-
 export function isInTauri(): boolean {
   return typeof window !== 'undefined' && ('__TAURI__' in window || '__TAURI_INTERNALS__' in window);
 }

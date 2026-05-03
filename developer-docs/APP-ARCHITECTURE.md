@@ -111,7 +111,6 @@ RivetApp
 |- TrivetRenderer
 |- ChatViewerRenderer
 |- DataStudioRenderer
-|- UpdateModalRenderer
 |- NewProjectModalRenderer
 |- MissingAppPluginsModalRenderer
 |- HelpModal

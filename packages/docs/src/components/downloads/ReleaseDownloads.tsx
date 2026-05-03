@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import useBaseUrl from '@docusaurus/useBaseUrl';
 
-import styles from './DeveloperReleaseDownloads.module.css';
+import styles from './ReleaseDownloads.module.css';
 
 type ReleaseDownload = {
   label: string;
@@ -26,8 +26,8 @@ type ReleaseMetadata = {
   commit: string;
   runUrl: string | null;
   commitUrl: string | null;
-  stableDownloads: ReleaseDownload[];
-  artifacts: ReleaseArtifact[];
+  stableDownloads?: ReleaseDownload[];
+  artifacts?: ReleaseArtifact[];
 };
 
 function formatBytes(bytes: number) {
@@ -53,15 +53,15 @@ function releaseDateLabel(value: string) {
 }
 
 type ReleaseDownloadsProps = {
+  emptyDownloadsMessage: string;
   emptyMetadataMessage: string;
-  emptyStableDownloadsMessage: string;
   loadingMessage: string;
   metadataFile: string;
 };
 
 function ReleaseDownloads({
+  emptyDownloadsMessage,
   emptyMetadataMessage,
-  emptyStableDownloadsMessage,
   loadingMessage,
   metadataFile,
 }: ReleaseDownloadsProps) {
@@ -70,7 +70,8 @@ function ReleaseDownloads({
   const [metadata, setMetadata] = useState<ReleaseMetadata | null>(null);
   const [didLoad, setDidLoad] = useState(false);
 
-  const toSiteUrl = (url: string) => `${siteRoot.replace(/\/$/, '')}/${url.replace(/^\//, '')}`;
+  const toSiteUrl = (url: string) =>
+    /^https?:\/\//i.test(url) ? url : `${siteRoot.replace(/\/$/, '')}/${url.replace(/^\//, '')}`;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -109,6 +110,9 @@ function ReleaseDownloads({
     );
   }
 
+  const stableDownloads = metadata.stableDownloads ?? [];
+  const artifacts = metadata.artifacts ?? [];
+
   return (
     <div className={styles.releaseCard}>
       <p className={styles.meta}>
@@ -122,9 +126,9 @@ function ReleaseDownloads({
         {releaseDateLabel(metadata.generatedAt)}
       </p>
 
-      {metadata.stableDownloads.length > 0 ? (
+      {stableDownloads.length > 0 ? (
         <div className={styles.downloads}>
-          {metadata.stableDownloads.map((download) => (
+          {stableDownloads.map((download) => (
             <a className={styles.downloadLink} href={toSiteUrl(download.url)} key={download.name}>
               <span className={styles.downloadLabel}>{download.label}</span>
               <span className={styles.downloadName}>
@@ -134,10 +138,10 @@ function ReleaseDownloads({
           ))}
         </div>
       ) : (
-        <p className={styles.empty}>{emptyStableDownloadsMessage}</p>
+        <p className={styles.empty}>{emptyDownloadsMessage}</p>
       )}
 
-      {metadata.artifacts.length > 0 && (
+      {artifacts.length > 0 && (
         <>
           <h3>Original Build Artifacts</h3>
           <table className={styles.artifactTable}>
@@ -149,7 +153,7 @@ function ReleaseDownloads({
               </tr>
             </thead>
             <tbody>
-              {metadata.artifacts.map((artifact) => (
+              {artifacts.map((artifact) => (
                 <tr key={artifact.url}>
                   <td>
                     <a href={toSiteUrl(artifact.url)}>{artifact.name}</a>
@@ -166,13 +170,13 @@ function ReleaseDownloads({
   );
 }
 
-export function OfficialReleaseDownloads() {
+export function StableReleaseDownloads() {
   return (
     <ReleaseDownloads
       metadataFile="official-release.json"
-      loadingMessage="Loading official release information..."
-      emptyMetadataMessage="Official release metadata is not available yet. On GitHub Pages, this section is populated by the latest successful main-branch Windows build."
-      emptyStableDownloadsMessage="No stable official installer aliases were produced for this build."
+      loadingMessage="Loading stable release information..."
+      emptyMetadataMessage="Stable release metadata is not available yet. On GitHub Pages, this section is populated by the latest successful main-branch Windows build."
+      emptyDownloadsMessage="No stable installer aliases were produced for this build."
     />
   );
 }
@@ -183,7 +187,7 @@ export function DeveloperReleaseDownloads() {
       metadataFile="developer-release.json"
       loadingMessage="Loading developer release information..."
       emptyMetadataMessage="Developer release metadata is not available in this local documentation build. On GitHub Pages, this section is populated by the latest successful develop-branch Windows build."
-      emptyStableDownloadsMessage="No stable developer installer aliases were produced for this build."
+      emptyDownloadsMessage="No developer installer aliases were produced for this build."
     />
   );
 }

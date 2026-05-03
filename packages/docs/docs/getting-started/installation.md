@@ -10,7 +10,7 @@
 
 ### [Download Rivet](../download.mdx)
 
-Use the Download page for official Windows releases from the `main` branch and developer Windows releases from the `develop` branch.
+Use the Download page for stable Windows releases from the `main` branch and developer Windows releases from the `develop` branch.
 
 ## Building from Source
 

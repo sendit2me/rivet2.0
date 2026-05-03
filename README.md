@@ -19,7 +19,7 @@ For a self-hosted Rivet 2 wrapper, see [Rivet Studio Server](https://github.com/
 - [Plugins](#plugins)
 - [Embedding Rivet In A Wrapper](#embedding-rivet-in-a-wrapper)
 - [npm Packages](#npm-packages)
-- [Official and Developer Releases](#official-and-developer-releases)
+- [Stable and Developer Releases](#stable-and-developer-releases)
 - [Documentation](#documentation)
 - [License](#license)
 
@@ -144,11 +144,11 @@ Configure npm publishing with either an `NPM_TOKEN` repository secret or npm tru
 
 For local publishes, `scripts/publish-npm-packages.mjs` also reads `NPM_TOKEN` from a repo-root `.env` file and passes it to npm through a temporary `.npmrc` that is removed after the publish attempt. `.env` is ignored by Git and must stay local; GitHub Actions cannot read it, so CI publishing still needs a repository secret or trusted publishing.
 
-## Official and Developer Releases
+## Stable and Developer Releases
 
 This repo publishes Windows installer downloads to the GitHub Pages documentation site:
 
-- `.github/workflows/official-windows-release.yml` runs on pushes to `main` and publishes the current official Windows release metadata.
+- `.github/workflows/official-windows-release.yml` runs on pushes to `main` and publishes the current stable Windows release metadata.
 - `.github/workflows/developer-windows-release.yml` runs on pushes to `develop` and publishes the latest developer Windows release metadata.
 
 On pushes to `develop`, the workflow:
@@ -160,11 +160,11 @@ On pushes to `develop`, the workflow:
 5. Adds the latest developer installer metadata and download files to the docs build.
 6. Publishes the docs site to GitHub Pages.
 
-On pushes to `main`, the official workflow runs the same Windows installer and documentation build path, but writes `official-release.json` and stable official download aliases instead of the developer feed.
+On pushes to `main`, the stable release workflow runs the same Windows installer and documentation build path, but writes `official-release.json` and stable download aliases instead of the developer feed.
 
-The GitHub Pages site is the public documentation website at `https://valerypopoff.github.io/rivet2.0/`. Its top-right Download link opens a downloads page with official Windows installers from `main` and developer Windows installers from `develop`.
+The GitHub Pages site is the public documentation website at `https://valerypopoff.github.io/rivet2.0/`. Its top-right Download link opens a downloads page with the latest stable Windows installer from `main` and latest developer Windows installer from `develop`.
 
-GitHub Pages must either be enabled once in repository settings with Source set to GitHub Actions, or the repository must provide a `PAGES_ENABLEMENT_TOKEN` Actions secret that can enable Pages for the workflows. The official workflow deploys through the `github-pages` environment and should be allowed from `main`. The developer workflow deploys through `developer-windows-pages` so develop-branch installer deployments are not blocked by production `github-pages` environment rules; if that environment is protected later, it must allow `develop`.
+GitHub Pages must either be enabled once in repository settings with Source set to GitHub Actions, or the repository must provide a `PAGES_ENABLEMENT_TOKEN` Actions secret that can enable Pages for the workflows. The stable release workflow deploys through the `github-pages` environment and should be allowed from `main`. The developer workflow deploys through `developer-windows-pages` so develop-branch installer deployments are not blocked by production `github-pages` environment rules; if that environment is protected later, it must allow `develop`.
 
 Both Pages release workflows intentionally build installer artifacts only. They do not sign updater bundles and do not require Tauri updater private-key secrets. Production/tagged updater release workflows are separate.
 

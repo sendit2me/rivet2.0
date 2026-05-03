@@ -332,15 +332,15 @@ Both workflows use [`.github/scripts/prepare-windows-release-pages.mjs`](../.git
 
 Generated metadata and aliases:
 
-- official workflow: `official-release.json`, `downloads/official/Rivet-Windows-Setup.exe`, and `downloads/official/Rivet-Windows.msi`
-- developer workflow: `developer-release.json`, `downloads/developer/Rivet-Developer-Windows-Setup.exe`, and `downloads/developer/Rivet-Developer-Windows.msi`
+- stable workflow: `official-release.json`, `downloads/official/Rivet-2-Windows-Setup.exe`, and `downloads/official/Rivet-2-Windows.msi`
+- developer workflow: `developer-release.json`, `downloads/developer/Rivet-2-Developer-Windows-Setup.exe`, and `downloads/developer/Rivet-2-Developer-Windows.msi`
 
 The `/download` docs page reads both metadata files. A Pages deploy replaces the whole site, so each release workflow preserves the other channel from the currently published Pages site before writing its own current channel:
 
-- `main` official runs preserve `developer-release.json` and the developer assets referenced by that metadata
-- `develop` developer runs preserve `official-release.json` and the official assets referenced by that metadata
+- `main` stable runs preserve `developer-release.json` and the developer assets referenced by that metadata
+- `develop` developer runs preserve `official-release.json` and the stable assets referenced by that metadata
 
-The release workflows share the `rivet-docs-pages` concurrency group with `cancel-in-progress: false`, so official and developer Pages deployments queue instead of racing and accidentally publishing a site that only contains one release channel.
+The release workflows share the `rivet-docs-pages` concurrency group with `cancel-in-progress: false`, so stable and developer Pages deployments queue instead of racing and accidentally publishing a site that only contains one release channel.
 
 ### `official-windows-release.yml`
 
@@ -354,10 +354,10 @@ The release workflows share the `rivet-docs-pages` concurrency group with `cance
 The workflow has two jobs:
 
 1. `build-windows` runs on `windows-latest`, checks out the repo, sets up Node `20.4.x`, installs Rust stable, runs `yarn --immutable`, runs the root `yarn build`, then runs `yarn tauri build --verbose --ci --bundles "msi,nsis"` from `packages/app`.
-2. The same Windows job builds the Docusaurus docs site from `packages/docs`, preserves the current developer release feed from Pages if it exists, writes official release metadata and installer files into `packages/docs/build`, and uploads that complete docs-site artifact.
+2. The same Windows job builds the Docusaurus docs site from `packages/docs`, preserves the current developer release feed from Pages if it exists, writes stable release metadata and installer files into `packages/docs/build`, and uploads that complete docs-site artifact.
 3. `publish-pages` runs on `ubuntu-latest`, downloads the generated docs-site artifact, configures GitHub Pages, uploads it as a GitHub Pages artifact, and deploys it with `actions/deploy-pages`.
 
-The official deploy job uses the `github-pages` environment. If that environment has branch restrictions, it must allow `main`.
+The stable deploy job uses the `github-pages` environment. If that environment has branch restrictions, it must allow `main`.
 
 ### `developer-windows-release.yml`
 
@@ -373,10 +373,10 @@ This workflow is intentionally develop-only. It does not run for `main`.
 The workflow has two jobs:
 
 1. `build-windows` runs on `windows-latest`, checks out the repo, sets up Node `20.4.x`, installs Rust stable, runs `yarn --immutable`, runs the root `yarn build`, then runs `yarn tauri build --verbose --ci --bundles "msi,nsis"` from `packages/app`.
-2. The same Windows job builds the Docusaurus docs site from `packages/docs`, preserves the current official release feed from Pages if it exists, writes developer release metadata and installer files into `packages/docs/build`, and uploads that complete docs-site artifact.
+2. The same Windows job builds the Docusaurus docs site from `packages/docs`, preserves the current stable release feed from Pages if it exists, writes developer release metadata and installer files into `packages/docs/build`, and uploads that complete docs-site artifact.
 3. `publish-pages` runs on `ubuntu-latest`, downloads the generated docs-site artifact, configures GitHub Pages, uploads it as a GitHub Pages artifact, and deploys it with `actions/deploy-pages`.
 
-Docusaurus owns the site root and reads `developer-release.json` on the `/download` page. The generated Pages site represents the current public docs plus the latest successful developer Windows release from `develop`, while preserving the official release feed that was already published from `main`.
+Docusaurus owns the site root and reads `developer-release.json` on the `/download` page. The generated Pages site represents the current public docs plus the latest successful developer Windows release from `develop`, while preserving the stable release feed that was already published from `main`.
 
 ### Pages requirements
 
@@ -401,7 +401,7 @@ Optional Pages-release secret:
 
 Deployment environment:
 
-- `github-pages`: used by the main-branch official release deployment. It should allow `main`.
+- `github-pages`: used by the main-branch stable release deployment. It should allow `main`.
 - `developer-windows-pages`: used by the develop-branch Pages deployment. Leave it unrestricted or allow the `develop` branch.
 
 Production updater/tagged desktop release workflows still use the updater-enabled Tauri packaging contract and therefore continue to require updater signing secrets. Keep the Pages release workflows installer-only unless one is intentionally promoted into an updater feed.
@@ -503,11 +503,11 @@ normal npm dependency on `@valerypopoff/rivet2-core`, and
 
 ### Current behavior
 
-Runs `_.github/scripts/rename-release-files.mts`, which:
+Runs `.github/scripts/rename-release-files.mts`, which:
 
 - enumerates release assets
 - downloads versioned app artifacts
-- re-uploads renamed stable filenames
+- re-uploads renamed stable filenames under the `Rivet-2` name
 - deletes older assets with the same target filename if needed
 
 Current rename targets include patterns for:
@@ -516,6 +516,8 @@ Current rename targets include patterns for:
 - AppImage
 - Debian package
 - Windows setup executable
+
+The script resolves the target repository from `GITHUB_REPOSITORY` and defaults to `valerypopoff/rivet2.0` for local dry runs. Windows setup assets are normalized to `Rivet-2-Setup.exe`, while DMG/AppImage/Debian assets normalize to `Rivet-2.<extension>`.
 
 ## Tauri Build and Packaging
 
@@ -527,16 +529,22 @@ Tauri config lives in [`packages/app/src-tauri/tauri.conf.json`](../packages/app
 - `beforeBuildCommand`: `yarn prepare:tauri && yarn build`
 - `devPath`: `http://localhost:5173`
 - `distDir`: `../dist`
-- package version there: `2.0`
-- updater is active in the default Tauri config
-- updater endpoint points at GitHub release `latest.json`
+- product name/window title: `Rivet 2`, so installed desktop builds are distinguishable from the older Rivet app
+- package version there: the desktop app version used by Tauri packaging and the release metadata generator
+- the legacy Tauri updater endpoint still exists in the default config, but the app's Settings > Updates flow does not call it
 - external binaries include app-executor and bundled `pnpm`
 
 ### Packaging significance
 
-The app package is not standalone frontend output. Tauri packaging, sidecars, updater behavior, and shell permissions are part of the build contract. CI workflows that only need installer artifacts can override the bundle targets at build time to avoid updater signing.
+The app package is not standalone frontend output. Tauri packaging, sidecars, update-check behavior, and shell permissions are part of the build contract. CI workflows that only need installer artifacts can override the bundle targets at build time to avoid updater signing.
 
-Startup update checks are intentionally quiet when that `latest.json` feed does not exist or cannot be parsed. This keeps local builds and unsigned developer installer builds from showing an unhandled-rejection toast before a production updater feed has been published. Manual checks from Settings > Updates still surface the failure.
+Settings > Updates uses the GitHub Pages stable release feed at `https://valerypopoff.github.io/rivet2.0/official-release.json`, the same metadata source rendered by the `/download` documentation page. The `official-release.json` filename is kept as the internal compatibility name for the `main`-branch release feed, but the user-facing site calls it the latest stable release. The app compares the current desktop version and browser-reported operating system against that metadata. It intentionally avoids `@tauri-apps/api/os` so the update check does not require enabling the Tauri OS allowlist. When a newer compatible stable desktop release exists, the toast opens the public `/download` page instead of calling Tauri's signed in-place updater. This keeps update checks working with the current Pages-based installer workflow, which publishes `.exe` and `.msi` downloads but intentionally does not publish signed updater bundles.
+
+The current app shell does not mount the old updater modal or Tauri updater event monitor. Update availability is announced directly from `useCheckForUpdate` through a toast with a `Download` action that opens the public download page.
+
+The Pages release metadata includes an explicit `version` field from `packages/app/src-tauri/tauri.conf.json`. The app also keeps a fallback parser for existing metadata that only has versioned original artifact filenames, so already-published Pages metadata can still be understood until the next stable release regenerates the file.
+
+Startup checks stay quiet when the stable feed is missing or temporarily unavailable. Manual checks from Settings > Updates show a friendly status such as "No stable release has been published yet" instead of surfacing the stale Tauri `latest.json` error.
 
 ## Publish Scripts
 
@@ -592,7 +600,7 @@ This script is intentionally aggressive and should be treated carefully. It only
 The current effective release flow is:
 
 1. update versions in package manifests and Tauri config
-2. push to `main` to publish npm packages and the current official Windows installer feed on GitHub Pages
+2. push to `main` to publish npm packages and the current stable Windows installer feed on GitHub Pages
 3. push `app-v*` tag for updater-enabled desktop release drafts when that path is needed
 4. let `release.yml` create draft desktop artifacts
 5. let `rename-release-assets.yml` normalize asset names

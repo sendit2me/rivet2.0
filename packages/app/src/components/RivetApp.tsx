@@ -22,8 +22,6 @@ import { DataStudioRenderer } from './dataStudio/DataStudio';
 import { StatusBar } from './StatusBar';
 import { useCheckForUpdate } from '../hooks/useCheckForUpdate';
 import useAsyncEffect from 'use-async-effect';
-import { UpdateModalRenderer } from './UpdateModal';
-import { useMonitorUpdateStatus } from '../hooks/useMonitorUpdateStatus';
 import { ProjectSelector } from './ProjectSelector';
 import { NewProjectModalRenderer } from './NewProjectModal';
 import { useWindowTitle } from '../hooks/useWindowTitle';
@@ -89,7 +87,6 @@ export const RivetApp: FC = () => {
     await checkForUpdate();
   }, []);
 
-  useMonitorUpdateStatus();
   useWindowTitle();
 
   useEffect(() => {
@@ -157,7 +154,6 @@ export const RivetApp: FC = () => {
           <TrivetRenderer tryRunTests={tryRunTests} />
           <ChatViewerRenderer />
           <DataStudioRenderer />
-          <UpdateModalRenderer />
           <NewProjectModalRenderer />
           <MissingAppPluginsModalRenderer />
           <DeleteGraphInputConfirmModalRenderer />

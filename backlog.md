@@ -9,7 +9,7 @@
 - Check how "Check for updates" button works
 
 
-- There's 2 similar mono widht fonts. Let's only keep one
+- There's 2 similar mono width fonts. Let's only keep one
 
 
 - Reassess rivet example project

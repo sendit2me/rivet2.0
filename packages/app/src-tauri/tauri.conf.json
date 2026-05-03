@@ -6,7 +6,7 @@
     "distDir": "../dist"
   },
   "package": {
-    "productName": "Rivet",
+    "productName": "Rivet 2",
     "version": "2.0.0"
   },
   "tauri": {
@@ -106,7 +106,7 @@
         "fullscreen": false,
         "height": 1024,
         "resizable": true,
-        "title": "Rivet",
+        "title": "Rivet 2",
         "width": 1200
       }
     ]

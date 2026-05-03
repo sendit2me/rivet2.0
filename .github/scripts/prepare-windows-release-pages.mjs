@@ -1,4 +1,4 @@
-import { copyFile, mkdir, readdir, stat, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -14,12 +14,12 @@ const releaseConfigs = {
   developer: {
     displayName: 'Developer',
     metadataFile: 'developer-release.json',
-    stableFilePrefix: 'Rivet-Developer-Windows',
+    stableFilePrefix: 'Rivet-2-Developer-Windows',
   },
   official: {
-    displayName: 'Official',
+    displayName: 'Stable',
     metadataFile: 'official-release.json',
-    stableFilePrefix: 'Rivet-Windows',
+    stableFilePrefix: 'Rivet-2-Windows',
   },
 };
 
@@ -160,6 +160,18 @@ function formatReleaseLabel(shortSha) {
   return process.env.RELEASE_LABEL ?? `${process.env.GITHUB_REF_NAME ?? releaseChannel}-${shortSha}`;
 }
 
+async function readAppVersion() {
+  const tauriConfigPath = path.join(repoRoot, 'packages', 'app', 'src-tauri', 'tauri.conf.json');
+  const tauriConfig = JSON.parse(await readFile(tauriConfigPath, 'utf8'));
+  const version = tauriConfig?.package?.version;
+
+  if (typeof version !== 'string' || version.length === 0) {
+    throw new Error(`Could not read package.version from ${tauriConfigPath}`);
+  }
+
+  return version;
+}
+
 async function main() {
   await stat(sourceBundleDir).catch(() => {
     throw new Error(`Tauri bundle directory does not exist: ${sourceBundleDir}`);
@@ -236,9 +248,11 @@ async function main() {
   const repository = process.env.GITHUB_REPOSITORY ?? 'local/repo';
   const runId = process.env.GITHUB_RUN_ID;
   const serverUrl = process.env.GITHUB_SERVER_URL ?? 'https://github.com';
+  const version = await readAppVersion();
   const releaseMetadata = {
     channel: releaseChannel,
     title: `${releaseConfig.displayName} Windows Release`,
+    version,
     label: formatReleaseLabel(shortSha),
     generatedAt: new Date().toISOString(),
     branch: process.env.GITHUB_REF_NAME ?? releaseChannel,

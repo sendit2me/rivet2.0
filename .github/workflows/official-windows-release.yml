@@ -1,4 +1,4 @@
-name: Official Windows Release
+name: Stable Windows Release
 
 on:
   push:
@@ -47,7 +47,7 @@ jobs:
         env:
           NODE_OPTIONS: --max-old-space-size=6000
 
-      - name: Add official release downloads to docs site
+      - name: Add stable release downloads to docs site
         run: node .github/scripts/prepare-windows-release-pages.mjs
         env:
           RELEASE_CHANNEL: official
