@@ -243,11 +243,24 @@ Current rule that matters for maintenance:
 
 - [`ProjectSelector`](../packages/app/src/components/ProjectSelector.tsx) is the top app bar. It owns the File menu, opened-project tabs, and inline workspace navigation.
 - `Canvas` is the normal app state, represented by `overlayOpenState === undefined`, not a visible workspace tab. Selecting an already-open workspace tab returns to Canvas.
-- `OverlayTabs` renders auxiliary workspace destinations such as `Community`, Trivet, Chat Viewer, Data Studio, plus the graph `Search` action. It is mounted inside the top app bar after the opened-project tabs. Plugin installation lives under Settings instead of the workspace navigation. Prompt Designer is opened from the Chat node output flask action rather than as a persistent top-bar destination; while Prompt Designer is open, `OverlayTabs` temporarily inserts its active tab so users can see and close the current workspace.
+- `OverlayTabs` renders auxiliary workspace destinations such as Trivet, Chat Viewer, Data Studio, Community, plus the graph `Search` action. It is mounted inside the top app bar after the opened-project tabs. Community stays as the last workspace tab before `Search`. Plugin installation lives under Settings instead of the workspace navigation. Prompt Designer is opened from the Chat node output flask action rather than as a persistent top-bar destination; while Prompt Designer is open, `OverlayTabs` temporarily inserts its active tab before Community so users can see and close the current workspace without moving Community away from the end.
 - Graph `Search` is hidden while no project is open because it is graph-scoped; the workspace tabs remain visible in welcome mode.
 - full-screen workspaces that need their own navigation/content rails, currently Community and Data Studio, should cover the whole app below the top project selector (`left: 0`) instead of leaving the graph sidebar visible. This keeps auxiliary workspace layout consistent and prevents stale canvas-side UI from looking interactive behind the workspace.
 - New/open project commands stay in the File menu and command layer rather than also appearing as separate top-bar icon buttons. The Discord shortcut is not part of the project top bar.
 - workspace navigation in the top bar stays single-line and horizontally scrollable when space is tight, so the project tabs keep the remaining top-bar width and the app avoids a second floating workspace-tab row.
+
+### `ChatViewer`
+
+[`ChatViewer`](../packages/app/src/components/ChatViewer.tsx) is a read-only execution-history workspace for chat-response nodes (`chat`, `chatAnthropic`, and `llmChatV2`). It shows completed and running chat responses from `lastRunDataByNodeState`, with a graph filter and a `Go To` action that returns to the node on the canvas.
+
+Important data contract:
+
+- Chat Viewer must index chat nodes from both `projectState.graphs` and the live [`graphState`](../packages/app/src/state/atoms/graph.ts). Node/remote execution can run against the live graph before that graph has been merged back into the project atom, so a viewer that only scans `projectState.graphs` can look empty even though the run completed successfully.
+- If the live graph has the same graph id as a saved project graph, the live graph wins for Chat Viewer matching. This keeps unsaved node edits and newly added chat nodes visible immediately after a run.
+- Stored execution values should flow through the shared execution-data display path. Chat Viewer may pass ref-backed response values to `RenderDataValue` for preview/full rendering, and split prompt display should restore the prompt value before selecting the split item.
+- Row selection should skip completed chat runs that have no response value, but still show a single error row when a chat run failed before producing split responses.
+- The top-bar `Chat Viewer` workspace tab is shown only when the shared row helper can find at least one renderable chat row. If the last renderable row disappears while Chat Viewer is open, the app returns to Canvas instead of leaving an empty workspace selected.
+- Keep the graph/node/run matching logic in [`packages/app/src/utils/chatViewerData.ts`](../packages/app/src/utils/chatViewerData.ts) so current-graph inclusion, split-output ordering, and stored-value behavior stay unit-testable outside the React workspace.
 
 ## Graph Editor
 

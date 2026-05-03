@@ -1,5 +1,5 @@
 import { css } from '@emotion/react';
-import { type FC, type ReactNode } from 'react';
+import { type FC, type ReactNode, useEffect, useMemo } from 'react';
 
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import clsx from 'clsx';
@@ -8,6 +8,11 @@ import { LoadingSpinner } from './LoadingSpinner.js';
 import { type OverlayKey, overlayOpenState } from '../state/ui';
 import { emptyGraphSearchState, openOrFocusGraphSearchState, searchingGraphState } from '../state/graphBuilder';
 import { useFeatureFlag } from '../hooks/useFeatureFlag';
+import { projectState } from '../state/savedGraphs.js';
+import { graphState } from '../state/graph.js';
+import { lastRunDataByNodeState } from '../state/dataFlow.js';
+import { hasChatViewerRows } from '../utils/chatViewerData.js';
+import { getVisibleWorkspaceTabs } from '../utils/workspaceTabs.js';
 
 const styles = css`
   display: flex;
@@ -116,42 +121,6 @@ const styles = css`
   }
 `;
 
-type WorkspaceTabDefinition = { key: OverlayKey; label: string; className: string };
-
-const WORKSPACE_TABS: WorkspaceTabDefinition[] = [
-  { key: 'community', label: 'Community', className: 'community' },
-  { key: 'trivet', label: 'Trivet Tests', className: 'trivet-menu' },
-  { key: 'chatViewer', label: 'Chat Viewer', className: 'chat-viewer-menu' },
-  { key: 'dataStudio', label: 'Data Studio', className: 'data-studio' },
-];
-
-const PROMPT_DESIGNER_TAB: WorkspaceTabDefinition = {
-  key: 'promptDesigner',
-  label: 'Prompt Designer',
-  className: 'prompt-designer-menu',
-};
-
-function getVisibleWorkspaceTabs({
-  communityEnabled,
-  openOverlay,
-}: {
-  communityEnabled: boolean;
-  openOverlay: OverlayKey | undefined;
-}): WorkspaceTabDefinition[] {
-  const workspaceTabs = WORKSPACE_TABS.filter((tab) => tab.key !== 'community' || communityEnabled);
-
-  if (openOverlay !== 'promptDesigner') {
-    return workspaceTabs;
-  }
-
-  const promptDesignerTabIndex = communityEnabled ? 1 : 0;
-  return [
-    ...workspaceTabs.slice(0, promptDesignerTabIndex),
-    PROMPT_DESIGNER_TAB,
-    ...workspaceTabs.slice(promptDesignerTabIndex),
-  ];
-}
-
 export const OverlayTabs: FC<{
   showGraphSearch?: boolean;
 }> = ({ showGraphSearch = true }) => {
@@ -159,15 +128,28 @@ export const OverlayTabs: FC<{
   const setGraphSearch = useSetAtom(searchingGraphState);
 
   const trivet = useAtomValue(trivetState);
+  const project = useAtomValue(projectState);
+  const currentGraph = useAtomValue(graphState);
+  const allLastRunData = useAtomValue(lastRunDataByNodeState);
 
   const communityEnabled = useFeatureFlag('community');
+  const chatViewerAvailable = useMemo(
+    () => hasChatViewerRows(project.graphs, currentGraph, allLastRunData),
+    [allLastRunData, currentGraph, project.graphs],
+  );
+
+  useEffect(() => {
+    if (openOverlay === 'chatViewer' && !chatViewerAvailable) {
+      setOpenOverlay(undefined);
+    }
+  }, [chatViewerAvailable, openOverlay, setOpenOverlay]);
 
   const openWorkspace = (workspace: OverlayKey) => {
     setOpenOverlay((current) => (current === workspace ? undefined : workspace));
     setGraphSearch(emptyGraphSearchState);
   };
 
-  const visibleWorkspaceTabs = getVisibleWorkspaceTabs({ communityEnabled, openOverlay });
+  const visibleWorkspaceTabs = getVisibleWorkspaceTabs({ chatViewerAvailable, communityEnabled, openOverlay });
 
   return (
     <nav css={styles} aria-label="Workspace navigation">
