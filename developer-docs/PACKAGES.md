@@ -113,7 +113,7 @@ Desktop IDE frontend plus Tauri app packaging layer.
 - plugin loading/install UI
 - prompt designer
 - Trivet UI
-- debugger/community/data/update overlays
+- debugger/data/update overlays
 
 ### Important current boundaries
 
@@ -127,6 +127,15 @@ Desktop IDE frontend plus Tauri app packaging layer.
 - platform-specific capabilities are split under `src/utils/platform/*`; the old `nativeApp.ts` barrel has been removed so desktop integrations import only the capability they actually use
 - because the app's Vite dev/build path resolves `@valerypopoff/rivet2-core` to core source, browser-reachable provider dependencies that are imported by core Chat v2 code may also need visibility in `packages/app/package.json`; `@ai-sdk/openai-compatible` is intentionally listed in both core and app for that PnP/Vite source-resolution boundary
 - the Tauri backend under `src-tauri/` also vendors the two small Tauri v1 plugin crates it depends on under `src-tauri/vendor/` to avoid current Cargo/git-workspace metadata breakage from the upstream plugins workspace template
+
+### Branding assets
+
+- The source mark is [`packages/app/src-tauri/icons/rivet-2-logo.svg`](../packages/app/src-tauri/icons/rivet-2-logo.svg). It is intentionally only the logo shape, with no colored underlay.
+- The no-project welcome screen imports [`packages/app/src/rivet-logo-1024-full.png`](../packages/app/src/rivet-logo-1024-full.png) directly. This asset is the white mark on transparent pixels because the welcome card is dark.
+- Desktop app and installer icons are generated assets under [`packages/app/src-tauri/icons/`](../packages/app/src-tauri/icons/) and are referenced from `tauri.conf.json` through the `tauri.bundle.icon` list. Keep the existing filenames when replacing them, including the Windows `Square*Logo.png` and `StoreLogo.png` assets. These standalone icon assets use the black mark on transparent pixels.
+- The documentation site uses [`packages/docs/static/img/logo.svg`](../packages/docs/static/img/logo.svg), [`packages/docs/static/img/favicon.png`](../packages/docs/static/img/favicon.png), [`packages/docs/static/img/social-card.png`](../packages/docs/static/img/social-card.png), and [`packages/docs/static/img/logo-banner-wide.png`](../packages/docs/static/img/logo-banner-wide.png). Docusaurus reads these through `packages/docs/docusaurus.config.js` and the docs landing/social-card pages.
+- Documentation logo assets use the black mark by default. [`packages/docs/src/css/custom.css`](../packages/docs/src/css/custom.css) inverts `img/logo.svg` in dark mode so the logo is white on dark backgrounds without adding an underlay.
+- There is no single checked-in logo generator yet. When the Rivet 2 logo changes, update the app welcome image, regenerate/replace the Tauri icon set, and update the docs static images together so the desktop shell, installer, and documentation site stay visually aligned.
 
 ### Version caveat
 
@@ -272,12 +281,6 @@ Trivet runs:
 The app integrates this package directly for test UI and persistence.
 
 `createTestGraphRunner(...)` also resolves runtime settings through core's shared `resolveProcessSettings(...)` helper, so Trivet inherits the same minimal runtime defaults as app and Node execution rather than carrying a separate settings shape.
-
-## `packages/community/`
-
-Internal package used by the app for community/template features.
-
-Not published as a public npm package from this repo.
 
 ## `packages/docs/`
 

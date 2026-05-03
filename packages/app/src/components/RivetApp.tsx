@@ -28,7 +28,6 @@ import { useMonitorUpdateStatus } from '../hooks/useMonitorUpdateStatus';
 import { ProjectSelector } from './ProjectSelector';
 import { NewProjectModalRenderer } from './NewProjectModal';
 import { useWindowTitle } from '../hooks/useWindowTitle';
-import { CommunityOverlayRenderer } from './community/CommunityOverlay';
 import { HelpModal } from './HelpModal';
 import { openedProjectsSortedIdsState } from '../state/savedGraphs';
 import { NoProject } from './NoProject';
@@ -132,7 +131,6 @@ export const RivetApp: FC = () => {
           <TrivetRenderer tryRunTests={tryRunTests} />
           <ChatViewerRenderer />
           <DataStudioRenderer />
-          <CommunityOverlayRenderer />
           <NewProjectModalRenderer />
           <AppErrorBoundary context="Settings Modal" fallback={<div>Failed to render Settings</div>}>
             <SettingsModal />
@@ -165,7 +163,6 @@ export const RivetApp: FC = () => {
           <NewProjectModalRenderer />
           <MissingAppPluginsModalRenderer />
           <DeleteGraphInputConfirmModalRenderer />
-          <CommunityOverlayRenderer />
         </>
       )}
       <HelpModal />

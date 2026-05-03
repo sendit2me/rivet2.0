@@ -1,9 +1,7 @@
 import Button from '@atlaskit/button';
 import { css } from '@emotion/react';
-import { type FC } from 'react';
+import { type FC, type MouseEvent } from 'react';
 import { useOpenUrl } from '../hooks/useOpenUrl';
-import DiscordIcon from '../assets/vendor_logos/discord-mark-white.svg?react';
-import GearIcon from 'majesticons/line/settings-cog-line.svg?react';
 import RivetIcon from '../rivet-logo-1024-full.png';
 import { useSetAtom } from 'jotai';
 import { newProjectModalOpenState } from '../state/ui';
@@ -71,32 +69,24 @@ const styles = css`
     top: 50px;
     width: 100px;
   }
-
-  .open-settings {
-    position: absolute;
-    top: 0;
-    right: 0;
-    width: 64px;
-    height: 64px;
-    display: flex;
-  }
 `;
 
 export const NoProject: FC = () => {
-  const openDocumentation = useOpenUrl('https://github.com/valerypopoff/rivet2.0/docs');
-  const joinDiscord = useOpenUrl('https://discord.gg/qT8B2gv9Mg');
+  const openDocumentation = useOpenUrl('https://valerypopoff.github.io/rivet2.0/');
   const setNewProjectModalOpen = useSetAtom(newProjectModalOpenState);
   const setSettingsModalOpen = useSetAtom(settingsModalOpenState);
   const openProject = useLoadProjectWithFileBrowser();
+
+  const openSettings = (event: MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+    setSettingsModalOpen(true);
+  };
 
   return (
     <div css={styles}>
       <div className="inner">
         <img src={RivetIcon} alt="Rivet Logo" className="logo" />
-        <Button className="open-settings" onClick={() => setSettingsModalOpen(true)}>
-          <GearIcon />
-        </Button>
-        <h1>Welcome to Rivet!</h1>
+        <h1>Welcome to Rivet 2</h1>
         <p>No project is currently open. You can:</p>
 
         <ul>
@@ -116,17 +106,17 @@ export const NoProject: FC = () => {
             <p>
               Check out the{' '}
               <a href="#" onClick={openDocumentation}>
-                Rivet documentation
+                Rivet 2 documentation
               </a>
             </p>
           </li>
           <li>
             <p>
-              Need help? join the{' '}
-              <a href="#" onClick={joinDiscord}>
-                <DiscordIcon /> Discord Server
+              Open{' '}
+              <a href="#" onClick={openSettings}>
+                Settings
               </a>{' '}
-              for ideas, support, and community
+              to configure providers, plugins, and UI preferences
             </p>
           </li>
         </ul>

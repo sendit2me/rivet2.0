@@ -14,7 +14,7 @@
 - plugin loading and plugin management UI
 - Trivet test execution UI
 - prompt-designer UI
-- dataset/community/debugger/update overlays
+- dataset/debugger/update overlays
 - bridging browser code to Tauri-native capabilities
 
 The app is not just a thin client over `rivet-core`. A large amount of product behavior lives here in React components, Jotai state, commands, and hooks.
@@ -73,7 +73,7 @@ Includes:
 
 - `ProjectSelector`
 - `NoProject`
-- project-independent workspace renderers: `PromptDesignerRenderer`, `TrivetRenderer`, `ChatViewerRenderer`, `DataStudioRenderer`, and `CommunityOverlayRenderer`
+- project-independent workspace renderers: `PromptDesignerRenderer`, `TrivetRenderer`, `ChatViewerRenderer`, and `DataStudioRenderer`
 - `NewProjectModalRenderer`
 - `SettingsModal`
 - `HelpModal`
@@ -114,7 +114,6 @@ RivetApp
 |- UpdateModalRenderer
 |- NewProjectModalRenderer
 |- MissingAppPluginsModalRenderer
-|- CommunityOverlayRenderer
 |- HelpModal
 `- ToastContainer(s)
 ```
@@ -149,7 +148,7 @@ They are a good fit for:
 - utility buttons
 - browse/open actions
 - straightforward form submissions
-- template/profile/community mutations with ordinary invalidation and toast/error handling
+- straightforward form mutations with ordinary invalidation and toast/error handling
 - dataset actions that are just "persist then reload"
 
 They are not a good fit for flows that also own:
@@ -178,6 +177,7 @@ Handles open-project switching and the top-of-window project context.
 Current workspace behavior:
 
 - the top app bar is rendered even in no-project/welcome mode so project-independent workspaces remain accessible before a graph is opened
+- the no-project welcome card is a Rivet 2 entry surface, not a help/community surface: it offers open project, create project, the published documentation site, and an inline Settings link. Do not add a separate corner Settings icon or legacy Discord/community prompt there.
 - creating a new blank project or template project adds a new open-project tab instead of replacing the existing open-project set
 - a new blank project now starts with one real saved graph named `Untitled Graph`, and that graph is also seeded as the project's `mainGraphId`
 - `projectsState` is the canonical multi-project tab store; `openedProjectsState` and `openedProjectsSortedIdsState` are compatibility projections over it
@@ -196,7 +196,7 @@ Current workspace behavior:
 
 Surface for run, test, pause, resume, abort, and related execution actions. It delegates actual behavior to `useGraphExecutor`.
 
-`ActionBar` is a Canvas-mode control: `RivetApp` renders it only when `overlayOpenState === undefined`. Auxiliary workspaces such as Community, Prompt Designer, Trivet, Chat Viewer, and Data Studio should not show Run, Disconnect Remote Debugger, or the action-bar overflow menu. `DebuggerPanelRenderer` follows the same Canvas-mode render gate so the remote-debugger connect popup cannot float over auxiliary workspaces.
+`ActionBar` is a Canvas-mode control: `RivetApp` renders it only when `overlayOpenState === undefined`. Auxiliary workspaces such as Prompt Designer, Trivet, Chat Viewer, and Data Studio should not show Run, Disconnect Remote Debugger, or the action-bar overflow menu. `DebuggerPanelRenderer` follows the same Canvas-mode render gate so the remote-debugger connect popup cannot float over auxiliary workspaces.
 
 The overflow menu lives in [`packages/app/src/components/ActionBarMoreMenu.tsx`](../packages/app/src/components/ActionBarMoreMenu.tsx). Rows in that menu should share the same base UI font size, and the executor mode row uses a two-line layout: a plain `Executor` label with no icon, then the shared segmented editor control for Browser/Node switching rather than a dropdown. The segmented track gets a small left visual compensation inside this menu so it aligns with the label despite the capsule border radius. This control writes the live, non-persisted `selectedExecutorState`; the settings modal's `Default executor` control writes only the next-start persisted default.
 
@@ -219,6 +219,10 @@ Current structure:
 
 This is a better refactor seam because settings page changes no longer require editing one large file that mixes general preferences, OpenAI settings, plugin settings, custom plugin pages, and update behavior.
 
+### `HelpModal`
+
+The Help modal intentionally stays narrow: it links only to the published Rivet 2 documentation site at `https://valerypopoff.github.io/rivet2.0/` and to GitHub issues at `https://github.com/valerypopoff/rivet2.0/issues`. Do not reintroduce old Rivet community, X/Twitter, or YouTube destinations there unless those destinations become current Rivet 2 support surfaces again.
+
 ### `LeftSidebar`
 
 A fixed left rail controlled by `sidebarOpenState`.
@@ -237,15 +241,15 @@ The `Graphs` tab hosts `GraphList`, which is no longer a single all-in-one imple
 
 ### `OverlayTabs`
 
-Acts as the switchboard for overlay-like product areas such as prompt designer, Trivet, chat viewer, community, and other auxiliary workspace surfaces.
+Acts as the switchboard for overlay-like product areas such as prompt designer, Trivet, chat viewer, Data Studio, and other auxiliary workspace surfaces.
 
 Current rule that matters for maintenance:
 
 - [`ProjectSelector`](../packages/app/src/components/ProjectSelector.tsx) is the top app bar. It owns the File menu, opened-project tabs, and inline workspace navigation.
 - `Canvas` is the normal app state, represented by `overlayOpenState === undefined`, not a visible workspace tab. Selecting an already-open workspace tab returns to Canvas.
-- `OverlayTabs` renders auxiliary workspace destinations such as Trivet, Chat Viewer, Data Studio, Community, plus the graph `Search` action. It is mounted inside the top app bar after the opened-project tabs. Community stays as the last workspace tab before `Search`. Plugin installation lives under Settings instead of the workspace navigation. Prompt Designer is opened from the Chat node output flask action rather than as a persistent top-bar destination; while Prompt Designer is open, `OverlayTabs` temporarily inserts its active tab before Community so users can see and close the current workspace without moving Community away from the end.
+- `OverlayTabs` renders auxiliary workspace destinations such as Trivet, Chat Viewer, Data Studio, plus the graph `Search` action. It is mounted inside the top app bar after the opened-project tabs. Plugin installation lives under Settings instead of the workspace navigation. Prompt Designer is opened from the Chat node output flask action rather than as a persistent top-bar destination; while Prompt Designer is open, `OverlayTabs` temporarily inserts its active tab so users can see and close the current workspace.
 - Graph `Search` is hidden while no project is open because it is graph-scoped; the workspace tabs remain visible in welcome mode.
-- full-screen workspaces that need their own navigation/content rails, currently Community and Data Studio, should cover the whole app below the top project selector (`left: 0`) instead of leaving the graph sidebar visible. This keeps auxiliary workspace layout consistent and prevents stale canvas-side UI from looking interactive behind the workspace.
+- full-screen workspaces that need their own navigation/content rails, currently Data Studio, should cover the whole app below the top project selector (`left: 0`) instead of leaving the graph sidebar visible. This keeps auxiliary workspace layout consistent and prevents stale canvas-side UI from looking interactive behind the workspace.
 - New/open project commands stay in the File menu and command layer rather than also appearing as separate top-bar icon buttons. The Discord shortcut is not part of the project top bar.
 - workspace navigation in the top bar stays single-line and horizontally scrollable when space is tight, so the project tabs keep the remaining top-bar width and the app avoids a second floating workspace-tab row.
 
@@ -297,7 +301,7 @@ Current responsibilities:
 - host user-input modal behavior
 - show read-only or recording borders
 - host secondary canvas-adjacent UI like navigation bar and graph execution selector
-- render the node settings panel only in Canvas mode. `NodeEditorRenderer` should stay gated behind `overlayOpenState === undefined` so selecting Prompt Designer, Trivet, Chat Viewer, Data Studio, Community, or another auxiliary workspace cannot leave node settings floating over that workspace.
+- render the node settings panel only in Canvas mode. `NodeEditorRenderer` should stay gated behind `overlayOpenState === undefined` so selecting Prompt Designer, Trivet, Chat Viewer, Data Studio, or another auxiliary workspace cannot leave node settings floating over that workspace.
 
 Notable detail: user-input flow is not owned by the executor hooks alone. `GraphBuilder` also participates by reading `userInputModalQuestionsState`, showing the modal, and passing results back through `submitUserInputAnswers(...)`.
 The AI graph-builder path now also depends on extracted plain helpers in [`packages/app/src/hooks/aiGraphBuilderHelpers.ts`](../packages/app/src/hooks/aiGraphBuilderHelpers.ts); those helpers must resolve port connectivity relative to the requested node, not just by shared port ids like `input` or `output`, or graph review/edit operations can report the wrong edges.
@@ -854,7 +858,7 @@ Persistence contract:
 
 ### Overlay and UI state
 
-The app also uses other state files such as `ui.ts`, `trivet.ts`, `promptDesigner.ts`, `userInput.ts`, `plugins.ts`, `community.ts`, and `dataStudio.ts` to drive overlay-specific behavior.
+The app also uses other state files such as `ui.ts`, `trivet.ts`, `promptDesigner.ts`, `userInput.ts`, `plugins.ts`, and `dataStudio.ts` to drive overlay-specific behavior.
 
 ## Project Loading and Saving
 
@@ -1218,7 +1222,7 @@ Projects still serialize plugin usage through the existing `Project.plugins` fie
 
 [`packages/app/src/utils/pluginUsage.ts`](../packages/app/src/utils/pluginUsage.ts) derives project-used plugin specs by scanning all project graphs plus the active unsaved graph, asking the current registry which plugin owns each node type, and mapping the runtime plugin id back to the app-installed `PluginLoadSpec`.
 
-[`useSyncProjectPluginsFromGraphUsage`](../packages/app/src/hooks/useSyncProjectPluginsFromGraphUsage.ts) keeps the Project sidebar in sync. Save, browser run, Node/remote upload, and community-template upload paths also derive specs before serializing or sending the project so newly added plugin nodes are not lost to a render-timing race.
+[`useSyncProjectPluginsFromGraphUsage`](../packages/app/src/hooks/useSyncProjectPluginsFromGraphUsage.ts) keeps the Project sidebar in sync. Save, browser run, and Node/remote upload paths also derive specs before serializing or sending the project so newly added plugin nodes are not lost to a render-timing race.
 
 If a project declares a plugin that is not installed in the app, has just been removed from the app, failed to load, or the current graph contains unknown node types, the spec is preserved. Rivet cannot prove that all corresponding nodes were removed until plugin ownership can be resolved.
 

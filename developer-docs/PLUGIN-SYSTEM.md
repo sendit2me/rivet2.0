@@ -228,7 +228,7 @@ Plugin availability is app-level, while project YAML plugin specs are derived fr
 
 `projectPluginsState` still writes the existing `Project.plugins` YAML field, but users do not manually add or delete entries there. [`pluginUsage.ts`](../packages/app/src/utils/pluginUsage.ts) derives project plugin specs by scanning project graphs, asking the loaded registry which plugin owns each node type, and mapping the runtime plugin id back to the app-installed `PluginLoadSpec`. It also centralizes plugin spec identity, display labels, details, and search matching so Settings > Plugins and the missing-plugin modal describe specs consistently.
 
-Save, run, remote-upload, and community-template upload paths derive project plugin specs before serializing or sending a project. This prevents a newly added plugin node from racing ahead of the background sync hook.
+Save, run, and remote-upload paths derive project plugin specs before serializing or sending a project. This prevents a newly added plugin node from racing ahead of the background sync hook.
 
 Unresolved project specs are preserved. If a project declares a plugin that is not installed in the app, has just been removed from the app, failed to load, or the current graph contains unknown node types, Rivet cannot prove whether all corresponding nodes are gone, so the YAML spec is kept until plugin ownership can be resolved.
 

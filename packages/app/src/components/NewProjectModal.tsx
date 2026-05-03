@@ -105,8 +105,6 @@ export const NewProjectModal: FC = () => {
               .with('tutorial', () => <FromTutorialTemplate onCreated={onProjectCreated} />)
               .with('ai_agent', () => <AiAgentTemplate onCreated={onProjectCreated}/>)
               .with('mcp_ai_agent', () => <MCPAiAgentTemplate onCreated={onProjectCreated}/>)
-              .with('community_templates', () => <div>Coming soon!</div>)
-              .with('community_examples', () => <div>Coming soon!</div>)
               .otherwise((template) => (
                 <div>Unknown template: {template}</div>
               ))}

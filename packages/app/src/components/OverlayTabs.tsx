@@ -7,7 +7,6 @@ import { trivetState } from '../state/trivet.js';
 import { LoadingSpinner } from './LoadingSpinner.js';
 import { type OverlayKey, overlayOpenState } from '../state/ui';
 import { hideGraphSearchPanelState, openOrFocusGraphSearchState, searchingGraphState } from '../state/graphBuilder';
-import { useFeatureFlag } from '../hooks/useFeatureFlag';
 import { projectState } from '../state/savedGraphs.js';
 import { graphState } from '../state/graph.js';
 import { lastRunDataByNodeState } from '../state/dataFlow.js';
@@ -132,7 +131,6 @@ export const OverlayTabs: FC<{
   const currentGraph = useAtomValue(graphState);
   const allLastRunData = useAtomValue(lastRunDataByNodeState);
 
-  const communityEnabled = useFeatureFlag('community');
   const chatViewerAvailable = useMemo(
     () => hasChatViewerRows(project.graphs, currentGraph, allLastRunData),
     [allLastRunData, currentGraph, project.graphs],
@@ -149,7 +147,7 @@ export const OverlayTabs: FC<{
     setGraphSearch(hideGraphSearchPanelState);
   };
 
-  const visibleWorkspaceTabs = getVisibleWorkspaceTabs({ chatViewerAvailable, communityEnabled, openOverlay });
+  const visibleWorkspaceTabs = getVisibleWorkspaceTabs({ chatViewerAvailable, openOverlay });
 
   return (
     <nav css={styles} aria-label="Workspace navigation">

@@ -16,7 +16,7 @@ Rivet project files still use the existing `plugins` YAML field. Users do not ed
 
 Instead, Rivet derives the project's plugin list from graph contents:
 
-- If a graph contains a node from an app-installed plugin, the project declares that plugin when it is saved, run, uploaded to a remote executor, or uploaded as a community template.
+- If a graph contains a node from an app-installed plugin, the project declares that plugin when it is saved, run, or uploaded to a remote executor.
 - Duplicate plugin nodes still produce one plugin declaration.
 - Removing all nodes from a plugin removes that plugin from the project's saved plugin list.
 - Built-in nodes do not add plugin declarations.

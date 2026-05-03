@@ -2,10 +2,7 @@ import { type FC } from 'react';
 import { helpModalOpenState } from '../state/ui';
 import Modal, { ModalTransition, ModalBody, ModalFooter } from '@atlaskit/modal-dialog';
 import Button from '@atlaskit/button';
-import DiscordIcon from '../assets/vendor_logos/discord-mark-white.svg?react';
 import GithubIcon from '../assets/vendor_logos/github-mark-white.svg?react';
-import TwitterIcon from '../assets/vendor_logos/twitter-logo.svg?react';
-import YoutubeIcon from '../assets/vendor_logos/youtube-icon.png';
 import QuestionIcon from 'majesticons/line/question-circle-line.svg?react';
 import { css } from '@emotion/react';
 import { useAtom } from 'jotai';
@@ -40,45 +37,22 @@ export const HelpModal: FC = () => {
           <AppModalHeader title="Help" />
           <ModalBody>
             <div css={styles}>
-              <p>Need help with Rivet? Check out the following places!</p>
+              <p>Need help with Rivet 2? Check out the following places.</p>
 
               <h2>
-                <a href="https://discord.gg/qT8B2gv9Mg" target="_blank" rel="noreferrer">
-                  <DiscordIcon /> Rivet Community Discord
+                <a href="https://valerypopoff.github.io/rivet2.0/" target="_blank" rel="noreferrer">
+                  <QuestionIcon /> Rivet 2 documentation
                 </a>
               </h2>
               <p>
-                Join the Rivet Community Discord to get help with Rivet, share your creations, discuss prompt
-                engineering, and more!
-              </p>
-              <h2>
-                <a href="https://github.com/valerypopoff/rivet2.0/docs" target="_blank" rel="noreferrer">
-                  <QuestionIcon /> Rivet Documentation
-                </a>
-              </h2>
-              <p>
-                The Rivet documentation contains a wealth of information on how to use Rivet, documentation for every
-                node, and instructions for integrating Rivet into your own application.
+                Read the user guide, tutorial, API reference, node reference, and CLI documentation.
               </p>
               <h2>
                 <a href="https://github.com/valerypopoff/rivet2.0/issues" target="_blank" rel="noreferrer">
-                  <GithubIcon viewBox="0 0 100 100" /> GitHub Issues
+                  <GithubIcon viewBox="0 0 100 100" /> GitHub issues
                 </a>
               </h2>
               <p>Need to report a bug? Open an issue on GitHub to let us know!</p>
-              <h2>
-                <a href="https://twitter.com/rivet_ts" target="_blank" rel="noreferrer">
-                  <TwitterIcon /> Rivet on X (Twitter)
-                </a>
-              </h2>
-              <p>Join the discussions about Rivet on X!</p>
-              <h2>
-                {' '}
-                <a href="https://www.youtube.com/channel/UCzCPXL6k7kjr26rhfWNmbfA" target="_blank" rel="noreferrer">
-                  <img src={YoutubeIcon} alt="YouTube Logo" /> Rivet YouTube
-                </a>
-              </h2>
-              <p>The Rivet YouTube channel contains tutorials, ideas, and more about how to use Rivet to its best! </p>
             </div>
           </ModalBody>
           <ModalFooter>

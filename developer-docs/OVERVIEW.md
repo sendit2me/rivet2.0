@@ -24,7 +24,6 @@ packages/
   app/            Desktop app
   app-executor/   Node sidecar for the app
   cli/            CLI for running and serving graphs
-  community/      Internal app/community package
   core/           Runtime engine, graph model, built-in nodes/plugins
   docs/           Docusaurus site
   node/           Node integration library
@@ -83,7 +82,7 @@ Contains:
 - plugin installation/loading UX
 - Trivet integration
 - prompt-designer integration
-- updater/debugger/community/data overlays
+- updater/debugger/data overlays
 - Tauri-native bridging
 
 ### 3. Node runtime layer
