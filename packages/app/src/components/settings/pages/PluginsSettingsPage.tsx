@@ -14,7 +14,7 @@ export const PluginsSettingsPage: FC = () => {
   const [, setPluginRetryCounter] = useAtom(pluginRetryCounterState);
 
   if (plugins.length === 0 && failedPlugins.length === 0) {
-    return <div>No plugins are installed in this Rivet app. Add plugins from the Plugins workspace.</div>;
+    return <div>No plugins are installed in this Rivet app. Add plugins from Settings &gt; Plugins.</div>;
   }
 
   return (

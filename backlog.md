@@ -2,8 +2,6 @@
 
 - Human readable Loop node
 
-- Only show the run UI in the "Canvas" workspace
-
 - Reassess Ctrl+N window
 
 

@@ -4,7 +4,7 @@ import { graphState } from '../state/graph';
 import { loadedProjectState, projectDataState, projectState, projectsState } from '../state/savedGraphs';
 import { addOpenedProject } from '../utils/openedProjects.js';
 
-export function useSyncCurrentStateIntoOpenedProjects() {
+export function useSyncCurrentStateIntoOpenedProjects({ enabled = true }: { enabled?: boolean } = {}) {
   const setProjects = useSetAtom(projectsState);
   const currentProject = useAtomValue(projectState);
   const currentProjectData = useAtomValue(projectDataState);
@@ -20,6 +20,10 @@ export function useSyncCurrentStateIntoOpenedProjects() {
 
   // Make sure current opened project is in opened projects
   useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+
     if (!currentProject.metadata.id) {
       return;
     }
@@ -45,5 +49,5 @@ export function useSyncCurrentStateIntoOpenedProjects() {
 
       return nextProject ? nextProjects : previousProjects;
     });
-  }, [currentGraph?.metadata?.id, currentProject, currentProjectWithData, loadedProject.path, setProjects]);
+  }, [currentGraph?.metadata?.id, currentProject, currentProjectWithData, enabled, loadedProject.path, setProjects]);
 }

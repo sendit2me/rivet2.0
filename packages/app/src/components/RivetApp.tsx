@@ -21,7 +21,6 @@ import clsx from 'clsx';
 import { useLoadStaticData } from '../hooks/useLoadStaticData';
 import { DataStudioRenderer } from './dataStudio/DataStudio';
 import { StatusBar } from './StatusBar';
-import { PluginsOverlayRenderer } from './PluginsOverlay';
 import { useCheckForUpdate } from '../hooks/useCheckForUpdate';
 import useAsyncEffect from 'use-async-effect';
 import { UpdateModalRenderer } from './UpdateModal';
@@ -127,7 +126,13 @@ export const RivetApp: FC = () => {
     <div className={clsx('app', theme ? `theme-${theme}` : 'theme-default')} css={styles} style={uiFontSizeCssVariables}>
       {noProjectOpen ? (
         <>
+          <ProjectSelector mode="workspace" />
           <NoProject />
+          <PromptDesignerRenderer />
+          <TrivetRenderer tryRunTests={tryRunTests} />
+          <ChatViewerRenderer />
+          <DataStudioRenderer />
+          <CommunityOverlayRenderer />
           <NewProjectModalRenderer />
           <AppErrorBoundary context="Settings Modal" fallback={<div>Failed to render Settings</div>}>
             <SettingsModal />
@@ -156,7 +161,6 @@ export const RivetApp: FC = () => {
           <TrivetRenderer tryRunTests={tryRunTests} />
           <ChatViewerRenderer />
           <DataStudioRenderer />
-          <PluginsOverlayRenderer />
           <UpdateModalRenderer />
           <NewProjectModalRenderer />
           <MissingAppPluginsModalRenderer />

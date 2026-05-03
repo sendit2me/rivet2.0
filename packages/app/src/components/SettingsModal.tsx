@@ -10,6 +10,7 @@ import {
   GeneralSettingsPage,
   GraphsSettingsPage,
   OpenAiSettingsPage,
+  PluginsCatalogPage,
   PluginsSettingsPage,
   UiSettingsPage,
   UpdatesSettingsPage,
@@ -34,7 +35,7 @@ const modalBody = css`
   }
 `;
 
-type DefaultPages = 'general' | 'graphs' | 'ui' | 'openai' | 'plugins' | 'updates';
+type DefaultPages = 'general' | 'graphs' | 'ui' | 'openai' | 'plugins' | 'pluginsSettings' | 'updates';
 type Pages = DefaultPages | string;
 
 const buttonsContainer = css`
@@ -85,6 +86,9 @@ export const SettingsModal: FC<SettingsModalProps> = () => {
                       <ButtonItem isSelected={page === 'plugins'} onClick={() => setPage('plugins')}>
                         Plugins
                       </ButtonItem>
+                      <ButtonItem isSelected={page === 'pluginsSettings'} onClick={() => setPage('pluginsSettings')}>
+                        Plugins settings
+                      </ButtonItem>
                       <ButtonItem isSelected={page === 'updates'} onClick={() => setPage('updates')}>
                         Updates
                       </ButtonItem>
@@ -103,7 +107,8 @@ export const SettingsModal: FC<SettingsModalProps> = () => {
                   .with('graphs', () => <GraphsSettingsPage />)
                   .with('ui', () => <UiSettingsPage />)
                   .with('openai', () => <OpenAiSettingsPage />)
-                  .with('plugins', () => <PluginsSettingsPage />)
+                  .with('plugins', () => <PluginsCatalogPage />)
+                  .with('pluginsSettings', () => <PluginsSettingsPage />)
                   .with('updates', () => <UpdatesSettingsPage />)
                   .with(P.string, (id) => customPluginsPages[id])
                   .exhaustive()}

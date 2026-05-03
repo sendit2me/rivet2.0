@@ -120,6 +120,10 @@ export const styles = css`
     overflow: hidden;
   }
 
+  .projects-container.empty {
+    flex: 0 0 auto;
+  }
+
   .projects {
     display: flex;
     align-items: stretch;
@@ -252,7 +256,10 @@ export const styles = css`
   }
 `;
 
-export const ProjectSelector: FC = () => {
+export const ProjectSelector: FC<{
+  mode?: 'project' | 'workspace';
+}> = ({ mode = 'project' }) => {
+  const projectMode = mode === 'project';
   const openedProjects = useAtomValue(openedProjectsState);
   const [openedProjectsSortedIds, setOpenedProjectsSortedIds] = useAtom(openedProjectsSortedIdsState);
   const currentProject = useAtomValue(projectState);
@@ -266,10 +273,11 @@ export const ProjectSelector: FC = () => {
       }))
       .filter((item) => item.project != null);
   }, [openedProjectsSortedIds, openedProjects]);
+  const visibleProjects = projectMode ? sortedOpenedProjects : [];
 
   const loadProject = useLoadProject();
 
-  useSyncCurrentStateIntoOpenedProjects();
+  useSyncCurrentStateIntoOpenedProjects({ enabled: projectMode });
 
   const handleDragEnd = ({ active, over }: DragEndEvent) => {
     if (over && active.id !== over.id) {
@@ -295,11 +303,11 @@ export const ProjectSelector: FC = () => {
   return (
     <div css={styles}>
       {!isInTauri() && <ProjectFileMenu />}
-      <div className="projects-container">
+      <div className={clsx('projects-container', { empty: visibleProjects.length === 0 })}>
         <div className="projects">
           <DndContext onDragEnd={handleDragEnd}>
-            <SortableContext items={sortedOpenedProjects} strategy={horizontalListSortingStrategy}>
-              {sortedOpenedProjects.map((project) => {
+            <SortableContext items={visibleProjects} strategy={horizontalListSortingStrategy}>
+              {visibleProjects.map((project) => {
                 return (
                   <SortableProject
                     key={project.id}
@@ -313,7 +321,7 @@ export const ProjectSelector: FC = () => {
           </DndContext>
         </div>
       </div>
-      <OverlayTabs />
+      <OverlayTabs showGraphSearch={projectMode} />
     </div>
   );
 };

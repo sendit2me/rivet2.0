@@ -20,7 +20,7 @@ export type DebuggerPanelAnchor = {
 
 export const debuggerPanelAnchorState = atom<DebuggerPanelAnchor | undefined>(undefined);
 
-export type OverlayKey = 'promptDesigner' | 'trivet' | 'chatViewer' | 'dataStudio' | 'plugins' | 'community';
+export type OverlayKey = 'promptDesigner' | 'trivet' | 'chatViewer' | 'dataStudio' | 'community';
 
 export const overlayOpenState = atom<OverlayKey | undefined>(undefined);
 

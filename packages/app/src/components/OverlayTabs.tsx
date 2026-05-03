@@ -117,7 +117,6 @@ const styles = css`
 `;
 
 const WORKSPACE_TABS: Array<{ key: OverlayKey; label: string; className: string }> = [
-  { key: 'plugins', label: 'Plugins', className: 'plugins' },
   { key: 'community', label: 'Community', className: 'community' },
   { key: 'promptDesigner', label: 'Prompt Designer', className: 'prompt-designer-menu' },
   { key: 'trivet', label: 'Trivet Tests', className: 'trivet-menu' },
@@ -125,7 +124,9 @@ const WORKSPACE_TABS: Array<{ key: OverlayKey; label: string; className: string 
   { key: 'dataStudio', label: 'Data Studio', className: 'data-studio' },
 ];
 
-export const OverlayTabs: FC = () => {
+export const OverlayTabs: FC<{
+  showGraphSearch?: boolean;
+}> = ({ showGraphSearch = true }) => {
   const [openOverlay, setOpenOverlay] = useAtom(overlayOpenState);
   const setGraphSearch = useSetAtom(searchingGraphState);
 
@@ -158,23 +159,25 @@ export const OverlayTabs: FC = () => {
             )}
           </WorkspaceTab>
         ))}
-        <div className="menu-item search-menu">
-          <button
-            type="button"
-            className="dropdown-item"
-            onMouseDown={(e) => {
-              if (e.button === 0) {
-                setOpenOverlay(undefined);
-                setGraphSearch((state) =>
-                  state.searching ? emptyGraphSearchState : openOrFocusGraphSearchState(state),
-                );
-              }
-            }}
-          >
-            <SearchIcon />
-            Search
-          </button>
-        </div>
+        {showGraphSearch && (
+          <div className="menu-item search-menu">
+            <button
+              type="button"
+              className="dropdown-item"
+              onMouseDown={(e) => {
+                if (e.button === 0) {
+                  setOpenOverlay(undefined);
+                  setGraphSearch((state) =>
+                    state.searching ? emptyGraphSearchState : openOrFocusGraphSearchState(state),
+                  );
+                }
+              }}
+            >
+              <SearchIcon />
+              Search
+            </button>
+          </div>
+        )}
       </div>
     </nav>
   );

@@ -71,7 +71,9 @@ Rendered when `openedProjectsSortedIdsState` is empty.
 
 Includes:
 
+- `ProjectSelector`
 - `NoProject`
+- project-independent workspace renderers: `PromptDesignerRenderer`, `TrivetRenderer`, `ChatViewerRenderer`, `DataStudioRenderer`, and `CommunityOverlayRenderer`
 - `NewProjectModalRenderer`
 - `SettingsModal`
 - `HelpModal`
@@ -109,7 +111,6 @@ RivetApp
 |- TrivetRenderer
 |- ChatViewerRenderer
 |- DataStudioRenderer
-|- PluginsOverlayRenderer
 |- UpdateModalRenderer
 |- NewProjectModalRenderer
 |- MissingAppPluginsModalRenderer
@@ -176,6 +177,7 @@ Handles open-project switching and the top-of-window project context.
 
 Current workspace behavior:
 
+- the top app bar is rendered even in no-project/welcome mode so project-independent workspaces remain accessible before a graph is opened
 - creating a new blank project or template project adds a new open-project tab instead of replacing the existing open-project set
 - a new blank project now starts with one real saved graph named `Untitled Graph`, and that graph is also seeded as the project's `mainGraphId`
 - `projectsState` is the canonical multi-project tab store; `openedProjectsState` and `openedProjectsSortedIdsState` are compatibility projections over it
@@ -185,6 +187,7 @@ Current workspace behavior:
 - `useSyncCurrentStateIntoOpenedProjects` keeps tab metadata and inactive-project content snapshots in sync, while `useSyncCurrentProjectEditorState` mirrors the active project's navigation stack and canvas positions into `projectEditorStateByProjectIdState` after boot hydration
 - successful project saves clear any persisted inactive-project snapshot for that project and flush the grouped `project` storage so tab metadata and editor-view state are durable together
 - closing/reordering project tabs still lives in `ProjectSelector.tsx`, and closing a background tab no longer triggers a neighbor-project load
+- `ProjectSelector` only syncs the current in-memory project into the open-project tab store while real project mode is active. In no-project mode `RivetApp` renders it with `mode="workspace"` so the welcome screen gets project-independent workspace navigation without creating an `Untitled Project` tab or exposing graph-scoped search.
 - project-tab reordering is visually constrained to horizontal motion even while dragging, so any future reorder changes should preserve that left-right-only affordance instead of letting tabs drift vertically
 - in the browser build, the `File` menu is the leftmost item in the same top bar as the opened-project tabs, not part of the centered overlay-tab switcher; its dropdown owns local open state, outside-click dismissal, menu separators, and the browser-visible order `New project`, `Open project`, `Save project`, `Save project as...`, `Import graph`, `Export graph`, `Settings`
 - the browser `File` menu delegates to the shared menu command surface, so `Save project` is the same command used by app hotkeys and native menus; Tauri continues to omit this in-bar menu because native app menus handle file commands there. The active menu-command handler is mirrored on `window` so browser file-menu actions, native menu events, and the Windows hotkey shim keep dispatching to the current handler across Vite Fast Refresh updates. The Windows shortcut shim listens on capture-phase `keydown`, prevents the browser default for mapped commands such as `Ctrl+S`, and accepts common Windows user-agent/platform variants rather than only `Win64`. `Ctrl/Cmd+Shift+I` is reserved for browser/WebView developer tools, so Import Graph remains a File-menu action without a Windows shim shortcut or Tauri accelerator.
@@ -193,7 +196,7 @@ Current workspace behavior:
 
 Surface for run, test, pause, resume, abort, and related execution actions. It delegates actual behavior to `useGraphExecutor`.
 
-`ActionBar` is a Canvas-mode control: `RivetApp` renders it only when `overlayOpenState === undefined`. Auxiliary workspaces such as Plugins, Community, Prompt Designer, Trivet, Chat Viewer, and Data Studio should not show Run, Disconnect Remote Debugger, or the action-bar overflow menu. `DebuggerPanelRenderer` follows the same Canvas-mode render gate so the remote-debugger connect popup cannot float over auxiliary workspaces.
+`ActionBar` is a Canvas-mode control: `RivetApp` renders it only when `overlayOpenState === undefined`. Auxiliary workspaces such as Community, Prompt Designer, Trivet, Chat Viewer, and Data Studio should not show Run, Disconnect Remote Debugger, or the action-bar overflow menu. `DebuggerPanelRenderer` follows the same Canvas-mode render gate so the remote-debugger connect popup cannot float over auxiliary workspaces.
 
 The overflow menu lives in [`packages/app/src/components/ActionBarMoreMenu.tsx`](../packages/app/src/components/ActionBarMoreMenu.tsx). Rows in that menu should share the same base UI font size, and the executor mode row uses a two-line layout: a plain `Executor` label with no icon, then the shared segmented editor control for Browser/Node switching rather than a dropdown. The segmented track gets a small left visual compensation inside this menu so it aligns with the label despite the capsule border radius. This control writes the live, non-persisted `selectedExecutorState`; the settings modal's `Default executor` control writes only the next-start persisted default.
 
@@ -206,6 +209,8 @@ Current structure:
 - [`packages/app/src/components/settings/SettingsPages.tsx`](../packages/app/src/components/settings/SettingsPages.tsx) is now just a barrel export
 - individual settings pages live under [`packages/app/src/components/settings/pages/`](../packages/app/src/components/settings/pages)
 - shared plugin-config form rendering for the plugin pages lives in [`packages/app/src/components/settings/pages/PluginSettingsSection.tsx`](../packages/app/src/components/settings/pages/PluginSettingsSection.tsx)
+- the `Plugins` page hosts app-level plugin catalog/search/install/remove UI through [`packages/app/src/components/settings/pages/PluginsCatalogPage.tsx`](../packages/app/src/components/settings/pages/PluginsCatalogPage.tsx). It writes installed plugin specs to `appPluginSpecsState`; it is not a workspace overlay and does not edit the current project's YAML directly.
+- the `Plugins settings` page hosts loaded plugin configuration and failed-plugin retry UI through [`packages/app/src/components/settings/pages/PluginsSettingsPage.tsx`](../packages/app/src/components/settings/pages/PluginsSettingsPage.tsx). Keep it distinct from the app-level catalog page so plugin availability and plugin configuration do not share one overloaded surface.
 - the `Graphs` page owns graph-tree presentation preferences such as whether to show `unreachable` graph tags and whether to show reverse reference indicators for the currently open graph. Both preferences are stored as UI atoms in [`packages/app/src/state/ui.ts`](../packages/app/src/state/ui.ts) and default to enabled. It also owns graph-execution history recording through `recordExecutionsState`.
 - the `UI` page owns presentation-oriented preferences such as theme selection, app UI font size, canvas zoom sensitivity, node-port text casing, default node colors, and whether newly created nodes auto-open their settings panel, while `General` is reserved for broader app/runtime behavior. Theme selection on `UI` and the `Default executor` setting on `General` use the shared segmented editor instead of dropdowns so settings-modal segmented choices match node settings and the run context menu. `Default executor` writes `defaultExecutorState` only; it does not change the already-running app's live executor mode. Browser/Node executor options should come from `getExecutorOptions(...)`, because hosted shells with `executor.internalExecutorUrl` are allowed to expose Node mode even when `isInTauri()` is false.
 - settings-page helper text follows the node-settings pattern: render hints before the control with [`packages/app/src/components/FieldHelperMessage.tsx`](../packages/app/src/components/FieldHelperMessage.tsx), and pass switcher hints through [`packages/app/src/components/LabeledToggle.tsx`](../packages/app/src/components/LabeledToggle.tsx) so the hint aligns under the label text rather than under the switch and remains clickable together with the switch label
@@ -237,7 +242,9 @@ Current rule that matters for maintenance:
 
 - [`ProjectSelector`](../packages/app/src/components/ProjectSelector.tsx) is the top app bar. It owns the File menu, opened-project tabs, and inline workspace navigation.
 - `Canvas` is the normal app state, represented by `overlayOpenState === undefined`, not a visible workspace tab. Selecting an already-open workspace tab returns to Canvas.
-- `OverlayTabs` renders only auxiliary workspace destinations such as `Plugins`, `Community`, Prompt Designer, Trivet, Chat Viewer, Data Studio, plus the graph `Search` action. It is mounted inside the top app bar after the opened-project tabs.
+- `OverlayTabs` renders only auxiliary workspace destinations such as `Community`, Prompt Designer, Trivet, Chat Viewer, Data Studio, plus the graph `Search` action. It is mounted inside the top app bar after the opened-project tabs. Plugin installation lives under Settings instead of the workspace navigation.
+- Graph `Search` is hidden while no project is open because it is graph-scoped; the workspace tabs remain visible in welcome mode.
+- full-screen workspaces that need their own navigation/content rails, currently Community and Data Studio, should cover the whole app below the top project selector (`left: 0`) instead of leaving the graph sidebar visible. This keeps auxiliary workspace layout consistent and prevents stale canvas-side UI from looking interactive behind the workspace.
 - New/open project commands stay in the File menu and command layer rather than also appearing as separate top-bar icon buttons. The Discord shortcut is not part of the project top bar.
 - workspace navigation in the top bar stays single-line and horizontally scrollable when space is tight, so the project tabs keep the remaining top-bar width and the app avoids a second floating workspace-tab row.
 
@@ -1201,23 +1208,23 @@ If a project declares a plugin that is not installed in the app, has just been r
 
 Opening a project does not automatically install its declared plugins into the app. If the user closes the modal, the project stays as-is and unknown plugin nodes continue to render through the existing unknown-node fallback.
 
-### `PluginsOverlay`
+### Settings plugin pages
 
-The plugin browser/install overlay is still launched through [`packages/app/src/components/PluginsOverlay.tsx`](../packages/app/src/components/PluginsOverlay.tsx), but it no longer keeps catalog rendering and modal rendering in one large file.
+The plugin browser/install surface lives in the Settings modal rather than as a top-bar workspace overlay.
 
 Current structure:
 
-- overlay-level install/search state stays in `PluginsOverlay.tsx`
+- app-level install/search state stays in [`packages/app/src/components/settings/pages/PluginsCatalogPage.tsx`](../packages/app/src/components/settings/pages/PluginsCatalogPage.tsx)
 - catalog rendering lives in [`packages/app/src/components/pluginsOverlay/PluginCatalog.tsx`](../packages/app/src/components/pluginsOverlay/PluginCatalog.tsx)
 - per-plugin row rendering lives in [`packages/app/src/components/pluginsOverlay/PluginCatalogItem.tsx`](../packages/app/src/components/pluginsOverlay/PluginCatalogItem.tsx)
 - install/log modals live in [`packages/app/src/components/pluginsOverlay/PluginInstallModals.tsx`](../packages/app/src/components/pluginsOverlay/PluginInstallModals.tsx)
-- shared overlay styles live in [`packages/app/src/components/pluginsOverlay/pluginsOverlayStyles.ts`](../packages/app/src/components/pluginsOverlay/pluginsOverlayStyles.ts)
+- loaded plugin configuration and failed-plugin retry UI live in [`packages/app/src/components/settings/pages/PluginsSettingsPage.tsx`](../packages/app/src/components/settings/pages/PluginsSettingsPage.tsx), exposed as the `Plugins settings` tab
 
-The Add action writes to `appPluginSpecsState`, not to the current project. The catalog's Installed marker therefore means "installed in this Rivet app." Installed catalog rows expose a Remove action that deletes the matching app plugin spec; non-catalog specs installed through the manual package/missing-plugin flows are listed separately in the Plugins workspace with the same Remove behavior and participate in plugin search by spec label/id. Removing an app plugin updates editor availability, but project YAML remains usage-derived and unresolved project plugin specs are preserved until Rivet can resolve plugin ownership and prove those nodes are gone.
+The Add action writes to `appPluginSpecsState`, not to the current project. The catalog's Installed marker therefore means "installed in this Rivet app." Installed catalog rows expose a Remove action that deletes the matching app plugin spec; non-catalog specs installed through the manual package/missing-plugin flows are listed separately in Settings > Plugins with the same Remove behavior and participate in plugin search by spec label/id. Removing an app plugin updates editor availability, but project YAML remains usage-derived and unresolved project plugin specs are preserved until Rivet can resolve plugin ownership and prove those nodes are gone.
 
 A project only receives the plugin in YAML after one of that plugin's node types appears in one of its graphs.
 
-This keeps plugin search/install orchestration separate from the catalog UI and modal UI, which makes later changes to install flows or overlay presentation easier to review.
+This keeps plugin search/install orchestration separate from the catalog UI, plugin configuration UI, and modal UI, which makes later changes to install flows or Settings presentation easier to review.
 
 ### `NodeEditor`
 

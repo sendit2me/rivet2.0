@@ -102,7 +102,7 @@ export function useProjectPlugins() {
     if (results.failed.length === 1) {
       toast.error(`Plugin "${results.failed[0]!.id}" failed to load: ${results.failed[0]!.error}`);
     } else if (results.failed.length > 1) {
-      toast.error(`${results.failed.length} plugins failed to load. Check Settings > Plugins for details.`);
+      toast.error(`${results.failed.length} plugins failed to load. Check Settings > Plugins settings for details.`);
     }
 
     setProjectNodeRegistry(registry);

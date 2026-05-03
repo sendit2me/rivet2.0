@@ -13,26 +13,38 @@ import { CommunityTemplatesPage } from './CommunityTemplatesPage';
 
 const styles = css`
   position: fixed;
-  left: 250px;
   top: var(--project-selector-height);
+  left: 0;
   right: 0;
   bottom: 0;
   background: var(--grey-darker);
-  padding: 64px 32px 0 32px;
   z-index: 150;
+  overflow: hidden;
 
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  padding-bottom: 16px;
-
-  .main {
+  .content {
     display: grid;
-    grid-template-columns: 250px 1fr;
-    flex: 1 1 auto;
-    column-gap: 16px;
-    min-height: 0;
-    overflow: hidden;
+    grid-template-columns: 300px 1fr;
+    height: 100%;
+  }
+
+  .left-sidebar {
+    user-select: none;
+    height: 100%;
+    background-color: var(--grey-darker);
+    border-right: 1px solid var(--grey);
+    z-index: 2;
+    overflow: auto;
+
+    header {
+      padding: 8px 16px;
+      border-bottom: 1px solid var(--grey);
+
+      h1 {
+        margin: 0;
+        font-size: var(--ui-font-size-xl);
+        line-height: 1.4;
+      }
+    }
   }
 
   .selected-nav-area {
@@ -40,6 +52,8 @@ const styles = css`
     flex-direction: column;
     gap: 16px;
     min-height: 0;
+    overflow: auto;
+    padding: 32px;
   }
 `;
 
@@ -60,29 +74,33 @@ export const CommunityOverlay: FC = () => {
 
   return (
     <div css={styles}>
-      <h1>Rivet Community</h1>
-      <div className="main">
-        <SideNavigation label="Rivet Community">
-          <Section title="Templates">
-            <ButtonItem
-              isSelected={selectedNav === 'community-templates'}
-              onClick={() => setSelectedNav('community-templates')}
-            >
-              ⭐ Community Templates
-            </ButtonItem>
-          </Section>
-          <Section title="Me">
-            <ButtonItem isSelected={selectedNav === 'my-profile'} onClick={() => setSelectedNav('my-profile')}>
-              My Profile
-            </ButtonItem>
-            <ButtonItem isSelected={selectedNav === 'my-templates'} onClick={() => setSelectedNav('my-templates')}>
-              My Templates
-            </ButtonItem>
-          </Section>
-          <Section title="Links">
-            <ButtonItem>Discord</ButtonItem>
-          </Section>
-        </SideNavigation>
+      <div className="content">
+        <div className="left-sidebar">
+          <header>
+            <h1>Rivet Community</h1>
+          </header>
+          <SideNavigation label="Rivet Community">
+            <Section title="Templates">
+              <ButtonItem
+                isSelected={selectedNav === 'community-templates'}
+                onClick={() => setSelectedNav('community-templates')}
+              >
+                ⭐ Community Templates
+              </ButtonItem>
+            </Section>
+            <Section title="Me">
+              <ButtonItem isSelected={selectedNav === 'my-profile'} onClick={() => setSelectedNav('my-profile')}>
+                My Profile
+              </ButtonItem>
+              <ButtonItem isSelected={selectedNav === 'my-templates'} onClick={() => setSelectedNav('my-templates')}>
+                My Templates
+              </ButtonItem>
+            </Section>
+            <Section title="Links">
+              <ButtonItem>Discord</ButtonItem>
+            </Section>
+          </SideNavigation>
+        </div>
         <div className="selected-nav-area">
           {match(selectedNav)
             .with('community-templates', () => <CommunityTemplatesPage />)

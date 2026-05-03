@@ -223,9 +223,9 @@ Plugin availability is app-level, while project YAML plugin specs are derived fr
 
 ### App-installed vs project-used plugins
 
-`appPluginSpecsState` is persisted app state. Adding a plugin from the Plugins workspace writes there, so the plugin's nodes appear in the node picker for every project. Removing a plugin from the Plugins workspace removes that spec from `appPluginSpecsState`; it unregisters the plugin from the app registry, but it does not directly edit any project YAML.
+`appPluginSpecsState` is persisted app state. Adding a plugin from Settings > Plugins writes there, so the plugin's nodes appear in the node picker for every project. Removing a plugin from Settings > Plugins removes that spec from `appPluginSpecsState`; it unregisters the plugin from the app registry, but it does not directly edit any project YAML.
 
-`projectPluginsState` still writes the existing `Project.plugins` YAML field, but users do not manually add or delete entries there. [`pluginUsage.ts`](../packages/app/src/utils/pluginUsage.ts) derives project plugin specs by scanning project graphs, asking the loaded registry which plugin owns each node type, and mapping the runtime plugin id back to the app-installed `PluginLoadSpec`. It also centralizes plugin spec identity, display labels, details, and search matching so the Plugins workspace and missing-plugin modal describe specs consistently.
+`projectPluginsState` still writes the existing `Project.plugins` YAML field, but users do not manually add or delete entries there. [`pluginUsage.ts`](../packages/app/src/utils/pluginUsage.ts) derives project plugin specs by scanning project graphs, asking the loaded registry which plugin owns each node type, and mapping the runtime plugin id back to the app-installed `PluginLoadSpec`. It also centralizes plugin spec identity, display labels, details, and search matching so Settings > Plugins and the missing-plugin modal describe specs consistently.
 
 Save, run, remote-upload, and community-template upload paths derive project plugin specs before serializing or sending a project. This prevents a newly added plugin node from racing ahead of the background sync hook.
 
