@@ -42,18 +42,24 @@ jobs:
         env:
           NODE_OPTIONS: --max-old-space-size=6000
 
-      - name: Prepare Pages content
+      - name: Build documentation site
+        run: node .yarn/releases/yarn-4.6.0.cjs workspace docs run build
+        env:
+          NODE_OPTIONS: --max-old-space-size=6000
+
+      - name: Add developer release downloads to docs site
         run: node .github/scripts/prepare-developer-windows-pages.mjs
         env:
           DEVELOPER_RELEASE_LABEL: develop-${{ github.run_number }}-${{ github.sha }}
-          PAGES_OUT_DIR: developer-release-pages
+          DEVELOPER_RELEASE_STANDALONE_PAGE: 'false'
+          PAGES_OUT_DIR: packages/docs/build
           SOURCE_BUNDLE_DIR: packages/app/src-tauri/target/release/bundle
 
       - name: Upload Pages content
         uses: actions/upload-artifact@v7
         with:
-          name: developer-windows-pages
-          path: developer-release-pages
+          name: rivet-docs-pages
+          path: packages/docs/build
           if-no-files-found: error
           retention-days: 7
 
@@ -70,8 +76,8 @@ jobs:
       - name: Download Pages content
         uses: actions/download-artifact@v7
         with:
-          name: developer-windows-pages
-          path: developer-release-pages
+          name: rivet-docs-pages
+          path: rivet-docs-pages
 
       - name: Configure Pages
         if: env.PAGES_ENABLEMENT_TOKEN == ''
@@ -87,7 +93,7 @@ jobs:
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5
         with:
-          path: developer-release-pages
+          path: rivet-docs-pages
 
       - name: Deploy to GitHub Pages
         id: deployment

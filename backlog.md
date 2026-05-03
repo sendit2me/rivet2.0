@@ -4,11 +4,14 @@
 
 - Reassess Ctrl+N window
 
-- Build apps when deploying (develop + main branches)
+
+- Build apps when deploying (main branch)
+- publish the libs on npm (make it a part of the build process when pushing to main)
+
+
 - Check how "Check for updates" button works
 
 
-- publish the libs on npm (make it a part of the build process when pushing to main)
 
 
 - Reassess rivet example project

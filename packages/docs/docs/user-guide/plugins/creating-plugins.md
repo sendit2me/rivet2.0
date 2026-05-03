@@ -2,7 +2,7 @@
 
 ## Introduction
 
-Rivet plugins are written in JavaScript or TypeScript. They are published to NPM and installed into Rivet projects.
+Rivet plugins are written in JavaScript or TypeScript. In Rivet 2.0 they are installed into the Rivet app, which makes their nodes available in every project. A project only records a plugin in its YAML when one of that plugin's nodes is actually used in the project's graphs.
 
 There are two main requirements for Rivet plugins:
 
@@ -11,10 +11,12 @@ There are two main requirements for Rivet plugins:
 
 ## Example / Template Projects
 
-There are two example projects that you can use as a starting point for your plugin:
+There are older example projects that can still be useful as starting points for plugin structure:
 
 - [rivet-plugin-example](https://github.com/abrenneke/rivet-plugin-example) - This is an example of a pure TypeScript plugin that does not use any Node.js code. This is the recommended place to start from, assuming you do not need to use Node.js code.
 - [rivet-plugin-example-python-exec](https://github.com/abrenneke/rivet-plugin-example-python-exec) - If you have to run Node.js code in your plugin (and therefore your plugin will only work with the Node executor), use this as your starting point. This plugin is a complete example of how to write a plugin that uses Node.js code.
+
+Those repositories predate the Rivet 2.0 package rename. When adapting them, use `@valerypopoff/rivet2-core` for type-only imports.
 
 ## Writing Plugins In Detail
 
@@ -182,7 +184,7 @@ export function myExamplePlugin(rivet: typeof Rivet) {
 }
 ```
 
-The following node implementation object is taken from the [rivet-plugin-example](https://github.com/abrenneke/rivet-plugin-example/blob/main/src/nodes/ExamplePluginNode.ts) project. This should be used as your starting point for creating new nodes:
+The following node implementation object is adapted from the older [rivet-plugin-example](https://github.com/abrenneke/rivet-plugin-example/blob/main/src/nodes/ExamplePluginNode.ts) project. Treat it as a structural example and update package names/imports for Rivet 2.0.
 
 ```ts
 // **** IMPORTANT ****
@@ -348,7 +350,7 @@ Again, it is important that node definitions export a function that takes in `Ri
 
 ### Node.js Code
 
-See the code and readme in the [rivet-plugin-example-python-exec](https://github.com/abrenneke/rivet-plugin-example-python-exec] project for an example of how to write a node.js plugin.
+See the code and readme in the [rivet-plugin-example-python-exec](https://github.com/abrenneke/rivet-plugin-example-python-exec) project for an example of how to write a Node.js plugin.
 
 ### Configuration
 
@@ -479,7 +481,7 @@ The recommended way to develop plugins is do create your repository inside the p
 
 :::tip
 
-Your rivet plugins directory is shown at the bottom of the Plugins overlay in Rivet, accessible via the Plugins tab at the top of the screen.
+Your Rivet plugins directory is shown at the bottom of Settings > Plugins.
 
 :::
 
@@ -488,11 +490,11 @@ To do this,
 1. Create a directory called `<plugin-name>-latest` inside the plugins directory for Rivet.
 2. Clone your repository into a folder called `package` inside this directory. For example, `git clone <my-repo-url> package`. You may also create a `package` directory, and copy your repository into it.
 3. Your final path should contain `plugins/<plugin-name>-latest/package/.git`. It is important to include the `.git` folder, as this is how Rivet knows that your plugin is locally installed.
-4. Use `Add NPM Plugin` in rivet, and pass in `<plugin-name>` as the package name. This will install your plugin from the local directory.
+4. Use `Add NPM Plugin` in Settings > Plugins, and pass in `<plugin-name>` as the package name. This installs the plugin into the app.
 5. If you are using the example plugins, you can run `yarn dev` in the `package` folder to automatically watch for changes and rebuild your plugin. Then, you only need to restart Rivet on each change in order to see your changes in Rivet.
 
  Note: You do not need to manually create these directories if you are using either of the starter plugin repositories linked earlier in this document. These repositories will automatically create the appropriate directories for you.
 
 ## Further Help
 
-For more help, join the [Rivet Discord](https://discord.gg/qT8B2gv9Mg), we're happy to help with your plugin development!
+For more help, use the repository discussions or issues for the Rivet 2.0 checkout you are targeting.

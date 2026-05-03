@@ -153,7 +153,11 @@ On pushes to `develop`, the workflow:
 1. Installs dependencies with `yarn install --immutable`.
 2. Builds the monorepo with `yarn build`.
 3. Builds Windows MSI and NSIS installer bundles from `packages/app`.
-4. Publishes a small GitHub Pages download page with the latest developer installers.
+4. Builds the Docusaurus documentation site from `packages/docs`.
+5. Adds the latest developer installer metadata and download files to the docs build.
+6. Publishes the docs site to GitHub Pages.
+
+The GitHub Pages site is the public documentation website at `https://valerypopoff.github.io/rivet2.0/`. Its top-right Download link opens a downloads page with official release placeholders and the latest developer Windows installers from `develop`.
 
 GitHub Pages must either be enabled once in repository settings with Source set to GitHub Actions, or the repository must provide a `PAGES_ENABLEMENT_TOKEN` Actions secret that can enable Pages for the workflow. The deploy job uses a `developer-windows-pages` environment so develop-branch installer deployments are not blocked by production `github-pages` environment rules; if that environment is protected later, it must allow `develop`.
 

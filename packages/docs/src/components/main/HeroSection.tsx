@@ -10,7 +10,7 @@ export const HeroSection: React.FC<{ id?: string }> = ({ id }) => {
   const { downloadUrl, platform } = useDownloadUrl();
   return (
     <Section className={styles.container} id={id}>
-      <h1 className={styles.title}>The Open-Source Visual AI Programming Environment</h1>
+      <h1 className={styles.title}>Rivet 2.0 Visual AI Programming</h1>
       <a className={styles.downloadButton} href={downloadUrl} target="_blank">
         Download
         {platform !== 'unknown' && platform !== 'server' && (

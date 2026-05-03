@@ -8,7 +8,7 @@ title: 'Overview of the Interface'
 
 In the project info tab you can set the name and description of your project. This data is saved with your project file and used for documenting your project.
 
-On the project info tab you can also configure what plugins are enabled for your project. See the [Plugins](./plugins.md) documentation for more information.
+Project plugin declarations are shown separately as "Plugins used by this project". In Rivet 2.0, plugins are installed into the app from Settings > Plugins, and the project list is derived from actual plugin-node usage. See the [Plugins](./plugins.md) documentation for more information.
 
 ![Project Info](./assets/project-info.png)
 
@@ -80,15 +80,15 @@ Variants allow you to save slight differences to a node, and test them without l
 
 ### Node Data Editor
 
-This area contains the editors for the currently selected node. The editor will change depending on the type of node you are editing. For example, the shown [Text Node](../node-reference/text) has a text editor, and the [Chat Node](../node-reference/chat) has a chat configuration editor.
+This area contains the editors for the currently selected node. The editor will change depending on the type of node you are editing. For example, the shown [Text Node](../node-reference/text) has a text editor, and the [LLM Chat Node](../node-reference/llm-chat) has provider, model, reasoning, response-format, tools, and technical-details sections.
 
-## Overlays
+## Workspaces
 
-At the top of the screen are a set of overlay panels you may enable. The available overlays are listed below.
+The top app bar contains workspace tabs. Canvas is the normal graph-editing workspace. Other workspaces, such as Trivet Tests, Chat Viewer, Data Studio, and Community, open full-screen workspace views. Run/debug controls are shown only while Canvas is active.
 
 ### Prompt Designer
 
-The prompt designer allows you to tweak an individual prompt to get the output you are looking for. See the [Prompt Designer](./prompt-designer.md) documentation for more information.
+The prompt designer allows you to tweak an individual prompt to get the output you are looking for. It is opened from a chat node's flask icon, and Rivet shows a top-bar tab for it only while it is open. See the [Prompt Designer](./features/prompt-designer.md) documentation for more information.
 
 ### Trivet Tests
 
@@ -96,13 +96,13 @@ Trivet allows you to set up test suites and test cases for your project. See the
 
 ### Chat Viewer
 
-The chat viewer overlay gives you a full screen view of every Chat node that has been performed, or is in-progress, in your project.
+The chat viewer gives you a full-screen view of Chat and LLM Chat nodes that have produced chat content. Its top-bar tab appears only when there is something to view.
 
 This view can give you a quick overview of how your AI is performing, and what it is doing at any given time. It can also be used to debug issues with your AI.
 
 ## Action Bar
 
-The action bar is in the top-right of the screen. It contains buttons for running, pausing, and aborting the current graph, and the main Rivet menu button.
+The action bar is in the top-right of the Canvas workspace. It contains buttons for running, pausing, aborting, and debugger-related actions for the current graph, plus the Run context menu.
 
 ![Action bar](./assets/action-bar.png)
 
@@ -120,4 +120,4 @@ Visible while a graph is running. Clicking the pause button will pause the curre
 
 ### Menu
 
-Access the main Rivet menu by clicking the menu '...' button.
+Access run-related options by clicking the menu '...' button next to the run controls. App-level settings are available from the app menu.

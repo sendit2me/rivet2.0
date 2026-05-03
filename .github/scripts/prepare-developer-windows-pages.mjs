@@ -10,6 +10,7 @@ const sourceBundleDir = path.resolve(
 const pagesOutDir = path.resolve(repoRoot, process.env.PAGES_OUT_DIR ?? 'developer-release-pages');
 const downloadsDir = path.join(pagesOutDir, 'downloads');
 const originalDownloadsDir = path.join(downloadsDir, 'original');
+const shouldWriteStandalonePage = process.env.DEVELOPER_RELEASE_STANDALONE_PAGE !== 'false';
 
 const releaseFilePattern = /\.(exe|msi|zip|sig|json|blockmap)$/i;
 
@@ -137,31 +138,32 @@ async function main() {
   await mkdir(pagesOutDir, { recursive: true });
   await writeFile(path.join(pagesOutDir, 'developer-release.json'), JSON.stringify(releaseMetadata, null, 2));
 
-  const stableDownloadMarkup =
-    stableDownloads.length > 0
-      ? stableDownloads
-          .map(
-            (download) => `
+  if (shouldWriteStandalonePage) {
+    const stableDownloadMarkup =
+      stableDownloads.length > 0
+        ? stableDownloads
+            .map(
+              (download) => `
               <a class="primary-download" href="${htmlEscape(download.url)}">
                 ${htmlEscape(download.label)}
                 <span>${htmlEscape(download.name)} - ${formatBytes(download.size)}</span>
               </a>`,
-          )
-          .join('\n')
-      : '<p class="empty">No stable installer alias was produced. See original artifacts below.</p>';
+            )
+            .join('\n')
+        : '<p class="empty">No stable installer alias was produced. See original artifacts below.</p>';
 
-  const artifactRows = artifacts
-    .map(
-      (artifact) => `
+    const artifactRows = artifacts
+      .map(
+        (artifact) => `
         <tr>
           <td><a href="${htmlEscape(artifact.url)}">${htmlEscape(artifact.name)}</a></td>
           <td>${htmlEscape(artifact.originalPath)}</td>
           <td>${formatBytes(artifact.size)}</td>
         </tr>`,
-    )
-    .join('\n');
+      )
+      .join('\n');
 
-  const html = `<!doctype html>
+    const html = `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
@@ -281,8 +283,11 @@ async function main() {
   </body>
 </html>`;
 
-  await writeFile(path.join(pagesOutDir, 'index.html'), html);
-  console.log(`Prepared developer release page at ${pagesOutDir}`);
+    await writeFile(path.join(pagesOutDir, 'index.html'), html);
+    console.log(`Prepared standalone developer release page at ${pagesOutDir}`);
+  } else {
+    console.log(`Prepared developer release downloads at ${pagesOutDir}`);
+  }
 }
 
 await main();

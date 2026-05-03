@@ -8,11 +8,11 @@ export const GetStartedSection: React.FC<{ id?: string }> = ({ id }) => {
       <p>Start building AI agents with Rivet in just a few simple steps!</p>
       <ul>
         <li>
-          Follow the <a href="/docs/getting-started/installation">Getting Started</a> guide, to learn how to build AI
+          Follow the <a href="/getting-started/installation">Getting Started</a> guide, to learn how to build AI
           agent graphs in Rivet.
         </li>
         <li>
-          <a href="docs/api-reference/getting-started-integration">Integrate Rivet</a> into your Node or TypeScript
+          <a href="/api-reference/getting-started-integration">Integrate Rivet</a> into your Node or TypeScript
           application.
         </li>
         <li>

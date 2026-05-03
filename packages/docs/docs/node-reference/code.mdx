@@ -55,7 +55,7 @@ return {
 };
 ```
 
-### Accessing current graph and context inputs
+### Accessing Current Graph And Context Inputs
 
 You can access all the current graph and the context inputs through variables `graphInputs` and `context`.
 
@@ -98,10 +98,11 @@ const foo = graphInputs.myString.value; // graphInputs.myString.type === 'string
 
 ## Editor Settings
 
-| Setting | Description                                                                                                                                                                                                                                 | Default Value                  | Use Input Toggle | Input Data Type |
-| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ | ---------------- | --------------- |
-| Inputs  | The names of the inputs that can be accessible inside the code node. The names of the inputs configured here correspond with the properties of the provided `inputs` variable. Each input creates a corresponding input port on the node.   | A single input named `input`   | No               | N/A             |
-| Outputs | The names of the outputs that the code node will return. The names of the outputs configured here must correspond with the properties of the object returned by the Code node. Each output creates a corresponding output port on the node. | A single output named `output` | No               | N/A             |
+| Setting | Description | Default Value | Use Input Toggle | Input Data Type |
+| --- | --- | --- | --- | --- |
+| Inputs | The names of the inputs accessible through the `inputs` object. Each input creates a corresponding input port. | `input1` | No | N/A |
+| Outputs | The names of the outputs that the returned object must contain. Each output creates a corresponding output port. | `output1` | No | N/A |
+| Runtime Permissions | Per-node toggles for optional globals: `fetch`, `Rivet`, `console`, `require`, and `process`. | All off | No | N/A |
 
 </TabItem>
 
@@ -167,29 +168,29 @@ If you throw an `Error` in the code node, then it will error.
 
 **Q: How is the code node implemented?**
 
-A: The Code Node is implemented using a [Function constructor](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function/Function) with, as of right now, only one argument passed in to it - `inputs`. This is the same as if you were to write the following code:
+A: The Code Node is implemented using an async [Function constructor](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function/Function). The always-present argument is `inputs`; optional runtime permissions add more globals such as `fetch`, `Rivet`, `console`, `require`, and `process`.
 
 ```js
-function codeNode(inputs) {
+async function codeNode(inputs) {
   // Code here
 }
 ```
 
 **Q: Can I use `require` or `import` in the code node?**
 
-A: No. The code node is executed in a sandboxed environment, and does not have access to the `require` or `import` functions. If you need to `require` or `import`, [use an External Call Node](./external-call.mdx) instead, or [create a Rivet plugin](../user-guide/plugins/creating-plugins.md).
+A: `import` is not exposed. `require` is available only in the Node executor when the Code node's `require` runtime permission is enabled. Programmatic Node runs use `NodeCodeRunner`; the desktop Node executor uses the app-executor runner. Both resolve modules from the process working directory by default, and hosted/runtime-library environments can override that with `RIVET_CODE_RUNNER_REQUIRE_ROOT` or `RIVET_CODE_RUNNER_REQUIRE_ANCHOR`.
 
 **Q: Can I use `async`/`await` in the code node?**
 
-A: No. The code node is executed synchronously, and does not support `async`/`await`. As you cannot use external libraries in a Code node, there is no need for `async`/`await` support anyway. Use an [External Call Node](./external-call.mdx) instead.
+A: Yes. Code nodes run through an async function, so you can use `await` directly.
 
 **Q: Can I use external libraries in the code node?**
 
-A: No. The code node is executed in a sandboxed environment, and does not have access to external libraries. Use an [External Call Node](./external-call.mdx) instead.
+A: In Browser executor mode, external libraries are not available. In Node executor mode, enable the `require` runtime permission and require packages that are resolvable from the Code-runner require root. For larger reusable integrations, a Rivet plugin is still usually cleaner.
 
 **Q: Can I use `console.log` in the code node?**
 
-A: No, the `console` variable is not available in a code node.
+A: Yes, when the Code node's `console` runtime permission is enabled. In the app executor, console calls are forwarded back to the Rivet UI for the active run.
 
 **Q: Can the code node function like an [If Node](./if.mdx)?**
 

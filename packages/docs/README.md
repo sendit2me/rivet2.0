@@ -1,17 +1,30 @@
-# Website
+# Rivet 2.0 Docs
 
-This website is built using [Docusaurus 2](https://docusaurus.io/), a modern static website generator.
+This package contains the Docusaurus documentation site for Rivet 2.0.
+
+The docs should describe the current Rivet 2.0 package and app shape:
+
+- public runtime packages: `@valerypopoff/rivet2-core`, `@valerypopoff/rivet2-node`, and `@valerypopoff/rivet2-cli`
+- desktop/editor package: `@valerypopoff/rivet-app`
+- Node executor package: `@valerypopoff/rivet-app-executor`
+- app-level plugin installation with project YAML plugin declarations derived from actual plugin-node usage
+- LLM Chat as the recommended chat node for new graphs
+- Browser, Node, and remote executor behavior
+- `/download`, including official release placeholders and developer release metadata from the develop-branch Pages workflow
+- wrapper/embedding seams documented in the repo's developer docs
+
+The GitHub Pages deployment uses `baseUrl: /rivet2.0/` and serves docs from the site root. The custom Docusaurus pages plugin is disabled so the first page is the documentation introduction rather than a marketing landing page.
 
 ### Installation
 
 ```bash
-yarn
+yarn install --immutable
 ```
 
 ### Local Development
 
 ```bash
-yarn start
+yarn workspace docs start
 ```
 
 This command starts a local development server and opens up a browser window. Most changes are reflected live without having to restart the server.
@@ -19,7 +32,11 @@ This command starts a local development server and opens up a browser window. Mo
 ### Build
 
 ```bash
-yarn build
+yarn workspace docs build
 ```
 
 This command generates static content into the `build` directory and can be served using any static contents hosting service.
+
+### Maintenance
+
+When app/runtime behavior changes, update both these public docs and the matching developer docs under `developer-docs/`. The developer docs are the implementation-facing source of truth; this site is the user-facing/API-facing version of the same contract.

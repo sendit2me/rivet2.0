@@ -2,30 +2,95 @@
 
 ## Description
 
-`Settings` is an interface that encapsulates the configuration options required for the integration with OpenAI services in the graph execution process.
+`Settings` contains runtime and editor settings that can be passed to graph execution. It is intentionally optional-heavy: callers only need to provide values that matter for the nodes and plugins they run.
 
 ## Definition
 
 ```typescript
-export interface Settings {
-  openAiKey: string;
+export interface Settings<PluginSettings = Record<string, Record<string, unknown>>> {
+  recordingPlaybackLatency?: number;
+  defaultNodeColors?: boolean;
+  openNodeSettingsOnCreate?: boolean;
+  pluginSettings?: PluginSettings;
+  pluginEnv?: {
+    [key: string]: string | undefined;
+  };
+  openAiKey?: string;
   openAiOrganization?: string;
+  openAiEndpoint?: string;
+  chatNodeTimeout?: number;
+  chatNodeHeaders?: Record<string, string>;
+  throttleChatNode?: number;
 }
 ```
 
 ## Properties
 
+### recordingPlaybackLatency
+
+Type: `number`
+
+Delay between recorded chat messages during playback, in milliseconds.
+
+### defaultNodeColors
+
+Type: `boolean`
+
+When enabled in the editor, newly added supported nodes receive predefined colors.
+
+### openNodeSettingsOnCreate
+
+Type: `boolean`
+
+When enabled in the editor, creating a node opens its settings panel immediately.
+
+### pluginSettings
+
+Type: `Record<string, Record<string, unknown>>`
+
+Settings owned by installed plugins.
+
+### pluginEnv
+
+Type: `Record<string, string | undefined>`
+
+Environment-like values made available to plugins. In the Node package, if `pluginEnv` is unset, Rivet fills plugin-declared environment values from `process.env`.
+
 ### openAiKey
 
 Type: `string`
 
-The `openAiKey` property represents the API key for OpenAI. This key is used to authenticate your application with OpenAI services. It is a required property for the `Settings` interface.
+Legacy/shared OpenAI key used by legacy Chat and OpenAI-backed nodes. LLM Chat can also use provider-specific settings or an API Key input port depending on its API key source.
 
 ### openAiOrganization
 
 Type: `string`
 
-The `openAiOrganization` property represents the organization ID to use for OpenAI. Use this if your API key's default organization is not the one you want to use. This property is optional.
+Optional OpenAI organization ID for OpenAI-backed calls.
+
+### openAiEndpoint
+
+Type: `string`
+
+Optional endpoint override for legacy OpenAI-compatible Chat behavior.
+
+### chatNodeTimeout
+
+Type: `number`
+
+Timeout in milliseconds before retrying a legacy Chat node call.
+
+### chatNodeHeaders
+
+Type: `Record<string, string>`
+
+Headers applied to legacy Chat node calls.
+
+### throttleChatNode
+
+Type: `number`
+
+Throttle delay for streaming chat-node data into Rivet.
 
 ## Usage
 
@@ -33,10 +98,10 @@ The `Settings` interface is part of the `RunGraphOptions` type and is used to pr
 
 ```typescript
 const options: RunGraphOptions = {
-  // Other properties...
-  settings: {
-    openAiKey: 'your-openai-key',
-    openAiOrganization: 'your-openai-organization-id',
+  graph: 'Main',
+  openAiKey: process.env.OPENAI_API_KEY,
+  pluginEnv: {
+    ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
   },
 };
 ```

@@ -1,3 +1,3 @@
 # Trivet Tests
 
-See [Trivet](/docs/trivet) for more information.
+See [Trivet](/trivet) for more information.

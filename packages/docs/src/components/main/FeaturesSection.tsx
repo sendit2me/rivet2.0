@@ -10,7 +10,7 @@ export const FeaturesSection: React.FC<{ id?: string }> = ({ id }) => {
       <div className={layout.card3}>
         <div>
           <h3>Visualize and Build</h3>
-          <p>Visualize and build complex chains to create applications for production — not just prototyping.</p>
+          <p>Visualize and build complex chains to create applications for production - not just prototyping.</p>
         </div>
         <div>
           <h3>Debug Remotely</h3>

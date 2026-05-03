@@ -1,0 +1,58 @@
+# createProcessor
+
+## Description
+
+`createProcessor` creates a graph processor for a loaded project without running it immediately. Use it when you need access to processor events or streaming helpers before starting the run.
+
+The Node package version wraps core processor creation with Node defaults:
+
+- marks the processor executor as `nodejs`
+- attaches a `RivetDebuggerServer` when `remoteDebugger` is provided
+- fills plugin environment values from `process.env` when `pluginEnv` is unset
+- provides `NodeNativeApi`, `NodeMCPProvider`, `NodeCodeRunner`, `NodeProjectReferenceLoader`, and a fallback tokenizer unless you override them
+
+## Syntax
+
+```typescript
+function createProcessor(project: Project, options: NodeRunGraphOptions): {
+  processor: GraphProcessor;
+  inputs: Record<string, DataValue>;
+  contextValues: Record<string, DataValue>;
+  getEvents: (spec: RivetEventStreamFilterSpec) => AsyncIterable<unknown>;
+  getSSEStream: (spec: RivetEventStreamFilterSpec) => ReadableStream;
+  streamNode: (nodeIdOrTitle: string) => ReadableStream;
+  run: () => Promise<Record<string, DataValue>>;
+};
+```
+
+## Example
+
+```typescript
+import { createProcessor, loadProjectFromFile } from '@valerypopoff/rivet2-node';
+
+const project = await loadProjectFromFile('./my-project.rivet-project');
+const { run, getSSEStream } = createProcessor(project, {
+  graph: 'Main',
+  inputs: {
+    prompt: 'Hello',
+  },
+});
+
+const stream = getSSEStream({
+  nodeStart: true,
+  nodeFinish: true,
+  partialOutputs: true,
+});
+
+void run();
+
+for await (const event of stream) {
+  console.log(event);
+}
+```
+
+## See Also
+
+- [RunGraphOptions](./RunGraphOptions.mdx)
+- [runGraph](./runGraph.mdx)
+- [startDebuggerServer](./startDebuggerServer.mdx)

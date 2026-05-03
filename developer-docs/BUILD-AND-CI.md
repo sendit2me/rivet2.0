@@ -239,6 +239,12 @@ The CLI Dockerfile installs the published CLI package by explicit version (`@val
 - Docusaurus local dev/build/serve
 - `typecheck` via `tsc`
 
+The public docs are part of the release surface. Keep them aligned with the
+current Rivet 2.0 package/runtime model instead of preserving old fork-era
+wording. In practice, docs changes should follow package renames, executor
+contract changes, app-level plugin behavior, LLM Chat/HTTP Call output
+contracts, Code-node runtime-permission changes, and wrapper/embedder seams.
+
 ## CI Workflows
 
 Workflows live under [`.github/workflows/`](../.github/workflows/).
@@ -327,16 +333,16 @@ This workflow is intentionally develop-only. It does not run for `main`, and it 
 The workflow has two jobs:
 
 1. `build-windows` runs on `windows-latest`, checks out the repo, sets up Node `20.4.x`, installs Rust stable, runs `yarn --immutable`, runs the root `yarn build`, then runs `yarn tauri build --verbose --ci --bundles "msi,nsis"` from `packages/app`.
-2. `publish-pages` runs on `ubuntu-latest`, downloads the generated static page artifact, configures GitHub Pages, uploads it as a GitHub Pages artifact, and deploys it with `actions/deploy-pages`.
+2. The same Windows job builds the Docusaurus docs site from `packages/docs`, writes the developer release metadata and installer files into `packages/docs/build`, and uploads that complete docs-site artifact.
+3. `publish-pages` runs on `ubuntu-latest`, downloads the generated docs-site artifact, configures GitHub Pages, uploads it as a GitHub Pages artifact, and deploys it with `actions/deploy-pages`.
 
 The Windows build job uses [`.github/scripts/prepare-developer-windows-pages.mjs`](../.github/scripts/prepare-developer-windows-pages.mjs) to collect files from `packages/app/src-tauri/target/release/bundle`, copy original installer artifacts under `downloads/original/`, create stable download aliases, and generate:
 
-- `index.html`
 - `developer-release.json`
 - `downloads/Rivet-Developer-Windows-Setup.exe` when an NSIS setup executable is present
 - `downloads/Rivet-Developer-Windows.msi` when an MSI installer is present
 
-The generated Pages site represents the latest successful developer Windows release from `develop`. Each new successful run replaces the previous Pages deployment.
+In the GitHub workflow, `DEVELOPER_RELEASE_STANDALONE_PAGE=false`, so the script does not write a standalone `index.html`. Docusaurus owns the site root and reads `developer-release.json` on the `/download` page. The generated Pages site represents the current public docs plus the latest successful developer Windows release from `develop`. Each new successful run replaces the previous Pages deployment.
 
 ### Pages requirements
 

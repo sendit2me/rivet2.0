@@ -116,11 +116,13 @@ Outputs a JSON object with the output values of the graph.
 - `--graph <graphNameOrId>`: The name or ID of the graph to run. If not provided, the main graph will be run. If there is no main graph, an error will be returned.
 - `--allow-specifying-graph-id`: Allows specifying the graph ID in the URL path. This is disabled by default.
 
-### OpenAI Configuration
+### Provider Configuration
 
-- `--openai-api-key`: The OpenAI API key to use for the Chat node. Required if the project uses OpenAI functionality or otherwise requires an API key. If omitted, the environment variable `OPENAI_API_KEY` will be used.
-- `--openai-endpoint`: The OpenAI API endpoint to use for the Chat node. Default is `https://api.openai.com/v1/chat/completions`. If omitted, the environment variable `OPENAI_ENDPOINT` will be used.
-- `--openai-organization`: The OpenAI organization ID to use. If omitted, the environment variable `OPENAI_ORGANIZATION` will be used.
+- `--openai-api-key`: The OpenAI API key to use for OpenAI-backed nodes. If omitted, Node execution falls back to `OPENAI_API_KEY` where supported.
+- `--openai-endpoint`: Endpoint override for legacy OpenAI-compatible Chat behavior. If omitted, Node execution falls back to `OPENAI_ENDPOINT` where supported.
+- `--openai-organization`: OpenAI organization ID. If omitted, the CLI option description uses `OPENAI_ORGANIZATION`; the Node runtime also supports the current `OPENAI_ORG_ID` default in direct package usage.
+
+For LLM Chat, the node's API key source controls where the key comes from. If a graph connects the LLM Chat API Key input port, pass that key through the graph inputs rather than through these CLI OpenAI options.
 
 ### Monitoring
 
@@ -340,4 +342,4 @@ data: " This will help me assist you better!"
 
 You can see that each `data` event contains a delta of the response text from the node.
 
-You should only specify Chat nodes for this mode, as other nodes may not have partial outputs that support this.
+You should only specify Chat or LLM Chat nodes for this mode, as other nodes may not have partial outputs that support this.

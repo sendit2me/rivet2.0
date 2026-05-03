@@ -2,17 +2,19 @@
 
 ## Description
 
-`RunGraphOptions` is a complex type that encapsulates a range of options and configurations that can be provided when running a graph. This type gives you the flexibility to customize the graph execution process according to your specific needs.
+`RunGraphOptions` configures a graph run. The same base type is used by core execution helpers and extended by `@valerypopoff/rivet2-node` for Node-specific remote-debugger fields.
 
 ## Definition
 
 ```typescript
 type RunGraphOptions = {
-  graph: string;
+  graph?: string;
   inputs?: Record<string, LooseDataValue>;
   context?: Record<string, LooseDataValue>;
-  remoteDebugger?: RivetDebuggerServer;
   nativeApi?: NativeApi;
+  datasetProvider?: DatasetProvider;
+  audioProvider?: AudioProvider;
+  mcpProvider?: MCPProvider;
   externalFunctions?: {
     [key: string]: ExternalFunction;
   };
@@ -20,9 +22,23 @@ type RunGraphOptions = {
     [key: string]: (data: DataValue | undefined) => void;
   };
   abortSignal?: AbortSignal;
+  registry?: NodeRegistration<any, any>;
+  includeTrace?: boolean;
+  concurrency?: GraphProcessorConcurrency;
+  getChatNodeEndpoint?: ProcessContext['getChatNodeEndpoint'];
+  tokenizer?: Tokenizer;
+  codeRunner?: ProcessContext['codeRunner'];
+  projectPath?: string;
+  projectReferenceLoader?: ProjectReferenceLoader;
+  editorExecutionCache?: ProcessContext['editorExecutionCache'];
 } & {
   [P in keyof ProcessEvents as `on${PascalCase<P>}`]?: (params: ProcessEvents[P]) => void;
 } & Settings;
+
+type NodeRunGraphOptions = RunGraphOptions & {
+  remoteDebugger?: RivetDebuggerServer;
+  remoteDebuggerRequestId?: RemoteRunRequestId;
+};
 ```
 
 ## Properties
@@ -31,7 +47,7 @@ type RunGraphOptions = {
 
 Type: `string`
 
-The `graph` property represents the graph in the project to execute. This should correspond to one of the graphs defined in your project. This may either be the ID of the graph, or the name of the graph as shown in the Rivet UI.
+The `graph` property represents the graph in the project to execute. This may be the graph ID or the name shown in the Rivet UI. If omitted, Rivet runs the project's main graph.
 
 ### inputs
 
@@ -49,19 +65,29 @@ Specifies a set of context values to the graph you are executing. The keys in th
 
 See [LooseDataValue](./LooseDataValue) for more information about the different types of values that can be passed to the graph.
 
-### remoteDebugger
-
-Type: `RivetDebuggerServer`
-
-Passes a `RivetDebuggerServer` instance to the graph execution process. This allows you to debug the graph execution process using the Rivet Debugger.
-
-See the [Remote Debugging](../remote-debugging) page for more information.
-
 ### nativeApi
 
 Type: `NativeApi`
 
-The `nativeApi` property is an optional instance of a `NativeApi`. This can be used to provide a custom native API implementation for the graph execution process.
+Provides file-system and other native capabilities for nodes that require host APIs.
+
+### datasetProvider
+
+Type: `DatasetProvider`
+
+Provides dataset storage for dataset nodes.
+
+### audioProvider
+
+Type: `AudioProvider`
+
+Provides audio loading/processing capabilities when a run needs them.
+
+### mcpProvider
+
+Type: `MCPProvider`
+
+Provides MCP server discovery and tool/prompt calls for MCP nodes.
 
 ### externalFunctions
 
@@ -85,6 +111,72 @@ Type: `AbortSignal`
 
 The `abortSignal` property is an optional `AbortSignal` instance. This can be used to send an abort signal to the graph processing operation, allowing you to programmatically stop the execution process.
 
+### registry
+
+Type: `NodeRegistration`
+
+Overrides the node registry used for the run. Use this when running with custom plugin nodes or a preassembled registry.
+
+### includeTrace
+
+Type: `boolean`
+
+Includes trace events in graph processing.
+
+### concurrency
+
+Type: `GraphProcessorConcurrency`
+
+Controls graph processor concurrency.
+
+### getChatNodeEndpoint
+
+Type: `ProcessContext['getChatNodeEndpoint']`
+
+Overrides the legacy Chat node endpoint resolver.
+
+### tokenizer
+
+Type: `Tokenizer`
+
+Overrides the tokenizer used by token-counting nodes and chat-message trimming.
+
+### codeRunner
+
+Type: `ProcessContext['codeRunner']`
+
+Overrides the Code node runner. Node integrations use `NodeCodeRunner` by default.
+
+### projectPath
+
+Type: `string`
+
+Provides the current project path to nodes and project-reference loaders.
+
+### projectReferenceLoader
+
+Type: `ProjectReferenceLoader`
+
+Overrides project reference loading for subgraph/project-reference scenarios.
+
+### editorExecutionCache
+
+Type: `ProcessContext['editorExecutionCache']`
+
+Passes the editor execution cache used by app/editor runs.
+
+### remoteDebugger
+
+Type: `RivetDebuggerServer`
+
+Node-only. Passes a debugger server instance so graph execution can be inspected in the Rivet app.
+
+### remoteDebuggerRequestId
+
+Type: `RemoteRunRequestId`
+
+Node-only. Associates a run with a specific remote-debugger request.
+
 ### Event Handlers
 
 Type: `Object`
@@ -93,7 +185,7 @@ This part of the `RunGraphOptions` type represents an object of event handlers f
 
 ## Settings
 
-The properties of [Settings](../core/Settings) are merged into the `RunGraphOptions` type. Some properties on Settings are required. See that page for more information.
+The optional properties of [Settings](../core/Settings) are merged into `RunGraphOptions`. Node runs fill unset OpenAI/plugin environment defaults from `process.env` where possible.
 
 ## See Also
 

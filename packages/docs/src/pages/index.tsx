@@ -15,18 +15,18 @@ export default function Home() {
   return (
     <main className={styles.main}>
       <Head>
-        <meta property="og:title" content="Rivet" />
+        <meta property="og:title" content="Rivet 2.0" />
         <meta
           property="og:description"
-          content="An open-source AI programming environment using a visual, node-based graph editor"
+          content="A visual AI programming environment and runtime package set for graph-based AI workflows"
         />
-        <meta property="og:image" content="https://github.com/valerypopoff/rivet2.0/img/social-card.png" />
-        <meta name="twitter:title" content="Rivet" />
+        <meta property="og:image" content="https://valerypopoff.github.io/img/social-card.png" />
+        <meta name="twitter:title" content="Rivet 2.0" />
         <meta
           name="twitter:description"
-          content="An open-source AI programming environment using a visual, node-based graph editor"
+          content="A visual AI programming environment and runtime package set for graph-based AI workflows"
         />
-        <meta name="twitter:image" content="https://github.com/valerypopoff/rivet2.0/img/social-card.png" />
+        <meta name="twitter:image" content="https://valerypopoff.github.io/img/social-card.png" />
         <meta name="twitter:card" content="summary_large_image" />
       </Head>
       <Header />

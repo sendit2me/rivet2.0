@@ -6,7 +6,7 @@ To get started with integrating Rivet into your existing TypeScript or JavaScrip
 
 ## `@valerypopoff/rivet2-core`
 
-Rivet core is a pure ESM package that contains the core Rivet APIs. It has no dependencies on browser or node.js APIs and can be used in any JavaScript environment that supports modern ESM, including embedded environments such as PythonMonkey.
+Rivet core contains the graph model, processor, built-in nodes, plugin contracts, serialization, and shared runtime APIs. It ships ESM, CJS, and TypeScript declaration outputs.
 
 The Rivet application uses Rivet core to run graphs directly in the application.
 
@@ -14,7 +14,7 @@ See the [Rivet core overview](./api-reference/core/overview.mdx) for more inform
 
 ## `@valerypopoff/rivet2-node`
 
-Rivet node is a Node.js binding for Rivet core. It includes helper APIs to load rivet graphs from the filesystem and execute them.
+Rivet node is the Node.js runtime adapter for Rivet core. It includes helper APIs to load Rivet projects from the filesystem, execute graphs, attach a remote debugger server, provide Node-native APIs, and supply Node defaults for MCP, project references, plugin environment values, and Code-node `require`.
 
 You will most likely want to use Rivet node in your application. All types from Rivet core are re-exported from Rivet node, so you can use Rivet node as a drop-in replacement for Rivet core.
 
@@ -28,4 +28,4 @@ See the [Rivet CLI overview](./cli.md) for more information.
 
 ### Requirements
 
-Rivet node requires Node.js 16 or later.
+The repository toolchain targets Node.js `20.4.0`. For application integrations, use a modern Node 20 runtime unless a specific package release states otherwise.

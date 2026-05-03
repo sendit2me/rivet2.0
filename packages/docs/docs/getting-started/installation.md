@@ -16,9 +16,9 @@
 
 ## Releases
 
-### [Latest Release on GitHub](https://github.com/valerypopoff/rivet2.0/releases/latest)
+### [Download Rivet](../download.mdx)
 
-Download the latest release for your platform from the above link. Rivet is currently available for MacOS, Linux, and Windows.
+Use the Download page for official releases when they are available and for the latest developer Windows release from the `develop` branch.
 
 ## Building from Source
 
@@ -27,8 +27,8 @@ Download the latest release for your platform from the above link. Rivet is curr
 To build and run Rivet from source, you will need:
 
 - Rust (use [rustup](https://rustup.rs/))
-- node 20+ (or install [Volta](https://volta.sh/))
-- yarn
+- Node.js 20.4.x or another compatible Node 20 runtime
+- the checked-in Yarn release (`packageManager` currently points at Yarn 4.6.0)
 
 ### Install
 
@@ -37,7 +37,7 @@ A [blobless clone](https://github.blog/2020-12-21-get-up-to-speed-with-partial-c
 ```bash
 git clone --filter=blob:none git@github.com:valerypopoff/rivet2.0.git
 cd rivet2.0
-yarn
+yarn install --immutable
 ```
 
 ### Build & Run
@@ -47,5 +47,17 @@ yarn dev
 ```
 
 This will build and run the application in development mode.
+
+To build the desktop app frontend package without launching Tauri:
+
+```bash
+yarn workspace @valerypopoff/rivet-app run build
+```
+
+To build package-consumer artifacts for wrappers that vendor this checkout:
+
+```bash
+yarn build:packages:local
+```
 
 Once running, proceed to [Setup](./setup.md)!

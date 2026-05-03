@@ -6,12 +6,12 @@ const darkCodeTheme = require('prism-react-renderer').themes.dracula;
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
-  title: 'Rivet',
-  tagline: 'IDE and Library for Creating AI Agents',
+  title: 'Rivet 2.0',
+  tagline: 'Visual AI programming environment and runtime packages',
   favicon: 'img/favicon.png',
 
-  url: 'https://github.com/valerypopoff/rivet2.0',
-  baseUrl: '/',
+  url: 'https://valerypopoff.github.io',
+  baseUrl: '/rivet2.0/',
 
   organizationName: 'valerypopoff',
   projectName: 'rivet2.0',
@@ -33,14 +33,9 @@ const config = {
       'classic',
       /** @type {import('@docusaurus/preset-classic').Options} */
       ({
-        pages: {
-          path: 'src/pages',
-          routeBasePath: '/',
-          include: ['**/*.{js,jsx,ts,tsx,md,mdx}'],
-          exclude: ['**/_*.{js,jsx,ts,tsx,md,mdx}', '**/_*/**', '**/*.test.{js,jsx,ts,tsx}', '**/__tests__/**'],
-        },
+        pages: false,
         docs: {
-          routeBasePath: '/docs/',
+          routeBasePath: '/',
           sidebarPath: require.resolve('./sidebars.js'),
           editUrl: 'https://github.com/valerypopoff/rivet2.0/tree/main/packages/docs',
         },
@@ -59,7 +54,7 @@ const config = {
         defaultMode: 'dark',
       },
       navbar: {
-        title: 'Rivet',
+        title: 'Rivet 2.0',
         logo: {
           alt: 'Rivet Logo',
           src: 'img/logo.svg',
@@ -96,6 +91,11 @@ const config = {
             label: 'CLI',
           },
           {
+            to: '/download',
+            label: 'Download',
+            position: 'right',
+          },
+          {
             href: 'https://github.com/valerypopoff/rivet2.0',
             label: 'GitHub',
             position: 'right',
@@ -110,15 +110,15 @@ const config = {
             items: [
               {
                 label: 'Getting Started',
-                to: '/docs/getting-started/installation',
+                to: '/getting-started/installation',
               },
               {
                 label: 'User Guide',
-                to: '/docs',
+                to: '/',
               },
               {
                 label: 'API Reference',
-                to: '/docs/api-reference',
+                to: '/api-reference',
               },
             ],
           },
@@ -145,7 +145,7 @@ const config = {
             ],
           },
         ],
-        copyright: `Copyright © ${new Date().getFullYear()} Val P. Built with Docusaurus.`,
+        copyright: `Copyright (c) ${new Date().getFullYear()} Val P. Built with Docusaurus.`,
       },
       prism: {
         theme: lightCodeTheme,

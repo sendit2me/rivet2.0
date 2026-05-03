@@ -5,7 +5,7 @@ title: 'Rivet Integration Getting Started'
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-Welcome to the starting guide for integrating Rivet into your application! Currently, we only support integration via Node.js using the `@valerypopoff/rivet2-node` package.
+Welcome to the starting guide for integrating Rivet into your application. Most application integrations should start with `@valerypopoff/rivet2-node`, which re-exports the core graph APIs and adds Node-native defaults for filesystem loading, native APIs, MCP, plugin environment values, Code-node `require`, and remote debugging.
 
 ## Installation
 
@@ -72,15 +72,18 @@ The `runGraphInFile` function takes two parameters:
 
 ### `RunGraphOptions`
 
-The `RunGraphOptions` type is used to pass various parameters to the `runGraphInFile` function. Here is what it looks like:
+The `RunGraphOptions` type is used to pass parameters to `runGraphInFile`. The exact type has more provider hooks, but the important shape is:
 
 ```javascript
 export type RunGraphOptions = {
-  graph: string;
+  graph?: string;
   inputs?: Record<string, LooseDataValue>;
   context?: Record<string, LooseDataValue>;
-  remoteDebugger?: RivetDebuggerServer;
   nativeApi?: NativeApi;
+  datasetProvider?: DatasetProvider;
+  audioProvider?: AudioProvider;
+  mcpProvider?: MCPProvider;
+  registry?: NodeRegistration<any, any>;
   externalFunctions?: {
     [key: string]: ExternalFunction;
   };
@@ -88,19 +91,30 @@ export type RunGraphOptions = {
     [key: string]: (data: DataValue | undefined) => void;
   };
   abortSignal?: AbortSignal;
+  tokenizer?: Tokenizer;
+  codeRunner?: ProcessContext['codeRunner'];
+  projectPath?: string;
+  projectReferenceLoader?: ProjectReferenceLoader;
 } & {
   [P in keyof ProcessEvents as `on${PascalCase<P>}`]?: (params: ProcessEvents[P]) => void;
 } & Settings;
+
+type NodeRunGraphOptions = RunGraphOptions & {
+  remoteDebugger?: RivetDebuggerServer;
+  remoteDebuggerRequestId?: RemoteRunRequestId;
+};
 ```
 
 Let's break down the important fields:
 
-- `graph`: Specifies the graph you're running. This can either be the ID or the display name of the graph.
+- `graph`: Specifies the graph you're running. This can either be the ID or the display name of the graph. If omitted, Rivet runs the project's main graph.
 - `inputs`: Specifies the input values to the graph. These can either be plain JavaScript values like "foo", or `{type: 'string', value: 'foo'}` objects.
 - `context`: Similar to `inputs`, but these values are available to every graph and subgraph.
 - `externalFunctions`: This is how you define integration points that you can call from inside Rivet graphs.
-- `openAiKey`: Your OpenAI API key. This is required if you're using any Chat nodes in your graph.
-- `openAiOrganization`: If you are using a non-default OpenAI organization, you may specify your organization here.
+- `registry`: Use this when running custom plugin nodes.
+- `remoteDebugger`: Node-only. Attach a debugger server so the Rivet app can inspect the run.
+- `openAiKey` / `openAiOrganization` / `openAiEndpoint`: Legacy/shared OpenAI settings used by legacy Chat and OpenAI-backed nodes. LLM Chat can also use provider settings or an API Key input port depending on its API key source.
+- `pluginEnv`: Environment-like values for plugins. If omitted in `@valerypopoff/rivet2-node`, plugin-declared environment variables are read from `process.env`.
 
 ### Example Code
 
@@ -134,6 +148,8 @@ await runGraphInFile('./myProject.rivet', {
   openAiOrganization: 'my-organization',
 });
 ```
+
+If the graph uses LLM Chat with `API key source` set to `Input port`, pass the key through the graph input connected to that node's API Key port instead of relying on settings.
 
 ## Remote Debugging
 
