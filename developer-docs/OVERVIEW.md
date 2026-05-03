@@ -30,7 +30,8 @@ packages/
   node/           Node integration library
   trivet/         Test-runner package
 developer-docs/   These internal docs
-_.github/         CI workflows and release scripts
+refactor-history.md  Consolidated refactor history and future planning source
+.github/         CI workflows and release scripts
 ```
 
 ## Dependency Structure

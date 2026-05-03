@@ -7,7 +7,7 @@
 - Build apps when deploying (develop + main branches)
 - Check how "Check for updates" button works
 
-
+- Eliminate @ironclad references
 
 - Check the links that lead to the documentation
 

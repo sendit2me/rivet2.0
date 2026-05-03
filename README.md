@@ -2,107 +2,156 @@
 
 ![License](https://img.shields.io/github/license/Ironclad/rivet)
 
-<h3>
-  <a href="https://github.com/valerypopoff/rivet2.0/releases">
-    Download
-  </a>
-</h3>
+# Rivet 2.0
 
-<p>
-  <a href="https://rivet.ironcladapp.com">Rivet</a>, the IDE for creating complex AI agents and prompt chaining, and embedding it in your application.
-  <br />
-  <br />
-  <a href="https://github.com/valerypopoff/rivet2.0/issues">Report Bug</a>
-  ·
-  <a href="https://github.com/valerypopoff/rivet2.0/issues">Request Feature</a>
-  ·
-  <a href="https://github.com/valerypopoff/rivet2.0/discussions">Discussions</a>
-</p>
+Rivet is a visual IDE and runtime for building AI workflows, agents, prompt chains, graph-based tools, and reusable automation flows. This repository is the Rivet 2.0 monorepo: it contains the desktop app, graph runtime, Node runtime, CLI, app executor sidecar, Trivet test tooling, documentation site, and maintainer developer docs.
 
-- [About Rivet](#about-rivet)
-  - [Rivet Application](#rivet-application)
-  - [Rivet Core](#rivet-core)
+This checkout is also designed to be embedded by wrapper applications that vendor Rivet source in a local `rivet/` folder. Wrappers can import from local source paths and use the supported app-host seams without depending on stale public npm packages.
+
+## Contents
+
+- [What This Repo Contains](#what-this-repo-contains)
 - [Getting Started](#getting-started)
-  - [Prebuilt Binaries](#prebuilt-binaries)
-    - [Latest downloads](#latest-downloads)
-    - [All Releases](#all-releases)
-  - [Running from Source](#running-from-source)
-- [Contributing](#contributing)
-  - [Code of Conduct](#code-of-conduct)
-- [Troubleshooting](#troubleshooting)
+- [Common Commands](#common-commands)
+- [Execution Modes](#execution-modes)
+- [Plugins](#plugins)
+- [Embedding Rivet In A Wrapper](#embedding-rivet-in-a-wrapper)
+- [Developer Releases](#developer-releases)
+- [Documentation](#documentation)
+- [License](#license)
 
-## About Rivet
+## What This Repo Contains
 
-### Rivet Application
+Rivet 2.0 is organized as a Yarn workspace monorepo:
 
-Rivet is a desktop application for creating complex AI agents and prompt chaining, and embedding it in your application.
+| Package | Purpose |
+| --- | --- |
+| `@ironclad/rivet-core` | Shared graph model, execution engine, built-in nodes, serialization, provider integrations, plugin assembly, and runtime contracts. |
+| `@ironclad/rivet-app` | Tauri and React desktop IDE, graph editor, settings, plugins UI, debugger surfaces, prompt designer, chat viewer, data studio, and hosted app entrypoints. |
+| `@ironclad/rivet-app-executor` | Node executor sidecar used by the app for Node-mode graph execution. |
+| `@ironclad/rivet-node` | Node runtime adapter for loading and running Rivet projects programmatically. |
+| `@ironclad/rivet-cli` | CLI commands for running and serving Rivet graphs. |
+| `@ironclad/trivet` | Graph-oriented test utilities and test serialization. |
+| `packages/docs` | Docusaurus documentation site. |
 
-Rivet currently has LLM support for:
-
-- [OpenAI GPT-3.5 and GPT-4](https://openai.com/gpt-4)
-- [Anthropic Claude Instant and Claude 2](https://www.anthropic.com/index/claude-2)
-- [Anthropic Claude 3 Haiku, Sonnet, and Opus] (https://www.anthropic.com/news/claude-3-family)
-- [AssemblyAI LeMUR framework for voice data](https://www.assemblyai.com/products/speech-understanding?utm_source=rivet)
-
-Rivet has embedding/vector database support for:
-
-- [OpenAI Embeddings](https://platform.openai.com/docs/guides/embeddings)
-- [Pinecone](https://www.pinecone.io/)
-
-Rivet also supports these additional integrations:
-
-- [Speech-to-Text from AssemblyAI](https://www.assemblyai.com/discover/products/speech-to-text?utm_source=rivet)
-
-For more information on how to use the application and all of its capabilities, see [the documentation](https://rivet.ironcladapp.com/docs)!
-
-### Rivet Core
-
-Rivet core is a TypeScript library for running graphs created in Rivet. It is used by the Rivet application, but can also be used in your own applications, so that Rivet can call into your own application's code, and your application can call into Rivet graphs.
-
-For more information on using Rivet Core, see the [Rivet Integration Getting Started](https://rivet.ironcladapp.com/docs/api-reference/getting-started-integration) page and the related API documentation.
-
-Rivet core is available on NPM as `@ironclad/rivet-core`. Rivet node is available as `@ironclad/rivet-node`. Documentation for each is available on the [Rivet website](https://rivet.ironcladapp.com/docs/api-reference).
+The repo also includes `developer-docs/`, which documents current architecture and integration contracts, and `refactor-history.md`, which consolidates historical refactor notes for future planning.
 
 ## Getting Started
 
-### Prebuilt Binaries
+### Prerequisites
 
-#### Latest downloads
+- Node.js 20.4.x or a compatible Node 20 runtime.
+- Yarn through the checked-in Yarn release (`packageManager` currently points at Yarn 4.6.0).
+- Rust stable and the Tauri platform prerequisites if you are building desktop bundles.
 
-- **[Download for MacOS](https://github.com/Ironclad/rivet/releases/latest/download/Rivet.dmg)**
-- **[Download for Linux (AppImage)](https://github.com/Ironclad/rivet/releases/latest/download/Rivet.AppImage)**
-- **[Download for Linux (dmg)](https://github.com/Ironclad/rivet/releases/latest/download/Rivet.dmg)**
-- **[Download for Windows](https://github.com/Ironclad/rivet/releases/latest/download/Rivet-Setup.exe)**
+### Install Dependencies
 
-#### All Releases
+```powershell
+yarn install --immutable
+```
 
-Check out the [releases page](https://github.com/Ironclad/rivet/releases) for all available releases.
+### Start The Desktop App In Development
 
-### Running from Source
+```powershell
+yarn dev
+```
 
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for information on building and running Rivet from source.
+The root `dev` script starts the Rivet app workspace and opens the Vite/Tauri development flow used by the desktop IDE.
 
-## Contributing
+## Common Commands
 
-All types of contributions are welcome - from code to documentation, bug reports, user experience feedback, and new feature suggestions!
+```powershell
+# Build all main workspaces in dependency order
+yarn build
 
-Take a moment to read through the `CONTRIBUTING.md` file for help with setting up your development environment, and how to get started contributing to Rivet.
+# Run workspace tests
+yarn test
 
-We use the All Contributors bot to recognize all our contributors, so every contribution is acknowledged. See the [Contributors](#contributors-) section below for everyone!
+# Run workspace lint checks
+yarn lint
 
-### Code of Conduct
+# Build only the desktop app frontend/package
+yarn workspace @ironclad/rivet-app run build
 
-The Rivet project is welcome to all contributors, and as such, we have a [Code of Conduct](./CODE_OF_CONDUCT.md) that all contributors must follow.
+# Build local package artifacts for package-consumer checks
+yarn build:packages:local
+```
 
-## Troubleshooting
+To create a Tauri desktop bundle locally:
 
-If you have run into any issues while running the Rivet application, or when integrating it into your code, please check the [Issues](https://github.com/Ironclad/rivet/issues) page for any existing issues, and if you can't find any, please open a new issue!
+```powershell
+cd packages/app
+yarn tauri build --verbose
+```
 
-If you have any other questions on using Rivet, or have any other ideas, feel free to open a [discussion](https://github.com/Ironclad/rivet/discussions)!
+## Execution Modes
 
-<!-- markdownlint-restore -->
-<!-- prettier-ignore-end -->
+Rivet supports several execution surfaces:
 
-<!-- ALL-CONTRIBUTORS-LIST:END -->
+- Browser execution runs graphs in-process inside the app for lightweight local execution.
+- Node execution uses `@ironclad/rivet-app-executor`, a websocket sidecar that runs graph work in Node.
+- Programmatic Node execution uses `@ironclad/rivet-node` and the CLI without the desktop editor.
+- Hosted editor execution lets wrappers provide an internal executor websocket URL instead of asking browser-hosted Rivet to start a Tauri sidecar.
 
-This project follows the [all-contributors](https://github.com/all-contributors/all-contributors) specification. Contributions of any kind are welcome!
+The app executor defaults to a desktop-safe loopback websocket host, and hosted/containerized environments can override it with `RIVET_EXECUTOR_HOST`, `RIVET_EXECUTOR_PORT`, and `executor.internalExecutorUrl`. Code-node runtime-library resolution can be redirected with `RIVET_CODE_RUNNER_REQUIRE_ROOT`.
+
+## Plugins
+
+Rivet 2.0 treats plugin installation as app-level state:
+
+- Installing a plugin makes its nodes available in the node picker for every project.
+- A project records a plugin in its YAML only when a graph actually uses a node owned by that plugin.
+- Removing all nodes from that plugin removes the plugin from the project's serialized plugin list.
+- Opening a project that references plugins not installed in the app shows an explicit install-choice modal instead of silently installing them.
+
+The YAML project format remains unchanged; the app derives the `plugins` list from graph contents when saving, running, and uploading project data.
+
+## Embedding Rivet In A Wrapper
+
+Wrapper apps that vendor this repository as a local `rivet/` folder should import from the vendored source tree they ship. For example:
+
+```ts
+import { RivetAppHost } from '../rivet/packages/app/src/host';
+import '../rivet/packages/app/src/host.css';
+```
+
+`RivetAppHost` provides the app shell needed for embedding the full Rivet editor:
+
+- React Query, providers, async storage bootstrap, and executor-session wiring.
+- Hosted executor configuration through `executor.internalExecutorUrl`.
+- First-class lifecycle callbacks such as project save/open notifications.
+- Workspace host APIs for opening snapshots, opening path-backed projects, closing projects, moving project paths, and replacing the active project.
+- Provider-only integration points for IO, datasets, environment variables, storage, path policies, and wrapper bridge components.
+
+Wrappers should prefer these source-level seams over private editor internals. The npm package names describe the workspace boundaries, but a wrapper that ships a custom Rivet checkout should resolve those boundaries to its local `rivet/` source and build outputs.
+
+## Developer Releases
+
+This repo has a develop-branch Windows developer release workflow in `.github/workflows/developer-windows-release.yml`.
+
+On pushes to `develop`, the workflow:
+
+1. Installs dependencies with `yarn install --immutable`.
+2. Builds the monorepo with `yarn build`.
+3. Builds Windows MSI and NSIS installer bundles from `packages/app`.
+4. Publishes a small GitHub Pages download page with the latest developer installers.
+
+The developer release workflow intentionally builds installer artifacts only. It does not sign updater bundles and does not require Tauri updater private-key secrets. Production/tagged release workflows are separate.
+
+## Documentation
+
+Useful current docs:
+
+- [Developer Docs Overview](developer-docs/OVERVIEW.md)
+- [Package Boundaries](developer-docs/PACKAGES.md)
+- [Build And CI](developer-docs/BUILD-AND-CI.md)
+- [App Architecture](developer-docs/APP-ARCHITECTURE.md)
+- [Plugin System](developer-docs/PLUGIN-SYSTEM.md)
+- [Execution Data Flow](developer-docs/EXECUTION-DATA-FLOW.md)
+- [Refactor History](refactor-history.md)
+
+The public docs site lives in `packages/docs`.
+
+## License
+
+Rivet is licensed under the [MIT License](LICENSE).

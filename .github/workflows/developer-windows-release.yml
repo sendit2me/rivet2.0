@@ -38,11 +38,9 @@ jobs:
 
       - name: Build Tauri Windows bundle
         working-directory: packages/app
-        run: yarn tauri build --verbose
+        run: yarn tauri build --verbose --ci --bundles "msi,nsis"
         env:
           NODE_OPTIONS: --max-old-space-size=6000
-          TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
-          TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
 
       - name: Prepare Pages content
         run: node .github/scripts/prepare-developer-windows-pages.mjs

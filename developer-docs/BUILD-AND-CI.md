@@ -322,10 +322,10 @@ This workflow is intentionally develop-only. It does not run for `main`, and it 
 
 The workflow has two jobs:
 
-1. `build-windows` runs on `windows-latest`, checks out the repo, sets up Node `20.4.x`, installs Rust stable, runs `yarn --immutable`, runs the root `yarn build`, then runs `yarn tauri build --verbose` from `packages/app`.
+1. `build-windows` runs on `windows-latest`, checks out the repo, sets up Node `20.4.x`, installs Rust stable, runs `yarn --immutable`, runs the root `yarn build`, then runs `yarn tauri build --verbose --ci --bundles "msi,nsis"` from `packages/app`.
 2. `publish-pages` runs on `ubuntu-latest`, downloads the generated static page artifact, uploads it as a GitHub Pages artifact, and deploys it with `actions/deploy-pages`.
 
-The Windows build job uses [`.github/scripts/prepare-developer-windows-pages.mjs`](../.github/scripts/prepare-developer-windows-pages.mjs) to collect files from `packages/app/src-tauri/target/release/bundle`, copy original installer/updater artifacts under `downloads/original/`, create stable download aliases, and generate:
+The Windows build job uses [`.github/scripts/prepare-developer-windows-pages.mjs`](../.github/scripts/prepare-developer-windows-pages.mjs) to collect files from `packages/app/src-tauri/target/release/bundle`, copy original installer artifacts under `downloads/original/`, create stable download aliases, and generate:
 
 - `index.html`
 - `developer-release.json`
@@ -340,12 +340,9 @@ The repository's GitHub Pages source must be configured for GitHub Actions deplo
 
 ### Secrets/environment
 
-The Tauri build step passes:
+The developer Pages workflow does not pass updater-signing secrets. It explicitly requests only the Windows installer bundles with `--bundles "msi,nsis"`, so Tauri does not create updater zip bundles and does not need `TAURI_PRIVATE_KEY` or `TAURI_KEY_PASSWORD`.
 
-- `TAURI_PRIVATE_KEY`
-- `TAURI_KEY_PASSWORD`
-
-Those are needed for the current updater-enabled Tauri packaging contract, matching the existing desktop release workflow. The developer Pages workflow does not use Apple signing secrets because it only builds Windows.
+Production desktop release workflows still use the updater-enabled Tauri packaging contract and therefore continue to require updater signing secrets. Keep the developer Pages workflow installer-only unless it is intentionally promoted into an updater feed.
 
 ## `rename-release-assets.yml`
 
@@ -381,13 +378,13 @@ Tauri config lives in [`packages/app/src-tauri/tauri.conf.json`](../packages/app
 - `devPath`: `http://localhost:5173`
 - `distDir`: `../dist`
 - package version there: `2.0`
-- updater is active
+- updater is active in the default Tauri config
 - updater endpoint points at GitHub release `latest.json`
 - external binaries include app-executor and bundled `pnpm`
 
 ### Packaging significance
 
-The app package is not standalone frontend output. Tauri packaging, sidecars, updater behavior, and shell permissions are part of the build contract.
+The app package is not standalone frontend output. Tauri packaging, sidecars, updater behavior, and shell permissions are part of the build contract. CI workflows that only need installer artifacts can override the bundle targets at build time to avoid updater signing.
 
 ## Publish Scripts
 
