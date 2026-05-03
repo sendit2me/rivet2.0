@@ -1,49 +1,78 @@
 ---
-title: 06 - Splitting
+title: 06 - Running Many Items
+sidebar_label: Running Many Items
 ---
 
-# Splitting (and Chunking)
+# Running Many Items
 
-Let's say you want to summarize a long document. You could divide the document into an array of smaller pieces of text (chunking), and then iterate over each piece of text to summarize it (splitting), before summarizing the summaries.
+Let's say you want to summarize a long document. You can divide the document into an array of smaller pieces of text, summarize each piece, and then combine those summaries into a final answer.
 
-> For this tutorial, we will use the graph in the "6. Splitting" folder. Download the [documentation-tutorial.rivet-project here](https://github.com/valerypopoff/rivet2.0/blob/main/packages/app/src/assets/tutorials/documentation-tutorial.rivet-project) and open it in Rivet to follow along!
+Older Rivet docs called this "splitting." In the current app, the same behavior is controlled by each node's **run mode**:
+
+- `Run once`
+- `Many parallel runs`
+- `Many sequential runs`
+
+> The tutorial project still stores this example in the legacy "6. Splitting" folder. Download the [documentation-tutorial.rivet-project here](https://github.com/valerypopoff/rivet2.0/blob/main/packages/app/src/assets/tutorials/documentation-tutorial.rivet-project) and open it in Rivet to follow along.
 
 ## Chunking
 
-The first step of dividing a document into an array is called "chunking" in Rivet. The [Chunk Node](../node-reference/chunk.mdx) takes a string, and divides it into chunks of a certain token size.
+The first step is turning one large document into an array. The [Chunk Node](../node-reference/chunk.mdx) takes a string and divides it into chunks of a configured token size.
 
-Try running the tutorial example, and notice that the Chunk Node output has N elements. Now, try increasing overlap to 50%. The output likely now has more than N elements. Overlap makes each chunk share some text from the beginning and end of the next and previous chunks. This is helpful to account for sentences or ideas that might otherwise be split across chunks.
+Try running the tutorial example and notice that the Chunk node output has multiple elements. Now increase overlap to 50%. The output likely has more elements because each chunk shares some text with the previous and next chunk. Overlap helps preserve sentences or ideas that might otherwise be cut apart.
 
 In the screenshot below, you can see that "3.2 XYZ's Responsibilities" appears in both chunk 0 and 1, while "5. Compensation" appears in both chunk 1 and 2.
 
 ![Chunking with Overlap](./assets/06-chunking-with-overlap.png)
 
-## Splitting
+## Choose a Run Mode
 
-The next step is iterating over each piece of text in the array. In Rivet, nodes have a "split mode," which allows them to iterate over arrays. When split mode is on, the split icon (circled below in red) will show next to the node title.
+Select a node and look at the run-mode control in the node settings panel.
 
-![Split node icon](./assets/06-split-node.png)
+`Run once` runs the node one time. If an input is an array, the node receives the whole array.
 
-Try running the tutorial example, and notice that the Text Node outputs an array, with the text chunks inserted into the template.
+`Many parallel runs` runs the node once per array item and processes the items concurrently. This is best for independent work like summarizing chunks, transforming list items, or calling APIs when order does not matter.
 
-![Split node output](./assets/06-split-node-output.png)
+`Many sequential runs` also runs once per array item, but processes items one at a time. Use it when calls must be ordered, when a service has strict rate limits, or when side effects must not overlap.
 
-Now, turn off split mode, and run the graph. Notice that the output is a single string, with the chunk items all concatenated together ("This is chunk 1 2 3 4..." is happening because the `index` input is also an array). This is eventually how we will transform the array of summaries into a single answer.
+The project file still stores this as split-run state (`isSplitRun`, `isSplitSequential`, `splitRunMax`, and `splitRunConcurrency`), but the UI presents it as run mode.
 
-![Split node off](./assets/06-split-node-off.png)
+## Run Once
 
-Split mode can be configured with max and sequential. Max specifies the max iterations. Try setting it to 2, and notice that the remaining items get ignored. Sequential specifies whether to iterate over items one at a time, or in parallel.
+Run the tutorial graph with the Text node set to `Run once`. The Text node receives the full array of chunks.
 
-![Split node configuration](./assets/06-split-node-config.png)
+This is sometimes useful, especially when you are combining many values into one prompt. String arrays are usually coerced into text by joining the items with newlines.
 
-Now, notice that the Text Node has three inputs: `index`, `count`, and `data`. `index` is an array of sequential numbers, from 0 to N. `data` is the array of N text chunks. In split mode, these arrays are iterated over together, so that the i-th index is processed with the i-th text chunk. The `count` input is not an array, so it will stay constant throughout.
+## Many Parallel Runs
 
-> Warning: Try to keep input arrays to split nodes the same length. Otherwise, Rivet will go back to the start of any arrays that are shorter (which is unlikely to be the behavior you're looking for).
+Change the Text node run mode to `Many parallel runs` and run the graph again.
 
-## Combining
+The Text node now runs once per chunk. Its output is an array, where each item is the template result for one chunk.
 
-You can link nodes with split mode enabled to transform each item in an array. In the tutorial example, notice the split icon across the three nodes in the middle (Text, Chat, Text). The first Text Node inserts each chunk into a prompt template for summarization. Then, the Chat Node summarizes each chunk individually. Finally, the other Text Node adds some context for the summary.
+When multiple inputs are arrays, Rivet lines them up by index. In the tutorial graph, `index` and `data` are both arrays, so item 0 of `index` is processed with item 0 of `data`, item 1 with item 1, and so on. Inputs that are not arrays stay the same for every run.
 
-![Sequence of split nodes](./assets/06-split-sequence.png)
+Try setting `Max runs` to `2`. Only the first two items are processed.
 
-The resulting string array of summaries (and context about which chunk the summary comes from) is then combined into a Text Node with split mode turned off. By default, the string array input will get "coerced" into a string type by concatenating each item with a newline. If you want to combine them in a different way, consider something like the [Join Node](../node-reference/join.mdx).
+For parallel mode, `Max concurrent runs` controls how many item runs may be active at the same time. Lower it when an API or model provider needs gentler traffic.
+
+## Many Sequential Runs
+
+Switch the Text node to `Many sequential runs`.
+
+The result shape is still an array, but each item is processed after the previous item finishes. This mode is slower than parallel mode, but it is easier to reason about when calls depend on order or external systems dislike bursts.
+
+## Keep Arrays Aligned
+
+Try to keep array inputs to a many-runs node the same length. If one array is shorter than another, Rivet cycles through the shorter array again. That behavior can be useful in advanced graphs, but it is usually a sign that the inputs should be reshaped first.
+
+## Combine the Results
+
+Many-runs nodes produce arrays. After the tutorial graph summarizes each chunk, connect the array of summaries into a node set to `Run once` to combine them.
+
+By default, a string-array input can be coerced into a string by joining each item with a newline. If you need a different separator or formatting, use the [Join Node](../node-reference/join.mdx) before the final summarization step.
+
+The basic pattern is:
+
+1. Chunk one large input into an array.
+2. Use `Many parallel runs` or `Many sequential runs` to process each item.
+3. Use `Run once` to combine the array back into a final answer.

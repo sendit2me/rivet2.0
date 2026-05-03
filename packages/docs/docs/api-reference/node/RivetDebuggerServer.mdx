@@ -1,0 +1,96 @@
+# RivetDebuggerServer
+
+## Description
+
+`RivetDebuggerServer` is the server object returned by [startDebuggerServer](./startDebuggerServer). It owns the remote-debugger WebSocket server and can attach graph processors so the Rivet app can inspect, pause, resume, abort, and stream execution state.
+
+Pass a debugger server to `runGraph` or `createProcessor` with the `remoteDebugger` option when you want a Node execution to appear in Rivet's remote debugger.
+
+## Definition
+
+```typescript
+export interface RivetDebuggerServer {
+  on: Emittery<DebuggerEvents>['on'];
+  off: Emittery<DebuggerEvents>['off'];
+
+  webSocketServer: WebSocketServer;
+
+  broadcast(
+    processor: GraphProcessor,
+    message: string,
+    data: unknown,
+    requestId?: RemoteRunRequestId,
+  ): void;
+
+  attach(processor: GraphProcessor, requestId?: RemoteRunRequestId): void;
+  detach(processor: GraphProcessor): void;
+}
+```
+
+## Properties
+
+### on
+
+Type: `Emittery<DebuggerEvents>['on']`
+
+Subscribes to debugger-server events.
+
+### off
+
+Type: `Emittery<DebuggerEvents>['off']`
+
+Unsubscribes from debugger-server events.
+
+### webSocketServer
+
+Type: `WebSocketServer`
+
+The underlying `ws` server instance.
+
+## Methods
+
+### broadcast(processor, message, data, requestId?)
+
+Sends a debugger message to the clients associated with a processor.
+
+Most integrations do not call this directly. The debugger server wires processor events to broadcasts when `attach` is called.
+
+### attach(processor, requestId?)
+
+Attaches a `GraphProcessor` to the debugger server. Attached processors broadcast execution events to Rivet clients.
+
+The Node package calls this for you when `remoteDebugger` is passed to `createProcessor` or `runGraph`.
+
+### detach(processor)
+
+Detaches a processor from the debugger server.
+
+## Usage
+
+```typescript
+import { loadProjectFromFile, runGraph, startDebuggerServer } from '@valerypopoff/rivet2-node';
+
+const project = await loadProjectFromFile('./workflow.rivet-project');
+const remoteDebugger = startDebuggerServer({ port: 21888 });
+
+remoteDebugger.on('error', (error) => {
+  console.error(error);
+});
+
+await runGraph(project, {
+  graph: 'Main',
+  remoteDebugger,
+});
+```
+
+## Notes
+
+- The default debugger port is `21888`.
+- `startDebuggerServer` accepts a `host` option. Use an explicit host when exposing the debugger outside localhost.
+- The app executor uses a separate internal executor WebSocket contract. `RivetDebuggerServer` is for programmatic Node executions that want remote-debugger inspection.
+
+## See Also
+
+- [DebuggerEvents](./DebuggerEvents)
+- [RunGraphOptions](./RunGraphOptions)
+- [startDebuggerServer](./startDebuggerServer)

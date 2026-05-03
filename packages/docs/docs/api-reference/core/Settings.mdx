@@ -2,7 +2,9 @@
 
 ## Description
 
-`Settings` contains runtime and editor settings that can be passed to graph execution. It is intentionally optional-heavy: callers only need to provide values that matter for the nodes and plugins they run.
+`Settings` contains runtime and editor settings that can be passed into graph execution. It is intentionally optional-heavy: callers only provide the values needed by the nodes and plugins they run.
+
+`RunGraphOptions` extends `Settings`, so these fields are passed at the top level of a graph run options object.
 
 ## Definition
 
@@ -48,19 +50,19 @@ When enabled in the editor, creating a node opens its settings panel immediately
 
 Type: `Record<string, Record<string, unknown>>`
 
-Settings owned by installed plugins.
+Settings owned by plugins.
 
 ### pluginEnv
 
 Type: `Record<string, string | undefined>`
 
-Environment-like values made available to plugins. In the Node package, if `pluginEnv` is unset, Rivet fills plugin-declared environment values from `process.env`.
+Environment-like values made available to plugins. In `@valerypopoff/rivet2-node`, if `pluginEnv` is unset, Rivet fills plugin-declared environment values from `process.env`.
 
 ### openAiKey
 
 Type: `string`
 
-Legacy/shared OpenAI key used by legacy Chat and OpenAI-backed nodes. LLM Chat can also use provider-specific settings or an API Key input port depending on its API key source.
+Legacy/shared OpenAI key used by legacy Chat and OpenAI-backed execution paths. LLM Chat can also use provider-specific settings or an API Key input port depending on its API key source.
 
 ### openAiOrganization
 
@@ -78,7 +80,7 @@ Optional endpoint override for legacy OpenAI-compatible Chat behavior.
 
 Type: `number`
 
-Timeout in milliseconds before retrying a legacy Chat node call.
+Timeout in milliseconds for legacy Chat node calls.
 
 ### chatNodeHeaders
 
@@ -90,11 +92,11 @@ Headers applied to legacy Chat node calls.
 
 Type: `number`
 
-Throttle delay for streaming chat-node data into Rivet.
+Throttle delay for streaming legacy Chat node data into Rivet.
 
 ## Usage
 
-The `Settings` interface is part of the `RunGraphOptions` type and is used to provide OpenAI-specific settings for the graph execution process.
+Settings fields are merged directly into [RunGraphOptions](../node/RunGraphOptions):
 
 ```typescript
 const options: RunGraphOptions = {
@@ -106,7 +108,10 @@ const options: RunGraphOptions = {
 };
 ```
 
+When using the Node package, unset OpenAI defaults are filled from `OPENAI_API_KEY`, `OPENAI_ORG_ID`, and `OPENAI_ENDPOINT` when possible.
+
 ## See Also
 
 - [RunGraphOptions](../node/RunGraphOptions)
-- [OpenAI Documentation](https://platform.openai.com/docs/api-reference/authentication) (for more information about OpenAI keys and organization IDs)
+- [Project](./Project)
+- [DataValue](./DataValue)

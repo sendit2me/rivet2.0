@@ -1,0 +1,110 @@
+# Project
+
+## Description
+
+`Project` is the top-level Rivet document shape. It contains project metadata, all graphs, optional attached data, project references, and the plugin specs required by the graph contents.
+
+Rivet project files keep this YAML shape. In the desktop app, installed plugins are app-level, but project YAML still serializes `plugins` for portability. Rivet derives that list from the plugin nodes used in the project graphs and preserves unresolved plugin specs when a project references plugins that are not installed.
+
+## Definition
+
+```typescript
+export type ProjectId = Opaque<string, 'ProjectId'>;
+export type DataId = Opaque<string, 'DataId'>;
+
+export type Project = {
+  metadata: ProjectMetadata;
+  plugins?: PluginLoadSpec[];
+  graphs: Record<GraphId, NodeGraph>;
+  data?: Record<DataId, string>;
+  references?: ProjectReference[];
+};
+
+export type ProjectMetadata = {
+  id: ProjectId;
+  title: string;
+  description: string;
+  mainGraphId?: GraphId;
+  path?: string;
+  mcpServer?: MCP.Config;
+};
+
+export type ProjectReference = {
+  id: ProjectId;
+  hintPaths?: string[];
+  title?: string;
+};
+```
+
+## Properties
+
+### metadata
+
+Type: `ProjectMetadata`
+
+Project-level information.
+
+| Field | Purpose |
+| --- | --- |
+| `id` | Stable project ID. |
+| `title` | Project title shown in the app. |
+| `description` | Project description. |
+| `mainGraphId` | Graph to run by default when no graph is specified. |
+| `path` | Current project path when known. |
+| `mcpServer` | Optional MCP server configuration stored with the project. |
+
+### plugins
+
+Type: `PluginLoadSpec[] | undefined`
+
+Plugin load specs required by the project. App-installed plugins make nodes available globally in the editor. The project only needs plugin specs for plugins whose nodes are actually present in the project graphs.
+
+Do not treat this as the app's installed-plugin list. It is the portable project dependency list.
+
+### graphs
+
+Type: `Record<GraphId, NodeGraph>`
+
+All graphs in the project, keyed by graph ID.
+
+### data
+
+Type: `Record<DataId, string> | undefined`
+
+Serialized attached data. Large or shared data can be stored here and referenced from graph content through data refs.
+
+### references
+
+Type: `ProjectReference[] | undefined`
+
+References to other project files. Project references cannot be cyclic.
+
+Each reference can include:
+
+| Field | Purpose |
+| --- | --- |
+| `id` | ID of the referenced project. |
+| `hintPaths` | Candidate paths used to resolve the referenced project. |
+| `title` | Human-readable title for UI and diagnostics. |
+
+## Loading a Project
+
+```typescript
+import { loadProjectFromFile, runGraph } from '@valerypopoff/rivet2-node';
+
+const project = await loadProjectFromFile('./workflow.rivet-project');
+const outputs = await runGraph(project, {
+  graph: project.metadata.mainGraphId,
+  inputs: {
+    prompt: 'Hello',
+  },
+});
+```
+
+If `graph` is omitted in run options, Rivet uses `project.metadata.mainGraphId`.
+
+## See Also
+
+- [NodeGraph](./NodeGraph)
+- [RunGraphOptions](../node/RunGraphOptions)
+- [Settings](./Settings)

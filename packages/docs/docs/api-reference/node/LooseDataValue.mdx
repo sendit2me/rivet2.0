@@ -2,7 +2,7 @@
 
 ## Description
 
-`LooseDataValue` is a type that represents a loose data value. It can be a `DataValue`, `string`, `number`, or `boolean`.
+`LooseDataValue` is the convenience input type accepted by graph inputs and context values in run options. It can be a full [DataValue](../core/DataValue), or a primitive `string`, `number`, or `boolean`.
 
 ## Definition
 
@@ -12,24 +12,36 @@ type LooseDataValue = DataValue | string | number | boolean;
 
 ## Explanation
 
-- `DataValue`: This is a specific type defined in the library. For more details, see the [DataValue](../core/DataValue) documentation page.
-- `string`: A standard JavaScript string.
-- `number`: A standard JavaScript number.
-- `boolean`: A standard JavaScript boolean.
+Rivet converts primitive loose values before the graph runs:
+
+| Input value | Converted `DataValue` |
+| --- | --- |
+| `'hello'` | `{ type: 'string', value: 'hello' }` |
+| `42` | `{ type: 'number', value: 42 }` |
+| `true` | `{ type: 'boolean', value: true }` |
+
+Use a full `DataValue` when you need objects, arrays, chat messages, images, binary data, documents, vectors, or any other non-primitive graph value.
 
 ## Usage
 
-`LooseDataValue` is used in various places across the API, particularly as a type for inputs and context values in the `RunGraphOptions` type.
+`LooseDataValue` is used for `inputs` and `context` values in [RunGraphOptions](./RunGraphOptions):
 
 ```typescript
-export type RunGraphOptions = {
-  inputs?: Record<string, LooseDataValue>;
-  context?: Record<string, LooseDataValue>;
-  // Other properties...
-};
+await runGraph(project, {
+  graph: 'Main',
+  inputs: {
+    prompt: 'Write a haiku',
+    maxLines: 3,
+    includeTitle: true,
+    metadata: {
+      type: 'object',
+      value: { audience: 'internal' },
+    },
+  },
+});
 ```
 
-In this example, `inputs` and `context` in `RunGraphOptions` can accept an object where the values can be a `DataValue`, `string`, `number`, or `boolean`.
+`null` and `undefined` are not `LooseDataValue` primitives. If a graph input is optional, omit it and let the Graph Input node use its default value.
 
 ## See Also
 

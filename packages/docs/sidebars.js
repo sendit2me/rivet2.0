@@ -139,7 +139,6 @@ const sidebars = {
       collapsed: false,
       items: [
         'api-reference/core/overview',
-        'api-reference/core/DataValue',
         'api-reference/core/GraphProcessor',
         {
           type: 'category',
