@@ -343,10 +343,12 @@ Current behavior:
 
 It does not publish `@valerypopoff/trivet`, the app, the app executor, or Docker
 images. The main-branch npm workflow is the canonical automation path for this
-script. That workflow verifies a clean checkout before building generated
-publish artifacts, verifies that the build changed only generated artifacts,
-then calls this script with `--skip-clean-check` so ignored `dist`, CLI `bin`,
-and TypeScript build-info outputs do not block publishing.
+script. That workflow verifies a clean checkout before installing dependencies,
+then verifies after the build that only Yarn install artifacts and generated
+publish artifacts changed. It calls this script with `--skip-clean-check` so
+ignored `.pnp.cjs`, `.yarn/cache`, `packages/core/dist`, `packages/node/dist`,
+`packages/cli/dist`, `packages/cli/bin`, and `packages/cli/tsconfig.tsbuildinfo`
+outputs do not block publishing.
 
 ## `publish-docs.mts`
 

@@ -421,19 +421,21 @@ npm scope. It intentionally does not run on `develop`.
 The workflow:
 
 1. checks out the repo
-2. sets up Node `20.4.x` for the build, matching the repo development toolchain
-3. installs dependencies with the checked-in Yarn release and `--immutable`
-4. verifies the checkout is clean before generated build artifacts are created
+2. verifies the checkout starts clean
+3. sets up Node `20.4.x` for the build, matching the repo development toolchain
+4. installs dependencies with the checked-in Yarn release and `--immutable`
 5. builds `@valerypopoff/rivet2-core`, `@valerypopoff/rivet2-node`, and `@valerypopoff/rivet2-cli`
-6. verifies that the package build changed only generated artifacts
+6. verifies that dependency install and package build touched only generated artifacts
 7. switches to Node `22.14.x` and npm `11.5.1` for npm trusted-publishing compatibility
 8. runs `node scripts/publish-npm-packages.mjs --skip-clean-check`
 
 The publish step intentionally skips the script's clean-tree check because this
-job builds ignored publish artifacts immediately before publishing. The workflow
-performs cleanliness checks before and after that build step instead, so dirty
-source changes still fail while generated `dist`, CLI `bin`, and TypeScript
-build-info files do not block publishing.
+job installs dependencies and builds ignored publish artifacts immediately
+before publishing. The workflow performs cleanliness checks before install and
+after build instead, so source changes still fail while Yarn install artifacts,
+generated `packages/core/dist`, `packages/node/dist`, `packages/cli/dist`,
+`packages/cli/bin`, and `packages/cli/tsconfig.tsbuildinfo` files do not block
+publishing.
 
 ### Versioning policy
 
