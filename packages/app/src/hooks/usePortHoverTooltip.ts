@@ -1,5 +1,5 @@
 import { type MouseEvent, useEffect, useRef, useState } from 'react';
-import type { NodeId, NodeInputDefinition, NodeOutputDefinition, PortId } from '@rivet2/rivet-core';
+import type { NodeId, NodeInputDefinition, NodeOutputDefinition, PortId } from '@valerypopoff/rivet2-core';
 import { useAtomValue } from 'jotai';
 import { draggingWireClosestPortState } from '../state/graphBuilder.js';
 import { autoUpdate, offset, shift, useFloating } from '@floating-ui/react';

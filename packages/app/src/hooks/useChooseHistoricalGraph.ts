@@ -1,4 +1,4 @@
-import { type GraphId, type NodeGraph } from '@rivet2/rivet-core';
+import { type GraphId, type NodeGraph } from '@valerypopoff/rivet2-core';
 import { type CalculatedRevision } from '../utils/ProjectRevisionCalculator';
 import { useSetAtom } from 'jotai';
 import { graphState, historicalGraphState, isReadOnlyGraphState } from '../state/graph';

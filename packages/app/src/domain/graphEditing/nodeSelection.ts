@@ -1,4 +1,4 @@
-import type { NodeId } from '@rivet2/rivet-core';
+import type { NodeId } from '@valerypopoff/rivet2-core';
 
 export function toggleNodeSelection(selectedNodeIds: readonly NodeId[], nodeId: NodeId): NodeId[] {
   if (selectedNodeIds.includes(nodeId)) {

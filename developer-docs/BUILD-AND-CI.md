@@ -41,7 +41,7 @@ yarn publish-docs
 
 Runs:
 
-1. `yarn workspace @rivet2/rivet-app run dev`
+1. `yarn workspace @valerypopoff/rivet-app run dev`
 
 That app dev script performs a Windows-only cleanup of stale copied `app-executor.exe` sidecars, then launches `tauri dev`. The Tauri dev command itself runs `yarn prepare:tauri && yarn start` through `beforeDevCommand`, so the Node sidecar is rebuilt before the desktop app starts.
 
@@ -64,10 +64,10 @@ Alias for `yarn build`.
 
 Runs all currently defined workspace test suites:
 
-- `yarn workspace @rivet2/rivet-core run test`
-- `yarn workspace @rivet2/rivet-node run test`
-- `yarn workspace @rivet2/rivet-app run test`
-- `yarn workspace @rivet2/rivet-cli run test`
+- `yarn workspace @valerypopoff/rivet2-core run test`
+- `yarn workspace @valerypopoff/rivet2-node run test`
+- `yarn workspace @valerypopoff/rivet-app run test`
+- `yarn workspace @valerypopoff/rivet2-cli run test`
 
 Packages without a `test` script are not included.
 
@@ -96,7 +96,11 @@ Runs:
 
 Runs:
 
-- `tsx publish-packages.mts`
+- `node scripts/publish-npm-packages.mjs`
+
+This publishes only the public npm package set: `@valerypopoff/rivet2-core`,
+`@valerypopoff/rivet2-node`, and `@valerypopoff/rivet2-cli`. Build those
+workspaces before publishing.
 
 ### `yarn publish-docs`
 
@@ -136,16 +140,16 @@ ESM-only packages that cannot be aliased (e.g. `mdast-util-to-markdown`, `@googl
 
 - `build`: `build:esm` then `build:cjs`
 - CJS bundle reuses core's esbuild bundler script (same alias strategy applies)
-- `pretest`: builds `@rivet2/rivet-core` ESM output first, because the node tests import the workspace package through its published-style export surface
+- `pretest`: builds `@valerypopoff/rivet2-core` ESM output first, because the node tests import the workspace package through its published-style export surface
 
-Wrappers that embed this checkout but consume `@rivet2/rivet-core` and
-`@rivet2/rivet-node` as built packages should not create symlinks inside the
+Wrappers that embed this checkout but consume `@valerypopoff/rivet2-core` and
+`@valerypopoff/rivet2-node` as built packages should not create symlinks inside the
 Rivet workspace or change Rivet's package-manager mode. After building both
 workspaces, run `yarn build:packages:local` or
 `node scripts/create-built-package-artifacts.mjs --out-dir <dir>`. The script
 validates the built `dist/esm`, `dist/cjs`, and `dist/types` outputs, writes
 package-manager-neutral `file:` package directories, and rewrites
-`@rivet2/rivet-node` to depend on the generated local `@rivet2/rivet-core`
+`@valerypopoff/rivet2-node` to depend on the generated local `@valerypopoff/rivet2-core`
 package. npm, Yarn, and pnpm based wrappers can then depend on those generated
 local directories without pulling stale public registry packages and without
 mutating this checkout's PnP/node-modules layout. The artifact script recreates
@@ -160,7 +164,7 @@ overlapping a source package directory.
 - `start`: Vite dev server
 - `dev`: `node scripts/dev.mjs`
 - `build`: `tsc && vite build`
-- `prepare:tauri`: rebuild `@rivet2/rivet-app-executor` before desktop launch/build steps
+- `prepare:tauri`: rebuild `@valerypopoff/rivet-app-executor` before desktop launch/build steps
 
 Current dev/build detail:
 
@@ -194,7 +198,7 @@ Maintenance rules:
 - `dev`: `tsx watch --inspect=9228 --experimental-network-imports bin/executor.mts`
 - `start`: build then run bundled executor
 
-The build script (`scripts/build-executor.mts`) bundles the ESM source to CJS using esbuild, then compiles the CJS bundle into a native binary via `pkg`. CJS format is required because `pkg` needs static analysis of `require()` calls. A custom esbuild plugin (`resolveRivet`) inlines `@rivet2/rivet-*` packages from source, so the final bundle has zero external workspace dependencies.
+The build script (`scripts/build-executor.mts`) bundles the ESM source to CJS using esbuild, then compiles the CJS bundle into a native binary via `pkg`. CJS format is required because `pkg` needs static analysis of `require()` calls. A custom esbuild plugin (`resolveRivet`) inlines `@valerypopoff/rivet-*` packages from source, so the final bundle has zero external workspace dependencies.
 
 The app-executor binary accepts `--port` / `-p` and `--host` flags. The default
 host is `127.0.0.1` for the desktop internal sidecar; hosted/container wrappers
@@ -220,7 +224,7 @@ or server wrappers can synchronize runtime libraries before module resolution.
 
 The CLI now includes a small smoke suite so root `yarn test` / `npm run test` validates the package instead of failing on an empty test glob.
 
-The CLI Dockerfile installs the published CLI package by explicit version (`@rivet2/rivet-cli@2.0.0`). Keep that pin aligned with `packages/cli/package.json` whenever the product version changes.
+The CLI Dockerfile installs the published CLI package by explicit version (`@valerypopoff/rivet2-cli@2.0.0`). Keep that pin aligned with `packages/cli/package.json` whenever the product version changes.
 
 ### Trivet
 
@@ -343,7 +347,9 @@ The repository's GitHub Pages source must be configured for GitHub Actions deplo
 
 `PAGES_ENABLEMENT_TOKEN` must be stronger than the default `GITHUB_TOKEN`; `actions/configure-pages` requires a separate token for enablement. Use a fine-grained token with Pages write access for this repository, a classic token with `repo` scope, or a GitHub App token with `administration:write` and `pages:write`. After Pages is enabled, the normal deployment still uses the workflow's `pages: write` and `id-token: write` permissions.
 
-The workflow sets `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true` and uses the current Node 24 compatible Pages action majors where available. Keep that env var until all artifact actions used by GitHub Pages publish with Node 24 runtimes by default.
+The deploy job uses the `developer-windows-pages` environment instead of the default `github-pages` environment. This keeps the develop-branch installer feed from being blocked by production-oriented `github-pages` environment protection rules, such as "only main can deploy." If the `developer-windows-pages` environment is later given branch restrictions, it must allow `develop`.
+
+The workflow uses Node 24-compatible artifact action majors (`actions/upload-artifact@v7`, `actions/download-artifact@v7`, and `actions/upload-pages-artifact@v5`) and no longer forces Node 24 globally with `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24`. The build itself still uses Node `20.4.x`; that is the project toolchain, not the JavaScript runtime used by GitHub's actions.
 
 ### Secrets/environment
 
@@ -353,7 +359,89 @@ Optional developer-release secret:
 
 - `PAGES_ENABLEMENT_TOKEN`: only needed if the workflow should enable GitHub Pages automatically instead of relying on the one-time repository setting described above.
 
+Deployment environment:
+
+- `developer-windows-pages`: used by the develop-branch Pages deployment. Leave it unrestricted or allow the `develop` branch.
+
 Production desktop release workflows still use the updater-enabled Tauri packaging contract and therefore continue to require updater signing secrets. Keep the developer Pages workflow installer-only unless it is intentionally promoted into an updater feed.
+
+## `publish-npm-packages.yml`
+
+### Trigger conditions
+
+- pushes to `main`
+- manual `workflow_dispatch` runs, guarded so jobs only execute when the selected ref is `main`
+
+### Current behavior
+
+This workflow publishes the public runtime packages under the `@valerypopoff`
+npm scope. It intentionally does not run on `develop`.
+
+The workflow:
+
+1. checks out the repo
+2. sets up Node `20.4.x` for the build, matching the repo development toolchain
+3. installs dependencies with the checked-in Yarn release and `--immutable`
+4. builds `@valerypopoff/rivet2-core`, `@valerypopoff/rivet2-node`, and `@valerypopoff/rivet2-cli`
+5. switches to Node `22.14.x` and npm `11.5.1` for npm trusted-publishing compatibility
+6. runs `node scripts/publish-npm-packages.mjs`
+
+### Versioning policy
+
+The package manifest version is the release source of truth. The three public
+npm packages are versioned in lockstep and must stay on major version `2`.
+
+- patch releases: `2.0.1`, `2.0.2`, etc. for compatible fixes
+- minor releases: `2.1.0`, `2.2.0`, etc. for compatible features
+- prereleases: `2.1.0-beta.1`, etc. publish with the `next` dist-tag unless `NPM_DIST_TAG` overrides it
+
+The publish script refuses to publish if the three package versions disagree, if
+the version is not semver, or if the major version is not `2`. It also checks
+npm before publishing each package and skips package versions that are already
+present in the registry, so re-running the same main-branch workflow does not
+turn an already-published package into a hard failure.
+
+### npm authentication
+
+The workflow supports two npm authentication modes:
+
+- `NPM_TOKEN`: add a repository secret with an npm automation token that can
+  publish under the `@valerypopoff` scope.
+- trusted publishing: configure each npm package to trust this GitHub repository
+  and the `.github/workflows/publish-npm-packages.yml` workflow. The workflow
+  already grants `id-token: write`, uses a GitHub-hosted runner, and installs a
+  trusted-publishing-capable npm version.
+
+Trusted publishing is preferred for long-term release security because it avoids
+long-lived write tokens. For the first publish of a new package, an npm token may
+still be the simplest bootstrap path if the package cannot yet be configured for
+trusted publishing on npmjs.com.
+
+For local publishes, `scripts/publish-npm-packages.mjs` reads repo-root `.env`
+before it stages packages. A local `NPM_TOKEN=...` entry is mapped to
+`NODE_AUTH_TOKEN` and written only to a temporary npm user config inside the
+staging directory while `npm view` / `npm publish` run. The temporary `.npmrc` is
+removed before the script exits, including when `--keep-stage` leaves staged
+packages available for inspection. The repo-root `.env` file is ignored by Git
+and must not be committed. GitHub Actions does not receive local `.env` values;
+CI publishes need a repository secret named `NPM_TOKEN` or npm trusted
+publishing.
+
+### Package staging
+
+[`scripts/publish-npm-packages.mjs`](../scripts/publish-npm-packages.mjs) does
+not publish directly from the workspace package directories. It stages clean
+temporary package directories containing only package metadata, README/LICENSE
+files, and built outputs:
+
+- `dist/cjs`, `dist/esm`, and `dist/types` for `rivet2-core` and `rivet2-node`
+- `bin` and `dist` for `rivet2-cli`
+
+During staging, internal `workspace:^` dependencies are rewritten to the same
+published `^2.x` version. For example, `@valerypopoff/rivet2-node` receives a
+normal npm dependency on `@valerypopoff/rivet2-core`, and
+`@valerypopoff/rivet2-cli` receives a normal npm dependency on
+`@valerypopoff/rivet2-node`.
 
 ## `rename-release-assets.yml`
 
@@ -401,19 +489,33 @@ Startup update checks are intentionally quiet when that `latest.json` feed does 
 
 ## Publish Scripts
 
-## `publish-packages.mts`
+## `scripts/publish-npm-packages.mjs`
 
 Current behavior:
 
-1. parse OTP from CLI args
-2. fail if git tree is dirty
-3. verify expected workspaces exist
-4. publish core, node, cli, and trivet
-5. run CLI Docker publish
+1. load local `.env` publish authentication when present
+2. fail if git tree is dirty, unless `--skip-clean-check` is passed
+3. verify the three public package manifests are named correctly
+4. require lockstep semver package versions on major version `2`
+5. validate required built output exists
+6. stage clean temporary npm package directories
+7. rewrite internal workspace dependencies to public `^2.x` package ranges
+8. skip already-published package versions
+9. publish core, node, and cli with `npm publish --access public`
 
 ### Operational implication
 
-This script assumes a release-quality workspace and does not attempt partial or resumable publish logic.
+This script assumes the packages have already been built. It is resumable across
+already-published package versions, but it does not version-bump packages or
+publish Docker images.
+
+Useful local validation flags:
+
+- `--stage-only`: validate and stage the packages without invoking npm
+- `--keep-stage`: keep the temporary staged package directory for inspection;
+  npm auth config is still removed before exit
+- `--dry-run`: run `npm publish --dry-run` against the staged package directories
+- `--skip-clean-check`: allow validation from a dirty working tree
 
 ## `publish-docs.mts`
 
@@ -439,7 +541,7 @@ This script is intentionally aggressive and should be treated carefully. It only
 The current effective release flow is:
 
 1. update versions in package manifests and Tauri config
-2. publish npm packages via `yarn publish`
+2. push to `main` to publish npm packages
 3. push `app-v*` tag for desktop release
 4. let `release.yml` create draft desktop artifacts
 5. let `rename-release-assets.yml` normalize asset names
@@ -450,7 +552,8 @@ The current effective release flow is:
 Visible from the current scripts/workflows:
 
 - docs publishing uses force checkout/reset behavior
-- npm publishing requires a clean tree and OTP up front
+- npm publishing depends on correct npm scope authentication or trusted publisher configuration
+- npm package publishing and desktop release versioning are separate workflows and must be kept intentionally aligned
 - app release depends on sidecar and Tauri packaging staying aligned
 - build/test coverage is not symmetrical across all packages
 

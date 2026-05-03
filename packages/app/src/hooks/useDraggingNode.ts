@@ -1,6 +1,6 @@
 import { type DragStartEvent, type DragEndEvent, type DragMoveEvent } from '@dnd-kit/core';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { newId, type ChartNode, type NodeId } from '@rivet2/rivet-core';
+import { newId, type ChartNode, type NodeId } from '@valerypopoff/rivet2-core';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { canvasPositionState, selectedNodesState } from '../state/graphBuilder.js';
 import { isNotNull } from '../utils/genericUtilFunctions.js';

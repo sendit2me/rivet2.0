@@ -6,7 +6,7 @@ import { editingNodeState, selectedNodesState } from '../state/graphBuilder.js';
 import { NodeEditorRenderer } from './NodeEditor.js';
 import styled from '@emotion/styled';
 import { useStableCallback } from '../hooks/useStableCallback.js';
-import { type ArrayDataValue, type ChartNode, type StringDataValue } from '@rivet2/rivet-core';
+import { type ArrayDataValue, type ChartNode, type StringDataValue } from '@valerypopoff/rivet2-core';
 import { type ProcessQuestions, userInputModalQuestionsState } from '../state/userInput.js';
 import { UserInputModal } from './UserInputModal.js';
 import Button from '@atlaskit/button';

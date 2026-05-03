@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { GraphOutputs } from '@rivet2/rivet-core';
+import type { GraphOutputs } from '@valerypopoff/rivet2-core';
 import { createExecutorSessionRuntime, type ExecutorSessionRuntime } from './executorSession';
 
 class FakeWebSocket {

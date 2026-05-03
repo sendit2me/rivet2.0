@@ -2,7 +2,7 @@ import { useAtomValue, useSetAtom } from 'jotai';
 import { loadedProjectState, projectState, referencedProjectsState } from '../state/savedGraphs';
 import { useCallback } from 'react';
 import { TauriProjectReferenceLoader } from '../model/TauriProjectReferenceLoader';
-import { type Project, type ProjectId } from '@rivet2/rivet-core';
+import { type Project, type ProjectId } from '@valerypopoff/rivet2-core';
 import useAsyncEffect from 'use-async-effect';
 import { handleError } from '../utils/errorHandling.js';
 import { usePathPolicyProvider } from '../providers/ProvidersContext.js';

@@ -10,7 +10,7 @@ import {
   registerBuiltInNodes,
   NodeRegistration,
   plugins as corePlugins,
-} from '@rivet2/rivet-core';
+} from '@valerypopoff/rivet2-core';
 import { Field } from '@atlaskit/form';
 import Button from '@atlaskit/button';
 import { css } from '@emotion/react';

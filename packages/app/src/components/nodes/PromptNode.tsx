@@ -1,5 +1,5 @@
 import { css } from '@emotion/react';
-import type { PromptNode, PromptNodeData } from '@rivet2/rivet-core';
+import type { PromptNode, PromptNodeData } from '@valerypopoff/rivet2-core';
 import type { FC } from 'react';
 import type { NodeComponentDescriptor } from '../../hooks/useNodeTypes.js';
 

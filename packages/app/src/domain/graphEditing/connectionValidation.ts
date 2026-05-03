@@ -6,7 +6,7 @@ import {
   type PortId,
   type Project,
   type ProjectId,
-} from '@rivet2/rivet-core';
+} from '@valerypopoff/rivet2-core';
 
 type NodePortIds = {
   inputPortIds: Set<PortId>;

@@ -1,5 +1,5 @@
 import { type FC, type ReactNode } from 'react';
-import { DEFAULT_SPLIT_RUN_CONCURRENCY, type ChartNode } from '@rivet2/rivet-core';
+import { DEFAULT_SPLIT_RUN_CONCURRENCY, type ChartNode } from '@valerypopoff/rivet2-core';
 import TextField from '@atlaskit/textfield';
 import Select from '@atlaskit/select';
 import Button from '@atlaskit/button';

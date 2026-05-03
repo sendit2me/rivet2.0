@@ -1,4 +1,4 @@
-import { type BaseDir, type NativeApi, type ReadDirOptions } from '@rivet2/rivet-core';
+import { type BaseDir, type NativeApi, type ReadDirOptions } from '@valerypopoff/rivet2-core';
 
 import { minimatch } from 'minimatch';
 import { nativeReadBinaryFile, nativeReadDir, nativeReadTextFile, nativeWriteFile } from '../../utils/platform/fs.js';

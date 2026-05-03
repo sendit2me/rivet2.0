@@ -1,6 +1,6 @@
 import { useThrottleFn } from 'ahooks';
 import { useEffect, useRef, useState } from 'react';
-import type { ChartNode, GraphId, NodeId } from '@rivet2/rivet-core';
+import type { ChartNode, GraphId, NodeId } from '@valerypopoff/rivet2-core';
 import { useStableCallback } from '../../hooks/useStableCallback.js';
 import type { CanvasPosition } from '../../state/graphBuilder.js';
 import { VIEWPORT_SETTLE_MS } from './canvasPerformanceBudget.js';

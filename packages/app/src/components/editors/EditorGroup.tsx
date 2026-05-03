@@ -1,4 +1,4 @@
-import { type ChartNode, type EditorDefinitionGroup } from '@rivet2/rivet-core';
+import { type ChartNode, type EditorDefinitionGroup } from '@valerypopoff/rivet2-core';
 import { type FC } from 'react';
 import { type SharedEditorProps } from './SharedEditorProps';
 import { css } from '@emotion/react';

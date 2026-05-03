@@ -1,6 +1,6 @@
 import { atom } from 'jotai';
 import { atomWithStorage } from 'jotai/utils';
-import { type ChartNode, type NodeConnection, type NodeGraph, type NodeId, emptyNodeGraph } from '@rivet2/rivet-core';
+import { type ChartNode, type NodeConnection, type NodeGraph, type NodeId, emptyNodeGraph } from '@valerypopoff/rivet2-core';
 import { type CalculatedRevision } from '../../utils/ProjectRevisionCalculator';
 import { createHybridStorage } from '../storage.js';
 

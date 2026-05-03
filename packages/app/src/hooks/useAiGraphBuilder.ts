@@ -12,7 +12,7 @@ import {
   registerBuiltInNodes,
   NodeRegistration,
   plugins as corePlugins,
-} from '@rivet2/rivet-core';
+} from '@valerypopoff/rivet2-core';
 import { cloneDeep } from 'lodash-es';
 import { toast } from 'react-toastify';
 import { TauriNativeApi } from '../model/native/TauriNativeApi';

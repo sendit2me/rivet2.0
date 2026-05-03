@@ -5,7 +5,7 @@ import { AppErrorBoundary } from './AppErrorBoundary';
 import {
   promptDesignerState,
 } from '../state/promptDesigner';
-import { type NodeTestGroup } from '@rivet2/rivet-core';
+import { type NodeTestGroup } from '@valerypopoff/rivet2-core';
 import Tabs, { Tab, TabList, TabPanel } from '@atlaskit/tabs';
 import Button from '@atlaskit/button';
 import { overlayOpenState } from '../state/ui';

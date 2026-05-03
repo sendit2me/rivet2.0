@@ -11,10 +11,10 @@ import TabItem from '@theme/TabItem';
 
 ## Overview
 
-When Rivet is running from a host application running `@rivet2/rivet-core` or `@rivet2/rivet-node`, then you can attach "External Functions" when running graphs or creating a GraphProcessor. The following external function `sum` will sum all of its arguments:
+When Rivet is running from a host application running `@valerypopoff/rivet2-core` or `@valerypopoff/rivet2-node`, then you can attach "External Functions" when running graphs or creating a GraphProcessor. The following external function `sum` will sum all of its arguments:
 
 ```ts
-import { runGraphInFile } from '@rivet2/rivet-node';
+import { runGraphInFile } from '@valerypopoff/rivet2-node';
 
 await runGraphInFile({
   ...etc,
@@ -88,7 +88,7 @@ External functions are extremely powerful. They can only be used when running Ri
 In this example, we'll create a graph that makes a database call to get metadata about a single user. First, we'll define the external function that will make the database call:
 
 ```ts
-import { runGraphInFile } from '@rivet2/rivet-node';
+import { runGraphInFile } from '@valerypopoff/rivet2-node';
 
 const db = {
   async getUser(id: string) {

@@ -1,6 +1,6 @@
 import { type FC, Suspense, useEffect, useRef, useState, useMemo } from 'react';
 import { useAtom, useAtomValue } from 'jotai';
-import { type UserInputNode, type ArrayDataValue, type StringDataValue, type NodeId } from '@rivet2/rivet-core';
+import { type UserInputNode, type ArrayDataValue, type StringDataValue, type NodeId } from '@valerypopoff/rivet2-core';
 import { lastAnswersState } from '../state/userInput.js';
 import Modal, { ModalBody, ModalFooter, ModalTransition } from '@atlaskit/modal-dialog';
 import Button from '@atlaskit/button';

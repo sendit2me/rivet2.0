@@ -13,16 +13,16 @@ const outDir =
 
 const packages = [
   {
-    name: '@rivet2/rivet-core',
+    name: '@valerypopoff/rivet2-core',
     sourceDir: path.join(repoRoot, 'packages/core'),
-    artifactDir: 'rivet2-rivet-core',
+    artifactDir: 'rivet2-core',
   },
   {
-    name: '@rivet2/rivet-node',
+    name: '@valerypopoff/rivet2-node',
     sourceDir: path.join(repoRoot, 'packages/node'),
-    artifactDir: 'rivet2-rivet-node',
+    artifactDir: 'rivet2-node',
     rewriteDependencies: {
-      '@rivet2/rivet-core': 'file:../rivet2-rivet-core',
+      '@valerypopoff/rivet2-core': 'file:../rivet2-core',
     },
   },
 ];

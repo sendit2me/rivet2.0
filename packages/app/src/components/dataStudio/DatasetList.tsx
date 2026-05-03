@@ -1,7 +1,7 @@
 import Button from '@atlaskit/button';
 import { DropdownItem } from '@atlaskit/dropdown-menu';
 import Portal from '@atlaskit/portal';
-import { type DatasetId, type DatasetMetadata, newId } from '@rivet2/rivet-core';
+import { type DatasetId, type DatasetMetadata, newId } from '@valerypopoff/rivet2-core';
 import { type FC, useState } from 'react';
 import { useAtomValue, useAtom } from 'jotai';
 import { useContextMenu } from '../../hooks/useContextMenu';

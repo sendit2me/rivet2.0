@@ -11,13 +11,13 @@ Run a Rivet graph in a project using provided input values.
 
 ```bash
 # Run with basic input
-npx @rivet2/rivet-cli run my-project.rivet-project --input name=Alice
+npx @valerypopoff/rivet2-cli run my-project.rivet-project --input name=Alice
 
 # Run with JSON input
-echo '{"name": "Alice"}' | npx @rivet2/rivet-cli run my-project.rivet-project --inputs-stdin
+echo '{"name": "Alice"}' | npx @valerypopoff/rivet2-cli run my-project.rivet-project --inputs-stdin
 
 # Run specific graph
-npx @rivet2/rivet-cli run my-project.rivet-project "My Graph" --input name=Alice
+npx @valerypopoff/rivet2-cli run my-project.rivet-project "My Graph" --input name=Alice
 ```
 
 ## Description
@@ -34,13 +34,13 @@ The `run` command executes a Rivet graph with specified inputs. This is particul
 The basic usage will run the main graph in the provided project file, with no input values:
 
 ```bash
-npx @rivet2/rivet-cli run my-project.rivet-project
+npx @valerypopoff/rivet2-cli run my-project.rivet-project
 ```
 
 You can also specify a specific graph in the file to run:
 
 ```bash
-npx @rivet2/rivet-cli run my-project.rivet-project "My Graph"
+npx @valerypopoff/rivet2-cli run my-project.rivet-project "My Graph"
 ```
 
 ## Inputs
@@ -48,7 +48,7 @@ npx @rivet2/rivet-cli run my-project.rivet-project "My Graph"
 Inputs can be provided in two ways. The first way is to use the `--input` flag for each input value:
 
 ```bash
-npx @rivet2/rivet-cli run my-project.rivet-project --input input1=5 --input input2=10
+npx @valerypopoff/rivet2-cli run my-project.rivet-project --input input1=5 --input input2=10
 ```
 
 This is useful for basic input values and allows for easy testing of various scenarios.
@@ -56,7 +56,7 @@ This is useful for basic input values and allows for easy testing of various sce
 The second way is to provide the inputs using a JSON object from standard input. This is useful for more complex input values:
 
 ```bash
-echo '{"input1": 5, "input2": 10}' | npx @rivet2/rivet-cli run my-project.rivet-project --inputs-stdin
+echo '{"input1": 5, "input2": 10}' | npx @valerypopoff/rivet2-cli run my-project.rivet-project --inputs-stdin
 ```
 
 This is useful for more complex input values, such as arrays or objects, as well as piping input values from other commands or scripts.

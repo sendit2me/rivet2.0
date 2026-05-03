@@ -1,4 +1,4 @@
-import { type DataValue } from '@rivet2/rivet-core';
+import { type DataValue } from '@valerypopoff/rivet2-core';
 
 // Re-export individual singletons for backward compatibility.
 // New code should use useProviders() from '../providers/ProvidersContext' instead.

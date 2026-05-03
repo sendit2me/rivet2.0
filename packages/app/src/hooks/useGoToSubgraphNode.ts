@@ -1,4 +1,4 @@
-import { type ChartNode, type SubGraphNode } from '@rivet2/rivet-core';
+import { type ChartNode, type SubGraphNode } from '@valerypopoff/rivet2-core';
 import { useAtomValue } from 'jotai';
 import { createSubgraphGraphViewContext } from '../domain/graphEditing/navigationActions.js';
 import { graphMetadataState } from '../state/graph.js';

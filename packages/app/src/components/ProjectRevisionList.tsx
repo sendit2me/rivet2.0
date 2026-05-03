@@ -7,7 +7,7 @@ import { useHasGitHistory, useProjectRevisions } from '../hooks/useGraphRevision
 import { type CalculatedRevision } from '../utils/ProjectRevisionCalculator';
 import Modal, { ModalTransition, ModalBody, ModalFooter } from '@atlaskit/modal-dialog';
 import { css } from '@emotion/react';
-import { type GraphId } from '@rivet2/rivet-core';
+import { type GraphId } from '@valerypopoff/rivet2-core';
 import { useChooseHistoricalGraph } from '../hooks/useChooseHistoricalGraph';
 import { AppModalHeader } from './AppModalHeader';
 

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { ChartNode, CommentNode, NodeId } from '@rivet2/rivet-core';
+import type { ChartNode, CommentNode, NodeId } from '@valerypopoff/rivet2-core';
 import { calculateCanvasNodeVisibilitySnapshot } from './useVisibleCanvasNodes.js';
 import { getCanvasVisibilityBounds } from './canvasVisibilityBounds.js';
 

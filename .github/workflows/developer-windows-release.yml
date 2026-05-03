@@ -11,9 +11,6 @@ permissions:
   pages: write
   id-token: write
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 concurrency:
   group: developer-windows-release-pages
   cancel-in-progress: true
@@ -53,7 +50,7 @@ jobs:
           SOURCE_BUNDLE_DIR: packages/app/src-tauri/target/release/bundle
 
       - name: Upload Pages content
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: developer-windows-pages
           path: developer-release-pages
@@ -65,13 +62,13 @@ jobs:
     needs: build-windows
     runs-on: ubuntu-latest
     environment:
-      name: github-pages
+      name: developer-windows-pages
       url: ${{ steps.deployment.outputs.page_url }}
     env:
       PAGES_ENABLEMENT_TOKEN: ${{ secrets.PAGES_ENABLEMENT_TOKEN }}
     steps:
       - name: Download Pages content
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v7
         with:
           name: developer-windows-pages
           path: developer-release-pages
@@ -88,7 +85,7 @@ jobs:
           token: ${{ env.PAGES_ENABLEMENT_TOKEN }}
 
       - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v4
+        uses: actions/upload-pages-artifact@v5
         with:
           path: developer-release-pages
 

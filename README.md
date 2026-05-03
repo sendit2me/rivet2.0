@@ -18,6 +18,7 @@ For a self-hosted Rivet 2 wrapper, see [Rivet Studio Server](https://github.com/
 - [Execution Modes](#execution-modes)
 - [Plugins](#plugins)
 - [Embedding Rivet In A Wrapper](#embedding-rivet-in-a-wrapper)
+- [npm Packages](#npm-packages)
 - [Developer Releases](#developer-releases)
 - [Documentation](#documentation)
 - [License](#license)
@@ -28,12 +29,12 @@ Rivet 2.0 is organized as a Yarn workspace monorepo:
 
 | Package | Purpose |
 | --- | --- |
-| `@rivet2/rivet-core` | Shared graph model, execution engine, built-in nodes, serialization, provider integrations, plugin assembly, and runtime contracts. |
-| `@rivet2/rivet-app` | Tauri and React desktop IDE, graph editor, settings, plugins UI, debugger surfaces, prompt designer, chat viewer, data studio, and hosted app entrypoints. |
-| `@rivet2/rivet-app-executor` | Node executor sidecar used by the app for Node-mode graph execution. |
-| `@rivet2/rivet-node` | Node runtime adapter for loading and running Rivet projects programmatically. |
-| `@rivet2/rivet-cli` | CLI commands for running and serving Rivet graphs. |
-| `@rivet2/trivet` | Graph-oriented test utilities and test serialization. |
+| `@valerypopoff/rivet2-core` | Shared graph model, execution engine, built-in nodes, serialization, provider integrations, plugin assembly, and runtime contracts. |
+| `@valerypopoff/rivet-app` | Tauri and React desktop IDE, graph editor, settings, plugins UI, debugger surfaces, prompt designer, chat viewer, data studio, and hosted app entrypoints. |
+| `@valerypopoff/rivet-app-executor` | Node executor sidecar used by the app for Node-mode graph execution. |
+| `@valerypopoff/rivet2-node` | Node runtime adapter for loading and running Rivet projects programmatically. |
+| `@valerypopoff/rivet2-cli` | CLI commands for running and serving Rivet graphs. |
+| `@valerypopoff/trivet` | Graph-oriented test utilities and test serialization. |
 | `packages/docs` | Docusaurus documentation site. |
 
 The repo also includes `developer-docs/`, which documents current architecture and integration contracts, and `refactor-history.md`, which consolidates historical refactor notes for future planning.
@@ -73,7 +74,7 @@ yarn test
 yarn lint
 
 # Build only the desktop app frontend/package
-yarn workspace @rivet2/rivet-app run build
+yarn workspace @valerypopoff/rivet-app run build
 
 # Build local package artifacts for package-consumer checks
 yarn build:packages:local
@@ -91,8 +92,8 @@ yarn tauri build --verbose
 Rivet supports several execution surfaces:
 
 - Browser execution runs graphs in-process inside the app for lightweight local execution.
-- Node execution uses `@rivet2/rivet-app-executor`, a websocket sidecar that runs graph work in Node.
-- Programmatic Node execution uses `@rivet2/rivet-node` and the CLI without the desktop editor.
+- Node execution uses `@valerypopoff/rivet-app-executor`, a websocket sidecar that runs graph work in Node.
+- Programmatic Node execution uses `@valerypopoff/rivet2-node` and the CLI without the desktop editor.
 - Hosted editor execution lets wrappers provide an internal executor websocket URL instead of asking browser-hosted Rivet to start a Tauri sidecar.
 
 The app executor defaults to a desktop-safe loopback websocket host, and hosted/containerized environments can override it with `RIVET_EXECUTOR_HOST`, `RIVET_EXECUTOR_PORT`, and `executor.internalExecutorUrl`. Code-node runtime-library resolution can be redirected with `RIVET_CODE_RUNNER_REQUIRE_ROOT`.
@@ -127,6 +128,22 @@ import '../rivet/packages/app/src/host.css';
 
 Wrappers should prefer these source-level seams over private editor internals. The npm package names describe the workspace boundaries, but a wrapper that ships a custom Rivet checkout should resolve those boundaries to its local `rivet/` source and build outputs.
 
+## npm Packages
+
+The public npm packages are published under the `@valerypopoff` scope:
+
+- `@valerypopoff/rivet2-core`
+- `@valerypopoff/rivet2-node`
+- `@valerypopoff/rivet2-cli`
+
+Package versions are lockstep and start at `2.x`. The `package.json` version in those three packages is the source of truth: patch releases are `2.0.1`, compatible feature releases are `2.1.0`, and the workflow refuses to publish anything outside major version `2`.
+
+On pushes to `main`, `.github/workflows/publish-npm-packages.yml` builds those three workspaces, stages package-manager-neutral npm package directories, rewrites internal `workspace:^` dependencies to the same public `^2.x` version, and publishes versions that do not already exist on npm.
+
+Configure npm publishing with either an `NPM_TOKEN` repository secret or npm trusted publishing for the `publish-npm-packages.yml` workflow. Trusted publishing is preferred once the packages exist and npm package settings are configured for this repository.
+
+For local publishes, `scripts/publish-npm-packages.mjs` also reads `NPM_TOKEN` from a repo-root `.env` file and passes it to npm through a temporary `.npmrc` that is removed after the publish attempt. `.env` is ignored by Git and must stay local; GitHub Actions cannot read it, so CI publishing still needs a repository secret or trusted publishing.
+
 ## Developer Releases
 
 This repo has a develop-branch Windows developer release workflow in `.github/workflows/developer-windows-release.yml`.
@@ -138,7 +155,7 @@ On pushes to `develop`, the workflow:
 3. Builds Windows MSI and NSIS installer bundles from `packages/app`.
 4. Publishes a small GitHub Pages download page with the latest developer installers.
 
-GitHub Pages must either be enabled once in repository settings with Source set to GitHub Actions, or the repository must provide a `PAGES_ENABLEMENT_TOKEN` Actions secret that can enable Pages for the workflow. The workflow opts JavaScript actions into Node 24 so current runner deprecation warnings do not become a release blocker.
+GitHub Pages must either be enabled once in repository settings with Source set to GitHub Actions, or the repository must provide a `PAGES_ENABLEMENT_TOKEN` Actions secret that can enable Pages for the workflow. The deploy job uses a `developer-windows-pages` environment so develop-branch installer deployments are not blocked by production `github-pages` environment rules; if that environment is protected later, it must allow `develop`.
 
 The developer release workflow intentionally builds installer artifacts only. It does not sign updater bundles and does not require Tauri updater private-key secrets. Production/tagged release workflows are separate.
 

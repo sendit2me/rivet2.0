@@ -1,6 +1,6 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import type { GraphId, Project, ProjectId } from '@rivet2/rivet-core';
+import type { GraphId, Project, ProjectId } from '@valerypopoff/rivet2-core';
 import { addOpenedProject, moveOpenedProjectPaths, removeOpenedProject } from './openedProjects.js';
 
 function makeProject(id: string, title: string): Project {

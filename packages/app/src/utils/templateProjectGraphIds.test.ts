@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { type ChartNode, type GraphId, type Project, type ProjectId } from '@rivet2/rivet-core';
+import { type ChartNode, type GraphId, type Project, type ProjectId } from '@valerypopoff/rivet2-core';
 import { remapTemplateProjectGraphIds } from './templateProjectGraphIds.js';
 
 function makeNode(type: string, data: Record<string, unknown>, options: { variants?: unknown[]; tests?: unknown[] } = {}): ChartNode {

@@ -1,4 +1,4 @@
-import type { CodeRunner, CodeRunnerOptions, DataValue, Inputs, Outputs } from '@rivet2/rivet-core';
+import type { CodeRunner, CodeRunnerOptions, DataValue, Inputs, Outputs } from '@valerypopoff/rivet2-core';
 import * as process from 'node:process';
 import { createCodeRunnerRequire } from './codeRunnerRequire.js';
 
@@ -36,7 +36,7 @@ export class NodeCodeRunner implements CodeRunner {
     }
 
     if (options.includeRivet) {
-      const Rivet = await import('@rivet2/rivet-node');
+      const Rivet = await import('@valerypopoff/rivet2-node');
 
       argNames.push('Rivet');
       args.push(Rivet);

@@ -1,4 +1,4 @@
-import { type Project, deserializeDatasets, serializeDatasets } from '@rivet2/rivet-core';
+import { type Project, deserializeDatasets, serializeDatasets } from '@valerypopoff/rivet2-core';
 import { allowDataFileNeighbor } from '../utils/tauri.js';
 import { type AppDatasetProvider, type PathPolicyProvider } from '../providers/ProvidersContext.js';
 import { nativeExists, nativeReadTextFile, nativeWriteFile } from '../utils/platform/fs.js';

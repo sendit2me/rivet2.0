@@ -10,7 +10,7 @@ import {
   inferType,
   type ScalarDataType,
   type ScalarDataValue,
-} from '@rivet2/rivet-core';
+} from '@valerypopoff/rivet2-core';
 import prettyBytes from 'pretty-bytes';
 import { useMemo, type FC } from 'react';
 import { match } from 'ts-pattern';

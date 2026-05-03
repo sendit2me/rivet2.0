@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { type DatasetRow, type DatasetId, newId, type Dataset } from '@rivet2/rivet-core';
+import { type DatasetRow, type DatasetId, newId, type Dataset } from '@valerypopoff/rivet2-core';
 import { useStableCallback } from './useStableCallback';
 import { useDatasetProvider } from '../providers/ProvidersContext';
 import { handleError } from '../utils/errorHandling.js';

@@ -1,4 +1,4 @@
-import { type NodeConnection, type NodeId, type PortId } from '@rivet2/rivet-core';
+import { type NodeConnection, type NodeId, type PortId } from '@valerypopoff/rivet2-core';
 import { removeMatchingConnection } from './connectionActions.js';
 
 export type DraggingWireActionState = {

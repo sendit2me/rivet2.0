@@ -5,7 +5,7 @@ import {
   type BoolDataValue,
   type DynamicEditorDefinition,
   type DynamicEditorEditor,
-} from '@rivet2/rivet-core';
+} from '@valerypopoff/rivet2-core';
 import { type FC } from 'react';
 import { match } from 'ts-pattern';
 import { StringEditor } from './StringEditor';

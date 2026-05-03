@@ -9,7 +9,7 @@ The Trivet Library is a powerful tool for running tests on your Rivet projects p
 You can install the Trivet Library using yarn with the following command:
 
 ```bash
-yarn add -D @rivet2/trivet
+yarn add -D @valerypopoff/trivet
 ```
 
 ### Step 2: Import the necessary functions and types
@@ -17,8 +17,8 @@ yarn add -D @rivet2/trivet
 You'll need to import the `runTrivet` function from the Trivet Library, as well as the `loadProjectFromFile` function from the Rivet Node Library. You'll also need to import the `TrivetOpts` and `TrivetGraphRunner` types from the Trivet Library if using TypeScript.
 
 ```typescript
-import { runTrivet, TrivetOpts, TrivetGraphRunner } from '@rivet2/trivet';
-import { loadProjectFromFile } from '@rivet2/rivet-node';
+import { runTrivet, TrivetOpts, TrivetGraphRunner } from '@valerypopoff/trivet';
+import { loadProjectFromFile } from '@valerypopoff/rivet2-node';
 ```
 
 ### Step 3: Load your project

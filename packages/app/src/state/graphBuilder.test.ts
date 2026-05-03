@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { GraphId, NodeId } from '@rivet2/rivet-core';
+import type { GraphId, NodeId } from '@valerypopoff/rivet2-core';
 import {
   clearGraphSearchQueryState,
   emptyGraphSearchState,

@@ -1,4 +1,4 @@
-import { type NodeGraph } from '@rivet2/rivet-core';
+import { type NodeGraph } from '@valerypopoff/rivet2-core';
 import { canvasPositionState, sidebarOpenState } from '../state/graphBuilder';
 import { useSetAtom, useAtomValue } from 'jotai';
 import { fitBoundsToViewport } from './useViewportBounds';

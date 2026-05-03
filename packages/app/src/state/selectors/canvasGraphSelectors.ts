@@ -1,6 +1,6 @@
 import { atom } from 'jotai';
 import { atomFamily } from 'jotai/utils';
-import { type NodeConnection, type NodeId, type NodeInputDefinition, type NodeOutputDefinition } from '@rivet2/rivet-core';
+import { type NodeConnection, type NodeId, type NodeInputDefinition, type NodeOutputDefinition } from '@valerypopoff/rivet2-core';
 import { connectionsState } from '../atoms/graph.js';
 import { draggingWireState } from '../graphBuilder.js';
 import { getCanvasPreviewConnections } from '../../domain/graphEditing/wireDragActions.js';

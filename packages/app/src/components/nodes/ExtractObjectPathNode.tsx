@@ -1,4 +1,4 @@
-import { type ExtractObjectPathNode, type Inputs, type PortId } from '@rivet2/rivet-core';
+import { type ExtractObjectPathNode, type Inputs, type PortId } from '@valerypopoff/rivet2-core';
 import { type FC, useMemo } from 'react';
 import { RenderDataValue, type OutputRenderMode } from '../RenderDataValue.js';
 import { type NodeComponentDescriptor } from '../../hooks/useNodeTypes.js';

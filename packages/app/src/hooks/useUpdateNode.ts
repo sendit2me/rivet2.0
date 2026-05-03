@@ -1,6 +1,6 @@
 import { nodesState } from '../state/graph.js';
 import { useCallback } from 'react';
-import { type ChartNode } from '@rivet2/rivet-core';
+import { type ChartNode } from '@valerypopoff/rivet2-core';
 import { useSetAtom } from 'jotai';
 
 export function useUpdateNode() {

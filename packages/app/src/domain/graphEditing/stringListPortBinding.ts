@@ -7,7 +7,7 @@ import {
   buildLegacyOrderedPortIds,
   hasValidStoredOrderedPortIds,
   sanitizeIdentifierPortValue,
-} from '@rivet2/rivet-core';
+} from '@valerypopoff/rivet2-core';
 import { nanoid } from 'nanoid/non-secure';
 
 export type EditableStringListRow = {

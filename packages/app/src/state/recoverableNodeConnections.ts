@@ -1,5 +1,5 @@
 import { atom } from 'jotai';
-import { type GraphId, type NodeConnection, type NodeId } from '@rivet2/rivet-core';
+import { type GraphId, type NodeConnection, type NodeId } from '@valerypopoff/rivet2-core';
 
 export type RecoverableNodeConnectionsByNode = Record<NodeId, NodeConnection[]>;
 export type RecoverableNodeConnectionsByGraph = Record<GraphId, RecoverableNodeConnectionsByNode>;

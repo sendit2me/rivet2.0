@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { ExtractObjectPathNodeImpl, type PortId } from '@rivet2/rivet-core';
+import { ExtractObjectPathNodeImpl, type PortId } from '@valerypopoff/rivet2-core';
 import {
   getExtractObjectPathPreviewSource,
   getExtractObjectPathUsePathInput,

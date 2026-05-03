@@ -6,7 +6,7 @@ import {
   type NodeId,
   type Project,
   emptyNodeGraph,
-} from '@rivet2/rivet-core';
+} from '@valerypopoff/rivet2-core';
 import {
   createRootGraphViewContext,
   type GraphNavigationStack,

@@ -1,7 +1,7 @@
 import { useWindowsHotkeysFix } from '../hooks/useWindowsHotkeysFix';
 import { GraphBuilder } from './GraphBuilder.js';
 import { type FC, useEffect, useMemo } from 'react';
-import { type GraphId } from '@rivet2/rivet-core';
+import { type GraphId } from '@valerypopoff/rivet2-core';
 import { css } from '@emotion/react';
 import { SettingsModal } from './SettingsModal.js';
 import { setGlobalTheme } from '@atlaskit/tokens';

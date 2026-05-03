@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { ChartNode, NodeConnection, NodeId, PortId } from '@rivet2/rivet-core';
+import type { ChartNode, NodeConnection, NodeId, PortId } from '@valerypopoff/rivet2-core';
 import { getConnectionCacheKeys, getNodePortPosition } from '../Wire.js';
 import type { PortPositions } from '../NodeCanvas.js';
 import { lineCrossesViewport } from '../../utils/lineClipping.js';

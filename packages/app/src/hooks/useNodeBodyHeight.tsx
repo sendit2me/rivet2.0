@@ -1,4 +1,4 @@
-import { type NodeId } from '@rivet2/rivet-core';
+import { type NodeId } from '@valerypopoff/rivet2-core';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useAtomValue } from 'jotai';
 import { nodesState } from '../state/graph';

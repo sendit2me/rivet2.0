@@ -7,7 +7,7 @@ import {
   coerceTypeOptional,
   type DataValue,
   coerceType,
-} from '@rivet2/rivet-core';
+} from '@valerypopoff/rivet2-core';
 import { toast } from 'react-toastify';
 import { AiAssistEditorBase } from './AiAssistEditorBase';
 

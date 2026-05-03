@@ -8,7 +8,7 @@ import {
   type ReadDirectoryNode,
   expectType,
   type DataValue,
-} from '@rivet2/rivet-core';
+} from '@valerypopoff/rivet2-core';
 import { type NodeComponentDescriptor } from '../../hooks/useNodeTypes.js';
 import { isPathBasedIOProvider } from '../../io/IOProvider.js';
 import { type InputsOrOutputsWithRefs } from '../../state/dataFlow';

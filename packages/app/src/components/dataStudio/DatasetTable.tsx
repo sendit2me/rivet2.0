@@ -1,4 +1,4 @@
-import { type DatasetRow, newId } from '@rivet2/rivet-core';
+import { type DatasetRow, newId } from '@valerypopoff/rivet2-core';
 import { type FC, useState, useEffect, Suspense } from 'react';
 import { LazyCodeEditor } from '../LazyComponents';
 import { css } from '@emotion/react';

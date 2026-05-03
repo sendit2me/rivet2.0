@@ -1,4 +1,4 @@
-import { type GraphId } from '@rivet2/rivet-core';
+import { type GraphId } from '@valerypopoff/rivet2-core';
 import { useCallback } from 'react';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { isEqual } from 'lodash-es';

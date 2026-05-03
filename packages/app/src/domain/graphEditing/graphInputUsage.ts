@@ -5,7 +5,7 @@ import {
   type NodeGraph,
   type NodeId,
   type Project,
-} from '@rivet2/rivet-core';
+} from '@valerypopoff/rivet2-core';
 
 export type ConnectedGraphInputUsage = {
   callerLabel: string;

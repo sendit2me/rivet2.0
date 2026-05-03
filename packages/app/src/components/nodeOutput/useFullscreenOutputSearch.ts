@@ -12,7 +12,7 @@ import {
   wrapMatchIndex,
 } from './fullscreenOutputSearch.js';
 import type { NodeRunDataWithRefs } from '../../state/dataFlow.js';
-import type { ProcessId } from '@rivet2/rivet-core';
+import type { ProcessId } from '@valerypopoff/rivet2-core';
 
 export type FullscreenOutputSearchContentKey = {
   data: NodeRunDataWithRefs | undefined;

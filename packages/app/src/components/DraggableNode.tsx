@@ -1,5 +1,5 @@
 import { useDraggable } from '@dnd-kit/core';
-import { type ChartNode, type NodeConnection } from '@rivet2/rivet-core';
+import { type ChartNode, type NodeConnection } from '@valerypopoff/rivet2-core';
 import {
   type FC,
   type MouseEvent as ReactMouseEvent,

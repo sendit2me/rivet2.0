@@ -6,7 +6,7 @@ import {
   type NodeId,
   type PortId,
   type Project,
-} from '@rivet2/rivet-core';
+} from '@valerypopoff/rivet2-core';
 
 export type GraphInputRenameProjectGraphSnapshots = Record<
   GraphId,

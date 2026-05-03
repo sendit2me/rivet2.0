@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { ChartNode, NodeId } from '@rivet2/rivet-core';
+import type { ChartNode, NodeId } from '@valerypopoff/rivet2-core';
 
 export interface SelectionBox {
   x: number;

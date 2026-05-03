@@ -1,7 +1,7 @@
 import clsx from 'clsx';
 import { type FC, type HTMLAttributes, type MouseEvent, type PointerEvent, memo } from 'react';
 import { useAtomValue } from 'jotai';
-import { type ChartNode, IF_PORT, type NodeConnection, type PortId } from '@rivet2/rivet-core';
+import { type ChartNode, IF_PORT, type NodeConnection, type PortId } from '@valerypopoff/rivet2-core';
 import SettingsCogIcon from 'majesticons/line/settings-cog-line.svg?react';
 import { useStableCallback } from '../../hooks/useStableCallback.js';
 import { NodePortsRenderer } from '../NodePorts.js';

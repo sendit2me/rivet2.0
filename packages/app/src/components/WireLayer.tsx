@@ -1,5 +1,5 @@
 import { type FC, memo, useCallback, useEffect, useMemo, useState } from 'react';
-import { type ChartNode, type NodeConnection, type NodeId, type PortId } from '@rivet2/rivet-core';
+import { type ChartNode, type NodeConnection, type NodeId, type PortId } from '@valerypopoff/rivet2-core';
 import { css } from '@emotion/react';
 import { ConditionallyRenderWire, PartialWire } from './Wire.js';
 import { useCanvasPositioning } from '../hooks/useCanvasPositioning.js';

@@ -81,7 +81,7 @@ import mcpDiscoveryNodeImage from '../assets/node_images/mcp_discovery_node.png'
 import mcpToolCallNodeImage from '../assets/node_images/mcp_tool_call_node.png';
 import mcpGetPromptNodeImage from '../assets/node_images/mcp_get_prompt_node.png';
 import libraryNode from '../assets/node_images/library_node.png';
-import { type BuiltInNodeType } from '@rivet2/rivet-core';
+import { type BuiltInNodeType } from '@valerypopoff/rivet2-core';
 
 export const useBuiltInNodeImages = (): Partial<Record<BuiltInNodeType, string>> => {
   return {

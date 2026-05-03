@@ -1,5 +1,5 @@
 import { produce } from 'immer';
-import { type GraphId, emptyNodeGraph, type NodeGraph } from '@rivet2/rivet-core';
+import { type GraphId, emptyNodeGraph, type NodeGraph } from '@valerypopoff/rivet2-core';
 import {
   createFoldersFromGraphs,
   getFolderNames,

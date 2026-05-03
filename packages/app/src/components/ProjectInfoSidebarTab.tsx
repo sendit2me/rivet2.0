@@ -8,7 +8,7 @@ import Button from '@atlaskit/button';
 import Modal, { ModalTransition, ModalBody, ModalFooter } from '@atlaskit/modal-dialog';
 import { useToggle } from 'ahooks';
 import TextField from '@atlaskit/textfield';
-import { DataType, type DataValue } from '@rivet2/rivet-core';
+import { DataType, type DataValue } from '@valerypopoff/rivet2-core';
 import { produce } from 'immer';
 import { entries } from '../utils/typeSafety';
 import { css } from '@emotion/react';

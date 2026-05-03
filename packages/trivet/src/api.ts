@@ -13,7 +13,7 @@ import {
   logRuntimeWarn,
   resolveProcessSettings,
   summarizePortMapForLog,
-} from '@rivet2/rivet-core';
+} from '@valerypopoff/rivet2-core';
 import { cloneDeep, keyBy, mapValues, omit } from 'lodash-es';
 import {
   type TrivetGraphRunner,

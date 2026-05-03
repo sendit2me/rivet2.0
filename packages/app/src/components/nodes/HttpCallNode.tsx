@@ -1,5 +1,5 @@
 import { css } from '@emotion/react';
-import { getHttpCallBodyPreviewSections, type HttpCallNode } from '@rivet2/rivet-core';
+import { getHttpCallBodyPreviewSections, type HttpCallNode } from '@valerypopoff/rivet2-core';
 import { type FC } from 'react';
 import { type NodeComponentDescriptor } from '../../hooks/useNodeTypes.js';
 

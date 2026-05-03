@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { type GraphId } from '@rivet2/rivet-core';
+import { type GraphId } from '@valerypopoff/rivet2-core';
 import { buildGraphListReachabilityPresentation } from './graphListReachability.js';
 import { type GraphReachabilityReport } from '../../utils/graphReachability.js';
 

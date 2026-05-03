@@ -1,6 +1,6 @@
 import { atom } from 'jotai';
 import { atomWithStorage } from 'jotai/utils';
-import type { NodeId } from '@rivet2/rivet-core';
+import type { NodeId } from '@valerypopoff/rivet2-core';
 import { createHybridStorage } from './storage.js';
 import { DEFAULT_MULTILINE_EDITOR_FONT_SIZE } from '../utils/multilineEditorFontSize.js';
 import { DEFAULT_UI_FONT_SIZE } from '../utils/uiFontSize.js';

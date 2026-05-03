@@ -1,6 +1,6 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import type { ChartNode, GraphId, NodeGraph, PluginLoadSpec, Project } from '@rivet2/rivet-core';
+import type { ChartNode, GraphId, NodeGraph, PluginLoadSpec, Project } from '@valerypopoff/rivet2-core';
 import {
   deriveProjectPluginSpecsFromGraphs,
   getMissingAppPluginSpecs,

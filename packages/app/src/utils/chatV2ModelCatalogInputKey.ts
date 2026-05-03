@@ -7,7 +7,7 @@ import {
   type NodeGraph,
   type NodeId,
   type PortId,
-} from '@rivet2/rivet-core';
+} from '@valerypopoff/rivet2-core';
 
 const API_KEY_INPUT_ID = 'apiKey' as PortId;
 const TEXT_OUTPUT_ID = 'output' as PortId;

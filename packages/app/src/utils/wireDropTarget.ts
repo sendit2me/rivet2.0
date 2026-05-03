@@ -1,4 +1,4 @@
-import { type NodeInputDefinition, type NodeId, type PortId } from '@rivet2/rivet-core';
+import { type NodeInputDefinition, type NodeId, type PortId } from '@valerypopoff/rivet2-core';
 
 export type WireDropTarget = {
   nodeId: NodeId;

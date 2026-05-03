@@ -1,6 +1,6 @@
 import { createContext, useContext, useMemo, type FC, type ReactNode } from 'react';
 import { type IOProvider } from '../io/IOProvider.js';
-import { type DatasetProvider, type AudioProvider, type ProjectId, type CombinedDataset } from '@rivet2/rivet-core';
+import { type DatasetProvider, type AudioProvider, type ProjectId, type CombinedDataset } from '@valerypopoff/rivet2-core';
 import { BrowserIOProvider } from '../io/BrowserIOProvider.js';
 import { LegacyBrowserIOProvider } from '../io/LegacyBrowserIOProvider.js';
 import { TauriIOProvider } from '../io/TauriIOProvider.js';

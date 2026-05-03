@@ -1,4 +1,4 @@
-import { type NodeGraph, type ChartNode, type NodeId } from '@rivet2/rivet-core';
+import { type NodeGraph, type ChartNode, type NodeId } from '@valerypopoff/rivet2-core';
 
 // Force-directed layout parameters
 const REPULSION_STRENGTH = 10000;

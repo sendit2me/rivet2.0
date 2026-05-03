@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { NodeId } from '@rivet2/rivet-core';
+import type { NodeId } from '@valerypopoff/rivet2-core';
 import { shouldMergeEditNodeWithConnectionsCommand } from './editNodeWithConnectionsCommand.js';
 
 test('editNodeWithConnections merge helper only merges recent edits for the same node and command type', () => {

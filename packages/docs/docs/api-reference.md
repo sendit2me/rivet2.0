@@ -1,10 +1,10 @@
 # Rivet API Reference
 
-This section of the Rivet documentation goes over the TypeScript APIs for `@rivet2/rivet-core` and `@rivet2/rivet-node`.
+This section of the Rivet documentation goes over the TypeScript APIs for `@valerypopoff/rivet2-core` and `@valerypopoff/rivet2-node`.
 
 To get started with integrating Rivet into your existing TypeScript or JavaScript application, see the [Integration - Getting Started](./api-reference/getting-started-integration.mdx) page.
 
-## `@rivet2/rivet-core`
+## `@valerypopoff/rivet2-core`
 
 Rivet core is a pure ESM package that contains the core Rivet APIs. It has no dependencies on browser or node.js APIs and can be used in any JavaScript environment that supports modern ESM, including embedded environments such as PythonMonkey.
 
@@ -12,7 +12,7 @@ The Rivet application uses Rivet core to run graphs directly in the application.
 
 See the [Rivet core overview](./api-reference/core/overview.mdx) for more information.
 
-## `@rivet2/rivet-node`
+## `@valerypopoff/rivet2-node`
 
 Rivet node is a Node.js binding for Rivet core. It includes helper APIs to load rivet graphs from the filesystem and execute them.
 
@@ -20,7 +20,7 @@ You will most likely want to use Rivet node in your application. All types from 
 
 See the [Rivet node overview](./api-reference/node/overview.mdx) for more information.
 
-## `@rivet2/rivet-cli`
+## `@valerypopoff/rivet2-cli`
 
 The Rivet CLI is a command-line interface for running Rivet graphs from the command line. It is built on top of Rivet node and provides a convenient way to run graphs from the command line, as well as a local HTTP server for running graphs via HTTP requests.
 

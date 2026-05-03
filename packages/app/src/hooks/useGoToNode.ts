@@ -1,4 +1,4 @@
-import { type GraphId, type NodeId } from '@rivet2/rivet-core';
+import { type GraphId, type NodeId } from '@valerypopoff/rivet2-core';
 import { createRootGraphViewContext } from '../domain/graphEditing/navigationActions.js';
 import { useStableCallback } from './useStableCallback';
 import { useLoadGraph } from './useLoadGraph';

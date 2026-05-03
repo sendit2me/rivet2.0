@@ -10,7 +10,7 @@ import {
   type PortId,
   type Project,
   type ProjectId,
-} from '@rivet2/rivet-core';
+} from '@valerypopoff/rivet2-core';
 import { filterValidSubGraphConnections } from './connectionValidation.js';
 
 const registry = createBuiltInRegistry();

@@ -1,6 +1,6 @@
 import { atom } from 'jotai';
 import { atomWithStorage } from 'jotai/utils';
-import { createBuiltInRegistry, type PluginLoadSpec, type RivetPlugin } from '@rivet2/rivet-core';
+import { createBuiltInRegistry, type PluginLoadSpec, type RivetPlugin } from '@valerypopoff/rivet2-core';
 import { createHybridStorage } from './storage.js';
 
 const { storage } = createHybridStorage('plugins');

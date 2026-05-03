@@ -7,7 +7,7 @@ import {
   type Outputs,
   type ProcessEvents,
   type Project,
-} from '@rivet2/rivet-core';
+} from '@valerypopoff/rivet2-core';
 import { entries } from '../utils/typeSafety.js';
 import type { RunDataByNodeId } from '../state/dataFlow.js';
 import type { ProjectContext } from '../state/savedGraphs.js';

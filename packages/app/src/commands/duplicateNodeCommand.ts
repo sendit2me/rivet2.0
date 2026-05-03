@@ -1,4 +1,4 @@
-import { type ChartNode, type NodeConnection, type NodeId } from '@rivet2/rivet-core';
+import { type ChartNode, type NodeConnection, type NodeId } from '@valerypopoff/rivet2-core';
 import { useSetAtom, useAtomValue } from 'jotai';
 import { connectionsState, nodesByIdState, nodesState } from '../state/graph';
 import { duplicateNodeWithConnections } from '../domain/graphEditing/nodeActions.js';

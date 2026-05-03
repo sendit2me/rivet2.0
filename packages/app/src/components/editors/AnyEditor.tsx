@@ -1,6 +1,6 @@
 import { Field, HelperMessage } from '@atlaskit/form';
 import TextField from '@atlaskit/textfield';
-import { type AnyDataEditorDefinition, type ChartNode } from '@rivet2/rivet-core';
+import { type AnyDataEditorDefinition, type ChartNode } from '@valerypopoff/rivet2-core';
 import { type FC } from 'react';
 import { type SharedEditorProps } from './SharedEditorProps';
 import { getHelperMessage } from './editorUtils';

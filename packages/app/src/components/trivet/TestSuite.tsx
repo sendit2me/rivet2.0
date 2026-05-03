@@ -4,7 +4,7 @@ import { InlineEditableTextfield } from '@atlaskit/inline-edit';
 import { useAtom, useAtomValue } from 'jotai';
 import { savedGraphsState } from '../../state/savedGraphs';
 import { keyBy } from 'lodash-es';
-import { type GraphId, type NodeGraph } from '@rivet2/rivet-core';
+import { type GraphId, type NodeGraph } from '@valerypopoff/rivet2-core';
 import { TestCaseEditor } from './TestCaseEditor';
 import { css } from '@emotion/react';
 import {
@@ -12,7 +12,7 @@ import {
   type TrivetTestSuite,
   validateTestCaseFormat,
   validateValidationGraphFormat,
-} from '@rivet2/trivet';
+} from '@valerypopoff/trivet';
 import { trivetState } from '../../state/trivet';
 import Button from '@atlaskit/button';
 import { type TryRunTests } from './api';

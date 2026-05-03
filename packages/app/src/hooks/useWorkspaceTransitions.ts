@@ -1,5 +1,5 @@
 import { useAtom, useAtomValue, useSetAtom, useStore } from 'jotai';
-import { type DataId, type GraphId, type Project } from '@rivet2/rivet-core';
+import { type DataId, type GraphId, type Project } from '@valerypopoff/rivet2-core';
 import { toast, type Id as ToastId } from 'react-toastify';
 import { useIOProvider } from '../providers/ProvidersContext.js';
 import { useRivetAppHostCallbacks } from '../providers/HostCallbacksContext.js';

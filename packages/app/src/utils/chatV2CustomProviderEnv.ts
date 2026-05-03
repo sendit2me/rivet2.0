@@ -1,4 +1,4 @@
-import type { Project } from '@rivet2/rivet-core';
+import type { Project } from '@valerypopoff/rivet2-core';
 
 export function getLLMChatV2CustomProviderApiKeyEnvVarNames(project: Project): string[] {
   const names = new Set<string>();

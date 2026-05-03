@@ -1,7 +1,7 @@
 import { type FC } from 'react';
 import { css } from '@emotion/react';
 import { RenderDataValue } from '../RenderDataValue.js';
-import { type DataValue, type PortId, coerceTypeOptional, inferType, isArrayDataValue } from '@rivet2/rivet-core';
+import { type DataValue, type PortId, coerceTypeOptional, inferType, isArrayDataValue } from '@valerypopoff/rivet2-core';
 import { type NodeComponentDescriptor } from '../../hooks/useNodeTypes.js';
 import styled from '@emotion/styled';
 import clsx from 'clsx';

@@ -1,7 +1,7 @@
 import { useLatest } from 'ahooks';
 import { useAtomValue } from 'jotai';
 import { useEffect } from 'react';
-import type { OutgoingMessageMap } from '@rivet2/rivet-core';
+import type { OutgoingMessageMap } from '@valerypopoff/rivet2-core';
 import { useExecutorSessionHostConfig, useExecutorSessionRuntime } from '../providers/ExecutorSessionContext.js';
 import { remoteDebuggerConfigState, remoteDebuggerConnectionState } from '../state/execution.js';
 import { selectedExecutorState, type DefaultExecutor } from '../state/settings.js';

@@ -4,7 +4,7 @@ import { css } from '@emotion/react';
 import { type FC, useEffect, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import { useAtom, useAtomValue } from 'jotai';
-import { getGentracePipelines } from '@rivet2/rivet-core';
+import { getGentracePipelines } from '@valerypopoff/rivet2-core';
 import { graphState } from '../../state/graph';
 import { settingsState } from '../../state/settings';
 import { handleError } from '../../utils/errorHandling.js';

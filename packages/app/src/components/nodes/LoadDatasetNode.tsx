@@ -1,4 +1,4 @@
-import { type LoadDatasetNode } from '@rivet2/rivet-core';
+import { type LoadDatasetNode } from '@valerypopoff/rivet2-core';
 import { type NodeComponentDescriptor } from '../../hooks/useNodeTypes';
 import { type FC } from 'react';
 import { useDatasets } from '../../hooks/useDatasets';

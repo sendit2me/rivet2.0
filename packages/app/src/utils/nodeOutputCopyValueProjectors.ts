@@ -1,4 +1,4 @@
-import { coerceTypeOptional, getScalarTypeOf, type DataValue, type PortId } from '@rivet2/rivet-core';
+import { coerceTypeOptional, getScalarTypeOf, type DataValue, type PortId } from '@valerypopoff/rivet2-core';
 import type { NodeOutputCopyValueProjector } from './executionDataCopyValue.js';
 import {
   isVisiblePort,

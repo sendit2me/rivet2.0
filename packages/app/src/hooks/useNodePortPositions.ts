@@ -1,4 +1,4 @@
-import { type PortId, type NodeId } from '@rivet2/rivet-core';
+import { type PortId, type NodeId } from '@valerypopoff/rivet2-core';
 import { useState, useLayoutEffect, useRef, useCallback } from 'react';
 import { type PortPositions } from '../components/NodeCanvas';
 import { useAtomValue } from 'jotai';

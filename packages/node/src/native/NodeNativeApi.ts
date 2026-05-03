@@ -1,7 +1,7 @@
 import { opendir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { lstatSync } from 'node:fs';
 import { join, relative } from 'node:path';
-import { type BaseDir, type NativeApi, type ReadDirOptions } from '@rivet2/rivet-core';
+import { type BaseDir, type NativeApi, type ReadDirOptions } from '@valerypopoff/rivet2-core';
 import { minimatch } from 'minimatch';
 
 async function* walk(dir: string): AsyncGenerator<string> {

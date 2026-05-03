@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { NodeConnection, NodeId, PortId } from '@rivet2/rivet-core';
+import type { NodeConnection, NodeId, PortId } from '@valerypopoff/rivet2-core';
 import { groupConnectionsByNode } from './groupConnectionsByNode.js';
 
 const asNodeId = (value: string) => value as NodeId;

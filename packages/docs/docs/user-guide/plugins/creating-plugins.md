@@ -21,7 +21,7 @@ There are two example projects that you can use as a starting point for your plu
 ### Important Notes
 
 - You must bundle your plugins, or include all code for your plugin in the ESM files. Plugins are loaded using `import(pluginUrl)` so must follow all rules for ESM modules. This means that you cannot use `require` or `module.exports` in your plugin code. If you need to use external libraries, you must bundle them. The exception to this is when dual-bundling your plugin, to separate node.js and isomorphic code (explained below). It is recommended to use [ESBuild](https://esbuild.github.io/) to bundle your plugins.
-- You cannot import nor bundle `@rivet2/rivet-core` or `@rivet2/rivet-node` in your plugin. The rivet core library is passed into your default export function as an argument. Be careful to only use `import type` statements for the core library, otherwise your plugin will not bundle successfully.
+- You cannot import nor bundle `@valerypopoff/rivet2-core` or `@valerypopoff/rivet2-node` in your plugin. The rivet core library is passed into your default export function as an argument. Be careful to only use `import type` statements for the core library, otherwise your plugin will not bundle successfully.
 - If you are making a node.js plugin, it is important that you separate the plugin into two separate bundles - an isomorphic bundle that defines the plugin and all of the nodes, and a Node-only bundle that contains the node-only implementations. The isomorphic bundle is allowed to dynamically import the node bundle, but cannot statically import it (except for types, of course).
 
 ### Plugin Definition
@@ -31,7 +31,7 @@ Your main plugin definition is the entry point to your plugin. It must export a 
 The type for the function is called `RivetPluginInitializer` and is defined roughly as follows:
 
 ```ts
-import * as Rivet from '@rivet2/rivet-core';
+import * as Rivet from '@valerypopoff/rivet2-core';
 export type RivetPluginInitializer = (rivet: typeof Rivet) => RivetPlugin;
 ```
 
@@ -68,7 +68,7 @@ export type RivetPlugin = {
 The following is the simplest possible TypeScript plugin definition:
 
 ```ts
-import type { RivetPluginInitializer } from '@rivet2/rivet-core';
+import type { RivetPluginInitializer } from '@valerypopoff/rivet2-core';
 
 const plugin: RivetPluginInitializer = (rivet) => ({
   id: 'my-plugin',
@@ -94,7 +94,7 @@ export default plugin;
 Nodes must also follow the rule that they must export a function that takes in the Rivet library as its only argument. To create an instance of the node, you call this function inside your plugin initializer function. For example, in TypeScript:
 
 ```ts
-import type { RivetPlugin, RivetPluginInitializer } from '@rivet2/rivet-core';
+import type { RivetPlugin, RivetPluginInitializer } from '@valerypopoff/rivet2-core';
 import myNode from './nodes/myNode';
 
 const plugin: RivetPluginInitializer = (rivet) => {
@@ -164,7 +164,7 @@ export interface PluginNodeImpl<T extends ChartNode> {
 A valid plugin node definition can be created using the `pluginNodeDefinition` function. For example:
 
 ```ts
-import type { Rivet } from '@rivet2/rivet-core';
+import type { Rivet } from '@valerypopoff/rivet2-core';
 
 export function myExamplePlugin(rivet: typeof Rivet) {
   return rivet.pluginNodeDefinition({
@@ -205,7 +205,7 @@ import type {
   PortId,
   Project,
   Rivet,
-} from '@rivet2/rivet-core';
+} from '@valerypopoff/rivet2-core';
 
 // This defines your new type of node.
 export type ExamplePluginNode = ChartNode<'examplePlugin', ExamplePluginNodeData>;
@@ -401,7 +401,7 @@ export type PluginConfigurationSpec =
 The keys of your `configSpec` object are the names of the configuration items. The values are objects that define the configuration item. The following is an example of a plugin definition with configuration items:
 
 ```ts
-import type { RivetPluginInitializer, RivetPlugin } from '@rivet2/rivet-core';
+import type { RivetPluginInitializer, RivetPlugin } from '@valerypopoff/rivet2-core';
 
 const plugin: RivetPluginInitializer = (rivet) => {
   const myPlugin: RivetPlugin = {
@@ -440,7 +440,7 @@ const plugin: RivetPluginInitializer = (rivet) => {
 The third argument to the `process` method of a node is the `InternalProcessContext`. This object contains a `getPluginConfig` method that can be used to read the configuration items for a plugin. For example:
 
 ```ts
-import type { RivetPluginInitializer, RivetPlugin } from '@rivet2/rivet-core';
+import type { RivetPluginInitializer, RivetPlugin } from '@valerypopoff/rivet2-core';
 
 const plugin: RivetPluginInitializer = (rivet) => {
   const myPlugin: RivetPlugin = {

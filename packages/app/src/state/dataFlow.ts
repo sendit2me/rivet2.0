@@ -13,7 +13,7 @@ import {
   type GraphExecutionMetadata,
   type GraphRunId,
   type RootRunId,
-} from '@rivet2/rivet-core';
+} from '@valerypopoff/rivet2-core';
 import { graphNavigationStackState } from './graphBuilder.js';
 import type { GraphViewKey } from '../domain/graphEditing/navigationActions.js';
 import { getGraphSelectionOptions } from './selectors/executionSelectors.js';

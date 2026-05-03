@@ -12,7 +12,7 @@ import {
   type DataValue,
   type Outputs,
   type RemoteRunRequestId,
-} from '@rivet2/rivet-core';
+} from '@valerypopoff/rivet2-core';
 import { match } from 'ts-pattern';
 import Emittery from 'emittery';
 import { type DebuggerDatasetProvider } from './index.js';

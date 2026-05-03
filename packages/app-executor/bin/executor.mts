@@ -6,8 +6,8 @@ import {
   resolveBuiltInPlugin,
   DebuggerDatasetProvider,
   NodeProjectReferenceLoader,
-} from '@rivet2/rivet-node';
-import * as Rivet from '@rivet2/rivet-core';
+} from '@valerypopoff/rivet2-node';
+import * as Rivet from '@valerypopoff/rivet2-core';
 import {
   getError,
   logRuntimeDebug,
@@ -17,7 +17,7 @@ import {
   summarizePortMapForLog,
   type RivetPluginInitializer,
   type PluginLoadSpec,
-} from '@rivet2/rivet-core';
+} from '@valerypopoff/rivet2-core';
 import { match } from 'ts-pattern';
 import { join } from 'node:path';
 import { access, readFile } from 'node:fs/promises';

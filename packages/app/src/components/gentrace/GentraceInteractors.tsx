@@ -1,7 +1,7 @@
 import Popup from '@atlaskit/popup';
 import { css } from '@emotion/react';
 import { entries } from '../../utils/typeSafety';
-import { type DataValue, ExecutionRecorder, runGentraceTests, runRemoteGentraceTests } from '@rivet2/rivet-core';
+import { type DataValue, ExecutionRecorder, runGentraceTests, runRemoteGentraceTests } from '@valerypopoff/rivet2-core';
 import { useToggle } from 'ahooks';
 import clsx from 'clsx';
 import EditPen from 'majesticons/line/edit-pen-2-line.svg?react';

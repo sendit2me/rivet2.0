@@ -1,4 +1,4 @@
-import { type ChartNode } from '@rivet2/rivet-core';
+import { type ChartNode } from '@valerypopoff/rivet2-core';
 import { useAtomValue } from 'jotai';
 import { useMemo } from 'react';
 

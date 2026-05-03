@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { NodeId } from '@rivet2/rivet-core';
+import type { NodeId } from '@valerypopoff/rivet2-core';
 import { calculateMultiNodeAlignmentMoves } from './multiNodeAlignment.js';
 
 function makeBounds(

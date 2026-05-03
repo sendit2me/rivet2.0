@@ -1,6 +1,6 @@
 import { type FC } from 'react';
 import { type NodeComponentDescriptor } from '../../hooks/useNodeTypes';
-import { type CommentNode } from '@rivet2/rivet-core';
+import { type CommentNode } from '@valerypopoff/rivet2-core';
 import { useMarkdown } from '../../hooks/useMarkdown';
 import { css } from '@emotion/react';
 

@@ -5,7 +5,7 @@ import {
   type GraphId,
   type NodeId,
   type ProjectId,
-} from '@rivet2/rivet-core';
+} from '@valerypopoff/rivet2-core';
 import { atom, useAtomValue, useSetAtom } from 'jotai';
 import { connectionsState, graphMetadataState, nodesState } from '../state/graph';
 import { useStableCallback } from '../hooks/useStableCallback';

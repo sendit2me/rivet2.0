@@ -7,7 +7,7 @@ import {
   type DatasetRow,
   type ProjectId,
   newId,
-} from '@rivet2/rivet-core';
+} from '@valerypopoff/rivet2-core';
 
 export class DebuggerDatasetProvider implements DatasetProvider {
   listeners: Record<string, (payload: any) => void> = {};

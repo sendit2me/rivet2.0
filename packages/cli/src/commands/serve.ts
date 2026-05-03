@@ -12,7 +12,7 @@ import {
   type Project,
   type LooseDataValue,
   getSingleNodeStream,
-} from '@rivet2/rivet-node';
+} from '@valerypopoff/rivet2-node';
 import chalk from 'chalk';
 import { configDotenv } from 'dotenv';
 

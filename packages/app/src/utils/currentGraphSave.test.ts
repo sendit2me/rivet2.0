@@ -1,6 +1,6 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { type GraphId, type NodeGraph } from '@rivet2/rivet-core';
+import { type GraphId, type NodeGraph } from '@valerypopoff/rivet2-core';
 import { prepareCurrentGraphForSave, shouldPersistCurrentGraph } from './currentGraphSave.js';
 
 function makeGraph(id: string, name: string, options: { nodeCount?: number; connectionCount?: number } = {}): NodeGraph {

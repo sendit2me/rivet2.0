@@ -1,6 +1,6 @@
 import { useAtomValue } from 'jotai';
 import { connectionsState } from '../state/graph.js';
-import { type ChartNode } from '@rivet2/rivet-core';
+import { type ChartNode } from '@valerypopoff/rivet2-core';
 import { useCallback } from 'react';
 
 export function useGetConnectionsForNode() {

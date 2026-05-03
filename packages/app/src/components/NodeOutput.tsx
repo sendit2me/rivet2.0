@@ -10,7 +10,7 @@ import {
 import { type FC, memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { useUnknownNodeComponentDescriptorFor } from '../hooks/useNodeTypes.js';
 import { useStableCallback } from '../hooks/useStableCallback.js';
-import { type ChartNode, type ProcessId } from '@rivet2/rivet-core';
+import { type ChartNode, type ProcessId } from '@valerypopoff/rivet2-core';
 import { css } from '@emotion/react';
 import CopyIcon from 'majesticons/line/clipboard-line.svg?react';
 import ExpandIcon from 'majesticons/line/maximize-line.svg?react';

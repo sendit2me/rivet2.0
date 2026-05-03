@@ -1,6 +1,6 @@
 import { atom } from 'jotai';
 import { atomFamily } from 'jotai/utils';
-import { type NodeId } from '@rivet2/rivet-core';
+import { type NodeId } from '@valerypopoff/rivet2-core';
 import { mapValues } from 'lodash-es';
 import { projectNodeRegistryState } from '../plugins';
 import { nodesByIdState } from './graphSelectors';

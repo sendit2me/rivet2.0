@@ -14,7 +14,7 @@ import {
   isFunctionDataType,
   type ScalarOrArrayDataValue,
   getChatNodeMessages,
-} from '@rivet2/rivet-core';
+} from '@valerypopoff/rivet2-core';
 import { useClearCurrentGraphHistory } from '../../commands/Command.js';
 import { useDataRefs } from '../../providers/ProvidersContext.js';
 import { restoreStoredPortMap } from '../../utils/executionDataReaders.js';

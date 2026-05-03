@@ -1,4 +1,4 @@
-import { type NodeGraph } from '@rivet2/rivet-core';
+import { type NodeGraph } from '@valerypopoff/rivet2-core';
 import { useLoadGraph } from './useLoadGraph.js';
 import { useStableCallback } from './useStableCallback.js';
 import { useSetAtom, useAtomValue } from 'jotai';

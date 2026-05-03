@@ -1,4 +1,4 @@
-import type { ChartNode, NodeGraph, PluginLoadSpec, Project } from '@rivet2/rivet-core';
+import type { ChartNode, NodeGraph, PluginLoadSpec, Project } from '@valerypopoff/rivet2-core';
 
 export type PluginUsageRegistry = {
   getPluginFor(type: string): { id: string } | undefined;

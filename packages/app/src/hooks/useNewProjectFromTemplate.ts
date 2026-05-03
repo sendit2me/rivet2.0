@@ -4,7 +4,7 @@ import {
   type NodeGraph,
   deserializeProject,
   type ProjectId,
-} from '@rivet2/rivet-core';
+} from '@valerypopoff/rivet2-core';
 import { duplicateGraph } from '../utils/duplicateGraph';
 import { produce } from 'immer';
 import { nanoid } from 'nanoid';

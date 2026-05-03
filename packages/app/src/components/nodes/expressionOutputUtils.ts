@@ -1,4 +1,4 @@
-import { type ExpressionNode } from '@rivet2/rivet-core';
+import { type ExpressionNode } from '@valerypopoff/rivet2-core';
 import { type NodeRunDataWithRefs } from '../../state/dataFlow.js';
 import { hasDisplayableInterpolationInputs } from './parsedSourceDisplayUtils.js';
 

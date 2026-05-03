@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test, { describe } from 'node:test';
-import { type ChartNode, type GraphId, type NodeGraph, type Project, type ProjectId } from '@rivet2/rivet-core';
+import { type ChartNode, type GraphId, type NodeGraph, type Project, type ProjectId } from '@valerypopoff/rivet2-core';
 import {
   getGraphIdsReferencingGraph,
   getGraphReachabilityReport,

@@ -6,14 +6,14 @@ import {
   deserializeProject,
   serializeGraph,
   serializeProject,
-} from '@rivet2/rivet-core';
+} from '@valerypopoff/rivet2-core';
 import { type IOProvider } from './IOProvider.js';
 import {
   type SerializedTrivetData,
   type TrivetData,
   deserializeTrivetData,
   serializeTrivetData,
-} from '@rivet2/trivet';
+} from '@valerypopoff/trivet';
 import { openBrowserFile } from './browserFileInput.js';
 
 export class LegacyBrowserIOProvider implements IOProvider {

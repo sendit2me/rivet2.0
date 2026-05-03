@@ -1,5 +1,5 @@
 import { atom } from 'jotai';
-import { type ChatMessage, type ChatNodeConfigData, type NodeId, type ProcessId } from '@rivet2/rivet-core';
+import { type ChatMessage, type ChatNodeConfigData, type NodeId, type ProcessId } from '@valerypopoff/rivet2-core';
 
 export type PromptDesignerMessagesState = {
   messages: ChatMessage[];

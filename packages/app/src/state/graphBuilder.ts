@@ -9,7 +9,7 @@ import {
   type PortId,
   type DataType,
   type NodeGraph,
-} from '@rivet2/rivet-core';
+} from '@valerypopoff/rivet2-core';
 import { type WireDef } from '../components/WireLayer.js';
 import type { GraphNavigationStack } from '../domain/graphEditing/navigationActions.js';
 import { createHybridStorage } from './storage.js';

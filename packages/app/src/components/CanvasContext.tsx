@@ -5,7 +5,7 @@ import type {
   NodeInputDefinition,
   NodeOutputDefinition,
   PortId,
-} from '@rivet2/rivet-core';
+} from '@valerypopoff/rivet2-core';
 import type { MouseEvent } from 'react';
 import type { HeightCache } from '../hooks/useNodeBodyHeight';
 import type { DraggingWireDef } from '../state/graphBuilder';

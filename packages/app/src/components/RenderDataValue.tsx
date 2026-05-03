@@ -1,4 +1,4 @@
-import { type DataValue, type NodeOutputDefinition } from '@rivet2/rivet-core';
+import { type DataValue, type NodeOutputDefinition } from '@valerypopoff/rivet2-core';
 import { keys } from '../utils/typeSafety.js';
 import { type FC } from 'react';
 import { type DataRefReader, useDataRefs } from '../providers/ProvidersContext.js';

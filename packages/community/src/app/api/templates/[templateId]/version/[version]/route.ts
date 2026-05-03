@@ -9,7 +9,7 @@ import {
 import { getPublicAccessControlHeaders, getRestrictedAccessControlHeaders } from '@/app/api/cors';
 import { auth } from '@/lib/auth';
 import { array, object, string } from '@recoiljs/refine';
-import { BuiltInNodes, GraphInputNode, Project, deserializeProject } from '@rivet2/rivet-core';
+import { BuiltInNodes, GraphInputNode, Project, deserializeProject } from '@valerypopoff/rivet2-core';
 
 export { OPTIONS } from '@/app/api/cors';
 

@@ -12,7 +12,7 @@ import {
   type PortId,
   type ScalarOrArrayDataType,
   emptyNodeGraph,
-} from '@rivet2/rivet-core';
+} from '@valerypopoff/rivet2-core';
 import { projectState, referencedProjectsState } from '../state/savedGraphs.js';
 import { isNotNull } from '../utils/genericUtilFunctions.js';
 import { nanoid } from 'nanoid/non-secure';

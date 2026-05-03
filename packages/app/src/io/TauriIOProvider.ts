@@ -6,7 +6,7 @@ import {
   deserializeProject,
   serializeGraph,
   serializeProject,
-} from '@rivet2/rivet-core';
+} from '@valerypopoff/rivet2-core';
 import { type PathBasedIOProvider } from './IOProvider.js';
 import { getDefaultPathPolicyProvider, isInTauri } from '../utils/tauri.js';
 import {
@@ -14,7 +14,7 @@ import {
   type TrivetData,
   deserializeTrivetData,
   serializeTrivetData,
-} from '@rivet2/trivet';
+} from '@valerypopoff/trivet';
 import { saveDatasetsFile, loadDatasetsFile } from './datasets.js';
 import { type AppDatasetProvider, type PathPolicyProvider } from '../providers/ProvidersContext.js';
 import { openDialog, saveDialog } from '../utils/platform/dialog.js';

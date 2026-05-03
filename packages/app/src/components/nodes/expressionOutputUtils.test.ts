@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { ExpressionNodeImpl, interpolateExpressionSource, type Inputs, type PortId } from '@rivet2/rivet-core';
+import { ExpressionNodeImpl, interpolateExpressionSource, type Inputs, type PortId } from '@valerypopoff/rivet2-core';
 import { getExpressionPreviewSource, hasExpressionInterpolationInputs } from './expressionOutputUtils.js';
 
 test('getExpressionPreviewSource prefers the stored execution snapshot over the current node expression', () => {

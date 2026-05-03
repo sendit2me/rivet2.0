@@ -20,7 +20,7 @@ console.log(`Bundling to ${chalk.cyan('bin/executor-bundle.cjs')}...`);
 
 // The executor source is ESM (.mts) but the bundle must be CJS so that `pkg`
 // can statically analyze and package it into a self-contained native binary.
-// The resolveRivet plugin inlines @rivet2/rivet-* from source so that the
+// The resolveRivet plugin inlines @valerypopoff/rivet-* from source so that the
 // bundle has zero external workspace dependencies at runtime.
 await esbuild.build({
   entryPoints: ['bin/executor.mts'],

@@ -1,4 +1,4 @@
-import { type DataId } from '@rivet2/rivet-core';
+import { type DataId } from '@valerypopoff/rivet2-core';
 import { useEffect, useRef, useState } from 'react';
 
 export function useStaticDataDatabase() {

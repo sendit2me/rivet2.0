@@ -10,7 +10,7 @@ import {
   type PortId,
   type Project,
   type ProjectId,
-} from '@rivet2/rivet-core';
+} from '@valerypopoff/rivet2-core';
 import type { GraphCommandState } from './Command.js';
 import { buildEditNodeAppliedData, shouldMergeEditNodeCommand } from './editNodeCommand.js';
 

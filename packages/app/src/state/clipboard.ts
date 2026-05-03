@@ -1,4 +1,4 @@
-import { type NodeConnection, type ChartNode } from '@rivet2/rivet-core';
+import { type NodeConnection, type ChartNode } from '@valerypopoff/rivet2-core';
 import { atom } from 'jotai';
 
 export type NodesClipboardItem = {

@@ -1,7 +1,7 @@
 import Button from '@atlaskit/button';
 import Modal, { ModalBody, ModalFooter, ModalTransition } from '@atlaskit/modal-dialog';
 import { css } from '@emotion/react';
-import type { PluginLoadSpec } from '@rivet2/rivet-core';
+import type { PluginLoadSpec } from '@valerypopoff/rivet2-core';
 import { useAtom, useAtomValue } from 'jotai';
 import { useMemo, useState } from 'react';
 import { AppModalHeader } from './AppModalHeader';

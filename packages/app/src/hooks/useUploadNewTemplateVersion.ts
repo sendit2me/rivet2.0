@@ -1,6 +1,6 @@
 import { projectState } from '../state/savedGraphs';
 import { graphState } from '../state/graph';
-import { type GraphId } from '@rivet2/rivet-core';
+import { type GraphId } from '@valerypopoff/rivet2-core';
 import { type UseMutationResult } from '@tanstack/react-query';
 import { type PutTemplateVersionBody } from '../utils/communityApi';
 import { myTemplatesQueryKey, serializeTemplateProject, uploadTemplateVersion } from '../utils/communityTemplates';

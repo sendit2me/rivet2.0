@@ -1,4 +1,4 @@
-import type { GraphId, GraphRunId } from '@rivet2/rivet-core';
+import type { GraphId, GraphRunId } from '@valerypopoff/rivet2-core';
 import type { GraphViewKey } from '../domain/graphEditing/navigationActions.js';
 import type { GraphRunSelection } from '../state/dataFlow.js';
 

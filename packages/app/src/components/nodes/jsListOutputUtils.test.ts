@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { JSMapNodeImpl, type PortId } from '@rivet2/rivet-core';
+import { JSMapNodeImpl, type PortId } from '@valerypopoff/rivet2-core';
 import {
   getJSListCallbackPreviewSource,
   getParsedJSListCallbackPreviewSource,

@@ -612,7 +612,7 @@ The desktop app's internal Node sidecar also uses an app-executor-only
 worker-backed `CodeRunner` for most Code-node JavaScript. That keeps the sidecar
 event loop free to process independent nodes and emit their `nodeFinish` events
 while an unrelated synchronous Code node is still running. This does not change
-the public `@rivet2/rivet-node` default runner, and Code nodes that request the
+the public `@valerypopoff/rivet2-node` default runner, and Code nodes that request the
 `Rivet` capability may still run on the sidecar's current thread for
 compatibility.
 
@@ -627,7 +627,7 @@ Code-node `require()` resolution has a stable hosted-runtime seam. Public
 process working directory, but `RIVET_CODE_RUNNER_REQUIRE_ROOT` can point them at
 a runtime-library directory and `RIVET_CODE_RUNNER_REQUIRE_ANCHOR` can provide a
 fully custom `.cjs` anchor path. This keeps hosted wrappers from patching runner
-source while preserving the programmatic default for normal `@rivet2/rivet-node`
+source while preserving the programmatic default for normal `@valerypopoff/rivet2-node`
 callers.
 For app-executor hosted runtimes, a bootstrap layer may also install
 `globalThis.__RIVET_PREPARE_RUNTIME_LIBRARIES__`. The worker runner invokes that

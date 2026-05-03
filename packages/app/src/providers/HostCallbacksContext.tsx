@@ -1,5 +1,5 @@
 import { createContext, useContext, useMemo, type FC, type ReactNode } from 'react';
-import type { GraphId, Project, ProjectId } from '@rivet2/rivet-core';
+import type { GraphId, Project, ProjectId } from '@valerypopoff/rivet2-core';
 
 export type RivetAppHostProjectSavedEvent = {
   project: Omit<Project, 'data'>;

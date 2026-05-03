@@ -1,6 +1,6 @@
 import Button from '@atlaskit/button';
 import { Field, HelperMessage } from '@atlaskit/form';
-import { type ChartNode, type DirectoryBrowserEditorDefinition } from '@rivet2/rivet-core';
+import { type ChartNode, type DirectoryBrowserEditorDefinition } from '@valerypopoff/rivet2-core';
 import { type FC } from 'react';
 import { type SharedEditorProps } from './SharedEditorProps';
 import { getHelperMessage } from './editorUtils';

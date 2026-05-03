@@ -1,6 +1,6 @@
 import { type FC } from 'react';
 import { css } from '@emotion/react';
-import { type PortId, getScalarTypeOf } from '@rivet2/rivet-core';
+import { type PortId, getScalarTypeOf } from '@valerypopoff/rivet2-core';
 import { type NodeComponentDescriptor } from '../../hooks/useNodeTypes.js';
 import { type InputsOrOutputsWithRefs } from '../../state/dataFlow';
 import { RenderDataValue, type OutputRenderMode } from '../RenderDataValue.js';

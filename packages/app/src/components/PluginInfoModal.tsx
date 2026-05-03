@@ -1,7 +1,7 @@
 import Button from '@atlaskit/button';
 import Modal, { ModalTransition, ModalBody, ModalFooter } from '@atlaskit/modal-dialog';
 import { css } from '@emotion/react';
-import { type PluginLoadSpec, type RivetPlugin } from '@rivet2/rivet-core';
+import { type PluginLoadSpec, type RivetPlugin } from '@valerypopoff/rivet2-core';
 import { useState, type FC } from 'react';
 import { match } from 'ts-pattern';
 import useAsyncEffect from 'use-async-effect';

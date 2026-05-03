@@ -1,4 +1,4 @@
-import { type GraphId, type GraphInputs, type GraphOutputs, type Project } from '@rivet2/rivet-core';
+import { type GraphId, type GraphInputs, type GraphOutputs, type Project } from '@valerypopoff/rivet2-core';
 
 export type TrivetGraphRunner = (project: Project, graphId: GraphId, inputs: GraphInputs) => Promise<GraphOutputs>;
 

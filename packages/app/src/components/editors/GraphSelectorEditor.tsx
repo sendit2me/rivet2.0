@@ -1,4 +1,4 @@
-import { type GraphSelectorEditorDefinition, type ChartNode, type GraphId } from '@rivet2/rivet-core';
+import { type GraphSelectorEditorDefinition, type ChartNode, type GraphId } from '@valerypopoff/rivet2-core';
 import { type FC } from 'react';
 import { type SharedEditorProps } from './SharedEditorProps';
 import { Field, HelperMessage } from '@atlaskit/form';

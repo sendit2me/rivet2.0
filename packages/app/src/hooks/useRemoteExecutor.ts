@@ -6,7 +6,7 @@ import {
   type RemoteRunRequestId,
   type StringArrayDataValue,
   type GraphId,
-} from '@rivet2/rivet-core';
+} from '@valerypopoff/rivet2-core';
 import { useCurrentExecution } from './useCurrentExecution';
 import { graphState } from '../state/graph';
 import { settingsState } from '../state/settings';
@@ -17,7 +17,7 @@ import { loadedProjectState, projectContextState, projectDataState, projectState
 import { useStableCallback } from './useStableCallback';
 import { toast } from 'react-toastify';
 import { trivetState } from '../state/trivet';
-import { runTrivet } from '@rivet2/trivet';
+import { runTrivet } from '@valerypopoff/trivet';
 import { produce } from 'immer';
 import { userInputModalQuestionsState } from '../state/userInput';
 import { lastRunDataByNodeState } from '../state/dataFlow';

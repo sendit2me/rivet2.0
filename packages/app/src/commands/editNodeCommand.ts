@@ -7,7 +7,7 @@ import {
   type GraphId,
   type NodeGraph,
   type NodeRegistration,
-} from '@rivet2/rivet-core';
+} from '@valerypopoff/rivet2-core';
 import { nodesState, connectionsState } from '../state/graph';
 import { produce } from 'immer';
 import { useProjectNodeRegistry } from '../hooks/useProjectNodeRegistry';

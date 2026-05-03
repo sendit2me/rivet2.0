@@ -3,7 +3,7 @@ import {
   isBuiltInInputDefinition,
   type NodeInputDefinition,
   type NodeOutputDefinition,
-} from '@rivet2/rivet-core';
+} from '@valerypopoff/rivet2-core';
 
 import { MIN_NODE_WIDTH } from './nodeResize.js';
 
