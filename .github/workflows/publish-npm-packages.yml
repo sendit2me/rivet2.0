@@ -24,6 +24,14 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - name: Verify clean checkout
+        run: |
+          status="$(git status --porcelain=v1 --untracked-files=all)"
+          if [ -n "$status" ]; then
+            echo "$status"
+            exit 1
+          fi
+
       - name: Set up build Node
         uses: actions/setup-node@v5
         with:
@@ -31,14 +39,6 @@ jobs:
 
       - name: Install dependencies
         run: node .yarn/releases/yarn-4.6.0.cjs install --immutable
-
-      - name: Verify clean checkout
-        run: |
-          status="$(git status --porcelain=v1 --untracked-files=all -- . ':!packages/*/dist/**' ':!packages/cli/bin/**' ':!**/*.tsbuildinfo')"
-          if [ -n "$status" ]; then
-            echo "$status"
-            exit 1
-          fi
 
       - name: Build publishable packages
         run: |
@@ -48,7 +48,17 @@ jobs:
 
       - name: Verify package build changed only generated artifacts
         run: |
-          status="$(git status --porcelain=v1 --untracked-files=all -- . ':!packages/*/dist/**' ':!packages/cli/bin/**' ':!**/*.tsbuildinfo')"
+          status="$(git status --porcelain=v1 --untracked-files=all -- \
+            . \
+            ':!.pnp.cjs' \
+            ':!.pnp.loader.mjs' \
+            ':!.yarn/cache/**' \
+            ':!.yarn/install-state.gz' \
+            ':!packages/core/dist/**' \
+            ':!packages/node/dist/**' \
+            ':!packages/cli/dist/**' \
+            ':!packages/cli/bin/**' \
+            ':!packages/cli/tsconfig.tsbuildinfo')"
           if [ -n "$status" ]; then
             echo "$status"
             exit 1
