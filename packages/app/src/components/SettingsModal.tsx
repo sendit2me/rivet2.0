@@ -22,16 +22,35 @@ interface SettingsModalProps {}
 export const settingsModalOpenState = atom(false);
 
 const modalBody = css`
+  height: 100%;
   min-height: 300px;
   display: grid;
-  grid-template-columns: 240px 1fr;
+  grid-template-columns: 240px minmax(0, 1fr);
+  min-width: 0;
+  overflow: hidden;
 
   nav {
+    min-height: 0;
+    overflow: auto;
     padding-bottom: 20px;
   }
 
   main {
-    padding: 0 30px 100px 30px;
+    min-width: 0;
+    min-height: 0;
+    overflow: auto;
+    padding: 0 30px 30px 30px;
+  }
+
+  main.fill-page {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+
+    > * {
+      flex: 1 1 auto;
+      min-height: 0;
+    }
   }
 `;
 
@@ -63,7 +82,7 @@ export const SettingsModal: FC<SettingsModalProps> = () => {
   return (
     <ModalTransition>
       {isOpen && (
-        <Modal onClose={() => setIsOpen(false)} width="80%">
+        <Modal onClose={() => setIsOpen(false)} width="80%" height="80%">
           <AppModalHeader title="Settings" onClose={() => setIsOpen(false)} />
           <ModalBody>
             <div css={modalBody}>
@@ -101,7 +120,7 @@ export const SettingsModal: FC<SettingsModalProps> = () => {
                   </NavigationContent>
                 </SideNavigation>
               </nav>
-              <main>
+              <main className={page === 'plugins' ? 'fill-page' : undefined}>
                 {match(page)
                   .with('general', () => <GeneralSettingsPage />)
                   .with('graphs', () => <GraphsSettingsPage />)

@@ -22,6 +22,7 @@ const pluginsCatalogPageStyles = css`
   display: flex;
   flex-direction: column;
   gap: 16px;
+  height: 100%;
   min-height: 0;
 
   .add-npm-plugin {
@@ -59,8 +60,7 @@ const pluginsCatalogPageStyles = css`
     display: flex;
     flex: 1 1 auto;
     flex-direction: column;
-    height: min(62vh, 680px);
-    min-height: 360px;
+    min-height: 0;
     overflow: hidden;
     position: relative;
     background: var(--grey-dark);
@@ -68,6 +68,7 @@ const pluginsCatalogPageStyles = css`
   }
 
   .plugins {
+    flex: 1 1 auto;
     min-height: 0;
     overflow: auto;
   }
