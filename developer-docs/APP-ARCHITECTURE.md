@@ -334,7 +334,7 @@ Current structure:
 - canvas node visibility bounds are normalized through [`packages/app/src/hooks/canvasVisibilityBounds.ts`](../packages/app/src/hooks/canvasVisibilityBounds.ts): normal nodes intentionally remain heightless for culling, while Comment nodes use their configured height so partially visible comments do not disappear; legacy or malformed visual data falls back to finite defaults so viewport math never receives `undefined` or `NaN`
 - passive viewport-motion freeze policy is named in [`packages/app/src/components/nodeCanvas/viewportVisibilityPolicy.ts`](../packages/app/src/components/nodeCanvas/viewportVisibilityPolicy.ts); pan/zoom may freeze nonessential visibility/wire work, but active node or wire drags must refresh live
 - renderable wire candidate refresh and settled/frozen candidate state live in [`packages/app/src/components/nodeCanvas/useRenderableWires.ts`](../packages/app/src/components/nodeCanvas/useRenderableWires.ts), keeping candidate selection outside SVG element rendering loops
-- searchable empty-canvas context-menu results are grouped in [`packages/app/src/components/contextMenuSearchGrouping.ts`](../packages/app/src/components/contextMenuSearchGrouping.ts): node/add results stay first, graph jumps stay under a dedicated `Go to graphs` section, and graph hits render by graph name only
+- searchable empty-canvas context-menu results are grouped in [`packages/app/src/components/contextMenuSearchGrouping.ts`](../packages/app/src/components/contextMenuSearchGrouping.ts): node/add results stay first, matching `Graph Input` and `Graph Output` node results are promoted to the top of that node/add section with a divider before the remaining node results, graph jumps stay under a dedicated `Go to graphs` section, and graph hits render by graph name only
 - multi-node alignment/distribution affordances live in [`packages/app/src/components/nodeCanvas/MultiNodeAlignmentToolbar.tsx`](../packages/app/src/components/nodeCanvas/MultiNodeAlignmentToolbar.tsx) and should stay command-backed through `moveNode` so align/distribute actions remain undoable
 - mouse pan/zoom/selection-box/context-menu handlers live in [`packages/app/src/components/nodeCanvas/useNodeCanvasInteractions.ts`](../packages/app/src/components/nodeCanvas/useNodeCanvasInteractions.ts)
 - canvas styling lives in [`packages/app/src/components/nodeCanvas/nodeCanvasStyles.ts`](../packages/app/src/components/nodeCanvas/nodeCanvasStyles.ts)
@@ -409,7 +409,8 @@ The current command-backed canvas surface includes:
 - rewire connection
 - duplicate node / dragged node cohort
 - paste nodes
-- auto-layout
+
+Canvas auto-layout is no longer a supported user action. The AI graph creator can still arrange generated graph snapshots internally through `useAutoLayoutGraph`, but the canvas no longer exposes a context-menu auto-layout command.
 
 `addNode` also owns editor-side creation behavior in addition to graph mutation: [`packages/app/src/commands/addNodeCommand.ts`](../packages/app/src/commands/addNodeCommand.ts) reads persisted editor preferences from `settingsState` through `resolveEditorPreferences(...)`, applies default node colors when requested, and opens the newly created node in the settings panel when that preference resolves to `true`. Undo clears that editor selection if it is still pointing at the removed node.
 

@@ -19,7 +19,7 @@ import { useDeleteNodesCommand } from '../commands/deleteNodeCommand';
 import { copyToClipboard } from '../utils/copyToClipboard';
 import { useGoToSubgraphNode } from './useGoToSubgraphNode.js';
 
-export function useGraphBuilderContextMenuHandler({ onAutoLayoutGraph }: { onAutoLayoutGraph: () => void }) {
+export function useGraphBuilderContextMenuHandler() {
   const { clientToCanvasPosition } = useCanvasPositioning();
   const loadGraph = useLoadGraph();
   const project = useAtomValue(projectState);
@@ -51,9 +51,6 @@ export function useGraphBuilderContextMenuHandler({ onAutoLayoutGraph }: { onAut
         })
         .with('paste', () => {
           pasteNodes(meta);
-        })
-        .with('auto-layout', () => {
-          onAutoLayoutGraph();
         })
         .with('node-edit', () => {
           const { nodeId } = context.data as { nodeId: NodeId };

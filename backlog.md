@@ -4,8 +4,10 @@
 
 - Reassess Ctrl+N window
 
-
+- Build apps when deploying (develop + main branches)
 - Check how "Check for updates" button works
+
+
 
 - Check the links that lead to the documentation
 

@@ -2,9 +2,8 @@ import { DndContext, useDroppable } from '@dnd-kit/core';
 import { useMergeRefs } from '@floating-ui/react';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { produce } from 'immer';
-import { type FC, type MouseEvent, type MutableRefObject, useEffect, useMemo, useState } from 'react';
+import { type FC, type MouseEvent, useEffect, useMemo, useState } from 'react';
 import { type ChartNode, type CommentNode, type NodeConnection, type NodeId } from '@ironclad/rivet-core';
-import { useAutoLayoutCommand } from '../commands/autoLayoutCommand';
 import { useDeleteNodesCommand } from '../commands/deleteNodeCommand';
 import { useEditNodeCommand } from '../commands/editNodeCommand';
 import { useCanvasHotkeys } from '../hooks/useCanvasHotkeys';
@@ -75,7 +74,6 @@ export interface NodeCanvasProps {
     context: ContextMenuContext,
     meta: { x: number; y: number },
   ) => void;
-  autoLayoutGraph: MutableRefObject<() => void>;
 }
 
 export type PortPositions = Record<string, { x: number; y: number }>;
@@ -89,7 +87,6 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
   onNodeSelected,
   onNodeStartEditing,
   onContextMenuItemSelected,
-  autoLayoutGraph,
 }) => {
   const [canvasPosition, setCanvasPosition] = useAtom(canvasPositionState);
   const [editingNodeId, setEditingNodeId] = useAtom(editingNodeState);
@@ -336,13 +333,6 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
     isDraggingWire,
     visibleNodeIdSet,
   });
-  const autoLayout = useAutoLayoutCommand(recalculatePortPositions);
-
-  useEffect(() => {
-    autoLayoutGraph.current = () => {
-      autoLayout({});
-    };
-  }, [autoLayout, autoLayoutGraph]);
 
   const { setNodeRef } = useDroppable({ id: 'NodeCanvas' });
   const setCanvasRef = useMergeRefs([setNodeRef, canvasRef]);
