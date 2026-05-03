@@ -311,6 +311,9 @@ The docs package is not an archival copy of the pre-fork Rivet docs. It should
 describe the current Rivet 2.0 surface:
 
 - User Guide pages, especially `docs/introduction.md`, are for normal desktop-app users first; the introduction should position Rivet as a visual low-code tool for AI and non-AI workflows, quick experiments, production workflows, and the optional self-hosted web-app form through Rivet Studio Server, while runtime package, CLI, source-checkout, and wrapper embedding details belong in API Reference pages instead of the User Guide introduction
+- Tutorial pages must use current app-facing labels rather than old internal names. In particular, the old `Splitting` tutorial URL is kept for link stability, but the visible tutorial is `Running Many Items` and should describe the current node run-mode control: `Run once`, `Many parallel runs`, and `Many sequential runs`
+- Tutorial pages for YAML and Subgraphs should stay as practical desktop-app walkthroughs, not placeholders. They should explain the current Extract YAML / To YAML and Graph Input / Graph Output / Subgraph node flows before sending readers to the node reference
+- API Reference `Types` pages under both core and node are source-backed reference pages, not empty stubs. Keep `DataValue`, `NodeGraph`, `Project`, `Settings`, `DebuggerEvents`, `LooseDataValue`, `RivetDebuggerServer`, and `RunGraphOptions` aligned with the current TypeScript definitions
 - public packages under `@valerypopoff`: `rivet2-core`, `rivet2-node`, and `rivet2-cli`
 - app package names and root workspace scripts from the current manifests
 - LLM Chat as the recommended chat node for new graphs, with legacy Chat called out as legacy
@@ -345,7 +348,8 @@ It does not publish `@valerypopoff/trivet`, the app, the app executor, or Docker
 images. The main-branch npm workflow is the canonical automation path for this
 script. That workflow verifies a clean checkout before installing dependencies,
 then verifies after the build that only Yarn install artifacts and generated
-publish artifacts changed. It calls this script with `--skip-clean-check` so
+publish artifacts changed. It then verifies the repository `NPM_TOKEN` secret
+with `npm whoami` before publishing. It calls this script with `--skip-clean-check` so
 ignored `.pnp.cjs`, `.yarn/cache`, `packages/core/dist`, `packages/node/dist`,
 `packages/cli/dist`, `packages/cli/bin`, and `packages/cli/tsconfig.tsbuildinfo`
 outputs do not block publishing.

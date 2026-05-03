@@ -1,0 +1,80 @@
+# NodeGraph
+
+## Description
+
+`NodeGraph` is the in-memory representation of one graph inside a Rivet project. A graph contains node instances, connections between their ports, and optional metadata.
+
+Projects store many graphs in `Project.graphs`, keyed by graph ID.
+
+## Definition
+
+```typescript
+export type GraphId = Opaque<string, 'GraphId'>;
+
+export interface NodeGraph {
+  metadata?: {
+    id?: GraphId;
+    name?: string;
+    description?: string;
+    attachedData?: AttachedData;
+  };
+
+  nodes: ChartNode[];
+  connections: NodeConnection[];
+}
+```
+
+## Properties
+
+### metadata
+
+Type:
+
+```typescript
+{
+  id?: GraphId;
+  name?: string;
+  description?: string;
+  attachedData?: AttachedData;
+}
+```
+
+Optional graph metadata.
+
+`id` is the graph ID. `name` is the name shown in the Rivet UI and can also be used by run helpers to select a graph. `description` is user-facing documentation for the graph. `attachedData` stores serialized sidecar data for graph content.
+
+### nodes
+
+Type: `ChartNode[]`
+
+The nodes that make up the graph. Each node has a type, visual position, node-specific data, and shared execution settings such as run mode.
+
+### connections
+
+Type: `NodeConnection[]`
+
+The directed connections between node ports.
+
+## Creating an Empty Graph
+
+The core package exports `emptyNodeGraph()`:
+
+```typescript
+import { emptyNodeGraph } from '@valerypopoff/rivet2-core';
+
+const graph = emptyNodeGraph();
+```
+
+It creates a graph with no nodes, no connections, a generated ID, the name `Untitled Graph`, and an empty description.
+
+## Notes
+
+- Graph IDs are opaque strings at the type level, but they serialize as strings in project YAML.
+- A graph can be run directly, used as the project main graph, or called from another graph through a Subgraph node.
+- Graph Inputs and Graph Outputs define the callable interface when another graph uses this graph as a subgraph.
+
+## See Also
+
+- [Project](./Project)
+- [RunGraphOptions](../node/RunGraphOptions)
+- [Subgraph Node](../../node-reference/subgraph)

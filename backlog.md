@@ -12,7 +12,8 @@
 - Check how "Check for updates" button works
 
 
-- Update documentations
+- Update documentation
+https://valerypopoff.github.io/rivet2.0/tutorial is half-empty
 
 
 - Reassess rivet example project

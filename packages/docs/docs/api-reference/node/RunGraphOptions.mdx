@@ -2,7 +2,9 @@
 
 ## Description
 
-`RunGraphOptions` configures a graph run. The same base type is used by core execution helpers and extended by `@valerypopoff/rivet2-node` for Node-specific remote-debugger fields.
+`RunGraphOptions` configures a graph run. The base type comes from `@valerypopoff/rivet2-core`; `@valerypopoff/rivet2-node` extends it with Node remote-debugger fields.
+
+Use this type when calling `runGraph`, `runGraphInFile`, or `createProcessor`.
 
 ## Definition
 
@@ -47,13 +49,13 @@ type NodeRunGraphOptions = RunGraphOptions & {
 
 Type: `string`
 
-The `graph` property represents the graph in the project to execute. This may be the graph ID or the name shown in the Rivet UI. If omitted, Rivet runs the project's main graph.
+The graph to execute. This may be the graph ID or the graph name shown in Rivet. If omitted, Rivet runs `project.metadata.mainGraphId`.
 
 ### inputs
 
 Type: `Record<string, LooseDataValue>`
 
-Specifies a set of input values to the graph you are executing. The keys in the object must correspond to the IDs for the Graph Input nodes in the graph, and the associated values are the values to be passed to the graph.
+Input values for [Graph Input](../../node-reference/graph-input) nodes in the graph. Object keys must match Graph Input IDs.
 
 See [LooseDataValue](./LooseDataValue) for more information about the different types of values that can be passed to the graph.
 
@@ -61,7 +63,7 @@ See [LooseDataValue](./LooseDataValue) for more information about the different 
 
 Type: `Record<string, LooseDataValue>`
 
-Specifies a set of context values to the graph you are executing. The keys in the object must correspond to the IDs for the Context nodes in the graph, and the associated values are the values to be passed to the graph. Context is similar to inputs, but these values are available to every graph and subgraph.
+Context values for Context nodes. Context is similar to inputs, but the values are available to every graph and subgraph in the run.
 
 See [LooseDataValue](./LooseDataValue) for more information about the different types of values that can be passed to the graph.
 
@@ -69,7 +71,7 @@ See [LooseDataValue](./LooseDataValue) for more information about the different 
 
 Type: `NativeApi`
 
-Provides file-system and other native capabilities for nodes that require host APIs.
+Provides file-system and other native capabilities for nodes that require host APIs. The Node package supplies `NodeNativeApi` by default.
 
 ### datasetProvider
 
@@ -87,13 +89,13 @@ Provides audio loading/processing capabilities when a run needs them.
 
 Type: `MCPProvider`
 
-Provides MCP server discovery and tool/prompt calls for MCP nodes.
+Provides MCP server discovery and tool/prompt calls for MCP nodes. The Node package supplies `NodeMCPProvider` by default.
 
 ### externalFunctions
 
-Type: `Object`
+Type: `{ [key: string]: ExternalFunction }`
 
-The `externalFunctions` property is an optional object that can be used to provide external functions that can be invoked by the graph. Each key in the object corresponds to the name of an external function, and the associated value is the function to be invoked.
+External functions that can be invoked by External Call nodes. Each key is the function name exposed to the graph.
 
 A function must return a `Promise` that resolves to a `DataValue` or `undefined`. The `DataValue` returned by the function will be passed to the graph as the result of the function call.
 
@@ -101,9 +103,9 @@ See [DataValue](../core/DataValue) for more information about the different type
 
 ### onUserEvent
 
-Type: `Object`
+Type: `{ [key: string]: (data: DataValue | undefined) => void }`
 
-The `onUserEvent` property is an optional object of user event handlers. The keys are event names and the values are functions that will be called when the event is triggered. This allows you to handle custom events that may occur during the graph execution process.
+User event handlers. The keys are event names and the values are callbacks invoked when a Raise Event node or compatible graph event emits that user event.
 
 ### abortSignal
 
@@ -127,7 +129,7 @@ Includes trace events in graph processing.
 
 Type: `GraphProcessorConcurrency`
 
-Controls graph processor concurrency.
+Controls graph processor concurrency, including the default concurrency used by node run modes that process many items in parallel.
 
 ### getChatNodeEndpoint
 
@@ -139,7 +141,7 @@ Overrides the legacy Chat node endpoint resolver.
 
 Type: `Tokenizer`
 
-Overrides the tokenizer used by token-counting nodes and chat-message trimming.
+Overrides the tokenizer used by token-counting nodes and chat-message trimming. Core runs use `GptTokenizerTokenizer` by default. Node runs use a lightweight fallback tokenizer unless you provide one.
 
 ### codeRunner
 
@@ -151,13 +153,13 @@ Overrides the Code node runner. Node integrations use `NodeCodeRunner` by defaul
 
 Type: `string`
 
-Provides the current project path to nodes and project-reference loaders.
+Provides the current project path to nodes and project-reference loaders. This is important for file-relative behavior and project references.
 
 ### projectReferenceLoader
 
 Type: `ProjectReferenceLoader`
 
-Overrides project reference loading for subgraph/project-reference scenarios.
+Overrides project reference loading for project-reference scenarios. The Node package supplies `NodeProjectReferenceLoader` by default.
 
 ### editorExecutionCache
 
@@ -169,7 +171,7 @@ Passes the editor execution cache used by app/editor runs.
 
 Type: `RivetDebuggerServer`
 
-Node-only. Passes a debugger server instance so graph execution can be inspected in the Rivet app.
+Node-only. Passes a debugger server instance so graph execution can be inspected in the Rivet app's remote debugger.
 
 ### remoteDebuggerRequestId
 
@@ -179,13 +181,55 @@ Node-only. Associates a run with a specific remote-debugger request.
 
 ### Event Handlers
 
-Type: `Object`
+Type:
 
-This part of the `RunGraphOptions` type represents an object of event handlers for the graph processing. The keys are event names in PascalCase prefixed with `on` and the values are functions that will be called when the event is triggered. This allows you to handle a variety of events that may occur during the graph execution process.
+```typescript
+{
+  [P in keyof ProcessEvents as `on${PascalCase<P>}`]?: (params: ProcessEvents[P]) => void;
+}
+```
+
+Graph processor event handlers. Event names are PascalCase and prefixed with `on`, such as `onStart`, `onNodeStart`, `onNodeFinish`, `onNodeError`, `onPartialOutput`, and `onDone`.
 
 ## Settings
 
 The optional properties of [Settings](../core/Settings) are merged into `RunGraphOptions`. Node runs fill unset OpenAI/plugin environment defaults from `process.env` where possible.
+
+## Node Package Defaults
+
+When using `@valerypopoff/rivet2-node`, `createProcessor` and `runGraph` provide these defaults when the corresponding option is omitted:
+
+| Option | Node default |
+| --- | --- |
+| `nativeApi` | `NodeNativeApi` |
+| `mcpProvider` | `NodeMCPProvider` |
+| `tokenizer` | fallback character-count tokenizer |
+| `codeRunner` | `NodeCodeRunner` |
+| `projectReferenceLoader` | `NodeProjectReferenceLoader` |
+| `pluginEnv` | plugin environment values read from `process.env` |
+| OpenAI settings | `OPENAI_API_KEY`, `OPENAI_ORG_ID`, and `OPENAI_ENDPOINT` when unset |
+
+## Usage
+
+```typescript
+import { loadProjectFromFile, runGraph } from '@valerypopoff/rivet2-node';
+
+const project = await loadProjectFromFile('./workflow.rivet-project');
+
+const outputs = await runGraph(project, {
+  graph: 'Main',
+  inputs: {
+    prompt: 'Summarize the release notes',
+    maxBullets: 5,
+  },
+  context: {
+    audience: 'support team',
+  },
+  onNodeError({ node, error }) {
+    console.error(`Node failed: ${node.title}`, error);
+  },
+});
+```
 
 ## See Also
 

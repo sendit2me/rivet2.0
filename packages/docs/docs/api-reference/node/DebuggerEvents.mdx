@@ -1,0 +1,40 @@
+# DebuggerEvents
+
+## Description
+
+`DebuggerEvents` is the event map emitted by a [RivetDebuggerServer](./RivetDebuggerServer). It currently exposes server-level debugger errors.
+
+Processor events such as `nodeStart`, `nodeFinish`, `partialOutput`, and `done` are not emitted through this event map. Those are broadcast over the debugger WebSocket to connected Rivet clients after a processor is attached.
+
+## Definition
+
+```typescript
+export interface DebuggerEvents {
+  error: Error;
+}
+```
+
+## Events
+
+### error
+
+Type: `Error`
+
+Emitted when the debugger server fails to process an incoming WebSocket message or another server-side debugger error occurs.
+
+## Usage
+
+```typescript
+import { startDebuggerServer } from '@valerypopoff/rivet2-node';
+
+const debuggerServer = startDebuggerServer({ port: 21888 });
+
+debuggerServer.on('error', (error) => {
+  console.error('Remote debugger error:', error);
+});
+```
+
+## See Also
+
+- [RivetDebuggerServer](./RivetDebuggerServer)
+- [startDebuggerServer](./startDebuggerServer)

@@ -1,0 +1,142 @@
+# DataValue
+
+## Description
+
+`DataValue` is Rivet's typed runtime value shape. Node inputs, node outputs, graph inputs, graph outputs, context values, external functions, debugger payloads, and stream events all move values around as `DataValue` objects.
+
+Every `DataValue` has:
+
+```typescript
+type DataValueDef<Type extends string, RuntimeType> = {
+  type: Type;
+  value: RuntimeType;
+};
+```
+
+The `type` field is Rivet's graph data type. The `value` field is the JavaScript runtime value for that type.
+
+## Examples
+
+```typescript
+const text: DataValue = {
+  type: 'string',
+  value: 'Hello',
+};
+
+const count: DataValue = {
+  type: 'number',
+  value: 42,
+};
+
+const objectValue: DataValue = {
+  type: 'object',
+  value: { title: 'Launch checklist' },
+};
+```
+
+For graph inputs and context values in `@valerypopoff/rivet2-node`, you can usually pass primitives through [LooseDataValue](../node/LooseDataValue). Rivet converts strings, numbers, and booleans into `DataValue` objects for you.
+
+## Scalar Types
+
+| Type | Runtime value |
+| --- | --- |
+| `any` | `unknown` |
+| `boolean` | `boolean` |
+| `string` | `string` |
+| `number` | `number` |
+| `date` | `string` |
+| `time` | `string` |
+| `datetime` | `string` |
+| `chat-message` | `ChatMessage` |
+| `control-flow-excluded` | `undefined` or `'loop-not-broken'` |
+| `object` | `Record<string, unknown>` |
+| `gpt-function` | `GptFunction` |
+| `vector` | `number[]` |
+| `image` | `{ mediaType: 'image/jpeg' \| 'image/png' \| 'image/gif'; data: Uint8Array }` |
+| `binary` | `Uint8Array` |
+| `audio` | `{ mediaType?: string; data: Uint8Array }` |
+| `graph-reference` | `{ graphId: GraphId; graphName: string }` |
+| `document` | `{ mediaType: 'application/pdf' \| 'text/plain'; data: Uint8Array; title?: string; context?: string; enableCitations: boolean }` |
+
+## Array Types
+
+Every scalar type also has an array form. The type name is the scalar type plus `[]`.
+
+```typescript
+const names: DataValue = {
+  type: 'string[]',
+  value: ['Ada', 'Grace', 'Katherine'],
+};
+
+const vectors: DataValue = {
+  type: 'vector[]',
+  value: [
+    [0.1, 0.2],
+    [0.3, 0.4],
+  ],
+};
+```
+
+Array values are especially important with node run modes. A node set to `Many parallel runs` or `Many sequential runs` processes array inputs item-by-item and returns array outputs.
+
+## Function Types
+
+Rivet also supports deferred function values. The type name is `fn<...>`, where the inner type is a scalar or array data type.
+
+```typescript
+const lazyText: DataValue = {
+  type: 'fn<string>',
+  value: () => 'computed when unwrapped',
+};
+```
+
+Function values are used by lower-level integrations that want to delay expensive value creation. Most app and API users work with scalar and array values directly.
+
+## Chat Messages
+
+`chat-message` values represent messages used by Chat and LLM nodes.
+
+```typescript
+type ChatMessage =
+  | { type: 'system'; message: ChatMessageMessagePart | ChatMessageMessagePart[]; isCacheBreakpoint?: boolean }
+  | { type: 'user'; message: ChatMessageMessagePart | ChatMessageMessagePart[]; isCacheBreakpoint?: boolean }
+  | {
+      type: 'assistant';
+      message: ChatMessageMessagePart | ChatMessageMessagePart[];
+      function_call: AssistantChatMessageFunctionCall | undefined;
+      function_calls: AssistantChatMessageFunctionCall[] | undefined;
+      isCacheBreakpoint?: boolean;
+    }
+  | {
+      type: 'function';
+      message: ChatMessageMessagePart | ChatMessageMessagePart[];
+      name: string;
+      toolName?: string;
+      isCacheBreakpoint?: boolean;
+    };
+```
+
+Message parts can be plain text, image bytes, URL references, or document bytes.
+
+## Helpers
+
+The core package exports helpers for common type checks and conversions:
+
+| Helper | Purpose |
+| --- | --- |
+| `dataTypes` | Tuple of every supported `DataType`. |
+| `scalarTypes` | Tuple of every supported scalar data type. |
+| `dataTypeDisplayNames` | Display labels for data types. |
+| `isScalarDataValue(value)` | Checks whether a value is scalar. |
+| `isArrayDataValue(value)` | Checks whether a value is an array data value. |
+| `isFunctionDataValue(value)` | Checks whether a value is a function data value. |
+| `unwrapDataValue(value)` | Resolves function data values into concrete scalar or array values. |
+| `arrayizeDataValue(value)` | Converts a scalar or array value into an array of scalar values. |
+| `getDefaultValue(type)` | Returns the default runtime value for a data type. |
+| `getScalarTypeOf(type)` | Returns the scalar type for scalar, array, or function data types. |
+
+## See Also
+
+- [LooseDataValue](../node/LooseDataValue)
+- [RunGraphOptions](../node/RunGraphOptions)
+- [NodeGraph](./NodeGraph)

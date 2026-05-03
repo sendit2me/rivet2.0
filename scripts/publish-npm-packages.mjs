@@ -138,7 +138,7 @@ function writeNpmAuthConfig(stagingRoot) {
   const npmAuthConfigPath = path.join(stagingRoot, '.npmrc');
   writeFileSync(
     npmAuthConfigPath,
-    `registry=https://registry.npmjs.org/\n//registry.npmjs.org/:_authToken=${token}\nalways-auth=true\n`,
+    `registry=https://registry.npmjs.org/\n//registry.npmjs.org/:_authToken=${token}\n`,
   );
   return npmAuthConfigPath;
 }
@@ -270,7 +270,7 @@ function rewriteWorkspaceDependencies(dependencies, version) {
 }
 
 function packageVersionExists(name, version, npmAuthConfigPath) {
-  const result = run(npmCommand, ['view', `${name}@${version}`, 'version', '--json'], {
+  const result = run(npmCommand, ['view', `${name}@${version}`, 'version', '--json', '--registry', 'https://registry.npmjs.org/'], {
     stdio: 'pipe',
     allowFailure: true,
     env: npmAuthConfigPath ? { NPM_CONFIG_USERCONFIG: npmAuthConfigPath } : undefined,
@@ -290,7 +290,7 @@ function packageVersionExists(name, version, npmAuthConfigPath) {
 }
 
 function publishPackage(name, stagingDir, distTag, npmAuthConfigPath) {
-  const publishArgs = ['publish', stagingDir, '--access', 'public', '--tag', distTag];
+  const publishArgs = ['publish', stagingDir, '--access', 'public', '--tag', distTag, '--registry', 'https://registry.npmjs.org/'];
   if (dryRun) {
     publishArgs.push('--dry-run');
   }
