@@ -1,6 +1,7 @@
 import { createProcessor, loadProjectFromFile, type LooseDataValue } from '@valerypopoff/rivet2-node';
 import { resolve } from 'node:path';
 import type * as yargs from 'yargs';
+import { parseJsonInputRecord, parseKeyValueInputRecord } from '../commandInputs.js';
 
 export function makeCommand<T>(y: yargs.Argv<T>) {
   return y
@@ -47,62 +48,37 @@ export async function run(args: {
 }) {
   try {
     const projectPath = resolve(process.cwd(), args.projectFile);
-
     const project = await loadProjectFromFile(projectPath);
 
     if (!args.graphName && !project.metadata.mainGraphId) {
       const validGraphs = Object.values(project.graphs).map((graph) => [graph.metadata!.id!, graph.metadata!.name!]);
-      const validGraphNames = validGraphs.map(([id, name]) => `• "${name}" (${id})`);
+      const validGraphNames = validGraphs.map(([id, name]) => `- "${name}" (${id})`);
 
       console.error(
         `No graph name provided, and project does not specify a main graph. Valid graphs are: \n${validGraphNames.join(
           '\n',
-        )}\n\n Use either the graph's name or its ID. For example, \`rivet run my-project.rivet-project my-graph\` or \`rivet run my-project.rivet-project 1234abcd\``,
+        )}\n\nUse either the graph's name or its ID. For example, \`rivet run my-project.rivet-project my-graph\` or \`rivet run my-project.rivet-project 1234abcd\``,
       );
       process.exit(1);
     }
 
-    let inputs: Record<string, LooseDataValue> = {};
+    let inputs: Record<string, LooseDataValue>;
+
     if (args.inputsStdin) {
-      // Read json from stdin
       const stdin = process.stdin;
       stdin.setEncoding('utf8');
 
-      let input = '';
+      let inputText = '';
       for await (const chunk of stdin) {
-        input += chunk;
+        inputText += chunk;
       }
 
-      try {
-        inputs = JSON.parse(input);
-      } catch (err) {
-        console.error('Failed to parse input JSON');
-        console.error(err);
-        process.exit(1);
-      }
+      inputs = parseJsonInputRecord(inputText, 'Input stdin');
     } else {
-      inputs = Object.fromEntries(
-        args.input.map((input) => {
-          const [key, value] = input.split('=');
-          if (!key || !value) {
-            console.error(`Invalid input value: ${input}`);
-            process.exit(1);
-          }
-          return [key, value];
-        }),
-      );
+      inputs = parseKeyValueInputRecord(args.input, 'input');
     }
 
-    const contextValues = Object.fromEntries(
-      args.context.map((context) => {
-        const [key, value] = context.split('=');
-        if (!key || !value) {
-          console.error(`Invalid context value: ${context}`);
-          process.exit(1);
-        }
-        return [key, value];
-      }),
-    );
+    const contextValues = parseKeyValueInputRecord(args.context, 'context');
 
     const { run } = createProcessor(project, {
       graph: args.graphName,

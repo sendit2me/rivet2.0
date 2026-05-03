@@ -205,6 +205,7 @@ Operational CLI for running or serving Rivet graphs.
 - Source entry: `src/cli.ts`
 - Published bin mapping: `rivet -> bin/cli.js`
 - Types: `dist/types/cli.d.ts`
+- TypeScript build input: `src/` only; `bin/` is generated output
 
 ### Commands
 
@@ -220,7 +221,7 @@ Implemented in `src/commands/run.ts`.
 Supports:
 
 - graph selection by name/ID
-- stdin JSON inputs
+- stdin JSON object inputs through `--inputs-stdin`
 - repeated `--input key=value`
 - repeated `--context key=value`
 - optional cost suppression
@@ -229,6 +230,7 @@ Internally:
 
 - resolves the project file
 - loads the project through `rivet-node`
+- parses command input through `src/commandInputs.ts`, which rejects non-object JSON, allows empty string values, and preserves `=` characters inside values
 - builds a processor
 - runs it
 - prints JSON outputs
@@ -247,7 +249,11 @@ Supports:
 - optional single-node streaming
 - OpenAI-related option overrides
 
-Architecturally, it is a thin HTTP wrapper around `rivet-node` processor creation and streaming helpers.
+Architecturally, it is a thin HTTP wrapper around `rivet-node` processor creation and streaming helpers. Request bodies are parsed through the same object-input helper as `run`, so empty bodies become `{}` and arrays/primitives are rejected before execution. Project-file lookup resolves relative paths to absolute paths, handles directory inputs, and uses platform path helpers for suggestions so Windows paths do not get split with POSIX-only separators. Graph validation also checks that a stored main graph ID actually exists before the server starts.
+
+### Docker image behavior
+
+The CLI Docker image entrypoint runs the globally installed `rivet` binary as `rivet serve /project`, so project files should be mounted at `/project` and the container does not need `npx` or package resolution at runtime. `docker-publish.sh` reads the package version from `packages/cli/package.json`, passes it into the Dockerfile as `RIVET_CLI_VERSION`, and tags both amd64 and arm64 images with that same version. Do not hardcode a separate package version in the Dockerfile.
 
 ## `@valerypopoff/trivet` (`packages/trivet/`)
 

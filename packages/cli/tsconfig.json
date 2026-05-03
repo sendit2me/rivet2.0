@@ -9,6 +9,6 @@
     "allowSyntheticDefaultImports": false,
     "esModuleInterop": false
   },
-  "include": ["src", "bin"],
+  "include": ["src"],
   "references": [{ "path": "../core" }, { "path": "../node" }]
 }

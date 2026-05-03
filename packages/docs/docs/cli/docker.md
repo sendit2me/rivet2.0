@@ -102,6 +102,10 @@ See the [Rivet CLI documentation](./serve.md#options) for a list of environment 
 
 The container expects your Rivet project file to be mounted at `/project` inside the container. The mounted directory should contain the Rivet project file and any other files needed by the project, such as any `.rivet-data` file.
 
+The image entrypoint runs the globally installed CLI as `rivet serve /project`. Additional arguments appended to `docker run` are forwarded to `rivet serve`.
+
+Maintainers building the published image should pass the CLI package version through the `RIVET_CLI_VERSION` Docker build argument. The package's `docker-publish.sh` script does this automatically.
+
 ## Examples
 
 ### Using Docker Compose
