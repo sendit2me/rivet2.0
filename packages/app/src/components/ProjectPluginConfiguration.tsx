@@ -12,12 +12,16 @@ import { pluginsState } from '../state/plugins';
 import { getPluginSpecLabel } from '../utils/pluginUsage';
 
 const styles = css`
-  margin-top: 16px;
+  font-size: var(--ui-font-size-compact);
 
   .label {
     display: flex;
     align-items: center;
     justify-content: space-between;
+  }
+
+  .label label {
+    font-size: var(--ui-font-size-compact) !important;
   }
 
   .plugin-info-button {
@@ -47,6 +51,11 @@ const styles = css`
 
   .helper {
     margin-top: 4px;
+    font-size: var(--ui-font-size-compact);
+  }
+
+  .helper * {
+    font-size: var(--ui-font-size-compact) !important;
   }
 
   .plugins-list {
@@ -56,6 +65,7 @@ const styles = css`
     margin: 0;
     padding: 0;
     margin-top: 8px;
+    font-size: var(--ui-font-size-compact);
 
     li {
       margin: 0;
@@ -87,11 +97,12 @@ const styles = css`
 
 export const ProjectPluginsConfiguration: FC = () => {
   const pluginSpecs = useAtomValue(projectPluginsState);
+  const hasPlugins = pluginSpecs.length > 0;
 
   return (
     <div css={styles}>
       <div className="label">
-        <Label htmlFor="">Plugins used by this project</Label>
+        <Label htmlFor="">{hasPlugins ? 'Plugins used by this project' : 'No plugins used by this project'}</Label>
       </div>
       <div className="helper">
         <HelperMessage>
@@ -99,13 +110,13 @@ export const ProjectPluginsConfiguration: FC = () => {
           remove it from this project.
         </HelperMessage>
       </div>
-      <ul className="plugins-list">
-        {pluginSpecs.length > 0 ? (
-          pluginSpecs.map((spec, i) => <PluginConfigurationItem spec={spec} key={`spec-${i}`} />)
-        ) : (
-          <li>None</li>
-        )}
-      </ul>
+      {hasPlugins && (
+        <ul className="plugins-list">
+          {pluginSpecs.map((spec, i) => (
+            <PluginConfigurationItem spec={spec} key={`spec-${i}`} />
+          ))}
+        </ul>
+      )}
     </div>
   );
 };

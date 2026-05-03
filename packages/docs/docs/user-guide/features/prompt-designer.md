@@ -14,7 +14,7 @@ The left side of the Prompt Designer contains the list of messages that will be 
 
 ## Response
 
-The middle of the Prompt Designer contains the response from GPT.
+The middle of the Prompt Designer contains the model response.
 
 ## Parameters
 

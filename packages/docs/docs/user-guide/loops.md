@@ -81,9 +81,9 @@ The flow is roughly as follows:
    1. The previous full message history
    2. The last message from the chatbot
    3. The response from the user
-4. This full message history is passed into a [Chat Node](../node-reference/chat.mdx). This node will return the next message from the chatbot.
+4. This full message history is passed into an [LLM Chat Node](../node-reference/llm-chat.mdx). This node will return the next message from the chatbot.
    1. At the same time, the constructed full message history is looped back into the loop controller to form the "full message history" for the next loop.
-5. The Chat Node passes its response text into a [Prompt Node](../node-reference/prompt.mdx). The prompt node is tagged with "Assistant" as the user, so that the chatbot can differentiate who sent each message.
+5. The LLM Chat node passes its response text into a [Prompt Node](../node-reference/prompt.mdx). The prompt node is tagged with "Assistant" as the user, so that the chatbot can differentiate who sent each message.
 6. This chat-message response from the AI is passed into the value of the 2nd pair of the loop controller node.
 7. The loop continues
 

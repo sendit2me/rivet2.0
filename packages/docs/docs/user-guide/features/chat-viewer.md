@@ -10,7 +10,7 @@ At the top of each bubble, you will see what graph contains the executing chat n
 
 The top half of each bubble contains the input messages, and the bottom half contains the output.
 
-If a chat node is [split](../splitting.md), then it will appear as multiple bubbles in the Chat Viewer.
+If a chat node is set to [run many items](../splitting.md), then it will appear as multiple bubbles in the Chat Viewer.
 
 ## Filter
 

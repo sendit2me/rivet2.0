@@ -11,7 +11,7 @@ import TabItem from '@theme/TabItem';
 
 ## Overview
 
-The Race Inputs Node is used to handle multiple inputs and outputs the value of the first input to finish, force-cancelling the other inputs. This node is particularly useful when you have multiple operations such as [Chat Node](./chat.mdx) calls that can potentially fulfill the same requirement, and you want to use the result of the operation that finishes first.
+The Race Inputs Node is used to handle multiple inputs and outputs the value of the first input to finish, force-cancelling the other inputs. This node is particularly useful when you have multiple operations such as [LLM Chat Node](./llm-chat.mdx) calls that can potentially fulfill the same requirement, and you want to use the result of the operation that finishes first.
 
 <Tabs
   defaultValue="inputs"
@@ -52,13 +52,13 @@ This node has no configurable editor settings.
 
 </Tabs>
 
-## Example 1: Race two Chats
+## Example 1: Race Two LLM Calls
 
-1. Create a new graph, and add two [Chat Nodes](./chat.mdx) to the graph.
-2. Create a [Prompt Node](./prompt.mdx), and give it a prompt message that will be answered in a short time, such as "What is your favorite color?". Connect it to the `Prompt` input of the first Chat Node.
-3. Create another Prompt Node, and give it a prompt message that will take a much longer time, such as "Describe to me in detail the story of Hamlet." Connect it to the `Prompt` input of the second Chat Node.
-4. Connect both outputs of the Chat Nodes to a Race Inputs node.
-5. Run the graph. Notice that the first Chat finishes first, and the value of the Race Inputs node is the response from the first Chat Node. The other Chat Node gets canceled.
+1. Create a new graph, and add two [LLM Chat Nodes](./llm-chat.mdx) to the graph.
+2. Create a [Prompt Node](./prompt.mdx), and give it a prompt message that will be answered in a short time, such as "What is your favorite color?". Connect it to the `Prompt` input of the first LLM Chat Node.
+3. Create another Prompt Node, and give it a prompt message that will take a much longer time, such as "Describe to me in detail the story of Hamlet." Connect it to the `Prompt` input of the second LLM Chat Node.
+4. Connect both `Response` outputs of the LLM Chat Nodes to a Race Inputs node.
+5. Run the graph. Notice that the first LLM call finishes first, and the value of the Race Inputs node is the response from that node. The other LLM call gets canceled.
 
 ![Race Inputs Node Example 1](./assets/race-inputs-node-example-01.png)
 

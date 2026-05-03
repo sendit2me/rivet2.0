@@ -6,7 +6,7 @@ import { useDeleteGraph } from './useDeleteGraph.js';
 import { useLoadGraph } from './useLoadGraph.js';
 import { useDuplicateGraph } from './useDuplicateGraph.js';
 import { useImportGraph } from './useImportGraph';
-import { emptyNodeGraph, type GraphId, type NodeGraph } from '@valerypopoff/rivet2-core';
+import { emptyNodeGraph, type NodeGraph } from '@valerypopoff/rivet2-core';
 import { useStableCallback } from './useStableCallback.js';
 import { expandedFoldersState } from '../state/ui';
 import { toast } from 'react-toastify';
@@ -16,13 +16,13 @@ import {
   buildUntitledGraph,
   createFolderedGraphs,
   deleteFolderGraphs,
-  findRunnableGraphId,
   preserveFolderNames,
   renameFolderItemInGraphs,
 } from '../domain/graphEditing/graphListActions.js';
 
-export function useGraphOperations(onRunGraph?: (graphId: GraphId) => void) {
+export function useGraphOperations() {
   const projectMetadata = useAtomValue(projectMetadataState);
+  const setProjectMetadata = useSetAtom(projectMetadataState);
   const [savedGraphs, setSavedGraphs] = useAtom(savedGraphsState);
   const [graph, setGraph] = useAtom(graphState);
 
@@ -94,11 +94,16 @@ export function useGraphOperations(onRunGraph?: (graphId: GraphId) => void) {
     setFolderNames((prev) => prev.filter((name) => name !== folderName && !name.startsWith(`${folderName}/`)));
   });
 
-  const runGraph = useStableCallback((folderName: string) => {
-    const graphId = findRunnableGraphId(savedGraphs, folderName);
-    if (graphId) {
-      onRunGraph?.(graphId);
+  const makeMainGraph = useStableCallback((graph: NodeGraph) => {
+    const graphId = graph.metadata?.id;
+    if (graphId == null || graphId === projectMetadata.mainGraphId) {
+      return;
     }
+
+    setProjectMetadata({
+      ...projectMetadata,
+      mainGraphId: graphId,
+    });
   });
 
   const renameFolderItem = useStableCallback((fullPath: string, newFullPath: string, itemId?: string) => {
@@ -155,7 +160,7 @@ export function useGraphOperations(onRunGraph?: (graphId: GraphId) => void) {
     handleNewFolder,
     handleDelete,
     handleDeleteFolder,
-    runGraph,
+    makeMainGraph,
     startRename,
     renameFolderItem,
   };

@@ -8,7 +8,7 @@ import Button from '@atlaskit/button';
 import Modal, { ModalTransition, ModalBody, ModalFooter } from '@atlaskit/modal-dialog';
 import { useToggle } from 'ahooks';
 import TextField from '@atlaskit/textfield';
-import { DataType, type DataValue } from '@valerypopoff/rivet2-core';
+import { type DataValue } from '@valerypopoff/rivet2-core';
 import { produce } from 'immer';
 import { entries } from '../utils/typeSafety';
 import { css } from '@emotion/react';
@@ -21,6 +21,39 @@ import { MainGraphIcon } from './graphList/MainGraphIcon';
 import { AppModalHeader } from './AppModalHeader';
 
 const styles = css`
+  .project-info-layout {
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .project-info-item {
+    min-width: 0;
+    margin: 0 0 16px;
+
+    > * {
+      margin-top: 0 !important;
+    }
+
+    > form {
+      margin: 0;
+    }
+
+    > form > div {
+      margin-top: 0 !important;
+    }
+  }
+
+  .project-plugins-section {
+    margin-top: auto;
+    margin-bottom: 0;
+  }
+
+  .project-info-divider {
+    border-top: 1px solid var(--grey-darkish);
+    margin: 0 0 16px;
+  }
+
   .main-graph-field-label {
     display: inline-flex;
     align-items: center;
@@ -72,9 +105,8 @@ const styles = css`
     }
   }
 
-  .context-list-actions {
+  .project-info-action {
     margin-top: 8px;
-    margin-bottom: 8px;
   }
 `;
 
@@ -135,85 +167,110 @@ export const ProjectInfoSidebarTab: FC = () => {
 
   return (
     <div css={styles} className="project-info-section">
-      <InlineEditableTextfield
-        key={`name-${project.metadata.id}`}
-        label="Project Name"
-        placeholder="Project Name"
-        readViewFitContainerWidth
-        defaultValue={project.metadata.title}
-        onConfirm={(newValue) => setProject({ ...project, metadata: { ...project.metadata, title: newValue } })}
-      />
-
-      <InlineEditableTextfield
-        key={`description-${project.metadata.id}`}
-        label="Description"
-        placeholder="Project Description"
-        defaultValue={project.metadata?.description ?? ''}
-        onConfirm={(newValue) => setProject({ ...project, metadata: { ...project.metadata, description: newValue } })}
-        readViewFitContainerWidth
-      />
-      <ProjectMCPConfiguration />
-
-      <Field name="mainGraph" label={<MainGraphFieldLabel />}>
-        {() => (
-          <Select
-            options={graphOptions}
-            value={selectedMainGraph}
-            onChange={(newValue) => {
-              setProject({
-                ...project,
-                metadata: { ...project.metadata, mainGraphId: newValue?.value ?? undefined },
-              });
-            }}
+      <div className="project-info-layout">
+        <div className="project-info-item">
+          <InlineEditableTextfield
+            key={`name-${project.metadata.id}`}
+            label="Project Name"
+            placeholder="Project Name"
+            readViewFitContainerWidth
+            defaultValue={project.metadata.title}
+            onConfirm={(newValue) => setProject({ ...project, metadata: { ...project.metadata, title: newValue } })}
           />
-        )}
-      </Field>
+        </div>
 
-      <ProjectPluginsConfiguration />
+        <div className="project-info-item">
+          <InlineEditableTextfield
+            key={`description-${project.metadata.id}`}
+            label="Description"
+            placeholder="Project Description"
+            defaultValue={project.metadata?.description ?? ''}
+            onConfirm={(newValue) =>
+              setProject({ ...project, metadata: { ...project.metadata, description: newValue } })
+            }
+            readViewFitContainerWidth
+          />
+        </div>
 
-      <ProjectReferencesConfiguration />
+        <div className="project-info-item">
+          <Field name="mainGraph" label={<MainGraphFieldLabel />}>
+            {() => (
+              <Select
+                options={graphOptions}
+                value={selectedMainGraph}
+                onChange={(newValue) => {
+                  setProject({
+                    ...project,
+                    metadata: { ...project.metadata, mainGraphId: newValue?.value ?? undefined },
+                  });
+                }}
+              />
+            )}
+          </Field>
+        </div>
 
-      <Field name="context" label="Context">
-        {() => (
-          <>
-            <div className="context-list">
-              {sortedContext.map(([key, value]) => (
-                <div className="context-list-item" key={key}>
-                  <div className="info">
-                    <span className="key">{key}</span>
-                    <span className="value">{value.secret ? '(Hidden)' : (value.value.value as string)}</span>
-                  </div>
-                  <div className="actions">
-                    <Button
-                      appearance="link"
-                      onClick={() => editContextValue({ key, value: value.value, secret: value.secret })}
-                    >
-                      Edit
-                    </Button>
-                  </div>
+        <div className="project-info-divider" />
+
+        <div className="project-info-item">
+          <Field name="context" label="Context">
+            {() => (
+              <>
+                <div className="context-list">
+                  {sortedContext.map(([key, value]) => (
+                    <div className="context-list-item" key={key}>
+                      <div className="info">
+                        <span className="key">{key}</span>
+                        <span className="value">{value.secret ? '(Hidden)' : (value.value.value as string)}</span>
+                      </div>
+                      <div className="actions">
+                        <Button
+                          appearance="link"
+                          onClick={() => editContextValue({ key, value: value.value, secret: value.secret })}
+                        >
+                          Edit
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-            <div className="context-list-actions">
-              <Button appearance="default" onClick={toggleProjectEditContextModalOpen.setRight}>
-                Add Context Value
-              </Button>
-            </div>
-            <ValueEditorModalRenderer
-              isOpen={projectEditContextModalOpen}
-              onClose={toggleProjectEditContextModalOpen.setLeft}
-              initialKey={editContextData?.key}
-              initialValue={editContextData?.value}
-              initialSecret={editContextData?.secret}
-              onSave={setProjectContextValue}
-              onDelete={deleteProjectContextValue}
-            />
-          </>
-        )}
-      </Field>
+                <div className="project-info-action">
+                  <Button appearance="default" onClick={toggleProjectEditContextModalOpen.setRight}>
+                    Add Context Value
+                  </Button>
+                </div>
+                <ValueEditorModalRenderer
+                  isOpen={projectEditContextModalOpen}
+                  onClose={toggleProjectEditContextModalOpen.setLeft}
+                  initialKey={editContextData?.key}
+                  initialValue={editContextData?.value}
+                  initialSecret={editContextData?.secret}
+                  onSave={setProjectContextValue}
+                  onDelete={deleteProjectContextValue}
+                />
+              </>
+            )}
+          </Field>
+        </div>
 
-      <Label htmlFor="">Revisions</Label>
-      <ProjectRevisions />
+        <div className="project-info-divider" />
+
+        <div className="project-info-item">
+          <ProjectMCPConfiguration />
+        </div>
+
+        <div className="project-info-item">
+          <ProjectReferencesConfiguration />
+        </div>
+
+        <div className="project-info-item">
+          <Label htmlFor="">Revisions</Label>
+          <ProjectRevisions />
+        </div>
+
+        <div className="project-info-item project-plugins-section">
+          <ProjectPluginsConfiguration />
+        </div>
+      </div>
     </div>
   );
 };

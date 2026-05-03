@@ -17,10 +17,10 @@ When loaded, the border of Rivet will turn yellow, and an "Unload Recording" opt
 
 When a recording is loaded, the Play button turns into a "Play Recording" button. Pressing this button will play the recording.
 
-A recording will play back [Chat Node](../node-reference/chat.mdx) that happened during the execution at a fixed rate. This rate is configurable in the
+A recording will play back chat-output events from [LLM Chat](../node-reference/llm-chat.mdx) and legacy [Chat](../node-reference/chat.mdx) nodes at a fixed rate. This rate is configurable in the
 "General" area of the Rivet settings panel.
 
-Intermediate nodes between Chat nodes will be replayed instantly.
+Intermediate nodes between chat-output events will be replayed instantly.
 
 During playback, you can press the `Pause` button in the action bar to pause the recording where it currently is. Pressing `Resume` will resume the recording from this point.
 

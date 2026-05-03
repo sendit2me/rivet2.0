@@ -66,11 +66,11 @@ You can close the node editor by clicking the close button in the top right, by 
 
 You can edit the title of the node in the node editor (changes the title shown on the graph). You can also edit the description of the node in the node editor, for documentation purposes.
 
-### Split Node
+### Run Mode
 
-Toggles whether the node is a split node. For more information on split nodes, see the [Splitting](./splitting) documentation.
+The run-mode control decides whether the selected node runs once or runs over many input items. For more information, see the [Running Many Items](./splitting) documentation.
 
-When splitting is enabled, the number input next to the split toggle is the **maximum split amount**. This is a safeguard for excessive splitting. If the data exceeds the maximum split amount, only the first N items will be executed, where N is the maximum split amount.
+When **Many parallel runs** or **Many sequential runs** is enabled, the settings underneath the run-mode control limit how many items can run and, for parallel mode, how many item runs can be active at once.
 
 ### Variants
 
@@ -88,7 +88,7 @@ The top app bar contains workspace tabs. Canvas is the normal graph-editing work
 
 ### Prompt Designer
 
-The prompt designer allows you to tweak an individual prompt to get the output you are looking for. It is opened from a chat node's flask icon, and Rivet shows a top-bar tab for it only while it is open. See the [Prompt Designer](./features/prompt-designer.md) documentation for more information.
+The prompt designer allows you to tweak an individual prompt to get the output you are looking for. It is opened from a Chat or LLM Chat node's flask icon, and Rivet shows a top-bar tab for it only while it is open. See the [Prompt Designer](./features/prompt-designer.md) documentation for more information.
 
 ### Trivet Tests
 

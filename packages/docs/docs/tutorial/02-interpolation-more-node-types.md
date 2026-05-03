@@ -12,11 +12,11 @@ You should see the following graph:
 
 ![Interpolation Graph](./assets/02-interpolation-overview.png)
 
-Try running this graph by clicking the `Run` button. You will see the two [Chat Nodes](../node-reference/chat.mdx) run in parallel. Then, you will get a user input prompt that looks something like this:
+Try running this graph by clicking the `Run` button. You will see the two legacy [Chat Nodes](../node-reference/chat.mdx) from the tutorial project run in parallel. Then, you will get a user input prompt that looks something like this:
 
 ![User Input Prompt](./assets/02-interpolation-user-input.png)
 
-Try entering the name of one of the contracts in the list and submitting. You should then see the final [Chat Node](../node-reference/chat.mdx) start to run. Once it is complete, it should give you a template for that contract type you have chosen!
+Try entering the name of one of the contracts in the list and submitting. You should then see the final Chat node start to run. Once it is complete, it should give you a template for that contract type you have chosen!
 
 Let's go over this graph piece by piece:
 
@@ -38,7 +38,7 @@ The second prompt is:
 
 > Provide a list of contract types you can generate templates for. A maximum of 10. Reply with only a list of contract types.
 
-The system prompt is connected to the `System Prompt` port of all the [Chat Nodes](../node-reference/chat.mdx) in the graph. The first prompt is connected to the `Prompt` port of the first chat node, and the second prompt is connected to the `Prompt` port of the second chat node.
+The system prompt is connected to the `System Prompt` port of all the Chat nodes in the graph. The first prompt is connected to the `Prompt` port of the first Chat node, and the second prompt is connected to the `Prompt` port of the second Chat node. For new Rivet 2 graphs, use [LLM Chat](../node-reference/llm-chat.mdx) for this pattern.
 
 ![System Prompt Connection](./assets/02-interpolation-system-prompt.png)
 
@@ -74,6 +74,6 @@ We pass the text the user entered for the user input node into the `type` port o
 
 ## Final Response
 
-Finally, we pass this list of messages into a final [Chat Node](../node-reference/chat.mdx) to generate the final response, which should be a contract template!
+Finally, we pass this list of messages into a final Chat node to generate the final response, which should be a contract template!
 
 ![Final Response](./assets/02-interpolation-final-response.png)

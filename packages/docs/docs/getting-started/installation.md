@@ -2,17 +2,9 @@
 
 ## System Requirements
 
-### MacOS
-
-- MacOS Monterey or later
-
-### Windows
-
-- Windows 10 or later
-
-### Linux
-
-- Modern version of `webkitgtk` installed that supports most of the recent web standards
+- MacOS: MacOS Monterey or later
+- Windows: Windows 10 or later
+- Linux: Modern version of `webkitgtk` installed that supports most of the recent web standards
 
 ## Releases
 

@@ -8,12 +8,18 @@ import { type ProjectReference } from '@valerypopoff/rivet2-core';
 import { useIOProvider } from '../providers/ProvidersContext';
 
 const styles = css`
-  margin-top: 16px;
-
   .label {
     display: flex;
     align-items: center;
     justify-content: space-between;
+  }
+
+  .project-references-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 8px 0 0;
+    padding-left: 18px;
   }
 `;
 
@@ -68,17 +74,21 @@ export const ProjectReferencesConfiguration: FC = () => {
         <Label htmlFor="">Project References</Label>
       </div>
 
-      <ul>
-        {project.references?.map((ref) => (
-          <li key={ref.id}>
-            <span>{ref.title}</span>
-          </li>
-        ))}
-      </ul>
+      {project.references && project.references.length > 0 && (
+        <ul className="project-references-list">
+          {project.references.map((ref) => (
+            <li key={ref.id}>
+              <span>{ref.title}</span>
+            </li>
+          ))}
+        </ul>
+      )}
 
-      <Button appearance="default" onClick={addProjectReference}>
-        Add Project Reference
-      </Button>
+      <div className="project-info-action">
+        <Button appearance="default" onClick={addProjectReference}>
+          Add Project Reference
+        </Button>
+      </div>
     </div>
   );
 };

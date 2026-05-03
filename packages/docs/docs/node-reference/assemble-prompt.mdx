@@ -10,7 +10,7 @@ import Admonition from '@theme/Admonition';
 
 ## Overview
 
-A [Chat Node](./chat) takes in a single Prompt input which can be a single message, or an array of messages that forms the message chain. The Assemble Prompt Node is used to assemble multiple chat messages into a single prompt. It takes multiple chat messages or strings as inputs and outputs a single prompt containing all the messages.
+An [LLM Chat Node](./llm-chat) takes a single Prompt input, which can be one message or an array of messages that forms the message chain. The Assemble Prompt Node is used to assemble multiple chat messages into a single prompt. It takes multiple chat messages or strings as inputs and outputs one prompt array containing all the messages.
 
 If a string is connected to any of the inputs, it will be converted to a User type chat message with the string as the message.
 
@@ -57,12 +57,12 @@ This node does not have any specific settings.
 
 ### Example: Assembling Multiple Chat Messages
 
-Let's say you have two [Prompt nodes](./prompt): one with the the AI's text "How can I assist you today?" and the user's response "Hello". If you want to assemble these two messages into a single prompt to feed into a Chat Node, you can do the following:
+Let's say you have two [Prompt nodes](./prompt): one with the the AI's text "How can I assist you today?" and the user's response "Hello". If you want to assemble these two messages into a single prompt to feed into an LLM Chat Node, you can do the following:
 
 1. Add an Assemble Prompt Node to your graph.
 2. Connect the output of the first Prompt node (AI's message) to `Message 1` of the Assemble Prompt Node.
 3. Connect the output of the second Prompt node (user's response) to `Message 2` of the Assemble Prompt Node.
-4. Connect the output of the Assemble Prompt Node to the `Prompt` input of a Chat Node.
+4. Connect the output of the Assemble Prompt Node to the `Prompt` input of an LLM Chat Node.
 
 ### Example: Appending Chat Messages in a Loop
 

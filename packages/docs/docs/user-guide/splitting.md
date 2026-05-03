@@ -1,40 +1,57 @@
 ---
-title: Splitting
+title: Running Many Items
+sidebar_label: Running Many Items
 ---
 
-Splitting a node is a powerful tool for parallelizing execution. Change a node to a Split node by toggling on Split on any node:
+Rivet nodes can run once, or they can run many times over array inputs. The current UI calls this the node's run mode.
 
-![Splitting a node](assets/split-node.png)
+Open a node settings panel and use the run-mode segmented control near the top:
 
-When a node is split:
+- **Run once**: the normal mode. The node runs one time after all required inputs are available.
+- **Many parallel runs**: the node runs once per item and executes multiple items at the same time.
+- **Many sequential runs**: the node runs once per item, but waits for one item to finish before starting the next.
 
-- The node will be executed N times, in parallel
-- The input types for the input ports of the node can be arrays of the same type of data that would normally be accepted by the node
-- The output types for the output ports of the node will be arrays of data of the same type that would normally be output by the node
-- Each execution of the node will be given a single value from the array of data, and executed normally. The output of each execution will be collected into an array, and the array will be output from the node.
-- If the input value is not an array, then it will be treated as an array of N copies of the value, where N is the length of the array given to another input port. For example, if one port is given a string `"value"`, and another port is given an array of 3 numbers, then the node will be executed 3 times, and each execution will be given the string `"value"`.
-- If multiple values are arrays, then the values will be zipped together for each execution. For example, if one port is given a (string, string), and another port a (number, number), then each execution will be given a (string, number) as its inputs.
+## How Inputs Are Matched
 
-## Use Cases
+When a node runs many items, Rivet treats array inputs as the per-item values for each run.
 
-Splitting is most useful for parallelizing execution. For example, you could use a [Read Directory Node](../node-reference/read-directory) to read a directory of files. This gives an array of strings. You can then pipe this into a [Read File Node](../node-reference/read-file) which has Split turned on, to read each file in parallel. The output of the Read File node will be an array of strings.
+- If one input receives an array, the node runs once for each item in that array.
+- If several inputs receive arrays, Rivet zips them together by index. The first run receives the first item from each array, the second run receives the second item from each array, and so on.
+- If an input receives a single value while another input receives an array, Rivet reuses that single value for every item run.
 
-## Chaining
+Each output becomes an array containing one output value per item run.
 
-The most powerful feature of splitting is its ability to chain splits.
+## Limits And Concurrency
 
-For the above example, the Read File could then be piped into a split [Text Node](../node-reference/text), to interpolate the contents of each file into another string. The split Text node can then be piped into a split [Chat Node](../node-reference/chat), to send each file's contents to a chatbot in parallel. The output of the Chat node will be an array of strings, giving you the response from the AI for each file.
+When you choose **Many parallel runs** or **Many sequential runs**, Rivet shows run-limit settings under the mode control.
 
-## Joining
+- **Max runs** limits how many array items this node will process. This prevents accidental huge runs.
+- **Max concurrent runs** is available for parallel mode and controls how many item runs may be active at the same time.
 
-At some point you will likely wish to join split nodes back into non-split nodes. There are a few ways to accomplish this.
+Sequential mode ignores max concurrency because it intentionally runs one item at a time.
 
-- When an array of strings is passed into a [Text Node](../node-reference/text) or a [Prompt Node](../node-reference/prompt), the node will join the array of strings into a single string, separated by newlines. This is the most common method of joining.
-- The [Chat Node](../node-reference/chat) can accept an array of strings or chat messages to its Prompt input.
-- The [Extract Object Path](../node-reference/extract-object-path) node can be used to extract a single value from an array of objects.
-- The [Pop Node](../node-reference/pop) node can be used to extract a single value from an array of any type.
-- The [Code Node](../node-reference/code) node can be used to write custom code to join arrays of data, such as using the [Array.prototype.reduce](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/Reduce) function.
+## Example
 
-## Nested Splitting and Arrays of Arrays
+One common pattern is processing a folder of files:
 
-Nested splitting and arrays of arrays are **not supported**. However, this can be partially worked around by using a split [Subgraph Node](../node-reference/subgraph). Since the subgraph is split, the graph itself will be executed multiple times in parallel. The subgraph can then contain more nodes with splitting turned on, effectively allowing for nested splitting to any degree. However do be careful with excessive splitting, or recursive splitting that may cause infinite loops.
+1. Use a [Read Directory Node](../node-reference/read-directory) to produce an array of file paths.
+2. Connect that array to a [Read File Node](../node-reference/read-file).
+3. Set the Read File node to **Many parallel runs**.
+4. Connect the file contents to a [Text Node](../node-reference/text) or [LLM Chat Node](../node-reference/llm-chat), also set to run many items when you want one request per file.
+
+The final LLM Chat response output will be an array with one response for each processed file.
+
+## Joining Results
+
+At some point you may want to turn many item outputs back into one value.
+
+- Passing a string array into a [Text Node](../node-reference/text) or [Prompt Node](../node-reference/prompt) joins the strings with newlines.
+- [Extract Object Path](../node-reference/extract-object-path) can select a specific item or property from an array.
+- [Pop](../node-reference/pop) can take one value from an array.
+- [Code](../node-reference/code) can perform custom joins, such as mapping, reducing, grouping, or formatting arrays.
+
+## Nested Many-Item Runs
+
+Nested arrays are not directly supported as a single node run mode. If you need nested item processing, put the inner flow in a subgraph and run a [Subgraph Node](../node-reference/subgraph) many times. The subgraph can contain its own nodes that also run many items.
+
+Be careful with nested parallelism. It can create many provider requests or file operations very quickly, so use **Max runs** and **Max concurrent runs** deliberately.

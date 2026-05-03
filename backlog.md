@@ -4,16 +4,12 @@
 
 - Reassess Ctrl+N window
 
-
-- Build apps when deploying (main branch)
-- publish the libs on npm (make it a part of the build process when pushing to main)
-
+- When in the non-main graph, make the run buttons different color
 
 - Check how "Check for updates" button works
 
 
-- Update documentation
-https://valerypopoff.github.io/rivet2.0/tutorial is half-empty
+- There's 2 similar mono widht fonts. Let's only keep one
 
 
 - Reassess rivet example project
@@ -21,20 +17,14 @@ rivet2.0/packages/app/src/assets/tutorials
 /documentation-tutorial.rivet-project
 
 
-- Check the links that lead to the documentation
 
 - Get back to MCP and see if it works and how it works. I don't see an MCP node. I think we need it
 - Reassess all the "Generate using AI" in different nodes. The model picker is clipped by the section border
 
 
-- Reassess prompt designer. 
 
-
-- Make it easier and faster to create input and output nodes for the graph
 - Add mid points to connections so I can do neat wiring
-- Reassess the Rivet settings. probbaly something needs reworking
 - Code node (and Expression node) should have a "Catch failures" switcher so I can safely fallback with coalesce
-- Update the rivet version (at least in the Settings popup)
 - In remote debugging, come up with some ID that can be passed when running so that I can "catch" only the target runs of the workflow
 
 

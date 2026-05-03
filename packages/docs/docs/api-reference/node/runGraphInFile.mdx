@@ -29,7 +29,7 @@ The `RunGraphOptions` type is used to pass various parameters to the `runGraphIn
 - `inputs`: Specifies the input values to the graph. These can either be plain JavaScript values like "foo", or `{type: 'string', value: 'foo'}` objects.
 - `context`: Similar to `inputs`, but these values are available to every graph and subgraph.
 - `externalFunctions`: This is how you define integration points that you can call from inside Rivet graphs.
-- `openAiKey`: Your OpenAI API key. This is required if you're using any Chat nodes in your graph.
+- `openAiKey`: Your OpenAI API key. This is used by OpenAI-backed LLM Chat nodes, legacy Chat nodes, Get Embedding nodes, and OpenAI plugin nodes when they are not supplied a key another way.
 - `openAiOrganization`: If you are using a non-default OpenAI organization, you may specify your organization here.
 
 For more details, refer to [RunGraphOptions](./RunGraphOptions).

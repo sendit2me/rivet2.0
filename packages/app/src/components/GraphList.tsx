@@ -2,7 +2,6 @@ import { DndContext, useDroppable } from '@dnd-kit/core';
 import { css } from '@emotion/react';
 import { type FC, type MouseEvent, type KeyboardEvent, memo, useMemo, useState } from 'react';
 import { useAtomValue } from 'jotai';
-import { DropdownItem } from '@atlaskit/dropdown-menu';
 import Button from '@atlaskit/button';
 import Modal, { ModalBody, ModalFooter, ModalTransition } from '@atlaskit/modal-dialog';
 import { type GraphId, type NodeGraph } from '@valerypopoff/rivet2-core';
@@ -29,6 +28,14 @@ import {
 } from '../utils/graphReachability.js';
 import { FolderItem } from './graphList/FolderItem';
 import { AppModalHeader } from './AppModalHeader';
+import { ContextMenuItem, menuStyles } from './ContextMenu';
+import { type ContextMenuItem as ContextMenuConfigItem } from '../hooks/useContextMenuConfiguration';
+import EditPenIcon from 'majesticons/line/edit-pen-2-line.svg?react';
+import DuplicateIcon from 'majesticons/line/image-multiple-line.svg?react';
+import DeleteIcon from 'majesticons/line/delete-bin-line.svg?react';
+import PlusIcon from 'majesticons/line/plus-line.svg?react';
+import FolderIcon from 'majesticons/line/folder-line.svg?react';
+import { MainGraphIcon } from './graphList/MainGraphIcon';
 
 const styles = css`
   display: flex;
@@ -73,26 +80,32 @@ const styles = css`
     justify-content: space-between;
     align-items: center;
     user-select: none;
-    padding: 0 4px;
-    font-size: var(--ui-font-size-sm);
+    padding: 0 8px;
+    font-size: var(--ui-font-size-compact);
 
-    &:hover {
+    &:hover .graph-item-select {
       background-color: var(--grey-darkish);
     }
   }
 
   .graph-item-select {
     position: relative;
+    display: flex;
+    align-items: center;
+    gap: 6px;
     cursor: pointer;
-    padding: 4px 8px;
+    padding: 6px 4px 6px 10px;
     flex: 1;
     min-width: 0;
+    border-radius: 8px;
+    corner-shape: squircle;
   }
 
   .graph-item-name {
     display: flex;
     align-items: center;
     gap: 6px;
+    flex: 1;
     min-width: 0;
   }
 
@@ -126,8 +139,8 @@ const styles = css`
     padding: 2px 6px;
     border-radius: 999px;
     corner-shape: squircle;
-    background: var(--grey-darkish);
-    color: var(--grey-light);
+    background: currentColor;
+    color: inherit;
     flex-shrink: 0;
     font-size: var(--ui-font-size-xs);
     font-weight: 700;
@@ -135,9 +148,12 @@ const styles = css`
     text-align: center;
   }
 
-  .selected .graph-folder-count {
-    background: rgba(0, 0, 0, 0.18);
-    color: rgba(0, 0, 0, 0.68);
+  .graph-folder-count > span {
+    color: var(--grey-darkest);
+  }
+
+  .selected .graph-folder-count > span {
+    color: var(--primary);
   }
 
   .graph-reference-dot {
@@ -153,26 +169,19 @@ const styles = css`
   }
 
   .depthSpacer {
-    width: 10px;
+    width: 20px;
     flex-shrink: 0;
   }
 
-  .expander {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .expander svg {
-    width: 12px;
-    height: 12px;
-  }
-
   .selected {
-    background-color: var(--primary);
-    color: var(--foreground-on-primary);
+    background-color: transparent;
 
-    &:hover {
+    .graph-item-select {
+      background-color: var(--primary);
+      color: var(--foreground-on-primary);
+    }
+
+    &:hover .graph-item-select {
       background-color: var(--primary-dark);
     }
   }
@@ -187,6 +196,8 @@ const styles = css`
     align-items: center;
     justify-content: center;
     cursor: grab;
+    flex-shrink: 0;
+    color: currentColor;
   }
 
   .graph-item:hover .dragger {
@@ -208,27 +219,36 @@ const styles = css`
 
   .search {
     position: relative;
+    margin: 8px 8px 0;
 
     input {
       width: 100%;
       font-size: var(--ui-font-size-sm);
-      background: var(--grey-darkerish);
-      border: 0;
-      border-bottom: 1px solid var(--grey);
-      padding: 8px 16px;
+      color: var(--foreground);
+      background: var(--grey-darkest);
+      border: 1px solid var(--grey-darkish);
+      border-radius: 6px;
+      corner-shape: squircle;
+      padding: 7px 32px 7px 10px;
 
       &:focus {
         outline: 0;
-        border-bottom: 1px solid var(--primary);
+        border-color: var(--primary);
+        box-shadow: 0 0 0 1px var(--primary);
+      }
+
+      &::placeholder {
+        color: var(--grey-lightish);
       }
     }
 
     .clear {
       position: absolute;
-      right: 8px;
-      top: 6px;
+      right: 6px;
+      top: 50%;
       width: 20px;
       height: 20px;
+      transform: translateY(-50%);
       background: var(--grey);
       border: 1px solid var(--grey-dark);
       border-radius: 16px;
@@ -284,14 +304,14 @@ const styles = css`
 `;
 
 const contextMenuStyles = css`
-  border: 1px solid var(--grey);
-  box-shadow: 0 3px 5px rgba(0, 0, 0, 0.2);
-  background: var(--grey-dark);
-  min-width: max-content;
+  ${menuStyles};
 
-  > button span {
-    // This fixes a bug in Ubuntu where the text is missing
-    overflow-x: visible !important;
+  min-width: 180px;
+
+  svg {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
   }
 `;
 
@@ -301,7 +321,7 @@ const deleteGraphConfirmBody = css`
   gap: 8px;
 `;
 
-export const GraphList: FC<{ onRunGraph?: (graphId: GraphId) => void }> = memo(({ onRunGraph }) => {
+export const GraphList: FC = memo(() => {
   const {
     graph,
     savedGraphs,
@@ -316,10 +336,10 @@ export const GraphList: FC<{ onRunGraph?: (graphId: GraphId) => void }> = memo((
     handleNewFolder,
     handleDelete,
     handleDeleteFolder,
-    runGraph,
+    makeMainGraph,
     startRename,
     renameFolderItem,
-  } = useGraphOperations(onRunGraph);
+  } = useGraphOperations();
 
   const { draggingItemFolder, dragOverFolderName, handleDragStart, handleDragEnd, handleDragOver } =
     useGraphListDragDrop(renameFolderItem);
@@ -346,6 +366,8 @@ export const GraphList: FC<{ onRunGraph?: (graphId: GraphId) => void }> = memo((
   const selectedFolderNameForContextMenu = contextMenuData.data
     ? contextMenuData.data?.element.dataset.folderpath
     : undefined;
+
+  const selectedGraphIsMain = selectedGraphForContextMenu?.metadata?.id === project.metadata.mainGraphId;
 
   const handleSearchKeyDown = useStableCallback((e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Escape') {
@@ -398,6 +420,152 @@ export const GraphList: FC<{ onRunGraph?: (graphId: GraphId) => void }> = memo((
     setGraphPendingDelete(null);
   });
 
+  const graphItemMenuItems = useMemo(
+    (): ContextMenuConfigItem[] => [
+      {
+        id: 'rename-graph',
+        label: 'Rename',
+        icon: EditPenIcon,
+      },
+      {
+        id: 'duplicate-graph',
+        label: 'Duplicate',
+        icon: DuplicateIcon,
+      },
+      ...(selectedGraphForContextMenu && !selectedGraphIsMain
+        ? [
+            {
+              id: 'make-main-graph',
+              label: 'Make main graph',
+              icon: MainGraphIcon,
+              separatorBefore: true,
+            } satisfies ContextMenuConfigItem,
+          ]
+        : []),
+      {
+        id: 'delete-graph',
+        label: 'Delete',
+        icon: DeleteIcon,
+        tone: 'danger',
+        separatorBefore: true,
+      },
+    ],
+    [selectedGraphForContextMenu, selectedGraphIsMain],
+  );
+
+  const folderMenuItems = useMemo(
+    (): ContextMenuConfigItem[] => [
+      {
+        id: 'rename-folder',
+        label: 'Rename',
+        icon: EditPenIcon,
+      },
+      {
+        id: 'new-graph-in-folder',
+        label: 'New Graph',
+        icon: PlusIcon,
+      },
+      {
+        id: 'new-folder-in-folder',
+        label: 'New Folder',
+        icon: FolderIcon,
+      },
+      {
+        id: 'delete-folder',
+        label: 'Delete',
+        icon: DeleteIcon,
+        tone: 'danger',
+        separatorBefore: true,
+      },
+    ],
+    [],
+  );
+
+  const graphListMenuItems = useMemo(
+    (): ContextMenuConfigItem[] => [
+      {
+        id: 'new-graph',
+        label: 'New Graph',
+        icon: PlusIcon,
+      },
+      {
+        id: 'new-folder',
+        label: 'New Folder',
+        icon: FolderIcon,
+      },
+      {
+        id: 'import-graph',
+        label: 'Import Graph...',
+        icon: PlusIcon,
+      },
+    ],
+    [],
+  );
+
+  const handleGraphItemMenuSelected = useStableCallback((id: string) => {
+    switch (id) {
+      case 'rename-graph':
+        startRename(selectedFolderNameForContextMenu!);
+        break;
+      case 'duplicate-graph':
+        duplicateGraph(selectedGraphForContextMenu!);
+        break;
+      case 'make-main-graph':
+        if (selectedGraphForContextMenu) {
+          makeMainGraph(selectedGraphForContextMenu);
+        }
+        break;
+      case 'delete-graph':
+        if (selectedGraphForContextMenu) {
+          setGraphPendingDelete(selectedGraphForContextMenu);
+        }
+        break;
+      default:
+        break;
+    }
+
+    setShowContextMenu(false);
+  });
+
+  const handleFolderMenuSelected = useStableCallback((id: string) => {
+    switch (id) {
+      case 'rename-folder':
+        startRename(selectedFolderNameForContextMenu!);
+        break;
+      case 'new-graph-in-folder':
+        handleNew(selectedFolderNameForContextMenu!);
+        break;
+      case 'new-folder-in-folder':
+        handleNewFolder(selectedFolderNameForContextMenu!);
+        break;
+      case 'delete-folder':
+        handleDeleteFolder(selectedFolderNameForContextMenu!);
+        break;
+      default:
+        break;
+    }
+
+    setShowContextMenu(false);
+  });
+
+  const handleGraphListMenuSelected = useStableCallback((id: string) => {
+    switch (id) {
+      case 'new-graph':
+        handleNew();
+        break;
+      case 'new-folder':
+        handleNewFolder();
+        break;
+      case 'import-graph':
+        importGraph();
+        break;
+      default:
+        break;
+    }
+
+    setShowContextMenu(false);
+  });
+
   return (
     <div css={styles}>
       <div className="search">
@@ -405,7 +573,7 @@ export const GraphList: FC<{ onRunGraph?: (graphId: GraphId) => void }> = memo((
           autoComplete="off"
           spellCheck={false}
           type="text"
-          placeholder="Search..."
+          placeholder="Filter graph names..."
           value={searchText}
           onChange={(e) => setSearchText(e.target.value)}
           onKeyDown={handleSearchKeyDown}
@@ -459,40 +627,7 @@ export const GraphList: FC<{ onRunGraph?: (graphId: GraphId) => void }> = memo((
                   style={floatingStyles}
                   ref={refs.setFloating}
                 >
-                  <DropdownItem
-                    onClick={() => {
-                      runGraph(selectedFolderNameForContextMenu!);
-                      setShowContextMenu(false);
-                    }}
-                  >
-                    Run
-                  </DropdownItem>
-                  <DropdownItem
-                    onClick={() => {
-                      startRename(selectedFolderNameForContextMenu!);
-                      setShowContextMenu(false);
-                    }}
-                  >
-                    Rename Graph
-                  </DropdownItem>
-                  <DropdownItem
-                    onClick={() => {
-                      duplicateGraph(selectedGraphForContextMenu!);
-                      setShowContextMenu(false);
-                    }}
-                  >
-                    Duplicate
-                  </DropdownItem>
-                  <DropdownItem
-                    onClick={() => {
-                      if (selectedGraphForContextMenu) {
-                        setGraphPendingDelete(selectedGraphForContextMenu);
-                      }
-                      setShowContextMenu(false);
-                    }}
-                  >
-                    Delete
-                  </DropdownItem>
+                  <GraphListContextMenuItems items={graphItemMenuItems} onSelected={handleGraphItemMenuSelected} />
                 </div>
               </div>
             )}
@@ -513,38 +648,7 @@ export const GraphList: FC<{ onRunGraph?: (graphId: GraphId) => void }> = memo((
                   style={floatingStyles}
                   ref={refs.setFloating}
                 >
-                  <DropdownItem
-                    onClick={() => {
-                      startRename(selectedFolderNameForContextMenu!);
-                      setShowContextMenu(false);
-                    }}
-                  >
-                    Rename Folder
-                  </DropdownItem>
-                  <DropdownItem
-                    onClick={() => {
-                      handleNew(selectedFolderNameForContextMenu!);
-                      setShowContextMenu(false);
-                    }}
-                  >
-                    New Graph
-                  </DropdownItem>
-                  <DropdownItem
-                    onClick={() => {
-                      handleNewFolder(selectedFolderNameForContextMenu!);
-                      setShowContextMenu(false);
-                    }}
-                  >
-                    New Folder
-                  </DropdownItem>
-                  <DropdownItem
-                    onClick={() => {
-                      handleDeleteFolder(selectedFolderNameForContextMenu!);
-                      setShowContextMenu(false);
-                    }}
-                  >
-                    Delete
-                  </DropdownItem>
+                  <GraphListContextMenuItems items={folderMenuItems} onSelected={handleFolderMenuSelected} />
                 </div>
               </div>
             )}
@@ -568,30 +672,7 @@ export const GraphList: FC<{ onRunGraph?: (graphId: GraphId) => void }> = memo((
                 style={floatingStyles}
                 ref={refs.setFloating}
               >
-                <DropdownItem
-                  onClick={() => {
-                    handleNew();
-                    setShowContextMenu(false);
-                  }}
-                >
-                  New Graph
-                </DropdownItem>
-                <DropdownItem
-                  onClick={() => {
-                    handleNewFolder();
-                    setShowContextMenu(false);
-                  }}
-                >
-                  New Folder
-                </DropdownItem>
-                <DropdownItem
-                  onClick={() => {
-                    importGraph();
-                    setShowContextMenu(false);
-                  }}
-                >
-                  Import Graph...
-                </DropdownItem>
+                <GraphListContextMenuItems items={graphListMenuItems} onSelected={handleGraphListMenuSelected} />
               </div>
             </div>
           )}
@@ -607,6 +688,23 @@ export const GraphList: FC<{ onRunGraph?: (graphId: GraphId) => void }> = memo((
 });
 
 GraphList.displayName = 'GraphList';
+
+const GraphListContextMenuItems: FC<{
+  items: ContextMenuConfigItem[];
+  onSelected: (id: string) => void;
+}> = ({ items, onSelected }) => (
+  <div className="context-menu-items">
+    {items.map((item, index) => (
+      <ContextMenuItem
+        key={item.id}
+        config={item}
+        context={{}}
+        showSeparator={index > 0 && item.separatorBefore === true}
+        onMenuItemSelected={onSelected}
+      />
+    ))}
+  </div>
+);
 
 // Allows the bottom of the list to be a drop target
 export const GraphListSpacer: FC = memo(() => {

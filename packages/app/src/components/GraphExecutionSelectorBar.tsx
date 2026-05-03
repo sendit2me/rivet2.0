@@ -8,31 +8,37 @@ import RightIcon from 'majesticons/line/chevron-right-line.svg?react';
 import { Tooltip } from './Tooltip';
 
 const styles = css`
+  --action-bar-height: calc(32px * var(--ui-font-scale));
+
   position: fixed;
-  top: calc(var(--project-selector-height) + 40px);
+  top: calc(20px + var(--project-selector-height));
   left: 50%;
   transform: translateX(-50%);
   background: var(--grey-darker);
-  border-radius: 8px;
+  border-radius: 12px;
   corner-shape: squircle;
-  border: 1px solid var(--grey-dark);
-  height: 32px;
-  z-index: 50;
+  border: 1px solid var(--grey-darkish);
+  height: var(--action-bar-height);
+  z-index: 40;
   display: flex;
-  gap: 8px;
-  box-shadow: 3px 1px 10px rgba(0, 0, 0, 0.5);
+  align-items: center;
+  gap: 4px;
+  padding: 0 4px;
+  box-shadow: 3px 1px 10px rgba(0, 0, 0, 0.4);
   user-select: none;
 
   .current {
     display: flex;
     align-items: center;
     justify-content: center;
-    height: 30px;
+    height: calc(var(--action-bar-height) - 2px);
     min-width: 32px;
     color: var(--grey-light);
-    font-size: var(--ui-font-size-sm);
+    font-size: var(--ui-font-size-base);
+    font-weight: 500;
     pointer-events: none;
-    line-height: 32px;
+    line-height: 1;
+    padding: 0 4px;
   }
 
   button {
@@ -42,8 +48,8 @@ const styles = css`
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 30px;
-    height: 30px;
+    width: calc(var(--action-bar-height) - 2px);
+    height: calc(var(--action-bar-height) - 2px);
     padding: 0;
     cursor: pointer;
     transition:
@@ -126,8 +132,8 @@ export const GraphExecutionSelectorBar: FC = () => {
   };
 
   const selectedExecutionFraction =
-    selectedExecutionIndex === -1 ? '0 / 0' : `${selectedExecutionIndex + 1} / ${graphRuns.length}`;
-  const selectedExecutionLabel = `Run ${selectedExecutionFraction}`;
+    selectedExecutionIndex === -1 ? '0/0' : `${selectedExecutionIndex + 1}/${graphRuns.length}`;
+  const selectedExecutionLabel = `Execution: ${selectedExecutionFraction}`;
 
   if (!currentGraphView || graphRuns.length <= 1) {
     return null;

@@ -7,6 +7,7 @@ import {
   type FocusEvent,
   type KeyboardEvent,
   memo,
+  type SVGProps,
 } from 'react';
 import { useAtom, useAtomValue } from 'jotai';
 import { projectMetadataState } from '../../state/savedGraphs.js';
@@ -14,8 +15,6 @@ import { range } from 'lodash-es';
 import clsx from 'clsx';
 import { LoadingSpinner } from '../LoadingSpinner.js';
 import { type GraphId, type NodeGraph } from '@valerypopoff/rivet2-core';
-import ChevronRightIcon from 'majesticons/line/chevron-right-line.svg?react';
-import ChevronDownIcon from 'majesticons/line/chevron-down-line.svg?react';
 import FolderIcon from 'majesticons/line/folder-line.svg?react';
 import { useStableCallback } from '../../hooks/useStableCallback.js';
 import TextField from '@atlaskit/textfield';
@@ -127,22 +126,9 @@ export const FolderItem: FC<{
               .filter(Boolean)
               .join('\n')}
           >
-            {range(virtualDepth + 1).map((idx) => {
-              const isSpinner = idx === 0 && graphIsRunning;
-              const isExpander = idx === virtualDepth && item.type === 'folder' && !isSpinner;
+            {range(virtualDepth).map((idx) => {
               return (
-                <div className="depthSpacer" key={idx}>
-                  {isSpinner && (
-                    <div className="spinner">
-                      <LoadingSpinner />
-                    </div>
-                  )}
-                  {isExpander && (
-                    <div className="expander" onClick={() => setExpanded(!isExpanded)}>
-                      {isExpanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
-                    </div>
-                  )}
-                </div>
+                <div className="depthSpacer" key={idx} />
               );
             })}
             <div
@@ -153,23 +139,37 @@ export const FolderItem: FC<{
                 <FolderItemRename value={fullPath.replace(/.*\//, '')} onSaved={handleRenameSaved} />
               ) : (
                 <>
+                  {graphIsRunning && (
+                    <div className="spinner">
+                      <LoadingSpinner />
+                    </div>
+                  )}
                   {referencesSelectedGraph && <span className="graph-reference-dot" aria-hidden="true" />}
                   <span className="graph-item-name">
                     {isMainGraph && <MainGraphIcon className="graph-main-icon" />}
-                    {item.type === 'folder' && <FolderIcon className="graph-folder-icon" aria-hidden="true" />}
+                    {item.type === 'folder' &&
+                      (isExpanded ? (
+                        <OpenFolderIcon className="graph-folder-icon" aria-hidden="true" />
+                      ) : (
+                        <FolderIcon className="graph-folder-icon" aria-hidden="true" />
+                      ))}
                     <span className="graph-item-name-text">{item.name}</span>
-                    {folderGraphCount != null && <span className="graph-folder-count">{folderGraphCount}</span>}
+                    {folderGraphCount != null && (
+                      <span className="graph-folder-count">
+                        <span>{folderGraphCount}</span>
+                      </span>
+                    )}
                   </span>
                 </>
               )}
-            </div>
-            {shouldShowUnreachableBadge && (
-              <span className="unreachable-badge" title="This graph is unreachable from the project's Main Graph.">
-                unreachable
-              </span>
-            )}
-            <div className="dragger" {...listeners} {...attributes}>
-              <DragHandleIcon />
+              {shouldShowUnreachableBadge && (
+                <span className="unreachable-badge" title="This graph is unreachable from the project's Main Graph.">
+                  unreachable
+                </span>
+              )}
+              <div className="dragger" onClick={(event) => event.stopPropagation()} {...listeners} {...attributes}>
+                <DragHandleIcon />
+              </div>
             </div>
           </div>
           {item.type === 'folder' && (
@@ -209,6 +209,25 @@ const DragHandleIcon: FC = () => (
     <circle cx="10" cy="7" r="1" fill="currentColor" />
     <circle cx="4" cy="11" r="1" fill="currentColor" />
     <circle cx="10" cy="11" r="1" fill="currentColor" />
+  </svg>
+);
+
+const OpenFolderIcon: FC<SVGProps<SVGSVGElement>> = (props) => (
+  <svg viewBox="0 0 24 24" fill="none" {...props}>
+    <path
+      d="M3 11V6a2 2 0 0 1 2-2h3.93a2 2 0 0 1 1.664.89l.812 1.22A2 2 0 0 0 13.07 7H19a2 2 0 0 1 2 2v2"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M3 11h18l-2 7a2 2 0 0 1-1.92 1.45H5.92A2 2 0 0 1 4 18l-1-7Z"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
   </svg>
 );
 

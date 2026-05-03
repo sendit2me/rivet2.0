@@ -4,7 +4,6 @@ import { useAtom, useAtomValue } from 'jotai';
 import { projectState } from '../state/savedGraphs.js';
 import ExpandLeftIcon from 'majesticons/line/menu-expand-left-line.svg?react';
 import ExpandRightIcon from 'majesticons/line/menu-expand-right-line.svg?react';
-import { type GraphId } from '@valerypopoff/rivet2-core';
 import { sidebarOpenState } from '../state/graphBuilder.js';
 import Tabs, { Tab, TabList, TabPanel } from '@atlaskit/tabs';
 import { GraphList } from './GraphList.js';
@@ -19,7 +18,7 @@ const styles = css`
   top: var(--project-selector-height);
   left: 0;
   width: var(--left-sidebar-width);
-  background-color: var(--grey-dark-seethrougher);
+  background-color: var(--grey-dark-bluish-seethrough);
   backdrop-filter: blur(2px);
   padding: 0;
   z-index: 50;
@@ -42,6 +41,19 @@ const styles = css`
     padding: 8px 12px;
     height: 100%;
     overflow: auto;
+    font-size: var(--ui-font-size-compact);
+  }
+
+  .graph-info-section label,
+  .project-info-section label {
+    font-size: var(--ui-font-size-compact) !important;
+  }
+
+  .graph-info-section [data-read-view-fit-container-width] > div,
+  .project-info-section [data-read-view-fit-container-width] > div,
+  .graph-info-section input,
+  .project-info-section input {
+    font-size: var(--ui-font-size-compact) !important;
   }
 
   .toggle-tab {
@@ -102,9 +114,7 @@ const styles = css`
   }
 `;
 
-export const LeftSidebar: FC<{
-  onRunGraph?: (graphId: GraphId) => void;
-}> = ({ onRunGraph }) => {
+export const LeftSidebar: FC = () => {
   const project = useAtomValue(projectState);
   const [sidebarOpen, setSidebarOpen] = useAtom(sidebarOpenState);
   const [persistedSidebarWidth, setPersistedSidebarWidth] = useAtom(leftSidebarWidthState);
@@ -217,25 +227,25 @@ export const LeftSidebar: FC<{
         />
       )}
       <div className="tabs">
-        <Tabs id="sidebar-tabs">
+        <Tabs id="sidebar-tabs" defaultSelected={1}>
           <TabList>
-            <Tab>Graphs</Tab>
-            <Tab>Graph Info</Tab>
             <Tab>Project</Tab>
+            <Tab>Graphs</Tab>
+            <Tab>Graph info</Tab>
           </TabList>
           <TabPanel>
+            <div className="panel">
+              <ProjectInfoSidebarTab />
+            </div>
+          </TabPanel>
+          <TabPanel>
             <div className="panel" data-contextmenutype="graph-list">
-              <GraphList onRunGraph={onRunGraph} />
+              <GraphList />
             </div>
           </TabPanel>
           <TabPanel>
             <div className="panel">
               <GraphInfoSidebarTab />
-            </div>
-          </TabPanel>
-          <TabPanel>
-            <div className="panel">
-              <ProjectInfoSidebarTab />
             </div>
           </TabPanel>
         </Tabs>
