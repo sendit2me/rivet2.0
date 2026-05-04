@@ -208,6 +208,18 @@ test('Chat Viewer restores the matching prompt item for split runs', () => {
   });
 });
 
+test('Chat Viewer falls back to the stored prompt when split prompt arrays are malformed', () => {
+  const promptValue = inlineStored('string[]', undefined as unknown as string[]);
+  const runData = createSuccessfulChatRun('Hello');
+  runData.inputData = {
+    [promptPort]: promptValue,
+  };
+
+  const prompt = getChatViewerPromptValue(runData, 1, dataRefs);
+
+  assert.equal(prompt, promptValue);
+});
+
 function createGraph(id: GraphId, name: string, nodes: ChartNode[]): NodeGraph {
   return {
     metadata: {
@@ -234,9 +246,7 @@ function createNode(id: string, type: string): ChartNode {
   } as ChartNode;
 }
 
-function createRunData(
-  runs: Record<string, Array<{ processId: string; data: NodeRunDataWithRefs }>>,
-): RunDataByNodeId {
+function createRunData(runs: Record<string, Array<{ processId: string; data: NodeRunDataWithRefs }>>): RunDataByNodeId {
   return Object.fromEntries(
     Object.entries(runs).map(([nodeId, nodeRuns]) => [
       nodeId as NodeId,

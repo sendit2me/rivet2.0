@@ -13,7 +13,7 @@ import {
   type ScalarOrArrayDataValue,
 } from '@valerypopoff/rivet2-core';
 import { cloneDeep, mapValues } from 'lodash-es';
-import { P, match } from 'ts-pattern';
+import { match } from 'ts-pattern';
 import { entries } from './typeSafety.js';
 import type { DataRefReader, DataRefStore } from '../providers/ProvidersContext.js';
 import type {
@@ -68,6 +68,10 @@ export function fixDataValueUint8Arrays(value: DataValue | undefined): DataValue
   }
 
   if (isArrayDataValue(value)) {
+    if (!Array.isArray(value.value)) {
+      return value;
+    }
+
     const arrayized = arrayizeDataValue(value);
 
     return {
@@ -76,44 +80,38 @@ export function fixDataValueUint8Arrays(value: DataValue | undefined): DataValue
     } as DataValue;
   }
 
-  const fix = (uint8ArrayOrObject: Uint8Array | object) =>
-    uint8ArrayOrObject instanceof Uint8Array ? uint8ArrayOrObject : Uint8Array.from(Object.values(uint8ArrayOrObject));
-
   return match(value)
-    .with({ type: 'binary' }, (binaryValue): DataValue => ({
-      ...binaryValue,
-      value: fix(binaryValue.value),
-    }))
-    .with({ type: 'audio' }, (audioValue): DataValue => ({
-      ...audioValue,
-      value: {
-        ...audioValue.value,
-        data: fix(audioValue.value.data),
-      },
-    }))
-    .with({ type: 'document' }, (documentValue): DataValue => ({
-      ...documentValue,
-      value: {
-        ...documentValue.value,
-        data: fix(documentValue.value.data),
-      },
-    }))
-    .with({ type: 'image' }, (imageValue): DataValue => ({
-      ...imageValue,
-      value: {
-        ...imageValue.value,
-        data: fix(imageValue.value.data),
-      },
-    }))
-    .with({ type: 'chat-message' }, (chatMessageValue): DataValue => ({
-      ...chatMessageValue,
-      value: {
-        ...chatMessageValue.value,
-        message: Array.isArray(chatMessageValue.value.message)
-          ? chatMessageValue.value.message.map((part) => fixChatMessagePartUint8Arrays(part))
-          : fixChatMessagePartUint8Arrays(chatMessageValue.value.message),
-      },
-    }))
+    .with({ type: 'binary' }, (binaryValue): DataValue => {
+      const fixedData = fixUint8ArrayLike(binaryValue.value);
+      return fixedData ? { ...binaryValue, value: fixedData } : binaryValue;
+    })
+    .with({ type: 'audio' }, (audioValue): DataValue => {
+      const fixedData = isPlainRecord(audioValue.value) ? fixUint8ArrayLike(audioValue.value.data) : undefined;
+      return fixedData ? { ...audioValue, value: { ...audioValue.value, data: fixedData } } : audioValue;
+    })
+    .with({ type: 'document' }, (documentValue): DataValue => {
+      const fixedData = isPlainRecord(documentValue.value) ? fixUint8ArrayLike(documentValue.value.data) : undefined;
+      return fixedData ? { ...documentValue, value: { ...documentValue.value, data: fixedData } } : documentValue;
+    })
+    .with({ type: 'image' }, (imageValue): DataValue => {
+      const fixedData = isPlainRecord(imageValue.value) ? fixUint8ArrayLike(imageValue.value.data) : undefined;
+      return fixedData ? { ...imageValue, value: { ...imageValue.value, data: fixedData } } : imageValue;
+    })
+    .with({ type: 'chat-message' }, (chatMessageValue): DataValue => {
+      if (!isChatMessageLike(chatMessageValue.value)) {
+        return chatMessageValue;
+      }
+
+      return {
+        ...chatMessageValue,
+        value: {
+          ...chatMessageValue.value,
+          message: Array.isArray(chatMessageValue.value.message)
+            ? chatMessageValue.value.message.map((part) => fixChatMessagePartUint8Arrays(part))
+            : fixChatMessagePartUint8Arrays(chatMessageValue.value.message),
+        },
+      };
+    })
     .otherwise((otherValue): DataValue => otherValue);
 }
 
@@ -351,6 +349,10 @@ function getStorageDecision(value: DataValue): StorageDecision {
 
   switch (value.type) {
     case 'string': {
+      if (typeof value.value !== 'string') {
+        return { storage: 'inline' };
+      }
+
       return value.value.length > REF_STORAGE_THRESHOLD_CHARS
         ? {
             storage: 'ref',
@@ -360,11 +362,23 @@ function getStorageDecision(value: DataValue): StorageDecision {
         : { storage: 'inline' };
     }
     case 'string[]': {
-      const totalChars = value.value.reduce((acc, current) => acc + current.length, 0);
+      if (!Array.isArray(value.value)) {
+        return { storage: 'inline' };
+      }
+
+      const totalChars = value.value.reduce(
+        (acc, current) => acc + (typeof current === 'string' ? current.length : 0),
+        0,
+      );
       return totalChars > REF_STORAGE_THRESHOLD_CHARS
         ? {
             storage: 'ref',
-            preview: buildTextPreview(value.value.slice(0, COMPACT_PREVIEW_MAX_ITEMS).join('\n')),
+            preview: buildTextPreview(
+              value.value
+                .filter((current): current is string => typeof current === 'string')
+                .slice(0, COMPACT_PREVIEW_MAX_ITEMS)
+                .join('\n'),
+            ),
             sizeHint: totalChars,
           }
         : { storage: 'inline' };
@@ -428,14 +442,50 @@ function getAnyStorageDecision(value: Extract<DataValue, { type: 'any' | 'any[]'
 
 function shouldAlwaysStoreByRef(value: DataValue): boolean {
   const scalarType = getScalarTypeOf(value.type);
+  const isFunctionValue = value.type.startsWith('fn<');
 
-  return (
-    scalarType === 'audio' ||
-    scalarType === 'binary' ||
-    scalarType === 'image' ||
-    scalarType === 'document' ||
-    scalarType === 'chat-message'
-  );
+  if (isFunctionValue) {
+    return (
+      scalarType === 'audio' ||
+      scalarType === 'binary' ||
+      scalarType === 'image' ||
+      scalarType === 'document' ||
+      scalarType === 'chat-message'
+    );
+  }
+
+  return canBuildSummaryPreview(value);
+}
+
+function canBuildSummaryPreview(value: DataValue): boolean {
+  return match(value)
+    .with({ type: 'binary' }, (binaryValue) => hasByteLength(binaryValue.value))
+    .with({ type: 'binary[]' }, (binaryValues) => Array.isArray(binaryValues.value) && binaryValues.value.every(hasByteLength))
+    .with({ type: 'image' }, (imageValue) => hasMediaByteLength(imageValue.value))
+    .with({ type: 'image[]' }, (imageValues) => Array.isArray(imageValues.value) && imageValues.value.every(hasMediaByteLength))
+    .with({ type: 'audio' }, (audioValue) => hasMediaByteLength(audioValue.value))
+    .with({ type: 'audio[]' }, (audioValues) => Array.isArray(audioValues.value) && audioValues.value.every(hasMediaByteLength))
+    .with({ type: 'document' }, (documentValue) => hasMediaByteLength(documentValue.value))
+    .with({ type: 'document[]' }, (documentValues) =>
+      Array.isArray(documentValues.value) && documentValues.value.every(hasMediaByteLength),
+    )
+    .with({ type: 'chat-message' }, (chatMessageValue) => isChatMessageLike(chatMessageValue.value))
+    .with({ type: 'chat-message[]' }, (chatMessageValues) =>
+      Array.isArray(chatMessageValues.value) && chatMessageValues.value.every(isChatMessageLike),
+    )
+    .otherwise(() => false);
+}
+
+function hasByteLength(value: unknown): value is { byteLength: number } {
+  return isPlainRecord(value) && typeof value.byteLength === 'number';
+}
+
+function hasMediaByteLength(value: unknown): value is { data: { byteLength: number } } {
+  return isPlainRecord(value) && hasByteLength(value.data);
+}
+
+function isChatMessageLike(value: unknown): value is ChatMessage {
+  return isPlainRecord(value) && typeof value.type === 'string' && 'message' in value;
 }
 
 function buildTextPreview(text: string): StoredDataPreview {
@@ -536,8 +586,12 @@ function getDataValueSizeHint(value: DataValue): number {
     .with({ type: 'chat-message[]' }, (chatMessageValues) =>
       chatMessageValues.value.reduce((acc, current) => acc + getChatMessageSize(current), 0),
     )
-    .with({ type: 'string' }, (stringValue) => stringValue.value.length)
-    .with({ type: 'string[]' }, (stringValues) => stringValues.value.reduce((acc, current) => acc + current.length, 0))
+    .with({ type: 'string' }, (stringValue) => (typeof stringValue.value === 'string' ? stringValue.value.length : 0))
+    .with({ type: 'string[]' }, (stringValues) =>
+      Array.isArray(stringValues.value)
+        ? stringValues.value.reduce((acc, current) => acc + (typeof current === 'string' ? current.length : 0), 0)
+        : 0,
+    )
     .otherwise((otherValue) => stringifyForPreview(otherValue.value).length);
 }
 
@@ -587,6 +641,18 @@ function isPlainRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value != null && !Array.isArray(value);
 }
 
+function fixUint8ArrayLike(value: unknown): Uint8Array | undefined {
+  if (value instanceof Uint8Array) {
+    return value;
+  }
+
+  if (Array.isArray(value) || isPlainRecord(value)) {
+    return Uint8Array.from(Object.values(value));
+  }
+
+  return undefined;
+}
+
 function isStoredNodeRunData(value: InputsOrOutputsWithRefs | NodeRunDataWithRefs): value is NodeRunDataWithRefs {
   return 'inputData' in value || 'outputData' in value || 'splitOutputData' in value || 'status' in value;
 }
@@ -594,24 +660,39 @@ function isStoredNodeRunData(value: InputsOrOutputsWithRefs | NodeRunDataWithRef
 function getChatMessageSize(value: ChatMessage): number {
   const parts = Array.isArray(value.message) ? value.message : [value.message];
 
-  return parts.reduce(
-    (acc, part) =>
-      match(part)
-        .with(P.string, (stringPart) => acc + stringPart.length)
-        .with({ type: 'document' }, (documentPart) => acc + documentPart.data.byteLength)
-        .with({ type: 'image' }, (imagePart) => acc + imagePart.data.byteLength)
-        .with({ type: 'url' }, (urlPart) => acc + urlPart.url.length)
-        .exhaustive(),
-    0,
-  );
+  return parts.reduce((acc, part) => acc + getChatMessagePartSize(part), 0);
+}
+
+function getChatMessagePartSize(part: ChatMessageMessagePart): number {
+  if (typeof part === 'string') {
+    return part.length;
+  }
+
+  if (!isPlainRecord(part)) {
+    return 0;
+  }
+
+  switch (part.type) {
+    case 'document':
+    case 'image':
+      return hasByteLength(part.data) ? part.data.byteLength : 0;
+    case 'url':
+      return typeof part.url === 'string' ? part.url.length : 0;
+    default:
+      return 0;
+  }
 }
 
 function fixChatMessagePartUint8Arrays(part: ChatMessageMessagePart): ChatMessageMessagePart {
-  return match(part)
-    .with(P.string, (stringPart) => stringPart)
-    .with({ type: 'document' }, (documentPart) => ({
-      ...documentPart,
-      data: Uint8Array.from(Object.values(documentPart.data)),
-    }))
-    .otherwise((otherPart) => otherPart);
+  if (typeof part === 'string' || !isPlainRecord(part)) {
+    return part;
+  }
+
+  if (part.type !== 'document') {
+    return part as ChatMessageMessagePart;
+  }
+
+  const fixedData = fixUint8ArrayLike(part.data);
+
+  return fixedData ? ({ ...part, data: fixedData } as ChatMessageMessagePart) : (part as ChatMessageMessagePart);
 }

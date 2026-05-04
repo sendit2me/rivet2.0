@@ -10,6 +10,7 @@ import prettyBytes from 'pretty-bytes';
 import type { DataRefReader } from '../providers/ProvidersContext.js';
 import type { InputsOrOutputsWithRefs, NodeRunDataWithRefs } from '../state/dataFlow.js';
 import { restoreStoredPortMap, restoreStoredPortValue } from './executionDataReaders.js';
+import { getByteLength, getStringProperty, isRecord } from './dataValuePayloads.js';
 
 export type NodeOutputCopyValueProjectorArgs = {
   outputs: InputsOrOutputsWithRefs;
@@ -43,17 +44,19 @@ export function projectDataValue(value: DataValue): unknown {
     case 'chat-message':
       return serializeChatMessage(value);
     case 'chat-message[]':
-      return value.value.map((message) => serializeChatMessage({ type: 'chat-message', value: message }));
+      return Array.isArray(value.value)
+        ? value.value.map((message) => serializeChatMessage({ type: 'chat-message', value: message }))
+        : [];
     case 'control-flow-excluded':
       return 'Not ran';
     case 'vector':
-      return `Vector (length ${value.value.length})`;
+      return `Vector (length ${Array.isArray(value.value) ? value.value.length : 0})`;
     case 'binary':
-      return `Binary (length ${value.value.length.toLocaleString()})`;
+      return `Binary (length ${getByteLength(value.value).toLocaleString()})`;
     case 'graph-reference':
-      return `(Reference to graph "${value.value.graphName}")`;
+      return `(Reference to graph "${getStringProperty(value.value, 'graphName') ?? 'unknown graph'}")`;
     case 'gpt-function':
-      return `GPT Function: ${value.value.name}`;
+      return `GPT Function: ${getStringProperty(value.value, 'name') ?? 'unknown'}`;
     case 'document':
       return serializeDocument(value);
     case 'image':
@@ -95,9 +98,7 @@ export function projectStoredMap(
     return projectDataValue(visibleEntries[0]![1]!);
   }
 
-  return Object.fromEntries(
-    visibleEntries.map(([portId, value]) => [portId, projectDataValue(value!)]),
-  );
+  return Object.fromEntries(visibleEntries.map(([portId, value]) => [portId, projectDataValue(value!)]));
 }
 
 export function projectDisplayedOutputs(
@@ -154,26 +155,46 @@ export function isVisiblePort(portId: PortId | string): boolean {
 }
 
 function serializeChatMessage(value: Extract<DataValue, { type: 'chat-message' }>): string {
-  const messageParts = Array.isArray(value.value.message) ? value.value.message : [value.value.message];
+  const message = isRecord(value.value) ? value.value.message : undefined;
+  const messageParts = Array.isArray(message) ? message : [message];
   return messageParts
-    .map((part) => (typeof part === 'string' ? part : part.type === 'url' ? part.url : `(${part.type})`))
+    .map(serializeChatMessagePart)
+    .filter((part) => part.length > 0)
     .join('\n\n');
 }
 
 function serializeDocument(value: Extract<DataValue, { type: 'document' }>): string {
-  const lines = [
-    `${value.value.title ? `Document: ${value.value.title}` : 'Document'} (${value.value.mediaType})`,
-  ];
+  const document: Record<string, unknown> = isRecord(value.value) ? value.value : {};
+  const title = typeof document.title === 'string' && document.title.length > 0 ? document.title : undefined;
+  const mediaType = typeof document.mediaType === 'string' ? document.mediaType : 'unknown media type';
+  const lines = [`${title ? `Document: ${title}` : 'Document'} (${mediaType})`];
 
-  if (value.value.context) {
-    lines.push(value.value.context);
+  if (typeof document.context === 'string' && document.context.length > 0) {
+    lines.push(document.context);
   }
 
-  if (value.value.enableCitations) {
+  if (document.enableCitations === true) {
     lines.push('(Citations enabled)');
   }
 
-  lines.push(`Size: ${value.value.data.length > 0 ? prettyBytes(value.value.data.length) : '0 bytes'}`);
+  const dataLength = getByteLength(document.data);
+  lines.push(`Size: ${dataLength > 0 ? prettyBytes(dataLength) : '0 bytes'}`);
 
   return lines.join('\n');
+}
+
+function serializeChatMessagePart(part: unknown): string {
+  if (typeof part === 'string') {
+    return part;
+  }
+
+  if (!isRecord(part)) {
+    return '';
+  }
+
+  if (part.type === 'url') {
+    return typeof part.url === 'string' ? part.url : '';
+  }
+
+  return typeof part.type === 'string' ? `(${part.type})` : '';
 }

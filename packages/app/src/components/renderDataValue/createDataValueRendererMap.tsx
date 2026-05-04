@@ -46,6 +46,14 @@ export function createDataValueRendererMap(options: {
         }
 
         if (isArrayDataType(dataType)) {
+          if (!Array.isArray(value.value)) {
+            return (
+              <div css={multiOutputStyles}>
+                <div className="array-info">Invalid array value</div>
+              </div>
+            );
+          }
+
           let items = arrayizeDataValue(value as ScalarOrArrayDataValue);
           const count = items.length;
 

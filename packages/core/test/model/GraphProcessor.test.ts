@@ -517,6 +517,92 @@ void describe('GraphProcessor', () => {
     assert.equal(tokenizer.listeners.size, 0);
   });
 
+  void it('keeps forwarding parent subgraph node events after a nested subgraph finishes', async () => {
+    const mainGraph = {
+      metadata: {
+        id: 'main-graph',
+        name: 'Main Graph',
+        description: '',
+      },
+      nodes: [
+        {
+          id: 'call-middle-graph',
+          type: 'subGraph',
+          title: 'Call Middle Graph',
+          data: {
+            graphId: 'middle-graph',
+            useErrorOutput: false,
+            useAsGraphPartialOutput: false,
+          },
+          visualData: { x: 0, y: 0, width: 300 },
+        },
+      ],
+      connections: [],
+    };
+    const middleGraph = {
+      metadata: {
+        id: 'middle-graph',
+        name: 'Middle Graph',
+        description: '',
+      },
+      nodes: [
+        {
+          id: 'call-leaf-graph',
+          type: 'subGraph',
+          title: 'Call Leaf Graph',
+          data: {
+            graphId: 'leaf-graph',
+            useErrorOutput: false,
+            useAsGraphPartialOutput: false,
+          },
+          visualData: { x: 0, y: 0, width: 300 },
+        },
+      ],
+      connections: [],
+    };
+    const leafGraph = {
+      metadata: {
+        id: 'leaf-graph',
+        name: 'Leaf Graph',
+        description: '',
+      },
+      nodes: [],
+      connections: [],
+    };
+    const project = {
+      metadata: {
+        id: 'project-1',
+        title: 'Project',
+        description: '',
+        mainGraphId: mainGraph.metadata.id,
+      },
+      graphs: {
+        [mainGraph.metadata.id]: mainGraph,
+        [middleGraph.metadata.id]: middleGraph,
+        [leafGraph.metadata.id]: leafGraph,
+      },
+      plugins: [],
+    } as any;
+    const processor = new GraphProcessor(project, mainGraph.metadata.id as any, globalRivetNodeRegistry);
+    const nodeEvents: string[] = [];
+
+    processor.on('nodeStart', ({ node }) => {
+      nodeEvents.push(`start:${node.id}`);
+    });
+    processor.on('nodeFinish', ({ node }) => {
+      nodeEvents.push(`finish:${node.id}`);
+    });
+
+    await processor.processGraph(testProcessContext());
+
+    assert.deepEqual(nodeEvents, [
+      'start:call-middle-graph',
+      'start:call-leaf-graph',
+      'finish:call-leaf-graph',
+      'finish:call-middle-graph',
+    ]);
+  });
+
   void it('aborting a paused graph does not hang the run promise', async () => {
     const processor = await loadTestGraphInProcessor('Passthrough');
 

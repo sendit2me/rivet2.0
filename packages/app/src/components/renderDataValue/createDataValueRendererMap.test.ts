@@ -30,6 +30,16 @@ test('array-like data values share the common multi-output item presentation', (
   assert.doesNotMatch(chatMessageArrayMarkup, /chat-message-list/);
 });
 
+test('array-like renderers tolerate malformed array payloads', () => {
+  const malformedArrayMarkup = renderDataValue({
+    type: 'string[]',
+    value: undefined,
+  } as unknown as DataValue);
+
+  assert.match(malformedArrayMarkup, /Invalid array value/);
+  assert.equal(countOccurrences(malformedArrayMarkup, 'class="multi-output-item"'), 0);
+});
+
 function renderDataValue(value: DataValue): string {
   const Renderer = rendererMap[value.type];
 

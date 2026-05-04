@@ -21,6 +21,14 @@ import { COMPACT_PREVIEW_MAX_CHARS, COMPACT_PREVIEW_MAX_LINES } from '../../util
 import { getRenderedStringText } from './stringPreview.js';
 import { buildTextPreviewExcerpt } from '../../utils/textPreview.js';
 import { getRenderableAssistantFunctionCall } from './chatMessageRenderUtils.js';
+import {
+  getByteLength,
+  getMediaData,
+  getMediaType,
+  getStringProperty,
+  isRecord,
+  stringifyForDisplay,
+} from '../../utils/dataValuePayloads.js';
 
 export type ScalarRendererProps<T extends DataType = DataType> = {
   value: Extract<ScalarDataValue, { type: T }>;
@@ -55,7 +63,7 @@ export function createScalarRenderers(options: { renderValue: (props: DataValueR
     },
     'chat-message': ({ value, renderMarkdown, isCompact, allowLargeStoredValueActions }) => {
       const { value: realValue } = value as ChatMessageDataValue;
-      let parts = Array.isArray(realValue.message) ? realValue.message : [realValue.message];
+      let parts = getRenderableChatMessageParts(isRecord(realValue) ? realValue.message : undefined);
 
       if (isCompact && parts.length > 1) {
         parts = parts.slice(0, 1);
@@ -129,7 +137,7 @@ export function createScalarRenderers(options: { renderValue: (props: DataValueR
         .with({ type: 'function' }, (message) => (
           <div className="chat-message function">
             <header>
-              <em>function output for: {message.name}</em>
+              <em>function output for: {typeof message.name === 'string' ? message.name : 'unknown'}</em>
             </header>
             {messageContent}
           </div>
@@ -163,7 +171,7 @@ export function createScalarRenderers(options: { renderValue: (props: DataValueR
       });
     },
     object: ({ value, isCompact }) => {
-      let stringified = JSON.stringify(value.value, null, 2);
+      let stringified = stringifyForDisplay(value.value);
 
       if (isCompact) {
         stringified = buildTextPreviewExcerpt(stringified, {
@@ -181,16 +189,26 @@ export function createScalarRenderers(options: { renderValue: (props: DataValueR
     },
     'gpt-function': ({ value }) => (
       <>
-        GPT Function: <em>{value.value.name}</em>
+        GPT Function: <em>{getStringProperty(value.value, 'name') ?? 'unknown'}</em>
       </>
     ),
-    vector: ({ value }) => <>Vector (length {value.value.length})</>,
+    vector: ({ value }) => <>Vector (length {Array.isArray(value.value) ? value.value.length : 0})</>,
     image: ({ value }) => {
       const imageValue = value as ImageDataValue;
+      const imageData = getMediaData(imageValue.value);
+      const mediaType = getMediaType(imageValue.value);
       const imageUrl = useMemo(() => {
-        const blob = new Blob([imageValue.value.data], { type: imageValue.value.mediaType });
+        if (!imageData) {
+          return undefined;
+        }
+
+        const blob = new Blob([imageData], { type: mediaType });
         return URL.createObjectURL(blob);
-      }, [imageValue.value.data, imageValue.value.mediaType]);
+      }, [imageData, mediaType]);
+
+      if (!imageUrl) {
+        return <>Invalid image value</>;
+      }
 
       return (
         <div>
@@ -200,14 +218,24 @@ export function createScalarRenderers(options: { renderValue: (props: DataValueR
     },
     binary: ({ value }) => {
       const binaryValue = value as BinaryDataValue;
-      return <>Binary (length {binaryValue.value.length.toLocaleString()})</>;
+      return <>Binary (length {getByteLength(binaryValue.value).toLocaleString()})</>;
     },
     audio: ({ value }) => {
       const audioValue = value as AudioDataValue;
+      const audioData = getMediaData(audioValue.value);
+      const mediaType = getMediaType(audioValue.value);
       const dataUri = useMemo(() => {
-        const blob = new Blob([audioValue.value.data], { type: audioValue.value.mediaType });
+        if (!audioData) {
+          return undefined;
+        }
+
+        const blob = new Blob([audioData], { type: mediaType });
         return URL.createObjectURL(blob);
-      }, [audioValue.value.data, audioValue.value.mediaType]);
+      }, [audioData, mediaType]);
+
+      if (!dataUri) {
+        return <>Invalid audio value</>;
+      }
 
       return (
         <div>
@@ -218,20 +246,27 @@ export function createScalarRenderers(options: { renderValue: (props: DataValueR
       );
     },
     'graph-reference': ({ value }) => {
-      return <div>(Reference to graph &quot;{value.value.graphName}&quot;)</div>;
+      return (
+        <div>(Reference to graph &quot;{getStringProperty(value.value, 'graphName') ?? 'unknown graph'}&quot;)</div>
+      );
     },
     document: ({ value }) => {
       const documentValue = value as DocumentDataValue;
+      const documentData = getMediaData(documentValue.value);
+      const mediaType = getMediaType(documentValue.value) ?? 'unknown media type';
+      const title = getStringProperty(documentValue.value, 'title');
+      const context = getStringProperty(documentValue.value, 'context');
+      const enableCitations = isRecord(documentValue.value) && documentValue.value.enableCitations === true;
+      const dataLength = getByteLength(documentData);
 
       return (
         <div>
           <p>
-            {documentValue.value.title ? `Document: ${documentValue.value.title}` : 'Document'} (
-            {documentValue.value.mediaType})
+            {title ? `Document: ${title}` : 'Document'} ({mediaType})
           </p>
-          {documentValue.value.context && <p>{documentValue.value.context}</p>}
-          {documentValue.value.enableCitations && <p>(Citations enabled)</p>}
-          Size: {documentValue.value.data.length > 0 ? prettyBytes(documentValue.value.data.length) : '0 bytes'}
+          {context && <p>{context}</p>}
+          {enableCitations && <p>(Citations enabled)</p>}
+          Size: {dataLength > 0 ? prettyBytes(dataLength) : '0 bytes'}
         </div>
       );
     },
@@ -239,4 +274,30 @@ export function createScalarRenderers(options: { renderValue: (props: DataValueR
   /* eslint-enable react-hooks/rules-of-hooks -- table-driven renderers */
 
   return scalarRenderers;
+}
+
+function getRenderableChatMessageParts(value: unknown): ChatMessageMessagePart[] {
+  const parts = Array.isArray(value) ? value : [value];
+  const renderableParts = parts.filter(isRenderableChatMessagePart);
+  return renderableParts.length > 0 ? renderableParts : [''];
+}
+
+function isRenderableChatMessagePart(part: unknown): part is ChatMessageMessagePart {
+  if (typeof part === 'string') {
+    return true;
+  }
+
+  if (!isRecord(part)) {
+    return false;
+  }
+
+  if (part.type === 'url') {
+    return typeof part.url === 'string';
+  }
+
+  if (part.type === 'image' || part.type === 'document') {
+    return getMediaData(part) != null;
+  }
+
+  return false;
 }

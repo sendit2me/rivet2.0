@@ -8,6 +8,10 @@ test('getRenderedStringText does not truncate full output when not compact and n
   assert.equal(getRenderedStringText(longString, { isCompact: false }), longString);
 });
 
+test('getRenderedStringText renders malformed missing strings as empty text', () => {
+  assert.equal(getRenderedStringText(undefined, { isCompact: false }), '');
+});
+
 test('getRenderedStringText compacts long single-line output in compact mode', () => {
   const longString = `${'A'.repeat(500)}UNIQUE_TRAILING_MARKER`;
   const rendered = getRenderedStringText(longString, { isCompact: true });

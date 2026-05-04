@@ -4,8 +4,11 @@
 
 - Reassess Ctrl+N window
 
-- When in the non-main graph, make the run buttons different color
+- When I scroll the search results, it jitters
 
+- Add for all nodes a special output that is true when the node is run. Or. The "if" input should accept anything as true if it was run
+
+- In the "Project" tab, the "Context" section is visuallly broken when the variable is an object (just doesn't fit into the view)
 
 - There's 2 similar mono width fonts. Let's only keep one
 

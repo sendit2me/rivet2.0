@@ -195,7 +195,7 @@ still giving hosted executors a stable "prepare, then resolve" seam.
 
 ### Build model
 
-The executor source is ESM (`.mts`) but is bundled to CJS (`executor-bundle.cjs`) by esbuild so that `pkg` can statically analyze it for native binary compilation. A custom esbuild plugin inlines all `@valerypopoff/rivet-*` workspace packages from source.
+The executor source is ESM (`.mts`) but is bundled to CJS (`executor-bundle.cjs`) by esbuild so that `pkg` can statically analyze it for native binary compilation. A custom esbuild plugin inlines `@valerypopoff/rivet2-core` and `@valerypopoff/rivet2-node` from their workspace source entrypoints instead of going through built package exports. That source mapping is part of the desktop Node-executor contract: rebuilding the sidecar during `yarn dev` must pick up current core/node execution changes even when package `dist` folders are stale.
 
 ### Architectural significance
 

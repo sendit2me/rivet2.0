@@ -78,9 +78,12 @@ function applyAccumulatedUsage(
   }
 }
 
-function appendReasoningRound(accumulated: string[], reasoning: ChatV2ReasoningOutput) {
+function appendReasoningRound(accumulated: string[], reasoning: ChatV2ReasoningOutput | undefined) {
   const roundReasoning = Array.isArray(reasoning) ? reasoning : [reasoning];
-  const nonEmptyReasoning = roundReasoning.map((part) => part.trim()).filter((part) => part.length > 0);
+  const nonEmptyReasoning = roundReasoning
+    .filter((part): part is string => typeof part === 'string')
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0);
 
   if (nonEmptyReasoning.length === 0) {
     return;

@@ -1,6 +1,33 @@
 import type Emittery from 'emittery';
 import type { GraphProcessor, ProcessEvents } from './GraphProcessor.js';
 
+type GraphLifecycleEvent = ProcessEvents['graphFinish'] | ProcessEvents['graphAbort'] | ProcessEvents['graphError'];
+
+function subscribeOwnGraphRunLifecycle(processor: GraphProcessor, onLifecycleEvent: () => void): () => void {
+  let ownGraphRunId: ProcessEvents['graphStart']['execution']['graphRunId'] | undefined;
+
+  const unsubscribeGraphStart = processor.on('graphStart', (event) => {
+    ownGraphRunId ??= event.execution.graphRunId;
+  });
+
+  const onPossibleLifecycleEvent = (event: GraphLifecycleEvent) => {
+    if (ownGraphRunId != null && event.execution.graphRunId === ownGraphRunId) {
+      onLifecycleEvent();
+    }
+  };
+
+  const unsubscribeGraphFinish = processor.on('graphFinish', onPossibleLifecycleEvent);
+  const unsubscribeGraphAbort = processor.on('graphAbort', onPossibleLifecycleEvent);
+  const unsubscribeGraphError = processor.on('graphError', onPossibleLifecycleEvent);
+
+  return () => {
+    unsubscribeGraphStart();
+    unsubscribeGraphFinish();
+    unsubscribeGraphAbort();
+    unsubscribeGraphError();
+  };
+}
+
 export function wireSubprocessorEvents(
   processor: GraphProcessor,
   parentEmitter: Emittery<ProcessEvents>,
@@ -10,7 +37,7 @@ export function wireSubprocessorEvents(
     resume: () => void;
   },
 ): void {
-  const unsubscribers = [
+  const unsubscribers: Array<() => void> = [
     processor.on('nodeError', (event) => parentEmitter.emit('nodeError', event)),
     processor.on('nodeFinish', (event) => parentEmitter.emit('nodeFinish', event)),
     processor.on('partialOutput', (event) => parentEmitter.emit('partialOutput', event)),
@@ -50,15 +77,9 @@ export function wireSubprocessorEvents(
 
     cleanedUp = true;
     unsubscribers.forEach((unsubscribe) => unsubscribe());
-    unsubscribeAny();
-    unsubscribeGraphFinish();
-    unsubscribeGraphAbort();
-    unsubscribeGraphError();
   };
 
-  const unsubscribeGraphFinish = processor.on('graphFinish', cleanup);
-  const unsubscribeGraphAbort = processor.on('graphAbort', cleanup);
-  const unsubscribeGraphError = processor.on('graphError', cleanup);
+  unsubscribers.push(unsubscribeAny, subscribeOwnGraphRunLifecycle(processor, cleanup));
 }
 
 export function wireSubprocessorLifecycle(
@@ -86,8 +107,12 @@ export function wireSubprocessorLifecycle(
   options.signal?.addEventListener('abort', abortFromSignal, { once: true });
   options.parentAbortSignal.addEventListener('abort', abortFromParent, { once: true });
 
-  const unsubscribeParentPause = options.onParentPause(pauseProcessor);
-  const unsubscribeParentResume = options.onParentResume(resumeProcessor);
+  const unsubscribers: Array<() => void> = [
+    () => options.signal?.removeEventListener('abort', abortFromSignal),
+    () => options.parentAbortSignal.removeEventListener('abort', abortFromParent),
+    options.onParentPause(pauseProcessor),
+    options.onParentResume(resumeProcessor),
+  ];
 
   let cleanedUp = false;
   const cleanup = () => {
@@ -96,16 +121,8 @@ export function wireSubprocessorLifecycle(
     }
 
     cleanedUp = true;
-    options.signal?.removeEventListener('abort', abortFromSignal);
-    options.parentAbortSignal.removeEventListener('abort', abortFromParent);
-    unsubscribeParentPause();
-    unsubscribeParentResume();
-    unsubscribeGraphFinish();
-    unsubscribeGraphAbort();
-    unsubscribeGraphError();
+    unsubscribers.forEach((unsubscribe) => unsubscribe());
   };
 
-  const unsubscribeGraphFinish = processor.on('graphFinish', cleanup);
-  const unsubscribeGraphAbort = processor.on('graphAbort', cleanup);
-  const unsubscribeGraphError = processor.on('graphError', cleanup);
+  unsubscribers.push(subscribeOwnGraphRunLifecycle(processor, cleanup));
 }

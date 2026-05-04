@@ -394,6 +394,7 @@ export const NavigationBar: FC = () => {
   const graphSearchInputRef = useRef<HTMLInputElement>(null);
   const graphSearchPanelRef = useRef<HTMLDivElement>(null);
   const graphSearchResultsRef = useRef<HTMLDivElement>(null);
+  const graphSearchResultsScrollTopRef = useRef(searching.resultsScrollTop);
 
   const [goToSearch, setGoToSearch] = useAtom(goToSearchState);
 
@@ -421,13 +422,17 @@ export const NavigationBar: FC = () => {
   }, [searching.focusRequestId, searching.panelOpen, searching.searching]);
 
   useEffect(() => {
+    graphSearchResultsScrollTopRef.current = searching.resultsScrollTop;
+  }, [searching.resultsScrollTop]);
+
+  useEffect(() => {
     if (!searching.searching || !searching.panelOpen || !graphSearchHasResults) {
       return;
     }
 
     const frame = requestAnimationFrame(() => {
       if (graphSearchResultsRef.current) {
-        graphSearchResultsRef.current.scrollTop = searching.resultsScrollTop;
+        graphSearchResultsRef.current.scrollTop = graphSearchResultsScrollTopRef.current;
       }
     });
 
@@ -437,7 +442,6 @@ export const NavigationBar: FC = () => {
     searching.focusRequestId,
     searching.panelOpen,
     searching.query,
-    searching.resultsScrollTop,
     searching.searching,
   ]);
 
@@ -483,6 +487,7 @@ export const NavigationBar: FC = () => {
 
   function updateGraphSearchResultsScroll(e: UIEvent<HTMLDivElement>) {
     const resultsScrollTop = e.currentTarget.scrollTop;
+    graphSearchResultsScrollTopRef.current = resultsScrollTop;
     setSearching((state) =>
       state.resultsScrollTop === resultsScrollTop ? state : { ...state, resultsScrollTop },
     );

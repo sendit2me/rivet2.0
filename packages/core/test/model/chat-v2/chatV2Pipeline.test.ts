@@ -918,6 +918,34 @@ describe('runChatV2Pipeline', () => {
     });
   });
 
+  it('excludes reasoning output when requested but the stream has no reasoning text', async () => {
+    const executeStream: ChatV2StreamExecutor = async () => ({
+      fullStream: mockStream([
+        { type: 'text-start', id: 'text_1' },
+        { type: 'text-delta', id: 'text_1', text: 'Final answer' },
+        { type: 'text-end', id: 'text_1' },
+      ]),
+    });
+
+    const result = await runChatV2Pipeline({
+      provider: 'custom',
+      model: createMockModel(),
+      modelId: 'reasoning-model',
+      prompt: { type: 'string', value: 'Think.' },
+      outputReasoning: true,
+      context: {
+        signal: new AbortController().signal,
+      },
+      executeStream,
+    });
+
+    assert.equal(result.reasoning, '');
+    assert.deepEqual(result.commonOutputs['reasoning' as PortId], {
+      type: 'control-flow-excluded',
+      value: undefined,
+    });
+  });
+
   it('forwards function tool choice in the AI SDK tool-choice format', async () => {
     let capturedToolChoice: unknown;
     const executeStream: ChatV2StreamExecutor = async (args) => {
