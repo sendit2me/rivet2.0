@@ -182,6 +182,7 @@ Events from subprocessors bubble up through `wireSubprocessorEvents()` in
 
 - Child processor emits events with **its own** `GraphExecutionMetadata`.
 - `wireSubprocessorEvents` forwards those events to the parent's emitter **without rewriting metadata**.
+- Subprocessor event/lifecycle forwarding uses a run-scoped lifecycle subscription and only tears down when the forwarded processor's own `graphRunId` finishes, aborts, or errors. A nested child graph finishing must not clean up the parent subgraph bridge, because the parent still needs to forward the subgraph node's later `nodeFinish` and the parent graph's own finish event.
 - The app's event handlers see the original metadata and can determine the execution context.
 
 This means the root processor's event emitter receives events from the entire
