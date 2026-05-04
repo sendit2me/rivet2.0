@@ -340,6 +340,48 @@ describe('runChatV2PipelineWithToolContinuation', () => {
     });
   });
 
+  it('ignores missing reasoning output across auto-continued model rounds', async () => {
+    const fooCall = makeToolCall('call_foo', 'foo');
+    let runCount = 0;
+
+    const result = await runChatV2PipelineWithToolContinuation(
+      baseOptions({
+        outputReasoning: true,
+        runPipeline: async (options: RunChatV2PipelineOptions) => {
+          runCount++;
+
+          return runCount === 1
+            ? makePipelineResult(
+                '',
+                [fooCall],
+                undefined,
+                undefined,
+                false,
+                undefined as unknown as ChatV2ReasoningOutput,
+                options.outputReasoning,
+              )
+            : makePipelineResult(
+                'final answer',
+                [],
+                (options.prompt as any).value,
+                undefined,
+                false,
+                'Use the tool result.',
+                options.outputReasoning,
+              );
+        },
+        delegateToolCall: async (toolCall) => makeToolResultMessage(toolCall, `${toolCall.name} result`),
+      }),
+    );
+
+    assert.equal(runCount, 2);
+    assert.deepEqual(result.reasoning, ['Use the tool result.']);
+    assert.deepEqual(result.commonOutputs.reasoning, {
+      type: 'string[]',
+      value: result.reasoning,
+    });
+  });
+
   it('stops auto-continuing after max tool rounds', async () => {
     const delegated: string[] = [];
     let runCount = 0;

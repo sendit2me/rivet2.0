@@ -45,7 +45,7 @@ Runs:
 
 1. `yarn workspace @valerypopoff/rivet-app run dev`
 
-That app dev script performs a Windows-only cleanup of stale copied `app-executor.exe` sidecars, then launches `tauri dev`. The Tauri dev command itself runs `yarn prepare:tauri && yarn start` through `beforeDevCommand`, so the Node sidecar is rebuilt before the desktop app starts.
+That app dev script performs a Windows-only cleanup of stale copied `app-executor.exe` sidecars, then launches `tauri dev`. The Tauri dev command itself runs `yarn prepare:tauri && yarn start` through `beforeDevCommand`, so the Node sidecar is rebuilt before the desktop app starts. The app-executor bundle resolves `@valerypopoff/rivet2-core` and `@valerypopoff/rivet2-node` directly to their local source entrypoints, so `yarn dev` picks up current execution-engine changes without requiring a separate core/node package build first.
 
 ### `yarn build`
 
@@ -226,7 +226,7 @@ Maintenance rules:
 - `dev`: `tsx watch --inspect=9228 --experimental-network-imports bin/executor.mts`
 - `start`: build then run bundled executor
 
-The build script (`scripts/build-executor.mts`) bundles the ESM source to CJS using esbuild, then compiles the CJS bundle into a native binary via `pkg`. CJS format is required because `pkg` needs static analysis of `require()` calls. A custom esbuild plugin (`resolveRivet`) inlines `@valerypopoff/rivet-*` packages from source, so the final bundle has zero external workspace dependencies.
+The build script (`scripts/build-executor.mts`) bundles the ESM source to CJS using esbuild, then compiles the CJS bundle into a native binary via `pkg`. CJS format is required because `pkg` needs static analysis of `require()` calls. A custom esbuild plugin (`resolveRivet`) maps `@valerypopoff/rivet2-core` and `@valerypopoff/rivet2-node` to their workspace source entrypoints before package exports are resolved. This keeps the desktop Node executor in lockstep with local source edits and prevents stale `packages/core/dist` / `packages/node/dist` output from being bundled into a fresh sidecar.
 
 The app-executor binary accepts `--port` / `-p` and `--host` flags. The default
 host is `127.0.0.1` for the desktop internal sidecar; hosted/container wrappers

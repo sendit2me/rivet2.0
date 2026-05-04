@@ -101,7 +101,7 @@ function buildCommonOutputs(
   response: string,
   functionCalls: StreamedFunctionCall[],
   usage: ChatV2NormalizedUsage | undefined,
-  reasoning: ChatV2ReasoningOutput,
+  reasoning: ChatV2ReasoningOutput | undefined,
   requestStatus: number | undefined,
   responseError: string | undefined,
   requestStatuses: number[],
@@ -152,15 +152,7 @@ function buildCommonOutputs(
   }
 
   if (options.outputReasoning) {
-    outputs['reasoning' as PortId] = Array.isArray(reasoning)
-      ? {
-          type: 'string[]',
-          value: reasoning,
-        }
-      : {
-          type: 'string',
-          value: reasoning,
-        };
+    outputs['reasoning' as PortId] = buildReasoningOutput(reasoning);
   }
 
   if (options.outputRequestStatus) {
@@ -189,6 +181,34 @@ function buildCommonOutputs(
   }
 
   return outputs;
+}
+
+function buildReasoningOutput(reasoning: ChatV2ReasoningOutput | undefined): Outputs[PortId] {
+  if (Array.isArray(reasoning)) {
+    const nonEmptyReasoning = reasoning.filter((part) => typeof part === 'string' && part.trim().length > 0);
+
+    return nonEmptyReasoning.length > 0
+      ? {
+          type: 'string[]',
+          value: nonEmptyReasoning,
+        }
+      : {
+          type: 'control-flow-excluded',
+          value: undefined,
+        };
+  }
+
+  const reasoningText = typeof reasoning === 'string' ? reasoning : '';
+
+  return reasoningText.trim().length > 0
+    ? {
+        type: 'string',
+        value: reasoningText,
+      }
+    : {
+        type: 'control-flow-excluded',
+        value: undefined,
+      };
 }
 
 function getProviderFailureMessage(error: unknown): string {

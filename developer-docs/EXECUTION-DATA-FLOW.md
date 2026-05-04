@@ -500,6 +500,9 @@ Persisted app-side execution payloads now share one transform layer before being
 
 - `sanitizeInputsOrOutputs(...)` in `executionDataTransforms.ts` fixes Uint8Array-shaped values without destructively truncating them
 - `storeNodeDataForHistory(...)` / `storeInputsOrOutputsForHistory(...)` decide whether each payload stays inline or moves into `globalDataRefs`
+- the storage decision layer treats malformed typed payloads defensively, including string, string-array, and media summary values, so an invalid node output can stay inline for debugging instead of throwing an unhandled UI error while the graph itself has already finished
+- downstream UI consumers must preserve that boundary: `RenderDataValue`, Chat Viewer split-prompt lookup, Prompt Designer attached-node hydration, run-cost totals, `Copy value`, and `globalDataRefs` sizing all use the shared runtime guards in `dataValuePayloads.ts` to tolerate malformed inline/ref payloads and render or fall back instead of assuming the static `DataValue` type was honored at runtime
+- `globalDataRefs` still uses compact JSON for cache-size fallback accounting; pretty-printing helpers are display-only and should not affect LRU sizing
 - `storeNodeDataForHistory(...)` only writes fields that are explicitly present, so start-time payloads such as `inputData` and small debug snapshots survive later finish/error updates instead of being overwritten with `undefined`
 - `useNodeExecutionEvents` uses that shared path for started, finished, excluded, and partial-output persistence
 - split-run partial outputs still keep their separate `splitOutputData[index]` storage model, but they now reuse the same storage transform and stable ref-id scheme before persistence

@@ -4,14 +4,21 @@ import chalk from 'chalk';
 import * as esbuild from 'esbuild';
 import { resolve } from 'node:path';
 
+const rivetWorkspaceSourceEntries = new Map<string, string>([
+  ['@valerypopoff/rivet2-core', '../core/src/index.ts'],
+  ['@valerypopoff/rivet2-node', '../node/src/index.ts'],
+]);
+
 const resolveRivet: esbuild.Plugin = {
   name: 'resolve-rivet',
   setup(build) {
-    build.onResolve({ filter: /^@rivet2\/rivet-/ }, (args) => {
-      const rivetPackage = args.path.replace(/^@rivet2\/rivet-/, '');
-      return {
-        path: resolve(`../${rivetPackage}/src/index.ts`),
-      };
+    build.onResolve({ filter: /^@valerypopoff\/rivet2-(core|node)$/ }, (args) => {
+      const sourceEntry = rivetWorkspaceSourceEntries.get(args.path);
+      if (!sourceEntry) {
+        return;
+      }
+
+      return { path: resolve(sourceEntry) };
     });
   },
 };
@@ -20,8 +27,9 @@ console.log(`Bundling to ${chalk.cyan('bin/executor-bundle.cjs')}...`);
 
 // The executor source is ESM (.mts) but the bundle must be CJS so that `pkg`
 // can statically analyze and package it into a self-contained native binary.
-// The resolveRivet plugin inlines @valerypopoff/rivet-* from source so that the
-// bundle has zero external workspace dependencies at runtime.
+// The resolveRivet plugin inlines Rivet 2 workspace packages from source so
+// app-executor stays in lockstep with current core/node changes even when the
+// built package dist folders have not been refreshed yet.
 await esbuild.build({
   entryPoints: ['bin/executor.mts'],
   bundle: true,

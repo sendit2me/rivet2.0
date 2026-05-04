@@ -6,6 +6,7 @@
 
 - When I scroll the search results, it jitters
 
+- Add for all nodes a special output that is true when the node is run. Or. The "if" input should accept anything as true if it was run
 
 - In the "Project" tab, the "Context" section is visuallly broken when the variable is an object (just doesn't fit into the view)
 

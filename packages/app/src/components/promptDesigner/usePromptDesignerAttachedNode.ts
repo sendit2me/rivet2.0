@@ -11,6 +11,7 @@ import {
   type NodeId,
   type NodeTestGroup,
   arrayizeDataValue,
+  isArrayDataType,
   isFunctionDataType,
   type ScalarOrArrayDataValue,
   getChatNodeMessages,
@@ -75,6 +76,10 @@ export const usePromptDesignerAttachedNode = ({
           inputData = Object.fromEntries(
             Object.entries(inputData).map(([portId, value]) => {
               if (!value || isFunctionDataType(value.type)) {
+                return [portId, value];
+              }
+
+              if (isArrayDataType(value.type) && !Array.isArray(value.value)) {
                 return [portId, value];
               }
 

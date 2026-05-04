@@ -79,11 +79,11 @@ export function useTotalRunCost() {
 
         const restoredCostArray = coerceStoredPortValue(outputData, 'cost' as PortId, 'number[]', dataRefs);
         if (restoredCostArray) {
-          return restoredCostArray.value.reduce((runningTotal: number, current: number) => runningTotal + current, acc);
+          return sumNumberArray(restoredCostArray.value, acc);
         }
 
         const restoredCost = coerceStoredPortValue(outputData, 'cost' as PortId, 'number', dataRefs);
-        if (restoredCost) {
+        if (restoredCost && typeof restoredCost.value === 'number') {
           return restoredCost.value + acc;
         }
 
@@ -101,13 +101,18 @@ export function useTotalRunCost() {
           return acc;
         }
 
-        const restoredTokenArray = coerceStoredPortValue(outputData, '__hidden_token_count' as PortId, 'number[]', dataRefs);
+        const restoredTokenArray = coerceStoredPortValue(
+          outputData,
+          '__hidden_token_count' as PortId,
+          'number[]',
+          dataRefs,
+        );
         if (restoredTokenArray) {
-          return restoredTokenArray.value.reduce((runningTotal: number, current: number) => runningTotal + current, acc);
+          return sumNumberArray(restoredTokenArray.value, acc);
         }
 
         const restoredTokens = coerceStoredPortValue(outputData, '__hidden_token_count' as PortId, 'number', dataRefs);
-        if (restoredTokens) {
+        if (restoredTokens && typeof restoredTokens.value === 'number') {
           return restoredTokens.value + acc;
         }
 
@@ -127,4 +132,15 @@ export function useTotalRunCost() {
   }, [allNodesById, dataRefs, lastRunData]);
 
   return totals;
+}
+
+function sumNumberArray(value: unknown, initialValue: number): number {
+  if (!Array.isArray(value)) {
+    return initialValue;
+  }
+
+  return value.reduce(
+    (runningTotal, current) => runningTotal + (typeof current === 'number' ? current : 0),
+    initialValue,
+  );
 }

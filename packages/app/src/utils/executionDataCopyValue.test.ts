@@ -3,10 +3,7 @@ import test from 'node:test';
 import { WarningsPort, type DataValue } from '@valerypopoff/rivet2-core';
 import type { DataRefReader } from '../providers/ProvidersContext.js';
 import type { NodeRunDataWithRefs } from '../state/dataFlow.js';
-import {
-  projectDisplayedOutputs,
-  serializeDisplayedOutputs,
-} from './executionDataCopyValue.js';
+import { projectDisplayedOutputs, serializeDisplayedOutputs } from './executionDataCopyValue.js';
 
 function createDataRefStore(initialValues?: Record<string, DataValue>): DataRefReader {
   const values = new Map<string, DataValue>(Object.entries(initialValues ?? {}));
@@ -126,6 +123,37 @@ test('serializeDisplayedOutputs keeps chat-message flattening semantics', () => 
   );
 
   assert.equal(serialized, 'Hello\n\nhttps://example.com');
+});
+
+test('serializeDisplayedOutputs tolerates malformed preview-only output payloads', () => {
+  const serialized = serializeDisplayedOutputs(
+    {
+      outputData: {
+        messages: inlineStored(
+          'chat-message[]',
+          undefined as unknown as Extract<DataValue, { type: 'chat-message[]' }>['value'],
+        ),
+        vector: inlineStored('vector', undefined as unknown as number[]),
+        binary: inlineStored('binary', undefined as unknown as Uint8Array),
+        document: inlineStored('document', undefined as unknown as Extract<DataValue, { type: 'document' }>['value']),
+      },
+    } as NodeRunDataWithRefs,
+    createDataRefStore(),
+  );
+
+  assert.equal(
+    serialized,
+    JSON.stringify(
+      {
+        messages: [],
+        vector: 'Vector (length 0)',
+        binary: 'Binary (length 0)',
+        document: 'Document (unknown media type)\nSize: 0 bytes',
+      },
+      null,
+      2,
+    ),
+  );
 });
 
 test('projectDisplayedOutputs copies multi-port outputs as a raw plain-value map and excludes warnings', () => {

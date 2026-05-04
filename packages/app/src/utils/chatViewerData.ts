@@ -1,5 +1,6 @@
 import {
   arrayizeDataValue,
+  isArrayDataType,
   isFunctionDataType,
   type ChartNode,
   type DataValue,
@@ -130,6 +131,10 @@ export function getChatViewerPromptValue(
 
   const restoredPromptValue = restoreStoredPortValue(data.inputData, promptPort, dataRefs);
   if (!restoredPromptValue || isFunctionDataType(restoredPromptValue.type)) {
+    return promptValue;
+  }
+
+  if (isArrayDataType(restoredPromptValue.type) && !Array.isArray(restoredPromptValue.value)) {
     return promptValue;
   }
 
