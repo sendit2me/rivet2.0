@@ -81,7 +81,7 @@ processGraph(
 
 Runs the selected graph and resolves with graph outputs.
 
-`inputs` are values for Graph Input nodes in the main graph. `contextValues` are values available to Context nodes throughout the graph and all subgraphs.
+`inputs` are values for Graph Input nodes in the main graph. `contextValues` are values available to Context nodes throughout the graph and all subgraphs. Context nodes coerce their resolved runtime value or fallback default to the node's configured data type before emitting an output.
 
 `processGraph` throws if the processor is already running. A `GraphProcessor` instance is intended for one active run at a time.
 

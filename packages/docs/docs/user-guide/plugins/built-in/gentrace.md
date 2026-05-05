@@ -50,7 +50,7 @@ type EmailTestCase = {
 };
 ```
 
-The plugin will pull all test cases and invoke the Rivet graph once per case. During each invocation, each key-value pair from a test case maps onto a Graph Input Rivet node with a matching ID.
+The plugin will pull all test cases and invoke the Rivet graph once per case. During each invocation, each key-value pair from a test case maps onto a Graph Input Rivet node with a matching ID. Project Context values are also included, so Context nodes behave the same way they do during a normal graph run.
 
 With the TestCase schema above, three Graph Input Rivet nodes are required to properly run the graph.
 

@@ -1,7 +1,6 @@
 import Popup from '@atlaskit/popup';
 import { css } from '@emotion/react';
-import { entries } from '../../utils/typeSafety';
-import { type DataValue, ExecutionRecorder, runGentraceTests, runRemoteGentraceTests } from '@valerypopoff/rivet2-core';
+import { ExecutionRecorder, runGentraceTests, runRemoteGentraceTests } from '@valerypopoff/rivet2-core';
 import { useToggle } from 'ahooks';
 import clsx from 'clsx';
 import EditPen from 'majesticons/line/edit-pen-2-line.svg?react';
@@ -21,6 +20,7 @@ import GentracePipelinePicker, { type GentracePipeline } from './GentracePipelin
 import { useAtomValue } from 'jotai';
 import { wrapAsync } from '../../utils/errorHandling';
 import { useEnvironmentProvider } from '../../providers/ProvidersContext.js';
+import { getProjectContextValues } from '../../utils/projectContextValues.js';
 
 export const GentraceInteractors = () => {
   const project = useAtomValue(projectState);
@@ -57,6 +57,8 @@ export const GentraceInteractors = () => {
       return;
     }
 
+    const contextValues = getProjectContextValues(projectContext);
+
     toast.info(`Running Gentrace pipeline ${currentGentracePipelineSlug} tests ...`);
     let testResultId: string | null = null;
 
@@ -91,13 +93,6 @@ export const GentraceInteractors = () => {
 
             const recorderPromise = recorder.recordSocket(executorSession.socket!);
 
-            const contextValues = entries(projectContext).reduce(
-              (acc, [key, value]) => ({
-                ...acc,
-                [key]: value.value,
-              }),
-              {} as Record<string, DataValue>,
-            );
             const requestId = executorSessionRuntime.createRemoteExecutionRequest();
 
             remoteDebugger.send('run', { requestId, graphId: graph.metadata!.id!, inputs, contextValues });
@@ -115,6 +110,7 @@ export const GentraceInteractors = () => {
           project,
           graph,
           new TauriNativeApi(),
+          contextValues,
         );
         testResultId = testResponse.resultId;
       }

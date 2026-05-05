@@ -1,20 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { type NodeId } from '@valerypopoff/rivet2-core';
-import { getContextValues, getDependentDataForNodeForPreload, selectTestSuitesToRun } from './remoteExecutorHelpers';
+import { getDependentDataForNodeForPreload, selectTestSuitesToRun } from './remoteExecutorHelpers';
 import { deleteGlobalDataRef, setGlobalDataRef } from '../utils/globals/globalDataRefs';
-
-test('getContextValues unwraps project context values', () => {
-  const contextValues = getContextValues({
-    secret: { value: { type: 'string', value: 'token' }, secret: true },
-    visible: { value: { type: 'number', value: 3 }, secret: false },
-  });
-
-  assert.deepEqual(contextValues, {
-    secret: { type: 'string', value: 'token' },
-    visible: { type: 'number', value: 3 },
-  });
-});
 
 test('selectTestSuitesToRun filters suites and cases narrowly', () => {
   const selected = selectTestSuitesToRun(

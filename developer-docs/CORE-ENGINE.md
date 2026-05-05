@@ -414,6 +414,7 @@ Current behavioral detail:
 
 - helper paths such as `getDependencyNodesDeep(...)` can trigger preprocessing before `processGraph(...)` starts, because the app uses them for run-from preloading
 - `contextValues` are refreshed per `processGraph(...)` call even when reusing the same processor instance
+- `Context` nodes resolve values in a strict order: runtime `contextValues[id]`, then a connected default input when the default-input toggle is enabled, then the editor default, then the data type's built-in default. Every resolved value is coerced to the node's configured data type before being emitted.
 - pause waits are abort-aware, so aborting a paused run unwinds instead of waiting forever for a later `resume`
 
 ### Preprocessing

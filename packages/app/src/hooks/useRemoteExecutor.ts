@@ -27,7 +27,6 @@ import { useEffect, useRef } from 'react';
 import { useProjectNodeRegistry } from './useProjectNodeRegistry';
 import {
   createProcessEventDispatcher,
-  getContextValues,
   getDependencyNodesForRunFrom,
   getDependentDataForNodeForPreload,
   selectTestSuitesToRun,
@@ -37,6 +36,7 @@ import { getLLMChatV2CustomProviderApiKeyEnvVarNames } from '../utils/chatV2Cust
 import { useEnvironmentProvider } from '../providers/ProvidersContext.js';
 import { pluginsState } from '../state/plugins.js';
 import { withDerivedProjectPluginSpecs } from '../utils/pluginUsage.js';
+import { getProjectContextValues } from '../utils/projectContextValues.js';
 
 export function useRemoteExecutor() {
   const executorSession = useExecutorSessionRuntime();
@@ -233,7 +233,7 @@ export function useRemoteExecutor() {
         }
       }
 
-      const contextValues = getContextValues(projectContext);
+      const contextValues = getProjectContextValues(projectContext);
       const requestId = executorSession.createRemoteExecutionRequest();
       activeGraphRequestIdRef.current = requestId;
 
@@ -340,7 +340,7 @@ export function useRemoteExecutor() {
 
             const { requestId, promise: pendingResults } = executorSession.createPendingGraphExecution();
 
-            const contextValues = getContextValues(projectContext);
+            const contextValues = getProjectContextValues(projectContext);
 
             remoteDebugger.send('run', { requestId, graphId, inputs, contextValues, projectPath: loadedProject.path });
 

@@ -11,16 +11,18 @@ import TabItem from '@theme/TabItem';
 
 ## Overview
 
-The "Context" in Rivet is a set of shared inputs that are accessible in any graph, no matter if they are the entry-point graph, or a subgraph called by another graph. The Context node is used to access these inputs.
+Context values are shared run inputs that are accessible in any graph, whether the graph is the entry-point graph or a subgraph called by another graph. The Context node reads one of those values by ID.
 
-The Context Node allows you to access these values in your graph. It is useful for "global values" that every graph can access, without having to pipe the values in as graph inputs. Use the Context Node and `contextValues` to pass in "global context" to your projects, such as the current date.
+This is useful for values that should be available everywhere without threading them through Graph Input nodes, such as current-date values, tenant IDs, environment-specific configuration, or API keys.
 
-Context can currently only be set when Rivet is embedded in a host application. It is passed in using the `contextValues` parameter to `runGraphInFile` or `createProcessor`:
+In the desktop app, context values are edited in the Project tab under **Context**. They are stored by the Rivet app for that project ID, not written into the `.rivet-project` file.
+
+In code, context values are passed with the `contextValues` / `context` run option. `@valerypopoff/rivet2-node` accepts loose primitive values and converts them into Rivet `DataValue` objects:
 
 ```ts
 import * as Rivet from '@valerypopoff/rivet2-node';
 
-const contextValues = {
+const context = {
   stringContext: 'str',
   numberContext: 1,
   booleanContext: true,
@@ -28,11 +30,11 @@ const contextValues = {
 
 const processor = Rivet.createProcessor({
   ...etc,
-  contextValues,
+  context,
 });
 ```
 
-P.S.: Context Node is not the only way to access context values. You can also access them in the [Text Node](./text.mdx) using `{{@context.<id>}}` syntax (same thing in the Prompt Node and Object Node) and in the [Code Node](./code.mdx) using `context.<id>.value`.
+The Context node is not the only way to access context values. You can also access them in the [Text Node](./text.mdx), Prompt Node, Object Node, and some path editors with `{{@context.<id>}}` interpolation. In the [Code Node](./code.mdx), use `context.<id>.value`.
 
 <Tabs
   defaultValue="inputs"
@@ -67,7 +69,7 @@ The context node has no inputs besides optional ones from the Editor Settings pa
 | ------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------------- | ---------------- | -------------------------------------------------------------------------------------------------- |
 | ID            | The ID of the context that you are pulling in. Must match exactly to the ID passed in to `contextValues` in the parent application. | (required)    | No               | N/A                                                                                                |
 | Data Type     | The data type of the value passed in to `contextValues`. The value will be coerced to this data type if it does not match.          | String        | No               | N/A                                                                                                |
-| Default Value | The default value, if the context value is not set.                                                                                 | (empty)       | Yes              | Same data type as the configured `Data Type` above. Will be coerced into the data type configured. |
+| Default Value | The fallback value when the context value is not set or cannot be resolved.                                                         | Type default  | Yes              | Same data type as the configured `Data Type` above. Will be coerced into the data type configured. |
 
 </TabItem>
 
@@ -80,13 +82,13 @@ In your parent application, pass a string value into `contextValues`:
 ```ts
 import * as Rivet from '@valerypopoff/rivet2-node';
 
-const contextValues = {
+const context = {
   stringContext: 'str',
 };
 
 const processor = Rivet.createProcessor({
   ...etc,
-  contextValues,
+  context,
 });
 ```
 
@@ -96,7 +98,12 @@ Run your graph while the [Remote Debugger](../user-guide/remote-debugging.md) is
 
 ## Error Handling
 
-The context node cannot error in normal circumstances. If the context is not set via `contextValues`, then the default value will be used.
+The Context node normally does not error. It resolves values in this order:
+
+1. `contextValues[ID]`, coerced to the configured Data Type.
+2. The Default Value input, if the input toggle is enabled and the input is connected.
+3. The editor Default Value, coerced to the configured Data Type.
+4. The built-in default for the configured Data Type, such as an empty string, `0`, `false`, or an empty array.
 
 ## FAQ
 
@@ -107,8 +114,8 @@ A: Yes, you can pass in the current date as a context value:
 ```ts
 const processor = Rivet.createProcessor({
   ...etc,
-  contextValues: {
-    currentDate: new Date(),
+  context: {
+    currentDate: { type: 'date', value: new Date().toISOString().slice(0, 10) },
   },
 });
 ```
