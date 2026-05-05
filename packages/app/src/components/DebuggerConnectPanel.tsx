@@ -16,11 +16,12 @@ import {
 export function useToggleRemoteDebugger() {
   const setDebuggerPanelOpen = useSetAtom(debuggerPanelOpenState);
   const setDebuggerPanelAnchor = useSetAtom(debuggerPanelAnchorState);
-  const { sessionState: remoteDebugger, connect, disconnect } = useRemoteDebugger();
+  const { sessionState: remoteDebugger, disconnect } = useRemoteDebugger();
   const isActuallyRemoteDebugging = remoteDebugger.status !== 'idle' && !remoteDebugger.isInternalExecutor;
+  const isExternalDebuggerReconnecting = remoteDebugger.reconnecting && !remoteDebugger.isInternalExecutor;
 
   return () => {
-    if (isActuallyRemoteDebugging || remoteDebugger.reconnecting) {
+    if (isActuallyRemoteDebugging || isExternalDebuggerReconnecting) {
       disconnect();
     } else {
       setDebuggerPanelAnchor(undefined);

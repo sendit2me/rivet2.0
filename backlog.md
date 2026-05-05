@@ -6,7 +6,7 @@
 
 - When I scroll the search results, it jitters
 
-- Every several minutesm the remote debugger activates even thhough I switched it off. When I switched it on, it REactivates so that it is niticeable
+- Every several minutes the remote debugger activates even thhough I switched it off. When I switched it on, it REactivates so that it is niticeable
 
 - In the "Object" node, when copying the output, it copies a system structure instead of  a clean one
 

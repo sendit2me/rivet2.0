@@ -245,6 +245,24 @@ test('connectInternal marks custom hosted executor URLs as internal sessions', a
   assert.equal(sessionState.isInternalExecutor, true);
 });
 
+test('reconnect preserves internal classification for custom hosted executor URLs', async () => {
+  await runtime.connectInternal('ws://executor.example/internal');
+  const firstSocket = FakeWebSocket.instances[0]!;
+  firstSocket.open();
+  firstSocket.emitClose();
+
+  await new Promise((resolve) => setTimeout(resolve, 175));
+  const secondSocket = FakeWebSocket.instances[1]!;
+  secondSocket.open();
+
+  const sessionState = runtime.buildSessionState(debuggerConfig, connectionState);
+
+  assert.equal(secondSocket.url, 'ws://executor.example/internal');
+  assert.equal(sessionState.status, 'ready');
+  assert.equal(sessionState.url, 'ws://executor.example/internal');
+  assert.equal(sessionState.isInternalExecutor, true);
+});
+
 test('connectInternal replaces an external session even when the URL matches', async () => {
   await runtime.connect('ws://executor.example/internal');
   const externalSocket = FakeWebSocket.instances[0]!;
