@@ -853,6 +853,19 @@ and re-emitting each event on a provided `Emittery<ProcessEvents>` emitter. This
 means the app's standard event handlers (`onNodeStart`, `onGraphStart`, etc.)
 receive the same events during replay as during live execution.
 
+In the desktop app, replay is intentionally routed through the local executor
+path even when the selected live executor is Node. The ActionBar's `Play
+Recording` button still delegates to `useGraphExecutor`, but
+`shouldUseRemoteExecutor(...)` treats `loadedRecordingState` as a local replay
+override, and the ActionBar keeps playback enabled without waiting for the Node
+sidecar. Remote/app-executor sessions only run live graphs; they do not receive
+a `run` protocol message for recording playback. This override is scoped to
+graph playback and playback controls, so live features such as Trivet tests keep
+using the selected executor while a recording is loaded. The app blocks
+recording load/unload while an execution is active, which keeps the playback
+override stable for the lifetime of the run and prevents Abort/Pause/Resume from
+switching executor targets mid-run.
+
 The critical design point is **execution metadata parity**: replay emits events
 with the same `GraphExecutionMetadata` that was recorded, so:
 

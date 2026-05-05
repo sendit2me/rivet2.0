@@ -97,7 +97,7 @@ The node body shows the selected reasoning effort for built-in providers.
 
 ### Response Format
 
-Response format supports Default, Text, JSON, and JSON schema. JSON schema adds a Response Schema input port and optional schema name/description settings.
+Response format supports Default, Text, JSON, and JSON schema. JSON schema adds a Response Schema input port and optional schema name/description settings. For Custom provider, Rivet sends the same plain JSON-compatible schema as an OpenAI-compatible `response_format` request field so compatible endpoints receive the schema instead of only JSON mode.
 
 ### Tools
 

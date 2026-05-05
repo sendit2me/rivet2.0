@@ -192,6 +192,37 @@ describe('executionSelectors', () => {
     );
   });
 
+  test('action bar lets recording playback run without waiting for the node executor', () => {
+    const session = {
+      status: 'idle',
+      started: false,
+      reconnecting: false,
+      socket: null,
+      url: '',
+      remoteUploadAllowed: false,
+      isInternalExecutor: false,
+    } as const;
+
+    assert.deepEqual(
+      getActionBarExecutionState({
+        graphPaused: false,
+        graphRunning: false,
+        hasLoadedRecording: true,
+        selectedExecutor: 'nodejs',
+        session,
+      }),
+      {
+        canRun: true,
+        executorLoading: false,
+        graphPaused: false,
+        graphRunning: false,
+        isActuallyRemoteDebugging: false,
+        showRunButton: true,
+        showRemoteDebuggerBanner: false,
+      },
+    );
+  });
+
   test('getGraphRunsForView finds subgraph runs when navigating via root context', () => {
     const graphRunHistoryByView = {
       'root:main-graph': [
@@ -269,6 +300,15 @@ describe('executionSelectors', () => {
         session: { status: 'reconnecting' },
       }),
       true,
+    );
+
+    assert.equal(
+      shouldUseRemoteExecutor({
+        hasLoadedRecording: true,
+        selectedExecutor: 'nodejs',
+        session: { status: 'ready' },
+      }),
+      false,
     );
   });
 });

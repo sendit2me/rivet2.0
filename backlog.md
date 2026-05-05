@@ -8,6 +8,8 @@
 
 - Every several minutesm the remote debugger activates even thhough I switched it off. When I switched it on, it REactivates so that it is niticeable
 
+- In the "Object" node, when copying the output, it copies a system structure instead of  a clean one
+
 - Add for all nodes a special output that is true when the node is run. Or. The "if" input should accept anything as true if it was run
 
 - Need to show the curent graph name somewhere. When there's many and they are in the folders and you click through subgraphs, the user gets lost

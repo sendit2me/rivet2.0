@@ -835,6 +835,57 @@ describe('LLMChatV2NodeImpl', () => {
     assert.equal(inputById.get('responseSchemaDescription' as any)?.dataType, 'string');
   });
 
+  it('passes JSON schema response format to Custom provider OpenAI-compatible requests', async () => {
+    const schema = {
+      type: 'object',
+      properties: {
+        answer: { type: 'string' },
+      },
+      required: ['answer'],
+      additionalProperties: false,
+    };
+    const node = createNode({
+      provider: 'custom',
+      model: 'llama-custom',
+      customProviderBaseURL: 'https://api.cerebras.ai/v1',
+      customProviderApiKeyEnvVarName: 'CEREBRAS_API_KEY',
+      responseFormat: 'json_schema',
+      responseSchemaName: 'answer_schema',
+      responseSchemaDescription: 'Answer payload',
+      extraProviderOptions: '{ "customFlag": true, "response_format": { "type": "json_object" } }',
+    });
+    const context = createRuntimeContextWithPluginEnv({
+      CEREBRAS_API_KEY: 'sk-cerebras-secret',
+    });
+
+    const runtime = await resolveLLMChatV2RuntimeConfig({
+      data: node.data,
+      nodeId: node.chartNode.id,
+      inputs: createPromptInputs({
+        responseSchema: {
+          type: 'object',
+          value: schema,
+        },
+      }),
+      context,
+    });
+
+    assert.deepEqual(runtime.runOptions.providerOptions, {
+      custom: {
+        customFlag: true,
+        response_format: {
+          type: 'json_schema',
+          json_schema: {
+            name: 'answer_schema',
+            description: 'Answer payload',
+            strict: true,
+            schema,
+          },
+        },
+      },
+    });
+  });
+
   it('treats Tool use and structured response formats as mutually exclusive', () => {
     assert.equal(hasLLMChatV2ToolResponseFormatConflict({ useToolCalling: true, responseFormat: '' }), false);
     assert.equal(hasLLMChatV2ToolResponseFormatConflict({ useToolCalling: true, responseFormat: 'text' }), false);
