@@ -152,15 +152,17 @@ export function getNodeExecutionClassFlags(runData: NodeRunDataWithRefs | undefi
 export function getActionBarExecutionState(options: {
   graphPaused: boolean;
   graphRunning: boolean;
+  hasLoadedRecording?: boolean;
   selectedExecutor: DefaultExecutor;
   session: ExecutorSessionState;
 }) {
-  const { graphPaused, graphRunning, selectedExecutor, session } = options;
-  const canRun = session.status === 'ready' || selectedExecutor === 'browser';
+  const { graphPaused, graphRunning, hasLoadedRecording = false, selectedExecutor, session } = options;
+  const canRun = hasLoadedRecording || session.status === 'ready' || selectedExecutor === 'browser';
   const showRunButton = selectedExecutor === 'nodejs' || canRun;
   const isActuallyRemoteDebugging = session.status !== 'idle' && !session.isInternalExecutor;
   const showRemoteDebuggerBanner = isActuallyRemoteDebugging || (!session.isInternalExecutor && session.reconnecting);
-  const executorLoading = selectedExecutor === 'nodejs' && !graphRunning && !canRun && !isActuallyRemoteDebugging;
+  const executorLoading =
+    selectedExecutor === 'nodejs' && !hasLoadedRecording && !graphRunning && !canRun && !isActuallyRemoteDebugging;
 
   return {
     canRun,
@@ -174,8 +176,13 @@ export function getActionBarExecutionState(options: {
 }
 
 export function shouldUseRemoteExecutor(options: {
+  hasLoadedRecording?: boolean;
   selectedExecutor: DefaultExecutor;
   session: Pick<ExecutorSessionState, 'status'>;
 }) {
+  if (options.hasLoadedRecording) {
+    return false;
+  }
+
   return options.selectedExecutor === 'nodejs' || options.session.status === 'ready';
 }

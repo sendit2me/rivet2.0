@@ -169,6 +169,7 @@ export const ActionBar: FC<ActionBarProps> = ({ onRunGraph, onAbortGraph, onPaus
   const actionBarExecutionState = getActionBarExecutionState({
     graphPaused,
     graphRunning,
+    hasLoadedRecording: !!loadedRecording,
     selectedExecutor,
     session: remoteDebugger,
   });
@@ -237,7 +238,7 @@ export const ActionBar: FC<ActionBarProps> = ({ onRunGraph, onAbortGraph, onPaus
         </div>
       )}
 
-      {loadedRecording && (
+      {loadedRecording && !graphRunning && (
         <div className={clsx('unload-recording-button')}>
           <button onClick={() => unloadRecording()}>Unload Recording</button>
         </div>
@@ -289,7 +290,7 @@ export const ActionBar: FC<ActionBarProps> = ({ onRunGraph, onAbortGraph, onPaus
           </button>
         )}
       </div>
-      {hasMainGraph && !isMainGraph && !graphRunning && (
+      {hasMainGraph && !isMainGraph && !graphRunning && !loadedRecording && (
         <div className={clsx('run-button', { running: graphRunning })}>
           {actionBarExecutionState.showRunButton && (
             <button

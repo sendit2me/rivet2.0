@@ -1044,6 +1044,7 @@ based on:
 
 - `selectedExecutorState`
 - whether the remote debugger/sidecar connection is active
+- whether a recording is currently loaded for playback
 
 The app shell now bootstraps execution through `useExecutorSession`, which centralizes:
 
@@ -1059,6 +1060,9 @@ Current architectural detail:
 - sidecar/socket session ownership no longer lives directly in `useGraphExecutor`
 - the app still expects one internal sidecar process, not one sidecar per consumer
 - in browser executor mode, a `connecting` or `reconnecting` remote session does not preempt local browser execution; remote execution is only selected once the shared session is actually `ready`
+- loaded recording playback always routes graph runs and playback controls to `useLocalExecutor`, even when the live executor is Node and the sidecar is ready. Replay is an editor-local event-stream operation over `GraphProcessor.replayRecording(...)`, not a remote `run` protocol message, so it must not execute the graph through the app-executor sidecar.
+- other live-execution features such as Trivet test runs continue to follow the selected live executor.
+- recording load/unload is blocked while any execution is running so the active Abort/Pause/Resume controls keep targeting the executor that actually owns the run.
 
 ### Local executor
 
@@ -1071,7 +1075,7 @@ Current responsibilities:
 - attach event handlers to `GraphProcessor`
 - wire `userInput` callbacks into UI state
 - optionally record executions
-- support replaying loaded recordings
+- support replaying loaded recordings regardless of the selected live executor
 - support run-to and run-from execution
 - preload dependent outputs for partial reruns
 - provide browser-mode Trivet execution
