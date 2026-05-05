@@ -14,6 +14,7 @@ import { isInTauri } from '../utils/tauri.js';
 import { useRunMenuCommand } from '../hooks/useMenuCommands.js';
 import { useRivetWorkspaceHost } from '../hooks/useRivetWorkspaceHost.js';
 import { OverlayTabs } from './OverlayTabs.js';
+import { popupMenuListStyles, popupMenuRowStyles, popupMenuSeparatorStyles } from './PopupMenu.js';
 
 export const styles = css`
   position: absolute;
@@ -62,55 +63,28 @@ export const styles = css`
   }
 
   .file-dropdown {
+    ${popupMenuListStyles};
     display: none;
     position: absolute;
     top: 100%;
     left: 0;
-    background-color: var(--grey-darkest);
-    border: 2px solid var(--grey-darkish);
-    border-radius: var(--ui-button-radius-sm);
-    corner-shape: squircle;
-    box-shadow: 0 8px 16px var(--shadow-dark);
-    font-family: 'Roboto Mono', monospace;
-    color: var(--foreground);
-    font-size: var(--ui-font-size-compact);
-    padding: 8px;
     z-index: 300;
-    min-width: 150px;
   }
 
   .file-dropdown.open {
-    display: block;
+    display: flex;
   }
 
   .file-dropdown button {
-    display: block;
+    ${popupMenuRowStyles};
     width: 100%;
-    background: transparent;
-    border: 0;
-    border-radius: var(--ui-button-radius-sm);
-    corner-shape: squircle;
-    color: inherit;
-    cursor: pointer;
-    padding: 4px 8px;
     justify-content: flex-start;
     white-space: nowrap;
     text-align: left;
-    font-size: var(--ui-font-size-base);
-    transition:
-      background-color 0.1s ease-out,
-      color 0.1s ease-out;
-
-    &:hover {
-      background-color: var(--tertiary-light);
-      color: var(--primary-text);
-    }
   }
 
   .file-dropdown-separator {
-    height: 1px;
-    margin: 6px 4px;
-    background: var(--grey-darkish);
+    ${popupMenuSeparatorStyles};
   }
 
   .projects-container {

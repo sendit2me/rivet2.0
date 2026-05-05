@@ -1,5 +1,4 @@
 import Button from '@atlaskit/button';
-import { DropdownItem } from '@atlaskit/dropdown-menu';
 import Portal from '@atlaskit/portal';
 import { type DatasetId, type DatasetMetadata, newId } from '@valerypopoff/rivet2-core';
 import { type FC, useState } from 'react';
@@ -9,22 +8,8 @@ import { useDatasets } from '../../hooks/useDatasets';
 import { selectedDatasetState } from '../../state/dataStudio';
 import { projectState } from '../../state/savedGraphs';
 import { DatasetListItem } from './DatasetListItem';
-import { css } from '@emotion/react';
-import { autoUpdate, shift, useFloating } from '@floating-ui/react';
 import { wrapAsync } from '../../utils/errorHandling';
-
-const contextMenuStyles = css`
-  position: absolute;
-  border: 1px solid var(--grey);
-  box-shadow: 0 3px 5px rgba(0, 0, 0, 0.2);
-  background: var(--grey-dark);
-  min-width: max-content;
-
-  > button span {
-    // This fixes a bug in Ubuntu where the text is missing
-    overflow-x: visible !important;
-  }
-`;
+import { PopupMenu, PopupMenuItem } from '../PopupMenu';
 
 export const DatasetList: FC<{}> = () => {
   const [selectedDataset, setSelectedDataset] = useAtom(selectedDatasetState);
@@ -130,12 +115,12 @@ export const DatasetList: FC<{}> = () => {
               top: contextMenuData.y,
             }}
           >
-            <div ref={refs.setFloating} style={floatingStyles} css={contextMenuStyles}>
-              <DropdownItem onClick={() => setRenamingDataset(selectedDatasetForContextMenu?.id)}>Rename</DropdownItem>
-              <DropdownItem onClick={() => deleteDataset(selectedDatasetForContextMenu!)}>
+            <PopupMenu ref={refs.setFloating} style={floatingStyles} minWidth="max-content">
+              <PopupMenuItem onClick={() => setRenamingDataset(selectedDatasetForContextMenu?.id)}>Rename</PopupMenuItem>
+              <PopupMenuItem tone="danger" onClick={() => deleteDataset(selectedDatasetForContextMenu!)}>
                 Delete
-              </DropdownItem>
-            </div>
+              </PopupMenuItem>
+            </PopupMenu>
           </div>
         )}
       </Portal>

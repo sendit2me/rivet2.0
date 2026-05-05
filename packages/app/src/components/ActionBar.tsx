@@ -16,6 +16,7 @@ import Popup from '@atlaskit/popup';
 import { useRemoteDebugger } from '../hooks/useRemoteDebugger';
 import { ActionBarMoreMenu } from './ActionBarMoreMenu';
 import { CopyAsTestCaseModal } from './CopyAsTestCaseModal';
+import { PopupMenuContainer } from './PopupMenu.js';
 import { useToggle } from 'ahooks';
 import { useDependsOnPlugins } from '../hooks/useDependsOnPlugins';
 import { GentraceInteractors } from './gentrace/GentraceInteractors';
@@ -312,6 +313,7 @@ export const ActionBar: FC<ActionBarProps> = ({ onRunGraph, onAbortGraph, onPaus
       <Popup
         isOpen={menuIsOpen}
         onClose={toggleMenuIsOpen.setLeft}
+        popupComponent={PopupMenuContainer}
         content={() => (
           <ActionBarMoreMenu
             getDebuggerPanelAnchor={getDebuggerPanelAnchor}

@@ -1,5 +1,4 @@
 import Button from '@atlaskit/button';
-import { DropdownItem } from '@atlaskit/dropdown-menu';
 import Portal from '@atlaskit/portal';
 import { css } from '@emotion/react';
 import {
@@ -26,6 +25,7 @@ import { useAtomValue } from 'jotai';
 import { projectMetadataState } from '../../state/savedGraphs';
 import { useDatasetProvider, useIOProvider } from '../../providers/ProvidersContext';
 import { handleError, wrapAsync } from '../../utils/errorHandling';
+import { PopupMenu, PopupMenuItem } from '../PopupMenu';
 
 const datasetDisplayStyles = css`
   padding: 16px;
@@ -81,19 +81,6 @@ const datasetDisplayStyles = css`
 
   .table-viewer {
     overflow: auto;
-  }
-`;
-
-const contextMenuStyles = css`
-  position: absolute;
-  border: 1px solid var(--grey);
-  box-shadow: 0 3px 5px rgba(0, 0, 0, 0.2);
-  background: var(--grey-dark);
-  min-width: max-content;
-
-  > button span {
-    // This fixes a bug in Ubuntu where the text is missing
-    overflow-x: visible !important;
   }
 `;
 
@@ -342,53 +329,58 @@ export const DatasetDisplay: FC<{
       </div>
       <Portal>
         {showContextMenu && contextMenuData.data?.type === 'cell' && !isFiltered && (
-          <div
+          <PopupMenu
             className="context-menu"
-            css={contextMenuStyles}
+            minWidth="max-content"
             style={{
+              position: 'absolute',
               zIndex: 500,
               left: contextMenuData.x,
               top: contextMenuData.y,
             }}
           >
-            <DropdownItem
+            <PopupMenuItem
               onClick={wrapAsync(() => datasetMethods.insertRowAbove(parseInt(selectedCellRow!, 10)), 'Insert row above')}
             >
               Insert Row Above
-            </DropdownItem>
-            <DropdownItem
+            </PopupMenuItem>
+            <PopupMenuItem
               onClick={wrapAsync(() => datasetMethods.insertRowBelow(parseInt(selectedCellRow!, 10)), 'Insert row below')}
             >
               Insert Row Below
-            </DropdownItem>
-            <DropdownItem
+            </PopupMenuItem>
+            <PopupMenuItem
               onClick={wrapAsync(
                 () => datasetMethods.insertColumnLeft(parseInt(selectedCellColumn!, 10)),
                 'Insert column left',
               )}
             >
               Insert Column Left
-            </DropdownItem>
-            <DropdownItem
+            </PopupMenuItem>
+            <PopupMenuItem
               onClick={wrapAsync(
                 () => datasetMethods.insertColumnRight(parseInt(selectedCellColumn!, 10)),
                 'Insert column right',
               )}
             >
               Insert Column Right
-            </DropdownItem>
-            <DropdownItem onClick={wrapAsync(() => datasetMethods.deleteRow(parseInt(selectedCellRow!, 10)), 'Delete row')}>
+            </PopupMenuItem>
+            <PopupMenuItem
+              tone="danger"
+              onClick={wrapAsync(() => datasetMethods.deleteRow(parseInt(selectedCellRow!, 10)), 'Delete row')}
+            >
               Delete Row
-            </DropdownItem>
-            <DropdownItem
+            </PopupMenuItem>
+            <PopupMenuItem
+              tone="danger"
               onClick={wrapAsync(
                 () => datasetMethods.deleteColumn(parseInt(selectedCellColumn!, 10)),
                 'Delete column',
               )}
             >
               Delete Column
-            </DropdownItem>
-          </div>
+            </PopupMenuItem>
+          </PopupMenu>
         )}
       </Portal>
     </div>

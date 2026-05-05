@@ -3,6 +3,7 @@ import { type FC } from 'react';
 import Popup from '@atlaskit/popup';
 import { useToggle } from 'ahooks';
 import { css } from '@emotion/react';
+import { PopupMenuContainer, popupMenuSurfaceStyles } from './PopupMenu.js';
 
 const buttonStyles = css`
   display: block;
@@ -44,6 +45,7 @@ const buttonStyles = css`
 `;
 
 const popupStyles = css`
+  ${popupMenuSurfaceStyles};
   display: grid;
   grid-template-columns: auto auto;
   gap: 4px;
@@ -121,6 +123,7 @@ export const NodeColorPicker: FC<{
 
   return (
     <Popup
+      popupComponent={PopupMenuContainer}
       content={() => (
         <div css={popupStyles}>
           <button

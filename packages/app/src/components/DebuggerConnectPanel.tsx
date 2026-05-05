@@ -12,6 +12,7 @@ import {
   DEBUGGER_PANEL_Z_INDEX,
   resolveDebuggerPanelPosition,
 } from '../utils/debuggerPanelPosition.js';
+import { popupMenuSurfaceStyles } from './PopupMenu.js';
 
 export function useToggleRemoteDebugger() {
   const setDebuggerPanelOpen = useSetAtom(debuggerPanelOpenState);
@@ -61,13 +62,12 @@ export const DebuggerPanelRenderer: FC = () => {
 };
 
 const styles = css`
+  ${popupMenuSurfaceStyles};
   display: flex;
   flex-direction: column;
   gap: 16px;
   position: fixed;
-  background: var(--grey-darker);
   padding: 4px 16px 16px 16px; // atlaskit padding on top
-  box-shadow: 0 8px 16px var(--shadow-dark);
   width: ${DEBUGGER_PANEL_WIDTH}px;
   z-index: ${DEBUGGER_PANEL_Z_INDEX};
 
