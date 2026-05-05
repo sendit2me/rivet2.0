@@ -29,7 +29,6 @@ import { fillMissingSettingsFromEnvironmentVariables } from '../utils/tauri';
 import { getLLMChatV2CustomProviderApiKeyEnvVarNames } from '../utils/chatV2CustomProviderEnv';
 import { trivetState } from '../state/trivet';
 import { runTrivet } from '@valerypopoff/trivet';
-import { entries } from '../utils/typeSafety';
 import { lastRunDataByNodeState } from '../state/dataFlow';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { TauriProjectReferenceLoader } from '../model/TauriProjectReferenceLoader';
@@ -45,6 +44,7 @@ import { handleError } from '../utils/errorHandling.js';
 import { getDependentDataForNodeForPreload } from './remoteExecutorHelpers.js';
 import { pluginsState } from '../state/plugins.js';
 import { withDerivedProjectPluginSpecs } from '../utils/pluginUsage.js';
+import { getProjectContextValues } from '../utils/projectContextValues.js';
 
 /**
  * Yield to the macrotask queue so the browser can repaint.
@@ -225,13 +225,7 @@ export function useLocalExecutor() {
         if (loadedRecording) {
           results = await processor.replayRecording(loadedRecording.recorder);
         } else {
-          const contextValues = entries(projectContext).reduce(
-            (acc, [key, value]) => ({
-              ...acc,
-              [key]: value.value,
-            }),
-            {} as Record<string, DataValue>,
-          );
+          const contextValues = getProjectContextValues(projectContext);
 
           results = await processor.processGraph(
             {
@@ -322,6 +316,7 @@ export function useLocalExecutor() {
             const processor = new GraphProcessor(project, graphId, projectNodeRegistry, true);
             processor.executor = 'browser';
             attachGraphEvents(processor);
+            const contextValues = getProjectContextValues(projectContext);
             return processor.processGraph(
               {
                 settings: await fillMissingSettingsFromEnvironmentVariables(
@@ -338,6 +333,7 @@ export function useLocalExecutor() {
                 tokenizer: new GptTokenizerTokenizer(),
               },
               inputs,
+              contextValues,
             );
           },
         });

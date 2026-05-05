@@ -6,8 +6,9 @@ import type { NativeApi } from '../../native/NativeApi.js';
 import type { Recording } from '../../recording/RecordedEvents.js';
 import type { RivetPlugin, SecretPluginConfigurationSpec } from '../../model/RivetPlugin.js';
 import type { Settings } from '../../model/Settings.js';
+import type { DataValue } from '../../model/DataValue.js';
 import { globalRivetNodeRegistry } from '../../model/Nodes.js';
-import { mapValues } from 'lodash-es';
+import { cloneDeep, mapValues } from 'lodash-es';
 import { GptTokenizerTokenizer } from '../../integrations/GptTokenizerTokenizer.js';
 import { ExecutionRecorder } from '../../recording/ExecutionRecorder.js';
 import { inferType } from '../../utils/coerceType.js';
@@ -34,6 +35,7 @@ export const runGentraceTests = async (
   project: Omit<Project, 'data'>,
   graph: NodeGraph,
   nativeApi: NativeApi,
+  contextValues: Record<string, DataValue> = {},
 ) => {
   const gentraceApiKey = settings.pluginSettings?.gentrace?.gentraceApiKey as string | undefined;
 
@@ -71,6 +73,7 @@ export const runGentraceTests = async (
     processor.executor = 'browser';
 
     recorder.record(processor);
+    const runContextValues = cloneDeep(contextValues);
     await processor.processGraph(
       {
         settings,
@@ -78,6 +81,7 @@ export const runGentraceTests = async (
         tokenizer: new GptTokenizerTokenizer(),
       },
       rivetFormattedInputs,
+      runContextValues,
     );
 
     const fullRecording = recorder.getRecording();

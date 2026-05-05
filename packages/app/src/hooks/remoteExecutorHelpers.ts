@@ -1,6 +1,5 @@
 import {
   GraphProcessor,
-  type DataValue,
   type GraphId,
   type NodeId,
   type NodeRegistration,
@@ -8,9 +7,7 @@ import {
   type ProcessEvents,
   type Project,
 } from '@valerypopoff/rivet2-core';
-import { entries } from '../utils/typeSafety.js';
 import type { RunDataByNodeId } from '../state/dataFlow.js';
-import type { ProjectContext } from '../state/savedGraphs.js';
 import type { DataRefReader } from '../providers/ProvidersContext.js';
 import { restoreStoredPortMap } from '../utils/executionDataReaders.js';
 import { getGlobalDataRef } from '../utils/globals/globalDataRefs.js';
@@ -18,16 +15,6 @@ import { getGlobalDataRef } from '../utils/globals/globalDataRefs.js';
 const dataRefs: DataRefReader = {
   get: getGlobalDataRef,
 };
-
-export function getContextValues(projectContext: ProjectContext): Record<string, DataValue> {
-  return entries(projectContext).reduce(
-    (acc, [id, value]) => ({
-      ...acc,
-      [id]: value.value,
-    }),
-    {} as Record<string, DataValue>,
-  );
-}
 
 export function getDependentDataForNodeForPreload(dependencyNodes: NodeId[], previousRunData: RunDataByNodeId) {
   const preloadData: Record<NodeId, Outputs> = {};

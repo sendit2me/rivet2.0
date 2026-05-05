@@ -735,6 +735,7 @@ Important nuance:
 - active graph edits can exist in `graphState` before they are merged back into `projectState.graphs`; that sync boundary is owned by `useSaveCurrentGraph` and the workspace transition layer
 - large attached static data is held separately in `projectDataState`
 - per-project context values are persisted separately via `projectContextState(projectId)`
+- app-side execution paths must convert `projectContextState` through [`getProjectContextValues`](../packages/app/src/utils/projectContextValues.ts) before starting a graph; it unwraps and clones the stored values so local browser-mode node code cannot mutate persisted UI state by reference. Normal browser runs, Node/remote runs, Trivet test runs, and Gentrace test runs should all receive the same `Record<string, DataValue>` payload for `Context` nodes and `@context.*` interpolation
 - open-project tab state is persisted separately in `projectsState` but now stores only lightweight tab metadata rather than a full project payload
 - full restoration payloads for inactive tabs live in `openedProjectSnapshotsState` and are treated as explicit restoration artifacts instead of the canonical tab model
 - when replacing the current project, `projectDataState` is replaced for the new project and the IndexedDB static-data cache is cleared before loading the new project's data

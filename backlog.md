@@ -6,7 +6,15 @@
 
 - When I scroll the search results, it jitters
 
+- Every several minutesm the remote debugger activates even thhough I switched it off. When I switched it on, it REactivates so that it is niticeable
+
 - Add for all nodes a special output that is true when the node is run. Or. The "if" input should accept anything as true if it was run
+
+- Need to show the curent graph name somewhere. When there's many and they are in the folders and you click through subgraphs, the user gets lost
+
+- Sometimes (after opening the full output panel) the connections between nodes get clipped as if the view port was smaller that the visible artboard area
+
+- When in the node settings panel and I click elsewhere and hit the comments node, the panel doesn't close
 
 - In the "Project" tab, the "Context" section is visuallly broken when the variable is an object (just doesn't fit into the view)
 

@@ -7,13 +7,14 @@ import {
 } from '../NodeBase.js';
 import { nanoid } from 'nanoid/non-secure';
 import { NodeImpl, type NodeUIData } from '../NodeImpl.js';
-import { type DataType, type DataValue } from '../DataValue.js';
+import { type DataType, type DataValue, getDefaultValue } from '../DataValue.js';
 import { type Inputs, type Outputs } from '../GraphProcessor.js';
 import { type InternalProcessContext } from '../ProcessContext.js';
 import { dedent } from 'ts-dedent';
 import { type EditorDefinition } from '../EditorDefinition.js';
 import { type NodeBodySpec } from '../NodeBodySpec.js';
 import { nodeDefinition } from '../NodeDefinition.js';
+import { coerceTypeOptional, inferType } from '../../utils/coerceType.js';
 
 export type ContextNode = ChartNode<'context', ContextNodeData>;
 
@@ -102,23 +103,37 @@ export class ContextNodeImpl extends NodeImpl<ContextNode> {
   }
 
   async process(inputs: Inputs, context: InternalProcessContext): Promise<Outputs> {
-    const contextValue = context.contextValues[this.data.id];
+    const contextValue =
+      context.contextValues?.[this.data.id] == null
+        ? undefined
+        : coerceTypeOptional(context.contextValues[this.data.id], this.data.dataType);
 
-    if (contextValue !== undefined) {
+    if (contextValue != null) {
       return {
-        ['data' as PortId]: contextValue,
+        ['data' as PortId]: {
+          type: this.data.dataType,
+          value: contextValue,
+        } as DataValue,
       };
     }
 
-    let defaultValue;
+    let defaultValue: DataValue['value'] | undefined;
+
     if (this.data.useDefaultValueInput) {
-      defaultValue = inputs['default' as PortId]!;
-    } else {
-      defaultValue = { type: this.data.dataType, value: this.data.defaultValue } as DataValue;
+      const defaultInputValue = inputs['default' as PortId];
+      defaultValue = defaultInputValue == null ? undefined : coerceTypeOptional(defaultInputValue, this.data.dataType);
+    }
+
+    if (defaultValue == null) {
+      defaultValue =
+        coerceTypeOptional(inferType(this.data.defaultValue), this.data.dataType) ?? getDefaultValue(this.data.dataType);
     }
 
     return {
-      ['data' as PortId]: defaultValue,
+      ['data' as PortId]: {
+        type: this.data.dataType,
+        value: defaultValue,
+      } as DataValue,
     };
   }
 }
