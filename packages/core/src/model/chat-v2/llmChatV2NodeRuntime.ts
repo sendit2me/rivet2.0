@@ -4,7 +4,11 @@ import type { GptFunction } from '../DataValue.js';
 import type { Inputs, Outputs } from '../GraphProcessor.js';
 import type { PortId } from '../NodeBase.js';
 import type { InternalProcessContext } from '../ProcessContext.js';
-import { createChatV2ResponseOutput, resolveChatV2ResponseFormatParameters } from './chatV2ResponseFormat.js';
+import {
+  createChatV2ResponseOutput,
+  mergeCustomProviderResponseFormatOptions,
+  resolveChatV2ResponseFormatParameters,
+} from './chatV2ResponseFormat.js';
 import {
   hasLLMChatV2ToolResponseFormatConflict,
   LLM_CHAT_V2_TOOL_RESPONSE_FORMAT_CONFLICT_COPY,
@@ -78,9 +82,13 @@ export async function resolveLLMChatV2RuntimeConfig(params: {
     data.useToolCalling && inputs['functions' as PortId] != null
       ? (coerceTypeOptional(inputs['functions' as PortId], 'gpt-function[]') as GptFunction[] | undefined)
       : undefined;
-  const providerOptions = resolveLLMChatV2RuntimeProviderOptions(data, inputs);
   const toolChoice = resolveLLMChatV2ToolChoice(data);
   const responseFormatParameters = resolveChatV2ResponseFormatParameters(data, inputs);
+  const providerOptions = mergeCustomProviderResponseFormatOptions(
+    provider,
+    resolveLLMChatV2RuntimeProviderOptions(data, inputs),
+    responseFormatParameters,
+  );
   const generationParameters = resolveLLMChatV2GenerationParameters(data, inputs);
   const runOptions: RunChatV2PipelineOptions = {
     provider,
