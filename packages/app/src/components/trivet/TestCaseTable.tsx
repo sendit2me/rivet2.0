@@ -8,11 +8,11 @@ import { LoadingSpinner } from '../LoadingSpinner';
 import { useContextMenu } from '../../hooks/useContextMenu';
 import { useStableCallback } from '../../hooks/useStableCallback';
 import Portal from '@atlaskit/portal';
-import { DropdownItem } from '@atlaskit/dropdown-menu';
 import MultiplyIcon from 'majesticons/line/multiply-line.svg?react';
 import PlayIcon from 'majesticons/line/play-circle-line.svg?react';
 import Popup from '@atlaskit/popup';
 import TextField from '@atlaskit/textfield';
+import { PopupMenu, PopupMenuContainer, PopupMenuItem, popupMenuSurfaceStyles } from '../PopupMenu';
 
 const containerStyles = css`
   display: flex;
@@ -147,20 +147,8 @@ const styles = css`
   }
 `;
 
-const contextMenuStyles = css`
-  position: absolute;
-  border: 1px solid var(--grey);
-  box-shadow: 0 3px 5px rgba(0, 0, 0, 0.2);
-  background: var(--grey-dark);
-  min-width: max-content;
-
-  > button span {
-    // This fixes a bug in Ubuntu where the text is missing
-    overflow-x: visible !important;
-  }
-`;
-
 const runWithIterationPopupStyles = css`
+  ${popupMenuSurfaceStyles};
   padding: 12px 16px;
   display: flex;
   align-items: center;
@@ -248,6 +236,7 @@ export const TestCaseTable: FC<TestCaseTableProps> = ({
 
               <Popup
                 isOpen={showingIterationPopupState?.testCaseId === testCase.id}
+                popupComponent={PopupMenuContainer}
                 trigger={(props) => <div {...props} style={{ height: '24px', width: '1px' }} />}
                 content={(props) => (
                   <div {...props} css={runWithIterationPopupStyles}>
@@ -298,52 +287,55 @@ export const TestCaseTable: FC<TestCaseTableProps> = ({
       </div>
       <Portal>
         {showContextMenu && contextMenuData.data?.type === 'test-case-table' && (
-          <div
-            css={contextMenuStyles}
+          <PopupMenu
             className="test-suite-list-context-menu"
+            minWidth="max-content"
             style={{
+              position: 'absolute',
               zIndex: 500,
               left: contextMenuData.x,
               top: contextMenuData.y,
             }}
           >
-            <DropdownItem onClick={() => onAddTestCase()}>New Test Case</DropdownItem>
-          </div>
+            <PopupMenuItem onClick={() => onAddTestCase()}>New Test Case</PopupMenuItem>
+          </PopupMenu>
         )}
         {showContextMenu && contextMenuData.data?.type === 'test-case-item' && (
-          <div
-            css={contextMenuStyles}
+          <PopupMenu
             className="test-suite-list-context-menu"
+            minWidth="max-content"
             style={{
+              position: 'absolute',
               zIndex: 500,
               left: contextMenuData.x,
               top: contextMenuData.y,
             }}
           >
-            <DropdownItem
+            <PopupMenuItem
               onClick={() => selectedTestCaseIdForContextMenu && onRunTestCase(selectedTestCaseIdForContextMenu)}
             >
               Run Test Case
-            </DropdownItem>
-            <DropdownItem
+            </PopupMenuItem>
+            <PopupMenuItem
               onClick={() =>
                 selectedTestCaseIdForContextMenu &&
                 setShowingIterationPopupState({ testCaseId: selectedTestCaseIdForContextMenu, iterationCount: 1 })
               }
             >
               Run With Iteration Count...
-            </DropdownItem>
-            <DropdownItem
+            </PopupMenuItem>
+            <PopupMenuItem
               onClick={() => selectedTestCaseIdForContextMenu && onDuplicateTestCase(selectedTestCaseIdForContextMenu)}
             >
               Duplicate
-            </DropdownItem>
-            <DropdownItem
+            </PopupMenuItem>
+            <PopupMenuItem
+              tone="danger"
               onClick={() => selectedTestCaseIdForContextMenu && onDeleteTestCase(selectedTestCaseIdForContextMenu)}
             >
               Delete
-            </DropdownItem>
-          </div>
+            </PopupMenuItem>
+          </PopupMenu>
         )}
       </Portal>
     </div>

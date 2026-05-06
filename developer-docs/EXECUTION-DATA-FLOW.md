@@ -584,8 +584,12 @@ the desktop app.
 hosted executor URL connected through `connectInternal(...)` is treated as the
 active internal Node executor, so manual remote-debugger disconnect restores that
 session and the ActionBar keeps Node-mode run controls in an explicit disabled loading
-state only while the internal executor is genuinely connecting. External remote debuggers should
-continue to use the public `connect(...)` path.
+state only while the internal executor is genuinely connecting. Hosted internal
+executor reconnects must preserve that internal classification after proxy,
+server, or idle websocket closes; otherwise `/ws/executor/internal` can be
+misrepresented as a user-attached remote debugger. External remote debuggers
+should continue to use the public `connect(...)` path, and remote-debugger UI
+should only show disconnect/reconnect affordances for non-internal sessions.
 
 The app-executor sidecar treats graph failures as request-scoped execution
 events rather than process/session failures. If a dynamic run throws because a

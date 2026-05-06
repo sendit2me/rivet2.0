@@ -305,14 +305,6 @@ const styles = css`
 
 const contextMenuStyles = css`
   ${menuStyles};
-
-  min-width: 180px;
-
-  svg {
-    width: 16px;
-    height: 16px;
-    flex-shrink: 0;
-  }
 `;
 
 const deleteGraphConfirmBody = css`

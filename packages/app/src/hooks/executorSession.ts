@@ -252,13 +252,16 @@ export function createExecutorSessionRuntime(options: {
 
       const nextRetryDelay = Math.min(2000, (retryDelay + 100) * 1.5);
       retryDelay = nextRetryDelay;
+      const reconnectUrl = currentUrl;
+      const reconnectIsInternalExecutor = socketIsInternalExecutor;
+
       logRuntimeDebug('Executor websocket reconnect scheduled.', {
-        target: targetLabel(currentIsInternalExecutor),
+        target: targetLabel(reconnectIsInternalExecutor),
         retryDelayMs: nextRetryDelay,
       });
 
       reconnectingTimeout = setTimeout(() => {
-        void connect(currentUrl);
+        void connect(reconnectUrl, { isInternalExecutor: reconnectIsInternalExecutor });
       }, nextRetryDelay);
     };
 

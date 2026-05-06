@@ -135,6 +135,7 @@ export const VisualNode = memo(
               overlayNode: isOverlay,
               selected: isSelected,
               hovered: isHovered,
+              hasCustomColor: !!node.visualData.color,
               searchMatch: isSearchMatch,
               dragging: isDragging,
               showHoverControls: shouldShowHoverControls,

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { ChartNode, NodeConnection, NodeId, PortId } from '@valerypopoff/rivet2-core';
 import { getConnectionCacheKeys, getNodePortPosition } from '../Wire.js';
 import type { PortPositions } from '../NodeCanvas.js';
-import { lineCrossesViewport } from '../../utils/lineClipping.js';
+import { lineCrossesViewport, type LineClipRect } from '../../utils/lineClipping.js';
 import { useStableCallback } from '../../hooks/useStableCallback.js';
 import { markCanvasPerfEnd, markCanvasPerfStart, setCanvasPerf } from './canvasPerfDebug.js';
 import { getRenderableWireCandidates } from './getRenderableWireCandidates.js';
@@ -23,6 +23,7 @@ export function useRenderableWires({
   portPositions,
   runningNodeIdSet,
   visibleNodeIdSet,
+  viewportClientRect,
 }: {
   canvasToClientPosition: CanvasPositionConverter;
   connections: NodeConnection[];
@@ -43,6 +44,7 @@ export function useRenderableWires({
   portPositions: PortPositions;
   runningNodeIdSet: ReadonlySet<NodeId>;
   visibleNodeIdSet: ReadonlySet<NodeId>;
+  viewportClientRect: LineClipRect;
 }): NodeConnection[] {
   const candidateConnections = useMemo(
     () =>
@@ -84,7 +86,11 @@ export function useRenderableWires({
       const start = getNodePortPosition(outputNode, connection.outputId, outputCacheKey, portPositions);
       const end = getNodePortPosition(inputNode, connection.inputId, inputCacheKey, portPositions);
 
-      return lineCrossesViewport(canvasToClientPosition(start.x, start.y), canvasToClientPosition(end.x, end.y));
+      return lineCrossesViewport(
+        canvasToClientPosition(start.x, start.y),
+        canvasToClientPosition(end.x, end.y),
+        viewportClientRect,
+      );
     });
 
     setCanvasPerf('WireLayer:renderableWireCount', nextRenderableWires.length);
@@ -113,6 +119,7 @@ export function useRenderableWires({
     nodesById,
     portPositions,
     recalculateRenderableWires,
+    viewportClientRect,
   ]);
 
   return renderableWires;

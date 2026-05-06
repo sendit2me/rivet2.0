@@ -4,10 +4,10 @@ import clsx from 'clsx';
 import { useContextMenu } from '../../hooks/useContextMenu';
 import { useStableCallback } from '../../hooks/useStableCallback';
 import Portal from '@atlaskit/portal';
-import { DropdownItem } from '@atlaskit/dropdown-menu';
 import { type TrivetTestSuite } from '@valerypopoff/trivet';
 import Tabs, { Tab, TabList, TabPanel } from '@atlaskit/tabs';
 import { LoadingSpinner } from '../LoadingSpinner';
+import { PopupMenu, PopupMenuItem } from '../PopupMenu';
 
 const styles = css`
   min-height: 100%;
@@ -47,19 +47,6 @@ const styles = css`
   .test-suite-status {
     width: 20px;
     margin-right: 4px;
-  }
-`;
-
-const contextMenuStyles = css`
-  position: absolute;
-  border: 1px solid var(--grey);
-  box-shadow: 0 3px 5px rgba(0, 0, 0, 0.2);
-  background: var(--grey-dark);
-  min-width: max-content;
-
-  > button span {
-    // This fixes a bug in Ubuntu where the text is missing
-    overflow-x: visible !important;
   }
 `;
 
@@ -133,35 +120,39 @@ export const TestSuiteList: FC<TestSuiteListProps> = ({
       </Tabs>
       <Portal>
         {showContextMenu && contextMenuData.data?.type === 'test-suite-list' && (
-          <div
-            css={contextMenuStyles}
+          <PopupMenu
             className="test-suite-list-context-menu"
+            minWidth="max-content"
             style={{
+              position: 'absolute',
               zIndex: 500,
               left: contextMenuData.x,
               top: contextMenuData.y,
             }}
           >
-            <DropdownItem onClick={handleNew}>New Test Suite</DropdownItem>
-          </div>
+            <PopupMenuItem onClick={handleNew}>New Test Suite</PopupMenuItem>
+          </PopupMenu>
         )}
         {showContextMenu && contextMenuData.data?.type === 'test-suite-item' && (
-          <div
-            css={contextMenuStyles}
+          <PopupMenu
             className="test-suite-list-context-menu"
+            minWidth="max-content"
             style={{
+              position: 'absolute',
               zIndex: 500,
               left: contextMenuData.x,
               top: contextMenuData.y,
             }}
           >
-            <DropdownItem
+            <PopupMenuItem
               onClick={() => selectedTestSuiteIdForContextMenu && runTestSuite(selectedTestSuiteIdForContextMenu)}
             >
               Run Test Suite
-            </DropdownItem>
-            <DropdownItem onClick={() => handleDelete(selectedTestSuiteIdForContextMenu)}>Delete</DropdownItem>
-          </div>
+            </PopupMenuItem>
+            <PopupMenuItem tone="danger" onClick={() => handleDelete(selectedTestSuiteIdForContextMenu)}>
+              Delete
+            </PopupMenuItem>
+          </PopupMenu>
         )}
       </Portal>
     </div>

@@ -21,6 +21,7 @@ import { useAtomValue } from 'jotai';
 import { wrapAsync } from '../../utils/errorHandling';
 import { useEnvironmentProvider } from '../../providers/ProvidersContext.js';
 import { getProjectContextValues } from '../../utils/projectContextValues.js';
+import { PopupMenuContainer } from '../PopupMenu.js';
 
 export const GentraceInteractors = () => {
   const project = useAtomValue(projectState);
@@ -170,6 +171,7 @@ export const GentraceInteractors = () => {
       <Popup
         isOpen={gentracePipelineSelectorOpen}
         onClose={toggleGentracePipelineSelectorOpen.setLeft}
+        popupComponent={PopupMenuContainer}
         content={() => <GentracePipelinePicker onClose={toggleGentracePipelineSelectorOpen.setLeft} />}
         placement="bottom-end"
         trigger={(triggerProps) => (

@@ -2,7 +2,7 @@ import { DndContext, useDroppable } from '@dnd-kit/core';
 import { useMergeRefs } from '@floating-ui/react';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { produce } from 'immer';
-import { type FC, type MouseEvent, useEffect, useMemo, useState } from 'react';
+import { type FC, type MouseEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { type ChartNode, type CommentNode, type NodeConnection, type NodeId } from '@valerypopoff/rivet2-core';
 import { useDeleteNodesCommand } from '../commands/deleteNodeCommand';
 import { useEditNodeCommand } from '../commands/editNodeCommand';
@@ -95,6 +95,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
   const [isDraggingCanvas, setIsDraggingCanvas] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0, canvasStartX: 0, canvasStartY: 0 });
   const [contextMenuDisabled, setContextMenuDisabled] = useState(true);
+  const canvasRootRef = useRef<HTMLDivElement>(null);
 
   const selectedGraphMetadata = useAtomValue(graphMetadataState);
   const closestPort = useAtomValue(draggingWireClosestPortState);
@@ -172,7 +173,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
   const isDraggingWire = !!draggingWire;
 
   const shouldRenderWires = canvasPosition.zoom > 0.15;
-  const viewportBounds = useViewportBounds();
+  const viewportBounds = useViewportBounds(canvasRootRef);
   const draggingViewportNodeIds = useMemo(
     () => getDraggingViewportNodeIds({ draggedSourceNodeIds, draggingNodes }),
     [draggedSourceNodeIds, draggingNodes],
@@ -335,7 +336,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
   });
 
   const { setNodeRef } = useDroppable({ id: 'NodeCanvas' });
-  const setCanvasRef = useMergeRefs([setNodeRef, canvasRef]);
+  const setCanvasRef = useMergeRefs([setNodeRef, canvasRef, canvasRootRef]);
 
   const nodeSelected = useStableCallback((node: ChartNode, multi: boolean) => {
     onNodeSelected?.(node, multi);
@@ -545,6 +546,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
             shouldRenderWires={shouldRenderWires}
             showContextMenu={showContextMenu}
             visibleNodeIdSet={visibleNodeIdSet}
+            viewportClientRect={viewportBounds.clientRect}
           />
         )}
         <MultiNodeAlignmentToolbar canvasRootRef={canvasRef} selectedNodes={selectedNodes} />

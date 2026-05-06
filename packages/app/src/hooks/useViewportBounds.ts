@@ -1,48 +1,132 @@
-import { useLayoutEffect, useMemo, useState } from 'react';
+import { type RefObject, useLayoutEffect, useMemo, useState } from 'react';
 import { useCanvasPositioning } from './useCanvasPositioning.js';
 import { type CanvasPosition } from '../state/graphBuilder.js';
 
-interface ViewportBounds {
+interface ViewportClientRect {
   left: number;
   top: number;
   right: number;
   bottom: number;
 }
 
-export function useViewportBounds(): ViewportBounds {
+interface ViewportBounds {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+  clientRect: ViewportClientRect;
+}
+
+function areViewportClientRectsEqual(previous: ViewportClientRect, next: ViewportClientRect): boolean {
+  return (
+    previous.left === next.left &&
+    previous.top === next.top &&
+    previous.right === next.right &&
+    previous.bottom === next.bottom
+  );
+}
+
+function getDocumentViewportRect(): ViewportClientRect {
+  const width =
+    typeof document !== 'undefined' && document.documentElement.clientWidth > 0
+      ? document.documentElement.clientWidth
+      : typeof window !== 'undefined'
+        ? window.innerWidth
+        : 0;
+  const height =
+    typeof document !== 'undefined' && document.documentElement.clientHeight > 0
+      ? document.documentElement.clientHeight
+      : typeof window !== 'undefined'
+        ? window.innerHeight
+        : 0;
+
+  return {
+    left: 0,
+    top: 0,
+    right: width,
+    bottom: height,
+  };
+}
+
+function getViewportClientRect(element: HTMLElement | null | undefined): ViewportClientRect {
+  if (element) {
+    const width = element.clientWidth || element.getBoundingClientRect().width;
+    const height = element.clientHeight || element.getBoundingClientRect().height;
+
+    if (width > 0 && height > 0) {
+      // Canvas positioning functions operate in canvas-root client pixels, not
+      // global window pixels, so only the observed size is used here.
+      return {
+        left: 0,
+        top: 0,
+        right: width,
+        bottom: height,
+      };
+    }
+  }
+
+  return getDocumentViewportRect();
+}
+
+export function useViewportBounds(viewportRootRef?: RefObject<HTMLElement | null>): ViewportBounds {
   const { clientToCanvasPosition } = useCanvasPositioning();
 
-  const [{ innerWidth, innerHeight }, setWindowSize] = useState({
-    innerWidth: window.innerWidth,
-    innerHeight: window.innerHeight,
-  });
+  const [clientRect, setClientRect] = useState(() => getViewportClientRect(viewportRootRef?.current));
 
   useLayoutEffect(() => {
-    const onResize = () => {
-      setWindowSize({
-        innerWidth: window.innerWidth,
-        innerHeight: window.innerHeight,
-      });
+    let animationFrame: number | undefined;
+    let resizeObserver: ResizeObserver | undefined;
+
+    const readAndStoreClientRect = () => {
+      animationFrame = undefined;
+      const nextClientRect = getViewportClientRect(viewportRootRef?.current);
+
+      setClientRect((previousClientRect) =>
+        areViewportClientRectsEqual(previousClientRect, nextClientRect) ? previousClientRect : nextClientRect,
+      );
     };
 
-    window.addEventListener('resize', onResize);
+    const scheduleRead = () => {
+      if (animationFrame !== undefined) {
+        return;
+      }
+
+      animationFrame = window.requestAnimationFrame(readAndStoreClientRect);
+    };
+
+    scheduleRead();
+    window.addEventListener('resize', scheduleRead);
+    window.visualViewport?.addEventListener('resize', scheduleRead);
+
+    if (typeof ResizeObserver !== 'undefined') {
+      const observedElement = viewportRootRef?.current ?? document.documentElement;
+      resizeObserver = new ResizeObserver(scheduleRead);
+      resizeObserver.observe(observedElement);
+    }
 
     return () => {
-      window.removeEventListener('resize', onResize);
+      if (animationFrame !== undefined) {
+        window.cancelAnimationFrame(animationFrame);
+      }
+
+      resizeObserver?.disconnect();
+      window.removeEventListener('resize', scheduleRead);
+      window.visualViewport?.removeEventListener('resize', scheduleRead);
     };
-  }, []);
+  }, [viewportRootRef]);
 
   const bounds = useMemo(() => {
-    const topLeft = clientToCanvasPosition(0, 0);
-    const bottomRight = clientToCanvasPosition(innerWidth, innerHeight);
+    const topLeft = clientToCanvasPosition(clientRect.left, clientRect.top);
+    const bottomRight = clientToCanvasPosition(clientRect.right, clientRect.bottom);
 
     return {
       left: topLeft.x,
       top: topLeft.y,
       right: bottomRight.x,
       bottom: bottomRight.y,
+      clientRect,
     };
-  }, [clientToCanvasPosition, innerWidth, innerHeight]);
+  }, [clientRect, clientToCanvasPosition]);
 
   return bounds;
 }

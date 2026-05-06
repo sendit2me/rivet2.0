@@ -14,6 +14,14 @@ import { uniqBy } from 'lodash-es';
 import clsx from 'clsx';
 import { useMarkdown } from '../hooks/useMarkdown.js';
 import { getContextMenuSearchPresentation } from './contextMenuSearchGrouping.js';
+import {
+  popupMenuIconSlotStyles,
+  popupMenuLabelStyles,
+  popupMenuListStyles,
+  popupMenuRowStyles,
+  popupMenuSeparatedRowStyles,
+  popupMenuSurfaceStyles,
+} from './PopupMenu.js';
 
 const menuReferenceStyles = css`
   position: absolute;
@@ -23,31 +31,8 @@ const menuReferenceStyles = css`
 `;
 
 export const menuStyles = css`
-  background-color: var(--grey-darkest);
-  border: 2px solid var(--grey-darkish);
-  border-radius: 8px;
-  corner-shape: squircle;
-  box-shadow: 0 8px 16px var(--shadow-dark);
-  font-family: 'Roboto Mono', monospace;
-  color: var(--foreground);
-  font-size: var(--ui-font-size-compact);
-  padding: 0;
+  ${popupMenuListStyles};
   z-index: 1;
-  min-width: 150px;
-  user-select: none;
-
-  &:after {
-    content: '';
-    position: absolute;
-    top: -8px;
-    left: 5px;
-    width: 0;
-    height: 0;
-    border-style: solid;
-    border-width: 0 8px 8px 8px;
-    border-color: transparent transparent var(--grey-darkish) transparent;
-    pointer-events: none;
-  }
 
   ul {
     list-style: none;
@@ -57,7 +42,7 @@ export const menuStyles = css`
 
   .context-menu-search {
     input {
-      background-color: var(--grey-darkest);
+      background-color: transparent;
       border: none;
       outline: none;
       padding: 8px;
@@ -69,7 +54,7 @@ export const menuStyles = css`
   .context-menu-search-section-header {
     padding: 10px 12px 6px;
     margin-top: 4px;
-    border-top: 1px solid var(--grey-darker);
+    border-top: 1px solid var(--grey-dark);
     color: var(--grey-lightish);
     font-size: var(--ui-font-size-sm);
     line-height: 1;
@@ -309,20 +294,14 @@ export const ContextMenu = forwardRef<HTMLDivElement, ContextMenuProps>(
 ContextMenu.displayName = 'ContextMenu';
 
 export const submenuStyles = css`
+  ${popupMenuListStyles};
   position: absolute;
   top: 0;
   left: 95%;
   margin-left: 4px;
   margin-top: -4px;
-  min-width: 150px;
-  border: 2px solid var(--grey-darkish);
-  border-radius: 8px;
-  corner-shape: squircle;
-  box-shadow: 0 8px 16px var(--shadow-dark);
-  background-color: var(--grey-darkest);
-  color: var(--foreground);
   z-index: 1;
-  padding: 0;
+
   &.submenu-enter {
     opacity: 0;
   }
@@ -368,13 +347,8 @@ export const ContextMenuItemDiv = styled.div<{
   showSeparator?: boolean;
 }>`
   position: relative;
-  display: flex;
-  align-items: center;
+  ${popupMenuRowStyles};
   justify-content: space-between;
-  border-radius: 8px;
-  corner-shape: squircle;
-  cursor: pointer;
-  padding: 8px 12px;
   white-space: nowrap;
   transition:
     background-color 0.1s ease-out,
@@ -384,18 +358,22 @@ export const ContextMenuItemDiv = styled.div<{
   ${(props) =>
     props.showSeparator &&
     css`
-      margin-top: 4px;
-      padding-top: 12px;
-      border-top: 1px solid var(--grey-darker);
-      border-top-left-radius: 0;
-      border-top-right-radius: 0;
+      ${popupMenuSeparatedRowStyles};
     `}
 
   .label {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 0.4rem;
     user-select: none;
+  }
+
+  .label > svg {
+    ${popupMenuIconSlotStyles};
+  }
+
+  .context-menu-label-text {
+    ${popupMenuLabelStyles};
   }
 
   .sublabel {
@@ -415,8 +393,8 @@ export const ContextMenuItemDiv = styled.div<{
 
   &:hover,
   &.active {
-    background-color: var(--tertiary-light);
-    color: var(--primary-text);
+    background-color: rgba(255, 255, 255, 0.1);
+    color: var(--grey-lightest);
   }
 
   ${(props) =>
@@ -424,8 +402,8 @@ export const ContextMenuItemDiv = styled.div<{
     css`
       &:hover,
       &.active {
-        background-color: var(--error-light);
-        color: var(--foreground);
+        background-color: rgba(255, 255, 255, 0.1);
+        color: var(--error-light);
       }
     `}
 
@@ -526,7 +504,7 @@ export const ContextMenuItem: FC<ContextMenuItemProps> = ({
       <div className="label-area">
         <div className="label">
           {config.icon && <config.icon />}
-          {config.label}
+          <span className="context-menu-label-text">{config.label}</span>
         </div>
         {config.subLabel && <div className="sublabel">{config.subLabel}</div>}
       </div>
@@ -573,12 +551,7 @@ export const ContextMenuItem: FC<ContextMenuItemProps> = ({
 };
 
 const contextMenuInfoBoxStyles = css`
-  border: 2px solid var(--grey-darkish);
-  border-radius: 8px;
-  corner-shape: squircle;
-  box-shadow: 0 8px 16px var(--shadow-dark);
-  background-color: var(--grey-darkest);
-  color: var(--foreground);
+  ${popupMenuSurfaceStyles};
   z-index: 1;
   padding: 16px 16px;
   width: 500px;
