@@ -21,6 +21,7 @@ export const nodeCanvasStyles = css`
   .nodes {
     position: relative;
     z-index: 0;
+    pointer-events: none;
   }
 
   .context-menu {
@@ -75,7 +76,18 @@ export const nodeCanvasStyles = css`
   }
 
   .canvas-contents {
+    position: absolute;
+    inset: 0;
     transform-origin: top left;
+    pointer-events: none;
+  }
+
+  .canvas-comment-contents {
+    z-index: 0;
+  }
+
+  .canvas-node-contents {
+    z-index: 2;
   }
 
   .origin {

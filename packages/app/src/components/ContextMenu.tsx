@@ -25,6 +25,7 @@ import {
 
 const menuReferenceStyles = css`
   position: absolute;
+  z-index: 3000;
   &.disabled {
     display: none;
   }

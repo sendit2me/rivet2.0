@@ -36,8 +36,8 @@ export const useContextMenu = () => {
   }, [update, contextMenuData.x, contextMenuData.y]);
 
   useEffect(() => {
-    const handleWindowClick = (event: MouseEvent) => {
-      // Close context menu if clicked outside of it
+    const handleWindowMouseDown = (event: MouseEvent) => {
+      // Close context menu as soon as the next outside click starts.
       if (contextMenuRef.current && !contextMenuRef.current.contains(event.target as Node)) {
         setShowContextMenu(false);
       }
@@ -50,10 +50,10 @@ export const useContextMenu = () => {
       }
     };
 
-    window.addEventListener('click', handleWindowClick);
+    window.addEventListener('mousedown', handleWindowMouseDown, true);
     window.addEventListener('keydown', handleEscapePress);
     return () => {
-      window.removeEventListener('click', handleWindowClick);
+      window.removeEventListener('mousedown', handleWindowMouseDown, true);
       window.removeEventListener('keydown', handleEscapePress);
     };
   }, [contextMenuRef]);

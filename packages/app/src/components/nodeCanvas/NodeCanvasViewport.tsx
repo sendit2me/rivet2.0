@@ -1,4 +1,5 @@
 import { DragOverlay } from '@dnd-kit/core';
+import clsx from 'clsx';
 import { type FC, type ContextType, memo, useMemo } from 'react';
 import type { ChartNode, NodeConnection, NodeId } from '@valerypopoff/rivet2-core';
 import { CanvasHandlersContext, CanvasViewContext } from '../CanvasContext.js';
@@ -18,6 +19,7 @@ import { resolveDraggingExecutionContext } from './dragOverlayExecutionContext.j
 type CanvasViewValue = ContextType<typeof CanvasViewContext>;
 type CanvasHandlersValue = ContextType<typeof CanvasHandlersContext>;
 type NodeTypes = ReturnType<typeof useNodeTypes>;
+export type NodeCanvasLayer = 'comments' | 'nodes';
 
 export interface NodeCanvasViewportProps {
   canvasHandlersContextValue: CanvasHandlersValue;
@@ -26,6 +28,7 @@ export interface NodeCanvasViewportProps {
   canvasZoom: number;
   canvasViewContextValue: CanvasViewValue;
   dragAxisLock: DragAxisLock;
+  dragDelta: { x: number; y: number };
   dragMode: DragMode;
   draggingHoverControlSourceNodeIds: NodeId[];
   draggingNodeConnections: NodeConnection[];
@@ -34,6 +37,7 @@ export interface NodeCanvasViewportProps {
   heavyContentNodeIdSet: ReadonlySet<NodeId>;
   hoveredNodeId: NodeId | undefined;
   lastRunPerNode: Record<NodeId, ProcessDataForNode[] | undefined>;
+  layer: NodeCanvasLayer;
   nodeTypes: NodeTypes;
   nodesWithConnections: Array<{ node: ChartNode; nodeConnections: NodeConnection[] }>;
   onNodeDragActivatorPointerDown: (modifierState: DragActivatorModifierState) => void;
@@ -48,16 +52,17 @@ export const NodeCanvasViewport: FC<NodeCanvasViewportProps> = ({
   canvasPositionX,
   canvasPositionY,
   canvasZoom,
+  layer,
   ...sceneProps
 }) => {
   return (
     <div
-      className="canvas-contents"
+      className={clsx('canvas-contents', layer === 'comments' ? 'canvas-comment-contents' : 'canvas-node-contents')}
       style={{
         transform: `scale(${canvasZoom}, ${canvasZoom}) translate(${canvasPositionX}px, ${canvasPositionY}px)`,
       }}
     >
-      <NodeCanvasScene canvasZoom={canvasZoom} {...sceneProps} />
+      <NodeCanvasScene canvasZoom={canvasZoom} layer={layer} {...sceneProps} />
     </div>
   );
 };
@@ -68,6 +73,7 @@ const NodeCanvasScene: FC<Omit<NodeCanvasViewportProps, 'canvasPositionX' | 'can
     canvasViewContextValue,
     canvasZoom,
     dragAxisLock,
+    dragDelta,
     dragMode,
     draggingHoverControlSourceNodeIds,
     draggingNodeConnections,
@@ -76,6 +82,7 @@ const NodeCanvasScene: FC<Omit<NodeCanvasViewportProps, 'canvasPositionX' | 'can
     heavyContentNodeIdSet,
     hoveredNodeId,
     lastRunPerNode,
+    layer,
     nodeTypes,
     nodesWithConnections,
     onNodeDragActivatorPointerDown,
@@ -86,7 +93,16 @@ const NodeCanvasScene: FC<Omit<NodeCanvasViewportProps, 'canvasPositionX' | 'can
     visibleNodeIdSet,
   }) => {
     countCanvasPerf('NodeCanvasScene:renders');
+    const draggingNodeEntries = useMemo(() => draggingNodes.map((node, index) => ({ node, index })), [draggingNodes]);
     const draggingNodeIdSet = useMemo(() => new Set(draggingNodes.map((node) => node.id)), [draggingNodes]);
+    const backgroundCommentDragEntries = useMemo(
+      () => (layer === 'comments' ? draggingNodeEntries.filter(({ node }) => node.type === 'comment') : []),
+      [draggingNodeEntries, layer],
+    );
+    const foregroundDragEntries = useMemo(
+      () => (layer === 'nodes' ? draggingNodeEntries.filter(({ node }) => node.type !== 'comment') : []),
+      [draggingNodeEntries, layer],
+    );
     const draggingHoverControlSourceNodeIdSet = useMemo(
       () => new Set(draggingHoverControlSourceNodeIds),
       [draggingHoverControlSourceNodeIds],
@@ -94,12 +110,53 @@ const NodeCanvasScene: FC<Omit<NodeCanvasViewportProps, 'canvasPositionX' | 'can
     const expandedOutputNodeIdSet = useMemo(() => new Set(expandedOutputNodeIds), [expandedOutputNodeIds]);
     const selectedNodeIdSet = useMemo(() => new Set(selectedNodeIds), [selectedNodeIds]);
     const searchMatchingNodeIdSet = useMemo(() => new Set(searchMatchingNodeIds), [searchMatchingNodeIds]);
+    const constrainedCommentDragDelta = useMemo(() => {
+      const constrainedDelta = constrainDragDeltaToAxisLock(dragDelta, dragAxisLock);
+
+      return {
+        x: constrainedDelta.x / canvasZoom,
+        y: constrainedDelta.y / canvasZoom,
+      };
+    }, [canvasZoom, dragAxisLock, dragDelta]);
 
     return (
       <CanvasViewContext.Provider value={canvasViewContextValue}>
         <CanvasHandlersContext.Provider value={canvasHandlersContextValue}>
           <div className="nodes">
+            {backgroundCommentDragEntries.map(({ node, index }) => {
+              const { isOutputExpanded, lastRun, processPage, executionSourceNodeId } = resolveDraggingExecutionContext({
+                dragMode,
+                draggingNodeId: node.id,
+                draggingSourceNodeIds,
+                index,
+                expandedOutputNodeIdSet,
+                lastRunPerNode,
+                selectedProcessPagePerNode,
+              });
+
+              return (
+                <VisualNode
+                  key={`comment-drag-preview-${node.id}`}
+                  node={node}
+                  xDelta={constrainedCommentDragDelta.x}
+                  yDelta={constrainedCommentDragDelta.y}
+                  isOverlay
+                  isKnownNodeType={node.type in nodeTypes}
+                  isOutputExpanded={isOutputExpanded}
+                  isSelected={selectedNodeIdSet.has(executionSourceNodeId)}
+                  lastRun={lastRun}
+                  processPage={processPage}
+                  renderHeavyContent
+                />
+              );
+            })}
             {nodesWithConnections.map(({ node, nodeConnections }) => {
+              const belongsToLayer = layer === 'comments' ? node.type === 'comment' : node.type !== 'comment';
+
+              if (!belongsToLayer) {
+                return null;
+              }
+
               if (!visibleNodeIdSet.has(node.id) || draggingNodeIdSet.has(node.id)) {
                 return null;
               }
@@ -124,52 +181,54 @@ const NodeCanvasScene: FC<Omit<NodeCanvasViewportProps, 'canvasPositionX' | 'can
               );
             })}
           </div>
-          <DragOverlay
-            dropAnimation={null}
-            style={{ position: 'absolute', top: 0, left: 0 }}
-            modifiers={[
-              (args) => {
-                const constrainedTransform = constrainDragDeltaToAxisLock(args.transform, dragAxisLock);
+          {foregroundDragEntries.length > 0 && (
+            <DragOverlay
+              dropAnimation={null}
+              style={{ position: 'absolute', top: 0, left: 0 }}
+              modifiers={[
+                (args) => {
+                  const constrainedTransform = constrainDragDeltaToAxisLock(args.transform, dragAxisLock);
 
-                return {
-                  ...constrainedTransform,
-                  scaleX: 1,
-                  scaleY: 1,
-                  x: constrainedTransform.x / canvasZoom,
-                  y: constrainedTransform.y / canvasZoom,
-                };
-              },
-            ]}
-          >
-            {draggingNodes.map((node, index) => {
-              const { isOutputExpanded, lastRun, processPage } = resolveDraggingExecutionContext({
-                dragMode,
-                draggingNodeId: node.id,
-                draggingSourceNodeIds,
-                index,
-                expandedOutputNodeIdSet,
-                lastRunPerNode,
-                selectedProcessPagePerNode,
-              });
+                  return {
+                    ...constrainedTransform,
+                    scaleX: 1,
+                    scaleY: 1,
+                    x: constrainedTransform.x / canvasZoom,
+                    y: constrainedTransform.y / canvasZoom,
+                  };
+                },
+              ]}
+            >
+              {foregroundDragEntries.map(({ node, index }) => {
+                const { isOutputExpanded, lastRun, processPage } = resolveDraggingExecutionContext({
+                  dragMode,
+                  draggingNodeId: node.id,
+                  draggingSourceNodeIds,
+                  index,
+                  expandedOutputNodeIdSet,
+                  lastRunPerNode,
+                  selectedProcessPagePerNode,
+                });
 
-              return (
-                <VisualNode
-                  key={node.id}
-                  node={node}
-                  connections={draggingNodeConnections}
-                  isOverlay
-                  isKnownNodeType={node.type in nodeTypes}
-                  isOutputExpanded={isOutputExpanded}
-                  lastRun={lastRun}
-                  processPage={processPage}
-                  renderHeavyContent
-                  shouldShowHoverControls={draggingHoverControlSourceNodeIdSet.has(
-                    draggingSourceNodeIds[index] ?? node.id,
-                  )}
-                />
-              );
-            })}
-          </DragOverlay>
+                return (
+                  <VisualNode
+                    key={node.id}
+                    node={node}
+                    connections={draggingNodeConnections}
+                    isOverlay
+                    isKnownNodeType={node.type in nodeTypes}
+                    isOutputExpanded={isOutputExpanded}
+                    lastRun={lastRun}
+                    processPage={processPage}
+                    renderHeavyContent
+                    shouldShowHoverControls={draggingHoverControlSourceNodeIdSet.has(
+                      draggingSourceNodeIds[index] ?? node.id,
+                    )}
+                  />
+                );
+              })}
+            </DragOverlay>
+          )}
         </CanvasHandlersContext.Provider>
       </CanvasViewContext.Provider>
     );

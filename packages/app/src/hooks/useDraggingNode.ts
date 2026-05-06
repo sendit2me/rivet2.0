@@ -155,6 +155,7 @@ export const useDraggingNode = () => {
   const [duplicatePreviewNodes, setDuplicatePreviewNodesState] = useState<ChartNode[]>([]);
   const [dragMode, setDragMode] = useState<DragMode>('move');
   const [dragAxisLock, setDragAxisLock] = useState<DragAxisLock>();
+  const [dragDelta, setDragDelta] = useState<DragDelta>({ x: 0, y: 0 });
   const [isDragActive, setIsDragActive] = useState(false);
 
   const startPositionsRef = useRef<DragStartPositionMap>(new Map());
@@ -167,6 +168,7 @@ export const useDraggingNode = () => {
   const lastDragActivatorHoverControlsVisibleRef = useRef(false);
   const lastDragActivatorNodeIdRef = useRef<NodeId | undefined>();
   const lastDragActivatorShiftRef = useRef(false);
+  const dragIncludesCommentRef = useRef(false);
 
   const moveNode = useMoveNodeCommand();
   const duplicateNodes = useDuplicateNodesCommand();
@@ -202,8 +204,10 @@ export const useDraggingNode = () => {
     lastDragActivatorHoverControlsVisibleRef.current = false;
     lastDragActivatorNodeIdRef.current = undefined;
     lastDragActivatorShiftRef.current = false;
+    dragIncludesCommentRef.current = false;
     isShiftDragConstraintEnabledRef.current = false;
     lastDragDeltaRef.current = { x: 0, y: 0 };
+    setDragDelta({ x: 0, y: 0 });
     setSessionStartPositions(new Map());
     setSessionSourceNodeIds([]);
     setSessionSourceNodes([]);
@@ -309,6 +313,7 @@ export const useDraggingNode = () => {
         return;
       }
 
+      dragIncludesCommentRef.current = sourceNodes.some((node) => node.type === 'comment');
       setSessionSourceNodeIds(sourceNodeIds);
       setSessionSourceNodes(sourceNodes);
       setDraggedHoverControlSourceNodeIds(
@@ -347,6 +352,9 @@ export const useDraggingNode = () => {
       };
 
       lastDragDeltaRef.current = nextDelta;
+      if (dragIncludesCommentRef.current) {
+        setDragDelta(nextDelta);
+      }
       setSessionDragAxisLock(
         resolveDragAxisLock({
           axisLock: dragAxisLockRef.current,
@@ -420,6 +428,7 @@ export const useDraggingNode = () => {
 
   return {
     dragAxisLock,
+    dragDelta,
     dragMode,
     draggingConnectionSourceNodeIds,
     draggingNodes,

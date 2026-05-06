@@ -29,6 +29,7 @@ export const nodeStyles = css`
     transform-origin: top left;
     contain: layout;
     isolation: isolate;
+    pointer-events: auto;
   }
 
   .node:focus {
@@ -59,12 +60,16 @@ export const nodeStyles = css`
 
   .node.isComment {
     background-color: rgba(46, 46, 46, 0.1);
-    pointer-events: none;
+    pointer-events: auto;
     padding: 0;
   }
 
   .node.isComment .node-body {
-    pointer-events: all;
+    pointer-events: auto;
+  }
+
+  .node.isComment .node-body * {
+    pointer-events: none;
   }
 
   .node.zoomedOut {
@@ -180,8 +185,12 @@ export const nodeStyles = css`
   .node.node.isComment .node-title {
     padding: 4px;
     background-color: var(--grey-darkish-seethrough);
-    pointer-events: all;
+    pointer-events: auto;
     margin: 0;
+  }
+
+  .node.node.isComment .node-title * {
+    pointer-events: auto;
   }
 
   .node.isComment .node-border-overlay {
@@ -192,6 +201,15 @@ export const nodeStyles = css`
   .node.isComment.overlayNode .node-border-overlay,
   .node.isComment.searchMatch .node-border-overlay {
     display: block;
+  }
+
+  .node.isComment.overlayNode {
+    box-shadow: none;
+  }
+
+  .node.isComment.overlayNode .node-title,
+  .node.isComment.overlayNode .node-title * {
+    pointer-events: none;
   }
 
   .node.zoomedOut .node-title {
@@ -923,7 +941,7 @@ export const nodeStyles = css`
   }
 
   .node.isComment .resize-handle {
-    pointer-events: all;
+    pointer-events: auto;
   }
 
   .node.running {

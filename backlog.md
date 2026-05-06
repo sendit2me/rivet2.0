@@ -5,8 +5,6 @@
 - Reassess Ctrl+N window
 
 
-- Adjust the comment node so that the body is transparent for dragging the artboard
-
 
 - The old preloader is still visible in the processing graphs in the graph tree
 
@@ -16,6 +14,7 @@
 
 - The start on the main graph shouls be in the end of the name, not in the beginning
 
+- New artboard background image. I want diagonal strokes like in the logo
 
 - Node terminals make not round, but half squircles on the inside part of the node
 
