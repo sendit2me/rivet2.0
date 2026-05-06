@@ -66,15 +66,6 @@ const ActiveNodeOutput: FC<{ node: ChartNode; isOutputExpanded: boolean }> = ({ 
 
   useEffect(() => clearFullscreenOutputNode, [clearFullscreenOutputNode]);
 
-  const handleWheel = useStableCallback((e: MouseEvent<HTMLDivElement>) => {
-    if (isOutputExpanded) {
-      return; // Scroll is allowed because the output is already expanded.
-    }
-
-    // Prevent zooming the graph when scrolling the output
-    e.stopPropagation();
-  });
-
   const handleToggleExpandedOutput = useStableCallback(() => {
     setExpandedOutputNodeIds((previous) =>
       previous.includes(node.id) ? previous.filter((nodeId) => nodeId !== node.id) : [...previous, node.id],
@@ -94,14 +85,12 @@ const ActiveNodeOutput: FC<{ node: ChartNode; isOutputExpanded: boolean }> = ({ 
   return (
     <div className="node-output-outer">
       {isModalOpen ? <ResizableNodeFullscreenOutputModal node={node} onClose={handleCloseFullscreenModal} /> : null}
-      <div onWheel={handleWheel}>
-        <NodeOutputBase
-          node={node}
-          isOutputExpanded={isOutputExpanded}
-          onToggleExpandedOutput={handleToggleExpandedOutput}
-          onOpenFullscreenModal={handleOpenFullscreenModal}
-        />
-      </div>
+      <NodeOutputBase
+        node={node}
+        isOutputExpanded={isOutputExpanded}
+        onToggleExpandedOutput={handleToggleExpandedOutput}
+        onOpenFullscreenModal={handleOpenFullscreenModal}
+      />
     </div>
   );
 };

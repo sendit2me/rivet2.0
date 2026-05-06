@@ -97,8 +97,8 @@ export const useNodeCanvasInteractions = ({
     return isVerticalScrollable || isHorizontalScrollable;
   };
 
-  const isAnyParentScrollable = (element: HTMLElement): boolean => {
-    let currentNode = element.parentElement;
+  const isTargetOrParentScrollable = (element: HTMLElement): boolean => {
+    let currentNode: HTMLElement | null = element;
 
     while (currentNode) {
       if (isScrollable(currentNode)) {
@@ -202,7 +202,7 @@ export const useNodeCanvasInteractions = ({
 
   const zoomDebounced = useThrottleFn(
     (target: HTMLElement, wheelDelta: number, clientX: number, clientY: number, shiftKey: boolean) => {
-      if (isAnyParentScrollable(target)) {
+      if (isTargetOrParentScrollable(target)) {
         return;
       }
 

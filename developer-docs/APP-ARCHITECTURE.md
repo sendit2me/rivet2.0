@@ -356,6 +356,8 @@ Current wheel-zoom behavior stays on that same interaction path:
 - base wheel zoom speed is driven by `zoomSensitivityState`
 - holding `Shift` while wheel-zooming applies a faster zoom-speed multiplier
 - the effective wheel zoom speed is clamped before factor calculation so high sensitivity plus the Shift multiplier cannot drive zoom-out through zero
+- collapsed node-output previews do not intercept wheel events; hovering output preview content still lets the canvas zoom
+- explicitly expanded node outputs remain scrollable: the canvas wheel handler skips zoom when the wheel target or one of its ancestors is an actually scrollable element
 
 This keeps the top-level component closer to an orchestration layer and makes viewport math, overlay rendering, and interaction sequencing reviewable in isolation.
 
@@ -532,6 +534,7 @@ This is a major structural point: event handlers are no longer passed as a large
 Current responsibilities:
 
 - derive CSS variables from node colors
+- keep the node frame overlay passive for unselected/unhovered nodes unless the node has an explicit custom color; selection, hover, search-match, graph-diff, and custom-color states are the only paths that should paint the card frame
 - choose between normal and zoomed-out rendering
 - reflect execution state classes (`success`, `error`, `running`, `not-ran`)
 - reflect graph/history state (`selected`, changed, output-expanded, disabled, conditional, split)

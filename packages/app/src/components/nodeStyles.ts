@@ -2,19 +2,19 @@ import { css } from '@emotion/react';
 
 export const nodeStyles = css`
   .node {
-    --node-card-radius: calc(16px * var(--ui-font-scale));
+    --node-card-radius: calc(20px * var(--ui-font-scale));
     --node-card-corner-shape: squircle;
     --node-output-min-height: 46px;
     --node-output-collapsed-max-height: calc(3 * 1.4em + 200px);
     --node-output-hover-max-height: calc(20 * 1.4em + 36px);
     --node-output-multi-collapsed-max-height: calc(3 * 1.4em + 60px);
     --node-output-multi-hover-max-height: calc(20 * 1.4em + 60px);
-    background-color: var(--grey-dark-seethrough);
+    background-color: var(--grey-darker-darker);
     background-clip: padding-box;
     border-radius: var(--node-card-radius);
     corner-shape: var(--node-card-corner-shape);
-    border: 2px solid transparent;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    /* border: 2px solid transparent; */
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
     display: flex;
     flex-direction: column;
     position: absolute;
@@ -100,7 +100,7 @@ export const nodeStyles = css`
   .node-border-overlay {
     position: absolute;
     inset: 0;
-    border: 2px solid var(--node-frame-border-color, var(--node-border));
+    border: 2px solid var(--node-frame-border-color, transparent);
     border-radius: inherit;
     corner-shape: inherit;
     pointer-events: none;
@@ -108,14 +108,19 @@ export const nodeStyles = css`
     transition: border-color 0.2s ease-out;
   }
 
+  .node.hasCustomColor .node-border-overlay {
+    border-color: var(--node-frame-border-color, var(--node-border));
+  }
+
   .node-title {
     background-color: var(--node-bg);
+    font-family: 'Roboto', sans-serif;
     color: var(--node-bg-foreground);
     padding: 14px 14px 12px 14px;
     margin: -12px -12px 8px -11px;
     border-radius: var(--node-card-radius) var(--node-card-radius) 0 0;
     corner-shape: var(--node-card-corner-shape);
-    letter-spacing: 1px;
+    letter-spacing: 0.05em;
     display: flex;
     justify-content: space-between;
     position: relative;
@@ -307,7 +312,7 @@ export const nodeStyles = css`
     font-family: inherit;
     font-size: var(--ui-font-size-xs);
     font-weight: 900;
-    line-height: 1.4;
+    line-height: 1.2;
     letter-spacing: calc(0.4px * var(--ui-font-scale));
     text-transform: none;
     margin-top: calc(6px * var(--ui-font-scale));
@@ -436,7 +441,7 @@ export const nodeStyles = css`
 
   .node-body {
     color: var(--foreground);
-    font-family: var(--font-family-monospace);
+    font-family: inherit;
     font-size: var(--ui-font-size-sm);
     margin-bottom: 12px;
     line-height: 1.4;
@@ -486,7 +491,7 @@ export const nodeStyles = css`
       padding: 4px 8px;
       margin-left: -12px;
       font-size: var(--ui-font-size-sm);
-      font-family: var(--font-family-monospace);
+      font-family: inherit;
       border-radius: 0 8px 8px 0;
       corner-shape: squircle;
       user-select: none;
@@ -632,12 +637,12 @@ export const nodeStyles = css`
 
   .node-output-inner,
   .multi-node-output {
-    background-color: var(--grey-darker);
-    background-image: linear-gradient(to bottom, var(--grey-darker) 0%, var(--grey-darkest) 100%);
+    background-color: var(--grey-darkest);
+    /*background-image: linear-gradient(to bottom, var(--grey-darker) 0%, var(--grey-darkest) 100%);*/
     border-radius: 0 0 var(--node-card-radius) var(--node-card-radius);
     corner-shape: var(--node-card-corner-shape);
     border-top: 2px solid var(--success-light);
-    color: var(--foreground-bright);
+    color: var(--foreground);
     font-size: var(--ui-font-size-sm);
     line-height: 1.4;
     margin: 8px -12px -12px -12px;

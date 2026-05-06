@@ -2,11 +2,13 @@
   /* Greyscale colors */
   --black-seethrough: rgba(0, 0, 0, 0.15);
   --grey-darkest: #1e1e1e;
+  --grey-darker-darker: #282828;
   --grey-darker: #282c34;
   --grey-darkerish: #2b2b2b;
   --grey-dark: #2e2e2e;
   --grey-dark-seethrough: #2e2e2eb8;
   --grey-dark-seethrougher: rgba(46, 46, 46, 0.35);
+  --grey-dark-bluish: rgba(40, 44, 52);
   --grey-dark-bluish-seethrough: rgba(40, 44, 52, 0.8);
   --grey-darkish: #3d3d3d;
   --grey-darkish-seethrough: rgba(61, 61, 61, 0.5);
