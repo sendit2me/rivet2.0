@@ -1,10 +1,10 @@
-import { useMemo, type FC } from 'react';
+import { useEffect, useMemo, useRef, useState, type FC, type ReactNode, type RefObject } from 'react';
 import { InlineEditableTextfield } from '@atlaskit/inline-edit';
 import { ProjectPluginsConfiguration } from './ProjectPluginConfiguration';
 import { Field } from '@atlaskit/form';
 import Select from '@atlaskit/select';
 import { projectState, savedGraphsState } from '../state/savedGraphs';
-import { css } from '@emotion/react';
+import { css, Global } from '@emotion/react';
 import { ProjectRevisions } from './ProjectRevisionList';
 import { useAtom, useAtomValue } from 'jotai';
 import { ProjectReferencesConfiguration } from './ProjectReferencesConfiguration';
@@ -13,9 +13,13 @@ import { MainGraphIcon } from './graphList/MainGraphIcon';
 import Modal, { ModalBody, ModalFooter, ModalTransition } from '@atlaskit/modal-dialog';
 import { AppModalHeader } from './AppModalHeader';
 import Button from '@atlaskit/button';
+import { ProjectContextConfiguration } from './ProjectContextConfiguration';
+import Collapsible from 'react-collapsible';
+import ChevronDownIcon from 'majesticons/line/chevron-down-line.svg?react';
+import ChevronUpIcon from 'majesticons/line/chevron-up-line.svg?react';
+import { projectSettingsSectionOpenState } from '../state/ui';
 
 const styles = css`
-  height: 100%;
   font-size: var(--ui-font-size-compact);
 
   label,
@@ -26,7 +30,6 @@ const styles = css`
   }
 
   .project-info-layout {
-    min-height: 100%;
     display: flex;
     flex-direction: column;
   }
@@ -46,11 +49,6 @@ const styles = css`
     > form > div {
       margin-top: 0 !important;
     }
-  }
-
-  .project-plugins-section {
-    margin-top: auto;
-    margin-bottom: 0;
   }
 
   .project-info-divider {
@@ -79,7 +77,96 @@ const styles = css`
     font-weight: var(--font-weight-semibold);
     margin-bottom: 6px;
   }
+
+  .project-info-foldable {
+    --editor-group-radius: calc(16px * var(--ui-font-scale));
+    --editor-group-toggle-radius: calc(8px * var(--ui-font-scale));
+    --editor-group-padding-x: calc(16px * var(--ui-font-scale));
+    --editor-group-padding-y: calc(16px * var(--ui-font-scale));
+    --editor-group-padding-bottom: calc(18px * var(--ui-font-scale));
+    --editor-group-toggle-padding-y: calc(8px * var(--ui-font-scale));
+    --editor-group-toggle-icon-size: calc(24px * var(--ui-font-scale));
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .project-info-foldable > .Collapsible .project-info-foldable-toggle-container {
+    display: flex;
+    flex-direction: column;
+    padding-left: var(--editor-group-padding-x);
+    padding-right: var(--editor-group-padding-x);
+    border: 1px solid var(--grey-darkish);
+    border-radius: var(--editor-group-radius);
+    corner-shape: squircle;
+    background: var(--grey-darker);
+  }
+
+  .project-info-foldable > .Collapsible > .project-info-foldable-toggle-container.open {
+    border-bottom: none;
+    border-radius: var(--editor-group-radius) var(--editor-group-radius) 0 0;
+    corner-shape: squircle;
+  }
+
+  .project-info-foldable > .Collapsible > .project-info-foldable-toggle-container.open + .Collapsible__contentOuter {
+    border: 1px solid var(--grey-darkish);
+    border-top: none;
+    border-radius: 0 0 var(--editor-group-radius) var(--editor-group-radius);
+    corner-shape: squircle;
+    background: var(--grey-light-seethrougher);
+  }
+
+  .project-info-foldable-toggle-area {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .project-info-foldable-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--editor-group-toggle-padding-y) var(--editor-group-padding-x);
+    margin: 0 calc(-1 * var(--editor-group-padding-x));
+    border: none;
+    background: none;
+    cursor: pointer;
+    outline: none;
+    font-family: inherit;
+    color: var(--label-color);
+    font-size: var(--ui-font-size-base);
+    font-weight: var(--label-font-weight);
+    line-height: 1.25;
+    border-radius: var(--editor-group-toggle-radius);
+    corner-shape: squircle;
+    transition: background 0.2s ease-out;
+  }
+
+  .project-info-foldable-toggle:hover {
+    background: var(--grey-darkish);
+  }
+
+  .project-info-foldable-toggle .indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--editor-group-toggle-icon-size);
+    height: var(--editor-group-toggle-icon-size);
+    flex: 0 0 var(--editor-group-toggle-icon-size);
+  }
+
+  .project-info-foldable-content {
+    margin-top: 0;
+    padding: var(--editor-group-padding-y) var(--editor-group-padding-x) var(--editor-group-padding-bottom);
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+  }
 `;
+
+const projectSettingsBodyTestId = 'project-settings-modal-body';
+const projectSettingsBodyScrollableTestId = `${projectSettingsBodyTestId}--scrollable`;
 
 export const ProjectInfoPanel: FC = () => {
   const [project, setProject] = useAtom(projectState);
@@ -154,9 +241,15 @@ export const ProjectInfoPanel: FC = () => {
           <ProjectRevisions />
         </div>
 
-        <div className="project-info-item project-plugins-section">
+        <div className="project-info-divider" />
+
+        <ProjectInfoFoldableSection sectionKey="plugins" title="Plugins">
           <ProjectPluginsConfiguration />
-        </div>
+        </ProjectInfoFoldableSection>
+
+        <ProjectInfoFoldableSection sectionKey="context-values" title="Context values">
+          <ProjectContextConfiguration />
+        </ProjectInfoFoldableSection>
       </div>
     </div>
   );
@@ -166,13 +259,29 @@ export const ProjectInfoModal: FC<{
   isOpen: boolean;
   onClose: () => void;
 }> = ({ isOpen, onClose }) => {
+  const bodyContentRef = useRef<HTMLDivElement>(null);
+  const hasBodyScrollbar = useModalBodyScrollbar(bodyContentRef);
+
   return (
     <ModalTransition>
       {isOpen && (
-        <Modal onClose={onClose} width="large" height="80%">
+        <Modal onClose={onClose} width="large">
+          <Global
+            styles={css`
+              ${hasBodyScrollbar
+                ? ''
+                : `
+                    [data-testid='${projectSettingsBodyScrollableTestId}'] {
+                      border-bottom-color: transparent !important;
+                    }
+                  `}
+            `}
+          />
           <AppModalHeader title="Project settings" onClose={onClose} />
-          <ModalBody>
-            <ProjectInfoPanel />
+          <ModalBody testId={projectSettingsBodyTestId}>
+            <div ref={bodyContentRef}>
+              <ProjectInfoPanel />
+            </div>
           </ModalBody>
           <ModalFooter>
             <Button appearance="primary" onClick={onClose}>
@@ -187,7 +296,81 @@ export const ProjectInfoModal: FC<{
 
 const MainGraphFieldLabel: FC = () => (
   <span className="main-graph-field-label">
-    <MainGraphIcon />
     <span>Main Graph</span>
+    <MainGraphIcon />
   </span>
+);
+
+function useModalBodyScrollbar(contentRef: RefObject<HTMLElement>): boolean {
+  const [hasScrollbar, setHasScrollbar] = useState(false);
+
+  useEffect(() => {
+    const contentElement = contentRef.current;
+    const scrollableElement = contentElement?.closest<HTMLElement>(`[data-testid="${projectSettingsBodyScrollableTestId}"]`);
+
+    if (!contentElement || !scrollableElement) {
+      setHasScrollbar(false);
+      return;
+    }
+
+    const updateScrollbarState = () => {
+      setHasScrollbar(scrollableElement.scrollHeight > scrollableElement.clientHeight + 1);
+    };
+
+    updateScrollbarState();
+
+    const resizeObserver =
+      typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateScrollbarState) : undefined;
+    resizeObserver?.observe(scrollableElement);
+    resizeObserver?.observe(contentElement);
+    window.addEventListener('resize', updateScrollbarState);
+
+    return () => {
+      resizeObserver?.disconnect();
+      window.removeEventListener('resize', updateScrollbarState);
+    };
+  }, [contentRef]);
+
+  return hasScrollbar;
+}
+
+const ProjectInfoFoldableSection: FC<{
+  sectionKey: string;
+  title: string;
+  children: ReactNode;
+}> = ({ sectionKey, title, children }) => {
+  const [sectionOpenState, setSectionOpenState] = useAtom(projectSettingsSectionOpenState);
+  const isOpen = sectionOpenState[sectionKey] ?? false;
+  const setIsOpen = (nextOpen: boolean) => {
+    setSectionOpenState((state) => ({
+      ...state,
+      [sectionKey]: nextOpen,
+    }));
+  };
+
+  return (
+    <section className="project-info-item project-info-foldable">
+      <Collapsible
+        open={isOpen}
+        handleTriggerClick={() => setIsOpen(!isOpen)}
+        trigger={<ProjectInfoFoldableToggle label={title} />}
+        triggerClassName="project-info-foldable-toggle-container"
+        triggerOpenedClassName="project-info-foldable-toggle-container open"
+        triggerWhenOpen={<ProjectInfoFoldableToggle label={title} isOpen />}
+        transitionTime={150}
+        easing="ease-out"
+      >
+        <div className="project-info-foldable-content">{children}</div>
+      </Collapsible>
+    </section>
+  );
+};
+
+const ProjectInfoFoldableToggle: FC<{ isOpen?: boolean; label: string }> = ({ isOpen, label }) => (
+  <div className="project-info-foldable-toggle-area">
+    <button type="button" className="project-info-foldable-toggle">
+      <span className="label">{label}</span>
+      <span className="indicator">{isOpen ? <ChevronUpIcon /> : <ChevronDownIcon />}</span>
+    </button>
+  </div>
 );

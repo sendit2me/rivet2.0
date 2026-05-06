@@ -13,6 +13,9 @@
 - Make the graphs and folders draggable without a drag icon
 
 
+- When new output content appears in the output node part show it with a slight fade it. If the old output content should go away to show the new one, remove the old one with no ease effect.
+
+
 - When some other workspace is selected, let's deselect the project tab. Not just visualy. Deselect so that the Ctrl+S doesn't cave the project because none is selected
 
 

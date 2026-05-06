@@ -12,7 +12,6 @@ import {
   OpenAiSettingsPage,
   PluginsCatalogPage,
   PluginsSettingsPage,
-  ProjectContextSettingsPage,
   UiSettingsPage,
   UpdatesSettingsPage,
 } from './settings/SettingsPages';
@@ -55,7 +54,7 @@ const modalBody = css`
   }
 `;
 
-type DefaultPages = 'general' | 'graphs' | 'context' | 'ui' | 'openai' | 'plugins' | 'pluginsSettings' | 'updates';
+type DefaultPages = 'general' | 'graphs' | 'ui' | 'openai' | 'plugins' | 'pluginsSettings' | 'updates';
 type Pages = DefaultPages | string;
 
 const buttonsContainer = css`
@@ -97,9 +96,6 @@ export const SettingsModal: FC<SettingsModalProps> = () => {
                       <ButtonItem isSelected={page === 'graphs'} onClick={() => setPage('graphs')}>
                         Graphs
                       </ButtonItem>
-                      <ButtonItem isSelected={page === 'context'} onClick={() => setPage('context')}>
-                        Context
-                      </ButtonItem>
                       <ButtonItem isSelected={page === 'ui'} onClick={() => setPage('ui')}>
                         UI
                       </ButtonItem>
@@ -128,7 +124,6 @@ export const SettingsModal: FC<SettingsModalProps> = () => {
                 {match(page)
                   .with('general', () => <GeneralSettingsPage />)
                   .with('graphs', () => <GraphsSettingsPage />)
-                  .with('context', () => <ProjectContextSettingsPage />)
                   .with('ui', () => <UiSettingsPage />)
                   .with('openai', () => <OpenAiSettingsPage />)
                   .with('plugins', () => <PluginsCatalogPage />)

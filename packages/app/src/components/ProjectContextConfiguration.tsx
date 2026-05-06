@@ -8,10 +8,10 @@ import { produce } from 'immer';
 import { useAtom, useAtomValue } from 'jotai';
 import { type FC, useMemo, useState } from 'react';
 import { useToggle } from 'ahooks';
-import { projectContextState, projectState } from '../../../state/savedGraphs.js';
-import { entries } from '../../../utils/typeSafety.js';
-import { AppModalHeader } from '../../AppModalHeader.js';
-import { FieldHelperMessage } from '../../FieldHelperMessage.js';
+import { projectContextState, projectState } from '../state/savedGraphs.js';
+import { entries } from '../utils/typeSafety.js';
+import { AppModalHeader } from './AppModalHeader.js';
+import { FieldHelperMessage } from './FieldHelperMessage.js';
 
 const projectContextSettingsPageStyles = css`
   .project-context-intro {
@@ -73,13 +73,20 @@ const projectContextSettingsPageStyles = css`
   }
 `;
 
+const modalFooterActionsStyles = css`
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-end;
+  gap: 8px;
+`;
+
 type ContextValue = {
   key: string;
   previousKey?: string;
   value: DataValue;
 };
 
-export const ProjectContextSettingsPage: FC = () => {
+export const ProjectContextConfiguration: FC = () => {
   const project = useAtomValue(projectState);
   const [projectContext, setProjectContext] = useAtom(projectContextState(project.metadata.id));
   const [projectEditContextModalOpen, toggleProjectEditContextModalOpen] = useToggle(false);
@@ -130,8 +137,9 @@ export const ProjectContextSettingsPage: FC = () => {
   return (
     <div css={projectContextSettingsPageStyles}>
       <p className="project-context-intro">
-        Context values are stored in Rivet for the current project, not in the project file. Context nodes can read
-        these values while running graphs in <strong>{project.metadata.title || 'Untitled Project'}</strong>.
+        Context values are environment-style values stored in the app for each project. They are not written to the
+        project file, so sharing the project file does not share these values. A <b>Context</b> node can read these
+        values while running graphs in the current project.
       </p>
       {sortedContext.length > 0 ? (
         <div className="context-list">
@@ -241,9 +249,8 @@ const ValueEditorModal: FC<{
           }}
         >
           <p>
-            Context values are accessible in any graph in the project. They can be used to store configuration values.
-            A <strong>Context Node</strong> can retrieve a value from the context. Context values here are not stored
-            with the project file, but are stored in the Rivet IDE.
+            Context values are accessible in any graph in the project. Use a Context node to retrieve a value from the
+            context during graph execution.
           </p>
           <Field name="key" label="ID" isRequired>
             {() => (
@@ -283,14 +290,7 @@ const ValueEditorModal: FC<{
         </form>
       </ModalBody>
       <ModalFooter>
-        <div
-          css={css`
-            display: flex;
-            flex-direction: row;
-            justify-content: flex-end;
-            gap: 8px;
-          `}
-        >
+        <div css={modalFooterActionsStyles}>
           <Button appearance="default" onClick={onClose}>
             Cancel
           </Button>
