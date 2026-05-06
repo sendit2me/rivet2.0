@@ -5,9 +5,7 @@ import { projectState } from '../state/savedGraphs.js';
 import ExpandLeftIcon from 'majesticons/line/menu-expand-left-line.svg?react';
 import ExpandRightIcon from 'majesticons/line/menu-expand-right-line.svg?react';
 import { sidebarOpenState } from '../state/graphBuilder.js';
-import Tabs, { Tab, TabList, TabPanel } from '@atlaskit/tabs';
 import { GraphList } from './GraphList.js';
-import { ProjectInfoSidebarTab } from './ProjectInfoSidebarTab';
 import { leftSidebarLiveWidthState, leftSidebarWidthState } from '../state/ui.js';
 import { clampLeftSidebarWidth } from '../utils/leftSidebarWidth.js';
 import { resizeCursorStyles } from '../utils/resizeCursors.js';
@@ -27,28 +25,12 @@ const styles = css`
   .panel {
     display: flex;
     flex-direction: column;
-    width: calc(100% + 16px);
-    margin: 0 -8px;
+    height: 100%;
+    width: 100%;
   }
 
   label {
     font-size: var(--ui-font-size-sm);
-  }
-
-  .project-info-section {
-    padding: 8px 12px;
-    height: 100%;
-    overflow: auto;
-    font-size: var(--ui-font-size-compact);
-  }
-
-  .project-info-section label {
-    font-size: var(--ui-font-size-compact) !important;
-  }
-
-  .project-info-section [data-read-view-fit-container-width] > div,
-  .project-info-section input {
-    font-size: var(--ui-font-size-compact) !important;
   }
 
   .toggle-tab {
@@ -103,8 +85,7 @@ const styles = css`
     opacity: 0.65;
   }
 
-  .tabs,
-  .tabs > div {
+  .left-sidebar-content {
     height: 100%;
   }
 `;
@@ -221,23 +202,10 @@ export const LeftSidebar: FC = () => {
           role="separator"
         />
       )}
-      <div className="tabs">
-        <Tabs id="sidebar-tabs" defaultSelected={1}>
-          <TabList>
-            <Tab>Project</Tab>
-            <Tab>Graphs</Tab>
-          </TabList>
-          <TabPanel>
-            <div className="panel">
-              <ProjectInfoSidebarTab />
-            </div>
-          </TabPanel>
-          <TabPanel>
-            <div className="panel" data-contextmenutype="graph-list">
-              <GraphList />
-            </div>
-          </TabPanel>
-        </Tabs>
+      <div className="left-sidebar-content">
+        <div className="panel" data-contextmenutype="graph-list">
+          <GraphList />
+        </div>
       </div>
     </div>
   );

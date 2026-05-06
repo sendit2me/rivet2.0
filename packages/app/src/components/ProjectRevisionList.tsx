@@ -54,7 +54,7 @@ const ProjectRevisionList: FC = () => {
           </div>
         ) : (
           <div className="loaded-area">
-            <span>Searched {numProcessedRevisions} revisions for changes to graph.</span>
+            <span>Searched {numProcessedRevisions} project revisions.</span>
             {(numProcessedRevisions < numTotalRevisions || numTotalRevisions === 0) && (
               <Button onClick={() => resume()}>Load More</Button>
             )}

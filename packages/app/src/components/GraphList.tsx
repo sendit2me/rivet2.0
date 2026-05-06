@@ -35,10 +35,12 @@ import EditPenIcon from 'majesticons/line/edit-pen-2-line.svg?react';
 import DuplicateIcon from 'majesticons/line/image-multiple-line.svg?react';
 import DeleteIcon from 'majesticons/line/delete-bin-line.svg?react';
 import InfoIcon from 'majesticons/line/info-circle-line.svg?react';
+import SettingsCogIcon from 'majesticons/line/settings-cog-line.svg?react';
 import PlusIcon from 'majesticons/line/plus-line.svg?react';
 import FolderIcon from 'majesticons/line/folder-line.svg?react';
 import { MainGraphIcon } from './graphList/MainGraphIcon';
 import { GraphInfoModal } from './GraphInfoModal';
+import { ProjectInfoModal } from './ProjectInfoModal';
 
 const styles = css`
   display: flex;
@@ -51,6 +53,15 @@ const styles = css`
     flex-direction: column;
     flex: 1 1 auto;
     min-height: 0;
+  }
+
+  .graph-list-toolbar {
+    margin: 8px 8px 0;
+
+    svg {
+      width: 16px;
+      height: 16px;
+    }
   }
 
   .graph-list {
@@ -354,6 +365,7 @@ export const GraphList: FC = memo(() => {
   const projectNodeRegistry = useProjectNodeRegistry();
   const [graphPendingDelete, setGraphPendingDelete] = useState<NodeGraph | null>(null);
   const [graphPendingInfo, setGraphPendingInfo] = useState<NodeGraph | null>(null);
+  const [isProjectInfoOpen, setIsProjectInfoOpen] = useState(false);
   const showUnreachableGraphTags = useAtomValue(showUnreachableGraphTagsState);
   const showGraphReferenceIndicators = useAtomValue(showGraphReferenceIndicatorsState);
 
@@ -601,6 +613,11 @@ export const GraphList: FC = memo(() => {
 
   return (
     <div css={styles}>
+      <div className="graph-list-toolbar">
+        <Button shouldFitContainer iconBefore={<SettingsCogIcon />} onClick={() => setIsProjectInfoOpen(true)}>
+          Project settings
+        </Button>
+      </div>
       <div className="search">
         <input
           autoComplete="off"
@@ -720,6 +737,7 @@ export const GraphList: FC = memo(() => {
           onChange={updateGraphInfo}
           onClose={() => setGraphPendingInfo(null)}
         />
+        <ProjectInfoModal isOpen={isProjectInfoOpen} onClose={() => setIsProjectInfoOpen(false)} />
       </div>
     </div>
   );

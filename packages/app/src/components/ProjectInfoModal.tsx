@@ -1,7 +1,7 @@
 import { useMemo, type FC } from 'react';
 import { InlineEditableTextfield } from '@atlaskit/inline-edit';
 import { ProjectPluginsConfiguration } from './ProjectPluginConfiguration';
-import { Field, Label } from '@atlaskit/form';
+import { Field } from '@atlaskit/form';
 import Select from '@atlaskit/select';
 import { projectState, savedGraphsState } from '../state/savedGraphs';
 import { css } from '@emotion/react';
@@ -10,8 +10,21 @@ import { useAtom, useAtomValue } from 'jotai';
 import { ProjectReferencesConfiguration } from './ProjectReferencesConfiguration';
 import { ProjectMCPConfiguration } from './ProjectMCPConfiguration';
 import { MainGraphIcon } from './graphList/MainGraphIcon';
+import Modal, { ModalBody, ModalFooter, ModalTransition } from '@atlaskit/modal-dialog';
+import { AppModalHeader } from './AppModalHeader';
+import Button from '@atlaskit/button';
 
 const styles = css`
+  height: 100%;
+  font-size: var(--ui-font-size-compact);
+
+  label,
+  .project-info-label,
+  [data-read-view-fit-container-width] > div,
+  input {
+    font-size: var(--ui-font-size-compact) !important;
+  }
+
   .project-info-layout {
     min-height: 100%;
     display: flex;
@@ -60,9 +73,15 @@ const styles = css`
   .project-info-action {
     margin-top: 8px;
   }
+
+  .project-info-label {
+    color: var(--grey);
+    font-weight: var(--font-weight-semibold);
+    margin-bottom: 6px;
+  }
 `;
 
-export const ProjectInfoSidebarTab: FC = () => {
+export const ProjectInfoPanel: FC = () => {
   const [project, setProject] = useAtom(projectState);
   const savedGraphs = useAtomValue(savedGraphsState);
 
@@ -131,7 +150,7 @@ export const ProjectInfoSidebarTab: FC = () => {
         </div>
 
         <div className="project-info-item">
-          <Label htmlFor="">Revisions</Label>
+          <div className="project-info-label">Revisions</div>
           <ProjectRevisions />
         </div>
 
@@ -140,6 +159,29 @@ export const ProjectInfoSidebarTab: FC = () => {
         </div>
       </div>
     </div>
+  );
+};
+
+export const ProjectInfoModal: FC<{
+  isOpen: boolean;
+  onClose: () => void;
+}> = ({ isOpen, onClose }) => {
+  return (
+    <ModalTransition>
+      {isOpen && (
+        <Modal onClose={onClose} width="large" height="80%">
+          <AppModalHeader title="Project settings" onClose={onClose} />
+          <ModalBody>
+            <ProjectInfoPanel />
+          </ModalBody>
+          <ModalFooter>
+            <Button appearance="primary" onClick={onClose}>
+              Done
+            </Button>
+          </ModalFooter>
+        </Modal>
+      )}
+    </ModalTransition>
   );
 };
 

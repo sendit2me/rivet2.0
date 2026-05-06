@@ -9,10 +9,11 @@
 
 
 
-- Move the "Project" tab content from a dedicated tab to a modal that is invoked by the "Project settings" button in the "Graphs" tab
 
 - Make the graphs and folders draggable without a drag icon
 
+
+- When some other workspace is selected, let's deselect the project tab. Not just visualy. Deselect so that the Ctrl+S doesn't cave the project because none is selected
 
 
 - Object nide's content is clipped with "..." whereas text nodes are just overflow-hidden
