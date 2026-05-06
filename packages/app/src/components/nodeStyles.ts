@@ -108,7 +108,7 @@ export const nodeStyles = css`
     transition: border-color 0.2s ease-out;
   }
 
-  .node.hasCustomColor .node-border-overlay {
+  .node.hasCustomBorderColor .node-border-overlay {
     border-color: var(--node-frame-border-color, var(--node-border));
   }
 

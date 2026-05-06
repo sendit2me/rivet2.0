@@ -8,6 +8,8 @@
 
 - Adjust the comment node so that the body is transparent for dragging the artboard
 
+- When the search results winfow is closed but not wiped, the found nodes still glow. Don't
+
 - The old preloader is still visible in the processing graphs in the graph tree
 
 - When I open the main run menu for the first time, it has a thick white border around it. It goes away when I click at least one item in the menu. Sounds like browser focis or something
@@ -16,8 +18,6 @@
 
 - The start on the main graph shouls be in the end of the name, not in the beginning
 
-- Tighten the current "Default" node skin with no border. Now, it's more of a bug than a feature
-- Make node skins 1 mode instead of 2: just colored header
 
 - Node terminals make not round, but half squircles on the inside part of the node
 

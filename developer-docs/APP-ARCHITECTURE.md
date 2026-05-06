@@ -534,8 +534,9 @@ This is a major structural point: event handlers are no longer passed as a large
 
 Current responsibilities:
 
-- derive CSS variables from node colors
-- keep the node frame overlay passive for unselected/unhovered nodes unless the node has an explicit custom color; selection, hover, search-match, graph-diff, and custom-color states are the only paths that should paint the card frame
+- derive CSS variables from node colors; [`nodeColor.ts`](../packages/app/src/utils/nodeColor.ts) is the shared app-side contract for translating saved `{ bg, border }` visual data into header fill and frame behavior
+- keep the node frame overlay passive for unselected/unhovered nodes unless the node has an explicit visible border color; header-only node colors paint the header but leave the resting card frame transparent, legacy border-only values are normalized to header-only at render time, and selection, hover, search-match, graph-diff, and explicit border+header colors are the paths that should paint the card frame
+- render node-color picker swatches with the same semantics they apply: the first swatch for each color is header-only and has no visible border in the palette/trigger, while the second swatch is border+header and shows the visible frame
 - choose between normal and zoomed-out rendering
 - reflect execution state classes (`success`, `error`, `running`, `not-ran`)
 - reflect graph/history state (`selected`, changed, output-expanded, disabled, conditional, split)
@@ -851,7 +852,7 @@ The execution UI is now intentionally graph-view-aware:
 - UI preferences such as zoom sensitivity and auto-opening node settings for newly added nodes
 - remote debugger default URL
 
-For editor-only creation preferences, legacy/default behavior is intentionally centralized in [`packages/app/src/state/settings.ts`](../packages/app/src/state/settings.ts) via `resolveEditorPreferences(...)`: older persisted settings objects still treat `openNodeSettingsOnCreate` as enabled and `defaultNodeColors` as disabled, and both the settings UI and the add-node command share that resolver so they cannot drift on fallback behavior.
+For editor-only creation preferences, legacy/default behavior is intentionally centralized in [`packages/app/src/state/settings.ts`](../packages/app/src/state/settings.ts) via `resolveEditorPreferences(...)`: older persisted settings objects still treat `openNodeSettingsOnCreate` as enabled and `defaultNodeColors` as disabled, and both the settings UI and the add-node command share that resolver so they cannot drift on fallback behavior. When default node colors are enabled, supported node types receive header-only colors through [`defaultNodeColors.ts`](../packages/app/src/domain/graphEditing/defaultNodeColors.ts); this keeps newly created colored nodes aligned with the normal default skin, where the header is colored but the resting card frame is not.
 
 Important distinction:
 

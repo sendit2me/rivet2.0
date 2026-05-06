@@ -1,20 +1,14 @@
-import type { ChartNode } from '@valerypopoff/rivet2-core';
+import { createHeaderOnlyNodeColor, type NodeColor } from '../../utils/nodeColor.js';
 
-type NodeColor = NonNullable<ChartNode['visualData']['color']>;
-
-function createFilledNodeColor(colorIndex: number): NodeColor {
-  const token = `var(--node-color-${colorIndex})`;
-  return {
-    bg: token,
-    border: token,
-  };
+function createDefaultNodeColor(colorIndex: number): NodeColor {
+  return createHeaderOnlyNodeColor(`var(--node-color-${colorIndex})`);
 }
 
 const DEFAULT_NODE_COLORS_BY_TYPE: Partial<Record<string, NodeColor>> = {
-  graphInput: createFilledNodeColor(3),
-  graphOutput: createFilledNodeColor(3),
-  httpCall: createFilledNodeColor(6),
-  subGraph: createFilledNodeColor(2),
+  graphInput: createDefaultNodeColor(3),
+  graphOutput: createDefaultNodeColor(3),
+  httpCall: createDefaultNodeColor(6),
+  subGraph: createDefaultNodeColor(2),
 };
 
 export function getDefaultNodeColorForType(nodeType: string): NodeColor | undefined {

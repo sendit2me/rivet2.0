@@ -32,6 +32,7 @@ import { NodeEditorResizeContext } from './nodeEditor/NodeEditorResizeContext.js
 import { ResizeHandle } from './ResizeHandle.js';
 import { useNodeEditorWidth } from './nodeEditor/useNodeEditorWidth.js';
 import { resizeCursorStyles } from '../utils/resizeCursors.js';
+import type { NodeColor } from '../utils/nodeColor.js';
 import Modal, { ModalBody, ModalFooter, ModalTransition } from '@atlaskit/modal-dialog';
 import Button from '@atlaskit/button';
 import { AppModalHeader } from './AppModalHeader';
@@ -754,7 +755,7 @@ export const NodeEditor: FC<NodeEditorProps> = ({ selectedNode, onDeselect }) =>
     updateNode({ ...selectedNode, title });
   });
 
-  const nodeColorChanged = useStableCallback((color: { bg: string; border: string } | undefined) => {
+  const nodeColorChanged = useStableCallback((color: NodeColor | undefined) => {
     updateNode({ ...selectedNode, visualData: { ...selectedNode.visualData, color } });
   });
 

@@ -745,7 +745,7 @@ Serialization lives in [`packages/core/src/utils/serialization/`](../packages/co
 [`serializationHelpers.ts`](../packages/core/src/utils/serialization/serializationHelpers.ts) consolidates logic shared between V3 and V4 serializers:
 
 - `serializeConnection` / `deserializeConnection` - convert `NodeConnection` to/from the compact string format
-- `parseVisualData` / `packVisualDataV3` / `packVisualDataV4` - encode/decode node visual data (position, size, colors)
+- `parseVisualData` / `packVisualDataV3` / `packVisualDataV4` - encode/decode node visual data (position, size, colors). In the app UI, `visualData.color.bg` is the node header color and `visualData.color.border` is the optional resting frame color; Rivet 2 uses `transparent` as the header-only border sentinel so selected/hover/search/diff borders can still be painted dynamically without a permanent custom frame. Older border-only values with the neutral header color are normalized by the app renderer to the new header-only visual mode instead of keeping an unsupported third skin.
 - `wrapInYamlEnvelope` / `unwrapYamlEnvelope` - standard YAML version-envelope wrapping with validation
 
 Both `serialization_v3.ts` and `serialization_v4.ts` delegate to these shared helpers instead of keeping their own copies.

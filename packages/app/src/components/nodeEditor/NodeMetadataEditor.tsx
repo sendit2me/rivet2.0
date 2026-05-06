@@ -4,6 +4,7 @@ import Textarea from '@atlaskit/textarea';
 import TextField from '@atlaskit/textfield';
 import { type ChartNode } from '@valerypopoff/rivet2-core';
 import { NodeColorPicker } from '../NodeColorPicker.js';
+import type { NodeColor } from '../../utils/nodeColor.js';
 
 const METADATA_AUTOSAVE_DEBOUNCE_MS = 300;
 
@@ -143,7 +144,7 @@ export const NodeMetadataEditor: FC<{
   node: ChartNode;
   onTitleChange: (title: string) => void;
   onDescriptionChange: (description: string) => void;
-  onColorChange: (color: { bg: string; border: string } | undefined) => void;
+  onColorChange: (color: NodeColor | undefined) => void;
 }> = ({ node, onTitleChange, onDescriptionChange, onColorChange }) => {
   const latestNodeDescriptionRef = useRef(node.description ?? '');
   const nodeDescriptionBeforeEditRef = useRef(node.description ?? '');

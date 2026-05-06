@@ -8,6 +8,7 @@ import { useNodePortLabelMinWidth } from '../hooks/useNodePortLabelMinWidth';
 import { type ProcessDataForNode, resolvedGraphSelectionState } from '../state/dataFlow.js';
 import { getNodeExecutionClassFlags, getSelectedProcessRun } from '../state/selectors/executionSelectors.js';
 import { getSplitStackGhostColors } from '../utils/nodeSplitStackColors.js';
+import { getNodeBorderReferenceColor, getNodeHeaderColor, isNodeBorderVisible } from '../utils/nodeColor.js';
 import { useCanvasHandlersContext, useCanvasViewContext } from './CanvasContext';
 import { ZoomedOutVisualNodeContent } from './visualNode/ZoomedOutVisualNodeContent';
 import { NormalVisualNodeContent } from './visualNode/NormalVisualNodeContent';
@@ -68,12 +69,13 @@ export const VisualNode = memo(
       const minimumNodeWidth = useNodePortLabelMinWidth(node);
       const changeInfo = useHistoricalNodeChangeInfo(node.id);
       const graphSelectionOptions = useAtomValue(resolvedGraphSelectionState);
+      const nodeColor = node.visualData.color;
 
       useDependsOnPlugins();
 
       const style = useMemo(() => {
-        const bgColor = node.visualData.color?.bg ?? 'var(--grey-darkish)';
-        const borderColor = node.visualData.color?.border ?? 'var(--grey-darkish)';
+        const bgColor = getNodeHeaderColor(nodeColor);
+        const borderColor = getNodeBorderReferenceColor(nodeColor);
         const splitStackGhostColors = getSplitStackGhostColors(bgColor);
         let fgColor = 'var(--foreground-bright)';
 
@@ -101,8 +103,7 @@ export const VisualNode = memo(
         isComment,
         isDragging,
         minimumNodeWidth,
-        node.visualData.color?.bg,
-        node.visualData.color?.border,
+        nodeColor,
         node.visualData.width,
         node.visualData.x,
         node.visualData.y,
@@ -135,7 +136,7 @@ export const VisualNode = memo(
               overlayNode: isOverlay,
               selected: isSelected,
               hovered: isHovered,
-              hasCustomColor: !!node.visualData.color,
+              hasCustomBorderColor: isNodeBorderVisible(nodeColor),
               searchMatch: isSearchMatch,
               dragging: isDragging,
               showHoverControls: shouldShowHoverControls,
