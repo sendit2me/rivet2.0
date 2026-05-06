@@ -5,8 +5,8 @@ import { useGraphRevisions } from '../hooks/useGraphRevisions';
 import { css } from '@emotion/react';
 import Button from '@atlaskit/button';
 import { type CalculatedRevision } from '../utils/ProjectRevisionCalculator';
-import { graphState, historicalGraphState, isReadOnlyGraphState } from '../state/graph';
-import { GraphId, type NodeGraph } from '@valerypopoff/rivet2-core';
+import { graphState } from '../state/graph';
+import type { GraphId } from '@valerypopoff/rivet2-core';
 import { useChooseHistoricalGraph } from '../hooks/useChooseHistoricalGraph';
 
 export const revisionStyles = css`
@@ -26,6 +26,14 @@ export const revisionStyles = css`
 
     &:hover {
       background-color: var(--grey-darkish);
+    }
+  }
+
+  .revision-unavailable {
+    cursor: default;
+
+    &:hover {
+      background-color: transparent;
     }
   }
 
@@ -59,7 +67,7 @@ export const revisionStyles = css`
   }
 `;
 
-export const GraphRevisions: FC = () => {
+export const GraphRevisions: FC<{ graphId?: GraphId }> = ({ graphId }) => {
   const projectState = useAtomValue(loadedProjectState);
   const [enabled, setEnabled] = useState(false);
 
@@ -77,19 +85,19 @@ export const GraphRevisions: FC = () => {
 
   return (
     <div css={revisionStyles}>
-      <GraphRevisionList />
+      <GraphRevisionList graphId={graphId} />
     </div>
   );
 };
 
-export const GraphRevisionList: FC = () => {
-  const { revisions, isLoading, stop, resume, numTotalRevisions, numProcessedRevisions } = useGraphRevisions();
+export const GraphRevisionList: FC<{ graphId?: GraphId }> = ({ graphId }) => {
+  const { revisions, isLoading, stop, resume, numTotalRevisions, numProcessedRevisions } = useGraphRevisions({ graphId });
 
   return (
     <div css={revisionStyles}>
       <div className="revisions">
         {revisions.map((revision) => (
-          <GraphRevisionListEntry key={revision.hash} revision={revision} />
+          <GraphRevisionListEntry key={revision.hash} graphId={graphId} revision={revision} />
         ))}
         {isLoading ? (
           <div className="loading-area">
@@ -112,13 +120,33 @@ export const GraphRevisionList: FC = () => {
 };
 
 export const GraphRevisionListEntry: FC<{
+  graphId?: GraphId;
   revision: CalculatedRevision;
-}> = ({ revision }) => {
-  const currentGraphId = useAtomValue(graphState).metadata!.id!;
+}> = ({ graphId, revision }) => {
+  const currentGraphId = useAtomValue(graphState).metadata?.id;
   const chooseGraph = useChooseHistoricalGraph(revision);
+  const revisionGraphId = graphId ?? currentGraphId;
+
+  if (revisionGraphId == null) {
+    return null;
+  }
+
+  const graphAtRevision = revision.projectAtRevision?.graphs[revisionGraphId];
+
+  if (graphAtRevision == null) {
+    return (
+      <div className="revision revision-unavailable">
+        <div className="hash">
+          <span>{revision.hash.slice(0, 6)}</span>
+        </div>
+        <div className="message">{revision.message}</div>
+        <div className="message">Graph is not present in this revision.</div>
+      </div>
+    );
+  }
 
   return (
-    <div className="revision" onClick={() => chooseGraph(currentGraphId)}>
+    <div className="revision" onClick={() => chooseGraph(revisionGraphId)}>
       <div className="hash">
         <span>{revision.hash.slice(0, 6)}</span>
       </div>

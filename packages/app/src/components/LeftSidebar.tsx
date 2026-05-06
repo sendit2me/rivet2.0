@@ -8,7 +8,6 @@ import { sidebarOpenState } from '../state/graphBuilder.js';
 import Tabs, { Tab, TabList, TabPanel } from '@atlaskit/tabs';
 import { GraphList } from './GraphList.js';
 import { ProjectInfoSidebarTab } from './ProjectInfoSidebarTab';
-import { GraphInfoSidebarTab } from './GraphInfoSidebarTab';
 import { leftSidebarLiveWidthState, leftSidebarWidthState } from '../state/ui.js';
 import { clampLeftSidebarWidth } from '../utils/leftSidebarWidth.js';
 import { resizeCursorStyles } from '../utils/resizeCursors.js';
@@ -36,7 +35,6 @@ const styles = css`
     font-size: var(--ui-font-size-sm);
   }
 
-  .graph-info-section,
   .project-info-section {
     padding: 8px 12px;
     height: 100%;
@@ -44,14 +42,11 @@ const styles = css`
     font-size: var(--ui-font-size-compact);
   }
 
-  .graph-info-section label,
   .project-info-section label {
     font-size: var(--ui-font-size-compact) !important;
   }
 
-  .graph-info-section [data-read-view-fit-container-width] > div,
   .project-info-section [data-read-view-fit-container-width] > div,
-  .graph-info-section input,
   .project-info-section input {
     font-size: var(--ui-font-size-compact) !important;
   }
@@ -231,7 +226,6 @@ export const LeftSidebar: FC = () => {
           <TabList>
             <Tab>Project</Tab>
             <Tab>Graphs</Tab>
-            <Tab>Graph info</Tab>
           </TabList>
           <TabPanel>
             <div className="panel">
@@ -241,11 +235,6 @@ export const LeftSidebar: FC = () => {
           <TabPanel>
             <div className="panel" data-contextmenutype="graph-list">
               <GraphList />
-            </div>
-          </TabPanel>
-          <TabPanel>
-            <div className="panel">
-              <GraphInfoSidebarTab />
             </div>
           </TabPanel>
         </Tabs>

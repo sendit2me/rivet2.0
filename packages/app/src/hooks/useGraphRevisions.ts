@@ -86,12 +86,13 @@ export function useProjectRevisions(options?: { max?: number }) {
   return { revisions, isLoading, stop, numTotalRevisions, numProcessedRevisions, resume };
 }
 
-export function useGraphRevisions(options?: { max?: number }) {
+export function useGraphRevisions(options?: { max?: number; graphId?: GraphId }) {
   const { revisions, isLoading, stop, numTotalRevisions, numProcessedRevisions, resume } = useProjectRevisions(options);
 
   const graph = useAtomValue(graphState);
+  const graphId = options?.graphId ?? graph?.metadata?.id;
 
-  if (!graph) {
+  if (graphId == null) {
     return {
       revisions: [],
       isLoading,
@@ -103,7 +104,7 @@ export function useGraphRevisions(options?: { max?: number }) {
   }
 
   return {
-    revisions: revisions.filter((revision) => revision.changedGraphs.includes(graph.metadata!.id!)),
+    revisions: revisions.filter((revision) => revision.changedGraphs.includes(graphId)),
     isLoading,
     stop,
     numTotalRevisions,

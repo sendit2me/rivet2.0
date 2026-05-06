@@ -1,14 +1,15 @@
 import { DndContext, useDroppable } from '@dnd-kit/core';
 import { css } from '@emotion/react';
 import { type FC, type MouseEvent, type KeyboardEvent, memo, useMemo, useState } from 'react';
-import { useAtomValue } from 'jotai';
+import { useAtomValue, useSetAtom } from 'jotai';
 import Button from '@atlaskit/button';
 import Modal, { ModalBody, ModalFooter, ModalTransition } from '@atlaskit/modal-dialog';
 import { type GraphId, type NodeGraph } from '@valerypopoff/rivet2-core';
 import clsx from 'clsx';
 import { runningGraphsState } from '../state/dataFlow.js';
+import { graphState } from '../state/graph.js';
 import { pluginsState } from '../state/plugins.js';
-import { projectState } from '../state/savedGraphs.js';
+import { projectState, savedGraphsState } from '../state/savedGraphs.js';
 import { showGraphReferenceIndicatorsState, showUnreachableGraphTagsState } from '../state/ui.js';
 import { useContextMenu } from '../hooks/useContextMenu.js';
 import Portal from '@atlaskit/portal';
@@ -33,9 +34,11 @@ import { type ContextMenuItem as ContextMenuConfigItem } from '../hooks/useConte
 import EditPenIcon from 'majesticons/line/edit-pen-2-line.svg?react';
 import DuplicateIcon from 'majesticons/line/image-multiple-line.svg?react';
 import DeleteIcon from 'majesticons/line/delete-bin-line.svg?react';
+import InfoIcon from 'majesticons/line/info-circle-line.svg?react';
 import PlusIcon from 'majesticons/line/plus-line.svg?react';
 import FolderIcon from 'majesticons/line/folder-line.svg?react';
 import { MainGraphIcon } from './graphList/MainGraphIcon';
+import { GraphInfoModal } from './GraphInfoModal';
 
 const styles = css`
   display: flex;
@@ -339,6 +342,8 @@ export const GraphList: FC = memo(() => {
     startRename,
     renameFolderItem,
   } = useGraphOperations();
+  const setGraph = useSetAtom(graphState);
+  const setSavedGraphs = useSetAtom(savedGraphsState);
 
   const { draggingItemFolder, dragOverFolderName, handleDragStart, handleDragEnd, handleDragOver } =
     useGraphListDragDrop(renameFolderItem);
@@ -348,6 +353,7 @@ export const GraphList: FC = memo(() => {
   const plugins = useAtomValue(pluginsState);
   const projectNodeRegistry = useProjectNodeRegistry();
   const [graphPendingDelete, setGraphPendingDelete] = useState<NodeGraph | null>(null);
+  const [graphPendingInfo, setGraphPendingInfo] = useState<NodeGraph | null>(null);
   const showUnreachableGraphTags = useAtomValue(showUnreachableGraphTagsState);
   const showGraphReferenceIndicators = useAtomValue(showGraphReferenceIndicatorsState);
 
@@ -419,6 +425,24 @@ export const GraphList: FC = memo(() => {
     setGraphPendingDelete(null);
   });
 
+  const updateGraphInfo = useStableCallback((updatedGraph: NodeGraph) => {
+    const updatedGraphId = updatedGraph.metadata?.id;
+
+    if (updatedGraphId == null) {
+      setGraphPendingInfo(updatedGraph);
+      return;
+    }
+
+    setGraphPendingInfo(updatedGraph);
+    setSavedGraphs((prev) =>
+      prev.map((savedGraph) => (savedGraph.metadata?.id === updatedGraphId ? updatedGraph : savedGraph)),
+    );
+
+    if (graph.metadata?.id === updatedGraphId) {
+      setGraph(updatedGraph);
+    }
+  });
+
   const graphItemMenuItems = useMemo(
     (): ContextMenuConfigItem[] => [
       {
@@ -430,6 +454,11 @@ export const GraphList: FC = memo(() => {
         id: 'duplicate-graph',
         label: 'Duplicate',
         icon: DuplicateIcon,
+      },
+      {
+        id: 'graph-info',
+        label: 'Graph info',
+        icon: InfoIcon,
       },
       ...(selectedGraphForContextMenu && !selectedGraphIsMain
         ? [
@@ -508,6 +537,11 @@ export const GraphList: FC = memo(() => {
         break;
       case 'duplicate-graph':
         duplicateGraph(selectedGraphForContextMenu!);
+        break;
+      case 'graph-info':
+        if (selectedGraphForContextMenu) {
+          setGraphPendingInfo(selectedGraphForContextMenu);
+        }
         break;
       case 'make-main-graph':
         if (selectedGraphForContextMenu) {
@@ -680,6 +714,11 @@ export const GraphList: FC = memo(() => {
           graph={graphPendingDelete}
           onClose={() => setGraphPendingDelete(null)}
           onConfirm={confirmDeleteGraph}
+        />
+        <GraphInfoModal
+          graph={graphPendingInfo}
+          onChange={updateGraphInfo}
+          onClose={() => setGraphPendingInfo(null)}
         />
       </div>
     </div>

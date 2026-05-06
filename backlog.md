@@ -8,11 +8,15 @@
 
 
 
-- Move "Greaph info" from a dedicated tab to a modal that is invoked via graph context menu (add a new item "Graph info" after "Duplicate")
 
 - Move the "Project" tab content from a dedicated tab to a modal that is invoked by the "Project settings" button in the "Graphs" tab
 
 - Make the graphs and folders draggable without a drag icon
+
+
+
+- Object nide's content is clipped with "..." whereas text nodes are just overflow-hidden
+
 
 
 - When the port labels aren't capitalized ("Preserve text case for node ports" switcher is on), don't do letter spacing
