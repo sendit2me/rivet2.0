@@ -1,4 +1,4 @@
-import { DndContext, useDroppable } from '@dnd-kit/core';
+import { DndContext, PointerSensor, useDroppable, useSensor, useSensors } from '@dnd-kit/core';
 import { css } from '@emotion/react';
 import { type FC, type MouseEvent, type KeyboardEvent, memo, useMemo, useState } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
@@ -115,6 +115,10 @@ const styles = css`
     corner-shape: squircle;
   }
 
+  .dragging .graph-item-select {
+    cursor: grabbing;
+  }
+
   .graph-item-name {
     display: flex;
     align-items: center;
@@ -209,20 +213,6 @@ const styles = css`
 
   .selected .spinner {
     color: var(--foreground-on-primary);
-  }
-
-  .dragger {
-    visibility: hidden;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: grab;
-    flex-shrink: 0;
-    color: currentColor;
-  }
-
-  .graph-item:hover .dragger {
-    visibility: visible;
   }
 
   .graph-list-spacer {
@@ -358,6 +348,13 @@ export const GraphList: FC = memo(() => {
 
   const { draggingItemFolder, dragOverFolderName, handleDragStart, handleDragEnd, handleDragOver } =
     useGraphListDragDrop(renameFolderItem);
+  const dragSensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 4,
+      },
+    }),
+  );
 
   const runningGraphs = useAtomValue(runningGraphsState);
   const project = useAtomValue(projectState);
@@ -639,7 +636,12 @@ export const GraphList: FC = memo(() => {
         <div
           className={clsx('graph-list', { 'dragging-over': dragOverFolderName === '' && draggingItemFolder !== '' })}
         >
-          <DndContext onDragEnd={handleDragEnd} onDragOver={handleDragOver} onDragStart={handleDragStart}>
+          <DndContext
+            sensors={dragSensors}
+            onDragEnd={handleDragEnd}
+            onDragOver={handleDragOver}
+            onDragStart={handleDragStart}
+          >
             {folderedGraphs.map((item) => (
               <FolderItem
                 key={item.type === 'graph' ? item.graph.metadata?.id : item.fullPath}
