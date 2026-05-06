@@ -31,7 +31,13 @@ type DebuggerMessageHandler = <K extends keyof ProcessEventMessageMap>(
   data: ProcessEventMessageMap[K],
   requestId?: RemoteRunRequestId,
 ) => void;
-type LifecycleCallback = () => void;
+export type ExecutorSessionLifecycleEvent = {
+  isInternalExecutor: boolean;
+  reason: 'connected' | 'manual-disconnect' | 'unexpected-disconnect';
+  status: ExecutorSessionStatus;
+  url: string;
+};
+type LifecycleCallback = (event: ExecutorSessionLifecycleEvent) => void;
 type ConnectionStateSetter = (
   updater: RemoteDebuggerConnectionState | ((prev: RemoteDebuggerConnectionState) => RemoteDebuggerConnectionState),
 ) => void;
@@ -81,7 +87,6 @@ export function createExecutorSessionRuntime(options: {
   let currentDatasetProvider: AppDatasetProvider | null = options.datasetProvider ?? null;
   let reconnectingTimeout: ReturnType<typeof setTimeout> | undefined;
   let retryDelay = 0;
-  let manuallyDisconnecting = false;
   let currentUrl = '';
   let currentIsInternalExecutor = false;
   let currentStatus: ExecutorSessionStatus = 'idle';
@@ -94,15 +99,15 @@ export function createExecutorSessionRuntime(options: {
   const onDisconnectCallbacks = new Set<LifecycleCallback>();
   const debuggerMessageHandlers = new Set<DebuggerMessageHandler>();
 
-  function notifyConnect() {
+  function notifyConnect(event: ExecutorSessionLifecycleEvent) {
     for (const callback of onConnectCallbacks) {
-      callback();
+      callback(event);
     }
   }
 
-  function notifyDisconnect() {
+  function notifyDisconnect(event: ExecutorSessionLifecycleEvent) {
     for (const callback of onDisconnectCallbacks) {
-      callback();
+      callback(event);
     }
   }
 
@@ -161,7 +166,6 @@ export function createExecutorSessionRuntime(options: {
 
     currentUrl = normalizedUrl;
     currentIsInternalExecutor = nextIsInternalExecutor;
-    manuallyDisconnecting = false;
     retryDelay = 0;
     clearReconnectTimeout();
 
@@ -223,7 +227,12 @@ export function createExecutorSessionRuntime(options: {
         target: targetLabel(socketIsInternalExecutor),
       });
       setConnectionStatus('ready');
-      notifyConnect();
+      notifyConnect({
+        isInternalExecutor: socketIsInternalExecutor,
+        reason: 'connected',
+        status: currentStatus,
+        url: socket.url,
+      });
     };
 
     socket.onclose = () => {
@@ -235,20 +244,25 @@ export function createExecutorSessionRuntime(options: {
       setDebuggerConfig((prev) => ({ ...prev, remoteUploadAllowed: false }));
       logRuntimeDebug('Executor websocket closed.', {
         target: targetLabel(socketIsInternalExecutor),
-        manuallyDisconnecting,
       });
 
-      if (manuallyDisconnecting) {
-        manuallyDisconnecting = false;
+      if (!socketIsInternalExecutor) {
+        logRuntimeDebug('External debugger websocket closed; automatic reconnect skipped.', {
+          target: targetLabel(socketIsInternalExecutor),
+        });
         setConnectionStatus('idle');
         rejectAllPendingExecutions(new Error('executor session disconnected'));
-        notifyDisconnect();
+        notifyDisconnect({
+          isInternalExecutor: socketIsInternalExecutor,
+          reason: 'unexpected-disconnect',
+          status: currentStatus,
+          url: socket.url,
+        });
         return;
       }
 
       setConnectionStatus('reconnecting');
       rejectAllPendingExecutions(new Error('executor session disconnected'));
-      notifyDisconnect();
 
       const nextRetryDelay = Math.min(2000, (retryDelay + 100) * 1.5);
       retryDelay = nextRetryDelay;
@@ -263,6 +277,13 @@ export function createExecutorSessionRuntime(options: {
       reconnectingTimeout = setTimeout(() => {
         void connect(reconnectUrl, { isInternalExecutor: reconnectIsInternalExecutor });
       }, nextRetryDelay);
+
+      notifyDisconnect({
+        isInternalExecutor: socketIsInternalExecutor,
+        reason: 'unexpected-disconnect',
+        status: currentStatus,
+        url: socket.url,
+      });
     };
 
     socket.onerror = (event) => {
@@ -325,24 +346,34 @@ export function createExecutorSessionRuntime(options: {
 
   function disconnect() {
     const hadActiveSession = currentSocket != null || currentStatus !== 'idle';
+    const socketToClose = currentSocket;
+    const disconnectedUrl = currentUrl;
+    const disconnectedIsInternalExecutor = currentIsInternalExecutor;
     logRuntimeDebug('Executor session disconnect requested.', {
       hadActiveSession,
       target: currentUrl ? targetLabel(currentIsInternalExecutor) : 'none',
     });
+    if (socketToClose) {
+      currentSocketGeneration += 1;
+      currentSocket = null;
+    }
     setConnectionStatus('idle');
-    manuallyDisconnecting = true;
     retryDelay = 0;
     clearReconnectTimeout();
     rejectAllPendingExecutions(new Error('executor session disconnected'));
     setDebuggerConfig((prev) => ({ ...prev, remoteUploadAllowed: false }));
 
-    if (currentSocket) {
-      currentSocket.close();
-    } else {
-      manuallyDisconnecting = false;
-      if (hadActiveSession) {
-        notifyDisconnect();
-      }
+    if (socketToClose && socketToClose.readyState !== WebSocket.CLOSED) {
+      socketToClose.close();
+    }
+
+    if (hadActiveSession) {
+      notifyDisconnect({
+        isInternalExecutor: disconnectedIsInternalExecutor,
+        reason: 'manual-disconnect',
+        status: currentStatus,
+        url: disconnectedUrl,
+      });
     }
   }
 

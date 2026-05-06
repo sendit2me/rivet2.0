@@ -609,6 +609,12 @@ Sidecar spawn, readiness marker vs timeout fallback, socket close/reconnect
 scheduling, disconnect requests, and skipped run attempts are runtime debug logs
 gated by `rivet.debugRuntimeLogs`. These logs intentionally describe the phase
 and internal/external target, not full graph input values or secrets.
+Automatic reconnect is restricted to internal executor sessions. A user-attached
+external Remote Debugger websocket that closes unexpectedly is not reopened by
+Rivet itself. If Node executor mode is selected, the app shell may restore only
+the internal Node executor session; Browser mode waits for an explicit Remote
+Debugger Connect action. This keeps an open project from suddenly reopening a
+remote debugger socket by itself.
 
 The renderer does not treat app-executor stderr as an execution-state signal.
 The sidecar can write expected Node warnings or logged provider failures to

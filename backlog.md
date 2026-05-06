@@ -4,7 +4,18 @@
 
 - Reassess Ctrl+N window
 
+- In the full output modal, we need a "Wrap lines" function (seems like in the huge output it already works)
+
+- Adjust the comment node so that the body is transparent for dragging the artboard
+
 - The old preloader is still visible in the processing graphs in the graph tree
+
+- Tighten the current "Default" node skin with no border. Now, it's more of a bug than a feature
+- Make node skins 1 mode instead of 2: just colored header
+
+- A setting for LLM chat node to race several LLM calls and return the fastest
+
+- New coalesce node without a duplicated conditional port (there's if port for that)
 
 - Add for all nodes a special output that is true when the node is run. Or. The "if" input should accept anything as true if it was run
 
@@ -14,7 +25,7 @@
 
 - In the "Project" tab, the "Context" section is visuallly broken when the variable is an object (just doesn't fit into the view)
 
-- There's 2 similar mono width fonts. Let's only keep one
+- There's 2 similar mono width fonts (node body + node short output). Let's only keep one
 
 
 - Reassess rivet example project

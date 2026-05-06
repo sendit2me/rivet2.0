@@ -10,6 +10,22 @@ import {
   executorSidecarRuntime,
 } from './useExecutorSidecar';
 import { useRemoteDebugger } from './useRemoteDebugger';
+import type { DefaultExecutor } from '../state/settings.js';
+import type { ExecutorSessionLifecycleEvent } from './executorSession.js';
+
+export function shouldRestoreInternalNodeExecutorAfterExternalDebuggerDrop(options: {
+  event: ExecutorSessionLifecycleEvent;
+  hasInternalExecutorUrl: boolean;
+  isTauri: boolean;
+  selectedExecutor: DefaultExecutor;
+}) {
+  return (
+    options.selectedExecutor === 'nodejs' &&
+    options.event.reason === 'unexpected-disconnect' &&
+    !options.event.isInternalExecutor &&
+    (options.hasInternalExecutorUrl || options.isTauri)
+  );
+}
 
 export function useExecutorSession(selectedExecutor: 'browser' | 'nodejs') {
   const runtime = useExecutorSessionRuntime();
@@ -55,6 +71,23 @@ export function useExecutorSession(selectedExecutor: 'browser' | 'nodejs') {
       void detachAndStopExecutorSidecar();
     };
   }, [hostConfig?.internalExecutorUrl, runtime, selectedExecutor, setSelectedExecutor]);
+
+  useEffect(() => {
+    return runtime.subscribeLifecycle('disconnect', (event) => {
+      if (
+        !shouldRestoreInternalNodeExecutorAfterExternalDebuggerDrop({
+          event,
+          hasInternalExecutorUrl: !!hostConfig?.internalExecutorUrl,
+          isTauri: isInTauri(),
+          selectedExecutor,
+        })
+      ) {
+        return;
+      }
+
+      void runtime.connectInternal(hostConfig?.internalExecutorUrl);
+    });
+  }, [hostConfig?.internalExecutorUrl, runtime, selectedExecutor]);
 
   return remoteDebugger;
 }
