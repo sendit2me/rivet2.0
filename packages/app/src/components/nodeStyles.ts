@@ -184,7 +184,7 @@ export const nodeStyles = css`
 
   .node.node.isComment .node-title {
     padding: 4px;
-    background-color: var(--grey-darkish-seethrough);
+    background-color: var(--grey-darkish);
     pointer-events: auto;
     margin: 0;
   }
@@ -468,7 +468,18 @@ export const nodeStyles = css`
   }
 
   .node.isComment .node-body {
-    height: 100%;
+    border-radius: 0 0 var(--node-card-radius) var(--node-card-radius);
+    corner-shape: var(--node-card-corner-shape);
+    flex: 1;
+    height: auto;
+    margin-bottom: 0;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .node.isComment .node-body > * {
+    border-radius: inherit;
+    corner-shape: inherit;
   }
 
   .node-title-ports {
