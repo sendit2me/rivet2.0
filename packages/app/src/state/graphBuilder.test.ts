@@ -5,6 +5,7 @@ import {
   clearGraphSearchQueryState,
   emptyGraphSearchState,
   hideGraphSearchPanelState,
+  isGraphSearchVisibleWithQuery,
   openOrFocusGraphSearchState,
   type GraphSearchState,
 } from './graphBuilder.js';
@@ -27,6 +28,7 @@ test('graph search soft close preserves query, selection, and scroll state', () 
     ...activeSearch,
     panelOpen: false,
   });
+  assert.equal(isGraphSearchVisibleWithQuery(hiddenSearch), false);
 });
 
 test('graph search reopen restores the existing search session and requests focus', () => {
@@ -47,6 +49,33 @@ test('graph search reopen restores the existing search session and requests focu
     panelOpen: true,
     focusRequestId: 5,
   });
+  assert.equal(isGraphSearchVisibleWithQuery(reopenedSearch), true);
+});
+
+test('graph search match highlighting only applies while the panel is visible', () => {
+  const searchWithMatches: GraphSearchState = {
+    ...emptyGraphSearchState,
+    searching: true,
+    panelOpen: true,
+    query: 'return',
+    matches: [
+      {
+        kind: 'node',
+        graphId: 'graph-a' as GraphId,
+        graphName: 'Graph A',
+        nodeId: 'node-a' as NodeId,
+        nodeTitle: 'Return node',
+        nodeType: 'Text',
+        locations: ['node name'],
+        contentSnippets: ['return value'],
+      },
+    ],
+  };
+
+  assert.equal(isGraphSearchVisibleWithQuery(searchWithMatches), true);
+  assert.equal(isGraphSearchVisibleWithQuery({ ...searchWithMatches, panelOpen: false }), false);
+  assert.equal(isGraphSearchVisibleWithQuery({ ...searchWithMatches, query: '   ' }), false);
+  assert.equal(isGraphSearchVisibleWithQuery({ ...searchWithMatches, searching: false }), false);
 });
 
 test('graph search query clear keeps the search panel open without stale results', () => {

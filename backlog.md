@@ -7,7 +7,6 @@
 
 - Adjust the comment node so that the body is transparent for dragging the artboard
 
-- When the search results window is closed but not wiped, the found nodes still get higlighted in the aretboard. Don't. Only highlight found nodes when the search UI is opened
 
 - The old preloader is still visible in the processing graphs in the graph tree
 

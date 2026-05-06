@@ -28,6 +28,7 @@ import { useWireDragScrolling } from '../hooks/useWireDragScrolling';
 import {
   canvasPositionState,
   editingNodeState,
+  isGraphSearchVisibleWithQuery,
   searchingGraphState,
   lastCanvasPositionByGraphState,
   lastMousePositionState,
@@ -285,16 +286,16 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
     return [...nextSelectedNodeIds];
   }, [editingNodeId, fullscreenOutputNodeId, selectedNodeIds]);
 
-  const hasGraphSearchQuery = graphSearch.searching && graphSearch.query.trim().length > 0;
+  const hasVisibleGraphSearchQuery = isGraphSearchVisibleWithQuery(graphSearch);
   const searchMatchingNodeIds = useMemo(
     () =>
-      hasGraphSearchQuery
+      hasVisibleGraphSearchQuery
         ? graphSearch.matches
             .filter(isNodeGraphSearchMatch)
             .filter((match) => match.graphId === selectedGraphMetadata?.id)
             .map((match) => match.nodeId)
         : EMPTY_NODE_IDS,
-    [graphSearch.matches, hasGraphSearchQuery, selectedGraphMetadata?.id],
+    [graphSearch.matches, hasVisibleGraphSearchQuery, selectedGraphMetadata?.id],
   );
 
   const highlightedNodes = useMemo(() => {

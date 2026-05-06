@@ -130,6 +130,10 @@ export function clearGraphSearchQueryState(state: GraphSearchState): GraphSearch
   };
 }
 
+export function isGraphSearchVisibleWithQuery(state: GraphSearchState): boolean {
+  return state.searching && state.panelOpen && state.query.trim().length > 0;
+}
+
 export const goToSearchState = atom<{
   searching: boolean;
   query: string;
