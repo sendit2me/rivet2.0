@@ -146,7 +146,6 @@ export const FolderItem: FC<{
                   )}
                   {referencesSelectedGraph && <span className="graph-reference-dot" aria-hidden="true" />}
                   <span className="graph-item-name">
-                    {isMainGraph && <MainGraphIcon className="graph-main-icon" />}
                     {item.type === 'folder' &&
                       (isExpanded ? (
                         <OpenFolderIcon className="graph-folder-icon" aria-hidden="true" />
@@ -154,6 +153,7 @@ export const FolderItem: FC<{
                         <FolderIcon className="graph-folder-icon" aria-hidden="true" />
                       ))}
                     <span className="graph-item-name-text">{item.name}</span>
+                    {isMainGraph && <MainGraphIcon className="graph-main-icon" />}
                     {folderGraphCount != null && (
                       <span className="graph-folder-count">
                         <span>{folderGraphCount}</span>
