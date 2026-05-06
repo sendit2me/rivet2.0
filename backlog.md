@@ -4,9 +4,10 @@
 
 - Reassess Ctrl+N window
 
-- In the full output modal, we need a "Wrap lines" function (seems like in the huge output it already works)
 
 - Adjust the comment node so that the body is transparent for dragging the artboard
+
+- Make the multipositional switcher flat
 
 - When the search results winfow is closed but not wiped, the found nodes still glow. Don't
 

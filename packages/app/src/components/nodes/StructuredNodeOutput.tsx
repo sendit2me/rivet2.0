@@ -20,6 +20,16 @@ const structuredNodeOutputCss = css`
     overflow-wrap: anywhere;
   }
 
+  .fullscreen-output-body.wrap-lines & .structured-node-output-source pre {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .fullscreen-output-body.no-wrap-lines & .structured-node-output-source pre {
+    white-space: pre;
+    overflow-wrap: normal;
+  }
+
   .structured-node-output-error {
     color: var(--error-light);
   }

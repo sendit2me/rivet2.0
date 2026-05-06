@@ -9,6 +9,8 @@ const fullscreenOutputToolbarCss = css`
   --fullscreen-output-toolbar-icon-size: calc(24px * var(--ui-font-scale));
 
   display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
 
   border: 1px solid var(--grey-darkish);
@@ -58,7 +60,7 @@ const fullscreenOutputToolbarCss = css`
     }
   }
 
-  .markdown-toggle {
+  .output-format-toggle {
     display: flex;
     align-items: center;
     user-select: none;
@@ -133,8 +135,10 @@ const fullscreenOutputToolbarCss = css`
 `;
 
 export type FullscreenNodeOutputToolbarProps = {
+  wrapLines: boolean;
   renderMarkdown: boolean;
   isOverContent?: boolean;
+  onToggleWrapLines: () => void;
   onToggleRenderMarkdown: () => void;
   query: string;
   onQueryChange: (query: string) => void;
@@ -150,8 +154,10 @@ export type FullscreenNodeOutputToolbarProps = {
 };
 
 export const FullscreenNodeOutputToolbar: FC<FullscreenNodeOutputToolbarProps> = ({
+  wrapLines,
   renderMarkdown,
   isOverContent = false,
+  onToggleWrapLines,
   onToggleRenderMarkdown,
   query,
   onQueryChange,
@@ -168,11 +174,19 @@ export const FullscreenNodeOutputToolbar: FC<FullscreenNodeOutputToolbarProps> =
   return (
     <div css={fullscreenOutputToolbarCss} className={isOverContent ? 'is-over-content' : undefined}>
       <LabeledToggle
+        id="fullscreen-output-wrap-lines"
+        isChecked={wrapLines}
+        isDisabled={renderMarkdown}
+        onChange={onToggleWrapLines}
+        label="Wrap lines"
+        className="output-format-toggle"
+      />
+      <LabeledToggle
         id="fullscreen-output-render-markdown"
         isChecked={renderMarkdown}
         onChange={onToggleRenderMarkdown}
         label="Render Markdown"
-        className="markdown-toggle"
+        className="output-format-toggle"
       />
       <div className="search-group">
         <input
