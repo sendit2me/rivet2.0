@@ -33,7 +33,6 @@ export const GentraceInteractors = () => {
   const projectNodeRegistry = useProjectNodeRegistry();
 
   const remoteDebugger = useRemoteDebugger();
-  const executorSession = remoteDebugger.sessionState;
 
   const gentracePipelineSettings = graph?.metadata?.attachedData?.gentracePipeline as GentracePipeline | undefined;
   const currentGentracePipelineSlug = gentracePipelineSettings?.slug;
@@ -64,15 +63,24 @@ export const GentraceInteractors = () => {
     let testResultId: string | null = null;
 
     try {
-      if (executorSession.status === 'ready' && executorSession.socket) {
+      if (executorSessionRuntime.getRuntimeState().capabilities.canRecordSocket) {
         const testResponse = await runRemoteGentraceTests(
           currentGentracePipelineSlug,
           settings,
           project,
           graph,
           async (inputs) => {
-            if (executorSession.remoteUploadAllowed) {
-              remoteDebugger.send('set-dynamic-data', {
+            const sessionState = executorSessionRuntime.getRuntimeState();
+            if (!sessionState.capabilities.canSendRun) {
+              throw new Error(
+                `Remote executor cannot accept a Gentrace graph run right now (status: ${
+                  sessionState.status
+                }, target: ${sessionState.target?.type ?? 'none'}).`,
+              );
+            }
+
+            if (sessionState.capabilities.canUploadProject) {
+              const projectUploadSent = remoteDebugger.send('set-dynamic-data', {
                 project: {
                   ...project,
                   graphs: {
@@ -88,15 +96,25 @@ export const GentraceInteractors = () => {
                   },
                 ),
               });
+              if (!projectUploadSent) {
+                throw new Error('Remote executor disconnected before the Gentrace project upload could be sent.');
+              }
             }
 
             const recorder = new ExecutionRecorder();
 
-            const recorderPromise = recorder.recordSocket(executorSession.socket!);
+            const recorderPromise = executorSessionRuntime.recordSocketEvents((socket) => recorder.recordSocket(socket));
+            if (!recorderPromise) {
+              throw new Error('Remote executor is not ready to record Gentrace execution.');
+            }
 
             const requestId = executorSessionRuntime.createRemoteExecutionRequest();
 
-            remoteDebugger.send('run', { requestId, graphId: graph.metadata!.id!, inputs, contextValues });
+            const runSent = remoteDebugger.send('run', { requestId, graphId: graph.metadata!.id!, inputs, contextValues });
+            if (!runSent) {
+              void recorderPromise.catch(() => {});
+              throw new Error('Remote executor disconnected before the Gentrace graph run could be sent.');
+            }
 
             await recorderPromise;
 

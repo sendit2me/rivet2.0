@@ -4,6 +4,7 @@ import { useLoadRecording } from '../hooks/useLoadRecording';
 import { useExecutorSessionState } from '../hooks/useExecutorSession';
 import { getExecutorOptions, selectedExecutorState } from '../state/settings';
 import { useExecutorSessionHostConfig } from '../providers/ExecutorSessionContext.js';
+import { getExecutorProductState, isExternalDebuggerProductState } from '../state/selectors/executionSelectors.js';
 import {
   debuggerPanelAnchorState,
   type DebuggerPanelAnchor,
@@ -100,7 +101,8 @@ export const ActionBarMoreMenu: FC<{
   };
 
   const remoteDebugger = useExecutorSessionState();
-  const isActuallyRemoteDebugging = remoteDebugger.status !== 'idle' && !remoteDebugger.isInternalExecutor;
+  const executorProductState = getExecutorProductState({ selectedExecutor, session: remoteDebugger });
+  const isActuallyRemoteDebugging = isExternalDebuggerProductState(executorProductState);
 
   const setExecutorMode = (value: string | boolean) => {
     if (value === 'browser' || value === 'nodejs') {

@@ -5,8 +5,9 @@ import { type ChangeEvent, type FC, useEffect, useRef, useState } from 'react';
 import { Field } from '@atlaskit/form';
 import { useRemoteDebugger } from '../hooks/useRemoteDebugger';
 import { debuggerPanelAnchorState, type DebuggerPanelAnchor, debuggerPanelOpenState } from '../state/ui';
-import { debuggerDefaultUrlState } from '../state/settings';
+import { debuggerDefaultUrlState, selectedExecutorState } from '../state/settings';
 import { useSetAtom, useAtom, useAtomValue } from 'jotai';
+import { getExecutorProductState, isExternalDebuggerProductState } from '../state/selectors/executionSelectors.js';
 import {
   DEBUGGER_PANEL_WIDTH,
   DEBUGGER_PANEL_Z_INDEX,
@@ -18,11 +19,12 @@ export function useToggleRemoteDebugger() {
   const setDebuggerPanelOpen = useSetAtom(debuggerPanelOpenState);
   const setDebuggerPanelAnchor = useSetAtom(debuggerPanelAnchorState);
   const { sessionState: remoteDebugger, disconnect } = useRemoteDebugger();
-  const isActuallyRemoteDebugging = remoteDebugger.status !== 'idle' && !remoteDebugger.isInternalExecutor;
-  const isExternalDebuggerReconnecting = remoteDebugger.reconnecting && !remoteDebugger.isInternalExecutor;
+  const selectedExecutor = useAtomValue(selectedExecutorState);
+  const executorProductState = getExecutorProductState({ selectedExecutor, session: remoteDebugger });
+  const isActuallyRemoteDebugging = isExternalDebuggerProductState(executorProductState);
 
   return () => {
-    if (isActuallyRemoteDebugging || isExternalDebuggerReconnecting) {
+    if (isActuallyRemoteDebugging) {
       disconnect();
     } else {
       setDebuggerPanelAnchor(undefined);

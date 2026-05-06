@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, type FC, type ReactNode } from 'react';
-import { useAtom } from 'jotai';
+import { useSetAtom } from 'jotai';
 import { createExecutorSessionRuntime, type ExecutorSessionRuntime } from '../hooks/executorSession.js';
-import { remoteDebuggerConfigState, remoteDebuggerConnectionState } from '../state/execution.js';
+import { executorSessionRevisionState } from '../state/execution.js';
 import { useDatasetProvider } from './ProvidersContext.js';
 
 const ExecutorSessionRuntimeContext = createContext<ExecutorSessionRuntime | null>(null);
@@ -36,16 +36,16 @@ export const ExecutorSessionProvider: FC<{ children: ReactNode; hostConfig?: Exe
   hostConfig,
 }) => {
   const datasetProvider = useDatasetProvider();
-  const [, setDebuggerConfig] = useAtom(remoteDebuggerConfigState);
-  const [, setConnectionState] = useAtom(remoteDebuggerConnectionState);
+  const bumpExecutorSessionRevision = useSetAtom(executorSessionRevisionState);
 
   const runtime = useMemo(
     () =>
       createExecutorSessionRuntime({
-        setDebuggerConfig,
-        setConnectionState,
+        onStateChange: () => {
+          bumpExecutorSessionRevision((revision) => revision + 1);
+        },
       }),
-    [setConnectionState, setDebuggerConfig],
+    [bumpExecutorSessionRevision],
   );
 
   useEffect(() => {

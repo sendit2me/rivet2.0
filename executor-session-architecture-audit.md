@@ -13,27 +13,26 @@ future lifecycle changes easy to get wrong.
 
 ## Summary
 
-Rivet currently uses one shared websocket session runtime for two different
-product concepts:
+Rivet uses one shared websocket session runtime for two different product
+concepts:
 
 1. The internal Node executor session used by desktop/Tauri and hosted wrappers.
 2. The external Remote Debugger session used to receive latest-workflow runs.
 
 That shared runtime is a useful simplification at the transport layer because
-both targets speak the same graph-execution websocket protocol. The main
-architecture problem is that UI, settings, and hooks still use Remote Debugger
-names for the generic session. As a result, every consumer must remember to
-classify the socket with `isInternalExecutor` before deciding whether the user
-is debugging remotely, running in Node mode, reconnecting an internal executor,
-or intentionally disconnected.
+both targets speak the same graph-execution websocket protocol. The refactor
+now makes the target explicit, keeps active session facts transient, centralizes
+startup/restore policy in a coordinator, exposes transport capabilities, and
+feeds product UI from a typed selector instead of raw socket state.
 
-The implementation already has important protections: session classification is
-explicit, external Remote Debugger sockets do not auto-reconnect, and internal
-executor reconnects preserve their internal classification. The remaining
-problems are mostly around naming, split ownership, stale persisted state, and
-coarse lifecycle events.
+The main remaining debt is naming: some source-level compatibility surfaces are
+still called `useRemoteDebugger` because they are used by the user-facing Remote
+Debugger command flow, even though the underlying runtime is now neutral. New
+code should treat the items below as the original audit findings that motivated
+the refactor and should prefer the implemented target/capability/product-state
+model described in the refactor plan and bottom line.
 
-## Problems and Risks
+## Original Problems and Risks
 
 1. The session runtime has one transport model but two product meanings.
 
@@ -253,15 +252,17 @@ coarse lifecycle events.
     - `packages/app/src/hooks/useExecutorSession.ts`
     - `packages/app/src/providers/ExecutorSessionContext.tsx`
 
-    `connect(url)` only auto-classifies the desktop default
-    `ws://127.0.0.1:21889/internal` as internal. Hosted URLs must be connected
-    through `connectInternal(url)`. Current hosted code does this correctly, but
+    `connect(url)` is now a compatibility wrapper for external Remote Debugger
+    sessions. Hosted executor URLs must be connected through
+    `connectInternalHostedExecutor(url)` or the compatibility
+    `connectInternal(url)` wrapper. Current hosted code does this correctly, but
     any future direct call to `connect(hostedInternalUrl)` will classify the
     internal executor as an external debugger.
 
     Recommended direction: make the URL target explicit at the type level, or
     remove generic `connect(url)` from app-level consumers and expose
-    `connectExternalDebugger(...)` / `connectInternalExecutor(...)`.
+    `connectExternalDebugger(...)`, `connectInternalDesktopExecutor(...)`, and
+    `connectInternalHostedExecutor(...)`.
 
 14. Replacing an active session does not notify disconnect subscribers.
 
@@ -415,8 +416,9 @@ coarse lifecycle events.
    reconnects.
 
    Hosted wrappers do not use the desktop default internal URL. The
-   implementation uses `connectInternal(hostConfig.internalExecutorUrl)` so
-   custom hosted executor URLs do not show as Remote Debugger sessions.
+   implementation uses `connectInternalHostedExecutor(hostConfig.internalExecutorUrl)`
+   through the coordinator so custom hosted executor URLs do not show as Remote
+   Debugger sessions.
 
 3. Manual disconnect must notify cleanup subscribers even when Node mode is
    restored immediately.
@@ -433,7 +435,7 @@ coarse lifecycle events.
 
 ## Recommended Refactor Plan
 
-1. Introduce a neutral session target type.
+1. DONE - Introduce a neutral session target type.
 
    Goal: make the active websocket target explicit everywhere, so the app no
    longer has to infer product meaning from `status + isInternalExecutor + url`.
@@ -452,7 +454,7 @@ coarse lifecycle events.
    - In `packages/app/src/hooks/executorSession.ts`, replace
      `currentIsInternalExecutor` with `currentTarget: ExecutorSessionTarget | null`.
    - Replace `connect(url, { isInternalExecutor })` with explicit methods such
-     as `connectExternalDebugger(url)`, `connectInternalDesktopExecutor(url?)`,
+     as `connectExternalDebugger(url)`, `connectInternalDesktopExecutor()`,
      and `connectInternalHostedExecutor(url)`.
    - Do this as a staged API migration because `ExecutorSessionRuntime` is
      exported from `packages/app/src/host.tsx`. First add explicit methods and
@@ -493,12 +495,13 @@ coarse lifecycle events.
    Verification:
 
    - Extend `executorSession.test.ts` to assert target type for desktop internal,
-     hosted internal, and external debugger sessions.
+     hosted internal, and external debugger sessions, including the contract
+     that a matching URL is only reused when the target type also matches.
    - Extend `executionSelectors.test.ts` so every target/status combination
      produces the expected action-bar state.
    - Manually verify hosted Node mode with a custom internal executor URL.
 
-2. Split durable settings from runtime state.
+2. DONE - Split durable settings from runtime state.
 
    Goal: prevent stale session facts from surviving reloads and making an idle
    app look like it still has a debugger or internal executor session.
@@ -506,19 +509,19 @@ coarse lifecycle events.
    What to change:
 
    - In `packages/app/src/state/execution.ts`, replace
-     `remoteDebuggerConfigState` with a transient atom or runtime-owned state for
-     active session facts.
+     `remoteDebuggerConfigState` with runtime-owned state for active session
+     facts plus a transient render tick.
    - Keep `debuggerDefaultUrlState` in `packages/app/src/state/settings.ts` as
      the durable user preference for the Remote Debugger connect panel.
    - Move `url`, `remoteUploadAllowed`, and active target/classification out of
      persistent storage. They should be derived from the runtime or held in a
      non-persistent atom.
-   - Rename `remoteDebuggerConnectionState` to a neutral transient state if it
-     remains outside the runtime.
-   - Decide where reactivity lives. Either keep a transient Jotai atom that the
-     runtime updates on status/capability/target changes, or make the runtime
-     expose a `subscribeState(...)` API. Avoid rebuilding session state by
-     merging persistent and transient atoms.
+   - Remove `remoteDebuggerConnectionState`; status is runtime-owned.
+   - Decide where reactivity lives. The implemented path keeps
+     `executorSessionRevisionState`, a transient Jotai render tick that the
+     runtime increments on status/capability/target changes. Active session
+     snapshots come directly from `runtime.buildSessionState()` and are not
+     rebuilt by merging stored config atoms.
    - Update `ExecutorSessionProvider.tsx`, `useExecutorSession.ts`, and
      `useRemoteDebugger.ts` so they no longer merge persistent config with
      runtime status to build active session state.
@@ -541,12 +544,12 @@ coarse lifecycle events.
 
    Verification:
 
-   - Add a unit test for the state builder that proves persisted old
-     `remoteDebuggerConfig` data does not make the session active after reload.
+   - Add a unit test for the state builder that proves idle session state is
+     runtime-owned and cannot be made active by stale stored config.
    - Manually set old storage values in devtools/local storage and reload the
      app; the action bar should start from idle Browser/Node startup state only.
 
-3. Add a coordinator hook.
+3. DONE - Add a coordinator hook.
 
    Goal: centralize product policy so the runtime only owns websocket mechanics
    and one hook owns when Rivet should open, restore, or disconnect a session.
@@ -555,6 +558,10 @@ coarse lifecycle events.
 
    - Create a coordinator hook, for example
      `packages/app/src/hooks/useExecutorSessionCoordinator.ts`.
+   - Keep startup-action selection separate from startup-action execution:
+     `getExecutorSessionStartupAction(...)` decides what should happen, and
+     `runExecutorSessionStartupAction(...)` performs the connect/disconnect or
+     sidecar work and returns the effect cleanup.
    - Move selected-executor startup logic out of `useExecutorSession.ts` into
      the coordinator:
      - Browser mode disconnects the internal executor.
@@ -593,18 +600,21 @@ coarse lifecycle events.
      same time.
    - Sidecar startup/shutdown ordering is easy to regress. Preserve the current
      `attachAndStartExecutorSidecar()` readiness marker behavior.
+   - Fire-and-forget hosted executor connects and sidecar cleanup should catch
+     failures at the coordinator boundary so invalid hosted URLs or cleanup
+     failures do not surface as unhandled promise rejections.
 
    Verification:
 
-   - Add hook-level tests for hosted Node mode, desktop Node mode, Browser mode,
-     manual external debugger disconnect, unexpected external debugger drop, and
-     selected-executor switches.
+   - Add coordinator tests for hosted Node mode, desktop Node mode, Browser
+     mode, plain-web fallback, manual external debugger disconnect, unexpected
+     external debugger drop, and selected-executor cleanup/cancellation.
    - Re-run focused executor-session tests and `executionSelectors.test.ts`.
    - Manually verify the hosted-wrapper scenario:
      connect `/ws/latest-debugger`, disconnect/drop it, and confirm only
      `/ws/executor/internal` can return in Node mode.
 
-4. Expose capabilities instead of protocol details.
+4. DONE - Expose capabilities instead of protocol details.
 
    Goal: stop UI and feature code from inspecting raw websocket/session fields
    to decide what the active transport can do.
@@ -664,8 +674,17 @@ coarse lifecycle events.
    - Run remote graph execution in internal Node mode and external debugger mode.
    - Run Gentrace tests or at least exercise its remote path with a fake ready
      session in tests.
+   - The reassessed implementation also gates action-time remote graph runs,
+     Trivet remote runs, abort/pause/resume commands, and Gentrace recording on
+     explicit capabilities. Protocol sends now report whether the message was
+     actually written, so pending Trivet runs are rejected if the executor drops
+     between the capability check and the send.
+   - Gentrace still records the underlying websocket protocol because that is
+     what `ExecutionRecorder` consumes, but the socket is accessed through the
+     narrow `recordSocketEvents(...)` runtime method instead of through
+     `ExecutorSessionState.socket`.
 
-5. Make UI selectors product-state based.
+5. DONE - Make UI selectors product-state based.
 
    Goal: give UI code a small product-level state machine instead of low-level
    websocket status and target fields.
@@ -723,8 +742,18 @@ coarse lifecycle events.
    - Add regression cases for recording playback with Node selected.
    - Manually verify Browser mode, hosted Node mode startup, internal reconnect,
      external debugger connected, and external debugger disconnected.
+   - The reassessed implementation also treats `canSendRun` as part of product
+     readiness. A session with websocket status `ready` but no run-send
+     capability remains in a connecting/starting product state, so ActionBar
+     readiness and action-time send guards cannot drift.
+   - `shouldUseRemoteExecutor(...)` now delegates Browser-mode external
+     debugger routing to the product-state selector instead of reimplementing
+     the `target + status + capability` check locally.
+   - Remote Debugger banner label and pending styling are also selector output,
+     so `ActionBar.tsx` no longer reads legacy `reconnecting` flags to decide
+     what the banner says.
 
-6. Add hook-level lifecycle tests.
+6. DONE - Add hook-level lifecycle tests.
 
    Goal: prove the React hook layer applies the runtime rules correctly under
    real subscription/effect timing.
@@ -769,8 +798,15 @@ coarse lifecycle events.
    - Run the focused app hook tests.
    - Run the existing runtime tests and selector tests after each coordinator
      step.
+   - The reassessed implementation extracts
+     `handleExecutorSessionCoordinatorDisconnect(...)` so the lifecycle
+     subscription path is directly testable without a heavy React renderer. The
+     tests assert that external debugger disconnect/drop restores the current
+     hosted executor URL, does not restore after the latest selected executor is
+     Browser, and falls back to desktop internal Node when no hosted URL exists.
+     This covers the real stale-render-risk path the hook protects with refs.
 
-7. Harden async callback boundaries.
+7. DONE - Harden async callback boundaries.
 
    Goal: make the runtime resilient when one subscriber, message handler, or
    dataset provider fails.
@@ -779,8 +815,12 @@ coarse lifecycle events.
 
    - In `executorSession.ts`, snapshot subscriber sets before iteration:
      `for (const callback of [...onDisconnectCallbacks])`.
-   - Wrap lifecycle callbacks and process-message handlers in try/catch and log
-     through `handleError(..., { toastError: false })`.
+   - Wrap lifecycle callbacks, process-message handlers, and the runtime
+     `onStateChange` callback in try/catch and log through
+     `handleError(..., { toastError: false })`.
+   - Treat returned callback promises as part of the same boundary. A subscriber
+     that rejects after returning must be logged as a callback failure instead of
+     surfacing as an unhandled promise rejection.
    - Wrap `handleDatasetsMessage(...)` and `sendDatasetResponse(...)` so provider
      failures or closed sockets do not become unhandled promise rejections.
    - If a dataset request fails, log request metadata without graph inputs or
@@ -806,14 +846,17 @@ coarse lifecycle events.
 
    Verification:
 
-   - Add runtime tests where one lifecycle subscriber throws and the next still
-     runs.
-   - Add process-message handler tests with one throwing handler.
+   - Add runtime tests where one lifecycle subscriber throws or asynchronously
+     rejects and the next still runs.
+   - Add process-message handler tests with one throwing or asynchronously
+     rejecting handler.
+   - Add state-change callback tests for synchronous throws and asynchronous
+     rejections.
    - Add dataset request tests for provider rejection and socket close before
      response.
    - Run `git diff --check` and focused app tests.
 
-8. Treat session replacement as an explicit lifecycle event.
+8. DONE - Treat session replacement as an explicit lifecycle event.
 
    Goal: make "connect a new target while another session is active" behave like
    an intentional lifecycle transition instead of a silent socket close.
@@ -823,9 +866,16 @@ coarse lifecycle events.
    - In `executorSession.ts`, when `connect...(...)` sees a live current socket
      for a different URL or target, capture the old target and emit a disconnect
      event with a reason such as `replaced`.
+   - Treat a non-reusable current socket for the same target as replacement too.
+     This covers `CLOSING`/stale socket states where opening a new websocket
+     without cleanup would leave old pending graph executions alive.
    - Reject pending remote executions before opening the new socket. Use a clear
      error such as `executor session replaced`.
    - Reset upload/capability state before the new connection starts.
+   - Replacement disconnect events should report the post-transition session
+     status (`idle`) and the old target. This keeps the event status consistent
+     with manual and unexpected disconnect events, which also report the runtime
+     state visible to subscribers at notification time.
    - Decide in the coordinator whether replacement is allowed while a graph is
      running. If not allowed, block the connect action and show a precise UI
      message.
@@ -853,30 +903,58 @@ coarse lifecycle events.
      internal, and same-target reconnect/reuse.
    - Add a pending-run replacement test that proves the old pending promise is
      rejected.
+   - Add a non-reusable same-target socket test that proves the old pending
+     promise is rejected and subscribers receive a `replaced` lifecycle event.
    - Manually test external debugger connect/disconnect while Node mode is
      selected.
 
-## Verification Gaps to Close
+## Implemented Coverage and Manual Verification
 
-1. Add a hook/coordinator test for hosted Node mode where an external debugger
-   drops and only the internal executor reconnects.
-2. Extend UI selector tests so ready, connecting, and reconnecting internal
-   executor sessions never show the Remote Debugger banner.
-3. Add a hook/coordinator test that proves Browser mode never reconnects hosted
-   Node executor after external debugger disconnect/drop.
-4. Add a test for stale persisted remote debugger config to ensure idle sessions
-   do not appear active.
-5. Add a runtime test for replacing an active session while a pending remote run
-   exists.
-6. Add dataset-message failure tests for socket close during async provider work.
-7. Add Gentrace routing/capability coverage if Gentrace should continue to use
-   remote sessions directly.
+1. `executorSession.test.ts` now covers explicit target classification for
+   desktop internal, hosted internal, and external debugger sessions.
+2. `executorSession.test.ts` now covers capability derivation, upload capability
+   reset, capability-gated socket recording, protocol-send success reporting,
+   session replacement events, pending-run rejection on replacement,
+   lifecycle-subscriber failures, process-message subscriber failures, and
+   dataset provider rejection handling.
+3. `useExecutorSessionCoordinator.test.ts` now covers startup-policy decisions,
+   startup-action execution, Browser fallback, hosted Node connect/cleanup,
+   desktop sidecar ready connect, cleanup-before-ready cancellation, and the
+   external-debugger handoff policy for hosted Node, desktop Node, Browser mode,
+   manual disconnect, unexpected disconnect, replacement events, and the
+   lifecycle-handler requirement that restores use the latest selected executor
+   and hosted executor URL rather than a stale render snapshot.
+4. `executionSelectors.test.ts` now covers product-state mapping and the remote
+   executor routing rule that Browser mode only uses a run-capable external
+   debugger, not a stray internal executor session or a status-ready session
+   whose send capability is unavailable.
+5. `executorSession.test.ts` now proves idle session state is runtime-owned and
+   that consumers are notified when runtime-owned session facts change.
+6. The coordinator restore subscription reads the latest selected executor and
+   hosted executor URL, so cleanup from an old Node-mode effect cannot restore
+   Node after the user has already switched to Browser mode.
+7. Manual verification is still recommended for the hosted wrapper path because
+   it depends on real proxy/websocket behavior: connect `/ws/latest-debugger`,
+   disconnect or drop it, and confirm that only `/ws/executor/internal` can
+   return while Node mode is selected.
+8. Manual verification is also recommended for desktop Node sidecar startup,
+   because the unit tests deliberately do not spawn the real Tauri sidecar.
+9. `executorSession.test.ts` now covers websocket construction failure, and the
+   runtime clears the attempted target back to idle if construction throws. The
+   Remote Debugger command surface catches that failure so a malformed debugger
+   URL does not become an unhandled promise rejection or leave stale target
+   state behind.
 
 ## Bottom Line
 
-The implementation now protects the immediate hosted-wrapper behavior: the
-external Remote Debugger should not silently return, and the hosted internal
-Node executor should not be mislabeled as Remote Debugger when it reconnects.
-The broader architecture is still carrying too much old Remote Debugger naming
-around a generic executor session. The next cleanup should be a
-naming/state-model refactor, not another local lifecycle patch.
+The recommended refactor plan is implemented. The executor session now names
+its active websocket target explicitly, stores session facts transiently, uses a
+single coordinator for reconnect policy, exposes capabilities for feature code,
+uses product-state selectors for UI decisions, isolates async callback failures,
+and reports target replacement as a first-class lifecycle event.
+
+The remaining naming debt is mostly historical source naming around
+`useRemoteDebugger`, retained for the user-facing Remote Debugger command
+surface. Active session facts are no longer stored in Remote Debugger config
+atoms. New code should prefer the explicit target/capability/product state model
+rather than adding more meaning to Remote Debugger booleans.

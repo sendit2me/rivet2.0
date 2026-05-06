@@ -183,15 +183,22 @@ export function useRemoteExecutor() {
   }, [eventDispatcher, executorSession]);
 
   const tryRunGraph = async (options: { to?: NodeId[]; from?: NodeId; graphId?: GraphId } = {}) => {
-    if (!executorSession.isReady()) {
-      logRuntimeDebug('Remote graph run skipped because executor session is not ready.', {
-        status: executorSession.getRuntimeState().status,
+    const sessionState = executorSession.getRuntimeState();
+    if (!sessionState.capabilities.canSendRun) {
+      logRuntimeDebug('Remote graph run skipped because executor session cannot send runs.', {
+        status: sessionState.status,
+        target: sessionState.target?.type ?? 'none',
       });
       return;
     }
 
     setUserInputSubmitHandler((nodeId: NodeId, answers: StringArrayDataValue) => {
-      remoteDebugger.send('user-input', { nodeId, answers });
+      const inputSent = remoteDebugger.send('user-input', { nodeId, answers });
+      if (!inputSent) {
+        logRuntimeDebug('Remote user input skipped because executor session disconnected before send.', {
+          target: executorSession.getRuntimeState().target?.type ?? 'none',
+        });
+      }
       setUserInputQuestions((q) =>
         produce(q, (draft) => {
           delete draft[nodeId];
@@ -217,25 +224,29 @@ export function useRemoteExecutor() {
         },
       );
 
-      if (remoteDebugger.sessionState.remoteUploadAllowed) {
+      if (executorSession.getRuntimeState().capabilities.canUploadProject) {
         const projectToUpload = projectWithCurrentGraph;
 
-        remoteDebugger.send('set-dynamic-data', {
+        const projectUploadSent = remoteDebugger.send('set-dynamic-data', {
           project: projectToUpload,
           settings: await fillMissingSettingsFromEnvironmentVariables(savedSettings, projectNodeRegistry.getPlugins(), {
             environmentProvider,
             extraEnvVarNames: getLLMChatV2CustomProviderApiKeyEnvVarNames(projectToUpload),
           }),
         });
+        if (!projectUploadSent) {
+          throw new Error('Remote executor disconnected before the project upload could be sent.');
+        }
 
         for (const [id, dataValue] of Object.entries(projectData ?? {})) {
-          remoteDebugger.sendRaw(`set-static-data:${id}:${dataValue}`);
+          const staticDataSent = remoteDebugger.sendRaw(`set-static-data:${id}:${dataValue}`);
+          if (!staticDataSent) {
+            throw new Error('Remote executor disconnected before static project data could be sent.');
+          }
         }
       }
 
       const contextValues = getProjectContextValues(projectContext);
-      const requestId = executorSession.createRemoteExecutionRequest();
-      activeGraphRequestIdRef.current = requestId;
 
       if (options.from) {
         const dependencyNodes = getDependencyNodesForRunFrom(
@@ -246,10 +257,16 @@ export function useRemoteExecutor() {
         );
         const preloadData = getDependentDataForNodeForPreload(dependencyNodes, lastRunData);
 
-        remoteDebugger.send('preload', { nodeData: preloadData });
+        const preloadSent = remoteDebugger.send('preload', { nodeData: preloadData });
+        if (!preloadSent) {
+          throw new Error('Remote executor disconnected before preload data could be sent.');
+        }
       }
 
-      remoteDebugger.send('run', {
+      const requestId = executorSession.createRemoteExecutionRequest();
+      activeGraphRequestIdRef.current = requestId;
+
+      const runSent = remoteDebugger.send('run', {
         requestId,
         graphId: graphToRun,
         runToNodeIds: options.to,
@@ -258,6 +275,12 @@ export function useRemoteExecutor() {
         projectPath: loadedProject.path,
         useEditorCache: true,
       });
+      if (!runSent) {
+        activeGraphRequestIdRef.current = null;
+        logRuntimeDebug('Remote graph run skipped because executor session disconnected before send.', {
+          target: executorSession.getRuntimeState().target?.type ?? 'none',
+        });
+      }
     } catch (e) {
       handleError(e, 'Failed to start remote graph run');
     }
@@ -309,7 +332,16 @@ export function useRemoteExecutor() {
             }));
           },
           runGraph: async (project, graphId, inputs) => {
-            if (remoteDebugger.sessionState.remoteUploadAllowed) {
+            const sessionState = executorSession.getRuntimeState();
+            if (!sessionState.capabilities.canSendRun) {
+              throw new Error(
+                `Remote executor cannot accept a test graph run right now (status: ${sessionState.status}, target: ${
+                  sessionState.target?.type ?? 'none'
+                }).`,
+              );
+            }
+
+            if (sessionState.capabilities.canUploadProject) {
               const projectToUpload = withDerivedProjectPluginSpecs(
                 {
                   ...project,
@@ -325,7 +357,7 @@ export function useRemoteExecutor() {
                 },
               );
 
-              remoteDebugger.send('set-dynamic-data', {
+              const projectUploadSent = remoteDebugger.send('set-dynamic-data', {
                 project: projectToUpload,
                 settings: await fillMissingSettingsFromEnvironmentVariables(
                   savedSettings,
@@ -336,13 +368,27 @@ export function useRemoteExecutor() {
                   },
                 ),
               });
+              if (!projectUploadSent) {
+                throw new Error('Remote executor disconnected before the test project upload could be sent.');
+              }
             }
 
             const { requestId, promise: pendingResults } = executorSession.createPendingGraphExecution();
 
             const contextValues = getProjectContextValues(projectContext);
 
-            remoteDebugger.send('run', { requestId, graphId, inputs, contextValues, projectPath: loadedProject.path });
+            const runSent = remoteDebugger.send('run', {
+              requestId,
+              graphId,
+              inputs,
+              contextValues,
+              projectPath: loadedProject.path,
+            });
+            if (!runSent) {
+              const error = new Error('Remote executor disconnected before the test graph run could be sent.');
+              executorSession.rejectPendingGraphExecution(requestId, error);
+              throw error;
+            }
 
             const results = await pendingResults;
             return results;
@@ -374,18 +420,60 @@ export function useRemoteExecutor() {
   );
 
   function tryAbortGraph() {
+    const sessionState = executorSession.getRuntimeState();
+    if (!sessionState.capabilities.canSendAbort) {
+      logRuntimeDebug('Remote graph abort skipped because executor session cannot send abort.', {
+        status: sessionState.status,
+        target: sessionState.target?.type ?? 'none',
+      });
+      return;
+    }
+
     logRuntimeInfo('Aborting via remote debugger');
-    remoteDebugger.send('abort', undefined);
+    const abortSent = remoteDebugger.send('abort', undefined);
+    if (!abortSent) {
+      logRuntimeDebug('Remote graph abort skipped because executor session disconnected before send.', {
+        target: executorSession.getRuntimeState().target?.type ?? 'none',
+      });
+    }
   }
 
   function tryPauseGraph() {
+    const sessionState = executorSession.getRuntimeState();
+    if (!sessionState.capabilities.canSendPause) {
+      logRuntimeDebug('Remote graph pause skipped because executor session cannot send pause.', {
+        status: sessionState.status,
+        target: sessionState.target?.type ?? 'none',
+      });
+      return;
+    }
+
     logRuntimeInfo('Pausing via remote debugger');
-    remoteDebugger.send('pause', undefined);
+    const pauseSent = remoteDebugger.send('pause', undefined);
+    if (!pauseSent) {
+      logRuntimeDebug('Remote graph pause skipped because executor session disconnected before send.', {
+        target: executorSession.getRuntimeState().target?.type ?? 'none',
+      });
+    }
   }
 
   function tryResumeGraph() {
+    const sessionState = executorSession.getRuntimeState();
+    if (!sessionState.capabilities.canSendResume) {
+      logRuntimeDebug('Remote graph resume skipped because executor session cannot send resume.', {
+        status: sessionState.status,
+        target: sessionState.target?.type ?? 'none',
+      });
+      return;
+    }
+
     logRuntimeInfo('Resuming via remote debugger');
-    remoteDebugger.send('resume', undefined);
+    const resumeSent = remoteDebugger.send('resume', undefined);
+    if (!resumeSent) {
+      logRuntimeDebug('Remote graph resume skipped because executor session disconnected before send.', {
+        target: executorSession.getRuntimeState().target?.type ?? 'none',
+      });
+    }
   }
 
   return {
@@ -394,7 +482,7 @@ export function useRemoteExecutor() {
     tryAbortGraph,
     tryPauseGraph,
     tryResumeGraph,
-    active: remoteDebugger.sessionState.status === 'ready',
+    active: remoteDebugger.sessionState.capabilities.canSendRun,
     tryRunTests,
   };
 }

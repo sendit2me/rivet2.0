@@ -5,6 +5,7 @@ import type { ProcessDataForNode } from '../dataFlow.js';
 import {
   filterProcessDataForSelection,
   getActionBarExecutionState,
+  getExecutorProductState,
   getGraphRunsForView,
   getNodeExecutionClassFlags,
   getSelectedGraphRunId,
@@ -12,6 +13,26 @@ import {
   getSelectedProcessRun,
   shouldUseRemoteExecutor,
 } from './executionSelectors.js';
+
+const readyCapabilities = {
+  canBridgeDatasets: false,
+  canRecordSocket: true,
+  canSendAbort: true,
+  canSendPause: true,
+  canSendResume: true,
+  canSendRun: true,
+  canUploadProject: false,
+};
+
+const inactiveCapabilities = {
+  canBridgeDatasets: false,
+  canRecordSocket: false,
+  canSendAbort: false,
+  canSendPause: false,
+  canSendResume: false,
+  canSendRun: false,
+  canUploadProject: false,
+};
 
 describe('executionSelectors', () => {
   test('selected process helpers resolve latest and indexed pages', () => {
@@ -104,6 +125,7 @@ describe('executionSelectors', () => {
 
   test('action bar execution state centralizes run/debugger visibility decisions', () => {
     const session = {
+      capabilities: inactiveCapabilities,
       status: 'reconnecting',
       started: false,
       reconnecting: true,
@@ -111,6 +133,7 @@ describe('executionSelectors', () => {
       url: 'ws://localhost:21888',
       remoteUploadAllowed: false,
       isInternalExecutor: false,
+      target: { type: 'external-debugger', url: 'ws://localhost:21888' },
     } as const;
 
     assert.deepEqual(
@@ -123,9 +146,51 @@ describe('executionSelectors', () => {
       {
         canRun: false,
         executorLoading: false,
+        executorProductState: { type: 'external-debugger-connecting' },
         graphPaused: false,
         graphRunning: false,
         isActuallyRemoteDebugging: true,
+        remoteDebuggerBanner: {
+          isPending: true,
+          label: 'Remote Debugger (Connecting...)',
+        },
+        showRunButton: true,
+        showRemoteDebuggerBanner: true,
+      },
+    );
+  });
+
+  test('action bar shows ready external debugger as a disconnect banner', () => {
+    const session = {
+      capabilities: readyCapabilities,
+      status: 'ready',
+      started: true,
+      reconnecting: false,
+      socket: null,
+      url: 'ws://localhost:21888',
+      remoteUploadAllowed: false,
+      isInternalExecutor: false,
+      target: { type: 'external-debugger', url: 'ws://localhost:21888' },
+    } as const;
+
+    assert.deepEqual(
+      getActionBarExecutionState({
+        graphPaused: false,
+        graphRunning: false,
+        selectedExecutor: 'browser',
+        session,
+      }),
+      {
+        canRun: true,
+        executorLoading: false,
+        executorProductState: { type: 'external-debugger-ready' },
+        graphPaused: false,
+        graphRunning: false,
+        isActuallyRemoteDebugging: true,
+        remoteDebuggerBanner: {
+          isPending: false,
+          label: 'Disconnect Remote Debugger',
+        },
         showRunButton: true,
         showRemoteDebuggerBanner: true,
       },
@@ -134,6 +199,7 @@ describe('executionSelectors', () => {
 
   test('action bar keeps node executor run controls visible while internal sidecar reconnects', () => {
     const session = {
+      capabilities: inactiveCapabilities,
       status: 'reconnecting',
       started: true,
       reconnecting: true,
@@ -141,6 +207,7 @@ describe('executionSelectors', () => {
       url: 'ws://127.0.0.1:21889/internal',
       remoteUploadAllowed: true,
       isInternalExecutor: true,
+      target: { type: 'internal-desktop', url: 'ws://127.0.0.1:21889/internal' },
     } as const;
 
     assert.deepEqual(
@@ -153,9 +220,11 @@ describe('executionSelectors', () => {
       {
         canRun: false,
         executorLoading: true,
+        executorProductState: { type: 'internal-node-reconnecting' },
         graphPaused: false,
         graphRunning: false,
         isActuallyRemoteDebugging: false,
+        remoteDebuggerBanner: null,
         showRunButton: true,
         showRemoteDebuggerBanner: false,
       },
@@ -164,6 +233,7 @@ describe('executionSelectors', () => {
 
   test('action bar shows node executor startup as loading before the internal socket connects', () => {
     const session = {
+      capabilities: inactiveCapabilities,
       status: 'idle',
       started: false,
       reconnecting: false,
@@ -171,6 +241,7 @@ describe('executionSelectors', () => {
       url: '',
       remoteUploadAllowed: false,
       isInternalExecutor: false,
+      target: null,
     } as const;
 
     assert.deepEqual(
@@ -183,9 +254,11 @@ describe('executionSelectors', () => {
       {
         canRun: false,
         executorLoading: true,
+        executorProductState: { type: 'internal-node-starting' },
         graphPaused: false,
         graphRunning: false,
         isActuallyRemoteDebugging: false,
+        remoteDebuggerBanner: null,
         showRunButton: true,
         showRemoteDebuggerBanner: false,
       },
@@ -194,6 +267,7 @@ describe('executionSelectors', () => {
 
   test('action bar lets recording playback run without waiting for the node executor', () => {
     const session = {
+      capabilities: inactiveCapabilities,
       status: 'idle',
       started: false,
       reconnecting: false,
@@ -201,6 +275,7 @@ describe('executionSelectors', () => {
       url: '',
       remoteUploadAllowed: false,
       isInternalExecutor: false,
+      target: null,
     } as const;
 
     assert.deepEqual(
@@ -214,9 +289,11 @@ describe('executionSelectors', () => {
       {
         canRun: true,
         executorLoading: false,
+        executorProductState: { type: 'recording-playback-ready' },
         graphPaused: false,
         graphRunning: false,
         isActuallyRemoteDebugging: false,
+        remoteDebuggerBanner: null,
         showRunButton: true,
         showRemoteDebuggerBanner: false,
       },
@@ -281,7 +358,7 @@ describe('executionSelectors', () => {
     assert.equal(
       shouldUseRemoteExecutor({
         selectedExecutor: 'browser',
-        session: { status: 'connecting' },
+        session: { capabilities: inactiveCapabilities, status: 'connecting', target: null },
       }),
       false,
     );
@@ -289,15 +366,43 @@ describe('executionSelectors', () => {
     assert.equal(
       shouldUseRemoteExecutor({
         selectedExecutor: 'browser',
-        session: { status: 'ready' },
+        session: {
+          capabilities: inactiveCapabilities,
+          status: 'ready',
+          target: { type: 'external-debugger', url: 'ws://debugger.example/latest' },
+        },
+      }),
+      false,
+    );
+
+    assert.equal(
+      shouldUseRemoteExecutor({
+        selectedExecutor: 'browser',
+        session: {
+          capabilities: readyCapabilities,
+          status: 'ready',
+          target: { type: 'external-debugger', url: 'ws://debugger.example/latest' },
+        },
       }),
       true,
     );
 
     assert.equal(
       shouldUseRemoteExecutor({
+        selectedExecutor: 'browser',
+        session: {
+          capabilities: readyCapabilities,
+          status: 'ready',
+          target: { type: 'internal-hosted', url: 'ws://executor.example/internal' },
+        },
+      }),
+      false,
+    );
+
+    assert.equal(
+      shouldUseRemoteExecutor({
         selectedExecutor: 'nodejs',
-        session: { status: 'reconnecting' },
+        session: { capabilities: inactiveCapabilities, status: 'reconnecting', target: null },
       }),
       true,
     );
@@ -306,9 +411,71 @@ describe('executionSelectors', () => {
       shouldUseRemoteExecutor({
         hasLoadedRecording: true,
         selectedExecutor: 'nodejs',
-        session: { status: 'ready' },
+        session: { capabilities: readyCapabilities, status: 'ready', target: null },
       }),
       false,
+    );
+  });
+
+  test('executor product states separate browser, internal node, and external debugger sessions', () => {
+    assert.deepEqual(
+      getExecutorProductState({
+        selectedExecutor: 'browser',
+        session: {
+          capabilities: readyCapabilities,
+          status: 'ready',
+          target: { type: 'external-debugger', url: 'ws://debugger.example/latest' },
+        },
+      }),
+      { type: 'external-debugger-ready' },
+    );
+
+    assert.deepEqual(
+      getExecutorProductState({
+        selectedExecutor: 'browser',
+        session: {
+          capabilities: inactiveCapabilities,
+          status: 'ready',
+          target: { type: 'external-debugger', url: 'ws://debugger.example/latest' },
+        },
+      }),
+      { type: 'external-debugger-connecting' },
+    );
+
+    assert.deepEqual(
+      getExecutorProductState({
+        selectedExecutor: 'browser',
+        session: {
+          capabilities: readyCapabilities,
+          status: 'ready',
+          target: { type: 'internal-hosted', url: 'ws://executor.example/internal' },
+        },
+      }),
+      { type: 'browser-ready' },
+    );
+
+    assert.deepEqual(
+      getExecutorProductState({
+        selectedExecutor: 'nodejs',
+        session: {
+          capabilities: readyCapabilities,
+          status: 'ready',
+          target: { type: 'internal-hosted', url: 'ws://executor.example/internal' },
+        },
+      }),
+      { type: 'internal-node-ready' },
+    );
+
+    assert.deepEqual(
+      getExecutorProductState({
+        selectedExecutor: 'nodejs',
+        session: {
+          capabilities: inactiveCapabilities,
+          status: 'ready',
+          target: { type: 'internal-hosted', url: 'ws://executor.example/internal' },
+        },
+      }),
+      { type: 'internal-node-starting' },
     );
   });
 });

@@ -129,6 +129,12 @@ export {
   type ExecutorSessionRuntime,
   type ExecutorSessionState,
   type ExecutorSessionStatus,
+  type ExecutorSessionCapabilities,
+  type ExecutorSessionConnectedEvent,
+  type ExecutorSessionDisconnectedEvent,
+  type ExecutorSessionDisconnectReason,
+  type ExecutorSessionLifecycleEvent,
+  type ExecutorSessionTarget,
   type PendingGraphExecution,
 } from './hooks/executorSession.js';
 export { useRivetWorkspaceHost } from './hooks/useRivetWorkspaceHost.js';

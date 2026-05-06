@@ -4,6 +4,21 @@ import type { DefaultExecutor } from '../settings.js';
 import type { ExecutorSessionState } from '../../hooks/executorSession.js';
 import type { GraphViewContext, GraphViewKey } from '../../domain/graphEditing/navigationActions.js';
 
+export type ExecutorProductState =
+  | { type: 'browser-ready' }
+  | { type: 'external-debugger-connecting' }
+  | { type: 'external-debugger-idle' }
+  | { type: 'external-debugger-ready' }
+  | { type: 'internal-node-ready' }
+  | { type: 'internal-node-reconnecting' }
+  | { type: 'internal-node-starting' }
+  | { type: 'recording-playback-ready' };
+
+export type RemoteDebuggerBannerState = {
+  isPending: boolean;
+  label: string;
+};
+
 export function getGraphRunsForView(options: {
   currentGraphView?: GraphViewContext;
   graphRunHistoryByView: Record<GraphViewKey, GraphRunRecord[]>;
@@ -157,32 +172,113 @@ export function getActionBarExecutionState(options: {
   session: ExecutorSessionState;
 }) {
   const { graphPaused, graphRunning, hasLoadedRecording = false, selectedExecutor, session } = options;
-  const canRun = hasLoadedRecording || session.status === 'ready' || selectedExecutor === 'browser';
+  const executorProductState = getExecutorProductState({ hasLoadedRecording, selectedExecutor, session });
+  const canRun = isRunnableExecutorProductState(executorProductState);
   const showRunButton = selectedExecutor === 'nodejs' || canRun;
-  const isActuallyRemoteDebugging = session.status !== 'idle' && !session.isInternalExecutor;
-  const showRemoteDebuggerBanner = isActuallyRemoteDebugging || (!session.isInternalExecutor && session.reconnecting);
+  const isActuallyRemoteDebugging = isExternalDebuggerProductState(executorProductState);
+  const remoteDebuggerBanner = getRemoteDebuggerBannerState(executorProductState);
+  const showRemoteDebuggerBanner = remoteDebuggerBanner != null;
   const executorLoading =
-    selectedExecutor === 'nodejs' && !hasLoadedRecording && !graphRunning && !canRun && !isActuallyRemoteDebugging;
+    !graphRunning &&
+    (executorProductState.type === 'internal-node-reconnecting' ||
+      executorProductState.type === 'internal-node-starting');
 
   return {
     canRun,
     executorLoading,
+    executorProductState,
     graphPaused,
     graphRunning,
     isActuallyRemoteDebugging,
+    remoteDebuggerBanner,
     showRunButton,
     showRemoteDebuggerBanner,
   };
 }
 
+export function getExecutorProductState(options: {
+  hasLoadedRecording?: boolean;
+  selectedExecutor: DefaultExecutor;
+  session: Pick<ExecutorSessionState, 'capabilities' | 'status' | 'target'>;
+}): ExecutorProductState {
+  const { hasLoadedRecording = false, selectedExecutor, session } = options;
+
+  if (hasLoadedRecording) {
+    return { type: 'recording-playback-ready' };
+  }
+
+  if (session.target?.type === 'external-debugger') {
+    if (session.status === 'ready' && session.capabilities.canSendRun) {
+      return { type: 'external-debugger-ready' };
+    }
+
+    if (session.status === 'idle') {
+      return { type: 'external-debugger-idle' };
+    }
+
+    return { type: 'external-debugger-connecting' };
+  }
+
+  if (selectedExecutor === 'nodejs') {
+    if (session.target?.type === 'internal-desktop' || session.target?.type === 'internal-hosted') {
+      if (session.status === 'ready' && session.capabilities.canSendRun) {
+        return { type: 'internal-node-ready' };
+      }
+
+      if (session.status === 'reconnecting') {
+        return { type: 'internal-node-reconnecting' };
+      }
+    }
+
+    return { type: 'internal-node-starting' };
+  }
+
+  return { type: 'browser-ready' };
+}
+
+export function isExternalDebuggerProductState(state: ExecutorProductState) {
+  return state.type === 'external-debugger-connecting' || state.type === 'external-debugger-ready';
+}
+
+export function isRunnableExecutorProductState(state: ExecutorProductState) {
+  return (
+    state.type === 'browser-ready' ||
+    state.type === 'external-debugger-ready' ||
+    state.type === 'internal-node-ready' ||
+    state.type === 'recording-playback-ready'
+  );
+}
+
+export function getRemoteDebuggerBannerState(state: ExecutorProductState): RemoteDebuggerBannerState | null {
+  switch (state.type) {
+    case 'external-debugger-ready':
+      return {
+        isPending: false,
+        label: 'Disconnect Remote Debugger',
+      };
+    case 'external-debugger-connecting':
+      return {
+        isPending: true,
+        label: 'Remote Debugger (Connecting...)',
+      };
+    default:
+      return null;
+  }
+}
+
 export function shouldUseRemoteExecutor(options: {
   hasLoadedRecording?: boolean;
   selectedExecutor: DefaultExecutor;
-  session: Pick<ExecutorSessionState, 'status'>;
+  session: Pick<ExecutorSessionState, 'capabilities' | 'status' | 'target'>;
 }) {
   if (options.hasLoadedRecording) {
     return false;
   }
 
-  return options.selectedExecutor === 'nodejs' || options.session.status === 'ready';
+  const executorProductState = getExecutorProductState({
+    selectedExecutor: options.selectedExecutor,
+    session: options.session,
+  });
+
+  return options.selectedExecutor === 'nodejs' || executorProductState.type === 'external-debugger-ready';
 }

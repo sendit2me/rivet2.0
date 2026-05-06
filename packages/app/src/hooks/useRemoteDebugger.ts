@@ -2,38 +2,27 @@ import { useLatest } from 'ahooks';
 import { useAtomValue } from 'jotai';
 import { useEffect } from 'react';
 import type { OutgoingMessageMap } from '@valerypopoff/rivet2-core';
-import { useExecutorSessionHostConfig, useExecutorSessionRuntime } from '../providers/ExecutorSessionContext.js';
-import { remoteDebuggerConfigState, remoteDebuggerConnectionState } from '../state/execution.js';
-import { selectedExecutorState, type DefaultExecutor } from '../state/settings.js';
-import { type ExecutorSessionState } from './executorSession';
-import { isInTauri } from '../utils/platform/core.js';
+import { useExecutorSessionRuntime } from '../providers/ExecutorSessionContext.js';
+import { executorSessionRevisionState } from '../state/execution.js';
+import { handleError } from '../utils/errorHandling.js';
+import { type ExecutorSessionLifecycleEvent, type ExecutorSessionState } from './executorSession';
 
-export function shouldRestoreInternalNodeExecutorAfterDebuggerDisconnect(options: {
-  selectedExecutor: DefaultExecutor;
-  sessionState: Pick<ExecutorSessionState, 'status' | 'isInternalExecutor'>;
-  hasInternalExecutorUrl: boolean;
-  isTauri: boolean;
-}) {
-  return (
-    options.selectedExecutor === 'nodejs' &&
-    options.sessionState.status !== 'idle' &&
-    !options.sessionState.isInternalExecutor &&
-    (options.hasInternalExecutorUrl || options.isTauri)
-  );
-}
-
-export function useRemoteDebugger(options: { onConnect?: () => void; onDisconnect?: () => void } = {}) {
+export function useRemoteDebugger(
+  options: {
+    onConnect?: (event: ExecutorSessionLifecycleEvent) => void | Promise<void>;
+    onDisconnect?: (event: ExecutorSessionLifecycleEvent) => void | Promise<void>;
+  } = {},
+) {
   const runtime = useExecutorSessionRuntime();
-  const hostConfig = useExecutorSessionHostConfig();
-  const selectedExecutor = useAtomValue(selectedExecutorState);
-  const debuggerConfig = useAtomValue(remoteDebuggerConfigState);
-  const connectionState = useAtomValue(remoteDebuggerConnectionState);
+  useAtomValue(executorSessionRevisionState);
   const onConnectLatest = useLatest(options.onConnect ?? (() => {}));
   const onDisconnectLatest = useLatest(options.onDisconnect ?? (() => {}));
 
   useEffect(() => {
-    const unsubscribeConnect = runtime.subscribeLifecycle('connect', () => onConnectLatest.current?.());
-    const unsubscribeDisconnect = runtime.subscribeLifecycle('disconnect', () => onDisconnectLatest.current?.());
+    const unsubscribeConnect = runtime.subscribeLifecycle('connect', (event) => onConnectLatest.current?.(event));
+    const unsubscribeDisconnect = runtime.subscribeLifecycle('disconnect', (event) =>
+      onDisconnectLatest.current?.(event),
+    );
 
     return () => {
       unsubscribeConnect();
@@ -41,32 +30,23 @@ export function useRemoteDebugger(options: { onConnect?: () => void; onDisconnec
     };
   }, [onConnectLatest, onDisconnectLatest, runtime]);
 
-  const sessionState: ExecutorSessionState = runtime.buildSessionState(debuggerConfig, connectionState);
+  const sessionState: ExecutorSessionState = runtime.buildSessionState();
 
   return {
     sessionState,
-    connect: (url: string) => {
-      void runtime.connect(url);
+    connect: (url?: string) => {
+      void runtime.connectExternalDebugger(url).catch((error) => {
+        handleError(error, 'Failed to connect Remote Debugger');
+      });
     },
     disconnect: () => {
-      const shouldRestoreInternalNodeExecutor = shouldRestoreInternalNodeExecutorAfterDebuggerDisconnect({
-        selectedExecutor,
-        sessionState,
-        hasInternalExecutorUrl: !!hostConfig?.internalExecutorUrl,
-        isTauri: isInTauri(),
-      });
-
       runtime.disconnect();
-
-      if (shouldRestoreInternalNodeExecutor) {
-        void runtime.connectInternal(hostConfig?.internalExecutorUrl);
-      }
     },
     send<T extends keyof OutgoingMessageMap>(type: T, data: OutgoingMessageMap[T]) {
-      runtime.sendMessage(type, data);
+      return runtime.sendMessage(type, data);
     },
     sendRaw(data: string) {
-      runtime.sendRaw(data);
+      return runtime.sendRaw(data);
     },
   };
 }

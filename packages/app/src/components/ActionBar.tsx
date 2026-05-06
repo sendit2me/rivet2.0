@@ -227,15 +227,13 @@ export const ActionBar: FC<ActionBarProps> = ({ onRunGraph, onAbortGraph, onPaus
 
   return (
     <div css={styles} ref={actionBarRef} data-node-editor-action-bar>
-      {actionBarExecutionState.showRemoteDebuggerBanner && (
+      {actionBarExecutionState.remoteDebuggerBanner && (
         <div
           className={clsx('remote-debugger-button active', {
-            reconnecting: remoteDebugger.reconnecting,
+            reconnecting: actionBarExecutionState.remoteDebuggerBanner.isPending,
           })}
         >
-          <button onClick={() => disconnect()}>
-            {remoteDebugger.reconnecting ? 'Remote Debugger (Reconnecting...)' : 'Disconnect Remote Debugger'}
-          </button>
+          <button onClick={() => disconnect()}>{actionBarExecutionState.remoteDebuggerBanner.label}</button>
         </div>
       )}
 

@@ -856,7 +856,7 @@ For editor-only creation preferences, legacy/default behavior is intentionally c
 Important distinction:
 
 - `defaultExecutorState` is the persisted Browser/Node default setting used for the next app start.
-- `selectedExecutorState` is the live Browser/Node executor mode used by the run menu, `ActionBar`, `useExecutorSession`, `useGraphExecutor`, and runtime UI context. Its startup value comes from the already-initialized grouped `recoil-persist.defaultExecutor` snapshot through `getStartupDefaultExecutor()`, then `RivetApp` writes that value back into the transient atom so later Settings-modal changes do not affect the running app.
+- `selectedExecutorState` is the live Browser/Node executor mode used by the run menu, `ActionBar`, `useExecutorSessionCoordinator`, `useGraphExecutor`, and runtime UI context. Its startup value comes from the already-initialized grouped `recoil-persist.defaultExecutor` snapshot through `getStartupDefaultExecutor()`, then `RivetApp` writes that value back into the transient atom so later Settings-modal changes do not affect the running app.
 - `debuggerDefaultUrlState` is the persisted external debugger URL default
 - the internal executor connection uses `ws://127.0.0.1:21889/internal`
 - graph execution settings are normalized separately by [`packages/core/src/api/processSettings.ts`](../packages/core/src/api/processSettings.ts); that resolver owns runtime defaults for app/node/trivet execution and should not become the owner for editor-only UI behavior, even though the legacy `Settings` object still carries a few editor-facing fields for compatibility
@@ -1053,23 +1053,30 @@ This hook decides whether to use:
 based on:
 
 - `selectedExecutorState`
-- whether the remote debugger/sidecar connection is active
+- executor product state derived from the shared executor-session runtime
 - whether a recording is currently loaded for playback
 
-The app shell now bootstraps execution through `useExecutorSession`, which centralizes:
+The app shell now bootstraps execution through
+`useExecutorSessionCoordinator`, while `ExecutorSessionProvider` owns the
+single shared runtime. Together they centralize:
 
 - Node-executor sidecar enablement
 - internal executor websocket bootstrap
 - disconnect cleanup when executor mode changes
+- Browser fallback when the app is running in a plain web shell without a
+  hosted internal executor URL
+- restoration of the internal Node executor after an external Remote Debugger
+  disconnect/drop when Node mode is still selected
 
 Current architectural detail:
 
-- `RivetApp` mounts `useExecutorSession` once so executor session ownership does not follow every `useGraphExecutor` consumer
+- `RivetApp` mounts `useExecutorSessionCoordinator` once so executor session ownership does not follow every `useGraphExecutor` consumer
 - `RivetApp` freezes the persisted `defaultExecutorState` into transient `selectedExecutorState` on startup, so changing the Settings modal's `Default executor` value only affects the next app start
 - `useGraphExecutor` is now thinner and mainly selects local vs remote execution from shared session state
 - sidecar/socket session ownership no longer lives directly in `useGraphExecutor`
 - the app still expects one internal sidecar process, not one sidecar per consumer
-- in browser executor mode, a `connecting` or `reconnecting` remote session does not preempt local browser execution; remote execution is only selected once the shared session is actually `ready`
+- `useExecutorSessionState()` is read-only: it returns the runtime snapshot after observing the transient `executorSessionRevisionState` render tick. It does not start sidecars, connect websockets, or merge persisted debugger config into active session state.
+- in browser executor mode, a `connecting` or `reconnecting` remote session does not preempt local browser execution; remote execution is only selected once product-state routing says an external debugger is run-capable
 - loaded recording playback always routes graph runs and playback controls to `useLocalExecutor`, even when the live executor is Node and the sidecar is ready. Replay is an editor-local event-stream operation over `GraphProcessor.replayRecording(...)`, not a remote `run` protocol message, so it must not execute the graph through the app-executor sidecar.
 - other live-execution features such as Trivet test runs continue to follow the selected live executor.
 - recording load/unload is blocked while any execution is running so the active Abort/Pause/Resume controls keep targeting the executor that actually owns the run.
@@ -1132,13 +1139,18 @@ Current architectural detail:
 - desktop Node-executor correctness depends on the bundled `app-executor` sidecar staying in lockstep with current app/core source, so the Tauri app now rebuilds `@valerypopoff/rivet-app-executor` before both `tauri dev` and desktop builds instead of assuming a previously built sidecar is still compatible. The app-executor esbuild step maps `@valerypopoff/rivet2-core` and `@valerypopoff/rivet2-node` to local source entrypoints, not built package exports, so source-level execution fixes are included in a fresh sidecar even if `packages/core/dist` or `packages/node/dist` are stale. If execution semantics in core change while a dev app is already running, restart the Tauri app so the active sidecar process is replaced; a browser refresh alone does not reload an already-running sidecar.
 - desktop Node-executor Code nodes use the sidecar-only `AppExecutorWorkerCodeRunner`: most dynamic JavaScript runs in a fresh Node worker thread so one long synchronous Code node does not block the sidecar event loop from finishing unrelated nodes and streaming their `nodeFinish` events back to the app.
 - that worker-backed runner is intentionally not the public `@valerypopoff/rivet2-node` default. Programmatic Node callers still use `NodeCodeRunner` unless they explicitly pass a custom runner. Code nodes that enable the `Rivet` capability fall back to the current-thread sidecar runner for compatibility with packaged sidecar resolution.
-- Node executor mode is desktop-only unless a hosted shell provides `executor.internalExecutorUrl`, because desktop Node mode depends on Tauri's sidecar launcher. [`packages/app/src/hooks/useExecutorSession.ts`](../packages/app/src/hooks/useExecutorSession.ts) starts the app-executor sidecar and waits for the sidecar runtime to report that its websocket server is listening before connecting to `ws://127.0.0.1:21889/internal`. The app-executor sidecar binds that internal server to `127.0.0.1` as well, avoiding localhost IPv4/IPv6 resolution mismatches. If a stale persisted `nodejs` default initializes `selectedExecutorState` in the plain web app, the live executor selection falls back to Browser mode instead of repeatedly attempting a sidecar connection that cannot exist outside Tauri. The executor selector options are host-aware for the same reason: `getExecutorOptions(...)` returns Browser/Node when either Tauri is available or `executor.internalExecutorUrl` is configured, and Browser-only otherwise.
-- manual remote-debugger disconnect is not allowed to strand Node executor mode at `idle`. [`useRemoteDebugger`](../packages/app/src/hooks/useRemoteDebugger.ts) restores the internal Node executor websocket after disconnecting an external debugger when Node mode is still selected. [`executorSession`](../packages/app/src/hooks/executorSession.ts) exposes `connectInternal(...)` so hosted `executor.internalExecutorUrl` sessions and the desktop sidecar URL are both classified as internal executor sessions rather than external remote debugger sessions. That classification must survive websocket reconnects after proxy/server idle closes, so `/ws/executor/internal` does not reappear in the UI as a Remote Debugger. Automatic reconnect is intentionally internal-executor-only: if a user-attached external Remote Debugger websocket closes unexpectedly, Rivet does not reopen that external debugger by itself. If Node mode is selected, [`useExecutorSession`](../packages/app/src/hooks/useExecutorSession.ts) may restore only the internal executor; Browser mode waits for another explicit Remote Debugger Connect action. This keeps the ActionBar Run button recovering after explicit handoff while avoiding surprise remote-debugger sessions.
+- Node executor mode is desktop-only unless a hosted shell provides `executor.internalExecutorUrl`, because desktop Node mode depends on Tauri's sidecar launcher. [`packages/app/src/hooks/useExecutorSessionCoordinator.ts`](../packages/app/src/hooks/useExecutorSessionCoordinator.ts) starts the app-executor sidecar and waits for the sidecar runtime to report that its websocket server is listening before connecting to `ws://127.0.0.1:21889/internal`. The app-executor sidecar binds that internal server to `127.0.0.1` as well, avoiding localhost IPv4/IPv6 resolution mismatches. If a stale persisted `nodejs` default initializes `selectedExecutorState` in the plain web app, the live executor selection falls back to Browser mode instead of repeatedly attempting a sidecar connection that cannot exist outside Tauri. The executor selector options are host-aware for the same reason: `getExecutorOptions(...)` returns Browser/Node when either Tauri is available or `executor.internalExecutorUrl` is configured, and Browser-only otherwise.
+- manual remote-debugger disconnect is not allowed to strand Node executor mode at `idle`. [`useRemoteDebugger`](../packages/app/src/hooks/useRemoteDebugger.ts) now only exposes the external Remote Debugger command surface: connect external, disconnect current, send protocol messages. [`useExecutorSessionCoordinator`](../packages/app/src/hooks/useExecutorSessionCoordinator.ts) owns the product policy that restores the internal Node executor after an external debugger disconnects or drops while Node mode is still selected. [`executorSession`](../packages/app/src/hooks/executorSession.ts) exposes explicit target methods (`connectExternalDebugger(...)`, `connectInternalDesktopExecutor(...)`, and `connectInternalHostedExecutor(...)`) so hosted `executor.internalExecutorUrl` sessions and the desktop sidecar URL are both classified as internal executor sessions rather than external remote debugger sessions. That classification must survive websocket reconnects after proxy/server idle closes, so `/ws/executor/internal` does not reappear in the UI as a Remote Debugger. Automatic reconnect is intentionally internal-executor-only: if a user-attached external Remote Debugger websocket closes unexpectedly, Rivet does not reopen that external debugger by itself. If Node mode is selected, the coordinator may restore only the internal executor; Browser mode waits for another explicit Remote Debugger Connect action. This keeps the ActionBar Run button recovering after explicit handoff while avoiding surprise remote-debugger sessions.
 - when a Code node enables `console`, the app-executor runner injects a bridged `console` object instead of the worker or sidecar process console. `console.debug/info/log/warn/error` calls are serialized into `codeConsole` executor messages and replayed in the renderer console for the active editor run. This keeps Browser and Node executor observability aligned without changing programmatic `@valerypopoff/rivet2-node` console behavior.
 - sidecar graph-run failures are request-scoped protocol results, not sidecar lifecycle failures. [`packages/app-executor/bin/executor.mts`](../packages/app-executor/bin/executor.mts) catches dynamic run failures, reports an `error` message with the active request id, detaches the processor from the debugger server, and keeps the websocket session alive so the ActionBar can return to its normal Run state after node/provider failures.
 - the ActionBar separates Run-button visibility from executor readiness. Node executor mode keeps the Run controls visible while the internal sidecar is starting, connecting, or reconnecting; during that transient state the buttons use their disabled visual state, keep the same label they normally show, replace the action glyph with the same ring indicator used by running node headers, and ignore clicks until the shared executor session is ready. Handled provider/node failures must not hide the Run button.
-- manual executor-session disconnect detaches the current websocket and notifies lifecycle subscribers synchronously before any caller restores the internal executor. This keeps active remote-run cleanup reliable even when `useRemoteDebugger.disconnect()` immediately hands Node mode back to `connectInternal(...)` and the old external websocket emits its browser `close` event later.
+- manual executor-session disconnect detaches the current websocket and notifies lifecycle subscribers synchronously before the coordinator restores the internal executor. This keeps active remote-run cleanup reliable even when a Remote Debugger disconnect hands Node mode back to the internal executor and the old external websocket emits its browser `close` event later.
 - for unexpected internal executor drops, the automatic reconnect timeout is scheduled before lifecycle subscribers are notified. If a subscriber performs a deliberate internal reconnect during that callback, `connectInternal(...)` clears the scheduled timeout and prevents a second delayed reconnect from racing it.
+- active executor websocket targets are modeled as `internal-desktop`, `internal-hosted`, or `external-debugger`. The runtime still exposes the derived `isInternalExecutor` field for source-level host compatibility, but UI and coordinator code should prefer the explicit `target.type` and the derived session capabilities. Browser executor mode does not have an executor-session target; it is represented by product state rather than a websocket. Target identity is the pair of `target.type` and `target.url`: the same URL may be reused as a different product target in tests or unusual wrapper deployments, so replacement/reuse logic must never compare URL alone.
+- executor-session facts such as active URL, target classification, upload permission, and capabilities are owned by the executor-session runtime and are not persisted. Jotai only stores `executorSessionRevisionState`, a transient render tick used to notify React consumers that the runtime snapshot changed. The Remote Debugger connection field still persists through `debuggerDefaultUrlState`, but stale legacy `remoteDebuggerConfig` storage is ignored because active session state is no longer built from stored config atoms.
+- `executorSession` emits an explicit `replaced` disconnect lifecycle event when one target is replaced by another, or when a stale/non-reusable websocket for the same target must be replaced. Pending remote graph executions are rejected before the replacement socket opens, upload/capability state is reset before the new target starts connecting, and the disconnect event reports the post-transition `idle` status plus the old target so subscribers see the same state the runtime exposes at notification time.
+- executor-session callback boundaries are isolated. Lifecycle subscribers, process-message subscribers, and the runtime state-change callback are invoked from snapshots, and both synchronous throws and asynchronous promise rejections are logged with non-toast `handleError(...)` metadata. A broken subscriber should not prevent later subscribers from running, break websocket lifecycle handling, or create an unhandled-promise toast.
+- websocket construction failures are part of the same lifecycle boundary. If the user enters an invalid external Remote Debugger URL, `executorSession` clears the attempted target back to idle and `useRemoteDebugger` reports the connection failure instead of leaving stale target state or surfacing an unhandled promise rejection.
 - the app logs sidecar/session lifecycle transitions at the executor boundary through `logRuntimeDebug`, enabled with `localStorage.setItem('rivet.debugRuntimeLogs', 'true')`. These logs cover sidecar start/readiness/stop, websocket status changes, close/reconnect scheduling, and skipped Node-mode runs when the session is not ready. They deliberately avoid graph input values and API keys while giving enough phase information to diagnose whether the breakage is process startup, websocket lifecycle, or request handling.
 - sidecar stdout/stderr is treated as sidecar telemetry, not as a renderer error boundary. The packaged executor can write Node warnings and provider failure logs to stderr during otherwise correctly handled graph failures; [`packages/app/src/hooks/executorSidecarRuntime.ts`](../packages/app/src/hooks/executorSidecarRuntime.ts) records byte-count debug telemetry only and relies on the websocket protocol events above to drive UI state. The app-executor process also installs top-level `unhandledRejection` and `uncaughtException` handlers so late provider/stream failures after websocket startup are recorded instead of terminating the sidecar after the graph failure has already been sent as a request-scoped executor error. Startup-phase top-level failures still terminate the sidecar so broken startup does not masquerade as a healthy executor.
 - sidecar startup readiness is intentionally stronger than process spawn. [`packages/app/src/hooks/executorSidecarRuntime.ts`](../packages/app/src/hooks/executorSidecarRuntime.ts) waits for the app-executor's `Rivet app executor websocket listening` stdout marker before reporting the sidecar as started, so the renderer does not connect while the spawned process is still binding the internal websocket.
@@ -1150,30 +1162,37 @@ The app now has a dedicated shared session layer under:
 
 - [`packages/app/src/hooks/executorSession.ts`](../packages/app/src/hooks/executorSession.ts)
 - [`packages/app/src/hooks/useExecutorSession.ts`](../packages/app/src/hooks/useExecutorSession.ts)
+- [`packages/app/src/hooks/useExecutorSessionCoordinator.ts`](../packages/app/src/hooks/useExecutorSessionCoordinator.ts)
 - [`packages/app/src/providers/ExecutorSessionContext.tsx`](../packages/app/src/providers/ExecutorSessionContext.tsx)
 
 This session layer owns:
 
 - websocket/socket reference
+- explicit websocket target (`internal-desktop`, `internal-hosted`, or `external-debugger`)
 - explicit session status (`idle`, `connecting`, `ready`, `reconnecting`)
 - reconnect policy
 - dataset request handling over the executor protocol
 - pending remote graph completion bridging
 - socket generation ownership so stale close/message events from replaced sockets are ignored
-- disconnect lifecycle signaling for both explicit teardown and unexpected drops
+- disconnect lifecycle signaling for explicit teardown, unexpected drops, and target replacement
 - fan-out delivery of executor protocol messages to multiple subscribers instead of one global handler owner
-- per-socket capability state such as `remoteUploadAllowed`, which is cleared when replacing the active connection
+- per-socket capability state such as `canSendRun`, `canUploadProject`, `canBridgeDatasets`, and `canRecordSocket`, which is cleared when replacing the active connection
 - compatibility mapping back to the older `started`/`reconnecting` flags consumed by some UI/state code
 
 Current ownership detail:
 
-- `useExecutorSession` should be mounted from a stable app-shell surface
+- `useExecutorSessionCoordinator` should be mounted from a stable app-shell surface
 - `ExecutorSessionProvider` now creates the shared runtime once at the app shell boundary and owns dataset access plus debugger/session atom wiring
-- `useExecutorSession` now controls connection lifecycle against that provider-owned runtime instead of binding a process-global singleton
+- `useExecutorSessionCoordinator` controls connection lifecycle against that provider-owned runtime instead of binding a process-global singleton
+- the coordinator's restore subscription reads the latest selected executor and hosted executor URL through refs, so cleanup from an old Node-mode effect cannot restore Node after the user has already switched to Browser mode
+- the coordinator's disconnect lifecycle handler is extracted as `handleExecutorSessionCoordinatorDisconnect(...)` so tests cover the same path the React subscription uses: restore the current hosted URL, skip restore when the latest selected executor is Browser, and restore desktop internal Node when no hosted URL exists in Tauri
+- the coordinator separates startup-action selection from startup-action execution. `getExecutorSessionStartupAction(...)` decides Browser/hosted Node/desktop Node/plain-web fallback, while `runExecutorSessionStartupAction(...)` performs the connect/disconnect/sidecar work and returns the cleanup function used by the React effect. Keep sidecar cancellation and hosted-URL connect behavior covered there rather than duplicating startup policy in components.
 - read-only consumers such as `useGraphExecutor` and `ActionBarMoreMenu` should observe session state through `useExecutorSessionState`
 - controller consumers such as `useRemoteExecutor`, `ActionBar`, `DebuggerConnectPanel`, and `GentraceInteractors` should use `useRemoteDebugger` for connect/disconnect/send operations without taking over session binding or teardown
+- feature code should ask the session capability model before sending protocol commands. Remote graph runs use `canSendRun`, upload paths use `canUploadProject`, control commands use `canSendAbort` / `canSendPause` / `canSendResume`, and Gentrace uses `canRecordSocket` plus `recordSocketEvents(...)` instead of reading the active websocket from UI state.
+- UI code should use product-state selectors instead of raw session status. `getExecutorProductState(...)` folds selected executor, loaded recording state, target classification, status, and `canSendRun` into product states such as `internal-node-ready` or `external-debugger-connecting`; `getActionBarExecutionState(...)` derives Run visibility, loading, Remote Debugger banner text, and banner pending styling from that product state.
 
-`useRemoteDebugger` is now a thin controller/subscription hook over the shared session layer rather than another owner of executor-session wiring.
+`useRemoteDebugger` is now a thin controller/subscription hook over the shared session layer rather than another owner of executor-session wiring. It does not decide whether Node mode should be restored after disconnect; the coordinator owns that decision.
 
 ### Internal sidecar vs external debugger
 
@@ -1520,11 +1539,12 @@ so graph cleanup, editor-state persistence, static-data hydration, and Trivet
 test-suite state remain centralized.
 
 When `executor.internalExecutorUrl` is configured and the user selects Node
-executor mode, [`useExecutorSession`](../packages/app/src/hooks/useExecutorSession.ts)
+executor mode,
+[`useExecutorSessionCoordinator`](../packages/app/src/hooks/useExecutorSessionCoordinator.ts)
 connects to that hosted executor URL directly and does not start or stop a local
-sidecar. Hosted internal executor URLs must use the internal session path so UI
-classification, reconnect behavior, and remote-debugger handoff match desktop
-Node mode. The desktop/Tauri default remains unchanged.
+sidecar. Hosted internal executor URLs must use the `internal-hosted` session
+target so UI classification, reconnect behavior, and remote-debugger handoff
+match desktop Node mode. The desktop/Tauri default remains unchanged.
 
 ## Important Refactor Seams
 
@@ -1549,7 +1569,8 @@ If planning significant refactors, these are the highest-value seams already vis
 ### Execution seams
 
 - `useGraphExecutor`
-- `useExecutorSession`
+- `useExecutorSessionCoordinator`
+- `useExecutorSessionState`
 - `executorSession`
 - `useLocalExecutor`
 - `useRemoteExecutor`
