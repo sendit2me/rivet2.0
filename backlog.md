@@ -4,15 +4,11 @@
 
 - Reassess Ctrl+N window
 
-- When I scroll the search results, it jitters
-
-
+- The old preloader is still visible in the processing graphs in the graph tree
 
 - Add for all nodes a special output that is true when the node is run. Or. The "if" input should accept anything as true if it was run
 
 - Need to show the curent graph name somewhere. When there's many and they are in the folders and you click through subgraphs, the user gets lost
-
-- Sometimes (after opening the full output panel) the connections between nodes get clipped as if the view port was smaller that the visible artboard area
 
 - When in the node settings panel and I click elsewhere and hit the comments node, the panel doesn't close
 

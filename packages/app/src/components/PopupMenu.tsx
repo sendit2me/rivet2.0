@@ -142,6 +142,7 @@ export const PopupMenuContainer = forwardRef<HTMLDivElement, PopupComponentProps
     </div>
   ),
 );
+PopupMenuContainer.displayName = 'PopupMenuContainer';
 
 export type PopupMenuProps = HTMLAttributes<HTMLDivElement> & {
   minWidth?: CSSProperties['minWidth'];
@@ -161,6 +162,7 @@ export const PopupMenu = forwardRef<HTMLDivElement, PopupMenuProps>(
     </div>
   ),
 );
+PopupMenu.displayName = 'PopupMenu';
 
 export type PopupMenuItemProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   icon?: ComponentType<SVGProps<SVGSVGElement>>;
@@ -182,5 +184,6 @@ export const PopupMenuItem = forwardRef<HTMLButtonElement, PopupMenuItemProps>(
     </button>
   ),
 );
+PopupMenuItem.displayName = 'PopupMenuItem';
 
 export { Popup };
