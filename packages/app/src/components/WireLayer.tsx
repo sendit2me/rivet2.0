@@ -19,6 +19,7 @@ import { getSelectedProcessData } from '../state/selectors/executionSelectors.js
 import { canvasIoDefinitionsForNodeState } from '../state/selectors/canvasGraphSelectors.js';
 import { resolveClosestWireDropTargetFromPoint } from '../utils/wireDropTarget.js';
 import { useRenderableWires } from './nodeCanvas/useRenderableWires.js';
+import type { LineClipRect } from '../utils/lineClipping.js';
 
 const wiresStyles = css`
   width: 100%;
@@ -65,6 +66,7 @@ type WireLayerProps = {
   nearViewportNodeIdSet: ReadonlySet<NodeId>;
   portPositions: PortPositions;
   visibleNodeIdSet: ReadonlySet<NodeId>;
+  viewportClientRect: LineClipRect;
 };
 
 export const WireLayer: FC<WireLayerProps> = ({
@@ -78,6 +80,7 @@ export const WireLayer: FC<WireLayerProps> = ({
   nearViewportNodeIdSet,
   portPositions,
   visibleNodeIdSet,
+  viewportClientRect,
 }) => {
   const [mousePosition, setMousePosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [closestPort, setClosestPort] = useAtom(draggingWireClosestPortState);
@@ -180,6 +183,7 @@ export const WireLayer: FC<WireLayerProps> = ({
     portPositions,
     runningNodeIdSet,
     visibleNodeIdSet,
+    viewportClientRect,
   });
 
   return (

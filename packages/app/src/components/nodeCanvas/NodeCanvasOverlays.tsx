@@ -7,6 +7,7 @@ import { WireLayer } from '../WireLayer.js';
 import type { PortPositions } from '../NodeCanvas.js';
 import type { HoveringPort } from '../../hooks/usePortHoverTooltip.js';
 import type { DraggingWireDef } from '../../state/graphBuilder.js';
+import type { LineClipRect } from '../../utils/lineClipping.js';
 
 export interface SelectionBoxState {
   x: number;
@@ -47,6 +48,7 @@ export interface NodeCanvasOverlaysProps {
   shouldRenderWires: boolean;
   showContextMenu: boolean;
   visibleNodeIdSet: ReadonlySet<NodeId>;
+  viewportClientRect: LineClipRect;
 }
 
 export const NodeCanvasOverlays: FC<NodeCanvasOverlaysProps> = ({
@@ -75,6 +77,7 @@ export const NodeCanvasOverlays: FC<NodeCanvasOverlaysProps> = ({
   shouldRenderWires,
   showContextMenu,
   visibleNodeIdSet,
+  viewportClientRect,
 }) => {
   return (
     <>
@@ -117,6 +120,7 @@ export const NodeCanvasOverlays: FC<NodeCanvasOverlaysProps> = ({
           nearViewportNodeIdSet={nearViewportNodeIdSet}
           portPositions={nodePortPositions}
           visibleNodeIdSet={visibleNodeIdSet}
+          viewportClientRect={viewportClientRect}
           draggingNode={draggingNode}
         />
       )}
