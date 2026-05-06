@@ -21,8 +21,7 @@ const toastStyle = css`
   button {
     background-color: var(--grey);
     color: var(--grey-lightest);
-    font-family: apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans',
-      'Droid Sans', 'Helvetica Neue', sans-serif;
+    font-family: var(--font-family);
     border: 1px solid var(--grey-lightest);
     padding: 8px 12px;
     display: flex;

@@ -223,7 +223,7 @@ export const defaultEditorContainerStyles = css`
     margin-top: 6px;
     color: var(--foreground-muted);
     font-size: var(--ui-font-size-compact);
-    font-family: 'Roboto Mono', monospace;
+    font-family: var(--font-family-monospace);
     line-height: 1.4;
   }
 

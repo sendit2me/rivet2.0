@@ -38,8 +38,7 @@ body {
   --ds-border-radius-050: var(--ui-button-radius-sm);
   --ds-border-radius-100: var(--ui-button-radius);
 
-  --label-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, 'Fira Sans', 'Droid Sans',
-    'Helvetica Neue', sans-serif;
+  --label-font-family: var(--font-family);
   --label-color: rgb(159, 173, 188);
   --label-font-weight: 600;
 }

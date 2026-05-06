@@ -17,7 +17,7 @@ export const popupMenuSurfaceStyles = css`
   border: 2px solid var(--grey-dark);
   /*box-shadow: 3px 1px 10px rgba(0, 0, 0, 0.5);*/
   color: var(--grey-lighter);
-  font-family: 'Roboto', sans-serif;
+  font-family: var(--font-family);
   font-size: var(--ui-font-size-base);
   padding: 0.25em;
   user-select: none;
@@ -30,7 +30,7 @@ export const popupMenuListStyles = css`
   min-width: 220px;
 
   * {
-    font-family: 'Roboto', sans-serif;
+    font-family: var(--font-family);
   }
 `;
 

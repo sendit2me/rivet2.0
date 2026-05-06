@@ -22,7 +22,7 @@ export const nodeStyles = css`
     /* max-width: 500px; */
     width: 450px;
     padding: 12px;
-    font-family: 'Roboto Mono', monospace;
+    font-family: var(--font-family-monospace);
     /* transition-duration: 0.2s; TODO */
     transition-timing-function: ease-out;
     transition-property: box-shadow;
@@ -114,7 +114,7 @@ export const nodeStyles = css`
 
   .node-title {
     background-color: var(--node-bg);
-    font-family: 'Roboto', sans-serif;
+    font-family: var(--font-family);
     color: var(--node-bg-foreground);
     padding: 14px 14px 12px 14px;
     margin: -12px -12px 8px -11px;
@@ -299,10 +299,9 @@ export const nodeStyles = css`
     align-items: center;
     gap: calc(6px * var(--ui-font-scale));
     min-height: calc(24px * var(--ui-font-scale));
-    padding: calc(2px * var(--ui-font-scale)) calc(6px * var(--ui-font-scale))
-      calc(2px * var(--ui-font-scale)) calc(4px * var(--ui-font-scale));
+    padding: 0.1em 0.6em 0.1em 0.4em;
     border: 0;
-    border-radius: calc(8px * var(--ui-font-scale));
+    border-radius: 0.8em;
     corner-shape: squircle;
     background: color-mix(in srgb, var(--node-bg-foreground) 85%, transparent);
     color: var(--node-bg);
@@ -311,18 +310,17 @@ export const nodeStyles = css`
     white-space: nowrap;
     font-family: inherit;
     font-size: var(--ui-font-size-xs);
-    font-weight: 900;
-    line-height: 1.2;
-    letter-spacing: calc(0.4px * var(--ui-font-scale));
+    font-weight: 700;
+    line-height: 1.3;
     text-transform: none;
     margin-top: calc(6px * var(--ui-font-scale));
-    margin-left: calc(-1px * var(--ui-font-scale));
+    margin-left: -0.1em;
   }
 
   .split-run-summary-mode {
-    font-weight: 900;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: calc(1.2px * var(--ui-font-scale));
+    letter-spacing: calc(1.0px * var(--ui-font-scale));
   }
 
   .split-run-summary:hover {
