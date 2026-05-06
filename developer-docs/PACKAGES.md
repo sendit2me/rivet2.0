@@ -364,6 +364,13 @@ Current behavior:
 - skips package versions that already exist on npm
 - publishes only core, node, Trivet, and cli under the `@valerypopoff` scope
 
+The lockstep version check reads the package manifests directly. For a
+main-branch npm release, update all four public package versions together:
+`packages/core/package.json`, `packages/node/package.json`,
+`packages/trivet/package.json`, and `packages/cli/package.json`. The desktop
+app version in `packages/app/package.json` is separate and drives Windows
+installer filenames, not npm package publishing.
+
 It does not publish the app, the app executor, or Docker images. The main-branch
 npm workflow is the canonical automation path for this script. That workflow
 verifies a clean checkout before installing dependencies, then verifies after

@@ -477,6 +477,10 @@ generated `packages/core/dist`, `packages/node/dist`, `packages/trivet/dist`,
 
 The package manifest version is the release source of truth. The four public
 npm packages are versioned in lockstep and must stay on major version `2`.
+When bumping one npm-published package for a `main` release, bump all four
+manifests together:
+`packages/core/package.json`, `packages/node/package.json`,
+`packages/trivet/package.json`, and `packages/cli/package.json`.
 
 - patch releases: `2.0.1`, `2.0.2`, etc. for compatible fixes
 - minor releases: `2.1.0`, `2.2.0`, etc. for compatible features
