@@ -2,6 +2,28 @@
 
 - Human readable Loop node
 
+- Reassess Loop until node. Definitely can make the end conditions better
+
+- A setting for LLM chat node to race several LLM calls and return the fastest
+
+
+
+- Move "Greaph info" from a dedicated tab to a modal that is invoked via graph context menu (add a new item "Graph info" after "Duplicate")
+
+- Move the "Project" tab content from a dedicated tab to a modal that is invoked by the "Project settings" button in the "Graphs" tab
+
+- Make the graphs and folders draggable without a drag icon
+
+
+- When the port labels aren't capitalized ("Preserve text case for node ports" switcher is on), don't do letter spacing
+
+- There's 2 similar mono width fonts (node body + node short output). lso the one in the code editor is different. Let's only keep one
+
+
+- Need to show the curent graph name somewhere. When there's many and they are in the folders and you click through subgraphs, the user gets lost
+
+- New coalesce node without a duplicated conditional port (there's if port for that)
+
 - Reassess Ctrl+N window
 
 
@@ -11,27 +33,18 @@
 
 - In the node output when there's yellow headers, without hover the headers are not visible. I want them to be visible
 
-
-- The star icon that is shown in the main graph's name (in the project tree) should be in the end of the name, not in the beginning
-
-
 - New artboard background image. I want diagonal strokes like in the logo
 
 - Node terminals make not round, but half squircles on the inside part of the node
 
-- A setting for LLM chat node to race several LLM calls and return the fastest
 
-- New coalesce node without a duplicated conditional port (there's if port for that)
+
 
 - Add for all nodes a special output that is true when the node is run. Or. The "if" input should accept anything as true if it was run
 
-- Need to show the curent graph name somewhere. When there's many and they are in the folders and you click through subgraphs, the user gets lost
 
 - When in the node settings panel and I click elsewhere and hit the comments node, the panel doesn't close
 
-- In the "Project" tab, the "Context" section is visuallly broken when the variable is an object (just doesn't fit into the view)
-
-- There's 2 similar mono width fonts (node body + node short output). lso the one in the code editor is different. Let's only keep one
 
 
 - Reassess rivet example project

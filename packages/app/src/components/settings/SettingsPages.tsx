@@ -1,5 +1,6 @@
 export { GeneralSettingsPage } from './pages/GeneralSettingsPage.js';
 export { GraphsSettingsPage } from './pages/GraphsSettingsPage.js';
+export { ProjectContextSettingsPage } from './pages/ProjectContextSettingsPage.js';
 export { UiSettingsPage } from './pages/UiSettingsPage.js';
 export { OpenAiSettingsPage } from './pages/OpenAiSettingsPage.js';
 export { PluginsCatalogPage } from './pages/PluginsCatalogPage.js';
