@@ -186,7 +186,14 @@ const styles = css`
     }
   }
 
-  .selected .spinner svg {
+  .spinner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: currentColor;
+  }
+
+  .selected .spinner {
     color: var(--foreground-on-primary);
   }
 

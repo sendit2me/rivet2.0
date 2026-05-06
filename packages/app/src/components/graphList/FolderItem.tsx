@@ -13,7 +13,6 @@ import { useAtom, useAtomValue } from 'jotai';
 import { projectMetadataState } from '../../state/savedGraphs.js';
 import { range } from 'lodash-es';
 import clsx from 'clsx';
-import { LoadingSpinner } from '../LoadingSpinner.js';
 import { type GraphId, type NodeGraph } from '@valerypopoff/rivet2-core';
 import FolderIcon from 'majesticons/line/folder-line.svg?react';
 import { useStableCallback } from '../../hooks/useStableCallback.js';
@@ -22,6 +21,7 @@ import { expandedFoldersState } from '../../state/ui';
 import { countGraphsInFolder, type NodeGraphFolderItem } from './graphFolders';
 import { type GraphReachabilityBucket } from '../../utils/graphReachability.js';
 import { MainGraphIcon } from './MainGraphIcon';
+import { NodeRunningIndicator } from '../visualNode/NodeRunningIndicator.js';
 
 export const FolderItem: FC<{
   item: NodeGraphFolderItem;
@@ -141,7 +141,7 @@ export const FolderItem: FC<{
                 <>
                   {graphIsRunning && (
                     <div className="spinner">
-                      <LoadingSpinner />
+                      <NodeRunningIndicator isRunning delayMs={0} label="Graph running" />
                     </div>
                   )}
                   {referencesSelectedGraph && <span className="graph-reference-dot" aria-hidden="true" />}

@@ -6,13 +6,14 @@
 
 
 
-- The old preloader is still visible in the processing graphs in the graph tree
 
 - When I open the main run menu for the first time, it has a thick white border around it. It goes away when I click at least one item in the menu. Sounds like browser focis or something
 
 - In the node output when there's yellow headers, without hover the headers are not visible. I want them to be visible
 
-- The start on the main graph shouls be in the end of the name, not in the beginning
+
+- The star icon that is shown in the main graph's name (in the project tree) should be in the end of the name, not in the beginning
+
 
 - New artboard background image. I want diagonal strokes like in the logo
 
