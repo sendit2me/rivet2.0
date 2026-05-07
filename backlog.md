@@ -12,6 +12,8 @@
 
 - Extract JSON node: when it gets an object instead of string, just output this object instead of erroring
 
+
+
 - Remove the colored triangle in the node's output
 
 - When some other workspace is selected, let's deselect the project tab. Not just visualy. Deselect so that the Ctrl+S doesn't cave the project because none is selected

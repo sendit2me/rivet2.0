@@ -9,7 +9,6 @@ import { nanoid } from 'nanoid/non-secure';
 import { NodeImpl, type NodeUIData } from '../NodeImpl.js';
 import { nodeDefinition } from '../NodeDefinition.js';
 import { type DataValue } from '../DataValue.js';
-import { expectType } from '../../utils/index.js';
 import { dedent } from 'ts-dedent';
 
 export type ExtractJsonNode = ChartNode<'extractJson', ExtractJsonNodeData>;
@@ -38,7 +37,7 @@ export class ExtractJsonNodeImpl extends NodeImpl<ExtractJsonNode> {
       {
         id: 'input' as PortId,
         title: 'Input',
-        dataType: 'string',
+        dataType: 'any',
         required: true,
         coerced: false,
       },
@@ -63,9 +62,9 @@ export class ExtractJsonNodeImpl extends NodeImpl<ExtractJsonNode> {
   static getUIData(): NodeUIData {
     return {
       infoBoxBody: dedent`
-        Finds and parses the first JSON object in the input text.
+        Finds and parses the first JSON object in input text, or passes through an already-structured input object.
 
-        Outputs the parsed object.
+        Outputs the parsed or passed-through object.
       `,
       infoBoxTitle: 'Extract JSON Node',
       contextMenuTitle: 'Extract JSON',
@@ -74,20 +73,32 @@ export class ExtractJsonNodeImpl extends NodeImpl<ExtractJsonNode> {
   }
 
   async process(inputs: Record<PortId, DataValue>): Promise<Record<PortId, DataValue>> {
-    const inputString = expectType(inputs['input' as PortId], 'string');
+    const input = inputs['input' as PortId];
+
+    if (isStructuredJsonInput(input)) {
+      return createMatchedOutput(input.value);
+    }
+
+    let inputString: string;
+    if (input?.type === 'any') {
+      if (isJsonOutputValue(input.value)) {
+        return createMatchedOutput(input.value);
+      }
+
+      if (typeof input.value !== 'string') {
+        throw new Error(`Expected value of type string or object but got any`);
+      }
+
+      inputString = input.value;
+    } else if (input?.type === 'string') {
+      inputString = input.value;
+    } else {
+      throw new Error(`Expected value of type string or object but got ${input?.type}`);
+    }
 
     try {
       const parsed = JSON.parse(inputString);
-      return {
-        ['output' as PortId]: {
-          type: 'object',
-          value: parsed,
-        },
-        ['noMatch' as PortId]: {
-          type: 'control-flow-excluded',
-          value: undefined,
-        },
-      };
+      return createMatchedOutput(parsed);
     } catch (_err: unknown) {
       // Fall back to more manual parsing
     }
@@ -115,7 +126,7 @@ export class ExtractJsonNodeImpl extends NodeImpl<ExtractJsonNode> {
 
     const substring = inputString.substring(firstIndex, lastIndex + 1);
 
-    let jsonObject: Record<string, unknown> | undefined = undefined;
+    let jsonObject: unknown;
     try {
       jsonObject = JSON.parse(substring);
     } catch (err) {
@@ -131,17 +142,31 @@ export class ExtractJsonNodeImpl extends NodeImpl<ExtractJsonNode> {
       };
     }
 
-    return {
-      ['output' as PortId]: {
-        type: 'object',
-        value: jsonObject!,
-      },
-      ['noMatch' as PortId]: {
-        type: 'control-flow-excluded',
-        value: undefined,
-      },
-    };
+    return createMatchedOutput(jsonObject);
   }
 }
 
 export const extractJsonNode = nodeDefinition(ExtractJsonNodeImpl, 'Extract JSON');
+
+function isStructuredJsonInput(
+  value: DataValue | undefined,
+): value is Extract<DataValue, { type: 'object' | 'object[]' | 'any[]' }> {
+  return value?.type === 'object' || value?.type === 'object[]' || value?.type === 'any[]';
+}
+
+function isJsonOutputValue(value: unknown): value is Record<string, unknown> | unknown[] {
+  return value != null && typeof value === 'object';
+}
+
+function createMatchedOutput(value: unknown): Record<PortId, DataValue> {
+  return {
+    ['output' as PortId]: {
+      type: 'object',
+      value: value as Record<string, unknown>,
+    },
+    ['noMatch' as PortId]: {
+      type: 'control-flow-excluded',
+      value: undefined,
+    },
+  };
+}
