@@ -1,11 +1,9 @@
-export type FileMenuItemId =
-  | 'new_project'
-  | 'open_project'
-  | 'save_project'
-  | 'save_project_as'
-  | 'import_graph'
-  | 'export_graph'
-  | 'settings';
+import type { MenuIds } from './menuCommandIds.js';
+
+export type FileMenuItemId = Extract<
+  MenuIds,
+  'new_project' | 'open_project' | 'save_project' | 'save_project_as' | 'import_graph' | 'export_graph' | 'settings'
+>;
 
 export type FileMenuItemDefinition = {
   id: FileMenuItemId;

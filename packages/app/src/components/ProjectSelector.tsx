@@ -17,6 +17,7 @@ import { OverlayTabs } from './OverlayTabs.js';
 import { popupMenuListStyles, popupMenuRowStyles, popupMenuSeparatorStyles } from './PopupMenu.js';
 import { useRivetAppHostUiConfig } from '../providers/HostUiConfigContext.js';
 import { getVisibleFileMenuGroups } from '../utils/fileMenuConfiguration.js';
+import { overlayOpenState } from '../state/ui.js';
 
 export const styles = css`
   position: absolute;
@@ -238,6 +239,7 @@ export const ProjectSelector: FC<{
   const projectMode = mode === 'project';
   const openedProjects = useAtomValue(openedProjectsState);
   const [openedProjectsSortedIds, setOpenedProjectsSortedIds] = useAtom(openedProjectsSortedIdsState);
+  const [openOverlay, setOpenOverlay] = useAtom(overlayOpenState);
   const currentProject = useAtomValue(projectState);
   const { closeProject } = useRivetWorkspaceHost();
 
@@ -252,6 +254,7 @@ export const ProjectSelector: FC<{
   const visibleProjects = projectMode ? sortedOpenedProjects : [];
 
   const loadProject = useLoadProject();
+  const projectTabsSelected = projectMode && openOverlay === undefined;
 
   useSyncCurrentStateIntoOpenedProjects({ enabled: projectMode });
 
@@ -267,12 +270,17 @@ export const ProjectSelector: FC<{
 
   const handleSelectProject = (projectId: ProjectId) => {
     if (projectId === currentProject.metadata.id) {
+      setOpenOverlay(undefined);
       return;
     }
 
     const projectInfo = openedProjects[projectId];
     if (projectInfo) {
-      loadProject(projectInfo);
+      void loadProject(projectInfo).then((loaded) => {
+        if (loaded) {
+          setOpenOverlay(undefined);
+        }
+      });
     }
   };
 
@@ -290,6 +298,7 @@ export const ProjectSelector: FC<{
                     projectId={project.project.projectId}
                     onCloseProject={() => void closeProject(project.project.projectId)}
                     onSelectProject={() => handleSelectProject(project.project.projectId)}
+                    projectTabsSelected={projectTabsSelected}
                   />
                 );
               })}
@@ -367,9 +376,10 @@ const ProjectFileMenu: FC = () => {
 
 export const SortableProject: FC<{
   projectId: ProjectId;
+  projectTabsSelected: boolean;
   onCloseProject?: () => void;
   onSelectProject?: () => void;
-}> = ({ projectId, onCloseProject, onSelectProject }) => {
+}> = ({ projectId, onCloseProject, onSelectProject, projectTabsSelected }) => {
   const { attributes, listeners, setNodeRef, transform, isDragging, transition } = useSortable({
     id: projectId,
   });
@@ -392,6 +402,7 @@ export const SortableProject: FC<{
         isDragging={isDragging}
         onCloseProject={onCloseProject}
         onSelectProject={onSelectProject}
+        projectTabsSelected={projectTabsSelected}
       />
     </div>
   );
@@ -400,10 +411,11 @@ export const SortableProject: FC<{
 export const ProjectTab: FC<{
   projectId: ProjectId;
   isDragging: boolean;
+  projectTabsSelected: boolean;
   dragListeners?: SyntheticListenerMap;
   onCloseProject?: () => void;
   onSelectProject?: () => void;
-}> = ({ projectId, dragListeners, onCloseProject, onSelectProject }) => {
+}> = ({ projectId, dragListeners, onCloseProject, onSelectProject, projectTabsSelected }) => {
   const openedProjects = useAtomValue(openedProjectsState);
   const currentProject = useAtomValue(projectState);
 
@@ -426,7 +438,7 @@ export const ProjectTab: FC<{
 
   return (
     <div
-      className={clsx('project', { active: currentProject.metadata.id === projectId, unsaved })}
+      className={clsx('project', { active: projectTabsSelected && currentProject.metadata.id === projectId, unsaved })}
       onMouseDown={handleMouseDown}
     >
       <div className="project-name" {...dragListeners}>

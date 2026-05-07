@@ -5,30 +5,22 @@ import { useLoadProjectWithFileBrowser } from './useLoadProjectWithFileBrowser.j
 import { settingsModalOpenState } from '../components/SettingsModal.js';
 import { graphState } from '../state/graph.js';
 import { useLoadRecording } from './useLoadRecording.js';
-import { helpModalOpenState, newProjectModalOpenState } from '../state/ui';
+import { helpModalOpenState, newProjectModalOpenState, overlayOpenState } from '../state/ui';
 import { useToggleRemoteDebugger } from '../components/DebuggerConnectPanel';
 import { graphRunHistoryByViewState, lastRunDataByNodeState, selectedGraphRunByViewState } from '../state/dataFlow';
 import { useImportGraph } from './useImportGraph';
-import { useAtom, useSetAtom } from 'jotai';
+import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { useIOProvider } from '../providers/ProvidersContext.js';
 import { type NativeWindowHandle } from '../utils/platform/core.js';
 import { getCurrentWindowHandle } from '../utils/platform/window.js';
+import { openedProjectsSortedIdsState } from '../state/savedGraphs.js';
+import {
+  isProjectWorkspaceSelected,
+  shouldRunMenuCommandForProjectSelection,
+} from '../utils/projectWorkspaceSelection.js';
+import type { MenuIds } from '../utils/menuCommandIds.js';
 
-export type MenuIds =
-  | 'settings'
-  | 'quit'
-  | 'new_project'
-  | 'open_project'
-  | 'save_project'
-  | 'save_project_as'
-  | 'export_graph'
-  | 'import_graph'
-  | 'run'
-  | 'load_recording'
-  | 'remote_debugger'
-  | 'toggle_devtools'
-  | 'clear_outputs'
-  | 'get_help';
+export type { MenuIds };
 
 type MenuCommandEvent = { payload: MenuIds };
 type MenuCommandHandler = (e: MenuCommandEvent) => void;
@@ -92,6 +84,12 @@ export function useMenuCommands(
   const { onRunGraph } = options;
   const ioProvider = useIOProvider();
   const [graphData] = useAtom(graphState);
+  const openOverlay = useAtomValue(overlayOpenState);
+  const openedProjectIds = useAtomValue(openedProjectsSortedIdsState);
+  const projectWorkspaceSelected = isProjectWorkspaceSelected({
+    openOverlay,
+    openProjectCount: openedProjectIds.length,
+  });
   const { saveProject, saveProjectAs } = useSaveProject();
   const setNewProjectModalOpen = useSetAtom(newProjectModalOpenState);
   const loadProject = useLoadProjectWithFileBrowser();
@@ -107,6 +105,10 @@ export function useMenuCommands(
 
   useEffect(() => {
     const handler: MenuCommandHandler = ({ payload }) => {
+      if (!shouldRunMenuCommandForProjectSelection({ command: payload, projectWorkspaceSelected })) {
+        return;
+      }
+
       match(payload as MenuIds)
         .with('settings', () => {
           setSettingsOpen(true);
@@ -174,6 +176,7 @@ export function useMenuCommands(
     setSelectedGraphRunByView,
     setNewProjectModalOpen,
     setHelpModalOpen,
+    projectWorkspaceSelected,
   ]);
 
   useEffect(() => {
