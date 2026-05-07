@@ -12,9 +12,10 @@ const Body = styled.div`
   font-size: var(--ui-font-size-sm);
 
   pre {
-    white-space: pre-wrap;
+    max-width: 100%;
     overflow: hidden;
-    text-overflow: ellipsis;
+    text-overflow: clip;
+    white-space: pre;
   }
 `;
 

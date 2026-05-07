@@ -544,7 +544,13 @@ Canvas body previews also need to stay aggressively bounded. Text-like node prev
 rely on line-count truncation alone, because very large single-line payloads such as pasted base64
 blobs can still freeze drag and render paths if the full line is rendered into the node body.
 `TextNode` now trims preview lines to a fixed width and keeps a hard total preview character cap
-as a backstop.
+as a backstop. Its `prompt-interpolation-markdown` colorized canvas body preview uses normal
+word-boundary wrapping inside the node card instead of breaking words character-by-character. The
+app normalizes Monaco-generated non-breaking spaces back to regular spaces for this wrapped preview
+path so highlighted Text node content still has natural word break points.
+Object node source previews are different on purpose: JSON-like source remains preformatted and
+horizontally clipped with `overflow: hidden` rather than CSS ellipsis, so narrowed Object nodes do
+not show a misleading `...` at the right edge of the body.
 Markdown body previews should avoid formatting-only blank lines. The app overrides `PromptNode`
 with [`packages/app/src/components/nodes/PromptNode.tsx`](../packages/app/src/components/nodes/PromptNode.tsx)
 so its role label and prompt preview live in one compact DOM block with no spacer line while
