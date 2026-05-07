@@ -3,10 +3,9 @@
 - LLM chat node: make "response" a parsed object when the response format is set to structured
 
 
-- If I open the run context menu for the first time after I open the Rivet app, the menu has a white bright thick border that looks lik a browser focus ot something. It goes away and never comes back after any click inside the menu. Fix it.
 
 
-- New coalesce node without a duplicated conditional port (there's if port for that)
+- New coalesce node without a duplicated conditional port (there's if port for that). Instead, extend the any node's "Conditional" to "Conditional (truish) / Conditional (ran)". Or just add a new node that converts any value to true if it ran at all.
 - Add for all nodes a special output that is true when the node is run. Or. The "if" input should accept anything as true if it was run
 
 

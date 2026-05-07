@@ -21,6 +21,11 @@ export const popupMenuSurfaceStyles = css`
   font-size: var(--ui-font-size-base);
   padding: 0.25em;
   user-select: none;
+
+  &:focus,
+  &:focus-visible {
+    outline: none;
+  }
 `;
 
 export const popupMenuListStyles = css`
@@ -133,6 +138,12 @@ export const transparentPopupContainerStyles = css`
   background: transparent;
   box-shadow: none;
   border-radius: 0;
+  outline: none;
+
+  &:focus,
+  &:focus-visible {
+    outline: none;
+  }
 `;
 
 export const PopupMenuContainer = forwardRef<HTMLDivElement, PopupComponentProps>(
