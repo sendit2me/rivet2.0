@@ -380,7 +380,7 @@ export const SortableProject: FC<{
   onCloseProject?: () => void;
   onSelectProject?: () => void;
 }> = ({ projectId, onCloseProject, onSelectProject, projectTabsSelected }) => {
-  const { attributes, listeners, setNodeRef, transform, isDragging, transition } = useSortable({
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
     id: projectId,
   });
 
@@ -399,7 +399,6 @@ export const SortableProject: FC<{
       <ProjectTab
         projectId={projectId}
         dragListeners={listeners}
-        isDragging={isDragging}
         onCloseProject={onCloseProject}
         onSelectProject={onSelectProject}
         projectTabsSelected={projectTabsSelected}
@@ -410,7 +409,6 @@ export const SortableProject: FC<{
 
 export const ProjectTab: FC<{
   projectId: ProjectId;
-  isDragging: boolean;
   projectTabsSelected: boolean;
   dragListeners?: SyntheticListenerMap;
   onCloseProject?: () => void;

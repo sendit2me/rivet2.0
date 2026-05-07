@@ -21,6 +21,8 @@ interface SettingsModalProps {}
 
 export const settingsModalOpenState = atom(false);
 
+const SETTINGS_MODAL_HEIGHT = 'calc(100vh - 48px)';
+
 const modalBody = css`
   height: 100%;
   min-height: 300px;
@@ -30,12 +32,15 @@ const modalBody = css`
   overflow: hidden;
 
   nav {
+    align-self: stretch;
+    max-height: 100%;
     min-height: 0;
     overflow: auto;
     padding-bottom: 20px;
   }
 
   main {
+    height: 100%;
     min-width: 0;
     min-height: 0;
     overflow: auto;
@@ -76,13 +81,16 @@ export const SettingsModal: FC<SettingsModalProps> = () => {
 
   const pluginsWithCustomPages = plugins.filter((plugin) => plugin.configPage !== undefined);
   const customPluginsPages = Object.fromEntries(
-    pluginsWithCustomPages.map((plugin) => [plugin.id, <CustomPluginsSettingsPage key={plugin.id} pluginId={plugin.id} />]),
+    pluginsWithCustomPages.map((plugin) => [
+      plugin.id,
+      <CustomPluginsSettingsPage key={plugin.id} pluginId={plugin.id} />,
+    ]),
   );
 
   return (
     <ModalTransition>
       {isOpen && (
-        <Modal onClose={() => setIsOpen(false)} width="80%" height="80%">
+        <Modal onClose={() => setIsOpen(false)} width="80%" height={SETTINGS_MODAL_HEIGHT}>
           <AppModalHeader title="Settings" onClose={() => setIsOpen(false)} />
           <ModalBody>
             <div css={modalBody}>

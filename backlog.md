@@ -14,7 +14,7 @@
 
 
 
-- In the settings modal, make the left panel fixed. I mean I don't want it to scroll with the long content in the right column. But if the left panel is higher than the modal itself, then yes, let tje user scroll it
+
 
 - Object node's content is clipped with "...". It should be overflow-hidden. Text nodes should wrap instead of clipping.
 
