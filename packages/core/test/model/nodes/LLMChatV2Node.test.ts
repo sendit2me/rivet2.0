@@ -317,6 +317,42 @@ describe('LLMChatV2NodeImpl', () => {
     );
   });
 
+  it('marks the response output as structured when JSON response format is enabled', () => {
+    const defaultNode = createNode();
+    const jsonNode = createNode({
+      responseFormat: 'json',
+    });
+    const schemaNode = createNode({
+      responseFormat: 'json_schema',
+    });
+
+    assert.equal(defaultNode.getOutputDefinitions().find((output) => output.id === 'response')?.dataType, 'string');
+    assert.deepEqual(jsonNode.getOutputDefinitions().find((output) => output.id === 'response')?.dataType, [
+      'object',
+      'object[]',
+      'any',
+      'any[]',
+      'string',
+      'string[]',
+      'number',
+      'number[]',
+      'boolean',
+      'boolean[]',
+    ]);
+    assert.deepEqual(schemaNode.getOutputDefinitions().find((output) => output.id === 'response')?.dataType, [
+      'object',
+      'object[]',
+      'any',
+      'any[]',
+      'string',
+      'string[]',
+      'number',
+      'number[]',
+      'boolean',
+      'boolean[]',
+    ]);
+  });
+
   it('adds the base URL input for the active provider URL field', () => {
     const customInputNode = createNode({
       provider: 'custom',

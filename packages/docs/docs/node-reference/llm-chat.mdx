@@ -55,7 +55,7 @@ The older [Chat Node](./chat.mdx) remains available for existing graphs, but new
 
 | Title | Data Type | Description |
 | --- | --- | --- |
-| Response | `string` | Final model response text. It may stream visually in the editor, but downstream nodes receive the final value. |
+| Response | `string`, `number`, `boolean`, `object`, `any`, or arrays of those values | Final model response. Default/Text formats output text. JSON and JSON schema formats output the parsed structured value when parsing succeeds, or the raw string when parsing fails. It may stream visually in the editor, but downstream nodes receive the final value. |
 | Messages Sent | `chat-message[]` | Messages sent to the provider. |
 | All Messages | `chat-message[]` | Conversation messages including the response. |
 | Response Tokens | `number` | Response token count when available. |
@@ -97,7 +97,7 @@ The node body shows the selected reasoning effort for built-in providers.
 
 ### Response Format
 
-Response format supports Default, Text, JSON, and JSON schema. JSON schema adds a Response Schema input port and optional schema name/description settings. For Custom provider, Rivet sends the same plain JSON-compatible schema as an OpenAI-compatible `response_format` request field so compatible endpoints receive the schema instead of only JSON mode.
+Response format supports Default, Text, JSON, and JSON schema. JSON and JSON schema make the Response output emit the parsed structured value instead of a JSON string when parsing succeeds. If the provider returns text that cannot be parsed into the requested structure, Rivet falls back to the raw string Response output instead of failing the node. JSON schema adds a Response Schema input port and optional schema name/description settings. For Custom provider, Rivet sends the same plain JSON-compatible schema as an OpenAI-compatible `response_format` request field so compatible endpoints receive the schema instead of only JSON mode.
 
 ### Tools
 

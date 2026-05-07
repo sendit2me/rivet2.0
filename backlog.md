@@ -1,17 +1,5 @@
 
 
-- LLM chat node: make "response" a parsed object when the response format is set to structured
-
-
-
-
-- New coalesce node without a duplicated conditional port (there's if port for that). Instead, extend the any node's "Conditional" to "Conditional (truish) / Conditional (ran)". Or just add a new node that converts any value to true if it ran at all.
-- Add for all nodes a special output that is true when the node is run. Or. The "if" input should accept anything as true if it was run
-
-
-
-
-
 
 - Need to show the curent graph name somewhere. When there's many and they are in the folders and you click through subgraphs, the user gets lost
 
@@ -19,7 +7,7 @@
 
 - There's 2 similar mono width fonts (node body + node output view). Or maybe they are the same fornt but different sizes. Also the one in the code editor is different. Let's only keep one
 
-- Node terminals make not round, but half squircles on the inside part of the node
+- Make node terminals not round, but half squircles on the inside part of the node
 
 
 

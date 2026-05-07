@@ -1,7 +1,8 @@
 import type { LanguageModelUsage } from 'ai';
-import type { ChatMessage } from '../DataValue.js';
+import type { ChatMessage, DataValue } from '../DataValue.js';
 import type { Outputs } from '../GraphProcessor.js';
 import type { PortId } from '../NodeBase.js';
+import { inferType } from '../../utils/coerceType.js';
 import { coercePromptToChatMessages, prependSystemPrompt } from '../chat/chatMessages.js';
 import { createAssistantMessagesOutput, type StreamedFunctionCall } from '../chat/streamChatResponse.js';
 import { streamChatV2 } from './aiSdkBridge.js';
@@ -15,6 +16,7 @@ import type {
   StreamChatV2Result,
   StreamChatV2Options,
 } from './chatV2Types.js';
+import { isChatV2StructuredResponseFormat } from './chatV2ResponseFormat.js';
 import { chatV2ToolsToAiSdk } from './toolConverter.js';
 import {
   getChatV2ProviderErrorStatusCode,
@@ -96,9 +98,32 @@ function normalizeUsage(
   };
 }
 
+function tryParseStructuredResponseText(response: string): unknown {
+  try {
+    return JSON.parse(response);
+  } catch {
+    return undefined;
+  }
+}
+
+function buildResponseOutput(
+  response: string,
+  structuredOutput: unknown | undefined,
+  responseFormat: RunChatV2PipelineOptions['responseFormat'],
+): DataValue {
+  if (!isChatV2StructuredResponseFormat(responseFormat)) {
+    return { type: 'string', value: response };
+  }
+
+  const parsedOutput = structuredOutput !== undefined ? structuredOutput : tryParseStructuredResponseText(response);
+
+  return parsedOutput !== undefined ? inferType(parsedOutput) : { type: 'string', value: response };
+}
+
 function buildCommonOutputs(
   requestMessages: ChatMessage[],
   response: string,
+  structuredOutput: unknown | undefined,
   functionCalls: StreamedFunctionCall[],
   usage: ChatV2NormalizedUsage | undefined,
   reasoning: ChatV2ReasoningOutput | undefined,
@@ -114,10 +139,11 @@ function buildCommonOutputs(
     | 'includeFunctionCalls'
     | 'functionCallMode'
     | 'retryOnNon200'
+    | 'responseFormat'
   >,
 ): Outputs {
   const outputs: Outputs = {
-    ['response' as PortId]: { type: 'string', value: response },
+    ['response' as PortId]: buildResponseOutput(response, structuredOutput, options.responseFormat),
     ['in-messages' as PortId]: { type: 'chat-message[]', value: requestMessages },
     ['all-messages' as PortId]: createAssistantMessagesOutput(requestMessages, response, functionCalls, {
       functionCallMode: options.functionCallMode,
@@ -483,6 +509,7 @@ export async function runChatV2Pipeline(options: RunChatV2PipelineOptions): Prom
       stopSequences: options.stopSequences,
       seed: options.seed,
       responseOutput: options.responseOutput,
+      responseFormat: options.responseFormat,
       providerOptions: options.providerOptions,
       toolChoice: options.toolChoice,
       abortSignal: options.context.signal,
@@ -492,14 +519,27 @@ export async function runChatV2Pipeline(options: RunChatV2PipelineOptions): Prom
           ? undefined
           : ({ text, functionCalls }) => {
               options.context.onPartialOutputs?.(
-                buildCommonOutputs(requestMessages, text, functionCalls, undefined, '', undefined, undefined, [], [], {
-                  outputUsage: false,
-                  outputReasoning: false,
-                  outputRequestStatus: false,
-                  includeFunctionCalls: options.includeFunctionCalls,
-                  functionCallMode: options.functionCallMode,
-                  retryOnNon200: false,
-                }),
+                buildCommonOutputs(
+                  requestMessages,
+                  text,
+                  undefined,
+                  functionCalls,
+                  undefined,
+                  '',
+                  undefined,
+                  undefined,
+                  [],
+                  [],
+                  {
+                    outputUsage: false,
+                    outputReasoning: false,
+                    outputRequestStatus: false,
+                    includeFunctionCalls: options.includeFunctionCalls,
+                    functionCallMode: options.functionCallMode,
+                    retryOnNon200: false,
+                    responseFormat: undefined,
+                  },
+                ),
               );
             },
     },
@@ -540,6 +580,7 @@ export async function runChatV2Pipeline(options: RunChatV2PipelineOptions): Prom
   const commonOutputs = buildCommonOutputs(
     requestMessages,
     streamed.result.responseText,
+    streamed.result.structuredOutput,
     streamed.result.functionCalls,
     usage,
     streamed.result.reasoning,
@@ -554,6 +595,7 @@ export async function runChatV2Pipeline(options: RunChatV2PipelineOptions): Prom
       includeFunctionCalls: options.includeFunctionCalls,
       functionCallMode: options.functionCallMode,
       retryOnNon200: options.retryOnNon200,
+      responseFormat: options.responseFormat,
     },
   );
   const allMessagesOutput = commonOutputs['all-messages' as PortId];

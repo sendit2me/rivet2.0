@@ -1,7 +1,10 @@
-import type { ChatV2ResponseFormat } from './chatV2ResponseFormat.js';
+import {
+  isChatV2StructuredResponseFormat,
+  type ChatV2StructuredResponseFormat,
+} from './chatV2ResponseFormat.js';
 import type { LLMChatV2NodeData } from './llmChatV2NodeData.js';
 
-export type LLMChatV2StructuredResponseFormat = Extract<ChatV2ResponseFormat, 'json' | 'json_schema'>;
+export type LLMChatV2StructuredResponseFormat = ChatV2StructuredResponseFormat;
 
 export const LLM_CHAT_V2_TOOL_RESPONSE_FORMAT_CONFLICT_COPY = {
   title: '"Tool use" conflicts with "Structured outputs"',
@@ -16,7 +19,7 @@ type LLMChatV2ToolResponseFormatData = Pick<LLMChatV2NodeData, 'useToolCalling' 
 export function isLLMChatV2StructuredResponseFormat(
   responseFormat: unknown,
 ): responseFormat is LLMChatV2StructuredResponseFormat {
-  return responseFormat === 'json' || responseFormat === 'json_schema';
+  return isChatV2StructuredResponseFormat(responseFormat);
 }
 
 export function hasLLMChatV2ToolResponseFormatConflict(data: LLMChatV2ToolResponseFormatData): boolean {
