@@ -122,7 +122,7 @@ export const nodeStyles = css`
     font-family: var(--font-family);
     color: var(--node-bg-foreground);
     padding: 14px 14px 12px 14px;
-    margin: -12px -12px 8px -11px;
+    margin: -12px -12px 8px -12px;
     border-radius: var(--node-card-radius) var(--node-card-radius) 0 0;
     corner-shape: var(--node-card-corner-shape);
     letter-spacing: 0.05em;
@@ -484,7 +484,7 @@ export const nodeStyles = css`
 
   .node-title-ports {
     position: absolute;
-    left: 10px;
+    left: 12px;
     top: 16px;
     display: flex;
     justify-content: space-between;
