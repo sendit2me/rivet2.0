@@ -7,7 +7,17 @@ import {
   type NodeRunDataWithRefs,
 } from '../state/dataFlow.js';
 
-import { type FC, memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
+import {
+  type FC,
+  memo,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent,
+  type ReactNode,
+} from 'react';
 import { useUnknownNodeComponentDescriptorFor } from '../hooks/useNodeTypes.js';
 import { useStableCallback } from '../hooks/useStableCallback.js';
 import { type ChartNode, type ProcessId } from '@valerypopoff/rivet2-core';
@@ -36,6 +46,12 @@ import { MATCH_ACTIVE_CLASS, MATCH_CLASS } from './nodeOutput/fullscreenOutputSe
 import { resolveNodeOutputPreviewMode } from './nodeOutput/nodeOutputPreviewMode.js';
 import { CodeNodeErrorOutput } from './nodes/CodeNode.js';
 import type { HorizontalModalBounds } from '../utils/fullScreenModalBounds.js';
+import {
+  getSelectedVisibleOutputProcess,
+  NODE_OUTPUT_REPLACEMENT_GRACE_MS,
+  shouldUseCodeErrorOutput,
+  shouldUseCustomNodeErrorOutput,
+} from './nodeOutput/nodeOutputVisibility.js';
 
 export const NodeOutput: FC<{ node: ChartNode; suspended?: boolean }> = memo(({ node, suspended = false }) => {
   const isOutputExpanded = useAtomValue(expandedOutputNodeIdsState).includes(node.id);
@@ -114,18 +130,64 @@ const ResizableNodeFullscreenOutputModal: FC<{ node: ChartNode; onClose: () => v
   );
 };
 
-function shouldUseCustomNodeErrorOutput(node: ChartNode, data: NodeRunDataWithRefs): boolean {
-  return (
-    (node.type === 'expression' ||
-      node.type === 'jsFilter' ||
-      node.type === 'jsMap' ||
-      node.type === 'extractObjectPath') &&
-    data.status?.type === 'error'
-  );
+function getNodeOutputContentKey(processId: ProcessId, data: NodeRunDataWithRefs, contentKind: string): string {
+  return `${processId}:${data.startedAt ?? 'unknown-start'}:${contentKind}`;
 }
 
-function shouldUseCodeErrorOutput(node: ChartNode, data: NodeRunDataWithRefs): boolean {
-  return node.type === 'code' && data.status?.type === 'error';
+const nodeOutputContentFadeCss = css`
+  animation: node-output-content-fade-in 140ms ease-out both;
+
+  @keyframes node-output-content-fade-in {
+    from {
+      opacity: 0;
+    }
+
+    to {
+      opacity: 1;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+`;
+
+const NodeOutputContentFade: FC<{ children: ReactNode }> = ({ children }) => (
+  <div css={nodeOutputContentFadeCss}>{children}</div>
+);
+
+NodeOutputContentFade.displayName = 'NodeOutputContentFade';
+
+function useOutputDataWithReplacementGrace(
+  nodeType: ChartNode['type'],
+  output: ProcessDataForNode[] | undefined,
+  selectedPage: number | 'latest',
+): ProcessDataForNode[] | undefined {
+  const [displayedOutput, setDisplayedOutput] = useState(output);
+  const hasSelectedVisibleOutput = getSelectedVisibleOutputProcess(nodeType, output, selectedPage) != null;
+  const hasDisplayedVisibleOutput = getSelectedVisibleOutputProcess(nodeType, displayedOutput, selectedPage) != null;
+
+  useEffect(() => {
+    if (hasSelectedVisibleOutput) {
+      setDisplayedOutput(output);
+      return;
+    }
+
+    if (!hasDisplayedVisibleOutput) {
+      setDisplayedOutput(undefined);
+      return;
+    }
+
+    const timeout = globalThis.setTimeout(() => {
+      setDisplayedOutput(undefined);
+    }, NODE_OUTPUT_REPLACEMENT_GRACE_MS);
+
+    return () => {
+      globalThis.clearTimeout(timeout);
+    };
+  }, [hasDisplayedVisibleOutput, hasSelectedVisibleOutput, output]);
+
+  return hasSelectedVisibleOutput ? output : hasDisplayedVisibleOutput ? displayedOutput : undefined;
 }
 
 const fullscreenOutputCss = css`
@@ -416,9 +478,9 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
     return null;
   }
 
-  const shouldUseCustomErrorOutput = shouldUseCustomNodeErrorOutput(node, data);
+  const shouldUseCustomErrorOutput = shouldUseCustomNodeErrorOutput(node.type, data);
 
-  if (shouldUseCodeErrorOutput(node, data)) {
+  if (shouldUseCodeErrorOutput(node.type, data)) {
     return <CodeNodeErrorOutput data={data} />;
   }
 
@@ -498,18 +560,20 @@ const NodeOutputBase: FC<{
   onOpenFullscreenModal?: () => void;
 }> = ({ node, isOutputExpanded, onToggleExpandedOutput, onOpenFullscreenModal }) => {
   const output = useAtomValue(lastRunDataState(node.id));
+  const selectedPage = useAtomValue(selectedProcessPageState(node.id));
   const graphSelectionOptions = useAtomValue(resolvedGraphSelectionState);
   const filteredOutput = useMemo(
     () => filterProcessDataForSelection({ ...graphSelectionOptions, processData: output }) ?? output,
     [graphSelectionOptions, output],
   );
+  const visibleOutput = useOutputDataWithReplacementGrace(node.type, filteredOutput, selectedPage);
 
-  if (!filteredOutput?.length) {
+  if (!visibleOutput?.length) {
     return null;
   }
 
-  if (filteredOutput.length === 1) {
-    const firstOutput = filteredOutput[0];
+  if (visibleOutput.length === 1) {
+    const firstOutput = visibleOutput[0];
     if (!firstOutput) {
       return null;
     }
@@ -531,7 +595,7 @@ const NodeOutputBase: FC<{
       <div className="node-output multi">
         <NodeOutputMultiProcess
           node={node}
-          data={filteredOutput}
+          data={visibleOutput}
           isOutputExpanded={isOutputExpanded}
           onToggleExpandedOutput={onToggleExpandedOutput}
           onOpenFullscreenModal={onOpenFullscreenModal}
@@ -577,18 +641,26 @@ const NodeOutputSingleProcess: FC<{
   });
 
   const warnings = useMemo(() => getStoredOutputWarnings(data, dataRefs), [data, dataRefs]);
-  const shouldUseCustomErrorOutput = shouldUseCustomNodeErrorOutput(node, data);
+  const shouldUseCustomErrorOutput = shouldUseCustomNodeErrorOutput(node.type, data);
 
-  if (shouldUseCodeErrorOutput(node, data)) {
+  if (shouldUseCodeErrorOutput(node.type, data)) {
     return (
       <div className="node-output-inner errored">
-        <CodeNodeErrorOutput data={data} />
+        <NodeOutputContentFade key={getNodeOutputContentKey(processId, data, 'code-error')}>
+          <CodeNodeErrorOutput data={data} />
+        </NodeOutputContentFade>
       </div>
     );
   }
 
   if (data.status?.type === 'error' && !shouldUseCustomErrorOutput) {
-    return <div className="node-output-inner errored">{data.status.error}</div>;
+    return (
+      <div className="node-output-inner errored">
+        <NodeOutputContentFade key={getNodeOutputContentKey(processId, data, 'error')}>
+          {data.status.error}
+        </NodeOutputContentFade>
+      </div>
+    );
   }
 
   if (!data.outputData && !data.splitOutputData && !shouldUseCustomErrorOutput) {
@@ -649,7 +721,11 @@ const NodeOutputSingleProcess: FC<{
           </div>
         </Tooltip>
       </div>
-      {body}
+      <NodeOutputContentFade
+        key={getNodeOutputContentKey(processId, data, shouldUseCustomErrorOutput ? 'custom-error' : 'output')}
+      >
+        {body}
+      </NodeOutputContentFade>
       {warnings && (
         <div className="node-output-warnings">
           {warnings.map((warning) => (

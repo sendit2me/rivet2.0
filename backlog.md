@@ -8,9 +8,9 @@
 
 
 
-- When new output content appears in the output node part show it with a slight fade it. If the old output content should go away to show the new one, remove the old one with no ease effect.
 
-- Extract JSON node: when gets an object instead of string, just output this object
+
+- Extract JSON node: when it gets an object instead of string, just output this object instead of erroring
 
 - Remove the colored triangle in the node's output
 

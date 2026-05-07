@@ -956,7 +956,7 @@ export const nodeStyles = css`
     pointer-events: auto;
   }
 
-  .node.running {
+  .node.runningGlow {
     box-shadow:
       0 0 16px var(--shadow-primary-bright),
       0 8px 16px rgba(0, 0, 0, 0.4);
