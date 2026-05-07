@@ -246,12 +246,13 @@ Acts as the switchboard for overlay-like product areas such as prompt designer, 
 
 Current rule that matters for maintenance:
 
-- [`ProjectSelector`](../packages/app/src/components/ProjectSelector.tsx) is the top app bar. It owns the File menu, opened-project tabs, and inline workspace navigation.
+- [`ProjectSelector`](../packages/app/src/components/ProjectSelector.tsx) is the top app bar. It owns the browser File menu, opened-project tabs, and inline workspace navigation.
 - `Canvas` is the normal app state, represented by `overlayOpenState === undefined`, not a visible workspace tab while a project is open. In no-project mode the same undefined overlay state is exposed as the `Welcome screen` tab.
 - `OverlayTabs` renders auxiliary workspace destinations such as Trivet, Chat Viewer, Data Studio, plus the graph `Search` action. It is mounted inside the top app bar after the opened-project tabs. Plugin installation lives under Settings instead of the workspace navigation. Prompt Designer is opened from the Chat node output flask action rather than as a persistent top-bar destination; while Prompt Designer is open, `OverlayTabs` temporarily inserts its active tab so users can see and close the current workspace. Tabs should go through `workspaceTabs.ts`, where each definition has a stable UI key and a `targetOverlay`; this keeps real overlays separate from the no-project Welcome tab that targets `undefined`.
 - Graph `Search` is hidden while no project is open because it is graph-scoped; the project-independent workspace tabs and `Welcome screen` tab remain visible in welcome mode.
 - full-screen workspaces that need their own navigation/content rails, currently Data Studio, should cover the whole app below the top project selector (`left: 0`) instead of leaving the graph sidebar visible. This keeps auxiliary workspace layout consistent and prevents stale canvas-side UI from looking interactive behind the workspace.
 - New/open project commands stay in the File menu and command layer rather than also appearing as separate top-bar icon buttons. The Discord shortcut is not part of the project top bar.
+- The browser File menu content is modeled as typed canonical groups in [`fileMenuConfiguration.ts`](../packages/app/src/utils/fileMenuConfiguration.ts). `RivetAppHost` can pass `ui.fileMenu.visibleItems` to show only specific stable item ids while preserving Rivet's canonical item order. Current stable ids are `new_project`, `open_project`, `save_project`, `save_project_as`, `import_graph`, `export_graph`, and `settings`. Hidden groups collapse automatically, so separators are rendered only between non-empty groups. This host UI config controls visibility only; command behavior remains owned by [`useMenuCommands`](../packages/app/src/hooks/useMenuCommands.ts). It applies to the browser-hosted File menu and does not rewrite the desktop/Tauri native application menu.
 - workspace navigation in the top bar stays single-line and horizontally scrollable when space is tight, so the project tabs keep the remaining top-bar width and the app avoids a second floating workspace-tab row.
 
 ### `ChatViewer`
@@ -1497,6 +1498,9 @@ of [`RivetApp`](../packages/app/src/components/RivetApp.tsx) directly:
 - a custom `providers.storage` backend is applied before storage-backed atoms
   initialize; omitting it uses Rivet's built-in IndexedDB/memory backend rather
   than carrying a previous hosted backend across remounts
+- it accepts optional `ui` host policy for wrapper-controlled UI visibility.
+  The first supported surface is `ui.fileMenu.visibleItems`, which filters the
+  browser File menu by stable typed item ids without changing command behavior
 - it accepts an optional `executor.internalExecutorUrl` for hosted wrappers that
   run the app executor as an already-managed websocket service instead of a
   Tauri sidecar
@@ -1507,15 +1511,15 @@ of [`RivetApp`](../packages/app/src/components/RivetApp.tsx) directly:
 - it renders optional `children` after the app is initialized, so wrapper bridges
   can mount inside the same provider/session context
 
-The local source host barrel also re-exports the provider/session types,
-executor-session runtime factory, sidecar lifecycle helpers, storage backend
-type, IO provider types, environment/path-policy provider types, and LLM Chat
-custom-provider env-var discovery helper that hosted shells need to stay aligned
-with current app execution behavior. This is the preferred seam for projects
-such as Self-hosted Rivet; direct imports of other private app components,
-direct aliasing of globals such as `ioProvider`, or old per-hook shims should be
-treated as compatibility debt unless a custom embedded Rivet fork deliberately
-adds a wrapper-specific extension.
+The local source host barrel also re-exports the provider/session types, host UI
+config types, File menu item-id types, executor-session runtime factory, sidecar
+lifecycle helpers, storage backend type, IO provider types, environment/path-policy
+provider types, and LLM Chat custom-provider env-var discovery helper that hosted
+shells need to stay aligned with current app execution behavior. This is the
+preferred seam for projects such as Self-hosted Rivet; direct imports of other
+private app components, direct aliasing of globals such as `ioProvider`, or old
+per-hook shims should be treated as compatibility debt unless a custom embedded
+Rivet fork deliberately adds a wrapper-specific extension.
 
 Wrappers that need to drive the workspace after mount can pass
 `onWorkspaceHostReady` to `RivetAppHost`, render

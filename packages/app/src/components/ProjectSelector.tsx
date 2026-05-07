@@ -1,5 +1,5 @@
 import { css } from '@emotion/react';
-import { useEffect, useMemo, useRef, useState, type FC, type MouseEvent as ReactMouseEvent } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState, type FC, type MouseEvent as ReactMouseEvent } from 'react';
 import { DndContext, type DragEndEvent } from '@dnd-kit/core';
 import { type ProjectId } from '@valerypopoff/rivet2-core';
 import { useAtom, useAtomValue } from 'jotai';
@@ -15,6 +15,8 @@ import { useRunMenuCommand } from '../hooks/useMenuCommands.js';
 import { useRivetWorkspaceHost } from '../hooks/useRivetWorkspaceHost.js';
 import { OverlayTabs } from './OverlayTabs.js';
 import { popupMenuListStyles, popupMenuRowStyles, popupMenuSeparatorStyles } from './PopupMenu.js';
+import { useRivetAppHostUiConfig } from '../providers/HostUiConfigContext.js';
+import { getVisibleFileMenuGroups } from '../utils/fileMenuConfiguration.js';
 
 export const styles = css`
   position: absolute;
@@ -304,6 +306,8 @@ const ProjectFileMenu: FC = () => {
   const [fileMenuOpen, setFileMenuOpen] = useState(false);
   const fileMenuRef = useRef<HTMLDivElement>(null);
   const runMenuCommandImpl = useRunMenuCommand();
+  const hostUiConfig = useRivetAppHostUiConfig();
+  const visibleFileMenuGroups = getVisibleFileMenuGroups(hostUiConfig.fileMenu);
 
   const runMenuCommand: typeof runMenuCommandImpl = (command) => {
     setFileMenuOpen(false);
@@ -330,6 +334,10 @@ const ProjectFileMenu: FC = () => {
     };
   }, [fileMenuOpen]);
 
+  if (visibleFileMenuGroups.length === 0) {
+    return null;
+  }
+
   return (
     <div ref={fileMenuRef} className={clsx('file-menu', { open: fileMenuOpen })}>
       <button
@@ -342,30 +350,16 @@ const ProjectFileMenu: FC = () => {
         File
       </button>
       <div className={clsx('file-dropdown', { open: fileMenuOpen })} role="menu">
-        <button type="button" role="menuitem" onClick={() => runMenuCommand('new_project')}>
-          New project
-        </button>
-        <button type="button" role="menuitem" onClick={() => runMenuCommand('open_project')}>
-          Open project
-        </button>
-        <div className="file-dropdown-separator" role="separator" />
-        <button type="button" role="menuitem" onClick={() => runMenuCommand('save_project')}>
-          Save project
-        </button>
-        <button type="button" role="menuitem" onClick={() => runMenuCommand('save_project_as')}>
-          Save project as...
-        </button>
-        <div className="file-dropdown-separator" role="separator" />
-        <button type="button" role="menuitem" onClick={() => runMenuCommand('import_graph')}>
-          Import graph
-        </button>
-        <button type="button" role="menuitem" onClick={() => runMenuCommand('export_graph')}>
-          Export graph
-        </button>
-        <div className="file-dropdown-separator" role="separator" />
-        <button type="button" role="menuitem" onClick={() => runMenuCommand('settings')}>
-          Settings
-        </button>
+        {visibleFileMenuGroups.map((group, groupIndex) => (
+          <Fragment key={group.map((item) => item.id).join(':')}>
+            {groupIndex > 0 && <div className="file-dropdown-separator" role="separator" />}
+            {group.map((item) => (
+              <button key={item.id} type="button" role="menuitem" onClick={() => runMenuCommand(item.id)}>
+                {item.label}
+              </button>
+            ))}
+          </Fragment>
+        ))}
       </div>
     </div>
   );

@@ -16,6 +16,9 @@
 
 - When some other workspace is selected, let's deselect the project tab. Not just visualy. Deselect so that the Ctrl+S doesn't cave the project because none is selected
 
+- Text in the comment node has different margins in stabdalone rivet app and in the wraooer
+
+- In the settings modal, make the left panel NOT scrolling with the long content i
 
 - Object node's content is clipped with "...". It should be overflow-hidden. Text nodes should wrap instead of clipping.
 
