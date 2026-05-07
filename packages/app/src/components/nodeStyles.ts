@@ -551,13 +551,14 @@ export const nodeStyles = css`
   }
 
   .port-label-uppercase {
+    letter-spacing: 1px;
     text-transform: uppercase;
   }
 
   .port-label {
     color: var(--grey-lighter);
     font-size: var(--ui-font-size-2xs);
-    letter-spacing: 1px;
+    line-height: 16px;
     margin: 0 4px;
     white-space: nowrap;
     user-select: none;

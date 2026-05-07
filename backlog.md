@@ -10,15 +10,19 @@
 
 - When new output content appears in the output node part show it with a slight fade it. If the old output content should go away to show the new one, remove the old one with no ease effect.
 
+- Extract JSON node: when gets an object instead of string, just output this object
+
+- Remove the colored triangle in the node's output
 
 - When some other workspace is selected, let's deselect the project tab. Not just visualy. Deselect so that the Ctrl+S doesn't cave the project because none is selected
 
 
-- Object node's content is clipped with "..." whereas text nodes are just overflow-hidden
+- Object node's content is clipped with "...". It should be overflow-hidden. Text nodes should wrap instead of clipping.
 
+- LLM chat node: make response a parsed object when the output is structured?
 
+- What will happen when rivet app finds updates?
 
-- When the port labels aren't capitalized ("Preserve text case for node ports" switcher is on), don't do letter spacing
 
 - There's 2 similar mono width fonts (node body + node short output). lso the one in the code editor is different. Let's only keep one
 
