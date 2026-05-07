@@ -20,6 +20,7 @@ import {
 import { loadTestGraphInProcessor, testProcessContext } from '../testUtils';
 
 type TrackedNode = ChartNode<'trackedTest', { delayMs: number }>;
+type LoopRequiredNode = ChartNode<'loopRequiredTest', Record<string, never>>;
 const originalFetch = globalThis.fetch;
 
 afterEach(() => {
@@ -100,8 +101,60 @@ class TrackedTestNodeImpl extends NodeImpl<TrackedNode> {
 
 const trackedTestNode = nodeDefinition(TrackedTestNodeImpl, 'Tracked Test');
 
+class LoopRequiredTestNodeImpl extends NodeImpl<LoopRequiredNode> {
+  static create(): LoopRequiredNode {
+    return {
+      type: 'loopRequiredTest',
+      id: 'loop-required-node' as NodeId,
+      title: 'Loop Required Test',
+      visualData: { x: 0, y: 0, width: 175 },
+      data: {},
+    };
+  }
+
+  static getUIData() {
+    return {};
+  }
+
+  getInputDefinitions(): NodeInputDefinition[] {
+    return [
+      {
+        id: 'loop' as PortId,
+        title: 'Loop',
+        dataType: 'any',
+      },
+      {
+        id: 'required' as PortId,
+        title: 'Required',
+        dataType: 'any',
+        required: true,
+      },
+    ];
+  }
+
+  getOutputDefinitions(): NodeOutputDefinition[] {
+    return [
+      {
+        id: 'output' as PortId,
+        title: 'Output',
+        dataType: 'any',
+      },
+    ];
+  }
+
+  async process(): Promise<Outputs> {
+    throw new Error('LoopRequiredTestNode should not process when its required input is missing.');
+  }
+}
+
+const loopRequiredTestNode = nodeDefinition(LoopRequiredTestNodeImpl, 'Loop Required Test');
+
 function createTrackedRegistry() {
   return createBuiltInRegistry().register(trackedTestNode);
+}
+
+function createLoopRequiredRegistry() {
+  return createBuiltInRegistry().register(loopRequiredTestNode);
 }
 
 function makeProject(graph: any) {
@@ -117,6 +170,47 @@ function makeProject(graph: any) {
     },
     plugins: [],
   } as any;
+}
+
+function makeGraphOutputNode(id = 'output', dataType = 'any') {
+  return {
+    id: `${id}-output-node`,
+    type: 'graphOutput',
+    title: 'Graph Output',
+    data: {
+      id,
+      dataType,
+    },
+    visualData: { x: 500, y: 0, width: 300 },
+  };
+}
+
+function makeDestructureNode(overrides: Partial<ChartNode> = {}) {
+  return {
+    id: 'destructure-node',
+    type: 'destructure',
+    title: 'Destructure',
+    data: {
+      paths: ['$.name'],
+      pathPortIds: ['name'],
+    },
+    visualData: { x: 0, y: 0, width: 250 },
+    ...overrides,
+  };
+}
+
+function makeExtractObjectPathNode(overrides: Partial<ChartNode> = {}) {
+  return {
+    id: 'extract-object-path-node',
+    type: 'extractObjectPath',
+    title: 'Extract Object Path',
+    data: {
+      path: '$.name',
+      usePathInput: false,
+    },
+    visualData: { x: 0, y: 0, width: 250 },
+    ...overrides,
+  };
 }
 
 function createTrackedSplitGraph(
@@ -250,6 +344,334 @@ void describe('GraphProcessor', () => {
 
     assert.equal(eventNames[eventNames.length - 2], 'done');
     assert.equal(eventNames[eventNames.length - 1], 'finish');
+  });
+
+  void it('marks nodes with unconnected required inputs as not ran', async () => {
+    const outputNode = makeGraphOutputNode('result');
+    const graph = {
+      metadata: {
+        id: 'missing-required-input-graph',
+        name: 'Missing Required Input Graph',
+        description: '',
+      },
+      nodes: [makeDestructureNode(), outputNode],
+      connections: [
+        {
+          outputNodeId: 'destructure-node',
+          outputId: 'name',
+          inputNodeId: outputNode.id,
+          inputId: 'value',
+        },
+      ],
+    };
+    const processor = new GraphProcessor(makeProject(graph), graph.metadata.id, globalRivetNodeRegistry);
+    const excludedNodes: Array<{ nodeId: string; reason: string; outputs: Outputs }> = [];
+    const startedNodes: string[] = [];
+    const finishedNodes: string[] = [];
+
+    processor.on('nodeExcluded', ({ node, reason, outputs }) => {
+      excludedNodes.push({ nodeId: node.id, reason, outputs });
+    });
+    processor.on('nodeStart', ({ node }) => {
+      startedNodes.push(node.id);
+    });
+    processor.on('nodeFinish', ({ node }) => {
+      finishedNodes.push(node.id);
+    });
+
+    const outputs = await processor.processGraph(testProcessContext());
+
+    assert.deepEqual(outputs.result, { type: 'control-flow-excluded', value: undefined });
+    assert.deepEqual(excludedNodes, [
+      {
+        nodeId: 'destructure-node',
+        reason: 'missing required input',
+        outputs: {
+          name: { type: 'control-flow-excluded', value: undefined },
+        },
+      },
+    ]);
+    assert.equal(startedNodes.includes('destructure-node'), false);
+    assert.equal(finishedNodes.includes('destructure-node'), false);
+  });
+
+  void it('marks Extract Object Path with an unconnected Object input as not ran', async () => {
+    const outputNode = makeGraphOutputNode('result');
+    const graph = {
+      metadata: {
+        id: 'missing-extract-object-input-graph',
+        name: 'Missing Extract Object Input Graph',
+        description: '',
+      },
+      nodes: [makeExtractObjectPathNode(), outputNode],
+      connections: [
+        {
+          outputNodeId: 'extract-object-path-node',
+          outputId: 'match',
+          inputNodeId: outputNode.id,
+          inputId: 'value',
+        },
+      ],
+    };
+    const processor = new GraphProcessor(makeProject(graph), graph.metadata.id, globalRivetNodeRegistry);
+    const excludedNodes: Array<{ nodeId: string; reason: string; outputs: Outputs }> = [];
+
+    processor.on('nodeExcluded', ({ node, reason, outputs }) => {
+      excludedNodes.push({ nodeId: node.id, reason, outputs });
+    });
+
+    const outputs = await processor.processGraph(testProcessContext());
+
+    assert.deepEqual(outputs.result, { type: 'control-flow-excluded', value: undefined });
+    assert.deepEqual(excludedNodes, [
+      {
+        nodeId: 'extract-object-path-node',
+        reason: 'missing required input',
+        outputs: {
+          match: { type: 'control-flow-excluded', value: undefined },
+          all_matches: { type: 'control-flow-excluded', value: undefined },
+        },
+      },
+    ]);
+  });
+
+  void it('propagates missing required input exclusion through downstream nodes', async () => {
+    const outputNode = makeGraphOutputNode('result');
+    const passthroughNode = {
+      id: 'passthrough-node',
+      type: 'passthrough',
+      title: 'Passthrough',
+      data: {},
+      visualData: { x: 250, y: 0, width: 175 },
+    };
+    const graph = {
+      metadata: {
+        id: 'missing-required-input-propagation-graph',
+        name: 'Missing Required Input Propagation Graph',
+        description: '',
+      },
+      nodes: [makeDestructureNode(), passthroughNode, outputNode],
+      connections: [
+        {
+          outputNodeId: 'destructure-node',
+          outputId: 'name',
+          inputNodeId: 'passthrough-node',
+          inputId: 'input1',
+        },
+        {
+          outputNodeId: 'passthrough-node',
+          outputId: 'output1',
+          inputNodeId: outputNode.id,
+          inputId: 'value',
+        },
+      ],
+    };
+    const processor = new GraphProcessor(makeProject(graph), graph.metadata.id, globalRivetNodeRegistry);
+    const excludedNodes: Array<{ nodeId: string; reason: string }> = [];
+
+    processor.on('nodeExcluded', ({ node, reason }) => {
+      excludedNodes.push({ nodeId: node.id, reason });
+    });
+
+    const outputs = await processor.processGraph(testProcessContext());
+
+    assert.deepEqual(outputs.result, { type: 'control-flow-excluded', value: undefined });
+    assert.deepEqual(excludedNodes, [
+      { nodeId: 'destructure-node', reason: 'missing required input' },
+      { nodeId: 'passthrough-node', reason: 'input is excluded value' },
+    ]);
+  });
+
+  void it('keeps disabled and false if-port exclusions ahead of missing required inputs', async () => {
+    const disabledOutputNode = makeGraphOutputNode('disabledResult');
+    const falseIfOutputNode = makeGraphOutputNode('falseIfResult');
+    const disabledDestructureNode = makeDestructureNode({
+      id: 'disabled-destructure-node',
+      disabled: true,
+    });
+    const falseIfDestructureNode = makeDestructureNode({
+      id: 'false-if-destructure-node',
+      isConditional: true,
+    });
+    const booleanNode = {
+      id: 'false-boolean-node',
+      type: 'boolean',
+      title: 'Bool',
+      data: {
+        value: false,
+      },
+      visualData: { x: 0, y: 150, width: 130 },
+    };
+    const graph = {
+      metadata: {
+        id: 'missing-required-input-precedence-graph',
+        name: 'Missing Required Input Precedence Graph',
+        description: '',
+      },
+      nodes: [disabledDestructureNode, falseIfDestructureNode, booleanNode, disabledOutputNode, falseIfOutputNode],
+      connections: [
+        {
+          outputNodeId: 'disabled-destructure-node',
+          outputId: 'name',
+          inputNodeId: disabledOutputNode.id,
+          inputId: 'value',
+        },
+        {
+          outputNodeId: 'false-boolean-node',
+          outputId: 'value',
+          inputNodeId: 'false-if-destructure-node',
+          inputId: '$if',
+        },
+        {
+          outputNodeId: 'false-if-destructure-node',
+          outputId: 'name',
+          inputNodeId: falseIfOutputNode.id,
+          inputId: 'value',
+        },
+      ],
+    };
+    const processor = new GraphProcessor(makeProject(graph), graph.metadata.id, globalRivetNodeRegistry);
+    const excludedReasons = new Map<string, string>();
+
+    processor.on('nodeExcluded', ({ node, reason }) => {
+      excludedReasons.set(node.id, reason);
+    });
+
+    const outputs = await processor.processGraph(testProcessContext());
+
+    assert.equal(excludedReasons.get('disabled-destructure-node'), 'disabled');
+    assert.equal(excludedReasons.get('false-if-destructure-node'), 'if port is false');
+    assert.deepEqual(outputs.disabledResult, { type: 'control-flow-excluded', value: undefined });
+    assert.deepEqual(outputs.falseIfResult, { type: 'control-flow-excluded', value: undefined });
+  });
+
+  void it('keeps connected control-flow exclusions ahead of missing required inputs', async () => {
+    const outputNode = makeGraphOutputNode('result');
+    const ifNode = {
+      id: 'if-node',
+      type: 'if',
+      title: 'If',
+      data: {
+        unconnectedControlFlowExcluded: true,
+      },
+      visualData: { x: 0, y: 0, width: 125 },
+    };
+    const extractNode = makeExtractObjectPathNode({
+      data: {
+        path: '$.name',
+        usePathInput: true,
+      },
+    });
+    const graph = {
+      metadata: {
+        id: 'missing-required-input-control-flow-precedence-graph',
+        name: 'Missing Required Input Control Flow Precedence Graph',
+        description: '',
+      },
+      nodes: [ifNode, extractNode, outputNode],
+      connections: [
+        {
+          outputNodeId: 'if-node',
+          outputId: 'output',
+          inputNodeId: 'extract-object-path-node',
+          inputId: 'object',
+        },
+        {
+          outputNodeId: 'extract-object-path-node',
+          outputId: 'match',
+          inputNodeId: outputNode.id,
+          inputId: 'value',
+        },
+      ],
+    };
+    const processor = new GraphProcessor(makeProject(graph), graph.metadata.id, globalRivetNodeRegistry);
+    const excludedReasons = new Map<string, string>();
+
+    processor.on('nodeExcluded', ({ node, reason }) => {
+      excludedReasons.set(node.id, reason);
+    });
+
+    await processor.processGraph(testProcessContext());
+
+    assert.equal(excludedReasons.get('extract-object-path-node'), 'input is excluded value');
+  });
+
+  void it('clears excluded nodes inside active loops between iterations', async () => {
+    const graph = {
+      metadata: {
+        id: 'missing-required-input-loop-graph',
+        name: 'Missing Required Input Loop Graph',
+        description: '',
+      },
+      nodes: [
+        {
+          id: 'default-text-node',
+          type: 'text',
+          title: 'Default Text',
+          data: {
+            text: 'seed',
+            normalizeLineEndings: false,
+          },
+          visualData: { x: 0, y: 0, width: 175 },
+        },
+        {
+          id: 'loop-controller-node',
+          type: 'loopController',
+          title: 'Loop Controller',
+          data: {
+            maxIterations: 2,
+            atMaxIterationsAction: 'break',
+          },
+          visualData: { x: 200, y: 0, width: 250 },
+        },
+        {
+          id: 'loop-required-node',
+          type: 'loopRequiredTest',
+          title: 'Loop Required Test',
+          data: {},
+          visualData: { x: 450, y: 0, width: 175 },
+        },
+        makeGraphOutputNode('result', 'any[]'),
+      ],
+      connections: [
+        {
+          outputNodeId: 'default-text-node',
+          outputId: 'output',
+          inputNodeId: 'loop-controller-node',
+          inputId: 'input1Default',
+        },
+        {
+          outputNodeId: 'loop-controller-node',
+          outputId: 'output1',
+          inputNodeId: 'loop-required-node',
+          inputId: 'loop',
+        },
+        {
+          outputNodeId: 'loop-required-node',
+          outputId: 'output',
+          inputNodeId: 'loop-controller-node',
+          inputId: 'input1',
+        },
+        {
+          outputNodeId: 'loop-controller-node',
+          outputId: 'break',
+          inputNodeId: 'result-output-node',
+          inputId: 'value',
+        },
+      ],
+    };
+    const processor = new GraphProcessor(makeProject(graph), graph.metadata.id, createLoopRequiredRegistry());
+    const loopRequiredExclusions: string[] = [];
+
+    processor.on('nodeExcluded', ({ node, reason }) => {
+      if (node.id === 'loop-required-node') {
+        loopRequiredExclusions.push(reason);
+      }
+    });
+
+    await processor.processGraph(testProcessContext());
+
+    assert.deepEqual(loopRequiredExclusions, ['missing required input', 'input is excluded value']);
   });
 
   void it('emits finish once for a successful run', async () => {

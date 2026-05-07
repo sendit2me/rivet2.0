@@ -2,9 +2,16 @@
 
 - LLM chat node: make "response" a parsed object when the response format is set to structured
 
-- New coalesce node without a duplicated conditional port (there's if port for that)
 
+- If I open the run context menu for the first time after I open the Rivet app, the menu has a white bright thick border that looks lik a browser focus ot something. It goes away and never comes back after any click inside the menu. Fix it.
+
+
+- New coalesce node without a duplicated conditional port (there's if port for that)
 - Add for all nodes a special output that is true when the node is run. Or. The "if" input should accept anything as true if it was run
+
+
+
+
 
 
 - Need to show the curent graph name somewhere. When there's many and they are in the folders and you click through subgraphs, the user gets lost

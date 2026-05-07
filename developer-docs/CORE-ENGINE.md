@@ -500,6 +500,17 @@ Important mechanisms:
 
 The central check is currently internalized in `#excludedDueToControlFlow(...)`.
 
+Required input ports are also part of the exclusion lifecycle. If a reachable node has an input definition with `required: true` and that port has no connection, `GraphProcessor` must not call the node implementation. Instead, it emits `nodeExcluded` with reason `missing required input`, stores `control-flow-excluded` values for every output, and queues downstream nodes so the editor shows `Not ran` and exclusion continues through the graph.
+
+This path must still participate in runtime metadata:
+
+- respect completed race branches before emitting exclusion
+- register excluded loop nodes with active loop metadata
+- propagate attached data to downstream nodes
+- clear in-flight and remaining-node state just like completed nodes
+
+Keep this centralized in `GraphProcessor` / `NodeExecutionPlanner`; do not patch individual node implementations to handle unconnected required ports.
+
 ### Subgraphs
 
 Subgraph execution uses child `GraphProcessor` instances created by `#createSubProcessor(...)`.
