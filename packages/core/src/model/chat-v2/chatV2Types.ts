@@ -16,6 +16,7 @@ export type ChatV2ToolChoice = StreamTextArgs['toolChoice'];
 export type ChatV2ResponseOutput = StreamTextArgs['output'];
 export type ChatV2MessageList = ModelMessage[];
 export type ChatV2StreamPart = TextStreamPart<ToolSet>;
+export type ChatV2ResponseFormatMode = 'text' | 'json' | 'json_schema';
 
 export type ChatV2ProviderMetadata = Record<string, Record<string, unknown>>;
 export type ChatV2ReasoningOutput = string | string[];
@@ -32,6 +33,7 @@ export type ChatV2NormalizedUsage = {
 export type ChatV2StreamHandle = {
   fullStream: AsyncIterable<ChatV2StreamPart>;
   finishReason?: MaybePromiseLike<string | undefined> | undefined;
+  output?: MaybePromiseLike<unknown> | undefined;
   providerMetadata?: MaybePromiseLike<ChatV2ProviderMetadata | undefined> | undefined;
   requestStatus?: MaybePromiseLike<number | undefined> | undefined;
   usage?: MaybePromiseLike<LanguageModelUsage | undefined> | undefined;
@@ -52,6 +54,7 @@ export type StreamChatV2Options = {
   stopSequences?: string[] | undefined;
   seed?: number | undefined;
   responseOutput?: ChatV2ResponseOutput | undefined;
+  responseFormat?: ChatV2ResponseFormatMode | undefined;
   providerOptions?: ChatV2ProviderOptions | undefined;
   toolChoice?: ChatV2ToolChoice | undefined;
   abortSignal?: AbortSignal | undefined;
@@ -61,6 +64,7 @@ export type StreamChatV2Options = {
 
 export type StreamChatV2Result = {
   responseText: string;
+  structuredOutput: unknown | undefined;
   functionCalls: StreamedFunctionCall[];
   usage: LanguageModelUsage | undefined;
   reasoning: string;
@@ -86,6 +90,7 @@ export type RunChatV2PipelineOptions = {
   stopSequences?: string[] | undefined;
   seed?: number | undefined;
   responseOutput?: ChatV2ResponseOutput | undefined;
+  responseFormat?: ChatV2ResponseFormatMode | undefined;
   providerOptions?: ChatV2ProviderOptions | undefined;
   toolChoice?: ChatV2ToolChoice | undefined;
   anthropicCacheControlTtl?: '5m' | '1h' | undefined;

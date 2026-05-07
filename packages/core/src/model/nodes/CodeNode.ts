@@ -141,35 +141,35 @@ export class CodeNodeImpl extends NodeImpl<CodeNode> {
       },
       {
         type: 'group',
-        label: 'Runtime Permissions',
+        label: 'Runtime permissions',
         defaultOpen: true,
         editors: [
           {
             type: 'toggle',
-            label: 'fetch',
+            label: 'Allow "fetch"',
             dataKey: 'allowFetch',
           },
           {
             type: 'toggle',
-            label: 'Rivet',
+            label: 'Allow "Rivet"',
             dataKey: 'allowRivet',
           },
           {
             type: 'toggle',
-            label: 'console',
+            label: 'Allow "console"',
             dataKey: 'allowConsole',
           },
           {
             type: 'toggle',
-            label: 'require',
+            label: 'Allow "require"',
             dataKey: 'allowRequire',
-            helperMessage: 'This is only available when using the Node executor.',
+            helperMessage: 'Only available with the Node executor',
           },
           {
             type: 'toggle',
-            label: 'process',
+            label: 'Allow "process"',
             dataKey: 'allowProcess',
-            helperMessage: 'This is only available when using the Node executor.',
+            helperMessage: 'Only available with the Node executor',
           },
         ],
       },

@@ -1,62 +1,13 @@
 
 
-- Human readable Loop node
-
-- Reassess Loop until node. Definitely can make the end conditions better
-
-- A setting for LLM chat node to race several LLM calls and return the fastest
-
-
-
-- When new output content appears in the output node part show it with a slight fade it. If the old output content should go away to show the new one, remove the old one with no ease effect.
-
-- Extract JSON node: when gets an object instead of string, just output this object
-
-- Remove the colored triangle in the node's output
-
-- When some other workspace is selected, let's deselect the project tab. Not just visualy. Deselect so that the Ctrl+S doesn't cave the project because none is selected
-
-
-- Object node's content is clipped with "...". It should be overflow-hidden. Text nodes should wrap instead of clipping.
-
-- LLM chat node: make response a parsed object when the output is structured?
-
-- What will happen when rivet app finds updates?
-
-
-- There's 2 similar mono width fonts (node body + node short output). lso the one in the code editor is different. Let's only keep one
-
 
 - Need to show the curent graph name somewhere. When there's many and they are in the folders and you click through subgraphs, the user gets lost
 
-- New coalesce node without a duplicated conditional port (there's if port for that)
-
-- Reassess Ctrl+N window
 
 
+- There's 2 similar mono width fonts (node body + node output view). Or maybe they are the same fornt but different sizes. Also the one in the code editor is different. Let's only keep one
 
-
-- When I open the main run menu for the first time, it has a thick white border around it. It goes away when I click at least one item in the menu. Sounds like browser focis or something
-
-- In the node output when there's yellow headers, without hover the headers are not visible. I want them to be visible
-
-- New artboard background image. I want diagonal strokes like in the logo
-
-- Node terminals make not round, but half squircles on the inside part of the node
-
-
-
-
-- Add for all nodes a special output that is true when the node is run. Or. The "if" input should accept anything as true if it was run
-
-
-- When in the node settings panel and I click elsewhere and hit the comments node, the panel doesn't close
-
-
-
-- Reassess rivet example project
-rivet2.0/packages/app/src/assets/tutorials
-/documentation-tutorial.rivet-project
+- Make node terminals not round, but half squircles on the inside part of the node
 
 
 
@@ -65,17 +16,42 @@ rivet2.0/packages/app/src/assets/tutorials
 
 
 
+
+- A setting for LLM chat node to race several LLM calls and return the fastest. Need to think through how it works along with retries
+
+- Reassess Loop until node. Definitely can make the end conditions better
+
+
+- Reassess Ctrl+N window
+
+
+- Human readable Loop node
+
+
+
+- In the node output when there's yellow headers, without hover the headers are not visible. I want them to be visible
+
+- New artboard background image. I want diagonal strokes like in the logo
+
+
+
+- Remove the colored triangle in the node's output
+
+
+
+
+
+- Reassess rivet example project
+rivet2.0/packages/app/src/assets/tutorials
+/documentation-tutorial.rivet-project
+
 - Add mid points to connections so I can do neat wiring
 - Code node (and Expression node) should have a "Catch failures" switcher so I can safely fallback with coalesce
-- In remote debugging, come up with some ID that can be passed when running so that I can "catch" only the target runs of the workflow
-
 
 - Support Python in all nodes that support javascript
 - Light color theme
 
 - Check the AI workflow generation feature
-
-
 
 - Convenient node type browser, just like in n8n
 - Show run time in each node

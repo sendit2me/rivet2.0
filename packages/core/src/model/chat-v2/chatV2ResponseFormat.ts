@@ -8,6 +8,8 @@ import type { ChatV2Provider, ChatV2ProviderOptions, ChatV2ResponseOutput } from
 
 export type ChatV2ResponseFormat = '' | 'text' | 'json' | 'json_schema';
 
+export type ChatV2StructuredResponseFormat = Extract<ChatV2ResponseFormat, 'json' | 'json_schema'>;
+
 export type ChatV2ResponseFormatData = {
   responseFormat?: ChatV2ResponseFormat;
   responseSchemaName?: string;
@@ -35,6 +37,12 @@ export type ChatV2ResponseFormatParameters =
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 type JsonObject = { [key: string]: JsonValue };
+
+export function isChatV2StructuredResponseFormat(
+  responseFormat: unknown,
+): responseFormat is ChatV2StructuredResponseFormat {
+  return responseFormat === 'json' || responseFormat === 'json_schema';
+}
 
 function getResponseSchema(inputs: Inputs): unknown {
   const responseSchemaInput = inputs['responseSchema' as PortId];

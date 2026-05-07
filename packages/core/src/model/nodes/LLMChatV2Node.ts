@@ -14,6 +14,7 @@ import {
   hasLLMChatV2BuiltInToolsEnabled,
   type LLMChatV2Node,
 } from '../chat-v2/llmChatV2NodeData.js';
+import { isLLMChatV2StructuredResponseFormat } from '../chat-v2/chatV2FeatureCompatibility.js';
 import { getChatV2ModelInfo } from '../chat-v2/modelRegistry.js';
 import {
   buildLLMChatV2EditorCacheKey,
@@ -202,6 +203,22 @@ export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
       includeUsage: this.data.outputUsage,
       includeReasoning: this.data.outputReasoning,
     });
+    const responseOutput = outputs.find((output) => output.id === ('response' as PortId));
+
+    if (responseOutput != null && isLLMChatV2StructuredResponseFormat(this.data.responseFormat)) {
+      responseOutput.dataType = [
+        'object',
+        'object[]',
+        'any',
+        'any[]',
+        'string',
+        'string[]',
+        'number',
+        'number[]',
+        'boolean',
+        'boolean[]',
+      ] as const;
+    }
 
     if (this.data.outputRequestStatus) {
       outputs.push(

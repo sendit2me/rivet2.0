@@ -1,5 +1,4 @@
 import 'core-js/actual';
-import '@atlaskit/css-reset';
 import { QueryClient } from '@tanstack/react-query';
 import { RivetAppHost } from './host';
 

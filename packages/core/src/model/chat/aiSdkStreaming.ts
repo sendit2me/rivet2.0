@@ -8,19 +8,51 @@ export type AiSdkStreamResult = {
   reasoning: string;
 };
 
+export type ConsumeAiSdkStreamOptions = {
+  dedupeDuplicateTextBlocks?: boolean;
+};
+
+function buildResponseText(textBlocks: Map<string, string>, dedupeDuplicateTextBlocks: boolean): string {
+  const blockTexts = Array.from(textBlocks.values()).filter((text) => text.length > 0);
+
+  if (blockTexts.length === 0) {
+    return '';
+  }
+
+  if (dedupeDuplicateTextBlocks && blockTexts.length > 1) {
+    const longestText = blockTexts.reduce((longest, text) => (text.length > longest.length ? text : longest));
+
+    if (blockTexts.every((text) => longestText.startsWith(text))) {
+      return longestText;
+    }
+  }
+
+  return blockTexts.join('');
+}
+
 export async function consumeAiSdkStream(
   fullStream: AsyncIterable<TextStreamPart<ToolSet>>,
   onPartialOutputs: (text: string, functionCalls: StreamedFunctionCall[]) => void,
+  options: ConsumeAiSdkStreamOptions = {},
 ): Promise<AiSdkStreamResult> {
   let responseText = '';
   let reasoning = '';
   const functionCalls: StreamedFunctionCall[] = [];
   let usage: LanguageModelUsage | undefined;
+  const textBlocks = new Map<string, string>();
 
   for await (const part of fullStream) {
     switch (part.type) {
+      case 'text-start': {
+        if (!textBlocks.has(part.id)) {
+          textBlocks.set(part.id, '');
+        }
+        break;
+      }
+
       case 'text-delta': {
-        responseText += part.text;
+        textBlocks.set(part.id, `${textBlocks.get(part.id) ?? ''}${part.text}`);
+        responseText = buildResponseText(textBlocks, !!options.dedupeDuplicateTextBlocks);
         onPartialOutputs(responseText, functionCalls);
         break;
       }

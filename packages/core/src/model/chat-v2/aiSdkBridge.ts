@@ -6,6 +6,7 @@ import type {
   StreamChatV2Options,
   StreamChatV2Result,
 } from './chatV2Types.js';
+import { isChatV2StructuredResponseFormat } from './chatV2ResponseFormat.js';
 
 function keepPromiseHandled<T>(value: PromiseLike<T>): Promise<T> {
   const promise = Promise.resolve(value);
@@ -38,6 +39,10 @@ function defaultStreamExecutor(args: Parameters<typeof streamText>[0]): ChatV2St
             Promise.resolve(result.finishReason).then((value) => (value == null ? undefined : String(value))),
           )
         : undefined,
+    output:
+      args.output != null && 'output' in result
+        ? keepPromiseHandled(Promise.resolve(result.output as unknown))
+        : undefined,
     providerMetadata:
       'providerMetadata' in result
         ? keepPromiseHandled(
@@ -54,6 +59,43 @@ function defaultStreamExecutor(args: Parameters<typeof streamText>[0]): ChatV2St
 
 async function resolveOptionalValue<T>(value: T | PromiseLike<T> | undefined): Promise<T | undefined> {
   return value == null ? undefined : await value;
+}
+
+async function resolveOptionalStructuredOutput(value: unknown | PromiseLike<unknown> | undefined): Promise<unknown> {
+  if (value == null) {
+    return undefined;
+  }
+
+  try {
+    return await value;
+  } catch {
+    return undefined;
+  }
+}
+
+function collapseRepeatedStructuredJsonText(responseText: string): string {
+  if (responseText.length === 0 || responseText.length % 2 !== 0) {
+    return responseText;
+  }
+
+  const midpoint = responseText.length / 2;
+  const firstHalf = responseText.slice(0, midpoint);
+  const firstNonWhitespaceCharacter = firstHalf.trimStart()[0];
+
+  if (firstHalf !== responseText.slice(midpoint)) {
+    return responseText;
+  }
+
+  if (firstNonWhitespaceCharacter !== '{' && firstNonWhitespaceCharacter !== '[') {
+    return responseText;
+  }
+
+  try {
+    JSON.parse(firstHalf);
+    return firstHalf;
+  } catch {
+    return responseText;
+  }
 }
 
 async function executeStream(
@@ -81,16 +123,31 @@ async function executeStream(
 
   const handle = await executor(args);
   markOptionalPromiseHandled(handle.finishReason);
+  markOptionalPromiseHandled(handle.output);
   markOptionalPromiseHandled(handle.providerMetadata);
   markOptionalPromiseHandled(handle.requestStatus);
   markOptionalPromiseHandled(handle.usage);
 
-  const streamed = await consumeAiSdkStream(handle.fullStream, (text, functionCalls) => {
-    options.onPartialOutput?.({ text, functionCalls });
-  });
+  const isStructuredOutput = isChatV2StructuredResponseFormat(options.responseFormat);
+  const streamed = await consumeAiSdkStream(
+    handle.fullStream,
+    (text, functionCalls) => {
+      options.onPartialOutput?.({
+        text: isStructuredOutput ? collapseRepeatedStructuredJsonText(text) : text,
+        functionCalls,
+      });
+    },
+    {
+      dedupeDuplicateTextBlocks: isStructuredOutput,
+    },
+  );
+  const responseText = isStructuredOutput
+    ? collapseRepeatedStructuredJsonText(streamed.responseText)
+    : streamed.responseText;
 
   return {
-    responseText: streamed.responseText,
+    responseText,
+    structuredOutput: options.responseOutput != null ? await resolveOptionalStructuredOutput(handle.output) : undefined,
     functionCalls: streamed.functionCalls,
     usage: streamed.usage ?? (await resolveOptionalValue(handle.usage)),
     reasoning: streamed.reasoning,

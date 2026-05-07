@@ -47,6 +47,49 @@ describe('consumeAiSdkStream', () => {
     assert.equal(result.reasoning, '');
   });
 
+  it('keeps separate text blocks unless duplicate text-block de-duping is enabled', async () => {
+    const parts: StreamPart[] = [
+      { type: 'text-start', id: 't1' },
+      { type: 'text-delta', id: 't1', text: '{"answer":"yes"}' },
+      { type: 'text-end', id: 't1' },
+      { type: 'text-start', id: 't2' },
+      { type: 'text-delta', id: 't2', text: '{"answer":"yes"}' },
+      { type: 'text-end', id: 't2' },
+    ];
+
+    const result = await consumeAiSdkStream(mockStream(parts), () => {});
+    const dedupedResult = await consumeAiSdkStream(mockStream(parts), () => {}, {
+      dedupeDuplicateTextBlocks: true,
+    });
+
+    assert.equal(result.responseText, '{"answer":"yes"}{"answer":"yes"}');
+    assert.equal(dedupedResult.responseText, '{"answer":"yes"}');
+  });
+
+  it('does not append a duplicate text block while the duplicate block is still streaming', async () => {
+    const parts: StreamPart[] = [
+      { type: 'text-start', id: 't1' },
+      { type: 'text-delta', id: 't1', text: '{"answer":"yes"}' },
+      { type: 'text-end', id: 't1' },
+      { type: 'text-start', id: 't2' },
+      { type: 'text-delta', id: 't2', text: '{"answer"' },
+    ];
+    const calls: string[] = [];
+
+    const result = await consumeAiSdkStream(
+      mockStream(parts),
+      (text) => {
+        calls.push(text);
+      },
+      {
+        dedupeDuplicateTextBlocks: true,
+      },
+    );
+
+    assert.deepEqual(calls, ['{"answer":"yes"}', '{"answer":"yes"}']);
+    assert.equal(result.responseText, '{"answer":"yes"}');
+  });
+
   it('handles tool calls', async () => {
     const parts: StreamPart[] = [
       { type: 'text-start', id: 't1' },

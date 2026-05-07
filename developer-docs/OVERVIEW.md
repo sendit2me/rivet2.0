@@ -146,10 +146,18 @@ import { RivetAppHost } from '../rivet/packages/app/src/host';
 import '../rivet/packages/app/src/host.css';
 ```
 
+`host.css` is the complete shared style entrypoint for both standalone and
+embedded mounts. It includes the GitHub Markdown skin, Rivet's app theme files,
+and the Atlaskit CSS reset so node Markdown, including Comment node paragraphs,
+does not pick up different browser-default margins in hosted wrappers.
+
 That host seam provides the same React Query, provider, executor-session, and
 storage-bootstrap wrapper used by the desktop app while still allowing external
 shells to inject IO, datasets, environment variables, storage, path policies, an
-internal executor websocket URL, and post-app bridge components.
+internal executor websocket URL, wrapper UI policy, and post-app bridge
+components. The first wrapper UI policy is
+`ui.fileMenu.visibleItems`, which filters the browser File menu by stable item
+ids while leaving command behavior owned by the app command layer.
 
 Wrapper shells can receive a stable imperative workspace handle through
 `RivetAppHost`'s `onWorkspaceHostReady` callback, render

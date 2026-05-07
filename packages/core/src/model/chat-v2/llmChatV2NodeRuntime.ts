@@ -100,6 +100,7 @@ export async function resolveLLMChatV2RuntimeConfig(params: {
     additionalTools: resolveLLMChatV2BuiltInTools(data, context, providerConfig, apiKey),
     ...generationParameters,
     responseOutput: createChatV2ResponseOutput(responseFormatParameters),
+    responseFormat: responseFormatParameters?.responseFormat,
     outputUsage: data.outputUsage,
     outputReasoning: data.outputReasoning,
     outputRequestStatus: data.outputRequestStatus,

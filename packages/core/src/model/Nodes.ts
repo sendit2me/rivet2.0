@@ -85,6 +85,9 @@ export * from './nodes/ContextNode.js';
 import { coalesceNode } from './nodes/CoalesceNode.js';
 export * from './nodes/CoalesceNode.js';
 
+import { didRunNode } from './nodes/DidRunNode.js';
+export * from './nodes/DidRunNode.js';
+
 import { passthroughNode } from './nodes/PassthroughNode.js';
 export * from './nodes/PassthroughNode.js';
 
@@ -293,6 +296,7 @@ export const registerBuiltInNodes = (registry: NodeRegistration) => {
     .register(raiseEventNode)
     .register(contextNode)
     .register(coalesceNode)
+    .register(didRunNode)
     .register(passthroughNode)
     .register(popNode)
     .register(setGlobalNode)

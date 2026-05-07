@@ -220,6 +220,10 @@ Current `Random number` behavior lives on the existing `randomNumber` node type 
 
 `Extract Object Path` keeps the existing `extractObjectPath` node type and data shape. When `usePathInput` is false, the stored path uses the shared interpolation parser to add optional `any` input ports and to resolve the final JSONPath before execution. When `usePathInput` is true, the explicit `path` input remains the only path source and stored-path interpolation ports are not exposed.
 
+`Extract JSON` accepts an `any` input so graphs can normalize either raw text or already-structured values. String inputs keep the existing parse/extract/no-match behavior; `object`, `object[]`, `any[]`, and object-like `any` inputs are sent directly to the `Output` port and exclude `No Match`. This keeps the node safe to place after providers or custom nodes that sometimes return parsed JSON and sometimes return text.
+
+`Did Run` is a small control-flow adapter node. It has Coalesce-style dynamic `Input N` ports and one boolean `Ran` output. `GraphProcessor` already prevents normal node processing when any connected upstream value is `control-flow-excluded`, so the node implementation deliberately does not re-check payload truthiness or data type. If the processor invokes it with at least one dynamic input entry, it outputs `true`; if no dynamic inputs are connected, it outputs `control-flow-excluded`. This keeps the node's meaning focused on "did every connected branch run at all?" rather than "what values did those branches produce?" The node body should stay a short rule summary rather than duplicating the full info-box text.
+
 Input definitions that are generated from user-authored `{{var}}` interpolation and exposed as connectable input ports must be created through [`packages/core/src/model/interpolationInputDefinition.ts`](../packages/core/src/model/interpolationInputDefinition.ts). This is a core maintainability rule for all current and future nodes, not just a convenience helper. The helper preserves the existing port id/title contract while adding `NodeInputDefinition.data` metadata that says the port came from interpolation and records the original interpolation name. The app relies on that metadata to preserve connections when a user clearly renames an interpolation token, so manually creating interpolation ports with plain input-definition objects will make rename preservation fail for that node. The metadata is runtime/editor-only and is not persisted in graph files. Built-in interpolation producers currently marked this way include Text, Prompt, Object, Tool schema interpolation, Expression, JS Filter, JS Map, Extract Object Path, and the built-in OpenAI Thread Message plugin node. Nodes such as `To Tree` that use `{{...}}` only against per-item object properties do not expose connectable interpolation ports and therefore should not use this marker.
 
 Interpolation safety coverage should stay broad whenever this contract changes: core tests cover parser edge cases and built-in input-definition marking, negative tests cover runtime-only consumers such as `To Tree`, app graph-editing tests cover rename preservation for marked built-ins and plugin nodes, and execution-data tests cover parsed-source previews using the captured run inputs rather than current editor state.
@@ -395,7 +399,7 @@ intentionally split under
 - `llmChatV2NodeRuntime.ts` is a coordinator that assembles those policies for the runtime and re-exports compatibility helpers used by existing tests/imports.
 - `chatV2Errors.ts` owns provider/Vercel SDK error normalization, including API-call and browser/runtime fetch-failure classification for request-status outputs where no HTTP response is observable. It extracts HTTP status codes from common raw/normalized error shapes for retry and request-status outputs, and must not stringify whole provider data objects into user-visible node errors.
 - `chatV2Retry.ts` owns `Retry on non-200` defaults, repeat/cooldown normalization, and abort-safe repeat waits for LLM provider retries, including the zero-cooldown path before a repeat starts.
-- `chatV2Pipeline.ts` and `toolContinuation.ts` stay focused on provider-neutral streaming, output assembly, request-status/request-error output assembly, retry-attempt status/error list assembly, and auto-continuation behavior.
+- `chatV2Pipeline.ts` and `toolContinuation.ts` stay focused on provider-neutral streaming, output assembly, request-status/request-error output assembly, retry-attempt status/error list assembly, and auto-continuation behavior. For `JSON` and `JSON schema` response formats, `aiSdkBridge.ts` resolves the AI SDK's parsed `output` promise on a best-effort basis and `chatV2Pipeline.ts` uses that parsed value for the `Response` output while keeping the assistant message text unchanged for chat history. Parsed-output failures fall back to the response text as a string instead of failing the node. Structured-output calls also ask `consumeAiSdkStream(...)` to collapse exact duplicate text blocks and normalize repeated parseable JSON text before partial-output updates or fallback parsing, because some AI SDK/provider combinations expose the same final JSON object more than once.
 
 Keep future Chat v2 changes inside the smallest relevant seam. Do not add provider
 option parsing, cache-key fingerprinting, or credential-source behavior back into
@@ -497,6 +501,17 @@ Important mechanisms:
 - special handling for loops and certain nodes that are allowed to consume excluded values
 
 The central check is currently internalized in `#excludedDueToControlFlow(...)`.
+
+Required input ports are also part of the exclusion lifecycle. If a reachable node has an input definition with `required: true` and that port has no connection, `GraphProcessor` must not call the node implementation. Instead, it emits `nodeExcluded` with reason `missing required input`, stores `control-flow-excluded` values for every output, and queues downstream nodes so the editor shows `Not ran` and exclusion continues through the graph.
+
+This path must still participate in runtime metadata:
+
+- respect completed race branches before emitting exclusion
+- register excluded loop nodes with active loop metadata
+- propagate attached data to downstream nodes
+- clear in-flight and remaining-node state just like completed nodes
+
+Keep this centralized in `GraphProcessor` / `NodeExecutionPlanner`; do not patch individual node implementations to handle unconnected required ports.
 
 ### Subgraphs
 

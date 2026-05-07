@@ -227,6 +227,104 @@ describe('streamChatV2', () => {
     assert.equal('tools' in capturedArgs!, false);
   });
 
+  it('returns parsed structured output from the AI SDK stream result', async () => {
+    const responseOutput = { name: 'json' };
+    const structuredOutput = { answer: 'Hello', score: 1 };
+    const executeStream: ChatV2StreamExecutor = async () => ({
+      fullStream: mockStream([
+        { type: 'text-start', id: 'text_1' },
+        { type: 'text-delta', id: 'text_1', text: JSON.stringify(structuredOutput) },
+        { type: 'text-end', id: 'text_1' },
+      ]),
+      output: structuredOutput,
+    });
+
+    const result = await streamChatV2({
+      model: createMockModel(),
+      messages: [],
+      responseOutput,
+      executeStream,
+    });
+
+    assert.deepEqual(result.structuredOutput, structuredOutput);
+    assert.equal(result.responseText, JSON.stringify(structuredOutput));
+  });
+
+  it('treats structured-output parse failures as missing parsed output', async () => {
+    const responseOutput = { name: 'json' };
+    const executeStream: ChatV2StreamExecutor = async () => ({
+      fullStream: mockStream([
+        { type: 'text-start', id: 'text_1' },
+        { type: 'text-delta', id: 'text_1', text: 'plain text' },
+        { type: 'text-end', id: 'text_1' },
+      ]),
+      output: Promise.reject(new Error('No object generated: could not parse the response.')),
+    });
+
+    const result = await streamChatV2({
+      model: createMockModel(),
+      messages: [],
+      responseOutput,
+      executeStream,
+    });
+
+    assert.equal(result.structuredOutput, undefined);
+    assert.equal(result.responseText, 'plain text');
+  });
+
+  it('collapses repeated parseable JSON text when structured response format is set', async () => {
+    const responseOutput = { name: 'json' };
+    const responseText = '{"movie":"The Matrix"}';
+    const partialTexts: string[] = [];
+    const executeStream: ChatV2StreamExecutor = async () => ({
+      fullStream: mockStream([
+        { type: 'text-start', id: 'text_1' },
+        { type: 'text-delta', id: 'text_1', text: responseText },
+        { type: 'text-delta', id: 'text_1', text: responseText },
+        { type: 'text-end', id: 'text_1' },
+      ]),
+      output: Promise.reject(new Error('No object generated: could not parse the response.')),
+    });
+
+    const result = await streamChatV2({
+      model: createMockModel(),
+      messages: [],
+      responseOutput,
+      responseFormat: 'json',
+      executeStream,
+      onPartialOutput: ({ text }) => {
+        partialTexts.push(text);
+      },
+    });
+
+    assert.equal(result.structuredOutput, undefined);
+    assert.equal(result.responseText, responseText);
+    assert.deepEqual(partialTexts, [responseText, responseText]);
+  });
+
+  it('does not collapse repeated scalar JSON-shaped text', async () => {
+    const responseOutput = { name: 'json' };
+    const responseText = '1111';
+    const executeStream: ChatV2StreamExecutor = async () => ({
+      fullStream: mockStream([
+        { type: 'text-start', id: 'text_1' },
+        { type: 'text-delta', id: 'text_1', text: responseText },
+        { type: 'text-end', id: 'text_1' },
+      ]),
+      output: Promise.reject(new Error('No object generated: could not parse the response.')),
+    });
+
+    const result = await streamChatV2({
+      model: createMockModel(),
+      messages: [],
+      responseOutput,
+      responseFormat: 'json',
+      executeStream,
+    });
+
+    assert.equal(result.responseText, responseText);
+  });
+
   it('omits undefined optional AI SDK arguments instead of forwarding empty request-shape hints', async () => {
     let capturedArgs: Record<string, unknown> | undefined;
     const executeStream: ChatV2StreamExecutor = async (args) => {
@@ -1067,5 +1165,189 @@ describe('runChatV2Pipeline', () => {
     });
 
     assert.equal(capturedResponseOutput, responseOutput);
+  });
+
+  it('emits parsed object response output for structured response formats', async () => {
+    const structuredOutput = {
+      answer: 'Paris',
+      confidence: 0.9,
+    };
+    const responseText = JSON.stringify(structuredOutput);
+    const executeStream: ChatV2StreamExecutor = async () => ({
+      fullStream: mockStream([
+        { type: 'text-start', id: 'text_1' },
+        { type: 'text-delta', id: 'text_1', text: responseText },
+        { type: 'text-end', id: 'text_1' },
+      ]),
+      output: structuredOutput,
+    });
+
+    const result = await runChatV2Pipeline({
+      provider: 'openai',
+      model: createMockModel(),
+      modelId: 'gpt-5',
+      prompt: { type: 'string', value: 'Answer as JSON.' },
+      responseOutput: { name: 'json' },
+      responseFormat: 'json',
+      context: {
+        signal: new AbortController().signal,
+      },
+      executeStream,
+    });
+
+    assert.equal(result.response, responseText);
+    assert.deepEqual(result.commonOutputs['response' as PortId], {
+      type: 'object',
+      value: structuredOutput,
+    });
+    assert.equal((result.allMessages.at(-1) as any)?.message, responseText);
+  });
+
+  it('falls back to parsing streamed text for structured response outputs from custom executors', async () => {
+    const structuredOutput = { answer: 'Fallback' };
+    const responseText = JSON.stringify(structuredOutput);
+    const executeStream: ChatV2StreamExecutor = async () => ({
+      fullStream: mockStream([
+        { type: 'text-start', id: 'text_1' },
+        { type: 'text-delta', id: 'text_1', text: responseText },
+        { type: 'text-end', id: 'text_1' },
+      ]),
+    });
+
+    const result = await runChatV2Pipeline({
+      provider: 'custom',
+      model: createMockModel(),
+      modelId: 'custom-json-model',
+      prompt: { type: 'string', value: 'Answer as JSON.' },
+      responseOutput: { name: 'json' },
+      responseFormat: 'json',
+      context: {
+        signal: new AbortController().signal,
+      },
+      executeStream,
+    });
+
+    assert.deepEqual(result.commonOutputs['response' as PortId], {
+      type: 'object',
+      value: structuredOutput,
+    });
+  });
+
+  it('emits parsed scalar and array values for structured response formats', async () => {
+    const booleanStream: ChatV2StreamExecutor = async () => ({
+      fullStream: mockStream([
+        { type: 'text-start', id: 'text_1' },
+        { type: 'text-delta', id: 'text_1', text: 'true' },
+        { type: 'text-end', id: 'text_1' },
+      ]),
+    });
+    const stringArrayStream: ChatV2StreamExecutor = async () => ({
+      fullStream: mockStream([
+        { type: 'text-start', id: 'text_1' },
+        { type: 'text-delta', id: 'text_1', text: '["alpha","beta"]' },
+        { type: 'text-end', id: 'text_1' },
+      ]),
+    });
+
+    const booleanResult = await runChatV2Pipeline({
+      provider: 'openai',
+      model: createMockModel(),
+      modelId: 'gpt-5',
+      prompt: { type: 'string', value: 'Answer as JSON.' },
+      responseOutput: { name: 'json' },
+      responseFormat: 'json',
+      context: {
+        signal: new AbortController().signal,
+      },
+      executeStream: booleanStream,
+    });
+    const stringArrayResult = await runChatV2Pipeline({
+      provider: 'openai',
+      model: createMockModel(),
+      modelId: 'gpt-5',
+      prompt: { type: 'string', value: 'Answer as JSON.' },
+      responseOutput: { name: 'json' },
+      responseFormat: 'json',
+      context: {
+        signal: new AbortController().signal,
+      },
+      executeStream: stringArrayStream,
+    });
+
+    assert.deepEqual(booleanResult.commonOutputs['response' as PortId], {
+      type: 'boolean',
+      value: true,
+    });
+    assert.deepEqual(stringArrayResult.commonOutputs['response' as PortId], {
+      type: 'string[]',
+      value: ['alpha', 'beta'],
+    });
+  });
+
+  it('de-duplicates repeated structured text blocks before fallback parsing', async () => {
+    const structuredOutput = { movie: 'The Matrix', description: 'A sci-fi action film.' };
+    const responseText = JSON.stringify(structuredOutput);
+    const executeStream: ChatV2StreamExecutor = async () => ({
+      fullStream: mockStream([
+        { type: 'text-start', id: 'text_1' },
+        { type: 'text-delta', id: 'text_1', text: responseText },
+        { type: 'text-end', id: 'text_1' },
+        { type: 'text-start', id: 'text_2' },
+        { type: 'text-delta', id: 'text_2', text: responseText },
+        { type: 'text-end', id: 'text_2' },
+      ]),
+      output: Promise.reject(new Error('No object generated: could not parse the response.')),
+    });
+
+    const result = await runChatV2Pipeline({
+      provider: 'openai',
+      model: createMockModel(),
+      modelId: 'gpt-5',
+      prompt: { type: 'string', value: 'Answer as JSON.' },
+      responseOutput: { name: 'json' },
+      responseFormat: 'json',
+      context: {
+        signal: new AbortController().signal,
+      },
+      executeStream,
+    });
+
+    assert.equal(result.response, responseText);
+    assert.deepEqual(result.commonOutputs['response' as PortId], {
+      type: 'object',
+      value: structuredOutput,
+    });
+    assert.equal((result.allMessages.at(-1) as any)?.message, responseText);
+  });
+
+  it('falls back to string response output when structured parsing fails', async () => {
+    const responseText = 'not json';
+    const executeStream: ChatV2StreamExecutor = async () => ({
+      fullStream: mockStream([
+        { type: 'text-start', id: 'text_1' },
+        { type: 'text-delta', id: 'text_1', text: responseText },
+        { type: 'text-end', id: 'text_1' },
+      ]),
+      output: Promise.reject(new Error('No object generated: could not parse the response.')),
+    });
+
+    const result = await runChatV2Pipeline({
+      provider: 'openai',
+      model: createMockModel(),
+      modelId: 'gpt-5',
+      prompt: { type: 'string', value: 'Answer as JSON.' },
+      responseOutput: { name: 'json' },
+      responseFormat: 'json',
+      context: {
+        signal: new AbortController().signal,
+      },
+      executeStream,
+    });
+
+    assert.deepEqual(result.commonOutputs['response' as PortId], {
+      type: 'string',
+      value: responseText,
+    });
+    assert.equal((result.allMessages.at(-1) as any)?.message, responseText);
   });
 });

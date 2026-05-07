@@ -1,7 +1,7 @@
 import { css } from '@emotion/react';
 import { memo, useEffect, useState } from 'react';
 
-const NODE_RUNNING_INDICATOR_DELAY_MS = 500;
+export const NODE_RUNNING_INDICATOR_DELAY_MS = 500;
 
 const nodeRunningIndicatorStyles = css`
   color: currentColor;
@@ -22,6 +22,32 @@ const nodeRunningIndicatorStyles = css`
   }
 `;
 
+export function useDelayedRunningState(isRunning: boolean, delayMs = NODE_RUNNING_INDICATOR_DELAY_MS): boolean {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    if (!isRunning) {
+      setVisible(false);
+      return;
+    }
+
+    if (delayMs <= 0) {
+      setVisible(true);
+      return;
+    }
+
+    const timeoutId = globalThis.setTimeout(() => {
+      setVisible(true);
+    }, delayMs);
+
+    return () => {
+      globalThis.clearTimeout(timeoutId);
+    };
+  }, [delayMs, isRunning]);
+
+  return visible;
+}
+
 export const NodeRunningIndicator = memo(
   ({
     isRunning,
@@ -32,27 +58,7 @@ export const NodeRunningIndicator = memo(
     delayMs?: number;
     label?: string;
   }) => {
-    const [visible, setVisible] = useState(false);
-
-    useEffect(() => {
-      if (!isRunning) {
-        setVisible(false);
-        return;
-      }
-
-      if (delayMs <= 0) {
-        setVisible(true);
-        return;
-      }
-
-      const timeoutId = globalThis.setTimeout(() => {
-        setVisible(true);
-      }, delayMs);
-
-      return () => {
-        globalThis.clearTimeout(timeoutId);
-      };
-    }, [delayMs, isRunning]);
+    const visible = useDelayedRunningState(isRunning, delayMs);
 
     if (!visible) {
       return null;

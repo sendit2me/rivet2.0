@@ -10,6 +10,7 @@ import {
   type RivetAppHostOpenProjectCountChangedEvent,
   type RivetAppHostProjectSavedEvent,
 } from './providers/HostCallbacksContext.js';
+import { HostUiConfigProvider, type RivetAppHostUiConfig } from './providers/HostUiConfigContext.js';
 import { RivetAppLoader } from './components/RivetAppLoader.js';
 import { RivetAppHostLifecycle } from './components/RivetAppHostLifecycle.js';
 import { RivetWorkspaceHostBridge } from './components/RivetWorkspaceHostBridge.js';
@@ -27,6 +28,7 @@ export type RivetAppHostProps = {
   onWorkspaceHostReady?: (workspaceHost: RivetWorkspaceHost) => void;
   providers?: ProviderOverrides;
   queryClient?: QueryClient;
+  ui?: RivetAppHostUiConfig;
 };
 
 /**
@@ -46,6 +48,7 @@ export function RivetAppHost({
   onWorkspaceHostReady,
   providers,
   queryClient,
+  ui,
 }: RivetAppHostProps) {
   const [defaultQueryClient] = useState(() => new QueryClient());
   const storage = providers?.storage;
@@ -70,17 +73,19 @@ export function RivetAppHost({
   return (
     <QueryClientProvider client={queryClient ?? defaultQueryClient}>
       <HostCallbacksProvider callbacks={callbacks}>
-        <ProvidersProvider providers={runtimeProviders}>
-          <ExecutorSessionProvider hostConfig={executor}>
-            <RivetAppLoader loadingFallback={loadingFallback} storage={storage}>
-              <RivetAppHostLifecycle />
-              {onWorkspaceHostReady ? (
-                <RivetWorkspaceHostBridge onReady={onWorkspaceHostReady} onDispose={onWorkspaceHostDisposed} />
-              ) : null}
-              {children}
-            </RivetAppLoader>
-          </ExecutorSessionProvider>
-        </ProvidersProvider>
+        <HostUiConfigProvider config={ui}>
+          <ProvidersProvider providers={runtimeProviders}>
+            <ExecutorSessionProvider hostConfig={executor}>
+              <RivetAppLoader loadingFallback={loadingFallback} storage={storage}>
+                <RivetAppHostLifecycle />
+                {onWorkspaceHostReady ? (
+                  <RivetWorkspaceHostBridge onReady={onWorkspaceHostReady} onDispose={onWorkspaceHostDisposed} />
+                ) : null}
+                {children}
+              </RivetAppLoader>
+            </ExecutorSessionProvider>
+          </ProvidersProvider>
+        </HostUiConfigProvider>
       </HostCallbacksProvider>
     </QueryClientProvider>
   );
@@ -121,6 +126,12 @@ export {
   type RivetAppHostOpenProjectCountChangedEvent,
   type RivetAppHostProjectSavedEvent,
 } from './providers/HostCallbacksContext.js';
+export {
+  HostUiConfigProvider,
+  useRivetAppHostUiConfig,
+  type RivetAppHostUiConfig,
+} from './providers/HostUiConfigContext.js';
+export type { FileMenuConfig, FileMenuItemId } from './utils/fileMenuConfiguration.js';
 export { RivetWorkspaceHostBridge, type RivetWorkspaceHostBridgeProps } from './components/RivetWorkspaceHostBridge.js';
 export {
   createExecutorSessionRuntime,

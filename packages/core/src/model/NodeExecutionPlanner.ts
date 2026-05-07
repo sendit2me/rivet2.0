@@ -96,12 +96,12 @@ export function hasErroredInputNode(
   return false;
 }
 
-export function areRequiredInputsConnected(state: ExecutionState, node: ChartNode): boolean {
+export function getMissingRequiredInputs(state: ExecutionState, node: ChartNode): NodeInputDefinition[] {
   const connections = state.connections[node.id] ?? [];
 
-  return state.definitions[node.id]!.inputs.every((input) => {
+  return state.definitions[node.id]!.inputs.filter((input) => {
     const connectionToInput = connections.find((conn) => conn.inputId === input.id && conn.inputNodeId === node.id);
-    return connectionToInput || !input.required;
+    return input.required && !connectionToInput;
   });
 }
 

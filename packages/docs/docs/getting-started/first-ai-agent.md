@@ -23,7 +23,7 @@ Open the LLM Chat node settings and make sure the **Model** section has a provid
 
 Finally, click **Run** in the top right of the Canvas workspace. The Text node sends `Hello, AI!` into the LLM Chat prompt, and the LLM Chat node sends the request to the selected provider.
 
-The response is visible in the LLM Chat node output. You can connect the **Response** output to another node, parse it with JSON/YAML/regex extractors, or send it to a [Graph Output Node](../node-reference/graph-output) if this graph is meant to return a value.
+The response is visible in the LLM Chat node output. You can connect the **Response** output to another node, parse text responses with JSON/YAML/regex extractors, use structured response formats to output parsed objects directly, or send it to a [Graph Output Node](../node-reference/graph-output) if this graph is meant to return a value.
 
 Congratulations. You have created your first Rivet workflow. There is a lot more you can build from here: add structured outputs, run many inputs, use Code nodes for custom logic, or move repeated logic into subgraphs.
 

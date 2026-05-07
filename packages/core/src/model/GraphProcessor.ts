@@ -43,8 +43,8 @@ import { buildNodeProcessContext } from './ProcessContextBuilder.js';
 import { processSplitRunNode } from './SplitRunProcessor.js';
 import {
   type ExecutionState,
-  areRequiredInputsConnected,
   getInputNodesTo,
+  getMissingRequiredInputs,
   getOutputNodesFrom,
   getStartNodes,
   getWaitingForInputNode,
@@ -905,9 +905,9 @@ export class GraphProcessor {
     );
   }
 
-  /** Returns true if all required inputs have connections. */
-  #areRequiredInputsConnected(node: ChartNode): boolean {
-    return areRequiredInputsConnected(this.#executionState, node);
+  /** Returns required inputs without connections. */
+  #getMissingRequiredInputs(node: ChartNode): NodeInputDefinition[] {
+    return getMissingRequiredInputs(this.#executionState, node);
   }
 
   /** Accumulates cost from a node's output. */
@@ -937,11 +937,7 @@ export class GraphProcessor {
       return;
     }
 
-    if (!this.#areRequiredInputsConnected(node)) {
-      return;
-    }
-
-    this.#emitTraceEvent(`Node ${node.title} has required inputs nodes: ${inputNodes.map((n) => n.title).join(', ')}`);
+    this.#emitTraceEvent(`Node ${node.title} has input nodes: ${inputNodes.map((n) => n.title).join(', ')}`);
 
     const attachedData = this.#getAttachedDataTo(node);
 
@@ -985,6 +981,11 @@ export class GraphProcessor {
       return;
     }
 
+    const attachedData = this.#getAttachedDataTo(node);
+    if (this.#shouldSkipCompletedRaceNode(node, attachedData)) {
+      return;
+    }
+
     const inputValues = this.#getInputValuesForNode(node);
     if (this.#excludedDueToControlFlow(node, inputValues, nanoid() as ProcessId, LOOP_NOT_BROKEN_SENTINEL)) {
       this.#emitTraceEvent(`Node ${node.title} is excluded due to control flow`);
@@ -997,7 +998,17 @@ export class GraphProcessor {
       return;
     }
 
-    const attachedData = this.#getAttachedDataTo(node);
+    if (this.#excludedDueToControlFlow(node, inputValues, nanoid() as ProcessId)) {
+      this.#emitTraceEvent(`Node ${node.title} is excluded due to control flow`);
+      return;
+    }
+
+    const missingRequiredInputs = this.#getMissingRequiredInputs(node);
+    if (missingRequiredInputs.length > 0) {
+      this.#excludeNodeWithMissingRequiredInputs(node, inputValues, missingRequiredInputs);
+      return;
+    }
+
     if (this.#beginNodeProcessing(node, attachedData) === false) {
       return;
     }
@@ -1057,19 +1068,23 @@ export class GraphProcessor {
       return true;
     }
 
-    if (!this.#areRequiredInputsConnected(node)) {
-      this.#emitTraceEvent(
-        `Node ${node.title} has required inputs nodes: ${inputNodes.map((n) => n.title).join(', ')}`,
-      );
-      return true;
-    }
-
     return false;
   }
 
+  #excludeNodeWithMissingRequiredInputs(
+    node: ChartNode,
+    inputValues: Inputs,
+    missingRequiredInputs: NodeInputDefinition[],
+  ): void {
+    const missingInputNames = missingRequiredInputs.map((input) => input.title || input.id).join(', ');
+    const processId = nanoid() as ProcessId;
+
+    this.#emitTraceEvent(`Excluding node ${node.title} because required inputs are not connected: ${missingInputNames}`);
+    this.#excludeNode(node, processId, inputValues, 'missing required input');
+  }
+
   #beginNodeProcessing(node: ChartNode, attachedData: AttachedNodeData): boolean {
-    if (attachedData.races?.completed) {
-      this.#emitTraceEvent(`Node ${node.title} is part of a race that was completed`);
+    if (this.#shouldSkipCompletedRaceNode(node, attachedData)) {
       return false;
     }
 
@@ -1079,11 +1094,24 @@ export class GraphProcessor {
       this.#loopControllersSeen.add(node.id);
     }
 
+    this.#registerNodeInActiveLoop(node, attachedData);
+
+    return true;
+  }
+
+  #shouldSkipCompletedRaceNode(node: ChartNode, attachedData: AttachedNodeData): boolean {
+    if (attachedData.races?.completed) {
+      this.#emitTraceEvent(`Node ${node.title} is part of a race that was completed`);
+      return true;
+    }
+
+    return false;
+  }
+
+  #registerNodeInActiveLoop(node: ChartNode, attachedData: AttachedNodeData): void {
     if (attachedData.loopInfo && attachedData.loopInfo.loopControllerId !== node.id) {
       attachedData.loopInfo.nodes.add(node.id);
     }
-
-    return true;
   }
 
   #handleLoopControllerPostProcess(node: ChartNode, attachedData: AttachedNodeData): void {
@@ -1567,8 +1595,7 @@ export class GraphProcessor {
     if (node.disabled) {
       this.#emitTraceEvent(`Excluding node ${node.title} because it's disabled`);
 
-      this.#visitedNodes.add(node.id);
-      this.#markAsExcluded(node, processId, inputValues, 'disabled');
+      this.#excludeNode(node, processId, inputValues, 'disabled');
 
       return true;
     }
@@ -1578,8 +1605,7 @@ export class GraphProcessor {
       if (ifValue === false) {
         this.#emitTraceEvent(`Excluding node ${node.title} because if port is false`);
 
-        this.#visitedNodes.add(node.id);
-        this.#markAsExcluded(node, processId, inputValues, 'if port is false');
+        this.#excludeNode(node, processId, inputValues, 'if port is false');
         return true;
       }
     }
@@ -1612,14 +1638,27 @@ export class GraphProcessor {
           );
         }
 
-        this.#visitedNodes.add(node.id);
-        this.#markAsExcluded(node, processId, inputValues, 'input is excluded value');
+        this.#excludeNode(node, processId, inputValues, 'input is excluded value');
       }
 
       return true;
     }
 
     return false;
+  }
+
+  #excludeNode(node: ChartNode, processId: ProcessId, inputValues: Inputs, reason: string): void {
+    const attachedData = this.#getAttachedDataTo(node);
+    this.#registerNodeInActiveLoop(node, attachedData);
+
+    this.#visitedNodes.add(node.id);
+    this.#markAsExcluded(node, processId, inputValues, reason);
+    this.#currentlyProcessing.delete(node.id);
+    this.#remainingNodes.delete(node.id);
+
+    const outputNodes = getOutputNodesFrom(this.#executionState, node);
+    this.#propagateAttachedDataToOutputNodes(node, attachedData, outputNodes.connectionsToNodes);
+    this.#queueOutputNodes(node, outputNodes.nodes);
   }
 
   #markAsExcluded(node: ChartNode, processId: ProcessId, inputValues: Inputs, reason: string) {

@@ -1,7 +1,6 @@
 import { it, describe } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { ExtractJsonNodeImpl, NodeId } from '../../../src/index.js';
-import { nanoid } from 'nanoid/non-secure';
+import { type DataValue, ExtractJsonNodeImpl, type PortId } from '../../../src/index.js';
 
 const createNode = () => {
   return new ExtractJsonNodeImpl({
@@ -17,7 +16,9 @@ describe('ExtractJsonNodeImpl', () => {
 
   it('has one input and two outputs', () => {
     const node = new ExtractJsonNodeImpl(ExtractJsonNodeImpl.create());
-    assert.strictEqual(node.getInputDefinitions().length, 1);
+    const inputDefinitions = node.getInputDefinitions();
+    assert.strictEqual(inputDefinitions.length, 1);
+    assert.strictEqual(inputDefinitions[0]?.dataType, 'any');
     assert.strictEqual(node.getOutputDefinitions().length, 2);
   });
 
@@ -34,6 +35,57 @@ describe('ExtractJsonNodeImpl', () => {
     };
     const result = await node.process(inputs);
     assert.deepStrictEqual(result['output'].value, { key: 'value' });
+    assert.strictEqual(result['noMatch'].type, 'control-flow-excluded');
+  });
+
+  it('passes object input through without parsing', async () => {
+    const node = createNode();
+    const value = { key: { subKey: 'value' } };
+    const inputs = {
+      ['input' as PortId]: { type: 'object', value },
+    } satisfies Record<PortId, DataValue>;
+
+    const result = await node.process(inputs);
+
+    assert.strictEqual(result['output'].value, value);
+    assert.strictEqual(result['noMatch'].type, 'control-flow-excluded');
+  });
+
+  it('passes object array input through without parsing', async () => {
+    const node = createNode();
+    const value = [{ key: 'value' }];
+    const inputs = {
+      ['input' as PortId]: { type: 'object[]', value },
+    } satisfies Record<PortId, DataValue>;
+
+    const result = await node.process(inputs);
+
+    assert.strictEqual(result['output'].value, value);
+    assert.strictEqual(result['noMatch'].type, 'control-flow-excluded');
+  });
+
+  it('processes string-like any input correctly', async () => {
+    const node = createNode();
+    const inputs = {
+      ['input' as PortId]: { type: 'any', value: '{"key": "value"}' },
+    } satisfies Record<PortId, DataValue>;
+
+    const result = await node.process(inputs);
+
+    assert.deepStrictEqual(result['output'].value, { key: 'value' });
+    assert.strictEqual(result['noMatch'].type, 'control-flow-excluded');
+  });
+
+  it('passes object-like any input through without parsing', async () => {
+    const node = createNode();
+    const value = [{ key: 'value' }];
+    const inputs = {
+      ['input' as PortId]: { type: 'any', value },
+    } satisfies Record<PortId, DataValue>;
+
+    const result = await node.process(inputs);
+
+    assert.strictEqual(result['output'].value, value);
     assert.strictEqual(result['noMatch'].type, 'control-flow-excluded');
   });
 

@@ -147,7 +147,7 @@ The main event map is `ProcessEvents`:
 | `nodeStart` | A node starts with resolved inputs. |
 | `nodeFinish` | A node finishes with outputs. |
 | `nodeError` | A node errors. |
-| `nodeExcluded` | A node is skipped due to disabled state, conditional state, or control-flow exclusion. |
+| `nodeExcluded` | A node is skipped due to disabled state, conditional state, control-flow exclusion, or an unconnected required input. |
 | `partialOutput` | A node emits partial output while still running. |
 | `nodeOutputsCleared` | Previously displayed outputs for a node should be cleared. |
 | `userInput` | A User Input node is waiting for user input. |

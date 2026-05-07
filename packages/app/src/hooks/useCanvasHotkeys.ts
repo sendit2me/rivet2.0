@@ -29,6 +29,7 @@ export function useCanvasHotkeys() {
   const setGoToSearch = useSetAtom(goToSearchState);
   const setShowAiGraphCreatorInput = useSetAtom(showAiGraphCreatorInputState);
   const setOpenOverlay = useSetAtom(overlayOpenState);
+  const openOverlay = useAtomValue(overlayOpenState);
 
   const nodes = useAtomValue(nodesState);
   const [selectedNodeIds, setSelectedNodes] = useAtom(selectedNodesState);
@@ -37,6 +38,10 @@ export function useCanvasHotkeys() {
   const redo = useRedo();
 
   const latestHandler = useLatest((e: KeyboardEvent) => {
+    if (openOverlay !== undefined) {
+      return;
+    }
+
     if (e.key === 'f' && (e.metaKey || e.ctrlKey) && !e.shiftKey && graphSearch.searching) {
       e.preventDefault();
       e.stopPropagation();

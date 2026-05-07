@@ -45,7 +45,7 @@ export const NormalVisualNodeContent: FC<{
   handleAttributes?: HTMLAttributes<HTMLDivElement>;
   isKnownNodeType: boolean;
   isHistoricalChanged: boolean;
-  isRunning: boolean;
+  showRunningIndicator: boolean;
   renderHeavyContent: boolean;
   minimumNodeWidth: number;
 }> = memo(
@@ -56,7 +56,7 @@ export const NormalVisualNodeContent: FC<{
     handleAttributes,
     isKnownNodeType,
     isHistoricalChanged,
-    isRunning,
+    showRunningIndicator,
     renderHeavyContent,
     minimumNodeWidth,
   }) => {
@@ -302,7 +302,7 @@ export const NormalVisualNodeContent: FC<{
                 </Tooltip>
               </button>
             )}
-            <NodeRunningIndicator isRunning={isRunning} />
+            <NodeRunningIndicator isRunning={showRunningIndicator} delayMs={0} />
             <Tooltip className="edit-button-tooltip" content="Edit Node">
               <button
                 type="button"

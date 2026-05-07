@@ -23,7 +23,11 @@ import { handleError } from '../utils/errorHandling.js';
 
 export const NodeBody: FC<{ heightCache: HeightCache; node: ChartNode; suspended?: boolean }> = memo(
   ({ heightCache, node, suspended = false }) =>
-    suspended ? <SuspendedNodeBody heightCache={heightCache} node={node} /> : <ActiveNodeBody heightCache={heightCache} node={node} />,
+    suspended ? (
+      <SuspendedNodeBody heightCache={heightCache} node={node} />
+    ) : (
+      <ActiveNodeBody heightCache={heightCache} node={node} />
+    ),
 );
 
 NodeBody.displayName = 'NodeBody';
@@ -53,8 +57,7 @@ const UnknownNodeBodyWrapper = styled.div<{
 }>`
   overflow: hidden;
   font-size: calc(${(props) => props.fontSize}px * var(--ui-font-scale, 1));
-  font-family: ${(props) =>
-    props.fontFamily === 'monospace' ? 'var(--font-family-monospace)' : 'var(--font-family)'};
+  font-family: ${(props) => (props.fontFamily === 'monospace' ? 'var(--font-family-monospace)' : 'var(--font-family)')};
 
   .node-body-markdown > :first-child {
     margin-top: 0;
@@ -66,6 +69,15 @@ const UnknownNodeBodyWrapper = styled.div<{
 
   pre {
     margin: 0;
+  }
+
+  .node-body-colorized-wrap {
+    max-width: 100%;
+    min-width: 0;
+    overflow-wrap: normal;
+    white-space: pre-wrap;
+    width: 100%;
+    word-break: normal;
   }
 `;
 
@@ -143,8 +155,22 @@ export const MarkdownNodeBody: FC<MarkdownNodeBodySpec> = memo(({ text }) => {
 
 MarkdownNodeBody.displayName = 'MarkdownNodeBody';
 
+function shouldWrapColorizedNodeBody(language: string): boolean {
+  return language === 'prompt-interpolation-markdown';
+}
+
 export const ColorizedNodeBody: FC<ColorizedNodeBodySpec> = memo(({ text, language, theme }) => {
-  return <ColorizedPreformattedText text={text} language={language} theme={theme} />;
+  const wrapWords = shouldWrapColorizedNodeBody(language);
+
+  return (
+    <ColorizedPreformattedText
+      text={text}
+      language={language}
+      theme={theme}
+      className={wrapWords ? 'node-body-colorized-wrap' : undefined}
+      wrapWords={wrapWords}
+    />
+  );
 });
 
 ColorizedNodeBody.displayName = 'ColorizedNodeBody';

@@ -1,3 +1,4 @@
 @import 'github-markdown-css/github-markdown-dark-dimmed.css';
 @import './index.css';
 @import './colors.css';
+@import '@atlaskit/css-reset';

@@ -19,8 +19,8 @@ export const ZoomedOutVisualNodeContent: FC<{
   handleAttributes?: HTMLAttributes<HTMLDivElement>;
   isKnownNodeType: boolean;
   isReallyZoomedOut: boolean;
-  isRunning: boolean;
-}> = memo(({ node, connections = [], handleAttributes, isKnownNodeType, isReallyZoomedOut, isRunning }) => {
+  showRunningIndicator: boolean;
+}> = memo(({ node, connections = [], handleAttributes, isKnownNodeType, isReallyZoomedOut, showRunningIndicator }) => {
   useDependsOnPlugins();
   const { draggingWire, closestPortToDraggingWire } = useCanvasViewContext();
   const { onNodeSelected, onNodeStartEditing, onPortMouseOut, onPortMouseOver, onWireEndDrag, onWireStartDrag } =
@@ -83,7 +83,7 @@ export const ZoomedOutVisualNodeContent: FC<{
         )}
         {!isReallyZoomedOut && (
           <div className="title-controls">
-            <NodeRunningIndicator isRunning={isRunning} />
+            <NodeRunningIndicator isRunning={showRunningIndicator} delayMs={0} />
             <button
               type="button"
               className="edit-button"

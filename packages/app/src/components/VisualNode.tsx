@@ -13,6 +13,7 @@ import { useCanvasHandlersContext, useCanvasViewContext } from './CanvasContext'
 import { ZoomedOutVisualNodeContent } from './visualNode/ZoomedOutVisualNodeContent';
 import { NormalVisualNodeContent } from './visualNode/NormalVisualNodeContent';
 import { getCanvasCommentHeight } from '../hooks/canvasVisibilityBounds.js';
+import { useDelayedRunningState } from './visualNode/NodeRunningIndicator.js';
 
 export type VisualNodeProps = {
   node: ChartNode;
@@ -112,12 +113,13 @@ export const VisualNode = memo(
         yDelta,
       ]);
 
+      const selectedProcessRun = getSelectedProcessRun(lastRun, processPage, graphSelectionOptions);
+      const executionClassFlags = getNodeExecutionClassFlags(selectedProcessRun);
+      const showRunningChrome = useDelayedRunningState(executionClassFlags.running);
+
       if (renderSkeleton) {
         return <div className="node-skeleton" style={style} {...nodeAttributes} />;
       }
-
-      const selectedProcessRun = getSelectedProcessRun(lastRun, processPage, graphSelectionOptions);
-      const executionClassFlags = getNodeExecutionClassFlags(selectedProcessRun);
 
       const changedClass = changeInfo
         ? changeInfo.changed
@@ -139,6 +141,7 @@ export const VisualNode = memo(
               hasCustomBorderColor: isNodeBorderVisible(nodeColor),
               searchMatch: isSearchMatch,
               dragging: isDragging,
+              runningGlow: showRunningChrome,
               showHoverControls: shouldShowHoverControls,
               ...executionClassFlags,
               zoomedOut: effectiveIsZoomedOut,
@@ -175,7 +178,7 @@ export const VisualNode = memo(
               handleAttributes={handleAttributes}
               isKnownNodeType={isKnownNodeType}
               isReallyZoomedOut={effectiveIsReallyZoomedOut}
-              isRunning={executionClassFlags.running}
+              showRunningIndicator={showRunningChrome}
             />
           ) : (
             <NormalVisualNodeContent
@@ -185,7 +188,7 @@ export const VisualNode = memo(
               handleAttributes={handleAttributes}
               isKnownNodeType={isKnownNodeType}
               isHistoricalChanged={isHistoricalChanged}
-              isRunning={executionClassFlags.running}
+              showRunningIndicator={showRunningChrome}
               renderHeavyContent={renderHeavyContent}
               minimumNodeWidth={minimumNodeWidth}
             />
