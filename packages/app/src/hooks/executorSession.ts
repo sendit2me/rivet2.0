@@ -12,7 +12,6 @@ import type {
 } from '@valerypopoff/rivet2-core';
 import { logRuntimeDebug } from '@valerypopoff/rivet2-core';
 import type { AppDatasetProvider } from '../providers/ProvidersContext.js';
-import type { RemoteDebuggerConfig, RemoteDebuggerConnectionState } from '../state/execution.js';
 import { handleError } from '../utils/errorHandling.js';
 
 export const DEFAULT_REMOTE_DEBUGGER_URL = 'ws://localhost:21888';
@@ -20,73 +19,116 @@ export const INTERNAL_EXECUTOR_URL = 'ws://127.0.0.1:21889/internal';
 
 export type ExecutorSessionStatus = 'idle' | 'connecting' | 'ready' | 'reconnecting';
 
-export type ExecutorSessionState = RemoteDebuggerConfig &
-  RemoteDebuggerConnectionState & {
-    socket: WebSocket | null;
-    status: ExecutorSessionStatus;
-  };
+export type ExecutorSessionTarget =
+  | { type: 'internal-desktop'; url: string }
+  | { type: 'internal-hosted'; url: string }
+  | { type: 'external-debugger'; url: string };
+
+export type ExecutorSessionCapabilities = {
+  canBridgeDatasets: boolean;
+  canRecordSocket: boolean;
+  canSendAbort: boolean;
+  canSendPause: boolean;
+  canSendResume: boolean;
+  canSendRun: boolean;
+  canUploadProject: boolean;
+};
+
+export type ExecutorSessionState = {
+  capabilities: ExecutorSessionCapabilities;
+  isInternalExecutor: boolean;
+  reconnecting: boolean;
+  remoteUploadAllowed: boolean;
+  socket: WebSocket | null;
+  started: boolean;
+  status: ExecutorSessionStatus;
+  target: ExecutorSessionTarget | null;
+  url: string;
+};
+
+type MaybePromise<T> = T | Promise<T>;
 
 type DebuggerMessageHandler = <K extends keyof ProcessEventMessageMap>(
   message: K,
   data: ProcessEventMessageMap[K],
   requestId?: RemoteRunRequestId,
-) => void;
-type LifecycleCallback = () => void;
-type ConnectionStateSetter = (
-  updater: RemoteDebuggerConnectionState | ((prev: RemoteDebuggerConnectionState) => RemoteDebuggerConnectionState),
-) => void;
-type ConfigStateSetter = (
-  updater: RemoteDebuggerConfig | ((prev: RemoteDebuggerConfig) => RemoteDebuggerConfig),
-) => void;
+) => MaybePromise<void>;
+
+export type ExecutorSessionDisconnectReason = 'manual-disconnect' | 'unexpected-disconnect' | 'replaced';
+
+export type ExecutorSessionConnectedEvent = {
+  isInternalExecutor: boolean;
+  reason: 'connected';
+  status: ExecutorSessionStatus;
+  target: ExecutorSessionTarget;
+  type: 'connected';
+  url: string;
+};
+
+export type ExecutorSessionDisconnectedEvent = {
+  isInternalExecutor: boolean;
+  reason: ExecutorSessionDisconnectReason;
+  status: ExecutorSessionStatus;
+  target: ExecutorSessionTarget | null;
+  type: 'disconnected';
+  url: string;
+};
+
+export type ExecutorSessionLifecycleEvent = ExecutorSessionConnectedEvent | ExecutorSessionDisconnectedEvent;
+
+type LifecycleCallback = (event: ExecutorSessionLifecycleEvent) => MaybePromise<void>;
+type StateChangeCallback = () => MaybePromise<void>;
 
 type PendingExecution = {
-  requestId: RemoteRunRequestId;
   promise: Promise<GraphOutputs>;
-  resolve: (value: GraphOutputs) => void;
   reject: (reason?: unknown) => void;
+  requestId: RemoteRunRequestId;
+  resolve: (value: GraphOutputs) => void;
 };
 
 export type PendingGraphExecution = {
-  requestId: RemoteRunRequestId;
   promise: Promise<GraphOutputs>;
+  requestId: RemoteRunRequestId;
 };
 
 export type ExecutorSessionRuntime = {
+  buildSessionState(legacyDebuggerConfig?: unknown, legacyConnectionState?: unknown): ExecutorSessionState;
+  connect(url?: string): Promise<void>;
+  connectExternalDebugger(url?: string): Promise<void>;
+  connectInternal(url?: string): Promise<void>;
+  connectInternalDesktopExecutor(): Promise<void>;
+  connectInternalHostedExecutor(url: string): Promise<void>;
+  createPendingGraphExecution(requestId?: RemoteRunRequestId): PendingGraphExecution;
+  createRemoteExecutionRequest(): RemoteRunRequestId;
+  disconnect(): void;
+  getRuntimeState(): Pick<
+    ExecutorSessionState,
+    'capabilities' | 'isInternalExecutor' | 'remoteUploadAllowed' | 'socket' | 'status' | 'target' | 'url'
+  >;
+  isReady(): boolean;
+  rejectPendingGraphExecution(requestId: RemoteRunRequestId | undefined, reason: unknown): void;
+  recordSocketEvents(recordSocket: (socket: WebSocket) => Promise<void>): Promise<void> | undefined;
+  resolvePendingGraphExecution(requestId: RemoteRunRequestId | undefined, outputs: GraphOutputs): void;
+  sendMessage<T extends keyof OutgoingMessageMap>(type: T, data: OutgoingMessageMap[T]): boolean;
+  sendRaw(data: string): boolean;
   setDatasetProvider(datasetProvider: AppDatasetProvider | null): void;
   subscribeLifecycle(type: 'connect' | 'disconnect', callback: LifecycleCallback): () => void;
   subscribeMessages(handler: DebuggerMessageHandler): () => void;
-  getRuntimeState(): Pick<ExecutorSessionState, 'socket' | 'status'>;
-  buildSessionState(
-    debuggerConfig: RemoteDebuggerConfig,
-    connectionState: RemoteDebuggerConnectionState,
-  ): ExecutorSessionState;
-  connect(url: string): Promise<void>;
-  connectInternal(url?: string): Promise<void>;
-  disconnect(): void;
-  sendMessage<T extends keyof OutgoingMessageMap>(type: T, data: OutgoingMessageMap[T]): void;
-  sendRaw(data: string): void;
-  isReady(): boolean;
-  createRemoteExecutionRequest(): RemoteRunRequestId;
-  createPendingGraphExecution(requestId?: RemoteRunRequestId): PendingGraphExecution;
-  resolvePendingGraphExecution(requestId: RemoteRunRequestId | undefined, outputs: GraphOutputs): void;
-  rejectPendingGraphExecution(requestId: RemoteRunRequestId | undefined, reason: unknown): void;
 };
 
 export function createExecutorSessionRuntime(options: {
-  setDebuggerConfig: ConfigStateSetter;
-  setConnectionState: ConnectionStateSetter;
   datasetProvider?: AppDatasetProvider | null;
+  onStateChange: StateChangeCallback;
 }): ExecutorSessionRuntime {
-  let currentSocket: WebSocket | null = null;
   let currentDatasetProvider: AppDatasetProvider | null = options.datasetProvider ?? null;
+  let currentRemoteUploadAllowed = false;
+  let currentSocket: WebSocket | null = null;
+  let currentSocketGeneration = 0;
+  let currentStatus: ExecutorSessionStatus = 'idle';
+  let currentTarget: ExecutorSessionTarget | null = null;
+  let pendingRequestCounter = 0;
   let reconnectingTimeout: ReturnType<typeof setTimeout> | undefined;
   let retryDelay = 0;
-  let manuallyDisconnecting = false;
-  let currentUrl = '';
-  let currentIsInternalExecutor = false;
-  let currentStatus: ExecutorSessionStatus = 'idle';
-  let currentSocketGeneration = 0;
-  let pendingRequestCounter = 0;
 
   const pendingExecutions = new Map<RemoteRunRequestId, PendingExecution>();
 
@@ -94,15 +136,45 @@ export function createExecutorSessionRuntime(options: {
   const onDisconnectCallbacks = new Set<LifecycleCallback>();
   const debuggerMessageHandlers = new Set<DebuggerMessageHandler>();
 
-  function notifyConnect() {
-    for (const callback of onConnectCallbacks) {
-      callback();
+  function notifyConnect(event: ExecutorSessionConnectedEvent) {
+    notifyLifecycleCallbacks(onConnectCallbacks, event);
+  }
+
+  function notifyDisconnect(event: ExecutorSessionDisconnectedEvent) {
+    notifyLifecycleCallbacks(onDisconnectCallbacks, event);
+  }
+
+  function notifyLifecycleCallbacks(callbacks: Set<LifecycleCallback>, event: ExecutorSessionLifecycleEvent) {
+    for (const callback of [...callbacks]) {
+      try {
+        watchCallbackResult(callback(event), 'Executor session lifecycle subscriber failed', {
+          reason: event.reason,
+          target: event.target?.type ?? 'none',
+          url: event.url,
+        });
+      } catch (error) {
+        reportCallbackError(error, 'Executor session lifecycle subscriber failed', {
+          reason: event.reason,
+          target: event.target?.type ?? 'none',
+          url: event.url,
+        });
+      }
     }
   }
 
-  function notifyDisconnect() {
-    for (const callback of onDisconnectCallbacks) {
-      callback();
+  function notifyStateChanged() {
+    try {
+      watchCallbackResult(options.onStateChange(), 'Executor session state-change callback failed', {
+        socketReadyState: currentSocket?.readyState ?? null,
+        status: currentStatus,
+        target: currentTarget?.type ?? 'none',
+      });
+    } catch (error) {
+      reportCallbackError(error, 'Executor session state-change callback failed', {
+        socketReadyState: currentSocket?.readyState ?? null,
+        status: currentStatus,
+        target: currentTarget?.type ?? 'none',
+      });
     }
   }
 
@@ -110,18 +182,18 @@ export function createExecutorSessionRuntime(options: {
     if (status !== currentStatus) {
       logRuntimeDebug('Executor session status changed.', {
         from: currentStatus,
-        to: status,
-        target: currentUrl ? targetLabel(currentIsInternalExecutor) : 'none',
         socketReadyState: currentSocket?.readyState ?? null,
+        target: currentTarget ? targetLabel(currentTarget) : 'none',
+        to: status,
       });
     }
 
     currentStatus = status;
-    options.setConnectionState(legacyConnectionStateFor(status));
+    notifyStateChanged();
   }
 
-  function setDebuggerConfig(updater: RemoteDebuggerConfig | ((prev: RemoteDebuggerConfig) => RemoteDebuggerConfig)) {
-    options.setDebuggerConfig(updater);
+  function notifySessionStateChanged() {
+    notifyStateChanged();
   }
 
   function clearReconnectTimeout() {
@@ -154,63 +226,68 @@ export function createExecutorSessionRuntime(options: {
     pendingExecutions.clear();
   }
 
-  async function connect(url: string, options: { isInternalExecutor?: boolean } = {}) {
-    const normalizedUrl = url || DEFAULT_REMOTE_DEBUGGER_URL;
-    const nextIsInternalExecutor = options.isInternalExecutor ?? normalizedUrl === INTERNAL_EXECUTOR_URL;
-    const previousIsInternalExecutor = currentIsInternalExecutor;
+  function getCapabilities(): ExecutorSessionCapabilities {
+    const socketReady = currentStatus === 'ready' && currentSocket?.readyState === WebSocket.OPEN;
 
-    currentUrl = normalizedUrl;
-    currentIsInternalExecutor = nextIsInternalExecutor;
-    manuallyDisconnecting = false;
+    return {
+      canBridgeDatasets: socketReady && currentDatasetProvider != null,
+      canRecordSocket: socketReady,
+      canSendAbort: socketReady,
+      canSendPause: socketReady,
+      canSendResume: socketReady,
+      canSendRun: socketReady,
+      canUploadProject: socketReady && currentRemoteUploadAllowed,
+    };
+  }
+
+  async function connectToTarget(nextTarget: ExecutorSessionTarget) {
     retryDelay = 0;
     clearReconnectTimeout();
 
-    if (currentSocket) {
-      const sameUrl = currentSocket.url === normalizedUrl;
-      const sameTarget = previousIsInternalExecutor === nextIsInternalExecutor;
+    if (currentSocket || (currentTarget && currentStatus !== 'idle')) {
       if (
-        sameUrl &&
-        sameTarget &&
+        currentTarget &&
+        targetsEqual(currentTarget, nextTarget) &&
+        currentSocket &&
         (currentSocket.readyState === WebSocket.OPEN || currentSocket.readyState === WebSocket.CONNECTING)
       ) {
         logRuntimeDebug('Executor session reused existing websocket.', {
-          target: targetLabel(nextIsInternalExecutor),
           socketReadyState: currentSocket.readyState,
+          target: targetLabel(nextTarget),
         });
-        setDebuggerConfig((prev) => ({
-          ...prev,
-          url: normalizedUrl,
-          isInternalExecutor: nextIsInternalExecutor,
-        }));
         setConnectionStatus(currentSocket.readyState === WebSocket.OPEN ? 'ready' : 'connecting');
+        notifySessionStateChanged();
         return;
       }
 
-      if (currentSocket.readyState !== WebSocket.CLOSED) {
-        currentSocketGeneration += 1;
-        logRuntimeDebug('Executor session closing previous websocket before reconnect.', {
-          target: targetLabel(nextIsInternalExecutor),
-          previousSocketReadyState: currentSocket.readyState,
-        });
-        currentSocket.close();
+      if (!currentTarget || !targetsEqual(currentTarget, nextTarget)) {
+        replaceCurrentSession(nextTarget);
+      } else if (currentSocket) {
+        replaceCurrentSession(nextTarget);
       }
     }
 
+    currentTarget = nextTarget;
+    currentRemoteUploadAllowed = false;
+    notifySessionStateChanged();
+
     logRuntimeDebug('Executor session opening websocket.', {
-      target: targetLabel(nextIsInternalExecutor),
+      target: targetLabel(nextTarget),
     });
 
-    const socket = new WebSocket(normalizedUrl);
-    const socketGeneration = ++currentSocketGeneration;
-    const socketIsInternalExecutor = nextIsInternalExecutor;
-    currentSocket = socket;
+    let socket: WebSocket;
+    try {
+      socket = new WebSocket(nextTarget.url);
+    } catch (error) {
+      currentTarget = null;
+      currentRemoteUploadAllowed = false;
+      setConnectionStatus('idle');
+      throw error;
+    }
 
-    setDebuggerConfig((prev) => ({
-      ...prev,
-      remoteUploadAllowed: false,
-      url: normalizedUrl,
-      isInternalExecutor: nextIsInternalExecutor,
-    }));
+    const socketGeneration = ++currentSocketGeneration;
+    const socketTarget = nextTarget;
+    currentSocket = socket;
     setConnectionStatus('connecting');
 
     socket.onopen = () => {
@@ -219,11 +296,20 @@ export function createExecutorSessionRuntime(options: {
       }
 
       retryDelay = 0;
+      currentTarget = socketTarget;
       logRuntimeDebug('Executor websocket opened.', {
-        target: targetLabel(socketIsInternalExecutor),
+        target: targetLabel(socketTarget),
       });
       setConnectionStatus('ready');
-      notifyConnect();
+      notifySessionStateChanged();
+      notifyConnect({
+        isInternalExecutor: isInternalTarget(socketTarget),
+        reason: 'connected',
+        status: currentStatus,
+        target: socketTarget,
+        type: 'connected',
+        url: socket.url,
+      });
     };
 
     socket.onclose = () => {
@@ -231,38 +317,58 @@ export function createExecutorSessionRuntime(options: {
         return;
       }
 
+      const closedTarget = socketTarget;
       currentSocket = null;
-      setDebuggerConfig((prev) => ({ ...prev, remoteUploadAllowed: false }));
+      currentRemoteUploadAllowed = false;
       logRuntimeDebug('Executor websocket closed.', {
-        target: targetLabel(socketIsInternalExecutor),
-        manuallyDisconnecting,
+        target: targetLabel(closedTarget),
       });
 
-      if (manuallyDisconnecting) {
-        manuallyDisconnecting = false;
+      rejectAllPendingExecutions(new Error('executor session disconnected'));
+
+      if (!isInternalTarget(closedTarget)) {
+        logRuntimeDebug('External debugger websocket closed; automatic reconnect skipped.', {
+          target: targetLabel(closedTarget),
+        });
         setConnectionStatus('idle');
-        rejectAllPendingExecutions(new Error('executor session disconnected'));
-        notifyDisconnect();
+        currentTarget = null;
+        notifySessionStateChanged();
+        notifyDisconnect({
+          isInternalExecutor: false,
+          reason: 'unexpected-disconnect',
+          status: currentStatus,
+          target: closedTarget,
+          type: 'disconnected',
+          url: socket.url,
+        });
         return;
       }
 
       setConnectionStatus('reconnecting');
-      rejectAllPendingExecutions(new Error('executor session disconnected'));
-      notifyDisconnect();
+      currentTarget = closedTarget;
+      notifySessionStateChanged();
 
       const nextRetryDelay = Math.min(2000, (retryDelay + 100) * 1.5);
       retryDelay = nextRetryDelay;
-      const reconnectUrl = currentUrl;
-      const reconnectIsInternalExecutor = socketIsInternalExecutor;
+      const reconnectTarget = closedTarget;
 
       logRuntimeDebug('Executor websocket reconnect scheduled.', {
-        target: targetLabel(reconnectIsInternalExecutor),
         retryDelayMs: nextRetryDelay,
+        target: targetLabel(reconnectTarget),
       });
 
       reconnectingTimeout = setTimeout(() => {
-        void connect(reconnectUrl, { isInternalExecutor: reconnectIsInternalExecutor });
+        void connectToTarget(reconnectTarget);
       }, nextRetryDelay);
+
+      notifyDisconnect({
+        isInternalExecutor: true,
+        reason: 'unexpected-disconnect',
+        status: currentStatus,
+        target: closedTarget,
+        type: 'disconnected',
+        url: socket.url,
+      });
     };
 
     socket.onerror = (event) => {
@@ -274,6 +380,7 @@ export function createExecutorSessionRuntime(options: {
         metadata: {
           socketUrl: socket.url,
           status: currentStatus,
+          target: socketTarget.type,
         },
         toastError: false,
       });
@@ -290,8 +397,9 @@ export function createExecutorSessionRuntime(options: {
       } catch (error) {
         handleError(error, 'Failed to parse executor message', {
           metadata: {
-            socketUrl: socket.url,
             rawMessage: event.data,
+            socketUrl: socket.url,
+            target: socketTarget.type,
           },
           toastError: false,
         });
@@ -299,7 +407,8 @@ export function createExecutorSessionRuntime(options: {
       }
 
       if (incoming.message === 'graph-upload-allowed') {
-        setDebuggerConfig((prev) => ({ ...prev, remoteUploadAllowed: true }));
+        currentRemoteUploadAllowed = true;
+        notifySessionStateChanged();
         return;
       }
 
@@ -310,93 +419,163 @@ export function createExecutorSessionRuntime(options: {
             incoming.message as keyof DatasetRequestMap,
             incoming.data as DatasetRequestPayload<unknown>,
             socket,
-          );
+            socketTarget,
+          ).catch((error) => {
+            const requestId = getDatasetRequestId(incoming.data);
+            handleError(error, 'Failed to handle executor dataset request', {
+              metadata: {
+                requestId,
+                socketUrl: socket.url,
+                target: socketTarget.type,
+                type: incoming.message,
+              },
+              toastError: false,
+            });
+          });
         }
         return;
       }
 
       if (isProcessEventMessage(incoming)) {
-        for (const handler of debuggerMessageHandlers) {
-          handler(incoming.message, incoming.data, incoming.requestId);
+        for (const handler of [...debuggerMessageHandlers]) {
+          try {
+            watchCallbackResult(
+              handler(incoming.message, incoming.data, incoming.requestId),
+              'Executor process-message subscriber failed',
+              {
+                message: incoming.message,
+                requestId: incoming.requestId,
+                target: socketTarget.type,
+              },
+            );
+          } catch (error) {
+            reportCallbackError(error, 'Executor process-message subscriber failed', {
+              message: incoming.message,
+              requestId: incoming.requestId,
+              target: socketTarget.type,
+            });
+          }
         }
       }
     };
   }
 
+  function replaceCurrentSession(nextTarget: ExecutorSessionTarget) {
+    const oldSocket = currentSocket;
+    const oldTarget = currentTarget;
+    const oldUrl = oldTarget?.url ?? oldSocket?.url ?? '';
+
+    logRuntimeDebug('Executor session replacing active websocket.', {
+      nextTarget: targetLabel(nextTarget),
+      previousSocketReadyState: oldSocket?.readyState ?? null,
+      previousTarget: oldTarget ? targetLabel(oldTarget) : 'none',
+    });
+
+    if (oldSocket) {
+      currentSocketGeneration += 1;
+      currentSocket = null;
+    }
+
+    clearReconnectTimeout();
+    setConnectionStatus('idle');
+    currentTarget = null;
+    currentRemoteUploadAllowed = false;
+    rejectAllPendingExecutions(new Error('executor session replaced'));
+    notifySessionStateChanged();
+
+    if (oldSocket && oldSocket.readyState !== WebSocket.CLOSED) {
+      oldSocket.close();
+    }
+
+    notifyDisconnect({
+      isInternalExecutor: isInternalTarget(oldTarget),
+      reason: 'replaced',
+      status: currentStatus,
+      target: oldTarget,
+      type: 'disconnected',
+      url: oldUrl,
+    });
+  }
+
   function disconnect() {
     const hadActiveSession = currentSocket != null || currentStatus !== 'idle';
+    const socketToClose = currentSocket;
+    const disconnectedTarget = currentTarget;
+    const disconnectedUrl = currentTarget?.url ?? currentSocket?.url ?? '';
+
     logRuntimeDebug('Executor session disconnect requested.', {
       hadActiveSession,
-      target: currentUrl ? targetLabel(currentIsInternalExecutor) : 'none',
+      target: currentTarget ? targetLabel(currentTarget) : 'none',
     });
+
+    if (socketToClose) {
+      currentSocketGeneration += 1;
+      currentSocket = null;
+    }
+
     setConnectionStatus('idle');
-    manuallyDisconnecting = true;
     retryDelay = 0;
+    currentTarget = null;
+    currentRemoteUploadAllowed = false;
     clearReconnectTimeout();
     rejectAllPendingExecutions(new Error('executor session disconnected'));
-    setDebuggerConfig((prev) => ({ ...prev, remoteUploadAllowed: false }));
+    notifySessionStateChanged();
 
-    if (currentSocket) {
-      currentSocket.close();
-    } else {
-      manuallyDisconnecting = false;
-      if (hadActiveSession) {
-        notifyDisconnect();
-      }
+    if (socketToClose && socketToClose.readyState !== WebSocket.CLOSED) {
+      socketToClose.close();
+    }
+
+    if (hadActiveSession) {
+      notifyDisconnect({
+        isInternalExecutor: isInternalTarget(disconnectedTarget),
+        reason: 'manual-disconnect',
+        status: currentStatus,
+        target: disconnectedTarget,
+        type: 'disconnected',
+        url: disconnectedUrl,
+      });
     }
   }
 
   const runtime: ExecutorSessionRuntime = {
-    setDatasetProvider(datasetProvider) {
-      currentDatasetProvider = datasetProvider;
-    },
-    subscribeLifecycle(type, callback) {
-      const callbacks = type === 'connect' ? onConnectCallbacks : onDisconnectCallbacks;
-      callbacks.add(callback);
-      return () => {
-        callbacks.delete(callback);
-      };
-    },
-    subscribeMessages(handler) {
-      debuggerMessageHandlers.add(handler);
-      return () => {
-        debuggerMessageHandlers.delete(handler);
-      };
-    },
-    getRuntimeState() {
+    buildSessionState(_legacyDebuggerConfig?: unknown, _legacyConnectionState?: unknown) {
       return {
-        socket: currentSocket,
-        status: currentStatus,
-      };
-    },
-    buildSessionState(debuggerConfig, connectionState) {
-      return {
-        ...debuggerConfig,
-        ...connectionState,
         ...legacyConnectionStateFor(currentStatus),
+        capabilities: getCapabilities(),
+        isInternalExecutor: isInternalTarget(currentTarget),
+        remoteUploadAllowed: currentRemoteUploadAllowed,
         socket: currentSocket,
         status: currentStatus,
+        target: currentTarget,
+        url: currentTarget?.url ?? '',
       };
     },
-    connect,
+    connect(url = DEFAULT_REMOTE_DEBUGGER_URL) {
+      return runtime.connectExternalDebugger(url);
+    },
+    connectExternalDebugger(url = DEFAULT_REMOTE_DEBUGGER_URL) {
+      return connectToTarget({
+        type: 'external-debugger',
+        url: url || DEFAULT_REMOTE_DEBUGGER_URL,
+      });
+    },
     connectInternal(url = INTERNAL_EXECUTOR_URL) {
-      return connect(url, { isInternalExecutor: true });
+      return url === INTERNAL_EXECUTOR_URL
+        ? runtime.connectInternalDesktopExecutor()
+        : runtime.connectInternalHostedExecutor(url);
     },
-    disconnect,
-    sendMessage(type, data) {
-      if (currentSocket?.readyState === WebSocket.OPEN) {
-        currentSocket.send(JSON.stringify({ type, data }));
-      }
+    connectInternalDesktopExecutor() {
+      return connectToTarget({
+        type: 'internal-desktop',
+        url: INTERNAL_EXECUTOR_URL,
+      });
     },
-    sendRaw(data) {
-      if (currentSocket?.readyState === WebSocket.OPEN) {
-        currentSocket.send(data);
-      }
+    connectInternalHostedExecutor(url) {
+      return connectToTarget({
+        type: 'internal-hosted',
+        url,
+      });
     },
-    isReady() {
-      return currentSocket?.readyState === WebSocket.OPEN;
-    },
-    createRemoteExecutionRequest,
     createPendingGraphExecution(requestId = createRemoteExecutionRequest()) {
       rejectPendingExecution(new Error('graph execution replaced by a newer request'), requestId);
 
@@ -407,8 +586,46 @@ export function createExecutorSessionRuntime(options: {
         reject = rej;
       });
 
-      pendingExecutions.set(requestId, { requestId, promise, resolve, reject });
-      return { requestId, promise };
+      pendingExecutions.set(requestId, { promise, reject, requestId, resolve });
+      return { promise, requestId };
+    },
+    createRemoteExecutionRequest,
+    disconnect,
+    getRuntimeState() {
+      return {
+        capabilities: getCapabilities(),
+        isInternalExecutor: isInternalTarget(currentTarget),
+        remoteUploadAllowed: currentRemoteUploadAllowed,
+        socket: currentSocket,
+        status: currentStatus,
+        target: currentTarget,
+        url: currentTarget?.url ?? '',
+      };
+    },
+    isReady() {
+      return currentSocket?.readyState === WebSocket.OPEN;
+    },
+    rejectPendingGraphExecution(requestId, reason) {
+      if (!requestId) {
+        if (pendingExecutions.size !== 1) {
+          return;
+        }
+
+        requestId = pendingExecutions.keys().next().value as RemoteRunRequestId;
+      }
+
+      rejectPendingExecution(reason, requestId);
+    },
+    recordSocketEvents(recordSocket) {
+      if (!getCapabilities().canRecordSocket || !currentSocket) {
+        logRuntimeDebug('Executor socket recording skipped because the session cannot be recorded.', {
+          status: currentStatus,
+          target: currentTarget?.type ?? 'none',
+        });
+        return undefined;
+      }
+
+      return recordSocket(currentSocket);
     },
     resolvePendingGraphExecution(requestId, outputs) {
       if (!requestId) {
@@ -423,16 +640,39 @@ export function createExecutorSessionRuntime(options: {
       pendingExecution?.resolve(outputs);
       pendingExecutions.delete(requestId);
     },
-    rejectPendingGraphExecution(requestId, reason) {
-      if (!requestId) {
-        if (pendingExecutions.size !== 1) {
-          return;
-        }
-
-        requestId = pendingExecutions.keys().next().value as RemoteRunRequestId;
-      }
-
-      rejectPendingExecution(reason, requestId);
+    sendMessage(type, data) {
+      const message = { data, type } as OutgoingMessage;
+      return safeSendSocket(
+        currentSocket,
+        JSON.stringify(message),
+        'Failed to send executor message',
+        {
+          messageType: type,
+          target: currentTarget?.type ?? 'none',
+        },
+      );
+    },
+    sendRaw(data) {
+      return safeSendSocket(currentSocket, data, 'Failed to send raw executor message', {
+        target: currentTarget?.type ?? 'none',
+      });
+    },
+    setDatasetProvider(datasetProvider) {
+      currentDatasetProvider = datasetProvider;
+      notifySessionStateChanged();
+    },
+    subscribeLifecycle(type, callback) {
+      const callbacks = type === 'connect' ? onConnectCallbacks : onDisconnectCallbacks;
+      callbacks.add(callback);
+      return () => {
+        callbacks.delete(callback);
+      };
+    },
+    subscribeMessages(handler) {
+      debuggerMessageHandlers.add(handler);
+      return () => {
+        debuggerMessageHandlers.delete(handler);
+      };
     },
   };
 
@@ -447,20 +687,88 @@ function isProcessEventMessage(message: IncomingMessage): message is ProcessEven
   return isProcessEventMessageName(message.message);
 }
 
-function legacyConnectionStateFor(status: ExecutorSessionStatus): RemoteDebuggerConnectionState {
+function legacyConnectionStateFor(status: ExecutorSessionStatus): Pick<ExecutorSessionState, 'reconnecting' | 'started'> {
   return {
-    started: status === 'connecting' || status === 'ready',
     reconnecting: status === 'reconnecting',
+    started: status === 'connecting' || status === 'ready',
   };
 }
 
-function targetLabel(isInternalExecutor: boolean) {
-  return isInternalExecutor ? 'internal-sidecar' : 'external-debugger';
+function targetsEqual(left: ExecutorSessionTarget, right: ExecutorSessionTarget) {
+  return left.type === right.type && left.url === right.url;
 }
 
-function sendDatasetResponse(socket: WebSocket, requestId: string, payload: unknown) {
-  const msg: OutgoingMessage = { type: 'datasets:response', data: { requestId, payload } };
-  socket.send(JSON.stringify(msg));
+function isInternalTarget(target: ExecutorSessionTarget | null | undefined) {
+  return target?.type === 'internal-desktop' || target?.type === 'internal-hosted';
+}
+
+function targetLabel(target: ExecutorSessionTarget) {
+  switch (target.type) {
+    case 'external-debugger':
+      return 'external-debugger';
+    case 'internal-desktop':
+      return 'internal-desktop-executor';
+    case 'internal-hosted':
+      return 'internal-hosted-executor';
+  }
+}
+
+function getDatasetRequestId(data: unknown) {
+  return typeof data === 'object' && data != null && 'requestId' in data ? String(data.requestId) : undefined;
+}
+
+function safeSendSocket(
+  socket: WebSocket | null,
+  data: string,
+  context: string,
+  metadata: Record<string, unknown>,
+) {
+  if (socket?.readyState !== WebSocket.OPEN) {
+    logRuntimeDebug('Executor websocket send skipped because socket is not open.', {
+      ...metadata,
+      socketReadyState: socket?.readyState ?? null,
+    });
+    return false;
+  }
+
+  try {
+    socket.send(data);
+    return true;
+  } catch (error) {
+    handleError(error, context, {
+      metadata: {
+        ...metadata,
+        socketUrl: socket.url,
+      },
+      toastError: false,
+    });
+    return false;
+  }
+}
+
+function watchCallbackResult(
+  result: MaybePromise<void>,
+  context: string,
+  metadata: Record<string, unknown>,
+) {
+  void Promise.resolve(result).catch((error) => {
+    reportCallbackError(error, context, metadata);
+  });
+}
+
+function reportCallbackError(error: unknown, context: string, metadata: Record<string, unknown>) {
+  handleError(error, context, {
+    metadata,
+    toastError: false,
+  });
+}
+
+function sendDatasetResponse(socket: WebSocket, requestId: string, payload: unknown, target: ExecutorSessionTarget) {
+  const msg: OutgoingMessage = { type: 'datasets:response', data: { payload, requestId } };
+  safeSendSocket(socket, JSON.stringify(msg), 'Failed to send executor dataset response', {
+    requestId,
+    target: target.type,
+  });
 }
 
 async function handleDatasetsMessage(
@@ -468,49 +776,51 @@ async function handleDatasetsMessage(
   type: keyof DatasetRequestMap,
   data: DatasetRequestPayload<unknown>,
   socket: WebSocket,
+  target: ExecutorSessionTarget,
 ) {
-  const { requestId, payload } = data as DatasetRequestPayload<any>;
+  const { payload, requestId } = data as DatasetRequestPayload<any>;
   await match(type)
     .with('datasets:get-metadata', async () => {
       const metadata = await datasetProvider.getDatasetMetadata(payload.id);
-      sendDatasetResponse(socket, requestId, metadata);
+      sendDatasetResponse(socket, requestId, metadata, target);
     })
     .with('datasets:get-for-project', async () => {
       const metadata = await datasetProvider.getDatasetsForProject(payload.projectId);
-      sendDatasetResponse(socket, requestId, metadata);
+      sendDatasetResponse(socket, requestId, metadata, target);
     })
     .with('datasets:get-data', async () => {
       const datasetData = await datasetProvider.getDatasetData(payload.id);
-      sendDatasetResponse(socket, requestId, datasetData);
+      sendDatasetResponse(socket, requestId, datasetData, target);
     })
     .with('datasets:put-data', async () => {
       await datasetProvider.putDatasetData(payload.id, payload.data);
-      sendDatasetResponse(socket, requestId, undefined);
+      sendDatasetResponse(socket, requestId, undefined, target);
     })
     .with('datasets:put-row', async () => {
       await datasetProvider.putDatasetRow(payload.id, payload.row);
-      sendDatasetResponse(socket, requestId, undefined);
+      sendDatasetResponse(socket, requestId, undefined, target);
     })
     .with('datasets:put-metadata', async () => {
       await datasetProvider.putDatasetMetadata(payload.metadata);
-      sendDatasetResponse(socket, requestId, undefined);
+      sendDatasetResponse(socket, requestId, undefined, target);
     })
     .with('datasets:clear-data', async () => {
       await datasetProvider.clearDatasetData(payload.id);
-      sendDatasetResponse(socket, requestId, undefined);
+      sendDatasetResponse(socket, requestId, undefined, target);
     })
     .with('datasets:delete', async () => {
       await datasetProvider.deleteDataset(payload.id);
-      sendDatasetResponse(socket, requestId, undefined);
+      sendDatasetResponse(socket, requestId, undefined, target);
     })
     .with('datasets:knn', async () => {
       const nearest = await datasetProvider.knnDatasetRows(payload.datasetId, payload.k, payload.vector);
-      sendDatasetResponse(socket, requestId, nearest);
+      sendDatasetResponse(socket, requestId, nearest, target);
     })
     .otherwise(() => {
       handleError(new Error(`Unknown datasets message type: ${String(type)}`), 'Failed to handle datasets message', {
         metadata: {
           requestId,
+          target: target.type,
           type,
         },
         toastError: false,

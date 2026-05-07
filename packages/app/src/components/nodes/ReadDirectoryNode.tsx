@@ -17,7 +17,7 @@ import { useIOProvider } from '../../providers/ProvidersContext.js';
 import { ScalableToggle } from '../ScalableToggle.js';
 
 const container = css`
-  font-family: 'Roboto', sans-serif;
+  font-family: var(--font-family);
   color: var(--foreground);
   background-color: var(--grey-darker);
 

@@ -7,6 +7,29 @@ import { VIEWPORT_SETTLE_MS } from './canvasPerformanceBudget.js';
 
 const SHIFT_WHEEL_ZOOM_MULTIPLIER = 6;
 const MAX_WHEEL_ZOOM_SPEED = 0.95;
+const CANVAS_PAN_SURFACE_CLASSES = ['node-canvas', 'canvas-contents', 'nodes'];
+
+export function isCanvasPanSurface(target: HTMLElement): boolean {
+  if (target.closest('.node.isComment .node-body')) {
+    return true;
+  }
+
+  if (target.closest('.node')) {
+    return false;
+  }
+
+  return CANVAS_PAN_SURFACE_CLASSES.some((className) => target.classList.contains(className));
+}
+
+export function shouldStartCanvasPan({
+  isNodeDragGestureActive,
+  target,
+}: {
+  isNodeDragGestureActive: boolean;
+  target: HTMLElement;
+}): boolean {
+  return !isNodeDragGestureActive && isCanvasPanSurface(target);
+}
 
 export function getWheelZoomFactor({
   wheelDelta,
@@ -46,6 +69,7 @@ export interface UseNodeCanvasInteractionsOptions {
   ) => void;
   setSelectedNodeIds: (ids: NodeId[]) => void;
   startSelectionBox: (x: number, y: number) => void;
+  isNodeDragGestureActive?: () => boolean;
   updateSelectionBox: (
     x: number,
     y: number,
@@ -75,6 +99,7 @@ export const useNodeCanvasInteractions = ({
   setLastSavedCanvasPosition,
   setSelectedNodeIds,
   startSelectionBox,
+  isNodeDragGestureActive = () => false,
   updateSelectionBox,
   zoomSensitivity,
 }: UseNodeCanvasInteractionsOptions) => {
@@ -111,7 +136,13 @@ export const useNodeCanvasInteractions = ({
   };
 
   const canvasMouseDown = useStableCallback((e: React.MouseEvent) => {
-    if (e.button !== 0 || !(e.target as HTMLElement).classList.contains('node-canvas')) {
+    if (
+      e.button !== 0 ||
+      !shouldStartCanvasPan({
+        isNodeDragGestureActive: isNodeDragGestureActive(),
+        target: e.target as HTMLElement,
+      })
+    ) {
       return;
     }
 
@@ -181,6 +212,13 @@ export const useNodeCanvasInteractions = ({
       setLastMousePosition({ x: e.clientX, y: e.clientY });
       lastMouseInfoRef.current = { x: e.clientX, y: e.clientY, target: e.target };
 
+      if (isNodeDragGestureActive()) {
+        if (isDraggingCanvas) {
+          setIsDraggingCanvas(false);
+        }
+        return;
+      }
+
       if (selectionBox) {
         const newSelectedNodeIds = updateSelectionBox(e.clientX, e.clientY, nodes, clientToCanvasPosition, selectedNodeIds);
         if (newSelectedNodeIds) {
@@ -233,6 +271,13 @@ export const useNodeCanvasInteractions = ({
   });
 
   const canvasMouseUp = useStableCallback((e: React.MouseEvent) => {
+    if (isNodeDragGestureActive()) {
+      if (isDraggingCanvas) {
+        setIsDraggingCanvas(false);
+      }
+      return;
+    }
+
     const wasDraggingCanvas = isDraggingCanvas;
 
     if (selectionBox) {

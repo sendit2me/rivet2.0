@@ -2,6 +2,8 @@ import { useDraggable, useDroppable } from '@dnd-kit/core';
 import {
   type CSSProperties,
   type FC,
+  useEffect,
+  useRef,
   useState,
   useMemo,
   type FocusEvent,
@@ -13,7 +15,6 @@ import { useAtom, useAtomValue } from 'jotai';
 import { projectMetadataState } from '../../state/savedGraphs.js';
 import { range } from 'lodash-es';
 import clsx from 'clsx';
-import { LoadingSpinner } from '../LoadingSpinner.js';
 import { type GraphId, type NodeGraph } from '@valerypopoff/rivet2-core';
 import FolderIcon from 'majesticons/line/folder-line.svg?react';
 import { useStableCallback } from '../../hooks/useStableCallback.js';
@@ -22,6 +23,7 @@ import { expandedFoldersState } from '../../state/ui';
 import { countGraphsInFolder, type NodeGraphFolderItem } from './graphFolders';
 import { type GraphReachabilityBucket } from '../../utils/graphReachability.js';
 import { MainGraphIcon } from './MainGraphIcon';
+import { NodeRunningIndicator } from '../visualNode/NodeRunningIndicator.js';
 
 export const FolderItem: FC<{
   item: NodeGraphFolderItem;
@@ -86,6 +88,8 @@ export const FolderItem: FC<{
       transform,
       isDragging,
     } = useDraggable({ id: fullPath });
+    const suppressNextClickRef = useRef(false);
+    const draggableRowProps = isRenaming ? {} : { ...listeners, ...attributes };
     const style: CSSProperties = transform ? { transform: `translate3d(0, ${transform.y}px, 0)`, zIndex: 100 } : {};
     const { setNodeRef: setDroppableNodeRef } = useDroppable({
       id: item.type === 'folder' ? fullPath + '/' : fullPath,
@@ -104,6 +108,25 @@ export const FolderItem: FC<{
         ...prev,
         [`${projectMetadata.id}/${fullPath}`]: expanded,
       }));
+    });
+
+    useEffect(() => {
+      if (isDragging) {
+        suppressNextClickRef.current = true;
+      }
+    }, [isDragging]);
+
+    const handleItemClick = useStableCallback(() => {
+      if (suppressNextClickRef.current) {
+        suppressNextClickRef.current = false;
+        return;
+      }
+
+      if (item.type === 'graph') {
+        onGraphSelected?.(item.graph);
+      } else {
+        setExpanded(!isExpanded);
+      }
     });
 
     return (
@@ -133,7 +156,8 @@ export const FolderItem: FC<{
             })}
             <div
               className="graph-item-select"
-              onClick={() => (item.type === 'graph' ? onGraphSelected?.(item.graph) : setExpanded(!isExpanded))}
+              {...draggableRowProps}
+              onClick={handleItemClick}
             >
               {isRenaming ? (
                 <FolderItemRename value={fullPath.replace(/.*\//, '')} onSaved={handleRenameSaved} />
@@ -141,12 +165,11 @@ export const FolderItem: FC<{
                 <>
                   {graphIsRunning && (
                     <div className="spinner">
-                      <LoadingSpinner />
+                      <NodeRunningIndicator isRunning delayMs={0} label="Graph running" />
                     </div>
                   )}
                   {referencesSelectedGraph && <span className="graph-reference-dot" aria-hidden="true" />}
                   <span className="graph-item-name">
-                    {isMainGraph && <MainGraphIcon className="graph-main-icon" />}
                     {item.type === 'folder' &&
                       (isExpanded ? (
                         <OpenFolderIcon className="graph-folder-icon" aria-hidden="true" />
@@ -154,6 +177,7 @@ export const FolderItem: FC<{
                         <FolderIcon className="graph-folder-icon" aria-hidden="true" />
                       ))}
                     <span className="graph-item-name-text">{item.name}</span>
+                    {isMainGraph && <MainGraphIcon className="graph-main-icon" />}
                     {folderGraphCount != null && (
                       <span className="graph-folder-count">
                         <span>{folderGraphCount}</span>
@@ -167,9 +191,6 @@ export const FolderItem: FC<{
                   unreachable
                 </span>
               )}
-              <div className="dragger" onClick={(event) => event.stopPropagation()} {...listeners} {...attributes}>
-                <DragHandleIcon />
-              </div>
             </div>
           </div>
           {item.type === 'folder' && (
@@ -200,17 +221,6 @@ export const FolderItem: FC<{
 );
 
 FolderItem.displayName = 'FolderItem';
-
-const DragHandleIcon: FC = () => (
-  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-    <circle cx="4" cy="3" r="1" fill="currentColor" />
-    <circle cx="10" cy="3" r="1" fill="currentColor" />
-    <circle cx="4" cy="7" r="1" fill="currentColor" />
-    <circle cx="10" cy="7" r="1" fill="currentColor" />
-    <circle cx="4" cy="11" r="1" fill="currentColor" />
-    <circle cx="10" cy="11" r="1" fill="currentColor" />
-  </svg>
-);
 
 const OpenFolderIcon: FC<SVGProps<SVGSVGElement>> = (props) => (
   <svg viewBox="0 0 24 24" fill="none" {...props}>

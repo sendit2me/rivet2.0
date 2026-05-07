@@ -35,10 +35,10 @@ test('createAddedNode applies configured default colors to supported node types'
     applyDefaultColor: true,
   });
 
-  assert.deepEqual(graphInputNode.visualData.color, { bg: 'var(--node-color-3)', border: 'var(--node-color-3)' });
-  assert.deepEqual(graphOutputNode.visualData.color, { bg: 'var(--node-color-3)', border: 'var(--node-color-3)' });
-  assert.deepEqual(httpCallNode.visualData.color, { bg: 'var(--node-color-6)', border: 'var(--node-color-6)' });
-  assert.deepEqual(subGraphNode.visualData.color, { bg: 'var(--node-color-2)', border: 'var(--node-color-2)' });
+  assert.deepEqual(graphInputNode.visualData.color, { bg: 'var(--node-color-3)', border: 'transparent' });
+  assert.deepEqual(graphOutputNode.visualData.color, { bg: 'var(--node-color-3)', border: 'transparent' });
+  assert.deepEqual(httpCallNode.visualData.color, { bg: 'var(--node-color-6)', border: 'transparent' });
+  assert.deepEqual(subGraphNode.visualData.color, { bg: 'var(--node-color-2)', border: 'transparent' });
 });
 
 test('createAddedNode leaves node colors untouched when default node colors are disabled or unsupported', () => {

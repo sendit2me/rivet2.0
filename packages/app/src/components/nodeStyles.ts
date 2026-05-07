@@ -22,13 +22,14 @@ export const nodeStyles = css`
     /* max-width: 500px; */
     width: 450px;
     padding: 12px;
-    font-family: 'Roboto Mono', monospace;
+    font-family: var(--font-family-monospace);
     /* transition-duration: 0.2s; TODO */
     transition-timing-function: ease-out;
     transition-property: box-shadow;
     transform-origin: top left;
     contain: layout;
     isolation: isolate;
+    pointer-events: auto;
   }
 
   .node:focus {
@@ -59,12 +60,16 @@ export const nodeStyles = css`
 
   .node.isComment {
     background-color: rgba(46, 46, 46, 0.1);
-    pointer-events: none;
+    pointer-events: auto;
     padding: 0;
   }
 
   .node.isComment .node-body {
-    pointer-events: all;
+    pointer-events: auto;
+  }
+
+  .node.isComment .node-body * {
+    pointer-events: none;
   }
 
   .node.zoomedOut {
@@ -108,13 +113,13 @@ export const nodeStyles = css`
     transition: border-color 0.2s ease-out;
   }
 
-  .node.hasCustomColor .node-border-overlay {
+  .node.hasCustomBorderColor .node-border-overlay {
     border-color: var(--node-frame-border-color, var(--node-border));
   }
 
   .node-title {
     background-color: var(--node-bg);
-    font-family: 'Roboto', sans-serif;
+    font-family: var(--font-family);
     color: var(--node-bg-foreground);
     padding: 14px 14px 12px 14px;
     margin: -12px -12px 8px -11px;
@@ -179,9 +184,13 @@ export const nodeStyles = css`
 
   .node.node.isComment .node-title {
     padding: 4px;
-    background-color: var(--grey-darkish-seethrough);
-    pointer-events: all;
+    background-color: var(--grey-darkish);
+    pointer-events: auto;
     margin: 0;
+  }
+
+  .node.node.isComment .node-title * {
+    pointer-events: auto;
   }
 
   .node.isComment .node-border-overlay {
@@ -192,6 +201,15 @@ export const nodeStyles = css`
   .node.isComment.overlayNode .node-border-overlay,
   .node.isComment.searchMatch .node-border-overlay {
     display: block;
+  }
+
+  .node.isComment.overlayNode {
+    box-shadow: none;
+  }
+
+  .node.isComment.overlayNode .node-title,
+  .node.isComment.overlayNode .node-title * {
+    pointer-events: none;
   }
 
   .node.zoomedOut .node-title {
@@ -299,10 +317,9 @@ export const nodeStyles = css`
     align-items: center;
     gap: calc(6px * var(--ui-font-scale));
     min-height: calc(24px * var(--ui-font-scale));
-    padding: calc(2px * var(--ui-font-scale)) calc(6px * var(--ui-font-scale))
-      calc(2px * var(--ui-font-scale)) calc(4px * var(--ui-font-scale));
+    padding: 0.1em 0.6em 0.1em 0.4em;
     border: 0;
-    border-radius: calc(8px * var(--ui-font-scale));
+    border-radius: 0.8em;
     corner-shape: squircle;
     background: color-mix(in srgb, var(--node-bg-foreground) 85%, transparent);
     color: var(--node-bg);
@@ -311,18 +328,17 @@ export const nodeStyles = css`
     white-space: nowrap;
     font-family: inherit;
     font-size: var(--ui-font-size-xs);
-    font-weight: 900;
-    line-height: 1.2;
-    letter-spacing: calc(0.4px * var(--ui-font-scale));
+    font-weight: 700;
+    line-height: 1.3;
     text-transform: none;
     margin-top: calc(6px * var(--ui-font-scale));
-    margin-left: calc(-1px * var(--ui-font-scale));
+    margin-left: -0.1em;
   }
 
   .split-run-summary-mode {
-    font-weight: 900;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: calc(1.2px * var(--ui-font-scale));
+    letter-spacing: calc(1.0px * var(--ui-font-scale));
   }
 
   .split-run-summary:hover {
@@ -452,7 +468,18 @@ export const nodeStyles = css`
   }
 
   .node.isComment .node-body {
-    height: 100%;
+    border-radius: 0 0 var(--node-card-radius) var(--node-card-radius);
+    corner-shape: var(--node-card-corner-shape);
+    flex: 1;
+    height: auto;
+    margin-bottom: 0;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .node.isComment .node-body > * {
+    border-radius: inherit;
+    corner-shape: inherit;
   }
 
   .node-title-ports {
@@ -524,13 +551,14 @@ export const nodeStyles = css`
   }
 
   .port-label-uppercase {
+    letter-spacing: 1px;
     text-transform: uppercase;
   }
 
   .port-label {
     color: var(--grey-lighter);
     font-size: var(--ui-font-size-2xs);
-    letter-spacing: 1px;
+    line-height: 16px;
     margin: 0 4px;
     white-space: nowrap;
     user-select: none;
@@ -925,7 +953,7 @@ export const nodeStyles = css`
   }
 
   .node.isComment .resize-handle {
-    pointer-events: all;
+    pointer-events: auto;
   }
 
   .node.running {

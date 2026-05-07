@@ -129,14 +129,17 @@ function shouldUseCodeErrorOutput(node: ChartNode, data: NodeRunDataWithRefs): b
 }
 
 const fullscreenOutputCss = css`
-  --fullscreen-output-header-sticky-top: 16px;
-
   position: relative;
+  min-height: 100%;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
 
   .fullscreen-header {
     position: sticky;
-    top: var(--fullscreen-output-header-sticky-top);
+    top: 0;
     z-index: 1;
+    flex: 0 0 auto;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -193,6 +196,27 @@ const fullscreenOutputCss = css`
     box-shadow: 4px 4px 8px var(--shadow-dark);
   }
 
+  .fullscreen-output-body {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+  }
+
+  .fullscreen-output-body.wrap-lines .pre-wrap,
+  .fullscreen-output-body.wrap-lines .rendered-object-type pre,
+  .fullscreen-output-body.markdown-lines .rivet-markdown-output.markdown-body pre {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    overflow-x: visible;
+  }
+
+  .fullscreen-output-body.no-wrap-lines .pre-wrap,
+  .fullscreen-output-body.no-wrap-lines .rendered-object-type pre {
+    white-space: pre;
+    overflow-wrap: normal;
+    overflow-x: visible;
+  }
+
   .${MATCH_CLASS} {
     background: rgba(255, 214, 10, 0.3);
     border-radius: 4px;
@@ -236,16 +260,6 @@ function getScrollContainerTop(scrollContainer: HTMLElement | Window): number {
   return scrollContainer.scrollTop;
 }
 
-function getStickyTopForHeader(headerElement: HTMLElement, scrollContainer: HTMLElement | Window): number {
-  const headerTop = headerElement.getBoundingClientRect().top;
-
-  if (isWindowScrollContainer(scrollContainer)) {
-    return headerTop;
-  }
-
-  return headerTop - scrollContainer.getBoundingClientRect().top;
-}
-
 const renderNodeOutputPager = ({
   onNextPage,
   onPrevPage,
@@ -280,7 +294,6 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
   const [selectedPage, setSelectedPage] = useAtom(selectedProcessPageState(node.id));
   const graphSelectionOptions = useAtomValue(resolvedGraphSelectionState);
   const fullscreenOutputRootRef = useRef<HTMLDivElement>(null);
-  const fullscreenHeaderRef = useRef<HTMLElement>(null);
   const [isHeaderOverContent, setIsHeaderOverContent] = useState(false);
 
   const filteredOutput = useMemo(
@@ -291,6 +304,7 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
   const { FullscreenOutput, Output, OutputSimple, FullscreenOutputSimple, defaultRenderMarkdown, getCopyValueData } =
     useUnknownNodeComponentDescriptorFor(node);
 
+  const [wrapLines, toggleWrapLines] = useToggle(true);
   const [renderMarkdown, toggleRenderMarkdown] = useToggle(defaultRenderMarkdown ?? false);
 
   const setOverlayOpen = useSetAtom(overlayOpenState);
@@ -346,20 +360,12 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
 
   useLayoutEffect(() => {
     const rootElement = fullscreenOutputRootRef.current;
-    const headerElement = fullscreenHeaderRef.current;
-    if (!rootElement || !headerElement || typeof window === 'undefined') {
+    if (!rootElement || typeof window === 'undefined') {
       return;
     }
 
     const scrollContainer = findScrollContainer(rootElement);
     let animationFrame: number | undefined;
-
-    const updateHeaderStickyTop = () => {
-      rootElement.style.setProperty(
-        '--fullscreen-output-header-sticky-top',
-        `${getStickyTopForHeader(headerElement, scrollContainer)}px`,
-      );
-    };
 
     const updateHeaderElevation = () => {
       if (animationFrame !== undefined) {
@@ -372,10 +378,8 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
       });
     };
 
-    updateHeaderStickyTop();
     updateHeaderElevation();
     scrollContainer.addEventListener('scroll', updateHeaderElevation, { passive: true });
-    window.addEventListener('resize', updateHeaderStickyTop);
     window.addEventListener('resize', updateHeaderElevation);
 
     return () => {
@@ -384,7 +388,6 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
       }
 
       scrollContainer.removeEventListener('scroll', updateHeaderElevation);
-      window.removeEventListener('resize', updateHeaderStickyTop);
       window.removeEventListener('resize', updateHeaderElevation);
     };
   }, [contentVersion]);
@@ -443,7 +446,7 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
 
   return (
     <div css={fullscreenOutputCss} ref={fullscreenOutputRootRef}>
-      <header ref={fullscreenHeaderRef} className={`fullscreen-header${isHeaderOverContent ? ' is-over-content' : ''}`}>
+      <header className={`fullscreen-header${isHeaderOverContent ? ' is-over-content' : ''}`}>
         {filteredOutput.length > 1 ? (
           renderNodeOutputPager({
             selectedPage,
@@ -455,8 +458,10 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
           <div />
         )}
         <FullscreenNodeOutputToolbar
+          wrapLines={wrapLines}
           renderMarkdown={renderMarkdown}
           isOverContent={isHeaderOverContent}
+          onToggleWrapLines={toggleWrapLines.toggle}
           onToggleRenderMarkdown={toggleRenderMarkdown.toggle}
           query={query}
           onQueryChange={setQuery}
@@ -473,7 +478,12 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
       </header>
 
       <FullscreenOutputSearchContext.Provider value={fullscreenOutputSearchContext}>
-        <div ref={fullscreenOutputBodyRef} className="fullscreen-output-body">
+        <div
+          ref={fullscreenOutputBodyRef}
+          className={`fullscreen-output-body ${wrapLines ? 'wrap-lines' : 'no-wrap-lines'}${
+            renderMarkdown ? ' markdown-lines' : ''
+          }`}
+        >
           {body}
         </div>
       </FullscreenOutputSearchContext.Provider>

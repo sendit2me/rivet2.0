@@ -15,7 +15,7 @@ type ReadFileNodeBodyProps = {
 const currentPathCss = css`
   white-space: pre-wrap;
   word-wrap: break-word;
-  font-family: 'Roboto mono', monospace;
+  font-family: var(--font-family-monospace);
   color: var(--primary-text);
 `;
 
@@ -38,7 +38,7 @@ export type ReadFileNodeEditorProps = {
 };
 
 const container = css`
-  font-family: 'Roboto', sans-serif;
+  font-family: var(--font-family);
   color: var(--foreground);
   background-color: var(--grey-darker);
 

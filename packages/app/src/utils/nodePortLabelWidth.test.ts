@@ -31,6 +31,10 @@ test('getRenderedPortLabel follows the port label case setting', () => {
   assert.equal(getRenderedPortLabel('Request error', true), 'Request error');
 });
 
+test('estimatePortLabelWidth only includes letter spacing for capitalized labels', () => {
+  assert.equal(estimatePortLabelWidth('Status', false), estimatePortLabelWidth('Status', true) + 'Status'.length - 1);
+});
+
 test('getMinimumNodeWidthForPortLabels keeps short-port nodes at the default minimum', () => {
   const minimumWidth = getMinimumNodeWidthForPortLabels({
     inputDefinitions: [inputDefinition('In')],

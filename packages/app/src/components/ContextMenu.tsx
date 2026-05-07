@@ -25,6 +25,7 @@ import {
 
 const menuReferenceStyles = css`
   position: absolute;
+  z-index: 3000;
   &.disabled {
     display: none;
   }
@@ -555,7 +556,7 @@ const contextMenuInfoBoxStyles = css`
   z-index: 1;
   padding: 16px 16px;
   width: 500px;
-  font-family: 'Roboto', sans-serif;
+  font-family: var(--font-family);
   white-space: normal;
 
   img {

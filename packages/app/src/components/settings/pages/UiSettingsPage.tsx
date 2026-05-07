@@ -32,6 +32,7 @@ export const UiSettingsPage: FC = () => {
   const [preservePortTextCase, setPreservePortTextCase] = useAtom(preservePortTextCaseState);
   const editorPreferences = resolveEditorPreferences(settings);
   const normalizedUiFontSize = clampUiFontSize(uiFontSize);
+  const capitalizeNodePortNames = !preservePortTextCase;
 
   return (
     <div css={fields}>
@@ -99,18 +100,18 @@ export const UiSettingsPage: FC = () => {
           </>
         )}
       </Field>
-      <Field name="preserve-port-text-case">
+      <Field name="capitalize-node-port-names">
         {() => (
           <>
             <LabeledToggle
-              id="preserve-port-text-case"
-              isChecked={preservePortTextCase}
-              onChange={setPreservePortTextCase}
-              label="Preserve text case for node ports"
+              id="capitalize-node-port-names"
+              isChecked={capitalizeNodePortNames}
+              onChange={(value) => setPreservePortTextCase(!value)}
+              label="Capitalize node port names"
               helperMessage={
                 <>
-                  This WILL preserve the text format of the node port names. e.g. `newInputPort` will be shown instead
-                  of `NEWINPUTPORT` when enabled
+                  When enabled, node port names are shown in uppercase, e.g. `newInputPort` is shown as `NEWINPUTPORT`.
+                  Disable this to preserve the original text case for each port.
                 </>
               }
               className="settings-toggle-field"

@@ -57,28 +57,28 @@ export const DraggableNode: FC<DraggableNodeProps> = memo(
     const shouldKeepSourceNodeVisible = dragMode === 'duplicate' && isDragging;
     const constrainedTransform = transform ? constrainDragDeltaToAxisLock(transform, dragAxisLock) : null;
 
-    const handleAttributes = useMemo(
-      () => ({
+    const handleAttributes = useMemo(() => {
+      const handleDragActivatorPointerDown = (
+        event: ReactMouseEvent<HTMLDivElement> | ReactPointerEvent<HTMLDivElement>,
+      ) => {
+        if (event.button !== 0) {
+          return;
+        }
+
+        onDragActivatorPointerDown({
+          altKey: event.altKey,
+          hoverControlsVisible: isHovered,
+          nodeId: node.id,
+          shiftKey: event.shiftKey,
+        });
+      };
+
+      return {
         ...(listeners ?? {}),
-        onMouseDownCapture: (event: ReactMouseEvent<HTMLDivElement>) => {
-          onDragActivatorPointerDown({
-            altKey: event.altKey,
-            hoverControlsVisible: isHovered,
-            nodeId: node.id,
-            shiftKey: event.shiftKey,
-          });
-        },
-        onPointerDownCapture: (event: ReactPointerEvent<HTMLDivElement>) => {
-          onDragActivatorPointerDown({
-            altKey: event.altKey,
-            hoverControlsVisible: isHovered,
-            nodeId: node.id,
-            shiftKey: event.shiftKey,
-          });
-        },
-      }),
-      [isHovered, listeners, node.id, onDragActivatorPointerDown],
-    );
+        onMouseDownCapture: handleDragActivatorPointerDown,
+        onPointerDownCapture: handleDragActivatorPointerDown,
+      };
+    }, [isHovered, listeners, node.id, onDragActivatorPointerDown]);
 
     return (
       <ErrorBoundary fallback={<div>Failed to render node</div>}>

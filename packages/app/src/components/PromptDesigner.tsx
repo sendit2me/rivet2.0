@@ -63,7 +63,7 @@ const styles = css`
     cursor: pointer;
     font-size: var(--ui-font-size-base);
     line-height: 22px;
-    font-family: 'Roboto', sans-serif;
+    font-family: var(--font-family);
     display: flex;
     flex-direction: column;
     position: relative;
@@ -85,7 +85,7 @@ const styles = css`
     }
 
     .message-text pre {
-      font-family: 'Roboto', sans-serif;
+      font-family: var(--font-family);
       user-select: none;
     }
   }
@@ -118,7 +118,7 @@ const styles = css`
   .message-editor {
     width: 100%;
     font-size: var(--ui-font-size-base);
-    font-family: 'Roboto', sans-serif;
+    font-family: var(--font-family);
     line-height: 22px;
     resize: none;
     overflow: hidden;

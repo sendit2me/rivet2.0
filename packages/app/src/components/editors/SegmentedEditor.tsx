@@ -24,12 +24,10 @@ const segmentedEditorStyles = css`
     margin-left: -0.2em;
     box-sizing: border-box;
     background: rgba(0, 0, 0, 0.22);
-    border: 1px solid rgba(255, 255, 255, 0.09);
+    border: 0;
     border-radius: calc(32px * var(--ui-font-scale));
     corner-shape: superellipse(1.15);
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.05),
-      0 1px 2px rgba(0, 0, 0, 0.18);
+    box-shadow: none;
   }
 
   .segmented-choice[data-wrap='true'] {
@@ -60,8 +58,7 @@ const segmentedEditorStyles = css`
     cursor: pointer;
     transition:
       background-color 0.14s ease-out,
-      color 0.14s ease-out,
-      box-shadow 0.14s ease-out;
+      color 0.14s ease-out;
   }
 
   .segmented-choice[data-wrap='true'] .segmented-choice-option {
@@ -87,9 +84,7 @@ const segmentedEditorStyles = css`
   .segmented-choice-option.is-active {
     background: var(--primary);
     color: var(--grey-darkest);
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.24),
-      0 1px 2px rgba(0, 0, 0, 0.3);
+    box-shadow: none;
   }
 
   .segmented-choice-option:focus-visible {

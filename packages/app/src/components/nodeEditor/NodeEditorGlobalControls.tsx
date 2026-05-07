@@ -8,6 +8,7 @@ import { NodeMetadataEditor } from './NodeMetadataEditor.js';
 import { LabeledToggle } from '../LabeledToggle.js';
 import { SegmentedEditor } from '../editors/SegmentedEditor.js';
 import GitBranchIcon from 'majesticons/line/git-branch-line.svg?react';
+import type { NodeColor } from '../../utils/nodeColor.js';
 
 type HeaderToggleFieldProps = {
   id: string;
@@ -88,7 +89,7 @@ export const NodeEditorGlobalControls: FC<{
   selectedVariantOption: { value: string; label: string } | undefined;
   onTitleChange: (title: string) => void;
   onDescriptionChange: (description: string) => void;
-  onColorChange: (color: { bg: string; border: string } | undefined) => void;
+  onColorChange: (color: NodeColor | undefined) => void;
   onDisabledChange: (disabled: boolean) => void;
   onUpdateNode: (node: ChartNode) => void;
   onApplyVariant: () => void;

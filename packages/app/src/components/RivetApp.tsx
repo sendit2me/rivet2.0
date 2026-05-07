@@ -30,7 +30,7 @@ import { openedProjectsSortedIdsState } from '../state/savedGraphs';
 import { NoProject } from './NoProject';
 import { AppErrorBoundary } from './AppErrorBoundary';
 import { wrapAsync } from '../utils/errorHandling';
-import { useExecutorSession } from '../hooks/useExecutorSession';
+import { useExecutorSessionCoordinator } from '../hooks/useExecutorSessionCoordinator';
 import { useRestorePersistedWorkspace } from '../hooks/useRestorePersistedWorkspace.js';
 import { DeleteGraphInputConfirmModalRenderer } from './DeleteGraphInputConfirmModal';
 import { overlayOpenState, uiFontSizeState } from '../state/ui.js';
@@ -57,7 +57,7 @@ export const RivetApp: FC = () => {
     // settings default should only affect future app starts.
   }, [selectedExecutor, setSelectedExecutor]);
 
-  useExecutorSession(selectedExecutor);
+  useExecutorSessionCoordinator(selectedExecutor);
   const { tryRunGraph, tryRunTests, tryAbortGraph, tryPauseGraph, tryResumeGraph } = useGraphExecutor();
   const theme = useAtomValue(themeState);
   const uiFontSize = useAtomValue(uiFontSizeState);

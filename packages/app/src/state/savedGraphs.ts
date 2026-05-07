@@ -20,7 +20,6 @@ export type ProjectContext = Record<
   string,
   {
     value: DataValue;
-    secret: boolean;
   }
 >;
 

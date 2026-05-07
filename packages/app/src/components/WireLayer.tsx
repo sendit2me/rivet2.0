@@ -22,6 +22,9 @@ import { useRenderableWires } from './nodeCanvas/useRenderableWires.js';
 import type { LineClipRect } from '../utils/lineClipping.js';
 
 const wiresStyles = css`
+  position: absolute;
+  inset: 0;
+  z-index: 1;
   width: 100%;
   height: 100%;
   pointer-events: none;

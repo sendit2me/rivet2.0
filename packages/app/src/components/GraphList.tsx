@@ -1,14 +1,15 @@
-import { DndContext, useDroppable } from '@dnd-kit/core';
+import { DndContext, PointerSensor, useDroppable, useSensor, useSensors } from '@dnd-kit/core';
 import { css } from '@emotion/react';
 import { type FC, type MouseEvent, type KeyboardEvent, memo, useMemo, useState } from 'react';
-import { useAtomValue } from 'jotai';
+import { useAtomValue, useSetAtom } from 'jotai';
 import Button from '@atlaskit/button';
 import Modal, { ModalBody, ModalFooter, ModalTransition } from '@atlaskit/modal-dialog';
 import { type GraphId, type NodeGraph } from '@valerypopoff/rivet2-core';
 import clsx from 'clsx';
 import { runningGraphsState } from '../state/dataFlow.js';
+import { graphState } from '../state/graph.js';
 import { pluginsState } from '../state/plugins.js';
-import { projectState } from '../state/savedGraphs.js';
+import { projectState, savedGraphsState } from '../state/savedGraphs.js';
 import { showGraphReferenceIndicatorsState, showUnreachableGraphTagsState } from '../state/ui.js';
 import { useContextMenu } from '../hooks/useContextMenu.js';
 import Portal from '@atlaskit/portal';
@@ -33,9 +34,13 @@ import { type ContextMenuItem as ContextMenuConfigItem } from '../hooks/useConte
 import EditPenIcon from 'majesticons/line/edit-pen-2-line.svg?react';
 import DuplicateIcon from 'majesticons/line/image-multiple-line.svg?react';
 import DeleteIcon from 'majesticons/line/delete-bin-line.svg?react';
+import InfoIcon from 'majesticons/line/info-circle-line.svg?react';
+import SettingsCogIcon from 'majesticons/line/settings-cog-line.svg?react';
 import PlusIcon from 'majesticons/line/plus-line.svg?react';
 import FolderIcon from 'majesticons/line/folder-line.svg?react';
 import { MainGraphIcon } from './graphList/MainGraphIcon';
+import { GraphInfoModal } from './GraphInfoModal';
+import { ProjectInfoModal } from './ProjectInfoModal';
 
 const styles = css`
   display: flex;
@@ -48,6 +53,15 @@ const styles = css`
     flex-direction: column;
     flex: 1 1 auto;
     min-height: 0;
+  }
+
+  .graph-list-toolbar {
+    margin: 8px 8px 0;
+
+    svg {
+      width: 16px;
+      height: 16px;
+    }
   }
 
   .graph-list {
@@ -99,6 +113,10 @@ const styles = css`
     min-width: 0;
     border-radius: 8px;
     corner-shape: squircle;
+  }
+
+  .dragging .graph-item-select {
+    cursor: grabbing;
   }
 
   .graph-item-name {
@@ -186,22 +204,15 @@ const styles = css`
     }
   }
 
-  .selected .spinner svg {
-    color: var(--foreground-on-primary);
-  }
-
-  .dragger {
-    visibility: hidden;
+  .spinner {
     display: flex;
     align-items: center;
     justify-content: center;
-    cursor: grab;
-    flex-shrink: 0;
     color: currentColor;
   }
 
-  .graph-item:hover .dragger {
-    visibility: visible;
+  .selected .spinner {
+    color: var(--foreground-on-primary);
   }
 
   .graph-list-spacer {
@@ -332,15 +343,26 @@ export const GraphList: FC = memo(() => {
     startRename,
     renameFolderItem,
   } = useGraphOperations();
+  const setGraph = useSetAtom(graphState);
+  const setSavedGraphs = useSetAtom(savedGraphsState);
 
   const { draggingItemFolder, dragOverFolderName, handleDragStart, handleDragEnd, handleDragOver } =
     useGraphListDragDrop(renameFolderItem);
+  const dragSensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 4,
+      },
+    }),
+  );
 
   const runningGraphs = useAtomValue(runningGraphsState);
   const project = useAtomValue(projectState);
   const plugins = useAtomValue(pluginsState);
   const projectNodeRegistry = useProjectNodeRegistry();
   const [graphPendingDelete, setGraphPendingDelete] = useState<NodeGraph | null>(null);
+  const [graphPendingInfo, setGraphPendingInfo] = useState<NodeGraph | null>(null);
+  const [isProjectInfoOpen, setIsProjectInfoOpen] = useState(false);
   const showUnreachableGraphTags = useAtomValue(showUnreachableGraphTagsState);
   const showGraphReferenceIndicators = useAtomValue(showGraphReferenceIndicatorsState);
 
@@ -412,6 +434,24 @@ export const GraphList: FC = memo(() => {
     setGraphPendingDelete(null);
   });
 
+  const updateGraphInfo = useStableCallback((updatedGraph: NodeGraph) => {
+    const updatedGraphId = updatedGraph.metadata?.id;
+
+    if (updatedGraphId == null) {
+      setGraphPendingInfo(updatedGraph);
+      return;
+    }
+
+    setGraphPendingInfo(updatedGraph);
+    setSavedGraphs((prev) =>
+      prev.map((savedGraph) => (savedGraph.metadata?.id === updatedGraphId ? updatedGraph : savedGraph)),
+    );
+
+    if (graph.metadata?.id === updatedGraphId) {
+      setGraph(updatedGraph);
+    }
+  });
+
   const graphItemMenuItems = useMemo(
     (): ContextMenuConfigItem[] => [
       {
@@ -423,6 +463,11 @@ export const GraphList: FC = memo(() => {
         id: 'duplicate-graph',
         label: 'Duplicate',
         icon: DuplicateIcon,
+      },
+      {
+        id: 'graph-info',
+        label: 'Graph info',
+        icon: InfoIcon,
       },
       ...(selectedGraphForContextMenu && !selectedGraphIsMain
         ? [
@@ -502,6 +547,11 @@ export const GraphList: FC = memo(() => {
       case 'duplicate-graph':
         duplicateGraph(selectedGraphForContextMenu!);
         break;
+      case 'graph-info':
+        if (selectedGraphForContextMenu) {
+          setGraphPendingInfo(selectedGraphForContextMenu);
+        }
+        break;
       case 'make-main-graph':
         if (selectedGraphForContextMenu) {
           makeMainGraph(selectedGraphForContextMenu);
@@ -560,6 +610,11 @@ export const GraphList: FC = memo(() => {
 
   return (
     <div css={styles}>
+      <div className="graph-list-toolbar">
+        <Button shouldFitContainer iconBefore={<SettingsCogIcon />} onClick={() => setIsProjectInfoOpen(true)}>
+          Project settings
+        </Button>
+      </div>
       <div className="search">
         <input
           autoComplete="off"
@@ -581,7 +636,12 @@ export const GraphList: FC = memo(() => {
         <div
           className={clsx('graph-list', { 'dragging-over': dragOverFolderName === '' && draggingItemFolder !== '' })}
         >
-          <DndContext onDragEnd={handleDragEnd} onDragOver={handleDragOver} onDragStart={handleDragStart}>
+          <DndContext
+            sensors={dragSensors}
+            onDragEnd={handleDragEnd}
+            onDragOver={handleDragOver}
+            onDragStart={handleDragStart}
+          >
             {folderedGraphs.map((item) => (
               <FolderItem
                 key={item.type === 'graph' ? item.graph.metadata?.id : item.fullPath}
@@ -674,6 +734,12 @@ export const GraphList: FC = memo(() => {
           onClose={() => setGraphPendingDelete(null)}
           onConfirm={confirmDeleteGraph}
         />
+        <GraphInfoModal
+          graph={graphPendingInfo}
+          onChange={updateGraphInfo}
+          onClose={() => setGraphPendingInfo(null)}
+        />
+        <ProjectInfoModal isOpen={isProjectInfoOpen} onClose={() => setIsProjectInfoOpen(false)} />
       </div>
     </div>
   );

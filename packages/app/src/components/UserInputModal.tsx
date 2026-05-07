@@ -18,7 +18,7 @@ import { AppModalHeader } from './AppModalHeader';
 const styles = css`
   .question {
     margin-bottom: 8px;
-    font-family: 'Roboto', sans-serif;
+    font-family: var(--font-family);
   }
 
   .editor {

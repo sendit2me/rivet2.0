@@ -52,6 +52,18 @@ const styles = css`
     word-break: break-word;
   }
 
+  .fullscreen-output-body.wrap-lines & pre {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .fullscreen-output-body.no-wrap-lines & pre {
+    white-space: pre;
+    overflow-wrap: normal;
+    word-break: normal;
+  }
+
   .chunk-pager {
     display: flex;
     align-items: center;

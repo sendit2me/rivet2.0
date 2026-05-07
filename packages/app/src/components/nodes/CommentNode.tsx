@@ -5,7 +5,7 @@ import { useMarkdown } from '../../hooks/useMarkdown';
 import { css } from '@emotion/react';
 
 const styles = css`
-  font-family: 'Roboto', sans-serif;
+  font-family: var(--font-family);
   padding: 20px;
   height: 100%;
 

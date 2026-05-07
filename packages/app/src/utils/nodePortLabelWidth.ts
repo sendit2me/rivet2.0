@@ -12,6 +12,7 @@ import { MIN_NODE_WIDTH } from './nodeResize.js';
 // closely enough to avoid over-wide nodes while still giving long labels room.
 const PORT_LABEL_CHARACTER_WIDTH_PX = 7.2;
 const PORT_LABEL_HORIZONTAL_MARGIN_PX = 8;
+const PORT_LABEL_UPPERCASE_LETTER_SPACING_PX = 1;
 const PORT_CIRCLE_VISIBLE_WIDTH_PX = 8;
 const PORT_COLUMN_GAP_PX = 12;
 
@@ -34,7 +35,15 @@ export function estimatePortLabelWidth(title: string, preservePortCase: boolean,
     return 0;
   }
 
-  return Math.ceil(renderedLabel.length * PORT_LABEL_CHARACTER_WIDTH_PX * uiFontScale + PORT_LABEL_HORIZONTAL_MARGIN_PX);
+  const uppercaseLetterSpacingWidth = preservePortCase
+    ? 0
+    : Math.max(0, renderedLabel.length - 1) * PORT_LABEL_UPPERCASE_LETTER_SPACING_PX;
+
+  return Math.ceil(
+    renderedLabel.length * PORT_LABEL_CHARACTER_WIDTH_PX * uiFontScale +
+      uppercaseLetterSpacingWidth +
+      PORT_LABEL_HORIZONTAL_MARGIN_PX,
+  );
 }
 
 function estimatePortRowWidth(title: string, preservePortCase: boolean, uiFontScale: number) {

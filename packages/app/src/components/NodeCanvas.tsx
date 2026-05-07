@@ -10,7 +10,7 @@ import { useCanvasHotkeys } from '../hooks/useCanvasHotkeys';
 import { useCanvasPositioning } from '../hooks/useCanvasPositioning.js';
 import { useContextMenu } from '../hooks/useContextMenu.js';
 import { useCopyNodesHotkeys } from '../hooks/useCopyNodesHotkeys';
-import { useDraggingNode } from '../hooks/useDraggingNode.js';
+import { type DragActivatorModifierState, useDraggingNode } from '../hooks/useDraggingNode.js';
 import { useDraggingWire } from '../hooks/useDraggingWire.js';
 import { useGlobalHotkey } from '../hooks/useGlobalHotkey.js';
 import { isNodeGraphSearchMatch } from '../hooks/graphSearch.js';
@@ -28,6 +28,7 @@ import { useWireDragScrolling } from '../hooks/useWireDragScrolling';
 import {
   canvasPositionState,
   editingNodeState,
+  isGraphSearchVisibleWithQuery,
   searchingGraphState,
   lastCanvasPositionByGraphState,
   lastMousePositionState,
@@ -50,6 +51,7 @@ import { NodeCanvasOverlays } from './nodeCanvas/NodeCanvasOverlays.js';
 import { MultiNodeAlignmentToolbar } from './nodeCanvas/MultiNodeAlignmentToolbar.js';
 import { NodeCanvasViewport } from './nodeCanvas/NodeCanvasViewport.js';
 import { useNodeCanvasInteractions } from './nodeCanvas/useNodeCanvasInteractions.js';
+import { WireLayer } from './WireLayer.js';
 import type { NodeResizeBounds } from '../utils/nodeResize.js';
 import { MEDIUM_GRAPH_NODE_THRESHOLD } from './nodeCanvas/canvasPerformanceBudget.js';
 import { getCanvasPerfSnapshot } from './nodeCanvas/canvasPerfDebug.js';
@@ -96,6 +98,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
   const [dragStart, setDragStart] = useState({ x: 0, y: 0, canvasStartX: 0, canvasStartY: 0 });
   const [contextMenuDisabled, setContextMenuDisabled] = useState(true);
   const canvasRootRef = useRef<HTMLDivElement>(null);
+  const nodeDragGestureActiveRef = useRef(false);
 
   const selectedGraphMetadata = useAtomValue(graphMetadataState);
   const closestPort = useAtomValue(draggingWireClosestPortState);
@@ -157,6 +160,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
 
   const {
     dragAxisLock,
+    dragDelta,
     dragMode,
     draggingConnectionSourceNodeIds,
     draggedHoverControlSourceNodeIds,
@@ -171,6 +175,32 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
   const { draggingWire, onWireStartDrag, onWireEndDrag } = useDraggingWire(onConnectionsChanged);
   const isDraggingNode = draggingNodes.length > 0;
   const isDraggingWire = !!draggingWire;
+
+  const isNodeDragGestureActive = useStableCallback(() => nodeDragGestureActiveRef.current);
+
+  const clearNodeDragGesture = useStableCallback(() => {
+    nodeDragGestureActiveRef.current = false;
+  });
+
+  const handleNodeDragActivatorPointerDown = useStableCallback((modifierState: DragActivatorModifierState) => {
+    nodeDragGestureActiveRef.current = true;
+    setIsDraggingCanvas(false);
+    onNodeDragActivatorPointerDown(modifierState);
+  });
+
+  useEffect(() => {
+    window.addEventListener('pointercancel', clearNodeDragGesture);
+    window.addEventListener('pointerup', clearNodeDragGesture);
+    window.addEventListener('mouseup', clearNodeDragGesture);
+    window.addEventListener('blur', clearNodeDragGesture);
+
+    return () => {
+      window.removeEventListener('pointercancel', clearNodeDragGesture);
+      window.removeEventListener('pointerup', clearNodeDragGesture);
+      window.removeEventListener('mouseup', clearNodeDragGesture);
+      window.removeEventListener('blur', clearNodeDragGesture);
+    };
+  }, [clearNodeDragGesture]);
 
   const shouldRenderWires = canvasPosition.zoom > 0.15;
   const viewportBounds = useViewportBounds(canvasRootRef);
@@ -241,6 +271,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
     setLastSavedCanvasPosition,
     setSelectedNodeIds,
     startSelectionBox,
+    isNodeDragGestureActive,
     updateSelectionBox,
     zoomSensitivity,
   });
@@ -285,16 +316,16 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
     return [...nextSelectedNodeIds];
   }, [editingNodeId, fullscreenOutputNodeId, selectedNodeIds]);
 
-  const hasGraphSearchQuery = graphSearch.searching && graphSearch.query.trim().length > 0;
+  const hasVisibleGraphSearchQuery = isGraphSearchVisibleWithQuery(graphSearch);
   const searchMatchingNodeIds = useMemo(
     () =>
-      hasGraphSearchQuery
+      hasVisibleGraphSearchQuery
         ? graphSearch.matches
             .filter(isNodeGraphSearchMatch)
             .filter((match) => match.graphId === selectedGraphMetadata?.id)
             .map((match) => match.nodeId)
         : EMPTY_NODE_IDS,
-    [graphSearch.matches, hasGraphSearchQuery, selectedGraphMetadata?.id],
+    [graphSearch.matches, hasVisibleGraphSearchQuery, selectedGraphMetadata?.id],
   );
 
   const highlightedNodes = useMemo(() => {
@@ -467,10 +498,19 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
 
   return (
     <DndContext
-      onDragStart={onNodeStartDrag}
+      onDragStart={(event) => {
+        setIsDraggingCanvas(false);
+        onNodeStartDrag(event);
+      }}
       onDragMove={onNodeDraggedMove}
-      onDragEnd={onNodeDragged}
-      onDragCancel={onNodeDragCancelled}
+      onDragEnd={(event) => {
+        clearNodeDragGesture();
+        onNodeDragged(event);
+      }}
+      onDragCancel={() => {
+        clearNodeDragGesture();
+        onNodeDragCancelled();
+      }}
     >
       <div
         ref={setCanvasRef}
@@ -497,6 +537,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
           canvasZoom={canvasPosition.zoom}
           canvasViewContextValue={canvasViewContextValue}
           dragAxisLock={dragAxisLock}
+          dragDelta={dragDelta}
           dragMode={dragMode}
           draggingHoverControlSourceNodeIds={draggedHoverControlSourceNodeIds}
           draggingNodeConnections={draggingNodeConnections}
@@ -505,9 +546,51 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
           heavyContentNodeIdSet={heavyContentNodeIdSet}
           hoveredNodeId={hoveringPort ? undefined : hoveringNode}
           lastRunPerNode={lastRunPerNode}
+          layer="comments"
           nodeTypes={nodeTypes}
           nodesWithConnections={nodesWithConnections}
-          onNodeDragActivatorPointerDown={onNodeDragActivatorPointerDown}
+          onNodeDragActivatorPointerDown={handleNodeDragActivatorPointerDown}
+          expandedOutputNodeIds={expandedOutputNodeIds}
+          searchMatchingNodeIds={searchMatchingNodeIds}
+          selectedNodeIds={selectedViewportNodeIds}
+          selectedProcessPagePerNode={selectedProcessPagePerNode}
+          visibleNodeIdSet={visibleNodeIdSet}
+        />
+        {shouldRenderWires && (
+          <WireLayer
+            connections={previewConnections}
+            draggingWire={draggingWire}
+            highlightedNodes={highlightedNodes}
+            highlightedPort={hoveringPort}
+            isViewportMoving={isViewportMoving}
+            isViewportVisibilitySettled={isViewportVisibilitySettled}
+            nearViewportNodeIdSet={nearViewportNodeIdSet}
+            portPositions={nodePortPositions}
+            visibleNodeIdSet={visibleNodeIdSet}
+            viewportClientRect={viewportBounds.clientRect}
+            draggingNode={isDraggingNode}
+          />
+        )}
+        <NodeCanvasViewport
+          canvasHandlersContextValue={canvasHandlersContextValue}
+          canvasPositionX={canvasPosition.x}
+          canvasPositionY={canvasPosition.y}
+          canvasZoom={canvasPosition.zoom}
+          canvasViewContextValue={canvasViewContextValue}
+          dragAxisLock={dragAxisLock}
+          dragDelta={dragDelta}
+          dragMode={dragMode}
+          draggingHoverControlSourceNodeIds={draggedHoverControlSourceNodeIds}
+          draggingNodeConnections={draggingNodeConnections}
+          draggingNodes={draggingNodes}
+          draggingSourceNodeIds={draggedSourceNodeIds}
+          heavyContentNodeIdSet={heavyContentNodeIdSet}
+          hoveredNodeId={hoveringPort ? undefined : hoveringNode}
+          lastRunPerNode={lastRunPerNode}
+          layer="nodes"
+          nodeTypes={nodeTypes}
+          nodesWithConnections={nodesWithConnections}
+          onNodeDragActivatorPointerDown={handleNodeDragActivatorPointerDown}
           expandedOutputNodeIds={expandedOutputNodeIds}
           searchMatchingNodeIds={searchMatchingNodeIds}
           selectedNodeIds={selectedViewportNodeIds}
@@ -516,23 +599,14 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
         />
         {hydratedContextMenuData && (
           <NodeCanvasOverlays
-            connections={previewConnections}
             context={hydratedContextMenuData}
             contextMenuDisabled={contextMenuDisabled}
             contextMenuRef={contextMenuRef}
             contextMenuX={contextMenuData.x}
             contextMenuY={contextMenuData.y}
-            draggingNode={isDraggingNode}
-            draggingWire={draggingWire}
             floatingStyles={floatingStyles}
-            highlightedNodes={highlightedNodes}
-            highlightedPort={hoveringPort}
             hoveringPort={hoveringPort}
             hoveringShowPortInfo={hoveringShowPortInfo}
-            isViewportMoving={isViewportMoving}
-            isViewportVisibilitySettled={isViewportVisibilitySettled}
-            nearViewportNodeIdSet={nearViewportNodeIdSet}
-            nodePortPositions={nodePortPositions}
             onContextMenuEntered={() => {
               setContextMenuDisabled(false);
             }}
@@ -543,10 +617,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
             onContextMenuItemSelected={contextMenuItemSelected}
             selectionBox={selectionBox}
             setFloating={floatingRefs.setFloating}
-            shouldRenderWires={shouldRenderWires}
             showContextMenu={showContextMenu}
-            visibleNodeIdSet={visibleNodeIdSet}
-            viewportClientRect={viewportBounds.clientRect}
           />
         )}
         <MultiNodeAlignmentToolbar canvasRootRef={canvasRef} selectedNodes={selectedNodes} />
