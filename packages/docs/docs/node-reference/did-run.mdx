@@ -1,0 +1,77 @@
+---
+id: did-run
+title: Did Run Node
+sidebar_label: Did Run
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+## Overview
+
+The Did Run node outputs `true` when all connected inputs have run.
+
+Use it when you need to convert "this branch ran at all" into a boolean, especially for another node's built-in `If` port. Unlike piping a value directly into an `If` port, Did Run treats falsy or empty payloads such as `false`, `0`, an empty string, `null`, or an explicit `undefined` value as successful runs.
+
+If any connected input is `Not ran`, Did Run is also `Not ran`. If no inputs are connected, it produces `Not ran`.
+
+The node body shows a short reminder that connected inputs running produces `true`, and falsy or empty values still count as having run.
+
+<Tabs
+  defaultValue="inputs"
+  values={[
+    {label: 'Inputs', value: 'inputs'},
+    {label: 'Outputs', value: 'outputs'},
+    {label: 'Editor Settings', value: 'settings'},
+  ]
+}>
+
+<TabItem value="inputs">
+
+## Inputs
+
+| Title   | Data Type | Description                                                | Default Value | Notes                                      |
+| ------- | --------- | ---------------------------------------------------------- | ------------- | ------------------------------------------ |
+| Input X | Any       | One input that must run before Did Run outputs true. | N/A           | Dynamic number of inputs based on wiring. |
+
+</TabItem>
+
+<TabItem value="outputs">
+
+## Outputs
+
+| Title | Data Type | Description                                      | Notes                                                        |
+| ----- | --------- | ------------------------------------------------ | ------------------------------------------------------------ |
+| Ran   | Boolean   | `true` when all connected inputs have run.       | Outputs `Not ran` when any connected input is `Not ran`.     |
+
+</TabItem>
+
+<TabItem value="settings">
+
+## Editor Settings
+
+This node has no configurable editor settings.
+
+</TabItem>
+
+</Tabs>
+
+## Example: Run When A Branch Ran At All
+
+Suppose one branch can return `false`, `0`, or an empty string, but you still want a later node to run whenever that branch actually ran.
+
+1. Connect the branch output to a Did Run input.
+2. Connect Did Run's `Ran` output to the later node's built-in `If` port.
+3. Run the graph.
+
+The later node runs when the branch produced any value, even if that value would normally be falsy.
+
+## Error Handling
+
+Did Run cannot error in normal operation.
+
+## See Also
+
+- [If Node](./if.mdx)
+- [If/Else Node](./if-else.mdx)
+- [Coalesce Node](./coalesce.mdx)
