@@ -15,7 +15,6 @@
 - Reassess all the "Generate using AI" in different nodes. The model picker is clipped by the section border
 
 
-- In remote debugging, come up with some ID that can be passed when running so that I can "catch" only the target runs of the workflow
 
 
 - A setting for LLM chat node to race several LLM calls and return the fastest. Need to think through how it works along with retries
