@@ -1,8 +1,12 @@
 
 
+- Expression node and code node (probbaly other nodes too): when it returns undefined, it shows nothing. Should it at least text "undefined" just like with null?
+
+
 
 - Need to show the curent graph name somewhere. When there's many and they are in the folders and you click through subgraphs, the user gets lost
 
+- In nodes that have variadic inputs, when an input in the middle is removed, the remaining inputs look weird. Do we need to automatically remove them? It should we allow the user to remove them if needed?
 
 
 - There's 2 similar mono width fonts (node body + node output view). Or maybe they are the same fornt but different sizes. Also the one in the code editor is different. Let's only keep one

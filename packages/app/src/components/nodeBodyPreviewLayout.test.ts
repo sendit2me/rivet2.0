@@ -8,6 +8,7 @@ const componentsDir = dirname(fileURLToPath(import.meta.url));
 
 test('node body previews distinguish wrapped text from clipped object source', () => {
   const nodeBodySource = readFileSync(join(componentsDir, 'NodeBody.tsx'), 'utf8');
+  const nodeStylesSource = readFileSync(join(componentsDir, 'nodeStyles.ts'), 'utf8');
   const objectNodeSource = readFileSync(join(componentsDir, 'nodes', 'ObjectNode.tsx'), 'utf8');
   const colorizedWrapBlock = /\.node-body-colorized-wrap \{(?<styles>[\s\S]*?)\n  \}/.exec(nodeBodySource)?.groups
     ?.styles;
@@ -24,6 +25,8 @@ test('node body previews distinguish wrapped text from clipped object source', (
   assert.doesNotMatch(colorizedWrapBlock, /overflow-wrap:\s*anywhere;/);
   assert.doesNotMatch(colorizedWrapBlock, /word-break:\s*break-word;/);
   assert.match(nodeBodySource, /wrapWords=\{wrapWords\}/);
+  assert.match(nodeBodySource, /if \(!pending && renderedSpecs\.length === 0\) \{/);
+  assert.match(nodeStylesSource, /\.node-body:empty \{[\s\S]*margin-bottom: 0;[\s\S]*\}/);
   assert.match(objectNodeSource, /text-overflow: clip;/);
   assert.doesNotMatch(objectNodeSource, /text-overflow: ellipsis;/);
 });

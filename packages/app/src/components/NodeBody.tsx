@@ -84,21 +84,45 @@ const UnknownNodeBodyWrapper = styled.div<{
 // Fixes flickering due to async rendering of node body by caching the last rendered body
 const previousRenderedBodyMap = new Map<NodeId, RenderedNodeBody>();
 
+type UnknownNodeBodyState = {
+  body: RenderedNodeBody | undefined;
+  pending: boolean;
+};
+
 const UnknownNodeBody: FC<{ heightCache: HeightCache; node: ChartNode }> = ({ heightCache, node }) => {
   const getUIContext = useGetRivetUIContext();
   const projectNodeRegistry = useProjectNodeRegistry();
 
-  const [body, setBody] = useState<RenderedNodeBody | undefined>(previousRenderedBodyMap.get(node.id));
-  const { ref, height } = useNodeBodyHeight(heightCache, node.id, !!body);
+  const [bodyState, setBodyState] = useState<UnknownNodeBodyState>(() => ({
+    body: previousRenderedBodyMap.get(node.id),
+    pending: true,
+  }));
+  const { body, pending } = bodyState;
+  const { ref, height } = useNodeBodyHeight(heightCache, node.id, {
+    ready: body != null,
+    preserveCachedHeight: pending,
+  });
 
   useAsyncEffect(async () => {
+    setBodyState((current) => ({
+      body: current.body,
+      pending: true,
+    }));
+
     try {
       const impl = projectNodeRegistry.createDynamicImpl(node);
       const renderedBody = await impl.getBody(await getUIContext({ node }));
 
-      setBody(renderedBody);
+      setBodyState({
+        body: renderedBody,
+        pending: false,
+      });
 
-      previousRenderedBodyMap.set(node.id, renderedBody);
+      if (renderedBody == null) {
+        previousRenderedBodyMap.delete(node.id);
+      } else {
+        previousRenderedBodyMap.set(node.id, renderedBody);
+      }
     } catch (err) {
       handleError(err, 'Failed to load body for node', {
         metadata: {
@@ -129,6 +153,10 @@ const UnknownNodeBody: FC<{ heightCache: HeightCache; node: ChartNode }> = ({ he
       .with({ type: 'colorized' }, (spec) => <ColorizedNodeBody {...spec} />)
       .exhaustive(),
   }));
+
+  if (!pending && renderedSpecs.length === 0) {
+    return null;
+  }
 
   return (
     <div ref={ref} style={{ height }}>
