@@ -2,3 +2,20 @@
 @import './index.css';
 @import './colors.css';
 @import '@atlaskit/css-reset';
+
+body,
+button,
+input,
+select,
+textarea,
+.app,
+.atlaskit-portal-container {
+  font-family: var(--font-family);
+}
+
+code,
+kbd,
+pre,
+samp {
+  font-family: var(--font-family-monospace);
+}

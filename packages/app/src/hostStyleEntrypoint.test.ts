@@ -15,5 +15,32 @@ test('host.css owns the shared reset used by standalone and embedded app mounts'
 
   assert.ok(colorsImportIndex >= 0, 'host.css should import app colors before the shared reset');
   assert.ok(resetImportIndex > colorsImportIndex, 'host.css should import the shared reset after app styles');
+  assert.match(hostCss.slice(resetImportIndex), /body,[\s\S]*font-family: var\(--font-family\);/);
+  assert.match(hostCss.slice(resetImportIndex), /code,[\s\S]*font-family: var\(--font-family-monospace\);/);
   assert.doesNotMatch(appTsx, /@atlaskit\/css-reset/);
+});
+
+test('rendered Markdown output uses Rivet typography tokens', () => {
+  const indexCss = readFileSync(join(srcDir, 'index.css'), 'utf8');
+
+  assert.match(
+    indexCss,
+    /\.rivet-markdown-output\.markdown-body\s*{[\s\S]*font-family: var\(--font-family\);/,
+  );
+  assert.match(
+    indexCss,
+    /\.rivet-markdown-output\.markdown-body code,[\s\S]*font-family: var\(--font-family-monospace\);/,
+  );
+});
+
+test('app font loading and global code typography stay on Rivet font tokens', () => {
+  const indexCss = readFileSync(join(srcDir, 'index.css'), 'utf8');
+  const indexHtml = readFileSync(join(srcDir, '..', 'index.html'), 'utf8');
+
+  assert.match(
+    indexHtml,
+    /family=Roboto:wght@300;400;500;700;900&family=Roboto\+Mono&display=swap/,
+  );
+  assert.match(indexCss, /code\s*{[\s\S]*font-family: var\(--font-family-monospace\);/);
+  assert.doesNotMatch(indexCss, /source-code-pro|Menlo|Monaco|Consolas|'Courier New'/);
 });

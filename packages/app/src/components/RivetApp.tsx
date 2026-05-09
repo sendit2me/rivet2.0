@@ -40,6 +40,7 @@ import { MissingAppPluginsModalRenderer } from './MissingAppPluginsModal.js';
 
 const styles = css`
   overflow: hidden;
+  font-family: var(--font-family);
   font-size: var(--ui-font-size-base);
 `;
 
