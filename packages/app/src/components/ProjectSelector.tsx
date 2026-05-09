@@ -35,34 +35,43 @@ export const styles = css`
   align-items: stretch;
 
   .file-menu {
+    align-items: stretch;
+    background: var(--grey-darkerish);
+    border-bottom: 1px solid var(--grey);
+    border-right: 1px solid var(--grey-darkest);
+    color: var(--grey-light);
+    display: flex;
+    flex: 0 0 auto;
     position: relative;
-    flex-shrink: 0;
     height: calc(100% + 1px);
     margin-bottom: -1px;
+    min-width: 64px;
+
+    &:hover,
+    &.open {
+      background-color: var(--grey-darkish);
+    }
   }
 
   .file-menu-button {
     align-items: center;
-    background: var(--grey-darkerish);
-    border: 0;
-    border-bottom: 1px solid var(--grey);
-    border-right: 1px solid var(--grey-darkest);
-    color: var(--grey-lightest);
+    background: transparent;
+    border: none;
+    color: inherit;
     cursor: pointer;
     display: flex;
     height: 100%;
     justify-content: center;
     margin: 0;
-    min-width: 50px;
-    padding: 0 16px;
     font-size: var(--ui-font-size-sm);
+    line-height: 1;
+    min-height: 0;
+    min-width: 0;
+    padding: 0 12px;
+    text-align: center;
     user-select: none;
-
-    &:hover,
-    .file-menu.open & {
-      background-color: var(--grey-darkish);
-      border-bottom-color: var(--grey);
-    }
+    white-space: nowrap;
+    width: 100%;
   }
 
   .file-dropdown {
@@ -351,7 +360,7 @@ const ProjectFileMenu: FC = () => {
     <div ref={fileMenuRef} className={clsx('file-menu', { open: fileMenuOpen })}>
       <button
         type="button"
-        className="file-menu-button"
+        className="file-menu-button dropdown-item"
         aria-expanded={fileMenuOpen}
         aria-haspopup="menu"
         onClick={() => setFileMenuOpen((open) => !open)}

@@ -9,14 +9,10 @@ import {
   debuggerPanelAnchorState,
   type DebuggerPanelAnchor,
   debuggerPanelOpenState,
-  helpModalOpenState,
 } from '../state/ui';
-import { settingsModalOpenState } from './SettingsModal';
 import { SegmentedEditor } from './editors/SegmentedEditor';
 import { PopupMenu, PopupMenuItem } from './PopupMenu.js';
 import BugIcon from 'majesticons/line/bug-2-line.svg?react';
-import GearIcon from 'majesticons/line/settings-cog-line.svg?react';
-import QuestionIcon from 'majesticons/line/question-circle-line.svg?react';
 import { useSetAtom, useAtom } from 'jotai';
 
 const moreMenuStyles = css`
@@ -66,12 +62,10 @@ export const ActionBarMoreMenu: FC<{
   onClose: () => void;
   onCopyAsTestCase: () => void;
 }> = ({ getDebuggerPanelAnchor, onClose, onCopyAsTestCase }) => {
-  const setSettingsOpen = useSetAtom(settingsModalOpenState);
   const setDebuggerPanelOpen = useSetAtom(debuggerPanelOpenState);
   const setDebuggerPanelAnchor = useSetAtom(debuggerPanelAnchorState);
   const [selectedExecutor, setSelectedExecutor] = useAtom(selectedExecutorState);
   const { loadRecording } = useLoadRecording();
-  const setHelpModalOpen = useSetAtom(helpModalOpenState);
   const hostConfig = useExecutorSessionHostConfig();
   const executorOptions = getExecutorOptions({ hasInternalExecutorUrl: !!hostConfig?.internalExecutorUrl });
 
@@ -87,16 +81,6 @@ export const ActionBarMoreMenu: FC<{
 
   const doLoadRecording = () => {
     loadRecording();
-    onClose();
-  };
-
-  const openSettings = () => {
-    setSettingsOpen(true);
-    onClose();
-  };
-
-  const openHelp = () => {
-    setHelpModalOpen(true);
     onClose();
   };
 
@@ -137,12 +121,6 @@ export const ActionBarMoreMenu: FC<{
       </PopupMenuItem>
       <PopupMenuItem onClick={onCopyAsTestCase}>
         Copy Inputs for Trivet
-      </PopupMenuItem>
-      <PopupMenuItem icon={GearIcon} separatorBefore onClick={openSettings}>
-        Settings
-      </PopupMenuItem>
-      <PopupMenuItem icon={QuestionIcon} onClick={openHelp}>
-        Help
       </PopupMenuItem>
     </PopupMenu>
   );

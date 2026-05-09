@@ -2,7 +2,14 @@ import type { MenuIds } from './menuCommandIds.js';
 
 export type FileMenuItemId = Extract<
   MenuIds,
-  'new_project' | 'open_project' | 'save_project' | 'save_project_as' | 'import_graph' | 'export_graph' | 'settings'
+  | 'new_project'
+  | 'open_project'
+  | 'save_project'
+  | 'save_project_as'
+  | 'import_graph'
+  | 'export_graph'
+  | 'settings'
+  | 'get_help'
 >;
 
 export type FileMenuItemDefinition = {
@@ -29,7 +36,10 @@ export const FILE_MENU_GROUPS = [
     { id: 'import_graph', label: 'Import graph' },
     { id: 'export_graph', label: 'Export graph' },
   ],
-  [{ id: 'settings', label: 'Settings' }],
+  [
+    { id: 'settings', label: 'Rivet settings' },
+    { id: 'get_help', label: 'Help' },
+  ],
 ] as const satisfies readonly FileMenuGroupDefinition[];
 
 export const DEFAULT_FILE_MENU_ITEM_IDS = FILE_MENU_GROUPS.flatMap((group) => group.map((item) => item.id));
