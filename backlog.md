@@ -1,8 +1,10 @@
 
 
 
+
 - Need to show the curent graph name somewhere. When there's many and they are in the folders and you click through subgraphs, the user gets lost
 
+- In nodes that have variadic inputs, when an input in the middle is removed, the remaining inputs look weird. Do we need to automatically remove them? It should we allow the user to remove them if needed?
 
 
 - There's 2 similar mono width fonts (node body + node output view). Or maybe they are the same fornt but different sizes. Also the one in the code editor is different. Let's only keep one
@@ -17,7 +19,6 @@
 
 
 
-- A setting for LLM chat node to race several LLM calls and return the fastest. Need to think through how it works along with retries
 
 - Reassess Loop until node. Definitely can make the end conditions better
 
@@ -39,6 +40,7 @@
 
 
 
+- A setting for LLM chat node to race several LLM calls and return the fastest. Need to think through how it works along with retries
 
 
 - Reassess rivet example project

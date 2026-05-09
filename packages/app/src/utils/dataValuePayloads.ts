@@ -48,3 +48,41 @@ export function stringifyForDisplay(value: unknown): string {
     return String(value);
   }
 }
+
+export function stringifyUninferredAnyValue(value: unknown): string {
+  return value === undefined ? 'undefined' : JSON.stringify(value) ?? '';
+}
+
+export function projectAnyArrayItemsForDisplay(value: unknown[]): unknown[] {
+  return projectAnyArrayItemsForDisplayInner(value, new WeakMap());
+}
+
+function projectAnyArrayItemsForDisplayInner(value: unknown[], seen: WeakMap<unknown[], unknown[]>): unknown[] {
+  const existing = seen.get(value);
+  if (existing) {
+    return existing;
+  }
+
+  const projected: unknown[] = [];
+  seen.set(value, projected);
+
+  for (const item of value) {
+    if (item === undefined) {
+      projected.push(stringifyUninferredAnyValue(item));
+      continue;
+    }
+
+    projected.push(Array.isArray(item) ? projectAnyArrayItemsForDisplayInner(item, seen) : item);
+  }
+
+  return projected;
+}
+
+export function stringifyAnyJsonLikeForDisplay(value: unknown): string {
+  const displayValue = Array.isArray(value) ? projectAnyArrayItemsForDisplay(value) : value;
+  try {
+    return JSON.stringify(displayValue, null, 2) ?? '';
+  } catch {
+    return stringifyForDisplay(value);
+  }
+}

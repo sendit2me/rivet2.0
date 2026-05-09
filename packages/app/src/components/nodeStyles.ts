@@ -463,6 +463,10 @@ export const nodeStyles = css`
     line-height: 1.4;
   }
 
+  .node-body:empty {
+    margin-bottom: 0;
+  }
+
   .node-body pre {
     font-family: inherit;
   }

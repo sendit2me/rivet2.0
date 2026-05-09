@@ -9,7 +9,7 @@ import {
   type ScalarOrArrayDataValue,
   type DataValue,
 } from '@valerypopoff/rivet2-core';
-import { type FC, type ReactElement } from 'react';
+import React, { Fragment, type FC, type ReactElement } from 'react';
 import { multiOutputStyles, renderDataValueStyles } from './renderDataValueStyles.js';
 import { type createScalarRenderers, type ScalarRendererProps } from './createScalarRenderers.js';
 import type { OutputRenderMode } from './outputRenderTypes.js';
@@ -42,7 +42,7 @@ export function createDataValueRendererMap(options: {
         allowLargeStoredValueActions,
       }) => {
         if (!value) {
-          return <>undefined</>;
+          return <Fragment>undefined</Fragment>;
         }
 
         if (isArrayDataType(dataType)) {

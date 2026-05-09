@@ -207,6 +207,31 @@ test('storeInputsOrOutputsForHistory stores large objects by ref with json previ
   } as any);
 });
 
+test('storeDataValueForHistory keeps undefined items visible in large any-array previews', () => {
+  const dataRefs = createDataRefStore();
+  const value: DataValue = {
+    type: 'any[]',
+    value: [
+      undefined,
+      ...Array.from({ length: 400 }, (_, index) => ({ [`key-${index}`]: `value-${index}-${'x'.repeat(64)}` })),
+    ],
+  };
+
+  const stored = storeDataValueForHistory(value, dataRefs, {
+    nodeId: 'node-any-array',
+    processId: 'process-any-array',
+    channel: 'output',
+  }, 'output' as PortId);
+
+  assert.equal(stored.storage, 'ref');
+  assert.equal(stored.preview.kind, 'json');
+  assert.match(stored.preview.excerpt, /"undefined"/);
+  assert.doesNotMatch(stored.preview.excerpt, /^\[\n  null,/);
+  assert.deepEqual(dataRefs.values.get(stored.refId), value);
+  assert.equal((dataRefs.values.get(stored.refId) as Extract<DataValue, { type: 'any[]' }>).value[0], undefined);
+  assert.deepEqual(restoreStoredDataValue(stored, dataRefs), value);
+});
+
 test('storeDataValueForHistory reuses stable ref ids for repeated writes to the same port', () => {
   const dataRefs = createDataRefStore();
 

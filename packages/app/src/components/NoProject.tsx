@@ -2,7 +2,7 @@ import Button from '@atlaskit/button';
 import { css } from '@emotion/react';
 import { type FC, type MouseEvent } from 'react';
 import { useOpenUrl } from '../hooks/useOpenUrl';
-import RivetIcon from '../rivet-logo-1024-full.png';
+import RivetIcon from '../rivet-2-logo-no-background.svg';
 import { useSetAtom } from 'jotai';
 import { newProjectModalOpenState } from '../state/ui';
 import { settingsModalOpenState } from './SettingsModal';
@@ -96,9 +96,9 @@ export const NoProject: FC = () => {
 
   return (
     <div css={styles}>
-        <div className="inner">
-          <img src={RivetIcon} alt="Rivet Logo" className="logo" />
-          <h1>Welcome to Rivet 2</h1>
+      <div className="inner">
+        <img src={RivetIcon} alt="Rivet Logo" className="logo" />
+        <h1>Welcome to Rivet 2</h1>
 
         <div className="actions">
           <Button appearance="default" onClick={wrapAsync(openProject, 'Open project')}>

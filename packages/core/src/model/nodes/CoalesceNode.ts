@@ -12,10 +12,18 @@ import { nanoid } from 'nanoid/non-secure';
 import { type Inputs, type Outputs } from '../GraphProcessor.js';
 import { dedent } from 'ts-dedent';
 import { nodeDefinition } from '../NodeDefinition.js';
+import { type EditorDefinition } from '../EditorDefinition.js';
+
+const INPUT_PORT_ID_PATTERN = /^input(\d+)$/;
+const IGNORE_NULL_LABEL = "Ignore 'null'";
+const IGNORE_UNDEFINED_LABEL = "Ignore 'undefined'";
 
 export type CoalesceNode = ChartNode<'coalesce', CoalesceNodeData>;
 
-export type CoalesceNodeData = {};
+export type CoalesceNodeData = {
+  ignoreNull?: boolean;
+  ignoreUndefined?: boolean;
+};
 
 export class CoalesceNodeImpl extends NodeImpl<CoalesceNode> {
   static create = (): CoalesceNode => {
@@ -23,7 +31,10 @@ export class CoalesceNodeImpl extends NodeImpl<CoalesceNode> {
       type: 'coalesce',
       title: 'Coalesce',
       id: nanoid() as NodeId,
-      data: {},
+      data: {
+        ignoreNull: false,
+        ignoreUndefined: false,
+      },
       visualData: {
         x: 0,
         y: 0,
@@ -64,10 +75,41 @@ export class CoalesceNodeImpl extends NodeImpl<CoalesceNode> {
     ];
   }
 
+  getEditors(): EditorDefinition<CoalesceNode>[] {
+    return [
+      {
+        type: 'toggle',
+        label: IGNORE_NULL_LABEL,
+        dataKey: 'ignoreNull',
+      },
+      {
+        type: 'toggle',
+        label: IGNORE_UNDEFINED_LABEL,
+        dataKey: 'ignoreUndefined',
+      },
+    ];
+  }
+
+  getBody(): string | undefined {
+    const ignoredValues: string[] = [];
+
+    if (this.data.ignoreNull) {
+      ignoredValues.push(IGNORE_NULL_LABEL);
+    }
+
+    if (this.data.ignoreUndefined) {
+      ignoredValues.push(IGNORE_UNDEFINED_LABEL);
+    }
+
+    return ignoredValues.length > 0 ? ignoredValues.join('\n') : undefined;
+  }
+
   static getUIData(): NodeUIData {
     return {
       infoBoxBody: dedent`
-        Takes in any number of inputs and outputs the first value that exists. Useful for consolidating branches after a Match node. This node can also "consume" the "Not Ran" value.
+        Takes in any number of inputs and outputs the first value that is not "Not Ran". Useful for consolidating branches after a Match node.
+
+        Null and undefined input values are emitted by default, but the node can be configured to skip either value and continue checking later inputs.
       `,
       infoBoxTitle: 'Coalesce Node',
       contextMenuTitle: 'Coalesce',
@@ -77,15 +119,16 @@ export class CoalesceNodeImpl extends NodeImpl<CoalesceNode> {
 
   #getInputPortCount(connections: NodeConnection[]): number {
     const inputNodeId = this.chartNode.id;
-    const inputConnections = connections.filter(
-      (connection) => connection.inputNodeId === inputNodeId && connection.inputId.startsWith('input'),
-    );
 
     let maxInputNumber = 0;
-    for (const connection of inputConnections) {
-      const messageNumber = parseInt(connection.inputId.replace('input', ''), 10);
-      if (messageNumber > maxInputNumber) {
-        maxInputNumber = messageNumber;
+    for (const connection of connections) {
+      if (connection.inputNodeId !== inputNodeId) {
+        continue;
+      }
+
+      const inputNumber = this.#getInputPortNumber(connection.inputId);
+      if (inputNumber && inputNumber > maxInputNumber) {
+        maxInputNumber = inputNumber;
       }
     }
 
@@ -106,28 +149,53 @@ export class CoalesceNodeImpl extends NodeImpl<CoalesceNode> {
       };
     }
 
-    const inputCount = Object.keys(inputData).filter((key) => key.startsWith('input')).length;
-    const okInputValues: DataValue[] = [];
+    const inputCount = this.#getInputCountFromValues(inputData);
 
     for (let i = 1; i <= inputCount; i++) {
       const inputValue = inputData[`input${i}` as PortId];
-      if (inputValue && inputValue.type !== 'control-flow-excluded' && unwrapDataValue(inputValue) != null) {
-        okInputValues.push(inputValue);
+      if (inputValue && inputValue.type !== 'control-flow-excluded' && !this.#shouldSkipInputValue(inputValue)) {
+        return {
+          ['output' as PortId]: inputValue,
+        };
       }
     }
 
-    if (okInputValues.length === 0) {
-      return {
-        ['output' as PortId]: {
-          type: 'control-flow-excluded',
-          value: undefined,
-        },
-      };
+    return {
+      ['output' as PortId]: {
+        type: 'control-flow-excluded',
+        value: undefined,
+      },
+    };
+  }
+
+  #getInputCountFromValues(inputData: Inputs): number {
+    let maxInputNumber = 0;
+    for (const inputId of Object.keys(inputData)) {
+      const inputNumber = this.#getInputPortNumber(inputId);
+      if (inputNumber && inputNumber > maxInputNumber) {
+        maxInputNumber = inputNumber;
+      }
     }
 
-    return {
-      ['output' as PortId]: okInputValues[0]!,
-    };
+    return maxInputNumber;
+  }
+
+  #getInputPortNumber(inputId: string): number | undefined {
+    const match = INPUT_PORT_ID_PATTERN.exec(inputId);
+    if (!match) {
+      return undefined;
+    }
+
+    const inputNumber = Number(match[1]);
+    return Number.isSafeInteger(inputNumber) && inputNumber > 0 ? inputNumber : undefined;
+  }
+
+  #shouldSkipInputValue(inputValue: DataValue): boolean {
+    const value = unwrapDataValue(inputValue).value;
+
+    return (
+      (this.data.ignoreNull === true && value === null) || (this.data.ignoreUndefined === true && value === undefined)
+    );
   }
 }
 

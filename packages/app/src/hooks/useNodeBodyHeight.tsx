@@ -13,6 +13,24 @@ export interface HeightCache {
   set: (nodeId: NodeId, height: number | undefined) => void;
 }
 
+export type NodeBodyHeightState = {
+  ready: boolean;
+  preserveCachedHeight: boolean;
+};
+
+export const resolveNodeBodyHeight = (
+  heightCache: HeightCache,
+  nodeId: NodeId,
+  state: NodeBodyHeightState,
+): string | undefined => {
+  if (state.ready || !state.preserveCachedHeight || !heightCache.has(nodeId)) {
+    return undefined;
+  }
+
+  const height = heightCache.get(nodeId);
+  return height == null ? undefined : `${height}px`;
+};
+
 /**
  * A cache of node heights. This is used when a node is unmounted and moved to the dragging list, since the node's
  * body needs to be re-rendered in order to get its height. This cache allows us to avoid flickering when the node
@@ -21,19 +39,23 @@ export interface HeightCache {
 export const useNodeHeightCache = (): HeightCache => {
   const nodes = useAtomValue(nodesState);
 
-  const ref = useRef<Record<string, number | undefined>>({});
+  const ref = useRef(new Map<NodeId, number>());
   const garbageCollectionCount = useRef(0);
 
   const set = useCallback((nodeId: NodeId, height: number | undefined) => {
-    ref.current[nodeId] = height;
+    if (height == null) {
+      ref.current.delete(nodeId);
+    } else {
+      ref.current.set(nodeId, height);
+    }
   }, []);
 
   const get = useCallback((nodeId: NodeId) => {
-    return ref.current[nodeId];
+    return ref.current.get(nodeId);
   }, []);
 
   const has = useCallback((nodeId: NodeId) => {
-    return nodeId in ref.current;
+    return ref.current.has(nodeId);
   }, []);
 
   /**
@@ -42,13 +64,14 @@ export const useNodeHeightCache = (): HeightCache => {
    */
   useEffect(() => {
     if (garbageCollectionCount.current++ % GARBAGE_COLLECTION_INTERVAL !== 0) {
-      ref.current = nodes.reduce(
-        (acc, next) => {
-          acc[next.id] = ref.current[next.id];
-          return acc;
-        },
-        {} as Record<string, number | undefined>,
-      );
+      return;
+    }
+
+    const currentNodeIds = new Set(nodes.map((node) => node.id));
+    for (const nodeId of ref.current.keys()) {
+      if (!currentNodeIds.has(nodeId)) {
+        ref.current.delete(nodeId);
+      }
     }
   }, [nodes]);
 
@@ -58,17 +81,19 @@ export const useNodeHeightCache = (): HeightCache => {
 };
 
 /**
- * This hook persist the last known height of a node's body to the height cache, and can later use that last known
+ * This hook persists the last known height of a node's body to the height cache, and can later use that last known
  * height temporarily while the node is waiting for the body to be available.
  */
-export const useNodeBodyHeight = (heightCache: HeightCache, nodeId: NodeId, ready: boolean) => {
+export const useNodeBodyHeight = (heightCache: HeightCache, nodeId: NodeId, state: NodeBodyHeightState) => {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (ready) {
+    if (state.ready) {
       heightCache.set(nodeId, ref.current?.getBoundingClientRect().height);
+    } else if (!state.preserveCachedHeight) {
+      heightCache.set(nodeId, undefined);
     }
-  }, [heightCache, nodeId, ready]);
+  }, [heightCache, nodeId, state.preserveCachedHeight, state.ready]);
 
-  return { ref, height: !ready && heightCache.has(nodeId) ? `${heightCache.get(nodeId)}px` : undefined };
+  return { ref, height: resolveNodeBodyHeight(heightCache, nodeId, state) };
 };
