@@ -18,6 +18,7 @@ import { popupMenuListStyles, popupMenuRowStyles, popupMenuSeparatorStyles } fro
 import { useRivetAppHostUiConfig } from '../providers/HostUiConfigContext.js';
 import { getVisibleFileMenuGroups } from '../utils/fileMenuConfiguration.js';
 import { overlayOpenState } from '../state/ui.js';
+import { sidebarOpenState } from '../state/graphBuilder.js';
 
 export const styles = css`
   position: absolute;
@@ -34,6 +35,7 @@ export const styles = css`
   display: flex;
   align-items: stretch;
 
+  .sidebar-toggle-menu,
   .file-menu {
     align-items: stretch;
     background: var(--grey-darkerish);
@@ -45,14 +47,23 @@ export const styles = css`
     position: relative;
     height: calc(100% + 1px);
     margin-bottom: -1px;
-    min-width: 64px;
-
-    &:hover,
-    &.open {
-      background-color: var(--grey-darkish);
-    }
   }
 
+  .sidebar-toggle-menu {
+    width: var(--project-selector-height);
+  }
+
+  .file-menu {
+    min-width: 64px;
+  }
+
+  .sidebar-toggle-menu:hover,
+  .file-menu:hover,
+  .file-menu.open {
+    background-color: var(--grey-darkish);
+  }
+
+  .sidebar-toggle-button,
   .file-menu-button {
     align-items: center;
     background: transparent;
@@ -72,6 +83,16 @@ export const styles = css`
     user-select: none;
     white-space: nowrap;
     width: 100%;
+  }
+
+  .sidebar-toggle-button {
+    padding: 0;
+
+    svg {
+      color: currentColor;
+      height: 16px;
+      width: 16px;
+    }
   }
 
   .file-dropdown {
@@ -295,6 +316,7 @@ export const ProjectSelector: FC<{
 
   return (
     <div css={styles}>
+      {projectTabsSelected && <GraphTreeSidebarToggle />}
       {!isInTauri() && <ProjectFileMenu />}
       <div className={clsx('projects-container', { empty: visibleProjects.length === 0 })}>
         <div className="projects">
@@ -319,6 +341,39 @@ export const ProjectSelector: FC<{
     </div>
   );
 };
+
+const GraphTreeSidebarToggle: FC = () => {
+  const [sidebarOpen, setSidebarOpen] = useAtom(sidebarOpenState);
+  const actionLabel = sidebarOpen ? 'Collapse graph tree' : 'Expand graph tree';
+
+  return (
+    <div className="sidebar-toggle-menu">
+      <button
+        type="button"
+        className="sidebar-toggle-button dropdown-item"
+        aria-controls="graph-tree-sidebar"
+        aria-expanded={sidebarOpen}
+        aria-label={actionLabel}
+        title={actionLabel}
+        onClick={() => setSidebarOpen((open) => !open)}
+      >
+        <GraphTreeSidebarIcon sidebarOpen={sidebarOpen} />
+      </button>
+    </div>
+  );
+};
+
+const GraphTreeSidebarIcon: FC<{ sidebarOpen: boolean }> = ({ sidebarOpen }) => (
+  <svg aria-hidden="true" fill="none" viewBox="0 0 16 16">
+    <rect x="2.75" y="3.5" width="10.5" height="9" rx="1.25" stroke="currentColor" strokeWidth="1.25" />
+    <path
+      d={sidebarOpen ? 'M5.25 4.75v6.5' : 'M7.25 4.75v6.5'}
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeWidth="1.25"
+    />
+  </svg>
+);
 
 const ProjectFileMenu: FC = () => {
   const [fileMenuOpen, setFileMenuOpen] = useState(false);
