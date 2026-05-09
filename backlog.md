@@ -1,7 +1,5 @@
 
 
-- Expression node and code node (probbaly other nodes too): when it returns undefined, it shows nothing. Should it at least text "undefined" just like with null?
-
 
 
 - Need to show the curent graph name somewhere. When there's many and they are in the folders and you click through subgraphs, the user gets lost
@@ -21,7 +19,6 @@
 
 
 
-- A setting for LLM chat node to race several LLM calls and return the fastest. Need to think through how it works along with retries
 
 - Reassess Loop until node. Definitely can make the end conditions better
 
@@ -43,6 +40,7 @@
 
 
 
+- A setting for LLM chat node to race several LLM calls and return the fastest. Need to think through how it works along with retries
 
 
 - Reassess rivet example project
