@@ -32,6 +32,7 @@ import {
   REF_STORAGE_THRESHOLD_CHARS,
 } from './outputStorageLimits.js';
 import { buildTextPreviewExcerpt } from './textPreview.js';
+import { stringifyAnyJsonLikeForDisplay } from './dataValuePayloads.js';
 
 type DataRefDeleter = Pick<DataRefStore, 'delete'>;
 
@@ -427,7 +428,9 @@ function getAnyStorageDecision(value: Extract<DataValue, { type: 'any' | 'any[]'
   }
 
   if (Array.isArray(value.value) || isPlainRecord(value.value)) {
-    const stringified = stringifyForPreview(value.value);
+    const stringified = Array.isArray(value.value)
+      ? stringifyAnyJsonLikeForDisplay(value.value)
+      : stringifyForPreview(value.value);
     return stringified.length > REF_STORAGE_THRESHOLD_CHARS
       ? {
           storage: 'ref',

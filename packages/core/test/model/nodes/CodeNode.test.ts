@@ -147,4 +147,24 @@ describe('CodeNode', () => {
       },
     );
   });
+
+  it('guides users to explicit undefined outputs when a configured output is missing', async () => {
+    const node = createNode({
+      code: 'return {};',
+    });
+
+    await assert.rejects(
+      () => node.process({}, createContext()),
+      (error: unknown) => {
+        assert.ok(error instanceof Error);
+        assert.match(
+          error.message,
+          /return \{ "type": "control-flow-excluded", "value": undefined \}/,
+        );
+        assert.match(error.message, /return \{ "type": "any", "value": undefined \}/);
+        assert.doesNotMatch(error.message, /undefiend/);
+        return true;
+      },
+    );
+  });
 });

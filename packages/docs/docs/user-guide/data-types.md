@@ -34,3 +34,9 @@ A type may have the following decorators applied to it, which change the type. D
 | `image`                 | An image value.                                                                                         | `{ mediaType: string; data: UInt8Array; }`                                 |
 | `audio`                 | An audio value.                                                                                         | `{ mediaType: string; eata: UInt8Array; }`                                 |
 | `binary`                | A binary value.                                                                                         | `UInt8Array`                                                               |
+
+## `any`, `null`, and `undefined`
+
+The `any` type can carry JavaScript `null` or an explicit `undefined` value. Nodes such as Expression and Code can produce these values directly. When an output is a real `any` payload, Rivet displays the literal words `null` and `undefined` in the node output. `any[]` outputs use the same display rule for each item.
+
+This is different from `control-flow-excluded`. A `control-flow-excluded` output also uses `undefined` as its runtime value, but it means the output did not run and Rivet displays it as `Not ran`.

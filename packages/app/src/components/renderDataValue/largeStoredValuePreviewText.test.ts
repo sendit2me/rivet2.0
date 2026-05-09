@@ -62,6 +62,16 @@ test('deriveLargeStoredValuePreviewFullText pretty-prints object any values', ()
   );
 });
 
+test('deriveLargeStoredValuePreviewFullText keeps explicit undefined any-array items visible', () => {
+  assert.equal(
+    deriveLargeStoredValuePreviewFullText({
+      type: 'any[]',
+      value: [undefined, { alpha: true }, [undefined]],
+    }),
+    '[\n  "undefined",\n  {\n    "alpha": true\n  },\n  [\n    "undefined"\n  ]\n]',
+  );
+});
+
 test('deriveLargeStoredValuePreviewFullText returns undefined for missing or unsupported values', () => {
   assert.equal(deriveLargeStoredValuePreviewFullText(undefined), undefined);
   assert.equal(

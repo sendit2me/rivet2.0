@@ -1,4 +1,5 @@
 import { type DataValue } from '@valerypopoff/rivet2-core';
+import { stringifyAnyJsonLikeForDisplay } from '../../utils/dataValuePayloads.js';
 
 export function deriveLargeStoredValuePreviewFullText(restoredValue: DataValue | undefined): string | undefined {
   if (!restoredValue) {
@@ -17,7 +18,7 @@ export function deriveLargeStoredValuePreviewFullText(restoredValue: DataValue |
     case 'any[]':
       return typeof restoredValue.value === 'string'
         ? restoredValue.value
-        : JSON.stringify(restoredValue.value, null, 2);
+        : stringifyAnyJsonLikeForDisplay(restoredValue.value);
     default:
       return undefined;
   }

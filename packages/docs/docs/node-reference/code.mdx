@@ -55,6 +55,19 @@ return {
 };
 ```
 
+To return JavaScript `undefined` as the output value itself, wrap it as an `any` value:
+
+```js
+return {
+  output: {
+    type: 'any',
+    value: undefined,
+  },
+};
+```
+
+Rivet displays that output as `undefined`. This is different from returning `control-flow-excluded`, which means the output did not run.
+
 ### Accessing Current Graph And Context Inputs
 
 You can access all the current graph and the context inputs through variables `graphInputs` and `context`.
@@ -194,7 +207,7 @@ A: Yes, when the Code node's `console` runtime permission is enabled. In the app
 
 **Q: Can the code node function like an [If Node](./if.mdx)?**
 
-A: Yes. If you return the special value `{ type: 'control-flow-excluded', value: undefined }` from the Code node, then the nodes after the Code node will be excluded from the graph's execution. This is useful if you want to conditionally execute a portion of the graph.
+A: Yes. If you return the special value `{ type: 'control-flow-excluded', value: undefined }` from the Code node, then the nodes after the Code node will be excluded from the graph's execution. Rivet displays that output as `Not ran`, not as the literal `undefined` value. This is useful if you want to conditionally execute a portion of the graph.
 
 **Q: Is there any timeout? What if I create an infinite loop?**
 

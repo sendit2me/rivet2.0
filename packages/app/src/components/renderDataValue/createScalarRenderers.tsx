@@ -28,6 +28,7 @@ import {
   getStringProperty,
   isRecord,
   stringifyForDisplay,
+  stringifyUninferredAnyValue,
 } from '../../utils/dataValuePayloads.js';
 
 export type ScalarRendererProps<T extends DataType = DataType> = {
@@ -158,7 +159,7 @@ export function createScalarRenderers(options: { renderValue: (props: DataValueR
     any: ({ value, depth, renderMarkdown, isCompact, mode, truncateLength, allowLargeStoredValueActions }) => {
       const inferred = inferType(value.value);
       if (inferred.type === 'any') {
-        return <>{JSON.stringify(inferred.value)}</>;
+        return <>{stringifyUninferredAnyValue(inferred.value)}</>;
       }
       return renderValue({
         value: inferred,

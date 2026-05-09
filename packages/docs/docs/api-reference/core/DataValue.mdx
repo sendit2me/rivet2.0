@@ -58,6 +58,8 @@ For graph inputs and context values in `@valerypopoff/rivet2-node`, you can usua
 | `graph-reference` | `{ graphId: GraphId; graphName: string }` |
 | `document` | `{ mediaType: 'application/pdf' \| 'text/plain'; data: Uint8Array; title?: string; context?: string; enableCitations: boolean }` |
 
+`any` can carry JavaScript `null` or explicit `undefined` values. When those values are real `any` payloads, the app output UI displays the literal words `null` and `undefined`; `any[]` values use the same display rule for each item. This is distinct from `control-flow-excluded`, which also uses `undefined` as a runtime value but means the output did not run and is displayed as `Not ran`.
+
 ## Array Types
 
 Every scalar type also has an array form. The type name is the scalar type plus `[]`.

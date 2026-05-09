@@ -10,7 +10,12 @@ import prettyBytes from 'pretty-bytes';
 import type { DataRefReader } from '../providers/ProvidersContext.js';
 import type { InputsOrOutputsWithRefs, NodeRunDataWithRefs } from '../state/dataFlow.js';
 import { restoreStoredPortMap, restoreStoredPortValue } from './executionDataReaders.js';
-import { getByteLength, getStringProperty, isRecord } from './dataValuePayloads.js';
+import {
+  getByteLength,
+  getStringProperty,
+  isRecord,
+  stringifyUninferredAnyValue,
+} from './dataValuePayloads.js';
 
 export type NodeOutputCopyValueProjectorArgs = {
   outputs: InputsOrOutputsWithRefs;
@@ -34,7 +39,12 @@ export function projectDataValue(value: DataValue): unknown {
     case 'object[]':
       return value.value;
     case 'any':
+      return projectAnyRuntimeValue(value.value, new WeakMap());
     case 'any[]': {
+      if (Array.isArray(value.value)) {
+        return projectAnyRuntimeArray(value.value, new WeakMap());
+      }
+
       const inferredValue = inferType(value.value);
       if (inferredValue.type === 'any' || inferredValue.type === 'any[]') {
         return inferredValue.value;
@@ -181,6 +191,46 @@ function serializeDocument(value: Extract<DataValue, { type: 'document' }>): str
   lines.push(`Size: ${dataLength > 0 ? prettyBytes(dataLength) : '0 bytes'}`);
 
   return lines.join('\n');
+}
+
+function projectAnyRuntimeArray(value: unknown[], seen: WeakMap<unknown[], unknown[]>): unknown[] {
+  const existing = seen.get(value);
+  if (existing) {
+    return existing;
+  }
+
+  const projected: unknown[] = [];
+  seen.set(value, projected);
+
+  for (const item of value) {
+    projected.push(projectAnyRuntimeValue(item, seen));
+  }
+
+  return projected;
+}
+
+function projectAnyRuntimeValue(value: unknown, seen: WeakMap<unknown[], unknown[]>): unknown {
+  if (Array.isArray(value)) {
+    return projectAnyRuntimeArray(value, seen);
+  }
+
+  const inferredValue = inferType(value);
+  if (inferredValue.type === 'any' || inferredValue.type === 'any[]') {
+    return projectUninferredAnyValue(inferredValue, seen);
+  }
+
+  return projectDataValue(inferredValue);
+}
+
+function projectUninferredAnyValue(
+  value: Extract<DataValue, { type: 'any' | 'any[]' }>,
+  seen: WeakMap<unknown[], unknown[]>,
+): unknown {
+  if (value.type === 'any[]' && Array.isArray(value.value)) {
+    return projectAnyRuntimeArray(value.value, seen);
+  }
+
+  return value.type === 'any' && value.value === undefined ? stringifyUninferredAnyValue(value.value) : value.value;
 }
 
 function serializeChatMessagePart(part: unknown): string {
