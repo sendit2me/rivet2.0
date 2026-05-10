@@ -22,7 +22,12 @@ export type CodeConsoleMessage = {
 type WithExecution<T extends object> = T & { execution: GraphExecutionMetadata };
 
 export type SerializedProcessEventMap = {
-  start: WithExecution<{ project: Project; startGraph: NodeGraph; inputs: GraphInputs; contextValues: Record<string, DataValue> }>;
+  start: WithExecution<{
+    project: Project;
+    startGraph: NodeGraph;
+    inputs: GraphInputs;
+    contextValues: Record<string, DataValue>;
+  }>;
   graphStart: WithExecution<{ graph: NodeGraph; inputs: GraphInputs }>;
   graphError: WithExecution<{ graph: NodeGraph; error: Error | string }>;
   graphFinish: WithExecution<{ graph: NodeGraph; outputs: GraphOutputs }>;
@@ -30,7 +35,13 @@ export type SerializedProcessEventMap = {
   nodeStart: WithExecution<{ node: ChartNode; inputs: Inputs; processId: ProcessId }>;
   nodeFinish: WithExecution<{ node: ChartNode; outputs: Outputs; processId: ProcessId }>;
   nodeError: WithExecution<{ node: ChartNode; error: Error | string; processId: ProcessId }>;
-  nodeExcluded: WithExecution<{ node: ChartNode; processId: ProcessId; inputs: Inputs; outputs: Outputs; reason: string }>;
+  nodeExcluded: WithExecution<{
+    node: ChartNode;
+    processId: ProcessId;
+    inputs: Inputs;
+    outputs: Outputs;
+    reason: string;
+  }>;
   userInput: WithExecution<{
     node: ChartNode;
     inputStrings: string[];
@@ -111,8 +122,8 @@ export type OutgoingMessageMap = {
     requestId: RemoteRunRequestId;
     graphId: GraphId;
     runToNodeIds?: NodeId[];
+    preloadData?: Record<NodeId, Outputs>;
     contextValues: Record<string, DataValue>;
-    runFromNodeId?: NodeId;
     inputs?: GraphInputs;
     projectPath?: string | null;
     useEditorCache?: boolean;

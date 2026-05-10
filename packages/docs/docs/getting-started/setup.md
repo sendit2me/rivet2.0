@@ -4,7 +4,7 @@ title: Setup
 
 ## Settings
 
-Open the Settings pane in the Rivet menu (on Mac OS) or the Settings option in the `...` menu in Rivet.
+Open Rivet settings from the app menu in the desktop app. In the browser-hosted app, open the top-bar **File** menu and choose **Rivet settings**.
 
 ![Rivet Settings](assets/rivet-settings.png) ![Rivet Settings Menu](./assets/rivet-settings-menu.png)
 

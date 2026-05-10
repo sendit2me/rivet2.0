@@ -6,7 +6,7 @@ Rivet is a visual IDE and runtime for building AI workflows, agents, prompt chai
 
 Rivet 2.0 continues the previous Rivet codebase as an independently maintained project.
 
-This checkout is also designed to be embedded by wrapper applications that vendor Rivet source in a local `rivet/` folder. Wrappers can import from local source paths and use the supported app-host seams without depending on stale public npm packages.
+This checkout is also designed to be embedded by wrapper applications that vendor Rivet source code. Wrappers can import from local source paths and use the supported app-host seams without depending on public npm packages.
 
 For a self-hosted Rivet 2 wrapper, see [Rivet Studio Server](https://github.com/valerypopoff/Rivet-Studio-Server/tree/main-rivet2).
 

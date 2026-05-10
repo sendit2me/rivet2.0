@@ -7,7 +7,7 @@ import {
   type ProcessEvents,
   type Project,
 } from '@valerypopoff/rivet2-core';
-import type { RunDataByNodeId } from '../state/dataFlow.js';
+import type { InputsOrOutputsWithRefs, ProcessDataForNode, RunDataByNodeId } from '../state/dataFlow.js';
 import type { DataRefReader } from '../providers/ProvidersContext.js';
 import { restoreStoredPortMap } from '../utils/executionDataReaders.js';
 import { getGlobalDataRef } from '../utils/globals/globalDataRefs.js';
@@ -26,15 +26,15 @@ export function getDependentDataForNodeForPreload(dependencyNodes: NodeId[], pre
       throw new Error(`Node ${dependencyNode} was not found in the previous run data, cannot continue preloading data`);
     }
 
-    const firstExecution = dependencyNodeData[0];
+    const latestExecutionWithOutput = findLatestExecutionWithOutput(dependencyNodeData);
 
-    if (!firstExecution?.data.outputData) {
+    if (!latestExecutionWithOutput?.data.outputData) {
       throw new Error(
         `Node ${dependencyNode} has no output data in the previous run data, cannot continue preloading data`,
       );
     }
 
-    const outputData = firstExecution.data.outputData;
+    const outputData = latestExecutionWithOutput.data.outputData;
     let outputDataWithoutRefs: Outputs | undefined;
 
     try {
@@ -57,14 +57,113 @@ export function getDependentDataForNodeForPreload(dependencyNodes: NodeId[], pre
   return preloadData;
 }
 
-export function getDependencyNodesForRunFrom(
+export type EditorRunFromPlan = {
+  nodesToRun: NodeId[];
+  preserveNodeIds: NodeId[];
+  preloadNodeIds: NodeId[];
+  runToNodeIds: NodeId[];
+};
+
+export function getEditorRunFromPlan(
   project: Project,
   graphId: GraphId,
   from: NodeId,
   projectNodeRegistry: NodeRegistration<any, any>,
-): NodeId[] {
+): EditorRunFromPlan {
+  const graph = project.graphs[graphId];
+  if (!graph) {
+    throw new Error(`Graph ${graphId} was not found, cannot plan run-from execution`);
+  }
+
+  if (!graph.nodes.some((node) => node.id === from)) {
+    throw new Error(`Node ${from} was not found in graph ${graphId}, cannot plan run-from execution`);
+  }
+
   const processor = new GraphProcessor(project, graphId, projectNodeRegistry, true);
-  return processor.getDependencyNodesDeep(from);
+  const graphNodeIds = graph.nodes.map((node) => node.id);
+  const dependenciesByNodeId = new Map<NodeId, Set<NodeId>>();
+
+  for (const node of graph.nodes) {
+    dependenciesByNodeId.set(node.id, new Set(processor.getDependencyNodesDeep(node.id)));
+  }
+
+  const nodesToRunSet = new Set<NodeId>([from]);
+  for (const nodeId of graphNodeIds) {
+    if (dependenciesByNodeId.get(nodeId)?.has(from)) {
+      nodesToRunSet.add(nodeId);
+    }
+  }
+  const nodesToRun = graphNodeIds.filter((nodeId) => nodesToRunSet.has(nodeId));
+
+  const preloadNodeSet = new Set<NodeId>();
+  for (const connection of graph.connections) {
+    if (
+      nodesToRunSet.has(connection.inputNodeId) &&
+      !nodesToRunSet.has(connection.outputNodeId) &&
+      dependenciesByNodeId.get(connection.inputNodeId)?.has(connection.outputNodeId)
+    ) {
+      preloadNodeSet.add(connection.outputNodeId);
+    }
+  }
+
+  const runToNodeSet = new Set<NodeId>();
+  for (const nodeId of nodesToRun) {
+    const hasDownstreamNodeInRun = nodesToRun.some(
+      (candidateNodeId) => candidateNodeId !== nodeId && dependenciesByNodeId.get(candidateNodeId)?.has(nodeId),
+    );
+
+    if (!hasDownstreamNodeInRun) {
+      runToNodeSet.add(nodeId);
+    }
+  }
+
+  if (runToNodeSet.size === 0) {
+    runToNodeSet.add(from);
+  }
+
+  return {
+    nodesToRun,
+    preserveNodeIds: graphNodeIds.filter((nodeId) => !nodesToRunSet.has(nodeId)),
+    preloadNodeIds: graphNodeIds.filter((nodeId) => preloadNodeSet.has(nodeId)),
+    runToNodeIds: graphNodeIds.filter((nodeId) => runToNodeSet.has(nodeId)),
+  };
+}
+
+export function canPreloadEditorRunFromPlan(plan: EditorRunFromPlan, previousRunData: RunDataByNodeId): boolean {
+  return getUnavailablePreloadNodeIds(plan.preloadNodeIds, previousRunData).length === 0;
+}
+
+export function getUnavailablePreloadNodeIds(preloadNodeIds: NodeId[], previousRunData: RunDataByNodeId): NodeId[] {
+  return preloadNodeIds.filter((nodeId) => {
+    const latestExecutionWithOutput = findLatestExecutionWithOutput(previousRunData[nodeId]);
+    const outputData = latestExecutionWithOutput?.data.outputData;
+
+    return !outputData || hasUnavailableStoredRefs(outputData);
+  });
+}
+
+function findLatestExecutionWithOutput(executions: ProcessDataForNode[] | undefined) {
+  if (!executions) {
+    return undefined;
+  }
+
+  for (let index = executions.length - 1; index >= 0; index--) {
+    if (executions[index]?.data.outputData) {
+      return executions[index];
+    }
+  }
+
+  return undefined;
+}
+
+function hasUnavailableStoredRefs(outputData: InputsOrOutputsWithRefs): boolean {
+  return Object.values(outputData).some((value) => {
+    if (!value || value.storage !== 'ref') {
+      return false;
+    }
+
+    return dataRefs.get(value.refId) == null;
+  });
 }
 
 export function selectTestSuitesToRun<T extends { id: string; testCases: { id: string }[] }>(
@@ -115,7 +214,8 @@ export function createProcessEventDispatcher(currentExecution: {
     partialOutput: (data: unknown) => currentExecution.onPartialOutput(data as ProcessEvents['partialOutput']),
     graphStart: (data: unknown) => currentExecution.onGraphStart(data as ProcessEvents['graphStart']),
     graphFinish: (data: unknown) => currentExecution.onGraphFinish(data as ProcessEvents['graphFinish']),
-    nodeOutputsCleared: (data: unknown) => currentExecution.onNodeOutputsCleared(data as ProcessEvents['nodeOutputsCleared']),
+    nodeOutputsCleared: (data: unknown) =>
+      currentExecution.onNodeOutputsCleared(data as ProcessEvents['nodeOutputsCleared']),
     pause: () => currentExecution.onPause(),
     resume: () => currentExecution.onResume(),
     error: (data: unknown) => currentExecution.onError(data as ProcessEvents['error']),

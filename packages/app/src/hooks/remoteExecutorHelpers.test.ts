@@ -1,8 +1,81 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { type NodeId } from '@valerypopoff/rivet2-core';
-import { getDependentDataForNodeForPreload, selectTestSuitesToRun } from './remoteExecutorHelpers';
+import {
+  createBuiltInRegistry,
+  type ChartNode,
+  type GraphId,
+  type NodeConnection,
+  type NodeGraph,
+  type NodeId,
+  type PortId,
+  type Project,
+  type ProjectId,
+} from '@valerypopoff/rivet2-core';
+import {
+  canPreloadEditorRunFromPlan,
+  getDependentDataForNodeForPreload,
+  getEditorRunFromPlan,
+  selectTestSuitesToRun,
+} from './remoteExecutorHelpers';
 import { deleteGlobalDataRef, setGlobalDataRef } from '../utils/globals/globalDataRefs';
+
+const registry = createBuiltInRegistry();
+const graphId = 'graph-1' as GraphId;
+
+function makeTextNode(nodeId: string, text = 'value'): ChartNode {
+  const node = registry.createDynamic('text');
+  node.id = nodeId as NodeId;
+  node.title = nodeId;
+  node.data = {
+    ...(node.data as Record<string, unknown>),
+    text,
+  };
+
+  return node;
+}
+
+function makeConnection(outputNodeId: string, inputNodeId: string, inputId = 'input'): NodeConnection {
+  return {
+    outputNodeId: outputNodeId as NodeId,
+    inputNodeId: inputNodeId as NodeId,
+    outputId: 'output' as PortId,
+    inputId: inputId as PortId,
+  };
+}
+
+function makeProject(graph: NodeGraph): Project {
+  return {
+    metadata: {
+      id: 'project-1' as ProjectId,
+      title: 'Project',
+      description: '',
+      mainGraphId: graphId,
+    },
+    graphs: {
+      [graphId]: graph,
+    },
+  };
+}
+
+function makeRunFromGraph(): NodeGraph {
+  return {
+    metadata: { id: graphId, name: 'Graph' },
+    nodes: [
+      makeTextNode('source'),
+      makeTextNode('selected', '{{input}}'),
+      makeTextNode('downstream', '{{main}} {{side}}'),
+      makeTextNode('side'),
+      makeTextNode('unrelated-source'),
+      makeTextNode('unrelated-sink', '{{input}}'),
+    ],
+    connections: [
+      makeConnection('source', 'selected'),
+      makeConnection('selected', 'downstream', 'main'),
+      makeConnection('side', 'downstream', 'side'),
+      makeConnection('unrelated-source', 'unrelated-sink'),
+    ],
+  };
+}
 
 test('selectTestSuitesToRun filters suites and cases narrowly', () => {
   const selected = selectTestSuitesToRun(
@@ -16,11 +89,100 @@ test('selectTestSuitesToRun filters suites and cases narrowly', () => {
   assert.deepEqual(selected, [{ id: 'suite-1', testCases: [{ id: 'case-2' }] }]);
 });
 
+test('getEditorRunFromPlan runs the selected node and downstream nodes while preloading upstream and side inputs', () => {
+  const plan = getEditorRunFromPlan(makeProject(makeRunFromGraph()), graphId, 'selected' as NodeId, registry);
+
+  assert.deepEqual(plan.nodesToRun, ['selected', 'downstream']);
+  assert.deepEqual(plan.preserveNodeIds, ['source', 'side', 'unrelated-source', 'unrelated-sink']);
+  assert.deepEqual(plan.preloadNodeIds, ['source', 'side']);
+  assert.deepEqual(plan.runToNodeIds, ['downstream']);
+});
+
+test('getEditorRunFromPlan lets source nodes run from here without requiring their own previous output', () => {
+  const plan = getEditorRunFromPlan(makeProject(makeRunFromGraph()), graphId, 'source' as NodeId, registry);
+
+  assert.deepEqual(plan.nodesToRun, ['source', 'selected', 'downstream']);
+  assert.deepEqual(plan.preserveNodeIds, ['side', 'unrelated-source', 'unrelated-sink']);
+  assert.deepEqual(plan.preloadNodeIds, ['side']);
+  assert.deepEqual(plan.runToNodeIds, ['downstream']);
+});
+
+test('getEditorRunFromPlan preloads only direct boundary inputs for a selected leaf node', () => {
+  const plan = getEditorRunFromPlan(makeProject(makeRunFromGraph()), graphId, 'downstream' as NodeId, registry);
+
+  assert.deepEqual(plan.nodesToRun, ['downstream']);
+  assert.deepEqual(plan.preserveNodeIds, ['source', 'selected', 'side', 'unrelated-source', 'unrelated-sink']);
+  assert.deepEqual(plan.preloadNodeIds, ['selected', 'side']);
+  assert.deepEqual(plan.runToNodeIds, ['downstream']);
+});
+
+test('canPreloadEditorRunFromPlan only requires previous data for boundary preload nodes', () => {
+  const plan = getEditorRunFromPlan(makeProject(makeRunFromGraph()), graphId, 'selected' as NodeId, registry);
+
+  assert.equal(
+    canPreloadEditorRunFromPlan(plan, {
+      source: [
+        {
+          processId: 'process-old' as any,
+          data: {},
+        },
+        {
+          processId: 'process-1' as any,
+          data: {
+            outputData: {
+              output: { type: 'string', storage: 'inline', value: 'source' },
+            },
+          },
+        },
+      ],
+      side: [
+        {
+          processId: 'process-2' as any,
+          data: {
+            outputData: {
+              output: { type: 'string', storage: 'inline', value: 'side' },
+            },
+          },
+        },
+      ],
+    } as any),
+    true,
+  );
+
+  assert.equal(
+    canPreloadEditorRunFromPlan(plan, {
+      source: [
+        {
+          processId: 'process-1' as any,
+          data: {
+            outputData: {
+              output: { type: 'string', storage: 'inline', value: 'source' },
+            },
+          },
+        },
+      ],
+    } as any),
+    false,
+  );
+});
+
 test('getDependentDataForNodeForPreload returns prior outputs for requested dependency nodes', () => {
   const preloadData = getDependentDataForNodeForPreload(['node-1' as any], {
     'node-1': [
       {
+        processId: 'process-old' as any,
+        data: {
+          outputData: {
+            output: { type: 'string', storage: 'inline', value: 'old value' },
+          },
+        },
+      },
+      {
         processId: 'process-1' as any,
+        data: {},
+      },
+      {
+        processId: 'process-latest' as any,
         data: {
           outputData: {
             output: { type: 'string', storage: 'inline', value: 'hello' },

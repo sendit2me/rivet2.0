@@ -41,7 +41,7 @@ import {
 import { setUserInputSubmitHandler } from '../state/actions/userInputActions';
 import { useProjectNodeRegistry } from './useProjectNodeRegistry';
 import { handleError } from '../utils/errorHandling.js';
-import { getDependentDataForNodeForPreload } from './remoteExecutorHelpers.js';
+import { getDependentDataForNodeForPreload, getEditorRunFromPlan } from './remoteExecutorHelpers.js';
 import { pluginsState } from '../state/plugins.js';
 import { withDerivedProjectPluginSpecs } from '../utils/pluginUsage.js';
 import { getProjectContextValues } from '../utils/projectContextValues.js';
@@ -201,17 +201,17 @@ export function useLocalExecutor() {
         processor.executor = 'browser';
         processor.recordingPlaybackChatLatency = savedSettings.recordingPlaybackLatency ?? 1000;
 
-        if (options.to) {
-          processor.runToNodeIds = options.to;
-        }
-
         if (options.from) {
-          const dependencyNodes = processor.getDependencyNodesDeep(options.from);
-          const preloadData = getDependentDataForNodeForPreload(dependencyNodes, lastRunData);
+          const runFromPlan = getEditorRunFromPlan(tempProject, graphToRun, options.from, projectNodeRegistry);
+          processor.runToNodeIds = runFromPlan.runToNodeIds;
+          const preloadData = getDependentDataForNodeForPreload(runFromPlan.preloadNodeIds, lastRunData);
           for (const [nodeId, outputs] of Object.entries(preloadData)) {
             processor.preloadNodeData(nodeId as NodeId, outputs);
           }
-          processor.runFromNodeId = options.from;
+          currentExecution.preserveNodeRunDataForNextStart(runFromPlan.preserveNodeIds);
+          currentExecution.suppressPreloadedNodeEventsForCurrentRun(runFromPlan.preloadNodeIds);
+        } else if (options.to) {
+          processor.runToNodeIds = options.to;
         }
 
         if (recordExecutions) {
@@ -254,6 +254,12 @@ export function useLocalExecutor() {
           setLastRecordingState(recorder.serialize());
         }
       } catch (e) {
+        currentExecution.clearNodeRunDataPreservationForNextStart();
+        if (options.from) {
+          handleError(e, 'Failed to start local run from here');
+          return;
+        }
+
         logRuntimeError('Local graph run failed.', e);
       }
     },

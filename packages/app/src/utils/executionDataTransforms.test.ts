@@ -4,8 +4,10 @@ import type { DataValue, Outputs, PortId } from '@valerypopoff/rivet2-core';
 import type { DataRefStore } from '../providers/ProvidersContext.js';
 import {
   clearExecutionDataRefs,
+  clearRemovedExecutionDataRefs,
   restoreStoredDataValue,
   restoreStoredInputsOrOutputs,
+  splitRunDataByPreservedNodes,
   storeDataValueForHistory,
   storeInputsOrOutputsForHistory,
   storeNodeDataForHistory,
@@ -40,11 +42,16 @@ test('storeDataValueForHistory stores large strings by ref and restores them los
   const dataRefs = createDataRefStore();
   const value = { type: 'string', value: 'a'.repeat(REF_STORAGE_THRESHOLD_CHARS + 100) } as const;
 
-  const stored = storeDataValueForHistory(value, dataRefs, {
-    nodeId: 'node-1',
-    processId: 'process-1',
-    channel: 'output',
-  }, 'output' as PortId);
+  const stored = storeDataValueForHistory(
+    value,
+    dataRefs,
+    {
+      nodeId: 'node-1',
+      processId: 'process-1',
+      channel: 'output',
+    },
+    'output' as PortId,
+  );
 
   assert.equal(stored.storage, 'ref');
   assert.equal(stored.refId, 'execution:node-1:process-1:output:output');
@@ -61,11 +68,16 @@ test('storeDataValueForHistory marks large multi-line string previews as truncat
     value: Array.from({ length: 3000 }, (_, index) => `L${index}`).join('\n'),
   } as const;
 
-  const stored = storeDataValueForHistory(value, dataRefs, {
-    nodeId: 'node-line-limit',
-    processId: 'process-line-limit',
-    channel: 'output',
-  }, 'output' as PortId);
+  const stored = storeDataValueForHistory(
+    value,
+    dataRefs,
+    {
+      nodeId: 'node-line-limit',
+      processId: 'process-line-limit',
+      channel: 'output',
+    },
+    'output' as PortId,
+  );
 
   assert.equal(stored.storage, 'ref');
   assert.equal(stored.preview.kind, 'text');
@@ -76,11 +88,16 @@ test('storeDataValueForHistory keeps smaller strings inline', () => {
   const dataRefs = createDataRefStore();
   const value = { type: 'string', value: 'small value' } as const;
 
-  const stored = storeDataValueForHistory(value, dataRefs, {
-    nodeId: 'node-1',
-    processId: 'process-1',
-    channel: 'output',
-  }, 'output' as PortId);
+  const stored = storeDataValueForHistory(
+    value,
+    dataRefs,
+    {
+      nodeId: 'node-1',
+      processId: 'process-1',
+      channel: 'output',
+    },
+    'output' as PortId,
+  );
 
   assert.deepEqual(stored, {
     type: 'string',
@@ -186,18 +203,16 @@ test('storeInputsOrOutputsForHistory stores large objects by ref with json previ
   const dataRefs = createDataRefStore();
   const objectValue = {
     type: 'object',
-    value: Object.fromEntries(Array.from({ length: 400 }, (_, index) => [`key-${index}`, `value-${index}-${'x'.repeat(64)}`])),
+    value: Object.fromEntries(
+      Array.from({ length: 400 }, (_, index) => [`key-${index}`, `value-${index}-${'x'.repeat(64)}`]),
+    ),
   } as const;
 
-  const stored = storeInputsOrOutputsForHistory(
-    { output: objectValue } as any,
-    dataRefs,
-    {
-      nodeId: 'node-2',
-      processId: 'process-2',
-      channel: 'output',
-    },
-  );
+  const stored = storeInputsOrOutputsForHistory({ output: objectValue } as any, dataRefs, {
+    nodeId: 'node-2',
+    processId: 'process-2',
+    channel: 'output',
+  });
 
   assert.equal((stored as any)?.output.storage, 'ref');
   assert.equal((stored as any)?.output.preview.kind, 'json');
@@ -217,11 +232,16 @@ test('storeDataValueForHistory keeps undefined items visible in large any-array 
     ],
   };
 
-  const stored = storeDataValueForHistory(value, dataRefs, {
-    nodeId: 'node-any-array',
-    processId: 'process-any-array',
-    channel: 'output',
-  }, 'output' as PortId);
+  const stored = storeDataValueForHistory(
+    value,
+    dataRefs,
+    {
+      nodeId: 'node-any-array',
+      processId: 'process-any-array',
+      channel: 'output',
+    },
+    'output' as PortId,
+  );
 
   assert.equal(stored.storage, 'ref');
   assert.equal(stored.preview.kind, 'json');
@@ -295,6 +315,99 @@ test('clearExecutionDataRefs removes all execution-scoped refs from previous run
   } as any);
 
   assert.equal(dataRefs.values.size, 0);
+});
+
+test('splitRunDataByPreservedNodes separates previous run data for partial rerun resets', () => {
+  const previousRunData = {
+    a: [{ processId: 'process-a' as any, data: { status: { type: 'ok' } } }],
+    b: [{ processId: 'process-b' as any, data: { status: { type: 'ok' } } }],
+    c: [{ processId: 'process-c' as any, data: { status: { type: 'ok' } } }],
+  } as any;
+
+  const { preservedRunData, removedRunData } = splitRunDataByPreservedNodes(previousRunData, ['a', 'b'] as any);
+
+  assert.deepEqual(Object.keys(preservedRunData), ['a', 'b']);
+  assert.deepEqual(Object.keys(removedRunData), ['c']);
+});
+
+test('clearRemovedExecutionDataRefs leaves refs that are still used by preserved run data', () => {
+  const dataRefs = createDataRefStore();
+  dataRefs.set('preserved-ref', { type: 'string', value: 'preserved' });
+  dataRefs.set('removed-ref', { type: 'string', value: 'removed' });
+  dataRefs.set('shared-ref', { type: 'string', value: 'shared' });
+
+  const preservedRunData = {
+    a: [
+      {
+        processId: 'process-a' as any,
+        data: {
+          outputData: {
+            output: {
+              type: 'string',
+              storage: 'ref',
+              refId: 'preserved-ref',
+              preview: {
+                kind: 'text',
+                excerpt: 'preserved',
+                totalChars: 9,
+                lineCount: 1,
+              },
+            },
+            shared: {
+              type: 'string',
+              storage: 'ref',
+              refId: 'shared-ref',
+              preview: {
+                kind: 'text',
+                excerpt: 'shared',
+                totalChars: 6,
+                lineCount: 1,
+              },
+            },
+          },
+        },
+      },
+    ],
+  } as any;
+  const removedRunData = {
+    c: [
+      {
+        processId: 'process-c' as any,
+        data: {
+          outputData: {
+            output: {
+              type: 'string',
+              storage: 'ref',
+              refId: 'removed-ref',
+              preview: {
+                kind: 'text',
+                excerpt: 'removed',
+                totalChars: 7,
+                lineCount: 1,
+              },
+            },
+            shared: {
+              type: 'string',
+              storage: 'ref',
+              refId: 'shared-ref',
+              preview: {
+                kind: 'text',
+                excerpt: 'shared',
+                totalChars: 6,
+                lineCount: 1,
+              },
+            },
+          },
+        },
+      },
+    ],
+  } as any;
+
+  clearRemovedExecutionDataRefs(dataRefs, removedRunData, preservedRunData);
+
+  assert.equal(dataRefs.values.has('preserved-ref'), true);
+  assert.equal(dataRefs.values.has('shared-ref'), true);
+  assert.equal(dataRefs.values.has('removed-ref'), false);
 });
 
 test('storeNodeDataForHistory omits undefined input and output fields so later updates do not clobber earlier run data', () => {

@@ -119,7 +119,7 @@ Used by the desktop app when the live `selectedExecutorState` is `browser`.
 - runs `GraphProcessor` in-process inside the app
 - uses browser/Tauri-facing adapters
 - supports the editor's immediate local run flow
-- run-from execution preloads dependency outputs in-process before re-entering `GraphProcessor`
+- editor run-from execution builds an explicit partial-run plan, preloads only already-computed boundary inputs, and then reruns the selected node plus downstream nodes through `GraphProcessor`
 
 ### Sidecar Node execution
 

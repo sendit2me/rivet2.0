@@ -308,6 +308,12 @@ const styles = css`
     color: currentColor;
   }
 
+  .spinner .node-running-indicator {
+    width: var(--ui-font-size-base);
+    height: var(--ui-font-size-base);
+    border-width: max(1px, calc(1.5px * var(--ui-font-scale)));
+  }
+
   .selected .spinner {
     color: var(--foreground-on-primary);
   }

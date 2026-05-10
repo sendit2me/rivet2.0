@@ -127,8 +127,8 @@ const rivetDebugger = startDebuggerServer({
     graphId,
     inputs,
     runToNodeIds,
+    preloadData,
     contextValues,
-    runFromNodeId,
     projectPath,
     useEditorCache,
   }) => {
@@ -136,7 +136,7 @@ const rivetDebugger = startDebuggerServer({
       requestId,
       inputCount: Object.keys(inputs ?? {}).length,
       runToNodeCount: runToNodeIds?.length ?? 0,
-      hasRunFromNode: runFromNodeId != null,
+      preloadNodeCount: Object.keys(preloadData ?? {}).length,
       contextValueCount: Object.keys(contextValues ?? {}).length,
       hasProjectPath: projectPath != null,
     });
@@ -230,8 +230,8 @@ const rivetDebugger = startDebuggerServer({
         processor.processor.runToNodeIds = runToNodeIds;
       }
 
-      if (runFromNodeId) {
-        processor.processor.runFromNodeId = runFromNodeId;
+      for (const [nodeId, outputs] of Object.entries(preloadData ?? {})) {
+        processor.processor.preloadNodeData(nodeId as Rivet.NodeId, outputs);
       }
 
       await processor.run();

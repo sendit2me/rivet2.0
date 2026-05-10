@@ -30,11 +30,19 @@ export type NodeExecutionEventsApi = {
 export function useNodeExecutionEvents({
   setDataForNode,
   setSelectedNodePageLatest,
-}: Pick<ExecutionDataFlowApi, 'setDataForNode' | 'setSelectedNodePageLatest'>): NodeExecutionEventsApi {
+  shouldSuppressPreloadedNodeEvent,
+}: Pick<
+  ExecutionDataFlowApi,
+  'setDataForNode' | 'setSelectedNodePageLatest' | 'shouldSuppressPreloadedNodeEvent'
+>): NodeExecutionEventsApi {
   const dataRefs = useDataRefs();
   const setLastRunData = useSetAtom(lastRunDataByNodeState);
 
   const onNodeStart = ({ node, inputs, processId, execution }: ProcessEvents['nodeStart']) => {
+    if (shouldSuppressPreloadedNodeEvent(node.id, processId)) {
+      return;
+    }
+
     setDataForNode(node.id, processId, execution, {
       ...getNodeRunDebugData(node),
       inputData: sanitizeInputsOrOutputs(inputs),
@@ -45,6 +53,10 @@ export function useNodeExecutionEvents({
   };
 
   const onNodeFinish = ({ node, outputs, processId, execution }: ProcessEvents['nodeFinish']) => {
+    if (shouldSuppressPreloadedNodeEvent(node.id, processId)) {
+      return;
+    }
+
     setDataForNode(node.id, processId, execution, {
       outputData: sanitizeInputsOrOutputs(outputs),
       status: { type: 'ok' },

@@ -1,6 +1,6 @@
 import { produce } from 'immer';
 import { useAtomValue, useSetAtom } from 'jotai';
-import { type GraphId, type GraphRunId, type ProcessEvents } from '@valerypopoff/rivet2-core';
+import { type GraphId, type GraphRunId, type NodeId, type ProcessEvents } from '@valerypopoff/rivet2-core';
 import { useLatest } from 'ahooks';
 import { lastRecordingState } from '../state/execution';
 import {
@@ -22,7 +22,11 @@ import { buildGraphViewKeyFromExecution } from '../utils/executionIdentity';
 import type { GraphViewKey } from '../domain/graphEditing/navigationActions.js';
 import type { ExecutionDataFlowApi } from './useExecutionDataFlow';
 import { useDataRefs } from '../providers/ProvidersContext.js';
-import { clearExecutionDataRefs } from '../utils/executionDataTransforms.js';
+import {
+  clearExecutionDataRefs,
+  clearRemovedExecutionDataRefs,
+  splitRunDataByPreservedNodes,
+} from '../utils/executionDataTransforms.js';
 import { removeRunningGraphEntry, updateSelectedGraphRunForGraphStart } from './graphExecutionEventHelpers.js';
 
 export type GraphExecutionEventsApi = {
@@ -40,8 +44,13 @@ export type GraphExecutionEventsApi = {
 };
 
 export function useGraphExecutionEvents({
+  clearNodeRunDataPreservationForNextStart,
+  consumeNodeRunDataPreservationForNextStart,
   trivetRunningLatest,
-}: Pick<ExecutionDataFlowApi, 'trivetRunningLatest'>): GraphExecutionEventsApi {
+}: Pick<
+  ExecutionDataFlowApi,
+  'clearNodeRunDataPreservationForNextStart' | 'consumeNodeRunDataPreservationForNextStart' | 'trivetRunningLatest'
+>): GraphExecutionEventsApi {
   const dataRefs = useDataRefs();
   const setLastRecordingState = useSetAtom(lastRecordingState);
   const setUserInputQuestions = useSetAtom(userInputModalQuestionsState);
@@ -78,6 +87,8 @@ export function useGraphExecutionEvents({
   };
 
   const onStart = ({ startGraph }: ProcessEvents['start']) => {
+    const nodeIdsToPreserve = consumeNodeRunDataPreservationForNextStart();
+
     setLastRecordingState(undefined);
     setUserInputQuestions({});
     setGraphRunning(true);
@@ -85,22 +96,24 @@ export function useGraphExecutionEvents({
     setGraphStartTime(Date.now());
 
     if (!trivetRunningLatest.current) {
-      clearExecutionDataRefs(dataRefs, lastRunDataLatest.current);
-      setLastRunData({});
+      resetLastRunDataForRunStart(nodeIdsToPreserve);
       setGraphRunHistoryByView({});
       setSelectedGraphRunByView({});
     }
   };
 
   const onStop = () => {
+    clearNodeRunDataPreservationForNextStart();
     stopAll();
   };
 
   const onDone = (_data: ProcessEvents['done']) => {
+    clearNodeRunDataPreservationForNextStart();
     stopAll();
   };
 
   const onAbort = (_data: ProcessEvents['abort']) => {
+    clearNodeRunDataPreservationForNextStart();
     stopAll();
     interruptAll();
   };
@@ -126,6 +139,7 @@ export function useGraphExecutionEvents({
   };
 
   const onError = (data: ProcessEvents['error']) => {
+    clearNodeRunDataPreservationForNextStart();
     stopAll();
     handleError(data.error, 'Graph execution error', {
       toastError: false,
@@ -203,6 +217,22 @@ export function useGraphExecutionEvents({
         }
       }),
     );
+  };
+
+  const resetLastRunDataForRunStart = (nodeIdsToPreserve: NodeId[] | undefined) => {
+    if (!nodeIdsToPreserve?.length) {
+      clearExecutionDataRefs(dataRefs, lastRunDataLatest.current);
+      setLastRunData({});
+      return;
+    }
+
+    const { preservedRunData, removedRunData } = splitRunDataByPreservedNodes(
+      lastRunDataLatest.current,
+      nodeIdsToPreserve,
+    );
+
+    clearRemovedExecutionDataRefs(dataRefs, removedRunData, preservedRunData);
+    setLastRunData(preservedRunData);
   };
 
   return {

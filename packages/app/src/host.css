@@ -3,13 +3,22 @@
 @import './colors.css';
 @import '@atlaskit/css-reset';
 
+html,
 body,
 button,
 input,
 select,
 textarea,
 .app,
+.atlaskit-portal,
 .atlaskit-portal-container {
+  --ds-font-family-body: var(--font-family);
+  --ds-font-family-heading: var(--font-family);
+  --ds-font-family-sans: var(--font-family);
+  --ds-font-family-brand: var(--font-family);
+  --ds-font-family-code: var(--font-family-monospace);
+  --ds-font-family-monospace: var(--font-family-monospace);
+  --toastify-font-family: var(--font-family);
   font-family: var(--font-family);
 }
 

@@ -44,7 +44,7 @@ export type DynamicGraphRunOptions = {
   graphId: GraphId;
   inputs?: GraphInputs;
   runToNodeIds?: NodeId[];
-  runFromNodeId?: NodeId;
+  preloadData?: Record<NodeId, Outputs>;
   contextValues: Record<string, DataValue>;
   projectPath: string | undefined;
   useEditorCache?: boolean;
@@ -109,13 +109,21 @@ export function startDebuggerServer(
               graphId: GraphId;
               inputs: GraphInputs;
               runToNodeIds?: NodeId[];
-              runFromNodeId?: NodeId;
+              preloadData?: Record<NodeId, Outputs>;
               contextValues: Record<string, DataValue>;
               projectPath: string | undefined;
               useEditorCache?: boolean;
             };
-            const { requestId, graphId, inputs, runToNodeIds, contextValues, runFromNodeId, projectPath, useEditorCache } =
-              runData;
+            const {
+              requestId,
+              graphId,
+              inputs,
+              runToNodeIds,
+              contextValues,
+              preloadData,
+              projectPath,
+              useEditorCache,
+            } = runData;
 
             await options.dynamicGraphRun?.({
               client: socket,
@@ -124,7 +132,7 @@ export function startDebuggerServer(
               inputs,
               runToNodeIds,
               contextValues,
-              runFromNodeId,
+              preloadData,
               projectPath,
               useEditorCache,
             });

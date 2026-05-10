@@ -176,7 +176,7 @@ The sidecar:
 - injects a sidecar-only worker-backed `CodeRunner` so most Code-node JavaScript runs in a fresh Node worker thread instead of blocking unrelated node completion events on the sidecar's main event loop
 - bridges permitted Code-node `console.*` calls from the worker/current-thread fallback into `codeConsole` WebSocket messages so the app can replay them in the renderer console for the active editor run
 - supports preload, pause, resume, abort, and user-input messages
-- supports run-from execution by accepting preload data and a `runFromNodeId`
+- supports editor run-from execution by accepting startup `preloadData` in the same `run` message as explicit `runToNodeIds`; the sidecar applies that preload after creating the processor and before calling `run()`
 
 The worker-backed runner is scoped to the app executor. `@valerypopoff/rivet2-node`
 programmatic callers still use `NodeCodeRunner` by default unless they pass a

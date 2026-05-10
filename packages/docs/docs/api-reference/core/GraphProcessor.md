@@ -137,31 +137,31 @@ processor.offAny(listener);
 
 The main event map is `ProcessEvents`:
 
-| Event | When it fires |
-| --- | --- |
-| `start` | Root graph processing starts. |
-| `graphStart` | A graph or subgraph starts. |
-| `graphFinish` | A graph or subgraph finishes. |
-| `graphError` | A graph or subgraph fails. |
-| `graphAbort` | A graph is aborted. |
-| `nodeStart` | A node starts with resolved inputs. |
-| `nodeFinish` | A node finishes with outputs. |
-| `nodeError` | A node errors. |
-| `nodeExcluded` | A node is skipped due to disabled state, conditional state, control-flow exclusion, or an unconnected required input. |
-| `partialOutput` | A node emits partial output while still running. |
-| `nodeOutputsCleared` | Previously displayed outputs for a node should be cleared. |
-| `userInput` | A User Input node is waiting for user input. |
-| `error` | Root graph execution fails. |
-| `done` | Root graph execution completes successfully. |
-| `abort` | Root graph execution is aborted. |
-| `finish` | Root graph processing has finished, successful or not. |
-| `trace` | A trace message is emitted when trace is enabled. |
-| `pause` | The processor is paused. |
-| `resume` | The processor is resumed. |
-| `globalSet` | A graph global value is set. |
-| `newAbortController` | A node-level AbortController is created. |
-| `userEvent:${name}` | A custom user event is raised. |
-| `globalSet:${id}` | A specific graph global value is set. |
+| Event                | When it fires                                                                                                         |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `start`              | Root graph processing starts.                                                                                         |
+| `graphStart`         | A graph or subgraph starts.                                                                                           |
+| `graphFinish`        | A graph or subgraph finishes.                                                                                         |
+| `graphError`         | A graph or subgraph fails.                                                                                            |
+| `graphAbort`         | A graph is aborted.                                                                                                   |
+| `nodeStart`          | A node starts with resolved inputs.                                                                                   |
+| `nodeFinish`         | A node finishes with outputs.                                                                                         |
+| `nodeError`          | A node errors.                                                                                                        |
+| `nodeExcluded`       | A node is skipped due to disabled state, conditional state, control-flow exclusion, or an unconnected required input. |
+| `partialOutput`      | A node emits partial output while still running.                                                                      |
+| `nodeOutputsCleared` | Previously displayed outputs for a node should be cleared.                                                            |
+| `userInput`          | A User Input node is waiting for user input.                                                                          |
+| `error`              | Root graph execution fails.                                                                                           |
+| `done`               | Root graph execution completes successfully.                                                                          |
+| `abort`              | Root graph execution is aborted.                                                                                      |
+| `finish`             | Root graph processing has finished, successful or not.                                                                |
+| `trace`              | A trace message is emitted when trace is enabled.                                                                     |
+| `pause`              | The processor is paused.                                                                                              |
+| `resume`             | The processor is resumed.                                                                                             |
+| `globalSet`          | A graph global value is set.                                                                                          |
+| `newAbortController` | A node-level AbortController is created.                                                                              |
+| `userEvent:${name}`  | A custom user event is raised.                                                                                        |
+| `globalSet:${id}`    | A specific graph global value is set.                                                                                 |
 
 Most event payloads include `execution` metadata:
 
@@ -264,18 +264,17 @@ External functions are available to External Call nodes by name. The function re
 
 GraphProcessor also registers a default `echo` external function.
 
-## Run-To and Run-From Execution
+## Run-To and Preloaded Partial Execution
 
-GraphProcessor exposes two advanced fields used by editor/debugger execution:
+GraphProcessor exposes `runToNodeIds` for targeted execution:
 
 ```typescript
 processor.runToNodeIds = [nodeId];
-processor.runFromNodeId = nodeId;
 ```
 
 `runToNodeIds` restricts execution to the dependencies needed to reach the selected node or nodes.
 
-`runFromNodeId` starts from a selected node instead of normal graph start nodes. It requires preloaded upstream node data.
+Editor "Run from here" is built outside the core processor by calculating explicit `runToNodeIds` plus preloaded boundary inputs. Programmatic callers should use that same explicit shape instead of relying on `runFromNodeId`.
 
 ## Preloading Node Data
 
@@ -287,7 +286,7 @@ processor.preloadNodeData(nodeId, {
 
 `preloadNodeData` marks a node as already visited and stores its outputs. Every preloaded output must be a valid `DataValue`.
 
-This is mainly used for run-from-node execution and editor debugging.
+This is mainly used by editor partial reruns. Do not preload a node that should execute in the upcoming run; preload only the already-computed boundary inputs that the targeted run should reuse. The Rivet editor also preserves output snapshots for nodes outside the rerun slice so their previous values remain visible, but that preservation is UI state and does not change `GraphProcessor` results.
 
 ## Dependencies
 
@@ -313,39 +312,29 @@ Call `getRootProcessor()` from processor-aware code when you need the top-level 
 
 ## Advanced Properties
 
-| Property | Purpose |
-| --- | --- |
-| `id` | Generated processor instance ID. |
-| `executor` | Optional runtime label: `'nodejs'` or `'browser'`. |
-| `runToNodeIds` | Optional target nodes for run-to-node execution. |
-| `runFromNodeId` | Optional start node for run-from-node execution. |
-| `recordingPlaybackChatLatency` | Replay delay in milliseconds. Default `1000`. |
-| `warnOnInvalidGraph` | Enables graph preprocessing warnings for invalid graph structures. |
-| `slowMode` | Public flag for slow/debug visualization. Prefer `setSlowMode(...)`. |
+| Property                       | Purpose                                                                                                   |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------- |
+| `id`                           | Generated processor instance ID.                                                                          |
+| `executor`                     | Optional runtime label: `'nodejs'` or `'browser'`.                                                        |
+| `runToNodeIds`                 | Optional target nodes for run-to-node execution.                                                          |
+| `runFromNodeId`                | Legacy editor field. Current scheduling uses explicit `runToNodeIds` plus `preloadNodeData(...)` instead. |
+| `recordingPlaybackChatLatency` | Replay delay in milliseconds. Default `1000`.                                                             |
+| `warnOnInvalidGraph`           | Enables graph preprocessing warnings for invalid graph structures.                                        |
+| `slowMode`                     | Public flag for slow/debug visualization. Prefer `setSlowMode(...)`.                                      |
 
 ## Direct Use Example
 
 ```typescript
-import {
-  GraphProcessor,
-  globalRivetNodeRegistry,
-  type DataValue,
-} from '@valerypopoff/rivet2-core';
+import { GraphProcessor, globalRivetNodeRegistry, type DataValue } from '@valerypopoff/rivet2-core';
 import { loadProjectFromFile } from '@valerypopoff/rivet2-node';
 
 const project = await loadProjectFromFile('./workflow.rivet-project');
-const processor = new GraphProcessor(
-  project,
-  project.metadata.mainGraphId,
-  globalRivetNodeRegistry,
-  true,
-  {
-    concurrency: {
-      nodeConcurrency: 8,
-      splitRunConcurrency: 4,
-    },
+const processor = new GraphProcessor(project, project.metadata.mainGraphId, globalRivetNodeRegistry, true, {
+  concurrency: {
+    nodeConcurrency: 8,
+    splitRunConcurrency: 4,
   },
-);
+});
 
 processor.on('nodeError', ({ node, error }) => {
   console.error(`Node failed: ${node.title}`, error);
