@@ -10,7 +10,7 @@ If you are used to code, a graph is analogous to a function. A function is a set
 
 To create a new graph, right click in the blank space in the graph list in the sidebar, and select "New Graph". This will create a new blank graph. The new graph is unsaved by default.
 
-Go into the **Graph Info** tab and give your graph a new name, then save the new graph by pressing **Ctrl+S** or **Cmd+S**. Your new graph will now appear in the graph list.
+Right click the new graph in the graph list and choose **Graph info** to give your graph a new name. Then save the project by pressing **Ctrl+S** or **Cmd+S**. Your new graph will now appear in the graph list with its updated name.
 
 ## Navigating Between Graphs
 
@@ -18,7 +18,7 @@ To navigate between graphs, click on the graph in the graph list in the sidebar.
 
 ## Deleting a Graph
 
-To delete a graph, right click on it in the graph list in the sidebar and select "Delete Graph". This will delete the graph from your project. (**Warning** there is no undo at this time!)
+To delete a graph, right click on it in the graph list in the sidebar and select "Delete". This will delete the graph from your project. (**Warning** there is no undo at this time!)
 
 ## Running a Graph
 

@@ -1,5 +1,8 @@
 
 
+
+- Add "Freeze node" functionality? Kust like in That Databricks tool. Maybe it can replace the current LLM chat node's "cache" functionality
+
 - Need to show the curent graph name somewhere. When there's many and they are in the folders and you click through subgraphs, the user gets lost
 
 - In nodes that have variadic inputs, when an input in the middle is removed, the remaining inputs look weird. Do we need to automatically remove them? It should we allow the user to remove them if needed?

@@ -2,25 +2,25 @@
 title: 'Overview of the Interface'
 ---
 
-## Sidebar
+## Project Sidebar
 
-### Project Info Tab
+### Project Settings
 
-In the project info tab you can set the name and description of your project. This data is saved with your project file and used for documenting your project.
+Use **Project settings** at the top of the graph tree panel to set the name and description of your project. This data is saved with your project file and used for documenting your project.
 
 Project plugin declarations are shown separately as "Plugins used by this project". In Rivet 2.0, plugins are installed into the app from Settings > Plugins, and the project list is derived from actual plugin-node usage. See the [Plugins](./plugins.md) documentation for more information.
 
 ![Project Info](./assets/project-info.png)
 
-### Graphs Tab
+### Graph Tree
 
-The graphs tab is where you can navigate between all graphs in your project, add new graphs, and delete/duplicate existing graphs.
+The graph tree is where you can navigate between all graphs in your project, filter graph names, add new graphs, and delete/duplicate existing graphs.
 
 ![Graphs](./assets/graphs.png)
 
 Clicking on a graph in the list will open it in the main graph area. To add a new graph, right click in the blank space in the graph list and select "New Graph".
 
-To delete a graph, right click on it and select "Delete Graph". This will delete the graph from your project.
+To delete a graph, right click on it and select "Delete". This will delete the graph from your project.
 
 :::caution
 
@@ -30,9 +30,9 @@ There is no undo at this time! Deleting a graph is permanent! We recommend you s
 
 To duplicate a graph, right click on it and select "Duplicate Graph". This will create a new graph with the same nodes and connections as the original graph.
 
-### Graph Info Tab
+### Graph Info
 
-In the graph info tab you can set the name and description of your graph. This data is saved with your project file and used for documenting your graph and organizing your graphs in the graph list.
+Right click a graph in the graph tree and choose **Graph info** to set the name and description of your graph. This data is saved with your project file and used for documenting your graph and organizing your graphs in the graph list.
 
 ![Graph Info](./assets/graph-info.png)
 

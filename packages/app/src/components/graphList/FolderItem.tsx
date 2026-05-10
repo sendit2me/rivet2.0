@@ -13,7 +13,6 @@ import {
 } from 'react';
 import { useAtom, useAtomValue } from 'jotai';
 import { projectMetadataState } from '../../state/savedGraphs.js';
-import { range } from 'lodash-es';
 import clsx from 'clsx';
 import { type GraphId, type NodeGraph } from '@valerypopoff/rivet2-core';
 import FolderIcon from 'majesticons/line/folder-line.svg?react';
@@ -65,17 +64,18 @@ export const FolderItem: FC<{
     const isSelected = graph.metadata?.id === savedGraph?.metadata?.id;
     const isMainGraph = item.type === 'graph' && savedGraph?.metadata?.id === projectMetadata.mainGraphId;
     const referencesSelectedGraph =
-      item.type === 'graph' && savedGraph?.metadata?.id ? referencingSelectedGraphIds.has(savedGraph.metadata.id) : false;
+      item.type === 'graph' && savedGraph?.metadata?.id
+        ? referencingSelectedGraphIds.has(savedGraph.metadata.id)
+        : false;
     const isDraggingOver =
       item.type === 'folder' && dragOverFolderName === fullPath && draggingItemFolder !== dragOverFolderName;
     const graphReachability =
-      item.type === 'graph' && savedGraph?.metadata?.id ? graphReachabilityByGraphId[savedGraph.metadata.id] : undefined;
+      item.type === 'graph' && savedGraph?.metadata?.id
+        ? graphReachabilityByGraphId[savedGraph.metadata.id]
+        : undefined;
     const folderGraphCount = item.type === 'folder' ? countGraphsInFolder(item) : undefined;
     const shouldShowUnreachableBadge =
-      item.type === 'graph' &&
-      !isRenaming &&
-      showUnreachableBadges &&
-      graphReachability === 'unreachable';
+      item.type === 'graph' && !isRenaming && showUnreachableBadges && graphReachability === 'unreachable';
 
     const handleRenameSaved = useStableCallback((newName: string) => {
       onRenameItem(fullPath, fullPath.replace(/[^/]+$/, newName));
@@ -102,6 +102,7 @@ export const FolderItem: FC<{
           : depth,
       [isDragging, dragOverFolderName, depth, item],
     );
+    const graphItemStyle = { '--graph-item-indent': `${virtualDepth * 20}px` } as CSSProperties;
 
     const setExpanded = useStableCallback((expanded: boolean) => {
       setExpandedFolders((prev) => ({
@@ -141,6 +142,7 @@ export const FolderItem: FC<{
             data-contextmenutype={item.type === 'folder' ? 'graph-folder' : 'graph-item'}
             data-graphid={savedGraph?.metadata?.id}
             data-folderpath={item.type === 'folder' ? item.fullPath : item.graph.metadata?.name}
+            style={graphItemStyle}
             title={[
               fullPath,
               isMainGraph ? 'Main graph.' : undefined,
@@ -149,16 +151,7 @@ export const FolderItem: FC<{
               .filter(Boolean)
               .join('\n')}
           >
-            {range(virtualDepth).map((idx) => {
-              return (
-                <div className="depthSpacer" key={idx} />
-              );
-            })}
-            <div
-              className="graph-item-select"
-              {...draggableRowProps}
-              onClick={handleItemClick}
-            >
+            <div className="graph-item-select" {...draggableRowProps} onClick={handleItemClick}>
               {isRenaming ? (
                 <FolderItemRename value={fullPath.replace(/.*\//, '')} onSaved={handleRenameSaved} />
               ) : (

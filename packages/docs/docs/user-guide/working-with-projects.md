@@ -8,9 +8,9 @@ A Rivet project contains a set of graphs. These graphs can call each other by us
 
 To create a new project, choose **New Project** in the File menu. This will create a new blank project. The new project is unsaved by default.
 
-## Project Info
+## Project Settings
 
-Go into the **Project Info** tab of the left sidebar to give your project a new name and optionally a description. This is simply metadata and does not affect the execution of the project.
+Use **Project settings** at the top of the graph tree panel to give your project a new name and optionally a description. This is simply metadata and does not affect the execution of the project.
 
 ## Saving a Project
 
