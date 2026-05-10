@@ -244,8 +244,8 @@ const styles = css`
   }
 
   .graph-main-icon {
-    width: 11px;
-    height: 11px;
+    width: 1em;
+    height: 1em;
     flex-shrink: 0;
     color: var(--grey-lightish);
   }

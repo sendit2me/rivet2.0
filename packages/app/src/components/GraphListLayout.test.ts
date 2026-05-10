@@ -22,6 +22,7 @@ test('graph tree panel keeps the compact text-list layout', () => {
   assert.match(graphListSource, /&:focus::placeholder {\s+opacity: 0;\s+}/);
   assert.match(graphListSource, /\.graph-list-action {\s+cursor: pointer;\s+svg {\s+margin-bottom: 0\.35em;/);
   assert.match(graphListSource, /\.spinner \.node-running-indicator {\s+width: var\(--ui-font-size-base\);/);
+  assert.match(graphListSource, /\.graph-main-icon {\s+width: 1em;\s+height: 1em;/);
   assert.match(graphListSource, /padding: 8px 10px 8px calc\(10px \+ var\(--graph-item-indent, 0px\)\);/);
   assert.doesNotMatch(graphListSource, /iconBefore=|shouldFitContainer/);
 

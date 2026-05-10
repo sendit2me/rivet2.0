@@ -317,7 +317,7 @@ export const nodeStyles = css`
     align-items: center;
     gap: calc(6px * var(--ui-font-scale));
     min-height: calc(24px * var(--ui-font-scale));
-    padding: 0.1em 0.6em 0.1em 0.4em;
+    padding: 0.2em 0.6em 0.1em 0.4em;
     border: 0;
     border-radius: 0.8em;
     corner-shape: squircle;
@@ -334,6 +334,10 @@ export const nodeStyles = css`
     margin-top: calc(6px * var(--ui-font-scale));
     margin-left: -0.1em;
   }
+
+   .split-run-summary svg {
+    margin-bottom: 0.1em;
+   }
 
   .split-run-summary-mode {
     font-weight: 700;
