@@ -1,6 +1,6 @@
 # @valerypopoff/trivet
 
-Graph-oriented testing utilities for Rivet 2.0 projects.
+Graph-oriented testing utilities for Rivet 2 projects.
 
 ## Development
 

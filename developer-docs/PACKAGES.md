@@ -325,7 +325,7 @@ Docs publishing is handled from the repo root by `publish-docs.mts`, not by pack
 ### Current content contract
 
 The docs package is not an archival copy of the pre-fork Rivet docs. It should
-describe the current Rivet 2.0 surface:
+describe the current Rivet 2 surface:
 
 - User Guide pages, especially `docs/introduction.md`, are for normal desktop-app users first; the introduction should position Rivet as a visual low-code tool for AI and non-AI workflows, quick experiments, production workflows, and the optional self-hosted web-app form through Rivet Studio Server, while runtime package, CLI, source-checkout, and wrapper embedding details belong in API Reference pages instead of the User Guide introduction
 - Tutorial pages must use current app-facing labels rather than old internal names. In particular, the old `Splitting` tutorial URL is kept for link stability, but the visible tutorial is `Running Many Items` and should describe the current node run-mode control: `Run once`, `Many parallel runs`, and `Many sequential runs`

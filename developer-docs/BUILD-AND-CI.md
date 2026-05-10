@@ -268,7 +268,7 @@ The CLI Dockerfile installs the published CLI package through its `RIVET_CLI_VER
 - `typecheck` via `tsc`
 
 The public docs are part of the release surface. Keep them aligned with the
-current Rivet 2.0 package/runtime model instead of preserving old fork-era
+current Rivet 2 package/runtime model instead of preserving old fork-era
 wording. In practice, docs changes should follow package renames, executor
 contract changes, app-level plugin behavior, LLM Chat/HTTP Call output
 contracts, Code-node runtime-permission changes, and wrapper/embedder seams.

@@ -4,7 +4,7 @@ Plugins add node types and plugin-specific settings to Rivet.
 
 ## App-Installed Plugins
 
-In Rivet 2.0, installing a plugin means installing it into the Rivet app. Once installed, the plugin's nodes appear in the node picker for every project you open.
+In Rivet 2, installing a plugin means installing it into the Rivet app. Once installed, the plugin's nodes appear in the node picker for every project you open.
 
 Open Settings > Plugins to search the plugin catalog, install catalog plugins, add npm package plugins manually, and remove plugins from the app.
 
