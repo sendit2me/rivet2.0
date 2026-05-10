@@ -260,6 +260,7 @@ export const nodeStyles = css`
     svg {
       width: 20px;
       height: 20px;
+      margin-bottom: 0.3em;
     }
   }
 
@@ -369,6 +370,7 @@ export const nodeStyles = css`
     justify-content: flex-end;
     min-height: calc(22px * var(--ui-font-scale));
     margin-right: calc(-8px * var(--ui-font-scale));
+    margin-top: -0.2em;
     flex: 0 0 66px;
     width: calc(66px * var(--ui-font-scale));
     position: relative;

@@ -35,15 +35,16 @@ const buttonStyles = css`
     position: absolute;
     inset: 0;
     display: flex;
-    align-items: center;
-    justify-content: center;
     color: rgba(255, 255, 255, 0.3);
     pointer-events: none;
 
     svg {
-      width: 28px;
-      height: 28px;
+      width: 22px;
+      height: 22px;
       display: block;
+      position: absolute;
+      right: 4px;
+      bottom: 4px;
     }
   }
 `;
