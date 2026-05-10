@@ -229,6 +229,8 @@ const Container = styled.div`
     gap: 0;
     min-width: 0;
     margin-left: -8px;
+    --node-metadata-text-inset: 12px;
+    --node-metadata-control-border-width: 1px;
   }
 
   .node-title-field,
@@ -284,7 +286,7 @@ const Container = styled.div`
     width: 100%;
     min-width: 0;
     height: 40px;
-    padding: 0 12px;
+    padding: 0 var(--node-metadata-text-inset);
     font-size: var(--ui-font-size-base);
     line-height: 38px;
     box-sizing: border-box;
@@ -306,7 +308,7 @@ const Container = styled.div`
     box-sizing: border-box;
     font-family: var(--font-family-monospace);
     background-color: var(--grey-darkerish);
-    border: 1px solid var(--grey);
+    border: var(--node-metadata-control-border-width) solid var(--grey);
     border-radius: 4px;
     corner-shape: squircle;
     color: var(--grey-light);
@@ -315,7 +317,7 @@ const Container = styled.div`
   .node-title-field input {
     height: 40px;
     min-height: 40px;
-    padding: 0 12px;
+    padding: 0 calc(var(--node-metadata-text-inset) - var(--node-metadata-control-border-width));
     font-size: var(--ui-font-size-base);
     line-height: 38px;
   }
@@ -353,9 +355,15 @@ const Container = styled.div`
     display: block;
     min-height: 14px;
     padding: 0 !important;
+    border: 0 !important;
     border-radius: 4px;
     corner-shape: squircle;
     overflow: hidden;
+  }
+
+  .node-description-field button:focus + [data-read-view-fit-container-width='true'] {
+    outline: 2px solid var(--primary);
+    outline-offset: 0;
   }
 
   .node-description-field [data-read-view-fit-container-width='true'] > * {
@@ -366,7 +374,7 @@ const Container = styled.div`
   .node-description-field .description-read-content {
     width: 100%;
     min-height: 14px;
-    padding: 10px 12px;
+    padding: 10px var(--node-metadata-text-inset);
     box-sizing: border-box;
     font-size: var(--ui-font-size-base);
     line-height: 1.4;
@@ -377,7 +385,7 @@ const Container = styled.div`
 
   .node-description-field textarea {
     min-height: 14px;
-    padding: 10px 12px;
+    padding: 10px calc(var(--node-metadata-text-inset) - var(--node-metadata-control-border-width));
     font-size: var(--ui-font-size-base);
     line-height: 1.4;
   }
@@ -563,7 +571,7 @@ const Container = styled.div`
     align-items: center;
     width: 100%;
     margin-top: 11px;
-    margin-left: 3px;
+    margin-left: 1px;
   }
 
   .node-color-picker .node-color-picker-trigger {
