@@ -1,6 +1,6 @@
 # @valerypopoff/rivet2-cli
 
-Command-line tools for running and serving Rivet 2.0 projects through the Node runtime.
+Command-line tools for running and serving Rivet 2 projects through the Node runtime.
 
 ## Usage
 

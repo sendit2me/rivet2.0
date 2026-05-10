@@ -237,9 +237,10 @@ Transport features are exposed as session capabilities. For example,
 `canSendRun` controls whether remote run commands can be sent, `canUploadProject`
 replaces older direct `remoteUploadAllowed` checks for project uploads, and
 `canRecordSocket` gates Gentrace socket recording. Remote graph execution,
-Trivet remote runs, remote user-input replies, preload messages, and remote
-abort/pause/resume commands check those capabilities at action time before
-sending protocol messages and then verify that the websocket accepted the send.
+Trivet remote runs, remote user-input replies, editor startup preload data
+bundled into run messages, live preload messages for already-attached processors,
+and remote abort/pause/resume commands check those capabilities at action time
+before sending protocol messages and then verify that the websocket accepted the send.
 Gentrace records through `recordSocketEvents(...)`, so feature code no longer
 reads the session socket from UI state. Raw socket/status fields are still
 available to low-level runtime code and tests, but product UI should use the
@@ -555,15 +556,18 @@ const eventDispatcher = createProcessEventDispatcher(currentExecution);
 The sidecar serializes events with full metadata. The dispatcher reconstructs
 and routes them to the same handler functions.
 
-Local and remote run-from execution now also share the same preload-data derivation helper:
+Local and remote editor run-from execution share the same explicit run plan:
 
-- `getDependentDataForNodeForPreload(...)` in `remoteExecutorHelpers.ts` restores dependency outputs from stored history
-- `useLocalExecutor` uses that helper and then calls `processor.preloadNodeData(...)`
-- `useRemoteExecutor` uses that same helper and sends the resulting map over the debugger preload message
+- `getEditorRunFromPlan(...)` in `remoteExecutorHelpers.ts` finds the selected node plus downstream nodes to run, the downstream terminal nodes to pass as `runToNodeIds`, and the already-computed boundary inputs to preload
+- `getDependentDataForNodeForPreload(...)` restores the latest available boundary outputs from stored history
+- `useLocalExecutor` applies the restored boundary data with `processor.preloadNodeData(...)` before starting the targeted processor run
+- `useRemoteExecutor` sends `runToNodeIds` and restored `preloadData` together in the debugger `run` message so the app executor can create the processor, preload it, and then run it
+- before that run emits `start`, the executor hook tells the execution-data layer which prior node snapshots are outside the rerun slice. `onStart` preserves those snapshots and clears only nodes that will be recalculated, so untouched upstream outputs stay visible and can still seed later editor run-from actions.
+- `GraphProcessor.preloadNodeData(...)` still emits `nodeStart`/`nodeFinish` with `processId: 'preload'` for its generic event contract. During editor run-from, `useNodeExecutionEvents` suppresses those preload node events for the boundary nodes that were already preserved, so reused boundary outputs do not appear as duplicate previous/next history pages.
 
 ### Lifecycle
 
-- `onStart`: Clears all run history, run data, and selection state.
+- `onStart`: Clears run history and selection state. It clears prior run data for full runs, but editor run-from starts preserve prior node snapshots that are outside the rerun slice.
 - `onGraphStart`: Creates a `GraphRunRecord` in history.
 - `onGraphFinish`/`onGraphError`/`onGraphAbort`: Updates the record's status through a shared `finishGraphRun(...)` helper in `useGraphExecutionEvents`.
 - `onNodeStart`/`onNodeFinish`/`onNodeExcluded`/`onPartialOutput`/`onNodeError`: Store per-node data.
@@ -585,7 +589,7 @@ Persisted app-side execution payloads now share one transform layer before being
 - display-oriented `Copy value` serialization now goes through `executionDataCopyValue.ts`, which projects restored outputs into the same plain-value shapes the user sees instead of serializing raw `DataValue` wrappers
 - nodes whose visible output shape differs from the raw output port map use `getCopyValueData` projectors from `nodeOutputCopyValueProjectors.ts` so copy behavior stays aligned with the custom output UI
 - fullscreen node-output search also depends on the same restore/payload model: generic rendered text is searched from the current fullscreen page DOM through `fullscreenOutputSearch.ts`, while large ref-backed text/JSON-like previews participate through `LargeStoredValuePreview` search providers so search can target the full restored text instead of only the currently visible excerpt
-- preload/run-from paths therefore restore ref-backed values back into full `DataValue` payloads through the shared reader layer before passing them to the executor, instead of each consumer hand-rolling `restoreStoredInputsOrOutputs(...)` calls
+- preload/run-from paths therefore restore ref-backed values back into full `DataValue` payloads through the shared reader layer before passing them to the executor, instead of each consumer hand-rolling `restoreStoredInputsOrOutputs(...)` calls. The selected run-from node is intentionally not preloaded, because the editor contract is to rerun the selected node and downstream nodes while reusing only boundary inputs from prior results.
 
 ## Browser vs Remote: Event Delivery and React Rendering
 
@@ -1022,33 +1026,33 @@ absence gracefully since the final `nodeFinish` event contains the complete outp
 
 ## File Reference
 
-| File                                                                                                     | Role                                                                                                                                                      |
-| -------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`navigationActions.ts`](../packages/app/src/domain/graphEditing/navigationActions.ts)                   | `GraphViewContext` types, `createRootGraphViewContext`, `createSubgraphGraphViewContext`                                                                  |
-| [`executionIdentity.ts`](../packages/app/src/utils/executionIdentity.ts)                                 | `buildGraphViewKeyFromExecution` - converts execution metadata to view key (used only for graph-level events)                                             |
-| [`dataFlow.ts`](../packages/app/src/state/dataFlow.ts)                                                   | Core atoms: `currentGraphViewState`, `graphRunHistoryByViewState`, `selectedGraphRunByViewState`, `lastRunDataByNodeState`, `resolvedGraphSelectionState` |
+| File                                                                                                     | Role                                                                                                                                                                 |
+| -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`navigationActions.ts`](../packages/app/src/domain/graphEditing/navigationActions.ts)                   | `GraphViewContext` types, `createRootGraphViewContext`, `createSubgraphGraphViewContext`                                                                             |
+| [`executionIdentity.ts`](../packages/app/src/utils/executionIdentity.ts)                                 | `buildGraphViewKeyFromExecution` - converts execution metadata to view key (used only for graph-level events)                                                        |
+| [`dataFlow.ts`](../packages/app/src/state/dataFlow.ts)                                                   | Core atoms: `currentGraphViewState`, `graphRunHistoryByViewState`, `selectedGraphRunByViewState`, `lastRunDataByNodeState`, `resolvedGraphSelectionState`            |
 | [`executionSelectors.ts`](../packages/app/src/state/selectors/executionSelectors.ts)                     | `getGraphRunsForView`, `filterProcessDataForSelection`, `getSelectedProcessData`, `getGraphSelectionOptions`, executor product-state and ActionBar routing selectors |
-| [`useExecutionDataFlow.ts`](../packages/app/src/hooks/useExecutionDataFlow.ts)                           | `setDataForNode`, `setSelectedNodePageLatest` - writes execution data to state                                                                            |
-| [`useGraphExecutionEvents.ts`](../packages/app/src/hooks/useGraphExecutionEvents.ts)                     | Graph-level event handlers: `onStart`, `onGraphStart`, `onGraphFinish`, `onDone`                                                                          |
-| [`useNodeExecutionEvents.ts`](../packages/app/src/hooks/useNodeExecutionEvents.ts)                       | Node-level event handlers: `onNodeStart`, `onNodeFinish`, `onPartialOutput`, `onNodeError`                                                                |
-| [`useLocalExecutor.ts`](../packages/app/src/hooks/useLocalExecutor.ts)                                   | Browser-mode execution orchestration                                                                                                                      |
-| [`executorSession.ts`](../packages/app/src/hooks/executorSession.ts)                                     | Shared websocket runtime: target classification, reconnect policy, capabilities, pending remote-run promises, lifecycle events, and dataset bridge handling |
-| [`useExecutorSessionCoordinator.ts`](../packages/app/src/hooks/useExecutorSessionCoordinator.ts)         | Product policy for Browser/hosted Node/desktop Node startup, cleanup, sidecar readiness, and external-debugger handoff restoration                         |
-| [`useExecutorSession.ts`](../packages/app/src/hooks/useExecutorSession.ts)                               | Read-only executor-session snapshot hook plus compatibility exports for coordinator helpers                                                                |
-| [`useRemoteDebugger.ts`](../packages/app/src/hooks/useRemoteDebugger.ts)                                 | External Remote Debugger command/subscription surface; does not own Node executor restoration policy                                                       |
-| [`useRemoteExecutor.ts`](../packages/app/src/hooks/useRemoteExecutor.ts)                                 | Remote graph/test execution over the shared session; sends protocol messages only after action-time capability checks                                      |
-| [`remoteExecutorHelpers.ts`](../packages/app/src/hooks/remoteExecutorHelpers.ts)                         | `createProcessEventDispatcher` - routes WebSocket messages to handlers                                                                                    |
-| [`GraphProcessor.ts`](../packages/core/src/model/GraphProcessor.ts)                                      | Core execution engine, `#createSubProcessor`, `#buildExecutionMetadata`                                                                                   |
-| [`SubprocessorBridge.ts`](../packages/core/src/model/SubprocessorBridge.ts)                              | `wireSubprocessorEvents` - forwards child events to parent emitter                                                                                        |
-| [`SplitRunProcessor.ts`](../packages/core/src/model/SplitRunProcessor.ts)                                | `processSplitRunNode` - iterates split inputs, creates subprocessors per iteration                                                                        |
-| [`ProcessContext.ts`](../packages/core/src/model/ProcessContext.ts)                                      | `GraphExecutionMetadata`, `SubgraphExecutorMetadata` type definitions                                                                                     |
-| [`GraphExecutionSelectorBar.tsx`](../packages/app/src/components/GraphExecutionSelectorBar.tsx)          | Run switcher UI component                                                                                                                                 |
-| [`useGoToNode.ts`](../packages/app/src/hooks/useGoToNode.ts)                                             | Navigation to node - creates root view context                                                                                                            |
-| [`useGoToSubgraphNode.ts`](../packages/app/src/hooks/useGoToSubgraphNode.ts)                             | Shared direct Subgraph navigation used by the header link and context menu                                                                                |
-| [`useGraphBuilderContextMenuHandler.ts`](../packages/app/src/hooks/useGraphBuilderContextMenuHandler.ts) | Context-menu dispatch for "Go to subgraph"                                                                                                                |
-| [`ExecutionRecorder.ts`](../packages/core/src/recording/ExecutionRecorder.ts)                            | Records execution events with metadata, serializes to `.rivet-recording`                                                                                  |
-| [`RecordedEvents.ts`](../packages/core/src/recording/RecordedEvents.ts)                                  | `RecordedEventsMap` type definitions - serializable mirror of `ProcessEvents`                                                                             |
-| [`RecordingPlayer.ts`](../packages/core/src/model/RecordingPlayer.ts)                                    | `replayExecutionRecording` - replays recorded events through the same emitter/handler pipeline                                                            |
+| [`useExecutionDataFlow.ts`](../packages/app/src/hooks/useExecutionDataFlow.ts)                           | `setDataForNode`, `setSelectedNodePageLatest` - writes execution data to state                                                                                       |
+| [`useGraphExecutionEvents.ts`](../packages/app/src/hooks/useGraphExecutionEvents.ts)                     | Graph-level event handlers: `onStart`, `onGraphStart`, `onGraphFinish`, `onDone`                                                                                     |
+| [`useNodeExecutionEvents.ts`](../packages/app/src/hooks/useNodeExecutionEvents.ts)                       | Node-level event handlers: `onNodeStart`, `onNodeFinish`, `onPartialOutput`, `onNodeError`                                                                           |
+| [`useLocalExecutor.ts`](../packages/app/src/hooks/useLocalExecutor.ts)                                   | Browser-mode execution orchestration                                                                                                                                 |
+| [`executorSession.ts`](../packages/app/src/hooks/executorSession.ts)                                     | Shared websocket runtime: target classification, reconnect policy, capabilities, pending remote-run promises, lifecycle events, and dataset bridge handling          |
+| [`useExecutorSessionCoordinator.ts`](../packages/app/src/hooks/useExecutorSessionCoordinator.ts)         | Product policy for Browser/hosted Node/desktop Node startup, cleanup, sidecar readiness, and external-debugger handoff restoration                                   |
+| [`useExecutorSession.ts`](../packages/app/src/hooks/useExecutorSession.ts)                               | Read-only executor-session snapshot hook plus compatibility exports for coordinator helpers                                                                          |
+| [`useRemoteDebugger.ts`](../packages/app/src/hooks/useRemoteDebugger.ts)                                 | External Remote Debugger command/subscription surface; does not own Node executor restoration policy                                                                 |
+| [`useRemoteExecutor.ts`](../packages/app/src/hooks/useRemoteExecutor.ts)                                 | Remote graph/test execution over the shared session; sends protocol messages only after action-time capability checks                                                |
+| [`remoteExecutorHelpers.ts`](../packages/app/src/hooks/remoteExecutorHelpers.ts)                         | `createProcessEventDispatcher` - routes WebSocket messages to handlers                                                                                               |
+| [`GraphProcessor.ts`](../packages/core/src/model/GraphProcessor.ts)                                      | Core execution engine, `#createSubProcessor`, `#buildExecutionMetadata`                                                                                              |
+| [`SubprocessorBridge.ts`](../packages/core/src/model/SubprocessorBridge.ts)                              | `wireSubprocessorEvents` - forwards child events to parent emitter                                                                                                   |
+| [`SplitRunProcessor.ts`](../packages/core/src/model/SplitRunProcessor.ts)                                | `processSplitRunNode` - iterates split inputs, creates subprocessors per iteration                                                                                   |
+| [`ProcessContext.ts`](../packages/core/src/model/ProcessContext.ts)                                      | `GraphExecutionMetadata`, `SubgraphExecutorMetadata` type definitions                                                                                                |
+| [`GraphExecutionSelectorBar.tsx`](../packages/app/src/components/GraphExecutionSelectorBar.tsx)          | Run switcher UI component                                                                                                                                            |
+| [`useGoToNode.ts`](../packages/app/src/hooks/useGoToNode.ts)                                             | Navigation to node - creates root view context                                                                                                                       |
+| [`useGoToSubgraphNode.ts`](../packages/app/src/hooks/useGoToSubgraphNode.ts)                             | Shared direct Subgraph navigation used by the header link and context menu                                                                                           |
+| [`useGraphBuilderContextMenuHandler.ts`](../packages/app/src/hooks/useGraphBuilderContextMenuHandler.ts) | Context-menu dispatch for "Go to subgraph"                                                                                                                           |
+| [`ExecutionRecorder.ts`](../packages/core/src/recording/ExecutionRecorder.ts)                            | Records execution events with metadata, serializes to `.rivet-recording`                                                                                             |
+| [`RecordedEvents.ts`](../packages/core/src/recording/RecordedEvents.ts)                                  | `RecordedEventsMap` type definitions - serializable mirror of `ProcessEvents`                                                                                        |
+| [`RecordingPlayer.ts`](../packages/core/src/model/RecordingPlayer.ts)                                    | `replayExecutionRecording` - replays recorded events through the same emitter/handler pipeline                                                                       |
 
 ## Debugging Checklist
 

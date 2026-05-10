@@ -127,7 +127,7 @@ const scalableToggleStyles = css`
   .scalable-toggle-icon-cross {
     right: 0.06em;
     opacity: 1;
-    font-family: Arial, sans-serif;
+    font-family: var(--font-family);
     font-size: calc(var(--toggle-icon-size) * 1.55);
     font-weight: 650;
   }

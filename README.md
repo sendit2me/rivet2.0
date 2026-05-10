@@ -1,12 +1,14 @@
-# Rivet 2.0
+# Rivet 2
 
 ![License](https://img.shields.io/github/license/valerypopoff/rivet2.0)
 
-Rivet is a visual IDE and runtime for building AI workflows, agents, prompt chains, graph-based tools, and reusable automation flows. This repository is the Rivet 2.0 monorepo: it contains the desktop app, graph runtime, Node runtime, CLI, app executor sidecar, Trivet test tooling, documentation site, and maintainer developer docs.
+Rivet is a visual IDE and runtime for building AI workflows, agents, prompt chains, graph-based tools, and reusable automation flows. This repository is the Rivet 2 monorepo: it contains the desktop app, graph runtime, Node runtime, CLI, app executor sidecar, Trivet test tooling, documentation site, and maintainer developer docs. Rivet 2 continues the previous Rivet codebase as an independently maintained project.
 
-Rivet 2.0 continues the previous Rivet codebase as an independently maintained project.
+[Download Rivet 2 desktop app](https://valerypopoff.github.io/rivet2.0/download)
 
-This checkout is also designed to be embedded by wrapper applications that vendor Rivet source in a local `rivet/` folder. Wrappers can import from local source paths and use the supported app-host seams without depending on stale public npm packages.
+[User documentation](https://valerypopoff.github.io/rivet2.0)
+
+This checkout is also designed to be embedded by wrapper applications that vendor Rivet source code. Wrappers can import from local source paths and use the supported app-host seams without depending on public npm packages.
 
 For a self-hosted Rivet 2 wrapper, see [Rivet Studio Server](https://github.com/valerypopoff/Rivet-Studio-Server/tree/main-rivet2).
 
@@ -25,7 +27,7 @@ For a self-hosted Rivet 2 wrapper, see [Rivet Studio Server](https://github.com/
 
 ## What This Repo Contains
 
-Rivet 2.0 is organized as a Yarn workspace monorepo:
+Rivet 2 is organized as a Yarn workspace monorepo:
 
 | Package | Purpose |
 | --- | --- |
@@ -39,7 +41,7 @@ Rivet 2.0 is organized as a Yarn workspace monorepo:
 
 The repo also includes `developer-docs/`, which documents current architecture and integration contracts, and `refactor-history.md`, which consolidates historical refactor notes for future planning.
 
-## Getting Started
+## Getting started with local development
 
 ### Prerequisites
 
@@ -103,7 +105,7 @@ The app executor defaults to a desktop-safe loopback websocket host, and hosted/
 
 ## Plugins
 
-Rivet 2.0 treats plugin installation as app-level state:
+Rivet 2 treats plugin installation as app-level state:
 
 - Installing a plugin makes its nodes available in the node picker for every project.
 - A project records a plugin in its YAML only when a graph actually uses a node owned by that plugin.
@@ -131,7 +133,7 @@ import '../rivet/packages/app/src/host.css';
 
 Wrappers should prefer these source-level seams over private editor internals. The npm package names describe the workspace boundaries, but a wrapper that ships a custom Rivet checkout should resolve those boundaries to its local `rivet/` source and build outputs.
 
-## npm Packages
+## Rivet 2 NPM Packages
 
 The public npm packages are published under the `@valerypopoff` scope:
 
@@ -177,9 +179,9 @@ GitHub Pages must either be enabled once in repository settings with Source set 
 
 Both Pages release workflows intentionally build installer artifacts only. They do not sign updater bundles and do not require Tauri updater private-key secrets. Production/tagged updater release workflows are separate.
 
-## Documentation
+## Developer documentation
 
-Useful current docs:
+Useful current developer docs:
 
 - [Developer Docs Overview](developer-docs/OVERVIEW.md)
 - [Package Boundaries](developer-docs/PACKAGES.md)

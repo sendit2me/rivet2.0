@@ -8,6 +8,7 @@ import {
   isArrayDataType,
   isArrayDataValue,
   type Inputs,
+  type NodeId,
   type Outputs,
   type PortId,
   type ScalarOrArrayDataValue,
@@ -216,7 +217,9 @@ export function toStoredInlineDataValue(value: DataValue): StoredDataValue {
   } as StoredDataValue;
 }
 
-export function isStoredRefDataValue(value: DataValueWithRefs | DataValue | undefined): value is Extract<StoredDataValue, { storage: 'ref' }> {
+export function isStoredRefDataValue(
+  value: DataValueWithRefs | DataValue | undefined,
+): value is Extract<StoredDataValue, { storage: 'ref' }> {
   return !!value && 'storage' in value && value.storage === 'ref';
 }
 
@@ -226,7 +229,9 @@ export function isStoredInlineDataValue(
   return !!value && 'storage' in value && value.storage === 'inline';
 }
 
-export function isPreviewOnlyStoredValue(value: DataValueWithRefs | DataValue | undefined): value is Extract<StoredDataValue, { storage: 'ref' }> {
+export function isPreviewOnlyStoredValue(
+  value: DataValueWithRefs | DataValue | undefined,
+): value is Extract<StoredDataValue, { storage: 'ref' }> {
   if (!isStoredRefDataValue(value)) {
     return false;
   }
@@ -235,9 +240,7 @@ export function isPreviewOnlyStoredValue(value: DataValueWithRefs | DataValue | 
   return scalarType === 'string' || scalarType === 'object' || scalarType === 'any';
 }
 
-export function getStoredValuePreview(
-  value: DataValueWithRefs | DataValue | undefined,
-): StoredDataPreview | undefined {
+export function getStoredValuePreview(value: DataValueWithRefs | DataValue | undefined): StoredDataPreview | undefined {
   return isStoredRefDataValue(value) ? value.preview : undefined;
 }
 
@@ -262,7 +265,10 @@ export function restoreStoredDataValue(value: DataValueWithRefs, refStore: DataR
   return fixDataValueUint8Arrays(cloneDeep(resolved))!;
 }
 
-export function tryRestoreStoredDataValue(value: DataValueWithRefs | undefined, refStore: DataRefReader): DataValue | undefined {
+export function tryRestoreStoredDataValue(
+  value: DataValueWithRefs | undefined,
+  refStore: DataRefReader,
+): DataValue | undefined {
   if (!value) {
     return undefined;
   }
@@ -302,9 +308,7 @@ export function tryRestoreStoredInputsOrOutputs(
   }
 }
 
-export function collectStoredRefIds(
-  data: InputsOrOutputsWithRefs | NodeRunDataWithRefs | undefined,
-): string[] {
+export function collectStoredRefIds(data: InputsOrOutputsWithRefs | NodeRunDataWithRefs | undefined): string[] {
   if (!data) {
     return [];
   }
@@ -331,6 +335,43 @@ export function clearExecutionDataRefs(refStore: DataRefDeleter, previousRunData
   for (const refId of allRefIds) {
     refStore.delete(refId);
   }
+}
+
+export function clearRemovedExecutionDataRefs(
+  refStore: DataRefDeleter,
+  removedRunData: RunDataByNodeId,
+  preservedRunData: RunDataByNodeId,
+): void {
+  const preservedRefIds = new Set(
+    Object.values(preservedRunData).flatMap((processes) =>
+      processes.flatMap((process) => collectStoredRefIds(process.data)),
+    ),
+  );
+
+  const refIdsToDelete = Object.values(removedRunData)
+    .flatMap((processes) => processes.flatMap((process) => collectStoredRefIds(process.data)))
+    .filter((refId) => !preservedRefIds.has(refId));
+
+  deleteStoredRefIds(refStore, refIdsToDelete);
+}
+
+export function splitRunDataByPreservedNodes(
+  previousRunData: RunDataByNodeId,
+  nodeIdsToPreserve: Iterable<NodeId>,
+): { preservedRunData: RunDataByNodeId; removedRunData: RunDataByNodeId } {
+  const preserveSet = new Set(nodeIdsToPreserve);
+  const preservedRunData: RunDataByNodeId = {};
+  const removedRunData: RunDataByNodeId = {};
+
+  for (const [nodeId, runData] of Object.entries(previousRunData)) {
+    if (preserveSet.has(nodeId as NodeId)) {
+      preservedRunData[nodeId as NodeId] = runData;
+    } else {
+      removedRunData[nodeId as NodeId] = runData;
+    }
+  }
+
+  return { preservedRunData, removedRunData };
 }
 
 export function deleteStoredRefIds(refStore: DataRefDeleter, refIds: Iterable<string>): void {
@@ -463,18 +504,29 @@ function shouldAlwaysStoreByRef(value: DataValue): boolean {
 function canBuildSummaryPreview(value: DataValue): boolean {
   return match(value)
     .with({ type: 'binary' }, (binaryValue) => hasByteLength(binaryValue.value))
-    .with({ type: 'binary[]' }, (binaryValues) => Array.isArray(binaryValues.value) && binaryValues.value.every(hasByteLength))
+    .with(
+      { type: 'binary[]' },
+      (binaryValues) => Array.isArray(binaryValues.value) && binaryValues.value.every(hasByteLength),
+    )
     .with({ type: 'image' }, (imageValue) => hasMediaByteLength(imageValue.value))
-    .with({ type: 'image[]' }, (imageValues) => Array.isArray(imageValues.value) && imageValues.value.every(hasMediaByteLength))
+    .with(
+      { type: 'image[]' },
+      (imageValues) => Array.isArray(imageValues.value) && imageValues.value.every(hasMediaByteLength),
+    )
     .with({ type: 'audio' }, (audioValue) => hasMediaByteLength(audioValue.value))
-    .with({ type: 'audio[]' }, (audioValues) => Array.isArray(audioValues.value) && audioValues.value.every(hasMediaByteLength))
+    .with(
+      { type: 'audio[]' },
+      (audioValues) => Array.isArray(audioValues.value) && audioValues.value.every(hasMediaByteLength),
+    )
     .with({ type: 'document' }, (documentValue) => hasMediaByteLength(documentValue.value))
-    .with({ type: 'document[]' }, (documentValues) =>
-      Array.isArray(documentValues.value) && documentValues.value.every(hasMediaByteLength),
+    .with(
+      { type: 'document[]' },
+      (documentValues) => Array.isArray(documentValues.value) && documentValues.value.every(hasMediaByteLength),
     )
     .with({ type: 'chat-message' }, (chatMessageValue) => isChatMessageLike(chatMessageValue.value))
-    .with({ type: 'chat-message[]' }, (chatMessageValues) =>
-      Array.isArray(chatMessageValues.value) && chatMessageValues.value.every(isChatMessageLike),
+    .with(
+      { type: 'chat-message[]' },
+      (chatMessageValues) => Array.isArray(chatMessageValues.value) && chatMessageValues.value.every(isChatMessageLike),
     )
     .otherwise(() => false);
 }
@@ -512,67 +564,101 @@ function buildJsonPreview(text: string, itemCount?: number): StoredDataPreview {
 
 function buildSummaryPreview(value: DataValue): StoredDataPreview {
   return match(value)
-    .with({ type: 'binary' }, (binaryValue): StoredDataPreview => ({
-      kind: 'summary',
-      label: 'Binary',
-      totalBytes: binaryValue.value.byteLength,
-    }))
-    .with({ type: 'binary[]' }, (binaryValues): StoredDataPreview => ({
-      kind: 'summary',
-      label: 'Binary Array',
-      totalBytes: binaryValues.value.reduce((acc, current) => acc + current.byteLength, 0),
-      itemCount: binaryValues.value.length,
-    }))
-    .with({ type: 'image' }, (imageValue): StoredDataPreview => ({
-      kind: 'summary',
-      label: `Image (${imageValue.value.mediaType})`,
-      totalBytes: imageValue.value.data.byteLength,
-    }))
-    .with({ type: 'image[]' }, (imageValues): StoredDataPreview => ({
-      kind: 'summary',
-      label: 'Image Array',
-      totalBytes: imageValues.value.reduce((acc, current) => acc + current.data.byteLength, 0),
-      itemCount: imageValues.value.length,
-    }))
-    .with({ type: 'audio' }, (audioValue): StoredDataPreview => ({
-      kind: 'summary',
-      label: `Audio (${audioValue.value.mediaType ?? 'unknown'})`,
-      totalBytes: audioValue.value.data.byteLength,
-    }))
-    .with({ type: 'audio[]' }, (audioValues): StoredDataPreview => ({
-      kind: 'summary',
-      label: 'Audio Array',
-      totalBytes: audioValues.value.reduce((acc, current) => acc + current.data.byteLength, 0),
-      itemCount: audioValues.value.length,
-    }))
-    .with({ type: 'document' }, (documentValue): StoredDataPreview => ({
-      kind: 'summary',
-      label: `Document (${documentValue.value.mediaType})`,
-      totalBytes: documentValue.value.data.byteLength,
-    }))
-    .with({ type: 'document[]' }, (documentValues): StoredDataPreview => ({
-      kind: 'summary',
-      label: 'Document Array',
-      totalBytes: documentValues.value.reduce((acc, current) => acc + current.data.byteLength, 0),
-      itemCount: documentValues.value.length,
-    }))
-    .with({ type: 'chat-message' }, (chatMessageValue): StoredDataPreview => ({
-      kind: 'summary',
-      label: `Chat Message (${chatMessageValue.value.type})`,
-      totalBytes: getChatMessageSize(chatMessageValue.value),
-    }))
-    .with({ type: 'chat-message[]' }, (chatMessageValues): StoredDataPreview => ({
-      kind: 'summary',
-      label: 'Chat Message Array',
-      totalBytes: chatMessageValues.value.reduce((acc, current) => acc + getChatMessageSize(current), 0),
-      itemCount: chatMessageValues.value.length,
-    }))
-    .otherwise((): StoredDataPreview => ({
-      kind: 'summary',
-      label: value.type,
-      totalBytes: getDataValueSizeHint(value),
-      itemCount: Array.isArray((value as { value?: unknown[] }).value) ? (value as { value: unknown[] }).value.length : undefined,
-    }));
+    .with(
+      { type: 'binary' },
+      (binaryValue): StoredDataPreview => ({
+        kind: 'summary',
+        label: 'Binary',
+        totalBytes: binaryValue.value.byteLength,
+      }),
+    )
+    .with(
+      { type: 'binary[]' },
+      (binaryValues): StoredDataPreview => ({
+        kind: 'summary',
+        label: 'Binary Array',
+        totalBytes: binaryValues.value.reduce((acc, current) => acc + current.byteLength, 0),
+        itemCount: binaryValues.value.length,
+      }),
+    )
+    .with(
+      { type: 'image' },
+      (imageValue): StoredDataPreview => ({
+        kind: 'summary',
+        label: `Image (${imageValue.value.mediaType})`,
+        totalBytes: imageValue.value.data.byteLength,
+      }),
+    )
+    .with(
+      { type: 'image[]' },
+      (imageValues): StoredDataPreview => ({
+        kind: 'summary',
+        label: 'Image Array',
+        totalBytes: imageValues.value.reduce((acc, current) => acc + current.data.byteLength, 0),
+        itemCount: imageValues.value.length,
+      }),
+    )
+    .with(
+      { type: 'audio' },
+      (audioValue): StoredDataPreview => ({
+        kind: 'summary',
+        label: `Audio (${audioValue.value.mediaType ?? 'unknown'})`,
+        totalBytes: audioValue.value.data.byteLength,
+      }),
+    )
+    .with(
+      { type: 'audio[]' },
+      (audioValues): StoredDataPreview => ({
+        kind: 'summary',
+        label: 'Audio Array',
+        totalBytes: audioValues.value.reduce((acc, current) => acc + current.data.byteLength, 0),
+        itemCount: audioValues.value.length,
+      }),
+    )
+    .with(
+      { type: 'document' },
+      (documentValue): StoredDataPreview => ({
+        kind: 'summary',
+        label: `Document (${documentValue.value.mediaType})`,
+        totalBytes: documentValue.value.data.byteLength,
+      }),
+    )
+    .with(
+      { type: 'document[]' },
+      (documentValues): StoredDataPreview => ({
+        kind: 'summary',
+        label: 'Document Array',
+        totalBytes: documentValues.value.reduce((acc, current) => acc + current.data.byteLength, 0),
+        itemCount: documentValues.value.length,
+      }),
+    )
+    .with(
+      { type: 'chat-message' },
+      (chatMessageValue): StoredDataPreview => ({
+        kind: 'summary',
+        label: `Chat Message (${chatMessageValue.value.type})`,
+        totalBytes: getChatMessageSize(chatMessageValue.value),
+      }),
+    )
+    .with(
+      { type: 'chat-message[]' },
+      (chatMessageValues): StoredDataPreview => ({
+        kind: 'summary',
+        label: 'Chat Message Array',
+        totalBytes: chatMessageValues.value.reduce((acc, current) => acc + getChatMessageSize(current), 0),
+        itemCount: chatMessageValues.value.length,
+      }),
+    )
+    .otherwise(
+      (): StoredDataPreview => ({
+        kind: 'summary',
+        label: value.type,
+        totalBytes: getDataValueSizeHint(value),
+        itemCount: Array.isArray((value as { value?: unknown[] }).value)
+          ? (value as { value: unknown[] }).value.length
+          : undefined,
+      }),
+    );
 }
 
 function getDataValueSizeHint(value: DataValue): number {
@@ -581,10 +667,18 @@ function getDataValueSizeHint(value: DataValue): number {
     .with({ type: 'binary' }, (binaryValue) => binaryValue.value.byteLength)
     .with({ type: 'audio' }, (audioValue) => audioValue.value.data.byteLength)
     .with({ type: 'document' }, (documentValue) => documentValue.value.data.byteLength)
-    .with({ type: 'image[]' }, (imageValues) => imageValues.value.reduce((acc, current) => acc + current.data.byteLength, 0))
-    .with({ type: 'binary[]' }, (binaryValues) => binaryValues.value.reduce((acc, current) => acc + current.byteLength, 0))
-    .with({ type: 'audio[]' }, (audioValues) => audioValues.value.reduce((acc, current) => acc + current.data.byteLength, 0))
-    .with({ type: 'document[]' }, (documentValues) => documentValues.value.reduce((acc, current) => acc + current.data.byteLength, 0))
+    .with({ type: 'image[]' }, (imageValues) =>
+      imageValues.value.reduce((acc, current) => acc + current.data.byteLength, 0),
+    )
+    .with({ type: 'binary[]' }, (binaryValues) =>
+      binaryValues.value.reduce((acc, current) => acc + current.byteLength, 0),
+    )
+    .with({ type: 'audio[]' }, (audioValues) =>
+      audioValues.value.reduce((acc, current) => acc + current.data.byteLength, 0),
+    )
+    .with({ type: 'document[]' }, (documentValues) =>
+      documentValues.value.reduce((acc, current) => acc + current.data.byteLength, 0),
+    )
     .with({ type: 'chat-message' }, (chatMessageValue) => getChatMessageSize(chatMessageValue.value))
     .with({ type: 'chat-message[]' }, (chatMessageValues) =>
       chatMessageValues.value.reduce((acc, current) => acc + getChatMessageSize(current), 0),

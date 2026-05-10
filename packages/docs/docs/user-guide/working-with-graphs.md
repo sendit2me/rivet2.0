@@ -10,7 +10,7 @@ If you are used to code, a graph is analogous to a function. A function is a set
 
 To create a new graph, right click in the blank space in the graph list in the sidebar, and select "New Graph". This will create a new blank graph. The new graph is unsaved by default.
 
-Go into the **Graph Info** tab and give your graph a new name, then save the new graph by pressing **Ctrl+S** or **Cmd+S**. Your new graph will now appear in the graph list.
+Right click the new graph in the graph list and choose **Graph info** to give your graph a new name. Then save the project by pressing **Ctrl+S** or **Cmd+S**. Your new graph will now appear in the graph list with its updated name.
 
 ## Navigating Between Graphs
 
@@ -18,13 +18,21 @@ To navigate between graphs, click on the graph in the graph list in the sidebar.
 
 ## Deleting a Graph
 
-To delete a graph, right click on it in the graph list in the sidebar and select "Delete Graph". This will delete the graph from your project. (**Warning** there is no undo at this time!)
+To delete a graph, right click on it in the graph list in the sidebar and select "Delete". This will delete the graph from your project. (**Warning** there is no undo at this time!)
 
 ## Running a Graph
 
 To run the currently selected graph, press the **Run** button in the top right of Rivet. You can then watch the graph execute live.
 
 When connected to a remote debugger, whenever the graph executes remotely, it will automatically show the result of the run in the current graph. If you have implemented `dynamicGraphRun` in your debugger server, you can also click the **Run** button to execute the graph remotely. If it is not implemented, the run button will not do anything.
+
+### Run from Here
+
+To rerun part of a graph while editing, right click a node that already has the required upstream results and choose **Run from here**.
+
+Rivet reruns the selected node and the nodes downstream from it. Upstream and unrelated node outputs stay visible from the previous run, and Rivet reuses only the already-computed boundary inputs needed by the partial rerun. Reused upstream outputs do not create extra previous/next output pages because they did not actually execute again.
+
+If **Run from here** is unavailable, run the graph first so Rivet has the upstream outputs it needs to reuse.
 
 ## Graph Inputs
 

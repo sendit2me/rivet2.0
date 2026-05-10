@@ -1,6 +1,6 @@
 # @valerypopoff/rivet2-node
 
-Node runtime adapter for loading, running, and debugging Rivet 2.0 projects outside the desktop app.
+Node runtime adapter for loading, running, and debugging Rivet 2 projects outside the desktop app.
 
 `@valerypopoff/rivet2-node` re-exports the public core runtime surface and adds Node-native project loading, dataset/debugger helpers, project-reference loading, and debugger server APIs.
 

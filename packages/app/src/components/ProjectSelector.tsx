@@ -18,6 +18,7 @@ import { popupMenuListStyles, popupMenuRowStyles, popupMenuSeparatorStyles } fro
 import { useRivetAppHostUiConfig } from '../providers/HostUiConfigContext.js';
 import { getVisibleFileMenuGroups } from '../utils/fileMenuConfiguration.js';
 import { overlayOpenState } from '../state/ui.js';
+import { sidebarOpenState } from '../state/graphBuilder.js';
 
 export const styles = css`
   position: absolute;
@@ -34,34 +35,63 @@ export const styles = css`
   display: flex;
   align-items: stretch;
 
+  .sidebar-toggle-menu,
   .file-menu {
+    align-items: stretch;
+    background: var(--grey-darkerish);
+    border-bottom: 1px solid var(--grey);
+    border-right: 1px solid var(--grey-darkest);
+    color: var(--grey-light);
+    display: flex;
+    flex: 0 0 auto;
     position: relative;
-    flex-shrink: 0;
     height: calc(100% + 1px);
     margin-bottom: -1px;
   }
 
+  .sidebar-toggle-menu {
+    width: var(--project-selector-height);
+  }
+
+  .file-menu {
+    min-width: 64px;
+  }
+
+  .sidebar-toggle-menu:hover,
+  .file-menu:hover,
+  .file-menu.open {
+    background-color: var(--grey-darkish);
+  }
+
+  .sidebar-toggle-button,
   .file-menu-button {
     align-items: center;
-    background: var(--grey-darkerish);
-    border: 0;
-    border-bottom: 1px solid var(--grey);
-    border-right: 1px solid var(--grey-darkest);
-    color: var(--grey-lightest);
+    background: transparent;
+    border: none;
+    color: inherit;
     cursor: pointer;
     display: flex;
     height: 100%;
     justify-content: center;
     margin: 0;
-    min-width: 50px;
-    padding: 0 16px;
     font-size: var(--ui-font-size-sm);
+    line-height: 1;
+    min-height: 0;
+    min-width: 0;
+    padding: 0 12px;
+    text-align: center;
     user-select: none;
+    white-space: nowrap;
+    width: 100%;
+  }
 
-    &:hover,
-    .file-menu.open & {
-      background-color: var(--grey-darkish);
-      border-bottom-color: var(--grey);
+  .sidebar-toggle-button {
+    padding: 0;
+
+    svg {
+      color: currentColor;
+      height: 16px;
+      width: 16px;
     }
   }
 
@@ -286,6 +316,7 @@ export const ProjectSelector: FC<{
 
   return (
     <div css={styles}>
+      {projectTabsSelected && <GraphTreeSidebarToggle />}
       {!isInTauri() && <ProjectFileMenu />}
       <div className={clsx('projects-container', { empty: visibleProjects.length === 0 })}>
         <div className="projects">
@@ -310,6 +341,39 @@ export const ProjectSelector: FC<{
     </div>
   );
 };
+
+const GraphTreeSidebarToggle: FC = () => {
+  const [sidebarOpen, setSidebarOpen] = useAtom(sidebarOpenState);
+  const actionLabel = sidebarOpen ? 'Collapse graph tree' : 'Expand graph tree';
+
+  return (
+    <div className="sidebar-toggle-menu">
+      <button
+        type="button"
+        className="sidebar-toggle-button dropdown-item"
+        aria-controls="graph-tree-sidebar"
+        aria-expanded={sidebarOpen}
+        aria-label={actionLabel}
+        title={actionLabel}
+        onClick={() => setSidebarOpen((open) => !open)}
+      >
+        <GraphTreeSidebarIcon sidebarOpen={sidebarOpen} />
+      </button>
+    </div>
+  );
+};
+
+const GraphTreeSidebarIcon: FC<{ sidebarOpen: boolean }> = ({ sidebarOpen }) => (
+  <svg aria-hidden="true" fill="none" viewBox="0 0 16 16">
+    <rect x="2.75" y="3.5" width="10.5" height="9" rx="1.25" stroke="currentColor" strokeWidth="1.25" />
+    <path
+      d={sidebarOpen ? 'M5.25 4.75v6.5' : 'M7.25 4.75v6.5'}
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeWidth="1.25"
+    />
+  </svg>
+);
 
 const ProjectFileMenu: FC = () => {
   const [fileMenuOpen, setFileMenuOpen] = useState(false);
@@ -351,7 +415,7 @@ const ProjectFileMenu: FC = () => {
     <div ref={fileMenuRef} className={clsx('file-menu', { open: fileMenuOpen })}>
       <button
         type="button"
-        className="file-menu-button"
+        className="file-menu-button dropdown-item"
         aria-expanded={fileMenuOpen}
         aria-haspopup="menu"
         onClick={() => setFileMenuOpen((open) => !open)}

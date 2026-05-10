@@ -3,6 +3,7 @@ import {
   logRuntimeInfo,
   type CodeConsoleMessage,
   type NodeId,
+  type Outputs,
   type RemoteRunRequestId,
   type StringArrayDataValue,
   type GraphId,
@@ -27,8 +28,8 @@ import { useEffect, useRef } from 'react';
 import { useProjectNodeRegistry } from './useProjectNodeRegistry';
 import {
   createProcessEventDispatcher,
-  getDependencyNodesForRunFrom,
   getDependentDataForNodeForPreload,
+  getEditorRunFromPlan,
   selectTestSuitesToRun,
 } from './remoteExecutorHelpers.js';
 import { handleError } from '../utils/errorHandling.js';
@@ -247,20 +248,20 @@ export function useRemoteExecutor() {
       }
 
       const contextValues = getProjectContextValues(projectContext);
+      let runToNodeIds = options.to;
+      let preloadData: Record<NodeId, Outputs> | undefined;
 
       if (options.from) {
-        const dependencyNodes = getDependencyNodesForRunFrom(
+        const runFromPlan = getEditorRunFromPlan(
           projectWithCurrentGraph,
-          graph.metadata!.id!,
+          graphToRun,
           options.from,
           projectNodeRegistry,
         );
-        const preloadData = getDependentDataForNodeForPreload(dependencyNodes, lastRunData);
-
-        const preloadSent = remoteDebugger.send('preload', { nodeData: preloadData });
-        if (!preloadSent) {
-          throw new Error('Remote executor disconnected before preload data could be sent.');
-        }
+        runToNodeIds = runFromPlan.runToNodeIds;
+        preloadData = getDependentDataForNodeForPreload(runFromPlan.preloadNodeIds, lastRunData);
+        currentExecution.preserveNodeRunDataForNextStart(runFromPlan.preserveNodeIds);
+        currentExecution.suppressPreloadedNodeEventsForCurrentRun(runFromPlan.preloadNodeIds);
       }
 
       const requestId = executorSession.createRemoteExecutionRequest();
@@ -269,19 +270,21 @@ export function useRemoteExecutor() {
       const runSent = remoteDebugger.send('run', {
         requestId,
         graphId: graphToRun,
-        runToNodeIds: options.to,
+        runToNodeIds,
+        preloadData,
         contextValues,
-        runFromNodeId: options.from,
         projectPath: loadedProject.path,
         useEditorCache: true,
       });
       if (!runSent) {
         activeGraphRequestIdRef.current = null;
+        currentExecution.clearNodeRunDataPreservationForNextStart();
         logRuntimeDebug('Remote graph run skipped because executor session disconnected before send.', {
           target: executorSession.getRuntimeState().target?.type ?? 'none',
         });
       }
     } catch (e) {
+      currentExecution.clearNodeRunDataPreservationForNextStart();
       handleError(e, 'Failed to start remote graph run');
     }
     return;

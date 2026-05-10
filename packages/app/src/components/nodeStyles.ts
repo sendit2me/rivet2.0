@@ -260,6 +260,7 @@ export const nodeStyles = css`
     svg {
       width: 20px;
       height: 20px;
+      margin-bottom: 0.3em;
     }
   }
 
@@ -317,7 +318,7 @@ export const nodeStyles = css`
     align-items: center;
     gap: calc(6px * var(--ui-font-scale));
     min-height: calc(24px * var(--ui-font-scale));
-    padding: 0.1em 0.6em 0.1em 0.4em;
+    padding: 0.2em 0.6em 0.1em 0.4em;
     border: 0;
     border-radius: 0.8em;
     corner-shape: squircle;
@@ -334,6 +335,10 @@ export const nodeStyles = css`
     margin-top: calc(6px * var(--ui-font-scale));
     margin-left: -0.1em;
   }
+
+   .split-run-summary svg {
+    margin-bottom: 0.1em;
+   }
 
   .split-run-summary-mode {
     font-weight: 700;
@@ -365,6 +370,7 @@ export const nodeStyles = css`
     justify-content: flex-end;
     min-height: calc(22px * var(--ui-font-scale));
     margin-right: calc(-8px * var(--ui-font-scale));
+    margin-top: -0.2em;
     flex: 0 0 66px;
     width: calc(66px * var(--ui-font-scale));
     position: relative;

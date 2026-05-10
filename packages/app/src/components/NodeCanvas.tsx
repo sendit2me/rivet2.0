@@ -19,6 +19,7 @@ import { useNodePortPositions } from '../hooks/useNodePortPositions';
 import { useNodeTypes } from '../hooks/useNodeTypes';
 import { useProjectNodeRegistry } from '../hooks/useProjectNodeRegistry';
 import { usePortHoverTooltip } from '../hooks/usePortHoverTooltip.js';
+import { canPreloadEditorRunFromPlan, getEditorRunFromPlan } from '../hooks/remoteExecutorHelpers.js';
 import { useSearchGraph } from '../hooks/useSearchGraph';
 import { useSelectionBox } from '../hooks/useSelectionBox.js';
 import { useStableCallback } from '../hooks/useStableCallback.js';
@@ -153,6 +154,24 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
 
     onConnectionsChanged(connections);
   }, [_connections.length, connections, onConnectionsChanged]);
+
+  const projectWithCanvasGraph = useMemo(() => {
+    if (!selectedGraphMetadata?.id) {
+      return project;
+    }
+
+    return {
+      ...project,
+      graphs: {
+        ...project.graphs,
+        [selectedGraphMetadata.id]: {
+          metadata: selectedGraphMetadata,
+          nodes,
+          connections,
+        },
+      },
+    };
+  }, [connections, nodes, project, selectedGraphMetadata]);
 
   const { selectionBox, startSelectionBox, updateSelectionBox, endSelectionBox } = useSelectionBox();
   const { hoveringPort, hoveringShowPortInfo, onPortMouseOver, onPortMouseOut, floatingStyles, floatingRefs } =
@@ -408,12 +427,28 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
     if (contextMenuData.data?.type.startsWith('node-')) {
       const nodeType = contextMenuData.data.type.replace('node-', '');
       const nodeId = contextMenuData.data.element.dataset.nodeid as NodeId;
+      let canRunFromHere = false;
+
+      if (selectedGraphMetadata?.id) {
+        try {
+          const runFromPlan = getEditorRunFromPlan(
+            projectWithCanvasGraph,
+            selectedGraphMetadata.id,
+            nodeId,
+            projectNodeRegistry,
+          );
+          canRunFromHere = canPreloadEditorRunFromPlan(runFromPlan, lastRunPerNode);
+        } catch {
+          canRunFromHere = false;
+        }
+      }
+
       return {
         type: 'node',
         data: {
           nodeType,
           nodeId,
-          canRunFromHere: lastRunPerNode[nodeId] != null,
+          canRunFromHere,
         },
       };
     }
@@ -422,7 +457,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
       type: 'blankArea',
       data: {},
     };
-  }, [contextMenuData, lastRunPerNode]);
+  }, [contextMenuData, lastRunPerNode, projectNodeRegistry, projectWithCanvasGraph, selectedGraphMetadata?.id]);
 
   useCanvasHotkeys();
   useSearchGraph();

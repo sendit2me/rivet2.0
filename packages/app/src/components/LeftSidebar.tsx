@@ -2,13 +2,13 @@ import { css } from '@emotion/react';
 import { type CSSProperties, type FC, type PointerEvent, useEffect, useRef, useState } from 'react';
 import { useAtom, useAtomValue } from 'jotai';
 import { projectState } from '../state/savedGraphs.js';
-import ExpandLeftIcon from 'majesticons/line/menu-expand-left-line.svg?react';
-import ExpandRightIcon from 'majesticons/line/menu-expand-right-line.svg?react';
 import { sidebarOpenState } from '../state/graphBuilder.js';
 import { GraphList } from './GraphList.js';
 import { leftSidebarLiveWidthState, leftSidebarWidthState } from '../state/ui.js';
 import { clampLeftSidebarWidth } from '../utils/leftSidebarWidth.js';
 import { resizeCursorStyles } from '../utils/resizeCursors.js';
+
+const SIDEBAR_TRANSITION_EASING = 'cubic-bezier(0.2, 0.95, 0.22, 1.12)';
 
 const styles = css`
   position: fixed;
@@ -33,33 +33,9 @@ const styles = css`
     font-size: var(--ui-font-size-sm);
   }
 
-  .toggle-tab {
-    position: absolute;
-    top: 0;
-    right: -32px;
-    background-color: var(--grey-dark);
-    border: 1px solid var(--grey);
-    border-top: 0;
-    border-left: 0;
-    border-radius: 0 16px 16px 0;
-    corner-shape: squircle;
-    width: 32px;
-    height: 32px;
-    font-size: var(--ui-font-size-2xl);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    z-index: 100;
-  }
-
-  .toggle-tab:hover {
-    background-color: var(--grey-darkish);
-  }
-
   .resize-handle {
     position: absolute;
-    top: 32px;
+    top: 0;
     right: -4px;
     bottom: 0;
     width: 8px;
@@ -92,7 +68,7 @@ const styles = css`
 
 export const LeftSidebar: FC = () => {
   const project = useAtomValue(projectState);
-  const [sidebarOpen, setSidebarOpen] = useAtom(sidebarOpenState);
+  const sidebarOpen = useAtomValue(sidebarOpenState);
   const [persistedSidebarWidth, setPersistedSidebarWidth] = useAtom(leftSidebarWidthState);
   const [liveSidebarWidth, setLiveSidebarWidth] = useAtom(leftSidebarLiveWidthState);
   const [isResizing, setIsResizing] = useState(false);
@@ -177,18 +153,18 @@ export const LeftSidebar: FC = () => {
 
   return (
     <div
+      id="graph-tree-sidebar"
       className={isResizing ? 'resizing' : undefined}
       css={styles}
-      style={{
-        '--left-sidebar-width': `${liveSidebarWidth}px`,
-        transform: sidebarOpen ? 'translateX(0)' : 'translateX(-100%)',
-        transition: isResizing ? 'none' : 'transform 0.3s ease',
-      } as CSSProperties}
+      style={
+        {
+          '--left-sidebar-width': `${liveSidebarWidth}px`,
+          transform: sidebarOpen ? 'translateX(0)' : 'translateX(-100%)',
+          transition: isResizing ? 'none' : `transform 0.3s ${SIDEBAR_TRANSITION_EASING}`,
+        } as CSSProperties
+      }
       key={project.metadata.id}
     >
-      <div className="toggle-tab" onClick={() => setSidebarOpen(!sidebarOpen)}>
-        {sidebarOpen ? <ExpandLeftIcon /> : <ExpandRightIcon />}
-      </div>
       {sidebarOpen && (
         <div
           aria-label="Resize graphs panel"

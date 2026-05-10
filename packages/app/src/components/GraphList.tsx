@@ -1,6 +1,6 @@
 import { DndContext, PointerSensor, useDroppable, useSensor, useSensors } from '@dnd-kit/core';
 import { css } from '@emotion/react';
-import { type FC, type MouseEvent, type KeyboardEvent, memo, useMemo, useState } from 'react';
+import { type FC, type MouseEvent, type KeyboardEvent, memo, useMemo, useState, type SVGProps } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
 import Button from '@atlaskit/button';
 import Modal, { ModalBody, ModalFooter, ModalTransition } from '@atlaskit/modal-dialog';
@@ -47,6 +47,8 @@ const styles = css`
   flex-direction: column;
   flex-shrink: 1;
   min-height: 100%;
+  padding: 16px 8px 0;
+  color: var(--grey-light);
 
   .graph-list-container {
     display: flex;
@@ -55,12 +57,104 @@ const styles = css`
     min-height: 0;
   }
 
+  .project-tree-panel-header {
+    margin: -16px -8px 9px;
+    padding: 16px 18px 25px;
+    background-color: var(--black-seethrough);
+  }
+
+  .project-tree-header {
+    display: flex;
+    gap: 4px;
+    min-width: 0;
+    margin: 0 0 18px;
+    color: var(--grey-light);
+    font-size: var(--ui-font-size-base);
+    line-height: calc(20px * var(--ui-font-scale));
+  }
+
+  .project-tree-header-label {
+    flex-shrink: 0;
+    font-weight: 700;
+    color: var(--grey-lightest);
+  }
+
+  .project-tree-header-title {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   .graph-list-toolbar {
-    margin: 8px 8px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin: 0;
+  }
+
+  .graph-list-action,
+  .graph-list-filter-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    min-height: calc(20px * var(--ui-font-scale));
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--grey-light);
+    font-size: var(--ui-font-size-base);
+    line-height: calc(20px * var(--ui-font-scale));
+    text-align: left;
 
     svg {
       width: 16px;
       height: 16px;
+      flex-shrink: 0;
+    }
+  }
+
+  .graph-list-action {
+    cursor: pointer;
+
+    svg {
+      margin-bottom: 0.35em;
+    }
+  }
+
+  .graph-list-action:hover,
+  .graph-list-filter:focus-within .graph-list-filter-label {
+    color: var(--grey-lightest);
+  }
+
+  .graph-list-filter {
+    position: relative;
+  }
+
+  .graph-list-filter-label {
+    cursor: text;
+  }
+
+  .graph-list-filter input {
+    flex: 1 1 auto;
+    min-width: 0;
+    height: calc(20px * var(--ui-font-scale));
+    padding: 0 24px 0 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: inherit;
+    font-size: var(--ui-font-size-base) !important;
+    line-height: calc(20px * var(--ui-font-scale));
+
+    &::placeholder {
+      color: currentColor;
+      opacity: 1;
+    }
+
+    &:focus::placeholder {
+      opacity: 0;
     }
   }
 
@@ -68,6 +162,7 @@ const styles = css`
     overflow-y: auto;
     overflow-x: hidden;
     flex: 1 1 auto;
+    padding: 0 0 12px;
   }
 
   .graph-list,
@@ -75,10 +170,10 @@ const styles = css`
     position: relative;
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 4px;
     min-height: 0;
     flex-shrink: 1;
-    margin-top: 8px;
+    margin-top: 0;
   }
 
   .folder-children {
@@ -94,8 +189,10 @@ const styles = css`
     justify-content: space-between;
     align-items: center;
     user-select: none;
-    padding: 0 8px;
-    font-size: var(--ui-font-size-compact);
+    padding: 0;
+    color: var(--grey-light);
+    font-size: var(--ui-font-size-base);
+    line-height: calc(18px * var(--ui-font-scale));
 
     &:hover .graph-item-select {
       background-color: var(--grey-darkish);
@@ -108,10 +205,11 @@ const styles = css`
     align-items: center;
     gap: 6px;
     cursor: pointer;
-    padding: 6px 4px 6px 10px;
+    min-height: calc(34px * var(--ui-font-scale));
+    padding: 8px 10px 8px calc(10px + var(--graph-item-indent, 0px));
     flex: 1;
     min-width: 0;
-    border-radius: 8px;
+    border-radius: 4px;
     corner-shape: squircle;
   }
 
@@ -146,19 +244,19 @@ const styles = css`
   }
 
   .graph-main-icon {
-    width: 16px;
-    height: 16px;
+    width: 1em;
+    height: 1em;
     flex-shrink: 0;
-    color: currentColor;
+    color: var(--grey-lightish);
   }
 
   .graph-folder-count {
     min-width: 18px;
-    padding: 2px 6px;
+    padding: 1px 6px;
     border-radius: 999px;
     corner-shape: squircle;
-    background: currentColor;
-    color: inherit;
+    background: var(--grey-lightish);
+    color: var(--grey-darkest);
     flex-shrink: 0;
     font-size: var(--ui-font-size-xs);
     font-weight: 700;
@@ -167,11 +265,11 @@ const styles = css`
   }
 
   .graph-folder-count > span {
-    color: var(--grey-darkest);
+    color: inherit;
   }
 
   .selected .graph-folder-count > span {
-    color: var(--primary);
+    color: inherit;
   }
 
   .graph-reference-dot {
@@ -186,17 +284,16 @@ const styles = css`
     box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18);
   }
 
-  .depthSpacer {
-    width: 20px;
-    flex-shrink: 0;
-  }
-
   .selected {
     background-color: transparent;
 
     .graph-item-select {
       background-color: var(--primary);
       color: var(--foreground-on-primary);
+    }
+
+    .graph-main-icon {
+      color: currentColor;
     }
 
     &:hover .graph-item-select {
@@ -211,12 +308,18 @@ const styles = css`
     color: currentColor;
   }
 
+  .spinner .node-running-indicator {
+    width: var(--ui-font-size-base);
+    height: var(--ui-font-size-base);
+    border-width: max(1px, calc(1.5px * var(--ui-font-scale)));
+  }
+
   .selected .spinner {
     color: var(--foreground-on-primary);
   }
 
   .graph-list-spacer {
-    min-height: 100px;
+    min-height: 90px;
     flex-grow: 1;
   }
 
@@ -228,55 +331,29 @@ const styles = css`
     opacity: 0.5;
   }
 
-  .search {
-    position: relative;
-    margin: 8px 8px 0;
+  .clear {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    width: 20px;
+    height: 20px;
+    transform: translateY(-50%);
+    background: var(--grey);
+    border: 1px solid var(--grey-dark);
+    border-radius: 16px;
+    corner-shape: squircle;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
 
-    input {
-      width: 100%;
-      font-size: var(--ui-font-size-sm);
-      color: var(--foreground);
-      background: var(--grey-darkest);
-      border: 1px solid var(--grey-darkish);
-      border-radius: 6px;
-      corner-shape: squircle;
-      padding: 7px 32px 7px 10px;
-
-      &:focus {
-        outline: 0;
-        border-color: var(--primary);
-        box-shadow: 0 0 0 1px var(--primary);
-      }
-
-      &::placeholder {
-        color: var(--grey-lightish);
-      }
+    &:hover {
+      background: var(--grey-lightish);
     }
 
-    .clear {
-      position: absolute;
-      right: 6px;
-      top: 50%;
-      width: 20px;
-      height: 20px;
-      transform: translateY(-50%);
-      background: var(--grey);
-      border: 1px solid var(--grey-dark);
-      border-radius: 16px;
-      corner-shape: squircle;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0;
-
-      &:hover {
-        background: var(--grey-lightish);
-      }
-
-      svg {
-        width: 12px;
-        height: 12px;
-      }
+    svg {
+      width: 12px;
+      height: 12px;
     }
   }
 
@@ -610,26 +687,37 @@ export const GraphList: FC = memo(() => {
 
   return (
     <div css={styles}>
-      <div className="graph-list-toolbar">
-        <Button shouldFitContainer iconBefore={<SettingsCogIcon />} onClick={() => setIsProjectInfoOpen(true)}>
-          Project settings
-        </Button>
-      </div>
-      <div className="search">
-        <input
-          autoComplete="off"
-          spellCheck={false}
-          type="text"
-          placeholder="Filter graph names..."
-          value={searchText}
-          onChange={(e) => setSearchText(e.target.value)}
-          onKeyDown={handleSearchKeyDown}
-        />
-        {searchText.length > 0 && (
-          <button className="clear" onClick={() => setSearchText('')}>
-            <CrossIcon />
+      <div className="project-tree-panel-header">
+        <div className="project-tree-header" title={project.metadata.title}>
+          <span className="project-tree-header-label">Project:</span>
+          <span className="project-tree-header-title">{project.metadata.title}</span>
+        </div>
+        <div className="graph-list-toolbar">
+          <button type="button" className="graph-list-action" onClick={() => setIsProjectInfoOpen(true)}>
+            <SettingsCogIcon aria-hidden="true" />
+            <span>Project settings</span>
           </button>
-        )}
+          <div className="graph-list-filter">
+            <label className="graph-list-filter-label">
+              <FilterIcon aria-hidden="true" />
+              <input
+                aria-label="Filter graphs"
+                autoComplete="off"
+                spellCheck={false}
+                type="text"
+                placeholder="Filter graphs"
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                onKeyDown={handleSearchKeyDown}
+              />
+            </label>
+            {searchText.length > 0 && (
+              <button type="button" className="clear" onClick={() => setSearchText('')} aria-label="Clear graph filter">
+                <CrossIcon />
+              </button>
+            )}
+          </div>
+        </div>
       </div>
       {graphListReachability.notice && <div className="graph-list-notice">{graphListReachability.notice}</div>}
       <div className="graph-list-container" onContextMenu={handleSidebarContextMenu}>
@@ -734,11 +822,7 @@ export const GraphList: FC = memo(() => {
           onClose={() => setGraphPendingDelete(null)}
           onConfirm={confirmDeleteGraph}
         />
-        <GraphInfoModal
-          graph={graphPendingInfo}
-          onChange={updateGraphInfo}
-          onClose={() => setGraphPendingInfo(null)}
-        />
+        <GraphInfoModal graph={graphPendingInfo} onChange={updateGraphInfo} onClose={() => setGraphPendingInfo(null)} />
         <ProjectInfoModal isOpen={isProjectInfoOpen} onClose={() => setIsProjectInfoOpen(false)} />
       </div>
     </div>
@@ -762,6 +846,12 @@ const GraphListContextMenuItems: FC<{
       />
     ))}
   </div>
+);
+
+const FilterIcon: FC<SVGProps<SVGSVGElement>> = (props) => (
+  <svg viewBox="0 0 16 16" fill="none" {...props}>
+    <path d="M2.5 3.5h11L9.25 8.35v3.4l-2.5.9v-4.3L2.5 3.5Z" fill="currentColor" />
+  </svg>
 );
 
 // Allows the bottom of the list to be a drop target

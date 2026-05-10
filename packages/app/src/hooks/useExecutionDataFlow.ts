@@ -1,7 +1,13 @@
 import { useLatest } from 'ahooks';
 import { produce } from 'immer';
 import { useAtomValue, useSetAtom } from 'jotai';
-import { type GraphExecutionMetadata, type NodeId, type ProcessEvents, type ProcessId } from '@valerypopoff/rivet2-core';
+import { useRef } from 'react';
+import {
+  type GraphExecutionMetadata,
+  type NodeId,
+  type ProcessEvents,
+  type ProcessId,
+} from '@valerypopoff/rivet2-core';
 import { useDataRefs } from '../providers/ProvidersContext';
 import { lastRecordingState } from '../state/execution';
 import {
@@ -23,8 +29,11 @@ import {
 } from '../utils/executionDataTransforms';
 
 export type ExecutionDataFlowApi = {
+  clearNodeRunDataPreservationForNextStart: () => void;
+  consumeNodeRunDataPreservationForNextStart: () => NodeId[] | undefined;
   onTrivetStart: () => void;
   onUserInput: (data: ProcessEvents['userInput']) => void;
+  preserveNodeRunDataForNextStart: (nodeIds: NodeId[]) => void;
   setDataForNode: (
     nodeId: NodeId,
     processId: ProcessId,
@@ -32,6 +41,8 @@ export type ExecutionDataFlowApi = {
     data: Partial<NodeRunData>,
   ) => void;
   setSelectedNodePageLatest: (nodeId: NodeId, execution: GraphExecutionMetadata | undefined) => void;
+  shouldSuppressPreloadedNodeEvent: (nodeId: NodeId, processId: ProcessId) => boolean;
+  suppressPreloadedNodeEventsForCurrentRun: (nodeIds: NodeId[]) => void;
   trivetRunningLatest: ReturnType<typeof useLatest<boolean>>;
 };
 
@@ -50,6 +61,31 @@ export function useExecutionDataFlow(): ExecutionDataFlowApi {
   const currentGraphViewLatest = useLatest(currentGraphView);
   const selectedGraphRunByViewLatest = useLatest(selectedGraphRunByView);
   const lastRunDataLatest = useLatest(lastRunData);
+  const nodeIdsToPreserveOnNextStartRef = useRef<NodeId[] | undefined>(undefined);
+  const suppressedPreloadedNodeIdsRef = useRef<Set<NodeId>>(new Set());
+
+  const preserveNodeRunDataForNextStart = (nodeIds: NodeId[]) => {
+    nodeIdsToPreserveOnNextStartRef.current = nodeIds;
+  };
+
+  const suppressPreloadedNodeEventsForCurrentRun = (nodeIds: NodeId[]) => {
+    suppressedPreloadedNodeIdsRef.current = new Set(nodeIds);
+  };
+
+  const clearNodeRunDataPreservationForNextStart = () => {
+    nodeIdsToPreserveOnNextStartRef.current = undefined;
+    suppressedPreloadedNodeIdsRef.current = new Set();
+  };
+
+  const consumeNodeRunDataPreservationForNextStart = () => {
+    const nodeIds = nodeIdsToPreserveOnNextStartRef.current;
+    nodeIdsToPreserveOnNextStartRef.current = undefined;
+    return nodeIds;
+  };
+
+  const shouldSuppressPreloadedNodeEvent = (nodeId: NodeId, processId: ProcessId) => {
+    return processId === ('preload' as ProcessId) && suppressedPreloadedNodeIdsRef.current.has(nodeId);
+  };
 
   const setDataForNode = (
     nodeId: NodeId,
@@ -145,6 +181,7 @@ export function useExecutionDataFlow(): ExecutionDataFlowApi {
   };
 
   const onTrivetStart = () => {
+    clearNodeRunDataPreservationForNextStart();
     setLastRecordingState(undefined);
     setUserInputQuestions({});
     clearExecutionDataRefs(dataRefs, lastRunDataLatest.current);
@@ -152,10 +189,15 @@ export function useExecutionDataFlow(): ExecutionDataFlowApi {
   };
 
   return {
+    clearNodeRunDataPreservationForNextStart,
+    consumeNodeRunDataPreservationForNextStart,
     onTrivetStart,
     onUserInput,
+    preserveNodeRunDataForNextStart,
     setDataForNode,
     setSelectedNodePageLatest,
+    shouldSuppressPreloadedNodeEvent,
+    suppressPreloadedNodeEventsForCurrentRun,
     trivetRunningLatest,
   };
 }

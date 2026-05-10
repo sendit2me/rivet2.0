@@ -6,7 +6,7 @@ const darkCodeTheme = require('prism-react-renderer').themes.dracula;
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
-  title: 'Rivet 2.0',
+  title: 'Rivet 2',
   tagline: 'Visual AI programming environment and runtime packages',
   favicon: 'img/favicon.png',
 
@@ -54,7 +54,7 @@ const config = {
         defaultMode: 'dark',
       },
       navbar: {
-        title: 'Rivet 2.0',
+        title: 'Rivet 2',
         logo: {
           alt: 'Rivet Logo',
           src: 'img/logo.svg',

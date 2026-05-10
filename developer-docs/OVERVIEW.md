@@ -119,7 +119,7 @@ Used by the desktop app when the live `selectedExecutorState` is `browser`.
 - runs `GraphProcessor` in-process inside the app
 - uses browser/Tauri-facing adapters
 - supports the editor's immediate local run flow
-- run-from execution preloads dependency outputs in-process before re-entering `GraphProcessor`
+- editor run-from execution builds an explicit partial-run plan, preloads only already-computed boundary inputs, and then reruns the selected node plus downstream nodes through `GraphProcessor`
 
 ### Sidecar Node execution
 
@@ -157,7 +157,8 @@ shells to inject IO, datasets, environment variables, storage, path policies, an
 internal executor websocket URL, wrapper UI policy, and post-app bridge
 components. The first wrapper UI policy is
 `ui.fileMenu.visibleItems`, which filters the browser File menu by stable item
-ids while leaving command behavior owned by the app command layer.
+ids, including optional app-level items such as `settings` and `get_help`,
+while leaving command behavior owned by the app command layer.
 
 Wrapper shells can receive a stable imperative workspace handle through
 `RivetAppHost`'s `onWorkspaceHostReady` callback, render
