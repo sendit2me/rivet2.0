@@ -333,6 +333,10 @@ export const defaultEditorContainerStyles = css`
   .node-editor-color-picker {
     width: min(180px, 100%);
   }
+
+  &.comment-node-editor {
+    padding-top: 45px;
+  }
 `;
 
 export const DefaultNodeEditor: FC<
@@ -421,7 +425,7 @@ export const DefaultNodeEditor: FC<
   };
 
   return (
-    <div css={defaultEditorContainerStyles}>
+    <div css={defaultEditorContainerStyles} className={node.type === 'comment' ? 'comment-node-editor' : undefined}>
       {getEditorRenderRows(editors).map((row) => {
         if (row.type === 'inline') {
           return (

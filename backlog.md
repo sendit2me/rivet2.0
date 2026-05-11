@@ -2,7 +2,6 @@
 
 
 
-- Remove "Run" items form the comment node's context menu
 
 - Sometimes when I right click in the project tree panel, it breaks the Editor and it goes a blank screen and I have to refresh the page to get it back to life
 
