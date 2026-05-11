@@ -2,11 +2,16 @@ import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 
 import {
+  GraphProcessor,
   PromptNodeImpl,
+  globalRivetNodeRegistry,
   type DataValue,
   type InternalProcessContext,
+  type NodeId,
+  type PortId,
   type PromptNode,
 } from '../../../src/index.js';
+import { testProcessContext } from '../../testUtils';
 
 const createNode = (data: Partial<PromptNode['data']>) => {
   return new PromptNodeImpl({
@@ -50,6 +55,132 @@ describe('PromptNode', () => {
     });
   });
 
+  it('interpolates null prompt text inputs as empty strings', async () => {
+    const node = createNode({
+      promptText: 'Prompt: {{input}}.',
+    });
+
+    const result = await node.process(
+      {
+        input: { type: 'any', value: null },
+      } satisfies Record<string, DataValue>,
+      context,
+    );
+
+    assert.deepStrictEqual(result.output?.value, {
+      type: 'user',
+      message: 'Prompt: .',
+      isCacheBreakpoint: undefined,
+    });
+  });
+
+  it('interpolates whole null prompt text inputs as empty strings', async () => {
+    const node = createNode({
+      promptText: '{{input}}',
+    });
+
+    const result = await node.process(
+      {
+        input: { type: 'any', value: null },
+      } satisfies Record<string, DataValue>,
+      context,
+    );
+
+    assert.deepStrictEqual(result.output?.value, {
+      type: 'user',
+      message: '',
+      isCacheBreakpoint: undefined,
+    });
+  });
+
+  it('finishes graph execution when a whole prompt text input resolves to an empty string', async () => {
+    const promptNode = PromptNodeImpl.create();
+    const graph = {
+      metadata: {
+        id: 'whole-null-prompt-graph',
+        name: 'Whole Null Prompt Graph',
+        description: '',
+      },
+      nodes: [
+        {
+          id: 'null-expression-node' as NodeId,
+          type: 'expression',
+          title: 'Expression',
+          data: {
+            expression: 'null',
+          },
+          visualData: { x: 0, y: 0, width: 250 },
+        },
+        {
+          ...promptNode,
+          id: 'prompt-node' as NodeId,
+          data: {
+            ...promptNode.data,
+            promptText: '{{input}}',
+          },
+          visualData: { x: 300, y: 0, width: 250 },
+        },
+        {
+          id: 'output-node' as NodeId,
+          type: 'graphOutput',
+          title: 'Graph Output',
+          data: {
+            id: 'result',
+            dataType: 'chat-message',
+          },
+          visualData: { x: 600, y: 0, width: 250 },
+        },
+      ],
+      connections: [
+        {
+          outputNodeId: 'null-expression-node' as NodeId,
+          outputId: 'output' as PortId,
+          inputNodeId: 'prompt-node' as NodeId,
+          inputId: 'input' as PortId,
+        },
+        {
+          outputNodeId: 'prompt-node' as NodeId,
+          outputId: 'output' as PortId,
+          inputNodeId: 'output-node' as NodeId,
+          inputId: 'value' as PortId,
+        },
+      ],
+    };
+    const processor = new GraphProcessor(
+      {
+        metadata: {
+          id: 'project-1',
+          title: 'Project',
+          description: '',
+          mainGraphId: graph.metadata.id,
+        },
+        graphs: {
+          [graph.metadata.id]: graph,
+        },
+        plugins: [],
+      },
+      graph.metadata.id,
+      globalRivetNodeRegistry,
+    );
+    const finishedNodes: string[] = [];
+
+    processor.on('nodeFinish', ({ node }) => {
+      finishedNodes.push(node.id);
+    });
+
+    const result = await processor.processGraph(testProcessContext());
+
+    assert.deepStrictEqual(result.result, {
+      type: 'chat-message',
+      value: {
+        type: 'user',
+        message: '',
+        isCacheBreakpoint: undefined,
+      },
+    });
+    assert.deepStrictEqual(finishedNodes, ['null-expression-node', 'prompt-node', 'output-node']);
+  });
+
   it('resolves graph and context interpolation references without exposing prompt input ports', async () => {
     const node = createNode({
       promptText: '{{@graphInputs.graphValue}} / {{@context.contextValue}}',
@@ -64,5 +195,24 @@ describe('PromptNode', () => {
       message: 'from graph / from context',
       isCacheBreakpoint: undefined,
     });
+  });
+
+  it('opts the prompt text editor into word and character stats', () => {
+    const node = createNode({});
+    const promptTextEditor = node
+      .getEditors()
+      .find((editor) => editor.type === 'code' && editor.dataKey === 'promptText');
+
+    assert.equal(promptTextEditor?.showTextStats, true);
+  });
+
+  it('keeps AI assist first, then type and prompt text before secondary settings', () => {
+    const node = createNode({});
+    const editors = node.getEditors();
+
+    assert.deepEqual(
+      editors.slice(0, 3).map((editor) => editor.label),
+      ['Generate Using AI', 'Type', 'Prompt Text'],
+    );
   });
 });

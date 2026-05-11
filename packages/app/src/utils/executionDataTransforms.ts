@@ -327,6 +327,13 @@ export function collectStoredRefIds(data: InputsOrOutputsWithRefs | NodeRunDataW
   return Object.values(data).flatMap((value) => (isStoredRefDataValue(value) ? [value.refId] : []));
 }
 
+export function hasUnavailableStoredRefs(
+  data: InputsOrOutputsWithRefs | NodeRunDataWithRefs | undefined,
+  refStore: DataRefReader,
+): boolean {
+  return collectStoredRefIds(data).some((refId) => refStore.get(refId) == null);
+}
+
 export function clearExecutionDataRefs(refStore: DataRefDeleter, previousRunData: RunDataByNodeId): void {
   const allRefIds = Object.values(previousRunData).flatMap((processes) =>
     processes.flatMap((process) => collectStoredRefIds(process.data)),

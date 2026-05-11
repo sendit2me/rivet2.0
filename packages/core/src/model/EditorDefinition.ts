@@ -129,6 +129,7 @@ export type CodeEditorDefinition<T extends ChartNode> = SharedEditorDefinitionPr
   theme?: string;
   height?: number;
   enableFolding?: boolean;
+  showTextStats?: boolean;
 };
 
 export type ColorEditorDefinition<T extends ChartNode> = SharedEditorDefinitionProps<T> & {

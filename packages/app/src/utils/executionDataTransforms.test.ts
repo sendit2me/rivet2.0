@@ -5,6 +5,7 @@ import type { DataRefStore } from '../providers/ProvidersContext.js';
 import {
   clearExecutionDataRefs,
   clearRemovedExecutionDataRefs,
+  hasUnavailableStoredRefs,
   restoreStoredDataValue,
   restoreStoredInputsOrOutputs,
   splitRunDataByPreservedNodes,
@@ -408,6 +409,34 @@ test('clearRemovedExecutionDataRefs leaves refs that are still used by preserved
   assert.equal(dataRefs.values.has('preserved-ref'), true);
   assert.equal(dataRefs.values.has('shared-ref'), true);
   assert.equal(dataRefs.values.has('removed-ref'), false);
+});
+
+test('hasUnavailableStoredRefs reports missing ref-backed values', () => {
+  const dataRefs = createDataRefStore();
+  const storedOutput = {
+    outputData: {
+      output: {
+        type: 'string',
+        storage: 'ref',
+        refId: 'execution:node-ref:process-ref:output:output',
+        preview: {
+          kind: 'text',
+          excerpt: 'cached',
+          totalChars: 6,
+          lineCount: 1,
+        },
+      },
+    },
+  } as any;
+
+  assert.equal(hasUnavailableStoredRefs(storedOutput, dataRefs), true);
+
+  dataRefs.set('execution:node-ref:process-ref:output:output', {
+    type: 'string',
+    value: 'cached',
+  });
+
+  assert.equal(hasUnavailableStoredRefs(storedOutput, dataRefs), false);
 });
 
 test('storeNodeDataForHistory omits undefined input and output fields so later updates do not clobber earlier run data', () => {

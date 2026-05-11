@@ -52,10 +52,15 @@ const styles = css`
     word-break: break-word;
   }
 
-  .fullscreen-output-body.wrap-lines & pre {
+  .json-preview-content pre {
+    overflow-wrap: break-word;
+    word-break: normal;
+  }
+
+  .fullscreen-output-body.wrap-lines & .json-preview-content pre {
     white-space: pre-wrap;
-    overflow-wrap: anywhere;
-    word-break: break-word;
+    overflow-wrap: break-word;
+    word-break: normal;
   }
 
   .fullscreen-output-body.no-wrap-lines & pre {
@@ -219,7 +224,9 @@ export const LargeStoredValuePreview: FC<{
           </div>
           <div ref={contentRef} className="preview-content">
             {preview.kind === 'json' ? (
-              <ColorizedPreformattedText text={activeChunkText ?? ''} language="json" />
+              <div className="json-preview-content">
+                <ColorizedPreformattedText text={activeChunkText ?? ''} language="json" wrapWords />
+              </div>
             ) : (
               <pre>{activeChunkText}</pre>
             )}
@@ -227,7 +234,9 @@ export const LargeStoredValuePreview: FC<{
         </>
       ) : preview.kind === 'json' && showFull ? (
         <div ref={contentRef} className="preview-content">
-          <ColorizedPreformattedText text={activeChunkText ?? ''} language="json" />
+          <div className="json-preview-content">
+            <ColorizedPreformattedText text={activeChunkText ?? ''} language="json" wrapWords />
+          </div>
         </div>
       ) : (
         <div ref={contentRef} className="preview-content">

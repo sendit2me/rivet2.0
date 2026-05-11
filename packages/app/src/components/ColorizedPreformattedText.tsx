@@ -1,5 +1,5 @@
 import { type FC, useLayoutEffect, useRef } from 'react';
-import { monaco } from '../utils/monaco';
+import { ensureMonacoLanguage, monaco } from '../utils/monaco';
 import { useAtomValue } from 'jotai';
 import { themeState } from '../state/settings';
 import { resolveMonacoDisplayTheme, resolveMonacoForeground } from './codeEditorTheme.js';
@@ -21,13 +21,17 @@ export const ColorizedPreformattedText: FC<{
   wrapWords?: boolean;
 }> = ({ text, language, theme, className, wrapWords = false }) => {
   const bodyRef = useRef<HTMLPreElement>(null);
+  const colorizeRequestRef = useRef(0);
   const appTheme = useAtomValue(themeState);
   const resolvedTheme = resolveMonacoDisplayTheme(theme, appTheme);
   const foreground = resolveMonacoForeground(theme, appTheme);
+  const preClassName = className ? `${className} ${resolvedTheme}` : resolvedTheme;
 
   useLayoutEffect(() => {
     let cancelled = false;
+    const colorizeRequest = colorizeRequestRef.current + 1;
     const body = bodyRef.current;
+    colorizeRequestRef.current = colorizeRequest;
 
     if (!body) {
       return;
@@ -35,17 +39,29 @@ export const ColorizedPreformattedText: FC<{
 
     body.textContent = text;
     body.dataset.lang = language;
+    monaco.editor.setTheme(resolvedTheme);
 
-    void monaco.editor
-      .colorizeElement(body, {
-        theme: resolvedTheme,
-      })
-      .then(() => {
-        if (wrapWords && !cancelled) {
+    void ensureMonacoLanguage(language)
+      .then(() => monaco.editor.colorize(text, language, {}))
+      .then((html) => {
+        if (cancelled || colorizeRequestRef.current !== colorizeRequest || bodyRef.current !== body) {
+          return;
+        }
+
+        body.innerHTML = html;
+
+        if (wrapWords) {
           normalizeColorizedWordWrapSpaces(body);
         }
       })
-      .catch(() => {});
+      .catch((error) => {
+        if (import.meta.env.DEV && !cancelled && colorizeRequestRef.current === colorizeRequest) {
+          console.warn('Failed to colorize Monaco preview text', {
+            language,
+            error,
+          });
+        }
+      });
 
     return () => {
       cancelled = true;
@@ -55,7 +71,7 @@ export const ColorizedPreformattedText: FC<{
   return (
     <pre
       ref={bodyRef}
-      className={className}
+      className={preClassName}
       data-lang={language}
       style={foreground ? { color: foreground } : undefined}
     >

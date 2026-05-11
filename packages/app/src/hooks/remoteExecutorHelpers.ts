@@ -7,9 +7,10 @@ import {
   type ProcessEvents,
   type Project,
 } from '@valerypopoff/rivet2-core';
-import type { InputsOrOutputsWithRefs, ProcessDataForNode, RunDataByNodeId } from '../state/dataFlow.js';
+import type { ProcessDataForNode, RunDataByNodeId } from '../state/dataFlow.js';
 import type { DataRefReader } from '../providers/ProvidersContext.js';
 import { restoreStoredPortMap } from '../utils/executionDataReaders.js';
+import { hasUnavailableStoredRefs } from '../utils/executionDataTransforms.js';
 import { getGlobalDataRef } from '../utils/globals/globalDataRefs.js';
 
 const dataRefs: DataRefReader = {
@@ -138,7 +139,7 @@ export function getUnavailablePreloadNodeIds(preloadNodeIds: NodeId[], previousR
     const latestExecutionWithOutput = findLatestExecutionWithOutput(previousRunData[nodeId]);
     const outputData = latestExecutionWithOutput?.data.outputData;
 
-    return !outputData || hasUnavailableStoredRefs(outputData);
+    return !outputData || hasUnavailableStoredRefs(outputData, dataRefs);
   });
 }
 
@@ -154,16 +155,6 @@ function findLatestExecutionWithOutput(executions: ProcessDataForNode[] | undefi
   }
 
   return undefined;
-}
-
-function hasUnavailableStoredRefs(outputData: InputsOrOutputsWithRefs): boolean {
-  return Object.values(outputData).some((value) => {
-    if (!value || value.storage !== 'ref') {
-      return false;
-    }
-
-    return dataRefs.get(value.refId) == null;
-  });
 }
 
 export function selectTestSuitesToRun<T extends { id: string; testCases: { id: string }[] }>(

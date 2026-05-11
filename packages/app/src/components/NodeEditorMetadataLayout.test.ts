@@ -32,3 +32,29 @@ test('node metadata title and description share the same text inset', () => {
     /\.node-description-field textarea {\s+min-height: 14px;[\s\S]*?padding: 10px calc\(var\(--node-metadata-text-inset\) - var\(--node-metadata-control-border-width\)\);/,
   );
 });
+
+test('node editor keeps selected-node editor identity stable across panel rerenders', () => {
+  const nodeEditorSource = readFileSync(join(componentsDir, 'NodeEditor.tsx'), 'utf8');
+
+  assert.match(nodeEditorSource, /const nodeForEditor = useMemo\(/);
+  assert.match(nodeEditorSource, /: selectedNode,\s+\[isVariant, selectedNode, selectedVariantData\]/);
+});
+
+test('node code editor lazy loading keeps the field shell visible', () => {
+  const codeEditorSource = readFileSync(join(componentsDir, 'editors', 'CodeEditor.tsx'), 'utf8');
+  const defaultNodeEditorSource = readFileSync(join(componentsDir, 'editors', 'DefaultNodeEditor.tsx'), 'utf8');
+
+  assert.match(defaultNodeEditorSource, /const editorLoadKey = `\$\{node\.id\}:\$\{node\.type\}`;/);
+  assert.match(defaultNodeEditorSource, /editorState\?\.editorLoadKey === editorLoadKey \? editorState\.editors : \[\]/);
+  assert.match(codeEditorSource, /const CodeEditorLoadingFallback: FC = \(\) =>/);
+  assert.match(codeEditorSource, /<Suspense fallback=\{<CodeEditorLoadingFallback \/>\}>/);
+  assert.doesNotMatch(codeEditorSource, /<Suspense fallback=\{<div \/>\}>\s+<div className="editor-wrapper-wrapper">/);
+  assert.match(defaultNodeEditorSource, /\.code-editor-loading-placeholder/);
+});
+
+test('node code editor text stats are editor-definition driven', () => {
+  const codeEditorSource = readFileSync(join(componentsDir, 'editors', 'CodeEditor.tsx'), 'utf8');
+
+  assert.match(codeEditorSource, /showTextStats: 'showTextStats' in editorDef && editorDef\.showTextStats === true,/);
+  assert.doesNotMatch(codeEditorSource, /node\.type === 'text' && editorDef\.dataKey === 'text'/);
+});

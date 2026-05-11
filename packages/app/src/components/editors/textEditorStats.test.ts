@@ -16,6 +16,6 @@ test('getTextEditorStats ignores repeated whitespace for words but still counts 
   });
 });
 
-test('formatTextEditorStatsLine formats the status line for the text node editor', () => {
+test('formatTextEditorStatsLine formats the status line for text editors', () => {
   assert.equal(formatTextEditorStatsLine('abc def'), 'Words: 2  Characters: 7');
 });

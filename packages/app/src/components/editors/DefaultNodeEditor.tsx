@@ -190,6 +190,14 @@ export const defaultEditorContainerStyles = css`
     background-color: var(--grey-darker);
   }
 
+  .code-editor-loading-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--foreground-muted);
+    font-size: var(--ui-font-size-normal);
+  }
+
   .row.code {
     align-items: start;
   }
@@ -325,6 +333,10 @@ export const defaultEditorContainerStyles = css`
   .node-editor-color-picker {
     width: min(180px, 100%);
   }
+
+  &.comment-node-editor {
+    padding-top: 45px;
+  }
 `;
 
 export const DefaultNodeEditor: FC<
@@ -332,7 +344,11 @@ export const DefaultNodeEditor: FC<
     onClose?: () => void;
   }
 > = ({ node, onChange, isReadonly, onClose }) => {
-  const [editors, setEditors] = useState<EditorDefinition<ChartNode>[]>([]);
+  const editorLoadKey = `${node.id}:${node.type}`;
+  const [editorState, setEditorState] = useState<{
+    editorLoadKey: string;
+    editors: EditorDefinition<ChartNode>[];
+  }>();
   const [editorRefreshNonce, setEditorRefreshNonce] = useState(0);
 
   const getUIContext = useGetRivetUIContext();
@@ -340,6 +356,8 @@ export const DefaultNodeEditor: FC<
   const refreshEditors = () => setEditorRefreshNonce((value) => value + 1);
 
   useEffect(() => {
+    let cancelled = false;
+
     (async () => {
       try {
         const dynamicImpl = projectNodeRegistry.createDynamicImpl(node);
@@ -363,8 +381,14 @@ export const DefaultNodeEditor: FC<
           }
         });
 
-        setEditors(loadedEditors);
+        if (!cancelled) {
+          setEditorState({ editorLoadKey, editors: loadedEditors });
+        }
       } catch (err) {
+        if (cancelled) {
+          return;
+        }
+
         handleError(err, 'Failed to load editors for node', {
           metadata: {
             nodeId: node.id,
@@ -373,7 +397,13 @@ export const DefaultNodeEditor: FC<
         });
       }
     })();
-  }, [editorRefreshNonce, getUIContext, node, projectNodeRegistry]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [editorLoadKey, editorRefreshNonce, getUIContext, node, projectNodeRegistry]);
+
+  const editors = editorState?.editorLoadKey === editorLoadKey ? editorState.editors : [];
 
   const renderEditorField = (editor: EditorDefinition<ChartNode>, index: number) => {
     const isDisabled = editor.disableIf?.(node.data) ?? false;
@@ -395,7 +425,7 @@ export const DefaultNodeEditor: FC<
   };
 
   return (
-    <div css={defaultEditorContainerStyles}>
+    <div css={defaultEditorContainerStyles} className={node.type === 'comment' ? 'comment-node-editor' : undefined}>
       {getEditorRenderRows(editors).map((row) => {
         if (row.type === 'inline') {
           return (

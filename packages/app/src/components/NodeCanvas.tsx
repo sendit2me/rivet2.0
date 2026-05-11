@@ -425,7 +425,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
 
   const hydratedContextMenuData = useMemo((): ContextMenuContext | null => {
     if (contextMenuData.data?.type.startsWith('node-')) {
-      const nodeType = contextMenuData.data.type.replace('node-', '');
+      const nodeType = contextMenuData.data.type.replace('node-', '') as ChartNode['type'];
       const nodeId = contextMenuData.data.element.dataset.nodeid as NodeId;
       let canRunFromHere = false;
 

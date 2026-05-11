@@ -184,8 +184,8 @@ export function useExecutionDataFlow(): ExecutionDataFlowApi {
     clearNodeRunDataPreservationForNextStart();
     setLastRecordingState(undefined);
     setUserInputQuestions({});
-    clearExecutionDataRefs(dataRefs, lastRunDataLatest.current);
     setLastRunData({});
+    clearExecutionDataRefs(dataRefs, lastRunDataLatest.current);
   };
 
   return {

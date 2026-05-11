@@ -7,7 +7,7 @@ import PlayIcon from 'majesticons/line/play-circle-line.svg?react';
 import CopyIcon from '../assets/icons/copy-icon.svg?react';
 import PasteIcon from '../assets/icons/paste-icon.svg?react';
 import PlusIcon from 'majesticons/line/plus-line.svg?react';
-import { type NodeId } from '@valerypopoff/rivet2-core';
+import { type ChartNode, type NodeId } from '@valerypopoff/rivet2-core';
 import { selectedNodesState } from '../state/graphBuilder.js';
 import { useContextMenuCommands } from './useContextMenuCommands.js';
 import { clipboardState } from '../state/clipboard';
@@ -53,6 +53,45 @@ export type ContextMenuConfiguration = ReturnType<typeof useContextMenuConfigura
 
 const type = <T>() => undefined! as T;
 
+type NodeContextMenuData = {
+  nodeType: ChartNode['type'];
+  nodeId: NodeId;
+  canRunFromHere: boolean;
+};
+
+const getNodeContextMenuData = (context: unknown): NodeContextMenuData | undefined => {
+  if (!context || typeof context !== 'object') {
+    return undefined;
+  }
+
+  const data = context as Partial<NodeContextMenuData>;
+  if (
+    typeof data.nodeType !== 'string' ||
+    typeof data.nodeId !== 'string' ||
+    typeof data.canRunFromHere !== 'boolean'
+  ) {
+    return undefined;
+  }
+
+  return {
+    nodeType: data.nodeType as ChartNode['type'],
+    nodeId: data.nodeId as NodeId,
+    canRunFromHere: data.canRunFromHere,
+  };
+};
+
+const isExecutableNodeContext = (context: unknown) => {
+  const data = getNodeContextMenuData(context);
+  return data != null && data.nodeType !== 'comment';
+};
+
+const canRunFromHere = (context: unknown) => {
+  const data = getNodeContextMenuData(context);
+  return data != null && data.nodeType !== 'comment' && data.canRunFromHere;
+};
+
+const isSubgraphNodeContext = (context: unknown) => getNodeContextMenuData(context)?.nodeType === 'subGraph';
+
 export function useContextMenuConfiguration() {
   const addMenuConfig = useContextMenuAddNodeConfiguration();
   const commands = useContextMenuCommands();
@@ -65,25 +104,19 @@ export function useContextMenuConfiguration() {
         // Defines the "contexts" that the context menu can show, i.e. what you've right clicked on.
         contexts: {
           node: {
-            contextType: type<{
-              nodeType: string;
-              nodeId: NodeId;
-              canRunFromHere: boolean;
-            }>(),
+            contextType: type<NodeContextMenuData>(),
             items: [
               {
                 id: 'node-run-to-here',
                 label: 'Run to here',
                 icon: PlayIcon,
+                conditional: isExecutableNodeContext,
               },
               {
                 id: 'node-run-from-here',
                 label: 'Run from here',
                 icon: PlayIcon,
-                conditional: (context) => {
-                  const { canRunFromHere } = context as { canRunFromHere: boolean };
-                  return canRunFromHere;
-                },
+                conditional: canRunFromHere,
               },
               {
                 id: 'node-copy',
@@ -100,10 +133,7 @@ export function useContextMenuConfiguration() {
                 id: 'node-go-to-subgraph',
                 label: 'Go to subgraph',
                 icon: SubgraphLinkIcon,
-                conditional: (context) => {
-                  const { nodeType } = context as { nodeType: string };
-                  return nodeType === 'subGraph';
-                },
+                conditional: isSubgraphNodeContext,
               },
               {
                 id: 'node-edit',

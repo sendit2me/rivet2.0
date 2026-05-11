@@ -1,24 +1,5 @@
 
 
-- Object node. With this content it breaks:
-{
-    "foo": "{{bar}}. That's it."
-}
-Error: Failed to parse JSON template: Expected ',' or '}' after property value in JSON at position 18
-
-
-
-
-
-- Prompt node: add words and character counter just like in text node
-
-- Prompt node: When an extrapolated variab;e gets "null", the prompt node goes "Error: Expected value of type string but got undefined". It should just get an empty string
-
-
-- Remove "Run" items form the comment node's context menu
-
-
-
 
 
 
@@ -80,5 +61,4 @@ rivet2.0/packages/app/src/assets/tutorials
 - Convenient node type browser, just like in n8n
 - Show run time in each node
 - I want to be able to adjust the node height when it's not hovered so I can see this much of the content in the output section
-
 

@@ -23,6 +23,9 @@ test('graph tree panel keeps the compact text-list layout', () => {
   assert.match(graphListSource, /\.graph-list-action {\s+cursor: pointer;\s+svg {\s+margin-bottom: 0\.35em;/);
   assert.match(graphListSource, /\.spinner \.node-running-indicator {\s+width: var\(--ui-font-size-base\);/);
   assert.match(graphListSource, /\.graph-main-icon {\s+width: 1em;\s+height: 1em;/);
+  assert.match(graphListSource, /const showGraphItemContextMenu =[\s\S]*selectedGraphForContextMenu != null/);
+  assert.match(graphListSource, /const showFolderContextMenu =[\s\S]*selectedFolderNameForContextMenu != null/);
+  assert.doesNotMatch(graphListSource, /metadata!/);
   assert.match(graphListSource, /padding: 8px 10px 8px calc\(10px \+ var\(--graph-item-indent, 0px\)\);/);
   assert.doesNotMatch(graphListSource, /iconBefore=|shouldFitContainer/);
 

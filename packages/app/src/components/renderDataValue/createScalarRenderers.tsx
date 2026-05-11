@@ -184,7 +184,7 @@ export function createScalarRenderers(options: { renderValue: (props: DataValueR
 
       return (
         <div className="rendered-object-type">
-          <ColorizedPreformattedText text={stringified} language="json" />
+          <ColorizedPreformattedText text={stringified} language="json" wrapWords />
         </div>
       );
     },

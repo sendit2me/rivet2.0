@@ -450,15 +450,26 @@ export const GraphList: FC = memo(() => {
     handleContextMenu(e);
   });
 
-  const selectedGraphForContextMenu = contextMenuData.data
-    ? savedGraphs.find((graph) => graph.metadata!.id === contextMenuData.data?.element.dataset.graphid)
-    : null;
+  const selectedGraphIdForContextMenu =
+    contextMenuData.data?.type === 'graph-item' ? contextMenuData.data.element.dataset.graphid : undefined;
 
-  const selectedFolderNameForContextMenu = contextMenuData.data
-    ? contextMenuData.data?.element.dataset.folderpath
+  const selectedGraphForContextMenu = selectedGraphIdForContextMenu
+    ? savedGraphs.find((graph) => graph.metadata?.id === selectedGraphIdForContextMenu)
     : undefined;
 
+  const selectedFolderNameForContextMenu =
+    contextMenuData.data?.type === 'graph-item' || contextMenuData.data?.type === 'graph-folder'
+      ? contextMenuData.data.element.dataset.folderpath
+      : undefined;
+
   const selectedGraphIsMain = selectedGraphForContextMenu?.metadata?.id === project.metadata.mainGraphId;
+  const showGraphItemContextMenu =
+    showContextMenu &&
+    contextMenuData.data?.type === 'graph-item' &&
+    selectedGraphForContextMenu != null &&
+    selectedFolderNameForContextMenu != null;
+  const showFolderContextMenu =
+    showContextMenu && contextMenuData.data?.type === 'graph-folder' && selectedFolderNameForContextMenu != null;
 
   const handleSearchKeyDown = useStableCallback((e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Escape') {
@@ -619,10 +630,14 @@ export const GraphList: FC = memo(() => {
   const handleGraphItemMenuSelected = useStableCallback((id: string) => {
     switch (id) {
       case 'rename-graph':
-        startRename(selectedFolderNameForContextMenu!);
+        if (selectedFolderNameForContextMenu) {
+          startRename(selectedFolderNameForContextMenu);
+        }
         break;
       case 'duplicate-graph':
-        duplicateGraph(selectedGraphForContextMenu!);
+        if (selectedGraphForContextMenu) {
+          duplicateGraph(selectedGraphForContextMenu);
+        }
         break;
       case 'graph-info':
         if (selectedGraphForContextMenu) {
@@ -647,18 +662,23 @@ export const GraphList: FC = memo(() => {
   });
 
   const handleFolderMenuSelected = useStableCallback((id: string) => {
+    if (!selectedFolderNameForContextMenu) {
+      setShowContextMenu(false);
+      return;
+    }
+
     switch (id) {
       case 'rename-folder':
-        startRename(selectedFolderNameForContextMenu!);
+        startRename(selectedFolderNameForContextMenu);
         break;
       case 'new-graph-in-folder':
-        handleNew(selectedFolderNameForContextMenu!);
+        handleNew(selectedFolderNameForContextMenu);
         break;
       case 'new-folder-in-folder':
-        handleNewFolder(selectedFolderNameForContextMenu!);
+        handleNewFolder(selectedFolderNameForContextMenu);
         break;
       case 'delete-folder':
-        handleDeleteFolder(selectedFolderNameForContextMenu!);
+        handleDeleteFolder(selectedFolderNameForContextMenu);
         break;
       default:
         break;
@@ -750,7 +770,7 @@ export const GraphList: FC = memo(() => {
             <GraphListSpacer />
           </DndContext>
           <Portal>
-            {showContextMenu && contextMenuData.data?.type === 'graph-item' && (
+            {showGraphItemContextMenu && (
               <div
                 className="graph-item-context-menu-pos"
                 ref={refs.setReference}
@@ -771,7 +791,7 @@ export const GraphList: FC = memo(() => {
                 </div>
               </div>
             )}
-            {showContextMenu && contextMenuData.data?.type === 'graph-folder' && (
+            {showFolderContextMenu && (
               <div
                 className="graph-item-context-menu-pos"
                 ref={refs.setReference}

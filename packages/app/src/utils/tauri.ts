@@ -7,7 +7,8 @@ export function isInTauri(): boolean {
   return detectTauri();
 }
 
-const cachedEnvVars: Record<string, string> = {};
+const cachedEnvVars = new Map<string, string>();
+const pendingEnvVars = new Map<string, Promise<string>>();
 
 export function getDefaultEnvironmentProvider(): EnvironmentProvider {
   return {
@@ -28,14 +29,28 @@ export function getDefaultPathPolicyProvider(): PathPolicyProvider {
 }
 
 export async function getEnvVar(name: string): Promise<string | undefined> {
-  if (cachedEnvVars[name]) {
-    return cachedEnvVars[name];
-  }
-
   if (isInTauri()) {
-    const value = await invokeNative<string>('get_environment_variable', { name });
-    cachedEnvVars[name] = value;
-    return value;
+    if (cachedEnvVars.has(name)) {
+      return cachedEnvVars.get(name);
+    }
+
+    const pendingValue = pendingEnvVars.get(name);
+    if (pendingValue) {
+      return pendingValue;
+    }
+
+    const loadValue = invokeNative<string>('get_environment_variable', { name }).then((value) => {
+      cachedEnvVars.set(name, value);
+      return value;
+    });
+
+    pendingEnvVars.set(name, loadValue);
+
+    try {
+      return await loadValue;
+    } finally {
+      pendingEnvVars.delete(name);
+    }
   } else {
     if (typeof process !== 'undefined') {
       return process.env[name];
@@ -55,14 +70,9 @@ export async function fillMissingSettingsFromEnvironmentVariables(
     : optionsOrExtraEnvVarNames;
   const environmentProvider = options.environmentProvider ?? getDefaultEnvironmentProvider();
   const getProviderEnvVar = (name: string) => environmentProvider.getEnvVar(name);
-  const fullSettings: Settings = {
-    ...settings,
-    openAiKey: (settings.openAiKey || (await getProviderEnvVar('OPENAI_API_KEY'))) ?? '',
-    openAiOrganization: (settings.openAiOrganization || (await getProviderEnvVar('OPENAI_ORG_ID'))) ?? '',
-    openAiEndpoint: (settings.openAiEndpoint || (await getProviderEnvVar('OPENAI_ENDPOINT'))) ?? '',
-    pluginSettings: settings.pluginSettings,
-    pluginEnv: {},
-  };
+  const resolveSetting = (value: string | undefined, envVarName: string) =>
+    value ? Promise.resolve(value) : getProviderEnvVar(envVarName);
+  const pluginEnvVarNames = new Set<string>();
 
   for (const plugin of plugins) {
     const stringConfigs = entries(plugin.configSpec ?? {}).filter(([, c]) => c.type === 'string') as [
@@ -78,17 +88,34 @@ export async function fillMissingSettingsFromEnvironmentVariables(
               ? configName
               : undefined;
         if (envVarName) {
-          const envVarValue = await getProviderEnvVar(envVarName);
-          if (envVarValue) {
-            fullSettings.pluginEnv![envVarName] = envVarValue;
-          }
+          pluginEnvVarNames.add(envVarName);
         }
       }
     }
   }
 
-  for (const envVarName of new Set((options.extraEnvVarNames ?? []).map((name) => name.trim()).filter(Boolean))) {
-    const envVarValue = await getProviderEnvVar(envVarName);
+  for (const envVarName of (options.extraEnvVarNames ?? []).map((name) => name.trim()).filter(Boolean)) {
+    pluginEnvVarNames.add(envVarName);
+  }
+
+  const [openAiKey, openAiOrganization, openAiEndpoint, pluginEnvEntries] = await Promise.all([
+    resolveSetting(settings.openAiKey, 'OPENAI_API_KEY'),
+    resolveSetting(settings.openAiOrganization, 'OPENAI_ORG_ID'),
+    resolveSetting(settings.openAiEndpoint, 'OPENAI_ENDPOINT'),
+    Promise.all(
+      [...pluginEnvVarNames].map(async (envVarName) => [envVarName, await getProviderEnvVar(envVarName)] as const),
+    ),
+  ]);
+  const fullSettings: Settings = {
+    ...settings,
+    openAiKey: openAiKey ?? '',
+    openAiOrganization: openAiOrganization ?? '',
+    openAiEndpoint: openAiEndpoint ?? '',
+    pluginSettings: settings.pluginSettings,
+    pluginEnv: {},
+  };
+
+  for (const [envVarName, envVarValue] of pluginEnvEntries) {
     if (envVarValue) {
       fullSettings.pluginEnv![envVarName] = envVarValue;
     }

@@ -62,6 +62,13 @@ describe('TextNode', () => {
     });
   });
 
+  it('opts the text editor into word and character stats', () => {
+    const node = createNode({});
+    const textEditor = node.getEditors().find((editor) => editor.type === 'code' && editor.dataKey === 'text');
+
+    assert.equal(textEditor?.showTextStats, true);
+  });
+
   it('truncates long single-line previews so large blobs do not render in full', () => {
     const node = createNode({
       text: `prefix-${'a'.repeat(5000)}`,
