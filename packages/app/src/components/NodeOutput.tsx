@@ -34,10 +34,11 @@ import { useToggle } from 'ahooks';
 import { expandedOutputNodeIdsState, fullscreenOutputNodeState, hoveringNodeState } from '../state/graphBuilder';
 import { useNodeIO } from '../hooks/useGetNodeIO';
 import { Tooltip } from './Tooltip';
-import { useDataRefs } from '../providers/ProvidersContext';
+import { type DataRefReader, useDataRefs } from '../providers/ProvidersContext';
 import { filterProcessDataForSelection, getSelectedProcessData } from '../state/selectors/executionSelectors.js';
 import { renderNodeOutputBody } from './nodeOutput/renderNodeOutputBody.js';
 import { getStoredOutputWarnings } from '../utils/executionDataReaders.js';
+import { hasUnavailableStoredRefs } from '../utils/executionDataTransforms.js';
 import { copyOutputJson, copyOutputValue } from './nodeOutput/nodeOutputCopyActions.js';
 import { FullscreenOutputSearchContext } from './nodeOutput/FullscreenOutputSearchContext.js';
 import { useFullscreenOutputSearch } from './nodeOutput/useFullscreenOutputSearch.js';
@@ -162,10 +163,13 @@ function useOutputDataWithReplacementGrace(
   nodeType: ChartNode['type'],
   output: ProcessDataForNode[] | undefined,
   selectedPage: number | 'latest',
+  dataRefs: DataRefReader,
 ): ProcessDataForNode[] | undefined {
   const [displayedOutput, setDisplayedOutput] = useState(output);
   const hasSelectedVisibleOutput = getSelectedVisibleOutputProcess(nodeType, output, selectedPage) != null;
-  const hasDisplayedVisibleOutput = getSelectedVisibleOutputProcess(nodeType, displayedOutput, selectedPage) != null;
+  const displayedVisibleOutput = getSelectedVisibleOutputProcess(nodeType, displayedOutput, selectedPage);
+  const hasDisplayedAvailableOutput =
+    displayedVisibleOutput != null && !hasUnavailableStoredRefs(displayedVisibleOutput.data, dataRefs);
 
   useEffect(() => {
     if (hasSelectedVisibleOutput) {
@@ -173,7 +177,7 @@ function useOutputDataWithReplacementGrace(
       return;
     }
 
-    if (!hasDisplayedVisibleOutput) {
+    if (!hasDisplayedAvailableOutput) {
       setDisplayedOutput(undefined);
       return;
     }
@@ -185,9 +189,9 @@ function useOutputDataWithReplacementGrace(
     return () => {
       globalThis.clearTimeout(timeout);
     };
-  }, [hasDisplayedVisibleOutput, hasSelectedVisibleOutput, output]);
+  }, [hasDisplayedAvailableOutput, hasSelectedVisibleOutput, output]);
 
-  return hasSelectedVisibleOutput ? output : hasDisplayedVisibleOutput ? displayedOutput : undefined;
+  return hasSelectedVisibleOutput ? output : hasDisplayedAvailableOutput ? displayedOutput : undefined;
 }
 
 const fullscreenOutputCss = css`
@@ -565,6 +569,7 @@ const NodeOutputBase: FC<{
   onToggleExpandedOutput: () => void;
   onOpenFullscreenModal?: () => void;
 }> = ({ node, isOutputExpanded, onToggleExpandedOutput, onOpenFullscreenModal }) => {
+  const dataRefs = useDataRefs();
   const output = useAtomValue(lastRunDataState(node.id));
   const selectedPage = useAtomValue(selectedProcessPageState(node.id));
   const graphSelectionOptions = useAtomValue(resolvedGraphSelectionState);
@@ -572,7 +577,7 @@ const NodeOutputBase: FC<{
     () => filterProcessDataForSelection({ ...graphSelectionOptions, processData: output }) ?? output,
     [graphSelectionOptions, output],
   );
-  const visibleOutput = useOutputDataWithReplacementGrace(node.type, filteredOutput, selectedPage);
+  const visibleOutput = useOutputDataWithReplacementGrace(node.type, filteredOutput, selectedPage, dataRefs);
 
   if (!visibleOutput?.length) {
     return null;

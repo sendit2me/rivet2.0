@@ -17,9 +17,8 @@ import {
   type NodeBodySpec,
   type Outputs,
 } from '../../index.js';
-import { mapValues } from 'lodash-es';
 import { dedent } from 'ts-dedent';
-import { coerceType, coerceTypeOptional } from '../../utils/coerceType.js';
+import { coerceTypeOptional } from '../../utils/coerceType.js';
 import { getInputOrData } from '../../utils/index.js';
 import { interpolate, extractInterpolationVariables } from '../../utils/interpolation.js';
 import { match } from 'ts-pattern';
@@ -226,7 +225,13 @@ export class PromptNodeImpl extends NodeImpl<PromptNode> {
   }
 
   async process(inputs: Inputs, context: InternalProcessContext<PromptNode>): Promise<Outputs> {
-    const inputMap = mapValues(inputs, (input) => coerceType(input, 'string')) as Record<PortId, string>;
+    const inputMap = Object.keys(inputs).reduce(
+      (acc, key) => {
+        acc[key as PortId] = coerceTypeOptional(inputs[key as PortId], 'string') ?? '';
+        return acc;
+      },
+      {} as Record<PortId, string>,
+    );
 
     const outputValue = interpolate(
       this.chartNode.data.promptText,

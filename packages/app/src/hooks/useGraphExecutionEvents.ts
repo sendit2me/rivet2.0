@@ -221,8 +221,8 @@ export function useGraphExecutionEvents({
 
   const resetLastRunDataForRunStart = (nodeIdsToPreserve: NodeId[] | undefined) => {
     if (!nodeIdsToPreserve?.length) {
-      clearExecutionDataRefs(dataRefs, lastRunDataLatest.current);
       setLastRunData({});
+      clearExecutionDataRefs(dataRefs, lastRunDataLatest.current);
       return;
     }
 
@@ -231,8 +231,8 @@ export function useGraphExecutionEvents({
       nodeIdsToPreserve,
     );
 
-    clearRemovedExecutionDataRefs(dataRefs, removedRunData, preservedRunData);
     setLastRunData(preservedRunData);
+    clearRemovedExecutionDataRefs(dataRefs, removedRunData, preservedRunData);
   };
 
   return {

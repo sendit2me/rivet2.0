@@ -10,7 +10,7 @@ const globalDataRefs = new LRUCache<string, DataValue>({
   sizeCalculation: (value, key) => {
     const hintedSize = globalDataRefSizeHints.get(key);
     if (hintedSize != null) {
-      return hintedSize;
+      return toPositiveCacheSize(hintedSize);
     }
 
     return Math.max(
@@ -69,6 +69,10 @@ function getSizeOfChatMessage(value: unknown): number {
   );
 
   return size > 0 ? size : 1; // Empty chat message should still take up some "space"
+}
+
+function toPositiveCacheSize(size: number): number {
+  return Number.isFinite(size) ? Math.max(1, Math.ceil(size)) : 1;
 }
 
 function getArraySize(value: unknown, getItemSize: (value: unknown) => number): number {
