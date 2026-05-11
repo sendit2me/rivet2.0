@@ -41,6 +41,73 @@ describe('ObjectNodeImpl', () => {
     assert.deepStrictEqual(result['output'].value, { key: 'You say "goodbye," I say "hello."' });
   });
 
+  it('supports embedded string interpolation with suffix text', async () => {
+    const node = createNode({ jsonTemplate: `{"key": "{{input}}. That's it."}` });
+    const emptyResult = await node.process({ input: { type: 'string', value: '' } }, ctx);
+    const valueResult = await node.process({ input: { type: 'string', value: 'Done' } }, ctx);
+
+    assert.deepStrictEqual(emptyResult['output'].value, { key: ". That's it." });
+    assert.deepStrictEqual(valueResult['output'].value, { key: "Done. That's it." });
+  });
+
+  it('supports embedded string interpolation before, between, and after static text', async () => {
+    const node = createNode({ jsonTemplate: `{"key": "Before {{first}} middle {{second}} after"}` });
+    const result = await node.process(
+      {
+        first: { type: 'string', value: 'A' },
+        second: { type: 'string', value: 'B' },
+      },
+      ctx,
+    );
+
+    assert.deepStrictEqual(result['output'].value, { key: 'Before A middle B after' });
+  });
+
+  it('escapes embedded string interpolation fragments inside JSON strings', async () => {
+    const node = createNode({ jsonTemplate: `{"key": "Before {{input}} after"}` });
+    const value = 'Line "quoted" with \\ backslash\nnext line';
+    const result = await node.process({ input: { type: 'string', value } }, ctx);
+
+    assert.deepStrictEqual(result['output'].value, { key: `Before ${value} after` });
+  });
+
+  it('treats tokens next to escaped quotes as embedded string interpolation', async () => {
+    const node = createNode({ jsonTemplate: `{"key": "Before \\"{{input}}\\" after"}` });
+    const result = await node.process({ input: { type: 'string', value: 'A' } }, ctx);
+
+    assert.deepStrictEqual(result['output'].value, { key: 'Before "A" after' });
+  });
+
+  it('renders embedded non-string values as JSON text inside JSON strings', async () => {
+    const node = createNode({
+      jsonTemplate: `{"key": "{{obj}}|{{arr}}|{{num}}|{{bool}}"}`,
+    });
+    const result = await node.process(
+      {
+        obj: { type: 'object', value: { a: 1 } },
+        arr: { type: 'any[]', value: [1, 'two'] },
+        num: { type: 'number', value: 42 },
+        bool: { type: 'boolean', value: false },
+      },
+      ctx,
+    );
+
+    assert.deepStrictEqual(result['output'].value, { key: '{"a":1}|[1,"two"]|42|false' });
+  });
+
+  it('renders embedded null and undefined values as null text inside JSON strings', async () => {
+    const node = createNode({ jsonTemplate: `{"key": "{{nil}}|{{undefinedValue}}"}` });
+    const result = await node.process(
+      {
+        nil: { type: 'any', value: null },
+        undefinedValue: { type: 'any', value: undefined },
+      },
+      ctx,
+    );
+
+    assert.deepStrictEqual(result['output'].value, { key: 'null|null' });
+  });
+
   it('turns any key surrounded by double-quotes into escaped strings', async () => {
     const node = createNode({ jsonTemplate: `{"key": "{{input}}"}` });
     const inputs: Record<string, DataValue> = {

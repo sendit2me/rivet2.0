@@ -33,6 +33,58 @@ const DEFAULT_JSON_TEMPLATE = `{
   "key": "{{input}}"
 }`;
 
+function isEscapedCharacter(value: string, index: number): boolean {
+  let backslashCount = 0;
+
+  for (let i = index - 1; i >= 0 && value[i] === '\\'; i--) {
+    backslashCount++;
+  }
+
+  return backslashCount % 2 === 1;
+}
+
+function isUnescapedQuoteAt(value: string, index: number): boolean {
+  return index >= 0 && index < value.length && value[index] === '"' && !isEscapedCharacter(value, index);
+}
+
+function isInsideJsonString(value: string, index: number): boolean {
+  let insideString = false;
+
+  for (let i = 0; i < index; i++) {
+    if (isUnescapedQuoteAt(value, i)) {
+      insideString = !insideString;
+    }
+  }
+
+  return insideString;
+}
+
+function stringifyJsonValue(value: any): string {
+  if (value == null) {
+    return 'null';
+  }
+
+  return JSON.stringify(value) as string;
+}
+
+function stringifyWholeQuotedJsonValue(value: any): string {
+  if (value == null) {
+    return 'null';
+  }
+
+  if (typeof value === 'string') {
+    return JSON.stringify(value);
+  }
+
+  return JSON.stringify(JSON.stringify(value)) as string;
+}
+
+function stringifyEmbeddedJsonStringFragment(value: any): string {
+  const fragment = value == null ? 'null' : typeof value === 'string' ? value : JSON.stringify(value) ?? 'null';
+
+  return JSON.stringify(fragment).slice(1, -1);
+}
+
 export class ObjectNodeImpl extends NodeImpl<ObjectNode> {
   static create(): ObjectNode {
     const chartNode: ObjectNode = {
@@ -111,7 +163,7 @@ export class ObjectNodeImpl extends NodeImpl<ObjectNode> {
     baseString: string,
     values: Record<string, any>,
     graphInputNodeValues?: Record<string, DataValue>,
-    contextValues?: Record<string, DataValue>
+    contextValues?: Record<string, DataValue>,
   ): string {
     const protectedBaseString = protectEscapedInterpolationTokens(baseString);
     const tokenSpans = findInterpolationTokenSpans(protectedBaseString);
@@ -124,12 +176,14 @@ export class ObjectNodeImpl extends NodeImpl<ObjectNode> {
     let cursor = 0;
 
     for (const tokenSpan of tokenSpans) {
-      const hasLeadingQuote = tokenSpan.start > 0 && protectedBaseString[tokenSpan.start - 1] === '"';
-      const hasTrailingQuote = tokenSpan.end < protectedBaseString.length && protectedBaseString[tokenSpan.end] === '"';
-      const replacementStart = hasLeadingQuote ? tokenSpan.start - 1 : tokenSpan.start;
-      const replacementEnd = hasTrailingQuote ? tokenSpan.end + 1 : tokenSpan.end;
+      const isInsideString = isInsideJsonString(protectedBaseString, tokenSpan.start);
+      const isWholeQuotedToken =
+        isInsideString &&
+        isUnescapedQuoteAt(protectedBaseString, tokenSpan.start - 1) &&
+        isUnescapedQuoteAt(protectedBaseString, tokenSpan.end);
+      const replacementStart = isWholeQuotedToken ? tokenSpan.start - 1 : tokenSpan.start;
+      const replacementEnd = isWholeQuotedToken ? tokenSpan.end + 1 : tokenSpan.end;
       const trimmedKey = getInterpolationTokenName(tokenSpan.rawInner) ?? tokenSpan.rawInner.trim();
-      const isQuoted = hasLeadingQuote;
 
       let value: any;
 
@@ -140,31 +194,22 @@ export class ObjectNodeImpl extends NodeImpl<ObjectNode> {
         value = resolveExpressionRawValue(
           graphInputNodeValues,
           trimmedKey.substring(graphInputPrefix.length),
-          'graphInputs'
+          'graphInputs',
         );
       } else if (trimmedKey.startsWith(contextPrefix) && contextValues) {
-        value = resolveExpressionRawValue(
-          contextValues,
-          trimmedKey.substring(contextPrefix.length),
-          'context'
-        );
+        value = resolveExpressionRawValue(contextValues, trimmedKey.substring(contextPrefix.length), 'context');
       } else {
         value = values[trimmedKey]; // Original logic for non-@ variables
       }
 
       result += protectedBaseString.slice(cursor, replacementStart);
 
-      if (value == null) {
-        result += 'null';
-      } else if (isQuoted && typeof value === 'string') {
-        // Adds double-quotes back.
-        result += JSON.stringify(value);
-      } else if (isQuoted) {
-        // Non-strings require a double-stringify, first to turn them into a string, then to escape that string and add quotes.
-        result += JSON.stringify(JSON.stringify(value));
+      if (isInsideString && !isWholeQuotedToken) {
+        result += stringifyEmbeddedJsonStringFragment(value);
+      } else if (isWholeQuotedToken) {
+        result += stringifyWholeQuotedJsonValue(value);
       } else {
-        // Otherwise, it was not quoted, so no need to double-stringify
-        result += JSON.stringify(value);
+        result += stringifyJsonValue(value);
       }
 
       cursor = replacementEnd;
@@ -175,7 +220,10 @@ export class ObjectNodeImpl extends NodeImpl<ObjectNode> {
     return restoreEscapedInterpolationTokens(result);
   }
 
-  async process(inputs: Record<string, DataValue>, context: InternalProcessContext): Promise<Record<string, DataValue>> {
+  async process(
+    inputs: Record<string, DataValue>,
+    context: InternalProcessContext,
+  ): Promise<Record<string, DataValue>> {
     const inputMap = Object.keys(inputs).reduce(
       (acc, key) => {
         acc[key] = unwrapPotentialDataValue(inputs[key]);
@@ -188,7 +236,7 @@ export class ObjectNodeImpl extends NodeImpl<ObjectNode> {
       this.chartNode.data.jsonTemplate,
       inputMap,
       context.graphInputNodeValues, // Pass graph inputs
-      context.contextValues // Pass context values
+      context.contextValues, // Pass context values
     );
 
     let outputValue: Record<string, unknown> | unknown[];
