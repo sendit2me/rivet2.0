@@ -265,10 +265,16 @@ const fullscreenOutputCss = css`
   }
 
   .fullscreen-output-body.wrap-lines .pre-wrap,
-  .fullscreen-output-body.wrap-lines .rendered-object-type pre,
   .fullscreen-output-body.markdown-lines .rivet-markdown-output.markdown-body pre {
     white-space: pre-wrap;
     overflow-wrap: anywhere;
+    overflow-x: visible;
+  }
+
+  .fullscreen-output-body.wrap-lines .rendered-object-type pre {
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+    word-break: normal;
     overflow-x: visible;
   }
 

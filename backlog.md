@@ -1,6 +1,5 @@
 
 
-- Wrap lines in the full outptu wraps by letter instead of by word (at least in the Object node)
 
 - Node description is rendered in bold. Don't
 
