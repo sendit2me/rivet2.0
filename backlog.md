@@ -1,5 +1,26 @@
 
 
+- Object node. With this content it breaks:
+{
+    "foo": "{{bar}}. That's it."
+}
+Error: Failed to parse JSON template: Expected ',' or '}' after property value in JSON at position 18
+
+
+
+
+
+- Prompt node: add words and character counter just like in text node
+
+- Prompt node: When an extrapolated variab;e gets "null", the prompt node goes "Error: Expected value of type string but got undefined". It should just get an empty string
+
+
+- Remove "Run" items form the comment node's context menu
+
+
+
+
+
 
 - Add "Freeze node" functionality? Kust like in That Databricks tool. Maybe it can replace the current LLM chat node's "cache" functionality
 

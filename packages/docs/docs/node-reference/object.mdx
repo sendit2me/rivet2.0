@@ -11,9 +11,9 @@ import TabItem from '@theme/TabItem';
 
 ## Overview
 
-The Object Node allows you to create an object from input values and a JSON template. The node automatically escapes the input values and inserts them into the template.
+The Object Node allows you to create an object or array from input values and a JSON template. The node automatically escapes the input values and inserts them into the template.
 
-This node is particularly useful for creating objects from multiple inputs. It supports any data type as input and outputs an object.
+This node is particularly useful for creating structured values from multiple inputs. It supports any data type as input and outputs an object or array.
 
 <Tabs
   defaultValue="inputs"
@@ -28,9 +28,9 @@ This node is particularly useful for creating objects from multiple inputs. It s
 
 ## Inputs
 
-| Title     | Data Type | Description                                                                                        | Default Value | Notes                                                                                                                |
-| --------- | --------- | -------------------------------------------------------------------------------------------------- | ------------- | -------------------------------------------------------------------------------------------------------------------- |
-| (Dynamic) | `any`     | The input values to be inserted into the JSON template. The input names are dynamically generated. | N/A           | The input will be coerced into a string if it is not a string. The input names are extracted from the JSON template. |
+| Title     | Data Type | Description                                                                                        | Default Value | Notes                                                                                                                                                                   |
+| --------- | --------- | -------------------------------------------------------------------------------------------------- | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| (Dynamic) | `any`     | The input values to be inserted into the JSON template. The input names are dynamically generated. | N/A           | Whole unquoted placeholders preserve JSON values. Placeholders inside JSON strings are escaped as string content. The input names are extracted from the JSON template. |
 
 </TabItem>
 
@@ -38,9 +38,9 @@ This node is particularly useful for creating objects from multiple inputs. It s
 
 ## Outputs
 
-| Title  | Data Type | Description                                                     | Notes |
-| ------ | --------- | --------------------------------------------------------------- | ----- |
-| Output | `object`  | The object created from the input values and the JSON template. |       |
+| Title  | Data Type              | Description                                                              | Notes |
+| ------ | ---------------------- | ------------------------------------------------------------------------ | ----- |
+| Output | `object` or `object[]` | The object or array created from the input values and the JSON template. |       |
 
 </TabItem>
 
@@ -82,6 +82,27 @@ This node is particularly useful for creating objects from multiple inputs. It s
 
 ![Object Node Example 1](./assets/object-node-example-01.png)
 
+## Interpolation in JSON strings
+
+Use a placeholder as a whole JSON value when you want to preserve the input's data type:
+
+```json
+{
+  "rawValue": {{value}},
+  "stringValue": "{{value}}"
+}
+```
+
+You can also embed placeholders inside larger JSON strings:
+
+```json
+{
+  "message": "{{name}}. That's it."
+}
+```
+
+When a placeholder is embedded in a JSON string, strings are inserted as text, non-string values are inserted as their JSON text, and `null` or `undefined` values are inserted as the text `null`. Quotes, backslashes, and newlines are escaped automatically so the final template stays valid JSON.
+
 ## Error Handling
 
 The Object Node will error if the JSON Template is not a valid JSON string or if the interpolated JSON string (after inserting the input values) is not a valid JSON string.
@@ -98,7 +119,7 @@ A: Yes, you can use the Object Node to create an array by setting the JSON Templ
 
 **Q: How are the input values escaped?**
 
-A: The input values are automatically escaped by the Object Node. If the input value is a string, it is escaped using `JSON.stringify()`. If the input value is not a string, it is first converted to a string using `JSON.stringify()` and then escaped.
+A: The input values are automatically escaped by the Object Node. Whole unquoted placeholders insert JSON values directly. Whole quoted placeholders create JSON strings, converting non-string values to JSON text first. Placeholders embedded inside larger JSON strings are escaped as string fragments.
 
 ## See Also
 
