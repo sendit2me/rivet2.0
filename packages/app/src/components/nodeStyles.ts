@@ -292,7 +292,7 @@ export const nodeStyles = css`
     text-transform: uppercase;
   }
 
-  .title-text-description {
+  .node .node-title .title-text-description {
     min-width: 0;
     max-width: 100%;
     overflow: hidden;
@@ -301,7 +301,7 @@ export const nodeStyles = css`
     -webkit-line-clamp: 2;
     color: currentColor;
     font-size: var(--ui-font-size-xs);
-    font-weight: 100;
+    font-weight: 300;
     line-height: 1.25;
     letter-spacing: 0;
     opacity: 0.72;

@@ -1,11 +1,10 @@
 
 
 
-- Node description is rendered in bold. Don't
 
 - Prompt node: add words and character counter just like in text node
 
-- Prompt node: When an extrapolated variab;e gets "null", the prompt node goes "Error: Expected value of type string but got undefined". It should just get an empty string
+- Prompt node: When an extrapolated variabe gets "null", the prompt node goes "Error: Expected value of type string but got undefined". It should just get an empty string for a null input. Just like in the Text node.
 
 
 - Remove "Run" items form the comment node's context menu
