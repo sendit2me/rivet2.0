@@ -200,56 +200,54 @@ export const CodeEditor: FC<CodeEditorProps> = ({
   };
 
   return (
-    <Suspense fallback={<div />}>
-      <div className="editor-wrapper-wrapper">
-        {label && <Label htmlFor="">{label}</Label>}
-        {helperMessage && (
-          <div className="node-editor-code-helper">
-            <HelperMessage>{helperMessage}</HelperMessage>
-          </div>
-        )}
-        {isResizable ? (
-          <ResizableCodeEditorViewport
-            editorMountKey={editorMountKey}
-            editorInstance={editorInstance}
-            text={displayValue}
-            onChange={handleEditorChange}
-            theme={resolvedTheme}
-            language={language}
-            isReadonly={isEditorReadOnly}
-            onKeyDown={handleKeyDown}
-            autoFocus={autoFocus}
-            enableFolding={enableFolding}
-            editorKey={editorIdentityKey}
-            nodeType={nodeType}
-            defaultHeight={defaultHeight}
-            errorLineHighlight={activeErrorLineHighlight}
-          />
-        ) : (
-          <NonResizableCodeEditorViewport
-            editorMountKey={editorMountKey}
-            editorInstance={editorInstance}
-            text={displayValue}
-            onChange={handleEditorChange}
-            theme={resolvedTheme}
-            language={language}
-            isReadonly={isEditorReadOnly}
-            onKeyDown={handleKeyDown}
-            autoFocus={autoFocus}
-            enableFolding={enableFolding}
-            editorKey={editorIdentityKey}
-            defaultHeight={defaultHeight}
-            errorLineHighlight={activeErrorLineHighlight}
-          />
-        )}
-        {postEditorHelperMessage && (
-          <div className="node-editor-code-helper node-editor-code-helper-after">
-            <HelperMessage>{postEditorHelperMessage}</HelperMessage>
-          </div>
-        )}
-        {showTextStats && <div className="editor-status-line">{formatTextEditorStatsLine(displayValue)}</div>}
-      </div>
-    </Suspense>
+    <div className="editor-wrapper-wrapper">
+      {label && <Label htmlFor="">{label}</Label>}
+      {helperMessage && (
+        <div className="node-editor-code-helper">
+          <HelperMessage>{helperMessage}</HelperMessage>
+        </div>
+      )}
+      {isResizable ? (
+        <ResizableCodeEditorViewport
+          editorMountKey={editorMountKey}
+          editorInstance={editorInstance}
+          text={displayValue}
+          onChange={handleEditorChange}
+          theme={resolvedTheme}
+          language={language}
+          isReadonly={isEditorReadOnly}
+          onKeyDown={handleKeyDown}
+          autoFocus={autoFocus}
+          enableFolding={enableFolding}
+          editorKey={editorIdentityKey}
+          nodeType={nodeType}
+          defaultHeight={defaultHeight}
+          errorLineHighlight={activeErrorLineHighlight}
+        />
+      ) : (
+        <NonResizableCodeEditorViewport
+          editorMountKey={editorMountKey}
+          editorInstance={editorInstance}
+          text={displayValue}
+          onChange={handleEditorChange}
+          theme={resolvedTheme}
+          language={language}
+          isReadonly={isEditorReadOnly}
+          onKeyDown={handleKeyDown}
+          autoFocus={autoFocus}
+          enableFolding={enableFolding}
+          editorKey={editorIdentityKey}
+          defaultHeight={defaultHeight}
+          errorLineHighlight={activeErrorLineHighlight}
+        />
+      )}
+      {postEditorHelperMessage && (
+        <div className="node-editor-code-helper node-editor-code-helper-after">
+          <HelperMessage>{postEditorHelperMessage}</HelperMessage>
+        </div>
+      )}
+      {showTextStats && <div className="editor-status-line">{formatTextEditorStatsLine(displayValue)}</div>}
+    </div>
   );
 };
 
@@ -268,6 +266,42 @@ type ViewportProps = {
   errorLineHighlight?: CodeNodeErrorLineHighlight;
 };
 
+const CodeEditorLoadingFallback: FC = () => (
+  <div className="editor-container code-editor-loading-placeholder" aria-busy="true">
+    Loading editor...
+  </div>
+);
+
+const SuspendedCodeEditor: FC<ViewportProps> = ({
+  editorMountKey,
+  editorInstance,
+  text,
+  onChange,
+  theme,
+  language,
+  isReadonly,
+  onKeyDown,
+  autoFocus,
+  enableFolding,
+  errorLineHighlight,
+}) => (
+  <Suspense fallback={<CodeEditorLoadingFallback />}>
+    <LazyCodeEditor
+      key={editorMountKey}
+      editorRef={editorInstance}
+      text={text}
+      onChange={onChange}
+      theme={theme}
+      language={language}
+      isReadonly={isReadonly}
+      onKeyDown={onKeyDown}
+      autoFocus={autoFocus}
+      enableFolding={enableFolding}
+      errorLineHighlight={errorLineHighlight}
+    />
+  </Suspense>
+);
+
 const ResizableCodeEditorViewport: FC<
   ViewportProps & {
     nodeType: string | undefined;
@@ -283,19 +317,7 @@ const ResizableCodeEditorViewport: FC<
   return (
     <div className="editor-viewport-shell" style={{ height: viewportHeight }}>
       <div className="editor-wrapper">
-        <LazyCodeEditor
-          key={editorProps.editorMountKey}
-          editorRef={editorProps.editorInstance}
-          text={editorProps.text}
-          onChange={editorProps.onChange}
-          theme={editorProps.theme}
-          language={editorProps.language}
-          isReadonly={editorProps.isReadonly}
-          onKeyDown={editorProps.onKeyDown}
-          autoFocus={editorProps.autoFocus}
-          enableFolding={editorProps.enableFolding}
-          errorLineHighlight={editorProps.errorLineHighlight}
-        />
+        <SuspendedCodeEditor {...editorProps} />
       </div>
       <ResizeHandle
         className="node-editor-code-resize-handle"
@@ -317,19 +339,7 @@ const NonResizableCodeEditorViewport: FC<
 
   return (
     <div className="editor-wrapper node-editor-static-code-editor" style={staticViewportStyle}>
-      <LazyCodeEditor
-        key={editorProps.editorMountKey}
-        editorRef={editorProps.editorInstance}
-        text={editorProps.text}
-        onChange={editorProps.onChange}
-        theme={editorProps.theme}
-        language={editorProps.language}
-        isReadonly={editorProps.isReadonly}
-        onKeyDown={editorProps.onKeyDown}
-        autoFocus={editorProps.autoFocus}
-        enableFolding={editorProps.enableFolding}
-        errorLineHighlight={editorProps.errorLineHighlight}
-      />
+      <SuspendedCodeEditor {...editorProps} />
     </div>
   );
 };

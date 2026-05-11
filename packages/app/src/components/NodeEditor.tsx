@@ -739,10 +739,20 @@ export const NodeEditor: FC<NodeEditorProps> = ({ selectedNode, onDeselect }) =>
   const isVariant = selectedVariant !== undefined;
   const { Editor } = useUnknownNodeComponentDescriptorFor(selectedNode);
 
-  const nodeForEditor = {
-    ...selectedNode,
-    data: isVariant ? selectedNode.variants?.find(({ id }) => id === selectedVariant)?.data : selectedNode.data,
-  };
+  const selectedVariantData = useMemo(
+    () => selectedNode.variants?.find(({ id }) => id === selectedVariant)?.data,
+    [selectedNode.variants, selectedVariant],
+  );
+  const nodeForEditor = useMemo(
+    () =>
+      isVariant
+        ? {
+            ...selectedNode,
+            data: selectedVariantData,
+          }
+        : selectedNode,
+    [isVariant, selectedNode, selectedVariantData],
+  );
 
   const handleEscape = useStableCallback(() => {
     if (llmChatFeatureConflictOpen) {

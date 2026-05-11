@@ -1,5 +1,4 @@
 
-- Sometimes the node's settings in the settings panel load several seconds
 
 - Wrap lines in the full outptu wraps by letter instead of by word (at least in the Object node)
 
