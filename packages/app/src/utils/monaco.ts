@@ -1,8 +1,47 @@
 import * as monaco from 'monaco-editor';
 
-import { conf as promptInterpolationMarkdownConf, language as promptInterpolationMarkdownLanguage } from './monaco/markdown';
+import {
+  conf as promptInterpolationMarkdownConf,
+  language as promptInterpolationMarkdownLanguage,
+} from './monaco/markdown';
 
 export { monaco };
+
+const languageContributionLoaders: Record<string, () => Promise<unknown>> = {
+  json: async () => {
+    await import('monaco-editor/esm/vs/language/json/monaco.contribution.js');
+
+    const model = monaco.editor.createModel('', 'json');
+
+    try {
+      await import('monaco-editor/esm/vs/language/json/jsonMode.js');
+    } finally {
+      model.dispose();
+    }
+  },
+};
+
+const languageContributionPromises = new Map<string, Promise<unknown>>();
+
+export function ensureMonacoLanguage(language: string): Promise<void> {
+  const loadContribution = languageContributionLoaders[language];
+
+  if (!loadContribution) {
+    return Promise.resolve();
+  }
+
+  let contributionPromise = languageContributionPromises.get(language);
+
+  if (!contributionPromise) {
+    contributionPromise = loadContribution().catch((error: unknown) => {
+      languageContributionPromises.delete(language);
+      throw error;
+    });
+    languageContributionPromises.set(language, contributionPromise);
+  }
+
+  return contributionPromise.then(() => undefined);
+}
 
 const PROMPT_INTERPOLATION_BRACE_CONFIGURATION: monaco.languages.LanguageConfiguration = {
   brackets: [['{', '}']],

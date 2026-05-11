@@ -36,8 +36,21 @@ test('wrapped colorized node bodies normalize Monaco non-breaking spaces', () =>
 
   assert.match(colorizedSource, /function normalizeColorizedWordWrapSpaces\(element: HTMLElement\)/);
   assert.match(colorizedSource, /replace\(\/\\u00A0\/g, ' '\)/);
-  assert.match(colorizedSource, /let cancelled = false;/);
-  assert.match(colorizedSource, /if \(wrapWords && !cancelled\) \{/);
+  assert.match(colorizedSource, /if \(wrapWords\) \{/);
   assert.match(colorizedSource, /normalizeColorizedWordWrapSpaces\(body\)/);
-  assert.match(colorizedSource, /\.catch\(\(\) => \{\}\)/);
+});
+
+test('colorized previews load Monaco languages before guarded colorization writes', () => {
+  const colorizedSource = readFileSync(join(componentsDir, 'ColorizedPreformattedText.tsx'), 'utf8');
+  const monacoSource = readFileSync(join(componentsDir, '..', 'utils', 'monaco.ts'), 'utf8');
+
+  assert.match(colorizedSource, /ensureMonacoLanguage\(language\)/);
+  assert.match(colorizedSource, /monaco\.editor\.colorize\(text, language/);
+  assert.match(colorizedSource, /colorizeRequestRef\.current !== colorizeRequest/);
+  assert.match(colorizedSource, /body\.innerHTML = html/);
+  assert.doesNotMatch(colorizedSource, /colorizeElement/);
+  assert.match(monacoSource, /monaco-editor\/esm\/vs\/language\/json\/monaco\.contribution\.js/);
+  assert.match(monacoSource, /monaco-editor\/esm\/vs\/language\/json\/jsonMode\.js/);
+  assert.match(monacoSource, /monaco\.editor\.createModel\('', 'json'\)/);
+  assert.match(monacoSource, /languageContributionPromises\.delete\(language\)/);
 });

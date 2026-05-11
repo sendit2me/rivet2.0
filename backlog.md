@@ -1,14 +1,9 @@
 
+- Sometimes the node's settings in the settings panel load several seconds
 
-- Object node. With this content it breaks:
-{
-    "foo": "{{bar}}. That's it."
-}
-Error: Failed to parse JSON template: Expected ',' or '}' after property value in JSON at position 18
+- Wrap lines in the full outptu wraps by letter instead of by word (at least in the Object node)
 
-
-
-
+- Node description is rendered in bold. Don't
 
 - Prompt node: add words and character counter just like in text node
 

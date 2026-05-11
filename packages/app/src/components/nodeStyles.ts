@@ -301,7 +301,7 @@ export const nodeStyles = css`
     -webkit-line-clamp: 2;
     color: currentColor;
     font-size: var(--ui-font-size-xs);
-    font-weight: 500;
+    font-weight: 100;
     line-height: 1.25;
     letter-spacing: 0;
     opacity: 0.72;
