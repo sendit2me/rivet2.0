@@ -3,11 +3,6 @@
 
 
 
-- Sometimes when I right click in the project tree panel, it breaks the Editor and it goes a blank screen and I have to refresh the page to get it back to life
-
-
-
-
 - Add "Freeze node" functionality? Kust like in That Databricks tool. Maybe it can replace the current LLM chat node's "cache" functionality
 
 - Need to show the curent graph name somewhere. When there's many and they are in the folders and you click through subgraphs, the user gets lost
@@ -66,5 +61,4 @@ rivet2.0/packages/app/src/assets/tutorials
 - Convenient node type browser, just like in n8n
 - Show run time in each node
 - I want to be able to adjust the node height when it's not hovered so I can see this much of the content in the output section
-
 

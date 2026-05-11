@@ -16,7 +16,7 @@ export const useContextMenu = () => {
 
   const handleContextMenu = useCallback(
     (event: Pick<React.MouseEvent<HTMLDivElement>, 'clientX' | 'clientY' | 'target'>) => {
-      const data = getContextMenuDataFromTarget(event.target as HTMLElement);
+      const data = getContextMenuDataFromTarget(event.target);
 
       setShowContextMenu(true);
 
@@ -76,9 +76,24 @@ export const useContextMenu = () => {
   };
 };
 
-const getContextMenuDataFromTarget = (target: HTMLElement | null): ContextMenuData['data'] | null => {
-  while (target && !target.dataset.contextmenutype) {
-    target = target.parentElement;
+type ContextMenuDomNode = {
+  dataset?: {
+    contextmenutype?: string;
+  };
+  parentElement?: ContextMenuDomNode | null;
+};
+
+const isContextMenuDomNode = (target: unknown): target is ContextMenuDomNode =>
+  target != null && typeof target === 'object' && ('dataset' in target || 'parentElement' in target);
+
+export const getContextMenuDataFromTarget = (target: EventTarget | null): ContextMenuData['data'] | null => {
+  let element: ContextMenuDomNode | null = isContextMenuDomNode(target) ? target : null;
+
+  while (element && !element.dataset?.contextmenutype) {
+    element = element.parentElement ?? null;
   }
-  return target ? { type: target.dataset.contextmenutype!, element: target } : null;
+
+  return element?.dataset?.contextmenutype
+    ? { type: element.dataset.contextmenutype, element: element as HTMLElement }
+    : null;
 };
