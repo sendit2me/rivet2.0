@@ -155,6 +155,14 @@ export class PromptNodeImpl extends NodeImpl<PromptNode> {
         useInputToggleDataKey: 'useTypeInput',
       },
       {
+        type: 'code',
+        label: 'Prompt Text',
+        dataKey: 'promptText',
+        language: 'prompt-interpolation-markdown',
+        theme: 'prompt-interpolation',
+        showTextStats: true,
+      },
+      {
         type: 'string',
         label: 'Name',
         dataKey: 'name',
@@ -181,14 +189,6 @@ export class PromptNodeImpl extends NodeImpl<PromptNode> {
         helperMessage:
           'For Anthropic, marks this message as a cache breakpoint - this message and every message before it will be cached using Prompt Caching.',
         useInputToggleDataKey: 'useIsCacheBreakpointInput',
-      },
-      {
-        type: 'code',
-        label: 'Prompt Text',
-        dataKey: 'promptText',
-        language: 'prompt-interpolation-markdown',
-        theme: 'prompt-interpolation',
-        showTextStats: true,
       },
     ];
   }

@@ -74,4 +74,14 @@ describe('PromptNode', () => {
 
     assert.equal(promptTextEditor?.showTextStats, true);
   });
+
+  it('keeps AI assist first, then type and prompt text before secondary settings', () => {
+    const node = createNode({});
+    const editors = node.getEditors();
+
+    assert.deepEqual(
+      editors.slice(0, 3).map((editor) => editor.label),
+      ['Generate Using AI', 'Type', 'Prompt Text'],
+    );
+  });
 });

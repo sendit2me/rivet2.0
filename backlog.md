@@ -2,9 +2,6 @@
 
 
 
-- Prompt node: I want the first field in the settings to be "Type", then "Prompt Text" and only then - other settings and switchers
-
-- Prompt node: When an extrapolated variabe gets "null", the prompt node goes "Error: Expected value of type string but got undefined". It should just get an empty string for a null input. Just like in the Text node.
 
 
 - Remove "Run" items form the comment node's context menu
