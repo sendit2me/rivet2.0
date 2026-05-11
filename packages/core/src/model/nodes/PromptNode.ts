@@ -188,6 +188,7 @@ export class PromptNodeImpl extends NodeImpl<PromptNode> {
         dataKey: 'promptText',
         language: 'prompt-interpolation-markdown',
         theme: 'prompt-interpolation',
+        showTextStats: true,
       },
     ];
   }

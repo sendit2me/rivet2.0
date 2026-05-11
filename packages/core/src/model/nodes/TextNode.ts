@@ -105,6 +105,7 @@ export class TextNodeImpl extends NodeImpl<TextNode> {
         dataKey: 'text',
         language: 'prompt-interpolation-markdown',
         theme: 'prompt-interpolation',
+        showTextStats: true,
       },
       {
         type: 'toggle',

@@ -67,7 +67,7 @@ export const DefaultCodeEditor: FC<
     id: node.id,
     nodeType: node.type,
     defaultHeight: editorDef.height,
-    showTextStats: node.type === 'text' && editorDef.dataKey === 'text',
+    showTextStats: 'showTextStats' in editorDef && editorDef.showTextStats === true,
   };
 
   if (node.type === 'code' && editorDef.dataKey === 'code') {

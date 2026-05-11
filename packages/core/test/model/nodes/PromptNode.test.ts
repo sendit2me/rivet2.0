@@ -65,4 +65,13 @@ describe('PromptNode', () => {
       isCacheBreakpoint: undefined,
     });
   });
+
+  it('opts the prompt text editor into word and character stats', () => {
+    const node = createNode({});
+    const promptTextEditor = node
+      .getEditors()
+      .find((editor) => editor.type === 'code' && editor.dataKey === 'promptText');
+
+    assert.equal(promptTextEditor?.showTextStats, true);
+  });
 });

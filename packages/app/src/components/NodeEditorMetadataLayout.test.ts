@@ -51,3 +51,10 @@ test('node code editor lazy loading keeps the field shell visible', () => {
   assert.doesNotMatch(codeEditorSource, /<Suspense fallback=\{<div \/>\}>\s+<div className="editor-wrapper-wrapper">/);
   assert.match(defaultNodeEditorSource, /\.code-editor-loading-placeholder/);
 });
+
+test('node code editor text stats are editor-definition driven', () => {
+  const codeEditorSource = readFileSync(join(componentsDir, 'editors', 'CodeEditor.tsx'), 'utf8');
+
+  assert.match(codeEditorSource, /showTextStats: 'showTextStats' in editorDef && editorDef\.showTextStats === true,/);
+  assert.doesNotMatch(codeEditorSource, /node\.type === 'text' && editorDef\.dataKey === 'text'/);
+});
