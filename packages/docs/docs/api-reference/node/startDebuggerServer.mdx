@@ -5,16 +5,24 @@
 The `startDebuggerServer` function starts a Rivet debugger server. By creating a debugger server in your application, you can
 connect to it from Rivet to debug graphs running in your application in real-time.
 
+The server sends WebSocket ping frames to connected debugger clients by default. This keeps idle debugger connections alive
+through common proxy and CDN idle timeouts without changing the debugger message protocol.
+
 ## Syntax
 
 ```typescript
 function startDebuggerServer(options?: {
   getClientsForProcessor?: (processor: GraphProcessor, allClients: WebSocket[]) => WebSocket[];
   getProcessorsForClient?: (client: WebSocket, allProcessors: GraphProcessor[]) => GraphProcessor[];
+  datasetProvider?: DebuggerDatasetProvider;
   server?: WebSocketServer;
   port?: number;
-  dynamicGraphRun?: (data: { client: WebSocket; graphId: GraphId; inputs: GraphInputs }) => Promise<void>;
+  host?: string;
+  dynamicGraphRun?: DynamicGraphRun;
   allowGraphUpload?: boolean;
+  throttlePartialOutputs?: number;
+  heartbeatIntervalMs?: number;
+  heartbeatTimeoutMs?: number;
 }): RivetDebuggerServer;
 ```
 
@@ -38,6 +46,10 @@ This function takes a client and all processors, and must return the processors 
 
 If this function is not passed, then the server will assume that there is only one processor and all clients are connected to it.
 
+### datasetProvider
+
+Optional dataset bridge used by debugger clients that request dataset data over the debugger socket.
+
 ### server
 
 An instance of a WebSocket server. You may use this to override the default server.
@@ -45,6 +57,10 @@ An instance of a WebSocket server. You may use this to override the default serv
 ### port
 
 The port on which the default server will listen. The default port is 21888.
+
+### host
+
+The host address used when `startDebuggerServer` creates the default WebSocket server. The default host is `localhost`.
 
 ### dynamicGraphRun
 
@@ -60,6 +76,19 @@ passed to the `runGraph` function.
 
 If this is set to true, then the server will allow uploading graphs to the server. This is useful for debugging graphs that are not part of a project,
 or for debugging graphs that are part of a project but have not been saved to disk.
+
+### throttlePartialOutputs
+
+The minimum time in milliseconds between partial-output debugger broadcasts for the same node. The default is 100.
+
+### heartbeatIntervalMs
+
+The interval in milliseconds for server-side WebSocket ping frames sent to connected debugger clients. The default is 30000.
+Set this to 0 or a negative value only when your host owns WebSocket liveness itself and you want to disable Rivet's built-in heartbeat.
+
+### heartbeatTimeoutMs
+
+The grace period in milliseconds after a ping before an unanswered debugger socket is terminated. The default is 10000.
 
 ## Return
 
