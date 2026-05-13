@@ -47,6 +47,7 @@ import { MATCH_ACTIVE_CLASS, MATCH_CLASS } from './nodeOutput/fullscreenOutputSe
 import { resolveNodeOutputPreviewMode } from './nodeOutput/nodeOutputPreviewMode.js';
 import { CodeNodeErrorOutput } from './nodes/CodeNode.js';
 import type { HorizontalModalBounds } from '../utils/fullScreenModalBounds.js';
+import { graphMetadataState, nodesByIdState } from '../state/graph.js';
 import {
   getSelectedVisibleOutputProcess,
   NODE_OUTPUT_REPLACEMENT_GRACE_MS,
@@ -67,7 +68,6 @@ export const NodeOutput: FC<{ node: ChartNode; suspended?: boolean }> = memo(({ 
 NodeOutput.displayName = 'NodeOutput';
 
 const ActiveNodeOutput: FC<{ node: ChartNode; isOutputExpanded: boolean }> = ({ node, isOutputExpanded }) => {
-  const [isModalOpen, setIsModalOpen] = useState(false);
   useDependsOnPlugins();
 
   const setExpandedOutputNodeIds = useSetAtom(expandedOutputNodeIdsState);
@@ -77,11 +77,6 @@ const ActiveNodeOutput: FC<{ node: ChartNode; isOutputExpanded: boolean }> = ({ 
   const clearNodeHover = useStableCallback(() => {
     setHoveringNode((hoveringNodeId) => (hoveringNodeId === node.id ? undefined : hoveringNodeId));
   });
-  const clearFullscreenOutputNode = useStableCallback(() => {
-    setFullscreenOutputNodeId((nodeId) => (nodeId === node.id ? null : nodeId));
-  });
-
-  useEffect(() => clearFullscreenOutputNode, [clearFullscreenOutputNode]);
 
   const handleToggleExpandedOutput = useStableCallback(() => {
     setExpandedOutputNodeIds((previous) =>
@@ -91,17 +86,10 @@ const ActiveNodeOutput: FC<{ node: ChartNode; isOutputExpanded: boolean }> = ({ 
   const handleOpenFullscreenModal = useStableCallback(() => {
     clearNodeHover();
     setFullscreenOutputNodeId(node.id);
-    setIsModalOpen(true);
-  });
-  const handleCloseFullscreenModal = useStableCallback(() => {
-    clearNodeHover();
-    clearFullscreenOutputNode();
-    setIsModalOpen(false);
   });
 
   return (
     <div className="node-output-outer">
-      {isModalOpen ? <ResizableNodeFullscreenOutputModal node={node} onClose={handleCloseFullscreenModal} /> : null}
       <NodeOutputBase
         node={node}
         isOutputExpanded={isOutputExpanded}
@@ -109,6 +97,54 @@ const ActiveNodeOutput: FC<{ node: ChartNode; isOutputExpanded: boolean }> = ({ 
         onOpenFullscreenModal={handleOpenFullscreenModal}
       />
     </div>
+  );
+};
+
+export const FullscreenNodeOutputModalRenderer: FC = () => {
+  useDependsOnPlugins();
+
+  const fullscreenOutputNodeId = useAtomValue(fullscreenOutputNodeState);
+  const setFullscreenOutputNodeId = useSetAtom(fullscreenOutputNodeState);
+  const setHoveringNode = useSetAtom(hoveringNodeState);
+  const nodesById = useAtomValue(nodesByIdState);
+  const graphId = useAtomValue(graphMetadataState)?.id;
+  const previousGraphIdRef = useRef(graphId);
+  const node = fullscreenOutputNodeId ? nodesById[fullscreenOutputNodeId] : undefined;
+
+  const handleCloseFullscreenModal = useStableCallback(() => {
+    setHoveringNode((hoveringNodeId) =>
+      fullscreenOutputNodeId && hoveringNodeId === fullscreenOutputNodeId ? undefined : hoveringNodeId,
+    );
+    setFullscreenOutputNodeId(null);
+  });
+
+  useEffect(() => {
+    if (fullscreenOutputNodeId && !node) {
+      setFullscreenOutputNodeId(null);
+    }
+  }, [fullscreenOutputNodeId, node, setFullscreenOutputNodeId]);
+
+  useEffect(() => {
+    if (previousGraphIdRef.current === graphId) {
+      return;
+    }
+
+    previousGraphIdRef.current = graphId;
+    setFullscreenOutputNodeId(null);
+  }, [graphId, setFullscreenOutputNodeId]);
+
+  useEffect(() => {
+    return () => {
+      setFullscreenOutputNodeId(null);
+    };
+  }, [setFullscreenOutputNodeId]);
+
+  if (previousGraphIdRef.current !== graphId || !fullscreenOutputNodeId || !node) {
+    return null;
+  }
+
+  return (
+    <ResizableNodeFullscreenOutputModal key={fullscreenOutputNodeId} node={node} onClose={handleCloseFullscreenModal} />
   );
 };
 

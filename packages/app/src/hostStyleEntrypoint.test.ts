@@ -39,6 +39,19 @@ test('app font loading and global code typography stay on Rivet font tokens', ()
   assert.doesNotMatch(indexCss, /source-code-pro|Menlo|Monaco|Consolas|'Courier New'/);
 });
 
+test('app root is locked to the iframe viewport', () => {
+  const appSource = readFileSync(join(srcDir, 'components', 'RivetApp.tsx'), 'utf8');
+  const hostCss = readFileSync(join(srcDir, 'host.css'), 'utf8');
+  const resetImportIndex = hostCss.indexOf("@import '@atlaskit/css-reset';");
+  assert.ok(resetImportIndex >= 0, 'host.css should import the Atlaskit reset before reasserting the viewport lock');
+
+  const postResetCss = hostCss.slice(resetImportIndex);
+
+  assert.match(postResetCss, /html,\s*body\s*{[\s\S]*width: 100%;[\s\S]*height: 100%;[\s\S]*overflow: hidden;/);
+  assert.match(appSource, /const styles = css`[\s\S]*position: fixed;[\s\S]*inset: 0;/);
+  assert.match(appSource, /const styles = css`[\s\S]*width: 100%;[\s\S]*height: 100%;/);
+});
+
 test('portal typography tokens keep popup surfaces on Rivet fonts', () => {
   const hostCss = readFileSync(join(srcDir, 'host.css'), 'utf8');
   const indexCss = readFileSync(join(srcDir, 'index.css'), 'utf8');

@@ -210,7 +210,7 @@ export const FullScreenModal: FC<FullScreenModalProps> = ({
           {isHorizontallyResizable && normalizedHorizontalBounds && modalTestId ? (
             <Global styles={getResizableModalShellStyles(modalTestId, normalizedHorizontalBounds)} />
           ) : null}
-          <Modal onClose={onClose} width="100%" height="100%" testId={modalTestId}>
+          <Modal onClose={onClose} shouldReturnFocus={false} width="100%" height="100%" testId={modalTestId}>
             {resizeHandles}
             <ModalBody>
               <div css={styles} onWheel={(e) => e.stopPropagation()}>
