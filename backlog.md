@@ -1,5 +1,8 @@
 
 
+- When I do "Refetch the model list" with the input port connected, it fetcjes the model names correclty, I can see it in the console: "[LLM Chat][openai models] Fetched 120 filtered models from API." but they don't end up in the model dropdown
+
+
 
 
 - Need to show the curent graph name somewhere. When there's many and they are in the folders and you click through subgraphs, the user gets lost. It's already shown in the run button. maybe make it more noticeable?
@@ -7,12 +10,11 @@
 
 - In the node inputs list, allow changing their order manually. But when the amount of the inputs changes, the order can reset
 
-- For teh comment node, the default background color should be mid-gray
+- For the comment node, the default background color should be mid-gray
 
 - In both Text node and Prompt node, in the statistics, output the amount of tokens (average for english language)
 
 
-- When I do "Refetch the model list" with the input port connected, it fetcjes the model names correclty, I can see it in the console: "[LLM Chat][openai models] Fetched 120 filtered models from API." but they don't end up in the model dropdown
 
 - Copy button in the putput node section again copies JSON instead of the text
 

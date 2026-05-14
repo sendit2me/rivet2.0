@@ -55,19 +55,25 @@ import {
   shouldUseCustomNodeErrorOutput,
 } from './nodeOutput/nodeOutputVisibility.js';
 
-export const NodeOutput: FC<{ node: ChartNode; suspended?: boolean }> = memo(({ node, suspended = false }) => {
-  const isOutputExpanded = useAtomValue(expandedOutputNodeIdsState).includes(node.id);
+export const NodeOutput: FC<{ node: ChartNode; suspended?: boolean; isHovered?: boolean }> = memo(
+  ({ node, suspended = false, isHovered = false }) => {
+    const isOutputExpanded = useAtomValue(expandedOutputNodeIdsState).includes(node.id);
 
-  if (suspended && !isOutputExpanded) {
-    return null;
-  }
+    if (suspended && !isOutputExpanded) {
+      return null;
+    }
 
-  return <ActiveNodeOutput node={node} isOutputExpanded={isOutputExpanded} />;
-});
+    return <ActiveNodeOutput node={node} isOutputExpanded={isOutputExpanded} isHovered={isHovered} />;
+  },
+);
 
 NodeOutput.displayName = 'NodeOutput';
 
-const ActiveNodeOutput: FC<{ node: ChartNode; isOutputExpanded: boolean }> = ({ node, isOutputExpanded }) => {
+const ActiveNodeOutput: FC<{ node: ChartNode; isOutputExpanded: boolean; isHovered: boolean }> = ({
+  node,
+  isOutputExpanded,
+  isHovered,
+}) => {
   useDependsOnPlugins();
 
   const setExpandedOutputNodeIds = useSetAtom(expandedOutputNodeIdsState);
@@ -93,6 +99,7 @@ const ActiveNodeOutput: FC<{ node: ChartNode; isOutputExpanded: boolean }> = ({ 
       <NodeOutputBase
         node={node}
         isOutputExpanded={isOutputExpanded}
+        isHovered={isHovered}
         onToggleExpandedOutput={handleToggleExpandedOutput}
         onOpenFullscreenModal={handleOpenFullscreenModal}
       />
@@ -171,8 +178,30 @@ function getNodeOutputContentKey(processId: ProcessId, data: NodeRunDataWithRefs
   return `${processId}:${data.startedAt ?? 'unknown-start'}:${contentKind}`;
 }
 
+const MAX_SEEN_NODE_OUTPUT_CONTENT_KEYS = 500;
+const seenNodeOutputContentKeys = new Set<string>();
+
+function rememberNodeOutputContentKey(contentKey: string): void {
+  if (seenNodeOutputContentKeys.has(contentKey)) {
+    return;
+  }
+
+  seenNodeOutputContentKeys.add(contentKey);
+
+  if (seenNodeOutputContentKeys.size <= MAX_SEEN_NODE_OUTPUT_CONTENT_KEYS) {
+    return;
+  }
+
+  const oldestKey = seenNodeOutputContentKeys.values().next().value;
+  if (oldestKey) {
+    seenNodeOutputContentKeys.delete(oldestKey);
+  }
+}
+
 const nodeOutputContentFadeCss = css`
-  animation: node-output-content-fade-in 140ms ease-out both;
+  &.animate-node-output-content {
+    animation: node-output-content-fade-in 140ms ease-out both;
+  }
 
   @keyframes node-output-content-fade-in {
     from {
@@ -185,13 +214,28 @@ const nodeOutputContentFadeCss = css`
   }
 
   @media (prefers-reduced-motion: reduce) {
-    animation: none;
+    &.animate-node-output-content {
+      animation: none;
+    }
   }
 `;
 
-const NodeOutputContentFade: FC<{ children: ReactNode }> = ({ children }) => (
-  <div css={nodeOutputContentFadeCss}>{children}</div>
-);
+const NodeOutputContentFade: FC<{ children: ReactNode; contentKey: string }> = ({ children, contentKey }) => {
+  const shouldAnimateRef = useRef(!seenNodeOutputContentKeys.has(contentKey));
+  const className = shouldAnimateRef.current
+    ? 'node-output-content-fade animate-node-output-content'
+    : 'node-output-content-fade';
+
+  useEffect(() => {
+    rememberNodeOutputContentKey(contentKey);
+  }, [contentKey]);
+
+  return (
+    <div css={nodeOutputContentFadeCss} className={className}>
+      {children}
+    </div>
+  );
+};
 
 NodeOutputContentFade.displayName = 'NodeOutputContentFade';
 
@@ -602,9 +646,10 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
 const NodeOutputBase: FC<{
   node: ChartNode;
   isOutputExpanded: boolean;
+  isHovered: boolean;
   onToggleExpandedOutput: () => void;
   onOpenFullscreenModal?: () => void;
-}> = ({ node, isOutputExpanded, onToggleExpandedOutput, onOpenFullscreenModal }) => {
+}> = ({ node, isOutputExpanded, isHovered, onToggleExpandedOutput, onOpenFullscreenModal }) => {
   const dataRefs = useDataRefs();
   const output = useAtomValue(lastRunDataState(node.id));
   const selectedPage = useAtomValue(selectedProcessPageState(node.id));
@@ -631,6 +676,7 @@ const NodeOutputBase: FC<{
           node={node}
           data={firstOutput.data}
           isOutputExpanded={isOutputExpanded}
+          isHovered={isHovered}
           processId={firstOutput.processId}
           onToggleExpandedOutput={onToggleExpandedOutput}
           onOpenFullscreenModal={onOpenFullscreenModal}
@@ -644,6 +690,7 @@ const NodeOutputBase: FC<{
           node={node}
           data={visibleOutput}
           isOutputExpanded={isOutputExpanded}
+          isHovered={isHovered}
           onToggleExpandedOutput={onToggleExpandedOutput}
           onOpenFullscreenModal={onOpenFullscreenModal}
         />
@@ -656,12 +703,12 @@ const NodeOutputSingleProcess: FC<{
   node: ChartNode;
   data: NodeRunDataWithRefs;
   isOutputExpanded: boolean;
+  isHovered: boolean;
   processId: ProcessId;
   onToggleExpandedOutput: () => void;
   onOpenFullscreenModal?: () => void;
-}> = ({ node, data, isOutputExpanded, processId, onToggleExpandedOutput, onOpenFullscreenModal }) => {
+}> = ({ node, data, isOutputExpanded, isHovered, processId, onToggleExpandedOutput, onOpenFullscreenModal }) => {
   const dataRefs = useDataRefs();
-  const hoveringNodeId = useAtomValue(hoveringNodeState);
   const { Output, OutputSimple, getCopyValueData } = useUnknownNodeComponentDescriptorFor(node);
 
   const setOverlayOpen = useSetAtom(overlayOpenState);
@@ -691,9 +738,11 @@ const NodeOutputSingleProcess: FC<{
   const shouldUseCustomErrorOutput = shouldUseCustomNodeErrorOutput(node.type, data);
 
   if (shouldUseCodeErrorOutput(node.type, data)) {
+    const contentKey = getNodeOutputContentKey(processId, data, 'code-error');
+
     return (
       <div className="node-output-inner errored">
-        <NodeOutputContentFade key={getNodeOutputContentKey(processId, data, 'code-error')}>
+        <NodeOutputContentFade key={contentKey} contentKey={contentKey}>
           <CodeNodeErrorOutput data={data} />
         </NodeOutputContentFade>
       </div>
@@ -701,9 +750,11 @@ const NodeOutputSingleProcess: FC<{
   }
 
   if (data.status?.type === 'error' && !shouldUseCustomErrorOutput) {
+    const contentKey = getNodeOutputContentKey(processId, data, 'error');
+
     return (
       <div className="node-output-inner errored">
-        <NodeOutputContentFade key={getNodeOutputContentKey(processId, data, 'error')}>
+        <NodeOutputContentFade key={contentKey} contentKey={contentKey}>
           {data.status.error}
         </NodeOutputContentFade>
       </div>
@@ -716,7 +767,7 @@ const NodeOutputSingleProcess: FC<{
 
   const { isCompact, renderMode } = resolveNodeOutputPreviewMode({
     isOutputExpanded,
-    isHovered: hoveringNodeId === node.id,
+    isHovered,
   });
 
   const body = renderNodeOutputBody({
@@ -728,6 +779,7 @@ const NodeOutputSingleProcess: FC<{
     isCompact,
     renderMode,
   });
+  const contentKey = getNodeOutputContentKey(processId, data, shouldUseCustomErrorOutput ? 'custom-error' : 'output');
 
   return (
     <div className="node-output-inner">
@@ -768,9 +820,7 @@ const NodeOutputSingleProcess: FC<{
           </div>
         </Tooltip>
       </div>
-      <NodeOutputContentFade
-        key={getNodeOutputContentKey(processId, data, shouldUseCustomErrorOutput ? 'custom-error' : 'output')}
-      >
+      <NodeOutputContentFade key={contentKey} contentKey={contentKey}>
         {body}
       </NodeOutputContentFade>
       {warnings && (
@@ -790,9 +840,10 @@ const NodeOutputMultiProcess: FC<{
   node: ChartNode;
   data: ProcessDataForNode[];
   isOutputExpanded: boolean;
+  isHovered: boolean;
   onToggleExpandedOutput: () => void;
   onOpenFullscreenModal?: () => void;
-}> = ({ node, data, isOutputExpanded, onToggleExpandedOutput, onOpenFullscreenModal }) => {
+}> = ({ node, data, isOutputExpanded, isHovered, onToggleExpandedOutput, onOpenFullscreenModal }) => {
   const [selectedPage, setSelectedPage] = useAtom(selectedProcessPageState(node.id));
 
   const prevPage = useStableCallback(() => {
@@ -829,6 +880,7 @@ const NodeOutputMultiProcess: FC<{
         <NodeOutputSingleProcess
           data={selectedData.data}
           isOutputExpanded={isOutputExpanded}
+          isHovered={isHovered}
           node={node}
           processId={selectedData.processId}
           onToggleExpandedOutput={onToggleExpandedOutput}
