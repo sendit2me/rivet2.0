@@ -25,7 +25,7 @@ test('node body previews distinguish wrapped text from clipped object source', (
   assert.doesNotMatch(colorizedWrapBlock, /overflow-wrap:\s*anywhere;/);
   assert.doesNotMatch(colorizedWrapBlock, /word-break:\s*break-word;/);
   assert.match(nodeBodySource, /wrapWords=\{wrapWords\}/);
-  assert.match(nodeBodySource, /if \(!pending && renderedSpecs\.length === 0\) \{/);
+  assert.match(nodeBodySource, /renderedSpecs\.length === 0 && \(!pending \|\| height == null\)/);
   assert.match(nodeStylesSource, /\.node-body:empty \{[\s\S]*margin-bottom: 0;[\s\S]*\}/);
   assert.match(objectNodeSource, /text-overflow: clip;/);
   assert.doesNotMatch(objectNodeSource, /text-overflow: ellipsis;/);

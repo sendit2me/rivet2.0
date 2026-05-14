@@ -1,5 +1,9 @@
 import { type FC, memo, useState } from 'react';
-import { type HeightCache, useNodeBodyHeight } from '../hooks/useNodeBodyHeight';
+import {
+  type HeightCache,
+  shouldPreserveCachedNodeBodyHeight,
+  useNodeBodyHeight,
+} from '../hooks/useNodeBodyHeight';
 import { useUnknownNodeComponentDescriptorFor } from '../hooks/useNodeTypes.js';
 import {
   type ChartNode,
@@ -81,11 +85,13 @@ const UnknownNodeBodyWrapper = styled.div<{
   }
 `;
 
-// Fixes flickering due to async rendering of node body by caching the last rendered body
-const previousRenderedBodyMap = new Map<NodeId, RenderedNodeBody>();
+// Fixes flickering due to async rendering of node body by caching the last resolved body.
+// `undefined` is cached too, because a known-empty body must not reserve stale height while remounting.
+const previousResolvedBodyMap = new Map<NodeId, RenderedNodeBody | undefined>();
 
 type UnknownNodeBodyState = {
   body: RenderedNodeBody | undefined;
+  hasResolvedBody: boolean;
   pending: boolean;
 };
 
@@ -93,19 +99,26 @@ const UnknownNodeBody: FC<{ heightCache: HeightCache; node: ChartNode }> = ({ he
   const getUIContext = useGetRivetUIContext();
   const projectNodeRegistry = useProjectNodeRegistry();
 
+  const hasCachedBodyResult = previousResolvedBodyMap.has(node.id);
   const [bodyState, setBodyState] = useState<UnknownNodeBodyState>(() => ({
-    body: previousRenderedBodyMap.get(node.id),
+    body: previousResolvedBodyMap.get(node.id),
+    hasResolvedBody: hasCachedBodyResult,
     pending: true,
   }));
-  const { body, pending } = bodyState;
+  const { body, hasResolvedBody, pending } = bodyState;
   const { ref, height } = useNodeBodyHeight(heightCache, node.id, {
     ready: body != null,
-    preserveCachedHeight: pending,
+    preserveCachedHeight: shouldPreserveCachedNodeBodyHeight({
+      hasBody: body != null,
+      hasResolvedBody,
+      pending,
+    }),
   });
 
   useAsyncEffect(async () => {
     setBodyState((current) => ({
       body: current.body,
+      hasResolvedBody: current.hasResolvedBody,
       pending: true,
     }));
 
@@ -115,14 +128,11 @@ const UnknownNodeBody: FC<{ heightCache: HeightCache; node: ChartNode }> = ({ he
 
       setBodyState({
         body: renderedBody,
+        hasResolvedBody: true,
         pending: false,
       });
 
-      if (renderedBody == null) {
-        previousRenderedBodyMap.delete(node.id);
-      } else {
-        previousRenderedBodyMap.set(node.id, renderedBody);
-      }
+      previousResolvedBodyMap.set(node.id, renderedBody);
     } catch (err) {
       handleError(err, 'Failed to load body for node', {
         metadata: {
@@ -154,7 +164,7 @@ const UnknownNodeBody: FC<{ heightCache: HeightCache; node: ChartNode }> = ({ he
       .exhaustive(),
   }));
 
-  if (!pending && renderedSpecs.length === 0) {
+  if (renderedSpecs.length === 0 && (!pending || height == null)) {
     return null;
   }
 

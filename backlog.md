@@ -1,7 +1,5 @@
 
-- When I drag the coalesce node around, emty lines of node content appear and disappear making the inputs and outut jump (only happens when both switchers are off: Ignore 'null' and Ignore 'undefined')
 
-- When dragging the node with output, the output window size is different that when I just hover it. I want the size to be the same in both cases. Keep the size we have when just hovering.
 
 
 - Need to show the curent graph name somewhere. When there's many and they are in the folders and you click through subgraphs, the user gets lost. It's already shown in the run button. maybe make it more noticeable?
