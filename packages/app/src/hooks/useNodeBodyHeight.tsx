@@ -18,6 +18,24 @@ export type NodeBodyHeightState = {
   preserveCachedHeight: boolean;
 };
 
+export type PendingNodeBodyHeightState = {
+  hasBody: boolean;
+  hasResolvedBody: boolean;
+  pending: boolean;
+};
+
+export const shouldPreserveCachedNodeBodyHeight = (state: PendingNodeBodyHeightState): boolean => {
+  if (!state.pending) {
+    return false;
+  }
+
+  return !state.hasResolvedBody || state.hasBody;
+};
+
+export const shouldCacheNodeBodyHeight = (height: number | undefined): height is number => {
+  return height != null && Number.isFinite(height) && height > 0;
+};
+
 export const resolveNodeBodyHeight = (
   heightCache: HeightCache,
   nodeId: NodeId,
@@ -28,7 +46,7 @@ export const resolveNodeBodyHeight = (
   }
 
   const height = heightCache.get(nodeId);
-  return height == null ? undefined : `${height}px`;
+  return shouldCacheNodeBodyHeight(height) ? `${height}px` : undefined;
 };
 
 /**
@@ -43,7 +61,7 @@ export const useNodeHeightCache = (): HeightCache => {
   const garbageCollectionCount = useRef(0);
 
   const set = useCallback((nodeId: NodeId, height: number | undefined) => {
-    if (height == null) {
+    if (!shouldCacheNodeBodyHeight(height)) {
       ref.current.delete(nodeId);
     } else {
       ref.current.set(nodeId, height);

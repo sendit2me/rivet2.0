@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { NodeId } from '@valerypopoff/rivet2-core';
-import { type HeightCache, resolveNodeBodyHeight } from './useNodeBodyHeight.js';
+import {
+  type HeightCache,
+  resolveNodeBodyHeight,
+  shouldCacheNodeBodyHeight,
+  shouldPreserveCachedNodeBodyHeight,
+} from './useNodeBodyHeight.js';
 
 function createHeightCache(initialHeight?: number): HeightCache {
   const nodeId = 'node-1' as NodeId;
@@ -49,5 +54,56 @@ test('cleared node body heights are not formatted as pending placeholders', () =
   assert.equal(
     resolveNodeBodyHeight(staleHeightCache, nodeId, { ready: false, preserveCachedHeight: true }),
     undefined,
+  );
+
+  const zeroHeightCache: HeightCache = {
+    get: () => 0,
+    has: () => true,
+    set: () => {},
+  };
+  assert.equal(resolveNodeBodyHeight(zeroHeightCache, nodeId, { ready: false, preserveCachedHeight: true }), undefined);
+});
+
+test('non-positive node body heights are not kept as placeholders', () => {
+  assert.equal(shouldCacheNodeBodyHeight(undefined), false);
+  assert.equal(shouldCacheNodeBodyHeight(0), false);
+  assert.equal(shouldCacheNodeBodyHeight(-1), false);
+  assert.equal(shouldCacheNodeBodyHeight(Number.NaN), false);
+  assert.equal(shouldCacheNodeBodyHeight(Number.POSITIVE_INFINITY), false);
+  assert.equal(shouldCacheNodeBodyHeight(12), true);
+});
+
+test('pending node body height is not preserved after a body resolves empty', () => {
+  assert.equal(
+    shouldPreserveCachedNodeBodyHeight({
+      hasBody: false,
+      hasResolvedBody: false,
+      pending: true,
+    }),
+    true,
+  );
+  assert.equal(
+    shouldPreserveCachedNodeBodyHeight({
+      hasBody: true,
+      hasResolvedBody: true,
+      pending: true,
+    }),
+    true,
+  );
+  assert.equal(
+    shouldPreserveCachedNodeBodyHeight({
+      hasBody: false,
+      hasResolvedBody: true,
+      pending: true,
+    }),
+    false,
+  );
+  assert.equal(
+    shouldPreserveCachedNodeBodyHeight({
+      hasBody: true,
+      hasResolvedBody: true,
+      pending: false,
+    }),
+    false,
   );
 });

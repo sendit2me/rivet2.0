@@ -87,6 +87,7 @@ await runGraph(project, {
 
 - The default debugger port is `21888`.
 - `startDebuggerServer` accepts a `host` option. Use an explicit host when exposing the debugger outside localhost.
+- `startDebuggerServer` sends WebSocket ping frames by default so idle remote-debugger sockets stay alive through common proxy and CDN idle timeouts.
 - The app executor uses a separate internal executor WebSocket contract. `RivetDebuggerServer` is for programmatic Node executions that want remote-debugger inspection.
 
 ## See Also

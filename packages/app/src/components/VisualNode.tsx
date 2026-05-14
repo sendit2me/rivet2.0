@@ -71,6 +71,7 @@ export const VisualNode = memo(
       const changeInfo = useHistoricalNodeChangeInfo(node.id);
       const graphSelectionOptions = useAtomValue(resolvedGraphSelectionState);
       const nodeColor = node.visualData.color;
+      const isOutputPreviewHovered = Boolean(isHovered || shouldShowHoverControls);
 
       useDependsOnPlugins();
 
@@ -188,6 +189,7 @@ export const VisualNode = memo(
               handleAttributes={handleAttributes}
               isKnownNodeType={isKnownNodeType}
               isHistoricalChanged={isHistoricalChanged}
+              isOutputPreviewHovered={isOutputPreviewHovered}
               showRunningIndicator={showRunningChrome}
               renderHeavyContent={renderHeavyContent}
               minimumNodeWidth={minimumNodeWidth}

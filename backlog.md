@@ -3,9 +3,34 @@
 
 
 
+
+- Need to show the curent graph name somewhere. When there's many and they are in the folders and you click through subgraphs, the user gets lost. It's already shown in the run button. maybe make it more noticeable?
+
+
+- In the node inputs list, allow changing their order manually. But when the amount of the inputs changes, the order can reset
+
+- For the comment node, the default background color should be mid-gray
+
+- In both Text node and Prompt node, in the statistics, output the amount of tokens (average for english language)
+
+
+
+- Copy button in the putput node section again copies JSON instead of the text
+
+- Remote debugger gets disconnected after some time
+
+- With time, the turned on remore debugger turns off
+
+- When the graph is open but it is in the folder that is closed in the sidebar, highlight the folder where the graph is so it's easier to find it
+
+- Need a "Not" node?
+
+- When duplicating the node, create a copy right below the original node, not just a little bit lower
+
+
+
 - Add "Freeze node" functionality? Kust like in That Databricks tool. Maybe it can replace the current LLM chat node's "cache" functionality
 
-- Need to show the curent graph name somewhere. When there's many and they are in the folders and you click through subgraphs, the user gets lost
 
 - In nodes that have variadic inputs, when an input in the middle is removed, the remaining inputs look weird. Do we need to automatically remove them? It should we allow the user to remove them if needed?
 
@@ -35,7 +60,7 @@
 
 - In the node output when there's yellow headers, without hover the headers are not visible. I want them to be visible
 
-- New artboard background image. I want diagonal strokes like in the logo
+- New artboard background image. I want diagonal strokes like in the logo. Also maybe more sparse crosses in rectangular manner
 
 
 

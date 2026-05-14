@@ -20,6 +20,7 @@ import clsx from 'clsx';
 import { useLoadStaticData } from '../hooks/useLoadStaticData';
 import { DataStudioRenderer } from './dataStudio/DataStudio';
 import { StatusBar } from './StatusBar';
+import { FullscreenNodeOutputModalRenderer } from './NodeOutput.js';
 import { useCheckForUpdate } from '../hooks/useCheckForUpdate';
 import useAsyncEffect from 'use-async-effect';
 import { ProjectSelector } from './ProjectSelector';
@@ -39,6 +40,10 @@ import { useProjectPlugins } from '../hooks/useProjectPlugins.js';
 import { MissingAppPluginsModalRenderer } from './MissingAppPluginsModal.js';
 
 const styles = css`
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   overflow: hidden;
   font-family: var(--font-family);
   font-size: var(--ui-font-size-base);
@@ -148,6 +153,9 @@ export const RivetApp: FC = () => {
           {isCanvasMode && <DebuggerPanelRenderer />}
           <LeftSidebar />
           <GraphBuilder />
+          <AppErrorBoundary context="Fullscreen Output Modal" fallback={<div>Failed to render Fullscreen Output</div>}>
+            <FullscreenNodeOutputModalRenderer />
+          </AppErrorBoundary>
           <AppErrorBoundary context="Settings Modal" fallback={<div>Failed to render Settings</div>}>
             <SettingsModal />
           </AppErrorBoundary>

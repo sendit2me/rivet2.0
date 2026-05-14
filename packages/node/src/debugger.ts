@@ -17,6 +17,9 @@ import { match } from 'ts-pattern';
 import Emittery from 'emittery';
 import { type DebuggerDatasetProvider } from './index.js';
 
+export const DEBUGGER_HEARTBEAT_INTERVAL_MS = 30_000;
+export const DEBUGGER_HEARTBEAT_TIMEOUT_MS = 10_000;
+
 export interface RivetDebuggerServer {
   on: Emittery<DebuggerEvents>['on'];
   off: Emittery<DebuggerEvents>['off'];
@@ -63,9 +66,19 @@ export function startDebuggerServer(
     allowGraphUpload?: boolean;
     throttlePartialOutputs?: number;
     host?: string;
+    heartbeatIntervalMs?: number;
+    heartbeatTimeoutMs?: number;
   } = {},
 ): RivetDebuggerServer {
   const { port = 21888, throttlePartialOutputs = 100, host = 'localhost' } = options;
+  const heartbeatIntervalMs =
+    options.heartbeatIntervalMs == null || !Number.isFinite(options.heartbeatIntervalMs)
+      ? DEBUGGER_HEARTBEAT_INTERVAL_MS
+      : options.heartbeatIntervalMs;
+  const heartbeatTimeoutMs =
+    options.heartbeatTimeoutMs && Number.isFinite(options.heartbeatTimeoutMs) && options.heartbeatTimeoutMs > 0
+      ? options.heartbeatTimeoutMs
+      : DEBUGGER_HEARTBEAT_TIMEOUT_MS;
 
   const server = options.server ?? new WebSocketServer({ port, host });
 
@@ -75,6 +88,11 @@ export function startDebuggerServer(
   const requestIdsByProcessorId = new Map<string, RemoteRunRequestId | undefined>();
 
   server.on('connection', (socket) => {
+    startDebuggerSocketHeartbeat(socket, {
+      intervalMs: heartbeatIntervalMs,
+      timeoutMs: heartbeatTimeoutMs,
+    });
+
     if (options.datasetProvider) {
       options.datasetProvider.onrequest = (type, data) => {
         socket.send(
@@ -313,4 +331,77 @@ export function startDebuggerServer(
       requestIdsByProcessorId.delete(processor.id);
     },
   };
+}
+
+function startDebuggerSocketHeartbeat(
+  socket: WebSocket,
+  options: {
+    intervalMs: number;
+    timeoutMs: number;
+  },
+) {
+  if (!Number.isFinite(options.intervalMs) || options.intervalMs <= 0) {
+    return;
+  }
+
+  let awaitingPong = false;
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+
+  const clearHeartbeatTimeout = () => {
+    if (timeout) {
+      clearTimeout(timeout);
+      timeout = undefined;
+    }
+  };
+
+  const markAlive = () => {
+    awaitingPong = false;
+    clearHeartbeatTimeout();
+  };
+
+  const terminateUnresponsiveSocket = () => {
+    if (!awaitingPong) {
+      return;
+    }
+
+    timeout = undefined;
+    socket.terminate();
+  };
+
+  const sendPing = () => {
+    if (socket.readyState !== WebSocket.OPEN || awaitingPong) {
+      return;
+    }
+
+    awaitingPong = true;
+    try {
+      socket.ping();
+    } catch {
+      awaitingPong = false;
+      socket.terminate();
+      return;
+    }
+
+    timeout = setTimeout(terminateUnresponsiveSocket, options.timeoutMs);
+    unrefTimer(timeout);
+  };
+
+  const interval = setInterval(sendPing, options.intervalMs);
+  unrefTimer(interval);
+
+  const cleanup = () => {
+    clearInterval(interval);
+    clearHeartbeatTimeout();
+    socket.off('pong', markAlive);
+    socket.off('close', cleanup);
+    socket.off('error', cleanup);
+  };
+
+  socket.on('pong', markAlive);
+  socket.once('close', cleanup);
+  socket.once('error', cleanup);
+}
+
+function unrefTimer(timer: ReturnType<typeof setInterval> | ReturnType<typeof setTimeout>) {
+  (timer as { unref?: () => void }).unref?.();
 }

@@ -6,11 +6,13 @@ Remote debugging allows you to integrate the Rivet Core or Rivet Node libraries 
 
 ## Connecting the Remote Debugger
 
-Select the **Remote Debugger** menu option in the Action Bar's menu dropdown, or press the **F5** key to open the remote debugger dialog. You must enter a WebSocket URI here to connect to. This URI must be a WebSocket server that uses `startRivetDebuggerServer`. This is a function exported by the Rivet Core and Rivet Node libraries. You can use this function to start a WebSocket server that will allow the Rivet application to connect to it.
+Select the **Remote Debugger** menu option in the Action Bar's menu dropdown, or press the **F5** key to open the remote debugger dialog. You must enter a WebSocket URI here to connect to. This URI must be a WebSocket server that uses `startDebuggerServer` from `@valerypopoff/rivet2-node`. You can use this function to start a WebSocket server that will allow the Rivet application to connect to it.
 
 ![remote debugger](assets/remote-debugger.png)
 
-By default, `startRivetDebuggerServer` will listen for all WebSocket connections on port **21888**. You can change this by passing a port number to the options argument to `startRivetDebuggerServer`.
+By default, `startDebuggerServer` will listen for all WebSocket connections on port **21888**. You can change this by passing a port number to the options argument to `startDebuggerServer`.
+
+Remote Debugger connections can sit idle between graph runs. Rivet debugger servers keep these idle WebSocket connections alive with lightweight ping frames by default, so proxied or CDN-fronted deployments do not disconnect simply because no graph events are flowing.
 
 ## Running a Graph
 

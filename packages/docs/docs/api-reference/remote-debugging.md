@@ -30,6 +30,8 @@ await runGraphInFile('./myProject.rivet', {
 
 In this example, the `startDebuggerServer` function is used to start the debugger server. The `port` option is used to specify the port number on which the server will listen. The `runGraphInFile` function is then used to run the graph, and the debugger server is passed as the `remoteDebugger` option.
 
+`startDebuggerServer` sends lightweight WebSocket ping frames every 30 seconds by default and terminates clients that do not answer within 10 seconds. This keeps idle remote-debugger connections alive through common proxy and CDN idle timeouts. If your host owns WebSocket liveness itself, you can adjust `heartbeatIntervalMs` and `heartbeatTimeoutMs`, or disable the built-in heartbeat by setting `heartbeatIntervalMs: 0`.
+
 ## Connecting to the Debugger Server from Rivet
 
 Once the debugger server is running and a graph is being executed, you can connect to it from Rivet by clicking on the "Remote Debugging" button in the toolbar.
@@ -50,7 +52,7 @@ However, you may use your own remote debugger WebSocket server and any URL you l
 
 ## Advanced Options
 
-The `startDebuggerServer` function provides several advanced options for handling multiple processors and clients, dynamic graph running, and graph uploading. For more details about these options, see the [startDebuggerServer API documentation](./node/startDebuggerServer).
+The `startDebuggerServer` function provides several advanced options for handling multiple processors and clients, dynamic graph running, graph uploading, and WebSocket heartbeat behavior. For more details about these options, see the [startDebuggerServer API documentation](./node/startDebuggerServer).
 
 ## See Also
 

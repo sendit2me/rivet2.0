@@ -30,6 +30,12 @@ import {
   getChatV2DiscoveredModelOptionsWithStatus,
   invalidateChatV2DiscoveredModelOptions,
 } from '../../../utils/chatV2ModelCatalog.js';
+import {
+  forgetRefreshedModelOptions,
+  getVisibleModelOptions,
+  rememberRefreshedModelOptions,
+  type ModelOption,
+} from './llmChatV2ModelCatalogOptions.js';
 import { type SharedEditorProps } from '../SharedEditorProps';
 import PlugIcon from '../../../assets/icons/plug-icon.svg?react';
 import { Tooltip } from '../../Tooltip';
@@ -143,11 +149,6 @@ type Props = SharedEditorProps & {
 
 type ProviderName = 'openai' | 'anthropic' | 'google' | 'custom';
 
-type ModelOption = {
-  value: string;
-  label: string;
-};
-
 type ModelRefreshResult = Awaited<ReturnType<typeof getChatV2DiscoveredModelOptionsWithStatus>>;
 type ResolvedSettings = Awaited<ReturnType<typeof fillMissingSettingsFromEnvironmentVariables>>;
 
@@ -159,10 +160,6 @@ function getProvider(data: unknown): ProviderName {
 
 function getStatusKey(nodeId: string, provider: ProviderName, apiKeySource: string): string {
   return `${nodeId}:${provider}:${apiKeySource}`;
-}
-
-function getModelOptions(editor: CustomEditorDefinition<ChartNode>): ModelOption[] {
-  return ((editor.data as { modelOptions?: ModelOption[] } | undefined)?.modelOptions ?? []) as ModelOption[];
 }
 
 function getMissingCredentialMessage(
@@ -252,7 +249,11 @@ export const LLMChatV2ModelCatalogEditor: FC<Props> = ({
   const statusKey = getStatusKey(node.id, provider, apiKeySource);
   const [status, setStatus] = useState<RefreshStatus>(() => modelCatalogRefreshStatus.get(statusKey));
   const [menuPortalTarget, setMenuPortalTarget] = useState<HTMLDivElement | null>(null);
-  const modelOptions = getModelOptions(editor);
+  const modelOptions = getVisibleModelOptions({
+    editor,
+    currentModel: data.model,
+    optionsKey: statusKey,
+  });
   const selectedValue = modelOptions.find((option) => option.value === data.model);
   const isUsingModelInput = Boolean(data.useModelInput);
   const isControlDisabled = isReadonly || isDisabled;
@@ -272,6 +273,7 @@ export const LLMChatV2ModelCatalogEditor: FC<Props> = ({
   }, [statusKey]);
 
   const handleRefresh = async () => {
+    forgetRefreshedModelOptions(statusKey);
     updateStatus({
       tone: 'warning',
       message: 'Refreshing model list...',
@@ -296,6 +298,7 @@ export const LLMChatV2ModelCatalogEditor: FC<Props> = ({
 
       invalidateChatV2DiscoveredModelOptions(provider, context);
       const result = await getChatV2DiscoveredModelOptionsWithStatus(provider, context);
+      rememberRefreshedModelOptions(statusKey, result.options);
       updateStatus(getRefreshStatus(provider, result, resolvedSettings, apiKey));
       onRefreshEditors?.();
     } catch (error) {

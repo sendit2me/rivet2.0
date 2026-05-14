@@ -696,6 +696,15 @@ the internal Node executor session; Browser mode waits for an explicit Remote
 Debugger Connect action. This keeps an open project from suddenly reopening a
 remote debugger socket by itself.
 
+Server-side Remote Debugger keepalive lives in
+[`packages/node/src/debugger.ts`](../packages/node/src/debugger.ts), not in the
+app executor session. `startDebuggerServer` sends WebSocket ping frames every
+`DEBUGGER_HEARTBEAT_INTERVAL_MS` and terminates sockets that do not pong within
+`DEBUGGER_HEARTBEAT_TIMEOUT_MS`. This keeps hosted routes such as
+`/ws/latest-debugger` from looking idle to proxy/CDN layers while preserving the
+app policy above: an external debugger socket that truly closes is still treated
+as an external disconnect, not as something Rivet should reopen automatically.
+
 The renderer does not treat app-executor stderr as an execution-state signal.
 The sidecar can write expected Node warnings or logged provider failures to
 stderr while still delivering the request-scoped websocket `error` event. The

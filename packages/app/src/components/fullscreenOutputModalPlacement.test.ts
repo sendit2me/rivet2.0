@@ -1,0 +1,28 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import test from 'node:test';
+import { fileURLToPath } from 'node:url';
+
+const componentsDir = dirname(fileURLToPath(import.meta.url));
+
+test('fullscreen node output modal is rendered outside the canvas tree', () => {
+  const nodeOutputSource = readFileSync(join(componentsDir, 'NodeOutput.tsx'), 'utf8');
+  const rivetAppSource = readFileSync(join(componentsDir, 'RivetApp.tsx'), 'utf8');
+  const fullScreenModalSource = readFileSync(join(componentsDir, 'FullScreenModal.tsx'), 'utf8');
+
+  assert.match(nodeOutputSource, /export const FullscreenNodeOutputModalRenderer/);
+  assert.doesNotMatch(nodeOutputSource, /const \[isModalOpen,\s*setIsModalOpen\] = useState/);
+  const rendererMatch = /export const FullscreenNodeOutputModalRenderer: FC = \(\) => \{([\s\S]*?)\n\};\n\nconst ResizableNodeFullscreenOutputModal/.exec(
+    nodeOutputSource,
+  );
+  assert.ok(rendererMatch);
+  const rendererBody = rendererMatch[1] ?? '';
+  assert.match(rendererBody, /useDependsOnPlugins\(\);/);
+  assert.match(rendererBody, /graphMetadataState/);
+  assert.match(rendererBody, /previousGraphIdRef\.current = graphId;/);
+  assert.match(rendererBody, /previousGraphIdRef\.current !== graphId/);
+  assert.match(rendererBody, /return \(\) => \{\s*setFullscreenOutputNodeId\(null\);\s*\};/);
+  assert.match(rivetAppSource, /<GraphBuilder \/>\s*<AppErrorBoundary context="Fullscreen Output Modal"[\s\S]*<FullscreenNodeOutputModalRenderer \/>/);
+  assert.match(fullScreenModalSource, /shouldReturnFocus={false}/);
+});

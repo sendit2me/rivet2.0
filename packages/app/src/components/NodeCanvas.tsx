@@ -100,6 +100,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
   const [contextMenuDisabled, setContextMenuDisabled] = useState(true);
   const canvasRootRef = useRef<HTMLDivElement>(null);
   const nodeDragGestureActiveRef = useRef(false);
+  const hoverSyncAnimationFrameRef = useRef<number | undefined>();
 
   const selectedGraphMetadata = useAtomValue(graphMetadataState);
   const closestPort = useAtomValue(draggingWireClosestPortState);
@@ -221,6 +222,15 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
     };
   }, [clearNodeDragGesture]);
 
+  useEffect(
+    () => () => {
+      if (hoverSyncAnimationFrameRef.current !== undefined) {
+        window.cancelAnimationFrame(hoverSyncAnimationFrameRef.current);
+      }
+    },
+    [],
+  );
+
   const shouldRenderWires = canvasPosition.zoom > 0.15;
   const viewportBounds = useViewportBounds(canvasRootRef);
   const draggingViewportNodeIds = useMemo(
@@ -319,6 +329,29 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
 
   const onNodeMouseLeave = useStableCallback(() => {
     setHoveringNode(undefined);
+  });
+
+  const clearHoveringNode = useStableCallback(() => {
+    setHoveringNode(undefined);
+  });
+
+  const syncHoveringNodeFromPointer = useStableCallback(() => {
+    if (hoverSyncAnimationFrameRef.current !== undefined) {
+      window.cancelAnimationFrame(hoverSyncAnimationFrameRef.current);
+    }
+
+    hoverSyncAnimationFrameRef.current = window.requestAnimationFrame(() => {
+      hoverSyncAnimationFrameRef.current = undefined;
+      const element = document.elementFromPoint(lastMouseInfoRef.current.x, lastMouseInfoRef.current.y);
+      const nodeElement = element?.closest<HTMLElement>('.node[data-nodeid]:not(.overlayNode)');
+      setHoveringNode((nodeElement?.dataset.nodeid as NodeId | undefined) ?? undefined);
+    });
+  });
+
+  const preserveMoveDragHoverOnDrop = useStableCallback((nodeId: NodeId) => {
+    if (dragMode === 'move') {
+      setHoveringNode(nodeId);
+    }
   });
 
   const selectedViewportNodeIds = useMemo(() => {
@@ -536,15 +569,25 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
       onDragStart={(event) => {
         setIsDraggingCanvas(false);
         onNodeStartDrag(event);
+        clearHoveringNode();
       }}
       onDragMove={onNodeDraggedMove}
       onDragEnd={(event) => {
         clearNodeDragGesture();
-        onNodeDragged(event);
+        preserveMoveDragHoverOnDrop(event.active.id as NodeId);
+        try {
+          onNodeDragged(event);
+        } finally {
+          syncHoveringNodeFromPointer();
+        }
       }}
       onDragCancel={() => {
         clearNodeDragGesture();
-        onNodeDragCancelled();
+        try {
+          onNodeDragCancelled();
+        } finally {
+          syncHoveringNodeFromPointer();
+        }
       }}
     >
       <div

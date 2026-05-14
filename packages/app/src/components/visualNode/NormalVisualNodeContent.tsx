@@ -45,6 +45,7 @@ export const NormalVisualNodeContent: FC<{
   handleAttributes?: HTMLAttributes<HTMLDivElement>;
   isKnownNodeType: boolean;
   isHistoricalChanged: boolean;
+  isOutputPreviewHovered: boolean;
   showRunningIndicator: boolean;
   renderHeavyContent: boolean;
   minimumNodeWidth: number;
@@ -56,6 +57,7 @@ export const NormalVisualNodeContent: FC<{
     handleAttributes,
     isKnownNodeType,
     isHistoricalChanged,
+    isOutputPreviewHovered,
     showRunningIndicator,
     renderHeavyContent,
     minimumNodeWidth,
@@ -352,7 +354,7 @@ export const NormalVisualNodeContent: FC<{
         {isKnownNodeType && <NodePortsRenderer node={node} connections={connections} />}
 
         <ErrorBoundary fallback={<div>Error rendering node output</div>}>
-          <NodeOutput node={node} suspended={!renderHeavyContent} />
+          <NodeOutput node={node} suspended={!renderHeavyContent} isHovered={isOutputPreviewHovered} />
         </ErrorBoundary>
         <div className="node-resize-handles">
           {resizeDirections.map((direction) => (

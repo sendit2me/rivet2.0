@@ -756,12 +756,12 @@ export const nodeStyles = css`
     border-top: 1px solid var(--grey-light);
   }
 
-  .node:hover .node-output-inner,
-  .node:hover .node-output-warnings {
+  .node:is(:hover, .hovered, .showHoverControls) .node-output-inner,
+  .node:is(:hover, .hovered, .showHoverControls) .node-output-warnings {
     max-height: var(--node-output-hover-max-height);
   }
 
-  .node:hover .multi-node-output {
+  .node:is(:hover, .hovered, .showHoverControls) .multi-node-output {
     max-height: var(--node-output-multi-hover-max-height);
   }
 
@@ -846,10 +846,10 @@ export const nodeStyles = css`
     z-index: 1;
   }
 
-  .node:hover .copy-button,
-  .node:hover .expand-button,
-  .node:hover .output-toggle-button,
-  .node:hover .prompt-designer-button {
+  .node:is(:hover, .hovered, .showHoverControls) .copy-button,
+  .node:is(:hover, .hovered, .showHoverControls) .expand-button,
+  .node:is(:hover, .hovered, .showHoverControls) .output-toggle-button,
+  .node:is(:hover, .hovered, .showHoverControls) .prompt-designer-button {
     opacity: 0.35;
   }
 
