@@ -1,6 +1,5 @@
 
 
-- When I do "Refetch the model list" with the input port connected, it fetcjes the model names correclty, I can see it in the console: "[LLM Chat][openai models] Fetched 120 filtered models from API." but they don't end up in the model dropdown
 
 
 
