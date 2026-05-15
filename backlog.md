@@ -1,18 +1,18 @@
 
 
+- New Code node that uses interpolated input variables. But it's not clear how to define output variables and their types
+
+- Need a "Not" node?
+
 
 - Need to show the curent graph name somewhere. When there's many and they are in the folders and you click through subgraphs, the user gets lost. It's already shown in the run button. maybe make it more noticeable?
 
 
-- In the node inputs list, allow changing their order manually. But when the amount of the inputs changes, the order can reset
 
 - New artboard background image. I want diagonal strokes like in the logo. Also maybe more sparse crosses in rectangular manner
 
 
-- New Code node that uses interpolated input variables. But it's not clear how to define output variables and their types
-
-
-- Need a "Not" node?
+- In the node inputs list, allow changing their order manually. But when the amount of the inputs changes, the order can reset
 
 
 - Add "Freeze node" functionality? Kust like in That Databricks tool. Maybe it can replace the current LLM chat node's "cache" functionality
