@@ -1,20 +1,19 @@
 
 
-- When panning the artboard, it draws nodes and connections AFTER i panned them uinto view
-
-- New Code node that uses interpolated input variables. But it's not clear how to define output variables and their types
+- For the comment node, the default background color should be mid-gray
+- In the comment node, the noide is much more minimalistic than in usual nodes and as a result the gear icon is too pressed into the header corner. Fix it
 
 
 - Need to show the curent graph name somewhere. When there's many and they are in the folders and you click through subgraphs, the user gets lost. It's already shown in the run button. maybe make it more noticeable?
 
 
+
 - In the node inputs list, allow changing their order manually. But when the amount of the inputs changes, the order can reset
 
-- For the comment node, the default background color should be mid-gray
-
-- In both Text node and Prompt node, in the statistics, output the amount of tokens (average for english language)
 
 
+
+- New Code node that uses interpolated input variables. But it's not clear how to define output variables and their types
 
 
 - Remote debugger gets disconnected after some time
@@ -45,6 +44,7 @@
 - Reassess all the "Generate using AI" in different nodes. The model picker is clipped by the section border
 
 
+- In both Text node and Prompt node, in the statistics, output the amount of tokens (average for english language)
 
 
 

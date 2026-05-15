@@ -57,7 +57,7 @@ import type { NodeResizeBounds } from '../utils/nodeResize.js';
 import { MEDIUM_GRAPH_NODE_THRESHOLD } from './nodeCanvas/canvasPerformanceBudget.js';
 import { getCanvasPerfSnapshot } from './nodeCanvas/canvasPerfDebug.js';
 import { groupConnectionsByNode } from './nodeCanvas/groupConnectionsByNode.js';
-import { getDraggingViewportNodeIds, shouldFreezeViewportVisibility } from './nodeCanvas/viewportVisibilityPolicy.js';
+import { getDraggingViewportNodeIds } from './nodeCanvas/draggingViewportNodeIds.js';
 import { filterValidSubGraphConnections } from '../domain/graphEditing/connectionValidation.js';
 
 const EMPTY_NODE_CONNECTIONS: NodeConnection[] = [];
@@ -278,9 +278,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
     canvasMouseUp,
     handleCanvasContextMenu,
     handleZoom,
-    isViewportMoving,
     lastMouseInfoRef,
-    reportViewportMotion,
   } = useNodeCanvasInteractions({
     canvasPosition,
     clientToCanvasPosition,
@@ -304,7 +302,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
     updateSelectionBox,
     zoomSensitivity,
   });
-  useWireDragScrolling(reportViewportMotion);
+  useWireDragScrolling();
 
   const onNodeSizeChanged = useStableCallback((node: ChartNode, nextBounds: NodeResizeBounds) => {
     onNodesChanged(
@@ -389,23 +387,15 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
 
     return [...highlightedNodeIds];
   }, [hoveringNode, hoveringPort, selectedViewportNodeIds]);
-  const freezeViewportVisibility = shouldFreezeViewportVisibility({
-    isDraggingNode,
-    isDraggingWire,
-    isViewportMoving,
+  const { heavyContentNodeIdSet, nearViewportNodeIdSet, visibleNodeIdSet } = useVisibleCanvasNodes({
+    draggingNodeIds: draggingViewportNodeIds,
+    editingNodeId,
+    expandedOutputNodeIds,
+    hoveringNodeId: hoveringNode,
+    nodes,
+    selectedNodeIds: selectedViewportNodeIds,
+    viewportBounds,
   });
-
-  const { heavyContentNodeIdSet, isViewportVisibilitySettled, nearViewportNodeIdSet, visibleNodeIdSet } =
-    useVisibleCanvasNodes({
-      draggingNodeIds: draggingViewportNodeIds,
-      editingNodeId,
-      expandedOutputNodeIds,
-      hoveringNodeId: hoveringNode,
-      isViewportMoving: freezeViewportVisibility,
-      nodes,
-      selectedNodeIds: selectedViewportNodeIds,
-      viewportBounds,
-    });
 
   const {
     nodePortPositions,
@@ -640,8 +630,6 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
             draggingWire={draggingWire}
             highlightedNodes={highlightedNodes}
             highlightedPort={hoveringPort}
-            isViewportMoving={isViewportMoving}
-            isViewportVisibilitySettled={isViewportVisibilitySettled}
             nearViewportNodeIdSet={nearViewportNodeIdSet}
             portPositions={nodePortPositions}
             visibleNodeIdSet={visibleNodeIdSet}
