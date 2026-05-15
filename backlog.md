@@ -1,10 +1,7 @@
 
 
 
-
-
 - Need to show the curent graph name somewhere. When there's many and they are in the folders and you click through subgraphs, the user gets lost. It's already shown in the run button. maybe make it more noticeable?
-
 
 
 - In the node inputs list, allow changing their order manually. But when the amount of the inputs changes, the order can reset
@@ -12,15 +9,10 @@
 - New artboard background image. I want diagonal strokes like in the logo. Also maybe more sparse crosses in rectangular manner
 
 
-
 - New Code node that uses interpolated input variables. But it's not clear how to define output variables and their types
 
 
-
-
 - Need a "Not" node?
-
-
 
 
 - Add "Freeze node" functionality? Kust like in That Databricks tool. Maybe it can replace the current LLM chat node's "cache" functionality
@@ -30,7 +22,6 @@
 
 
 - Make node terminals not round, but half squircles on the inside part of the node
-
 
 
 - Get back to MCP and see if it works and how it works. I don't see an MCP node. I think we need it
