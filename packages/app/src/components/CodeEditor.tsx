@@ -75,6 +75,9 @@ export const CodeEditor: FC<{
         readOnly: isReadonly,
         value: text,
         scrollBeyondLastLine,
+        scrollbar: {
+          alwaysConsumeMouseWheel: false,
+        },
       },
     );
 
