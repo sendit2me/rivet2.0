@@ -7,7 +7,7 @@
 The Node package version wraps core processor creation with Node defaults:
 
 - marks the processor executor as `nodejs`
-- attaches a `RivetDebuggerServer` when `remoteDebugger` is provided
+- attaches a `RivetDebuggerServer` when `remoteDebugger` is provided, re-attaches it at the start of each `run()`, and detaches it after the run finishes
 - fills plugin environment values from `process.env` when `pluginEnv` is unset
 - provides `NodeNativeApi`, `NodeMCPProvider`, `NodeCodeRunner`, `NodeProjectReferenceLoader`, and a fallback tokenizer unless you override them
 

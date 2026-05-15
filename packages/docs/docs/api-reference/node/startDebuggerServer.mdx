@@ -6,7 +6,9 @@ The `startDebuggerServer` function starts a Rivet debugger server. By creating a
 connect to it from Rivet to debug graphs running in your application in real-time.
 
 The server sends WebSocket ping frames to connected debugger clients by default. This keeps idle debugger connections alive
-through common proxy and CDN idle timeouts without changing the debugger message protocol.
+through common proxy and CDN idle timeouts without changing the debugger message protocol. Real debugger traffic also counts
+as websocket activity while a heartbeat is pending, so a workflow broadcast after an idle period is not terminated by an older
+ping timeout.
 
 ## Syntax
 
@@ -93,6 +95,8 @@ The grace period in milliseconds after a ping before an unanswered debugger sock
 ## Return
 
 Returns an instance of `RivetDebuggerServer`. This should be passed to the `runGraph` function to allow the graph execution to communicate with the debugger server.
+
+Server-to-client debugger sends are best-effort, including connection-time messages and processor event broadcasts. If a client cannot be written to, the server reports the transport error through the debugger `error` event and terminates only that websocket; graph execution continues.
 
 ## Examples
 

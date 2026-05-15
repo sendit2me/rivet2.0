@@ -103,9 +103,25 @@ export function createProcessor(
     events.setMaxListeners(0, controller.signal);
   });
 
-  if (options.remoteDebugger) {
+  let remoteDebuggerAttached = false;
+  const attachRemoteDebugger = () => {
+    if (!options.remoteDebugger || remoteDebuggerAttached) {
+      return;
+    }
+
     options.remoteDebugger.attach(processor.processor, options.remoteDebuggerRequestId);
-  }
+    remoteDebuggerAttached = true;
+  };
+  const detachRemoteDebugger = () => {
+    if (!options.remoteDebugger || !remoteDebuggerAttached) {
+      return;
+    }
+
+    options.remoteDebugger.detach(processor.processor);
+    remoteDebuggerAttached = false;
+  };
+
+  attachRemoteDebugger();
 
   let pluginEnv = options.pluginEnv;
   if (!pluginEnv) {
@@ -116,32 +132,43 @@ export function createProcessor(
   return {
     ...processor,
     async run() {
-      const outputs = await processor.processor.processGraph(
-        {
-          nativeApi: options.nativeApi ?? new NodeNativeApi(),
-          datasetProvider: options.datasetProvider,
-          mcpProvider: options.mcpProvider ?? new NodeMCPProvider(),
-          audioProvider: options.audioProvider,
-          tokenizer: options.tokenizer ?? new FallbackTokenizer(),
-          codeRunner: options.codeRunner ?? new NodeCodeRunner(),
-          projectPath: options.projectPath,
-          projectReferenceLoader: options.projectReferenceLoader ?? new NodeProjectReferenceLoader(),
-          editorExecutionCache: options.editorExecutionCache,
-          settings: resolveProcessSettings(
-            { ...options, pluginEnv },
-            {
-              openAiKey: process.env.OPENAI_API_KEY ?? '',
-              openAiOrganization: process.env.OPENAI_ORG_ID ?? '',
-              openAiEndpoint: process.env.OPENAI_ENDPOINT ?? '',
-            },
-          ),
-          getChatNodeEndpoint: options.getChatNodeEndpoint,
-        },
-        processor.inputs,
-        processor.contextValues,
-      );
+      const shouldManageRemoteDebugger = options.remoteDebugger != null && !processor.processor.isRunning;
+      if (shouldManageRemoteDebugger) {
+        attachRemoteDebugger();
+      }
 
-      return outputs;
+      try {
+        const outputs = await processor.processor.processGraph(
+          {
+            nativeApi: options.nativeApi ?? new NodeNativeApi(),
+            datasetProvider: options.datasetProvider,
+            mcpProvider: options.mcpProvider ?? new NodeMCPProvider(),
+            audioProvider: options.audioProvider,
+            tokenizer: options.tokenizer ?? new FallbackTokenizer(),
+            codeRunner: options.codeRunner ?? new NodeCodeRunner(),
+            projectPath: options.projectPath,
+            projectReferenceLoader: options.projectReferenceLoader ?? new NodeProjectReferenceLoader(),
+            editorExecutionCache: options.editorExecutionCache,
+            settings: resolveProcessSettings(
+              { ...options, pluginEnv },
+              {
+                openAiKey: process.env.OPENAI_API_KEY ?? '',
+                openAiOrganization: process.env.OPENAI_ORG_ID ?? '',
+                openAiEndpoint: process.env.OPENAI_ENDPOINT ?? '',
+              },
+            ),
+            getChatNodeEndpoint: options.getChatNodeEndpoint,
+          },
+          processor.inputs,
+          processor.contextValues,
+        );
+
+        return outputs;
+      } finally {
+        if (shouldManageRemoteDebugger) {
+          detachRemoteDebugger();
+        }
+      }
     },
   };
 }

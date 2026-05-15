@@ -68,7 +68,7 @@ The HTTP call node only has inputs when the [Editor Settings](#editor-settings) 
 | Repeat times | Number of repeats after the initial request. | 1 | No | N/A |
 | Cooldown, ms | Milliseconds to wait between repeats. | 0 | No | N/A |
 | Binary Output | Reads the response as bytes and exposes the Binary output instead of Body/Parsed JSON. | Off | No | N/A |
-| Fail on non-2XX status code | If enabled, the node errors when the final response is not in the 2XX range. | On | No | N/A |
+| Fail on non-2XX status code | If enabled, the node errors when the final response is not in the 2XX range. In this mode, a non-2XX response stops the normal response-output path, so Body, Parsed JSON, Status Code, and Headers are not produced for that failed response unless the failure is caught by the node's request-failure settings. | On | No | N/A |
 | Catch all request failures | If enabled, request failures are returned through Request failed and Request error instead of throwing. | Off | No | N/A |
 
 </TabItem>
@@ -104,6 +104,8 @@ The HTTP call node only has inputs when the [Editor Settings](#editor-settings) 
 ## Error Handling
 
 The HTTP Call Node errors when the request throws, the URL is invalid, or the final response violates `Fail on non-2XX status code`.
+
+`Fail on non-2XX status code` changes how HTTP error responses are handled. When it is off, a response such as `403` or `500` is still treated as a completed HTTP response, so the node finishes and outputs the response Body, Parsed JSON when available, Status Code, and Headers. When it is on, a non-2XX response is treated as a node error instead; the graph stops on that node and the normal response outputs for that failed response are not produced.
 
 Enable `Catch all request failures` when you want failures to flow through node outputs instead of stopping the graph. The node will output `Request failed` as `true` and `Request error` as readable error text.
 

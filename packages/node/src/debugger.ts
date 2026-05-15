@@ -86,21 +86,32 @@ export function startDebuggerServer(
 
   const attachedProcessors: GraphProcessor[] = [];
   const requestIdsByProcessorId = new Map<string, RemoteRunRequestId | undefined>();
+  const processorEventCleanupsByProcessorId = new Map<string, Array<() => void>>();
+  const socketHeartbeats = new WeakMap<WebSocket, DebuggerSocketHeartbeat>();
 
   server.on('connection', (socket) => {
-    startDebuggerSocketHeartbeat(socket, {
+    const heartbeat = startDebuggerSocketHeartbeat(socket, {
       intervalMs: heartbeatIntervalMs,
       timeoutMs: heartbeatTimeoutMs,
+    });
+    socketHeartbeats.set(socket, heartbeat);
+
+    socket.once('close', () => {
+      socketHeartbeats.delete(socket);
     });
 
     if (options.datasetProvider) {
       options.datasetProvider.onrequest = (type, data) => {
-        socket.send(
-          JSON.stringify({
+        const payload = stringifyDebuggerMessage(
+          {
             message: type,
             data,
-          }),
+          },
+          emitter,
         );
+        if (payload) {
+          sendDebuggerMessage(socket, payload, emitter, socketHeartbeats.get(socket));
+        }
       };
     }
 
@@ -200,11 +211,7 @@ export function startDebuggerServer(
             }
           });
       } catch (err) {
-        try {
-          await emitter.emit('error', getError(err));
-        } catch (err) {
-          // noop, just prevent unhandled rejection
-        }
+        emitDebuggerError(emitter, err);
       }
     };
 
@@ -213,31 +220,36 @@ export function startDebuggerServer(
     });
 
     if (options.allowGraphUpload) {
-      socket.send(
-        JSON.stringify({
+      const payload = stringifyDebuggerMessage(
+        {
           message: 'graph-upload-allowed',
           data: {},
-        }),
+        },
+        emitter,
       );
+      if (payload) {
+        sendDebuggerMessage(socket, payload, emitter, socketHeartbeats.get(socket));
+      }
     }
   });
 
-  return {
+  const debuggerServer: RivetDebuggerServer = {
     on: emitter.on.bind(emitter),
     off: emitter.off.bind(emitter),
 
     webSocketServer: server,
 
     /** Given an event on a processor, sends that processor's events to the correct debugger clients (allows routing debugger). */
-    broadcast(procesor: GraphProcessor, message: string, data: unknown, requestId?: RemoteRunRequestId) {
-      const clients = options.getClientsForProcessor?.(procesor, [...server.clients]) ?? [...server.clients];
-      const resolvedRequestId = requestId ?? requestIdsByProcessorId.get(procesor.id);
+    broadcast(processor: GraphProcessor, message: string, data: unknown, requestId?: RemoteRunRequestId) {
+      const clients = options.getClientsForProcessor?.(processor, [...server.clients]) ?? [...server.clients];
+      const resolvedRequestId = requestId ?? requestIdsByProcessorId.get(processor.id);
+      const payload = stringifyDebuggerMessage({ message, data, requestId: resolvedRequestId }, emitter);
 
-      clients.forEach((client) => {
-        if (client.readyState === WebSocket.OPEN) {
-          client.send(JSON.stringify({ message, data, requestId: resolvedRequestId }));
-        }
-      });
+      if (!payload) {
+        return;
+      }
+
+      clients.forEach((client) => sendDebuggerMessage(client, payload, emitter, socketHeartbeats.get(client)));
     },
 
     attach(processor: GraphProcessor, requestId?: RemoteRunRequestId) {
@@ -246,84 +258,138 @@ export function startDebuggerServer(
       }
 
       const lastPartialOutputsTimePerNode: Record<NodeId, number> = {};
+      const cleanups: Array<() => void> = [];
       attachedProcessors.push(processor);
       requestIdsByProcessorId.set(processor.id, requestId);
+      processorEventCleanupsByProcessorId.set(processor.id, cleanups);
 
-      processor.on('nodeStart', (data) => {
-        this.broadcast(processor, 'nodeStart', data);
-      });
-      processor.on('nodeFinish', (data) => {
-        this.broadcast(processor, 'nodeFinish', data);
-      });
-      processor.on('nodeError', ({ node, error, processId, execution }) => {
-        this.broadcast(processor, 'nodeError', {
-          node,
-          error: typeof error === 'string' ? error : error.toString(),
-          processId,
-          execution,
-        });
-      });
-      processor.on('error', ({ error }) => {
-        this.broadcast(processor, 'error', {
-          error: typeof error === 'string' ? error : error.toString(),
-        });
-      });
-      processor.on('graphError', ({ graph, error, execution }) => {
-        this.broadcast(processor, 'graphError', {
-          graph,
-          error: typeof error === 'string' ? error : error.toString(),
-          execution,
-        });
-      });
-      processor.on('nodeExcluded', (data) => {
-        this.broadcast(processor, 'nodeExcluded', data);
-      });
-      processor.on('start', (data) => {
-        this.broadcast(processor, 'start', data);
-      });
-      processor.on('done', (data) => {
-        this.broadcast(processor, 'done', data);
-      });
-      processor.on('partialOutput', (data) => {
-        // Throttle the partial outputs because they can get ridiculous on the serdes side
-        if (
-          lastPartialOutputsTimePerNode[data.node.id] == null ||
-          (lastPartialOutputsTimePerNode[data.node.id] ?? 0) + throttlePartialOutputs < Date.now()
-        ) {
-          this.broadcast(processor, 'partialOutput', data);
-          lastPartialOutputsTimePerNode[data.node.id] = Date.now();
-        }
-      });
-      processor.on('abort', () => {
-        this.broadcast(processor, 'abort', null);
-      });
-      processor.on('graphAbort', (data) => {
-        this.broadcast(processor, 'graphAbort', data);
-      });
-      processor.on('trace', (message) => {
-        this.broadcast(processor, 'trace', message);
-      });
-      processor.on('nodeOutputsCleared', (data) => {
-        this.broadcast(processor, 'nodeOutputsCleared', data);
-      });
-      processor.on('graphStart', (data) => {
-        this.broadcast(processor, 'graphStart', data);
-      });
-      processor.on('graphFinish', (data) => {
-        this.broadcast(processor, 'graphFinish', data);
-      });
-      processor.on('pause', () => {
-        this.broadcast(processor, 'pause', null);
-      });
-      processor.on('resume', () => {
-        this.broadcast(processor, 'resume', null);
-      });
-      processor.on('userInput', (data) => {
-        this.broadcast(processor, 'userInput', data);
-      });
+      cleanups.push(
+        processor.on('nodeStart', (data) => {
+          debuggerServer.broadcast(processor, 'nodeStart', data);
+        }),
+      );
+      cleanups.push(
+        processor.on('nodeFinish', (data) => {
+          debuggerServer.broadcast(processor, 'nodeFinish', data);
+        }),
+      );
+      cleanups.push(
+        processor.on('nodeError', ({ node, error, processId, execution }) => {
+          debuggerServer.broadcast(processor, 'nodeError', {
+            node,
+            error: typeof error === 'string' ? error : error.toString(),
+            processId,
+            execution,
+          });
+        }),
+      );
+      cleanups.push(
+        processor.on('error', ({ error }) => {
+          debuggerServer.broadcast(processor, 'error', {
+            error: typeof error === 'string' ? error : error.toString(),
+          });
+        }),
+      );
+      cleanups.push(
+        processor.on('graphError', ({ graph, error, execution }) => {
+          debuggerServer.broadcast(processor, 'graphError', {
+            graph,
+            error: typeof error === 'string' ? error : error.toString(),
+            execution,
+          });
+        }),
+      );
+      cleanups.push(
+        processor.on('nodeExcluded', (data) => {
+          debuggerServer.broadcast(processor, 'nodeExcluded', data);
+        }),
+      );
+      cleanups.push(
+        processor.on('start', (data) => {
+          debuggerServer.broadcast(processor, 'start', data);
+        }),
+      );
+      cleanups.push(
+        processor.on('done', (data) => {
+          debuggerServer.broadcast(processor, 'done', data);
+        }),
+      );
+      cleanups.push(
+        processor.on('partialOutput', (data) => {
+          // Throttle the partial outputs because they can get ridiculous on the serdes side
+          if (
+            lastPartialOutputsTimePerNode[data.node.id] == null ||
+            (lastPartialOutputsTimePerNode[data.node.id] ?? 0) + throttlePartialOutputs < Date.now()
+          ) {
+            debuggerServer.broadcast(processor, 'partialOutput', data);
+            lastPartialOutputsTimePerNode[data.node.id] = Date.now();
+          }
+        }),
+      );
+      cleanups.push(
+        processor.on('abort', () => {
+          debuggerServer.broadcast(processor, 'abort', null);
+        }),
+      );
+      cleanups.push(
+        processor.on('graphAbort', (data) => {
+          debuggerServer.broadcast(processor, 'graphAbort', data);
+        }),
+      );
+      cleanups.push(
+        processor.on('trace', (message) => {
+          debuggerServer.broadcast(processor, 'trace', message);
+        }),
+      );
+      cleanups.push(
+        processor.on('nodeOutputsCleared', (data) => {
+          debuggerServer.broadcast(processor, 'nodeOutputsCleared', data);
+        }),
+      );
+      cleanups.push(
+        processor.on('graphStart', (data) => {
+          debuggerServer.broadcast(processor, 'graphStart', data);
+        }),
+      );
+      cleanups.push(
+        processor.on('graphFinish', (data) => {
+          debuggerServer.broadcast(processor, 'graphFinish', data);
+        }),
+      );
+      cleanups.push(
+        processor.on('pause', () => {
+          debuggerServer.broadcast(processor, 'pause', null);
+        }),
+      );
+      cleanups.push(
+        processor.on('resume', () => {
+          debuggerServer.broadcast(processor, 'resume', null);
+        }),
+      );
+      cleanups.push(
+        processor.on('userInput', (data) => {
+          debuggerServer.broadcast(processor, 'userInput', data);
+        }),
+      );
+      cleanups.push(
+        processor.on('finish', () => {
+          debuggerServer.detach(processor);
+        }),
+      );
     },
 
     detach(processor: GraphProcessor) {
+      const cleanups = processorEventCleanupsByProcessorId.get(processor.id);
+      processorEventCleanupsByProcessorId.delete(processor.id);
+
+      for (const cleanup of cleanups ?? []) {
+        try {
+          cleanup();
+        } catch (err) {
+          emitDebuggerError(emitter, err);
+        }
+      }
+
       const processorIndex = attachedProcessors.findIndex((p) => p.id === processor.id);
       if (processorIndex !== -1) {
         attachedProcessors.splice(processorIndex, 1);
@@ -331,6 +397,68 @@ export function startDebuggerServer(
       requestIdsByProcessorId.delete(processor.id);
     },
   };
+
+  return debuggerServer;
+}
+
+type DebuggerSocketHeartbeat = {
+  markActivity: () => void;
+};
+
+function stringifyDebuggerMessage(message: unknown, emitter: Emittery<DebuggerEvents>): string | undefined {
+  try {
+    return JSON.stringify(message);
+  } catch (err) {
+    emitDebuggerError(emitter, err);
+    return undefined;
+  }
+}
+
+function sendDebuggerMessage(
+  socket: WebSocket,
+  payload: string,
+  emitter: Emittery<DebuggerEvents>,
+  heartbeat?: DebuggerSocketHeartbeat,
+) {
+  if (socket.readyState !== WebSocket.OPEN) {
+    return false;
+  }
+
+  try {
+    socket.send(payload, (err) => {
+      if (err) {
+        emitDebuggerError(emitter, err);
+        terminateDebuggerSocket(socket);
+        return;
+      }
+
+      heartbeat?.markActivity();
+    });
+    heartbeat?.markActivity();
+    return true;
+  } catch (err) {
+    emitDebuggerError(emitter, err);
+    terminateDebuggerSocket(socket);
+    return false;
+  }
+}
+
+function emitDebuggerError(emitter: Emittery<DebuggerEvents>, error: unknown) {
+  void emitter.emit('error', getError(error)).catch(() => {
+    // noop, just prevent unhandled rejection
+  });
+}
+
+function terminateDebuggerSocket(socket: WebSocket) {
+  if (socket.readyState === WebSocket.CLOSED) {
+    return;
+  }
+
+  try {
+    socket.terminate();
+  } catch {
+    // noop; send failures should not escape debugger transport cleanup
+  }
 }
 
 function startDebuggerSocketHeartbeat(
@@ -339,9 +467,11 @@ function startDebuggerSocketHeartbeat(
     intervalMs: number;
     timeoutMs: number;
   },
-) {
+): DebuggerSocketHeartbeat {
   if (!Number.isFinite(options.intervalMs) || options.intervalMs <= 0) {
-    return;
+    return {
+      markActivity: () => {},
+    };
   }
 
   let awaitingPong = false;
@@ -365,7 +495,7 @@ function startDebuggerSocketHeartbeat(
     }
 
     timeout = undefined;
-    socket.terminate();
+    terminateDebuggerSocket(socket);
   };
 
   const sendPing = () => {
@@ -378,7 +508,7 @@ function startDebuggerSocketHeartbeat(
       socket.ping();
     } catch {
       awaitingPong = false;
-      socket.terminate();
+      terminateDebuggerSocket(socket);
       return;
     }
 
@@ -393,13 +523,19 @@ function startDebuggerSocketHeartbeat(
     clearInterval(interval);
     clearHeartbeatTimeout();
     socket.off('pong', markAlive);
+    socket.off('message', markAlive);
     socket.off('close', cleanup);
     socket.off('error', cleanup);
   };
 
   socket.on('pong', markAlive);
+  socket.on('message', markAlive);
   socket.once('close', cleanup);
   socket.once('error', cleanup);
+
+  return {
+    markActivity: markAlive,
+  };
 }
 
 function unrefTimer(timer: ReturnType<typeof setInterval> | ReturnType<typeof setTimeout>) {

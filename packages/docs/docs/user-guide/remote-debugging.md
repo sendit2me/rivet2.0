@@ -12,7 +12,7 @@ Select the **Remote Debugger** menu option in the Action Bar's menu dropdown, or
 
 By default, `startDebuggerServer` will listen for all WebSocket connections on port **21888**. You can change this by passing a port number to the options argument to `startDebuggerServer`.
 
-Remote Debugger connections can sit idle between graph runs. Rivet debugger servers keep these idle WebSocket connections alive with lightweight ping frames by default, so proxied or CDN-fronted deployments do not disconnect simply because no graph events are flowing.
+Remote Debugger connections can sit idle between graph runs. Rivet debugger servers keep these idle WebSocket connections alive with lightweight ping frames by default, and active debugger traffic resets pending heartbeat waits, so proxied or CDN-fronted deployments do not disconnect simply because no graph events are flowing.
 
 ## Running a Graph
 

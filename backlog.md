@@ -1,7 +1,9 @@
 
 
 
+- Node settings panel doesn't scroll when the cursor is over the code editor
 
+- New code node that uses interpolated input variables. But it's not clear how to define output variables and their types
 
 
 - Need to show the curent graph name somewhere. When there's many and they are in the folders and you click through subgraphs, the user gets lost. It's already shown in the run button. maybe make it more noticeable?
