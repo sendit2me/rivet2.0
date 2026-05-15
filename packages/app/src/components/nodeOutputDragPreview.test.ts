@@ -8,6 +8,7 @@ const componentsDir = dirname(fileURLToPath(import.meta.url));
 
 test('drag previews use the same output preview sizing as hovered nodes', () => {
   const visualNodeSource = readFileSync(join(componentsDir, 'VisualNode.tsx'), 'utf8');
+  const nodeCanvasViewportSource = readFileSync(join(componentsDir, 'nodeCanvas', 'NodeCanvasViewport.tsx'), 'utf8');
   const normalVisualNodeContentSource = readFileSync(
     join(componentsDir, 'visualNode', 'NormalVisualNodeContent.tsx'),
     'utf8',
@@ -22,6 +23,14 @@ test('drag previews use the same output preview sizing as hovered nodes', () => 
   assert.match(
     normalVisualNodeContentSource,
     /<NodeOutput node=\{node\} suspended=\{!renderHeavyContent\} isHovered=\{isOutputPreviewHovered\} \/>/,
+  );
+  assert.match(
+    nodeCanvasViewportSource,
+    /key=\{`comment-drag-preview-\$\{node\.id\}`\}[\s\S]*?shouldShowHoverControls=\{draggingHoverControlSourceNodeIdSet\.has\(executionSourceNodeId\)\}/,
+  );
+  assert.match(
+    nodeCanvasViewportSource,
+    /<DragOverlay[\s\S]*?executionSourceNodeId[\s\S]*?shouldShowHoverControls=\{draggingHoverControlSourceNodeIdSet\.has\(executionSourceNodeId\)\}/,
   );
   assert.match(nodeOutputSource, /resolveNodeOutputPreviewMode\(\{\s*isOutputExpanded,\s*isHovered,/);
   assert.match(

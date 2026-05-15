@@ -1,6 +1,8 @@
 
 
-- In the comment node, the node header is much more minimalistic than in usual nodes and as a result the gear icon is too pressed into the header corner. Fix it
+
+- When the graph is open but it is in the folder that is collapsed in the sidebar, highlight the folder where the graph is so it's easier to find the graph in the tree
+
 
 
 - Need to show the curent graph name somewhere. When there's many and they are in the folders and you click through subgraphs, the user gets lost. It's already shown in the run button. maybe make it more noticeable?
@@ -15,11 +17,7 @@
 - New Code node that uses interpolated input variables. But it's not clear how to define output variables and their types
 
 
-- Remote debugger gets disconnected after some time
 
-- With time, the turned on remore debugger turns off
-
-- When the graph is open but it is in the folder that is closed in the sidebar, highlight the folder where the graph is so it's easier to find it
 
 - Need a "Not" node?
 
