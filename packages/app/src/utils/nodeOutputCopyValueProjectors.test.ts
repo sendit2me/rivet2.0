@@ -3,7 +3,7 @@ import test from 'node:test';
 import { WarningsPort, type DataValue } from '@valerypopoff/rivet2-core';
 import type { DataRefReader } from '../providers/ProvidersContext.js';
 import type { NodeRunDataWithRefs } from '../state/dataFlow.js';
-import { projectDisplayedOutputs } from './executionDataCopyValue.js';
+import { serializeDisplayedOutputs } from './executionDataCopyValue.js';
 import {
   getChatNodeCopyValueData,
   getLoopControllerNodeCopyValueData,
@@ -26,8 +26,21 @@ function inlineStored<T extends DataValue['type']>(type: T, value: Extract<DataV
   };
 }
 
+function refStored<T extends DataValue['type']>(type: T, refId: string) {
+  return {
+    type,
+    storage: 'ref' as const,
+    refId,
+    preview: {
+      kind: 'json' as const,
+      excerpt: '{}',
+      totalChars: 2,
+    },
+  };
+}
+
 test('chat copy-value projector returns plain response text when only the response is visible', () => {
-  const projected = projectDisplayedOutputs(
+  const serialized = serializeDisplayedOutputs(
     {
       outputData: {
         response: inlineStored('string', 'Hello world!'),
@@ -41,11 +54,27 @@ test('chat copy-value projector returns plain response text when only the respon
     },
   );
 
-  assert.equal(projected, 'Hello world!');
+  assert.equal(serialized, 'Hello world!');
 });
 
-test('chat copy-value projector includes only the visible response, function call, and visible meta fields', () => {
-  const projected = projectDisplayedOutputs(
+test('chat copy-value projector preserves missing response fallback text', () => {
+  const serialized = serializeDisplayedOutputs(
+    {
+      outputData: {
+        response: refStored('string', 'missing-response'),
+      },
+    } as NodeRunDataWithRefs,
+    createDataRefStore(),
+    {
+      getCopyValueData: getChatNodeCopyValueData,
+    },
+  );
+
+  assert.equal(serialized, 'Value no longer available in memory.');
+});
+
+test('chat copy-value projector copies only the visible response, function call, and visible meta fields', () => {
+  const serialized = serializeDisplayedOutputs(
     {
       outputData: {
         response: inlineStored('string', 'Hello world!'),
@@ -76,23 +105,41 @@ test('chat copy-value projector includes only the visible response, function cal
     },
   );
 
-  assert.deepEqual(projected, {
-    response: 'Hello world!',
-    'function-call': {
-      name: 'lookup',
-      arguments: {
-        key: 'value',
-      },
-    },
-    requestTokens: 10,
-    responseTokens: 12,
-    cost: 0.123,
-    duration: 250,
-  });
+  assert.equal(
+    serialized,
+    [
+      'Response',
+      'Hello world!',
+      '',
+      'Function Call',
+      JSON.stringify(
+        {
+          name: 'lookup',
+          arguments: {
+            key: 'value',
+          },
+        },
+        null,
+        2,
+      ),
+      '',
+      'Request Tokens',
+      '10',
+      '',
+      'Response Tokens',
+      '12',
+      '',
+      'Cost',
+      '$0.123',
+      '',
+      'Duration',
+      '250ms',
+    ].join('\n'),
+  );
 });
 
 test('chat copy-value projector does not include duration when the chat UI would hide the meta block', () => {
-  const projected = projectDisplayedOutputs(
+  const serialized = serializeDisplayedOutputs(
     {
       outputData: {
         response: inlineStored('string', 'Hello world!'),
@@ -105,11 +152,11 @@ test('chat copy-value projector does not include duration when the chat UI would
     },
   );
 
-  assert.equal(projected, 'Hello world!');
+  assert.equal(serialized, 'Hello world!');
 });
 
 test('chat copy-value projector includes duration when a visible meta carrier exists even if the carrier value itself is hidden', () => {
-  const projected = projectDisplayedOutputs(
+  const serialized = serializeDisplayedOutputs(
     {
       outputData: {
         response: inlineStored('string', 'Hello world!'),
@@ -123,14 +170,11 @@ test('chat copy-value projector includes duration when a visible meta carrier ex
     },
   );
 
-  assert.deepEqual(projected, {
-    response: 'Hello world!',
-    duration: 250,
-  });
+  assert.equal(serialized, ['Response', 'Hello world!', '', 'Duration', '250ms'].join('\n'));
 });
 
 test('user input copy-value projector only copies questionsAndAnswers', () => {
-  const projected = projectDisplayedOutputs(
+  const serialized = serializeDisplayedOutputs(
     {
       outputData: {
         output: inlineStored('string[]', ['answer']),
@@ -143,11 +187,11 @@ test('user input copy-value projector only copies questionsAndAnswers', () => {
     },
   );
 
-  assert.deepEqual(projected, ['What?\nanswer']);
+  assert.equal(serialized, JSON.stringify(['What?\nanswer'], null, 2));
 });
 
 test('user input copy-value projector returns nothing when the output preview is empty', () => {
-  const projected = projectDisplayedOutputs(
+  const serialized = serializeDisplayedOutputs(
     {
       outputData: {
         questionsAndAnswers: inlineStored('control-flow-excluded', undefined),
@@ -159,11 +203,11 @@ test('user input copy-value projector returns nothing when the output preview is
     },
   );
 
-  assert.equal(projected, undefined);
+  assert.equal(serialized, undefined);
 });
 
-test('loop controller copy-value projector excludes break and iteration and includes continue plus visible outputs', () => {
-  const projected = projectDisplayedOutputs(
+test('loop controller copy-value projector excludes break and iteration and copies visible labels', () => {
+  const serialized = serializeDisplayedOutputs(
     {
       outputData: {
         break: inlineStored('any[]', ['done']),
@@ -178,15 +222,11 @@ test('loop controller copy-value projector excludes break and iteration and incl
     },
   );
 
-  assert.deepEqual(projected, {
-    continue: false,
-    output1: 'next',
-    output2: 'Not ran',
-  });
+  assert.equal(serialized, ['Continue', 'false', '', 'Output 1', 'next', '', 'Output 2', 'Not ran'].join('\n'));
 });
 
 test('subgraph copy-value projector includes visible meta and visible outputs only', () => {
-  const projected = projectDisplayedOutputs(
+  const serialized = serializeDisplayedOutputs(
     {
       outputData: {
         cost: inlineStored('number', 0.5),
@@ -203,17 +243,51 @@ test('subgraph copy-value projector includes visible meta and visible outputs on
     },
   );
 
-  assert.deepEqual(projected, {
-    cost: 0.5,
-    duration: 125,
-    result: {
-      ok: true,
+  assert.equal(
+    serialized,
+    ['Cost', '$0.500', '', 'Duration', '125ms', '', 'result', JSON.stringify({ ok: true }, null, 2)].join('\n'),
+  );
+});
+
+test('subgraph copy-value projector copies multiple body outputs as visible labels without meta', () => {
+  const serialized = serializeDisplayedOutputs(
+    {
+      outputData: {
+        first: inlineStored('string', 'one'),
+        second: inlineStored('object', {
+          two: true,
+        }),
+        [WarningsPort]: inlineStored('string[]', ['warning']),
+      },
+    } as NodeRunDataWithRefs,
+    createDataRefStore(),
+    {
+      getCopyValueData: getSubGraphNodeCopyValueData,
     },
-  });
+  );
+
+  assert.equal(serialized, ['first', 'one', '', 'second', JSON.stringify({ two: true }, null, 2)].join('\n'));
+});
+
+test('subgraph copy-value projector preserves missing body-output fallback text', () => {
+  const serialized = serializeDisplayedOutputs(
+    {
+      outputData: {
+        first: refStored('object', 'missing-subgraph-output'),
+        second: inlineStored('string', 'two'),
+      },
+    } as NodeRunDataWithRefs,
+    createDataRefStore(),
+    {
+      getCopyValueData: getSubGraphNodeCopyValueData,
+    },
+  );
+
+  assert.equal(serialized, ['first', 'Value no longer available in memory.', '', 'second', 'two'].join('\n'));
 });
 
 test('subgraph copy-value projector does not include array meta that the UI does not render', () => {
-  const projected = projectDisplayedOutputs(
+  const serialized = serializeDisplayedOutputs(
     {
       outputData: {
         cost: inlineStored('number[]', [0.5, 0.25]),
@@ -227,5 +301,5 @@ test('subgraph copy-value projector does not include array meta that the UI does
     },
   );
 
-  assert.equal(projected, 'ok');
+  assert.equal(serialized, 'ok');
 });

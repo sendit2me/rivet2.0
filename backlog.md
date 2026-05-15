@@ -1,6 +1,6 @@
 
 
-
+- When panning the artboard, it draws nodes and connections AFTER i panned them uinto view
 
 - New Code node that uses interpolated input variables. But it's not clear how to define output variables and their types
 
@@ -16,7 +16,6 @@
 
 
 
-- Copy button in the putput node section again copies JSON instead of the text
 
 - Remote debugger gets disconnected after some time
 

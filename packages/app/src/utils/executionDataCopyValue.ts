@@ -1,4 +1,5 @@
 import {
+  type NodeOutputDefinition,
   type DataValue,
   type PortId,
   WarningsPort,
@@ -9,7 +10,8 @@ import {
 import prettyBytes from 'pretty-bytes';
 import type { DataRefReader } from '../providers/ProvidersContext.js';
 import type { InputsOrOutputsWithRefs, NodeRunDataWithRefs } from '../state/dataFlow.js';
-import { restoreStoredPortMap, restoreStoredPortValue } from './executionDataReaders.js';
+import { restoreStoredPortValue } from './executionDataReaders.js';
+import { isStoredRefDataValue } from './executionDataTransforms.js';
 import {
   getByteLength,
   getStringProperty,
@@ -23,6 +25,26 @@ export type NodeOutputCopyValueProjectorArgs = {
 };
 
 export type NodeOutputCopyValueProjector = (args: NodeOutputCopyValueProjectorArgs) => unknown | undefined;
+
+export type DisplayCopySection = {
+  label: string;
+  value: unknown;
+};
+
+const DISPLAY_COPY_SECTIONS = Symbol('display-copy-sections');
+const MISSING_STORED_VALUE_TEXT = 'Value no longer available in memory.';
+
+type DisplayCopySections = {
+  [DISPLAY_COPY_SECTIONS]: true;
+  sections: DisplayCopySection[];
+};
+
+export function displayCopySections(sections: DisplayCopySection[]): unknown {
+  return {
+    [DISPLAY_COPY_SECTIONS]: true,
+    sections,
+  };
+}
 
 export function projectDataValue(value: DataValue): unknown {
   switch (value.type) {
@@ -81,83 +103,37 @@ export function projectDataValue(value: DataValue): unknown {
   }
 }
 
-export function projectStoredValue(
-  outputs: InputsOrOutputsWithRefs | undefined,
-  portId: PortId,
-  dataRefs: DataRefReader,
-): unknown | undefined {
-  const restoredValue = restoreStoredPortValue(outputs, portId, dataRefs);
-  return restoredValue ? projectDataValue(restoredValue) : undefined;
-}
-
-export function projectStoredMap(
-  outputs: InputsOrOutputsWithRefs | undefined,
-  dataRefs: DataRefReader,
-): unknown | undefined {
-  const restoredOutputs = restoreStoredPortMap(outputs, dataRefs);
-  if (!restoredOutputs) {
-    return undefined;
-  }
-
-  const visibleEntries = Object.entries(restoredOutputs).filter(([portId]) => isVisiblePort(portId));
-  if (visibleEntries.length === 0) {
-    return undefined;
-  }
-
-  if (visibleEntries.length === 1) {
-    return projectDataValue(visibleEntries[0]![1]!);
-  }
-
-  return Object.fromEntries(visibleEntries.map(([portId, value]) => [portId, projectDataValue(value!)]));
-}
-
-export function projectDisplayedOutputs(
-  data: Pick<NodeRunDataWithRefs, 'outputData' | 'splitOutputData'>,
-  dataRefs: DataRefReader,
-  options?: {
-    getCopyValueData?: NodeOutputCopyValueProjector;
-  },
-): unknown | undefined {
-  const { getCopyValueData } = options ?? {};
-
-  if (data.splitOutputData) {
-    const projectedSplitOutputs = Object.fromEntries(
-      Object.entries(data.splitOutputData)
-        .sort(([left], [right]) => Number(left) - Number(right))
-        .flatMap(([index, outputs]) => {
-          const projectedValue = getCopyValueData
-            ? getCopyValueData({ outputs, dataRefs })
-            : projectStoredMap(outputs, dataRefs);
-
-          return projectedValue === undefined ? [] : [[Number(index), projectedValue]];
-        }),
-    );
-
-    return Object.keys(projectedSplitOutputs).length > 0 ? projectedSplitOutputs : undefined;
-  }
-
-  if (!data.outputData) {
-    return undefined;
-  }
-
-  return getCopyValueData
-    ? getCopyValueData({ outputs: data.outputData, dataRefs })
-    : projectStoredMap(data.outputData, dataRefs);
-}
-
 export function serializeDisplayedOutputs(
   data: Pick<NodeRunDataWithRefs, 'outputData' | 'splitOutputData'>,
   dataRefs: DataRefReader,
   options?: {
     getCopyValueData?: NodeOutputCopyValueProjector;
+    outputDefinitions?: readonly Pick<NodeOutputDefinition, 'id' | 'title'>[];
   },
 ): string | undefined {
-  const projectedOutputs = projectDisplayedOutputs(data, dataRefs, options);
+  const { getCopyValueData, outputDefinitions } = options ?? {};
+
+  if (!getCopyValueData) {
+    return serializeGenericDisplayedOutputs(data, dataRefs, outputDefinitions);
+  }
+
+  if (data.splitOutputData) {
+    const serializedSplits = Object.entries(data.splitOutputData)
+      .sort(([left], [right]) => Number(left) - Number(right))
+      .flatMap(([, outputs]) => {
+        const projectedValue = getCopyValueData({ outputs, dataRefs });
+        return projectedValue === undefined ? [] : [serializeProjectedCopyValue(projectedValue)];
+      });
+
+    return serializedSplits.length > 0 ? serializedSplits.join('\n\n') : undefined;
+  }
+
+  const projectedOutputs = data.outputData ? getCopyValueData({ outputs: data.outputData, dataRefs }) : undefined;
   if (projectedOutputs === undefined) {
     return undefined;
   }
 
-  return typeof projectedOutputs === 'string' ? projectedOutputs : JSON.stringify(projectedOutputs, null, 2);
+  return serializeProjectedCopyValue(projectedOutputs);
 }
 
 export function isVisiblePort(portId: PortId | string): boolean {
@@ -191,6 +167,100 @@ function serializeDocument(value: Extract<DataValue, { type: 'document' }>): str
   lines.push(`Size: ${dataLength > 0 ? prettyBytes(dataLength) : '0 bytes'}`);
 
   return lines.join('\n');
+}
+
+function serializeGenericDisplayedOutputs(
+  data: Pick<NodeRunDataWithRefs, 'outputData' | 'splitOutputData'>,
+  dataRefs: DataRefReader,
+  outputDefinitions?: readonly Pick<NodeOutputDefinition, 'id' | 'title'>[],
+): string | undefined {
+  if (data.splitOutputData) {
+    const serializedSplits = Object.entries(data.splitOutputData)
+      .sort(([left], [right]) => Number(left) - Number(right))
+      .flatMap(([, outputs]) => {
+        const serialized = serializeStoredOutputPortMap(outputs, dataRefs, outputDefinitions);
+        return serialized === undefined ? [] : [serialized];
+      });
+
+    return serializedSplits.length > 0 ? serializedSplits.join('\n\n') : undefined;
+  }
+
+  return serializeStoredOutputPortMap(data.outputData, dataRefs, outputDefinitions);
+}
+
+function serializeStoredOutputPortMap(
+  outputs: InputsOrOutputsWithRefs | undefined,
+  dataRefs: DataRefReader,
+  outputDefinitions?: readonly Pick<NodeOutputDefinition, 'id' | 'title'>[],
+): string | undefined {
+  if (!outputs) {
+    return undefined;
+  }
+
+  const visibleEntries = Object.keys(outputs)
+    .filter(isVisiblePort)
+    .map((portId) => ({
+      label: outputDefinitions?.find((definition) => definition.id === portId)?.title ?? portId,
+      value: projectStoredPortValueForCopy(outputs, portId as PortId, dataRefs),
+    }));
+
+  if (visibleEntries.length === 0) {
+    return undefined;
+  }
+
+  if (visibleEntries.length === 1) {
+    return serializeProjectedCopyValue(visibleEntries[0]!.value);
+  }
+
+  return serializeProjectedCopyValue(displayCopySections(visibleEntries));
+}
+
+export function projectStoredPortValueForCopy(
+  outputs: InputsOrOutputsWithRefs,
+  portId: PortId,
+  dataRefs: DataRefReader,
+): unknown | undefined {
+  if (!(portId in outputs)) {
+    return undefined;
+  }
+
+  const restoredValue = restoreStoredPortValue(outputs, portId, dataRefs);
+  if (restoredValue) {
+    return projectDataValue(restoredValue);
+  }
+
+  return isStoredRefDataValue(outputs[portId]) ? MISSING_STORED_VALUE_TEXT : 'undefined';
+}
+
+function serializeProjectedCopyValue(value: unknown): string {
+  if (isDisplayCopySections(value)) {
+    return value.sections
+      .map(({ label, value: sectionValue }) => `${label}\n${serializeProjectedCopyValue(sectionValue)}`)
+      .join('\n\n');
+  }
+
+  if (typeof value === 'string') {
+    return value;
+  }
+
+  try {
+    return JSON.stringify(value, null, 2) ?? '';
+  } catch {
+    try {
+      return String(value);
+    } catch {
+      return '';
+    }
+  }
+}
+
+function isDisplayCopySections(value: unknown): value is DisplayCopySections {
+  const candidate = value as DisplayCopySections | undefined;
+  return (
+    candidate?.[DISPLAY_COPY_SECTIONS] === true &&
+    Array.isArray(candidate.sections) &&
+    candidate.sections.every((section) => isRecord(section) && typeof section.label === 'string')
+  );
 }
 
 function projectAnyRuntimeArray(value: unknown[], seen: WeakMap<unknown[], unknown[]>): unknown[] {

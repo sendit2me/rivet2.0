@@ -484,7 +484,9 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
     });
   };
 
-  const handleCopyToClipboard = useStableCallback(() => copyOutputValue(data, dataRefs, getCopyValueData));
+  const handleCopyToClipboard = useStableCallback(() =>
+    copyOutputValue(data, dataRefs, getCopyValueData, io.outputDefinitions),
+  );
   const handleCopyToClipboardJson = useStableCallback(() => copyOutputJson(data, dataRefs));
   const contentVersion = useMemo(
     () => ({
@@ -723,7 +725,9 @@ const NodeOutputSingleProcess: FC<{
     });
   };
 
-  const handleCopyToClipboard = useStableCallback(() => copyOutputValue(data, dataRefs, getCopyValueData));
+  const handleCopyToClipboard = useStableCallback(() =>
+    copyOutputValue(data, dataRefs, getCopyValueData, io.outputDefinitions),
+  );
   const handleOutputActionMouseDown = useStableCallback((event: MouseEvent<HTMLDivElement>) => {
     // Output controls are hover affordances. Do not let clicking them focus the
     // draggable node root, otherwise the settings gear stays visible after leave.
