@@ -1,6 +1,5 @@
 
 
-- When duplicating the node, create a copy right below the original node, not just a little bit lower
 
 
 
@@ -10,6 +9,7 @@
 
 - In the node inputs list, allow changing their order manually. But when the amount of the inputs changes, the order can reset
 
+- New artboard background image. I want diagonal strokes like in the logo. Also maybe more sparse crosses in rectangular manner
 
 
 
@@ -29,8 +29,6 @@
 - In nodes that have variadic inputs, when an input in the middle is removed, the remaining inputs look weird. Do we need to automatically remove them? It should we allow the user to remove them if needed?
 
 
-- There's 2 similar mono width fonts (node body + node output view). Or maybe they are the same fornt but different sizes. Also the one in the code editor is different. Let's only keep one
-
 - Make node terminals not round, but half squircles on the inside part of the node
 
 
@@ -42,20 +40,15 @@
 - In both Text node and Prompt node, in the statistics, output the amount of tokens (average for english language)
 
 
-
 - Reassess Loop until node. Definitely can make the end conditions better
 
-
 - Reassess Ctrl+N window
-
 
 - Human readable Loop node
 
 
-
 - In the node output when there's yellow headers, without hover the headers are not visible. I want them to be visible
 
-- New artboard background image. I want diagonal strokes like in the logo. Also maybe more sparse crosses in rectangular manner
 
 
 

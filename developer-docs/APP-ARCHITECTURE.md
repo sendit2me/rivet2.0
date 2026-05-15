@@ -597,6 +597,7 @@ Those modules hold plain graph-editing sequences and state-transition helpers th
 They also now encode a couple of important behavior invariants that callers rely on:
 
 - node duplication helpers must return structurally independent node data so editing a duplicate does not mutate the original node through shared nested references
+- single-node duplication places the copy below and slightly to the right of the source node through the shared duplicate offset in [`nodeActions.ts`](../packages/app/src/domain/graphEditing/nodeActions.ts), so context-menu and hotkey duplicates do not stack directly under the original
 - multi-node duplication helpers must preserve the duplicated cohort's internal connections and duplicated incoming connections from external source nodes
 - graph-list folder creation helpers must return unique folder paths within the target parent so repeated "new folder" actions do not collide with existing graph or folder names
 - folder rename/delete helpers should only rewrite or clear the active graph when the active graph is actually inside the affected folder subtree

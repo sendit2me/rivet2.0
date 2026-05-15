@@ -84,6 +84,22 @@ test('duplicateNodeWithConnections clones nested node data independently', () =>
   assert.equal((newNode.data as any).nested.temperature, 0.9);
 });
 
+test('duplicateNodeWithConnections places the copy below and to the right of the source node', () => {
+  const registry = createBuiltInRegistry();
+  const node = registry.createDynamic('chat');
+  node.visualData.x = 10;
+  node.visualData.y = 20;
+
+  const { newNode } = duplicateNodeWithConnections({
+    node,
+    connections: [],
+    registry,
+  });
+
+  assert.equal(newNode.visualData.x, 90);
+  assert.equal(newNode.visualData.y, 220);
+});
+
 test('createPastedNodes remaps node ids and internal connections from the new anchor position', () => {
   const registry = createBuiltInRegistry();
   const source = registry.createDynamic('chat');
