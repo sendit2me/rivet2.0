@@ -2,7 +2,7 @@
 
 ## System Requirements
 
-- MacOS: MacOS Monterey or later
+- macOS: macOS Monterey or later
 - Windows: Windows 10 or later
 - Linux: Modern version of `webkitgtk` installed that supports most of the recent web standards
 
@@ -10,7 +10,7 @@
 
 ### [Download Rivet](../download.mdx)
 
-Use the Download page for stable Windows releases from the `main` branch and developer Windows releases from the `develop` branch.
+Use the Download page for stable Windows and macOS releases from the `main` branch, plus developer Windows and macOS releases from the `develop` branch.
 
 ## Building from Source
 

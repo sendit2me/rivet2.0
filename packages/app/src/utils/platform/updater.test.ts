@@ -61,6 +61,29 @@ test('resolvePagesReleaseUpdate ignores releases for other operating systems', (
   assert.equal(result.unavailableReason, 'No stable desktop update is available for this operating system yet.');
 });
 
+test('resolvePagesReleaseUpdate reports a newer stable macOS release', () => {
+  const result = resolvePagesReleaseUpdate({
+    currentVersion: '2.0.0',
+    platform: 'darwin',
+    metadata: {
+      version: '2.0.1',
+      stableDownloads: [
+        {
+          name: 'Rivet-2-Windows-Setup.exe',
+          url: 'downloads/official/Rivet-2-Windows-Setup.exe',
+        },
+        {
+          name: 'Rivet-2-macOS.dmg',
+          url: 'downloads/official/Rivet-2-macOS.dmg',
+        },
+      ],
+    },
+  });
+
+  assert.equal(result.shouldUpdate, true);
+  assert.equal(result.manifest?.version, '2.0.1');
+});
+
 test('resolvePagesReleaseUpdate can infer the version from original artifact names', () => {
   const result = resolvePagesReleaseUpdate({
     currentVersion: '2.0.0',

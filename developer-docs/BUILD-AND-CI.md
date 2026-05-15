@@ -347,28 +347,37 @@ Current workflow references:
 - `TAURI_KEY_PASSWORD`
 - Apple signing/notarization-related secrets
 
-## Windows Pages release workflows
+## Desktop Pages release workflows
 
-Rivet publishes installer download metadata through the Docusaurus GitHub Pages site:
+Rivet publishes desktop download metadata through the Docusaurus GitHub Pages site:
 
 - [`.github/workflows/official-windows-release.yml`](../.github/workflows/official-windows-release.yml) runs on `main`
 - [`.github/workflows/developer-windows-release.yml`](../.github/workflows/developer-windows-release.yml) runs on `develop`
 
-Both workflows build installer artifacts only with `yarn tauri build --verbose --ci --bundles "msi,nsis"`. They intentionally avoid updater zip bundles, so they do not need `TAURI_PRIVATE_KEY` or `TAURI_KEY_PASSWORD`.
+The workflow filenames are historical, but the workflows are desktop release workflows. Each one builds Windows installers and a macOS disk image, then publishes both sets of aliases and original artifacts to the `/download` page.
 
-Both workflows use [`.github/scripts/prepare-windows-release-pages.mjs`](../.github/scripts/prepare-windows-release-pages.mjs) to collect files from `packages/app/src-tauri/target/release/bundle`, copy original installer artifacts under channel-specific `downloads/<channel>/original/` paths, create stable download aliases, and generate a channel metadata file.
-Before building installers, both workflows run `yarn sync:desktop-version`.
+Both workflows build only installer-style artifacts:
+
+- Windows jobs run `yarn tauri build --verbose --ci --bundles "msi,nsis"` from `packages/app`
+- macOS jobs run `yarn tauri build --verbose --ci --target universal-apple-darwin --bundles "dmg"` from `packages/app`
+
+They intentionally avoid updater zip bundles, so they do not need `TAURI_PRIVATE_KEY` or `TAURI_KEY_PASSWORD`.
+
+Both workflows use [`.github/scripts/prepare-desktop-release-pages.mjs`](../.github/scripts/prepare-desktop-release-pages.mjs) after the docs build. The script reads `WINDOWS_BUNDLE_DIR` and `MACOS_BUNDLE_DIR`, copies original artifacts under platform-specific `downloads/<channel>/original/<platform>/` paths, creates stable download aliases, and generates a channel metadata file with a shared `version` field.
+It fails the job if a requested platform does not produce a stable download alias, so a successful Pages deployment cannot silently drop the macOS DMG or the Windows installer links.
+
+Before building installers, both platform jobs run `yarn sync:desktop-version`. The `build-pages` job also runs the sync before generating metadata, because it checks out a fresh workspace and the metadata script verifies that `packages/app/package.json` and Tauri's `package.version` match.
 That sync copies `packages/app/package.json` `version` into
 `packages/app/src-tauri/tauri.conf.json`, `packages/app/src-tauri/Cargo.toml`,
 and the app entry in `Cargo.lock`. Tauri uses `tauri.conf.json`
-`package.version` for Windows bundle filenames, so this is what lets a
+`package.version` for bundle filenames, so this is what lets a
 developer bump only the app package version and still get correctly versioned
 developer/stable installer names.
 
 Generated metadata and aliases:
 
-- stable workflow: `official-release.json`, `downloads/official/Rivet-2-Windows-Setup.exe`, and `downloads/official/Rivet-2-Windows.msi`
-- developer workflow: `developer-release.json`, `downloads/developer/Rivet-2-Developer-Windows-Setup.exe`, and `downloads/developer/Rivet-2-Developer-Windows.msi`
+- stable workflow: `official-release.json`, `downloads/official/Rivet-2-Windows-Setup.exe`, `downloads/official/Rivet-2-Windows.msi`, and `downloads/official/Rivet-2-macOS.dmg`
+- developer workflow: `developer-release.json`, `downloads/developer/Rivet-2-Developer-Windows-Setup.exe`, `downloads/developer/Rivet-2-Developer-Windows.msi`, and `downloads/developer/Rivet-2-Developer-macOS.dmg`
 
 The `/download` docs page reads both metadata files. A Pages deploy replaces the whole site, so each release workflow preserves the other channel from the currently published Pages site before writing its own current channel:
 
@@ -386,11 +395,12 @@ The release workflows share the `rivet-docs-pages` concurrency group with `cance
 
 #### Current behavior
 
-The workflow has two jobs:
+The workflow has four jobs:
 
 1. `build-windows` runs on `windows-latest`, checks out the repo, sets up Node `20.4.x`, installs Rust stable, runs `yarn --immutable`, syncs desktop version metadata, runs the root `yarn build`, then runs `yarn tauri build --verbose --ci --bundles "msi,nsis"` from `packages/app`.
-2. The same Windows job builds the Docusaurus docs site from `packages/docs`, preserves the current developer release feed from Pages if it exists, writes stable release metadata and installer files into `packages/docs/build`, and uploads that complete docs-site artifact.
-3. `publish-pages` runs on `ubuntu-latest`, downloads the generated docs-site artifact, configures GitHub Pages, uploads it as a GitHub Pages artifact, and deploys it with `actions/deploy-pages`.
+2. `build-macos` runs on `macos-latest`, checks out the repo, sets up Node `20.4.x`, installs the stable Rust toolchain with `x86_64-apple-darwin` and `aarch64-apple-darwin` targets, runs `yarn --immutable`, syncs desktop version metadata, runs the root `yarn build`, then runs `yarn tauri build --verbose --ci --target universal-apple-darwin --bundles "dmg"` from `packages/app`.
+3. `build-pages` runs on `ubuntu-latest`, syncs desktop version metadata, builds the Docusaurus docs site from `packages/docs`, downloads the Windows and macOS bundle artifacts, preserves the current developer release feed from Pages if it exists, writes stable release metadata and installer files into `packages/docs/build`, and uploads that complete docs-site artifact.
+4. `publish-pages` runs on `ubuntu-latest`, downloads the generated docs-site artifact, configures GitHub Pages, uploads it as a GitHub Pages artifact, and deploys it with `actions/deploy-pages`.
 
 The stable deploy job uses the `github-pages` environment. If that environment has branch restrictions, it must allow `main`.
 
@@ -405,13 +415,14 @@ This workflow is intentionally develop-only. It does not run for `main`.
 
 ### Current behavior
 
-The workflow has two jobs:
+The workflow has four jobs:
 
 1. `build-windows` runs on `windows-latest`, checks out the repo, sets up Node `20.4.x`, installs Rust stable, runs `yarn --immutable`, syncs desktop version metadata, runs the root `yarn build`, then runs `yarn tauri build --verbose --ci --bundles "msi,nsis"` from `packages/app`.
-2. The same Windows job builds the Docusaurus docs site from `packages/docs`, preserves the current stable release feed from Pages if it exists, writes developer release metadata and installer files into `packages/docs/build`, and uploads that complete docs-site artifact.
-3. `publish-pages` runs on `ubuntu-latest`, downloads the generated docs-site artifact, configures GitHub Pages, uploads it as a GitHub Pages artifact, and deploys it with `actions/deploy-pages`.
+2. `build-macos` runs on `macos-latest`, checks out the repo, sets up Node `20.4.x`, installs the stable Rust toolchain with `x86_64-apple-darwin` and `aarch64-apple-darwin` targets, runs `yarn --immutable`, syncs desktop version metadata, runs the root `yarn build`, then runs `yarn tauri build --verbose --ci --target universal-apple-darwin --bundles "dmg"` from `packages/app`.
+3. `build-pages` runs on `ubuntu-latest`, syncs desktop version metadata, builds the Docusaurus docs site from `packages/docs`, downloads the Windows and macOS bundle artifacts, preserves the current stable release feed from Pages if it exists, writes developer release metadata and installer files into `packages/docs/build`, and uploads that complete docs-site artifact.
+4. `publish-pages` runs on `ubuntu-latest`, downloads the generated docs-site artifact, configures GitHub Pages, uploads it as a GitHub Pages artifact, and deploys it with `actions/deploy-pages`.
 
-Docusaurus owns the site root and reads `developer-release.json` on the `/download` page. The generated Pages site represents the current public docs plus the latest successful developer Windows release from `develop`, while preserving the stable release feed that was already published from `main`.
+Docusaurus owns the site root and reads `developer-release.json` on the `/download` page. The generated Pages site represents the current public docs plus the latest successful developer Windows and macOS release from `develop`, while preserving the stable release feed that was already published from `main`.
 
 ### Pages requirements
 
@@ -422,13 +433,15 @@ The repository's GitHub Pages source must be configured for GitHub Actions deplo
 
 `PAGES_ENABLEMENT_TOKEN` must be stronger than the default `GITHUB_TOKEN`; `actions/configure-pages` requires a separate token for enablement. Use a fine-grained token with Pages write access for this repository, a classic token with `repo` scope, or a GitHub App token with `administration:write` and `pages:write`. After Pages is enabled, the normal deployment still uses the workflow's `pages: write` and `id-token: write` permissions.
 
-The developer deploy job uses the `developer-windows-pages` environment instead of the default `github-pages` environment. This keeps the develop-branch installer feed from being blocked by production-oriented `github-pages` environment protection rules, such as "only main can deploy." If the `developer-windows-pages` environment is later given branch restrictions, it must allow `develop`.
+The developer deploy job uses the historically named `developer-windows-pages` environment instead of the default `github-pages` environment. Even though the workflow now publishes Windows and macOS desktop downloads, keeping the existing environment name avoids requiring a one-time GitHub environment migration. This keeps the develop-branch installer feed from being blocked by production-oriented `github-pages` environment protection rules, such as "only main can deploy." If the `developer-windows-pages` environment is later given branch restrictions, it must allow `develop`.
 
 The Pages release workflows use Node 24-compatible artifact action majors (`actions/upload-artifact@v7`, `actions/download-artifact@v7`, and `actions/upload-pages-artifact@v5`) and do not force Node 24 globally with `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24`. The build itself still uses Node `20.4.x`; that is the project toolchain, not the JavaScript runtime used by GitHub's actions.
 
 ### Secrets/environment
 
-The Pages release workflows do not pass updater-signing secrets. They explicitly request only the Windows installer bundles with `--bundles "msi,nsis"`, so Tauri does not create updater zip bundles and does not need `TAURI_PRIVATE_KEY` or `TAURI_KEY_PASSWORD`.
+The Pages release workflows do not pass updater-signing secrets. They explicitly request only Windows installer bundles and the macOS DMG bundle, so Tauri does not create updater zip bundles and does not need `TAURI_PRIVATE_KEY` or `TAURI_KEY_PASSWORD`.
+
+The Pages macOS job uses the same Tauri macOS packaging path as the tagged release workflow's universal target, but it does not publish signed updater feeds. If macOS signing or notarization is added to these Pages artifacts later, keep that separate from updater signing and document the required Apple secrets here.
 
 Optional Pages-release secret:
 
@@ -437,7 +450,7 @@ Optional Pages-release secret:
 Deployment environment:
 
 - `github-pages`: used by the main-branch stable release deployment. It should allow `main`.
-- `developer-windows-pages`: used by the develop-branch Pages deployment. Leave it unrestricted or allow the `develop` branch.
+- `developer-windows-pages`: historically named environment used by the develop-branch desktop Pages deployment. Leave it unrestricted or allow the `develop` branch.
 
 Production updater/tagged desktop release workflows still use the updater-enabled Tauri packaging contract and therefore continue to require updater signing secrets. Keep the Pages release workflows installer-only unless one is intentionally promoted into an updater feed.
 
@@ -578,7 +591,7 @@ Tauri config lives in [`packages/app/src-tauri/tauri.conf.json`](../packages/app
 
 The app package is not standalone frontend output. Tauri packaging, sidecars, update-check behavior, and shell permissions are part of the build contract. CI workflows that only need installer artifacts can override the bundle targets at build time to avoid updater signing.
 
-Settings > Updates uses the GitHub Pages stable release feed at `https://valerypopoff.github.io/rivet2.0/official-release.json`, the same metadata source rendered by the `/download` documentation page. The `official-release.json` filename is kept as the internal compatibility name for the `main`-branch release feed, but the user-facing site calls it the latest stable release. The app compares the current desktop version and browser-reported operating system against that metadata. It intentionally avoids `@tauri-apps/api/os` so the update check does not require enabling the Tauri OS allowlist. When a newer compatible stable desktop release exists, the toast opens the public `/download` page instead of calling Tauri's signed in-place updater. This keeps update checks working with the current Pages-based installer workflow, which publishes `.exe` and `.msi` downloads but intentionally does not publish signed updater bundles.
+Settings > Updates uses the GitHub Pages stable release feed at `https://valerypopoff.github.io/rivet2.0/official-release.json`, the same metadata source rendered by the `/download` documentation page. The `official-release.json` filename is kept as the internal compatibility name for the `main`-branch release feed, but the user-facing site calls it the latest stable release. The app compares the current desktop version and browser-reported operating system against that metadata. It intentionally avoids `@tauri-apps/api/os` so the update check does not require enabling the Tauri OS allowlist. When a newer compatible stable desktop release exists, the toast opens the public `/download` page instead of calling Tauri's signed in-place updater. This keeps update checks working with the current Pages-based installer workflow, which publishes `.exe`, `.msi`, and `.dmg` downloads but intentionally does not publish signed updater bundles.
 
 The current app shell does not mount the old updater modal or Tauri updater event monitor. Update availability is announced directly from `useCheckForUpdate` through a toast with a `Download` action that opens the public download page.
 
@@ -640,7 +653,7 @@ This script is intentionally aggressive and should be treated carefully. It only
 The current effective release flow is:
 
 1. update versions in package manifests; for desktop app releases, `packages/app/package.json` is the source and `yarn sync:desktop-version` updates Tauri/Cargo metadata
-2. push to `main` to publish npm packages and the current stable Windows installer feed on GitHub Pages
+2. push to `main` to publish npm packages and the current stable Windows/macOS desktop download feed on GitHub Pages
 3. push `app-v*` tag for updater-enabled desktop release drafts when that path is needed
 4. let `release.yml` create draft desktop artifacts
 5. let `rename-release-assets.yml` normalize asset names
