@@ -1,7 +1,6 @@
 
 
-- For the comment node, the default background color should be mid-gray
-- In the comment node, the noide is much more minimalistic than in usual nodes and as a result the gear icon is too pressed into the header corner. Fix it
+- In the comment node, the node header is much more minimalistic than in usual nodes and as a result the gear icon is too pressed into the header corner. Fix it
 
 
 - Need to show the curent graph name somewhere. When there's many and they are in the folders and you click through subgraphs, the user gets lost. It's already shown in the run button. maybe make it more noticeable?

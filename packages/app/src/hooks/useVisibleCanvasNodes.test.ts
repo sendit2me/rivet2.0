@@ -23,7 +23,7 @@ function createNode(id: NodeId, x: number, y: number, width = 320): ChartNode {
 function createCommentNode(id: NodeId, x: number, y: number, width: number, height: number): CommentNode {
   return {
     data: {
-      backgroundColor: 'rgba(0,0,0,0.05)',
+      backgroundColor: 'rgba(128,128,128,0.05)',
       color: 'rgba(255,255,255,1)',
       height,
       text: '',
