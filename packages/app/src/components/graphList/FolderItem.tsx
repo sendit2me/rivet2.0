@@ -19,7 +19,7 @@ import FolderIcon from 'majesticons/line/folder-line.svg?react';
 import { useStableCallback } from '../../hooks/useStableCallback.js';
 import TextField from '@atlaskit/textfield';
 import { expandedFoldersState } from '../../state/ui';
-import { countGraphsInFolder, type NodeGraphFolderItem } from './graphFolders';
+import { countGraphsInFolder, isInFolder, type NodeGraphFolderItem } from './graphFolders';
 import { type GraphReachabilityBucket } from '../../utils/graphReachability.js';
 import { MainGraphIcon } from './MainGraphIcon';
 import { NodeRunningIndicator } from '../visualNode/NodeRunningIndicator.js';
@@ -62,6 +62,9 @@ export const FolderItem: FC<{
 
     const isRenaming = renamingItemFullPath === fullPath;
     const isSelected = graph.metadata?.id === savedGraph?.metadata?.id;
+    const openGraphName = graph.metadata?.name;
+    const isCollapsedOpenGraphFolder =
+      item.type === 'folder' && !isExpanded && openGraphName != null && isInFolder(fullPath, openGraphName);
     const isMainGraph = item.type === 'graph' && savedGraph?.metadata?.id === projectMetadata.mainGraphId;
     const referencesSelectedGraph =
       item.type === 'graph' && savedGraph?.metadata?.id
@@ -138,13 +141,18 @@ export const FolderItem: FC<{
           style={style}
         >
           <div
-            className={clsx('graph-item', { selected: isSelected, 'folder-graph-item': item.type === 'folder' })}
+            className={clsx('graph-item', {
+              selected: isSelected,
+              'folder-graph-item': item.type === 'folder',
+              'contains-open-graph': isCollapsedOpenGraphFolder,
+            })}
             data-contextmenutype={item.type === 'folder' ? 'graph-folder' : 'graph-item'}
             data-graphid={savedGraph?.metadata?.id}
             data-folderpath={item.type === 'folder' ? item.fullPath : item.graph.metadata?.name}
             style={graphItemStyle}
             title={[
               fullPath,
+              isCollapsedOpenGraphFolder ? 'Contains the open graph.' : undefined,
               isMainGraph ? 'Main graph.' : undefined,
               referencesSelectedGraph ? 'References the open graph.' : undefined,
             ]

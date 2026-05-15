@@ -272,6 +272,15 @@ const styles = css`
     color: inherit;
   }
 
+  .contains-open-graph .graph-item-select {
+    background-color: color-mix(in srgb, var(--primary) 28%, transparent);
+    color: var(--grey-lightest);
+  }
+
+  .contains-open-graph:hover .graph-item-select {
+    background-color: color-mix(in srgb, var(--primary) 38%, var(--grey-darkish));
+  }
+
   .graph-reference-dot {
     position: absolute;
     left: -3px;

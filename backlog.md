@@ -1,7 +1,6 @@
 
 
-
-- When the graph is open but it is in the folder that is collapsed in the sidebar, highlight the folder where the graph is so it's easier to find the graph in the tree
+- When duplicating the node, create a copy right below the original node, not just a little bit lower
 
 
 
@@ -21,7 +20,6 @@
 
 - Need a "Not" node?
 
-- When duplicating the node, create a copy right below the original node, not just a little bit lower
 
 
 
