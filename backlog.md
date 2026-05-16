@@ -1,6 +1,5 @@
 
 
-- In MacOS app, some corner radiuses are way bigger than they need to be
 
 - New Code node that uses interpolated input variables. But it's not clear how to define output variables and their types
 
