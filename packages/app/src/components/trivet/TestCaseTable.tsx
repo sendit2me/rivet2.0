@@ -138,6 +138,9 @@ const styles = css`
         background-color: var(--primary);
         border-radius: 8px;
         corner-shape: squircle;
+        @supports not (corner-shape: squircle) {
+          border-radius: 4px;
+        }
       }
     }
   }

@@ -1,5 +1,7 @@
 
 
+- In MacOS app, some corner radiuses are way bigger than they need to be
+
 - New Code node that uses interpolated input variables. But it's not clear how to define output variables and their types
 
 - Need a "Not" node?
@@ -12,7 +14,16 @@
 - New artboard background image. I want diagonal strokes like in the logo. Also maybe more sparse crosses in rectangular manner
 
 
+- Support Python in all nodes that support javascript
+
+
 - In the node inputs list, allow changing their order manually. But when the amount of the inputs changes, the order can reset
+
+- Reassess Ctrl+N window
+
+
+- Get back to MCP and see if it works and how it works. I don't see an MCP node. I think we need it
+- Reassess all the "Generate using AI" in different nodes. The model picker is clipped by the section border
 
 
 - Add "Freeze node" functionality? Kust like in That Databricks tool. Maybe it can replace the current LLM chat node's "cache" functionality
@@ -24,16 +35,12 @@
 - Make node terminals not round, but half squircles on the inside part of the node
 
 
-- Get back to MCP and see if it works and how it works. I don't see an MCP node. I think we need it
-- Reassess all the "Generate using AI" in different nodes. The model picker is clipped by the section border
-
 
 - In both Text node and Prompt node, in the statistics, output the amount of tokens (average for english language)
 
 
 - Reassess Loop until node. Definitely can make the end conditions better
 
-- Reassess Ctrl+N window
 
 - Human readable Loop node
 
@@ -42,8 +49,6 @@
 
 
 
-
-- Remove the colored triangle in the node's output
 
 
 
@@ -57,7 +62,6 @@ rivet2.0/packages/app/src/assets/tutorials
 - Add mid points to connections so I can do neat wiring
 - Code node (and Expression node) should have a "Catch failures" switcher so I can safely fallback with coalesce
 
-- Support Python in all nodes that support javascript
 - Light color theme
 
 - Check the AI workflow generation feature

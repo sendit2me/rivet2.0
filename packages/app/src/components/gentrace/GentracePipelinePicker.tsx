@@ -148,6 +148,9 @@ const GentracePipelinePicker: FC<GentracePipelinePickerProps> = ({ onClose }) =>
             height: 32px;
             border-radius: 10px;
             corner-shape: squircle;
+            @supports not (corner-shape: squircle) {
+              border-radius: 5px;
+            }
             background: ${selectedPipelineOption ? 'var(--success)' : 'var(--grey-darker)'};
           `}
           disabled={!selectedPipelineOption}

@@ -23,6 +23,9 @@ const styles = css`
     background: var(--grey-darker);
     border-radius: calc(32px * var(--ui-font-scale));
     corner-shape: superellipse(1.15);
+    @supports not (corner-shape: squircle) {
+      border-radius: calc(16px * var(--ui-font-scale));
+    }
     border: 1px solid var(--grey-dark);
     z-index: 50;
     /* box-shadow: 3px 1px 10px rgba(0, 0, 0, 0.5); */

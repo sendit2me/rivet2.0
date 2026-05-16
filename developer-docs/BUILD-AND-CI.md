@@ -21,6 +21,12 @@ Required for:
 - Tauri desktop builds
 - release pipelines that package the app
 
+On Windows, Tauri's Rust build also needs Visual Studio Build Tools with the
+Windows SDK resource compiler (`RC.EXE`) on `PATH`. If `yarn dev` reaches
+`failed to run custom build command` and `Are you sure you have RC.EXE in your
+$PATH?`, install the Desktop development with C++ workload/Windows SDK or run
+the command from Developer PowerShell for Visual Studio.
+
 ## Root Scripts
 
 Current root scripts from `package.json`:

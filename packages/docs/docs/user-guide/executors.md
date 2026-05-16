@@ -24,6 +24,8 @@ The Node executor runs graphs through the app-executor sidecar and communicates 
 
 The desktop app binds its internal executor to `127.0.0.1:21889` by default. Hosted or containerized wrappers can run the same executor on a different bind host or port with `RIVET_EXECUTOR_HOST`, `RIVET_EXECUTOR_PORT`, `--host`, and `--port`.
 
+For Code and Expression nodes, the Node executor prewarms a small pool of single-use worker threads. Each run still gets an isolated worker, but common small workflows avoid paying worker startup time on every run. Hosted or advanced local setups can tune this with `RIVET_CODE_RUNNER_WORKER_POOL_SIZE`; the default is `2`, and `0` disables prewarming.
+
 ## Remote
 
 This executor connects to an external Rivet debugger server and lets another process run or debug graphs while Rivet shows live execution. It requires the remote debugger to be set up in that process. If the remote process implements `dynamicGraphRun`, Rivet can ask it to run the graph shown in the editor. If it enables graph upload, Rivet can upload the current project before running it remotely.

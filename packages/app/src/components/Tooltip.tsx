@@ -33,6 +33,9 @@ const style = css`
       0 2px 4px rgba(0, 0, 0, 0.2);
     border-radius: 8px;
     corner-shape: squircle;
+    @supports not (corner-shape: squircle) {
+      border-radius: 4px;
+    }
     padding: 4px 8px;
     font-size: var(--ui-font-size-sm);
     transition:

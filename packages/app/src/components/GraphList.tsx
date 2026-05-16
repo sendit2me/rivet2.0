@@ -211,6 +211,9 @@ const styles = css`
     min-width: 0;
     border-radius: 4px;
     corner-shape: squircle;
+    @supports not (corner-shape: squircle) {
+      border-radius: 2px;
+    }
   }
 
   .dragging .graph-item-select {
@@ -351,6 +354,9 @@ const styles = css`
     border: 1px solid var(--grey-dark);
     border-radius: 16px;
     corner-shape: squircle;
+    @supports not (corner-shape: squircle) {
+      border-radius: 8px;
+    }
     display: flex;
     align-items: center;
     justify-content: center;
@@ -372,6 +378,9 @@ const styles = css`
     border: 1px solid var(--warning);
     border-radius: 12px;
     corner-shape: squircle;
+    @supports not (corner-shape: squircle) {
+      border-radius: 6px;
+    }
     background: var(--warning-lighter);
     color: var(--warning-dark);
     font-size: var(--ui-font-size-xs);
@@ -384,6 +393,9 @@ const styles = css`
     border: 1px solid color-mix(in srgb, currentColor 42%, transparent);
     border-radius: 40px;
     corner-shape: superellipse(1.15);
+    @supports not (corner-shape: squircle) {
+      border-radius: 20px;
+    }
     background: color-mix(in srgb, currentColor 10%, transparent);
     color: color-mix(in srgb, currentColor 72%, transparent);
     font-size: var(--ui-font-size-2xs);

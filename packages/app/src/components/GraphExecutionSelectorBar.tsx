@@ -17,6 +17,9 @@ const styles = css`
   background: var(--grey-darker);
   border-radius: 12px;
   corner-shape: squircle;
+  @supports not (corner-shape: squircle) {
+    border-radius: 6px;
+  }
   border: 1px solid var(--grey-darkish);
   height: var(--action-bar-height);
   z-index: 40;

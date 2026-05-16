@@ -298,6 +298,9 @@ const fullscreenOutputCss = css`
     gap: 0;
     border-radius: 8px;
     corner-shape: squircle;
+    @supports not (corner-shape: squircle) {
+      border-radius: 4px;
+    }
     box-shadow: none;
     margin-bottom: 8px;
 
@@ -373,6 +376,9 @@ const fullscreenOutputCss = css`
     background: rgba(255, 214, 10, 0.3);
     border-radius: 4px;
     corner-shape: squircle;
+    @supports not (corner-shape: squircle) {
+      border-radius: 2px;
+    }
   }
 
   .${MATCH_ACTIVE_CLASS} {

@@ -59,6 +59,9 @@ const styles = css`
     padding: 12px 16px;
     border-radius: 10px;
     corner-shape: squircle;
+    @supports not (corner-shape: squircle) {
+      border-radius: 5px;
+    }
     background-color: var(--grey-darkish);
     display: flex;
     align-items: center;
@@ -95,6 +98,9 @@ const styles = css`
     border: 1px solid var(--primary);
     border-radius: 20px;
     corner-shape: squircle;
+    @supports not (corner-shape: squircle) {
+      border-radius: 10px;
+    }
     box-shadow: 0 0 10px var(--shadow-primary-bright);
 
     &.complete,
@@ -132,6 +138,9 @@ const styles = css`
       background-color: var(--grey-darkish);
       border-radius: 20px 20px 0 0;
       corner-shape: squircle;
+      @supports not (corner-shape: squircle) {
+        border-radius: 10px 10px 0 0;
+      }
       border-bottom: 1px solid var(--grey-light);
       display: flex;
       align-items: center;

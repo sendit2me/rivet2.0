@@ -94,6 +94,9 @@ const modalBodyStyles = css`
       padding: 4px 8px;
       border-radius: 16px;
       corner-shape: squircle;
+      @supports not (corner-shape: squircle) {
+        border-radius: 8px;
+      }
     }
   }
 

@@ -17,6 +17,9 @@ const style = css`
   padding: 12px;
   border-radius: 10px;
   corner-shape: squircle;
+  @supports not (corner-shape: squircle) {
+    border-radius: 5px;
+  }
   background-color: var(--grey-darker);
   color: var(--foreground);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);

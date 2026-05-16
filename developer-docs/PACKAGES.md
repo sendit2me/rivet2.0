@@ -183,6 +183,20 @@ programmatic callers still use `NodeCodeRunner` by default unless they pass a
 custom `codeRunner`, and Code nodes that request the `Rivet` capability fall back
 to current-thread execution inside the sidecar for compatibility.
 
+For ordinary Code and Expression node execution, the app executor keeps a small
+pool of prewarmed single-use workers. Each run still consumes a fresh worker and
+terminates it after the result so `globalThis` state and `require()` module
+cache do not leak between runs, but worker startup is moved out of the hot path
+for the next run. The default pool size is `2`; hosted/runtime environments can
+set `RIVET_CODE_RUNNER_WORKER_POOL_SIZE` to tune it or set it to `0` to disable
+prewarming.
+
+The shared pool is created lazily by the code runner module, while the
+app-executor sidecar explicitly prewarms it during startup before announcing the
+executor websocket. Idle workers are unrefed and guarded with error/exit cleanup
+so an unexpected idle-worker failure is removed from the pool and replenished
+without turning into a top-level sidecar error.
+
 Code-node `require()` resolution is intentionally configurable for hosted runtimes.
 Both public `NodeCodeRunner` and the app-executor worker runner honor
 `RIVET_CODE_RUNNER_REQUIRE_ROOT` and `RIVET_CODE_RUNNER_REQUIRE_ANCHOR`. By

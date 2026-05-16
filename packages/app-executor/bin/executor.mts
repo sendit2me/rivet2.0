@@ -23,11 +23,18 @@ import { join } from 'node:path';
 import { access, readFile } from 'node:fs/promises';
 import { platform, homedir } from 'node:os';
 import { pathToFileURL } from 'node:url';
-import { AppExecutorWorkerCodeRunner } from './AppExecutorWorkerCodeRunner.mjs';
+import {
+  AppExecutorWorkerCodeRunner,
+  prewarmSharedAppExecutorCodeWorkerPool,
+  shutdownSharedAppExecutorCodeWorkerPool,
+} from './AppExecutorWorkerCodeRunner.mjs';
 import { parseExecutorHostFromArgs, parseExecutorPortFromArgs } from './executorConfig.mjs';
 
 const datasetProvider = new DebuggerDatasetProvider();
 const editorExecutionCachesByProjectId = new Map<string, Map<string, unknown>>();
+const sharedCodeWorkerPoolReady = prewarmSharedAppExecutorCodeWorkerPool().catch((error) => {
+  logRuntimeError('Failed to prewarm app-executor code workers.', error);
+});
 
 function getEditorExecutionCache(project: Rivet.Project) {
   let cache = editorExecutionCachesByProjectId.get(project.metadata.id);
@@ -248,17 +255,19 @@ const rivetDebugger = startDebuggerServer({
 
 process.on('SIGTERM', () => {
   rivetDebugger.webSocketServer.close();
+  void shutdownSharedAppExecutorCodeWorkerPool();
 });
 
-function announceExecutorReady() {
+async function announceExecutorReady() {
+  await sharedCodeWorkerPoolReady;
   executorWebSocketReady = true;
   logRuntimeInfo(executorReadyMessage);
 }
 
 if (rivetDebugger.webSocketServer.address()) {
-  announceExecutorReady();
+  void announceExecutorReady();
 } else {
   rivetDebugger.webSocketServer.once('listening', () => {
-    announceExecutorReady();
+    void announceExecutorReady();
   });
 }

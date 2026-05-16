@@ -40,6 +40,11 @@ const styles = css`
   --ai-assist-toggle-padding-y: calc(8px * var(--ui-font-scale));
   --ai-assist-toggle-icon-size: calc(24px * var(--ui-font-scale));
 
+  @supports not (corner-shape: squircle) {
+    --ai-assist-radius: calc(8px * var(--ui-font-scale));
+    --ai-assist-toggle-radius: calc(4px * var(--ui-font-scale));
+  }
+
   grid-column: span 2;
 
   .ai-assist-toggle-container {

@@ -37,6 +37,9 @@ const styles = css`
   background: var(--grey-darker);
   border-radius: 8px;
   corner-shape: squircle;
+  @supports not (corner-shape: squircle) {
+    border-radius: 4px;
+  }
   border: 1px solid var(--grey-dark);
   height: var(--action-bar-height);
   z-index: 220;

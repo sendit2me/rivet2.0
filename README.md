@@ -48,6 +48,9 @@ The repo also includes `developer-docs/`, which documents current architecture a
 - Node.js 20.4.x or a compatible Node 20 runtime.
 - Yarn through the checked-in Yarn release (`packageManager` currently points at Yarn 4.6.0).
 - Rust stable and the Tauri platform prerequisites if you are building desktop bundles.
+- On Windows desktop builds, Visual Studio Build Tools with the Windows SDK must
+  be installed and available on `PATH` so Tauri can find `RC.EXE`; using
+  Developer PowerShell for Visual Studio is the usual way to get that environment.
 
 ### Install Dependencies
 

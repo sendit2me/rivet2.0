@@ -79,3 +79,19 @@ test('portal typography tokens keep popup surfaces on Rivet fonts', () => {
   assert.match(postResetCss, /--ds-font-label:[\s\S]*var\(--label-font-family,/);
   assert.match(postResetCss, /--toastify-font-family: var\(--font-family\);/);
 });
+
+test('app rounded surfaces keep squircle geometry with plain-radius fallback', () => {
+  const indexCss = readFileSync(join(srcDir, 'index.css'), 'utf8');
+  const nodeStyles = readFileSync(join(srcDir, 'components', 'nodeStyles.ts'), 'utf8');
+
+  assert.match(indexCss, /button\s*{[\s\S]*border-radius: var\(--ui-button-radius\);[\s\S]*corner-shape: squircle;/);
+  assert.match(
+    indexCss,
+    /@supports not \(corner-shape: squircle\)\s*{[\s\S]*--ui-button-radius: calc\(5px \* var\(--ui-font-scale\)\);[\s\S]*--ui-button-radius-sm: calc\(4px \* var\(--ui-font-scale\)\);/,
+  );
+  assert.match(nodeStyles, /--node-card-radius: calc\(20px \* var\(--ui-font-scale\)\);/);
+  assert.match(
+    nodeStyles,
+    /@supports not \(corner-shape: squircle\)\s*{[\s\S]*--node-card-radius: calc\(10px \* var\(--ui-font-scale\)\);/,
+  );
+});

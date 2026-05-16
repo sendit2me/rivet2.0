@@ -40,6 +40,9 @@ export const revisionStyles = css`
   .hash {
     border-radius: 16px;
     corner-shape: squircle;
+    @supports not (corner-shape: squircle) {
+      border-radius: 8px;
+    }
     background-color: black;
     display: inline-flex;
     padding: 2px 4px;

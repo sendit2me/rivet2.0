@@ -65,6 +65,9 @@ export const nodeCanvasStyles = css`
     padding: 10px 20px;
     border-radius: 10px;
     corner-shape: squircle;
+    @supports not (corner-shape: squircle) {
+      border-radius: 5px;
+    }
     background-color: rgba(255, 255, 255, 0.03);
     color: var(--foreground);
     box-shadow: 0 2px 4px var(--shadow);

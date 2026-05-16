@@ -94,6 +94,9 @@ const styles = css`
     border: 1px solid var(--grey-darkish);
     border-radius: 12px;
     corner-shape: squircle;
+    @supports not (corner-shape: squircle) {
+      border-radius: 6px;
+    }
     box-shadow: 3px 1px 10px rgba(0, 0, 0, 0.4);
     display: flex;
     flex-direction: column;
@@ -218,6 +221,9 @@ const styles = css`
       background: rgba(255, 255, 255, 0.06);
       border-radius: 12px;
       corner-shape: squircle;
+      @supports not (corner-shape: squircle) {
+        border-radius: 6px;
+      }
       box-shadow: none;
       color: var(--grey-lightest);
       display: flex;
@@ -271,6 +277,9 @@ const styles = css`
       background: rgba(255, 255, 255, 0.08);
       border-radius: 0 0 12px 12px;
       corner-shape: squircle;
+      @supports not (corner-shape: squircle) {
+        border-radius: 0 0 6px 6px;
+      }
       display: flex;
       flex-direction: column;
       gap: 4px;
@@ -333,6 +342,9 @@ const styles = css`
           padding: 8px;
           border-radius: 8px;
           corner-shape: squircle;
+          @supports not (corner-shape: squircle) {
+            border-radius: 4px;
+          }
           background: var(--grey-darkerish);
 
           .title {

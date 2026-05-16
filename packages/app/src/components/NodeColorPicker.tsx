@@ -25,6 +25,9 @@ const buttonStyles = css`
     width: 32px;
     height: 32px;
     border-radius: 8px;
+    @supports not (corner-shape: squircle) {
+      border-radius: 4px;
+    }
 
     &:hover {
       border-color: var(--grey-light);
@@ -67,6 +70,9 @@ const popupStyles = css`
       width: 32px;
       height: 32px;
       border-radius: 4px;
+      @supports not (corner-shape: squircle) {
+        border-radius: 2px;
+      }
 
       &::after {
         content: '';

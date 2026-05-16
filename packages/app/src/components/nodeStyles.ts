@@ -32,6 +32,12 @@ export const nodeStyles = css`
     pointer-events: auto;
   }
 
+  @supports not (corner-shape: squircle) {
+    .node {
+      --node-card-radius: calc(10px * var(--ui-font-scale));
+    }
+  }
+
   .node:focus {
     outline: none;
   }
@@ -325,6 +331,9 @@ export const nodeStyles = css`
     border: 0;
     border-radius: 0.8em;
     corner-shape: squircle;
+    @supports not (corner-shape: squircle) {
+      border-radius: 0.4em;
+    }
     background: color-mix(in srgb, var(--node-bg-foreground) 85%, transparent);
     color: var(--node-bg);
     cursor: pointer;
@@ -549,6 +558,9 @@ export const nodeStyles = css`
       font-family: inherit;
       border-radius: 0 8px 8px 0;
       corner-shape: squircle;
+      @supports not (corner-shape: squircle) {
+        border-radius: 0 4px 4px 0;
+      }
       user-select: none;
     }
   }

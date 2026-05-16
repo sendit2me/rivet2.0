@@ -246,6 +246,14 @@ reads the session socket from UI state. Raw socket/status fields are still
 available to low-level runtime code and tests, but product UI should use the
 selector and capability layer.
 
+`useRemoteExecutor` caches the last successfully uploaded
+project/settings/static-data payload per executor session. The cache key includes
+the derived project graph/plugin state, resolved runtime settings, and static
+project data; it is cleared on executor connect/disconnect. Identical
+consecutive runs can therefore send only the lightweight `run` message, while
+graph edits, settings/env changes, static data changes, or a new session force a
+fresh upload. Failed project or static-data sends do not update the cache.
+
 Executor-session callbacks are failure-isolated. Lifecycle subscribers,
 process-message subscribers, and the renderer state-change callback are invoked
 from snapshots, and both synchronous throws and asynchronous promise rejections
@@ -636,6 +644,16 @@ the loopback default. If the plain web app loads a stale
 persisted Node executor preference, it resets to Browser mode instead of
 attempting an internal sidecar connection that cannot be created in a normal
 browser.
+
+The app-executor prewarms its shared CodeRunner worker pool before announcing
+that the executor websocket is ready. Ordinary Code and Expression node runs use
+single-use workers from that pool, then terminate them and replenish the pool in
+the background. This keeps fresh-worker isolation while avoiding the common
+cold-start cost on minimal Node-executor workflows. `RIVET_CODE_RUNNER_WORKER_POOL_SIZE`
+controls the number of prewarmed workers, and `0` disables prewarming.
+The shared pool is lazy outside the sidecar entrypoint, and idle workers are
+unrefed plus guarded with error/exit cleanup so failed idle workers are dropped
+and replenished without surfacing as executor process errors.
 
 If the user connects an external remote debugger while Node executor mode is
 selected, that external websocket temporarily replaces the internal sidecar

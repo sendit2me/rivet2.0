@@ -28,6 +28,9 @@ const styles = css`
   border: 1px solid var(--grey);
   border-radius: 16px;
   corner-shape: squircle;
+  @supports not (corner-shape: squircle) {
+    border-radius: 8px;
+  }
   box-shadow: 0 10px 22px rgba(0, 0, 0, 0.28);
   pointer-events: auto;
 
@@ -58,6 +61,9 @@ const styles = css`
     background: transparent;
     border-radius: 12px;
     corner-shape: squircle;
+    @supports not (corner-shape: squircle) {
+      border-radius: 6px;
+    }
     color: var(--grey-light);
     display: flex;
     align-items: center;

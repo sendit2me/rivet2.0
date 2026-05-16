@@ -37,6 +37,9 @@ const styles = css`
       color: inherit;
       border-radius: 8px;
       corner-shape: squircle;
+      @supports not (corner-shape: squircle) {
+        border-radius: 4px;
+      }
       padding: 4px 8px;
     }
   }
@@ -81,6 +84,9 @@ const styles = css`
       color: inherit;
       border-radius: 8px;
       corner-shape: squircle;
+      @supports not (corner-shape: squircle) {
+        border-radius: 4px;
+      }
       width: 28px;
       height: 28px;
     }

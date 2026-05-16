@@ -64,6 +64,9 @@ const container = css`
     border: 1px solid var(--grey);
     border-radius: 8px;
     corner-shape: squircle;
+    @supports not (corner-shape: squircle) {
+      border-radius: 4px;
+    }
     color: var(--foreground);
     outline: none;
     transition: border-color 0.3s;

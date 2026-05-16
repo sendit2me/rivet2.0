@@ -57,6 +57,9 @@ const styles = css`
     border: none;
     border-radius: 8px;
     corner-shape: squircle;
+    @supports not (corner-shape: squircle) {
+      border-radius: 4px;
+    }
     background: transparent;
     color: var(--foreground-muted);
     cursor: grab;

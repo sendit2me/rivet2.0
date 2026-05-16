@@ -73,6 +73,13 @@
   --label-font-weight: 600;
 }
 
+@supports not (corner-shape: squircle) {
+  :root {
+    --ui-button-radius: calc(5px * var(--ui-font-scale));
+    --ui-button-radius-sm: calc(4px * var(--ui-font-scale));
+  }
+}
+
 html,
 body {
   font-family: var(--font-family);
@@ -161,6 +168,12 @@ code {
 .rivet-markdown-output.markdown-body img {
   border-radius: 8px;
   corner-shape: squircle;
+}
+
+@supports not (corner-shape: squircle) {
+  .rivet-markdown-output.markdown-body img {
+    border-radius: 4px;
+  }
 }
 
 .monaco-editor .code-node-runtime-error-line {

@@ -278,6 +278,9 @@ const Container = styled.div`
     box-sizing: border-box;
     border-radius: 4px;
     corner-shape: squircle;
+    @supports not (corner-shape: squircle) {
+      border-radius: 2px;
+    }
     overflow: hidden;
     text-align: left;
   }
@@ -311,6 +314,9 @@ const Container = styled.div`
     border: var(--node-metadata-control-border-width) solid var(--grey);
     border-radius: 4px;
     corner-shape: squircle;
+    @supports not (corner-shape: squircle) {
+      border-radius: 2px;
+    }
     color: var(--grey-light);
   }
 
@@ -358,6 +364,9 @@ const Container = styled.div`
     border: 0 !important;
     border-radius: 4px;
     corner-shape: squircle;
+    @supports not (corner-shape: squircle) {
+      border-radius: 2px;
+    }
     overflow: hidden;
   }
 
@@ -583,6 +592,9 @@ const Container = styled.div`
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 8px;
     corner-shape: squircle;
+    @supports not (corner-shape: squircle) {
+      border-radius: 4px;
+    }
     box-sizing: border-box;
   }
 

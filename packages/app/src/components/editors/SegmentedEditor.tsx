@@ -27,6 +27,9 @@ const segmentedEditorStyles = css`
     border: 0;
     border-radius: calc(32px * var(--ui-font-scale));
     corner-shape: superellipse(1.15);
+    @supports not (corner-shape: squircle) {
+      border-radius: calc(16px * var(--ui-font-scale));
+    }
     box-shadow: none;
   }
 
@@ -46,6 +49,9 @@ const segmentedEditorStyles = css`
     border: 0;
     border-radius: calc(24px * var(--ui-font-scale));
     corner-shape: superellipse(1.15);
+    @supports not (corner-shape: squircle) {
+      border-radius: calc(12px * var(--ui-font-scale));
+    }
     background: transparent;
     color: var(--grey-lightish);
     font: inherit;

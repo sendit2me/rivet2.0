@@ -14,6 +14,9 @@ const styles = css`
   background: var(--grey-darkish);
   border-radius: 16px;
   corner-shape: squircle;
+  @supports not (corner-shape: squircle) {
+    border-radius: 8px;
+  }
   border: 1px solid var(--grey-dark);
   z-index: 50;
   display: flex;
@@ -28,6 +31,9 @@ const styles = css`
     padding: 2px 4px;
     border-radius: 8px;
     corner-shape: squircle;
+    @supports not (corner-shape: squircle) {
+      border-radius: 4px;
+    }
     color: var(--grey-darker);
   }
 `;

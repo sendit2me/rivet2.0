@@ -1,10 +1,11 @@
-import { describe, it } from 'node:test';
+import { after, describe, it } from 'node:test';
 import * as assert from 'node:assert/strict';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   CodeNodeImpl,
+  type CodeRunnerOptions,
   GraphProcessor,
   TextNodeImpl,
   createBuiltInRegistry,
@@ -17,9 +18,14 @@ import {
   type PortId,
   type ProcessContext,
   type Project,
+  type ProjectId,
   type Tokenizer,
 } from '@valerypopoff/rivet2-core';
-import { AppExecutorWorkerCodeRunner } from './AppExecutorWorkerCodeRunner.mjs';
+import {
+  AppExecutorCodeWorkerPool,
+  AppExecutorWorkerCodeRunner,
+  shutdownSharedAppExecutorCodeWorkerPool,
+} from './AppExecutorWorkerCodeRunner.mjs';
 
 const tokenizer: Tokenizer = {
   on: () => undefined,
@@ -36,13 +42,16 @@ function testProcessContext(): ProcessContext {
 }
 
 function makeProject(graph: NodeGraph): Project {
+  const graphId = graph.metadata!.id!;
+
   return {
     graphs: {
-      [graph.metadata!.id!]: graph,
+      [graphId]: graph,
     },
     metadata: {
-      id: 'app-executor-worker-test-project' as GraphId,
-      mainGraphId: graph.metadata!.id,
+      description: '',
+      id: 'app-executor-worker-test-project' as ProjectId,
+      mainGraphId: graphId,
       title: 'App Executor Worker Test Project',
     },
   } as Project;
@@ -72,6 +81,21 @@ function makeTextNode(): ChartNode {
   return node;
 }
 
+function defaultCodeRunnerOptions(overrides: Partial<CodeRunnerOptions> = {}): CodeRunnerOptions {
+  return {
+    includeConsole: false,
+    includeFetch: false,
+    includeProcess: false,
+    includeRequire: false,
+    includeRivet: false,
+    ...overrides,
+  };
+}
+
+void after(async () => {
+  await shutdownSharedAppExecutorCodeWorkerPool();
+});
+
 void describe('AppExecutorWorkerCodeRunner', () => {
   void it('runs synchronous code in a worker and returns outputs', async () => {
     const runner = new AppExecutorWorkerCodeRunner();
@@ -95,6 +119,56 @@ void describe('AppExecutorWorkerCodeRunner', () => {
     assert.deepEqual(outputs, {
       output1: { type: 'string', value: 'done' },
     });
+  });
+
+  void it('uses a prewarmed worker for the first run when one is available', async () => {
+    const pool = new AppExecutorCodeWorkerPool({ size: 1 });
+
+    try {
+      await pool.prewarm();
+      const runner = new AppExecutorWorkerCodeRunner(undefined, { workerPool: pool });
+      const before = pool.getStats();
+
+      const outputs = await runner.runCode(
+        `return { output1: { type: 'string', value: 'warm' } };`,
+        {},
+        defaultCodeRunnerOptions(),
+      );
+      const after = pool.getStats();
+
+      assert.deepEqual(outputs, {
+        output1: { type: 'string', value: 'warm' },
+      });
+      assert.equal(after.acquiredReadyWorkers, before.acquiredReadyWorkers + 1);
+      assert.equal(after.acquiredColdWorkers, before.acquiredColdWorkers);
+    } finally {
+      await pool.shutdown();
+    }
+  });
+
+  void it('does not leak global state between worker runs', async () => {
+    const pool = new AppExecutorCodeWorkerPool({ size: 1 });
+
+    try {
+      await pool.prewarm();
+      const runner = new AppExecutorWorkerCodeRunner(undefined, { workerPool: pool });
+      const code = `
+        globalThis.__rivetCodeRunnerLeak = (globalThis.__rivetCodeRunnerLeak ?? 0) + 1;
+        return { output1: { type: 'number', value: globalThis.__rivetCodeRunnerLeak } };
+      `;
+
+      const first = await runner.runCode(code, {}, defaultCodeRunnerOptions());
+      const second = await runner.runCode(code, {}, defaultCodeRunnerOptions());
+
+      assert.deepEqual(first, {
+        output1: { type: 'number', value: 1 },
+      });
+      assert.deepEqual(second, {
+        output1: { type: 'number', value: 1 },
+      });
+    } finally {
+      await pool.shutdown();
+    }
   });
 
   void it('supports require inside the worker', async () => {
@@ -192,6 +266,50 @@ void describe('AppExecutorWorkerCodeRunner', () => {
     }
   });
 
+  void it('keeps require module cache isolated between worker runs', async () => {
+    const runtimeRoot = await mkdtemp(join(tmpdir(), 'rivet-app-executor-require-cache-'));
+    const moduleDir = join(runtimeRoot, 'node_modules', 'rivet-worker-cache-test-module');
+    const previousRoot = process.env.RIVET_CODE_RUNNER_REQUIRE_ROOT;
+    const pool = new AppExecutorCodeWorkerPool({ size: 1 });
+
+    try {
+      await mkdir(moduleDir, { recursive: true });
+      await writeFile(
+        join(moduleDir, 'index.js'),
+        `
+          let counter = 0;
+          module.exports = () => ++counter;
+        `,
+      );
+
+      process.env.RIVET_CODE_RUNNER_REQUIRE_ROOT = runtimeRoot;
+      await pool.prewarm();
+      const runner = new AppExecutorWorkerCodeRunner(undefined, { workerPool: pool });
+      const code = `
+        const next = require('rivet-worker-cache-test-module');
+        return { output1: { type: 'string', value: [next(), next()].join('/') } };
+      `;
+
+      const first = await runner.runCode(code, {}, defaultCodeRunnerOptions({ includeRequire: true }));
+      const second = await runner.runCode(code, {}, defaultCodeRunnerOptions({ includeRequire: true }));
+
+      assert.deepEqual(first, {
+        output1: { type: 'string', value: '1/2' },
+      });
+      assert.deepEqual(second, {
+        output1: { type: 'string', value: '1/2' },
+      });
+    } finally {
+      await pool.shutdown();
+      if (previousRoot === undefined) {
+        delete process.env.RIVET_CODE_RUNNER_REQUIRE_ROOT;
+      } else {
+        process.env.RIVET_CODE_RUNNER_REQUIRE_ROOT = previousRoot;
+      }
+      await rm(runtimeRoot, { force: true, recursive: true });
+    }
+  });
+
   void it('passes inputs, graph inputs, and context values into the worker', async () => {
     const runner = new AppExecutorWorkerCodeRunner();
 
@@ -205,7 +323,7 @@ void describe('AppExecutorWorkerCodeRunner', () => {
         };
       `,
       {
-        local: { type: 'string', value: 'input' },
+        ['local' as PortId]: { type: 'string', value: 'input' },
       },
       {
         includeConsole: false,
@@ -365,6 +483,24 @@ void describe('AppExecutorWorkerCodeRunner', () => {
           },
         ),
       (error) => error instanceof TypeError && error.message === 'worker boom',
+    );
+  });
+
+  void it('propagates worker syntax errors with readable messages', async () => {
+    const runner = new AppExecutorWorkerCodeRunner();
+
+    await assert.rejects(
+      () => runner.runCode(`const broken = ;`, {}, defaultCodeRunnerOptions()),
+      (error) => error instanceof SyntaxError,
+    );
+  });
+
+  void it('rejects when a worker exits before returning outputs', async () => {
+    const runner = new AppExecutorWorkerCodeRunner();
+
+    await assert.rejects(
+      () => runner.runCode(`process.exit(0);`, {}, defaultCodeRunnerOptions({ includeProcess: true })),
+      /Code worker exited before returning outputs/,
     );
   });
 
