@@ -2,6 +2,7 @@ import { produce } from 'immer';
 import { useSetAtom } from 'jotai';
 import {
   type CodeNode,
+  type CodeNewNode,
   type ExpressionNode,
   type ExtractObjectPathNode,
   type JSFilterNode,
@@ -174,6 +175,14 @@ function getNodeRunDebugData(node: ProcessEvents['nodeStart']['node']) {
     return {
       debugData: {
         codeSource: (node as CodeNode).data.code,
+      },
+    };
+  }
+
+  if (node.type === 'codeNew') {
+    return {
+      debugData: {
+        codeSource: (node as CodeNewNode).data.code,
       },
     };
   }

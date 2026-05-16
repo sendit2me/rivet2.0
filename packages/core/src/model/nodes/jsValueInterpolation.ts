@@ -5,7 +5,28 @@ import { extractInterpolationVariables, replaceInterpolationTokens } from '../..
 
 type JsValueInterpolationOptions = {
   localIdentifiers?: ReadonlySet<string>;
+  trim?: boolean;
 };
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function containsIdentifier(source: string, identifier: string): boolean {
+  return new RegExp(`(^|[^A-Za-z0-9_$])${escapeRegExp(identifier)}($|[^A-Za-z0-9_$])`).test(source);
+}
+
+export function getSafeJsValueInterpolationIdentifier(source: string, baseIdentifier: string): string {
+  let index = 0;
+  let candidate = baseIdentifier;
+
+  while (containsIdentifier(source, candidate)) {
+    index += 1;
+    candidate = `${baseIdentifier}_${index}`;
+  }
+
+  return candidate;
+}
 
 function isSpecialReference(inputName: string): boolean {
   return inputName.startsWith('@graphInputs.') || inputName.startsWith('@context.');
@@ -85,7 +106,7 @@ export function buildJsValueInterpolatedSource(
     template,
     (token) => buildJsValueReference(token.tokenName, targetIdentifier, options),
     {
-      trim: true,
+      trim: options.trim ?? true,
     },
   );
 }
@@ -96,7 +117,7 @@ export function interpolateJsValuePreviewSource(
   options: JsValueInterpolationOptions = {},
 ): string {
   return replaceInterpolationTokens(template, (token) => formatJsValuePreviewValue(token.tokenName, inputs, options), {
-    trim: true,
+    trim: options.trim ?? true,
   });
 }
 

@@ -70,7 +70,7 @@ export const DefaultCodeEditor: FC<
     showTextStats: 'showTextStats' in editorDef && editorDef.showTextStats === true,
   };
 
-  if (node.type === 'code' && editorDef.dataKey === 'code') {
+  if ((node.type === 'code' || node.type === 'codeNew') && editorDef.dataKey === 'code') {
     return <CodeEditorWithCodeNodeErrorHighlight node={node} {...editorProps} />;
   }
 

@@ -16,7 +16,7 @@ export type ParsedCodeNodeError = {
   message: string;
 };
 
-const CODE_NODE_LOCATION_SUFFIX = /\s*\(Code node line (\d+)(?:, column (\d+))?\)$/;
+const CODE_NODE_LOCATION_SUFFIX = /\s*\((?:Code|Code new|Code \(legacy\)) node line (\d+)(?:, column (\d+))?\)$/;
 
 export function parseCodeNodeError(error: string): ParsedCodeNodeError {
   const match = error.match(CODE_NODE_LOCATION_SUFFIX);

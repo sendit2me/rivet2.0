@@ -7,6 +7,7 @@ export const NODE_OUTPUT_REPLACEMENT_GRACE_MS = 120;
 export function shouldUseCustomNodeErrorOutput(nodeType: ChartNode['type'], data: NodeRunDataWithRefs): boolean {
   return (
     (nodeType === 'expression' ||
+      nodeType === 'codeNew' ||
       nodeType === 'jsFilter' ||
       nodeType === 'jsMap' ||
       nodeType === 'extractObjectPath') &&

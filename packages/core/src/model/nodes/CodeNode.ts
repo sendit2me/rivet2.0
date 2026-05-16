@@ -37,7 +37,7 @@ export class CodeNodeImpl extends NodeImpl<CodeNode> {
   static create(): CodeNode {
     const chartNode: CodeNode = {
       type: 'code',
-      title: 'Code',
+      title: 'Code (legacy)',
       id: nanoid() as NodeId,
       visualData: {
         x: 0,
@@ -45,10 +45,10 @@ export class CodeNodeImpl extends NodeImpl<CodeNode> {
       },
       data: {
         code: dedent`
-          // This is a code node, you can write and JS in here and it will be executed.
+          // This is a Code (legacy) node. Write JavaScript here and it will be executed.
           // Inputs are accessible via an object \`inputs\` and data is typed (i.e. inputs.foo.type, inputs.foo.value)
           // Return an object with named outputs that match the output names specified in the node's config.
-          // Output values must by typed as well (e.g. { bar: { type: 'string', value: 'bar' } }
+          // Output values must be typed as well (e.g. { bar: { type: 'string', value: 'bar' } }
           return {
             output1: {
               type: inputs.input1.type,
@@ -191,10 +191,10 @@ export class CodeNodeImpl extends NodeImpl<CodeNode> {
   static getUIData(): NodeUIData {
     return {
       infoBoxBody: dedent`
-        Executes a piece of JavaScript code. See the Rivet Documentation for more information on how to write code for the Code Node.
+        Executes legacy JavaScript code with manually configured inputs and outputs.
       `,
-      infoBoxTitle: 'Code Node',
-      contextMenuTitle: 'Code',
+      infoBoxTitle: 'Code (legacy) Node',
+      contextMenuTitle: 'Code (legacy)',
       group: ['Advanced'],
     };
   }
@@ -221,18 +221,19 @@ export class CodeNodeImpl extends NodeImpl<CodeNode> {
       throw await enrichCodeNodeErrorWithLocation({
         code: this.data.code,
         error,
+        locationLabel: 'Code (legacy) node',
         sourceUrl,
       });
     }
 
     if (outputs == null || typeof outputs !== 'object' || ('then' in outputs && typeof outputs.then === 'function')) {
-      throw new Error('Code node must return an object with output values.');
+      throw new Error('Code (legacy) node must return an object with output values.');
     }
 
     const missingOutputs = this.getOutputDefinitions().filter((output) => !(output.id in outputs));
     if (missingOutputs.length > 0) {
       throw new Error(
-        `Code node must return an object with output values for all outputs. To not run an output, return { "type": "control-flow-excluded", "value": undefined }. To return undefined, return { "type": "any", "value": undefined }. Missing: ${missingOutputs
+        `Code (legacy) node must return an object with output values for all outputs. To not run an output, return { "type": "control-flow-excluded", "value": undefined }. To return undefined, return { "type": "any", "value": undefined }. Missing: ${missingOutputs
           .map((output) => output.id)
           .join(', ')}`,
       );
@@ -242,4 +243,4 @@ export class CodeNodeImpl extends NodeImpl<CodeNode> {
   }
 }
 
-export const codeNode = nodeDefinition(CodeNodeImpl, 'Code');
+export const codeNode = nodeDefinition(CodeNodeImpl, 'Code (legacy)');

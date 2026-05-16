@@ -39,13 +39,18 @@ export const StructuredNodeOutput: FC<{
   children?: ReactNode;
   errorMessage?: string;
   parsedSource?: string;
+  parsedSourceLabel?: string;
   parsedSourceLanguage?: string;
-}> = ({ children, errorMessage, parsedSource, parsedSourceLanguage }) => (
+}> = ({ children, errorMessage, parsedSource, parsedSourceLabel, parsedSourceLanguage }) => (
   <div css={structuredNodeOutputCss}>
     {errorMessage !== undefined && <div className="structured-node-output-error">{errorMessage}</div>}
     {children}
     {parsedSource !== undefined && parsedSourceLanguage && (
-      <ParsedSourceOutputSection source={parsedSource} language={parsedSourceLanguage} />
+      <ParsedSourceOutputSection
+        label={parsedSourceLabel ?? 'Parsed expression'}
+        source={parsedSource}
+        language={parsedSourceLanguage}
+      />
     )}
   </div>
 );
@@ -66,10 +71,11 @@ export const StructuredNodeOutputSection: FC<{
 );
 
 const ParsedSourceOutputSection: FC<{
+  label: string;
   language: string;
   source: string;
-}> = ({ language, source }) => (
-  <StructuredNodeOutputSection label="Parsed expression" className="structured-node-output-source">
+}> = ({ label, language, source }) => (
+  <StructuredNodeOutputSection label={label} className="structured-node-output-source">
     <ColorizedPreformattedText text={source} language={language} />
   </StructuredNodeOutputSection>
 );

@@ -1,8 +1,7 @@
 import {
-  EXPRESSION_OUTPUT_PORT_ID,
-  type ExpressionNode,
+  CODE_NEW_OUTPUT_PORT_ID,
+  type CodeNewNode,
   type Inputs,
-  interpolateExpressionSource,
 } from '@valerypopoff/rivet2-core';
 import { type FC, useMemo } from 'react';
 import { RenderDataValue, type OutputRenderMode } from '../RenderDataValue.js';
@@ -10,35 +9,41 @@ import { useDataRefs } from '../../providers/ProvidersContext.js';
 import { type NodeRunDataWithRefs } from '../../state/dataFlow.js';
 import { restoreStoredPortMap } from '../../utils/executionDataReaders.js';
 import { type NodeComponentDescriptor } from '../../hooks/useNodeTypes.js';
-import { getExpressionPreviewSource, hasExpressionInterpolationInputs } from './expressionOutputUtils.js';
+import {
+  getCodeNewParsedSource,
+  getCodeNewPreviewSource,
+  hasCodeNewInterpolationInputs,
+} from './codeNewOutputUtils.js';
+import { getCodeNodeErrorViewModel } from './codeNodeOutputUtils.js';
 import { StructuredNodeOutput, StructuredNodeOutputSection } from './StructuredNodeOutput.js';
 import { getSortedSplitOutputEntries } from '../nodeOutput/splitOutputEntries.js';
 
-const ExpressionNodeOutputBody: FC<{
-  node: ExpressionNode;
+const CodeNewNodeOutputBody: FC<{
+  node: CodeNewNode;
   data: NodeRunDataWithRefs;
   renderMode: OutputRenderMode;
   allowLargeStoredValueActions?: boolean;
 }> = ({ node, data, renderMode, allowLargeStoredValueActions }) => {
-  const errorMessage = data.status?.type === 'error' ? data.status.error : undefined;
   const hasError = data.status?.type === 'error';
+  const parsedError = hasError ? getCodeNodeErrorViewModel(data) : undefined;
   const dataRefs = useDataRefs();
-  const expressionSource = getExpressionPreviewSource(node, data);
-  const shouldShowParsedExpression = hasExpressionInterpolationInputs(expressionSource);
-  const parsedExpression = useMemo(
+  const codeSource = getCodeNewPreviewSource(node, data);
+  const shouldShowParsedCode = hasCodeNewInterpolationInputs(codeSource);
+  const parsedCode = useMemo(
     () =>
-      shouldShowParsedExpression
-        ? interpolateExpressionSource(
-            expressionSource,
+      shouldShowParsedCode
+        ? getCodeNewParsedSource(
+            node,
+            data,
             (restoreStoredPortMap(data.inputData, dataRefs) as Inputs | undefined) ?? {},
           )
         : undefined,
-    [data.inputData, dataRefs, expressionSource, shouldShowParsedExpression],
+    [data, dataRefs, node, shouldShowParsedCode],
   );
   const renderResult = (value: NodeRunDataWithRefs['outputData'], key?: string) => (
-    <StructuredNodeOutputSection label="Resulting value" key={key}>
+    <StructuredNodeOutputSection label="Returned value" key={key}>
       <RenderDataValue
-        value={value?.[EXPRESSION_OUTPUT_PORT_ID]}
+        value={value?.[CODE_NEW_OUTPUT_PORT_ID]}
         mode={renderMode}
         allowLargeStoredValueActions={allowLargeStoredValueActions}
       />
@@ -47,10 +52,19 @@ const ExpressionNodeOutputBody: FC<{
 
   return (
     <StructuredNodeOutput
-      errorMessage={errorMessage}
-      parsedSource={shouldShowParsedExpression ? parsedExpression ?? '' : undefined}
+      errorMessage={parsedError?.message}
+      parsedSource={shouldShowParsedCode ? parsedCode ?? '' : undefined}
+      parsedSourceLabel="Parsed code"
       parsedSourceLanguage="javascript"
     >
+      {parsedError?.location && (
+        <StructuredNodeOutputSection label="Error location">
+          <div>
+            line {parsedError.location.line}
+            {parsedError.location.column != null ? `, column ${parsedError.location.column}` : ''}
+          </div>
+        </StructuredNodeOutputSection>
+      )}
       {!hasError && data.splitOutputData && (
         <div className="split-output">
           {getSortedSplitOutputEntries(data.splitOutputData).map(([key, outputs]) => renderResult(outputs, key))}
@@ -61,9 +75,9 @@ const ExpressionNodeOutputBody: FC<{
   );
 };
 
-export const expressionNodeDescriptor: NodeComponentDescriptor<'expression'> = {
+export const codeNewNodeDescriptor: NodeComponentDescriptor<'codeNew'> = {
   Output: ({ node, data, renderMode = 'compact', allowLargeStoredValueActions }) => (
-    <ExpressionNodeOutputBody
+    <CodeNewNodeOutputBody
       node={node}
       data={data}
       renderMode={renderMode}
@@ -71,7 +85,7 @@ export const expressionNodeDescriptor: NodeComponentDescriptor<'expression'> = {
     />
   ),
   FullscreenOutput: ({ node, data, renderMode = 'expanded-preview', allowLargeStoredValueActions }) => (
-    <ExpressionNodeOutputBody
+    <CodeNewNodeOutputBody
       node={node}
       data={data}
       renderMode={renderMode}

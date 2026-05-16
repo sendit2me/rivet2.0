@@ -154,6 +154,22 @@ describe('JSFilterNode', () => {
     assert.deepStrictEqual(result.filtered?.value, [3]);
   });
 
+  it('keeps interpolation values available when callback code uses generated helper names', async () => {
+    const node = createNode({
+      callbackBody: 'const __jsListInputs = {};\nreturn item > {{min}};',
+    });
+
+    const result = await node.process(
+      {
+        ['array' as PortId]: { type: 'number[]', value: [1, 2, 3] },
+        ['min' as PortId]: { type: 'number', value: 1 },
+      },
+      createContext(),
+    );
+
+    assert.deepStrictEqual(result.filtered?.value, [2, 3]);
+  });
+
   it('receives interpolation inputs when run through the graph processor', async () => {
     const graph = {
       metadata: {

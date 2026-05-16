@@ -239,12 +239,12 @@ host is `127.0.0.1` for the desktop internal sidecar; hosted/container wrappers
 can pass `--host 0.0.0.0` or set `RIVET_EXECUTOR_HOST=0.0.0.0` without patching
 `executor.mts`. If no port flag is passed, `RIVET_EXECUTOR_PORT` can override
 the default `21889`; custom ports must be valid TCP ports from `1` to `65535`.
-Code-node `require()` resolution can likewise be redirected
+Code-family `require()` resolution can likewise be redirected
 with `RIVET_CODE_RUNNER_REQUIRE_ROOT` or `RIVET_CODE_RUNNER_REQUIRE_ANCHOR` so
 wrapper runtimes can provide per-project libraries without string-rewriting
 `NodeCodeRunner` or the app-executor worker runner. Hosted bootstrap code can
 also expose `globalThis.__RIVET_PREPARE_RUNTIME_LIBRARIES__`; the app-executor
-worker runner calls it before require-enabled/Rivet-capable Code nodes so Docker
+worker runner calls it before require-enabled/Rivet-capable Code-family nodes so Docker
 or server wrappers can synchronize runtime libraries before module resolution.
 
 ### CLI
@@ -277,7 +277,7 @@ The public docs are part of the release surface. Keep them aligned with the
 current Rivet 2 package/runtime model instead of preserving old fork-era
 wording. In practice, docs changes should follow package renames, executor
 contract changes, app-level plugin behavior, LLM Chat/HTTP Call output
-contracts, Code-node runtime-permission changes, and wrapper/embedder seams.
+contracts, Code-family runtime-permission changes, and wrapper/embedder seams.
 
 ## CI Workflows
 

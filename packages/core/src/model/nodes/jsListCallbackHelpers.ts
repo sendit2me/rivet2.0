@@ -11,6 +11,7 @@ import {
   buildCloneJsInputValueFunction,
   buildJsValueInterpolatedSource,
   getJsValueInterpolationInputNames,
+  getSafeJsValueInterpolationIdentifier,
   interpolateJsValuePreviewSource,
   sanitizeGeneratedJsValueText,
 } from './jsValueInterpolation.js';
@@ -52,21 +53,25 @@ function getJSListCallbackInterpolationInputNames(callbackBody: string): string[
   });
 }
 
-function buildJSListRuntimePreamble(callbackBody: string): string {
+function getJSListInputsIdentifier(callbackBody: string): string {
+  return getSafeJsValueInterpolationIdentifier(callbackBody, JS_LIST_INPUTS_IDENTIFIER);
+}
+
+function buildJSListRuntimePreamble(callbackBody: string, inputsIdentifier: string): string {
   const inputNames = getJSListCallbackInterpolationInputNames(callbackBody);
 
   return dedent`
     const assertSynchronousCallbackResult = ${assertSynchronousCallbackResult.toString()};
     ${buildCloneJsInputValueFunction()}
-    const ${JS_LIST_INPUTS_IDENTIFIER} = Object.create(null);
+    const ${inputsIdentifier} = Object.create(null);
     const ${JS_LIST_INPUT_CLONE_CACHE_IDENTIFIER} = new WeakMap();
     const array = cloneJsInputValue(inputs.array?.value, ${JS_LIST_INPUT_CLONE_CACHE_IDENTIFIER});
-    ${buildClonedInputValueAssignments(inputNames, JS_LIST_INPUTS_IDENTIFIER, JS_LIST_INPUT_CLONE_CACHE_IDENTIFIER)}
+    ${buildClonedInputValueAssignments(inputNames, inputsIdentifier, JS_LIST_INPUT_CLONE_CACHE_IDENTIFIER)}
   `;
 }
 
-function buildJSListCallbackRuntimeSource(callbackBody: string): string {
-  return buildJsValueInterpolatedSource(callbackBody, JS_LIST_INPUTS_IDENTIFIER, {
+function buildJSListCallbackRuntimeSource(callbackBody: string, inputsIdentifier: string): string {
+  return buildJsValueInterpolatedSource(callbackBody, inputsIdentifier, {
     localIdentifiers: JS_LIST_CALLBACK_LOCAL_NAMES,
   });
 }
@@ -74,15 +79,16 @@ function buildJSListCallbackRuntimeSource(callbackBody: string): string {
 function sanitizeJSListError(error: unknown, callbackBody: string, nodeName: string): Error {
   const jsListError = getError(error);
   const inputNames = getJSListCallbackInterpolationInputNames(callbackBody);
+  const inputsIdentifier = getJSListInputsIdentifier(callbackBody);
   const fallbackLabel = `${nodeName} input`;
 
   jsListError.message =
-    sanitizeGeneratedJsValueText(jsListError.message, inputNames, JS_LIST_INPUTS_IDENTIFIER, fallbackLabel) ??
+    sanitizeGeneratedJsValueText(jsListError.message, inputNames, inputsIdentifier, fallbackLabel) ??
     jsListError.message;
   jsListError.stack = sanitizeGeneratedJsValueText(
     jsListError.stack,
     inputNames,
-    JS_LIST_INPUTS_IDENTIFIER,
+    inputsIdentifier,
     fallbackLabel,
   );
 
@@ -90,10 +96,11 @@ function sanitizeJSListError(error: unknown, callbackBody: string, nodeName: str
 }
 
 export function buildJSFilterWrapper(callbackBody: string): string {
-  const callbackBodySource = buildJSListCallbackRuntimeSource(callbackBody);
+  const inputsIdentifier = getJSListInputsIdentifier(callbackBody);
+  const callbackBodySource = buildJSListCallbackRuntimeSource(callbackBody, inputsIdentifier);
 
   return dedent`
-    ${buildJSListRuntimePreamble(callbackBody)}
+    ${buildJSListRuntimePreamble(callbackBody, inputsIdentifier)}
 
     if (!Array.isArray(array)) {
       throw new Error('JS Filter input "array" must be an array.');
@@ -127,10 +134,11 @@ export function buildJSFilterWrapper(callbackBody: string): string {
 }
 
 export function buildJSMapWrapper(callbackBody: string): string {
-  const callbackBodySource = buildJSListCallbackRuntimeSource(callbackBody);
+  const inputsIdentifier = getJSListInputsIdentifier(callbackBody);
+  const callbackBodySource = buildJSListCallbackRuntimeSource(callbackBody, inputsIdentifier);
 
   return dedent`
-    ${buildJSListRuntimePreamble(callbackBody)}
+    ${buildJSListRuntimePreamble(callbackBody, inputsIdentifier)}
 
     if (!Array.isArray(array)) {
       throw new Error('JS Map input "array" must be an array.');

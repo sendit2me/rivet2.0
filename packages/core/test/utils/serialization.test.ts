@@ -323,6 +323,47 @@ describe('serialization compatibility', () => {
     assert.equal(deserialized.connections.length, 1);
     assert.equal(deserialized.connections[0]!.inputNodeId, 'b');
   });
+
+  it('renames only default Code node titles when deserializing', () => {
+    const graph: NodeGraph = {
+      metadata: { id: 'g-code-rename', name: 'Code Rename', description: '' },
+      nodes: [
+        { id: 'legacy-default', type: 'code', title: 'Code', visualData: { x: 0, y: 0 }, data: {}, variants: [] },
+        {
+          id: 'legacy-custom',
+          type: 'code',
+          title: 'Custom legacy title',
+          visualData: { x: 1, y: 1 },
+          data: {},
+          variants: [],
+        },
+        {
+          id: 'current-default',
+          type: 'codeNew',
+          title: 'Code new',
+          visualData: { x: 2, y: 2 },
+          data: {},
+          variants: [],
+        },
+        {
+          id: 'current-custom',
+          type: 'codeNew',
+          title: 'Custom current title',
+          visualData: { x: 3, y: 3 },
+          data: {},
+          variants: [],
+        },
+      ],
+      connections: [],
+    };
+
+    const deserialized = deserializeGraph(serializeGraph(graph));
+
+    assert.equal(deserialized.nodes.find((node) => node.id === 'legacy-default')?.title, 'Code (legacy)');
+    assert.equal(deserialized.nodes.find((node) => node.id === 'legacy-custom')?.title, 'Custom legacy title');
+    assert.equal(deserialized.nodes.find((node) => node.id === 'current-default')?.title, 'Code');
+    assert.equal(deserialized.nodes.find((node) => node.id === 'current-custom')?.title, 'Custom current title');
+  });
 });
 
 describe('serialization helpers', () => {

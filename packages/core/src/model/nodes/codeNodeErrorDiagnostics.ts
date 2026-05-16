@@ -10,6 +10,10 @@ type CodeNodeErrorLocation = {
   line: number;
 };
 
+type CodeNodeErrorLocationOptions = {
+  userCodeLineOffset?: number;
+};
+
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -31,6 +35,7 @@ function getRuntimeErrorLocationFromStack(params: {
   code: string;
   error: Error;
   sourceUrl: string;
+  userCodeLineOffset?: number;
 }): CodeNodeErrorLocation | undefined {
   if (!params.error.stack) {
     return undefined;
@@ -46,7 +51,7 @@ function getRuntimeErrorLocationFromStack(params: {
 
   const generatedLine = Number(match[1]);
   const column = Number(match[2]);
-  const line = generatedLine - ASYNC_FUNCTION_LINE_OFFSET;
+  const line = generatedLine - ASYNC_FUNCTION_LINE_OFFSET - (params.userCodeLineOffset ?? 0);
   const lineCount = Math.max(params.code.split(/\r?\n/).length, 1);
 
   if (!Number.isFinite(line) || line < 1 || line > lineCount) {
@@ -75,12 +80,16 @@ function getParserErrorLocation(error: unknown): { column?: number; line: number
   };
 }
 
-async function getSyntaxErrorLocation(code: string, error: Error): Promise<CodeNodeErrorLocation | undefined> {
+async function getSyntaxErrorLocation(
+  code: string,
+  error: Error,
+  options: CodeNodeErrorLocationOptions & { diagnosticCode?: string } = {},
+): Promise<CodeNodeErrorLocation | undefined> {
   if (error.name !== 'SyntaxError') {
     return undefined;
   }
 
-  const wrappedCode = `async function __rivetCodeNode__() {\n${code}\n}`;
+  const wrappedCode = `async function __rivetCodeNode__() {\n${options.diagnosticCode ?? code}\n}`;
 
   try {
     const { parse } = await import('acorn');
@@ -97,7 +106,10 @@ async function getSyntaxErrorLocation(code: string, error: Error): Promise<CodeN
 
     const lineCount = Math.max(code.split(/\r?\n/).length, 1);
     const line = Math.min(
-      Math.max(parserLocation.line - SYNTAX_PARSE_WRAPPER_LINE_OFFSET, 1),
+      Math.max(
+        parserLocation.line - SYNTAX_PARSE_WRAPPER_LINE_OFFSET - (options.userCodeLineOffset ?? 0),
+        1,
+      ),
       lineCount,
     );
 
@@ -110,9 +122,9 @@ async function getSyntaxErrorLocation(code: string, error: Error): Promise<CodeN
   return undefined;
 }
 
-function formatLocationSuffix(location: CodeNodeErrorLocation): string {
+function formatLocationSuffix(location: CodeNodeErrorLocation, locationLabel: string): string {
   const columnText = location.column != null ? `, column ${location.column}` : '';
-  return `Code node line ${location.line}${columnText}`;
+  return `${locationLabel} line ${location.line}${columnText}`;
 }
 
 function replaceStackHeader(stack: string | undefined, error: Error): string | undefined {
@@ -127,22 +139,31 @@ function replaceStackHeader(stack: string | undefined, error: Error): string | u
 
 export async function enrichCodeNodeErrorWithLocation(params: {
   code: string;
+  diagnosticCode?: string;
   error: unknown;
+  locationLabel?: string;
   sourceUrl: string;
+  userCodeLineOffset?: number;
 }): Promise<Error> {
   const originalError = getError(params.error);
+  const userCodeLineOffset = params.userCodeLineOffset ?? 0;
   const location =
     getRuntimeErrorLocationFromStack({
       code: params.code,
       error: originalError,
       sourceUrl: params.sourceUrl,
-    }) ?? (await getSyntaxErrorLocation(params.code, originalError));
+      userCodeLineOffset,
+    }) ??
+    (await getSyntaxErrorLocation(params.code, originalError, {
+      diagnosticCode: params.diagnosticCode,
+      userCodeLineOffset,
+    }));
 
   if (!location) {
     return originalError;
   }
 
-  originalError.message = `${originalError.message} (${formatLocationSuffix(location)})`;
+  originalError.message = `${originalError.message} (${formatLocationSuffix(location, params.locationLabel ?? 'Code node')})`;
   originalError.stack = replaceStackHeader(originalError.stack, originalError);
 
   return originalError;

@@ -173,23 +173,23 @@ The sidecar:
 - uses `assembleRegistry()` from core's `RegistryAssembly.ts` to build a fresh registry for each graph run
 - dynamically imports plugins through `importPluginInitializer()`, which handles CJS/ESM default-export interop
 - runs graphs dynamically using `rivet-node` APIs
-- injects a sidecar-only worker-backed `CodeRunner` so most Code-node JavaScript runs in a fresh Node worker thread instead of blocking unrelated node completion events on the sidecar's main event loop
-- bridges permitted Code-node `console.*` calls from the worker/current-thread fallback into `codeConsole` WebSocket messages so the app can replay them in the renderer console for the active editor run
+- injects a sidecar-only worker-backed `CodeRunner` so most Code-family JavaScript runs in a fresh Node worker thread instead of blocking unrelated node completion events on the sidecar's main event loop
+- bridges permitted Code-family `console.*` calls from the worker/current-thread fallback into `codeConsole` WebSocket messages so the app can replay them in the renderer console for the active editor run
 - supports preload, pause, resume, abort, and user-input messages
 - supports editor run-from execution by accepting startup `preloadData` in the same `run` message as explicit `runToNodeIds`; the sidecar applies that preload after creating the processor and before calling `run()`
 
 The worker-backed runner is scoped to the app executor. `@valerypopoff/rivet2-node`
 programmatic callers still use `NodeCodeRunner` by default unless they pass a
-custom `codeRunner`, and Code nodes that request the `Rivet` capability fall back
-to current-thread execution inside the sidecar for compatibility.
+custom `codeRunner`, and Code-family nodes that request the `Rivet` capability
+fall back to current-thread execution inside the sidecar for compatibility.
 
-For ordinary Code and Expression node execution, the app executor keeps a small
-pool of prewarmed single-use workers. Each run still consumes a fresh worker and
-terminates it after the result so `globalThis` state and `require()` module
-cache do not leak between runs, but worker startup is moved out of the hot path
-for the next run. The default pool size is `2`; hosted/runtime environments can
-set `RIVET_CODE_RUNNER_WORKER_POOL_SIZE` to tune it or set it to `0` to disable
-prewarming.
+For ordinary Code (legacy), Code, and Expression node execution, the app executor
+keeps a small pool of prewarmed single-use workers. Each run still consumes a
+fresh worker and terminates it after the result so `globalThis` state and
+`require()` module cache do not leak between runs, but worker startup is moved
+out of the hot path for the next run. The default pool size is `2`;
+hosted/runtime environments can set `RIVET_CODE_RUNNER_WORKER_POOL_SIZE` to tune
+it or set it to `0` to disable prewarming.
 
 The shared pool is created lazily by the code runner module, while the
 app-executor sidecar explicitly prewarms it during startup before announcing the
@@ -197,14 +197,14 @@ executor websocket. Idle workers are unrefed and guarded with error/exit cleanup
 so an unexpected idle-worker failure is removed from the pool and replenished
 without turning into a top-level sidecar error.
 
-Code-node `require()` resolution is intentionally configurable for hosted runtimes.
+Code-family `require()` resolution is intentionally configurable for hosted runtimes.
 Both public `NodeCodeRunner` and the app-executor worker runner honor
 `RIVET_CODE_RUNNER_REQUIRE_ROOT` and `RIVET_CODE_RUNNER_REQUIRE_ANCHOR`. By
 default they resolve modules from the process working directory through the
 synthetic `__rivet_node_code_runner__.cjs` anchor. Hosted wrappers can point the
 root at a runtime-library directory instead of patching Rivet source.
-Before a require-enabled or Rivet-capable Code node runs, the app-executor worker
-runner also calls an optional global
+Before a require-enabled or Rivet-capable Code-family node runs, the app-executor
+worker runner also calls an optional global
 `__RIVET_PREPARE_RUNTIME_LIBRARIES__(true)` hook when a hosted bootstrap layer
 provides one. That keeps managed runtime-library sync outside Rivet core while
 still giving hosted executors a stable "prepare, then resolve" seam.
@@ -353,7 +353,7 @@ describe the current Rivet 2 surface:
 - User-facing docs should say `workflow` / `Executing Workflows` for current graph execution concepts. The old `executing-ai-chains` URL may remain for link stability, but visible labels and prose should not present "AI chains" as the current product language
 - Browser, Node, and remote executor behavior, including hosted/internal executor URL seams
 - app-level plugin installation, derived project plugin YAML, missing-plugin install prompts, and read-only project-used plugin settings
-- Code-node runtime permissions, Node-only `require` / `process`, and configurable require-root behavior
+- Code-family runtime permissions, Node-only `require` / `process`, and configurable require-root behavior
 - HTTP Call and LLM Chat retry/status/error output contracts
 - wrapper/source-checkout guidance pointing to app host seams and generated built-package artifacts rather than stale npm names
 - GitHub Pages docs deployment at `/rivet2.0/`, with Docusaurus docs at the site root and a top-right `/download` page that reads stable Windows/macOS release metadata generated by the main-branch workflow plus developer Windows/macOS release metadata generated by the develop-branch workflow

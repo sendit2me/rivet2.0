@@ -347,7 +347,7 @@ export class AppExecutorWorkerCodeRunner implements CodeRunner {
     }
 
     if (options.includeRivet) {
-      // The app sidecar isolates ordinary Code node JavaScript in workers, but
+      // The app sidecar isolates ordinary Code-family JavaScript in workers, but
       // Rivet-capable code imports @valerypopoff/rivet2-node. Keep that path on the
       // current thread so packaged sidecar module resolution stays compatible.
       return runCodeInCurrentThread(code, inputs, options, graphInputs, contextValues, this.runtimeRequire, this.onConsole);
@@ -610,7 +610,7 @@ function emitConsoleMessage(onConsole: ((message: CodeConsoleMessage) => void) |
   try {
     onConsole?.(message);
   } catch {
-    // Console forwarding is observability-only and must not change Code node execution.
+    // Console forwarding is observability-only and must not change Code-family execution.
   }
 }
 

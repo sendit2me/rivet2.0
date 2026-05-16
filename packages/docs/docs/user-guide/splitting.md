@@ -48,7 +48,7 @@ At some point you may want to turn many item outputs back into one value.
 - Passing a string array into a [Text Node](../node-reference/text) or [Prompt Node](../node-reference/prompt) joins the strings with newlines.
 - [Extract Object Path](../node-reference/extract-object-path) can select a specific item or property from an array.
 - [Pop](../node-reference/pop) can take one value from an array.
-- [Code](../node-reference/code) can perform custom joins, such as mapping, reducing, grouping, or formatting arrays.
+- [Code](../node-reference/code-new) can perform custom joins, such as mapping, reducing, grouping, or formatting arrays.
 
 ## Nested Many-Item Runs
 

@@ -1,21 +1,23 @@
 ---
 id: code
-title: Code Node
-sidebar_label: Code
+title: Code (legacy) Node
+sidebar_label: Code (legacy)
 ---
 
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-![Code Node Screenshot](./assets/code-node.png)
+![Code (legacy) Node Screenshot](./assets/code-node.png)
 
 ## Overview
 
-The Code Node allows you to run arbitrary JavaScript code during your graph's execution. This can be useful for a variety of purposes, such as:
+The Code (legacy) Node allows you to run arbitrary JavaScript code during your graph's execution. This can be useful for a variety of purposes, such as:
 
 - Performing complex calculations
 - Custom, domain-specific logic that is complex to represent in Rivet nodes alone
 - Using JavaScript functions that are not available in other nodes
+
+Use [Code](./code-new.mdx) for new workflows when you want inputs created from `{{name}}` tokens and one direct returned value, while still keeping the same runtime permissions.
 
 ### Code Inputs
 
@@ -101,9 +103,9 @@ const foo = graphInputs.myString.value; // graphInputs.myString.type === 'string
 
 ## Outputs
 
-| Title          | Data Type | Description                                                           | Notes |
-| -------------- | --------- | --------------------------------------------------------------------- | ----- |
-| (custom names) | Any       | The outputs from the execution of the code node. Dynamic based on the | NOTES |
+| Title          | Data Type | Description                                                                                      | Notes |
+| -------------- | --------- | ------------------------------------------------------------------------------------------------ | ----- |
+| (custom names) | Any       | The typed output values returned by the code. Dynamic based on the outputs configured in the editor. | Each configured output name must be present in the returned object. |
 
 </TabItem>
 
@@ -123,7 +125,7 @@ const foo = graphInputs.myString.value; // graphInputs.myString.type === 'string
 
 ## Example 1: Use `.slice` to get a substring
 
-1. Create a Code Node with the following code:
+1. Create a Code (legacy) Node with the following code:
 
    ```js
    return {
@@ -134,14 +136,14 @@ const foo = graphInputs.myString.value; // graphInputs.myString.type === 'string
    };
    ```
 
-2. Create a Text node, give it the value `Hello World`, and connect it to the Code Node's `input` port.
-3. Run the graph. Note that the Code Node's output is `Hello`.
+2. Create a Text node, give it the value `Hello World`, and connect it to the Code (legacy) Node's `input` port.
+3. Run the graph. Note that the Code (legacy) Node's output is `Hello`.
 
-![Code Node Example 1](./assets/code-node-example-01.png)
+![Code (legacy) Node Example 1](./assets/code-node-example-01.png)
 
 ## Example 2: Concatenate two strings, and output the length and the string.
 
-1. Create a Code Node with the following code:
+1. Create a Code (legacy) Node with the following code:
 
    ```js
    const concatenated = inputs.input1.value + inputs.input2.value;
@@ -157,15 +159,15 @@ const foo = graphInputs.myString.value; // graphInputs.myString.type === 'string
    };
    ```
 
-2. Rename the existing input of the Code node to `input1`, and add a 2nd input to `input2`. Add a 2nd output named `length`.
-3. Create two Text nodes, give them the values `Hello` and `World`, and connect them to the Code Node's `input1` and `input2` ports, respectively.
-4. Run the graph. Note that the Code Node outputs `HelloWorld` and `10`.
+2. Rename the existing input of the Code (legacy) node to `input1`, and add a 2nd input to `input2`. Add a 2nd output named `length`.
+3. Create two Text nodes, give them the values `Hello` and `World`, and connect them to the Code (legacy) Node's `input1` and `input2` ports, respectively.
+4. Run the graph. Note that the Code (legacy) Node outputs `HelloWorld` and `10`.
 
-![Code Node Example 2](./assets/code-node-example-02.png)
+![Code (legacy) Node Example 2](./assets/code-node-example-02.png)
 
 ## Error Handling
 
-If any error happens during the execution of the Code Node, then the node will error.
+If any error happens during the execution of the Code (legacy) Node, then the node will error.
 
 If you are unsure of the type of value passed into the code node, for example when reusing it in multiple places, you can and should check the `type` of the input before using it. For example:
 
@@ -181,7 +183,7 @@ If you throw an `Error` in the code node, then it will error.
 
 **Q: How is the code node implemented?**
 
-A: The Code Node is implemented using an async [Function constructor](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function/Function). The always-present argument is `inputs`; optional runtime permissions add more globals such as `fetch`, `Rivet`, `console`, `require`, and `process`.
+A: The Code (legacy) Node is implemented using an async [Function constructor](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function/Function). The always-present argument is `inputs`; optional runtime permissions add more globals such as `fetch`, `Rivet`, `console`, `require`, and `process`.
 
 ```js
 async function codeNode(inputs) {
@@ -191,11 +193,11 @@ async function codeNode(inputs) {
 
 **Q: Can I use `require` or `import` in the code node?**
 
-A: `import` is not exposed. `require` is available only in the Node executor when the Code node's `require` runtime permission is enabled. Programmatic Node runs use `NodeCodeRunner`; the desktop Node executor uses the app-executor runner. Both resolve modules from the process working directory by default, and hosted/runtime-library environments can override that with `RIVET_CODE_RUNNER_REQUIRE_ROOT` or `RIVET_CODE_RUNNER_REQUIRE_ANCHOR`.
+A: `import` is not exposed. `require` is available only in the Node executor when the Code (legacy) node's `require` runtime permission is enabled. Programmatic Node runs use `NodeCodeRunner`; the desktop Node executor uses the app-executor runner. Both resolve modules from the process working directory by default, and hosted/runtime-library environments can override that with `RIVET_CODE_RUNNER_REQUIRE_ROOT` or `RIVET_CODE_RUNNER_REQUIRE_ANCHOR`.
 
 **Q: Can I use `async`/`await` in the code node?**
 
-A: Yes. Code nodes run through an async function, so you can use `await` directly.
+A: Yes. Code (legacy) nodes run through an async function, so you can use `await` directly.
 
 **Q: Can I use external libraries in the code node?**
 
@@ -203,11 +205,11 @@ A: In Browser executor mode, external libraries are not available. In Node execu
 
 **Q: Can I use `console.log` in the code node?**
 
-A: Yes, when the Code node's `console` runtime permission is enabled. In the app executor, console calls are forwarded back to the Rivet UI for the active run.
+A: Yes, when the Code (legacy) node's `console` runtime permission is enabled. In the app executor, console calls are forwarded back to the Rivet UI for the active run.
 
 **Q: Can the code node function like an [If Node](./if.mdx)?**
 
-A: Yes. If you return the special value `{ type: 'control-flow-excluded', value: undefined }` from the Code node, then the nodes after the Code node will be excluded from the graph's execution. Rivet displays that output as `Not ran`, not as the literal `undefined` value. This is useful if you want to conditionally execute a portion of the graph.
+A: Yes. If you return the special value `{ type: 'control-flow-excluded', value: undefined }` from the Code (legacy) node, then the nodes after the Code (legacy) node will be excluded from the graph's execution. Rivet displays that output as `Not ran`, not as the literal `undefined` value. This is useful if you want to conditionally execute a portion of the graph.
 
 **Q: Is there any timeout? What if I create an infinite loop?**
 
@@ -215,4 +217,5 @@ A: There is no timeout. If you create an infinite loop, then the graph will hang
 
 ## See Also
 
+- [Code Node](./code-new.mdx)
 - [External Call Node](./external-call.mdx)

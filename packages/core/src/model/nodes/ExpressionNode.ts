@@ -18,6 +18,7 @@ import {
   buildCloneJsInputValueFunction,
   buildJsValueInterpolatedSource,
   getJsValueInterpolationInputNames,
+  getSafeJsValueInterpolationIdentifier,
   interpolateJsValuePreviewSource,
   sanitizeGeneratedJsValueText,
 } from './jsValueInterpolation.js';
@@ -43,18 +44,18 @@ function getExpressionInputNames(expression: string): string[] {
   return getJsValueInterpolationInputNames(expression);
 }
 
-function buildExpressionRuntimeSource(expression: string): string {
-  return buildJsValueInterpolatedSource(expression, EXPRESSION_INPUTS_IDENTIFIER);
+function buildExpressionRuntimeSource(expression: string, inputsIdentifier: string): string {
+  return buildJsValueInterpolatedSource(expression, inputsIdentifier);
 }
 
-function buildExpressionInputsInitializer(inputNames: string[]): string {
+function buildExpressionInputsInitializer(inputNames: string[], inputsIdentifier: string): string {
   return dedent`
     ${buildCloneJsInputValueFunction()}
-    const ${EXPRESSION_INPUTS_IDENTIFIER} = Object.create(null);
+    const ${inputsIdentifier} = Object.create(null);
     const ${EXPRESSION_INPUT_CLONE_CACHE_IDENTIFIER} = new WeakMap();
     ${buildClonedInputValueAssignments(
       inputNames,
-      EXPRESSION_INPUTS_IDENTIFIER,
+      inputsIdentifier,
       EXPRESSION_INPUT_CLONE_CACHE_IDENTIFIER,
     )}
   `;
@@ -64,33 +65,41 @@ export function interpolateExpressionSource(expression: string, inputs: Inputs):
   return interpolateJsValuePreviewSource(expression, inputs);
 }
 
-function sanitizeGeneratedExpressionText(text: string | undefined, inputNames: string[]): string | undefined {
-  return sanitizeGeneratedJsValueText(text, inputNames, EXPRESSION_INPUTS_IDENTIFIER, 'expression input');
+function sanitizeGeneratedExpressionText(
+  text: string | undefined,
+  inputNames: string[],
+  inputsIdentifier: string,
+): string | undefined {
+  return sanitizeGeneratedJsValueText(text, inputNames, inputsIdentifier, 'expression input');
 }
 
-function sanitizeExpressionError(error: unknown, inputNames: string[]): Error {
+function sanitizeExpressionError(error: unknown, inputNames: string[], inputsIdentifier: string): Error {
   const expressionError = getError(error);
   expressionError.message =
-    sanitizeGeneratedExpressionText(expressionError.message, inputNames) ?? expressionError.message;
-  expressionError.stack = sanitizeGeneratedExpressionText(expressionError.stack, inputNames);
+    sanitizeGeneratedExpressionText(expressionError.message, inputNames, inputsIdentifier) ?? expressionError.message;
+  expressionError.stack = sanitizeGeneratedExpressionText(expressionError.stack, inputNames, inputsIdentifier);
 
   return expressionError;
 }
 
-function buildExpressionWrapper(expression: string): string {
+function buildExpressionWrapper(expression: string): { inputsIdentifier: string; source: string } {
   const inputNames = getExpressionInputNames(expression);
-  const expressionSource = buildExpressionRuntimeSource(expression);
+  const inputsIdentifier = getSafeJsValueInterpolationIdentifier(expression, EXPRESSION_INPUTS_IDENTIFIER);
+  const expressionSource = buildExpressionRuntimeSource(expression, inputsIdentifier);
 
-  return dedent`
-    ${buildExpressionInputsInitializer(inputNames)}
+  return {
+    inputsIdentifier,
+    source: dedent`
+      ${buildExpressionInputsInitializer(inputNames, inputsIdentifier)}
 
-    return {
-      output: {
-        type: 'any',
-        value: (${expressionSource}),
-      },
-    };
-  `;
+      return {
+        output: {
+          type: 'any',
+          value: (${expressionSource}),
+        },
+      };
+    `,
+  };
 }
 
 export class ExpressionNodeImpl extends NodeImpl<ExpressionNode> {
@@ -170,10 +179,11 @@ export class ExpressionNodeImpl extends NodeImpl<ExpressionNode> {
 
   async process(inputs: Inputs, context: InternalProcessContext): Promise<Outputs> {
     const inputNames = getExpressionInputNames(this.data.expression);
+    const { inputsIdentifier, source } = buildExpressionWrapper(this.data.expression);
 
     try {
       return await context.codeRunner.runCode(
-        buildExpressionWrapper(this.data.expression),
+        source,
         inputs,
         {
           includeFetch: false,
@@ -186,7 +196,7 @@ export class ExpressionNodeImpl extends NodeImpl<ExpressionNode> {
         context.contextValues,
       );
     } catch (error) {
-      throw sanitizeExpressionError(error, inputNames);
+      throw sanitizeExpressionError(error, inputNames, inputsIdentifier);
     }
   }
 }

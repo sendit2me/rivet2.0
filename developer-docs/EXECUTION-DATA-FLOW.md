@@ -366,14 +366,15 @@ Data is keyed by `processId` within the node's array. A node can have multiple
 entries from different graph runs or split-run iterations.
 
 Most nodes leave `debugData` empty. The current notable exceptions are app-side
-presentation/debug affordances: `Code` snapshots `codeSource` so the selected
-failed run can highlight the matching editor line, `Expression` snapshots
-`expressionSource` for historical `Parsed expression` rendering, `Extract Object
-Path` snapshots `extractObjectPathSource` and `extractObjectPathUsePathInput` for
-stored-path parsed-source rendering, and `JS Filter` / `JS Map` snapshot
-`jsListCallbackBodySource` for their callback parsed-source preview. These
-snapshots are stored only in app execution history; they are not part of the core
-graph-output contract used by programmatic workflow execution.
+presentation/debug affordances: `Code (legacy)` and `Code` snapshot `codeSource` so
+the selected failed run can highlight the matching editor line, `Expression`
+snapshots `expressionSource` for historical `Parsed expression` rendering,
+`Extract Object Path` snapshots `extractObjectPathSource` and
+`extractObjectPathUsePathInput` for stored-path parsed-source rendering, and `JS
+Filter` / `JS Map` snapshot `jsListCallbackBodySource` for their callback
+parsed-source preview. These snapshots are stored only in app execution history;
+they are not part of the core graph-output contract used by programmatic
+workflow execution.
 
 `StoredDataValue` is an app-only wrapper around execution payloads:
 
@@ -646,11 +647,12 @@ attempting an internal sidecar connection that cannot be created in a normal
 browser.
 
 The app-executor prewarms its shared CodeRunner worker pool before announcing
-that the executor websocket is ready. Ordinary Code and Expression node runs use
-single-use workers from that pool, then terminate them and replenish the pool in
-the background. This keeps fresh-worker isolation while avoiding the common
-cold-start cost on minimal Node-executor workflows. `RIVET_CODE_RUNNER_WORKER_POOL_SIZE`
-controls the number of prewarmed workers, and `0` disables prewarming.
+that the executor websocket is ready. Ordinary Code (legacy), Code, and Expression
+node runs use single-use workers from that pool, then terminate them and
+replenish the pool in the background. This keeps fresh-worker isolation while
+avoiding the common cold-start cost on minimal Node-executor workflows.
+`RIVET_CODE_RUNNER_WORKER_POOL_SIZE` controls the number of prewarmed workers,
+and `0` disables prewarming.
 The shared pool is lazy outside the sidecar entrypoint, and idle workers are
 unrefed plus guarded with error/exit cleanup so failed idle workers are dropped
 and replenished without surfacing as executor process errors.
@@ -749,20 +751,20 @@ terminating the sidecar after a graph failure has already been reported through
 the normal request-scoped protocol.
 
 The desktop app's internal Node sidecar also uses an app-executor-only
-worker-backed `CodeRunner` for most Code-node JavaScript. That keeps the sidecar
-event loop free to process independent nodes and emit their `nodeFinish` events
-while an unrelated synchronous Code node is still running. This does not change
-the public `@valerypopoff/rivet2-node` default runner, and Code nodes that request the
-`Rivet` capability may still run on the sidecar's current thread for
-compatibility.
+worker-backed `CodeRunner` for most Code-family JavaScript. That
+keeps the sidecar event loop free to process independent nodes and emit their
+`nodeFinish` events while an unrelated synchronous Code-family node is still
+running. This does not change the public `@valerypopoff/rivet2-node` default
+runner, and Code-family nodes that request the `Rivet` capability may still run
+on the sidecar's current thread for compatibility.
 
-Code-node `console` output in Node executor mode is an executor-session message,
-not sidecar stdout. When the node's console permission is enabled, the
+Code-family `console` output in Node executor mode is an executor-session
+message, not sidecar stdout. When the node's console permission is enabled, the
 app-executor runner sends `codeConsole` messages for `debug`, `info`, `log`,
 `warn`, and `error`; [`useRemoteExecutor`](../packages/app/src/hooks/useRemoteExecutor.ts)
 only replays messages for the active editor run into the renderer console.
 
-Code-node `require()` resolution has a stable hosted-runtime seam. Public
+Code-family `require()` resolution has a stable hosted-runtime seam. Public
 `NodeCodeRunner` and the app-executor worker runner default to resolving from the
 process working directory, but `RIVET_CODE_RUNNER_REQUIRE_ROOT` can point them at
 a runtime-library directory and `RIVET_CODE_RUNNER_REQUIRE_ANCHOR` can provide a
@@ -771,9 +773,9 @@ source while preserving the programmatic default for normal `@valerypopoff/rivet
 callers.
 For app-executor hosted runtimes, a bootstrap layer may also install
 `globalThis.__RIVET_PREPARE_RUNTIME_LIBRARIES__`. The worker runner invokes that
-hook before require-enabled or Rivet-capable Code nodes run, so hosted wrappers
-can synchronize managed runtime-library artifacts just before module resolution
-without rewriting Rivet's runner source.
+hook before require-enabled or Rivet-capable Code-family nodes run, so hosted
+wrappers can synchronize managed runtime-library artifacts just before module
+resolution without rewriting Rivet's runner source.
 
 ### Browser execution: microtask avalanche
 

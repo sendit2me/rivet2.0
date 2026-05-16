@@ -118,6 +118,18 @@ function makeCodeNode(nodeId: string, outputNames: string[]): ChartNode {
   return node;
 }
 
+function makeCodeNewNode(nodeId: string, code: string): ChartNode {
+  const node = registry.createDynamic('codeNew');
+
+  node.id = nodeId as NodeId;
+  node.data = {
+    ...(node.data as Record<string, unknown>),
+    code,
+  };
+
+  return node;
+}
+
 function makeExpressionNode(nodeId: string, expression: string): ChartNode {
   const node = registry.createDynamic('expression');
 
@@ -483,6 +495,11 @@ test('renamed interpolation input works for all same-id marked node families', (
       name: 'Prompt',
       targetNode: makePromptNode('target', '{{foo}}'),
       newData: { promptText: '{{bar}}' },
+    },
+    {
+      name: 'Code',
+      targetNode: makeCodeNewNode('target', 'return {{foo}};'),
+      newData: { code: 'return {{bar}};' },
     },
     {
       name: 'Expression',

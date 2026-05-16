@@ -99,6 +99,7 @@ function assertSourceFoldingDisabled(relativePath: string, locator: EditorLocato
 
 test('targeted built-in code/json node editors opt into folding', () => {
   assertSourceFoldingEnabled('src/model/nodes/CodeNode.ts', { dataKey: 'code' });
+  assertSourceFoldingEnabled('src/model/nodes/CodeNewNode.ts', { dataKey: 'code' });
   assertSourceFoldingEnabled('src/model/nodes/ExpressionNode.ts', { dataKey: 'expression' });
   assertSourceFoldingEnabled('src/model/nodes/ObjectNode.ts', { label: 'JSON Template' });
   assertSourceFoldingEnabled('src/model/nodes/HttpCallNode.ts', { label: 'Headers' });

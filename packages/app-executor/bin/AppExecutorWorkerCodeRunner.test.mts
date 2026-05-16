@@ -4,6 +4,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
+  CodeNewNodeImpl,
   CodeNodeImpl,
   type CodeRunnerOptions,
   GraphProcessor,
@@ -60,12 +61,23 @@ function makeProject(graph: NodeGraph): Project {
 function makeCodeNode(code: string): ChartNode {
   const node = CodeNodeImpl.create();
   node.id = 'code-node' as NodeId;
-  node.title = 'Code';
+  node.title = 'Code (legacy)';
   node.data = {
     ...node.data,
     code,
     inputNames: [],
     outputNames: ['output1'],
+  };
+  return node;
+}
+
+function makeCodeNewNode(code: string): ChartNode {
+  const node = CodeNewNodeImpl.create();
+  node.id = 'code-new-node' as NodeId;
+  node.title = 'Code';
+  node.data = {
+    ...node.data,
+    code,
   };
   return node;
 }
@@ -544,7 +556,7 @@ void describe('AppExecutorWorkerCodeRunner', () => {
     } satisfies DataValue);
   });
 
-  void it('still lets the Code node validate returned output shape', async () => {
+  void it('still lets the Code (legacy) node validate returned output shape', async () => {
     const graph: NodeGraph = {
       connections: [],
       metadata: {
@@ -562,13 +574,13 @@ void describe('AppExecutorWorkerCodeRunner', () => {
       (error) => {
         assert.ok(error instanceof Error);
         assert.ok(error.cause instanceof Error);
-        assert.match(error.cause.message, /Code node must return an object with output values for all outputs/);
+        assert.match(error.cause.message, /Code \(legacy\) node must return an object with output values for all outputs/);
         return true;
       },
     );
   });
 
-  void it('preserves Code node error-location enrichment through worker errors', async () => {
+  void it('preserves Code (legacy) node error-location enrichment through worker errors', async () => {
     const graph: NodeGraph = {
       connections: [],
       metadata: {
@@ -583,6 +595,67 @@ void describe('AppExecutorWorkerCodeRunner', () => {
             'const second = 2;',
             'const value = missingVariable;',
             'return { output1: { type: "number", value } };',
+          ].join('\n'),
+        ),
+      ],
+    };
+    const processor = new GraphProcessor(makeProject(graph), graph.metadata!.id!, createBuiltInRegistry());
+    processor.executor = 'nodejs';
+
+    await assert.rejects(
+      () => processor.processGraph(testProcessContext()),
+      (error) => {
+        assert.ok(error instanceof Error);
+        assert.ok(error.cause instanceof ReferenceError);
+        assert.match(error.cause.message, /missingVariable is not defined/);
+        assert.match(error.cause.message, /Code \(legacy\) node line 3, column \d+/);
+        return true;
+      },
+    );
+  });
+
+  void it('runs Code direct returned values through worker execution', async () => {
+    const graph: NodeGraph = {
+      connections: [],
+      metadata: {
+        description: '',
+        id: 'worker-code-new-output-graph' as GraphId,
+        name: 'Worker Code Output Graph',
+      },
+      nodes: [makeCodeNewNode('return undefined;')],
+    };
+    const processor = new GraphProcessor(makeProject(graph), graph.metadata!.id!, createBuiltInRegistry());
+    processor.executor = 'nodejs';
+
+    let codeNewOutputs: Outputs | undefined;
+    processor.on('nodeFinish', ({ node, outputs }) => {
+      if (node.id === 'code-new-node') {
+        codeNewOutputs = outputs;
+      }
+    });
+
+    await processor.processGraph(testProcessContext());
+
+    assert.deepEqual(codeNewOutputs?.['output' as PortId], {
+      type: 'any',
+      value: undefined,
+    } satisfies DataValue);
+  });
+
+  void it('preserves Code error-location enrichment through worker errors', async () => {
+    const graph: NodeGraph = {
+      connections: [],
+      metadata: {
+        description: '',
+        id: 'worker-code-new-error-location-graph' as GraphId,
+        name: 'Worker Code Error Location Graph',
+      },
+      nodes: [
+        makeCodeNewNode(
+          [
+            'const first = 1;',
+            'const second = 2;',
+            'return missingVariable;',
           ].join('\n'),
         ),
       ],

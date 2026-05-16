@@ -15,6 +15,7 @@ import { loadDatasetNodeDescriptor } from '../components/nodes/LoadDatasetNode';
 import { datasetNearestNeighborsNodeDescriptor } from '../components/nodes/DatasetNearestNeighborsNode';
 import { getDatasetRowNodeDescriptor } from '../components/nodes/GetDatasetRowNode';
 import { replaceDatasetNodeDescriptor } from '../components/nodes/ReplaceDatasetNode';
+import { codeNewNodeDescriptor } from '../components/nodes/CodeNewNode';
 import { expressionNodeDescriptor } from '../components/nodes/ExpressionNode';
 import { jsFilterNodeDescriptor, jsMapNodeDescriptor } from '../components/nodes/JSListNode';
 import { extractObjectPathNodeDescriptor } from '../components/nodes/ExtractObjectPathNode';
@@ -71,6 +72,7 @@ const overriddenDescriptors: Partial<NodeComponentDescriptors> = {
   datasetNearestNeighbors: datasetNearestNeighborsNodeDescriptor,
   getDatasetRow: getDatasetRowNodeDescriptor,
   replaceDataset: replaceDatasetNodeDescriptor,
+  codeNew: codeNewNodeDescriptor,
   expression: expressionNodeDescriptor,
   jsFilter: jsFilterNodeDescriptor,
   jsMap: jsMapNodeDescriptor,

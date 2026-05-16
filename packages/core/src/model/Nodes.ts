@@ -22,6 +22,9 @@ export * from './nodes/ExtractRegexNode.js';
 import { codeNode } from './nodes/CodeNode.js';
 export * from './nodes/CodeNode.js';
 
+import { codeNewNode } from './nodes/CodeNewNode.js';
+export * from './nodes/CodeNewNode.js';
+
 import { expressionNode } from './nodes/ExpressionNode.js';
 export * from './nodes/ExpressionNode.js';
 
@@ -275,6 +278,7 @@ export const registerBuiltInNodes = (registry: NodeRegistration) => {
     .register(promptNode)
     .register(extractRegexNode)
     .register(codeNode)
+    .register(codeNewNode)
     .register(expressionNode)
     .register(matchNode)
     .register(ifNode)

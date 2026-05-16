@@ -215,6 +215,21 @@ describe('ExpressionNode', () => {
     assert.deepStrictEqual(object, { nested: { key: 'original' } });
   });
 
+  it('keeps interpolation values available when expression scopes use generated helper names', async () => {
+    const node = createNode({
+      expression: '((__expressionInputs) => {{value}})({})',
+    });
+
+    const result = await node.process(
+      {
+        ['value' as PortId]: { type: 'number', value: 7 },
+      },
+      createContext(),
+    );
+
+    assert.deepStrictEqual(result.output?.value, 7);
+  });
+
   it('preserves shared identity across cloned input references', async () => {
     const node = createNode({
       expression: '{{a}} === {{b}}',

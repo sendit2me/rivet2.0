@@ -214,7 +214,7 @@ The current built-in node list is registered through `registerBuiltInNodes(...)`
 
 Current `Random number` behavior lives on the existing `randomNumber` node type rather than a replacement type. Its `Float` / `Integer` pill editor is presentation over the existing `integers?: boolean` data field, and `Min` / `Max` remain number settings with optional input-port toggles. The runtime keeps the original `maxInclusive` behavior: it only changes integer generation by adding one to the effective max before `Math.floor(...)`.
 
-`Expression`, `JS Filter`, and `JS Map` are core built-ins that evaluate JavaScript through `context.codeRunner` with optional capabilities disabled and share value-backed interpolation from [`jsValueInterpolation.ts`](../packages/core/src/model/nodes/jsValueInterpolation.ts). `{{var}}` tokens create `any` input ports and evaluate as connected values through generated internal references; input objects/arrays are cloned before evaluation so expression-side or callback-side mutation cannot mutate upstream graph data. Function-valued inputs are wrapped so property mutation stays local, but invoking a function can still perform whatever side effects that function implements. Missing interpolation inputs become `undefined`.
+`Code` (internal type `codeNew`), `Expression`, `JS Filter`, and `JS Map` are core built-ins that evaluate JavaScript through `context.codeRunner` and share value-backed interpolation from [`jsValueInterpolation.ts`](../packages/core/src/model/nodes/jsValueInterpolation.ts). `{{var}}` tokens create `any` input ports and evaluate as connected values through generated internal references; input objects/arrays are cloned before evaluation so expression-side, code-body-side, or callback-side mutation cannot mutate upstream graph data. Function-valued inputs are wrapped so property mutation stays local, but invoking a function can still perform whatever side effects that function implements. Generated interpolation helper identifiers are chosen so they do not collide with identifiers already present in the authored source, which keeps user locals or callback parameters from shadowing `{{var}}` values. Missing interpolation inputs become `undefined`. `Code` differs from `Expression` by wrapping the authored source in an async function body so users can declare locals, use `await`, and `return` one value, while still exposing the Code-family runtime permission toggles. Its normal generated wrapper returns the fixed `output` DataValue, and the node validates that runner boundary defensively so a custom or broken `CodeRunner` cannot store a missing/malformed `Output`. The older internal `code` node is user-facing `Code (legacy)` and keeps the manually configured inputs/outputs contract. User documentation intentionally keeps both pages: `node-reference/code-new` is the current Code node, while `node-reference/code` is Code (legacy), so existing external docs links stay valid while the sidebar labels match the UI.
 
 `JS Filter` and `JS Map` share editor, input, body-preview, wrapper, interpolation, and output-validation scaffolding in [`jsListCallbackHelpers.ts`](../packages/core/src/model/nodes/jsListCallbackHelpers.ts). Their settings editor uses the generic code-editor contract with a pre-editor callback-signature helper and a post-editor interpolation note, keeping the body-only UX in core metadata instead of custom app UI. Their callback bodies are still wrapped explicitly by each node so the filter/map runtime differences remain inspectable. The callback-local names `item`, `index`, and `array` are reserved and do not create input ports; if written as `{{item}}`, `{{index}}`, or `{{array}}`, they resolve to the existing callback parameters. App-side parsed-callback previews use their own presentation wrapper instead of expanding the core helper API; the core helper stays focused on runtime and node-body contracts.
 
@@ -228,7 +228,7 @@ Current `Random number` behavior lives on the existing `randomNumber` node type 
 
 `Did Run` is a small control-flow adapter node. It has Coalesce-style dynamic `Input N` ports and one boolean `Ran` output. `GraphProcessor` already prevents normal node processing when any connected upstream value is `control-flow-excluded`, so the node implementation deliberately does not re-check payload truthiness or data type. If the processor invokes it with at least one dynamic input entry, it outputs `true`; if no dynamic inputs are connected, it outputs `control-flow-excluded`. This keeps the node's meaning focused on "did every connected branch run at all?" rather than "what values did those branches produce?" The node body should stay a short rule summary rather than duplicating the full info-box text.
 
-Input definitions that are generated from user-authored `{{var}}` interpolation and exposed as connectable input ports must be created through [`packages/core/src/model/interpolationInputDefinition.ts`](../packages/core/src/model/interpolationInputDefinition.ts). This is a core maintainability rule for all current and future nodes, not just a convenience helper. The helper preserves the existing port id/title contract while adding `NodeInputDefinition.data` metadata that says the port came from interpolation and records the original interpolation name. The app relies on that metadata to preserve connections when a user clearly renames an interpolation token, so manually creating interpolation ports with plain input-definition objects will make rename preservation fail for that node. The metadata is runtime/editor-only and is not persisted in graph files. Built-in interpolation producers currently marked this way include Text, Prompt, Object, Tool schema interpolation, Expression, JS Filter, JS Map, Extract Object Path, and the built-in OpenAI Thread Message plugin node. Nodes such as `To Tree` that use `{{...}}` only against per-item object properties do not expose connectable interpolation ports and therefore should not use this marker.
+Input definitions that are generated from user-authored `{{var}}` interpolation and exposed as connectable input ports must be created through [`packages/core/src/model/interpolationInputDefinition.ts`](../packages/core/src/model/interpolationInputDefinition.ts). This is a core maintainability rule for all current and future nodes, not just a convenience helper. The helper preserves the existing port id/title contract while adding `NodeInputDefinition.data` metadata that says the port came from interpolation and records the original interpolation name. The app relies on that metadata to preserve connections when a user clearly renames an interpolation token, so manually creating interpolation ports with plain input-definition objects will make rename preservation fail for that node. The metadata is runtime/editor-only and is not persisted in graph files. Built-in interpolation producers currently marked this way include Text, Prompt, Object, Tool schema interpolation, Code, Expression, JS Filter, JS Map, Extract Object Path, and the built-in OpenAI Thread Message plugin node. Nodes such as `To Tree` that use `{{...}}` only against per-item object properties do not expose connectable interpolation ports and therefore should not use this marker.
 
 Interpolation safety coverage should stay broad whenever this contract changes: core tests cover parser edge cases and built-in input-definition marking, negative tests cover runtime-only consumers such as `To Tree`, app graph-editing tests cover rename preservation for marked built-ins and plugin nodes, and execution-data tests cover parsed-source previews using the captured run inputs rather than current editor state.
 
@@ -651,21 +651,25 @@ That is especially true for nested execution correctness: `ProcessContextBuilder
 
 ### Code runner error locations
 
-`Code` nodes still execute through the configured `CodeRunner`. Browser mode uses
-`IsomorphicCodeRunner`. Programmatic Node execution through `@valerypopoff/rivet2-node`
-still defaults to `NodeCodeRunner`, while the desktop app's internal
-`app-executor` sidecar passes its own worker-backed runner so most Code-node
-JavaScript runs off the sidecar's main event loop. The app-executor worker runner
-falls back to current-thread execution when the Code node requests the `Rivet`
-capability, because packaged sidecar module resolution for that capability must
-stay compatible.
+`Code (legacy)`, `Code` (internal type `codeNew`), `Expression`, `JS Filter`, and `JS Map` still execute
+through the configured `CodeRunner`. Browser mode uses `IsomorphicCodeRunner`.
+Programmatic Node execution through `@valerypopoff/rivet2-node` still defaults to
+`NodeCodeRunner`, while the desktop app's internal `app-executor` sidecar passes
+its own worker-backed runner so most Code-family JavaScript runs off the
+sidecar's main event loop. The app-executor worker runner falls back to
+current-thread execution when a Code-family node requests the `Rivet` capability,
+because packaged sidecar module resolution for that capability must stay
+compatible.
 
-The Code node appends a generated `sourceURL` before calling whichever runner is
-configured so runtime stack frames can be mapped back to the user's code-node
-editor lines when the run fails.
+The Code-family nodes that own full code editors, `Code (legacy)` and `Code`, append a generated `sourceURL` before calling
+whichever runner is configured so runtime stack frames can be mapped back to the
+user's code editor lines when the run fails. `Code` passes the generated
+interpolation/wrapper source as diagnostic code plus a user-code line offset, so
+runtime and syntax failures still point at the authored Code body instead of
+the generated wrapper.
 
 In the desktop app's Node executor, `AppExecutorWorkerCodeRunner` also owns
-Code-node console observability. When `console` is enabled, it injects a
+Code-family console observability. When `console` is enabled, it injects a
 bridged console into worker-backed runs and the `Rivet`-capability fallback path;
 those calls become `codeConsole` executor messages that the app replays in the
 renderer console. This is app-executor-specific and does not change the public
@@ -677,7 +681,7 @@ renderer console. This is app-executor-specific and does not change the public
 anchor remains `process.cwd()/__rivet_node_code_runner__.cjs`, so programmatic
 callers keep the old behavior. Hosted wrappers can set
 `RIVET_CODE_RUNNER_REQUIRE_ROOT` or `RIVET_CODE_RUNNER_REQUIRE_ANCHOR` before the
-runner is constructed to resolve Code-node `require()` from a runtime-library
+runner is constructed to resolve Code-family `require()` from a runtime-library
 directory without patching source.
 
 Syntax-error diagnostics are deliberately failure-only. The core does not pre-parse
