@@ -402,6 +402,7 @@ Current performance-oriented hook boundaries now carry explicit contracts:
 - initial duplicate intent is captured from the node drag handle rather than inferred from `DragStartEvent`
 - live `Alt` press/release during a drag switches the session between move and duplicate mode
 - live `Shift` press/release during a drag enables or clears straight-line axis locking; the first non-zero drag delta while `Shift` is active chooses the locked axis and that same constrained delta is used for both the overlay preview and the final committed move
+- live `Ctrl`/`Cmd` press/release during a Comment-node drag expands or shrinks the drag cohort to include nodes fully enclosed by the dragged Comment bounds. This is a canvas-model calculation, not a DOM measurement: Comment nodes use their stored height from `data.height`, while normal nodes use the same fixed height estimate used by canvas selection/enclosure math so the result stays deterministic during drag.
 - the drag cohort is canonicalized against `nodesById`, so stale selected node ids are filtered out before drop handling
 - the hook exposes explicit overlay policy through `draggingNodes` and `draggingConnectionSourceNodeIds` instead of relying on implicit render-side behavior
 

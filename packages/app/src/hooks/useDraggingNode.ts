@@ -1,25 +1,39 @@
 import { type DragStartEvent, type DragEndEvent, type DragMoveEvent } from '@dnd-kit/core';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { newId, type ChartNode, type NodeId } from '@valerypopoff/rivet2-core';
+import { newId, type ChartNode, type CommentNode, type NodeId } from '@valerypopoff/rivet2-core';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { canvasPositionState, selectedNodesState } from '../state/graphBuilder.js';
 import { isNotNull } from '../utils/genericUtilFunctions.js';
 import { nodesByIdState, nodesState } from '../state/graph.js';
 import { useMoveNodeCommand } from '../commands/moveNodeCommand';
 import { useDuplicateNodesCommand } from '../commands/duplicateNodesCommand.js';
+import {
+  DEFAULT_CANVAS_NODE_HEIGHT_ESTIMATE,
+  getCanvasCommentHeight,
+  getCanvasNodeWidth,
+} from './canvasVisibilityBounds.js';
 
 export type DragMode = 'move' | 'duplicate';
 export type DragAxisLock = 'x' | 'y' | undefined;
 export type DragActivatorModifierState = {
   altKey: boolean;
+  ctrlKey: boolean;
   hoverControlsVisible: boolean;
+  metaKey: boolean;
   nodeId: NodeId;
   shiftKey: boolean;
 };
 type DragModifierKeyEvent = Pick<KeyboardEvent, 'altKey' | 'key'>;
 type DragShiftKeyEvent = Pick<KeyboardEvent, 'key' | 'shiftKey'>;
+type DragCommentEnclosureKeyEvent = Pick<KeyboardEvent, 'ctrlKey' | 'key' | 'metaKey'>;
 type DragStartPositionMap = Map<NodeId, { x: number; y: number }>;
 type DragDelta = { x: number; y: number };
+type NodeEnclosureBounds = {
+  bottom: number;
+  left: number;
+  right: number;
+  top: number;
+};
 
 export function resolveDraggedNodeIds(selectedNodeIds: NodeId[], draggedNodeId: NodeId): NodeId[] {
   return selectedNodeIds.length > 0 ? [...new Set([...selectedNodeIds, draggedNodeId])] : [draggedNodeId];
@@ -35,6 +49,75 @@ export function resolveDraggedSourceNodes(
     sourceNodeIds: sourceNodes.map((node) => node.id),
     sourceNodes,
   };
+}
+
+function getNodeCommentEnclosureBounds(node: ChartNode): NodeEnclosureBounds {
+  const width = getCanvasNodeWidth(node);
+  const height =
+    node.type === 'comment'
+      ? getCanvasCommentHeight(node as CommentNode)
+      : DEFAULT_CANVAS_NODE_HEIGHT_ESTIMATE;
+
+  return {
+    bottom: node.visualData.y + height,
+    left: node.visualData.x,
+    right: node.visualData.x + width,
+    top: node.visualData.y,
+  };
+}
+
+export function isNodeFullyInsideCommentBounds(node: ChartNode, commentNode: CommentNode): boolean {
+  if (node.id === commentNode.id) {
+    return false;
+  }
+
+  const nodeBounds = getNodeCommentEnclosureBounds(node);
+  const commentBounds = getNodeCommentEnclosureBounds(commentNode);
+
+  return (
+    nodeBounds.left >= commentBounds.left &&
+    nodeBounds.right <= commentBounds.right &&
+    nodeBounds.top >= commentBounds.top &&
+    nodeBounds.bottom <= commentBounds.bottom
+  );
+}
+
+export function resolveCommentEnclosureDraggedNodeIds({
+  draggedNodeIds,
+  includeEnclosedNodes,
+  nodes,
+}: {
+  draggedNodeIds: NodeId[];
+  includeEnclosedNodes: boolean;
+  nodes: readonly ChartNode[];
+}): NodeId[] {
+  if (!includeEnclosedNodes) {
+    return draggedNodeIds;
+  }
+
+  const draggedNodeIdSet = new Set(draggedNodeIds);
+  const commentNodes = nodes.filter(
+    (node): node is CommentNode => draggedNodeIdSet.has(node.id) && node.type === 'comment',
+  );
+
+  if (commentNodes.length === 0) {
+    return draggedNodeIds;
+  }
+
+  const nextNodeIds = [...draggedNodeIds];
+
+  for (const node of nodes) {
+    if (draggedNodeIdSet.has(node.id)) {
+      continue;
+    }
+
+    if (commentNodes.some((commentNode) => isNodeFullyInsideCommentBounds(node, commentNode))) {
+      draggedNodeIdSet.add(node.id);
+      nextNodeIds.push(node.id);
+    }
+  }
+
+  return nextNodeIds;
 }
 
 export function resolveDragModeFromAlt(altKey: boolean): DragMode {
@@ -103,6 +186,20 @@ export function shouldDisableStraightLineDragOnKeyUp(event: DragShiftKeyEvent): 
   return event.key === 'Shift' || !event.shiftKey;
 }
 
+export function isCommentEnclosureDragModifierActive(
+  event: Pick<DragCommentEnclosureKeyEvent, 'ctrlKey' | 'metaKey'>,
+): boolean {
+  return event.ctrlKey || event.metaKey;
+}
+
+export function shouldEnableCommentEnclosureDragOnKeyDown(event: DragCommentEnclosureKeyEvent): boolean {
+  return event.key === 'Control' || event.key === 'Meta' || isCommentEnclosureDragModifierActive(event);
+}
+
+export function shouldDisableCommentEnclosureDragOnKeyUp(event: DragCommentEnclosureKeyEvent): boolean {
+  return !isCommentEnclosureDragModifierActive(event);
+}
+
 export function getDraggingPreviewNodes(options: {
   dragMode: DragMode;
   sourceNodes: ChartNode[];
@@ -127,6 +224,10 @@ function createDragStartPositionMap(nodes: ChartNode[]): DragStartPositionMap {
   );
 }
 
+function areNodeIdsEqual(left: NodeId[], right: NodeId[]): boolean {
+  return left.length === right.length && left.every((nodeId, index) => nodeId === right[index]);
+}
+
 function bringNodesToFront(nodes: ChartNode[], nodeIdsToFront: NodeId[]): ChartNode[] {
   if (nodeIdsToFront.length === 0) {
     return nodes;
@@ -147,6 +248,7 @@ function bringNodesToFront(nodes: ChartNode[], nodeIdsToFront: NodeId[]): ChartN
 export const useDraggingNode = () => {
   const selectedNodeIds = useAtomValue(selectedNodesState);
   const canvasPosition = useAtomValue(canvasPositionState);
+  const nodes = useAtomValue(nodesState);
   const nodesById = useAtomValue(nodesByIdState);
   const setNodes = useSetAtom(nodesState);
 
@@ -159,12 +261,14 @@ export const useDraggingNode = () => {
   const [isDragActive, setIsDragActive] = useState(false);
 
   const startPositionsRef = useRef<DragStartPositionMap>(new Map());
+  const baseDraggedSourceNodeIdsRef = useRef<NodeId[]>([]);
   const draggedSourceNodeIdsRef = useRef<NodeId[]>([]);
   const dragModeRef = useRef<DragMode>('move');
   const dragAxisLockRef = useRef<DragAxisLock>();
   const isShiftDragConstraintEnabledRef = useRef(false);
   const lastDragDeltaRef = useRef<DragDelta>({ x: 0, y: 0 });
   const lastDragActivatorAltRef = useRef(false);
+  const lastDragActivatorCommentEnclosureRef = useRef(false);
   const lastDragActivatorHoverControlsVisibleRef = useRef(false);
   const lastDragActivatorNodeIdRef = useRef<NodeId | undefined>();
   const lastDragActivatorShiftRef = useRef(false);
@@ -201,6 +305,7 @@ export const useDraggingNode = () => {
 
   const resetDragSession = useCallback(() => {
     lastDragActivatorAltRef.current = false;
+    lastDragActivatorCommentEnclosureRef.current = false;
     lastDragActivatorHoverControlsVisibleRef.current = false;
     lastDragActivatorNodeIdRef.current = undefined;
     lastDragActivatorShiftRef.current = false;
@@ -208,6 +313,7 @@ export const useDraggingNode = () => {
     isShiftDragConstraintEnabledRef.current = false;
     lastDragDeltaRef.current = { x: 0, y: 0 };
     setDragDelta({ x: 0, y: 0 });
+    baseDraggedSourceNodeIdsRef.current = [];
     setSessionStartPositions(new Map());
     setSessionSourceNodeIds([]);
     setSessionSourceNodes([]);
@@ -224,6 +330,44 @@ export const useDraggingNode = () => {
     setSessionSourceNodes,
     setSessionStartPositions,
   ]);
+
+  const updateDragSourceNodes = useCallback(
+    (baseDraggedNodeIds: NodeId[], includeEnclosedNodes: boolean) => {
+      const nextDraggedNodeIds = resolveCommentEnclosureDraggedNodeIds({
+        draggedNodeIds: baseDraggedNodeIds,
+        includeEnclosedNodes,
+        nodes,
+      });
+      const { sourceNodeIds, sourceNodes } = resolveDraggedSourceNodes(nextDraggedNodeIds, nodesById);
+
+      if (!areNodeIdsEqual(sourceNodeIds, draggedSourceNodeIdsRef.current)) {
+        setSessionSourceNodeIds(sourceNodeIds);
+        setSessionSourceNodes(sourceNodes);
+        setSessionPreviewNodes(createDragDuplicatePreviewNodes(sourceNodes));
+        setSessionStartPositions(createDragStartPositionMap(sourceNodes));
+        setDraggedHoverControlSourceNodeIds(
+          lastDragActivatorHoverControlsVisibleRef.current &&
+            lastDragActivatorNodeIdRef.current &&
+            sourceNodeIds.includes(lastDragActivatorNodeIdRef.current)
+            ? [lastDragActivatorNodeIdRef.current]
+            : [],
+        );
+      }
+
+      return {
+        sourceNodeIds,
+        sourceNodes,
+      };
+    },
+    [
+      nodes,
+      nodesById,
+      setSessionPreviewNodes,
+      setSessionSourceNodeIds,
+      setSessionSourceNodes,
+      setSessionStartPositions,
+    ],
+  );
 
   useEffect(() => {
     if (!isDragActive) {
@@ -245,6 +389,10 @@ export const useDraggingNode = () => {
           }),
         );
       }
+
+      if (shouldEnableCommentEnclosureDragOnKeyDown(event)) {
+        updateDragSourceNodes(baseDraggedSourceNodeIdsRef.current, true);
+      }
     };
 
     const handleKeyUp = (event: KeyboardEvent) => {
@@ -256,10 +404,15 @@ export const useDraggingNode = () => {
         isShiftDragConstraintEnabledRef.current = false;
         setSessionDragAxisLock(undefined);
       }
+
+      if (shouldDisableCommentEnclosureDragOnKeyUp(event)) {
+        updateDragSourceNodes(baseDraggedSourceNodeIdsRef.current, false);
+      }
     };
 
     const handleBlur = () => {
       setSessionDragMode('move');
+      updateDragSourceNodes(baseDraggedSourceNodeIdsRef.current, false);
       isShiftDragConstraintEnabledRef.current = false;
       setSessionDragAxisLock(undefined);
     };
@@ -273,7 +426,7 @@ export const useDraggingNode = () => {
       window.removeEventListener('keyup', handleKeyUp);
       window.removeEventListener('blur', handleBlur);
     };
-  }, [isDragActive, setSessionDragAxisLock, setSessionDragMode]);
+  }, [isDragActive, setSessionDragAxisLock, setSessionDragMode, updateDragSourceNodes]);
 
   const draggingNodes = useMemo(
     () =>
@@ -298,6 +451,7 @@ export const useDraggingNode = () => {
 
   const onNodeDragActivatorPointerDown = useCallback((modifierState: DragActivatorModifierState) => {
     lastDragActivatorAltRef.current = modifierState.altKey;
+    lastDragActivatorCommentEnclosureRef.current = modifierState.ctrlKey || modifierState.metaKey;
     lastDragActivatorHoverControlsVisibleRef.current = modifierState.hoverControlsVisible;
     lastDragActivatorNodeIdRef.current = modifierState.nodeId;
     lastDragActivatorShiftRef.current = modifierState.shiftKey;
@@ -306,25 +460,15 @@ export const useDraggingNode = () => {
   const onNodeStartDrag = useCallback(
     (e: DragStartEvent) => {
       const draggedNodeId = e.active.id as NodeId;
-      const draggedNodeIds = resolveDraggedNodeIds(selectedNodeIds, draggedNodeId);
-      const { sourceNodeIds, sourceNodes } = resolveDraggedSourceNodes(draggedNodeIds, nodesById);
+      const baseDraggedNodeIds = resolveDraggedNodeIds(selectedNodeIds, draggedNodeId);
+      baseDraggedSourceNodeIdsRef.current = baseDraggedNodeIds;
+      const { sourceNodes } = updateDragSourceNodes(baseDraggedNodeIds, lastDragActivatorCommentEnclosureRef.current);
       if (sourceNodes.length === 0) {
         resetDragSession();
         return;
       }
 
       dragIncludesCommentRef.current = sourceNodes.some((node) => node.type === 'comment');
-      setSessionSourceNodeIds(sourceNodeIds);
-      setSessionSourceNodes(sourceNodes);
-      setDraggedHoverControlSourceNodeIds(
-        lastDragActivatorHoverControlsVisibleRef.current &&
-          lastDragActivatorNodeIdRef.current &&
-          sourceNodeIds.includes(lastDragActivatorNodeIdRef.current)
-          ? [lastDragActivatorNodeIdRef.current]
-          : [],
-      );
-      setSessionPreviewNodes(createDragDuplicatePreviewNodes(sourceNodes));
-      setSessionStartPositions(createDragStartPositionMap(sourceNodes));
       isShiftDragConstraintEnabledRef.current = lastDragActivatorShiftRef.current;
       lastDragDeltaRef.current = { x: 0, y: 0 };
       setSessionDragAxisLock(undefined);
@@ -332,15 +476,11 @@ export const useDraggingNode = () => {
       setIsDragActive(true);
     },
     [
-      nodesById,
       resetDragSession,
       selectedNodeIds,
       setSessionDragAxisLock,
       setSessionDragMode,
-      setSessionPreviewNodes,
-      setSessionSourceNodeIds,
-      setSessionSourceNodes,
-      setSessionStartPositions,
+      updateDragSourceNodes,
     ],
   );
 

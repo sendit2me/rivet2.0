@@ -15,6 +15,8 @@ The Comment Node is a special type of node that doesn't perform any operations b
 
 A comment node is always rendered behind all other nodes and connections in the graph, including while it is being dragged. Its body is transparent to canvas drag gestures, so you can pan the artboard from inside a large comment. Use the comment header or resize handles when you want to move, edit, or resize the comment itself.
 
+Hold **Ctrl** on Windows/Linux or **Cmd** on macOS while dragging a Comment node to move every node that is fully enclosed inside the Comment node's bounds along with it. Release the key during the drag to move only the Comment node again.
+
 <Tabs
   defaultValue="settings"
   values={[
@@ -44,11 +46,11 @@ The Comment Node does not produce any outputs.
 
 ## Editor Settings
 
-| Setting          | Description                                                                                                                       | Default Value         |
-| ---------------- | --------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
-| Color            | The color of the text in the comment node.                                                                                        | `rgba(255,255,255,1)` |
-| Background Color | The background color of the comment node.                                                                                         | `rgba(0,0,0,0.05)`    |
-| Text             | The text content of the comment node. Supports Markdown syntax, allowing for rich text formatting including headings, lists, etc. | (Empty)               |
+| Setting          | Description                                                                                                                       | Default Value             |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------- | ------------------------- |
+| Color            | The color of the text in the comment node.                                                                                        | `rgba(255,255,255,1)`     |
+| Background Color | The background color of the comment node.                                                                                         | `rgba(128,128,128,0.05)`  |
+| Text             | The text content of the comment node. Supports Markdown syntax, allowing for rich text formatting including headings, lists, etc. | (Empty)                   |
 
 </TabItem>
 

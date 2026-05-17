@@ -6,6 +6,8 @@ export type CanvasVisibilityBounds = {
   width: number;
 };
 
+export const DEFAULT_CANVAS_NODE_HEIGHT_ESTIMATE = 150;
+
 export function getCanvasNodeWidth(node: ChartNode): number {
   return Number.isFinite(node.visualData.width) ? node.visualData.width! : DEFAULT_NODE_WIDTH;
 }

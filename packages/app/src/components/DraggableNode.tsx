@@ -67,7 +67,9 @@ export const DraggableNode: FC<DraggableNodeProps> = memo(
 
         onDragActivatorPointerDown({
           altKey: event.altKey,
+          ctrlKey: event.ctrlKey,
           hoverControlsVisible: isHovered,
+          metaKey: event.metaKey,
           nodeId: node.id,
           shiftKey: event.shiftKey,
         });
