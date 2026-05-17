@@ -180,6 +180,10 @@ code {
   background-color: rgba(255, 92, 92, 0.22);
 }
 
+.monaco-editor .rivet-editor-interpolation-token {
+  color: var(--primary-text);
+}
+
 .atlaskit-portal-container {
   position: absolute;
   left: 0;

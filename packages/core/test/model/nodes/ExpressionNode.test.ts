@@ -48,6 +48,7 @@ describe('ExpressionNode', () => {
         helperMessage: 'Use {{var}} to create input ports. Interpolated variables evaluate as the connected values.',
         dataKey: 'expression',
         language: 'javascript',
+        interpolationSyntax: 'js-value',
         enableFolding: true,
       },
     ]);

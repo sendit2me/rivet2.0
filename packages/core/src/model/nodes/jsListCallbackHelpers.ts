@@ -184,6 +184,7 @@ export function getJSListEditors<T extends ChartNode>(): EditorDefinition<T>[] {
       postEditorHelperMessage: '};\n\n//Use {{var}} to create input ports that evaluate as connected values.',
       dataKey: 'callbackBody',
       language: 'javascript',
+      interpolationSyntax: 'js-value',
       enableFolding: true,
     } as EditorDefinition<T>,
   ];

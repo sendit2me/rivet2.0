@@ -26,10 +26,7 @@ const createNode = (data: Partial<CodeNewNode['data']>) => {
   });
 };
 
-const createContext = (
-  codeRunner = new IsomorphicCodeRunner(),
-  overrides: Partial<InternalProcessContext> = {},
-) =>
+const createContext = (codeRunner = new IsomorphicCodeRunner(), overrides: Partial<InternalProcessContext> = {}) =>
   ({
     codeRunner,
     contextValues: {},
@@ -47,12 +44,14 @@ class CapturingCodeRunner implements CodeRunner {
     options: CodeRunnerOptions;
   }[] = [];
 
-  constructor(private readonly outputs: unknown = {
-    output: {
-      type: 'any',
-      value: 'captured',
+  constructor(
+    private readonly outputs: unknown = {
+      output: {
+        type: 'any',
+        value: 'captured',
+      },
     },
-  }) {}
+  ) {}
 
   async runCode(
     code: string,
@@ -97,6 +96,7 @@ describe('CodeNewNode', () => {
         helperMessage: 'Use {{var}} to create input ports. Interpolated variables evaluate as the connected values.',
         dataKey: 'code',
         language: 'javascript',
+        interpolationSyntax: 'js-value',
         enableFolding: true,
       },
       {
@@ -360,11 +360,7 @@ describe('CodeNewNode', () => {
 
   it('adds Code line information to runtime errors', async () => {
     const node = createNode({
-      code: [
-        'const first = 1;',
-        'const second = 2;',
-        'return missingVariable;',
-      ].join('\n'),
+      code: ['const first = 1;', 'const second = 2;', 'return missingVariable;'].join('\n'),
     });
 
     await assert.rejects(
@@ -385,12 +381,7 @@ describe('CodeNewNode', () => {
 
   it('adds Code line information to syntax errors', async () => {
     const node = createNode({
-      code: [
-        'const first = 1;',
-        'if (first {',
-        '  return first;',
-        '}',
-      ].join('\n'),
+      code: ['const first = 1;', 'if (first {', '  return first;', '}'].join('\n'),
     });
 
     await assert.rejects(

@@ -21,6 +21,8 @@ A function is defined using JSON Schema, which is a vocabulary that allows you t
 
 You may use interpolation values in the GPT Function schema the same way you can use them in the Text and Prompt nodes. Wrap your interpolation values in double curly braces, e.g. `{{value}}`.
 
+The Schema editor recognizes those placeholders as Rivet template syntax. JSON validation still applies to the rest of the schema, but syntax markers caused only by interpolation tokens are ignored while you edit.
+
 <Tabs
   defaultValue="inputs"
   values={[
@@ -32,8 +34,8 @@ You may use interpolation values in the GPT Function schema the same way you can
 
 <TabItem value="inputs">
 
-| Title   | Data Type | Description                                                                                                   | Default Value  | Notes |
-| ------- | --------- | ------------------------------------------------------------------------------------------------------------- | -------------- | ----- |
+| Title   | Data Type | Description                                                                                                     | Default Value  | Notes |
+| ------- | --------- | --------------------------------------------------------------------------------------------------------------- | -------------- | ----- |
 | Input N | `string`  | Variable number of inputs for interpolated values such as `{{value}}` inside the schema definition of the node. | (empty string) |       |
 
 </TabItem>
@@ -42,8 +44,8 @@ You may use interpolation values in the GPT Function schema the same way you can
 
 ## Outputs
 
-| Title    | Data Type      | Description                                                                                                      | Notes |
-| -------- | -------------- | ---------------------------------------------------------------------------------------------------------------- | ----- |
+| Title    | Data Type      | Description                                                                                                            | Notes |
+| -------- | -------------- | ---------------------------------------------------------------------------------------------------------------------- | ----- |
 | Function | `gpt-function` | The function that was defined. This output can be connected to the `Tools` port of an [LLM Chat Node](./llm-chat.mdx). |       |
 
 </TabItem>

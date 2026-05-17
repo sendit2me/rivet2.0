@@ -1,12 +1,6 @@
 import { nanoid } from 'nanoid/non-secure';
 import { dedent } from 'ts-dedent';
-import type {
-  ChartNode,
-  NodeId,
-  NodeInputDefinition,
-  NodeOutputDefinition,
-  PortId,
-} from '../NodeBase.js';
+import type { ChartNode, NodeId, NodeInputDefinition, NodeOutputDefinition, PortId } from '../NodeBase.js';
 import { type EditorDefinition } from '../EditorDefinition.js';
 import type { Inputs, Outputs } from '../GraphProcessor.js';
 import { nodeDefinition } from '../NodeDefinition.js';
@@ -101,7 +95,9 @@ function buildCodeNewWrapper(
   ];
 
   return {
-    source: [...beforeUserCodeLines, buildCodeNewRuntimeSource(code, inputsIdentifier), ...afterUserCodeLines].join('\n'),
+    source: [...beforeUserCodeLines, buildCodeNewRuntimeSource(code, inputsIdentifier), ...afterUserCodeLines].join(
+      '\n',
+    ),
     userCodeLineOffset: beforeUserCodeLines.length,
   };
 }
@@ -176,6 +172,7 @@ export class CodeNewNodeImpl extends NodeImpl<CodeNewNode> {
         helperMessage: 'Use {{var}} to create input ports. Interpolated variables evaluate as the connected values.',
         dataKey: 'code',
         language: 'javascript',
+        interpolationSyntax: 'js-value',
         enableFolding: true,
       },
       {

@@ -118,6 +118,8 @@ export type NumberEditorDefinition<T extends ChartNode> = SharedEditorDefinition
       }
   );
 
+export type CodeEditorInterpolationSyntax = 'js-value' | 'json-template';
+
 export type CodeEditorDefinition<T extends ChartNode> = SharedEditorDefinitionProps<T> & {
   type: 'code';
 
@@ -126,6 +128,7 @@ export type CodeEditorDefinition<T extends ChartNode> = SharedEditorDefinitionPr
   postEditorHelperMessage?: string | ((data: T['data']) => string | undefined);
 
   language: string;
+  interpolationSyntax?: CodeEditorInterpolationSyntax;
   theme?: string;
   height?: number;
   enableFolding?: boolean;

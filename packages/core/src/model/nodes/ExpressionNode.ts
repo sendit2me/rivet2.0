@@ -59,10 +59,7 @@ function sanitizeExpressionError(error: unknown, inputNames: string[], inputsIde
   return sanitizeGeneratedJsValueError(error, inputNames, inputsIdentifier, 'expression input');
 }
 
-function buildExpressionWrapper(
-  expression: string,
-  interpolationContext: JsValueInterpolationRuntimeContext,
-): string {
+function buildExpressionWrapper(expression: string, interpolationContext: JsValueInterpolationRuntimeContext): string {
   const { inputNames, inputsIdentifier } = interpolationContext;
   const expressionSource = buildExpressionRuntimeSource(expression, inputsIdentifier);
 
@@ -119,6 +116,7 @@ export class ExpressionNodeImpl extends NodeImpl<ExpressionNode> {
         helperMessage: 'Use {{var}} to create input ports. Interpolated variables evaluate as the connected values.',
         dataKey: 'expression',
         language: 'javascript',
+        interpolationSyntax: 'js-value',
         enableFolding: true,
       },
     ];

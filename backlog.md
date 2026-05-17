@@ -2,8 +2,6 @@
 
 
 
-- In the code and expression nodes, in the code editor, the variables like {{input}} are highlighted as syntx errors. Can something be done about it without breaking the rest of the code highligting? Don't change any code yet, just analyze
-
 
 - Need a "Not" node?
 
@@ -33,7 +31,6 @@
 - In nodes that have variadic inputs, when an input in the middle is removed, the remaining inputs look weird. Do we need to automatically remove them? It should we allow the user to remove them if needed?
 
 
-- Make node terminals not round, but half squircles on the inside part of the node
 
 
 
@@ -50,6 +47,7 @@
 
 
 
+- Make node terminals not round, but half squircles on the inside part of the node
 
 
 

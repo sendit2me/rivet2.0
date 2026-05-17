@@ -30,6 +30,8 @@ If `value` is connected to the number `21`, the node outputs `42`.
 
 Missing interpolation inputs evaluate as JavaScript `undefined`.
 
+The Code editor recognizes `{{name}}` as Rivet interpolation syntax. It still highlights and checks normal JavaScript around the token, but syntax markers caused only by the interpolation token itself are ignored.
+
 ### Accessing Current Graph And Context Inputs
 
 Like Code (legacy), Code can also read the `graphInputs` and `context` variables passed to the JavaScript runner:
@@ -66,9 +68,9 @@ The returned value can be a string, number, boolean, object, array, `null`, or J
 
 ## Inputs
 
-| Title     | Data Type | Description                                                        | Default Value | Notes                                      |
-| --------- | --------- | ------------------------------------------------------------------ | ------------- | ------------------------------------------ |
-| (dynamic) | Any       | Created from `{{name}}` tokens in the code.                         | `undefined`   | Values evaluate directly as JavaScript values. |
+| Title     | Data Type | Description                                 | Default Value | Notes                                          |
+| --------- | --------- | ------------------------------------------- | ------------- | ---------------------------------------------- |
+| (dynamic) | Any       | Created from `{{name}}` tokens in the code. | `undefined`   | Values evaluate directly as JavaScript values. |
 
 </TabItem>
 
@@ -76,8 +78,8 @@ The returned value can be a string, number, boolean, object, array, `null`, or J
 
 ## Outputs
 
-| Title  | Data Type | Description                         | Notes |
-| ------ | --------- | ----------------------------------- | ----- |
+| Title  | Data Type | Description                           | Notes           |
+| ------ | --------- | ------------------------------------- | --------------- |
 | Output | Any       | The exact value returned by the code. | Always present. |
 
 </TabItem>
@@ -86,10 +88,10 @@ The returned value can be a string, number, boolean, object, array, `null`, or J
 
 ## Editor Settings
 
-| Setting | Description | Default Value | Use Input Toggle | Input Data Type |
-| --- | --- | --- | --- | --- |
-| Code | JavaScript code to run. Use `{{name}}` tokens to create input ports, and `return` the value you want to output. | A small `{{input}}` passthrough example | No | N/A |
-| Runtime Permissions | Per-node toggles for optional globals: `fetch`, `Rivet`, `console`, `require`, and `process`. | All off | No | N/A |
+| Setting             | Description                                                                                                     | Default Value                           | Use Input Toggle | Input Data Type |
+| ------------------- | --------------------------------------------------------------------------------------------------------------- | --------------------------------------- | ---------------- | --------------- |
+| Code                | JavaScript code to run. Use `{{name}}` tokens to create input ports, and `return` the value you want to output. | A small `{{input}}` passthrough example | No               | N/A             |
+| Runtime Permissions | Per-node toggles for optional globals: `fetch`, `Rivet`, `console`, `require`, and `process`.                   | All off                                 | No               | N/A             |
 
 </TabItem>
 
