@@ -690,6 +690,19 @@ The shared pool is lazy outside the sidecar entrypoint, and idle workers are
 unrefed plus guarded with error/exit cleanup so failed idle workers are dropped
 and replenished without surfacing as executor process errors.
 
+The app-executor worker code is intentionally split by ownership. [`AppExecutorWorkerCodeRunner.mts`](../packages/app-executor/bin/AppExecutorWorkerCodeRunner.mts)
+is the orchestration adapter that implements the core `CodeRunner` interface,
+prepares hosted runtime libraries, chooses worker execution versus the
+`includeRivet` current-thread fallback, and passes the active run's console
+bridge. [`codeRunnerWorkerPool.mts`](../packages/app-executor/bin/codeRunnerWorkerPool.mts)
+owns pool configuration, shared prewarm/shutdown lifecycle, idle-worker checkout,
+replenishment, stats, and cleanup. [`codeRunnerWorkerHost.mts`](../packages/app-executor/bin/codeRunnerWorkerHost.mts)
+owns the string-evaluated worker source, worker creation, ready/result handling,
+exit-before-result errors, worker console forwarding, and worker-error
+deserialization. This keeps performance-sensitive pool policy separate from the
+package-sensitive worker source while preserving fresh-worker isolation: after a
+run starts, that worker is never returned to the idle pool.
+
 If the user connects an external remote debugger while Node executor mode is
 selected, that external websocket temporarily replaces the internal sidecar
 session. Manual remote-debugger disconnect must restore the internal Node

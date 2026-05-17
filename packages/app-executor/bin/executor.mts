@@ -23,11 +23,11 @@ import { join } from 'node:path';
 import { access, readFile } from 'node:fs/promises';
 import { platform, homedir } from 'node:os';
 import { pathToFileURL } from 'node:url';
+import { AppExecutorWorkerCodeRunner } from './AppExecutorWorkerCodeRunner.mjs';
 import {
-  AppExecutorWorkerCodeRunner,
   prewarmSharedAppExecutorCodeWorkerPool,
   shutdownSharedAppExecutorCodeWorkerPool,
-} from './AppExecutorWorkerCodeRunner.mjs';
+} from './codeRunnerWorkerPool.mjs';
 import { parseExecutorHostFromArgs, parseExecutorPortFromArgs } from './executorConfig.mjs';
 
 const datasetProvider = new DebuggerDatasetProvider();

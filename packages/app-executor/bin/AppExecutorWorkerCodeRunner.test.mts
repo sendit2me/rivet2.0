@@ -23,10 +23,12 @@ import {
   type Tokenizer,
 } from '@valerypopoff/rivet2-core';
 import {
-  AppExecutorCodeWorkerPool,
   AppExecutorWorkerCodeRunner,
-  shutdownSharedAppExecutorCodeWorkerPool,
 } from './AppExecutorWorkerCodeRunner.mjs';
+import {
+  AppExecutorCodeWorkerPool,
+  shutdownSharedAppExecutorCodeWorkerPool,
+} from './codeRunnerWorkerPool.mjs';
 
 const tokenizer: Tokenizer = {
   on: () => undefined,

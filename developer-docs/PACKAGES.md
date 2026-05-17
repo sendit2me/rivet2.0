@@ -197,6 +197,19 @@ executor websocket. Idle workers are unrefed and guarded with error/exit cleanup
 so an unexpected idle-worker failure is removed from the pool and replenished
 without turning into a top-level sidecar error.
 
+The worker runner has three ownership layers. [`AppExecutorWorkerCodeRunner.mts`](../packages/app-executor/bin/AppExecutorWorkerCodeRunner.mts)
+is the `CodeRunner` orchestration layer: it prepares hosted runtime libraries,
+chooses worker execution versus the `includeRivet` current-thread fallback, and
+keeps the sidecar console bridge for fallback runs. [`codeRunnerWorkerPool.mts`](../packages/app-executor/bin/codeRunnerWorkerPool.mts)
+owns pool size configuration, shared prewarm/shutdown lifecycle, idle-worker
+checkout, replenishment, stats, and cleanup. [`codeRunnerWorkerHost.mts`](../packages/app-executor/bin/codeRunnerWorkerHost.mts)
+owns the string-evaluated worker source, worker creation, ready/result message
+handling, worker-exit errors, worker-side console forwarding, and error
+deserialization. Keep the worker source string close to worker creation unless
+the desktop package pipeline is verified on every supported platform; ordinary
+Code-family runs still consume one fresh worker and terminate it after the
+result.
+
 Code-family `require()` resolution is intentionally configurable for hosted runtimes.
 Both public `NodeCodeRunner` and the app-executor worker runner honor
 `RIVET_CODE_RUNNER_REQUIRE_ROOT` and `RIVET_CODE_RUNNER_REQUIRE_ANCHOR`. By

@@ -927,7 +927,7 @@ Conclusion:
   - docs production build;
   - diff whitespace check.
 
-## Phase 6: Clarify App-Executor Code Worker Ownership
+## Phase 6: Clarify App-Executor Code Worker Ownership (DONE)
 
 Priority: medium.
 
@@ -944,6 +944,8 @@ Payoff check:
 Targets:
 
 - `packages/app-executor/bin/AppExecutorWorkerCodeRunner.mts`
+- `packages/app-executor/bin/codeRunnerWorkerPool.mts`
+- `packages/app-executor/bin/codeRunnerWorkerHost.mts`
 
 Problem:
 
@@ -1026,6 +1028,42 @@ Expected result:
 
 - Performance optimization code becomes easier to reason about.
 - Smaller blast radius for future speed work.
+
+Conclusion:
+
+- Done. `AppExecutorWorkerCodeRunner.mts` is now the orchestration adapter again:
+  it implements the core `CodeRunner` interface, prepares hosted runtime
+  libraries, chooses worker-pool execution versus the `includeRivet`
+  current-thread fallback, and keeps fallback console bridging close to fallback
+  execution.
+- `codeRunnerWorkerPool.mts` owns pool-size configuration, shared
+  prewarm/shutdown lifecycle, idle-worker checkout, replenishment, stats, and
+  cleanup. The shared pool remains module-level in the app-executor package so a
+  new runner per graph run still reuses prewarmed workers.
+- `codeRunnerWorkerHost.mts` owns the string-evaluated worker source, worker
+  creation, ready/result message handling, exit-before-result errors,
+  worker-side console forwarding, and worker-error deserialization. The worker
+  source stayed string-evaluated instead of moving to a normal worker file, so
+  the fragile `pkg`/esbuild desktop sidecar packaging contract was not widened.
+- The plan held without behavior corrections: fresh-worker isolation,
+  `includeRivet` fallback, runtime permissions, console forwarding, `require`
+  resolution, `fetch`/`process` access, and worker error semantics stayed under
+  the existing focused worker test coverage.
+- The main runner shrank from 569 lines to 180 lines. The extracted pool module
+  is 196 lines and the host module is 334 lines, which reduces ownership
+  concentration without merging the package-sensitive worker source into pool
+  policy.
+
+Verification recorded for this phase:
+
+- pre-extraction `AppExecutorWorkerCodeRunner.test.mts`;
+- post-extraction `AppExecutorWorkerCodeRunner.test.mts`;
+- full app-executor test suite;
+- app-executor TypeScript check;
+- app-executor lint;
+- app-executor sidecar bundle/native Windows build;
+- docs typecheck;
+- diff whitespace check.
 
 ## Phase 7: Unify JS Interpolation Execution Helpers Carefully
 

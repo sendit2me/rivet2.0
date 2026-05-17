@@ -569,6 +569,11 @@ not preserve a complete file list.
     - How: Kept `startDebuggerServer` as the public protocol assembler while extracting best-effort send/error policy to `debuggerTransport.ts`, heartbeat and timer cleanup to `debuggerHeartbeat.ts`, and processor listener lifecycle to `debuggerProcessorAttachments.ts`.
     - Affected files/areas: `packages/node/src/debugger.ts`, `debuggerTransport.ts`, `debuggerHeartbeat.ts`, `debuggerProcessorAttachments.ts`, Remote Debugger API docs, `developer-docs/APP-ARCHITECTURE.md`, `developer-docs/EXECUTION-DATA-FLOW.md`.
 
+108. **Clarified app-executor Code worker ownership**
+    - Why: `AppExecutorWorkerCodeRunner.mts` mixed CodeRunner orchestration, shared worker-pool lifecycle, package-sensitive stringified worker source, host-side request/result handling, and current-thread fallback behavior.
+    - How: Kept `AppExecutorWorkerCodeRunner.mts` as the orchestration adapter, moved shared prewarm/pool lifecycle into `codeRunnerWorkerPool.mts`, and moved the eval worker source plus ready/result/error handling into `codeRunnerWorkerHost.mts`.
+    - Affected files/areas: `packages/app-executor/bin/AppExecutorWorkerCodeRunner.mts`, `codeRunnerWorkerPool.mts`, `codeRunnerWorkerHost.mts`, `developer-docs/PACKAGES.md`, `developer-docs/EXECUTION-DATA-FLOW.md`, `developer-docs/CORE-ENGINE.md`, `developer-docs/APP-ARCHITECTURE.md`.
+
 ## Residual Watchlist For Future Refactors
 
 1. **GraphProcessor size and responsibility concentration**

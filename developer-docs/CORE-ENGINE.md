@@ -668,12 +668,13 @@ interpolation/wrapper source as diagnostic code plus a user-code line offset, so
 runtime and syntax failures still point at the authored Code body instead of
 the generated wrapper.
 
-In the desktop app's Node executor, `AppExecutorWorkerCodeRunner` also owns
-Code-family console observability. When `console` is enabled, it injects a
-bridged console into worker-backed runs and the `Rivet`-capability fallback path;
-those calls become `codeConsole` executor messages that the app replays in the
-renderer console. This is app-executor-specific and does not change the public
-`NodeCodeRunner` default used by programmatic `@valerypopoff/rivet2-node` callers.
+In the desktop app's Node executor, Code-family console observability stays
+app-executor-specific. `codeRunnerWorkerHost.mts` injects the bridged console for
+worker-backed runs, while `AppExecutorWorkerCodeRunner.mts` keeps the matching
+bridge for the `Rivet`-capability current-thread fallback. In both paths those
+calls become `codeConsole` executor messages that the app replays in the renderer
+console. This does not change the public `NodeCodeRunner` default used by
+programmatic `@valerypopoff/rivet2-node` callers.
 
 `NodeCodeRunner` exposes its CommonJS `require()` resolution policy through
 `createCodeRunnerRequire(...)`, `getCodeRunnerRequireRoot(...)`, and
