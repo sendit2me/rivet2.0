@@ -355,6 +355,24 @@ Expected result:
 - Context-menu regressions become easier to test.
 - Some line reduction is likely from removing repeated menu container glue.
 
+Implementation outcome:
+
+- Status: implemented on 2026-05-17.
+- Payoff decision: implemented as a targeted extraction, not a tree rewrite.
+- Production ownership changed:
+  - `graphListContextMenu.ts` owns graph/folder/root menu construction and captured target normalization.
+  - `useGraphListPresentation.ts` owns graph-list reachability/reference derivation plus row presentation facts used by `FolderItem`.
+  - `GraphList.tsx` keeps drag/drop composition, recursive row composition, modal ownership, and command dispatch.
+  - `FolderItem.tsx` keeps recursive row rendering, rename input behavior, and DnD row wiring.
+- Verification recorded for this phase:
+  - graph-list layout/source contract test;
+  - pure context-menu and presentation helper tests;
+  - graph-list action, reachability, folder, and shared context-menu tests;
+  - full app test suite;
+  - focused app lint check;
+  - app TypeScript check;
+  - app production build.
+
 ## Phase 3: Separate Execution Data Storage, Preview, And Copy Policy
 
 Priority: high.

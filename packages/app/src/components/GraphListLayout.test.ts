@@ -24,16 +24,21 @@ test('graph tree panel keeps the compact text-list layout', () => {
   assert.match(graphListSource, /\.spinner \.node-running-indicator {\s+width: var\(--ui-font-size-base\);/);
   assert.match(graphListSource, /\.graph-main-icon {\s+width: 1em;\s+height: 1em;/);
   assert.match(graphListSource, /\.contains-open-graph \.graph-item-select {\s+background-color: color-mix/);
-  assert.match(graphListSource, /const showGraphItemContextMenu =[\s\S]*selectedGraphForContextMenu != null/);
-  assert.match(graphListSource, /const showFolderContextMenu =[\s\S]*selectedFolderNameForContextMenu != null/);
+  assert.match(graphListSource, /getGraphListContextMenuTarget\(\{[\s\S]*savedGraphs,/);
+  assert.match(
+    graphListSource,
+    /const showGraphItemContextMenu = showContextMenu && contextMenuTarget\?\.type === 'graph-item'/,
+  );
+  assert.match(
+    graphListSource,
+    /const showFolderContextMenu = showContextMenu && contextMenuTarget\?\.type === 'graph-folder'/,
+  );
   assert.doesNotMatch(graphListSource, /metadata!/);
   assert.match(graphListSource, /padding: 8px 10px 8px calc\(10px \+ var\(--graph-item-indent, 0px\)\);/);
   assert.doesNotMatch(graphListSource, /iconBefore=|shouldFitContainer/);
 
   assert.match(folderItemSource, /'--graph-item-indent': `\$\{virtualDepth \* 20\}px`/);
-  assert.match(folderItemSource, /openGraphName = graph\.metadata\?\.name/);
-  assert.match(folderItemSource, /isCollapsedOpenGraphFolder[\s\S]*isInFolder\(fullPath, openGraphName\)/);
+  assert.match(folderItemSource, /getFolderItemPresentation\(\{/);
   assert.match(folderItemSource, /'contains-open-graph': isCollapsedOpenGraphFolder/);
-  assert.match(folderItemSource, /Contains the open graph\./);
   assert.doesNotMatch(folderItemSource, /depthSpacer|range\(/);
 });
