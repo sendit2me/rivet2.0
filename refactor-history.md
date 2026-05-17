@@ -544,6 +544,11 @@ not preserve a complete file list.
     - How: Added `providerStreamParsing.ts` and shared JSON chunk parse/error policy while avoiding a broad provider abstraction.
     - Affected files/areas: `openai.ts`, `anthropic.ts`, `ChatAnthropicNode.ts`, `providerStreamParsing.ts`, `providerStreamParsing.test.ts`.
 
+103. **Split node-output surface ownership**
+    - Why: `NodeOutput.tsx` had grown into a broad owner for inline rendering, fullscreen modal orchestration, process paging, output fade/replacement policy, search, wrapping, copy actions, and prompt-designer entry.
+    - How: Kept `NodeOutput.tsx` as the stable adapter and compatibility re-export, then moved in-canvas rendering to `NodeInlineOutput.tsx`, fullscreen output orchestration to `NodeFullscreenOutput.tsx`, content-key fade/replacement-grace policy to `NodeOutputContentState.tsx`, and shared process controls to `NodeOutputPager.tsx`.
+    - Affected files/areas: `NodeOutput.tsx`, `NodeInlineOutput.tsx`, `NodeFullscreenOutput.tsx`, `NodeOutputContentState.tsx`, `NodeOutputPager.tsx`, node-output regression tests, `developer-docs/APP-ARCHITECTURE.md`.
+
 ## Residual Watchlist For Future Refactors
 
 1. **GraphProcessor size and responsibility concentration**

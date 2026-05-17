@@ -13,13 +13,10 @@ test('drag previews use the same output preview sizing as hovered nodes', () => 
     join(componentsDir, 'visualNode', 'NormalVisualNodeContent.tsx'),
     'utf8',
   );
-  const nodeOutputSource = readFileSync(join(componentsDir, 'NodeOutput.tsx'), 'utf8');
+  const nodeInlineOutputSource = readFileSync(join(componentsDir, 'nodeOutput', 'NodeInlineOutput.tsx'), 'utf8');
   const nodeStylesSource = readFileSync(join(componentsDir, 'nodeStyles.ts'), 'utf8');
 
-  assert.match(
-    visualNodeSource,
-    /const isOutputPreviewHovered = Boolean\(isHovered \|\| shouldShowHoverControls\);/,
-  );
+  assert.match(visualNodeSource, /const isOutputPreviewHovered = Boolean\(isHovered \|\| shouldShowHoverControls\);/);
   assert.match(
     normalVisualNodeContentSource,
     /<NodeOutput node=\{node\} suspended=\{!renderHeavyContent\} isHovered=\{isOutputPreviewHovered\} \/>/,
@@ -32,18 +29,18 @@ test('drag previews use the same output preview sizing as hovered nodes', () => 
     nodeCanvasViewportSource,
     /<DragOverlay[\s\S]*?executionSourceNodeId[\s\S]*?shouldShowHoverControls=\{draggingHoverControlSourceNodeIdSet\.has\(executionSourceNodeId\)\}/,
   );
-  assert.match(nodeOutputSource, /resolveNodeOutputPreviewMode\(\{\s*isOutputExpanded,\s*isHovered,/);
-  assert.match(
-    nodeStylesSource,
-    /\.node:is\(:hover, \.hovered, \.showHoverControls\) \.node-output-inner,/,
-  );
+  assert.match(nodeInlineOutputSource, /resolveNodeOutputPreviewMode\(\{\s*isOutputExpanded,\s*isHovered,/);
+  assert.match(nodeStylesSource, /\.node:is\(:hover, \.hovered, \.showHoverControls\) \.node-output-inner,/);
   assert.match(nodeStylesSource, /\.node:is\(:hover, \.hovered, \.showHoverControls\) \.multi-node-output/);
 });
 
 test('node drags clear stale canvas hover state', () => {
   const nodeCanvasSource = readFileSync(join(componentsDir, 'NodeCanvas.tsx'), 'utf8');
 
-  assert.match(nodeCanvasSource, /const clearHoveringNode = useStableCallback\(\(\) => \{\s*setHoveringNode\(undefined\);/);
+  assert.match(
+    nodeCanvasSource,
+    /const clearHoveringNode = useStableCallback\(\(\) => \{\s*setHoveringNode\(undefined\);/,
+  );
   assert.match(
     nodeCanvasSource,
     /const syncHoveringNodeFromPointer = useStableCallback\(\(\) => \{[\s\S]*?document\.elementFromPoint\(lastMouseInfoRef\.current\.x, lastMouseInfoRef\.current\.y\);[\s\S]*?\.node\[data-nodeid\]:not\(\.overlayNode\)/,
@@ -54,17 +51,36 @@ test('node drags clear stale canvas hover state', () => {
     nodeCanvasSource,
     /const preserveMoveDragHoverOnDrop = useStableCallback\(\(nodeId: NodeId\) => \{[\s\S]*?if \(dragMode === 'move'\) \{[\s\S]*?setHoveringNode\(nodeId\);/,
   );
-  assert.match(nodeCanvasSource, /onDragStart=\{\(event\) => \{[\s\S]*?onNodeStartDrag\(event\);[\s\S]*?clearHoveringNode\(\);/);
-  assert.match(nodeCanvasSource, /onDragEnd=\{\(event\) => \{[\s\S]*?clearNodeDragGesture\(\);[\s\S]*?preserveMoveDragHoverOnDrop\(event\.active\.id as NodeId\);[\s\S]*?try \{[\s\S]*?onNodeDragged\(event\);[\s\S]*?\} finally \{[\s\S]*?syncHoveringNodeFromPointer\(\);/);
-  assert.match(nodeCanvasSource, /onDragCancel=\{\(\) => \{[\s\S]*?clearNodeDragGesture\(\);[\s\S]*?try \{[\s\S]*?onNodeDragCancelled\(\);[\s\S]*?\} finally \{[\s\S]*?syncHoveringNodeFromPointer\(\);/);
+  assert.match(
+    nodeCanvasSource,
+    /onDragStart=\{\(event\) => \{[\s\S]*?onNodeStartDrag\(event\);[\s\S]*?clearHoveringNode\(\);/,
+  );
+  assert.match(
+    nodeCanvasSource,
+    /onDragEnd=\{\(event\) => \{[\s\S]*?clearNodeDragGesture\(\);[\s\S]*?preserveMoveDragHoverOnDrop\(event\.active\.id as NodeId\);[\s\S]*?try \{[\s\S]*?onNodeDragged\(event\);[\s\S]*?\} finally \{[\s\S]*?syncHoveringNodeFromPointer\(\);/,
+  );
+  assert.match(
+    nodeCanvasSource,
+    /onDragCancel=\{\(\) => \{[\s\S]*?clearNodeDragGesture\(\);[\s\S]*?try \{[\s\S]*?onNodeDragCancelled\(\);[\s\S]*?\} finally \{[\s\S]*?syncHoveringNodeFromPointer\(\);/,
+  );
 });
 
 test('node output content fade only replays for unseen output content', () => {
-  const nodeOutputSource = readFileSync(join(componentsDir, 'NodeOutput.tsx'), 'utf8');
+  const nodeOutputContentStateSource = readFileSync(
+    join(componentsDir, 'nodeOutput', 'NodeOutputContentState.tsx'),
+    'utf8',
+  );
+  const nodeInlineOutputSource = readFileSync(join(componentsDir, 'nodeOutput', 'NodeInlineOutput.tsx'), 'utf8');
 
-  assert.match(nodeOutputSource, /const seenNodeOutputContentKeys = new Set<string>\(\);/);
-  assert.match(nodeOutputSource, /const shouldAnimateRef = useRef\(!seenNodeOutputContentKeys\.has\(contentKey\)\);/);
-  assert.match(nodeOutputSource, /rememberNodeOutputContentKey\(contentKey\);/);
-  assert.match(nodeOutputSource, /<NodeOutputContentFade key=\{contentKey\} contentKey=\{contentKey\}>/);
-  assert.match(nodeOutputSource, /&\.animate-node-output-content \{\s*animation: node-output-content-fade-in 140ms ease-out both;/);
+  assert.match(nodeOutputContentStateSource, /const seenNodeOutputContentKeys = new Set<string>\(\);/);
+  assert.match(
+    nodeOutputContentStateSource,
+    /const shouldAnimateRef = useRef\(!seenNodeOutputContentKeys\.has\(contentKey\)\);/,
+  );
+  assert.match(nodeOutputContentStateSource, /rememberNodeOutputContentKey\(contentKey\);/);
+  assert.match(nodeInlineOutputSource, /<NodeOutputContentFade key=\{contentKey\} contentKey=\{contentKey\}>/);
+  assert.match(
+    nodeOutputContentStateSource,
+    /&\.animate-node-output-content \{\s*animation: node-output-content-fade-in 140ms ease-out both;/,
+  );
 });
