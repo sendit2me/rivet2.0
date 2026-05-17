@@ -749,20 +749,30 @@ the internal Node executor session; Browser mode waits for an explicit Remote
 Debugger Connect action. This keeps an open project from suddenly reopening a
 remote debugger socket by itself.
 
-Server-side Remote Debugger keepalive lives in
-[`packages/node/src/debugger.ts`](../packages/node/src/debugger.ts), not in the
-app executor session. `startDebuggerServer` sends WebSocket ping frames every
-`DEBUGGER_HEARTBEAT_INTERVAL_MS` and terminates sockets that do not pong within
-`DEBUGGER_HEARTBEAT_TIMEOUT_MS`. Inbound debugger messages and successful
-server-to-client debugger frames also reset an outstanding heartbeat wait, so a
-busy post-idle workflow broadcast is treated as transport activity instead of
-being killed by an older ping timeout. Server-to-client debugger sends,
-including connection-time frames and processor event broadcasts, are
-best-effort: a serialization or websocket send failure is reported through the
-debugger `error` event and never fails graph execution, and only the failed
-websocket is terminated. `attach` stores processor event unsubscribers,
-`detach` removes them, and a root `finish` event automatically detaches the
-processor after a run.
+Server-side Remote Debugger keepalive lives in the Node debugger server, not in
+the app executor session. `startDebuggerServer` in
+[`packages/node/src/debugger.ts`](../packages/node/src/debugger.ts) keeps
+websocket server creation, message parsing, graph upload/run commands, dataset
+forwarding, and public API assembly. Transport policy is split into focused
+helpers:
+
+- [`debuggerHeartbeat.ts`](../packages/node/src/debuggerHeartbeat.ts) sends
+  WebSocket ping frames every `DEBUGGER_HEARTBEAT_INTERVAL_MS` and terminates
+  sockets that do not pong within `DEBUGGER_HEARTBEAT_TIMEOUT_MS`. Inbound
+  debugger messages and successful server-to-client debugger frames also reset
+  an outstanding heartbeat wait, so a busy post-idle workflow broadcast is
+  treated as transport activity instead of being killed by an older ping
+  timeout.
+- [`debuggerTransport.ts`](../packages/node/src/debuggerTransport.ts) owns
+  best-effort server-to-client serialization, send, error emission, and failed
+  socket termination. Connection-time frames and processor event broadcasts must
+  never fail graph execution; serialization or websocket send failures are
+  reported through the debugger `error` event, and only the failed websocket is
+  terminated.
+- [`debuggerProcessorAttachments.ts`](../packages/node/src/debuggerProcessorAttachments.ts)
+  owns `attach`/`detach` listener registration, request-id association,
+  partial-output throttling, and root-`finish` auto-detach cleanup.
+
 The Node `createProcessor(..., { remoteDebugger })` helper re-attaches the same
 processor at the start of each `run()` and calls `detach` in `finally`, so
 reusing a processor object for multiple runs does not lose debugger events and

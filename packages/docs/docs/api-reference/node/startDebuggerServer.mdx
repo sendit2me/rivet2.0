@@ -98,6 +98,8 @@ Returns an instance of `RivetDebuggerServer`. This should be passed to the `runG
 
 Server-to-client debugger sends are best-effort, including connection-time messages and processor event broadcasts. If a client cannot be written to, the server reports the transport error through the debugger `error` event and terminates only that websocket; graph execution continues.
 
+The public protocol is assembled by `startDebuggerServer`. Internally, heartbeat, best-effort transport sends, and processor attachment cleanup are separate policies so integrations keep the same websocket message schema while the server can clean up stale sockets and processor listeners safely.
+
 ## Examples
 
 ```typescript

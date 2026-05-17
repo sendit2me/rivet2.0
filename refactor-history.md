@@ -564,6 +564,11 @@ not preserve a complete file list.
     - How: Added explicit upload planning in `remoteExecutorUploadCache.ts`, extracted request-id registration/filtering/send-failure helpers into `remoteExecutorRunRequest.ts`, and rewired `useRemoteExecutor.ts` to use those helpers while keeping atom reads and execution side effects in the hook.
     - Affected files/areas: `useRemoteExecutor.ts`, `remoteExecutorUploadCache.ts`, `remoteExecutorRunRequest.ts`, remote executor helper tests, `developer-docs/APP-ARCHITECTURE.md`, `developer-docs/EXECUTION-DATA-FLOW.md`.
 
+107. **Split Remote Debugger server transport policies**
+    - Why: `debugger.ts` owned websocket protocol handling, heartbeat, safe-send behavior, error emission, processor attachment cleanup, request-id association, and partial-output throttling in one high-impact transport file.
+    - How: Kept `startDebuggerServer` as the public protocol assembler while extracting best-effort send/error policy to `debuggerTransport.ts`, heartbeat and timer cleanup to `debuggerHeartbeat.ts`, and processor listener lifecycle to `debuggerProcessorAttachments.ts`.
+    - Affected files/areas: `packages/node/src/debugger.ts`, `debuggerTransport.ts`, `debuggerHeartbeat.ts`, `debuggerProcessorAttachments.ts`, Remote Debugger API docs, `developer-docs/APP-ARCHITECTURE.md`, `developer-docs/EXECUTION-DATA-FLOW.md`.
+
 ## Residual Watchlist For Future Refactors
 
 1. **GraphProcessor size and responsibility concentration**

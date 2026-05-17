@@ -772,7 +772,7 @@ Conclusion:
   - production app build;
   - diff whitespace check.
 
-## Phase 5: Split Remote Debugger Server Transport
+## Phase 5: Split Remote Debugger Server Transport (DONE)
 
 Priority: medium-high.
 
@@ -872,6 +872,60 @@ Expected result:
 
 - Debugger transport policies become independently reviewable.
 - Future proxy/CDN websocket fixes stop modifying one long server file.
+
+Conclusion:
+
+- Status: implemented on 2026-05-17 as a behavior-preserving transport-policy
+  extraction.
+- What was done:
+  - `startDebuggerServer(...)` stayed in `packages/node/src/debugger.ts` and
+    still owns websocket server creation, message parsing, graph upload/run
+    commands, dataset forwarding, and public API assembly.
+  - `debuggerTransport.ts` now owns debugger message stringification,
+    best-effort websocket sends, debugger `error` event emission, and failed
+    socket termination.
+  - `debuggerHeartbeat.ts` now owns heartbeat defaults, ping scheduling, timeout
+    cleanup, inbound activity handling, outbound activity handling, and timer
+    `unref`.
+  - `debuggerProcessorAttachments.ts` now owns attach/detach listener
+    registration, cleanup tracking, request-id lookup, partial-output
+    throttling, and root-`finish` auto-detach.
+- How it went:
+  - The split stayed below the public API. `DEBUGGER_HEARTBEAT_INTERVAL_MS`,
+    `DEBUGGER_HEARTBEAT_TIMEOUT_MS`, `RivetDebuggerServer`,
+    `currentDebuggerState`, and `startDebuggerServer(...)` are still exported
+    from `debugger.ts`.
+  - Dynamic graph upload/run command handling and dataset forwarding remained in
+    `debugger.ts` because those are protocol concerns, not heartbeat/send
+    policy.
+  - No websocket message schemas, event names, app-side reconnect policy,
+    hosted `/ws/latest-debugger` behavior, or graph execution semantics were
+    changed.
+- Plan corrections during implementation:
+  - The heartbeat constants moved into `debuggerHeartbeat.ts` and are re-exported
+    from `debugger.ts`, keeping the public import path stable while colocating
+    defaults with heartbeat policy.
+  - No additional protocol-handler module was added because that would have
+    exceeded the phase boundary and made dynamic upload/dataset behavior harder
+    to audit.
+- Problems solved and goals achieved:
+  - Best-effort transport behavior is independently reviewable and reusable by
+    connection-time messages and broadcasts.
+  - Heartbeat behavior is isolated from debugger protocol parsing, making
+    proxy/CDN idle fixes easier to reason about.
+  - Processor listener cleanup and request-id association are no longer buried in
+    the server factory.
+- Verification recorded for this phase:
+  - pre-extraction `debugger.test.ts`;
+  - post-extraction `debugger.test.ts`;
+  - `api.test.ts`;
+  - full node package test suite;
+  - node package TypeScript check;
+  - node package lint;
+  - node package build;
+  - docs typecheck;
+  - docs production build;
+  - diff whitespace check.
 
 ## Phase 6: Clarify App-Executor Code Worker Ownership
 
