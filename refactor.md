@@ -1065,7 +1065,7 @@ Verification recorded for this phase:
 - docs typecheck;
 - diff whitespace check.
 
-## Phase 7: Unify JS Interpolation Execution Helpers Carefully
+## Phase 7: Unify JS Interpolation Execution Helpers Carefully (DONE)
 
 Priority: low-medium, conditional.
 
@@ -1175,6 +1175,33 @@ Expected result:
 
 - Less duplicated generated-code policy.
 - Easier future changes to interpolation behavior.
+
+Conclusion:
+
+- The phase was implemented as a conservative helper extraction rather than a
+  generic JavaScript-node abstraction.
+- `jsValueInterpolation.ts` now owns the shared Code/Expression/JS-list
+  mechanics for interpolation input definitions, safe generated input
+  identifiers, cloned-input initializer source, body-preview truncation, preview
+  interpolation, and generated-error sanitization.
+- `CodeNewNode.ts`, `ExpressionNode.ts`, and `jsListCallbackHelpers.ts` still
+  own their wrapper shapes, output contracts, runtime permissions, and
+  Code-specific source-url/line-diagnostic behavior explicitly.
+- The original app-preview plan was corrected during implementation: the app
+  keeps using the existing public core `extractInterpolationVariables` export
+  through `parsedSourceDisplayUtils.ts` instead of depending on a new source-only
+  core export that would be invisible to app tests until the core package is
+  rebuilt. The app-side display policy remains centralized and covered.
+- A reassessment pass preserved the JS Filter/JS Map fixed `array` clone before
+  interpolation-input clones in the generated wrapper, matching the previous
+  helper order while still sharing the clone preamble and assignment helpers.
+- Focused tests were expanded for generated helper-name collisions, function
+  input property cloning, reserved display names, escaped tokens, and malformed
+  interpolation openers.
+- The source refactor reduced repeated generated-code policy in the node files
+  while keeping total line count roughly flat after adding regression tests and
+  documentation. The payoff is clearer ownership and fewer places to update when
+  interpolation cloning or sanitization policy changes.
 
 ## Phase 8: Characterize GraphProcessor Before Further Extraction
 

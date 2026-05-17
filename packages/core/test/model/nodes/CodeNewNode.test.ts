@@ -254,7 +254,7 @@ describe('CodeNewNode', () => {
 
   it('keeps interpolation values available when authored code uses generated helper names', async () => {
     const node = createNode({
-      code: 'const __codeNewInputs = {};\nreturn {{value}};',
+      code: 'const __codeNewInputs = {};\nconst codeNewInputCloneCache = new WeakMap();\nreturn {{value}};',
     });
 
     const result = await node.process(

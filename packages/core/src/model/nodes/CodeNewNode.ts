@@ -9,25 +9,24 @@ import type {
 } from '../NodeBase.js';
 import { type EditorDefinition } from '../EditorDefinition.js';
 import type { Inputs, Outputs } from '../GraphProcessor.js';
-import { createInterpolationInputDefinition } from '../interpolationInputDefinition.js';
 import { nodeDefinition } from '../NodeDefinition.js';
 import { NodeImpl, type NodeUIData } from '../NodeImpl.js';
 import { type NodeBodySpec } from '../NodeBodySpec.js';
 import type { InternalProcessContext } from '../ProcessContext.js';
-import { getError } from '../../utils/errors.js';
 import {
   appendCodeNodeSourceUrl,
   buildCodeNodeSourceUrl,
   enrichCodeNodeErrorWithLocation,
 } from './codeNodeErrorDiagnostics.js';
 import {
-  buildClonedInputValueAssignments,
-  buildCloneJsInputValueFunction,
   buildJsValueInterpolatedSource,
-  getJsValueInterpolationInputNames,
-  getSafeJsValueInterpolationIdentifier,
+  buildJsValueInputsInitializer,
+  buildJsValuePreview,
+  getJsValueInterpolationInputDefinitions,
+  getJsValueInterpolationRuntimeContext,
   interpolateJsValuePreviewSource,
-  sanitizeGeneratedJsValueText,
+  sanitizeGeneratedJsValueError,
+  type JsValueInterpolationRuntimeContext,
 } from './jsValueInterpolation.js';
 
 export type CodeNewNode = ChartNode<'codeNew', CodeNewNodeData>;
@@ -54,11 +53,7 @@ const CODE_NEW_INPUT_CLONE_CACHE_IDENTIFIER = 'codeNewInputCloneCache';
 export const CODE_NEW_OUTPUT_PORT_ID = 'output' as PortId;
 
 function buildCodeNewPreview(code: string): string {
-  return code.split('\n').slice(0, MAX_BODY_PREVIEW_LINES).join('\n').trim();
-}
-
-function getCodeNewInputNames(code: string): string[] {
-  return getJsValueInterpolationInputNames(code);
+  return buildJsValuePreview(code, MAX_BODY_PREVIEW_LINES);
 }
 
 function buildCodeNewRuntimeSource(code: string, inputsIdentifier: string): string {
@@ -66,47 +61,29 @@ function buildCodeNewRuntimeSource(code: string, inputsIdentifier: string): stri
 }
 
 function buildCodeNewInputsInitializer(inputNames: string[], inputsIdentifier: string): string {
-  return dedent`
-    ${buildCloneJsInputValueFunction()}
-    const ${inputsIdentifier} = Object.create(null);
-    const ${CODE_NEW_INPUT_CLONE_CACHE_IDENTIFIER} = new WeakMap();
-    ${buildClonedInputValueAssignments(
-      inputNames,
-      inputsIdentifier,
-      CODE_NEW_INPUT_CLONE_CACHE_IDENTIFIER,
-    )}
-  `;
+  return buildJsValueInputsInitializer({
+    cacheIdentifier: CODE_NEW_INPUT_CLONE_CACHE_IDENTIFIER,
+    inputNames,
+    inputsIdentifier,
+  });
 }
 
 export function interpolateCodeNewSource(code: string, inputs: Inputs): string {
   return interpolateJsValuePreviewSource(code, inputs, { trim: false });
 }
 
-function sanitizeGeneratedCodeNewText(
-  text: string | undefined,
-  inputNames: string[],
-  inputsIdentifier: string,
-): string | undefined {
-  return sanitizeGeneratedJsValueText(text, inputNames, inputsIdentifier, 'code input');
-}
-
 function sanitizeCodeNewError(error: unknown, inputNames: string[], inputsIdentifier: string): Error {
-  const codeError = getError(error);
-  codeError.message = sanitizeGeneratedCodeNewText(codeError.message, inputNames, inputsIdentifier) ?? codeError.message;
-  codeError.stack = sanitizeGeneratedCodeNewText(codeError.stack, inputNames, inputsIdentifier);
-
-  return codeError;
+  return sanitizeGeneratedJsValueError(error, inputNames, inputsIdentifier, 'code input');
 }
 
 function buildCodeNewWrapper(
   code: string,
-  inputNames: string[],
+  interpolationContext: JsValueInterpolationRuntimeContext,
 ): {
-  inputsIdentifier: string;
   source: string;
   userCodeLineOffset: number;
 } {
-  const inputsIdentifier = getSafeJsValueInterpolationIdentifier(code, CODE_NEW_INPUTS_IDENTIFIER);
+  const { inputNames, inputsIdentifier } = interpolationContext;
   const beforeUserCodeLines = [
     ...buildCodeNewInputsInitializer(inputNames, inputsIdentifier).split(/\r?\n/),
     '',
@@ -124,7 +101,6 @@ function buildCodeNewWrapper(
   ];
 
   return {
-    inputsIdentifier,
     source: [...beforeUserCodeLines, buildCodeNewRuntimeSource(code, inputsIdentifier), ...afterUserCodeLines].join('\n'),
     userCodeLineOffset: beforeUserCodeLines.length,
   };
@@ -179,13 +155,7 @@ export class CodeNewNodeImpl extends NodeImpl<CodeNewNode> {
   }
 
   getInputDefinitions(): NodeInputDefinition[] {
-    return getCodeNewInputNames(this.data.code).map((inputName) => {
-      return createInterpolationInputDefinition({
-        interpolationName: inputName,
-        dataType: 'any',
-        required: false,
-      });
-    });
+    return getJsValueInterpolationInputDefinitions(this.data.code);
   }
 
   getOutputDefinitions(): NodeOutputDefinition[] {
@@ -268,8 +238,9 @@ export class CodeNewNodeImpl extends NodeImpl<CodeNewNode> {
 
   async process(inputs: Inputs, context: InternalProcessContext): Promise<Outputs> {
     const sourceUrl = buildCodeNodeSourceUrl(this.chartNode.id, context.processId);
-    const inputNames = getCodeNewInputNames(this.data.code);
-    const { inputsIdentifier, source, userCodeLineOffset } = buildCodeNewWrapper(this.data.code, inputNames);
+    const interpolationContext = getJsValueInterpolationRuntimeContext(this.data.code, CODE_NEW_INPUTS_IDENTIFIER);
+    const { inputNames, inputsIdentifier } = interpolationContext;
+    const { source, userCodeLineOffset } = buildCodeNewWrapper(this.data.code, interpolationContext);
 
     try {
       const outputs = await context.codeRunner.runCode(

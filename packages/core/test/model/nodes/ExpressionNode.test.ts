@@ -217,7 +217,7 @@ describe('ExpressionNode', () => {
 
   it('keeps interpolation values available when expression scopes use generated helper names', async () => {
     const node = createNode({
-      expression: '((__expressionInputs) => {{value}})({})',
+      expression: '((__expressionInputs, expressionInputCloneCache) => {{value}})({}, new WeakMap())',
     });
 
     const result = await node.process(
@@ -228,6 +228,27 @@ describe('ExpressionNode', () => {
     );
 
     assert.deepStrictEqual(result.output?.value, 7);
+  });
+
+  it('does not mutate upstream function input properties', async () => {
+    const node = createNode({
+      expression: '({{fn}}.meta.seen = true, {{fn}}(3))',
+    });
+    const fn = Object.assign((value: number) => value * 2, {
+      meta: {
+        seen: false,
+      },
+    });
+
+    const result = await node.process(
+      {
+        ['fn' as PortId]: { type: 'any', value: fn },
+      },
+      createContext(),
+    );
+
+    assert.deepStrictEqual(result.output?.value, 6);
+    assert.deepStrictEqual(fn.meta, { seen: false });
   });
 
   it('preserves shared identity across cloned input references', async () => {

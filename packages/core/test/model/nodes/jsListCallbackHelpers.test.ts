@@ -29,6 +29,20 @@ describe('jsListCallbackHelpers', () => {
     assert.match(wrapper, /assertSynchronousCallbackResult\(result, 'JS Map'\);/);
   });
 
+  it('keeps the fixed array clone before interpolation input clones', () => {
+    const wrapper = buildJSMapWrapper('return {{config}};');
+    const arrayCloneIndex = wrapper.indexOf(
+      'const array = cloneJsInputValue(inputs.array?.value, jsListInputCloneCache);',
+    );
+    const interpolationCloneIndex = wrapper.indexOf(
+      '__jsListInputs["config"] = cloneJsInputValue(inputs["config"]?.value, jsListInputCloneCache);',
+    );
+
+    assert.notStrictEqual(arrayCloneIndex, -1);
+    assert.notStrictEqual(interpolationCloneIndex, -1);
+    assert.ok(arrayCloneIndex < interpolationCloneIndex);
+  });
+
   it('throws when a callback result is thenable', () => {
     assert.throws(
       () => assertSynchronousCallbackResult(Promise.resolve(true), 'JS Filter'),
