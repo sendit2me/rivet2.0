@@ -28,6 +28,10 @@ To run the currently selected graph, press the **Run** button in the top right o
 
 When connected to a remote debugger, whenever the graph executes remotely, it will automatically show the result of the run in the current graph. The editor disables its normal run controls while the remote debugger is connected, so start the graph from the remote process and use **Stop Remote Debugger** when you want to return to normal editor-run controls.
 
+## Viewing Node Outputs
+
+After a graph runs, node outputs appear directly on the canvas. Use the output actions on a node to copy the displayed output, page through multiple runs, or open the output in the fullscreen modal. The fullscreen output view keeps the same displayed-value copy behavior, adds search, and lets you toggle line wrapping or Markdown rendering for easier inspection.
+
 ### Run from Here
 
 To rerun part of a graph while editing, right click a node that already has the required upstream results and choose **Run from here**.
