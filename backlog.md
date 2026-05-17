@@ -1,6 +1,5 @@
 
 
-- With the prev/next graph buttons, when there's a "Next" button available but the "Prev" isn't, don't hide it completely, kust render it disabled
 
 - Add search statistics into search UI: how many occurences found and in how many graphs
 

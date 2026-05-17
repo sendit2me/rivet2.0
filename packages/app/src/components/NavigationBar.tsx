@@ -9,6 +9,7 @@ import {
   type KeyboardEvent,
   type PointerEvent as ReactPointerEvent,
   type RefObject,
+  type ReactNode,
   type UIEvent,
 } from 'react';
 import { useGraphHistoryNavigation } from '../hooks/useGraphHistoryNavigation';
@@ -100,16 +101,22 @@ const styles = css`
       &:hover {
         background: var(--grey);
       }
+
+      &:disabled {
+        background: var(--grey-darkish);
+        color: var(--grey-light);
+        cursor: default;
+        opacity: 0.45;
+      }
+
+      &:disabled:hover {
+        background: var(--grey-darkish);
+      }
     }
 
     .tooltip {
       pointer-events: auto;
     }
-  }
-
-  .graph-history-button-placeholder {
-    height: var(--graph-navigation-button-height);
-    width: var(--graph-navigation-button-height);
   }
 
   .search {
@@ -621,23 +628,20 @@ export const NavigationBar: FC = () => {
           className={clsx('graph-history-controls', { 'sidebar-closed': !sidebarOpen })}
           style={{ '--graph-navigation-left': `${graphNavigationLeft}px` } as CSSProperties}
         >
-          {navigationStack.hasBackward && (
-            <Tooltip content="Go to previous graph" placement="bottom">
-              <button aria-label="Go to previous graph" onClick={navigationStack.navigateBack}>
-                <LeftIcon />
-              </button>
-            </Tooltip>
-          )}
-          {!navigationStack.hasBackward && <div aria-hidden className="graph-history-button-placeholder" />}
-          {navigationStack.hasForward ? (
-            <Tooltip content="Go to next graph" placement="bottom">
-              <button aria-label="Go to next graph" onClick={navigationStack.navigateForward}>
-                <RightIcon />
-              </button>
-            </Tooltip>
-          ) : (
-            <div aria-hidden className="graph-history-button-placeholder" />
-          )}
+          <GraphHistoryButton
+            disabled={!navigationStack.hasBackward}
+            label="Go to previous graph"
+            onClick={navigationStack.navigateBack}
+          >
+            <LeftIcon />
+          </GraphHistoryButton>
+          <GraphHistoryButton
+            disabled={!navigationStack.hasForward}
+            label="Go to next graph"
+            onClick={navigationStack.navigateForward}
+          >
+            <RightIcon />
+          </GraphHistoryButton>
         </div>
       )}
 
@@ -709,6 +713,26 @@ export const NavigationBar: FC = () => {
       )}
     </div>
   );
+};
+
+const GraphHistoryButton: FC<{
+  children: ReactNode;
+  disabled: boolean;
+  label: string;
+  onClick: () => void;
+}> = ({ children, disabled, label, onClick }) => {
+  const button = (
+    <button
+      aria-label={label}
+      disabled={disabled}
+      onClick={disabled ? undefined : onClick}
+      type="button"
+    >
+      {children}
+    </button>
+  );
+
+  return disabled ? button : <Tooltip content={label} placement="bottom">{button}</Tooltip>;
 };
 
 const GoToSearchResults: FC = () => {

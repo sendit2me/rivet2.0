@@ -16,6 +16,8 @@ Right click the new graph in the graph list and choose **Graph info** to give yo
 
 To navigate between graphs, click on the graph in the graph list in the sidebar. This will open the graph in the main graph area.
 
+After visiting more than one graph, use the previous and next graph buttons on the left side of the canvas toolbar row to move through your graph navigation history. If only one direction is available, Rivet keeps the other button visible but disabled so the pair stays in the same place.
+
 ## Deleting a Graph
 
 To delete a graph, right click on it in the graph list in the sidebar and select "Delete". This will delete the graph from your project. (**Warning** there is no undo at this time!)
