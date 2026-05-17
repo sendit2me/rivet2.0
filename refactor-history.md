@@ -579,11 +579,16 @@ not preserve a complete file list.
     - How: Moved the shared mechanics into `jsValueInterpolation.ts` while keeping each node's runtime wrapper, output contract, permission policy, JS-list fixed-array clone order, and Code-specific line diagnostics explicit.
     - Affected files/areas: `CodeNewNode.ts`, `ExpressionNode.ts`, `jsListCallbackHelpers.ts`, `jsValueInterpolation.ts`, interpolation/display regression tests, `developer-docs/CORE-ENGINE.md`.
 
+110. **Characterized GraphProcessor before further extraction**
+    - Why: `GraphProcessor.ts` remains the execution heart, so further splitting needs a focused public-behavior safety net before any policy movement.
+    - How: Added characterization coverage for root event order, error/finish behavior, partial-output process identity, subgraph execution metadata, preload/run-to boundaries, pause/resume scheduling, globals, and race winner/loser handling without moving runtime code.
+    - Affected files/areas: `GraphProcessor.characterization.test.ts`, `developer-docs/CORE-ENGINE.md`, `refactor.md`.
+
 ## Residual Watchlist For Future Refactors
 
 1. **GraphProcessor size and responsibility concentration**
-   - Current state: Several targeted extractions landed, but `GraphProcessor.ts` still owns many execution policies.
-   - Next refactor should start with characterization tests for event order, aborts, subgraphs, loops, races, and control-flow exclusion.
+   - Current state: Several targeted extractions landed and Phase 8 added a characterization suite, but `GraphProcessor.ts` still owns many execution policies.
+   - Next refactor should extract one policy at a time and extend the characterization suite before touching event order, aborts, subgraphs, loops, races, or control-flow exclusion.
 
 2. **MCP stdio config logging and env handling**
    - Current state: Deferred intentionally.

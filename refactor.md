@@ -1203,7 +1203,7 @@ Conclusion:
   documentation. The payoff is clearer ownership and fewer places to update when
   interpolation cloning or sanitization policy changes.
 
-## Phase 8: Characterize GraphProcessor Before Further Extraction
+## Phase 8: Characterize GraphProcessor Before Further Extraction (DONE)
 
 Priority: medium for characterization, conditional for extraction.
 
@@ -1311,6 +1311,27 @@ Expected result:
 - Possible line reduction, but the main win is making the execution heart less
   fragile.
 
+Conclusion:
+
+- The phase was implemented as a characterization-only pass. No
+  `GraphProcessor` runtime code was moved or behavior changed.
+- Added
+  `packages/core/test/model/GraphProcessor.characterization.test.ts` as a
+  public-behavior safety net beside the existing broad GraphProcessor tests.
+- The new coverage pins successful root event order; graph-error, generic-error,
+  and finish behavior after node failures; partial-output `processId` identity;
+  subgraph root/parent/executor metadata; preload plus run-to boundary behavior;
+  run-to terminal selection; pause/resume scheduling; graph-global sharing across
+  concurrently-started nodes; and race winner/loser handling.
+- The plan was corrected during implementation by treating node failures as the
+  processor actually exposes them: `processGraph(...)` throws a graph-level
+  error and keeps the original node error as its cause, rather than throwing the
+  node error directly.
+- The payoff is risk reduction rather than line deletion. The processor is now
+  safer to split one policy at a time because future extraction can compare
+  event/result behavior against a focused test fixture instead of relying only
+  on scattered node-level regressions.
+
 ## Deferred Or Lower-Return Areas
 
 Do not prioritize these unless a concrete bug or product goal appears:
@@ -1344,9 +1365,9 @@ guess what happened:
 - Update developer docs for ownership or behavior-contract changes, even if the
   user-visible behavior is unchanged.
 
-## Suggested Implementation Order
+## Implementation Order
 
-Immediate payoff phases:
+Completed phases:
 
 1. Split `NodeOutput.tsx`.
 2. Extract graph-list context-menu and presentation helpers.
@@ -1354,17 +1375,14 @@ Immediate payoff phases:
 4. Simplify the remote execution client pipeline.
 5. Split remote debugger transport helpers.
 6. Split app-executor Code worker pool/host helpers.
+7. Unify JS interpolation execution helpers carefully.
+8. Characterize `GraphProcessor` before further extraction.
 
-Conditional follow-up phases:
-
-7. Add GraphProcessor characterization tests. Extract GraphProcessor policies
-   only after the tests identify a clean, behavior-preserving boundary.
-8. Reassess JS interpolation duplication after the higher-payoff phases. Unify
-   helpers only if it removes real maintenance cost without hiding Code and
-   Expression wrapper differences.
-
-This order gives useful maintainability wins before touching the most dangerous
-execution-core code.
+Future GraphProcessor extraction should happen only after the Phase 8
+characterization suite is extended for the specific policy boundary being moved.
+That keeps the previous order's core principle intact: collect maintainability
+wins and behavior coverage before touching the most dangerous execution-core
+code.
 
 ## Measurement
 

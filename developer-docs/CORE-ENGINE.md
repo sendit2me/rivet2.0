@@ -475,6 +475,12 @@ Current lineage invariant:
 - each subgraph invocation receives its own child `graphRunId` while inheriting the same `rootRunId`
 - subgraph events can also carry `parentGraphRunId` plus executor metadata (`nodeId`, `processId`, `splitIndex`) so downstream consumers can distinguish reused subgraph call sites
 
+Characterization coverage:
+
+- [`GraphProcessor.characterization.test.ts`](../packages/core/test/model/GraphProcessor.characterization.test.ts) is the current safety net for future processor extractions.
+- It pins root event order, graph-error/finish behavior, partial-output `processId` identity, subgraph execution metadata, preload plus run-to boundaries, pause/resume scheduling, shared globals, and race winner/loser handling through public processor APIs and event streams.
+- Future GraphProcessor extraction work should extend this file or the existing [`GraphProcessor.test.ts`](../packages/core/test/model/GraphProcessor.test.ts) before moving another policy boundary. Do not replace these tests with private-method assertions; the editor, remote debugger, recorder, and hosted runtimes depend on the public event/result behavior.
+
 ### Scheduling model
 
 The processor uses `p-queue` with explicit bounded concurrency for queued node execution. The import is normalized through [`pQueueCompat.ts`](../packages/core/src/utils/pQueueCompat.ts), which handles the CJS/ESM default-export interop (see Build-and-CI docs for the CJS alias strategy).
