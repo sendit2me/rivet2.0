@@ -1,8 +1,4 @@
-import {
-  CODE_NEW_OUTPUT_PORT_ID,
-  type CodeNewNode,
-  type Inputs,
-} from '@valerypopoff/rivet2-core';
+import { CODE_NEW_OUTPUT_PORT_ID, type CodeNewNode, type Inputs } from '@valerypopoff/rivet2-core';
 import { type FC, useMemo } from 'react';
 import { RenderDataValue, type OutputRenderMode } from '../RenderDataValue.js';
 import { useDataRefs } from '../../providers/ProvidersContext.js';
@@ -15,6 +11,7 @@ import {
   hasCodeNewInterpolationInputs,
 } from './codeNewOutputUtils.js';
 import { getCodeNodeErrorViewModel } from './codeNodeOutputUtils.js';
+import { shouldShowStructuredOutputDetails } from './parsedSourceDisplayUtils.js';
 import { StructuredNodeOutput, StructuredNodeOutputSection } from './StructuredNodeOutput.js';
 import { getSortedSplitOutputEntries } from '../nodeOutput/splitOutputEntries.js';
 
@@ -28,7 +25,9 @@ const CodeNewNodeOutputBody: FC<{
   const parsedError = hasError ? getCodeNodeErrorViewModel(data) : undefined;
   const dataRefs = useDataRefs();
   const codeSource = getCodeNewPreviewSource(node, data);
-  const shouldShowParsedCode = hasCodeNewInterpolationInputs(codeSource);
+  const isCompactPreview = renderMode === 'compact';
+  const showStructuredDetails = shouldShowStructuredOutputDetails(renderMode);
+  const shouldShowParsedCode = showStructuredDetails && hasCodeNewInterpolationInputs(codeSource);
   const parsedCode = useMemo(
     () =>
       shouldShowParsedCode
@@ -40,15 +39,31 @@ const CodeNewNodeOutputBody: FC<{
         : undefined,
     [data, dataRefs, node, shouldShowParsedCode],
   );
+  const renderValue = (value: NodeRunDataWithRefs['outputData']) => (
+    <RenderDataValue
+      value={value?.[CODE_NEW_OUTPUT_PORT_ID]}
+      isCompact={isCompactPreview}
+      mode={renderMode}
+      allowLargeStoredValueActions={allowLargeStoredValueActions}
+    />
+  );
   const renderResult = (value: NodeRunDataWithRefs['outputData'], key?: string) => (
     <StructuredNodeOutputSection label="Returned value" key={key}>
-      <RenderDataValue
-        value={value?.[CODE_NEW_OUTPUT_PORT_ID]}
-        mode={renderMode}
-        allowLargeStoredValueActions={allowLargeStoredValueActions}
-      />
+      {renderValue(value)}
     </StructuredNodeOutputSection>
   );
+
+  if (!showStructuredDetails && !hasError) {
+    return data.splitOutputData ? (
+      <div className="split-output">
+        {getSortedSplitOutputEntries(data.splitOutputData).map(([key, outputs]) => (
+          <div key={key}>{renderValue(outputs)}</div>
+        ))}
+      </div>
+    ) : (
+      renderValue(data.outputData)
+    );
+  }
 
   return (
     <StructuredNodeOutput
@@ -57,7 +72,7 @@ const CodeNewNodeOutputBody: FC<{
       parsedSourceLabel="Parsed code"
       parsedSourceLanguage="javascript"
     >
-      {parsedError?.location && (
+      {showStructuredDetails && parsedError?.location && (
         <StructuredNodeOutputSection label="Error location">
           <div>
             line {parsedError.location.line}

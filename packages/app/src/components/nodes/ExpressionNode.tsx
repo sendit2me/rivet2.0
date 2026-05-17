@@ -11,6 +11,7 @@ import { type NodeRunDataWithRefs } from '../../state/dataFlow.js';
 import { restoreStoredPortMap } from '../../utils/executionDataReaders.js';
 import { type NodeComponentDescriptor } from '../../hooks/useNodeTypes.js';
 import { getExpressionPreviewSource, hasExpressionInterpolationInputs } from './expressionOutputUtils.js';
+import { shouldShowStructuredOutputDetails } from './parsedSourceDisplayUtils.js';
 import { StructuredNodeOutput, StructuredNodeOutputSection } from './StructuredNodeOutput.js';
 import { getSortedSplitOutputEntries } from '../nodeOutput/splitOutputEntries.js';
 
@@ -24,7 +25,9 @@ const ExpressionNodeOutputBody: FC<{
   const hasError = data.status?.type === 'error';
   const dataRefs = useDataRefs();
   const expressionSource = getExpressionPreviewSource(node, data);
-  const shouldShowParsedExpression = hasExpressionInterpolationInputs(expressionSource);
+  const isCompactPreview = renderMode === 'compact';
+  const showStructuredDetails = shouldShowStructuredOutputDetails(renderMode);
+  const shouldShowParsedExpression = showStructuredDetails && hasExpressionInterpolationInputs(expressionSource);
   const parsedExpression = useMemo(
     () =>
       shouldShowParsedExpression
@@ -35,15 +38,31 @@ const ExpressionNodeOutputBody: FC<{
         : undefined,
     [data.inputData, dataRefs, expressionSource, shouldShowParsedExpression],
   );
+  const renderValue = (value: NodeRunDataWithRefs['outputData']) => (
+    <RenderDataValue
+      value={value?.[EXPRESSION_OUTPUT_PORT_ID]}
+      isCompact={isCompactPreview}
+      mode={renderMode}
+      allowLargeStoredValueActions={allowLargeStoredValueActions}
+    />
+  );
   const renderResult = (value: NodeRunDataWithRefs['outputData'], key?: string) => (
     <StructuredNodeOutputSection label="Resulting value" key={key}>
-      <RenderDataValue
-        value={value?.[EXPRESSION_OUTPUT_PORT_ID]}
-        mode={renderMode}
-        allowLargeStoredValueActions={allowLargeStoredValueActions}
-      />
+      {renderValue(value)}
     </StructuredNodeOutputSection>
   );
+
+  if (!showStructuredDetails && !hasError) {
+    return data.splitOutputData ? (
+      <div className="split-output">
+        {getSortedSplitOutputEntries(data.splitOutputData).map(([key, outputs]) => (
+          <div key={key}>{renderValue(outputs)}</div>
+        ))}
+      </div>
+    ) : (
+      renderValue(data.outputData)
+    );
+  }
 
   return (
     <StructuredNodeOutput

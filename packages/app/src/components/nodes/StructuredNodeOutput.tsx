@@ -1,12 +1,12 @@
 import { css } from '@emotion/react';
 import { type FC, type ReactNode } from 'react';
 import ColorizedPreformattedText from '../ColorizedPreformattedText.js';
-import { outputSectionLabelStyles } from '../renderDataValue/renderDataValueStyles.js';
+import { outputSectionGroupGap, outputSectionLabelStyles } from '../renderDataValue/renderDataValueStyles.js';
 
 const structuredNodeOutputCss = css`
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: ${outputSectionGroupGap};
 
   .structured-node-output-section {
     display: flex;
