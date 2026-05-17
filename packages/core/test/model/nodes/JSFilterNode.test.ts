@@ -61,10 +61,10 @@ describe('JSFilterNode', () => {
         type: 'code',
         label: 'Callback Body',
         helperMessage: '(item, index, array) => {',
-        postEditorHelperMessage:
-          '};\n\n//Use {{var}} to create input ports that evaluate as connected values.',
+        postEditorHelperMessage: '};\n\n//Use {{var}} to create input ports that evaluate as connected values.',
         dataKey: 'callbackBody',
         language: 'javascript',
+        interpolationSyntax: 'js-value',
         enableFolding: true,
       },
     ]);
