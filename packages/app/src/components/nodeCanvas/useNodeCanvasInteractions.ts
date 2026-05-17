@@ -1,9 +1,8 @@
 import { useThrottleFn } from 'ahooks';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import type { ChartNode, GraphId, NodeId } from '@valerypopoff/rivet2-core';
 import { useStableCallback } from '../../hooks/useStableCallback.js';
 import type { CanvasPosition } from '../../state/graphBuilder.js';
-import { VIEWPORT_SETTLE_MS } from './canvasPerformanceBudget.js';
 
 const SHIFT_WHEEL_ZOOM_MULTIPLIER = 6;
 const MAX_WHEEL_ZOOM_SPEED = 0.95;
@@ -109,10 +108,6 @@ export const useNodeCanvasInteractions = ({
     target: undefined,
   });
   const persistCanvasPositionTimeoutRef = useRef<number | undefined>();
-  const viewportMotionTimeoutRef = useRef<number | undefined>();
-  const lastViewportMotionAtRef = useRef(0);
-  const isViewportMovingRef = useRef(false);
-  const [isViewportMoving, setIsViewportMoving] = useState(false);
 
   const isScrollable = (element: HTMLElement): boolean => {
     const style = window.getComputedStyle(element);
@@ -155,7 +150,6 @@ export const useNodeCanvasInteractions = ({
 
     setIsDraggingCanvas(true);
     setDragStart({ x: e.clientX, y: e.clientY, canvasStartX: canvasPosition.x, canvasStartY: canvasPosition.y });
-    reportViewportMotion();
   });
 
   const persistCanvasPosition = useStableCallback((position: CanvasPosition) => {
@@ -175,25 +169,6 @@ export const useNodeCanvasInteractions = ({
       persistCanvasPosition(position);
       persistCanvasPositionTimeoutRef.current = undefined;
     }, 150);
-  });
-
-  const reportViewportMotion = useStableCallback(() => {
-    lastViewportMotionAtRef.current = Date.now();
-
-    if (!isViewportMovingRef.current) {
-      isViewportMovingRef.current = true;
-      setIsViewportMoving(true);
-    }
-
-    if (viewportMotionTimeoutRef.current) {
-      window.clearTimeout(viewportMotionTimeoutRef.current);
-    }
-
-    viewportMotionTimeoutRef.current = window.setTimeout(() => {
-      isViewportMovingRef.current = false;
-      setIsViewportMoving(false);
-      viewportMotionTimeoutRef.current = undefined;
-    }, VIEWPORT_SETTLE_MS);
   });
 
   const getCanvasDragPosition = useStableCallback((clientX: number, clientY: number): CanvasPosition => {
@@ -233,7 +208,6 @@ export const useNodeCanvasInteractions = ({
 
       const position = getCanvasDragPosition(e.clientX, e.clientY);
       setCanvasPosition(position);
-      reportViewportMotion();
     },
     { wait: 10 },
   );
@@ -260,7 +234,6 @@ export const useNodeCanvasInteractions = ({
       };
 
       setCanvasPosition(position);
-      reportViewportMotion();
       schedulePersistCanvasPosition(position);
     },
     { wait: 25 },
@@ -296,7 +269,6 @@ export const useNodeCanvasInteractions = ({
       setCanvasPosition(finalPosition);
       persistCanvasPosition(finalPosition);
       setIsDraggingCanvas(false);
-      reportViewportMotion();
     }
 
     const clientDelta = {
@@ -324,10 +296,6 @@ export const useNodeCanvasInteractions = ({
       if (persistCanvasPositionTimeoutRef.current) {
         window.clearTimeout(persistCanvasPositionTimeoutRef.current);
       }
-
-      if (viewportMotionTimeoutRef.current) {
-        window.clearTimeout(viewportMotionTimeoutRef.current);
-      }
     },
     [],
   );
@@ -338,9 +306,6 @@ export const useNodeCanvasInteractions = ({
     canvasMouseUp,
     handleCanvasContextMenu,
     handleZoom,
-    isViewportMoving,
     lastMouseInfoRef,
-    lastViewportMotionAt: lastViewportMotionAtRef.current,
-    reportViewportMotion,
   };
 };

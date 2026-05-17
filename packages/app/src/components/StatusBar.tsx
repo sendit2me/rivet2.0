@@ -25,6 +25,9 @@ const styles = css`
   font-size: var(--ui-font-size-sm);
   border-radius: 10px;
   corner-shape: squircle;
+  @supports not (corner-shape: squircle) {
+    border-radius: 5px;
+  }
 `;
 
 export const StatusBar: FC<{}> = () => {

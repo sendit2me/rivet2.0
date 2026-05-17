@@ -6,6 +6,7 @@ import styles from './ReleaseDownloads.module.css';
 type ReleaseDownload = {
   label: string;
   name: string;
+  platform?: string;
   url: string;
   size: number;
 };
@@ -13,6 +14,7 @@ type ReleaseDownload = {
 type ReleaseArtifact = {
   name: string;
   originalPath: string;
+  platform?: string;
   url: string;
   size: number;
 };
@@ -175,8 +177,8 @@ export function StableReleaseDownloads() {
     <ReleaseDownloads
       metadataFile="official-release.json"
       loadingMessage="Loading stable release information..."
-      emptyMetadataMessage="Stable release metadata is not available yet. On GitHub Pages, this section is populated by the latest successful main-branch Windows build."
-      emptyDownloadsMessage="No stable installer aliases were produced for this build."
+      emptyMetadataMessage="Stable release metadata is not available yet. On GitHub Pages, this section is populated by the latest successful main-branch desktop build."
+      emptyDownloadsMessage="No stable desktop download aliases were produced for this build."
     />
   );
 }
@@ -186,8 +188,8 @@ export function DeveloperReleaseDownloads() {
     <ReleaseDownloads
       metadataFile="developer-release.json"
       loadingMessage="Loading developer release information..."
-      emptyMetadataMessage="Developer release metadata is not available in this local documentation build. On GitHub Pages, this section is populated by the latest successful develop-branch Windows build."
-      emptyDownloadsMessage="No developer installer aliases were produced for this build."
+      emptyMetadataMessage="Developer release metadata is not available in this local documentation build. On GitHub Pages, this section is populated by the latest successful develop-branch desktop build."
+      emptyDownloadsMessage="No developer desktop download aliases were produced for this build."
     />
   );
 }

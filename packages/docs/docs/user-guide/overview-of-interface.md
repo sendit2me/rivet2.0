@@ -20,6 +20,8 @@ The graph tree is where you can navigate between all graphs in your project, fil
 
 Clicking on a graph in the list will open it in the main graph area. To add a new graph, right click in the blank space in the graph list and select "New Graph".
 
+Use the search button in the top bar, or press **Ctrl+F** or **Cmd+F**, to search across graph names and node content in the current project. When matches are found, Rivet shows how many text occurrences were found and how many graphs contain them.
+
 To delete a graph, right click on it and select "Delete". This will delete the graph from your project.
 
 :::caution

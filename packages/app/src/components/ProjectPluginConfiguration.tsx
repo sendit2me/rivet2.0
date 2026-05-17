@@ -33,6 +33,9 @@ const styles = css`
       border-color 0.2s ease;
     border-radius: 8px;
     corner-shape: squircle;
+    @supports not (corner-shape: squircle) {
+      border-radius: 4px;
+    }
     border: 0;
     width: 24px;
     height: 24px;

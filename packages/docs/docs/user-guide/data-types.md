@@ -40,3 +40,7 @@ A type may have the following decorators applied to it, which change the type. D
 The `any` type can carry JavaScript `null` or an explicit `undefined` value. Nodes such as Expression and Code can produce these values directly. When an output is a real `any` payload, Rivet displays the literal words `null` and `undefined` in the node output. `any[]` outputs use the same display rule for each item.
 
 This is different from `control-flow-excluded`. A `control-flow-excluded` output also uses `undefined` as its runtime value, but it means the output did not run and Rivet displays it as `Not ran`.
+
+## Interpolation-aware editors
+
+Editors that support Rivet `{{name}}` interpolation treat those tokens as Rivet syntax while you type. Code-style editors such as Code, Expression, and the JS Filter / JS Map Callback Body editors still use JavaScript highlighting and diagnostics for the surrounding code. JSON-template editors such as Object JSON Template and GPT Function Schema still validate the surrounding JSON, but interpolation tokens themselves are not shown as JSON syntax errors.

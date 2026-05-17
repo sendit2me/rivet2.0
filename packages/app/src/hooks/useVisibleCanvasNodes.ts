@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useState } from 'react';
+import { useMemo, useRef } from 'react';
 import type { ChartNode, NodeId } from '@valerypopoff/rivet2-core';
 import {
   HEAVY_CONTENT_PADDING_X,
@@ -121,18 +121,23 @@ function areVisibilitySnapshotsEqual(previous: CanvasNodeVisibilitySnapshot, nex
   );
 }
 
+export function reuseEqualCanvasNodeVisibilitySnapshot(
+  previous: CanvasNodeVisibilitySnapshot | undefined,
+  next: CanvasNodeVisibilitySnapshot,
+): CanvasNodeVisibilitySnapshot {
+  return previous && areVisibilitySnapshotsEqual(previous, next) ? previous : next;
+}
+
 export function useVisibleCanvasNodes(options: {
   draggingNodeIds: ReadonlyArray<NodeId>;
   editingNodeId: NodeId | null;
   expandedOutputNodeIds: ReadonlyArray<NodeId>;
   hoveringNodeId: NodeId | undefined;
-  isViewportMoving: boolean;
   nodes: ChartNode[];
   selectedNodeIds: ReadonlyArray<NodeId>;
   viewportBounds: { left: number; right: number; top: number; bottom: number };
 }): {
   heavyContentNodeIdSet: ReadonlySet<NodeId>;
-  isViewportVisibilitySettled: boolean;
   nearViewportNodeIdSet: ReadonlySet<NodeId>;
   visibleNodeIdSet: ReadonlySet<NodeId>;
 } {
@@ -141,11 +146,11 @@ export function useVisibleCanvasNodes(options: {
     editingNodeId,
     expandedOutputNodeIds,
     hoveringNodeId,
-    isViewportMoving,
     nodes,
     selectedNodeIds,
     viewportBounds,
   } = options;
+  const stableSnapshotRef = useRef<CanvasNodeVisibilitySnapshot | undefined>(undefined);
   const visibilitySnapshotOptions = useMemo(
     () => ({
       draggingNodeIds,
@@ -159,34 +164,20 @@ export function useVisibleCanvasNodes(options: {
     [draggingNodeIds, editingNodeId, expandedOutputNodeIds, hoveringNodeId, nodes, selectedNodeIds, viewportBounds],
   );
 
-  const [settledSnapshot, setSettledSnapshot] = useState<CanvasNodeVisibilitySnapshot>(() =>
-    calculateCanvasNodeVisibilitySnapshot(visibilitySnapshotOptions),
-  );
-
   const currentSnapshot = useMemo(
-    () =>
-      isViewportMoving
-        ? settledSnapshot
-        : calculateCanvasNodeVisibilitySnapshot(visibilitySnapshotOptions),
-    [isViewportMoving, settledSnapshot, visibilitySnapshotOptions],
+    () => {
+      const nextSnapshot = calculateCanvasNodeVisibilitySnapshot(visibilitySnapshotOptions);
+      const stableSnapshot = reuseEqualCanvasNodeVisibilitySnapshot(stableSnapshotRef.current, nextSnapshot);
+
+      stableSnapshotRef.current = stableSnapshot;
+      return stableSnapshot;
+    },
+    [visibilitySnapshotOptions],
   );
-
-  useLayoutEffect(() => {
-    if (isViewportMoving) {
-      return;
-    }
-
-    setSettledSnapshot((previousSnapshot) =>
-      areVisibilitySnapshotsEqual(previousSnapshot, currentSnapshot) ? previousSnapshot : currentSnapshot,
-    );
-  }, [currentSnapshot, isViewportMoving]);
-
-  const activeSnapshot = isViewportMoving ? settledSnapshot : currentSnapshot;
 
   return {
-    heavyContentNodeIdSet: activeSnapshot.heavyContentNodeIdSet,
-    isViewportVisibilitySettled: !isViewportMoving,
-    nearViewportNodeIdSet: activeSnapshot.nearViewportNodeIdSet,
-    visibleNodeIdSet: activeSnapshot.visibleNodeIdSet,
+    heavyContentNodeIdSet: currentSnapshot.heavyContentNodeIdSet,
+    nearViewportNodeIdSet: currentSnapshot.nearViewportNodeIdSet,
+    visibleNodeIdSet: currentSnapshot.visibleNodeIdSet,
   };
 }

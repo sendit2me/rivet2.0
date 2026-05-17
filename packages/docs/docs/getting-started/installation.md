@@ -2,7 +2,7 @@
 
 ## System Requirements
 
-- MacOS: MacOS Monterey or later
+- macOS: macOS Monterey or later
 - Windows: Windows 10 or later
 - Linux: Modern version of `webkitgtk` installed that supports most of the recent web standards
 
@@ -10,7 +10,7 @@
 
 ### [Download Rivet](../download.mdx)
 
-Use the Download page for stable Windows releases from the `main` branch and developer Windows releases from the `develop` branch.
+Use the Download page for stable Windows and macOS releases from the `main` branch, plus developer Windows and macOS releases from the `develop` branch.
 
 ## Building from Source
 
@@ -21,6 +21,9 @@ To build and run Rivet from source, you will need:
 - Rust (use [rustup](https://rustup.rs/))
 - Node.js 20.4.x or another compatible Node 20 runtime
 - the checked-in Yarn release (`packageManager` currently points at Yarn 4.6.0)
+- On Windows, Visual Studio Build Tools with the Windows SDK. Tauri needs
+  `RC.EXE` on `PATH`, so use Developer PowerShell for Visual Studio or another
+  shell where the Windows SDK tools are available.
 
 ### Install
 

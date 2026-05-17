@@ -24,7 +24,7 @@ import {
 } from '../../../state/dataFlow.js';
 import { useDependsOnPlugins } from '../../../hooks/useDependsOnPlugins.js';
 import { fillMissingSettingsFromEnvironmentVariables } from '../../../utils/tauri.js';
-import { tryRestoreStoredDataValue } from '../../../utils/executionDataTransforms.js';
+import { tryRestoreStoredDataValue } from '../../../utils/executionDataStorage.js';
 import { getStaticInputApiKey } from '../../../utils/chatV2ModelCatalogInputKey.js';
 import {
   getChatV2DiscoveredModelOptionsWithStatus,
@@ -69,6 +69,9 @@ const styles = css`
     border: 1px solid var(--grey-darkish);
     border-radius: 16px;
     corner-shape: squircle;
+    @supports not (corner-shape: squircle) {
+      border-radius: 8px;
+    }
     background: var(--grey-darkest);
     color: var(--foreground-muted);
     cursor: pointer;
@@ -118,6 +121,9 @@ const styles = css`
     padding: 10px 12px;
     border-radius: 12px;
     corner-shape: squircle;
+    @supports not (corner-shape: squircle) {
+      border-radius: 6px;
+    }
     font-size: var(--ui-font-size-sm);
     line-height: 1.4;
     border: 1px solid transparent;

@@ -1,7 +1,7 @@
 // @ts-ignore
 import * as yaml from 'yaml';
 import { graphV3Deserializer, projectV3Deserializer } from './serialization_v3.js';
-import type { Project, NodeGraph, Dataset, DatasetMetadata } from '../../index.js';
+import type { Project, NodeGraph, Dataset, DatasetMetadata, ChartNode } from '../../index.js';
 import { getError } from '../errors.js';
 import { detectSerializationVersion, type AttachedData, yamlProblem } from './serializationUtils.js';
 import {
@@ -26,6 +26,7 @@ export function deserializeProject(serializedProject: unknown, path: string | nu
 
   try {
     const result = deserializeProjectByVersion(serializedProject, version);
+    normalizeProjectDefaultNodeTitles(result[0]);
     if (path !== null) {
       result[0].metadata.path = path;
     }
@@ -47,13 +48,35 @@ export function deserializeGraph(serializedGraph: unknown): NodeGraph {
   const version = detectSerializationVersion(serializedGraph);
 
   try {
-    return deserializeGraphByVersion(serializedGraph, version);
+    const graph = deserializeGraphByVersion(serializedGraph, version);
+    normalizeGraphDefaultNodeTitles(graph);
+    return graph;
   } catch (err) {
     if (err instanceof yaml.YAMLError) {
       yamlProblem(err);
     }
     console.warn(`Failed to deserialize graph v${version}: ${errMessage(err)}`);
     throw new Error('Could not deserialize graph');
+  }
+}
+
+function normalizeProjectDefaultNodeTitles(project: Project): void {
+  for (const graph of Object.values(project.graphs)) {
+    normalizeGraphDefaultNodeTitles(graph);
+  }
+}
+
+function normalizeGraphDefaultNodeTitles(graph: NodeGraph): void {
+  for (const node of graph.nodes) {
+    normalizeDefaultCodeNodeTitle(node);
+  }
+}
+
+function normalizeDefaultCodeNodeTitle(node: ChartNode): void {
+  if (node.type === 'code' && node.title === 'Code') {
+    node.title = 'Code (legacy)';
+  } else if (node.type === 'codeNew' && node.title === 'Code new') {
+    node.title = 'Code';
   }
 }
 

@@ -149,6 +149,61 @@ describe('api', () => {
     assert.equal(attachedRequestId, 'request-123');
   });
 
+  it('does not detach a remote debugger when a concurrent run is rejected', async () => {
+    let releaseRun: (() => void) | undefined;
+    let markRunStarted: (() => void) | undefined;
+    const runStarted = new Promise<void>((resolveStarted) => {
+      markRunStarted = resolveStarted;
+    });
+    const releaseRunPromise = new Promise<void>((resolveRelease) => {
+      releaseRun = resolveRelease;
+    });
+    let attachCount = 0;
+    let detachCount = 0;
+
+    const remoteDebugger = {
+      on: () => undefined,
+      off: () => undefined,
+      webSocketServer: {} as never,
+      broadcast: () => undefined,
+      attach: () => {
+        attachCount += 1;
+      },
+      detach: () => {
+        detachCount += 1;
+      },
+    };
+    const customCodeRunner: CodeRunner = {
+      async runCode() {
+        markRunStarted?.();
+        await releaseRunPromise;
+        return {
+          output1: {
+            type: 'string',
+            value: 'done',
+          },
+        };
+      },
+    };
+    const processor = createProcessor(makeCodeProject(`return { output1: { type: 'string', value: 'done' } };`), {
+      graph: 'code-graph',
+      codeRunner: customCodeRunner,
+      remoteDebugger,
+    });
+
+    const firstRun = processor.run();
+    await runStarted;
+    await assert.rejects(() => processor.run(), /Cannot process graph while already processing/);
+
+    assert.equal(attachCount, 1);
+    assert.equal(detachCount, 0);
+
+    releaseRun?.();
+    await firstRun;
+
+    assert.equal(detachCount, 1);
+  });
+
   it('keeps the default programmatic Code runner behavior', async () => {
     let codeOutput: Outputs | undefined;
     const processor = createProcessor(

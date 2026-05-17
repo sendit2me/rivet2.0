@@ -166,6 +166,36 @@ test('canPreloadEditorRunFromPlan only requires previous data for boundary prelo
   );
 });
 
+test('canPreloadEditorRunFromPlan treats absent output wrappers as unavailable preload data', () => {
+  const plan = getEditorRunFromPlan(makeProject(makeRunFromGraph()), graphId, 'selected' as NodeId, registry);
+
+  assert.equal(
+    canPreloadEditorRunFromPlan(plan, {
+      source: [
+        {
+          processId: 'process-1' as any,
+          data: {
+            outputData: {
+              output: undefined,
+            },
+          },
+        },
+      ],
+      side: [
+        {
+          processId: 'process-2' as any,
+          data: {
+            outputData: {
+              output: { type: 'string', storage: 'inline', value: 'side' },
+            },
+          },
+        },
+      ],
+    } as any),
+    false,
+  );
+});
+
 test('getDependentDataForNodeForPreload returns prior outputs for requested dependency nodes', () => {
   const preloadData = getDependentDataForNodeForPreload(['node-1' as any], {
     'node-1': [
@@ -197,6 +227,54 @@ test('getDependentDataForNodeForPreload returns prior outputs for requested depe
       output: { type: 'string', value: 'hello' },
     },
   });
+});
+
+test('getDependentDataForNodeForPreload skips newer runs with only absent output wrappers', () => {
+  const preloadData = getDependentDataForNodeForPreload(['node-1' as any], {
+    'node-1': [
+      {
+        processId: 'process-valid' as any,
+        data: {
+          outputData: {
+            output: { type: 'string', storage: 'inline', value: 'usable' },
+          },
+        },
+      },
+      {
+        processId: 'process-empty' as any,
+        data: {
+          outputData: {
+            output: undefined,
+          },
+        },
+      },
+    ],
+  } as any);
+
+  assert.deepEqual(preloadData, {
+    'node-1': {
+      output: { type: 'string', value: 'usable' },
+    },
+  });
+});
+
+test('getDependentDataForNodeForPreload rejects runs that only have absent output wrappers', () => {
+  assert.throws(
+    () =>
+      getDependentDataForNodeForPreload(['node-1' as NodeId], {
+        'node-1': [
+          {
+            processId: 'process-empty' as any,
+            data: {
+              outputData: {
+                output: undefined,
+              },
+            },
+          },
+        ],
+      } as any),
+    /no output data/i,
+  );
 });
 
 test('getDependentDataForNodeForPreload restores ref-backed media outputs', () => {

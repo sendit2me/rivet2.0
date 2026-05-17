@@ -61,10 +61,10 @@ describe('JSMapNode', () => {
         type: 'code',
         label: 'Callback Body',
         helperMessage: '(item, index, array) => {',
-        postEditorHelperMessage:
-          '};\n\n//Use {{var}} to create input ports that evaluate as connected values.',
+        postEditorHelperMessage: '};\n\n//Use {{var}} to create input ports that evaluate as connected values.',
         dataKey: 'callbackBody',
         language: 'javascript',
+        interpolationSyntax: 'js-value',
         enableFolding: true,
       },
     ]);
@@ -150,6 +150,22 @@ describe('JSMapNode', () => {
       { value: 3, label: 'scaled' },
       { value: 6, label: 'scaled' },
     ]);
+  });
+
+  it('keeps interpolation values available when callback code uses generated helper names', async () => {
+    const node = createNode({
+      callbackBody: 'const __jsListInputs = {};\nreturn item + {{offset}};',
+    });
+
+    const result = await node.process(
+      {
+        ['array' as PortId]: { type: 'number[]', value: [1, 2] },
+        ['offset' as PortId]: { type: 'number', value: 10 },
+      },
+      createContext(),
+    );
+
+    assert.deepStrictEqual(result.mapped?.value, [11, 12]);
   });
 
   it('receives interpolation inputs when run through the graph processor', async () => {

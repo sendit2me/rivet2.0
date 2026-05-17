@@ -38,11 +38,25 @@ import { useEnvironmentProvider } from '../providers/ProvidersContext.js';
 import { pluginsState } from '../state/plugins.js';
 import { withDerivedProjectPluginSpecs } from '../utils/pluginUsage.js';
 import { getProjectContextValues } from '../utils/projectContextValues.js';
+import {
+  resetRemoteExecutorUploadCache,
+  type RemoteExecutorUploadCache,
+  uploadRemoteExecutorProjectIfNeeded,
+} from './remoteExecutorUploadCache.js';
+import type { ExecutorSessionRuntime } from './executorSession.js';
+import {
+  clearActiveRemoteRunRequest,
+  clearActiveRemoteRunRequestIfMatches,
+  sendPendingRemoteGraphRunRequest,
+  shouldDispatchRemoteExecutionEvent,
+  startActiveRemoteGraphRunRequest,
+} from './remoteExecutorRunRequest.js';
 
 export function useRemoteExecutor() {
   const executorSession = useExecutorSessionRuntime();
   const environmentProvider = useEnvironmentProvider();
   const activeGraphRequestIdRef = useRef<RemoteRunRequestId | null>(null);
+  const uploadCacheRef = useRef<RemoteExecutorUploadCache>({});
   const projectNodeRegistry = useProjectNodeRegistry();
   const project = useAtomValue(projectState);
   const projectData = useAtomValue(projectDataState);
@@ -60,7 +74,7 @@ export function useRemoteExecutor() {
 
   const remoteDebugger = useRemoteDebugger({
     onDisconnect: () => {
-      activeGraphRequestIdRef.current = null;
+      clearActiveRemoteRunRequest(activeGraphRequestIdRef);
       currentExecution.onStop();
     },
   });
@@ -68,8 +82,22 @@ export function useRemoteExecutor() {
   const eventDispatcher = createProcessEventDispatcher(currentExecution);
 
   useEffect(() => {
+    const resetUploadCache = () => resetRemoteExecutorUploadCache(uploadCacheRef.current);
+    const unsubscribeConnect = executorSession.subscribeLifecycle('connect', resetUploadCache);
+    const unsubscribeDisconnect = executorSession.subscribeLifecycle('disconnect', resetUploadCache);
+
+    return () => {
+      unsubscribeConnect();
+      unsubscribeDisconnect();
+    };
+  }, [executorSession]);
+
+  useEffect(() => {
     return executorSession.subscribeMessages((message, data, requestId) => {
-      const shouldDispatchExecutionEvent = requestId == null || requestId === activeGraphRequestIdRef.current;
+      const shouldDispatchExecutionEvent = shouldDispatchRemoteExecutionEvent(
+        requestId,
+        activeGraphRequestIdRef.current,
+      );
 
       switch (message) {
         case 'codeConsole':
@@ -104,18 +132,14 @@ export function useRemoteExecutor() {
           break;
         case 'done':
           executorSession.resolvePendingGraphExecution(requestId, (data as { results: unknown }).results as any);
-          if (requestId === activeGraphRequestIdRef.current) {
-            activeGraphRequestIdRef.current = null;
-          }
+          clearActiveRemoteRunRequestIfMatches(activeGraphRequestIdRef, requestId);
           if (shouldDispatchExecutionEvent) {
             eventDispatcher.done(data);
           }
           break;
         case 'abort':
           executorSession.rejectPendingGraphExecution(requestId, new Error('graph execution aborted'));
-          if (requestId === activeGraphRequestIdRef.current) {
-            activeGraphRequestIdRef.current = null;
-          }
+          clearActiveRemoteRunRequestIfMatches(activeGraphRequestIdRef, requestId);
           if (shouldDispatchExecutionEvent) {
             eventDispatcher.abort(data);
           }
@@ -167,9 +191,7 @@ export function useRemoteExecutor() {
           break;
         case 'error':
           executorSession.rejectPendingGraphExecution(requestId, (data as { error: Error }).error);
-          if (requestId === activeGraphRequestIdRef.current) {
-            activeGraphRequestIdRef.current = null;
-          }
+          clearActiveRemoteRunRequestIfMatches(activeGraphRequestIdRef, requestId);
           if (shouldDispatchExecutionEvent) {
             eventDispatcher.error(data);
           }
@@ -227,24 +249,26 @@ export function useRemoteExecutor() {
 
       if (executorSession.getRuntimeState().capabilities.canUploadProject) {
         const projectToUpload = projectWithCurrentGraph;
-
-        const projectUploadSent = remoteDebugger.send('set-dynamic-data', {
-          project: projectToUpload,
-          settings: await fillMissingSettingsFromEnvironmentVariables(savedSettings, projectNodeRegistry.getPlugins(), {
+        const settings = await fillMissingSettingsFromEnvironmentVariables(
+          savedSettings,
+          projectNodeRegistry.getPlugins(),
+          {
             environmentProvider,
             extraEnvVarNames: getLLMChatV2CustomProviderApiKeyEnvVarNames(projectToUpload),
-          }),
-        });
-        if (!projectUploadSent) {
-          throw new Error('Remote executor disconnected before the project upload could be sent.');
-        }
+          },
+        );
 
-        for (const [id, dataValue] of Object.entries(projectData ?? {})) {
-          const staticDataSent = remoteDebugger.sendRaw(`set-static-data:${id}:${dataValue}`);
-          if (!staticDataSent) {
-            throw new Error('Remote executor disconnected before static project data could be sent.');
-          }
-        }
+        uploadRemoteExecutorProjectIfNeeded({
+          cache: uploadCacheRef.current,
+          project: projectToUpload,
+          projectData,
+          sessionKey: getRemoteExecutorUploadSessionKey(executorSession.getRuntimeState()),
+          settings,
+          transport: {
+            sendDynamicData: (payload) => remoteDebugger.send('set-dynamic-data', payload),
+            sendStaticData: (id, dataValue) => remoteDebugger.sendRaw(`set-static-data:${id}:${dataValue}`),
+          },
+        });
       }
 
       const contextValues = getProjectContextValues(projectContext);
@@ -264,20 +288,20 @@ export function useRemoteExecutor() {
         currentExecution.suppressPreloadedNodeEventsForCurrentRun(runFromPlan.preloadNodeIds);
       }
 
-      const requestId = executorSession.createRemoteExecutionRequest();
-      activeGraphRequestIdRef.current = requestId;
-
-      const runSent = remoteDebugger.send('run', {
-        requestId,
-        graphId: graphToRun,
-        runToNodeIds,
-        preloadData,
-        contextValues,
-        projectPath: loadedProject.path,
-        useEditorCache: true,
+      const runRequest = startActiveRemoteGraphRunRequest({
+        activeRequestIdRef: activeGraphRequestIdRef,
+        createRequestId: () => executorSession.createRemoteExecutionRequest(),
+        payload: {
+          graphId: graphToRun,
+          runToNodeIds,
+          preloadData,
+          contextValues,
+          projectPath: loadedProject.path,
+          useEditorCache: true,
+        },
+        sendRun: (payload) => remoteDebugger.send('run', payload),
       });
-      if (!runSent) {
-        activeGraphRequestIdRef.current = null;
+      if (runRequest.type === 'send-failed') {
         currentExecution.clearNodeRunDataPreservationForNextStart();
         logRuntimeDebug('Remote graph run skipped because executor session disconnected before send.', {
           target: executorSession.getRuntimeState().target?.type ?? 'none',
@@ -359,41 +383,40 @@ export function useRemoteExecutor() {
                   registry: projectNodeRegistry,
                 },
               );
+              const settings = await fillMissingSettingsFromEnvironmentVariables(
+                savedSettings,
+                projectNodeRegistry.getPlugins(),
+                {
+                  environmentProvider,
+                  extraEnvVarNames: getLLMChatV2CustomProviderApiKeyEnvVarNames(projectToUpload),
+                },
+              );
 
-              const projectUploadSent = remoteDebugger.send('set-dynamic-data', {
+              uploadRemoteExecutorProjectIfNeeded({
+                cache: uploadCacheRef.current,
                 project: projectToUpload,
-                settings: await fillMissingSettingsFromEnvironmentVariables(
-                  savedSettings,
-                  projectNodeRegistry.getPlugins(),
-                  {
-                    environmentProvider,
-                    extraEnvVarNames: getLLMChatV2CustomProviderApiKeyEnvVarNames(projectToUpload),
-                  },
-                ),
+                sessionKey: getRemoteExecutorUploadSessionKey(sessionState),
+                settings,
+                transport: {
+                  sendDynamicData: (payload) => remoteDebugger.send('set-dynamic-data', payload),
+                  sendStaticData: (id, dataValue) => remoteDebugger.sendRaw(`set-static-data:${id}:${dataValue}`),
+                },
               });
-              if (!projectUploadSent) {
-                throw new Error('Remote executor disconnected before the test project upload could be sent.');
-              }
             }
-
-            const { requestId, promise: pendingResults } = executorSession.createPendingGraphExecution();
 
             const contextValues = getProjectContextValues(projectContext);
 
-            const runSent = remoteDebugger.send('run', {
-              requestId,
-              graphId,
-              inputs,
-              contextValues,
-              projectPath: loadedProject.path,
+            const results = await sendPendingRemoteGraphRunRequest({
+              disconnectErrorMessage: 'Remote executor disconnected before the test graph run could be sent.',
+              executorSession,
+              payload: {
+                graphId,
+                inputs,
+                contextValues,
+                projectPath: loadedProject.path,
+              },
+              sendRun: (payload) => remoteDebugger.send('run', payload),
             });
-            if (!runSent) {
-              const error = new Error('Remote executor disconnected before the test graph run could be sent.');
-              executorSession.rejectPendingGraphExecution(requestId, error);
-              throw error;
-            }
-
-            const results = await pendingResults;
             return results;
           },
         });
@@ -488,6 +511,12 @@ export function useRemoteExecutor() {
     active: remoteDebugger.sessionState.capabilities.canSendRun,
     tryRunTests,
   };
+}
+
+function getRemoteExecutorUploadSessionKey(
+  sessionState: ReturnType<ExecutorSessionRuntime['getRuntimeState']>,
+): string {
+  return `${sessionState.target?.type ?? 'none'}:${sessionState.url}`;
 }
 
 function logCodeConsoleMessage(message: CodeConsoleMessage) {

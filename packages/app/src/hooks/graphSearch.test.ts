@@ -6,6 +6,7 @@ import {
   buildProjectGraphSearchItems,
   clampGraphSearchSelectedIndex,
   getGraphSearchContentSnippets,
+  getGraphSearchStats,
   getSynchronousCodeEditorDataKeys,
   groupGraphSearchMatches,
   isNodeGraphSearchMatch,
@@ -368,6 +369,64 @@ test('buildProjectGraphSearchItems uses the record key when graph metadata id is
   assert.equal(matches[0]?.graphId, asGraphId('record-graph-a'));
 });
 
+test('searchGraphNodesWithMode counts matched occurrences across graphs', () => {
+  const graphA = createGraph({
+    metadata: { id: asGraphId('graph-a'), name: 'Needle Graph' },
+    nodes: [
+      createNode({
+        id: asNodeId('node-a'),
+        title: 'Needle title needle',
+        description: 'Another needle',
+        data: { body: 'needle in body\nneedle again' },
+      }),
+    ],
+  });
+  const graphB = createGraph({
+    metadata: { id: asGraphId('graph-b'), name: 'Tools' },
+    nodes: [createNode({ id: asNodeId('node-b'), title: 'Needle tool' })],
+  });
+
+  const result = searchGraphNodesWithMode(
+    buildProjectGraphSearchItems({ [asGraphId('graph-a')]: graphA, [asGraphId('graph-b')]: graphB }, () => ({
+      nodeTypeLabel: 'Text',
+      searchableContentKeys: ['body'],
+    })),
+    'needle',
+  );
+
+  assert.deepEqual(
+    result.matches.map((match) => ({ graphId: match.graphId, occurrenceCount: match.occurrenceCount })),
+    [
+      { graphId: asGraphId('graph-a'), occurrenceCount: 1 },
+      { graphId: asGraphId('graph-a'), occurrenceCount: 5 },
+      { graphId: asGraphId('graph-b'), occurrenceCount: 1 },
+    ],
+  );
+  assert.deepEqual(getGraphSearchStats(result.matches), { occurrenceCount: 7, graphCount: 2 });
+});
+
+test('searchGraphNodesWithMode counts separate fallback term occurrences', () => {
+  const graphA = createGraph({
+    metadata: { id: asGraphId('graph-a'), name: 'Fallback Graph' },
+    nodes: [
+      createNode({
+        id: asNodeId('node-a'),
+        title: 'alpha alpha',
+        description: 'beta',
+      }),
+    ],
+  });
+
+  const result = searchGraphNodesWithMode(
+    buildProjectGraphSearchItems({ [asGraphId('graph-a')]: graphA }, () => 'Text'),
+    'alpha beta',
+  );
+
+  assert.equal(result.fallbackToTerms, true);
+  assert.equal(result.matches[0]?.occurrenceCount, 3);
+  assert.deepEqual(getGraphSearchStats(result.matches), { occurrenceCount: 3, graphCount: 1 });
+});
+
 test('groupGraphSearchMatches groups results by graph while keeping global indexes', () => {
   const matches = [
     {
@@ -379,6 +438,7 @@ test('groupGraphSearchMatches groups results by graph while keeping global index
       nodeType: 'Text',
       locations: ['node name' as const],
       contentSnippets: [],
+      occurrenceCount: 1,
     },
     {
       kind: 'node' as const,
@@ -389,6 +449,7 @@ test('groupGraphSearchMatches groups results by graph while keeping global index
       nodeType: 'Text',
       locations: ['node content' as const],
       contentSnippets: ['second match context'],
+      occurrenceCount: 1,
     },
     {
       kind: 'node' as const,
@@ -399,6 +460,7 @@ test('groupGraphSearchMatches groups results by graph while keeping global index
       nodeType: 'Code',
       locations: ['node description' as const],
       contentSnippets: [],
+      occurrenceCount: 1,
     },
   ];
 
@@ -424,6 +486,7 @@ test('groupGraphSearchMatches groups graph-name hits without duplicating the gra
       graphName: 'Billing',
       locations: ['graph name'],
       contentSnippets: [],
+      occurrenceCount: 1,
     },
     {
       kind: 'node',
@@ -434,6 +497,7 @@ test('groupGraphSearchMatches groups graph-name hits without duplicating the gra
       nodeType: 'HTTP Call',
       locations: ['node name'],
       contentSnippets: [],
+      occurrenceCount: 1,
     },
   ]);
 

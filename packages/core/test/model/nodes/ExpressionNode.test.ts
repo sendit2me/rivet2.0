@@ -48,6 +48,7 @@ describe('ExpressionNode', () => {
         helperMessage: 'Use {{var}} to create input ports. Interpolated variables evaluate as the connected values.',
         dataKey: 'expression',
         language: 'javascript',
+        interpolationSyntax: 'js-value',
         enableFolding: true,
       },
     ]);
@@ -213,6 +214,42 @@ describe('ExpressionNode', () => {
 
     assert.deepStrictEqual(result.output?.value, { nested: { key: 'changed' } });
     assert.deepStrictEqual(object, { nested: { key: 'original' } });
+  });
+
+  it('keeps interpolation values available when expression scopes use generated helper names', async () => {
+    const node = createNode({
+      expression: '((__expressionInputs, expressionInputCloneCache) => {{value}})({}, new WeakMap())',
+    });
+
+    const result = await node.process(
+      {
+        ['value' as PortId]: { type: 'number', value: 7 },
+      },
+      createContext(),
+    );
+
+    assert.deepStrictEqual(result.output?.value, 7);
+  });
+
+  it('does not mutate upstream function input properties', async () => {
+    const node = createNode({
+      expression: '({{fn}}.meta.seen = true, {{fn}}(3))',
+    });
+    const fn = Object.assign((value: number) => value * 2, {
+      meta: {
+        seen: false,
+      },
+    });
+
+    const result = await node.process(
+      {
+        ['fn' as PortId]: { type: 'any', value: fn },
+      },
+      createContext(),
+    );
+
+    assert.deepStrictEqual(result.output?.value, 6);
+    assert.deepStrictEqual(fn.meta, { seen: false });
   });
 
   it('preserves shared identity across cloned input references', async () => {

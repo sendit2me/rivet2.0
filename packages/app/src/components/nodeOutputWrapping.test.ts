@@ -7,7 +7,10 @@ import { fileURLToPath } from 'node:url';
 const componentsDir = dirname(fileURLToPath(import.meta.url));
 
 test('fullscreen object output wraps colorized JSON at word boundaries', () => {
-  const nodeOutputSource = readFileSync(join(componentsDir, 'NodeOutput.tsx'), 'utf8');
+  const nodeFullscreenOutputSource = readFileSync(
+    join(componentsDir, 'nodeOutput', 'NodeFullscreenOutput.tsx'),
+    'utf8',
+  );
   const scalarRenderersSource = readFileSync(
     join(componentsDir, 'renderDataValue', 'createScalarRenderers.tsx'),
     'utf8',
@@ -19,7 +22,7 @@ test('fullscreen object output wraps colorized JSON at word boundaries', () => {
 
   const fullscreenObjectWrapBlock =
     /\.fullscreen-output-body\.wrap-lines \.rendered-object-type pre \{(?<styles>[\s\S]*?)\n  \}/.exec(
-      nodeOutputSource,
+      nodeFullscreenOutputSource,
     )?.groups?.styles;
   const largeStoredWrapBlock =
     /\.fullscreen-output-body\.wrap-lines & \.json-preview-content pre \{(?<styles>[\s\S]*?)\n  \}/.exec(

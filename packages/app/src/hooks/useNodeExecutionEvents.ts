@@ -2,6 +2,7 @@ import { produce } from 'immer';
 import { useSetAtom } from 'jotai';
 import {
   type CodeNode,
+  type CodeNewNode,
   type ExpressionNode,
   type ExtractObjectPathNode,
   type JSFilterNode,
@@ -10,12 +11,8 @@ import {
 } from '@valerypopoff/rivet2-core';
 import { type ExecutionDataFlowApi } from './useExecutionDataFlow';
 import { lastRunDataByNodeState } from '../state/dataFlow';
-import {
-  collectStoredRefIds,
-  deleteStoredRefIds,
-  sanitizeInputsOrOutputs,
-  storeInputsOrOutputsForHistory,
-} from '../utils/executionDataTransforms';
+import { collectStoredRefIds, deleteStoredRefIds, storeInputsOrOutputsForHistory } from '../utils/executionDataStorage';
+import { sanitizeInputsOrOutputs } from '../utils/executionDataSanitization';
 import { useDataRefs } from '../providers/ProvidersContext';
 
 export type NodeExecutionEventsApi = {
@@ -174,6 +171,14 @@ function getNodeRunDebugData(node: ProcessEvents['nodeStart']['node']) {
     return {
       debugData: {
         codeSource: (node as CodeNode).data.code,
+      },
+    };
+  }
+
+  if (node.type === 'codeNew') {
+    return {
+      debugData: {
+        codeSource: (node as CodeNewNode).data.code,
       },
     };
   }

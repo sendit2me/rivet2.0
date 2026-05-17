@@ -30,7 +30,7 @@ export class CommentNodeImpl extends NodeImpl<CommentNode> {
         text: '',
         height: 600,
         color: 'rgba(255,255,255,1)',
-        backgroundColor: 'rgba(0,0,0,0.05)',
+        backgroundColor: 'rgba(128,128,128,0.05)',
       },
     };
 

@@ -124,15 +124,16 @@ const NodeCanvasScene: FC<Omit<NodeCanvasViewportProps, 'canvasPositionX' | 'can
         <CanvasHandlersContext.Provider value={canvasHandlersContextValue}>
           <div className="nodes">
             {backgroundCommentDragEntries.map(({ node, index }) => {
-              const { isOutputExpanded, lastRun, processPage, executionSourceNodeId } = resolveDraggingExecutionContext({
-                dragMode,
-                draggingNodeId: node.id,
-                draggingSourceNodeIds,
-                index,
-                expandedOutputNodeIdSet,
-                lastRunPerNode,
-                selectedProcessPagePerNode,
-              });
+              const { isOutputExpanded, lastRun, processPage, executionSourceNodeId } =
+                resolveDraggingExecutionContext({
+                  dragMode,
+                  draggingNodeId: node.id,
+                  draggingSourceNodeIds,
+                  index,
+                  expandedOutputNodeIdSet,
+                  lastRunPerNode,
+                  selectedProcessPagePerNode,
+                });
 
               return (
                 <VisualNode
@@ -147,6 +148,7 @@ const NodeCanvasScene: FC<Omit<NodeCanvasViewportProps, 'canvasPositionX' | 'can
                   lastRun={lastRun}
                   processPage={processPage}
                   renderHeavyContent
+                  shouldShowHoverControls={draggingHoverControlSourceNodeIdSet.has(executionSourceNodeId)}
                 />
               );
             })}
@@ -200,15 +202,16 @@ const NodeCanvasScene: FC<Omit<NodeCanvasViewportProps, 'canvasPositionX' | 'can
               ]}
             >
               {foregroundDragEntries.map(({ node, index }) => {
-                const { isOutputExpanded, lastRun, processPage } = resolveDraggingExecutionContext({
-                  dragMode,
-                  draggingNodeId: node.id,
-                  draggingSourceNodeIds,
-                  index,
-                  expandedOutputNodeIdSet,
-                  lastRunPerNode,
-                  selectedProcessPagePerNode,
-                });
+                const { isOutputExpanded, lastRun, processPage, executionSourceNodeId } =
+                  resolveDraggingExecutionContext({
+                    dragMode,
+                    draggingNodeId: node.id,
+                    draggingSourceNodeIds,
+                    index,
+                    expandedOutputNodeIdSet,
+                    lastRunPerNode,
+                    selectedProcessPagePerNode,
+                  });
 
                 return (
                   <VisualNode
@@ -221,9 +224,7 @@ const NodeCanvasScene: FC<Omit<NodeCanvasViewportProps, 'canvasPositionX' | 'can
                     lastRun={lastRun}
                     processPage={processPage}
                     renderHeavyContent
-                    shouldShowHoverControls={draggingHoverControlSourceNodeIdSet.has(
-                      draggingSourceNodeIds[index] ?? node.id,
-                    )}
+                    shouldShowHoverControls={draggingHoverControlSourceNodeIdSet.has(executionSourceNodeId)}
                   />
                 );
               })}

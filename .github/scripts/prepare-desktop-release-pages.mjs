@@ -3,23 +3,25 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-const sourceBundleDir = path.resolve(
-  repoRoot,
-  process.env.SOURCE_BUNDLE_DIR ?? 'packages/app/src-tauri/target/release/bundle',
-);
-const pagesOutDir = path.resolve(repoRoot, process.env.PAGES_OUT_DIR ?? 'windows-release-pages');
+const pagesOutDir = path.resolve(repoRoot, process.env.PAGES_OUT_DIR ?? 'desktop-release-pages');
 const releaseChannel = process.env.RELEASE_CHANNEL ?? 'developer';
 
 const releaseConfigs = {
   developer: {
     displayName: 'Developer',
     metadataFile: 'developer-release.json',
-    stableFilePrefix: 'Rivet-2-Developer-Windows',
+    stableFilePrefixes: {
+      macos: 'Rivet-2-Developer-macOS',
+      windows: 'Rivet-2-Developer-Windows',
+    },
   },
   official: {
     displayName: 'Stable',
     metadataFile: 'official-release.json',
-    stableFilePrefix: 'Rivet-2-Windows',
+    stableFilePrefixes: {
+      macos: 'Rivet-2-macOS',
+      windows: 'Rivet-2-Windows',
+    },
   },
 };
 
@@ -31,7 +33,51 @@ if (!releaseConfig) {
 
 const downloadsDir = path.join(pagesOutDir, 'downloads', releaseChannel);
 const originalDownloadsDir = path.join(downloadsDir, 'original');
-const releaseFilePattern = /\.(exe|msi|zip|sig|json|blockmap)$/i;
+
+const platformConfigs = {
+  windows: {
+    displayName: 'Windows',
+    releaseFilePattern: /\.(exe|msi|zip|sig|json|blockmap)$/i,
+    sourceBundleDir: path.resolve(
+      repoRoot,
+      process.env.WINDOWS_BUNDLE_DIR ??
+        process.env.SOURCE_BUNDLE_DIR ??
+        'packages/app/src-tauri/target/release/bundle',
+    ),
+  },
+  macos: {
+    displayName: 'macOS',
+    releaseFilePattern: /\.(dmg|zip|sig|json|blockmap)$/i,
+    sourceBundleDir: path.resolve(
+      repoRoot,
+      process.env.MACOS_BUNDLE_DIR ?? 'packages/app/src-tauri/target/universal-apple-darwin/release/bundle',
+    ),
+  },
+};
+
+function parseReleasePlatforms() {
+  const requestedPlatforms = (process.env.RELEASE_PLATFORMS ?? 'windows,macos')
+    .split(',')
+    .map((platform) => platform.trim().toLowerCase())
+    .filter((platform) => platform.length > 0);
+
+  if (requestedPlatforms.length === 0) {
+    throw new Error('RELEASE_PLATFORMS did not include any platforms.');
+  }
+
+  return requestedPlatforms.map((platform) => {
+    const config = platformConfigs[platform];
+
+    if (!config) {
+      throw new Error(`Unsupported release platform: ${platform}`);
+    }
+
+    return {
+      id: platform,
+      ...config,
+    };
+  });
+}
 
 async function walkFiles(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
@@ -185,11 +231,124 @@ async function readAppVersion() {
   return appVersion;
 }
 
-async function main() {
-  await stat(sourceBundleDir).catch(() => {
-    throw new Error(`Tauri bundle directory does not exist: ${sourceBundleDir}`);
+async function collectPlatformArtifacts(platformConfig) {
+  await stat(platformConfig.sourceBundleDir).catch(() => {
+    throw new Error(
+      `${platformConfig.displayName} Tauri bundle directory does not exist: ${platformConfig.sourceBundleDir}`,
+    );
   });
 
+  const bundleFiles = (await walkFiles(platformConfig.sourceBundleDir)).filter((file) =>
+    platformConfig.releaseFilePattern.test(file),
+  );
+
+  if (bundleFiles.length === 0) {
+    throw new Error(
+      `No ${platformConfig.displayName} release artifacts were found under ${platformConfig.sourceBundleDir}`,
+    );
+  }
+
+  const artifacts = [];
+
+  for (const sourcePath of bundleFiles) {
+    const relativeSourcePath = path.relative(platformConfig.sourceBundleDir, sourcePath);
+    const originalPath = toPagePath(path.join(platformConfig.id, relativeSourcePath));
+    const downloadPath = path.join(originalDownloadsDir, originalPath);
+    await mkdir(path.dirname(downloadPath), { recursive: true });
+    await copyFile(sourcePath, downloadPath);
+
+    const fileStat = await stat(sourcePath);
+    artifacts.push({
+      name: path.basename(sourcePath),
+      originalPath,
+      platform: platformConfig.id,
+      size: fileStat.size,
+      sourcePath: downloadPath,
+      url: encodeURI(toPagePath(path.relative(pagesOutDir, downloadPath))),
+    });
+  }
+
+  return artifacts;
+}
+
+async function createStableDownload({ artifact, label, stableName }) {
+  const stablePath = path.join(downloadsDir, stableName);
+  await mkdir(path.dirname(stablePath), { recursive: true });
+  await copyFile(artifact.sourcePath, stablePath);
+
+  return {
+    label,
+    name: stableName,
+    platform: artifact.platform,
+    url: encodeURI(toPagePath(path.relative(pagesOutDir, stablePath))),
+    size: artifact.size,
+  };
+}
+
+async function createStableDownloads(artifacts) {
+  const stableDownloads = [];
+  const windowsPrefix = releaseConfig.stableFilePrefixes.windows;
+  const macosPrefix = releaseConfig.stableFilePrefixes.macos;
+
+  const primarySetup = artifacts.find(
+    (artifact) => artifact.platform === 'windows' && /setup\.exe$/i.test(artifact.name),
+  );
+  const primaryMsi = artifacts.find(
+    (artifact) => artifact.platform === 'windows' && /\.msi$/i.test(artifact.name),
+  );
+  const primaryDmg = artifacts.find(
+    (artifact) => artifact.platform === 'macos' && /\.dmg$/i.test(artifact.name),
+  );
+
+  if (primarySetup) {
+    stableDownloads.push(
+      await createStableDownload({
+        artifact: primarySetup,
+        label: 'Windows setup executable',
+        stableName: `${windowsPrefix}-Setup.exe`,
+      }),
+    );
+  }
+
+  if (primaryMsi) {
+    stableDownloads.push(
+      await createStableDownload({
+        artifact: primaryMsi,
+        label: 'Windows MSI installer',
+        stableName: `${windowsPrefix}.msi`,
+      }),
+    );
+  }
+
+  if (primaryDmg) {
+    stableDownloads.push(
+      await createStableDownload({
+        artifact: primaryDmg,
+        label: 'macOS disk image',
+        stableName: `${macosPrefix}.dmg`,
+      }),
+    );
+  }
+
+  return stableDownloads;
+}
+
+function assertStableDownloadsForRequestedPlatforms(stableDownloads, releasePlatforms) {
+  const missingPlatforms = releasePlatforms.filter(
+    (platformConfig) => !stableDownloads.some((download) => download.platform === platformConfig.id),
+  );
+
+  if (missingPlatforms.length > 0) {
+    throw new Error(
+      `No stable download aliases were produced for ${missingPlatforms
+        .map((platformConfig) => platformConfig.displayName)
+        .join(', ')}.`,
+    );
+  }
+}
+
+async function main() {
+  const releasePlatforms = parseReleasePlatforms();
   const preserveMetadataFiles = (process.env.PRESERVE_RELEASE_METADATA_FILES ?? '')
     .split(',')
     .map((file) => file.trim())
@@ -200,62 +359,15 @@ async function main() {
     await preservePublishedRelease(metadataFile, publishedSiteUrl);
   }
 
-  const bundleFiles = (await walkFiles(sourceBundleDir)).filter((file) => releaseFilePattern.test(file));
-
-  if (bundleFiles.length === 0) {
-    throw new Error(`No Windows release artifacts were found under ${sourceBundleDir}`);
-  }
-
   await mkdir(originalDownloadsDir, { recursive: true });
 
-  const artifacts = [];
-
-  for (const sourcePath of bundleFiles) {
-    const relativeSourcePath = path.relative(sourceBundleDir, sourcePath);
-    const downloadPath = path.join(originalDownloadsDir, relativeSourcePath);
-    await mkdir(path.dirname(downloadPath), { recursive: true });
-    await copyFile(sourcePath, downloadPath);
-
-    const fileStat = await stat(sourcePath);
-    artifacts.push({
-      name: path.basename(sourcePath),
-      originalPath: toPagePath(relativeSourcePath),
-      url: encodeURI(toPagePath(path.relative(pagesOutDir, downloadPath))),
-      size: fileStat.size,
-    });
-  }
-
-  artifacts.sort((a, b) => a.name.localeCompare(b.name));
-
-  const primarySetup = artifacts.find((artifact) => /setup\.exe$/i.test(artifact.name));
-  const primaryMsi = artifacts.find((artifact) => /\.msi$/i.test(artifact.name));
-  const stableDownloads = [];
-
-  if (primarySetup) {
-    const sourcePath = path.join(originalDownloadsDir, primarySetup.originalPath);
-    const stableName = `${releaseConfig.stableFilePrefix}-Setup.exe`;
-    const stablePath = path.join(downloadsDir, stableName);
-    await copyFile(sourcePath, stablePath);
-    stableDownloads.push({
-      label: 'Windows setup executable',
-      name: stableName,
-      url: encodeURI(toPagePath(path.relative(pagesOutDir, stablePath))),
-      size: primarySetup.size,
-    });
-  }
-
-  if (primaryMsi) {
-    const sourcePath = path.join(originalDownloadsDir, primaryMsi.originalPath);
-    const stableName = `${releaseConfig.stableFilePrefix}.msi`;
-    const stablePath = path.join(downloadsDir, stableName);
-    await copyFile(sourcePath, stablePath);
-    stableDownloads.push({
-      label: 'Windows MSI installer',
-      name: stableName,
-      url: encodeURI(toPagePath(path.relative(pagesOutDir, stablePath))),
-      size: primaryMsi.size,
-    });
-  }
+  const artifacts = (await Promise.all(
+    releasePlatforms.map((platformConfig) => collectPlatformArtifacts(platformConfig)),
+  ))
+    .flat()
+    .sort((a, b) => `${a.platform}:${a.name}`.localeCompare(`${b.platform}:${b.name}`));
+  const stableDownloads = await createStableDownloads(artifacts);
+  assertStableDownloadsForRequestedPlatforms(stableDownloads, releasePlatforms);
 
   const shortSha = (process.env.GITHUB_SHA ?? 'local').slice(0, 7);
   const repository = process.env.GITHUB_REPOSITORY ?? 'local/repo';
@@ -264,7 +376,7 @@ async function main() {
   const version = await readAppVersion();
   const releaseMetadata = {
     channel: releaseChannel,
-    title: `${releaseConfig.displayName} Windows Release`,
+    title: `${releaseConfig.displayName} Desktop Release`,
     version,
     label: formatReleaseLabel(shortSha),
     generatedAt: new Date().toISOString(),
@@ -274,13 +386,17 @@ async function main() {
     runUrl: runId ? `${serverUrl}/${repository}/actions/runs/${runId}` : null,
     commitUrl: process.env.GITHUB_SHA ? `${serverUrl}/${repository}/commit/${process.env.GITHUB_SHA}` : null,
     stableDownloads,
-    artifacts,
+    artifacts: artifacts.map(({ sourcePath: _sourcePath, ...artifact }) => artifact),
   };
 
   await mkdir(pagesOutDir, { recursive: true });
   await writeFile(path.join(pagesOutDir, releaseConfig.metadataFile), JSON.stringify(releaseMetadata, null, 2));
 
-  console.log(`Prepared ${releaseChannel} Windows release downloads at ${pagesOutDir}`);
+  console.log(
+    `Prepared ${releaseChannel} desktop release downloads for ${releasePlatforms
+      .map((platformConfig) => platformConfig.displayName)
+      .join(', ')} at ${pagesOutDir}`,
+  );
 }
 
 await main();

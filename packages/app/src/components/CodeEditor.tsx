@@ -4,12 +4,15 @@ import { monaco } from '../utils/monaco.js';
 import { useMultilineEditorFontSize } from '../hooks/useMultilineEditorFontSize.js';
 import { DEFAULT_MONACO_THEME } from './codeEditorTheme.js';
 import { useIsNodeEditorResizing } from './nodeEditor/NodeEditorResizeContext.js';
+import { installEditorInterpolationSupport } from '../utils/monaco/interpolationEditorSupport.js';
+import { type EditorInterpolationSyntax } from '../utils/monaco/interpolationDiagnostics.js';
 
 export const CodeEditor: FC<{
   text: string;
   isReadonly?: boolean;
   onChange?: (newText: string) => void;
   language?: string;
+  interpolationSyntax?: EditorInterpolationSyntax;
   theme?: string;
   autoFocus?: boolean;
   onKeyDown?: (e: monaco.IKeyboardEvent) => void;
@@ -26,6 +29,7 @@ export const CodeEditor: FC<{
   isReadonly,
   onChange,
   language,
+  interpolationSyntax,
   theme,
   autoFocus,
   onKeyDown,
@@ -54,31 +58,33 @@ export const CodeEditor: FC<{
       return;
     }
 
-    const editor = monaco.editor.create(
-      container,
-      {
-        theme: theme ?? DEFAULT_MONACO_THEME,
-        lineNumbers: 'on',
-        glyphMargin: false,
-        folding: enableFolding ?? false,
-        foldingStrategy: enableFolding ? 'auto' : undefined,
-        showFoldingControls: enableFolding ? 'mouseover' : undefined,
-        foldingHighlight: enableFolding ? true : undefined,
-        unfoldOnClickAfterEndOfLine: enableFolding ? false : undefined,
-        lineNumbersMinChars: 2,
-        language,
-        minimap: {
-          enabled: false,
-        },
-        fontSize,
-        wordWrap: 'on',
-        readOnly: isReadonly,
-        value: text,
-        scrollBeyondLastLine,
+    const editor = monaco.editor.create(container, {
+      theme: theme ?? DEFAULT_MONACO_THEME,
+      lineNumbers: 'on',
+      glyphMargin: false,
+      folding: enableFolding ?? false,
+      foldingStrategy: enableFolding ? 'auto' : undefined,
+      showFoldingControls: enableFolding ? 'mouseover' : undefined,
+      foldingHighlight: enableFolding ? true : undefined,
+      unfoldOnClickAfterEndOfLine: enableFolding ? false : undefined,
+      lineNumbersMinChars: 2,
+      language,
+      minimap: {
+        enabled: false,
       },
-    );
+      fontSize,
+      wordWrap: 'on',
+      readOnly: isReadonly,
+      value: text,
+      scrollBeyondLastLine,
+      scrollbar: {
+        alwaysConsumeMouseWheel: false,
+      },
+    });
 
     editor.layout();
+    const interpolationSupport =
+      interpolationSyntax != null ? installEditorInterpolationSupport(editor, interpolationSyntax) : undefined;
 
     const onResize = () => {
       // Resizing the node settings panel can emit a dense stream of ResizeObserver
@@ -116,6 +122,7 @@ export const CodeEditor: FC<{
         editorRef.current = undefined;
       }
       resizeObserver?.disconnect();
+      interpolationSupport?.dispose();
       editor.dispose();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

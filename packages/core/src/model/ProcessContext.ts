@@ -38,7 +38,7 @@ export type ProcessContext = {
   /** The tokenizer that will be used for all nodes. */
   tokenizer: Tokenizer;
 
-  /** The provider for running arbitrary code in the Code Node. */
+  /** The provider for running arbitrary code in Code-family nodes. */
   codeRunner?: CodeRunner;
 
   /** The loader for loading project references. */
@@ -169,6 +169,6 @@ export type InternalProcessContext<T extends ChartNode = ChartNode> = ProcessCon
   /** Requests that the user input some text in response to the specified prompt. */
   requestUserInput(inputs: string[], renderingType: 'text' | 'markdown'): Promise<StringArrayDataValue>;
 
-  /** The object used for running arbitrary code with the Code Node. */
+  /** The object used for running arbitrary code with Code-family nodes. */
   codeRunner: CodeRunner;
 };

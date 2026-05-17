@@ -24,6 +24,26 @@ test('parseCodeNodeError supports line-only locations', () => {
   });
 });
 
+test('parseCodeNodeError supports previous Code new node locations', () => {
+  assert.deepEqual(parseCodeNodeError('ReferenceError: foo is not defined (Code new node line 4, column 8)'), {
+    location: {
+      column: 8,
+      line: 4,
+    },
+    message: 'ReferenceError: foo is not defined',
+  });
+});
+
+test('parseCodeNodeError supports Code legacy node locations', () => {
+  assert.deepEqual(parseCodeNodeError('ReferenceError: foo is not defined (Code (legacy) node line 4, column 8)'), {
+    location: {
+      column: 8,
+      line: 4,
+    },
+    message: 'ReferenceError: foo is not defined',
+  });
+});
+
 test('parseCodeNodeError leaves unrelated errors unchanged', () => {
   assert.deepEqual(parseCodeNodeError('Dynamic code execution is disabled.'), {
     message: 'Dynamic code execution is disabled.',

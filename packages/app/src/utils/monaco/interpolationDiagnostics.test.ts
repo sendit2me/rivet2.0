@@ -1,0 +1,60 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import {
+  getActiveInterpolationOffsetRanges,
+  JS_VALUE_INTERPOLATION_MARKER_OWNERS,
+  JSON_TEMPLATE_INTERPOLATION_MARKER_OWNERS,
+  rangesOverlap,
+  shouldSuppressMarkerForInterpolation,
+} from './interpolationDiagnostics.js';
+
+test('getActiveInterpolationOffsetRanges ignores escaped interpolation tokens', () => {
+  const text = '{{{literal}}}{{real}} const value = {{input}};';
+  const ranges = getActiveInterpolationOffsetRanges(text);
+
+  assert.deepEqual(
+    ranges.map((range) => text.slice(range.start, range.end)),
+    ['{{real}}', '{{input}}'],
+  );
+});
+
+test('JSON template interpolation uses JSON validation markers only', () => {
+  assert.deepEqual([...JSON_TEMPLATE_INTERPOLATION_MARKER_OWNERS], ['json']);
+});
+
+test('JavaScript value interpolation uses JavaScript and TypeScript validation markers only', () => {
+  assert.deepEqual([...JS_VALUE_INTERPOLATION_MARKER_OWNERS], ['javascript', 'typescript']);
+});
+
+test('rangesOverlap treats zero-width marker ranges as a one-character marker', () => {
+  assert.equal(rangesOverlap({ start: 10, end: 10 }, { start: 10, end: 19 }), true);
+  assert.equal(rangesOverlap({ start: 9, end: 9 }, { start: 10, end: 19 }), false);
+});
+
+test('shouldSuppressMarkerForInterpolation suppresses only overlapping marker ranges', () => {
+  const text = 'const value = {{input}};\nconst broken = ;';
+  const interpolationRanges = getActiveInterpolationOffsetRanges(text);
+  const interpolationStart = text.indexOf('{{input}}');
+  const brokenStart = text.indexOf('= ;');
+
+  assert.equal(
+    shouldSuppressMarkerForInterpolation(
+      {
+        start: interpolationStart,
+        end: interpolationStart + 1,
+      },
+      interpolationRanges,
+    ),
+    true,
+  );
+  assert.equal(
+    shouldSuppressMarkerForInterpolation(
+      {
+        start: brokenStart,
+        end: brokenStart + 1,
+      },
+      interpolationRanges,
+    ),
+    false,
+  );
+});

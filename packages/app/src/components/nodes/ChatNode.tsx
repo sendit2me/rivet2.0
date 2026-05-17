@@ -1,13 +1,19 @@
 import { type FC } from 'react';
 import { css } from '@emotion/react';
 import { RenderDataValue } from '../RenderDataValue.js';
-import { type DataValue, type PortId, coerceTypeOptional, inferType, isArrayDataValue } from '@valerypopoff/rivet2-core';
+import {
+  type DataValue,
+  type PortId,
+  coerceTypeOptional,
+  inferType,
+  isArrayDataValue,
+} from '@valerypopoff/rivet2-core';
 import { type NodeComponentDescriptor } from '../../hooks/useNodeTypes.js';
 import styled from '@emotion/styled';
 import clsx from 'clsx';
 import { type DataValueWithRefs, type InputsOrOutputsWithRefs } from '../../state/dataFlow';
 import { useDataRefs } from '../../providers/ProvidersContext.js';
-import { tryRestoreStoredDataValue } from '../../utils/executionDataTransforms.js';
+import { tryRestoreStoredDataValue } from '../../utils/executionDataStorage.js';
 import type { OutputRenderMode } from '../RenderDataValue.js';
 import { getChatNodeCopyValueData } from '../../utils/nodeOutputCopyValueProjectors.js';
 
@@ -190,16 +196,18 @@ export const ChatNodeOutputSingle: FC<{
         )}
       </div>
 
-      <div className={clsx('outputText', { markdown: renderMarkdown })}>
-        <div className={clsx({ 'pre-wrap': !renderMarkdown })}>
-          <RenderDataValue
-            value={outputValue}
-            renderMarkdown={renderMarkdown}
-            mode={effectiveRenderMode}
-            allowLargeStoredValueActions={allowLargeStoredValueActions}
-          />
+      {outputValue != null && (
+        <div className={clsx('outputText', { markdown: renderMarkdown })}>
+          <div className={clsx({ 'pre-wrap': !renderMarkdown })}>
+            <RenderDataValue
+              value={outputValue}
+              renderMarkdown={renderMarkdown}
+              mode={effectiveRenderMode}
+              allowLargeStoredValueActions={allowLargeStoredValueActions}
+            />
+          </div>
         </div>
-      </div>
+      )}
       {hasRenderableFunctionCallValue(functionCallValue) && (
         <div className="function-call">
           <h4>{Array.isArray(functionCallValue.value) ? 'Function Calls' : 'Function Call'}:</h4>

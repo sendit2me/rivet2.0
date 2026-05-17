@@ -26,7 +26,7 @@ import {
   collectStoredRefIds,
   deleteStoredRefIds,
   storeNodeDataForHistory,
-} from '../utils/executionDataTransforms';
+} from '../utils/executionDataStorage';
 
 export type ExecutionDataFlowApi = {
   clearNodeRunDataPreservationForNextStart: () => void;

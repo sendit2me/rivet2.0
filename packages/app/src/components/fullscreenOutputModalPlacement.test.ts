@@ -8,14 +8,23 @@ const componentsDir = dirname(fileURLToPath(import.meta.url));
 
 test('fullscreen node output modal is rendered outside the canvas tree', () => {
   const nodeOutputSource = readFileSync(join(componentsDir, 'NodeOutput.tsx'), 'utf8');
+  const nodeFullscreenOutputSource = readFileSync(
+    join(componentsDir, 'nodeOutput', 'NodeFullscreenOutput.tsx'),
+    'utf8',
+  );
   const rivetAppSource = readFileSync(join(componentsDir, 'RivetApp.tsx'), 'utf8');
   const fullScreenModalSource = readFileSync(join(componentsDir, 'FullScreenModal.tsx'), 'utf8');
 
-  assert.match(nodeOutputSource, /export const FullscreenNodeOutputModalRenderer/);
-  assert.doesNotMatch(nodeOutputSource, /const \[isModalOpen,\s*setIsModalOpen\] = useState/);
-  const rendererMatch = /export const FullscreenNodeOutputModalRenderer: FC = \(\) => \{([\s\S]*?)\n\};\n\nconst ResizableNodeFullscreenOutputModal/.exec(
+  assert.match(
     nodeOutputSource,
+    /export \{ FullscreenNodeOutputModalRenderer \} from '\.\/nodeOutput\/NodeFullscreenOutput\.js';/,
   );
+  assert.match(nodeFullscreenOutputSource, /export const FullscreenNodeOutputModalRenderer/);
+  assert.doesNotMatch(nodeOutputSource, /const \[isModalOpen,\s*setIsModalOpen\] = useState/);
+  const rendererMatch =
+    /export const FullscreenNodeOutputModalRenderer: FC = \(\) => \{([\s\S]*?)\r?\n\};\r?\n\r?\nconst ResizableNodeFullscreenOutputModal/.exec(
+      nodeFullscreenOutputSource,
+    );
   assert.ok(rendererMatch);
   const rendererBody = rendererMatch[1] ?? '';
   assert.match(rendererBody, /useDependsOnPlugins\(\);/);
@@ -23,6 +32,9 @@ test('fullscreen node output modal is rendered outside the canvas tree', () => {
   assert.match(rendererBody, /previousGraphIdRef\.current = graphId;/);
   assert.match(rendererBody, /previousGraphIdRef\.current !== graphId/);
   assert.match(rendererBody, /return \(\) => \{\s*setFullscreenOutputNodeId\(null\);\s*\};/);
-  assert.match(rivetAppSource, /<GraphBuilder \/>\s*<AppErrorBoundary context="Fullscreen Output Modal"[\s\S]*<FullscreenNodeOutputModalRenderer \/>/);
+  assert.match(
+    rivetAppSource,
+    /<GraphBuilder \/>\s*<AppErrorBoundary context="Fullscreen Output Modal"[\s\S]*<FullscreenNodeOutputModalRenderer \/>/,
+  );
   assert.match(fullScreenModalSource, /shouldReturnFocus={false}/);
 });

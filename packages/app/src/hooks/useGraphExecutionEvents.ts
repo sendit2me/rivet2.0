@@ -26,7 +26,7 @@ import {
   clearExecutionDataRefs,
   clearRemovedExecutionDataRefs,
   splitRunDataByPreservedNodes,
-} from '../utils/executionDataTransforms.js';
+} from '../utils/executionDataStorage.js';
 import { removeRunningGraphEntry, updateSelectedGraphRunForGraphStart } from './graphExecutionEventHelpers.js';
 
 export type GraphExecutionEventsApi = {

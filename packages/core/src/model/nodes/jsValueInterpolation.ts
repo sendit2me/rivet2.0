@@ -1,11 +1,43 @@
 import { dedent } from 'ts-dedent';
 import type { Inputs } from '../GraphProcessor.js';
-import type { PortId } from '../NodeBase.js';
+import type { NodeInputDefinition, PortId } from '../NodeBase.js';
+import { createInterpolationInputDefinition } from '../interpolationInputDefinition.js';
+import { getError } from '../../utils/errors.js';
 import { extractInterpolationVariables, replaceInterpolationTokens } from '../../utils/interpolation.js';
 
 type JsValueInterpolationOptions = {
   localIdentifiers?: ReadonlySet<string>;
+  trim?: boolean;
 };
+
+export type JsValueInterpolationRuntimeContext = {
+  inputNames: string[];
+  inputsIdentifier: string;
+};
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function containsIdentifier(source: string, identifier: string): boolean {
+  return new RegExp(`(^|[^A-Za-z0-9_$])${escapeRegExp(identifier)}($|[^A-Za-z0-9_$])`).test(source);
+}
+
+export function getSafeJsValueInterpolationIdentifier(source: string, baseIdentifier: string): string {
+  let index = 0;
+  let candidate = baseIdentifier;
+
+  while (containsIdentifier(source, candidate)) {
+    index += 1;
+    candidate = `${baseIdentifier}_${index}`;
+  }
+
+  return candidate;
+}
+
+export function buildJsValuePreview(source: string, maxLines: number): string {
+  return source.split('\n').slice(0, maxLines).join('\n').trim();
+}
 
 function isSpecialReference(inputName: string): boolean {
   return inputName.startsWith('@graphInputs.') || inputName.startsWith('@context.');
@@ -76,6 +108,30 @@ export function getJsValueInterpolationInputNames(
   return extractInterpolationVariables(template).filter((inputName) => !options.localIdentifiers?.has(inputName));
 }
 
+export function getJsValueInterpolationInputDefinitions(
+  template: string,
+  options: JsValueInterpolationOptions = {},
+): NodeInputDefinition[] {
+  return getJsValueInterpolationInputNames(template, options).map((inputName) =>
+    createInterpolationInputDefinition({
+      interpolationName: inputName,
+      dataType: 'any',
+      required: false,
+    }),
+  );
+}
+
+export function getJsValueInterpolationRuntimeContext(
+  template: string,
+  baseInputsIdentifier: string,
+  options: JsValueInterpolationOptions = {},
+): JsValueInterpolationRuntimeContext {
+  return {
+    inputNames: getJsValueInterpolationInputNames(template, options),
+    inputsIdentifier: getSafeJsValueInterpolationIdentifier(template, baseInputsIdentifier),
+  };
+}
+
 export function buildJsValueInterpolatedSource(
   template: string,
   targetIdentifier: string,
@@ -85,7 +141,7 @@ export function buildJsValueInterpolatedSource(
     template,
     (token) => buildJsValueReference(token.tokenName, targetIdentifier, options),
     {
-      trim: true,
+      trim: options.trim ?? true,
     },
   );
 }
@@ -96,7 +152,7 @@ export function interpolateJsValuePreviewSource(
   options: JsValueInterpolationOptions = {},
 ): string {
   return replaceInterpolationTokens(template, (token) => formatJsValuePreviewValue(token.tokenName, inputs, options), {
-    trim: true,
+    trim: options.trim ?? true,
   });
 }
 
@@ -206,6 +262,35 @@ export function buildClonedInputValueAssignments(
     .join('\n');
 }
 
+export function buildJsValueInputClonePreamble({
+  cacheIdentifier,
+  inputsIdentifier,
+}: {
+  cacheIdentifier: string;
+  inputsIdentifier: string;
+}): string {
+  return dedent`
+    ${buildCloneJsInputValueFunction()}
+    const ${inputsIdentifier} = Object.create(null);
+    const ${cacheIdentifier} = new WeakMap();
+  `;
+}
+
+export function buildJsValueInputsInitializer({
+  cacheIdentifier,
+  inputNames,
+  inputsIdentifier,
+}: {
+  cacheIdentifier: string;
+  inputNames: string[];
+  inputsIdentifier: string;
+}): string {
+  return dedent`
+    ${buildJsValueInputClonePreamble({ cacheIdentifier, inputsIdentifier })}
+    ${buildClonedInputValueAssignments(inputNames, inputsIdentifier, cacheIdentifier)}
+  `;
+}
+
 export function sanitizeGeneratedJsValueText(
   text: string | undefined,
   inputNames: string[],
@@ -226,4 +311,24 @@ export function sanitizeGeneratedJsValueText(
   }
 
   return sanitized.replaceAll(targetIdentifier, fallbackLabel);
+}
+
+export function sanitizeGeneratedJsValueError(
+  error: unknown,
+  inputNames: string[],
+  targetIdentifier: string,
+  fallbackLabel: string,
+): Error {
+  const jsValueError = getError(error);
+  jsValueError.message =
+    sanitizeGeneratedJsValueText(jsValueError.message, inputNames, targetIdentifier, fallbackLabel) ??
+    jsValueError.message;
+  jsValueError.stack = sanitizeGeneratedJsValueText(
+    jsValueError.stack,
+    inputNames,
+    targetIdentifier,
+    fallbackLabel,
+  );
+
+  return jsValueError;
 }

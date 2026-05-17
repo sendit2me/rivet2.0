@@ -18,6 +18,8 @@ See the [Node Reference](../node-reference) for more information about all possi
 
 Click and drag on the title bar of a node to move it on the node canvas. You can also select multiple nodes by holding shift and clicking on the title bars of multiple nodes. You can then move all of the selected nodes as a group.
 
+When moving a Comment node, hold **Ctrl** on Windows/Linux or **Cmd** on macOS to also move every node that is fully inside the Comment node's bounds. Nodes that only partially overlap the comment stay where they are. Release the key during the drag to move only the Comment node again.
+
 ## Deleting Nodes
 
 Right click on a node and select **Delete** to delete it. **Warning: There is no undo at this time!**

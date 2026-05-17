@@ -1,0 +1,168 @@
+import { useMemo } from 'react';
+import type { GraphId, NodeGraph, Project } from '@valerypopoff/rivet2-core';
+import type { PluginState } from '../../state/plugins.js';
+import {
+  buildGraphListReachabilityPresentation,
+  type GraphListReachabilityPresentation,
+} from '../../domain/graphEditing/graphListReachability.js';
+import {
+  getGraphIdsReferencingGraph,
+  getGraphReachabilityReport,
+  type GraphReachabilityBucket,
+  type GraphReachabilityRegistry,
+  resolveSupportedBuiltInPluginIds,
+} from '../../utils/graphReachability.js';
+import { countGraphsInFolder, isInFolder, type NodeGraphFolderItem } from './graphFolders.js';
+
+export type GraphListPresentation = {
+  reachability: GraphListReachabilityPresentation;
+  referencingSelectedGraphIds: ReadonlySet<GraphId>;
+};
+
+export function useGraphListPresentation(options: {
+  currentGraphId: GraphId | undefined;
+  plugins: PluginState[];
+  project: Project;
+  projectNodeRegistry: GraphReachabilityRegistry;
+  showGraphReferenceIndicators: boolean;
+  showUnreachableGraphTags: boolean;
+}): GraphListPresentation {
+  const {
+    currentGraphId,
+    plugins,
+    project,
+    projectNodeRegistry,
+    showGraphReferenceIndicators,
+    showUnreachableGraphTags,
+  } = options;
+
+  const reachability = useMemo<GraphListReachabilityPresentation>(() => {
+    if (!showUnreachableGraphTags) {
+      return {
+        bucketByGraphId: {},
+        showUnreachableBadges: false,
+      };
+    }
+
+    const builtInPluginIds = resolveSupportedBuiltInPluginIds(project.plugins);
+    const pluginStatesById = new Map(plugins.map((plugin) => [plugin.id, plugin]));
+    const graphListPlugins = (project.plugins ?? [])
+      .map((spec) => pluginStatesById.get(spec.id))
+      .filter((plugin) => plugin != null);
+
+    const report = getGraphReachabilityReport(project, {
+      registry: projectNodeRegistry,
+      builtInPluginIds,
+    });
+
+    return buildGraphListReachabilityPresentation({
+      report,
+      graphIds: Object.keys(project.graphs) as GraphId[],
+      plugins: graphListPlugins,
+    });
+  }, [plugins, project, projectNodeRegistry, showUnreachableGraphTags]);
+
+  const referencingSelectedGraphIds = useMemo(() => {
+    if (!showGraphReferenceIndicators || !currentGraphId) {
+      return new Set<GraphId>();
+    }
+
+    return getGraphIdsReferencingGraph(project, currentGraphId);
+  }, [currentGraphId, project, showGraphReferenceIndicators]);
+
+  return {
+    reachability,
+    referencingSelectedGraphIds,
+  };
+}
+
+export function getGraphListItemPath(item: NodeGraphFolderItem): string {
+  return item.type === 'folder' ? item.fullPath : item.graph.metadata?.name ?? 'Untitled Graph';
+}
+
+export type FolderItemPresentation = {
+  folderGraphCount: number | undefined;
+  fullPath: string;
+  graphIsRunning: boolean;
+  graphReachability: GraphReachabilityBucket | undefined;
+  isCollapsedOpenGraphFolder: boolean;
+  isDraggingOver: boolean;
+  isMainGraph: boolean;
+  isRenaming: boolean;
+  isSelected: boolean;
+  referencesSelectedGraph: boolean;
+  savedGraph: NodeGraph | undefined;
+  shouldShowUnreachableBadge: boolean;
+  title: string;
+};
+
+export function getFolderItemPresentation(options: {
+  currentGraph: NodeGraph;
+  dragOverFolderName: string | undefined;
+  draggingItemFolder: string | undefined;
+  fullPath: string;
+  graphReachabilityByGraphId: Record<GraphId, GraphReachabilityBucket>;
+  isExpanded: boolean;
+  item: NodeGraphFolderItem;
+  mainGraphId: GraphId | undefined;
+  referencingSelectedGraphIds: ReadonlySet<GraphId>;
+  renamingItemFullPath: string | undefined;
+  runningGraphs: GraphId[];
+  showUnreachableBadges: boolean;
+}): FolderItemPresentation {
+  const {
+    currentGraph,
+    dragOverFolderName,
+    draggingItemFolder,
+    fullPath,
+    graphReachabilityByGraphId,
+    isExpanded,
+    item,
+    mainGraphId,
+    referencingSelectedGraphIds,
+    renamingItemFullPath,
+    runningGraphs,
+    showUnreachableBadges,
+  } = options;
+
+  const savedGraph = item.type === 'graph' ? item.graph : undefined;
+  const graphId = savedGraph?.metadata?.id;
+  const isRenaming = renamingItemFullPath === fullPath;
+  const isSelected = currentGraph.metadata?.id === graphId;
+  const openGraphName = currentGraph.metadata?.name;
+  const isCollapsedOpenGraphFolder =
+    item.type === 'folder' && !isExpanded && openGraphName != null && isInFolder(fullPath, openGraphName);
+  const isMainGraph = item.type === 'graph' && graphId === mainGraphId;
+  const referencesSelectedGraph = item.type === 'graph' && graphId ? referencingSelectedGraphIds.has(graphId) : false;
+  const isDraggingOver =
+    item.type === 'folder' && dragOverFolderName === fullPath && draggingItemFolder !== dragOverFolderName;
+  const graphReachability = item.type === 'graph' && graphId ? graphReachabilityByGraphId[graphId] : undefined;
+  const folderGraphCount = item.type === 'folder' ? countGraphsInFolder(item) : undefined;
+  const shouldShowUnreachableBadge =
+    item.type === 'graph' && !isRenaming && showUnreachableBadges && graphReachability === 'unreachable';
+  const graphIsRunning = graphId != null && runningGraphs.includes(graphId);
+  const title = [
+    fullPath,
+    isCollapsedOpenGraphFolder ? 'Contains the open graph.' : undefined,
+    isMainGraph ? 'Main graph.' : undefined,
+    referencesSelectedGraph ? 'References the open graph.' : undefined,
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  return {
+    folderGraphCount,
+    fullPath,
+    graphIsRunning,
+    graphReachability,
+    isCollapsedOpenGraphFolder,
+    isDraggingOver,
+    isMainGraph,
+    isRenaming,
+    isSelected,
+    referencesSelectedGraph,
+    savedGraph,
+    shouldShowUnreachableBadge,
+    title,
+  };
+}

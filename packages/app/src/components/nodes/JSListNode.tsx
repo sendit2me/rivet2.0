@@ -3,7 +3,7 @@ import { type FC, useMemo } from 'react';
 import { RenderDataValue, type OutputRenderMode } from '../RenderDataValue.js';
 import { useDataRefs } from '../../providers/ProvidersContext.js';
 import { type NodeRunDataWithRefs } from '../../state/dataFlow.js';
-import { restoreStoredPortMap } from '../../utils/executionDataReaders.js';
+import { tryRestoreStoredPortMap } from '../../utils/executionDataReaders.js';
 import { type NodeComponentDescriptor } from '../../hooks/useNodeTypes.js';
 import {
   getJSListCallbackPreviewSource,
@@ -11,7 +11,7 @@ import {
   hasJSListCallbackInterpolationInputs,
 } from './jsListOutputUtils.js';
 import { StructuredNodeOutput, StructuredNodeOutputSection } from './StructuredNodeOutput.js';
-import { getSortedSplitOutputEntries } from '../nodeOutput/splitOutputEntries.js';
+import { getSortedRenderableSplitOutputEntries } from '../nodeOutput/splitOutputEntries.js';
 
 type JSListNode = JSFilterNode | JSMapNode;
 
@@ -32,12 +32,14 @@ const JSListNodeOutputBody: FC<{
   const dataRefs = useDataRefs();
   const callbackBodySource = getJSListCallbackPreviewSource(node, data);
   const shouldShowParsedExpression = hasJSListCallbackInterpolationInputs(callbackBodySource);
+  const splitOutputEntries = getSortedRenderableSplitOutputEntries(data.splitOutputData);
+  const hasSplitOutputs = splitOutputEntries.length > 0;
   const parsedExpression = useMemo(
     () =>
       shouldShowParsedExpression
         ? getParsedJSListCallbackPreviewSource(
             callbackBodySource,
-            (restoreStoredPortMap(data.inputData, dataRefs) as Inputs | undefined) ?? {},
+            (tryRestoreStoredPortMap(data.inputData, dataRefs) as Inputs | undefined) ?? {},
           )
         : undefined,
     [callbackBodySource, data.inputData, dataRefs, shouldShowParsedExpression],
@@ -49,21 +51,23 @@ const JSListNodeOutputBody: FC<{
       parsedSource={shouldShowParsedExpression ? parsedExpression ?? '' : undefined}
       parsedSourceLanguage="javascript"
     >
-      {!hasError && data.splitOutputData && (
+      {!hasError && hasSplitOutputs && (
         <div className="split-output">
-          {getSortedSplitOutputEntries(data.splitOutputData).map(([key, outputs]) => (
-            <StructuredNodeOutputSection label={resultLabel} key={key}>
-              <RenderDataValue
-                value={outputs[outputId]}
-                mode={renderMode}
-                allowLargeStoredValueActions={allowLargeStoredValueActions}
-              />
-            </StructuredNodeOutputSection>
-          ))}
+          {splitOutputEntries
+            .filter(([, outputs]) => outputs[outputId] != null)
+            .map(([key, outputs]) => (
+              <StructuredNodeOutputSection label={resultLabel} key={key}>
+                <RenderDataValue
+                  value={outputs[outputId]}
+                  mode={renderMode}
+                  allowLargeStoredValueActions={allowLargeStoredValueActions}
+                />
+              </StructuredNodeOutputSection>
+            ))}
         </div>
       )}
 
-      {!hasError && !data.splitOutputData && (
+      {!hasError && !hasSplitOutputs && data.outputData?.[outputId] != null && (
         <StructuredNodeOutputSection label={resultLabel}>
           <RenderDataValue
             value={data.outputData?.[outputId]}

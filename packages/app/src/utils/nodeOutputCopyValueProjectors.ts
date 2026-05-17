@@ -1,18 +1,22 @@
 import { coerceTypeOptional, getScalarTypeOf, type DataValue, type PortId } from '@valerypopoff/rivet2-core';
-import type { NodeOutputCopyValueProjector } from './executionDataCopyValue.js';
+import type { DataRefReader } from '../providers/ProvidersContext.js';
+import type { InputsOrOutputsWithRefs } from '../state/dataFlow.js';
 import {
+  displayCopySections,
+  type DisplayCopySection,
+  type NodeOutputCopyValueProjector,
   isVisiblePort,
   projectDataValue,
-  projectStoredMap,
+  projectStoredPortValueForCopy,
 } from './executionDataCopyValue.js';
 import { restoreStoredPortValue } from './executionDataReaders.js';
 
 export const getChatNodeCopyValueData: NodeOutputCopyValueProjector = ({ outputs, dataRefs }) => {
   const visibleEntries: [string, unknown][] = [];
 
-  const responseValue = restoreStoredPortValue(outputs, 'response' as PortId, dataRefs);
-  if (responseValue) {
-    visibleEntries.push(['response', projectDataValue(responseValue)]);
+  const responseValue = projectStoredPortValueForCopy(outputs, 'response' as PortId, dataRefs);
+  if (responseValue !== undefined) {
+    visibleEntries.push(['response', responseValue]);
   }
 
   const functionCallPortId = outputs['function-calls' as PortId]
@@ -20,10 +24,12 @@ export const getChatNodeCopyValueData: NodeOutputCopyValueProjector = ({ outputs
     : outputs['function-call' as PortId]
       ? ('function-call' as PortId)
       : undefined;
-  const functionCallValue = functionCallPortId ? restoreStoredPortValue(outputs, functionCallPortId, dataRefs) : undefined;
+  const functionCallValue = functionCallPortId
+    ? projectStoredPortValueForCopy(outputs, functionCallPortId, dataRefs)
+    : undefined;
 
-  if (functionCallPortId && functionCallValue) {
-    visibleEntries.push([functionCallPortId, projectDataValue(functionCallValue)]);
+  if (functionCallPortId && functionCallValue !== undefined) {
+    visibleEntries.push([functionCallPortId, functionCallValue]);
   }
 
   const requestTokensValue = restoreStoredPortValue(outputs, 'requestTokens' as PortId, dataRefs);
@@ -43,91 +49,139 @@ export const getChatNodeCopyValueData: NodeOutputCopyValueProjector = ({ outputs
       continue;
     }
 
-    visibleEntries.push([portId, projectDataValue(value)]);
+    visibleEntries.push([portId, projectChatMetricValue(portId, value)]);
   }
 
   if (visibleEntries.length === 0) {
     return undefined;
   }
 
-  if (visibleEntries.length === 1 && visibleEntries[0]![0] === 'response') {
-    return visibleEntries[0]![1];
+  if (visibleEntries.length === 1) {
+    const [portId, value] = visibleEntries[0]!;
+    return portId === 'response' ? value : displayCopySections([{ label: getChatCopyLabel(portId), value }]);
   }
 
-  return Object.fromEntries(visibleEntries);
+  return displayCopySections(visibleEntries.map(([portId, value]) => ({ label: getChatCopyLabel(portId), value })));
 };
 
 export const getUserInputNodeCopyValueData: NodeOutputCopyValueProjector = ({ outputs, dataRefs }) => {
   const questionsAndAnswersValue = restoreStoredPortValue(outputs, 'questionsAndAnswers' as PortId, dataRefs);
-  if (!questionsAndAnswersValue || getScalarTypeOf(questionsAndAnswersValue.type) === 'control-flow-excluded') {
+  if (questionsAndAnswersValue && getScalarTypeOf(questionsAndAnswersValue.type) === 'control-flow-excluded') {
     return undefined;
   }
 
-  return projectDataValue(questionsAndAnswersValue);
+  return projectStoredPortValueForCopy(outputs, 'questionsAndAnswers' as PortId, dataRefs);
 };
 
 export const getLoopControllerNodeCopyValueData: NodeOutputCopyValueProjector = ({ outputs, dataRefs }) => {
-  const breakValue = restoreStoredPortValue(outputs, 'break' as PortId, dataRefs);
+  const breakValue = outputs['break' as PortId];
   const outputKeys = Object.keys(outputs)
-    .filter((key) => key.startsWith('output'))
+    .filter((key) => key.startsWith('output') && outputs[key as PortId] != null)
     .sort((left, right) => Number(left.replace(/^\D+/, '')) - Number(right.replace(/^\D+/, '')));
 
-  const projectedOutputs: Record<string, unknown> = {
-    continue: breakValue == null || breakValue.type === 'control-flow-excluded',
-  };
+  const sections: DisplayCopySection[] = [
+    {
+      label: 'Continue',
+      value: breakValue == null || breakValue.type === 'control-flow-excluded' ? 'true' : 'false',
+    },
+  ];
 
-  for (const key of outputKeys) {
-    const outputValue = restoreStoredPortValue(outputs, key as PortId, dataRefs);
+  for (const [index, key] of outputKeys.entries()) {
+    const outputValue = projectStoredPortValueForCopy(outputs, key as PortId, dataRefs);
     if (outputValue !== undefined) {
-      projectedOutputs[key] = projectDataValue(outputValue);
+      sections.push({
+        label: `Output ${index + 1}`,
+        value: outputValue,
+      });
     }
   }
 
-  return projectedOutputs;
+  return displayCopySections(sections);
 };
 
 export const getSubGraphNodeCopyValueData: NodeOutputCopyValueProjector = ({ outputs, dataRefs }) => {
-  const result: Record<string, unknown> = {};
+  const sections: DisplayCopySection[] = [];
 
   const costValue = restoreStoredPortValue(outputs, 'cost' as PortId, dataRefs);
   if (coerceTypeOptional(costValue, 'number') != null && isPositiveMetric(costValue)) {
-    result.cost = projectDataValue(costValue!);
+    sections.push({
+      label: 'Cost',
+      value: `$${coerceTypeOptional(costValue, 'number')!.toFixed(3)}`,
+    });
   }
 
   const durationValue = restoreStoredPortValue(outputs, 'duration' as PortId, dataRefs);
   if (coerceTypeOptional(durationValue, 'number') != null && isPositiveMetric(durationValue)) {
-    result.duration = projectDataValue(durationValue!);
+    sections.push({
+      label: 'Duration',
+      value: `${coerceTypeOptional(durationValue, 'number')}ms`,
+    });
   }
 
   const bodyOutputs = Object.fromEntries(
     Object.entries(outputs).filter(([portId]) => portId !== 'cost' && portId !== 'duration'),
   );
-  const bodyPortIds = Object.keys(bodyOutputs).filter(isVisiblePort);
-  const projectedBody = projectStoredMap(bodyOutputs, dataRefs);
+  const bodySections = projectVisibleOutputSections(bodyOutputs, dataRefs);
 
-  if (Object.keys(result).length === 0) {
-    return projectedBody;
+  if (sections.length === 0) {
+    if (bodySections.length === 0) {
+      return undefined;
+    }
+
+    return bodySections.length === 1 ? bodySections[0]!.value : displayCopySections(bodySections);
   }
 
-  if (projectedBody === undefined) {
-    return Object.keys(result).length > 0 ? result : undefined;
-  }
+  sections.push(...bodySections);
 
-  if (bodyPortIds.length === 1) {
-    result[bodyPortIds[0]!] = projectedBody;
-    return result;
-  }
-
-  if (typeof projectedBody === 'object' && projectedBody !== null && !Array.isArray(projectedBody)) {
-    return {
-      ...result,
-      ...(projectedBody as Record<string, unknown>),
-    };
-  }
-
-  result.output = projectedBody;
-  return result;
+  return displayCopySections(sections);
 };
+
+function projectVisibleOutputSections(outputs: InputsOrOutputsWithRefs, dataRefs: DataRefReader): DisplayCopySection[] {
+  return Object.keys(outputs)
+    .filter((portId) => isVisiblePort(portId) && outputs[portId as PortId] != null)
+    .flatMap((portId) => {
+      const outputValue = projectStoredPortValueForCopy(outputs, portId as PortId, dataRefs);
+      return outputValue === undefined ? [] : [{ label: portId, value: outputValue }];
+    });
+}
+
+function getChatCopyLabel(portId: string): string {
+  switch (portId) {
+    case 'response':
+      return 'Response';
+    case 'function-call':
+      return 'Function Call';
+    case 'function-calls':
+      return 'Function Calls';
+    case 'requestTokens':
+      return 'Request Tokens';
+    case 'responseTokens':
+      return 'Response Tokens';
+    case 'cost':
+      return 'Cost';
+    case 'duration':
+      return 'Duration';
+    default:
+      return portId;
+  }
+}
+
+function projectChatMetricValue(portId: string, value: DataValue): unknown {
+  const numberValue = coerceTypeOptional(value, 'number');
+  if (numberValue == null) {
+    return projectDataValue(value);
+  }
+
+  if (portId === 'cost') {
+    return `$${numberValue.toFixed(3)}`;
+  }
+
+  if (portId === 'duration') {
+    return `${numberValue}ms`;
+  }
+
+  return numberValue;
+}
 
 function isPositiveMetric(value: DataValue | undefined, index?: number): boolean {
   if (!value || value.type === 'control-flow-excluded') {

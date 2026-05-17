@@ -294,6 +294,7 @@ const sidebars = {
       collapsible: true,
       collapsed: false,
       items: [
+        'node-reference/code-new',
         'node-reference/code',
         'node-reference/comment',
         'node-reference/context',

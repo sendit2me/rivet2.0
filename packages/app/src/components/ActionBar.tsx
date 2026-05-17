@@ -37,6 +37,9 @@ const styles = css`
   background: var(--grey-darker);
   border-radius: 8px;
   corner-shape: squircle;
+  @supports not (corner-shape: squircle) {
+    border-radius: 4px;
+  }
   border: 1px solid var(--grey-dark);
   height: var(--action-bar-height);
   z-index: 220;
@@ -175,6 +178,7 @@ export const ActionBar: FC<ActionBarProps> = ({ onRunGraph, onAbortGraph, onPaus
     session: remoteDebugger,
   });
   const runButtonsBlocked = !actionBarExecutionState.canRun && !graphRunning;
+  const showPrimaryGraphControlButton = actionBarExecutionState.showRunButton || graphRunning;
   const [copyAsTestCaseModalOpen, toggleCopyAsTestCaseModalOpen] = useToggle();
 
   const plugins = useDependsOnPlugins();
@@ -265,13 +269,13 @@ export const ActionBar: FC<ActionBarProps> = ({ onRunGraph, onAbortGraph, onPaus
           <button onClick={saveRecording}>Save Recording</button>
         </div>
       )}
-      <div
-        className={clsx('run-button', {
-          running: graphRunning,
-          recording: !!loadedRecording,
-        })}
-      >
-        {actionBarExecutionState.showRunButton && (
+      {showPrimaryGraphControlButton && (
+        <div
+          className={clsx('run-button', {
+            running: graphRunning,
+            recording: !!loadedRecording,
+          })}
+        >
           <button
             disabled={runButtonsBlocked}
             aria-disabled={runButtonsBlocked || undefined}
@@ -287,25 +291,23 @@ export const ActionBar: FC<ActionBarProps> = ({ onRunGraph, onAbortGraph, onPaus
               renderRunButtonContents(hasMainGraph && !isMainGraph ? `Run ${graphMetadata?.name}` : 'Run')
             )}
           </button>
-        )}
-      </div>
-      {hasMainGraph && !isMainGraph && !graphRunning && !loadedRecording && (
+        </div>
+      )}
+      {actionBarExecutionState.showRunButton && hasMainGraph && !isMainGraph && !graphRunning && !loadedRecording && (
         <div className={clsx('run-button', { running: graphRunning })}>
-          {actionBarExecutionState.showRunButton && (
-            <button
-              disabled={runButtonsBlocked}
-              aria-disabled={runButtonsBlocked || undefined}
-              onClick={() => runGraph(projectMetadata.mainGraphId)}
-            >
-              {graphRunning ? (
-                <>
-                  Abort <MultiplyIcon />
-                </>
-              ) : (
-                renderRunButtonContents('Run Main')
-              )}
-            </button>
-          )}
+          <button
+            disabled={runButtonsBlocked}
+            aria-disabled={runButtonsBlocked || undefined}
+            onClick={() => runGraph(projectMetadata.mainGraphId)}
+          >
+            {graphRunning ? (
+              <>
+                Abort <MultiplyIcon />
+              </>
+            ) : (
+              renderRunButtonContents('Run Main')
+            )}
+          </button>
         </div>
       )}
       <Popup

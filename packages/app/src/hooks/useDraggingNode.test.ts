@@ -1,20 +1,44 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { type ChartNode, type NodeId } from '@valerypopoff/rivet2-core';
+import { type ChartNode, type CommentNode, type NodeId } from '@valerypopoff/rivet2-core';
 import {
   constrainDragDeltaToAxisLock,
   createDragDuplicatePreviewNodes,
+  isNodeFullyInsideCommentBounds,
   getDraggingConnectionSourceNodeIds,
   getDraggingPreviewNodes,
+  resolveCommentEnclosureDraggedNodeIds,
   resolveDragAxisLock,
   resolveDraggedNodeIds,
   resolveDraggedSourceNodes,
   resolveDragModeFromAlt,
+  shouldDisableCommentEnclosureDragOnKeyUp,
   shouldDisableStraightLineDragOnKeyUp,
+  shouldEnableCommentEnclosureDragOnKeyDown,
   shouldEnableStraightLineDragOnKeyDown,
   shouldUseDuplicateDragModeOnKeyDown,
   shouldUseMoveDragModeOnKeyUp,
 } from './useDraggingNode.js';
+
+function createTextNode(id: string, x: number, y: number, width = 120): ChartNode {
+  return {
+    id: id as NodeId,
+    type: 'text',
+    title: id,
+    visualData: { x, y, width },
+    data: {},
+  } as ChartNode;
+}
+
+function createCommentNode(id: string, x: number, y: number, width: number, height: number): CommentNode {
+  return {
+    id: id as NodeId,
+    type: 'comment',
+    title: id,
+    visualData: { x, y, width },
+    data: { height, text: '' },
+  } as CommentNode;
+}
 
 test('resolveDraggedNodeIds keeps the dragged node in the drag cohort and preserves unique selection ids', () => {
   assert.deepEqual(
@@ -50,6 +74,54 @@ test('resolveDraggedSourceNodes filters stale selected ids and keeps the drag se
 
   assert.deepEqual(sourceNodeIds, [nodeA.id, nodeB.id]);
   assert.deepEqual(sourceNodes, [nodeA, nodeB]);
+});
+
+test('resolveCommentEnclosureDraggedNodeIds adds nodes fully enclosed by dragged comments', () => {
+  const comment = createCommentNode('comment', 100, 100, 500, 400);
+  const inside = createTextNode('inside', 150, 160, 120);
+  const touchingOutsideRight = createTextNode('outside-right', 520, 160, 120);
+  const touchingOutsideBottom = createTextNode('outside-bottom', 150, 360, 120);
+  const outside = createTextNode('outside', 700, 160, 120);
+
+  const nodeIds = resolveCommentEnclosureDraggedNodeIds({
+    draggedNodeIds: [comment.id],
+    includeEnclosedNodes: true,
+    nodes: [comment, outside, inside, touchingOutsideRight, touchingOutsideBottom],
+  });
+
+  assert.deepEqual(nodeIds, [comment.id, inside.id]);
+});
+
+test('resolveCommentEnclosureDraggedNodeIds preserves the drag cohort when the modifier is inactive or no comment is dragged', () => {
+  const comment = createCommentNode('comment', 100, 100, 500, 400);
+  const dragged = createTextNode('dragged', 150, 160, 120);
+  const inside = createTextNode('inside', 180, 190, 120);
+
+  assert.deepEqual(
+    resolveCommentEnclosureDraggedNodeIds({
+      draggedNodeIds: [comment.id],
+      includeEnclosedNodes: false,
+      nodes: [comment, inside],
+    }),
+    [comment.id],
+  );
+
+  assert.deepEqual(
+    resolveCommentEnclosureDraggedNodeIds({
+      draggedNodeIds: [dragged.id],
+      includeEnclosedNodes: true,
+      nodes: [comment, dragged, inside],
+    }),
+    [dragged.id],
+  );
+});
+
+test('isNodeFullyInsideCommentBounds uses comment height and full node bounds', () => {
+  const comment = createCommentNode('comment', 100, 100, 500, 400);
+
+  assert.equal(isNodeFullyInsideCommentBounds(createTextNode('inside', 150, 160, 120), comment), true);
+  assert.equal(isNodeFullyInsideCommentBounds(createTextNode('over-left', 90, 160, 120), comment), false);
+  assert.equal(isNodeFullyInsideCommentBounds(createTextNode('over-bottom', 150, 360, 120), comment), false);
 });
 
 test('resolveDragModeFromAlt maps modifier state to move vs duplicate drag mode', () => {
@@ -116,6 +188,18 @@ test('shift drag keyboard helpers enable and disable straight-line locking from 
   assert.equal(shouldDisableStraightLineDragOnKeyUp({ key: 'Shift', shiftKey: false }), true);
   assert.equal(shouldDisableStraightLineDragOnKeyUp({ key: 'x', shiftKey: false }), true);
   assert.equal(shouldDisableStraightLineDragOnKeyUp({ key: 'x', shiftKey: true }), false);
+});
+
+test('comment enclosure drag keyboard helpers follow Ctrl/Cmd modifier state', () => {
+  assert.equal(shouldEnableCommentEnclosureDragOnKeyDown({ key: 'Control', ctrlKey: false, metaKey: false }), true);
+  assert.equal(shouldEnableCommentEnclosureDragOnKeyDown({ key: 'x', ctrlKey: true, metaKey: false }), true);
+  assert.equal(shouldEnableCommentEnclosureDragOnKeyDown({ key: 'x', ctrlKey: false, metaKey: true }), true);
+  assert.equal(shouldEnableCommentEnclosureDragOnKeyDown({ key: 'x', ctrlKey: false, metaKey: false }), false);
+
+  assert.equal(shouldDisableCommentEnclosureDragOnKeyUp({ key: 'Control', ctrlKey: false, metaKey: false }), true);
+  assert.equal(shouldDisableCommentEnclosureDragOnKeyUp({ key: 'x', ctrlKey: false, metaKey: false }), true);
+  assert.equal(shouldDisableCommentEnclosureDragOnKeyUp({ key: 'x', ctrlKey: true, metaKey: false }), false);
+  assert.equal(shouldDisableCommentEnclosureDragOnKeyUp({ key: 'x', ctrlKey: false, metaKey: true }), false);
 });
 
 test('createDragDuplicatePreviewNodes creates fresh ids without mutating source node positions', () => {

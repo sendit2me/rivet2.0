@@ -38,10 +38,12 @@ export const outputSectionLabelStyles = css`
   line-height: 1.25;
 `;
 
+export const outputSectionGroupGap = 'calc(18px * var(--ui-font-scale))';
+
 export const renderedDataOutputsStyles = css`
   display: flex;
   flex-direction: column;
-  gap: calc(18px * var(--ui-font-scale));
+  gap: ${outputSectionGroupGap};
 
   .port-value {
     display: flex;

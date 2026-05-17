@@ -11,19 +11,21 @@ import { getHelperMessage, getPostEditorHelperMessage } from './editorUtils';
 import { resolveMonacoTheme } from '../codeEditorTheme.js';
 import { ResizeHandle } from '../ResizeHandle.js';
 import { resizeCursorStyles } from '../../utils/resizeCursors.js';
-import { isValidHeight, RESIZABLE_LANGUAGES, useNodeEditorCodeViewportHeight } from './useNodeEditorCodeViewportHeight.js';
+import {
+  isValidHeight,
+  RESIZABLE_LANGUAGES,
+  useNodeEditorCodeViewportHeight,
+} from './useNodeEditorCodeViewportHeight.js';
 import { formatTextEditorStatsLine } from './textEditorStats.js';
 import { handleCodeEditorEscape } from './codeEditorEscape.js';
-import {
-  lastRunDataState,
-  resolvedGraphSelectionState,
-  selectedProcessPageState,
-} from '../../state/dataFlow.js';
+import { lastRunDataState, resolvedGraphSelectionState, selectedProcessPageState } from '../../state/dataFlow.js';
 import { getSelectedProcessData } from '../../state/selectors/executionSelectors.js';
-import {
-  getCodeNodeErrorLineHighlight,
-  type CodeNodeErrorLineHighlight,
-} from '../nodes/codeNodeOutputUtils.js';
+import { getCodeNodeErrorLineHighlight, type CodeNodeErrorLineHighlight } from '../nodes/codeNodeOutputUtils.js';
+import { type EditorInterpolationSyntax } from '../../utils/monaco/interpolationDiagnostics.js';
+
+type CodeEditorDefinitionWithInterpolationSyntax = CodeEditorDefinition<ChartNode> & {
+  interpolationSyntax?: EditorInterpolationSyntax;
+};
 
 function getErrorLineHighlightKey(highlight: CodeNodeErrorLineHighlight | undefined): string | undefined {
   return highlight ? `${highlight.runKey}:${highlight.line}` : undefined;
@@ -62,6 +64,7 @@ export const DefaultCodeEditor: FC<
     postEditorHelperMessage,
     onClose,
     language: editorDef.language,
+    interpolationSyntax: (editorDef as CodeEditorDefinitionWithInterpolationSyntax).interpolationSyntax,
     theme: editorDef.theme,
     enableFolding: editorDef.enableFolding,
     id: node.id,
@@ -70,7 +73,7 @@ export const DefaultCodeEditor: FC<
     showTextStats: 'showTextStats' in editorDef && editorDef.showTextStats === true,
   };
 
-  if (node.type === 'code' && editorDef.dataKey === 'code') {
+  if ((node.type === 'code' || node.type === 'codeNew') && editorDef.dataKey === 'code') {
     return <CodeEditorWithCodeNodeErrorHighlight node={node} {...editorProps} />;
   }
 
@@ -85,10 +88,7 @@ const CodeEditorWithCodeNodeErrorHighlight: FC<CodeEditorProps & { node: ChartNo
     () => getSelectedProcessData(runData, selectedPage, graphSelectionOptions),
     [graphSelectionOptions, runData, selectedPage],
   );
-  const errorLineHighlight = useMemo(
-    () => getCodeNodeErrorLineHighlight(selectedRun),
-    [selectedRun],
-  );
+  const errorLineHighlight = useMemo(() => getCodeNodeErrorLineHighlight(selectedRun), [selectedRun]);
 
   return <CodeEditor {...editorProps} errorLineHighlight={errorLineHighlight} />;
 };
@@ -106,6 +106,7 @@ type CodeEditorProps = {
   onClose?: () => void;
   theme?: string;
   language?: string;
+  interpolationSyntax?: EditorInterpolationSyntax;
   enableFolding?: boolean;
   id?: string;
   nodeType?: string;
@@ -127,6 +128,7 @@ export const CodeEditor: FC<CodeEditorProps> = ({
   onClose,
   theme,
   language,
+  interpolationSyntax,
   enableFolding,
   id,
   nodeType,
@@ -145,8 +147,8 @@ export const CodeEditor: FC<CodeEditorProps> = ({
   const isResizable = language != null && RESIZABLE_LANGUAGES.has(language);
   const editorIdentityKey = name?.trim() || label;
   const editorMountKey = `${id ?? 'node-editor'}::${editorIdentityKey}::${language ?? 'language'}::${resolvedTheme ?? 'theme'}::${
-    enableFolding ? 'folding-on' : 'folding-off'
-  }`;
+    interpolationSyntax ?? 'no-interpolation'
+  }::${enableFolding ? 'folding-on' : 'folding-off'}`;
   const errorLineHighlightKey = getErrorLineHighlightKey(errorLineHighlight);
   const activeErrorLineHighlight =
     errorLineHighlightKey &&
@@ -215,6 +217,7 @@ export const CodeEditor: FC<CodeEditorProps> = ({
           onChange={handleEditorChange}
           theme={resolvedTheme}
           language={language}
+          interpolationSyntax={interpolationSyntax}
           isReadonly={isEditorReadOnly}
           onKeyDown={handleKeyDown}
           autoFocus={autoFocus}
@@ -232,6 +235,7 @@ export const CodeEditor: FC<CodeEditorProps> = ({
           onChange={handleEditorChange}
           theme={resolvedTheme}
           language={language}
+          interpolationSyntax={interpolationSyntax}
           isReadonly={isEditorReadOnly}
           onKeyDown={handleKeyDown}
           autoFocus={autoFocus}
@@ -258,6 +262,7 @@ type ViewportProps = {
   onChange: ((value: string) => void) | undefined;
   theme: string | undefined;
   language: string | undefined;
+  interpolationSyntax: EditorInterpolationSyntax | undefined;
   isReadonly: boolean;
   onKeyDown: (e: monaco.IKeyboardEvent) => void;
   autoFocus: boolean | undefined;
@@ -279,6 +284,7 @@ const SuspendedCodeEditor: FC<ViewportProps> = ({
   onChange,
   theme,
   language,
+  interpolationSyntax,
   isReadonly,
   onKeyDown,
   autoFocus,
@@ -293,6 +299,7 @@ const SuspendedCodeEditor: FC<ViewportProps> = ({
       onChange={onChange}
       theme={theme}
       language={language}
+      interpolationSyntax={interpolationSyntax}
       isReadonly={isReadonly}
       onKeyDown={onKeyDown}
       autoFocus={autoFocus}
@@ -333,9 +340,7 @@ const NonResizableCodeEditorViewport: FC<
     defaultHeight: number | undefined;
   }
 > = ({ defaultHeight, ...editorProps }) => {
-  const staticViewportStyle = isValidHeight(defaultHeight)
-    ? { minHeight: Math.round(defaultHeight) }
-    : undefined;
+  const staticViewportStyle = isValidHeight(defaultHeight) ? { minHeight: Math.round(defaultHeight) } : undefined;
 
   return (
     <div className="editor-wrapper node-editor-static-code-editor" style={staticViewportStyle}>

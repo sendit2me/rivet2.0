@@ -12,6 +12,8 @@ import {
 import { cloneDeep, partition } from 'lodash-es';
 import { getDefaultNodeColorForType } from './defaultNodeColors.js';
 
+const SINGLE_NODE_DUPLICATE_OFFSET = { x: 80, y: 200 };
+
 export function createAddedNode(options: {
   nodeType: string;
   position: { x: number; y: number };
@@ -75,7 +77,7 @@ export function duplicateNodeWithConnections(options: {
     nodes: [options.node],
     nodeIds: [options.node.id],
     connections: options.connections,
-    delta: { x: 0, y: 200 },
+    delta: SINGLE_NODE_DUPLICATE_OFFSET,
   });
 
   return {

@@ -1,0 +1,471 @@
+import { css } from '@emotion/react';
+import { type ChartNode } from '@valerypopoff/rivet2-core';
+import { useAtom, useAtomValue, useSetAtom } from 'jotai';
+import { type FC, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useToggle } from 'ahooks';
+import { useNodeIO } from '../../hooks/useGetNodeIO.js';
+import { useStableCallback } from '../../hooks/useStableCallback.js';
+import { useUnknownNodeComponentDescriptorFor } from '../../hooks/useNodeTypes.js';
+import { useDependsOnPlugins } from '../../hooks/useDependsOnPlugins.js';
+import { type HorizontalModalBounds } from '../../utils/fullScreenModalBounds.js';
+import { promptDesignerAttachedChatNodeState } from '../../state/promptDesigner.js';
+import { graphMetadataState, nodesByIdState } from '../../state/graph.js';
+import { lastRunDataState, resolvedGraphSelectionState, selectedProcessPageState } from '../../state/dataFlow.js';
+import { filterProcessDataForSelection } from '../../state/selectors/executionSelectors.js';
+import { fullscreenOutputNodeState, hoveringNodeState } from '../../state/graphBuilder.js';
+import { fullscreenOutputModalBoundsState, overlayOpenState } from '../../state/ui.js';
+import { useDataRefs } from '../../providers/ProvidersContext.js';
+import { getStoredOutputWarnings } from '../../utils/executionDataReaders.js';
+import { FullScreenModal } from '../FullScreenModal.js';
+import { CodeNodeErrorOutput } from '../nodes/CodeNode.js';
+import { MATCH_ACTIVE_CLASS, MATCH_CLASS } from './fullscreenOutputSearch.js';
+import { FullscreenNodeOutputToolbar } from './FullscreenNodeOutputToolbar.js';
+import { FullscreenOutputSearchContext } from './FullscreenOutputSearchContext.js';
+import { copyOutputJson, copyOutputValue } from './nodeOutputCopyActions.js';
+import { NodeOutputPager } from './NodeOutputPager.js';
+import { renderNodeOutputBody } from './renderNodeOutputBody.js';
+import { useFullscreenOutputSearch } from './useFullscreenOutputSearch.js';
+import {
+  getSelectedVisibleOutputProcess,
+  shouldUseCodeErrorOutput,
+  shouldUseCustomNodeErrorOutput,
+} from './nodeOutputVisibility.js';
+
+export const FullscreenNodeOutputModalRenderer: FC = () => {
+  useDependsOnPlugins();
+
+  const fullscreenOutputNodeId = useAtomValue(fullscreenOutputNodeState);
+  const setFullscreenOutputNodeId = useSetAtom(fullscreenOutputNodeState);
+  const setHoveringNode = useSetAtom(hoveringNodeState);
+  const nodesById = useAtomValue(nodesByIdState);
+  const graphId = useAtomValue(graphMetadataState)?.id;
+  const previousGraphIdRef = useRef(graphId);
+  const node = fullscreenOutputNodeId ? nodesById[fullscreenOutputNodeId] : undefined;
+
+  const handleCloseFullscreenModal = useStableCallback(() => {
+    setHoveringNode((hoveringNodeId) =>
+      fullscreenOutputNodeId && hoveringNodeId === fullscreenOutputNodeId ? undefined : hoveringNodeId,
+    );
+    setFullscreenOutputNodeId(null);
+  });
+
+  useEffect(() => {
+    if (fullscreenOutputNodeId && !node) {
+      setFullscreenOutputNodeId(null);
+    }
+  }, [fullscreenOutputNodeId, node, setFullscreenOutputNodeId]);
+
+  useEffect(() => {
+    if (previousGraphIdRef.current === graphId) {
+      return;
+    }
+
+    previousGraphIdRef.current = graphId;
+    setFullscreenOutputNodeId(null);
+  }, [graphId, setFullscreenOutputNodeId]);
+
+  useEffect(() => {
+    return () => {
+      setFullscreenOutputNodeId(null);
+    };
+  }, [setFullscreenOutputNodeId]);
+
+  if (previousGraphIdRef.current !== graphId || !fullscreenOutputNodeId || !node) {
+    return null;
+  }
+
+  return (
+    <ResizableNodeFullscreenOutputModal key={fullscreenOutputNodeId} node={node} onClose={handleCloseFullscreenModal} />
+  );
+};
+
+const ResizableNodeFullscreenOutputModal: FC<{ node: ChartNode; onClose: () => void }> = ({ node, onClose }) => {
+  const [fullscreenOutputModalBounds, setFullscreenOutputModalBounds] = useAtom(fullscreenOutputModalBoundsState);
+  const handleFullscreenOutputModalBoundsChange = useStableCallback((bounds: HorizontalModalBounds) => {
+    setFullscreenOutputModalBounds(bounds);
+  });
+
+  return (
+    <FullScreenModal
+      isOpen
+      horizontalBounds={fullscreenOutputModalBounds}
+      onClose={onClose}
+      onHorizontalBoundsChange={handleFullscreenOutputModalBoundsChange}
+      testId="fullscreen-output-modal"
+    >
+      <NodeFullscreenOutput node={node} />
+    </FullScreenModal>
+  );
+};
+
+const fullscreenOutputCss = css`
+  position: relative;
+  min-height: 100%;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+
+  .fullscreen-header {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .picker {
+    border: 1px solid var(--grey-darkish);
+    background: transparent;
+    display: inline-flex;
+    gap: 0;
+    border-radius: 8px;
+    corner-shape: squircle;
+    @supports not (corner-shape: squircle) {
+      border-radius: 4px;
+    }
+    box-shadow: none;
+    margin-bottom: 8px;
+
+    .picker-left,
+    .picker-right {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+      cursor: pointer;
+      border: 0;
+      margin: 0;
+      padding: 0;
+      width: 32px;
+      height: 32px;
+
+      &:hover {
+        background: rgba(255, 255, 255, 0.1);
+      }
+    }
+
+    .picker-left {
+      border-right: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .picker-right {
+      border-left: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .picker-page {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+    }
+  }
+
+  .fullscreen-header.is-over-content .picker {
+    border-color: var(--grey);
+    background: var(--grey-darker);
+    box-shadow: 4px 4px 8px var(--shadow-dark);
+  }
+
+  .fullscreen-output-body {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+  }
+
+  .fullscreen-output-body.wrap-lines .pre-wrap,
+  .fullscreen-output-body.markdown-lines .rivet-markdown-output.markdown-body pre {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    overflow-x: visible;
+  }
+
+  .fullscreen-output-body.wrap-lines .rendered-object-type pre {
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+    word-break: normal;
+    overflow-x: visible;
+  }
+
+  .fullscreen-output-body.no-wrap-lines .pre-wrap,
+  .fullscreen-output-body.no-wrap-lines .rendered-object-type pre {
+    white-space: pre;
+    overflow-wrap: normal;
+    overflow-x: visible;
+  }
+
+  .fullscreen-output-warnings {
+    border-top: 1px solid var(--grey-light);
+    color: var(--foreground-bright);
+    font-size: var(--ui-font-size-sm);
+    line-height: 1.4;
+    margin-top: 16px;
+    padding-top: 12px;
+  }
+
+  .fullscreen-output-warning + .fullscreen-output-warning {
+    margin-top: 8px;
+  }
+
+  .${MATCH_CLASS} {
+    background: rgba(255, 214, 10, 0.3);
+    border-radius: 4px;
+    corner-shape: squircle;
+    @supports not (corner-shape: squircle) {
+      border-radius: 2px;
+    }
+  }
+
+  .${MATCH_ACTIVE_CLASS} {
+    background: rgba(255, 214, 10, 0.75);
+    color: #000;
+  }
+`;
+
+function isScrollableOverflow(overflowValue: string): boolean {
+  return overflowValue === 'auto' || overflowValue === 'scroll' || overflowValue === 'overlay';
+}
+
+function findScrollContainer(element: HTMLElement): HTMLElement | Window {
+  let current: HTMLElement | null = element.parentElement;
+
+  while (current && current !== document.body) {
+    const style = window.getComputedStyle(current);
+    if (isScrollableOverflow(style.overflowY)) {
+      return current;
+    }
+
+    current = current.parentElement;
+  }
+
+  return window;
+}
+
+function isWindowScrollContainer(scrollContainer: HTMLElement | Window): scrollContainer is Window {
+  return scrollContainer === window;
+}
+
+function getScrollContainerTop(scrollContainer: HTMLElement | Window): number {
+  if (isWindowScrollContainer(scrollContainer)) {
+    return window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0;
+  }
+
+  return scrollContainer.scrollTop;
+}
+
+const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
+  const dataRefs = useDataRefs();
+  const output = useAtomValue(lastRunDataState(node.id));
+  const [selectedPage, setSelectedPage] = useAtom(selectedProcessPageState(node.id));
+  const graphSelectionOptions = useAtomValue(resolvedGraphSelectionState);
+  const fullscreenOutputRootRef = useRef<HTMLDivElement>(null);
+  const [isHeaderOverContent, setIsHeaderOverContent] = useState(false);
+
+  const filteredOutput = useMemo(
+    () => filterProcessDataForSelection({ ...graphSelectionOptions, processData: output }) ?? output,
+    [graphSelectionOptions, output],
+  );
+
+  const { FullscreenOutput, Output, OutputSimple, FullscreenOutputSimple, defaultRenderMarkdown, getCopyValueData } =
+    useUnknownNodeComponentDescriptorFor(node);
+
+  const [wrapLines, toggleWrapLines] = useToggle(true);
+  const [renderMarkdown, toggleRenderMarkdown] = useToggle(defaultRenderMarkdown ?? false);
+
+  const setOverlayOpen = useSetAtom(overlayOpenState);
+  const setPromptDesignerAttachedNode = useSetAtom(promptDesignerAttachedChatNodeState);
+
+  const io = useNodeIO(node.id);
+
+  const { data, processId } = useMemo(() => {
+    const selectedProcess = getSelectedVisibleOutputProcess(node.type, filteredOutput, selectedPage);
+    return {
+      data: selectedProcess?.data,
+      processId: selectedProcess?.processId,
+    };
+  }, [filteredOutput, node.type, selectedPage]);
+
+  const handleOpenPromptDesigner = () => {
+    if (!processId) {
+      return;
+    }
+
+    setOverlayOpen('promptDesigner');
+    setPromptDesignerAttachedNode({
+      nodeId: node.id,
+      processId,
+    });
+  };
+
+  const handleCopyToClipboard = useStableCallback(() =>
+    copyOutputValue(data, dataRefs, getCopyValueData, io.outputDefinitions),
+  );
+  const handleCopyToClipboardJson = useStableCallback(() => copyOutputJson(data, dataRefs));
+  const contentVersion = useMemo(
+    () => ({
+      data,
+      processId,
+      renderMarkdown,
+      selectedPage,
+    }),
+    [data, processId, renderMarkdown, selectedPage],
+  );
+  const {
+    contextValue: fullscreenOutputSearchContext,
+    currentMatchIndex,
+    fullscreenOutputBodyRef,
+    goToNextMatch,
+    goToPreviousMatch,
+    handleSearchInputKeyDown,
+    query,
+    searchInputRef,
+    setQuery,
+    totalMatchCount,
+  } = useFullscreenOutputSearch({
+    contentKey: contentVersion,
+  });
+
+  useLayoutEffect(() => {
+    const rootElement = fullscreenOutputRootRef.current;
+    if (!rootElement || typeof window === 'undefined') {
+      return;
+    }
+
+    const scrollContainer = findScrollContainer(rootElement);
+    let animationFrame: number | undefined;
+
+    const updateHeaderElevation = () => {
+      if (animationFrame !== undefined) {
+        window.cancelAnimationFrame(animationFrame);
+      }
+
+      animationFrame = window.requestAnimationFrame(() => {
+        animationFrame = undefined;
+        setIsHeaderOverContent(getScrollContainerTop(scrollContainer) > 0);
+      });
+    };
+
+    updateHeaderElevation();
+    scrollContainer.addEventListener('scroll', updateHeaderElevation, { passive: true });
+    window.addEventListener('resize', updateHeaderElevation);
+
+    return () => {
+      if (animationFrame !== undefined) {
+        window.cancelAnimationFrame(animationFrame);
+      }
+
+      scrollContainer.removeEventListener('scroll', updateHeaderElevation);
+      window.removeEventListener('resize', updateHeaderElevation);
+    };
+  }, [contentVersion]);
+
+  const prevPage = useStableCallback(() => {
+    if (!filteredOutput) {
+      return;
+    }
+    setSelectedPage((page) => {
+      const pageNum = page === 'latest' ? filteredOutput.length - 1 : page;
+      return pageNum > 0 ? pageNum - 1 : pageNum;
+    });
+  });
+
+  const nextPage = useStableCallback(() => {
+    if (!filteredOutput) {
+      return;
+    }
+    setSelectedPage((page) => {
+      const pageNum = page === 'latest' ? filteredOutput.length - 1 : page;
+      return pageNum < filteredOutput.length - 1 ? pageNum + 1 : pageNum;
+    });
+  });
+
+  if (!filteredOutput || !data) {
+    return null;
+  }
+
+  const shouldUseCustomErrorOutput = shouldUseCustomNodeErrorOutput(node.type, data);
+
+  if (shouldUseCodeErrorOutput(node.type, data)) {
+    return <CodeNodeErrorOutput data={data} />;
+  }
+
+  if (data.status?.type === 'error' && !shouldUseCustomErrorOutput) {
+    return <div className="errored">{data.status.error}</div>;
+  }
+
+  if (!data.outputData && !data.splitOutputData && !shouldUseCustomErrorOutput) {
+    return null;
+  }
+
+  const body = renderNodeOutputBody({
+    FullscreenOutput,
+    Output,
+    OutputSimple,
+    FullscreenOutputSimple,
+    node,
+    data,
+    definitions: io.outputDefinitions,
+    isCompact: false,
+    renderMarkdown,
+    renderMode: 'expanded-preview',
+    allowLargeStoredValueActions: true,
+  });
+  const warnings = useMemo(() => getStoredOutputWarnings(data, dataRefs), [data, dataRefs]);
+
+  return (
+    <div css={fullscreenOutputCss} ref={fullscreenOutputRootRef}>
+      <header className={`fullscreen-header${isHeaderOverContent ? ' is-over-content' : ''}`}>
+        {filteredOutput.length > 1 ? (
+          <NodeOutputPager
+            selectedPage={selectedPage}
+            totalPages={filteredOutput.length}
+            onPrevPage={prevPage}
+            onNextPage={nextPage}
+          />
+        ) : (
+          <div />
+        )}
+        <FullscreenNodeOutputToolbar
+          wrapLines={wrapLines}
+          renderMarkdown={renderMarkdown}
+          isOverContent={isHeaderOverContent}
+          onToggleWrapLines={toggleWrapLines.toggle}
+          onToggleRenderMarkdown={toggleRenderMarkdown.toggle}
+          query={query}
+          onQueryChange={setQuery}
+          currentMatchIndex={currentMatchIndex}
+          totalMatchCount={totalMatchCount}
+          onPreviousMatch={goToPreviousMatch}
+          onNextMatch={goToNextMatch}
+          searchInputRef={searchInputRef}
+          onSearchInputKeyDown={handleSearchInputKeyDown}
+          onCopyValue={handleCopyToClipboard}
+          onCopyJson={handleCopyToClipboardJson}
+          onOpenPromptDesigner={node.type === 'chat' ? handleOpenPromptDesigner : undefined}
+        />
+      </header>
+
+      <FullscreenOutputSearchContext.Provider value={fullscreenOutputSearchContext}>
+        <div
+          ref={fullscreenOutputBodyRef}
+          className={`fullscreen-output-body ${wrapLines ? 'wrap-lines' : 'no-wrap-lines'}${
+            renderMarkdown ? ' markdown-lines' : ''
+          }`}
+        >
+          {body}
+          {warnings && (
+            <div className="fullscreen-output-warnings">
+              {warnings.map((warning) => (
+                <div className="fullscreen-output-warning" key={warning}>
+                  {warning}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </FullscreenOutputSearchContext.Provider>
+    </div>
+  );
+};

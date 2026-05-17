@@ -58,3 +58,12 @@ test('node code editor text stats are editor-definition driven', () => {
   assert.match(codeEditorSource, /showTextStats: 'showTextStats' in editorDef && editorDef\.showTextStats === true,/);
   assert.doesNotMatch(codeEditorSource, /node\.type === 'text' && editorDef\.dataKey === 'text'/);
 });
+
+test('node code editor lets panel scrolling continue at editor scroll edges', () => {
+  const codeEditorSource = readFileSync(join(componentsDir, 'CodeEditor.tsx'), 'utf8');
+
+  assert.match(
+    codeEditorSource,
+    /scrollbar: \{\s+alwaysConsumeMouseWheel: false,\s+\},/,
+  );
+});

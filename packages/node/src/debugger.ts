@@ -1,9 +1,8 @@
-import WebSocket, { WebSocketServer } from 'ws';
+import { WebSocketServer, type RawData, type WebSocket } from 'ws';
 import {
   type GraphId,
   type GraphProcessor,
   type Project,
-  getError,
   type Settings,
   type GraphInputs,
   type NodeId,
@@ -16,9 +15,16 @@ import {
 import { match } from 'ts-pattern';
 import Emittery from 'emittery';
 import { type DebuggerDatasetProvider } from './index.js';
+import {
+  DEBUGGER_HEARTBEAT_INTERVAL_MS,
+  DEBUGGER_HEARTBEAT_TIMEOUT_MS,
+  startDebuggerSocketHeartbeat,
+  type DebuggerSocketHeartbeat,
+} from './debuggerHeartbeat.js';
+import { emitDebuggerError, sendDebuggerMessage, stringifyDebuggerMessage } from './debuggerTransport.js';
+import { createDebuggerProcessorAttachments } from './debuggerProcessorAttachments.js';
 
-export const DEBUGGER_HEARTBEAT_INTERVAL_MS = 30_000;
-export const DEBUGGER_HEARTBEAT_TIMEOUT_MS = 10_000;
+export { DEBUGGER_HEARTBEAT_INTERVAL_MS, DEBUGGER_HEARTBEAT_TIMEOUT_MS } from './debuggerHeartbeat.js';
 
 export interface RivetDebuggerServer {
   on: Emittery<DebuggerEvents>['on'];
@@ -84,27 +90,57 @@ export function startDebuggerServer(
 
   const emitter = new Emittery<DebuggerEvents>();
 
-  const attachedProcessors: GraphProcessor[] = [];
-  const requestIdsByProcessorId = new Map<string, RemoteRunRequestId | undefined>();
+  const socketHeartbeats = new WeakMap<WebSocket, DebuggerSocketHeartbeat>();
+  const processorAttachments = createDebuggerProcessorAttachments({
+    broadcast: broadcastDebuggerMessage,
+    emitError: (err) => emitDebuggerError(emitter, err),
+    throttlePartialOutputs,
+  });
+
+  function broadcastDebuggerMessage(
+    processor: GraphProcessor,
+    message: string,
+    data: unknown,
+    requestId?: RemoteRunRequestId,
+  ) {
+    const clients = options.getClientsForProcessor?.(processor, [...server.clients]) ?? [...server.clients];
+    const resolvedRequestId = requestId ?? processorAttachments.getRequestId(processor);
+    const payload = stringifyDebuggerMessage({ message, data, requestId: resolvedRequestId }, emitter);
+
+    if (!payload) {
+      return;
+    }
+
+    clients.forEach((client) => sendDebuggerMessage(client, payload, emitter, socketHeartbeats.get(client)));
+  }
 
   server.on('connection', (socket) => {
-    startDebuggerSocketHeartbeat(socket, {
+    const heartbeat = startDebuggerSocketHeartbeat(socket, {
       intervalMs: heartbeatIntervalMs,
       timeoutMs: heartbeatTimeoutMs,
+    });
+    socketHeartbeats.set(socket, heartbeat);
+
+    socket.once('close', () => {
+      socketHeartbeats.delete(socket);
     });
 
     if (options.datasetProvider) {
       options.datasetProvider.onrequest = (type, data) => {
-        socket.send(
-          JSON.stringify({
+        const payload = stringifyDebuggerMessage(
+          {
             message: type,
             data,
-          }),
+          },
+          emitter,
         );
+        if (payload) {
+          sendDebuggerMessage(socket, payload, emitter, socketHeartbeats.get(socket));
+        }
       };
     }
 
-    const handleMessage = async (data: WebSocket.RawData) => {
+    const handleMessage = async (data: RawData) => {
       try {
         const stringData = data.toString();
 
@@ -167,9 +203,10 @@ export function startDebuggerServer(
             }
           })
           .with({ type: 'datasets:response' }, async () => {
-            options.datasetProvider?.handleResponse(message.type, message.data as any);
+            options.datasetProvider?.handleResponse(message.type, message.data);
           })
           .otherwise(async () => {
+            const attachedProcessors = processorAttachments.getAttachedProcessors();
             const processors = options.getProcessorsForClient?.(socket, attachedProcessors) ?? attachedProcessors;
 
             for (const processor of processors) {
@@ -200,11 +237,7 @@ export function startDebuggerServer(
             }
           });
       } catch (err) {
-        try {
-          await emitter.emit('error', getError(err));
-        } catch (err) {
-          // noop, just prevent unhandled rejection
-        }
+        emitDebuggerError(emitter, err);
       }
     };
 
@@ -213,195 +246,32 @@ export function startDebuggerServer(
     });
 
     if (options.allowGraphUpload) {
-      socket.send(
-        JSON.stringify({
+      const payload = stringifyDebuggerMessage(
+        {
           message: 'graph-upload-allowed',
           data: {},
-        }),
+        },
+        emitter,
       );
+      if (payload) {
+        sendDebuggerMessage(socket, payload, emitter, socketHeartbeats.get(socket));
+      }
     }
   });
 
-  return {
+  const debuggerServer: RivetDebuggerServer = {
     on: emitter.on.bind(emitter),
     off: emitter.off.bind(emitter),
 
     webSocketServer: server,
 
     /** Given an event on a processor, sends that processor's events to the correct debugger clients (allows routing debugger). */
-    broadcast(procesor: GraphProcessor, message: string, data: unknown, requestId?: RemoteRunRequestId) {
-      const clients = options.getClientsForProcessor?.(procesor, [...server.clients]) ?? [...server.clients];
-      const resolvedRequestId = requestId ?? requestIdsByProcessorId.get(procesor.id);
+    broadcast: broadcastDebuggerMessage,
 
-      clients.forEach((client) => {
-        if (client.readyState === WebSocket.OPEN) {
-          client.send(JSON.stringify({ message, data, requestId: resolvedRequestId }));
-        }
-      });
-    },
+    attach: processorAttachments.attach,
 
-    attach(processor: GraphProcessor, requestId?: RemoteRunRequestId) {
-      if (attachedProcessors.find((p) => p.id === processor.id)) {
-        return;
-      }
-
-      const lastPartialOutputsTimePerNode: Record<NodeId, number> = {};
-      attachedProcessors.push(processor);
-      requestIdsByProcessorId.set(processor.id, requestId);
-
-      processor.on('nodeStart', (data) => {
-        this.broadcast(processor, 'nodeStart', data);
-      });
-      processor.on('nodeFinish', (data) => {
-        this.broadcast(processor, 'nodeFinish', data);
-      });
-      processor.on('nodeError', ({ node, error, processId, execution }) => {
-        this.broadcast(processor, 'nodeError', {
-          node,
-          error: typeof error === 'string' ? error : error.toString(),
-          processId,
-          execution,
-        });
-      });
-      processor.on('error', ({ error }) => {
-        this.broadcast(processor, 'error', {
-          error: typeof error === 'string' ? error : error.toString(),
-        });
-      });
-      processor.on('graphError', ({ graph, error, execution }) => {
-        this.broadcast(processor, 'graphError', {
-          graph,
-          error: typeof error === 'string' ? error : error.toString(),
-          execution,
-        });
-      });
-      processor.on('nodeExcluded', (data) => {
-        this.broadcast(processor, 'nodeExcluded', data);
-      });
-      processor.on('start', (data) => {
-        this.broadcast(processor, 'start', data);
-      });
-      processor.on('done', (data) => {
-        this.broadcast(processor, 'done', data);
-      });
-      processor.on('partialOutput', (data) => {
-        // Throttle the partial outputs because they can get ridiculous on the serdes side
-        if (
-          lastPartialOutputsTimePerNode[data.node.id] == null ||
-          (lastPartialOutputsTimePerNode[data.node.id] ?? 0) + throttlePartialOutputs < Date.now()
-        ) {
-          this.broadcast(processor, 'partialOutput', data);
-          lastPartialOutputsTimePerNode[data.node.id] = Date.now();
-        }
-      });
-      processor.on('abort', () => {
-        this.broadcast(processor, 'abort', null);
-      });
-      processor.on('graphAbort', (data) => {
-        this.broadcast(processor, 'graphAbort', data);
-      });
-      processor.on('trace', (message) => {
-        this.broadcast(processor, 'trace', message);
-      });
-      processor.on('nodeOutputsCleared', (data) => {
-        this.broadcast(processor, 'nodeOutputsCleared', data);
-      });
-      processor.on('graphStart', (data) => {
-        this.broadcast(processor, 'graphStart', data);
-      });
-      processor.on('graphFinish', (data) => {
-        this.broadcast(processor, 'graphFinish', data);
-      });
-      processor.on('pause', () => {
-        this.broadcast(processor, 'pause', null);
-      });
-      processor.on('resume', () => {
-        this.broadcast(processor, 'resume', null);
-      });
-      processor.on('userInput', (data) => {
-        this.broadcast(processor, 'userInput', data);
-      });
-    },
-
-    detach(processor: GraphProcessor) {
-      const processorIndex = attachedProcessors.findIndex((p) => p.id === processor.id);
-      if (processorIndex !== -1) {
-        attachedProcessors.splice(processorIndex, 1);
-      }
-      requestIdsByProcessorId.delete(processor.id);
-    },
-  };
-}
-
-function startDebuggerSocketHeartbeat(
-  socket: WebSocket,
-  options: {
-    intervalMs: number;
-    timeoutMs: number;
-  },
-) {
-  if (!Number.isFinite(options.intervalMs) || options.intervalMs <= 0) {
-    return;
-  }
-
-  let awaitingPong = false;
-  let timeout: ReturnType<typeof setTimeout> | undefined;
-
-  const clearHeartbeatTimeout = () => {
-    if (timeout) {
-      clearTimeout(timeout);
-      timeout = undefined;
-    }
+    detach: processorAttachments.detach,
   };
 
-  const markAlive = () => {
-    awaitingPong = false;
-    clearHeartbeatTimeout();
-  };
-
-  const terminateUnresponsiveSocket = () => {
-    if (!awaitingPong) {
-      return;
-    }
-
-    timeout = undefined;
-    socket.terminate();
-  };
-
-  const sendPing = () => {
-    if (socket.readyState !== WebSocket.OPEN || awaitingPong) {
-      return;
-    }
-
-    awaitingPong = true;
-    try {
-      socket.ping();
-    } catch {
-      awaitingPong = false;
-      socket.terminate();
-      return;
-    }
-
-    timeout = setTimeout(terminateUnresponsiveSocket, options.timeoutMs);
-    unrefTimer(timeout);
-  };
-
-  const interval = setInterval(sendPing, options.intervalMs);
-  unrefTimer(interval);
-
-  const cleanup = () => {
-    clearInterval(interval);
-    clearHeartbeatTimeout();
-    socket.off('pong', markAlive);
-    socket.off('close', cleanup);
-    socket.off('error', cleanup);
-  };
-
-  socket.on('pong', markAlive);
-  socket.once('close', cleanup);
-  socket.once('error', cleanup);
-}
-
-function unrefTimer(timer: ReturnType<typeof setInterval> | ReturnType<typeof setTimeout>) {
-  (timer as { unref?: () => void }).unref?.();
+  return debuggerServer;
 }

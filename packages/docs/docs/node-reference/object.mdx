@@ -103,6 +103,8 @@ You can also embed placeholders inside larger JSON strings:
 
 When a placeholder is embedded in a JSON string, strings are inserted as text, non-string values are inserted as their JSON text, and `null` or `undefined` values are inserted as the text `null`. Quotes, backslashes, and newlines are escaped automatically so the final template stays valid JSON.
 
+The JSON Template editor recognizes `{{name}}` as Rivet template syntax. JSON validation still applies to the rest of the template, but syntax markers caused only by interpolation tokens are ignored while you edit.
+
 ## Error Handling
 
 The Object Node will error if the JSON Template is not a valid JSON string or if the interpolated JSON string (after inserting the input values) is not a valid JSON string.
@@ -129,4 +131,4 @@ A: The input values are automatically escaped by the Object Node. Whole unquoted
 - [Extract JSON Node](./extract-json.mdx)
 - [Extract YAML Node](./extract-yaml.mdx)
 - [To JSON Node](./to-json.mdx)
-- [Code Node](./code.mdx)
+- [Code Node](./code-new.mdx)

@@ -174,8 +174,8 @@ export function getActionBarExecutionState(options: {
   const { graphPaused, graphRunning, hasLoadedRecording = false, selectedExecutor, session } = options;
   const executorProductState = getExecutorProductState({ hasLoadedRecording, selectedExecutor, session });
   const canRun = isRunnableExecutorProductState(executorProductState);
-  const showRunButton = selectedExecutor === 'nodejs' || canRun;
   const isActuallyRemoteDebugging = isExternalDebuggerProductState(executorProductState);
+  const showRunButton = !isActuallyRemoteDebugging && (selectedExecutor === 'nodejs' || canRun);
   const remoteDebuggerBanner = getRemoteDebuggerBannerState(executorProductState);
   const showRemoteDebuggerBanner = remoteDebuggerBanner != null;
   const executorLoading =
@@ -203,10 +203,6 @@ export function getExecutorProductState(options: {
 }): ExecutorProductState {
   const { hasLoadedRecording = false, selectedExecutor, session } = options;
 
-  if (hasLoadedRecording) {
-    return { type: 'recording-playback-ready' };
-  }
-
   if (session.target?.type === 'external-debugger') {
     if (session.status === 'ready' && session.capabilities.canSendRun) {
       return { type: 'external-debugger-ready' };
@@ -217,6 +213,10 @@ export function getExecutorProductState(options: {
     }
 
     return { type: 'external-debugger-connecting' };
+  }
+
+  if (hasLoadedRecording) {
+    return { type: 'recording-playback-ready' };
   }
 
   if (selectedExecutor === 'nodejs') {
@@ -254,7 +254,7 @@ export function getRemoteDebuggerBannerState(state: ExecutorProductState): Remot
     case 'external-debugger-ready':
       return {
         isPending: false,
-        label: 'Disconnect Remote Debugger',
+        label: 'Stop Remote Debugger',
       };
     case 'external-debugger-connecting':
       return {
@@ -264,6 +264,20 @@ export function getRemoteDebuggerBannerState(state: ExecutorProductState): Remot
     default:
       return null;
   }
+}
+
+export function canRunGraphFromEditor(options: {
+  hasLoadedRecording?: boolean;
+  selectedExecutor: DefaultExecutor;
+  session: Pick<ExecutorSessionState, 'capabilities' | 'status' | 'target'>;
+}) {
+  const executorProductState = getExecutorProductState({
+    hasLoadedRecording: options.hasLoadedRecording,
+    selectedExecutor: options.selectedExecutor,
+    session: options.session,
+  });
+
+  return !isExternalDebuggerProductState(executorProductState);
 }
 
 export function shouldUseRemoteExecutor(options: {

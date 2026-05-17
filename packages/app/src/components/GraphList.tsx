@@ -4,7 +4,7 @@ import { type FC, type MouseEvent, type KeyboardEvent, memo, useMemo, useState, 
 import { useAtomValue, useSetAtom } from 'jotai';
 import Button from '@atlaskit/button';
 import Modal, { ModalBody, ModalFooter, ModalTransition } from '@atlaskit/modal-dialog';
-import { type GraphId, type NodeGraph } from '@valerypopoff/rivet2-core';
+import { type NodeGraph } from '@valerypopoff/rivet2-core';
 import clsx from 'clsx';
 import { runningGraphsState } from '../state/dataFlow.js';
 import { graphState } from '../state/graph.js';
@@ -14,19 +14,10 @@ import { showGraphReferenceIndicatorsState, showUnreachableGraphTagsState } from
 import { useContextMenu } from '../hooks/useContextMenu.js';
 import Portal from '@atlaskit/portal';
 import CrossIcon from 'majesticons/line/multiply-line.svg?react';
-import {
-  buildGraphListReachabilityPresentation,
-  type GraphListReachabilityPresentation,
-} from '../domain/graphEditing/graphListReachability.js';
 import { useStableCallback } from '../hooks/useStableCallback.js';
 import { useGraphOperations } from '../hooks/useGraphOperations';
 import { useGraphListDragDrop } from '../hooks/useGraphListDragDrop';
 import { useProjectNodeRegistry } from '../hooks/useProjectNodeRegistry.js';
-import {
-  getGraphIdsReferencingGraph,
-  getGraphReachabilityReport,
-  resolveSupportedBuiltInPluginIds,
-} from '../utils/graphReachability.js';
 import { FolderItem } from './graphList/FolderItem';
 import { AppModalHeader } from './AppModalHeader';
 import { ContextMenuItem, menuStyles } from './ContextMenu';
@@ -41,6 +32,15 @@ import FolderIcon from 'majesticons/line/folder-line.svg?react';
 import { MainGraphIcon } from './graphList/MainGraphIcon';
 import { GraphInfoModal } from './GraphInfoModal';
 import { ProjectInfoModal } from './ProjectInfoModal';
+import {
+  buildFolderContextMenuItems,
+  buildGraphItemContextMenuItems,
+  buildGraphListContextMenuItems,
+  getGraphListContextMenuTarget,
+  type GraphListContextMenuIcons,
+} from './graphList/graphListContextMenu.js';
+import { useGraphListPresentation } from './graphList/useGraphListPresentation.js';
+import { getFolderNames } from './graphList/graphFolders.js';
 
 const styles = css`
   display: flex;
@@ -211,6 +211,9 @@ const styles = css`
     min-width: 0;
     border-radius: 4px;
     corner-shape: squircle;
+    @supports not (corner-shape: squircle) {
+      border-radius: 2px;
+    }
   }
 
   .dragging .graph-item-select {
@@ -270,6 +273,15 @@ const styles = css`
 
   .selected .graph-folder-count > span {
     color: inherit;
+  }
+
+  .contains-open-graph .graph-item-select {
+    background-color: color-mix(in srgb, var(--primary) 28%, transparent);
+    color: var(--grey-lightest);
+  }
+
+  .contains-open-graph:hover .graph-item-select {
+    background-color: color-mix(in srgb, var(--primary) 38%, var(--grey-darkish));
   }
 
   .graph-reference-dot {
@@ -342,6 +354,9 @@ const styles = css`
     border: 1px solid var(--grey-dark);
     border-radius: 16px;
     corner-shape: squircle;
+    @supports not (corner-shape: squircle) {
+      border-radius: 8px;
+    }
     display: flex;
     align-items: center;
     justify-content: center;
@@ -363,6 +378,9 @@ const styles = css`
     border: 1px solid var(--warning);
     border-radius: 12px;
     corner-shape: squircle;
+    @supports not (corner-shape: squircle) {
+      border-radius: 6px;
+    }
     background: var(--warning-lighter);
     color: var(--warning-dark);
     font-size: var(--ui-font-size-xs);
@@ -375,6 +393,9 @@ const styles = css`
     border: 1px solid color-mix(in srgb, currentColor 42%, transparent);
     border-radius: 40px;
     corner-shape: superellipse(1.15);
+    @supports not (corner-shape: squircle) {
+      border-radius: 20px;
+    }
     background: color-mix(in srgb, currentColor 10%, transparent);
     color: color-mix(in srgb, currentColor 72%, transparent);
     font-size: var(--ui-font-size-2xs);
@@ -400,6 +421,17 @@ const deleteGraphConfirmBody = css`
   flex-direction: column;
   gap: 8px;
 `;
+
+const graphListContextMenuIcons: GraphListContextMenuIcons = {
+  renameGraph: EditPenIcon,
+  duplicateGraph: DuplicateIcon,
+  graphInfo: InfoIcon,
+  makeMainGraph: MainGraphIcon,
+  deleteGraph: DeleteIcon,
+  newGraph: PlusIcon,
+  newFolder: FolderIcon,
+  importGraph: PlusIcon,
+};
 
 export const GraphList: FC = memo(() => {
   const {
@@ -450,26 +482,25 @@ export const GraphList: FC = memo(() => {
     handleContextMenu(e);
   });
 
-  const selectedGraphIdForContextMenu =
-    contextMenuData.data?.type === 'graph-item' ? contextMenuData.data.element.dataset.graphid : undefined;
-
-  const selectedGraphForContextMenu = selectedGraphIdForContextMenu
-    ? savedGraphs.find((graph) => graph.metadata?.id === selectedGraphIdForContextMenu)
-    : undefined;
-
+  const folderPathsForContextMenu = useMemo(() => new Set(getFolderNames(folderedGraphs)), [folderedGraphs]);
+  const contextMenuTarget = useMemo(
+    () =>
+      getGraphListContextMenuTarget({
+        contextMenuData,
+        folderPaths: folderPathsForContextMenu,
+        mainGraphId: project.metadata.mainGraphId,
+        savedGraphs,
+      }),
+    [contextMenuData, folderPathsForContextMenu, project.metadata.mainGraphId, savedGraphs],
+  );
+  const selectedGraphForContextMenu = contextMenuTarget?.type === 'graph-item' ? contextMenuTarget.graph : undefined;
   const selectedFolderNameForContextMenu =
-    contextMenuData.data?.type === 'graph-item' || contextMenuData.data?.type === 'graph-folder'
-      ? contextMenuData.data.element.dataset.folderpath
+    contextMenuTarget?.type === 'graph-item' || contextMenuTarget?.type === 'graph-folder'
+      ? contextMenuTarget.folderPath
       : undefined;
-
-  const selectedGraphIsMain = selectedGraphForContextMenu?.metadata?.id === project.metadata.mainGraphId;
-  const showGraphItemContextMenu =
-    showContextMenu &&
-    contextMenuData.data?.type === 'graph-item' &&
-    selectedGraphForContextMenu != null &&
-    selectedFolderNameForContextMenu != null;
-  const showFolderContextMenu =
-    showContextMenu && contextMenuData.data?.type === 'graph-folder' && selectedFolderNameForContextMenu != null;
+  const showGraphItemContextMenu = showContextMenu && contextMenuTarget?.type === 'graph-item';
+  const showFolderContextMenu = showContextMenu && contextMenuTarget?.type === 'graph-folder';
+  const showGraphListContextMenu = showContextMenu && contextMenuTarget?.type === 'graph-list';
 
   const handleSearchKeyDown = useStableCallback((e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Escape') {
@@ -478,40 +509,14 @@ export const GraphList: FC = memo(() => {
     }
   });
 
-  const graphListReachability = useMemo<GraphListReachabilityPresentation>(() => {
-    if (!showUnreachableGraphTags) {
-      return {
-        bucketByGraphId: {},
-        showUnreachableBadges: false,
-      };
-    }
-
-    const builtInPluginIds = resolveSupportedBuiltInPluginIds(project.plugins);
-    const pluginStatesById = new Map(plugins.map((plugin) => [plugin.id, plugin]));
-    const graphListPlugins = (project.plugins ?? [])
-      .map((spec) => pluginStatesById.get(spec.id))
-      .filter((plugin) => plugin != null);
-
-    const report = getGraphReachabilityReport(project, {
-      registry: projectNodeRegistry,
-      builtInPluginIds,
-    });
-
-    return buildGraphListReachabilityPresentation({
-      report,
-      graphIds: Object.keys(project.graphs) as GraphId[],
-      plugins: graphListPlugins,
-    });
-  }, [plugins, project, projectNodeRegistry, showUnreachableGraphTags]);
-
-  const referencingSelectedGraphIds = useMemo(() => {
-    if (!showGraphReferenceIndicators) {
-      return new Set<GraphId>();
-    }
-
-    const selectedGraphId = graph.metadata?.id;
-    return selectedGraphId ? getGraphIdsReferencingGraph(project, selectedGraphId) : new Set<GraphId>();
-  }, [graph.metadata?.id, project, showGraphReferenceIndicators]);
+  const { reachability: graphListReachability, referencingSelectedGraphIds } = useGraphListPresentation({
+    currentGraphId: graph.metadata?.id,
+    plugins,
+    project,
+    projectNodeRegistry,
+    showGraphReferenceIndicators,
+    showUnreachableGraphTags,
+  });
 
   const confirmDeleteGraph = useStableCallback(() => {
     if (!graphPendingDelete) {
@@ -541,89 +546,21 @@ export const GraphList: FC = memo(() => {
   });
 
   const graphItemMenuItems = useMemo(
-    (): ContextMenuConfigItem[] => [
-      {
-        id: 'rename-graph',
-        label: 'Rename',
-        icon: EditPenIcon,
-      },
-      {
-        id: 'duplicate-graph',
-        label: 'Duplicate',
-        icon: DuplicateIcon,
-      },
-      {
-        id: 'graph-info',
-        label: 'Graph info',
-        icon: InfoIcon,
-      },
-      ...(selectedGraphForContextMenu && !selectedGraphIsMain
-        ? [
-            {
-              id: 'make-main-graph',
-              label: 'Make main graph',
-              icon: MainGraphIcon,
-              separatorBefore: true,
-            } satisfies ContextMenuConfigItem,
-          ]
-        : []),
-      {
-        id: 'delete-graph',
-        label: 'Delete',
-        icon: DeleteIcon,
-        tone: 'danger',
-        separatorBefore: true,
-      },
-    ],
-    [selectedGraphForContextMenu, selectedGraphIsMain],
+    (): ContextMenuConfigItem[] =>
+      buildGraphItemContextMenuItems({
+        icons: graphListContextMenuIcons,
+        isMainGraph: contextMenuTarget?.type === 'graph-item' ? contextMenuTarget.isMainGraph : false,
+      }),
+    [contextMenuTarget],
   );
 
   const folderMenuItems = useMemo(
-    (): ContextMenuConfigItem[] => [
-      {
-        id: 'rename-folder',
-        label: 'Rename',
-        icon: EditPenIcon,
-      },
-      {
-        id: 'new-graph-in-folder',
-        label: 'New Graph',
-        icon: PlusIcon,
-      },
-      {
-        id: 'new-folder-in-folder',
-        label: 'New Folder',
-        icon: FolderIcon,
-      },
-      {
-        id: 'delete-folder',
-        label: 'Delete',
-        icon: DeleteIcon,
-        tone: 'danger',
-        separatorBefore: true,
-      },
-    ],
+    (): ContextMenuConfigItem[] => buildFolderContextMenuItems(graphListContextMenuIcons),
     [],
   );
 
   const graphListMenuItems = useMemo(
-    (): ContextMenuConfigItem[] => [
-      {
-        id: 'new-graph',
-        label: 'New Graph',
-        icon: PlusIcon,
-      },
-      {
-        id: 'new-folder',
-        label: 'New Folder',
-        icon: FolderIcon,
-      },
-      {
-        id: 'import-graph',
-        label: 'Import Graph...',
-        icon: PlusIcon,
-      },
-    ],
+    (): ContextMenuConfigItem[] => buildGraphListContextMenuItems(graphListContextMenuIcons),
     [],
   );
 
@@ -815,7 +752,7 @@ export const GraphList: FC = memo(() => {
           </Portal>
         </div>
         <Portal>
-          {showContextMenu && contextMenuData.data?.type === 'graph-list' && (
+          {showGraphListContextMenu && (
             <div
               className="graph-list-context-menu-pos"
               ref={refs.setReference}

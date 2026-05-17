@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { ChartNode, CommentNode, NodeId } from '@valerypopoff/rivet2-core';
-import { calculateCanvasNodeVisibilitySnapshot } from './useVisibleCanvasNodes.js';
+import { calculateCanvasNodeVisibilitySnapshot, reuseEqualCanvasNodeVisibilitySnapshot } from './useVisibleCanvasNodes.js';
 import { getCanvasVisibilityBounds } from './canvasVisibilityBounds.js';
 
 const asNodeId = (value: string) => value as NodeId;
@@ -23,7 +23,7 @@ function createNode(id: NodeId, x: number, y: number, width = 320): ChartNode {
 function createCommentNode(id: NodeId, x: number, y: number, width: number, height: number): CommentNode {
   return {
     data: {
-      backgroundColor: 'rgba(0,0,0,0.05)',
+      backgroundColor: 'rgba(128,128,128,0.05)',
       color: 'rgba(255,255,255,1)',
       height,
       text: '',
@@ -164,6 +164,39 @@ test('calculateCanvasNodeVisibilitySnapshot keeps partially visible comment node
 
   assert.equal(snapshot.visibleNodeIdSet.has(asNodeId('comment-node')), true);
   assert.equal(snapshot.nearViewportNodeIdSet.has(asNodeId('comment-node')), true);
+});
+
+test('reuseEqualCanvasNodeVisibilitySnapshot keeps stable identity for equal culling sets', () => {
+  const previous = calculateCanvasNodeVisibilitySnapshot({
+    draggingNodeIds: [],
+    editingNodeId: null,
+    expandedOutputNodeIds: [],
+    hoveringNodeId: undefined,
+    nodes: [createNode(asNodeId('visible-node'), 100, 100)],
+    selectedNodeIds: [],
+    viewportBounds,
+  });
+  const equivalent = calculateCanvasNodeVisibilitySnapshot({
+    draggingNodeIds: [],
+    editingNodeId: null,
+    expandedOutputNodeIds: [],
+    hoveringNodeId: undefined,
+    nodes: [createNode(asNodeId('visible-node'), 110, 100)],
+    selectedNodeIds: [],
+    viewportBounds,
+  });
+  const changed = calculateCanvasNodeVisibilitySnapshot({
+    draggingNodeIds: [],
+    editingNodeId: null,
+    expandedOutputNodeIds: [],
+    hoveringNodeId: undefined,
+    nodes: [createNode(asNodeId('other-node'), 100, 100)],
+    selectedNodeIds: [],
+    viewportBounds,
+  });
+
+  assert.equal(reuseEqualCanvasNodeVisibilitySnapshot(previous, equivalent), previous);
+  assert.equal(reuseEqualCanvasNodeVisibilitySnapshot(previous, changed), changed);
 });
 
 test('getCanvasVisibilityBounds uses comment height but keeps normal nodes heightless for culling', () => {

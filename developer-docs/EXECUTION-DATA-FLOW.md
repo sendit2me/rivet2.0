@@ -222,7 +222,10 @@ capability into a product state such as `browser-ready`,
 `ready` is not enough by itself for UI run readiness; the ready product states
 also require the active session to be able to send a run command. This prevents
 a hosted internal executor reconnect from being displayed as a Remote Debugger
-reconnect and keeps the Run buttons aligned with the action-time send guard.
+reconnect. ActionBar visibility then applies product policy on top of transport
+capability: external Remote Debugger sessions show the stop/debugger affordance
+but disable editor-side run entrypoints, while Browser and internal Node
+executor sessions keep Run visibility aligned with readiness.
 
 Executor-session target identity is `type + url`, not URL alone. Reconnecting to
 the same target reuses the existing websocket when possible, while connecting the
@@ -245,6 +248,28 @@ Gentrace records through `recordSocketEvents(...)`, so feature code no longer
 reads the session socket from UI state. Raw socket/status fields are still
 available to low-level runtime code and tests, but product UI should use the
 selector and capability layer.
+
+`useRemoteExecutor` caches the last successfully uploaded
+project/settings/static-data payload per executor session. Upload cache decisions
+are planned in `remoteExecutorUploadCache.ts`: `planRemoteExecutorProjectUpload`
+compares the session key, derived project graph/plugin state, resolved runtime
+settings, and sorted static project data before the hook sends anything.
+Identical consecutive runs can therefore send only the lightweight `run`
+message, while graph edits, settings/env changes, static data changes, or a new
+session force a fresh upload. The imperative upload path sends dynamic project
+data first, then each static-data payload, and marks the cache fresh only after
+every send succeeds. The cache is cleared on executor connect/disconnect, and
+failed project or static-data sends do not update it.
+
+Remote run request ids are managed by `remoteExecutorRunRequest.ts`.
+Editor graph runs register one active request id before sending the `run`
+message; request-scoped process events are dispatched only when their request id
+matches that active request, while legacy/unscoped events still pass through.
+`done`, `abort`, `error`, disconnect, and send-failure paths clear the active
+request explicitly. Trivet/test runs use the executor-session pending-promise
+API and reject that pending request if the `run` send fails before reaching the
+socket, so the failure is observed through the same async result path as normal
+remote test-run completion.
 
 Executor-session callbacks are failure-isolated. Lifecycle subscribers,
 process-message subscribers, and the renderer state-change callback are invoked
@@ -358,14 +383,15 @@ Data is keyed by `processId` within the node's array. A node can have multiple
 entries from different graph runs or split-run iterations.
 
 Most nodes leave `debugData` empty. The current notable exceptions are app-side
-presentation/debug affordances: `Code` snapshots `codeSource` so the selected
-failed run can highlight the matching editor line, `Expression` snapshots
-`expressionSource` for historical `Parsed expression` rendering, `Extract Object
-Path` snapshots `extractObjectPathSource` and `extractObjectPathUsePathInput` for
-stored-path parsed-source rendering, and `JS Filter` / `JS Map` snapshot
-`jsListCallbackBodySource` for their callback parsed-source preview. These
-snapshots are stored only in app execution history; they are not part of the core
-graph-output contract used by programmatic workflow execution.
+presentation/debug affordances: `Code (legacy)` and `Code` snapshot `codeSource` so
+the selected failed run can highlight the matching editor line, `Expression`
+snapshots `expressionSource` for historical `Parsed expression` rendering,
+`Extract Object Path` snapshots `extractObjectPathSource` and
+`extractObjectPathUsePathInput` for stored-path parsed-source rendering, and `JS
+Filter` / `JS Map` snapshot `jsListCallbackBodySource` for their callback
+parsed-source preview. These snapshots are stored only in app execution history;
+they are not part of the core graph-output contract used by programmatic
+workflow execution.
 
 `StoredDataValue` is an app-only wrapper around execution payloads:
 
@@ -556,10 +582,28 @@ const eventDispatcher = createProcessEventDispatcher(currentExecution);
 The sidecar serializes events with full metadata. The dispatcher reconstructs
 and routes them to the same handler functions.
 
+The remote execution client pipeline is layered intentionally:
+
+- `useRemoteExecutor` remains the React adapter. It reads atoms/providers, gets
+  the current executor-session runtime, resolves environment-backed settings,
+  subscribes to process messages, and updates `useCurrentExecution()`.
+- `remoteExecutorUploadCache.ts` owns pure upload decisions plus the imperative
+  send-and-mark-fresh path for project/settings/static data.
+- `remoteExecutorRunRequest.ts` owns request-id creation/registration helpers,
+  active-request event filtering, completion cleanup, and pending test-run
+  send-failure cleanup.
+- `remoteExecutorHelpers.ts` owns pure run-from planning, preload extraction,
+  Trivet selection, and process-event dispatcher construction.
+
+Gentrace remote runs are intentionally outside this editor/test-run pipeline.
+They use `recordSocketEvents(...)` to capture the raw executor socket stream for
+Gentrace recording, so they should keep their separate capability and recording
+contract unless that feature is refactored directly.
+
 Local and remote editor run-from execution share the same explicit run plan:
 
 - `getEditorRunFromPlan(...)` in `remoteExecutorHelpers.ts` finds the selected node plus downstream nodes to run, the downstream terminal nodes to pass as `runToNodeIds`, and the already-computed boundary inputs to preload
-- `getDependentDataForNodeForPreload(...)` restores the latest available boundary outputs from stored history
+- `getDependentDataForNodeForPreload(...)` restores the latest available boundary outputs from stored history. A stored output map only counts as available when it contains at least one real port wrapper; legacy/malformed maps whose ports are all absent/nullish are skipped instead of preloading an empty output object.
 - `useLocalExecutor` applies the restored boundary data with `processor.preloadNodeData(...)` before starting the targeted processor run
 - `useRemoteExecutor` sends `runToNodeIds` and restored `preloadData` together in the debugger `run` message so the app executor can create the processor, preload it, and then run it
 - before that run emits `start`, the executor hook tells the execution-data layer which prior node snapshots are outside the rerun slice. `onStart` preserves those snapshots and clears only nodes that will be recalculated, so untouched upstream outputs stay visible and can still seed later editor run-from actions.
@@ -573,20 +617,23 @@ Local and remote editor run-from execution share the same explicit run plan:
 - `onNodeStart`/`onNodeFinish`/`onNodeExcluded`/`onPartialOutput`/`onNodeError`: Store per-node data.
 - `onDone`: Marks graph as no longer running.
 
-Persisted app-side execution payloads now share one transform layer before being cloned into history:
+Persisted app-side execution payloads now share one storage/preview utility layer before being cloned into history:
 
-- `sanitizeInputsOrOutputs(...)` in `executionDataTransforms.ts` fixes Uint8Array-shaped values without destructively truncating them
-- `storeNodeDataForHistory(...)` / `storeInputsOrOutputsForHistory(...)` decide whether each payload stays inline or moves into `globalDataRefs`
-- the storage decision layer treats malformed typed payloads defensively, including string, string-array, and media summary values, so an invalid node output can stay inline for debugging instead of throwing an unhandled UI error while the graph itself has already finished
-- downstream UI consumers must preserve that boundary: `RenderDataValue`, Chat Viewer split-prompt lookup, Prompt Designer attached-node hydration, run-cost totals, `Copy value`, and `globalDataRefs` sizing all use the shared runtime guards in `dataValuePayloads.ts` to tolerate malformed inline/ref payloads and render or fall back instead of assuming the static `DataValue` type was honored at runtime
+- `sanitizeInputsOrOutputs(...)` in `executionDataSanitization.ts` fixes Uint8Array-shaped values without destructively truncating them
+- `storeNodeDataForHistory(...)` / `storeInputsOrOutputsForHistory(...)` in `executionDataStorage.ts` decide whether each payload stays inline or moves into `globalDataRefs`
+- `storeInputsOrOutputsForHistory(...)` stores only actual per-port `DataValue` payloads. A missing/nullish port entry is treated as absent and skipped, while explicit runtime values such as `{ type: 'any', value: undefined }` remain real payloads because the wrapper object exists. Generic renderers, node-specific output renderers, port inspectors, Chat Viewer, display-copy, node-specific copy projectors, and JSON-copy readers preserve that same distinction so malformed absent wrappers do not appear as user-authored `undefined` values.
+- `getStorageDecision(...)` in `executionDataPreview.ts` owns preview thresholds, text/json excerpts, encoded hints, media/chat summaries, and defensive inline fallback for malformed typed payloads, so an invalid node output can stay inline for debugging instead of throwing an unhandled UI error while the graph itself has already finished
+- ref cleanup in `executionDataStorage.ts` must distinguish node-run records from stored port maps by checking that `inputData`, `outputData`, or `splitOutputData` are actual stored port maps. Port ids such as `status`, `inputData`, `outputData`, and `splitOutputData` are valid output names and must still have their refs collected and deleted like ordinary ports. Legacy/malformed split-output maps may contain nullish split entries; ref cleanup should skip those entries without misclassifying the whole node-run record and losing refs from sibling split entries.
+- downstream UI consumers must preserve that boundary: output visibility checks, `RenderDataValue`, custom node output bodies, port inspectors, Chat Viewer prompt/response lookup, Prompt Designer attached-node hydration, run-cost totals, `Copy value`, and `globalDataRefs` sizing all use the shared runtime guards in `dataValuePayloads.ts` or explicit nullish-wrapper guards to tolerate malformed inline/ref payloads and render or fall back instead of assuming the static `DataValue` type was honored at runtime
 - explicit `{ type: 'any', value: undefined }` output is real display data, not a missing payload. Shared rendering and display-oriented copy should show the literal text `undefined`; explicit `any[]` arrays should apply the same projection to each item. Large ref-backed `any[]` previews and fullscreen-search text should use the same display projection so undefined items stay findable instead of becoming JSON `null`. That projection must stay cycle-safe and fall back through the existing defensive JSON/string path for circular arrays. Absent `DataValue` wrappers, malformed typed payloads, and `control-flow-excluded` remain separate fallback/exclusion cases.
 - `globalDataRefs` still uses compact JSON for cache-size fallback accounting; pretty-printing helpers are display-only and should not affect LRU sizing
 - `storeNodeDataForHistory(...)` only writes fields that are explicitly present, so start-time payloads such as `inputData` and small debug snapshots survive later finish/error updates instead of being overwritten with `undefined`
 - `useNodeExecutionEvents` uses that shared path for started, finished, excluded, and partial-output persistence
-- split-run partial outputs still keep their separate `splitOutputData[index]` storage model, but they now reuse the same storage transform and stable ref-id scheme before persistence
+- split-run partial outputs still keep their separate `splitOutputData[index]` storage model, but they now reuse the same storage transform and stable ref-id scheme before persistence. Render/copy helpers should only prefer split output data when at least one split entry contains a real visible stored port wrapper; an empty split map, warnings-only split map, or internal-port-only split map from partial outputs must not hide a later valid `outputData` payload.
 - `onStart`, `onTrivetStart`, and node-output clearing paths clear the corresponding execution-scoped refs when they wipe prior run data
-- `executionDataTransforms.ts` remains the low-level storage/restore boundary, but app-side read/restore behavior now goes through `executionDataReaders.ts` so UI and executor-preload code share the same displayed-output restore, port-level restore/coercion, and warning extraction logic
-- display-oriented `Copy value` serialization now goes through `executionDataCopyValue.ts`, which projects restored outputs into the same plain-value shapes the user sees instead of serializing raw `DataValue` wrappers
+- `executionDataStorage.ts` is the low-level storage/restore boundary; `executionDataTransforms.ts` remains only as a compatibility facade for older imports. App-side read/restore behavior goes through `executionDataReaders.ts` so UI and executor-preload code share the same displayed-output restore, port-level restore/coercion, and warning extraction logic.
+- Preview-only or editor-assist consumers that interpolate stored inputs for display, such as Code, Expression, JS list, Extract Object Path parsed-source sections, and Prompt Designer attached-node hydration, should use `tryRestoreStoredPortMap(...)`. Missing ref-backed inputs are skipped port-by-port so available inputs still render in the parsed preview or editor assist surface, while an entirely unavailable input map simply removes the optional detail instead of breaking the visible output value. Strict `restoreStoredPortMap(...)` remains appropriate for executor preload paths that must fail loudly when required boundary data has been evicted.
+- display-oriented `Copy value` serialization is exported from `executionDataCopyValue.ts`, with implementation split under `executionDataCopy/`: visible `DataValue` projection in `projectDataValue.ts`, port/split serialization in `serializeDisplayedOutputs.ts`, and labelled copy metadata in `displayCopySections.ts`. It projects restored outputs into user-facing copy text instead of serializing raw `DataValue` wrappers. A single visible output copies the displayed value text; multiple visible outputs copy labelled sections using output-definition titles, matching the node/fullscreen output layout closely enough for pasted text to read like the UI. Node-specific copy projectors should use `displayCopySections(...)` for multi-section text so ordinary object values are never confused with copy metadata. Generic display-copy restores each visible port independently so a missing ref-backed value copies the same "Value no longer available in memory." fallback the renderer shows instead of failing the whole copy action. Warning and `__internalPort_*` outputs are not body output ports; `outputPortVisibility.ts` keeps generic render, split-output selection, and display-copy aligned on that rule. Custom copy projectors are only called for output maps and split-output entries that pass that visible-wrapper check; otherwise projectors with default text, such as loop-controller continue status, can create copy text for output that the UI did not render. Warning messages render through the dedicated output-warning UI in both inline and fullscreen output surfaces instead of being treated as ordinary body ports. The fullscreen `JSON` action remains the internal-representation path and copies the restored output map with `DataValue` wrappers. Its restore order deliberately prefers split output data only when at least one visible split body port exists, falls back to valid final `outputData`, and only then restores hidden-only split data when that is the only stored representation; this keeps warnings/internal split maps from blanking valid final output while still letting JSON copy/export inspect warning-only split runs.
 - nodes whose visible output shape differs from the raw output port map use `getCopyValueData` projectors from `nodeOutputCopyValueProjectors.ts` so copy behavior stays aligned with the custom output UI
 - fullscreen node-output search also depends on the same restore/payload model: generic rendered text is searched from the current fullscreen page DOM through `fullscreenOutputSearch.ts`, while large ref-backed text/JSON-like previews participate through `LargeStoredValuePreview` search providers so search can target the full restored text instead of only the currently visible excerpt
 - preload/run-from paths therefore restore ref-backed values back into full `DataValue` payloads through the shared reader layer before passing them to the executor, instead of each consumer hand-rolling `restoreStoredInputsOrOutputs(...)` calls. The selected run-from node is intentionally not preloaded, because the editor contract is to rerun the selected node and downstream nodes while reusing only boundary inputs from prior results.
@@ -637,6 +684,30 @@ persisted Node executor preference, it resets to Browser mode instead of
 attempting an internal sidecar connection that cannot be created in a normal
 browser.
 
+The app-executor prewarms its shared CodeRunner worker pool before announcing
+that the executor websocket is ready. Ordinary Code (legacy), Code, and Expression
+node runs use single-use workers from that pool, then terminate them and
+replenish the pool in the background. This keeps fresh-worker isolation while
+avoiding the common cold-start cost on minimal Node-executor workflows.
+`RIVET_CODE_RUNNER_WORKER_POOL_SIZE` controls the number of prewarmed workers,
+and `0` disables prewarming.
+The shared pool is lazy outside the sidecar entrypoint, and idle workers are
+unrefed plus guarded with error/exit cleanup so failed idle workers are dropped
+and replenished without surfacing as executor process errors.
+
+The app-executor worker code is intentionally split by ownership. [`AppExecutorWorkerCodeRunner.mts`](../packages/app-executor/bin/AppExecutorWorkerCodeRunner.mts)
+is the orchestration adapter that implements the core `CodeRunner` interface,
+prepares hosted runtime libraries, chooses worker execution versus the
+`includeRivet` current-thread fallback, and passes the active run's console
+bridge. [`codeRunnerWorkerPool.mts`](../packages/app-executor/bin/codeRunnerWorkerPool.mts)
+owns pool configuration, shared prewarm/shutdown lifecycle, idle-worker checkout,
+replenishment, stats, and cleanup. [`codeRunnerWorkerHost.mts`](../packages/app-executor/bin/codeRunnerWorkerHost.mts)
+owns the string-evaluated worker source, worker creation, ready/result handling,
+exit-before-result errors, worker console forwarding, and worker-error
+deserialization. This keeps performance-sensitive pool policy separate from the
+package-sensitive worker source while preserving fresh-worker isolation: after a
+run starts, that worker is never returned to the idle pool.
+
 If the user connects an external remote debugger while Node executor mode is
 selected, that external websocket temporarily replaces the internal sidecar
 session. Manual remote-debugger disconnect must restore the internal Node
@@ -668,8 +739,12 @@ internal executor reconnects must preserve that internal classification after
 proxy, server, or idle websocket closes; otherwise `/ws/executor/internal` can
 be misrepresented as a user-attached remote debugger. External remote debuggers
 should continue to use the public `connectExternalDebugger(...)` path, and
-remote-debugger UI should only show disconnect affordances for external-debugger
-sessions.
+remote-debugger UI should only show stop/debugger affordances for
+external-debugger sessions. While an external Remote Debugger is connected or
+connecting, the ActionBar hides editor-side Run and Run Main buttons, menu and
+hotkey run commands no-op, and node `Run to here` / `Run from here` context-menu
+items stay hidden; live execution data is expected to arrive from the remote
+process instead.
 
 The app-executor sidecar treats graph failures as request-scoped execution
 events rather than process/session failures. If a dynamic run throws because a
@@ -683,7 +758,9 @@ internal sidecar is starting, connecting, or reconnecting; readiness only moves
 the button into a disabled loading state that keeps its normal text and swaps
 the action glyph for the same ring indicator used by running node headers, it
 must not collapse the control or make a handled node failure look like the
-executor UI disappeared.
+executor UI disappeared. This internal-executor rule must not be applied to
+external Remote Debugger sessions, which replace editor-run controls with a
+`Stop Remote Debugger` banner.
 The app logs the internal Node executor lifecycle at the sidecar/session seam.
 Sidecar spawn, readiness marker vs timeout fallback, socket close/reconnect
 scheduling, disconnect requests, and skipped run attempts are runtime debug logs
@@ -696,14 +773,40 @@ the internal Node executor session; Browser mode waits for an explicit Remote
 Debugger Connect action. This keeps an open project from suddenly reopening a
 remote debugger socket by itself.
 
-Server-side Remote Debugger keepalive lives in
-[`packages/node/src/debugger.ts`](../packages/node/src/debugger.ts), not in the
-app executor session. `startDebuggerServer` sends WebSocket ping frames every
-`DEBUGGER_HEARTBEAT_INTERVAL_MS` and terminates sockets that do not pong within
-`DEBUGGER_HEARTBEAT_TIMEOUT_MS`. This keeps hosted routes such as
-`/ws/latest-debugger` from looking idle to proxy/CDN layers while preserving the
-app policy above: an external debugger socket that truly closes is still treated
-as an external disconnect, not as something Rivet should reopen automatically.
+Server-side Remote Debugger keepalive lives in the Node debugger server, not in
+the app executor session. `startDebuggerServer` in
+[`packages/node/src/debugger.ts`](../packages/node/src/debugger.ts) keeps
+websocket server creation, message parsing, graph upload/run commands, dataset
+forwarding, and public API assembly. Transport policy is split into focused
+helpers:
+
+- [`debuggerHeartbeat.ts`](../packages/node/src/debuggerHeartbeat.ts) sends
+  WebSocket ping frames every `DEBUGGER_HEARTBEAT_INTERVAL_MS` and terminates
+  sockets that do not pong within `DEBUGGER_HEARTBEAT_TIMEOUT_MS`. Inbound
+  debugger messages and successful server-to-client debugger frames also reset
+  an outstanding heartbeat wait, so a busy post-idle workflow broadcast is
+  treated as transport activity instead of being killed by an older ping
+  timeout.
+- [`debuggerTransport.ts`](../packages/node/src/debuggerTransport.ts) owns
+  best-effort server-to-client serialization, send, error emission, and failed
+  socket termination. Connection-time frames and processor event broadcasts must
+  never fail graph execution; serialization or websocket send failures are
+  reported through the debugger `error` event, and only the failed websocket is
+  terminated.
+- [`debuggerProcessorAttachments.ts`](../packages/node/src/debuggerProcessorAttachments.ts)
+  owns `attach`/`detach` listener registration, request-id association,
+  partial-output throttling, and root-`finish` auto-detach cleanup. Routing
+  callbacks receive snapshots of the currently attached processors so external
+  routing code cannot mutate the server's attachment list by accident.
+
+The Node `createProcessor(..., { remoteDebugger })` helper re-attaches the same
+processor at the start of each `run()` and calls `detach` in `finally`, so
+reusing a processor object for multiple runs does not lose debugger events and
+manual app-executor `detach` calls remain harmless no-ops after auto-detach.
+This keeps hosted routes such as `/ws/latest-debugger` from looking idle to
+proxy/CDN layers while preserving the app policy above: an external debugger
+socket that truly closes is still treated as an external disconnect, not as
+something Rivet should reopen automatically.
 
 The renderer does not treat app-executor stderr as an execution-state signal.
 The sidecar can write expected Node warnings or logged provider failures to
@@ -717,20 +820,20 @@ terminating the sidecar after a graph failure has already been reported through
 the normal request-scoped protocol.
 
 The desktop app's internal Node sidecar also uses an app-executor-only
-worker-backed `CodeRunner` for most Code-node JavaScript. That keeps the sidecar
-event loop free to process independent nodes and emit their `nodeFinish` events
-while an unrelated synchronous Code node is still running. This does not change
-the public `@valerypopoff/rivet2-node` default runner, and Code nodes that request the
-`Rivet` capability may still run on the sidecar's current thread for
-compatibility.
+worker-backed `CodeRunner` for most Code-family JavaScript. That
+keeps the sidecar event loop free to process independent nodes and emit their
+`nodeFinish` events while an unrelated synchronous Code-family node is still
+running. This does not change the public `@valerypopoff/rivet2-node` default
+runner, and Code-family nodes that request the `Rivet` capability may still run
+on the sidecar's current thread for compatibility.
 
-Code-node `console` output in Node executor mode is an executor-session message,
-not sidecar stdout. When the node's console permission is enabled, the
+Code-family `console` output in Node executor mode is an executor-session
+message, not sidecar stdout. When the node's console permission is enabled, the
 app-executor runner sends `codeConsole` messages for `debug`, `info`, `log`,
 `warn`, and `error`; [`useRemoteExecutor`](../packages/app/src/hooks/useRemoteExecutor.ts)
 only replays messages for the active editor run into the renderer console.
 
-Code-node `require()` resolution has a stable hosted-runtime seam. Public
+Code-family `require()` resolution has a stable hosted-runtime seam. Public
 `NodeCodeRunner` and the app-executor worker runner default to resolving from the
 process working directory, but `RIVET_CODE_RUNNER_REQUIRE_ROOT` can point them at
 a runtime-library directory and `RIVET_CODE_RUNNER_REQUIRE_ANCHOR` can provide a
@@ -739,9 +842,9 @@ source while preserving the programmatic default for normal `@valerypopoff/rivet
 callers.
 For app-executor hosted runtimes, a bootstrap layer may also install
 `globalThis.__RIVET_PREPARE_RUNTIME_LIBRARIES__`. The worker runner invokes that
-hook before require-enabled or Rivet-capable Code nodes run, so hosted wrappers
-can synchronize managed runtime-library artifacts just before module resolution
-without rewriting Rivet's runner source.
+hook before require-enabled or Rivet-capable Code-family nodes run, so hosted
+wrappers can synchronize managed runtime-library artifacts just before module
+resolution without rewriting Rivet's runner source.
 
 ### Browser execution: microtask avalanche
 
@@ -1050,7 +1153,9 @@ absence gracefully since the final `nodeFinish` event contains the complete outp
 | [`useExecutorSession.ts`](../packages/app/src/hooks/useExecutorSession.ts)                               | Read-only executor-session snapshot hook plus compatibility exports for coordinator helpers                                                                          |
 | [`useRemoteDebugger.ts`](../packages/app/src/hooks/useRemoteDebugger.ts)                                 | External Remote Debugger command/subscription surface; does not own Node executor restoration policy                                                                 |
 | [`useRemoteExecutor.ts`](../packages/app/src/hooks/useRemoteExecutor.ts)                                 | Remote graph/test execution over the shared session; sends protocol messages only after action-time capability checks                                                |
-| [`remoteExecutorHelpers.ts`](../packages/app/src/hooks/remoteExecutorHelpers.ts)                         | `createProcessEventDispatcher` - routes WebSocket messages to handlers                                                                                               |
+| [`remoteExecutorUploadCache.ts`](../packages/app/src/hooks/remoteExecutorUploadCache.ts)                 | Remote project/settings/static-data upload decisions, cache invalidation, and send-success marking                                                                   |
+| [`remoteExecutorRunRequest.ts`](../packages/app/src/hooks/remoteExecutorRunRequest.ts)                   | Remote run request-id registration, active request filtering, send-failure cleanup, and pending test-run send helpers                                                |
+| [`remoteExecutorHelpers.ts`](../packages/app/src/hooks/remoteExecutorHelpers.ts)                         | Run-from planning, preload extraction, Trivet selection, and `createProcessEventDispatcher` routing from WebSocket messages to handlers                              |
 | [`GraphProcessor.ts`](../packages/core/src/model/GraphProcessor.ts)                                      | Core execution engine, `#createSubProcessor`, `#buildExecutionMetadata`                                                                                              |
 | [`SubprocessorBridge.ts`](../packages/core/src/model/SubprocessorBridge.ts)                              | `wireSubprocessorEvents` - forwards child events to parent emitter                                                                                                   |
 | [`SplitRunProcessor.ts`](../packages/core/src/model/SplitRunProcessor.ts)                                | `processSplitRunNode` - iterates split inputs, creates subprocessors per iteration                                                                                   |

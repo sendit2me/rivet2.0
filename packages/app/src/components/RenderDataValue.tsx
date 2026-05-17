@@ -8,12 +8,13 @@ import {
   isStoredInlineDataValue,
   isStoredRefDataValue,
   tryRestoreStoredDataValue,
-} from '../utils/executionDataTransforms.js';
+} from '../utils/executionDataStorage.js';
 import { createDataValueRendererMap } from './renderDataValue/createDataValueRendererMap.js';
 import { createScalarRenderers } from './renderDataValue/createScalarRenderers.js';
 import { LargeStoredValuePreview } from './renderDataValue/LargeStoredValuePreview.js';
 import type { OutputRenderMode } from './renderDataValue/outputRenderTypes.js';
 import { outputSectionLabelStyles, renderedDataOutputsStyles } from './renderDataValue/renderDataValueStyles.js';
+import { isVisibleOutputPort } from '../utils/outputPortVisibility.js';
 
 export type { OutputRenderMode } from './renderDataValue/outputRenderTypes.js';
 
@@ -86,8 +87,13 @@ export const RenderDataOutputs: FC<{
   mode?: OutputRenderMode;
   allowLargeStoredValueActions?: boolean;
 }> = ({ definitions, outputs, renderMarkdown, isCompact, mode, allowLargeStoredValueActions }) => {
-  const outputPorts = isCompact ? keys(outputs).slice(0, 1) : keys(outputs);
+  const visibleOutputPorts = keys(outputs).filter((portId) => isVisibleOutputPort(portId) && outputs[portId] != null);
+  const outputPorts = isCompact ? visibleOutputPorts.slice(0, 1) : visibleOutputPorts;
   const effectiveMode = mode ?? (isCompact ? 'compact' : 'full');
+
+  if (outputPorts.length === 0) {
+    return null;
+  }
 
   if (outputPorts.length === 1) {
     return (

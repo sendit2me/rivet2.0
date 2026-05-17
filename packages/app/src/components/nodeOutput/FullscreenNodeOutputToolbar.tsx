@@ -17,6 +17,9 @@ const fullscreenOutputToolbarCss = css`
   background: transparent;
   border-radius: 8px;
   corner-shape: squircle;
+  @supports not (corner-shape: squircle) {
+    border-radius: 4px;
+  }
   box-shadow: none;
   margin-bottom: 8px;
   padding: 8px 12px;

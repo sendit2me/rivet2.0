@@ -6,6 +6,7 @@ import {
   buildJSFilterWrapper,
   buildJSMapWrapper,
   getJSListCallbackInterpolationInputDefinitions,
+  getJSListEditors,
   interpolateJSListCallbackBody,
 } from '../../../src/model/nodes/jsListCallbackHelpers.js';
 import type { PortId } from '../../../src/index.js';
@@ -29,6 +30,20 @@ describe('jsListCallbackHelpers', () => {
     assert.match(wrapper, /assertSynchronousCallbackResult\(result, 'JS Map'\);/);
   });
 
+  it('keeps the fixed array clone before interpolation input clones', () => {
+    const wrapper = buildJSMapWrapper('return {{config}};');
+    const arrayCloneIndex = wrapper.indexOf(
+      'const array = cloneJsInputValue(inputs.array?.value, jsListInputCloneCache);',
+    );
+    const interpolationCloneIndex = wrapper.indexOf(
+      '__jsListInputs["config"] = cloneJsInputValue(inputs["config"]?.value, jsListInputCloneCache);',
+    );
+
+    assert.notStrictEqual(arrayCloneIndex, -1);
+    assert.notStrictEqual(interpolationCloneIndex, -1);
+    assert.ok(arrayCloneIndex < interpolationCloneIndex);
+  });
+
   it('throws when a callback result is thenable', () => {
     assert.throws(
       () => assertSynchronousCallbackResult(Promise.resolve(true), 'JS Filter'),
@@ -43,14 +58,14 @@ describe('jsListCallbackHelpers', () => {
 
   it('discovers value interpolation ports without duplicating callback locals', () => {
     assert.deepStrictEqual(
-      getJSListCallbackInterpolationInputDefinitions(
-        'return {{item}} > {{min}} && {{index}} !== {{array}};',
-      ).map((definition) => ({
-        id: definition.id,
-        title: definition.title,
-        dataType: definition.dataType,
-        required: definition.required,
-      })),
+      getJSListCallbackInterpolationInputDefinitions('return {{item}} > {{min}} && {{index}} !== {{array}};').map(
+        (definition) => ({
+          id: definition.id,
+          title: definition.title,
+          dataType: definition.dataType,
+          required: definition.required,
+        }),
+      ),
       [
         {
           id: 'min',
@@ -60,6 +75,19 @@ describe('jsListCallbackHelpers', () => {
         },
       ],
     );
+  });
+
+  it('marks callback editors as JavaScript with value interpolation syntax', () => {
+    assert.deepStrictEqual(getJSListEditors()[0], {
+      type: 'code',
+      label: 'Callback Body',
+      helperMessage: '(item, index, array) => {',
+      postEditorHelperMessage: '};\n\n//Use {{var}} to create input ports that evaluate as connected values.',
+      dataKey: 'callbackBody',
+      language: 'javascript',
+      interpolationSyntax: 'js-value',
+      enableFolding: true,
+    });
   });
 
   it('uses shared interpolation token rules for escaped and malformed tokens', () => {

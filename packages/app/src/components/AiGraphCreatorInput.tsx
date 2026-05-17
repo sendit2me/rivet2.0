@@ -17,6 +17,9 @@ const styles = css`
   background: var(--grey-darker);
   border-radius: 8px;
   corner-shape: squircle;
+  @supports not (corner-shape: squircle) {
+    border-radius: 4px;
+  }
   border: 1px solid var(--grey-dark);
   z-index: 50;
   gap: 8px;

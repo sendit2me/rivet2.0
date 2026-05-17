@@ -32,6 +32,12 @@ export const nodeStyles = css`
     pointer-events: auto;
   }
 
+  @supports not (corner-shape: squircle) {
+    .node {
+      --node-card-radius: calc(10px * var(--ui-font-scale));
+    }
+  }
+
   .node:focus {
     outline: none;
   }
@@ -183,7 +189,8 @@ export const nodeStyles = css`
   }
 
   .node.node.isComment .node-title {
-    padding: 4px;
+    align-items: center;
+    padding: calc(4px * var(--ui-font-scale)) calc(8px * var(--ui-font-scale));
     background-color: var(--grey-darkish);
     pointer-events: auto;
     margin: 0;
@@ -208,7 +215,9 @@ export const nodeStyles = css`
   }
 
   .node.isComment.overlayNode .node-title,
-  .node.isComment.overlayNode .node-title * {
+  .node.isComment.overlayNode .node-title *,
+  .node.isComment.overlayNode .node-body,
+  .node.isComment.overlayNode .node-body * {
     pointer-events: none;
   }
 
@@ -322,6 +331,9 @@ export const nodeStyles = css`
     border: 0;
     border-radius: 0.8em;
     corner-shape: squircle;
+    @supports not (corner-shape: squircle) {
+      border-radius: 0.4em;
+    }
     background: color-mix(in srgb, var(--node-bg-foreground) 85%, transparent);
     color: var(--node-bg);
     cursor: pointer;
@@ -353,6 +365,21 @@ export const nodeStyles = css`
 
   .node.isComment .title-text {
     display: none;
+  }
+
+  .node.isComment .title-controls {
+    align-items: center;
+    flex: 0 0 calc(66px * var(--ui-font-scale));
+    margin-right: 0;
+    margin-top: 0;
+    min-height: calc(30px * var(--ui-font-scale));
+    width: calc(66px * var(--ui-font-scale));
+
+    .changed-button,
+    .edit-button {
+      height: calc(30px * var(--ui-font-scale));
+      margin: 0;
+    }
   }
 
   .node.zoomedOut .title-text-label {
@@ -531,6 +558,9 @@ export const nodeStyles = css`
       font-family: inherit;
       border-radius: 0 8px 8px 0;
       corner-shape: squircle;
+      @supports not (corner-shape: squircle) {
+        border-radius: 0 4px 4px 0;
+      }
       user-select: none;
     }
   }

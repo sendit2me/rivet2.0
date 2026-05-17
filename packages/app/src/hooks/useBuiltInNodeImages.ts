@@ -122,6 +122,7 @@ export const useBuiltInNodeImages = (): Partial<Record<BuiltInNodeType, string>>
     randomNumber: randomNumberNodeImage,
     shuffle: shuffleNodeImage,
     code: codeNodeImage,
+    codeNew: codeNodeImage,
     context: contextNodeImage,
     externalCall: externalCallNodeImage,
     getGlobal: getGlobalNodeImage,

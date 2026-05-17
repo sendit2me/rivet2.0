@@ -73,6 +73,9 @@ export const defaultEditorContainerStyles = css`
     border: 1px solid var(--grey-darkish);
     border-radius: 16px;
     corner-shape: squircle;
+    @supports not (corner-shape: squircle) {
+      border-radius: 8px;
+    }
     background: var(--grey-darkest);
     color: var(--foreground-muted);
     cursor: pointer;
@@ -173,6 +176,9 @@ export const defaultEditorContainerStyles = css`
     background-color: var(--grey-darkest);
     border-radius: 16px;
     corner-shape: squircle;
+    @supports not (corner-shape: squircle) {
+      border-radius: 8px;
+    }
   }
 
   .editor-wrapper {
@@ -181,6 +187,9 @@ export const defaultEditorContainerStyles = css`
     background-color: var(--grey-darker);
     border-radius: 12px;
     corner-shape: squircle;
+    @supports not (corner-shape: squircle) {
+      border-radius: 6px;
+    }
     overflow: hidden;
   }
 
@@ -217,6 +226,9 @@ export const defaultEditorContainerStyles = css`
     background-color: var(--grey-dark);
     border-radius: 16px;
     corner-shape: squircle;
+    @supports not (corner-shape: squircle) {
+      border-radius: 8px;
+    }
   }
 
   .node-editor-static-code-editor .editor-container {
@@ -224,6 +236,9 @@ export const defaultEditorContainerStyles = css`
     min-height: 0;
     border-radius: 12px;
     corner-shape: squircle;
+    @supports not (corner-shape: squircle) {
+      border-radius: 6px;
+    }
     overflow: hidden;
   }
 

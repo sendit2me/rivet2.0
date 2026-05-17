@@ -138,6 +138,7 @@ export class ObjectNodeImpl extends NodeImpl<ObjectNode> {
         label: 'JSON Template',
         dataKey: 'jsonTemplate',
         language: 'json',
+        interpolationSyntax: 'json-template',
         theme: 'prompt-interpolation',
         enableFolding: true,
       },

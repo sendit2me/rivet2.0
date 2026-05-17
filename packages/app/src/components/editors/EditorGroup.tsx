@@ -24,6 +24,11 @@ const styles = css`
   --editor-group-toggle-padding-y: calc(8px * var(--ui-font-scale));
   --editor-group-toggle-icon-size: calc(24px * var(--ui-font-scale));
 
+  @supports not (corner-shape: squircle) {
+    --editor-group-radius: calc(8px * var(--ui-font-scale));
+    --editor-group-toggle-radius: calc(4px * var(--ui-font-scale));
+  }
+
   grid-column: span 2;
   display: flex;
   flex-direction: column;

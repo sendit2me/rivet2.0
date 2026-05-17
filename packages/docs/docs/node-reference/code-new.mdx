@@ -1,0 +1,140 @@
+---
+id: code-new
+title: Code Node
+sidebar_label: Code
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+## Overview
+
+The Code Node runs JavaScript code and returns the exact value returned by that code as a single output.
+
+It is useful when you want the convenience of the Expression node's `{{input}}` ports, but you also want a normal code body with local variables, multiple statements, `await`, and an explicit `return`.
+
+Use [Code (legacy)](./code.mdx) when you need multiple named outputs or when you want to work with the lower-level `inputs.foo.value` API directly.
+
+### Inputs From Interpolation
+
+Code does not have an `Inputs` setting. Instead, any `{{name}}` token in the code creates an input port named `name`.
+
+Interpolated inputs evaluate as connected JavaScript values, not as text snippets. For example:
+
+```js
+const doubled = {{value}} * 2;
+return doubled;
+```
+
+If `value` is connected to the number `21`, the node outputs `42`.
+
+Missing interpolation inputs evaluate as JavaScript `undefined`.
+
+The Code editor recognizes `{{name}}` as Rivet interpolation syntax. It still highlights and checks normal JavaScript around the token, but syntax markers caused only by the interpolation token itself are ignored.
+
+### Accessing Current Graph And Context Inputs
+
+Like Code (legacy), Code can also read the `graphInputs` and `context` variables passed to the JavaScript runner:
+
+```js
+const currentUser = context.currentUser?.value;
+return currentUser?.name ?? 'Unknown';
+```
+
+### Output
+
+Code always has one output named `Output`. Whatever the code returns becomes that output's value:
+
+```js
+const fullName = String({{firstName}}) + ' ' + String({{lastName}});
+return {
+  fullName,
+  length: fullName.length,
+};
+```
+
+The returned value can be a string, number, boolean, object, array, `null`, or JavaScript `undefined`. Rivet displays explicit `null` and `undefined` values as the literal words `null` and `undefined`.
+
+<Tabs
+  defaultValue="inputs"
+  values={[
+    {label: 'Inputs', value: 'inputs'},
+    {label: 'Outputs', value: 'outputs'},
+    {label: 'Editor Settings', value: 'settings'},
+  ]
+}>
+
+<TabItem value="inputs">
+
+## Inputs
+
+| Title     | Data Type | Description                                 | Default Value | Notes                                          |
+| --------- | --------- | ------------------------------------------- | ------------- | ---------------------------------------------- |
+| (dynamic) | Any       | Created from `{{name}}` tokens in the code. | `undefined`   | Values evaluate directly as JavaScript values. |
+
+</TabItem>
+
+<TabItem value="outputs">
+
+## Outputs
+
+| Title  | Data Type | Description                           | Notes           |
+| ------ | --------- | ------------------------------------- | --------------- |
+| Output | Any       | The exact value returned by the code. | Always present. |
+
+</TabItem>
+
+<TabItem value="settings">
+
+## Editor Settings
+
+| Setting             | Description                                                                                                     | Default Value                           | Use Input Toggle | Input Data Type |
+| ------------------- | --------------------------------------------------------------------------------------------------------------- | --------------------------------------- | ---------------- | --------------- |
+| Code                | JavaScript code to run. Use `{{name}}` tokens to create input ports, and `return` the value you want to output. | A small `{{input}}` passthrough example | No               | N/A             |
+| Runtime Permissions | Per-node toggles for optional globals: `fetch`, `Rivet`, `console`, `require`, and `process`.                   | All off                                 | No               | N/A             |
+
+</TabItem>
+
+</Tabs>
+
+## Example: Transform an object
+
+1. Create a Code Node with the following code:
+
+   ```js
+   const user = {{user}};
+
+   return {
+     id: user.id,
+     label: `${user.firstName} ${user.lastName}`,
+   };
+   ```
+
+2. Connect an object value to the `user` port.
+3. Run the graph. The node outputs the returned object.
+
+## Error Handling
+
+If the code throws an error or contains invalid JavaScript, the node errors. In the editor, Rivet shows the failed authored line when it can map the runtime or syntax error back to the Code source.
+
+## FAQ
+
+**Q: How is Code different from Code (legacy)?**
+
+A: Code (legacy) uses manually configured inputs and outputs. You read inputs through `inputs.name.value` and return an object of typed output values. Code creates inputs from `{{name}}` tokens and returns one value directly.
+
+**Q: How is Code different from the Expression Node?**
+
+A: Expression is for a single JavaScript expression. Code is for a code body: you can declare variables, use statements, `await`, and `return`.
+
+**Q: Can I use `require` or `process`?**
+
+A: Yes, but only when the corresponding runtime permission is enabled. `require` and `process` are only available with the Node executor.
+
+**Q: Can I return `undefined`?**
+
+A: Yes. `return undefined;` produces an explicit `undefined` output value, displayed as `undefined`.
+
+## See Also
+
+- [Code (legacy)](./code.mdx)

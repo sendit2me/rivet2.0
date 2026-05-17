@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { ChartNode, NodeId } from '@valerypopoff/rivet2-core';
+import { DEFAULT_CANVAS_NODE_HEIGHT_ESTIMATE } from './canvasVisibilityBounds.js';
 
 export interface SelectionBox {
   x: number;
@@ -47,7 +48,7 @@ export function useSelectionBox() {
 
     const nodesInBox = nodes.filter((node) => {
       const nodeWidth = node.visualData.width ?? 150;
-      const nodeHeight = 150; // Assuming the height is 150
+      const nodeHeight = DEFAULT_CANVAS_NODE_HEIGHT_ESTIMATE;
 
       const nodeArea = nodeWidth * nodeHeight;
       const halfNodeArea = nodeArea / 2;

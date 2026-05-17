@@ -19,10 +19,11 @@ import FolderIcon from 'majesticons/line/folder-line.svg?react';
 import { useStableCallback } from '../../hooks/useStableCallback.js';
 import TextField from '@atlaskit/textfield';
 import { expandedFoldersState } from '../../state/ui';
-import { countGraphsInFolder, type NodeGraphFolderItem } from './graphFolders';
+import { type NodeGraphFolderItem } from './graphFolders';
 import { type GraphReachabilityBucket } from '../../utils/graphReachability.js';
 import { MainGraphIcon } from './MainGraphIcon';
 import { NodeRunningIndicator } from '../visualNode/NodeRunningIndicator.js';
+import { getFolderItemPresentation, getGraphListItemPath } from './useGraphListPresentation.js';
 
 export const FolderItem: FC<{
   item: NodeGraphFolderItem;
@@ -55,27 +56,35 @@ export const FolderItem: FC<{
     const projectMetadata = useAtomValue(projectMetadataState);
     const [expandedFolders, setExpandedFolders] = useAtom(expandedFoldersState);
 
-    const savedGraph = item.type === 'graph' ? item.graph : undefined;
-    const graphIsRunning = savedGraph && runningGraphs.includes(savedGraph.metadata?.id ?? ('' as GraphId));
-    const fullPath = item.type === 'folder' ? item.fullPath : item.graph.metadata?.name ?? 'Untitled Graph';
+    const fullPath = getGraphListItemPath(item);
     const isExpanded = expandedFolders[`${projectMetadata.id}/${fullPath}`] ?? true; // Default open
 
-    const isRenaming = renamingItemFullPath === fullPath;
-    const isSelected = graph.metadata?.id === savedGraph?.metadata?.id;
-    const isMainGraph = item.type === 'graph' && savedGraph?.metadata?.id === projectMetadata.mainGraphId;
-    const referencesSelectedGraph =
-      item.type === 'graph' && savedGraph?.metadata?.id
-        ? referencingSelectedGraphIds.has(savedGraph.metadata.id)
-        : false;
-    const isDraggingOver =
-      item.type === 'folder' && dragOverFolderName === fullPath && draggingItemFolder !== dragOverFolderName;
-    const graphReachability =
-      item.type === 'graph' && savedGraph?.metadata?.id
-        ? graphReachabilityByGraphId[savedGraph.metadata.id]
-        : undefined;
-    const folderGraphCount = item.type === 'folder' ? countGraphsInFolder(item) : undefined;
-    const shouldShowUnreachableBadge =
-      item.type === 'graph' && !isRenaming && showUnreachableBadges && graphReachability === 'unreachable';
+    const {
+      folderGraphCount,
+      graphIsRunning,
+      isCollapsedOpenGraphFolder,
+      isDraggingOver,
+      isMainGraph,
+      isRenaming,
+      isSelected,
+      referencesSelectedGraph,
+      savedGraph,
+      shouldShowUnreachableBadge,
+      title,
+    } = getFolderItemPresentation({
+      currentGraph: graph,
+      dragOverFolderName,
+      draggingItemFolder,
+      fullPath,
+      graphReachabilityByGraphId,
+      isExpanded,
+      item,
+      mainGraphId: projectMetadata.mainGraphId,
+      referencingSelectedGraphIds,
+      renamingItemFullPath,
+      runningGraphs,
+      showUnreachableBadges,
+    });
 
     const handleRenameSaved = useStableCallback((newName: string) => {
       onRenameItem(fullPath, fullPath.replace(/[^/]+$/, newName));
@@ -138,18 +147,16 @@ export const FolderItem: FC<{
           style={style}
         >
           <div
-            className={clsx('graph-item', { selected: isSelected, 'folder-graph-item': item.type === 'folder' })}
+            className={clsx('graph-item', {
+              selected: isSelected,
+              'folder-graph-item': item.type === 'folder',
+              'contains-open-graph': isCollapsedOpenGraphFolder,
+            })}
             data-contextmenutype={item.type === 'folder' ? 'graph-folder' : 'graph-item'}
             data-graphid={savedGraph?.metadata?.id}
             data-folderpath={item.type === 'folder' ? item.fullPath : item.graph.metadata?.name}
             style={graphItemStyle}
-            title={[
-              fullPath,
-              isMainGraph ? 'Main graph.' : undefined,
-              referencesSelectedGraph ? 'References the open graph.' : undefined,
-            ]
-              .filter(Boolean)
-              .join('\n')}
+            title={title}
           >
             <div className="graph-item-select" {...draggableRowProps} onClick={handleItemClick}>
               {isRenaming ? (

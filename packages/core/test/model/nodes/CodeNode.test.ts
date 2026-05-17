@@ -30,6 +30,13 @@ const createContext = (codeRunner = new IsomorphicCodeRunner()) =>
   }) as InternalProcessContext;
 
 describe('CodeNode', () => {
+  it('creates the legacy Code node label', () => {
+    const node = CodeNodeImpl.create();
+
+    assert.strictEqual(node.type, 'code');
+    assert.strictEqual(node.title, 'Code (legacy)');
+  });
+
   it('returns a colorized body preview without per-line ellipsis truncation', () => {
     const node = createNode({
       code: [
@@ -81,10 +88,10 @@ describe('CodeNode', () => {
         assert.ok(error instanceof ReferenceError);
         assert.equal(error.name, 'ReferenceError');
         assert.match(error.message, /missingVariable is not defined/);
-        assert.match(error.message, /Code node line 3, column \d+/);
+        assert.match(error.message, /Code \(legacy\) node line 3, column \d+/);
         assert.match(
           error.stack ?? '',
-          /^ReferenceError: missingVariable is not defined \(Code node line 3, column \d+\)/,
+          /^ReferenceError: missingVariable is not defined \(Code \(legacy\) node line 3, column \d+\)/,
         );
         return true;
       },
@@ -106,7 +113,7 @@ describe('CodeNode', () => {
       () => node.process({}, createContext()),
       (error: unknown) => {
         assert.ok(error instanceof Error);
-        assert.match(error.message, /Code node line 2, column \d+/);
+        assert.match(error.message, /Code \(legacy\) node line 2, column \d+/);
         return true;
       },
     );
@@ -127,7 +134,7 @@ describe('CodeNode', () => {
       (error: unknown) => {
         assert.ok(error instanceof Error);
         assert.equal(error.name, 'SyntaxError');
-        assert.match(error.message, /Code node line 2, column \d+/);
+        assert.match(error.message, /Code \(legacy\) node line 2, column \d+/);
         return true;
       },
     );

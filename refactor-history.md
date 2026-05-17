@@ -544,11 +544,66 @@ not preserve a complete file list.
     - How: Added `providerStreamParsing.ts` and shared JSON chunk parse/error policy while avoiding a broad provider abstraction.
     - Affected files/areas: `openai.ts`, `anthropic.ts`, `ChatAnthropicNode.ts`, `providerStreamParsing.ts`, `providerStreamParsing.test.ts`.
 
+103. **Split node-output surface ownership**
+    - Why: `NodeOutput.tsx` had grown into a broad owner for inline rendering, fullscreen modal orchestration, process paging, output fade/replacement policy, search, wrapping, copy actions, and prompt-designer entry.
+    - How: Kept `NodeOutput.tsx` as the stable adapter and compatibility re-export, then moved in-canvas rendering to `NodeInlineOutput.tsx`, fullscreen output orchestration to `NodeFullscreenOutput.tsx`, content-key fade/replacement-grace policy to `NodeOutputContentState.tsx`, and shared process controls to `NodeOutputPager.tsx`.
+    - Affected files/areas: `NodeOutput.tsx`, `NodeInlineOutput.tsx`, `NodeFullscreenOutput.tsx`, `NodeOutputContentState.tsx`, `NodeOutputPager.tsx`, node-output regression tests, `developer-docs/APP-ARCHITECTURE.md`.
+
+104. **Extract graph-list menu and presentation helpers**
+    - Why: `GraphList.tsx` still owned menu item construction, context-menu target normalization, reachability/reference derivation, and row presentation flags alongside drag/drop, modal state, and rendering.
+    - How: Added pure graph-list context-menu builders and target resolution in `graphListContextMenu.ts`, moved reachability/reference and row presentation derivation into `useGraphListPresentation.ts`, and left command dispatch plus graph/project modal ownership in `GraphList.tsx`.
+    - Affected files/areas: `GraphList.tsx`, `FolderItem.tsx`, `graphListContextMenu.ts`, `useGraphListPresentation.ts`, graph-list regression tests, `developer-docs/APP-ARCHITECTURE.md`.
+
+105. **Separated execution-data storage, preview, and copy policy**
+    - Why: `executionDataTransforms.ts` and `executionDataCopyValue.ts` mixed storage/ref lifecycle, preview decisions, restore helpers, and display-copy projection in broad utility files.
+    - How: Added focused storage, preview, and sanitization modules, kept `executionDataTransforms.ts` as a compatibility facade, split display-copy implementation under `executionDataCopy/`, and moved internal imports to the new ownership modules.
+    - Affected files/areas: `executionDataStorage.ts`, `executionDataPreview.ts`, `executionDataSanitization.ts`, `executionDataCopy/*`, execution-data regression tests, `developer-docs/APP-ARCHITECTURE.md`, `developer-docs/EXECUTION-DATA-FLOW.md`.
+
+106. **Simplified remote execution client pipeline**
+    - Why: `useRemoteExecutor.ts` owned upload cache decisions, websocket send handling, active request filtering, and Trivet pending-run cleanup alongside its React/session adapter responsibilities.
+    - How: Added explicit upload planning in `remoteExecutorUploadCache.ts`, extracted request-id registration/filtering/send-failure helpers into `remoteExecutorRunRequest.ts`, and rewired `useRemoteExecutor.ts` to use those helpers while keeping atom reads and execution side effects in the hook.
+    - Affected files/areas: `useRemoteExecutor.ts`, `remoteExecutorUploadCache.ts`, `remoteExecutorRunRequest.ts`, remote executor helper tests, `developer-docs/APP-ARCHITECTURE.md`, `developer-docs/EXECUTION-DATA-FLOW.md`.
+
+107. **Split Remote Debugger server transport policies**
+    - Why: `debugger.ts` owned websocket protocol handling, heartbeat, safe-send behavior, error emission, processor attachment cleanup, request-id association, and partial-output throttling in one high-impact transport file.
+    - How: Kept `startDebuggerServer` as the public protocol assembler while extracting best-effort send/error policy to `debuggerTransport.ts`, heartbeat and timer cleanup to `debuggerHeartbeat.ts`, and processor listener lifecycle to `debuggerProcessorAttachments.ts`.
+    - Affected files/areas: `packages/node/src/debugger.ts`, `debuggerTransport.ts`, `debuggerHeartbeat.ts`, `debuggerProcessorAttachments.ts`, Remote Debugger API docs, `developer-docs/APP-ARCHITECTURE.md`, `developer-docs/EXECUTION-DATA-FLOW.md`.
+
+108. **Clarified app-executor Code worker ownership**
+    - Why: `AppExecutorWorkerCodeRunner.mts` mixed CodeRunner orchestration, shared worker-pool lifecycle, package-sensitive stringified worker source, host-side request/result handling, and current-thread fallback behavior.
+    - How: Kept `AppExecutorWorkerCodeRunner.mts` as the orchestration adapter, moved shared prewarm/pool lifecycle into `codeRunnerWorkerPool.mts`, and moved the eval worker source plus ready/result/error handling into `codeRunnerWorkerHost.mts`.
+    - Affected files/areas: `packages/app-executor/bin/AppExecutorWorkerCodeRunner.mts`, `codeRunnerWorkerPool.mts`, `codeRunnerWorkerHost.mts`, `developer-docs/PACKAGES.md`, `developer-docs/EXECUTION-DATA-FLOW.md`, `developer-docs/CORE-ENGINE.md`, `developer-docs/APP-ARCHITECTURE.md`.
+
+109. **Unified JS interpolation execution helpers**
+    - Why: Code, Expression, JS Filter, and JS Map shared value-backed interpolation behavior but duplicated generated-code policy around input discovery, cloned inputs, safe helper identifiers, preview text, and generated-error sanitization.
+    - How: Moved the shared mechanics into `jsValueInterpolation.ts` while keeping each node's runtime wrapper, output contract, permission policy, JS-list fixed-array clone order, and Code-specific line diagnostics explicit.
+    - Affected files/areas: `CodeNewNode.ts`, `ExpressionNode.ts`, `jsListCallbackHelpers.ts`, `jsValueInterpolation.ts`, interpolation/display regression tests, `developer-docs/CORE-ENGINE.md`.
+
+110. **Characterized GraphProcessor before further extraction**
+    - Why: `GraphProcessor.ts` remains the execution heart, so further splitting needs a focused public-behavior safety net before any policy movement.
+    - How: Added characterization coverage for root event order, error/finish behavior, partial-output process identity, subgraph execution metadata, preload/run-to boundaries, pause/resume scheduling, globals, and race winner/loser handling without moving runtime code.
+    - Affected files/areas: `GraphProcessor.characterization.test.ts`, `developer-docs/CORE-ENGINE.md`, `refactor.md`.
+
+111. **Hardened execution-data visibility, restore, and copy boundaries after the split**
+    - Why: The storage/copy split exposed subtle presence-vs-value risks: absent/nullish stored port wrappers could look like explicit `undefined`, empty or hidden-only split-output maps could hide valid final `outputData`, and warnings/internal ports could leak into body rendering or copy projection.
+    - How: Added shared visible-output-port policy, skipped absent wrappers consistently, preserved explicit `{ type: 'any', value: undefined }` as real data, restored preview-only inputs per port, kept executor preload strict while rejecting malformed empty output maps, aligned inline/fullscreen warning rendering, gated custom copy projectors on visible output maps, and covered hidden-only split data for internal JSON copy when no final output fallback exists.
+    - Affected files/areas: `outputPortVisibility.ts`, `executionDataReaders.ts`, `executionDataStorage.ts`, `executionDataCopy/*`, `nodeOutputCopyValueProjectors.ts`, `RenderDataValue.tsx`, `PortInfo.tsx`, `ChatViewer.tsx`, node output components, Code/Expression/JS-list/Extract Object Path preview components, Prompt Designer hydration, run-from preload helpers, execution-data and output regression tests, `developer-docs/EXECUTION-DATA-FLOW.md`, `refactor.md`.
+
+112. **Tightened remote-run preload eligibility after the client-pipeline split**
+    - Why: Run-from preload should reuse only real stored boundary outputs. A stored map whose ports are all absent/nullish is malformed history, not a reusable upstream result.
+    - How: Reused the execution-data reader boundary for preload extraction, skipped malformed empty stored output maps, and kept older usable runs eligible as fallback data for editor run-from behavior.
+    - Affected files/areas: `remoteExecutorHelpers.ts`, `remoteExecutorHelpers.test.ts`, `executionDataReaders.ts`, `developer-docs/EXECUTION-DATA-FLOW.md`, `refactor.md`.
+
+113. **Encapsulated Remote Debugger attachment snapshots after the transport split**
+    - Why: Processor-routing callbacks received the live attached-processor list, which made it possible for routing code to mutate debugger-server attachment state accidentally.
+    - How: Returned snapshots of attached processors to routing callbacks, kept the attachment helper as the state owner, and added regression coverage for snapshot behavior.
+    - Affected files/areas: `packages/node/src/debuggerProcessorAttachments.ts`, `packages/node/src/debugger.ts`, `packages/node/test/debugger.test.ts`, `developer-docs/EXECUTION-DATA-FLOW.md`, `refactor.md`.
+
 ## Residual Watchlist For Future Refactors
 
 1. **GraphProcessor size and responsibility concentration**
-   - Current state: Several targeted extractions landed, but `GraphProcessor.ts` still owns many execution policies.
-   - Next refactor should start with characterization tests for event order, aborts, subgraphs, loops, races, and control-flow exclusion.
+   - Current state: Several targeted extractions landed and Phase 8 added a characterization suite, but `GraphProcessor.ts` still owns many execution policies.
+   - Next refactor should extract one policy at a time and extend the characterization suite before touching event order, aborts, subgraphs, loops, races, or control-flow exclusion.
 
 2. **MCP stdio config logging and env handling**
    - Current state: Deferred intentionally.

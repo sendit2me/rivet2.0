@@ -64,8 +64,6 @@ type WireLayerProps = {
     nodeId: NodeId;
     portId: PortId;
   };
-  isViewportMoving: boolean;
-  isViewportVisibilitySettled: boolean;
   nearViewportNodeIdSet: ReadonlySet<NodeId>;
   portPositions: PortPositions;
   visibleNodeIdSet: ReadonlySet<NodeId>;
@@ -78,8 +76,6 @@ export const WireLayer: FC<WireLayerProps> = ({
   draggingNode,
   highlightedNodes,
   highlightedPort,
-  isViewportMoving,
-  isViewportVisibilitySettled,
   nearViewportNodeIdSet,
   portPositions,
   visibleNodeIdSet,
@@ -179,8 +175,6 @@ export const WireLayer: FC<WireLayerProps> = ({
     draggingWire: !!draggingWire,
     highlightedNodes,
     highlightedPort,
-    isViewportMoving,
-    isViewportVisibilitySettled,
     nearViewportNodeIdSet,
     nodesById,
     portPositions,

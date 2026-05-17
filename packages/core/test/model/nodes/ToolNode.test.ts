@@ -13,11 +13,28 @@ const createNode = (data: Partial<GptFunctionNode['data']>) => {
 };
 
 describe('GptFunctionNodeImpl', () => {
+  it('marks the schema editor as JSON with template interpolation syntax', () => {
+    const node = createNode({});
+    const editors = node.getEditors();
+
+    assert.deepStrictEqual(editors[3], {
+      type: 'code',
+      label: 'Schema',
+      dataKey: 'schema',
+      language: 'json',
+      interpolationSyntax: 'json-template',
+      useInputToggleDataKey: 'useSchemaInput',
+      enableFolding: true,
+    });
+  });
+
   it('discovers later valid schema inputs even when an earlier interpolation opener is broken', () => {
     const node = createNode({
-      schema: ['{"type":"object","properties":{"foo":{"default":"{{foo}}"},', '"bar":{"default":"{{bar"},', '"baz":{"default":"{{somevar}}"}}}'].join(
-        '\n',
-      ),
+      schema: [
+        '{"type":"object","properties":{"foo":{"default":"{{foo}}"},',
+        '"bar":{"default":"{{bar"},',
+        '"baz":{"default":"{{somevar}}"}}}',
+      ].join('\n'),
     });
 
     assert.deepStrictEqual(

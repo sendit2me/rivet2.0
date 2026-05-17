@@ -54,16 +54,22 @@ The underlying `ws` server instance.
 Sends a debugger message to the clients associated with a processor.
 
 Most integrations do not call this directly. The debugger server wires processor events to broadcasts when `attach` is called.
+Server-to-client debugger sends, including broadcasts and connection-time messages, are best-effort: serialization or websocket
+send failures are emitted through the debugger `error` event, the failed websocket is terminated, and graph execution continues.
 
 ### attach(processor, requestId?)
 
 Attaches a `GraphProcessor` to the debugger server. Attached processors broadcast execution events to Rivet clients.
 
-The Node package calls this for you when `remoteDebugger` is passed to `createProcessor` or `runGraph`.
+The Node package calls this for you when `remoteDebugger` is passed to `createProcessor` or `runGraph`; `createProcessor`
+also re-attaches before each `run()` so reused processor objects continue to emit debugger events.
+Processor attachments are run-scoped: the debugger server removes its processor listeners when `detach` is called and also
+auto-detaches after the processor emits its root `finish` event.
 
 ### detach(processor)
 
-Detaches a processor from the debugger server.
+Detaches a processor from the debugger server and removes the debugger event listeners registered by `attach`. Calling
+`detach` more than once for the same processor is safe.
 
 ## Usage
 
@@ -87,7 +93,8 @@ await runGraph(project, {
 
 - The default debugger port is `21888`.
 - `startDebuggerServer` accepts a `host` option. Use an explicit host when exposing the debugger outside localhost.
-- `startDebuggerServer` sends WebSocket ping frames by default so idle remote-debugger sockets stay alive through common proxy and CDN idle timeouts.
+- `startDebuggerServer` sends WebSocket ping frames by default so idle remote-debugger sockets stay alive through common proxy and CDN idle timeouts. Real debugger traffic also resets any pending heartbeat timeout.
+- Server transport sends and processor attachment cleanup are best-effort server policies; they do not change the websocket message schema or require app-side reconnect behavior for external debugger sessions.
 - The app executor uses a separate internal executor WebSocket contract. `RivetDebuggerServer` is for programmatic Node executions that want remote-debugger inspection.
 
 ## See Also

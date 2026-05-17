@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  CodeNewNodeImpl,
   ExpressionNodeImpl,
   ExtractObjectPathNodeImpl,
   GptFunctionNodeImpl,
@@ -137,6 +138,27 @@ test('marks Expression interpolation inputs', () => {
   const node = new ExpressionNodeImpl(
     createNode(ExpressionNodeImpl.create(), {
       expression: '{{left}} + {{right}}',
+    }),
+  );
+
+  assert.deepEqual(getInterpolationPorts(node.getInputDefinitions()), [
+    {
+      id: 'left',
+      title: 'left',
+      interpolationName: 'left',
+    },
+    {
+      id: 'right',
+      title: 'right',
+      interpolationName: 'right',
+    },
+  ]);
+});
+
+test('marks Code interpolation inputs', () => {
+  const node = new CodeNewNodeImpl(
+    createNode(CodeNewNodeImpl.create(), {
+      code: 'const value = {{left}} + {{right}};\nreturn value;',
     }),
   );
 

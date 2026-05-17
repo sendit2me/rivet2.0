@@ -1,12 +1,12 @@
 import { css } from '@emotion/react';
 import { type FC, type ReactNode } from 'react';
 import ColorizedPreformattedText from '../ColorizedPreformattedText.js';
-import { outputSectionLabelStyles } from '../renderDataValue/renderDataValueStyles.js';
+import { outputSectionGroupGap, outputSectionLabelStyles } from '../renderDataValue/renderDataValueStyles.js';
 
 const structuredNodeOutputCss = css`
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: ${outputSectionGroupGap};
 
   .structured-node-output-section {
     display: flex;
@@ -39,13 +39,18 @@ export const StructuredNodeOutput: FC<{
   children?: ReactNode;
   errorMessage?: string;
   parsedSource?: string;
+  parsedSourceLabel?: string;
   parsedSourceLanguage?: string;
-}> = ({ children, errorMessage, parsedSource, parsedSourceLanguage }) => (
+}> = ({ children, errorMessage, parsedSource, parsedSourceLabel, parsedSourceLanguage }) => (
   <div css={structuredNodeOutputCss}>
     {errorMessage !== undefined && <div className="structured-node-output-error">{errorMessage}</div>}
     {children}
     {parsedSource !== undefined && parsedSourceLanguage && (
-      <ParsedSourceOutputSection source={parsedSource} language={parsedSourceLanguage} />
+      <ParsedSourceOutputSection
+        label={parsedSourceLabel ?? 'Parsed expression'}
+        source={parsedSource}
+        language={parsedSourceLanguage}
+      />
     )}
   </div>
 );
@@ -66,10 +71,11 @@ export const StructuredNodeOutputSection: FC<{
 );
 
 const ParsedSourceOutputSection: FC<{
+  label: string;
   language: string;
   source: string;
-}> = ({ language, source }) => (
-  <StructuredNodeOutputSection label="Parsed expression" className="structured-node-output-source">
+}> = ({ label, language, source }) => (
+  <StructuredNodeOutputSection label={label} className="structured-node-output-source">
     <ColorizedPreformattedText text={source} language={language} />
   </StructuredNodeOutputSection>
 );

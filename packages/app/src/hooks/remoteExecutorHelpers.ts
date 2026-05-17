@@ -9,8 +9,8 @@ import {
 } from '@valerypopoff/rivet2-core';
 import type { ProcessDataForNode, RunDataByNodeId } from '../state/dataFlow.js';
 import type { DataRefReader } from '../providers/ProvidersContext.js';
-import { restoreStoredPortMap } from '../utils/executionDataReaders.js';
-import { hasUnavailableStoredRefs } from '../utils/executionDataTransforms.js';
+import { hasStoredPortMapValues, restoreStoredPortMap } from '../utils/executionDataReaders.js';
+import { hasUnavailableStoredRefs } from '../utils/executionDataStorage.js';
 import { getGlobalDataRef } from '../utils/globals/globalDataRefs.js';
 
 const dataRefs: DataRefReader = {
@@ -29,13 +29,13 @@ export function getDependentDataForNodeForPreload(dependencyNodes: NodeId[], pre
 
     const latestExecutionWithOutput = findLatestExecutionWithOutput(dependencyNodeData);
 
-    if (!latestExecutionWithOutput?.data.outputData) {
+    const outputData = latestExecutionWithOutput?.data.outputData;
+    if (!hasStoredPortMapValues(outputData)) {
       throw new Error(
         `Node ${dependencyNode} has no output data in the previous run data, cannot continue preloading data`,
       );
     }
 
-    const outputData = latestExecutionWithOutput.data.outputData;
     let outputDataWithoutRefs: Outputs | undefined;
 
     try {
@@ -46,7 +46,7 @@ export function getDependentDataForNodeForPreload(dependencyNodes: NodeId[], pre
       );
     }
 
-    if (!outputDataWithoutRefs) {
+    if (!outputDataWithoutRefs || Object.keys(outputDataWithoutRefs).length === 0) {
       throw new Error(
         `Node ${dependencyNode} output data could not be restored from execution memory, cannot continue preloading data`,
       );
@@ -139,7 +139,7 @@ export function getUnavailablePreloadNodeIds(preloadNodeIds: NodeId[], previousR
     const latestExecutionWithOutput = findLatestExecutionWithOutput(previousRunData[nodeId]);
     const outputData = latestExecutionWithOutput?.data.outputData;
 
-    return !outputData || hasUnavailableStoredRefs(outputData, dataRefs);
+    return !hasStoredPortMapValues(outputData) || hasUnavailableStoredRefs(outputData, dataRefs);
   });
 }
 
@@ -149,7 +149,7 @@ function findLatestExecutionWithOutput(executions: ProcessDataForNode[] | undefi
   }
 
   for (let index = executions.length - 1; index >= 0; index--) {
-    if (executions[index]?.data.outputData) {
+    if (hasStoredPortMapValues(executions[index]?.data.outputData)) {
       return executions[index];
     }
   }

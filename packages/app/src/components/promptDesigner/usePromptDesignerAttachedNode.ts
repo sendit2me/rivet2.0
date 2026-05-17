@@ -18,7 +18,7 @@ import {
 } from '@valerypopoff/rivet2-core';
 import { useClearCurrentGraphHistory } from '../../commands/Command.js';
 import { useDataRefs } from '../../providers/ProvidersContext.js';
-import { restoreStoredPortMap } from '../../utils/executionDataReaders.js';
+import { tryRestoreStoredPortMap } from '../../utils/executionDataReaders.js';
 import { handleError } from '../../utils/errorHandling.js';
 
 const lastPromptDesignerAttachedNodeState = atom<NodeId | undefined>(undefined);
@@ -71,7 +71,8 @@ export const usePromptDesignerAttachedNode = ({
 
     if (nodeDataForAttachedNodeProcess?.inputData) {
       try {
-        let inputData = restoreStoredPortMap(nodeDataForAttachedNodeProcess.inputData, dataRefs) as Inputs;
+        let inputData =
+          (tryRestoreStoredPortMap(nodeDataForAttachedNodeProcess.inputData, dataRefs) as Inputs | undefined) ?? {};
         if (attachedNode.isSplitRun) {
           inputData = Object.fromEntries(
             Object.entries(inputData).map(([portId, value]) => {

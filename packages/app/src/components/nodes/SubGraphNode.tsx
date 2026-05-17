@@ -7,7 +7,7 @@ import { RenderDataOutputs, type OutputRenderMode } from '../RenderDataValue.js'
 import { omit } from 'lodash-es';
 import { type InputsOrOutputsWithRefs } from '../../state/dataFlow';
 import { useDataRefs } from '../../providers/ProvidersContext.js';
-import { tryRestoreStoredDataValue } from '../../utils/executionDataTransforms.js';
+import { tryRestoreStoredDataValue } from '../../utils/executionDataStorage.js';
 import { getSubGraphNodeCopyValueData } from '../../utils/nodeOutputCopyValueProjectors.js';
 
 export const SubGraphNodeBody: FC<{

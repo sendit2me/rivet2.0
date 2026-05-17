@@ -56,6 +56,7 @@ const type = <T>() => undefined! as T;
 type NodeContextMenuData = {
   nodeType: ChartNode['type'];
   nodeId: NodeId;
+  canRunFromEditor: boolean;
   canRunFromHere: boolean;
 };
 
@@ -68,6 +69,7 @@ const getNodeContextMenuData = (context: unknown): NodeContextMenuData | undefin
   if (
     typeof data.nodeType !== 'string' ||
     typeof data.nodeId !== 'string' ||
+    typeof data.canRunFromEditor !== 'boolean' ||
     typeof data.canRunFromHere !== 'boolean'
   ) {
     return undefined;
@@ -76,18 +78,19 @@ const getNodeContextMenuData = (context: unknown): NodeContextMenuData | undefin
   return {
     nodeType: data.nodeType as ChartNode['type'],
     nodeId: data.nodeId as NodeId,
+    canRunFromEditor: data.canRunFromEditor,
     canRunFromHere: data.canRunFromHere,
   };
 };
 
 const isExecutableNodeContext = (context: unknown) => {
   const data = getNodeContextMenuData(context);
-  return data != null && data.nodeType !== 'comment';
+  return data != null && data.canRunFromEditor && data.nodeType !== 'comment';
 };
 
 const canRunFromHere = (context: unknown) => {
   const data = getNodeContextMenuData(context);
-  return data != null && data.nodeType !== 'comment' && data.canRunFromHere;
+  return data != null && data.canRunFromEditor && data.nodeType !== 'comment' && data.canRunFromHere;
 };
 
 const isSubgraphNodeContext = (context: unknown) => getNodeContextMenuData(context)?.nodeType === 'subGraph';

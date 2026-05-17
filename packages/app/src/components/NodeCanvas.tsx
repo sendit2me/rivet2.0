@@ -42,9 +42,10 @@ import {
 import { graphMetadataState } from '../state/graph.js';
 import { lastRunDataByNodeState, selectedProcessPageNodesState } from '../state/dataFlow';
 import { projectState, referencedProjectsState } from '../state/savedGraphs.js';
-import { zoomSensitivityState } from '../state/settings';
+import { selectedExecutorState, zoomSensitivityState } from '../state/settings';
 import { canvasPreviewConnectionsState } from '../state/selectors/canvasGraphSelectors.js';
 import { nodesByIdState } from '../state/selectors/graphSelectors.js';
+import { canRunGraphFromEditor } from '../state/selectors/executionSelectors.js';
 import { MouseIcon } from './MouseIcon';
 import { type ContextMenuContext } from './ContextMenu.js';
 import { nodeCanvasStyles } from './nodeCanvas/nodeCanvasStyles.js';
@@ -57,8 +58,9 @@ import type { NodeResizeBounds } from '../utils/nodeResize.js';
 import { MEDIUM_GRAPH_NODE_THRESHOLD } from './nodeCanvas/canvasPerformanceBudget.js';
 import { getCanvasPerfSnapshot } from './nodeCanvas/canvasPerfDebug.js';
 import { groupConnectionsByNode } from './nodeCanvas/groupConnectionsByNode.js';
-import { getDraggingViewportNodeIds, shouldFreezeViewportVisibility } from './nodeCanvas/viewportVisibilityPolicy.js';
+import { getDraggingViewportNodeIds } from './nodeCanvas/draggingViewportNodeIds.js';
 import { filterValidSubGraphConnections } from '../domain/graphEditing/connectionValidation.js';
+import { useExecutorSessionState } from '../hooks/useExecutorSession.js';
 
 const EMPTY_NODE_CONNECTIONS: NodeConnection[] = [];
 const EMPTY_NODE_IDS: NodeId[] = [];
@@ -109,11 +111,17 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
   const fullscreenOutputNodeId = useAtomValue(fullscreenOutputNodeState);
   const lastRunPerNode = useAtomValue(lastRunDataByNodeState);
   const selectedProcessPagePerNode = useAtomValue(selectedProcessPageNodesState);
+  const selectedExecutor = useAtomValue(selectedExecutorState);
   const zoomSensitivity = useAtomValue(zoomSensitivityState);
   const rawPreviewConnections = useAtomValue(canvasPreviewConnectionsState);
   const nodesById = useAtomValue(nodesByIdState);
   const project = useAtomValue(projectState);
   const referencedProjects = useAtomValue(referencedProjectsState);
+  const executorSession = useExecutorSessionState();
+  const canStartEditorGraphRun = canRunGraphFromEditor({
+    selectedExecutor,
+    session: executorSession,
+  });
 
   const setLastSavedCanvasPosition = useSetAtom(lastCanvasPositionByGraphState);
   const setLastMousePosition = useSetAtom(lastMousePositionState);
@@ -278,9 +286,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
     canvasMouseUp,
     handleCanvasContextMenu,
     handleZoom,
-    isViewportMoving,
     lastMouseInfoRef,
-    reportViewportMotion,
   } = useNodeCanvasInteractions({
     canvasPosition,
     clientToCanvasPosition,
@@ -304,7 +310,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
     updateSelectionBox,
     zoomSensitivity,
   });
-  useWireDragScrolling(reportViewportMotion);
+  useWireDragScrolling();
 
   const onNodeSizeChanged = useStableCallback((node: ChartNode, nextBounds: NodeResizeBounds) => {
     onNodesChanged(
@@ -389,23 +395,15 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
 
     return [...highlightedNodeIds];
   }, [hoveringNode, hoveringPort, selectedViewportNodeIds]);
-  const freezeViewportVisibility = shouldFreezeViewportVisibility({
-    isDraggingNode,
-    isDraggingWire,
-    isViewportMoving,
+  const { heavyContentNodeIdSet, nearViewportNodeIdSet, visibleNodeIdSet } = useVisibleCanvasNodes({
+    draggingNodeIds: draggingViewportNodeIds,
+    editingNodeId,
+    expandedOutputNodeIds,
+    hoveringNodeId: hoveringNode,
+    nodes,
+    selectedNodeIds: selectedViewportNodeIds,
+    viewportBounds,
   });
-
-  const { heavyContentNodeIdSet, isViewportVisibilitySettled, nearViewportNodeIdSet, visibleNodeIdSet } =
-    useVisibleCanvasNodes({
-      draggingNodeIds: draggingViewportNodeIds,
-      editingNodeId,
-      expandedOutputNodeIds,
-      hoveringNodeId: hoveringNode,
-      isViewportMoving: freezeViewportVisibility,
-      nodes,
-      selectedNodeIds: selectedViewportNodeIds,
-      viewportBounds,
-    });
 
   const {
     nodePortPositions,
@@ -462,7 +460,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
       const nodeId = contextMenuData.data.element.dataset.nodeid as NodeId;
       let canRunFromHere = false;
 
-      if (selectedGraphMetadata?.id) {
+      if (canStartEditorGraphRun && selectedGraphMetadata?.id) {
         try {
           const runFromPlan = getEditorRunFromPlan(
             projectWithCanvasGraph,
@@ -481,6 +479,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
         data: {
           nodeType,
           nodeId,
+          canRunFromEditor: canStartEditorGraphRun,
           canRunFromHere,
         },
       };
@@ -490,7 +489,14 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
       type: 'blankArea',
       data: {},
     };
-  }, [contextMenuData, lastRunPerNode, projectNodeRegistry, projectWithCanvasGraph, selectedGraphMetadata?.id]);
+  }, [
+    canStartEditorGraphRun,
+    contextMenuData,
+    lastRunPerNode,
+    projectNodeRegistry,
+    projectWithCanvasGraph,
+    selectedGraphMetadata?.id,
+  ]);
 
   useCanvasHotkeys();
   useSearchGraph();
@@ -640,8 +646,6 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
             draggingWire={draggingWire}
             highlightedNodes={highlightedNodes}
             highlightedPort={hoveringPort}
-            isViewportMoving={isViewportMoving}
-            isViewportVisibilitySettled={isViewportVisibilitySettled}
             nearViewportNodeIdSet={nearViewportNodeIdSet}
             portPositions={nodePortPositions}
             visibleNodeIdSet={visibleNodeIdSet}

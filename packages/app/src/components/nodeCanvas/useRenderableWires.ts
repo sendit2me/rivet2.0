@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useRef } from 'react';
 import type { ChartNode, NodeConnection, NodeId, PortId } from '@valerypopoff/rivet2-core';
 import { getConnectionCacheKeys, getNodePortPosition } from '../Wire.js';
 import type { PortPositions } from '../NodeCanvas.js';
 import { lineCrossesViewport, type LineClipRect } from '../../utils/lineClipping.js';
-import { useStableCallback } from '../../hooks/useStableCallback.js';
 import { markCanvasPerfEnd, markCanvasPerfStart, setCanvasPerf } from './canvasPerfDebug.js';
 import { getRenderableWireCandidates } from './getRenderableWireCandidates.js';
 
@@ -16,8 +15,6 @@ export function useRenderableWires({
   draggingWire,
   highlightedNodes,
   highlightedPort,
-  isViewportMoving,
-  isViewportVisibilitySettled,
   nearViewportNodeIdSet,
   nodesById,
   portPositions,
@@ -37,8 +34,6 @@ export function useRenderableWires({
         portId: PortId;
       }
     | undefined;
-  isViewportMoving: boolean;
-  isViewportVisibilitySettled: boolean;
   nearViewportNodeIdSet: ReadonlySet<NodeId>;
   nodesById: Record<NodeId, ChartNode>;
   portPositions: PortPositions;
@@ -46,6 +41,7 @@ export function useRenderableWires({
   visibleNodeIdSet: ReadonlySet<NodeId>;
   viewportClientRect: LineClipRect;
 }): NodeConnection[] {
+  const stableRenderableWiresRef = useRef<NodeConnection[] | undefined>(undefined);
   const candidateConnections = useMemo(
     () =>
       getRenderableWireCandidates({
@@ -69,9 +65,7 @@ export function useRenderableWires({
       visibleNodeIdSet,
     ],
   );
-  const [renderableWires, setRenderableWires] = useState<NodeConnection[]>(candidateConnections);
-
-  const recalculateRenderableWires = useStableCallback(() => {
+  return useMemo(() => {
     markCanvasPerfStart('WireLayer:recalculateRenderableWires');
 
     const nextRenderableWires = candidateConnections.filter((connection) => {
@@ -96,33 +90,20 @@ export function useRenderableWires({
     setCanvasPerf('WireLayer:renderableWireCount', nextRenderableWires.length);
     markCanvasPerfEnd('WireLayer:recalculateRenderableWires');
 
-    setRenderableWires((previousRenderableWires) =>
-      areConnectionListsEqual(previousRenderableWires, nextRenderableWires) ? previousRenderableWires : nextRenderableWires,
-    );
-  });
+    const stableRenderableWires =
+      stableRenderableWiresRef.current && areConnectionListsEqual(stableRenderableWiresRef.current, nextRenderableWires)
+        ? stableRenderableWiresRef.current
+        : nextRenderableWires;
 
-  useEffect(() => {
-    const shouldFreezeStaticWires = isViewportMoving && !isViewportVisibilitySettled && !draggingWire && !draggingNode;
-
-    if (shouldFreezeStaticWires) {
-      return;
-    }
-
-    recalculateRenderableWires();
+    stableRenderableWiresRef.current = stableRenderableWires;
+    return stableRenderableWires;
   }, [
     canvasToClientPosition,
     candidateConnections,
-    draggingNode,
-    draggingWire,
-    isViewportMoving,
-    isViewportVisibilitySettled,
     nodesById,
     portPositions,
-    recalculateRenderableWires,
     viewportClientRect,
   ]);
-
-  return renderableWires;
 }
 
 function areConnectionListsEqual(previous: NodeConnection[], next: NodeConnection[]): boolean {

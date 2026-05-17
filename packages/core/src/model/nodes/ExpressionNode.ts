@@ -12,16 +12,16 @@ import { dedent } from 'ts-dedent';
 import type { Inputs, Outputs } from '../GraphProcessor.js';
 import type { InternalProcessContext } from '../ProcessContext.js';
 import { nodeDefinition } from '../NodeDefinition.js';
-import { getError } from '../../utils/errors.js';
 import {
-  buildClonedInputValueAssignments,
-  buildCloneJsInputValueFunction,
   buildJsValueInterpolatedSource,
-  getJsValueInterpolationInputNames,
+  buildJsValueInputsInitializer,
+  buildJsValuePreview,
+  getJsValueInterpolationInputDefinitions,
+  getJsValueInterpolationRuntimeContext,
   interpolateJsValuePreviewSource,
-  sanitizeGeneratedJsValueText,
+  sanitizeGeneratedJsValueError,
+  type JsValueInterpolationRuntimeContext,
 } from './jsValueInterpolation.js';
-import { createInterpolationInputDefinition } from '../interpolationInputDefinition.js';
 
 export type ExpressionNode = ChartNode<'expression', ExpressionNodeData>;
 
@@ -36,53 +36,35 @@ const EXPRESSION_INPUT_CLONE_CACHE_IDENTIFIER = 'expressionInputCloneCache';
 export const EXPRESSION_OUTPUT_PORT_ID = 'output' as PortId;
 
 function buildExpressionPreview(expression: string): string {
-  return expression.split('\n').slice(0, MAX_BODY_PREVIEW_LINES).join('\n').trim();
+  return buildJsValuePreview(expression, MAX_BODY_PREVIEW_LINES);
 }
 
-function getExpressionInputNames(expression: string): string[] {
-  return getJsValueInterpolationInputNames(expression);
+function buildExpressionRuntimeSource(expression: string, inputsIdentifier: string): string {
+  return buildJsValueInterpolatedSource(expression, inputsIdentifier);
 }
 
-function buildExpressionRuntimeSource(expression: string): string {
-  return buildJsValueInterpolatedSource(expression, EXPRESSION_INPUTS_IDENTIFIER);
-}
-
-function buildExpressionInputsInitializer(inputNames: string[]): string {
-  return dedent`
-    ${buildCloneJsInputValueFunction()}
-    const ${EXPRESSION_INPUTS_IDENTIFIER} = Object.create(null);
-    const ${EXPRESSION_INPUT_CLONE_CACHE_IDENTIFIER} = new WeakMap();
-    ${buildClonedInputValueAssignments(
-      inputNames,
-      EXPRESSION_INPUTS_IDENTIFIER,
-      EXPRESSION_INPUT_CLONE_CACHE_IDENTIFIER,
-    )}
-  `;
+function buildExpressionInputsInitializer(inputNames: string[], inputsIdentifier: string): string {
+  return buildJsValueInputsInitializer({
+    cacheIdentifier: EXPRESSION_INPUT_CLONE_CACHE_IDENTIFIER,
+    inputNames,
+    inputsIdentifier,
+  });
 }
 
 export function interpolateExpressionSource(expression: string, inputs: Inputs): string {
   return interpolateJsValuePreviewSource(expression, inputs);
 }
 
-function sanitizeGeneratedExpressionText(text: string | undefined, inputNames: string[]): string | undefined {
-  return sanitizeGeneratedJsValueText(text, inputNames, EXPRESSION_INPUTS_IDENTIFIER, 'expression input');
+function sanitizeExpressionError(error: unknown, inputNames: string[], inputsIdentifier: string): Error {
+  return sanitizeGeneratedJsValueError(error, inputNames, inputsIdentifier, 'expression input');
 }
 
-function sanitizeExpressionError(error: unknown, inputNames: string[]): Error {
-  const expressionError = getError(error);
-  expressionError.message =
-    sanitizeGeneratedExpressionText(expressionError.message, inputNames) ?? expressionError.message;
-  expressionError.stack = sanitizeGeneratedExpressionText(expressionError.stack, inputNames);
-
-  return expressionError;
-}
-
-function buildExpressionWrapper(expression: string): string {
-  const inputNames = getExpressionInputNames(expression);
-  const expressionSource = buildExpressionRuntimeSource(expression);
+function buildExpressionWrapper(expression: string, interpolationContext: JsValueInterpolationRuntimeContext): string {
+  const { inputNames, inputsIdentifier } = interpolationContext;
+  const expressionSource = buildExpressionRuntimeSource(expression, inputsIdentifier);
 
   return dedent`
-    ${buildExpressionInputsInitializer(inputNames)}
+    ${buildExpressionInputsInitializer(inputNames, inputsIdentifier)}
 
     return {
       output: {
@@ -113,13 +95,7 @@ export class ExpressionNodeImpl extends NodeImpl<ExpressionNode> {
   }
 
   getInputDefinitions(): NodeInputDefinition[] {
-    return getExpressionInputNames(this.data.expression).map((inputName) => {
-      return createInterpolationInputDefinition({
-        interpolationName: inputName,
-        dataType: 'any',
-        required: false,
-      });
-    });
+    return getJsValueInterpolationInputDefinitions(this.data.expression);
   }
 
   getOutputDefinitions(): NodeOutputDefinition[] {
@@ -140,6 +116,7 @@ export class ExpressionNodeImpl extends NodeImpl<ExpressionNode> {
         helperMessage: 'Use {{var}} to create input ports. Interpolated variables evaluate as the connected values.',
         dataKey: 'expression',
         language: 'javascript',
+        interpolationSyntax: 'js-value',
         enableFolding: true,
       },
     ];
@@ -169,11 +146,16 @@ export class ExpressionNodeImpl extends NodeImpl<ExpressionNode> {
   }
 
   async process(inputs: Inputs, context: InternalProcessContext): Promise<Outputs> {
-    const inputNames = getExpressionInputNames(this.data.expression);
+    const interpolationContext = getJsValueInterpolationRuntimeContext(
+      this.data.expression,
+      EXPRESSION_INPUTS_IDENTIFIER,
+    );
+    const { inputNames, inputsIdentifier } = interpolationContext;
+    const source = buildExpressionWrapper(this.data.expression, interpolationContext);
 
     try {
       return await context.codeRunner.runCode(
-        buildExpressionWrapper(this.data.expression),
+        source,
         inputs,
         {
           includeFetch: false,
@@ -186,7 +168,7 @@ export class ExpressionNodeImpl extends NodeImpl<ExpressionNode> {
         context.contextValues,
       );
     } catch (error) {
-      throw sanitizeExpressionError(error, inputNames);
+      throw sanitizeExpressionError(error, inputNames, inputsIdentifier);
     }
   }
 }

@@ -12,11 +12,11 @@ Select the **Remote Debugger** menu option in the Action Bar's menu dropdown, or
 
 By default, `startDebuggerServer` will listen for all WebSocket connections on port **21888**. You can change this by passing a port number to the options argument to `startDebuggerServer`.
 
-Remote Debugger connections can sit idle between graph runs. Rivet debugger servers keep these idle WebSocket connections alive with lightweight ping frames by default, so proxied or CDN-fronted deployments do not disconnect simply because no graph events are flowing.
+Remote Debugger connections can sit idle between graph runs. Rivet debugger servers keep these idle WebSocket connections alive with lightweight ping frames by default, and active debugger traffic resets pending heartbeat waits, so proxied or CDN-fronted deployments do not disconnect simply because no graph events are flowing.
 
 ## Running a Graph
 
-If the debugger server has configured `dynamicGraphRun`, then when clicking the **Run** button in Rivet, the currently viewed graph will be executed on the remote server. If `allowGraphUpload` is enabled, then the graph will be uploaded to the remote server before being executed, allowing you to make changes to the current graph and run them without saving or uploading your project file to the remote server.
+While Rivet is connected to a remote debugger, the editor disables its normal run controls, including the **Run** buttons and node run context-menu actions. Start the graph from the remote process that owns the debugger server; Rivet will show that live execution as it happens. Use **Stop Remote Debugger** in the action bar when you want to disconnect and return to the normal Browser or Node executor run controls.
 
 ## Using the Remote Debugger
 

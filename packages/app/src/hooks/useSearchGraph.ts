@@ -107,6 +107,7 @@ function areGraphSearchMatchesEqual(first: readonly GraphSearchMatch[], second: 
         value.kind === other.kind &&
         value.graphId === other.graphId &&
         value.graphName === other.graphName &&
+        value.occurrenceCount === other.occurrenceCount &&
         value.locations.join('|') === other.locations.join('|') &&
         value.contentSnippets.join('|') === other.contentSnippets.join('|') &&
         (value.kind !== 'node' ||

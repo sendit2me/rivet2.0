@@ -9,6 +9,7 @@ import {
   type KeyboardEvent,
   type PointerEvent as ReactPointerEvent,
   type RefObject,
+  type ReactNode,
   type UIEvent,
 } from 'react';
 import { useGraphHistoryNavigation } from '../hooks/useGraphHistoryNavigation';
@@ -31,7 +32,12 @@ import { projectState } from '../state/savedGraphs';
 import clsx from 'clsx';
 import { useGoToNode } from '../hooks/useGoToNode';
 import { type GraphId, type NodeId } from '@valerypopoff/rivet2-core';
-import { groupGraphSearchMatches, type GraphSearchNodeMatch } from '../hooks/graphSearch';
+import {
+  getGraphSearchStats,
+  groupGraphSearchMatches,
+  type GraphSearchNodeMatch,
+  type GraphSearchStats,
+} from '../hooks/graphSearch';
 import { useLoadGraph } from '../hooks/useLoadGraph';
 import { graphState } from '../state/graph';
 import { createRootGraphViewContext } from '../domain/graphEditing/navigationActions';
@@ -44,24 +50,12 @@ const MIN_GRAPH_SEARCH_PANEL_HEIGHT = 180;
 const GRAPH_SEARCH_PANEL_BOTTOM_MARGIN = 16;
 
 const styles = css`
+  --graph-navigation-button-height: calc(32px * var(--ui-font-scale));
+
   position: fixed;
-  top: calc(50px + var(--project-selector-height));
-  left: var(--graph-navigation-left);
-  background: transparent;
+  inset: 0;
   z-index: 50;
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  flex-wrap: wrap;
-
-  &.sidebar-closed {
-    left: 25px;
-  }
-
-  .button-placeholder {
-    width: 32px;
-    height: 32px;
-  }
+  pointer-events: none;
 
   button {
     border: none;
@@ -89,11 +83,55 @@ const styles = css`
     }
   }
 
+  .graph-history-controls {
+    display: flex;
+    gap: 8px;
+    left: var(--graph-navigation-left);
+    pointer-events: none;
+    position: fixed;
+    top: calc(20px + var(--project-selector-height));
+
+    &.sidebar-closed {
+      left: 25px;
+    }
+
+    button {
+      background: var(--grey-darkish);
+      color: var(--grey-lightest);
+      height: var(--graph-navigation-button-height);
+      padding: 0;
+      pointer-events: auto;
+      width: var(--graph-navigation-button-height);
+
+      &:hover {
+        background: var(--grey);
+      }
+
+      &:disabled {
+        background: var(--grey-darkish);
+        color: var(--grey-light);
+        cursor: default;
+        opacity: 0.45;
+      }
+
+      &:disabled:hover {
+        background: var(--grey-darkish);
+      }
+    }
+
+    .tooltip {
+      pointer-events: auto;
+    }
+  }
+
   .search {
     background: var(--grey-darker);
     border: 1px solid var(--grey-darkish);
     border-radius: 12px;
     corner-shape: squircle;
+    @supports not (corner-shape: squircle) {
+      border-radius: 6px;
+    }
     box-shadow: 3px 1px 10px rgba(0, 0, 0, 0.4);
     display: flex;
     flex-direction: column;
@@ -103,6 +141,7 @@ const styles = css`
     min-width: 360px;
     overflow: hidden;
     position: fixed;
+    pointer-events: auto;
     top: calc(var(--project-selector-height) + 20px);
     transform: translateX(-50%);
     width: 30vw;
@@ -167,6 +206,13 @@ const styles = css`
       padding: 2px 12px 8px;
     }
 
+    .search-results-summary {
+      color: var(--grey-lighter);
+      font-size: var(--ui-font-size-sm);
+      font-weight: 600;
+      padding: 2px 12px 8px;
+    }
+
     .search-resize-handle {
       bottom: 0;
       cursor: var(--resize-edge-vertical-cursor);
@@ -215,9 +261,12 @@ const styles = css`
 
     .search-result-row {
       align-items: flex-start;
-      background: rgba(255, 255, 255, 0.06);
+      background: var(--grey-darker-darker);
       border-radius: 12px;
       corner-shape: squircle;
+      @supports not (corner-shape: squircle) {
+        border-radius: 6px;
+      }
       box-shadow: none;
       color: var(--grey-lightest);
       display: flex;
@@ -232,7 +281,8 @@ const styles = css`
       min-width: 0;
       outline: 1px solid transparent;
       outline-offset: -1px;
-      padding: 7px 12px;
+      overflow: hidden;
+      padding: 0;
       text-align: left;
       width: calc(100% - 16px);
 
@@ -244,18 +294,21 @@ const styles = css`
 
     .search-result-row-header {
       align-items: flex-start;
+      background: var(--grey-darkish);
       display: flex;
       gap: 8px;
+      padding: 7px 12px;
       width: 100%;
     }
 
     .search-result-node-title {
+      color: var(--foreground-bright);
       flex: 1;
       min-width: 0;
     }
 
     .search-result-node-type {
-      color: var(--grey-lighter);
+      color: var(--foreground-bright);
       flex: 0 1 auto;
       font-size: var(--ui-font-size-xs);
       font-weight: 600;
@@ -268,19 +321,21 @@ const styles = css`
     }
 
     .search-result-content-snippets {
-      background: rgba(255, 255, 255, 0.08);
+      background: var(--grey-darker-darker);
       border-radius: 0 0 12px 12px;
       corner-shape: squircle;
+      @supports not (corner-shape: squircle) {
+        border-radius: 0 0 6px 6px;
+      }
       display: flex;
       flex-direction: column;
       gap: 4px;
-      margin: 2px -12px -7px;
-      padding: 6px 12px 7px;
-      width: calc(100% + 24px);
+      padding: 8px 12px 9px;
+      width: 100%;
     }
 
     .search-result-content-snippet {
-      color: var(--grey-light);
+      color: var(--foreground);
       display: block;
       font-size: var(--ui-font-size-sm);
       line-height: 1.35;
@@ -296,6 +351,7 @@ const styles = css`
   }
 
   .go-to {
+    pointer-events: auto;
     position: fixed;
     top: 100px;
     left: 50%;
@@ -333,6 +389,9 @@ const styles = css`
           padding: 8px;
           border-radius: 8px;
           corner-shape: squircle;
+          @supports not (corner-shape: squircle) {
+            border-radius: 4px;
+          }
           background: var(--grey-darkerish);
 
           .title {
@@ -383,7 +442,6 @@ export const NavigationBar: FC = () => {
   const navigationStack = useGraphHistoryNavigation();
   const sidebarOpen = useAtomValue(sidebarOpenState);
   const graphNavigationLeft = getLeftSidebarAttachedControlOffset(useAtomValue(leftSidebarLiveWidthState));
-
   const [searching, setSearching] = useAtom(searchingGraphState);
   const [graphSearchPanelHeight, setGraphSearchPanelHeight] = useAtom(graphSearchPanelHeightState);
   const goToNode = useGoToNode();
@@ -400,6 +458,7 @@ export const NavigationBar: FC = () => {
 
   const graphSearchHasQuery = searching.query.trim().length > 0;
   const graphSearchGroups = useMemo(() => groupGraphSearchMatches(searching.matches), [searching.matches]);
+  const graphSearchStats = useMemo(() => getGraphSearchStats(searching.matches), [searching.matches]);
   const graphSearchHasResults = graphSearchHasQuery && graphSearchGroups.length > 0;
 
   const hideGraphSearchPanel = useCallback(() => {
@@ -579,29 +638,27 @@ export const NavigationBar: FC = () => {
   }
 
   return (
-    <div
-      css={styles}
-      className={clsx({ 'sidebar-closed': !sidebarOpen })}
-      style={{ '--graph-navigation-left': `${graphNavigationLeft}px` } as CSSProperties}
-    >
-      {navigationStack.hasBackward ? (
-        <Tooltip content="Go to previous graph" placement="bottom">
-          <button onClick={navigationStack.navigateBack}>
+    <div css={styles}>
+      {(navigationStack.hasBackward || navigationStack.hasForward) && (
+        <div
+          className={clsx('graph-history-controls', { 'sidebar-closed': !sidebarOpen })}
+          style={{ '--graph-navigation-left': `${graphNavigationLeft}px` } as CSSProperties}
+        >
+          <GraphHistoryButton
+            disabled={!navigationStack.hasBackward}
+            label="Go to previous graph"
+            onClick={navigationStack.navigateBack}
+          >
             <LeftIcon />
-          </button>
-        </Tooltip>
-      ) : (
-        <div className="button-placeholder" />
-      )}
-
-      {navigationStack.hasForward ? (
-        <Tooltip content="Go to next graph" placement="bottom">
-          <button onClick={navigationStack.navigateForward}>
+          </GraphHistoryButton>
+          <GraphHistoryButton
+            disabled={!navigationStack.hasForward}
+            label="Go to next graph"
+            onClick={navigationStack.navigateForward}
+          >
             <RightIcon />
-          </button>
-        </Tooltip>
-      ) : (
-        <div className="button-placeholder" />
+          </GraphHistoryButton>
+        </div>
       )}
 
       {searching.searching && searching.panelOpen && (
@@ -637,6 +694,7 @@ export const NavigationBar: FC = () => {
               fallbackToTerms={searching.fallbackToTerms}
               query={searching.query}
               resultsRef={graphSearchResultsRef}
+              stats={graphSearchStats}
               onSelectGraph={selectGraphSearchGroup}
               onSelect={selectGraphSearchMatch}
               onScroll={updateGraphSearchResultsScroll}
@@ -674,6 +732,26 @@ export const NavigationBar: FC = () => {
   );
 };
 
+const GraphHistoryButton: FC<{
+  children: ReactNode;
+  disabled: boolean;
+  label: string;
+  onClick: () => void;
+}> = ({ children, disabled, label, onClick }) => {
+  const button = (
+    <button
+      aria-label={label}
+      disabled={disabled}
+      onClick={disabled ? undefined : onClick}
+      type="button"
+    >
+      {children}
+    </button>
+  );
+
+  return disabled ? button : <Tooltip content={label} placement="bottom">{button}</Tooltip>;
+};
+
 const GoToSearchResults: FC = () => {
   const [goToSearch, setGoToSearch] = useAtom(goToSearchState);
 
@@ -703,16 +781,18 @@ const GraphSearchResults: FC<{
   fallbackToTerms: boolean;
   query: string;
   resultsRef: RefObject<HTMLDivElement>;
+  stats: GraphSearchStats;
   onSelectGraph: (graphId: GraphId) => void;
   onSelect: (match: GraphSearchNodeMatch, selectedIndex: number) => void;
   onScroll: (e: UIEvent<HTMLDivElement>) => void;
-}> = ({ groups, fallbackToTerms, query, resultsRef, onSelectGraph, onSelect, onScroll }) => {
+}> = ({ groups, fallbackToTerms, query, resultsRef, stats, onSelectGraph, onSelect, onScroll }) => {
   if (groups.length === 0) {
     return null;
   }
 
   return (
     <div ref={resultsRef} className="search-results" onScroll={onScroll}>
+      <div className="search-results-summary">{formatGraphSearchStats(stats)}</div>
       {fallbackToTerms && (
         <div className="search-results-fallback-note">No exact match found. Showing results that match separate words.</div>
       )}
@@ -771,6 +851,13 @@ const GraphSearchResults: FC<{
     </div>
   );
 };
+
+function formatGraphSearchStats(stats: GraphSearchStats): string {
+  const occurrenceLabel = stats.occurrenceCount === 1 ? 'occurrence' : 'occurrences';
+  const graphLabel = stats.graphCount === 1 ? 'graph' : 'graphs';
+
+  return `${stats.occurrenceCount.toLocaleString()} ${occurrenceLabel} in ${stats.graphCount.toLocaleString()} ${graphLabel}`;
+}
 
 const SearchResultItem: FC<{
   entry: SearchedItem;

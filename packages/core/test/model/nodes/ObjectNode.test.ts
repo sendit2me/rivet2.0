@@ -22,6 +22,21 @@ describe('ObjectNodeImpl', () => {
     assert.strictEqual(node.type, 'object');
   });
 
+  it('marks the JSON template editor as JSON with template interpolation syntax', () => {
+    const node = ObjectNodeImpl.create();
+    const editors = new ObjectNodeImpl(node).getEditors();
+
+    assert.deepStrictEqual(editors[1], {
+      type: 'code',
+      label: 'JSON Template',
+      dataKey: 'jsonTemplate',
+      language: 'json',
+      interpolationSyntax: 'json-template',
+      theme: 'prompt-interpolation',
+      enableFolding: true,
+    });
+  });
+
   it('supports strings with quote characters', async () => {
     const node = createNode({ jsonTemplate: `{"key": "{{input}}"}` });
     const inputs: Record<string, DataValue> = {

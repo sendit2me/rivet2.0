@@ -26,7 +26,7 @@ export const CodeNodeAIAssistEditor: FC<
       isDisabled={isDisabled}
       editor={editor}
       onChange={onChange}
-      graphName="Code Node Generator"
+      graphName="Code (legacy) Node Generator"
       placeholder="What would you like your code node to do?"
       label="Generate Using AI"
       collapsible

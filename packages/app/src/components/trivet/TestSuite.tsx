@@ -117,6 +117,9 @@ const styles = css`
     margin: 10px 0 0 0;
     border-radius: 8px;
     corner-shape: squircle;
+    @supports not (corner-shape: squircle) {
+      border-radius: 4px;
+    }
 
     p {
       margin: 0;

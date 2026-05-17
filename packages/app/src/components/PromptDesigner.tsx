@@ -209,6 +209,9 @@ const styles = css`
     border: 1px solid var(--grey);
     border-radius: 20px;
     corner-shape: squircle;
+    @supports not (corner-shape: squircle) {
+      border-radius: 10px;
+    }
     padding: 10px;
     position: relative;
   }

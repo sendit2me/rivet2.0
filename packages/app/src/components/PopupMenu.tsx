@@ -14,6 +14,9 @@ export const popupMenuSurfaceStyles = css`
   background-color: var(--foreground-on-primary);
   border-radius: 18px;
   corner-shape: squircle;
+  @supports not (corner-shape: squircle) {
+    border-radius: 9px;
+  }
   border: 2px solid var(--grey-dark);
   /*box-shadow: 3px 1px 10px rgba(0, 0, 0, 0.5);*/
   color: var(--grey-lighter);

@@ -91,6 +91,13 @@ const styles = css`
     align-items: stretch;
   }
 
+  @supports not (corner-shape: squircle) {
+    .project-info-foldable {
+      --editor-group-radius: calc(8px * var(--ui-font-scale));
+      --editor-group-toggle-radius: calc(4px * var(--ui-font-scale));
+    }
+  }
+
   .project-info-foldable > .Collapsible .project-info-foldable-toggle-container {
     display: flex;
     flex-direction: column;

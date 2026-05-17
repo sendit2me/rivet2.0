@@ -11,7 +11,7 @@ To get started with integrating Rivet into your existing TypeScript or JavaScrip
 The public runtime packages are published under the `@valerypopoff` npm scope:
 
 - `@valerypopoff/rivet2-core` contains the graph model, execution engine, built-in nodes, plugin contracts, serialization, and shared runtime APIs.
-- `@valerypopoff/rivet2-node` adds Node-specific defaults, filesystem loading, Node native APIs, MCP support, Code-node `require()` support, and remote-debugger helpers.
+- `@valerypopoff/rivet2-node` adds Node-specific defaults, filesystem loading, Node native APIs, MCP support, Code-family `require()` support, and remote-debugger helpers.
 - `@valerypopoff/trivet` provides programmatic graph test utilities and Trivet test serialization.
 - `@valerypopoff/rivet2-cli` runs and serves Rivet graphs from the command line.
 
@@ -25,7 +25,7 @@ See the [Rivet core overview](./api-reference/core/overview.mdx) for more inform
 
 ## `@valerypopoff/rivet2-node`
 
-Rivet node is the Node.js runtime adapter for Rivet core. It includes helper APIs to load Rivet projects from the filesystem, execute graphs, attach a remote debugger server, provide Node-native APIs, and supply Node defaults for MCP, project references, plugin environment values, and Code-node `require`.
+Rivet node is the Node.js runtime adapter for Rivet core. It includes helper APIs to load Rivet projects from the filesystem, execute graphs, attach a remote debugger server, provide Node-native APIs, and supply Node defaults for MCP, project references, plugin environment values, and Code-family `require`.
 
 You will most likely want to use Rivet node in your application. All types from Rivet core are re-exported from Rivet node, so you can use Rivet node as a drop-in replacement for Rivet core.
 
