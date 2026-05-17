@@ -44,24 +44,12 @@ const MIN_GRAPH_SEARCH_PANEL_HEIGHT = 180;
 const GRAPH_SEARCH_PANEL_BOTTOM_MARGIN = 16;
 
 const styles = css`
+  --graph-navigation-button-height: calc(32px * var(--ui-font-scale));
+
   position: fixed;
-  top: calc(50px + var(--project-selector-height));
-  left: var(--graph-navigation-left);
-  background: transparent;
+  inset: 0;
   z-index: 50;
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  flex-wrap: wrap;
-
-  &.sidebar-closed {
-    left: 25px;
-  }
-
-  .button-placeholder {
-    width: 32px;
-    height: 32px;
-  }
+  pointer-events: none;
 
   button {
     border: none;
@@ -89,6 +77,41 @@ const styles = css`
     }
   }
 
+  .graph-history-controls {
+    display: flex;
+    gap: 8px;
+    left: var(--graph-navigation-left);
+    pointer-events: none;
+    position: fixed;
+    top: calc(20px + var(--project-selector-height));
+
+    &.sidebar-closed {
+      left: 25px;
+    }
+
+    button {
+      background: var(--grey-darkish);
+      color: var(--grey-lightest);
+      height: var(--graph-navigation-button-height);
+      padding: 0;
+      pointer-events: auto;
+      width: var(--graph-navigation-button-height);
+
+      &:hover {
+        background: var(--grey);
+      }
+    }
+
+    .tooltip {
+      pointer-events: auto;
+    }
+  }
+
+  .graph-history-button-placeholder {
+    height: var(--graph-navigation-button-height);
+    width: var(--graph-navigation-button-height);
+  }
+
   .search {
     background: var(--grey-darker);
     border: 1px solid var(--grey-darkish);
@@ -106,6 +129,7 @@ const styles = css`
     min-width: 360px;
     overflow: hidden;
     position: fixed;
+    pointer-events: auto;
     top: calc(var(--project-selector-height) + 20px);
     transform: translateX(-50%);
     width: 30vw;
@@ -305,6 +329,7 @@ const styles = css`
   }
 
   .go-to {
+    pointer-events: auto;
     position: fixed;
     top: 100px;
     left: 50%;
@@ -395,7 +420,6 @@ export const NavigationBar: FC = () => {
   const navigationStack = useGraphHistoryNavigation();
   const sidebarOpen = useAtomValue(sidebarOpenState);
   const graphNavigationLeft = getLeftSidebarAttachedControlOffset(useAtomValue(leftSidebarLiveWidthState));
-
   const [searching, setSearching] = useAtom(searchingGraphState);
   const [graphSearchPanelHeight, setGraphSearchPanelHeight] = useAtom(graphSearchPanelHeightState);
   const goToNode = useGoToNode();
@@ -591,29 +615,30 @@ export const NavigationBar: FC = () => {
   }
 
   return (
-    <div
-      css={styles}
-      className={clsx({ 'sidebar-closed': !sidebarOpen })}
-      style={{ '--graph-navigation-left': `${graphNavigationLeft}px` } as CSSProperties}
-    >
-      {navigationStack.hasBackward ? (
-        <Tooltip content="Go to previous graph" placement="bottom">
-          <button onClick={navigationStack.navigateBack}>
-            <LeftIcon />
-          </button>
-        </Tooltip>
-      ) : (
-        <div className="button-placeholder" />
-      )}
-
-      {navigationStack.hasForward ? (
-        <Tooltip content="Go to next graph" placement="bottom">
-          <button onClick={navigationStack.navigateForward}>
-            <RightIcon />
-          </button>
-        </Tooltip>
-      ) : (
-        <div className="button-placeholder" />
+    <div css={styles}>
+      {(navigationStack.hasBackward || navigationStack.hasForward) && (
+        <div
+          className={clsx('graph-history-controls', { 'sidebar-closed': !sidebarOpen })}
+          style={{ '--graph-navigation-left': `${graphNavigationLeft}px` } as CSSProperties}
+        >
+          {navigationStack.hasBackward && (
+            <Tooltip content="Go to previous graph" placement="bottom">
+              <button aria-label="Go to previous graph" onClick={navigationStack.navigateBack}>
+                <LeftIcon />
+              </button>
+            </Tooltip>
+          )}
+          {!navigationStack.hasBackward && <div aria-hidden className="graph-history-button-placeholder" />}
+          {navigationStack.hasForward ? (
+            <Tooltip content="Go to next graph" placement="bottom">
+              <button aria-label="Go to next graph" onClick={navigationStack.navigateForward}>
+                <RightIcon />
+              </button>
+            </Tooltip>
+          ) : (
+            <div aria-hidden className="graph-history-button-placeholder" />
+          )}
+        </div>
       )}
 
       {searching.searching && searching.panelOpen && (

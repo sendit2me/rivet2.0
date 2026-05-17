@@ -1,6 +1,10 @@
 
 
+- When the remore debugger is on, do not show the "Run" buttons because running from the editor is not working while the Editor is in the remote debugger mode. Also, rename "Disconnect remote debugger" to "Stop remote debugger"
 
+- Add search statistics into search UI: how many occurences found and in how many graphs
+
+- In the code and expression nodes, in the code editor, the variables like {{input}} are highlighted as syntx errors. Can something be done about it without breaking the rest of the code highligting?
 
 
 - Need a "Not" node?
