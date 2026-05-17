@@ -2,7 +2,7 @@ import { type ComponentType, type ReactNode } from 'react';
 import { RenderDataOutputs } from '../RenderDataValue.js';
 import { type InputsOrOutputsWithRefs, type NodeRunDataWithRefs } from '../../state/dataFlow.js';
 import { type ChartNode } from '@valerypopoff/rivet2-core';
-import { getSortedSplitOutputEntries } from './splitOutputEntries.js';
+import { getSortedRenderableSplitOutputEntries } from './splitOutputEntries.js';
 import type {
   FullscreenNodeOutputRendererProps,
   FullscreenNodeOutputSimpleRendererProps,
@@ -61,12 +61,12 @@ export function renderNodeOutputBody(options: RenderNodeOutputBodyOptions): Reac
     );
   }
 
-  if (data.splitOutputData) {
-    const outputs = getSortedSplitOutputEntries(data.splitOutputData);
+  const splitOutputs = getSortedRenderableSplitOutputEntries(data.splitOutputData);
 
+  if (splitOutputs.length > 0) {
     return (
       <div className="split-output">
-        {outputs.map(([key, value]) =>
+        {splitOutputs.map(([key, value]) =>
           FullscreenOutputSimple ? (
             <FullscreenOutputSimple
               key={`outputs-${key}`}
@@ -99,10 +99,14 @@ export function renderNodeOutputBody(options: RenderNodeOutputBodyOptions): Reac
     );
   }
 
+  if (!data.outputData) {
+    return null;
+  }
+
   if (FullscreenOutputSimple) {
     return (
       <FullscreenOutputSimple
-        outputs={data.outputData!}
+        outputs={data.outputData}
         renderMarkdown={renderMarkdown ?? false}
         renderMode={renderMode}
         allowLargeStoredValueActions={allowLargeStoredValueActions}
@@ -113,7 +117,7 @@ export function renderNodeOutputBody(options: RenderNodeOutputBodyOptions): Reac
   if (OutputSimple) {
     return (
       <OutputSimple
-        outputs={data.outputData!}
+        outputs={data.outputData}
         isCompact={isCompact}
         renderMode={renderMode}
         allowLargeStoredValueActions={allowLargeStoredValueActions}
@@ -124,7 +128,7 @@ export function renderNodeOutputBody(options: RenderNodeOutputBodyOptions): Reac
   return (
     <RenderDataOutputs
       definitions={definitions}
-      outputs={data.outputData!}
+      outputs={data.outputData}
       renderMarkdown={renderMarkdown}
       isCompact={isCompact}
       mode={renderMode}

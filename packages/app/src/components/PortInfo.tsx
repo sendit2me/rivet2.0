@@ -1,6 +1,11 @@
 import Portal from '@atlaskit/portal';
 import { css } from '@emotion/react';
-import { type NodeId, type NodeInputDefinition, type NodeOutputDefinition, type PortId } from '@valerypopoff/rivet2-core';
+import {
+  type NodeId,
+  type NodeInputDefinition,
+  type NodeOutputDefinition,
+  type PortId,
+} from '@valerypopoff/rivet2-core';
 import { type CSSProperties, forwardRef, useMemo } from 'react';
 import { useAtomValue } from 'jotai';
 import { draggingWireState } from '../state/graphBuilder';
@@ -161,7 +166,8 @@ const PortInfoContent = forwardRef<
     return data;
   }, [graphSelectionOptions, lastRun, port.isInput, selectedPage]);
 
-  const didNotRun = portData?.[port.portId]?.type === 'control-flow-excluded';
+  const selectedPortData = portData?.[port.portId];
+  const didNotRun = selectedPortData?.type === 'control-flow-excluded';
 
   const draggingWire = useAtomValue(draggingWireState);
 
@@ -190,11 +196,12 @@ const PortInfoContent = forwardRef<
         ? draggingWire.dataType.join(' or ')
         : draggingWire.dataType;
 
-  const displayExecutionNum = portData ? (selectedPage === 'latest' ? lastRun!.length : selectedPage + 1) : undefined;
+  const displayExecutionNum =
+    selectedPortData != null ? (selectedPage === 'latest' ? lastRun!.length : selectedPage + 1) : undefined;
 
   return (
     <Portal>
-      <div css={style} ref={ref} style={floatingStyles} className={clsx({ 'has-data': !!portData })}>
+      <div css={style} ref={ref} style={floatingStyles} className={clsx({ 'has-data': selectedPortData != null })}>
         <dl>
           <dt className="id-title">
             {title === id ? (
@@ -239,11 +246,11 @@ const PortInfoContent = forwardRef<
         {didNotRun && !port.isInput && (
           <div className="not-ran">Nodes connected to this port were not run in the last execution.</div>
         )}
-        {portData && (
+        {selectedPortData != null && (
           <>
             <h6>Execution {displayExecutionNum}</h6>
             <div className="last-value">
-              <RenderDataValue truncateLength={1500} value={portData[port.portId]} mode="compact" />
+              <RenderDataValue truncateLength={1500} value={selectedPortData} mode="compact" />
             </div>
           </>
         )}

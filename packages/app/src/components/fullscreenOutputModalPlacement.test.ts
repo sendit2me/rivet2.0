@@ -22,7 +22,7 @@ test('fullscreen node output modal is rendered outside the canvas tree', () => {
   assert.match(nodeFullscreenOutputSource, /export const FullscreenNodeOutputModalRenderer/);
   assert.doesNotMatch(nodeOutputSource, /const \[isModalOpen,\s*setIsModalOpen\] = useState/);
   const rendererMatch =
-    /export const FullscreenNodeOutputModalRenderer: FC = \(\) => \{([\s\S]*?)\n\};\n\nconst ResizableNodeFullscreenOutputModal/.exec(
+    /export const FullscreenNodeOutputModalRenderer: FC = \(\) => \{([\s\S]*?)\r?\n\};\r?\n\r?\nconst ResizableNodeFullscreenOutputModal/.exec(
       nodeFullscreenOutputSource,
     );
   assert.ok(rendererMatch);

@@ -11,10 +11,11 @@ import { type HorizontalModalBounds } from '../../utils/fullScreenModalBounds.js
 import { promptDesignerAttachedChatNodeState } from '../../state/promptDesigner.js';
 import { graphMetadataState, nodesByIdState } from '../../state/graph.js';
 import { lastRunDataState, resolvedGraphSelectionState, selectedProcessPageState } from '../../state/dataFlow.js';
-import { filterProcessDataForSelection, getSelectedProcessData } from '../../state/selectors/executionSelectors.js';
+import { filterProcessDataForSelection } from '../../state/selectors/executionSelectors.js';
 import { fullscreenOutputNodeState, hoveringNodeState } from '../../state/graphBuilder.js';
 import { fullscreenOutputModalBoundsState, overlayOpenState } from '../../state/ui.js';
 import { useDataRefs } from '../../providers/ProvidersContext.js';
+import { getStoredOutputWarnings } from '../../utils/executionDataReaders.js';
 import { FullScreenModal } from '../FullScreenModal.js';
 import { CodeNodeErrorOutput } from '../nodes/CodeNode.js';
 import { MATCH_ACTIVE_CLASS, MATCH_CLASS } from './fullscreenOutputSearch.js';
@@ -24,7 +25,11 @@ import { copyOutputJson, copyOutputValue } from './nodeOutputCopyActions.js';
 import { NodeOutputPager } from './NodeOutputPager.js';
 import { renderNodeOutputBody } from './renderNodeOutputBody.js';
 import { useFullscreenOutputSearch } from './useFullscreenOutputSearch.js';
-import { shouldUseCodeErrorOutput, shouldUseCustomNodeErrorOutput } from './nodeOutputVisibility.js';
+import {
+  getSelectedVisibleOutputProcess,
+  shouldUseCodeErrorOutput,
+  shouldUseCustomNodeErrorOutput,
+} from './nodeOutputVisibility.js';
 
 export const FullscreenNodeOutputModalRenderer: FC = () => {
   useDependsOnPlugins();
@@ -191,6 +196,19 @@ const fullscreenOutputCss = css`
     overflow-x: visible;
   }
 
+  .fullscreen-output-warnings {
+    border-top: 1px solid var(--grey-light);
+    color: var(--foreground-bright);
+    font-size: var(--ui-font-size-sm);
+    line-height: 1.4;
+    margin-top: 16px;
+    padding-top: 12px;
+  }
+
+  .fullscreen-output-warning + .fullscreen-output-warning {
+    margin-top: 8px;
+  }
+
   .${MATCH_CLASS} {
     background: rgba(255, 214, 10, 0.3);
     border-radius: 4px;
@@ -262,12 +280,12 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
   const io = useNodeIO(node.id);
 
   const { data, processId } = useMemo(() => {
-    const selectedProcess = getSelectedProcessData(filteredOutput, selectedPage);
+    const selectedProcess = getSelectedVisibleOutputProcess(node.type, filteredOutput, selectedPage);
     return {
       data: selectedProcess?.data,
       processId: selectedProcess?.processId,
     };
-  }, [filteredOutput, selectedPage]);
+  }, [filteredOutput, node.type, selectedPage]);
 
   const handleOpenPromptDesigner = () => {
     if (!processId) {
@@ -394,6 +412,7 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
     renderMode: 'expanded-preview',
     allowLargeStoredValueActions: true,
   });
+  const warnings = useMemo(() => getStoredOutputWarnings(data, dataRefs), [data, dataRefs]);
 
   return (
     <div css={fullscreenOutputCss} ref={fullscreenOutputRootRef}>
@@ -436,6 +455,15 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
           }`}
         >
           {body}
+          {warnings && (
+            <div className="fullscreen-output-warnings">
+              {warnings.map((warning) => (
+                <div className="fullscreen-output-warning" key={warning}>
+                  {warning}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </FullscreenOutputSearchContext.Provider>
     </div>

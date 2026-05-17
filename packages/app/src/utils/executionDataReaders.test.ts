@@ -6,8 +6,11 @@ import type { NodeRunDataWithRefs } from '../state/dataFlow.js';
 import {
   coerceStoredPortValue,
   getStoredOutputWarnings,
+  hasStoredPortMapValues,
+  hasStoredSplitOutputValues,
   restoreDisplayedNodeOutputs,
   restoreStoredPortValue,
+  tryRestoreStoredPortMap,
 } from './executionDataReaders.js';
 
 function createDataRefStore(initialValues?: Record<string, DataValue>): DataRefReader {
@@ -22,6 +25,19 @@ function inlineStored<T extends DataValue['type']>(type: T, value: Extract<DataV
     type,
     storage: 'inline' as const,
     value,
+  };
+}
+
+function refStored<T extends DataValue['type']>(type: T, refId: string) {
+  return {
+    type,
+    storage: 'ref' as const,
+    refId,
+    preview: {
+      kind: 'json' as const,
+      excerpt: '{}',
+      totalChars: 2,
+    },
   };
 }
 
@@ -45,6 +61,38 @@ test('restoreDisplayedNodeOutputs keeps wrapped values for the copy-as-json path
       },
     },
   });
+});
+
+test('restoreDisplayedNodeOutputs skips absent port wrappers', () => {
+  const restored = restoreDisplayedNodeOutputs(
+    {
+      outputData: {
+        missing: undefined,
+        output: inlineStored('any', undefined),
+      },
+    } as never,
+    createDataRefStore(),
+  );
+
+  assert.deepEqual(restored, {
+    output: {
+      type: 'any',
+      value: undefined,
+    },
+  });
+});
+
+test('restoreDisplayedNodeOutputs returns undefined when every visible port wrapper is absent', () => {
+  const restored = restoreDisplayedNodeOutputs(
+    {
+      outputData: {
+        output: undefined,
+      },
+    } as never,
+    createDataRefStore(),
+  );
+
+  assert.equal(restored, undefined);
 });
 
 test('restoreDisplayedNodeOutputs prefers split outputs when they are present', () => {
@@ -72,6 +120,99 @@ test('restoreDisplayedNodeOutputs prefers split outputs when they are present', 
   });
 });
 
+test('restoreDisplayedNodeOutputs skips empty split output maps', () => {
+  const restored = restoreDisplayedNodeOutputs(
+    {
+      splitOutputData: {
+        0: {
+          output: undefined,
+        },
+        1: {
+          output: inlineStored('string', 'visible'),
+        },
+      },
+    } as never,
+    createDataRefStore(),
+  );
+
+  assert.deepEqual(restored, {
+    1: {
+      output: {
+        type: 'string',
+        value: 'visible',
+      },
+    },
+  });
+});
+
+test('restoreDisplayedNodeOutputs falls back to outputData when split outputs only contain absent wrappers', () => {
+  const restored = restoreDisplayedNodeOutputs(
+    {
+      outputData: {
+        output: inlineStored('string', 'visible fallback'),
+      },
+      splitOutputData: {
+        0: {
+          output: undefined,
+        },
+      },
+    } as never,
+    createDataRefStore(),
+  );
+
+  assert.deepEqual(restored, {
+    output: {
+      type: 'string',
+      value: 'visible fallback',
+    },
+  });
+});
+
+test('restoreDisplayedNodeOutputs falls back to outputData when split outputs only contain hidden warning ports', () => {
+  const restored = restoreDisplayedNodeOutputs(
+    {
+      outputData: {
+        output: inlineStored('string', 'visible fallback'),
+      },
+      splitOutputData: {
+        0: {
+          [WarningsPort]: inlineStored('string[]', ['warning']),
+        },
+      },
+    } as never,
+    createDataRefStore(),
+  );
+
+  assert.deepEqual(restored, {
+    output: {
+      type: 'string',
+      value: 'visible fallback',
+    },
+  });
+});
+
+test('restoreDisplayedNodeOutputs restores hidden split outputs when no outputData fallback exists', () => {
+  const restored = restoreDisplayedNodeOutputs(
+    {
+      splitOutputData: {
+        0: {
+          [WarningsPort]: inlineStored('string[]', ['warning']),
+        },
+      },
+    } as never,
+    createDataRefStore(),
+  );
+
+  assert.deepEqual(restored, {
+    0: {
+      [WarningsPort]: {
+        type: 'string[]',
+        value: ['warning'],
+      },
+    },
+  });
+});
+
 test('getStoredOutputWarnings aggregates warnings from split outputs', () => {
   const warnings = getStoredOutputWarnings(
     {
@@ -92,6 +233,68 @@ test('getStoredOutputWarnings aggregates warnings from split outputs', () => {
 
 test('restoreStoredPortValue returns undefined for a missing port', () => {
   const restored = restoreStoredPortValue(undefined, 'missing' as never, createDataRefStore());
+
+  assert.equal(restored, undefined);
+});
+
+test('hasStoredPortMapValues distinguishes real port wrappers from absent wrappers', () => {
+  assert.equal(
+    hasStoredPortMapValues({
+      output: undefined,
+    } as never),
+    false,
+  );
+  assert.equal(
+    hasStoredPortMapValues({
+      output: inlineStored('any', undefined),
+    } as never),
+    true,
+  );
+});
+
+test('hasStoredSplitOutputValues distinguishes real split wrappers from empty split maps', () => {
+  assert.equal(
+    hasStoredSplitOutputValues({
+      0: {
+        output: undefined,
+      },
+    } as never),
+    false,
+  );
+  assert.equal(
+    hasStoredSplitOutputValues({
+      0: {
+        output: inlineStored('string', 'visible'),
+      },
+    } as never),
+    true,
+  );
+});
+
+test('tryRestoreStoredPortMap skips unavailable ref-backed values without losing available ports', () => {
+  const restored = tryRestoreStoredPortMap(
+    {
+      output: inlineStored('string', 'available'),
+      missing: refStored('object', 'missing-ref'),
+    } as never,
+    createDataRefStore(),
+  );
+
+  assert.deepEqual(restored, {
+    output: {
+      type: 'string',
+      value: 'available',
+    },
+  });
+});
+
+test('tryRestoreStoredPortMap returns undefined when no ports can be restored', () => {
+  const restored = tryRestoreStoredPortMap(
+    {
+      missing: refStored('object', 'missing-ref'),
+    } as never,
+    createDataRefStore(),
+  );
 
   assert.equal(restored, undefined);
 });

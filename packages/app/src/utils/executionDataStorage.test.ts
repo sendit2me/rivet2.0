@@ -2,7 +2,12 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { DataValue, PortId } from '@valerypopoff/rivet2-core';
 import type { DataRefStore } from '../providers/ProvidersContext.js';
-import { collectStoredRefIds, storeDataValueForHistory } from './executionDataStorage.js';
+import {
+  collectStoredRefIds,
+  restoreStoredInputsOrOutputs,
+  storeDataValueForHistory,
+  storeInputsOrOutputsForHistory,
+} from './executionDataStorage.js';
 import { REF_STORAGE_THRESHOLD_CHARS } from './outputStorageLimits.js';
 
 function createDataRefStore(): DataRefStore & {
@@ -40,6 +45,50 @@ test('storeDataValueForHistory includes split index in ref ids for split outputs
   assert.equal(stored.storage, 'ref');
   assert.equal(stored.refId, 'execution:node-split:process-split:output:2:output');
   assert.equal(dataRefs.values.has(stored.refId), true);
+});
+
+test('storeInputsOrOutputsForHistory skips absent port payloads', () => {
+  const dataRefs = createDataRefStore();
+
+  const stored = storeInputsOrOutputsForHistory(
+    {
+      present: { type: 'string', value: 'hello' },
+      missing: undefined,
+    } as never,
+    dataRefs,
+    {
+      nodeId: 'node',
+      processId: 'process',
+      channel: 'output',
+    },
+  );
+
+  assert.deepEqual(Object.keys(stored ?? {}), ['present']);
+  assert.deepEqual(stored?.['present' as PortId], {
+    type: 'string',
+    storage: 'inline',
+    value: 'hello',
+  });
+});
+
+test('restoreStoredInputsOrOutputs ignores legacy nullish port payloads', () => {
+  const dataRefs = createDataRefStore();
+
+  const restored = restoreStoredInputsOrOutputs(
+    {
+      present: {
+        type: 'string',
+        storage: 'inline',
+        value: 'hello',
+      },
+      missing: undefined,
+    } as never,
+    dataRefs,
+  );
+
+  assert.deepEqual(restored, {
+    present: { type: 'string', value: 'hello' },
+  });
 });
 
 test('collectStoredRefIds collects input, output, and split-output refs from node run data', () => {
@@ -87,6 +136,29 @@ test('collectStoredRefIds collects input, output, and split-output refs from nod
   } as never);
 
   assert.deepEqual(refIds, ['input-ref', 'output-ref', 'split-ref']);
+});
+
+test('collectStoredRefIds tolerates legacy nullish split-output entries', () => {
+  const refIds = collectStoredRefIds({
+    splitOutputData: {
+      0: undefined,
+      1: {
+        split: {
+          type: 'string',
+          storage: 'ref',
+          refId: 'split-ref',
+          preview: {
+            kind: 'text',
+            excerpt: 'split',
+            totalChars: 5,
+            lineCount: 1,
+          },
+        },
+      },
+    },
+  } as never);
+
+  assert.deepEqual(refIds, ['split-ref']);
 });
 
 test('collectStoredRefIds treats status-like port names as ordinary port maps', () => {

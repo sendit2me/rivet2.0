@@ -584,6 +584,21 @@ not preserve a complete file list.
     - How: Added characterization coverage for root event order, error/finish behavior, partial-output process identity, subgraph execution metadata, preload/run-to boundaries, pause/resume scheduling, globals, and race winner/loser handling without moving runtime code.
     - Affected files/areas: `GraphProcessor.characterization.test.ts`, `developer-docs/CORE-ENGINE.md`, `refactor.md`.
 
+111. **Hardened execution-data visibility, restore, and copy boundaries after the split**
+    - Why: The storage/copy split exposed subtle presence-vs-value risks: absent/nullish stored port wrappers could look like explicit `undefined`, empty or hidden-only split-output maps could hide valid final `outputData`, and warnings/internal ports could leak into body rendering or copy projection.
+    - How: Added shared visible-output-port policy, skipped absent wrappers consistently, preserved explicit `{ type: 'any', value: undefined }` as real data, restored preview-only inputs per port, kept executor preload strict while rejecting malformed empty output maps, aligned inline/fullscreen warning rendering, gated custom copy projectors on visible output maps, and covered hidden-only split data for internal JSON copy when no final output fallback exists.
+    - Affected files/areas: `outputPortVisibility.ts`, `executionDataReaders.ts`, `executionDataStorage.ts`, `executionDataCopy/*`, `nodeOutputCopyValueProjectors.ts`, `RenderDataValue.tsx`, `PortInfo.tsx`, `ChatViewer.tsx`, node output components, Code/Expression/JS-list/Extract Object Path preview components, Prompt Designer hydration, run-from preload helpers, execution-data and output regression tests, `developer-docs/EXECUTION-DATA-FLOW.md`, `refactor.md`.
+
+112. **Tightened remote-run preload eligibility after the client-pipeline split**
+    - Why: Run-from preload should reuse only real stored boundary outputs. A stored map whose ports are all absent/nullish is malformed history, not a reusable upstream result.
+    - How: Reused the execution-data reader boundary for preload extraction, skipped malformed empty stored output maps, and kept older usable runs eligible as fallback data for editor run-from behavior.
+    - Affected files/areas: `remoteExecutorHelpers.ts`, `remoteExecutorHelpers.test.ts`, `executionDataReaders.ts`, `developer-docs/EXECUTION-DATA-FLOW.md`, `refactor.md`.
+
+113. **Encapsulated Remote Debugger attachment snapshots after the transport split**
+    - Why: Processor-routing callbacks received the live attached-processor list, which made it possible for routing code to mutate debugger-server attachment state accidentally.
+    - How: Returned snapshots of attached processors to routing callbacks, kept the attachment helper as the state owner, and added regression coverage for snapshot behavior.
+    - Affected files/areas: `packages/node/src/debuggerProcessorAttachments.ts`, `packages/node/src/debugger.ts`, `packages/node/test/debugger.test.ts`, `developer-docs/EXECUTION-DATA-FLOW.md`, `refactor.md`.
+
 ## Residual Watchlist For Future Refactors
 
 1. **GraphProcessor size and responsibility concentration**

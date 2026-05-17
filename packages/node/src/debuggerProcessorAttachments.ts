@@ -170,7 +170,7 @@ export function createDebuggerProcessorAttachments(options: {
     },
 
     getAttachedProcessors() {
-      return attachedProcessors;
+      return [...attachedProcessors];
     },
 
     getRequestId(processor) {

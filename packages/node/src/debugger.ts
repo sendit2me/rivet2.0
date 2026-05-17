@@ -21,11 +21,7 @@ import {
   startDebuggerSocketHeartbeat,
   type DebuggerSocketHeartbeat,
 } from './debuggerHeartbeat.js';
-import {
-  emitDebuggerError,
-  sendDebuggerMessage,
-  stringifyDebuggerMessage,
-} from './debuggerTransport.js';
+import { emitDebuggerError, sendDebuggerMessage, stringifyDebuggerMessage } from './debuggerTransport.js';
 import { createDebuggerProcessorAttachments } from './debuggerProcessorAttachments.js';
 
 export { DEBUGGER_HEARTBEAT_INTERVAL_MS, DEBUGGER_HEARTBEAT_TIMEOUT_MS } from './debuggerHeartbeat.js';
@@ -207,7 +203,7 @@ export function startDebuggerServer(
             }
           })
           .with({ type: 'datasets:response' }, async () => {
-            options.datasetProvider?.handleResponse(message.type, message.data as any);
+            options.datasetProvider?.handleResponse(message.type, message.data);
           })
           .otherwise(async () => {
             const attachedProcessors = processorAttachments.getAttachedProcessors();

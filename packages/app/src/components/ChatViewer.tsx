@@ -5,11 +5,7 @@ import { overlayOpenState } from '../state/ui';
 import { css } from '@emotion/react';
 import clsx from 'clsx';
 import { type NodeId } from '@valerypopoff/rivet2-core';
-import {
-  lastRunDataByNodeState,
-  graphRunningState,
-  type NodeRunDataWithRefs,
-} from '../state/dataFlow';
+import { lastRunDataByNodeState, graphRunningState, type NodeRunDataWithRefs } from '../state/dataFlow';
 import { projectState } from '../state/savedGraphs';
 import { graphState } from '../state/graph';
 import { ErrorBoundary } from 'react-error-boundary';
@@ -392,7 +388,7 @@ const ChatBubble: FC<{
           </button>
         </div>
       </header>
-      {expanded || data.status?.type !== 'ok' ? (
+      {prompt != null && (expanded || data.status?.type !== 'ok') ? (
         <div className="prompt" ref={promptRef}>
           <RenderDataValue value={prompt} mode={renderMode} />
         </div>

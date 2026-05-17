@@ -73,6 +73,22 @@ test('chat copy-value projector preserves missing response fallback text', () =>
   assert.equal(serialized, 'Value no longer available in memory.');
 });
 
+test('chat copy-value projector skips absent response wrappers', () => {
+  const serialized = serializeDisplayedOutputs(
+    {
+      outputData: {
+        response: undefined,
+      },
+    } as never,
+    createDataRefStore(),
+    {
+      getCopyValueData: getChatNodeCopyValueData,
+    },
+  );
+
+  assert.equal(serialized, undefined);
+});
+
 test('chat copy-value projector copies only the visible response, function call, and visible meta fields', () => {
   const serialized = serializeDisplayedOutputs(
     {
@@ -225,6 +241,23 @@ test('loop controller copy-value projector excludes break and iteration and copi
   assert.equal(serialized, ['Continue', 'false', '', 'Output 1', 'next', '', 'Output 2', 'Not ran'].join('\n'));
 });
 
+test('loop controller copy-value projector skips absent output wrappers', () => {
+  const serialized = serializeDisplayedOutputs(
+    {
+      outputData: {
+        output1: inlineStored('string', 'next'),
+        output2: undefined,
+      },
+    } as never,
+    createDataRefStore(),
+    {
+      getCopyValueData: getLoopControllerNodeCopyValueData,
+    },
+  );
+
+  assert.equal(serialized, ['Continue', 'true', '', 'Output 1', 'next'].join('\n'));
+});
+
 test('subgraph copy-value projector includes visible meta and visible outputs only', () => {
   const serialized = serializeDisplayedOutputs(
     {
@@ -284,6 +317,23 @@ test('subgraph copy-value projector preserves missing body-output fallback text'
   );
 
   assert.equal(serialized, ['first', 'Value no longer available in memory.', '', 'second', 'two'].join('\n'));
+});
+
+test('subgraph copy-value projector skips absent body-output wrappers', () => {
+  const serialized = serializeDisplayedOutputs(
+    {
+      outputData: {
+        first: undefined,
+        second: inlineStored('string', 'two'),
+      },
+    } as never,
+    createDataRefStore(),
+    {
+      getCopyValueData: getSubGraphNodeCopyValueData,
+    },
+  );
+
+  assert.equal(serialized, 'two');
 });
 
 test('subgraph copy-value projector does not include array meta that the UI does not render', () => {

@@ -196,16 +196,18 @@ export const ChatNodeOutputSingle: FC<{
         )}
       </div>
 
-      <div className={clsx('outputText', { markdown: renderMarkdown })}>
-        <div className={clsx({ 'pre-wrap': !renderMarkdown })}>
-          <RenderDataValue
-            value={outputValue}
-            renderMarkdown={renderMarkdown}
-            mode={effectiveRenderMode}
-            allowLargeStoredValueActions={allowLargeStoredValueActions}
-          />
+      {outputValue != null && (
+        <div className={clsx('outputText', { markdown: renderMarkdown })}>
+          <div className={clsx({ 'pre-wrap': !renderMarkdown })}>
+            <RenderDataValue
+              value={outputValue}
+              renderMarkdown={renderMarkdown}
+              mode={effectiveRenderMode}
+              allowLargeStoredValueActions={allowLargeStoredValueActions}
+            />
+          </div>
         </div>
-      </div>
+      )}
       {hasRenderableFunctionCallValue(functionCallValue) && (
         <div className="function-call">
           <h4>{Array.isArray(functionCallValue.value) ? 'Function Calls' : 'Function Call'}:</h4>

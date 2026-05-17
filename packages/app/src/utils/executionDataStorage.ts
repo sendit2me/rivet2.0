@@ -88,13 +88,17 @@ export function storeInputsOrOutputsForHistory(
     return undefined;
   }
 
-  return mapValues(data as Record<PortId, DataValue>, (value, portId) => {
-    if (!value) {
-      return undefined as unknown as StoredDataValue;
+  const storedData: Partial<Record<PortId, StoredDataValue>> = {};
+
+  for (const [portId, value] of Object.entries(data) as Array<[PortId, DataValue | undefined]>) {
+    if (value == null) {
+      continue;
     }
 
-    return storeDataValueForHistory(value, refStore, scope, portId as PortId);
-  }) as InputsOrOutputsWithRefs;
+    storedData[portId] = storeDataValueForHistory(value, refStore, scope, portId);
+  }
+
+  return storedData as InputsOrOutputsWithRefs;
 }
 
 export function storeDataValueForHistory(
@@ -200,9 +204,17 @@ export function restoreStoredInputsOrOutputs(
     return undefined;
   }
 
-  return Object.fromEntries(
-    Object.entries(data).map(([portId, storedValue]) => [portId, restoreStoredDataValue(storedValue!, refStore)]),
-  ) as Inputs | Outputs;
+  const restoredData: Partial<Record<PortId, DataValue>> = {};
+
+  for (const [portId, storedValue] of Object.entries(data) as Array<[PortId, DataValueWithRefs | undefined]>) {
+    if (storedValue == null) {
+      continue;
+    }
+
+    restoredData[portId] = restoreStoredDataValue(storedValue, refStore);
+  }
+
+  return restoredData as Inputs | Outputs;
 }
 
 export function tryRestoreStoredInputsOrOutputs(
@@ -321,7 +333,7 @@ function isStoredSplitOutputData(value: unknown): value is NonNullable<NodeRunDa
     return false;
   }
 
-  return Object.values(value).every((splitOutputData) => isStoredPortMap(splitOutputData));
+  return Object.values(value).every((splitOutputData) => splitOutputData == null || isStoredPortMap(splitOutputData));
 }
 
 function isStoredPortMap(value: unknown): value is InputsOrOutputsWithRefs {

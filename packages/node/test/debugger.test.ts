@@ -3,11 +3,7 @@ import { describe, it } from 'node:test';
 import * as assert from 'node:assert/strict';
 import { type GraphProcessor } from '@valerypopoff/rivet2-core';
 import WebSocket, { type WebSocketServer } from 'ws';
-import {
-  DEBUGGER_HEARTBEAT_INTERVAL_MS,
-  DEBUGGER_HEARTBEAT_TIMEOUT_MS,
-  startDebuggerServer,
-} from '../src/debugger.js';
+import { DEBUGGER_HEARTBEAT_INTERVAL_MS, DEBUGGER_HEARTBEAT_TIMEOUT_MS, startDebuggerServer } from '../src/debugger.js';
 import { createProcessor } from '../src/api.js';
 import { loadTestGraphs } from './testUtils.js';
 
@@ -382,6 +378,38 @@ describe('startDebuggerServer broadcast', () => {
     socket.emit('message', Buffer.from(JSON.stringify({ type: 'pause', data: null })));
 
     await waitFor(() => assert.equal(processorCounts.at(-1), 0));
+  });
+
+  it('passes processor-routing callbacks a snapshot of attached processors', async () => {
+    const server = new FakeWebSocketServer();
+    const socket = new FakeWebSocket();
+    const processorCounts: number[] = [];
+    const debuggerServer = startDebuggerServer({
+      server: server as unknown as WebSocketServer,
+      heartbeatIntervalMs: 0,
+      getProcessorsForClient: (_client, processors) => {
+        processorCounts.push(processors.length);
+        processors.pop();
+        return [];
+      },
+    });
+
+    server.connect(socket);
+    const processor = createProcessor(await loadTestGraphs(), {
+      graph: 'Passthrough',
+      inputs: {
+        input: 'input value',
+      },
+    });
+    debuggerServer.attach(processor.processor);
+
+    socket.emit('message', Buffer.from(JSON.stringify({ type: 'pause', data: null })));
+    await waitFor(() => assert.equal(processorCounts.length, 1));
+    socket.emit('message', Buffer.from(JSON.stringify({ type: 'pause', data: null })));
+    await waitFor(() => assert.equal(processorCounts.length, 2));
+
+    assert.deepEqual(processorCounts, [1, 1]);
+    debuggerServer.detach(processor.processor);
   });
 
   it('reattaches createProcessor remote debugger listeners for repeated runs', async () => {

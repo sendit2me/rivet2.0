@@ -5,6 +5,7 @@ import type { DataRefReader } from '../providers/ProvidersContext.js';
 import type { NodeRunDataWithRefs } from '../state/dataFlow.js';
 import {
   displayCopySections,
+  projectStoredPortValueForCopy,
   projectDataValue,
   serializeDisplayedOutputs,
 } from './executionDataCopyValue.js';
@@ -135,6 +136,122 @@ test('serializeDisplayedOutputs copies explicit any undefined as visible text', 
   );
 
   assert.equal(serialized, 'undefined');
+});
+
+test('serializeDisplayedOutputs skips absent port wrappers without hiding explicit any undefined', () => {
+  const serialized = serializeDisplayedOutputs(
+    {
+      outputData: {
+        missing: undefined,
+        output: inlineStored('any', undefined),
+      },
+    } as never,
+    createDataRefStore(),
+  );
+
+  assert.equal(serialized, 'undefined');
+});
+
+test('serializeDisplayedOutputs returns undefined when every visible port wrapper is absent', () => {
+  const serialized = serializeDisplayedOutputs(
+    {
+      outputData: {
+        output: undefined,
+      },
+    } as never,
+    createDataRefStore(),
+  );
+
+  assert.equal(serialized, undefined);
+});
+
+test('serializeDisplayedOutputs falls back to outputData when split outputs only contain absent wrappers', () => {
+  const serialized = serializeDisplayedOutputs(
+    {
+      outputData: {
+        output: inlineStored('string', 'visible fallback'),
+      },
+      splitOutputData: {
+        0: {
+          output: undefined,
+        },
+      },
+    } as never,
+    createDataRefStore(),
+  );
+
+  assert.equal(serialized, 'visible fallback');
+});
+
+test('serializeDisplayedOutputs falls back to outputData when split outputs only contain hidden warning ports', () => {
+  const serialized = serializeDisplayedOutputs(
+    {
+      outputData: {
+        output: inlineStored('string', 'visible fallback'),
+      },
+      splitOutputData: {
+        0: {
+          [WarningsPort]: inlineStored('string[]', ['warning']),
+        },
+      },
+    } as never,
+    createDataRefStore(),
+  );
+
+  assert.equal(serialized, 'visible fallback');
+});
+
+test('serializeDisplayedOutputs falls back to custom outputData copy when split outputs only contain absent wrappers', () => {
+  const serialized = serializeDisplayedOutputs(
+    {
+      outputData: {
+        output: inlineStored('string', 'visible fallback'),
+      },
+      splitOutputData: {
+        0: {
+          output: undefined,
+        },
+      },
+    } as never,
+    createDataRefStore(),
+    {
+      getCopyValueData: ({ outputs, dataRefs }) => projectStoredPortValueForCopy(outputs, 'output' as PortId, dataRefs),
+    },
+  );
+
+  assert.equal(serialized, 'visible fallback');
+});
+
+test('serializeDisplayedOutputs does not run custom copy projection for absent outputData wrappers', () => {
+  let projectorCalls = 0;
+  const serialized = serializeDisplayedOutputs(
+    {
+      outputData: {
+        output: undefined,
+      },
+    } as never,
+    createDataRefStore(),
+    {
+      getCopyValueData: () => {
+        projectorCalls += 1;
+        return 'phantom';
+      },
+    },
+  );
+
+  assert.equal(serialized, undefined);
+  assert.equal(projectorCalls, 0);
+});
+
+test('projectStoredPortValueForCopy preserves explicit any undefined but skips absent wrappers', () => {
+  const outputs = {
+    missing: undefined,
+    output: inlineStored('any', undefined),
+  } as never;
+  const dataRefs = createDataRefStore();
+
+  assert.equal(projectStoredPortValueForCopy(outputs, 'missing' as PortId, dataRefs), undefined);
+  assert.equal(projectStoredPortValueForCopy(outputs, 'output' as PortId, dataRefs), 'undefined');
 });
 
 test('serializeDisplayedOutputs preserves explicit any undefined in multi-port output text', () => {
@@ -334,13 +451,7 @@ test('serializeDisplayedOutputs copies multi-port outputs as visible labelled se
 
   assert.equal(
     serialized,
-    [
-      'Status Code',
-      '403',
-      '',
-      'Headers',
-      JSON.stringify({ 'content-type': 'application/json' }, null, 2),
-    ].join('\n'),
+    ['Status Code', '403', '', 'Headers', JSON.stringify({ 'content-type': 'application/json' }, null, 2)].join('\n'),
   );
 });
 
@@ -383,4 +494,33 @@ test('serializeDisplayedOutputs serializes split custom sections without leaking
   );
 
   assert.equal(serialized, ['Projected', 'visible', '', 'Projected', 'visible'].join('\n'));
+});
+
+test('serializeDisplayedOutputs skips hidden split maps before custom copy projection', () => {
+  const projectedSplits: string[] = [];
+  const serialized = serializeDisplayedOutputs(
+    {
+      splitOutputData: {
+        0: {
+          output: undefined,
+        },
+        1: {
+          output: inlineStored('string', 'visible'),
+        },
+        2: {
+          [WarningsPort]: inlineStored('string[]', ['warning']),
+        },
+      },
+    } as never,
+    createDataRefStore(),
+    {
+      getCopyValueData: ({ outputs }) => {
+        projectedSplits.push(Object.keys(outputs).join(','));
+        return displayCopySections([{ label: 'Projected', value: 'visible' }]);
+      },
+    },
+  );
+
+  assert.equal(serialized, ['Projected', 'visible'].join('\n'));
+  assert.deepEqual(projectedSplits, ['output']);
 });

@@ -1,8 +1,9 @@
-import { type NodeOutputDefinition, type PortId, WarningsPort } from '@valerypopoff/rivet2-core';
+import { type NodeOutputDefinition, type PortId } from '@valerypopoff/rivet2-core';
 import type { DataRefReader } from '../../providers/ProvidersContext.js';
 import type { InputsOrOutputsWithRefs, NodeRunDataWithRefs } from '../../state/dataFlow.js';
 import { restoreStoredPortValue } from '../executionDataReaders.js';
 import { isStoredRefDataValue } from '../executionDataStorage.js';
+import { hasVisibleStoredPortMapValues, isVisibleOutputPort } from '../outputPortVisibility.js';
 import { displayCopySections, isDisplayCopySections } from './displayCopySections.js';
 import { projectDataValue } from './projectDataValue.js';
 
@@ -29,18 +30,20 @@ export function serializeDisplayedOutputs(
     return serializeGenericDisplayedOutputs(data, dataRefs, outputDefinitions);
   }
 
-  if (data.splitOutputData) {
-    const serializedSplits = Object.entries(data.splitOutputData)
-      .sort(([left], [right]) => Number(left) - Number(right))
-      .flatMap(([, outputs]) => {
-        const projectedValue = getCopyValueData({ outputs, dataRefs });
-        return projectedValue === undefined ? [] : [serializeProjectedCopyValue(projectedValue)];
-      });
+  const visibleSplitOutputs = getSortedVisibleSplitOutputs(data.splitOutputData);
+
+  if (visibleSplitOutputs.length > 0) {
+    const serializedSplits = visibleSplitOutputs.flatMap(([, outputs]) => {
+      const projectedValue = getCopyValueData({ outputs, dataRefs });
+      return projectedValue === undefined ? [] : [serializeProjectedCopyValue(projectedValue)];
+    });
 
     return serializedSplits.length > 0 ? serializedSplits.join('\n\n') : undefined;
   }
 
-  const projectedOutputs = data.outputData ? getCopyValueData({ outputs: data.outputData, dataRefs }) : undefined;
+  const projectedOutputs = hasVisibleStoredPortMapValues(data.outputData)
+    ? getCopyValueData({ outputs: data.outputData, dataRefs })
+    : undefined;
   if (projectedOutputs === undefined) {
     return undefined;
   }
@@ -49,7 +52,7 @@ export function serializeDisplayedOutputs(
 }
 
 export function isVisiblePort(portId: PortId | string): boolean {
-  return portId !== (WarningsPort as PortId) && !String(portId).startsWith('__internalPort_');
+  return isVisibleOutputPort(portId);
 }
 
 export function projectStoredPortValueForCopy(
@@ -57,7 +60,7 @@ export function projectStoredPortValueForCopy(
   portId: PortId,
   dataRefs: DataRefReader,
 ): unknown | undefined {
-  if (!(portId in outputs)) {
+  if (outputs[portId] == null) {
     return undefined;
   }
 
@@ -74,18 +77,26 @@ function serializeGenericDisplayedOutputs(
   dataRefs: DataRefReader,
   outputDefinitions?: readonly Pick<NodeOutputDefinition, 'id' | 'title'>[],
 ): string | undefined {
-  if (data.splitOutputData) {
-    const serializedSplits = Object.entries(data.splitOutputData)
-      .sort(([left], [right]) => Number(left) - Number(right))
-      .flatMap(([, outputs]) => {
-        const serialized = serializeStoredOutputPortMap(outputs, dataRefs, outputDefinitions);
-        return serialized === undefined ? [] : [serialized];
-      });
+  const visibleSplitOutputs = getSortedVisibleSplitOutputs(data.splitOutputData);
+
+  if (visibleSplitOutputs.length > 0) {
+    const serializedSplits = visibleSplitOutputs.flatMap(([, outputs]) => {
+      const serialized = serializeStoredOutputPortMap(outputs, dataRefs, outputDefinitions);
+      return serialized === undefined ? [] : [serialized];
+    });
 
     return serializedSplits.length > 0 ? serializedSplits.join('\n\n') : undefined;
   }
 
   return serializeStoredOutputPortMap(data.outputData, dataRefs, outputDefinitions);
+}
+
+function getSortedVisibleSplitOutputs(
+  splitOutputData: NodeRunDataWithRefs['splitOutputData'],
+): Array<[string, InputsOrOutputsWithRefs]> {
+  return Object.entries(splitOutputData ?? {})
+    .filter((entry): entry is [string, InputsOrOutputsWithRefs] => hasVisibleStoredPortMapValues(entry[1]))
+    .sort(([left], [right]) => Number(left) - Number(right));
 }
 
 function serializeStoredOutputPortMap(
@@ -98,7 +109,7 @@ function serializeStoredOutputPortMap(
   }
 
   const visibleEntries = Object.keys(outputs)
-    .filter(isVisiblePort)
+    .filter((portId) => isVisiblePort(portId) && outputs[portId as PortId] != null)
     .map((portId) => ({
       label: outputDefinitions?.find((definition) => definition.id === portId)?.title ?? portId,
       value: projectStoredPortValueForCopy(outputs, portId as PortId, dataRefs),

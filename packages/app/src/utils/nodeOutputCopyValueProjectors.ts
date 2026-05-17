@@ -76,7 +76,7 @@ export const getUserInputNodeCopyValueData: NodeOutputCopyValueProjector = ({ ou
 export const getLoopControllerNodeCopyValueData: NodeOutputCopyValueProjector = ({ outputs, dataRefs }) => {
   const breakValue = outputs['break' as PortId];
   const outputKeys = Object.keys(outputs)
-    .filter((key) => key.startsWith('output'))
+    .filter((key) => key.startsWith('output') && outputs[key as PortId] != null)
     .sort((left, right) => Number(left.replace(/^\D+/, '')) - Number(right.replace(/^\D+/, '')));
 
   const sections: DisplayCopySection[] = [
@@ -136,12 +136,9 @@ export const getSubGraphNodeCopyValueData: NodeOutputCopyValueProjector = ({ out
   return displayCopySections(sections);
 };
 
-function projectVisibleOutputSections(
-  outputs: InputsOrOutputsWithRefs,
-  dataRefs: DataRefReader,
-): DisplayCopySection[] {
+function projectVisibleOutputSections(outputs: InputsOrOutputsWithRefs, dataRefs: DataRefReader): DisplayCopySection[] {
   return Object.keys(outputs)
-    .filter(isVisiblePort)
+    .filter((portId) => isVisiblePort(portId) && outputs[portId as PortId] != null)
     .flatMap((portId) => {
       const outputValue = projectStoredPortValueForCopy(outputs, portId as PortId, dataRefs);
       return outputValue === undefined ? [] : [{ label: portId, value: outputValue }];

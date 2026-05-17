@@ -8,8 +8,9 @@ import {
   getWarnings,
 } from '@valerypopoff/rivet2-core';
 import type { DataRefReader } from '../providers/ProvidersContext.js';
-import type { InputsOrOutputsWithRefs, NodeRunDataWithRefs } from '../state/dataFlow.js';
+import type { DataValueWithRefs, InputsOrOutputsWithRefs, NodeRunDataWithRefs } from '../state/dataFlow.js';
 import { restoreStoredInputsOrOutputs, tryRestoreStoredDataValue } from './executionDataStorage.js';
+import { hasVisibleStoredSplitOutputValues } from './outputPortVisibility.js';
 
 type RestoredSplitOutputs = {
   [index: number]: Outputs;
@@ -17,11 +18,45 @@ type RestoredSplitOutputs = {
 
 export type RestoredNodeOutputs = Outputs | RestoredSplitOutputs;
 
+export function hasStoredPortMapValues(data: InputsOrOutputsWithRefs | undefined): boolean {
+  return data != null && Object.values(data).some((value) => value != null);
+}
+
+export function hasStoredSplitOutputValues(
+  splitOutputData: NodeRunDataWithRefs['splitOutputData'],
+): splitOutputData is NonNullable<NodeRunDataWithRefs['splitOutputData']> {
+  return splitOutputData != null && Object.values(splitOutputData).some(hasStoredPortMapValues);
+}
+
 export function restoreStoredPortMap(
   data: InputsOrOutputsWithRefs | undefined,
   dataRefs: DataRefReader,
 ): Outputs | undefined {
   return restoreStoredInputsOrOutputs(data, dataRefs) as Outputs | undefined;
+}
+
+export function tryRestoreStoredPortMap(
+  data: InputsOrOutputsWithRefs | undefined,
+  dataRefs: DataRefReader,
+): Outputs | undefined {
+  if (!data) {
+    return undefined;
+  }
+
+  const restoredData: Partial<Record<PortId, DataValue>> = {};
+
+  for (const [portId, storedValue] of Object.entries(data) as Array<[PortId, DataValueWithRefs | undefined]>) {
+    if (storedValue == null) {
+      continue;
+    }
+
+    const restoredValue = tryRestoreStoredDataValue(storedValue, dataRefs);
+    if (restoredValue) {
+      restoredData[portId] = restoredValue;
+    }
+  }
+
+  return Object.keys(restoredData).length > 0 ? (restoredData as Outputs) : undefined;
 }
 
 export function restoreStoredPortValue(
@@ -55,17 +90,20 @@ export function restoreDisplayedNodeOutputs(
   data: Pick<NodeRunDataWithRefs, 'outputData' | 'splitOutputData'>,
   dataRefs: DataRefReader,
 ): RestoredNodeOutputs | undefined {
-  if (data.splitOutputData) {
-    const restoredSplitOutputs = Object.fromEntries(
-      Object.entries(data.splitOutputData)
-        .sort(([left], [right]) => Number(left) - Number(right))
-        .map(([index, outputs]) => [Number(index), restoreStoredPortMap(outputs, dataRefs)!]),
-    ) as RestoredSplitOutputs;
-
-    return Object.keys(restoredSplitOutputs).length > 0 ? restoredSplitOutputs : undefined;
+  if (hasVisibleStoredSplitOutputValues(data.splitOutputData)) {
+    return restoreSplitOutputs(data.splitOutputData, dataRefs);
   }
 
-  return restoreStoredPortMap(data.outputData, dataRefs);
+  const restoredOutputData = restoreStoredPortMap(data.outputData, dataRefs);
+  if (restoredOutputData && Object.keys(restoredOutputData).length > 0) {
+    return restoredOutputData;
+  }
+
+  if (hasStoredSplitOutputValues(data.splitOutputData)) {
+    return restoreSplitOutputs(data.splitOutputData, dataRefs);
+  }
+
+  return undefined;
 }
 
 export function getStoredOutputWarnings(
@@ -100,4 +138,24 @@ function collectWarningsFromOutputs(
   for (const warning of nextWarnings ?? []) {
     warnings.add(warning);
   }
+}
+
+function restoreSplitOutputs(
+  splitOutputData: NonNullable<NodeRunDataWithRefs['splitOutputData']>,
+  dataRefs: DataRefReader,
+): RestoredSplitOutputs | undefined {
+  const restoredSplitOutputs: RestoredSplitOutputs = {};
+
+  for (const [index, outputs] of Object.entries(splitOutputData).sort(
+    ([left], [right]) => Number(left) - Number(right),
+  )) {
+    const restoredOutputs = restoreStoredPortMap(outputs, dataRefs);
+    if (!restoredOutputs || Object.keys(restoredOutputs).length === 0) {
+      continue;
+    }
+
+    restoredSplitOutputs[Number(index)] = restoredOutputs;
+  }
+
+  return Object.keys(restoredSplitOutputs).length > 0 ? restoredSplitOutputs : undefined;
 }

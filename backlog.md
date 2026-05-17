@@ -1,5 +1,11 @@
 
 
+- When I run the graph in the Windows Rivet app, the console log shows: 
+VM21050:5 [TAURI] Couldn't find callback id 1299461581 in window. This happens when the app is reloaded while Rust is running an asynchronous operation.
+(anonymous)	@	VM21050:5
+
+
+- When I drag a comment node and hold Ctrl, I expect all the enclosed nodes to move with it. By "enclosed" I mean all nodes that are visually inside the comment node's bounds.
 
 - Need a "Not" node?
 

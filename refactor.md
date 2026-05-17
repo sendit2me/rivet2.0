@@ -580,6 +580,44 @@ Conclusion:
     port-level restore/coercion, and warning helpers as planned.
   - Display-copy helpers were split because the boundary was clean and the
     top-level public entrypoint could remain a facade without caller churn.
+  - Later reassessments found that absent/nullish port wrappers were too easy
+    to preserve as malformed stored values or display/copy as user-visible
+    `undefined`. The storage, reader, generic render, custom output renderers,
+    output-visibility, port-inspector, Chat Viewer, display-copy, node-specific
+    copy projectors, and JSON-copy paths were tightened to skip absent wrappers
+    consistently while preserving explicit `{ type: 'any', value: undefined }`
+    as real runtime data.
+  - Another extrapolation pass found preview-only parsed-source sections using
+    strict whole-map input restore. Code, Expression, JS list, and Extract Object
+    Path now use safe per-port input restore for parsed-source text so an
+    evicted ref-backed input cannot break an otherwise renderable output preview
+    or hide unrelated available interpolation values.
+  - The same pass tightened editor-assist restore and run-from preload:
+    Prompt Designer attached-node hydration now uses safe per-port input restore,
+    while run-from preload remains strict but skips malformed empty output maps
+    instead of treating them as reusable boundary data.
+  - A further "what else could go sideways" pass found the same presence-vs-value
+    risk on split-output rendering and copy paths: a present `splitOutputData`
+    object with only absent port wrappers could hide valid `outputData`. Split
+    output render/copy selection now requires at least one real visible stored
+    port wrapper before preferring split output data, and generic render now
+    shares display-copy's warning/internal-port visibility rule.
+  - The final reassessment pass found the paired fullscreen edge: warnings are
+    visible output status, but they are not body ports. Fullscreen output now
+    renders warning messages through the same dedicated warning UI contract as
+    inline output instead of showing a blank body for warning-only runs.
+  - The next extrapolation pass found two sibling gaps in the same boundary:
+    split-output ref cleanup treated a nullish split entry as proof that the
+    whole node-run record was not node-run-shaped, and custom display-copy
+    projectors still ran for hidden/absent split maps once any split was
+    visible. Ref cleanup now tolerates nullish split entries, and custom copy
+    projection only runs for output maps that pass the visible-wrapper policy.
+  - A final JSON-copy pass found that the visible split-output guard was
+    correct for body/copy text but needed an explicit regression target for
+    warning-only split runs with no final-output fallback. Displayed-output
+    restore now has documented coverage for the intended order: visible split
+    outputs first, valid final `outputData` second, and hidden-only split data
+    only when it is the sole stored representation.
 - Problems solved and goals achieved:
   - Storage/ref lifecycle, preview/excerpt policy, runtime sanitization, and
     display-copy projection are no longer interleaved in two broad files.
@@ -587,10 +625,49 @@ Conclusion:
     generation, or copy text should have a smaller and more obvious target file.
   - The compatibility facades keep behavior and imports stable while new code
     can depend on the more precise owner modules.
+  - The reassessment hardening closed a concrete policy gap at the exact boundary
+    this phase split: missing `DataValue` wrappers now remain distinct from
+    explicit `any` `undefined` across generic and node-specific output
+    rendering, output visibility, port inspectors, Chat Viewer prompt display,
+    display copy, node-specific copy projectors, and internal JSON copy.
+  - Preview-only restore now fails soft per port while executor preload remains
+    strict, which keeps display resilience separate from runtime data
+    requirements.
+  - Run-from preload now uses the same real-wrapper boundary as output
+    visibility, so malformed empty stored maps cannot seed a rerun with empty
+    boundary outputs.
+  - Split-output render and display-copy paths now share that boundary too, so
+    empty, warnings-only, or internal-port-only split partial-output maps do not
+    blank a later valid final output payload.
+  - Warning-only output remains visible without leaking warning ports into the
+    generic body renderer; inline and fullscreen output surfaces now both show
+    those warnings explicitly.
+  - Split-output ref cleanup can no longer miss refs in valid sibling split
+    entries because one legacy/malformed split entry is nullish.
+  - Custom display-copy projectors no longer create phantom copied sections for
+    split entries or output maps that the visible output UI skipped.
+  - Internal JSON copy/export can still inspect warning-only split runs when no
+    final output payload exists, without allowing hidden split maps to blank a
+    valid final output payload.
 - Verification recorded for this phase:
   - execution-data transform/storage/preview regression tests;
   - execution-data reader tests;
   - display-copy and node-specific copy projector tests;
+  - regression tests for absent port wrappers versus explicit `any`
+    `undefined`;
+  - output visibility regression tests for absent wrappers;
+  - safe per-port restore regression coverage for evicted ref-backed values;
+  - run-from preload regression tests for absent wrappers and fallback to older
+    usable outputs;
+  - split-output helper, visible-port, displayed-output restore, and
+    display-copy fallback regression tests for empty and hidden-port-only split
+    maps;
+  - fullscreen warning rendering checked during the final output-surface pass;
+  - ref-cleanup regression coverage for nullish split-output entries;
+  - custom display-copy regression coverage for absent output maps and hidden
+    split entries;
+  - internal JSON-copy restore regression coverage for hidden split output data
+    without an `outputData` fallback;
   - app TypeScript check;
   - full app test suite;
   - focused app lint check;
@@ -753,6 +830,9 @@ Conclusion:
     bookkeeping embedded in the hook.
   - No additional split of `remoteExecutorHelpers.ts` was made because the
     remaining helper groups were still cohesive after upload/request extraction.
+  - A later extrapolation pass kept that helper ownership but tightened preload
+    extraction: dependency runs with only absent output wrappers no longer count
+    as preloadable output, and older usable runs remain eligible.
 - Problems solved and goals achieved:
   - Upload cache correctness is now auditable through a pure decision helper and
     focused tests.
@@ -760,10 +840,13 @@ Conclusion:
     entire run hook.
   - Send-failure cleanup is explicit for both editor runs and Trivet pending
     graph runs.
+  - Run-from preload now rejects or skips malformed empty output maps instead of
+    silently preloading an empty object into a rerun.
 - Verification recorded for this phase:
   - `remoteExecutorUploadCache.test.ts`;
   - `remoteExecutorRunRequest.test.ts`;
   - `remoteExecutorHelpers.test.ts`;
+  - run-from preload regression tests for absent wrappers;
   - `executorSession.test.ts`;
   - `executionSelectors.test.ts`;
   - app TypeScript check;
@@ -908,6 +991,11 @@ Conclusion:
   - No additional protocol-handler module was added because that would have
     exceeded the phase boundary and made dynamic upload/dataset behavior harder
     to audit.
+  - A later reassessment found that processor routing callbacks received the
+    live internal attached-processor array. The attachment helper now returns a
+    snapshot, so custom routing can inspect or reshape its local list without
+    mutating debugger server state. The pass also removed an unnecessary
+    dataset-response cast in `debugger.ts`.
 - Problems solved and goals achieved:
   - Best-effort transport behavior is independently reviewable and reusable by
     connection-time messages and broadcasts.
@@ -915,9 +1003,14 @@ Conclusion:
     proxy/CDN idle fixes easier to reason about.
   - Processor listener cleanup and request-id association are no longer buried in
     the server factory.
+  - Processor attachment state is now encapsulated behind the attachment helper;
+    routing callbacks cannot accidentally detach or hide processors by mutating
+    the array they were handed.
 - Verification recorded for this phase:
   - pre-extraction `debugger.test.ts`;
   - post-extraction `debugger.test.ts`;
+  - regression coverage for routing callbacks receiving an attached-processor
+    snapshot;
   - `api.test.ts`;
   - full node package test suite;
   - node package TypeScript check;
@@ -1178,8 +1271,8 @@ Expected result:
 
 Conclusion:
 
-- The phase was implemented as a conservative helper extraction rather than a
-  generic JavaScript-node abstraction.
+- Status: implemented on 2026-05-17 in `160df7af` as a conservative helper
+  extraction rather than a generic JavaScript-node abstraction.
 - `jsValueInterpolation.ts` now owns the shared Code/Expression/JS-list
   mechanics for interpolation input definitions, safe generated input
   identifiers, cloned-input initializer source, body-preview truncation, preview
@@ -1202,6 +1295,12 @@ Conclusion:
   while keeping total line count roughly flat after adding regression tests and
   documentation. The payoff is clearer ownership and fewer places to update when
   interpolation cloning or sanitization policy changes.
+- Verification recorded for this phase:
+  - core Code, Expression, JS-list, and interpolation input-definition tests;
+  - app Code/Expression parsed-source display helper tests;
+  - core and app TypeScript checks;
+  - focused lint checks;
+  - diff whitespace check.
 
 ## Phase 8: Characterize GraphProcessor Before Further Extraction (DONE)
 
@@ -1313,8 +1412,9 @@ Expected result:
 
 Conclusion:
 
-- The phase was implemented as a characterization-only pass. No
-  `GraphProcessor` runtime code was moved or behavior changed.
+- Status: implemented on 2026-05-17 in `0c7ac94a` as a
+  characterization-only pass. No `GraphProcessor` runtime code was moved or
+  behavior changed.
 - Added
   `packages/core/test/model/GraphProcessor.characterization.test.ts` as a
   public-behavior safety net beside the existing broad GraphProcessor tests.
@@ -1331,6 +1431,14 @@ Conclusion:
   safer to split one policy at a time because future extraction can compare
   event/result behavior against a focused test fixture instead of relying only
   on scattered node-level regressions.
+- Verification recorded for this phase:
+  - focused `GraphProcessor.characterization.test.ts`;
+  - full core test suite;
+  - core TypeScript check;
+  - core lint check;
+  - docs typecheck;
+  - app production build;
+  - diff whitespace check.
 
 ## Deferred Or Lower-Return Areas
 
