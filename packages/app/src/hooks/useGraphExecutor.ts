@@ -1,10 +1,11 @@
 import { useAtomValue } from 'jotai';
 import { loadedRecordingState } from '../state/execution';
 import { selectedExecutorState } from '../state/settings';
-import { shouldUseRemoteExecutor } from '../state/selectors/executionSelectors.js';
+import { canRunGraphFromEditor, shouldUseRemoteExecutor } from '../state/selectors/executionSelectors.js';
 import { useLocalExecutor } from './useLocalExecutor';
 import { useRemoteExecutor } from './useRemoteExecutor';
 import { useExecutorSessionState } from './useExecutorSession';
+import { useStableCallback } from './useStableCallback';
 
 export function useGraphExecutor() {
   const selectedExecutor = useAtomValue(selectedExecutorState);
@@ -13,6 +14,12 @@ export function useGraphExecutor() {
   const remoteExecutor = useRemoteExecutor();
   const session = useExecutorSessionState();
   const hasLoadedRecording = !!loadedRecording;
+  const ignoreEditorRun = useStableCallback(async () => {});
+  const allowEditorGraphRun = canRunGraphFromEditor({
+    hasLoadedRecording,
+    selectedExecutor,
+    session,
+  });
 
   const liveExecutor = shouldUseRemoteExecutor({
     selectedExecutor,
@@ -32,7 +39,7 @@ export function useGraphExecutor() {
   const graphControlExecutor = hasLoadedRecording ? localExecutor : liveExecutor;
 
   return {
-    tryRunGraph: graphRunExecutor.tryRunGraph,
+    tryRunGraph: allowEditorGraphRun ? graphRunExecutor.tryRunGraph : ignoreEditorRun,
     tryAbortGraph: graphControlExecutor.tryAbortGraph,
     tryPauseGraph: graphControlExecutor.tryPauseGraph,
     tryResumeGraph: graphControlExecutor.tryResumeGraph,

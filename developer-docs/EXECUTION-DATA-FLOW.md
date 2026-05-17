@@ -222,7 +222,10 @@ capability into a product state such as `browser-ready`,
 `ready` is not enough by itself for UI run readiness; the ready product states
 also require the active session to be able to send a run command. This prevents
 a hosted internal executor reconnect from being displayed as a Remote Debugger
-reconnect and keeps the Run buttons aligned with the action-time send guard.
+reconnect. ActionBar visibility then applies product policy on top of transport
+capability: external Remote Debugger sessions show the stop/debugger affordance
+but disable editor-side run entrypoints, while Browser and internal Node
+executor sessions keep Run visibility aligned with readiness.
 
 Executor-session target identity is `type + url`, not URL alone. Reconnecting to
 the same target reuses the existing websocket when possible, while connecting the
@@ -736,8 +739,12 @@ internal executor reconnects must preserve that internal classification after
 proxy, server, or idle websocket closes; otherwise `/ws/executor/internal` can
 be misrepresented as a user-attached remote debugger. External remote debuggers
 should continue to use the public `connectExternalDebugger(...)` path, and
-remote-debugger UI should only show disconnect affordances for external-debugger
-sessions.
+remote-debugger UI should only show stop/debugger affordances for
+external-debugger sessions. While an external Remote Debugger is connected or
+connecting, the ActionBar hides editor-side Run and Run Main buttons, menu and
+hotkey run commands no-op, and node `Run to here` / `Run from here` context-menu
+items stay hidden; live execution data is expected to arrive from the remote
+process instead.
 
 The app-executor sidecar treats graph failures as request-scoped execution
 events rather than process/session failures. If a dynamic run throws because a
@@ -751,7 +758,9 @@ internal sidecar is starting, connecting, or reconnecting; readiness only moves
 the button into a disabled loading state that keeps its normal text and swaps
 the action glyph for the same ring indicator used by running node headers, it
 must not collapse the control or make a handled node failure look like the
-executor UI disappeared.
+executor UI disappeared. This internal-executor rule must not be applied to
+external Remote Debugger sessions, which replace editor-run controls with a
+`Stop Remote Debugger` banner.
 The app logs the internal Node executor lifecycle at the sidecar/session seam.
 Sidecar spawn, readiness marker vs timeout fallback, socket close/reconnect
 scheduling, disconnect requests, and skipped run attempts are runtime debug logs

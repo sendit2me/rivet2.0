@@ -28,8 +28,8 @@ For Code, Code (legacy), and Expression nodes, the Node executor prewarms a smal
 
 ## Remote
 
-This executor connects to an external Rivet debugger server and lets another process run or debug graphs while Rivet shows live execution. It requires the remote debugger to be set up in that process. If the remote process implements `dynamicGraphRun`, Rivet can ask it to run the graph shown in the editor. If it enables graph upload, Rivet can upload the current project before running it remotely.
+This executor connects to an external Rivet debugger server and lets another process run or debug graphs while Rivet shows live execution. It requires the remote debugger to be set up in that process. While the remote debugger is connected, Rivet disables editor-run controls; start the graph from the remote process and watch the execution in Rivet.
 
 To use the remote executor, connect via the **Remote Debugger** option in the dropdown of the Rivet action bar.
 
-When you disconnect a remote debugger while Node mode is selected, Rivet restores the internal Node executor session. Hosted wrappers can pass an internal executor URL through `RivetAppHost` so the app classifies that URL as the internal executor rather than as an external remote debugger.
+When you choose **Stop Remote Debugger** while Node mode is selected, Rivet restores the internal Node executor session. Hosted wrappers can pass an internal executor URL through `RivetAppHost` so the app classifies that URL as the internal executor rather than as an external remote debugger.

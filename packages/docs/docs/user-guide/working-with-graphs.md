@@ -24,7 +24,7 @@ To delete a graph, right click on it in the graph list in the sidebar and select
 
 To run the currently selected graph, press the **Run** button in the top right of Rivet. You can then watch the graph execute live.
 
-When connected to a remote debugger, whenever the graph executes remotely, it will automatically show the result of the run in the current graph. If you have implemented `dynamicGraphRun` in your debugger server, you can also click the **Run** button to execute the graph remotely. If it is not implemented, the run button will not do anything.
+When connected to a remote debugger, whenever the graph executes remotely, it will automatically show the result of the run in the current graph. The editor disables its normal run controls while the remote debugger is connected, so start the graph from the remote process and use **Stop Remote Debugger** when you want to return to normal editor-run controls.
 
 ### Run from Here
 

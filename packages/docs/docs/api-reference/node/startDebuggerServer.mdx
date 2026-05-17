@@ -66,7 +66,7 @@ The host address used when `startDebuggerServer` creates the default WebSocket s
 
 ### dynamicGraphRun
 
-Implement this function to allow pressing the "Start" button when remote debugging in Rivet to execute a graph inside your application dynamically.
+Implement this function to handle debugger protocol `run` requests from clients that send them. The current Rivet editor hides its normal **Run** buttons while connected as a remote debugger, so editor users normally start the graph from the remote application and watch the live execution in Rivet instead.
 
 The function will be called with the WebSocket client calling the start, the graph ID of the graph to run, and optionally any inputs to run the
 graph with. You must construct a Project and run the graph yourself, passing in the debugger server, to connect the execution with the dynamic graph run.

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import type { GraphId, GraphRunId, NodeId, ProcessId, RootRunId } from '@valerypopoff/rivet2-core';
 import type { ProcessDataForNode } from '../dataFlow.js';
 import {
+  canRunGraphFromEditor,
   filterProcessDataForSelection,
   getActionBarExecutionState,
   getExecutorProductState,
@@ -154,13 +155,13 @@ describe('executionSelectors', () => {
           isPending: true,
           label: 'Remote Debugger (Connecting...)',
         },
-        showRunButton: true,
+        showRunButton: false,
         showRemoteDebuggerBanner: true,
       },
     );
   });
 
-  test('action bar shows ready external debugger as a disconnect banner', () => {
+  test('action bar shows ready external debugger as a stop banner without run controls', () => {
     const session = {
       capabilities: readyCapabilities,
       status: 'ready',
@@ -189,9 +190,9 @@ describe('executionSelectors', () => {
         isActuallyRemoteDebugging: true,
         remoteDebuggerBanner: {
           isPending: false,
-          label: 'Disconnect Remote Debugger',
+          label: 'Stop Remote Debugger',
         },
-        showRunButton: true,
+        showRunButton: false,
         showRemoteDebuggerBanner: true,
       },
     );
@@ -417,6 +418,53 @@ describe('executionSelectors', () => {
     );
   });
 
+  test('editor graph runs are disabled while an external remote debugger is active', () => {
+    assert.equal(
+      canRunGraphFromEditor({
+        selectedExecutor: 'browser',
+        session: { capabilities: readyCapabilities, status: 'ready', target: null },
+      }),
+      true,
+    );
+
+    assert.equal(
+      canRunGraphFromEditor({
+        selectedExecutor: 'browser',
+        session: {
+          capabilities: readyCapabilities,
+          status: 'ready',
+          target: { type: 'external-debugger', url: 'ws://debugger.example/latest' },
+        },
+      }),
+      false,
+    );
+
+    assert.equal(
+      canRunGraphFromEditor({
+        hasLoadedRecording: true,
+        selectedExecutor: 'nodejs',
+        session: {
+          capabilities: readyCapabilities,
+          status: 'ready',
+          target: { type: 'external-debugger', url: 'ws://debugger.example/latest' },
+        },
+      }),
+      false,
+    );
+
+    assert.equal(
+      canRunGraphFromEditor({
+        selectedExecutor: 'nodejs',
+        session: {
+          capabilities: inactiveCapabilities,
+          status: 'idle',
+          target: { type: 'external-debugger', url: 'ws://debugger.example/latest' },
+        },
+      }),
+      true,
+    );
+  });
+
   test('executor product states separate browser, internal node, and external debugger sessions', () => {
     assert.deepEqual(
       getExecutorProductState({
@@ -452,6 +500,19 @@ describe('executionSelectors', () => {
         },
       }),
       { type: 'browser-ready' },
+    );
+
+    assert.deepEqual(
+      getExecutorProductState({
+        hasLoadedRecording: true,
+        selectedExecutor: 'nodejs',
+        session: {
+          capabilities: readyCapabilities,
+          status: 'ready',
+          target: { type: 'external-debugger', url: 'ws://debugger.example/latest' },
+        },
+      }),
+      { type: 'external-debugger-ready' },
     );
 
     assert.deepEqual(

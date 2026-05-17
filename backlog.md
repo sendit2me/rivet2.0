@@ -1,6 +1,7 @@
 
+- In the standard switcher component, when it's in the "off" position, the X mark is sometimes lower than the middle of the switcher. It should be centered.
 
-- When the remore debugger is on, do not show the "Run" buttons because running from the editor is not working while the Editor is in the remote debugger mode. Also, rename "Disconnect remote debugger" to "Stop remote debugger"
+- With the prev/next graph buttons, when there's a "Next" button available but the "Prev" isn't, don't hide it completely, kust render it disabled
 
 - Add search statistics into search UI: how many occurences found and in how many graphs
 
