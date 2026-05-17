@@ -32,7 +32,12 @@ import { projectState } from '../state/savedGraphs';
 import clsx from 'clsx';
 import { useGoToNode } from '../hooks/useGoToNode';
 import { type GraphId, type NodeId } from '@valerypopoff/rivet2-core';
-import { groupGraphSearchMatches, type GraphSearchNodeMatch } from '../hooks/graphSearch';
+import {
+  getGraphSearchStats,
+  groupGraphSearchMatches,
+  type GraphSearchNodeMatch,
+  type GraphSearchStats,
+} from '../hooks/graphSearch';
 import { useLoadGraph } from '../hooks/useLoadGraph';
 import { graphState } from '../state/graph';
 import { createRootGraphViewContext } from '../domain/graphEditing/navigationActions';
@@ -201,6 +206,13 @@ const styles = css`
       padding: 2px 12px 8px;
     }
 
+    .search-results-summary {
+      color: var(--grey-lighter);
+      font-size: var(--ui-font-size-sm);
+      font-weight: 600;
+      padding: 2px 12px 8px;
+    }
+
     .search-resize-handle {
       bottom: 0;
       cursor: var(--resize-edge-vertical-cursor);
@@ -249,7 +261,7 @@ const styles = css`
 
     .search-result-row {
       align-items: flex-start;
-      background: rgba(255, 255, 255, 0.06);
+      background: var(--grey-darker-darker);
       border-radius: 12px;
       corner-shape: squircle;
       @supports not (corner-shape: squircle) {
@@ -269,7 +281,8 @@ const styles = css`
       min-width: 0;
       outline: 1px solid transparent;
       outline-offset: -1px;
-      padding: 7px 12px;
+      overflow: hidden;
+      padding: 0;
       text-align: left;
       width: calc(100% - 16px);
 
@@ -281,18 +294,21 @@ const styles = css`
 
     .search-result-row-header {
       align-items: flex-start;
+      background: var(--grey-darkish);
       display: flex;
       gap: 8px;
+      padding: 7px 12px;
       width: 100%;
     }
 
     .search-result-node-title {
+      color: var(--foreground-bright);
       flex: 1;
       min-width: 0;
     }
 
     .search-result-node-type {
-      color: var(--grey-lighter);
+      color: var(--foreground-bright);
       flex: 0 1 auto;
       font-size: var(--ui-font-size-xs);
       font-weight: 600;
@@ -305,7 +321,7 @@ const styles = css`
     }
 
     .search-result-content-snippets {
-      background: rgba(255, 255, 255, 0.08);
+      background: var(--grey-darker-darker);
       border-radius: 0 0 12px 12px;
       corner-shape: squircle;
       @supports not (corner-shape: squircle) {
@@ -314,13 +330,12 @@ const styles = css`
       display: flex;
       flex-direction: column;
       gap: 4px;
-      margin: 2px -12px -7px;
-      padding: 6px 12px 7px;
-      width: calc(100% + 24px);
+      padding: 8px 12px 9px;
+      width: 100%;
     }
 
     .search-result-content-snippet {
-      color: var(--grey-light);
+      color: var(--foreground);
       display: block;
       font-size: var(--ui-font-size-sm);
       line-height: 1.35;
@@ -443,6 +458,7 @@ export const NavigationBar: FC = () => {
 
   const graphSearchHasQuery = searching.query.trim().length > 0;
   const graphSearchGroups = useMemo(() => groupGraphSearchMatches(searching.matches), [searching.matches]);
+  const graphSearchStats = useMemo(() => getGraphSearchStats(searching.matches), [searching.matches]);
   const graphSearchHasResults = graphSearchHasQuery && graphSearchGroups.length > 0;
 
   const hideGraphSearchPanel = useCallback(() => {
@@ -678,6 +694,7 @@ export const NavigationBar: FC = () => {
               fallbackToTerms={searching.fallbackToTerms}
               query={searching.query}
               resultsRef={graphSearchResultsRef}
+              stats={graphSearchStats}
               onSelectGraph={selectGraphSearchGroup}
               onSelect={selectGraphSearchMatch}
               onScroll={updateGraphSearchResultsScroll}
@@ -764,16 +781,18 @@ const GraphSearchResults: FC<{
   fallbackToTerms: boolean;
   query: string;
   resultsRef: RefObject<HTMLDivElement>;
+  stats: GraphSearchStats;
   onSelectGraph: (graphId: GraphId) => void;
   onSelect: (match: GraphSearchNodeMatch, selectedIndex: number) => void;
   onScroll: (e: UIEvent<HTMLDivElement>) => void;
-}> = ({ groups, fallbackToTerms, query, resultsRef, onSelectGraph, onSelect, onScroll }) => {
+}> = ({ groups, fallbackToTerms, query, resultsRef, stats, onSelectGraph, onSelect, onScroll }) => {
   if (groups.length === 0) {
     return null;
   }
 
   return (
     <div ref={resultsRef} className="search-results" onScroll={onScroll}>
+      <div className="search-results-summary">{formatGraphSearchStats(stats)}</div>
       {fallbackToTerms && (
         <div className="search-results-fallback-note">No exact match found. Showing results that match separate words.</div>
       )}
@@ -832,6 +851,13 @@ const GraphSearchResults: FC<{
     </div>
   );
 };
+
+function formatGraphSearchStats(stats: GraphSearchStats): string {
+  const occurrenceLabel = stats.occurrenceCount === 1 ? 'occurrence' : 'occurrences';
+  const graphLabel = stats.graphCount === 1 ? 'graph' : 'graphs';
+
+  return `${stats.occurrenceCount.toLocaleString()} ${occurrenceLabel} in ${stats.graphCount.toLocaleString()} ${graphLabel}`;
+}
 
 const SearchResultItem: FC<{
   entry: SearchedItem;

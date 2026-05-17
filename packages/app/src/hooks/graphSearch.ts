@@ -48,6 +48,7 @@ export type GraphSearchGraphMatch = {
   graphName: string;
   locations: GraphSearchMatchLocation[];
   contentSnippets: string[];
+  occurrenceCount: number;
 };
 
 export type GraphSearchNodeMatch = {
@@ -59,6 +60,7 @@ export type GraphSearchNodeMatch = {
   nodeType: string;
   locations: GraphSearchMatchLocation[];
   contentSnippets: string[];
+  occurrenceCount: number;
 };
 
 export type GraphSearchMatch = GraphSearchGraphMatch | GraphSearchNodeMatch;
@@ -66,6 +68,11 @@ export type GraphSearchMatch = GraphSearchGraphMatch | GraphSearchNodeMatch;
 export type GraphSearchResult = {
   matches: GraphSearchMatch[];
   fallbackToTerms: boolean;
+};
+
+export type GraphSearchStats = {
+  occurrenceCount: number;
+  graphCount: number;
 };
 
 export type GroupedGraphSearchMatches = {
@@ -220,6 +227,21 @@ export function groupGraphSearchMatches(matches: readonly GraphSearchMatch[]): G
   });
 
   return groups;
+}
+
+export function getGraphSearchStats(matches: readonly GraphSearchMatch[]): GraphSearchStats {
+  const graphIds = new Set<GraphId>();
+  let occurrenceCount = 0;
+
+  for (const match of matches) {
+    graphIds.add(match.graphId);
+    occurrenceCount += match.occurrenceCount;
+  }
+
+  return {
+    occurrenceCount,
+    graphCount: graphIds.size,
+  };
 }
 
 export function isNodeGraphSearchMatch(match: GraphSearchMatch): match is GraphSearchNodeMatch {
@@ -482,6 +504,7 @@ function findGraphSearchMatches(
         graphName: item.graphName,
         locations: ['graph name'],
         contentSnippets: [],
+        occurrenceCount: countSearchItemOccurrences(item, queryTerms),
       };
     }
 
@@ -494,6 +517,7 @@ function findGraphSearchMatches(
       nodeType: item.nodeType,
       locations: getMatchLocations(item, queryTerms),
       contentSnippets: getGraphSearchContentSnippets(item.joinedData, getSnippetTerms(item, queryTerms)),
+      occurrenceCount: countSearchItemOccurrences(item, queryTerms),
     };
   });
 }
@@ -510,6 +534,40 @@ function getFieldTermsForSnippets(item: GraphSearchItem, queryTerms: readonly st
 
 function doesSearchFieldMatch(field: GraphSearchField, term: string): boolean {
   return term.length >= (field.minQueryLength ?? 1) && field.normalizedText.includes(term);
+}
+
+function countSearchItemOccurrences(item: GraphSearchItem, queryTerms: readonly string[]): number {
+  let occurrenceCount = 0;
+
+  for (const field of item.fields) {
+    for (const term of queryTerms) {
+      occurrenceCount += countSearchFieldOccurrences(field, term);
+    }
+  }
+
+  return occurrenceCount;
+}
+
+function countSearchFieldOccurrences(field: GraphSearchField, term: string): number {
+  if (term.length < (field.minQueryLength ?? 1)) {
+    return 0;
+  }
+
+  let occurrenceCount = 0;
+  let startIndex = 0;
+
+  while (startIndex < field.normalizedText.length) {
+    const matchIndex = field.normalizedText.indexOf(term, startIndex);
+
+    if (matchIndex === -1) {
+      break;
+    }
+
+    occurrenceCount += 1;
+    startIndex = matchIndex + Math.max(term.length, 1);
+  }
+
+  return occurrenceCount;
 }
 
 function getSearchTermRanges(content: string, queryTerms: readonly string[]): Array<{ start: number; end: number }> {

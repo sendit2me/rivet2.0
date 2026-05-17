@@ -1,9 +1,8 @@
 
 
 
-- Add search statistics into search UI: how many occurences found and in how many graphs
 
-- In the code and expression nodes, in the code editor, the variables like {{input}} are highlighted as syntx errors. Can something be done about it without breaking the rest of the code highligting?
+- In the code and expression nodes, in the code editor, the variables like {{input}} are highlighted as syntx errors. Can something be done about it without breaking the rest of the code highligting? Don't change any code yet, just analyze
 
 
 - Need a "Not" node?
