@@ -10,7 +10,7 @@ import {
 import type { ProcessDataForNode, RunDataByNodeId } from '../state/dataFlow.js';
 import type { DataRefReader } from '../providers/ProvidersContext.js';
 import { restoreStoredPortMap } from '../utils/executionDataReaders.js';
-import { hasUnavailableStoredRefs } from '../utils/executionDataTransforms.js';
+import { hasUnavailableStoredRefs } from '../utils/executionDataStorage.js';
 import { getGlobalDataRef } from '../utils/globals/globalDataRefs.js';
 
 const dataRefs: DataRefReader = {

@@ -115,7 +115,7 @@ The largest post-`13d3afef` growth and churn is concentrated in:
   - desktop icon generation and macOS download publishing
   - package/docs version and download pages
 
-## Phase 1: Split Node Output Surface
+## Phase 1: Split Node Output Surface (DONE)
 
 Priority: highest.
 
@@ -234,23 +234,48 @@ Expected result:
 - A modest line reduction is possible by sharing pager/action/header glue.
 - Future output fixes should touch smaller ownership surfaces.
 
-Implementation outcome:
+Conclusion:
 
-- Status: implemented on 2026-05-17.
-- Payoff decision: implemented as a behavior-preserving ownership split.
-- Production ownership changed:
-  - `NodeOutput.tsx` is now the stable adapter and fullscreen renderer re-export.
-  - `NodeInlineOutput.tsx` owns in-canvas output rendering and action buttons.
-  - `NodeFullscreenOutput.tsx` owns fullscreen modal output orchestration.
-  - `NodeOutputContentState.tsx` owns content-key fade and replacement grace.
-  - `NodeOutputPager.tsx` owns shared process-page controls.
+- Status: implemented on 2026-05-17 in `ca22606c` as a
+  behavior-preserving ownership split.
+- What was done:
+  - `NodeOutput.tsx` became the stable adapter and fullscreen renderer
+    re-export.
+  - `NodeInlineOutput.tsx` now owns in-canvas output rendering and action
+    buttons.
+  - `NodeFullscreenOutput.tsx` now owns fullscreen modal output orchestration.
+  - `NodeOutputContentState.tsx` now owns content-key fade and replacement
+    grace.
+  - `NodeOutputPager.tsx` now owns shared process-page controls.
+- How it went:
+  - The refactor stayed inside the planned public behavior boundary. Inline,
+    hover, expanded, fullscreen, copy, wrapping, Markdown, search, stored-output,
+    and custom renderer behavior were preserved.
+  - The hottest file was simplified substantially: `NodeOutput.tsx` had 858
+    deleted lines and 9 added lines, for a local reduction of 849 lines.
+  - The production output surface as a whole changed by about +18 lines after
+    adding the focused modules. The win was clearer ownership rather than a
+    meaningful total line reduction.
+- Plan corrections during implementation:
+  - The public `NodeOutput.tsx` export was kept as the compatibility owner
+    instead of moving imports outward. This avoided caller churn and preserved
+    the fullscreen renderer seam.
+  - No extra generic action-bar abstraction was introduced because the extracted
+    inline module already made the repeated action glue understandable.
+- Problems solved and goals achieved:
+  - Fullscreen placement, inline rendering, animation/replacement grace, and
+    process paging are no longer interleaved in one long component.
+  - Future fixes for hover blinking, output copy, fullscreen wrapping/search, or
+    process paging should touch a smaller module with a clearer responsibility.
+  - The phase met the main refactor goal: lower future-change risk in a
+    high-churn UI surface without changing node output behavior.
 - Verification recorded for this phase:
   - focused node-output regression tests;
   - focused app lint check;
   - app TypeScript check;
   - diff whitespace check.
 
-## Phase 2: Extract Graph Tree Context Menu And Derived Models
+## Phase 2: Extract Graph Tree Context Menu And Derived Models (DONE)
 
 Priority: high.
 
@@ -355,15 +380,47 @@ Expected result:
 - Context-menu regressions become easier to test.
 - Some line reduction is likely from removing repeated menu container glue.
 
-Implementation outcome:
+Conclusion:
 
-- Status: implemented on 2026-05-17.
-- Payoff decision: implemented as a targeted extraction, not a tree rewrite.
-- Production ownership changed:
-  - `graphListContextMenu.ts` owns graph/folder/root menu construction and captured target normalization.
-  - `useGraphListPresentation.ts` owns graph-list reachability/reference derivation plus row presentation facts used by `FolderItem`.
-  - `GraphList.tsx` keeps drag/drop composition, recursive row composition, modal ownership, and command dispatch.
-  - `FolderItem.tsx` keeps recursive row rendering, rename input behavior, and DnD row wiring.
+- Status: implemented on 2026-05-17 in `49638865` as a targeted extraction,
+  not a tree rewrite.
+- What was done:
+  - `graphListContextMenu.ts` now owns graph/folder/root menu construction and
+    captured target normalization.
+  - `useGraphListPresentation.ts` now owns graph-list reachability/reference
+    derivation plus row presentation facts used by `FolderItem`.
+  - `GraphList.tsx` still owns drag/drop composition, recursive row composition,
+    modal ownership, and command dispatch.
+  - `FolderItem.tsx` still owns recursive row rendering, rename input behavior,
+    and DnD row wiring.
+- How it went:
+  - The implementation followed the planned narrow extraction and avoided a
+    broader tree rewrite.
+  - `GraphList.tsx` shrank by 84 net lines, and `FolderItem.tsx` stayed roughly
+    flat at 1 net line removed.
+  - The production graph-list surface grew by about 256 lines overall because
+    formerly inline policy moved into explicit pure helpers with defensive target
+    validation. This was accepted because the helpers are testable and make the
+    component ownership clearer.
+- Plan corrections during implementation:
+  - Command dispatch intentionally stayed in `GraphList.tsx`. Extracting it into
+    a hook would have mixed graph operations, modal state, and confirmation flow
+    into a new abstraction without reducing risk.
+  - The context target helper became a little more defensive than the original
+    plan: graph targets re-resolve by id against `savedGraphs`, and
+    path-sensitive commands use the current saved graph name when a captured DOM
+    path is stale.
+- Problems solved and goals achieved:
+  - Menu construction is now pure and covered by focused tests for graph, folder,
+    root, stale, and malformed targets.
+  - Reachability, reference, selected/open graph, collapsed-folder highlight, and
+    running-row presentation facts are derived outside the recursive component
+    rendering path.
+  - Drag/drop, rename, modal ownership, and command behavior stayed in their
+    existing runtime places, reducing the chance of user-visible regressions.
+  - The phase met the main refactor goal: graph-tree behavior is easier to test
+    and reason about while preserving menu labels, order, visibility, and tree
+    interactions.
 - Verification recorded for this phase:
   - graph-list layout/source contract test;
   - pure context-menu and presentation helper tests;
@@ -373,7 +430,7 @@ Implementation outcome:
   - app TypeScript check;
   - app production build.
 
-## Phase 3: Separate Execution Data Storage, Preview, And Copy Policy
+## Phase 3: Separate Execution Data Storage, Preview, And Copy Policy (DONE)
 
 Priority: high.
 
@@ -483,6 +540,61 @@ Expected result:
 - Less risk when changing output UX.
 - More professional utility boundaries.
 - Line reduction may be modest; clarity is the main win.
+
+Conclusion:
+
+- Status: implemented on 2026-05-17 as a behavior-preserving utility ownership
+  split.
+- What was done:
+  - `executionDataStorage.ts` now owns history storage, stable ref-id
+    construction, stored-value restore, ref collection, preserved/removed ref
+    cleanup, and run-data splitting for partial reruns.
+  - `executionDataPreview.ts` now owns storage decisions, preview thresholds,
+    text/json excerpts, encoded hints, media/chat summaries, and malformed
+    payload fallback decisions.
+  - `executionDataSanitization.ts` now owns runtime `Uint8Array` repair for
+    inputs/outputs before they are stored.
+  - `executionDataTransforms.ts` was reduced to a compatibility facade so older
+    imports keep working while new implementation code can import from the real
+    owner modules.
+  - Display-copy internals moved under `executionDataCopy/`:
+    `projectDataValue.ts`, `serializeDisplayedOutputs.ts`, and
+    `displayCopySections.ts`. The public `executionDataCopyValue.ts` entrypoint
+    remains stable.
+- How it went:
+  - The refactor preserved the visible output, copy, JSON copy/export, missing
+    ref, explicit `any` `undefined`, large preview, and run-from preload
+    behavior covered by the existing focused tests.
+  - `executionDataTransforms.ts` shrank by 777 net lines, and
+    `executionDataCopyValue.ts` shrank by 308 net lines.
+  - The total production execution-data utility surface grew by about 60 lines
+    because the implicit policies are now explicit owner modules. This was an
+    acceptable tradeoff for reviewability at a sensitive storage/display
+    boundary.
+- Plan corrections during implementation:
+  - A small `executionDataSanitization.ts` module was added even though the plan
+    did not name it explicitly. This avoided a circular dependency between the
+    compatibility facade and the new storage owner.
+  - Low-level stored-value restore moved with storage/ref ownership, while
+    `executionDataReaders.ts` kept the app-facing displayed-output restore,
+    port-level restore/coercion, and warning helpers as planned.
+  - Display-copy helpers were split because the boundary was clean and the
+    top-level public entrypoint could remain a facade without caller churn.
+- Problems solved and goals achieved:
+  - Storage/ref lifecycle, preview/excerpt policy, runtime sanitization, and
+    display-copy projection are no longer interleaved in two broad files.
+  - Future changes to large-output storage, missing-ref cleanup, preview
+    generation, or copy text should have a smaller and more obvious target file.
+  - The compatibility facades keep behavior and imports stable while new code
+    can depend on the more precise owner modules.
+- Verification recorded for this phase:
+  - execution-data transform/storage/preview regression tests;
+  - execution-data reader tests;
+  - display-copy and node-specific copy projector tests;
+  - app TypeScript check;
+  - full app test suite;
+  - focused app lint check;
+  - diff whitespace check.
 
 ## Phase 4: Simplify Remote Execution Client Pipeline
 

@@ -4,7 +4,7 @@ import type { FC, ReactNode } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import type { DataRefReader } from '../../providers/ProvidersContext.js';
 import type { NodeRunDataWithRefs, PageValue, ProcessDataForNode } from '../../state/dataFlow.js';
-import { hasUnavailableStoredRefs } from '../../utils/executionDataTransforms.js';
+import { hasUnavailableStoredRefs } from '../../utils/executionDataStorage.js';
 import { getSelectedVisibleOutputProcess, NODE_OUTPUT_REPLACEMENT_GRACE_MS } from './nodeOutputVisibility.js';
 
 export function getNodeOutputContentKey(processId: ProcessId, data: NodeRunDataWithRefs, contentKind: string): string {

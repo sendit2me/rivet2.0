@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, type FC } from 'react';
 import { useDataRefs } from '../../providers/ProvidersContext.js';
 import type { StoredDataValue } from '../../state/dataFlow.js';
 import { FULL_RENDER_SAFE_THRESHOLD_CHARS } from '../../utils/outputStorageLimits.js';
-import { tryRestoreStoredDataValue } from '../../utils/executionDataTransforms.js';
+import { tryRestoreStoredDataValue } from '../../utils/executionDataStorage.js';
 import { copyToClipboard } from '../../utils/copyToClipboard.js';
 import { handleError } from '../../utils/errorHandling.js';
 import ColorizedPreformattedText from '../ColorizedPreformattedText.js';

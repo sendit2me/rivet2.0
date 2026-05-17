@@ -11,12 +11,8 @@ import {
 } from '@valerypopoff/rivet2-core';
 import { type ExecutionDataFlowApi } from './useExecutionDataFlow';
 import { lastRunDataByNodeState } from '../state/dataFlow';
-import {
-  collectStoredRefIds,
-  deleteStoredRefIds,
-  sanitizeInputsOrOutputs,
-  storeInputsOrOutputsForHistory,
-} from '../utils/executionDataTransforms';
+import { collectStoredRefIds, deleteStoredRefIds, storeInputsOrOutputsForHistory } from '../utils/executionDataStorage';
+import { sanitizeInputsOrOutputs } from '../utils/executionDataSanitization';
 import { useDataRefs } from '../providers/ProvidersContext';
 
 export type NodeExecutionEventsApi = {

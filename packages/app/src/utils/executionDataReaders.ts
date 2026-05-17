@@ -9,7 +9,7 @@ import {
 } from '@valerypopoff/rivet2-core';
 import type { DataRefReader } from '../providers/ProvidersContext.js';
 import type { InputsOrOutputsWithRefs, NodeRunDataWithRefs } from '../state/dataFlow.js';
-import { restoreStoredInputsOrOutputs, tryRestoreStoredDataValue } from './executionDataTransforms.js';
+import { restoreStoredInputsOrOutputs, tryRestoreStoredDataValue } from './executionDataStorage.js';
 
 type RestoredSplitOutputs = {
   [index: number]: Outputs;
@@ -95,8 +95,7 @@ function collectWarningsFromOutputs(
     return;
   }
 
-  const nextWarnings =
-    coerceTypeOptional(warningsValue, 'string[]') ?? getWarnings({ [WarningsPort]: warningsValue });
+  const nextWarnings = coerceTypeOptional(warningsValue, 'string[]') ?? getWarnings({ [WarningsPort]: warningsValue });
 
   for (const warning of nextWarnings ?? []) {
     warnings.add(warning);

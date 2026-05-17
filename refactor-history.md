@@ -554,6 +554,11 @@ not preserve a complete file list.
     - How: Added pure graph-list context-menu builders and target resolution in `graphListContextMenu.ts`, moved reachability/reference and row presentation derivation into `useGraphListPresentation.ts`, and left command dispatch plus graph/project modal ownership in `GraphList.tsx`.
     - Affected files/areas: `GraphList.tsx`, `FolderItem.tsx`, `graphListContextMenu.ts`, `useGraphListPresentation.ts`, graph-list regression tests, `developer-docs/APP-ARCHITECTURE.md`.
 
+105. **Separated execution-data storage, preview, and copy policy**
+    - Why: `executionDataTransforms.ts` and `executionDataCopyValue.ts` mixed storage/ref lifecycle, preview decisions, restore helpers, and display-copy projection in broad utility files.
+    - How: Added focused storage, preview, and sanitization modules, kept `executionDataTransforms.ts` as a compatibility facade, split display-copy implementation under `executionDataCopy/`, and moved internal imports to the new ownership modules.
+    - Affected files/areas: `executionDataStorage.ts`, `executionDataPreview.ts`, `executionDataSanitization.ts`, `executionDataCopy/*`, execution-data regression tests, `developer-docs/APP-ARCHITECTURE.md`, `developer-docs/EXECUTION-DATA-FLOW.md`.
+
 ## Residual Watchlist For Future Refactors
 
 1. **GraphProcessor size and responsibility concentration**

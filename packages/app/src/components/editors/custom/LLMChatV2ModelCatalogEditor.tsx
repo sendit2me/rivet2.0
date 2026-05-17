@@ -24,7 +24,7 @@ import {
 } from '../../../state/dataFlow.js';
 import { useDependsOnPlugins } from '../../../hooks/useDependsOnPlugins.js';
 import { fillMissingSettingsFromEnvironmentVariables } from '../../../utils/tauri.js';
-import { tryRestoreStoredDataValue } from '../../../utils/executionDataTransforms.js';
+import { tryRestoreStoredDataValue } from '../../../utils/executionDataStorage.js';
 import { getStaticInputApiKey } from '../../../utils/chatV2ModelCatalogInputKey.js';
 import {
   getChatV2DiscoveredModelOptionsWithStatus,

@@ -8,7 +8,7 @@ import {
   isStoredInlineDataValue,
   isStoredRefDataValue,
   tryRestoreStoredDataValue,
-} from '../utils/executionDataTransforms.js';
+} from '../utils/executionDataStorage.js';
 import { createDataValueRendererMap } from './renderDataValue/createDataValueRendererMap.js';
 import { createScalarRenderers } from './renderDataValue/createScalarRenderers.js';
 import { LargeStoredValuePreview } from './renderDataValue/LargeStoredValuePreview.js';
