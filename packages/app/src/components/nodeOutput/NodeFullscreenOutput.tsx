@@ -303,6 +303,7 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
     copyOutputValue(data, dataRefs, getCopyValueData, io.outputDefinitions),
   );
   const handleCopyToClipboardJson = useStableCallback(() => copyOutputJson(data, dataRefs));
+  const warnings = useMemo(() => (data ? getStoredOutputWarnings(data, dataRefs) : undefined), [data, dataRefs]);
   const contentVersion = useMemo(
     () => ({
       data,
@@ -412,7 +413,6 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
     renderMode: 'expanded-preview',
     allowLargeStoredValueActions: true,
   });
-  const warnings = useMemo(() => getStoredOutputWarnings(data, dataRefs), [data, dataRefs]);
 
   return (
     <div css={fullscreenOutputCss} ref={fullscreenOutputRootRef}>
