@@ -1,5 +1,4 @@
 
-- In the standard switcher component, when it's in the "off" position, the X mark is sometimes lower than the middle of the switcher. It should be centered.
 
 - With the prev/next graph buttons, when there's a "Next" button available but the "Prev" isn't, don't hide it completely, kust render it disabled
 

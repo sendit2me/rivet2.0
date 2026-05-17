@@ -98,43 +98,31 @@ const scalableToggleStyles = css`
     top: 0;
     bottom: 0;
     width: calc(var(--toggle-width) / 2);
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    display: block;
     color: var(--ds-icon-inverse, #172b4d);
-    font-size: var(--toggle-icon-size);
-    font-weight: 800;
-    line-height: 1;
-    text-align: center;
     transition: opacity 0.15s ease-out;
     pointer-events: none;
-  }
-
-  .scalable-toggle-icon::before {
-    display: block;
   }
 
   .scalable-toggle-icon-check {
     left: 0;
     opacity: 0;
-    font-weight: 950;
-  }
-
-  .scalable-toggle-icon-check::before {
-    content: '\\2714';
   }
 
   .scalable-toggle-icon-cross {
-    right: 0.06em;
+    right: 0;
     opacity: 1;
-    font-family: var(--font-family);
-    font-size: calc(var(--toggle-icon-size) * 1.55);
-    font-weight: 650;
   }
 
-  .scalable-toggle-icon-cross::before {
-    content: '\\00d7';
-    transform: translateY(0.035em);
+  .scalable-toggle-mark {
+    display: block;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: var(--toggle-icon-size);
+    height: var(--toggle-icon-size);
+    overflow: visible;
+    transform: translate(-50%, -50%);
   }
 
   &.is-checked .scalable-toggle-icon-check {
@@ -174,8 +162,37 @@ export const ScalableToggle: FC<ScalableToggleProps> = ({
       type="checkbox"
     />
     <span className="scalable-toggle-track" aria-hidden="true">
-      <span className="scalable-toggle-icon scalable-toggle-icon-check" />
-      <span className="scalable-toggle-icon scalable-toggle-icon-cross" />
+      <span className="scalable-toggle-icon scalable-toggle-icon-check">
+        <svg
+          className="scalable-toggle-mark scalable-toggle-check-mark"
+          fill="none"
+          focusable="false"
+          shapeRendering="geometricPrecision"
+          viewBox="0 0 12 12"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M3.1 6.1L5.1 8.1L8.9 3.9"
+            stroke="currentColor"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="1.8"
+          />
+        </svg>
+      </span>
+      <span className="scalable-toggle-icon scalable-toggle-icon-cross">
+        <svg
+          className="scalable-toggle-mark scalable-toggle-cross-mark"
+          fill="none"
+          focusable="false"
+          shapeRendering="geometricPrecision"
+          viewBox="0 0 12 12"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path d="M3.5 3.5L8.5 8.5" stroke="currentColor" strokeLinecap="round" strokeWidth="1.8" />
+          <path d="M8.5 3.5L3.5 8.5" stroke="currentColor" strokeLinecap="round" strokeWidth="1.8" />
+        </svg>
+      </span>
       <span className="scalable-toggle-thumb" />
     </span>
   </label>
