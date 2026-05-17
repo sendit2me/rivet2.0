@@ -596,7 +596,7 @@ Conclusion:
   - focused app lint check;
   - diff whitespace check.
 
-## Phase 4: Simplify Remote Execution Client Pipeline
+## Phase 4: Simplify Remote Execution Client Pipeline (DONE)
 
 Priority: medium-high.
 
@@ -720,6 +720,57 @@ Expected result:
 - Upload caching stays fast but less entangled with run-request lifecycle.
 - Future transport bugs should localize to the session layer, protocol helpers,
   or run-request helper instead of one broad hook.
+
+Conclusion:
+
+- Status: implemented on 2026-05-17 as a behavior-preserving client-pipeline
+  extraction.
+- What was done:
+  - `useRemoteExecutor.ts` remains the React/session adapter that reads atoms,
+    resolves environment-backed settings, subscribes to process messages, sends
+    commands, and updates `useCurrentExecution()`.
+  - `remoteExecutorUploadCache.ts` now exposes
+    `planRemoteExecutorProjectUpload(...)`, which makes reuse-vs-upload-required
+    decisions explicit before any websocket sends happen.
+  - `uploadRemoteExecutorProjectIfNeeded(...)` still owns the imperative send
+    path and marks the cache fresh only after dynamic project/settings upload and
+    every static-data upload succeeds.
+  - `remoteExecutorRunRequest.ts` now owns active request-id filtering,
+    registration before send, matching completion cleanup, disconnect cleanup,
+    editor-send failure cleanup, and Trivet pending-run send-failure rejection.
+- How it went:
+  - The extraction stayed narrow. Run-from planning, preload extraction, Trivet
+    test selection, and process-event dispatch stayed in
+    `remoteExecutorHelpers.ts`.
+  - Preloaded-node event suppression stayed explicit in `useExecutionDataFlow.ts`
+    and was not hidden behind upload/cache helpers.
+  - No websocket protocol messages, executor-session runtime behavior, upload
+    invalidation rules, run-from semantics, recording playback routing, or
+    abort/pause/resume command behavior were changed.
+- Plan corrections during implementation:
+  - The request lifecycle extraction was worth doing, so
+    `remoteExecutorRunRequest.ts` was added rather than leaving request-id
+    bookkeeping embedded in the hook.
+  - No additional split of `remoteExecutorHelpers.ts` was made because the
+    remaining helper groups were still cohesive after upload/request extraction.
+- Problems solved and goals achieved:
+  - Upload cache correctness is now auditable through a pure decision helper and
+    focused tests.
+  - Request-scoped event filtering and cleanup no longer require reading the
+    entire run hook.
+  - Send-failure cleanup is explicit for both editor runs and Trivet pending
+    graph runs.
+- Verification recorded for this phase:
+  - `remoteExecutorUploadCache.test.ts`;
+  - `remoteExecutorRunRequest.test.ts`;
+  - `remoteExecutorHelpers.test.ts`;
+  - `executorSession.test.ts`;
+  - `executionSelectors.test.ts`;
+  - app TypeScript check;
+  - focused app lint check;
+  - full app test suite;
+  - production app build;
+  - diff whitespace check.
 
 ## Phase 5: Split Remote Debugger Server Transport
 

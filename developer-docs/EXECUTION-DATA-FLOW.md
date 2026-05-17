@@ -247,12 +247,26 @@ available to low-level runtime code and tests, but product UI should use the
 selector and capability layer.
 
 `useRemoteExecutor` caches the last successfully uploaded
-project/settings/static-data payload per executor session. The cache key includes
-the derived project graph/plugin state, resolved runtime settings, and static
-project data; it is cleared on executor connect/disconnect. Identical
-consecutive runs can therefore send only the lightweight `run` message, while
-graph edits, settings/env changes, static data changes, or a new session force a
-fresh upload. Failed project or static-data sends do not update the cache.
+project/settings/static-data payload per executor session. Upload cache decisions
+are planned in `remoteExecutorUploadCache.ts`: `planRemoteExecutorProjectUpload`
+compares the session key, derived project graph/plugin state, resolved runtime
+settings, and sorted static project data before the hook sends anything.
+Identical consecutive runs can therefore send only the lightweight `run`
+message, while graph edits, settings/env changes, static data changes, or a new
+session force a fresh upload. The imperative upload path sends dynamic project
+data first, then each static-data payload, and marks the cache fresh only after
+every send succeeds. The cache is cleared on executor connect/disconnect, and
+failed project or static-data sends do not update it.
+
+Remote run request ids are managed by `remoteExecutorRunRequest.ts`.
+Editor graph runs register one active request id before sending the `run`
+message; request-scoped process events are dispatched only when their request id
+matches that active request, while legacy/unscoped events still pass through.
+`done`, `abort`, `error`, disconnect, and send-failure paths clear the active
+request explicitly. Trivet/test runs use the executor-session pending-promise
+API and reject that pending request if the `run` send fails before reaching the
+socket, so the failure is observed through the same async result path as normal
+remote test-run completion.
 
 Executor-session callbacks are failure-isolated. Lifecycle subscribers,
 process-message subscribers, and the renderer state-change callback are invoked
@@ -564,6 +578,24 @@ const eventDispatcher = createProcessEventDispatcher(currentExecution);
 
 The sidecar serializes events with full metadata. The dispatcher reconstructs
 and routes them to the same handler functions.
+
+The remote execution client pipeline is layered intentionally:
+
+- `useRemoteExecutor` remains the React adapter. It reads atoms/providers, gets
+  the current executor-session runtime, resolves environment-backed settings,
+  subscribes to process messages, and updates `useCurrentExecution()`.
+- `remoteExecutorUploadCache.ts` owns pure upload decisions plus the imperative
+  send-and-mark-fresh path for project/settings/static data.
+- `remoteExecutorRunRequest.ts` owns request-id creation/registration helpers,
+  active-request event filtering, completion cleanup, and pending test-run
+  send-failure cleanup.
+- `remoteExecutorHelpers.ts` owns pure run-from planning, preload extraction,
+  Trivet selection, and process-event dispatcher construction.
+
+Gentrace remote runs are intentionally outside this editor/test-run pipeline.
+They use `recordSocketEvents(...)` to capture the raw executor socket stream for
+Gentrace recording, so they should keep their separate capability and recording
+contract unless that feature is refactored directly.
 
 Local and remote editor run-from execution share the same explicit run plan:
 
@@ -1085,7 +1117,9 @@ absence gracefully since the final `nodeFinish` event contains the complete outp
 | [`useExecutorSession.ts`](../packages/app/src/hooks/useExecutorSession.ts)                               | Read-only executor-session snapshot hook plus compatibility exports for coordinator helpers                                                                          |
 | [`useRemoteDebugger.ts`](../packages/app/src/hooks/useRemoteDebugger.ts)                                 | External Remote Debugger command/subscription surface; does not own Node executor restoration policy                                                                 |
 | [`useRemoteExecutor.ts`](../packages/app/src/hooks/useRemoteExecutor.ts)                                 | Remote graph/test execution over the shared session; sends protocol messages only after action-time capability checks                                                |
-| [`remoteExecutorHelpers.ts`](../packages/app/src/hooks/remoteExecutorHelpers.ts)                         | `createProcessEventDispatcher` - routes WebSocket messages to handlers                                                                                               |
+| [`remoteExecutorUploadCache.ts`](../packages/app/src/hooks/remoteExecutorUploadCache.ts)                 | Remote project/settings/static-data upload decisions, cache invalidation, and send-success marking                                                                   |
+| [`remoteExecutorRunRequest.ts`](../packages/app/src/hooks/remoteExecutorRunRequest.ts)                   | Remote run request-id registration, active request filtering, send-failure cleanup, and pending test-run send helpers                                                |
+| [`remoteExecutorHelpers.ts`](../packages/app/src/hooks/remoteExecutorHelpers.ts)                         | Run-from planning, preload extraction, Trivet selection, and `createProcessEventDispatcher` routing from WebSocket messages to handlers                              |
 | [`GraphProcessor.ts`](../packages/core/src/model/GraphProcessor.ts)                                      | Core execution engine, `#createSubProcessor`, `#buildExecutionMetadata`                                                                                              |
 | [`SubprocessorBridge.ts`](../packages/core/src/model/SubprocessorBridge.ts)                              | `wireSubprocessorEvents` - forwards child events to parent emitter                                                                                                   |
 | [`SplitRunProcessor.ts`](../packages/core/src/model/SplitRunProcessor.ts)                                | `processSplitRunNode` - iterates split inputs, creates subprocessors per iteration                                                                                   |

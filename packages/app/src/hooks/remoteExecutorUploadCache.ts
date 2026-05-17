@@ -8,6 +8,19 @@ export type RemoteExecutorUploadCache = {
 
 export type RemoteExecutorUploadResult = 'cached' | 'uploaded';
 
+export type RemoteExecutorUploadDecision =
+  | {
+      type: 'reuse-upload';
+      sessionKey: string;
+      uploadKey: string;
+    }
+  | {
+      type: 'upload-required';
+      sessionKey: string;
+      staticDataEntries: Array<[DataId, string]>;
+      uploadKey: string;
+    };
+
 export type RemoteExecutorUploadTransport = {
   sendDynamicData: (payload: { project: Project; settings: Settings }) => boolean;
   sendStaticData: (id: DataId, value: string) => boolean;
@@ -16,6 +29,33 @@ export type RemoteExecutorUploadTransport = {
 export function resetRemoteExecutorUploadCache(cache: RemoteExecutorUploadCache): void {
   cache.sessionKey = undefined;
   cache.uploadKey = undefined;
+}
+
+export function planRemoteExecutorProjectUpload(options: {
+  cache: RemoteExecutorUploadCache;
+  project: Project;
+  projectData?: Record<DataId, string>;
+  sessionKey: string;
+  settings: Settings;
+}): RemoteExecutorUploadDecision {
+  const { cache, project, projectData, sessionKey, settings } = options;
+  const staticDataEntries = getStaticProjectDataEntries(projectData);
+  const uploadKey = createRemoteExecutorUploadKey(project, settings, staticDataEntries);
+
+  if (cache.sessionKey === sessionKey && cache.uploadKey === uploadKey) {
+    return {
+      type: 'reuse-upload',
+      sessionKey,
+      uploadKey,
+    };
+  }
+
+  return {
+    type: 'upload-required',
+    sessionKey,
+    staticDataEntries,
+    uploadKey,
+  };
 }
 
 export function uploadRemoteExecutorProjectIfNeeded(options: {
@@ -27,9 +67,15 @@ export function uploadRemoteExecutorProjectIfNeeded(options: {
   transport: RemoteExecutorUploadTransport;
 }): RemoteExecutorUploadResult {
   const { cache, project, projectData, sessionKey, settings, transport } = options;
-  const uploadKey = createRemoteExecutorUploadKey(project, settings, projectData);
+  const decision = planRemoteExecutorProjectUpload({
+    cache,
+    project,
+    projectData,
+    sessionKey,
+    settings,
+  });
 
-  if (cache.sessionKey === sessionKey && cache.uploadKey === uploadKey) {
+  if (decision.type === 'reuse-upload') {
     return 'cached';
   }
 
@@ -38,26 +84,26 @@ export function uploadRemoteExecutorProjectIfNeeded(options: {
     throw new Error('Remote executor disconnected before the project upload could be sent.');
   }
 
-  for (const [id, dataValue] of getStaticProjectDataEntries(projectData)) {
+  for (const [id, dataValue] of decision.staticDataEntries) {
     const staticDataSent = transport.sendStaticData(id, dataValue);
     if (!staticDataSent) {
       throw new Error('Remote executor disconnected before static project data could be sent.');
     }
   }
 
-  cache.sessionKey = sessionKey;
-  cache.uploadKey = uploadKey;
+  cache.sessionKey = decision.sessionKey;
+  cache.uploadKey = decision.uploadKey;
   return 'uploaded';
 }
 
 function createRemoteExecutorUploadKey(
   project: Project,
   settings: Settings,
-  projectData: Record<DataId, string> | undefined,
+  staticDataEntries: Array<[DataId, string]>,
 ): string {
   const key = stableStringify({
     project,
-    projectData: Object.fromEntries(getStaticProjectDataEntries(projectData)),
+    projectData: Object.fromEntries(staticDataEntries),
     settings,
   });
 

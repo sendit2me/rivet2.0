@@ -1621,8 +1621,18 @@ If planning significant refactors, these are the highest-value seams already vis
 - `executorSession`
 - `useLocalExecutor`
 - `useRemoteExecutor`
+- `remoteExecutorUploadCache.ts`
+- `remoteExecutorRunRequest.ts`
+- `remoteExecutorHelpers.ts`
 - `useCurrentExecution`
 - remote-debugger integration
+
+`useRemoteExecutor` should remain the React/session adapter for remote graph and
+test runs. Upload decisions belong in `remoteExecutorUploadCache.ts`, request-id
+registration/filtering/cleanup belongs in `remoteExecutorRunRequest.ts`, and
+run-from planning plus preload extraction belongs in `remoteExecutorHelpers.ts`.
+Do not move atom reads, environment setting resolution, or `useCurrentExecution`
+updates into those helper modules.
 
 ### Plugin seams
 

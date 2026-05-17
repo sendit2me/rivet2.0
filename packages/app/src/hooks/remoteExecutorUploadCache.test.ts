@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { DataId, GraphId, Project, ProjectId, Settings } from '@valerypopoff/rivet2-core';
 import {
+  planRemoteExecutorProjectUpload,
   resetRemoteExecutorUploadCache,
   type RemoteExecutorUploadCache,
   uploadRemoteExecutorProjectIfNeeded,
@@ -66,6 +67,51 @@ function createUploadHarness(options: { dynamicSendResult?: boolean; staticSendR
     },
   };
 }
+
+test('remote executor upload planner reports required and reusable uploads without sending', () => {
+  const cache: RemoteExecutorUploadCache = {};
+  const project = makeProject();
+  const settings = makeSettings();
+  const projectData = {
+    ['data-b' as DataId]: 'b',
+    ['data-a' as DataId]: 'a',
+  };
+
+  const required = planRemoteExecutorProjectUpload({
+    cache,
+    project,
+    projectData,
+    sessionKey: 'internal:ws://executor',
+    settings,
+  });
+
+  assert.equal(required.type, 'upload-required');
+  assert.equal(required.sessionKey, 'internal:ws://executor');
+  assert.deepEqual(required.staticDataEntries, [
+    ['data-a', 'a'],
+    ['data-b', 'b'],
+  ]);
+
+  uploadRemoteExecutorProjectIfNeeded({
+    cache,
+    project,
+    projectData,
+    sessionKey: 'internal:ws://executor',
+    settings,
+    transport: createUploadHarness().transport,
+  });
+
+  const reusable = planRemoteExecutorProjectUpload({
+    cache,
+    project,
+    projectData,
+    sessionKey: 'internal:ws://executor',
+    settings,
+  });
+
+  assert.equal(reusable.type, 'reuse-upload');
+  assert.equal(reusable.uploadKey, required.uploadKey);
+});
 
 test('remote executor upload cache skips identical consecutive project uploads', () => {
   const cache: RemoteExecutorUploadCache = {};
