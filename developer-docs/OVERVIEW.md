@@ -29,7 +29,8 @@ packages/
   node/           Node integration library
   trivet/         Test-runner package
 developer-docs/   These internal docs
-refactor-history.md  Consolidated refactor history and future planning source
+refactor.md       Active refactor plan and prioritized future phases
+refactor-history.md  Consolidated record of completed refactors and residual watchlist
 .github/         CI workflows and release scripts
 ```
 
@@ -234,15 +235,23 @@ Based on the current code, the highest-risk/highest-value refactor areas are:
 - serialization contracts in `packages/core/src/utils/serialization/`
 - debugger/server protocol surfaces between app, app-executor, and node
 
+The active prioritized refactor plan lives in [`../refactor.md`](../refactor.md).
+Use it together with [`../refactor-history.md`](../refactor-history.md): the
+plan describes where future work should go, while the history explains which
+seams already changed and which small watchlist items were intentionally
+deferred.
+
 ## How To Use These Docs
 
 Recommended reading order:
 
-1. [APP-ARCHITECTURE.md](./APP-ARCHITECTURE.md) for desktop IDE structure and state flows
-2. [CORE-ENGINE.md](./CORE-ENGINE.md) for the runtime model and execution engine
-3. [EXECUTION-DATA-FLOW.md](./EXECUTION-DATA-FLOW.md) for how execution data, graph views, subgraph runs, and the run switcher interact
-4. [PLUGIN-SYSTEM.md](./PLUGIN-SYSTEM.md) for node/plugin registration and loading behavior
-5. [PACKAGES.md](./PACKAGES.md) for package-by-package operational detail
-6. [BUILD-AND-CI.md](./BUILD-AND-CI.md) for build, release, and publish workflows
+1. [../refactor.md](../refactor.md) for the active prioritized refactor plan
+2. [../refactor-history.md](../refactor-history.md) for completed refactors and deferred watchlist items
+3. [APP-ARCHITECTURE.md](./APP-ARCHITECTURE.md) for desktop IDE structure and state flows
+4. [CORE-ENGINE.md](./CORE-ENGINE.md) for the runtime model and execution engine
+5. [EXECUTION-DATA-FLOW.md](./EXECUTION-DATA-FLOW.md) for how execution data, graph views, subgraph runs, and the run switcher interact
+6. [PLUGIN-SYSTEM.md](./PLUGIN-SYSTEM.md) for node/plugin registration and loading behavior
+7. [PACKAGES.md](./PACKAGES.md) for package-by-package operational detail
+8. [BUILD-AND-CI.md](./BUILD-AND-CI.md) for build, release, and publish workflows
 
 When planning refactors, treat these docs as a map of current seams and constraints, not a guarantee that every area is cleanly isolated.

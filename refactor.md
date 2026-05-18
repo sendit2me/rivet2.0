@@ -1,0 +1,396 @@
+# Refactor Plan
+
+This is the active behavior-preserving refactor plan for the five highest-value
+remaining code health targets after the work recorded in `refactor-history.md`.
+
+The goal is not to add features. The goal is to make the code easier to reason
+about, safer to change, and smaller where that is realistic, while preserving
+current graph results, UI behavior, public APIs, persisted formats, and runtime
+protocols.
+
+## Global Rules
+
+- Re-read the live code before starting a phase. This file is a map, not a
+  substitute for the current checkout.
+- Implement one phase at a time.
+- Add or extend behavior-level tests before moving a policy.
+- Move code by ownership policy, not by line range.
+- Keep compatibility facades only while they protect a real migration boundary.
+  Delete them once all imports have moved.
+- Update developer docs and `refactor-history.md` whenever ownership changes.
+- Reject abstractions that only make files shorter without reducing concepts,
+  duplication, or bug surface.
+- Pause the phase if preserving behavior requires a product decision.
+
+## Goal Gates
+
+Every phase must satisfy these gates:
+
+- **No functionality change:** public behavior, graph results, event shapes,
+  persisted data, websocket protocols, and editor affordances stay the same.
+- **Clearer ownership:** the touched policy has one named owner after the phase.
+- **More professional code:** boundaries are typed, names are explicit, and
+  lifecycle or rendering rules are visible rather than implicit.
+- **Less code if possible:** deletion and duplicated-policy removal are preferred;
+  added helper code is acceptable only when it reduces real bug surface.
+- **Less bug surface:** the phase must reduce a concrete risk such as duplicated
+  behavior, ambiguous cleanup, mutable shared state, hook-order hazards, stale
+  transport state, or unclear provider/runtime ownership.
+
+## Cross-Phase Ownership
+
+The phase numbers are stable topic IDs. The recommended implementation order is
+listed later.
+
+- **Phase 5 owns output presentation policy:** visible sections, warning
+  sections, display copy, JSON copy, split-output selection, and missing-ref
+  fallback labels. It must not change graph results, node outputs, execution data
+  storage, or transport payloads.
+- **Phase 4 owns executor and transport policy:** socket lifecycle, target
+  identity, upload cache, request IDs, dataset bridge requests, run controls, and
+  sidecar request ownership. It must not change output rendering, provider
+  behavior, or core execution semantics.
+- **Phase 3 owns editor interaction policy:** canvas, graph-tree, drag, hover,
+  viewport, context-menu, and interaction timing decisions. It must not change
+  graph execution, transport, output rendering, or persisted graph shape.
+- **Phase 2 owns provider runtime policy:** provider adapters, chat pipeline
+  helpers, streaming assembly, provider errors, retry behavior, and legacy
+  compatibility wrappers. It must not change executor transport, output surface
+  policy, or persisted node types.
+- **Phase 1 owns core execution policy:** `GraphProcessor` scheduling,
+  control-flow, lifecycle, run state, and execution events. It must not absorb
+  app/editor run UI, websocket transport, provider adapters, or output
+  presentation.
+
+If a file appears in more than one phase, the phase must state which policy it is
+touching before editing. No phase should re-open a boundary that a previous phase
+already clarified unless the plan is updated first.
+
+## Recommended Order
+
+1. **Phase 5: Centralize Output Surface View Models And Copy Policy** because it
+   is user-visible, recently fragile, and bounded.
+2. **Phase 4: Simplify Executor Session And Remote Transport Ownership** because
+   transport ownership affects hosted, desktop, and debugger reliability.
+3. **Phase 3: Make Canvas Interaction Ownership Explicit** because interaction
+   bugs are common and costly to diagnose.
+4. **Phase 2: Clarify Chat And Provider Runtime Boundaries** because provider
+   cleanup is valuable but should be test-led and incremental.
+5. **Phase 1: Reduce `GraphProcessor` Responsibility Concentration** because it
+   is the highest-risk core area and should be approached only after the exact
+   behavior being moved is well characterized.
+
+Small residual issues noted in `refactor-history.md`, such as MCP stdio
+env/logging hygiene and generic app error logging policy, are not broad phases.
+Fix or ticket them separately when touched.
+
+## Phase 1: Reduce `GraphProcessor` Responsibility Concentration
+
+`GraphProcessor` remains the execution heart of Rivet. Earlier refactors
+extracted planning, preprocessing, split-run behavior, and subprocessor wiring,
+but the class still mixes mutable run state, scheduling, control-flow exclusion,
+loop/race coordination, subgraph creation, user input, pause/resume/abort,
+preload/replay behavior, metadata, and event emission.
+
+### Implementation
+
+- **What:** Classify every private `GraphProcessor` field as processor identity,
+  lazy topology, per-run state, lifecycle/event state, or shared subprocessor
+  state.
+- **What:** Extract only one complete policy at a time. Good candidates are
+  required-input/control-flow exclusion or queue-completion fan-out. Avoid
+  generic state bags and pass-through helper classes.
+- **Why:** Execution fixes are risky because unrelated policies currently live
+  in one class. One named owner per policy makes future changes easier to audit.
+- **How:** Add characterization coverage first, move a narrow policy behind a
+  private core helper, keep public `GraphProcessor` APIs/events unchanged, then
+  update docs with the new owner.
+- **Files:** `packages/core/src/model/GraphProcessor.ts`,
+  `packages/core/src/model/NodeExecutionPlanner.ts`,
+  `packages/core/src/model/SubprocessorBridge.ts`,
+  `packages/core/src/model/SplitRunProcessor.ts`,
+  `packages/core/src/model/RecordingPlayer.ts`,
+  `packages/core/test/model/GraphProcessor.characterization.test.ts`, and
+  `developer-docs/CORE-ENGINE.md`.
+
+### Validation
+
+- Core graph processor characterization tests.
+- Existing core node tests.
+- Run-from, preload, pause/resume, abort, replay, subgraph, and split-run
+  regression tests for any touched path.
+- Remote debugger event-shape tests if event timing or execution metadata is
+  touched.
+
+### Risks
+
+- **Event order drift:** graph results may stay correct while debugger/editor
+  event order changes. Mitigate with public event-stream assertions.
+- **Preload/run-from regressions:** editor behavior can break even if core
+  output tests pass. Mitigate with run-from and preload coverage.
+- **Subgraph/split metadata mixups:** lineage and split indexes can be confused.
+  Mitigate with characterization tests that assert metadata, not only values.
+- **Lifecycle leaks:** abort, pause, and repeated runs can leak state if per-run
+  and per-instance state are split incorrectly. Mitigate with repeated-run and
+  abort-while-paused cases.
+- **Over-extraction:** a generic state owner can hide invariants. Mitigate by
+  accepting only helpers that own a complete cleanup or decision policy.
+
+### Go/No-Go
+
+Proceed only if the phase reduces at least one mixed execution policy. Defer if
+the result is mainly a new object wrapping the same mutable state.
+
+## Phase 2: Clarify Chat And Provider Runtime Boundaries
+
+Chat/provider runtime code still carries large overlapping concepts: message
+shaping, runtime-option resolution, provider request construction, streaming
+assembly, tool calls, retries, provider errors, request-status outputs, and
+cost/token output assembly. Legacy and Chat v2 behavior must remain compatible,
+but shared policies should not keep growing inside provider node classes.
+
+### Implementation
+
+- **What:** Inventory provider-neutral behavior duplicated across legacy chat,
+  Chat v2, OpenAI, Anthropic, and Google paths.
+- **What:** Move one proven shared policy at a time, such as streaming assembly,
+  provider error normalization, request-status output construction, retry status,
+  tool-call accumulation, or token/cost output construction.
+- **What:** Split catch-all provider utilities only by clear API domain or proven
+  shared policy. Do not create a broad provider framework.
+- **Why:** Provider bugs are hard to review when shared policy and
+  provider-specific API details are mixed in large files.
+- **How:** Pin legacy and Chat v2 behavior with tests, extract a focused helper
+  through package-safe exports, keep legacy nodes as compatibility adapters, and
+  update docs with the new provider ownership map.
+- **Files:** `packages/core/src/model/nodes/ChatNodeBase.ts`,
+  `packages/core/src/utils/openai.ts`, `packages/core/src/model/chat-v2/*`,
+  provider chat nodes under `packages/core/src/plugins/*/nodes/*Chat*`, focused
+  provider/runtime tests, `developer-docs/CORE-ENGINE.md`, and
+  `developer-docs/PACKAGES.md` if package exports move.
+
+### Validation
+
+- Legacy chat node tests.
+- Chat v2 pipeline tests.
+- Provider error, retry, streaming, tool-call, request-status, and token/cost
+  output tests for the moved policy.
+- Typecheck in packages affected by export or dependency movement.
+
+### Risks
+
+- **Legacy compatibility drift:** persisted legacy nodes may subtly change
+  outputs. Mitigate with before/after tests for legacy nodes and Chat v2
+  separately.
+- **Provider-specific behavior hidden as shared behavior:** a helper may erase
+  valid differences between providers. Mitigate by keeping provider adapters
+  explicit and fixtures provider-specific.
+- **Bundling/export regressions:** moving utilities can break app, node, or PnP
+  resolution. Mitigate with package-safe exports and package typechecks.
+- **Streaming timing changes:** stream assembly can alter partial outputs or
+  request status. Mitigate with tests that assert sequence and final payloads.
+- **Over-frameworking:** a generic provider abstraction can add more code than it
+  removes. Mitigate by extracting only duplicated or hard-to-test policy.
+
+### Go/No-Go
+
+Proceed only when the phase removes duplicated provider policy or makes a fragile
+provider behavior directly testable. Defer broad provider framework work.
+
+## Phase 3: Make Canvas Interaction Ownership Explicit
+
+Canvas and graph-tree interaction logic has improved, but interaction rules are
+still spread across components, hooks, atoms, and helpers. The fragile areas are
+drag/hover timing, output-preview state, viewport visibility, context-menu target
+selection, graph-tree presentation, and fullscreen-output side effects.
+
+### Implementation
+
+- **What:** Audit current interaction policies and keep helpers that already have
+  clear ownership.
+- **What:** Extract only decision rules that still require cross-file reasoning,
+  such as viewport eligibility, hover/drag preview policy, context-menu target
+  resolution, or graph-tree presentation derivation.
+- **Why:** Interaction regressions often come from timing and ownership ambiguity
+  rather than component size.
+- **How:** Add pure decision tests first, keep mutations in command or component
+  orchestration layers, avoid moving local UI state into global atoms unless
+  multiple independent surfaces need it, and update docs with the ownership map.
+- **Files:** `packages/app/src/components/NodeCanvas.tsx`,
+  `packages/app/src/components/nodeCanvas/*`,
+  `packages/app/src/hooks/useDraggingNode.ts`,
+  `packages/app/src/components/WireLayer.tsx`,
+  `packages/app/src/components/GraphList.tsx`,
+  `packages/app/src/components/graphList/*`,
+  `packages/app/src/domain/graphEditing/*`, and
+  `developer-docs/APP-ARCHITECTURE.md`.
+
+### Validation
+
+- Existing canvas interaction tests.
+- Drag, hover, output-preview, context-menu, graph-tree, viewport, and wire
+  rendering tests.
+- Manual browser check for pan, zoom, select, drag, comment Ctrl-drag,
+  context-menu, graph-tree selection, and fullscreen-output open/close.
+
+### Risks
+
+- **Pointer behavior drift:** mouse, trackpad, and touchpad paths can differ.
+  Mitigate with thin event adapters and manual interaction checks.
+- **Viewport optimization regressions:** offscreen rendering optimizations can be
+  lost or made too aggressive. Mitigate with tests for newly visible nodes/wires
+  and offscreen exclusion.
+- **Hover/drag blink or stale state:** fixing one transition can reintroduce
+  another. Mitigate with drag-release tests for pointer-over and pointer-outside
+  cases.
+- **Graph-tree mutation leakage:** presentation helpers can accidentally gain
+  command side effects. Mitigate by keeping presentation helpers pure.
+- **Cosmetic-only refactor:** splitting JSX without moving a tested decision does
+  not meet the phase goal. Mitigate by requiring a named policy owner.
+
+### Go/No-Go
+
+Proceed only if the phase removes duplicated interaction decisions or reduces a
+known timing hazard. Defer changes that only rearrange components.
+
+## Phase 4: Simplify Executor Session And Remote Transport Ownership
+
+Executor/session behavior covers browser execution, desktop sidecar execution,
+hosted internal execution, external Remote Debugger sessions, upload caching,
+reconnect policy, request IDs, run-from preload, dataset requests, and debugger
+heartbeat behavior. The code works, but the ownership model is still large.
+
+### Implementation
+
+- **What:** Map every executor and debugger message type to its current owner:
+  websocket lifecycle, target identity, capabilities, reconnects, pending
+  requests, upload cache, dataset bridge, run controls, request-scoped
+  completion, and sidecar request execution.
+- **What:** Split remaining mixed concerns inside `executorSession.ts` only when
+  the new owner is narrower and more testable. Likely candidates are dataset
+  bridge handling and websocket lifecycle callback handling.
+- **What:** Leave the already-split debugger transport, heartbeat, and processor
+  attachment helpers alone unless a debugger-specific bug crosses that boundary.
+- **Why:** Transport bugs are hard to diagnose when lifecycle ownership is split
+  implicitly between hooks, sessions, sidecars, and debugger helpers.
+- **How:** Add reconnect, replacement, failed-send, pending-cleanup,
+  upload-cache, dataset, and request-error tests before extracting; preserve all
+  websocket message shapes and reconnect policies; update execution docs.
+- **Files:** `packages/app/src/hooks/executorSession.ts`,
+  `packages/app/src/hooks/useRemoteExecutor.ts`,
+  `packages/app/src/hooks/remoteExecutorHelpers.ts`,
+  `packages/app/src/hooks/remoteExecutorUploadCache.ts`,
+  `packages/app/src/hooks/remoteExecutorRunRequest.ts`,
+  `packages/app-executor/bin/executor.mts`,
+  `packages/node/src/debugger*.ts` only for debugger-specific work,
+  `developer-docs/EXECUTION-DATA-FLOW.md`, and
+  `developer-docs/APP-ARCHITECTURE.md`.
+
+### Validation
+
+- Executor session tests.
+- Remote executor helper and upload-cache tests.
+- App-executor tests.
+- Remote debugger server tests if debugger behavior is touched.
+- Manual check for Browser mode, desktop Node mode, hosted internal executor,
+  and external Remote Debugger mode.
+
+### Risks
+
+- **Reconnect policy mixups:** internal executor reconnect and external debugger
+  reconnect policies can merge accidentally. Mitigate with target-specific tests.
+- **Stale upload cache:** remote execution can run old graph/settings/plugin data.
+  Mitigate with invalidation tests for graph, project, settings, plugins,
+  reconnect, and failed sends.
+- **Request failure misclassification:** provider/node failures can be treated as
+  socket failures. Mitigate with tests that keep the session alive after request
+  errors.
+- **Hosted iframe regressions:** wrapper-hosted editor behavior can break if
+  target classification changes. Mitigate with hosted target coverage or manual
+  wrapper checks.
+- **Multiple lifecycle owners:** splitting transport code can increase bug
+  surface if socket state or pending cleanup gets more than one owner. Mitigate
+  by naming the single owner in the phase conclusion.
+
+### Go/No-Go
+
+Proceed only if the phase makes lifecycle ownership easier to name. Defer if the
+result creates more owners for socket state, target identity, or pending cleanup.
+
+## Phase 5: Centralize Output Surface View Models And Copy Policy
+
+Output rendering and copying are better separated than before, but this area has
+regressed repeatedly: hook ordering, display-copy drift, visible/hidden output
+ports, missing execution refs, split-output paging, and wrapped object output.
+The same decisions are still easy to rediscover in multiple surfaces.
+
+### Implementation
+
+- **What:** Introduce pure view-model builders for inline and fullscreen output
+  surfaces. They should decide visible sections, warning sections, selected
+  process/split data, display-copy text, JSON-copy payloads, fallback labels, and
+  available actions.
+- **What:** Keep value rendering in `RenderDataValue` and scalar renderers. Keep
+  modal geometry, sticky headers, search, wrap, and Markdown UI state in
+  fullscreen components.
+- **What:** Keep custom node output renderers supported as first-class view-model
+  outputs rather than forcing them through generic rendering.
+- **Why:** Output bugs come from duplicated policy between inline output,
+  fullscreen output, port inspectors, copy actions, warnings, split entries, and
+  hidden/internal ports.
+- **How:** Build pure helpers and tests first, wire inline and fullscreen
+  surfaces one at a time, separate display copy from JSON copy at the view-model
+  boundary, and keep hook-using renderers inside React component boundaries.
+- **Files:** `packages/app/src/components/nodeOutput/*`,
+  `packages/app/src/components/RenderDataValue.tsx`,
+  `packages/app/src/components/renderDataValue/*`,
+  `packages/app/src/utils/executionDataCopy/*`,
+  `packages/app/src/utils/outputPortVisibility.ts`,
+  `packages/app/src/components/nodeOutput/nodeOutputVisibility.ts`,
+  `packages/app/src/components/nodeOutput/renderNodeOutputBody.tsx`,
+  output/copy/visibility tests, `developer-docs/EXECUTION-DATA-FLOW.md`, and
+  `developer-docs/APP-ARCHITECTURE.md`.
+
+### Validation
+
+- Node output regression tests.
+- Display-copy and JSON-copy tests.
+- DataValue rendering tests for null, undefined, objects, arrays, media, chat,
+  and malformed typed payloads.
+- Manual check for inline output, fullscreen output, search, wrap mode, process
+  paging, custom renderers, and missing large-value refs.
+- App lint, especially React hook-order rules.
+
+### Risks
+
+- **Copy policy drift:** normal copy and JSON copy can collapse back to one
+  internal representation. Mitigate with separate assertions for both actions.
+- **Hidden/internal port leaks:** internal outputs can become visible. Mitigate
+  with shared visibility-policy tests.
+- **Modal coupling:** fullscreen layout and search/wrap state can get mixed with
+  value-section policy. Mitigate by keeping UI state outside the view model.
+- **Hook-order regressions:** renderer dispatch can call hooks outside stable
+  component boundaries. Mitigate with lint and explicit React component wrappers.
+- **Custom renderer regression:** generic view models can make node-specific
+  renderers harder to reason about. Mitigate by preserving custom renderer paths.
+- **Text/payload changes:** visible output, copy text, missing-ref text, and JSON
+  payload shape must not change. Mitigate with focused before/after assertions.
+
+### Go/No-Go
+
+Proceed only if the phase makes visible-output selection and copy policy
+discoverable from one owner. Defer if the view model starts absorbing value
+rendering, modal layout, search, Markdown, or wrap state.
+
+## Completion Criteria
+
+The plan is complete when:
+
+- each phase has landed or been explicitly deferred with a reason
+- every landed phase has behavior-level tests for moved policy
+- developer docs and `refactor-history.md` describe the final ownership map
+- no public graph/runtime/editor behavior changed unintentionally
+- phase conclusions record production-line movement, concept-count movement,
+  bug surfaces reduced, and any deliberate remaining duplication
+- cross-phase boundaries held, with no phase reintroducing an owner that a prior
+  phase clarified

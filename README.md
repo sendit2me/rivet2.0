@@ -39,7 +39,10 @@ Rivet 2 is organized as a Yarn workspace monorepo:
 | `@valerypopoff/trivet` | Graph-oriented test utilities and test serialization. |
 | `packages/docs` | Docusaurus documentation site. |
 
-The repo also includes `developer-docs/`, which documents current architecture and integration contracts, and `refactor-history.md`, which consolidates historical refactor notes for future planning.
+The repo also includes `developer-docs/`, which documents current architecture
+and integration contracts, `refactor.md`, which tracks the active prioritized
+refactor plan, and `refactor-history.md`, which consolidates completed refactor
+notes and residual watchlist items.
 
 ## Getting started with local development
 
@@ -192,6 +195,7 @@ Useful current developer docs:
 - [App Architecture](developer-docs/APP-ARCHITECTURE.md)
 - [Plugin System](developer-docs/PLUGIN-SYSTEM.md)
 - [Execution Data Flow](developer-docs/EXECUTION-DATA-FLOW.md)
+- [Refactor Plan](refactor.md)
 - [Refactor History](refactor-history.md)
 
 The public docs site lives in `packages/docs`.
