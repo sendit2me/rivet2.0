@@ -1141,6 +1141,7 @@ Current architectural detail:
 - `useRemoteExecutor` no longer owns the websocket/session lifecycle directly
 - it consumes a shared executor session that owns connection state and pending remote run coordination
 - this keeps run/test behavior separate from transport/session behavior
+- `executorSession.ts` remains the runtime coordinator, while focused app-private helpers own target identity (`executorSessionTarget.ts`), incoming/outgoing websocket frame parsing and safe-send policy (`executorSessionTransport.ts`), dataset protocol bridging (`executorSessionDatasetBridge.ts`), failure-isolated callback delivery (`executorSessionCallbackIsolation.ts`), and pending graph-run promises (`executorSessionPendingExecutions.ts`)
 - it does not reconnect the internal sidecar directly on disconnect; `executorSession` owns reconnect timing so callers do not race ahead of Tauri sidecar startup
 - remote graph/test runs now carry request IDs through the debugger protocol so multiple pending remote runs can resolve independently
 - read-only UI consumers should use shared session/debugger state directly rather than mounting `useRemoteExecutor`, because that hook still owns remote event subscriptions and execution side effects
@@ -1181,6 +1182,11 @@ Current architectural detail:
 The app now has a dedicated shared session layer under:
 
 - [`packages/app/src/hooks/executorSession.ts`](../packages/app/src/hooks/executorSession.ts)
+- [`packages/app/src/hooks/executorSessionTarget.ts`](../packages/app/src/hooks/executorSessionTarget.ts)
+- [`packages/app/src/hooks/executorSessionTransport.ts`](../packages/app/src/hooks/executorSessionTransport.ts)
+- [`packages/app/src/hooks/executorSessionDatasetBridge.ts`](../packages/app/src/hooks/executorSessionDatasetBridge.ts)
+- [`packages/app/src/hooks/executorSessionPendingExecutions.ts`](../packages/app/src/hooks/executorSessionPendingExecutions.ts)
+- [`packages/app/src/hooks/executorSessionCallbackIsolation.ts`](../packages/app/src/hooks/executorSessionCallbackIsolation.ts)
 - [`packages/app/src/hooks/useExecutorSession.ts`](../packages/app/src/hooks/useExecutorSession.ts)
 - [`packages/app/src/hooks/useExecutorSessionCoordinator.ts`](../packages/app/src/hooks/useExecutorSessionCoordinator.ts)
 - [`packages/app/src/providers/ExecutorSessionContext.tsx`](../packages/app/src/providers/ExecutorSessionContext.tsx)
@@ -1188,14 +1194,14 @@ The app now has a dedicated shared session layer under:
 This session layer owns:
 
 - websocket/socket reference
-- explicit websocket target (`internal-desktop`, `internal-hosted`, or `external-debugger`)
+- explicit websocket target identity (`internal-desktop`, `internal-hosted`, or `external-debugger`) through `executorSessionTarget.ts`
 - explicit session status (`idle`, `connecting`, `ready`, `reconnecting`)
 - reconnect policy
-- dataset request handling over the executor protocol
-- pending remote graph completion bridging
+- dataset request handling over the executor protocol through the exact request switch in `executorSessionDatasetBridge.ts`
+- pending remote graph completion bridging through `executorSessionPendingExecutions.ts`
 - socket generation ownership so stale close/message events from replaced sockets are ignored
 - disconnect lifecycle signaling for explicit teardown, unexpected drops, and target replacement
-- fan-out delivery of executor protocol messages to multiple subscribers instead of one global handler owner
+- fan-out delivery of executor protocol messages to multiple subscribers through failure-isolated callback helpers instead of one global handler owner
 - per-socket capability state such as `canSendRun`, `canUploadProject`, `canBridgeDatasets`, and `canRecordSocket`, which is cleared when replacing the active connection
 - compatibility mapping back to the older `started`/`reconnecting` flags consumed by some UI/state code
 
@@ -1203,6 +1209,7 @@ Current ownership detail:
 
 - `useExecutorSessionCoordinator` should be mounted from a stable app-shell surface
 - `ExecutorSessionProvider` now creates the shared runtime once at the app shell boundary and owns dataset access plus debugger/session atom wiring
+- `executorSession.ts` should coordinate state transitions and socket generation only; target comparison/labels, JSON frame classification, safe sends, dataset responses, and pending request maps live in the focused helpers above so future transport fixes have a named owner
 - `useExecutorSessionCoordinator` controls connection lifecycle against that provider-owned runtime instead of binding a process-global singleton
 - the coordinator's restore subscription reads the latest selected executor and hosted executor URL through refs, so cleanup from an old Node-mode effect cannot restore Node after the user has already switched to Browser mode
 - the coordinator's disconnect lifecycle handler is extracted as `handleExecutorSessionCoordinatorDisconnect(...)` so tests cover the same path the React subscription uses: restore the current hosted URL, skip restore when the latest selected executor is Browser, and restore desktop internal Node when no hosted URL exists in Tauri

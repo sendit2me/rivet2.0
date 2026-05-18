@@ -623,6 +623,12 @@ not preserve a complete file list.
     - Affected files/areas: `executionDataStorage.test.ts`, `errorHandling.ts`, `errorHandling.test.ts`, execution-data and async-helper developer docs.
     - Result in numbers: production code moved `+0/-45` for net `-45`. Tests moved `+512/-575` for net `-63` while preserving storage/ref coverage and removing obsolete alias coverage. Docs/planning moved `+15/-4` for net `+11`.
 
+116. **Simplified executor-session and remote transport ownership**
+    - Why: `executorSession.ts` still coordinated socket lifecycle while also owning target identity, JSON frame classification, dataset request dispatch, pending graph-run promise maps, and callback error isolation.
+    - How: Kept `executorSession.ts` as the state/reconnect/socket-generation coordinator and moved focused app-private policy into `executorSessionTarget.ts`, `executorSessionTransport.ts`, `executorSessionDatasetBridge.ts`, `executorSessionPendingExecutions.ts`, and `executorSessionCallbackIsolation.ts`. The debugger server and app-executor protocol were intentionally left unchanged.
+    - Affected files/areas: `executorSession.ts`, new executor-session helper modules and tests, `developer-docs/APP-ARCHITECTURE.md`, `developer-docs/EXECUTION-DATA-FLOW.md`, `refactor.md`.
+    - Result in numbers: `executorSession.ts` shrank by 241 net production lines (`+99/-340`). New focused production owner modules added 403 lines after the cleanup pass, so production code moved `+502/-340` for a net `+162`; tests moved `+287/-0`; docs/planning moved `+67/-9` for net `+58`.
+
 ## Residual Watchlist For Future Refactors
 
 1. **GraphProcessor size and responsibility concentration**

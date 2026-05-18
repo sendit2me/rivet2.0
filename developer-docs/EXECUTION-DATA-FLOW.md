@@ -234,7 +234,9 @@ capabilities before the new socket opens. If the same target has a stale or
 closing websocket that cannot be reused, that handoff also uses the explicit
 `replaced` lifecycle path so old pending graph executions are rejected before
 the new socket is created. Replacement disconnect events report the old target
-and the post-transition `idle` status visible to subscribers.
+and the post-transition `idle` status visible to subscribers. Target factories,
+internal/external classification, labels, and equality live in
+`executorSessionTarget.ts`; session code should not compare URLs directly.
 
 Transport features are exposed as session capabilities. For example,
 `canSendRun` controls whether remote run commands can be sent, `canUploadProject`
@@ -270,6 +272,16 @@ request explicitly. Trivet/test runs use the executor-session pending-promise
 API and reject that pending request if the `run` send fails before reaching the
 socket, so the failure is observed through the same async result path as normal
 remote test-run completion.
+
+Inside the shared session runtime, request ownership is split by transport
+policy. `executorSession.ts` coordinates socket generations, state transitions,
+and reconnect scheduling. `executorSessionTransport.ts` owns protocol JSON
+classification and safe websocket sends, `executorSessionDatasetBridge.ts` owns
+dataset request/response dispatch, `executorSessionPendingExecutions.ts` owns
+pending graph-run promise maps, and `executorSessionCallbackIsolation.ts` owns
+failure-isolated callback fan-out. These helpers are app-private seams; they
+preserve the existing websocket message shapes rather than introducing a new
+protocol layer.
 
 Executor-session callbacks are failure-isolated. Lifecycle subscribers,
 process-message subscribers, and the renderer state-change callback are invoked
@@ -1149,7 +1161,12 @@ absence gracefully since the final `nodeFinish` event contains the complete outp
 | [`useGraphExecutionEvents.ts`](../packages/app/src/hooks/useGraphExecutionEvents.ts)                     | Graph-level event handlers: `onStart`, `onGraphStart`, `onGraphFinish`, `onDone`                                                                                     |
 | [`useNodeExecutionEvents.ts`](../packages/app/src/hooks/useNodeExecutionEvents.ts)                       | Node-level event handlers: `onNodeStart`, `onNodeFinish`, `onPartialOutput`, `onNodeError`                                                                           |
 | [`useLocalExecutor.ts`](../packages/app/src/hooks/useLocalExecutor.ts)                                   | Browser-mode execution orchestration                                                                                                                                 |
-| [`executorSession.ts`](../packages/app/src/hooks/executorSession.ts)                                     | Shared websocket runtime: target classification, reconnect policy, capabilities, pending remote-run promises, lifecycle events, and dataset bridge handling          |
+| [`executorSession.ts`](../packages/app/src/hooks/executorSession.ts)                                     | Shared websocket runtime coordinator: socket generations, reconnect policy, session status, capabilities, and lifecycle events                                       |
+| [`executorSessionTarget.ts`](../packages/app/src/hooks/executorSessionTarget.ts)                         | Executor-session target factories, type+URL equality, internal/external classification, and debug labels                                                             |
+| [`executorSessionTransport.ts`](../packages/app/src/hooks/executorSessionTransport.ts)                   | Executor websocket protocol frame serialization/classification and safe-send policy                                                                                  |
+| [`executorSessionDatasetBridge.ts`](../packages/app/src/hooks/executorSessionDatasetBridge.ts)           | Dataset request/response bridge over the executor websocket protocol, using an exact request switch                                                                  |
+| [`executorSessionPendingExecutions.ts`](../packages/app/src/hooks/executorSessionPendingExecutions.ts)   | Pending remote graph-run promises, request-id allocation, completion, and rejection cleanup                                                                          |
+| [`executorSessionCallbackIsolation.ts`](../packages/app/src/hooks/executorSessionCallbackIsolation.ts)   | Failure-isolated executor-session lifecycle, process-message, and state-change callback fan-out                                                                      |
 | [`useExecutorSessionCoordinator.ts`](../packages/app/src/hooks/useExecutorSessionCoordinator.ts)         | Product policy for Browser/hosted Node/desktop Node startup, cleanup, sidecar readiness, and external-debugger handoff restoration                                   |
 | [`useExecutorSession.ts`](../packages/app/src/hooks/useExecutorSession.ts)                               | Read-only executor-session snapshot hook plus compatibility exports for coordinator helpers                                                                          |
 | [`useRemoteDebugger.ts`](../packages/app/src/hooks/useRemoteDebugger.ts)                                 | External Remote Debugger command/subscription surface; does not own Node executor restoration policy                                                                 |

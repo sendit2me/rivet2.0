@@ -70,8 +70,8 @@ already clarified unless the plan is updated first.
 
 1. **Phase 5: Centralize Output Surface View Models And Copy Policy** is landed;
    see `refactor-history.md` entry 114.
-2. **Phase 4: Simplify Executor Session And Remote Transport Ownership** because
-   transport ownership affects hosted, desktop, and debugger reliability.
+2. **Phase 4: Simplify Executor Session And Remote Transport Ownership** is
+   landed; see `refactor-history.md` entry 116.
 3. **Phase 3: Make Canvas Interaction Ownership Explicit** because interaction
    bugs are common and costly to diagnose.
 4. **Phase 2: Clarify Chat And Provider Runtime Boundaries** because provider
@@ -253,7 +253,35 @@ selection, graph-tree presentation, and fullscreen-output side effects.
 Proceed only if the phase removes duplicated interaction decisions or reduces a
 known timing hazard. Defer changes that only rearrange components.
 
-## Phase 4: Simplify Executor Session And Remote Transport Ownership
+## Phase 4: Simplify Executor Session And Remote Transport Ownership (DONE)
+
+Status: landed; see `refactor-history.md` entry 116.
+
+Result in numbers: `executorSession.ts` shrank from 829 lines to 588 lines
+(`+99/-340`, net `-241`). The new focused production owners added 403 lines,
+so production code moved `+502/-340` for a net `+162`. The phase added 287
+focused test lines for target identity, transport classification/safe-send,
+dataset bridging, and pending graph-run promises. Developer docs and planning
+notes moved `+67/-9` for net `+58`.
+
+Conclusion: the phase preserved executor protocol shapes and left the debugger
+server/app-executor boundaries alone, as planned. The implementation corrected
+the plan by avoiding a larger websocket-lifecycle rewrite and instead extracting
+only policies with clear app-private owners: target identity
+(`executorSessionTarget.ts`), JSON frame classification and safe-send policy
+(`executorSessionTransport.ts`), dataset request/response dispatch
+(`executorSessionDatasetBridge.ts`), pending remote graph-run promises
+(`executorSessionPendingExecutions.ts`), and callback failure isolation
+(`executorSessionCallbackIsolation.ts`). This reduced the main runtime
+coordinator's scope while keeping reconnect, replacement, upload-capability,
+request-id, and dataset behavior covered by focused tests plus the existing
+session regression suite.
+
+Follow-up line-reduction cleanup: the dataset bridge was simplified from a
+generic matcher chain to a direct protocol `switch`, the transport parser dropped
+redundant process-event guards, and pending execution state stopped storing an
+unused request id copy. That removed 30 production helper lines without merging
+ownership boundaries back into `executorSession.ts`.
 
 Executor/session behavior covers browser execution, desktop sidecar execution,
 hosted internal execution, external Remote Debugger sessions, upload caching,
