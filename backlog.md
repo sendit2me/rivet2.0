@@ -1,5 +1,7 @@
 
 
+
+
 - Hotkey for toggling the left project tree panel
 
 

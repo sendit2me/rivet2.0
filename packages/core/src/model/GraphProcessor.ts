@@ -3,10 +3,8 @@ import {
   type StringArrayDataValue,
   type ControlFlowExcludedDataValue,
   type ScalarOrArrayDataValue,
-  getScalarTypeOf,
 } from './DataValue.js';
 import {
-  IF_PORT,
   type ChartNode,
   type NodeConnection,
   type NodeId,
@@ -19,7 +17,6 @@ import type { NodeImpl } from './NodeImpl.js';
 import PQueue from '../utils/pQueueCompat.js';
 import { getError } from '../utils/errors.js';
 import Emittery from 'emittery';
-import { entries } from '../utils/typeSafety.js';
 import { type ProjectId, type Project, type ProjectReference } from './Project.js';
 import { nanoid } from 'nanoid/non-secure';
 import type {
@@ -33,7 +30,7 @@ import type {
 import type { ExecutionRecorder } from '../recording/ExecutionRecorder.js';
 import type { Tagged } from 'type-fest';
 import { coerceTypeOptional } from '../utils/coerceType.js';
-import type { BuiltInNodeType, BuiltInNodes } from './Nodes.js';
+import type { BuiltInNodes } from './Nodes.js';
 import type { NodeRegistration } from './NodeRegistration.js';
 import { getPluginConfig } from '../utils/index.js';
 import { preprocessGraphState } from './GraphPreprocessor.js';
@@ -52,6 +49,11 @@ import {
 } from './NodeExecutionPlanner.js';
 import { wireSubprocessorEvents, wireSubprocessorLifecycle } from './SubprocessorBridge.js';
 import { emitDetached } from '../utils/emitDetached.js';
+import {
+  createExcludedNodeOutputs,
+  getControlFlowExclusionDecision,
+  getMissingRequiredInputExclusion,
+} from './NodeExclusionPolicy.js';
 
 // eslint-disable-next-line import/no-cycle -- There has to be a cycle because CodeRunner needs to import the entirety of Rivet
 import { IsomorphicCodeRunner } from '../integrations/CodeRunner.js';
@@ -917,11 +919,6 @@ export class GraphProcessor {
     }
   }
 
-  /** Checks if a data value represents a control-flow-excluded signal. */
-  #isControlFlowExcluded(value: DataValue | undefined): boolean {
-    return value != null && getScalarTypeOf(value.type) === 'control-flow-excluded';
-  }
-
   async #fetchNodeDataAndProcessNode(node: ChartNode): Promise<void> {
     if (this.#currentlyProcessing.has(node.id) || this.#queuedNodes.has(node.id)) {
       return;
@@ -1076,11 +1073,11 @@ export class GraphProcessor {
     inputValues: Inputs,
     missingRequiredInputs: NodeInputDefinition[],
   ): void {
-    const missingInputNames = missingRequiredInputs.map((input) => input.title || input.id).join(', ');
+    const exclusion = getMissingRequiredInputExclusion(node, missingRequiredInputs);
     const processId = nanoid() as ProcessId;
 
-    this.#emitTraceEvent(`Excluding node ${node.title} because required inputs are not connected: ${missingInputNames}`);
-    this.#excludeNode(node, processId, inputValues, 'missing required input');
+    this.#emitTraceEvent(exclusion.traceMessage);
+    this.#excludeNode(node, processId, inputValues, exclusion.reason);
   }
 
   #beginNodeProcessing(node: ChartNode, attachedData: AttachedNodeData): boolean {
@@ -1590,61 +1587,21 @@ export class GraphProcessor {
     node: ChartNode,
     inputValues: Inputs,
     processId: ProcessId,
-    typeOfExclusion: ControlFlowExcludedDataValue['value'] = undefined,
+    typeOfExclusion?: ControlFlowExcludedDataValue['value'],
   ) {
-    if (node.disabled) {
-      this.#emitTraceEvent(`Excluding node ${node.title} because it's disabled`);
+    const exclusion = getControlFlowExclusionDecision({ node, inputValues, typeOfExclusion });
 
-      this.#excludeNode(node, processId, inputValues, 'disabled');
+    if (exclusion.action === 'continue') {
+      return false;
+    }
 
+    if (exclusion.action === 'exclude') {
+      this.#emitTraceEvent(exclusion.traceMessage);
+      this.#excludeNode(node, processId, inputValues, exclusion.reason);
       return true;
     }
 
-    if (node.isConditional && typeOfExclusion === undefined) {
-      const ifValue = coerceTypeOptional(inputValues[IF_PORT.id], 'boolean');
-      if (ifValue === false) {
-        this.#emitTraceEvent(`Excluding node ${node.title} because if port is false`);
-
-        this.#excludeNode(node, processId, inputValues, 'if port is false');
-        return true;
-      }
-    }
-
-    const inputsWithValues = entries(inputValues);
-    const controlFlowExcludedValues = inputsWithValues.filter(
-      ([, value]) => this.#isControlFlowExcluded(value) && (!typeOfExclusion || value!.value === typeOfExclusion),
-    );
-    const inputIsExcludedValue = inputsWithValues.length > 0 && controlFlowExcludedValues.length > 0;
-
-    const isWaitingForLoop = controlFlowExcludedValues.some((value) => value?.[1]?.value === LOOP_NOT_BROKEN_SENTINEL);
-
-    const nodesAllowedToConsumeExcludedValue: BuiltInNodeType[] = [
-      'if',
-      'ifElse',
-      'coalesce',
-      'graphOutput',
-      'raceInputs',
-      'loopController',
-    ];
-
-    const allowedToConsumedExcludedValue =
-      nodesAllowedToConsumeExcludedValue.includes(node.type as BuiltInNodeType) && !isWaitingForLoop;
-
-    if (inputIsExcludedValue && !allowedToConsumedExcludedValue) {
-      if (!isWaitingForLoop) {
-        if (inputIsExcludedValue) {
-          this.#emitTraceEvent(
-            `Excluding node ${node.title} because of control flow. Input is has excluded value: ${controlFlowExcludedValues[0]?.[0]}`,
-          );
-        }
-
-        this.#excludeNode(node, processId, inputValues, 'input is excluded value');
-      }
-
-      return true;
-    }
-
-    return false;
+    return true;
   }
 
   #excludeNode(node: ChartNode, processId: ProcessId, inputValues: Inputs, reason: string): void {
@@ -1662,15 +1619,7 @@ export class GraphProcessor {
   }
 
   #markAsExcluded(node: ChartNode, processId: ProcessId, inputValues: Inputs, reason: string) {
-    const outputs: Outputs = {};
-    for (const output of this.#definitions[node.id]!.outputs) {
-      outputs[output.id] = { type: 'control-flow-excluded', value: undefined };
-    }
-
-    // Prevent infinite loop, a control-flow-excluded to loop controller shouldn't set the break port, let the loop controller handle it
-    if (node.type === 'loopController') {
-      outputs['break' as PortId] = { type: 'control-flow-excluded', value: LOOP_NOT_BROKEN_SENTINEL };
-    }
+    const outputs = createExcludedNodeOutputs(node, this.#definitions[node.id]!.outputs);
 
     this.#nodeResults.set(node.id, outputs);
 

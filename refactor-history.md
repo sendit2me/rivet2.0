@@ -641,11 +641,17 @@ not preserve a complete file list.
     - Affected files/areas: `packages/core/src/model/chat-v2/chatV2Pipeline.ts`, new `chatV2Outputs.ts`, focused Chat v2 output tests, `developer-docs/CORE-ENGINE.md`, `developer-docs/PACKAGES.md`, `refactor.md`.
     - Result in numbers: `chatV2Pipeline.ts` shrank by 284 physical lines (`620` -> `336`). The new focused production output owner added 296 lines after the line-reduction cleanup, so production moved by net `+12` while separating output policy from orchestration. The phase added 187 focused test lines for the newly isolated output policy.
 
+119. **Reduced GraphProcessor node-exclusion responsibility**
+    - Why: `GraphProcessor.ts` still owned disabled-node exclusion, conditional false exclusion, control-flow-excluded input policy, missing-required-input exclusion wording, merge-node exceptions, loop wait sentinel handling, and excluded output construction alongside execution state mutation.
+    - How: Added `NodeExclusionPolicy.ts` as the pure owner of node-exclusion decisions and excluded output map construction. `GraphProcessor` now asks that helper for a decision, then keeps ownership of trace/event emission, stored results, attached-data propagation, in-flight cleanup, and downstream queueing.
+    - Affected files/areas: `packages/core/src/model/GraphProcessor.ts`, `packages/core/src/model/NodeExclusionPolicy.ts`, focused node-exclusion policy tests, `developer-docs/CORE-ENGINE.md`, `developer-docs/PACKAGES.md`, `refactor.md`.
+    - Result in numbers: `GraphProcessor.ts` shrank by 51 physical lines (`1722` -> `1671`). The new focused production policy owner added 116 lines, so production moved by net `+65` while separating exclusion policy from processor orchestration. The phase added 160 focused test lines for disabled nodes, conditional false ports, scalar control-flow exclusions, merge-node exceptions, loop wait sentinel skips, missing required input trace decisions, and excluded output creation.
+
 ## Residual Watchlist For Future Refactors
 
 1. **GraphProcessor size and responsibility concentration**
-   - Current state: Several targeted extractions landed and Phase 8 added a characterization suite, but `GraphProcessor.ts` still owns many execution policies.
-   - Next refactor should extract one policy at a time and extend the characterization suite before touching event order, aborts, subgraphs, loops, races, or control-flow exclusion.
+   - Current state: Several targeted extractions landed, Phase 8 added a characterization suite, and node-exclusion decisions now live in `NodeExclusionPolicy.ts`. `GraphProcessor.ts` still owns many execution policies.
+   - Next refactor should extract one policy at a time and extend the characterization suite before touching event order, aborts, subgraphs, loops, or races.
 
 2. **MCP stdio config logging and env handling**
    - Current state: Deferred intentionally.

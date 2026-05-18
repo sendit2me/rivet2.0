@@ -346,6 +346,7 @@ At a high level, it owns:
 Important current boundary:
 
 - graph-topology queries and readiness checks have been extracted into [`NodeExecutionPlanner.ts`](../packages/core/src/model/NodeExecutionPlanner.ts)
+- node exclusion decisions and excluded output construction have been extracted into [`NodeExclusionPolicy.ts`](../packages/core/src/model/NodeExclusionPolicy.ts)
 - child-processor event/lifecycle wiring has been extracted into [`SubprocessorBridge.ts`](../packages/core/src/model/SubprocessorBridge.ts)
 - `GraphProcessor` still remains the public evented execution surface and the owner of execution state
 
@@ -511,7 +512,14 @@ Important mechanisms:
 - `control-flow-excluded` values
 - special handling for loops and certain nodes that are allowed to consume excluded values
 
-The central check is currently internalized in `#excludedDueToControlFlow(...)`.
+The decision policy lives in
+[`NodeExclusionPolicy.ts`](../packages/core/src/model/NodeExclusionPolicy.ts).
+It owns disabled-node exclusions, false conditional `IF_PORT` exclusions,
+control-flow-excluded input decisions, merge-node exceptions, loop wait sentinel
+skips, missing-required-input trace wording, and construction of excluded output
+maps. `GraphProcessor` still owns applying those decisions: emitting trace and
+`nodeExcluded` events, storing output data, propagating attached data, clearing
+in-flight state, and queueing downstream nodes.
 
 Required input ports are also part of the exclusion lifecycle. If a reachable node has an input definition with `required: true` and that port has no connection, `GraphProcessor` must not call the node implementation. Instead, it emits `nodeExcluded` with reason `missing required input`, stores `control-flow-excluded` values for every output, and queues downstream nodes so the editor shows `Not ran` and exclusion continues through the graph.
 
@@ -522,7 +530,9 @@ This path must still participate in runtime metadata:
 - propagate attached data to downstream nodes
 - clear in-flight and remaining-node state just like completed nodes
 
-Keep this centralized in `GraphProcessor` / `NodeExecutionPlanner`; do not patch individual node implementations to handle unconnected required ports.
+Keep this centralized in `NodeExclusionPolicy` / `GraphProcessor` /
+`NodeExecutionPlanner`; do not patch individual node implementations to handle
+unconnected required ports.
 
 ### Subgraphs
 

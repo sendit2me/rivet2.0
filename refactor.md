@@ -76,15 +76,34 @@ already clarified unless the plan is updated first.
    `refactor-history.md` entry 117.
 4. **Phase 2: Clarify Chat And Provider Runtime Boundaries** is landed; see
    `refactor-history.md` entry 118.
-5. **Phase 1: Reduce `GraphProcessor` Responsibility Concentration** because it
-   is the highest-risk core area and should be approached only after the exact
-   behavior being moved is well characterized.
+5. **Phase 1: Reduce `GraphProcessor` Responsibility Concentration** is landed;
+   see `refactor-history.md` entry 119.
 
 Small residual issues noted in `refactor-history.md`, such as MCP stdio
 env/logging hygiene and generic app error logging policy, are not broad phases.
 Fix or ticket them separately when touched.
 
-## Phase 1: Reduce `GraphProcessor` Responsibility Concentration
+## Phase 1: Reduce `GraphProcessor` Responsibility Concentration (DONE)
+
+Status: landed; see `refactor-history.md` entry 119.
+
+Result in numbers: `GraphProcessor.ts` shrank from 1722 physical lines to 1671
+physical lines (net `-51`). The new focused `NodeExclusionPolicy.ts` owner added
+116 production lines, so production physical line count moved by net `+65` while
+removing node-exclusion decision policy from the processor class. The phase added
+160 focused test lines for disabled nodes, conditional false ports, ordinary and
+scalar control-flow exclusions, merge-node excluded-value consumption, loop-wait
+sentinel skips, missing required input formatting, and excluded output creation.
+
+Conclusion: the phase kept `GraphProcessor` as the evented execution/state owner
+and extracted only one complete policy: node exclusion decisions plus excluded
+output construction. The implementation avoided a generic state wrapper, did not
+move scheduling, event emission, attached-data propagation, queue cleanup, races,
+or loop lifecycle, and preserved the public behavior pinned by the existing
+GraphProcessor characterization suite. The plan was narrowed during
+implementation from "classify every private field" to the safer first slice:
+required-input/control-flow exclusion, because that was a complete bounded
+policy with existing behavior coverage and no public API changes.
 
 `GraphProcessor` remains the execution heart of Rivet. Earlier refactors
 extracted planning, preprocessing, split-run behavior, and subprocessor wiring,
@@ -94,33 +113,28 @@ preload/replay behavior, metadata, and event emission.
 
 ### Implementation
 
-- **What:** Classify every private `GraphProcessor` field as processor identity,
-  lazy topology, per-run state, lifecycle/event state, or shared subprocessor
-  state.
-- **What:** Extract only one complete policy at a time. Good candidates are
-  required-input/control-flow exclusion or queue-completion fan-out. Avoid
-  generic state bags and pass-through helper classes.
+- **What:** Extracted required-input/control-flow exclusion decisions and
+  excluded output construction into
+  `packages/core/src/model/NodeExclusionPolicy.ts`.
 - **Why:** Execution fixes are risky because unrelated policies currently live
   in one class. One named owner per policy makes future changes easier to audit.
-- **How:** Add characterization coverage first, move a narrow policy behind a
-  private core helper, keep public `GraphProcessor` APIs/events unchanged, then
-  update docs with the new owner.
+- **How:** Kept public `GraphProcessor` APIs/events unchanged. The helper returns
+  pure decisions and output maps; `GraphProcessor` still applies those decisions
+  to mutable state, event emission, attached data, and queue progression.
 - **Files:** `packages/core/src/model/GraphProcessor.ts`,
-  `packages/core/src/model/NodeExecutionPlanner.ts`,
-  `packages/core/src/model/SubprocessorBridge.ts`,
-  `packages/core/src/model/SplitRunProcessor.ts`,
-  `packages/core/src/model/RecordingPlayer.ts`,
-  `packages/core/test/model/GraphProcessor.characterization.test.ts`, and
+  `packages/core/src/model/NodeExclusionPolicy.ts`,
+  `packages/core/test/model/NodeExclusionPolicy.test.ts`, and
   `developer-docs/CORE-ENGINE.md`.
 
 ### Validation
 
 - Core graph processor characterization tests.
 - Existing core node tests.
-- Run-from, preload, pause/resume, abort, replay, subgraph, and split-run
-  regression tests for any touched path.
-- Remote debugger event-shape tests if event timing or execution metadata is
-  touched.
+- Existing run-from, preload, pause/resume, abort, replay, subgraph, and
+  split-run characterization coverage stayed unchanged because the extraction did
+  not move their lifecycle policies.
+- Remote debugger event-shape tests were not required because event timing,
+  payload shapes, and execution metadata were not touched.
 
 ### Risks
 

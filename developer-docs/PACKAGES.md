@@ -31,7 +31,7 @@ Shared runtime foundation for the entire repo.
 ### What it contains
 
 - graph/project/node/data types
-- `GraphProcessor` and extracted helpers (`NodeExecutionPlanner`, `SubprocessorBridge`, `SplitRunProcessor`)
+- `GraphProcessor` and extracted helpers (`NodeExecutionPlanner`, `NodeExclusionPolicy`, `SubprocessorBridge`, `SplitRunProcessor`)
 - built-in nodes
 - built-in plugins
 - `RegistryAssembly` - centralized registry creation and plugin assembly
