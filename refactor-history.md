@@ -647,6 +647,12 @@ not preserve a complete file list.
     - Affected files/areas: `packages/core/src/model/GraphProcessor.ts`, `packages/core/src/model/NodeExclusionPolicy.ts`, focused node-exclusion policy tests, `developer-docs/CORE-ENGINE.md`, `developer-docs/PACKAGES.md`, `refactor.md`.
     - Result in numbers: `GraphProcessor.ts` shrank by 51 physical lines (`1722` -> `1671`). The new focused production policy owner added 116 lines, so production moved by net `+65` while separating exclusion policy from processor orchestration. The phase added 160 focused test lines for disabled nodes, conditional false ports, scalar control-flow exclusions, merge-node exceptions, loop wait sentinel skips, missing required input trace decisions, and excluded output creation.
 
+120. **Closed the completed refactor record**
+    - Why: After all five planned phases landed, `refactor.md` still read partly like an active future plan. It kept stale Go/No-Go gates and future-tense implementation sections, which made the completed refactor harder to audit.
+    - How: Reassessed `refactor.md` against the live owner modules, focused tests, developer docs, and this history file. Rewrote it as a completed behavior-preserving refactor record, replaced future-plan sections with implemented scope, validation coverage, and remaining-risk sections, added an overall status, and removed stale active-plan gates.
+    - Affected files/areas: `refactor.md`, `refactor-history.md`, live-code audit of `NodeExclusionPolicy.ts`, `chatV2Outputs.ts`, node-canvas interaction helpers, executor-session helpers, and `nodeOutputViewModel.ts`.
+    - Result in numbers: no production or test code changed. Before this history entry, the `refactor.md` cleanup moved docs/planning `+107/-141` for a net `-34`, preserving the phase results while removing stale plan wording. Focused owner tests, docs typecheck, and `git diff --check` passed.
+
 ## Residual Watchlist For Future Refactors
 
 1. **GraphProcessor size and responsibility concentration**

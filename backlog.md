@@ -1,6 +1,6 @@
 
 
-
+- Make the secondary run button less green
 
 - Hotkey for toggling the left project tree panel
 
