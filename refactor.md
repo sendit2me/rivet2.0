@@ -68,8 +68,8 @@ already clarified unless the plan is updated first.
 
 ## Recommended Order
 
-1. **Phase 5: Centralize Output Surface View Models And Copy Policy** because it
-   is user-visible, recently fragile, and bounded.
+1. **Phase 5: Centralize Output Surface View Models And Copy Policy** is landed;
+   see `refactor-history.md` entry 114.
 2. **Phase 4: Simplify Executor Session And Remote Transport Ownership** because
    transport ownership affects hosted, desktop, and debugger reliability.
 3. **Phase 3: Make Canvas Interaction Ownership Explicit** because interaction
@@ -317,7 +317,22 @@ heartbeat behavior. The code works, but the ownership model is still large.
 Proceed only if the phase makes lifecycle ownership easier to name. Defer if the
 result creates more owners for socket state, target identity, or pending cleanup.
 
-## Phase 5: Centralize Output Surface View Models And Copy Policy
+## Phase 5: Centralize Output Surface View Models And Copy Policy (DONE)
+
+Status: landed; see `refactor-history.md` entry 114.
+
+Result in numbers: existing inline/fullscreen/body/copy call sites moved
+`+82/-74` for a net `+8`, then the new 201-line
+`nodeOutputViewModel.ts` made production code net `+209`. The phase also added
+a 217-line view-model test file and updated the developer docs/refactor notes.
+This was not a line-saving phase; it traded a small net increase for one tested
+owner of duplicated output-surface policy.
+
+Follow-up line-reduction cleanup: after the view-model phase landed, obsolete
+app-private compatibility facades with no production imports were deleted.
+Production code moved `+0/-45` for net `-45`; tests moved `+512/-575` for net
+`-63` by consolidating execution-data storage coverage under the real owner and
+removing legacy alias tests. See `refactor-history.md` entry 115.
 
 Output rendering and copying are better separated than before, but this area has
 regressed repeatedly: hook ordering, display-copy drift, visible/hidden output

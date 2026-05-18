@@ -52,13 +52,6 @@ export function wrapAsync<TArgs extends unknown[], TResult>(
   };
 }
 
-export function syncWrapper<TArgs extends unknown[], TResult>(
-  fn: (...args: TArgs) => Promise<TResult>,
-  context = 'Unexpected error',
-): (...args: TArgs) => void {
-  return wrapAsync(fn, context);
-}
-
 export function installGlobalErrorHandlers(): void {
   const windowWithFlag = window as Window & { __rivetGlobalErrorHandlersInstalled?: boolean };
   if (windowWithFlag.__rivetGlobalErrorHandlersInstalled) {

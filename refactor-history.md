@@ -548,56 +548,80 @@ not preserve a complete file list.
     - Why: `NodeOutput.tsx` had grown into a broad owner for inline rendering, fullscreen modal orchestration, process paging, output fade/replacement policy, search, wrapping, copy actions, and prompt-designer entry.
     - How: Kept `NodeOutput.tsx` as the stable adapter and compatibility re-export, then moved in-canvas rendering to `NodeInlineOutput.tsx`, fullscreen output orchestration to `NodeFullscreenOutput.tsx`, content-key fade/replacement-grace policy to `NodeOutputContentState.tsx`, and shared process controls to `NodeOutputPager.tsx`.
     - Affected files/areas: `NodeOutput.tsx`, `NodeInlineOutput.tsx`, `NodeFullscreenOutput.tsx`, `NodeOutputContentState.tsx`, `NodeOutputPager.tsx`, node-output regression tests, `developer-docs/APP-ARCHITECTURE.md`.
+    - Result in numbers: `NodeOutput.tsx` shrank by 849 net production lines (`+9/-858`). The split added focused owner files, so production code moved `+876/-858` for a net `+18`; tests moved `+57/-26` for net `+31`; docs/planning moved `+1097/-9` for net `+1088` because the full refactor plan was introduced in this commit.
 
 104. **Extract graph-list menu and presentation helpers**
     - Why: `GraphList.tsx` still owned menu item construction, context-menu target normalization, reachability/reference derivation, and row presentation flags alongside drag/drop, modal state, and rendering.
     - How: Added pure graph-list context-menu builders and target resolution in `graphListContextMenu.ts`, moved reachability/reference and row presentation derivation into `useGraphListPresentation.ts`, and left command dispatch plus graph/project modal ownership in `GraphList.tsx`.
     - Affected files/areas: `GraphList.tsx`, `FolderItem.tsx`, `graphListContextMenu.ts`, `useGraphListPresentation.ts`, graph-list regression tests, `developer-docs/APP-ARCHITECTURE.md`.
+    - Result in numbers: `GraphList.tsx` shrank by 84 net production lines (`+55/-139`). The new tested helpers made production code move `+426/-170` for a net `+256`; tests moved `+288/-5` for net `+283`; docs/planning moved `+27/-5` for net `+22`.
 
 105. **Separated execution-data storage, preview, and copy policy**
     - Why: `executionDataTransforms.ts` and `executionDataCopyValue.ts` mixed storage/ref lifecycle, preview decisions, restore helpers, and display-copy projection in broad utility files.
     - How: Added focused storage, preview, and sanitization modules, kept `executionDataTransforms.ts` as a compatibility facade, split display-copy implementation under `executionDataCopy/`, and moved internal imports to the new ownership modules.
     - Affected files/areas: `executionDataStorage.ts`, `executionDataPreview.ts`, `executionDataSanitization.ts`, `executionDataCopy/*`, execution-data regression tests, `developer-docs/APP-ARCHITECTURE.md`, `developer-docs/EXECUTION-DATA-FLOW.md`.
+    - Result in numbers: broad compatibility files shrank substantially: `executionDataTransforms.ts` shrank by 780 net lines (`+22/-802`) and `executionDataCopyValue.ts` shrank by 311 net lines (`+9/-320`). The new focused modules made production code move `+1215/-1141` for a net `+74`; tests moved `+200/-0`; docs/planning moved `+154/-32` for net `+122`.
 
 106. **Simplified remote execution client pipeline**
     - Why: `useRemoteExecutor.ts` owned upload cache decisions, websocket send handling, active request filtering, and Trivet pending-run cleanup alongside its React/session adapter responsibilities.
     - How: Added explicit upload planning in `remoteExecutorUploadCache.ts`, extracted request-id registration/filtering/send-failure helpers into `remoteExecutorRunRequest.ts`, and rewired `useRemoteExecutor.ts` to use those helpers while keeping atom reads and execution side effects in the hook.
     - Affected files/areas: `useRemoteExecutor.ts`, `remoteExecutorUploadCache.ts`, `remoteExecutorRunRequest.ts`, remote executor helper tests, `developer-docs/APP-ARCHITECTURE.md`, `developer-docs/EXECUTION-DATA-FLOW.md`.
+    - Result in numbers: `useRemoteExecutor.ts` stayed essentially size-neutral (`+38/-39`, net `-1`) while request/upload policy moved into named helpers. Production code moved `+183/-46` for a net `+137`; tests moved `+208/-0`; docs/planning moved `+108/-8` for net `+100`.
 
 107. **Split Remote Debugger server transport policies**
     - Why: `debugger.ts` owned websocket protocol handling, heartbeat, safe-send behavior, error emission, processor attachment cleanup, request-id association, and partial-output throttling in one high-impact transport file.
     - How: Kept `startDebuggerServer` as the public protocol assembler while extracting best-effort send/error policy to `debuggerTransport.ts`, heartbeat and timer cleanup to `debuggerHeartbeat.ts`, and processor listener lifecycle to `debuggerProcessorAttachments.ts`.
     - Affected files/areas: `packages/node/src/debugger.ts`, `debuggerTransport.ts`, `debuggerHeartbeat.ts`, `debuggerProcessorAttachments.ts`, Remote Debugger API docs, `developer-docs/APP-ARCHITECTURE.md`, `developer-docs/EXECUTION-DATA-FLOW.md`.
+    - Result in numbers: `debugger.ts` shrank by 262 net production lines (`+41/-303`). Extracted transport/heartbeat/attachment helpers made production code move `+382/-303` for a net `+79`; no dedicated test lines moved in this commit; docs/planning moved `+88/-16` for net `+72`.
 
 108. **Clarified app-executor Code worker ownership**
     - Why: `AppExecutorWorkerCodeRunner.mts` mixed CodeRunner orchestration, shared worker-pool lifecycle, package-sensitive stringified worker source, host-side request/result handling, and current-thread fallback behavior.
     - How: Kept `AppExecutorWorkerCodeRunner.mts` as the orchestration adapter, moved shared prewarm/pool lifecycle into `codeRunnerWorkerPool.mts`, and moved the eval worker source plus ready/result/error handling into `codeRunnerWorkerHost.mts`.
     - Affected files/areas: `packages/app-executor/bin/AppExecutorWorkerCodeRunner.mts`, `codeRunnerWorkerPool.mts`, `codeRunnerWorkerHost.mts`, `developer-docs/PACKAGES.md`, `developer-docs/EXECUTION-DATA-FLOW.md`, `developer-docs/CORE-ENGINE.md`, `developer-docs/APP-ARCHITECTURE.md`.
+    - Result in numbers: `AppExecutorWorkerCodeRunner.mts` shrank by 493 net production lines (`+14/-507`). New worker host/pool owners made production code move `+546/-509` for a net `+37`; tests moved `+4/-2` for net `+2`; docs/planning moved `+78/-8` for net `+70`.
 
 109. **Unified JS interpolation execution helpers**
     - Why: Code, Expression, JS Filter, and JS Map shared value-backed interpolation behavior but duplicated generated-code policy around input discovery, cloned inputs, safe helper identifiers, preview text, and generated-error sanitization.
     - How: Moved the shared mechanics into `jsValueInterpolation.ts` while keeping each node's runtime wrapper, output contract, permission policy, JS-list fixed-array clone order, and Code-specific line diagnostics explicit.
     - Affected files/areas: `CodeNewNode.ts`, `ExpressionNode.ts`, `jsListCallbackHelpers.ts`, `jsValueInterpolation.ts`, interpolation/display regression tests, `developer-docs/CORE-ENGINE.md`.
+    - Result in numbers: duplicated node helpers shrank together by 70 net production lines across `CodeNewNode.ts`, `ExpressionNode.ts`, and `jsListCallbackHelpers.ts` (`+83/-153`). The shared helper made production code move `+168/-154` for a net `+14`; tests moved `+58/-3` for net `+55`; docs/planning moved `+34/-2` for net `+32`.
 
 110. **Characterized GraphProcessor before further extraction**
     - Why: `GraphProcessor.ts` remains the execution heart, so further splitting needs a focused public-behavior safety net before any policy movement.
     - How: Added characterization coverage for root event order, error/finish behavior, partial-output process identity, subgraph execution metadata, preload/run-to boundaries, pause/resume scheduling, globals, and race winner/loser handling without moving runtime code.
     - Affected files/areas: `GraphProcessor.characterization.test.ts`, `developer-docs/CORE-ENGINE.md`, `refactor.md`.
+    - Result in numbers: this was deliberately not a line-saving phase: production code moved `+0/-0`. It added 565 test lines and docs/planning moved `+45/-16` for net `+29`, giving future `GraphProcessor` extractions a behavior safety net before code moves.
 
 111. **Hardened execution-data visibility, restore, and copy boundaries after the split**
     - Why: The storage/copy split exposed subtle presence-vs-value risks: absent/nullish stored port wrappers could look like explicit `undefined`, empty or hidden-only split-output maps could hide valid final `outputData`, and warnings/internal ports could leak into body rendering or copy projection.
     - How: Added shared visible-output-port policy, skipped absent wrappers consistently, preserved explicit `{ type: 'any', value: undefined }` as real data, restored preview-only inputs per port, kept executor preload strict while rejecting malformed empty output maps, aligned inline/fullscreen warning rendering, gated custom copy projectors on visible output maps, and covered hidden-only split data for internal JSON copy when no final output fallback exists.
     - Affected files/areas: `outputPortVisibility.ts`, `executionDataReaders.ts`, `executionDataStorage.ts`, `executionDataCopy/*`, `nodeOutputCopyValueProjectors.ts`, `RenderDataValue.tsx`, `PortInfo.tsx`, `ChatViewer.tsx`, node output components, Code/Expression/JS-list/Extract Object Path preview components, Prompt Designer hydration, run-from preload helpers, execution-data and output regression tests, `developer-docs/EXECUTION-DATA-FLOW.md`, `refactor.md`.
+    - Result in numbers: entries 111-113 landed in one hardening commit. Commit-wide production code moved `+372/-174` for a net `+198`; tests moved `+727/-16` for net `+711`; docs/planning moved `+147/-12` for net `+135`. This entry accounts for the broad output-boundary portion, so it intentionally added code and tests rather than saving lines.
 
 112. **Tightened remote-run preload eligibility after the client-pipeline split**
     - Why: Run-from preload should reuse only real stored boundary outputs. A stored map whose ports are all absent/nullish is malformed history, not a reusable upstream result.
     - How: Reused the execution-data reader boundary for preload extraction, skipped malformed empty stored output maps, and kept older usable runs eligible as fallback data for editor run-from behavior.
     - Affected files/areas: `remoteExecutorHelpers.ts`, `remoteExecutorHelpers.test.ts`, `executionDataReaders.ts`, `developer-docs/EXECUTION-DATA-FLOW.md`, `refactor.md`.
+    - Result in numbers: the run-from preload slice of the hardening commit moved production code `+73/-15` for a net `+58` across `remoteExecutorHelpers.ts` and shared readers, added 78 focused test lines, and moved docs/planning `+122/-10` for net `+112`.
 
 113. **Encapsulated Remote Debugger attachment snapshots after the transport split**
     - Why: Processor-routing callbacks received the live attached-processor list, which made it possible for routing code to mutate debugger-server attachment state accidentally.
     - How: Returned snapshots of attached processors to routing callbacks, kept the attachment helper as the state owner, and added regression coverage for snapshot behavior.
     - Affected files/areas: `packages/node/src/debuggerProcessorAttachments.ts`, `packages/node/src/debugger.ts`, `packages/node/test/debugger.test.ts`, `developer-docs/EXECUTION-DATA-FLOW.md`, `refactor.md`.
+    - Result in numbers: the debugger attachment slice moved production code `+3/-7` for a net `-4`, added debugger test coverage `+33/-5` for net `+28`, and shared the hardening commit's docs/planning movement of `+122/-10` for net `+112`.
+
+114. **Centralized node-output view models and copy policy**
+    - Why: Inline output, fullscreen output, body rendering, warnings, split-output fallback, and copy actions still rediscovered nearby pieces of the same output-surface policy after the first output split.
+    - How: Added `nodeOutputViewModel.ts` as the pure owner for selected fullscreen process data, content kind (`output`, `custom-error`, `code-error`, `generic-error`, `empty`), warning sections, body-source selection, display-copy serialization, and JSON-copy serialization. Rewired inline/fullscreen surfaces and copy actions to consume that owner while leaving React layout, fullscreen search, wrapping, Markdown toggles, prompt-designer entry, and modal geometry in the components.
+    - Follow-up reassessment: Moved the absent-wrapper and hidden-only output-map guard into `nodeOutputViewModel.ts` itself so future output surfaces cannot render phantom body content by bypassing the existing selected-process filter.
+    - Affected files/areas: `NodeInlineOutput.tsx`, `NodeFullscreenOutput.tsx`, `renderNodeOutputBody.tsx`, `nodeOutputCopyActions.ts`, `nodeOutputViewModel.ts`, node-output view-model tests, `developer-docs/APP-ARCHITECTURE.md`, `developer-docs/EXECUTION-DATA-FLOW.md`.
+    - Result in numbers: existing inline/fullscreen/body/copy call sites moved `+82/-74` for a net `+8`, then the new 201-line `nodeOutputViewModel.ts` made production code net `+209`. The phase also added a 217-line view-model test file and updated the developer docs/refactor notes. This was not a line-saving phase; it traded a small net increase for one tested owner of duplicated output-surface policy.
+
+115. **Deleted obsolete app-private compatibility facades**
+    - Why: After storage/copy/output ownership moved to focused modules, several app-private facades no longer protected a real migration boundary and had no production imports.
+    - How: Deleted the `executionDataTransforms.ts`, `syncWrapper.ts`, and `globals.ts` barrels, removed the `syncWrapper(...)` alias from `errorHandling.ts`, and moved execution-data storage regression coverage onto `executionDataStorage.test.ts` so tests import the real owner directly.
+    - Affected files/areas: `executionDataStorage.test.ts`, `errorHandling.ts`, `errorHandling.test.ts`, execution-data and async-helper developer docs.
+    - Result in numbers: production code moved `+0/-45` for net `-45`. Tests moved `+512/-575` for net `-63` while preserving storage/ref coverage and removing obsolete alias coverage. Docs/planning moved `+15/-4` for net `+11`.
 
 ## Residual Watchlist For Future Refactors
 
