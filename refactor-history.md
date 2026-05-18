@@ -635,6 +635,12 @@ not preserve a complete file list.
     - Affected files/areas: `NodeCanvas.tsx`, `useDraggingNode.ts`, `DraggableNode.tsx`, `NodeCanvasViewport.tsx`, drag-overlay execution context, new node-canvas helper modules and tests, `developer-docs/APP-ARCHITECTURE.md`, `refactor.md`.
     - Result in numbers: `useDraggingNode.ts` shrank by 149 physical lines and `NodeCanvas.tsx` shrank by 17 physical lines. New focused production owner modules added 322 lines, so the production total moved to a net `+158` while taking fragile policy out of the large owners. The existing drag helper tests moved next to the new drag owner without line growth, and the phase added 205 focused test lines for interaction-model and context-menu decisions.
 
+118. **Clarified Chat v2 output/runtime boundaries**
+    - Why: `chatV2Pipeline.ts` still mixed provider-neutral output assembly, token/cost normalization, structured-response typing, request-status/request-error output construction, retry-attempt arrays, provider-failure output shape, and streaming orchestration.
+    - How: Moved Chat v2 output assembly into internal `chatV2Outputs.ts` and updated the pipeline to delegate common outputs and provider-failure outputs to that owner without widening the public Chat v2 index. Added direct output-policy tests so structured response, usage/cost, reasoning, tool-call, request-status, retry-attempt, and provider-failure output shapes are pinned without relying only on mocked full-pipeline tests.
+    - Affected files/areas: `packages/core/src/model/chat-v2/chatV2Pipeline.ts`, new `chatV2Outputs.ts`, focused Chat v2 output tests, `developer-docs/CORE-ENGINE.md`, `developer-docs/PACKAGES.md`, `refactor.md`.
+    - Result in numbers: `chatV2Pipeline.ts` shrank by 284 physical lines (`620` -> `336`). The new focused production output owner added 296 lines after the line-reduction cleanup, so production moved by net `+12` while separating output policy from orchestration. The phase added 187 focused test lines for the newly isolated output policy.
+
 ## Residual Watchlist For Future Refactors
 
 1. **GraphProcessor size and responsibility concentration**

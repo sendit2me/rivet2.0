@@ -74,8 +74,8 @@ already clarified unless the plan is updated first.
    landed; see `refactor-history.md` entry 116.
 3. **Phase 3: Make Canvas Interaction Ownership Explicit** is landed; see
    `refactor-history.md` entry 117.
-4. **Phase 2: Clarify Chat And Provider Runtime Boundaries** because provider
-   cleanup is valuable but should be test-led and incremental.
+4. **Phase 2: Clarify Chat And Provider Runtime Boundaries** is landed; see
+   `refactor-history.md` entry 118.
 5. **Phase 1: Reduce `GraphProcessor` Responsibility Concentration** because it
    is the highest-risk core area and should be approached only after the exact
    behavior being moved is well characterized.
@@ -141,7 +141,27 @@ preload/replay behavior, metadata, and event emission.
 Proceed only if the phase reduces at least one mixed execution policy. Defer if
 the result is mainly a new object wrapping the same mutable state.
 
-## Phase 2: Clarify Chat And Provider Runtime Boundaries
+## Phase 2: Clarify Chat And Provider Runtime Boundaries (DONE)
+
+Status: landed; see `refactor-history.md` entry 118.
+
+Result in numbers: `chatV2Pipeline.ts` shrank from 620 physical lines to 336
+physical lines (net `-284`). The new focused `chatV2Outputs.ts` owner added
+296 production lines, so production physical line count moved by net `+12`
+while removing output-shape policy from the pipeline coordinator. The phase
+added 187 focused test lines for output assembly,
+request-status/request-error outputs, retry-attempt arrays, provider-failure
+outputs, structured responses, and usage/cost normalization.
+
+Conclusion: the phase avoided a broad provider framework and extracted one
+complete shared policy instead. Chat v2 output assembly now has a clear owner:
+the internal `chatV2Outputs.ts` builds common outputs, provider-failure outputs,
+structured response values, reasoning/usage outputs, and
+request-status/request-error ports. `chatV2Pipeline.ts` now coordinates message
+shaping, retries, provider error decisions, streaming, and tool plumbing, then
+delegates final output shape to the output owner. Existing pipeline and LLM Chat
+node tests stayed green, and the new direct tests pin the policy without needing
+to run a mocked provider pipeline for every output-shape edge case.
 
 Chat/provider runtime code still carries large overlapping concepts: message
 shaping, runtime-option resolution, provider request construction, streaming
