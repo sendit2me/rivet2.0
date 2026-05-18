@@ -89,6 +89,34 @@ This package is the shared Node runtime used by:
 It is not just a convenience wrapper. It sets Node-default providers, debugger integration, env-based plugin config fallback, and Node-specific reference loading. Runtime settings still flow through core's shared `resolveProcessSettings(...)` helper instead of being rebuilt independently in the Node package.
 It also supplies a default tokenizer for Node-side runs when the caller does not provide one explicitly.
 
+### Runtime-speed characterization
+
+Runtime-speed work for programmatic Node execution is guarded from the Node
+package first. [`packages/node/test/runtimeSpeedEquivalence.test.ts`](../packages/node/test/runtimeSpeedEquivalence.test.ts)
+pins the current compatible behavior across `runGraph(...)`,
+`createProcessor(...).run()`, and direct `GraphProcessor.processGraph(...)`
+execution for simple headless fixtures covering per-run inputs/context,
+branching DAGs, async Delay nodes, missing-required-input exclusion,
+control-flow exclusion, Code, and Expression. Thrown Code errors and abort
+signals are pinned across the public Node APIs. The direct `GraphProcessor`
+mode is a diagnostic baseline for these provider-free fixtures, not a
+replacement for Node wrapper defaults such as native providers, MCP, project
+reference loading, or debugger attachment. Future fast-runner work should add
+new candidate modes to this guard suite before changing runtime internals.
+
+[`packages/node/bench/runtimeSpeed.bench.ts`](../packages/node/bench/runtimeSpeed.bench.ts)
+is the repeatable baseline benchmark for the speed plan. Run it with
+`yarn bench:runtime-speed`, or tune iteration counts with
+`RIVET_RUNTIME_BENCH_ITERATIONS` and
+`RIVET_RUNTIME_BENCH_WARMUP_ITERATIONS`. Set
+`RIVET_RUNTIME_BENCH_SAMPLES` to run each benchmark case multiple times and
+report the average, min/max sample means, and standard deviation. It measures one-shot
+`runGraphInFile(...)`, loaded-project `runGraph(...)`, reused
+`createProcessor(...)`, direct processor execution, cheap text chains,
+Expression and Code chains, lazy preprocessing through the public dependency
+planning path, and the public `NodeCodeRunner` compile/run path. Benchmarks are
+diagnostic only; correctness remains pinned by the equivalence tests.
+
 ## `@valerypopoff/rivet-app` (`packages/app/`)
 
 ### Role

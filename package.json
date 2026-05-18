@@ -20,6 +20,7 @@
     "publish": "node scripts/publish-npm-packages.mjs",
     "test": "yarn workspace @valerypopoff/rivet2-core run test && yarn workspace @valerypopoff/rivet2-node run test && yarn workspace @valerypopoff/rivet-app run test && yarn workspace @valerypopoff/rivet2-cli run test",
     "test:all": "npm run test",
+    "bench:runtime-speed": "yarn workspace @valerypopoff/rivet2-node run bench:runtime-speed",
     "lint": "yarn workspace @valerypopoff/rivet2-core run lint && yarn workspace @valerypopoff/rivet2-node run lint && yarn workspace @valerypopoff/rivet-app run lint && yarn workspace @valerypopoff/trivet run lint && yarn workspace @valerypopoff/rivet-app-executor run lint && yarn workspace @valerypopoff/rivet2-cli run lint",
     "prettier:fix": "prettier --write ."
   },

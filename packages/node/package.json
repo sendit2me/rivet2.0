@@ -34,6 +34,7 @@
     "build": "yarn build:esm && yarn build:cjs",
     "build:esm": "rimraf dist/esm dist/types dist/tsconfig.tsbuildinfo && tsc -b --verbose",
     "build:cjs": "rimraf dist/cjs && tsx ../core/bundle.esbuild.ts",
+    "bench:runtime-speed": "tsx bench/runtimeSpeed.bench.ts",
     "prepack": "yarn build && cp -r ../../LICENSE ../../README.md .",
     "publish": "yarn npm publish --access public",
     "lint": "eslint ./src",
