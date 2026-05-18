@@ -5,6 +5,9 @@
 `RunGraphOptions` configures a graph run. The base type comes from `@valerypopoff/rivet2-core`; `@valerypopoff/rivet2-node` extends it with Node remote-debugger fields.
 
 Use this type when calling `runGraph`, `runGraphInFile`, or `createProcessor`.
+`createGraphRunner` uses a split form: stable options are passed when the
+runner is created, while `inputs`, `context`, and `abortSignal` are passed to
+each `runner.run(...)` call.
 
 ## Definition
 
@@ -209,6 +212,11 @@ When using `@valerypopoff/rivet2-node`, `createProcessor` and `runGraph` provide
 | `pluginEnv` | plugin environment values read from `process.env` |
 | OpenAI settings | `OPENAI_API_KEY`, `OPENAI_ORG_ID`, and `OPENAI_ENDPOINT` when unset |
 
+`createGraphRunner` resolves the same Node defaults once at runner creation and
+reuses them across repeated runs of the same graph. This is the preferred
+programmatic path for stable backend workflows where only request inputs and
+context change between runs.
+
 ## Usage
 
 ```typescript
@@ -237,6 +245,7 @@ const outputs = await runGraph(project, {
 - [DataValue](../core/DataValue)
 - [Settings](../core/Settings)
 - [RivetDebuggerServer](./RivetDebuggerServer)
+- [createGraphRunner](./createGraphRunner)
 - NativeApi
 - ExternalFunction
 - ProcessEvents

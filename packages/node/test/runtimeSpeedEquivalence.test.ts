@@ -2,6 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   createProcessor,
+  createGraphRunner,
   runGraph,
   type DataValue,
   type LooseDataValue,
@@ -14,6 +15,7 @@ import {
   makeCodeChainProject,
   makeControlFlowExclusionProject,
   makeExpressionChainProject,
+  makeGlobalStateProject,
   makeInputContextTextProject,
   makeMissingRequiredInputProject,
   makeThrowingCodeProject,
@@ -48,6 +50,26 @@ const publicRuntimeModes: RuntimeMode[] = [
         ...options,
       });
       return processor.run();
+    },
+  },
+  {
+    name: 'createGraphRunner.run',
+    run: async (fixture, options = {}) => {
+      const {
+        abortSignal,
+        context,
+        inputs,
+        ...runnerOptions
+      } = options as NodeRunGraphOptions;
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        ...runnerOptions,
+      });
+      return runner.run({
+        abortSignal,
+        context,
+        inputs,
+      });
     },
   },
 ];
@@ -135,6 +157,38 @@ void describe('runtime speed equivalence guards', () => {
         result: { type: 'string', value: 'b second' },
       },
       'second run',
+    );
+  });
+
+  void it('pins repeated runs with processor globals as run-scoped public API behavior', async () => {
+    const fixture = makeGlobalStateProject();
+
+    const firstOutputs = await collectOutputs(fixture, {
+      inputs: {
+        input: 'first',
+      },
+    });
+    const secondOutputs = await collectOutputs(fixture, {
+      inputs: {
+        input: 'second',
+      },
+    });
+
+    assertModeOutputsEqual(
+      firstOutputs,
+      {
+        cost: { type: 'number', value: 0 },
+        previousResult: { type: 'string', value: '' },
+      },
+      'first global run',
+    );
+    assertModeOutputsEqual(
+      secondOutputs,
+      {
+        cost: { type: 'number', value: 0 },
+        previousResult: { type: 'string', value: '' },
+      },
+      'second global run',
     );
   });
 
@@ -241,14 +295,16 @@ void describe('runtime speed equivalence guards', () => {
       publicRuntimeModes.map((mode) => runPublicModeError(mode, fixture, { graph: fixture.graphId })),
     );
 
-    assert.equal(errors.length, 2);
+    assert.equal(errors.length, publicRuntimeModes.length);
     for (const error of errors) {
       assert.match(error.message, /failed to process due to errors in nodes/);
       assert.ok(error.cause instanceof Error);
       assert.match(error.cause.message, /runtime speed guard failure/);
     }
-    assert.equal(errors[0]!.message, errors[1]!.message);
-    assert.equal((errors[0]!.cause as Error).message, (errors[1]!.cause as Error).message);
+    for (const error of errors.slice(1)) {
+      assert.equal(errors[0]!.message, error.message);
+      assert.equal((errors[0]!.cause as Error).message, (error.cause as Error).message);
+    }
   });
 
   void it('pins abort signal behavior across public Node APIs', async () => {

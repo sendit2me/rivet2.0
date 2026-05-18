@@ -79,7 +79,8 @@ Implementation status:
   [`packages/node/test/runtimeSpeedEquivalence.test.ts`](packages/node/test/runtimeSpeedEquivalence.test.ts).
   The direct `GraphProcessor` mode in that suite is a diagnostic baseline for
   provider-free fixtures; public Node API behavior remains pinned through
-  `runGraph(...)` and `createProcessor(...).run()`.
+  `runGraph(...)`, `createProcessor(...).run()`, and
+  `createGraphRunner(...).run(...)`.
 - Added the repeatable benchmark command
   `yarn bench:runtime-speed`, backed by
   [`packages/node/bench/runtimeSpeed.bench.ts`](packages/node/bench/runtimeSpeed.bench.ts).
@@ -165,7 +166,53 @@ Expected payoff:
 - Low risk because it is additive and can initially delegate to the existing
   `GraphProcessor.processGraph(...)` execution path.
 
-### P1: Cached Headless Node CodeRunner
+Implementation status:
+
+- Added `createGraphRunner(project, options)` to
+  [`packages/node/src/api.ts`](packages/node/src/api.ts).
+- The runner resolves stable Node runtime setup at creation, converts loose
+  `inputs` and `context` per run, and treats `abortSignal` as run-scoped.
+- `runtimeProfile` is accepted on the runner API, but both `compatible` and
+  `headless-fast` currently use the same compatible `GraphProcessor` execution
+  path until cached CodeRunner or cached graph-plan work lands behind the
+  runner-only option.
+- Each run uses a run-scoped `GraphProcessor` so mutable processor state,
+  including Global node values, cannot leak between backend requests.
+- Added focused runner coverage in
+  [`packages/node/test/graphRunner.test.ts`](packages/node/test/graphRunner.test.ts)
+  for per-run inputs/context, overlapping runs, abort signals, disposal, and
+  Global node isolation.
+- Added `createGraphRunner` to the public equivalence guards and runtime
+  benchmark cases.
+- The original P0 baseline above is intentionally preserved. After P1, the same
+  averaged benchmark shape was rerun on 2026-05-19 with
+  `RIVET_RUNTIME_BENCH_ITERATIONS=200`,
+  `RIVET_RUNTIME_BENCH_WARMUP_ITERATIONS=20`, and
+  `RIVET_RUNTIME_BENCH_SAMPLES=5`:
+
+| Case | Mean ms | Std dev ms |
+| --- | ---: | ---: |
+| `runGraphInFile` passthrough one-shot | `0.964` | `0.062` |
+| Load once plus `runGraph` passthrough | `0.117` | `0.016` |
+| Reuse `createProcessor` passthrough | `0.074` | `0.007` |
+| `createGraphRunner` passthrough | `0.084` | `0.008` |
+| Direct `GraphProcessor` text chain 20 | `0.469` | `0.054` |
+| `runGraph` text chain 20 | `0.508` | `0.045` |
+| `runGraph` text chain 100 | `2.918` | `0.055` |
+| `runGraph` text chain 500 | `32.908` | `0.464` |
+| `createGraphRunner` text chain 500 | `33.171` | `0.468` |
+| `runGraph` Expression chain 20 | `2.716` | `0.046` |
+| `runGraph` Code chain 20 | `9.396` | `0.069` |
+| Lazy preprocess/dependency text chain 500 | `25.280` | `0.130` |
+| `NodeCodeRunner` compile/run one snippet | `0.001` | `0.000` |
+
+P1 keeps a useful public fast-path seam and is slightly faster than
+loaded-project `runGraph` for the tiny passthrough case, but it is intentionally
+close to existing compatible execution because each run uses a fresh
+`GraphProcessor` to avoid state leaks. Larger cheap graphs still point to cached
+graph planning/preprocessing as the next substantial speed target.
+
+### P2: Cached Headless Node CodeRunner
 
 Add a cached Node CodeRunner for headless Node execution.
 
@@ -196,7 +243,7 @@ Expected payoff:
 - Substantial win for Code/Expression-heavy headless workflows.
 - Localized implementation and test surface compared with a scheduler rewrite.
 
-### P2: Cached Immutable Graph Plan And Adjacency Maps
+### P3: Cached Immutable Graph Plan And Adjacency Maps
 
 Add a reusable graph execution plan for immutable headless runner snapshots.
 
@@ -235,9 +282,10 @@ Expected payoff:
   visible part of total runtime.
 - Lower risk than replacing the scheduler outright.
 
-### P3: Strict Fast Acyclic Scheduler
+### P4: Strict Fast Acyclic Scheduler
 
-Only pursue a new scheduler after P1/P2 benchmarks show it is still necessary.
+Only pursue a new scheduler after P1/P2/P3 benchmarks show it is still
+necessary.
 
 Eligibility should be intentionally narrow:
 
@@ -289,21 +337,21 @@ higher than the options above.
 First public addition:
 
 ```ts
-type GraphRunnerOptions = {
+type NodeGraphRunnerOptions = {
   graph?: string;
   runtimeProfile?: "compatible" | "headless-fast";
   // plus the stable Node run options that make sense at creation time
 };
 
-type GraphRunnerRunOptions = {
+type NodeGraphRunnerRunOptions = {
   inputs?: Record<string, LooseDataValue>;
   context?: Record<string, LooseDataValue>;
   abortSignal?: AbortSignal;
 };
 
-type GraphRunner = {
-  run(options?: GraphRunnerRunOptions): Promise<Record<string, DataValue>>;
-  dispose?(): Promise<void> | void;
+type NodeGraphRunner = {
+  run(options?: NodeGraphRunnerRunOptions): Promise<Record<string, DataValue>>;
+  dispose(): void;
 };
 ```
 
@@ -329,7 +377,8 @@ API rules:
    - Resolve graph selection, plugin env, process settings, providers,
      tokenizer, project-reference loader, and code runner at runner creation.
    - Convert loose inputs/context per run.
-   - Use run-scoped processors for overlapping runs.
+   - Use run-scoped processors for each run until core exposes an explicitly
+     reusable immutable execution plan and run-state reset.
    - Initially delegate execution to existing `GraphProcessor.processGraph(...)`.
 
 3. Cached headless Node CodeRunner.

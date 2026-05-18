@@ -3,6 +3,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   createProcessor,
+  createGraphRunner,
   loadProjectFromFile,
   runGraph,
   runGraphInFile,
@@ -73,6 +74,15 @@ async function main() {
   }
 
   {
+    const runner = createGraphRunner(passthroughProject, {
+      graph: 'Passthrough',
+    });
+    results.push(
+      await benchmark('createGraphRunner passthrough', () => runner.run({ inputs: { input: 'bench' } })),
+    );
+  }
+
+  {
     const processor = createRuntimeSpeedProcessor(cheap20.project, cheap20.graphId);
     const context = createRuntimeSpeedProcessContext();
     const inputs = { input: { type: 'string', value: 'bench' } satisfies DataValue };
@@ -94,6 +104,14 @@ async function main() {
       runGraph(cheap500.project, { graph: cheap500.graphId, inputs: { input: 'bench' } }),
     ),
   );
+  {
+    const runner = createGraphRunner(cheap500.project, {
+      graph: cheap500.graphId,
+    });
+    results.push(
+      await benchmark('createGraphRunner text chain 500', () => runner.run({ inputs: { input: 'bench' } })),
+    );
+  }
   results.push(
     await benchmark('runGraph expression chain 20', () =>
       runGraph(expression20.project, { graph: expression20.graphId, inputs: { input: 0 } }),

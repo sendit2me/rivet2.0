@@ -653,6 +653,12 @@ not preserve a complete file list.
     - Affected files/areas: `refactor.md`, `refactor-history.md`, live-code audit of `NodeExclusionPolicy.ts`, `chatV2Outputs.ts`, node-canvas interaction helpers, executor-session helpers, and `nodeOutputViewModel.ts`.
     - Result in numbers: no production or test code changed. Before this history entry, the `refactor.md` cleanup moved docs/planning `+107/-141` for a net `-34`, preserving the phase results while removing stale plan wording. Focused owner tests, docs typecheck, and `git diff --check` passed.
 
+121. **Added a headless Node graph-runner seam for runtime-speed work**
+    - Why: Programmatic Node execution needed an additive fast-path API before deeper core execution changes. Existing one-shot APIs capture inputs/context at creation or create full Node runtime defaults per call, while future runtime optimizations need one public seam that can safely own stable backend execution setup.
+    - How: Added `createGraphRunner(...)` to `@valerypopoff/rivet2-node`, split runner creation-time options from per-run `inputs`, `context`, and `abortSignal`, and reused stable Node runtime providers/settings while keeping each run on a run-scoped `GraphProcessor`. The reassessment pass intentionally rejected direct processor reuse because Global node values and other processor-local mutable state could leak across backend requests.
+    - Affected files/areas: `packages/node/src/api.ts`, `packages/node/test/graphRunner.test.ts`, `packages/node/test/runtimeSpeedEquivalence.test.ts`, `packages/node/test/runtimeSpeedFixtures.ts`, `packages/node/bench/runtimeSpeed.bench.ts`, Node API docs, `developer-docs/PACKAGES.md`, `runtime-speed-plan.md`.
+    - Result in numbers: production Node API code moved `+141/-30` for a net `+111`, mostly for the new public runner and shared Node process-context helper. Existing test fixtures/guards moved `+88/-3`, and a new 158-line runner test file covers per-run values, overlap, abort, disposal, Global-node isolation, and creation-time provider reuse. P1 averaged benchmarks preserved the original P0 baseline and showed `createGraphRunner` at `0.084ms` for the passthrough case versus loaded-project `runGraph` at `0.117ms`, while 500-node cheap graphs stayed effectively unchanged (`33.171ms` runner versus `32.908ms` `runGraph`), confirming cached graph planning/preprocessing as the next speed target.
+
 ## Residual Watchlist For Future Refactors
 
 1. **GraphProcessor size and responsibility concentration**

@@ -75,6 +75,7 @@ From `src/index.ts` and related files:
 - `runGraphInFile(...)`
 - `runGraph(...)`
 - `createProcessor(...)`
+- `createGraphRunner(...)`
 - debugger server APIs
 - dataset/debugger/project-reference helpers
 
@@ -94,15 +95,14 @@ It also supplies a default tokenizer for Node-side runs when the caller does not
 Runtime-speed work for programmatic Node execution is guarded from the Node
 package first. [`packages/node/test/runtimeSpeedEquivalence.test.ts`](../packages/node/test/runtimeSpeedEquivalence.test.ts)
 pins the current compatible behavior across `runGraph(...)`,
-`createProcessor(...).run()`, and direct `GraphProcessor.processGraph(...)`
-execution for simple headless fixtures covering per-run inputs/context,
-branching DAGs, async Delay nodes, missing-required-input exclusion,
-control-flow exclusion, Code, and Expression. Thrown Code errors and abort
-signals are pinned across the public Node APIs. The direct `GraphProcessor`
-mode is a diagnostic baseline for these provider-free fixtures, not a
-replacement for Node wrapper defaults such as native providers, MCP, project
-reference loading, or debugger attachment. Future fast-runner work should add
-new candidate modes to this guard suite before changing runtime internals.
+`createProcessor(...).run()`, `createGraphRunner(...).run(...)`, and direct
+`GraphProcessor.processGraph(...)` execution for simple headless fixtures
+covering per-run inputs/context, branching DAGs, async Delay nodes,
+missing-required-input exclusion, control-flow exclusion, Code, and Expression.
+Thrown Code errors and abort signals are pinned across the public Node APIs.
+The direct `GraphProcessor` mode is a diagnostic baseline for these
+provider-free fixtures, not a replacement for Node wrapper defaults such as
+native providers, MCP, project reference loading, or debugger attachment.
 
 [`packages/node/bench/runtimeSpeed.bench.ts`](../packages/node/bench/runtimeSpeed.bench.ts)
 is the repeatable baseline benchmark for the speed plan. Run it with
@@ -112,10 +112,26 @@ is the repeatable baseline benchmark for the speed plan. Run it with
 `RIVET_RUNTIME_BENCH_SAMPLES` to run each benchmark case multiple times and
 report the average, min/max sample means, and standard deviation. It measures one-shot
 `runGraphInFile(...)`, loaded-project `runGraph(...)`, reused
-`createProcessor(...)`, direct processor execution, cheap text chains,
-Expression and Code chains, lazy preprocessing through the public dependency
-planning path, and the public `NodeCodeRunner` compile/run path. Benchmarks are
-diagnostic only; correctness remains pinned by the equivalence tests.
+`createProcessor(...)`, `createGraphRunner(...)`, direct processor
+execution, cheap text chains, Expression and Code chains, lazy preprocessing
+through the public dependency planning path, and the public `NodeCodeRunner`
+compile/run path. Benchmarks are diagnostic only; correctness remains pinned by
+the equivalence tests.
+
+`createGraphRunner(...)` is the additive production-facing fast path for
+headless/programmatic Node integrations that load a project once and run the
+same graph many times. It resolves graph selection, registry/plugin setup,
+Node-default providers, settings, plugin env, tokenizer, code runner, and
+project-reference loading at runner creation. Each `runner.run(...)` converts
+loose `inputs` and `context` values separately and owns its own `abortSignal`.
+The runner-only `runtimeProfile` option is present for future fast-path
+selection; both profile values currently use the compatible `GraphProcessor`
+execution path.
+Each run still uses a run-scoped `GraphProcessor` so mutable processor state,
+including Global node values, cannot leak between backend requests. Remote
+Debugger, recording, SSE/event-stream consumers, editor run-from, and
+Browser-mode execution should continue to use the compatible APIs until those
+surfaces have explicit runner support.
 
 ## `@valerypopoff/rivet-app` (`packages/app/`)
 

@@ -251,6 +251,21 @@ export function makeAbortSignalProject(delayMs: number): RuntimeSpeedProjectFixt
   return makeAsyncDelayProject(delayMs);
 }
 
+export function makeGlobalStateProject(): RuntimeSpeedProjectFixture {
+  const inputNode = makeGraphInputNode('graph-input', 'input', 'string');
+  const setGlobalNode = makeSetGlobalNode('set-global', 'runtime-speed-global', 'string');
+  const outputNode = makeGraphOutputNode('graph-output', 'previousResult', 'string');
+
+  return makeFixture(
+    [inputNode, setGlobalNode, outputNode],
+    [
+      connect(inputNode.id, 'data', setGlobalNode.id, 'value'),
+      connect(setGlobalNode.id, 'previous-value', outputNode.id, 'value'),
+    ],
+    outputNode.id,
+  );
+}
+
 function makeFixture(
   nodes: ChartNode[],
   connections: NodeConnection[],
@@ -365,6 +380,20 @@ function makeDelayNode(id: string, delay: number): ChartNode {
     title: 'Delay',
     type: 'delay',
     visualData: { width: 175, x: 0, y: 0 },
+  };
+}
+
+function makeSetGlobalNode(id: string, globalId: string, dataType: DataType): ChartNode {
+  return {
+    data: {
+      dataType,
+      id: globalId,
+      useIdInput: false,
+    },
+    id: id as NodeId,
+    title: 'Set Global',
+    type: 'setGlobal',
+    visualData: { width: 200, x: 0, y: 0 },
   };
 }
 

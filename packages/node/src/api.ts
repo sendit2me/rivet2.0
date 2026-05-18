@@ -8,6 +8,7 @@ import {
   coreCreateProcessor,
   loadProjectFromString,
   loadProjectAndAttachedDataFromString,
+  looseDataValuesToDataValues,
   type RunGraphOptions,
   resolveProcessSettings,
   type Tokenizer,
@@ -15,6 +16,8 @@ import {
   type ChatMessage,
   type GptFunction,
   type RemoteRunRequestId,
+  type LooseDataValue,
+  type ProcessContext,
 } from '@valerypopoff/rivet2-core';
 
 import { readFile } from 'node:fs/promises';
@@ -91,17 +94,33 @@ export type NodeRunGraphOptions = RunGraphOptions & {
   remoteDebuggerRequestId?: RemoteRunRequestId;
 };
 
+type NodeGraphProcessor = ReturnType<typeof coreCreateProcessor>['processor'];
+
+export type NodeGraphRunnerOptions = Omit<
+  NodeRunGraphOptions,
+  'abortSignal' | 'context' | 'inputs' | 'remoteDebugger' | 'remoteDebuggerRequestId'
+> & {
+  runtimeProfile?: 'compatible' | 'headless-fast';
+};
+
+export type NodeGraphRunnerRunOptions = {
+  abortSignal?: AbortSignal;
+  context?: Record<string, LooseDataValue>;
+  inputs?: Record<string, LooseDataValue>;
+};
+
+export type NodeGraphRunner = {
+  dispose: () => void;
+  run: (options?: NodeGraphRunnerRunOptions) => Promise<Record<string, DataValue>>;
+};
+
 export function createProcessor(
   project: Project,
   options: NodeRunGraphOptions,
 ): ReturnType<typeof coreCreateProcessor> {
   const processor = coreCreateProcessor(project, options);
 
-  processor.processor.executor = 'nodejs';
-
-  processor.processor.on('newAbortController', (controller) => {
-    events.setMaxListeners(0, controller.signal);
-  });
+  configureNodeProcessor(processor.processor);
 
   let remoteDebuggerAttached = false;
   const attachRemoteDebugger = () => {
@@ -123,11 +142,7 @@ export function createProcessor(
 
   attachRemoteDebugger();
 
-  let pluginEnv = options.pluginEnv;
-  if (!pluginEnv) {
-    // If unset, use process.env
-    pluginEnv = getPluginEnvFromProcessEnv(options.registry);
-  }
+  const pluginEnv = resolveNodePluginEnv(options);
 
   return {
     ...processor,
@@ -139,26 +154,7 @@ export function createProcessor(
 
       try {
         const outputs = await processor.processor.processGraph(
-          {
-            nativeApi: options.nativeApi ?? new NodeNativeApi(),
-            datasetProvider: options.datasetProvider,
-            mcpProvider: options.mcpProvider ?? new NodeMCPProvider(),
-            audioProvider: options.audioProvider,
-            tokenizer: options.tokenizer ?? new FallbackTokenizer(),
-            codeRunner: options.codeRunner ?? new NodeCodeRunner(),
-            projectPath: options.projectPath,
-            projectReferenceLoader: options.projectReferenceLoader ?? new NodeProjectReferenceLoader(),
-            editorExecutionCache: options.editorExecutionCache,
-            settings: resolveProcessSettings(
-              { ...options, pluginEnv },
-              {
-                openAiKey: process.env.OPENAI_API_KEY ?? '',
-                openAiOrganization: process.env.OPENAI_ORG_ID ?? '',
-                openAiEndpoint: process.env.OPENAI_ENDPOINT ?? '',
-              },
-            ),
-            getChatNodeEndpoint: options.getChatNodeEndpoint,
-          },
+          createNodeProcessContext(options, pluginEnv),
           processor.inputs,
           processor.contextValues,
         );
@@ -173,9 +169,124 @@ export function createProcessor(
   };
 }
 
+export function createGraphRunner(project: Project, options: NodeGraphRunnerOptions): NodeGraphRunner {
+  const { runtimeProfile: _runtimeProfile, ...processorOptions } = options;
+  const processContext = createNodeProcessContext(processorOptions, resolveNodePluginEnv(processorOptions));
+  const activeProcessors = new Set<NodeGraphProcessor>();
+  let disposed = false;
+
+  const runWithProcessor = async (
+    processor: NodeGraphProcessor,
+    runOptions: NodeGraphRunnerRunOptions = {},
+  ): Promise<Record<string, DataValue>> => {
+    activeProcessors.add(processor);
+    const cleanupAbortSignal = bindAbortSignal(processor, runOptions.abortSignal);
+
+    try {
+      const outputsPromise = processor.processGraph(
+        processContext,
+        looseDataValuesToDataValues(runOptions.inputs ?? {}),
+        looseDataValuesToDataValues(runOptions.context ?? {}),
+      );
+
+      if (runOptions.abortSignal?.aborted) {
+        void processor.abort();
+      }
+
+      return await outputsPromise;
+    } finally {
+      cleanupAbortSignal();
+      activeProcessors.delete(processor);
+    }
+  };
+
+  return {
+    dispose() {
+      disposed = true;
+      for (const processor of activeProcessors) {
+        void processor.abort(false, 'Graph runner disposed.');
+      }
+      activeProcessors.clear();
+    },
+    async run(runOptions = {}) {
+      if (disposed) {
+        throw new Error('Cannot run a disposed graph runner.');
+      }
+
+      return await runWithProcessor(createRunnerProcessor(project, processorOptions), runOptions);
+    },
+  };
+}
+
 export async function runGraph(project: Project, options: NodeRunGraphOptions): Promise<Record<string, DataValue>> {
   const processorInfo = createProcessor(project, options);
   return processorInfo.run();
+}
+
+function configureNodeProcessor(processor: NodeGraphProcessor): void {
+  processor.executor = 'nodejs';
+
+  processor.on('newAbortController', (controller) => {
+    events.setMaxListeners(0, controller.signal);
+  });
+}
+
+function createRunnerProcessor(project: Project, options: RunGraphOptions): NodeGraphProcessor {
+  const processorInfo = coreCreateProcessor(project, {
+    ...options,
+    abortSignal: undefined,
+    context: {},
+    inputs: {},
+  });
+
+  configureNodeProcessor(processorInfo.processor);
+  return processorInfo.processor;
+}
+
+function createNodeProcessContext(
+  options: RunGraphOptions,
+  pluginEnv: Record<string, string | undefined>,
+): ProcessContext {
+  return {
+    nativeApi: options.nativeApi ?? new NodeNativeApi(),
+    datasetProvider: options.datasetProvider,
+    mcpProvider: options.mcpProvider ?? new NodeMCPProvider(),
+    audioProvider: options.audioProvider,
+    tokenizer: options.tokenizer ?? new FallbackTokenizer(),
+    codeRunner: options.codeRunner ?? new NodeCodeRunner(),
+    projectPath: options.projectPath,
+    projectReferenceLoader: options.projectReferenceLoader ?? new NodeProjectReferenceLoader(),
+    editorExecutionCache: options.editorExecutionCache,
+    settings: resolveProcessSettings(
+      { ...options, pluginEnv },
+      {
+        openAiKey: process.env.OPENAI_API_KEY ?? '',
+        openAiOrganization: process.env.OPENAI_ORG_ID ?? '',
+        openAiEndpoint: process.env.OPENAI_ENDPOINT ?? '',
+      },
+    ),
+    getChatNodeEndpoint: options.getChatNodeEndpoint,
+  };
+}
+
+function resolveNodePluginEnv(options: RunGraphOptions): Record<string, string | undefined> {
+  // If unset, use process.env
+  return options.pluginEnv ?? getPluginEnvFromProcessEnv(options.registry);
+}
+
+function bindAbortSignal(processor: NodeGraphProcessor, abortSignal?: AbortSignal): () => void {
+  if (!abortSignal) {
+    return () => {};
+  }
+
+  const abort = () => {
+    void processor.abort();
+  };
+
+  abortSignal.addEventListener('abort', abort, { once: true });
+  return () => {
+    abortSignal.removeEventListener('abort', abort);
+  };
 }
 
 function getPluginEnvFromProcessEnv(registry?: NodeRegistration<any, any>) {
