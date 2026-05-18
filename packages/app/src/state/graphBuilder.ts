@@ -130,7 +130,9 @@ export function clearGraphSearchQueryState(state: GraphSearchState): GraphSearch
   };
 }
 
-export function isGraphSearchVisibleWithQuery(state: GraphSearchState): boolean {
+export function isGraphSearchVisibleWithQuery(
+  state: Pick<GraphSearchState, 'panelOpen' | 'query' | 'searching'>,
+): boolean {
   return state.searching && state.panelOpen && state.query.trim().length > 0;
 }
 

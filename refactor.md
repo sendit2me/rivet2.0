@@ -72,8 +72,8 @@ already clarified unless the plan is updated first.
    see `refactor-history.md` entry 114.
 2. **Phase 4: Simplify Executor Session And Remote Transport Ownership** is
    landed; see `refactor-history.md` entry 116.
-3. **Phase 3: Make Canvas Interaction Ownership Explicit** because interaction
-   bugs are common and costly to diagnose.
+3. **Phase 3: Make Canvas Interaction Ownership Explicit** is landed; see
+   `refactor-history.md` entry 117.
 4. **Phase 2: Clarify Chat And Provider Runtime Boundaries** because provider
    cleanup is valuable but should be test-led and incremental.
 5. **Phase 1: Reduce `GraphProcessor` Responsibility Concentration** because it
@@ -197,7 +197,34 @@ but shared policies should not keep growing inside provider node classes.
 Proceed only when the phase removes duplicated provider policy or makes a fragile
 provider behavior directly testable. Defer broad provider framework work.
 
-## Phase 3: Make Canvas Interaction Ownership Explicit
+## Phase 3: Make Canvas Interaction Ownership Explicit (DONE)
+
+Status: landed; see `refactor-history.md` entry 117.
+
+Result in numbers: `useDraggingNode.ts` shrank from 502 lines to 353 lines
+(net `-149`), and `NodeCanvas.tsx` shrank from 680 lines to 663 lines (net
+`-17` after the reassessment pass). Import-only touch files stayed line-neutral.
+The phase added 322 production lines in focused canvas interaction owner modules, so physical
+production lines moved from large owners into smaller owners for a net `+158`.
+The existing drag-policy test moved next to its new owner without line growth,
+and the phase added 205 new test lines for canvas interaction-model and
+context-menu decisions.
+
+Conclusion: the phase preserved canvas behavior while making ownership explicit.
+The implementation corrected the plan by leaving graph-tree presentation/context
+menu helpers alone because an earlier graph-tree refactor had already given them
+clear tested owners.
+Instead, the phase focused on the remaining canvas ambiguity: node drag decision
+rules now live in `nodeDragInteraction.ts`; selected/editing/fullscreen,
+graph-search, and hover-highlight derivation lives in
+`nodeCanvasInteractionModel.ts`; and node/blank-area context-menu hydration plus
+`Run from here` availability lives in `nodeCanvasContextMenuModel.ts`. The
+reassessment pass tightened the new boundaries by making graph-search highlight
+inputs explicit instead of depending on the whole search state object, and by
+making malformed node context-menu targets with missing node ids or node types
+fall back to blank-area context. The
+hook and component now coordinate state and commands around those policies
+instead of owning the policies inline.
 
 Canvas and graph-tree interaction logic has improved, but interaction rules are
 still spread across components, hooks, atoms, and helpers. The fragile areas are

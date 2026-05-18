@@ -16,7 +16,7 @@ import {
   type DragActivatorModifierState,
   type DragAxisLock,
   type DragMode,
-} from '../hooks/useDraggingNode.js';
+} from './nodeCanvas/nodeDragInteraction.js';
 
 interface DraggableNodeProps {
   dragAxisLock: DragAxisLock;

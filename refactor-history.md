@@ -629,6 +629,12 @@ not preserve a complete file list.
     - Affected files/areas: `executorSession.ts`, new executor-session helper modules and tests, `developer-docs/APP-ARCHITECTURE.md`, `developer-docs/EXECUTION-DATA-FLOW.md`, `refactor.md`.
     - Result in numbers: `executorSession.ts` shrank by 241 net production lines (`+99/-340`). New focused production owner modules added 403 lines after the cleanup pass, so production code moved `+502/-340` for a net `+162`; tests moved `+287/-0`; docs/planning moved `+67/-9` for net `+58`.
 
+117. **Made canvas interaction ownership explicit**
+    - Why: `NodeCanvas.tsx` and `useDraggingNode.ts` still mixed React orchestration with drag policy, selection/highlight derivation, graph-search node matching, and node context-menu hydration.
+    - How: Moved node-drag decision rules into `nodeDragInteraction.ts`, moved selected/editing/fullscreen/search/hover id derivation into `nodeCanvasInteractionModel.ts`, and moved node/blank-area context-menu hydration plus `Run from here` availability into `nodeCanvasContextMenuModel.ts`. The reassessment pass made graph-search highlight inputs explicit and made malformed node context-menu targets with missing node ids or node types fall back to blank-area context. `NodeCanvas` and `useDraggingNode` now pass current state into those policy owners while keeping command dispatch, refs, atoms, and rendering local.
+    - Affected files/areas: `NodeCanvas.tsx`, `useDraggingNode.ts`, `DraggableNode.tsx`, `NodeCanvasViewport.tsx`, drag-overlay execution context, new node-canvas helper modules and tests, `developer-docs/APP-ARCHITECTURE.md`, `refactor.md`.
+    - Result in numbers: `useDraggingNode.ts` shrank by 149 physical lines and `NodeCanvas.tsx` shrank by 17 physical lines. New focused production owner modules added 322 lines, so the production total moved to a net `+158` while taking fragile policy out of the large owners. The existing drag helper tests moved next to the new drag owner without line growth, and the phase added 205 focused test lines for interaction-model and context-menu decisions.
+
 ## Residual Watchlist For Future Refactors
 
 1. **GraphProcessor size and responsibility concentration**

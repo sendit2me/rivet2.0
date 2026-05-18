@@ -1,6 +1,6 @@
 
 
-
+- Hotkey for toggling the left project tree panel
 
 
 - Need a "Not" node?
