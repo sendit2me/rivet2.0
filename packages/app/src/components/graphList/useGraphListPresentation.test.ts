@@ -37,7 +37,6 @@ describe('graph list presentation helpers', () => {
     assert.equal(presentation.isCollapsedOpenGraphFolder, true);
     assert.equal(presentation.folderGraphCount, 1);
     assert.equal(presentation.graphIsRunning, false);
-    assert.match(presentation.title, /Contains the open graph\./);
   });
 
   it('derives graph row status without reading React state', () => {
@@ -68,8 +67,6 @@ describe('graph list presentation helpers', () => {
     assert.equal(presentation.referencesSelectedGraph, true);
     assert.equal(presentation.graphIsRunning, true);
     assert.equal(presentation.shouldShowUnreachableBadge, true);
-    assert.match(presentation.title, /Main graph\./);
-    assert.match(presentation.title, /References the open graph\./);
   });
 
   it('suppresses unreachable badges while renaming or when hidden by settings', () => {

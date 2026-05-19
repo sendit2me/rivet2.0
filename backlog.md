@@ -1,8 +1,8 @@
 
+- When I drag a graph in the graph tree pnael, when I frag it up, it's fine, but when I drag it down, it gets overlayed with other graph names.
+
 - Now, the executor mode is global for all open projects (remote debugger, browser, node). Make it per tab
 
-
-- Hotkey for toggling the left project tree panel
 
 - Clean up the repo form unnecessary files and maybe rearrange some folders
 

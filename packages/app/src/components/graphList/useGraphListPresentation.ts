@@ -93,7 +93,6 @@ export type FolderItemPresentation = {
   referencesSelectedGraph: boolean;
   savedGraph: NodeGraph | undefined;
   shouldShowUnreachableBadge: boolean;
-  title: string;
 };
 
 export function getFolderItemPresentation(options: {
@@ -141,15 +140,6 @@ export function getFolderItemPresentation(options: {
   const shouldShowUnreachableBadge =
     item.type === 'graph' && !isRenaming && showUnreachableBadges && graphReachability === 'unreachable';
   const graphIsRunning = graphId != null && runningGraphs.includes(graphId);
-  const title = [
-    fullPath,
-    isCollapsedOpenGraphFolder ? 'Contains the open graph.' : undefined,
-    isMainGraph ? 'Main graph.' : undefined,
-    referencesSelectedGraph ? 'References the open graph.' : undefined,
-  ]
-    .filter(Boolean)
-    .join('\n');
-
   return {
     folderGraphCount,
     fullPath,
@@ -163,6 +153,5 @@ export function getFolderItemPresentation(options: {
     referencesSelectedGraph,
     savedGraph,
     shouldShowUnreachableBadge,
-    title,
   };
 }

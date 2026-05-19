@@ -645,7 +645,7 @@ export const GraphList: FC = memo(() => {
   return (
     <div css={styles}>
       <div className="project-tree-panel-header">
-        <div className="project-tree-header" title={project.metadata.title}>
+        <div className="project-tree-header">
           <span className="project-tree-header-label">Project:</span>
           <span className="project-tree-header-title">{project.metadata.title}</span>
         </div>

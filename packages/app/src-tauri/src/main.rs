@@ -34,6 +34,7 @@ fn main() {
                     event.window().open_devtools();
                 }
             }
+            "quit" => event.window().app_handle().exit(0),
             _ => {}
         })
         .setup(|app| {
@@ -97,7 +98,7 @@ fn create_menu() -> Menu {
             .add_native_item(MenuItem::Separator)
             .add_item(CustomMenuItem::new("settings", "Settings..."))
             .add_native_item(MenuItem::Separator)
-            .add_native_item(MenuItem::Quit),
+            .add_item(CustomMenuItem::new("quit", "Quit")),
     );
 
     let edit_menu = Submenu::new(

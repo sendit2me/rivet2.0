@@ -44,6 +44,10 @@ import { createRootGraphViewContext } from '../domain/graphEditing/navigationAct
 import { graphSearchPanelHeightState, leftSidebarLiveWidthState } from '../state/ui';
 import { getLeftSidebarAttachedControlOffset } from '../utils/leftSidebarWidth';
 import { resizeCursorStyles } from '../utils/resizeCursors';
+import {
+  GRAPH_HISTORY_NEXT_TOOLTIP,
+  GRAPH_HISTORY_PREVIOUS_TOOLTIP,
+} from '../hooks/canvasNavigationShortcuts.js';
 
 const GRAPH_SEARCH_FOCUS_ZOOM = 0.8;
 const MIN_GRAPH_SEARCH_PANEL_HEIGHT = 180;
@@ -191,6 +195,10 @@ const styles = css`
       }
     }
 
+    .stop-searching-tooltip {
+      display: flex;
+    }
+
     .search-results {
       border-top: 1px solid var(--grey-darkish);
       flex: 1;
@@ -249,6 +257,11 @@ const styles = css`
         background: transparent;
         color: var(--grey-lightest);
       }
+    }
+
+    .search-result-group-title-tooltip {
+      display: inline-flex;
+      max-width: 100%;
     }
 
     .search-result-graph-label {
@@ -647,6 +660,7 @@ export const NavigationBar: FC = () => {
           <GraphHistoryButton
             disabled={!navigationStack.hasBackward}
             label="Go to previous graph"
+            tooltip={GRAPH_HISTORY_PREVIOUS_TOOLTIP}
             onClick={navigationStack.navigateBack}
           >
             <LeftIcon />
@@ -654,6 +668,7 @@ export const NavigationBar: FC = () => {
           <GraphHistoryButton
             disabled={!navigationStack.hasForward}
             label="Go to next graph"
+            tooltip={GRAPH_HISTORY_NEXT_TOOLTIP}
             onClick={navigationStack.navigateForward}
           >
             <RightIcon />
@@ -684,9 +699,11 @@ export const NavigationBar: FC = () => {
                 }
               }}
             />
-            <button className="stopSearching" title="Close graph search" onClick={closeGraphSearch}>
-              <CrossIcon />
-            </button>
+            <Tooltip content="Close graph search" placement="bottom" tag="span" className="stop-searching-tooltip">
+              <button className="stopSearching" onClick={closeGraphSearch}>
+                <CrossIcon />
+              </button>
+            </Tooltip>
           </div>
           {graphSearchHasResults && (
             <GraphSearchResults
@@ -736,8 +753,9 @@ const GraphHistoryButton: FC<{
   children: ReactNode;
   disabled: boolean;
   label: string;
+  tooltip: string;
   onClick: () => void;
-}> = ({ children, disabled, label, onClick }) => {
+}> = ({ children, disabled, label, onClick, tooltip }) => {
   const button = (
     <button
       aria-label={label}
@@ -749,7 +767,11 @@ const GraphHistoryButton: FC<{
     </button>
   );
 
-  return disabled ? button : <Tooltip content={label} placement="bottom">{button}</Tooltip>;
+  return (
+    <Tooltip content={tooltip} placement="bottom">
+      {button}
+    </Tooltip>
+  );
 };
 
 const GoToSearchResults: FC = () => {
@@ -799,20 +821,18 @@ const GraphSearchResults: FC<{
       {groups.map((group) => (
         <div className="search-result-group" key={group.key}>
           <div className="search-result-group-title">
-            <button
-              className="search-result-group-title-button"
-              onClick={() => onSelectGraph(group.graphId)}
-              title="Open graph"
-            >
-              <span className="search-result-graph-label">Graph </span>
-              <HighlightedText
-                className="search-result-graph-name"
-                text={group.graphName}
-                searchText={query}
-                contextAmount={60}
-                splitSearchWords={fallbackToTerms}
-              />
-            </button>
+            <Tooltip content="Open graph" placement="right" tag="span" className="search-result-group-title-tooltip">
+              <button className="search-result-group-title-button" onClick={() => onSelectGraph(group.graphId)}>
+                <span className="search-result-graph-label">Graph </span>
+                <HighlightedText
+                  className="search-result-graph-name"
+                  text={group.graphName}
+                  searchText={query}
+                  contextAmount={60}
+                  splitSearchWords={fallbackToTerms}
+                />
+              </button>
+            </Tooltip>
           </div>
           {group.matches.map(({ match, index }) => (
             <button

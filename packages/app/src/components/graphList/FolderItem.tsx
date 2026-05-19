@@ -70,7 +70,6 @@ export const FolderItem: FC<{
       referencesSelectedGraph,
       savedGraph,
       shouldShowUnreachableBadge,
-      title,
     } = getFolderItemPresentation({
       currentGraph: graph,
       dragOverFolderName,
@@ -156,7 +155,6 @@ export const FolderItem: FC<{
             data-graphid={savedGraph?.metadata?.id}
             data-folderpath={item.type === 'folder' ? item.fullPath : item.graph.metadata?.name}
             style={graphItemStyle}
-            title={title}
           >
             <div className="graph-item-select" {...draggableRowProps} onClick={handleItemClick}>
               {isRenaming ? (
@@ -186,11 +184,7 @@ export const FolderItem: FC<{
                   </span>
                 </>
               )}
-              {shouldShowUnreachableBadge && (
-                <span className="unreachable-badge" title="This graph is unreachable from the project's Main Graph.">
-                  unreachable
-                </span>
-              )}
+              {shouldShowUnreachableBadge && <span className="unreachable-badge">unreachable</span>}
             </div>
           </div>
           {item.type === 'folder' && (
