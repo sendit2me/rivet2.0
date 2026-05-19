@@ -16,6 +16,7 @@ import {
   createRuntimeSpeedProcessor,
   makeCodeChainProject,
   makeExpressionChainProject,
+  makeSubgraphChainProject,
   makeTextChainProject,
   type RuntimeSpeedProjectFixture,
 } from '../test/runtimeSpeedFixtures.js';
@@ -45,6 +46,7 @@ async function main() {
   const cheap500 = makeTextChainProject(500);
   const expression20 = makeExpressionChainProject(20);
   const code20 = makeCodeChainProject(20);
+  const subgraph50 = makeSubgraphChainProject(50);
   const codeRunner = new NodeCodeRunner();
   const cachedCodeRunner = new CachedNodeCodeRunner();
   const results: BenchmarkResult[] = [];
@@ -121,6 +123,27 @@ async function main() {
     });
     results.push(
       await benchmark('createGraphRunner headless-fast text chain 500', () =>
+        runner.run({ inputs: { input: 'bench' } }),
+      ),
+    );
+  }
+  {
+    const runner = createGraphRunner(subgraph50.project, {
+      graph: subgraph50.graphId,
+    });
+    results.push(
+      await benchmark('createGraphRunner compatible subgraph chain 50', () =>
+        runner.run({ inputs: { input: 'bench' } }),
+      ),
+    );
+  }
+  {
+    const runner = createGraphRunner(subgraph50.project, {
+      graph: subgraph50.graphId,
+      runtimeProfile: 'headless-fast',
+    });
+    results.push(
+      await benchmark('createGraphRunner headless-fast subgraph chain 50', () =>
         runner.run({ inputs: { input: 'bench' } }),
       ),
     );

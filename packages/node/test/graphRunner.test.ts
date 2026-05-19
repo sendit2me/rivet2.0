@@ -6,17 +6,10 @@ import {
   type ChartNode,
   type CodeRunner,
   type DataValue,
-  type GraphId,
   type Inputs,
-  type NodeConnection,
-  type NodeGraph,
-  type NodeId,
   type NodeImpl,
   type NodeRegistration,
   type Outputs,
-  type PortId,
-  type Project,
-  type ProjectId,
 } from '../src/index.js';
 import {
   makeAbortSignalProject,
@@ -24,6 +17,7 @@ import {
   makeCodeChainProject,
   makeGlobalStateProject,
   makeInputContextTextProject,
+  makeSubgraphChainProject,
 } from './runtimeSpeedFixtures.js';
 
 class CountingCodeRunner implements CodeRunner {
@@ -82,109 +76,6 @@ function trackDefinitionCalls(impl: NodeImpl<ChartNode>, onDefinitionCall: () =>
   };
 
   return impl;
-}
-
-function makeSubgraphProject(): { graphIds: GraphId[]; project: Project } {
-  const mainGraphId = 'main-graph' as GraphId;
-  const subGraphId = 'sub-graph' as GraphId;
-
-  const mainInput = makeGraphInputNode('main-input', 'input');
-  const subGraphNode: ChartNode = {
-    data: {
-      graphId: subGraphId,
-      useErrorOutput: false,
-      useAsGraphPartialOutput: false,
-    },
-    id: 'subgraph-node' as NodeId,
-    title: 'Subgraph',
-    type: 'subGraph',
-    visualData: { width: 300, x: 300, y: 0 },
-  };
-  const mainOutput = makeGraphOutputNode('main-output', 'result');
-  const subInput = makeGraphInputNode('sub-input', 'input');
-  const subText: ChartNode = {
-    data: {
-      normalizeLineEndings: true,
-      text: '{{input}} sub',
-    },
-    id: 'sub-text' as NodeId,
-    title: 'Text',
-    type: 'text',
-    visualData: { width: 260, x: 300, y: 0 },
-  };
-  const subOutput = makeGraphOutputNode('sub-output', 'result');
-
-  const mainGraph: NodeGraph = {
-    connections: [
-      connect(mainInput.id, 'data', subGraphNode.id, 'input'),
-      connect(subGraphNode.id, 'result', mainOutput.id, 'value'),
-    ],
-    metadata: {
-      id: mainGraphId,
-      name: 'Main Graph',
-    },
-    nodes: [mainInput, subGraphNode, mainOutput],
-  };
-  const subGraph: NodeGraph = {
-    connections: [connect(subInput.id, 'data', subText.id, 'input'), connect(subText.id, 'output', subOutput.id, 'value')],
-    metadata: {
-      id: subGraphId,
-      name: 'Sub Graph',
-    },
-    nodes: [subInput, subText, subOutput],
-  };
-
-  return {
-    graphIds: [mainGraphId, subGraphId],
-    project: {
-      graphs: {
-        [mainGraphId]: mainGraph,
-        [subGraphId]: subGraph,
-      },
-      metadata: {
-        id: 'subgraph-project' as ProjectId,
-        mainGraphId,
-        title: 'Subgraph Project',
-      },
-      plugins: [],
-    },
-  };
-}
-
-function makeGraphInputNode(id: string, inputId: string): ChartNode {
-  return {
-    data: {
-      dataType: 'string',
-      id: inputId,
-      useDefaultValueInput: false,
-    },
-    id: id as NodeId,
-    title: 'Graph Input',
-    type: 'graphInput',
-    visualData: { width: 240, x: 0, y: 0 },
-  };
-}
-
-function makeGraphOutputNode(id: string, outputId: string): ChartNode {
-  return {
-    data: {
-      dataType: 'string',
-      id: outputId,
-    },
-    id: id as NodeId,
-    title: 'Graph Output',
-    type: 'graphOutput',
-    visualData: { width: 240, x: 600, y: 0 },
-  };
-}
-
-function connect(outputNodeId: string | NodeId, outputId: string, inputNodeId: string | NodeId, inputId: string): NodeConnection {
-  return {
-    inputId: inputId as PortId,
-    inputNodeId: inputNodeId as NodeId,
-    outputId: outputId as PortId,
-    outputNodeId: outputNodeId as NodeId,
-  };
 }
 
 void describe('createGraphRunner', () => {
@@ -349,28 +240,25 @@ void describe('createGraphRunner', () => {
   });
 
   void it('reuses immutable graph plans for subprocessors in the fast profile', async () => {
-    const fixture = makeSubgraphProject();
-    const nodeCount = fixture.graphIds.reduce(
-      (total, graphId) => total + fixture.project.graphs[graphId]!.nodes.length,
-      0,
-    );
+    const fixture = makeSubgraphChainProject(1);
+    const nodeCount = Object.values(fixture.project.graphs).reduce((total, graph) => total + graph.nodes.length, 0);
 
     const fastRegistry = createCountingRegistry();
     const fastRunner = createGraphRunner(fixture.project, {
-      graph: fixture.graphIds[0],
+      graph: fixture.graphId,
       registry: fastRegistry.registry,
       runtimeProfile: 'headless-fast',
     });
     const firstFastOutputs = await fastRunner.run({ inputs: { input: 'a' } });
     const secondFastOutputs = await fastRunner.run({ inputs: { input: 'b' } });
-    assert.equal(firstFastOutputs.result?.value, 'a sub');
-    assert.equal(secondFastOutputs.result?.value, 'b sub');
+    assert.equal(firstFastOutputs.result?.value, 'ax');
+    assert.equal(secondFastOutputs.result?.value, 'bx');
     assert.equal(fastRegistry.getCreateCalls(), nodeCount * 2);
     assert.equal(fastRegistry.getDefinitionCalls(), nodeCount * 2);
 
     const compatibleRegistry = createCountingRegistry();
     const compatibleRunner = createGraphRunner(fixture.project, {
-      graph: fixture.graphIds[0],
+      graph: fixture.graphId,
       registry: compatibleRegistry.registry,
     });
     await compatibleRunner.run({ inputs: { input: 'a' } });

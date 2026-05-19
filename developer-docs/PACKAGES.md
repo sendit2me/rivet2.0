@@ -113,10 +113,10 @@ is the repeatable baseline benchmark for the speed plan. Run it with
 report the average, min/max sample means, and standard deviation. It measures one-shot
 `runGraphInFile(...)`, loaded-project `runGraph(...)`, reused
 `createProcessor(...)`, `createGraphRunner(...)`, direct processor
-execution, cheap text chains, Expression and Code chains, lazy preprocessing
-through the public dependency planning path, and both uncached and cached
-Node CodeRunner compile/run paths. Benchmarks are diagnostic only; correctness
-remains pinned by the equivalence tests.
+execution, cheap text chains, nested subgraph chains, Expression and Code
+chains, lazy preprocessing through the public dependency planning path, and
+both uncached and cached Node CodeRunner compile/run paths. Benchmarks are
+diagnostic only; correctness remains pinned by the equivalence tests.
 
 `createGraphRunner(...)` is the additive production-facing fast path for
 headless/programmatic Node integrations that load a project once and run the

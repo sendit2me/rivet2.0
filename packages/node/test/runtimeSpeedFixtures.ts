@@ -171,6 +171,70 @@ export function makeCodeChainProject(nodeCount: number): RuntimeSpeedProjectFixt
   return makeFixture(nodes, connections, outputNode.id);
 }
 
+export function makeSubgraphChainProject(subgraphCallCount: number): RuntimeSpeedProjectFixture {
+  const mainGraphId = 'runtime-speed-main' as GraphId;
+  const subGraphId = 'runtime-speed-subgraph' as GraphId;
+  const mainInput = makeGraphInputNode('graph-input', 'input', 'string');
+  const mainOutput = makeGraphOutputNode('graph-output', 'result', 'string');
+  const mainNodes: ChartNode[] = [mainInput];
+  const mainConnections: NodeConnection[] = [];
+  let previousNodeId = mainInput.id;
+  let previousOutputId = 'data' as PortId;
+
+  for (let i = 0; i < subgraphCallCount; i++) {
+    const subgraphNode = makeSubgraphNode(`subgraph-${i}`, subGraphId);
+    mainNodes.push(subgraphNode);
+    mainConnections.push(connect(previousNodeId, previousOutputId, subgraphNode.id, 'input'));
+    previousNodeId = subgraphNode.id;
+    previousOutputId = 'result' as PortId;
+  }
+
+  mainNodes.push(mainOutput);
+  mainConnections.push(connect(previousNodeId, previousOutputId, mainOutput.id, 'value'));
+
+  const subInput = makeGraphInputNode('subgraph-input', 'input', 'string');
+  const subText = makeTextNode('subgraph-text', '{{input}}x');
+  const subOutput = makeGraphOutputNode('subgraph-output', 'result', 'string');
+  const subgraph: NodeGraph = {
+    connections: [
+      connect(subInput.id, 'data', subText.id, 'input'),
+      connect(subText.id, 'output', subOutput.id, 'value'),
+    ],
+    metadata: {
+      description: '',
+      id: subGraphId,
+      name: 'Runtime Speed Subgraph',
+    },
+    nodes: [subInput, subText, subOutput],
+  };
+
+  return {
+    graphId: mainGraphId,
+    project: {
+      graphs: {
+        [mainGraphId]: {
+          connections: mainConnections,
+          metadata: {
+            description: '',
+            id: mainGraphId,
+            name: 'Runtime Speed Main',
+          },
+          nodes: mainNodes,
+        },
+        [subGraphId]: subgraph,
+      },
+      metadata: {
+        description: '',
+        id: 'runtime-speed-project' as ProjectId,
+        mainGraphId,
+        title: 'Runtime Speed Project',
+      },
+      plugins: [],
+    },
+    terminalNodeId: mainOutput.id,
+  };
+}
+
 export function makeBranchingTextProject(): RuntimeSpeedProjectFixture {
   const inputNode = makeGraphInputNode('graph-input', 'input', 'string');
   const leftNode = makeTextNode('left-text', '{{input}} left');
@@ -367,6 +431,20 @@ function makeCodeNode(id: string, code: string): ChartNode {
     title: 'Code',
     type: 'codeNew',
     visualData: { width: 260, x: 0, y: 0 },
+  };
+}
+
+function makeSubgraphNode(id: string, graphId: GraphId): ChartNode {
+  return {
+    data: {
+      graphId,
+      useAsGraphPartialOutput: false,
+      useErrorOutput: false,
+    },
+    id: id as NodeId,
+    title: 'Subgraph',
+    type: 'subGraph',
+    visualData: { width: 300, x: 0, y: 0 },
   };
 }
 

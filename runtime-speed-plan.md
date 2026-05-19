@@ -84,6 +84,9 @@ Implementation status:
 - Added the repeatable benchmark command
   `yarn bench:runtime-speed`, backed by
   [`packages/node/bench/runtimeSpeed.bench.ts`](packages/node/bench/runtimeSpeed.bench.ts).
+- The benchmark suite includes a nested subgraph chain so graph-keyed plan
+  caching stays visible in regular runtime-speed runs instead of living only in
+  ad hoc probes.
 - Benchmark iteration counts can be tuned with
   `RIVET_RUNTIME_BENCH_ITERATIONS` and
   `RIVET_RUNTIME_BENCH_WARMUP_ITERATIONS`.
@@ -371,38 +374,41 @@ Implementation status:
 | Case | Mean ms | Std dev ms |
 | --- | ---: | ---: |
 | `runGraphInFile` passthrough one-shot | `1.052` | `0.050` |
-| Load once plus `runGraph` passthrough | `0.126` | `0.018` |
-| Reuse `createProcessor` passthrough | `0.083` | `0.008` |
-| `createGraphRunner` passthrough | `0.095` | `0.011` |
-| Direct `GraphProcessor` text chain 20 | `0.511` | `0.035` |
-| `runGraph` text chain 20 | `0.499` | `0.012` |
-| `runGraph` text chain 100 | `2.874` | `0.064` |
-| `runGraph` text chain 500 | `32.764` | `0.107` |
-| `createGraphRunner` text chain 500 | `32.892` | `0.314` |
-| `createGraphRunner` headless-fast text chain 500 | `7.799` | `0.105` |
-| `runGraph` Expression chain 20 | `2.729` | `0.039` |
-| `createGraphRunner` compatible Expression chain 20 | `2.623` | `0.019` |
-| `createGraphRunner` headless-fast Expression chain 20 | `2.474` | `0.039` |
-| `runGraph` Code chain 20 | `6.553` | `0.292` |
-| `createGraphRunner` compatible Code chain 20 | `6.418` | `0.162` |
-| `createGraphRunner` headless-fast Code chain 20 | `6.187` | `0.056` |
-| Lazy preprocess/dependency text chain 500 | `24.619` | `0.120` |
+| Load once plus `runGraph` passthrough | `0.127` | `0.004` |
+| Reuse `createProcessor` passthrough | `0.091` | `0.009` |
+| `createGraphRunner` passthrough | `0.102` | `0.005` |
+| Direct `GraphProcessor` text chain 20 | `0.563` | `0.066` |
+| `runGraph` text chain 20 | `0.586` | `0.013` |
+| `runGraph` text chain 100 | `3.700` | `0.167` |
+| `runGraph` text chain 500 | `39.811` | `0.616` |
+| `createGraphRunner` text chain 500 | `39.698` | `0.417` |
+| `createGraphRunner` headless-fast text chain 500 | `9.778` | `0.208` |
+| `createGraphRunner` compatible subgraph chain 50 | `12.813` | `0.343` |
+| `createGraphRunner` headless-fast subgraph chain 50 | `11.365` | `0.334` |
+| `runGraph` Expression chain 20 | `3.321` | `0.068` |
+| `createGraphRunner` compatible Expression chain 20 | `3.088` | `0.042` |
+| `createGraphRunner` headless-fast Expression chain 20 | `2.901` | `0.025` |
+| `runGraph` Code chain 20 | `7.552` | `0.066` |
+| `createGraphRunner` compatible Code chain 20 | `7.672` | `0.064` |
+| `createGraphRunner` headless-fast Code chain 20 | `8.147` | `0.962` |
+| Lazy preprocess/dependency text chain 500 | `30.209` | `0.375` |
 | `NodeCodeRunner` compile/run one snippet | `0.001` | `0.000` |
 | `CachedNodeCodeRunner` run cached snippet | `0.001` | `0.000` |
 
 P3 delivered the first large runtime win in the benchmark suite: the 500-node
-text chain dropped from `32.892ms` with the compatible runner to `7.799ms` with
+text chain dropped from `39.698ms` with the compatible runner to `9.778ms` with
 the `headless-fast` runner. A reassessment pass kept cached planning but changed
 fast runs back to fresh `NodeImpl` instances, preserving safer custom-node
 instance semantics without losing the measured win. A second reassessment pass
 found that subprocessors were still on the compatible preprocessing path, so the
 runtime cache was changed from one root plan to graph-keyed plans and passed
-into child processors. A temporary 50-subgraph chain benchmark then measured
-`9.826ms` compatible versus `8.900ms` `headless-fast`, confirming the nested
-cache helps without changing the larger 500-node root-graph result. Small
-20-node Code/Expression fixtures are still mostly dominated by node work and
-benchmark noise, so P4 should only be pursued if large cheap DAGs still need
-more speed after this cache.
+into child processors. A permanent 50-subgraph chain benchmark now measured
+`12.813ms` compatible versus `11.365ms` `headless-fast`, confirming the nested
+cache helps without changing the larger 500-node root-graph result. This latest
+run was slower than the previous P3 run across most cases, so compare relative
+wins more than absolute milliseconds. Small 20-node Code/Expression fixtures are
+still mostly dominated by node work and benchmark noise, so P4 should only be
+pursued if large cheap DAGs still need more speed after this cache.
 
 ### P4: Strict Fast Acyclic Scheduler
 
@@ -430,6 +436,17 @@ must preserve:
 
 Fallback to compatible `GraphProcessor` must be automatic for unsupported graph
 features.
+
+Decision after the permanent P3 benchmark pass:
+
+- Do not implement P4 immediately.
+- The 500-node cheap graph already has a large `headless-fast` win from cached
+  planning, and the nested subgraph row now confirms the graph-keyed plan cache
+  helps subprocessors too.
+- A separate scheduler still may be worthwhile for very large cheap acyclic
+  DAGs, but it should be justified by a new benchmark fixture where cached
+  planning is no longer enough. Until then, its semantic risk is higher than
+  its proven incremental payoff.
 
 Expected payoff:
 
