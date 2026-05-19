@@ -2,27 +2,28 @@
 
 ## Summary
 
-Optimize headless/programmatic Node execution first. The original reusable-runner
-work helped services that load one project and run it many times, but wrapper
-endpoint execution has a different target: create a fresh processor for one HTTP
-request, run it once, and make that one run faster without relying on cache
-state from previous processor runs.
+Optimize headless/programmatic Node execution first. This first wave is now
+implemented. It covers both reusable-runner services that load one project and
+run it many times, and wrapper endpoint execution that creates a fresh processor
+for one HTTP request, runs it once, and cannot rely on cache state from previous
+processor runs.
 
-The current repo code points to three already-implemented reusable-runner wins,
-plus one remaining endpoint-focused area:
+The current repo code now contains four runtime-speed improvements:
 
 1. Reuse stable Node runtime setup across repeated runs.
 2. Cache Code/Expression compilation in the Node runtime.
 3. Cache immutable graph planning and adjacency data for repeated headless runs.
-4. Reduce single-run `GraphProcessor` scheduler/preprocessing overhead for fresh
-   `createProcessor(...).run()` endpoint calls.
+4. Reduce single-run `GraphProcessor` scheduler/preprocessing overhead for
+   fresh `createProcessor(...).run()` endpoint calls, then default the safe
+   single-run pieces for omitted Node `createProcessor(...)` runtime profiles.
 
 Default Rivet behavior must remain compatible for the editor, Browser mode,
-Remote Debugger, recording, wrappers, app-executor, and existing
-`runGraph(...)` / `runGraphInFile(...)` callers. Fast profiles must be additive
-and Node-only. For wrapper endpoints, a fast profile must prove a benefit for a
-fresh processor and one `run()` call; cross-request or repeated-processor cache
-wins are not enough.
+Remote Debugger, recording, app-executor, and existing `runGraph(...)` /
+`runGraphInFile(...)` callers. Fast profiles remain Node-only. For wrapper
+endpoints, the omitted Node `createProcessor(...)` default now uses only the
+safe single-run pieces that do not depend on cross-request or
+repeated-processor cache state. More aggressive scheduler and reference-loading
+behavior stays behind explicit `runtimeProfile: 'headless-fast'`.
 
 ## Current Code Findings
 
@@ -32,17 +33,21 @@ plan.
 - [`packages/node/src/api.ts`](packages/node/src/api.ts) creates the Node wrapper
   around core. `runGraphInFile(...)` still reads and deserializes the project on
   every call, and `runGraph(...)` still creates a processor per call.
-- `Node createProcessor(...).run()` constructs default runtime dependencies on
+- Node `createProcessor(...).run()` constructs default runtime dependencies on
   each run when callers do not provide them: `NodeNativeApi`, `NodeMCPProvider`,
-  fallback tokenizer, `NodeCodeRunner`, `NodeProjectReferenceLoader`, and
-  resolved process settings.
+  fallback tokenizer, `NodeProjectReferenceLoader`, and resolved process
+  settings. `runGraph(...)` and compatible-profile `createProcessor(...)` use
+  `NodeCodeRunner`; omitted-default `createProcessor(...)` can use the
+  run-scoped cached Node CodeRunner when no custom `codeRunner` is supplied.
 - [`packages/core/src/api/createProcessor.ts`](packages/core/src/api/createProcessor.ts)
   converts `inputs` and `context` when the processor is created, not when
   `run()` is called. A reusable runner that accepts per-run inputs cannot just
   wrap the existing `coreCreateProcessor(...).run()` method.
 - [`GraphProcessor.processGraph(...)`](packages/core/src/model/GraphProcessor.ts)
-  preprocesses the graph every run, loads project references every run, creates
-  run state every run, and uses the existing evented `PQueue` scheduler.
+  still creates mutable run state every run. It preprocesses each graph on the
+  compatible path, but can reuse graph-keyed immutable execution plans when a
+  Node fast path supplies a runtime cache. It loads project references every run
+  unless the explicit loaded-project-reference cache is enabled.
 - [`GraphPreprocessor`](packages/core/src/model/GraphPreprocessor.ts) creates
   node instances, validates connections, computes dynamic port definitions, and
   computes SCC/cycle data. Port definitions can depend on connections, project,
@@ -52,8 +57,9 @@ plan.
   repeatedly scans connection and definition arrays during scheduling. Cached
   adjacency maps are a lower-risk first step than replacing the scheduler.
 - [`NodeCodeRunner`](packages/node/src/native/NodeCodeRunner.ts) creates a new
-  `AsyncFunction` for every Code/Expression execution. This is a focused and
-  substantial hot path for Code/Expression-heavy headless workflows.
+  `AsyncFunction` for every Code/Expression execution. The Node fast paths use
+  [`CachedNodeCodeRunner`](packages/node/src/native/CachedNodeCodeRunner.ts)
+  only when the caller did not pass a custom `codeRunner`.
 
 ## Priority Order
 
@@ -181,9 +187,11 @@ Implementation status:
   [`packages/node/src/api.ts`](packages/node/src/api.ts).
 - The runner resolves stable Node runtime setup at creation, converts loose
   `inputs` and `context` per run, and treats `abortSignal` as run-scoped.
-- `runtimeProfile` is accepted on the runner API. Both profiles keep the
-  compatible `GraphProcessor` execution path, and the `headless-fast` profile
-  now owns runner-specific Code-family acceleration as described in P2.
+- `runtimeProfile` is accepted on the runner API. At this P1 point, both
+  profiles kept the compatible `GraphProcessor` execution path, and the
+  `headless-fast` profile owned only runner-specific Code-family acceleration
+  as described in P2. Later phases added cached planning and the narrow
+  fast-acyclic scheduler for eligible `headless-fast` runs.
 - Each run uses a run-scoped `GraphProcessor` so mutable processor state,
   including Global node values, cannot leak between backend requests.
 - Added focused runner coverage in
@@ -552,8 +560,9 @@ Implementation shape:
   runtimeProfile?: 'compatible' | 'headless-fast' }`.
 - Change Node `createProcessor(project, options)` to accept
   `NodeCreateProcessorOptions`.
-- When `runtimeProfile` is omitted or `'compatible'`, preserve today's behavior
-  exactly.
+- In the initial P5 rollout, keep omitted `runtimeProfile` and
+  `'compatible'` behavior equivalent to the old compatible path. P8 is the
+  later step that changes omitted `runtimeProfile` to the default-safe policy.
 - When `runtimeProfile` is `'headless-fast'`, optimize work inside the same
   `GraphProcessor.processGraph(...)` call:
   - build and use execution-plan maps during that run so scheduling does not
@@ -844,12 +853,14 @@ Wrapper answers and default-fast implications:
   because they can attach Remote Debugger and represent changing project state.
 - The wrapper can add `runtimeProfile: 'compatible'` globally as a rollback and
   can choose policy by endpoint kind, project, or revision. Treat this rollback
-  as a release requirement before changing omitted-default behavior.
-- Wrapper-level validation before P8 should include endpoint integration tests,
-  latest-debugger tests, recording/replay tests, filesystem and managed cache
-  invalidation tests, concurrent same-workflow calls, a tiny-workflow benchmark,
-  a Code-node/runtime-library fixture, a project-reference fixture, and golden
-  recordings for success, failure, partial-output, and subgraph cases.
+  as a release requirement before a hosted wrapper consumes the omitted-default
+  behavior.
+- Wrapper-level validation before a deployed wrapper rollout should include
+  endpoint integration tests, latest-debugger tests, recording/replay tests,
+  filesystem and managed cache invalidation tests, concurrent same-workflow
+  calls, a tiny-workflow benchmark, a Code-node/runtime-library fixture, a
+  project-reference fixture, and golden recordings for success, failure,
+  partial-output, and subgraph cases.
 
 Implementation result:
 
@@ -896,10 +907,11 @@ Acceptance criteria:
   behind an explicit profile or an automatic fallback.
 - Any intentional difference must be documented as a blocker or guarded by an
   automatic fallback.
-- Do not move the wrapper endpoint default until custom `ManagedCodeRunner`,
-  custom `projectReferenceLoader`, request-scoped providers, recordings,
-  filesystem shared project references, concurrent same-project calls, and the
-  global compatible rollback path are covered.
+- Do not let a hosted wrapper consume the omitted-default policy without
+  custom `ManagedCodeRunner`, custom `projectReferenceLoader`, request-scoped
+  providers, recordings, filesystem shared project references, concurrent
+  same-project calls, and the global compatible rollback path covered by
+  Rivet-side characterization plus wrapper-side integration tests.
 
 ### P7: Split Default-Safe Fast Pieces From Explicit Fast Mode (DONE)
 
@@ -997,7 +1009,7 @@ Implementation result:
   to pin omitted/compatible policy, explicit `headless-fast` flags, custom
   CodeRunner ownership, Remote Debugger fallback, and trace scheduling fallback.
 
-### P8: Make Safe Fast Policy The Node CreateProcessor Default
+### P8: Make Safe Fast Policy The Node CreateProcessor Default (DONE)
 
 After P6 and P7, Node `createProcessor(...)` can make omitted `runtimeProfile`
 resolve to the default-safe fast policy instead of the fully compatible policy.
@@ -1018,7 +1030,7 @@ Implementation shape:
 - Keep `createGraphRunner(...)` semantics unchanged unless benchmarks or wrapper
   feedback justify aligning its omitted default too.
 - Update API docs and developer docs with the new default and the rollback knob.
-- Add release-note guidance for wrappers:
+- Add wrapper rollout guidance:
   - how to force compatibility;
   - recommended first rollout to published/internal published endpoints before
     latest/dev endpoints;
@@ -1032,14 +1044,15 @@ Acceptance criteria:
   explicit `'compatible'`, and explicit `'headless-fast'`.
 - Benchmarks show default omitted `runtimeProfile` improves the target endpoint
   scenarios without regressing tiny workflows beyond noise.
-- Wrapper endpoint tests pass with the exact wrapper-style options:
-  custom `codeRunner`, `datasetProvider`, `projectReferenceLoader`, request
-  `inputs`, request `context`, optional `ExecutionRecorder`, and no
-  `remoteDebugger` for published endpoints.
-- Latest endpoint tests prove `remoteDebugger !== undefined` keeps compatible
-  execution even when no websocket client is attached.
-- Filesystem-mode tests prove concurrent same-project endpoint calls do not
-  mutate or cross-contaminate a cached parsed `Project` object.
+- Rivet-side tests cover the exact wrapper-style option seams available in this
+  repo: custom `codeRunner`, custom `projectReferenceLoader`, request `inputs`,
+  request `context`, recorder attachment, and debugger fallback.
+- External wrapper endpoint tests should still be run before rollout because
+  published/latest endpoint routing, filesystem/managed materialization caches,
+  latest-debugger availability, and endpoint recording persistence live outside
+  this repo.
+- Rivet-side concurrent same-project tests prove endpoint-style runs do not
+  mutate or cross-contaminate a shared parsed `Project` object.
 - If the default-safe policy enables execution-plan caching while leaving
   loaded-reference caching disabled, projects with references must keep the
   guarded fallback and rebuild plans per run unless a freshness key for
@@ -1072,6 +1085,10 @@ Implementation result:
   explicit compatible, and explicit `headless-fast` runs. It also pins that the
   omitted default keeps compatible `projectReferenceLoader` call counts while
   `headless-fast` may reduce them.
+- The external hosted wrapper still needs its own endpoint/latest-debugger,
+  filesystem/managed cache, and recording-persistence integration tests before
+  enabling this in a deployed wrapper release. Those tests are outside this
+  Rivet checkout; this repo covers the processor/API semantics they depend on.
 - A benchmark reassessment found that caching the one-shot root execution plan
   regressed plain 500-node `createProcessor(...)` runs because the root plan
   could not be reused. The default-safe policy therefore uses
@@ -1228,7 +1245,7 @@ API rules:
    - Decide explicitly whether `runGraph(...)` inherits that policy.
    - Keep Remote Debugger, trace-sensitive, editor-like, and unsupported graph
      features on compatible fallback paths.
-   - Update docs, release notes, and wrapper migration guidance.
+   - Update docs and wrapper rollout guidance.
 
 10. Later app-executor work.
    - Reassess app-executor worker startup, registry assembly, and sidecar
@@ -1310,10 +1327,10 @@ Fast single-run `createProcessor(...)` coverage:
   grouped correctly, invalid port connections removed from both endpoints, and
   `headless-fast` ready counts based on unique upstream nodes when one source
   connects to multiple input ports on the same target.
-- default-fast promotion coverage keeps omitted `runtimeProfile` equivalent to
-  the selected default-safe policy, keeps explicit `'compatible'` equivalent to
-  the old behavior, and keeps explicit `'headless-fast'` as the aggressive
-  eligible profile.
+- default-fast promotion coverage keeps omitted `runtimeProfile` pinned to the
+  selected default-safe policy, keeps explicit `'compatible'` equivalent to the
+  old behavior, and keeps explicit `'headless-fast'` as the aggressive eligible
+  profile.
 
 Run:
 

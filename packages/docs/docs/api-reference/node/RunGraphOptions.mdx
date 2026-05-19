@@ -4,7 +4,8 @@
 
 `RunGraphOptions` configures a graph run. The base type comes from `@valerypopoff/rivet2-core`; `@valerypopoff/rivet2-node` extends it with Node remote-debugger fields.
 
-Use this type when calling `runGraph`, `runGraphInFile`, or `createProcessor`.
+Use this type when calling `runGraph` or `runGraphInFile`. `createProcessor`
+accepts the same options plus a Node-only `runtimeProfile` selector.
 `createGraphRunner` uses a split form: stable options are passed when the
 runner is created, while `inputs`, `context`, and `abortSignal` are passed to
 each `runner.run(...)` call.
@@ -200,14 +201,15 @@ The optional properties of [Settings](../core/Settings) are merged into `RunGrap
 
 ## Node Package Defaults
 
-When using `@valerypopoff/rivet2-node`, `createProcessor` and `runGraph` provide these defaults when the corresponding option is omitted:
+When using `@valerypopoff/rivet2-node`, `createProcessor` and `runGraph`
+provide these defaults when the corresponding option is omitted:
 
 | Option | Node default |
 | --- | --- |
 | `nativeApi` | `NodeNativeApi` |
 | `mcpProvider` | `NodeMCPProvider` |
 | `tokenizer` | fallback character-count tokenizer |
-| `codeRunner` | `NodeCodeRunner` |
+| `codeRunner` | `NodeCodeRunner` for `runGraph` and compatible `createProcessor`; omitted-default `createProcessor` may use a run-scoped cached Node CodeRunner |
 | `projectReferenceLoader` | `NodeProjectReferenceLoader` |
 | `pluginEnv` | plugin environment values read from `process.env` |
 | OpenAI settings | `OPENAI_API_KEY`, `OPENAI_ORG_ID`, and `OPENAI_ENDPOINT` when unset |
@@ -216,8 +218,17 @@ When using `@valerypopoff/rivet2-node`, `createProcessor` and `runGraph` provide
 reuses them across repeated runs of the same graph. This is the preferred
 programmatic path for stable backend workflows where only request inputs and
 context change between runs. With `runtimeProfile: 'headless-fast'`, the runner
-also reuses a cached graph execution plan and uses a cached Node CodeRunner for
-Code-family nodes unless you pass an explicit `codeRunner`.
+also reuses a cached graph execution plan, uses a narrow fast acyclic scheduler
+when the graph is eligible, and uses a cached Node CodeRunner for Code-family
+nodes unless you pass an explicit `codeRunner`.
+
+`createProcessor` accepts a Node-only
+`runtimeProfile?: 'compatible' | 'headless-fast'` option. Omitted
+`runtimeProfile` uses the safe single-run fast policy: subprocessor
+execution-plan caching and the run-scoped cached default CodeRunner when no
+custom `codeRunner` is supplied. Use `runtimeProfile: 'compatible'` as the
+fully compatible rollback path, or `runtimeProfile: 'headless-fast'` for the
+more aggressive eligible fast path. `runGraph` stays on the compatible policy.
 
 ## Usage
 

@@ -51,10 +51,12 @@ type NodeGraphRunner = {
 
 - `compatible` uses the same default `NodeCodeRunner` behavior as `runGraph` and
   `createProcessor`.
-- `headless-fast` still uses the compatible `GraphProcessor` execution path, but
-  it reuses an immutable graph execution plan across runs and, when you do not
-  pass a custom `codeRunner`, uses a runner-owned cached Node CodeRunner for
-  Code-family nodes.
+- `headless-fast` uses optimized headless execution when a graph is eligible:
+  it reuses an immutable graph execution plan across runs, uses a narrow
+  fast acyclic scheduler for supported graph shapes, and, when you do not pass
+  a custom `codeRunner`, uses a runner-owned cached Node CodeRunner for
+  Code-family nodes. Unsupported graph shapes fall back to compatible
+  scheduling automatically.
 
 The fast profile caches graph topology, validated connections, port definitions,
 planner adjacency maps, and loaded project-reference snapshots for the runner's

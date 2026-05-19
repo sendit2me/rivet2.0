@@ -9,12 +9,26 @@ The Node package version wraps core processor creation with Node defaults:
 - marks the processor executor as `nodejs`
 - attaches a `RivetDebuggerServer` when `remoteDebugger` is provided, re-attaches it at the start of each `run()`, and detaches it after the run finishes
 - fills plugin environment values from `process.env` when `pluginEnv` is unset
-- provides `NodeNativeApi`, `NodeMCPProvider`, `NodeCodeRunner`, `NodeProjectReferenceLoader`, and a fallback tokenizer unless you override them
+- provides `NodeNativeApi`, `NodeMCPProvider`, a Node CodeRunner, `NodeProjectReferenceLoader`, and a fallback tokenizer unless you override them
+
+By default, omitted `runtimeProfile` uses the safe single-run fast policy:
+subprocessor execution-plan caching plus the cached default Node CodeRunner
+when you did not pass a custom `codeRunner`. Use
+`runtimeProfile: 'compatible'` to force the old fully compatible path. Use
+`runtimeProfile: 'headless-fast'` to request the more aggressive fast profile,
+which can use root graph-plan caching, loaded project-reference caching, and
+the narrow fast acyclic scheduler when eligible. If `remoteDebugger` is
+provided, debugger compatibility wins and the processor uses compatible
+execution even when `headless-fast` is requested.
 
 ## Syntax
 
 ```typescript
-function createProcessor(project: Project, options: NodeRunGraphOptions): {
+type NodeCreateProcessorOptions = NodeRunGraphOptions & {
+  runtimeProfile?: 'compatible' | 'headless-fast';
+};
+
+function createProcessor(project: Project, options: NodeCreateProcessorOptions): {
   processor: GraphProcessor;
   inputs: Record<string, DataValue>;
   contextValues: Record<string, DataValue>;
@@ -24,6 +38,9 @@ function createProcessor(project: Project, options: NodeRunGraphOptions): {
   run: () => Promise<Record<string, DataValue>>;
 };
 ```
+
+For untyped JavaScript callers, unknown `runtimeProfile` string values are
+treated as `compatible` rather than as the omitted default.
 
 ## Example
 
