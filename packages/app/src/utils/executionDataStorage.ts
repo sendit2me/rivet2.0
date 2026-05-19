@@ -23,6 +23,7 @@ import { getStorageDecision } from './executionDataPreview.js';
 type DataRefDeleter = Pick<DataRefStore, 'delete'>;
 
 export type RefScope = {
+  projectId?: string;
   nodeId: string;
   processId: string;
   channel: 'input' | 'output';
@@ -312,11 +313,13 @@ export function deleteStoredRefIds(refStore: DataRefDeleter, refIds: Iterable<st
 }
 
 function buildExecutionDataRefId(scope: RefScope, portId: PortId): string {
+  const namespace = scope.projectId ? `${scope.projectId}:` : '';
+
   if (scope.splitIndex != null) {
-    return `execution:${scope.nodeId}:${scope.processId}:${scope.channel}:${scope.splitIndex}:${portId}`;
+    return `execution:${namespace}${scope.nodeId}:${scope.processId}:${scope.channel}:${scope.splitIndex}:${portId}`;
   }
 
-  return `execution:${scope.nodeId}:${scope.processId}:${scope.channel}:${portId}`;
+  return `execution:${namespace}${scope.nodeId}:${scope.processId}:${scope.channel}:${portId}`;
 }
 
 function isStoredNodeRunData(value: InputsOrOutputsWithRefs | NodeRunDataWithRefs): value is NodeRunDataWithRefs {

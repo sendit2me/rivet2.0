@@ -473,6 +473,53 @@ test('storeDataValueForHistory reuses stable ref ids for repeated writes to the 
   assert.equal((dataRefs.values.get(first.refId) as Extract<DataValue, { type: 'string' }>)?.value[0], 'b');
 });
 
+test('storeDataValueForHistory namespaces ref ids by project when provided', () => {
+  const dataRefs = createDataRefStore();
+
+  const first = storeDataValueForHistory(
+    { type: 'string', value: 'a'.repeat(REF_STORAGE_THRESHOLD_CHARS + 1) },
+    dataRefs,
+    {
+      nodeId: 'node-1',
+      processId: 'process-1',
+      projectId: 'project-a',
+      channel: 'output',
+    },
+    'output' as PortId,
+  );
+  const second = storeDataValueForHistory(
+    { type: 'string', value: 'b'.repeat(REF_STORAGE_THRESHOLD_CHARS + 1) },
+    dataRefs,
+    {
+      nodeId: 'node-1',
+      processId: 'process-1',
+      projectId: 'project-b',
+      channel: 'output',
+    },
+    'output' as PortId,
+  );
+
+  assert.equal(first.storage, 'ref');
+  assert.equal(second.storage, 'ref');
+  assert.notEqual(first.refId, second.refId);
+  assert.equal(dataRefs.values.get('execution:project-a:node-1:process-1:output:output')?.type, 'string');
+  assert.equal(dataRefs.values.get('execution:project-b:node-1:process-1:output:output')?.type, 'string');
+  assert.equal(
+    (dataRefs.values.get('execution:project-a:node-1:process-1:output:output') as Extract<
+      DataValue,
+      { type: 'string' }
+    >)?.value[0],
+    'a',
+  );
+  assert.equal(
+    (dataRefs.values.get('execution:project-b:node-1:process-1:output:output') as Extract<
+      DataValue,
+      { type: 'string' }
+    >)?.value[0],
+    'b',
+  );
+});
+
 test('clearExecutionDataRefs removes all execution-scoped refs from previous run data', () => {
   const dataRefs = createDataRefStore();
   dataRefs.set('execution:node-4:process-4:output:output', {

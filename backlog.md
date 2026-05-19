@@ -1,8 +1,5 @@
 
 
-- I suspect that HTTP call node is adding like an extra second to the actual call
-
-- There was a problem with remote debugging when one workflow calls the other: the output in the next workflows were wiping out the previous workflow's output
 
 - Make the secondary run button less green
 

@@ -266,12 +266,19 @@ failed project or static-data sends do not update it.
 Remote run request ids are managed by `remoteExecutorRunRequest.ts`.
 Editor graph runs register one active request id before sending the `run`
 message; request-scoped process events are dispatched only when their request id
-matches that active request, while legacy/unscoped events still pass through.
-`done`, `abort`, `error`, disconnect, and send-failure paths clear the active
-request explicitly. Trivet/test runs use the executor-session pending-promise
-API and reject that pending request if the `run` send fails before reaching the
-socket, so the failure is observed through the same async result path as normal
-remote test-run completion.
+matches that active request. Legacy/unscoped external-debugger events are
+scoped by the `start` event's project id when that id is available: runs for a
+different open project are ignored, and the root-run decision is remembered for
+the follow-up node/graph events. Root graph completion also carries that
+decision forward to the following unscoped terminal frame (`done`, `abort`, or
+top-level `error`), because those legacy terminal frames do not include
+execution metadata themselves. Events from older transports that do not carry a
+project id keep the compatibility fallback and still pass through. `done`,
+`abort`, `error`, disconnect, and send-failure paths clear the active request
+explicitly. Trivet/test runs use the executor-session pending-promise API and
+reject that pending request if the `run` send fails before reaching the socket,
+so the failure is observed through the same async result path as normal remote
+test-run completion.
 
 Inside the shared session runtime, request ownership is split by transport
 policy. `executorSession.ts` coordinates socket generations, state transitions,
@@ -411,15 +418,18 @@ workflow execution.
 - oversized text-like values and media values become `{ type, storage: 'ref', refId, preview }`
 - the full payload for ref-backed values lives in the in-memory `globalDataRefs` cache
 
-Execution-scoped ref ids are stable per process and port:
+Execution-scoped ref ids are stable per project, process, and port when project
+identity is available:
 
-- `execution:${nodeId}:${processId}:input:${portId}`
-- `execution:${nodeId}:${processId}:output:${portId}`
-- `execution:${nodeId}:${processId}:output:${splitIndex}:${portId}`
+- `execution:${projectId}:${nodeId}:${processId}:input:${portId}`
+- `execution:${projectId}:${nodeId}:${processId}:output:${portId}`
+- `execution:${projectId}:${nodeId}:${processId}:output:${splitIndex}:${portId}`
 
 This matters because streaming `partialOutput` updates overwrite the same ref entry instead of
-allocating a new blob key on every event, and run resets can clear all execution-scoped refs
-deterministically.
+allocating a new blob key on every event, project tabs can keep independent
+in-memory output snapshots, and run resets can clear all execution-scoped refs
+deterministically. Low-level storage helpers still tolerate a missing project id
+for isolated tests or legacy app-private callers.
 
 ## Data Filtering for Display
 

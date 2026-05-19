@@ -1,5 +1,5 @@
 import { produce } from 'immer';
-import { useSetAtom } from 'jotai';
+import { useAtomValue, useSetAtom } from 'jotai';
 import {
   type CodeNode,
   type CodeNewNode,
@@ -14,6 +14,7 @@ import { lastRunDataByNodeState } from '../state/dataFlow';
 import { collectStoredRefIds, deleteStoredRefIds, storeInputsOrOutputsForHistory } from '../utils/executionDataStorage';
 import { sanitizeInputsOrOutputs } from '../utils/executionDataSanitization';
 import { useDataRefs } from '../providers/ProvidersContext';
+import { projectState } from '../state/savedGraphs';
 
 export type NodeExecutionEventsApi = {
   onNodeError: (data: ProcessEvents['nodeError']) => void;
@@ -34,6 +35,7 @@ export function useNodeExecutionEvents({
 >): NodeExecutionEventsApi {
   const dataRefs = useDataRefs();
   const setLastRunData = useSetAtom(lastRunDataByNodeState);
+  const project = useAtomValue(projectState);
 
   const onNodeStart = ({ node, inputs, processId, execution }: ProcessEvents['nodeStart']) => {
     if (shouldSuppressPreloadedNodeEvent(node.id, processId)) {
@@ -87,6 +89,7 @@ export function useNodeExecutionEvents({
     const storedOutputs = storeInputsOrOutputsForHistory(sanitizedOutputs, dataRefs, {
       nodeId: node.id,
       processId,
+      projectId: project.metadata.id,
       channel: 'output',
       splitIndex: node.isSplitRun ? index : undefined,
     });

@@ -13,6 +13,7 @@ import {
   type GraphExecutionMetadata,
   type GraphRunId,
   type RootRunId,
+  type ProjectId,
 } from '@valerypopoff/rivet2-core';
 import { graphNavigationStackState } from './graphBuilder.js';
 import type { GraphViewKey } from '../domain/graphEditing/navigationActions.js';
@@ -40,6 +41,18 @@ export type ProcessDataForNode = {
 };
 
 export type RunDataByNodeId = Record<NodeId, ProcessDataForNode[]>;
+
+export type ProjectExecutionSnapshot = {
+  graphPaused: boolean;
+  graphRunHistoryByView: Record<GraphViewKey, GraphRunRecord[]>;
+  graphRunning: boolean;
+  graphStartTime: number | undefined;
+  lastRunDataByNode: RunDataByNodeId;
+  rootGraph: GraphId | undefined;
+  runningGraphs: GraphId[];
+  selectedGraphRunByView: Record<GraphViewKey, GraphRunSelection>;
+  selectedProcessPageNodes: Record<NodeId, PageValue>;
+};
 
 export type NodeRunDataBase = {
   startedAt?: number;
@@ -169,6 +182,8 @@ export const resolvedGraphSelectionState = atom((get) => {
 
 export const selectedProcessPageNodesState = atom<Record<NodeId, PageValue>>({});
 
+export const projectExecutionSnapshotsState = atom<Record<ProjectId, ProjectExecutionSnapshot | undefined>>({});
+
 export const selectedProcessPageState = atomFamily((nodeId: NodeId) =>
   atom(
     (get) => get(selectedProcessPageNodesState)[nodeId] ?? 0,
@@ -189,4 +204,18 @@ export const selectedProcessPageState = atomFamily((nodeId: NodeId) =>
 export function removeExecutionNodeStateFamilies(nodeId: NodeId): void {
   lastRunDataState.remove(nodeId);
   selectedProcessPageState.remove(nodeId);
+}
+
+export function createEmptyProjectExecutionSnapshot(): ProjectExecutionSnapshot {
+  return {
+    graphPaused: false,
+    graphRunHistoryByView: {},
+    graphRunning: false,
+    graphStartTime: undefined,
+    lastRunDataByNode: {},
+    rootGraph: undefined,
+    runningGraphs: [],
+    selectedGraphRunByView: {},
+    selectedProcessPageNodes: {},
+  };
 }
