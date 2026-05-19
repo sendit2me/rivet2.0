@@ -4,6 +4,8 @@
 
 - Hotkey for toggling the left project tree panel
 
+- Clean up the repo form unnecessary files and maybe rearrange some folders
+
 
 - Need a "Not" node?
 

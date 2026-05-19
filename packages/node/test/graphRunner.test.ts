@@ -130,12 +130,13 @@ void describe('createGraphRunner', () => {
     } satisfies Record<string, DataValue>);
   });
 
-  void it('reuses stable creation-time runtime providers across runs', async () => {
+  void it('prefers custom runtime providers when the fast profile is requested', async () => {
     const fixture = makeCodeChainProject(1);
     const codeRunner = new CountingCodeRunner();
     const runner = createGraphRunner(fixture.project, {
       codeRunner,
       graph: fixture.graphId,
+      runtimeProfile: 'headless-fast',
     });
 
     const firstOutputs = await runner.run({

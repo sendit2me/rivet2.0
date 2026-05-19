@@ -1,5 +1,4 @@
 import type { NodeId } from '../NodeBase.js';
-import type { ProcessId } from '../ProcessContext.js';
 import { getError } from '../../utils/errors.js';
 
 const ASYNC_FUNCTION_LINE_OFFSET = 2;
@@ -22,9 +21,8 @@ function sanitizeSourceUrlPart(value: unknown): string {
   return String(value).replace(/[^a-zA-Z0-9_-]/g, '_');
 }
 
-export function buildCodeNodeSourceUrl(nodeId: NodeId, processId?: ProcessId): string {
-  const processPart = processId ? `-${sanitizeSourceUrlPart(processId)}` : '';
-  return `rivet-code-node-${sanitizeSourceUrlPart(nodeId)}${processPart}.js`;
+export function buildCodeNodeSourceUrl(nodeId: NodeId): string {
+  return `rivet-code-node-${sanitizeSourceUrlPart(nodeId)}.js`;
 }
 
 export function appendCodeNodeSourceUrl(code: string, sourceUrl: string): string {

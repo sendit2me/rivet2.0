@@ -680,7 +680,10 @@ compatible.
 
 The Code-family nodes that own full code editors, `Code (legacy)` and `Code`, append a generated `sourceURL` before calling
 whichever runner is configured so runtime stack frames can be mapped back to the
-user's code editor lines when the run fails. `Code` passes the generated
+user's code editor lines when the run fails. That source URL is stable per node
+rather than per execution, because the process id is already carried by graph
+events and stable source names let headless Node runners reuse compiled
+functions across repeated backend calls. `Code` passes the generated
 interpolation/wrapper source as diagnostic code plus a user-code line offset, so
 runtime and syntax failures still point at the authored Code body instead of
 the generated wrapper.
@@ -701,6 +704,16 @@ callers keep the old behavior. Hosted wrappers can set
 `RIVET_CODE_RUNNER_REQUIRE_ROOT` or `RIVET_CODE_RUNNER_REQUIRE_ANCHOR` before the
 runner is constructed to resolve Code-family `require()` from a runtime-library
 directory without patching source.
+
+The headless Node runner fast profile uses a cached CodeRunner only inside
+`createGraphRunner(..., { runtimeProfile: 'headless-fast' })` when the caller
+does not pass an explicit `codeRunner`. The cache stores compiled functions by
+source text plus the injected argument shape (`inputs`, permissions, graph
+inputs, and context presence). It does not cache values or outputs, so locals
+remain fresh for every invocation and per-run `inputs`/`context` still vary
+normally. Normal `runGraph(...)`, `createProcessor(...)`, Browser mode, Remote
+Debugger, and app-executor worker execution keep their existing CodeRunner
+ownership.
 
 Syntax-error diagnostics are deliberately failure-only. The core does not pre-parse
 successful `Code` node runs. If `AsyncFunction` construction throws a syntax error,

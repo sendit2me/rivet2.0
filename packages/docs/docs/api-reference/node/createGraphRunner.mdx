@@ -10,7 +10,7 @@ The runner keeps stable setup at creation time:
 
 - graph selection
 - registry and plugin setup
-- Node defaults such as `NodeNativeApi`, `NodeMCPProvider`, `NodeCodeRunner`, `NodeProjectReferenceLoader`, and the fallback tokenizer
+- Node defaults such as `NodeNativeApi`, `NodeMCPProvider`, the Node CodeRunner, `NodeProjectReferenceLoader`, and the fallback tokenizer
 - process settings and plugin environment values
 - project path and project-reference loader
 - event callbacks supplied in the creation options
@@ -47,10 +47,17 @@ type NodeGraphRunner = {
 };
 ```
 
-`runtimeProfile` is reserved for runner-specific optimizations. In the current
-implementation, both `compatible` and `headless-fast` use the same compatible
-`GraphProcessor` execution path; later runtime-speed work can attach cached
-CodeRunner or graph-plan behavior behind this runner-only option.
+`runtimeProfile` controls runner-only optimizations:
+
+- `compatible` uses the same default `NodeCodeRunner` behavior as `runGraph` and
+  `createProcessor`.
+- `headless-fast` still uses the compatible `GraphProcessor` execution path, but
+  when you do not pass a custom `codeRunner`, it uses a runner-owned cached Node
+  CodeRunner for Code-family nodes.
+
+The cached runner stores compiled functions by source text and argument shape.
+It does not cache output values, input values, graph inputs, or context values,
+so each `run` call still receives fresh request data.
 
 ## Parameters
 

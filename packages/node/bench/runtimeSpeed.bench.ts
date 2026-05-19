@@ -9,6 +9,7 @@ import {
   runGraphInFile,
   type DataValue,
 } from '../src/index.js';
+import { CachedNodeCodeRunner } from '../src/native/CachedNodeCodeRunner.js';
 import { NodeCodeRunner } from '../src/native/NodeCodeRunner.js';
 import {
   createRuntimeSpeedProcessContext,
@@ -45,6 +46,7 @@ async function main() {
   const expression20 = makeExpressionChainProject(20);
   const code20 = makeCodeChainProject(20);
   const codeRunner = new NodeCodeRunner();
+  const cachedCodeRunner = new CachedNodeCodeRunner();
   const results: BenchmarkResult[] = [];
 
   results.push(
@@ -117,15 +119,56 @@ async function main() {
       runGraph(expression20.project, { graph: expression20.graphId, inputs: { input: 0 } }),
     ),
   );
+  {
+    const runner = createGraphRunner(expression20.project, {
+      graph: expression20.graphId,
+    });
+    results.push(
+      await benchmark('createGraphRunner compatible expression chain 20', () =>
+        runner.run({ inputs: { input: 0 } }),
+      ),
+    );
+  }
+  {
+    const runner = createGraphRunner(expression20.project, {
+      graph: expression20.graphId,
+      runtimeProfile: 'headless-fast',
+    });
+    results.push(
+      await benchmark('createGraphRunner headless-fast expression chain 20', () =>
+        runner.run({ inputs: { input: 0 } }),
+      ),
+    );
+  }
   results.push(
     await benchmark('runGraph code chain 20', () =>
       runGraph(code20.project, { graph: code20.graphId, inputs: { input: 0 } }),
     ),
   );
+  {
+    const runner = createGraphRunner(code20.project, {
+      graph: code20.graphId,
+    });
+    results.push(
+      await benchmark('createGraphRunner compatible code chain 20', () => runner.run({ inputs: { input: 0 } })),
+    );
+  }
+  {
+    const runner = createGraphRunner(code20.project, {
+      graph: code20.graphId,
+      runtimeProfile: 'headless-fast',
+    });
+    results.push(
+      await benchmark('createGraphRunner headless-fast code chain 20', () => runner.run({ inputs: { input: 0 } })),
+    );
+  }
   results.push(
     await benchmark('lazy preprocess/dependency text chain 500', () => benchmarkLazyPreprocessDependency(cheap500)),
   );
   results.push(await benchmark('NodeCodeRunner compile/run one snippet', () => benchmarkCodeRunner(codeRunner)));
+  results.push(
+    await benchmark('CachedNodeCodeRunner run cached snippet', () => benchmarkCodeRunner(cachedCodeRunner)),
+  );
 
   console.table(results);
 }
@@ -163,7 +206,9 @@ async function benchmark(name: string, run: () => Promise<unknown> | unknown): P
   };
 }
 
-async function benchmarkCodeRunner(runner: NodeCodeRunner): Promise<Record<string, DataValue | undefined>> {
+async function benchmarkCodeRunner(
+  runner: NodeCodeRunner | CachedNodeCodeRunner,
+): Promise<Record<string, DataValue | undefined>> {
   return runner.runCode(
     "return { output: { type: 'any', value: inputs.input.value + 1 } };",
     {

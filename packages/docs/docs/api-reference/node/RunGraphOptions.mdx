@@ -215,7 +215,9 @@ When using `@valerypopoff/rivet2-node`, `createProcessor` and `runGraph` provide
 `createGraphRunner` resolves the same Node defaults once at runner creation and
 reuses them across repeated runs of the same graph. This is the preferred
 programmatic path for stable backend workflows where only request inputs and
-context change between runs.
+context change between runs. With `runtimeProfile: 'headless-fast'`, the runner
+also uses a cached Node CodeRunner for Code-family nodes unless you pass an
+explicit `codeRunner`.
 
 ## Usage
 

@@ -200,7 +200,7 @@ export class CodeNodeImpl extends NodeImpl<CodeNode> {
   }
 
   async process(inputs: Inputs, context: InternalProcessContext): Promise<Outputs> {
-    const sourceUrl = buildCodeNodeSourceUrl(this.chartNode.id, context.processId);
+    const sourceUrl = buildCodeNodeSourceUrl(this.chartNode.id);
     let outputs: Outputs;
 
     try {

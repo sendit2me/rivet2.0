@@ -25,6 +25,7 @@ import { readFile } from 'node:fs/promises';
 import { NodeNativeApi } from './native/NodeNativeApi.js';
 import * as events from 'node:events';
 import { NodeCodeRunner } from './native/NodeCodeRunner.js';
+import { CachedNodeCodeRunner } from './native/CachedNodeCodeRunner.js';
 import type { RivetDebuggerServer } from './debugger.js';
 import { NodeProjectReferenceLoader } from './native/NodeProjectReferenceLoader.js';
 import { NodeMCPProvider } from './native/NodeMCPProvider.js';
@@ -170,8 +171,12 @@ export function createProcessor(
 }
 
 export function createGraphRunner(project: Project, options: NodeGraphRunnerOptions): NodeGraphRunner {
-  const { runtimeProfile: _runtimeProfile, ...processorOptions } = options;
-  const processContext = createNodeProcessContext(processorOptions, resolveNodePluginEnv(processorOptions));
+  const { runtimeProfile = 'compatible', ...processorOptions } = options;
+  const ownsCodeRunner = processorOptions.codeRunner == null && runtimeProfile === 'headless-fast';
+  const runnerCodeRunner = ownsCodeRunner ? new CachedNodeCodeRunner() : undefined;
+  const processContext = createNodeProcessContext(processorOptions, resolveNodePluginEnv(processorOptions), {
+    codeRunner: runnerCodeRunner,
+  });
   const activeProcessors = new Set<NodeGraphProcessor>();
   let disposed = false;
 
@@ -207,6 +212,7 @@ export function createGraphRunner(project: Project, options: NodeGraphRunnerOpti
         void processor.abort(false, 'Graph runner disposed.');
       }
       activeProcessors.clear();
+      runnerCodeRunner?.clearCache();
     },
     async run(runOptions = {}) {
       if (disposed) {
@@ -246,6 +252,7 @@ function createRunnerProcessor(project: Project, options: RunGraphOptions): Node
 function createNodeProcessContext(
   options: RunGraphOptions,
   pluginEnv: Record<string, string | undefined>,
+  overrides: { codeRunner?: ProcessContext['codeRunner'] } = {},
 ): ProcessContext {
   return {
     nativeApi: options.nativeApi ?? new NodeNativeApi(),
@@ -253,7 +260,7 @@ function createNodeProcessContext(
     mcpProvider: options.mcpProvider ?? new NodeMCPProvider(),
     audioProvider: options.audioProvider,
     tokenizer: options.tokenizer ?? new FallbackTokenizer(),
-    codeRunner: options.codeRunner ?? new NodeCodeRunner(),
+    codeRunner: options.codeRunner ?? overrides.codeRunner ?? new NodeCodeRunner(),
     projectPath: options.projectPath,
     projectReferenceLoader: options.projectReferenceLoader ?? new NodeProjectReferenceLoader(),
     editorExecutionCache: options.editorExecutionCache,

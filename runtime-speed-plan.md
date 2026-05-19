@@ -52,7 +52,7 @@ plan.
 
 ## Priority Order
 
-### P0: Benchmarks And Equivalence Guards
+### P0: Benchmarks And Equivalence Guards (DONE)
 
 Add repeatable benchmarks before runtime changes. This keeps the work honest and
 lets us reject high-effort changes that do not move real workloads.
@@ -109,7 +109,7 @@ Local baseline recorded on 2026-05-19 with
 | Lazy preprocess/dependency text chain 500 | `27.297` | `1.702` |
 | `NodeCodeRunner` compile/run one snippet | `0.001` | `0.000` |
 
-### P1: Reusable Headless Node Runner
+### P1: Reusable Headless Node Runner (DONE)
 
 Add `createGraphRunner(project, options)` in `@valerypopoff/rivet2-node`.
 Do not add `runtimeProfile` to broad core `RunGraphOptions` yet.
@@ -172,10 +172,9 @@ Implementation status:
   [`packages/node/src/api.ts`](packages/node/src/api.ts).
 - The runner resolves stable Node runtime setup at creation, converts loose
   `inputs` and `context` per run, and treats `abortSignal` as run-scoped.
-- `runtimeProfile` is accepted on the runner API, but both `compatible` and
-  `headless-fast` currently use the same compatible `GraphProcessor` execution
-  path until cached CodeRunner or cached graph-plan work lands behind the
-  runner-only option.
+- `runtimeProfile` is accepted on the runner API. Both profiles keep the
+  compatible `GraphProcessor` execution path, and the `headless-fast` profile
+  now owns runner-specific Code-family acceleration as described in P2.
 - Each run uses a run-scoped `GraphProcessor` so mutable processor state,
   including Global node values, cannot leak between backend requests.
 - Added focused runner coverage in
@@ -234,14 +233,71 @@ Keep these compatibility rules:
 - preserve stack/source diagnostics as much as possible
 - keep `includeRivet` loading behavior compatible
 
-Expose it through `createGraphRunner(..., { runtimeProfile: "headless-fast" })`
-or as an explicit advanced `codeRunner` option. Do not apply this to the
-app-executor worker isolation path in the first pass.
+Expose it through `createGraphRunner(..., { runtimeProfile: "headless-fast" })`.
+Keep the existing explicit `codeRunner` option as the compatibility escape
+hatch, but do not make the cached runner a new public API in the first pass. Do
+not apply this to the app-executor worker isolation path in the first pass.
 
 Expected payoff:
 
-- Substantial win for Code/Expression-heavy headless workflows.
+- Localized win for Code/Expression-heavy headless workflows where JavaScript
+  compilation is visible compared with graph orchestration.
 - Localized implementation and test surface compared with a scheduler rewrite.
+
+Implementation status:
+
+- Added a cached Node CodeRunner for the `headless-fast` profile in
+  [`packages/node/src/native/CachedNodeCodeRunner.ts`](packages/node/src/native/CachedNodeCodeRunner.ts).
+- `createGraphRunner(..., { runtimeProfile: 'headless-fast' })` now uses the
+  cached runner when the caller does not provide an explicit `codeRunner`.
+- The default `NodeCodeRunner` used by `runGraph(...)`,
+  `createProcessor(...)`, and compatible runners remains uncached.
+- The cache keys compiled functions by the existing source string and injected
+  argument shape. It does not cache inputs, graph inputs, context values, or
+  outputs, and every function invocation still gets fresh local variables.
+- The runner-owned cache is cleared when `runner.dispose()` is called.
+- `Code` and `Code (legacy)` now append stable per-node source URLs rather than
+  per-process source URLs so repeated backend runs can reuse compiled functions
+  while keeping line/column error enrichment.
+- Added direct cache coverage in
+  [`packages/node/test/cachedNodeCodeRunner.test.ts`](packages/node/test/cachedNodeCodeRunner.test.ts)
+  and added `createGraphRunner` `headless-fast` to the public equivalence
+  guards.
+- Benchmarks were rerun on 2026-05-19 with the same averaged shape:
+  `RIVET_RUNTIME_BENCH_ITERATIONS=200`,
+  `RIVET_RUNTIME_BENCH_WARMUP_ITERATIONS=20`, and
+  `RIVET_RUNTIME_BENCH_SAMPLES=5`. A reassessment pass added direct
+  compatible-runner comparison rows for Code and Expression chains so
+  `headless-fast` is compared against the same runner API shape.
+
+| Case | Mean ms | Std dev ms |
+| --- | ---: | ---: |
+| `runGraphInFile` passthrough one-shot | `1.143` | `0.051` |
+| Load once plus `runGraph` passthrough | `0.132` | `0.012` |
+| Reuse `createProcessor` passthrough | `0.107` | `0.006` |
+| `createGraphRunner` passthrough | `0.119` | `0.009` |
+| Direct `GraphProcessor` text chain 20 | `0.771` | `0.059` |
+| `runGraph` text chain 20 | `0.623` | `0.041` |
+| `runGraph` text chain 100 | `3.425` | `0.138` |
+| `runGraph` text chain 500 | `35.352` | `1.062` |
+| `createGraphRunner` text chain 500 | `36.267` | `1.487` |
+| `runGraph` Expression chain 20 | `2.866` | `0.037` |
+| `createGraphRunner` compatible Expression chain 20 | `2.984` | `0.127` |
+| `createGraphRunner` headless-fast Expression chain 20 | `2.785` | `0.052` |
+| `runGraph` Code chain 20 | `6.655` | `0.184` |
+| `createGraphRunner` compatible Code chain 20 | `6.584` | `0.142` |
+| `createGraphRunner` headless-fast Code chain 20 | `6.741` | `0.083` |
+| Lazy preprocess/dependency text chain 500 | `28.836` | `2.306` |
+| `NodeCodeRunner` compile/run one snippet | `0.002` | `0.001` |
+| `CachedNodeCodeRunner` run cached snippet | `0.001` | `0.000` |
+
+P2 is behaviorally safe, but direct runner comparisons show only a small
+Expression-chain win and no reliable Code-chain graph-level win in this run.
+The rounded microbenchmark shows the cached runner itself is cheaper for a
+single snippet, but JavaScript compilation is already very small compared with
+whole-graph orchestration for these fixtures. The next substantial speed target
+remains cached immutable graph planning and dependency data rather than more
+CodeRunner work.
 
 ### P3: Cached Immutable Graph Plan And Adjacency Maps
 

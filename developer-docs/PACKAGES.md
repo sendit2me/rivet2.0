@@ -114,9 +114,9 @@ report the average, min/max sample means, and standard deviation. It measures on
 `runGraphInFile(...)`, loaded-project `runGraph(...)`, reused
 `createProcessor(...)`, `createGraphRunner(...)`, direct processor
 execution, cheap text chains, Expression and Code chains, lazy preprocessing
-through the public dependency planning path, and the public `NodeCodeRunner`
-compile/run path. Benchmarks are diagnostic only; correctness remains pinned by
-the equivalence tests.
+through the public dependency planning path, and both uncached and cached
+Node CodeRunner compile/run paths. Benchmarks are diagnostic only; correctness
+remains pinned by the equivalence tests.
 
 `createGraphRunner(...)` is the additive production-facing fast path for
 headless/programmatic Node integrations that load a project once and run the
@@ -124,9 +124,14 @@ same graph many times. It resolves graph selection, registry/plugin setup,
 Node-default providers, settings, plugin env, tokenizer, code runner, and
 project-reference loading at runner creation. Each `runner.run(...)` converts
 loose `inputs` and `context` values separately and owns its own `abortSignal`.
-The runner-only `runtimeProfile` option is present for future fast-path
-selection; both profile values currently use the compatible `GraphProcessor`
-execution path.
+The runner-only `runtimeProfile` option is the fast-path selector for backend
+integrations. `compatible` preserves the ordinary public Node defaults.
+`headless-fast` still uses the compatible `GraphProcessor` execution path, but
+when the caller does not provide a custom `codeRunner`, it swaps in a
+runner-owned cached Node CodeRunner. That cache stores compiled `AsyncFunction`
+instances keyed by source text and argument shape only; it never caches outputs,
+inputs, graph inputs, or context values. Each invocation still gets fresh local
+variables. The runner clears its owned cache on `dispose()`.
 Each run still uses a run-scoped `GraphProcessor` so mutable processor state,
 including Global node values, cannot leak between backend requests. Remote
 Debugger, recording, SSE/event-stream consumers, editor run-from, and

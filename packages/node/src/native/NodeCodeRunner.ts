@@ -1,6 +1,6 @@
 import type { CodeRunner, CodeRunnerOptions, DataValue, Inputs, Outputs } from '@valerypopoff/rivet2-core';
-import * as process from 'node:process';
 import { createCodeRunnerRequire } from './codeRunnerRequire.js';
+import { buildNodeCodeRunnerInvocation, compileNodeCodeRunnerFunction } from './nodeCodeRunnerInvocation.js';
 
 export class NodeCodeRunner implements CodeRunner {
   private readonly runtimeRequire = createCodeRunnerRequire();
@@ -12,50 +12,15 @@ export class NodeCodeRunner implements CodeRunner {
     graphInputs?: Record<string, DataValue>,
     contextValues?: Record<string, DataValue>,
   ): Promise<Outputs> {
-    const argNames = ['inputs'];
-    const args: any[] = [inputs];
-
-    if (options.includeConsole) {
-      argNames.push('console');
-      args.push(console);
-    }
-
-    if (options.includeRequire) {
-      argNames.push('require');
-      args.push(this.runtimeRequire);
-    }
-
-    if (options.includeProcess) {
-      argNames.push('process');
-      args.push(process);
-    }
-
-    if (options.includeFetch) {
-      argNames.push('fetch');
-      args.push(fetch);
-    }
-
-    if (options.includeRivet) {
-      const Rivet = await import('@valerypopoff/rivet2-node');
-
-      argNames.push('Rivet');
-      args.push(Rivet);
-    }
-
-    if (graphInputs) {
-      argNames.push('graphInputs');
-      args.push(graphInputs);
-    }
-
-    if (contextValues) {
-      argNames.push('context');
-      args.push(contextValues);
-    }
-
-    argNames.push(code);
-
-    const AsyncFunction = async function () {}.constructor as new (...args: string[]) => Function;
-    const codeFunction = new AsyncFunction(...argNames);
+    const { argNames, args } = await buildNodeCodeRunnerInvocation({
+      contextValues,
+      graphInputs,
+      inputs,
+      loadRivet: () => import('@valerypopoff/rivet2-node'),
+      options,
+      runtimeRequire: this.runtimeRequire,
+    });
+    const codeFunction = compileNodeCodeRunnerFunction(argNames, code);
     const outputs = await codeFunction(...args);
 
     return outputs;
