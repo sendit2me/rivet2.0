@@ -569,7 +569,7 @@ export class HttpCallNodeImpl extends NodeImpl<HttpCallNode> {
   }
 
   async process(inputs: Inputs, context: InternalProcessContext): Promise<Outputs> {
-    const requestAttempts = createHttpCallRequestAttempts();
+    const requestAttempts = this.data.retryOnNon200 ? createHttpCallRequestAttempts() : undefined;
 
     try {
       const method = getInputOrData(this.data, inputs, 'method', 'string');
@@ -639,20 +639,22 @@ export class HttpCallNodeImpl extends NodeImpl<HttpCallNode> {
         }
       };
 
-      const performTrackedRequest = async () => {
-        try {
-          const response = await performRequest();
-          recordHttpCallResponseAttempt(requestAttempts, response);
-          return response;
-        } catch (error) {
-          recordHttpCallThrownAttempt(requestAttempts, error, context.signal);
-          throw error;
-        }
-      };
+      const performTrackedRequest = requestAttempts
+        ? async () => {
+            try {
+              const response = await performRequest();
+              recordHttpCallResponseAttempt(requestAttempts, response);
+              return response;
+            } catch (error) {
+              recordHttpCallThrownAttempt(requestAttempts, error, context.signal);
+              throw error;
+            }
+          }
+        : performRequest;
 
       let response = await performTrackedRequest();
 
-      if (this.data.retryOnNon200) {
+      if (requestAttempts) {
         const repeatTimes = normalizeHttpRetryCount(this.data.retryOnNon200RepeatTimes);
         const cooldownMs = normalizeHttpRetryCooldownMs(this.data.retryOnNon200CooldownMs);
 
@@ -667,7 +669,7 @@ export class HttpCallNodeImpl extends NodeImpl<HttpCallNode> {
       }
 
       const output: Outputs = {
-        [STATUS_CODE_OUTPUT_ID]: this.data.retryOnNon200
+        [STATUS_CODE_OUTPUT_ID]: requestAttempts
           ? buildRetryAttemptOutput('number[]', requestAttempts.statusCodeValues)
           : {
               type: 'number',
@@ -705,14 +707,14 @@ export class HttpCallNodeImpl extends NodeImpl<HttpCallNode> {
         }
       }
 
-      if (this.data.catchRequestFailed || this.data.retryOnNon200) {
-        output[REQUEST_FAILED_OUTPUT_ID] = this.data.retryOnNon200
+      if (this.data.catchRequestFailed || requestAttempts) {
+        output[REQUEST_FAILED_OUTPUT_ID] = requestAttempts
           ? buildRetryAttemptOutput('boolean[]', requestAttempts.requestFailedValues)
           : {
               type: 'boolean',
               value: false,
             };
-        output[REQUEST_ERROR_OUTPUT_ID] = this.data.retryOnNon200
+        output[REQUEST_ERROR_OUTPUT_ID] = requestAttempts
           ? buildRetryAttemptOutput('string[]', requestAttempts.requestErrorMessages)
           : {
               type: 'control-flow-excluded',
@@ -726,8 +728,8 @@ export class HttpCallNodeImpl extends NodeImpl<HttpCallNode> {
         return buildCaughtRequestFailedResult({
           isBinaryOutput: Boolean(this.data.isBinaryOutput),
           error,
-          retryOnNon200: Boolean(this.data.retryOnNon200),
-          attempts: requestAttempts,
+          retryOnNon200: requestAttempts != null,
+          attempts: requestAttempts ?? createHttpCallRequestAttempts(),
         });
       }
 
