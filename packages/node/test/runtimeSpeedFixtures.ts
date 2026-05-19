@@ -190,6 +190,22 @@ export function makeWideTextFanInProject(branchCount: number): RuntimeSpeedProje
   return makeFixture(nodes, connections, outputNode.id);
 }
 
+export function makeSameSourceFanInProject(): RuntimeSpeedProjectFixture {
+  const inputNode = makeGraphInputNode('graph-input', 'input', 'string');
+  const joinNode = makeJoinNode('join-output');
+  const outputNode = makeGraphOutputNode('graph-output', 'result', 'string');
+
+  return makeFixture(
+    [inputNode, joinNode, outputNode],
+    [
+      connect(inputNode.id, 'data', joinNode.id, 'input1'),
+      connect(inputNode.id, 'data', joinNode.id, 'input2'),
+      connect(joinNode.id, 'output', outputNode.id, 'value'),
+    ],
+    outputNode.id,
+  );
+}
+
 export function makeSubgraphChainProject(subgraphCallCount: number): RuntimeSpeedProjectFixture {
   const mainGraphId = 'runtime-speed-main' as GraphId;
   const subGraphId = 'runtime-speed-subgraph' as GraphId;
@@ -241,6 +257,66 @@ export function makeSubgraphChainProject(subgraphCallCount: number): RuntimeSpee
           nodes: mainNodes,
         },
         [subGraphId]: subgraph,
+      },
+      metadata: {
+        description: '',
+        id: 'runtime-speed-project' as ProjectId,
+        mainGraphId,
+        title: 'Runtime Speed Project',
+      },
+      plugins: [],
+    },
+    terminalNodeId: mainOutput.id,
+  };
+}
+
+export function makeRepeatedSubgraphFanInProject(subgraphCallCount: number): RuntimeSpeedProjectFixture {
+  const mainGraphId = 'runtime-speed-main' as GraphId;
+  const subGraphId = 'runtime-speed-subgraph' as GraphId;
+  const mainInput = makeGraphInputNode('graph-input', 'input', 'string');
+  const mainJoin = makeJoinNode('main-join');
+  const mainOutput = makeGraphOutputNode('graph-output', 'result', 'string');
+  const mainNodes: ChartNode[] = [mainInput, mainJoin, mainOutput];
+  const mainConnections: NodeConnection[] = [];
+
+  for (let i = 0; i < subgraphCallCount; i++) {
+    const subgraphNode = makeSubgraphNode(`subgraph-${i}`, subGraphId);
+    mainNodes.push(subgraphNode);
+    mainConnections.push(connect(mainInput.id, 'data', subgraphNode.id, 'input'));
+    mainConnections.push(connect(subgraphNode.id, 'result', mainJoin.id, `input${i + 1}`));
+  }
+
+  mainConnections.push(connect(mainJoin.id, 'output', mainOutput.id, 'value'));
+
+  const subInput = makeGraphInputNode('subgraph-input', 'input', 'string');
+  const subText = makeTextNode('subgraph-text', '{{input}}x');
+  const subOutput = makeGraphOutputNode('subgraph-output', 'result', 'string');
+
+  return {
+    graphId: mainGraphId,
+    project: {
+      graphs: {
+        [mainGraphId]: {
+          connections: mainConnections,
+          metadata: {
+            description: '',
+            id: mainGraphId,
+            name: 'Runtime Speed Main',
+          },
+          nodes: mainNodes,
+        },
+        [subGraphId]: {
+          connections: [
+            connect(subInput.id, 'data', subText.id, 'input'),
+            connect(subText.id, 'output', subOutput.id, 'value'),
+          ],
+          metadata: {
+            description: '',
+            id: subGraphId,
+            name: 'Runtime Speed Subgraph',
+          },
+          nodes: [subInput, subText, subOutput],
+        },
       },
       metadata: {
         description: '',
@@ -385,6 +461,21 @@ export function makeControlFlowExclusionProject(): RuntimeSpeedProjectFixture {
   );
 }
 
+export function makeRaiseEventProject(): RuntimeSpeedProjectFixture {
+  const inputNode = makeGraphInputNode('graph-input', 'input', 'any');
+  const raiseEventNode = makeRaiseEventNode('raise-event', 'runtime-speed-event');
+  const outputNode = makeGraphOutputNode('graph-output', 'result', 'any');
+
+  return makeFixture(
+    [inputNode, raiseEventNode, outputNode],
+    [
+      connect(inputNode.id, 'data', raiseEventNode.id, 'data'),
+      connect(raiseEventNode.id, 'result', outputNode.id, 'value'),
+    ],
+    outputNode.id,
+  );
+}
+
 export function makeMissingRequiredInputProject(): RuntimeSpeedProjectFixture {
   const extractNode = makeExtractObjectPathNode('extract-node', '$.anything');
   const outputNode = makeGraphOutputNode('graph-output', 'result', 'any');
@@ -398,6 +489,11 @@ export function makeMissingRequiredInputProject(): RuntimeSpeedProjectFixture {
 
 export function makeThrowingCodeProject(): RuntimeSpeedProjectFixture {
   const codeNode = makeCodeNode('throwing-code', `throw new Error('runtime speed guard failure');`);
+  return makeFixture([codeNode], [], codeNode.id);
+}
+
+export function makeSyntaxErrorCodeProject(): RuntimeSpeedProjectFixture {
+  const codeNode = makeCodeNode('syntax-error-code', `return {;`);
   return makeFixture([codeNode], [], codeNode.id);
 }
 
@@ -589,6 +685,19 @@ function makeExtractObjectPathNode(id: string, path: string): ChartNode {
     title: 'Extract Object Path',
     type: 'extractObjectPath',
     visualData: { width: 250, x: 0, y: 0 },
+  };
+}
+
+function makeRaiseEventNode(id: string, eventName: string): ChartNode {
+  return {
+    data: {
+      eventName,
+      useEventNameInput: false,
+    },
+    id: id as NodeId,
+    title: 'Raise Event',
+    type: 'raiseEvent',
+    visualData: { width: 180, x: 0, y: 0 },
   };
 }
 

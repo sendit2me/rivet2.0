@@ -98,6 +98,10 @@ export type NodeRunGraphOptions = RunGraphOptions & {
 
 type NodeGraphProcessor = ReturnType<typeof coreCreateProcessor>['processor'];
 
+export type NodeCreateProcessorOptions = NodeRunGraphOptions & {
+  runtimeProfile?: 'compatible' | 'headless-fast';
+};
+
 export type NodeGraphRunnerOptions = Omit<
   NodeRunGraphOptions,
   'abortSignal' | 'context' | 'inputs' | 'remoteDebugger' | 'remoteDebuggerRequestId'
@@ -118,57 +122,81 @@ export type NodeGraphRunner = {
 
 export function createProcessor(
   project: Project,
-  options: NodeRunGraphOptions,
+  options: NodeCreateProcessorOptions,
 ): ReturnType<typeof coreCreateProcessor> {
-  const processor = coreCreateProcessor(project, options);
+  const { runtimeProfile = 'compatible', ...processorOptions } = options;
+  const useHeadlessFastProfile = runtimeProfile === 'headless-fast' && processorOptions.remoteDebugger === undefined;
+  const runtimeCache: GraphProcessorRuntimeCache | undefined = useHeadlessFastProfile ? {} : undefined;
+  const processor = coreCreateProcessor(project, processorOptions, {
+    runtimeCache,
+    scheduler: useHeadlessFastProfile ? 'fast-acyclic' : 'compatible',
+  });
 
   configureNodeProcessor(processor.processor);
 
   let remoteDebuggerAttached = false;
   const attachRemoteDebugger = () => {
-    if (!options.remoteDebugger || remoteDebuggerAttached) {
+    if (!processorOptions.remoteDebugger || remoteDebuggerAttached) {
       return;
     }
 
-    options.remoteDebugger.attach(processor.processor, options.remoteDebuggerRequestId);
+    processorOptions.remoteDebugger.attach(processor.processor, processorOptions.remoteDebuggerRequestId);
     remoteDebuggerAttached = true;
   };
   const detachRemoteDebugger = () => {
-    if (!options.remoteDebugger || !remoteDebuggerAttached) {
+    if (!processorOptions.remoteDebugger || !remoteDebuggerAttached) {
       return;
     }
 
-    options.remoteDebugger.detach(processor.processor);
+    processorOptions.remoteDebugger.detach(processor.processor);
     remoteDebuggerAttached = false;
   };
 
   attachRemoteDebugger();
 
-  const pluginEnv = resolveNodePluginEnv(options);
+  const pluginEnv = resolveNodePluginEnv(processorOptions);
 
   return {
     ...processor,
     async run() {
-      const shouldManageRemoteDebugger = options.remoteDebugger != null && !processor.processor.isRunning;
+      const shouldManageRemoteDebugger = processorOptions.remoteDebugger != null && !processor.processor.isRunning;
+      const shouldManageRunScopedRuntimeCache = runtimeCache != null && !processor.processor.isRunning;
+      if (shouldManageRunScopedRuntimeCache) {
+        clearGraphProcessorRuntimeCache(runtimeCache);
+      }
+
       if (shouldManageRemoteDebugger) {
         attachRemoteDebugger();
       }
 
+      const runScopedCodeRunner =
+        useHeadlessFastProfile && processorOptions.codeRunner == null ? new CachedNodeCodeRunner() : undefined;
+
       try {
         const outputs = await processor.processor.processGraph(
-          createNodeProcessContext(options, pluginEnv),
+          createNodeProcessContext(processorOptions, pluginEnv, { codeRunner: runScopedCodeRunner }),
           processor.inputs,
           processor.contextValues,
         );
 
         return outputs;
       } finally {
+        runScopedCodeRunner?.clearCache();
+        if (shouldManageRunScopedRuntimeCache) {
+          clearGraphProcessorRuntimeCache(runtimeCache);
+        }
+
         if (shouldManageRemoteDebugger) {
           detachRemoteDebugger();
         }
       }
     },
   };
+}
+
+function clearGraphProcessorRuntimeCache(runtimeCache: GraphProcessorRuntimeCache): void {
+  runtimeCache.executionPlans = undefined;
+  runtimeCache.loadedProjects = undefined;
 }
 
 export function createGraphRunner(project: Project, options: NodeGraphRunnerOptions): NodeGraphRunner {
@@ -256,7 +284,7 @@ function createRunnerProcessor(
       context: {},
       inputs: {},
     },
-    { runtimeCache },
+    { runtimeCache, scheduler: runtimeCache ? 'fast-acyclic' : 'compatible' },
   );
 
   configureNodeProcessor(processorInfo.processor);

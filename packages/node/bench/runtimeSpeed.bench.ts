@@ -8,6 +8,7 @@ import {
   runGraph,
   runGraphInFile,
   type DataValue,
+  type NodeCreateProcessorOptions,
   type NodeGraphRunnerOptions,
   type NodeGraphRunnerRunOptions,
   type Project,
@@ -20,6 +21,7 @@ import {
   makeCodeChainProject,
   makeExpressionChainProject,
   makeMixedSubgraphFanInProject,
+  makeRepeatedSubgraphFanInProject,
   makeSubgraphChainProject,
   makeTextChainProject,
   makeWideTextFanInProject,
@@ -52,6 +54,7 @@ async function main() {
   const expression20 = makeExpressionChainProject(20);
   const code20 = makeCodeChainProject(20);
   const subgraph50 = makeSubgraphChainProject(50);
+  const repeatedSubgraph50 = makeRepeatedSubgraphFanInProject(50);
   const wideFanIn200 = makeWideTextFanInProject(200);
   const mixedSubgraphFanIn = makeMixedSubgraphFanInProject(8, 20);
   const codeRunner = new NodeCodeRunner();
@@ -135,6 +138,20 @@ async function main() {
     ),
   );
   results.push(
+    await benchmarkCreateProcessor(
+      'fresh createProcessor text chain 500',
+      cheap500.project,
+      { graph: cheap500.graphId, inputs: { input: 'bench' } },
+    ),
+  );
+  results.push(
+    await benchmarkCreateProcessor(
+      'fresh createProcessor headless-fast text chain 500',
+      cheap500.project,
+      { graph: cheap500.graphId, inputs: { input: 'bench' }, runtimeProfile: 'headless-fast' },
+    ),
+  );
+  results.push(
     await benchmarkGraphRunner(
       'createGraphRunner compatible subgraph chain 50',
       subgraph50.project,
@@ -151,6 +168,34 @@ async function main() {
         runtimeProfile: 'headless-fast',
       },
       { inputs: { input: 'bench' } },
+    ),
+  );
+  results.push(
+    await benchmarkCreateProcessor(
+      'fresh createProcessor repeated subgraph same-input 50',
+      repeatedSubgraph50.project,
+      { graph: repeatedSubgraph50.graphId, inputs: { input: 'bench' } },
+    ),
+  );
+  results.push(
+    await benchmarkCreateProcessor(
+      'fresh createProcessor headless-fast repeated subgraph same-input 50',
+      repeatedSubgraph50.project,
+      { graph: repeatedSubgraph50.graphId, inputs: { input: 'bench' }, runtimeProfile: 'headless-fast' },
+    ),
+  );
+  results.push(
+    await benchmarkCreateProcessor(
+      'fresh createProcessor repeated subgraph changing-input 50',
+      subgraph50.project,
+      { graph: subgraph50.graphId, inputs: { input: 'bench' } },
+    ),
+  );
+  results.push(
+    await benchmarkCreateProcessor(
+      'fresh createProcessor headless-fast repeated subgraph changing-input 50',
+      subgraph50.project,
+      { graph: subgraph50.graphId, inputs: { input: 'bench' }, runtimeProfile: 'headless-fast' },
     ),
   );
   results.push(
@@ -295,6 +340,14 @@ async function benchmarkGraphRunner(
   } finally {
     runner.dispose();
   }
+}
+
+async function benchmarkCreateProcessor(
+  name: string,
+  project: Project,
+  options: NodeCreateProcessorOptions,
+): Promise<BenchmarkResult> {
+  return await benchmark(name, () => createProcessor(project, options).run());
 }
 
 async function benchmarkCodeRunner(

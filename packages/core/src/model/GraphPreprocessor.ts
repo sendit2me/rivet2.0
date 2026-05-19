@@ -226,17 +226,34 @@ function loadInputOutputDefinitions(options: {
       return false;
     });
 
-    for (const nodeConnections of values(connections)) {
+    if (invalidConnections.length > 0) {
       for (const invalidConnection of invalidConnections) {
-        const invalidConnectionIndex = nodeConnections.indexOf(invalidConnection);
-        if (invalidConnectionIndex !== -1) {
-          nodeConnections.splice(invalidConnectionIndex, 1);
+        removeConnectionFromNode(connections, invalidConnection, invalidConnection.inputNodeId);
+
+        if (invalidConnection.outputNodeId !== invalidConnection.inputNodeId) {
+          removeConnectionFromNode(connections, invalidConnection, invalidConnection.outputNodeId);
         }
       }
     }
   }
 
   return definitions;
+}
+
+function removeConnectionFromNode(
+  connections: Record<NodeId, NodeConnection[]>,
+  connection: NodeConnection,
+  nodeId: NodeId,
+): void {
+  const nodeConnections = connections[nodeId];
+  if (!nodeConnections) {
+    return;
+  }
+
+  const invalidConnectionIndex = nodeConnections.indexOf(connection);
+  if (invalidConnectionIndex !== -1) {
+    nodeConnections.splice(invalidConnectionIndex, 1);
+  }
 }
 
 function buildGraphExecutionPlan(options: {
@@ -304,18 +321,30 @@ function buildGraphExecutionPlan(options: {
 
     const outputNodes: ChartNode[] = [];
     const seenOutputNodeIds = new Set<NodeId>();
+    const outputConnectionsByNode = new Map<NodeId, NodeConnection[]>();
     for (const connection of outputConnections) {
       const outputNode = nodesById[connection.inputNodeId];
-      if (outputNode && !seenOutputNodeIds.has(outputNode.id)) {
+      if (!outputNode) {
+        continue;
+      }
+
+      if (!seenOutputNodeIds.has(outputNode.id)) {
         outputNodes.push(outputNode);
         seenOutputNodeIds.add(outputNode.id);
+      }
+
+      const nodeConnections = outputConnectionsByNode.get(outputNode.id);
+      if (nodeConnections) {
+        nodeConnections.push(connection);
+      } else {
+        outputConnectionsByNode.set(outputNode.id, [connection]);
       }
     }
 
     outputNodeResultsByNode[node.id] = {
       connections: outputConnections,
       connectionsToNodes: outputNodes.map((outputNode) => ({
-        connections: outputConnections.filter((connection) => connection.inputNodeId === outputNode.id),
+        connections: outputConnectionsByNode.get(outputNode.id) ?? [],
         node: outputNode,
       })),
       nodes: outputNodes,

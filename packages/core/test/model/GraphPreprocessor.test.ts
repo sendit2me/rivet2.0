@@ -21,6 +21,7 @@ describe('GraphPreprocessor', () => {
       ],
       connections: [
         { inputNodeId: 'b', inputId: 'input', outputNodeId: 'a', outputId: 'output' },
+        { inputNodeId: 'b', inputId: 'missing-input', outputNodeId: 'a', outputId: 'output' },
         { inputNodeId: 'missing', inputId: 'input', outputNodeId: 'a', outputId: 'output' },
       ],
     };
@@ -59,5 +60,52 @@ describe('GraphPreprocessor', () => {
       ['b'],
     );
     assert.equal('nodeInstances' in toReusableGraphExecutionPlan(result), false);
+  });
+
+  it('keeps output nodes unique while grouping multiple connections to the same target', () => {
+    const inputDefinition = [
+      { id: 'input1', title: 'Input 1', dataType: 'string', required: false },
+      { id: 'input2', title: 'Input 2', dataType: 'string', required: false },
+    ];
+    const outputDefinition = [{ id: 'output', title: 'Output', dataType: 'string' }];
+    const registry = {
+      createDynamicImpl: () => ({
+        getInputDefinitionsIncludingBuiltIn: () => inputDefinition,
+        getOutputDefinitions: () => outputDefinition,
+      }),
+    };
+
+    const graph = {
+      metadata: { id: 'graph-1' },
+      nodes: [
+        { id: 'a', type: 'stub', title: 'A', visualData: { x: 0, y: 0 } },
+        { id: 'b', type: 'stub', title: 'B', visualData: { x: 10, y: 10 } },
+      ],
+      connections: [
+        { inputNodeId: 'b', inputId: 'input1', outputNodeId: 'a', outputId: 'output' },
+        { inputNodeId: 'b', inputId: 'input2', outputNodeId: 'a', outputId: 'output' },
+      ],
+    };
+
+    const result = preprocessGraphState({
+      buildExecutionPlan: true,
+      graph: graph as any,
+      loadedProjects: {},
+      project: { metadata: { id: 'project-1', title: 'Project' }, graphs: {} } as any,
+      registry: registry as any,
+      warnOnInvalidGraph: false,
+    });
+
+    assert.deepEqual(
+      result.outputNodeResultsByNode.a.nodes.map((node) => node.id),
+      ['b'],
+    );
+    assert.deepEqual(
+      result.outputNodeResultsByNode.a.connectionsToNodes.map(({ node, connections }) => ({
+        inputIds: connections.map((connection) => connection.inputId),
+        nodeId: node.id,
+      })),
+      [{ nodeId: 'b', inputIds: ['input1', 'input2'] }],
+    );
   });
 });

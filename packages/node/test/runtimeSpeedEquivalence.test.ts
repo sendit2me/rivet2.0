@@ -19,6 +19,9 @@ import {
   makeInputContextTextProject,
   makeMissingRequiredInputProject,
   makeMixedSubgraphFanInProject,
+  makeRepeatedSubgraphFanInProject,
+  makeSameSourceFanInProject,
+  makeSubgraphChainProject,
   makeThrowingCodeProject,
   makeWideTextFanInProject,
   runRuntimeSpeedProcessor,
@@ -49,6 +52,17 @@ const publicRuntimeModes: RuntimeMode[] = [
     run: async (fixture, options = {}) => {
       const processor = createProcessor(fixture.project, {
         graph: fixture.graphId,
+        ...options,
+      });
+      return processor.run();
+    },
+  },
+  {
+    name: 'createProcessor.run headless-fast',
+    run: async (fixture, options = {}) => {
+      const processor = createProcessor(fixture.project, {
+        graph: fixture.graphId,
+        runtimeProfile: 'headless-fast',
         ...options,
       });
       return processor.run();
@@ -295,10 +309,52 @@ void describe('runtime speed equivalence guards', () => {
       {
         expected: {
           cost: { type: 'number', value: 0 },
+          result: { type: 'string', value: 'seedseed' },
+        },
+        fixture: makeSameSourceFanInProject(),
+        name: 'same-source fan-in DAG',
+      },
+      {
+        expected: {
+          cost: { type: 'number', value: 0 },
           result: { type: 'string', value: 'seed:0seed:1seed:0seed:1' },
         },
         fixture: makeMixedSubgraphFanInProject(2, 2),
         name: 'mixed subgraph fan-in DAG',
+      },
+    ];
+
+    for (const testCase of cases) {
+      const outputsByMode = await collectOutputs(testCase.fixture, {
+        inputs: {
+          input: 'seed',
+        },
+      });
+      assertModeOutputsEqual(outputsByMode, testCase.expected, testCase.name);
+    }
+  });
+
+  void it('pins repeated subgraph calls with same and changing inputs', async () => {
+    const cases: Array<{
+      expected: Record<string, DataValue>;
+      fixture: RuntimeSpeedProjectFixture;
+      name: string;
+    }> = [
+      {
+        expected: {
+          cost: { type: 'number', value: 0 },
+          result: { type: 'string', value: 'seedxseedxseedx' },
+        },
+        fixture: makeRepeatedSubgraphFanInProject(3),
+        name: 'repeated same-input subgraphs',
+      },
+      {
+        expected: {
+          cost: { type: 'number', value: 0 },
+          result: { type: 'string', value: 'seedxxx' },
+        },
+        fixture: makeSubgraphChainProject(3),
+        name: 'repeated changing-input subgraphs',
       },
     ];
 

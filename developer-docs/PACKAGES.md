@@ -112,12 +112,18 @@ is the repeatable baseline benchmark for the speed plan. Run it with
 `RIVET_RUNTIME_BENCH_SAMPLES` to run each benchmark case multiple times and
 report the average, min/max sample means, and standard deviation. It measures one-shot
 `runGraphInFile(...)`, loaded-project `runGraph(...)`, reused
-`createProcessor(...)`, `createGraphRunner(...)`, direct processor
-execution, cheap text chains, nested subgraph chains, wide fan-in DAGs, mixed
-subgraph fan-in DAGs, Expression and Code chains, lazy preprocessing through
-the public dependency planning path, and both uncached and cached Node
-CodeRunner compile/run paths. Benchmarks are diagnostic only; correctness
-remains pinned by the equivalence tests.
+`createProcessor(...)`, fresh `createProcessor(...)` with and without
+`runtimeProfile: 'headless-fast'`, `createGraphRunner(...)`, direct processor
+execution, cheap text chains, nested subgraph chains, repeated same-input and
+changing-input subgraph calls, wide fan-in DAGs, mixed subgraph fan-in DAGs,
+Expression and Code chains, lazy preprocessing through the public dependency
+planning path, and both uncached and cached Node CodeRunner compile/run paths.
+The benchmark script rebuilds the core ESM package first because the Node
+workspace imports `@valerypopoff/rivet2-core` through its package export
+surface; running the benchmark against stale `packages/core/dist` output can
+hide or invent speed changes.
+Benchmarks are diagnostic only; correctness remains pinned by the equivalence
+tests.
 
 `createGraphRunner(...)` is the additive production-facing fast path for
 headless/programmatic Node integrations that load a project once and run the
@@ -127,8 +133,8 @@ project-reference loading at runner creation. Each `runner.run(...)` converts
 loose `inputs` and `context` values separately and owns its own `abortSignal`.
 The runner-only `runtimeProfile` option is the fast-path selector for backend
 integrations. `compatible` preserves the ordinary public Node defaults.
-`headless-fast` still uses the compatible `GraphProcessor` execution path, but
-when the caller does not provide a custom `codeRunner`, it swaps in a
+`headless-fast` still uses `GraphProcessor` node semantics and events, but when
+the caller does not provide a custom `codeRunner`, it swaps in a
 runner-owned cached Node CodeRunner. That cache stores compiled `AsyncFunction`
 instances keyed by source text and argument shape only; it never caches outputs,
 inputs, graph inputs, or context values. Each invocation still gets fresh local
@@ -142,10 +148,39 @@ setup. It does not cache `NodeImpl` runtime instances, run outputs, graph
 inputs, context values, globals, abort state, queued nodes, or execution
 metadata. The runner clears its owned caches on `dispose()`. Each run still uses
 a run-scoped `GraphProcessor` with fresh node implementations so mutable
-processor or custom-node state cannot leak between backend requests. Remote
+processor or custom-node state cannot leak between backend requests. Eligible
+acyclic graphs can also use the internal fast ready-queue scheduler; unsupported
+graphs automatically use the compatible scheduler. Remote
 Debugger, recording, SSE/event-stream consumers, editor run-from, and
 Browser-mode execution should continue to use the compatible APIs until those
 surfaces have explicit runner support.
+
+`createProcessor(..., { runtimeProfile: 'headless-fast' })` is the endpoint-style
+fast profile for callers that create a fresh processor, run it once, and discard
+it. It uses run-scoped fast execution only: graph-plan and loaded-reference
+caches are cleared before and after the run, so it is not a cross-request cache.
+If `remoteDebugger !== undefined`, debugger compatibility wins and the processor
+uses the compatible path even when `headless-fast` is present. Custom
+`codeRunner` instances still win; the Node cached CodeRunner is only used when
+no custom runner was supplied. Recording remains supported because the fast path
+still emits normal processor events.
+
+Default-fast promotion is guarded by
+[`packages/node/test/defaultFastCompatibility.test.ts`](../packages/node/test/defaultFastCompatibility.test.ts).
+That suite compares compatible and explicit `headless-fast` one-shot
+`createProcessor(...)` runs for final outputs, callback-visible events, recorder
+events after serialization, partial-output callbacks, user-input callbacks,
+global-set events, raised user events, Code/Expression errors, aborts, trace
+fallback, Remote Debugger fallback, custom CodeRunner ownership, custom
+`projectReferenceLoader` behavior, and concurrent runs over the same project
+object. Recorder parity is checked against the serialized replay shape because
+JSON cannot preserve `undefined` object properties. Subgraph node `duration`
+outputs are treated as timing-dependent values, not exact compatibility values.
+The current characterization keeps loaded-project reference caching as an
+explicit fast-profile behavior when a custom `projectReferenceLoader` is present:
+it can reduce observable loader call counts inside one run, so it must not become
+default behavior until that contract is accepted or guarded by an automatic
+fallback.
 
 ## `@valerypopoff/rivet-app` (`packages/app/`)
 

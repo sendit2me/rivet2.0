@@ -442,7 +442,13 @@ The SCC and preprocessing work are significant because they shape cycle handling
 `preprocessGraphState(...)` also builds a reusable immutable execution plan:
 directional input/output connection maps, input-node and output-node adjacency,
 missing-required-input lists, default start nodes, and cycle indexes. Normal
-editor and one-shot runs still build that plan per processor run.
+editor and one-shot runs still build that plan per processor run. The
+preprocessor removes invalid port connections only from the two endpoint
+connection buckets that can contain the connection; valid graphs must not pay a
+graph-wide cleanup loop for every node, and invalid graphs must not fall back to
+whole-graph scans either. Execution-plan construction and the compatible
+`NodeExecutionPlanner` path also group output connections by target node in one
+pass so wide fan-out nodes do not repeatedly rescan the same connection list.
 `createGraphRunner(..., { runtimeProfile: 'headless-fast' })` passes a shared
 runtime cache into its run-scoped processors so repeated backend runs can reuse
 the graph-keyed plans and loaded project-reference snapshot without sharing
@@ -458,6 +464,19 @@ Current architectural detail:
 
 - preprocessing is not only a `processGraph(...)` concern; some public helper paths depend on it being available lazily
 - cached plans are scoped to immutable runner snapshots; graph edits, registry/plugin changes, settings that affect definitions, or project-reference changes require a new runner
+- `createProcessor(..., { runtimeProfile: 'headless-fast' })` uses the same plan
+  shape only as run-scoped data for a fresh one-off processor run. The Node
+  wrapper clears that cache before and after `run()` so endpoint-style callers
+  do not depend on cross-request cache state.
+- Default-fast characterization lives in
+  [`packages/node/test/defaultFastCompatibility.test.ts`](../packages/node/test/defaultFastCompatibility.test.ts).
+  It compares compatible and explicit `headless-fast` Node `createProcessor(...)`
+  runs at the event, partial-output callback, user-input callback,
+  global/user-event recorder, error, abort, custom provider, reference-loader,
+  and shared-project-object seams before any omitted-default behavior changes.
+  Recorder checks use the serialized replay shape because JSON drops
+  `undefined` object properties, and subgraph `duration` outputs are normalized
+  as timing-dependent values.
 
 ### Event system
 
@@ -516,6 +535,18 @@ Current execution policy details:
 - split-run parallel execution uses its own bounded `splitRunConcurrency` limit instead of raw `Promise.all`; individual nodes can override that limit with `node.splitRunConcurrency`, while undefined nodes keep the processor-level default so older workflows that do not have the per-node field keep their existing behavior
 
 The readiness/dependency logic used by this flow now lives largely in `NodeExecutionPlanner.ts`, while `GraphProcessor` coordinates queueing and mutable execution state.
+
+The internal `fast-acyclic` scheduler is an opt-in headless path selected by the
+Node fast profiles only. It starts from source nodes and runs a small ready queue
+instead of recursively pulling from graph-output nodes through `p-queue` at
+every hop. Eligibility is intentionally narrow: no cycles, no split-run nodes,
+no preloaded/run-to editor state, no trace mode, and no loop, race, user-input,
+or wait-event nodes. Unsupported graphs automatically stay on the compatible
+scheduler. Node processing, exclusion, events, abort checks, subgraph creation,
+and output collection still go through the same `GraphProcessor` methods. The
+ready counts are based on unique upstream node ids, not raw connection counts,
+so a single source connected to multiple input ports releases the target once
+that source has finished, matching the compatible scheduler.
 
 ### Control-flow model
 
@@ -720,15 +751,17 @@ callers keep the old behavior. Hosted wrappers can set
 runner is constructed to resolve Code-family `require()` from a runtime-library
 directory without patching source.
 
-The headless Node runner fast profile uses a cached CodeRunner only inside
-`createGraphRunner(..., { runtimeProfile: 'headless-fast' })` when the caller
-does not pass an explicit `codeRunner`. The cache stores compiled functions by
-source text plus the injected argument shape (`inputs`, permissions, graph
-inputs, and context presence). It does not cache values or outputs, so locals
-remain fresh for every invocation and per-run `inputs`/`context` still vary
-normally. Normal `runGraph(...)`, `createProcessor(...)`, Browser mode, Remote
-Debugger, and app-executor worker execution keep their existing CodeRunner
-ownership.
+The headless Node fast profiles use a cached CodeRunner inside
+`createGraphRunner(..., { runtimeProfile: 'headless-fast' })` and inside
+`createProcessor(..., { runtimeProfile: 'headless-fast' })` when the caller does
+not pass an explicit `codeRunner`. The cache stores compiled functions by source
+text plus the injected argument shape (`inputs`, permissions, graph inputs, and
+context presence). It does not cache values or outputs, so locals remain fresh
+for every invocation and per-run `inputs`/`context` still vary normally. Normal
+`runGraph(...)`, compatible `createProcessor(...)`, Browser mode, Remote
+Debugger fallback, and app-executor worker execution keep their existing
+CodeRunner ownership. Custom `codeRunner` instances always win over the cached
+runner.
 
 Syntax-error diagnostics are deliberately failure-only. The core does not pre-parse
 successful `Code` node runs. If `AsyncFunction` construction throws a syntax error,

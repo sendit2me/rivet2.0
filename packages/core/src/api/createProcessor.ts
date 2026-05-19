@@ -7,6 +7,7 @@ import type {
   ExternalFunction,
   GraphProcessorConcurrency,
   GraphProcessorRuntimeCache,
+  GraphProcessorScheduler,
   ProcessEvents,
 } from '../model/GraphProcessor.js';
 import type { GraphId } from '../model/NodeGraph.js';
@@ -58,6 +59,7 @@ export type RunGraphOptions = {
 
 export type CoreCreateProcessorInternalOptions = {
   runtimeCache?: GraphProcessorRuntimeCache;
+  scheduler?: GraphProcessorScheduler;
 };
 
 export function coreCreateProcessor(
@@ -83,7 +85,11 @@ export function coreCreateProcessor(
     graphId as GraphId,
     options.registry ?? globalRivetNodeRegistry,
     options.includeTrace,
-    { concurrency: options.concurrency, runtimeCache: internalOptions.runtimeCache },
+    {
+      concurrency: options.concurrency,
+      runtimeCache: internalOptions.runtimeCache,
+      scheduler: internalOptions.scheduler,
+    },
   );
 
   if (options.onStart) {

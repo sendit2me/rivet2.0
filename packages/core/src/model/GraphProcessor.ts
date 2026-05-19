@@ -186,8 +186,17 @@ export type GraphProcessorRuntimeCache = {
   loadedProjects?: Record<ProjectId, Project>;
 };
 
+export type GraphProcessorScheduler = 'compatible' | 'fast-acyclic';
+
 const DEFAULT_NODE_CONCURRENCY = 8;
 export const DEFAULT_SPLIT_RUN_CONCURRENCY = 4;
+const FAST_ACYCLIC_UNSUPPORTED_NODE_TYPES = new Set<string>([
+  'loopController',
+  'loopUntil',
+  'raceInputs',
+  'userInput',
+  'waitForEvent',
+]);
 
 function normalizeConcurrencyValue(value: number | undefined, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value) && value >= 1 ? Math.floor(value) : fallback;
@@ -248,6 +257,7 @@ export class GraphProcessor {
   readonly #registry: NodeRegistration<any, any>;
   readonly #concurrency: Required<GraphProcessorConcurrency>;
   readonly #runtimeCache: GraphProcessorRuntimeCache | undefined;
+  readonly #scheduler: GraphProcessorScheduler;
   id = nanoid();
 
   readonly #includeTrace?: boolean = true;
@@ -308,7 +318,6 @@ export class GraphProcessor {
   #scc: ChartNode[][] = undefined!;
   #graphExecutionPlan: GraphExecutionPlan | undefined;
 
-  // @ts-expect-error
   #nodesNotInCycle: ChartNode[] = undefined!;
 
   #nodeAbortControllers = new Map<`${NodeId}-${ProcessId}`, AbortController>();
@@ -332,7 +341,11 @@ export class GraphProcessor {
     graphId: GraphId | undefined,
     registry: NodeRegistration<any, any>,
     includeTrace?: boolean,
-    options?: { concurrency?: GraphProcessorConcurrency; runtimeCache?: GraphProcessorRuntimeCache },
+    options?: {
+      concurrency?: GraphProcessorConcurrency;
+      runtimeCache?: GraphProcessorRuntimeCache;
+      scheduler?: GraphProcessorScheduler;
+    },
   ) {
     this.#project = project;
     const graph = graphId
@@ -353,6 +366,7 @@ export class GraphProcessor {
     this.#registry = registry;
     this.#concurrency = resolveGraphProcessorConcurrency(options?.concurrency);
     this.#runtimeCache = options?.runtimeCache;
+    this.#scheduler = options?.scheduler ?? 'compatible';
 
     this.#emitter.bindMethods(this as unknown as Record<string, unknown>, ['on', 'off', 'once', 'onAny', 'offAny']);
 
@@ -723,9 +737,13 @@ export class GraphProcessor {
       await this.#emitGraphStart();
       await this.#emitPreloadedNodeResults();
       await this.#waitUntilUnpaused();
-      await this.#queueStartNodes(getStartNodes(this.#executionState, this.#graph.nodes, this.runToNodeIds));
-      await this.#processingQueue.onIdle();
-      this.#markUnqueuedNodesIgnored();
+      if (this.#canUseFastAcyclicScheduler()) {
+        await this.#processFastAcyclicGraph();
+      } else {
+        await this.#queueStartNodes(getStartNodes(this.#executionState, this.#graph.nodes, this.runToNodeIds));
+        await this.#processingQueue.onIdle();
+        this.#markUnqueuedNodesIgnored();
+      }
       await this.#throwIfGraphErrored();
       return await this.#finalizeGraphRun();
     } finally {
@@ -833,6 +851,108 @@ export class GraphProcessor {
         await this.#fetchNodeDataAndProcessNode(startNode);
       });
     }
+  }
+
+  #canUseFastAcyclicScheduler(): boolean {
+    if (this.#scheduler !== 'fast-acyclic') {
+      return false;
+    }
+
+    if (this.#hasPreloadedData || this.runToNodeIds || this.slowMode || this.#includeTrace) {
+      return false;
+    }
+
+    if (this.#nodesNotInCycle.length !== this.#graph.nodes.length) {
+      return false;
+    }
+
+    if (this.#graph.connections.some((connection) => connection.inputNodeId === connection.outputNodeId)) {
+      return false;
+    }
+
+    return this.#graph.nodes.every((node) => {
+      if (node.isSplitRun) {
+        return false;
+      }
+
+      return !FAST_ACYCLIC_UNSUPPORTED_NODE_TYPES.has(node.type);
+    });
+  }
+
+  async #processFastAcyclicGraph(): Promise<void> {
+    const remainingInputsByNode = new Map<NodeId, number>();
+    const readyNodes: ChartNode[] = [];
+    const queuedNodeIds = new Set<NodeId>();
+
+    for (const node of this.#graph.nodes) {
+      const inputNodeIds = new Set<NodeId>();
+      for (const inputNode of getInputNodesTo(this.#executionState, node)) {
+        inputNodeIds.add(inputNode.id);
+      }
+      const inputCount = inputNodeIds.size;
+      remainingInputsByNode.set(node.id, inputCount);
+      if (inputCount === 0) {
+        readyNodes.push(node);
+        queuedNodeIds.add(node.id);
+      }
+    }
+
+    await new Promise<void>((resolve, reject) => {
+      let activeCount = 0;
+      let settled = false;
+
+      const queueReadyOutputs = (outputNodes: ChartNode[]) => {
+        for (const outputNode of outputNodes) {
+          const remainingInputs = (remainingInputsByNode.get(outputNode.id) ?? 0) - 1;
+          remainingInputsByNode.set(outputNode.id, remainingInputs);
+
+          if (remainingInputs <= 0 && !queuedNodeIds.has(outputNode.id)) {
+            readyNodes.push(outputNode);
+            queuedNodeIds.add(outputNode.id);
+          }
+        }
+      };
+
+      const settle = () => {
+        if (settled) {
+          return;
+        }
+
+        if (activeCount === 0 && readyNodes.length === 0) {
+          settled = true;
+          resolve();
+        }
+      };
+
+      const pump = () => {
+        if (settled) {
+          return;
+        }
+
+        while (activeCount < this.#concurrency.nodeConcurrency && readyNodes.length > 0) {
+          const node = readyNodes.shift()!;
+          activeCount += 1;
+
+          void this.#processNodeIfAllInputsAvailable(node, { queueOutputNodes: false })
+            .then(queueReadyOutputs)
+            .then(() => {
+              activeCount -= 1;
+              pump();
+              settle();
+            })
+            .catch((error) => {
+              if (!settled) {
+                settled = true;
+                reject(error);
+              }
+            });
+        }
+
+        settle();
+      };
+
+      pump();
+    });
   }
 
   #markUnqueuedNodesIgnored(): void {
@@ -1028,43 +1148,56 @@ export class GraphProcessor {
   }
 
   /** If all inputs are present, all conditions met, processes the node. */
-  async #processNodeIfAllInputsAvailable(node: ChartNode): Promise<void> {
+  async #processNodeIfAllInputsAvailable(
+    node: ChartNode,
+    options: { queueOutputNodes?: boolean } = {},
+  ): Promise<ChartNode[]> {
+    const { queueOutputNodes = true } = options;
     const builtInNode = node as BuiltInNodes;
     const inputNodes = getInputNodesTo(this.#executionState, node);
     if (this.#shouldSkipNodeProcessing(node, inputNodes)) {
-      return;
+      return [];
     }
 
     const attachedData = this.#getAttachedDataTo(node);
     if (this.#shouldSkipCompletedRaceNode(node, attachedData)) {
-      return;
+      return [];
     }
 
     const inputValues = this.#getInputValuesForNode(node);
-    if (this.#excludedDueToControlFlow(node, inputValues, nanoid() as ProcessId, LOOP_NOT_BROKEN_SENTINEL)) {
+    const loopExclusion = this.#excludedDueToControlFlow(
+      node,
+      inputValues,
+      nanoid() as ProcessId,
+      LOOP_NOT_BROKEN_SENTINEL,
+      { queueOutputNodes },
+    );
+    if (loopExclusion) {
       this.#emitTraceEvent(`Node ${node.title} is excluded due to control flow`);
-      return;
+      return loopExclusion === true ? [] : loopExclusion;
     }
 
     const waitingForInputNode = getWaitingForInputNode(this.#executionState, node, inputNodes, inputValues);
     if (waitingForInputNode) {
       this.#emitTraceEvent(`Node ${node.title} is waiting for input node ${waitingForInputNode}`);
-      return;
+      return [];
     }
 
-    if (this.#excludedDueToControlFlow(node, inputValues, nanoid() as ProcessId)) {
+    const exclusion = this.#excludedDueToControlFlow(node, inputValues, nanoid() as ProcessId, undefined, {
+      queueOutputNodes,
+    });
+    if (exclusion) {
       this.#emitTraceEvent(`Node ${node.title} is excluded due to control flow`);
-      return;
+      return exclusion === true ? [] : exclusion;
     }
 
     const missingRequiredInputs = this.#getMissingRequiredInputs(node);
     if (missingRequiredInputs.length > 0) {
-      this.#excludeNodeWithMissingRequiredInputs(node, inputValues, missingRequiredInputs);
-      return;
+      return this.#excludeNodeWithMissingRequiredInputs(node, inputValues, missingRequiredInputs, { queueOutputNodes });
     }
 
     if (this.#beginNodeProcessing(node, attachedData) === false) {
-      return;
+      return [];
     }
 
     const processId = await this.#processNode(node);
@@ -1082,11 +1215,15 @@ export class GraphProcessor {
     this.#handleCompletedRace(node);
 
     if (!this.#assignChildLoopInfo(node, builtInNode, attachedData, processId)) {
-      return;
+      return [];
     }
 
     this.#propagateAttachedDataToOutputNodes(node, attachedData, outputNodes.connectionsToNodes);
-    this.#queueOutputNodes(node, outputNodes.nodes);
+    if (queueOutputNodes) {
+      this.#queueOutputNodes(node, outputNodes.nodes);
+    }
+
+    return outputNodes.nodes;
   }
 
   #shouldSkipNodeProcessing(node: ChartNode, inputNodes: ChartNode[]): boolean {
@@ -1129,12 +1266,13 @@ export class GraphProcessor {
     node: ChartNode,
     inputValues: Inputs,
     missingRequiredInputs: NodeInputDefinition[],
-  ): void {
+    options: { queueOutputNodes?: boolean } = {},
+  ): ChartNode[] {
     const exclusion = getMissingRequiredInputExclusion(node, missingRequiredInputs);
     const processId = nanoid() as ProcessId;
 
     this.#emitTraceEvent(exclusion.traceMessage);
-    this.#excludeNode(node, processId, inputValues, exclusion.reason);
+    return this.#excludeNode(node, processId, inputValues, exclusion.reason, options);
   }
 
   #beginNodeProcessing(node: ChartNode, attachedData: AttachedNodeData): boolean {
@@ -1325,7 +1463,7 @@ export class GraphProcessor {
   async #processSplitRunNode(node: ChartNode, processId: ProcessId) {
     return processSplitRunNode(node, processId, {
       getInputValues: (n) => this.#getInputValuesForNode(n),
-      isExcludedDueToControlFlow: (n, inputs, pid) => this.#excludedDueToControlFlow(n, inputs, pid),
+      isExcludedDueToControlFlow: (n, inputs, pid) => this.#excludedDueToControlFlow(n, inputs, pid) !== false,
       processNodeWithInputData: (n, inputs, idx, pid, partial) =>
         this.#processNodeWithInputData(n, inputs, idx, pid, partial),
       splitRunConcurrency: this.#concurrency.splitRunConcurrency,
@@ -1557,6 +1695,7 @@ export class GraphProcessor {
     const processor = new GraphProcessor(project ?? this.#project, subGraphId, this.#registry, this.#includeTrace, {
       concurrency: this.#concurrency,
       runtimeCache: this.#runtimeCache,
+      scheduler: this.#scheduler,
     });
     processor.executor = this.executor;
     processor.#isSubProcessor = true;
@@ -1646,7 +1785,8 @@ export class GraphProcessor {
     inputValues: Inputs,
     processId: ProcessId,
     typeOfExclusion?: ControlFlowExcludedDataValue['value'],
-  ) {
+    options: { queueOutputNodes?: boolean } = {},
+  ): false | true | ChartNode[] {
     const exclusion = getControlFlowExclusionDecision({ node, inputValues, typeOfExclusion });
 
     if (exclusion.action === 'continue') {
@@ -1655,14 +1795,20 @@ export class GraphProcessor {
 
     if (exclusion.action === 'exclude') {
       this.#emitTraceEvent(exclusion.traceMessage);
-      this.#excludeNode(node, processId, inputValues, exclusion.reason);
-      return true;
+      return this.#excludeNode(node, processId, inputValues, exclusion.reason, options);
     }
 
     return true;
   }
 
-  #excludeNode(node: ChartNode, processId: ProcessId, inputValues: Inputs, reason: string): void {
+  #excludeNode(
+    node: ChartNode,
+    processId: ProcessId,
+    inputValues: Inputs,
+    reason: string,
+    options: { queueOutputNodes?: boolean } = {},
+  ): ChartNode[] {
+    const { queueOutputNodes = true } = options;
     const attachedData = this.#getAttachedDataTo(node);
     this.#registerNodeInActiveLoop(node, attachedData);
 
@@ -1673,7 +1819,11 @@ export class GraphProcessor {
 
     const outputNodes = getOutputNodesFrom(this.#executionState, node);
     this.#propagateAttachedDataToOutputNodes(node, attachedData, outputNodes.connectionsToNodes);
-    this.#queueOutputNodes(node, outputNodes.nodes);
+    if (queueOutputNodes) {
+      this.#queueOutputNodes(node, outputNodes.nodes);
+    }
+
+    return outputNodes.nodes;
   }
 
   #markAsExcluded(node: ChartNode, processId: ProcessId, inputValues: Inputs, reason: string) {
