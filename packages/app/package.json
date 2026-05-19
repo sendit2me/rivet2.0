@@ -21,9 +21,7 @@
     "start": "vite",
     "build": "tsc && vite build",
     "prepare:tauri": "node scripts/prepare-tauri.mjs",
-    "release": "tsx scripts/release.ts",
     "context": "echo \"$(cat context.txt && ts-node tree.ts)\" | pbcopy && echo \"Copied to clipboard\"",
-    "executor": "ts-node bin/executor.ts",
     "lint": "eslint ./src",
     "test": "tsx --test src/**/*.test.ts"
   },
