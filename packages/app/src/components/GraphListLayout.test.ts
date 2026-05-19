@@ -38,9 +38,17 @@ test('graph tree panel keeps the compact text-list layout', () => {
   );
   assert.doesNotMatch(graphListSource, /metadata!/);
   assert.match(graphListSource, /padding: 8px 10px 8px calc\(10px \+ var\(--graph-item-indent, 0px\)\);/);
+  assert.match(graphListSource, /\.folder-children\.with-guide-line::before/);
+  assert.match(graphListSource, /left: calc\(10px \+ var\(--graph-item-indent, 0px\) \+ 7px\);/);
+  assert.match(graphListSource, /\.folder-children\.with-guide-line::before {[\s\S]*z-index: 1;/);
   assert.doesNotMatch(graphListSource, /iconBefore=|shouldFitContainer/);
 
   assert.match(folderItemSource, /'--graph-item-indent': `\$\{virtualDepth \* 20\}px`/);
+  assert.match(folderItemSource, /const showChildGuideLine = item\.type === 'folder' && isExpanded && item\.children\.length > 0/);
+  assert.match(folderItemSource, /'with-guide-line': showChildGuideLine/);
+  assert.match(folderItemSource, /style={folderItemStyle}/);
+  assert.doesNotMatch(folderItemSource, /style={graphItemStyle}/);
+  assert.match(folderItemSource, /position: 'relative'[\s\S]*transform: `translate3d\(0, \$\{transform\.y\}px, 0\)`[\s\S]*zIndex: 100/);
   assert.doesNotMatch(folderItemSource, /<Tooltip|GraphItemTooltipContent|title\.split\('\\n'\)\.map/);
   assert.doesNotMatch(folderItemSource, /<div[^>]*title={title}/);
   assert.doesNotMatch(folderItemSource, /className="unreachable-badge" title=/);
