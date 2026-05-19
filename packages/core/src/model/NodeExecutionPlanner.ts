@@ -1,4 +1,3 @@
-import { uniqBy } from 'lodash-es';
 import { type DataValue, getScalarTypeOf } from './DataValue.js';
 import type {
   ChartNode,
@@ -6,74 +5,110 @@ import type {
   NodeId,
   NodeInputDefinition,
   NodeOutputDefinition,
+  PortId,
 } from './NodeBase.js';
 import type { Inputs } from './GraphProcessor.js';
-import { isNotNull } from '../utils/genericUtilFunctions.js';
+import type { GraphExecutionPlan, GraphOutputNodeResult } from './GraphPreprocessor.js';
 
 export type ExecutionState = {
   connections: Record<NodeId, NodeConnection[]>;
   definitions: Record<NodeId, { inputs: NodeInputDefinition[]; outputs: NodeOutputDefinition[] }>;
   erroredNodes: Map<NodeId, Error | string>;
+  executionPlan?: GraphExecutionPlan;
   loopControllersSeen: Set<NodeId>;
   nodesById: Record<NodeId, ChartNode>;
   stronglyConnectedComponents: ChartNode[][];
   visitedNodes: Set<NodeId>;
 };
 
-export type OutputNodeResult = {
-  nodes: ChartNode[];
-  connections: NodeConnection[];
-  connectionsToNodes: { connections: NodeConnection[]; node: ChartNode }[];
-};
+export type OutputNodeResult = GraphOutputNodeResult;
 
 export function getStartNodes(
   state: ExecutionState,
   graphNodes: ChartNode[],
   runToNodeIds?: NodeId[],
 ): ChartNode[] {
-  return runToNodeIds
-    ? graphNodes.filter((node) => runToNodeIds.includes(node.id))
-    : graphNodes.filter((node) => getOutputNodesFrom(state, node).nodes.length === 0);
+  if (runToNodeIds) {
+    return graphNodes.filter((node) => runToNodeIds.includes(node.id));
+  }
+
+  return state.executionPlan?.startNodes ?? graphNodes.filter((node) => getOutputNodesFrom(state, node).nodes.length === 0);
 }
 
 export function getInputNodesTo(state: ExecutionState, node: ChartNode): ChartNode[] {
+  const plannedInputNodes = state.executionPlan?.inputNodesByNode[node.id];
+  if (plannedInputNodes) {
+    return plannedInputNodes;
+  }
+
   const connections = state.connections[node.id];
   if (!connections) {
     return [];
   }
 
-  const connectionsToNode = connections.filter((conn) => conn.inputNodeId === node.id).filter(isNotNull);
   const inputDefinitions = state.definitions[node.id]?.inputs ?? [];
+  const validInputIds = new Set(inputDefinitions.map((definition) => definition.id));
+  const inputNodes: ChartNode[] = [];
 
-  return connectionsToNode
-    .filter((connection) => {
-      const connectionDefinition = inputDefinitions.find((def) => def.id === connection.inputId);
-      return connectionDefinition != null;
-    })
-    .map((conn) => state.nodesById[conn.outputNodeId])
-    .filter(isNotNull);
+  for (const connection of connections) {
+    if (connection.inputNodeId !== node.id || !validInputIds.has(connection.inputId)) {
+      continue;
+    }
+
+    const inputNode = state.nodesById[connection.outputNodeId];
+    if (inputNode) {
+      inputNodes.push(inputNode);
+    }
+  }
+
+  return inputNodes;
 }
 
 export function getOutputNodesFrom(state: ExecutionState, node: ChartNode): OutputNodeResult {
+  const plannedOutputNodes = state.executionPlan?.outputNodeResultsByNode[node.id];
+  if (plannedOutputNodes) {
+    return plannedOutputNodes;
+  }
+
   const connections = state.connections[node.id];
   if (!connections) {
     return { nodes: [], connections: [], connectionsToNodes: [] };
   }
 
-  const connectionsFromNode = connections.filter((conn) => conn.outputNodeId === node.id);
   const outputDefinitions = state.definitions[node.id]?.outputs ?? [];
-  const outputConnections = connectionsFromNode.filter((connection) => {
-    const connectionDefinition = outputDefinitions.find((def) => def.id === connection.outputId);
-    return connectionDefinition != null;
-  });
+  const validOutputIds = new Set(outputDefinitions.map((definition) => definition.id));
+  const outputConnections: NodeConnection[] = [];
+  const outputConnectionsByNode = new Map<NodeId, NodeConnection[]>();
+  const outputNodes: ChartNode[] = [];
+  const seenOutputNodeIds = new Set<NodeId>();
 
-  const outputNodes = uniqBy(
-    outputConnections.map((conn) => state.nodesById[conn.inputNodeId]).filter(isNotNull),
-    (candidate) => candidate.id,
-  );
+  for (const connection of connections) {
+    if (connection.outputNodeId !== node.id || !validOutputIds.has(connection.outputId)) {
+      continue;
+    }
+
+    outputConnections.push(connection);
+
+    const outputNode = state.nodesById[connection.inputNodeId];
+    if (!outputNode) {
+      continue;
+    }
+
+    if (!seenOutputNodeIds.has(outputNode.id)) {
+      outputNodes.push(outputNode);
+      seenOutputNodeIds.add(outputNode.id);
+    }
+
+    const nodeConnections = outputConnectionsByNode.get(outputNode.id);
+    if (nodeConnections) {
+      nodeConnections.push(connection);
+    } else {
+      outputConnectionsByNode.set(outputNode.id, [connection]);
+    }
+  }
 
   const connectionsToNodes = outputNodes.map((outputNode) => ({
-    connections: outputConnections.filter((conn) => conn.inputNodeId === outputNode.id),
+    connections: outputConnectionsByNode.get(outputNode.id) ?? [],
     node: outputNode,
   }));
 
@@ -97,11 +132,22 @@ export function hasErroredInputNode(
 }
 
 export function getMissingRequiredInputs(state: ExecutionState, node: ChartNode): NodeInputDefinition[] {
+  const plannedMissingInputs = state.executionPlan?.missingRequiredInputsByNode[node.id];
+  if (plannedMissingInputs) {
+    return plannedMissingInputs;
+  }
+
   const connections = state.connections[node.id] ?? [];
+  const connectedInputIds = new Set<PortId>();
+
+  for (const connection of connections) {
+    if (connection.inputNodeId === node.id) {
+      connectedInputIds.add(connection.inputId);
+    }
+  }
 
   return state.definitions[node.id]!.inputs.filter((input) => {
-    const connectionToInput = connections.find((conn) => conn.inputId === input.id && conn.inputNodeId === node.id);
-    return input.required && !connectionToInput;
+    return input.required && !connectedInputIds.has(input.id);
   });
 }
 
@@ -137,6 +183,11 @@ export function getWaitingForInputNode(
 }
 
 function nodesAreInSameCycle(state: ExecutionState, a: NodeId, b: NodeId) {
+  const plannedCycleIndexByNode = state.executionPlan?.cycleIndexByNode;
+  if (plannedCycleIndexByNode) {
+    return plannedCycleIndexByNode[a] != null && plannedCycleIndexByNode[a] === plannedCycleIndexByNode[b];
+  }
+
   return state.stronglyConnectedComponents.find(
     (cycle) => cycle.find((node) => node.id === a) && cycle.find((node) => node.id === b),
   );

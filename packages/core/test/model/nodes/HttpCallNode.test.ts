@@ -596,6 +596,32 @@ describe('HttpCallNode', () => {
     });
   });
 
+  it('does not format unused retry-attempt errors when retry mode is disabled', async () => {
+    globalThis.fetch = async () => new Response('created', { status: 201, headers: { 'content-type': 'text/plain' } });
+
+    const originalPrepareStackTrace = Error.prepareStackTrace;
+    let formattedStackCount = 0;
+    Error.prepareStackTrace = () => {
+      formattedStackCount++;
+      return 'formatted stack';
+    };
+
+    try {
+      const node = createNode({
+        method: 'GET',
+        url: 'https://example.com',
+        errorOnNon200: true,
+        retryOnNon200: false,
+      });
+      const result = await node.process({}, createContext());
+
+      assert.deepStrictEqual(result.statusCode, { type: 'number', value: 201 });
+      assert.equal(formattedStackCount, 0);
+    } finally {
+      Error.prepareStackTrace = originalPrepareStackTrace;
+    }
+  });
+
   it('returns requestFailed=false on successful text responses when enabled', async () => {
     globalThis.fetch = async () =>
       new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'content-type': 'application/json' } });

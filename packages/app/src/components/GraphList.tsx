@@ -178,9 +178,22 @@ const styles = css`
 
   .folder-children {
     display: none;
+
     &.expanded {
       display: flex;
     }
+  }
+
+  .folder-children.with-guide-line::before {
+    content: '';
+    position: absolute;
+    top: -4px;
+    bottom: 2px;
+    left: calc(10px + var(--graph-item-indent, 0px) + 7px);
+    width: 1px;
+    background: color-mix(in srgb, var(--grey-light) 26%, transparent);
+    pointer-events: none;
+    z-index: 1;
   }
 
   .graph-item {
@@ -645,7 +658,7 @@ export const GraphList: FC = memo(() => {
   return (
     <div css={styles}>
       <div className="project-tree-panel-header">
-        <div className="project-tree-header" title={project.metadata.title}>
+        <div className="project-tree-header">
           <span className="project-tree-header-label">Project:</span>
           <span className="project-tree-header-title">{project.metadata.title}</span>
         </div>

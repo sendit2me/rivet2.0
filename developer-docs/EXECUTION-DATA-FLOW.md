@@ -234,7 +234,9 @@ capabilities before the new socket opens. If the same target has a stale or
 closing websocket that cannot be reused, that handoff also uses the explicit
 `replaced` lifecycle path so old pending graph executions are rejected before
 the new socket is created. Replacement disconnect events report the old target
-and the post-transition `idle` status visible to subscribers.
+and the post-transition `idle` status visible to subscribers. Target factories,
+internal/external classification, labels, and equality live in
+`executorSessionTarget.ts`; session code should not compare URLs directly.
 
 Transport features are exposed as session capabilities. For example,
 `canSendRun` controls whether remote run commands can be sent, `canUploadProject`
@@ -264,12 +266,29 @@ failed project or static-data sends do not update it.
 Remote run request ids are managed by `remoteExecutorRunRequest.ts`.
 Editor graph runs register one active request id before sending the `run`
 message; request-scoped process events are dispatched only when their request id
-matches that active request, while legacy/unscoped events still pass through.
-`done`, `abort`, `error`, disconnect, and send-failure paths clear the active
-request explicitly. Trivet/test runs use the executor-session pending-promise
-API and reject that pending request if the `run` send fails before reaching the
-socket, so the failure is observed through the same async result path as normal
-remote test-run completion.
+matches that active request. Legacy/unscoped external-debugger events are
+scoped by the `start` event's project id when that id is available: runs for a
+different open project are ignored, and the root-run decision is remembered for
+the follow-up node/graph events. Root graph completion also carries that
+decision forward to the following unscoped terminal frame (`done`, `abort`, or
+top-level `error`), because those legacy terminal frames do not include
+execution metadata themselves. Events from older transports that do not carry a
+project id keep the compatibility fallback and still pass through. `done`,
+`abort`, `error`, disconnect, and send-failure paths clear the active request
+explicitly. Trivet/test runs use the executor-session pending-promise API and
+reject that pending request if the `run` send fails before reaching the socket,
+so the failure is observed through the same async result path as normal remote
+test-run completion.
+
+Inside the shared session runtime, request ownership is split by transport
+policy. `executorSession.ts` coordinates socket generations, state transitions,
+and reconnect scheduling. `executorSessionTransport.ts` owns protocol JSON
+classification and safe websocket sends, `executorSessionDatasetBridge.ts` owns
+dataset request/response dispatch, `executorSessionPendingExecutions.ts` owns
+pending graph-run promise maps, and `executorSessionCallbackIsolation.ts` owns
+failure-isolated callback fan-out. These helpers are app-private seams; they
+preserve the existing websocket message shapes rather than introducing a new
+protocol layer.
 
 Executor-session callbacks are failure-isolated. Lifecycle subscribers,
 process-message subscribers, and the renderer state-change callback are invoked
@@ -399,15 +418,18 @@ workflow execution.
 - oversized text-like values and media values become `{ type, storage: 'ref', refId, preview }`
 - the full payload for ref-backed values lives in the in-memory `globalDataRefs` cache
 
-Execution-scoped ref ids are stable per process and port:
+Execution-scoped ref ids are stable per project, process, and port when project
+identity is available:
 
-- `execution:${nodeId}:${processId}:input:${portId}`
-- `execution:${nodeId}:${processId}:output:${portId}`
-- `execution:${nodeId}:${processId}:output:${splitIndex}:${portId}`
+- `execution:${projectId}:${nodeId}:${processId}:input:${portId}`
+- `execution:${projectId}:${nodeId}:${processId}:output:${portId}`
+- `execution:${projectId}:${nodeId}:${processId}:output:${splitIndex}:${portId}`
 
 This matters because streaming `partialOutput` updates overwrite the same ref entry instead of
-allocating a new blob key on every event, and run resets can clear all execution-scoped refs
-deterministically.
+allocating a new blob key on every event, project tabs can keep independent
+in-memory output snapshots, and run resets can clear all execution-scoped refs
+deterministically. Low-level storage helpers still tolerate a missing project id
+for isolated tests or legacy app-private callers.
 
 ## Data Filtering for Display
 
@@ -631,9 +653,10 @@ Persisted app-side execution payloads now share one storage/preview utility laye
 - `useNodeExecutionEvents` uses that shared path for started, finished, excluded, and partial-output persistence
 - split-run partial outputs still keep their separate `splitOutputData[index]` storage model, but they now reuse the same storage transform and stable ref-id scheme before persistence. Render/copy helpers should only prefer split output data when at least one split entry contains a real visible stored port wrapper; an empty split map, warnings-only split map, or internal-port-only split map from partial outputs must not hide a later valid `outputData` payload.
 - `onStart`, `onTrivetStart`, and node-output clearing paths clear the corresponding execution-scoped refs when they wipe prior run data
-- `executionDataStorage.ts` is the low-level storage/restore boundary; `executionDataTransforms.ts` remains only as a compatibility facade for older imports. App-side read/restore behavior goes through `executionDataReaders.ts` so UI and executor-preload code share the same displayed-output restore, port-level restore/coercion, and warning extraction logic.
+- `executionDataStorage.ts` is the low-level storage/restore boundary. App-side read/restore behavior goes through `executionDataReaders.ts` so UI and executor-preload code share the same displayed-output restore, port-level restore/coercion, and warning extraction logic.
 - Preview-only or editor-assist consumers that interpolate stored inputs for display, such as Code, Expression, JS list, Extract Object Path parsed-source sections, and Prompt Designer attached-node hydration, should use `tryRestoreStoredPortMap(...)`. Missing ref-backed inputs are skipped port-by-port so available inputs still render in the parsed preview or editor assist surface, while an entirely unavailable input map simply removes the optional detail instead of breaking the visible output value. Strict `restoreStoredPortMap(...)` remains appropriate for executor preload paths that must fail loudly when required boundary data has been evicted.
 - display-oriented `Copy value` serialization is exported from `executionDataCopyValue.ts`, with implementation split under `executionDataCopy/`: visible `DataValue` projection in `projectDataValue.ts`, port/split serialization in `serializeDisplayedOutputs.ts`, and labelled copy metadata in `displayCopySections.ts`. It projects restored outputs into user-facing copy text instead of serializing raw `DataValue` wrappers. A single visible output copies the displayed value text; multiple visible outputs copy labelled sections using output-definition titles, matching the node/fullscreen output layout closely enough for pasted text to read like the UI. Node-specific copy projectors should use `displayCopySections(...)` for multi-section text so ordinary object values are never confused with copy metadata. Generic display-copy restores each visible port independently so a missing ref-backed value copies the same "Value no longer available in memory." fallback the renderer shows instead of failing the whole copy action. Warning and `__internalPort_*` outputs are not body output ports; `outputPortVisibility.ts` keeps generic render, split-output selection, and display-copy aligned on that rule. Custom copy projectors are only called for output maps and split-output entries that pass that visible-wrapper check; otherwise projectors with default text, such as loop-controller continue status, can create copy text for output that the UI did not render. Warning messages render through the dedicated output-warning UI in both inline and fullscreen output surfaces instead of being treated as ordinary body ports. The fullscreen `JSON` action remains the internal-representation path and copies the restored output map with `DataValue` wrappers. Its restore order deliberately prefers split output data only when at least one visible split body port exists, falls back to valid final `outputData`, and only then restores hidden-only split data when that is the only stored representation; this keeps warnings/internal split maps from blanking valid final output while still letting JSON copy/export inspect warning-only split runs.
+- inline and fullscreen output surfaces use `nodeOutputViewModel.ts` as the app-level view-model boundary for selected process data, output/error/custom-error state, warning sections, body-source selection, display-copy text, and JSON-copy payloads. The view model treats absent wrappers and hidden-only output maps as empty body content while keeping warnings as dedicated warning sections. `NodeInlineOutput.tsx` and `NodeFullscreenOutput.tsx` should stay focused on React layout and controls, while `renderNodeOutputBody.tsx` should render the body source chosen by the view model instead of recomputing split-output fallback policy.
 - nodes whose visible output shape differs from the raw output port map use `getCopyValueData` projectors from `nodeOutputCopyValueProjectors.ts` so copy behavior stays aligned with the custom output UI
 - fullscreen node-output search also depends on the same restore/payload model: generic rendered text is searched from the current fullscreen page DOM through `fullscreenOutputSearch.ts`, while large ref-backed text/JSON-like previews participate through `LargeStoredValuePreview` search providers so search can target the full restored text instead of only the currently visible excerpt
 - preload/run-from paths therefore restore ref-backed values back into full `DataValue` payloads through the shared reader layer before passing them to the executor, instead of each consumer hand-rolling `restoreStoredInputsOrOutputs(...)` calls. The selected run-from node is intentionally not preloaded, because the editor contract is to rerun the selected node and downstream nodes while reusing only boundary inputs from prior results.
@@ -741,7 +764,7 @@ be misrepresented as a user-attached remote debugger. External remote debuggers
 should continue to use the public `connectExternalDebugger(...)` path, and
 remote-debugger UI should only show stop/debugger affordances for
 external-debugger sessions. While an external Remote Debugger is connected or
-connecting, the ActionBar hides editor-side Run and Run Main buttons, menu and
+connecting, the ActionBar hides editor-side run buttons, menu and
 hotkey run commands no-op, and node `Run to here` / `Run from here` context-menu
 items stay hidden; live execution data is expected to arrive from the remote
 process instead.
@@ -755,10 +778,10 @@ then clear `graphRunningState` through the normal remote event dispatcher
 without forcing the user to reconnect the Node executor.
 The ActionBar intentionally keeps Node-mode Run controls rendered while the
 internal sidecar is starting, connecting, or reconnecting; readiness only moves
-the button into a disabled loading state that keeps its normal text and swaps
-the action glyph for the same ring indicator used by running node headers, it
-must not collapse the control or make a handled node failure look like the
-executor UI disappeared. This internal-executor rule must not be applied to
+the button into a disabled loading state that keeps its normal text and appends
+the same ring indicator used by running node headers. It must not collapse the
+control or make a handled node failure look like the executor UI disappeared.
+This internal-executor rule must not be applied to
 external Remote Debugger sessions, which replace editor-run controls with a
 `Stop Remote Debugger` banner.
 The app logs the internal Node executor lifecycle at the sidecar/session seam.
@@ -1148,7 +1171,12 @@ absence gracefully since the final `nodeFinish` event contains the complete outp
 | [`useGraphExecutionEvents.ts`](../packages/app/src/hooks/useGraphExecutionEvents.ts)                     | Graph-level event handlers: `onStart`, `onGraphStart`, `onGraphFinish`, `onDone`                                                                                     |
 | [`useNodeExecutionEvents.ts`](../packages/app/src/hooks/useNodeExecutionEvents.ts)                       | Node-level event handlers: `onNodeStart`, `onNodeFinish`, `onPartialOutput`, `onNodeError`                                                                           |
 | [`useLocalExecutor.ts`](../packages/app/src/hooks/useLocalExecutor.ts)                                   | Browser-mode execution orchestration                                                                                                                                 |
-| [`executorSession.ts`](../packages/app/src/hooks/executorSession.ts)                                     | Shared websocket runtime: target classification, reconnect policy, capabilities, pending remote-run promises, lifecycle events, and dataset bridge handling          |
+| [`executorSession.ts`](../packages/app/src/hooks/executorSession.ts)                                     | Shared websocket runtime coordinator: socket generations, reconnect policy, session status, capabilities, and lifecycle events                                       |
+| [`executorSessionTarget.ts`](../packages/app/src/hooks/executorSessionTarget.ts)                         | Executor-session target factories, type+URL equality, internal/external classification, and debug labels                                                             |
+| [`executorSessionTransport.ts`](../packages/app/src/hooks/executorSessionTransport.ts)                   | Executor websocket protocol frame serialization/classification and safe-send policy                                                                                  |
+| [`executorSessionDatasetBridge.ts`](../packages/app/src/hooks/executorSessionDatasetBridge.ts)           | Dataset request/response bridge over the executor websocket protocol, using an exact request switch                                                                  |
+| [`executorSessionPendingExecutions.ts`](../packages/app/src/hooks/executorSessionPendingExecutions.ts)   | Pending remote graph-run promises, request-id allocation, completion, and rejection cleanup                                                                          |
+| [`executorSessionCallbackIsolation.ts`](../packages/app/src/hooks/executorSessionCallbackIsolation.ts)   | Failure-isolated executor-session lifecycle, process-message, and state-change callback fan-out                                                                      |
 | [`useExecutorSessionCoordinator.ts`](../packages/app/src/hooks/useExecutorSessionCoordinator.ts)         | Product policy for Browser/hosted Node/desktop Node startup, cleanup, sidecar readiness, and external-debugger handoff restoration                                   |
 | [`useExecutorSession.ts`](../packages/app/src/hooks/useExecutorSession.ts)                               | Read-only executor-session snapshot hook plus compatibility exports for coordinator helpers                                                                          |
 | [`useRemoteDebugger.ts`](../packages/app/src/hooks/useRemoteDebugger.ts)                                 | External Remote Debugger command/subscription surface; does not own Node executor restoration policy                                                                 |

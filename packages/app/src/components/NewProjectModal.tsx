@@ -210,7 +210,7 @@ const AiAgentTemplate: FC<{
       <p>
         Creates a new project from the Rivet AI Agent Template. The template constructs the basic flow for an AI Agent that can use tools to perform specified commands.
       </p>
-      <p>Run the AI Agent by clicking &quot;Run Main&quot; or &quot;Run&quot; while on the &quot;* Run Command&quot; Graph.</p>
+      <p>Run the AI Agent by clicking &quot;Run project&quot; or &quot;Run&quot; while on the &quot;* Run Command&quot; Graph.</p>
       <form onSubmit={createProject}>
         <Button appearance="primary" type="submit">
           Create Project
@@ -243,7 +243,7 @@ const MCPAiAgentTemplate: FC<{
       <p>
         Creates a new project from the Rivet MCP AI Agent Template. The template constructs the basic flow for an AI Agent that can use tools from an MCP server to perform specified commands by calling the tools on the MCP server.
       </p>
-      <p>Run the AI Agent by clicking &quot;Run Main&quot; or &quot;Run&quot; while on the &quot;* Run Command&quot; Graph.</p>
+      <p>Run the AI Agent by clicking &quot;Run project&quot; or &quot;Run&quot; while on the &quot;* Run Command&quot; Graph.</p>
       <form onSubmit={createProject}>
         <Button appearance="primary" type="submit">
           Create Project

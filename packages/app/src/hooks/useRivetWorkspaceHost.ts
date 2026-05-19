@@ -23,6 +23,7 @@ import {
 } from '../utils/openedProjects.js';
 import { useCurrentProjectEditorSnapshot } from './useCurrentProjectEditorSnapshot.js';
 import { useLoadProject } from './useLoadProject.js';
+import { useProjectExecutionSnapshots } from './useProjectExecutionSnapshots.js';
 import { useStableCallback } from './useStableCallback.js';
 import { useWorkspaceTransitions } from './useWorkspaceTransitions.js';
 
@@ -71,6 +72,11 @@ export function useRivetWorkspaceHost(): RivetWorkspaceHost {
   const setLoadedProject = useSetAtom(loadedProjectState);
   const setOpenedProjectSnapshots = useSetAtom(openedProjectSnapshotsState);
   const { persistCurrentProjectEditorSnapshot } = useCurrentProjectEditorSnapshot();
+  const {
+    captureCurrentProjectExecutionSnapshot,
+    removeProjectExecutionSnapshot,
+    restoreProjectExecutionSnapshot,
+  } = useProjectExecutionSnapshots();
 
   const openProjectSnapshot = useStableCallback(
     async (snapshot: RivetProjectSnapshotInput, options: { replaceCurrent?: boolean } = {}) => {
@@ -133,6 +139,7 @@ export function useRivetWorkspaceHost(): RivetWorkspaceHost {
             delete nextSnapshots[currentProjectId];
             return nextSnapshots;
           });
+          removeProjectExecutionSnapshot(currentProjectId);
           clearProjectContextState(currentProjectId);
         }
 
@@ -203,6 +210,9 @@ export function useRivetWorkspaceHost(): RivetWorkspaceHost {
     if (closingCurrentProject) {
       persistCurrentProjectEditorSnapshot();
     }
+    const closingCurrentProjectExecutionSnapshot = closingCurrentProject
+      ? captureCurrentProjectExecutionSnapshot()
+      : undefined;
 
     const sortedOpenedProjects = openedProjectIds
       .map((id) => ({
@@ -217,8 +227,13 @@ export function useRivetWorkspaceHost(): RivetWorkspaceHost {
       if (!loaded) {
         return false;
       }
+    } else if (closingCurrentProject) {
+      restoreProjectExecutionSnapshot(undefined);
     }
 
+    removeProjectExecutionSnapshot(projectId, {
+      currentSnapshot: closingCurrentProjectExecutionSnapshot,
+    });
     setProjects((previousProjects) => removeOpenedProject(previousProjects, projectId));
     setOpenedProjectSnapshots((snapshots) => {
       const nextSnapshots = { ...snapshots };

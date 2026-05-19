@@ -1,22 +1,14 @@
-import type { LanguageModelUsage } from 'ai';
-import type { ChatMessage, DataValue } from '../DataValue.js';
-import type { Outputs } from '../GraphProcessor.js';
+import type { ChatMessage } from '../DataValue.js';
 import type { PortId } from '../NodeBase.js';
-import { inferType } from '../../utils/coerceType.js';
 import { coercePromptToChatMessages, prependSystemPrompt } from '../chat/chatMessages.js';
-import { createAssistantMessagesOutput, type StreamedFunctionCall } from '../chat/streamChatResponse.js';
 import { streamChatV2 } from './aiSdkBridge.js';
 import { chatMessagesToModelMessages } from './messageConverter.js';
-import { calculateChatV2Cost } from './modelRegistry.js';
 import type {
-  ChatV2NormalizedUsage,
   ChatV2PipelineResult,
-  ChatV2ReasoningOutput,
   RunChatV2PipelineOptions,
   StreamChatV2Result,
   StreamChatV2Options,
 } from './chatV2Types.js';
-import { isChatV2StructuredResponseFormat } from './chatV2ResponseFormat.js';
 import { chatV2ToolsToAiSdk } from './toolConverter.js';
 import {
   getChatV2ProviderErrorStatusCode,
@@ -29,9 +21,11 @@ import {
   normalizeLLMChatV2RetryCount,
   waitForLLMChatV2RetryCooldown,
 } from './chatV2Retry.js';
-
-const REQUEST_STATUS_PORT_ID = 'requestStatus' as PortId;
-const REQUEST_ERROR_PORT_ID = 'requestError' as PortId;
+import {
+  createChatV2CommonOutputs,
+  createChatV2ProviderFailureOutputs,
+  normalizeChatV2Usage,
+} from './chatV2Outputs.js';
 
 type StreamChatV2WithRetryResult = {
   result: StreamChatV2Result;
@@ -55,284 +49,12 @@ function isStreamChatV2RetryFailure(error: unknown): error is StreamChatV2RetryF
   return error instanceof StreamChatV2RetryFailure;
 }
 
-function toFunctionCallOutputValue(functionCall: StreamedFunctionCall) {
-  let argumentsValue = functionCall.lastParsedArguments;
-
-  if (argumentsValue == null) {
-    try {
-      argumentsValue = JSON.parse(functionCall.arguments);
-    } catch {
-      argumentsValue = functionCall.arguments;
-    }
-  }
-
-  return {
-    name: functionCall.name,
-    arguments: argumentsValue,
-    id: functionCall.id,
-  };
-}
-
-function normalizeUsage(
-  usage: LanguageModelUsage | undefined,
-  options: Pick<RunChatV2PipelineOptions, 'provider' | 'modelId'>,
-): ChatV2NormalizedUsage | undefined {
-  if (usage == null) {
-    return undefined;
-  }
-
-  const promptTokens = usage.inputTokens ?? 0;
-  const completionTokens = usage.outputTokens ?? 0;
-  const totalTokens = usage.totalTokens ?? promptTokens + completionTokens;
-  const cachedTokens =
-    (usage.inputTokenDetails?.cacheReadTokens ?? 0) + (usage.inputTokenDetails?.cacheWriteTokens ?? 0);
-  const reasoningTokens = usage.outputTokenDetails?.reasoningTokens ?? 0;
-
-  return {
-    promptTokens,
-    completionTokens,
-    totalTokens,
-    cachedTokens,
-    reasoningTokens,
-    totalCost: calculateChatV2Cost(options.provider, options.modelId, promptTokens, completionTokens),
-  };
-}
-
-function tryParseStructuredResponseText(response: string): unknown {
-  try {
-    return JSON.parse(response);
-  } catch {
-    return undefined;
-  }
-}
-
-function buildResponseOutput(
-  response: string,
-  structuredOutput: unknown | undefined,
-  responseFormat: RunChatV2PipelineOptions['responseFormat'],
-): DataValue {
-  if (!isChatV2StructuredResponseFormat(responseFormat)) {
-    return { type: 'string', value: response };
-  }
-
-  const parsedOutput = structuredOutput !== undefined ? structuredOutput : tryParseStructuredResponseText(response);
-
-  return parsedOutput !== undefined ? inferType(parsedOutput) : { type: 'string', value: response };
-}
-
-function buildCommonOutputs(
-  requestMessages: ChatMessage[],
-  response: string,
-  structuredOutput: unknown | undefined,
-  functionCalls: StreamedFunctionCall[],
-  usage: ChatV2NormalizedUsage | undefined,
-  reasoning: ChatV2ReasoningOutput | undefined,
-  requestStatus: number | undefined,
-  responseError: string | undefined,
-  requestStatuses: number[],
-  requestErrors: string[],
-  options: Pick<
-    RunChatV2PipelineOptions,
-    | 'outputUsage'
-    | 'outputReasoning'
-    | 'outputRequestStatus'
-    | 'includeFunctionCalls'
-    | 'functionCallMode'
-    | 'retryOnNon200'
-    | 'responseFormat'
-  >,
-): Outputs {
-  const outputs: Outputs = {
-    ['response' as PortId]: buildResponseOutput(response, structuredOutput, options.responseFormat),
-    ['in-messages' as PortId]: { type: 'chat-message[]', value: requestMessages },
-    ['all-messages' as PortId]: createAssistantMessagesOutput(requestMessages, response, functionCalls, {
-      functionCallMode: options.functionCallMode,
-    }),
-    ['responseTokens' as PortId]: { type: 'number', value: usage?.completionTokens ?? 0 },
-  };
-
-  if (functionCalls.length > 0) {
-    outputs['function-calls' as PortId] = {
-      type: 'object[]',
-      value: functionCalls.map(toFunctionCallOutputValue),
-    };
-  } else if (options.includeFunctionCalls) {
-    outputs['function-calls' as PortId] = {
-      type: 'control-flow-excluded',
-      value: undefined,
-    };
-  }
-
-  if (options.outputUsage) {
-    outputs['usage' as PortId] = {
-      type: 'object',
-      value: usage ?? {
-        promptTokens: 0,
-        completionTokens: 0,
-        totalTokens: 0,
-        cachedTokens: 0,
-        reasoningTokens: 0,
-        totalCost: undefined,
-      },
-    };
-  }
-
-  if (options.outputReasoning) {
-    outputs['reasoning' as PortId] = buildReasoningOutput(reasoning);
-  }
-
-  if (options.outputRequestStatus) {
-    if (options.retryOnNon200) {
-      outputs[REQUEST_STATUS_PORT_ID] = buildRetryAttemptOutput(
-        'number[]',
-        requestStatuses.length > 0 ? requestStatuses : [requestStatus ?? 200],
-      );
-      outputs[REQUEST_ERROR_PORT_ID] = buildRetryAttemptOutput('string[]', requestErrors);
-    } else {
-      outputs[REQUEST_STATUS_PORT_ID] = {
-        type: 'number',
-        value: requestStatus ?? 200,
-      };
-      outputs[REQUEST_ERROR_PORT_ID] =
-        responseError != null
-          ? {
-              type: 'string',
-              value: responseError,
-            }
-          : {
-              type: 'control-flow-excluded',
-              value: undefined,
-            };
-    }
-  }
-
-  return outputs;
-}
-
-function buildReasoningOutput(reasoning: ChatV2ReasoningOutput | undefined): Outputs[PortId] {
-  if (Array.isArray(reasoning)) {
-    const nonEmptyReasoning = reasoning.filter((part) => typeof part === 'string' && part.trim().length > 0);
-
-    return nonEmptyReasoning.length > 0
-      ? {
-          type: 'string[]',
-          value: nonEmptyReasoning,
-        }
-      : {
-          type: 'control-flow-excluded',
-          value: undefined,
-        };
-  }
-
-  const reasoningText = typeof reasoning === 'string' ? reasoning : '';
-
-  return reasoningText.trim().length > 0
-    ? {
-        type: 'string',
-        value: reasoningText,
-      }
-    : {
-        type: 'control-flow-excluded',
-        value: undefined,
-      };
-}
-
 function getProviderFailureMessage(error: unknown): string {
   if (error instanceof Error) {
     return error.message;
   }
 
   return String(error);
-}
-
-function buildProviderFailureOutputs(
-  requestMessages: ChatMessage[],
-  responseStatus: number | undefined,
-  responseError: string,
-  requestStatuses: number[],
-  requestErrors: string[],
-  options: Pick<RunChatV2PipelineOptions, 'outputUsage' | 'outputReasoning' | 'includeFunctionCalls' | 'retryOnNon200'>,
-): Outputs {
-  const outputs: Outputs = {};
-
-  Object.assign(outputs, {
-    [REQUEST_ERROR_PORT_ID]: options.retryOnNon200
-      ? buildRetryAttemptOutput('string[]', requestErrors)
-      : {
-          type: 'string',
-          value: responseError,
-        },
-    [REQUEST_STATUS_PORT_ID]: options.retryOnNon200
-      ? buildRetryAttemptOutput('number[]', requestStatuses)
-      : responseStatus == null
-        ? {
-            type: 'control-flow-excluded',
-            value: undefined,
-          }
-        : {
-            type: 'number',
-            value: responseStatus,
-          },
-    ['response' as PortId]: {
-      type: 'control-flow-excluded',
-      value: undefined,
-    },
-    ['in-messages' as PortId]: {
-      type: 'chat-message[]',
-      value: requestMessages,
-    },
-    ['all-messages' as PortId]: {
-      type: 'chat-message[]',
-      value: requestMessages,
-    },
-    ['responseTokens' as PortId]: {
-      type: 'control-flow-excluded',
-      value: undefined,
-    },
-  } satisfies Outputs);
-
-  if (options.includeFunctionCalls) {
-    outputs['function-calls' as PortId] = {
-      type: 'control-flow-excluded',
-      value: undefined,
-    };
-  }
-
-  if (options.outputUsage) {
-    outputs['usage' as PortId] = {
-      type: 'control-flow-excluded',
-      value: undefined,
-    };
-  }
-
-  if (options.outputReasoning) {
-    outputs['reasoning' as PortId] = {
-      type: 'control-flow-excluded',
-      value: undefined,
-    };
-  }
-
-  return outputs;
-}
-
-function buildRetryAttemptOutput(
-  type: 'number[]',
-  values: number[],
-): { type: 'number[]'; value: number[] } | { type: 'control-flow-excluded'; value: undefined };
-function buildRetryAttemptOutput(
-  type: 'string[]',
-  values: string[],
-): { type: 'string[]'; value: string[] } | { type: 'control-flow-excluded'; value: undefined };
-function buildRetryAttemptOutput(type: 'number[]' | 'string[]', values: number[] | string[]) {
-  return values.length > 0
-    ? {
-        type,
-        value: values,
-      }
-    : {
-        type: 'control-flow-excluded' as const,
-        value: undefined,
-      };
 }
 
 function buildNon200StatusError(statusCode: number): Error & { statusCode: number } {
@@ -443,19 +165,17 @@ function buildProviderFailureResult(
     : [];
   const retryRequestErrors = options.retryOnNon200 ? (requestErrors.length > 0 ? requestErrors : [responseError]) : [];
 
-  const commonOutputs = buildProviderFailureOutputs(
+  const commonOutputs = createChatV2ProviderFailureOutputs({
     requestMessages,
-    statusCode,
+    responseStatus: statusCode,
     responseError,
-    retryRequestStatuses,
-    retryRequestErrors,
-    {
-      outputUsage: options.outputUsage,
-      outputReasoning: options.outputReasoning,
-      includeFunctionCalls: options.includeFunctionCalls,
-      retryOnNon200: options.retryOnNon200,
-    },
-  );
+    requestStatuses: retryRequestStatuses,
+    requestErrors: retryRequestErrors,
+    outputUsage: options.outputUsage,
+    outputReasoning: options.outputReasoning,
+    includeFunctionCalls: options.includeFunctionCalls,
+    retryOnNon200: options.retryOnNon200,
+  });
   const allMessagesOutput = commonOutputs['all-messages' as PortId];
 
   if (allMessagesOutput?.type !== 'chat-message[]') {
@@ -519,27 +239,25 @@ export async function runChatV2Pipeline(options: RunChatV2PipelineOptions): Prom
           ? undefined
           : ({ text, functionCalls }) => {
               options.context.onPartialOutputs?.(
-                buildCommonOutputs(
+                createChatV2CommonOutputs({
                   requestMessages,
-                  text,
-                  undefined,
+                  response: text,
+                  structuredOutput: undefined,
                   functionCalls,
-                  undefined,
-                  '',
-                  undefined,
-                  undefined,
-                  [],
-                  [],
-                  {
-                    outputUsage: false,
-                    outputReasoning: false,
-                    outputRequestStatus: false,
-                    includeFunctionCalls: options.includeFunctionCalls,
-                    functionCallMode: options.functionCallMode,
-                    retryOnNon200: false,
-                    responseFormat: undefined,
-                  },
-                ),
+                  usage: undefined,
+                  reasoning: '',
+                  requestStatus: undefined,
+                  responseError: undefined,
+                  requestStatuses: [],
+                  requestErrors: [],
+                  outputUsage: false,
+                  outputReasoning: false,
+                  outputRequestStatus: false,
+                  includeFunctionCalls: options.includeFunctionCalls,
+                  functionCallMode: options.functionCallMode,
+                  retryOnNon200: false,
+                  responseFormat: undefined,
+                }),
               );
             },
     },
@@ -571,33 +289,31 @@ export async function runChatV2Pipeline(options: RunChatV2PipelineOptions): Prom
     return streamed;
   }
 
-  const usage = normalizeUsage(streamed.result.usage, options);
+  const usage = normalizeChatV2Usage(streamed.result.usage, options);
   const requestStatuses = streamed.requestStatuses;
   const requestErrors = normalizeProviderFailureMessages(streamed.requestErrors, options);
   const responseError = streamed.responseError
     ? normalizeProviderFailureMessage(streamed.responseError, options)
     : undefined;
-  const commonOutputs = buildCommonOutputs(
+  const commonOutputs = createChatV2CommonOutputs({
     requestMessages,
-    streamed.result.responseText,
-    streamed.result.structuredOutput,
-    streamed.result.functionCalls,
+    response: streamed.result.responseText,
+    structuredOutput: streamed.result.structuredOutput,
+    functionCalls: streamed.result.functionCalls,
     usage,
-    streamed.result.reasoning,
-    streamed.result.requestStatus,
+    reasoning: streamed.result.reasoning,
+    requestStatus: streamed.result.requestStatus,
     responseError,
     requestStatuses,
     requestErrors,
-    {
-      outputUsage: options.outputUsage,
-      outputReasoning: options.outputReasoning,
-      outputRequestStatus: options.outputRequestStatus,
-      includeFunctionCalls: options.includeFunctionCalls,
-      functionCallMode: options.functionCallMode,
-      retryOnNon200: options.retryOnNon200,
-      responseFormat: options.responseFormat,
-    },
-  );
+    outputUsage: options.outputUsage,
+    outputReasoning: options.outputReasoning,
+    outputRequestStatus: options.outputRequestStatus,
+    includeFunctionCalls: options.includeFunctionCalls,
+    functionCallMode: options.functionCallMode,
+    retryOnNon200: options.retryOnNon200,
+    responseFormat: options.responseFormat,
+  });
   const allMessagesOutput = commonOutputs['all-messages' as PortId];
 
   if (allMessagesOutput?.type !== 'chat-message[]') {

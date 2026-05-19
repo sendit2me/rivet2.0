@@ -234,7 +234,7 @@ export class CodeNewNodeImpl extends NodeImpl<CodeNewNode> {
   }
 
   async process(inputs: Inputs, context: InternalProcessContext): Promise<Outputs> {
-    const sourceUrl = buildCodeNodeSourceUrl(this.chartNode.id, context.processId);
+    const sourceUrl = buildCodeNodeSourceUrl(this.chartNode.id);
     const interpolationContext = getJsValueInterpolationRuntimeContext(this.data.code, CODE_NEW_INPUTS_IDENTIFIER);
     const { inputNames, inputsIdentifier } = interpolationContext;
     const { source, userCodeLineOffset } = buildCodeNewWrapper(this.data.code, interpolationContext);

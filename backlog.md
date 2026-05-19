@@ -1,6 +1,7 @@
 
 
 
+- Now, the executor mode is global for all open projects (remote debugger, browser, node). Make it per tab
 
 
 - Need a "Not" node?

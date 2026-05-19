@@ -2,7 +2,7 @@ import { type ComponentType, type ReactNode } from 'react';
 import { RenderDataOutputs } from '../RenderDataValue.js';
 import { type InputsOrOutputsWithRefs, type NodeRunDataWithRefs } from '../../state/dataFlow.js';
 import { type ChartNode } from '@valerypopoff/rivet2-core';
-import { getSortedRenderableSplitOutputEntries } from './splitOutputEntries.js';
+import { createNodeOutputBodyViewModel } from './nodeOutputViewModel.js';
 import type {
   FullscreenNodeOutputRendererProps,
   FullscreenNodeOutputSimpleRendererProps,
@@ -38,7 +38,13 @@ export function renderNodeOutputBody(options: RenderNodeOutputBodyOptions): Reac
     allowLargeStoredValueActions,
   } = options;
 
-  if (FullscreenOutput) {
+  const bodyViewModel = createNodeOutputBodyViewModel({
+    data,
+    hasFullscreenOutputRenderer: FullscreenOutput != null,
+    hasOutputRenderer: Output != null,
+  });
+
+  if (bodyViewModel.kind === 'custom-fullscreen-renderer' && FullscreenOutput) {
     return (
       <FullscreenOutput
         node={node}
@@ -49,7 +55,7 @@ export function renderNodeOutputBody(options: RenderNodeOutputBodyOptions): Reac
     );
   }
 
-  if (Output) {
+  if (bodyViewModel.kind === 'custom-renderer' && Output) {
     return (
       <Output
         node={node}
@@ -61,12 +67,10 @@ export function renderNodeOutputBody(options: RenderNodeOutputBodyOptions): Reac
     );
   }
 
-  const splitOutputs = getSortedRenderableSplitOutputEntries(data.splitOutputData);
-
-  if (splitOutputs.length > 0) {
+  if (bodyViewModel.kind === 'split-outputs') {
     return (
       <div className="split-output">
-        {splitOutputs.map(([key, value]) =>
+        {bodyViewModel.splitOutputs.map(([key, value]) =>
           FullscreenOutputSimple ? (
             <FullscreenOutputSimple
               key={`outputs-${key}`}
@@ -99,14 +103,14 @@ export function renderNodeOutputBody(options: RenderNodeOutputBodyOptions): Reac
     );
   }
 
-  if (!data.outputData) {
+  if (bodyViewModel.kind !== 'outputs') {
     return null;
   }
 
   if (FullscreenOutputSimple) {
     return (
       <FullscreenOutputSimple
-        outputs={data.outputData}
+        outputs={bodyViewModel.outputs}
         renderMarkdown={renderMarkdown ?? false}
         renderMode={renderMode}
         allowLargeStoredValueActions={allowLargeStoredValueActions}
@@ -117,7 +121,7 @@ export function renderNodeOutputBody(options: RenderNodeOutputBodyOptions): Reac
   if (OutputSimple) {
     return (
       <OutputSimple
-        outputs={data.outputData}
+        outputs={bodyViewModel.outputs}
         isCompact={isCompact}
         renderMode={renderMode}
         allowLargeStoredValueActions={allowLargeStoredValueActions}
@@ -128,7 +132,7 @@ export function renderNodeOutputBody(options: RenderNodeOutputBodyOptions): Reac
   return (
     <RenderDataOutputs
       definitions={definitions}
-      outputs={data.outputData}
+      outputs={bodyViewModel.outputs}
       renderMarkdown={renderMarkdown}
       isCompact={isCompact}
       mode={renderMode}

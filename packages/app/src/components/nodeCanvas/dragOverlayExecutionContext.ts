@@ -1,6 +1,6 @@
 import type { NodeId } from '@valerypopoff/rivet2-core';
 import type { PageValue, ProcessDataForNode } from '../../state/dataFlow.js';
-import type { DragMode } from '../../hooks/useDraggingNode.js';
+import type { DragMode } from './nodeDragInteraction.js';
 
 type DraggingExecutionSourceOptions = {
   dragMode: DragMode;

@@ -15,7 +15,6 @@ import { filterProcessDataForSelection } from '../../state/selectors/executionSe
 import { fullscreenOutputNodeState, hoveringNodeState } from '../../state/graphBuilder.js';
 import { fullscreenOutputModalBoundsState, overlayOpenState } from '../../state/ui.js';
 import { useDataRefs } from '../../providers/ProvidersContext.js';
-import { getStoredOutputWarnings } from '../../utils/executionDataReaders.js';
 import { FullScreenModal } from '../FullScreenModal.js';
 import { CodeNodeErrorOutput } from '../nodes/CodeNode.js';
 import { MATCH_ACTIVE_CLASS, MATCH_CLASS } from './fullscreenOutputSearch.js';
@@ -25,11 +24,7 @@ import { copyOutputJson, copyOutputValue } from './nodeOutputCopyActions.js';
 import { NodeOutputPager } from './NodeOutputPager.js';
 import { renderNodeOutputBody } from './renderNodeOutputBody.js';
 import { useFullscreenOutputSearch } from './useFullscreenOutputSearch.js';
-import {
-  getSelectedVisibleOutputProcess,
-  shouldUseCodeErrorOutput,
-  shouldUseCustomNodeErrorOutput,
-} from './nodeOutputVisibility.js';
+import { createFullscreenNodeOutputViewModel, getNodeOutputCopySource } from './nodeOutputViewModel.js';
 
 export const FullscreenNodeOutputModalRenderer: FC = () => {
   useDependsOnPlugins();
@@ -279,13 +274,17 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
 
   const io = useNodeIO(node.id);
 
-  const { data, processId } = useMemo(() => {
-    const selectedProcess = getSelectedVisibleOutputProcess(node.type, filteredOutput, selectedPage);
-    return {
-      data: selectedProcess?.data,
-      processId: selectedProcess?.processId,
-    };
-  }, [filteredOutput, node.type, selectedPage]);
+  const outputViewModel = useMemo(
+    () =>
+      createFullscreenNodeOutputViewModel({
+        nodeType: node.type,
+        processData: filteredOutput,
+        selectedPage,
+        dataRefs,
+      }),
+    [dataRefs, filteredOutput, node.type, selectedPage],
+  );
+  const { data, processId } = outputViewModel;
 
   const handleOpenPromptDesigner = () => {
     if (!processId) {
@@ -299,11 +298,11 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
     });
   };
 
+  const copySource = getNodeOutputCopySource(outputViewModel.content);
   const handleCopyToClipboard = useStableCallback(() =>
-    copyOutputValue(data, dataRefs, getCopyValueData, io.outputDefinitions),
+    copyOutputValue(copySource, dataRefs, getCopyValueData, io.outputDefinitions),
   );
-  const handleCopyToClipboardJson = useStableCallback(() => copyOutputJson(data, dataRefs));
-  const warnings = useMemo(() => (data ? getStoredOutputWarnings(data, dataRefs) : undefined), [data, dataRefs]);
+  const handleCopyToClipboardJson = useStableCallback(() => copyOutputJson(copySource, dataRefs));
   const contentVersion = useMemo(
     () => ({
       data,
@@ -382,22 +381,18 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
     });
   });
 
-  if (!filteredOutput || !data) {
+  if (outputViewModel.kind === 'empty') {
     return null;
   }
 
-  const shouldUseCustomErrorOutput = shouldUseCustomNodeErrorOutput(node.type, data);
+  const { content, data: selectedData } = outputViewModel;
 
-  if (shouldUseCodeErrorOutput(node.type, data)) {
-    return <CodeNodeErrorOutput data={data} />;
+  if (content.kind === 'code-error') {
+    return <CodeNodeErrorOutput data={selectedData} />;
   }
 
-  if (data.status?.type === 'error' && !shouldUseCustomErrorOutput) {
-    return <div className="errored">{data.status.error}</div>;
-  }
-
-  if (!data.outputData && !data.splitOutputData && !shouldUseCustomErrorOutput) {
-    return null;
+  if (content.kind === 'generic-error') {
+    return <div className="errored">{content.error}</div>;
   }
 
   const body = renderNodeOutputBody({
@@ -406,7 +401,7 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
     OutputSimple,
     FullscreenOutputSimple,
     node,
-    data,
+    data: selectedData,
     definitions: io.outputDefinitions,
     isCompact: false,
     renderMarkdown,
@@ -417,10 +412,10 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
   return (
     <div css={fullscreenOutputCss} ref={fullscreenOutputRootRef}>
       <header className={`fullscreen-header${isHeaderOverContent ? ' is-over-content' : ''}`}>
-        {filteredOutput.length > 1 ? (
+        {outputViewModel.totalPages > 1 ? (
           <NodeOutputPager
             selectedPage={selectedPage}
-            totalPages={filteredOutput.length}
+            totalPages={outputViewModel.totalPages}
             onPrevPage={prevPage}
             onNextPage={nextPage}
           />
@@ -455,9 +450,9 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
           }`}
         >
           {body}
-          {warnings && (
+          {content.warnings && (
             <div className="fullscreen-output-warnings">
-              {warnings.map((warning) => (
+              {content.warnings.map((warning) => (
                 <div className="fullscreen-output-warning" key={warning}>
                   {warning}
                 </div>

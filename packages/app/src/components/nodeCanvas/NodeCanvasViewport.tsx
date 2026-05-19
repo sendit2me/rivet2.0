@@ -11,7 +11,7 @@ import {
   type DragActivatorModifierState,
   type DragAxisLock,
   type DragMode,
-} from '../../hooks/useDraggingNode.js';
+} from './nodeDragInteraction.js';
 import type { useNodeTypes } from '../../hooks/useNodeTypes.js';
 import type { PageValue, ProcessDataForNode } from '../../state/dataFlow.js';
 import { resolveDraggingExecutionContext } from './dragOverlayExecutionContext.js';

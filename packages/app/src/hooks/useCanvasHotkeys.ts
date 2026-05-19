@@ -9,14 +9,23 @@ import {
   hoveringNodeState,
   goToSearchState,
   selectedNodesState,
+  sidebarOpenState,
 } from '../state/graphBuilder';
 import { useLatest } from 'ahooks';
 import { useViewportBounds } from './useViewportBounds';
 import { useCanvasPositioning } from './useCanvasPositioning';
 import { useRedo, useUndo } from '../commands/Command';
-import { nodesState } from '../state/graph';
+import { graphMetadataState, nodesState } from '../state/graph';
 import { showAiGraphCreatorInputState } from '../components/AiGraphCreatorInput';
 import { overlayOpenState } from '../state/ui';
+import {
+  blurCanvasNavigationShortcutFocus,
+  getCanvasNavigationShortcut,
+} from './canvasNavigationShortcuts.js';
+import { useGraphHistoryNavigation } from './useGraphHistoryNavigation.js';
+import { projectState } from '../state/savedGraphs.js';
+import { useLoadGraph } from './useLoadGraph.js';
+import { createRootGraphViewContext } from '../domain/graphEditing/navigationActions.js';
 
 export function useCanvasHotkeys() {
   const [canvasPosition, setCanvasPosition] = useAtom(canvasPositionState);
@@ -30,6 +39,11 @@ export function useCanvasHotkeys() {
   const setShowAiGraphCreatorInput = useSetAtom(showAiGraphCreatorInputState);
   const setOpenOverlay = useSetAtom(overlayOpenState);
   const openOverlay = useAtomValue(overlayOpenState);
+  const setSidebarOpen = useSetAtom(sidebarOpenState);
+  const graphHistoryNavigation = useGraphHistoryNavigation();
+  const loadGraph = useLoadGraph();
+  const graphMetadata = useAtomValue(graphMetadataState);
+  const project = useAtomValue(projectState);
 
   const nodes = useAtomValue(nodesState);
   const [selectedNodeIds, setSelectedNodes] = useAtom(selectedNodesState);
@@ -53,6 +67,35 @@ export function useCanvasHotkeys() {
 
     // If we're in an input, don't do anything
     if (['input', 'textarea'].includes(document.activeElement?.tagName.toLowerCase()!)) {
+      return;
+    }
+
+    const navigationShortcut = getCanvasNavigationShortcut(e);
+    if (navigationShortcut) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (e.repeat) {
+        return;
+      }
+
+      blurCanvasNavigationShortcutFocus(document.activeElement as HTMLElement | null);
+
+      if (navigationShortcut === 'previousGraph') {
+        graphHistoryNavigation.navigateBack();
+      } else if (navigationShortcut === 'nextGraph') {
+        graphHistoryNavigation.navigateForward();
+      } else if (navigationShortcut === 'openMainGraph') {
+        const mainGraphId = project.metadata.mainGraphId;
+        const mainGraph = mainGraphId == null ? undefined : project.graphs[mainGraphId];
+
+        if (mainGraphId != null && mainGraph && graphMetadata?.id !== mainGraphId) {
+          loadGraph(mainGraph, { graphView: createRootGraphViewContext(mainGraphId) });
+        }
+      } else {
+        setSidebarOpen((open) => !open);
+      }
+
       return;
     }
 

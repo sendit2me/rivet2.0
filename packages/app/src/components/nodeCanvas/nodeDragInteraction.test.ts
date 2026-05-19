@@ -18,7 +18,7 @@ import {
   shouldEnableStraightLineDragOnKeyDown,
   shouldUseDuplicateDragModeOnKeyDown,
   shouldUseMoveDragModeOnKeyUp,
-} from './useDraggingNode.js';
+} from './nodeDragInteraction.js';
 
 function createTextNode(id: string, x: number, y: number, width = 120): ChartNode {
   return {

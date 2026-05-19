@@ -30,7 +30,7 @@ Why:
 
 - that matches the product request for "graphs that can be run when the main graph is running"
 - the Project Info UI explicitly exposes `Main Graph`
-- app-side "Run Main Graph" flows already use `project.metadata.mainGraphId`
+- app-side project-run flows already use `project.metadata.mainGraphId`
 
 Important mismatch:
 

@@ -346,6 +346,7 @@ At a high level, it owns:
 Important current boundary:
 
 - graph-topology queries and readiness checks have been extracted into [`NodeExecutionPlanner.ts`](../packages/core/src/model/NodeExecutionPlanner.ts)
+- node exclusion decisions and excluded output construction have been extracted into [`NodeExclusionPolicy.ts`](../packages/core/src/model/NodeExclusionPolicy.ts)
 - child-processor event/lifecycle wiring has been extracted into [`SubprocessorBridge.ts`](../packages/core/src/model/SubprocessorBridge.ts)
 - `GraphProcessor` still remains the public evented execution surface and the owner of execution state
 
@@ -403,7 +404,8 @@ intentionally split under
 - `llmChatV2NodeRuntime.ts` is a coordinator that assembles those policies for the runtime and re-exports compatibility helpers used by existing tests/imports.
 - `chatV2Errors.ts` owns provider/Vercel SDK error normalization, including API-call and browser/runtime fetch-failure classification for request-status outputs where no HTTP response is observable. It extracts HTTP status codes from common raw/normalized error shapes for retry and request-status outputs, and must not stringify whole provider data objects into user-visible node errors.
 - `chatV2Retry.ts` owns `Retry on non-200` defaults, repeat/cooldown normalization, and abort-safe repeat waits for LLM provider retries, including the zero-cooldown path before a repeat starts.
-- `chatV2Pipeline.ts` and `toolContinuation.ts` stay focused on provider-neutral streaming, output assembly, request-status/request-error output assembly, retry-attempt status/error list assembly, and auto-continuation behavior. For `JSON` and `JSON schema` response formats, `aiSdkBridge.ts` resolves the AI SDK's parsed `output` promise on a best-effort basis and `chatV2Pipeline.ts` uses that parsed value for the `Response` output while keeping the assistant message text unchanged for chat history. Parsed-output failures fall back to the response text as a string instead of failing the node. Structured-output calls also ask `consumeAiSdkStream(...)` to collapse exact duplicate text blocks and normalize repeated parseable JSON text before partial-output updates or fallback parsing, because some AI SDK/provider combinations expose the same final JSON object more than once.
+- `chatV2Outputs.ts` owns provider-neutral output assembly: `Response` typing for structured formats, assistant/function-call outputs, usage/cost normalization, reusable control-flow exclusion for absent optional outputs, reasoning exclusion, request-status/request-error outputs, retry-attempt status/error arrays, and provider-failure output shape.
+- `chatV2Pipeline.ts` and `toolContinuation.ts` stay focused on provider-neutral streaming orchestration, retry coordination, provider-error decisions, and auto-continuation behavior. For `JSON` and `JSON schema` response formats, `aiSdkBridge.ts` resolves the AI SDK's parsed `output` promise on a best-effort basis and `chatV2Outputs.ts` uses that parsed value for the `Response` output while keeping the assistant message text unchanged for chat history. Parsed-output failures fall back to the response text as a string instead of failing the node. Structured-output calls also ask `consumeAiSdkStream(...)` to collapse exact duplicate text blocks and normalize repeated parseable JSON text before partial-output updates or fallback parsing, because some AI SDK/provider combinations expose the same final JSON object more than once.
 
 Keep future Chat v2 changes inside the smallest relevant seam. Do not add provider
 option parsing, cache-key fingerprinting, or credential-source behavior back into
@@ -437,10 +439,63 @@ Before execution, `GraphProcessor`:
 - computes strongly connected components
 
 The SCC and preprocessing work are significant because they shape cycle handling and graph validation before the main execution loop.
+`preprocessGraphState(...)` also builds a reusable immutable execution plan:
+directional input/output connection maps, input-node and output-node adjacency,
+missing-required-input lists, default start nodes, and cycle indexes. Normal
+editor and one-shot runs still build that plan per processor run. The
+preprocessor removes invalid port connections only from the two endpoint
+connection buckets that can contain the connection; valid graphs must not pay a
+graph-wide cleanup loop for every node, and invalid graphs must not fall back to
+whole-graph scans either. Execution-plan construction and the compatible
+`NodeExecutionPlanner` path also group output connections by target node in one
+pass so wide fan-out nodes do not repeatedly rescan the same connection list.
+`createGraphRunner(..., { runtimeProfile: 'headless-fast' })` passes a shared
+runtime cache into its run-scoped processors so repeated backend runs can reuse
+the graph-keyed plans and loaded project-reference snapshot without sharing
+mutable run state such as outputs, globals, pending user inputs, abort
+controllers, or execution metadata. The same cache is passed into subprocessors,
+so subgraph, call-graph, loop, cron, tool-delegation, and referenced-graph
+invocations can reuse their own immutable plans too. Cached plans also do not
+reuse `NodeImpl` runtime objects; each processor creates fresh node
+implementations before processing so custom node instance state stays
+run-scoped.
 
 Current architectural detail:
 
 - preprocessing is not only a `processGraph(...)` concern; some public helper paths depend on it being available lazily
+- cached plans are scoped to immutable runner snapshots; graph edits, registry/plugin changes, settings that affect definitions, or project-reference changes require a new runner
+- `createProcessor(...)` uses the same plan shape only as run-scoped data for a
+  fresh one-off processor run. The Node wrapper clears that cache before and
+  after `run()` so endpoint-style callers do not depend on cross-request cache
+  state. Its policy is split in
+  [`createProcessorRuntimePolicy.ts`](../packages/node/src/createProcessorRuntimePolicy.ts):
+  omitted `runtimeProfile` enables the default-safe pieces, explicit
+  `compatible` stays fully compatible, explicit `headless-fast` enables
+  graph-plan caching, loaded-reference caching, default CodeRunner caching, and
+  fast scheduling as separate flags, Remote Debugger forces all fast pieces off,
+  and trace-sensitive omitted runs stay fully compatible. The default-safe
+  `createProcessor(...)` policy caches execution plans only for subprocessors,
+  so a one-shot root graph does not pay reusable-plan construction cost unless
+  nested graph execution can reuse it. Unknown runtime `runtimeProfile` strings
+  use the compatible policy for untyped JavaScript callers.
+  The loaded-reference flag controls both reading and writing
+  `runtimeCache.loadedProjects`; a runtime cache alone is not enough to reuse
+  referenced projects. Execution-plan caching is also disabled for projects
+  with references unless loaded-reference caching is enabled, because node port
+  plans can depend on referenced project definitions.
+- Default-fast characterization lives in
+  [`packages/node/test/defaultFastCompatibility.test.ts`](../packages/node/test/defaultFastCompatibility.test.ts).
+  It compares omitted default-safe, compatible, and explicit `headless-fast`
+  Node `createProcessor(...)` runs at the event, partial-output callback,
+  user-input callback, global/user-event recorder, error, abort, custom
+  provider, reference-loader, and shared-project-object seams.
+  Recorder checks use the serialized replay shape because JSON drops
+  `undefined` object properties, and subgraph `duration` outputs are normalized
+  as timing-dependent values.
+- Core cache-mode behavior is pinned in
+  [`GraphProcessor.characterization.test.ts`](../packages/core/test/model/GraphProcessor.characterization.test.ts),
+  including the default-safe requirement that runtime execution-plan caching can
+  apply to child processors without caching the one-shot root graph.
 
 ### Event system
 
@@ -500,6 +555,18 @@ Current execution policy details:
 
 The readiness/dependency logic used by this flow now lives largely in `NodeExecutionPlanner.ts`, while `GraphProcessor` coordinates queueing and mutable execution state.
 
+The internal `fast-acyclic` scheduler is an opt-in headless path selected by the
+Node fast profiles only. It starts from source nodes and runs a small ready queue
+instead of recursively pulling from graph-output nodes through `p-queue` at
+every hop. Eligibility is intentionally narrow: no cycles, no split-run nodes,
+no preloaded/run-to editor state, no trace mode, and no loop, race, user-input,
+or wait-event nodes. Unsupported graphs automatically stay on the compatible
+scheduler. Node processing, exclusion, events, abort checks, subgraph creation,
+and output collection still go through the same `GraphProcessor` methods. The
+ready counts are based on unique upstream node ids, not raw connection counts,
+so a single source connected to multiple input ports releases the target once
+that source has finished, matching the compatible scheduler.
+
 ### Control-flow model
 
 Control flow is implemented through data propagation rather than separate wire types.
@@ -510,7 +577,14 @@ Important mechanisms:
 - `control-flow-excluded` values
 - special handling for loops and certain nodes that are allowed to consume excluded values
 
-The central check is currently internalized in `#excludedDueToControlFlow(...)`.
+The decision policy lives in
+[`NodeExclusionPolicy.ts`](../packages/core/src/model/NodeExclusionPolicy.ts).
+It owns disabled-node exclusions, false conditional `IF_PORT` exclusions,
+control-flow-excluded input decisions, merge-node exceptions, loop wait sentinel
+skips, missing-required-input trace wording, and construction of excluded output
+maps. `GraphProcessor` still owns applying those decisions: emitting trace and
+`nodeExcluded` events, storing output data, propagating attached data, clearing
+in-flight state, and queueing downstream nodes.
 
 Required input ports are also part of the exclusion lifecycle. If a reachable node has an input definition with `required: true` and that port has no connection, `GraphProcessor` must not call the node implementation. Instead, it emits `nodeExcluded` with reason `missing required input`, stores `control-flow-excluded` values for every output, and queues downstream nodes so the editor shows `Not ran` and exclusion continues through the graph.
 
@@ -521,7 +595,9 @@ This path must still participate in runtime metadata:
 - propagate attached data to downstream nodes
 - clear in-flight and remaining-node state just like completed nodes
 
-Keep this centralized in `GraphProcessor` / `NodeExecutionPlanner`; do not patch individual node implementations to handle unconnected required ports.
+Keep this centralized in `NodeExclusionPolicy` / `GraphProcessor` /
+`NodeExecutionPlanner`; do not patch individual node implementations to handle
+unconnected required ports.
 
 ### Subgraphs
 
@@ -659,17 +735,22 @@ That is especially true for nested execution correctness: `ProcessContextBuilder
 
 `Code (legacy)`, `Code` (internal type `codeNew`), `Expression`, `JS Filter`, and `JS Map` still execute
 through the configured `CodeRunner`. Browser mode uses `IsomorphicCodeRunner`.
-Programmatic Node execution through `@valerypopoff/rivet2-node` still defaults to
-`NodeCodeRunner`, while the desktop app's internal `app-executor` sidecar passes
-its own worker-backed runner so most Code-family JavaScript runs off the
-sidecar's main event loop. The app-executor worker runner falls back to
-current-thread execution when a Code-family node requests the `Rivet` capability,
-because packaged sidecar module resolution for that capability must stay
-compatible.
+Programmatic Node `runGraph(...)` and compatible-profile `createProcessor(...)`
+execution through `@valerypopoff/rivet2-node` still defaults to
+`NodeCodeRunner`, while omitted-default `createProcessor(...)` can use the
+run-scoped cached Node CodeRunner when no custom runner is supplied. The desktop
+app's internal `app-executor` sidecar passes its own worker-backed runner so
+most Code-family JavaScript runs off the sidecar's main event loop. The
+app-executor worker runner falls back to current-thread execution when a
+Code-family node requests the `Rivet` capability, because packaged sidecar
+module resolution for that capability must stay compatible.
 
 The Code-family nodes that own full code editors, `Code (legacy)` and `Code`, append a generated `sourceURL` before calling
 whichever runner is configured so runtime stack frames can be mapped back to the
-user's code editor lines when the run fails. `Code` passes the generated
+user's code editor lines when the run fails. That source URL is stable per node
+rather than per execution, because the process id is already carried by graph
+events and stable source names let headless Node runners reuse compiled
+functions across repeated backend calls. `Code` passes the generated
 interpolation/wrapper source as diagnostic code plus a user-code line offset, so
 runtime and syntax failures still point at the authored Code body instead of
 the generated wrapper.
@@ -680,7 +761,7 @@ worker-backed runs, while `AppExecutorWorkerCodeRunner.mts` keeps the matching
 bridge for the `Rivet`-capability current-thread fallback. In both paths those
 calls become `codeConsole` executor messages that the app replays in the renderer
 console. This does not change the public `NodeCodeRunner` default used by
-programmatic `@valerypopoff/rivet2-node` callers.
+`runGraph(...)` and explicit compatible-profile `createProcessor(...)` callers.
 
 `NodeCodeRunner` exposes its CommonJS `require()` resolution policy through
 `createCodeRunnerRequire(...)`, `getCodeRunnerRequireRoot(...)`, and
@@ -690,6 +771,18 @@ callers keep the old behavior. Hosted wrappers can set
 `RIVET_CODE_RUNNER_REQUIRE_ROOT` or `RIVET_CODE_RUNNER_REQUIRE_ANCHOR` before the
 runner is constructed to resolve Code-family `require()` from a runtime-library
 directory without patching source.
+
+The headless Node fast policies use a cached CodeRunner inside
+`createGraphRunner(..., { runtimeProfile: 'headless-fast' })`, omitted-default
+`createProcessor(...)`, and `createProcessor(..., { runtimeProfile:
+'headless-fast' })` when the caller does not pass an explicit `codeRunner`. The
+cache stores compiled functions by source text plus the injected argument shape
+(`inputs`, permissions, graph inputs, and context presence). It does not cache
+values or outputs, so locals remain fresh for every invocation and per-run
+`inputs`/`context` still vary normally. Normal `runGraph(...)`, compatible
+`createProcessor(...)`, Browser mode, Remote Debugger fallback, and app-executor
+worker execution keep their existing CodeRunner ownership. Custom `codeRunner`
+instances always win over the cached runner.
 
 Syntax-error diagnostics are deliberately failure-only. The core does not pre-parse
 successful `Code` node runs. If `AsyncFunction` construction throws a syntax error,

@@ -31,7 +31,7 @@ Shared runtime foundation for the entire repo.
 ### What it contains
 
 - graph/project/node/data types
-- `GraphProcessor` and extracted helpers (`NodeExecutionPlanner`, `SubprocessorBridge`, `SplitRunProcessor`)
+- `GraphProcessor` and extracted helpers (`NodeExecutionPlanner`, `NodeExclusionPolicy`, `SubprocessorBridge`, `SplitRunProcessor`)
 - built-in nodes
 - built-in plugins
 - `RegistryAssembly` - centralized registry creation and plugin assembly
@@ -75,6 +75,7 @@ From `src/index.ts` and related files:
 - `runGraphInFile(...)`
 - `runGraph(...)`
 - `createProcessor(...)`
+- `createGraphRunner(...)`
 - debugger server APIs
 - dataset/debugger/project-reference helpers
 
@@ -88,6 +89,123 @@ This package is the shared Node runtime used by:
 
 It is not just a convenience wrapper. It sets Node-default providers, debugger integration, env-based plugin config fallback, and Node-specific reference loading. Runtime settings still flow through core's shared `resolveProcessSettings(...)` helper instead of being rebuilt independently in the Node package.
 It also supplies a default tokenizer for Node-side runs when the caller does not provide one explicitly.
+
+### Runtime-speed characterization
+
+Runtime-speed work for programmatic Node execution is guarded from the Node
+package first. [`packages/node/test/runtimeSpeedEquivalence.test.ts`](../packages/node/test/runtimeSpeedEquivalence.test.ts)
+pins result and error compatibility across `runGraph(...)`,
+`createProcessor(...).run()`, `createGraphRunner(...).run(...)`, and direct
+`GraphProcessor.processGraph(...)` execution for simple headless fixtures
+covering per-run inputs/context, branching DAGs, async Delay nodes,
+missing-required-input exclusion, control-flow exclusion, Code, and Expression.
+Thrown Code errors and abort signals are pinned across the public Node APIs.
+The direct `GraphProcessor` mode is a diagnostic baseline for these
+provider-free fixtures, not a replacement for Node wrapper defaults such as
+native providers, MCP, project reference loading, or debugger attachment.
+
+[`packages/node/bench/runtimeSpeed.bench.ts`](../packages/node/bench/runtimeSpeed.bench.ts)
+is the repeatable baseline benchmark for the speed plan. Run it with
+`yarn bench:runtime-speed`, or tune iteration counts with
+`RIVET_RUNTIME_BENCH_ITERATIONS` and
+`RIVET_RUNTIME_BENCH_WARMUP_ITERATIONS`. Set
+`RIVET_RUNTIME_BENCH_SAMPLES` to run each benchmark case multiple times and
+report the average, min/max sample means, and standard deviation. It measures one-shot
+`runGraphInFile(...)`, loaded-project `runGraph(...)`, reused
+`createProcessor(...)`, fresh `createProcessor(...)` with default-safe,
+explicit compatible, and `runtimeProfile: 'headless-fast'` profiles,
+`createGraphRunner(...)`, direct processor
+execution, cheap text chains, nested subgraph chains, repeated same-input and
+changing-input subgraph calls, wide fan-in DAGs, mixed subgraph fan-in DAGs,
+Expression and Code chains, lazy preprocessing through the public dependency
+planning path, and both uncached and cached Node CodeRunner compile/run paths.
+The benchmark script rebuilds the core ESM package first because the Node
+workspace imports `@valerypopoff/rivet2-core` through its package export
+surface; running the benchmark against stale `packages/core/dist` output can
+hide or invent speed changes.
+Benchmarks are diagnostic only; correctness remains pinned by the equivalence
+tests.
+
+`createGraphRunner(...)` is the additive production-facing fast path for
+headless/programmatic Node integrations that load a project once and run the
+same graph many times. It resolves graph selection, registry/plugin setup,
+Node-default providers, settings, plugin env, tokenizer, code runner, and
+project-reference loading at runner creation. Each `runner.run(...)` converts
+loose `inputs` and `context` values separately and owns its own `abortSignal`.
+The `runtimeProfile` option is the fast-path selector for backend integrations.
+On `createGraphRunner(...)`, omitting it preserves the ordinary public Node
+runner defaults. Passing `compatible` also preserves those defaults.
+`headless-fast` still uses `GraphProcessor` node semantics and events, but when
+the caller does not provide a custom `codeRunner`, it swaps in a
+runner-owned cached Node CodeRunner. That cache stores compiled `AsyncFunction`
+instances keyed by source text and argument shape only; it never caches outputs,
+inputs, graph inputs, or context values. Each invocation still gets fresh local
+variables. The fast profile also shares an immutable graph execution plan across
+the runner's run-scoped processors. Plans are keyed by graph object, so nested
+subgraph and referenced-graph processors can reuse their own validated
+connection maps, port definitions, planner adjacency maps,
+missing-required-input lists, start nodes, and SCC metadata. The fast profile
+also caches loaded project-reference snapshots for the stable project/registry
+setup. It does not cache `NodeImpl` runtime instances, run outputs, graph
+inputs, context values, globals, abort state, queued nodes, or execution
+metadata. The runner clears its owned caches on `dispose()`. Each run still uses
+a run-scoped `GraphProcessor` with fresh node implementations so mutable
+processor or custom-node state cannot leak between backend requests. Eligible
+acyclic graphs can also use the internal fast ready-queue scheduler; unsupported
+graphs automatically use the compatible scheduler. Remote
+Debugger, recording, SSE/event-stream consumers, editor run-from, and
+Browser-mode execution should continue to use the compatible APIs until those
+surfaces have explicit runner support.
+
+`createProcessor(...)` now uses an endpoint-style default-safe fast policy for
+callers that create a fresh processor, run it once, and discard it.
+[`createProcessorRuntimePolicy.ts`](../packages/node/src/createProcessorRuntimePolicy.ts)
+owns the internal policy split for that path. Omitted `runtimeProfile` enables
+run-scoped subprocessor execution-plan caching and the default cached Node
+CodeRunner when no custom `codeRunner` is supplied, but keeps compatible
+scheduling and does not cache loaded project references. The root graph stays
+on the ordinary one-shot planning path so plain cheap workflows do not pay
+reusable-plan construction cost when there is no nested graph execution to
+reuse it. `runtimeProfile: 'compatible'` is the rollback knob that disables all
+optional fast behavior; the public API exports the `NodeRuntimeProfile` type
+while keeping the policy helper internal. For untyped JavaScript callers, only
+the documented string values are recognized; an unknown `runtimeProfile` value
+uses the compatible policy instead of the omitted-default policy.
+Explicit `headless-fast` enables the more aggressive pieces: run-scoped graph
+plan caching, loaded-project-reference caching, the default cached CodeRunner
+when no custom `codeRunner` is supplied, and the narrow `fast-acyclic` scheduler
+when the run is eligible. The run-scoped caches are cleared before and after
+`run()`, so they are not cross-request caches. Core will not use cached
+execution plans for projects with references unless loaded-project-reference
+caching is also enabled; referenced project definitions can affect node port
+plans.
+If `remoteDebugger !== undefined`, debugger compatibility wins and the processor
+uses the fully compatible path even when `headless-fast` is present. Omitted
+trace-sensitive runs also use the fully compatible path; explicit
+`headless-fast` trace runs keep compatible scheduling but can still use the
+other explicit fast pieces. Custom `codeRunner` instances always win; the Node
+cached CodeRunner is only used when no custom runner was supplied. Recording
+remains supported because the default-safe and explicit fast paths still emit
+normal processor events. `runGraph(...)` deliberately passes
+`runtimeProfile: 'compatible'` internally for this rollout, so callers who want
+the default-safe single-run policy should use `createProcessor(...).run()`.
+
+Default-fast promotion is guarded by
+[`packages/node/test/defaultFastCompatibility.test.ts`](../packages/node/test/defaultFastCompatibility.test.ts).
+That suite compares omitted default-safe, explicit compatible, and explicit
+`headless-fast` one-shot `createProcessor(...)` runs for final outputs,
+callback-visible events, recorder events after serialization, partial-output
+callbacks, user-input callbacks, global-set events, raised user events,
+Code/Expression errors, aborts, trace fallback, Remote Debugger fallback,
+custom CodeRunner ownership, custom `projectReferenceLoader` behavior, and
+concurrent runs over the same project object. Recorder parity is checked against
+the serialized replay shape because JSON cannot preserve `undefined` object
+properties. Subgraph node `duration` outputs are treated as timing-dependent
+values, not exact compatibility values. The current characterization keeps
+loaded-project reference caching as an explicit fast-profile behavior when a
+custom `projectReferenceLoader` is present: it can reduce observable loader call
+counts inside one run, so it is not part of default behavior until that contract
+is accepted or guarded by an automatic fallback.
 
 ## `@valerypopoff/rivet-app` (`packages/app/`)
 
@@ -179,9 +297,12 @@ The sidecar:
 - supports editor run-from execution by accepting startup `preloadData` in the same `run` message as explicit `runToNodeIds`; the sidecar applies that preload after creating the processor and before calling `run()`
 
 The worker-backed runner is scoped to the app executor. `@valerypopoff/rivet2-node`
-programmatic callers still use `NodeCodeRunner` by default unless they pass a
-custom `codeRunner`, and Code-family nodes that request the `Rivet` capability
-fall back to current-thread execution inside the sidecar for compatibility.
+programmatic `runGraph(...)` and compatible-profile `createProcessor(...)`
+callers still use `NodeCodeRunner` by default unless they pass a custom
+`codeRunner`; omitted-default `createProcessor(...)` can use the run-scoped
+cached Node CodeRunner when no custom runner is supplied. Code-family nodes that
+request the `Rivet` capability fall back to current-thread execution inside the
+sidecar for compatibility.
 
 For ordinary Code (legacy), Code, and Expression node execution, the app executor
 keeps a small pool of prewarmed single-use workers. Each run still consumes a
@@ -368,6 +489,7 @@ describe the current Rivet 2 surface:
 - app-level plugin installation, derived project plugin YAML, missing-plugin install prompts, and read-only project-used plugin settings
 - Code-family runtime permissions, Node-only `require` / `process`, and configurable require-root behavior
 - HTTP Call and LLM Chat retry/status/error output contracts
+- keep provider-neutral Chat v2 output assembly in `chatV2Outputs.ts` and pipeline orchestration in `chatV2Pipeline.ts` instead of adding output-shape policy back to node classes or provider adapters
 - wrapper/source-checkout guidance pointing to app host seams and generated built-package artifacts rather than stale npm names
 - GitHub Pages docs deployment at `/rivet2.0/`, with Docusaurus docs at the site root and a top-right `/download` page that reads stable Windows/macOS release metadata generated by the main-branch workflow plus developer Windows/macOS release metadata generated by the develop-branch workflow
 - `packages/docs/docusaurus.config.js` intentionally disables the Docusaurus pages plugin (`pages: false`). The published site root is the docs plugin's introduction page, not a custom `src/pages/index.tsx` landing page. Do not add a second landing shell unless the pages plugin is intentionally re-enabled and this contract is updated.

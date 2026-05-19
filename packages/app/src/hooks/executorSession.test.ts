@@ -844,6 +844,20 @@ test('logs malformed executor messages without breaking the session', async () =
   assert.equal((logged[0] as unknown[])[0], '[Failed to parse executor message]');
 });
 
+test('logs malformed executor message envelopes without breaking the session', async () => {
+  const logged = captureConsoleErrors();
+
+  await runtime.connect('ws://localhost:4445');
+  const socket = FakeWebSocket.instances[0]!;
+  socket.open();
+
+  socket.emitRawMessage(JSON.stringify({ data: 'missing message field' }));
+
+  assert.equal(runtime.getRuntimeState().status, 'ready');
+  assert.equal(logged.length, 1);
+  assert.equal((logged[0] as unknown[])[0], '[Failed to parse executor message]');
+});
+
 test('logs websocket transport errors without breaking the session', async () => {
   const logged = captureConsoleErrors();
 

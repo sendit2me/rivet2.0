@@ -27,6 +27,7 @@ import {
   deleteStoredRefIds,
   storeNodeDataForHistory,
 } from '../utils/executionDataStorage';
+import { projectState } from '../state/savedGraphs';
 
 export type ExecutionDataFlowApi = {
   clearNodeRunDataPreservationForNextStart: () => void;
@@ -58,6 +59,7 @@ export function useExecutionDataFlow(): ExecutionDataFlowApi {
   const currentGraphView = useAtomValue(currentGraphViewState);
   const selectedGraphRunByView = useAtomValue(selectedGraphRunByViewState);
   const lastRunData = useAtomValue(lastRunDataByNodeState);
+  const project = useAtomValue(projectState);
   const currentGraphViewLatest = useLatest(currentGraphView);
   const selectedGraphRunByViewLatest = useLatest(selectedGraphRunByView);
   const lastRunDataLatest = useLatest(lastRunData);
@@ -96,6 +98,7 @@ export function useExecutionDataFlow(): ExecutionDataFlowApi {
     const storedData = storeNodeDataForHistory(data, dataRefs, {
       nodeId,
       processId,
+      projectId: project.metadata.id,
     });
     const refIdsToDelete: string[] = [];
 

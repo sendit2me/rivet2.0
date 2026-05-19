@@ -10,16 +10,14 @@ import { useCanvasHotkeys } from '../hooks/useCanvasHotkeys';
 import { useCanvasPositioning } from '../hooks/useCanvasPositioning.js';
 import { useContextMenu } from '../hooks/useContextMenu.js';
 import { useCopyNodesHotkeys } from '../hooks/useCopyNodesHotkeys';
-import { type DragActivatorModifierState, useDraggingNode } from '../hooks/useDraggingNode.js';
+import { useDraggingNode } from '../hooks/useDraggingNode.js';
 import { useDraggingWire } from '../hooks/useDraggingWire.js';
 import { useGlobalHotkey } from '../hooks/useGlobalHotkey.js';
-import { isNodeGraphSearchMatch } from '../hooks/graphSearch.js';
 import { useNodeHeightCache } from '../hooks/useNodeBodyHeight';
 import { useNodePortPositions } from '../hooks/useNodePortPositions';
 import { useNodeTypes } from '../hooks/useNodeTypes';
 import { useProjectNodeRegistry } from '../hooks/useProjectNodeRegistry';
 import { usePortHoverTooltip } from '../hooks/usePortHoverTooltip.js';
-import { canPreloadEditorRunFromPlan, getEditorRunFromPlan } from '../hooks/remoteExecutorHelpers.js';
 import { useSearchGraph } from '../hooks/useSearchGraph';
 import { useSelectionBox } from '../hooks/useSelectionBox.js';
 import { useStableCallback } from '../hooks/useStableCallback.js';
@@ -29,7 +27,6 @@ import { useWireDragScrolling } from '../hooks/useWireDragScrolling';
 import {
   canvasPositionState,
   editingNodeState,
-  isGraphSearchVisibleWithQuery,
   searchingGraphState,
   lastCanvasPositionByGraphState,
   lastMousePositionState,
@@ -61,9 +58,15 @@ import { groupConnectionsByNode } from './nodeCanvas/groupConnectionsByNode.js';
 import { getDraggingViewportNodeIds } from './nodeCanvas/draggingViewportNodeIds.js';
 import { filterValidSubGraphConnections } from '../domain/graphEditing/connectionValidation.js';
 import { useExecutorSessionState } from '../hooks/useExecutorSession.js';
+import { type DragActivatorModifierState } from './nodeCanvas/nodeDragInteraction.js';
+import {
+  getCanvasHighlightedNodeIds,
+  getCanvasSearchMatchingNodeIds,
+  getCanvasSelectedInteractionNodeIds,
+} from './nodeCanvas/nodeCanvasInteractionModel.js';
+import { getNodeCanvasContextMenuContext } from './nodeCanvas/nodeCanvasContextMenuModel.js';
 
 const EMPTY_NODE_CONNECTIONS: NodeConnection[] = [];
-const EMPTY_NODE_IDS: NodeId[] = [];
 
 export interface NodeCanvasProps {
   nodes: ChartNode[];
@@ -360,41 +363,37 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
     }
   });
 
-  const selectedViewportNodeIds = useMemo(() => {
-    const nextSelectedNodeIds = new Set(selectedNodeIds);
-
-    if (editingNodeId) {
-      nextSelectedNodeIds.add(editingNodeId);
-    }
-
-    if (fullscreenOutputNodeId) {
-      nextSelectedNodeIds.add(fullscreenOutputNodeId);
-    }
-
-    return [...nextSelectedNodeIds];
-  }, [editingNodeId, fullscreenOutputNodeId, selectedNodeIds]);
-
-  const hasVisibleGraphSearchQuery = isGraphSearchVisibleWithQuery(graphSearch);
-  const searchMatchingNodeIds = useMemo(
+  const selectedViewportNodeIds = useMemo(
     () =>
-      hasVisibleGraphSearchQuery
-        ? graphSearch.matches
-            .filter(isNodeGraphSearchMatch)
-            .filter((match) => match.graphId === selectedGraphMetadata?.id)
-            .map((match) => match.nodeId)
-        : EMPTY_NODE_IDS,
-    [graphSearch.matches, hasVisibleGraphSearchQuery, selectedGraphMetadata?.id],
+      getCanvasSelectedInteractionNodeIds({
+        editingNodeId,
+        fullscreenOutputNodeId,
+        selectedNodeIds,
+      }),
+    [editingNodeId, fullscreenOutputNodeId, selectedNodeIds],
   );
 
-  const highlightedNodes = useMemo(() => {
-    const highlightedNodeIds = new Set(selectedViewportNodeIds);
+  const searchMatchingNodeIds = useMemo(
+    () =>
+      getCanvasSearchMatchingNodeIds({
+        matches: graphSearch.matches,
+        panelOpen: graphSearch.panelOpen,
+        query: graphSearch.query,
+        searching: graphSearch.searching,
+        selectedGraphId: selectedGraphMetadata?.id,
+      }),
+    [graphSearch.matches, graphSearch.panelOpen, graphSearch.query, graphSearch.searching, selectedGraphMetadata?.id],
+  );
 
-    if (hoveringNode && !hoveringPort) {
-      highlightedNodeIds.add(hoveringNode);
-    }
-
-    return [...highlightedNodeIds];
-  }, [hoveringNode, hoveringPort, selectedViewportNodeIds]);
+  const highlightedNodes = useMemo(
+    () =>
+      getCanvasHighlightedNodeIds({
+        hoveringNodeId: hoveringNode,
+        isPortHovered: !!hoveringPort,
+        selectedNodeIds: selectedViewportNodeIds,
+      }),
+    [hoveringNode, hoveringPort, selectedViewportNodeIds],
+  );
   const { heavyContentNodeIdSet, nearViewportNodeIdSet, visibleNodeIdSet } = useVisibleCanvasNodes({
     draggingNodeIds: draggingViewportNodeIds,
     editingNodeId,
@@ -454,49 +453,25 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
     { notWhenInputFocused: true },
   );
 
-  const hydratedContextMenuData = useMemo((): ContextMenuContext | null => {
-    if (contextMenuData.data?.type.startsWith('node-')) {
-      const nodeType = contextMenuData.data.type.replace('node-', '') as ChartNode['type'];
-      const nodeId = contextMenuData.data.element.dataset.nodeid as NodeId;
-      let canRunFromHere = false;
-
-      if (canStartEditorGraphRun && selectedGraphMetadata?.id) {
-        try {
-          const runFromPlan = getEditorRunFromPlan(
-            projectWithCanvasGraph,
-            selectedGraphMetadata.id,
-            nodeId,
-            projectNodeRegistry,
-          );
-          canRunFromHere = canPreloadEditorRunFromPlan(runFromPlan, lastRunPerNode);
-        } catch {
-          canRunFromHere = false;
-        }
-      }
-
-      return {
-        type: 'node',
-        data: {
-          nodeType,
-          nodeId,
-          canRunFromEditor: canStartEditorGraphRun,
-          canRunFromHere,
-        },
-      };
-    }
-
-    return {
-      type: 'blankArea',
-      data: {},
-    };
-  }, [
-    canStartEditorGraphRun,
-    contextMenuData,
-    lastRunPerNode,
-    projectNodeRegistry,
-    projectWithCanvasGraph,
-    selectedGraphMetadata?.id,
-  ]);
+  const hydratedContextMenuData = useMemo(
+    (): ContextMenuContext =>
+      getNodeCanvasContextMenuContext({
+        canStartEditorGraphRun,
+        contextMenuData,
+        lastRunPerNode,
+        project: projectWithCanvasGraph,
+        projectNodeRegistry,
+        selectedGraphId: selectedGraphMetadata?.id,
+      }),
+    [
+      canStartEditorGraphRun,
+      contextMenuData,
+      lastRunPerNode,
+      projectNodeRegistry,
+      projectWithCanvasGraph,
+      selectedGraphMetadata?.id,
+    ],
+  );
 
   useCanvasHotkeys();
   useSearchGraph();

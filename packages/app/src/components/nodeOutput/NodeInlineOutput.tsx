@@ -20,7 +20,6 @@ import {
 } from '../../state/dataFlow.js';
 import { filterProcessDataForSelection } from '../../state/selectors/executionSelectors.js';
 import { overlayOpenState } from '../../state/ui.js';
-import { getStoredOutputWarnings } from '../../utils/executionDataReaders.js';
 import { Tooltip } from '../Tooltip.js';
 import { CodeNodeErrorOutput } from '../nodes/CodeNode.js';
 import {
@@ -31,7 +30,11 @@ import {
 import { copyOutputValue } from './nodeOutputCopyActions.js';
 import { NodeOutputPager } from './NodeOutputPager.js';
 import { resolveNodeOutputPreviewMode } from './nodeOutputPreviewMode.js';
-import { shouldUseCodeErrorOutput, shouldUseCustomNodeErrorOutput } from './nodeOutputVisibility.js';
+import {
+  createNodeOutputContentViewModel,
+  getNodeOutputCopySource,
+  getSelectedNodeOutputProcess,
+} from './nodeOutputViewModel.js';
 import { renderNodeOutputBody } from './renderNodeOutputBody.js';
 
 export const NodeInlineOutput: FC<{
@@ -114,9 +117,6 @@ const NodeOutputSingleProcess: FC<{
     });
   };
 
-  const handleCopyToClipboard = useStableCallback(() =>
-    copyOutputValue(data, dataRefs, getCopyValueData, io.outputDefinitions),
-  );
   const handleOutputActionMouseDown = useStableCallback((event: MouseEvent<HTMLDivElement>) => {
     // Output controls are hover affordances. Do not let clicking them focus the
     // draggable node root, otherwise the settings gear stays visible after leave.
@@ -127,11 +127,23 @@ const NodeOutputSingleProcess: FC<{
     event.stopPropagation();
   });
 
-  const warnings = useMemo(() => getStoredOutputWarnings(data, dataRefs), [data, dataRefs]);
-  const shouldUseCustomErrorOutput = shouldUseCustomNodeErrorOutput(node.type, data);
+  const content = useMemo(
+    () =>
+      createNodeOutputContentViewModel({
+        nodeType: node.type,
+        data,
+        dataRefs,
+      }),
+    [data, dataRefs, node.type],
+  );
 
-  if (shouldUseCodeErrorOutput(node.type, data)) {
-    const contentKey = getNodeOutputContentKey(processId, data, 'code-error');
+  const copySource = getNodeOutputCopySource(content);
+  const handleCopyToClipboard = useStableCallback(() =>
+    copyOutputValue(copySource, dataRefs, getCopyValueData, io.outputDefinitions),
+  );
+
+  if (content.kind === 'code-error') {
+    const contentKey = getNodeOutputContentKey(processId, data, content.contentKeyKind);
 
     return (
       <div className="node-output-inner errored">
@@ -142,19 +154,19 @@ const NodeOutputSingleProcess: FC<{
     );
   }
 
-  if (data.status?.type === 'error' && !shouldUseCustomErrorOutput) {
-    const contentKey = getNodeOutputContentKey(processId, data, 'error');
+  if (content.kind === 'generic-error') {
+    const contentKey = getNodeOutputContentKey(processId, data, content.contentKeyKind);
 
     return (
       <div className="node-output-inner errored">
         <NodeOutputContentFade key={contentKey} contentKey={contentKey}>
-          {data.status.error}
+          {content.error}
         </NodeOutputContentFade>
       </div>
     );
   }
 
-  if (!data.outputData && !data.splitOutputData && !shouldUseCustomErrorOutput) {
+  if (content.kind === 'empty') {
     return null;
   }
 
@@ -172,7 +184,7 @@ const NodeOutputSingleProcess: FC<{
     isCompact,
     renderMode,
   });
-  const contentKey = getNodeOutputContentKey(processId, data, shouldUseCustomErrorOutput ? 'custom-error' : 'output');
+  const contentKey = getNodeOutputContentKey(processId, data, content.contentKeyKind);
 
   return (
     <div className="node-output-inner">
@@ -216,9 +228,9 @@ const NodeOutputSingleProcess: FC<{
       <NodeOutputContentFade key={contentKey} contentKey={contentKey}>
         {body}
       </NodeOutputContentFade>
-      {warnings && (
+      {content.warnings && (
         <div className="node-output-warnings">
-          {warnings.map((warning) => (
+          {content.warnings.map((warning) => (
             <div className="node-output-warning" key={warning}>
               {warning}
             </div>
@@ -253,10 +265,7 @@ const NodeOutputMultiProcess: FC<{
     });
   });
 
-  const selectedData = useMemo(
-    () => data[selectedPage === 'latest' ? data.length - 1 : selectedPage],
-    [data, selectedPage],
-  );
+  const selectedData = useMemo(() => getSelectedNodeOutputProcess(data, selectedPage), [data, selectedPage]);
 
   return (
     <div className="node-output multi">

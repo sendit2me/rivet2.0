@@ -4,14 +4,21 @@ import { loadTestGraphs } from './testUtils';
 import {
   CodeNodeImpl,
   createProcessor,
+  ExecutionRecorder,
+  globalRivetNodeRegistry,
+  runGraph,
+  type ChartNode,
   type CodeRunner,
   type GraphId,
+  type NodeImpl,
   type NodeGraph,
   type NodeId,
+  type NodeRegistration,
   type Outputs,
   type PortId,
   type Project,
 } from '../src/index.js';
+import { makeRepeatedSubgraphFanInProject } from './runtimeSpeedFixtures.js';
 
 function makeCodeProject(code: string): Project {
   const codeNode = CodeNodeImpl.create();
@@ -44,6 +51,47 @@ function makeCodeProject(code: string): Project {
       title: 'Node API Test Project',
     },
   } as Project;
+}
+
+function createCountingRegistry(): {
+  getDefinitionCalls: () => number;
+  registry: NodeRegistration<any, any>;
+} {
+  let definitionCalls = 0;
+
+  return {
+    getDefinitionCalls: () => definitionCalls,
+    registry: {
+      createDynamicImpl(node: ChartNode) {
+        const impl = globalRivetNodeRegistry.createDynamicImpl(node);
+        return trackDefinitionCalls(impl, () => {
+          definitionCalls += 1;
+        });
+      },
+      getPluginFor(type: string) {
+        return globalRivetNodeRegistry.getPluginFor(type);
+      },
+      getPlugins() {
+        return globalRivetNodeRegistry.getPlugins();
+      },
+    } as unknown as NodeRegistration<any, any>,
+  };
+}
+
+function trackDefinitionCalls(impl: NodeImpl<ChartNode>, onDefinitionCall: () => void): NodeImpl<ChartNode> {
+  const getInputDefinitionsIncludingBuiltIn = impl.getInputDefinitionsIncludingBuiltIn.bind(impl);
+  const getOutputDefinitions = impl.getOutputDefinitions.bind(impl);
+
+  impl.getInputDefinitionsIncludingBuiltIn = (...args) => {
+    onDefinitionCall();
+    return getInputDefinitionsIncludingBuiltIn(...args);
+  };
+  impl.getOutputDefinitions = (...args) => {
+    onDefinitionCall();
+    return getOutputDefinitions(...args);
+  };
+
+  return impl;
 }
 
 describe('api', () => {
@@ -257,5 +305,93 @@ describe('api', () => {
       type: 'string',
       value: 'custom runner',
     });
+  });
+
+  it('uses fast createProcessor planning only inside each run', async () => {
+    const fixture = makeRepeatedSubgraphFanInProject(3);
+    const countingRegistry = createCountingRegistry();
+    const processor = createProcessor(fixture.project, {
+      graph: fixture.graphId,
+      inputs: {
+        input: 'same',
+      },
+      registry: countingRegistry.registry,
+      runtimeProfile: 'headless-fast',
+    });
+
+    await processor.run();
+    assert.equal(countingRegistry.getDefinitionCalls(), 18);
+
+    await processor.run();
+    assert.equal(countingRegistry.getDefinitionCalls(), 36);
+  });
+
+  it('keeps runGraph on the compatible planning path', async () => {
+    const fixture = makeRepeatedSubgraphFanInProject(3);
+    const countingRegistry = createCountingRegistry();
+
+    await runGraph(fixture.project, {
+      graph: fixture.graphId,
+      inputs: {
+        input: 'same',
+      },
+      registry: countingRegistry.registry,
+    });
+
+    assert.equal(countingRegistry.getDefinitionCalls(), 30);
+  });
+
+  it('keeps remote-debugger createProcessor runs on the compatible planning path', async () => {
+    const fixture = makeRepeatedSubgraphFanInProject(3);
+    const countingRegistry = createCountingRegistry();
+    const remoteDebugger = {
+      on: () => undefined,
+      off: () => undefined,
+      webSocketServer: {} as never,
+      broadcast: () => undefined,
+      attach: () => undefined,
+      detach: () => undefined,
+    };
+    const processor = createProcessor(fixture.project, {
+      graph: fixture.graphId,
+      inputs: {
+        input: 'same',
+      },
+      registry: countingRegistry.registry,
+      remoteDebugger,
+      runtimeProfile: 'headless-fast',
+    });
+
+    await processor.run();
+
+    assert.equal(countingRegistry.getDefinitionCalls(), 30);
+  });
+
+  it('keeps fast createProcessor runs recordable through processor events', async () => {
+    const fixture = makeRepeatedSubgraphFanInProject(3);
+    const processor = createProcessor(fixture.project, {
+      graph: fixture.graphId,
+      inputs: {
+        input: 'same',
+      },
+      runtimeProfile: 'headless-fast',
+    });
+    const recorder = new ExecutionRecorder();
+    recorder.record(processor.processor);
+
+    const outputs = await processor.run();
+    const eventTypes = recorder.events.map((event) => event.type);
+
+    assert.deepEqual(outputs.result, {
+      type: 'string',
+      value: 'samexsamexsamex',
+    });
+    assert.ok(eventTypes.indexOf('start') > eventTypes.indexOf('newAbortController'));
+    assert.ok(eventTypes.includes('graphStart'));
+    assert.ok(eventTypes.includes('nodeStart'));
+    assert.ok(eventTypes.includes('nodeFinish'));
+    assert.ok(eventTypes.includes('graphFinish'));
+    assert.ok(eventTypes.includes('done'));
+    assert.equal(eventTypes.at(-1), 'finish');
   });
 });

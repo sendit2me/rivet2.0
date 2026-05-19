@@ -17,6 +17,7 @@ import {
   projectsState,
   projectState,
 } from '../state/savedGraphs.js';
+import { projectExecutionSnapshotsState } from '../state/dataFlow.js';
 import { trivetState } from '../state/trivet.js';
 import { useCenterViewOnGraph } from './useCenterViewOnGraph.js';
 import { useSaveCurrentGraph } from './useSaveCurrentGraph.js';
@@ -40,6 +41,7 @@ import { useCurrentProjectEditorSnapshot } from './useCurrentProjectEditorSnapsh
 import { canSaveProjectDataNoPrompt } from '../utils/projectSaveCapabilities.js';
 import { pluginsState, projectNodeRegistryState } from '../state/plugins.js';
 import { withDerivedProjectPluginSpecs } from '../utils/pluginUsage.js';
+import { useProjectExecutionSnapshots } from './useProjectExecutionSnapshots.js';
 
 export function useWorkspaceTransitions() {
   const ioProvider = useIOProvider();
@@ -61,6 +63,10 @@ export function useWorkspaceTransitions() {
   const setProjects = useSetAtom(projectsState);
   const centerViewOnGraph = useCenterViewOnGraph();
   const saveCurrentGraph = useSaveCurrentGraph();
+  const {
+    persistCurrentProjectExecutionSnapshot,
+    restoreProjectExecutionSnapshot,
+  } = useProjectExecutionSnapshots();
   const { testSuites } = useAtomValue(trivetState);
   const {
     canvasPosition,
@@ -130,6 +136,10 @@ export function useWorkspaceTransitions() {
         if (shouldPersistCurrentProjectEditorState && currentProjectId) {
           persistOpenedProjectSnapshot();
         }
+        const currentProjectExecutionSnapshot =
+          shouldPersistCurrentProjectEditorState && currentProjectId
+            ? persistCurrentProjectExecutionSnapshot(currentProjectId)
+            : undefined;
 
         const persistedProjectEditorState =
           targetProjectId === currentProjectId
@@ -177,6 +187,12 @@ export function useWorkspaceTransitions() {
         } else {
           setPosition({ x: 0, y: 0, zoom: 1 });
         }
+        const targetProjectExecutionSnapshot = store.get(projectExecutionSnapshotsState)[targetProjectId];
+        restoreProjectExecutionSnapshot(
+          targetProjectId === currentProjectId
+            ? currentProjectExecutionSnapshot ?? targetProjectExecutionSnapshot
+            : targetProjectExecutionSnapshot,
+        );
         await applyStaticData(projectInfo.data);
         setLoadedProject(transition.loadedProject);
         setTrivetState(createDefaultTrivetState(projectInfo.testSuites ?? []));

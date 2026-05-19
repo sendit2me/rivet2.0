@@ -47,6 +47,8 @@ import type { ExecutorSessionRuntime } from './executorSession.js';
 import {
   clearActiveRemoteRunRequest,
   clearActiveRemoteRunRequestIfMatches,
+  createUnscopedRemoteExecutionRoutingState,
+  resetUnscopedRemoteExecutionRoutingState,
   sendPendingRemoteGraphRunRequest,
   shouldDispatchRemoteExecutionEvent,
   startActiveRemoteGraphRunRequest,
@@ -56,6 +58,7 @@ export function useRemoteExecutor() {
   const executorSession = useExecutorSessionRuntime();
   const environmentProvider = useEnvironmentProvider();
   const activeGraphRequestIdRef = useRef<RemoteRunRequestId | null>(null);
+  const unscopedEventRoutingRef = useRef(createUnscopedRemoteExecutionRoutingState());
   const uploadCacheRef = useRef<RemoteExecutorUploadCache>({});
   const projectNodeRegistry = useProjectNodeRegistry();
   const project = useAtomValue(projectState);
@@ -82,6 +85,10 @@ export function useRemoteExecutor() {
   const eventDispatcher = createProcessEventDispatcher(currentExecution);
 
   useEffect(() => {
+    resetUnscopedRemoteExecutionRoutingState(unscopedEventRoutingRef.current);
+  }, [project.metadata.id]);
+
+  useEffect(() => {
     const resetUploadCache = () => resetRemoteExecutorUploadCache(uploadCacheRef.current);
     const unsubscribeConnect = executorSession.subscribeLifecycle('connect', resetUploadCache);
     const unsubscribeDisconnect = executorSession.subscribeLifecycle('disconnect', resetUploadCache);
@@ -94,10 +101,14 @@ export function useRemoteExecutor() {
 
   useEffect(() => {
     return executorSession.subscribeMessages((message, data, requestId) => {
-      const shouldDispatchExecutionEvent = shouldDispatchRemoteExecutionEvent(
+      const shouldDispatchExecutionEvent = shouldDispatchRemoteExecutionEvent({
+        activeRequestId: activeGraphRequestIdRef.current,
+        currentProjectId: project.metadata.id,
+        data,
+        message,
         requestId,
-        activeGraphRequestIdRef.current,
-      );
+        unscopedRoutingState: unscopedEventRoutingRef.current,
+      });
 
       switch (message) {
         case 'codeConsole':
@@ -203,7 +214,7 @@ export function useRemoteExecutor() {
           break;
       }
     });
-  }, [eventDispatcher, executorSession]);
+  }, [eventDispatcher, executorSession, project.metadata.id]);
 
   const tryRunGraph = async (options: { to?: NodeId[]; from?: NodeId; graphId?: GraphId } = {}) => {
     const sessionState = executorSession.getRuntimeState();

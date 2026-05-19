@@ -19,6 +19,8 @@ import { useRivetAppHostUiConfig } from '../providers/HostUiConfigContext.js';
 import { getVisibleFileMenuGroups } from '../utils/fileMenuConfiguration.js';
 import { overlayOpenState } from '../state/ui.js';
 import { sidebarOpenState } from '../state/graphBuilder.js';
+import { GRAPH_TREE_TOGGLE_SHORTCUT_LABEL } from '../hooks/canvasNavigationShortcuts.js';
+import { Tooltip } from './Tooltip.js';
 
 export const styles = css`
   position: absolute;
@@ -51,6 +53,12 @@ export const styles = css`
 
   .sidebar-toggle-menu {
     width: var(--project-selector-height);
+  }
+
+  .sidebar-toggle-tooltip {
+    display: flex;
+    width: 100%;
+    height: 100%;
   }
 
   .file-menu {
@@ -345,20 +353,22 @@ export const ProjectSelector: FC<{
 const GraphTreeSidebarToggle: FC = () => {
   const [sidebarOpen, setSidebarOpen] = useAtom(sidebarOpenState);
   const actionLabel = sidebarOpen ? 'Collapse graph tree' : 'Expand graph tree';
+  const actionTitle = `${actionLabel} (${GRAPH_TREE_TOGGLE_SHORTCUT_LABEL})`;
 
   return (
     <div className="sidebar-toggle-menu">
-      <button
-        type="button"
-        className="sidebar-toggle-button dropdown-item"
-        aria-controls="graph-tree-sidebar"
-        aria-expanded={sidebarOpen}
-        aria-label={actionLabel}
-        title={actionLabel}
-        onClick={() => setSidebarOpen((open) => !open)}
-      >
-        <GraphTreeSidebarIcon sidebarOpen={sidebarOpen} />
-      </button>
+      <Tooltip content={actionTitle} placement="bottom" className="sidebar-toggle-tooltip">
+        <button
+          type="button"
+          className="sidebar-toggle-button dropdown-item"
+          aria-controls="graph-tree-sidebar"
+          aria-expanded={sidebarOpen}
+          aria-label={actionLabel}
+          onClick={() => setSidebarOpen((open) => !open)}
+        >
+          <GraphTreeSidebarIcon sidebarOpen={sidebarOpen} />
+        </button>
+      </Tooltip>
     </div>
   );
 };

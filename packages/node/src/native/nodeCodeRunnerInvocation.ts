@@ -1,0 +1,100 @@
+import type { CodeRunnerOptions, DataValue, Inputs, Outputs } from '@valerypopoff/rivet2-core';
+import * as process from 'node:process';
+import type { createCodeRunnerRequire } from './codeRunnerRequire.js';
+
+type RuntimeRequire = ReturnType<typeof createCodeRunnerRequire>;
+export type NodeCodeRunnerFunction = (...args: unknown[]) => Promise<Outputs>;
+
+export type NodeCodeRunnerInvocation = {
+  argNames: string[];
+  args: unknown[];
+};
+
+export function getNodeCodeRunnerArgumentNames(
+  options: CodeRunnerOptions,
+  hasGraphInputs: boolean,
+  hasContextValues: boolean,
+): string[] {
+  const argNames = ['inputs'];
+
+  if (options.includeConsole) {
+    argNames.push('console');
+  }
+
+  if (options.includeRequire) {
+    argNames.push('require');
+  }
+
+  if (options.includeProcess) {
+    argNames.push('process');
+  }
+
+  if (options.includeFetch) {
+    argNames.push('fetch');
+  }
+
+  if (options.includeRivet) {
+    argNames.push('Rivet');
+  }
+
+  if (hasGraphInputs) {
+    argNames.push('graphInputs');
+  }
+
+  if (hasContextValues) {
+    argNames.push('context');
+  }
+
+  return argNames;
+}
+
+export async function buildNodeCodeRunnerInvocation(params: {
+  contextValues?: Record<string, DataValue>;
+  graphInputs?: Record<string, DataValue>;
+  inputs: Inputs;
+  loadRivet: () => Promise<unknown>;
+  options: CodeRunnerOptions;
+  runtimeRequire: RuntimeRequire;
+}): Promise<NodeCodeRunnerInvocation> {
+  const { contextValues, graphInputs, inputs, loadRivet, options, runtimeRequire } = params;
+  const argNames = getNodeCodeRunnerArgumentNames(options, graphInputs != null, contextValues != null);
+  const args: unknown[] = [inputs];
+
+  if (options.includeConsole) {
+    args.push(console);
+  }
+
+  if (options.includeRequire) {
+    args.push(runtimeRequire);
+  }
+
+  if (options.includeProcess) {
+    args.push(process);
+  }
+
+  if (options.includeFetch) {
+    args.push(fetch);
+  }
+
+  if (options.includeRivet) {
+    args.push(await loadRivet());
+  }
+
+  if (graphInputs) {
+    args.push(graphInputs);
+  }
+
+  if (contextValues) {
+    args.push(contextValues);
+  }
+
+  return {
+    argNames,
+    args,
+  };
+}
+
+export function compileNodeCodeRunnerFunction(argNames: string[], code: string): NodeCodeRunnerFunction {
+  const AsyncFunction = async function () {}.constructor as new (...args: string[]) => NodeCodeRunnerFunction;
+  return new AsyncFunction(...argNames, code);
+}

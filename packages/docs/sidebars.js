@@ -113,6 +113,7 @@ const sidebars = {
       items: [
         'api-reference/node/overview',
         'api-reference/node/createProcessor',
+        'api-reference/node/createGraphRunner',
         'api-reference/node/loadProjectFromFile',
         'api-reference/node/loadProjectFromString',
         'api-reference/node/runGraph',

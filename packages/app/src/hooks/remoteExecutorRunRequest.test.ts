@@ -1,9 +1,23 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { GraphId, GraphOutputs, OutgoingMessageMap, RemoteRunRequestId } from '@valerypopoff/rivet2-core';
+import type {
+  ChartNode,
+  GraphId,
+  GraphOutputs,
+  GraphRunId,
+  NodeId,
+  OutgoingMessageMap,
+  ProcessEventMessageMap,
+  ProcessId,
+  ProjectId,
+  RemoteRunRequestId,
+  RootRunId,
+} from '@valerypopoff/rivet2-core';
 import {
   clearActiveRemoteRunRequest,
   clearActiveRemoteRunRequestIfMatches,
+  createUnscopedRemoteExecutionRoutingState,
+  resetUnscopedRemoteExecutionRoutingState,
   sendPendingRemoteGraphRunRequest,
   shouldDispatchRemoteExecutionEvent,
   startActiveRemoteGraphRunRequest,
@@ -17,14 +31,320 @@ function makeRunPayload(): Omit<OutgoingMessageMap['run'], 'requestId'> {
   };
 }
 
-test('shouldDispatchRemoteExecutionEvent accepts unscoped events and the active request only', () => {
-  assert.equal(shouldDispatchRemoteExecutionEvent(undefined, 'request-1' as RemoteRunRequestId), true);
+function makeStartEvent(projectId: string, rootRunId = 'root-1'): ProcessEventMessageMap['start'] {
+  return {
+    contextValues: {},
+    execution: {
+      graphId: 'graph-1' as GraphId,
+      graphRunId: 'graph-run-1' as GraphRunId,
+      rootRunId: rootRunId as RootRunId,
+    },
+    inputs: {},
+    project: {
+      metadata: {
+        description: '',
+        id: projectId as ProjectId,
+        title: 'Project',
+      },
+      graphs: {},
+      plugins: [],
+    },
+    startGraph: {
+      metadata: {
+        id: 'graph-1' as GraphId,
+        name: 'Graph',
+      },
+      nodes: [],
+      connections: [],
+    },
+  };
+}
+
+function makeNodeFinishEvent(rootRunId = 'root-1'): ProcessEventMessageMap['nodeFinish'] {
+  return {
+    execution: {
+      graphId: 'graph-1' as GraphId,
+      graphRunId: 'graph-run-1' as GraphRunId,
+      rootRunId: rootRunId as RootRunId,
+    },
+    node: {
+      id: 'node-1' as NodeId,
+      type: 'text',
+    } as ChartNode,
+    outputs: {},
+    processId: 'process-1' as ProcessId,
+  };
+}
+
+function makeGraphFinishEvent(rootRunId = 'root-1'): ProcessEventMessageMap['graphFinish'] {
+  return {
+    execution: {
+      graphId: 'graph-1' as GraphId,
+      graphRunId: 'graph-run-1' as GraphRunId,
+      rootRunId: rootRunId as RootRunId,
+    },
+    graph: {
+      metadata: {
+        id: 'graph-1' as GraphId,
+        name: 'Graph',
+      },
+      nodes: [],
+      connections: [],
+    },
+    outputs: {},
+  };
+}
+
+test('shouldDispatchRemoteExecutionEvent accepts legacy unscoped events and the active request only', () => {
+  const unscopedRoutingState = createUnscopedRemoteExecutionRoutingState();
+
   assert.equal(
-    shouldDispatchRemoteExecutionEvent('request-1' as RemoteRunRequestId, 'request-1' as RemoteRunRequestId),
+    shouldDispatchRemoteExecutionEvent({
+      activeRequestId: 'request-1' as RemoteRunRequestId,
+      currentProjectId: 'project-1' as ProjectId,
+      data: 'trace',
+      message: 'trace',
+      requestId: undefined,
+      unscopedRoutingState,
+    }),
     true,
   );
   assert.equal(
-    shouldDispatchRemoteExecutionEvent('request-2' as RemoteRunRequestId, 'request-1' as RemoteRunRequestId),
+    shouldDispatchRemoteExecutionEvent({
+      activeRequestId: 'request-1' as RemoteRunRequestId,
+      currentProjectId: 'project-1' as ProjectId,
+      data: 'trace',
+      message: 'trace',
+      requestId: 'request-1' as RemoteRunRequestId,
+      unscopedRoutingState,
+    }),
+    true,
+  );
+  assert.equal(
+    shouldDispatchRemoteExecutionEvent({
+      activeRequestId: 'request-1' as RemoteRunRequestId,
+      currentProjectId: 'project-1' as ProjectId,
+      data: 'trace',
+      message: 'trace',
+      requestId: 'request-2' as RemoteRunRequestId,
+      unscopedRoutingState,
+    }),
+    false,
+  );
+});
+
+test('shouldDispatchRemoteExecutionEvent ignores unscoped runs for another project', () => {
+  const unscopedRoutingState = createUnscopedRemoteExecutionRoutingState();
+
+  assert.equal(
+    shouldDispatchRemoteExecutionEvent({
+      activeRequestId: null,
+      currentProjectId: 'project-1' as ProjectId,
+      data: makeStartEvent('project-2'),
+      message: 'start',
+      requestId: undefined,
+      unscopedRoutingState,
+    }),
+    false,
+  );
+  assert.equal(
+    shouldDispatchRemoteExecutionEvent({
+      activeRequestId: null,
+      currentProjectId: 'project-1' as ProjectId,
+      data: makeNodeFinishEvent(),
+      message: 'nodeFinish',
+      requestId: undefined,
+      unscopedRoutingState,
+    }),
+    false,
+  );
+});
+
+test('shouldDispatchRemoteExecutionEvent accepts unscoped runs for the current project', () => {
+  const unscopedRoutingState = createUnscopedRemoteExecutionRoutingState();
+
+  assert.equal(
+    shouldDispatchRemoteExecutionEvent({
+      activeRequestId: null,
+      currentProjectId: 'project-1' as ProjectId,
+      data: makeStartEvent('project-1'),
+      message: 'start',
+      requestId: undefined,
+      unscopedRoutingState,
+    }),
+    true,
+  );
+  assert.equal(
+    shouldDispatchRemoteExecutionEvent({
+      activeRequestId: null,
+      currentProjectId: 'project-1' as ProjectId,
+      data: makeNodeFinishEvent(),
+      message: 'nodeFinish',
+      requestId: undefined,
+      unscopedRoutingState,
+    }),
+    true,
+  );
+});
+
+test('unscoped remote execution routing state can be reset when the active project changes', () => {
+  const unscopedRoutingState = createUnscopedRemoteExecutionRoutingState();
+
+  assert.equal(
+    shouldDispatchRemoteExecutionEvent({
+      activeRequestId: null,
+      currentProjectId: 'project-1' as ProjectId,
+      data: makeStartEvent('project-2'),
+      message: 'start',
+      requestId: undefined,
+      unscopedRoutingState,
+    }),
+    false,
+  );
+
+  resetUnscopedRemoteExecutionRoutingState(unscopedRoutingState);
+
+  assert.equal(
+    shouldDispatchRemoteExecutionEvent({
+      activeRequestId: null,
+      currentProjectId: 'project-2' as ProjectId,
+      data: makeStartEvent('project-2'),
+      message: 'start',
+      requestId: undefined,
+      unscopedRoutingState,
+    }),
+    true,
+  );
+});
+
+test('shouldDispatchRemoteExecutionEvent forgets unscoped root runs after root graph completion', () => {
+  const unscopedRoutingState = createUnscopedRemoteExecutionRoutingState();
+
+  assert.equal(
+    shouldDispatchRemoteExecutionEvent({
+      activeRequestId: null,
+      currentProjectId: 'project-1' as ProjectId,
+      data: makeStartEvent('project-1'),
+      message: 'start',
+      requestId: undefined,
+      unscopedRoutingState,
+    }),
+    true,
+  );
+
+  assert.equal(unscopedRoutingState.acceptedRootRunIds.size, 1);
+
+  assert.equal(
+    shouldDispatchRemoteExecutionEvent({
+      activeRequestId: null,
+      currentProjectId: 'project-1' as ProjectId,
+      data: makeGraphFinishEvent(),
+      message: 'graphFinish',
+      requestId: undefined,
+      unscopedRoutingState,
+    }),
+    true,
+  );
+
+  assert.equal(unscopedRoutingState.acceptedRootRunIds.size, 0);
+});
+
+test('shouldDispatchRemoteExecutionEvent keeps accepted terminal events after an ignored run starts', () => {
+  const unscopedRoutingState = createUnscopedRemoteExecutionRoutingState();
+
+  assert.equal(
+    shouldDispatchRemoteExecutionEvent({
+      activeRequestId: null,
+      currentProjectId: 'project-1' as ProjectId,
+      data: makeStartEvent('project-1', 'root-accepted'),
+      message: 'start',
+      requestId: undefined,
+      unscopedRoutingState,
+    }),
+    true,
+  );
+  assert.equal(
+    shouldDispatchRemoteExecutionEvent({
+      activeRequestId: null,
+      currentProjectId: 'project-1' as ProjectId,
+      data: makeStartEvent('project-2', 'root-ignored'),
+      message: 'start',
+      requestId: undefined,
+      unscopedRoutingState,
+    }),
+    false,
+  );
+  assert.equal(
+    shouldDispatchRemoteExecutionEvent({
+      activeRequestId: null,
+      currentProjectId: 'project-1' as ProjectId,
+      data: makeGraphFinishEvent('root-accepted'),
+      message: 'graphFinish',
+      requestId: undefined,
+      unscopedRoutingState,
+    }),
+    true,
+  );
+
+  assert.equal(
+    shouldDispatchRemoteExecutionEvent({
+      activeRequestId: null,
+      currentProjectId: 'project-1' as ProjectId,
+      data: { results: {} },
+      message: 'done',
+      requestId: undefined,
+      unscopedRoutingState,
+    }),
+    true,
+  );
+});
+
+test('shouldDispatchRemoteExecutionEvent keeps ignored terminal events ignored after an accepted run starts', () => {
+  const unscopedRoutingState = createUnscopedRemoteExecutionRoutingState();
+
+  assert.equal(
+    shouldDispatchRemoteExecutionEvent({
+      activeRequestId: null,
+      currentProjectId: 'project-1' as ProjectId,
+      data: makeStartEvent('project-2', 'root-ignored'),
+      message: 'start',
+      requestId: undefined,
+      unscopedRoutingState,
+    }),
+    false,
+  );
+  assert.equal(
+    shouldDispatchRemoteExecutionEvent({
+      activeRequestId: null,
+      currentProjectId: 'project-1' as ProjectId,
+      data: makeStartEvent('project-1', 'root-accepted'),
+      message: 'start',
+      requestId: undefined,
+      unscopedRoutingState,
+    }),
+    true,
+  );
+  assert.equal(
+    shouldDispatchRemoteExecutionEvent({
+      activeRequestId: null,
+      currentProjectId: 'project-1' as ProjectId,
+      data: makeGraphFinishEvent('root-ignored'),
+      message: 'graphFinish',
+      requestId: undefined,
+      unscopedRoutingState,
+    }),
+    false,
+  );
+
+  assert.equal(
+    shouldDispatchRemoteExecutionEvent({
+      activeRequestId: null,
+      currentProjectId: 'project-1' as ProjectId,
+      data: { results: {} },
+      message: 'done',
+      requestId: undefined,
+      unscopedRoutingState,
+    }),
     false,
   );
 });

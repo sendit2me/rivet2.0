@@ -1,8 +1,7 @@
 import { describe, test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { toast, type Id as ToastId } from 'react-toastify';
-import { handleError, syncWrapper, wrapAsync } from './errorHandling.js';
-import { syncWrapper as legacySyncWrapper } from './syncWrapper.js';
+import { handleError, wrapAsync } from './errorHandling.js';
 
 type ToastWithMutableError = typeof toast & {
   error: typeof toast.error;
@@ -150,39 +149,4 @@ describe('errorHandling', { concurrency: false }, () => {
     ]);
   });
 
-  test('syncWrapper remains a compatibility alias over wrapAsync', async () => {
-    const toasted: string[] = [];
-
-    console.error = () => {};
-    mutableToast.error = createToastErrorStub((message) => {
-      toasted.push(message);
-    });
-
-    const wrapped = syncWrapper(async () => {
-      throw new Error('compatibility boom');
-    }, 'Compatibility wrapper test');
-
-    wrapped();
-    await new Promise((resolve) => setTimeout(resolve, 0));
-
-    assert.deepEqual(toasted, ['Compatibility wrapper test: compatibility boom']);
-  });
-
-  test('legacy syncWrapper module preserves handler arguments', async () => {
-    const toasted: string[] = [];
-
-    console.error = () => {};
-    mutableToast.error = createToastErrorStub((message) => {
-      toasted.push(message);
-    });
-
-    const wrapped = legacySyncWrapper(async (datasetId: string) => {
-      throw new Error(`compatibility boom ${datasetId}`);
-    }, 'Legacy compatibility wrapper test');
-
-    wrapped('dataset-1');
-    await new Promise((resolve) => setTimeout(resolve, 0));
-
-    assert.deepEqual(toasted, ['Legacy compatibility wrapper test: compatibility boom dataset-1']);
-  });
 });
