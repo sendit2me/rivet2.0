@@ -901,7 +901,7 @@ Acceptance criteria:
   filesystem shared project references, concurrent same-project calls, and the
   global compatible rollback path are covered.
 
-### P7: Split Default-Safe Fast Pieces From Explicit Fast Mode
+### P7: Split Default-Safe Fast Pieces From Explicit Fast Mode (DONE)
 
 After P6, split the current `headless-fast` behavior into smaller internal
 capabilities so defaults can move conservatively.
@@ -977,10 +977,10 @@ Implementation result:
 - The policy now splits explicit `headless-fast` into independent flags:
   run-scoped runtime cache, loaded-project-reference caching, default cached
   CodeRunner usage, fast scheduler selection, and fallback reasons.
-- Omitted `runtimeProfile` and explicit `runtimeProfile: 'compatible'` still
-  resolve to a fully compatible policy with no optional fast pieces. P8 remains
-  the separate step that can decide whether omitted `runtimeProfile` should map
-  to a default-safe fast policy.
+- At the end of P7, omitted `runtimeProfile` and explicit
+  `runtimeProfile: 'compatible'` still resolved to a fully compatible policy
+  with no optional fast pieces. P8 is the separate step that flips omitted
+  `runtimeProfile` to the default-safe fast policy.
 - `remoteDebugger !== undefined` resolves to the fully compatible policy even
   when `headless-fast` is requested.
 - `includeTrace: true` keeps compatible scheduling but does not turn off other
@@ -999,9 +999,8 @@ Implementation result:
 
 ### P8: Make Safe Fast Policy The Node CreateProcessor Default
 
-Once P6 and P7 are complete, change Node `createProcessor(...)` so omitted
-`runtimeProfile` resolves to the default-safe fast policy instead of the fully
-compatible policy.
+After P6 and P7, Node `createProcessor(...)` can make omitted `runtimeProfile`
+resolve to the default-safe fast policy instead of the fully compatible policy.
 
 This should still be a Node package change only. Do not change core
 `RunGraphOptions`, Browser/editor execution, app-executor behavior, or
@@ -1013,10 +1012,9 @@ Implementation shape:
   - omitted: automatic default-safe policy;
   - `'compatible'`: force old compatible behavior;
   - `'headless-fast'`: force aggressive eligible fast behavior.
-- Keep `runGraph(...)` behavior explicit in the plan before changing it. Since
-  Node `runGraph(...)` currently delegates to `createProcessor(...)`, decide
-  whether it should inherit the default-safe policy or pass
-  `runtimeProfile: 'compatible'` internally for one release.
+- Keep `runGraph(...)` behavior explicit. For this rollout, it passes
+  `runtimeProfile: 'compatible'` internally so the convenience API remains on
+  the old compatible path for one release.
 - Keep `createGraphRunner(...)` semantics unchanged unless benchmarks or wrapper
   feedback justify aligning its omitted default too.
 - Update API docs and developer docs with the new default and the rollback knob.
@@ -1047,6 +1045,57 @@ Acceptance criteria:
   guarded fallback and rebuild plans per run unless a freshness key for
   referenced project definitions is added.
 
+Implementation result:
+
+- Omitted Node `createProcessor(...)` runtime profiles now resolve to the
+  default-safe policy:
+  - run-scoped runtime cache for subprocessor execution plans only;
+  - no loaded-project-reference cache;
+  - compatible scheduler;
+  - run-scoped cached default Node CodeRunner only when no custom `codeRunner`
+    is supplied.
+- `runtimeProfile: 'compatible'` remains the old compatible rollback path with
+  no optional fast pieces.
+- `runtimeProfile: 'headless-fast'` remains the aggressive profile with
+  loaded-reference caching and the narrow fast scheduler when eligible.
+- Unknown `runtimeProfile` runtime values from untyped JavaScript callers use
+  the compatible rollback path rather than the omitted default-safe path.
+- `remoteDebugger !== undefined` forces full compatibility for omitted and
+  explicit fast profiles.
+- Omitted trace-sensitive runs force full compatibility; explicit
+  `headless-fast` trace runs keep only compatible scheduling so the explicit
+  profile can still use other fast pieces.
+- `runGraph(...)` now delegates through `createProcessor(...)` with
+  `runtimeProfile: 'compatible'` so it does not inherit the new omitted
+  `createProcessor(...)` default in this rollout.
+- `defaultFastCompatibility.test.ts` now compares omitted default-safe,
+  explicit compatible, and explicit `headless-fast` runs. It also pins that the
+  omitted default keeps compatible `projectReferenceLoader` call counts while
+  `headless-fast` may reduce them.
+- A benchmark reassessment found that caching the one-shot root execution plan
+  regressed plain 500-node `createProcessor(...)` runs because the root plan
+  could not be reused. The default-safe policy therefore uses
+  `executionPlanCacheMode: 'subprocessors'`; explicit `headless-fast` and
+  reusable `createGraphRunner(..., { runtimeProfile: 'headless-fast' })` still
+  cache all graph plans.
+- A final reassessment added a core `GraphProcessor` characterization guard for
+  that cache mode, proving child processors can populate the runtime execution
+  plan cache while the one-shot root graph stays uncached.
+- The P8 benchmark pass used 3 samples of 20 measured iterations after 3 warmup
+  iterations. Default-safe one-shot `createProcessor(...)` avoided the earlier
+  plain-chain regression and stayed effectively at compatible speed while still
+  giving small safe wins where subprocessors can reuse plans:
+
+| Scenario | Compatible | Default-safe | Explicit `headless-fast` |
+| --- | ---: | ---: | ---: |
+| Fresh `createProcessor` text chain 500 | `11.691ms` | `11.592ms` | `9.590ms` |
+| Fresh `createProcessor` repeated subgraph same-input 50 | `14.011ms` | `13.954ms` | `10.650ms` |
+| Fresh `createProcessor` repeated subgraph changing-input 50 | `11.893ms` | `11.526ms` | `10.441ms` |
+
+This is deliberately conservative: omitted `createProcessor(...)` now improves
+or matches compatible behavior for the measured safe cases, while larger
+scheduler/reference-cache wins remain explicit behind `headless-fast`.
+
 ## Deprioritized Work
 
 These are not first-wave tasks because the expected win is lower or the risk is
@@ -1063,8 +1112,9 @@ higher than the options above.
   separate project after headless Node wins are proven.
 - Optimizing `runGraphInFile(...)` beyond documentation. It is a convenience API;
   production services should load once and reuse a runner.
-- Making `headless-fast` the default before P6/P7 prove recorder, event,
-  callback, reference-loader, CodeRunner, and fallback compatibility.
+- Defaulting loaded-reference caching or the fast scheduler for one-shot
+  `createProcessor(...)` before referenced-project freshness and
+  timing-sensitive output behavior are explicitly accepted.
 
 ## Public APIs And Interfaces
 
@@ -1095,15 +1145,14 @@ type NodeCreateProcessorOptions = NodeRunGraphOptions & {
 
 API rules:
 
-- `runtimeProfile` is Node-only and opt-in. It starts on the runner API; adding
-  it to Node `createProcessor(...)` must be justified by fresh-processor,
-  single-run benchmarks, not by repeated-run cache reuse.
-- Existing one-shot APIs keep today's behavior and defaults. `runGraph(...)`
-  remains compatible and does not implicitly use `headless-fast`.
-- A future default-fast `createProcessor(...)` change must keep
-  `runtimeProfile: "compatible"` as an explicit rollback path and must define
-  whether Node `runGraph(...)` inherits the automatic policy or forces
-  compatibility for one release.
+- `runtimeProfile` is Node-only. On `createGraphRunner(...)`, omitted
+  `runtimeProfile` preserves the compatible runner behavior. On
+  `createProcessor(...)`, omitted `runtimeProfile` now means the default-safe
+  one-shot policy.
+- `runtimeProfile: "compatible"` is the explicit rollback path for
+  `createProcessor(...)` and the compatible selector for `createGraphRunner(...)`.
+- `runGraph(...)` remains compatible in this rollout and does not implicitly use
+  the new omitted `createProcessor(...)` default.
 - The runner owns stable setup. Each `run(...)` owns inputs, context, abort
   signal, and run-scoped mutable execution state.
 - Fast `createProcessor(...)` is a single-run optimization profile. It must not
@@ -1174,7 +1223,7 @@ API rules:
    - Keep `runtimeProfile: 'headless-fast'` as the aggressive explicit profile.
    - Promote only the P6-proven compatible flags into the omitted-default path.
 
-9. Make safe fast policy the Node `createProcessor(...)` default.
+9. Make safe fast policy the Node `createProcessor(...)` default. (DONE)
    - Change omitted `runtimeProfile` to the default-safe policy.
    - Decide explicitly whether `runGraph(...)` inherits that policy.
    - Keep Remote Debugger, trace-sensitive, editor-like, and unsupported graph
@@ -1280,9 +1329,10 @@ Run:
   Browser mode.
 - The first fast API should be additive. Existing APIs must not become faster by
   silently losing events, traces, recordings, debugger behavior, or compatibility.
-- Moving fast behavior into the omitted `createProcessor(...)` default is a
-  separate compatibility change from adding the opt-in profile. It requires
-  event/callback/recorder/reference-loader characterization first.
+- Moving safe fast behavior into the omitted `createProcessor(...)` default was
+  treated as a separate compatibility change from adding the opt-in profile. It
+  stays limited to the pieces covered by event/callback/recorder/reference-loader
+  characterization.
 - A reusable runner must support per-run inputs/context explicitly because the
   current core helper captures them at processor creation time.
 - Fast `createProcessor(...)` targets fresh processors that run once. It keeps

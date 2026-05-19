@@ -186,6 +186,8 @@ export type GraphProcessorRuntimeCache = {
   loadedProjects?: Record<ProjectId, Project>;
 };
 
+export type GraphProcessorExecutionPlanCacheMode = 'all' | 'subprocessors';
+
 export type GraphProcessorScheduler = 'compatible' | 'fast-acyclic';
 
 const DEFAULT_NODE_CONCURRENCY = 8;
@@ -256,6 +258,7 @@ export class GraphProcessor {
   #parent: GraphProcessor | undefined;
   readonly #registry: NodeRegistration<any, any>;
   readonly #concurrency: Required<GraphProcessorConcurrency>;
+  readonly #executionPlanCacheMode: GraphProcessorExecutionPlanCacheMode;
   readonly #runtimeCache: GraphProcessorRuntimeCache | undefined;
   readonly #cacheLoadedProjects: boolean;
   readonly #scheduler: GraphProcessorScheduler;
@@ -345,6 +348,7 @@ export class GraphProcessor {
     options?: {
       cacheLoadedProjects?: boolean;
       concurrency?: GraphProcessorConcurrency;
+      executionPlanCacheMode?: GraphProcessorExecutionPlanCacheMode;
       runtimeCache?: GraphProcessorRuntimeCache;
       scheduler?: GraphProcessorScheduler;
     },
@@ -367,6 +371,7 @@ export class GraphProcessor {
     this.#nodesById = {};
     this.#registry = registry;
     this.#concurrency = resolveGraphProcessorConcurrency(options?.concurrency);
+    this.#executionPlanCacheMode = options?.executionPlanCacheMode ?? 'all';
     this.#runtimeCache = options?.runtimeCache;
     this.#cacheLoadedProjects = options?.cacheLoadedProjects ?? false;
     this.#scheduler = options?.scheduler ?? 'compatible';
@@ -409,6 +414,10 @@ export class GraphProcessor {
 
   #canUseRuntimeExecutionPlanCache(): boolean {
     if (this.warnOnInvalidGraph || this.#runtimeCache == null) {
+      return false;
+    }
+
+    if (this.#executionPlanCacheMode === 'subprocessors' && !this.#isSubProcessor) {
       return false;
     }
 
@@ -1712,6 +1721,7 @@ export class GraphProcessor {
     const processor = new GraphProcessor(project ?? this.#project, subGraphId, this.#registry, this.#includeTrace, {
       cacheLoadedProjects: this.#cacheLoadedProjects,
       concurrency: this.#concurrency,
+      executionPlanCacheMode: this.#executionPlanCacheMode,
       runtimeCache: this.#runtimeCache,
       scheduler: this.#scheduler,
     });

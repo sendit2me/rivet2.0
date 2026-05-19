@@ -6,6 +6,7 @@ import {
   createProcessor,
   ExecutionRecorder,
   globalRivetNodeRegistry,
+  runGraph,
   type ChartNode,
   type CodeRunner,
   type GraphId,
@@ -323,6 +324,21 @@ describe('api', () => {
 
     await processor.run();
     assert.equal(countingRegistry.getDefinitionCalls(), 36);
+  });
+
+  it('keeps runGraph on the compatible planning path', async () => {
+    const fixture = makeRepeatedSubgraphFanInProject(3);
+    const countingRegistry = createCountingRegistry();
+
+    await runGraph(fixture.project, {
+      graph: fixture.graphId,
+      inputs: {
+        input: 'same',
+      },
+      registry: countingRegistry.registry,
+    });
+
+    assert.equal(countingRegistry.getDefinitionCalls(), 30);
   });
 
   it('keeps remote-debugger createProcessor runs on the compatible planning path', async () => {

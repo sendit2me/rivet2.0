@@ -1,4 +1,5 @@
 import type {
+  GraphProcessorExecutionPlanCacheMode,
   GraphProcessorRuntimeCache,
   GraphProcessorScheduler,
   ProcessContext,
@@ -10,6 +11,7 @@ export type CreateProcessorRuntimeFallbackReason = 'remote-debugger' | 'trace';
 
 export type CreateProcessorRuntimePolicy = {
   cacheLoadedProjects: boolean;
+  executionPlanCacheMode: GraphProcessorExecutionPlanCacheMode | undefined;
   fallbackReasons: CreateProcessorRuntimeFallbackReason[];
   runtimeCache: GraphProcessorRuntimeCache | undefined;
   scheduler: GraphProcessorScheduler;
@@ -27,9 +29,9 @@ export function resolveCreateProcessorRuntimePolicy({
   codeRunner,
   includeTrace,
   remoteDebugger,
-  runtimeProfile = 'compatible',
+  runtimeProfile,
 }: CreateProcessorRuntimePolicyOptions): CreateProcessorRuntimePolicy {
-  if (runtimeProfile !== 'headless-fast') {
+  if (runtimeProfile === 'compatible') {
     return createCompatibleRuntimePolicy();
   }
 
@@ -37,6 +39,32 @@ export function resolveCreateProcessorRuntimePolicy({
     return createCompatibleRuntimePolicy(['remote-debugger']);
   }
 
+  if (runtimeProfile === 'headless-fast') {
+    return createHeadlessFastRuntimePolicy({ codeRunner, includeTrace });
+  }
+
+  if (includeTrace) {
+    return createCompatibleRuntimePolicy(['trace']);
+  }
+
+  if (runtimeProfile !== undefined) {
+    return createCompatibleRuntimePolicy();
+  }
+
+  return {
+    cacheLoadedProjects: false,
+    executionPlanCacheMode: 'subprocessors',
+    fallbackReasons: [],
+    runtimeCache: {},
+    scheduler: 'compatible',
+    useCachedDefaultCodeRunner: codeRunner == null,
+  };
+}
+
+function createHeadlessFastRuntimePolicy({
+  codeRunner,
+  includeTrace,
+}: Pick<CreateProcessorRuntimePolicyOptions, 'codeRunner' | 'includeTrace'>): CreateProcessorRuntimePolicy {
   const fallbackReasons: CreateProcessorRuntimeFallbackReason[] = [];
   const scheduler = includeTrace ? 'compatible' : 'fast-acyclic';
 
@@ -46,6 +74,7 @@ export function resolveCreateProcessorRuntimePolicy({
 
   return {
     cacheLoadedProjects: true,
+    executionPlanCacheMode: 'all',
     fallbackReasons,
     runtimeCache: {},
     scheduler,
@@ -58,6 +87,7 @@ function createCompatibleRuntimePolicy(
 ): CreateProcessorRuntimePolicy {
   return {
     cacheLoadedProjects: false,
+    executionPlanCacheMode: undefined,
     fallbackReasons,
     runtimeCache: undefined,
     scheduler: 'compatible',

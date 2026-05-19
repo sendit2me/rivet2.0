@@ -139,7 +139,14 @@ async function main() {
   );
   results.push(
     await benchmarkCreateProcessor(
-      'fresh createProcessor text chain 500',
+      'fresh createProcessor compatible text chain 500',
+      cheap500.project,
+      { graph: cheap500.graphId, inputs: { input: 'bench' }, runtimeProfile: 'compatible' },
+    ),
+  );
+  results.push(
+    await benchmarkCreateProcessor(
+      'fresh createProcessor default-safe text chain 500',
       cheap500.project,
       { graph: cheap500.graphId, inputs: { input: 'bench' } },
     ),
@@ -172,7 +179,14 @@ async function main() {
   );
   results.push(
     await benchmarkCreateProcessor(
-      'fresh createProcessor repeated subgraph same-input 50',
+      'fresh createProcessor compatible repeated subgraph same-input 50',
+      repeatedSubgraph50.project,
+      { graph: repeatedSubgraph50.graphId, inputs: { input: 'bench' }, runtimeProfile: 'compatible' },
+    ),
+  );
+  results.push(
+    await benchmarkCreateProcessor(
+      'fresh createProcessor default-safe repeated subgraph same-input 50',
       repeatedSubgraph50.project,
       { graph: repeatedSubgraph50.graphId, inputs: { input: 'bench' } },
     ),
@@ -186,7 +200,14 @@ async function main() {
   );
   results.push(
     await benchmarkCreateProcessor(
-      'fresh createProcessor repeated subgraph changing-input 50',
+      'fresh createProcessor compatible repeated subgraph changing-input 50',
+      subgraph50.project,
+      { graph: subgraph50.graphId, inputs: { input: 'bench' }, runtimeProfile: 'compatible' },
+    ),
+  );
+  results.push(
+    await benchmarkCreateProcessor(
+      'fresh createProcessor default-safe repeated subgraph changing-input 50',
       subgraph50.project,
       { graph: subgraph50.graphId, inputs: { input: 'bench' } },
     ),

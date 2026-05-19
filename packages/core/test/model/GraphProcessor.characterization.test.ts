@@ -592,6 +592,58 @@ void describe('GraphProcessor characterization', () => {
     assert.equal(runtimeCache.executionPlans?.has(mainGraph), true);
   });
 
+  void it('can cache execution plans for subprocessors without caching the root graph', async () => {
+    const childProbeNode = makeProbeNode('child-probe', { value: { type: 'string', value: 'child value' } });
+    const childOutputNode = makeGraphOutputNode('childResult');
+    const childGraph = makeGraph(
+      [childProbeNode, childOutputNode],
+      [connect(childProbeNode.id, childOutputNode.id, 'value')],
+      'subprocessor-cache-child' as GraphId,
+    );
+    const subgraphNode: ChartNode = {
+      id: 'subgraph-node' as NodeId,
+      type: 'subGraph',
+      title: 'Subgraph',
+      data: {
+        graphId: childGraph.metadata!.id,
+        inputData: {},
+        useAsGraphPartialOutput: false,
+        useErrorOutput: false,
+      },
+      visualData: { x: 0, y: 0, width: 240 },
+    };
+    const parentOutputNode = makeGraphOutputNode('parentResult');
+    const parentGraph = makeGraph(
+      [subgraphNode, parentOutputNode],
+      [
+        {
+          outputNodeId: subgraphNode.id,
+          outputId: 'childResult' as PortId,
+          inputNodeId: parentOutputNode.id,
+          inputId: 'value' as PortId,
+        },
+      ],
+      'subprocessor-cache-parent' as GraphId,
+    );
+    const runtimeCache: GraphProcessorRuntimeCache = {};
+    const processor = new GraphProcessor(
+      makeProject(parentGraph, [childGraph]),
+      parentGraph.metadata!.id,
+      createRegistry(),
+      false,
+      {
+        executionPlanCacheMode: 'subprocessors',
+        runtimeCache,
+      },
+    );
+
+    const outputs = await processor.processGraph(testProcessContext());
+
+    assert.deepEqual(outputs.parentResult, { type: 'string', value: 'child value' });
+    assert.notEqual(runtimeCache.executionPlans?.has(parentGraph), true);
+    assert.equal(runtimeCache.executionPlans?.has(childGraph), true);
+  });
+
   void it('allows a race winner to finish the graph while the losing branch is aborted', async () => {
     const slowNode = makeProbeNode('slow-node', {
       delayMs: 50,

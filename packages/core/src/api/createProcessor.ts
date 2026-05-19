@@ -6,6 +6,7 @@ import type { DatasetProvider } from '../integrations/DatasetProvider.js';
 import type {
   ExternalFunction,
   GraphProcessorConcurrency,
+  GraphProcessorExecutionPlanCacheMode,
   GraphProcessorRuntimeCache,
   GraphProcessorScheduler,
   ProcessEvents,
@@ -59,6 +60,7 @@ export type RunGraphOptions = {
 
 export type CoreCreateProcessorInternalOptions = {
   cacheLoadedProjects?: boolean;
+  executionPlanCacheMode?: GraphProcessorExecutionPlanCacheMode;
   runtimeCache?: GraphProcessorRuntimeCache;
   scheduler?: GraphProcessorScheduler;
 };
@@ -89,6 +91,7 @@ export function coreCreateProcessor(
     {
       cacheLoadedProjects: internalOptions.cacheLoadedProjects,
       concurrency: options.concurrency,
+      executionPlanCacheMode: internalOptions.executionPlanCacheMode,
       runtimeCache: internalOptions.runtimeCache,
       scheduler: internalOptions.scheduler,
     },

@@ -134,6 +134,7 @@ export function createProcessor(
   const runtimePolicy = resolveCreateProcessorRuntimePolicy({ ...processorOptions, runtimeProfile });
   const processor = coreCreateProcessor(project, processorOptions, {
     cacheLoadedProjects: runtimePolicy.cacheLoadedProjects,
+    executionPlanCacheMode: runtimePolicy.executionPlanCacheMode,
     runtimeCache: runtimePolicy.runtimeCache,
     scheduler: runtimePolicy.scheduler,
   });
@@ -265,7 +266,7 @@ export function createGraphRunner(project: Project, options: NodeGraphRunnerOpti
 }
 
 export async function runGraph(project: Project, options: NodeRunGraphOptions): Promise<Record<string, DataValue>> {
-  const processorInfo = createProcessor(project, options);
+  const processorInfo = createProcessor(project, { ...options, runtimeProfile: 'compatible' });
   return processorInfo.run();
 }
 
@@ -292,6 +293,7 @@ function createRunnerProcessor(
     },
     {
       cacheLoadedProjects: runtimeCache != null,
+      executionPlanCacheMode: 'all',
       runtimeCache,
       scheduler: runtimeCache ? 'fast-acyclic' : 'compatible',
     },
