@@ -8,6 +8,9 @@ import {
   runGraph,
   runGraphInFile,
   type DataValue,
+  type NodeGraphRunnerOptions,
+  type NodeGraphRunnerRunOptions,
+  type Project,
 } from '../src/index.js';
 import { CachedNodeCodeRunner } from '../src/native/CachedNodeCodeRunner.js';
 import { NodeCodeRunner } from '../src/native/NodeCodeRunner.js';
@@ -16,8 +19,10 @@ import {
   createRuntimeSpeedProcessor,
   makeCodeChainProject,
   makeExpressionChainProject,
+  makeMixedSubgraphFanInProject,
   makeSubgraphChainProject,
   makeTextChainProject,
+  makeWideTextFanInProject,
   type RuntimeSpeedProjectFixture,
 } from '../test/runtimeSpeedFixtures.js';
 
@@ -47,6 +52,8 @@ async function main() {
   const expression20 = makeExpressionChainProject(20);
   const code20 = makeCodeChainProject(20);
   const subgraph50 = makeSubgraphChainProject(50);
+  const wideFanIn200 = makeWideTextFanInProject(200);
+  const mixedSubgraphFanIn = makeMixedSubgraphFanInProject(8, 20);
   const codeRunner = new NodeCodeRunner();
   const cachedCodeRunner = new CachedNodeCodeRunner();
   const results: BenchmarkResult[] = [];
@@ -77,14 +84,14 @@ async function main() {
     results.push(await benchmark('reuse createProcessor passthrough', () => processor.run()));
   }
 
-  {
-    const runner = createGraphRunner(passthroughProject, {
-      graph: 'Passthrough',
-    });
-    results.push(
-      await benchmark('createGraphRunner passthrough', () => runner.run({ inputs: { input: 'bench' } })),
-    );
-  }
+  results.push(
+    await benchmarkGraphRunner(
+      'createGraphRunner passthrough',
+      passthroughProject,
+      { graph: 'Passthrough' },
+      { inputs: { input: 'bench' } },
+    ),
+  );
 
   {
     const processor = createRuntimeSpeedProcessor(cheap20.project, cheap20.graphId);
@@ -108,94 +115,130 @@ async function main() {
       runGraph(cheap500.project, { graph: cheap500.graphId, inputs: { input: 'bench' } }),
     ),
   );
-  {
-    const runner = createGraphRunner(cheap500.project, {
-      graph: cheap500.graphId,
-    });
-    results.push(
-      await benchmark('createGraphRunner text chain 500', () => runner.run({ inputs: { input: 'bench' } })),
-    );
-  }
-  {
-    const runner = createGraphRunner(cheap500.project, {
-      graph: cheap500.graphId,
-      runtimeProfile: 'headless-fast',
-    });
-    results.push(
-      await benchmark('createGraphRunner headless-fast text chain 500', () =>
-        runner.run({ inputs: { input: 'bench' } }),
-      ),
-    );
-  }
-  {
-    const runner = createGraphRunner(subgraph50.project, {
-      graph: subgraph50.graphId,
-    });
-    results.push(
-      await benchmark('createGraphRunner compatible subgraph chain 50', () =>
-        runner.run({ inputs: { input: 'bench' } }),
-      ),
-    );
-  }
-  {
-    const runner = createGraphRunner(subgraph50.project, {
-      graph: subgraph50.graphId,
-      runtimeProfile: 'headless-fast',
-    });
-    results.push(
-      await benchmark('createGraphRunner headless-fast subgraph chain 50', () =>
-        runner.run({ inputs: { input: 'bench' } }),
-      ),
-    );
-  }
+  results.push(
+    await benchmarkGraphRunner(
+      'createGraphRunner text chain 500',
+      cheap500.project,
+      { graph: cheap500.graphId },
+      { inputs: { input: 'bench' } },
+    ),
+  );
+  results.push(
+    await benchmarkGraphRunner(
+      'createGraphRunner headless-fast text chain 500',
+      cheap500.project,
+      {
+        graph: cheap500.graphId,
+        runtimeProfile: 'headless-fast',
+      },
+      { inputs: { input: 'bench' } },
+    ),
+  );
+  results.push(
+    await benchmarkGraphRunner(
+      'createGraphRunner compatible subgraph chain 50',
+      subgraph50.project,
+      { graph: subgraph50.graphId },
+      { inputs: { input: 'bench' } },
+    ),
+  );
+  results.push(
+    await benchmarkGraphRunner(
+      'createGraphRunner headless-fast subgraph chain 50',
+      subgraph50.project,
+      {
+        graph: subgraph50.graphId,
+        runtimeProfile: 'headless-fast',
+      },
+      { inputs: { input: 'bench' } },
+    ),
+  );
+  results.push(
+    await benchmarkGraphRunner(
+      'createGraphRunner compatible wide fan-in 200',
+      wideFanIn200.project,
+      { graph: wideFanIn200.graphId },
+      { inputs: { input: 'bench' } },
+    ),
+  );
+  results.push(
+    await benchmarkGraphRunner(
+      'createGraphRunner headless-fast wide fan-in 200',
+      wideFanIn200.project,
+      {
+        graph: wideFanIn200.graphId,
+        runtimeProfile: 'headless-fast',
+      },
+      { inputs: { input: 'bench' } },
+    ),
+  );
+  results.push(
+    await benchmarkGraphRunner(
+      'createGraphRunner compatible mixed subgraph fan-in',
+      mixedSubgraphFanIn.project,
+      { graph: mixedSubgraphFanIn.graphId },
+      { inputs: { input: 'bench' } },
+    ),
+  );
+  results.push(
+    await benchmarkGraphRunner(
+      'createGraphRunner headless-fast mixed subgraph fan-in',
+      mixedSubgraphFanIn.project,
+      {
+        graph: mixedSubgraphFanIn.graphId,
+        runtimeProfile: 'headless-fast',
+      },
+      { inputs: { input: 'bench' } },
+    ),
+  );
   results.push(
     await benchmark('runGraph expression chain 20', () =>
       runGraph(expression20.project, { graph: expression20.graphId, inputs: { input: 0 } }),
     ),
   );
-  {
-    const runner = createGraphRunner(expression20.project, {
-      graph: expression20.graphId,
-    });
-    results.push(
-      await benchmark('createGraphRunner compatible expression chain 20', () =>
-        runner.run({ inputs: { input: 0 } }),
-      ),
-    );
-  }
-  {
-    const runner = createGraphRunner(expression20.project, {
-      graph: expression20.graphId,
-      runtimeProfile: 'headless-fast',
-    });
-    results.push(
-      await benchmark('createGraphRunner headless-fast expression chain 20', () =>
-        runner.run({ inputs: { input: 0 } }),
-      ),
-    );
-  }
+  results.push(
+    await benchmarkGraphRunner(
+      'createGraphRunner compatible expression chain 20',
+      expression20.project,
+      { graph: expression20.graphId },
+      { inputs: { input: 0 } },
+    ),
+  );
+  results.push(
+    await benchmarkGraphRunner(
+      'createGraphRunner headless-fast expression chain 20',
+      expression20.project,
+      {
+        graph: expression20.graphId,
+        runtimeProfile: 'headless-fast',
+      },
+      { inputs: { input: 0 } },
+    ),
+  );
   results.push(
     await benchmark('runGraph code chain 20', () =>
       runGraph(code20.project, { graph: code20.graphId, inputs: { input: 0 } }),
     ),
   );
-  {
-    const runner = createGraphRunner(code20.project, {
-      graph: code20.graphId,
-    });
-    results.push(
-      await benchmark('createGraphRunner compatible code chain 20', () => runner.run({ inputs: { input: 0 } })),
-    );
-  }
-  {
-    const runner = createGraphRunner(code20.project, {
-      graph: code20.graphId,
-      runtimeProfile: 'headless-fast',
-    });
-    results.push(
-      await benchmark('createGraphRunner headless-fast code chain 20', () => runner.run({ inputs: { input: 0 } })),
-    );
-  }
+  results.push(
+    await benchmarkGraphRunner(
+      'createGraphRunner compatible code chain 20',
+      code20.project,
+      { graph: code20.graphId },
+      { inputs: { input: 0 } },
+    ),
+  );
+  results.push(
+    await benchmarkGraphRunner(
+      'createGraphRunner headless-fast code chain 20',
+      code20.project,
+      {
+        graph: code20.graphId,
+        runtimeProfile: 'headless-fast',
+      },
+      { inputs: { input: 0 } },
+    ),
+  );
   results.push(
     await benchmark('lazy preprocess/dependency text chain 500', () => benchmarkLazyPreprocessDependency(cheap500)),
   );
@@ -238,6 +281,20 @@ async function benchmark(name: string, run: () => Promise<unknown> | unknown): P
     stdDevMs: standardDeviation(sampleMeanMs, meanMs).toFixed(3),
     totalMs: measuredTotalMs.toFixed(3),
   };
+}
+
+async function benchmarkGraphRunner(
+  name: string,
+  project: Project,
+  options: NodeGraphRunnerOptions,
+  runOptions: NodeGraphRunnerRunOptions,
+): Promise<BenchmarkResult> {
+  const runner = createGraphRunner(project, options);
+  try {
+    return await benchmark(name, () => runner.run(runOptions));
+  } finally {
+    runner.dispose();
+  }
 }
 
 async function benchmarkCodeRunner(

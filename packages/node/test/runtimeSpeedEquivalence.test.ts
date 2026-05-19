@@ -18,7 +18,9 @@ import {
   makeGlobalStateProject,
   makeInputContextTextProject,
   makeMissingRequiredInputProject,
+  makeMixedSubgraphFanInProject,
   makeThrowingCodeProject,
+  makeWideTextFanInProject,
   runRuntimeSpeedProcessor,
   type RuntimeSpeedProjectFixture,
 } from './runtimeSpeedFixtures.js';
@@ -272,6 +274,40 @@ void describe('runtime speed equivalence guards', () => {
 
     for (const testCase of cases) {
       const outputsByMode = await collectOutputs(testCase.fixture, testCase.options);
+      assertModeOutputsEqual(outputsByMode, testCase.expected, testCase.name);
+    }
+  });
+
+  void it('pins wide and mixed benchmark DAG output equivalence across compatible runtime paths', async () => {
+    const cases: Array<{
+      expected: Record<string, DataValue>;
+      fixture: RuntimeSpeedProjectFixture;
+      name: string;
+    }> = [
+      {
+        expected: {
+          cost: { type: 'number', value: 0 },
+          result: { type: 'string', value: 'seed-0seed-1seed-2' },
+        },
+        fixture: makeWideTextFanInProject(3),
+        name: 'wide fan-in DAG',
+      },
+      {
+        expected: {
+          cost: { type: 'number', value: 0 },
+          result: { type: 'string', value: 'seed:0seed:1seed:0seed:1' },
+        },
+        fixture: makeMixedSubgraphFanInProject(2, 2),
+        name: 'mixed subgraph fan-in DAG',
+      },
+    ];
+
+    for (const testCase of cases) {
+      const outputsByMode = await collectOutputs(testCase.fixture, {
+        inputs: {
+          input: 'seed',
+        },
+      });
       assertModeOutputsEqual(outputsByMode, testCase.expected, testCase.name);
     }
   });

@@ -84,9 +84,10 @@ Implementation status:
 - Added the repeatable benchmark command
   `yarn bench:runtime-speed`, backed by
   [`packages/node/bench/runtimeSpeed.bench.ts`](packages/node/bench/runtimeSpeed.bench.ts).
-- The benchmark suite includes a nested subgraph chain so graph-keyed plan
-  caching stays visible in regular runtime-speed runs instead of living only in
-  ad hoc probes.
+- The benchmark suite includes nested subgraph, wide fan-in, and mixed
+  subgraph fan-in fixtures so graph-keyed plan caching and orchestration-heavy
+  DAG shapes stay visible in regular runtime-speed runs instead of living only
+  in ad hoc probes.
 - Benchmark iteration counts can be tuned with
   `RIVET_RUNTIME_BENCH_ITERATIONS` and
   `RIVET_RUNTIME_BENCH_WARMUP_ITERATIONS`.
@@ -410,10 +411,58 @@ wins more than absolute milliseconds. Small 20-node Code/Expression fixtures are
 still mostly dominated by node work and benchmark noise, so P4 should only be
 pursued if large cheap DAGs still need more speed after this cache.
 
-### P4: Strict Fast Acyclic Scheduler
+Follow-up scheduler-decision benchmark coverage was added on 2026-05-19 with
+the same averaged run shape. This pass added permanent wide fan-in and mixed
+subgraph fan-in rows to check whether a strict fast acyclic scheduler has a
+clear enough target after P3:
 
-Only pursue a new scheduler after P1/P2/P3 benchmarks show it is still
-necessary.
+| Case | Mean ms | Std dev ms |
+| --- | ---: | ---: |
+| `runGraphInFile` passthrough one-shot | `1.034` | `0.047` |
+| Load once plus `runGraph` passthrough | `0.123` | `0.003` |
+| Reuse `createProcessor` passthrough | `0.086` | `0.012` |
+| `createGraphRunner` passthrough | `0.094` | `0.003` |
+| Direct `GraphProcessor` text chain 20 | `0.566` | `0.064` |
+| `runGraph` text chain 20 | `0.563` | `0.015` |
+| `runGraph` text chain 100 | `3.302` | `0.035` |
+| `runGraph` text chain 500 | `38.217` | `0.442` |
+| `createGraphRunner` text chain 500 | `39.210` | `0.961` |
+| `createGraphRunner` headless-fast text chain 500 | `9.925` | `0.447` |
+| `createGraphRunner` compatible subgraph chain 50 | `11.880` | `0.507` |
+| `createGraphRunner` headless-fast subgraph chain 50 | `11.069` | `0.365` |
+| `createGraphRunner` compatible wide fan-in 200 | `22.535` | `0.243` |
+| `createGraphRunner` headless-fast wide fan-in 200 | `4.961` | `0.203` |
+| `createGraphRunner` compatible mixed subgraph fan-in | `9.158` | `0.250` |
+| `createGraphRunner` headless-fast mixed subgraph fan-in | `6.999` | `0.059` |
+| `runGraph` Expression chain 20 | `3.199` | `0.071` |
+| `createGraphRunner` compatible Expression chain 20 | `3.174` | `0.048` |
+| `createGraphRunner` headless-fast Expression chain 20 | `2.995` | `0.048` |
+| `runGraph` Code chain 20 | `7.577` | `0.349` |
+| `createGraphRunner` compatible Code chain 20 | `7.997` | `0.155` |
+| `createGraphRunner` headless-fast Code chain 20 | `7.676` | `0.074` |
+| Lazy preprocess/dependency text chain 500 | `29.374` | `0.239` |
+| `NodeCodeRunner` compile/run one snippet | `0.002` | `0.000` |
+| `CachedNodeCodeRunner` run cached snippet | `0.001` | `0.000` |
+
+The new wide fan-in row is the strongest confirmation that P3's cached
+adjacency/planning work matters beyond chains: the 200-branch fan-in graph is
+about `78%` faster through `headless-fast`. The mixed subgraph fan-in fixture is
+about `24%` faster. The nested chain is still only a modest win, which suggests
+subgraph node work and child-processor orchestration dominate that shape more
+than root scheduler scans. Overall, the new rows strengthen the case for
+keeping P3 and do not yet justify the semantic risk of a separate scheduler.
+
+### P4: Strict Fast Acyclic Scheduler (DEFERRED)
+
+Do not implement P4 as the next runtime-speed step. The current benchmark data
+shows that cached immutable graph planning already delivers the substantial win
+on the scheduler-heavy fixtures we have measured. A separate scheduler should
+stay as a future evidence-gated project, not active work.
+
+Only reconsider a new scheduler if a real workflow or benchmark shows
+`headless-fast` remains substantially slow after cached planning and the
+remaining bottleneck is scheduler orchestration rather than node execution,
+subgraph overhead, Code/LLM/HTTP latency, data size, or output rendering.
 
 Eligibility should be intentionally narrow:
 
@@ -437,16 +486,16 @@ must preserve:
 Fallback to compatible `GraphProcessor` must be automatic for unsupported graph
 features.
 
-Decision after the permanent P3 benchmark pass:
+Decision after the permanent P3 and follow-up orchestration benchmark passes:
 
-- Do not implement P4 immediately.
+- Do not implement P4 now.
 - The 500-node cheap graph already has a large `headless-fast` win from cached
-  planning, and the nested subgraph row now confirms the graph-keyed plan cache
-  helps subprocessors too.
+  planning, and the nested, wide fan-in, and mixed subgraph fan-in rows now
+  confirm the graph-keyed plan cache helps the main scheduler-heavy shapes too.
 - A separate scheduler still may be worthwhile for very large cheap acyclic
-  DAGs, but it should be justified by a new benchmark fixture where cached
-  planning is no longer enough. Until then, its semantic risk is higher than
-  its proven incremental payoff.
+  DAGs, but it should be justified by a benchmark where `headless-fast` remains
+  substantially slower after cached planning. Until then, its semantic risk is
+  higher than its proven incremental payoff.
 
 Expected payoff:
 
@@ -532,10 +581,13 @@ API rules:
    - Update `NodeExecutionPlanner` to consume maps when available.
    - Keep the existing preprocessing path for compatible execution.
 
-5. Decide whether a fast acyclic scheduler is still worth it.
-   - Re-run benchmarks after phases 2-4.
-   - Implement only if the measured remaining overhead is still substantial.
-   - Keep the eligibility gate strict and fallback automatic.
+5. Keep the fast acyclic scheduler deferred.
+   - The P3 and follow-up orchestration benchmarks do not justify P4 as the
+     next implementation step.
+   - Reconsider it only with a benchmark or real workflow where `headless-fast`
+     remains substantially slow after cached planning.
+   - If it is ever implemented, keep the eligibility gate strict and fallback
+     automatic.
 
 6. Later app-executor work.
    - Reassess app-executor worker startup, registry assembly, and sidecar
@@ -557,7 +609,7 @@ Benchmark coverage:
 - 20-node, 100-node, and 500-node built-in chains
 - 20-node Expression chain
 - 20-node new Code chain
-- subgraph/project-reference graph if representative
+- nested subgraph, wide fan-in, and mixed subgraph fan-in graphs
 - one-shot `runGraph(...)` vs reusable runner
 - cached vs uncached Node CodeRunner
 
@@ -566,6 +618,7 @@ Equivalence coverage:
 - per-run `inputs` and `context` on the same runner
 - graph inputs and outputs
 - branching DAGs
+- wide fan-in and mixed subgraph fan-in DAGs
 - async built-in nodes
 - missing required inputs
 - control-flow exclusion

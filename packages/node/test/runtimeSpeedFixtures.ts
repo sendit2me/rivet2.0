@@ -171,6 +171,25 @@ export function makeCodeChainProject(nodeCount: number): RuntimeSpeedProjectFixt
   return makeFixture(nodes, connections, outputNode.id);
 }
 
+export function makeWideTextFanInProject(branchCount: number): RuntimeSpeedProjectFixture {
+  const inputNode = makeGraphInputNode('graph-input', 'input', 'string');
+  const joinNode = makeJoinNode('join-output');
+  const outputNode = makeGraphOutputNode('graph-output', 'result', 'string');
+  const nodes: ChartNode[] = [inputNode, joinNode, outputNode];
+  const connections: NodeConnection[] = [];
+
+  for (let i = 0; i < branchCount; i++) {
+    const textNode = makeTextNode(`wide-text-${i}`, `{{input}}-${i}`);
+    nodes.push(textNode);
+    connections.push(connect(inputNode.id, 'data', textNode.id, 'input'));
+    connections.push(connect(textNode.id, 'output', joinNode.id, `input${i + 1}`));
+  }
+
+  connections.push(connect(joinNode.id, 'output', outputNode.id, 'value'));
+
+  return makeFixture(nodes, connections, outputNode.id);
+}
+
 export function makeSubgraphChainProject(subgraphCallCount: number): RuntimeSpeedProjectFixture {
   const mainGraphId = 'runtime-speed-main' as GraphId;
   const subGraphId = 'runtime-speed-subgraph' as GraphId;
@@ -222,6 +241,77 @@ export function makeSubgraphChainProject(subgraphCallCount: number): RuntimeSpee
           nodes: mainNodes,
         },
         [subGraphId]: subgraph,
+      },
+      metadata: {
+        description: '',
+        id: 'runtime-speed-project' as ProjectId,
+        mainGraphId,
+        title: 'Runtime Speed Project',
+      },
+      plugins: [],
+    },
+    terminalNodeId: mainOutput.id,
+  };
+}
+
+export function makeMixedSubgraphFanInProject(
+  subgraphCallCount: number,
+  branchesPerSubgraph: number,
+): RuntimeSpeedProjectFixture {
+  const mainGraphId = 'runtime-speed-main' as GraphId;
+  const subGraphId = 'runtime-speed-subgraph' as GraphId;
+  const mainInput = makeGraphInputNode('graph-input', 'input', 'string');
+  const mainJoin = makeJoinNode('main-join');
+  const mainOutput = makeGraphOutputNode('graph-output', 'result', 'string');
+  const mainNodes: ChartNode[] = [mainInput, mainJoin, mainOutput];
+  const mainConnections: NodeConnection[] = [];
+
+  for (let i = 0; i < subgraphCallCount; i++) {
+    const subgraphNode = makeSubgraphNode(`subgraph-${i}`, subGraphId);
+    mainNodes.push(subgraphNode);
+    mainConnections.push(connect(mainInput.id, 'data', subgraphNode.id, 'input'));
+    mainConnections.push(connect(subgraphNode.id, 'result', mainJoin.id, `input${i + 1}`));
+  }
+
+  mainConnections.push(connect(mainJoin.id, 'output', mainOutput.id, 'value'));
+
+  const subInput = makeGraphInputNode('subgraph-input', 'input', 'string');
+  const subJoin = makeJoinNode('subgraph-join');
+  const subOutput = makeGraphOutputNode('subgraph-output', 'result', 'string');
+  const subNodes: ChartNode[] = [subInput, subJoin, subOutput];
+  const subConnections: NodeConnection[] = [];
+
+  for (let i = 0; i < branchesPerSubgraph; i++) {
+    const textNode = makeTextNode(`subgraph-text-${i}`, `{{input}}:${i}`);
+    subNodes.push(textNode);
+    subConnections.push(connect(subInput.id, 'data', textNode.id, 'input'));
+    subConnections.push(connect(textNode.id, 'output', subJoin.id, `input${i + 1}`));
+  }
+
+  subConnections.push(connect(subJoin.id, 'output', subOutput.id, 'value'));
+
+  return {
+    graphId: mainGraphId,
+    project: {
+      graphs: {
+        [mainGraphId]: {
+          connections: mainConnections,
+          metadata: {
+            description: '',
+            id: mainGraphId,
+            name: 'Runtime Speed Main',
+          },
+          nodes: mainNodes,
+        },
+        [subGraphId]: {
+          connections: subConnections,
+          metadata: {
+            description: '',
+            id: subGraphId,
+            name: 'Runtime Speed Subgraph',
+          },
+          nodes: subNodes,
+        },
       },
       metadata: {
         description: '',
@@ -445,6 +535,20 @@ function makeSubgraphNode(id: string, graphId: GraphId): ChartNode {
     title: 'Subgraph',
     type: 'subGraph',
     visualData: { width: 300, x: 0, y: 0 },
+  };
+}
+
+function makeJoinNode(id: string): ChartNode {
+  return {
+    data: {
+      flatten: true,
+      joinString: '',
+      useJoinStringInput: false,
+    },
+    id: id as NodeId,
+    title: 'Join',
+    type: 'join',
+    visualData: { width: 150, x: 0, y: 0 },
   };
 }
 

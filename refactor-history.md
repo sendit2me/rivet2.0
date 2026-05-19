@@ -677,6 +677,32 @@ not preserve a complete file list.
     - Affected files/areas: `packages/node/test/runtimeSpeedFixtures.ts`, `packages/node/bench/runtimeSpeed.bench.ts`, `packages/node/test/graphRunner.test.ts`, `developer-docs/PACKAGES.md`, `runtime-speed-plan.md`.
     - Result in numbers: benchmark code moved `+23/-0`, shared test fixtures moved `+78/-0`, and `graphRunner.test.ts` moved `+7/-119`, so the permanent nested benchmark guard actually reduced test code by about 34 net lines while adding the reusable fixture. The refreshed benchmark run measured `39.698ms` compatible versus `9.778ms` `headless-fast` for the 500-node text chain and `12.813ms` compatible versus `11.365ms` `headless-fast` for the 50-subgraph chain. The latest run was slower across most cases than the earlier P3 run, so relative wins are more meaningful than absolute milliseconds.
 
+125. **Added orchestration benchmark fixtures before scheduler work**
+    - Why: Before attempting the high-risk P4 scheduler, the runtime-speed plan
+      needed permanent benchmark rows for large acyclic DAGs that stress
+      fan-out/fan-in and mixed subgraph orchestration rather than only chains.
+    - How: Added shared wide fan-in and mixed subgraph fan-in fixtures, added
+      compatible and `headless-fast` benchmark rows for both shapes, and pinned
+      their output equivalence across public Node APIs and the direct diagnostic
+      processor path. Updated the runtime-speed plan to record the new benchmark
+      pass and keep P4 deferred until a benchmark proves cached planning is not
+      enough.
+    - Affected files/areas: `packages/node/test/runtimeSpeedFixtures.ts`,
+      `packages/node/bench/runtimeSpeed.bench.ts`,
+      `packages/node/test/runtimeSpeedEquivalence.test.ts`,
+      `developer-docs/PACKAGES.md`, `runtime-speed-plan.md`.
+    - Result in numbers: benchmark harness code moved `+143/-86` for a net
+      `+57`, including the new rows plus a shared runner-disposal helper.
+      Shared runtime-speed fixtures moved `+104/-0`, and equivalence tests
+      moved `+36/-0`. Docs/planning moved about `+102/-22` including this
+      history entry. The averaged benchmark pass measured `22.535ms` compatible
+      versus `4.961ms` `headless-fast` for a 200-branch fan-in graph and `9.158ms`
+      compatible versus `6.999ms` `headless-fast` for the mixed subgraph fan-in
+      graph.
+      Those rows confirm P3's cached plan/adjacency path already delivers the
+      substantial win on scheduler-heavy shapes, so P4 remains a future
+      evidence-gated project rather than the next implementation step.
+
 ## Residual Watchlist For Future Refactors
 
 1. **GraphProcessor size and responsibility concentration**
