@@ -4,9 +4,6 @@
 - Now, the executor mode is global for all open projects (remote debugger, browser, node). Make it per tab
 
 
-- Clean up the repo form unnecessary files and maybe rearrange some folders. Do we need publish-docs.mts?
-
-
 - Need a "Not" node?
 
 
