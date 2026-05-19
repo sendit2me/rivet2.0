@@ -439,10 +439,25 @@ Before execution, `GraphProcessor`:
 - computes strongly connected components
 
 The SCC and preprocessing work are significant because they shape cycle handling and graph validation before the main execution loop.
+`preprocessGraphState(...)` also builds a reusable immutable execution plan:
+directional input/output connection maps, input-node and output-node adjacency,
+missing-required-input lists, default start nodes, and cycle indexes. Normal
+editor and one-shot runs still build that plan per processor run.
+`createGraphRunner(..., { runtimeProfile: 'headless-fast' })` passes a shared
+runtime cache into its run-scoped processors so repeated backend runs can reuse
+the graph-keyed plans and loaded project-reference snapshot without sharing
+mutable run state such as outputs, globals, pending user inputs, abort
+controllers, or execution metadata. The same cache is passed into subprocessors,
+so subgraph, call-graph, loop, cron, tool-delegation, and referenced-graph
+invocations can reuse their own immutable plans too. Cached plans also do not
+reuse `NodeImpl` runtime objects; each processor creates fresh node
+implementations before processing so custom node instance state stays
+run-scoped.
 
 Current architectural detail:
 
 - preprocessing is not only a `processGraph(...)` concern; some public helper paths depend on it being available lazily
+- cached plans are scoped to immutable runner snapshots; graph edits, registry/plugin changes, settings that affect definitions, or project-reference changes require a new runner
 
 ### Event system
 

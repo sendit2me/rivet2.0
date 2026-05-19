@@ -9,34 +9,39 @@ import type {
 } from './NodeBase.js';
 import type { Inputs } from './GraphProcessor.js';
 import { isNotNull } from '../utils/genericUtilFunctions.js';
+import type { GraphExecutionPlan, GraphOutputNodeResult } from './GraphPreprocessor.js';
 
 export type ExecutionState = {
   connections: Record<NodeId, NodeConnection[]>;
   definitions: Record<NodeId, { inputs: NodeInputDefinition[]; outputs: NodeOutputDefinition[] }>;
   erroredNodes: Map<NodeId, Error | string>;
+  executionPlan?: GraphExecutionPlan;
   loopControllersSeen: Set<NodeId>;
   nodesById: Record<NodeId, ChartNode>;
   stronglyConnectedComponents: ChartNode[][];
   visitedNodes: Set<NodeId>;
 };
 
-export type OutputNodeResult = {
-  nodes: ChartNode[];
-  connections: NodeConnection[];
-  connectionsToNodes: { connections: NodeConnection[]; node: ChartNode }[];
-};
+export type OutputNodeResult = GraphOutputNodeResult;
 
 export function getStartNodes(
   state: ExecutionState,
   graphNodes: ChartNode[],
   runToNodeIds?: NodeId[],
 ): ChartNode[] {
-  return runToNodeIds
-    ? graphNodes.filter((node) => runToNodeIds.includes(node.id))
-    : graphNodes.filter((node) => getOutputNodesFrom(state, node).nodes.length === 0);
+  if (runToNodeIds) {
+    return graphNodes.filter((node) => runToNodeIds.includes(node.id));
+  }
+
+  return state.executionPlan?.startNodes ?? graphNodes.filter((node) => getOutputNodesFrom(state, node).nodes.length === 0);
 }
 
 export function getInputNodesTo(state: ExecutionState, node: ChartNode): ChartNode[] {
+  const plannedInputNodes = state.executionPlan?.inputNodesByNode[node.id];
+  if (plannedInputNodes) {
+    return plannedInputNodes;
+  }
+
   const connections = state.connections[node.id];
   if (!connections) {
     return [];
@@ -55,6 +60,11 @@ export function getInputNodesTo(state: ExecutionState, node: ChartNode): ChartNo
 }
 
 export function getOutputNodesFrom(state: ExecutionState, node: ChartNode): OutputNodeResult {
+  const plannedOutputNodes = state.executionPlan?.outputNodeResultsByNode[node.id];
+  if (plannedOutputNodes) {
+    return plannedOutputNodes;
+  }
+
   const connections = state.connections[node.id];
   if (!connections) {
     return { nodes: [], connections: [], connectionsToNodes: [] };
@@ -97,6 +107,11 @@ export function hasErroredInputNode(
 }
 
 export function getMissingRequiredInputs(state: ExecutionState, node: ChartNode): NodeInputDefinition[] {
+  const plannedMissingInputs = state.executionPlan?.missingRequiredInputsByNode[node.id];
+  if (plannedMissingInputs) {
+    return plannedMissingInputs;
+  }
+
   const connections = state.connections[node.id] ?? [];
 
   return state.definitions[node.id]!.inputs.filter((input) => {
@@ -137,6 +152,11 @@ export function getWaitingForInputNode(
 }
 
 function nodesAreInSameCycle(state: ExecutionState, a: NodeId, b: NodeId) {
+  const plannedCycleIndexByNode = state.executionPlan?.cycleIndexByNode;
+  if (plannedCycleIndexByNode) {
+    return plannedCycleIndexByNode[a] != null && plannedCycleIndexByNode[a] === plannedCycleIndexByNode[b];
+  }
+
   return state.stronglyConnectedComponents.find(
     (cycle) => cycle.find((node) => node.id === a) && cycle.find((node) => node.id === b),
   );

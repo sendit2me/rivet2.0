@@ -33,7 +33,13 @@ import { coerceTypeOptional } from '../utils/coerceType.js';
 import type { BuiltInNodes } from './Nodes.js';
 import type { NodeRegistration } from './NodeRegistration.js';
 import { getPluginConfig } from '../utils/index.js';
-import { preprocessGraphState } from './GraphPreprocessor.js';
+import {
+  type GraphExecutionPlan,
+  type GraphPreprocessedState,
+  isGraphExecutionPlan,
+  preprocessGraphState,
+  toReusableGraphExecutionPlan,
+} from './GraphPreprocessor.js';
 import { replayExecutionRecording } from './RecordingPlayer.js';
 import { didLoopControllerBreak, LOOP_NOT_BROKEN_SENTINEL } from './loopControllerBreak.js';
 import { buildNodeProcessContext } from './ProcessContextBuilder.js';
@@ -175,6 +181,11 @@ export type GraphProcessorConcurrency = {
   splitRunConcurrency?: number;
 };
 
+export type GraphProcessorRuntimeCache = {
+  executionPlans?: WeakMap<NodeGraph, GraphExecutionPlan>;
+  loadedProjects?: Record<ProjectId, Project>;
+};
+
 const DEFAULT_NODE_CONCURRENCY = 8;
 export const DEFAULT_SPLIT_RUN_CONCURRENCY = 4;
 
@@ -236,6 +247,7 @@ export class GraphProcessor {
   #parent: GraphProcessor | undefined;
   readonly #registry: NodeRegistration<any, any>;
   readonly #concurrency: Required<GraphProcessorConcurrency>;
+  readonly #runtimeCache: GraphProcessorRuntimeCache | undefined;
   id = nanoid();
 
   readonly #includeTrace?: boolean = true;
@@ -294,6 +306,7 @@ export class GraphProcessor {
   #loadedProjects: Record<ProjectId, Project> = undefined!;
   #definitions: Record<NodeId, { inputs: NodeInputDefinition[]; outputs: NodeOutputDefinition[] }> = undefined!;
   #scc: ChartNode[][] = undefined!;
+  #graphExecutionPlan: GraphExecutionPlan | undefined;
 
   // @ts-expect-error
   #nodesNotInCycle: ChartNode[] = undefined!;
@@ -319,7 +332,7 @@ export class GraphProcessor {
     graphId: GraphId | undefined,
     registry: NodeRegistration<any, any>,
     includeTrace?: boolean,
-    options?: { concurrency?: GraphProcessorConcurrency },
+    options?: { concurrency?: GraphProcessorConcurrency; runtimeCache?: GraphProcessorRuntimeCache },
   ) {
     this.#project = project;
     const graph = graphId
@@ -339,6 +352,7 @@ export class GraphProcessor {
     this.#nodesById = {};
     this.#registry = registry;
     this.#concurrency = resolveGraphProcessorConcurrency(options?.concurrency);
+    this.#runtimeCache = options?.runtimeCache;
 
     this.#emitter.bindMethods(this as unknown as Record<string, unknown>, ['on', 'off', 'once', 'onAny', 'offAny']);
 
@@ -350,20 +364,54 @@ export class GraphProcessor {
   }
 
   #preprocessGraph() {
+    const shouldUseRuntimeCache = !this.warnOnInvalidGraph && this.#runtimeCache != null;
+    const cachedPlan = shouldUseRuntimeCache ? this.#runtimeCache?.executionPlans?.get(this.#graph) : undefined;
+
+    if (cachedPlan) {
+      this.#applyPreprocessedGraph(cachedPlan, { recreateNodeInstances: true });
+      return;
+    }
+
     const preprocessedGraph = preprocessGraphState({
       graph: this.#graph,
       loadedProjects: this.#loadedProjects,
       project: this.#project,
       registry: this.#registry,
       warnOnInvalidGraph: this.warnOnInvalidGraph,
+      buildExecutionPlan: shouldUseRuntimeCache,
     });
 
-    Object.assign(this.#nodeInstances, preprocessedGraph.nodeInstances);
+    if (shouldUseRuntimeCache && isGraphExecutionPlan(preprocessedGraph)) {
+      this.#runtimeCache.executionPlans ??= new WeakMap();
+      this.#runtimeCache.executionPlans.set(this.#graph, toReusableGraphExecutionPlan(preprocessedGraph));
+    }
+
+    this.#applyPreprocessedGraph(preprocessedGraph);
+  }
+
+  #applyPreprocessedGraph(
+    preprocessedGraph: GraphPreprocessedState | GraphExecutionPlan,
+    options: { recreateNodeInstances?: boolean } = {},
+  ): void {
+    const nodeInstances =
+      options.recreateNodeInstances || !('nodeInstances' in preprocessedGraph)
+        ? this.#createNodeInstances(isGraphExecutionPlan(preprocessedGraph) ? preprocessedGraph.graphNodes : this.#graph.nodes)
+        : preprocessedGraph.nodeInstances;
+
+    Object.assign(this.#nodeInstances, nodeInstances);
     Object.assign(this.#nodesById, preprocessedGraph.nodesById);
     Object.assign(this.#connections, preprocessedGraph.connections);
     this.#definitions = preprocessedGraph.definitions;
     this.#scc = preprocessedGraph.stronglyConnectedComponents;
     this.#nodesNotInCycle = preprocessedGraph.nodesNotInCycle;
+    this.#graphExecutionPlan = isGraphExecutionPlan(preprocessedGraph) ? preprocessedGraph : undefined;
+  }
+
+  #createNodeInstances(nodes: ChartNode[]): Record<NodeId, NodeImpl<ChartNode>> {
+    return Object.fromEntries(nodes.map((node) => [node.id, this.#registry.createDynamicImpl(node)])) as Record<
+      NodeId,
+      NodeImpl<ChartNode>
+    >;
   }
 
   #emitTraceEvent(eventData: string) {
@@ -578,7 +626,7 @@ export class GraphProcessor {
 
     dependencyNodes.add(nodeId);
 
-    const connections = this.#connections[nodeId] ?? [];
+    const connections = this.#graphExecutionPlan?.inputConnectionsByNode[nodeId] ?? this.#connections[nodeId] ?? [];
 
     for (const connection of connections) {
       if (connection.inputNodeId === nodeId) {
@@ -649,7 +697,7 @@ export class GraphProcessor {
     this.#abortError = undefined;
     this.#abortSuccessfully = false;
     this.#nodeAbortControllers = new Map();
-    this.#loadedProjects = {};
+    this.#loadedProjects = this.#runtimeCache?.loadedProjects ? { ...this.#runtimeCache.loadedProjects } : {};
     this.#graphInputNodeValues = {};
   }
 
@@ -867,6 +915,11 @@ export class GraphProcessor {
 
   async #loadProjectReferences() {
     if ((this.#project.references?.length ?? 0) > 0) {
+      if (this.#runtimeCache?.loadedProjects) {
+        this.#loadedProjects = { ...this.#runtimeCache.loadedProjects };
+        return;
+      }
+
       if (!this.#context.projectReferenceLoader) {
         throw new Error(
           'Project references are set, but no projectReferenceLoader is set in the context. Since this project uses project references, you must provide a projectReferenceLoader in the context.',
@@ -893,6 +946,10 @@ export class GraphProcessor {
 
       for (const reference of this.#project.references!) {
         await loadProject(reference);
+      }
+
+      if (this.#runtimeCache) {
+        this.#runtimeCache.loadedProjects = { ...this.#loadedProjects };
       }
     }
   }
@@ -1499,6 +1556,7 @@ export class GraphProcessor {
   ): GraphProcessor {
     const processor = new GraphProcessor(project ?? this.#project, subGraphId, this.#registry, this.#includeTrace, {
       concurrency: this.#concurrency,
+      runtimeCache: this.#runtimeCache,
     });
     processor.executor = this.executor;
     processor.#isSubProcessor = true;
@@ -1640,10 +1698,9 @@ export class GraphProcessor {
     const connections = this.#connections[node.id];
     return this.#definitions[node.id]!.inputs.reduce(
       (values, input) => {
-        if (!connections) {
-          return values;
-        }
-        const connection = connections.find((conn) => conn.inputId === input.id && conn.inputNodeId === node.id);
+        const connection =
+          this.#graphExecutionPlan?.inputConnectionByNodeAndPort[node.id]?.[input.id] ??
+          connections?.find((conn) => conn.inputId === input.id && conn.inputNodeId === node.id);
         if (connection) {
           const outputNode = this.#nodeInstances[connection.outputNodeId]!.chartNode;
           const outputNodeOutputs = this.#nodeResults.get(outputNode.id);
@@ -1662,6 +1719,7 @@ export class GraphProcessor {
       connections: this.#connections,
       definitions: this.#definitions,
       erroredNodes: this.#erroredNodes,
+      executionPlan: this.#graphExecutionPlan,
       loopControllersSeen: this.#loopControllersSeen,
       nodesById: this.#nodesById,
       stronglyConnectedComponents: this.#scc,

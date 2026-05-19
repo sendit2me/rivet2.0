@@ -3,7 +3,12 @@ import type { AttachedData } from '../utils/serialization/serializationUtils.js'
 import type { AudioProvider } from '../integrations/AudioProvider.js';
 import type { DataValue } from '../model/DataValue.js';
 import type { DatasetProvider } from '../integrations/DatasetProvider.js';
-import type { ExternalFunction, GraphProcessorConcurrency, ProcessEvents } from '../model/GraphProcessor.js';
+import type {
+  ExternalFunction,
+  GraphProcessorConcurrency,
+  GraphProcessorRuntimeCache,
+  ProcessEvents,
+} from '../model/GraphProcessor.js';
 import type { GraphId } from '../model/NodeGraph.js';
 import type { Project } from '../model/Project.js';
 import type { MCPProvider } from '../integrations/mcp/MCPProvider.js';
@@ -51,7 +56,15 @@ export type RunGraphOptions = {
   [P in keyof ProcessEvents as `on${PascalCase<P>}`]?: (params: ProcessEvents[P]) => void;
 } & Settings;
 
-export function coreCreateProcessor(project: Project, options: RunGraphOptions) {
+export type CoreCreateProcessorInternalOptions = {
+  runtimeCache?: GraphProcessorRuntimeCache;
+};
+
+export function coreCreateProcessor(
+  project: Project,
+  options: RunGraphOptions,
+  internalOptions: CoreCreateProcessorInternalOptions = {},
+) {
   const { graph, inputs = {}, context = {} } = options;
 
   const graphId = graph
@@ -70,7 +83,7 @@ export function coreCreateProcessor(project: Project, options: RunGraphOptions) 
     graphId as GraphId,
     options.registry ?? globalRivetNodeRegistry,
     options.includeTrace,
-    { concurrency: options.concurrency },
+    { concurrency: options.concurrency, runtimeCache: internalOptions.runtimeCache },
   );
 
   if (options.onStart) {

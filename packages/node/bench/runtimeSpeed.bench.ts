@@ -114,6 +114,17 @@ async function main() {
       await benchmark('createGraphRunner text chain 500', () => runner.run({ inputs: { input: 'bench' } })),
     );
   }
+  {
+    const runner = createGraphRunner(cheap500.project, {
+      graph: cheap500.graphId,
+      runtimeProfile: 'headless-fast',
+    });
+    results.push(
+      await benchmark('createGraphRunner headless-fast text chain 500', () =>
+        runner.run({ inputs: { input: 'bench' } }),
+      ),
+    );
+  }
   results.push(
     await benchmark('runGraph expression chain 20', () =>
       runGraph(expression20.project, { graph: expression20.graphId, inputs: { input: 0 } }),

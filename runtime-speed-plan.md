@@ -211,7 +211,7 @@ close to existing compatible execution because each run uses a fresh
 `GraphProcessor` to avoid state leaks. Larger cheap graphs still point to cached
 graph planning/preprocessing as the next substantial speed target.
 
-### P2: Cached Headless Node CodeRunner
+### P2: Cached Headless Node CodeRunner (DONE)
 
 Add a cached Node CodeRunner for headless Node execution.
 
@@ -299,13 +299,12 @@ whole-graph orchestration for these fixtures. The next substantial speed target
 remains cached immutable graph planning and dependency data rather than more
 CodeRunner work.
 
-### P3: Cached Immutable Graph Plan And Adjacency Maps
+### P3: Cached Immutable Graph Plan And Adjacency Maps (DONE)
 
 Add a reusable graph execution plan for immutable headless runner snapshots.
 
 The plan should contain:
 
-- node instances
 - nodes by id
 - validated connections
 - port definitions
@@ -327,8 +326,11 @@ Important constraints:
 - Cache only for immutable project snapshots.
 - Treat graph edits, registry/plugin changes, settings that affect node
   definitions, or project-reference changes as requiring a new runner.
-- Do not share mutable connection arrays that `GraphPreprocessor` might modify
-  during validation.
+- Do not share `NodeImpl` runtime instances between runs. Built-in nodes are
+  currently instance-stateless, but custom registries should keep compatible
+  fresh-instance semantics.
+- Cache only post-validation connection maps and treat them as read-only during
+  execution.
 - Keep compatible execution as the fallback for editor workflows and dynamic
   project-reference scenarios.
 
@@ -337,6 +339,70 @@ Expected payoff:
 - Stronger win for many cheap nodes where preprocessing and planner scans are a
   visible part of total runtime.
 - Lower risk than replacing the scheduler outright.
+
+Implementation status:
+
+- `preprocessGraphState(...)` now returns a graph execution plan with validated
+  connection maps, input/output adjacency, missing-required-input lists, start
+  nodes, SCC metadata, and cycle indexes.
+- `NodeExecutionPlanner` consumes those precomputed maps when the processor has
+  a plan and keeps its previous array-scan fallback for compatible paths.
+- `GraphProcessor` accepts an internal runtime cache. It reuses graph-keyed
+  cached plans and loaded project-reference snapshots when provided, while still
+  rebuilding all mutable run state and fresh `NodeImpl` instances for every
+  `processGraph(...)` call.
+- `createGraphRunner(..., { runtimeProfile: 'headless-fast' })` owns that cache
+  across its run-scoped processors and passes it into subprocessors, so
+  subgraph, call-graph, loop, cron, tool-delegation, and referenced-graph calls
+  can reuse their own immutable plans. `compatible`, `runGraph(...)`,
+  `createProcessor(...)`, Browser/editor execution, Remote Debugger,
+  recordings, and app-executor runs keep the existing per-run preprocessing
+  path.
+- The cache is scoped to the runner's immutable project/registry/settings
+  snapshot and is cleared on `runner.dispose()`.
+- Added coverage proving the fast profile reuses definition/planner work while
+  still instantiating fresh node implementations per run.
+- Benchmarks were rerun on 2026-05-19 after the subprocessor cache reassessment
+  with
+  `RIVET_RUNTIME_BENCH_ITERATIONS=200`,
+  `RIVET_RUNTIME_BENCH_WARMUP_ITERATIONS=20`, and
+  `RIVET_RUNTIME_BENCH_SAMPLES=5`.
+
+| Case | Mean ms | Std dev ms |
+| --- | ---: | ---: |
+| `runGraphInFile` passthrough one-shot | `1.052` | `0.050` |
+| Load once plus `runGraph` passthrough | `0.126` | `0.018` |
+| Reuse `createProcessor` passthrough | `0.083` | `0.008` |
+| `createGraphRunner` passthrough | `0.095` | `0.011` |
+| Direct `GraphProcessor` text chain 20 | `0.511` | `0.035` |
+| `runGraph` text chain 20 | `0.499` | `0.012` |
+| `runGraph` text chain 100 | `2.874` | `0.064` |
+| `runGraph` text chain 500 | `32.764` | `0.107` |
+| `createGraphRunner` text chain 500 | `32.892` | `0.314` |
+| `createGraphRunner` headless-fast text chain 500 | `7.799` | `0.105` |
+| `runGraph` Expression chain 20 | `2.729` | `0.039` |
+| `createGraphRunner` compatible Expression chain 20 | `2.623` | `0.019` |
+| `createGraphRunner` headless-fast Expression chain 20 | `2.474` | `0.039` |
+| `runGraph` Code chain 20 | `6.553` | `0.292` |
+| `createGraphRunner` compatible Code chain 20 | `6.418` | `0.162` |
+| `createGraphRunner` headless-fast Code chain 20 | `6.187` | `0.056` |
+| Lazy preprocess/dependency text chain 500 | `24.619` | `0.120` |
+| `NodeCodeRunner` compile/run one snippet | `0.001` | `0.000` |
+| `CachedNodeCodeRunner` run cached snippet | `0.001` | `0.000` |
+
+P3 delivered the first large runtime win in the benchmark suite: the 500-node
+text chain dropped from `32.892ms` with the compatible runner to `7.799ms` with
+the `headless-fast` runner. A reassessment pass kept cached planning but changed
+fast runs back to fresh `NodeImpl` instances, preserving safer custom-node
+instance semantics without losing the measured win. A second reassessment pass
+found that subprocessors were still on the compatible preprocessing path, so the
+runtime cache was changed from one root plan to graph-keyed plans and passed
+into child processors. A temporary 50-subgraph chain benchmark then measured
+`9.826ms` compatible versus `8.900ms` `headless-fast`, confirming the nested
+cache helps without changing the larger 500-node root-graph result. Small
+20-node Code/Expression fixtures are still mostly dominated by node work and
+benchmark noise, so P4 should only be pursued if large cheap DAGs still need
+more speed after this cache.
 
 ### P4: Strict Fast Acyclic Scheduler
 
@@ -443,7 +509,7 @@ API rules:
    - Keep the existing uncached `NodeCodeRunner` behavior available.
    - Test permission combinations and error behavior.
 
-4. Cached graph plan and planner maps.
+4. Cached graph plan and planner maps. (Done in P3.)
    - Extract an immutable execution-plan object from preprocessing.
    - Add adjacency/missing-input maps.
    - Update `NodeExecutionPlanner` to consume maps when available.

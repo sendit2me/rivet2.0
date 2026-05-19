@@ -156,8 +156,8 @@ If the graph uses LLM Chat with `API key source` set to `Input port`, pass the k
 For backend/API integrations that run the same loaded project graph many times,
 prefer `createGraphRunner`. It keeps Node runtime setup stable and lets each
 request pass its own `inputs`, `context`, and `abortSignal`. The
-`headless-fast` profile also caches compiled Code-family JavaScript when the
-runner owns the default CodeRunner.
+`headless-fast` profile also caches the graph execution plan and, when the
+runner owns the default CodeRunner, compiled Code-family JavaScript.
 
 ```typescript
 import { createGraphRunner, loadProjectFromFile } from '@valerypopoff/rivet2-node';

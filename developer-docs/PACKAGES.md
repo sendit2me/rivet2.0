@@ -131,9 +131,17 @@ when the caller does not provide a custom `codeRunner`, it swaps in a
 runner-owned cached Node CodeRunner. That cache stores compiled `AsyncFunction`
 instances keyed by source text and argument shape only; it never caches outputs,
 inputs, graph inputs, or context values. Each invocation still gets fresh local
-variables. The runner clears its owned cache on `dispose()`.
-Each run still uses a run-scoped `GraphProcessor` so mutable processor state,
-including Global node values, cannot leak between backend requests. Remote
+variables. The fast profile also shares an immutable graph execution plan across
+the runner's run-scoped processors. Plans are keyed by graph object, so nested
+subgraph and referenced-graph processors can reuse their own validated
+connection maps, port definitions, planner adjacency maps,
+missing-required-input lists, start nodes, and SCC metadata. The fast profile
+also caches loaded project-reference snapshots for the stable project/registry
+setup. It does not cache `NodeImpl` runtime instances, run outputs, graph
+inputs, context values, globals, abort state, queued nodes, or execution
+metadata. The runner clears its owned caches on `dispose()`. Each run still uses
+a run-scoped `GraphProcessor` with fresh node implementations so mutable
+processor or custom-node state cannot leak between backend requests. Remote
 Debugger, recording, SSE/event-stream consumers, editor run-from, and
 Browser-mode execution should continue to use the compatible APIs until those
 surfaces have explicit runner support.

@@ -15,6 +15,7 @@ import {
   type TokenizerCallInfo,
   type ChatMessage,
   type GptFunction,
+  type GraphProcessorRuntimeCache,
   type RemoteRunRequestId,
   type LooseDataValue,
   type ProcessContext,
@@ -174,6 +175,7 @@ export function createGraphRunner(project: Project, options: NodeGraphRunnerOpti
   const { runtimeProfile = 'compatible', ...processorOptions } = options;
   const ownsCodeRunner = processorOptions.codeRunner == null && runtimeProfile === 'headless-fast';
   const runnerCodeRunner = ownsCodeRunner ? new CachedNodeCodeRunner() : undefined;
+  const runtimeCache: GraphProcessorRuntimeCache | undefined = runtimeProfile === 'headless-fast' ? {} : undefined;
   const processContext = createNodeProcessContext(processorOptions, resolveNodePluginEnv(processorOptions), {
     codeRunner: runnerCodeRunner,
   });
@@ -213,13 +215,17 @@ export function createGraphRunner(project: Project, options: NodeGraphRunnerOpti
       }
       activeProcessors.clear();
       runnerCodeRunner?.clearCache();
+      if (runtimeCache) {
+        runtimeCache.executionPlans = undefined;
+        runtimeCache.loadedProjects = undefined;
+      }
     },
     async run(runOptions = {}) {
       if (disposed) {
         throw new Error('Cannot run a disposed graph runner.');
       }
 
-      return await runWithProcessor(createRunnerProcessor(project, processorOptions), runOptions);
+      return await runWithProcessor(createRunnerProcessor(project, processorOptions, runtimeCache), runOptions);
     },
   };
 }
@@ -237,13 +243,21 @@ function configureNodeProcessor(processor: NodeGraphProcessor): void {
   });
 }
 
-function createRunnerProcessor(project: Project, options: RunGraphOptions): NodeGraphProcessor {
-  const processorInfo = coreCreateProcessor(project, {
-    ...options,
-    abortSignal: undefined,
-    context: {},
-    inputs: {},
-  });
+function createRunnerProcessor(
+  project: Project,
+  options: RunGraphOptions,
+  runtimeCache?: GraphProcessorRuntimeCache,
+): NodeGraphProcessor {
+  const processorInfo = coreCreateProcessor(
+    project,
+    {
+      ...options,
+      abortSignal: undefined,
+      context: {},
+      inputs: {},
+    },
+    { runtimeCache },
+  );
 
   configureNodeProcessor(processorInfo.processor);
   return processorInfo.processor;
