@@ -7,7 +7,6 @@ import { useSaveRecording } from '../hooks/useSaveRecording';
 import { graphRunningState, graphPausedState } from '../state/dataFlow';
 import { lastRecordingState, loadedRecordingState } from '../state/execution';
 import { selectedExecutorState } from '../state/settings';
-import ChevronRightIcon from 'majesticons/line/chevron-right-line.svg?react';
 import MultiplyIcon from 'majesticons/line/multiply-line.svg?react';
 import PauseIcon from 'majesticons/line/pause-circle-line.svg?react';
 import PlayIcon from 'majesticons/line/play-circle-line.svg?react';
@@ -27,6 +26,7 @@ import { wrapAsync } from '../utils/errorHandling';
 import { getActionBarExecutionState } from '../state/selectors/executionSelectors.js';
 import type { DebuggerPanelAnchor } from '../state/ui.js';
 import { NodeRunningIndicator } from './visualNode/NodeRunningIndicator.js';
+import { getActionBarRunButtonPresentation } from './actionBarRunButtons.js';
 
 const styles = css`
   --action-bar-height: calc(32px * var(--ui-font-scale));
@@ -83,6 +83,14 @@ const styles = css`
       color: var(--grey-light);
       cursor: wait;
       opacity: 0.8;
+    }
+  }
+
+  .run-button.secondary button:not(:disabled) {
+    background-color: color-mix(in srgb, var(--success) 50%, var(--grey-darkish));
+
+    &:hover {
+      background-color: color-mix(in srgb, var(--success-dark) 45%, var(--grey-darkish));
     }
   }
 
@@ -188,6 +196,14 @@ export const ActionBar: FC<ActionBarProps> = ({ onRunGraph, onAbortGraph, onPaus
 
   const hasMainGraph = projectMetadata.mainGraphId != null;
   const isMainGraph = hasMainGraph && graphMetadata?.id === projectMetadata.mainGraphId;
+  const runButtonPresentation = getActionBarRunButtonPresentation({
+    currentGraphName: graphMetadata?.name,
+    graphRunning,
+    hasLoadedRecording: !!loadedRecording,
+    hasMainGraph,
+    isMainGraph,
+    showRunButton: actionBarExecutionState.showRunButton,
+  });
 
   const getDebuggerPanelAnchor = (): DebuggerPanelAnchor | undefined => {
     const rect = actionBarRef.current?.getBoundingClientRect();
@@ -222,11 +238,7 @@ export const ActionBar: FC<ActionBarProps> = ({ onRunGraph, onAbortGraph, onPaus
       );
     }
 
-    return (
-      <>
-        {label} <ChevronRightIcon />
-      </>
-    );
+    return label;
   };
 
   return (
@@ -274,6 +286,7 @@ export const ActionBar: FC<ActionBarProps> = ({ onRunGraph, onAbortGraph, onPaus
           className={clsx('run-button', {
             running: graphRunning,
             recording: !!loadedRecording,
+            secondary: runButtonPresentation.showProjectGraphRunButton,
           })}
         >
           <button
@@ -288,12 +301,12 @@ export const ActionBar: FC<ActionBarProps> = ({ onRunGraph, onAbortGraph, onPaus
             ) : loadedRecording ? (
               renderRunButtonContents('Play Recording')
             ) : (
-              renderRunButtonContents(hasMainGraph && !isMainGraph ? `Run ${graphMetadata?.name}` : 'Run')
+              renderRunButtonContents(runButtonPresentation.currentGraphRunLabel)
             )}
           </button>
         </div>
       )}
-      {actionBarExecutionState.showRunButton && hasMainGraph && !isMainGraph && !graphRunning && !loadedRecording && (
+      {runButtonPresentation.showProjectGraphRunButton && (
         <div className={clsx('run-button', { running: graphRunning })}>
           <button
             disabled={runButtonsBlocked}
@@ -305,7 +318,7 @@ export const ActionBar: FC<ActionBarProps> = ({ onRunGraph, onAbortGraph, onPaus
                 Abort <MultiplyIcon />
               </>
             ) : (
-              renderRunButtonContents('Run Main')
+              renderRunButtonContents(runButtonPresentation.projectGraphRunLabel)
             )}
           </button>
         </div>

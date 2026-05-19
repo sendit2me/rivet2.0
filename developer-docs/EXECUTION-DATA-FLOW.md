@@ -764,7 +764,7 @@ be misrepresented as a user-attached remote debugger. External remote debuggers
 should continue to use the public `connectExternalDebugger(...)` path, and
 remote-debugger UI should only show stop/debugger affordances for
 external-debugger sessions. While an external Remote Debugger is connected or
-connecting, the ActionBar hides editor-side Run and Run Main buttons, menu and
+connecting, the ActionBar hides editor-side run buttons, menu and
 hotkey run commands no-op, and node `Run to here` / `Run from here` context-menu
 items stay hidden; live execution data is expected to arrive from the remote
 process instead.
@@ -778,10 +778,10 @@ then clear `graphRunningState` through the normal remote event dispatcher
 without forcing the user to reconnect the Node executor.
 The ActionBar intentionally keeps Node-mode Run controls rendered while the
 internal sidecar is starting, connecting, or reconnecting; readiness only moves
-the button into a disabled loading state that keeps its normal text and swaps
-the action glyph for the same ring indicator used by running node headers, it
-must not collapse the control or make a handled node failure look like the
-executor UI disappeared. This internal-executor rule must not be applied to
+the button into a disabled loading state that keeps its normal text and appends
+the same ring indicator used by running node headers. It must not collapse the
+control or make a handled node failure look like the executor UI disappeared.
+This internal-executor rule must not be applied to
 external Remote Debugger sessions, which replace editor-run controls with a
 `Stop Remote Debugger` banner.
 The app logs the internal Node executor lifecycle at the sidecar/session seam.

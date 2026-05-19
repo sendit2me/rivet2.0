@@ -1,7 +1,6 @@
 
+- Now, the executor mode is global for all open projects (remote debugger, browser, node). Make it per tab
 
-
-- Make the secondary run button less green
 
 - Hotkey for toggling the left project tree panel
 
