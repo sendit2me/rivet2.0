@@ -30,6 +30,12 @@ import { CachedNodeCodeRunner } from './native/CachedNodeCodeRunner.js';
 import type { RivetDebuggerServer } from './debugger.js';
 import { NodeProjectReferenceLoader } from './native/NodeProjectReferenceLoader.js';
 import { NodeMCPProvider } from './native/NodeMCPProvider.js';
+import {
+  resolveCreateProcessorRuntimePolicy,
+  type NodeRuntimeProfile,
+} from './createProcessorRuntimePolicy.js';
+
+export type { NodeRuntimeProfile };
 
 class FallbackTokenizer implements Tokenizer {
   on(_event: 'error', _listener: (err: Error) => void): () => void {
@@ -99,14 +105,14 @@ export type NodeRunGraphOptions = RunGraphOptions & {
 type NodeGraphProcessor = ReturnType<typeof coreCreateProcessor>['processor'];
 
 export type NodeCreateProcessorOptions = NodeRunGraphOptions & {
-  runtimeProfile?: 'compatible' | 'headless-fast';
+  runtimeProfile?: NodeRuntimeProfile;
 };
 
 export type NodeGraphRunnerOptions = Omit<
   NodeRunGraphOptions,
   'abortSignal' | 'context' | 'inputs' | 'remoteDebugger' | 'remoteDebuggerRequestId'
 > & {
-  runtimeProfile?: 'compatible' | 'headless-fast';
+  runtimeProfile?: NodeRuntimeProfile;
 };
 
 export type NodeGraphRunnerRunOptions = {
@@ -124,12 +130,12 @@ export function createProcessor(
   project: Project,
   options: NodeCreateProcessorOptions,
 ): ReturnType<typeof coreCreateProcessor> {
-  const { runtimeProfile = 'compatible', ...processorOptions } = options;
-  const useHeadlessFastProfile = runtimeProfile === 'headless-fast' && processorOptions.remoteDebugger === undefined;
-  const runtimeCache: GraphProcessorRuntimeCache | undefined = useHeadlessFastProfile ? {} : undefined;
+  const { runtimeProfile, ...processorOptions } = options;
+  const runtimePolicy = resolveCreateProcessorRuntimePolicy({ ...processorOptions, runtimeProfile });
   const processor = coreCreateProcessor(project, processorOptions, {
-    runtimeCache,
-    scheduler: useHeadlessFastProfile ? 'fast-acyclic' : 'compatible',
+    cacheLoadedProjects: runtimePolicy.cacheLoadedProjects,
+    runtimeCache: runtimePolicy.runtimeCache,
+    scheduler: runtimePolicy.scheduler,
   });
 
   configureNodeProcessor(processor.processor);
@@ -160,9 +166,9 @@ export function createProcessor(
     ...processor,
     async run() {
       const shouldManageRemoteDebugger = processorOptions.remoteDebugger != null && !processor.processor.isRunning;
-      const shouldManageRunScopedRuntimeCache = runtimeCache != null && !processor.processor.isRunning;
+      const shouldManageRunScopedRuntimeCache = runtimePolicy.runtimeCache != null && !processor.processor.isRunning;
       if (shouldManageRunScopedRuntimeCache) {
-        clearGraphProcessorRuntimeCache(runtimeCache);
+        clearGraphProcessorRuntimeCache(runtimePolicy.runtimeCache!);
       }
 
       if (shouldManageRemoteDebugger) {
@@ -170,7 +176,7 @@ export function createProcessor(
       }
 
       const runScopedCodeRunner =
-        useHeadlessFastProfile && processorOptions.codeRunner == null ? new CachedNodeCodeRunner() : undefined;
+        runtimePolicy.useCachedDefaultCodeRunner ? new CachedNodeCodeRunner() : undefined;
 
       try {
         const outputs = await processor.processor.processGraph(
@@ -183,7 +189,7 @@ export function createProcessor(
       } finally {
         runScopedCodeRunner?.clearCache();
         if (shouldManageRunScopedRuntimeCache) {
-          clearGraphProcessorRuntimeCache(runtimeCache);
+          clearGraphProcessorRuntimeCache(runtimePolicy.runtimeCache!);
         }
 
         if (shouldManageRemoteDebugger) {
@@ -284,7 +290,11 @@ function createRunnerProcessor(
       context: {},
       inputs: {},
     },
-    { runtimeCache, scheduler: runtimeCache ? 'fast-acyclic' : 'compatible' },
+    {
+      cacheLoadedProjects: runtimeCache != null,
+      runtimeCache,
+      scheduler: runtimeCache ? 'fast-acyclic' : 'compatible',
+    },
   );
 
   configureNodeProcessor(processorInfo.processor);

@@ -257,6 +257,7 @@ export class GraphProcessor {
   readonly #registry: NodeRegistration<any, any>;
   readonly #concurrency: Required<GraphProcessorConcurrency>;
   readonly #runtimeCache: GraphProcessorRuntimeCache | undefined;
+  readonly #cacheLoadedProjects: boolean;
   readonly #scheduler: GraphProcessorScheduler;
   id = nanoid();
 
@@ -342,6 +343,7 @@ export class GraphProcessor {
     registry: NodeRegistration<any, any>,
     includeTrace?: boolean,
     options?: {
+      cacheLoadedProjects?: boolean;
       concurrency?: GraphProcessorConcurrency;
       runtimeCache?: GraphProcessorRuntimeCache;
       scheduler?: GraphProcessorScheduler;
@@ -366,6 +368,7 @@ export class GraphProcessor {
     this.#registry = registry;
     this.#concurrency = resolveGraphProcessorConcurrency(options?.concurrency);
     this.#runtimeCache = options?.runtimeCache;
+    this.#cacheLoadedProjects = options?.cacheLoadedProjects ?? false;
     this.#scheduler = options?.scheduler ?? 'compatible';
 
     this.#emitter.bindMethods(this as unknown as Record<string, unknown>, ['on', 'off', 'once', 'onAny', 'offAny']);
@@ -378,8 +381,9 @@ export class GraphProcessor {
   }
 
   #preprocessGraph() {
-    const shouldUseRuntimeCache = !this.warnOnInvalidGraph && this.#runtimeCache != null;
-    const cachedPlan = shouldUseRuntimeCache ? this.#runtimeCache?.executionPlans?.get(this.#graph) : undefined;
+    const runtimeCache = this.#canUseRuntimeExecutionPlanCache() ? this.#runtimeCache : undefined;
+    const shouldUseRuntimeCache = runtimeCache != null;
+    const cachedPlan = runtimeCache?.executionPlans?.get(this.#graph);
 
     if (cachedPlan) {
       this.#applyPreprocessedGraph(cachedPlan, { recreateNodeInstances: true });
@@ -396,11 +400,23 @@ export class GraphProcessor {
     });
 
     if (shouldUseRuntimeCache && isGraphExecutionPlan(preprocessedGraph)) {
-      this.#runtimeCache.executionPlans ??= new WeakMap();
-      this.#runtimeCache.executionPlans.set(this.#graph, toReusableGraphExecutionPlan(preprocessedGraph));
+      runtimeCache.executionPlans ??= new WeakMap();
+      runtimeCache.executionPlans.set(this.#graph, toReusableGraphExecutionPlan(preprocessedGraph));
     }
 
     this.#applyPreprocessedGraph(preprocessedGraph);
+  }
+
+  #canUseRuntimeExecutionPlanCache(): boolean {
+    if (this.warnOnInvalidGraph || this.#runtimeCache == null) {
+      return false;
+    }
+
+    if (!this.#cacheLoadedProjects && (this.#project.references?.length ?? 0) > 0) {
+      return false;
+    }
+
+    return true;
   }
 
   #applyPreprocessedGraph(
@@ -711,7 +727,8 @@ export class GraphProcessor {
     this.#abortError = undefined;
     this.#abortSuccessfully = false;
     this.#nodeAbortControllers = new Map();
-    this.#loadedProjects = this.#runtimeCache?.loadedProjects ? { ...this.#runtimeCache.loadedProjects } : {};
+    this.#loadedProjects =
+      this.#cacheLoadedProjects && this.#runtimeCache?.loadedProjects ? { ...this.#runtimeCache.loadedProjects } : {};
     this.#graphInputNodeValues = {};
   }
 
@@ -1035,7 +1052,7 @@ export class GraphProcessor {
 
   async #loadProjectReferences() {
     if ((this.#project.references?.length ?? 0) > 0) {
-      if (this.#runtimeCache?.loadedProjects) {
+      if (this.#cacheLoadedProjects && this.#runtimeCache?.loadedProjects) {
         this.#loadedProjects = { ...this.#runtimeCache.loadedProjects };
         return;
       }
@@ -1068,7 +1085,7 @@ export class GraphProcessor {
         await loadProject(reference);
       }
 
-      if (this.#runtimeCache) {
+      if (this.#cacheLoadedProjects && this.#runtimeCache) {
         this.#runtimeCache.loadedProjects = { ...this.#loadedProjects };
       }
     }
@@ -1693,6 +1710,7 @@ export class GraphProcessor {
     { signal, project }: { signal?: AbortSignal; project?: Project } = {},
   ): GraphProcessor {
     const processor = new GraphProcessor(project ?? this.#project, subGraphId, this.#registry, this.#includeTrace, {
+      cacheLoadedProjects: this.#cacheLoadedProjects,
       concurrency: this.#concurrency,
       runtimeCache: this.#runtimeCache,
       scheduler: this.#scheduler,

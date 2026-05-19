@@ -467,7 +467,17 @@ Current architectural detail:
 - `createProcessor(..., { runtimeProfile: 'headless-fast' })` uses the same plan
   shape only as run-scoped data for a fresh one-off processor run. The Node
   wrapper clears that cache before and after `run()` so endpoint-style callers
-  do not depend on cross-request cache state.
+  do not depend on cross-request cache state. Its policy is split in
+  [`createProcessorRuntimePolicy.ts`](../packages/node/src/createProcessorRuntimePolicy.ts):
+  omitted and explicit `compatible` stay fully compatible, explicit
+  `headless-fast` enables graph-plan caching, loaded-reference caching, default
+  CodeRunner caching, and fast scheduling as separate flags, Remote Debugger
+  forces all fast pieces off, and trace mode forces only compatible scheduling.
+  The loaded-reference flag controls both reading and writing
+  `runtimeCache.loadedProjects`; a runtime cache alone is not enough to reuse
+  referenced projects. Execution-plan caching is also disabled for projects
+  with references unless loaded-reference caching is enabled, because node port
+  plans can depend on referenced project definitions.
 - Default-fast characterization lives in
   [`packages/node/test/defaultFastCompatibility.test.ts`](../packages/node/test/defaultFastCompatibility.test.ts).
   It compares compatible and explicit `headless-fast` Node `createProcessor(...)`

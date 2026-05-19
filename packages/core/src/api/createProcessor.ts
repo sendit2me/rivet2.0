@@ -58,6 +58,7 @@ export type RunGraphOptions = {
 } & Settings;
 
 export type CoreCreateProcessorInternalOptions = {
+  cacheLoadedProjects?: boolean;
   runtimeCache?: GraphProcessorRuntimeCache;
   scheduler?: GraphProcessorScheduler;
 };
@@ -86,6 +87,7 @@ export function coreCreateProcessor(
     options.registry ?? globalRivetNodeRegistry,
     options.includeTrace,
     {
+      cacheLoadedProjects: internalOptions.cacheLoadedProjects,
       concurrency: options.concurrency,
       runtimeCache: internalOptions.runtimeCache,
       scheduler: internalOptions.scheduler,

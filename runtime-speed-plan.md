@@ -968,6 +968,35 @@ Acceptance criteria:
   - explicit `headless-fast`;
   - explicit `compatible`.
 
+Implementation result:
+
+- Added internal
+  [`packages/node/src/createProcessorRuntimePolicy.ts`](packages/node/src/createProcessorRuntimePolicy.ts)
+  so Node `createProcessor(...)` runtime selection is centralized and directly
+  testable.
+- The policy now splits explicit `headless-fast` into independent flags:
+  run-scoped runtime cache, loaded-project-reference caching, default cached
+  CodeRunner usage, fast scheduler selection, and fallback reasons.
+- Omitted `runtimeProfile` and explicit `runtimeProfile: 'compatible'` still
+  resolve to a fully compatible policy with no optional fast pieces. P8 remains
+  the separate step that can decide whether omitted `runtimeProfile` should map
+  to a default-safe fast policy.
+- `remoteDebugger !== undefined` resolves to the fully compatible policy even
+  when `headless-fast` is requested.
+- `includeTrace: true` keeps compatible scheduling but does not turn off other
+  explicit fast pieces, because trace sensitivity is a scheduler/event-ordering
+  concern rather than a CodeRunner or graph-plan-cache concern.
+- `GraphProcessor` now receives `cacheLoadedProjects` separately from
+  `runtimeCache`. That makes graph-plan caching and project-reference snapshot
+  caching separable for future default-safe policies.
+- A reassessment pass tightened that separation: if a project has references
+  and loaded-reference caching is not enabled, core now skips execution-plan
+  caching too because referenced project definitions can affect node port plans.
+- Added
+  [`packages/node/test/createProcessorRuntimePolicy.test.ts`](packages/node/test/createProcessorRuntimePolicy.test.ts)
+  to pin omitted/compatible policy, explicit `headless-fast` flags, custom
+  CodeRunner ownership, Remote Debugger fallback, and trace scheduling fallback.
+
 ### P8: Make Safe Fast Policy The Node CreateProcessor Default
 
 Once P6 and P7 are complete, change Node `createProcessor(...)` so omitted
@@ -1013,6 +1042,10 @@ Acceptance criteria:
   execution even when no websocket client is attached.
 - Filesystem-mode tests prove concurrent same-project endpoint calls do not
   mutate or cross-contaminate a cached parsed `Project` object.
+- If the default-safe policy enables execution-plan caching while leaving
+  loaded-reference caching disabled, projects with references must keep the
+  guarded fallback and rebuild plans per run unless a freshness key for
+  referenced project definitions is added.
 
 ## Deprioritized Work
 

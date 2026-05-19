@@ -8,6 +8,7 @@ import {
   type ChartNode,
   type DataValue,
   type GraphId,
+  type GraphProcessorRuntimeCache,
   type Inputs,
   type InternalProcessContext,
   type NodeConnection,
@@ -523,6 +524,72 @@ void describe('GraphProcessor characterization', () => {
       [['shared', { type: 'string', value: 'global value' }]],
     );
     assert.deepEqual(readerFinish?.outputs.output, { type: 'string', value: 'global value' });
+  });
+
+  void it('reads cached referenced projects only when loaded-project caching is enabled', async () => {
+    const mainGraphId = 'reference-cache-main' as GraphId;
+    const referencedProjectId = 'reference-cache-child' as ProjectId;
+    const project: Project = {
+      graphs: {
+        [mainGraphId]: {
+          connections: [],
+          metadata: {
+            id: mainGraphId,
+            name: 'Reference Cache Main',
+          },
+          nodes: [],
+        },
+      },
+      metadata: {
+        description: '',
+        id: 'reference-cache-root' as ProjectId,
+        mainGraphId,
+        title: 'Reference Cache Root',
+      },
+      plugins: [],
+      references: [{ id: referencedProjectId, title: 'Reference Cache Child' }],
+    };
+    const referencedProject: Project = {
+      graphs: {},
+      metadata: {
+        description: '',
+        id: referencedProjectId,
+        title: 'Reference Cache Child',
+      },
+      plugins: [],
+    };
+    const mainGraph = project.graphs[mainGraphId]!;
+    const runtimeCache: GraphProcessorRuntimeCache = {
+      loadedProjects: {
+        [referencedProjectId]: referencedProject,
+      },
+    };
+    let loadCalls = 0;
+    const context = {
+      ...testProcessContext(),
+      projectReferenceLoader: {
+        async loadProject() {
+          loadCalls += 1;
+          return referencedProject;
+        },
+      },
+    };
+
+    const uncachedProcessor = new GraphProcessor(project, mainGraphId, createRegistry(), false, {
+      cacheLoadedProjects: false,
+      runtimeCache,
+    });
+    await uncachedProcessor.processGraph(context);
+    assert.equal(loadCalls, 1);
+    assert.notEqual(runtimeCache.executionPlans?.has(mainGraph), true);
+
+    const cachedProcessor = new GraphProcessor(project, mainGraphId, createRegistry(), false, {
+      cacheLoadedProjects: true,
+      runtimeCache,
+    });
+    await cachedProcessor.processGraph(context);
+    assert.equal(loadCalls, 1);
+    assert.equal(runtimeCache.executionPlans?.has(mainGraph), true);
   });
 
   void it('allows a race winner to finish the graph while the losing branch is aborted', async () => {

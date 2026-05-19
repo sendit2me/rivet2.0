@@ -157,13 +157,25 @@ surfaces have explicit runner support.
 
 `createProcessor(..., { runtimeProfile: 'headless-fast' })` is the endpoint-style
 fast profile for callers that create a fresh processor, run it once, and discard
-it. It uses run-scoped fast execution only: graph-plan and loaded-reference
-caches are cleared before and after the run, so it is not a cross-request cache.
+it. [`createProcessorRuntimePolicy.ts`](../packages/node/src/createProcessorRuntimePolicy.ts)
+owns the internal policy split for that path. Omitted `runtimeProfile` and
+`runtimeProfile: 'compatible'` still disable all optional fast behavior; the
+public API exports the `NodeRuntimeProfile` type while keeping the policy helper
+internal.
+Explicit `headless-fast` enables independently testable pieces: run-scoped graph
+plan caching, optional loaded-project-reference caching, the default cached
+CodeRunner when no custom `codeRunner` is supplied, and the narrow
+`fast-acyclic` scheduler when the run is eligible. The run-scoped caches are
+cleared before and after `run()`, so they are not cross-request caches. Core
+will not use cached execution plans for projects with references unless
+loaded-project-reference caching is also enabled; referenced project definitions
+can affect node port plans.
 If `remoteDebugger !== undefined`, debugger compatibility wins and the processor
-uses the compatible path even when `headless-fast` is present. Custom
-`codeRunner` instances still win; the Node cached CodeRunner is only used when
-no custom runner was supplied. Recording remains supported because the fast path
-still emits normal processor events.
+uses the fully compatible path even when `headless-fast` is present. Trace mode
+keeps compatible scheduling but can still use the other explicit fast pieces.
+Custom `codeRunner` instances always win; the Node cached CodeRunner is only
+used when no custom runner was supplied. Recording remains supported because
+the fast path still emits normal processor events.
 
 Default-fast promotion is guarded by
 [`packages/node/test/defaultFastCompatibility.test.ts`](../packages/node/test/defaultFastCompatibility.test.ts).
