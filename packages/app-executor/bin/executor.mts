@@ -138,6 +138,7 @@ const rivetDebugger = startDebuggerServer({
     contextValues,
     projectPath,
     useEditorCache,
+    captureNodeTimings,
   }) => {
     logRuntimeInfo(`Running graph ${graphId}`, {
       requestId,
@@ -220,6 +221,7 @@ const rivetDebugger = startDebuggerServer({
         ...currentDebuggerState.settings!,
         remoteDebugger: rivetDebugger,
         remoteDebuggerRequestId: requestId,
+        captureNodeTimings: captureNodeTimings ?? false,
         registry,
         datasetProvider,
         codeRunner,

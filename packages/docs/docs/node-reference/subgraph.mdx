@@ -45,6 +45,8 @@ The Subgraph Node also has an optional error output. If enabled, any errors that
 | (custom names) | Any       | The output values from the execution of the subgraph. Dynamic based on the outputs configured in the subgraph. | Always accepts any data type.                                                                                      |
 | Error          | `string`  | If the subgraph errors, will be populated with the error message.                                              | Only enabled if `Use Error Output` is turned on. If `Use Error Output` is turned off, the node will error instead. |
 
+The Subgraph node output view can also show runtime metrics such as duration and cost above the returned values. If the Subgraph node runs many parallel or sequential items, those metrics are shown as totals plus one line per run.
+
 </TabItem>
 
 <TabItem value="settings">

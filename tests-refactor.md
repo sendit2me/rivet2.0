@@ -12,40 +12,40 @@ Snapshot from the current checkout on 2026-05-21:
 
 | Area                    | Test files | Approx test lines | Main script                                                |
 | ----------------------- | ---------: | ----------------: | ---------------------------------------------------------- |
-| `packages/app`          |        153 |            17,750 | `yarn workspace @valerypopoff/rivet-app run test`          |
-| `packages/core`         |         58 |            12,337 | `yarn workspace @valerypopoff/rivet2-core run test`        |
-| `packages/node`         |          8 |             2,603 | `yarn workspace @valerypopoff/rivet2-node run test`        |
-| `packages/app-executor` |          3 |               662 | `yarn workspace @valerypopoff/rivet-app-executor run test` |
-| `packages/cli`          |          1 |                55 | `yarn workspace @valerypopoff/rivet2-cli run test`         |
+| `packages/app`          |        153 |            20,253 | `yarn workspace @valerypopoff/rivet-app run test`          |
+| `packages/core`         |         58 |            13,900 | `yarn workspace @valerypopoff/rivet2-core run test`        |
+| `packages/node`         |          8 |             2,927 | `yarn workspace @valerypopoff/rivet2-node run test`        |
+| `packages/app-executor` |          3 |               745 | `yarn workspace @valerypopoff/rivet-app-executor run test` |
+| `packages/cli`          |          1 |                66 | `yarn workspace @valerypopoff/rivet2-cli run test`         |
 
-There are about 1,580 declared `test(...)` / `it(...)` / `describe(...)` entries across the suite.
+There are 223 tracked test/spec files and about 1,580 declared `test(...)` / `it(...)` / `describe(...)` entries across the suite.
 
 Important inventory notes:
 
 - Root `yarn test` currently runs core, node, app, app-executor, and cli tests.
-- CI uses `.github/workflows/build.yml`, which runs `yarn build`, `yarn test`, `yarn test:docs`, `yarn lint`, and `yarn prettier --check` on `develop` pushes and PRs.
-- `packages/docs` has a `typecheck` script but no test script.
+- CI uses `.github/workflows/build.yml`, which runs `yarn build`, `yarn test`, `yarn test:docs`, `yarn test:style`, `yarn lint`, and `yarn prettier --check` on `develop` pushes and PRs.
+- `packages/docs` has a non-emitting `typecheck` script but no test script.
 - `packages/core/src/model/NodeBodySpec.ts` and `PluginLoadSpec.ts` are source files, not tests, despite the `Spec` suffix.
-- 16 app tests and 1 core test read production source files directly with `readFileSync`. These are useful as temporary guardrails, but many are brittle string-shape tests rather than behavior tests.
-- 37 test files use `readFileSync` or broad `assert.match` / `assert.doesNotMatch` assertions. Some are legitimate parser or error-message checks; the cleanup target is source-code-shape assertions, not all regex assertions.
+- 15 app tests read production source files directly with `readFileSync`. These are useful as temporary guardrails, but many are brittle string-shape tests rather than behavior tests.
+- 35 test files use `readFileSync` or broad `assert.match` / `assert.doesNotMatch` assertions. Some are legitimate parser or error-message checks; the cleanup target is source-code-shape assertions, not all regex assertions.
 - Node package tests have a `pretest` that rebuilds core ESM output. Focused node runtime checks should either run the package `test` script when the full node suite is acceptable, or explicitly build core ESM before direct `tsx --test` runs.
 
 Largest current test files:
 
 | File                                                                      | Approx lines | Cleanup angle                                                                                      |
 | ------------------------------------------------------------------------- | -----------: | -------------------------------------------------------------------------------------------------- |
-| `packages/core/test/model/nodes/LLMChatV2Node.test.ts`                    |        1,383 | Split node metadata/editor/runtime-config/cache-key concerns.                                      |
-| `packages/core/test/model/chat-v2/chatV2Pipeline.test.ts`                 |        1,143 | Split stream adapter, retry/status, output assembly, provider-failure concerns.                    |
-| `packages/core/test/model/GraphProcessor.test.ts`                         |        1,135 | Keep behavior coverage, but move policy-only cases to focused helper tests where owners exist.     |
-| `packages/node/test/defaultFastCompatibility.test.ts`                     |          954 | Keep compatibility coverage, split by observable surface and reduce repeated fixture boilerplate.  |
-| `packages/app/src/domain/graphEditing/editNodeConnectionRecovery.test.ts` |          881 | Table-drive duplicated interpolation recovery scenarios.                                           |
-| `packages/app/src/utils/executionDataStorage.test.ts`                     |          698 | Split storage readers/writers/process selection or consolidate repetitive fixture assertions.      |
-| `packages/core/test/model/GraphProcessor.characterization.test.ts`        |          615 | Preserve as a high-value refactor safety net; reduce only local duplication.                       |
-| `packages/app/src/hooks/graphSearch.test.ts`                              |          594 | Split pure search matching, summary formatting, and UI-facing state fixtures if duplication grows. |
-| `packages/app/src/state/selectors/executionSelectors.test.ts`             |          492 | Keep selector behavior coverage; table-drive repeated execution-data cases if touched later.       |
-| `packages/app/src/utils/executionDataCopyValue.test.ts`                   |          469 | Keep output-copy policy coverage; dedupe only after Phase 4 output-policy overlap audit.           |
-| `packages/app/src/hooks/remoteExecutorRunRequest.test.ts`                 |          439 | Keep remote run request compatibility coverage; simplify only local repeated setup.                |
-| `packages/app/src/io/browserFileInput.test.ts`                            |          438 | Keep browser file IO edge behavior; review for table-driving only.                                 |
+| `packages/core/test/model/nodes/LLMChatV2Node.test.ts`                    |        1,500 | Split node metadata/editor/runtime-config/cache-key concerns.                                      |
+| `packages/core/test/model/GraphProcessor.test.ts`                         |        1,277 | Keep behavior coverage, but move policy-only cases to focused helper tests where owners exist.     |
+| `packages/core/test/model/chat-v2/chatV2Pipeline.test.ts`                 |        1,251 | Split stream adapter, retry/status, output assembly, provider-failure concerns.                    |
+| `packages/node/test/defaultFastCompatibility.test.ts`                     |        1,038 | Keep compatibility coverage, split by observable surface and reduce repeated fixture boilerplate.  |
+| `packages/app/src/domain/graphEditing/editNodeConnectionRecovery.test.ts` |          980 | Table-drive duplicated interpolation recovery scenarios.                                           |
+| `packages/app/src/utils/executionDataStorage.test.ts`                     |          772 | Split storage readers/writers/process selection or consolidate repetitive fixture assertions.      |
+| `packages/core/test/model/GraphProcessor.characterization.test.ts`        |          685 | Preserve as a high-value refactor safety net; reduce only local duplication.                       |
+| `packages/app-executor/bin/AppExecutorWorkerCodeRunner.test.mts`          |          680 | Keep worker/code-runner coverage together unless splitting proves neutral.                         |
+| `packages/app/src/hooks/graphSearch.test.ts`                              |          670 | Split pure search matching, summary formatting, and UI-facing state fixtures if duplication grows. |
+| `packages/app/src/state/selectors/executionSelectors.test.ts`             |          543 | Keep selector behavior coverage; table-drive repeated execution-data cases if touched later.       |
+| `packages/app/src/utils/executionDataCopyValue.test.ts`                   |          527 | Keep output-copy policy coverage; dedupe only after Phase 4 output-policy overlap audit.           |
+| `packages/app/src/io/browserFileInput.test.ts`                            |          502 | Keep browser file IO edge behavior; review for table-driving only.                                 |
 
 ## Quality Bar
 
@@ -92,7 +92,7 @@ Create a lightweight inventory that classifies the test suite by owner and purpo
 Recommended artifact:
 
 - Phase 0 is implemented in [tests-refactor-inventory.md](./tests-refactor-inventory.md). It uses a companion file because a useful ownership map needs more detail than belongs in the main plan.
-- Cover every test file through owner buckets, and list individual file paths only for files queued for concrete action. This keeps the inventory useful without turning it into a 213-row maintenance burden.
+- Cover every test file through owner buckets, and list individual file paths only for files queued for concrete action. This keeps the inventory useful without turning it into a 223-row maintenance burden.
 
 ### Why
 
@@ -112,7 +112,7 @@ Then audit the largest files first, because they are the likeliest to contain mi
 
 ### Result
 
-Phase 0 produced a complete owner-bucket map covering all 213 current test files, plus the first cleanup queues:
+Phase 0 produced a complete owner-bucket map covering the full test suite, plus the first cleanup queues:
 
 - source-shape guardrails to review in Phase 1
 - large mixed-owner files to split in Phase 3
@@ -252,10 +252,11 @@ connections. Tests that need special caller labels, graph names, or port default
 keep thin local wrappers so the scenario remains visible.
 
 Measured after formatting, the six migrated test files dropped by 351 net
-lines. The new shared builder module added 137 lines, for a net reduction of
-214 app test/support lines while preserving the same focused behavior coverage.
-This phase removed or collapsed the repeated local graph/project/node fixture
-implementations without changing production behavior.
+lines. The shared builder module is now 160 lines after later helper additions,
+so the centralized fixture slice still saves about 191 app test/support lines
+while preserving the same focused behavior coverage. This phase removed or
+collapsed the repeated local graph/project/node fixture implementations without
+changing production behavior.
 
 ### Risks
 
@@ -339,27 +340,23 @@ Large mixed files are hard to review and invite duplicate coverage. Splitting by
 
 ### Result
 
-Phase 3 organized the former coverage from three large mixed-owner files across
-thirteen new focused files, one preexisting focused pending-executions file, and
-three local `*.testUtils.ts` helpers:
+Phase 3 organized the former coverage from three large mixed-owner files into
+focused owner files plus local `*.testUtils.ts` helpers:
 
-- `editNodeCommand.test.ts`: 876 lines became 898 lines across focused command
-  files and shared command-state setup. The small line increase buys clearer
-  ownership for recovery, graph input rename, graph output rename, and merge
-  policy failures.
-- `executorSession.test.ts`: 737 lines became 781 lines across focused runtime
-  files and shared fake-socket setup. The existing
-  `executorSessionPendingExecutions.test.ts` pure helper suite stayed in place;
-  runtime-level pending execution behavior moved to
-  `executorSessionRuntimePendingExecutions.test.ts`.
-- `HttpCallNode.test.ts`: 702 lines became 745 lines across editor, response,
-  retry, and failure-output files plus shared HTTP node helpers.
+- `editNodeCommand*` tests now separate recovery, graph input rename, graph
+  output rename, and merge-policy behavior. The current split is 914 test lines
+  plus 39 lines of shared command-state setup.
+- `executorSession*` tests now separate lifecycle, subscriptions, state,
+  target/transport, dataset bridge, runtime pending-execution, and message-error
+  behavior. The current split is 1,146 test lines plus 105 lines of shared fake
+  websocket/runtime setup. The preexisting pure
+  `executorSessionPendingExecutions.test.ts` suite stayed in place.
+- `HttpCallNode.*` tests now separate editor, response-output, retry-policy,
+  and failure-output behavior. The current split is 722 test lines plus 125
+  lines of shared HTTP node helpers.
 
-The net touched test/support count increased by 109 lines because mechanical
-splitting requires repeated imports, suite-local setup calls, and explicit test
-hook installation. That tradeoff is accepted for this phase because the files
-are now reviewable by behavior owner, and no runtime or product behavior
-changed.
+The mechanical split intentionally favored clear ownership over raw line
+reduction. No runtime or product behavior changed.
 
 ### Risks
 
@@ -442,7 +439,9 @@ Phase 4 reduced `packages/core/test/model/chat-v2/chatV2Pipeline.test.ts` from
 1,226 to 1,143 lines, a net reduction of 83 core test lines. It removed four
 low-level request-shaping test bodies and three pipeline pass-through test
 bodies, replacing them with one owner-level stream adapter assertion plus one
-pipeline wiring assertion. No production code changed.
+pipeline wiring assertion. Later test additions brought the file back into the
+current largest-file queue, so future cleanup should still treat it as a split
+candidate. No production code changed.
 
 ## Phase 5: Normalize Root Test Scripts And CI Coverage (DONE)
 
@@ -527,8 +526,9 @@ Phase 6 added the guardrails without making the cleanup stricter than the
 current suite can support:
 
 - `yarn test:style` runs `scripts/check-test-style.mjs`.
-- The style check fails on committed focused tests (`test.only`, `it.only`,
-  `describe.only`, `suite.only`, and `context.only`) in tracked test files.
+- The style check fails on focused tests (`test.only`, `it.only`,
+  `describe.only`, `suite.only`, and `context.only`) in tracked and untracked
+  non-ignored test files.
 - The style check prints the current `readFileSync`-using test files as a
   report-only source-shape queue.
 - The style check also reports skipped test files without failing the build.

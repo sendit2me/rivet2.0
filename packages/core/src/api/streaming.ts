@@ -44,6 +44,7 @@ export type RivetEventStreamEvent = {
     nodeId: NodeId;
     nodeTitle: string;
     outputs: Outputs;
+    durationMs?: number;
   };
 
   done: {
@@ -126,6 +127,7 @@ export async function* getProcessorEvents(
           outputs: event.outputs,
           nodeId: event.node.id,
           nodeTitle: event.node.title,
+          ...(event.durationMs === undefined ? {} : { durationMs: event.durationMs }),
         };
       }
     }

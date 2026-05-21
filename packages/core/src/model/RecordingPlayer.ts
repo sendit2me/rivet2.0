@@ -16,6 +16,18 @@ type Outputs = Record<PortId, DataValue | undefined>;
 type GraphOutputs = Record<string, DataValue>;
 type GraphInputs = Record<string, DataValue>;
 
+function withOptionalDuration<T extends object>(
+  payload: T,
+  durationMs: number | undefined,
+  splitRunDurationMs?: Record<number, number>,
+): T & { durationMs?: number; splitRunDurationMs?: Record<number, number> } {
+  return {
+    ...payload,
+    ...(durationMs === undefined ? {} : { durationMs }),
+    ...(splitRunDurationMs === undefined ? {} : { splitRunDurationMs }),
+  } as T & { durationMs?: number; splitRunDurationMs?: Record<number, number> };
+}
+
 export async function replayExecutionRecording(options: {
   emitter: Emittery<ProcessEvents>;
   erroredNodes: Map<NodeId, Error | string>;
@@ -88,6 +100,7 @@ export async function replayExecutionRecording(options: {
   try {
     const legacyRootRunId = nanoid() as RootRunId;
     const legacyGraphRunsByGraphId = new Map<GraphId, GraphRunId>();
+    const nodeStartTimestamps = new Map<string, number>();
 
     const getExecution = (
       graphId: GraphId,
@@ -108,6 +121,24 @@ export async function replayExecutionRecording(options: {
         graphRunId,
         rootRunId: legacyRootRunId,
       };
+    };
+
+    const getNodeRunKey = (execution: GraphExecutionMetadata, nodeId: NodeId, processId: ProcessId): string =>
+      `${execution.rootRunId}:${execution.graphRunId}:${nodeId}:${processId}`;
+
+    const getRecordedDuration = (
+      recordedDuration: number | undefined,
+      execution: GraphExecutionMetadata,
+      nodeId: NodeId,
+      processId: ProcessId,
+      terminalTs: number,
+    ): number | undefined => {
+      if (recordedDuration !== undefined) {
+        return recordedDuration;
+      }
+
+      const startedAt = nodeStartTimestamps.get(getNodeRunKey(execution, nodeId, processId));
+      return startedAt === undefined ? undefined : Math.max(0, terminalTs - startedAt);
     };
 
     for (const event of recorder.events) {
@@ -203,11 +234,13 @@ export async function replayExecutionRecording(options: {
         case 'nodeStart': {
           const { data } = event;
           const node = getNode(data.nodeId);
+          const execution = getExecution(data.execution?.graphId ?? getGraphIdForNode(data.nodeId), data.execution);
+          nodeStartTimestamps.set(getNodeRunKey(execution, data.nodeId, data.processId as ProcessId), event.ts);
           emitDetached(emitter, 'nodeStart', {
             node,
             inputs: data.inputs,
             processId: data.processId as ProcessId,
-            execution: getExecution(data.execution?.graphId ?? getGraphIdForNode(data.nodeId), data.execution),
+            execution,
           });
           if (node.type === 'chat') {
             await new Promise((resolve) => setTimeout(resolve, recordingPlaybackChatLatency));
@@ -217,12 +250,21 @@ export async function replayExecutionRecording(options: {
         case 'nodeFinish': {
           const { data } = event;
           const node = getNode(data.nodeId);
-          emitDetached(emitter, 'nodeFinish', {
-            node,
-            outputs: data.outputs,
-            processId: data.processId as ProcessId,
-            execution: getExecution(data.execution?.graphId ?? getGraphIdForNode(data.nodeId), data.execution),
-          });
+          const execution = getExecution(data.execution?.graphId ?? getGraphIdForNode(data.nodeId), data.execution);
+          emitDetached(
+            emitter,
+            'nodeFinish',
+            withOptionalDuration(
+              {
+                node,
+                outputs: data.outputs,
+                processId: data.processId as ProcessId,
+                execution,
+              },
+              getRecordedDuration(data.durationMs, execution, data.nodeId, data.processId as ProcessId, event.ts),
+              data.splitRunDurationMs,
+            ),
+          );
           nodeResults.set(data.nodeId, data.outputs as Outputs);
           visitedNodes.add(data.nodeId);
           break;
@@ -230,12 +272,21 @@ export async function replayExecutionRecording(options: {
         case 'nodeError': {
           const { data } = event;
           const node = getNode(data.nodeId);
-          emitDetached(emitter, 'nodeError', {
-            node,
-            error: data.error,
-            processId: data.processId as ProcessId,
-            execution: getExecution(data.execution?.graphId ?? getGraphIdForNode(data.nodeId), data.execution),
-          });
+          const execution = getExecution(data.execution?.graphId ?? getGraphIdForNode(data.nodeId), data.execution);
+          emitDetached(
+            emitter,
+            'nodeError',
+            withOptionalDuration(
+              {
+                node,
+                error: data.error,
+                processId: data.processId as ProcessId,
+                execution,
+              },
+              getRecordedDuration(data.durationMs, execution, data.nodeId, data.processId as ProcessId, event.ts),
+              data.splitRunDurationMs,
+            ),
+          );
           erroredNodes.set(data.nodeId, data.error);
           visitedNodes.add(data.nodeId);
           break;

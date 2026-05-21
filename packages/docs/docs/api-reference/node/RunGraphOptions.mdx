@@ -28,6 +28,7 @@ type RunGraphOptions = {
     [key: string]: (data: DataValue | undefined) => void;
   };
   abortSignal?: AbortSignal;
+  captureNodeTimings?: boolean;
   registry?: NodeRegistration<any, any>;
   includeTrace?: boolean;
   concurrency?: GraphProcessorConcurrency;
@@ -116,6 +117,14 @@ User event handlers. The keys are event names and the values are callbacks invok
 Type: `AbortSignal`
 
 The `abortSignal` property is an optional `AbortSignal` instance. This can be used to send an abort signal to the graph processing operation, allowing you to programmatically stop the execution process.
+
+### captureNodeTimings
+
+Type: `boolean`
+
+When `true`, processor `nodeFinish` and `nodeError` events include `durationMs` metadata. Split-run nodes also include `splitRunDurationMs`, keyed by split item index. This is execution metadata only: it does not change graph outputs, output copy payloads, recordings' project data, or `.rivet-project` files.
+
+`runGraph` and ordinary `createProcessor` calls do not capture timings unless this option is set. In the Node package, `createProcessor(..., { remoteDebugger })` and `runGraph(..., { remoteDebugger })` capture timings by default so external Remote Debugger runs can show node durations in Rivet; pass `captureNodeTimings: false` to suppress that metadata.
 
 ### registry
 

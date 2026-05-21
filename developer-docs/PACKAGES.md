@@ -190,6 +190,20 @@ normal processor events. `runGraph(...)` deliberately passes
 `runtimeProfile: 'compatible'` internally for this rollout, so callers who want
 the default-safe single-run policy should use `createProcessor(...).run()`.
 
+`captureNodeTimings` is an optional execution-metadata flag shared with core. It
+adds `durationMs` and split-run `splitRunDurationMs` to `nodeFinish` / `nodeError` events without changing output
+DataValues or project files. Headless `runGraph(...)` and ordinary
+`createProcessor(...)` calls do not capture timings unless the caller passes the
+flag. When `remoteDebugger` is supplied to Node `createProcessor(...)` or
+`runGraph(...)`, the Node package defaults timing capture on so externally
+triggered debugger runs can carry duration metadata to the app; passing
+`captureNodeTimings: false` explicitly still wins. The app-executor overrides
+missing internal run messages back to `false` so the editor's Node executor only
+captures timings when the `Show node run durations` app setting asks for them.
+Debugger processor attachments must forward this metadata on both successful
+`nodeFinish` events and normalized `nodeError` payloads; do not rebuild error
+messages in the debugger layer in a way that drops `durationMs` or split-run `splitRunDurationMs`.
+
 Default-fast promotion is guarded by
 [`packages/node/test/defaultFastCompatibility.test.ts`](../packages/node/test/defaultFastCompatibility.test.ts).
 That suite compares omitted default-safe, explicit compatible, and explicit
@@ -531,9 +545,10 @@ verifies a clean checkout before installing dependencies, then verifies after
 the build that only Yarn install artifacts and generated publish artifacts
 changed. It then verifies the repository `NPM_TOKEN` secret with `npm whoami`
 before publishing. It calls this script with `--skip-clean-check` so ignored
-`.pnp.cjs`, `.yarn/cache`, `packages/core/dist`, `packages/node/dist`,
-`packages/trivet/dist`, `packages/cli/dist`, `packages/cli/bin`, and
-`packages/cli/tsconfig.tsbuildinfo` outputs do not block publishing.
+`.pnp.cjs`, `.pnp.loader.mjs`, `.yarn/cache`, `packages/core/dist`,
+`packages/node/dist`, `packages/trivet/dist`, `packages/cli/dist`,
+`packages/cli/bin`, and `packages/cli/tsconfig.tsbuildinfo` outputs do not
+block publishing.
 
 ## Package-Level Refactor Guidance
 

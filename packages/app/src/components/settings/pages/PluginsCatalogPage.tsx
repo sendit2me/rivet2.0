@@ -134,7 +134,7 @@ export const PluginsCatalogPage: FC = () => {
     if (info.type === 'built-in') {
       addBuiltInPlugin(info);
     } else if (info.type === 'package') {
-      addPackagePlugin(info);
+      void addPackagePlugin(info);
     }
   };
 
@@ -188,7 +188,12 @@ export const PluginsCatalogPage: FC = () => {
       <div className="helperMessage">
         <HelperMessage>
           Plugins are stored in: <code>{pluginStoreDirectory}</code>{' '}
-          <CopyIcon className="copy-plugin-dir-button" onClick={copyPluginStoreDirectory} />
+          <CopyIcon
+            className="copy-plugin-dir-button"
+            onClick={() => {
+              void copyPluginStoreDirectory();
+            }}
+          />
         </HelperMessage>
       </div>
     </div>

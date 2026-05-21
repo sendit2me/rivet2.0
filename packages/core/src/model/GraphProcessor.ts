@@ -65,6 +65,7 @@ import {
 import { IsomorphicCodeRunner } from '../integrations/CodeRunner.js';
 
 type WithExecution<T extends object> = T & { execution: GraphExecutionMetadata };
+type NodeTimingStart = number | undefined;
 
 export type ProcessEvents = {
   /** Called when processing has started. */
@@ -91,10 +92,22 @@ export type ProcessEvents = {
   nodeStart: WithExecution<{ node: ChartNode; inputs: Inputs; processId: ProcessId }>;
 
   /** Called when a node has finished processing, with the output values for the node. */
-  nodeFinish: WithExecution<{ node: ChartNode; outputs: Outputs; processId: ProcessId }>;
+  nodeFinish: WithExecution<{
+    node: ChartNode;
+    outputs: Outputs;
+    processId: ProcessId;
+    durationMs?: number;
+    splitRunDurationMs?: Record<number, number>;
+  }>;
 
   /** Called when a node has errored during processing. */
-  nodeError: WithExecution<{ node: ChartNode; error: Error | string; processId: ProcessId }>;
+  nodeError: WithExecution<{
+    node: ChartNode;
+    error: Error | string;
+    processId: ProcessId;
+    durationMs?: number;
+    splitRunDurationMs?: Record<number, number>;
+  }>;
 
   /** Called when a node has been excluded from processing. */
   nodeExcluded: WithExecution<{
@@ -200,6 +213,22 @@ const FAST_ACYCLIC_UNSUPPORTED_NODE_TYPES = new Set<string>([
   'waitForEvent',
 ]);
 
+function getMonotonicTimeMs(): number {
+  return globalThis.performance?.now?.() ?? Date.now();
+}
+
+function withOptionalDuration<T extends object>(
+  payload: T,
+  durationMs: number | undefined,
+  splitRunDurationMs?: Record<number, number>,
+): T & { durationMs?: number; splitRunDurationMs?: Record<number, number> } {
+  return {
+    ...payload,
+    ...(durationMs === undefined ? {} : { durationMs }),
+    ...(splitRunDurationMs === undefined ? {} : { splitRunDurationMs }),
+  } as T & { durationMs?: number; splitRunDurationMs?: Record<number, number> };
+}
+
 function normalizeConcurrencyValue(value: number | undefined, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value) && value >= 1 ? Math.floor(value) : fallback;
 }
@@ -262,6 +291,7 @@ export class GraphProcessor {
   readonly #runtimeCache: GraphProcessorRuntimeCache | undefined;
   readonly #cacheLoadedProjects: boolean;
   readonly #scheduler: GraphProcessorScheduler;
+  readonly #captureNodeTimings: boolean;
   id = nanoid();
 
   readonly #includeTrace?: boolean = true;
@@ -340,6 +370,18 @@ export class GraphProcessor {
     return this.#running;
   }
 
+  #startNodeTiming(): NodeTimingStart {
+    return this.#captureNodeTimings ? getMonotonicTimeMs() : undefined;
+  }
+
+  #finishNodeTiming(start: NodeTimingStart): number | undefined {
+    if (start == null) {
+      return undefined;
+    }
+
+    return Math.max(0, getMonotonicTimeMs() - start);
+  }
+
   constructor(
     project: Project,
     graphId: GraphId | undefined,
@@ -347,6 +389,7 @@ export class GraphProcessor {
     includeTrace?: boolean,
     options?: {
       cacheLoadedProjects?: boolean;
+      captureNodeTimings?: boolean;
       concurrency?: GraphProcessorConcurrency;
       executionPlanCacheMode?: GraphProcessorExecutionPlanCacheMode;
       runtimeCache?: GraphProcessorRuntimeCache;
@@ -375,6 +418,7 @@ export class GraphProcessor {
     this.#runtimeCache = options?.runtimeCache;
     this.#cacheLoadedProjects = options?.cacheLoadedProjects ?? false;
     this.#scheduler = options?.scheduler ?? 'compatible';
+    this.#captureNodeTimings = options?.captureNodeTimings ?? false;
 
     this.#emitter.bindMethods(this as unknown as Record<string, unknown>, ['on', 'off', 'once', 'onAny', 'offAny']);
 
@@ -1496,11 +1540,14 @@ export class GraphProcessor {
       accumulateCost: (output) => this.#accumulateCost(output),
       setNodeResults: (nodeId, outputs) => this.#nodeResults.set(nodeId, outputs),
       markNodeVisited: (nodeId) => this.#visitedNodes.add(nodeId),
-      nodeErrored: (n, err, pid) => this.#nodeErrored(n, err, pid),
+      nodeErrored: (n, err, pid, durationMs, splitRunDurationMs) =>
+        this.#nodeErrored(n, err, pid, durationMs, splitRunDurationMs),
       isAborted: () => this.#aborted,
       emit: (event, data) => {
         emitDetached(this.#emitter, event, this.#withExecution(data));
       },
+      startNodeTiming: this.#captureNodeTimings ? () => this.#startNodeTiming() : undefined,
+      finishNodeTiming: this.#captureNodeTimings ? (start) => this.#finishNodeTiming(start) : undefined,
     });
   }
 
@@ -1514,6 +1561,8 @@ export class GraphProcessor {
     // Use awaited emit (not emitDetached) so that listeners can yield to the
     // macrotask queue, giving the browser a chance to repaint during execution.
     await this.#emitter.emit('nodeStart', this.#withExecution({ node, inputs: inputValues, processId }));
+
+    const timingStart = this.#startNodeTiming();
 
     try {
       const outputValues = await this.#processNodeWithInputData(
@@ -1533,15 +1582,37 @@ export class GraphProcessor {
       this.#nodeResults.set(node.id, outputValues);
       this.#visitedNodes.add(node.id);
       this.#accumulateCost(outputValues);
-      await this.#emitter.emit('nodeFinish', this.#withExecution({ node, outputs: outputValues, processId }));
+      await this.#emitter.emit(
+        'nodeFinish',
+        this.#withExecution(
+          withOptionalDuration(
+            {
+              node,
+              outputs: outputValues,
+              processId,
+            },
+            this.#finishNodeTiming(timingStart),
+          ),
+        ),
+      );
     } catch (error) {
-      this.#nodeErrored(node, error, processId);
+      this.#nodeErrored(node, error, processId, this.#finishNodeTiming(timingStart));
     }
   }
 
-  #nodeErrored(node: ChartNode, e: unknown, processId: ProcessId) {
+  #nodeErrored(
+    node: ChartNode,
+    e: unknown,
+    processId: ProcessId,
+    durationMs?: number,
+    splitRunDurationMs?: Record<number, number>,
+  ) {
     const error = getError(e);
-    emitDetached(this.#emitter, 'nodeError', this.#withExecution({ node, error, processId }));
+    emitDetached(
+      this.#emitter,
+      'nodeError',
+      this.#withExecution(withOptionalDuration({ node, error, processId }, durationMs, splitRunDurationMs)),
+    );
     this.#emitTraceEvent(`Node ${node.title} (${node.id}-${processId}) errored: ${error.stack}`);
     this.#erroredNodes.set(node.id, error);
   }
@@ -1720,6 +1791,7 @@ export class GraphProcessor {
   ): GraphProcessor {
     const processor = new GraphProcessor(project ?? this.#project, subGraphId, this.#registry, this.#includeTrace, {
       cacheLoadedProjects: this.#cacheLoadedProjects,
+      captureNodeTimings: this.#captureNodeTimings,
       concurrency: this.#concurrency,
       executionPlanCacheMode: this.#executionPlanCacheMode,
       runtimeCache: this.#runtimeCache,

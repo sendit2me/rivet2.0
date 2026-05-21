@@ -6,6 +6,7 @@ import WebSocket, { type WebSocketServer } from 'ws';
 import { DEBUGGER_HEARTBEAT_INTERVAL_MS, DEBUGGER_HEARTBEAT_TIMEOUT_MS, startDebuggerServer } from '../src/debugger.js';
 import { createProcessor } from '../src/api.js';
 import { loadTestGraphs } from './testUtils.js';
+import { makeThrowingCodeProject } from './runtimeSpeedFixtures.js';
 
 class FakeWebSocket extends EventEmitter {
   readyState = WebSocket.OPEN;
@@ -74,6 +75,12 @@ async function waitFor(assertion: () => void) {
 
 function fakeProcessor(id = 'processor-1'): GraphProcessor {
   return { id } as unknown as GraphProcessor;
+}
+
+function getSentDebuggerMessage(socket: FakeWebSocket, message: string) {
+  return socket.sentMessages
+    .map((sentMessage) => JSON.parse(sentMessage))
+    .find((sentMessage) => sentMessage.message === message);
 }
 
 describe('startDebuggerServer heartbeat', () => {
@@ -325,6 +332,31 @@ describe('startDebuggerServer broadcast', () => {
 
     await assert.doesNotReject(() => processor.run());
     assert.equal(socket.terminated, true);
+  });
+
+  it('forwards node error duration metadata to debugger clients', async () => {
+    const server = new FakeWebSocketServer();
+    const socket = new FakeWebSocket();
+    const debuggerServer = startDebuggerServer({
+      server: server as unknown as WebSocketServer,
+      heartbeatIntervalMs: 0,
+    });
+    const fixture = makeThrowingCodeProject();
+
+    server.connect(socket);
+
+    const processor = createProcessor(fixture.project, {
+      graph: fixture.graphId,
+      remoteDebugger: debuggerServer,
+      captureNodeTimings: true,
+    });
+
+    await assert.rejects(() => processor.run(), /failed to process due to errors in nodes/);
+
+    const nodeErrorMessage = getSentDebuggerMessage(socket, 'nodeError');
+    assert.equal(nodeErrorMessage?.data.node.id, 'throwing-code');
+    assert.equal(typeof nodeErrorMessage?.data.durationMs, 'number');
+    assert.ok(nodeErrorMessage.data.durationMs >= 0);
   });
 
   it('removes processor event listeners on detach and keeps detach idempotent', async () => {

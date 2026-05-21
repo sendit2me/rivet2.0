@@ -9,8 +9,11 @@ const focusedTestPattern = /\b(?:context|describe|it|suite|test)\.only\b/;
 const skippedTestPattern = /\b(?:context|describe|it|suite|test)\.skip\b/;
 const sourceReadPattern = /\breadFileSync\s*\(/;
 
-function getTrackedTestFiles() {
-  return execFileSync('git', ['ls-files'], { cwd: repoRoot, encoding: 'utf8' })
+function getCandidateTestFiles() {
+  return execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard'], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+  })
     .split(/\r?\n/)
     .filter((file) => testFilePattern.test(file.replaceAll('\\', '/')));
 }
@@ -19,7 +22,7 @@ const focusedTests = [];
 const skippedTests = [];
 const sourceReadingTests = [];
 
-for (const file of getTrackedTestFiles()) {
+for (const file of getCandidateTestFiles()) {
   const absolutePath = join(repoRoot, file);
   if (!existsSync(absolutePath)) {
     continue;
@@ -42,7 +45,7 @@ for (const file of getTrackedTestFiles()) {
 }
 
 if (focusedTests.length > 0) {
-  console.error('Committed focused tests are not allowed. Remove .only from:');
+  console.error('Focused tests are not allowed. Remove .only from:');
   for (const file of focusedTests) {
     console.error(`- ${file}`);
   }

@@ -440,7 +440,7 @@ function normalizeValue(
   if (value != null && typeof value === 'object') {
     return Object.fromEntries(
       Object.entries(value as Record<string, unknown>)
-        .filter(([key]) => !['callback', 'execution', 'processId', 'ts'].includes(key))
+        .filter(([key]) => !['callback', 'durationMs', 'execution', 'processId', 'ts'].includes(key))
         .filter(([, nestedValue]) => !(options.dropUndefinedProperties && nestedValue === undefined))
         .sort(([left], [right]) => left.localeCompare(right))
         .map(([key, nestedValue]) => [

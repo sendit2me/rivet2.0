@@ -151,9 +151,9 @@ generated JavaScript beside Docusaurus source files during CI or local cleanup.
 ### `yarn test:style`
 
 Runs [`scripts/check-test-style.mjs`](../scripts/check-test-style.mjs). The
-script fails when committed `test.only`, `it.only`, `describe.only`,
-`suite.only`, or `context.only` calls are present in tracked test files. It also
-prints report-only lists of tracked test files that use `readFileSync` or
+script fails when `test.only`, `it.only`, `describe.only`, `suite.only`, or
+`context.only` calls are present in tracked or untracked non-ignored test files.
+It also prints report-only lists of test files that use `readFileSync` or
 `.skip`; those reports keep the remaining source-shape guardrails and any
 temporary skipped tests visible without blocking cleanup work.
 

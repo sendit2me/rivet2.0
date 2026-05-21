@@ -33,8 +33,20 @@ export type SerializedProcessEventMap = {
   graphFinish: WithExecution<{ graph: NodeGraph; outputs: GraphOutputs }>;
   graphAbort: WithExecution<{ successful: boolean; graph: NodeGraph; error?: Error | string }>;
   nodeStart: WithExecution<{ node: ChartNode; inputs: Inputs; processId: ProcessId }>;
-  nodeFinish: WithExecution<{ node: ChartNode; outputs: Outputs; processId: ProcessId }>;
-  nodeError: WithExecution<{ node: ChartNode; error: Error | string; processId: ProcessId }>;
+  nodeFinish: WithExecution<{
+    node: ChartNode;
+    outputs: Outputs;
+    processId: ProcessId;
+    durationMs?: number;
+    splitRunDurationMs?: Record<number, number>;
+  }>;
+  nodeError: WithExecution<{
+    node: ChartNode;
+    error: Error | string;
+    processId: ProcessId;
+    durationMs?: number;
+    splitRunDurationMs?: Record<number, number>;
+  }>;
   nodeExcluded: WithExecution<{
     node: ChartNode;
     processId: ProcessId;
@@ -127,6 +139,7 @@ export type OutgoingMessageMap = {
     inputs?: GraphInputs;
     projectPath?: string | null;
     useEditorCache?: boolean;
+    captureNodeTimings?: boolean;
   };
   abort: undefined;
   pause: undefined;

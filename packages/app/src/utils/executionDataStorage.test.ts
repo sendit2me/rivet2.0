@@ -708,6 +708,45 @@ test('storeNodeDataForHistory omits undefined input and output fields so later u
   assert.equal('splitOutputData' in stored, false);
 });
 
+test('storeNodeDataForHistory preserves explicit undefined duration so terminal events clear stale timing metadata', () => {
+  const dataRefs = createDataRefStore();
+
+  const stored = storeNodeDataForHistory(
+    {
+      status: { type: 'ok' },
+      durationMs: undefined,
+    },
+    dataRefs,
+    {
+      nodeId: 'node-duration-clear',
+      processId: 'process-duration-clear',
+    },
+  );
+
+  assert.equal(Object.prototype.hasOwnProperty.call(stored, 'durationMs'), true);
+  assert.equal(stored.durationMs, undefined);
+});
+
+test('storeNodeDataForHistory preserves split-run item durations as transient metadata', () => {
+  const dataRefs = createDataRefStore();
+
+  const stored = storeNodeDataForHistory(
+    {
+      status: { type: 'ok' },
+      durationMs: 20,
+      splitRunDurationMs: { 0: 8, 1: 12 },
+    },
+    dataRefs,
+    {
+      nodeId: 'node-split-duration',
+      processId: 'process-split-duration',
+    },
+  );
+
+  assert.equal(stored.durationMs, 20);
+  assert.deepEqual(stored.splitRunDurationMs, { 0: 8, 1: 12 });
+});
+
 test('storeNodeDataForHistory preserves node debug snapshots for later output rendering', () => {
   const dataRefs = createDataRefStore();
 

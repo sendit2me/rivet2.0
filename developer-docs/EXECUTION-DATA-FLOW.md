@@ -20,6 +20,20 @@ When a graph executes, the app must:
 These four concerns are handled by separate but tightly coupled systems. The coupling
 is where bugs tend to hide.
 
+## Per-Node Run Duration Metadata
+
+Node run duration display is an app preference layered over execution events. The persisted setting lives in [`showNodeRunDurationsState`](../packages/app/src/state/settings.ts) with storage key `showNodeRunDurations` and default `false`. It is not part of core `Settings`, project YAML, node data, output definitions, or DataValue output maps.
+
+When the setting is on, Browser/editor runs pass `captureNodeTimings: true` to [`GraphProcessor`](../packages/core/src/model/GraphProcessor.ts), and Node executor runs send `captureNodeTimings` through the app-executor debugger run message. The app-executor explicitly defaults missing run messages to `captureNodeTimings: false` because its internal WebSocket transport uses the debugger server even for ordinary Node executor runs.
+
+External Remote Debugger runs are different: a backend that calls `createProcessor(..., { remoteDebugger })` captures durations by default unless it explicitly passes `captureNodeTimings: false`, because the external backend cannot know the local viewer's display setting. The app still shows or hides incoming `durationMs` solely according to `showNodeRunDurationsState`.
+
+`durationMs` is stored in transient `NodeRunDataBase` and preserved by [`storeNodeDataForHistory(...)`](../packages/app/src/utils/executionDataStorage.ts) so graph-run history, remote-debugger data, and recording replay use the same output surfaces. Terminal updates intentionally preserve an explicit `durationMs: undefined` when timings are disabled so merged process data clears stale timing metadata instead of carrying it into a later no-timing run. Split-run item timings are stored beside it as transient `splitRunDurationMs`, keyed by split item index, because many parallel/sequential runs are one node process with aggregate output arrays rather than several `ProcessDataForNode` entries.
+
+[`NodeRunDurationMeta`](../packages/app/src/components/nodeOutput/NodeRunDurationMeta.tsx) renders `Duration: {n}ms` for single-process inline and fullscreen node outputs. When the same node has multiple visible process runs or split-run item timings, `NodeRunDurationSummaryMeta` renders `Total duration: {n}ms` followed by one `Run {n}: {n}ms` line per finished run, and the selected process suppresses its duplicate single-duration line. The pure visibility/view-model layer receives an explicit `showNodeRunDuration` option so duration-only terminal runs can become visible only when the setting is enabled. Nodes with their own runtime-like output ports (`subGraph`, `callGraph`, `referencedGraphAlias`, and legacy `chat`) suppress this extra metadata line to avoid duplicate duration display. Custom renderers for those nodes must render their own split-run metric arrays when they hide the raw metric ports; for example, the Subgraph renderer formats `duration: number[]` and `cost: number[]` outputs as total values plus one run line per split item.
+
+Copy actions intentionally ignore run-duration metadata. The ordinary copy button and JSON-copy button continue to serialize displayed output values / internal output maps only.
+
 ## Key Concept: Graph View Identity
 
 The same graph definition can execute in multiple distinct contexts:

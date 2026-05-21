@@ -101,6 +101,42 @@ async function addEvents(recorder: ExecutionRecorder, options: { includeIntermed
   });
 }
 
+async function replayNodeFinishTiming(
+  recorder: ExecutionRecorder,
+): Promise<{ durationMs: number | undefined; splitRunDurationMs: Record<number, number> | undefined }> {
+  const replayEmitter = new Emittery<ProcessEvents>();
+  let durationMs: number | undefined;
+  let splitRunDurationMs: Record<number, number> | undefined;
+
+  replayEmitter.on('nodeFinish', (data: ProcessEvents['nodeFinish']) => {
+    durationMs = data.durationMs;
+    splitRunDurationMs = data.splitRunDurationMs;
+  });
+
+  await replayExecutionRecording({
+    emitter: replayEmitter,
+    erroredNodes: new Map(),
+    graphInputs: {},
+    graphOutputs: {},
+    isAborted: () => false,
+    nodeResults: new Map(),
+    project: {
+      metadata: { id: 'project-id', title: 'Project', description: '', mainGraphId: graph.metadata!.id! },
+      graphs: { [graph.metadata!.id!]: graph },
+    } as any,
+    recorder,
+    recordingPlaybackChatLatency: 0,
+    setContextValues: () => {},
+    setGraphInputs: () => {},
+    setGraphOutputs: () => {},
+    setRunning: () => {},
+    visitedNodes: new Set(),
+    waitUntilUnpaused: async () => {},
+  });
+
+  return { durationMs, splitRunDurationMs };
+}
+
 void describe('ExecutionRecorder', () => {
   void it('should serialize an instance of ExecutionRecorder', async () => {
     // Simulate storage in string form
@@ -197,6 +233,61 @@ void describe('ExecutionRecorder', () => {
     );
   });
 
+  void it('preserves recorded node finish duration during replay', async () => {
+    const recorder = new ExecutionRecorder();
+    const emitter = new Emittery<ProcessEvents>();
+    recorder.record(emitter as unknown as GraphProcessor);
+
+    await emitter.emit('nodeStart', {
+      node,
+      inputs: {},
+      processId,
+      execution,
+    });
+    await emitter.emit('nodeFinish', {
+      node,
+      outputs: {},
+      processId,
+      durationMs: 123,
+      splitRunDurationMs: { 0: 40, 1: 83 },
+      execution,
+    });
+    await emitter.emit('done', { results: {} });
+
+    const nodeFinishEvent = recorder.events.find((event) => event.type === 'nodeFinish');
+    assert.equal(nodeFinishEvent?.data.durationMs, 123);
+    assert.deepEqual(nodeFinishEvent?.data.splitRunDurationMs, { 0: 40, 1: 83 });
+    assert.deepEqual(await replayNodeFinishTiming(recorder), {
+      durationMs: 123,
+      splitRunDurationMs: { 0: 40, 1: 83 },
+    });
+  });
+
+  void it('derives legacy node finish duration from recorded timestamps when missing', async () => {
+    const recorder = new ExecutionRecorder();
+    const emitter = new Emittery<ProcessEvents>();
+    recorder.record(emitter as unknown as GraphProcessor);
+
+    await emitter.emit('nodeStart', {
+      node,
+      inputs: {},
+      processId,
+      execution,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 1));
+    await emitter.emit('nodeFinish', {
+      node,
+      outputs: {},
+      processId,
+      execution,
+    });
+    await emitter.emit('done', { results: {} });
+
+    const nodeFinishEvent = recorder.events.find((event) => event.type === 'nodeFinish');
+    assert.equal(Object.prototype.hasOwnProperty.call(nodeFinishEvent!.data, 'durationMs'), false);
+    assert.ok((await replayNodeFinishTiming(recorder)).durationMs! >= 0);
+  });
+
   void it('ignores app-executor Code console messages when recording remote sockets', async () => {
     const recorder = new ExecutionRecorder();
     const socket = new FakeSocket();
@@ -224,5 +315,35 @@ void describe('ExecutionRecorder', () => {
       recorder.events.map((event) => event.type),
       ['done'],
     );
+  });
+
+  void it('preserves remote socket node finish duration', async () => {
+    const recorder = new ExecutionRecorder();
+    const socket = new FakeSocket();
+    const recordingFinished = recorder.recordSocket(socket as unknown as WebSocket);
+
+    socket.emit({
+      message: 'nodeFinish',
+      data: {
+        node,
+        outputs: {},
+        processId,
+        durationMs: 42,
+        splitRunDurationMs: { 0: 20, 1: 22 },
+        execution,
+      },
+    });
+    socket.emit({
+      message: 'done',
+      data: {
+        results: {},
+      },
+    });
+
+    await recordingFinished;
+
+    const nodeFinishEvent = recorder.events.find((event) => event.type === 'nodeFinish');
+    assert.equal(nodeFinishEvent?.data.durationMs, 42);
+    assert.deepEqual(nodeFinishEvent?.data.splitRunDurationMs, { 0: 20, 1: 22 });
   });
 });

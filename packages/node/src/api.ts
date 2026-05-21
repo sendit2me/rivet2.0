@@ -131,8 +131,13 @@ export function createProcessor(
   options: NodeCreateProcessorOptions,
 ): ReturnType<typeof coreCreateProcessor> {
   const { runtimeProfile, ...processorOptions } = options;
+  const effectiveProcessorOptions = {
+    ...processorOptions,
+    captureNodeTimings:
+      processorOptions.captureNodeTimings ?? (processorOptions.remoteDebugger !== undefined ? true : undefined),
+  };
   const runtimePolicy = resolveCreateProcessorRuntimePolicy({ ...processorOptions, runtimeProfile });
-  const processor = coreCreateProcessor(project, processorOptions, {
+  const processor = coreCreateProcessor(project, effectiveProcessorOptions, {
     cacheLoadedProjects: runtimePolicy.cacheLoadedProjects,
     executionPlanCacheMode: runtimePolicy.executionPlanCacheMode,
     runtimeCache: runtimePolicy.runtimeCache,
@@ -143,30 +148,33 @@ export function createProcessor(
 
   let remoteDebuggerAttached = false;
   const attachRemoteDebugger = () => {
-    if (!processorOptions.remoteDebugger || remoteDebuggerAttached) {
+    if (!effectiveProcessorOptions.remoteDebugger || remoteDebuggerAttached) {
       return;
     }
 
-    processorOptions.remoteDebugger.attach(processor.processor, processorOptions.remoteDebuggerRequestId);
+    effectiveProcessorOptions.remoteDebugger.attach(
+      processor.processor,
+      effectiveProcessorOptions.remoteDebuggerRequestId,
+    );
     remoteDebuggerAttached = true;
   };
   const detachRemoteDebugger = () => {
-    if (!processorOptions.remoteDebugger || !remoteDebuggerAttached) {
+    if (!effectiveProcessorOptions.remoteDebugger || !remoteDebuggerAttached) {
       return;
     }
 
-    processorOptions.remoteDebugger.detach(processor.processor);
+    effectiveProcessorOptions.remoteDebugger.detach(processor.processor);
     remoteDebuggerAttached = false;
   };
 
   attachRemoteDebugger();
 
-  const pluginEnv = resolveNodePluginEnv(processorOptions);
+  const pluginEnv = resolveNodePluginEnv(effectiveProcessorOptions);
 
   return {
     ...processor,
     async run() {
-      const shouldManageRemoteDebugger = processorOptions.remoteDebugger != null && !processor.processor.isRunning;
+      const shouldManageRemoteDebugger = effectiveProcessorOptions.remoteDebugger != null && !processor.processor.isRunning;
       const shouldManageRunScopedRuntimeCache = runtimePolicy.runtimeCache != null && !processor.processor.isRunning;
       if (shouldManageRunScopedRuntimeCache) {
         clearGraphProcessorRuntimeCache(runtimePolicy.runtimeCache!);
@@ -181,7 +189,7 @@ export function createProcessor(
 
       try {
         const outputs = await processor.processor.processGraph(
-          createNodeProcessContext(processorOptions, pluginEnv, { codeRunner: runScopedCodeRunner }),
+          createNodeProcessContext(effectiveProcessorOptions, pluginEnv, { codeRunner: runScopedCodeRunner }),
           processor.inputs,
           processor.contextValues,
         );

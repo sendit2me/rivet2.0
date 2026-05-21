@@ -18,6 +18,7 @@ import {
   resolvedGraphSelectionState,
   selectedProcessPageState,
 } from '../../state/dataFlow.js';
+import { showNodeRunDurationsState } from '../../state/settings.js';
 import { filterProcessDataForSelection } from '../../state/selectors/executionSelectors.js';
 import { overlayOpenState } from '../../state/ui.js';
 import { Tooltip } from '../Tooltip.js';
@@ -35,6 +36,13 @@ import {
   getNodeOutputCopySource,
   getSelectedNodeOutputProcess,
 } from './nodeOutputViewModel.js';
+import {
+  NodeRunDurationMeta,
+  NodeRunDurationSummaryMeta,
+  shouldShowNodeRunDurationMeta,
+  shouldShowNodeRunDurationSummary,
+} from './NodeRunDurationMeta.js';
+import { nodeRunDataHasVisibleOutput } from './nodeOutputVisibility.js';
 import { renderNodeOutputBody } from './renderNodeOutputBody.js';
 
 export const NodeInlineOutput: FC<{
@@ -47,12 +55,15 @@ export const NodeInlineOutput: FC<{
   const dataRefs = useDataRefs();
   const output = useAtomValue(lastRunDataState(node.id));
   const selectedPage = useAtomValue(selectedProcessPageState(node.id));
+  const showNodeRunDurations = useAtomValue(showNodeRunDurationsState);
   const graphSelectionOptions = useAtomValue(resolvedGraphSelectionState);
   const filteredOutput = useMemo(
     () => filterProcessDataForSelection({ ...graphSelectionOptions, processData: output }) ?? output,
     [graphSelectionOptions, output],
   );
-  const visibleOutput = useOutputDataWithReplacementGrace(node.type, filteredOutput, selectedPage, dataRefs);
+  const visibleOutput = useOutputDataWithReplacementGrace(node.type, filteredOutput, selectedPage, dataRefs, {
+    showNodeRunDuration: showNodeRunDurations,
+  });
 
   if (!visibleOutput?.length) {
     return null;
@@ -72,6 +83,7 @@ export const NodeInlineOutput: FC<{
           isOutputExpanded={isOutputExpanded}
           isHovered={isHovered}
           processId={firstOutput.processId}
+          showNodeRunDuration={showNodeRunDurations}
           onToggleExpandedOutput={onToggleExpandedOutput}
           onOpenFullscreenModal={onOpenFullscreenModal}
         />
@@ -85,6 +97,7 @@ export const NodeInlineOutput: FC<{
           data={visibleOutput}
           isOutputExpanded={isOutputExpanded}
           isHovered={isHovered}
+          showNodeRunDuration={showNodeRunDurations}
           onToggleExpandedOutput={onToggleExpandedOutput}
           onOpenFullscreenModal={onOpenFullscreenModal}
         />
@@ -99,9 +112,21 @@ const NodeOutputSingleProcess: FC<{
   isOutputExpanded: boolean;
   isHovered: boolean;
   processId: ProcessId;
+  showNodeRunDuration: boolean;
+  suppressDurationMeta?: boolean;
   onToggleExpandedOutput: () => void;
   onOpenFullscreenModal?: () => void;
-}> = ({ node, data, isOutputExpanded, isHovered, processId, onToggleExpandedOutput, onOpenFullscreenModal }) => {
+}> = ({
+  node,
+  data,
+  isOutputExpanded,
+  isHovered,
+  processId,
+  showNodeRunDuration,
+  suppressDurationMeta = false,
+  onToggleExpandedOutput,
+  onOpenFullscreenModal,
+}) => {
   const dataRefs = useDataRefs();
   const { Output, OutputSimple, getCopyValueData } = useUnknownNodeComponentDescriptorFor(node);
 
@@ -133,9 +158,17 @@ const NodeOutputSingleProcess: FC<{
         nodeType: node.type,
         data,
         dataRefs,
+        showNodeRunDuration,
       }),
-    [data, dataRefs, node.type],
+    [data, dataRefs, node.type, showNodeRunDuration],
   );
+  const durationProcessData = useMemo(() => [{ processId, data }], [data, processId]);
+  const showDurationSummary =
+    !suppressDurationMeta && shouldShowNodeRunDurationSummary(node.type, durationProcessData, showNodeRunDuration);
+  const showDurationMeta =
+    !suppressDurationMeta &&
+    !showDurationSummary &&
+    shouldShowNodeRunDurationMeta(node.type, data, showNodeRunDuration);
 
   const copySource = getNodeOutputCopySource(content);
   const handleCopyToClipboard = useStableCallback(() =>
@@ -148,6 +181,8 @@ const NodeOutputSingleProcess: FC<{
     return (
       <div className="node-output-inner errored">
         <NodeOutputContentFade key={contentKey} contentKey={contentKey}>
+          {showDurationSummary && <NodeRunDurationSummaryMeta processData={durationProcessData} hasBody />}
+          {showDurationMeta && <NodeRunDurationMeta data={data} hasBody />}
           <CodeNodeErrorOutput data={data} />
         </NodeOutputContentFade>
       </div>
@@ -160,6 +195,8 @@ const NodeOutputSingleProcess: FC<{
     return (
       <div className="node-output-inner errored">
         <NodeOutputContentFade key={contentKey} contentKey={contentKey}>
+          {showDurationSummary && <NodeRunDurationSummaryMeta processData={durationProcessData} hasBody />}
+          {showDurationMeta && <NodeRunDurationMeta data={data} hasBody />}
           {content.error}
         </NodeOutputContentFade>
       </div>
@@ -184,6 +221,7 @@ const NodeOutputSingleProcess: FC<{
     isCompact,
     renderMode,
   });
+  const hasBody = body != null;
   const contentKey = getNodeOutputContentKey(processId, data, content.contentKeyKind);
 
   return (
@@ -226,6 +264,8 @@ const NodeOutputSingleProcess: FC<{
         </Tooltip>
       </div>
       <NodeOutputContentFade key={contentKey} contentKey={contentKey}>
+        {showDurationSummary && <NodeRunDurationSummaryMeta processData={durationProcessData} hasBody={hasBody} />}
+        {showDurationMeta && <NodeRunDurationMeta data={data} hasBody={hasBody} />}
         {body}
       </NodeOutputContentFade>
       {content.warnings && (
@@ -246,9 +286,18 @@ const NodeOutputMultiProcess: FC<{
   data: ProcessDataForNode[];
   isOutputExpanded: boolean;
   isHovered: boolean;
+  showNodeRunDuration: boolean;
   onToggleExpandedOutput: () => void;
   onOpenFullscreenModal?: () => void;
-}> = ({ node, data, isOutputExpanded, isHovered, onToggleExpandedOutput, onOpenFullscreenModal }) => {
+}> = ({
+  node,
+  data,
+  isOutputExpanded,
+  isHovered,
+  showNodeRunDuration,
+  onToggleExpandedOutput,
+  onOpenFullscreenModal,
+}) => {
   const [selectedPage, setSelectedPage] = useAtom(selectedProcessPageState(node.id));
 
   const prevPage = useStableCallback(() => {
@@ -266,6 +315,9 @@ const NodeOutputMultiProcess: FC<{
   });
 
   const selectedData = useMemo(() => getSelectedNodeOutputProcess(data, selectedPage), [data, selectedPage]);
+  const showDurationSummary = shouldShowNodeRunDurationSummary(node.type, data, showNodeRunDuration);
+  const selectedHasVisibleBody =
+    selectedData != null && nodeRunDataHasVisibleOutput(node.type, selectedData.data, { showNodeRunDuration: false });
 
   return (
     <div className="node-output multi">
@@ -278,6 +330,9 @@ const NodeOutputMultiProcess: FC<{
           stopDoubleClickPropagation
         />
       </div>
+      {showDurationSummary && (
+        <NodeRunDurationSummaryMeta processData={data} hasBody={selectedHasVisibleBody} />
+      )}
       {selectedData && (
         <NodeOutputSingleProcess
           data={selectedData.data}
@@ -285,6 +340,8 @@ const NodeOutputMultiProcess: FC<{
           isHovered={isHovered}
           node={node}
           processId={selectedData.processId}
+          showNodeRunDuration={showNodeRunDuration}
+          suppressDurationMeta={showDurationSummary}
           onToggleExpandedOutput={onToggleExpandedOutput}
           onOpenFullscreenModal={onOpenFullscreenModal}
         />

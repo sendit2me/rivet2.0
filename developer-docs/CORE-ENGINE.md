@@ -110,6 +110,14 @@ Loop-controller break detection is intentionally isolated in [`loopControllerBre
 
 Keep this policy covered by focused tests. The `loop-not-broken` sentinel is exported from the helper and reused by `GraphProcessor`; do not reintroduce duplicated string literals. If loop-controller behavior changes, update the helper and tests first, then wire `GraphProcessor` to the new policy. Avoid reintroducing inline type suppressions in loop/race control-flow branches.
 
+## Optional Node Duration Metadata
+
+Per-node run durations are transient execution metadata, not graph outputs. [`GraphProcessor`](../packages/core/src/model/GraphProcessor.ts) only reads monotonic timestamps and emits `durationMs` on `nodeFinish` / `nodeError` when it is constructed with `captureNodeTimings: true`. The default remains `false`, so ordinary headless runs do not pay extra timestamp reads just because the app can display timings.
+
+Timing starts after the awaited `nodeStart` event and ends when the node succeeds or errors. Preloaded `processId: 'preload'` values, `nodeExcluded`, output maps, graph YAML, and node data are intentionally unchanged. Subprocessors inherit the parent processor's `captureNodeTimings` value. Split-run nodes report the aggregate split node duration as `durationMs` from aggregate `nodeStart` to aggregate `nodeFinish` / `nodeError`, and also report per-item timings in transient `splitRunDurationMs` so the app can show a total plus one duration line per split item without changing output values.
+
+Recordings preserve incoming `durationMs` and `splitRunDurationMs` when present. [`RecordingPlayer`](../packages/core/src/model/RecordingPlayer.ts) can also derive replay-only legacy aggregate durations from existing recorded `nodeStart.ts` and terminal event `ts` values; that fallback is not used for live remote-debugger traffic where receive timing would be misleading.
+
 ## Graph Model
 
 Core graph model types live in `model/`.

@@ -46,12 +46,14 @@ export function createDebuggerProcessorAttachments(options: {
         }),
       );
       cleanups.push(
-        processor.on('nodeError', ({ node, error, processId, execution }) => {
+        processor.on('nodeError', ({ node, error, processId, execution, durationMs, splitRunDurationMs }) => {
           options.broadcast(processor, 'nodeError', {
             node,
             error: typeof error === 'string' ? error : error.toString(),
             processId,
             execution,
+            ...(durationMs === undefined ? {} : { durationMs }),
+            ...(splitRunDurationMs === undefined ? {} : { splitRunDurationMs }),
           });
         }),
       );

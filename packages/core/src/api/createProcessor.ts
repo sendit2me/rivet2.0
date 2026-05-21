@@ -45,6 +45,7 @@ export type RunGraphOptions = {
     [key: string]: (data: DataValue | undefined) => void;
   };
   abortSignal?: AbortSignal;
+  captureNodeTimings?: boolean;
   registry?: NodeRegistration<any, any>;
   includeTrace?: boolean;
   concurrency?: GraphProcessorConcurrency;
@@ -90,6 +91,7 @@ export function coreCreateProcessor(
     options.includeTrace,
     {
       cacheLoadedProjects: internalOptions.cacheLoadedProjects,
+      captureNodeTimings: options.captureNodeTimings,
       concurrency: options.concurrency,
       executionPlanCacheMode: internalOptions.executionPlanCacheMode,
       runtimeCache: internalOptions.runtimeCache,

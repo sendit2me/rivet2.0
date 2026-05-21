@@ -117,6 +117,32 @@ test('createNodeOutputContentViewModel treats hidden-only and absent output maps
   );
 });
 
+test('createNodeOutputContentViewModel exposes duration-only output only when enabled', () => {
+  const data = {
+    durationMs: 15,
+    status: { type: 'ok' },
+  } as NodeRunDataWithRefs;
+
+  assert.equal(
+    createNodeOutputContentViewModel({
+      nodeType: 'text',
+      data,
+      dataRefs: createDataRefStore(),
+    }).kind,
+    'empty',
+  );
+
+  const content = createNodeOutputContentViewModel({
+    nodeType: 'text',
+    data,
+    dataRefs: createDataRefStore(),
+    showNodeRunDuration: true,
+  });
+
+  assert.equal(content.kind, 'output');
+  assert.equal(serializeNodeOutputDisplayCopy(getNodeOutputCopySource(content), createDataRefStore()), undefined);
+});
+
 test('createNodeOutputBodyViewModel chooses custom renderers before generic output maps', () => {
   const data = {
     outputData: {
@@ -216,6 +242,34 @@ test('createFullscreenNodeOutputViewModel reports the selected visible process a
   assert.equal(selectedOld.processId, oldProcess.processId);
   assert.equal(selectedLatest.kind, 'empty');
   assert.equal(selectedLatest.totalPages, 2);
+});
+
+test('createFullscreenNodeOutputViewModel can select duration-only output when enabled', () => {
+  const durationProcess = process('duration', {
+    durationMs: 20,
+    status: { type: 'ok' },
+  });
+
+  assert.equal(
+    createFullscreenNodeOutputViewModel({
+      nodeType: 'text',
+      processData: [durationProcess],
+      selectedPage: 'latest',
+      dataRefs: createDataRefStore(),
+    }).kind,
+    'empty',
+  );
+
+  const outputViewModel = createFullscreenNodeOutputViewModel({
+    nodeType: 'text',
+    processData: [durationProcess],
+    selectedPage: 'latest',
+    dataRefs: createDataRefStore(),
+    showNodeRunDuration: true,
+  });
+
+  assert.equal(outputViewModel.kind, 'content');
+  assert.equal(outputViewModel.kind === 'content' ? outputViewModel.data.durationMs : undefined, 20);
 });
 
 test('node output copy view-model helpers keep display copy and JSON copy separate', () => {

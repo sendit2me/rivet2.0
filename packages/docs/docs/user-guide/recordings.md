@@ -13,6 +13,8 @@ or by pressing `Cmd/Ctrl + Shift + O` and selecting the file.
 
 When loaded, the border of Rivet will turn yellow, and an "Unload Recording" option will appear in the action bar.
 
+If `Show node run durations` is enabled in Settings, replayed node outputs show `Duration: ...ms` when the recording contains timing metadata. Older recordings may also show approximate durations derived from their recorded start/finish event timestamps. If the same recorded node has multiple finished runs, including many parallel or sequential runs, Rivet shows the total duration plus one line per run. Turn the setting off to hide these duration lines.
+
 ## Playing a Recording
 
 When a recording is loaded, the Play button turns into a "Play Recording" button. Pressing this button will play the recording.

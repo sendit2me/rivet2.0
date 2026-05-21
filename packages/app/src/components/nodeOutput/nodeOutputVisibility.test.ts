@@ -93,6 +93,40 @@ test('nodeRunDataHasVisibleOutput treats outputs and errors as visible', () => {
   assert.equal(nodeRunDataHasVisibleOutput('codeNew', { status: { type: 'error', error: 'SyntaxError' } }), true);
 });
 
+test('nodeRunDataHasVisibleOutput treats duration-only output as visible only when enabled', () => {
+  const durationOnly = {
+    durationMs: 12,
+    status: { type: 'ok' },
+  } as const;
+
+  assert.equal(nodeRunDataHasVisibleOutput('text', durationOnly), false);
+  assert.equal(nodeRunDataHasVisibleOutput('text', durationOnly, { showNodeRunDuration: true }), true);
+  assert.equal(nodeRunDataHasVisibleOutput('subGraph', durationOnly, { showNodeRunDuration: true }), false);
+  assert.equal(
+    nodeRunDataHasVisibleOutput('text', { durationMs: 12, status: { type: 'running' } }, { showNodeRunDuration: true }),
+    false,
+  );
+});
+
+test('nodeRunDataHasVisibleOutput treats split-run duration-only output as visible only when enabled', () => {
+  const splitDurationOnly = {
+    splitRunDurationMs: { 0: 4, 1: 8 },
+    status: { type: 'ok' },
+  } as const;
+
+  assert.equal(nodeRunDataHasVisibleOutput('text', splitDurationOnly), false);
+  assert.equal(nodeRunDataHasVisibleOutput('text', splitDurationOnly, { showNodeRunDuration: true }), true);
+  assert.equal(nodeRunDataHasVisibleOutput('subGraph', splitDurationOnly, { showNodeRunDuration: true }), false);
+  assert.equal(
+    nodeRunDataHasVisibleOutput(
+      'text',
+      { splitRunDurationMs: { 0: 4 }, status: { type: 'running' } },
+      { showNodeRunDuration: true },
+    ),
+    false,
+  );
+});
+
 test('Code errors keep the custom output path while Code legacy uses the code-error path', () => {
   const data = { status: { type: 'error', error: 'SyntaxError' } } as const;
 

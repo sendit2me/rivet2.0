@@ -14,12 +14,15 @@ import {
   type NodeOutputDefinition,
   type Outputs,
   type PortId,
+  type ProcessEvents,
+  type ProcessId,
   type Tokenizer,
   type TokenizerCallInfo,
 } from '../../src/index.js';
 import { loadTestGraphInProcessor, testProcessContext } from '../testUtils';
 
 type TrackedNode = ChartNode<'trackedTest', { delayMs: number }>;
+type FailingNode = ChartNode<'failingTest', { delayMs: number }>;
 type LoopRequiredNode = ChartNode<'loopRequiredTest', Record<string, never>>;
 const originalFetch = globalThis.fetch;
 
@@ -101,6 +104,37 @@ class TrackedTestNodeImpl extends NodeImpl<TrackedNode> {
 
 const trackedTestNode = nodeDefinition(TrackedTestNodeImpl, 'Tracked Test');
 
+class FailingTestNodeImpl extends NodeImpl<FailingNode> {
+  static create(): FailingNode {
+    return {
+      type: 'failingTest',
+      id: `failing-${Math.random()}` as NodeId,
+      title: 'Failing Test',
+      visualData: { x: 0, y: 0, width: 175 },
+      data: { delayMs: 10 },
+    };
+  }
+
+  static getUIData() {
+    return {};
+  }
+
+  getInputDefinitions(): NodeInputDefinition[] {
+    return [];
+  }
+
+  getOutputDefinitions(): NodeOutputDefinition[] {
+    return [];
+  }
+
+  async process(): Promise<Outputs> {
+    await waitFor(this.data.delayMs);
+    throw new Error('failing test node failed');
+  }
+}
+
+const failingTestNode = nodeDefinition(FailingTestNodeImpl, 'Failing Test');
+
 class LoopRequiredTestNodeImpl extends NodeImpl<LoopRequiredNode> {
   static create(): LoopRequiredNode {
     return {
@@ -151,6 +185,10 @@ const loopRequiredTestNode = nodeDefinition(LoopRequiredTestNodeImpl, 'Loop Requ
 
 function createTrackedRegistry() {
   return createBuiltInRegistry().register(trackedTestNode);
+}
+
+function createTimingRegistry() {
+  return createTrackedRegistry().register(failingTestNode);
 }
 
 function createLoopRequiredRegistry() {
@@ -269,6 +307,18 @@ function createTrackedSplitGraph(
   };
 }
 
+function createSingleNodeGraph(node: ChartNode, graphId = `${node.id}-graph`) {
+  return {
+    metadata: {
+      id: graphId,
+      name: graphId,
+      description: '',
+    },
+    nodes: [node],
+    connections: [],
+  };
+}
+
 class CountingTokenizer implements Tokenizer {
   readonly listeners = new Set<(error: Error) => void>();
 
@@ -344,6 +394,109 @@ void describe('GraphProcessor', () => {
 
     assert.equal(eventNames[eventNames.length - 2], 'done');
     assert.equal(eventNames[eventNames.length - 1], 'finish');
+  });
+
+  void it('captures node run duration only when requested', async () => {
+    const registry = createTrackedRegistry();
+    const trackedNode = registry.create('trackedTest');
+    trackedNode.id = 'timed-node' as NodeId;
+    const graph = createSingleNodeGraph(trackedNode, 'timing-disabled-graph');
+
+    let untimedFinish: ProcessEvents['nodeFinish'] | undefined;
+    const untimedProcessor = new GraphProcessor(makeProject(graph), graph.metadata.id as any, registry);
+    untimedProcessor.on('nodeFinish', (event) => {
+      untimedFinish = event;
+    });
+    await untimedProcessor.processGraph(testProcessContext(), {});
+
+    assert.equal(Object.prototype.hasOwnProperty.call(untimedFinish!, 'durationMs'), false);
+
+    let timedFinish: ProcessEvents['nodeFinish'] | undefined;
+    const timedProcessor = new GraphProcessor(makeProject(graph), graph.metadata.id as any, registry, false, {
+      captureNodeTimings: true,
+    });
+    timedProcessor.on('nodeFinish', (event) => {
+      timedFinish = event;
+    });
+    await timedProcessor.processGraph(testProcessContext(), {});
+
+    assert.equal(typeof timedFinish?.durationMs, 'number');
+    assert.ok(timedFinish!.durationMs! >= 0);
+  });
+
+  void it('captures node error duration when requested', async () => {
+    const registry = createTimingRegistry();
+    const failingNode = registry.create('failingTest');
+    failingNode.id = 'timed-failing-node' as NodeId;
+    const graph = createSingleNodeGraph(failingNode, 'timing-error-graph');
+
+    let nodeError: ProcessEvents['nodeError'] | undefined;
+    const processor = new GraphProcessor(makeProject(graph), graph.metadata.id as any, registry, false, {
+      captureNodeTimings: true,
+    });
+    processor.on('nodeError', (event) => {
+      if (event.node.id === failingNode.id) {
+        nodeError = event;
+      }
+    });
+
+    await assert.rejects(() => processor.processGraph(testProcessContext(), {}));
+    await waitFor(0);
+
+    assert.equal(typeof nodeError?.durationMs, 'number');
+    assert.ok(nodeError!.durationMs! >= 0);
+  });
+
+  void it('captures split-run aggregate and per-item durations when requested', async () => {
+    const registry = createTrackedRegistry();
+    const graph = createTrackedSplitGraph(registry, {
+      graphId: 'timing-split-graph',
+      splitRunMax: 2,
+      splitRunConcurrency: 1,
+    });
+
+    let splitFinish: ProcessEvents['nodeFinish'] | undefined;
+    const processor = new GraphProcessor(makeProject(graph), graph.metadata.id as any, registry, false, {
+      captureNodeTimings: true,
+    });
+    processor.on('nodeFinish', (event) => {
+      if (event.node.id === 'tracked-node') {
+        splitFinish = event;
+      }
+    });
+
+    await processor.processGraph(testProcessContext(), {
+      items: { type: 'string[]', value: ['a', 'b'] },
+    });
+
+    assert.equal(typeof splitFinish?.durationMs, 'number');
+    assert.ok(splitFinish!.durationMs! >= 0);
+    assert.equal(typeof splitFinish?.splitRunDurationMs?.[0], 'number');
+    assert.equal(typeof splitFinish?.splitRunDurationMs?.[1], 'number');
+    assert.ok(splitFinish!.splitRunDurationMs![0]! >= 0);
+    assert.ok(splitFinish!.splitRunDurationMs![1]! >= 0);
+  });
+
+  void it('does not add duration to preloaded node events', async () => {
+    const registry = createTrackedRegistry();
+    const trackedNode = registry.create('trackedTest');
+    trackedNode.id = 'preloaded-node' as NodeId;
+    const graph = createSingleNodeGraph(trackedNode, 'timing-preload-graph');
+
+    let preloadFinish: ProcessEvents['nodeFinish'] | undefined;
+    const processor = new GraphProcessor(makeProject(graph), graph.metadata.id as any, registry, false, {
+      captureNodeTimings: true,
+    });
+    processor.preloadNodeData(trackedNode.id, {});
+    processor.on('nodeFinish', (event) => {
+      if (event.processId === ('preload' as ProcessId)) {
+        preloadFinish = event;
+      }
+    });
+
+    await processor.processGraph(testProcessContext(), {});
+
+    assert.equal(Object.prototype.hasOwnProperty.call(preloadFinish!, 'durationMs'), false);
   });
 
   void it('marks nodes with unconnected required inputs as not ran', async () => {

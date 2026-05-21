@@ -82,8 +82,9 @@ export function createNodeOutputContentViewModel(options: {
   nodeType: ChartNode['type'];
   data: NodeRunDataWithRefs;
   dataRefs: DataRefReader;
+  showNodeRunDuration?: boolean;
 }): NodeOutputContentViewModel {
-  const { nodeType, data, dataRefs } = options;
+  const { nodeType, data, dataRefs, showNodeRunDuration = false } = options;
   const shouldUseCustomErrorOutput = shouldUseCustomNodeErrorOutput(nodeType, data);
 
   if (shouldUseCodeErrorOutput(nodeType, data)) {
@@ -101,7 +102,7 @@ export function createNodeOutputContentViewModel(options: {
     };
   }
 
-  if (!nodeRunDataHasVisibleOutput(nodeType, data)) {
+  if (!nodeRunDataHasVisibleOutput(nodeType, data, { showNodeRunDuration })) {
     return {
       kind: 'empty',
     };
@@ -153,15 +154,19 @@ export function createFullscreenNodeOutputViewModel(options: {
   processData: ProcessDataForNode[] | undefined;
   selectedPage: PageValue;
   dataRefs: DataRefReader;
+  showNodeRunDuration?: boolean;
 }): FullscreenNodeOutputViewModel {
-  const { nodeType, processData, selectedPage, dataRefs } = options;
-  const selectedProcess = getSelectedVisibleOutputProcess(nodeType, processData, selectedPage);
+  const { nodeType, processData, selectedPage, dataRefs, showNodeRunDuration = false } = options;
+  const selectedProcess = getSelectedVisibleOutputProcess(nodeType, processData, selectedPage, {
+    showNodeRunDuration,
+  });
   const content =
     selectedProcess &&
     createNodeOutputContentViewModel({
       nodeType,
       data: selectedProcess.data,
       dataRefs,
+      showNodeRunDuration,
     });
 
   if (!selectedProcess || !content || content.kind === 'empty') {

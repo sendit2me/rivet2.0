@@ -122,6 +122,29 @@ describe('api', () => {
     ]);
   });
 
+  it('streams node finish duration when timing capture is enabled', async () => {
+    const processor = createProcessor(await loadTestGraphs(), {
+      graph: 'Passthrough',
+      inputs: {
+        input: 'input value',
+      },
+      captureNodeTimings: true,
+    });
+
+    void processor.run();
+
+    let sawDuration = false;
+    for await (const event of processor.getEvents({ nodeFinish: true })) {
+      assert.equal(event.type, 'nodeFinish');
+      if (event.durationMs !== undefined) {
+        assert.equal(typeof event.durationMs, 'number');
+        assert.ok(event.durationMs >= 0);
+        sawDuration = true;
+      }
+    }
+    assert.equal(sawDuration, true);
+  });
+
   it('can easily filter for a node', async () => {
     const processor = createProcessor(await loadTestGraphs(), {
       graph: 'Passthrough',
@@ -365,6 +388,50 @@ describe('api', () => {
     await processor.run();
 
     assert.equal(countingRegistry.getDefinitionCalls(), 30);
+  });
+
+  it('captures node durations for remote-debugger processors unless explicitly disabled', async () => {
+    const remoteDebugger = {
+      on: () => undefined,
+      off: () => undefined,
+      webSocketServer: {} as never,
+      broadcast: () => undefined,
+      attach: () => undefined,
+      detach: () => undefined,
+    };
+
+    const timedProcessor = createProcessor(await loadTestGraphs(), {
+      graph: 'Passthrough',
+      inputs: {
+        input: 'input value',
+      },
+      remoteDebugger,
+    });
+    let timedFinishDuration: number | undefined;
+    timedProcessor.processor.on('nodeFinish', (event) => {
+      if (event.processId !== 'preload') {
+        timedFinishDuration ??= event.durationMs;
+      }
+    });
+    await timedProcessor.run();
+    assert.equal(typeof timedFinishDuration, 'number');
+
+    const untimedProcessor = createProcessor(await loadTestGraphs(), {
+      graph: 'Passthrough',
+      inputs: {
+        input: 'input value',
+      },
+      remoteDebugger,
+      captureNodeTimings: false,
+    });
+    let untimedFinish: unknown;
+    untimedProcessor.processor.on('nodeFinish', (event) => {
+      if (event.processId !== 'preload') {
+        untimedFinish = event;
+      }
+    });
+    await untimedProcessor.run();
+    assert.equal(Object.prototype.hasOwnProperty.call(untimedFinish!, 'durationMs'), false);
   });
 
   it('keeps fast createProcessor runs recordable through processor events', async () => {

@@ -22,6 +22,8 @@ While Rivet is connected to a remote debugger, the editor disables its normal ru
 
 Whenever a graph is started on the server, its execution will immediately be visible in Rivet if it is connected as a remote debugger.
 
+When `Show node run durations` is enabled in Rivet settings, Remote Debugger node outputs show `Duration: ...ms` if the remote debugger server sends duration metadata. Current `@valerypopoff/rivet2-node` processors attached with `remoteDebugger` send this metadata by default; older or custom debugger servers may omit it.
+
 By default, you can both pause and abort the current execution in Rivet, and the execution will be paused or aborted on the remote server. This can be useful if you want to pause the execution to inspect the current state of the graph, or if you want to abort the execution because you detect some incorrect behavior.
 
 ## Supporting Remote Debugging

@@ -26,6 +26,11 @@ function startDebuggerServer(options?: {
   heartbeatIntervalMs?: number;
   heartbeatTimeoutMs?: number;
 }): RivetDebuggerServer;
+
+type DynamicGraphRunOptions = {
+  captureNodeTimings?: boolean;
+  // plus request id, graph id, graph data, inputs, context, and preload data
+};
 ```
 
 ## Parameters
@@ -73,6 +78,8 @@ graph with. You must construct a Project and run the graph yourself, passing in 
 
 This function does not return anything, as the connection between the graph execution and the debugger server is handled by the `remoteDebugger` parameter
 passed to the `runGraph` function.
+
+If a Rivet client sends `captureNodeTimings`, pass that value through to the processor you create. The desktop app uses this for its internal Node executor so node durations are captured only when the `Show node run durations` setting is enabled.
 
 ### allowGraphUpload
 

@@ -42,10 +42,22 @@ export type RecordedEventsMap = OverrideProperties<
     nodeStart: WithOptionalExecution<{ nodeId: NodeId; inputs: Inputs; processId: ProcessId }>;
 
     /** Called when a node has finished processing, with the output values for the node. */
-    nodeFinish: WithOptionalExecution<{ nodeId: NodeId; outputs: Outputs; processId: ProcessId }>;
+    nodeFinish: WithOptionalExecution<{
+      nodeId: NodeId;
+      outputs: Outputs;
+      processId: ProcessId;
+      durationMs?: number;
+      splitRunDurationMs?: Record<number, number>;
+    }>;
 
     /** Called when a node has errored during processing. */
-    nodeError: WithOptionalExecution<{ nodeId: NodeId; error: string; processId: ProcessId }>;
+    nodeError: WithOptionalExecution<{
+      nodeId: NodeId;
+      error: string;
+      processId: ProcessId;
+      durationMs?: number;
+      splitRunDurationMs?: Record<number, number>;
+    }>;
 
     /** Called when a node has been excluded from processing. */
     nodeExcluded: WithOptionalExecution<{ nodeId: NodeId; processId: ProcessId; inputs: Inputs; outputs: Outputs; reason: string }>;
