@@ -106,10 +106,95 @@ Candidate: <sha>
 Machine: <machine/os/node>
 Samples: <n>, Iterations: <n>, Warmup: <n>
 
-| Benchmark | API | Baseline ms | Candidate ms | Delta ms | Delta % | Verdict |
-| --- | --- | ---: | ---: | ---: | ---: | --- |
-| runGraph text chain 100 | runGraph | 0.00 | 0.00 | 0.00 | 0.0% | neutral |
+| Benchmark               | API      | Baseline ms | Candidate ms | Delta ms | Delta % | Verdict |
+| ----------------------- | -------- | ----------: | -----------: | -------: | ------: | ------- |
+| runGraph text chain 100 | runGraph |        0.00 |         0.00 |     0.00 |    0.0% | neutral |
 ```
+
+## Benchmark Results - P0 Baseline
+
+Baseline runtime commit: `e70f6e5d3d84db4519d4a31037ee66d82d028a10`
+
+Candidate: P0 benchmark/equivalence guard expansion only; no runtime optimization changes.
+
+Environment:
+
+- Date: 2026-05-22
+- OS: Windows
+- CPU identifier: `Intel64 Family 6 Model 198 Stepping 2, GenuineIntel`
+- Node: `v22.22.3`
+- Yarn: `4.6.0`
+- Samples: `5`
+- Iterations: `100`
+- Warmup iterations: `10`
+- Packages already built: no; the benchmark command rebuilt `@valerypopoff/rivet2-core` ESM before measuring.
+
+| Benchmark                                                                         | API                                 | Baseline mean ms | Min mean ms | Max mean ms | Std dev ms |
+| --------------------------------------------------------------------------------- | ----------------------------------- | ---------------: | ----------: | ----------: | ---------: |
+| runGraphInFile passthrough one-shot                                               | runGraphInFile                      |            0.990 |       0.885 |       1.140 |      0.086 |
+| runGraphInFile subgraph project one-shot                                          | runGraphInFile                      |            1.514 |       1.414 |       1.676 |      0.092 |
+| runGraphInFile referenced-project one-shot with projectPath                       | runGraphInFile                      |            2.037 |       1.912 |       2.215 |      0.113 |
+| load once + runGraph passthrough                                                  | runGraph                            |            0.095 |       0.085 |       0.111 |      0.012 |
+| reuse createProcessor passthrough                                                 | createProcessor reuse               |            0.072 |       0.066 |       0.075 |      0.003 |
+| fresh createProcessor default-safe passthrough                                    | fresh createProcessor               |            0.090 |       0.080 |       0.099 |      0.007 |
+| createGraphRunner passthrough                                                     | createGraphRunner                   |            0.075 |       0.072 |       0.080 |      0.002 |
+| direct GraphProcessor text chain 20                                               | direct GraphProcessor               |            0.428 |       0.373 |       0.516 |      0.053 |
+| runGraph text chain 20                                                            | runGraph                            |            0.435 |       0.378 |       0.536 |      0.056 |
+| fresh createProcessor default-safe text chain 20                                  | fresh createProcessor               |            0.428 |       0.390 |       0.448 |      0.020 |
+| runGraph text chain 100                                                           | runGraph                            |            1.712 |       1.648 |       1.788 |      0.047 |
+| fresh createProcessor default-safe text chain 100                                 | fresh createProcessor               |            1.797 |       1.729 |       1.893 |      0.059 |
+| runGraph text chain 500                                                           | runGraph                            |            8.214 |       8.051 |       8.380 |      0.130 |
+| createGraphRunner text chain 500                                                  | createGraphRunner                   |            8.324 |       8.164 |       8.572 |      0.141 |
+| createGraphRunner headless-fast text chain 500                                    | createGraphRunner headless-fast     |            5.767 |       5.578 |       6.062 |      0.160 |
+| runGraph wide independent text nodes 100                                          | runGraph                            |            2.791 |       2.741 |       2.858 |      0.040 |
+| fresh createProcessor default-safe wide independent text nodes 100                | fresh createProcessor               |            2.722 |       2.677 |       2.809 |      0.048 |
+| fresh createProcessor compatible text chain 500                                   | fresh createProcessor compatible    |            8.301 |       8.252 |       8.376 |      0.047 |
+| fresh createProcessor default-safe text chain 500                                 | fresh createProcessor               |            8.345 |       8.239 |       8.498 |      0.097 |
+| fresh createProcessor headless-fast text chain 500                                | fresh createProcessor headless-fast |            6.930 |       6.818 |       7.132 |      0.108 |
+| runGraph single subgraph call                                                     | runGraph                            |            0.253 |       0.243 |       0.272 |      0.011 |
+| fresh createProcessor default-safe single subgraph call                           | fresh createProcessor               |            0.269 |       0.251 |       0.294 |      0.014 |
+| runGraph repeated subgraph same-input 50                                          | runGraph                            |           10.781 |      10.524 |      10.964 |      0.143 |
+| runGraph repeated subgraph changing-input 50                                      | runGraph                            |            9.072 |       8.913 |       9.284 |      0.137 |
+| runGraph nested subgraph depth 5                                                  | runGraph                            |            1.411 |       1.326 |       1.452 |      0.045 |
+| fresh createProcessor default-safe nested subgraph depth 5                        | fresh createProcessor               |            1.437 |       1.325 |       1.567 |      0.078 |
+| createGraphRunner compatible subgraph chain 50                                    | createGraphRunner compatible        |            9.140 |       8.978 |       9.312 |      0.143 |
+| createGraphRunner headless-fast subgraph chain 50                                 | createGraphRunner headless-fast     |            7.915 |       7.801 |       8.270 |      0.178 |
+| fresh createProcessor compatible repeated subgraph same-input 50                  | fresh createProcessor compatible    |           10.704 |      10.431 |      10.960 |      0.174 |
+| fresh createProcessor default-safe repeated subgraph same-input 50                | fresh createProcessor               |           11.004 |      10.623 |      11.263 |      0.273 |
+| fresh createProcessor headless-fast repeated subgraph same-input 50               | fresh createProcessor headless-fast |            9.134 |       8.814 |       9.470 |      0.222 |
+| fresh createProcessor compatible repeated subgraph changing-input 50              | fresh createProcessor compatible    |            9.682 |       9.414 |      10.006 |      0.192 |
+| fresh createProcessor default-safe repeated subgraph changing-input 50            | fresh createProcessor               |            9.440 |       9.152 |      10.153 |      0.388 |
+| fresh createProcessor headless-fast repeated subgraph changing-input 50           | fresh createProcessor headless-fast |            9.144 |       8.500 |      10.412 |      0.686 |
+| runGraph Call Graph repeated same-input 50                                        | runGraph                            |           14.085 |      13.134 |      15.797 |      0.999 |
+| fresh createProcessor default-safe Call Graph repeated same-input 50              | fresh createProcessor               |           13.107 |      12.226 |      13.664 |      0.520 |
+| runGraph Referenced Graph Alias repeated same-input 50                            | runGraph                            |           11.913 |      11.353 |      12.689 |      0.543 |
+| fresh createProcessor default-safe Referenced Graph Alias repeated same-input 50  | fresh createProcessor               |           13.891 |      13.348 |      14.536 |      0.455 |
+| runGraph custom projectReferenceLoader referenced graph                           | runGraph                            |            0.437 |       0.422 |       0.449 |      0.010 |
+| fresh createProcessor default-safe custom projectReferenceLoader referenced graph | fresh createProcessor               |            0.412 |       0.405 |       0.423 |      0.006 |
+| createGraphRunner compatible wide fan-in 200                                      | createGraphRunner compatible        |            8.479 |       8.273 |       8.772 |      0.177 |
+| createGraphRunner headless-fast wide fan-in 200                                   | createGraphRunner headless-fast     |            2.685 |       2.477 |       2.924 |      0.151 |
+| createGraphRunner compatible mixed subgraph fan-in                                | createGraphRunner compatible        |            7.832 |       7.436 |       8.607 |      0.434 |
+| createGraphRunner headless-fast mixed subgraph fan-in                             | createGraphRunner headless-fast     |            3.971 |       3.781 |       4.446 |      0.243 |
+| runGraph expression chain 20                                                      | runGraph                            |            2.642 |       2.549 |       2.746 |      0.067 |
+| fresh createProcessor default-safe expression chain 20                            | fresh createProcessor               |            2.712 |       2.626 |       2.770 |      0.054 |
+| createGraphRunner compatible expression chain 20                                  | createGraphRunner compatible        |            2.568 |       2.518 |       2.610 |      0.030 |
+| createGraphRunner headless-fast expression chain 20                               | createGraphRunner headless-fast     |            2.382 |       2.366 |       2.415 |      0.017 |
+| runGraph code chain 20                                                            | runGraph                            |            6.352 |       6.293 |       6.416 |      0.045 |
+| fresh createProcessor default-safe code chain 20                                  | fresh createProcessor               |            6.318 |       6.254 |       6.366 |      0.041 |
+| createGraphRunner compatible code chain 20                                        | createGraphRunner compatible        |            6.186 |       6.136 |       6.275 |      0.049 |
+| createGraphRunner headless-fast code chain 20                                     | createGraphRunner headless-fast     |            6.078 |       5.877 |       6.326 |      0.165 |
+| lazy preprocess/dependency text chain 500                                         | planning helper                     |            1.012 |       0.954 |       1.107 |      0.052 |
+| NodeCodeRunner compile/run one snippet                                            | CodeRunner                          |            0.001 |       0.001 |       0.001 |      0.000 |
+| CachedNodeCodeRunner run cached snippet                                           | CachedCodeRunner                    |            0.001 |       0.001 |       0.001 |      0.000 |
+
+Baseline group summary:
+
+- Runtime execution: the cheapest loaded-project one-shot is `load once + runGraph passthrough` at `0.095ms`; the slowest one-shot runtime group is graph dispatch, led by `runGraph Call Graph repeated same-input 50` at `14.085ms` and `fresh createProcessor default-safe Referenced Graph Alias repeated same-input 50` at `13.891ms`.
+- Code execution: `runGraph expression chain 20` is `2.642ms`; `runGraph code chain 20` is `6.352ms`; the CodeRunner micro-benchmarks are effectively below useful millisecond precision at `0.001ms`.
+- Graph runner reuse: `createGraphRunner passthrough` is `0.075ms`; reused headless-fast planning is already visibly faster in graph-runner scenarios such as text chain 500 (`5.767ms` versus compatible `8.324ms`), wide fan-in 200 (`2.685ms` versus compatible `8.479ms`), and mixed subgraph fan-in (`3.971ms` versus compatible `7.832ms`).
+- Secondary project loading: `runGraphInFile passthrough one-shot` is `0.990ms`, the subgraph file case is `1.514ms`, and the referenced-project file case is `2.037ms`.
+
+The referenced-project `runGraphInFile(...)` benchmark explicitly passes `projectPath` so the default Node project-reference loader can resolve the fixture's relative `hintPaths`.
 
 ## Current Runtime Model
 
@@ -179,8 +264,6 @@ Flat workflows without subgraphs or references:
 
 Code and expression workflows:
 
-- `fresh createProcessor default-safe repeated subgraph same-input 50`
-- `fresh createProcessor default-safe repeated subgraph changing-input 50`
 - `fresh createProcessor default-safe expression chain 20`
 - `fresh createProcessor default-safe code chain 20`
 - `runGraph expression chain 20`
@@ -196,8 +279,6 @@ Subgraph workflows:
 - `fresh createProcessor default-safe repeated subgraph changing-input 50`
 - `runGraph nested subgraph depth 5`
 - `fresh createProcessor default-safe nested subgraph depth 5`
-- `runGraph parallel subgraph fan-in`
-- `fresh createProcessor default-safe parallel subgraph fan-in`
 
 Graph runner workflows:
 
@@ -224,14 +305,14 @@ Secondary setup/loading scenario:
 
 - `runGraphInFile passthrough one-shot`
 - `runGraphInFile subgraph project one-shot`
-- `runGraphInFile referenced-project one-shot`
+- `runGraphInFile referenced-project one-shot with projectPath`
 
 If a phase targets a missing scenario, add the benchmark first. In particular, add or keep coverage for:
 
 - repeated direct `Subgraph` calls with same inputs
 - repeated direct `Subgraph` calls with changing inputs
 - nested `Subgraph` calls
-- parallel Subgraph fan-out/fan-in
+- parallel Subgraph fan-out/fan-in, covered by the repeated same-input fan-in fixture unless a phase needs a distinct shape
 - `Call Graph` calls
 - `Referenced Graph Alias` calls
 - referenced-project loading with a custom loader

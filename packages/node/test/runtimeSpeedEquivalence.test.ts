@@ -13,12 +13,15 @@ import {
   makeAsyncDelayProject,
   makeBranchingTextProject,
   makeCodeChainProject,
+  makeCallGraphFanInProject,
   makeControlFlowExclusionProject,
   makeExpressionChainProject,
   makeGlobalStateProject,
   makeInputContextTextProject,
   makeMissingRequiredInputProject,
   makeMixedSubgraphFanInProject,
+  makeNestedSubgraphProject,
+  makeReferencedGraphAliasFanInProject,
   makeRepeatedSubgraphFanInProject,
   makeSameSourceFanInProject,
   makeSubgraphChainProject,
@@ -31,6 +34,7 @@ import {
 type RunOptions = {
   context?: Record<string, LooseDataValue>;
   inputs?: Record<string, LooseDataValue>;
+  projectReferenceLoader?: NodeRunGraphOptions['projectReferenceLoader'];
 };
 
 type RuntimeMode = {
@@ -71,12 +75,7 @@ const publicRuntimeModes: RuntimeMode[] = [
   {
     name: 'createGraphRunner.run',
     run: async (fixture, options = {}) => {
-      const {
-        abortSignal,
-        context,
-        inputs,
-        ...runnerOptions
-      } = options as NodeRunGraphOptions;
+      const { abortSignal, context, inputs, ...runnerOptions } = options as NodeRunGraphOptions;
       const runner = createGraphRunner(fixture.project, {
         graph: fixture.graphId,
         ...runnerOptions,
@@ -91,12 +90,7 @@ const publicRuntimeModes: RuntimeMode[] = [
   {
     name: 'createGraphRunner.run headless-fast',
     run: async (fixture, options = {}) => {
-      const {
-        abortSignal,
-        context,
-        inputs,
-        ...runnerOptions
-      } = options as NodeRunGraphOptions;
+      const { abortSignal, context, inputs, ...runnerOptions } = options as NodeRunGraphOptions;
       const runner = createGraphRunner(fixture.project, {
         graph: fixture.graphId,
         runtimeProfile: 'headless-fast',
@@ -363,6 +357,54 @@ void describe('runtime speed equivalence guards', () => {
         inputs: {
           input: 'seed',
         },
+      });
+      assertModeOutputsEqual(outputsByMode, testCase.expected, testCase.name);
+    }
+  });
+
+  void it('pins nested subgraphs, Call Graph, and referenced-graph aliases', async () => {
+    const referencedAlias = makeReferencedGraphAliasFanInProject(3);
+    const cases: Array<{
+      expected: Record<string, DataValue>;
+      fixture: RuntimeSpeedProjectFixture;
+      name: string;
+      options?: RunOptions;
+    }> = [
+      {
+        expected: {
+          cost: { type: 'number', value: 0 },
+          result: { type: 'string', value: 'seedx' },
+        },
+        fixture: makeNestedSubgraphProject(3),
+        name: 'nested subgraph chain',
+      },
+      {
+        expected: {
+          cost: { type: 'number', value: 0 },
+          result: { type: 'string', value: 'seedxseedxseedx' },
+        },
+        fixture: makeCallGraphFanInProject(3),
+        name: 'Call Graph fan-in',
+      },
+      {
+        expected: {
+          cost: { type: 'number', value: 0 },
+          result: { type: 'string', value: 'seedxseedxseedx' },
+        },
+        fixture: referencedAlias,
+        name: 'Referenced Graph Alias fan-in',
+        options: {
+          projectReferenceLoader: referencedAlias.projectReferenceLoader,
+        },
+      },
+    ];
+
+    for (const testCase of cases) {
+      const outputsByMode = await collectOutputs(testCase.fixture, {
+        inputs: {
+          input: 'seed',
+        },
+        ...testCase.options,
       });
       assertModeOutputsEqual(outputsByMode, testCase.expected, testCase.name);
     }

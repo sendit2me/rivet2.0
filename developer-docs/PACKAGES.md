@@ -99,7 +99,10 @@ pins result and error compatibility across `runGraph(...)`,
 `GraphProcessor.processGraph(...)` execution for simple headless fixtures
 covering per-run inputs/context, branching DAGs, async Delay nodes,
 missing-required-input exclusion, control-flow exclusion, Code, and Expression.
-Thrown Code errors and abort signals are pinned across the public Node APIs.
+It also covers repeated same-input and changing-input subgraphs, nested
+subgraphs, dynamic `Call Graph` dispatch, and `Referenced Graph Alias` dispatch
+through a custom `projectReferenceLoader`. Thrown Code errors and abort signals
+are pinned across the public Node APIs.
 The direct `GraphProcessor` mode is a diagnostic baseline for these
 provider-free fixtures, not a replacement for Node wrapper defaults such as
 native providers, MCP, project reference loading, or debugger attachment.
@@ -114,11 +117,19 @@ report the average, min/max sample means, and standard deviation. It measures on
 `runGraphInFile(...)`, loaded-project `runGraph(...)`, reused
 `createProcessor(...)`, fresh `createProcessor(...)` with default-safe,
 explicit compatible, and `runtimeProfile: 'headless-fast'` profiles,
-`createGraphRunner(...)`, direct processor
-execution, cheap text chains, nested subgraph chains, repeated same-input and
-changing-input subgraph calls, wide fan-in DAGs, mixed subgraph fan-in DAGs,
-Expression and Code chains, lazy preprocessing through the public dependency
-planning path, and both uncached and cached Node CodeRunner compile/run paths.
+`createGraphRunner(...)`, direct processor execution, cheap text chains, wide
+independent fan-in DAGs, single subgraph calls, nested subgraph chains, repeated
+same-input fan-in and changing-input subgraph calls, dynamic
+`Call Graph` dispatch, `Referenced Graph Alias` dispatch through a custom
+`projectReferenceLoader`, Expression and Code chains, lazy preprocessing through
+the public dependency planning path, and both uncached and cached Node
+CodeRunner compile/run paths. The benchmark matrix is intentionally broad so
+each speed phase can compare flat, subgraph-heavy, graph-dispatch, code-heavy,
+and secondary file-loading shapes against the same old-runtime baseline. The
+current baseline table is recorded in [`execution-speed.md`](../execution-speed.md)
+before runtime optimization work starts. The file-loading referenced-project
+benchmark passes `projectPath` explicitly so relative project-reference
+`hintPaths` use the default Node loader path.
 The benchmark script rebuilds the core ESM package first because the Node
 workspace imports `@valerypopoff/rivet2-core` through its package export
 surface; running the benchmark against stale `packages/core/dist` output can
@@ -212,14 +223,17 @@ callback-visible events, recorder events after serialization, partial-output
 callbacks, user-input callbacks, global-set events, raised user events,
 Code/Expression errors, aborts, trace fallback, Remote Debugger fallback,
 custom CodeRunner ownership, custom `projectReferenceLoader` behavior, and
-concurrent runs over the same project object. Recorder parity is checked against
-the serialized replay shape because JSON cannot preserve `undefined` object
-properties. Subgraph node `duration` outputs are treated as timing-dependent
-values, not exact compatibility values. The current characterization keeps
-loaded-project reference caching as an explicit fast-profile behavior when a
-custom `projectReferenceLoader` is present: it can reduce observable loader call
-counts inside one run, so it is not part of default behavior until that contract
-is accepted or guarded by an automatic fallback.
+concurrent runs over the same project object. Dynamic graph-dispatch fixtures
+such as `Call Graph` and `Referenced Graph Alias` also have output-equivalence
+guards that intentionally do not pin independent root-node event order.
+Recorder parity is checked against the serialized replay shape because JSON
+cannot preserve `undefined` object properties. Subgraph node `duration` outputs
+are treated as timing-dependent values, not exact compatibility values. The
+current characterization keeps loaded-project reference caching as an explicit
+fast-profile behavior when a custom `projectReferenceLoader` is present: it can
+reduce observable loader call counts inside one run, so it is not part of
+default behavior until that contract is accepted or guarded by an automatic
+fallback.
 
 ## `@valerypopoff/rivet-app` (`packages/app/`)
 
