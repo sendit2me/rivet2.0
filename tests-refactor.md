@@ -503,7 +503,7 @@ extra default coverage is small compared with the full suite and covers an
 important runtime sidecar. Docs typecheck is now a separate, non-emitting CI
 step rather than hidden inside `yarn test`.
 
-## Phase 6: Add Test Style Guardrails
+## Phase 6: Add Test Style Guardrails (DONE)
 
 ### What To Change
 
@@ -523,6 +523,20 @@ Optional static guardrails:
 - Add a simple script that fails on committed `.only`.
 - Add a grep-based report for source-reading tests so they stay visible.
 
+Phase 6 added the guardrails without making the cleanup stricter than the
+current suite can support:
+
+- `yarn test:style` runs `scripts/check-test-style.mjs`.
+- The style check fails on committed focused tests (`test.only`, `it.only`,
+  `describe.only`, `suite.only`, and `context.only`) in tracked test files.
+- The style check prints the current `readFileSync`-using test files as a
+  report-only source-shape queue.
+- The style check also reports skipped test files without failing the build.
+- `.github/workflows/build.yml` runs `yarn test:style` after docs typecheck and
+  before lint.
+- `developer-docs/BUILD-AND-CI.md` now carries the testing style guide and the
+  allowed source-reading exception.
+
 ### Why
 
 Without style rules, the suite will drift back toward source guards and copy-pasted fixtures after every UI fix.
@@ -537,6 +551,14 @@ Without style rules, the suite will drift back toward source guards and copy-pas
 
 - Too many rules make tests slower to write. Keep the guide short and practical.
 - Static guards can block legitimate exceptional tests. Start with reporting before failing if the signal is noisy.
+
+### Result
+
+Phase 6 added one root script and one small style-check script. It deliberately
+enforces only the high-signal `.only` rule, while source-reading tests remain a
+visible report because the remaining source-shape guards are known temporary
+coverage. Skipped tests are also report-only so temporary skips stay visible
+without creating a new cleanup blocker. No production code changed.
 
 ## Implementation Rules
 
@@ -583,16 +605,16 @@ For focused direct checks, prefer the checked-in Yarn entrypoint:
 node .yarn/releases/yarn-4.6.0.cjs workspace <workspace-name> exec tsx --test <test-files>
 ```
 
-| Change area                     | Focused check                                                                                                                                                  | Broader check                                              |
-| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| Core node tests                 | `node .yarn/releases/yarn-4.6.0.cjs workspace @valerypopoff/rivet2-core exec tsx --test test/model/nodes/<file>.test.ts`                                       | `yarn workspace @valerypopoff/rivet2-core run test`        |
-| Core processor tests            | direct `tsx --test` against the affected `GraphProcessor*.test.ts` file                                                                                        | core test + node runtime equivalence tests                 |
-| Node runtime/default-fast tests | build core ESM, then run direct `tsx --test` from the node workspace against affected `test/*.test.ts`; use the package `test` script when the full suite fits | `yarn workspace @valerypopoff/rivet2-node run test`        |
-| App graph editing tests         | direct `tsx --test` against affected app domain/command tests                                                                                                  | `yarn workspace @valerypopoff/rivet-app run test`          |
-| App output rendering/copy tests | direct `tsx --test` against affected node-output/render-data-value/utils tests                                                                                 | app test + app lint                                        |
-| App-executor tests              | direct `tsx --test` against the affected `bin/*.test.mts` file                                                                                                 | `yarn workspace @valerypopoff/rivet-app-executor run test` |
-| Test script/CI changes          | dry-run scripts locally                                                                                                                                        | root `yarn test` + `yarn test:docs` + `yarn lint`          |
-| Docs/testing guide              | docs typecheck/build if available                                                                                                                              | `yarn test:docs` + root lint/test                          |
+| Change area                     | Focused check                                                                                                                                                  | Broader check                                                         |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| Core node tests                 | `node .yarn/releases/yarn-4.6.0.cjs workspace @valerypopoff/rivet2-core exec tsx --test test/model/nodes/<file>.test.ts`                                       | `yarn workspace @valerypopoff/rivet2-core run test`                   |
+| Core processor tests            | direct `tsx --test` against the affected `GraphProcessor*.test.ts` file                                                                                        | core test + node runtime equivalence tests                            |
+| Node runtime/default-fast tests | build core ESM, then run direct `tsx --test` from the node workspace against affected `test/*.test.ts`; use the package `test` script when the full suite fits | `yarn workspace @valerypopoff/rivet2-node run test`                   |
+| App graph editing tests         | direct `tsx --test` against affected app domain/command tests                                                                                                  | `yarn workspace @valerypopoff/rivet-app run test`                     |
+| App output rendering/copy tests | direct `tsx --test` against affected node-output/render-data-value/utils tests                                                                                 | app test + app lint                                                   |
+| App-executor tests              | direct `tsx --test` against the affected `bin/*.test.mts` file                                                                                                 | `yarn workspace @valerypopoff/rivet-app-executor run test`            |
+| Test script/CI changes          | dry-run scripts locally                                                                                                                                        | root `yarn test` + `yarn test:docs` + `yarn test:style` + `yarn lint` |
+| Docs/testing guide              | docs typecheck/build if available                                                                                                                              | `yarn test:docs` + root lint/test                                     |
 
 Always run `git diff --check` before handing off a cleanup slice.
 

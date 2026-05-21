@@ -27,6 +27,8 @@ jobs:
         run: yarn test
       - name: Docs typecheck
         run: yarn test:docs
+      - name: Test style
+        run: yarn test:style
       - name: Lint
         run: yarn lint
       - name: Prettier

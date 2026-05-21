@@ -145,3 +145,10 @@ These are the first split/simplification targets after source-shape cleanup.
 - Root `yarn test` now includes app-executor coverage through explicit focused scripts for core, node, app, app-executor, and cli.
 - `yarn test:all` remains an alias, and `yarn test:docs` exists as a separate non-emitting docs typecheck target.
 - The develop build workflow now runs `yarn test:docs` after `yarn test` so docs validation is visible without mixing it into the runtime/package test command.
+
+## Phase 6 Decisions
+
+- `yarn test:style` runs a repository-level guardrail script that fails on committed focused tests.
+- Source-reading tests are reported but not blocked because the remaining source-shape guards are known temporary coverage.
+- Skipped tests are reported but not blocked so temporary skips remain visible without making the cleanup gate too strict.
+- The develop build workflow runs `yarn test:style` after docs typecheck and before lint.

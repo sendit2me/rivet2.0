@@ -45,6 +45,7 @@ yarn test:app
 yarn test:app-executor
 yarn test:cli
 yarn test:docs
+yarn test:style
 yarn lint
 yarn prettier:fix
 yarn publish
@@ -116,6 +117,10 @@ Packages without a `test` script are not included.
 
 When adding or cleaning tests, prefer behavior-level tests at the owning helper, domain model, runtime API, or render-data-value seam. Avoid tests that read production `.ts` or `.tsx` files and assert exact source text unless the contract is a static entrypoint/CSS relationship that cannot be observed through a focused helper yet. Any retained source-shape guard should say what product contract it protects and should avoid duplicating behavior already covered by owner tests.
 
+Use table-driven cases when many inputs share the same setup. Keep fixtures local unless at least three nearby tests need the same builder. Keep characterization tests broad but few, and avoid asserting entire large objects when a minimal observable subset proves the same behavior. Test names should describe behavior rather than implementation details.
+
+Avoid `as any` unless the test intentionally models malformed caller input or a boundary that TypeScript normally protects. Do not commit `.only`. Skipped tests need a nearby comment explaining why they are skipped and what condition lets the skip be removed.
+
 For app graph-editing tests, prefer the shared builders in [`packages/app/src/domain/graphEditing/testGraphBuilders.ts`](../packages/app/src/domain/graphEditing/testGraphBuilders.ts) for common minimal `ChartNode`, `NodeGraph`, `Project`, and connection fixtures. Keep scenario-specific wrappers local when they clarify the port defaults or graph names being asserted.
 
 When splitting large mixed-owner test files, keep the split mechanical first: move assertions unchanged, put shared fake runtime or fixture setup in a nearby `*.testUtils.ts` file, and keep existing focused owner tests under their current filenames. Do not reuse a filename that already owns a narrower helper contract. Shared test utilities should expose setup hooks explicitly instead of registering `beforeEach` / `afterEach` as an import side effect.
@@ -126,9 +131,9 @@ When de-duplicating overlap between owner tests and composed-path tests, keep th
 
 Alias for `yarn test`.
 
-### Focused Test Scripts
+### Focused Test And Validation Scripts
 
-Focused root test scripts delegate to the owning workspace:
+Focused root scripts cover workspace test suites plus repository-level checks:
 
 - `yarn test:core`: `@valerypopoff/rivet2-core`
 - `yarn test:node`: `@valerypopoff/rivet2-node`
@@ -136,11 +141,21 @@ Focused root test scripts delegate to the owning workspace:
 - `yarn test:app-executor`: `@valerypopoff/rivet-app-executor`
 - `yarn test:cli`: `@valerypopoff/rivet2-cli`
 - `yarn test:docs`: docs workspace typecheck (`tsc --noEmit`)
+- `yarn test:style`: repository-level test style guardrails
 
 Docs typecheck is not part of `yarn test`; CI runs `yarn test:docs` as a
 separate step so runtime/package tests and documentation validation stay
 visibly distinct. The docs typecheck is non-emitting so it cannot leave
 generated JavaScript beside Docusaurus source files during CI or local cleanup.
+
+### `yarn test:style`
+
+Runs [`scripts/check-test-style.mjs`](../scripts/check-test-style.mjs). The
+script fails when committed `test.only`, `it.only`, `describe.only`,
+`suite.only`, or `context.only` calls are present in tracked test files. It also
+prints report-only lists of tracked test files that use `readFileSync` or
+`.skip`; those reports keep the remaining source-shape guardrails and any
+temporary skipped tests visible without blocking cleanup work.
 
 ### `yarn lint`
 
@@ -330,8 +345,9 @@ Runs on `ubuntu-latest` and performs:
 4. `yarn build`
 5. `yarn test`
 6. `yarn test:docs`
-7. `yarn lint`
-8. `yarn prettier --check`
+7. `yarn test:style`
+8. `yarn lint`
+9. `yarn prettier --check`
 
 ### Important notes
 
