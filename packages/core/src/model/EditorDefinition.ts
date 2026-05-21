@@ -19,6 +19,8 @@ export type SharedEditorDefinitionProps<T extends ChartNode> = {
 
   autoFocus?: boolean;
 
+  includeInGraphSearch?: boolean;
+
   layout?: 'inline';
 
   hideIf?: (data: T['data']) => boolean;
@@ -40,6 +42,7 @@ export type ToggleEditorDefinition<T extends ChartNode> = SharedEditorDefinition
 
   dataKey: DataOfType<T, boolean>;
   useInputToggleDataKey?: DataOfType<T, boolean>;
+  turnOffDataKeysWhenEnabled?: DataOfType<T, boolean>[];
 };
 
 export type DataTypeSelectorEditorDefinition<T extends ChartNode> = SharedEditorDefinitionProps<T> & {

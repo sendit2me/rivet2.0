@@ -99,6 +99,7 @@ export class SetGlobalNodeImpl extends NodeImpl<SetGlobalNode> {
         dataKey: 'id',
         useInputToggleDataKey: 'useIdInput',
         label: 'ID',
+        includeInGraphSearch: true,
       },
       {
         type: 'dataTypeSelector',
@@ -139,7 +140,7 @@ export class SetGlobalNodeImpl extends NodeImpl<SetGlobalNode> {
       throw new Error('Missing variable ID');
     }
 
-    let previousValue = context.getGlobal(this.data.id);
+    let previousValue = context.getGlobal(id);
     if (!previousValue && isArrayDataType(this.data.dataType)) {
       previousValue = { type: this.data.dataType, value: [] };
     } else if (!previousValue && isScalarDataType(this.data.dataType)) {

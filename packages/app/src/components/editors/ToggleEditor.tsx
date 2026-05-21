@@ -3,6 +3,7 @@ import { type FC } from 'react';
 import { type SharedEditorProps } from './SharedEditorProps';
 import { getHelperMessage } from './editorUtils';
 import { LabeledToggle } from '../LabeledToggle';
+import { applyToggleEditorChange, type ToggleEditorDataChangeDefinition } from './toggleEditorData';
 
 export const DefaultToggleEditor: FC<
   SharedEditorProps & {
@@ -17,12 +18,10 @@ export const DefaultToggleEditor: FC<
       isReadonly={isReadonly}
       isDisabled={isDisabled}
       onChange={(newValue) => {
+        const toggleEditor = editor as ToggleEditorDefinition<ChartNode> & ToggleEditorDataChangeDefinition;
         onChange({
           ...node,
-          data: {
-            ...data,
-            [editor.dataKey]: newValue,
-          },
+          data: applyToggleEditorChange(data, toggleEditor, Boolean(newValue)),
         });
       }}
       label={editor.label}

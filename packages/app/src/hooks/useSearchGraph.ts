@@ -10,7 +10,7 @@ import { projectState } from '../state/savedGraphs';
 import {
   buildProjectGraphSearchItems,
   clampGraphSearchSelectedIndex,
-  getSynchronousCodeEditorDataKeys,
+  getSynchronousSearchableEditorDataKeys,
   type GraphSearchNodeMetadata,
   type GraphSearchMatch,
   searchGraphNodesWithMode,
@@ -91,7 +91,7 @@ function getSearchableContentKeys(
   node: ChartNode,
   projectNodeRegistry: ReturnType<typeof useProjectNodeRegistry>,
 ): string[] {
-  return getSynchronousCodeEditorDataKeys(() =>
+  return getSynchronousSearchableEditorDataKeys(() =>
     projectNodeRegistry.createDynamicImpl(node).getEditors(undefined as never),
   );
 }

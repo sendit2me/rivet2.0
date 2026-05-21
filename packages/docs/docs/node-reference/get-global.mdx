@@ -17,6 +17,8 @@ The node can be configured to retrieve the value on demand, which means it will 
 
 The node can also be configured to wait until the variable is available. This is useful when the global value is set by another node that might not have completed its execution when this node runs.
 
+In the editor, the search field above `Variable ID` can find static variable IDs from [Set Global](./set-global.mdx) nodes in the current project and copy the selected ID into `Variable ID`. The search text is not saved with the node. You can still type `Variable ID` manually, and dynamically generated Set Global IDs must still be entered or supplied through the input port.
+
 <Tabs
   defaultValue="inputs"
   values={[
@@ -40,9 +42,10 @@ The node can also be configured to wait until the variable is available. This is
 
 ## Outputs
 
-| Title | Data Type | Description                       | Notes                                                                                 |
-| ----- | --------- | --------------------------------- | ------------------------------------------------------------------------------------- |
-| Value | (any)     | The value of the global variable. | The data type of the output will be the same as the data type of the global variable. |
+| Title       | Data Type | Description                       | Notes                                                                                 |
+| ----------- | --------- | --------------------------------- | ------------------------------------------------------------------------------------- |
+| Value       | (any)     | The value of the global variable. | The data type of the output will be the same as the data type of the global variable. |
+| Variable ID | `string`  | The variable ID that was read.    | Useful when the ID is supplied through the input port.                                |
 
 </TabItem>
 
@@ -50,12 +53,13 @@ The node can also be configured to wait until the variable is available. This is
 
 ## Editor Settings
 
-| Setting     | Description                                                                                                                       | Default Value | Use Input Toggle | Input Data Type |
-| ----------- | --------------------------------------------------------------------------------------------------------------------------------- | ------------- | ---------------- | --------------- |
-| Variable ID | The ID of the global variable to retrieve.                                                                                        | (required)    | Yes              | `string`        |
-| Data Type   | The data type of the global variable.                                                                                             | `string`      | No               | N/A             |
-| On Demand   | If enabled, the global variable will be read when nodes need it, rather than when this node executes. Cannot be used with "Wait". | True          | No               | N/A             |
-| Wait        | If enabled, the node will wait until the variable is available. Cannot be used with "On Demand".                                  | False         | No               | N/A             |
+| Setting                 | Description                                                                                                                       | Default Value | Use Input Toggle | Input Data Type |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ------------- | ---------------- | --------------- |
+| Search field            | Searches static Set Global variable IDs in the current project and copies the selected ID to `Variable ID`.                       | Empty         | No               | N/A             |
+| Variable ID             | The ID of the global variable to retrieve.                                                                                        | (required)    | Yes              | `string`        |
+| Data Type               | The data type of the global variable.                                                                                             | `string`      | No               | N/A             |
+| On Demand               | If enabled, the global variable will be read when nodes need it, rather than when this node executes. Turning this on turns off "Wait". | False         | No               | N/A             |
+| Wait                    | If enabled, the node will wait until the variable is available. Turning this on turns off "On Demand".                           | True          | No               | N/A             |
 
 </TabItem>
 
@@ -80,9 +84,9 @@ The node can also be configured to wait until the variable is available. This is
 
 ![Get Global Node Example 2](./assets/get-global-node-example-02.png)
 
-## Error Handling
+## Missing Values
 
-The Get Global Node will error if the global variable is not found and the `Wait` setting is disabled. If the `Wait` setting is enabled, the node will wait until the variable is available.
+If the global variable is not found and `Wait` is disabled, the Get Global Node returns the default value for the selected data type. For example, if the data type is `string`, the default value is an empty string. If `Wait` is enabled, the node waits until the variable is available before returning the value.
 
 ## FAQ
 
@@ -93,10 +97,6 @@ A: A global variable is a value that is shared across all graphs and subgraphs. 
 **Q: Can I set a global variable from a parent application?**
 
 A: No, global variables can only be set from within the graph. Use a [Context Node](./context.mdx) instead to access global variables set by the parent application.
-
-**Q: What happens if the global variable is not found?**
-
-A: If the global variable is not found and the `Wait` setting is disabled, the Get Global Node will return the default value for the data type selected. For example, if the data type is set to `string`, the default value will be an empty string. If the `Wait` setting is enabled, the node will wait until the variable is available before returning the value.
 
 ## See Also
 
