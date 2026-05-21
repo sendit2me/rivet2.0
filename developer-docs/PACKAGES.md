@@ -468,7 +468,10 @@ Docusaurus documentation site package.
 
 ### Publish model
 
-Docs publishing is handled from the repo root by `publish-docs.mts`, not by package-local deploy automation.
+Docs publishing is handled by the GitHub Pages release workflows. The docs
+package owns local Docusaurus commands such as `yarn build`, `yarn serve`, and
+`yarn deploy`, but normal release publishing does not use a root publishing
+script.
 
 ### Current content contract
 
@@ -531,23 +534,6 @@ before publishing. It calls this script with `--skip-clean-check` so ignored
 `.pnp.cjs`, `.yarn/cache`, `packages/core/dist`, `packages/node/dist`,
 `packages/trivet/dist`, `packages/cli/dist`, `packages/cli/bin`, and
 `packages/cli/tsconfig.tsbuildinfo` outputs do not block publishing.
-
-## `publish-docs.mts`
-
-Also operationally important.
-
-Current behavior:
-
-- requires a clean git tree
-- builds docs
-- copies the built site to a temp dir
-- checks out the `docs` branch
-- deletes tracked files except a small ignore list
-- copies the built site into the branch
-- commits `"Docs publish"`
-- then force-checks out the previous branch and resets hard to `HEAD`
-
-That script is functionally important but operationally risky. It assumes a clean tree and uses destructive git cleanup on exit.
 
 ## Package-Level Refactor Guidance
 

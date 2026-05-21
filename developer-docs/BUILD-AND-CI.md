@@ -42,7 +42,6 @@ yarn test:all
 yarn lint
 yarn prettier:fix
 yarn publish
-yarn publish-docs
 ```
 
 ### `yarn dev`
@@ -110,6 +109,8 @@ When adding or cleaning tests, prefer behavior-level tests at the owning helper,
 
 For app graph-editing tests, prefer the shared builders in [`packages/app/src/domain/graphEditing/testGraphBuilders.ts`](../packages/app/src/domain/graphEditing/testGraphBuilders.ts) for common minimal `ChartNode`, `NodeGraph`, `Project`, and connection fixtures. Keep scenario-specific wrappers local when they clarify the port defaults or graph names being asserted.
 
+When splitting large mixed-owner test files, keep the split mechanical first: move assertions unchanged, put shared fake runtime or fixture setup in a nearby `*.testUtils.ts` file, and keep existing focused owner tests under their current filenames. Do not reuse a filename that already owns a narrower helper contract. Shared test utilities should expose setup hooks explicitly instead of registering `beforeEach` / `afterEach` as an import side effect.
+
 ### `yarn test:all`
 
 Alias for `yarn test`.
@@ -140,12 +141,6 @@ Runs:
 This publishes only the public npm package set: `@valerypopoff/rivet2-core`,
 `@valerypopoff/rivet2-node`, `@valerypopoff/trivet`, and
 `@valerypopoff/rivet2-cli`. Build those workspaces before publishing.
-
-### `yarn publish-docs`
-
-Runs:
-
-- `tsx publish-docs.mts`
 
 ## Per-Package Build Notes
 
@@ -641,25 +636,6 @@ Useful local validation flags:
 - `--dry-run`: run `npm publish --dry-run` against the staged package directories
 - `--skip-clean-check`: allow validation from a dirty working tree; the main-branch GitHub Actions publish workflow uses this only after it has already verified that the checkout was clean before building generated package artifacts
 
-## `publish-docs.mts`
-
-Current behavior:
-
-1. fail if git tree is dirty
-2. record current branch
-3. build docs
-4. copy build to temp dir
-5. check out `docs` branch
-6. delete tracked files except a short allowlist
-7. copy built docs into branch
-8. commit `"Docs publish"`
-9. force-check out the original branch
-10. hard-reset to `HEAD`
-
-### Operational implication
-
-This script is intentionally aggressive and should be treated carefully. It only makes sense on a clean tree and a controlled publish workflow.
-
 ## Release Process As Implemented
 
 The current effective release flow is:
@@ -669,13 +645,12 @@ The current effective release flow is:
 3. push `app-v*` tag for updater-enabled desktop release drafts when that path is needed
 4. let `release.yml` create draft desktop artifacts
 5. let `rename-release-assets.yml` normalize asset names
-6. publish docs separately if needed via `yarn publish-docs`
+6. let the release-page workflows publish the Docusaurus site through GitHub Pages
 
 ## Known Operational Risks
 
 Visible from the current scripts/workflows:
 
-- docs publishing uses force checkout/reset behavior
 - npm publishing depends on correct npm scope authentication or trusted publisher configuration
 - npm package publishing and desktop release versioning are separate workflows and must be kept intentionally aligned
 - app release depends on sidecar and Tauri packaging staying aligned

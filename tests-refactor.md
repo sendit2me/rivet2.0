@@ -12,8 +12,8 @@ Snapshot from the current checkout on 2026-05-21:
 
 | Area                    | Test files | Approx test lines | Main script                                                |
 | ----------------------- | ---------: | ----------------: | ---------------------------------------------------------- |
-| `packages/app`          |        146 |            18,093 | `yarn workspace @valerypopoff/rivet-app run test`          |
-| `packages/core`         |         55 |            12,477 | `yarn workspace @valerypopoff/rivet2-core run test`        |
+| `packages/app`          |        153 |            17,750 | `yarn workspace @valerypopoff/rivet-app run test`          |
+| `packages/core`         |         58 |            12,420 | `yarn workspace @valerypopoff/rivet2-core run test`        |
 | `packages/node`         |          8 |             2,603 | `yarn workspace @valerypopoff/rivet2-node run test`        |
 | `packages/app-executor` |          3 |               662 | `yarn workspace @valerypopoff/rivet-app-executor run test` |
 | `packages/cli`          |          1 |                55 | `yarn workspace @valerypopoff/rivet2-cli run test`         |
@@ -32,18 +32,20 @@ Important inventory notes:
 
 Largest current test files:
 
-| File                                                                      | Approx lines | Cleanup angle                                                                                     |
-| ------------------------------------------------------------------------- | -----------: | ------------------------------------------------------------------------------------------------- |
-| `packages/core/test/model/nodes/LLMChatV2Node.test.ts`                    |        1,383 | Split node metadata/editor/runtime-config/cache-key concerns.                                     |
-| `packages/core/test/model/chat-v2/chatV2Pipeline.test.ts`                 |        1,226 | Split stream adapter, retry/status, output assembly, provider-failure concerns.                   |
-| `packages/core/test/model/GraphProcessor.test.ts`                         |        1,135 | Keep behavior coverage, but move policy-only cases to focused helper tests where owners exist.    |
-| `packages/node/test/defaultFastCompatibility.test.ts`                     |          954 | Keep compatibility coverage, split by observable surface and reduce repeated fixture boilerplate. |
-| `packages/app/src/commands/editNodeCommand.test.ts`                       |          936 | Split command merge, interpolation recovery integration, graph input/output rename snapshots.     |
-| `packages/app/src/domain/graphEditing/editNodeConnectionRecovery.test.ts` |          911 | Table-drive duplicated interpolation recovery scenarios.                                          |
-| `packages/app/src/hooks/executorSession.test.ts`                          |          737 | Split transport lifecycle, pending requests, state derivation, and websocket edge cases.          |
-| `packages/core/test/model/nodes/HttpCallNode.test.ts`                     |          702 | Split request construction, response handling, retry/failure policy.                              |
-| `packages/app/src/utils/executionDataStorage.test.ts`                     |          698 | Split storage readers/writers/process selection or consolidate repetitive fixture assertions.     |
-| `packages/core/test/model/GraphProcessor.characterization.test.ts`        |          615 | Preserve as a high-value refactor safety net; reduce only local duplication.                      |
+| File                                                                      | Approx lines | Cleanup angle                                                                                      |
+| ------------------------------------------------------------------------- | -----------: | -------------------------------------------------------------------------------------------------- |
+| `packages/core/test/model/nodes/LLMChatV2Node.test.ts`                    |        1,383 | Split node metadata/editor/runtime-config/cache-key concerns.                                      |
+| `packages/core/test/model/chat-v2/chatV2Pipeline.test.ts`                 |        1,226 | Split stream adapter, retry/status, output assembly, provider-failure concerns.                    |
+| `packages/core/test/model/GraphProcessor.test.ts`                         |        1,135 | Keep behavior coverage, but move policy-only cases to focused helper tests where owners exist.     |
+| `packages/node/test/defaultFastCompatibility.test.ts`                     |          954 | Keep compatibility coverage, split by observable surface and reduce repeated fixture boilerplate.  |
+| `packages/app/src/domain/graphEditing/editNodeConnectionRecovery.test.ts` |          881 | Table-drive duplicated interpolation recovery scenarios.                                           |
+| `packages/app/src/utils/executionDataStorage.test.ts`                     |          698 | Split storage readers/writers/process selection or consolidate repetitive fixture assertions.      |
+| `packages/core/test/model/GraphProcessor.characterization.test.ts`        |          615 | Preserve as a high-value refactor safety net; reduce only local duplication.                       |
+| `packages/app/src/hooks/graphSearch.test.ts`                              |          594 | Split pure search matching, summary formatting, and UI-facing state fixtures if duplication grows. |
+| `packages/app/src/state/selectors/executionSelectors.test.ts`             |          492 | Keep selector behavior coverage; table-drive repeated execution-data cases if touched later.       |
+| `packages/app/src/utils/executionDataCopyValue.test.ts`                   |          469 | Keep output-copy policy coverage; dedupe only after Phase 4 output-policy overlap audit.           |
+| `packages/app/src/hooks/remoteExecutorRunRequest.test.ts`                 |          439 | Keep remote run request compatibility coverage; simplify only local repeated setup.                |
+| `packages/app/src/io/browserFileInput.test.ts`                            |          438 | Keep browser file IO edge behavior; review for table-driving only.                                 |
 
 ## Quality Bar
 
@@ -261,7 +263,7 @@ implementations without changing production behavior.
 - Shared fixtures can accidentally couple unrelated tests. Avoid mutable singleton project/node objects; return fresh objects every time.
 - Moving fixtures can create circular imports if helpers live too close to production modules. Put them in test-only files and import production code in one direction only.
 
-## Phase 3: Split Monster Test Files By Ownership
+## Phase 3: Split Monster Test Files By Ownership (DONE)
 
 ### What To Change
 
@@ -304,6 +306,26 @@ Recommended splits:
   - recorder/debugger compatibility fallback
   - project-reference loader behavior
 
+Phase 3 implemented the ready mechanical splits where ownership boundaries were
+already clear and shared setup could stay local:
+
+- `packages/app/src/commands/editNodeCommand.test.ts` was split into command
+  recovery, graph-input rename, graph-output rename, and merge-policy files,
+  with shared command-state setup in
+  `packages/app/src/commands/editNodeCommandTestUtils.ts`.
+- `packages/app/src/hooks/executorSession.test.ts` was split into lifecycle,
+  subscription isolation, state/capability, runtime pending-execution, and
+  message-error files, with the fake socket/runtime setup in
+  `packages/app/src/hooks/executorSessionTestUtils.ts`.
+- `packages/core/test/model/nodes/HttpCallNode.test.ts` was split into editor,
+  response-output, retry-policy, and failure-output files, with common HTTP
+  node helpers in `packages/core/test/model/nodes/HttpCallNode.testUtils.ts`.
+
+The broad Chat v2, GraphProcessor, and default-fast compatibility suites were
+left intact in this phase. Those files intentionally cover cross-surface
+compatibility, and splitting them safely needs the Phase 4 overlap audit and
+stable shared fixtures first.
+
 ### Why
 
 Large mixed files are hard to review and invite duplicate coverage. Splitting by owner makes future changes faster because a failing test points to the right policy area.
@@ -314,6 +336,30 @@ Large mixed files are hard to review and invite duplicate coverage. Splitting by
 - After the split is green, table-drive repeated cases within each new file.
 - Delete helper functions that become single-use after the split.
 - Keep one compatibility or characterization file when the point is cross-surface parity.
+
+### Result
+
+Phase 3 organized the former coverage from three large mixed-owner files across
+thirteen new focused files, one preexisting focused pending-executions file, and
+three local `*.testUtils.ts` helpers:
+
+- `editNodeCommand.test.ts`: 876 lines became 898 lines across focused command
+  files and shared command-state setup. The small line increase buys clearer
+  ownership for recovery, graph input rename, graph output rename, and merge
+  policy failures.
+- `executorSession.test.ts`: 737 lines became 781 lines across focused runtime
+  files and shared fake-socket setup. The existing
+  `executorSessionPendingExecutions.test.ts` pure helper suite stayed in place;
+  runtime-level pending execution behavior moved to
+  `executorSessionRuntimePendingExecutions.test.ts`.
+- `HttpCallNode.test.ts`: 702 lines became 745 lines across editor, response,
+  retry, and failure-output files plus shared HTTP node helpers.
+
+The net touched test/support count increased by 109 lines because mechanical
+splitting requires repeated imports, suite-local setup calls, and explicit test
+hook installation. That tradeoff is accepted for this phase because the files
+are now reviewable by behavior owner, and no runtime or product behavior
+changed.
 
 ### Risks
 
