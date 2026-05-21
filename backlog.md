@@ -1,5 +1,4 @@
 
-- The global search doesn't search in set-get global variable fields
 
 - Установщик для макоси не дает нормально установить апп потому что я никто
 
