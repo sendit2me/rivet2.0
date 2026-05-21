@@ -7,7 +7,9 @@ function createDefaultNodeColor(colorIndex: number): NodeColor {
 const DEFAULT_NODE_COLORS_BY_TYPE: Partial<Record<string, NodeColor>> = {
   graphInput: createDefaultNodeColor(3),
   graphOutput: createDefaultNodeColor(3),
+  getGlobal: createDefaultNodeColor(7),
   httpCall: createDefaultNodeColor(6),
+  setGlobal: createDefaultNodeColor(7),
   subGraph: createDefaultNodeColor(2),
 };
 

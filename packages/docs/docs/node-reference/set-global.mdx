@@ -13,7 +13,7 @@ import TabItem from '@theme/TabItem';
 
 The Set Global Node is used to set a global value that is shared across all graphs and subgraphs during an execution in Rivet. This can be useful for storing and retrieving values that need to be accessed by multiple graphs.
 
-The Set Global Node allows you to specify the ID of the global value and the value itself. The ID can be either a static string or an input value. The value can be of any data type.
+The Set Global Node allows you to specify the ID of the global value and the value itself. The ID can be either a static string or an input value. The value can be of any data type. Static IDs appear in the [Get Global](./get-global.mdx) node's search field so you can choose them without retyping.
 
 <Tabs
   defaultValue="inputs"
@@ -42,7 +42,7 @@ The Set Global Node allows you to specify the ID of the global value and the val
 | Title          | Data Type | Description                                                             | Notes                                                                                                                       |
 | -------------- | --------- | ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
 | Value          | Any       | The value that was set as the global value.                             | The output will be of the same data type as the `Value` input.                                                              |
-| Previous Value | Any       | The previous value of the global variable before the new value was set. | The output will be of the same data type as the `Value` input. If there was no previous value, this output will not be ran. |
+| Previous Value | Any       | The previous value of the global variable before the new value was set. | If the ID comes from the input port, the previous value is read from that supplied ID. If there was no previous value, Rivet returns the selected data type's default value. |
 
 </TabItem>
 

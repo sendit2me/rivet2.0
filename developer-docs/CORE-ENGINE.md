@@ -646,6 +646,8 @@ This is how the app bridges execution to the user-input modal.
 
 These are shared across subgraphs because subprocessors inherit the same root structures.
 
+`Get Global` and `Set Global` runtime semantics are unchanged by editor conveniences. The app-side Get Global variable selector scans static `Set Global` node IDs in the current project, overlays the live open graph over the saved project graph list so unsaved Set Global edits are searchable immediately, and writes a selected ID into the normal `id` node data field; dynamic IDs supplied through the `Set Global` ID input port are runtime values and cannot be discovered safely by the editor. Variable ID input ports stay string-typed regardless of the selected global value data type, `Get Global` emits its `Variable ID` output even when `On Demand` returns a function value, and `Set Global` resolves `Previous Value` from the same static or dynamic ID that it is about to write. New Get Global nodes default to `wait: true` and `onDemand: false`, and their editor metadata makes those two toggles mutually exclusive in the UI.
+
 ## Split-Run Execution
 
 Split-run logic has been extracted into [`SplitRunProcessor.ts`](../packages/core/src/model/SplitRunProcessor.ts).

@@ -7,7 +7,7 @@ import {
   clampGraphSearchSelectedIndex,
   getGraphSearchContentSnippets,
   getGraphSearchStats,
-  getSynchronousCodeEditorDataKeys,
+  getSynchronousSearchableEditorDataKeys,
   groupGraphSearchMatches,
   isNodeGraphSearchMatch,
   searchGraphNodes,
@@ -99,6 +99,43 @@ test('buildGraphSearchItems indexes configured content fields and skips scalar s
   assert.deepEqual(matchNodeIds(searchGraphNodes(items, 'search-token ada')), [asNodeId('node-a')]);
   assert.equal(searchGraphNodes(items, 'search-token')[0]?.contentSnippets.length, 1);
   assert.deepEqual(matchNodeIds(searchGraphNodes(items, 'example users true 3')), []);
+});
+
+test('buildGraphSearchItems indexes explicitly searchable Set/Get Global ID settings', () => {
+  const items = buildGraphSearchItems(
+    createGraph({
+      nodes: [
+        createNode({
+          id: asNodeId('set-global-node'),
+          type: 'setGlobal',
+          data: {
+            id: 'customerProfile',
+            dataType: 'string',
+          },
+        }),
+        createNode({
+          id: asNodeId('get-global-node'),
+          type: 'getGlobal',
+          data: {
+            id: 'customerProfile',
+            dataType: 'string',
+          },
+        }),
+      ],
+    }),
+    (node) => ({
+      nodeTypeLabel: node.type === 'setGlobal' ? 'Set Global' : 'Get Global',
+      searchableContentKeys: ['id'],
+    }),
+  );
+
+  const matches = searchGraphNodes(items, 'customerProfile');
+
+  assert.deepEqual(matchNodeIds(matches), [asNodeId('set-global-node'), asNodeId('get-global-node')]);
+  assert.deepEqual(matches[0]?.locations, ['node content']);
+  assert.equal(matches[0]?.contentSnippets[0], 'customerProfile');
+  assert.deepEqual(matches[1]?.locations, ['node content']);
+  assert.equal(matches[1]?.contentSnippets[0], 'customerProfile');
 });
 
 test('searchGraphNodes does not return nodes for short random-id or default-setting matches', () => {
@@ -556,12 +593,13 @@ test('serializeSearchableContentFields serializes only selected top-level fields
   assert.equal(serialized.includes('ignored'), false);
 });
 
-test('getSynchronousCodeEditorDataKeys reads nested synchronous code editor keys', () => {
-  const dataKeys = getSynchronousCodeEditorDataKeys(() => [
+test('getSynchronousSearchableEditorDataKeys reads nested code and explicitly searchable editor keys', () => {
+  const dataKeys = getSynchronousSearchableEditorDataKeys(() => [
     {
       type: 'group',
       editors: [
         { type: 'string', dataKey: 'title' },
+        { type: 'string', dataKey: 'globalId', includeInGraphSearch: true },
         { type: 'code', dataKey: 'prompt' },
         {
           type: 'group',
@@ -574,11 +612,11 @@ test('getSynchronousCodeEditorDataKeys reads nested synchronous code editor keys
     },
   ]);
 
-  assert.deepEqual(dataKeys, ['prompt', 'body']);
+  assert.deepEqual(dataKeys, ['globalId', 'prompt', 'body']);
 });
 
-test('getSynchronousCodeEditorDataKeys ignores async editor loaders without leaking rejections', async () => {
-  const dataKeys = getSynchronousCodeEditorDataKeys(() =>
+test('getSynchronousSearchableEditorDataKeys ignores async editor loaders without leaking rejections', async () => {
+  const dataKeys = getSynchronousSearchableEditorDataKeys(() =>
     Promise.reject(new Error("Cannot read properties of undefined (reading 'getChatModelOptions')")),
   );
 

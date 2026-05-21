@@ -27,9 +27,23 @@ test('createAddedNode applies configured default colors to supported node types'
     referencedProjects: {},
     applyDefaultColor: true,
   });
+  const getGlobalNode = createAddedNode({
+    nodeType: 'getGlobal',
+    position: { x: 70, y: 80 },
+    registry,
+    referencedProjects: {},
+    applyDefaultColor: true,
+  });
+  const setGlobalNode = createAddedNode({
+    nodeType: 'setGlobal',
+    position: { x: 90, y: 100 },
+    registry,
+    referencedProjects: {},
+    applyDefaultColor: true,
+  });
   const subGraphNode = createAddedNode({
     nodeType: 'subGraph',
-    position: { x: 70, y: 80 },
+    position: { x: 110, y: 120 },
     registry,
     referencedProjects: {},
     applyDefaultColor: true,
@@ -38,6 +52,8 @@ test('createAddedNode applies configured default colors to supported node types'
   assert.deepEqual(graphInputNode.visualData.color, { bg: 'var(--node-color-3)', border: 'transparent' });
   assert.deepEqual(graphOutputNode.visualData.color, { bg: 'var(--node-color-3)', border: 'transparent' });
   assert.deepEqual(httpCallNode.visualData.color, { bg: 'var(--node-color-6)', border: 'transparent' });
+  assert.deepEqual(getGlobalNode.visualData.color, { bg: 'var(--node-color-7)', border: 'transparent' });
+  assert.deepEqual(setGlobalNode.visualData.color, { bg: 'var(--node-color-7)', border: 'transparent' });
   assert.deepEqual(subGraphNode.visualData.color, { bg: 'var(--node-color-2)', border: 'transparent' });
 });
 

@@ -25,6 +25,7 @@ export type GraphSearchNodeMetadata = {
 type SearchableEditorDefinition = {
   type: string;
   dataKey?: string;
+  includeInGraphSearch?: boolean;
   editors?: SearchableEditorDefinition[];
 };
 
@@ -287,7 +288,7 @@ export function serializeSearchableContentFields(
   return contentParts.join('\n\n');
 }
 
-export function getSynchronousCodeEditorDataKeys(loadEditors: () => unknown): string[] {
+export function getSynchronousSearchableEditorDataKeys(loadEditors: () => unknown): string[] {
   let editors: unknown;
 
   try {
@@ -302,7 +303,7 @@ export function getSynchronousCodeEditorDataKeys(loadEditors: () => unknown): st
     return [];
   }
 
-  return Array.isArray(editors) ? getCodeEditorDataKeys(editors as SearchableEditorDefinition[]) : [];
+  return Array.isArray(editors) ? getSearchableEditorDataKeys(editors as SearchableEditorDefinition[]) : [];
 }
 
 export function getGraphSearchContentSnippets(content: string, queryTerms: readonly string[]): string[] {
@@ -454,16 +455,16 @@ function normalizeGraphSearchNodeMetadata(
   };
 }
 
-function getCodeEditorDataKeys(editors: readonly SearchableEditorDefinition[]): string[] {
+function getSearchableEditorDataKeys(editors: readonly SearchableEditorDefinition[]): string[] {
   const dataKeys = new Set<string>();
 
   for (const editor of editors) {
-    if (editor.type === 'code' && typeof editor.dataKey === 'string') {
+    if ((editor.type === 'code' || editor.includeInGraphSearch) && typeof editor.dataKey === 'string') {
       dataKeys.add(editor.dataKey);
     }
 
     if (Array.isArray(editor.editors)) {
-      getCodeEditorDataKeys(editor.editors).forEach((dataKey) => dataKeys.add(dataKey));
+      getSearchableEditorDataKeys(editor.editors).forEach((dataKey) => dataKeys.add(dataKey));
     }
   }
 

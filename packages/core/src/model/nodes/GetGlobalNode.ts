@@ -10,7 +10,6 @@ import { NodeImpl, type NodeUIData } from '../NodeImpl.js';
 import { nodeDefinition } from '../NodeDefinition.js';
 import {
   type FunctionDataValues,
-  type ScalarDataType,
   type ScalarDataValue,
   type ScalarOrArrayDataType,
   isArrayDataType,
@@ -55,9 +54,9 @@ export class GetGlobalNodeImpl extends NodeImpl<GetGlobalNode> {
       data: {
         id: 'variable-name',
         dataType: 'string',
-        onDemand: true,
+        onDemand: false,
         useIdInput: false,
-        wait: false,
+        wait: true,
       },
     };
 
@@ -70,7 +69,7 @@ export class GetGlobalNodeImpl extends NodeImpl<GetGlobalNode> {
         {
           id: 'id' as PortId,
           title: 'Variable ID',
-          dataType: this.data.dataType as ScalarDataType,
+          dataType: 'string',
         },
       ];
     }
@@ -97,10 +96,17 @@ export class GetGlobalNodeImpl extends NodeImpl<GetGlobalNode> {
   getEditors(): EditorDefinition<GetGlobalNode>[] {
     return [
       {
+        type: 'custom',
+        label: 'Search Global Variables',
+        customEditorId: 'GetGlobalVariableSelector',
+        autoFocus: true,
+      },
+      {
         type: 'string',
         label: 'Variable ID',
         dataKey: 'id',
         useInputToggleDataKey: 'useIdInput',
+        includeInGraphSearch: true,
       },
       {
         type: 'dataTypeSelector',
@@ -111,11 +117,13 @@ export class GetGlobalNodeImpl extends NodeImpl<GetGlobalNode> {
         type: 'toggle',
         label: 'On Demand',
         dataKey: 'onDemand',
+        turnOffDataKeysWhenEnabled: ['wait'],
       },
       {
         type: 'toggle',
         label: 'Wait',
         dataKey: 'wait',
+        turnOffDataKeysWhenEnabled: ['onDemand'],
       },
     ];
   }
@@ -144,12 +152,13 @@ export class GetGlobalNodeImpl extends NodeImpl<GetGlobalNode> {
       if (this.data.wait) {
         throw new Error('Cannot use onDemand and wait together');
       }
+
+      const id = this.data.useIdInput ? coerceType(inputs['id' as PortId], 'string') : this.data.id;
+
       return {
         ['value' as PortId]: {
           type: `fn<${this.data.dataType}>` as const,
           value: () => {
-            const id = this.data.useIdInput ? coerceType(inputs['id' as PortId], 'string') : this.data.id;
-
             const value = context.getGlobal(id);
             if (value) {
               return value.value;
@@ -163,6 +172,7 @@ export class GetGlobalNodeImpl extends NodeImpl<GetGlobalNode> {
             return scalarDefaults[this.data.dataType];
           },
         } as FunctionDataValues,
+        ['variable_id_out' as PortId]: { type: 'string', value: id },
       };
     }
 
