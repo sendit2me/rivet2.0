@@ -22,8 +22,8 @@ There are about 1,580 declared `test(...)` / `it(...)` / `describe(...)` entries
 
 Important inventory notes:
 
-- Root `yarn test` currently runs core, node, app, and cli tests, but not app-executor tests.
-- CI uses `.github/workflows/build.yml`, which runs `yarn build`, `yarn test`, `yarn lint`, and `yarn prettier --check` on `develop` pushes and PRs.
+- Root `yarn test` currently runs core, node, app, app-executor, and cli tests.
+- CI uses `.github/workflows/build.yml`, which runs `yarn build`, `yarn test`, `yarn test:docs`, `yarn lint`, and `yarn prettier --check` on `develop` pushes and PRs.
 - `packages/docs` has a `typecheck` script but no test script.
 - `packages/core/src/model/NodeBodySpec.ts` and `PluginLoadSpec.ts` are source files, not tests, despite the `Spec` suffix.
 - 16 app tests and 1 core test read production source files directly with `readFileSync`. These are useful as temporary guardrails, but many are brittle string-shape tests rather than behavior tests.
@@ -444,7 +444,7 @@ low-level request-shaping test bodies and three pipeline pass-through test
 bodies, replacing them with one owner-level stream adapter assertion plus one
 pipeline wiring assertion. No production code changed.
 
-## Phase 5: Normalize Root Test Scripts And CI Coverage
+## Phase 5: Normalize Root Test Scripts And CI Coverage (DONE)
 
 ### What To Change
 
@@ -463,9 +463,22 @@ Make the test command matrix honest and easy to run:
 - Update `developer-docs/BUILD-AND-CI.md` to match the actual scripts exactly.
 - While touching this area, reconcile stale build/test command references in developer docs against the live root `package.json`; do not preserve commands that no longer exist just because older docs mention them.
 
+Phase 5 normalized the root scripts and CI contract:
+
+- `yarn test` now delegates to explicit focused scripts for core, node, app,
+  app-executor, and cli.
+- `yarn test:all` remains an alias for `yarn test`.
+- `yarn test:core`, `yarn test:node`, `yarn test:app`,
+  `yarn test:app-executor`, `yarn test:cli`, and `yarn test:docs` are now
+  available from the repo root.
+- `yarn test:docs` runs the docs workspace typecheck with `tsc --noEmit` and
+  is intentionally separate from `yarn test`.
+- `.github/workflows/build.yml` now runs `yarn test:docs` as an explicit step
+  after `yarn test`.
+
 ### Why
 
-The current root `yarn test` omits app-executor tests even though app-executor has important worker/code-runner coverage. Developers need one accurate default command and clear focused commands.
+Before Phase 5, the root `yarn test` omitted app-executor tests even though app-executor has important worker/code-runner coverage. Developers need one accurate default command and clear focused commands.
 
 ### How
 
@@ -480,6 +493,15 @@ The current root `yarn test` omits app-executor tests even though app-executor h
 - Adding app-executor tests to root CI may increase wall-clock time or expose platform-specific worker behavior.
 - Renaming scripts can break developer habits and CI workflows. Keep existing script names as aliases when possible.
 - Docs build/typecheck can pull in different failure modes than runtime tests. It may be better as a separate CI step.
+
+### Result
+
+Phase 5 added app-executor coverage to the default root test path and made every
+root test target explicit. Local direct-script measurement showed
+`packages/app-executor` tests passing in about 1.8 seconds (`26` tests), so the
+extra default coverage is small compared with the full suite and covers an
+important runtime sidecar. Docs typecheck is now a separate, non-emitting CI
+step rather than hidden inside `yarn test`.
 
 ## Phase 6: Add Test Style Guardrails
 
@@ -569,8 +591,8 @@ node .yarn/releases/yarn-4.6.0.cjs workspace <workspace-name> exec tsx --test <t
 | App graph editing tests         | direct `tsx --test` against affected app domain/command tests                                                                                                  | `yarn workspace @valerypopoff/rivet-app run test`          |
 | App output rendering/copy tests | direct `tsx --test` against affected node-output/render-data-value/utils tests                                                                                 | app test + app lint                                        |
 | App-executor tests              | direct `tsx --test` against the affected `bin/*.test.mts` file                                                                                                 | `yarn workspace @valerypopoff/rivet-app-executor run test` |
-| Test script/CI changes          | dry-run scripts locally                                                                                                                                        | root `yarn test` + `yarn lint`                             |
-| Docs/testing guide              | docs typecheck/build if available                                                                                                                              | root lint/test unaffected                                  |
+| Test script/CI changes          | dry-run scripts locally                                                                                                                                        | root `yarn test` + `yarn test:docs` + `yarn lint`          |
+| Docs/testing guide              | docs typecheck/build if available                                                                                                                              | `yarn test:docs` + root lint/test                          |
 
 Always run `git diff --check` before handing off a cleanup slice.
 

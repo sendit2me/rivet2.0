@@ -39,6 +39,12 @@ yarn sync:desktop-version
 yarn verify:desktop-version
 yarn test
 yarn test:all
+yarn test:core
+yarn test:node
+yarn test:app
+yarn test:app-executor
+yarn test:cli
+yarn test:docs
 yarn lint
 yarn prettier:fix
 yarn publish
@@ -94,13 +100,16 @@ This verifies the same metadata without writing files.
 
 ### `yarn test`
 
-Runs all currently defined workspace test suites:
+Runs the default runtime/package test matrix:
 
 - `yarn workspace @valerypopoff/rivet2-core run test`
 - `yarn workspace @valerypopoff/rivet2-node run test`
 - `yarn workspace @valerypopoff/rivet-app run test`
+- `yarn workspace @valerypopoff/rivet-app-executor run test`
 - `yarn workspace @valerypopoff/rivet2-cli run test`
 
+This intentionally includes app-executor tests because the Node executor sidecar
+owns worker/code-runner behavior used by the desktop and hosted app runtime.
 Packages without a `test` script are not included.
 
 #### Test Guardrails
@@ -116,6 +125,22 @@ When de-duplicating overlap between owner tests and composed-path tests, keep th
 ### `yarn test:all`
 
 Alias for `yarn test`.
+
+### Focused Test Scripts
+
+Focused root test scripts delegate to the owning workspace:
+
+- `yarn test:core`: `@valerypopoff/rivet2-core`
+- `yarn test:node`: `@valerypopoff/rivet2-node`
+- `yarn test:app`: `@valerypopoff/rivet-app`
+- `yarn test:app-executor`: `@valerypopoff/rivet-app-executor`
+- `yarn test:cli`: `@valerypopoff/rivet2-cli`
+- `yarn test:docs`: docs workspace typecheck (`tsc --noEmit`)
+
+Docs typecheck is not part of `yarn test`; CI runs `yarn test:docs` as a
+separate step so runtime/package tests and documentation validation stay
+visibly distinct. The docs typecheck is non-emitting so it cannot leave
+generated JavaScript beside Docusaurus source files during CI or local cleanup.
 
 ### `yarn lint`
 
@@ -304,8 +329,9 @@ Runs on `ubuntu-latest` and performs:
 3. `yarn --immutable`
 4. `yarn build`
 5. `yarn test`
-6. `yarn lint`
-7. `yarn prettier --check`
+6. `yarn test:docs`
+7. `yarn lint`
+8. `yarn prettier --check`
 
 ### Important notes
 
