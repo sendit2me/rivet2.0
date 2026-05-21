@@ -472,10 +472,11 @@ Current architectural detail:
 
 - preprocessing is not only a `processGraph(...)` concern; some public helper paths depend on it being available lazily
 - cached plans are scoped to immutable runner snapshots; graph edits, registry/plugin changes, settings that affect definitions, or project-reference changes require a new runner
-- `createProcessor(...)` uses the same plan shape only as run-scoped data for a
-  fresh one-off processor run. The Node wrapper clears that cache before and
-  after `run()` so endpoint-style callers do not depend on cross-request cache
-  state. Its policy is split in
+- `createProcessor(...)`, and eligible `runGraph(...)` calls that route through
+  the same default-safe policy, use the same plan shape only as run-scoped data
+  for a fresh one-off processor run. The Node wrapper clears that cache before
+  and after `run()` so endpoint-style callers do not depend on cross-request
+  cache state. Its policy is split in
   [`createProcessorRuntimePolicy.ts`](../packages/node/src/createProcessorRuntimePolicy.ts):
   omitted `runtimeProfile` enables the default-safe pieces, explicit
   `compatible` stays fully compatible, explicit `headless-fast` enables
@@ -745,13 +746,13 @@ That is especially true for nested execution correctness: `ProcessContextBuilder
 
 `Code (legacy)`, `Code` (internal type `codeNew`), `Expression`, `JS Filter`, and `JS Map` still execute
 through the configured `CodeRunner`. Browser mode uses `IsomorphicCodeRunner`.
-Programmatic Node `runGraph(...)` and compatible-profile `createProcessor(...)`
-execution through `@valerypopoff/rivet2-node` still defaults to
-`NodeCodeRunner`, while omitted-default `createProcessor(...)` can use the
-run-scoped cached Node CodeRunner when no custom runner is supplied. The desktop
-app's internal `app-executor` sidecar passes its own worker-backed runner so
-most Code-family JavaScript runs off the sidecar's main event loop. The
-app-executor worker runner falls back to current-thread execution when a
+Compatible-profile `createProcessor(...)` execution through
+`@valerypopoff/rivet2-node` still defaults to `NodeCodeRunner`, while
+omitted-default `createProcessor(...)` and eligible `runGraph(...)` calls can
+use the run-scoped cached Node CodeRunner when no custom runner is supplied.
+The desktop app's internal `app-executor` sidecar passes its own worker-backed
+runner so most Code-family JavaScript runs off the sidecar's main event loop.
+The app-executor worker runner falls back to current-thread execution when a
 Code-family node requests the `Rivet` capability, because packaged sidecar
 module resolution for that capability must stay compatible.
 
@@ -770,8 +771,9 @@ app-executor-specific. `codeRunnerWorkerHost.mts` injects the bridged console fo
 worker-backed runs, while `AppExecutorWorkerCodeRunner.mts` keeps the matching
 bridge for the `Rivet`-capability current-thread fallback. In both paths those
 calls become `codeConsole` executor messages that the app replays in the renderer
-console. This does not change the public `NodeCodeRunner` default used by
-`runGraph(...)` and explicit compatible-profile `createProcessor(...)` callers.
+console. This does not change custom `codeRunner` ownership or the public
+`NodeCodeRunner` default used by explicit compatible-profile
+`createProcessor(...)` callers.
 
 `NodeCodeRunner` exposes its CommonJS `require()` resolution policy through
 `createCodeRunnerRequire(...)`, `getCodeRunnerRequireRoot(...)`, and
@@ -789,10 +791,19 @@ The headless Node fast policies use a cached CodeRunner inside
 cache stores compiled functions by source text plus the injected argument shape
 (`inputs`, permissions, graph inputs, and context presence). It does not cache
 values or outputs, so locals remain fresh for every invocation and per-run
-`inputs`/`context` still vary normally. Normal `runGraph(...)`, compatible
-`createProcessor(...)`, Browser mode, Remote Debugger fallback, and app-executor
-worker execution keep their existing CodeRunner ownership. Custom `codeRunner`
-instances always win over the cached runner.
+`inputs`/`context` still vary normally. Eligible `runGraph(...)` calls use the
+same default-safe CodeRunner policy as omitted-default `createProcessor(...)`.
+Eligibility is deliberately narrow: repeated direct Subgraph targets, repeated
+direct Referenced Graph Alias targets, multiple dynamic Call Graph nodes, or
+Code-family nodes without a custom `codeRunner`. Simple `runGraph(...)` calls
+and unrelated one-off Subgraph targets stay compatible to avoid tiny-graph or
+no-reuse overhead.
+`runGraph(...)` does not expose `runtimeProfile`; untyped `runtimeProfile`
+properties are ignored so explicit profile selection stays owned by
+`createProcessor(...)` and `createGraphRunner(...)`.
+Compatible `createProcessor(...)`, Browser mode, Remote Debugger fallback, and
+app-executor worker execution keep their existing CodeRunner ownership. Custom
+`codeRunner` instances always win over the cached runner.
 
 Syntax-error diagnostics are deliberately failure-only. The core does not pre-parse
 successful `Code` node runs. If `AsyncFunction` construction throws a syntax error,

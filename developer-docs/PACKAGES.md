@@ -197,9 +197,20 @@ trace-sensitive runs also use the fully compatible path; explicit
 other explicit fast pieces. Custom `codeRunner` instances always win; the Node
 cached CodeRunner is only used when no custom runner was supplied. Recording
 remains supported because the default-safe and explicit fast paths still emit
-normal processor events. `runGraph(...)` deliberately passes
-`runtimeProfile: 'compatible'` internally for this rollout, so callers who want
-the default-safe single-run policy should use `createProcessor(...).run()`.
+normal processor events. `runGraph(...)` now applies that omitted-profile
+default-safe single-run policy selectively: root graphs with repeated direct
+Subgraph targets, repeated direct Referenced Graph Alias targets, multiple
+dynamic Call Graph nodes, or Code-family nodes without a custom `codeRunner`,
+can use the same run-scoped subprocessor execution-plan caching and default
+cached Node CodeRunner as `createProcessor(...).run()`. Simple graphs and
+unrelated one-off Subgraph targets stay on the compatible policy to avoid
+tiny-graph and no-reuse benchmark regressions.
+`runGraph(...)` does not enable the `headless-fast` scheduler or loaded
+project-reference caching, and it intentionally ignores any untyped
+`runtimeProfile` property. Use `createProcessor(...)` or `createGraphRunner(...)`
+when a caller needs an explicit runtime profile. Remote Debugger and
+trace-sensitive `runGraph(...)` calls still fall back to the fully compatible
+path through the shared runtime policy.
 
 `captureNodeTimings` is an optional execution-metadata flag shared with core. It
 adds `durationMs` and split-run `splitRunDurationMs` to `nodeFinish` / `nodeError` events without changing output
@@ -325,9 +336,9 @@ The sidecar:
 - supports editor run-from execution by accepting startup `preloadData` in the same `run` message as explicit `runToNodeIds`; the sidecar applies that preload after creating the processor and before calling `run()`
 
 The worker-backed runner is scoped to the app executor. `@valerypopoff/rivet2-node`
-programmatic `runGraph(...)` and compatible-profile `createProcessor(...)`
-callers still use `NodeCodeRunner` by default unless they pass a custom
-`codeRunner`; omitted-default `createProcessor(...)` can use the run-scoped
+compatible-profile `createProcessor(...)` callers still use `NodeCodeRunner` by
+default unless they pass a custom `codeRunner`; omitted-default
+`createProcessor(...)` and eligible `runGraph(...)` calls can use the run-scoped
 cached Node CodeRunner when no custom runner is supplied. Code-family nodes that
 request the `Rivet` capability fall back to current-thread execution inside the
 sidecar for compatibility.

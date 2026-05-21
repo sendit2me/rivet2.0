@@ -196,6 +196,55 @@ Baseline group summary:
 
 The referenced-project `runGraphInFile(...)` benchmark explicitly passes `projectPath` so the default Node project-reference loader can resolve the fixture's relative `hintPaths`.
 
+## Benchmark Results - P1 Candidate
+
+Baseline runtime commit: `e70f6e5d3d84db4519d4a31037ee66d82d028a10`
+
+Candidate: working tree after P1. The first blanket `runGraph(...)` default-safe attempt was rejected because it made tiny passthrough/file-loading cases slower by more than the performance rules allow. The final candidate uses default-safe policy only for graph shapes that can benefit and leaves simple graphs and unrelated one-off Subgraph targets on the compatible path.
+
+Environment:
+
+- Date: 2026-05-22
+- OS: Windows
+- CPU identifier: `Intel64 Family 6 Model 198 Stepping 2, GenuineIntel`
+- Node: `v22.22.3`
+- Yarn: `4.6.0`
+- Samples: `5`
+- Iterations: `100`
+- Warmup iterations: `10`
+- Packages already built: no; the benchmark command rebuilt `@valerypopoff/rivet2-core` ESM before measuring.
+
+| Benchmark                                                                        | API             | Baseline ms |  P1 ms | Delta ms | Delta % | Verdict           |
+| -------------------------------------------------------------------------------- | --------------- | ----------: | -----: | -------: | ------: | ----------------- |
+| load once + runGraph passthrough                                                 | runGraph        |       0.095 |  0.090 |   -0.005 |   -5.3% | pass              |
+| runGraph text chain 20                                                           | runGraph        |       0.435 |  0.420 |   -0.015 |   -3.4% | pass              |
+| runGraph text chain 100                                                          | runGraph        |       1.712 |  1.715 |    0.003 |    0.2% | neutral           |
+| runGraph text chain 500                                                          | runGraph        |       8.214 |  8.007 |   -0.207 |   -2.5% | pass              |
+| runGraph wide independent text nodes 100                                         | runGraph        |       2.791 |  2.662 |   -0.129 |   -4.6% | pass              |
+| runGraph single subgraph call                                                    | runGraph        |       0.253 |  0.257 |    0.004 |    1.6% | neutral           |
+| runGraph repeated subgraph same-input 50                                         | runGraph        |      10.781 | 10.461 |   -0.320 |   -3.0% | pass              |
+| runGraph repeated subgraph changing-input 50                                     | runGraph        |       9.072 |  8.727 |   -0.345 |   -3.8% | pass              |
+| runGraph nested subgraph depth 5                                                 | runGraph        |       1.411 |  1.329 |   -0.082 |   -5.8% | pass              |
+| runGraph Call Graph repeated same-input 50                                       | runGraph        |      14.085 | 13.376 |   -0.709 |   -5.0% | pass              |
+| runGraph Referenced Graph Alias repeated same-input 50                           | runGraph        |      11.913 | 11.089 |   -0.824 |   -6.9% | pass              |
+| runGraph custom projectReferenceLoader referenced graph                          | runGraph        |       0.437 |  0.342 |   -0.095 |  -21.7% | pass              |
+| runGraph expression chain 20                                                     | runGraph        |       2.642 |  2.653 |    0.011 |    0.4% | neutral           |
+| runGraph code chain 20                                                           | runGraph        |       6.352 |  6.501 |    0.149 |    2.3% | neutral           |
+| runGraphInFile passthrough one-shot                                              | runGraphInFile  |       0.990 |  1.078 |    0.088 |    8.9% | secondary caution |
+| runGraphInFile subgraph project one-shot                                         | runGraphInFile  |       1.514 |  1.559 |    0.045 |    3.0% | secondary neutral |
+| runGraphInFile referenced-project one-shot with projectPath                      | runGraphInFile  |       2.037 |  2.215 |    0.178 |    8.7% | secondary caution |
+| fresh createProcessor default-safe repeated subgraph same-input 50               | createProcessor |      11.004 | 10.508 |   -0.496 |   -4.5% | pass              |
+| fresh createProcessor default-safe repeated subgraph changing-input 50           | createProcessor |       9.440 |  8.660 |   -0.780 |   -8.3% | pass              |
+| fresh createProcessor default-safe Referenced Graph Alias repeated same-input 50 | createProcessor |      13.891 | 11.326 |   -2.565 |  -18.5% | pass              |
+
+P1 conclusion:
+
+- Loaded-project `runGraph(...)` got faster or stayed neutral across the primary runtime shapes.
+- The selective policy avoided the blanket default-safe tiny-graph regression while still improving repeated Subgraph target, dynamic `Call Graph`, and repeated referenced-alias target scenarios.
+- Single-root-subgraph shapes stay compatible in P1; nested subgraph benchmarks are still tracked, but deeper subgraph-boundary optimization belongs to P2.
+- `runGraphInFile(...)` remains a secondary caution because file-loading one-shot rows were slower in this run, but the runtime plan explicitly does not optimize project loading in P1 and does not let file-loading noise override loaded-project runtime wins.
+- Fresh `createProcessor(...)` was not changed by P1; its rows were rerun as comparison guards and mostly stayed neutral or improved, with noisy variance in some long-chain rows.
+
 ## Current Runtime Model
 
 Rivet has three node layers:
@@ -234,7 +283,7 @@ Current important behavior:
 - `createProcessor(...)` with no explicit `runtimeProfile` uses default-safe optimizations.
 - `createProcessor(..., { runtimeProfile: 'headless-fast' })` enables stronger headless-only optimizations unless Remote Debugger or trace requirements force fallback.
 - `createGraphRunner(..., { runtimeProfile: 'headless-fast' })` can reuse runner-owned structural state across runs.
-- `runGraph(...)` still forces `runtimeProfile: 'compatible'` in [`packages/node/src/api.ts`](packages/node/src/api.ts), so it intentionally avoids the default-safe path today.
+- `runGraph(...)` now uses the same omitted-profile default-safe policy as `createProcessor(...).run()` for graph shapes that can benefit, while simple graphs, unrelated one-off Subgraph targets, Remote Debugger runs, and trace-sensitive calls stay on the compatible policy. It still does not expose `runtimeProfile`; untyped `runtimeProfile` properties are ignored.
 
 ## Benchmark Scenarios
 
@@ -342,7 +391,7 @@ When a phase targets `runGraph(...)`, also compare fresh `createProcessor(...)` 
 
 ## Implementation Phases
 
-### P0: Refresh Baselines And Equivalence Guards
+### P0: Refresh Baselines And Equivalence Guards (DONE)
 
 Purpose:
 
@@ -381,7 +430,7 @@ Acceptance criteria:
 - Each later phase can produce an old-versus-new comparison for `runGraph(...)` and fresh `createProcessor(...).run()`.
 - Runtime benchmark gates are explicit before the first optimization lands.
 
-### P1: Let `runGraph(...)` Use Default-Safe Optimizations
+### P1: Let `runGraph(...)` Use Default-Safe Optimizations (DONE)
 
 Purpose:
 
@@ -389,7 +438,7 @@ Make common programmatic one-shot `runGraph(...)` calls faster without requiring
 
 Current state:
 
-`runGraph(...)` currently calls `createProcessor(project, { ...options, runtimeProfile: 'compatible' })`, which bypasses default-safe optimizations. Default-safe `createProcessor(...)` already keeps the compatible scheduler, falls back for Remote Debugger and trace-sensitive paths, uses cached default CodeRunner only when no custom runner is supplied, and caches only structural subprocessor data.
+`runGraph(...)` used to call `createProcessor(project, { ...options, runtimeProfile: 'compatible' })`, which bypassed default-safe optimizations. Default-safe `createProcessor(...)` already keeps the compatible scheduler, falls back for Remote Debugger and trace-sensitive paths, uses cached default CodeRunner only when no custom runner is supplied, and caches only structural subprocessor data.
 
 Files:
 
@@ -401,12 +450,13 @@ Files:
 
 Steps:
 
-1. Change `runGraph(...)` to omit the forced `runtimeProfile: 'compatible'`.
-2. Benchmark before and after this one-line policy change before adding any extra API surface.
-3. Preserve an explicit compatibility escape hatch only if tests or wrapper feedback prove one is needed. Avoid adding `runtimeProfile` to `runGraph(...)` unless there is a real compatibility reason.
-4. Confirm Remote Debugger runs still fall back to compatible behavior through runtime policy.
-5. Confirm custom `codeRunner`, custom providers, project reference loaders, and runtime callbacks still run.
-6. Update docs to explain that `runGraph(...)` uses default-safe structural optimizations, not `headless-fast`.
+1. Change `runGraph(...)` to stop forcing every call through `runtimeProfile: 'compatible'`.
+2. Benchmark before and after this policy change before adding any extra API surface.
+3. Keep simple graph shapes and unrelated one-off Subgraph targets on the compatible path if the benchmark or cache-key model shows default-safe setup overhead without plan reuse.
+4. Preserve an explicit compatibility escape hatch only if tests or wrapper feedback prove one is needed. Avoid adding `runtimeProfile` to `runGraph(...)` unless there is a real compatibility reason.
+5. Confirm Remote Debugger runs still fall back to compatible behavior through runtime policy.
+6. Confirm custom `codeRunner`, custom providers, project reference loaders, and runtime callbacks still run.
+7. Update docs to explain that eligible `runGraph(...)` calls use default-safe structural optimizations, not `headless-fast`.
 
 Risks:
 

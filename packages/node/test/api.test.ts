@@ -18,7 +18,12 @@ import {
   type PortId,
   type Project,
 } from '../src/index.js';
-import { makeRepeatedSubgraphFanInProject } from './runtimeSpeedFixtures.js';
+import {
+  makeCallGraphFanInProject,
+  makeReferencedGraphAliasFanInProject,
+  makeRepeatedSubgraphFanInProject,
+  makeTextChainProject,
+} from './runtimeSpeedFixtures.js';
 
 function makeCodeProject(code: string): Project {
   const codeNode = CodeNodeImpl.create();
@@ -92,6 +97,75 @@ function trackDefinitionCalls(impl: NodeImpl<ChartNode>, onDefinitionCall: () =>
   };
 
   return impl;
+}
+
+async function countCreateProcessorDefinitionCalls(
+  project: Project,
+  options: Parameters<typeof createProcessor>[1],
+): Promise<number> {
+  const countingRegistry = createCountingRegistry();
+
+  await createProcessor(project, {
+    ...options,
+    registry: countingRegistry.registry,
+  }).run();
+
+  return countingRegistry.getDefinitionCalls();
+}
+
+async function countRunGraphDefinitionCalls(
+  project: Project,
+  options: Parameters<typeof runGraph>[1] & { runtimeProfile?: unknown },
+): Promise<number> {
+  const countingRegistry = createCountingRegistry();
+
+  await runGraph(project, {
+    ...options,
+    registry: countingRegistry.registry,
+  });
+
+  return countingRegistry.getDefinitionCalls();
+}
+
+function makeStandardRunOptions(
+  graphId: GraphId,
+  overrides: Partial<Parameters<typeof runGraph>[1]> = {},
+): Parameters<typeof runGraph>[1] {
+  return {
+    graph: graphId,
+    inputs: {
+      input: 'same',
+    },
+    ...overrides,
+  };
+}
+
+async function assertRunGraphMatchesDefaultSafeAndBeatsCompatible(
+  project: Project,
+  options: Parameters<typeof runGraph>[1],
+): Promise<void> {
+  const compatibleDefinitionCalls = await countCreateProcessorDefinitionCalls(project, {
+    ...options,
+    runtimeProfile: 'compatible',
+  });
+  const defaultCreateProcessorDefinitionCalls = await countCreateProcessorDefinitionCalls(project, options);
+  const runGraphDefinitionCalls = await countRunGraphDefinitionCalls(project, options);
+
+  assert.equal(runGraphDefinitionCalls, defaultCreateProcessorDefinitionCalls);
+  assert.ok(runGraphDefinitionCalls < compatibleDefinitionCalls);
+}
+
+async function assertRunGraphMatchesCompatible(
+  project: Project,
+  options: Parameters<typeof runGraph>[1],
+): Promise<void> {
+  const compatibleDefinitionCalls = await countCreateProcessorDefinitionCalls(project, {
+    ...options,
+    runtimeProfile: 'compatible',
+  });
+  const runGraphDefinitionCalls = await countRunGraphDefinitionCalls(project, options);
+
+  assert.equal(runGraphDefinitionCalls, compatibleDefinitionCalls);
 }
 
 describe('api', () => {
@@ -349,19 +423,106 @@ describe('api', () => {
     assert.equal(countingRegistry.getDefinitionCalls(), 36);
   });
 
-  it('keeps runGraph on the compatible planning path', async () => {
-    const fixture = makeRepeatedSubgraphFanInProject(3);
-    const countingRegistry = createCountingRegistry();
+  it('keeps simple runGraph planning on the compatible path', async () => {
+    const fixture = makeTextChainProject(3);
 
-    await runGraph(fixture.project, {
+    await assertRunGraphMatchesCompatible(fixture.project, makeStandardRunOptions(fixture.graphId));
+  });
+
+  it('uses default-safe runGraph planning for repeated subgraphs', async () => {
+    const fixture = makeRepeatedSubgraphFanInProject(3);
+
+    await assertRunGraphMatchesDefaultSafeAndBeatsCompatible(
+      fixture.project,
+      makeStandardRunOptions(fixture.graphId),
+    );
+  });
+
+  it('uses default-safe runGraph planning for repeated Call Graph nodes', async () => {
+    const fixture = makeCallGraphFanInProject(3);
+
+    await assertRunGraphMatchesDefaultSafeAndBeatsCompatible(
+      fixture.project,
+      makeStandardRunOptions(fixture.graphId),
+    );
+  });
+
+  it('uses default-safe runGraph planning for repeated referenced graph aliases', async () => {
+    const fixture = makeReferencedGraphAliasFanInProject(3);
+
+    await assertRunGraphMatchesDefaultSafeAndBeatsCompatible(
+      fixture.project,
+      makeStandardRunOptions(fixture.graphId, {
+        projectReferenceLoader: fixture.projectReferenceLoader,
+      }),
+    );
+  });
+
+  it('uses default-safe runGraph planning when the target graph is selected by name', async () => {
+    const fixture = makeRepeatedSubgraphFanInProject(3);
+    const idSelectedDefinitionCalls = await countRunGraphDefinitionCalls(fixture.project, {
       graph: fixture.graphId,
       inputs: {
         input: 'same',
       },
-      registry: countingRegistry.registry,
+    });
+    const nameSelectedDefinitionCalls = await countRunGraphDefinitionCalls(fixture.project, {
+      graph: 'Runtime Speed Main',
+      inputs: {
+        input: 'same',
+      },
     });
 
-    assert.equal(countingRegistry.getDefinitionCalls(), 30);
+    assert.equal(nameSelectedDefinitionCalls, idSelectedDefinitionCalls);
+  });
+
+  it('does not expose runtimeProfile through runGraph options', async () => {
+    const fixture = makeRepeatedSubgraphFanInProject(3);
+    const omittedProfileDefinitionCalls = await countRunGraphDefinitionCalls(fixture.project, {
+      graph: fixture.graphId,
+      inputs: {
+        input: 'same',
+      },
+    });
+    const untypedProfileDefinitionCalls = await countRunGraphDefinitionCalls(fixture.project, {
+      graph: fixture.graphId,
+      inputs: {
+        input: 'same',
+      },
+      runtimeProfile: 'compatible',
+    });
+
+    assert.equal(untypedProfileDefinitionCalls, omittedProfileDefinitionCalls);
+  });
+
+  it('honors custom runGraph Code runners without replacing them', async () => {
+    let runCount = 0;
+    const customCodeRunner: CodeRunner = {
+      async runCode() {
+        runCount += 1;
+        return {
+          output1: {
+            type: 'string',
+            value: 'custom runner',
+          },
+        };
+      },
+    };
+    let codeOutput: Outputs | undefined;
+
+    await runGraph(makeCodeProject(`throw new Error('the custom runner should replace this code');`), {
+      codeRunner: customCodeRunner,
+      graph: 'code-graph',
+      onNodeFinish: ({ outputs }) => {
+        codeOutput = outputs;
+      },
+    });
+
+    assert.equal(runCount, 1);
+    assert.deepEqual(codeOutput?.['output1' as PortId], {
+      type: 'string',
+      value: 'custom runner',
+    });
   });
 
   it('keeps remote-debugger createProcessor runs on the compatible planning path', async () => {
@@ -388,6 +549,36 @@ describe('api', () => {
     await processor.run();
 
     assert.equal(countingRegistry.getDefinitionCalls(), 30);
+  });
+
+  it('keeps remote-debugger runGraph runs on the compatible planning path', async () => {
+    const fixture = makeRepeatedSubgraphFanInProject(3);
+    const remoteDebugger = {
+      on: () => undefined,
+      off: () => undefined,
+      webSocketServer: {} as never,
+      broadcast: () => undefined,
+      attach: () => undefined,
+      detach: () => undefined,
+    };
+
+    await assertRunGraphMatchesCompatible(
+      fixture.project,
+      makeStandardRunOptions(fixture.graphId, {
+        remoteDebugger,
+      }),
+    );
+  });
+
+  it('keeps trace-sensitive runGraph runs on the compatible planning path', async () => {
+    const fixture = makeRepeatedSubgraphFanInProject(3);
+
+    await assertRunGraphMatchesCompatible(
+      fixture.project,
+      makeStandardRunOptions(fixture.graphId, {
+        includeTrace: true,
+      }),
+    );
   });
 
   it('captures node durations for remote-debugger processors unless explicitly disabled', async () => {
