@@ -1,124 +1,118 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import path from 'node:path';
 import test from 'node:test';
-import { fileURLToPath } from 'node:url';
+import {
+  CodeNewNodeImpl,
+  CodeNodeImpl,
+  CommentNodeImpl,
+  ExpressionNodeImpl,
+  ExtractObjectPathNodeImpl,
+  ExtractRegexNodeImpl,
+  ExtractYamlNodeImpl,
+  GptFunctionNodeImpl,
+  HttpCallNodeImpl,
+  MCPGetPromptNodeImpl,
+  MCPToolCallNodeImpl,
+  ObjectNodeImpl,
+  PromptNodeImpl,
+  TextNodeImpl,
+  type ChartNode,
+  type EditorDefinition,
+  type PluginNodeImpl,
+} from '../../src/index.js';
+import { TranscribeAudioNodeImpl } from '../../src/plugins/assemblyAi/TranscribeAudioNode.js';
+import { CreateAssistantNodeImpl } from '../../src/plugins/openai/nodes/CreateAssistantNode.js';
+import { RunThreadNodeImpl } from '../../src/plugins/openai/nodes/RunThreadNode.js';
+import { ThreadMessageNodeImpl } from '../../src/plugins/openai/nodes/ThreadMessageNode.js';
 
-const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-
-type EditorLocator = {
-  label?: string;
-  dataKey?: string;
+type EditorProvider = () => EditorDefinition<any>[] | Promise<EditorDefinition<any>[]>;
+type EditorExpectation = { name: string; editors: EditorProvider; label?: string; dataKey?: string };
+type BuiltInEditorImpl<T extends ChartNode> = {
+  create(): T;
+  new (node: T): {
+    getEditors(context: never): EditorDefinition<T>[] | Promise<EditorDefinition<T>[]>;
+  };
 };
 
-function getSourceSnippet(relativePath: string, locator: EditorLocator): string {
-  const source = readFileSync(path.join(packageRoot, relativePath), 'utf8');
-  const searchNeedle =
-    locator.label != null ? `label: '${locator.label}'` : locator.dataKey != null ? `dataKey: '${locator.dataKey}'` : '';
-  assert.notEqual(searchNeedle, '', `A label or dataKey locator is required for ${relativePath}`);
+const builtIn =
+  <T extends ChartNode>(Impl: BuiltInEditorImpl<T>): EditorProvider =>
+  () =>
+    new Impl(Impl.create()).getEditors({} as never);
+const plugin =
+  (impl: PluginNodeImpl<any>): EditorProvider =>
+  () =>
+    impl.getEditors(impl.create().data, {} as never) as EditorDefinition<any>[];
 
-  const needleIndex = source.indexOf(searchNeedle);
-  const locatorLabel = locator.label ?? locator.dataKey ?? '<unknown>';
-  assert.notEqual(needleIndex, -1, `${locatorLabel} should exist in ${relativePath}`);
+async function getMatchingEditor(expectation: EditorExpectation): Promise<EditorDefinition<any>> {
+  assert.ok(
+    expectation.label != null || expectation.dataKey != null,
+    `Expected ${expectation.name} to provide a label or dataKey locator`,
+  );
 
-  const linesBeforeNeedle = source.slice(0, needleIndex).split('\n');
-  let objectStart = -1;
-  let runningOffset = source.slice(0, needleIndex).length;
+  const editors = flattenEditors(await Promise.resolve(expectation.editors()));
+  const editor = editors.find((candidate) => {
+    const label = 'label' in candidate ? candidate.label : undefined;
+    const dataKey = 'dataKey' in candidate ? candidate.dataKey : undefined;
+    return expectation.label != null ? label === expectation.label : dataKey === expectation.dataKey;
+  });
 
-  for (let lineIndex = linesBeforeNeedle.length - 1; lineIndex >= 0; lineIndex -= 1) {
-    const line = linesBeforeNeedle[lineIndex]!;
-    runningOffset -= line.length;
+  assert.ok(editor, `Expected editor ${expectation.name} to exist`);
+  return editor;
+}
 
-    if (line.trim() === '{') {
-      objectStart = runningOffset + line.indexOf('{');
-      break;
-    }
+function flattenEditors(editors: EditorDefinition<any>[]): EditorDefinition<any>[] {
+  return editors.flatMap((editor) => [
+    editor,
+    ...('editors' in editor && Array.isArray(editor.editors) ? flattenEditors(editor.editors) : []),
+  ]);
+}
 
-    if (lineIndex > 0) {
-      runningOffset -= 1;
-    }
+async function assertFolding(expectations: EditorExpectation[], expected: boolean): Promise<void> {
+  for (const expectation of expectations) {
+    const editor = await getMatchingEditor(expectation);
+    assert.equal(editor.enableFolding === true, expected, `${expectation.name} folding state`);
   }
-
-  assert.notEqual(objectStart, -1, `Could not find object start for ${locatorLabel} in ${relativePath}`);
-
-  let depth = 0;
-  let inString: "'" | '"' | '`' | undefined;
-  let isEscaped = false;
-
-  for (let index = objectStart; index < source.length; index += 1) {
-    const character = source[index];
-
-    if (inString) {
-      if (isEscaped) {
-        isEscaped = false;
-        continue;
-      }
-
-      if (character === '\\') {
-        isEscaped = true;
-        continue;
-      }
-
-      if (character === inString) {
-        inString = undefined;
-      }
-
-      continue;
-    }
-
-    if (character === '\'' || character === '"' || character === '`') {
-      inString = character;
-      continue;
-    }
-
-    if (character === '{') {
-      depth += 1;
-    } else if (character === '}') {
-      depth -= 1;
-
-      if (depth === 0) {
-        return source.slice(objectStart, index + 1);
-      }
-    }
-  }
-
-  assert.fail(`Could not find object end for ${locatorLabel} in ${relativePath}`);
 }
 
-function assertSourceFoldingEnabled(relativePath: string, locator: EditorLocator): void {
-  const snippet = getSourceSnippet(relativePath, locator);
-  const locatorLabel = locator.label ?? locator.dataKey ?? '<unknown>';
-  assert.match(snippet, /enableFolding:\s*true/, `${locatorLabel} should enable folding in ${relativePath}`);
-}
-
-function assertSourceFoldingDisabled(relativePath: string, locator: EditorLocator): void {
-  const snippet = getSourceSnippet(relativePath, locator);
-  const locatorLabel = locator.label ?? locator.dataKey ?? '<unknown>';
-  assert.doesNotMatch(snippet, /enableFolding:\s*true/, `${locatorLabel} should not enable folding in ${relativePath}`);
-}
-
-test('targeted built-in code/json node editors opt into folding', () => {
-  assertSourceFoldingEnabled('src/model/nodes/CodeNode.ts', { dataKey: 'code' });
-  assertSourceFoldingEnabled('src/model/nodes/CodeNewNode.ts', { dataKey: 'code' });
-  assertSourceFoldingEnabled('src/model/nodes/ExpressionNode.ts', { dataKey: 'expression' });
-  assertSourceFoldingEnabled('src/model/nodes/ObjectNode.ts', { label: 'JSON Template' });
-  assertSourceFoldingEnabled('src/model/nodes/HttpCallNode.ts', { label: 'Headers' });
-  assertSourceFoldingEnabled('src/model/nodes/HttpCallNode.ts', { label: 'Body' });
-  assertSourceFoldingEnabled('src/model/nodes/ToolNode.ts', { label: 'Schema' });
-  assertSourceFoldingEnabled('src/model/nodes/MCPToolCallNode.ts', { label: 'Tool Arguments' });
-  assertSourceFoldingEnabled('src/model/nodes/MCPGetPromptNode.ts', { label: 'Prompt Arguments' });
-  assertSourceFoldingEnabled('src/plugins/assemblyAi/TranscribeAudioNode.ts', { label: 'Transcript Parameters (JSON)' });
+test('targeted built-in code/json node editors opt into folding', async () => {
+  await assertFolding(
+    [
+      { name: 'Code (legacy) code editor', editors: builtIn(CodeNodeImpl), dataKey: 'code' },
+      { name: 'Code code editor', editors: builtIn(CodeNewNodeImpl), dataKey: 'code' },
+      { name: 'Expression code editor', editors: builtIn(ExpressionNodeImpl), dataKey: 'expression' },
+      { name: 'Object JSON template editor', editors: builtIn(ObjectNodeImpl), label: 'JSON Template' },
+      { name: 'HTTP headers editor', editors: builtIn(HttpCallNodeImpl), label: 'Headers' },
+      { name: 'HTTP body editor', editors: builtIn(HttpCallNodeImpl), label: 'Body' },
+      { name: 'Tool schema editor', editors: builtIn(GptFunctionNodeImpl), label: 'Schema' },
+      { name: 'MCP tool arguments editor', editors: builtIn(MCPToolCallNodeImpl), label: 'Tool Arguments' },
+      { name: 'MCP prompt arguments editor', editors: builtIn(MCPGetPromptNodeImpl), label: 'Prompt Arguments' },
+      {
+        name: 'AssemblyAI transcript parameters editor',
+        editors: plugin(TranscribeAudioNodeImpl),
+        label: 'Transcript Parameters (JSON)',
+      },
+    ],
+    true,
+  );
 });
 
-test('excluded adjacent node editors do not opt into folding', () => {
-  assertSourceFoldingDisabled('src/model/nodes/ToolNode.ts', { label: 'Description' });
-  assertSourceFoldingDisabled('src/model/nodes/TextNode.ts', { dataKey: 'text' });
-  assertSourceFoldingDisabled('src/model/nodes/PromptNode.ts', { label: 'Prompt Text' });
-  assertSourceFoldingDisabled('src/model/nodes/CommentNode.ts', { dataKey: 'text' });
-  assertSourceFoldingDisabled('src/model/nodes/ExtractObjectPathNode.ts', { label: 'Path' });
-  assertSourceFoldingDisabled('src/model/nodes/ExtractYamlNode.ts', { label: 'Object Path' });
-  assertSourceFoldingDisabled('src/model/nodes/ExtractRegexNode.ts', { label: 'Regex' });
-  assertSourceFoldingDisabled('src/plugins/openai/nodes/CreateAssistantNode.ts', { label: 'Instructions' });
-  assertSourceFoldingDisabled('src/plugins/openai/nodes/RunThreadNode.ts', { label: 'Instructions' });
-  assertSourceFoldingDisabled('src/plugins/openai/nodes/ThreadMessageNode.ts', { dataKey: 'text' });
+test('excluded adjacent node editors do not opt into folding', async () => {
+  await assertFolding(
+    [
+      { name: 'Tool description editor', editors: builtIn(GptFunctionNodeImpl), label: 'Description' },
+      { name: 'Text editor', editors: builtIn(TextNodeImpl), dataKey: 'text' },
+      { name: 'Prompt text editor', editors: builtIn(PromptNodeImpl), label: 'Prompt Text' },
+      { name: 'Comment text editor', editors: builtIn(CommentNodeImpl), dataKey: 'text' },
+      { name: 'Extract Object Path editor', editors: builtIn(ExtractObjectPathNodeImpl), label: 'Path' },
+      { name: 'Extract YAML path editor', editors: builtIn(ExtractYamlNodeImpl), label: 'Object Path' },
+      { name: 'Extract Regex editor', editors: builtIn(ExtractRegexNodeImpl), label: 'Regex' },
+      {
+        name: 'OpenAI create assistant instructions editor',
+        editors: plugin(CreateAssistantNodeImpl),
+        label: 'Instructions',
+      },
+      { name: 'OpenAI run thread instructions editor', editors: plugin(RunThreadNodeImpl), label: 'Instructions' },
+      { name: 'OpenAI thread message text editor', editors: plugin(ThreadMessageNodeImpl), dataKey: 'text' },
+    ],
+    false,
+  );
 });

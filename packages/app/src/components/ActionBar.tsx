@@ -286,7 +286,7 @@ export const ActionBar: FC<ActionBarProps> = ({ onRunGraph, onAbortGraph, onPaus
           className={clsx('run-button', {
             running: graphRunning,
             recording: !!loadedRecording,
-            secondary: runButtonPresentation.showProjectGraphRunButton,
+            secondary: runButtonPresentation.currentGraphRunSecondary,
           })}
         >
           <button

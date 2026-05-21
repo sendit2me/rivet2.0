@@ -104,6 +104,10 @@ Runs all currently defined workspace test suites:
 
 Packages without a `test` script are not included.
 
+#### Test Guardrails
+
+When adding or cleaning tests, prefer behavior-level tests at the owning helper, domain model, runtime API, or render-data-value seam. Avoid tests that read production `.ts` or `.tsx` files and assert exact source text unless the contract is a static entrypoint/CSS relationship that cannot be observed through a focused helper yet. Any retained source-shape guard should say what product contract it protects and should avoid duplicating behavior already covered by owner tests.
+
 ### `yarn test:all`
 
 Alias for `yarn test`.

@@ -11,6 +11,7 @@ export type ActionBarRunButtonPresentationOptions = {
 
 export type ActionBarRunButtonPresentation = {
   currentGraphRunLabel: string;
+  currentGraphRunSecondary: boolean;
   projectGraphRunLabel: typeof PROJECT_RUN_BUTTON_LABEL;
   showProjectGraphRunButton: boolean;
 };
@@ -29,6 +30,7 @@ export function getActionBarRunButtonPresentation(
 
   return {
     currentGraphRunLabel,
+    currentGraphRunSecondary: showProjectGraphRunButton,
     projectGraphRunLabel: PROJECT_RUN_BUTTON_LABEL,
     showProjectGraphRunButton,
   };

@@ -14,6 +14,7 @@ import {
   searchGraphNodesWithMode,
   serializeSearchableContentFields,
   serializeGraphSearchValue,
+  formatGraphSearchStats,
 } from './graphSearch.js';
 
 const asNodeId = (value: string) => value as NodeId;
@@ -285,9 +286,7 @@ test('searchGraphNodes only shows fallback content snippets when content matches
 
   const result = searchGraphNodesWithMode(items, 'alpha needle');
   const snippetsByNodeId = new Map(
-    result.matches
-      .filter(isNodeGraphSearchMatch)
-      .map((match) => [match.nodeId, match.contentSnippets]),
+    result.matches.filter(isNodeGraphSearchMatch).map((match) => [match.nodeId, match.contentSnippets]),
   );
 
   assert.equal(result.fallbackToTerms, true);
@@ -387,7 +386,10 @@ test('buildProjectGraphSearchItems returns graph-name matches even when the grap
     nodes: [],
   });
 
-  const matches = searchGraphNodes(buildProjectGraphSearchItems({ [asGraphId('graph-a')]: graphA }, () => 'Text'), 'billing');
+  const matches = searchGraphNodes(
+    buildProjectGraphSearchItems({ [asGraphId('graph-a')]: graphA }, () => 'Text'),
+    'billing',
+  );
 
   assert.equal(matches.length, 1);
   assert.equal(matches[0]?.kind, 'graph');
@@ -400,7 +402,10 @@ test('buildProjectGraphSearchItems uses the record key when graph metadata id is
     nodes: [createNode({ id: asNodeId('node-a'), title: 'Imported fetch' })],
   });
 
-  const matches = searchGraphNodes(buildProjectGraphSearchItems({ [asGraphId('record-graph-a')]: graphA }, () => 'Text'), 'billing');
+  const matches = searchGraphNodes(
+    buildProjectGraphSearchItems({ [asGraphId('record-graph-a')]: graphA }, () => 'Text'),
+    'billing',
+  );
 
   assert.equal(matches[0]?.kind, 'graph');
   assert.equal(matches[0]?.graphId, asGraphId('record-graph-a'));
@@ -462,6 +467,14 @@ test('searchGraphNodesWithMode counts separate fallback term occurrences', () =>
   assert.equal(result.fallbackToTerms, true);
   assert.equal(result.matches[0]?.occurrenceCount, 3);
   assert.deepEqual(getGraphSearchStats(result.matches), { occurrenceCount: 3, graphCount: 1 });
+});
+
+test('formatGraphSearchStats pluralizes and localizes the search summary', () => {
+  assert.equal(formatGraphSearchStats({ occurrenceCount: 1, graphCount: 1 }), '1 occurrence in 1 graph');
+  assert.equal(
+    formatGraphSearchStats({ occurrenceCount: 1_234, graphCount: 5 }),
+    `${(1_234).toLocaleString()} occurrences in 5 graphs`,
+  );
 });
 
 test('groupGraphSearchMatches groups results by graph while keeping global indexes', () => {
@@ -603,10 +616,7 @@ test('getSynchronousSearchableEditorDataKeys reads nested code and explicitly se
         { type: 'code', dataKey: 'prompt' },
         {
           type: 'group',
-          editors: [
-            { type: 'code', dataKey: 'body' },
-            { type: 'code' },
-          ],
+          editors: [{ type: 'code', dataKey: 'body' }, { type: 'code' }],
         },
       ],
     },
@@ -629,8 +639,14 @@ test('getGraphSearchContentSnippets returns separate context snippets for separa
   const snippets = getGraphSearchContentSnippets(content, ['needle']);
 
   assert.equal(snippets.length, 2);
-  assert.equal(snippets.every((snippet) => snippet.includes('needle')), true);
-  assert.equal(snippets.every((snippet) => snippet.length < content.length), true);
+  assert.equal(
+    snippets.every((snippet) => snippet.includes('needle')),
+    true,
+  );
+  assert.equal(
+    snippets.every((snippet) => snippet.length < content.length),
+    true,
+  );
 });
 
 test('getGraphSearchContentSnippets merges overlapping context snippets', () => {
