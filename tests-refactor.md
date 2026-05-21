@@ -13,12 +13,12 @@ Snapshot from the current checkout on 2026-05-21:
 | Area                    | Test files | Approx test lines | Main script                                                |
 | ----------------------- | ---------: | ----------------: | ---------------------------------------------------------- |
 | `packages/app`          |        153 |            17,750 | `yarn workspace @valerypopoff/rivet-app run test`          |
-| `packages/core`         |         58 |            12,420 | `yarn workspace @valerypopoff/rivet2-core run test`        |
+| `packages/core`         |         58 |            12,337 | `yarn workspace @valerypopoff/rivet2-core run test`        |
 | `packages/node`         |          8 |             2,603 | `yarn workspace @valerypopoff/rivet2-node run test`        |
 | `packages/app-executor` |          3 |               662 | `yarn workspace @valerypopoff/rivet-app-executor run test` |
 | `packages/cli`          |          1 |                55 | `yarn workspace @valerypopoff/rivet2-cli run test`         |
 
-There are about 1,586 declared `test(...)` / `it(...)` / `describe(...)` entries across the suite.
+There are about 1,580 declared `test(...)` / `it(...)` / `describe(...)` entries across the suite.
 
 Important inventory notes:
 
@@ -35,7 +35,7 @@ Largest current test files:
 | File                                                                      | Approx lines | Cleanup angle                                                                                      |
 | ------------------------------------------------------------------------- | -----------: | -------------------------------------------------------------------------------------------------- |
 | `packages/core/test/model/nodes/LLMChatV2Node.test.ts`                    |        1,383 | Split node metadata/editor/runtime-config/cache-key concerns.                                      |
-| `packages/core/test/model/chat-v2/chatV2Pipeline.test.ts`                 |        1,226 | Split stream adapter, retry/status, output assembly, provider-failure concerns.                    |
+| `packages/core/test/model/chat-v2/chatV2Pipeline.test.ts`                 |        1,143 | Split stream adapter, retry/status, output assembly, provider-failure concerns.                    |
 | `packages/core/test/model/GraphProcessor.test.ts`                         |        1,135 | Keep behavior coverage, but move policy-only cases to focused helper tests where owners exist.     |
 | `packages/node/test/defaultFastCompatibility.test.ts`                     |          954 | Keep compatibility coverage, split by observable surface and reduce repeated fixture boilerplate.  |
 | `packages/app/src/domain/graphEditing/editNodeConnectionRecovery.test.ts` |          881 | Table-drive duplicated interpolation recovery scenarios.                                           |
@@ -367,7 +367,7 @@ changed.
 - Test history can become harder to read in Git. Move tests in mechanical commits before simplifying their content.
 - Cross-surface compatibility tests are intentionally broad. Do not over-split them until the shared fixture and assertion helpers are stable.
 
-## Phase 4: De-Duplicate Overlapping Coverage
+## Phase 4: De-Duplicate Overlapping Coverage (DONE)
 
 ### What To Change
 
@@ -401,6 +401,21 @@ High-value overlap checks:
 
 Keep one owner-level unit test and one cross-surface integration/compatibility test only when both catch meaningfully different failures.
 
+Phase 4 implemented the first high-confidence overlap removal in Chat v2:
+
+- `streamChatV2` now has one detailed owner test for forwarding request-shaping
+  options to the AI SDK stream executor: tool choice, provider options,
+  generation settings, and response output.
+- `runChatV2Pipeline` now has one composed-path smoke proving the pipeline still
+  passes those same request-shaping options through to the stream executor.
+- Retry, provider-failure, structured-output, partial-output, and common-output
+  cases stayed separate because they protect different owner policies.
+- Output rendering/copy, graph editing, and default-fast/runtime-speed overlaps
+  were audited and left intact because their apparent duplication protects
+  different observable contracts: display copy vs JSON copy, pure graph-editing
+  policy vs command undo/redo snapshots, and final outputs vs public API /
+  recorder / debugger compatibility.
+
 ### Why
 
 Duplicate assertions make the suite noisy and slow to update. They also create ambiguity about where behavior is really owned.
@@ -420,6 +435,14 @@ For each overlap:
 - Some apparent duplicates protect different contracts: public API, app replay, debugger events, and internal helper output may look similar but fail differently.
 - Runtime speed tests double as compatibility gates. Do not delete them just because core tests already cover the same final output.
 - Removing integration tests can hide wiring failures. Keep at least one wiring test per composed feature.
+
+### Result
+
+Phase 4 reduced `packages/core/test/model/chat-v2/chatV2Pipeline.test.ts` from
+1,226 to 1,143 lines, a net reduction of 83 core test lines. It removed four
+low-level request-shaping test bodies and three pipeline pass-through test
+bodies, replacing them with one owner-level stream adapter assertion plus one
+pipeline wiring assertion. No production code changed.
 
 ## Phase 5: Normalize Root Test Scripts And CI Coverage
 

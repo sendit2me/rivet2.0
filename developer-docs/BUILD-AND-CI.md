@@ -111,6 +111,8 @@ For app graph-editing tests, prefer the shared builders in [`packages/app/src/do
 
 When splitting large mixed-owner test files, keep the split mechanical first: move assertions unchanged, put shared fake runtime or fixture setup in a nearby `*.testUtils.ts` file, and keep existing focused owner tests under their current filenames. Do not reuse a filename that already owns a narrower helper contract. Shared test utilities should expose setup hooks explicitly instead of registering `beforeEach` / `afterEach` as an import side effect.
 
+When de-duplicating overlap between owner tests and composed-path tests, keep the detailed edge cases at the owner module and retain one broad wiring smoke for the composed path. Do not delete compatibility or characterization coverage just because another test reaches the same final value; public API, recorder, debugger, and app-visible surfaces are separate contracts.
+
 ### `yarn test:all`
 
 Alias for `yarn test`.

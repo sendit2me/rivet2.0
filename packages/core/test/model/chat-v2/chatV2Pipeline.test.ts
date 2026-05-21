@@ -23,8 +23,39 @@ function createMockModel(): ChatV2Model {
   return {} as ChatV2Model;
 }
 
-describe('streamChatV2', () => {
-  it('adapts a mocked stream executor into Rivet-friendly results', async () => {
+function createTextStreamExecutor({
+  text = 'Hello',
+  onArgs,
+  includeFinish = false,
+}: {
+  text?: string;
+  onArgs?: (args: Record<string, unknown>) => void;
+  includeFinish?: boolean;
+} = {}): ChatV2StreamExecutor {
+  return async (args) => {
+    onArgs?.(args as Record<string, unknown>);
+
+    return {
+      fullStream: mockStream([
+        { type: 'text-start', id: 'text_1' },
+        { type: 'text-delta', id: 'text_1', text },
+        { type: 'text-end', id: 'text_1' },
+        ...(includeFinish
+          ? [
+              {
+                type: 'finish' as const,
+                finishReason: 'stop' as const,
+                rawFinishReason: undefined,
+              },
+            ]
+          : []),
+      ]),
+    };
+  };
+}
+
+void describe('streamChatV2', () => {
+  void it('adapts a mocked stream executor into Rivet-friendly results', async () => {
     const usage: LanguageModelUsage = {
       inputTokens: 10,
       outputTokens: 4,
@@ -74,7 +105,7 @@ describe('streamChatV2', () => {
     assert.equal(result.requestStatus, 201);
   });
 
-  it('handles unused AI SDK metadata promise rejections when the stream fails', async () => {
+  void it('handles unused AI SDK metadata promise rejections when the stream fails', async () => {
     const unhandledRejections: unknown[] = [];
     const onUnhandledRejection = (reason: unknown) => {
       unhandledRejections.push(reason);
@@ -110,76 +141,26 @@ describe('streamChatV2', () => {
     }
   });
 
-  it('forwards tool choice to the AI SDK stream executor', async () => {
-    let capturedToolChoice: unknown;
-    const executeStream: ChatV2StreamExecutor = async (args) => {
-      capturedToolChoice = args.toolChoice;
-
-      return {
-        fullStream: mockStream([
-          { type: 'text-start', id: 'text_1' },
-          { type: 'text-delta', id: 'text_1', text: 'Hello' },
-          { type: 'text-end', id: 'text_1' },
-        ]),
-      };
-    };
-
-    await streamChatV2({
-      model: createMockModel(),
-      messages: [],
-      toolChoice: 'required',
-      executeStream,
-    });
-
-    assert.equal(capturedToolChoice, 'required');
-  });
-
-  it('forwards provider options to the AI SDK stream executor', async () => {
-    let capturedProviderOptions: unknown;
+  void it('forwards request-shaping options to the AI SDK stream executor', async () => {
+    let capturedArgs: Record<string, unknown> | undefined;
     const providerOptions = {
       openai: {
         parallelToolCalls: false,
       },
     };
-    const executeStream: ChatV2StreamExecutor = async (args) => {
-      capturedProviderOptions = args.providerOptions;
-
-      return {
-        fullStream: mockStream([
-          { type: 'text-start', id: 'text_1' },
-          { type: 'text-delta', id: 'text_1', text: 'Hello' },
-          { type: 'text-end', id: 'text_1' },
-        ]),
-      };
-    };
-
-    await streamChatV2({
-      model: createMockModel(),
-      messages: [],
-      providerOptions,
-      executeStream,
+    const responseOutput = { name: 'json' };
+    const executeStream = createTextStreamExecutor({
+      text: '{}',
+      onArgs: (args) => {
+        capturedArgs = args;
+      },
     });
 
-    assert.deepEqual(capturedProviderOptions, providerOptions);
-  });
-
-  it('forwards generation settings to the AI SDK stream executor', async () => {
-    let capturedArgs: Record<string, unknown> | undefined;
-    const executeStream: ChatV2StreamExecutor = async (args) => {
-      capturedArgs = args as Record<string, unknown>;
-
-      return {
-        fullStream: mockStream([
-          { type: 'text-start', id: 'text_1' },
-          { type: 'text-delta', id: 'text_1', text: 'Hello' },
-          { type: 'text-end', id: 'text_1' },
-        ]),
-      };
-    };
-
     await streamChatV2({
       model: createMockModel(),
       messages: [],
+      toolChoice: 'required',
+      providerOptions,
       maxTokens: 100,
       temperature: 0.4,
       topP: 0.8,
@@ -188,9 +169,12 @@ describe('streamChatV2', () => {
       frequencyPenalty: 0.3,
       stopSequences: ['END'],
       seed: 123,
+      responseOutput,
       executeStream,
     });
 
+    assert.equal(capturedArgs?.toolChoice, 'required');
+    assert.deepEqual(capturedArgs?.providerOptions, providerOptions);
     assert.equal(capturedArgs?.maxOutputTokens, 100);
     assert.equal(capturedArgs?.temperature, 0.4);
     assert.equal(capturedArgs?.topP, 0.8);
@@ -199,35 +183,11 @@ describe('streamChatV2', () => {
     assert.equal(capturedArgs?.frequencyPenalty, 0.3);
     assert.deepEqual(capturedArgs?.stopSequences, ['END']);
     assert.equal(capturedArgs?.seed, 123);
-  });
-
-  it('forwards response output to the AI SDK stream executor', async () => {
-    let capturedArgs: Record<string, unknown> | undefined;
-    const responseOutput = { name: 'json' };
-    const executeStream: ChatV2StreamExecutor = async (args) => {
-      capturedArgs = args as Record<string, unknown>;
-
-      return {
-        fullStream: mockStream([
-          { type: 'text-start', id: 'text_1' },
-          { type: 'text-delta', id: 'text_1', text: '{}' },
-          { type: 'text-end', id: 'text_1' },
-        ]),
-      };
-    };
-
-    await streamChatV2({
-      model: createMockModel(),
-      messages: [],
-      responseOutput,
-      executeStream,
-    });
-
     assert.equal(capturedArgs?.output, responseOutput);
     assert.equal('tools' in capturedArgs!, false);
   });
 
-  it('returns parsed structured output from the AI SDK stream result', async () => {
+  void it('returns parsed structured output from the AI SDK stream result', async () => {
     const responseOutput = { name: 'json' };
     const structuredOutput = { answer: 'Hello', score: 1 };
     const executeStream: ChatV2StreamExecutor = async () => ({
@@ -250,7 +210,7 @@ describe('streamChatV2', () => {
     assert.equal(result.responseText, JSON.stringify(structuredOutput));
   });
 
-  it('treats structured-output parse failures as missing parsed output', async () => {
+  void it('treats structured-output parse failures as missing parsed output', async () => {
     const responseOutput = { name: 'json' };
     const executeStream: ChatV2StreamExecutor = async () => ({
       fullStream: mockStream([
@@ -272,7 +232,7 @@ describe('streamChatV2', () => {
     assert.equal(result.responseText, 'plain text');
   });
 
-  it('collapses repeated parseable JSON text when structured response format is set', async () => {
+  void it('collapses repeated parseable JSON text when structured response format is set', async () => {
     const responseOutput = { name: 'json' };
     const responseText = '{"movie":"The Matrix"}';
     const partialTexts: string[] = [];
@@ -302,7 +262,7 @@ describe('streamChatV2', () => {
     assert.deepEqual(partialTexts, [responseText, responseText]);
   });
 
-  it('does not collapse repeated scalar JSON-shaped text', async () => {
+  void it('does not collapse repeated scalar JSON-shaped text', async () => {
     const responseOutput = { name: 'json' };
     const responseText = '1111';
     const executeStream: ChatV2StreamExecutor = async () => ({
@@ -325,7 +285,7 @@ describe('streamChatV2', () => {
     assert.equal(result.responseText, responseText);
   });
 
-  it('omits undefined optional AI SDK arguments instead of forwarding empty request-shape hints', async () => {
+  void it('omits undefined optional AI SDK arguments instead of forwarding empty request-shape hints', async () => {
     let capturedArgs: Record<string, unknown> | undefined;
     const executeStream: ChatV2StreamExecutor = async (args) => {
       capturedArgs = args as Record<string, unknown>;
@@ -354,8 +314,8 @@ describe('streamChatV2', () => {
   });
 });
 
-describe('runChatV2Pipeline', () => {
-  it('retries Vercel provider stream errors with non-200 status codes before succeeding', async () => {
+void describe('runChatV2Pipeline', () => {
+  void it('retries Vercel provider stream errors with non-200 status codes before succeeding', async () => {
     let attempt = 0;
     const executeStream: ChatV2StreamExecutor = async () => {
       attempt += 1;
@@ -414,7 +374,7 @@ describe('runChatV2Pipeline', () => {
     assert.equal('requestErrors' in result.commonOutputs, false);
   });
 
-  it('normalizes the final Vercel status error after retry attempts are exhausted', async () => {
+  void it('normalizes the final Vercel status error after retry attempts are exhausted', async () => {
     let attempt = 0;
     const executeStream: ChatV2StreamExecutor = async () => {
       attempt += 1;
@@ -451,7 +411,7 @@ describe('runChatV2Pipeline', () => {
     assert.equal(attempt, 2);
   });
 
-  it('does not start a zero-cooldown retry after cancellation', async () => {
+  void it('does not start a zero-cooldown retry after cancellation', async () => {
     let attempt = 0;
     const abortController = new AbortController();
     const executeStream: ChatV2StreamExecutor = async () => {
@@ -489,7 +449,7 @@ describe('runChatV2Pipeline', () => {
     assert.equal(attempt, 1);
   });
 
-  it('returns request status outputs for Vercel status failures when requested', async () => {
+  void it('returns request status outputs for Vercel status failures when requested', async () => {
     let attempt = 0;
     const executeStream: ChatV2StreamExecutor = async () => {
       attempt += 1;
@@ -534,7 +494,7 @@ describe('runChatV2Pipeline', () => {
     });
   });
 
-  it('returns the final response error when a stream completes with a non-200 status after retries', async () => {
+  void it('returns the final response error when a stream completes with a non-200 status after retries', async () => {
     let attempt = 0;
     const executeStream: ChatV2StreamExecutor = async () => {
       attempt += 1;
@@ -580,7 +540,7 @@ describe('runChatV2Pipeline', () => {
     assert.equal('requestErrors' in result.commonOutputs, false);
   });
 
-  it('returns per-attempt request status and error outputs for retried string-shaped Vercel status failures', async () => {
+  void it('returns per-attempt request status and error outputs for retried string-shaped Vercel status failures', async () => {
     let attempt = 0;
     const executeStream: ChatV2StreamExecutor = async () => {
       attempt += 1;
@@ -637,7 +597,7 @@ describe('runChatV2Pipeline', () => {
     });
   });
 
-  it('returns request status outputs for string-shaped Vercel status failures when requested', async () => {
+  void it('returns request status outputs for string-shaped Vercel status failures when requested', async () => {
     const executeStream: ChatV2StreamExecutor = async () => {
       const error = new Error('Incorrect API key') as Error & {
         responseBody: string;
@@ -686,7 +646,7 @@ describe('runChatV2Pipeline', () => {
     });
   });
 
-  it('returns request-error output for browser fetch failures when status output is requested', async () => {
+  void it('returns request-error output for browser fetch failures when status output is requested', async () => {
     const executeStream: ChatV2StreamExecutor = async () => {
       throw new TypeError('Failed to fetch');
     };
@@ -720,7 +680,7 @@ describe('runChatV2Pipeline', () => {
     });
   });
 
-  it('returns request-error output for status-less Vercel API call failures when requested', async () => {
+  void it('returns request-error output for status-less Vercel API call failures when requested', async () => {
     const executeStream: ChatV2StreamExecutor = async () => {
       const error = new Error('Provider request failed') as Error & { url: string };
       error.name = 'AI_APICallError';
@@ -753,7 +713,7 @@ describe('runChatV2Pipeline', () => {
     });
   });
 
-  it('keeps non-request SDK setup errors as node failures when request outputs are enabled', async () => {
+  void it('keeps non-request SDK setup errors as node failures when request outputs are enabled', async () => {
     const executeStream: ChatV2StreamExecutor = async () => {
       const error = new Error('Missing API key.');
       error.name = 'LoadAPIKeyError';
@@ -782,7 +742,7 @@ describe('runChatV2Pipeline', () => {
     );
   });
 
-  it('outputs the final provider request status when requested', async () => {
+  void it('outputs the final provider request status when requested', async () => {
     const executeStream: ChatV2StreamExecutor = async () => ({
       fullStream: mockStream([
         { type: 'text-start', id: 'text_1' },
@@ -815,7 +775,7 @@ describe('runChatV2Pipeline', () => {
     });
   });
 
-  it('defaults successful Vercel provider calls to request status 200 when no raw status is exposed', async () => {
+  void it('defaults successful Vercel provider calls to request status 200 when no raw status is exposed', async () => {
     const executeStream: ChatV2StreamExecutor = async () => ({
       fullStream: mockStream([
         { type: 'text-start', id: 'text_1' },
@@ -847,7 +807,7 @@ describe('runChatV2Pipeline', () => {
     });
   });
 
-  it('builds common outputs from a mocked streamed response', async () => {
+  void it('builds common outputs from a mocked streamed response', async () => {
     const partialOutputs: Outputs[] = [];
     const usage: LanguageModelUsage = {
       inputTokens: 12,
@@ -949,7 +909,7 @@ describe('runChatV2Pipeline', () => {
     ]);
   });
 
-  it('excludes the function-calls output when tools are enabled but the model returns no tool calls', async () => {
+  void it('excludes the function-calls output when tools are enabled but the model returns no tool calls', async () => {
     const executeStream: ChatV2StreamExecutor = async () => ({
       fullStream: mockStream([
         { type: 'text-start', id: 'text_1' },
@@ -985,7 +945,7 @@ describe('runChatV2Pipeline', () => {
     });
   });
 
-  it('emits reasoning output when requested and the stream exposes reasoning text', async () => {
+  void it('emits reasoning output when requested and the stream exposes reasoning text', async () => {
     const executeStream: ChatV2StreamExecutor = async () => ({
       fullStream: mockStream([
         { type: 'reasoning-start', id: 'reasoning_1' } as ChatV2StreamPart,
@@ -1016,7 +976,7 @@ describe('runChatV2Pipeline', () => {
     });
   });
 
-  it('excludes reasoning output when requested but the stream has no reasoning text', async () => {
+  void it('excludes reasoning output when requested but the stream has no reasoning text', async () => {
     const executeStream: ChatV2StreamExecutor = async () => ({
       fullStream: mockStream([
         { type: 'text-start', id: 'text_1' },
@@ -1044,30 +1004,31 @@ describe('runChatV2Pipeline', () => {
     });
   });
 
-  it('forwards function tool choice in the AI SDK tool-choice format', async () => {
-    let capturedToolChoice: unknown;
-    const executeStream: ChatV2StreamExecutor = async (args) => {
-      capturedToolChoice = args.toolChoice;
-
-      return {
-        fullStream: mockStream([
-          { type: 'text-start', id: 'text_1' },
-          { type: 'text-delta', id: 'text_1', text: 'Final answer' },
-          { type: 'text-end', id: 'text_1' },
-          {
-            type: 'finish',
-            finishReason: 'stop',
-            rawFinishReason: undefined,
-          },
-        ]),
-      };
-    };
+  void it('forwards pipeline request-shaping options to the stream executor', async () => {
+    let capturedArgs: Record<string, unknown> | undefined;
+    const responseOutput = { name: 'json' };
+    const executeStream = createTextStreamExecutor({
+      text: '{}',
+      includeFinish: true,
+      onArgs: (args) => {
+        capturedArgs = args;
+      },
+    });
 
     await runChatV2Pipeline({
       provider: 'openai',
       model: createMockModel(),
       modelId: 'gpt-4o',
       prompt: { type: 'string', value: 'Use the lookup tool.' },
+      maxTokens: 100,
+      temperature: 0.4,
+      topP: 0.8,
+      topK: 20,
+      presencePenalty: 0.2,
+      frequencyPenalty: 0.3,
+      stopSequences: ['END'],
+      seed: 123,
+      responseOutput,
       functions: [
         {
           name: 'lookup_weather',
@@ -1088,45 +1049,10 @@ describe('runChatV2Pipeline', () => {
       executeStream,
     });
 
-    assert.deepEqual(capturedToolChoice, {
+    assert.deepEqual(capturedArgs?.toolChoice, {
       type: 'tool',
       toolName: 'lookup_weather',
     });
-  });
-
-  it('forwards generation settings from the pipeline to the stream executor', async () => {
-    let capturedArgs: Record<string, unknown> | undefined;
-    const executeStream: ChatV2StreamExecutor = async (args) => {
-      capturedArgs = args as Record<string, unknown>;
-
-      return {
-        fullStream: mockStream([
-          { type: 'text-start', id: 'text_1' },
-          { type: 'text-delta', id: 'text_1', text: 'Final answer' },
-          { type: 'text-end', id: 'text_1' },
-        ]),
-      };
-    };
-
-    await runChatV2Pipeline({
-      provider: 'openai',
-      model: createMockModel(),
-      modelId: 'gpt-4o',
-      prompt: { type: 'string', value: 'Answer normally.' },
-      maxTokens: 100,
-      temperature: 0.4,
-      topP: 0.8,
-      topK: 20,
-      presencePenalty: 0.2,
-      frequencyPenalty: 0.3,
-      stopSequences: ['END'],
-      seed: 123,
-      context: {
-        signal: new AbortController().signal,
-      },
-      executeStream,
-    });
-
     assert.equal(capturedArgs?.maxOutputTokens, 100);
     assert.equal(capturedArgs?.temperature, 0.4);
     assert.equal(capturedArgs?.topP, 0.8);
@@ -1135,39 +1061,10 @@ describe('runChatV2Pipeline', () => {
     assert.equal(capturedArgs?.frequencyPenalty, 0.3);
     assert.deepEqual(capturedArgs?.stopSequences, ['END']);
     assert.equal(capturedArgs?.seed, 123);
+    assert.equal(capturedArgs?.output, responseOutput);
   });
 
-  it('forwards response output from the pipeline to the stream executor', async () => {
-    let capturedResponseOutput: unknown;
-    const responseOutput = { name: 'json' };
-    const executeStream: ChatV2StreamExecutor = async (args) => {
-      capturedResponseOutput = (args as Record<string, unknown>).output;
-
-      return {
-        fullStream: mockStream([
-          { type: 'text-start', id: 'text_1' },
-          { type: 'text-delta', id: 'text_1', text: '{}' },
-          { type: 'text-end', id: 'text_1' },
-        ]),
-      };
-    };
-
-    await runChatV2Pipeline({
-      provider: 'openai',
-      model: createMockModel(),
-      modelId: 'gpt-4o',
-      prompt: { type: 'string', value: 'Answer normally.' },
-      responseOutput,
-      context: {
-        signal: new AbortController().signal,
-      },
-      executeStream,
-    });
-
-    assert.equal(capturedResponseOutput, responseOutput);
-  });
-
-  it('emits parsed object response output for structured response formats', async () => {
+  void it('emits parsed object response output for structured response formats', async () => {
     const structuredOutput = {
       answer: 'Paris',
       confidence: 0.9,
@@ -1203,7 +1100,7 @@ describe('runChatV2Pipeline', () => {
     assert.equal((result.allMessages.at(-1) as any)?.message, responseText);
   });
 
-  it('falls back to parsing streamed text for structured response outputs from custom executors', async () => {
+  void it('falls back to parsing streamed text for structured response outputs from custom executors', async () => {
     const structuredOutput = { answer: 'Fallback' };
     const responseText = JSON.stringify(structuredOutput);
     const executeStream: ChatV2StreamExecutor = async () => ({
@@ -1233,7 +1130,7 @@ describe('runChatV2Pipeline', () => {
     });
   });
 
-  it('emits parsed scalar and array values for structured response formats', async () => {
+  void it('emits parsed scalar and array values for structured response formats', async () => {
     const booleanStream: ChatV2StreamExecutor = async () => ({
       fullStream: mockStream([
         { type: 'text-start', id: 'text_1' },
@@ -1284,7 +1181,7 @@ describe('runChatV2Pipeline', () => {
     });
   });
 
-  it('de-duplicates repeated structured text blocks before fallback parsing', async () => {
+  void it('de-duplicates repeated structured text blocks before fallback parsing', async () => {
     const structuredOutput = { movie: 'The Matrix', description: 'A sci-fi action film.' };
     const responseText = JSON.stringify(structuredOutput);
     const executeStream: ChatV2StreamExecutor = async () => ({
@@ -1320,7 +1217,7 @@ describe('runChatV2Pipeline', () => {
     assert.equal((result.allMessages.at(-1) as any)?.message, responseText);
   });
 
-  it('falls back to string response output when structured parsing fails', async () => {
+  void it('falls back to string response output when structured parsing fails', async () => {
     const responseText = 'not json';
     const executeStream: ChatV2StreamExecutor = async () => ({
       fullStream: mockStream([
