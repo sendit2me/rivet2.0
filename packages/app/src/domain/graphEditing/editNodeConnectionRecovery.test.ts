@@ -15,8 +15,9 @@ import {
   type Project,
 } from '@valerypopoff/rivet2-core';
 import { reconcileNodeEditConnections } from './editNodeConnectionRecovery.js';
+import { createTestNodeRegistry, makeConnection, makeObjectNode, makeTextNode } from './testGraphBuilders.js';
 
-const registry = createBuiltInRegistry();
+const registry = createTestNodeRegistry();
 type PluginInterpolationNode = ChartNode<'pluginInterpolation', { template: string }>;
 
 const pluginRegistry = createBuiltInRegistry();
@@ -80,19 +81,6 @@ pluginRegistry.registerPlugin({
 const project = {
   graphs: {},
 } as Project;
-
-function makeTextNode(nodeId: string, text: string): ChartNode {
-  const node = registry.createDynamic('text');
-
-  node.id = nodeId as NodeId;
-  node.data = {
-    ...(node.data as Record<string, unknown>),
-    text,
-    normalizeLineEndings: true,
-  };
-
-  return node;
-}
 
 function makePromptNode(nodeId: string, promptText: string): ChartNode {
   const node = registry.createDynamic('prompt');
@@ -166,18 +154,6 @@ function makeJSMapNode(nodeId: string, callbackBody: string): ChartNode {
   return node;
 }
 
-function makeObjectNode(nodeId: string, jsonTemplate: string): ChartNode {
-  const node = registry.createDynamic('object');
-
-  node.id = nodeId as NodeId;
-  node.data = {
-    ...(node.data as Record<string, unknown>),
-    jsonTemplate,
-  };
-
-  return node;
-}
-
 function makeExtractObjectPathNode(nodeId: string, path: string): ChartNode {
   const node = registry.createDynamic('extractObjectPath');
 
@@ -220,16 +196,6 @@ function makeArrayNode(nodeId: string): ChartNode {
   const node = registry.createDynamic('array');
   node.id = nodeId as NodeId;
   return node;
-}
-
-function makeConnection(overrides: Partial<NodeConnection> = {}): NodeConnection {
-  return {
-    outputNodeId: 'source' as NodeId,
-    outputId: 'output' as PortId,
-    inputNodeId: 'target' as NodeId,
-    inputId: 'foo' as PortId,
-    ...overrides,
-  };
 }
 
 function assertInterpolationRenamePreservesConnection({
@@ -544,10 +510,7 @@ test('renamed interpolation input works for plugin nodes that use the interpolat
 });
 
 test('renamed interpolation input works for prefixed token ports', () => {
-  const targetNode = makeToolNode(
-    'target',
-    '{"type":"object","properties":{"foo":{"default":"{{foo}}"}}}',
-  );
+  const targetNode = makeToolNode('target', '{"type":"object","properties":{"foo":{"default":"{{foo}}"}}}');
   const sourceNode = makeTextNode('source', 'source');
   const connection = makeConnection({
     inputNodeId: targetNode.id,

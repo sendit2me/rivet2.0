@@ -1,90 +1,38 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
-  createBuiltInRegistry,
   type ChartNode,
   type GraphId,
   type NodeConnection,
-  type NodeGraph,
   type NodeId,
   type PortId,
   type Project,
-  type ProjectId,
 } from '@valerypopoff/rivet2-core';
 import { filterValidSubGraphConnections } from './connectionValidation.js';
+import {
+  createTestNodeRegistry,
+  makeConnection as makeBaseConnection,
+  makeGraph,
+  makeGraphInputNode,
+  makeGraphOutputNode,
+  makeProject,
+  makeSubGraphNode,
+  makeTextNode,
+} from './testGraphBuilders.js';
 
-const registry = createBuiltInRegistry();
+const registry = createTestNodeRegistry();
 const subGraphId = 'sub-graph' as GraphId;
 
-function makeTextNode(nodeId: string, text = ''): ChartNode {
-  const node = registry.createDynamic('text');
-  node.id = nodeId as NodeId;
-  node.data = {
-    ...(node.data as Record<string, unknown>),
-    text,
-  };
-  return node;
-}
-
-function makeSubGraphNode(nodeId: string): ChartNode {
-  const node = registry.createDynamic('subGraph');
-  node.id = nodeId as NodeId;
-  node.data = {
-    ...(node.data as Record<string, unknown>),
-    graphId: subGraphId,
-  };
-  return node;
-}
-
-function makeGraphInput(id: string): ChartNode {
-  const node = registry.createDynamic('graphInput');
-  node.data = {
-    ...(node.data as Record<string, unknown>),
-    id,
-    dataType: 'string',
-  };
-  return node;
-}
-
-function makeGraphOutput(id: string): ChartNode {
-  const node = registry.createDynamic('graphOutput');
-  node.data = {
-    ...(node.data as Record<string, unknown>),
-    id,
-    dataType: 'string',
-  };
-  return node;
-}
-
-function makeProject(subGraphNodes: ChartNode[]): Project {
-  return {
-    metadata: {
-      id: 'project' as ProjectId,
-      title: 'Project',
-      description: '',
-    },
-    graphs: {
-      [subGraphId]: {
-        metadata: {
-          id: subGraphId,
-          name: 'Subgraph',
-          description: '',
-        },
-        nodes: subGraphNodes,
-        connections: [],
-      } satisfies NodeGraph,
-    },
-  } as Project;
+function makeProjectWithSubGraph(subGraphNodes: ChartNode[]): Project {
+  return makeProject([makeGraph(subGraphId, subGraphNodes, [], 'Subgraph')]);
 }
 
 function makeConnection(overrides: Partial<NodeConnection> = {}): NodeConnection {
-  return {
-    outputNodeId: 'source' as NodeId,
-    outputId: 'output' as PortId,
+  return makeBaseConnection({
     inputNodeId: 'subgraph' as NodeId,
     inputId: 'input' as PortId,
     ...overrides,
-  };
+  });
 }
 
 test('filterValidSubGraphConnections keeps valid subgraph input connections', () => {
@@ -98,7 +46,7 @@ test('filterValidSubGraphConnections keeps valid subgraph input connections', ()
       [sourceNode.id]: sourceNode,
       [subGraphNode.id]: subGraphNode,
     },
-    project: makeProject([makeGraphInput('input')]),
+    project: makeProjectWithSubGraph([makeGraphInputNode('input-node', 'input')]),
     projectNodeRegistry: registry,
     referencedProjects: {},
   });
@@ -117,7 +65,7 @@ test('filterValidSubGraphConnections removes stale subgraph input connections', 
       [sourceNode.id]: sourceNode,
       [subGraphNode.id]: subGraphNode,
     },
-    project: makeProject([makeGraphInput('renamed')]),
+    project: makeProjectWithSubGraph([makeGraphInputNode('input-node', 'renamed')]),
     projectNodeRegistry: registry,
     referencedProjects: {},
   });
@@ -141,7 +89,7 @@ test('filterValidSubGraphConnections removes stale subgraph output connections',
       [subGraphNode.id]: subGraphNode,
       [targetNode.id]: targetNode,
     },
-    project: makeProject([makeGraphOutput('renamed')]),
+    project: makeProjectWithSubGraph([makeGraphOutputNode('output-node', 'renamed')]),
     projectNodeRegistry: registry,
     referencedProjects: {},
   });
@@ -163,7 +111,7 @@ test('filterValidSubGraphConnections leaves non-subgraph connections untouched',
       [sourceNode.id]: sourceNode,
       [targetNode.id]: targetNode,
     },
-    project: makeProject([]),
+    project: makeProjectWithSubGraph([]),
     projectNodeRegistry: registry,
     referencedProjects: {},
   });

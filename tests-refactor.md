@@ -71,7 +71,7 @@ Tests should usually be deleted or rewritten when they only:
 - Do not introduce a browser/UI test framework in this pass unless a phase explicitly proves the payoff is worth the tooling cost.
 - Do not change runtime semantics, graph schema, editor behavior, output semantics, or public APIs as part of test cleanup.
 
-## Phase 0: Build A Test Ownership Map
+## Phase 0: Build A Test Ownership Map (DONE)
 
 ### What To Change
 
@@ -125,7 +125,7 @@ The inventory intentionally does not mark any test file for immediate deletion. 
 - A file may look duplicate but protect a different observable surface. Mark suspected duplicates as "verify before delete" until the paired owner test is inspected.
 - Some brittle tests exist because no better seam exists yet. Do not delete them until either a better seam is introduced or the product contract is intentionally dropped.
 
-## Phase 1: Replace Or Delete Brittle Source-Shape Tests
+## Phase 1: Replace Or Delete Brittle Source-Shape Tests (DONE)
 
 ### What To Change
 
@@ -193,7 +193,7 @@ The remaining 15 source-reading app tests are intentionally retained as temporar
 - Extracting helpers just for tests can make production code worse. Only extract a helper when it names real policy, not when it merely mirrors JSX.
 - CSS and layout bugs are often product-visible. Deleting layout guards should be paired with a clearer owner test or manual verification checklist.
 
-## Phase 2: Centralize Small Graph And Project Test Builders
+## Phase 2: Centralize Small Graph And Project Test Builders (DONE)
 
 ### What To Change
 
@@ -231,6 +231,29 @@ After moving builders, delete local duplicates in the largest consumers first:
 3. `editNodeConnectionRecovery.test.ts`
 4. `graphInputUsage.test.ts`
 5. `connectionValidation.test.ts`
+
+### Result
+
+Phase 2 added the app graph-editing test builder module at
+`packages/app/src/domain/graphEditing/testGraphBuilders.ts` and migrated the
+largest repeated fixture users:
+
+- `editNodeCommand.test.ts`
+- `editNodeConnectionRecovery.test.ts`
+- `graphInputRenamePropagation.test.ts`
+- `graphOutputRenamePropagation.test.ts`
+- `graphInputUsage.test.ts`
+- `connectionValidation.test.ts`
+
+The shared builders return fresh registry-created nodes, graphs, projects, and
+connections. Tests that need special caller labels, graph names, or port defaults
+keep thin local wrappers so the scenario remains visible.
+
+Measured after formatting, the six migrated test files dropped by 351 net
+lines. The new shared builder module added 137 lines, for a net reduction of
+214 app test/support lines while preserving the same focused behavior coverage.
+This phase removed or collapsed the repeated local graph/project/node fixture
+implementations without changing production behavior.
 
 ### Risks
 

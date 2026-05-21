@@ -1,96 +1,29 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { type GraphId, type NodeConnection, type NodeId, type PortId } from '@valerypopoff/rivet2-core';
 import {
-  createBuiltInRegistry,
-  type ChartNode,
-  type GraphId,
-  type NodeConnection,
-  type NodeGraph,
-  type NodeId,
-  type PortId,
-  type Project,
-  type ProjectId,
-} from '@valerypopoff/rivet2-core';
+  makeCallGraphNode,
+  makeConnection as makeBaseConnection,
+  makeGraph,
+  makeGraphOutputNode as makeGraphOutput,
+  makeGraphReferenceNode,
+  makeProject,
+  makeSubGraphNode,
+  makeTextNode,
+} from './testGraphBuilders.js';
 import { propagateGraphOutputRename } from './graphOutputRenamePropagation.js';
 
-const registry = createBuiltInRegistry();
 const subGraphId = 'sub-graph' as GraphId;
 const parentGraphId = 'parent-graph' as GraphId;
 
-function makeGraphOutput(nodeId: string, outputId: string): ChartNode {
-  const node = registry.createDynamic('graphOutput');
-  node.id = nodeId as NodeId;
-  node.data = {
-    ...(node.data as Record<string, unknown>),
-    id: outputId,
-  };
-  return node;
-}
-
-function makeTextNode(nodeId: string): ChartNode {
-  const node = registry.createDynamic('text');
-  node.id = nodeId as NodeId;
-  return node;
-}
-
-function makeSubGraphNode(nodeId: string, graphId = subGraphId): ChartNode {
-  const node = registry.createDynamic('subGraph');
-  node.id = nodeId as NodeId;
-  node.data = {
-    ...(node.data as Record<string, unknown>),
-    graphId,
-  };
-  return node;
-}
-
-function makeGraphReferenceNode(nodeId: string, graphId = subGraphId): ChartNode {
-  const node = registry.createDynamic('graphReference');
-  node.id = nodeId as NodeId;
-  node.data = {
-    ...(node.data as Record<string, unknown>),
-    graphId,
-    useGraphIdOrNameInput: false,
-  };
-  return node;
-}
-
-function makeCallGraphNode(nodeId: string): ChartNode {
-  const node = registry.createDynamic('callGraph');
-  node.id = nodeId as NodeId;
-  return node;
-}
-
 function makeConnection(overrides: Partial<NodeConnection> = {}): NodeConnection {
-  return {
+  return makeBaseConnection({
     outputNodeId: 'subgraph' as NodeId,
     outputId: 'old' as PortId,
     inputNodeId: 'target' as NodeId,
     inputId: 'input' as PortId,
     ...overrides,
-  };
-}
-
-function makeGraph(id: GraphId, nodes: ChartNode[], connections: NodeConnection[] = []): NodeGraph {
-  return {
-    metadata: {
-      id,
-      name: id,
-      description: '',
-    },
-    nodes,
-    connections,
-  };
-}
-
-function makeProject(graphs: NodeGraph[]): Project {
-  return {
-    metadata: {
-      id: 'project' as ProjectId,
-      title: 'Project',
-      description: '',
-    },
-    graphs: Object.fromEntries(graphs.map((graph) => [graph.metadata!.id!, graph])),
-  } as Project;
+  });
 }
 
 test('propagateGraphOutputRename renames direct subgraph output connections', () => {

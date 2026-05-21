@@ -1,101 +1,32 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
-  createBuiltInRegistry,
   type ChartNode,
   type GraphId,
   type NodeConnection,
-  type NodeGraph,
   type NodeId,
   type PortId,
   type Project,
-  type ProjectId,
 } from '@valerypopoff/rivet2-core';
 import type { GraphCommandState } from './Command.js';
 import { buildEditNodeAppliedData, shouldMergeEditNodeCommand } from './editNodeCommand.js';
+import {
+  createTestNodeRegistry,
+  makeConnection,
+  makeGraph,
+  makeGraphInputNode,
+  makeGraphOutputNode,
+  makeProject,
+  makeSubGraphNode,
+  makeTextNode,
+} from '../domain/graphEditing/testGraphBuilders.js';
 
-const registry = createBuiltInRegistry();
+const registry = createTestNodeRegistry();
 const graphId = 'graph-1' as GraphId;
 const subGraphId = 'sub-graph' as GraphId;
 const parentGraphId = 'parent-graph' as GraphId;
 
-function makeProject(graphs: NodeGraph[] = []): Project {
-  return {
-    metadata: {
-      id: 'project' as ProjectId,
-      title: 'Project',
-      description: '',
-    },
-    graphs: Object.fromEntries(graphs.map((graph) => [graph.metadata!.id!, graph])),
-  } as Project;
-}
-
 const project = makeProject();
-
-function makeTextNode(nodeId: string, text: string): ChartNode {
-  const node = registry.createDynamic('text');
-
-  node.id = nodeId as NodeId;
-  node.data = {
-    ...(node.data as Record<string, unknown>),
-    text,
-    normalizeLineEndings: true,
-  };
-
-  return node;
-}
-
-function makeGraphInputNode(nodeId: string, inputId: string): ChartNode {
-  const node = registry.createDynamic('graphInput');
-  node.id = nodeId as NodeId;
-  node.data = {
-    ...(node.data as Record<string, unknown>),
-    id: inputId,
-  };
-  return node;
-}
-
-function makeGraphOutputNode(nodeId: string, outputId: string): ChartNode {
-  const node = registry.createDynamic('graphOutput');
-  node.id = nodeId as NodeId;
-  node.data = {
-    ...(node.data as Record<string, unknown>),
-    id: outputId,
-  };
-  return node;
-}
-
-function makeSubGraphNode(nodeId: string, targetGraphId = subGraphId): ChartNode {
-  const node = registry.createDynamic('subGraph');
-  node.id = nodeId as NodeId;
-  node.data = {
-    ...(node.data as Record<string, unknown>),
-    graphId: targetGraphId,
-  };
-  return node;
-}
-
-function makeConnection(overrides: Partial<NodeConnection> = {}): NodeConnection {
-  return {
-    outputNodeId: 'source' as NodeId,
-    outputId: 'output' as PortId,
-    inputNodeId: 'target' as NodeId,
-    inputId: 'foo' as PortId,
-    ...overrides,
-  };
-}
-
-function makeGraph(id: GraphId, nodes: ChartNode[], connections: NodeConnection[] = []): NodeGraph {
-  return {
-    metadata: {
-      id,
-      name: id,
-      description: '',
-    },
-    nodes,
-    connections,
-  };
-}
 
 function makeCommandState({
   nodes,
