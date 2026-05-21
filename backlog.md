@@ -1,6 +1,5 @@
 
 
-- The left panel with the graph tree is opened and closed with animation. I don't need the animation
 
 - I want each node in the graph to show in the output the run time. Just like in the subgraph node (Duration time). When running the graph in the editor, when watching remote debugger runs and when loading run recordings. And I want it to be done without changing the project yaml file architecture. Is it possible?
 - When it's disabled, the run time should not be shown and it should not be calculated. I don't want to waste milliseconds of runtimeon calculating it.
