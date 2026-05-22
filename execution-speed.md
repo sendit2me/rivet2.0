@@ -536,7 +536,7 @@ P2 conclusion:
 - Added focused tests for duplicate boundary ids, sorted port order, explicit `null` / `undefined` `any` values, excluded-output construction, cache scoping, and preprocessor use of the runtime boundary cache.
 - Full benchmark passes after the change showed broad machine/runtime drift across unrelated rows, so the absolute P2 full-matrix numbers should not be compared directly to the P1 table. A same-checkout targeted guard still showed the default-safe path ahead of compatible for the intended rows: repeated same-input Subgraph `12.780ms` vs `13.225ms`, repeated changing-input Subgraph `11.275ms` vs `11.921ms`, and repeated Referenced Graph Alias `12.960ms` vs `14.076ms`.
 
-### P3: Reduce Fresh Subprocessor Construction Cost
+### P3: Reduce Fresh Subprocessor Construction Cost (DONE)
 
 Purpose:
 
@@ -596,7 +596,7 @@ P3 conclusion:
 - Verification passed for focused core preprocessor/GraphProcessor characterization tests, Node runtime-speed/API/default-fast/runner/equivalence tests, and core/node lint.
 - Benchmark pass (`RIVET_RUNTIME_BENCH_SAMPLES=3`, `RIVET_RUNTIME_BENCH_ITERATIONS=50`, `RIVET_RUNTIME_BENCH_WARMUP_ITERATIONS=5`) kept simple single-subgraph and passthrough rows neutral at sub-millisecond scale and improved the P2 target guard rows: repeated Subgraph same-input `10.389ms` versus the P2 guard `12.780ms`, repeated Subgraph changing-input `8.610ms` versus `11.275ms`, and repeated Referenced Graph Alias `10.611ms` versus `12.960ms`. Full-matrix absolute values still drift between passes, so the target-row comparison is the meaningful signal.
 
-### P4: Reduce Per-Node Context And Abort Overhead
+### P4: Reduce Per-Node Context And Abort Overhead (DONE)
 
 Purpose:
 
@@ -640,6 +640,17 @@ Acceptance criteria:
 - Subgraph-heavy benchmarks stay neutral or improve.
 - Abort, pause/resume, user input, wait-event, partial output, and trace tests still pass.
 - Code remains simpler or clearly justified by benchmark wins.
+
+P4 conclusion:
+
+- Removed the processor-level abort listener that was previously attached for every node execution. Active node abort controllers are now kept in a run-scoped map keyed by exact `NodeId`; the common case stores one controller directly and only promotes to a `Set` for overlapping executions of the same node, such as split-run/parallel cases.
+- Tightened race cleanup while doing that: race winners now abort only exact nodes in the race branch instead of scanning string keys by prefix. Added characterization coverage proving an active non-race node with a shared id prefix is not aborted.
+- Reassessment cleanup paired node abort-controller registration and unregistering across pre-process exits too, so aborting while a node is waiting for pause/resume no longer leaves stale active-controller state until the next run reset.
+- Moved stable `InternalProcessContext` fields into a per-run base in [`ProcessContextBuilder.ts`](packages/core/src/model/ProcessContextBuilder.ts), while keeping mutable/per-node fields rebuilt per execution: node, attached data, signal, process id, execution metadata, partial outputs, subprocessor creation, plugin config, user input, wait-event, and global setters.
+- Reused one stateless default `IsomorphicCodeRunner` instance when callers do not supply a custom Code runner. Custom runners are still passed through unchanged.
+- Rejected the tempting external-function shortcut for now. `externalFunctions` is still copied into each node context because that preserves the old isolation contract for custom nodes/plugins.
+- Direct A/B benchmark against clean `HEAD` in a temporary worktree (`RIVET_RUNTIME_BENCH_SAMPLES=3`, `RIVET_RUNTIME_BENCH_ITERATIONS=30`, `RIVET_RUNTIME_BENCH_WARMUP_ITERATIONS=5`) showed modest cheap-chain wins, not a major architectural jump: `runGraph text chain 100` improved `2.370ms -> 2.234ms`, `runGraph text chain 500` improved `11.040ms -> 10.584ms`, `fresh createProcessor default-safe text chain 500` improved `11.264ms -> 10.517ms`, and `createGraphRunner text chain 500` improved `11.175ms -> 10.711ms`. Wide independent node rows were neutral-to-slightly-worse in this noisy local pass, so the phase stops at low-risk allocation cleanup rather than adding capability flags.
+- Verification passed for focused GraphProcessor tests, runtime-speed/default-fast/API/graph-runner Node tests, and the full runtime benchmark matrix.
 
 ### P5: Cache Or Precompute Dynamic Port Definitions Safely
 

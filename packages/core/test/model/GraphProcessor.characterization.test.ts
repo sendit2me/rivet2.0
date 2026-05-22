@@ -811,4 +811,41 @@ void describe('GraphProcessor characterization', () => {
     assert.deepEqual(raceFinish?.outputs.result, { type: 'string', value: 'fast' });
     assert.equal(nodeErrors.includes(slowNode.id), true);
   });
+
+  void it('does not abort active non-race nodes whose ids share a race loser prefix', async () => {
+    const slowNode = makeProbeNode('slow-node', {
+      delayMs: 50,
+      value: { type: 'string', value: 'slow' },
+    });
+    const unrelatedNode = makeProbeNode('slow-node-extra', {
+      delayMs: 75,
+      value: { type: 'string', value: 'unrelated' },
+    });
+    const fastNode = makeProbeNode('fast-node', {
+      value: { type: 'string', value: 'fast' },
+    });
+    const raceNode: ChartNode = {
+      id: 'race-node' as NodeId,
+      type: 'raceInputs',
+      title: 'Race Inputs',
+      data: {},
+      visualData: { x: 250, y: 0, width: 240 },
+    };
+    const graph = makeGraph(
+      [slowNode, unrelatedNode, fastNode, raceNode],
+      [connect('slow-node', raceNode.id, 'input1'), connect('fast-node', raceNode.id, 'input2')],
+    );
+    const processor = createProcessor(graph);
+    const nodeErrors: NodeId[] = [];
+    const nodeFinishes: NodeId[] = [];
+
+    processor.on('nodeError', ({ node }) => nodeErrors.push(node.id));
+    processor.on('nodeFinish', ({ node }) => nodeFinishes.push(node.id));
+
+    await withTimeout(processor.processGraph(testProcessContext()), 'race graph run with prefix node');
+
+    assert.equal(nodeErrors.includes(slowNode.id), true);
+    assert.equal(nodeErrors.includes(unrelatedNode.id), false);
+    assert.equal(nodeFinishes.includes(unrelatedNode.id), true);
+  });
 });
