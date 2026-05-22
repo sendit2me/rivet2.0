@@ -6,7 +6,7 @@ import type {
   OutgoingMessageMap,
   ProcessEventMessage,
 } from '@valerypopoff/rivet2-core';
-import { logRuntimeDebug } from '@valerypopoff/rivet2-core';
+import { decodeDebuggerTransportSentinels, logRuntimeDebug } from '@valerypopoff/rivet2-core';
 import { handleError } from '../utils/errorHandling.js';
 import type { ExecutorSessionTarget } from './executorSessionTarget.js';
 
@@ -53,7 +53,9 @@ export function parseExecutorSessionIncomingMessage(options: {
     return undefined;
   }
 
-  if (!isExecutorIncomingMessage(parsed)) {
+  const decodedParsed = decodeDebuggerTransportSentinels(parsed);
+
+  if (!isExecutorIncomingMessage(decodedParsed)) {
     handleError(new Error('Malformed executor message envelope.'), 'Failed to parse executor message', {
       metadata: {
         rawMessage,
@@ -65,22 +67,22 @@ export function parseExecutorSessionIncomingMessage(options: {
     return undefined;
   }
 
-  if (parsed.message === 'graph-upload-allowed') {
+  if (decodedParsed.message === 'graph-upload-allowed') {
     return {
       kind: 'upload-allowed',
     };
   }
 
-  if (isDatasetRequestMessageName(parsed.message)) {
+  if (isDatasetRequestMessageName(decodedParsed.message)) {
     return {
-      data: parsed.data as DatasetRequestPayload<unknown>,
+      data: decodedParsed.data as DatasetRequestPayload<unknown>,
       kind: 'dataset-request',
-      message: parsed.message as keyof DatasetRequestMap,
+      message: decodedParsed.message as keyof DatasetRequestMap,
     };
   }
 
   return {
-    incoming: parsed as ProcessEventMessage,
+    incoming: decodedParsed as ProcessEventMessage,
     kind: 'process-event',
   };
 }

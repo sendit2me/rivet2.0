@@ -12,6 +12,7 @@ export * from './native/BaseDir.js';
 export * from './native/NativeApi.js';
 export * from './native/BrowserNativeApi.js';
 export * from './model/ProcessContext.js';
+export * from './model/DebuggerTransportSentinel.js';
 export * from './model/ProjectReferenceLoader.js';
 export * from './model/RivetUIContext.js';
 export * from './model/chat-v2/index.js';

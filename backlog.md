@@ -8,7 +8,6 @@
 
 
 
-- In remote debugger mode, still, some subgraphs show as still running, If I dive into them, there might be just one usual node be shown as still running. Like an array node for example. But it's obvious that it actually produced the value because the workflow worked
 
 - Установщик для макоси не дает нормально установить апп потому что я никто
 

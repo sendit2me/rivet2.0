@@ -321,6 +321,50 @@ describe('executionSelectors', () => {
     assert.equal(runs[1]!.graphRunId, 'sub-run-b');
   });
 
+  test('getGraphRunsForView keeps nested subgraph caller contexts separate', () => {
+    const graphRunHistoryByView = {
+      'subgraph:main-graph:shared-node:sub-graph': [
+        {
+          executor: {
+            nodeId: 'shared-node' as NodeId,
+            parentGraphId: 'main-graph' as GraphId,
+            processId: 'main-process' as ProcessId,
+          },
+          graphId: 'sub-graph' as GraphId,
+          graphRunId: 'main-sub-run' as GraphRunId,
+          rootRunId: 'root-1' as RootRunId,
+          startedAt: 1,
+        },
+      ],
+      'subgraph:parent-subgraph:shared-node:sub-graph': [
+        {
+          executor: {
+            nodeId: 'shared-node' as NodeId,
+            parentGraphId: 'parent-subgraph' as GraphId,
+            processId: 'nested-process' as ProcessId,
+          },
+          graphId: 'sub-graph' as GraphId,
+          graphRunId: 'nested-sub-run' as GraphRunId,
+          rootRunId: 'root-1' as RootRunId,
+          startedAt: 2,
+        },
+      ],
+    };
+
+    const nestedView = {
+      graphId: 'sub-graph' as GraphId,
+      key: 'subgraph:parent-subgraph:shared-node:sub-graph',
+      parent: {
+        parentGraphId: 'parent-subgraph' as GraphId,
+        parentNodeId: 'shared-node' as NodeId,
+      },
+    };
+
+    const runs = getGraphRunsForView({ currentGraphView: nestedView, graphRunHistoryByView });
+
+    assert.deepEqual(runs.map((run) => run.graphRunId), ['nested-sub-run']);
+  });
+
   test('getGraphRunsForView returns direct matches for root graphs with matching data', () => {
     const graphRunHistoryByView = {
       'root:main-graph': [

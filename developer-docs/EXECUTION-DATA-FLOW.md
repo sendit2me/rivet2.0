@@ -830,6 +830,19 @@ helpers:
   never fail graph execution; serialization or websocket send failures are
   reported through the debugger `error` event, and only the failed websocket is
   terminated.
+- [`debuggerPayloadSanitizer.ts`](../packages/node/src/debuggerPayloadSanitizer.ts)
+  turns outgoing Remote Debugger payloads into display-safe JSON copies before
+  serialization. Runtime event objects and graph outputs are not mutated.
+  JSON-compatible branches are preserved, explicit `undefined` is encoded with
+  a versioned debugger-transport sentinel and decoded by
+  [`executorSessionTransport.ts`](../packages/app/src/hooks/executorSessionTransport.ts).
+  User values that exactly match that sentinel envelope are escaped before send
+  and restored after receipt so normal output data is not reinterpreted as
+  transport metadata. Non-JSON-safe branches such as circular references,
+  `BigInt`, functions, symbols, `NaN`, and infinities become clear placeholder
+  strings. If this safety clone ever fails, `debuggerTransport.ts` tries to
+  send a minimal lifecycle payload with a warning output instead of dropping the
+  event.
 - [`debuggerProcessorAttachments.ts`](../packages/node/src/debuggerProcessorAttachments.ts)
   owns `attach`/`detach` listener registration, request-id association,
   partial-output throttling, and root-`finish` auto-detach cleanup. Routing
@@ -844,6 +857,17 @@ This keeps hosted routes such as `/ws/latest-debugger` from looking idle to
 proxy/CDN layers while preserving the app policy above: an external debugger
 socket that truly closes is still treated as an external disconnect, not as
 something Rivet should reopen automatically.
+
+The app has a final reconciliation guard for successful debugger-style event
+streams. When `done` is accepted but a displayed process from the just-finished
+root run is still marked `running`,
+[`graphExecutionEventHelpers.ts`](../packages/app/src/hooks/graphExecutionEventHelpers.ts)
+marks that process terminal and adds a warning output explaining that the
+terminal debugger event was not received. Metadata-rich runs scope this cleanup
+by `rootRunId`; only legacy streams without execution metadata fall back to
+broad cleanup. This keeps the editor from showing a completed remote workflow
+as permanently running, but it is only a safety net; the server-side sanitizer
+above should keep normal lifecycle events intact.
 
 The renderer does not treat app-executor stderr as an execution-state signal.
 The sidecar can write expected Node warnings or logged provider failures to
