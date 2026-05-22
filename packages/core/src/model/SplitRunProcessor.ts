@@ -33,9 +33,9 @@ export type SplitRunDeps = {
     processId: ProcessId,
     durationMs?: number,
     splitRunDurationMs?: Record<number, number>,
-  ): void;
+  ): Promise<void>;
   isAborted(): boolean;
-  emit(event: 'nodeStart', data: { node: ChartNode; inputs: Inputs; processId: ProcessId }): void;
+  emit(event: 'nodeStart', data: { node: ChartNode; inputs: Inputs; processId: ProcessId }): Promise<void> | void;
   emit(
     event: 'nodeFinish',
     data: {
@@ -45,7 +45,7 @@ export type SplitRunDeps = {
       durationMs?: number;
       splitRunDurationMs?: Record<number, number>;
     },
-  ): void;
+  ): Promise<void> | void;
   emit(
     event: 'partialOutput',
     data: { node: ChartNode; outputs: Outputs; index: number; processId: ProcessId },
@@ -86,7 +86,7 @@ export async function processSplitRunNode(
     node.splitRunMax ?? 10,
   );
 
-  deps.emit('nodeStart', { node, inputs: inputValues, processId });
+  await deps.emit('nodeStart', { node, inputs: inputValues, processId });
   const timingStart = deps.startNodeTiming?.();
   let splitRunDurationMs: Record<number, number> | undefined;
 
@@ -111,7 +111,7 @@ export async function processSplitRunNode(
 
     deps.setNodeResults(node.id, aggregateResults);
     deps.markNodeVisited(node.id);
-    deps.emit(
+    await deps.emit(
       'nodeFinish',
       withOptionalDuration(
         {
@@ -124,7 +124,7 @@ export async function processSplitRunNode(
       ),
     );
   } catch (error) {
-    deps.nodeErrored(node, error, processId, deps.finishNodeTiming?.(timingStart), splitRunDurationMs);
+    await deps.nodeErrored(node, error, processId, deps.finishNodeTiming?.(timingStart), splitRunDurationMs);
   }
 }
 

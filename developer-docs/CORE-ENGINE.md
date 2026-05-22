@@ -664,7 +664,8 @@ Important current behavior:
   nodes, execution metadata, or reused `NodeImpl` objects
 - node events emitted inside a subgraph reference that subgraph invocation's `graphRunId`
 - split-sequential subgraph calls preserve executor `splitIndex` in execution metadata so app-side consumers can distinguish sibling invocations that share the same graph definition
-- `SubprocessorBridge` uses a run-scoped lifecycle subscription keyed by the child processor's own `graphRunId`, so forwarding/lifecycle listeners clean up for that processor's run while forwarded events from deeper nested child processors continue through the parent bridge without prematurely disconnecting parent `nodeFinish` events
+- `SubprocessorBridge` uses a run-scoped lifecycle subscription keyed by the child processor's own `graphRunId`, so forwarding/lifecycle listeners clean up for that processor's run while forwarded events from deeper nested child processors continue through the parent bridge without prematurely disconnecting parent `nodeFinish` or `nodeError` events
+- `GraphProcessor` awaits `nodeError` terminal emissions just like normal `nodeFinish` emissions. Do not make node errors fire-and-forget: caught subgraph failures can let the root graph finish successfully, and remote debugger/replay consumers still need the inner node's terminal error event before subgraph bridge cleanup.
 
 Graph boundary metadata for direct nested-graph callers is centralized in
 [`GraphBoundaryCache.ts`](../packages/core/src/model/GraphBoundaryCache.ts).
@@ -728,12 +729,12 @@ This is one of the clearest recent refactor seams in core:
 
 - pulls input values from injected dependencies
 - determines split count from array-valued inputs and `splitRunMax`
-- emits `nodeStart`
+- emits and awaits the aggregate `nodeStart`
 - runs sequentially when `isSplitSequential` is set
 - otherwise runs in parallel through a bounded queue using `node.splitRunConcurrency` when present, or the processor's `splitRunConcurrency` fallback when the node has no override
-- emits partial outputs for each split item
+- emits partial outputs for each split item as detached progress events
 - aggregates split outputs back into array outputs
-- emits `nodeFinish` or routes errors back through the injected `nodeErrored(...)`
+- emits and awaits the aggregate `nodeFinish` or routes errors back through the injected awaited `nodeErrored(...)`
 
 ### Architectural significance
 
