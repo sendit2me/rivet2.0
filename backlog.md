@@ -4,11 +4,6 @@
 
 
 
-- Search in the full output modal finds unrelated pieces with no even similar letters
-
-
-
-
 - Установщик для макоси не дает нормально установить апп потому что я никто
 
 

@@ -7,22 +7,26 @@ export const MATCH_ACTIVE_CLASS = 'fullscreen-output-search-match-active';
 export type SearchProvider = {
   id: string;
   rootElement: HTMLElement;
-  getMatchOffsets(query: string): number[];
+  getMatchRanges(query: string): SearchMatchRange[];
   activateMatch(localMatchIndex: number): void;
   clearActiveMatch(): void;
+};
+
+export type SearchMatchRange = {
+  startOffset: number;
+  endOffset: number;
 };
 
 export type SearchBlock =
   | {
       kind: 'text';
       textNodes: Text[];
-      text: string;
-      matches: number[];
+      matches: SearchMatchRange[];
     }
   | {
       kind: 'provider';
       providerId: string;
-      matches: number[];
+      matches: SearchMatchRange[];
     };
 
 export type SearchMatch =
@@ -30,16 +34,12 @@ export type SearchMatch =
       kind: 'text';
       blockIndex: number;
       localMatchIndex: number;
-      startOffset: number;
-      endOffset: number;
     }
   | {
       kind: 'provider';
       blockIndex: number;
       providerId: string;
       localMatchIndex: number;
-      startOffset: number;
-      endOffset: number;
     };
 
 type TextNodeRange = {
@@ -48,28 +48,38 @@ type TextNodeRange = {
   matchIndex: number;
 };
 
-export function findMatchOffsets(text: string, query: string): number[] {
+export function findMatchRanges(text: string, query: string): SearchMatchRange[] {
   const normalizedQuery = query.toLocaleLowerCase();
 
   if (!normalizedQuery) {
     return [];
   }
 
-  const normalizedText = text.toLocaleLowerCase();
-  const offsets: number[] = [];
+  const normalizedText = buildNormalizedTextIndex(text);
+  const ranges: SearchMatchRange[] = [];
 
   let searchFromIndex = 0;
-  while (searchFromIndex < normalizedText.length) {
-    const nextMatchIndex = normalizedText.indexOf(normalizedQuery, searchFromIndex);
+  while (searchFromIndex < normalizedText.text.length) {
+    const nextMatchIndex = normalizedText.text.indexOf(normalizedQuery, searchFromIndex);
     if (nextMatchIndex === -1) {
       break;
     }
 
-    offsets.push(nextMatchIndex);
-    searchFromIndex = nextMatchIndex + normalizedQuery.length;
+    const nextMatchEndIndex = nextMatchIndex + normalizedQuery.length;
+    const startOffset = normalizedText.originalStartOffsets[nextMatchIndex];
+    const endOffset = normalizedText.originalEndOffsets[nextMatchEndIndex - 1];
+
+    if (startOffset != null && endOffset != null && endOffset > startOffset) {
+      ranges.push({
+        startOffset,
+        endOffset,
+      });
+    }
+
+    searchFromIndex = nextMatchEndIndex;
   }
 
-  return offsets;
+  return ranges;
 }
 
 export function wrapMatchIndex(totalMatchCount: number, currentMatchIndex: number, delta: 1 | -1): number {
@@ -80,25 +90,17 @@ export function wrapMatchIndex(totalMatchCount: number, currentMatchIndex: numbe
   return (currentMatchIndex + delta + totalMatchCount) % totalMatchCount;
 }
 
-export function projectMatches(blocks: readonly SearchBlock[], query: string): SearchMatch[] {
-  const matchLength = query.toLocaleLowerCase().length;
-
-  if (matchLength === 0) {
-    return [];
-  }
-
+export function projectMatches(blocks: readonly SearchBlock[]): SearchMatch[] {
   const matches: SearchMatch[] = [];
 
   blocks.forEach((block, blockIndex) => {
-    block.matches.forEach((startOffset, localMatchIndex) => {
+    block.matches.forEach((_, localMatchIndex) => {
       if (block.kind === 'provider') {
         matches.push({
           kind: 'provider',
           blockIndex,
           providerId: block.providerId,
           localMatchIndex,
-          startOffset,
-          endOffset: startOffset + matchLength,
         });
         return;
       }
@@ -107,8 +109,6 @@ export function projectMatches(blocks: readonly SearchBlock[], query: string): S
         kind: 'text',
         blockIndex,
         localMatchIndex,
-        startOffset,
-        endOffset: startOffset + matchLength,
       });
     });
   });
@@ -133,8 +133,7 @@ export function buildSearchBlocks(
     blocks.push({
       kind: 'text',
       textNodes: pendingTextNodes,
-      text: pendingText,
-      matches: findMatchOffsets(pendingText, query),
+      matches: findMatchRanges(pendingText, query),
     });
 
     pendingTextNodes = [];
@@ -165,7 +164,7 @@ export function buildSearchBlocks(
         blocks.push({
           kind: 'provider',
           providerId,
-          matches: provider.getMatchOffsets(query),
+          matches: provider.getMatchRanges(query),
         });
       }
 
@@ -235,22 +234,20 @@ export function collectTextNodes(rootElement: HTMLElement): Text[] {
 
 export function applyHighlights(args: {
   textNodes: readonly Text[];
-  matchOffsets: readonly number[];
-  matchLength: number;
+  matchRanges: readonly SearchMatchRange[];
   matchIndices: readonly number[];
   activeMatchIndex?: number;
   includeMatchIndexAttribute?: boolean;
 }): HTMLElement | null {
   const {
     textNodes,
-    matchOffsets,
-    matchLength,
+    matchRanges,
     matchIndices,
     activeMatchIndex,
     includeMatchIndexAttribute = true,
   } = args;
 
-  if (matchOffsets.length === 0 || matchLength <= 0) {
+  if (matchRanges.length === 0) {
     return null;
   }
 
@@ -270,17 +267,15 @@ export function applyHighlights(args: {
 
   const rangesByTextNode = new Map<Text, TextNodeRange[]>();
 
-  matchOffsets.forEach((matchOffset, localMatchIndex) => {
+  matchRanges.forEach((matchRange, localMatchIndex) => {
     const matchIndex = matchIndices[localMatchIndex];
-    if (matchIndex == null) {
+    if (matchIndex == null || matchRange.endOffset <= matchRange.startOffset) {
       return;
     }
 
-    const matchEndOffset = matchOffset + matchLength;
-
     for (const position of textNodePositions) {
-      const overlapStart = Math.max(matchOffset, position.startOffset);
-      const overlapEnd = Math.min(matchEndOffset, position.endOffset);
+      const overlapStart = Math.max(matchRange.startOffset, position.startOffset);
+      const overlapEnd = Math.min(matchRange.endOffset, position.endOffset);
 
       if (overlapStart >= overlapEnd) {
         continue;
@@ -305,8 +300,13 @@ export function applyHighlights(args: {
     let cursor = 0;
 
     for (const range of sortedRanges) {
-      if (range.startOffset > cursor) {
-        fragment.appendChild(document.createTextNode(originalText.slice(cursor, range.startOffset)));
+      const highlightStartOffset = Math.max(range.startOffset, cursor);
+      if (range.endOffset <= highlightStartOffset) {
+        continue;
+      }
+
+      if (highlightStartOffset > cursor) {
+        fragment.appendChild(document.createTextNode(originalText.slice(cursor, highlightStartOffset)));
       }
 
       const highlightElement = document.createElement('span');
@@ -316,7 +316,7 @@ export function applyHighlights(args: {
       }
       highlightElement.className =
         activeMatchIndex === range.matchIndex ? `${MATCH_CLASS} ${MATCH_ACTIVE_CLASS}` : MATCH_CLASS;
-      highlightElement.textContent = originalText.slice(range.startOffset, range.endOffset);
+      highlightElement.textContent = originalText.slice(highlightStartOffset, range.endOffset);
       fragment.appendChild(highlightElement);
 
       if (!firstHighlightElement) {
@@ -365,3 +365,44 @@ const BOUNDARY_TAGS = new Set([
   'TR',
   'UL',
 ]);
+
+function buildNormalizedTextIndex(text: string): {
+  text: string;
+  originalStartOffsets: number[];
+  originalEndOffsets: number[];
+} {
+  const wholeStringNormalizedText = text.toLocaleLowerCase();
+  const normalizedParts: string[] = [];
+  const originalStartOffsets: number[] = [];
+  const originalEndOffsets: number[] = [];
+
+  for (let originalOffset = 0; originalOffset < text.length; ) {
+    const codePoint = text.codePointAt(originalOffset);
+    const originalCharacter = String.fromCodePoint(codePoint!);
+    const originalEndOffset = originalOffset + originalCharacter.length;
+    const normalizedCharacter = originalCharacter.toLocaleLowerCase();
+    normalizedParts.push(normalizedCharacter);
+
+    for (let normalizedOffset = 0; normalizedOffset < normalizedCharacter.length; normalizedOffset++) {
+      originalStartOffsets.push(originalOffset);
+      originalEndOffsets.push(originalEndOffset);
+    }
+
+    originalOffset = originalEndOffset;
+  }
+
+  // Whole-string lowercasing preserves context-sensitive matching, such as Greek
+  // final sigma. If a browser ever produces a different length than the
+  // per-codepoint offset map, prefer exact offset mapping over context-sensitive
+  // matching rather than drifting highlights.
+  const normalizedText =
+    wholeStringNormalizedText.length === originalStartOffsets.length
+      ? wholeStringNormalizedText
+      : normalizedParts.join('');
+
+  return {
+    text: normalizedText,
+    originalStartOffsets,
+    originalEndOffsets,
+  };
+}
