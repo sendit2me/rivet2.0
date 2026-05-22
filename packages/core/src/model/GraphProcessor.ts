@@ -40,6 +40,11 @@ import {
   preprocessGraphState,
   toReusableGraphExecutionPlan,
 } from './GraphPreprocessor.js';
+import {
+  getGraphBoundary,
+  type GraphBoundary,
+  type GraphBoundaryCache,
+} from './GraphBoundaryCache.js';
 import { replayExecutionRecording } from './RecordingPlayer.js';
 import { didLoopControllerBreak, LOOP_NOT_BROKEN_SENTINEL } from './loopControllerBreak.js';
 import { buildNodeProcessContext } from './ProcessContextBuilder.js';
@@ -196,6 +201,7 @@ export type GraphProcessorConcurrency = {
 
 export type GraphProcessorRuntimeCache = {
   executionPlans?: WeakMap<NodeGraph, GraphExecutionPlan>;
+  graphBoundaries?: GraphBoundaryCache;
   loadedProjects?: Record<ProjectId, Project>;
 };
 
@@ -446,6 +452,11 @@ export class GraphProcessor {
       registry: this.#registry,
       warnOnInvalidGraph: this.warnOnInvalidGraph,
       buildExecutionPlan: shouldUseRuntimeCache,
+      definitionContext: this.#runtimeCache
+        ? {
+            getGraphBoundary: (project, graphId) => this.#getGraphBoundary(project, graphId),
+          }
+        : undefined,
     });
 
     if (shouldUseRuntimeCache && isGraphExecutionPlan(preprocessedGraph)) {
@@ -470,6 +481,15 @@ export class GraphProcessor {
     }
 
     return true;
+  }
+
+  #getGraphBoundary(project: Project, graphId: GraphId | undefined): GraphBoundary | undefined {
+    if (!this.#runtimeCache) {
+      return getGraphBoundary(project, graphId);
+    }
+
+    this.#runtimeCache.graphBoundaries ??= new WeakMap();
+    return getGraphBoundary(project, graphId, this.#runtimeCache.graphBoundaries);
   }
 
   #applyPreprocessedGraph(
@@ -782,6 +802,12 @@ export class GraphProcessor {
     this.#nodeAbortControllers = new Map();
     this.#loadedProjects =
       this.#cacheLoadedProjects && this.#runtimeCache?.loadedProjects ? { ...this.#runtimeCache.loadedProjects } : {};
+    // Referenced projects can be reloaded per run when loaded-project caching is disabled.
+    if (!this.#cacheLoadedProjects && (this.#project.references?.length ?? 0) > 0) {
+      if (this.#runtimeCache) {
+        this.#runtimeCache.graphBoundaries = undefined;
+      }
+    }
     this.#graphInputNodeValues = {};
   }
 
@@ -1708,6 +1734,7 @@ export class GraphProcessor {
       executor: this.executor ?? 'nodejs',
       externalFunctions: this.#externalFunctions,
       getGlobal: (id) => this.#globals.get(id),
+      getGraphBoundary: (project, graphId) => this.#getGraphBoundary(project, graphId),
       getPluginConfig: (name) => getPluginConfig(plugin, this.#context.settings, name),
       graphInputNodeValues: this.#graphInputNodeValues,
       graphInputs: this.#graphInputs,

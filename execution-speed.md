@@ -472,7 +472,7 @@ Acceptance criteria:
 - `runGraph` benchmark scenarios improve or remain neutral under the performance rules.
 - Fresh `createProcessor(...)` default-safe benchmark scenarios remain neutral or improve.
 
-### P2: Add Runtime Graph Boundary Caches For Subgraph And Reference Nodes
+### P2: Add Runtime Graph Boundary Caches For Subgraph And Reference Nodes (DONE)
 
 Purpose:
 
@@ -489,9 +489,11 @@ Files:
 
 - [`packages/core/src/model/nodes/SubGraphNode.ts`](packages/core/src/model/nodes/SubGraphNode.ts)
 - [`packages/core/src/model/nodes/ReferencedGraphAliasNode.ts`](packages/core/src/model/nodes/ReferencedGraphAliasNode.ts)
+- [`packages/core/src/model/nodes/LoopUntilNode.ts`](packages/core/src/model/nodes/LoopUntilNode.ts)
 - [`packages/core/src/model/nodes/CallGraphNode.ts`](packages/core/src/model/nodes/CallGraphNode.ts)
-- possible new helper: `packages/core/src/model/GraphBoundaryCache.ts`
-- [`packages/core/test/model/nodes/SubGraphNode.test.ts`](packages/core/test/model/nodes/SubGraphNode.test.ts)
+- [`packages/core/src/model/GraphBoundaryCache.ts`](packages/core/src/model/GraphBoundaryCache.ts)
+- [`packages/core/test/model/GraphBoundaryCache.test.ts`](packages/core/test/model/GraphBoundaryCache.test.ts)
+- [`packages/core/test/model/GraphProcessor.characterization.test.ts`](packages/core/test/model/GraphProcessor.characterization.test.ts)
 - referenced graph / call graph tests
 - runtime benchmarks
 
@@ -522,6 +524,17 @@ Acceptance criteria:
 - Non-subgraph text/code/expression benchmarks remain neutral.
 - Graph input/output definitions and runtime outputs remain equivalent.
 - Editor settings panels still reflect graph input/output changes.
+
+P2 conclusion:
+
+- Added [`GraphBoundaryCache.ts`](packages/core/src/model/GraphBoundaryCache.ts) as the single helper for graph boundary input/output derivation, node input/output definitions, subgraph input-data construction, and excluded-output maps.
+- Threaded an internal `NodeDefinitionContext` through `preprocessGraphState(...)` so Subgraph, Referenced Graph Alias, and Loop Until definition lookups can use the same processor/runner boundary resolver as runtime `process(...)`.
+- Kept the default preprocessor path inline when no boundary definition context is present. The first implementation passed an extra optional argument too broadly and benchmarked poorly on unrelated simple graphs; the final shape only activates the boundary context for boundary-driven node types.
+- Added a run-start boundary-cache reset when project references are used without loaded-project caching, keeping dynamically reloaded referenced-project boundaries from leaking across repeated raw core processor runs.
+- Refactored Subgraph and Referenced Graph Alias runtime paths away from repeated `reduce(...spread)` input/output map construction. `Call Graph` was left unchanged because it receives a dynamic input object and does not scan graph boundary ports directly.
+- Kept editor `getEditors(...)` uncached so settings panels still reflect in-place graph input/output edits.
+- Added focused tests for duplicate boundary ids, sorted port order, explicit `null` / `undefined` `any` values, excluded-output construction, cache scoping, and preprocessor use of the runtime boundary cache.
+- Full benchmark passes after the change showed broad machine/runtime drift across unrelated rows, so the absolute P2 full-matrix numbers should not be compared directly to the P1 table. A same-checkout targeted guard still showed the default-safe path ahead of compatible for the intended rows: repeated same-input Subgraph `12.780ms` vs `13.225ms`, repeated changing-input Subgraph `11.275ms` vs `11.921ms`, and repeated Referenced Graph Alias `12.960ms` vs `14.076ms`.
 
 ### P3: Reduce Fresh Subprocessor Construction Cost
 

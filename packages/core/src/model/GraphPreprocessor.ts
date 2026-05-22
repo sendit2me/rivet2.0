@@ -3,7 +3,7 @@ import { findStronglyConnectedComponents } from './CycleDetector.js';
 import type { NodeRegistration } from './NodeRegistration.js';
 import type { NodeGraph } from './NodeGraph.js';
 import type { NodeConnection, NodeId, ChartNode, NodeInputDefinition, NodeOutputDefinition, PortId } from './NodeBase.js';
-import type { NodeImpl } from './NodeImpl.js';
+import type { NodeDefinitionContext, NodeImpl } from './NodeImpl.js';
 import type { Project, ProjectId } from './Project.js';
 
 export type GraphNodeDefinitions = Record<NodeId, { inputs: NodeInputDefinition[]; outputs: NodeOutputDefinition[] }>;
@@ -41,6 +41,7 @@ export type GraphPreprocessedState = GraphPreprocessorResult | GraphPreprocessor
 
 type GraphPreprocessorOptions = {
   buildExecutionPlan?: boolean;
+  definitionContext?: NodeDefinitionContext;
   graph: NodeGraph;
   loadedProjects: Record<ProjectId, Project>;
   project: Project;
@@ -58,7 +59,10 @@ export function preprocessGraphState(
   options: GraphPreprocessorOptions,
 ): GraphPreprocessedState;
 export function preprocessGraphState(options: GraphPreprocessorOptions): GraphPreprocessedState {
-  const { buildExecutionPlan, graph, loadedProjects, project, registry, warnOnInvalidGraph } = options;
+  const { buildExecutionPlan, definitionContext, graph, loadedProjects, project, registry, warnOnInvalidGraph } =
+    options;
+  const effectiveDefinitionContext =
+    definitionContext && graph.nodes.some(usesGraphBoundaryDefinitionContext) ? definitionContext : undefined;
   const nodeInstances: Record<NodeId, NodeImpl<ChartNode>> = {};
   const nodesById: Record<NodeId, ChartNode> = {};
   const connections: Record<NodeId, NodeConnection[]> = {};
@@ -101,6 +105,7 @@ export function preprocessGraphState(options: GraphPreprocessorOptions): GraphPr
     nodeInstances,
     nodesById,
     project,
+    definitionContext: effectiveDefinitionContext,
     warnOnInvalidGraph,
   });
 
@@ -165,79 +170,184 @@ export function toReusableGraphExecutionPlan(preprocessedGraph: GraphPreprocesso
 
 function loadInputOutputDefinitions(options: {
   connections: Record<NodeId, NodeConnection[]>;
+  definitionContext?: NodeDefinitionContext;
   loadedProjects: Record<ProjectId, Project>;
   nodeInstances: Record<NodeId, NodeImpl<ChartNode>>;
   nodesById: Record<NodeId, ChartNode>;
   project: Project;
   warnOnInvalidGraph: boolean;
 }): GraphNodeDefinitions {
-  const { connections, loadedProjects, nodeInstances, nodesById, project, warnOnInvalidGraph } = options;
+  const { connections, definitionContext, loadedProjects, nodeInstances, nodesById, project, warnOnInvalidGraph } =
+    options;
   const definitions: GraphNodeDefinitions = {};
+
+  if (!definitionContext) {
+    for (const node of values(nodesById)) {
+      const connectionsForNode = connections[node.id] ?? [];
+      const inputDefinitions = nodeInstances[node.id]!.getInputDefinitionsIncludingBuiltIn(
+        connectionsForNode,
+        nodesById,
+        project,
+        loadedProjects,
+      );
+      const outputDefinitions = nodeInstances[node.id]!.getOutputDefinitions(
+        connectionsForNode,
+        nodesById,
+        project,
+        loadedProjects,
+      );
+
+      definitions[node.id] = {
+        inputs: inputDefinitions,
+        outputs: outputDefinitions,
+      };
+
+      const invalidConnections = connectionsForNode.filter((connection) => {
+        if (connection.inputNodeId === node.id) {
+          const inputDefinition = inputDefinitions.find((definition) => definition.id === connection.inputId);
+
+          if (!inputDefinition) {
+            if (warnOnInvalidGraph) {
+              const sourceNode = nodesById[connection.outputNodeId];
+              console.warn(
+                `[Warn] Invalid connection going from "${sourceNode?.title}".${connection.outputId} to "${node.title}".${connection.inputId}`,
+              );
+            }
+
+            return true;
+          }
+        } else {
+          const outputDefinition = outputDefinitions.find((definition) => definition.id === connection.outputId);
+
+          if (!outputDefinition) {
+            if (warnOnInvalidGraph) {
+              const targetNode = nodesById[connection.inputNodeId];
+              console.warn(
+                `[Warn] Invalid connection going from "${node.title}".${connection.outputId} to "${targetNode?.title}".${connection.inputId}`,
+              );
+            }
+
+            return true;
+          }
+        }
+
+        return false;
+      });
+
+      if (invalidConnections.length > 0) {
+        for (const invalidConnection of invalidConnections) {
+          removeConnectionFromNode(connections, invalidConnection, invalidConnection.inputNodeId);
+
+          if (invalidConnection.outputNodeId !== invalidConnection.inputNodeId) {
+            removeConnectionFromNode(connections, invalidConnection, invalidConnection.outputNodeId);
+          }
+        }
+      }
+    }
+
+    return definitions;
+  }
 
   for (const node of values(nodesById)) {
     const connectionsForNode = connections[node.id] ?? [];
-    const inputDefinitions = nodeInstances[node.id]!.getInputDefinitionsIncludingBuiltIn(
-      connectionsForNode,
-      nodesById,
-      project,
-      loadedProjects,
-    );
-    const outputDefinitions = nodeInstances[node.id]!.getOutputDefinitions(
-      connectionsForNode,
-      nodesById,
-      project,
-      loadedProjects,
-    );
+    const nodeDefinitionContext = usesGraphBoundaryDefinitionContext(node) ? definitionContext : undefined;
+    const inputDefinitions = nodeDefinitionContext
+      ? nodeInstances[node.id]!.getInputDefinitionsIncludingBuiltIn(
+          connectionsForNode,
+          nodesById,
+          project,
+          loadedProjects,
+          nodeDefinitionContext,
+        )
+      : nodeInstances[node.id]!.getInputDefinitionsIncludingBuiltIn(
+          connectionsForNode,
+          nodesById,
+          project,
+          loadedProjects,
+        );
+    const outputDefinitions = nodeDefinitionContext
+      ? nodeInstances[node.id]!.getOutputDefinitions(
+          connectionsForNode,
+          nodesById,
+          project,
+          loadedProjects,
+          nodeDefinitionContext,
+        )
+      : nodeInstances[node.id]!.getOutputDefinitions(connectionsForNode, nodesById, project, loadedProjects);
 
     definitions[node.id] = {
       inputs: inputDefinitions,
       outputs: outputDefinitions,
     };
 
-    const invalidConnections = connectionsForNode.filter((connection) => {
-      if (connection.inputNodeId === node.id) {
-        const inputDefinition = inputDefinitions.find((definition) => definition.id === connection.inputId);
-
-        if (!inputDefinition) {
-          if (warnOnInvalidGraph) {
-            const sourceNode = nodesById[connection.outputNodeId];
-            console.warn(
-              `[Warn] Invalid connection going from "${sourceNode?.title}".${connection.outputId} to "${node.title}".${connection.inputId}`,
-            );
-          }
-
-          return true;
-        }
-      } else {
-        const outputDefinition = outputDefinitions.find((definition) => definition.id === connection.outputId);
-
-        if (!outputDefinition) {
-          if (warnOnInvalidGraph) {
-            const targetNode = nodesById[connection.inputNodeId];
-            console.warn(
-              `[Warn] Invalid connection going from "${node.title}".${connection.outputId} to "${targetNode?.title}".${connection.inputId}`,
-            );
-          }
-
-          return true;
-        }
-      }
-
-      return false;
-    });
-
-    if (invalidConnections.length > 0) {
-      for (const invalidConnection of invalidConnections) {
-        removeConnectionFromNode(connections, invalidConnection, invalidConnection.inputNodeId);
-
-        if (invalidConnection.outputNodeId !== invalidConnection.inputNodeId) {
-          removeConnectionFromNode(connections, invalidConnection, invalidConnection.outputNodeId);
-        }
-      }
-    }
+    removeInvalidDefinitionConnections(
+      connections,
+      connectionsForNode,
+      inputDefinitions,
+      node,
+      nodesById,
+      outputDefinitions,
+      warnOnInvalidGraph,
+    );
   }
 
   return definitions;
+}
+
+function removeInvalidDefinitionConnections(
+  connections: Record<NodeId, NodeConnection[]>,
+  connectionsForNode: NodeConnection[],
+  inputDefinitions: NodeInputDefinition[],
+  node: ChartNode,
+  nodesById: Record<NodeId, ChartNode>,
+  outputDefinitions: NodeOutputDefinition[],
+  warnOnInvalidGraph: boolean,
+): void {
+  const invalidConnections = connectionsForNode.filter((connection) => {
+    if (connection.inputNodeId === node.id) {
+      const inputDefinition = inputDefinitions.find((definition) => definition.id === connection.inputId);
+
+      if (!inputDefinition) {
+        if (warnOnInvalidGraph) {
+          const sourceNode = nodesById[connection.outputNodeId];
+          console.warn(
+            `[Warn] Invalid connection going from "${sourceNode?.title}".${connection.outputId} to "${node.title}".${connection.inputId}`,
+          );
+        }
+
+        return true;
+      }
+    } else {
+      const outputDefinition = outputDefinitions.find((definition) => definition.id === connection.outputId);
+
+      if (!outputDefinition) {
+        if (warnOnInvalidGraph) {
+          const targetNode = nodesById[connection.inputNodeId];
+          console.warn(
+            `[Warn] Invalid connection going from "${node.title}".${connection.outputId} to "${targetNode?.title}".${connection.inputId}`,
+          );
+        }
+
+        return true;
+      }
+    }
+
+    return false;
+  });
+
+  if (invalidConnections.length > 0) {
+    for (const invalidConnection of invalidConnections) {
+      removeConnectionFromNode(connections, invalidConnection, invalidConnection.inputNodeId);
+
+      if (invalidConnection.outputNodeId !== invalidConnection.inputNodeId) {
+        removeConnectionFromNode(connections, invalidConnection, invalidConnection.outputNodeId);
+      }
+    }
+  }
+}
+
+function usesGraphBoundaryDefinitionContext(node: ChartNode): boolean {
+  return node.type === 'subGraph' || node.type === 'referencedGraphAlias' || node.type === 'loopUntil';
 }
 
 function removeConnectionFromNode(

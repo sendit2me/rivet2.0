@@ -210,6 +210,7 @@ export function createProcessor(
 
 function clearGraphProcessorRuntimeCache(runtimeCache: GraphProcessorRuntimeCache): void {
   runtimeCache.executionPlans = undefined;
+  runtimeCache.graphBoundaries = undefined;
   runtimeCache.loadedProjects = undefined;
 }
 
@@ -259,6 +260,7 @@ export function createGraphRunner(project: Project, options: NodeGraphRunnerOpti
       runnerCodeRunner?.clearCache();
       if (runtimeCache) {
         runtimeCache.executionPlans = undefined;
+        runtimeCache.graphBoundaries = undefined;
         runtimeCache.loadedProjects = undefined;
       }
     },

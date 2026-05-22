@@ -6,6 +6,7 @@ import type { Project, ProjectId } from './Project.js';
 import type { AttachedNodeData, ExternalFunction, Outputs } from './GraphProcessor.js';
 import type { Tokenizer } from '../integrations/Tokenizer.js';
 import type { CodeRunner } from '../integrations/CodeRunner.js';
+import type { GraphBoundary } from './GraphBoundaryCache.js';
 
 export function buildNodeProcessContext(options: {
   attachedData: AttachedNodeData;
@@ -21,6 +22,7 @@ export function buildNodeProcessContext(options: {
   executor: 'nodejs' | 'browser';
   externalFunctions: Record<string, ExternalFunction>;
   getGlobal: (id: string) => ScalarOrArrayDataValue | undefined;
+  getGraphBoundary: (project: Project, graphId: GraphId | undefined) => GraphBoundary | undefined;
   getPluginConfig: (name: string) => string | undefined;
   graphInputNodeValues: Record<string, DataValue>;
   graphInputs: Record<string, DataValue>;
@@ -51,6 +53,7 @@ export function buildNodeProcessContext(options: {
     executor,
     externalFunctions,
     getGlobal,
+    getGraphBoundary,
     getPluginConfig,
     graphInputNodeValues,
     graphInputs,
@@ -91,6 +94,7 @@ export function buildNodeProcessContext(options: {
     signal: nodeAbortController.signal,
     processId,
     getGlobal,
+    getGraphBoundary,
     setGlobal,
     waitForGlobal,
     createSubProcessor: createSubProcessor as InternalProcessContext['createSubProcessor'],

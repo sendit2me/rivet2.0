@@ -1,7 +1,7 @@
 
 
 
-
+- In remote debugger mode, still, some subgraphs show as still running, If I dive into them, there might be just one usuan node bw shown as srtill running. Like an array node for example.
 
 - Установщик для макоси не дает нормально установить апп потому что я никто
 

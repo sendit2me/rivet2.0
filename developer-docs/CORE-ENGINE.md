@@ -633,6 +633,27 @@ Important current behavior:
 - split-sequential subgraph calls preserve executor `splitIndex` in execution metadata so app-side consumers can distinguish sibling invocations that share the same graph definition
 - `SubprocessorBridge` uses a run-scoped lifecycle subscription keyed by the child processor's own `graphRunId`, so forwarding/lifecycle listeners clean up for that processor's run while forwarded events from deeper nested child processors continue through the parent bridge without prematurely disconnecting parent `nodeFinish` events
 
+Graph boundary metadata for direct nested-graph callers is centralized in
+[`GraphBoundaryCache.ts`](../packages/core/src/model/GraphBoundaryCache.ts).
+The helper derives sorted, first-duplicate-wins Graph Input and Graph Output
+ports, builds subgraph input maps without repeated object spreads, and builds
+error-path excluded output maps. `GraphProcessor` exposes it to runtime nodes
+through `InternalProcessContext.getGraphBoundary(...)`, backed by the optional
+`GraphProcessorRuntimeCache.graphBoundaries` WeakMap. Fresh processors get a
+fresh cache; `createGraphRunner` reuses the cache until `dispose()`, matching
+its immutable-project execution-plan cache contract. If a processor uses
+project references without loaded-project caching, the boundary cache is reset
+at run start so a newly loaded or mutated referenced project cannot inherit
+stale Graph Input / Graph Output metadata. The context resolver itself is
+optional for compatibility with manually constructed internal
+contexts; nested-graph nodes fall back to uncached boundary derivation when it
+is absent. The same resolver is threaded into preprocessing through the
+internal `NodeDefinitionContext`, but only for boundary-driven nodes
+(`Subgraph`, `Referenced Graph Alias`, and `Loop Until`) so ordinary
+node-definition loading keeps the no-cache hot path. Editor settings use
+uncached boundary derivation so in-place graph input/output edits remain
+visible immediately.
+
 ### User input
 
 User-input nodes are supported directly by the processor.
@@ -726,6 +747,7 @@ Processor-built node execution context:
 - context values
 - graph inputs/outputs
 - graph input-node values
+- optional graph boundary lookup for nested-graph callers
 - current node
 - attached execution data
 - event/global helpers

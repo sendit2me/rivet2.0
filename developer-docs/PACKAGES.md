@@ -212,6 +212,22 @@ when a caller needs an explicit runtime profile. Remote Debugger and
 trace-sensitive `runGraph(...)` calls still fall back to the fully compatible
 path through the shared runtime policy.
 
+Default-safe processors and `headless-fast` graph runners also share a graph
+boundary cache for direct nested-graph callers. The core `GraphBoundaryCache`
+helper is used by Subgraph, Referenced Graph Alias, and Loop Until definition
+paths plus Subgraph/Referenced Graph Alias runtime input/output map
+construction. The cache is keyed by graph object and cleared with the rest of
+the processor/runner runtime cache; it never stores final outputs. Fresh
+processors get a fresh cache, while `createGraphRunner` keeps it until
+`dispose()`, matching the runner's immutable-project execution-plan cache.
+Processors with project references and disabled loaded-project caching reset
+the boundary cache at run start, because referenced project boundaries can be
+reloaded dynamically.
+Manually constructed internal contexts can omit the resolver and nested-graph
+nodes will fall back to uncached boundary derivation. Ordinary graphs that do
+not have boundary-driven nested-graph nodes keep the direct definition-loading
+path so simple workflows do not pay a boundary-cache branch.
+
 `captureNodeTimings` is an optional execution-metadata flag shared with core. It
 adds `durationMs` and split-run `splitRunDurationMs` to `nodeFinish` / `nodeError` events without changing output
 DataValues or project files. Headless `runGraph(...)` and ordinary

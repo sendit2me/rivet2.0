@@ -644,6 +644,122 @@ void describe('GraphProcessor characterization', () => {
     assert.equal(runtimeCache.executionPlans?.has(childGraph), true);
   });
 
+  void it('uses the runtime graph boundary cache while preprocessing subgraph definitions', () => {
+    const childProbeNode = makeProbeNode('child-probe', { value: { type: 'string', value: 'child value' } });
+    const childOutputNode = makeGraphOutputNode('childResult');
+    const childGraph = makeGraph(
+      [childProbeNode, childOutputNode],
+      [connect(childProbeNode.id, childOutputNode.id, 'value')],
+      'boundary-cache-child' as GraphId,
+    );
+    const subgraphNode: ChartNode = {
+      id: 'subgraph-node' as NodeId,
+      type: 'subGraph',
+      title: 'Subgraph',
+      data: {
+        graphId: childGraph.metadata!.id,
+        inputData: {},
+        useAsGraphPartialOutput: false,
+        useErrorOutput: false,
+      },
+      visualData: { x: 0, y: 0, width: 240 },
+    };
+    const parentOutputNode = makeGraphOutputNode('parentResult');
+    const parentGraph = makeGraph(
+      [subgraphNode, parentOutputNode],
+      [
+        {
+          outputNodeId: subgraphNode.id,
+          outputId: 'childResult' as PortId,
+          inputNodeId: parentOutputNode.id,
+          inputId: 'value' as PortId,
+        },
+      ],
+      'boundary-cache-parent' as GraphId,
+    );
+    const runtimeCache: GraphProcessorRuntimeCache = {};
+    const processor = new GraphProcessor(
+      makeProject(parentGraph, [childGraph]),
+      parentGraph.metadata!.id,
+      createRegistry(),
+      false,
+      {
+        executionPlanCacheMode: 'subprocessors',
+        runtimeCache,
+      },
+    );
+
+    processor.getDependencyNodesDeep(parentOutputNode.id);
+
+    assert.notEqual(runtimeCache.executionPlans?.has(parentGraph), true);
+    assert.equal(runtimeCache.graphBoundaries?.has(childGraph), true);
+  });
+
+  void it('does not reuse referenced-project graph boundaries across runs when referenced projects reload', async () => {
+    const referencedProjectId = 'referenced-project' as ProjectId;
+    const referencedGraphId = 'referenced-boundary-graph' as GraphId;
+    const referencedProbeNode = makeProbeNode('referenced-probe', {
+      value: { type: 'string', value: 'referenced value' },
+    });
+    const referencedOutputNode = makeGraphOutputNode('oldResult');
+    const referencedGraph = makeGraph(
+      [referencedProbeNode, referencedOutputNode],
+      [connect(referencedProbeNode.id, referencedOutputNode.id, 'value')],
+      referencedGraphId,
+    );
+    const referencedProject = makeProject(referencedGraph);
+    referencedProject.metadata.id = referencedProjectId;
+
+    const aliasNode: ChartNode = {
+      id: 'referenced-alias' as NodeId,
+      type: 'referencedGraphAlias',
+      title: 'Referenced Graph Alias',
+      data: {
+        graphId: referencedGraphId,
+        inputData: {},
+        projectId: referencedProjectId,
+        useErrorOutput: false,
+      },
+      visualData: { x: 0, y: 0, width: 240 },
+    };
+    const parentOutputNode = makeGraphOutputNode('parentResult');
+    const aliasConnection: NodeConnection = {
+      outputNodeId: aliasNode.id,
+      outputId: 'oldResult' as PortId,
+      inputNodeId: parentOutputNode.id,
+      inputId: 'value' as PortId,
+    };
+    const parentGraph = makeGraph(
+      [aliasNode, parentOutputNode],
+      [aliasConnection],
+      'referenced-boundary-parent' as GraphId,
+    );
+    const project = makeProject(parentGraph);
+    project.references = [{ id: referencedProjectId }];
+    const runtimeCache: GraphProcessorRuntimeCache = {};
+    const processor = new GraphProcessor(project, parentGraph.metadata!.id, createRegistry(), false, {
+      runtimeCache,
+    });
+    const context = {
+      ...testProcessContext(),
+      projectReferenceLoader: {
+        loadProject: async () => referencedProject,
+      },
+    };
+
+    const firstOutputs = await processor.processGraph(context);
+    assert.deepEqual(firstOutputs.parentResult, { type: 'string', value: 'referenced value' });
+    assert.equal(runtimeCache.graphBoundaries?.has(referencedGraph), true);
+
+    referencedOutputNode.data.id = 'newResult';
+    aliasConnection.outputId = 'newResult' as PortId;
+
+    const secondOutputs = await processor.processGraph(context);
+
+    assert.deepEqual(secondOutputs.parentResult, { type: 'string', value: 'referenced value' });
+    assert.equal(runtimeCache.graphBoundaries?.has(referencedGraph), true);
+  });
+
   void it('allows a race winner to finish the graph while the losing branch is aborted', async () => {
     const slowNode = makeProbeNode('slow-node', {
       delayMs: 50,
