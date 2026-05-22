@@ -122,8 +122,9 @@ independent fan-in DAGs, single subgraph calls, nested subgraph chains, repeated
 same-input fan-in and changing-input subgraph calls, dynamic
 `Call Graph` dispatch, `Referenced Graph Alias` dispatch through a custom
 `projectReferenceLoader`, Expression and Code chains, lazy preprocessing through
-the public dependency planning path, and both uncached and cached Node
-CodeRunner compile/run paths. The benchmark matrix is intentionally broad so
+the public dependency planning path, isolated `loadProjectFromString(...)` and
+`loadProjectFromFile(...)` project-loading rows, and both uncached and cached
+Node CodeRunner compile/run paths. The benchmark matrix is intentionally broad so
 each speed phase can compare flat, subgraph-heavy, graph-dispatch, code-heavy,
 and secondary file-loading shapes against the same old-runtime baseline. The
 current baseline table is recorded in [`execution-speed.md`](../execution-speed.md)

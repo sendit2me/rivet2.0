@@ -1,6 +1,6 @@
 import type { Project } from '../../index.js';
 import type * as yaml from 'yaml';
-import * as YAML from 'yaml';
+import { prepareSerializedInput } from './serializationInput.js';
 
 /** Additional data that has been attached to a project/graph, for use by plugins, etc. */
 export type AttachedData = Record<string, unknown>;
@@ -94,43 +94,5 @@ export function yamlProblem(err: yaml.YAMLError): never {
 export type SerializationVersion = 1 | 2 | 3 | 4;
 
 export function detectSerializationVersion(data: unknown): SerializationVersion {
-  if (typeof data !== 'string') {
-    return 1;
-  }
-
-  const trimmed = data.trim();
-  if (!trimmed) {
-    return 1;
-  }
-
-  if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
-    try {
-      const parsed = JSON.parse(trimmed) as { version?: unknown };
-      if (
-        typeof parsed === 'object' &&
-        parsed != null &&
-        typeof parsed.version === 'number' &&
-        parsed.version >= 2 &&
-        parsed.version <= 4
-      ) {
-        return parsed.version as SerializationVersion;
-      }
-      return 1;
-    } catch {
-      return 1;
-    }
-  }
-
-  const parsed = YAML.parse(trimmed) as { version?: unknown } | null;
-  if (
-    parsed &&
-    typeof parsed === 'object' &&
-    typeof parsed.version === 'number' &&
-    parsed.version >= 2 &&
-    parsed.version <= 4
-  ) {
-    return parsed.version as SerializationVersion;
-  }
-
-  return 1;
+  return prepareSerializedInput(data).version;
 }

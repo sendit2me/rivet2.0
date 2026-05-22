@@ -917,6 +917,10 @@ Serialization lives in [`packages/core/src/utils/serialization/`](../packages/co
 ### Current behavior
 
 - version detection happens centrally in `serializationUtils.ts`
+- versioned serialized project/graph input is prepared once through the
+  internal `serializationInput.ts` helper, which detects the serialization
+  version and carries the already parsed v2-v4 YAML/JSON envelope into the
+  selected deserializer
 - project and graph deserialization dispatch by detected version
 - v4 is the active serializer/deserializer path
 - dataset serialization is handled separately through v4 dataset helpers
@@ -928,6 +932,15 @@ Serialization lives in [`packages/core/src/utils/serialization/`](../packages/co
 - `serializeConnection` / `deserializeConnection` - convert `NodeConnection` to/from the compact string format
 - `parseVisualData` / `packVisualDataV3` / `packVisualDataV4` - encode/decode node visual data (position, size, colors). In the app UI, `visualData.color.bg` is the node header color and `visualData.color.border` is the optional resting frame color; Rivet 2 uses `transparent` as the header-only border sentinel so selected/hover/search/diff borders can still be painted dynamically without a permanent custom frame. Older border-only values with the neutral header color are normalized by the app renderer to the new header-only visual mode instead of keeping an unsupported third skin.
 - `wrapInYamlEnvelope` / `unwrapYamlEnvelope` - standard YAML version-envelope wrapping with validation
+
+`unwrapYamlEnvelope(...)` accepts either raw YAML text or the parsed envelope
+prepared by `serializationInput.ts`. This avoids parsing the same project file
+twice on `runGraphInFile(...)` / `loadProjectFromString(...)` paths while keeping
+direct version-deserializer calls compatible with raw serialized text. Legacy v1
+input remains string-based so old JSON compatibility and fallback errors do not
+broaden accidentally. The preparation helper is intentionally internal; public
+callers should continue using `detectSerializationVersion(...)`,
+`deserializeProject(...)`, and `deserializeGraph(...)`.
 
 Both `serialization_v3.ts` and `serialization_v4.ts` delegate to these shared helpers instead of keeping their own copies.
 

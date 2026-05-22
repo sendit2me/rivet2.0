@@ -754,6 +754,40 @@ Acceptance criteria:
 - Project serialization/deserialization tests pass for all supported versions.
 - Error messages remain at least as useful as before.
 
+P6 conclusion:
+
+- Implemented an internal `serializationInput.ts` preparation path in core
+  serialization that performs version detection and, for versioned v2-v4
+  YAML/JSON envelopes, forwards the already parsed envelope into the selected
+  deserializer. This removes the previous parse-for-detection plus
+  parse-for-deserialization duplication on one-shot file/string loading paths.
+- Kept legacy v1 fallback string-based. JSON/YAML without a supported v2-v4
+  envelope still flows into the old v1 deserializers as text, so malformed or
+  legacy inputs do not accidentally become accepted through a broader object
+  path.
+- Updated v2, v3, and v4 deserializers to accept either raw serialized text or a
+  prepared parsed envelope. Direct raw-text calls remain compatible.
+- Added serialization coverage for the prepared-input behavior, including the
+  important guard that YAML without a supported version still falls back as the
+  original string.
+- Added isolated benchmark rows for `loadProjectFromString(...)` and
+  `loadProjectFromFile(...)` so future work can distinguish parse/load cost from
+  graph execution cost.
+- Local benchmark comparison with
+  `RIVET_RUNTIME_BENCH_SAMPLES=3`,
+  `RIVET_RUNTIME_BENCH_ITERATIONS=30`, and
+  `RIVET_RUNTIME_BENCH_WARMUP_ITERATIONS=5` showed the intended one-shot wins:
+  `runGraphInFile passthrough one-shot` `1.312ms -> 0.989ms` (about 25%
+  faster), `runGraphInFile subgraph project one-shot` `1.719ms -> 1.365ms`
+  (about 21% faster), and `runGraphInFile referenced-project one-shot with
+  projectPath` `2.609ms -> 1.905ms` (about 27% faster). The newly isolated
+  loading rows measured `0.467ms` for `loadProjectFromString subgraph project
+  only` and `0.688ms` for `loadProjectFromFile subgraph project only` in the
+  same final pass.
+- Already-loaded execution rows remained in the normal local variance band,
+  which matches the scope of this phase: P6 improves project file/string loading
+  and should not alter loaded workflow execution semantics.
+
 ### P7: Reassess `fast-acyclic` Expansion Last
 
 Purpose:

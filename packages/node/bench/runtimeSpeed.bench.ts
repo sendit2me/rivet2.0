@@ -7,6 +7,7 @@ import {
   createProcessor,
   createGraphRunner,
   loadProjectFromFile,
+  loadProjectFromString,
   runGraph,
   runGraphInFile,
   serializeProject,
@@ -66,6 +67,7 @@ async function main() {
   const expression20 = makeExpressionChainProject(20);
   const code20 = makeCodeChainProject(20);
   const singleSubgraph = makeSubgraphChainProject(1);
+  const serializedSingleSubgraphProject = String(serializeProject(singleSubgraph.project));
   const subgraph50 = makeSubgraphChainProject(50);
   const nestedSubgraph5 = makeNestedSubgraphProject(5);
   const repeatedSubgraph50 = makeRepeatedSubgraphFanInProject(50);
@@ -106,6 +108,18 @@ async function main() {
           inputs: { input: 'bench' },
           projectPath: benchmarkProjectFiles.referencedProjectPath,
         }),
+      ),
+    );
+
+    results.push(
+      await benchmark('loadProjectFromString subgraph project only', () =>
+        loadProjectFromString(serializedSingleSubgraphProject),
+      ),
+    );
+
+    results.push(
+      await benchmark('loadProjectFromFile subgraph project only', () =>
+        loadProjectFromFile(benchmarkProjectFiles.subgraphProjectPath),
       ),
     );
 
