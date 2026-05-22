@@ -940,15 +940,19 @@ The fix has two parts that must work together:
 
 **1. GraphProcessor must `await` its emits** (`GraphProcessor.ts`)
 
-For `nodeStart` and `nodeFinish`, the processor uses `await this.#emitter.emit()`
-instead of `emitDetached()`. This makes the processor pause until all listeners
-have completed, which is necessary for the yield to actually pause processing.
+For `nodeStart`, `nodeFinish`, and terminal `nodeError`, the processor uses
+`await this.#emitter.emit()` instead of `emitDetached()`. This makes the
+processor pause until all listeners have completed. For `nodeStart` and
+`nodeFinish`, that is what allows app listeners to yield for a browser paint.
+For `nodeError`, the important contract is ordering: nested subgraph error
+events must reach Remote Debugger clients before graph-level cleanup.
 
 ```typescript
 // In #processNormalNode:
 await this.#emitter.emit('nodeStart', ...);   // processor waits for listeners
 // ... node processes ...
 await this.#emitter.emit('nodeFinish', ...);  // processor waits again
+await this.#emitter.emit('nodeError', ...);   // processor waits before graphError/done
 ```
 
 Note: `emitDetached()` (which calls `void emitter.emit()`) is fire-and-forget:
@@ -1018,13 +1022,17 @@ macrotask yield in a top-level handler pauses child processors too.
 
 Not all events need macrotask yields:
 
-- **`nodeStart`, `nodeFinish`**: High-frequency events that drive running
-  indicators and dataflow display. Must yield.
+- **`nodeStart`, `nodeFinish`, `nodeError`**: Events that drive node lifecycle
+  state and dataflow display. `nodeStart` and `nodeFinish` yield in the local
+  executor for paint responsiveness. `nodeError` is still awaited by the
+  processor, but the local app handler stays synchronous; the awaited boundary is
+  there so graph-level terminal events cannot clean up subgraph bridges before
+  the inner node error reaches the editor and Remote Debugger.
 - **`start`, `graphStart`**: Set up initial execution context. Yielding here
   ensures the UI shows "running" state before node processing begins.
-- **`nodeError`, `done`, `abort`, etc.**: Terminal or infrequent events. By the
+- **`done`, `abort`, etc.**: Terminal or infrequent graph-level events. By the
   time they fire, either the graph is finishing (one final paint is sufficient)
-  or there is an error state. No yield needed.
+  or there is an error state. No extra UI yield is needed.
 
 ## Stale Closures in Browser Execution Handlers
 

@@ -133,6 +133,47 @@ function makeNestedCircularExpressionProject(): Project {
   };
 }
 
+function makeNestedCaughtExpressionErrorProject(): Project {
+  const mainGraphId = 'main-error' as GraphId;
+  const subgraph1Id = 'subgraph1-error' as GraphId;
+  const subgraph2Id = 'subgraph2-error' as GraphId;
+  const mainSubgraphNode = makeSubgraphNode('main-error-subgraph', subgraph1Id);
+  const mainOutputNode = makeGraphOutputNode('main-error-output', 'result', 'string');
+  const nestedSubgraphNode = makeSubgraphNode('subgraph1-error-subgraph', subgraph2Id, true);
+  const nestedOutputNode = makeGraphOutputNode('subgraph1-error-output', 'result', 'string');
+
+  return {
+    graphs: {
+      [mainGraphId]: {
+        connections: [connect(mainSubgraphNode.id, 'result', mainOutputNode.id, 'value')],
+        metadata: {
+          description: '',
+          id: mainGraphId,
+          name: mainGraphId,
+        },
+        nodes: [mainSubgraphNode, mainOutputNode],
+      },
+      [subgraph1Id]: {
+        connections: [connect(nestedSubgraphNode.id, 'error', nestedOutputNode.id, 'value')],
+        metadata: {
+          description: '',
+          id: subgraph1Id,
+          name: subgraph1Id,
+        },
+        nodes: [nestedSubgraphNode, nestedOutputNode],
+      },
+      [subgraph2Id]: makeFailingExpressionGraph(subgraph2Id),
+    },
+    metadata: {
+      description: '',
+      id: 'debugger-caught-error-project' as ProjectId,
+      mainGraphId,
+      title: 'Debugger Caught Error Project',
+    },
+    plugins: [],
+  };
+}
+
 function makeSubgraphCallerGraph(graphId: GraphId, calledGraphId: GraphId, prefix: string): NodeGraph {
   const subgraphNode = makeSubgraphNode(`${prefix}-subgraph`, calledGraphId);
   const outputNode = makeGraphOutputNode(`${prefix}-output`, 'result', 'any');
@@ -145,6 +186,24 @@ function makeSubgraphCallerGraph(graphId: GraphId, calledGraphId: GraphId, prefi
       name: graphId,
     },
     nodes: [subgraphNode, outputNode],
+  };
+}
+
+function makeFailingExpressionGraph(graphId: GraphId): NodeGraph {
+  const failingExpressionNode = makeExpressionNode(
+    'subgraph2-failing-expression',
+    '(() => { throw new Error("nested expression failed"); })()',
+  );
+  const outputNode = makeGraphOutputNode('subgraph2-failing-output', 'result', 'any');
+
+  return {
+    connections: [connect(failingExpressionNode.id, 'output', outputNode.id, 'value')],
+    metadata: {
+      description: '',
+      id: graphId,
+      name: graphId,
+    },
+    nodes: [failingExpressionNode, outputNode],
   };
 }
 
@@ -185,12 +244,12 @@ function makeExpressionNode(id: string, expression: string): ChartNode {
   };
 }
 
-function makeSubgraphNode(id: string, graphId: GraphId): ChartNode {
+function makeSubgraphNode(id: string, graphId: GraphId, useErrorOutput = false): ChartNode {
   return {
     data: {
       graphId,
       useAsGraphPartialOutput: false,
-      useErrorOutput: false,
+      useErrorOutput,
     },
     id: id as NodeId,
     title: 'Subgraph',
@@ -737,6 +796,42 @@ describe('startDebuggerServer broadcast', () => {
       circularFinish.data.outputs.output.value.self,
       '[Unserializable value: circular reference]',
     );
+  });
+
+  it('sends nested nodeError events before done when a subgraph catches the graph error', async () => {
+    const server = new FakeWebSocketServer();
+    const socket = new FakeWebSocket();
+    const debuggerServer = startDebuggerServer({
+      server: server as unknown as WebSocketServer,
+      heartbeatIntervalMs: 0,
+    });
+    const fixture = makeNestedCaughtExpressionErrorProject();
+
+    server.connect(socket);
+
+    const processor = createProcessor(fixture, {
+      graph: 'main-error',
+      remoteDebugger: debuggerServer,
+    });
+
+    const outputs = await processor.run();
+
+    assert.equal(outputs['result' as PortId]?.type, 'string');
+    assert.match(String(outputs['result' as PortId]?.value), /subgraph2-failing-expression/);
+
+    const messages = socket.sentMessages.map((message) => JSON.parse(message));
+    const failingNodeErrorIndex = messages.findIndex(
+      (message) => message.message === 'nodeError' && message.data.node.id === 'subgraph2-failing-expression',
+    );
+    const doneIndex = messages.findIndex((message) => message.message === 'done');
+
+    assert.notEqual(failingNodeErrorIndex, -1, 'nested expression nodeError should be sent');
+    assert.notEqual(doneIndex, -1, 'successful root done should be sent');
+    assert.ok(failingNodeErrorIndex < doneIndex, 'nested expression nodeError should arrive before done');
+
+    const nodeError = messages[failingNodeErrorIndex]!;
+    assert.equal(nodeError.data.execution.graphId, 'subgraph2-error');
+    assert.match(nodeError.data.error, /nested expression failed/);
   });
 
   it('forwards node error duration metadata to debugger clients', async () => {

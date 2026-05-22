@@ -6,8 +6,8 @@ import type Emittery from 'emittery';
  * Use this instead of inline `// eslint-disable-next-line @typescript-eslint/no-floating-promises`
  * to make the "detached async" intent explicit and auditable.
  *
- * The returned promise is intentionally discarded. Listener errors are swallowed
- * by Emittery's default behavior (logged to console).
+ * The returned promise is intentionally discarded. Call this only for events
+ * where listener completion does not affect processor ordering.
  */
 export function emitDetached<T extends Record<string, unknown>>(
   emitter: Emittery<T>,

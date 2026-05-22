@@ -143,20 +143,18 @@ export function useFullscreenOutputSearch(args: { contentKey: FullscreenOutputSe
 
       clearHighlights(bodyElement);
 
-      const matchLength = query.toLocaleLowerCase().length;
-      if (matchLength === 0) {
+      if (query.length === 0) {
         matchesRef.current = [];
       } else {
         const blocks = buildSearchBlocks(bodyElement, providersRef.current, query);
-        matchesRef.current = projectMatches(blocks, query);
+        matchesRef.current = projectMatches(blocks);
 
         let nextGlobalMatchIndex = 0;
         for (const block of blocks) {
           if (block.kind === 'text' && block.matches.length > 0) {
             applyHighlights({
               textNodes: block.textNodes,
-              matchOffsets: block.matches,
-              matchLength,
+              matchRanges: block.matches,
               matchIndices: block.matches.map((_, localMatchIndex) => nextGlobalMatchIndex + localMatchIndex),
             });
           }

@@ -12,14 +12,14 @@ import {
   applyHighlights,
   clearHighlights,
   collectTextNodes,
-  findMatchOffsets,
+  findMatchRanges,
   PROVIDER_ATTRIBUTE,
+  type SearchMatchRange,
 } from '../nodeOutput/fullscreenOutputSearch.js';
 import { getLargeStoredValueChunkIndexForOffset, type LargeStoredValueChunk } from './largeStoredValueChunks.js';
 
 type ActiveSearchMatch = {
-  matchOffset: number;
-  query: string;
+  matchRange: SearchMatchRange;
 };
 
 export type LargeStoredValueFullscreenSearchResult = {
@@ -59,8 +59,7 @@ export function useLargeStoredValueFullscreenSearch(args: {
   const fullscreenOutputSearch = useFullscreenOutputSearchContext();
   const [activeSearchMatch, setActiveSearchMatch] = useState<ActiveSearchMatch | null>(null);
   const autoExpandedSearchStateRef = useRef<{ showFull: boolean; chunkPage: number } | null>(null);
-  const currentSearchQueryRef = useRef('');
-  const currentSearchMatchOffsetsRef = useRef<number[]>([]);
+  const currentSearchMatchRangesRef = useRef<SearchMatchRange[]>([]);
   const displayStateRef = useRef({
     showFull,
     chunkPage,
@@ -74,8 +73,7 @@ export function useLargeStoredValueFullscreenSearch(args: {
   useEffect(() => {
     setActiveSearchMatch(null);
     autoExpandedSearchStateRef.current = null;
-    currentSearchQueryRef.current = '';
-    currentSearchMatchOffsetsRef.current = [];
+    currentSearchMatchRangesRef.current = [];
   }, [providerId]);
 
   useLayoutEffect(() => {
@@ -86,15 +84,14 @@ export function useLargeStoredValueFullscreenSearch(args: {
     return fullscreenOutputSearch.registerProvider({
       id: providerId,
       rootElement: rootRef.current,
-      getMatchOffsets: (query: string) => {
-        currentSearchQueryRef.current = query;
-        const matchOffsets = fullText ? findMatchOffsets(fullText, query) : [];
-        currentSearchMatchOffsetsRef.current = matchOffsets;
-        return matchOffsets;
+      getMatchRanges: (query: string) => {
+        const matchRanges = fullText ? findMatchRanges(fullText, query) : [];
+        currentSearchMatchRangesRef.current = matchRanges;
+        return matchRanges;
       },
       activateMatch: (localMatchIndex: number) => {
-        const matchOffset = currentSearchMatchOffsetsRef.current[localMatchIndex];
-        if (matchOffset == null) {
+        const matchRange = currentSearchMatchRangesRef.current[localMatchIndex];
+        if (matchRange == null) {
           setActiveSearchMatch(null);
           return;
         }
@@ -109,19 +106,17 @@ export function useLargeStoredValueFullscreenSearch(args: {
         }
 
         if (shouldPageFullText) {
-          setChunkPage(getLargeStoredValueChunkIndexForOffset(chunks, matchOffset));
+          setChunkPage(getLargeStoredValueChunkIndexForOffset(chunks, matchRange.startOffset));
         } else {
           setChunkPage(0);
         }
 
         setActiveSearchMatch({
-          matchOffset,
-          query: currentSearchQueryRef.current,
+          matchRange,
         });
       },
       clearActiveMatch: () => {
-        currentSearchQueryRef.current = '';
-        currentSearchMatchOffsetsRef.current = [];
+        currentSearchMatchRangesRef.current = [];
         setActiveSearchMatch(null);
 
         const restoreState = autoExpandedSearchStateRef.current;
@@ -146,20 +141,24 @@ export function useLargeStoredValueFullscreenSearch(args: {
       return;
     }
 
-    const matchLength = activeSearchMatch.query.toLocaleLowerCase().length;
-    if (matchLength === 0) {
-      return;
-    }
-
-    const localMatchOffset = activeSearchMatch.matchOffset - activeChunk.startOffset;
-    if (localMatchOffset < 0 || localMatchOffset >= activeChunkText.length) {
+    const localMatchStartOffset = activeSearchMatch.matchRange.startOffset - activeChunk.startOffset;
+    const localMatchEndOffset = activeSearchMatch.matchRange.endOffset - activeChunk.startOffset;
+    if (
+      localMatchEndOffset <= 0 ||
+      localMatchStartOffset >= activeChunkText.length ||
+      localMatchEndOffset <= localMatchStartOffset
+    ) {
       return;
     }
 
     const activeHighlightElement = applyHighlights({
       textNodes: collectTextNodes(contentElement),
-      matchOffsets: [localMatchOffset],
-      matchLength,
+      matchRanges: [
+        {
+          startOffset: Math.max(0, localMatchStartOffset),
+          endOffset: Math.min(activeChunkText.length, localMatchEndOffset),
+        },
+      ],
       matchIndices: [0],
       activeMatchIndex: 0,
       includeMatchIndexAttribute: false,

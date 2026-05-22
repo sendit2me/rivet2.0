@@ -1400,7 +1400,9 @@ export class GraphProcessor {
     this.#handleLoopControllerPostProcess(node, attachedData);
     this.#handleCompletedRace(node);
 
-    if (!this.#assignChildLoopInfo(node, builtInNode, attachedData, processId)) {
+    const childLoopInfoError = this.#assignChildLoopInfo(node, builtInNode, attachedData);
+    if (childLoopInfoError) {
+      await this.#nodeErrored(node, childLoopInfoError, processId);
       return [];
     }
 
@@ -1541,16 +1543,14 @@ export class GraphProcessor {
     node: ChartNode,
     builtInNode: BuiltInNodes,
     attachedData: AttachedNodeData,
-    processId: ProcessId,
-  ): boolean {
+  ): Error | undefined {
     if (builtInNode.type !== 'loopController') {
-      return true;
+      return undefined;
     }
 
     let childLoopInfo = attachedData.loopInfo;
     if (childLoopInfo != null && childLoopInfo.loopControllerId !== builtInNode.id) {
-      this.#nodeErrored(node, new Error('Nested loops are not supported'), processId);
-      return false;
+      return new Error('Nested loops are not supported');
     }
 
     childLoopInfo = {
@@ -1566,7 +1566,7 @@ export class GraphProcessor {
     };
 
     attachedData.loopInfo = childLoopInfo;
-    return true;
+    return undefined;
   }
 
   #propagateAttachedDataToOutputNodes(
@@ -1617,7 +1617,7 @@ export class GraphProcessor {
     const processId = nanoid() as ProcessId;
 
     if (this.#abortController.signal.aborted) {
-      this.#nodeErrored(node, new Error('Processing aborted'), processId);
+      await this.#nodeErrored(node, new Error('Processing aborted'), processId);
       return processId;
     }
 
@@ -1644,7 +1644,12 @@ export class GraphProcessor {
         this.#nodeErrored(n, err, pid, durationMs, splitRunDurationMs),
       isAborted: () => this.#aborted,
       emit: (event, data) => {
-        emitDetached(this.#emitter, event, this.#withExecution(data));
+        if (event === 'partialOutput') {
+          emitDetached(this.#emitter, event, this.#withExecution(data));
+          return;
+        }
+
+        return this.#emitter.emit(event, this.#withExecution(data));
       },
       startNodeTiming: this.#captureNodeTimings ? () => this.#startNodeTiming() : undefined,
       finishNodeTiming: this.#captureNodeTimings ? (start) => this.#finishNodeTiming(start) : undefined,
@@ -1696,25 +1701,24 @@ export class GraphProcessor {
         ),
       );
     } catch (error) {
-      this.#nodeErrored(node, error, processId, this.#finishNodeTiming(timingStart));
+      await this.#nodeErrored(node, error, processId, this.#finishNodeTiming(timingStart));
     }
   }
 
-  #nodeErrored(
+  async #nodeErrored(
     node: ChartNode,
     e: unknown,
     processId: ProcessId,
     durationMs?: number,
     splitRunDurationMs?: Record<number, number>,
-  ) {
+  ): Promise<void> {
     const error = getError(e);
-    emitDetached(
-      this.#emitter,
+    this.#erroredNodes.set(node.id, error);
+    await this.#emitter.emit(
       'nodeError',
       this.#withExecution(withOptionalDuration({ node, error, processId }, durationMs, splitRunDurationMs)),
     );
     this.#emitTraceEvent(`Node ${node.title} (${node.id}-${processId}) errored: ${error.stack}`);
-    this.#erroredNodes.set(node.id, error);
   }
 
   getRootProcessor(): GraphProcessor {
