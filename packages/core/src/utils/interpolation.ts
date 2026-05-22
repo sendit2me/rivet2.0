@@ -21,6 +21,16 @@ export type ReplaceInterpolationTokensOptions = {
   trim?: boolean;
 };
 
+const EXTRACT_INTERPOLATION_VARIABLES_CACHE_MAX_ENTRIES = 2048;
+const EXTRACT_INTERPOLATION_VARIABLES_CACHE_MAX_TEMPLATE_LENGTH = 64 * 1024;
+const EXTRACT_INTERPOLATION_VARIABLES_CACHE_MAX_TEMPLATE_CHARS = 1024 * 1024;
+const extractedInterpolationVariablesCache = new Map<
+  string,
+  { templateLength: number; variables: readonly string[] }
+>();
+let extractedInterpolationVariablesCacheTemplateChars = 0;
+let lastUncachedInterpolationVariableTemplate: string | undefined;
+
 // Processing functions
 type ProcessingFunction = (input: string, param?: number) => string;
 
@@ -368,6 +378,15 @@ export function interpolate(
 // Extract all unique variable names from a template string
 // Ignores variables starting with @graphInputs. or @context., as they are treated as special references.
 export function extractInterpolationVariables(template: string): string[] {
+  if (!template.includes('{{')) {
+    return [];
+  }
+
+  const cachedVariables = getCachedInterpolationVariables(template);
+  if (cachedVariables) {
+    return [...cachedVariables];
+  }
+
   const protectedTemplate = protectEscapedInterpolationTokens(template);
   const variables = new Set<string>();
 
@@ -379,5 +398,39 @@ export function extractInterpolationVariables(template: string): string[] {
     }
   }
 
-  return Array.from(variables);
+  const extractedVariables = Array.from(variables);
+  cacheInterpolationVariables(template, extractedVariables);
+  return extractedVariables;
+}
+
+function getCachedInterpolationVariables(template: string): readonly string[] | undefined {
+  return extractedInterpolationVariablesCache.get(template)?.variables;
+}
+
+function cacheInterpolationVariables(template: string, variables: readonly string[]): void {
+  if (template.length > EXTRACT_INTERPOLATION_VARIABLES_CACHE_MAX_TEMPLATE_LENGTH) {
+    return;
+  }
+
+  if (
+    extractedInterpolationVariablesCache.size >= EXTRACT_INTERPOLATION_VARIABLES_CACHE_MAX_ENTRIES ||
+    extractedInterpolationVariablesCacheTemplateChars + template.length >
+      EXTRACT_INTERPOLATION_VARIABLES_CACHE_MAX_TEMPLATE_CHARS
+  ) {
+    // Avoid miss-by-miss eviction churn; only reset when a full-cache miss proves hot by repeating immediately.
+    if (lastUncachedInterpolationVariableTemplate !== template) {
+      lastUncachedInterpolationVariableTemplate = template;
+      return;
+    }
+
+    extractedInterpolationVariablesCache.clear();
+    extractedInterpolationVariablesCacheTemplateChars = 0;
+  }
+
+  lastUncachedInterpolationVariableTemplate = undefined;
+  extractedInterpolationVariablesCache.set(template, {
+    templateLength: template.length,
+    variables: Object.freeze([...variables]),
+  });
+  extractedInterpolationVariablesCacheTemplateChars += template.length;
 }

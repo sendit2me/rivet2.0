@@ -652,7 +652,7 @@ P4 conclusion:
 - Direct A/B benchmark against clean `HEAD` in a temporary worktree (`RIVET_RUNTIME_BENCH_SAMPLES=3`, `RIVET_RUNTIME_BENCH_ITERATIONS=30`, `RIVET_RUNTIME_BENCH_WARMUP_ITERATIONS=5`) showed modest cheap-chain wins, not a major architectural jump: `runGraph text chain 100` improved `2.370ms -> 2.234ms`, `runGraph text chain 500` improved `11.040ms -> 10.584ms`, `fresh createProcessor default-safe text chain 500` improved `11.264ms -> 10.517ms`, and `createGraphRunner text chain 500` improved `11.175ms -> 10.711ms`. Wide independent node rows were neutral-to-slightly-worse in this noisy local pass, so the phase stops at low-risk allocation cleanup rather than adding capability flags.
 - Verification passed for focused GraphProcessor tests, runtime-speed/default-fast/API/graph-runner Node tests, and the full runtime benchmark matrix.
 
-### P5: Cache Or Precompute Dynamic Port Definitions Safely
+### P5: Cache Or Precompute Dynamic Port Definitions Safely (DONE)
 
 Purpose:
 
@@ -701,6 +701,16 @@ Acceptance criteria:
 - Dynamic input discovery remains correct for interpolation nodes.
 - Connection validation tests still pass.
 - Plugin compatibility remains conservative.
+
+P5 conclusion:
+
+- Reassessed the live preprocessor and found that `preprocessGraphState(...)` already asks each node for input/output definitions only once per preprocess call. A per-call `NodeImpl` definition cache would not hit in normal graphs and would add policy/key overhead to the hot path.
+- Kept plugin and connection-sensitive node definitions uncached. Nodes such as Array, Coalesce, Join, Passthrough, Race Inputs, Loop Controller, Delay, Subgraph, Referenced Graph Alias, and Loop Until can depend on current connections or graph boundaries, so P5 does not memoize their full port-definition arrays.
+- Added a bounded pure cache to [`interpolation.ts`](packages/core/src/utils/interpolation.ts) for `extractInterpolationVariables(...)`, the shared parser used by Text, Prompt, Object, Code, Expression, JS Filter, JS Map, Extract Object Path, Tool schema interpolation, and Thread Message input discovery. The cache stores only exact-template variable-name arrays; callers still receive fresh arrays, and no graph/project/runtime values are cached.
+- Tightened the cache after reassessment: a small 512-entry cache could churn on many distinct short templates, an evict-on-every-new-template policy regressed a 10,000-template stress case, and a permanently full no-eviction cache could block later hot templates. The final cache uses entry and text budgets, skips per-miss eviction when full, and adapts only when the same uncached template repeats immediately. Oversized one-off sets fall back to normal parsing instead of thrashing.
+- Added parser coverage proving cached extraction keeps the previous mutable-return behavior: mutating one returned array does not corrupt later calls.
+- Focused parser microbenchmark on this checkout showed repeated extraction speedups for both short and medium templates: same short template `192.01ms -> 12.89ms`, a 1000-template short cycle `188.88ms -> 15.90ms`, and same medium template `2988.99ms -> 13.12ms` over 500,000 extraction calls. The 10,000-template stress case stayed neutral-to-slightly-faster (`190.14ms -> 179.73ms`) instead of thrashing.
+- Runtime benchmark pass (`RIVET_RUNTIME_BENCH_SAMPLES=3`, `RIVET_RUNTIME_BENCH_ITERATIONS=30`, `RIVET_RUNTIME_BENCH_WARMUP_ITERATIONS=5`) remained noisy at full-matrix scale. The most direct preprocessing row improved from the pre-P5 baseline `1.186ms` to `0.693ms` for `lazy preprocess/dependency text chain 500`. Public run rows were mixed within local variance: text-chain and subgraph rows did not show a clean broad win, so this phase deliberately stops at the pure parser cache instead of adding riskier node-definition memoization.
 
 ### P6: Optimize One-Shot Project File Loading
 

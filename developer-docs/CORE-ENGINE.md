@@ -240,6 +240,8 @@ Input definitions that are generated from user-authored `{{var}}` interpolation 
 
 Interpolation safety coverage should stay broad whenever this contract changes: core tests cover parser edge cases and built-in input-definition marking, negative tests cover runtime-only consumers such as `To Tree`, app graph-editing tests cover rename preservation for marked built-ins and plugin nodes, and execution-data tests cover parsed-source previews using the captured run inputs rather than current editor state.
 
+Dynamic interpolation port discovery uses a small bounded cache in the shared interpolation parser. The cache is keyed only by exact template text and stores extracted variable names, not node definitions, graph state, runtime values, or plugin results. When the cache is full, new templates are parsed normally instead of evicting entries on every miss. If the same uncached template repeats immediately, the cache adapts by clearing old entries and admitting that new hot template. Callers still receive a fresh array, so existing node-definition code can keep treating the result as mutable. Keep plugin node definitions and connection-sensitive built-ins out of this cache path unless a future API adds an explicit cache-safety contract.
+
 The built-in node directory is intentionally broad; prefer documenting behavior contracts and shared helper boundaries over hard-coding file counts that drift whenever a node is added or split.
 
 ### Plugin nodes
