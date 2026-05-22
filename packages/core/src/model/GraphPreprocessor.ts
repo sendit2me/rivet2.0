@@ -27,6 +27,7 @@ export type GraphPreprocessorResult = {
 export type GraphExecutionPlan = Omit<GraphPreprocessorResult, 'nodeInstances'> & {
   cycleIndexByNode: Record<NodeId, number>;
   graphNodes: ChartNode[];
+  nodeIds: readonly NodeId[];
   inputConnectionByNodeAndPort: GraphPortConnectionMap;
   inputConnectionsByNode: Record<NodeId, NodeConnection[]>;
   inputNodesByNode: Record<NodeId, ChartNode[]>;
@@ -155,6 +156,7 @@ export function toReusableGraphExecutionPlan(preprocessedGraph: GraphPreprocesso
     cycleIndexByNode: preprocessedGraph.cycleIndexByNode,
     definitions: preprocessedGraph.definitions,
     graphNodes: preprocessedGraph.graphNodes,
+    nodeIds: preprocessedGraph.nodeIds,
     inputConnectionByNodeAndPort: preprocessedGraph.inputConnectionByNodeAndPort,
     inputConnectionsByNode: preprocessedGraph.inputConnectionsByNode,
     inputNodesByNode: preprocessedGraph.inputNodesByNode,
@@ -464,6 +466,7 @@ function buildGraphExecutionPlan(options: {
   return {
     cycleIndexByNode,
     graphNodes,
+    nodeIds: graphNodes.map((node) => node.id),
     inputConnectionByNodeAndPort,
     inputConnectionsByNode,
     inputNodesByNode,

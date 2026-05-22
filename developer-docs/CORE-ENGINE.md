@@ -466,12 +466,19 @@ so subgraph, call-graph, loop, cron, tool-delegation, and referenced-graph
 invocations can reuse their own immutable plans too. Cached plans also do not
 reuse `NodeImpl` runtime objects; each processor creates fresh node
 implementations before processing so custom node instance state stays
-run-scoped.
+run-scoped. When a fresh subprocessor is created and the runtime cache already
+has that child graph's immutable plan, `#createSubProcessor(...)` seeds the
+child with the plan before its first `processGraph(...)` call. That skips the
+preprocessor dispatch for that one child instance while still creating fresh
+node implementations and fresh mutable run state.
 
 Current architectural detail:
 
 - preprocessing is not only a `processGraph(...)` concern; some public helper paths depend on it being available lazily
 - cached plans are scoped to immutable runner snapshots; graph edits, registry/plugin changes, settings that affect definitions, or project-reference changes require a new runner
+- applying a fresh or cached preprocessed state replaces the processor's
+  node-instance, node-id, and connection maps instead of merging into old maps;
+  this keeps reused processors from retaining stale graph-edit state
 - `createProcessor(...)`, and eligible `runGraph(...)` calls that route through
   the same default-safe policy, use the same plan shape only as run-scoped data
   for a fresh one-off processor run. The Node wrapper clears that cache before
@@ -629,6 +636,9 @@ The low-level event/lifecycle plumbing for that parent-child relationship now li
 Important current behavior:
 
 - child processors emit already-enriched execution metadata rather than relying on the parent bridge to reconstruct lineage after the fact
+- child processors can be seeded with a cached immutable child-graph plan, but
+  never with prior node outputs, globals, abort state, pause state, queued
+  nodes, execution metadata, or reused `NodeImpl` objects
 - node events emitted inside a subgraph reference that subgraph invocation's `graphRunId`
 - split-sequential subgraph calls preserve executor `splitIndex` in execution metadata so app-side consumers can distinguish sibling invocations that share the same graph definition
 - `SubprocessorBridge` uses a run-scoped lifecycle subscription keyed by the child processor's own `graphRunId`, so forwarding/lifecycle listeners clean up for that processor's run while forwarded events from deeper nested child processors continue through the parent bridge without prematurely disconnecting parent `nodeFinish` events

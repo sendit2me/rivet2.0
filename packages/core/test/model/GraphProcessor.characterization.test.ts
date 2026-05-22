@@ -224,6 +224,20 @@ void describe('GraphProcessor characterization', () => {
     ]);
   });
 
+  void it('replaces preprocessed graph maps when a reused processor sees graph edits', async () => {
+    const nodeA = makeProbeNode('node-a', { value: { type: 'string', value: 'alpha' } });
+    const outputNode = makeGraphOutputNode('result');
+    const graph = makeGraph([nodeA, outputNode], [connect(nodeA.id, outputNode.id, 'value')]);
+    const processor = createProcessor(graph);
+
+    const firstOutputs = await processor.processGraph(testProcessContext());
+    graph.connections = [];
+    const secondOutputs = await processor.processGraph(testProcessContext());
+
+    assert.deepEqual(firstOutputs.result, { type: 'string', value: 'alpha' });
+    assert.equal(secondOutputs.result, undefined);
+  });
+
   void it('emits node and graph errors without graphFinish or done, then still emits finish', async () => {
     const failingNode = makeProbeNode('failing-node', { throwMessage: 'characterized failure' });
     const graph = makeGraph([failingNode], []);

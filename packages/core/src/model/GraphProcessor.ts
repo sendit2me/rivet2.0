@@ -248,6 +248,29 @@ function resolveGraphProcessorConcurrency(
   };
 }
 
+function resolveProcessorGraph(project: Project, graphId: GraphId | undefined): NodeGraph | undefined {
+  if (graphId) {
+    return project.graphs[graphId];
+  }
+
+  return project.metadata.mainGraphId ? project.graphs[project.metadata.mainGraphId] : undefined;
+}
+
+function replaceRecordContents<TKey extends string, TValue>(
+  target: Record<TKey, TValue>,
+  source: Record<TKey, TValue>,
+): void {
+  if (target === source) {
+    return;
+  }
+
+  for (const key of Object.keys(target) as TKey[]) {
+    delete target[key];
+  }
+
+  Object.assign(target, source);
+}
+
 export type RaceId = Tagged<string, 'RaceId'>;
 
 export type LoopInfo = AttachedNodeDataItem & {
@@ -298,6 +321,7 @@ export class GraphProcessor {
   readonly #cacheLoadedProjects: boolean;
   readonly #scheduler: GraphProcessorScheduler;
   readonly #captureNodeTimings: boolean;
+  #useSeededExecutionPlanOnNextRun = false;
   id = nanoid();
 
   readonly #includeTrace?: boolean = true;
@@ -398,16 +422,13 @@ export class GraphProcessor {
       captureNodeTimings?: boolean;
       concurrency?: GraphProcessorConcurrency;
       executionPlanCacheMode?: GraphProcessorExecutionPlanCacheMode;
+      initialExecutionPlan?: GraphExecutionPlan;
       runtimeCache?: GraphProcessorRuntimeCache;
       scheduler?: GraphProcessorScheduler;
     },
   ) {
     this.#project = project;
-    const graph = graphId
-      ? project.graphs[graphId]
-      : project.metadata.mainGraphId
-        ? project.graphs[project.metadata.mainGraphId]
-        : undefined;
+    const graph = resolveProcessorGraph(project, graphId);
 
     if (!graph) {
       throw new Error(`Graph ${graphId} not found in project`);
@@ -433,6 +454,11 @@ export class GraphProcessor {
     this.#emitter.on('globalSet', ({ id, value }: ProcessEvents['globalSet']) => {
       emitDetached(this.#emitter, `globalSet:${id}`, value);
     });
+
+    if (options?.initialExecutionPlan) {
+      this.#applyPreprocessedGraph(options.initialExecutionPlan, { recreateNodeInstances: true });
+      this.#useSeededExecutionPlanOnNextRun = true;
+    }
   }
 
   #preprocessGraph() {
@@ -468,15 +494,19 @@ export class GraphProcessor {
   }
 
   #canUseRuntimeExecutionPlanCache(): boolean {
+    return this.#canUseRuntimeExecutionPlanCacheFor(this.#project, this.#isSubProcessor);
+  }
+
+  #canUseRuntimeExecutionPlanCacheFor(project: Project, isSubProcessor: boolean): boolean {
     if (this.warnOnInvalidGraph || this.#runtimeCache == null) {
       return false;
     }
 
-    if (this.#executionPlanCacheMode === 'subprocessors' && !this.#isSubProcessor) {
+    if (this.#executionPlanCacheMode === 'subprocessors' && !isSubProcessor) {
       return false;
     }
 
-    if (!this.#cacheLoadedProjects && (this.#project.references?.length ?? 0) > 0) {
+    if (!this.#cacheLoadedProjects && (project.references?.length ?? 0) > 0) {
       return false;
     }
 
@@ -501,20 +531,31 @@ export class GraphProcessor {
         ? this.#createNodeInstances(isGraphExecutionPlan(preprocessedGraph) ? preprocessedGraph.graphNodes : this.#graph.nodes)
         : preprocessedGraph.nodeInstances;
 
-    Object.assign(this.#nodeInstances, nodeInstances);
-    Object.assign(this.#nodesById, preprocessedGraph.nodesById);
-    Object.assign(this.#connections, preprocessedGraph.connections);
+    replaceRecordContents(this.#nodeInstances, nodeInstances);
+    replaceRecordContents(this.#nodesById, preprocessedGraph.nodesById);
+    replaceRecordContents(this.#connections, preprocessedGraph.connections);
     this.#definitions = preprocessedGraph.definitions;
     this.#scc = preprocessedGraph.stronglyConnectedComponents;
     this.#nodesNotInCycle = preprocessedGraph.nodesNotInCycle;
     this.#graphExecutionPlan = isGraphExecutionPlan(preprocessedGraph) ? preprocessedGraph : undefined;
   }
 
+  #seededExecutionPlanForNextRun(): GraphExecutionPlan | undefined {
+    if (!this.#useSeededExecutionPlanOnNextRun || this.warnOnInvalidGraph) {
+      return undefined;
+    }
+
+    return this.#graphExecutionPlan;
+  }
+
   #createNodeInstances(nodes: ChartNode[]): Record<NodeId, NodeImpl<ChartNode>> {
-    return Object.fromEntries(nodes.map((node) => [node.id, this.#registry.createDynamicImpl(node)])) as Record<
-      NodeId,
-      NodeImpl<ChartNode>
-    >;
+    const nodeInstances: Record<NodeId, NodeImpl<ChartNode>> = {};
+
+    for (const node of nodes) {
+      nodeInstances[node.id] = this.#registry.createDynamicImpl(node);
+    }
+
+    return nodeInstances;
   }
 
   #emitTraceEvent(eventData: string) {
@@ -780,7 +821,12 @@ export class GraphProcessor {
 
     this.#erroredNodes = new Map();
     this.#currentlyProcessing = new Set();
-    this.#remainingNodes = new Set(this.#graph.nodes.map((n) => n.id));
+    const seededExecutionPlan = this.#seededExecutionPlanForNextRun();
+    this.#remainingNodes = new Set(
+      seededExecutionPlan
+        ? seededExecutionPlan.nodeIds
+        : this.#graph.nodes.map((node) => node.id),
+    );
     this.#pendingUserInputs = {};
     this.#processingQueue = new PQueue({ concurrency: this.#concurrency.nodeConcurrency });
     this.#graphOutputs = {};
@@ -829,7 +875,11 @@ export class GraphProcessor {
     try {
       this.#initializeGraphRun(context, inputs, contextValues);
       await this.#loadProjectReferences();
-      this.#preprocessGraph();
+      const shouldUseSeededExecutionPlan = this.#seededExecutionPlanForNextRun() != null;
+      this.#useSeededExecutionPlanOnNextRun = false;
+      if (!shouldUseSeededExecutionPlan) {
+        this.#preprocessGraph();
+      }
       await this.#emitGraphStart();
       await this.#emitPreloadedNodeResults();
       await this.#waitUntilUnpaused();
@@ -1816,11 +1866,19 @@ export class GraphProcessor {
     subGraphId: GraphId | undefined,
     { signal, project }: { signal?: AbortSignal; project?: Project } = {},
   ): GraphProcessor {
-    const processor = new GraphProcessor(project ?? this.#project, subGraphId, this.#registry, this.#includeTrace, {
+    const subprocessorProject = project ?? this.#project;
+    const subprocessorGraph = resolveProcessorGraph(subprocessorProject, subGraphId);
+    const initialExecutionPlan =
+      subprocessorGraph && this.#canUseRuntimeExecutionPlanCacheFor(subprocessorProject, true)
+        ? this.#runtimeCache?.executionPlans?.get(subprocessorGraph)
+        : undefined;
+
+    const processor = new GraphProcessor(subprocessorProject, subGraphId, this.#registry, this.#includeTrace, {
       cacheLoadedProjects: this.#cacheLoadedProjects,
       captureNodeTimings: this.#captureNodeTimings,
       concurrency: this.#concurrency,
       executionPlanCacheMode: this.#executionPlanCacheMode,
+      initialExecutionPlan,
       runtimeCache: this.#runtimeCache,
       scheduler: this.#scheduler,
     });

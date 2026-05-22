@@ -59,7 +59,9 @@ describe('GraphPreprocessor', () => {
       result.startNodes.map((node) => node.id),
       ['b'],
     );
+    assert.deepEqual(result.nodeIds, ['a', 'b']);
     assert.equal('nodeInstances' in toReusableGraphExecutionPlan(result), false);
+    assert.deepEqual(toReusableGraphExecutionPlan(result).nodeIds, ['a', 'b']);
   });
 
   it('keeps output nodes unique while grouping multiple connections to the same target', () => {

@@ -161,7 +161,10 @@ setup. It does not cache `NodeImpl` runtime instances, run outputs, graph
 inputs, context values, globals, abort state, queued nodes, or execution
 metadata. The runner clears its owned caches on `dispose()`. Each run still uses
 a run-scoped `GraphProcessor` with fresh node implementations so mutable
-processor or custom-node state cannot leak between backend requests. Eligible
+processor or custom-node state cannot leak between backend requests. If a child
+graph plan is already in the runtime cache, the fresh child processor is seeded
+with that immutable plan before its first `processGraph(...)` call; this skips
+child preprocessor dispatch while still creating fresh runtime state. Eligible
 acyclic graphs can also use the internal fast ready-queue scheduler; unsupported
 graphs automatically use the compatible scheduler. Remote
 Debugger, recording, SSE/event-stream consumers, editor run-from, and

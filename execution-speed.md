@@ -581,6 +581,21 @@ Acceptance criteria:
 - Nested graph event characterization tests still pass.
 - Concurrent subgraph/split-run tests still pass.
 
+P3 conclusion:
+
+- Added a lightweight fresh-subprocessor startup path in [`GraphProcessor.ts`](packages/core/src/model/GraphProcessor.ts): when a child graph already has a runtime-cached immutable execution plan, `#createSubProcessor(...)` seeds the fresh child processor with that plan and the cached node-id list before its first run. The child still creates fresh `NodeImpl` instances and fresh mutable run state.
+- Added `nodeIds` to reusable graph execution plans so cached-plan runs can initialize per-run remaining-node state without remapping graph nodes.
+- Replaced `Object.fromEntries(nodes.map(...))` node-instance construction with a direct loop, avoiding temporary arrays on every fresh processor/subprocessor.
+- Reassessment cleanup: preprocessed graph state now replaces the processor's
+  node-instance, node-id, and connection maps instead of merging into previous
+  maps. This closes a stale-map edge case for reused processors after in-place
+  graph edits and keeps cached-plan application easier to reason about.
+- Kept project-reference loading behavior unchanged after reassessment. A broader same-run reference-map inheritance idea reduced duplicate loader calls, but it also changed explicit compatible loader-call behavior, so it was rejected for this phase.
+- Added preprocessor coverage for cached plan `nodeIds` and a reused-processor
+  regression for stale connection-map state after graph edits.
+- Verification passed for focused core preprocessor/GraphProcessor characterization tests, Node runtime-speed/API/default-fast/runner/equivalence tests, and core/node lint.
+- Benchmark pass (`RIVET_RUNTIME_BENCH_SAMPLES=3`, `RIVET_RUNTIME_BENCH_ITERATIONS=50`, `RIVET_RUNTIME_BENCH_WARMUP_ITERATIONS=5`) kept simple single-subgraph and passthrough rows neutral at sub-millisecond scale and improved the P2 target guard rows: repeated Subgraph same-input `10.389ms` versus the P2 guard `12.780ms`, repeated Subgraph changing-input `8.610ms` versus `11.275ms`, and repeated Referenced Graph Alias `10.611ms` versus `12.960ms`. Full-matrix absolute values still drift between passes, so the target-row comparison is the meaningful signal.
+
 ### P4: Reduce Per-Node Context And Abort Overhead
 
 Purpose:
