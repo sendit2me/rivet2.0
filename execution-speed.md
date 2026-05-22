@@ -2,9 +2,20 @@
 
 ## Status
 
-Ready for implementation.
+Implemented through P12. A full before/after matrix after P7 showed
+unacceptable regressions in cheap runtime paths, so P8-P12 attributed and fixed
+the repeatable overhead, preserved the intended wins, and added the final
+release-gate matrix.
 
-This document is an implementation plan for reducing Rivet workflow runtime overhead. It focuses on making a single workflow run faster through `runGraph(...)`, fresh `createProcessor(...).run()`, and graph-runner APIs, not on caching final outputs for repeated identical requests.
+This document is both the original implementation plan and the implementation
+record for the completed runtime-speed pass. It focuses on making a single
+workflow run faster through `runGraph(...)`, fresh
+`createProcessor(...).run()`, and graph-runner APIs, not on caching final
+outputs for repeated identical requests. The post-P7 matrix in
+[`runtime-speed-before-after.md`](runtime-speed-before-after.md) has been
+rerun after the P8-P12 recovery work and is the current performance result for
+this pass. Future speed work must compare against full-matrix evidence and must
+not rely only on isolated phase-level wins.
 
 ## Goal
 
@@ -45,7 +56,10 @@ They must not cache final node outputs unless a future feature explicitly adds o
 
 ## Performance Rules
 
-Every phase must make workflow runs faster or be rejected.
+Every optimization phase must make workflow runs faster or be rejected. P0 was
+the baseline/guardrail phase, and P7 was the final scheduler-expansion decision
+phase; those phases are accepted when they improve measurement quality or avoid
+unsafe speed work rather than when they change runtime code directly.
 
 Use these rules when implementing:
 
@@ -336,6 +350,13 @@ Graph runner workflows:
 - `createGraphRunner compatible mixed subgraph fan-in`
 - `createGraphRunner headless-fast mixed subgraph fan-in`
 
+Scheduler isolation rows:
+
+- `direct GraphProcessor compatible text chain 500`
+- `direct GraphProcessor fast-acyclic text chain 500`
+- `direct GraphProcessor compatible wide fan-in 200`
+- `direct GraphProcessor fast-acyclic wide fan-in 200`
+
 Referenced graph workflows:
 
 - `runGraph Call Graph repeated same-input 50`
@@ -355,6 +376,8 @@ Secondary setup/loading scenario:
 - `runGraphInFile passthrough one-shot`
 - `runGraphInFile subgraph project one-shot`
 - `runGraphInFile referenced-project one-shot with projectPath`
+- `loadProjectFromString subgraph project only`
+- `loadProjectFromFile subgraph project only`
 
 If a phase targets a missing scenario, add the benchmark first. In particular, add or keep coverage for:
 
@@ -849,7 +872,452 @@ P7 conclusion:
   class, with golden event/recording/abort characterization first and benchmark
   proof that the specific class has a substantial win.
 
-## Implemented Order
+### P8: Attribute The Full-Matrix Regressions Before Changing More Runtime Code (DONE)
+
+Identify exactly which implemented optimization adds overhead to each regressed
+runtime shape. Do not start another broad optimization until this attribution is
+done.
+
+Why:
+
+The full matrix in
+[`runtime-speed-before-after.md`](runtime-speed-before-after.md) showed that
+the post-P7 checkout is not a net runtime win. Important regressions include
+passthrough, cheap text chains, compatible scheduler text chains,
+`createGraphRunner(...)` text chains, wide independent text nodes, single
+Subgraph calls, and `runGraph(...)` repeated Subgraph rows. Those regressions
+are too large to explain away as noise, especially because many rows regressed
+by 15-48%.
+
+What to change:
+
+1. Start with phase-level bisection before adding new instrumentation. Benchmark
+   the same critical row set at these commits so each regression is tied to the
+   phase that introduced it:
+   - pre-speed baseline: `e70f6e5d3d84db4519d4a31037ee66d82d028a10`;
+   - P0 baseline/guards: `3a3ce234`;
+   - P1 `runGraph(...)` policy: `354db8e3`;
+   - P2 graph boundary cache: `60e13bc0`;
+   - P3 cached subprocessor startup: `5ddda82c`;
+   - P4 per-node/context cleanup: `fd9917e0`;
+   - P5 interpolation port cache: `8b9df95c`;
+   - P6 one-shot loading: `d89ea3a1`;
+   - P7 scheduler reassessment: `05fed9d7`.
+2. Treat direct `GraphProcessor` regressions as core hot-path regressions, not
+   Node API policy regressions. `direct GraphProcessor compatible text chain
+   500` regressed in the full matrix, so P8 must inspect core processor,
+   preprocessor, planner, context, and helper changes even if `runGraph(...)`
+   routing is later narrowed.
+3. Add benchmark-only attribution switches, not public API, for the runtime
+   optimization groups introduced in P1-P6.
+4. The switches should be centralized in the benchmark harness or internal
+   runtime policy construction, so production code does not accumulate scattered
+   debug branches.
+5. Attribute these groups separately:
+   - `runGraph(...)` default-safe policy selection.
+   - graph boundary caches and boundary-definition context.
+   - cached subprocessor plan/state construction.
+   - per-node context and abort allocation changes.
+   - interpolation-variable parser cache.
+   - one-shot project loading changes.
+6. Run a short targeted matrix for each switch:
+   - passthrough through `runGraph(...)`, fresh `createProcessor(...)`, and
+     `createGraphRunner(...)`;
+   - text chain 20, 100, and 500;
+   - wide independent text nodes 100;
+   - single Subgraph call;
+   - repeated Subgraph same-input and changing-input;
+   - repeated `Call Graph` and `Referenced Graph Alias`;
+   - Expression and Code chains;
+   - `runGraphInFile(...)` rows.
+7. Classify each regression into one of these owners:
+   - core per-node execution overhead, when direct `GraphProcessor` rows move;
+   - Node API/runtime-policy overhead, when `runGraph(...)` or
+     `createProcessor(...)` moves but direct `GraphProcessor` does not;
+   - runner cache/policy overhead, when only `createGraphRunner(...)` moves;
+   - subprocessor-boundary overhead, when single/repeated Subgraph rows move;
+   - scheduler overhead, when `fast-acyclic` moves differently from compatible;
+   - file-loading/setup overhead, when only `runGraphInFile(...)` or loading
+     rows move.
+8. Profile the worst cheap rows with Node CPU profiling after the switch matrix
+   narrows the suspect:
+   - `runGraph text chain 500`;
+   - `direct GraphProcessor compatible text chain 500`;
+   - `direct GraphProcessor fast-acyclic text chain 500`;
+   - `createGraphRunner headless-fast text chain 500`;
+   - `runGraph single subgraph call`;
+   - `fresh createProcessor default-safe passthrough`.
+9. Record an attribution table in this document and in the before/after matrix
+   doc. Each row should say which optimization caused the regression, whether
+   the fix is rollback, narrowing, or rewrite, and which benchmark proves it.
+
+Risks:
+
+- Benchmark-only switches can become stale if they do not exercise the same code
+  as production. Keep them near the policy or helper they disable.
+- Too many switches can make the runtime harder to reason about. Remove
+  temporary switches after attribution unless they become a deliberate
+  supported runtime policy.
+- CPU profiles can be noisy at sub-millisecond scale. Use them to find call
+  stacks, not as the only source of timing truth.
+- Regressions may have more than one cause. Treat additive overhead as a first
+  class possibility instead of looking for a single culprit.
+- Phase-level commits may include unrelated cleanup or benchmark harness changes.
+  Use them for direction, then verify with a same-checkout switch or patch.
+
+Acceptance criteria:
+
+- Every full-matrix regression above 10% has an attributed cause or an explicit
+  "still unknown" entry with the next investigation step.
+- Direct core regressions are separated from Node API policy regressions.
+- The attribution matrix is run on the same machine and benchmark harness as the
+  post-P7 full matrix.
+- No new production behavior change is made in this phase except temporary
+  internal attribution controls that are removed or documented before commit.
+
+P8 conclusion:
+
+- Added `RIVET_RUNTIME_BENCH_FILTER` and `RIVET_RUNTIME_BENCH_JSON=1` to
+  [`runtimeSpeed.bench.ts`](packages/node/bench/runtimeSpeed.bench.ts), so
+  regression attribution can run focused benchmark subsets and emit a JSON
+  benchmark payload without changing runtime behavior.
+- Ran the planned phase bisection against the speed commits in a temporary
+  worktree with the current benchmark harness overlaid. The short bisection was
+  useful for direction but too noisy to justify code movement by itself.
+- Re-ran focused baseline/current subsets with the full matrix sample shape:
+  `RIVET_RUNTIME_BENCH_SAMPLES=10`,
+  `RIVET_RUNTIME_BENCH_ITERATIONS=30`, and
+  `RIVET_RUNTIME_BENCH_WARMUP_ITERATIONS=10`.
+- That higher-confidence pass showed that the most alarming post-P7 full-matrix
+  regressions were not stable as broad runtime regressions. The remaining
+  actionable signal was fixed overhead in cheap text-chain rows, including
+  direct `GraphProcessor` rows, so the recovery had to touch the core hot path
+  rather than only Node API routing.
+
+### P9: Restore Cheap Runtime Paths To Baseline First (DONE)
+
+Kill the massive cheap-graph regressions before preserving smaller wins. This is
+the highest-priority follow-up.
+
+Why:
+
+Cheap graphs are where Rivet orchestration overhead matters most. If a
+passthrough graph, text chain, or one-off Subgraph call is 20-50% slower, the
+speed plan failed even if some heavier rows improved.
+
+What to change:
+
+1. Use the P8 attribution table to remove or bypass the source of overhead in
+   cheap paths.
+2. If direct `GraphProcessor` compatible rows are still slower than baseline,
+   fix the core hot path first. Routing `runGraph(...)` differently cannot solve
+   regressions that are already present below the Node API layer.
+3. Restore these rows before considering any targeted win preserved:
+   - `load once + runGraph passthrough`;
+   - `reuse createProcessor passthrough`;
+   - `fresh createProcessor default-safe passthrough`;
+   - `createGraphRunner passthrough`;
+   - `direct GraphProcessor text chain 20`;
+   - `runGraph text chain 20`;
+   - `runGraph text chain 100`;
+   - `runGraph text chain 500`;
+   - `direct GraphProcessor compatible text chain 500`;
+   - `direct GraphProcessor fast-acyclic text chain 500`;
+   - `createGraphRunner text chain 500`;
+   - `createGraphRunner headless-fast text chain 500`;
+   - `runGraph wide independent text nodes 100`;
+   - `fresh createProcessor default-safe wide independent text nodes 100`;
+   - `runGraph single subgraph call`;
+   - `fresh createProcessor default-safe single subgraph call`.
+4. Keep simple compatible graphs on the thinnest possible runtime path:
+   - no graph boundary cache construction when the graph has no boundary caller
+     that can use it;
+   - no subprocessor cache setup for graphs with no direct Subgraph / Referenced
+     Graph Alias / `Call Graph` work;
+   - no default-safe policy work for shapes that benchmark better on the old
+     compatible path;
+   - no per-node helper allocation unless the node or run mode needs it.
+5. Produce a cheap-graph policy once per processor or runner, not inside each
+   node execution.
+6. If an optimization only helps `headless-fast`, keep it behind
+   `runtimeProfile: 'headless-fast'` and out of the compatible/default-safe
+   path.
+7. If a broad helper is responsible for a cheap-path regression, prefer one of
+   these fixes in this order:
+   - delete the helper if no full-matrix win depends on it;
+   - move it into the narrow code path that consumes it;
+   - rewrite it to be zero-work until first use;
+   - add a shape/policy guard only if deletion or lazy construction loses a
+     proven win.
+8. Re-run the cheap runtime gate after every patch:
+   - passthrough rows;
+   - text chain 20, 100, and 500;
+   - compatible scheduler text chain 500;
+   - `createGraphRunner(...)` text chain 500;
+   - wide independent text nodes 100;
+   - single Subgraph call.
+
+Risks:
+
+- Overcorrecting can erase real wins from P1-P6. That is acceptable only when
+  the win is small and the cheap regression is large.
+- A shape-based cutoff can be wrong if the analyzer is too clever. Keep the
+  analyzer simple and benchmark the exact rows it routes.
+- Reverting one optimization can reveal another hidden overhead. Keep the full
+  matrix as the final gate, not just the first fixed row.
+
+Acceptance criteria:
+
+- No cheap runtime row is more than 3% slower than the original baseline unless
+  the absolute delta is below measurement noise and documented.
+- No runtime row is more than 10% slower than baseline.
+- Direct `GraphProcessor` compatible and `fast-acyclic` text-chain rows are
+  restored before API-level routing work is considered complete.
+- The code path for simple graphs is easier to explain than the post-P7 path.
+
+P9 conclusion:
+
+- Removed a redundant core execution scan in
+  [`GraphProcessor.ts`](packages/core/src/model/GraphProcessor.ts). Each node's
+  input nodes were computed and checked in `#processNodeIfAllInputsAvailable`,
+  then computed again inside `#processNode`. There is no `await` between the
+  first errored-input check and `#processNode`, so the second scan was
+  unreachable for real errored-input handling and only added per-node overhead.
+- The final matrix in
+  [`runtime-speed-before-after.md`](runtime-speed-before-after.md)
+  restored cheap text-chain and passthrough rows: text chain 20/100/500 rows are
+  now wins, direct `GraphProcessor` compatible and `fast-acyclic` text-chain
+  diagnostic rows are wins, and passthrough rows are neutral or wins.
+- The only remaining slower cheap-path row is `runGraph single subgraph call`
+  at `0.262ms -> 0.274ms` (`+0.012ms`, `+4.6%`) with `0.030ms` current run
+  spread, so it is below the absolute-noise gate and not treated as a runtime
+  regression.
+
+### P10: Preserve Proven Wins Behind Narrow Policies (DONE)
+
+After cheap paths are restored, keep only the wins that pay for their overhead
+in the graph shapes that use them.
+
+Why:
+
+The full matrix still showed real wins: project file/string loading, Code
+chains, `Call Graph` and `Referenced Graph Alias` rows, custom reference-loader
+rows, wide fan-in scheduler rows, and interpolation preprocessing. The goal is
+not to revert everything; it is to stop charging all graphs for specialized
+work.
+
+What to change:
+
+1. Keep P6 one-shot loading improvements if they remain isolated from
+   already-loaded runtime paths.
+2. Keep Code/Expression-related wins only where they do not affect Text-only
+   graphs or custom code runners.
+3. Keep boundary and subprocessor caches only for graph shapes where the
+   precomputed boundary is actually reused or where benchmarks prove setup cost
+   is smaller than repeated scanning.
+4. For direct Subgraph / Referenced Graph Alias calls, distinguish:
+   - single call: prefer the baseline-compatible path unless P8 proves otherwise;
+   - repeated call to the same boundary: allow the cache;
+   - dynamic `Call Graph`: keep only the cache pieces that proved useful without
+     changing dynamic graph lookup semantics.
+5. Keep parser-level interpolation caching because it is pure and local, but
+   verify it does not create per-run setup overhead for nodes with no
+   interpolations.
+6. Keep fast scheduler wins explicit through `runtimeProfile: 'headless-fast'`
+   until default-safe event/recording compatibility has its own proof.
+7. Use this "wins to preserve" target list after P9 restores cheap paths:
+   - `runGraphInFile referenced-project one-shot with projectPath` stays at
+     least 10% faster than baseline, or the loading optimization is rewritten;
+   - `loadProjectFromString subgraph project only` and
+     `loadProjectFromFile subgraph project only` stay meaningfully faster;
+   - `runGraph code chain 20`, fresh `createProcessor default-safe code chain
+     20`, and Code runner rows stay neutral or faster;
+   - `runGraph Call Graph repeated same-input 50` and
+     `runGraph Referenced Graph Alias repeated same-input 50` stay neutral or
+     faster;
+   - `fresh createProcessor default-safe Referenced Graph Alias repeated
+     same-input 50` stays neutral or faster;
+   - wide fan-in compatible and `headless-fast` rows stay neutral or faster;
+   - `lazy preprocess/dependency text chain 500` keeps the preprocessing win.
+8. If preserving a win conflicts with a cheap-row recovery gate, move the win
+   behind an explicit opt-in or remove it. Do not ship a default runtime
+   slowdown to preserve a specialized optimization.
+
+Risks:
+
+- Narrow policies can become a maze if each optimization invents a separate
+  eligibility model. Prefer one runtime policy object produced during processor
+  construction.
+- Some benchmark wins may vanish after cheap-path fixes because they depended
+  on the same broad policy. Re-measure instead of assuming they survive.
+- Cached graph-boundary behavior can be wrong around project references or
+  dynamic graph selection if the eligibility check is too broad.
+
+Acceptance criteria:
+
+- Rows that were wins in the full matrix stay neutral or faster after cheap
+  regressions are fixed, with any lost win documented.
+- Specialized caches are only constructed for graph shapes that can consume
+  them.
+- Any lost win has a written reason: sacrificed to fix default runtime
+  regression, moved behind `headless-fast`, or deferred for a separate phase.
+- The final policy is understandable from code and docs without reading the
+  benchmark history.
+
+P10 conclusion:
+
+- The P9 core cleanup preserved the intended wins instead of buying cheap-path
+  recovery by reverting the speed work.
+- The final matrix kept project loading, Code-family, repeated Subgraph,
+  `Call Graph`, `Referenced Graph Alias`, custom reference loader, wide fan-in,
+  Expression, and lazy-preprocess rows neutral or faster.
+- No specialized cache was broadened in this phase. The recovery kept the narrow
+  policy split: simple root graphs avoid unnecessary reusable-plan setup, while
+  nested/repeated graph shapes and explicit `headless-fast` keep the targeted
+  structural wins.
+
+### P11: Delete Or Rewrite Unproven Speed Infrastructure (DONE)
+
+Remove complexity that does not survive P8-P10.
+
+Why:
+
+Speed code that adds branches, caches, or policy objects without improving the
+full matrix creates future bug surface. The repo should keep fewer, stronger
+optimizations rather than a pile of almost-wins.
+
+What to change:
+
+1. Delete any helper, cache, flag, or test fixture that P8 proves is neutral or
+   harmful after P9/P10.
+2. Rewrite broad helpers as explicit local fast paths when a smaller
+   implementation gives the same win.
+3. Collapse duplicate benchmark fixtures or compatibility tests introduced only
+   for abandoned branches.
+4. Update developer docs to describe the final runtime policy, not the rejected
+   intermediate experiments.
+5. Update this document with a "removed after regression matrix" note for every
+   deleted optimization.
+
+Risks:
+
+- Deleting too aggressively can lose useful characterization tests. Keep tests
+  that protect behavior; delete only tests that validate dead implementation
+  details.
+- A rewrite can accidentally change behavior while chasing line count. Behavior
+  equivalence tests must run before and after.
+- Documentation can become misleading if it still describes reverted
+  optimizations.
+
+Acceptance criteria:
+
+- Net runtime code is simpler than the post-P7 state.
+- No deleted optimization was the only source of a still-needed benchmark win.
+- Developer docs and this plan match the final code.
+
+P11 conclusion:
+
+- No broad speed infrastructure needed to be deleted after P8-P10. The final
+  evidence showed the targeted caches and policies still pay for themselves once
+  the redundant core per-node scan was removed.
+- The cleanup reduced core hot-path work rather than adding another policy
+  layer. Benchmark-only filter/JSON support remains in the benchmark harness
+  because it is diagnostic tooling, not runtime infrastructure.
+- Developer docs now call out the benchmark filter, JSON output, and the final
+  recovery report so future speed work can reproduce attribution without adding
+  ad hoc scripts.
+
+### P12: Final Full Matrix Release Gate (DONE)
+
+Re-run the full matrix and require it to pass before calling the speed plan
+successful.
+
+Why:
+
+The post-P7 full matrix exposed a gap in the earlier phase-by-phase process:
+localized wins did not guarantee the whole runtime got faster. The final gate
+must be the same kind of full before/after comparison that found the problem.
+
+What to change:
+
+1. Keep the original baseline commit `e70f6e5d3d84db4519d4a31037ee66d82d028a10`
+   as the "before" side unless a new baseline is intentionally chosen and
+   documented.
+2. Re-run the full matrix with the same command shape used by
+   [`runtime-speed-before-after.md`](runtime-speed-before-after.md):
+   `RIVET_RUNTIME_BENCH_SAMPLES=10`,
+   `RIVET_RUNTIME_BENCH_ITERATIONS=30`,
+   `RIVET_RUNTIME_BENCH_WARMUP_ITERATIONS=10`, two full runs per side, then
+   average them.
+3. Add a "regression fixed" report next to the current matrix instead of
+   overwriting it.
+4. Require these release gates:
+   - zero regressions above 10%;
+   - every P9 cheap-path recovery row within 3% of baseline or faster;
+   - `runGraph(...)` and fresh `createProcessor(...).run()` primary rows are
+     net neutral or faster;
+   - direct `GraphProcessor` compatible and `fast-acyclic` diagnostic rows are
+     within 3% of baseline or faster, because they expose core overhead that
+     API routing cannot hide;
+   - project loading wins remain if they do not hurt runtime;
+   - Code/Expression and reference/subgraph wins are retained where the final
+     policy claims them;
+   - the average of all primary runtime rows is neutral or faster, excluding
+     file-loading-only rows so setup wins cannot mask runtime regressions;
+   - no individual primary runtime row has a worse absolute delta than `0.05ms`
+     and a worse percentage delta than 3% unless the row is explicitly marked
+     as noisy and rerun;
+   - no behavior equivalence, recording, Remote Debugger, custom runner, or
+     project-reference tests regress.
+5. If a conflict remains, prefer removing the optimization over shipping a
+   runtime slowdown.
+6. Add a small "decision table" to the final report:
+   - keep;
+   - narrowed;
+   - moved behind `headless-fast`;
+   - reverted;
+   - deferred.
+   Every optimization from P1-P6 must appear in exactly one row.
+
+Risks:
+
+- Two full matrix runs per side take time, but skipping them is how the
+  regression slipped through.
+- A matrix can still be noisy. Report run spread and rerun ambiguous rows.
+- A single "win count" can hide important slowdowns. Gate by critical rows and
+  maximum regression, not only aggregate wins.
+- File-loading wins can make the whole matrix look better while loaded runtime
+  rows are worse. Always report loaded runtime and file-loading/setup groups
+  separately.
+
+Acceptance criteria:
+
+- The final benchmark document says plainly what got faster, what stayed
+  neutral, and what, if anything, is still slower.
+- The final matrix has no massive cheap-path regressions.
+- The final matrix cannot pass solely because project-loading rows improved.
+- The final user-facing conclusion can honestly say which Rivet workflow
+  scenarios are faster.
+
+P12 conclusion:
+
+- Updated
+  [`runtime-speed-before-after.md`](runtime-speed-before-after.md) as the final
+  P12 matrix. It compares the original baseline values against two fresh full
+  current matrix runs after the P8-P12 recovery work.
+- Final result: 61 rows compared, 33 big wins, 11 additional wins, 16 neutral
+  rows, 1 small slower row, and 0 regressions at or above 10%. Verdicts use a
+  `0.05ms` absolute noise gate so percentage-only changes below timing
+  precision are neutral.
+- The final gate no longer relies on project-loading rows to hide runtime
+  regressions. Loaded runtime rows for `runGraph(...)`, fresh
+  `createProcessor(...).run()`, `createGraphRunner(...)`, direct
+  `GraphProcessor`, Code/Expression, Subgraph, referenced graph, and wide fan-in
+  scenarios are neutral or faster except the small
+  `fresh createProcessor default-safe text chain 100` row (`+0.077ms`, with a
+  `0.421ms` current run spread).
+
+## Implementation And Recovery Order
 
 1. P0: Refreshed baselines and equivalence guards.
 2. P1: Moved eligible `runGraph(...)` calls from forced compatible mode to default-safe mode.
@@ -859,16 +1327,51 @@ P7 conclusion:
 6. P5: Cached safe dynamic port definitions where measured definition cost justified it.
 7. P6: Optimized one-shot project file loading as a secondary path.
 8. P7: Reassessed broader `fast-acyclic` scheduler eligibility and kept it narrow.
+9. P8: Attribute full-matrix regressions before changing more runtime code.
+10. P9: Restore cheap runtime paths to baseline first.
+11. P10: Preserve proven wins behind narrow policies.
+12. P11: Delete or rewrite unproven speed infrastructure.
+13. P12: Run the final full-matrix release gate.
 
-This order prioritized substantial wins with lower behavioral risk before touching the hottest and most delicate `GraphProcessor` internals.
+P0-P7 prioritized substantial wins with lower behavioral risk before touching
+the hottest and most delicate `GraphProcessor` internals. The post-P7 full
+matrix showed that this was not enough, so P8-P12 now prioritize regression
+recovery and final full-matrix proof before any further speed expansion.
 
-Expected primary impact by phase:
+Implemented impact by phase:
 
-- P1 should make `runGraph(...)` faster by letting it use the existing default-safe path.
-- P2 and P3 should make both `runGraph(...)` and fresh `createProcessor(...).run()` faster for subgraph/reference-heavy workflows.
-- P4 should make both `runGraph(...)` and fresh `createProcessor(...).run()` faster for cheap-node chains.
-- P5 should make fresh `createProcessor(...).run()` and `runGraph(...)` faster only if definition building is measured as a real cost.
-- P6 should improve only `runGraphInFile(...)` / loading-heavy one-shot flows and must not slow loaded runtime execution.
+- P1 made selected `runGraph(...)` graph shapes faster by letting them use the
+  existing default-safe path while keeping tiny/simple graphs compatible.
+- P2 and P3 made repeated Subgraph / Referenced Graph Alias workflows faster
+  through boundary helpers, run-scoped boundary caches, and cached-plan
+  subprocessor startup. Dynamic `Call Graph` was characterized and benchmarked
+  but intentionally did not get a static boundary cache.
+- P4 made cheap-node chains modestly faster by reducing per-node context and
+  abort-controller overhead without changing event, abort, pause/resume, user
+  input, wait-event, or trace semantics.
+- P5 did not land broad node-definition memoization because the live
+  preprocessor already asks each node for definitions once per preprocess call.
+  It landed only the measured pure interpolation-variable parser cache and kept
+  plugin/connection-sensitive definitions uncached.
+- P6 improved `runGraphInFile(...)` / loading-heavy one-shot flows by removing
+  duplicate parse work. It was kept separate from loaded-project execution and
+  should not be counted as a runtime execution win.
+- P7 made no runtime behavior change. It added direct scheduler-only benchmark
+  rows, proved that `fast-acyclic` still has value for eligible acyclic headless
+  graphs, and deliberately kept split-run, loop, race, user-input, and
+  wait-event classes on the compatible scheduler.
+
+## Post-P12 Recovery Assessment
+
+| User scenario | Primary surface | Outcome |
+| --- | --- | --- |
+| Repeated direct Subgraph / Referenced Graph Alias calls | `runGraph(...)`, fresh `createProcessor(...).run()` | Faster in the final matrix. |
+| Cheap long node chains | `runGraph(...)`, fresh `createProcessor(...).run()`, `createGraphRunner(...)` | Recovered. Text-chain rows are now wins across 20, 100, and 500 node cases. |
+| Interpolation-heavy input discovery | Text, Prompt, Object, Code, Expression, JS helper nodes | Faster for lazy preprocessing and parser-heavy paths without a measured default runtime regression. |
+| One-shot project file loading | `runGraphInFile(...)`, `loadProjectFromString(...)`, `loadProjectFromFile(...)` | Faster, and still isolated from loaded runtime execution. |
+| Explicit eligible headless acyclic graphs | `runtimeProfile: 'headless-fast'`, graph-runner/direct scheduler rows | Faster for text-chain, wide fan-in, subgraph-chain, mixed fan-in, and Code rows in the final matrix. |
+| Tiny/simple graphs and one-off unrelated Subgraph calls | `runGraph(...)` | Passthrough is neutral; single Subgraph is slightly slower by `0.012ms`, below the absolute noise gate. |
+| Flow-sensitive graphs | split-run, loop, race, user input, wait-event | No speed expansion; compatibility remains the priority. |
 
 ## Validation Commands
 
@@ -884,8 +1387,8 @@ node .yarn\releases\yarn-4.6.0.cjs bench:runtime-speed
 Focused tests:
 
 ```powershell
-node .yarn\releases\yarn-4.6.0.cjs workspace @valerypopoff/rivet2-node exec tsx --test test/runtimeSpeedEquivalence.test.ts test/defaultFastCompatibility.test.ts test/api.test.ts test/graphRunner.test.ts
-node .yarn\releases\yarn-4.6.0.cjs workspace @valerypopoff/rivet2-core exec tsx --test test/model/GraphProcessor.test.ts test/model/GraphProcessor.characterization.test.ts
+node .yarn\releases\yarn-4.6.0.cjs workspace @valerypopoff/rivet2-node exec tsx --test test/runtimeSpeedEquivalence.test.ts test/defaultFastCompatibility.test.ts test/createProcessorRuntimePolicy.test.ts test/api.test.ts test/graphRunner.test.ts
+node .yarn\releases\yarn-4.6.0.cjs workspace @valerypopoff/rivet2-core exec tsx --test test/model/GraphProcessor.test.ts test/model/GraphProcessor.characterization.test.ts test/model/GraphBoundaryCache.test.ts test/utils/interpolation.test.ts test/utils/serialization.test.ts
 ```
 
 Repository gates:
@@ -899,15 +1402,27 @@ node .yarn\releases\yarn-4.6.0.cjs workspace @valerypopoff/rivet2-node run build
 git diff --check
 ```
 
-## Final Success Criteria
+## Current Success Criteria Assessment
 
-- Benchmarks show meaningful wins in the target scenarios.
-- Benchmark results compare the original old-Rivet baseline against the final candidate for actual `runGraph(...)` and fresh `createProcessor(...).run()` workflow runs.
-- The final report clearly says which user scenarios got faster, by how many milliseconds and percent, and which scenarios stayed neutral or regressed.
-- No workflow output changes.
-- No final-output memoization or same-input result caching is introduced.
-- Recorder and replay behavior remains compatible.
-- Remote Debugger behavior remains compatible.
-- Custom project reference loaders and custom code runners remain honored.
-- Editor paths stay safe unless explicitly optimized in a separate phase.
-- Developer docs are updated with each implementation phase.
+- The speed plan is now successful by the P12 benchmark gate. The post-P7
+  matrix found unacceptable regressions, but P8-P12 attributed the issue,
+  removed redundant core hot-path work, preserved the intended wins, and
+  produced a clean final matrix.
+- The original P0 baseline and final recovered checkout are compared in
+  [`runtime-speed-before-after.md`](runtime-speed-before-after.md).
+- The final matrix compares actual `runGraph(...)`, fresh
+  `createProcessor(...).run()`, `createGraphRunner(...)`, direct
+  `GraphProcessor`, and `runGraphInFile(...)` surfaces. It reports 61 rows, 33
+  big wins, 11 additional wins, 16 neutral rows, 1 small slower row, and 0 >=10%
+  regressions.
+- Workflow output semantics were guarded by runtime equivalence,
+  default-fast compatibility, API, graph-runner, and GraphProcessor
+  characterization tests.
+- No final-output memoization or same-input Subgraph result caching was added.
+- Recorder, replay, Remote Debugger, trace-sensitive runs, custom project
+  reference loaders, and custom code runners remain on compatible or
+  explicitly characterized paths.
+- Editor paths were not optimized by this plan; they remain outside the runtime
+  speed changes unless a future editor-specific speed plan takes them on.
+- Developer docs document the benchmark filter/JSON tooling, final recovery
+  status, and core hot-path ownership.

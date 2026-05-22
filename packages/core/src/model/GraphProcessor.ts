@@ -1621,18 +1621,6 @@ export class GraphProcessor {
       return processId;
     }
 
-    const inputNodes = getInputNodesTo(this.#executionState, node);
-    const erroredInputNodes = inputNodes.filter((inputNode) => this.#erroredNodes.has(inputNode.id));
-    if (erroredInputNodes.length > 0) {
-      const error = new Error(
-        `Cannot process node ${node.title} (${node.id}) because it depends on errored nodes: ${erroredInputNodes
-          .map((n) => `${n.title} (${n.id})`)
-          .join(', ')}`,
-      );
-      this.#nodeErrored(node, error, processId);
-      return processId;
-    }
-
     if (node.isSplitRun) {
       await this.#processSplitRunNode(node, processId);
     } else {

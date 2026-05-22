@@ -576,6 +576,16 @@ Current execution policy details:
 
 The readiness/dependency logic used by this flow now lives largely in `NodeExecutionPlanner.ts`, while `GraphProcessor` coordinates queueing and mutable execution state.
 
+`GraphProcessor` keeps the errored-input gate in
+`#processNodeIfAllInputsAvailable(...)`. That method computes a node's upstream
+inputs, checks ignored/visited/errored-input state, and only then calls
+`#processNode(...)` without an intervening `await`. Keep the duplicate
+errored-input scan out of `#processNode(...)`; reintroducing it adds measurable
+per-node overhead to cheap workflow runs without improving the current event or
+error contract. `GraphProcessor.characterization.test.ts` pins that downstream
+nodes do not start or emit their own node errors after an upstream input node
+fails.
+
 The internal `fast-acyclic` scheduler is an opt-in headless path selected by the
 Node fast profiles only. It starts from source nodes and runs a small ready queue
 instead of recursively pulling from graph-output nodes through `p-queue` at

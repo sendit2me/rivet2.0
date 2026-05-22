@@ -277,6 +277,30 @@ void describe('GraphProcessor characterization', () => {
     assert.ok(events.indexOf('graphError') < events.indexOf('finish'));
   });
 
+  void it('does not start downstream nodes after an input node errors', async () => {
+    const failingNode = makeProbeNode('failing-node', { throwMessage: 'upstream failure' });
+    const downstreamNode = makeProbeNode('downstream-node');
+    const graph = makeGraph([failingNode, downstreamNode], [connect('failing-node', 'downstream-node')]);
+    const processor = createProcessor(graph);
+    const nodeStarts: NodeId[] = [];
+    const nodeErrors: NodeId[] = [];
+
+    processor.on('nodeStart', ({ node }) => nodeStarts.push(node.id));
+    processor.on('nodeError', ({ node }) => nodeErrors.push(node.id));
+
+    await assert.rejects(
+      () => withTimeout(processor.processGraph(testProcessContext()), 'errored-input graph rejection'),
+      (error) =>
+        error instanceof Error &&
+        error.message.includes('failed to process due to errors in nodes') &&
+        error.cause instanceof Error &&
+        error.cause.message === 'upstream failure',
+    );
+
+    assert.deepEqual(nodeStarts, [failingNode.id]);
+    assert.deepEqual(nodeErrors, [failingNode.id]);
+  });
+
   void it('emits partial outputs with the same process id as the finished node', async () => {
     const partialNode = makeProbeNode('partial-node', {
       partialValues: [

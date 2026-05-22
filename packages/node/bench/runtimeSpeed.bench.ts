@@ -59,6 +59,7 @@ const testGraphsPath = join(nodePackageDir, 'test', 'test-graphs.rivet-project')
 const iterations = readPositiveIntegerEnv('RIVET_RUNTIME_BENCH_ITERATIONS', 50);
 const warmupIterations = readPositiveIntegerEnv('RIVET_RUNTIME_BENCH_WARMUP_ITERATIONS', 5);
 const samples = readPositiveIntegerEnv('RIVET_RUNTIME_BENCH_SAMPLES', 1);
+const benchmarkFilter = readBenchmarkFilter();
 
 async function main() {
   const passthroughProject = await loadProjectFromFile(testGraphsPath);
@@ -525,13 +526,26 @@ async function main() {
       await benchmark('CachedNodeCodeRunner run cached snippet', () => benchmarkCodeRunner(cachedCodeRunner)),
     );
 
-    console.table(results);
+    const executedResults = results.filter((result) => result.iterations > 0);
+    if (executedResults.length === 0) {
+      throw new Error(`No runtime-speed benchmarks matched filter ${JSON.stringify(process.env.RIVET_RUNTIME_BENCH_FILTER)}.`);
+    }
+
+    if (process.env.RIVET_RUNTIME_BENCH_JSON === '1') {
+      console.log(JSON.stringify(executedResults));
+    } else {
+      console.table(executedResults);
+    }
   } finally {
     await benchmarkProjectFiles.cleanup();
   }
 }
 
 async function benchmark(name: string, run: () => Promise<unknown> | unknown): Promise<BenchmarkResult> {
+  if (!shouldRunBenchmark(name)) {
+    return skippedBenchmarkResult(name);
+  }
+
   const sampleMeanMs: number[] = [];
   let measuredTotalMs = 0;
 
@@ -564,12 +578,33 @@ async function benchmark(name: string, run: () => Promise<unknown> | unknown): P
   };
 }
 
+function shouldRunBenchmark(name: string): boolean {
+  return benchmarkFilter == null || benchmarkFilter.test(name);
+}
+
+function skippedBenchmarkResult(name: string): BenchmarkResult {
+  return {
+    iterations: 0,
+    maxMeanMs: '0.000',
+    meanMs: '0.000',
+    minMeanMs: '0.000',
+    name,
+    samples: 0,
+    stdDevMs: '0.000',
+    totalMs: '0.000',
+  };
+}
+
 async function benchmarkGraphRunner(
   name: string,
   project: Project,
   options: NodeGraphRunnerOptions,
   runOptions: NodeGraphRunnerRunOptions,
 ): Promise<BenchmarkResult> {
+  if (!shouldRunBenchmark(name)) {
+    return skippedBenchmarkResult(name);
+  }
+
   const runner = createGraphRunner(project, options);
   try {
     return await benchmark(name, () => runner.run(runOptions));
@@ -591,6 +626,10 @@ async function benchmarkDirectProcessor(
   fixture: RuntimeSpeedProjectFixture,
   scheduler: GraphProcessorScheduler,
 ): Promise<BenchmarkResult> {
+  if (!shouldRunBenchmark(name)) {
+    return skippedBenchmarkResult(name);
+  }
+
   const processor = createRuntimeSpeedProcessor(fixture.project, fixture.graphId, { scheduler });
   const context = createRuntimeSpeedProcessContext();
   const inputs = { input: { type: 'string', value: 'bench' } satisfies DataValue };
@@ -627,6 +666,19 @@ function benchmarkLazyPreprocessDependency(fixture: RuntimeSpeedProjectFixture):
 function readPositiveIntegerEnv(name: string, fallback: number): number {
   const value = Number(process.env[name]);
   return Number.isSafeInteger(value) && value > 0 ? value : fallback;
+}
+
+function readBenchmarkFilter(): RegExp | undefined {
+  const value = process.env.RIVET_RUNTIME_BENCH_FILTER?.trim();
+  if (!value) {
+    return undefined;
+  }
+
+  try {
+    return new RegExp(value, 'i');
+  } catch (error) {
+    throw new Error(`Invalid RIVET_RUNTIME_BENCH_FILTER regex ${JSON.stringify(value)}.`, { cause: error });
+  }
 }
 
 function average(values: number[]): number {

@@ -113,7 +113,13 @@ is the repeatable baseline benchmark for the speed plan. Run it with
 `RIVET_RUNTIME_BENCH_ITERATIONS` and
 `RIVET_RUNTIME_BENCH_WARMUP_ITERATIONS`. Set
 `RIVET_RUNTIME_BENCH_SAMPLES` to run each benchmark case multiple times and
-report the average, min/max sample means, and standard deviation. It measures one-shot
+report the average, min/max sample means, and standard deviation. Use
+`RIVET_RUNTIME_BENCH_FILTER` with a JavaScript regular expression to run a
+targeted subset during regression attribution, and set
+`RIVET_RUNTIME_BENCH_JSON=1` when a script needs the benchmark payload as JSON.
+The package script still builds `@valerypopoff/rivet2-core` first, so scripts
+should read the final JSON array line unless they invoke the built benchmark
+file directly. The full matrix is still the required release gate. It measures one-shot
 `runGraphInFile(...)`, loaded-project `runGraph(...)`, reused
 `createProcessor(...)`, fresh `createProcessor(...)` with default-safe,
 explicit compatible, and `runtimeProfile: 'headless-fast'` profiles,
@@ -138,6 +144,13 @@ surface; running the benchmark against stale `packages/core/dist` output can
 hide or invent speed changes.
 Benchmarks are diagnostic only; correctness remains pinned by the equivalence
 tests.
+
+The post-P7 full before/after matrix found real wins but also unacceptable
+cheap-runtime regressions. The P8-P12 recovery pass fixed the repeatable cheap
+path issue and recorded the final matrix in
+[`runtime-speed-before-after.md`](../runtime-speed-before-after.md).
+Future speed work should still treat direct `GraphProcessor` diagnostic rows as
+core hot-path evidence, not only Node API runtime-policy evidence.
 
 `createGraphRunner(...)` is the additive production-facing fast path for
 headless/programmatic Node integrations that load a project once and run the
@@ -216,6 +229,12 @@ project-reference caching, and it intentionally ignores any untyped
 when a caller needs an explicit runtime profile. Remote Debugger and
 trace-sensitive `runGraph(...)` calls still fall back to the fully compatible
 path through the shared runtime policy.
+
+The P8-P12 recovery pass preserved this policy while removing redundant core
+hot-path work. The final matrix restored cheap `runGraph(...)`, fresh
+`createProcessor(...)`, `createGraphRunner(...)`, and direct `GraphProcessor`
+rows while preserving the proven loading, Code-family, reference/subgraph, wide
+fan-in, and preprocessing wins.
 
 The final speed-plan pass did not broaden `fast-acyclic` beyond explicit
 headless-fast eligible graphs. Scheduler-only benchmark rows prove it is useful
