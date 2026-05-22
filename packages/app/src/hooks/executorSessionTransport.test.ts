@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  createDebuggerTransportEscapedSentinelEnvelope,
+  createDebuggerTransportUndefinedSentinel,
+  type PortId,
+} from '@valerypopoff/rivet2-core';
+import {
   parseExecutorSessionIncomingMessage,
   safeSendExecutorSocket,
   serializeExecutorSessionMessage,
@@ -77,6 +82,99 @@ test('executor transport classifies upload, dataset, and process event messages'
       kind: 'process-event',
     },
   );
+});
+
+test('executor transport decodes debugger sentinels in process event messages', () => {
+  const target = createExternalDebuggerTarget('ws://debugger.example/latest');
+  const parsed = parseExecutorSessionIncomingMessage({
+    rawMessage: JSON.stringify({
+      data: {
+        node: { id: 'expression-1', type: 'expression' },
+        outputs: {
+          output: {
+            type: 'any',
+            value: createDebuggerTransportUndefinedSentinel(),
+          },
+        },
+        processId: 'process-1',
+      },
+      message: 'nodeFinish',
+    }),
+    socketUrl: target.url,
+    target,
+  });
+
+  assert.equal(parsed?.kind, 'process-event');
+  if (parsed?.kind !== 'process-event' || parsed.incoming.message !== 'nodeFinish') {
+    assert.fail('Expected a nodeFinish process event');
+  }
+
+  assert.equal(parsed.incoming.data.outputs['output' as PortId]?.value, undefined);
+});
+
+test('executor transport preserves user objects that only resemble debugger sentinels', () => {
+  const target = createExternalDebuggerTarget('ws://debugger.example/latest');
+  const userValue = {
+    __rivetDebuggerTransportSentinel: {
+      type: 'undefined',
+      version: 1,
+    },
+    userData: true,
+  };
+  const parsed = parseExecutorSessionIncomingMessage({
+    rawMessage: JSON.stringify({
+      data: {
+        outputs: {
+          output: {
+            type: 'any',
+            value: userValue,
+          },
+        },
+      },
+      message: 'nodeFinish',
+    }),
+    socketUrl: target.url,
+    target,
+  });
+
+  assert.equal(parsed?.kind, 'process-event');
+  if (parsed?.kind !== 'process-event' || parsed.incoming.message !== 'nodeFinish') {
+    assert.fail('Expected a nodeFinish process event');
+  }
+
+  assert.deepEqual(parsed.incoming.data.outputs['output' as PortId]?.value, userValue);
+});
+
+test('executor transport restores escaped debugger sentinel-shaped user objects', () => {
+  const target = createExternalDebuggerTarget('ws://debugger.example/latest');
+  const userValue = {
+    __rivetDebuggerTransportSentinel: {
+      type: 'undefined',
+      version: 1,
+    },
+  };
+  const parsed = parseExecutorSessionIncomingMessage({
+    rawMessage: JSON.stringify({
+      data: {
+        outputs: {
+          output: {
+            type: 'any',
+            value: createDebuggerTransportEscapedSentinelEnvelope(userValue),
+          },
+        },
+      },
+      message: 'nodeFinish',
+    }),
+    socketUrl: target.url,
+    target,
+  });
+
+  assert.equal(parsed?.kind, 'process-event');
+  if (parsed?.kind !== 'process-event' || parsed.incoming.message !== 'nodeFinish') {
+    assert.fail('Expected a nodeFinish process event');
+  }
+
+  assert.deepEqual(parsed.incoming.data.outputs['output' as PortId]?.value, userValue);
 });
 
 test('executor transport drops malformed JSON envelopes without throwing', () => {

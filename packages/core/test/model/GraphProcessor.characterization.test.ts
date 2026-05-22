@@ -224,6 +224,20 @@ void describe('GraphProcessor characterization', () => {
     ]);
   });
 
+  void it('replaces preprocessed graph maps when a reused processor sees graph edits', async () => {
+    const nodeA = makeProbeNode('node-a', { value: { type: 'string', value: 'alpha' } });
+    const outputNode = makeGraphOutputNode('result');
+    const graph = makeGraph([nodeA, outputNode], [connect(nodeA.id, outputNode.id, 'value')]);
+    const processor = createProcessor(graph);
+
+    const firstOutputs = await processor.processGraph(testProcessContext());
+    graph.connections = [];
+    const secondOutputs = await processor.processGraph(testProcessContext());
+
+    assert.deepEqual(firstOutputs.result, { type: 'string', value: 'alpha' });
+    assert.equal(secondOutputs.result, undefined);
+  });
+
   void it('emits node and graph errors without graphFinish or done, then still emits finish', async () => {
     const failingNode = makeProbeNode('failing-node', { throwMessage: 'characterized failure' });
     const graph = makeGraph([failingNode], []);
@@ -261,6 +275,30 @@ void describe('GraphProcessor characterization', () => {
     assert.equal(events.at(-1), 'finish');
     assert.ok(events.indexOf('nodeStart:failing-node') < events.indexOf('nodeError:failing-node'));
     assert.ok(events.indexOf('graphError') < events.indexOf('finish'));
+  });
+
+  void it('does not start downstream nodes after an input node errors', async () => {
+    const failingNode = makeProbeNode('failing-node', { throwMessage: 'upstream failure' });
+    const downstreamNode = makeProbeNode('downstream-node');
+    const graph = makeGraph([failingNode, downstreamNode], [connect('failing-node', 'downstream-node')]);
+    const processor = createProcessor(graph);
+    const nodeStarts: NodeId[] = [];
+    const nodeErrors: NodeId[] = [];
+
+    processor.on('nodeStart', ({ node }) => nodeStarts.push(node.id));
+    processor.on('nodeError', ({ node }) => nodeErrors.push(node.id));
+
+    await assert.rejects(
+      () => withTimeout(processor.processGraph(testProcessContext()), 'errored-input graph rejection'),
+      (error) =>
+        error instanceof Error &&
+        error.message.includes('failed to process due to errors in nodes') &&
+        error.cause instanceof Error &&
+        error.cause.message === 'upstream failure',
+    );
+
+    assert.deepEqual(nodeStarts, [failingNode.id]);
+    assert.deepEqual(nodeErrors, [failingNode.id]);
   });
 
   void it('emits partial outputs with the same process id as the finished node', async () => {
@@ -644,6 +682,122 @@ void describe('GraphProcessor characterization', () => {
     assert.equal(runtimeCache.executionPlans?.has(childGraph), true);
   });
 
+  void it('uses the runtime graph boundary cache while preprocessing subgraph definitions', () => {
+    const childProbeNode = makeProbeNode('child-probe', { value: { type: 'string', value: 'child value' } });
+    const childOutputNode = makeGraphOutputNode('childResult');
+    const childGraph = makeGraph(
+      [childProbeNode, childOutputNode],
+      [connect(childProbeNode.id, childOutputNode.id, 'value')],
+      'boundary-cache-child' as GraphId,
+    );
+    const subgraphNode: ChartNode = {
+      id: 'subgraph-node' as NodeId,
+      type: 'subGraph',
+      title: 'Subgraph',
+      data: {
+        graphId: childGraph.metadata!.id,
+        inputData: {},
+        useAsGraphPartialOutput: false,
+        useErrorOutput: false,
+      },
+      visualData: { x: 0, y: 0, width: 240 },
+    };
+    const parentOutputNode = makeGraphOutputNode('parentResult');
+    const parentGraph = makeGraph(
+      [subgraphNode, parentOutputNode],
+      [
+        {
+          outputNodeId: subgraphNode.id,
+          outputId: 'childResult' as PortId,
+          inputNodeId: parentOutputNode.id,
+          inputId: 'value' as PortId,
+        },
+      ],
+      'boundary-cache-parent' as GraphId,
+    );
+    const runtimeCache: GraphProcessorRuntimeCache = {};
+    const processor = new GraphProcessor(
+      makeProject(parentGraph, [childGraph]),
+      parentGraph.metadata!.id,
+      createRegistry(),
+      false,
+      {
+        executionPlanCacheMode: 'subprocessors',
+        runtimeCache,
+      },
+    );
+
+    processor.getDependencyNodesDeep(parentOutputNode.id);
+
+    assert.notEqual(runtimeCache.executionPlans?.has(parentGraph), true);
+    assert.equal(runtimeCache.graphBoundaries?.has(childGraph), true);
+  });
+
+  void it('does not reuse referenced-project graph boundaries across runs when referenced projects reload', async () => {
+    const referencedProjectId = 'referenced-project' as ProjectId;
+    const referencedGraphId = 'referenced-boundary-graph' as GraphId;
+    const referencedProbeNode = makeProbeNode('referenced-probe', {
+      value: { type: 'string', value: 'referenced value' },
+    });
+    const referencedOutputNode = makeGraphOutputNode('oldResult');
+    const referencedGraph = makeGraph(
+      [referencedProbeNode, referencedOutputNode],
+      [connect(referencedProbeNode.id, referencedOutputNode.id, 'value')],
+      referencedGraphId,
+    );
+    const referencedProject = makeProject(referencedGraph);
+    referencedProject.metadata.id = referencedProjectId;
+
+    const aliasNode: ChartNode = {
+      id: 'referenced-alias' as NodeId,
+      type: 'referencedGraphAlias',
+      title: 'Referenced Graph Alias',
+      data: {
+        graphId: referencedGraphId,
+        inputData: {},
+        projectId: referencedProjectId,
+        useErrorOutput: false,
+      },
+      visualData: { x: 0, y: 0, width: 240 },
+    };
+    const parentOutputNode = makeGraphOutputNode('parentResult');
+    const aliasConnection: NodeConnection = {
+      outputNodeId: aliasNode.id,
+      outputId: 'oldResult' as PortId,
+      inputNodeId: parentOutputNode.id,
+      inputId: 'value' as PortId,
+    };
+    const parentGraph = makeGraph(
+      [aliasNode, parentOutputNode],
+      [aliasConnection],
+      'referenced-boundary-parent' as GraphId,
+    );
+    const project = makeProject(parentGraph);
+    project.references = [{ id: referencedProjectId }];
+    const runtimeCache: GraphProcessorRuntimeCache = {};
+    const processor = new GraphProcessor(project, parentGraph.metadata!.id, createRegistry(), false, {
+      runtimeCache,
+    });
+    const context = {
+      ...testProcessContext(),
+      projectReferenceLoader: {
+        loadProject: async () => referencedProject,
+      },
+    };
+
+    const firstOutputs = await processor.processGraph(context);
+    assert.deepEqual(firstOutputs.parentResult, { type: 'string', value: 'referenced value' });
+    assert.equal(runtimeCache.graphBoundaries?.has(referencedGraph), true);
+
+    referencedOutputNode.data.id = 'newResult';
+    aliasConnection.outputId = 'newResult' as PortId;
+
+    const secondOutputs = await processor.processGraph(context);
+
+    assert.deepEqual(secondOutputs.parentResult, { type: 'string', value: 'referenced value' });
+    assert.equal(runtimeCache.graphBoundaries?.has(referencedGraph), true);
+  });
+
   void it('allows a race winner to finish the graph while the losing branch is aborted', async () => {
     const slowNode = makeProbeNode('slow-node', {
       delayMs: 50,
@@ -680,5 +834,42 @@ void describe('GraphProcessor characterization', () => {
 
     assert.deepEqual(raceFinish?.outputs.result, { type: 'string', value: 'fast' });
     assert.equal(nodeErrors.includes(slowNode.id), true);
+  });
+
+  void it('does not abort active non-race nodes whose ids share a race loser prefix', async () => {
+    const slowNode = makeProbeNode('slow-node', {
+      delayMs: 50,
+      value: { type: 'string', value: 'slow' },
+    });
+    const unrelatedNode = makeProbeNode('slow-node-extra', {
+      delayMs: 75,
+      value: { type: 'string', value: 'unrelated' },
+    });
+    const fastNode = makeProbeNode('fast-node', {
+      value: { type: 'string', value: 'fast' },
+    });
+    const raceNode: ChartNode = {
+      id: 'race-node' as NodeId,
+      type: 'raceInputs',
+      title: 'Race Inputs',
+      data: {},
+      visualData: { x: 250, y: 0, width: 240 },
+    };
+    const graph = makeGraph(
+      [slowNode, unrelatedNode, fastNode, raceNode],
+      [connect('slow-node', raceNode.id, 'input1'), connect('fast-node', raceNode.id, 'input2')],
+    );
+    const processor = createProcessor(graph);
+    const nodeErrors: NodeId[] = [];
+    const nodeFinishes: NodeId[] = [];
+
+    processor.on('nodeError', ({ node }) => nodeErrors.push(node.id));
+    processor.on('nodeFinish', ({ node }) => nodeFinishes.push(node.id));
+
+    await withTimeout(processor.processGraph(testProcessContext()), 'race graph run with prefix node');
+
+    assert.equal(nodeErrors.includes(slowNode.id), true);
+    assert.equal(nodeErrors.includes(unrelatedNode.id), false);
+    assert.equal(nodeFinishes.includes(unrelatedNode.id), true);
   });
 });

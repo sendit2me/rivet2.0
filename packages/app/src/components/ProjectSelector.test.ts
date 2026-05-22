@@ -26,7 +26,6 @@ test('project top bar owns the graph tree sidebar toggle for the active project 
   assert.match(projectSelectorTsx, /<rect x="2\.75" y="3\.5" width="10\.5" height="9" rx="1\.25"/);
   assert.match(projectSelectorTsx, /d={sidebarOpen \? 'M5\.25 4\.75v6\.5' : 'M7\.25 4\.75v6\.5'}/);
   assert.match(leftSidebarTsx, /id="graph-tree-sidebar"/);
-  assert.match(leftSidebarTsx, /const SIDEBAR_TRANSITION_EASING = 'cubic-bezier\(0\.2, 0\.95, 0\.22, 1\.12\)'/);
-  assert.match(leftSidebarTsx, /transition: isResizing \? 'none' : `transform 0\.3s \$\{SIDEBAR_TRANSITION_EASING\}`/);
+  assert.doesNotMatch(leftSidebarTsx, /SIDEBAR_TRANSITION_EASING|transition:.*transform/);
   assert.doesNotMatch(leftSidebarTsx, /toggle-tab|menu-expand-left-line|menu-expand-right-line/);
 });

@@ -57,6 +57,8 @@ export type ProjectExecutionSnapshot = {
 export type NodeRunDataBase = {
   startedAt?: number;
   finishedAt?: number;
+  durationMs?: number;
+  splitRunDurationMs?: Record<number, number>;
   debugData?: {
     codeSource?: string;
     expressionSource?: string;

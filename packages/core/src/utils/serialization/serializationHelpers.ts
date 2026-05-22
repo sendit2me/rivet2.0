@@ -84,10 +84,11 @@ export function wrapInYamlEnvelope(version: number, data: unknown): string {
 }
 
 export function unwrapYamlEnvelope<T>(raw: unknown, expectedVersion: number, label: string): T {
-  if (typeof raw !== 'string') {
+  if (typeof raw !== 'string' && (!raw || typeof raw !== 'object' || Array.isArray(raw))) {
     throw new Error(`${label} deserializer requires a string`);
   }
-  const parsed = yaml.parse(raw) as { version: number; data: T };
+
+  const parsed = (typeof raw === 'string' ? yaml.parse(raw) : raw) as { version: number; data: T };
   if (parsed.version !== expectedVersion) {
     throw new Error(`${label} deserializer requires a version ${expectedVersion} ${label.toLowerCase()}`);
   }

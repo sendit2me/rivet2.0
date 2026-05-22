@@ -22,7 +22,7 @@ import { useSaveCurrentGraph } from './useSaveCurrentGraph';
 import { useCurrentExecution } from './useCurrentExecution';
 import { userInputModalQuestionsState } from '../state/userInput';
 import { loadedProjectState, projectContextState, projectDataState, projectState } from '../state/savedGraphs';
-import { recordExecutionsState, settingsState } from '../state/settings';
+import { recordExecutionsState, settingsState, showNodeRunDurationsState } from '../state/settings';
 import { graphState } from '../state/graph';
 import { lastRecordingState, loadedRecordingState } from '../state/execution';
 import { fillMissingSettingsFromEnvironmentVariables } from '../utils/tauri';
@@ -89,6 +89,7 @@ export function useLocalExecutor() {
   const setLastRecordingState = useSetAtom(lastRecordingState);
   const [{ testSuites }, setTrivetState] = useAtom(trivetState);
   const recordExecutions = useAtomValue(recordExecutionsState);
+  const showNodeRunDurations = useAtomValue(showNodeRunDurationsState);
   const projectData = useAtomValue(projectDataState);
   const projectContext = useAtomValue(projectContextState(project.metadata.id));
   const lastRunData = useAtomValue(lastRunDataByNodeState);
@@ -197,7 +198,9 @@ export function useLocalExecutor() {
         );
 
         const recorder = new ExecutionRecorder();
-        const processor = new GraphProcessor(tempProject, graphToRun, projectNodeRegistry, true);
+        const processor = new GraphProcessor(tempProject, graphToRun, projectNodeRegistry, true, {
+          captureNodeTimings: showNodeRunDurations,
+        });
         processor.executor = 'browser';
         processor.recordingPlaybackChatLatency = savedSettings.recordingPlaybackLatency ?? 1000;
 
@@ -319,7 +322,9 @@ export function useLocalExecutor() {
             }));
           },
           runGraph: async (project, graphId, inputs) => {
-            const processor = new GraphProcessor(project, graphId, projectNodeRegistry, true);
+            const processor = new GraphProcessor(project, graphId, projectNodeRegistry, true, {
+              captureNodeTimings: showNodeRunDurations,
+            });
             processor.executor = 'browser';
             attachGraphEvents(processor);
             const contextValues = getProjectContextValues(projectContext);

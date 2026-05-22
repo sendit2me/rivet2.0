@@ -6,19 +6,22 @@ import {
   type NodeOutputDefinition,
   type PortId,
 } from '../NodeBase.js';
-import { NodeImpl, type NodeUIData } from '../NodeImpl.js';
+import { NodeImpl, type NodeDefinitionContext, type NodeUIData } from '../NodeImpl.js';
 import { nodeDefinition } from '../NodeDefinition.js';
 import { type Inputs, type Outputs } from '../GraphProcessor.js';
 import { type GraphId } from '../NodeGraph.js';
 import { nanoid } from 'nanoid/non-secure';
-import { type Project } from '../Project.js';
-import { type GraphInputNode } from './GraphInputNode.js';
-import { type GraphOutputNode } from './GraphOutputNode.js';
+import { type Project, type ProjectId } from '../Project.js';
 import { type DataValue } from '../DataValue.js';
 import { type InternalProcessContext } from '../ProcessContext.js';
 import { type EditorDefinition } from '../EditorDefinition.js';
 import { dedent } from 'ts-dedent';
 import type { RivetUIContext } from '../RivetUIContext.js';
+import {
+  getGraphBoundary,
+  getGraphBoundaryInputDefinitions,
+  getGraphBoundaryOutputDefinitions,
+} from '../GraphBoundaryCache.js';
 
 type ConditionType = 'allOutputsSet' | 'inputEqual';
 
@@ -61,50 +64,22 @@ export class LoopUntilNodeImpl extends NodeImpl<LoopUntilNode> {
     _connections: NodeConnection[],
     _nodes: Record<NodeId, ChartNode>,
     project: Project,
+    _referencedProjects: Record<ProjectId, Project>,
+    definitionContext?: NodeDefinitionContext,
   ): NodeInputDefinition[] {
-    const inputs: NodeInputDefinition[] = [];
-
-    // Get inputs from the target graph
-    const graph = project.graphs[this.data.targetGraph ?? ('' as GraphId)];
-    if (graph) {
-      const inputNodes = graph.nodes.filter((node) => node.type === 'graphInput') as GraphInputNode[];
-      const inputIds = [...new Set(inputNodes.map((node) => node.data.id))].sort();
-
-      inputIds.forEach((id) => {
-        const inputNode = inputNodes.find((node) => node.data.id === id)!;
-        inputs.push({
-          id: id as PortId,
-          title: id,
-          dataType: inputNode.data.dataType,
-        });
-      });
-    }
-
-    return inputs;
+    const boundary = this.getBoundary(project, definitionContext);
+    return boundary ? getGraphBoundaryInputDefinitions(boundary) : [];
   }
 
   getOutputDefinitions(
     _connections: NodeConnection[],
     _nodes: Record<NodeId, ChartNode>,
     project: Project,
+    _referencedProjects: Record<ProjectId, Project>,
+    definitionContext?: NodeDefinitionContext,
   ): NodeOutputDefinition[] {
-    const outputs: NodeOutputDefinition[] = [];
-
-    // Get outputs from the target graph
-    const graph = project.graphs[this.data.targetGraph ?? ('' as GraphId)];
-    if (graph) {
-      const outputNodes = graph.nodes.filter((node) => node.type === 'graphOutput') as GraphOutputNode[];
-      const outputIds = [...new Set(outputNodes.map((node) => node.data.id))].sort();
-
-      outputIds.forEach((id) => {
-        const outputNode = outputNodes.find((node) => node.data.id === id)!;
-        outputs.push({
-          id: id as PortId,
-          title: id,
-          dataType: outputNode.data.dataType,
-        });
-      });
-    }
+    const boundary = this.getBoundary(project, definitionContext);
+    const outputs: NodeOutputDefinition[] = boundary ? getGraphBoundaryOutputDefinitions(boundary) : [];
 
     // Add standard loop outputs
     outputs.push(
@@ -170,20 +145,16 @@ export class LoopUntilNodeImpl extends NodeImpl<LoopUntilNode> {
 
     // Add dynamic editors for graph inputs
     if (this.data.targetGraph) {
-      const graph = context.project.graphs[this.data.targetGraph];
-      if (graph) {
-        const inputNodes = graph.nodes.filter((node) => node.type === 'graphInput') as GraphInputNode[];
-        const inputIds = [...new Set(inputNodes.map((node) => node.data.id))].sort();
-
-        for (const inputId of inputIds) {
-          const inputNode = inputNodes.find((node) => node.data.id === inputId)!;
+      const boundary = getGraphBoundary(context.project, this.data.targetGraph);
+      if (boundary) {
+        for (const input of boundary.inputs) {
           definitions.push({
             type: 'dynamic',
             dataKey: 'inputData',
-            dynamicDataKey: inputNode.data.id,
-            dataType: inputNode.data.dataType,
-            label: inputNode.data.id,
-            editor: inputNode.data.editor ?? 'auto',
+            dynamicDataKey: input.id,
+            dataType: input.dataType,
+            label: input.id,
+            editor: input.editor ?? 'auto',
           });
         }
       }
@@ -219,6 +190,13 @@ export class LoopUntilNodeImpl extends NodeImpl<LoopUntilNode> {
     const maxIterations = this.data.maxIterations ? `\nMax iterations: ${this.data.maxIterations}` : '';
 
     return `Executes ${graphName}\nuntil ${condition}${maxIterations}`;
+  }
+
+  private getBoundary(project: Project, definitionContext?: NodeDefinitionContext) {
+    return (
+      definitionContext?.getGraphBoundary(project, this.data.targetGraph) ??
+      getGraphBoundary(project, this.data.targetGraph)
+    );
   }
 
   private shouldBreak(outputs: Outputs): boolean {

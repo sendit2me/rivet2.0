@@ -1,9 +1,6 @@
-import { readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { getActionBarRunButtonPresentation } from './actionBarRunButtons.js';
-
-const actionBarSource = readFileSync(new URL('./ActionBar.tsx', import.meta.url), 'utf8');
 
 const DEFAULT_OPTIONS = {
   currentGraphName: 'Current graph',
@@ -23,6 +20,7 @@ test('main graph selected uses one project-level run button', () => {
     }),
     {
       currentGraphRunLabel: 'Run project',
+      currentGraphRunSecondary: false,
       projectGraphRunLabel: 'Run project',
       showProjectGraphRunButton: false,
     },
@@ -38,6 +36,7 @@ test('non-main graph selected shows a selected-graph run button plus Run project
     }),
     {
       currentGraphRunLabel: 'Run Draft graph',
+      currentGraphRunSecondary: true,
       projectGraphRunLabel: 'Run project',
       showProjectGraphRunButton: true,
     },
@@ -45,45 +44,22 @@ test('non-main graph selected shows a selected-graph run button plus Run project
 });
 
 test('selected-graph secondary styling uses the same condition as the project run button', () => {
-  assert.equal(
-    getActionBarRunButtonPresentation({
+  for (const options of [{ hasLoadedRecording: true }, { graphRunning: true }, { showRunButton: false }]) {
+    const presentation = getActionBarRunButtonPresentation({
       ...DEFAULT_OPTIONS,
-      hasLoadedRecording: true,
+      ...options,
       hasMainGraph: true,
-    }).showProjectGraphRunButton,
-    false,
-  );
+    });
 
-  assert.equal(
-    getActionBarRunButtonPresentation({
-      ...DEFAULT_OPTIONS,
-      graphRunning: true,
-      hasMainGraph: true,
-    }).showProjectGraphRunButton,
-    false,
-  );
-
-  assert.equal(
-    getActionBarRunButtonPresentation({
-      ...DEFAULT_OPTIONS,
-      hasMainGraph: true,
-      showRunButton: false,
-    }).showProjectGraphRunButton,
-    false,
-  );
-});
-
-test('ActionBar wires the selected-graph secondary class to project-run visibility', () => {
-  assert.match(actionBarSource, /secondary: runButtonPresentation\.showProjectGraphRunButton/);
-});
-
-test('ready run buttons are text-only without the old chevron glyph', () => {
-  assert.doesNotMatch(actionBarSource, /ChevronRightIcon|chevron-right/);
+    assert.equal(presentation.showProjectGraphRunButton, false);
+    assert.equal(presentation.currentGraphRunSecondary, presentation.showProjectGraphRunButton);
+  }
 });
 
 test('no main graph configured preserves the existing single Run label', () => {
   assert.deepEqual(getActionBarRunButtonPresentation(DEFAULT_OPTIONS), {
     currentGraphRunLabel: 'Run',
+    currentGraphRunSecondary: false,
     projectGraphRunLabel: 'Run project',
     showProjectGraphRunButton: false,
   });

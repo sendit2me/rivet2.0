@@ -99,7 +99,10 @@ pins result and error compatibility across `runGraph(...)`,
 `GraphProcessor.processGraph(...)` execution for simple headless fixtures
 covering per-run inputs/context, branching DAGs, async Delay nodes,
 missing-required-input exclusion, control-flow exclusion, Code, and Expression.
-Thrown Code errors and abort signals are pinned across the public Node APIs.
+It also covers repeated same-input and changing-input subgraphs, nested
+subgraphs, dynamic `Call Graph` dispatch, and `Referenced Graph Alias` dispatch
+through a custom `projectReferenceLoader`. Thrown Code errors and abort signals
+are pinned across the public Node APIs.
 The direct `GraphProcessor` mode is a diagnostic baseline for these
 provider-free fixtures, not a replacement for Node wrapper defaults such as
 native providers, MCP, project reference loading, or debugger attachment.
@@ -110,21 +113,44 @@ is the repeatable baseline benchmark for the speed plan. Run it with
 `RIVET_RUNTIME_BENCH_ITERATIONS` and
 `RIVET_RUNTIME_BENCH_WARMUP_ITERATIONS`. Set
 `RIVET_RUNTIME_BENCH_SAMPLES` to run each benchmark case multiple times and
-report the average, min/max sample means, and standard deviation. It measures one-shot
+report the average, min/max sample means, and standard deviation. Use
+`RIVET_RUNTIME_BENCH_FILTER` with a JavaScript regular expression to run a
+targeted subset during regression attribution, and set
+`RIVET_RUNTIME_BENCH_JSON=1` when a script needs the benchmark payload as JSON.
+The package script still builds `@valerypopoff/rivet2-core` first, so scripts
+should read the final JSON array line unless they invoke the built benchmark
+file directly. The full matrix is still the required release gate. It measures one-shot
 `runGraphInFile(...)`, loaded-project `runGraph(...)`, reused
 `createProcessor(...)`, fresh `createProcessor(...)` with default-safe,
 explicit compatible, and `runtimeProfile: 'headless-fast'` profiles,
-`createGraphRunner(...)`, direct processor
-execution, cheap text chains, nested subgraph chains, repeated same-input and
-changing-input subgraph calls, wide fan-in DAGs, mixed subgraph fan-in DAGs,
-Expression and Code chains, lazy preprocessing through the public dependency
-planning path, and both uncached and cached Node CodeRunner compile/run paths.
+`createGraphRunner(...)`, direct processor execution, cheap text chains, wide
+independent fan-in DAGs, single subgraph calls, nested subgraph chains, repeated
+same-input fan-in and changing-input subgraph calls, dynamic
+`Call Graph` dispatch, `Referenced Graph Alias` dispatch through a custom
+`projectReferenceLoader`, Expression and Code chains, lazy preprocessing through
+the public dependency planning path, direct compatible-vs-`fast-acyclic`
+scheduler-only rows, isolated `loadProjectFromString(...)` and
+`loadProjectFromFile(...)` project-loading rows, and both uncached and cached
+Node CodeRunner compile/run paths. The benchmark matrix is intentionally broad so
+each speed phase can compare flat, subgraph-heavy, graph-dispatch, code-heavy,
+and secondary file-loading shapes against the same old-runtime baseline. The
+current baseline table is recorded in [`execution-speed.md`](../execution-speed.md)
+before runtime optimization work starts. The file-loading referenced-project
+benchmark passes `projectPath` explicitly so relative project-reference
+`hintPaths` use the default Node loader path.
 The benchmark script rebuilds the core ESM package first because the Node
 workspace imports `@valerypopoff/rivet2-core` through its package export
 surface; running the benchmark against stale `packages/core/dist` output can
 hide or invent speed changes.
 Benchmarks are diagnostic only; correctness remains pinned by the equivalence
 tests.
+
+The post-P7 full before/after matrix found real wins but also unacceptable
+cheap-runtime regressions. The P8-P12 recovery pass fixed the repeatable cheap
+path issue and recorded the final matrix in
+[`runtime-speed-before-after.md`](../runtime-speed-before-after.md).
+Future speed work should still treat direct `GraphProcessor` diagnostic rows as
+core hot-path evidence, not only Node API runtime-policy evidence.
 
 `createGraphRunner(...)` is the additive production-facing fast path for
 headless/programmatic Node integrations that load a project once and run the
@@ -150,7 +176,10 @@ setup. It does not cache `NodeImpl` runtime instances, run outputs, graph
 inputs, context values, globals, abort state, queued nodes, or execution
 metadata. The runner clears its owned caches on `dispose()`. Each run still uses
 a run-scoped `GraphProcessor` with fresh node implementations so mutable
-processor or custom-node state cannot leak between backend requests. Eligible
+processor or custom-node state cannot leak between backend requests. If a child
+graph plan is already in the runtime cache, the fresh child processor is seeded
+with that immutable plan before its first `processGraph(...)` call; this skips
+child preprocessor dispatch while still creating fresh runtime state. Eligible
 acyclic graphs can also use the internal fast ready-queue scheduler; unsupported
 graphs automatically use the compatible scheduler. Remote
 Debugger, recording, SSE/event-stream consumers, editor run-from, and
@@ -186,9 +215,62 @@ trace-sensitive runs also use the fully compatible path; explicit
 other explicit fast pieces. Custom `codeRunner` instances always win; the Node
 cached CodeRunner is only used when no custom runner was supplied. Recording
 remains supported because the default-safe and explicit fast paths still emit
-normal processor events. `runGraph(...)` deliberately passes
-`runtimeProfile: 'compatible'` internally for this rollout, so callers who want
-the default-safe single-run policy should use `createProcessor(...).run()`.
+normal processor events. `runGraph(...)` now applies that omitted-profile
+default-safe single-run policy selectively: root graphs with repeated direct
+Subgraph targets, repeated direct Referenced Graph Alias targets, multiple
+dynamic Call Graph nodes, or Code-family nodes without a custom `codeRunner`,
+can use the same run-scoped subprocessor execution-plan caching and default
+cached Node CodeRunner as `createProcessor(...).run()`. Simple graphs and
+unrelated one-off Subgraph targets stay on the compatible policy to avoid
+tiny-graph and no-reuse benchmark regressions.
+`runGraph(...)` does not enable the `headless-fast` scheduler or loaded
+project-reference caching, and it intentionally ignores any untyped
+`runtimeProfile` property. Use `createProcessor(...)` or `createGraphRunner(...)`
+when a caller needs an explicit runtime profile. Remote Debugger and
+trace-sensitive `runGraph(...)` calls still fall back to the fully compatible
+path through the shared runtime policy.
+
+The P8-P12 recovery pass preserved this policy while removing redundant core
+hot-path work. The final matrix restored cheap `runGraph(...)`, fresh
+`createProcessor(...)`, `createGraphRunner(...)`, and direct `GraphProcessor`
+rows while preserving the proven loading, Code-family, reference/subgraph, wide
+fan-in, and preprocessing wins.
+
+The final speed-plan pass did not broaden `fast-acyclic` beyond explicit
+headless-fast eligible graphs. Scheduler-only benchmark rows prove it is useful
+for eligible acyclic headless shapes, but split-run, loop, race, user-input, and
+wait-event behavior stay excluded until a dedicated compatibility phase proves
+that a specific class is safe to move.
+
+Default-safe processors and `headless-fast` graph runners also share a graph
+boundary cache for direct nested-graph callers. The core `GraphBoundaryCache`
+helper is used by Subgraph, Referenced Graph Alias, and Loop Until definition
+paths plus Subgraph/Referenced Graph Alias runtime input/output map
+construction. The cache is keyed by graph object and cleared with the rest of
+the processor/runner runtime cache; it never stores final outputs. Fresh
+processors get a fresh cache, while `createGraphRunner` keeps it until
+`dispose()`, matching the runner's immutable-project execution-plan cache.
+Processors with project references and disabled loaded-project caching reset
+the boundary cache at run start, because referenced project boundaries can be
+reloaded dynamically.
+Manually constructed internal contexts can omit the resolver and nested-graph
+nodes will fall back to uncached boundary derivation. Ordinary graphs that do
+not have boundary-driven nested-graph nodes keep the direct definition-loading
+path so simple workflows do not pay a boundary-cache branch.
+
+`captureNodeTimings` is an optional execution-metadata flag shared with core. It
+adds `durationMs` and split-run `splitRunDurationMs` to `nodeFinish` / `nodeError` events without changing output
+DataValues or project files. Headless `runGraph(...)` and ordinary
+`createProcessor(...)` calls do not capture timings unless the caller passes the
+flag. When `remoteDebugger` is supplied to Node `createProcessor(...)` or
+`runGraph(...)`, the Node package defaults timing capture on so externally
+triggered debugger runs can carry duration metadata to the app; passing
+`captureNodeTimings: false` explicitly still wins. The app-executor overrides
+missing internal run messages back to `false` so the editor's Node executor only
+captures timings when the `Show node run durations` app setting asks for them.
+Debugger processor attachments must forward this metadata on both successful
+`nodeFinish` events and normalized `nodeError` payloads; do not rebuild error
+messages in the debugger layer in a way that drops `durationMs` or split-run `splitRunDurationMs`.
 
 Default-fast promotion is guarded by
 [`packages/node/test/defaultFastCompatibility.test.ts`](../packages/node/test/defaultFastCompatibility.test.ts).
@@ -198,14 +280,17 @@ callback-visible events, recorder events after serialization, partial-output
 callbacks, user-input callbacks, global-set events, raised user events,
 Code/Expression errors, aborts, trace fallback, Remote Debugger fallback,
 custom CodeRunner ownership, custom `projectReferenceLoader` behavior, and
-concurrent runs over the same project object. Recorder parity is checked against
-the serialized replay shape because JSON cannot preserve `undefined` object
-properties. Subgraph node `duration` outputs are treated as timing-dependent
-values, not exact compatibility values. The current characterization keeps
-loaded-project reference caching as an explicit fast-profile behavior when a
-custom `projectReferenceLoader` is present: it can reduce observable loader call
-counts inside one run, so it is not part of default behavior until that contract
-is accepted or guarded by an automatic fallback.
+concurrent runs over the same project object. Dynamic graph-dispatch fixtures
+such as `Call Graph` and `Referenced Graph Alias` also have output-equivalence
+guards that intentionally do not pin independent root-node event order.
+Recorder parity is checked against the serialized replay shape because JSON
+cannot preserve `undefined` object properties. Subgraph node `duration` outputs
+are treated as timing-dependent values, not exact compatibility values. The
+current characterization keeps loaded-project reference caching as an explicit
+fast-profile behavior when a custom `projectReferenceLoader` is present: it can
+reduce observable loader call counts inside one run, so it is not part of
+default behavior until that contract is accepted or guarded by an automatic
+fallback.
 
 ## `@valerypopoff/rivet-app` (`packages/app/`)
 
@@ -297,9 +382,9 @@ The sidecar:
 - supports editor run-from execution by accepting startup `preloadData` in the same `run` message as explicit `runToNodeIds`; the sidecar applies that preload after creating the processor and before calling `run()`
 
 The worker-backed runner is scoped to the app executor. `@valerypopoff/rivet2-node`
-programmatic `runGraph(...)` and compatible-profile `createProcessor(...)`
-callers still use `NodeCodeRunner` by default unless they pass a custom
-`codeRunner`; omitted-default `createProcessor(...)` can use the run-scoped
+compatible-profile `createProcessor(...)` callers still use `NodeCodeRunner` by
+default unless they pass a custom `codeRunner`; omitted-default
+`createProcessor(...)` and eligible `runGraph(...)` calls can use the run-scoped
 cached Node CodeRunner when no custom runner is supplied. Code-family nodes that
 request the `Rivet` capability fall back to current-thread execution inside the
 sidecar for compatibility.
@@ -468,7 +553,10 @@ Docusaurus documentation site package.
 
 ### Publish model
 
-Docs publishing is handled from the repo root by `publish-docs.mts`, not by package-local deploy automation.
+Docs publishing is handled by the GitHub Pages release workflows. The docs
+package owns local Docusaurus commands such as `yarn build`, `yarn serve`, and
+`yarn deploy`, but normal release publishing does not use a root publishing
+script.
 
 ### Current content contract
 
@@ -528,26 +616,10 @@ verifies a clean checkout before installing dependencies, then verifies after
 the build that only Yarn install artifacts and generated publish artifacts
 changed. It then verifies the repository `NPM_TOKEN` secret with `npm whoami`
 before publishing. It calls this script with `--skip-clean-check` so ignored
-`.pnp.cjs`, `.yarn/cache`, `packages/core/dist`, `packages/node/dist`,
-`packages/trivet/dist`, `packages/cli/dist`, `packages/cli/bin`, and
-`packages/cli/tsconfig.tsbuildinfo` outputs do not block publishing.
-
-## `publish-docs.mts`
-
-Also operationally important.
-
-Current behavior:
-
-- requires a clean git tree
-- builds docs
-- copies the built site to a temp dir
-- checks out the `docs` branch
-- deletes tracked files except a small ignore list
-- copies the built site into the branch
-- commits `"Docs publish"`
-- then force-checks out the previous branch and resets hard to `HEAD`
-
-That script is functionally important but operationally risky. It assumes a clean tree and uses destructive git cleanup on exit.
+`.pnp.cjs`, `.pnp.loader.mjs`, `.yarn/cache`, `packages/core/dist`,
+`packages/node/dist`, `packages/trivet/dist`, `packages/cli/dist`,
+`packages/cli/bin`, and `packages/cli/tsconfig.tsbuildinfo` outputs do not
+block publishing.
 
 ## Package-Level Refactor Guidance
 

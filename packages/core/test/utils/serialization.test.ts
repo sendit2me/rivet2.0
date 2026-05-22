@@ -8,7 +8,10 @@ import {
   serializeGraph,
   serializeProject,
 } from '../../src/utils/serialization/serialization.js';
+import { prepareSerializedInput } from '../../src/utils/serialization/serializationInput.js';
+import { projectV2Deserializer } from '../../src/utils/serialization/serialization_v2.js';
 import { graphV3Serializer } from '../../src/utils/serialization/serialization_v3.js';
+import { projectV4Deserializer } from '../../src/utils/serialization/serialization_v4.js';
 import { detectSerializationVersion } from '../../src/utils/serialization/serializationUtils.js';
 import {
   serializeConnection,
@@ -152,6 +155,22 @@ data:
       visualData: 10/20/140/1//
 `;
 
+const v4GraphJson = JSON.stringify({
+  version: 4,
+  data: {
+    metadata: {
+      id: 'graph-1',
+      name: 'Main Graph',
+      description: 'Test graph',
+    },
+    nodes: {
+      '[node-1]:graphInput "Input"': {
+        visualData: '10/20/140/1//',
+      },
+    },
+  },
+});
+
 const v4SplitGraphWithoutConcurrency = `version: 4
 data:
   metadata:
@@ -173,6 +192,26 @@ describe('serialization compatibility', () => {
     assert.equal(detectSerializationVersion(v2Project), 2);
     assert.equal(detectSerializationVersion(v3Project), 3);
     assert.equal(detectSerializationVersion(v4Graph), 4);
+  });
+
+  it('prepares versioned YAML once while preserving legacy fallback inputs', () => {
+    const preparedV4 = prepareSerializedInput(v4Graph);
+    const preparedV1 = prepareSerializedInput(v1Project);
+    const preparedYamlWithoutVersion = prepareSerializedInput('metadata:\n  id: legacy-yaml');
+    const preparedUnsupportedVersion = prepareSerializedInput('version: 5\ndata: {}');
+
+    assert.equal(preparedV4.version, 4);
+    assert.equal(typeof preparedV4.deserializerInput, 'object');
+    assert.notEqual(preparedV4.deserializerInput, v4Graph);
+
+    assert.equal(preparedV1.version, 1);
+    assert.equal(preparedV1.deserializerInput, v1Project);
+
+    assert.equal(preparedYamlWithoutVersion.version, 1);
+    assert.equal(preparedYamlWithoutVersion.deserializerInput, 'metadata:\n  id: legacy-yaml');
+
+    assert.equal(preparedUnsupportedVersion.version, 1);
+    assert.equal(preparedUnsupportedVersion.deserializerInput, 'version: 5\ndata: {}');
   });
 
   it('deserializes project formats v1 through v4', () => {
@@ -202,6 +241,22 @@ describe('serialization compatibility', () => {
       assert.equal(graph.nodes[0]?.title, 'Input');
       assert.equal(graph.connections.length, 0);
     }
+  });
+
+  it('deserializes versioned JSON envelopes through the prepared input path', () => {
+    assert.equal(detectSerializationVersion(v4GraphJson), 4);
+
+    const graph = deserializeGraph(v4GraphJson);
+
+    assert.equal(graph.metadata?.id, 'graph-1');
+    assert.equal(graph.nodes[0]?.id, 'node-1');
+    assert.equal(graph.nodes[0]?.title, 'Input');
+    assert.equal(graph.connections.length, 0);
+  });
+
+  it('does not accept parsed arrays as versioned envelopes', () => {
+    assert.throws(() => projectV2Deserializer([]), /Project v2 deserializer requires a string/);
+    assert.throws(() => projectV4Deserializer([]), /Project v4 deserializer requires a string/);
   });
 
   it('serializes V3 graphs with a V3 envelope', () => {

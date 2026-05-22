@@ -40,9 +40,14 @@ import {
   preprocessGraphState,
   toReusableGraphExecutionPlan,
 } from './GraphPreprocessor.js';
+import {
+  getGraphBoundary,
+  type GraphBoundary,
+  type GraphBoundaryCache,
+} from './GraphBoundaryCache.js';
 import { replayExecutionRecording } from './RecordingPlayer.js';
 import { didLoopControllerBreak, LOOP_NOT_BROKEN_SENTINEL } from './loopControllerBreak.js';
-import { buildNodeProcessContext } from './ProcessContextBuilder.js';
+import { buildNodeProcessContext, type NodeProcessContextBase } from './ProcessContextBuilder.js';
 import { processSplitRunNode } from './SplitRunProcessor.js';
 import {
   type ExecutionState,
@@ -65,6 +70,8 @@ import {
 import { IsomorphicCodeRunner } from '../integrations/CodeRunner.js';
 
 type WithExecution<T extends object> = T & { execution: GraphExecutionMetadata };
+type NodeTimingStart = number | undefined;
+type NodeAbortControllerEntry = AbortController | Set<AbortController>;
 
 export type ProcessEvents = {
   /** Called when processing has started. */
@@ -91,10 +98,22 @@ export type ProcessEvents = {
   nodeStart: WithExecution<{ node: ChartNode; inputs: Inputs; processId: ProcessId }>;
 
   /** Called when a node has finished processing, with the output values for the node. */
-  nodeFinish: WithExecution<{ node: ChartNode; outputs: Outputs; processId: ProcessId }>;
+  nodeFinish: WithExecution<{
+    node: ChartNode;
+    outputs: Outputs;
+    processId: ProcessId;
+    durationMs?: number;
+    splitRunDurationMs?: Record<number, number>;
+  }>;
 
   /** Called when a node has errored during processing. */
-  nodeError: WithExecution<{ node: ChartNode; error: Error | string; processId: ProcessId }>;
+  nodeError: WithExecution<{
+    node: ChartNode;
+    error: Error | string;
+    processId: ProcessId;
+    durationMs?: number;
+    splitRunDurationMs?: Record<number, number>;
+  }>;
 
   /** Called when a node has been excluded from processing. */
   nodeExcluded: WithExecution<{
@@ -183,6 +202,7 @@ export type GraphProcessorConcurrency = {
 
 export type GraphProcessorRuntimeCache = {
   executionPlans?: WeakMap<NodeGraph, GraphExecutionPlan>;
+  graphBoundaries?: GraphBoundaryCache;
   loadedProjects?: Record<ProjectId, Project>;
 };
 
@@ -192,6 +212,7 @@ export type GraphProcessorScheduler = 'compatible' | 'fast-acyclic';
 
 const DEFAULT_NODE_CONCURRENCY = 8;
 export const DEFAULT_SPLIT_RUN_CONCURRENCY = 4;
+const DEFAULT_ISOMORPHIC_CODE_RUNNER = new IsomorphicCodeRunner();
 const FAST_ACYCLIC_UNSUPPORTED_NODE_TYPES = new Set<string>([
   'loopController',
   'loopUntil',
@@ -199,6 +220,22 @@ const FAST_ACYCLIC_UNSUPPORTED_NODE_TYPES = new Set<string>([
   'userInput',
   'waitForEvent',
 ]);
+
+function getMonotonicTimeMs(): number {
+  return globalThis.performance?.now?.() ?? Date.now();
+}
+
+function withOptionalDuration<T extends object>(
+  payload: T,
+  durationMs: number | undefined,
+  splitRunDurationMs?: Record<number, number>,
+): T & { durationMs?: number; splitRunDurationMs?: Record<number, number> } {
+  return {
+    ...payload,
+    ...(durationMs === undefined ? {} : { durationMs }),
+    ...(splitRunDurationMs === undefined ? {} : { splitRunDurationMs }),
+  } as T & { durationMs?: number; splitRunDurationMs?: Record<number, number> };
+}
 
 function normalizeConcurrencyValue(value: number | undefined, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value) && value >= 1 ? Math.floor(value) : fallback;
@@ -211,6 +248,29 @@ function resolveGraphProcessorConcurrency(
     nodeConcurrency: normalizeConcurrencyValue(concurrency?.nodeConcurrency, DEFAULT_NODE_CONCURRENCY),
     splitRunConcurrency: normalizeConcurrencyValue(concurrency?.splitRunConcurrency, DEFAULT_SPLIT_RUN_CONCURRENCY),
   };
+}
+
+function resolveProcessorGraph(project: Project, graphId: GraphId | undefined): NodeGraph | undefined {
+  if (graphId) {
+    return project.graphs[graphId];
+  }
+
+  return project.metadata.mainGraphId ? project.graphs[project.metadata.mainGraphId] : undefined;
+}
+
+function replaceRecordContents<TKey extends string, TValue>(
+  target: Record<TKey, TValue>,
+  source: Record<TKey, TValue>,
+): void {
+  if (target === source) {
+    return;
+  }
+
+  for (const key of Object.keys(target) as TKey[]) {
+    delete target[key];
+  }
+
+  Object.assign(target, source);
 }
 
 export type RaceId = Tagged<string, 'RaceId'>;
@@ -262,6 +322,8 @@ export class GraphProcessor {
   readonly #runtimeCache: GraphProcessorRuntimeCache | undefined;
   readonly #cacheLoadedProjects: boolean;
   readonly #scheduler: GraphProcessorScheduler;
+  readonly #captureNodeTimings: boolean;
+  #useSeededExecutionPlanOnNextRun = false;
   id = nanoid();
 
   readonly #includeTrace?: boolean = true;
@@ -321,10 +383,11 @@ export class GraphProcessor {
   #definitions: Record<NodeId, { inputs: NodeInputDefinition[]; outputs: NodeOutputDefinition[] }> = undefined!;
   #scc: ChartNode[][] = undefined!;
   #graphExecutionPlan: GraphExecutionPlan | undefined;
+  #nodeProcessContextBase: NodeProcessContextBase = undefined!;
 
   #nodesNotInCycle: ChartNode[] = undefined!;
 
-  #nodeAbortControllers = new Map<`${NodeId}-${ProcessId}`, AbortController>();
+  #nodeAbortControllers = new Map<NodeId, NodeAbortControllerEntry>();
 
   #graphInputNodeValues: Record<string, DataValue> = {};
 
@@ -340,6 +403,18 @@ export class GraphProcessor {
     return this.#running;
   }
 
+  #startNodeTiming(): NodeTimingStart {
+    return this.#captureNodeTimings ? getMonotonicTimeMs() : undefined;
+  }
+
+  #finishNodeTiming(start: NodeTimingStart): number | undefined {
+    if (start == null) {
+      return undefined;
+    }
+
+    return Math.max(0, getMonotonicTimeMs() - start);
+  }
+
   constructor(
     project: Project,
     graphId: GraphId | undefined,
@@ -347,18 +422,16 @@ export class GraphProcessor {
     includeTrace?: boolean,
     options?: {
       cacheLoadedProjects?: boolean;
+      captureNodeTimings?: boolean;
       concurrency?: GraphProcessorConcurrency;
       executionPlanCacheMode?: GraphProcessorExecutionPlanCacheMode;
+      initialExecutionPlan?: GraphExecutionPlan;
       runtimeCache?: GraphProcessorRuntimeCache;
       scheduler?: GraphProcessorScheduler;
     },
   ) {
     this.#project = project;
-    const graph = graphId
-      ? project.graphs[graphId]
-      : project.metadata.mainGraphId
-        ? project.graphs[project.metadata.mainGraphId]
-        : undefined;
+    const graph = resolveProcessorGraph(project, graphId);
 
     if (!graph) {
       throw new Error(`Graph ${graphId} not found in project`);
@@ -375,6 +448,7 @@ export class GraphProcessor {
     this.#runtimeCache = options?.runtimeCache;
     this.#cacheLoadedProjects = options?.cacheLoadedProjects ?? false;
     this.#scheduler = options?.scheduler ?? 'compatible';
+    this.#captureNodeTimings = options?.captureNodeTimings ?? false;
 
     this.#emitter.bindMethods(this as unknown as Record<string, unknown>, ['on', 'off', 'once', 'onAny', 'offAny']);
 
@@ -383,6 +457,11 @@ export class GraphProcessor {
     this.#emitter.on('globalSet', ({ id, value }: ProcessEvents['globalSet']) => {
       emitDetached(this.#emitter, `globalSet:${id}`, value);
     });
+
+    if (options?.initialExecutionPlan) {
+      this.#applyPreprocessedGraph(options.initialExecutionPlan, { recreateNodeInstances: true });
+      this.#useSeededExecutionPlanOnNextRun = true;
+    }
   }
 
   #preprocessGraph() {
@@ -402,6 +481,11 @@ export class GraphProcessor {
       registry: this.#registry,
       warnOnInvalidGraph: this.warnOnInvalidGraph,
       buildExecutionPlan: shouldUseRuntimeCache,
+      definitionContext: this.#runtimeCache
+        ? {
+            getGraphBoundary: (project, graphId) => this.#getGraphBoundary(project, graphId),
+          }
+        : undefined,
     });
 
     if (shouldUseRuntimeCache && isGraphExecutionPlan(preprocessedGraph)) {
@@ -413,19 +497,32 @@ export class GraphProcessor {
   }
 
   #canUseRuntimeExecutionPlanCache(): boolean {
+    return this.#canUseRuntimeExecutionPlanCacheFor(this.#project, this.#isSubProcessor);
+  }
+
+  #canUseRuntimeExecutionPlanCacheFor(project: Project, isSubProcessor: boolean): boolean {
     if (this.warnOnInvalidGraph || this.#runtimeCache == null) {
       return false;
     }
 
-    if (this.#executionPlanCacheMode === 'subprocessors' && !this.#isSubProcessor) {
+    if (this.#executionPlanCacheMode === 'subprocessors' && !isSubProcessor) {
       return false;
     }
 
-    if (!this.#cacheLoadedProjects && (this.#project.references?.length ?? 0) > 0) {
+    if (!this.#cacheLoadedProjects && (project.references?.length ?? 0) > 0) {
       return false;
     }
 
     return true;
+  }
+
+  #getGraphBoundary(project: Project, graphId: GraphId | undefined): GraphBoundary | undefined {
+    if (!this.#runtimeCache) {
+      return getGraphBoundary(project, graphId);
+    }
+
+    this.#runtimeCache.graphBoundaries ??= new WeakMap();
+    return getGraphBoundary(project, graphId, this.#runtimeCache.graphBoundaries);
   }
 
   #applyPreprocessedGraph(
@@ -437,20 +534,31 @@ export class GraphProcessor {
         ? this.#createNodeInstances(isGraphExecutionPlan(preprocessedGraph) ? preprocessedGraph.graphNodes : this.#graph.nodes)
         : preprocessedGraph.nodeInstances;
 
-    Object.assign(this.#nodeInstances, nodeInstances);
-    Object.assign(this.#nodesById, preprocessedGraph.nodesById);
-    Object.assign(this.#connections, preprocessedGraph.connections);
+    replaceRecordContents(this.#nodeInstances, nodeInstances);
+    replaceRecordContents(this.#nodesById, preprocessedGraph.nodesById);
+    replaceRecordContents(this.#connections, preprocessedGraph.connections);
     this.#definitions = preprocessedGraph.definitions;
     this.#scc = preprocessedGraph.stronglyConnectedComponents;
     this.#nodesNotInCycle = preprocessedGraph.nodesNotInCycle;
     this.#graphExecutionPlan = isGraphExecutionPlan(preprocessedGraph) ? preprocessedGraph : undefined;
   }
 
+  #seededExecutionPlanForNextRun(): GraphExecutionPlan | undefined {
+    if (!this.#useSeededExecutionPlanOnNextRun || this.warnOnInvalidGraph) {
+      return undefined;
+    }
+
+    return this.#graphExecutionPlan;
+  }
+
   #createNodeInstances(nodes: ChartNode[]): Record<NodeId, NodeImpl<ChartNode>> {
-    return Object.fromEntries(nodes.map((node) => [node.id, this.#registry.createDynamicImpl(node)])) as Record<
-      NodeId,
-      NodeImpl<ChartNode>
-    >;
+    const nodeInstances: Record<NodeId, NodeImpl<ChartNode>> = {};
+
+    for (const node of nodes) {
+      nodeInstances[node.id] = this.#registry.createDynamicImpl(node);
+    }
+
+    return nodeInstances;
   }
 
   #emitTraceEvent(eventData: string) {
@@ -541,6 +649,7 @@ export class GraphProcessor {
     this.#abortSuccessfully = successful;
     this.#abortError = error;
     this.#abortController.abort();
+    this.#abortActiveNodeControllers();
 
     emitDetached(this.#emitter, 'graphAbort', this.#withExecution({ successful, error, graph: this.#graph }));
 
@@ -716,7 +825,12 @@ export class GraphProcessor {
 
     this.#erroredNodes = new Map();
     this.#currentlyProcessing = new Set();
-    this.#remainingNodes = new Set(this.#graph.nodes.map((n) => n.id));
+    const seededExecutionPlan = this.#seededExecutionPlanForNextRun();
+    this.#remainingNodes = new Set(
+      seededExecutionPlan
+        ? seededExecutionPlan.nodeIds
+        : this.#graph.nodes.map((node) => node.id),
+    );
     this.#pendingUserInputs = {};
     this.#processingQueue = new PQueue({ concurrency: this.#concurrency.nodeConcurrency });
     this.#graphOutputs = {};
@@ -727,6 +841,7 @@ export class GraphProcessor {
     this.#attachedNodeData = new Map();
     this.#globals ??= new Map();
     this.#ignoreNodes = new Set();
+    this.#nodeProcessContextBase = undefined!;
 
     this.#abortController = this.#newAbortController();
     this.#abortController.signal.addEventListener('abort', () => {
@@ -738,6 +853,12 @@ export class GraphProcessor {
     this.#nodeAbortControllers = new Map();
     this.#loadedProjects =
       this.#cacheLoadedProjects && this.#runtimeCache?.loadedProjects ? { ...this.#runtimeCache.loadedProjects } : {};
+    // Referenced projects can be reloaded per run when loaded-project caching is disabled.
+    if (!this.#cacheLoadedProjects && (this.#project.references?.length ?? 0) > 0) {
+      if (this.#runtimeCache) {
+        this.#runtimeCache.graphBoundaries = undefined;
+      }
+    }
     this.#graphInputNodeValues = {};
   }
 
@@ -759,7 +880,12 @@ export class GraphProcessor {
     try {
       this.#initializeGraphRun(context, inputs, contextValues);
       await this.#loadProjectReferences();
-      this.#preprocessGraph();
+      this.#prepareNodeProcessContextBase();
+      const shouldUseSeededExecutionPlan = this.#seededExecutionPlanForNextRun() != null;
+      this.#useSeededExecutionPlanOnNextRun = false;
+      if (!shouldUseSeededExecutionPlan) {
+        this.#preprocessGraph();
+      }
       await this.#emitGraphStart();
       await this.#emitPreloadedNodeResults();
       await this.#waitUntilUnpaused();
@@ -810,6 +936,40 @@ export class GraphProcessor {
     });
     this.#unsubscribeTokenizerError =
       typeof unsubscribeTokenizerError === 'function' ? unsubscribeTokenizerError : undefined;
+  }
+
+  #prepareNodeProcessContextBase(): void {
+    this.#nodeProcessContextBase = {
+      ...this.#context,
+      abortGraph: (error) => {
+        void this.abort(error === undefined, error);
+      },
+      codeRunner: this.#context.codeRunner ?? DEFAULT_ISOMORPHIC_CODE_RUNNER,
+      contextValues: this.#contextValues,
+      executionCache: this.#executionCache,
+      executor: this.executor ?? 'nodejs',
+      getGlobal: (id) => this.#globals.get(id),
+      getGraphBoundary: (project, graphId) => this.#getGraphBoundary(project, graphId),
+      graphInputNodeValues: this.#graphInputNodeValues,
+      graphInputs: this.#graphInputs,
+      graphOutputs: this.#graphOutputs,
+      project: this.#project,
+      raiseEvent: (event, data) => {
+        this.getRootProcessor().raiseEvent(event, data as DataValue);
+      },
+      referencedProjects: this.#loadedProjects,
+      tokenizer: this.#getTokenizer(),
+      trace: (message) => {
+        this.#emitTraceEvent(message);
+      },
+      waitForGlobal: async (id) => {
+        if (this.#globals.has(id)) {
+          return this.#globals.get(id)!;
+        }
+        await this.getRootProcessor().#emitter.once(`globalSet:${id}`);
+        return this.#globals.get(id)!;
+      },
+    };
   }
 
   #cleanupTokenizerErrorListener(): void {
@@ -1361,22 +1521,18 @@ export class GraphProcessor {
       return;
     }
 
+    const raceId = `race-${node.id}` as RaceId;
     const allNodesForRace = [...this.#attachedNodeData.entries()].filter(([, { races }]) =>
-      races?.raceIds.includes(`race-${node.id}` as RaceId),
+      races?.raceIds.includes(raceId),
     );
 
     for (const [nodeId] of allNodesForRace) {
-      for (const [key, abortController] of this.#nodeAbortControllers.entries()) {
-        if (key.startsWith(nodeId)) {
-          this.#emitTraceEvent(`Aborting node ${nodeId} because other race branch won`);
-          abortController.abort();
-        }
-      }
+      this.#abortNodeControllersForNode(nodeId, `Aborting node ${nodeId} because other race branch won`);
+    }
 
-      for (const [, nodeAttachedData] of [...this.#attachedNodeData.entries()]) {
-        if (nodeAttachedData.races?.raceIds.includes(`race-${node.id}` as RaceId)) {
-          nodeAttachedData.races.completed = true;
-        }
+    for (const [, nodeAttachedData] of allNodesForRace) {
+      if (nodeAttachedData.races?.raceIds.includes(raceId)) {
+        nodeAttachedData.races.completed = true;
       }
     }
   }
@@ -1465,18 +1621,6 @@ export class GraphProcessor {
       return processId;
     }
 
-    const inputNodes = getInputNodesTo(this.#executionState, node);
-    const erroredInputNodes = inputNodes.filter((inputNode) => this.#erroredNodes.has(inputNode.id));
-    if (erroredInputNodes.length > 0) {
-      const error = new Error(
-        `Cannot process node ${node.title} (${node.id}) because it depends on errored nodes: ${erroredInputNodes
-          .map((n) => `${n.title} (${n.id})`)
-          .join(', ')}`,
-      );
-      this.#nodeErrored(node, error, processId);
-      return processId;
-    }
-
     if (node.isSplitRun) {
       await this.#processSplitRunNode(node, processId);
     } else {
@@ -1496,11 +1640,14 @@ export class GraphProcessor {
       accumulateCost: (output) => this.#accumulateCost(output),
       setNodeResults: (nodeId, outputs) => this.#nodeResults.set(nodeId, outputs),
       markNodeVisited: (nodeId) => this.#visitedNodes.add(nodeId),
-      nodeErrored: (n, err, pid) => this.#nodeErrored(n, err, pid),
+      nodeErrored: (n, err, pid, durationMs, splitRunDurationMs) =>
+        this.#nodeErrored(n, err, pid, durationMs, splitRunDurationMs),
       isAborted: () => this.#aborted,
       emit: (event, data) => {
         emitDetached(this.#emitter, event, this.#withExecution(data));
       },
+      startNodeTiming: this.#captureNodeTimings ? () => this.#startNodeTiming() : undefined,
+      finishNodeTiming: this.#captureNodeTimings ? (start) => this.#finishNodeTiming(start) : undefined,
     });
   }
 
@@ -1514,6 +1661,8 @@ export class GraphProcessor {
     // Use awaited emit (not emitDetached) so that listeners can yield to the
     // macrotask queue, giving the browser a chance to repaint during execution.
     await this.#emitter.emit('nodeStart', this.#withExecution({ node, inputs: inputValues, processId }));
+
+    const timingStart = this.#startNodeTiming();
 
     try {
       const outputValues = await this.#processNodeWithInputData(
@@ -1533,15 +1682,37 @@ export class GraphProcessor {
       this.#nodeResults.set(node.id, outputValues);
       this.#visitedNodes.add(node.id);
       this.#accumulateCost(outputValues);
-      await this.#emitter.emit('nodeFinish', this.#withExecution({ node, outputs: outputValues, processId }));
+      await this.#emitter.emit(
+        'nodeFinish',
+        this.#withExecution(
+          withOptionalDuration(
+            {
+              node,
+              outputs: outputValues,
+              processId,
+            },
+            this.#finishNodeTiming(timingStart),
+          ),
+        ),
+      );
     } catch (error) {
-      this.#nodeErrored(node, error, processId);
+      this.#nodeErrored(node, error, processId, this.#finishNodeTiming(timingStart));
     }
   }
 
-  #nodeErrored(node: ChartNode, e: unknown, processId: ProcessId) {
+  #nodeErrored(
+    node: ChartNode,
+    e: unknown,
+    processId: ProcessId,
+    durationMs?: number,
+    splitRunDurationMs?: Record<number, number>,
+  ) {
     const error = getError(e);
-    emitDetached(this.#emitter, 'nodeError', this.#withExecution({ node, error, processId }));
+    emitDetached(
+      this.#emitter,
+      'nodeError',
+      this.#withExecution(withOptionalDuration({ node, error, processId }, durationMs, splitRunDurationMs)),
+    );
     this.#emitTraceEvent(`Node ${node.title} (${node.id}-${processId}) errored: ${error.stack}`);
     this.#erroredNodes.set(node.id, error);
   }
@@ -1569,6 +1740,76 @@ export class GraphProcessor {
     return controller;
   }
 
+  #registerNodeAbortController(nodeId: NodeId, abortController: AbortController): void {
+    const existingAbortControllers = this.#nodeAbortControllers.get(nodeId);
+    if (!existingAbortControllers) {
+      this.#nodeAbortControllers.set(nodeId, abortController);
+      return;
+    }
+
+    if (existingAbortControllers instanceof Set) {
+      existingAbortControllers.add(abortController);
+      return;
+    }
+
+    if (existingAbortControllers === abortController) {
+      return;
+    }
+
+    this.#nodeAbortControllers.set(nodeId, new Set([existingAbortControllers, abortController]));
+  }
+
+  #unregisterNodeAbortController(nodeId: NodeId, abortController: AbortController): void {
+    const existingAbortControllers = this.#nodeAbortControllers.get(nodeId);
+    if (!existingAbortControllers) {
+      return;
+    }
+
+    if (existingAbortControllers === abortController) {
+      this.#nodeAbortControllers.delete(nodeId);
+      return;
+    }
+
+    if (!(existingAbortControllers instanceof Set)) {
+      return;
+    }
+
+    existingAbortControllers.delete(abortController);
+    if (existingAbortControllers.size === 0) {
+      this.#nodeAbortControllers.delete(nodeId);
+    } else if (existingAbortControllers.size === 1) {
+      this.#nodeAbortControllers.set(nodeId, existingAbortControllers.values().next().value!);
+    }
+  }
+
+  #abortNodeControllersForNode(nodeId: NodeId, traceMessage?: string): void {
+    const abortControllerEntry = this.#nodeAbortControllers.get(nodeId);
+    if (!abortControllerEntry) {
+      return;
+    }
+
+    if (!(abortControllerEntry instanceof Set)) {
+      if (traceMessage) {
+        this.#emitTraceEvent(traceMessage);
+      }
+      abortControllerEntry.abort();
+      return;
+    }
+
+    for (const abortController of abortControllerEntry) {
+      if (traceMessage) {
+        this.#emitTraceEvent(traceMessage);
+      }
+      abortController.abort();
+    }
+  }
+
+  #abortActiveNodeControllers(): void {
+    for (const nodeId of [...this.#nodeAbortControllers.keys()]) {
+      this.#abortNodeControllersForNode(nodeId);
+    }
+  }
+
   async #processNodeWithInputData(
     node: ChartNode,
     inputValues: Inputs,
@@ -1578,11 +1819,10 @@ export class GraphProcessor {
   ) {
     const instance = this.#nodeInstances[node.id]!;
     const nodeAbortController = this.#newAbortController();
-    const abortListener = () => {
+    this.#registerNodeAbortController(node.id, nodeAbortController);
+    if (this.#abortController.signal.aborted) {
       nodeAbortController.abort();
-    };
-    this.#nodeAbortControllers.set(`${node.id}-${processId}`, nodeAbortController);
-    this.#abortController.signal.addEventListener('abort', abortListener);
+    }
     const context = this.#createNodeProcessContext(
       node,
       inputValues,
@@ -1592,13 +1832,12 @@ export class GraphProcessor {
       partialOutput,
     );
 
-    await this.#waitUntilUnpaused();
     let results: Outputs;
     try {
+      await this.#waitUntilUnpaused();
       results = await instance.process(inputValues, context);
     } finally {
-      this.#nodeAbortControllers.delete(`${node.id}-${processId}`);
-      this.#abortController.signal.removeEventListener('abort', abortListener);
+      this.#unregisterNodeAbortController(node.id, nodeAbortController);
     }
 
     if (nodeAbortController.signal.aborted) {
@@ -1623,25 +1862,13 @@ export class GraphProcessor {
     const plugin = this.#registry.getPluginFor(node.type);
 
     return buildNodeProcessContext({
-      abortGraph: (error) => {
-        void this.abort(error === undefined, error);
-      },
       attachedData: this.#getAttachedDataTo(node),
-      codeRunner: this.#context.codeRunner ?? new IsomorphicCodeRunner(),
-      context: this.#context,
-      contextValues: this.#contextValues,
+      base: this.#nodeProcessContextBase,
       createSubProcessor: (subGraphId, options = {}) =>
         this.#createSubProcessor(node, index, processId, subGraphId, options),
       execution: this.#buildExecutionMetadata(),
-      executionCache: this.#executionCache,
-      executor: this.executor ?? 'nodejs',
       externalFunctions: this.#externalFunctions,
-      getGlobal: (id) => this.#globals.get(id),
       getPluginConfig: (name) => getPluginConfig(plugin, this.#context.settings, name),
-      graphInputNodeValues: this.#graphInputNodeValues,
-      graphInputs: this.#graphInputs,
-      graphOutputs: this.#graphOutputs,
-      loadedProjects: this.#loadedProjects,
       node,
       nodeAbortController,
       onPartialOutputs: (partialOutputs) => {
@@ -1649,19 +1876,11 @@ export class GraphProcessor {
         this.#emitGraphPartialOutputIfNeeded(node, partialOutputs);
       },
       processId,
-      project: this.#project,
-      raiseEvent: (event, data) => {
-        this.getRootProcessor().raiseEvent(event, data as DataValue);
-      },
       requestUserInput: async (inputStrings, renderingType) =>
         this.#requestUserInput(node, inputStrings, inputValues, renderingType, processId),
       setGlobal: (id, value) => {
         this.#globals.set(id, value);
         emitDetached(this.#emitter, 'globalSet', this.#withExecution({ id, value, processId }));
-      },
-      tokenizer: this.#getTokenizer(),
-      trace: (message) => {
-        this.#emitTraceEvent(message);
       },
       waitEvent: async (event) => {
         return new Promise((resolve, reject) => {
@@ -1678,13 +1897,6 @@ export class GraphProcessor {
             });
           nodeAbortController.signal.addEventListener('abort', abortListener, { once: true });
         });
-      },
-      waitForGlobal: async (id) => {
-        if (this.#globals.has(id)) {
-          return this.#globals.get(id)!;
-        }
-        await this.getRootProcessor().#emitter.once(`globalSet:${id}`);
-        return this.#globals.get(id)!;
       },
     });
   }
@@ -1718,10 +1930,19 @@ export class GraphProcessor {
     subGraphId: GraphId | undefined,
     { signal, project }: { signal?: AbortSignal; project?: Project } = {},
   ): GraphProcessor {
-    const processor = new GraphProcessor(project ?? this.#project, subGraphId, this.#registry, this.#includeTrace, {
+    const subprocessorProject = project ?? this.#project;
+    const subprocessorGraph = resolveProcessorGraph(subprocessorProject, subGraphId);
+    const initialExecutionPlan =
+      subprocessorGraph && this.#canUseRuntimeExecutionPlanCacheFor(subprocessorProject, true)
+        ? this.#runtimeCache?.executionPlans?.get(subprocessorGraph)
+        : undefined;
+
+    const processor = new GraphProcessor(subprocessorProject, subGraphId, this.#registry, this.#includeTrace, {
       cacheLoadedProjects: this.#cacheLoadedProjects,
+      captureNodeTimings: this.#captureNodeTimings,
       concurrency: this.#concurrency,
       executionPlanCacheMode: this.#executionPlanCacheMode,
+      initialExecutionPlan,
       runtimeCache: this.#runtimeCache,
       scheduler: this.#scheduler,
     });

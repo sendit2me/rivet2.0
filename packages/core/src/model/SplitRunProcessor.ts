@@ -27,19 +27,48 @@ export type SplitRunDeps = {
   accumulateCost(output: Outputs): void;
   setNodeResults(nodeId: ChartNode['id'], outputs: Outputs): void;
   markNodeVisited(nodeId: ChartNode['id']): void;
-  nodeErrored(node: ChartNode, error: unknown, processId: ProcessId): void;
+  nodeErrored(
+    node: ChartNode,
+    error: unknown,
+    processId: ProcessId,
+    durationMs?: number,
+    splitRunDurationMs?: Record<number, number>,
+  ): void;
   isAborted(): boolean;
   emit(event: 'nodeStart', data: { node: ChartNode; inputs: Inputs; processId: ProcessId }): void;
-  emit(event: 'nodeFinish', data: { node: ChartNode; outputs: Outputs; processId: ProcessId }): void;
+  emit(
+    event: 'nodeFinish',
+    data: {
+      node: ChartNode;
+      outputs: Outputs;
+      processId: ProcessId;
+      durationMs?: number;
+      splitRunDurationMs?: Record<number, number>;
+    },
+  ): void;
   emit(
     event: 'partialOutput',
     data: { node: ChartNode; outputs: Outputs; index: number; processId: ProcessId },
   ): void;
+  startNodeTiming?(): number | undefined;
+  finishNodeTiming?(start: number | undefined): number | undefined;
 };
 
 type SplitResult =
-  | { type: 'output'; output: Outputs; error?: Error }
-  | { type: 'error'; error: Error; output?: Outputs };
+  | { type: 'output'; output: Outputs; durationMs?: number; error?: Error }
+  | { type: 'error'; error: Error; durationMs?: number; output?: Outputs };
+
+function withOptionalDuration<T extends object>(
+  payload: T,
+  durationMs: number | undefined,
+  splitRunDurationMs?: Record<number, number>,
+): T & { durationMs?: number; splitRunDurationMs?: Record<number, number> } {
+  return {
+    ...payload,
+    ...(durationMs === undefined ? {} : { durationMs }),
+    ...(splitRunDurationMs === undefined ? {} : { splitRunDurationMs }),
+  } as T & { durationMs?: number; splitRunDurationMs?: Record<number, number> };
+}
 
 export async function processSplitRunNode(
   node: ChartNode,
@@ -58,6 +87,8 @@ export async function processSplitRunNode(
   );
 
   deps.emit('nodeStart', { node, inputs: inputValues, processId });
+  const timingStart = deps.startNodeTiming?.();
+  let splitRunDurationMs: Record<number, number> | undefined;
 
   try {
     let results: SplitResult[];
@@ -68,6 +99,7 @@ export async function processSplitRunNode(
       results = await runParallel(node, inputValues, splittingAmount, processId, deps);
     }
 
+    splitRunDurationMs = getSplitRunDurationMs(results);
     const errors = results.filter((r) => r.type === 'error').map((r) => r.error!);
     if (errors.length === 1) {
       throw errors[0]!;
@@ -79,9 +111,20 @@ export async function processSplitRunNode(
 
     deps.setNodeResults(node.id, aggregateResults);
     deps.markNodeVisited(node.id);
-    deps.emit('nodeFinish', { node, outputs: aggregateResults, processId });
+    deps.emit(
+      'nodeFinish',
+      withOptionalDuration(
+        {
+          node,
+          outputs: aggregateResults,
+          processId,
+        },
+        deps.finishNodeTiming?.(timingStart),
+        splitRunDurationMs,
+      ),
+    );
   } catch (error) {
-    deps.nodeErrored(node, error, processId);
+    deps.nodeErrored(node, error, processId, deps.finishNodeTiming?.(timingStart), splitRunDurationMs);
   }
 }
 
@@ -100,6 +143,7 @@ async function runSequential(
     }
 
     const inputs = splitInputsAtIndex(inputValues, i);
+    const splitTimingStart = deps.startNodeTiming?.();
 
     try {
       const output = await deps.processNodeWithInputData(node, inputs, i, processId, (n, partialOutputs, index) => {
@@ -107,9 +151,9 @@ async function runSequential(
       });
 
       deps.accumulateCost(output);
-      results.push({ type: 'output', output });
+      results.push({ type: 'output', output, durationMs: deps.finishNodeTiming?.(splitTimingStart) });
     } catch (error) {
-      results.push({ type: 'error', error: getError(error) });
+      results.push({ type: 'error', error: getError(error), durationMs: deps.finishNodeTiming?.(splitTimingStart) });
     }
   }
 
@@ -129,6 +173,7 @@ async function runParallel(
     range(0, splittingAmount).map(async (i: number) => {
       const result = await queue.add(async () => {
         const inputs = splitInputsAtIndex(inputValues, i);
+        const splitTimingStart = deps.startNodeTiming?.();
 
         try {
           const output = await deps.processNodeWithInputData(node, inputs, i, processId, (n, partialOutputs, index) => {
@@ -136,9 +181,13 @@ async function runParallel(
           });
 
           deps.accumulateCost(output);
-          return { type: 'output' as const, output };
+          return { type: 'output' as const, output, durationMs: deps.finishNodeTiming?.(splitTimingStart) };
         } catch (error) {
-          return { type: 'error' as const, error: getError(error) };
+          return {
+            type: 'error' as const,
+            error: getError(error),
+            durationMs: deps.finishNodeTiming?.(splitTimingStart),
+          };
         }
       });
 
@@ -173,4 +222,15 @@ function aggregateOutputs(results: SplitResult[]): Outputs {
     }
     return acc;
   }, {} as Outputs);
+}
+
+function getSplitRunDurationMs(results: SplitResult[]): Record<number, number> | undefined {
+  const durations: Record<number, number> = {};
+  for (const [index, result] of results.entries()) {
+    if (result.durationMs !== undefined) {
+      durations[index] = result.durationMs;
+    }
+  }
+
+  return Object.keys(durations).length > 0 ? durations : undefined;
 }

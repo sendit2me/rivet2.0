@@ -6,20 +6,25 @@ import {
   type NodeOutputDefinition,
   type PortId,
 } from '../NodeBase.js';
-import { NodeImpl, type NodeBody, type NodeUIData } from '../NodeImpl.js';
+import { NodeImpl, type NodeBody, type NodeDefinitionContext, type NodeUIData } from '../NodeImpl.js';
 import { nodeDefinition } from '../NodeDefinition.js';
 import { type Inputs, type Outputs } from '../GraphProcessor.js';
 import { type GraphId } from '../NodeGraph.js';
 import { nanoid } from 'nanoid/non-secure';
 import { type Project, type ProjectId } from '../Project.js';
-import { type GraphInputNode } from './GraphInputNode.js';
-import { type GraphOutputNode } from './GraphOutputNode.js';
 import { type DataValue } from '../DataValue.js';
 import { type InternalProcessContext } from '../ProcessContext.js';
 import { dedent } from 'ts-dedent';
 import { getError } from '../../utils/errors.js';
 import type { RivetUIContext } from '../RivetUIContext.js';
 import type { EditorDefinition } from '../EditorDefinition.js';
+import {
+  buildExcludedGraphBoundaryOutputs,
+  buildGraphBoundaryInputData,
+  getGraphBoundary,
+  getGraphBoundaryInputDefinitions,
+  getGraphBoundaryOutputDefinitions,
+} from '../GraphBoundaryCache.js';
 
 export type ReferencedGraphAliasNode = ChartNode & {
   type: 'referencedGraphAlias';
@@ -60,47 +65,20 @@ export class ReferencedGraphAliasNodeImpl extends NodeImpl<ReferencedGraphAliasN
     _nodes: Record<NodeId, ChartNode>,
     _project: Project,
     referencedProjects: Record<ProjectId, Project>,
+    definitionContext?: NodeDefinitionContext,
   ): NodeInputDefinition[] {
     const referencedProject = referencedProjects[this.data.projectId];
     if (!referencedProject) {
       return [];
     }
 
-    const graph = referencedProject.graphs[this.data.graphId];
-    if (!graph) {
-      return [];
-    }
-
-    const inputNodes = graph.nodes.filter((node) => node.type === 'graphInput') as GraphInputNode[];
-    const inputIds = [...new Set(inputNodes.map((node) => node.data.id))].sort();
-
-    return inputIds.map(
-      (id): NodeInputDefinition => ({
-        id: id as PortId,
-        title: id,
-        dataType: inputNodes.find((node) => node.data.id === id)!.data.dataType,
-      }),
-    );
+    const boundary = this.getBoundary(referencedProject, definitionContext);
+    return boundary ? getGraphBoundaryInputDefinitions(boundary) : [];
   }
 
-  getGraphOutputs(referencedProject: Project): NodeOutputDefinition[] {
-    const graph = referencedProject.graphs[this.data.graphId];
-    if (!graph) {
-      return [];
-    }
-
-    const outputNodes = graph.nodes.filter((node) => node.type === 'graphOutput') as GraphOutputNode[];
-    const outputIds = [...new Set(outputNodes.map((node) => node.data.id))].sort();
-
-    const outputs = outputIds.map(
-      (id): NodeOutputDefinition => ({
-        id: id as PortId,
-        title: id,
-        dataType: outputNodes.find((node) => node.data.id === id)!.data.dataType,
-      }),
-    );
-
-    return outputs;
+  getGraphOutputs(referencedProject: Project, definitionContext?: NodeDefinitionContext): NodeOutputDefinition[] {
+    const boundary = this.getBoundary(referencedProject, definitionContext);
+    return boundary ? getGraphBoundaryOutputDefinitions(boundary) : [];
   }
 
   getOutputDefinitions(
@@ -108,6 +86,7 @@ export class ReferencedGraphAliasNodeImpl extends NodeImpl<ReferencedGraphAliasN
     _nodes: Record<NodeId, ChartNode>,
     _project: Project,
     referencedProjects: Record<ProjectId, Project>,
+    definitionContext?: NodeDefinitionContext,
   ): NodeOutputDefinition[] {
     const outputs: NodeOutputDefinition[] = [];
 
@@ -116,7 +95,7 @@ export class ReferencedGraphAliasNodeImpl extends NodeImpl<ReferencedGraphAliasN
       return outputs;
     }
 
-    outputs.push(...this.getGraphOutputs(referencedProject));
+    outputs.push(...this.getGraphOutputs(referencedProject, definitionContext));
 
     if (this.data.useErrorOutput) {
       outputs.push({
@@ -127,6 +106,13 @@ export class ReferencedGraphAliasNodeImpl extends NodeImpl<ReferencedGraphAliasN
     }
 
     return outputs;
+  }
+
+  private getBoundary(referencedProject: Project, definitionContext?: NodeDefinitionContext) {
+    return (
+      definitionContext?.getGraphBoundary(referencedProject, this.data.graphId) ??
+      getGraphBoundary(referencedProject, this.data.graphId)
+    );
   }
 
   getEditors(context: RivetUIContext): EditorDefinition<ReferencedGraphAliasNode>[] {
@@ -145,20 +131,16 @@ export class ReferencedGraphAliasNodeImpl extends NodeImpl<ReferencedGraphAliasN
 
     const referencedProject = context.referencedProjects[this.data.projectId];
     if (referencedProject) {
-      const graph = referencedProject.graphs[this.data.graphId];
-      if (graph) {
-        const inputNodes = graph.nodes.filter((node) => node.type === 'graphInput') as GraphInputNode[];
-        const inputIds = [...new Set(inputNodes.map((node) => node.data.id))].sort();
-
-        for (const inputId of inputIds) {
-          const inputNode = inputNodes.find((node) => node.data.id === inputId)!;
+      const boundary = getGraphBoundary(referencedProject, this.data.graphId);
+      if (boundary) {
+        for (const input of boundary.inputs) {
           definitions.push({
             type: 'dynamic',
             dataKey: 'inputData',
-            dynamicDataKey: inputNode.data.id,
-            dataType: inputNode.data.dataType,
-            label: inputNode.data.id,
-            editor: inputNode.data.editor ?? 'auto',
+            dynamicDataKey: input.id,
+            dataType: input.dataType,
+            label: input.id,
+            editor: input.editor ?? 'auto',
           });
         }
       }
@@ -197,26 +179,10 @@ export class ReferencedGraphAliasNodeImpl extends NodeImpl<ReferencedGraphAliasN
       );
     }
 
-    const inputNodes = graph.nodes.filter((node) => node.type === 'graphInput') as GraphInputNode[];
-    const inputIds = [...new Set(inputNodes.map((node) => node.data.id))].sort();
-
-    const inputData = inputIds.reduce((obj, id): Inputs => {
-      if (inputs[id as PortId] != null) {
-        return {
-          ...obj,
-          [id]: inputs[id as PortId],
-        };
-      }
-
-      if (this.data.inputData?.[id] != null) {
-        return {
-          ...obj,
-          [id]: this.data.inputData[id],
-        };
-      }
-
-      return obj;
-    }, {} as Inputs);
+    const boundary =
+      context.getGraphBoundary?.(referencedProject, this.data.graphId) ??
+      getGraphBoundary(referencedProject, this.data.graphId)!;
+    const inputData = buildGraphBoundaryInputData(boundary, inputs, this.data.inputData);
 
     // Create a subprocessor using the referenced project's graph
     const subGraphProcessor = context.createSubProcessor(this.data.graphId, {
@@ -260,16 +226,7 @@ export class ReferencedGraphAliasNodeImpl extends NodeImpl<ReferencedGraphAliasN
         throw err;
       }
 
-      const outputs: Outputs = this.getGraphOutputs(referencedProject).reduce(
-        (obj, output): Outputs => ({
-          ...obj,
-          [output.id as PortId]: {
-            type: 'control-flow-excluded',
-            value: undefined,
-          },
-        }),
-        {} as Outputs,
-      );
+      const outputs: Outputs = buildExcludedGraphBoundaryOutputs(boundary);
 
       outputs['error' as PortId] = {
         type: 'string',

@@ -5,7 +5,11 @@ import { useEffect, useRef, useState } from 'react';
 import type { DataRefReader } from '../../providers/ProvidersContext.js';
 import type { NodeRunDataWithRefs, PageValue, ProcessDataForNode } from '../../state/dataFlow.js';
 import { hasUnavailableStoredRefs } from '../../utils/executionDataStorage.js';
-import { getSelectedVisibleOutputProcess, NODE_OUTPUT_REPLACEMENT_GRACE_MS } from './nodeOutputVisibility.js';
+import {
+  getSelectedVisibleOutputProcess,
+  NODE_OUTPUT_REPLACEMENT_GRACE_MS,
+  type NodeRunDurationVisibilityOptions,
+} from './nodeOutputVisibility.js';
 
 export function getNodeOutputContentKey(processId: ProcessId, data: NodeRunDataWithRefs, contentKind: string): string {
   return `${processId}:${data.startedAt ?? 'unknown-start'}:${contentKind}`;
@@ -77,10 +81,11 @@ export function useOutputDataWithReplacementGrace(
   output: ProcessDataForNode[] | undefined,
   selectedPage: PageValue,
   dataRefs: DataRefReader,
+  options: NodeRunDurationVisibilityOptions = {},
 ): ProcessDataForNode[] | undefined {
   const [displayedOutput, setDisplayedOutput] = useState(output);
-  const hasSelectedVisibleOutput = getSelectedVisibleOutputProcess(nodeType, output, selectedPage) != null;
-  const displayedVisibleOutput = getSelectedVisibleOutputProcess(nodeType, displayedOutput, selectedPage);
+  const hasSelectedVisibleOutput = getSelectedVisibleOutputProcess(nodeType, output, selectedPage, options) != null;
+  const displayedVisibleOutput = getSelectedVisibleOutputProcess(nodeType, displayedOutput, selectedPage, options);
   const hasDisplayedAvailableOutput =
     displayedVisibleOutput != null && !hasUnavailableStoredRefs(displayedVisibleOutput.data, dataRefs);
 

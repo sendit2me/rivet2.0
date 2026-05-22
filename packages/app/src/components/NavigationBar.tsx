@@ -34,6 +34,7 @@ import { useGoToNode } from '../hooks/useGoToNode';
 import { type GraphId, type NodeId } from '@valerypopoff/rivet2-core';
 import {
   getGraphSearchStats,
+  formatGraphSearchStats,
   groupGraphSearchMatches,
   type GraphSearchNodeMatch,
   type GraphSearchStats,
@@ -44,10 +45,7 @@ import { createRootGraphViewContext } from '../domain/graphEditing/navigationAct
 import { graphSearchPanelHeightState, leftSidebarLiveWidthState } from '../state/ui';
 import { getLeftSidebarAttachedControlOffset } from '../utils/leftSidebarWidth';
 import { resizeCursorStyles } from '../utils/resizeCursors';
-import {
-  GRAPH_HISTORY_NEXT_TOOLTIP,
-  GRAPH_HISTORY_PREVIOUS_TOOLTIP,
-} from '../hooks/canvasNavigationShortcuts.js';
+import { GRAPH_HISTORY_NEXT_TOOLTIP, GRAPH_HISTORY_PREVIOUS_TOOLTIP } from '../hooks/canvasNavigationShortcuts.js';
 
 const GRAPH_SEARCH_FOCUS_ZOOM = 0.8;
 const MIN_GRAPH_SEARCH_PANEL_HEIGHT = 180;
@@ -509,13 +507,7 @@ export const NavigationBar: FC = () => {
     });
 
     return () => cancelAnimationFrame(frame);
-  }, [
-    graphSearchHasResults,
-    searching.focusRequestId,
-    searching.panelOpen,
-    searching.query,
-    searching.searching,
-  ]);
+  }, [graphSearchHasResults, searching.focusRequestId, searching.panelOpen, searching.query, searching.searching]);
 
   useEffect(() => {
     if (!searching.searching || !searching.panelOpen) {
@@ -560,9 +552,7 @@ export const NavigationBar: FC = () => {
   function updateGraphSearchResultsScroll(e: UIEvent<HTMLDivElement>) {
     const resultsScrollTop = e.currentTarget.scrollTop;
     graphSearchResultsScrollTopRef.current = resultsScrollTop;
-    setSearching((state) =>
-      state.resultsScrollTop === resultsScrollTop ? state : { ...state, resultsScrollTop },
-    );
+    setSearching((state) => (state.resultsScrollTop === resultsScrollTop ? state : { ...state, resultsScrollTop }));
   }
 
   function startGraphSearchPanelResize(e: ReactPointerEvent<HTMLDivElement>) {
@@ -582,7 +572,10 @@ export const NavigationBar: FC = () => {
     document.body.style.userSelect = 'none';
 
     const resize = (event: PointerEvent) => {
-      const nextHeight = Math.min(maxHeight, Math.max(MIN_GRAPH_SEARCH_PANEL_HEIGHT, startHeight + event.clientY - startY));
+      const nextHeight = Math.min(
+        maxHeight,
+        Math.max(MIN_GRAPH_SEARCH_PANEL_HEIGHT, startHeight + event.clientY - startY),
+      );
       setGraphSearchPanelHeight(nextHeight);
     };
 
@@ -717,7 +710,9 @@ export const NavigationBar: FC = () => {
               onScroll={updateGraphSearchResultsScroll}
             />
           )}
-          {graphSearchHasResults && <div className="search-resize-handle" onPointerDown={startGraphSearchPanelResize} />}
+          {graphSearchHasResults && (
+            <div className="search-resize-handle" onPointerDown={startGraphSearchPanelResize} />
+          )}
         </div>
       )}
 
@@ -757,12 +752,7 @@ const GraphHistoryButton: FC<{
   onClick: () => void;
 }> = ({ children, disabled, label, onClick, tooltip }) => {
   const button = (
-    <button
-      aria-label={label}
-      disabled={disabled}
-      onClick={disabled ? undefined : onClick}
-      type="button"
-    >
+    <button aria-label={label} disabled={disabled} onClick={disabled ? undefined : onClick} type="button">
       {children}
     </button>
   );
@@ -816,7 +806,9 @@ const GraphSearchResults: FC<{
     <div ref={resultsRef} className="search-results" onScroll={onScroll}>
       <div className="search-results-summary">{formatGraphSearchStats(stats)}</div>
       {fallbackToTerms && (
-        <div className="search-results-fallback-note">No exact match found. Showing results that match separate words.</div>
+        <div className="search-results-fallback-note">
+          No exact match found. Showing results that match separate words.
+        </div>
       )}
       {groups.map((group) => (
         <div className="search-result-group" key={group.key}>
@@ -871,13 +863,6 @@ const GraphSearchResults: FC<{
     </div>
   );
 };
-
-function formatGraphSearchStats(stats: GraphSearchStats): string {
-  const occurrenceLabel = stats.occurrenceCount === 1 ? 'occurrence' : 'occurrences';
-  const graphLabel = stats.graphCount === 1 ? 'graph' : 'graphs';
-
-  return `${stats.occurrenceCount.toLocaleString()} ${occurrenceLabel} in ${stats.graphCount.toLocaleString()} ${graphLabel}`;
-}
 
 const SearchResultItem: FC<{
   entry: SearchedItem;

@@ -24,6 +24,18 @@ function withExecution<T extends object>(base: T, execution: GraphExecutionMetad
   return (execution == null ? base : { ...base, execution }) as T & { execution?: GraphExecutionMetadata };
 }
 
+function withDuration<T extends object>(
+  base: T,
+  durationMs: number | undefined,
+  splitRunDurationMs?: Record<number, number>,
+): T & { durationMs?: number; splitRunDurationMs?: Record<number, number> } {
+  return {
+    ...base,
+    ...(durationMs === undefined ? {} : { durationMs }),
+    ...(splitRunDurationMs === undefined ? {} : { splitRunDurationMs }),
+  } as T & { durationMs?: number; splitRunDurationMs?: Record<number, number> };
+}
+
 const toRecordedEventMap: {
   [P in keyof ProcessEvents]: (data: ProcessEvents[P]) => RecordedEvent<P>['data'];
 } = {
@@ -38,16 +50,16 @@ const toRecordedEventMap: {
     inputs,
     processId,
   }, execution),
-  nodeFinish: ({ node, outputs, processId, execution }) => withExecution({
+  nodeFinish: ({ node, outputs, processId, durationMs, splitRunDurationMs, execution }) => withExecution(withDuration({
     nodeId: node.id,
     outputs,
     processId,
-  }, execution),
-  nodeError: ({ node, error, processId, execution }) => withExecution({
+  }, durationMs, splitRunDurationMs), execution),
+  nodeError: ({ node, error, processId, durationMs, splitRunDurationMs, execution }) => withExecution(withDuration({
     nodeId: node.id,
     error: typeof error === 'string' ? error : error.stack!,
     processId,
-  }, execution),
+  }, durationMs, splitRunDurationMs), execution),
   abort: ({ successful, error }) => ({ successful, error: typeof error === 'string' ? error : error?.stack }),
   graphAbort: ({ successful, error, graph, execution }) => withExecution({
     successful,

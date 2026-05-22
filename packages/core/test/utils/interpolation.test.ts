@@ -152,4 +152,28 @@ describe('interpolation utilities', () => {
       'value4',
     ]);
   });
+
+  it('returns independent extraction arrays when a template is cached', () => {
+    const template = '{{first}} {{second}} {{first}}';
+    const firstExtraction = extractInterpolationVariables(template);
+
+    firstExtraction.push('mutated');
+    const cachedExtraction = extractInterpolationVariables(template);
+    cachedExtraction.push('also-mutated');
+
+    assert.deepStrictEqual(extractInterpolationVariables(template), ['first', 'second']);
+  });
+
+  it('keeps extraction correct after many distinct templates and a later hot template', () => {
+    for (let index = 0; index < 2500; index++) {
+      assert.deepStrictEqual(extractInterpolationVariables(`{{value${index}}} {{shared}}`), [
+        `value${index}`,
+        'shared',
+      ]);
+    }
+
+    const hotTemplate = '{{hot}} {{again}}';
+    assert.deepStrictEqual(extractInterpolationVariables(hotTemplate), ['hot', 'again']);
+    assert.deepStrictEqual(extractInterpolationVariables(hotTemplate), ['hot', 'again']);
+  });
 });

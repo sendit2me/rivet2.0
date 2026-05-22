@@ -51,7 +51,14 @@ export function useNodeExecutionEvents({
     setSelectedNodePageLatest(node.id, execution);
   };
 
-  const onNodeFinish = ({ node, outputs, processId, execution }: ProcessEvents['nodeFinish']) => {
+  const onNodeFinish = ({
+    node,
+    outputs,
+    processId,
+    durationMs,
+    splitRunDurationMs,
+    execution,
+  }: ProcessEvents['nodeFinish']) => {
     if (shouldSuppressPreloadedNodeEvent(node.id, processId)) {
       return;
     }
@@ -60,6 +67,8 @@ export function useNodeExecutionEvents({
       outputData: sanitizeInputsOrOutputs(outputs),
       status: { type: 'ok' },
       finishedAt: Date.now(),
+      durationMs,
+      splitRunDurationMs,
     });
     setSelectedNodePageLatest(node.id, execution);
   };
@@ -76,10 +85,19 @@ export function useNodeExecutionEvents({
     setSelectedNodePageLatest(node.id, execution);
   };
 
-  const onNodeError = ({ node, error, processId, execution }: ProcessEvents['nodeError']) => {
+  const onNodeError = ({
+    node,
+    error,
+    processId,
+    durationMs,
+    splitRunDurationMs,
+    execution,
+  }: ProcessEvents['nodeError']) => {
     setDataForNode(node.id, processId, execution, {
       status: { type: 'error', error: typeof error === 'string' ? error : error.toString() },
       finishedAt: Date.now(),
+      durationMs,
+      splitRunDurationMs,
     });
     setSelectedNodePageLatest(node.id, execution);
   };

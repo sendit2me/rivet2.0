@@ -39,10 +39,16 @@ yarn sync:desktop-version
 yarn verify:desktop-version
 yarn test
 yarn test:all
+yarn test:core
+yarn test:node
+yarn test:app
+yarn test:app-executor
+yarn test:cli
+yarn test:docs
+yarn test:style
 yarn lint
 yarn prettier:fix
 yarn publish
-yarn publish-docs
 ```
 
 ### `yarn dev`
@@ -95,18 +101,61 @@ This verifies the same metadata without writing files.
 
 ### `yarn test`
 
-Runs all currently defined workspace test suites:
+Runs the default runtime/package test matrix:
 
 - `yarn workspace @valerypopoff/rivet2-core run test`
 - `yarn workspace @valerypopoff/rivet2-node run test`
 - `yarn workspace @valerypopoff/rivet-app run test`
+- `yarn workspace @valerypopoff/rivet-app-executor run test`
 - `yarn workspace @valerypopoff/rivet2-cli run test`
 
+This intentionally includes app-executor tests because the Node executor sidecar
+owns worker/code-runner behavior used by the desktop and hosted app runtime.
 Packages without a `test` script are not included.
+
+#### Test Guardrails
+
+When adding or cleaning tests, prefer behavior-level tests at the owning helper, domain model, runtime API, or render-data-value seam. Avoid tests that read production `.ts` or `.tsx` files and assert exact source text unless the contract is a static entrypoint/CSS relationship that cannot be observed through a focused helper yet. Any retained source-shape guard should say what product contract it protects and should avoid duplicating behavior already covered by owner tests.
+
+Use table-driven cases when many inputs share the same setup. Keep fixtures local unless at least three nearby tests need the same builder. Keep characterization tests broad but few, and avoid asserting entire large objects when a minimal observable subset proves the same behavior. Test names should describe behavior rather than implementation details.
+
+Avoid `as any` unless the test intentionally models malformed caller input or a boundary that TypeScript normally protects. Do not commit `.only`. Skipped tests need a nearby comment explaining why they are skipped and what condition lets the skip be removed.
+
+For app graph-editing tests, prefer the shared builders in [`packages/app/src/domain/graphEditing/testGraphBuilders.ts`](../packages/app/src/domain/graphEditing/testGraphBuilders.ts) for common minimal `ChartNode`, `NodeGraph`, `Project`, and connection fixtures. Keep scenario-specific wrappers local when they clarify the port defaults or graph names being asserted.
+
+When splitting large mixed-owner test files, keep the split mechanical first: move assertions unchanged, put shared fake runtime or fixture setup in a nearby `*.testUtils.ts` file, and keep existing focused owner tests under their current filenames. Do not reuse a filename that already owns a narrower helper contract. Shared test utilities should expose setup hooks explicitly instead of registering `beforeEach` / `afterEach` as an import side effect.
+
+When de-duplicating overlap between owner tests and composed-path tests, keep the detailed edge cases at the owner module and retain one broad wiring smoke for the composed path. Do not delete compatibility or characterization coverage just because another test reaches the same final value; public API, recorder, debugger, and app-visible surfaces are separate contracts.
 
 ### `yarn test:all`
 
 Alias for `yarn test`.
+
+### Focused Test And Validation Scripts
+
+Focused root scripts cover workspace test suites plus repository-level checks:
+
+- `yarn test:core`: `@valerypopoff/rivet2-core`
+- `yarn test:node`: `@valerypopoff/rivet2-node`
+- `yarn test:app`: `@valerypopoff/rivet-app`
+- `yarn test:app-executor`: `@valerypopoff/rivet-app-executor`
+- `yarn test:cli`: `@valerypopoff/rivet2-cli`
+- `yarn test:docs`: docs workspace typecheck (`tsc --noEmit`)
+- `yarn test:style`: repository-level test style guardrails
+
+Docs typecheck is not part of `yarn test`; CI runs `yarn test:docs` as a
+separate step so runtime/package tests and documentation validation stay
+visibly distinct. The docs typecheck is non-emitting so it cannot leave
+generated JavaScript beside Docusaurus source files during CI or local cleanup.
+
+### `yarn test:style`
+
+Runs [`scripts/check-test-style.mjs`](../scripts/check-test-style.mjs). The
+script fails when `test.only`, `it.only`, `describe.only`, `suite.only`, or
+`context.only` calls are present in tracked or untracked non-ignored test files.
+It also prints report-only lists of test files that use `readFileSync` or
+`.skip`; those reports keep the remaining source-shape guardrails and any
+temporary skipped tests visible without blocking cleanup work.
 
 ### `yarn lint`
 
@@ -134,12 +183,6 @@ Runs:
 This publishes only the public npm package set: `@valerypopoff/rivet2-core`,
 `@valerypopoff/rivet2-node`, `@valerypopoff/trivet`, and
 `@valerypopoff/rivet2-cli`. Build those workspaces before publishing.
-
-### `yarn publish-docs`
-
-Runs:
-
-- `tsx publish-docs.mts`
 
 ## Per-Package Build Notes
 
@@ -301,8 +344,10 @@ Runs on `ubuntu-latest` and performs:
 3. `yarn --immutable`
 4. `yarn build`
 5. `yarn test`
-6. `yarn lint`
-7. `yarn prettier --check`
+6. `yarn test:docs`
+7. `yarn test:style`
+8. `yarn lint`
+9. `yarn prettier --check`
 
 ### Important notes
 
@@ -635,25 +680,6 @@ Useful local validation flags:
 - `--dry-run`: run `npm publish --dry-run` against the staged package directories
 - `--skip-clean-check`: allow validation from a dirty working tree; the main-branch GitHub Actions publish workflow uses this only after it has already verified that the checkout was clean before building generated package artifacts
 
-## `publish-docs.mts`
-
-Current behavior:
-
-1. fail if git tree is dirty
-2. record current branch
-3. build docs
-4. copy build to temp dir
-5. check out `docs` branch
-6. delete tracked files except a short allowlist
-7. copy built docs into branch
-8. commit `"Docs publish"`
-9. force-check out the original branch
-10. hard-reset to `HEAD`
-
-### Operational implication
-
-This script is intentionally aggressive and should be treated carefully. It only makes sense on a clean tree and a controlled publish workflow.
-
 ## Release Process As Implemented
 
 The current effective release flow is:
@@ -663,13 +689,12 @@ The current effective release flow is:
 3. push `app-v*` tag for updater-enabled desktop release drafts when that path is needed
 4. let `release.yml` create draft desktop artifacts
 5. let `rename-release-assets.yml` normalize asset names
-6. publish docs separately if needed via `yarn publish-docs`
+6. let the release-page workflows publish the Docusaurus site through GitHub Pages
 
 ## Known Operational Risks
 
 Visible from the current scripts/workflows:
 
-- docs publishing uses force checkout/reset behavior
 - npm publishing depends on correct npm scope authentication or trusted publisher configuration
 - npm package publishing and desktop release versioning are separate workflows and must be kept intentionally aligned
 - app release depends on sidecar and Tauri packaging staying aligned

@@ -11,6 +11,7 @@ import { type HorizontalModalBounds } from '../../utils/fullScreenModalBounds.js
 import { promptDesignerAttachedChatNodeState } from '../../state/promptDesigner.js';
 import { graphMetadataState, nodesByIdState } from '../../state/graph.js';
 import { lastRunDataState, resolvedGraphSelectionState, selectedProcessPageState } from '../../state/dataFlow.js';
+import { showNodeRunDurationsState } from '../../state/settings.js';
 import { filterProcessDataForSelection } from '../../state/selectors/executionSelectors.js';
 import { fullscreenOutputNodeState, hoveringNodeState } from '../../state/graphBuilder.js';
 import { fullscreenOutputModalBoundsState, overlayOpenState } from '../../state/ui.js';
@@ -23,6 +24,12 @@ import { FullscreenOutputSearchContext } from './FullscreenOutputSearchContext.j
 import { copyOutputJson, copyOutputValue } from './nodeOutputCopyActions.js';
 import { NodeOutputPager } from './NodeOutputPager.js';
 import { renderNodeOutputBody } from './renderNodeOutputBody.js';
+import {
+  NodeRunDurationMeta,
+  NodeRunDurationSummaryMeta,
+  shouldShowNodeRunDurationMeta,
+  shouldShowNodeRunDurationSummary,
+} from './NodeRunDurationMeta.js';
 import { useFullscreenOutputSearch } from './useFullscreenOutputSearch.js';
 import { createFullscreenNodeOutputViewModel, getNodeOutputCopySource } from './nodeOutputViewModel.js';
 
@@ -255,6 +262,7 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
   const output = useAtomValue(lastRunDataState(node.id));
   const [selectedPage, setSelectedPage] = useAtom(selectedProcessPageState(node.id));
   const graphSelectionOptions = useAtomValue(resolvedGraphSelectionState);
+  const showNodeRunDurations = useAtomValue(showNodeRunDurationsState);
   const fullscreenOutputRootRef = useRef<HTMLDivElement>(null);
   const [isHeaderOverContent, setIsHeaderOverContent] = useState(false);
 
@@ -281,8 +289,9 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
         processData: filteredOutput,
         selectedPage,
         dataRefs,
+        showNodeRunDuration: showNodeRunDurations,
       }),
-    [dataRefs, filteredOutput, node.type, selectedPage],
+    [dataRefs, filteredOutput, node.type, selectedPage, showNodeRunDurations],
   );
   const { data, processId } = outputViewModel;
 
@@ -303,14 +312,28 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
     copyOutputValue(copySource, dataRefs, getCopyValueData, io.outputDefinitions),
   );
   const handleCopyToClipboardJson = useStableCallback(() => copyOutputJson(copySource, dataRefs));
+  const durationSummaryKey = useMemo(
+    () =>
+      filteredOutput
+        ?.map(
+          (process) =>
+            `${process.processId}:${process.data.status?.type ?? ''}:${process.data.durationMs ?? ''}:${JSON.stringify(
+              process.data.splitRunDurationMs ?? {},
+            )}`,
+        )
+        .join('|') ?? '',
+    [filteredOutput],
+  );
   const contentVersion = useMemo(
     () => ({
       data,
+      durationSummaryKey,
       processId,
       renderMarkdown,
       selectedPage,
+      showNodeRunDurations,
     }),
-    [data, processId, renderMarkdown, selectedPage],
+    [data, durationSummaryKey, processId, renderMarkdown, selectedPage, showNodeRunDurations],
   );
   const {
     contextValue: fullscreenOutputSearchContext,
@@ -386,13 +409,28 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
   }
 
   const { content, data: selectedData } = outputViewModel;
+  const showDurationSummary = shouldShowNodeRunDurationSummary(node.type, filteredOutput, showNodeRunDurations);
+  const showDurationMeta =
+    !showDurationSummary && shouldShowNodeRunDurationMeta(node.type, selectedData, showNodeRunDurations);
 
   if (content.kind === 'code-error') {
-    return <CodeNodeErrorOutput data={selectedData} />;
+    return (
+      <>
+        {showDurationSummary && filteredOutput && <NodeRunDurationSummaryMeta processData={filteredOutput} hasBody />}
+        {showDurationMeta && <NodeRunDurationMeta data={selectedData} hasBody />}
+        <CodeNodeErrorOutput data={selectedData} />
+      </>
+    );
   }
 
   if (content.kind === 'generic-error') {
-    return <div className="errored">{content.error}</div>;
+    return (
+      <div className="errored">
+        {showDurationSummary && filteredOutput && <NodeRunDurationSummaryMeta processData={filteredOutput} hasBody />}
+        {showDurationMeta && <NodeRunDurationMeta data={selectedData} hasBody />}
+        {content.error}
+      </div>
+    );
   }
 
   const body = renderNodeOutputBody({
@@ -408,6 +446,7 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
     renderMode: 'expanded-preview',
     allowLargeStoredValueActions: true,
   });
+  const hasBody = body != null;
 
   return (
     <div css={fullscreenOutputCss} ref={fullscreenOutputRootRef}>
@@ -449,6 +488,10 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
             renderMarkdown ? ' markdown-lines' : ''
           }`}
         >
+          {showDurationSummary && filteredOutput && (
+            <NodeRunDurationSummaryMeta processData={filteredOutput} hasBody={hasBody} />
+          )}
+          {showDurationMeta && <NodeRunDurationMeta data={selectedData} hasBody={hasBody} />}
           {body}
           {content.warnings && (
             <div className="fullscreen-output-warnings">

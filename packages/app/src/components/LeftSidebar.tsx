@@ -8,8 +8,6 @@ import { leftSidebarLiveWidthState, leftSidebarWidthState } from '../state/ui.js
 import { clampLeftSidebarWidth } from '../utils/leftSidebarWidth.js';
 import { resizeCursorStyles } from '../utils/resizeCursors.js';
 
-const SIDEBAR_TRANSITION_EASING = 'cubic-bezier(0.2, 0.95, 0.22, 1.12)';
-
 const styles = css`
   position: fixed;
   top: var(--project-selector-height);
@@ -160,7 +158,6 @@ export const LeftSidebar: FC = () => {
         {
           '--left-sidebar-width': `${liveSidebarWidth}px`,
           transform: sidebarOpen ? 'translateX(0)' : 'translateX(-100%)',
-          transition: isResizing ? 'none' : `transform 0.3s ${SIDEBAR_TRANSITION_EASING}`,
         } as CSSProperties
       }
       key={project.metadata.id}

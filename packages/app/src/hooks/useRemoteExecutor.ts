@@ -10,7 +10,7 @@ import {
 } from '@valerypopoff/rivet2-core';
 import { useCurrentExecution } from './useCurrentExecution';
 import { graphState } from '../state/graph';
-import { settingsState } from '../state/settings';
+import { settingsState, showNodeRunDurationsState } from '../state/settings';
 import { useExecutorSessionRuntime } from '../providers/ExecutorSessionContext.js';
 import { useRemoteDebugger } from './useRemoteDebugger';
 import { fillMissingSettingsFromEnvironmentVariables } from '../utils/tauri';
@@ -69,6 +69,7 @@ export function useRemoteExecutor() {
   const currentExecution = useCurrentExecution();
   const graph = useAtomValue(graphState);
   const savedSettings = useAtomValue(settingsState);
+  const showNodeRunDurations = useAtomValue(showNodeRunDurationsState);
   const [{ testSuites }, setTrivetState] = useAtom(trivetState);
   const setUserInputQuestions = useSetAtom(userInputModalQuestionsState);
   const lastRunData = useAtomValue(lastRunDataByNodeState);
@@ -309,6 +310,7 @@ export function useRemoteExecutor() {
           contextValues,
           projectPath: loadedProject.path,
           useEditorCache: true,
+          captureNodeTimings: showNodeRunDurations,
         },
         sendRun: (payload) => remoteDebugger.send('run', payload),
       });
@@ -425,6 +427,7 @@ export function useRemoteExecutor() {
                 inputs,
                 contextValues,
                 projectPath: loadedProject.path,
+                captureNodeTimings: showNodeRunDurations,
               },
               sendRun: (payload) => remoteDebugger.send('run', payload),
             });

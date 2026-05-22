@@ -1,5 +1,6 @@
 import {
   GraphProcessor,
+  type GraphProcessorScheduler,
   globalRivetNodeRegistry,
   looseDataValuesToDataValues,
   type ChartNode,
@@ -16,6 +17,8 @@ import {
   type ProcessContext,
   type Project,
   type ProjectId,
+  type ProjectReference,
+  type ProjectReferenceLoader,
   type Tokenizer,
   type TokenizerCallInfo,
 } from '../src/index.js';
@@ -25,6 +28,11 @@ export type RuntimeSpeedProjectFixture = {
   graphId: GraphId;
   project: Project;
   terminalNodeId?: NodeId;
+};
+
+export type RuntimeSpeedReferencedProjectFixture = RuntimeSpeedProjectFixture & {
+  projectReferenceLoader: ProjectReferenceLoader;
+  referencedProject: Project;
 };
 
 class RuntimeSpeedTokenizer implements Tokenizer {
@@ -72,9 +80,12 @@ class RuntimeSpeedTokenizer implements Tokenizer {
   }
 }
 
-export function createRuntimeSpeedProcessContext(): ProcessContext {
+export function createRuntimeSpeedProcessContext(
+  overrides: Partial<Pick<ProcessContext, 'projectPath' | 'projectReferenceLoader'>> = {},
+): ProcessContext {
   return {
     codeRunner: new NodeCodeRunner(),
+    ...overrides,
     settings: {
       openAiEndpoint: process.env.OPENAI_ENDPOINT ?? '',
       openAiKey: process.env.OPENAI_API_KEY ?? '',
@@ -84,8 +95,14 @@ export function createRuntimeSpeedProcessContext(): ProcessContext {
   };
 }
 
-export function createRuntimeSpeedProcessor(project: Project, graphId: GraphId): GraphProcessor {
-  const processor = new GraphProcessor(project, graphId, globalRivetNodeRegistry);
+export function createRuntimeSpeedProcessor(
+  project: Project,
+  graphId: GraphId,
+  options: { scheduler?: GraphProcessorScheduler } = {},
+): GraphProcessor {
+  const processor = new GraphProcessor(project, graphId, globalRivetNodeRegistry, undefined, {
+    scheduler: options.scheduler,
+  });
   processor.executor = 'nodejs';
   return processor;
 }
@@ -95,11 +112,16 @@ export async function runRuntimeSpeedProcessor(
   options: {
     context?: Record<string, LooseDataValue>;
     inputs?: Record<string, LooseDataValue>;
+    projectPath?: string;
+    projectReferenceLoader?: ProjectReferenceLoader;
   } = {},
 ): Promise<Record<string, DataValue>> {
   const processor = createRuntimeSpeedProcessor(fixture.project, fixture.graphId);
   return processor.processGraph(
-    createRuntimeSpeedProcessContext(),
+    createRuntimeSpeedProcessContext({
+      projectPath: options.projectPath,
+      projectReferenceLoader: options.projectReferenceLoader,
+    }),
     looseDataValuesToDataValues(options.inputs ?? {}),
     looseDataValuesToDataValues(options.context ?? {}),
   );
@@ -401,6 +423,167 @@ export function makeMixedSubgraphFanInProject(
   };
 }
 
+export function makeNestedSubgraphProject(subgraphDepth: number): RuntimeSpeedProjectFixture {
+  const mainGraphId = 'runtime-speed-main' as GraphId;
+  const leafGraphId = 'runtime-speed-nested-leaf' as GraphId;
+  const graphIds = Array.from({ length: subgraphDepth }, (_, index) => `runtime-speed-nested-${index}` as GraphId);
+  const targetGraphId = graphIds[0] ?? leafGraphId;
+  const mainInput = makeGraphInputNode('graph-input', 'input', 'string');
+  const mainSubgraph = makeSubgraphNode('main-subgraph', targetGraphId);
+  const mainOutput = makeGraphOutputNode('graph-output', 'result', 'string');
+  const graphs: Project['graphs'] = {
+    [mainGraphId]: {
+      connections: [
+        connect(mainInput.id, 'data', mainSubgraph.id, 'input'),
+        connect(mainSubgraph.id, 'result', mainOutput.id, 'value'),
+      ],
+      metadata: {
+        description: '',
+        id: mainGraphId,
+        name: 'Runtime Speed Main',
+      },
+      nodes: [mainInput, mainSubgraph, mainOutput],
+    },
+  };
+
+  for (let i = 0; i < graphIds.length; i++) {
+    graphs[graphIds[i]!] = makeSubgraphCallerGraph(graphIds[i]!, graphIds[i + 1] ?? leafGraphId, `nested-${i}`);
+  }
+
+  graphs[leafGraphId] = makeTextTransformGraph(leafGraphId, 'Runtime Speed Nested Leaf', '{{input}}x');
+
+  return {
+    graphId: mainGraphId,
+    project: {
+      graphs,
+      metadata: {
+        description: '',
+        id: 'runtime-speed-project' as ProjectId,
+        mainGraphId,
+        title: 'Runtime Speed Project',
+      },
+      plugins: [],
+    },
+    terminalNodeId: mainOutput.id,
+  };
+}
+
+export function makeCallGraphFanInProject(callGraphCount: number): RuntimeSpeedProjectFixture {
+  const mainGraphId = 'runtime-speed-main' as GraphId;
+  const calledGraphId = 'runtime-speed-called-graph' as GraphId;
+  const mainInput = makeGraphInputNode('graph-input', 'input', 'string');
+  const graphReference = makeGraphReferenceNode('graph-reference', calledGraphId);
+  const joinNode = makeJoinNode('main-join');
+  const outputNode = makeGraphOutputNode('graph-output', 'result', 'string');
+  const nodes: ChartNode[] = [mainInput, graphReference, joinNode, outputNode];
+  const connections: NodeConnection[] = [];
+
+  for (let i = 0; i < callGraphCount; i++) {
+    const objectNode = makeObjectNode(`call-inputs-${i}`, '{ "input": "{{input}}" }');
+    const callGraphNode = makeCallGraphNode(`call-graph-${i}`);
+    const extractNode = makeExtractObjectPathNode(`call-result-${i}`, '$.result.value');
+    nodes.push(objectNode, callGraphNode, extractNode);
+    connections.push(connect(mainInput.id, 'data', objectNode.id, 'input'));
+    connections.push(connect(graphReference.id, 'graph', callGraphNode.id, 'graph'));
+    connections.push(connect(objectNode.id, 'output', callGraphNode.id, 'inputs'));
+    connections.push(connect(callGraphNode.id, 'outputs', extractNode.id, 'object'));
+    connections.push(connect(extractNode.id, 'match', joinNode.id, `input${i + 1}`));
+  }
+
+  connections.push(connect(joinNode.id, 'output', outputNode.id, 'value'));
+
+  return {
+    graphId: mainGraphId,
+    project: {
+      graphs: {
+        [mainGraphId]: {
+          connections,
+          metadata: {
+            description: '',
+            id: mainGraphId,
+            name: 'Runtime Speed Main',
+          },
+          nodes,
+        },
+        [calledGraphId]: makeTextTransformGraph(calledGraphId, 'Runtime Speed Called Graph', '{{input}}x'),
+      },
+      metadata: {
+        description: '',
+        id: 'runtime-speed-project' as ProjectId,
+        mainGraphId,
+        title: 'Runtime Speed Project',
+      },
+      plugins: [],
+    },
+    terminalNodeId: outputNode.id,
+  };
+}
+
+export function makeReferencedGraphAliasFanInProject(aliasCount: number): RuntimeSpeedReferencedProjectFixture {
+  const mainGraphId = 'runtime-speed-main' as GraphId;
+  const referencedGraphId = 'runtime-speed-referenced-main' as GraphId;
+  const referencedProjectId = 'runtime-speed-referenced-project' as ProjectId;
+  const mainInput = makeGraphInputNode('graph-input', 'input', 'string');
+  const joinNode = makeJoinNode('main-join');
+  const outputNode = makeGraphOutputNode('graph-output', 'result', 'string');
+  const nodes: ChartNode[] = [mainInput, joinNode, outputNode];
+  const connections: NodeConnection[] = [];
+  const referencedProject: Project = {
+    graphs: {
+      [referencedGraphId]: makeTextTransformGraph(referencedGraphId, 'Runtime Speed Referenced Graph', '{{input}}x'),
+    },
+    metadata: {
+      description: '',
+      id: referencedProjectId,
+      mainGraphId: referencedGraphId,
+      title: 'Runtime Speed Referenced Project',
+    },
+    plugins: [],
+  };
+
+  for (let i = 0; i < aliasCount; i++) {
+    const aliasNode = makeReferencedGraphAliasNode(`referenced-alias-${i}`, referencedProjectId, referencedGraphId);
+    nodes.push(aliasNode);
+    connections.push(connect(mainInput.id, 'data', aliasNode.id, 'input'));
+    connections.push(connect(aliasNode.id, 'result', joinNode.id, `input${i + 1}`));
+  }
+
+  connections.push(connect(joinNode.id, 'output', outputNode.id, 'value'));
+
+  return {
+    graphId: mainGraphId,
+    project: {
+      graphs: {
+        [mainGraphId]: {
+          connections,
+          metadata: {
+            description: '',
+            id: mainGraphId,
+            name: 'Runtime Speed Main',
+          },
+          nodes,
+        },
+      },
+      metadata: {
+        description: '',
+        id: 'runtime-speed-project' as ProjectId,
+        mainGraphId,
+        title: 'Runtime Speed Project',
+      },
+      plugins: [],
+      references: [
+        {
+          id: referencedProjectId,
+          title: 'Runtime Speed Referenced Project',
+        },
+      ],
+    },
+    projectReferenceLoader: createStaticProjectReferenceLoader(referencedProject),
+    referencedProject,
+    terminalNodeId: outputNode.id,
+  };
+}
+
 export function makeBranchingTextProject(): RuntimeSpeedProjectFixture {
   const inputNode = makeGraphInputNode('graph-input', 'input', 'string');
   const leftNode = makeTextNode('left-text', '{{input}} left');
@@ -438,10 +621,7 @@ export function makeAsyncDelayProject(delayMs: number): RuntimeSpeedProjectFixtu
 
   return makeFixture(
     [inputNode, delayNode, outputNode],
-    [
-      connect(inputNode.id, 'data', delayNode.id, 'input1'),
-      connect(delayNode.id, 'output1', outputNode.id, 'value'),
-    ],
+    [connect(inputNode.id, 'data', delayNode.id, 'input1'), connect(delayNode.id, 'output1', outputNode.id, 'value')],
     outputNode.id,
   );
 }
@@ -453,10 +633,7 @@ export function makeControlFlowExclusionProject(): RuntimeSpeedProjectFixture {
 
   return makeFixture(
     [inputNode, extractNode, outputNode],
-    [
-      connect(inputNode.id, 'data', extractNode.id, 'object'),
-      connect(extractNode.id, 'match', outputNode.id, 'value'),
-    ],
+    [connect(inputNode.id, 'data', extractNode.id, 'object'), connect(extractNode.id, 'match', outputNode.id, 'value')],
     outputNode.id,
   );
 }
@@ -550,6 +727,44 @@ function makeFixture(
   };
 }
 
+function makeSubgraphCallerGraph(graphId: GraphId, calledGraphId: GraphId, idPrefix: string): NodeGraph {
+  const inputNode = makeGraphInputNode(`${idPrefix}-input`, 'input', 'string');
+  const subgraphNode = makeSubgraphNode(`${idPrefix}-subgraph`, calledGraphId);
+  const outputNode = makeGraphOutputNode(`${idPrefix}-output`, 'result', 'string');
+
+  return {
+    connections: [
+      connect(inputNode.id, 'data', subgraphNode.id, 'input'),
+      connect(subgraphNode.id, 'result', outputNode.id, 'value'),
+    ],
+    metadata: {
+      description: '',
+      id: graphId,
+      name: `Runtime Speed ${idPrefix}`,
+    },
+    nodes: [inputNode, subgraphNode, outputNode],
+  };
+}
+
+function makeTextTransformGraph(graphId: GraphId, name: string, text: string): NodeGraph {
+  const inputNode = makeGraphInputNode(`${graphId}-input`, 'input', 'string');
+  const textNode = makeTextNode(`${graphId}-text`, text);
+  const outputNode = makeGraphOutputNode(`${graphId}-output`, 'result', 'string');
+
+  return {
+    connections: [
+      connect(inputNode.id, 'data', textNode.id, 'input'),
+      connect(textNode.id, 'output', outputNode.id, 'value'),
+    ],
+    metadata: {
+      description: '',
+      id: graphId,
+      name,
+    },
+    nodes: [inputNode, textNode, outputNode],
+  };
+}
+
 function makeGraphInputNode(id: string, inputId: string, dataType: DataType): ChartNode {
   return {
     data: {
@@ -634,6 +849,58 @@ function makeSubgraphNode(id: string, graphId: GraphId): ChartNode {
   };
 }
 
+function makeGraphReferenceNode(id: string, graphId: GraphId): ChartNode {
+  return {
+    data: {
+      graphId,
+      useGraphIdOrNameInput: false,
+    },
+    id: id as NodeId,
+    title: 'Graph Reference',
+    type: 'graphReference',
+    visualData: { width: 275, x: 0, y: 0 },
+  };
+}
+
+function makeCallGraphNode(id: string): ChartNode {
+  return {
+    data: {
+      useErrorOutput: false,
+    },
+    id: id as NodeId,
+    title: 'Call Graph',
+    type: 'callGraph',
+    visualData: { width: 200, x: 0, y: 0 },
+  };
+}
+
+function makeReferencedGraphAliasNode(id: string, projectId: ProjectId, graphId: GraphId): ChartNode {
+  return {
+    data: {
+      graphId,
+      outputCostDuration: false,
+      projectId,
+      useErrorOutput: false,
+    },
+    id: id as NodeId,
+    title: 'Referenced Graph Alias',
+    type: 'referencedGraphAlias',
+    visualData: { width: 300, x: 0, y: 0 },
+  };
+}
+
+function makeObjectNode(id: string, jsonTemplate: string): ChartNode {
+  return {
+    data: {
+      jsonTemplate,
+    },
+    id: id as NodeId,
+    title: 'Object',
+    type: 'object',
+    visualData: { width: 200, x: 0, y: 0 },
+  };
+}
+
 function makeJoinNode(id: string): ChartNode {
   return {
     data: {
@@ -707,5 +974,17 @@ function connect(outputNodeId: NodeId, outputId: string, inputNodeId: NodeId, in
     inputNodeId,
     outputId: outputId as PortId,
     outputNodeId,
+  };
+}
+
+function createStaticProjectReferenceLoader(referencedProject: Project): ProjectReferenceLoader {
+  return {
+    async loadProject(_currentProjectPath: string | undefined, reference: ProjectReference): Promise<Project> {
+      if (reference.id !== referencedProject.metadata.id) {
+        throw new Error(`Unexpected runtime speed project reference ${reference.id}.`);
+      }
+
+      return structuredClone(referencedProject) as Project;
+    },
   };
 }

@@ -336,7 +336,7 @@ test('subgraph copy-value projector skips absent body-output wrappers', () => {
   assert.equal(serialized, 'two');
 });
 
-test('subgraph copy-value projector does not include array meta that the UI does not render', () => {
+test('subgraph copy-value projector includes split metric meta that the UI renders', () => {
   const serialized = serializeDisplayedOutputs(
     {
       outputData: {
@@ -351,5 +351,17 @@ test('subgraph copy-value projector does not include array meta that the UI does
     },
   );
 
-  assert.equal(serialized, 'ok');
+  assert.equal(
+    serialized,
+    [
+      'Cost',
+      'Total cost: $0.750\nRun 1: $0.500\nRun 2: $0.250',
+      '',
+      'Duration',
+      'Total duration: 375ms\nRun 1: 125ms\nRun 2: 250ms',
+      '',
+      'result',
+      'ok',
+    ].join('\n'),
+  );
 });

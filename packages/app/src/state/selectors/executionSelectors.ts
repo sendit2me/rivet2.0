@@ -50,8 +50,15 @@ export function getGraphRunsForView(options: {
         continue;
       }
 
-      if (currentGraphView.parent && graphRun.executor?.nodeId && graphRun.executor.nodeId !== currentGraphView.parent.parentNodeId) {
-        continue;
+      if (currentGraphView.parent) {
+        const executor = graphRun.executor;
+        if (
+          !executor ||
+          executor.nodeId !== currentGraphView.parent.parentNodeId ||
+          executor.parentGraphId !== currentGraphView.parent.parentGraphId
+        ) {
+          continue;
+        }
       }
 
       runsById.set(graphRun.graphRunId, graphRun);

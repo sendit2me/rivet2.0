@@ -21,6 +21,7 @@ import {
 import type { Tokenizer } from '../integrations/Tokenizer.js';
 import type { CodeRunner } from '../integrations/CodeRunner.js';
 import type { ProjectReferenceLoader } from './ProjectReferenceLoader.js';
+import type { GraphBoundary } from './GraphBoundaryCache.js';
 
 export type ProcessContext = {
   settings: Settings;
@@ -139,6 +140,9 @@ export type InternalProcessContext<T extends ChartNode = ChartNode> = ProcessCon
 
   /** Global cache shared by all nodes, is present for the entire execution of a graph (and shared in subgraphs). */
   executionCache: Map<string, unknown>;
+
+  /** Resolves graph input/output boundary metadata through the processor/runner runtime cache when available. */
+  getGraphBoundary?: (project: Project, graphId: GraphId | undefined) => GraphBoundary | undefined;
 
   /** Call when the node has partial data but has not finished execution yet. */
   onPartialOutputs?: (outputs: Outputs) => void;

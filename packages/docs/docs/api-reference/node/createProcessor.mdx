@@ -11,6 +11,8 @@ The Node package version wraps core processor creation with Node defaults:
 - fills plugin environment values from `process.env` when `pluginEnv` is unset
 - provides `NodeNativeApi`, `NodeMCPProvider`, a Node CodeRunner, `NodeProjectReferenceLoader`, and a fallback tokenizer unless you override them
 
+`captureNodeTimings` can be passed to include `durationMs` on `nodeFinish` and `nodeError` events. Split-run nodes also include `splitRunDurationMs`, keyed by split item index. When `remoteDebugger` is provided and `captureNodeTimings` is omitted, `createProcessor` enables timing metadata by default so externally triggered Remote Debugger runs can show node durations in Rivet. Pass `captureNodeTimings: false` to keep debugger event payloads untimed.
+
 By default, omitted `runtimeProfile` uses the safe single-run fast policy:
 subprocessor execution-plan caching plus the cached default Node CodeRunner
 when you did not pass a custom `codeRunner`. Use

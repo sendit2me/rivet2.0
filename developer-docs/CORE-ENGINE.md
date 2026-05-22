@@ -110,6 +110,14 @@ Loop-controller break detection is intentionally isolated in [`loopControllerBre
 
 Keep this policy covered by focused tests. The `loop-not-broken` sentinel is exported from the helper and reused by `GraphProcessor`; do not reintroduce duplicated string literals. If loop-controller behavior changes, update the helper and tests first, then wire `GraphProcessor` to the new policy. Avoid reintroducing inline type suppressions in loop/race control-flow branches.
 
+## Optional Node Duration Metadata
+
+Per-node run durations are transient execution metadata, not graph outputs. [`GraphProcessor`](../packages/core/src/model/GraphProcessor.ts) only reads monotonic timestamps and emits `durationMs` on `nodeFinish` / `nodeError` when it is constructed with `captureNodeTimings: true`. The default remains `false`, so ordinary headless runs do not pay extra timestamp reads just because the app can display timings.
+
+Timing starts after the awaited `nodeStart` event and ends when the node succeeds or errors. Preloaded `processId: 'preload'` values, `nodeExcluded`, output maps, graph YAML, and node data are intentionally unchanged. Subprocessors inherit the parent processor's `captureNodeTimings` value. Split-run nodes report the aggregate split node duration as `durationMs` from aggregate `nodeStart` to aggregate `nodeFinish` / `nodeError`, and also report per-item timings in transient `splitRunDurationMs` so the app can show a total plus one duration line per split item without changing output values.
+
+Recordings preserve incoming `durationMs` and `splitRunDurationMs` when present. [`RecordingPlayer`](../packages/core/src/model/RecordingPlayer.ts) can also derive replay-only legacy aggregate durations from existing recorded `nodeStart.ts` and terminal event `ts` values; that fallback is not used for live remote-debugger traffic where receive timing would be misleading.
+
 ## Graph Model
 
 Core graph model types live in `model/`.
@@ -231,6 +239,8 @@ Current `Random number` behavior lives on the existing `randomNumber` node type 
 Input definitions that are generated from user-authored `{{var}}` interpolation and exposed as connectable input ports must be created through [`packages/core/src/model/interpolationInputDefinition.ts`](../packages/core/src/model/interpolationInputDefinition.ts). This is a core maintainability rule for all current and future nodes, not just a convenience helper. The helper preserves the existing port id/title contract while adding `NodeInputDefinition.data` metadata that says the port came from interpolation and records the original interpolation name. The app relies on that metadata to preserve connections when a user clearly renames an interpolation token, so manually creating interpolation ports with plain input-definition objects will make rename preservation fail for that node. The metadata is runtime/editor-only and is not persisted in graph files. Built-in interpolation producers currently marked this way include Text, Prompt, Object, Tool schema interpolation, Code, Expression, JS Filter, JS Map, Extract Object Path, and the built-in OpenAI Thread Message plugin node. Nodes such as `To Tree` that use `{{...}}` only against per-item object properties do not expose connectable interpolation ports and therefore should not use this marker.
 
 Interpolation safety coverage should stay broad whenever this contract changes: core tests cover parser edge cases and built-in input-definition marking, negative tests cover runtime-only consumers such as `To Tree`, app graph-editing tests cover rename preservation for marked built-ins and plugin nodes, and execution-data tests cover parsed-source previews using the captured run inputs rather than current editor state.
+
+Dynamic interpolation port discovery uses a small bounded cache in the shared interpolation parser. The cache is keyed only by exact template text and stores extracted variable names, not node definitions, graph state, runtime values, or plugin results. When the cache is full, new templates are parsed normally instead of evicting entries on every miss. If the same uncached template repeats immediately, the cache adapts by clearing old entries and admitting that new hot template. Callers still receive a fresh array, so existing node-definition code can keep treating the result as mutable. Keep plugin node definitions and connection-sensitive built-ins out of this cache path unless a future API adds an explicit cache-safety contract.
 
 The built-in node directory is intentionally broad; prefer documenting behavior contracts and shared helper boundaries over hard-coding file counts that drift whenever a node is added or split.
 
@@ -458,16 +468,24 @@ so subgraph, call-graph, loop, cron, tool-delegation, and referenced-graph
 invocations can reuse their own immutable plans too. Cached plans also do not
 reuse `NodeImpl` runtime objects; each processor creates fresh node
 implementations before processing so custom node instance state stays
-run-scoped.
+run-scoped. When a fresh subprocessor is created and the runtime cache already
+has that child graph's immutable plan, `#createSubProcessor(...)` seeds the
+child with the plan before its first `processGraph(...)` call. That skips the
+preprocessor dispatch for that one child instance while still creating fresh
+node implementations and fresh mutable run state.
 
 Current architectural detail:
 
 - preprocessing is not only a `processGraph(...)` concern; some public helper paths depend on it being available lazily
 - cached plans are scoped to immutable runner snapshots; graph edits, registry/plugin changes, settings that affect definitions, or project-reference changes require a new runner
-- `createProcessor(...)` uses the same plan shape only as run-scoped data for a
-  fresh one-off processor run. The Node wrapper clears that cache before and
-  after `run()` so endpoint-style callers do not depend on cross-request cache
-  state. Its policy is split in
+- applying a fresh or cached preprocessed state replaces the processor's
+  node-instance, node-id, and connection maps instead of merging into old maps;
+  this keeps reused processors from retaining stale graph-edit state
+- `createProcessor(...)`, and eligible `runGraph(...)` calls that route through
+  the same default-safe policy, use the same plan shape only as run-scoped data
+  for a fresh one-off processor run. The Node wrapper clears that cache before
+  and after `run()` so endpoint-style callers do not depend on cross-request
+  cache state. Its policy is split in
   [`createProcessorRuntimePolicy.ts`](../packages/node/src/createProcessorRuntimePolicy.ts):
   omitted `runtimeProfile` enables the default-safe pieces, explicit
   `compatible` stays fully compatible, explicit `headless-fast` enables
@@ -552,8 +570,21 @@ Current execution policy details:
 - queued node execution uses a bounded `nodeConcurrency` limit instead of `Infinity`
 - child subprocessors inherit the parent processor's concurrency policy
 - split-run parallel execution uses its own bounded `splitRunConcurrency` limit instead of raw `Promise.all`; individual nodes can override that limit with `node.splitRunConcurrency`, while undefined nodes keep the processor-level default so older workflows that do not have the per-node field keep their existing behavior
+- node-level abort signals are tracked in a run-scoped map keyed by exact `NodeId`. The common case stores the single active controller directly and promotes to a `Set<AbortController>` only when overlapping executions of the same node are active. Processor aborts walk active controllers directly instead of registering a processor-level abort listener for every node execution, while race winners still abort only controllers for exact nodes in that race branch. Keep controller registration and cleanup paired around every pre-process exit path, including paused nodes waiting to resume.
+- each graph run prepares the stable part of `InternalProcessContext` once, then layers per-node fields such as `node`, `signal`, `processId`, `execution`, `attachedData`, partial-output callbacks, user-input callbacks, globals setters, wait-event handlers, plugin config, and subprocessor creation for every node execution. Do not move mutable node/run-scoped fields into the stable base.
+- the default isomorphic Code runner is a shared stateless instance for core/browser-style contexts. Custom `ProcessContext.codeRunner` values remain per-caller and are still passed through unchanged.
 
 The readiness/dependency logic used by this flow now lives largely in `NodeExecutionPlanner.ts`, while `GraphProcessor` coordinates queueing and mutable execution state.
+
+`GraphProcessor` keeps the errored-input gate in
+`#processNodeIfAllInputsAvailable(...)`. That method computes a node's upstream
+inputs, checks ignored/visited/errored-input state, and only then calls
+`#processNode(...)` without an intervening `await`. Keep the duplicate
+errored-input scan out of `#processNode(...)`; reintroducing it adds measurable
+per-node overhead to cheap workflow runs without improving the current event or
+error contract. `GraphProcessor.characterization.test.ts` pins that downstream
+nodes do not start or emit their own node errors after an upstream input node
+fails.
 
 The internal `fast-acyclic` scheduler is an opt-in headless path selected by the
 Node fast profiles only. It starts from source nodes and runs a small ready queue
@@ -566,6 +597,14 @@ and output collection still go through the same `GraphProcessor` methods. The
 ready counts are based on unique upstream node ids, not raw connection counts,
 so a single source connected to multiple input ports releases the target once
 that source has finished, matching the compatible scheduler.
+
+The final runtime-speed reassessment kept this eligibility narrow. Scheduler-only
+benchmarks show a substantial win for already-supported acyclic headless graphs,
+especially wide fan-in shapes, but the remaining excluded classes are
+behavior-sensitive: split-run, loop, race, user-input, and wait-event handling.
+Do not broaden the scheduler into one of those classes without first adding
+golden event, recording, abort, and pause/resume characterization for that exact
+class plus a benchmark proving the expansion is worth the risk.
 
 ### Control-flow model
 
@@ -620,9 +659,33 @@ The low-level event/lifecycle plumbing for that parent-child relationship now li
 Important current behavior:
 
 - child processors emit already-enriched execution metadata rather than relying on the parent bridge to reconstruct lineage after the fact
+- child processors can be seeded with a cached immutable child-graph plan, but
+  never with prior node outputs, globals, abort state, pause state, queued
+  nodes, execution metadata, or reused `NodeImpl` objects
 - node events emitted inside a subgraph reference that subgraph invocation's `graphRunId`
 - split-sequential subgraph calls preserve executor `splitIndex` in execution metadata so app-side consumers can distinguish sibling invocations that share the same graph definition
 - `SubprocessorBridge` uses a run-scoped lifecycle subscription keyed by the child processor's own `graphRunId`, so forwarding/lifecycle listeners clean up for that processor's run while forwarded events from deeper nested child processors continue through the parent bridge without prematurely disconnecting parent `nodeFinish` events
+
+Graph boundary metadata for direct nested-graph callers is centralized in
+[`GraphBoundaryCache.ts`](../packages/core/src/model/GraphBoundaryCache.ts).
+The helper derives sorted, first-duplicate-wins Graph Input and Graph Output
+ports, builds subgraph input maps without repeated object spreads, and builds
+error-path excluded output maps. `GraphProcessor` exposes it to runtime nodes
+through `InternalProcessContext.getGraphBoundary(...)`, backed by the optional
+`GraphProcessorRuntimeCache.graphBoundaries` WeakMap. Fresh processors get a
+fresh cache; `createGraphRunner` reuses the cache until `dispose()`, matching
+its immutable-project execution-plan cache contract. If a processor uses
+project references without loaded-project caching, the boundary cache is reset
+at run start so a newly loaded or mutated referenced project cannot inherit
+stale Graph Input / Graph Output metadata. The context resolver itself is
+optional for compatibility with manually constructed internal
+contexts; nested-graph nodes fall back to uncached boundary derivation when it
+is absent. The same resolver is threaded into preprocessing through the
+internal `NodeDefinitionContext`, but only for boundary-driven nodes
+(`Subgraph`, `Referenced Graph Alias`, and `Loop Until`) so ordinary
+node-definition loading keeps the no-cache hot path. Editor settings use
+uncached boundary derivation so in-place graph input/output edits remain
+visible immediately.
 
 ### User input
 
@@ -717,6 +780,7 @@ Processor-built node execution context:
 - context values
 - graph inputs/outputs
 - graph input-node values
+- optional graph boundary lookup for nested-graph callers
 - current node
 - attached execution data
 - event/global helpers
@@ -737,13 +801,13 @@ That is especially true for nested execution correctness: `ProcessContextBuilder
 
 `Code (legacy)`, `Code` (internal type `codeNew`), `Expression`, `JS Filter`, and `JS Map` still execute
 through the configured `CodeRunner`. Browser mode uses `IsomorphicCodeRunner`.
-Programmatic Node `runGraph(...)` and compatible-profile `createProcessor(...)`
-execution through `@valerypopoff/rivet2-node` still defaults to
-`NodeCodeRunner`, while omitted-default `createProcessor(...)` can use the
-run-scoped cached Node CodeRunner when no custom runner is supplied. The desktop
-app's internal `app-executor` sidecar passes its own worker-backed runner so
-most Code-family JavaScript runs off the sidecar's main event loop. The
-app-executor worker runner falls back to current-thread execution when a
+Compatible-profile `createProcessor(...)` execution through
+`@valerypopoff/rivet2-node` still defaults to `NodeCodeRunner`, while
+omitted-default `createProcessor(...)` and eligible `runGraph(...)` calls can
+use the run-scoped cached Node CodeRunner when no custom runner is supplied.
+The desktop app's internal `app-executor` sidecar passes its own worker-backed
+runner so most Code-family JavaScript runs off the sidecar's main event loop.
+The app-executor worker runner falls back to current-thread execution when a
 Code-family node requests the `Rivet` capability, because packaged sidecar
 module resolution for that capability must stay compatible.
 
@@ -762,8 +826,9 @@ app-executor-specific. `codeRunnerWorkerHost.mts` injects the bridged console fo
 worker-backed runs, while `AppExecutorWorkerCodeRunner.mts` keeps the matching
 bridge for the `Rivet`-capability current-thread fallback. In both paths those
 calls become `codeConsole` executor messages that the app replays in the renderer
-console. This does not change the public `NodeCodeRunner` default used by
-`runGraph(...)` and explicit compatible-profile `createProcessor(...)` callers.
+console. This does not change custom `codeRunner` ownership or the public
+`NodeCodeRunner` default used by explicit compatible-profile
+`createProcessor(...)` callers.
 
 `NodeCodeRunner` exposes its CommonJS `require()` resolution policy through
 `createCodeRunnerRequire(...)`, `getCodeRunnerRequireRoot(...)`, and
@@ -781,10 +846,19 @@ The headless Node fast policies use a cached CodeRunner inside
 cache stores compiled functions by source text plus the injected argument shape
 (`inputs`, permissions, graph inputs, and context presence). It does not cache
 values or outputs, so locals remain fresh for every invocation and per-run
-`inputs`/`context` still vary normally. Normal `runGraph(...)`, compatible
-`createProcessor(...)`, Browser mode, Remote Debugger fallback, and app-executor
-worker execution keep their existing CodeRunner ownership. Custom `codeRunner`
-instances always win over the cached runner.
+`inputs`/`context` still vary normally. Eligible `runGraph(...)` calls use the
+same default-safe CodeRunner policy as omitted-default `createProcessor(...)`.
+Eligibility is deliberately narrow: repeated direct Subgraph targets, repeated
+direct Referenced Graph Alias targets, multiple dynamic Call Graph nodes, or
+Code-family nodes without a custom `codeRunner`. Simple `runGraph(...)` calls
+and unrelated one-off Subgraph targets stay compatible to avoid tiny-graph or
+no-reuse overhead.
+`runGraph(...)` does not expose `runtimeProfile`; untyped `runtimeProfile`
+properties are ignored so explicit profile selection stays owned by
+`createProcessor(...)` and `createGraphRunner(...)`.
+Compatible `createProcessor(...)`, Browser mode, Remote Debugger fallback, and
+app-executor worker execution keep their existing CodeRunner ownership. Custom
+`codeRunner` instances always win over the cached runner.
 
 Syntax-error diagnostics are deliberately failure-only. The core does not pre-parse
 successful `Code` node runs. If `AsyncFunction` construction throws a syntax error,
@@ -861,6 +935,10 @@ Serialization lives in [`packages/core/src/utils/serialization/`](../packages/co
 ### Current behavior
 
 - version detection happens centrally in `serializationUtils.ts`
+- versioned serialized project/graph input is prepared once through the
+  internal `serializationInput.ts` helper, which detects the serialization
+  version and carries the already parsed v2-v4 YAML/JSON envelope into the
+  selected deserializer
 - project and graph deserialization dispatch by detected version
 - v4 is the active serializer/deserializer path
 - dataset serialization is handled separately through v4 dataset helpers
@@ -872,6 +950,15 @@ Serialization lives in [`packages/core/src/utils/serialization/`](../packages/co
 - `serializeConnection` / `deserializeConnection` - convert `NodeConnection` to/from the compact string format
 - `parseVisualData` / `packVisualDataV3` / `packVisualDataV4` - encode/decode node visual data (position, size, colors). In the app UI, `visualData.color.bg` is the node header color and `visualData.color.border` is the optional resting frame color; Rivet 2 uses `transparent` as the header-only border sentinel so selected/hover/search/diff borders can still be painted dynamically without a permanent custom frame. Older border-only values with the neutral header color are normalized by the app renderer to the new header-only visual mode instead of keeping an unsupported third skin.
 - `wrapInYamlEnvelope` / `unwrapYamlEnvelope` - standard YAML version-envelope wrapping with validation
+
+`unwrapYamlEnvelope(...)` accepts either raw YAML text or the parsed envelope
+prepared by `serializationInput.ts`. This avoids parsing the same project file
+twice on `runGraphInFile(...)` / `loadProjectFromString(...)` paths while keeping
+direct version-deserializer calls compatible with raw serialized text. Legacy v1
+input remains string-based so old JSON compatibility and fallback errors do not
+broaden accidentally. The preparation helper is intentionally internal; public
+callers should continue using `detectSerializationVersion(...)`,
+`deserializeProject(...)`, and `deserializeGraph(...)`.
 
 Both `serialization_v3.ts` and `serialization_v4.ts` delegate to these shared helpers instead of keeping their own copies.
 

@@ -19,6 +19,7 @@ new GraphProcessor(
   registry: NodeRegistration<any, any>,
   includeTrace?: boolean,
   options?: {
+    captureNodeTimings?: boolean;
     concurrency?: GraphProcessorConcurrency;
   },
 );
@@ -47,6 +48,12 @@ The node registry used to instantiate built-in and plugin node implementations.
 Type: `boolean | undefined`
 
 Controls whether `trace` events are emitted. The current default is trace-enabled unless explicitly disabled.
+
+### options.captureNodeTimings
+
+Type: `boolean`
+
+When `true`, `nodeFinish` and `nodeError` events include `durationMs` metadata for actual node processing. Split-run nodes also include `splitRunDurationMs`, keyed by split item index. The default is `false`. This does not add node output ports, change graph outputs, or write anything to project files.
 
 ### options.concurrency
 

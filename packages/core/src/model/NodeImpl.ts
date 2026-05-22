@@ -12,6 +12,12 @@ import type { InternalProcessContext } from './ProcessContext.js';
 import type { EditorDefinition } from './EditorDefinition.js';
 import type { NodeBodySpec } from './NodeBodySpec.js';
 import type { RivetUIContext } from './RivetUIContext.js';
+import type { GraphBoundary } from './GraphBoundaryCache.js';
+import type { GraphId } from './NodeGraph.js';
+
+export type NodeDefinitionContext = {
+  getGraphBoundary: (project: Project, graphId: GraphId | undefined) => GraphBoundary | undefined;
+};
 
 export interface PluginNodeImpl<T extends ChartNode> {
   getInputDefinitions(
@@ -71,6 +77,7 @@ export abstract class NodeImpl<T extends ChartNode, Type extends T['type'] = T['
     nodes: Record<NodeId, ChartNode>,
     project: Project,
     referencedProjects: Record<ProjectId, Project>,
+    definitionContext?: NodeDefinitionContext,
   ): NodeInputDefinition[];
 
   getInputDefinitionsIncludingBuiltIn(
@@ -78,8 +85,11 @@ export abstract class NodeImpl<T extends ChartNode, Type extends T['type'] = T['
     nodes: Record<NodeId, ChartNode>,
     project: Project,
     referencedProjects: Record<ProjectId, Project>,
+    definitionContext?: NodeDefinitionContext,
   ): NodeInputDefinition[] {
-    const ports = [...this.getInputDefinitions(connections, nodes, project, referencedProjects)];
+    const ports = definitionContext
+      ? [...this.getInputDefinitions(connections, nodes, project, referencedProjects, definitionContext)]
+      : [...this.getInputDefinitions(connections, nodes, project, referencedProjects)];
 
     if (this.chartNode.isConditional) {
       ports.push(IF_PORT);
@@ -93,6 +103,7 @@ export abstract class NodeImpl<T extends ChartNode, Type extends T['type'] = T['
     nodes: Record<NodeId, ChartNode>,
     project: Project,
     referencedProjects: Record<ProjectId, Project>,
+    definitionContext?: NodeDefinitionContext,
   ): NodeOutputDefinition[];
 
   abstract process(inputData: Inputs, context: InternalProcessContext): Promise<Outputs>;
@@ -120,6 +131,8 @@ export class PluginNodeImplClass<T extends ChartNode, Type extends T['type'] = T
     connections: NodeConnection[],
     nodes: Record<NodeId, ChartNode>,
     project: Project,
+    _referencedProjects?: Record<ProjectId, Project>,
+    _definitionContext?: NodeDefinitionContext,
   ): NodeInputDefinition[] {
     return this.impl.getInputDefinitions(this.data, connections, nodes, project);
   }
@@ -128,6 +141,8 @@ export class PluginNodeImplClass<T extends ChartNode, Type extends T['type'] = T
     connections: NodeConnection[],
     nodes: Record<NodeId, ChartNode>,
     project: Project,
+    _referencedProjects?: Record<ProjectId, Project>,
+    _definitionContext?: NodeDefinitionContext,
   ): NodeOutputDefinition[] {
     return this.impl.getOutputDefinitions(this.data, connections, nodes, project);
   }

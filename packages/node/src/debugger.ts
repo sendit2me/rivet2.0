@@ -57,6 +57,7 @@ export type DynamicGraphRunOptions = {
   contextValues: Record<string, DataValue>;
   projectPath: string | undefined;
   useEditorCache?: boolean;
+  captureNodeTimings?: boolean;
 };
 
 export type DynamicGraphRun = (data: DynamicGraphRunOptions) => Promise<void>;
@@ -167,6 +168,7 @@ export function startDebuggerServer(
               contextValues: Record<string, DataValue>;
               projectPath: string | undefined;
               useEditorCache?: boolean;
+              captureNodeTimings?: boolean;
             };
             const {
               requestId,
@@ -177,6 +179,7 @@ export function startDebuggerServer(
               preloadData,
               projectPath,
               useEditorCache,
+              captureNodeTimings,
             } = runData;
 
             await options.dynamicGraphRun?.({
@@ -189,6 +192,7 @@ export function startDebuggerServer(
               preloadData,
               projectPath,
               useEditorCache,
+              captureNodeTimings,
             });
           })
           .with({ type: 'set-dynamic-data' }, async () => {

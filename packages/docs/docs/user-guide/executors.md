@@ -4,6 +4,8 @@ title: Executors
 
 Executors are responsible for running graphs in Rivet. In Canvas mode, choose the active executor from the Run context menu in the top app bar. The Settings modal also has a `Default executor` setting; that setting only chooses the executor Rivet starts with next time, and does not change an already-running session.
 
+The Graphs section of the Settings modal also has a `Show node run durations` setting. It is off by default. When enabled, Rivet shows `Duration: ...ms` in node outputs for live runs, Remote Debugger runs, and recordings when timing metadata is available. If the same node runs more than once, including many parallel or sequential runs, Rivet shows the total duration plus one duration line per finished run.
+
 There are 3 possible executors in use at any one time:
 
 ## Browser

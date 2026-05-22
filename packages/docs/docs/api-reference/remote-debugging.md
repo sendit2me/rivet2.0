@@ -32,6 +32,8 @@ In this example, the `startDebuggerServer` function is used to start the debugge
 
 `startDebuggerServer` sends lightweight WebSocket ping frames every 30 seconds by default and terminates clients that do not answer within 10 seconds. Inbound debugger messages and successful workflow-event broadcasts also count as websocket activity while a heartbeat is pending. This keeps idle remote-debugger connections alive through common proxy and CDN idle timeouts without letting an older ping timeout interrupt a post-idle workflow broadcast. If your host owns WebSocket liveness itself, you can adjust `heartbeatIntervalMs` and `heartbeatTimeoutMs`, or disable the built-in heartbeat by setting `heartbeatIntervalMs: 0`.
 
+Server-to-client Remote Debugger messages are serialized as display-safe JSON. Runtime graph values are not mutated, but non-JSON-safe debugger payload branches are replaced with placeholder strings before sending so lifecycle events such as `nodeFinish` and `graphFinish` are not dropped. Explicit `undefined` is preserved through a debugger-transport sentinel that Rivet decodes on receipt.
+
 ## Connecting to the Debugger Server from Rivet
 
 Once the debugger server is running and a graph is being executed, you can connect to it from Rivet by clicking on the "Remote Debugging" button in the toolbar.

@@ -171,9 +171,7 @@ export function searchGraphNodes(items: readonly GraphSearchItem[], query: strin
 
 export function searchGraphNodesWithMode(items: readonly GraphSearchItem[], query: string): GraphSearchResult {
   const wholeQuery = normalizeSearchText(query).trim();
-  const queryTerms = wholeQuery
-    .split(/\s+/)
-    .filter(Boolean);
+  const queryTerms = wholeQuery.split(/\s+/).filter(Boolean);
 
   if (queryTerms.length === 0) {
     return { matches: [], fallbackToTerms: false };
@@ -243,6 +241,13 @@ export function getGraphSearchStats(matches: readonly GraphSearchMatch[]): Graph
     occurrenceCount,
     graphCount: graphIds.size,
   };
+}
+
+export function formatGraphSearchStats(stats: GraphSearchStats): string {
+  const occurrenceLabel = stats.occurrenceCount === 1 ? 'occurrence' : 'occurrences';
+  const graphLabel = stats.graphCount === 1 ? 'graph' : 'graphs';
+
+  return `${stats.occurrenceCount.toLocaleString()} ${occurrenceLabel} in ${stats.graphCount.toLocaleString()} ${graphLabel}`;
 }
 
 export function isNodeGraphSearchMatch(match: GraphSearchMatch): match is GraphSearchNodeMatch {
@@ -439,9 +444,10 @@ function normalizeSearchText(text: string): string {
   return text.toLowerCase();
 }
 
-function normalizeGraphSearchNodeMetadata(
-  metadata: string | undefined | GraphSearchNodeMetadata,
-): { nodeTypeLabel: string | undefined; searchableContentKeys: readonly string[] } {
+function normalizeGraphSearchNodeMetadata(metadata: string | undefined | GraphSearchNodeMetadata): {
+  nodeTypeLabel: string | undefined;
+  searchableContentKeys: readonly string[];
+} {
   if (typeof metadata === 'string' || metadata == null) {
     return {
       nodeTypeLabel: metadata,

@@ -3,7 +3,8 @@ import * as yaml from 'yaml';
 import { graphV3Deserializer, projectV3Deserializer } from './serialization_v3.js';
 import type { Project, NodeGraph, Dataset, DatasetMetadata, ChartNode } from '../../index.js';
 import { getError } from '../errors.js';
-import { detectSerializationVersion, type AttachedData, yamlProblem } from './serializationUtils.js';
+import { type AttachedData, type SerializationVersion, yamlProblem } from './serializationUtils.js';
+import { prepareSerializedInput } from './serializationInput.js';
 import {
   datasetV4Deserializer,
   datasetV4Serializer,
@@ -22,10 +23,10 @@ export function serializeProject(project: Project, attachedData?: AttachedData):
 const errMessage = (err: unknown) => `${getError(err).message}\n${getError(err).stack}`;
 
 export function deserializeProject(serializedProject: unknown, path: string | null = null): [Project, AttachedData] {
-  const version = detectSerializationVersion(serializedProject);
+  const { deserializerInput, version } = prepareSerializedInput(serializedProject);
 
   try {
-    const result = deserializeProjectByVersion(serializedProject, version);
+    const result = deserializeProjectByVersion(deserializerInput, version);
     normalizeProjectDefaultNodeTitles(result[0]);
     if (path !== null) {
       result[0].metadata.path = path;
@@ -45,10 +46,10 @@ export function serializeGraph(graph: NodeGraph): unknown {
 }
 
 export function deserializeGraph(serializedGraph: unknown): NodeGraph {
-  const version = detectSerializationVersion(serializedGraph);
+  const { deserializerInput, version } = prepareSerializedInput(serializedGraph);
 
   try {
-    const graph = deserializeGraphByVersion(serializedGraph, version);
+    const graph = deserializeGraphByVersion(deserializerInput, version);
     normalizeGraphDefaultNodeTitles(graph);
     return graph;
   } catch (err) {
@@ -82,7 +83,7 @@ function normalizeDefaultCodeNodeTitle(node: ChartNode): void {
 
 function deserializeProjectByVersion(
   serializedProject: unknown,
-  version: ReturnType<typeof detectSerializationVersion>,
+  version: SerializationVersion,
 ): [Project, AttachedData] {
   switch (version) {
     case 4:
@@ -99,7 +100,7 @@ function deserializeProjectByVersion(
 
 function deserializeGraphByVersion(
   serializedGraph: unknown,
-  version: ReturnType<typeof detectSerializationVersion>,
+  version: SerializationVersion,
 ): NodeGraph {
   switch (version) {
     case 4:

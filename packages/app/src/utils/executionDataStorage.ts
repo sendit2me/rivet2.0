@@ -45,6 +45,14 @@ export function storeNodeDataForHistory(
     storedData.finishedAt = data.finishedAt;
   }
 
+  if (Object.prototype.hasOwnProperty.call(data, 'durationMs')) {
+    storedData.durationMs = data.durationMs;
+  }
+
+  if (data.splitRunDurationMs !== undefined) {
+    storedData.splitRunDurationMs = { ...data.splitRunDurationMs };
+  }
+
   if (data.debugData !== undefined) {
     storedData.debugData = cloneDeep(data.debugData);
   }

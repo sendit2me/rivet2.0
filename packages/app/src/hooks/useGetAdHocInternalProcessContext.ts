@@ -67,6 +67,7 @@ export function useGetAdHocInternalProcessContext() {
         executionCache: new Map(),
         externalFunctions: {},
         getGlobal: undefined!,
+        getGraphBoundary: undefined!,
 
         graphInputs: {},
         graphOutputs: {},

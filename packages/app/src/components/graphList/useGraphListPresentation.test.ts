@@ -106,4 +106,41 @@ describe('graph list presentation helpers', () => {
       false,
     );
   });
+
+  it('flags folders as active drop targets only when dragging from another folder', () => {
+    const item: NodeGraphFolderItem = {
+      type: 'folder',
+      name: 'Target',
+      fullPath: 'Target',
+      children: [],
+    };
+    const baseOptions = {
+      currentGraph: graph('other', 'Other'),
+      dragOverFolderName: 'Target',
+      fullPath: getGraphListItemPath(item),
+      graphReachabilityByGraphId: {},
+      isExpanded: true,
+      item,
+      mainGraphId: undefined,
+      referencingSelectedGraphIds: new Set<GraphId>(),
+      renamingItemFullPath: undefined,
+      runningGraphs: [],
+      showUnreachableBadges: true,
+    };
+
+    assert.equal(
+      getFolderItemPresentation({
+        ...baseOptions,
+        draggingItemFolder: 'Source',
+      }).isDraggingOver,
+      true,
+    );
+    assert.equal(
+      getFolderItemPresentation({
+        ...baseOptions,
+        draggingItemFolder: 'Target',
+      }).isDraggingOver,
+      false,
+    );
+  });
 });

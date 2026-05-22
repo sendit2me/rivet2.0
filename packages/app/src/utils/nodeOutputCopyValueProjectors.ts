@@ -10,6 +10,12 @@ import {
   projectStoredPortValueForCopy,
 } from './executionDataCopyValue.js';
 import { restoreStoredPortValue } from './executionDataReaders.js';
+import {
+  formatSubGraphCostMetricForCopy,
+  formatSubGraphDurationMetricForCopy,
+  getSubGraphCostMetric,
+  getSubGraphDurationMetric,
+} from './subGraphOutputMetrics.js';
 
 export const getChatNodeCopyValueData: NodeOutputCopyValueProjector = ({ outputs, dataRefs }) => {
   const visibleEntries: [string, unknown][] = [];
@@ -103,18 +109,20 @@ export const getSubGraphNodeCopyValueData: NodeOutputCopyValueProjector = ({ out
   const sections: DisplayCopySection[] = [];
 
   const costValue = restoreStoredPortValue(outputs, 'cost' as PortId, dataRefs);
-  if (coerceTypeOptional(costValue, 'number') != null && isPositiveMetric(costValue)) {
+  const costCopyValue = formatSubGraphCostMetricForCopy(getSubGraphCostMetric(costValue));
+  if (costCopyValue !== undefined) {
     sections.push({
       label: 'Cost',
-      value: `$${coerceTypeOptional(costValue, 'number')!.toFixed(3)}`,
+      value: costCopyValue,
     });
   }
 
   const durationValue = restoreStoredPortValue(outputs, 'duration' as PortId, dataRefs);
-  if (coerceTypeOptional(durationValue, 'number') != null && isPositiveMetric(durationValue)) {
+  const durationCopyValue = formatSubGraphDurationMetricForCopy(getSubGraphDurationMetric(durationValue));
+  if (durationCopyValue !== undefined) {
     sections.push({
       label: 'Duration',
-      value: `${coerceTypeOptional(durationValue, 'number')}ms`,
+      value: durationCopyValue,
     });
   }
 

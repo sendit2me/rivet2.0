@@ -1,89 +1,47 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
-  createBuiltInRegistry,
   type ChartNode,
   type GraphId,
   type NodeConnection,
   type NodeGraph,
   type NodeId,
   type PortId,
-  type Project,
-  type ProjectId,
 } from '@valerypopoff/rivet2-core';
 import { findConnectedGraphInputUsages } from './graphInputUsage.js';
+import {
+  makeCallGraphNode as makeBaseCallGraphNode,
+  makeConnection as makeBaseConnection,
+  makeGraph as makeBaseGraph,
+  makeGraphInputNode as makeGraphInput,
+  makeGraphReferenceNode as makeBaseGraphReferenceNode,
+  makeObjectNode,
+  makeProject,
+  makeSubGraphNode as makeBaseSubGraphNode,
+  makeTextNode,
+} from './testGraphBuilders.js';
 
-const registry = createBuiltInRegistry();
 const currentGraphId = 'current-graph' as GraphId;
 const parentGraphId = 'parent-graph' as GraphId;
 
-function makeGraphInput(nodeId: string, inputId: string): ChartNode {
-  const node = registry.createDynamic('graphInput');
-  node.id = nodeId as NodeId;
-  node.data = {
-    ...(node.data as Record<string, unknown>),
-    id: inputId,
-  };
-  return node;
+function makeSubGraphNode(nodeId: string, graphId = currentGraphId) {
+  return makeBaseSubGraphNode(nodeId, graphId, { title: 'Call current graph' });
 }
 
-function makeTextNode(nodeId: string): ChartNode {
-  const node = registry.createDynamic('text');
-  node.id = nodeId as NodeId;
-  return node;
+function makeGraphReferenceNode(nodeId: string, graphId = currentGraphId, useGraphIdOrNameInput = false) {
+  return makeBaseGraphReferenceNode(nodeId, graphId, useGraphIdOrNameInput);
 }
 
-function makeObjectNode(nodeId: string, jsonTemplate: string): ChartNode {
-  const node = registry.createDynamic('object');
-  node.id = nodeId as NodeId;
-  node.data = {
-    ...(node.data as Record<string, unknown>),
-    jsonTemplate,
-  };
-  return node;
-}
-
-function makeSubGraphNode(nodeId: string, graphId = currentGraphId): ChartNode {
-  const node = registry.createDynamic('subGraph');
-  node.id = nodeId as NodeId;
-  node.title = 'Call current graph';
-  node.data = {
-    ...(node.data as Record<string, unknown>),
-    graphId,
-  };
-  return node;
-}
-
-function makeGraphReferenceNode(
-  nodeId: string,
-  graphId = currentGraphId,
-  useGraphIdOrNameInput = false,
-): ChartNode {
-  const node = registry.createDynamic('graphReference');
-  node.id = nodeId as NodeId;
-  node.data = {
-    ...(node.data as Record<string, unknown>),
-    graphId,
-    useGraphIdOrNameInput,
-  };
-  return node;
-}
-
-function makeCallGraphNode(nodeId: string): ChartNode {
-  const node = registry.createDynamic('callGraph');
-  node.id = nodeId as NodeId;
-  node.title = 'Call by reference';
-  return node;
+function makeCallGraphNode(nodeId: string) {
+  return makeBaseCallGraphNode(nodeId, { title: 'Call by reference' });
 }
 
 function makeConnection(overrides: Partial<NodeConnection> = {}): NodeConnection {
-  return {
-    outputNodeId: 'source' as NodeId,
-    outputId: 'output' as PortId,
+  return makeBaseConnection({
     inputNodeId: 'subgraph' as NodeId,
     inputId: 'input' as PortId,
     ...overrides,
-  };
+  });
 }
 
 function makeCallGraphConnections({
@@ -112,26 +70,7 @@ function makeCallGraphConnections({
 }
 
 function makeGraph(id: GraphId, nodes: ChartNode[], connections: NodeConnection[] = []): NodeGraph {
-  return {
-    metadata: {
-      id,
-      name: id === parentGraphId ? 'Parent Graph' : 'Current Graph',
-      description: '',
-    },
-    nodes,
-    connections,
-  };
-}
-
-function makeProject(graphs: NodeGraph[]): Project {
-  return {
-    metadata: {
-      id: 'project' as ProjectId,
-      title: 'Project',
-      description: '',
-    },
-    graphs: Object.fromEntries(graphs.map((graph) => [graph.metadata!.id!, graph])),
-  } as Project;
+  return makeBaseGraph(id, nodes, connections, id === parentGraphId ? 'Parent Graph' : 'Current Graph');
 }
 
 test('findConnectedGraphInputUsages reports connected subgraph input ports removed by deletion', () => {
@@ -264,14 +203,18 @@ test('findConnectedGraphInputUsages ignores call graph nodes without an inputs c
   const inputNode = makeGraphInput('input-node', 'input');
   const graphReferenceNode = makeGraphReferenceNode('graph-reference');
   const callGraphNode = makeCallGraphNode('call-graph');
-  const parentGraph = makeGraph(parentGraphId, [graphReferenceNode, callGraphNode], [
-    makeConnection({
-      outputNodeId: graphReferenceNode.id,
-      outputId: 'graph' as PortId,
-      inputNodeId: callGraphNode.id,
-      inputId: 'graph' as PortId,
-    }),
-  ]);
+  const parentGraph = makeGraph(
+    parentGraphId,
+    [graphReferenceNode, callGraphNode],
+    [
+      makeConnection({
+        outputNodeId: graphReferenceNode.id,
+        outputId: 'graph' as PortId,
+        inputNodeId: callGraphNode.id,
+        inputId: 'graph' as PortId,
+      }),
+    ],
+  );
 
   const usages = findConnectedGraphInputUsages({
     currentGraph: makeGraph(currentGraphId, [inputNode]),

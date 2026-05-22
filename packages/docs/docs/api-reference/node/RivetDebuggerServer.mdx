@@ -66,6 +66,10 @@ also re-attaches before each `run()` so reused processor objects continue to emi
 Processor attachments are run-scoped: the debugger server removes its processor listeners when `detach` is called and also
 auto-detaches after the processor emits its root `finish` event.
 
+Processors created through `createProcessor(..., { remoteDebugger })` include `durationMs` on `nodeFinish` and `nodeError`
+debugger events by default, and split-run nodes include `splitRunDurationMs` keyed by split item index. Pass
+`captureNodeTimings: false` to `createProcessor` if the remote backend should suppress that optional metadata.
+
 ### detach(processor)
 
 Detaches a processor from the debugger server and removes the debugger event listeners registered by `attach`. Calling

@@ -16,8 +16,10 @@ import {
   type ChatMessage,
   type GptFunction,
   type GraphProcessorRuntimeCache,
+  type GraphId,
   type RemoteRunRequestId,
   type LooseDataValue,
+  type NodeGraph,
   type ProcessContext,
 } from '@valerypopoff/rivet2-core';
 
@@ -30,10 +32,7 @@ import { CachedNodeCodeRunner } from './native/CachedNodeCodeRunner.js';
 import type { RivetDebuggerServer } from './debugger.js';
 import { NodeProjectReferenceLoader } from './native/NodeProjectReferenceLoader.js';
 import { NodeMCPProvider } from './native/NodeMCPProvider.js';
-import {
-  resolveCreateProcessorRuntimePolicy,
-  type NodeRuntimeProfile,
-} from './createProcessorRuntimePolicy.js';
+import { resolveCreateProcessorRuntimePolicy, type NodeRuntimeProfile } from './createProcessorRuntimePolicy.js';
 
 export type { NodeRuntimeProfile };
 
@@ -131,8 +130,13 @@ export function createProcessor(
   options: NodeCreateProcessorOptions,
 ): ReturnType<typeof coreCreateProcessor> {
   const { runtimeProfile, ...processorOptions } = options;
+  const effectiveProcessorOptions = {
+    ...processorOptions,
+    captureNodeTimings:
+      processorOptions.captureNodeTimings ?? (processorOptions.remoteDebugger !== undefined ? true : undefined),
+  };
   const runtimePolicy = resolveCreateProcessorRuntimePolicy({ ...processorOptions, runtimeProfile });
-  const processor = coreCreateProcessor(project, processorOptions, {
+  const processor = coreCreateProcessor(project, effectiveProcessorOptions, {
     cacheLoadedProjects: runtimePolicy.cacheLoadedProjects,
     executionPlanCacheMode: runtimePolicy.executionPlanCacheMode,
     runtimeCache: runtimePolicy.runtimeCache,
@@ -143,30 +147,34 @@ export function createProcessor(
 
   let remoteDebuggerAttached = false;
   const attachRemoteDebugger = () => {
-    if (!processorOptions.remoteDebugger || remoteDebuggerAttached) {
+    if (!effectiveProcessorOptions.remoteDebugger || remoteDebuggerAttached) {
       return;
     }
 
-    processorOptions.remoteDebugger.attach(processor.processor, processorOptions.remoteDebuggerRequestId);
+    effectiveProcessorOptions.remoteDebugger.attach(
+      processor.processor,
+      effectiveProcessorOptions.remoteDebuggerRequestId,
+    );
     remoteDebuggerAttached = true;
   };
   const detachRemoteDebugger = () => {
-    if (!processorOptions.remoteDebugger || !remoteDebuggerAttached) {
+    if (!effectiveProcessorOptions.remoteDebugger || !remoteDebuggerAttached) {
       return;
     }
 
-    processorOptions.remoteDebugger.detach(processor.processor);
+    effectiveProcessorOptions.remoteDebugger.detach(processor.processor);
     remoteDebuggerAttached = false;
   };
 
   attachRemoteDebugger();
 
-  const pluginEnv = resolveNodePluginEnv(processorOptions);
+  const pluginEnv = resolveNodePluginEnv(effectiveProcessorOptions);
 
   return {
     ...processor,
     async run() {
-      const shouldManageRemoteDebugger = processorOptions.remoteDebugger != null && !processor.processor.isRunning;
+      const shouldManageRemoteDebugger =
+        effectiveProcessorOptions.remoteDebugger != null && !processor.processor.isRunning;
       const shouldManageRunScopedRuntimeCache = runtimePolicy.runtimeCache != null && !processor.processor.isRunning;
       if (shouldManageRunScopedRuntimeCache) {
         clearGraphProcessorRuntimeCache(runtimePolicy.runtimeCache!);
@@ -176,12 +184,11 @@ export function createProcessor(
         attachRemoteDebugger();
       }
 
-      const runScopedCodeRunner =
-        runtimePolicy.useCachedDefaultCodeRunner ? new CachedNodeCodeRunner() : undefined;
+      const runScopedCodeRunner = runtimePolicy.useCachedDefaultCodeRunner ? new CachedNodeCodeRunner() : undefined;
 
       try {
         const outputs = await processor.processor.processGraph(
-          createNodeProcessContext(processorOptions, pluginEnv, { codeRunner: runScopedCodeRunner }),
+          createNodeProcessContext(effectiveProcessorOptions, pluginEnv, { codeRunner: runScopedCodeRunner }),
           processor.inputs,
           processor.contextValues,
         );
@@ -203,6 +210,7 @@ export function createProcessor(
 
 function clearGraphProcessorRuntimeCache(runtimeCache: GraphProcessorRuntimeCache): void {
   runtimeCache.executionPlans = undefined;
+  runtimeCache.graphBoundaries = undefined;
   runtimeCache.loadedProjects = undefined;
 }
 
@@ -252,6 +260,7 @@ export function createGraphRunner(project: Project, options: NodeGraphRunnerOpti
       runnerCodeRunner?.clearCache();
       if (runtimeCache) {
         runtimeCache.executionPlans = undefined;
+        runtimeCache.graphBoundaries = undefined;
         runtimeCache.loadedProjects = undefined;
       }
     },
@@ -266,8 +275,106 @@ export function createGraphRunner(project: Project, options: NodeGraphRunnerOpti
 }
 
 export async function runGraph(project: Project, options: NodeRunGraphOptions): Promise<Record<string, DataValue>> {
-  const processorInfo = createProcessor(project, { ...options, runtimeProfile: 'compatible' });
+  const processorOptions = stripRunGraphRuntimeProfile(options);
+  const processorInfo = createProcessor(
+    project,
+    shouldUseDefaultSafeRunGraphPolicy(project, processorOptions)
+      ? processorOptions
+      : { ...processorOptions, runtimeProfile: 'compatible' },
+  );
   return processorInfo.run();
+}
+
+function stripRunGraphRuntimeProfile(options: NodeRunGraphOptions): NodeRunGraphOptions {
+  if (!('runtimeProfile' in options)) {
+    return options;
+  }
+
+  const processorOptions: NodeRunGraphOptions & { runtimeProfile?: unknown } = { ...options };
+  delete processorOptions.runtimeProfile;
+  return processorOptions;
+}
+
+function shouldUseDefaultSafeRunGraphPolicy(project: Project, options: NodeRunGraphOptions): boolean {
+  if (options.remoteDebugger !== undefined || options.includeTrace) {
+    return false;
+  }
+
+  const graph = getRunGraphTarget(project, options.graph);
+  if (!graph) {
+    return false;
+  }
+
+  const subgraphTargetCounts = new Map<string, number>();
+  const referencedAliasTargetCounts = new Map<string, number>();
+  let dynamicCallGraphCalls = 0;
+  let hasCodeFamilyNode = false;
+
+  for (const node of graph.nodes) {
+    if (node.type === 'subGraph') {
+      if (hasRepeatedTarget(subgraphTargetCounts, getNodeGraphId(node))) {
+        return true;
+      }
+    } else if (node.type === 'referencedGraphAlias') {
+      if (hasRepeatedTarget(referencedAliasTargetCounts, getReferencedGraphAliasTarget(node))) {
+        return true;
+      }
+    } else if (node.type === 'callGraph') {
+      dynamicCallGraphCalls += 1;
+    }
+
+    if (
+      options.codeRunner == null &&
+      (node.type === 'code' ||
+        node.type === 'codeNew' ||
+        node.type === 'expression' ||
+        node.type === 'jsFilter' ||
+        node.type === 'jsMap')
+    ) {
+      hasCodeFamilyNode = true;
+    }
+
+    if (hasCodeFamilyNode || dynamicCallGraphCalls > 1) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function hasRepeatedTarget(targetCounts: Map<string, number>, target: string | undefined): boolean {
+  if (!target) {
+    return false;
+  }
+
+  const count = (targetCounts.get(target) ?? 0) + 1;
+  targetCounts.set(target, count);
+  return count > 1;
+}
+
+function getNodeGraphId(node: { data?: unknown }): string | undefined {
+  const data = node.data as { graphId?: unknown } | undefined;
+  return typeof data?.graphId === 'string' ? data.graphId : undefined;
+}
+
+function getReferencedGraphAliasTarget(node: { data?: unknown }): string | undefined {
+  const data = node.data as { graphId?: unknown; projectId?: unknown } | undefined;
+  if (typeof data?.graphId !== 'string') {
+    return undefined;
+  }
+
+  return `${typeof data.projectId === 'string' ? data.projectId : ''}:${data.graphId}`;
+}
+
+function getRunGraphTarget(project: Project, graph: string | undefined): NodeGraph | undefined {
+  if (graph) {
+    return (
+      project.graphs[graph as GraphId] ??
+      Object.values(project.graphs).find((candidate) => candidate.metadata?.name === graph)
+    );
+  }
+
+  return project.metadata.mainGraphId ? project.graphs[project.metadata.mainGraphId] : undefined;
 }
 
 function configureNodeProcessor(processor: NodeGraphProcessor): void {

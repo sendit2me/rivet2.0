@@ -1,6 +1,13 @@
 import { produce } from 'immer';
 import { useAtomValue, useSetAtom } from 'jotai';
-import { type GraphId, type GraphRunId, type NodeId, type ProcessEvents } from '@valerypopoff/rivet2-core';
+import { useRef } from 'react';
+import {
+  type GraphId,
+  type GraphRunId,
+  type NodeId,
+  type ProcessEvents,
+  type RootRunId,
+} from '@valerypopoff/rivet2-core';
 import { useLatest } from 'ahooks';
 import { lastRecordingState } from '../state/execution';
 import {
@@ -27,7 +34,11 @@ import {
   clearRemovedExecutionDataRefs,
   splitRunDataByPreservedNodes,
 } from '../utils/executionDataStorage.js';
-import { removeRunningGraphEntry, updateSelectedGraphRunForGraphStart } from './graphExecutionEventHelpers.js';
+import {
+  reconcileRunningProcessesAfterSuccessfulDone,
+  removeRunningGraphEntry,
+  updateSelectedGraphRunForGraphStart,
+} from './graphExecutionEventHelpers.js';
 
 export type GraphExecutionEventsApi = {
   onAbort: (data: ProcessEvents['abort']) => void;
@@ -64,6 +75,7 @@ export function useGraphExecutionEvents({
   const setGraphRunHistoryByView = useSetAtom(graphRunHistoryByViewState);
   const setSelectedGraphRunByView = useSetAtom(selectedGraphRunByViewState);
   const lastRunDataLatest = useLatest(lastRunData);
+  const rootRunIdsForDoneReconciliationRef = useRef<RootRunId[]>([]);
 
   const stopAll = () => {
     setGraphRunning(false);
@@ -89,6 +101,7 @@ export function useGraphExecutionEvents({
   const onStart = ({ startGraph }: ProcessEvents['start']) => {
     const nodeIdsToPreserve = consumeNodeRunDataPreservationForNextStart();
 
+    rootRunIdsForDoneReconciliationRef.current = [];
     setLastRecordingState(undefined);
     setUserInputQuestions({});
     setGraphRunning(true);
@@ -103,16 +116,20 @@ export function useGraphExecutionEvents({
   };
 
   const onStop = () => {
+    rootRunIdsForDoneReconciliationRef.current = [];
     clearNodeRunDataPreservationForNextStart();
     stopAll();
   };
 
   const onDone = (_data: ProcessEvents['done']) => {
+    const rootRunId = rootRunIdsForDoneReconciliationRef.current.shift();
     clearNodeRunDataPreservationForNextStart();
     stopAll();
+    setLastRunData((lastRun) => reconcileRunningProcessesAfterSuccessfulDone(lastRun, { rootRunId }));
   };
 
   const onAbort = (_data: ProcessEvents['abort']) => {
+    rootRunIdsForDoneReconciliationRef.current = [];
     clearNodeRunDataPreservationForNextStart();
     stopAll();
     interruptAll();
@@ -139,6 +156,7 @@ export function useGraphExecutionEvents({
   };
 
   const onError = (data: ProcessEvents['error']) => {
+    rootRunIdsForDoneReconciliationRef.current = [];
     clearNodeRunDataPreservationForNextStart();
     stopAll();
     handleError(data.error, 'Graph execution error', {
@@ -188,6 +206,9 @@ export function useGraphExecutionEvents({
       execution: data.execution,
       graphIdFallback: data.graph.metadata!.id!,
     });
+    if (data.execution && data.execution.parentGraphRunId == null) {
+      rootRunIdsForDoneReconciliationRef.current.push(data.execution.rootRunId);
+    }
     finishGraphRun(graphViewKey, data.execution?.graphRunId, 'ok');
   };
 

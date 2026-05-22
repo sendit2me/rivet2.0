@@ -28,12 +28,15 @@ import {
   makeAsyncDelayProject,
   makeBranchingTextProject,
   makeCodeChainProject,
+  makeCallGraphFanInProject,
   makeControlFlowExclusionProject,
   makeExpressionChainProject,
   makeGlobalStateProject,
   makeInputContextTextProject,
   makeMissingRequiredInputProject,
   makeMixedSubgraphFanInProject,
+  makeNestedSubgraphProject,
+  makeReferencedGraphAliasFanInProject,
   makeRaiseEventProject,
   makeRepeatedSubgraphFanInProject,
   makeSameSourceFanInProject,
@@ -53,7 +56,10 @@ type CapturedEvent = {
 
 type CapturedCallbackOptions = ReturnType<typeof createCallbackCapture>;
 
-type ProfileRunOptions = Omit<NodeCreateProcessorOptions, 'graph' | 'runtimeProfile' | keyof CapturedCallbackOptions> & {
+type ProfileRunOptions = Omit<
+  NodeCreateProcessorOptions,
+  'graph' | 'runtimeProfile' | keyof CapturedCallbackOptions
+> & {
   beforeNodeStart?: (event: ProcessEvents['nodeStart']) => void;
   project?: Project;
 };
@@ -91,7 +97,9 @@ function cloneProject(project: Project): Project {
   return structuredClone(project) as Project;
 }
 
-function createCallbackCapture(events: CapturedEvent[]): Pick<
+function createCallbackCapture(
+  events: CapturedEvent[],
+): Pick<
   NodeCreateProcessorOptions,
   | 'onAbort'
   | 'onDone'
@@ -140,11 +148,7 @@ async function runProfile(
   runtimeProfile: RuntimeProfile,
   options: ProfileRunOptions = {},
 ): Promise<ProfileRun> {
-  const {
-    beforeNodeStart,
-    project = cloneProject(fixture.project),
-    ...processorOptions
-  } = options;
+  const { beforeNodeStart, project = cloneProject(fixture.project), ...processorOptions } = options;
   const callbackEvents: CapturedEvent[] = [];
   const callbackCapture = createCallbackCapture(callbackEvents);
   const processor = createProcessor(project, {
@@ -393,7 +397,9 @@ function normalizeRecorderEvents(recorder: ExecutionRecorder): CapturedEvent[] {
     return directEvents;
   }
 
-  const deserializedEvents = ExecutionRecorder.deserializeFromString(recorder.serialize()).events.map(normalizeRecordedEvent);
+  const deserializedEvents = ExecutionRecorder.deserializeFromString(recorder.serialize()).events.map(
+    normalizeRecordedEvent,
+  );
   assert.deepEqual(deserializedEvents, directEvents, 'recorder events survive serialize/deserialize');
 
   return directEvents;
@@ -440,7 +446,7 @@ function normalizeValue(
   if (value != null && typeof value === 'object') {
     return Object.fromEntries(
       Object.entries(value as Record<string, unknown>)
-        .filter(([key]) => !['callback', 'execution', 'processId', 'ts'].includes(key))
+        .filter(([key]) => !['callback', 'durationMs', 'execution', 'processId', 'ts'].includes(key))
         .filter(([, nestedValue]) => !(options.dropUndefinedProperties && nestedValue === undefined))
         .sort(([left], [right]) => left.localeCompare(right))
         .map(([key, nestedValue]) => [
@@ -848,10 +854,52 @@ void describe('default-fast compatibility characterization', () => {
       },
     ];
 
+    cases.push({
+      fixture: makeNestedSubgraphProject(3),
+      name: 'nested subgraph chain',
+      options: {
+        inputs: { input: 'seed' },
+      },
+    });
+
     for (const testCase of cases) {
       const { compatible, defaultSafe, fast } = await runAllProfiles(testCase.fixture, testCase.options);
       assertProfileRunsEqual(compatible, defaultSafe, `${testCase.name} default`);
       assertProfileRunsEqual(compatible, fast, testCase.name);
+    }
+  });
+
+  void it('keeps graph-dispatch fixture outputs equivalent without pinning independent node order', async () => {
+    const referencedAlias = makeReferencedGraphAliasFanInProject(3);
+    const cases: Array<{
+      fixture: RuntimeSpeedProjectFixture;
+      name: string;
+      options?: ProfileRunOptions;
+    }> = [
+      {
+        fixture: makeCallGraphFanInProject(3),
+        name: 'Call Graph fan-in',
+        options: {
+          inputs: { input: 'seed' },
+        },
+      },
+      {
+        fixture: referencedAlias,
+        name: 'Referenced Graph Alias fan-in',
+        options: {
+          inputs: { input: 'seed' },
+          projectReferenceLoader: referencedAlias.projectReferenceLoader,
+        },
+      },
+    ];
+
+    for (const testCase of cases) {
+      const { compatible, defaultSafe, fast } = await runAllProfiles(testCase.fixture, testCase.options);
+      assert.equal(compatible.status, 'resolved', testCase.name);
+      assert.equal(defaultSafe.status, 'resolved', `${testCase.name} default`);
+      assert.equal(fast.status, 'resolved', testCase.name);
+      assert.deepEqual(defaultSafe.outputs, compatible.outputs, `${testCase.name} default outputs`);
+      assert.deepEqual(fast.outputs, compatible.outputs, `${testCase.name} fast outputs`);
     }
   });
 
