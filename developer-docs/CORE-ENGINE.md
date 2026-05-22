@@ -588,6 +588,14 @@ ready counts are based on unique upstream node ids, not raw connection counts,
 so a single source connected to multiple input ports releases the target once
 that source has finished, matching the compatible scheduler.
 
+The final runtime-speed reassessment kept this eligibility narrow. Scheduler-only
+benchmarks show a substantial win for already-supported acyclic headless graphs,
+especially wide fan-in shapes, but the remaining excluded classes are
+behavior-sensitive: split-run, loop, race, user-input, and wait-event handling.
+Do not broaden the scheduler into one of those classes without first adding
+golden event, recording, abort, and pause/resume characterization for that exact
+class plus a benchmark proving the expansion is worth the risk.
+
 ### Control-flow model
 
 Control flow is implemented through data propagation rather than separate wire types.

@@ -12,6 +12,7 @@ import {
   runGraphInFile,
   serializeProject,
   type DataValue,
+  type GraphProcessorScheduler,
   type NodeCreateProcessorOptions,
   type NodeGraphRunnerOptions,
   type NodeGraphRunnerRunOptions,
@@ -190,6 +191,20 @@ async function main() {
     results.push(
       await benchmark('runGraph text chain 500', () =>
         runGraph(cheap500.project, { graph: cheap500.graphId, inputs: { input: 'bench' } }),
+      ),
+    );
+    results.push(
+      await benchmarkDirectProcessor(
+        'direct GraphProcessor compatible text chain 500',
+        cheap500,
+        'compatible',
+      ),
+    );
+    results.push(
+      await benchmarkDirectProcessor(
+        'direct GraphProcessor fast-acyclic text chain 500',
+        cheap500,
+        'fast-acyclic',
       ),
     );
     results.push(
@@ -399,6 +414,20 @@ async function main() {
       ),
     );
     results.push(
+      await benchmarkDirectProcessor(
+        'direct GraphProcessor compatible wide fan-in 200',
+        wideFanIn200,
+        'compatible',
+      ),
+    );
+    results.push(
+      await benchmarkDirectProcessor(
+        'direct GraphProcessor fast-acyclic wide fan-in 200',
+        wideFanIn200,
+        'fast-acyclic',
+      ),
+    );
+    results.push(
       await benchmarkGraphRunner(
         'createGraphRunner headless-fast wide fan-in 200',
         wideFanIn200.project,
@@ -555,6 +584,17 @@ async function benchmarkCreateProcessor(
   options: NodeCreateProcessorOptions,
 ): Promise<BenchmarkResult> {
   return await benchmark(name, () => createProcessor(project, options).run());
+}
+
+async function benchmarkDirectProcessor(
+  name: string,
+  fixture: RuntimeSpeedProjectFixture,
+  scheduler: GraphProcessorScheduler,
+): Promise<BenchmarkResult> {
+  const processor = createRuntimeSpeedProcessor(fixture.project, fixture.graphId, { scheduler });
+  const context = createRuntimeSpeedProcessContext();
+  const inputs = { input: { type: 'string', value: 'bench' } satisfies DataValue };
+  return await benchmark(name, () => processor.processGraph(context, inputs));
 }
 
 async function benchmarkCodeRunner(

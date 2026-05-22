@@ -1,5 +1,6 @@
 import {
   GraphProcessor,
+  type GraphProcessorScheduler,
   globalRivetNodeRegistry,
   looseDataValuesToDataValues,
   type ChartNode,
@@ -94,8 +95,14 @@ export function createRuntimeSpeedProcessContext(
   };
 }
 
-export function createRuntimeSpeedProcessor(project: Project, graphId: GraphId): GraphProcessor {
-  const processor = new GraphProcessor(project, graphId, globalRivetNodeRegistry);
+export function createRuntimeSpeedProcessor(
+  project: Project,
+  graphId: GraphId,
+  options: { scheduler?: GraphProcessorScheduler } = {},
+): GraphProcessor {
+  const processor = new GraphProcessor(project, graphId, globalRivetNodeRegistry, undefined, {
+    scheduler: options.scheduler,
+  });
   processor.executor = 'nodejs';
   return processor;
 }

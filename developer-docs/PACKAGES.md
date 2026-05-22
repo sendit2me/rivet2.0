@@ -122,7 +122,8 @@ independent fan-in DAGs, single subgraph calls, nested subgraph chains, repeated
 same-input fan-in and changing-input subgraph calls, dynamic
 `Call Graph` dispatch, `Referenced Graph Alias` dispatch through a custom
 `projectReferenceLoader`, Expression and Code chains, lazy preprocessing through
-the public dependency planning path, isolated `loadProjectFromString(...)` and
+the public dependency planning path, direct compatible-vs-`fast-acyclic`
+scheduler-only rows, isolated `loadProjectFromString(...)` and
 `loadProjectFromFile(...)` project-loading rows, and both uncached and cached
 Node CodeRunner compile/run paths. The benchmark matrix is intentionally broad so
 each speed phase can compare flat, subgraph-heavy, graph-dispatch, code-heavy,
@@ -215,6 +216,12 @@ project-reference caching, and it intentionally ignores any untyped
 when a caller needs an explicit runtime profile. Remote Debugger and
 trace-sensitive `runGraph(...)` calls still fall back to the fully compatible
 path through the shared runtime policy.
+
+The final speed-plan pass did not broaden `fast-acyclic` beyond explicit
+headless-fast eligible graphs. Scheduler-only benchmark rows prove it is useful
+for eligible acyclic headless shapes, but split-run, loop, race, user-input, and
+wait-event behavior stay excluded until a dedicated compatibility phase proves
+that a specific class is safe to move.
 
 Default-safe processors and `headless-fast` graph runners also share a graph
 boundary cache for direct nested-graph callers. The core `GraphBoundaryCache`

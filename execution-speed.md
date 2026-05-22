@@ -712,7 +712,7 @@ P5 conclusion:
 - Focused parser microbenchmark on this checkout showed repeated extraction speedups for both short and medium templates: same short template `192.01ms -> 12.89ms`, a 1000-template short cycle `188.88ms -> 15.90ms`, and same medium template `2988.99ms -> 13.12ms` over 500,000 extraction calls. The 10,000-template stress case stayed neutral-to-slightly-faster (`190.14ms -> 179.73ms`) instead of thrashing.
 - Runtime benchmark pass (`RIVET_RUNTIME_BENCH_SAMPLES=3`, `RIVET_RUNTIME_BENCH_ITERATIONS=30`, `RIVET_RUNTIME_BENCH_WARMUP_ITERATIONS=5`) remained noisy at full-matrix scale. The most direct preprocessing row improved from the pre-P5 baseline `1.186ms` to `0.693ms` for `lazy preprocess/dependency text chain 500`. Public run rows were mixed within local variance: text-chain and subgraph rows did not show a clean broad win, so this phase deliberately stops at the pure parser cache instead of adding riskier node-definition memoization.
 
-### P6: Optimize One-Shot Project File Loading
+### P6: Optimize One-Shot Project File Loading (DONE)
 
 Purpose:
 
@@ -788,7 +788,7 @@ P6 conclusion:
   which matches the scope of this phase: P6 improves project file/string loading
   and should not alter loaded workflow execution semantics.
 
-### P7: Reassess `fast-acyclic` Expansion Last
+### P7: Reassess `fast-acyclic` Expansion Last (DONE)
 
 Purpose:
 
@@ -818,18 +818,49 @@ Acceptance criteria:
 - Unsupported node types remain protected.
 - Default behavior remains compatible where required.
 
-## Recommended Order
+P7 conclusion:
 
-1. P0: Refresh baselines and equivalence guards.
-2. P1: Move `runGraph(...)` from forced compatible mode to default-safe mode.
-3. P2: Add runtime graph boundary caches for Subgraph / Referenced Graph.
-4. P3: Reduce fresh subprocessor construction cost.
-5. P4: Reduce per-node context and abort overhead.
-6. P5: Cache safe dynamic port definitions only if measured definition cost justifies it.
-7. P6: Optimize one-shot project file loading as a secondary path.
-8. P7: Reassess broader `fast-acyclic` scheduler eligibility.
+- Reassessed the fast scheduler after P1-P6 and did not broaden eligibility.
+  The current `fast-acyclic` path already covers eligible acyclic headless
+  graphs, including eligible Subgraph/Referenced Graph Alias callers,
+  Code/Expression nodes, and partial-output callbacks, through the shared
+  `GraphProcessor` processing path.
+- Added scheduler-only benchmark rows so future comparisons can separate the
+  scheduler win from graph-runner cache, project-reference cache, and CodeRunner
+  effects. With
+  `RIVET_RUNTIME_BENCH_SAMPLES=3`,
+  `RIVET_RUNTIME_BENCH_ITERATIONS=30`, and
+  `RIVET_RUNTIME_BENCH_WARMUP_ITERATIONS=5`, direct scheduler-only rows measured
+  `direct GraphProcessor compatible text chain 500` `10.270ms` versus
+  `direct GraphProcessor fast-acyclic text chain 500` `7.835ms` (about 24%
+  faster), and `direct GraphProcessor compatible wide fan-in 200` `7.997ms`
+  versus `direct GraphProcessor fast-acyclic wide fan-in 200` `3.685ms` (about
+  54% faster).
+- The remaining expansion candidates are split-run, loop, race, user-input, and
+  wait-event behavior. Those are high-blast-radius because they can change
+  observable event order, abort timing, pause/resume behavior, and stateful
+  branch cleanup. No benchmark in this phase proved that opening those paths is
+  worth that risk.
+- Kept `runGraph(...)`, omitted-profile `createProcessor(...)`, Remote Debugger,
+  trace-sensitive runs, editor run-from, and recording-sensitive default paths on
+  compatible scheduling. Explicit `runtimeProfile: 'headless-fast'` remains the
+  opt-in surface for eligible fast scheduling.
+- Future scheduler expansion should be a dedicated phase per unsupported node
+  class, with golden event/recording/abort characterization first and benchmark
+  proof that the specific class has a substantial win.
 
-This order prioritizes substantial wins with lower behavioral risk before touching the hottest and most delicate `GraphProcessor` internals.
+## Implemented Order
+
+1. P0: Refreshed baselines and equivalence guards.
+2. P1: Moved eligible `runGraph(...)` calls from forced compatible mode to default-safe mode.
+3. P2: Added runtime graph boundary caches for Subgraph / Referenced Graph.
+4. P3: Reduced fresh subprocessor construction cost.
+5. P4: Reduced per-node context and abort overhead.
+6. P5: Cached safe dynamic port definitions where measured definition cost justified it.
+7. P6: Optimized one-shot project file loading as a secondary path.
+8. P7: Reassessed broader `fast-acyclic` scheduler eligibility and kept it narrow.
+
+This order prioritized substantial wins with lower behavioral risk before touching the hottest and most delicate `GraphProcessor` internals.
 
 Expected primary impact by phase:
 
