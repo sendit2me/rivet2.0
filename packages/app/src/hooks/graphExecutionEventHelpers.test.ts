@@ -37,6 +37,7 @@ test('appendRootRunIdOnce keeps one reconciliation entry per root run', () => {
 test('reconcileRunningProcessesAfterSuccessfulDone clears orphaned running processes with a warning', () => {
   const nodeId = 'node-1' as NodeId;
   const warningPort = WarningsPort as PortId;
+  const missingTerminalEvents: unknown[] = [];
   const lastRunData: RunDataByNodeId = {
     [nodeId]: [
       {
@@ -57,7 +58,9 @@ test('reconcileRunningProcessesAfterSuccessfulDone clears orphaned running proce
     ],
   };
 
-  const reconciled = reconcileRunningProcessesAfterSuccessfulDone(lastRunData);
+  const reconciled = reconcileRunningProcessesAfterSuccessfulDone(lastRunData, {
+    onMissingTerminalEvent: (event) => missingTerminalEvents.push(event),
+  });
 
   assert.notEqual(reconciled, lastRunData);
   assert.equal(reconciled[nodeId]![0]!.data.status?.type, 'ok');
@@ -67,6 +70,15 @@ test('reconcileRunningProcessesAfterSuccessfulDone clears orphaned running proce
     storage: 'inline',
     value: [MISSING_DEBUGGER_TERMINAL_EVENT_WARNING],
   });
+  assert.deepEqual(missingTerminalEvents, [
+    {
+      graphId: undefined,
+      graphRunId: 'graph-run-1',
+      nodeId: 'node-1',
+      processId: 'process-1',
+      rootRunId: undefined,
+    },
+  ]);
 });
 
 test('reconcileRunningProcessesAfterSuccessfulDone can scope cleanup to one root run', () => {

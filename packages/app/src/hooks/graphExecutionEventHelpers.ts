@@ -12,6 +12,14 @@ import type { GraphRunSelection, ProcessDataForNode, RunDataByNodeId } from '../
 export const MISSING_DEBUGGER_TERMINAL_EVENT_WARNING =
   'Remote Debugger did not receive the terminal event for this node. The graph run completed successfully, so Rivet cleared the stale running state.';
 
+export type MissingDebuggerTerminalEvent = {
+  graphId?: GraphId;
+  graphRunId?: GraphRunId;
+  nodeId: NodeId;
+  processId: ProcessDataForNode['processId'];
+  rootRunId?: RootRunId;
+};
+
 export function removeRunningGraphEntry(runningGraphs: GraphId[], graphId: GraphId): GraphId[] {
   const nextRunningGraphs = [...runningGraphs];
   const graphIndex = nextRunningGraphs.indexOf(graphId);
@@ -46,7 +54,7 @@ export function appendRootRunIdOnce(rootRunIds: RootRunId[], rootRunId: RootRunI
 
 export function reconcileRunningProcessesAfterSuccessfulDone(
   lastRunData: RunDataByNodeId,
-  options: { rootRunId?: RootRunId } = {},
+  options: { onMissingTerminalEvent?: (event: MissingDebuggerTerminalEvent) => void; rootRunId?: RootRunId } = {},
 ): RunDataByNodeId {
   let nextRunData = lastRunData;
   const finishedAt = Date.now();
@@ -61,6 +69,13 @@ export function reconcileRunningProcessesAfterSuccessfulDone(
       }
 
       nextProcesses ??= [...processes];
+      options.onMissingTerminalEvent?.({
+        graphId: process.graphId,
+        graphRunId: process.graphRunId,
+        nodeId: nodeId as NodeId,
+        processId: process.processId,
+        rootRunId: process.rootRunId,
+      });
       nextProcesses[index] = markProcessFinishedAfterMissingTerminalEvent(process, finishedAt);
     }
 
