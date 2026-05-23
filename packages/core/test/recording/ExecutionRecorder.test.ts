@@ -288,6 +288,51 @@ void describe('ExecutionRecorder', () => {
     assert.ok((await replayNodeFinishTiming(recorder)).durationMs! >= 0);
   });
 
+  void it('keeps processor recordings open after successful abort until done', async () => {
+    const recorder = new ExecutionRecorder();
+    const emitter = new Emittery<ProcessEvents>();
+    recorder.record(emitter as unknown as GraphProcessor);
+
+    let finished = false;
+    const recordingFinished = recorder.once('finish').then(() => {
+      finished = true;
+    });
+
+    await emitter.emit('abort', { successful: true });
+    await emitter.emit('nodeFinish', {
+      node,
+      outputs: { output: { type: 'string', value: 'late' } },
+      processId,
+      execution,
+    });
+    await Promise.resolve();
+
+    assert.equal(finished, false);
+    await emitter.emit('done', { results: { output: { type: 'string', value: 'final' } } });
+    await recordingFinished;
+
+    assert.deepEqual(
+      recorder.events.map((event) => event.type),
+      ['abort', 'nodeFinish', 'done'],
+    );
+  });
+
+  void it('finishes processor recordings on unsuccessful abort', async () => {
+    const recorder = new ExecutionRecorder();
+    const emitter = new Emittery<ProcessEvents>();
+    recorder.record(emitter as unknown as GraphProcessor);
+
+    const recordingFinished = recorder.once('finish');
+
+    await emitter.emit('abort', { successful: false, error: 'stopped' });
+    await recordingFinished;
+
+    assert.deepEqual(
+      recorder.events.map((event) => event.type),
+      ['abort'],
+    );
+  });
+
   void it('ignores app-executor Code console messages when recording remote sockets', async () => {
     const recorder = new ExecutionRecorder();
     const socket = new FakeSocket();
@@ -314,6 +359,66 @@ void describe('ExecutionRecorder', () => {
     assert.deepEqual(
       recorder.events.map((event) => event.type),
       ['done'],
+    );
+  });
+
+  void it('keeps remote socket recordings open after successful abort until done', async () => {
+    const recorder = new ExecutionRecorder();
+    const socket = new FakeSocket();
+    let finished = false;
+    const recordingFinished = recorder.recordSocket(socket as unknown as WebSocket).then(() => {
+      finished = true;
+    });
+
+    socket.emit({
+      message: 'abort',
+      data: { successful: true },
+    });
+    socket.emit({
+      message: 'nodeFinish',
+      data: {
+        node,
+        outputs: { output: { type: 'string', value: 'late' } },
+        processId,
+        execution,
+      },
+    });
+    await Promise.resolve();
+
+    assert.equal(finished, false);
+
+    socket.emit({
+      message: 'done',
+      data: {
+        results: {
+          output: { type: 'string', value: 'final' },
+        },
+      },
+    });
+
+    await recordingFinished;
+
+    assert.deepEqual(
+      recorder.events.map((event) => event.type),
+      ['abort', 'nodeFinish', 'done'],
+    );
+  });
+
+  void it('finishes remote socket recordings on unsuccessful abort', async () => {
+    const recorder = new ExecutionRecorder();
+    const socket = new FakeSocket();
+    const recordingFinished = recorder.recordSocket(socket as unknown as WebSocket);
+
+    socket.emit({
+      message: 'abort',
+      data: { successful: false, error: 'stopped' },
+    });
+
+    await recordingFinished;
+
+    assert.deepEqual(
+      recorder.events.map((event) => event.type),
+      ['abort'],
     );
   });
 

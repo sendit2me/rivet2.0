@@ -269,7 +269,7 @@ export class ExecutionRecorder {
 
         this.#events.push(toRecordedEvent(message, data) as RecordedEvents);
 
-        if (message === 'done' || message === 'abort' || message === 'error') {
+        if (isRecordingTerminalEvent(message, data)) {
           emitDetached(this.#emitter, 'finish', {
             recording: this.getRecording(),
           });
@@ -297,7 +297,7 @@ export class ExecutionRecorder {
 
       this.#events.push(toRecordedEvent(event, data) as RecordedEvents);
 
-      if (event === 'done' || event === 'abort' || event === 'error') {
+      if (isRecordingTerminalEvent(event, data)) {
         emitDetached(this.#emitter, 'finish', {
           recording: this.getRecording(),
         });
@@ -350,4 +350,12 @@ export class ExecutionRecorder {
   serializeStream() {
     return stringifyJsonStream(serializeToObject(this.getRecording()));
   }
+}
+
+function isRecordingTerminalEvent(event: keyof ProcessEvents, data: ProcessEvents[keyof ProcessEvents]): boolean {
+  if (event === 'done' || event === 'error') {
+    return true;
+  }
+
+  return event === 'abort' && (data as ProcessEvents['abort']).successful !== true;
 }

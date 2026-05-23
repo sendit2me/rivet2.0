@@ -1183,6 +1183,14 @@ serializable identifiers (e.g. `node: ChartNode` -> `nodeId: NodeId`,
 `graph: NodeGraph` -> `graphId: GraphId`). The full type mapping is in
 `RecordedEventsMap` (`RecordedEvents.ts`).
 
+Recorder finish semantics follow root-run semantics, not every control event.
+`done`, `error`, and unsuccessful root `abort` events close the recording. A
+successful root `abort` from `Abort Graph` is recorded as an intermediate event
+because the processor can still emit late node terminals and then a successful
+`done`. Keeping the recorder open through that `done` preserves the same late
+successful-abort node terminals that Remote Debugger and replay need to clear
+running state correctly.
+
 Recordings are serialized to `.rivet-recording` files with asset deduplication
 (Uint8Arrays -> base64) and string deduplication (long strings -> FNV-1a hash
 references).

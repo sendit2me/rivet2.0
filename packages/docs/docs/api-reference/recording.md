@@ -31,6 +31,8 @@ const serializedRecording = recorder.serialize();
 await writeFile('my-recording.rivet-recording', serializedRecording, { encoding: 'utf8' });
 ```
 
+Successful `Abort Graph` runs can emit an `abort` event before final late node events and the final `done` event. `ExecutionRecorder` keeps recording through that successful abort and finishes on `done`, so replay can show the same terminal node states as the live run. Error aborts still finish the recording at `abort`.
+
 ## Recording Format
 
 The recording format is subject to change. However, at the moment the recording format is a JSONL file, where each line is a JSON object representing a single event in the recording.
