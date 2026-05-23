@@ -77,6 +77,7 @@ test('summarizeRemoteDebuggerRoutingState snapshots mutable routing containers',
 
 test('createRemoteDebuggerDiagnostics dumps a bounded trace when terminal reconciliation fires', () => {
   const loggedTables: unknown[][] = [];
+  const loggedWarningMessages: string[] = [];
   const loggedWarnings: unknown[] = [];
   const diagnostics = createRemoteDebuggerDiagnostics({
     console: {
@@ -84,7 +85,10 @@ test('createRemoteDebuggerDiagnostics dumps a bounded trace when terminal reconc
       groupEnd: () => undefined,
       log: () => undefined,
       table: (rows) => loggedTables.push(rows as unknown[]),
-      warn: (_message, metadata) => loggedWarnings.push(metadata),
+      warn: (message, metadata) => {
+        loggedWarningMessages.push(String(message));
+        loggedWarnings.push(metadata);
+      },
     },
     maxTraceEntries: 2,
     now: () => new Date('2026-05-23T00:00:00.000Z'),
@@ -125,26 +129,37 @@ test('createRemoteDebuggerDiagnostics dumps a bounded trace when terminal reconc
     rootRunId: 'root-3' as RootRunId,
   });
 
-  assert.deepEqual(loggedWarnings, [
-    {
-      diagnosisHints: [
-        'A terminal node event was observed and dispatched; inspect state merge/display handling next.',
-      ],
-      event: {
-        nodeId: 'node-1',
-        processId: 'process-1',
-        rootRunId: 'root-3',
-      },
-      matchingProcessTraceEntryCount: 1,
-      processLifecycleSummaryCount: 1,
-      processLifecycleSummaryLimit: 5000,
-      recentTraceEntryCount: 2,
-      rootRunTraceEntryCount: 1,
-      triggerStack: (loggedWarnings[0] as { triggerStack: string }).triggerStack,
-    },
+  assert.match(loggedWarningMessages[0]!, /hints: A terminal node event was observed and dispatched/);
+  assert.match(loggedWarningMessages[0]!, /exact lifecycle \(1\):/);
+  assert.match(loggedWarningMessages[0]!, /exact process trace \(1\):/);
+  assert.match(loggedWarningMessages[0]!, /root-run trace tail \(1\):/);
+  assert.match(loggedWarningMessages[0]!, /#3 nodeFinish dispatch=true/);
+
+  const warning = loggedWarnings[0] as {
+    diagnosisHints: string[];
+    event: { nodeId: string; processId: string; rootRunId: string };
+    lifecycleSummaries: unknown[];
+    matchingProcessTrace: unknown[];
+    processLifecycleSummaryLimit: number;
+    recentTraceEntryCount: number;
+    rootRunTrace: unknown[];
+    triggerStack: string;
+  };
+  assert.deepEqual(warning.diagnosisHints, [
+    'A terminal node event was observed and dispatched; inspect state merge/display handling next.',
   ]);
-  assert.match((loggedWarnings[0] as { triggerStack: string }).triggerStack, /Missing node terminal event/);
-  assert.equal(loggedTables.length, 4);
+  assert.deepEqual(warning.event, {
+    nodeId: 'node-1',
+    processId: 'process-1',
+    rootRunId: 'root-3',
+  });
+  assert.equal(warning.lifecycleSummaries.length, 1);
+  assert.equal(warning.matchingProcessTrace.length, 1);
+  assert.equal(warning.processLifecycleSummaryLimit, 5000);
+  assert.equal(warning.recentTraceEntryCount, 2);
+  assert.equal(warning.rootRunTrace.length, 1);
+  assert.match(warning.triggerStack, /Missing node terminal event/);
+  assert.equal(loggedTables.length, 5);
   assert.deepEqual(loggedTables[0], [
     {
       dispatchedTerminal: 'nodeFinish',
@@ -165,7 +180,7 @@ test('createRemoteDebuggerDiagnostics dumps a bounded trace when terminal reconc
     },
   ]);
   assert.deepEqual(
-    loggedTables[3]!.map((row) => (row as { rootRunId: string }).rootRunId),
+    loggedTables[4]!.map((row) => (row as { rootRunId: string }).rootRunId),
     ['root-2', 'root-3'],
   );
 });
@@ -238,13 +253,19 @@ test('createRemoteDebuggerDiagnostics keeps process lifecycle summaries after tr
     rootRunId: 'root-1' as RootRunId,
   });
 
-  assert.deepEqual((loggedWarnings[0] as { diagnosisHints: string[] }).diagnosisHints, [
+  const warning = loggedWarnings[0] as {
+    diagnosisHints: string[];
+    lifecycleSummaries: unknown[];
+    matchingProcessTrace: unknown[];
+    processLifecycleSummaryLimit: number;
+  };
+  assert.deepEqual(warning.diagnosisHints, [
     'No nodeFinish/nodeError/nodeExcluded was observed for this process in the app websocket stream.',
     'The recent bounded trace no longer contains this exact process; use the lifecycle summary first.',
   ]);
-  assert.equal((loggedWarnings[0] as { matchingProcessTraceEntryCount: number }).matchingProcessTraceEntryCount, 0);
-  assert.equal((loggedWarnings[0] as { processLifecycleSummaryCount: number }).processLifecycleSummaryCount, 1);
-  assert.equal((loggedWarnings[0] as { processLifecycleSummaryLimit: number }).processLifecycleSummaryLimit, 5000);
+  assert.equal(warning.matchingProcessTrace.length, 0);
+  assert.equal(warning.lifecycleSummaries.length, 1);
+  assert.equal(warning.processLifecycleSummaryLimit, 5000);
   assert.deepEqual(loggedTables[0], [
     {
       dispatchedTerminal: '',
@@ -315,7 +336,7 @@ test('createRemoteDebuggerDiagnostics caps lifecycle summaries and still reports
     rootRunId: 'root-1' as RootRunId,
   });
 
-  assert.equal((loggedWarnings[0] as { processLifecycleSummaryCount: number }).processLifecycleSummaryCount, 1);
+  assert.equal((loggedWarnings[0] as { lifecycleSummaries: unknown[] }).lifecycleSummaries.length, 1);
   assert.equal((loggedWarnings[0] as { processLifecycleSummaryLimit: number }).processLifecycleSummaryLimit, 1);
   assert.equal((loggedTables[0]![0] as { processId: string }).processId, 'kept-process');
 });

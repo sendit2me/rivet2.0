@@ -17,6 +17,7 @@ const DEFAULT_MAX_TRACE_ENTRIES = 500;
 const DEFAULT_MAX_PROCESS_LIFECYCLE_ENTRIES = 5000;
 const MAX_MISSING_PROCESS_TRACE_ENTRIES = 80;
 const MAX_ROOT_RUN_TRACE_ENTRIES = 120;
+const MAX_VISIBLE_RECENT_TRACE_ROWS = 40;
 
 type DiagnosticsConsole = Pick<Console, 'groupCollapsed' | 'groupEnd' | 'log' | 'table' | 'warn'>;
 
@@ -60,6 +61,23 @@ export type RemoteDebuggerRoutingSummary = {
   recentlyCompletedRootRunDecisions: Array<{ accepted: boolean; rootRunId: RootRunId }>;
 };
 
+type FormattedProcessLifecycle = ReturnType<typeof formatProcessLifecycleForTable>;
+type FormattedTraceEntry = ReturnType<typeof formatTraceEntryForTable>;
+
+type MissingTerminalDiagnosticDetails = {
+  diagnosisHints: string[];
+  event: MissingDebuggerTerminalEvent;
+  lifecycleSummaries: FormattedProcessLifecycle[];
+  matchingProcessTrace: FormattedTraceEntry[];
+  processLifecycleSummaryLimit: number;
+  recentTraceEntryCount: number;
+  recentTraceTail: FormattedTraceEntry[];
+  relatedLifecycleSummaries: FormattedProcessLifecycle[];
+  relatedProcessTrace: FormattedTraceEntry[];
+  rootRunTrace: FormattedTraceEntry[];
+  triggerStack: string | undefined;
+};
+
 export type RemoteDebuggerDiagnostics = {
   logMissingTerminalEvent: (event: MissingDebuggerTerminalEvent) => void;
   recordEvent: (entry: Omit<RemoteDebuggerTraceEntry, 'sequence' | 'timestamp'>) => void;
@@ -90,31 +108,47 @@ export function createRemoteDebuggerDiagnostics(options: {
         ? recentTrace.filter((entry) => entry.event.rootRunId === event.rootRunId).slice(-MAX_ROOT_RUN_TRACE_ENTRIES)
         : [];
       const lifecycleSummaries = findProcessLifecycleSummaries(processLifecycles, event);
+      const relatedProcessTrace = filterTraceForRelatedProcess(recentTrace, event).slice(
+        -MAX_MISSING_PROCESS_TRACE_ENTRIES,
+      );
+      const relatedLifecycleSummaries = findRelatedProcessLifecycleSummaries(processLifecycles, event);
+      const recentTraceTail = recentTrace.slice(-MAX_VISIBLE_RECENT_TRACE_ROWS);
       const heading = '[Remote Debugger diagnostics] Missing node terminal event';
-
-      diagnosticsConsole.groupCollapsed?.(heading, event);
-      diagnosticsConsole.warn(heading, {
+      const diagnosticDetails: MissingTerminalDiagnosticDetails = {
         diagnosisHints: buildDiagnosisHints({
           lifecycleSummaries,
           matchingProcessTrace,
+          relatedLifecycleSummaries,
           rootRunTrace,
         }),
         event,
-        matchingProcessTraceEntryCount: matchingProcessTrace.length,
-        processLifecycleSummaryCount: lifecycleSummaries.length,
+        lifecycleSummaries: lifecycleSummaries.map(formatProcessLifecycleForTable),
+        matchingProcessTrace: matchingProcessTrace.map(formatTraceEntryForTable),
         processLifecycleSummaryLimit: maxProcessLifecycleEntries,
         recentTraceEntryCount: recentTrace.length,
-        rootRunTraceEntryCount: rootRunTrace.length,
+        recentTraceTail: recentTraceTail.map(formatTraceEntryForTable),
+        relatedLifecycleSummaries: relatedLifecycleSummaries.map(formatProcessLifecycleForTable),
+        relatedProcessTrace: relatedProcessTrace.map(formatTraceEntryForTable),
+        rootRunTrace: rootRunTrace.map(formatTraceEntryForTable),
         triggerStack: getTriggerStack(heading),
-      });
-      diagnosticsConsole.table?.(lifecycleSummaries.map(formatProcessLifecycleForTable));
-      diagnosticsConsole.table?.(matchingProcessTrace.map(formatTraceEntryForTable));
-      diagnosticsConsole.table?.(rootRunTrace.map(formatTraceEntryForTable));
-      diagnosticsConsole.table?.(recentTrace.map(formatTraceEntryForTable));
+      };
+
+      diagnosticsConsole.warn(
+        `${heading}\n${formatMissingTerminalDiagnosticReport(diagnosticDetails)}`,
+        diagnosticDetails,
+      );
+      diagnosticsConsole.groupCollapsed?.(`${heading} details`, event);
+      diagnosticsConsole.log('Remote Debugger diagnostic details', diagnosticDetails);
+      diagnosticsConsole.table?.(diagnosticDetails.lifecycleSummaries);
+      diagnosticsConsole.table?.(diagnosticDetails.matchingProcessTrace);
+      diagnosticsConsole.table?.(diagnosticDetails.relatedProcessTrace);
+      diagnosticsConsole.table?.(diagnosticDetails.rootRunTrace);
+      diagnosticsConsole.table?.(diagnosticDetails.recentTraceTail);
       diagnosticsConsole.log('Matching process trace entries', matchingProcessTrace);
+      diagnosticsConsole.log('Related same-node/process trace entries', relatedProcessTrace);
       diagnosticsConsole.log('Matching root run trace entries', rootRunTrace);
       diagnosticsConsole.log('Remote Debugger process lifecycle summaries', lifecycleSummaries);
-      diagnosticsConsole.log('Recent Remote Debugger trace entries', recentTrace);
+      diagnosticsConsole.log('Recent Remote Debugger trace tail', recentTraceTail);
       diagnosticsConsole.groupEnd?.();
     },
     recordEvent: (entry) => {
@@ -193,6 +227,8 @@ function formatTraceEntryForTable(entry: RemoteDebuggerTraceEntry) {
     nodeType: entry.event.nodeType ?? '',
     processId: entry.event.processId ?? '',
     splitIndex: entry.event.splitIndex ?? '',
+    inputPorts: entry.event.inputPorts?.join(', ') ?? '',
+    outputPorts: entry.event.outputPorts?.join(', ') ?? '',
     requestId: entry.requestId ?? '',
     activeRequestId: entry.activeRequestId ?? '',
     targetType: entry.session.targetType,
@@ -296,6 +332,13 @@ function filterTraceForMissingProcess(
   });
 }
 
+function filterTraceForRelatedProcess(
+  traceEntries: RemoteDebuggerTraceEntry[],
+  event: MissingDebuggerTerminalEvent,
+): RemoteDebuggerTraceEntry[] {
+  return traceEntries.filter((entry) => entry.event.processId === event.processId && entry.event.nodeId === event.nodeId);
+}
+
 function findProcessLifecycleSummaries(
   processLifecycles: Map<string, RemoteDebuggerProcessLifecycleSummary>,
   event: MissingDebuggerTerminalEvent,
@@ -311,15 +354,28 @@ function findProcessLifecycleSummaries(
   });
 }
 
+function findRelatedProcessLifecycleSummaries(
+  processLifecycles: Map<string, RemoteDebuggerProcessLifecycleSummary>,
+  event: MissingDebuggerTerminalEvent,
+): RemoteDebuggerProcessLifecycleSummary[] {
+  return [...processLifecycles.values()].filter(
+    (summary) => summary.processId === event.processId && summary.nodeId === event.nodeId,
+  );
+}
+
 function buildDiagnosisHints(options: {
   lifecycleSummaries: RemoteDebuggerProcessLifecycleSummary[];
   matchingProcessTrace: RemoteDebuggerTraceEntry[];
+  relatedLifecycleSummaries: RemoteDebuggerProcessLifecycleSummary[];
   rootRunTrace: RemoteDebuggerTraceEntry[];
 }): string[] {
   const hints: string[] = [];
   const sawTerminal = options.lifecycleSummaries.some((summary) => summary.receivedTerminalMessages.length > 0);
   const dispatchedTerminal = options.lifecycleSummaries.some(
     (summary) => summary.dispatchedTerminalMessages.length > 0,
+  );
+  const sawRelatedTerminal = options.relatedLifecycleSummaries.some(
+    (summary) => summary.receivedTerminalMessages.length > 0,
   );
 
   if (options.lifecycleSummaries.length === 0) {
@@ -332,6 +388,12 @@ function buildDiagnosisHints(options: {
     hints.push('A terminal node event was observed and dispatched; inspect state merge/display handling next.');
   }
 
+  if (!sawTerminal && sawRelatedTerminal) {
+    hints.push(
+      'A terminal event was observed for the same node/process under different root or graph metadata; inspect nested graph-run routing metadata.',
+    );
+  }
+
   if (options.matchingProcessTrace.length === 0) {
     hints.push('The recent bounded trace no longer contains this exact process; use the lifecycle summary first.');
   }
@@ -341,6 +403,72 @@ function buildDiagnosisHints(options: {
   }
 
   return hints;
+}
+
+function formatMissingTerminalDiagnosticReport(details: MissingTerminalDiagnosticDetails): string {
+  return [
+    `event: ${formatMissingEvent(details.event)}`,
+    `hints: ${details.diagnosisHints.join(' | ')}`,
+    `counts: exactLifecycle=${details.lifecycleSummaries.length}, relatedLifecycle=${details.relatedLifecycleSummaries.length}, exactProcessTrace=${details.matchingProcessTrace.length}, relatedProcessTrace=${details.relatedProcessTrace.length}, rootRunTrace=${details.rootRunTrace.length}, recentTrace=${details.recentTraceEntryCount}, lifecycleLimit=${details.processLifecycleSummaryLimit}`,
+    formatRowsForReport('exact lifecycle', details.lifecycleSummaries, formatLifecycleReportRow),
+    formatRowsForReport('related same-node/process lifecycle', details.relatedLifecycleSummaries, formatLifecycleReportRow),
+    formatRowsForReport('exact process trace', details.matchingProcessTrace, formatTraceReportRow),
+    formatRowsForReport('related same-node/process trace', details.relatedProcessTrace, formatTraceReportRow),
+    formatRowsForReport('root-run trace tail', details.rootRunTrace, formatTraceReportRow),
+    formatRowsForReport('recent trace tail', details.recentTraceTail, formatTraceReportRow),
+  ].join('\n');
+}
+
+function formatRowsForReport<T>(label: string, rows: T[], formatRow: (row: T) => string): string {
+  if (rows.length === 0) {
+    return `${label}: <none>`;
+  }
+
+  return [`${label} (${rows.length}):`, ...rows.map((row) => `  ${formatRow(row)}`)].join('\n');
+}
+
+function formatMissingEvent(event: MissingDebuggerTerminalEvent): string {
+  return [
+    `rootRunId=${event.rootRunId ?? '<missing>'}`,
+    `graphId=${event.graphId ?? '<missing>'}`,
+    `graphRunId=${event.graphRunId ?? '<missing>'}`,
+    `nodeId=${event.nodeId}`,
+    `processId=${event.processId}`,
+  ].join(' ');
+}
+
+function formatLifecycleReportRow(row: FormattedProcessLifecycle): string {
+  return [
+    `node=${row.nodeId}`,
+    `process=${row.processId}`,
+    `type=${row.nodeType || '<missing>'}`,
+    `messages=[${row.messages || '<none>'}]`,
+    `receivedTerminal=[${row.receivedTerminal || '<none>'}]`,
+    `dispatchedTerminal=[${row.dispatchedTerminal || '<none>'}]`,
+    `lastDecision=${row.lastDecisionReason}`,
+    `root=${row.rootRunId || '<missing>'}`,
+    `graphRun=${row.graphRunId || '<missing>'}`,
+    `parentGraphRun=${row.parentGraphRunId || '<missing>'}`,
+    `lastSeq=${row.lastSequence}`,
+    `outputs=[${row.outputPorts || '<none>'}]`,
+  ].join(' ');
+}
+
+function formatTraceReportRow(row: FormattedTraceEntry): string {
+  return [
+    `#${row.seq}`,
+    row.message,
+    `dispatch=${row.dispatch}`,
+    `reason=${row.reason}`,
+    `root=${row.rootRunId || '<missing>'}`,
+    `graph=${row.graphId || '<missing>'}`,
+    `graphRun=${row.graphRunId || '<missing>'}`,
+    `parentGraphRun=${row.parentGraphRunId || '<missing>'}`,
+    `node=${row.nodeId || '<missing>'}`,
+    `process=${row.processId || '<missing>'}`,
+    `type=${row.nodeType || '<missing>'}`,
+    `outputs=[${row.outputPorts || '<none>'}]`,
+  ].join(' ');
 }
 
 function formatProcessLifecycleForTable(summary: RemoteDebuggerProcessLifecycleSummary) {
