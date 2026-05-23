@@ -36,6 +36,7 @@ import {
 } from '../utils/executionDataStorage.js';
 import {
   appendRootRunIdOnce,
+  type MissingDebuggerTerminalEvent,
   reconcileRunningProcessesAfterSuccessfulDone,
   removeRunningGraphEntry,
   updateSelectedGraphRunForGraphStart,
@@ -55,14 +56,21 @@ export type GraphExecutionEventsApi = {
   onStop: () => void;
 };
 
-export function useGraphExecutionEvents({
-  clearNodeRunDataPreservationForNextStart,
-  consumeNodeRunDataPreservationForNextStart,
-  trivetRunningLatest,
-}: Pick<
-  ExecutionDataFlowApi,
-  'clearNodeRunDataPreservationForNextStart' | 'consumeNodeRunDataPreservationForNextStart' | 'trivetRunningLatest'
->): GraphExecutionEventsApi {
+export type GraphExecutionEventsOptions = {
+  onMissingDebuggerTerminalEvent?: (event: MissingDebuggerTerminalEvent) => void;
+};
+
+export function useGraphExecutionEvents(
+  {
+    clearNodeRunDataPreservationForNextStart,
+    consumeNodeRunDataPreservationForNextStart,
+    trivetRunningLatest,
+  }: Pick<
+    ExecutionDataFlowApi,
+    'clearNodeRunDataPreservationForNextStart' | 'consumeNodeRunDataPreservationForNextStart' | 'trivetRunningLatest'
+  >,
+  options: GraphExecutionEventsOptions = {},
+): GraphExecutionEventsApi {
   const dataRefs = useDataRefs();
   const setLastRecordingState = useSetAtom(lastRecordingState);
   const setUserInputQuestions = useSetAtom(userInputModalQuestionsState);
@@ -126,7 +134,12 @@ export function useGraphExecutionEvents({
     const rootRunId = rootRunIdsForDoneReconciliationRef.current.shift();
     clearNodeRunDataPreservationForNextStart();
     stopAll();
-    setLastRunData((lastRun) => reconcileRunningProcessesAfterSuccessfulDone(lastRun, { rootRunId }));
+    setLastRunData((lastRun) =>
+      reconcileRunningProcessesAfterSuccessfulDone(lastRun, {
+        onMissingTerminalEvent: options.onMissingDebuggerTerminalEvent,
+        rootRunId,
+      }),
+    );
   };
 
   const onAbort = (_data: ProcessEvents['abort']) => {

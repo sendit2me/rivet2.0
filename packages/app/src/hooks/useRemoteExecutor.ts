@@ -48,16 +48,22 @@ import {
   clearActiveRemoteRunRequest,
   clearActiveRemoteRunRequestIfMatches,
   createUnscopedRemoteExecutionRoutingState,
+  getRemoteExecutionEventDispatchDecision,
   resetUnscopedRemoteExecutionRoutingState,
   sendPendingRemoteGraphRunRequest,
-  shouldDispatchRemoteExecutionEvent,
   startActiveRemoteGraphRunRequest,
 } from './remoteExecutorRunRequest.js';
+import {
+  createRemoteDebuggerDiagnostics,
+  summarizeRemoteDebuggerEvent,
+  summarizeRemoteDebuggerRoutingState,
+} from './remoteDebuggerDiagnostics.js';
 
 export function useRemoteExecutor() {
   const executorSession = useExecutorSessionRuntime();
   const environmentProvider = useEnvironmentProvider();
   const activeGraphRequestIdRef = useRef<RemoteRunRequestId | null>(null);
+  const remoteDebuggerDiagnosticsRef = useRef(createRemoteDebuggerDiagnostics());
   const unscopedEventRoutingRef = useRef(createUnscopedRemoteExecutionRoutingState());
   const uploadCacheRef = useRef<RemoteExecutorUploadCache>({});
   const projectNodeRegistry = useProjectNodeRegistry();
@@ -66,7 +72,15 @@ export function useRemoteExecutor() {
 
   const projectContext = useAtomValue(projectContextState(project.metadata.id));
 
-  const currentExecution = useCurrentExecution();
+  const currentExecution = useCurrentExecution({
+    onMissingDebuggerTerminalEvent: (event) => {
+      if (executorSession.getRuntimeState().target?.type !== 'external-debugger') {
+        return;
+      }
+
+      remoteDebuggerDiagnosticsRef.current.logMissingTerminalEvent(event);
+    },
+  });
   const graph = useAtomValue(graphState);
   const savedSettings = useAtomValue(settingsState);
   const showNodeRunDurations = useAtomValue(showNodeRunDurationsState);
@@ -86,13 +100,17 @@ export function useRemoteExecutor() {
   const eventDispatcher = createProcessEventDispatcher(currentExecution);
 
   useEffect(() => {
+    remoteDebuggerDiagnosticsRef.current.reset();
     resetUnscopedRemoteExecutionRoutingState(unscopedEventRoutingRef.current);
   }, [project.metadata.id]);
 
   useEffect(() => {
-    const resetUploadCache = () => resetRemoteExecutorUploadCache(uploadCacheRef.current);
-    const unsubscribeConnect = executorSession.subscribeLifecycle('connect', resetUploadCache);
-    const unsubscribeDisconnect = executorSession.subscribeLifecycle('disconnect', resetUploadCache);
+    const resetSessionCaches = () => {
+      remoteDebuggerDiagnosticsRef.current.reset();
+      resetRemoteExecutorUploadCache(uploadCacheRef.current);
+    };
+    const unsubscribeConnect = executorSession.subscribeLifecycle('connect', resetSessionCaches);
+    const unsubscribeDisconnect = executorSession.subscribeLifecycle('disconnect', resetSessionCaches);
 
     return () => {
       unsubscribeConnect();
@@ -102,7 +120,13 @@ export function useRemoteExecutor() {
 
   useEffect(() => {
     return executorSession.subscribeMessages((message, data, requestId) => {
-      const shouldDispatchExecutionEvent = shouldDispatchRemoteExecutionEvent({
+      const sessionState = executorSession.getRuntimeState();
+      const externalDebuggerTarget =
+        sessionState.target?.type === 'external-debugger' ? sessionState.target : undefined;
+      const routingBefore = externalDebuggerTarget
+        ? summarizeRemoteDebuggerRoutingState(unscopedEventRoutingRef.current)
+        : undefined;
+      const dispatchDecision = getRemoteExecutionEventDispatchDecision({
         activeRequestId: activeGraphRequestIdRef.current,
         currentProjectId: project.metadata.id,
         data,
@@ -110,6 +134,28 @@ export function useRemoteExecutor() {
         requestId,
         unscopedRoutingState: unscopedEventRoutingRef.current,
       });
+      const shouldDispatchExecutionEvent = dispatchDecision.shouldDispatch;
+      const routingAfter = externalDebuggerTarget
+        ? summarizeRemoteDebuggerRoutingState(unscopedEventRoutingRef.current)
+        : undefined;
+
+      if (externalDebuggerTarget && routingBefore && routingAfter) {
+        remoteDebuggerDiagnosticsRef.current.recordEvent({
+          activeRequestId: activeGraphRequestIdRef.current,
+          currentProjectId: project.metadata.id,
+          decision: dispatchDecision,
+          event: summarizeRemoteDebuggerEvent(message, data),
+          message,
+          requestId,
+          routingAfter,
+          routingBefore,
+          session: {
+            status: sessionState.status,
+            targetType: externalDebuggerTarget.type,
+            url: externalDebuggerTarget.url,
+          },
+        });
+      }
 
       switch (message) {
         case 'codeConsole':

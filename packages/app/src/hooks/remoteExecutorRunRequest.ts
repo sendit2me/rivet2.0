@@ -24,6 +24,25 @@ export type UnscopedRemoteExecutionRoutingState = {
   recentlyCompletedRootRunDecisions: Map<RootRunId, boolean>;
 };
 
+export type RemoteExecutionEventDispatchDecision = {
+  reason:
+    | 'active-request-matched'
+    | 'active-request-mismatched'
+    | 'active-root-accepted'
+    | 'active-root-ignored'
+    | 'completed-terminal-accepted'
+    | 'completed-terminal-ignored'
+    | 'legacy-unscoped-default-accepted'
+    | 'recent-root-accepted'
+    | 'recent-root-ignored'
+    | 'unscoped-start-accepted'
+    | 'unscoped-start-ignored'
+    | 'unscoped-last-decision-accepted'
+    | 'unscoped-last-decision-ignored';
+  rootRunId?: RootRunId;
+  shouldDispatch: boolean;
+};
+
 export type ActiveRemoteRunRequestResult =
   | {
       requestId: RemoteRunRequestId;
@@ -60,42 +79,88 @@ export function shouldDispatchRemoteExecutionEvent<K extends keyof ProcessEventM
   requestId: RemoteRunRequestId | undefined;
   unscopedRoutingState: UnscopedRemoteExecutionRoutingState;
 }): boolean {
+  return getRemoteExecutionEventDispatchDecision(options).shouldDispatch;
+}
+
+export function getRemoteExecutionEventDispatchDecision<K extends keyof ProcessEventMessageMap>(options: {
+  activeRequestId: RemoteRunRequestId | null;
+  currentProjectId: ProjectId | undefined;
+  data: ProcessEventMessageMap[K];
+  message: K;
+  requestId: RemoteRunRequestId | undefined;
+  unscopedRoutingState: UnscopedRemoteExecutionRoutingState;
+}): RemoteExecutionEventDispatchDecision {
   const { activeRequestId, currentProjectId, data, message, requestId, unscopedRoutingState } = options;
 
   if (requestId != null) {
-    return requestId === activeRequestId;
+    const shouldDispatch = requestId === activeRequestId;
+    return {
+      reason: shouldDispatch ? 'active-request-matched' : 'active-request-mismatched',
+      shouldDispatch,
+    };
   }
 
   if (message === 'start') {
     const accepted = shouldAcceptUnscopedStartEvent(data as ProcessEventMessageMap['start'], currentProjectId);
     rememberUnscopedRunDecision(unscopedRoutingState, data as ProcessEventMessageMap['start'], accepted);
-    return accepted;
+    return {
+      reason: accepted ? 'unscoped-start-accepted' : 'unscoped-start-ignored',
+      rootRunId: (data as ProcessEventMessageMap['start']).execution?.rootRunId,
+      shouldDispatch: accepted,
+    };
   }
 
   const rootRunId = getUnscopedEventRootRunId(data);
   if (rootRunId != null) {
     if (unscopedRoutingState.acceptedRootRunIds.has(rootRunId)) {
       rememberCompletedUnscopedRootRun(unscopedRoutingState, message, data, true);
-      return true;
+      return {
+        reason: 'active-root-accepted',
+        rootRunId,
+        shouldDispatch: true,
+      };
     }
 
     if (unscopedRoutingState.ignoredRootRunIds.has(rootRunId)) {
       rememberCompletedUnscopedRootRun(unscopedRoutingState, message, data, false);
-      return false;
+      return {
+        reason: 'active-root-ignored',
+        rootRunId,
+        shouldDispatch: false,
+      };
     }
 
     const recentDecision = unscopedRoutingState.recentlyCompletedRootRunDecisions.get(rootRunId);
     if (recentDecision != null) {
-      return recentDecision;
+      return {
+        reason: recentDecision ? 'recent-root-accepted' : 'recent-root-ignored',
+        rootRunId,
+        shouldDispatch: recentDecision,
+      };
     }
   }
 
   const terminalDecision = consumeCompletedUnscopedTerminalDecision(unscopedRoutingState, message);
   if (terminalDecision != null) {
-    return terminalDecision;
+    return {
+      reason: terminalDecision ? 'completed-terminal-accepted' : 'completed-terminal-ignored',
+      shouldDispatch: terminalDecision,
+    };
   }
 
-  return unscopedRoutingState.lastRunAccepted ?? true;
+  if (unscopedRoutingState.lastRunAccepted != null) {
+    return {
+      reason: unscopedRoutingState.lastRunAccepted
+        ? 'unscoped-last-decision-accepted'
+        : 'unscoped-last-decision-ignored',
+      shouldDispatch: unscopedRoutingState.lastRunAccepted,
+    };
+  }
+
+  return {
+    reason: 'legacy-unscoped-default-accepted',
+    shouldDispatch: true,
+  };
 }
 
 export function clearActiveRemoteRunRequest(activeRequestIdRef: ActiveRemoteRunRequestRef): void {

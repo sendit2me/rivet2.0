@@ -432,6 +432,15 @@ recording playback display from transport or replay ordering quirks without
 changing runtime graph execution.
 Running updates are normalized before storage so a malformed running frame cannot
 write output refs before the terminal merge guard discards those output fields.
+External Remote Debugger sessions also keep a bounded diagnostic trace of
+incoming process-event routing decisions plus a per-process lifecycle ledger.
+The trace records metadata only, not full input/output values, and is dumped to
+the browser console only when successful-`done` reconciliation has to synthesize
+the missing-terminal-event warning. The dump includes diagnosis hints, process
+lifecycle rows, matching process/root-run trace rows, the recent trace, and a
+trigger stack. This gives hosted-wrapper investigations enough signal to tell
+whether the terminal event never arrived, arrived but was routed away, or arrived
+and was dispatched while state/display still stayed running.
 
 Most nodes leave `debugData` empty. The current notable exceptions are app-side
 presentation/debug affordances: `Code (legacy)` and `Code` snapshot `codeSource` so

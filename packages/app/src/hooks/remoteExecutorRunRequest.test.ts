@@ -17,6 +17,7 @@ import {
   clearActiveRemoteRunRequest,
   clearActiveRemoteRunRequestIfMatches,
   createUnscopedRemoteExecutionRoutingState,
+  getRemoteExecutionEventDispatchDecision,
   resetUnscopedRemoteExecutionRoutingState,
   sendPendingRemoteGraphRunRequest,
   shouldDispatchRemoteExecutionEvent,
@@ -289,6 +290,41 @@ test('shouldDispatchRemoteExecutionEvent keeps late accepted events after termin
   assert.equal(
     dispatchUnscopedEvent(unscopedRoutingState, 'nodeFinish', makeNodeFinishEvent('root-accepted')),
     true,
+  );
+});
+
+test('getRemoteExecutionEventDispatchDecision explains why an event was routed', () => {
+  const unscopedRoutingState = createUnscopedRemoteExecutionRoutingState();
+
+  assert.deepEqual(
+    getRemoteExecutionEventDispatchDecision({
+      activeRequestId: null,
+      currentProjectId: 'project-1' as ProjectId,
+      data: makeStartEvent('project-2', 'root-ignored'),
+      message: 'start',
+      requestId: undefined,
+      unscopedRoutingState,
+    }),
+    {
+      reason: 'unscoped-start-ignored',
+      rootRunId: 'root-ignored',
+      shouldDispatch: false,
+    },
+  );
+  assert.deepEqual(
+    getRemoteExecutionEventDispatchDecision({
+      activeRequestId: null,
+      currentProjectId: 'project-1' as ProjectId,
+      data: makeNodeFinishEvent('root-ignored'),
+      message: 'nodeFinish',
+      requestId: undefined,
+      unscopedRoutingState,
+    }),
+    {
+      reason: 'active-root-ignored',
+      rootRunId: 'root-ignored',
+      shouldDispatch: false,
+    },
   );
 });
 
