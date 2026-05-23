@@ -60,8 +60,15 @@ import {
 } from './NodeExecutionPlanner.js';
 import { wireSubprocessorEvents, wireSubprocessorLifecycle } from './SubprocessorBridge.js';
 import {
+  createGraphAbortError,
+  createGraphAbortErrorFromSignal,
   createGraphAbortReason,
   getAbortSignalReason,
+  getGraphAbortReasonFromError,
+  getGraphAbortReasonFromSignal,
+  isAbortLikeError,
+  isRaceLoserGraphAbortReason,
+  isSuccessfulNonRaceGraphAbortReason,
   RACE_LOSER_EXCLUSION_REASON,
   SUCCESSFUL_GRAPH_ABORT_EXCLUSION_REASON,
 } from './GraphAbortReasons.js';
@@ -382,6 +389,7 @@ export class GraphProcessor {
   #aborted = false;
   #abortSuccessfully = false;
   #abortError: Error | string | undefined = undefined;
+  #successfulAbortTerminalProcessIds: Set<ProcessId> = undefined!;
   #totalCost: number = 0;
   #ignoreNodes: Set<NodeId> = undefined!;
   #hasPreloadedData = false;
@@ -857,6 +865,7 @@ export class GraphProcessor {
     this.#aborted = false;
     this.#abortError = undefined;
     this.#abortSuccessfully = false;
+    this.#successfulAbortTerminalProcessIds = new Set();
     this.#nodeAbortControllers = new Map();
     this.#loadedProjects =
       this.#cacheLoadedProjects && this.#runtimeCache?.loadedProjects ? { ...this.#runtimeCache.loadedProjects } : {};
@@ -1393,7 +1402,8 @@ export class GraphProcessor {
       return [];
     }
 
-    const processId = await this.#processNode(node);
+    const processResult = await this.#processNode(node);
+    const { processId } = processResult;
 
     if (this.slowMode) {
       await new Promise((resolve) => setTimeout(resolve, 250));
@@ -1414,11 +1424,11 @@ export class GraphProcessor {
     }
 
     this.#propagateAttachedDataToOutputNodes(node, attachedData, outputNodes.connectionsToNodes);
-    if (queueOutputNodes) {
+    if (queueOutputNodes && processResult.shouldQueueOutputNodes) {
       this.#queueOutputNodes(node, outputNodes.nodes);
     }
 
-    return outputNodes.nodes;
+    return processResult.shouldQueueOutputNodes ? outputNodes.nodes : [];
   }
 
   #shouldSkipNodeProcessing(node: ChartNode, inputNodes: ChartNode[]): boolean {
@@ -1628,8 +1638,9 @@ export class GraphProcessor {
     const processId = nanoid() as ProcessId;
 
     if (this.#abortController.signal.aborted) {
-      await this.#nodeErrored(node, new Error('Processing aborted'), processId);
-      return processId;
+      await this.#nodeErrored(node, createGraphAbortErrorFromSignal(this.#abortController.signal), processId);
+      this.#successfulAbortTerminalProcessIds.delete(processId);
+      return { processId, shouldQueueOutputNodes: false };
     }
 
     if (node.isSplitRun) {
@@ -1638,7 +1649,8 @@ export class GraphProcessor {
       await this.#processNormalNode(node, processId);
     }
 
-    return processId;
+    const successfulAbortTerminal = this.#successfulAbortTerminalProcessIds.delete(processId);
+    return { processId, shouldQueueOutputNodes: !successfulAbortTerminal };
   }
 
   async #processSplitRunNode(node: ChartNode, processId: ProcessId) {
@@ -1654,6 +1666,7 @@ export class GraphProcessor {
       nodeErrored: (n, err, pid, durationMs, splitRunDurationMs) =>
         this.#nodeErrored(n, err, pid, durationMs, splitRunDurationMs),
       isAborted: () => this.#aborted,
+      getAbortError: () => createGraphAbortErrorFromSignal(this.#abortController.signal),
       emit: (event, data) => {
         if (event === 'partialOutput') {
           emitDetached(this.#emitter, event, this.#withExecution(data));
@@ -1724,7 +1737,7 @@ export class GraphProcessor {
     splitRunDurationMs?: Record<number, number>,
   ): Promise<void> {
     const error = getError(e);
-    const exclusionReason = this.#getErrorExclusionReason(node);
+    const exclusionReason = this.#getErrorExclusionReason(node, error, processId);
     if (exclusionReason) {
       await this.#emitNodeExcluded(node, processId, this.#getInputValuesForNode(node), exclusionReason);
       this.#emitTraceEvent(`Node ${node.title} (${node.id}-${processId}) was excluded: ${exclusionReason}`);
@@ -1739,15 +1752,30 @@ export class GraphProcessor {
     this.#emitTraceEvent(`Node ${node.title} (${node.id}-${processId}) errored: ${error.stack}`);
   }
 
-  #getErrorExclusionReason(node: ChartNode): string | undefined {
+  #getErrorExclusionReason(node: ChartNode, error: Error, processId: ProcessId): string | undefined {
     if (this.#getAttachedDataTo(node).races?.completed) {
       return RACE_LOSER_EXCLUSION_REASON;
     }
 
-    if (this.#abortSuccessfully) {
-      return this.#abortError === RACE_LOSER_EXCLUSION_REASON
-        ? RACE_LOSER_EXCLUSION_REASON
-        : SUCCESSFUL_GRAPH_ABORT_EXCLUSION_REASON;
+    const abortReason = getGraphAbortReasonFromError(error);
+    if (isRaceLoserGraphAbortReason(abortReason)) {
+      return RACE_LOSER_EXCLUSION_REASON;
+    }
+
+    if (isSuccessfulNonRaceGraphAbortReason(abortReason)) {
+      this.#successfulAbortTerminalProcessIds.add(processId);
+      return SUCCESSFUL_GRAPH_ABORT_EXCLUSION_REASON;
+    }
+
+    if (this.#abortSuccessfully && isAbortLikeError(error)) {
+      const exclusionReason =
+        this.#abortError === RACE_LOSER_EXCLUSION_REASON
+          ? RACE_LOSER_EXCLUSION_REASON
+          : SUCCESSFUL_GRAPH_ABORT_EXCLUSION_REASON;
+      if (exclusionReason === SUCCESSFUL_GRAPH_ABORT_EXCLUSION_REASON) {
+        this.#successfulAbortTerminalProcessIds.add(processId);
+      }
+      return exclusionReason;
     }
 
     return undefined;
@@ -1876,8 +1904,13 @@ export class GraphProcessor {
       this.#unregisterNodeAbortController(node.id, nodeAbortController);
     }
 
+    const abortReason = getGraphAbortReasonFromSignal(nodeAbortController.signal);
     if (nodeAbortController.signal.aborted) {
-      throw new Error('Aborted');
+      if (isSuccessfulNonRaceGraphAbortReason(abortReason)) {
+        this.#successfulAbortTerminalProcessIds.add(processId);
+      } else {
+        throw createGraphAbortError(abortReason, 'Aborted');
+      }
     }
 
     return results;
@@ -1921,7 +1954,7 @@ export class GraphProcessor {
       waitEvent: async (event) => {
         return new Promise((resolve, reject) => {
           const abortListener = () => {
-            reject(new Error('Process aborted'));
+            reject(createGraphAbortErrorFromSignal(nodeAbortController.signal, 'Process aborted'));
           };
 
           this.#emitter
@@ -2036,7 +2069,7 @@ export class GraphProcessor {
     return await new Promise<StringArrayDataValue>((resolve, reject) => {
       const abortListener = () => {
         delete this.#pendingUserInputs[node.id];
-        reject(new Error('Processing aborted'));
+        reject(createGraphAbortErrorFromSignal(this.#abortController.signal));
       };
 
       this.#pendingUserInputs[node.id] = {

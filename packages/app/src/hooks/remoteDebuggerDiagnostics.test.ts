@@ -13,6 +13,7 @@ import type {
 import {
   createRemoteDebuggerDiagnostics,
   isAbortLikeRemoteDebuggerNodeError,
+  shouldLogRemoteDebuggerNodeExcluded,
   summarizeRemoteDebuggerEvent,
   summarizeRemoteDebuggerRoutingState,
 } from './remoteDebuggerDiagnostics.js';
@@ -86,6 +87,50 @@ test('summarizeRemoteDebuggerEvent captures node error summaries without retaini
   });
 });
 
+test('summarizeRemoteDebuggerEvent captures nodeExcluded reasons without retaining payload values', () => {
+  const event = {
+    execution: {
+      graphId: 'graph-1' as GraphId,
+      graphRunId: 'graph-run-1' as GraphRunId,
+      parentGraphRunId: 'parent-run-1' as GraphRunId,
+      rootRunId: 'root-1' as RootRunId,
+    },
+    inputs: {
+      ['input' as PortId]: {
+        type: 'string',
+        value: 'large input values are intentionally not logged',
+      },
+    },
+    node: {
+      id: 'node-1' as NodeId,
+      type: 'expression',
+    },
+    outputs: {
+      ['output' as PortId]: {
+        type: 'control-flow-excluded',
+        value: undefined,
+      },
+    },
+    processId: 'process-1' as ProcessId,
+    reason: 'Graph aborted successfully',
+  } as ProcessEventMessageMap['nodeExcluded'];
+
+  assert.deepEqual(summarizeRemoteDebuggerEvent('nodeExcluded', event), {
+    graphId: 'graph-1',
+    graphRunId: 'graph-run-1',
+    inputPorts: ['input'],
+    nodeId: 'node-1',
+    nodeExcludedReason: 'Graph aborted successfully',
+    nodeType: 'expression',
+    outputPorts: ['output'],
+    parentGraphRunId: 'parent-run-1',
+    processId: 'process-1',
+    projectId: undefined,
+    rootRunId: 'root-1',
+    splitIndex: undefined,
+  });
+});
+
 test('isAbortLikeRemoteDebuggerNodeError detects plain aborted node errors only', () => {
   assert.equal(isAbortLikeRemoteDebuggerNodeError({ error: 'Error: Aborted' }), true);
   assert.equal(isAbortLikeRemoteDebuggerNodeError({ error: 'AbortError: The operation was aborted' }), true);
@@ -94,6 +139,22 @@ test('isAbortLikeRemoteDebuggerNodeError detects plain aborted node errors only'
   assert.equal(isAbortLikeRemoteDebuggerNodeError({ error: { message: 'Process aborted.' } }), true);
   assert.equal(isAbortLikeRemoteDebuggerNodeError({ error: { message: 'Expression failed' } }), false);
   assert.equal(isAbortLikeRemoteDebuggerNodeError({ error: 'AggregateError: Graph failed' }), false);
+});
+
+test('shouldLogRemoteDebuggerNodeExcluded keeps quiet exclusions quiet but logs diagnostic candidates', () => {
+  assert.equal(shouldLogRemoteDebuggerNodeExcluded({ reason: 'disabled', node: { type: 'text' } }), false);
+  assert.equal(
+    shouldLogRemoteDebuggerNodeExcluded({ reason: 'Graph aborted successfully', node: { type: 'text' } }),
+    true,
+  );
+  assert.equal(shouldLogRemoteDebuggerNodeExcluded({ reason: 'Race branch lost', node: { type: 'text' } }), true);
+  assert.equal(shouldLogRemoteDebuggerNodeExcluded({ reason: 'input is excluded value', node: { type: 'text' } }), true);
+  assert.equal(shouldLogRemoteDebuggerNodeExcluded({ reason: 'disabled', node: { type: 'expression' } }), true);
+  assert.equal(shouldLogRemoteDebuggerNodeExcluded({ reason: 'disabled', node: { type: 'subGraph' } }), true);
+  assert.equal(
+    shouldLogRemoteDebuggerNodeExcluded({ nodeExcludedReason: 'missing required input "input"', nodeType: 'expression' }),
+    true,
+  );
 });
 
 test('summarizeRemoteDebuggerRoutingState snapshots mutable routing containers', () => {
@@ -422,6 +483,103 @@ test('createRemoteDebuggerDiagnostics reports unexpected aborted node errors wit
   assert.deepEqual(warning.diagnosisHints, [
     'A nodeError with an abort-like message was observed and dispatched. This is not websocket event loss; inspect successful/error abort propagation and parent graph terminal events.',
     'If this node should have finished normally, compare its graphRunId/parentGraphRunId against nearby graphAbort, graphFinish, and done events.',
+  ]);
+  assert.equal(loggedTables.length, 5);
+});
+
+test('createRemoteDebuggerDiagnostics reports dispatched nodeExcluded events with reason and trace context', () => {
+  const loggedWarningMessages: string[] = [];
+  const loggedWarnings: unknown[] = [];
+  const loggedTables: unknown[][] = [];
+  const diagnostics = createRemoteDebuggerDiagnostics({
+    console: {
+      groupCollapsed: () => undefined,
+      groupEnd: () => undefined,
+      log: () => undefined,
+      table: (rows) => loggedTables.push(rows as unknown[]),
+      warn: (message, metadata) => {
+        loggedWarningMessages.push(String(message));
+        loggedWarnings.push(metadata);
+      },
+    },
+    now: () => new Date('2026-05-23T00:00:00.000Z'),
+  });
+  const routing = summarizeRemoteDebuggerRoutingState(createUnscopedRemoteExecutionRoutingState());
+  const startedEvent = {
+    graphId: 'graph-1',
+    graphRunId: 'graph-run-1' as GraphRunId,
+    nodeId: 'node-1' as NodeId,
+    nodeType: 'expression',
+    parentGraphRunId: 'parent-run-1' as GraphRunId,
+    processId: 'process-1' as ProcessId,
+    rootRunId: 'root-1' as RootRunId,
+  };
+  const excludedEvent = {
+    ...startedEvent,
+    nodeExcludedReason: 'Graph aborted successfully',
+    outputPorts: ['output'],
+  };
+
+  diagnostics.recordEvent({
+    activeRequestId: null,
+    currentProjectId: 'project-1' as ProjectId,
+    decision: {
+      reason: 'active-root-accepted',
+      rootRunId: 'root-1' as RootRunId,
+      shouldDispatch: true,
+    },
+    event: startedEvent,
+    message: 'nodeStart',
+    requestId: undefined,
+    routingAfter: routing,
+    routingBefore: routing,
+    session: {
+      status: 'connected',
+      targetType: 'external-debugger',
+    },
+  });
+  diagnostics.recordEvent({
+    activeRequestId: null,
+    currentProjectId: 'project-1' as ProjectId,
+    decision: {
+      reason: 'active-root-accepted',
+      rootRunId: 'root-1' as RootRunId,
+      shouldDispatch: true,
+    },
+    event: excludedEvent,
+    message: 'nodeExcluded',
+    requestId: undefined,
+    routingAfter: routing,
+    routingBefore: routing,
+    session: {
+      status: 'connected',
+      targetType: 'external-debugger',
+    },
+  });
+
+  diagnostics.logNodeExcluded(excludedEvent);
+
+  assert.match(loggedWarningMessages[0]!, /Node excluded/);
+  assert.match(loggedWarningMessages[0]!, /excludedReason=Graph aborted successfully/);
+  assert.match(loggedWarningMessages[0]!, /exact lifecycle \(1\):/);
+  assert.match(loggedWarningMessages[0]!, /receivedTerminal=\[nodeExcluded\]/);
+  assert.match(loggedWarningMessages[0]!, /exact process trace \(2\):/);
+  assert.match(loggedWarningMessages[0]!, /#2 nodeExcluded dispatch=true/);
+
+  const warning = loggedWarnings[0] as {
+    diagnosisHints: string[];
+    event: { nodeExcludedReason: string; nodeId: string; processId: string; rootRunId: string };
+    lifecycleSummaries: unknown[];
+    matchingProcessTrace: unknown[];
+    rootRunTrace: unknown[];
+  };
+  assert.equal(warning.event.nodeExcludedReason, 'Graph aborted successfully');
+  assert.equal(warning.lifecycleSummaries.length, 1);
+  assert.equal(warning.matchingProcessTrace.length, 2);
+  assert.equal(warning.rootRunTrace.length, 2);
+  assert.deepEqual(warning.diagnosisHints, [
+    'A nodeExcluded terminal was observed and dispatched because this process was canceled by a successful graph abort.',
+    'Compare the parentGraphRunId against nearby graphAbort, graphFinish, nodeFinish, and done events to find which graph aborted this branch.',
   ]);
   assert.equal(loggedTables.length, 5);
 });

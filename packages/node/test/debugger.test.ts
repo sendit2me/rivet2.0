@@ -1038,7 +1038,7 @@ describe('startDebuggerServer broadcast', () => {
     }
   });
 
-  it('sends successful-abort exclusions from active leaf subgraphs before done', async () => {
+  it('sends late finishes for active leaf subgraphs after successful abort without queuing dependents', async () => {
     const server = new FakeWebSocketServer();
     const socket = new FakeWebSocket();
     const debuggerServer = startDebuggerServer({
@@ -1058,33 +1058,38 @@ describe('startDebuggerServer broadcast', () => {
 
     const messages = socket.sentMessages.map((message) => JSON.parse(message));
     const doneIndex = messages.findIndex((message) => message.message === 'done');
-    const nodeExcludedIndexesById = new Map<string, number>();
+    const nodeFinishIndexesById = new Map<string, number>();
 
     messages.forEach((message, index) => {
-      if (message.message === 'nodeExcluded') {
-        nodeExcludedIndexesById.set(message.data.node.id, index);
+      if (message.message === 'nodeFinish') {
+        nodeFinishIndexesById.set(message.data.node.id, index);
       }
     });
 
     assert.notEqual(doneIndex, -1, 'successful root done should be sent');
 
-    for (const nodeId of [
-      'successful-abort-leaf-expression',
-      'successful-abort-leaf-output',
-      'successful-abort-leaf-subgraph',
-    ]) {
+    for (const nodeId of ['successful-abort-leaf-expression', 'successful-abort-leaf-subgraph']) {
       const nodeErrorCount = messages.filter(
         (message) => message.message === 'nodeError' && message.data.node.id === nodeId,
       ).length;
-      const nodeExcluded = messages.find(
+      const nodeExcludedCount = messages.filter(
         (message) => message.message === 'nodeExcluded' && message.data.node.id === nodeId,
-      );
-      const nodeExcludedIndex = nodeExcludedIndexesById.get(nodeId);
+      ).length;
+      const nodeFinishIndex = nodeFinishIndexesById.get(nodeId);
       assert.equal(nodeErrorCount, 0, `${nodeId} should not be sent as a nodeError`);
-      assert.equal(nodeExcluded?.data.reason, 'Graph aborted successfully');
-      assert.notEqual(nodeExcludedIndex, undefined, `${nodeId} nodeExcluded should be sent`);
-      assert.ok(nodeExcludedIndex! < doneIndex, `${nodeId} nodeExcluded should arrive before done`);
+      assert.equal(nodeExcludedCount, 0, `${nodeId} should not be sent as nodeExcluded after it produced outputs`);
+      assert.notEqual(nodeFinishIndex, undefined, `${nodeId} nodeFinish should be sent`);
+      assert.ok(nodeFinishIndex! < doneIndex, `${nodeId} nodeFinish should arrive before done`);
     }
+
+    const outputTerminalCount = messages.filter(
+      (message) =>
+        (message.message === 'nodeFinish' ||
+          message.message === 'nodeError' ||
+          message.message === 'nodeExcluded') &&
+        message.data.node.id === 'successful-abort-leaf-output',
+    ).length;
+    assert.equal(outputTerminalCount, 0, 'late successful-abort finishes should not queue dependents');
   });
 
   it('forwards node error duration metadata to debugger clients', async () => {
