@@ -17,10 +17,11 @@ concurrency:
 
 jobs:
   build-windows:
+    name: Developer Windows desktop bundle
     if: github.ref == 'refs/heads/develop'
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - uses: actions/setup-node@v5
         with:
@@ -54,10 +55,11 @@ jobs:
           retention-days: 7
 
   build-macos:
+    name: Developer macOS desktop bundle
     if: github.ref == 'refs/heads/develop'
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - uses: actions/setup-node@v5
         with:
@@ -93,13 +95,14 @@ jobs:
           retention-days: 7
 
   build-pages:
+    name: Developer desktop download page
     if: github.ref == 'refs/heads/develop'
     needs:
       - build-windows
       - build-macos
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - uses: actions/setup-node@v5
         with:
@@ -149,6 +152,7 @@ jobs:
           retention-days: 7
 
   publish-pages:
+    name: Publish developer desktop downloads
     if: github.ref == 'refs/heads/develop'
     needs: build-pages
     runs-on: ubuntu-latest

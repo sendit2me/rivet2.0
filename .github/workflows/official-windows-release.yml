@@ -17,10 +17,11 @@ concurrency:
 
 jobs:
   build-windows:
+    name: Stable Windows desktop bundle
     if: github.ref == 'refs/heads/main'
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - uses: actions/setup-node@v5
         with:
@@ -54,10 +55,11 @@ jobs:
           retention-days: 7
 
   build-macos:
+    name: Stable macOS desktop bundle
     if: github.ref == 'refs/heads/main'
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - uses: actions/setup-node@v5
         with:
@@ -93,13 +95,14 @@ jobs:
           retention-days: 7
 
   build-pages:
+    name: Stable desktop download page
     if: github.ref == 'refs/heads/main'
     needs:
       - build-windows
       - build-macos
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - uses: actions/setup-node@v5
         with:
@@ -149,6 +152,7 @@ jobs:
           retention-days: 7
 
   publish-pages:
+    name: Publish stable desktop downloads
     if: github.ref == 'refs/heads/main'
     needs: build-pages
     runs-on: ubuntu-latest
