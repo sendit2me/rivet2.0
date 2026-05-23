@@ -95,7 +95,7 @@ export function useExecutionDataFlow(): ExecutionDataFlowApi {
     execution: GraphExecutionMetadata | undefined,
     data: Partial<NodeRunData>,
   ) => {
-    const storedData = storeNodeDataForHistory(data, dataRefs, {
+    const storedData = storeNodeDataForHistory(prepareNodeRunDataForStorage(data), dataRefs, {
       nodeId,
       processId,
       projectId: project.metadata.id,
@@ -113,11 +113,9 @@ export function useExecutionDataFlow(): ExecutionDataFlowApi {
           existingProcess.graphId = execution?.graphId ?? existingProcess.graphId;
           existingProcess.graphRunId = execution?.graphRunId ?? existingProcess.graphRunId;
           existingProcess.rootRunId = execution?.rootRunId ?? existingProcess.rootRunId;
-          refIdsToDelete.push(...collectReplacedRefIds(existingProcess.data, storedData));
-          existingProcess.data = {
-            ...existingProcess.data,
-            ...storedData,
-          };
+          const nextProcessData = mergeNodeRunDataForProcess(existingProcess.data, storedData);
+          refIdsToDelete.push(...collectReplacedRefIds(existingProcess.data, nextProcessData));
+          existingProcess.data = nextProcessData;
           return;
         }
 
@@ -203,6 +201,58 @@ export function useExecutionDataFlow(): ExecutionDataFlowApi {
     suppressPreloadedNodeEventsForCurrentRun,
     trivetRunningLatest,
   };
+}
+
+export function prepareNodeRunDataForStorage(data: Partial<NodeRunData>): Partial<NodeRunData> {
+  if (data.status?.type !== 'running' || (data.outputData === undefined && data.splitOutputData === undefined)) {
+    return data;
+  }
+
+  const { outputData: _outputData, splitOutputData: _splitOutputData, ...dataWithoutOutputs } = data;
+  return dataWithoutOutputs;
+}
+
+export function mergeNodeRunDataForProcess(
+  previousData: NodeRunDataWithRefs,
+  nextData: Partial<NodeRunDataWithRefs>,
+): NodeRunDataWithRefs {
+  const mergedData = {
+    ...previousData,
+    ...nextData,
+  };
+
+  if (nextData.status?.type === 'running' && isTerminalNodeRunStatus(previousData.status)) {
+    mergedData.status = previousData.status;
+    copyOptionalNodeRunField(previousData, mergedData, 'startedAt');
+    copyOptionalNodeRunField(previousData, mergedData, 'finishedAt');
+    copyOptionalNodeRunField(previousData, mergedData, 'durationMs');
+    copyOptionalNodeRunField(previousData, mergedData, 'splitRunDurationMs');
+    copyOptionalNodeRunField(previousData, mergedData, 'outputData');
+    copyOptionalNodeRunField(previousData, mergedData, 'splitOutputData');
+  }
+
+  return mergedData;
+}
+
+function copyOptionalNodeRunField<T extends keyof NodeRunDataWithRefs>(
+  source: NodeRunDataWithRefs,
+  target: NodeRunDataWithRefs,
+  key: T,
+): void {
+  if (Object.prototype.hasOwnProperty.call(source, key)) {
+    target[key] = source[key];
+  } else {
+    delete target[key];
+  }
+}
+
+function isTerminalNodeRunStatus(status: NodeRunDataWithRefs['status']): boolean {
+  return (
+    status?.type === 'ok' ||
+    status?.type === 'error' ||
+    status?.type === 'notRan' ||
+    status?.type === 'interrupted'
+  );
 }
 
 function collectReplacedRefIds(previousData: NodeRunDataWithRefs, nextData: Partial<NodeRunDataWithRefs>): string[] {

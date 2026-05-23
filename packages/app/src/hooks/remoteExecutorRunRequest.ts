@@ -18,9 +18,10 @@ export type RemoteRunRequestSender = (payload: OutgoingMessageMap['run']) => boo
 
 export type UnscopedRemoteExecutionRoutingState = {
   acceptedRootRunIds: Set<RootRunId>;
-  completedRootRunDecisions: boolean[];
+  completedRootRunDecisions: Array<{ accepted: boolean; rootRunId: RootRunId }>;
   ignoredRootRunIds: Set<RootRunId>;
   lastRunAccepted: boolean | undefined;
+  recentlyCompletedRootRunDecisions: Map<RootRunId, boolean>;
 };
 
 export type ActiveRemoteRunRequestResult =
@@ -39,6 +40,7 @@ export function createUnscopedRemoteExecutionRoutingState(): UnscopedRemoteExecu
     completedRootRunDecisions: [],
     ignoredRootRunIds: new Set(),
     lastRunAccepted: undefined,
+    recentlyCompletedRootRunDecisions: new Map(),
   };
 }
 
@@ -47,6 +49,7 @@ export function resetUnscopedRemoteExecutionRoutingState(state: UnscopedRemoteEx
   state.completedRootRunDecisions = [];
   state.ignoredRootRunIds.clear();
   state.lastRunAccepted = undefined;
+  state.recentlyCompletedRootRunDecisions.clear();
 }
 
 export function shouldDispatchRemoteExecutionEvent<K extends keyof ProcessEventMessageMap>(options: {
@@ -79,6 +82,11 @@ export function shouldDispatchRemoteExecutionEvent<K extends keyof ProcessEventM
     if (unscopedRoutingState.ignoredRootRunIds.has(rootRunId)) {
       rememberCompletedUnscopedRootRun(unscopedRoutingState, message, data, false);
       return false;
+    }
+
+    const recentDecision = unscopedRoutingState.recentlyCompletedRootRunDecisions.get(rootRunId);
+    if (recentDecision != null) {
+      return recentDecision;
     }
   }
 
@@ -174,11 +182,12 @@ function rememberUnscopedRunDecision(
   accepted: boolean,
 ): void {
   const rootRunId = data.execution?.rootRunId;
-  if (rootRunId) {
+  if (rootRunId != null) {
     const targetSet = accepted ? state.acceptedRootRunIds : state.ignoredRootRunIds;
     const otherSet = accepted ? state.ignoredRootRunIds : state.acceptedRootRunIds;
     targetSet.add(rootRunId);
     otherSet.delete(rootRunId);
+    state.recentlyCompletedRootRunDecisions.delete(rootRunId);
   }
 
   state.lastRunAccepted = accepted;
@@ -206,12 +215,22 @@ function rememberCompletedUnscopedRootRun<K extends keyof ProcessEventMessageMap
     return;
   }
 
-  state.acceptedRootRunIds.delete(data.execution.rootRunId);
-  state.ignoredRootRunIds.delete(data.execution.rootRunId);
-  state.completedRootRunDecisions.push(accepted);
+  const existingDecision = state.completedRootRunDecisions.find(
+    (decision) => decision.rootRunId === data.execution.rootRunId,
+  );
+  if (existingDecision) {
+    existingDecision.accepted = accepted;
+    return;
+  }
+
+  state.completedRootRunDecisions.push({ accepted, rootRunId: data.execution.rootRunId });
 
   if (state.completedRootRunDecisions.length > 32) {
-    state.completedRootRunDecisions.splice(0, state.completedRootRunDecisions.length - 32);
+    const removedDecisions = state.completedRootRunDecisions.splice(0, state.completedRootRunDecisions.length - 32);
+    for (const removedDecision of removedDecisions) {
+      state.acceptedRootRunIds.delete(removedDecision.rootRunId);
+      state.ignoredRootRunIds.delete(removedDecision.rootRunId);
+    }
   }
 }
 
@@ -223,7 +242,30 @@ function consumeCompletedUnscopedTerminalDecision<K extends keyof ProcessEventMe
     return undefined;
   }
 
-  return state.completedRootRunDecisions.shift();
+  const decision = state.completedRootRunDecisions.shift();
+  if (!decision) {
+    return undefined;
+  }
+
+  state.acceptedRootRunIds.delete(decision.rootRunId);
+  state.ignoredRootRunIds.delete(decision.rootRunId);
+  rememberRecentlyCompletedUnscopedRootRun(state, decision);
+  return decision.accepted;
+}
+
+function rememberRecentlyCompletedUnscopedRootRun(
+  state: UnscopedRemoteExecutionRoutingState,
+  decision: { accepted: boolean; rootRunId: RootRunId },
+): void {
+  state.recentlyCompletedRootRunDecisions.set(decision.rootRunId, decision.accepted);
+
+  while (state.recentlyCompletedRootRunDecisions.size > 32) {
+    const oldestRootRunId = state.recentlyCompletedRootRunDecisions.keys().next();
+    if (oldestRootRunId.done) {
+      return;
+    }
+    state.recentlyCompletedRootRunDecisions.delete(oldestRootRunId.value);
+  }
 }
 
 function hasExecutionMetadata(data: unknown): data is {

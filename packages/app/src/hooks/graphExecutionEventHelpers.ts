@@ -36,6 +36,14 @@ export function updateSelectedGraphRunForGraphStart(
   };
 }
 
+export function appendRootRunIdOnce(rootRunIds: RootRunId[], rootRunId: RootRunId): RootRunId[] {
+  if (rootRunIds.includes(rootRunId)) {
+    return rootRunIds;
+  }
+
+  return [...rootRunIds, rootRunId];
+}
+
 export function reconcileRunningProcessesAfterSuccessfulDone(
   lastRunData: RunDataByNodeId,
   options: { rootRunId?: RootRunId } = {},
