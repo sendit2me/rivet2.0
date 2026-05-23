@@ -37,20 +37,24 @@ export function wireSubprocessorEvents(
     resume: () => void;
   },
 ): void {
-  const unsubscribers: Array<() => void> = [
-    processor.on('nodeError', (event) => parentEmitter.emit('nodeError', event)),
-    processor.on('nodeFinish', (event) => parentEmitter.emit('nodeFinish', event)),
-    processor.on('partialOutput', (event) => parentEmitter.emit('partialOutput', event)),
-    processor.on('nodeExcluded', (event) => parentEmitter.emit('nodeExcluded', event)),
-    processor.on('nodeStart', (event) => parentEmitter.emit('nodeStart', event)),
-    processor.on('graphAbort', (event) => parentEmitter.emit('graphAbort', event)),
-    processor.on('graphError', (event) => parentEmitter.emit('graphError', event)),
-    processor.on('userInput', (event) => parentEmitter.emit('userInput', event)),
-    processor.on('graphStart', (event) => parentEmitter.emit('graphStart', event)),
-    processor.on('graphFinish', (event) => parentEmitter.emit('graphFinish', event)),
-    processor.on('nodeOutputsCleared', (event) => parentEmitter.emit('nodeOutputsCleared', event)),
-    processor.on('globalSet', (event) => parentEmitter.emit('globalSet', event)),
-    processor.on('newAbortController', (event) => parentEmitter.emit('newAbortController', event)),
+  // Race-input graphs can emit terminal events for aborted losing branches just
+  // after their graphFinish. Keep forwarding alive for the subprocessor object
+  // lifetime so remote-debugger/recorder consumers do not miss those terminals.
+  processor.on('nodeError', (event) => parentEmitter.emit('nodeError', event));
+  processor.on('nodeFinish', (event) => parentEmitter.emit('nodeFinish', event));
+  processor.on('partialOutput', (event) => parentEmitter.emit('partialOutput', event));
+  processor.on('nodeExcluded', (event) => parentEmitter.emit('nodeExcluded', event));
+  processor.on('nodeStart', (event) => parentEmitter.emit('nodeStart', event));
+  processor.on('graphAbort', (event) => parentEmitter.emit('graphAbort', event));
+  processor.on('graphError', (event) => parentEmitter.emit('graphError', event));
+  processor.on('userInput', (event) => parentEmitter.emit('userInput', event));
+  processor.on('graphStart', (event) => parentEmitter.emit('graphStart', event));
+  processor.on('graphFinish', (event) => parentEmitter.emit('graphFinish', event));
+  processor.on('nodeOutputsCleared', (event) => parentEmitter.emit('nodeOutputsCleared', event));
+  processor.on('globalSet', (event) => parentEmitter.emit('globalSet', event));
+  processor.on('newAbortController', (event) => parentEmitter.emit('newAbortController', event));
+
+  const controlUnsubscribers: Array<() => void> = [
     processor.on('pause', () => {
       if (!parentState.isPaused()) {
         parentState.pause();
@@ -63,23 +67,23 @@ export function wireSubprocessorEvents(
     }),
   ];
 
-  const unsubscribeAny = processor.onAny((event, data) => {
+  processor.onAny((event, data) => {
     if (event.startsWith('globalSet:')) {
       void parentEmitter.emit(event, data);
     }
   });
 
-  let cleanedUp = false;
-  const cleanup = () => {
-    if (cleanedUp) {
+  let controlsCleanedUp = false;
+  const cleanupControls = () => {
+    if (controlsCleanedUp) {
       return;
     }
 
-    cleanedUp = true;
-    unsubscribers.forEach((unsubscribe) => unsubscribe());
+    controlsCleanedUp = true;
+    controlUnsubscribers.forEach((unsubscribe) => unsubscribe());
   };
 
-  unsubscribers.push(unsubscribeAny, subscribeOwnGraphRunLifecycle(processor, cleanup));
+  controlUnsubscribers.push(subscribeOwnGraphRunLifecycle(processor, cleanupControls));
 }
 
 export function wireSubprocessorLifecycle(

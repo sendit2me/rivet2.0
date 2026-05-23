@@ -664,7 +664,7 @@ Important current behavior:
   nodes, execution metadata, or reused `NodeImpl` objects
 - node events emitted inside a subgraph reference that subgraph invocation's `graphRunId`
 - split-sequential subgraph calls preserve executor `splitIndex` in execution metadata so app-side consumers can distinguish sibling invocations that share the same graph definition
-- `SubprocessorBridge` uses a run-scoped lifecycle subscription keyed by the child processor's own `graphRunId`, so forwarding/lifecycle listeners clean up for that processor's run while forwarded events from deeper nested child processors continue through the parent bridge without prematurely disconnecting parent `nodeFinish` or `nodeError` events
+- `SubprocessorBridge` intentionally separates passive event forwarding from control lifecycle cleanup. Passive process-event forwarding stays subscribed for the subprocessor object lifetime so late `nodeFinish` / `nodeError` / `nodeExcluded` events from race-loser branches are not dropped after a child `graphFinish`. Control listeners such as parent/child pause, resume, and abort use a run-scoped lifecycle subscription keyed by the child processor's own `graphRunId`, so those controls clean up when the child graph run reaches its terminal event.
 - `GraphProcessor` awaits `nodeError` terminal emissions just like normal `nodeFinish` emissions. Do not make node errors fire-and-forget: caught subgraph failures can let the root graph finish successfully, and remote debugger/replay consumers still need the inner node's terminal error event before subgraph bridge cleanup.
 
 Graph boundary metadata for direct nested-graph callers is centralized in

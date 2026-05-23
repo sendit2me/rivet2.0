@@ -174,6 +174,64 @@ function makeNestedCaughtExpressionErrorProject(): Project {
   };
 }
 
+function makeNestedRaceLoserProject(): Project {
+  const mainGraphId = 'main-race' as GraphId;
+  const raceGraphId = 'subgraph-race' as GraphId;
+  const slowChildGraphId = 'subgraph-race-slow-child' as GraphId;
+  const mainSubgraphNode = makeSubgraphNode('main-race-subgraph', raceGraphId);
+  const mainOutputNode = makeGraphOutputNode('main-race-output', 'result', 'any');
+  const slowSubgraphNode = makeSubgraphNode('subgraph-race-slow-subgraph', slowChildGraphId);
+  const slowDirectExpressionNode = makeExpressionNode(
+    'subgraph-race-slow-expression',
+    'await new Promise((resolve) => setTimeout(() => resolve("slow direct"), 50))',
+  );
+  const fastExpressionNode = makeExpressionNode('subgraph-race-fast-expression', '"fast"');
+  const raceNode: ChartNode = {
+    data: {},
+    id: 'subgraph-race-inputs' as NodeId,
+    title: 'Race Inputs',
+    type: 'raceInputs',
+    visualData: { width: 260, x: 300, y: 0 },
+  };
+  const raceOutputNode = makeGraphOutputNode('subgraph-race-output', 'result', 'any');
+
+  return {
+    graphs: {
+      [mainGraphId]: {
+        connections: [connect(mainSubgraphNode.id, 'result', mainOutputNode.id, 'value')],
+        metadata: {
+          description: '',
+          id: mainGraphId,
+          name: mainGraphId,
+        },
+        nodes: [mainSubgraphNode, mainOutputNode],
+      },
+      [raceGraphId]: {
+        connections: [
+          connect(slowSubgraphNode.id, 'result', raceNode.id, 'input1'),
+          connect(slowDirectExpressionNode.id, 'output', raceNode.id, 'input2'),
+          connect(fastExpressionNode.id, 'output', raceNode.id, 'input3'),
+          connect(raceNode.id, 'result', raceOutputNode.id, 'value'),
+        ],
+        metadata: {
+          description: '',
+          id: raceGraphId,
+          name: raceGraphId,
+        },
+        nodes: [slowSubgraphNode, slowDirectExpressionNode, fastExpressionNode, raceNode, raceOutputNode],
+      },
+      [slowChildGraphId]: makeSlowExpressionGraph(slowChildGraphId),
+    },
+    metadata: {
+      description: '',
+      id: 'debugger-race-loser-project' as ProjectId,
+      mainGraphId,
+      title: 'Debugger Race Loser Project',
+    },
+    plugins: [],
+  };
+}
+
 function makeSubgraphCallerGraph(graphId: GraphId, calledGraphId: GraphId, prefix: string): NodeGraph {
   const subgraphNode = makeSubgraphNode(`${prefix}-subgraph`, calledGraphId);
   const outputNode = makeGraphOutputNode(`${prefix}-output`, 'result', 'any');
@@ -186,6 +244,24 @@ function makeSubgraphCallerGraph(graphId: GraphId, calledGraphId: GraphId, prefi
       name: graphId,
     },
     nodes: [subgraphNode, outputNode],
+  };
+}
+
+function makeSlowExpressionGraph(graphId: GraphId): NodeGraph {
+  const slowExpressionNode = makeExpressionNode(
+    'subgraph-race-slow-child-expression',
+    'await new Promise((resolve) => setTimeout(() => resolve("slow child"), 50))',
+  );
+  const outputNode = makeGraphOutputNode('subgraph-race-slow-child-output', 'result', 'any');
+
+  return {
+    connections: [connect(slowExpressionNode.id, 'output', outputNode.id, 'value')],
+    metadata: {
+      description: '',
+      id: graphId,
+      name: graphId,
+    },
+    nodes: [slowExpressionNode, outputNode],
   };
 }
 
@@ -832,6 +908,53 @@ describe('startDebuggerServer broadcast', () => {
     const nodeError = messages[failingNodeErrorIndex]!;
     assert.equal(nodeError.data.execution.graphId, 'subgraph2-error');
     assert.match(nodeError.data.error, /nested expression failed/);
+  });
+
+  it('sends late race-loser terminal events from nested subgraphs before done', async () => {
+    const server = new FakeWebSocketServer();
+    const socket = new FakeWebSocket();
+    const debuggerServer = startDebuggerServer({
+      server: server as unknown as WebSocketServer,
+      heartbeatIntervalMs: 0,
+    });
+    const fixture = makeNestedRaceLoserProject();
+
+    server.connect(socket);
+
+    const processor = createProcessor(fixture, {
+      graph: 'main-race',
+      remoteDebugger: debuggerServer,
+    });
+
+    const outputs = await processor.run();
+
+    assert.deepEqual(outputs['result' as PortId], { type: 'any', value: 'fast' });
+
+    const messages = socket.sentMessages.map((message) => JSON.parse(message));
+    const doneIndex = messages.findIndex((message) => message.message === 'done');
+    const nodeErrorIndexesById = new Map<string, number>();
+
+    messages.forEach((message, index) => {
+      if (message.message === 'nodeError') {
+        nodeErrorIndexesById.set(message.data.node.id, index);
+      }
+    });
+
+    assert.notEqual(doneIndex, -1, 'successful root done should be sent');
+
+    for (const nodeId of [
+      'subgraph-race-slow-child-expression',
+      'subgraph-race-slow-subgraph',
+      'subgraph-race-slow-expression',
+    ]) {
+      const nodeErrorCount = messages.filter(
+        (message) => message.message === 'nodeError' && message.data.node.id === nodeId,
+      ).length;
+      const nodeErrorIndex = nodeErrorIndexesById.get(nodeId);
+      assert.notEqual(nodeErrorIndex, undefined, `${nodeId} nodeError should be sent`);
+      assert.equal(nodeErrorCount, 1, `${nodeId} nodeError should be sent once`);
+      assert.ok(nodeErrorIndex! < doneIndex, `${nodeId} nodeError should arrive before done`);
+    }
   });
 
   it('forwards node error duration metadata to debugger clients', async () => {
