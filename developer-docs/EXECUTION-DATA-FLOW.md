@@ -196,7 +196,7 @@ Events from subprocessors bubble up through `wireSubprocessorEvents()` in
 
 - Child processor emits events with **its own** `GraphExecutionMetadata`.
 - `wireSubprocessorEvents` forwards those events to the parent's emitter **without rewriting metadata**.
-- Passive child process-event forwarding stays subscribed for the subprocessor object lifetime. This keeps late terminal events from race-loser branches flowing even when they arrive after the child graph's own `graphFinish`.
+- Passive child process-event forwarding stays subscribed for the subprocessor object lifetime. This keeps late terminal events from successful graph-abort paths flowing even when they arrive after the child graph's own `graphFinish`.
 - Control lifecycle wiring, such as parent/child pause, resume, and abort listeners, uses a run-scoped lifecycle subscription and tears down when the forwarded processor's own `graphRunId` finishes, aborts, or errors. A nested child graph finishing must not clean up the parent subgraph bridge, because the parent still needs to forward the subgraph node's later `nodeFinish` and the parent graph's own finish event.
 - The app's event handlers see the original metadata and can determine the execution context.
 
@@ -445,15 +445,26 @@ group includes console tables plus raw trace entries. This gives hosted-wrapper
 investigations enough signal to tell whether the terminal event never arrived,
 arrived but was routed away, arrived under mismatched nested graph metadata, or
 arrived and was dispatched while state/display still stayed running.
+If an accepted Remote Debugger `nodeError` carries an abort-like error such as
+`Error: Aborted` or `AbortError: The operation was aborted`, the app prints a
+separate unexpected-abort diagnostic immediately. That report uses the same
+bounded trace and lifecycle ledger, but it points debugging at runtime
+cancellation propagation rather than websocket event loss.
 
 Subgraph event forwarding is deliberately longer-lived than subgraph graph
 completion. [`SubprocessorBridge.ts`](../packages/core/src/model/SubprocessorBridge.ts)
 keeps process-event forwarding subscribed for the lifetime of the subprocessor
-object because race-input graphs can emit node terminal events for aborted losing
-branches just after their own `graphFinish`. Without that, an ordinary losing
+object because successful graph-abort paths can emit node terminal events for
+aborted branches just after their own `graphFinish`. Without that, an ordinary
 node such as Expression, or a nested Subgraph node, can start, the child graph
-can complete through a winning branch, and the parent Remote Debugger stream can
-miss the losing branch's `nodeError`/terminal event.
+can complete through a successful early-exit path, and the parent Remote Debugger
+stream can miss the aborted branch's terminal event.
+These successful cancellations are reported as `nodeExcluded`, not as `nodeError`,
+because the graph already has a valid successful terminal path. `Abort Graph`
+successful early exits use reason `Graph aborted successfully`; `Race Inputs`
+losing branches use reason `Race branch lost`. Nested subprocessors receive the
+same internal successful-abort reason so an aborted Expression inside a leaf
+Subgraph also clears as excluded instead of rendering as a false workflow error.
 Control listeners, including parent/child pause, resume, and abort wiring, still
 clean up at the subprocessor's own graph terminal event; only passive event
 forwarding stays alive.

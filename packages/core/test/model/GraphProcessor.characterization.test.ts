@@ -37,6 +37,7 @@ type CharacterizationNodeData = {
     value: ScalarOrArrayDataValue;
   };
   waitForGlobal?: string;
+  successfulAbortGraph?: boolean;
 };
 
 const graphId = 'graph-processor-characterization' as GraphId;
@@ -109,6 +110,10 @@ class CharacterizationNodeImpl extends NodeImpl<CharacterizationNode> {
     if (this.data.waitForGlobal) {
       const value = await context.waitForGlobal(this.data.waitForGlobal);
       return { output: value };
+    }
+
+    if (this.data.successfulAbortGraph) {
+      context.abortGraph();
     }
 
     return {
@@ -820,7 +825,8 @@ void describe('GraphProcessor characterization', () => {
     const processor = createProcessor(graph);
     let raceFinish: ProcessEvents['nodeFinish'] | undefined;
     const nodeErrors: NodeId[] = [];
-    const slowNodeErrored = processor.once('nodeError');
+    const nodeExcluded: NodeId[] = [];
+    const slowNodeExcluded = processor.once('nodeExcluded');
 
     processor.on('nodeFinish', (event) => {
       if (event.node.id === raceNode.id) {
@@ -828,15 +834,17 @@ void describe('GraphProcessor characterization', () => {
       }
     });
     processor.on('nodeError', ({ node }) => nodeErrors.push(node.id));
+    processor.on('nodeExcluded', ({ node }) => nodeExcluded.push(node.id));
 
     await withTimeout(processor.processGraph(testProcessContext()), 'race graph run');
-    await withTimeout(slowNodeErrored, 'race loser nodeError');
+    await withTimeout(slowNodeExcluded, 'race loser nodeExcluded');
 
     assert.deepEqual(raceFinish?.outputs.result, { type: 'string', value: 'fast' });
-    assert.equal(nodeErrors.includes(slowNode.id), true);
+    assert.equal(nodeErrors.includes(slowNode.id), false);
+    assert.equal(nodeExcluded.includes(slowNode.id), true);
   });
 
-  void it('forwards late terminal events from race-loser nodes inside subgraphs', async () => {
+  void it('forwards late race-loser exclusions from nodes inside subgraphs', async () => {
     const slowChildProbe = makeProbeNode('slow-child-probe', {
       delayMs: 50,
       value: { type: 'string', value: 'slow' },
@@ -918,42 +926,91 @@ void describe('GraphProcessor characterization', () => {
       'root-graph' as GraphId,
     );
     const processor = createProcessor(rootGraph, [raceGraph, slowChildGraph]);
-    const nodeErrorById = new Map<NodeId, ProcessEvents['nodeError']>();
     const nodeErrorIds: NodeId[] = [];
-    const waitForNodeError = (nodeId: NodeId) =>
-      new Promise<ProcessEvents['nodeError']>((resolve) => {
-        processor.on('nodeError', (event) => {
+    const nodeExcludedById = new Map<NodeId, ProcessEvents['nodeExcluded']>();
+    const nodeExcludedIds: NodeId[] = [];
+    const waitForNodeExcluded = (nodeId: NodeId) =>
+      new Promise<ProcessEvents['nodeExcluded']>((resolve) => {
+        processor.on('nodeExcluded', (event) => {
           if (event.node.id === nodeId) {
-            nodeErrorById.set(nodeId, event);
+            nodeExcludedById.set(nodeId, event);
             resolve(event);
           }
         });
       });
-    const slowSubgraphErrored = waitForNodeError(slowSubgraphNode.id);
-    const slowDirectNodeErrored = waitForNodeError(slowDirectNode.id);
+    const slowSubgraphExcluded = waitForNodeExcluded(slowSubgraphNode.id);
+    const slowDirectNodeExcluded = waitForNodeExcluded(slowDirectNode.id);
 
     processor.on('nodeError', (event) => {
-      nodeErrorById.set(event.node.id, event);
       nodeErrorIds.push(event.node.id);
+    });
+    processor.on('nodeExcluded', (event) => {
+      nodeExcludedById.set(event.node.id, event);
+      nodeExcludedIds.push(event.node.id);
     });
 
     const outputs = await withTimeout(processor.processGraph(testProcessContext()), 'nested race graph run');
-    const [slowSubgraphError, slowDirectNodeError] = await withTimeout(
-      Promise.all([slowSubgraphErrored, slowDirectNodeErrored]),
-      'late race loser nodeErrors',
+    const [slowSubgraphExcludedEvent, slowDirectNodeExcludedEvent] = await withTimeout(
+      Promise.all([slowSubgraphExcluded, slowDirectNodeExcluded]),
+      'late race loser nodeExcluded events',
     );
 
     assert.deepEqual(outputs.rootResult, { type: 'string', value: 'fast' });
-    assert.equal(slowSubgraphError.node.id, slowSubgraphNode.id);
-    assert.equal(slowDirectNodeError.node.id, slowDirectNode.id);
-    assert.match(slowSubgraphError.error.message, /failed to process/);
-    assert.match(slowDirectNodeError.error.message, /Aborted/);
+    assert.equal(slowSubgraphExcludedEvent.node.id, slowSubgraphNode.id);
+    assert.equal(slowDirectNodeExcludedEvent.node.id, slowDirectNode.id);
+    assert.equal(slowSubgraphExcludedEvent.reason, 'Race branch lost');
+    assert.equal(slowDirectNodeExcludedEvent.reason, 'Race branch lost');
     assert.deepEqual(
-      [...nodeErrorById.keys()].sort(),
-      [slowChildProbe.id, slowDirectNode.id, slowSubgraphNode.id].sort(),
+      [...nodeExcludedById.keys()].sort(),
+      [slowChildProbe.id, slowChildOutput.id, slowDirectNode.id, slowSubgraphNode.id].sort(),
     );
-    for (const nodeId of [slowChildProbe.id, slowDirectNode.id, slowSubgraphNode.id]) {
-      assert.equal(nodeErrorIds.filter((id) => id === nodeId).length, 1);
+    for (const nodeId of [slowChildProbe.id, slowChildOutput.id, slowDirectNode.id, slowSubgraphNode.id]) {
+      assert.equal(nodeErrorIds.filter((id) => id === nodeId).length, 0);
+      assert.equal(nodeExcludedIds.filter((id) => id === nodeId).length, 1);
+    }
+  });
+
+  void it('propagates successful graph aborts into active leaf subgraphs without node errors', async () => {
+    const slowChildProbe = makeProbeNode('slow-child-probe', {
+      delayMs: 50,
+      value: { type: 'string', value: 'slow' },
+    });
+    const slowChildOutput = makeGraphOutputNode('slowChildResult');
+    const slowChildGraph = makeGraph(
+      [slowChildProbe, slowChildOutput],
+      [connect(slowChildProbe.id, slowChildOutput.id, 'value')],
+      'slow-child-graph' as GraphId,
+    );
+    const leafSubgraphNode: ChartNode = {
+      id: 'leaf-subgraph-node' as NodeId,
+      type: 'subGraph',
+      title: 'Leaf Subgraph',
+      data: {
+        graphId: slowChildGraph.metadata!.id,
+        useErrorOutput: false,
+        useAsGraphPartialOutput: false,
+      },
+      visualData: { x: 0, y: 0, width: 240 },
+    };
+    const abortNode = makeProbeNode('successful-abort-node', {
+      delayMs: 5,
+      successfulAbortGraph: true,
+    });
+    const graph = makeGraph([leafSubgraphNode, abortNode], [], 'successful-abort-root' as GraphId);
+    const processor = createProcessor(graph, [slowChildGraph]);
+    const nodeErrorIds: NodeId[] = [];
+    const nodeExcludedById = new Map<NodeId, ProcessEvents['nodeExcluded']>();
+
+    processor.on('nodeError', ({ node }) => nodeErrorIds.push(node.id));
+    processor.on('nodeExcluded', (event) => {
+      nodeExcludedById.set(event.node.id, event);
+    });
+
+    await withTimeout(processor.processGraph(testProcessContext()), 'successful abort with leaf subgraph');
+
+    for (const nodeId of [leafSubgraphNode.id, slowChildProbe.id, slowChildOutput.id]) {
+      assert.equal(nodeErrorIds.includes(nodeId), false);
+      assert.equal(nodeExcludedById.get(nodeId)?.reason, 'Graph aborted successfully');
     }
   });
 
@@ -982,14 +1039,17 @@ void describe('GraphProcessor characterization', () => {
     );
     const processor = createProcessor(graph);
     const nodeErrors: NodeId[] = [];
+    const nodeExcluded: NodeId[] = [];
     const nodeFinishes: NodeId[] = [];
 
     processor.on('nodeError', ({ node }) => nodeErrors.push(node.id));
+    processor.on('nodeExcluded', ({ node }) => nodeExcluded.push(node.id));
     processor.on('nodeFinish', ({ node }) => nodeFinishes.push(node.id));
 
     await withTimeout(processor.processGraph(testProcessContext()), 'race graph run with prefix node');
 
-    assert.equal(nodeErrors.includes(slowNode.id), true);
+    assert.equal(nodeErrors.includes(slowNode.id), false);
+    assert.equal(nodeExcluded.includes(slowNode.id), true);
     assert.equal(nodeErrors.includes(unrelatedNode.id), false);
     assert.equal(nodeFinishes.includes(unrelatedNode.id), true);
   });

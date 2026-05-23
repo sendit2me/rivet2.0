@@ -73,6 +73,8 @@ This node does not have any outputs.
 
 The Abort Graph Node does not produce any errors itself. However, it causes the entire graph to stop executing when it is processed, either successfully or with an error.
 
+When a graph is successfully aborted, any already-running nodes or nested Subgraph branches that are stopped by that early exit are shown as excluded/not run rather than failed. Error aborts still surface as graph errors.
+
 ## FAQ
 
 **Q: What happens if I connect a non-string node to the `Data or Error` input?**

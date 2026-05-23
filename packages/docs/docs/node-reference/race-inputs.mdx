@@ -58,19 +58,19 @@ This node has no configurable editor settings.
 2. Create a [Prompt Node](./prompt.mdx), and give it a prompt message that will be answered in a short time, such as "What is your favorite color?". Connect it to the `Prompt` input of the first LLM Chat Node.
 3. Create another Prompt Node, and give it a prompt message that will take a much longer time, such as "Describe to me in detail the story of Hamlet." Connect it to the `Prompt` input of the second LLM Chat Node.
 4. Connect both `Response` outputs of the LLM Chat Nodes to a Race Inputs node.
-5. Run the graph. Notice that the first LLM call finishes first, and the value of the Race Inputs node is the response from that node. The other LLM call gets canceled.
+5. Run the graph. Notice that the first LLM call finishes first, and the value of the Race Inputs node is the response from that node. The other LLM call gets canceled and is shown as not run because its branch lost the race.
 
 ![Race Inputs Node Example 1](./assets/race-inputs-node-example-01.png)
 
 ## Error Handling
 
-The Race Inputs Node will not error if none of the inputs finish. Instead, the `Result` output will not be ran.
+The Race Inputs Node will not error if none of the inputs finish. Instead, the `Result` output will not run. Once one input wins, active losing branches are canceled and shown as excluded rather than failed.
 
 ## FAQ
 
 **Q: What happens if none of the inputs finish?**
 
-A: If none of the inputs finish, the Race Inputs Node will not error. Instead, the `Result` output will not be ran.
+A: If none of the inputs finish, the Race Inputs Node will not error. Instead, the `Result` output will not run.
 
 **Q: Can I use the Race Inputs Node with inputs of different data types?**
 
@@ -78,7 +78,7 @@ A: Yes, the Race Inputs Node can handle inputs of any data type.
 
 **Q: What happens if one of the inputs errors?**
 
-A: If one of the inputs errors, the Race Inputs Node will not be affected. It will still output the value of the first input to finish, regardless of whether other inputs error.
+A: If one of the inputs errors, the Race Inputs Node will not be affected. It will still output the value of the first input to finish, regardless of whether other inputs error. Branches that are only canceled because another input already won are shown as excluded, not as errors.
 
 ## See Also
 

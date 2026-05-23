@@ -12,6 +12,7 @@ import type {
 } from '@valerypopoff/rivet2-core';
 import {
   createRemoteDebuggerDiagnostics,
+  isAbortLikeRemoteDebuggerNodeError,
   summarizeRemoteDebuggerEvent,
   summarizeRemoteDebuggerRoutingState,
 } from './remoteDebuggerDiagnostics.js';
@@ -51,6 +52,48 @@ test('summarizeRemoteDebuggerEvent captures routing-relevant metadata without re
     rootRunId: 'root-1',
     splitIndex: undefined,
   });
+});
+
+test('summarizeRemoteDebuggerEvent captures node error summaries without retaining payload values', () => {
+  const event = {
+    execution: {
+      graphId: 'graph-1' as GraphId,
+      graphRunId: 'graph-run-1' as GraphRunId,
+      parentGraphRunId: 'parent-run-1' as GraphRunId,
+      rootRunId: 'root-1' as RootRunId,
+    },
+    error: new Error('Aborted'),
+    node: {
+      id: 'node-1' as NodeId,
+      type: 'expression',
+    },
+    processId: 'process-1' as ProcessId,
+  } as ProcessEventMessageMap['nodeError'];
+
+  assert.deepEqual(summarizeRemoteDebuggerEvent('nodeError', event), {
+    error: 'Error: Aborted',
+    graphId: 'graph-1',
+    graphRunId: 'graph-run-1',
+    inputPorts: undefined,
+    nodeId: 'node-1',
+    nodeType: 'expression',
+    outputPorts: undefined,
+    parentGraphRunId: 'parent-run-1',
+    processId: 'process-1',
+    projectId: undefined,
+    rootRunId: 'root-1',
+    splitIndex: undefined,
+  });
+});
+
+test('isAbortLikeRemoteDebuggerNodeError detects plain aborted node errors only', () => {
+  assert.equal(isAbortLikeRemoteDebuggerNodeError({ error: 'Error: Aborted' }), true);
+  assert.equal(isAbortLikeRemoteDebuggerNodeError({ error: 'AbortError: The operation was aborted' }), true);
+  assert.equal(isAbortLikeRemoteDebuggerNodeError({ error: { message: 'The operation was aborted.' } }), true);
+  assert.equal(isAbortLikeRemoteDebuggerNodeError({ error: { message: 'Processing aborted', name: 'Error' } }), true);
+  assert.equal(isAbortLikeRemoteDebuggerNodeError({ error: { message: 'Process aborted.' } }), true);
+  assert.equal(isAbortLikeRemoteDebuggerNodeError({ error: { message: 'Expression failed' } }), false);
+  assert.equal(isAbortLikeRemoteDebuggerNodeError({ error: 'AggregateError: Graph failed' }), false);
 });
 
 test('summarizeRemoteDebuggerRoutingState snapshots mutable routing containers', () => {
@@ -285,6 +328,102 @@ test('createRemoteDebuggerDiagnostics keeps process lifecycle summaries after tr
       rootRunId: 'root-1',
     },
   ]);
+});
+
+test('createRemoteDebuggerDiagnostics reports unexpected aborted node errors with exact trace context', () => {
+  const loggedWarningMessages: string[] = [];
+  const loggedWarnings: unknown[] = [];
+  const loggedTables: unknown[][] = [];
+  const diagnostics = createRemoteDebuggerDiagnostics({
+    console: {
+      groupCollapsed: () => undefined,
+      groupEnd: () => undefined,
+      log: () => undefined,
+      table: (rows) => loggedTables.push(rows as unknown[]),
+      warn: (message, metadata) => {
+        loggedWarningMessages.push(String(message));
+        loggedWarnings.push(metadata);
+      },
+    },
+    now: () => new Date('2026-05-23T00:00:00.000Z'),
+  });
+  const routing = summarizeRemoteDebuggerRoutingState(createUnscopedRemoteExecutionRoutingState());
+  const startedEvent = {
+    graphId: 'graph-1',
+    graphRunId: 'graph-run-1' as GraphRunId,
+    nodeId: 'node-1' as NodeId,
+    nodeType: 'expression',
+    parentGraphRunId: 'parent-run-1' as GraphRunId,
+    processId: 'process-1' as ProcessId,
+    rootRunId: 'root-1' as RootRunId,
+  };
+  const erroredEvent = {
+    ...startedEvent,
+    error: 'Error: Aborted',
+  };
+
+  diagnostics.recordEvent({
+    activeRequestId: null,
+    currentProjectId: 'project-1' as ProjectId,
+    decision: {
+      reason: 'active-root-accepted',
+      rootRunId: 'root-1' as RootRunId,
+      shouldDispatch: true,
+    },
+    event: startedEvent,
+    message: 'nodeStart',
+    requestId: undefined,
+    routingAfter: routing,
+    routingBefore: routing,
+    session: {
+      status: 'connected',
+      targetType: 'external-debugger',
+    },
+  });
+  diagnostics.recordEvent({
+    activeRequestId: null,
+    currentProjectId: 'project-1' as ProjectId,
+    decision: {
+      reason: 'active-root-accepted',
+      rootRunId: 'root-1' as RootRunId,
+      shouldDispatch: true,
+    },
+    event: erroredEvent,
+    message: 'nodeError',
+    requestId: undefined,
+    routingAfter: routing,
+    routingBefore: routing,
+    session: {
+      status: 'connected',
+      targetType: 'external-debugger',
+    },
+  });
+
+  diagnostics.logUnexpectedAbortNodeError(erroredEvent);
+
+  assert.match(loggedWarningMessages[0]!, /Unexpected aborted node error/);
+  assert.match(loggedWarningMessages[0]!, /error=Error: Aborted/);
+  assert.match(loggedWarningMessages[0]!, /exact lifecycle \(1\):/);
+  assert.match(loggedWarningMessages[0]!, /receivedTerminal=\[nodeError\]/);
+  assert.match(loggedWarningMessages[0]!, /exact process trace \(2\):/);
+  assert.match(loggedWarningMessages[0]!, /#2 nodeError dispatch=true/);
+
+  const warning = loggedWarnings[0] as {
+    diagnosisHints: string[];
+    event: { error: string; nodeId: string; processId: string; rootRunId: string };
+    lifecycleSummaries: unknown[];
+    matchingProcessTrace: unknown[];
+    rootRunTrace: unknown[];
+  };
+  assert.equal(warning.event.error, 'Error: Aborted');
+  assert.equal(warning.lifecycleSummaries.length, 1);
+  assert.equal(warning.matchingProcessTrace.length, 2);
+  assert.equal(warning.rootRunTrace.length, 2);
+  assert.deepEqual(warning.diagnosisHints, [
+    'A nodeError with an abort-like message was observed and dispatched. This is not websocket event loss; inspect successful/error abort propagation and parent graph terminal events.',
+    'If this node should have finished normally, compare its graphRunId/parentGraphRunId against nearby graphAbort, graphFinish, and done events.',
+  ]);
+  assert.equal(loggedTables.length, 5);
 });
 
 test('createRemoteDebuggerDiagnostics caps lifecycle summaries and still reports retained matches', () => {

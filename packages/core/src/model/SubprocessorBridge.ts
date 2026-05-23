@@ -1,5 +1,6 @@
 import type Emittery from 'emittery';
 import type { GraphProcessor, ProcessEvents } from './GraphProcessor.js';
+import { getGraphAbortReasonFromSignal } from './GraphAbortReasons.js';
 
 type GraphLifecycleEvent = ProcessEvents['graphFinish'] | ProcessEvents['graphAbort'] | ProcessEvents['graphError'];
 
@@ -37,9 +38,10 @@ export function wireSubprocessorEvents(
     resume: () => void;
   },
 ): void {
-  // Race-input graphs can emit terminal events for aborted losing branches just
-  // after their graphFinish. Keep forwarding alive for the subprocessor object
-  // lifetime so remote-debugger/recorder consumers do not miss those terminals.
+  // Some successful graph-abort paths can emit node terminals just after their
+  // graph-level terminal event. Keep passive forwarding alive for the
+  // subprocessor object lifetime so remote-debugger/recorder consumers do not
+  // miss those node terminals.
   processor.on('nodeError', (event) => parentEmitter.emit('nodeError', event));
   processor.on('nodeFinish', (event) => parentEmitter.emit('nodeFinish', event));
   processor.on('partialOutput', (event) => parentEmitter.emit('partialOutput', event));
@@ -96,10 +98,12 @@ export function wireSubprocessorLifecycle(
   },
 ): void {
   const abortFromSignal = () => {
-    void processor.abort();
+    const abortReason = getGraphAbortReasonFromSignal(options.signal);
+    void processor.abort(abortReason?.successful ?? false, abortReason?.error);
   };
   const abortFromParent = () => {
-    void processor.abort();
+    const abortReason = getGraphAbortReasonFromSignal(options.parentAbortSignal);
+    void processor.abort(abortReason?.successful ?? false, abortReason?.error);
   };
   const pauseProcessor = () => {
     void processor.pause();

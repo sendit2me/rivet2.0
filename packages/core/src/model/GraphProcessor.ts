@@ -59,6 +59,12 @@ import {
   hasErroredInputNode,
 } from './NodeExecutionPlanner.js';
 import { wireSubprocessorEvents, wireSubprocessorLifecycle } from './SubprocessorBridge.js';
+import {
+  createGraphAbortReason,
+  getAbortSignalReason,
+  RACE_LOSER_EXCLUSION_REASON,
+  SUCCESSFUL_GRAPH_ABORT_EXCLUSION_REASON,
+} from './GraphAbortReasons.js';
 import { emitDetached } from '../utils/emitDetached.js';
 import {
   createExcludedNodeOutputs,
@@ -648,8 +654,9 @@ export class GraphProcessor {
 
     this.#abortSuccessfully = successful;
     this.#abortError = error;
-    this.#abortController.abort();
-    this.#abortActiveNodeControllers();
+    const abortReason = createGraphAbortReason(successful, error);
+    this.#abortController.abort(abortReason);
+    this.#abortActiveNodeControllers(abortReason);
 
     emitDetached(this.#emitter, 'graphAbort', this.#withExecution({ successful, error, graph: this.#graph }));
 
@@ -1528,14 +1535,18 @@ export class GraphProcessor {
       races?.raceIds.includes(raceId),
     );
 
-    for (const [nodeId] of allNodesForRace) {
-      this.#abortNodeControllersForNode(nodeId, `Aborting node ${nodeId} because other race branch won`);
-    }
-
     for (const [, nodeAttachedData] of allNodesForRace) {
       if (nodeAttachedData.races?.raceIds.includes(raceId)) {
         nodeAttachedData.races.completed = true;
       }
+    }
+
+    for (const [nodeId] of allNodesForRace) {
+      this.#abortNodeControllersForNode(
+        nodeId,
+        `Aborting node ${nodeId} because other race branch won`,
+        createGraphAbortReason(true, RACE_LOSER_EXCLUSION_REASON),
+      );
     }
   }
 
@@ -1713,12 +1724,33 @@ export class GraphProcessor {
     splitRunDurationMs?: Record<number, number>,
   ): Promise<void> {
     const error = getError(e);
+    const exclusionReason = this.#getErrorExclusionReason(node);
+    if (exclusionReason) {
+      await this.#emitNodeExcluded(node, processId, this.#getInputValuesForNode(node), exclusionReason);
+      this.#emitTraceEvent(`Node ${node.title} (${node.id}-${processId}) was excluded: ${exclusionReason}`);
+      return;
+    }
+
     this.#erroredNodes.set(node.id, error);
     await this.#emitter.emit(
       'nodeError',
       this.#withExecution(withOptionalDuration({ node, error, processId }, durationMs, splitRunDurationMs)),
     );
     this.#emitTraceEvent(`Node ${node.title} (${node.id}-${processId}) errored: ${error.stack}`);
+  }
+
+  #getErrorExclusionReason(node: ChartNode): string | undefined {
+    if (this.#getAttachedDataTo(node).races?.completed) {
+      return RACE_LOSER_EXCLUSION_REASON;
+    }
+
+    if (this.#abortSuccessfully) {
+      return this.#abortError === RACE_LOSER_EXCLUSION_REASON
+        ? RACE_LOSER_EXCLUSION_REASON
+        : SUCCESSFUL_GRAPH_ABORT_EXCLUSION_REASON;
+    }
+
+    return undefined;
   }
 
   getRootProcessor(): GraphProcessor {
@@ -1786,7 +1818,7 @@ export class GraphProcessor {
     }
   }
 
-  #abortNodeControllersForNode(nodeId: NodeId, traceMessage?: string): void {
+  #abortNodeControllersForNode(nodeId: NodeId, traceMessage?: string, reason?: unknown): void {
     const abortControllerEntry = this.#nodeAbortControllers.get(nodeId);
     if (!abortControllerEntry) {
       return;
@@ -1796,7 +1828,7 @@ export class GraphProcessor {
       if (traceMessage) {
         this.#emitTraceEvent(traceMessage);
       }
-      abortControllerEntry.abort();
+      abortControllerEntry.abort(reason);
       return;
     }
 
@@ -1804,13 +1836,13 @@ export class GraphProcessor {
       if (traceMessage) {
         this.#emitTraceEvent(traceMessage);
       }
-      abortController.abort();
+      abortController.abort(reason);
     }
   }
 
-  #abortActiveNodeControllers(): void {
+  #abortActiveNodeControllers(reason?: unknown): void {
     for (const nodeId of [...this.#nodeAbortControllers.keys()]) {
-      this.#abortNodeControllersForNode(nodeId);
+      this.#abortNodeControllersForNode(nodeId, undefined, reason);
     }
   }
 
@@ -1825,7 +1857,7 @@ export class GraphProcessor {
     const nodeAbortController = this.#newAbortController();
     this.#registerNodeAbortController(node.id, nodeAbortController);
     if (this.#abortController.signal.aborted) {
-      nodeAbortController.abort();
+      nodeAbortController.abort(getAbortSignalReason(this.#abortController.signal));
     }
     const context = this.#createNodeProcessContext(
       node,
@@ -2080,21 +2112,25 @@ export class GraphProcessor {
   }
 
   #markAsExcluded(node: ChartNode, processId: ProcessId, inputValues: Inputs, reason: string) {
+    emitDetached(this.#emitter, 'nodeExcluded', this.#createNodeExcludedEvent(node, processId, inputValues, reason));
+  }
+
+  async #emitNodeExcluded(node: ChartNode, processId: ProcessId, inputValues: Inputs, reason: string): Promise<void> {
+    await this.#emitter.emit('nodeExcluded', this.#createNodeExcludedEvent(node, processId, inputValues, reason));
+  }
+
+  #createNodeExcludedEvent(node: ChartNode, processId: ProcessId, inputValues: Inputs, reason: string) {
     const outputs = createExcludedNodeOutputs(node, this.#definitions[node.id]!.outputs);
 
     this.#nodeResults.set(node.id, outputs);
 
-    emitDetached(
-      this.#emitter,
-      'nodeExcluded',
-      this.#withExecution({
-        node,
-        processId,
-        inputs: inputValues,
-        outputs,
-        reason,
-      }),
-    );
+    return this.#withExecution({
+      node,
+      processId,
+      inputs: inputValues,
+      outputs,
+      reason,
+    });
   }
 
   #getInputValuesForNode(node: ChartNode): Inputs {
