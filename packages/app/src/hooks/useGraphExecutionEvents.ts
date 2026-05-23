@@ -35,6 +35,7 @@ import {
   splitRunDataByPreservedNodes,
 } from '../utils/executionDataStorage.js';
 import {
+  appendRootRunIdOnce,
   reconcileRunningProcessesAfterSuccessfulDone,
   removeRunningGraphEntry,
   updateSelectedGraphRunForGraphStart,
@@ -207,7 +208,10 @@ export function useGraphExecutionEvents({
       graphIdFallback: data.graph.metadata!.id!,
     });
     if (data.execution && data.execution.parentGraphRunId == null) {
-      rootRunIdsForDoneReconciliationRef.current.push(data.execution.rootRunId);
+      rootRunIdsForDoneReconciliationRef.current = appendRootRunIdOnce(
+        rootRunIdsForDoneReconciliationRef.current,
+        data.execution.rootRunId,
+      );
     }
     finishGraphRun(graphViewKey, data.execution?.graphRunId, 'ok');
   };

@@ -95,6 +95,22 @@ function makeGraphFinishEvent(rootRunId = 'root-1'): ProcessEventMessageMap['gra
   };
 }
 
+function dispatchUnscopedEvent<K extends keyof ProcessEventMessageMap>(
+  unscopedRoutingState: ReturnType<typeof createUnscopedRemoteExecutionRoutingState>,
+  message: K,
+  data: ProcessEventMessageMap[K],
+  currentProjectId = 'project-1',
+): boolean {
+  return shouldDispatchRemoteExecutionEvent({
+    activeRequestId: null,
+    currentProjectId: currentProjectId as ProjectId,
+    data,
+    message,
+    requestId: undefined,
+    unscopedRoutingState,
+  });
+}
+
 test('shouldDispatchRemoteExecutionEvent accepts legacy unscoped events and the active request only', () => {
   const unscopedRoutingState = createUnscopedRemoteExecutionRoutingState();
 
@@ -217,36 +233,113 @@ test('unscoped remote execution routing state can be reset when the active proje
   );
 });
 
-test('shouldDispatchRemoteExecutionEvent forgets unscoped root runs after root graph completion', () => {
+test('shouldDispatchRemoteExecutionEvent keeps unscoped root run routing until terminal completion', () => {
   const unscopedRoutingState = createUnscopedRemoteExecutionRoutingState();
 
-  assert.equal(
-    shouldDispatchRemoteExecutionEvent({
-      activeRequestId: null,
-      currentProjectId: 'project-1' as ProjectId,
-      data: makeStartEvent('project-1'),
-      message: 'start',
-      requestId: undefined,
-      unscopedRoutingState,
-    }),
-    true,
-  );
+  assert.equal(dispatchUnscopedEvent(unscopedRoutingState, 'start', makeStartEvent('project-1')), true);
 
   assert.equal(unscopedRoutingState.acceptedRootRunIds.size, 1);
 
-  assert.equal(
-    shouldDispatchRemoteExecutionEvent({
-      activeRequestId: null,
-      currentProjectId: 'project-1' as ProjectId,
-      data: makeGraphFinishEvent(),
-      message: 'graphFinish',
-      requestId: undefined,
-      unscopedRoutingState,
-    }),
-    true,
-  );
+  assert.equal(dispatchUnscopedEvent(unscopedRoutingState, 'graphFinish', makeGraphFinishEvent()), true);
+
+  assert.equal(unscopedRoutingState.acceptedRootRunIds.size, 1);
+
+  assert.equal(dispatchUnscopedEvent(unscopedRoutingState, 'done', { results: {} }), true);
 
   assert.equal(unscopedRoutingState.acceptedRootRunIds.size, 0);
+});
+
+test('shouldDispatchRemoteExecutionEvent keeps late accepted events after root graph completion', () => {
+  const unscopedRoutingState = createUnscopedRemoteExecutionRoutingState();
+
+  assert.equal(
+    dispatchUnscopedEvent(unscopedRoutingState, 'start', makeStartEvent('project-1', 'root-accepted')),
+    true,
+  );
+  assert.equal(
+    dispatchUnscopedEvent(unscopedRoutingState, 'graphFinish', makeGraphFinishEvent('root-accepted')),
+    true,
+  );
+  assert.equal(
+    dispatchUnscopedEvent(unscopedRoutingState, 'start', makeStartEvent('project-2', 'root-ignored')),
+    false,
+  );
+  assert.equal(
+    dispatchUnscopedEvent(unscopedRoutingState, 'nodeFinish', makeNodeFinishEvent('root-accepted')),
+    true,
+  );
+});
+
+test('shouldDispatchRemoteExecutionEvent keeps late accepted events after terminal completion', () => {
+  const unscopedRoutingState = createUnscopedRemoteExecutionRoutingState();
+
+  assert.equal(
+    dispatchUnscopedEvent(unscopedRoutingState, 'start', makeStartEvent('project-1', 'root-accepted')),
+    true,
+  );
+  assert.equal(
+    dispatchUnscopedEvent(unscopedRoutingState, 'graphFinish', makeGraphFinishEvent('root-accepted')),
+    true,
+  );
+  assert.equal(dispatchUnscopedEvent(unscopedRoutingState, 'done', { results: {} }), true);
+  assert.equal(
+    dispatchUnscopedEvent(unscopedRoutingState, 'start', makeStartEvent('project-2', 'root-ignored')),
+    false,
+  );
+  assert.equal(
+    dispatchUnscopedEvent(unscopedRoutingState, 'nodeFinish', makeNodeFinishEvent('root-accepted')),
+    true,
+  );
+});
+
+test('shouldDispatchRemoteExecutionEvent keeps late ignored events ignored after terminal completion', () => {
+  const unscopedRoutingState = createUnscopedRemoteExecutionRoutingState();
+
+  assert.equal(
+    dispatchUnscopedEvent(unscopedRoutingState, 'start', makeStartEvent('project-2', 'root-ignored')),
+    false,
+  );
+  assert.equal(
+    dispatchUnscopedEvent(unscopedRoutingState, 'graphFinish', makeGraphFinishEvent('root-ignored')),
+    false,
+  );
+  assert.equal(dispatchUnscopedEvent(unscopedRoutingState, 'done', { results: {} }), false);
+  assert.equal(
+    dispatchUnscopedEvent(unscopedRoutingState, 'start', makeStartEvent('project-1', 'root-accepted')),
+    true,
+  );
+  assert.equal(
+    dispatchUnscopedEvent(unscopedRoutingState, 'nodeFinish', makeNodeFinishEvent('root-ignored')),
+    false,
+  );
+});
+
+test('shouldDispatchRemoteExecutionEvent does not leak duplicate root graph completions to later terminal frames', () => {
+  const unscopedRoutingState = createUnscopedRemoteExecutionRoutingState();
+
+  assert.equal(
+    dispatchUnscopedEvent(unscopedRoutingState, 'start', makeStartEvent('project-1', 'root-accepted')),
+    true,
+  );
+  assert.equal(
+    dispatchUnscopedEvent(unscopedRoutingState, 'graphFinish', makeGraphFinishEvent('root-accepted')),
+    true,
+  );
+  assert.equal(
+    dispatchUnscopedEvent(unscopedRoutingState, 'graphFinish', makeGraphFinishEvent('root-accepted')),
+    true,
+  );
+  assert.equal(dispatchUnscopedEvent(unscopedRoutingState, 'done', { results: {} }), true);
+
+  assert.equal(
+    dispatchUnscopedEvent(unscopedRoutingState, 'start', makeStartEvent('project-2', 'root-ignored')),
+    false,
+  );
+  assert.equal(
+    dispatchUnscopedEvent(unscopedRoutingState, 'graphFinish', makeGraphFinishEvent('root-ignored')),
+    false,
+  );
+  assert.equal(dispatchUnscopedEvent(unscopedRoutingState, 'done', { results: {} }), false);
 });
 
 test('shouldDispatchRemoteExecutionEvent keeps accepted terminal events after an ignored run starts', () => {

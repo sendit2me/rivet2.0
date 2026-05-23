@@ -11,6 +11,7 @@ import {
 } from '@valerypopoff/rivet2-core';
 import type { RunDataByNodeId } from '../state/dataFlow.js';
 import {
+  appendRootRunIdOnce,
   MISSING_DEBUGGER_TERMINAL_EVENT_WARNING,
   reconcileRunningProcessesAfterSuccessfulDone,
   removeRunningGraphEntry,
@@ -20,6 +21,16 @@ test('removeRunningGraphEntry removes one matching graph entry', () => {
   assert.deepEqual(removeRunningGraphEntry(['a' as GraphId, 'b' as GraphId, 'a' as GraphId], 'a' as GraphId), [
     'b',
     'a',
+  ]);
+});
+
+test('appendRootRunIdOnce keeps one reconciliation entry per root run', () => {
+  const rootRuns = ['root-1' as RootRunId];
+
+  assert.equal(appendRootRunIdOnce(rootRuns, 'root-1' as RootRunId), rootRuns);
+  assert.deepEqual(appendRootRunIdOnce(rootRuns, 'root-2' as RootRunId), [
+    'root-1' as RootRunId,
+    'root-2' as RootRunId,
   ]);
 });
 

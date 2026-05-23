@@ -286,13 +286,22 @@ different open project are ignored, and the root-run decision is remembered for
 the follow-up node/graph events. Root graph completion also carries that
 decision forward to the following unscoped terminal frame (`done`, `abort`, or
 top-level `error`), because those legacy terminal frames do not include
-execution metadata themselves. Events from older transports that do not carry a
-project id keep the compatibility fallback and still pass through. `done`,
-`abort`, `error`, disconnect, and send-failure paths clear the active request
-explicitly. Trivet/test runs use the executor-session pending-promise API and
-reject that pending request if the `run` send fails before reaching the socket,
-so the failure is observed through the same async result path as normal remote
-test-run completion.
+execution metadata themselves. The remembered root-run route stays active until
+that terminal frame is consumed, so late node terminal messages for the accepted
+root are not rerouted just because another external-debugger project started
+between root `graphFinish` and `done`. A bounded recently-completed route cache
+keeps the same decision briefly after terminal completion too, so a late node
+terminal frame can still repair display state without being routed through a
+newer project run. Duplicate root graph terminal frames are deduped for both
+route decisions and successful-`done` reconciliation, because only one legacy
+terminal frame can correspond to a root run. Events from older transports that
+do not carry a project id keep the compatibility fallback and still pass
+through. `done`, `abort`, `error`, disconnect, and send-failure paths clear the
+active request explicitly.
+Trivet/test runs use the executor-session pending-promise API and reject that
+pending request if the `run` send fails before reaching the socket, so the
+failure is observed through the same async result path as normal remote test-run
+completion.
 
 Inside the shared session runtime, request ownership is split by transport
 policy. `executorSession.ts` coordinates socket generations, state transitions,
@@ -414,6 +423,15 @@ Each `ProcessDataForNode` contains:
 
 Data is keyed by `processId` within the node's array. A node can have multiple
 entries from different graph runs or split-run iterations.
+For one `processId`, terminal node updates (`nodeFinish`, `nodeError`,
+`nodeExcluded`, or interruption) are one-way. `setDataForNode` may still merge
+late input/debug data from a `nodeStart` frame, but it must not let that stale
+start frame put the process back into `running`, replace terminal outputs, or
+move terminal timing fields forward. This protects Remote Debugger and
+recording playback display from transport or replay ordering quirks without
+changing runtime graph execution.
+Running updates are normalized before storage so a malformed running frame cannot
+write output refs before the terminal merge guard discards those output fields.
 
 Most nodes leave `debugData` empty. The current notable exceptions are app-side
 presentation/debug affordances: `Code (legacy)` and `Code` snapshot `codeSource` so
