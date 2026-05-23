@@ -450,6 +450,12 @@ If an accepted Remote Debugger `nodeError` carries an abort-like error such as
 separate unexpected-abort diagnostic immediately. That report uses the same
 bounded trace and lifecycle ledger, but it points debugging at runtime
 cancellation propagation rather than websocket event loss.
+Accepted `nodeExcluded` frames can also be diagnostic. When the exclusion reason
+is `Graph aborted successfully`, `Race branch lost`, `input is excluded value`,
+or the excluded node is a Code/Expression/Subgraph node, the app prints a
+`Node excluded` report with the exclusion reason and the same trace context. That
+keeps control-flow/exclusion failures visible even when the terminal event was
+received cleanly and there is no missing-terminal warning.
 
 Subgraph event forwarding is deliberately longer-lived than subgraph graph
 completion. [`SubprocessorBridge.ts`](../packages/core/src/model/SubprocessorBridge.ts)
@@ -459,12 +465,22 @@ aborted branches just after their own `graphFinish`. Without that, an ordinary
 node such as Expression, or a nested Subgraph node, can start, the child graph
 can complete through a successful early-exit path, and the parent Remote Debugger
 stream can miss the aborted branch's terminal event.
-These successful cancellations are reported as `nodeExcluded`, not as `nodeError`,
-because the graph already has a valid successful terminal path. `Abort Graph`
-successful early exits use reason `Graph aborted successfully`; `Race Inputs`
-losing branches use reason `Race branch lost`. Nested subprocessors receive the
-same internal successful-abort reason so an aborted Expression inside a leaf
-Subgraph also clears as excluded instead of rendering as a false workflow error.
+If an already-started node produces outputs after a successful non-race abort,
+the core emits its normal `nodeFinish` so the editor can show the value, but that
+late finish does not queue dependents because the graph is already terminal.
+If an already-started node is actually interrupted by that successful abort, its
+`nodeExcluded` terminal also does not queue dependents because there is no
+longer a live graph path to continue.
+Parallel and sequential split-run nodes also check the shared abort state before
+processing each item, so a successful graph abort cannot launch additional split
+work after the terminal path has already been chosen.
+Work that is actually interrupted is reported as `nodeExcluded`, not as
+`nodeError`, because the graph already has a valid successful terminal path.
+`Abort Graph` successful early exits use reason `Graph aborted successfully`;
+`Race Inputs` losing branches use reason `Race branch lost`. Nested
+subprocessors receive the same internal successful-abort reason so an aborted
+Expression inside a leaf Subgraph clears as excluded instead of rendering as a
+false workflow error.
 Control listeners, including parent/child pause, resume, and abort wiring, still
 clean up at the subprocessor's own graph terminal event; only passive event
 forwarding stays alive.

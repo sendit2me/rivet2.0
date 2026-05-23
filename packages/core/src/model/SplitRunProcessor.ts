@@ -9,6 +9,7 @@ import {
 import { type ChartNode, type PortId } from './NodeBase.js';
 import type { ProcessId } from './ProcessContext.js';
 import type { Inputs, Outputs } from './GraphProcessor.js';
+import { getGraphAbortReasonFromError, isAbortLikeError } from './GraphAbortReasons.js';
 import { getError } from '../utils/errors.js';
 import PQueue from '../utils/pQueueCompat.js';
 import { entries, fromEntries, values } from '../utils/typeSafety.js';
@@ -35,6 +36,7 @@ export type SplitRunDeps = {
     splitRunDurationMs?: Record<number, number>,
   ): Promise<void>;
   isAborted(): boolean;
+  getAbortError(): Error;
   emit(event: 'nodeStart', data: { node: ChartNode; inputs: Inputs; processId: ProcessId }): Promise<void> | void;
   emit(
     event: 'nodeFinish',
@@ -104,6 +106,10 @@ export async function processSplitRunNode(
     if (errors.length === 1) {
       throw errors[0]!;
     } else if (errors.length > 0) {
+      if (deps.isAborted() && errors.every(isGraphAbortOrAbortLikeError)) {
+        throw deps.getAbortError();
+      }
+
       throw new AggregateError(errors);
     }
 
@@ -139,7 +145,7 @@ async function runSequential(
 
   for (let i = 0; i < splittingAmount; i++) {
     if (deps.isAborted()) {
-      throw new Error('Processing aborted');
+      throw deps.getAbortError();
     }
 
     const inputs = splitInputsAtIndex(inputValues, i);
@@ -172,10 +178,14 @@ async function runParallel(
   return Promise.all(
     range(0, splittingAmount).map(async (i: number) => {
       const result = await queue.add(async () => {
-        const inputs = splitInputsAtIndex(inputValues, i);
         const splitTimingStart = deps.startNodeTiming?.();
 
         try {
+          if (deps.isAborted()) {
+            throw deps.getAbortError();
+          }
+
+          const inputs = splitInputsAtIndex(inputValues, i);
           const output = await deps.processNodeWithInputData(node, inputs, i, processId, (n, partialOutputs, index) => {
             deps.emit('partialOutput', { node: n, outputs: partialOutputs, index, processId });
           });
@@ -233,4 +243,8 @@ function getSplitRunDurationMs(results: SplitResult[]): Record<number, number> |
   }
 
   return Object.keys(durations).length > 0 ? durations : undefined;
+}
+
+function isGraphAbortOrAbortLikeError(error: Error): boolean {
+  return getGraphAbortReasonFromError(error) != null || isAbortLikeError(error);
 }

@@ -56,6 +56,7 @@ import {
 import {
   createRemoteDebuggerDiagnostics,
   isAbortLikeRemoteDebuggerNodeError,
+  shouldLogRemoteDebuggerNodeExcluded,
   summarizeRemoteDebuggerEvent,
   summarizeRemoteDebuggerRoutingState,
 } from './remoteDebuggerDiagnostics.js';
@@ -262,6 +263,9 @@ export function useRemoteExecutor() {
         case 'nodeExcluded':
           if (shouldDispatchExecutionEvent) {
             eventDispatcher.nodeExcluded(data);
+            if (eventSummary && shouldLogRemoteDebuggerNodeExcluded(eventSummary)) {
+              remoteDebuggerDiagnosticsRef.current.logNodeExcluded(eventSummary);
+            }
           }
           break;
       }

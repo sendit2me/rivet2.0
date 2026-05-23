@@ -45,6 +45,7 @@ export type RemoteDebuggerEventSummary = {
   graphRunId?: GraphRunId;
   inputPorts?: string[];
   nodeId?: NodeId;
+  nodeExcludedReason?: string;
   nodeType?: string;
   outputPorts?: string[];
   parentGraphRunId?: GraphRunId;
@@ -92,8 +93,22 @@ type UnexpectedAbortNodeErrorDiagnosticDetails = {
   triggerStack: string | undefined;
 };
 
+type NodeExcludedDiagnosticDetails = {
+  diagnosisHints: string[];
+  event: RemoteDebuggerEventSummary;
+  lifecycleSummaries: FormattedProcessLifecycle[];
+  matchingProcessTrace: FormattedTraceEntry[];
+  recentTraceEntryCount: number;
+  recentTraceTail: FormattedTraceEntry[];
+  relatedLifecycleSummaries: FormattedProcessLifecycle[];
+  relatedProcessTrace: FormattedTraceEntry[];
+  rootRunTrace: FormattedTraceEntry[];
+  triggerStack: string | undefined;
+};
+
 export type RemoteDebuggerDiagnostics = {
   logMissingTerminalEvent: (event: MissingDebuggerTerminalEvent) => void;
+  logNodeExcluded: (event: RemoteDebuggerEventSummary) => void;
   logUnexpectedAbortNodeError: (event: RemoteDebuggerEventSummary) => void;
   recordEvent: (entry: Omit<RemoteDebuggerTraceEntry, 'sequence' | 'timestamp'>) => void;
   reset: () => void;
@@ -154,6 +169,47 @@ export function createRemoteDebuggerDiagnostics(options: {
       );
       diagnosticsConsole.groupCollapsed?.(`${heading} details`, event);
       diagnosticsConsole.log('Remote Debugger diagnostic details', diagnosticDetails);
+      diagnosticsConsole.table?.(diagnosticDetails.lifecycleSummaries);
+      diagnosticsConsole.table?.(diagnosticDetails.matchingProcessTrace);
+      diagnosticsConsole.table?.(diagnosticDetails.relatedProcessTrace);
+      diagnosticsConsole.table?.(diagnosticDetails.rootRunTrace);
+      diagnosticsConsole.table?.(diagnosticDetails.recentTraceTail);
+      diagnosticsConsole.log('Matching process trace entries', matchingProcessTrace);
+      diagnosticsConsole.log('Related same-node/process trace entries', relatedProcessTrace);
+      diagnosticsConsole.log('Matching root run trace entries', rootRunTrace);
+      diagnosticsConsole.log('Remote Debugger process lifecycle summaries', lifecycleSummaries);
+      diagnosticsConsole.log('Recent Remote Debugger trace tail', recentTraceTail);
+      diagnosticsConsole.groupEnd?.();
+    },
+    logNodeExcluded: (event) => {
+      const recentTrace = traceEntries.slice(-maxTraceEntries);
+      const matchingProcessTrace = filterTraceForProcess(recentTrace, event).slice(-MAX_MISSING_PROCESS_TRACE_ENTRIES);
+      const rootRunTrace = event.rootRunId
+        ? recentTrace.filter((entry) => entry.event.rootRunId === event.rootRunId).slice(-MAX_ROOT_RUN_TRACE_ENTRIES)
+        : [];
+      const relatedProcessTrace = filterTraceForRelatedProcess(recentTrace, event).slice(
+        -MAX_MISSING_PROCESS_TRACE_ENTRIES,
+      );
+      const lifecycleSummaries = findProcessLifecycleSummaries(processLifecycles, event);
+      const relatedLifecycleSummaries = findRelatedProcessLifecycleSummaries(processLifecycles, event);
+      const recentTraceTail = recentTrace.slice(-MAX_VISIBLE_RECENT_TRACE_ROWS);
+      const heading = '[Remote Debugger diagnostics] Node excluded';
+      const diagnosticDetails: NodeExcludedDiagnosticDetails = {
+        diagnosisHints: buildNodeExcludedDiagnosisHints(event),
+        event,
+        lifecycleSummaries: lifecycleSummaries.map(formatProcessLifecycleForTable),
+        matchingProcessTrace: matchingProcessTrace.map(formatTraceEntryForTable),
+        recentTraceEntryCount: recentTrace.length,
+        recentTraceTail: recentTraceTail.map(formatTraceEntryForTable),
+        relatedLifecycleSummaries: relatedLifecycleSummaries.map(formatProcessLifecycleForTable),
+        relatedProcessTrace: relatedProcessTrace.map(formatTraceEntryForTable),
+        rootRunTrace: rootRunTrace.map(formatTraceEntryForTable),
+        triggerStack: getTriggerStack(heading),
+      };
+
+      diagnosticsConsole.warn(`${heading}\n${formatNodeExcludedDiagnosticReport(diagnosticDetails)}`, diagnosticDetails);
+      diagnosticsConsole.groupCollapsed?.(`${heading} details`, event);
+      diagnosticsConsole.log('Remote Debugger nodeExcluded diagnostic details', diagnosticDetails);
       diagnosticsConsole.table?.(diagnosticDetails.lifecycleSummaries);
       diagnosticsConsole.table?.(diagnosticDetails.matchingProcessTrace);
       diagnosticsConsole.table?.(diagnosticDetails.relatedProcessTrace);
@@ -244,6 +300,7 @@ export function summarizeRemoteDebuggerEvent<K extends keyof ProcessEventMessage
   const project = isRecord(record?.project) ? record.project : undefined;
   const projectMetadata = isRecord(project?.metadata) ? project.metadata : undefined;
   const error = record?.error === undefined ? undefined : formatErrorSummary(record.error);
+  const nodeExcludedReason = readString(record?.reason);
 
   return {
     ...(error === undefined ? {} : { error }),
@@ -251,6 +308,7 @@ export function summarizeRemoteDebuggerEvent<K extends keyof ProcessEventMessage
     graphRunId: readString(execution?.graphRunId) as GraphRunId | undefined,
     inputPorts: summarizePortIds(record?.inputs),
     nodeId: readString(node?.id) as NodeId | undefined,
+    ...(nodeExcludedReason === undefined ? {} : { nodeExcludedReason }),
     nodeType: readString(node?.type),
     outputPorts: summarizePortIds(record?.outputs),
     parentGraphRunId: readString(execution?.parentGraphRunId) as GraphRunId | undefined,
@@ -264,6 +322,23 @@ export function summarizeRemoteDebuggerEvent<K extends keyof ProcessEventMessage
 export function isAbortLikeRemoteDebuggerNodeError(data: unknown): boolean {
   const record = isRecord(data) ? data : undefined;
   return isAbortLikeErrorMessage(formatErrorSummary(record?.error));
+}
+
+export function shouldLogRemoteDebuggerNodeExcluded(data: unknown): boolean {
+  const record = isRecord(data) ? data : undefined;
+  const node = isRecord(record?.node) ? record.node : undefined;
+  const nodeType = readString(node?.type) ?? readString(record?.nodeType);
+  const reason = readString(record?.reason) ?? readString(record?.nodeExcludedReason);
+
+  return (
+    reason === 'Graph aborted successfully' ||
+    reason === 'Race branch lost' ||
+    reason === 'input is excluded value' ||
+    nodeType === 'expression' ||
+    nodeType === 'code' ||
+    nodeType === 'codeNew' ||
+    nodeType === 'subGraph'
+  );
 }
 
 export function summarizeRemoteDebuggerRoutingState(
@@ -294,6 +369,7 @@ function formatTraceEntryForTable(entry: RemoteDebuggerTraceEntry) {
     graphRunId: entry.event.graphRunId ?? '',
     parentGraphRunId: entry.event.parentGraphRunId ?? '',
     nodeId: entry.event.nodeId ?? '',
+    nodeExcludedReason: entry.event.nodeExcludedReason ?? '',
     nodeType: entry.event.nodeType ?? '',
     processId: entry.event.processId ?? '',
     splitIndex: entry.event.splitIndex ?? '',
@@ -541,6 +617,50 @@ function formatUnexpectedAbortNodeErrorReport(details: UnexpectedAbortNodeErrorD
   ].join('\n');
 }
 
+function formatNodeExcludedDiagnosticReport(details: NodeExcludedDiagnosticDetails): string {
+  return [
+    `event: ${formatRemoteDebuggerEvent(details.event)}`,
+    `hints: ${details.diagnosisHints.join(' | ')}`,
+    `counts: exactLifecycle=${details.lifecycleSummaries.length}, relatedLifecycle=${details.relatedLifecycleSummaries.length}, exactProcessTrace=${details.matchingProcessTrace.length}, relatedProcessTrace=${details.relatedProcessTrace.length}, rootRunTrace=${details.rootRunTrace.length}, recentTrace=${details.recentTraceEntryCount}`,
+    formatRowsForReport('exact lifecycle', details.lifecycleSummaries, formatLifecycleReportRow),
+    formatRowsForReport('related same-node/process lifecycle', details.relatedLifecycleSummaries, formatLifecycleReportRow),
+    formatRowsForReport('exact process trace', details.matchingProcessTrace, formatTraceReportRow),
+    formatRowsForReport('related same-node/process trace', details.relatedProcessTrace, formatTraceReportRow),
+    formatRowsForReport('root-run trace tail', details.rootRunTrace, formatTraceReportRow),
+    formatRowsForReport('recent trace tail', details.recentTraceTail, formatTraceReportRow),
+  ].join('\n');
+}
+
+function buildNodeExcludedDiagnosisHints(event: RemoteDebuggerEventSummary): string[] {
+  const reason = event.nodeExcludedReason ?? '<missing>';
+
+  if (reason === 'Graph aborted successfully') {
+    return [
+      'A nodeExcluded terminal was observed and dispatched because this process was canceled by a successful graph abort.',
+      'Compare the parentGraphRunId against nearby graphAbort, graphFinish, nodeFinish, and done events to find which graph aborted this branch.',
+    ];
+  }
+
+  if (reason === 'Race branch lost') {
+    return [
+      'A nodeExcluded terminal was observed and dispatched because this process belonged to a losing race branch.',
+      'If the workflow has no Race Inputs nodes, inspect the root-run trace for stale or unexpected race metadata propagation.',
+    ];
+  }
+
+  if (reason === 'input is excluded value') {
+    return [
+      'A nodeExcluded terminal was observed and dispatched because at least one input was already control-flow-excluded.',
+      'The cause is usually an upstream not-ran node; inspect the same graphRunId trace immediately before this event.',
+    ];
+  }
+
+  return [
+    `A nodeExcluded terminal was observed and dispatched with reason "${reason}".`,
+    'This is not websocket event loss; inspect upstream control-flow, missing inputs, disabled nodes, and graph-run selection.',
+  ];
+}
+
 function formatRowsForReport<T>(label: string, rows: T[], formatRow: (row: T) => string): string {
   if (rows.length === 0) {
     return `${label}: <none>`;
@@ -554,7 +674,7 @@ function formatMissingEvent(event: MissingDebuggerTerminalEvent): string {
 }
 
 function formatRemoteDebuggerEvent(
-  event: ProcessDiagnosticLookup & { graphId?: string; nodeType?: string },
+  event: ProcessDiagnosticLookup & { graphId?: string; nodeExcludedReason?: string; nodeType?: string },
 ): string {
   const parts = [
     `rootRunId=${event.rootRunId ?? '<missing>'}`,
@@ -566,6 +686,9 @@ function formatRemoteDebuggerEvent(
   ];
   if (event.error) {
     parts.push(`error=${event.error}`);
+  }
+  if ('nodeExcludedReason' in event && event.nodeExcludedReason) {
+    parts.push(`excludedReason=${event.nodeExcludedReason}`);
   }
 
   return parts.join(' ');
@@ -603,6 +726,9 @@ function formatTraceReportRow(row: FormattedTraceEntry): string {
     `type=${row.nodeType || '<missing>'}`,
     `outputs=[${row.outputPorts || '<none>'}]`,
   ];
+  if (row.nodeExcludedReason) {
+    parts.push(`excludedReason=${row.nodeExcludedReason}`);
+  }
   if (row.error) {
     parts.push(`error=${row.error}`);
   }

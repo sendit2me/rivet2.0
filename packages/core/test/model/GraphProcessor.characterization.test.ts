@@ -37,6 +37,7 @@ type CharacterizationNodeData = {
     value: ScalarOrArrayDataValue;
   };
   waitForGlobal?: string;
+  waitForEvent?: string;
   successfulAbortGraph?: boolean;
 };
 
@@ -112,6 +113,11 @@ class CharacterizationNodeImpl extends NodeImpl<CharacterizationNode> {
       return { output: value };
     }
 
+    if (this.data.waitForEvent) {
+      const value = await context.waitEvent(this.data.waitForEvent);
+      return { output: value ?? { type: 'string', value: 'event did not provide data' } };
+    }
+
     if (this.data.successfulAbortGraph) {
       context.abortGraph();
     }
@@ -151,10 +157,10 @@ function makeGraphOutputNode(id = 'result'): ChartNode {
   };
 }
 
-function connect(outputNodeId: string, inputNodeId: string, inputId = 'input'): NodeConnection {
+function connect(outputNodeId: string, inputNodeId: string, inputId = 'input', outputId = 'output'): NodeConnection {
   return {
     outputNodeId: outputNodeId as NodeId,
-    outputId: 'output' as PortId,
+    outputId: outputId as PortId,
     inputNodeId: inputNodeId as NodeId,
     inputId: inputId as PortId,
   };
@@ -970,7 +976,7 @@ void describe('GraphProcessor characterization', () => {
     }
   });
 
-  void it('propagates successful graph aborts into active leaf subgraphs without node errors', async () => {
+  void it('lets active leaf subgraph nodes finish after successful graph abort without queueing dependents', async () => {
     const slowChildProbe = makeProbeNode('slow-child-probe', {
       delayMs: 50,
       value: { type: 'string', value: 'slow' },
@@ -996,22 +1002,105 @@ void describe('GraphProcessor characterization', () => {
       delayMs: 5,
       successfulAbortGraph: true,
     });
-    const graph = makeGraph([leafSubgraphNode, abortNode], [], 'successful-abort-root' as GraphId);
+    const downstreamAfterLeaf = makeProbeNode('downstream-after-leaf');
+    const graph = makeGraph(
+      [leafSubgraphNode, abortNode, downstreamAfterLeaf],
+      [connect(leafSubgraphNode.id, downstreamAfterLeaf.id, 'input', 'slowChildResult')],
+      'successful-abort-root' as GraphId,
+    );
     const processor = createProcessor(graph, [slowChildGraph]);
     const nodeErrorIds: NodeId[] = [];
     const nodeExcludedById = new Map<NodeId, ProcessEvents['nodeExcluded']>();
+    const nodeFinishIds: NodeId[] = [];
 
     processor.on('nodeError', ({ node }) => nodeErrorIds.push(node.id));
     processor.on('nodeExcluded', (event) => {
       nodeExcludedById.set(event.node.id, event);
     });
+    processor.on('nodeFinish', ({ node }) => nodeFinishIds.push(node.id));
 
     await withTimeout(processor.processGraph(testProcessContext()), 'successful abort with leaf subgraph');
 
-    for (const nodeId of [leafSubgraphNode.id, slowChildProbe.id, slowChildOutput.id]) {
-      assert.equal(nodeErrorIds.includes(nodeId), false);
-      assert.equal(nodeExcludedById.get(nodeId)?.reason, 'Graph aborted successfully');
+    assert.equal(nodeErrorIds.includes(leafSubgraphNode.id), false);
+    assert.equal(nodeErrorIds.includes(slowChildProbe.id), false);
+    assert.equal(nodeExcludedById.has(leafSubgraphNode.id), false);
+    assert.equal(nodeExcludedById.has(slowChildProbe.id), false);
+    assert.equal(nodeFinishIds.includes(leafSubgraphNode.id), true);
+    assert.equal(nodeFinishIds.includes(slowChildProbe.id), true);
+    assert.equal(nodeFinishIds.includes(slowChildOutput.id), false);
+    assert.equal(nodeFinishIds.includes(downstreamAfterLeaf.id), false);
+  });
+
+  void it('does not queue dependents from nodes interrupted by successful graph abort', async () => {
+    const waitingNode = makeProbeNode('waiting-node', {
+      waitForEvent: 'never-raised',
+    });
+    const abortNode = makeProbeNode('successful-abort-node', {
+      delayMs: 5,
+      successfulAbortGraph: true,
+    });
+    const downstreamNode = makeProbeNode('downstream-after-waiting-node');
+    const graph = makeGraph(
+      [waitingNode, abortNode, downstreamNode],
+      [connect(waitingNode.id, downstreamNode.id)],
+      'successful-abort-interrupted-node' as GraphId,
+    );
+    const processor = createProcessor(graph);
+    const terminalEventsById = new Map<NodeId, string[]>();
+
+    for (const eventName of ['nodeStart', 'nodeFinish', 'nodeError', 'nodeExcluded'] as const) {
+      processor.on(eventName, ({ node }) => {
+        terminalEventsById.set(node.id, [...(terminalEventsById.get(node.id) ?? []), eventName]);
+      });
     }
+
+    await withTimeout(processor.processGraph(testProcessContext()), 'successful abort with interrupted node');
+
+    assert.deepEqual(terminalEventsById.get(waitingNode.id), ['nodeStart', 'nodeExcluded']);
+    assert.deepEqual(terminalEventsById.get(downstreamNode.id), undefined);
+  });
+
+  void it('does not process queued parallel split-run items after successful graph abort', async () => {
+    const inputNode = makeProbeNode('split-input', {
+      value: { type: 'string[]', value: ['a', 'b', 'c', 'd', 'e'] },
+    });
+    const splitNode = makeProbeNode('parallel-split-node', {
+      delayMs: 30,
+    });
+    splitNode.isSplitRun = true;
+    splitNode.isSplitSequential = false;
+    splitNode.splitRunMax = 5;
+    splitNode.splitRunConcurrency = 2;
+    const abortNode = makeProbeNode('successful-abort-node', {
+      delayMs: 5,
+      successfulAbortGraph: true,
+    });
+    const graph = makeGraph(
+      [inputNode, splitNode, abortNode],
+      [connect(inputNode.id, splitNode.id)],
+      'successful-abort-split-run' as GraphId,
+    );
+    const processor = createProcessor(graph);
+    const splitNodeExcluded = new Promise<ProcessEvents['nodeExcluded']>((resolve) => {
+      processor.on('nodeExcluded', (event) => {
+        if (event.node.id === splitNode.id) {
+          resolve(event);
+        }
+      });
+    });
+    const splitNodeFinishIds: NodeId[] = [];
+
+    processor.on('nodeFinish', ({ node }) => {
+      if (node.id === splitNode.id) {
+        splitNodeFinishIds.push(node.id);
+      }
+    });
+
+    await withTimeout(processor.processGraph(testProcessContext()), 'successful abort with parallel split-run');
+    const excludedEvent = await withTimeout(splitNodeExcluded, 'parallel split-run successful-abort exclusion');
+
+    assert.equal(excludedEvent.reason, 'Graph aborted successfully');
+    assert.deepEqual(splitNodeFinishIds, []);
   });
 
   void it('does not abort active non-race nodes whose ids share a race loser prefix', async () => {
