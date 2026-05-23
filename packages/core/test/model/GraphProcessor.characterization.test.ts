@@ -836,6 +836,127 @@ void describe('GraphProcessor characterization', () => {
     assert.equal(nodeErrors.includes(slowNode.id), true);
   });
 
+  void it('forwards late terminal events from race-loser nodes inside subgraphs', async () => {
+    const slowChildProbe = makeProbeNode('slow-child-probe', {
+      delayMs: 50,
+      value: { type: 'string', value: 'slow' },
+    });
+    const slowChildOutput = makeGraphOutputNode('slowChildResult');
+    const slowChildGraph = makeGraph(
+      [slowChildProbe, slowChildOutput],
+      [connect(slowChildProbe.id, slowChildOutput.id, 'value')],
+      'slow-child-graph' as GraphId,
+    );
+    const slowSubgraphNode: ChartNode = {
+      id: 'slow-subgraph-node' as NodeId,
+      type: 'subGraph',
+      title: 'Slow Subgraph',
+      data: {
+        graphId: slowChildGraph.metadata!.id,
+        useErrorOutput: false,
+        useAsGraphPartialOutput: false,
+      },
+      visualData: { x: 0, y: 0, width: 240 },
+    };
+    const slowDirectNode = makeProbeNode('slow-direct-node', {
+      delayMs: 50,
+      value: { type: 'string', value: 'slow direct' },
+    });
+    const fastNode = makeProbeNode('fast-node', {
+      value: { type: 'string', value: 'fast' },
+    });
+    const raceNode: ChartNode = {
+      id: 'race-node' as NodeId,
+      type: 'raceInputs',
+      title: 'Race Inputs',
+      data: {},
+      visualData: { x: 250, y: 0, width: 240 },
+    };
+    const raceOutput = makeGraphOutputNode('raceResult');
+    const raceGraph = makeGraph(
+      [slowSubgraphNode, slowDirectNode, fastNode, raceNode, raceOutput],
+      [
+        {
+          outputNodeId: slowSubgraphNode.id,
+          outputId: 'slowChildResult' as PortId,
+          inputNodeId: raceNode.id,
+          inputId: 'input1' as PortId,
+        },
+        connect(slowDirectNode.id, raceNode.id, 'input2'),
+        connect(fastNode.id, raceNode.id, 'input3'),
+        {
+          outputNodeId: raceNode.id,
+          outputId: 'result' as PortId,
+          inputNodeId: raceOutput.id,
+          inputId: 'value' as PortId,
+        },
+      ],
+      'race-subgraph' as GraphId,
+    );
+    const rootSubgraphNode: ChartNode = {
+      id: 'root-subgraph-node' as NodeId,
+      type: 'subGraph',
+      title: 'Root Subgraph',
+      data: {
+        graphId: raceGraph.metadata!.id,
+        useErrorOutput: false,
+        useAsGraphPartialOutput: false,
+      },
+      visualData: { x: 0, y: 0, width: 240 },
+    };
+    const rootOutput = makeGraphOutputNode('rootResult');
+    const rootGraph = makeGraph(
+      [rootSubgraphNode, rootOutput],
+      [
+        {
+          outputNodeId: rootSubgraphNode.id,
+          outputId: 'raceResult' as PortId,
+          inputNodeId: rootOutput.id,
+          inputId: 'value' as PortId,
+        },
+      ],
+      'root-graph' as GraphId,
+    );
+    const processor = createProcessor(rootGraph, [raceGraph, slowChildGraph]);
+    const nodeErrorById = new Map<NodeId, ProcessEvents['nodeError']>();
+    const nodeErrorIds: NodeId[] = [];
+    const waitForNodeError = (nodeId: NodeId) =>
+      new Promise<ProcessEvents['nodeError']>((resolve) => {
+        processor.on('nodeError', (event) => {
+          if (event.node.id === nodeId) {
+            nodeErrorById.set(nodeId, event);
+            resolve(event);
+          }
+        });
+      });
+    const slowSubgraphErrored = waitForNodeError(slowSubgraphNode.id);
+    const slowDirectNodeErrored = waitForNodeError(slowDirectNode.id);
+
+    processor.on('nodeError', (event) => {
+      nodeErrorById.set(event.node.id, event);
+      nodeErrorIds.push(event.node.id);
+    });
+
+    const outputs = await withTimeout(processor.processGraph(testProcessContext()), 'nested race graph run');
+    const [slowSubgraphError, slowDirectNodeError] = await withTimeout(
+      Promise.all([slowSubgraphErrored, slowDirectNodeErrored]),
+      'late race loser nodeErrors',
+    );
+
+    assert.deepEqual(outputs.rootResult, { type: 'string', value: 'fast' });
+    assert.equal(slowSubgraphError.node.id, slowSubgraphNode.id);
+    assert.equal(slowDirectNodeError.node.id, slowDirectNode.id);
+    assert.match(slowSubgraphError.error.message, /failed to process/);
+    assert.match(slowDirectNodeError.error.message, /Aborted/);
+    assert.deepEqual(
+      [...nodeErrorById.keys()].sort(),
+      [slowChildProbe.id, slowDirectNode.id, slowSubgraphNode.id].sort(),
+    );
+    for (const nodeId of [slowChildProbe.id, slowDirectNode.id, slowSubgraphNode.id]) {
+      assert.equal(nodeErrorIds.filter((id) => id === nodeId).length, 1);
+    }
+  });
+
   void it('does not abort active non-race nodes whose ids share a race loser prefix', async () => {
     const slowNode = makeProbeNode('slow-node', {
       delayMs: 50,

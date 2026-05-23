@@ -196,7 +196,8 @@ Events from subprocessors bubble up through `wireSubprocessorEvents()` in
 
 - Child processor emits events with **its own** `GraphExecutionMetadata`.
 - `wireSubprocessorEvents` forwards those events to the parent's emitter **without rewriting metadata**.
-- Subprocessor event/lifecycle forwarding uses a run-scoped lifecycle subscription and only tears down when the forwarded processor's own `graphRunId` finishes, aborts, or errors. A nested child graph finishing must not clean up the parent subgraph bridge, because the parent still needs to forward the subgraph node's later `nodeFinish` and the parent graph's own finish event.
+- Passive child process-event forwarding stays subscribed for the subprocessor object lifetime. This keeps late terminal events from race-loser branches flowing even when they arrive after the child graph's own `graphFinish`.
+- Control lifecycle wiring, such as parent/child pause, resume, and abort listeners, uses a run-scoped lifecycle subscription and tears down when the forwarded processor's own `graphRunId` finishes, aborts, or errors. A nested child graph finishing must not clean up the parent subgraph bridge, because the parent still needs to forward the subgraph node's later `nodeFinish` and the parent graph's own finish event.
 - The app's event handlers see the original metadata and can determine the execution context.
 
 This means the root processor's event emitter receives events from the entire
@@ -444,6 +445,18 @@ group includes console tables plus raw trace entries. This gives hosted-wrapper
 investigations enough signal to tell whether the terminal event never arrived,
 arrived but was routed away, arrived under mismatched nested graph metadata, or
 arrived and was dispatched while state/display still stayed running.
+
+Subgraph event forwarding is deliberately longer-lived than subgraph graph
+completion. [`SubprocessorBridge.ts`](../packages/core/src/model/SubprocessorBridge.ts)
+keeps process-event forwarding subscribed for the lifetime of the subprocessor
+object because race-input graphs can emit node terminal events for aborted losing
+branches just after their own `graphFinish`. Without that, an ordinary losing
+node such as Expression, or a nested Subgraph node, can start, the child graph
+can complete through a winning branch, and the parent Remote Debugger stream can
+miss the losing branch's `nodeError`/terminal event.
+Control listeners, including parent/child pause, resume, and abort wiring, still
+clean up at the subprocessor's own graph terminal event; only passive event
+forwarding stays alive.
 
 Most nodes leave `debugData` empty. The current notable exceptions are app-side
 presentation/debug affordances: `Code (legacy)` and `Code` snapshot `codeSource` so
