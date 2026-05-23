@@ -407,6 +407,8 @@ Rivet publishes desktop download metadata through the Docusaurus GitHub Pages si
 
 The workflow filenames are historical, but the workflows are desktop release workflows. Each one builds Windows installers and a macOS disk image, then publishes both sets of aliases and original artifacts to the `/download` page.
 
+The platform and docs build jobs use `actions/checkout@v6` for the initial repository checkout. A failure in that step happens before any Rivet, Tauri, Rust, or Node build command runs. Treat `fatal: could not read Username for 'https://github.com': terminal prompts disabled` from this step as a GitHub repository checkout/authentication failure, not a macOS packaging failure. If the failing log fetches `origin/develop`, it is the developer release workflow; stable `main` runs fetch `origin/main`.
+
 Both workflows build only installer-style artifacts:
 
 - Windows jobs run `yarn tauri build --verbose --ci --bundles "msi,nsis"` from `packages/app`
@@ -486,7 +488,7 @@ The repository's GitHub Pages source must be configured for GitHub Actions deplo
 
 The developer deploy job uses the historically named `developer-windows-pages` environment instead of the default `github-pages` environment. Even though the workflow now publishes Windows and macOS desktop downloads, keeping the existing environment name avoids requiring a one-time GitHub environment migration. This keeps the develop-branch installer feed from being blocked by production-oriented `github-pages` environment protection rules, such as "only main can deploy." If the `developer-windows-pages` environment is later given branch restrictions, it must allow `develop`.
 
-The Pages release workflows use Node 24-compatible artifact action majors (`actions/upload-artifact@v7`, `actions/download-artifact@v7`, and `actions/upload-pages-artifact@v5`) and do not force Node 24 globally with `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24`. The build itself still uses Node `20.4.x`; that is the project toolchain, not the JavaScript runtime used by GitHub's actions.
+The Pages release workflows use Node 24-compatible action majors (`actions/checkout@v6`, `actions/upload-artifact@v7`, `actions/download-artifact@v7`, and `actions/upload-pages-artifact@v5`) and do not force Node 24 globally with `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24`. The build itself still uses Node `20.4.x`; that is the project toolchain, not the JavaScript runtime used by GitHub's actions.
 
 ### Secrets/environment
 

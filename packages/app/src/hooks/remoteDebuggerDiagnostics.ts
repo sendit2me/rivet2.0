@@ -40,6 +40,7 @@ export type RemoteDebuggerTraceEntry = {
 };
 
 export type RemoteDebuggerEventSummary = {
+  error?: string;
   graphId?: string;
   graphRunId?: GraphRunId;
   inputPorts?: string[];
@@ -78,8 +79,22 @@ type MissingTerminalDiagnosticDetails = {
   triggerStack: string | undefined;
 };
 
+type UnexpectedAbortNodeErrorDiagnosticDetails = {
+  diagnosisHints: string[];
+  event: RemoteDebuggerEventSummary;
+  lifecycleSummaries: FormattedProcessLifecycle[];
+  matchingProcessTrace: FormattedTraceEntry[];
+  recentTraceEntryCount: number;
+  recentTraceTail: FormattedTraceEntry[];
+  relatedLifecycleSummaries: FormattedProcessLifecycle[];
+  relatedProcessTrace: FormattedTraceEntry[];
+  rootRunTrace: FormattedTraceEntry[];
+  triggerStack: string | undefined;
+};
+
 export type RemoteDebuggerDiagnostics = {
   logMissingTerminalEvent: (event: MissingDebuggerTerminalEvent) => void;
+  logUnexpectedAbortNodeError: (event: RemoteDebuggerEventSummary) => void;
   recordEvent: (entry: Omit<RemoteDebuggerTraceEntry, 'sequence' | 'timestamp'>) => void;
   reset: () => void;
 };
@@ -151,6 +166,53 @@ export function createRemoteDebuggerDiagnostics(options: {
       diagnosticsConsole.log('Recent Remote Debugger trace tail', recentTraceTail);
       diagnosticsConsole.groupEnd?.();
     },
+    logUnexpectedAbortNodeError: (event) => {
+      const recentTrace = traceEntries.slice(-maxTraceEntries);
+      const matchingProcessTrace = filterTraceForProcess(recentTrace, event).slice(-MAX_MISSING_PROCESS_TRACE_ENTRIES);
+      const rootRunTrace = event.rootRunId
+        ? recentTrace.filter((entry) => entry.event.rootRunId === event.rootRunId).slice(-MAX_ROOT_RUN_TRACE_ENTRIES)
+        : [];
+      const relatedProcessTrace = filterTraceForRelatedProcess(recentTrace, event).slice(
+        -MAX_MISSING_PROCESS_TRACE_ENTRIES,
+      );
+      const lifecycleSummaries = findProcessLifecycleSummaries(processLifecycles, event);
+      const relatedLifecycleSummaries = findRelatedProcessLifecycleSummaries(processLifecycles, event);
+      const recentTraceTail = recentTrace.slice(-MAX_VISIBLE_RECENT_TRACE_ROWS);
+      const heading = '[Remote Debugger diagnostics] Unexpected aborted node error';
+      const diagnosticDetails: UnexpectedAbortNodeErrorDiagnosticDetails = {
+        diagnosisHints: [
+          'A nodeError with an abort-like message was observed and dispatched. This is not websocket event loss; inspect successful/error abort propagation and parent graph terminal events.',
+          'If this node should have finished normally, compare its graphRunId/parentGraphRunId against nearby graphAbort, graphFinish, and done events.',
+        ],
+        event,
+        lifecycleSummaries: lifecycleSummaries.map(formatProcessLifecycleForTable),
+        matchingProcessTrace: matchingProcessTrace.map(formatTraceEntryForTable),
+        recentTraceEntryCount: recentTrace.length,
+        recentTraceTail: recentTraceTail.map(formatTraceEntryForTable),
+        relatedLifecycleSummaries: relatedLifecycleSummaries.map(formatProcessLifecycleForTable),
+        relatedProcessTrace: relatedProcessTrace.map(formatTraceEntryForTable),
+        rootRunTrace: rootRunTrace.map(formatTraceEntryForTable),
+        triggerStack: getTriggerStack(heading),
+      };
+
+      diagnosticsConsole.warn(
+        `${heading}\n${formatUnexpectedAbortNodeErrorReport(diagnosticDetails)}`,
+        diagnosticDetails,
+      );
+      diagnosticsConsole.groupCollapsed?.(`${heading} details`, event);
+      diagnosticsConsole.log('Remote Debugger abort diagnostic details', diagnosticDetails);
+      diagnosticsConsole.table?.(diagnosticDetails.lifecycleSummaries);
+      diagnosticsConsole.table?.(diagnosticDetails.matchingProcessTrace);
+      diagnosticsConsole.table?.(diagnosticDetails.relatedProcessTrace);
+      diagnosticsConsole.table?.(diagnosticDetails.rootRunTrace);
+      diagnosticsConsole.table?.(diagnosticDetails.recentTraceTail);
+      diagnosticsConsole.log('Matching process trace entries', matchingProcessTrace);
+      diagnosticsConsole.log('Related same-node/process trace entries', relatedProcessTrace);
+      diagnosticsConsole.log('Matching root run trace entries', rootRunTrace);
+      diagnosticsConsole.log('Remote Debugger process lifecycle summaries', lifecycleSummaries);
+      diagnosticsConsole.log('Recent Remote Debugger trace tail', recentTraceTail);
+      diagnosticsConsole.groupEnd?.();
+    },
     recordEvent: (entry) => {
       const traceEntry: RemoteDebuggerTraceEntry = {
         ...entry,
@@ -181,8 +243,10 @@ export function summarizeRemoteDebuggerEvent<K extends keyof ProcessEventMessage
   const node = isRecord(record?.node) ? record.node : undefined;
   const project = isRecord(record?.project) ? record.project : undefined;
   const projectMetadata = isRecord(project?.metadata) ? project.metadata : undefined;
+  const error = record?.error === undefined ? undefined : formatErrorSummary(record.error);
 
   return {
+    ...(error === undefined ? {} : { error }),
     graphId: readString(record?.graphId) ?? readString(execution?.graphId),
     graphRunId: readString(execution?.graphRunId) as GraphRunId | undefined,
     inputPorts: summarizePortIds(record?.inputs),
@@ -195,6 +259,11 @@ export function summarizeRemoteDebuggerEvent<K extends keyof ProcessEventMessage
     rootRunId: readString(execution?.rootRunId) as RootRunId | undefined,
     splitIndex: typeof record?.index === 'number' ? record.index : undefined,
   };
+}
+
+export function isAbortLikeRemoteDebuggerNodeError(data: unknown): boolean {
+  const record = isRecord(data) ? data : undefined;
+  return isAbortLikeErrorMessage(formatErrorSummary(record?.error));
 }
 
 export function summarizeRemoteDebuggerRoutingState(
@@ -213,6 +282,7 @@ export function summarizeRemoteDebuggerRoutingState(
 
 function formatTraceEntryForTable(entry: RemoteDebuggerTraceEntry) {
   return {
+    error: entry.event.error ?? '',
     seq: entry.sequence,
     time: entry.timestamp,
     message: entry.message,
@@ -317,10 +387,14 @@ function updateProcessLifecycleSummaries(
   }
 }
 
-function filterTraceForMissingProcess(
+function filterTraceForProcess(
   traceEntries: RemoteDebuggerTraceEntry[],
-  event: MissingDebuggerTerminalEvent,
+  event: ProcessDiagnosticLookup,
 ): RemoteDebuggerTraceEntry[] {
+  if (!hasProcessIdentity(event)) {
+    return [];
+  }
+
   return traceEntries.filter((entry) => {
     const sameProcess = entry.event.processId === event.processId;
     const sameNode = entry.event.nodeId === event.nodeId;
@@ -332,17 +406,32 @@ function filterTraceForMissingProcess(
   });
 }
 
-function filterTraceForRelatedProcess(
+function filterTraceForMissingProcess(
   traceEntries: RemoteDebuggerTraceEntry[],
   event: MissingDebuggerTerminalEvent,
 ): RemoteDebuggerTraceEntry[] {
+  return filterTraceForProcess(traceEntries, event);
+}
+
+function filterTraceForRelatedProcess(
+  traceEntries: RemoteDebuggerTraceEntry[],
+  event: ProcessDiagnosticLookup,
+): RemoteDebuggerTraceEntry[] {
+  if (!hasProcessIdentity(event)) {
+    return [];
+  }
+
   return traceEntries.filter((entry) => entry.event.processId === event.processId && entry.event.nodeId === event.nodeId);
 }
 
 function findProcessLifecycleSummaries(
   processLifecycles: Map<string, RemoteDebuggerProcessLifecycleSummary>,
-  event: MissingDebuggerTerminalEvent,
+  event: ProcessDiagnosticLookup,
 ): RemoteDebuggerProcessLifecycleSummary[] {
+  if (!hasProcessIdentity(event)) {
+    return [];
+  }
+
   return [...processLifecycles.values()].filter((summary) => {
     const sameProcess = summary.processId === event.processId;
     const sameNode = summary.nodeId === event.nodeId;
@@ -356,11 +445,30 @@ function findProcessLifecycleSummaries(
 
 function findRelatedProcessLifecycleSummaries(
   processLifecycles: Map<string, RemoteDebuggerProcessLifecycleSummary>,
-  event: MissingDebuggerTerminalEvent,
+  event: ProcessDiagnosticLookup,
 ): RemoteDebuggerProcessLifecycleSummary[] {
+  if (!hasProcessIdentity(event)) {
+    return [];
+  }
+
   return [...processLifecycles.values()].filter(
     (summary) => summary.processId === event.processId && summary.nodeId === event.nodeId,
   );
+}
+
+type ProcessDiagnosticLookup = {
+  error?: string;
+  graphRunId?: GraphRunId;
+  nodeId?: NodeId;
+  processId?: ProcessId;
+  rootRunId?: RootRunId;
+};
+
+function hasProcessIdentity(event: ProcessDiagnosticLookup): event is ProcessDiagnosticLookup & {
+  nodeId: NodeId;
+  processId: ProcessId;
+} {
+  return event.nodeId !== undefined && event.processId !== undefined;
 }
 
 function buildDiagnosisHints(options: {
@@ -419,6 +527,20 @@ function formatMissingTerminalDiagnosticReport(details: MissingTerminalDiagnosti
   ].join('\n');
 }
 
+function formatUnexpectedAbortNodeErrorReport(details: UnexpectedAbortNodeErrorDiagnosticDetails): string {
+  return [
+    `event: ${formatRemoteDebuggerEvent(details.event)}`,
+    `hints: ${details.diagnosisHints.join(' | ')}`,
+    `counts: exactLifecycle=${details.lifecycleSummaries.length}, relatedLifecycle=${details.relatedLifecycleSummaries.length}, exactProcessTrace=${details.matchingProcessTrace.length}, relatedProcessTrace=${details.relatedProcessTrace.length}, rootRunTrace=${details.rootRunTrace.length}, recentTrace=${details.recentTraceEntryCount}`,
+    formatRowsForReport('exact lifecycle', details.lifecycleSummaries, formatLifecycleReportRow),
+    formatRowsForReport('related same-node/process lifecycle', details.relatedLifecycleSummaries, formatLifecycleReportRow),
+    formatRowsForReport('exact process trace', details.matchingProcessTrace, formatTraceReportRow),
+    formatRowsForReport('related same-node/process trace', details.relatedProcessTrace, formatTraceReportRow),
+    formatRowsForReport('root-run trace tail', details.rootRunTrace, formatTraceReportRow),
+    formatRowsForReport('recent trace tail', details.recentTraceTail, formatTraceReportRow),
+  ].join('\n');
+}
+
 function formatRowsForReport<T>(label: string, rows: T[], formatRow: (row: T) => string): string {
   if (rows.length === 0) {
     return `${label}: <none>`;
@@ -428,13 +550,25 @@ function formatRowsForReport<T>(label: string, rows: T[], formatRow: (row: T) =>
 }
 
 function formatMissingEvent(event: MissingDebuggerTerminalEvent): string {
-  return [
+  return formatRemoteDebuggerEvent(event);
+}
+
+function formatRemoteDebuggerEvent(
+  event: ProcessDiagnosticLookup & { graphId?: string; nodeType?: string },
+): string {
+  const parts = [
     `rootRunId=${event.rootRunId ?? '<missing>'}`,
     `graphId=${event.graphId ?? '<missing>'}`,
     `graphRunId=${event.graphRunId ?? '<missing>'}`,
-    `nodeId=${event.nodeId}`,
-    `processId=${event.processId}`,
-  ].join(' ');
+    `nodeId=${event.nodeId ?? '<missing>'}`,
+    `processId=${event.processId ?? '<missing>'}`,
+    `nodeType=${event.nodeType ?? '<missing>'}`,
+  ];
+  if (event.error) {
+    parts.push(`error=${event.error}`);
+  }
+
+  return parts.join(' ');
 }
 
 function formatLifecycleReportRow(row: FormattedProcessLifecycle): string {
@@ -455,7 +589,7 @@ function formatLifecycleReportRow(row: FormattedProcessLifecycle): string {
 }
 
 function formatTraceReportRow(row: FormattedTraceEntry): string {
-  return [
+  const parts = [
     `#${row.seq}`,
     row.message,
     `dispatch=${row.dispatch}`,
@@ -468,7 +602,12 @@ function formatTraceReportRow(row: FormattedTraceEntry): string {
     `process=${row.processId || '<missing>'}`,
     `type=${row.nodeType || '<missing>'}`,
     `outputs=[${row.outputPorts || '<none>'}]`,
-  ].join(' ');
+  ];
+  if (row.error) {
+    parts.push(`error=${row.error}`);
+  }
+
+  return parts.join(' ');
 }
 
 function formatProcessLifecycleForTable(summary: RemoteDebuggerProcessLifecycleSummary) {
@@ -521,6 +660,34 @@ function summarizePortIds(value: unknown): string[] | undefined {
   }
 
   return Object.keys(value);
+}
+
+function formatErrorSummary(error: unknown): string {
+  if (typeof error === 'string') {
+    return error;
+  }
+
+  if (isRecord(error)) {
+    const name = typeof error.name === 'string' ? error.name : undefined;
+    const message = typeof error.message === 'string' ? error.message : undefined;
+
+    if (name && message) {
+      return `${name}: ${message}`;
+    }
+
+    return name ?? message ?? String(error);
+  }
+
+  return String(error);
+}
+
+function isAbortLikeErrorMessage(error: string): boolean {
+  const normalized = error.trim();
+  return (
+    /^(Error:\s*)?(Aborted|Processing aborted|Process aborted)\.?$/i.test(normalized) ||
+    /^AbortError\b/i.test(normalized) ||
+    /\boperation was aborted\.?$/i.test(normalized)
+  );
 }
 
 function readString(value: unknown): string | undefined {

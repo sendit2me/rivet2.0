@@ -232,6 +232,40 @@ function makeNestedRaceLoserProject(): Project {
   };
 }
 
+function makeSuccessfulAbortLeafSubgraphProject(): Project {
+  const mainGraphId = 'main-successful-abort' as GraphId;
+  const leafGraphId = 'successful-abort-leaf' as GraphId;
+  const leafSubgraphNode = makeSubgraphNode('successful-abort-leaf-subgraph', leafGraphId);
+  const abortTriggerNode = makeExpressionNode('successful-abort-trigger-expression', '"abort"');
+  const delayNode = makeDelayNode('successful-abort-delay', 10);
+  const abortNode = makeAbortGraphNode('successful-abort-node');
+
+  return {
+    graphs: {
+      [mainGraphId]: {
+        connections: [
+          connect(abortTriggerNode.id, 'output', delayNode.id, 'input1'),
+          connect(delayNode.id, 'output1', abortNode.id, 'data'),
+        ],
+        metadata: {
+          description: '',
+          id: mainGraphId,
+          name: mainGraphId,
+        },
+        nodes: [leafSubgraphNode, abortTriggerNode, delayNode, abortNode],
+      },
+      [leafGraphId]: makeSuccessfulAbortSlowLeafGraph(leafGraphId),
+    },
+    metadata: {
+      description: '',
+      id: 'debugger-successful-abort-project' as ProjectId,
+      mainGraphId,
+      title: 'Debugger Successful Abort Project',
+    },
+    plugins: [],
+  };
+}
+
 function makeSubgraphCallerGraph(graphId: GraphId, calledGraphId: GraphId, prefix: string): NodeGraph {
   const subgraphNode = makeSubgraphNode(`${prefix}-subgraph`, calledGraphId);
   const outputNode = makeGraphOutputNode(`${prefix}-output`, 'result', 'any');
@@ -244,6 +278,24 @@ function makeSubgraphCallerGraph(graphId: GraphId, calledGraphId: GraphId, prefi
       name: graphId,
     },
     nodes: [subgraphNode, outputNode],
+  };
+}
+
+function makeSuccessfulAbortSlowLeafGraph(graphId: GraphId): NodeGraph {
+  const slowExpressionNode = makeExpressionNode(
+    'successful-abort-leaf-expression',
+    'await new Promise((resolve) => setTimeout(() => resolve("slow leaf"), 50))',
+  );
+  const outputNode = makeGraphOutputNode('successful-abort-leaf-output', 'result', 'any');
+
+  return {
+    connections: [connect(slowExpressionNode.id, 'output', outputNode.id, 'value')],
+    metadata: {
+      description: '',
+      id: graphId,
+      name: graphId,
+    },
+    nodes: [slowExpressionNode, outputNode],
   };
 }
 
@@ -331,6 +383,31 @@ function makeSubgraphNode(id: string, graphId: GraphId, useErrorOutput = false):
     title: 'Subgraph',
     type: 'subGraph',
     visualData: { width: 300, x: 0, y: 0 },
+  };
+}
+
+function makeDelayNode(id: string, delay: number): ChartNode {
+  return {
+    data: {
+      delay,
+    },
+    id: id as NodeId,
+    title: 'Delay',
+    type: 'delay',
+    visualData: { width: 175, x: 0, y: 0 },
+  };
+}
+
+function makeAbortGraphNode(id: string): ChartNode {
+  return {
+    data: {
+      errorMessage: '',
+      successfully: true,
+    },
+    id: id as NodeId,
+    title: 'Abort Graph',
+    type: 'abortGraph',
+    visualData: { width: 200, x: 0, y: 0 },
   };
 }
 
@@ -910,7 +987,7 @@ describe('startDebuggerServer broadcast', () => {
     assert.match(nodeError.data.error, /nested expression failed/);
   });
 
-  it('sends late race-loser terminal events from nested subgraphs before done', async () => {
+  it('sends late race-loser exclusions from nested subgraphs before done', async () => {
     const server = new FakeWebSocketServer();
     const socket = new FakeWebSocket();
     const debuggerServer = startDebuggerServer({
@@ -932,11 +1009,11 @@ describe('startDebuggerServer broadcast', () => {
 
     const messages = socket.sentMessages.map((message) => JSON.parse(message));
     const doneIndex = messages.findIndex((message) => message.message === 'done');
-    const nodeErrorIndexesById = new Map<string, number>();
+    const nodeExcludedIndexesById = new Map<string, number>();
 
     messages.forEach((message, index) => {
-      if (message.message === 'nodeError') {
-        nodeErrorIndexesById.set(message.data.node.id, index);
+      if (message.message === 'nodeExcluded') {
+        nodeExcludedIndexesById.set(message.data.node.id, index);
       }
     });
 
@@ -950,10 +1027,63 @@ describe('startDebuggerServer broadcast', () => {
       const nodeErrorCount = messages.filter(
         (message) => message.message === 'nodeError' && message.data.node.id === nodeId,
       ).length;
-      const nodeErrorIndex = nodeErrorIndexesById.get(nodeId);
-      assert.notEqual(nodeErrorIndex, undefined, `${nodeId} nodeError should be sent`);
-      assert.equal(nodeErrorCount, 1, `${nodeId} nodeError should be sent once`);
-      assert.ok(nodeErrorIndex! < doneIndex, `${nodeId} nodeError should arrive before done`);
+      const nodeExcludedCount = messages.filter(
+        (message) => message.message === 'nodeExcluded' && message.data.node.id === nodeId,
+      ).length;
+      const nodeExcludedIndex = nodeExcludedIndexesById.get(nodeId);
+      assert.equal(nodeErrorCount, 0, `${nodeId} should not be sent as a nodeError`);
+      assert.notEqual(nodeExcludedIndex, undefined, `${nodeId} nodeExcluded should be sent`);
+      assert.equal(nodeExcludedCount, 1, `${nodeId} nodeExcluded should be sent once`);
+      assert.ok(nodeExcludedIndex! < doneIndex, `${nodeId} nodeExcluded should arrive before done`);
+    }
+  });
+
+  it('sends successful-abort exclusions from active leaf subgraphs before done', async () => {
+    const server = new FakeWebSocketServer();
+    const socket = new FakeWebSocket();
+    const debuggerServer = startDebuggerServer({
+      server: server as unknown as WebSocketServer,
+      heartbeatIntervalMs: 0,
+    });
+    const fixture = makeSuccessfulAbortLeafSubgraphProject();
+
+    server.connect(socket);
+
+    const processor = createProcessor(fixture, {
+      graph: 'main-successful-abort',
+      remoteDebugger: debuggerServer,
+    });
+
+    await processor.run();
+
+    const messages = socket.sentMessages.map((message) => JSON.parse(message));
+    const doneIndex = messages.findIndex((message) => message.message === 'done');
+    const nodeExcludedIndexesById = new Map<string, number>();
+
+    messages.forEach((message, index) => {
+      if (message.message === 'nodeExcluded') {
+        nodeExcludedIndexesById.set(message.data.node.id, index);
+      }
+    });
+
+    assert.notEqual(doneIndex, -1, 'successful root done should be sent');
+
+    for (const nodeId of [
+      'successful-abort-leaf-expression',
+      'successful-abort-leaf-output',
+      'successful-abort-leaf-subgraph',
+    ]) {
+      const nodeErrorCount = messages.filter(
+        (message) => message.message === 'nodeError' && message.data.node.id === nodeId,
+      ).length;
+      const nodeExcluded = messages.find(
+        (message) => message.message === 'nodeExcluded' && message.data.node.id === nodeId,
+      );
+      const nodeExcludedIndex = nodeExcludedIndexesById.get(nodeId);
+      assert.equal(nodeErrorCount, 0, `${nodeId} should not be sent as a nodeError`);
+      assert.equal(nodeExcluded?.data.reason, 'Graph aborted successfully');
+      assert.notEqual(nodeExcludedIndex, undefined, `${nodeId} nodeExcluded should be sent`);
+      assert.ok(nodeExcludedIndex! < doneIndex, `${nodeId} nodeExcluded should arrive before done`);
     }
   });
 

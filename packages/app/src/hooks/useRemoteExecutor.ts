@@ -55,6 +55,7 @@ import {
 } from './remoteExecutorRunRequest.js';
 import {
   createRemoteDebuggerDiagnostics,
+  isAbortLikeRemoteDebuggerNodeError,
   summarizeRemoteDebuggerEvent,
   summarizeRemoteDebuggerRoutingState,
 } from './remoteDebuggerDiagnostics.js';
@@ -126,6 +127,7 @@ export function useRemoteExecutor() {
       const routingBefore = externalDebuggerTarget
         ? summarizeRemoteDebuggerRoutingState(unscopedEventRoutingRef.current)
         : undefined;
+      const eventSummary = externalDebuggerTarget ? summarizeRemoteDebuggerEvent(message, data) : undefined;
       const dispatchDecision = getRemoteExecutionEventDispatchDecision({
         activeRequestId: activeGraphRequestIdRef.current,
         currentProjectId: project.metadata.id,
@@ -139,12 +141,12 @@ export function useRemoteExecutor() {
         ? summarizeRemoteDebuggerRoutingState(unscopedEventRoutingRef.current)
         : undefined;
 
-      if (externalDebuggerTarget && routingBefore && routingAfter) {
+      if (externalDebuggerTarget && routingBefore && routingAfter && eventSummary) {
         remoteDebuggerDiagnosticsRef.current.recordEvent({
           activeRequestId: activeGraphRequestIdRef.current,
           currentProjectId: project.metadata.id,
           decision: dispatchDecision,
-          event: summarizeRemoteDebuggerEvent(message, data),
+          event: eventSummary,
           message,
           requestId,
           routingAfter,
@@ -176,6 +178,9 @@ export function useRemoteExecutor() {
         case 'nodeError':
           if (shouldDispatchExecutionEvent) {
             eventDispatcher.nodeError(data);
+            if (eventSummary && isAbortLikeRemoteDebuggerNodeError(data)) {
+              remoteDebuggerDiagnosticsRef.current.logUnexpectedAbortNodeError(eventSummary);
+            }
           }
           break;
         case 'userInput':
