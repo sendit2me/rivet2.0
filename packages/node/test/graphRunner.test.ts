@@ -98,6 +98,24 @@ function trackDefinitionCalls(impl: NodeImpl<ChartNode>, onDefinitionCall: () =>
   return impl;
 }
 
+function addUnusedProjectPluginMetadata(project: Project): void {
+  project.plugins = [
+    { id: 'openai', name: 'OpenAI', type: 'built-in' },
+    { id: 'test-package-plugin', package: '@rivet/test-package-plugin', tag: 'latest', type: 'package' },
+    { id: 'test-uri-plugin', type: 'uri', uri: 'https://example.test/rivet-plugin.js' },
+  ];
+}
+
+function makeOpenAIPluginNode(id: string): ChartNode {
+  return {
+    data: {},
+    id: id as NodeId,
+    title: 'OpenAI Plugin Node',
+    type: 'openaiCreateThread',
+    visualData: { width: 260, x: 0, y: 0 },
+  };
+}
+
 void describe('createGraphRunner', () => {
   void it('reuses stable Node setup while accepting per-run inputs and context', async () => {
     const fixture = makeInputContextTextProject();
@@ -654,6 +672,116 @@ void describe('createGraphRunner', () => {
         requested: true,
       });
     });
+  });
+
+  void it('keeps plugin-bearing projects native-fast eligible when the selected graph closure uses only supported built-ins', async () => {
+    const fixture = makeTextChainProject(1);
+    addUnusedProjectPluginMetadata(fixture.project);
+
+    await withLocalNativeFastAdapterEnv(async () => {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        runtimeProfile: 'native-fast',
+      });
+      const outputs = await runner.run({ inputs: { input: 'plugin-spec' } });
+
+      assert.deepEqual(outputs, {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: 'plugin-specx' },
+      } satisfies Record<string, DataValue>);
+      assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+        nativeBackend: 'js-adapter',
+        nativeEligible: true,
+        nativeUsed: true,
+        requested: true,
+      });
+    });
+  });
+
+  void it('keeps referenced plugin-bearing projects native-fast eligible when the referenced graph closure uses only supported built-ins', async () => {
+    const fixture = makeReferencedGraphAliasFanInProject(1);
+    addUnusedProjectPluginMetadata(fixture.referencedProject);
+
+    await withLocalNativeFastAdapterEnv(async () => {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        projectReferenceLoader: fixture.projectReferenceLoader,
+        runtimeProfile: 'native-fast',
+      });
+      const outputs = await runner.run({ inputs: { input: 'ref-plugin-spec' } });
+
+      assert.deepEqual(outputs, {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: 'ref-plugin-specx' },
+      } satisfies Record<string, DataValue>);
+      assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+        nativeBackend: 'js-adapter',
+        nativeEligible: true,
+        nativeUsed: true,
+        requested: true,
+      });
+    });
+  });
+
+  void it('falls back before loading native-fast when the selected graph contains a plugin node', () => {
+    const fixture = makeTextChainProject(1);
+    addUnusedProjectPluginMetadata(fixture.project);
+    fixture.project.graphs[fixture.graphId]!.nodes.push(makeOpenAIPluginNode('plugin-node'));
+
+    let nativeLoadCalls = 0;
+    setNativeRuntimeModuleLoaderForTesting(async () => {
+      nativeLoadCalls += 1;
+      throw new Error('Plugin nodes in the selected graph should not load native-fast.');
+    });
+
+    try {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        runtimeProfile: 'native-fast',
+      });
+
+      assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+        fallbackReason: 'unsupported-node:openaiCreateThread:plugin-node',
+        nativeEligible: false,
+        nativeUsed: false,
+        requested: true,
+      });
+      assert.equal(nativeLoadCalls, 0);
+    } finally {
+      setNativeRuntimeModuleLoaderForTesting(undefined);
+    }
+  });
+
+  void it('falls back before loading native-fast when a referenced graph contains a plugin node', async () => {
+    const fixture = makeReferencedGraphAliasFanInProject(1);
+    const referencedGraphId = fixture.referencedProject.metadata.mainGraphId!;
+    fixture.referencedProject.graphs[referencedGraphId]!.nodes.push(makeOpenAIPluginNode('referenced-plugin-node'));
+    addUnusedProjectPluginMetadata(fixture.referencedProject);
+
+    let nativeLoadCalls = 0;
+    setNativeRuntimeModuleLoaderForTesting(async () => {
+      nativeLoadCalls += 1;
+      throw new Error('Referenced plugin nodes should not load native-fast.');
+    });
+
+    try {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        projectReferenceLoader: fixture.projectReferenceLoader,
+        runtimeProfile: 'native-fast',
+      });
+
+      await assert.rejects(() => runner.run({ inputs: { input: 'ref-plugin-node' } }));
+      assert.equal(nativeLoadCalls, 0);
+      assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+        fallbackReason: 'unsupported-node:openaiCreateThread:referenced-plugin-node',
+        nativeEligible: false,
+        nativeUsed: false,
+        requested: true,
+      });
+    } finally {
+      setNativeRuntimeModuleLoaderForTesting(undefined);
+    }
   });
 
   void it('runs direct subgraph boundaries through the local native-fast adapter', async () => {

@@ -520,47 +520,41 @@ Completed:
   project-plugin gate reassessment, simple conditionals, and simple JSONPath
   expansion.
 
-### P8: Project plugin gate reassessment [NOT STARTED]
+### P8: Project plugin gate reassessment [DONE]
 
-Goal:
+Completed:
 
-- Decide whether `project-has-plugins` must block the whole project or whether
-  native-fast can safely run built-in-only graphs when project plugins are
-  present but unused by the selected graph and its native-resolved child graph
-  closure.
+- Native-fast no longer treats non-empty `Project.plugins` as a whole-project
+  blocker.
+- The native preflight now relies on selected graph closure classification:
+  supported built-in-only graphs may run natively even when the project declares
+  plugins, while actual plugin/custom nodes in that closure still fall back as
+  `unsupported-node:<type>:<nodeId>` once they pass earlier disabled,
+  conditional, and split-run preflight gates.
+- The same rule applies to loaded referenced projects: plugin metadata alone is
+  not a blocker, but plugin/custom nodes inside the referenced native graph
+  closure remain unsupported.
+- Tests cover root plugin-bearing projects, referenced plugin-bearing projects,
+  plugin nodes inside the selected graph, and plugin nodes inside referenced
+  graph alias closures.
+- A lightweight real-workflow audit after this change reported 6 eligible rows,
+  82 fallback rows, and 0 `project-has-plugins` fallback reasons.
 
 Scope:
 
-- P8 is a gate-design phase. It should not widen native eligibility by itself
-  unless the required tests and docs for the narrower gate are included in the
-  same change.
+- P8 only narrowed the metadata gate. It did not add native support for any
+  plugin node, plugin configuration path, custom registry, dynamic plugin port
+  definition, or plugin-authored execution behavior.
 
-Required analysis:
+Decision:
 
-- Trace how project plugins can affect node registration, node data semantics,
-  graph references, and execution-time behavior.
-- Identify whether a graph that uses only built-in native-supported nodes can
-  be classified independently from unrelated project-level plugins.
-- Confirm that plugin presence cannot change built-in node implementations,
-  port definitions, graph input/output behavior, globals, context, or fallback
-  expectations for the selected graph closure.
-
-Possible outcomes:
-
-- Keep the current whole-project plugin gate if plugins can alter semantics in
-  a way native preflight cannot prove safe.
-- Replace it with a narrower graph-closure plugin gate if unused plugins can be
-  ignored safely and covered with negative tests.
-- Defer the gate if plugin safety depends on unresolved graph-reference,
-  custom-registry, or dynamic node-definition questions.
-
-Exit criteria:
-
-- The decision is documented in developer docs and benchmark notes.
-- If the gate is narrowed, equivalence tests prove plugin-bearing projects still
-  fall back when the selected graph actually uses plugin/custom nodes.
-- The real-workflow benchmark explicitly reports whether `project-has-plugins`
-  remains a top blocker after the decision.
+- Project plugin specs are metadata for loading/serializing plugin nodes; they
+  do not by themselves alter built-in node semantics. Since `native-fast`
+  rejects custom registries and converts only the selected native graph closure,
+  unused project-level plugin specs can be ignored safely.
+- The conservative boundary is still graph-local: every node in each selected
+  native graph must be a supported built-in native node, including child
+  subgraphs and referenced graph aliases.
 
 ### P9: First real-workflow eligibility tranche [NOT STARTED]
 
@@ -708,14 +702,13 @@ decision, and before/after benchmark matrices are now in place. The Rust worker
 proved the speed win for the narrow eligible workload set, but the product gate
 keeps it internal and opt-in rather than default.
 
-The next remaining implementation sequence is P8 through P10: reassess the
-project-plugin gate, implement one data-backed low-risk eligibility tranche,
-then rerun and document the matrix. During that work:
+The next remaining implementation sequence is P9 through P10: implement one
+data-backed low-risk eligibility tranche, then rerun and document the matrix.
+During that work:
 
 - keep ordinary TypeScript paths unchanged and keep `native-fast` opt-in;
 - keep the worker-process boundary unless a future release-packaging phase
   proves N-API is worth the crash-isolation tradeoff;
-- do not start P9 until the P8 plugin-gate decision is documented;
 - add supported and unsupported equivalence tests before every eligibility
   expansion;
 - rerun the relevant benchmark matrix whenever native eligibility or worker

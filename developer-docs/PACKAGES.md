@@ -326,9 +326,17 @@ with `yarn workspace @valerypopoff/rivet2-node run bench:native-real-workflows`.
 It reports fallback reasons for each checked-in project graph but only executes
 non-empty graphs that are native-eligible before the run, so the benchmark does
 not accidentally call LLMs, file nodes, user-input flows, or other TypeScript
-fallback workflows. Projects with external references are also reported as
-fallbacks until native preflight can classify referenced projects without
-running them. The first local result is recorded in
+fallback workflows. The benchmark still reports checked-in projects with
+external references as `project-has-references` because it does not resolve
+arbitrary reference files during the side-effect-safe audit; that benchmark
+guard is separate from `createGraphRunner(...)`, which can classify referenced
+projects through its configured `projectReferenceLoader`. Project plugin
+metadata alone is not a native-fast blocker: plugin-bearing projects and
+referenced projects can run natively when the selected graph closure uses only
+supported built-in native nodes. Actual plugin/custom nodes in that closure
+still fall back before native module load, with active plugin/custom node types
+reported as `unsupported-node:<type>:<nodeId>`, and `native-fast` still rejects
+custom registries. The first local result is recorded in
 [`native-runtime-real-workflow-benchmark.md`](../native-runtime-real-workflow-benchmark.md);
 with `RIVET_REAL_WORKFLOW_BENCH_JSON=1`, the script emits raw per-graph
 `results` plus a deterministic `summary` of status counts, fallback families,
@@ -337,8 +345,10 @@ representative graphs. Console mode prints labeled summary tables with bounded
 exact fallback reasons, while JSON mode keeps the complete exact-reason list.
 Missing project files, project load errors, output parity mismatches, and run
 errors remain visible in the report if they occur. The first run found only
-three small native-eligible real graphs out of 88 audited graphs, so future
-native work should treat eligibility breadth as the real-project bottleneck.
+three small native-eligible real graphs out of 88 audited graphs. After the
+project-plugin gate was narrowed, a lightweight audit found six eligible graphs
+and zero `project-has-plugins` fallback reasons, so future native work should
+continue treating eligibility breadth as the real-project bottleneck.
 
 `createGraphRunner(...)` is the additive production-facing fast path for
 headless/programmatic Node integrations that load a project once and run the

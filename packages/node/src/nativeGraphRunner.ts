@@ -439,12 +439,6 @@ function buildNativeRuntimeRequestWithResolvedReferences(
     return earlyUnsupportedRequest;
   }
 
-  for (const referencedProject of Object.values(referencedProjects)) {
-    if (referencedProject.plugins && referencedProject.plugins.length > 0) {
-      return unsupported(`referenced-project-has-plugins:${referencedProject.metadata.id}`);
-    }
-  }
-
   const reservedGraphId = getReservedNativeGraphId(project, referencedProjects);
   if (reservedGraphId) {
     return unsupported(`reserved-native-graph-id:${reservedGraphId}`);
@@ -484,10 +478,6 @@ function getEarlyUnsupportedNativeRuntimeRequest(
   const unsupportedOption = getUnsupportedNativeRuntimeOption(options);
   if (unsupportedOption) {
     return unsupported(`unsupported-option:${unsupportedOption}`);
-  }
-
-  if (project.plugins && project.plugins.length > 0) {
-    return unsupported('project-has-plugins');
   }
 
   const graph = getGraph(project, options.graph);
