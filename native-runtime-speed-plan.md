@@ -722,12 +722,49 @@ decision, and before/after benchmark matrices are now in place. The Rust worker
 proved the speed win for the narrow eligible workload set, but the product gate
 keeps it internal and opt-in rather than default.
 
-The next useful implementation step is another data-backed eligibility tranche.
-P9 removed the Graph Input default-port blocker and P11 removed the Text
-`quote` blocker, but total real-project reach stayed at six eligible graphs.
-The next tranche should target either a small deterministic control-flow group
-(`if`, `ifElse`, `compare`, `match`) or a narrow JSONPath expansion with enough
-fixtures to justify the added native semantics. During that work:
+Current parking checkpoint:
+
+- Default Rivet execution still belongs to the TypeScript engine. Compared with
+  the `PRE-rust` checkpoint, `packages/core/src` and `packages/app/src` are not
+  changed by the Rust/native work.
+- Native execution is still reachable only through
+  `createGraphRunner(..., { runtimeProfile: 'native-fast' })`.
+- `runGraph(...)`, `runGraphInFile(...)`, `createProcessor(...)`, editor runs,
+  Remote Debugger runs, recordings, replay, Code, and Expression remain
+  TypeScript-owned.
+- The current native subset is useful as an internal benchmarked prototype, but
+  real-workflow reach is still too small for default promotion.
+
+When this work resumes, start with one data-backed eligibility tranche, not a
+default-runtime promotion.
+
+Recommended P12:
+
+- Add a small deterministic control-flow tranche, likely one node family at a
+  time from `if`, `ifElse`, `compare`, and `match`.
+- Start by sampling the current real-workflow fallback report to choose the
+  highest-impact deterministic node family.
+- Before admitting each node family, add TypeScript-compatible fixtures for
+  true/false routing, control-flow-excluded values, missing inputs, disabled or
+  conditional node fallback, unsupported settings, graph output propagation, and
+  nested subgraph/reference boundaries where relevant.
+- Implement JS-adapter and Rust-worker semantics together, then add native-fast
+  graph-runner, JS/Rust smoke, Rust unit, and equivalence tests before counting
+  any benchmark result.
+- Rerun the real-workflow audit after the tranche. The goal is to increase
+  eligible real graphs, not just add another synthetic benchmark win.
+
+Alternative P12:
+
+- Expand the simple JSONPath subset for `destructure` and `extractObjectPath`
+  only if the real-workflow blocker report shows that a narrow feature such as
+  bracket property access or simple wildcards would unlock more graphs than
+  control-flow support.
+- Keep filter expressions, recursive descent, arbitrary predicates, dynamic path
+  inputs, and interpolation-backed paths on TypeScript fallback until their
+  parity surface is deliberately scoped and tested.
+
+Before and after any future native tranche:
 
 - keep ordinary TypeScript paths unchanged and keep `native-fast` opt-in;
 - keep the worker-process boundary unless a future release-packaging phase
@@ -736,5 +773,8 @@ fixtures to justify the added native semantics. During that work:
   expansion;
 - rerun the relevant benchmark matrix whenever native eligibility or worker
   transport changes;
+- rerun the default-engine isolation guards, especially tests proving existing
+  TypeScript profiles do not load the native runtime and `runGraph(...)` /
+  `createProcessor(...)` cannot enter `native-fast`;
 - keep Code and Expression on TypeScript fallback unless a separate
   product-level language/runtime plan proves a migration-safe speed win.
