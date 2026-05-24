@@ -55,6 +55,14 @@ load errors, output parity mismatches, and graph run errors. Those failure rows
 must stay visible so the benchmark can act as an equivalence guard, not just a
 speed table.
 
+With `RIVET_REAL_WORKFLOW_BENCH_JSON=1`, the script prints a JSON object with
+raw per-graph `results` and a deterministic `summary`. The summary includes
+status counts, fallback-family counts, normalized fallback blockers, exact
+fallback reasons, unsupported node-type counts, and representative
+`project#graph` examples. Console mode prints the raw rows plus labeled summary
+tables; exact fallback reasons are bounded in console output and complete in the
+JSON summary.
+
 ## Result Summary
 
 The audit covered 88 graphs from 8 checked-in project files.
@@ -101,6 +109,35 @@ what blocks real workflows today:
 | `split-run:*`                          |     4 | Split-run graphs remain TypeScript-only.                                                                                                                                 |
 | `unsupported-data-type:chat-message:*` |     3 | Chat-message graph boundaries remain TypeScript-only.                                                                                                                    |
 | `empty-graph`                          |     1 | Empty graph intentionally excluded from timings.                                                                                                                         |
+
+### Top Normalized Blockers
+
+These rows come from the benchmark's deterministic summary output. They keep
+node IDs out of the grouping where possible so the next native tranche can be
+chosen by behavior, not by individual graph shape.
+
+| Blocker                                                            | Count | Affected node type  | Representative graphs                                                                                                                                                                                                                                                                                         |
+| ------------------------------------------------------------------ | ----: | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `project-has-plugins`                                              |    31 |                     | `packages/app/graphs/code-node-generator.rivet-project#Chat`<br>`packages/app/graphs/code-node-generator.rivet-project#Code Node Generator`<br>`packages/app/graphs/code-node-generator.rivet-project#Extract Regex Node Generator`                                                                           |
+| `unsupported-node:chat`                                            |    10 | `chat`              | `packages/app/src/assets/templates/mcp_ai_agent_template.rivet-project#tools/reply`<br>`packages/app/src/assets/tutorials/documentation-tutorial.rivet-project#1. Simple Graph/Simple Graph`<br>`packages/app/src/assets/tutorials/documentation-tutorial.rivet-project#5. Subgraphs/Subgraphs #0 Main Graph` |
+| `unsupported-node:prompt`                                          |     6 | `prompt`            | `examples/rpg/RPG.rivet-project#Initialize Chat`<br>`packages/app/src/assets/templates/ai_agent_template.rivet-project#Tools/reply`<br>`packages/app/src/assets/tutorials/documentation-tutorial.rivet-project#2. Interpolation/Interpolation`                                                                |
+| `unsupported-node:loopController`                                  |     5 | `loopController`    | `examples/rpg/RPG.rivet-project#Main`<br>`packages/app/src/assets/tutorials/documentation-tutorial.rivet-project#7. Loops/Loops`<br>`rivet.rivet-project#RA - Analyze Until Done`                                                                                                                             |
+| `split-run`                                                        |     4 |                     | `packages/app/src/assets/tutorials/documentation-tutorial.rivet-project#6. Splitting/Splitting`<br>`rivet.rivet-project#00 Rivet Analyzer`<br>`rivet.rivet-project#RA - Exec Commands`                                                                                                                        |
+| `unsupported-data-type:chat-message`                               |     3 |                     | `rivet.rivet-project#RA - Get Response`<br>`rivet.rivet-project#RA - System Commands`<br>`rivet.rivet-project#RA - System Prompt`                                                                                                                                                                             |
+| `unsupported-node:ifElse`                                          |     3 | `ifElse`            | `rivet.rivet-project#Extract List Items`<br>`rivet.rivet-project#RA - Command: RECALL_INFO`<br>`rivet.rivet-project#RA - Exec Command`                                                                                                                                                                        |
+| `unsupported-node:if`                                              |     2 | `if`                | `packages/app/src/assets/templates/ai_agent_template.rivet-project#Run Command`<br>`packages/app/src/assets/tutorials/documentation-tutorial.rivet-project#3. Matching and Conditionals/Matching and Conditionals`                                                                                            |
+| `unsupported-node:readDirectory`                                   |     2 | `readDirectory`     | `rivet.rivet-project#List Rivet Files`<br>`rivet.rivet-project#RA - Command: READ_DIRECTORY`                                                                                                                                                                                                                  |
+| `unsupported-extract-object-path:$.yamlDocument.names[*]`          |     1 | `extractObjectPath` | `packages/app/src/assets/tutorials/documentation-tutorial.rivet-project#5. Subgraphs/Subgraphs #1 Generate Contract Names`                                                                                                                                                                                    |
+| `unsupported-extract-object-path:$.yamlDocument.remainingTasks[*]` |     1 | `extractObjectPath` | `rivet.rivet-project#Execute Task List`                                                                                                                                                                                                                                                                       |
+| `unsupported-extract-object-path:$.yamlDocument['last-name']`      |     1 | `extractObjectPath` | `packages/app/src/assets/tutorials/documentation-tutorial.rivet-project#5. Subgraphs/Subgraphs #2 Generate Contract`                                                                                                                                                                                          |
+
+### Candidate Next Tranches
+
+| Candidate                                                   | Why it is interesting                                                                                                                                                        | Caution                                                                                                                                                 |
+| ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Reassess `project-has-plugins`                              | It blocks 31 rows before graph-level eligibility can be inspected. If unused project plugins can be ignored safely, real-workflow reach may improve without Rust node work.  | This is a gate-design problem, not a node implementation. Keep the whole-project gate if plugins can alter built-in semantics or graph closure safety.  |
+| Simple conditionals: `if`, `ifElse`, `compare`, and `match` | These are deterministic, side-effect-free control/data decisions and appear in checked-in graphs. They are a better first semantic tranche than LLM, file, or loop behavior. | They must exactly preserve control-flow exclusion, false `If` ports, branch outputs, missing inputs, and unsupported settings before becoming eligible. |
+| Simple JSONPath expansion for `extractObjectPath`           | Existing native support already handles a narrow static JSONPath subset; bracket properties and simple wildcards are plausible incremental parser work.                      | Keep filter expressions such as `$[?(@.arguments.finished == true)]...` unsupported until JSONPath equivalence is proven.                               |
 
 The practical next bottleneck is visible from this distribution. Native-fast
 will not reach many real workflows until the project-plugin gate and selected

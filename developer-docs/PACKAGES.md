@@ -330,7 +330,12 @@ fallback workflows. Projects with external references are also reported as
 fallbacks until native preflight can classify referenced projects without
 running them. The first local result is recorded in
 [`native-runtime-real-workflow-benchmark.md`](../native-runtime-real-workflow-benchmark.md);
-missing project files, project load errors, output parity mismatches, and run
+with `RIVET_REAL_WORKFLOW_BENCH_JSON=1`, the script emits raw per-graph
+`results` plus a deterministic `summary` of status counts, fallback families,
+normalized blockers, exact fallback reasons, unsupported node types, and
+representative graphs. Console mode prints labeled summary tables with bounded
+exact fallback reasons, while JSON mode keeps the complete exact-reason list.
+Missing project files, project load errors, output parity mismatches, and run
 errors remain visible in the report if they occur. The first run found only
 three small native-eligible real graphs out of 88 audited graphs, so future
 native work should treat eligibility breadth as the real-project bottleneck.

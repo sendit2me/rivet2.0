@@ -40,12 +40,68 @@ type RealWorkflowResult = {
 
 type TypeScriptBenchmarkProfile = 'compatible' | 'headless-fast';
 
+type RealWorkflowBenchmarkOutput = {
+  results: RealWorkflowResult[];
+  summary: RealWorkflowSummary;
+};
+
+type RealWorkflowSummary = {
+  exactFallbackReasons: FallbackReasonSummary[];
+  fallbackBlockers: FallbackBlockerSummary[];
+  fallbackFamilies: FallbackFamilySummary[];
+  statusCounts: StatusCountSummary[];
+  totalRows: number;
+  unsupportedNodeTypes: UnsupportedNodeTypeSummary[];
+};
+
+type StatusCountSummary = {
+  count: number;
+  status: RealWorkflowResult['status'];
+};
+
+type FallbackFamilySummary = {
+  count: number;
+  examples: string[];
+  family: string;
+};
+
+type FallbackBlockerSummary = {
+  affectedNodeType?: string;
+  blocker: string;
+  count: number;
+  examples: string[];
+  family: string;
+};
+
+type FallbackReasonSummary = {
+  affectedNodeType?: string;
+  count: number;
+  examples: string[];
+  family: string;
+  reason: string;
+};
+
+type UnsupportedNodeTypeSummary = {
+  count: number;
+  examples: string[];
+  nodeType: string;
+  reasons: string[];
+};
+
+type FallbackDiagnostic = {
+  affectedNodeType?: string;
+  blocker: string;
+  family: string;
+};
+
 const benchDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(benchDir, '..', '..', '..');
 const iterations = readPositiveIntegerEnv('RIVET_REAL_WORKFLOW_BENCH_ITERATIONS', 25);
 const warmupIterations = readPositiveIntegerEnv('RIVET_REAL_WORKFLOW_BENCH_WARMUP_ITERATIONS', 3);
 const samples = readPositiveIntegerEnv('RIVET_REAL_WORKFLOW_BENCH_SAMPLES', 3);
 const benchmarkFilter = readBenchmarkFilter();
+const summaryExampleLimit = 3;
+const consoleSummaryLimit = 20;
 
 const defaultProjectPaths = [
   'rivet.rivet-project',
@@ -119,11 +175,13 @@ async function main(): Promise<void> {
     );
   }
 
+  const output = createBenchmarkOutput(results);
+
   if (process.env.RIVET_REAL_WORKFLOW_BENCH_JSON === '1') {
-    console.log(JSON.stringify(results));
+    console.log(JSON.stringify(output));
   } else {
     console.table(
-      results.map((result) => ({
+      output.results.map((result) => ({
         projectPath: result.projectPath,
         graphName: result.graphName,
         status: result.status,
@@ -137,6 +195,7 @@ async function main(): Promise<void> {
         fallbackReason: result.fallbackReason,
       })),
     );
+    printSummary(output.summary);
   }
 }
 
@@ -368,6 +427,212 @@ function getBenchmarkProjectPaths(): string[] {
 
 function shouldRunBenchmark(name: string): boolean {
   return benchmarkFilter == null || benchmarkFilter.test(name);
+}
+
+function createBenchmarkOutput(results: RealWorkflowResult[]): RealWorkflowBenchmarkOutput {
+  return {
+    results,
+    summary: createSummary(results),
+  };
+}
+
+function createSummary(results: RealWorkflowResult[]): RealWorkflowSummary {
+  return {
+    exactFallbackReasons: summarizeExactFallbackReasons(results),
+    fallbackBlockers: summarizeFallbackBlockers(results),
+    fallbackFamilies: summarizeFallbackFamilies(results),
+    statusCounts: summarizeStatusCounts(results),
+    totalRows: results.length,
+    unsupportedNodeTypes: summarizeUnsupportedNodeTypes(results),
+  };
+}
+
+function summarizeStatusCounts(results: RealWorkflowResult[]): StatusCountSummary[] {
+  return [...countBy(results, (result) => result.status).entries()]
+    .map(([status, count]) => ({ count, status }))
+    .sort(compareCountThenName((summary) => summary.status));
+}
+
+function summarizeFallbackFamilies(results: RealWorkflowResult[]): FallbackFamilySummary[] {
+  const fallbackResults = getFallbackResults(results);
+  const grouped = groupBy(fallbackResults, (result) => classifyFallbackReason(result.fallbackReason).family);
+
+  return [...grouped.entries()]
+    .map(([family, rows]) => ({
+      count: rows.length,
+      examples: getExamples(rows),
+      family,
+    }))
+    .sort(compareCountThenName((summary) => summary.family));
+}
+
+function summarizeFallbackBlockers(results: RealWorkflowResult[]): FallbackBlockerSummary[] {
+  const fallbackResults = getFallbackResults(results);
+  const grouped = groupBy(fallbackResults, (result) => classifyFallbackReason(result.fallbackReason).blocker);
+
+  return [...grouped.entries()]
+    .map(([blocker, rows]) => {
+      const diagnostic = classifyFallbackReason(rows[0]?.fallbackReason);
+      return {
+        affectedNodeType: diagnostic.affectedNodeType,
+        blocker,
+        count: rows.length,
+        examples: getExamples(rows),
+        family: diagnostic.family,
+      };
+    })
+    .sort(compareCountThenName((summary) => summary.blocker));
+}
+
+function summarizeExactFallbackReasons(results: RealWorkflowResult[]): FallbackReasonSummary[] {
+  const fallbackResults = getFallbackResults(results);
+  const grouped = groupBy(fallbackResults, (result) => result.fallbackReason ?? '<missing>');
+
+  return [...grouped.entries()]
+    .map(([reason, rows]) => {
+      const diagnostic = classifyFallbackReason(reason);
+      return {
+        affectedNodeType: diagnostic.affectedNodeType,
+        count: rows.length,
+        examples: getExamples(rows),
+        family: diagnostic.family,
+        reason,
+      };
+    })
+    .sort(compareCountThenName((summary) => summary.reason));
+}
+
+function summarizeUnsupportedNodeTypes(results: RealWorkflowResult[]): UnsupportedNodeTypeSummary[] {
+  const rowsByNodeType = new Map<string, RealWorkflowResult[]>();
+
+  for (const result of getFallbackResults(results)) {
+    const diagnostic = classifyFallbackReason(result.fallbackReason);
+    if (diagnostic.family !== 'unsupported-node' || !diagnostic.affectedNodeType) {
+      continue;
+    }
+
+    const rows = rowsByNodeType.get(diagnostic.affectedNodeType) ?? [];
+    rows.push(result);
+    rowsByNodeType.set(diagnostic.affectedNodeType, rows);
+  }
+
+  return [...rowsByNodeType.entries()]
+    .map(([nodeType, rows]) => ({
+      count: rows.length,
+      examples: getExamples(rows),
+      nodeType,
+      reasons: [...new Set(rows.map((row) => row.fallbackReason ?? '<missing>'))].sort(),
+    }))
+    .sort(compareCountThenName((summary) => summary.nodeType));
+}
+
+function getFallbackResults(results: RealWorkflowResult[]): RealWorkflowResult[] {
+  return results.filter((result) => result.status === 'fallback');
+}
+
+function classifyFallbackReason(reason: string | undefined): FallbackDiagnostic {
+  if (!reason) {
+    return {
+      blocker: '<missing>',
+      family: '<missing>',
+    };
+  }
+
+  const parts = reason.split(':');
+  const family = parts[0] || reason;
+
+  switch (family) {
+    case 'unsupported-node': {
+      const affectedNodeType = parts[1] || '<unknown>';
+      return {
+        affectedNodeType,
+        blocker: `unsupported-node:${affectedNodeType}`,
+        family,
+      };
+    }
+    case 'unsupported-data-type': {
+      const dataType = parts[1] || '<unknown>';
+      return {
+        blocker: `unsupported-data-type:${dataType}`,
+        family,
+      };
+    }
+    case 'unsupported-destructure-path':
+      return {
+        affectedNodeType: 'destructure',
+        blocker: `unsupported-destructure-path:${parts.slice(1, -1).join(':') || '<unknown>'}`,
+        family,
+      };
+    case 'unsupported-extract-object-path':
+      return {
+        affectedNodeType: 'extractObjectPath',
+        blocker: `unsupported-extract-object-path:${parts.slice(1, -1).join(':') || '<unknown>'}`,
+        family,
+      };
+    case 'split-run':
+      return {
+        blocker: 'split-run',
+        family,
+      };
+    default:
+      return {
+        blocker: reason,
+        family,
+      };
+  }
+}
+
+function getExamples(rows: RealWorkflowResult[]): string[] {
+  return [...rows]
+    .map((row) => `${row.projectPath}#${row.graphName ?? '<project>'}`)
+    .sort()
+    .slice(0, summaryExampleLimit);
+}
+
+function countBy<T, K extends string>(values: T[], getKey: (value: T) => K): Map<K, number> {
+  const counts = new Map<K, number>();
+  for (const value of values) {
+    const key = getKey(value);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+
+  return counts;
+}
+
+function groupBy<T, K extends string>(values: T[], getKey: (value: T) => K): Map<K, T[]> {
+  const groups = new Map<K, T[]>();
+  for (const value of values) {
+    const key = getKey(value);
+    const group = groups.get(key) ?? [];
+    group.push(value);
+    groups.set(key, group);
+  }
+
+  return groups;
+}
+
+function compareCountThenName<T>(
+  getName: (value: T) => string,
+): (left: T & { count: number }, right: T & { count: number }) => number {
+  return (left, right) => right.count - left.count || getName(left).localeCompare(getName(right));
+}
+
+function printSummary(summary: RealWorkflowSummary): void {
+  console.log(`Real-workflow summary: ${summary.totalRows} row(s)`);
+  console.log('Status counts');
+  console.table(summary.statusCounts);
+  console.log('Fallback families');
+  console.table(summary.fallbackFamilies);
+  console.log('Fallback blockers');
+  console.table(summary.fallbackBlockers);
+  console.log(
+    `Exact fallback reasons (top ${Math.min(consoleSummaryLimit, summary.exactFallbackReasons.length)} of ${
+      summary.exactFallbackReasons.length
+    })`,
+  );
+  console.table(summary.exactFallbackReasons.slice(0, consoleSummaryLimit));
+  console.log('Unsupported node types');
+  console.table(summary.unsupportedNodeTypes);
 }
 
 function getSortedProjectGraphs(project: Project): [string, NodeGraph][] {

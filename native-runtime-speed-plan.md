@@ -25,8 +25,8 @@ Current implementation state:
   using either a package name, file URL, or filesystem path.
 - The local JS adapter can execute the existing narrow native IR for
   `graphInput`, `text`, `join`, `object`, `coalesce`, `destructure`,
-  `extractObjectPath`, `graphOutput`, and direct `subGraph` boundaries when
-  `RIVET_NATIVE_RUNTIME_BACKEND=js` is
+  `extractObjectPath`, `graphOutput`, direct `subGraph` boundaries, and static
+  Referenced Graph Alias boundaries when `RIVET_NATIVE_RUNTIME_BACKEND=js` is
   selected or when no Rust worker binary is available.
 - The Rust crate under `native-runtime/native/` now includes a persistent
   worker binary that executes the same narrow IR for native-fast experiments.
@@ -50,15 +50,15 @@ Target workflow shapes:
 
 - many cheap nodes
 - large fan-in / fan-out graphs
-- repeated Subgraph, Call Graph, and Referenced Graph calls
+- repeated Subgraph and static Referenced Graph Alias calls
 - deeply nested but headless-compatible graph execution
 
 Non-target workflow shapes:
 
 - LLM, HTTP, database, file, sleep, wait, and user-input dominated workflows
 - editor/debugger/recording paths where rich lifecycle events are required
-- arbitrary user Code/Expression replacement before the native engine has
-  proven it can beat the optimized TypeScript engine on graph orchestration
+- arbitrary user Code/Expression replacement without a separate language,
+  sandbox, compatibility, and benchmark plan
 
 ## Core Bet
 
@@ -124,12 +124,11 @@ must not share mutable runtime code with the ordinary TypeScript modes.
 
 ### Public integration
 
-- Add a new explicit runtime profile, tentatively `native-fast`, only after a
-  prototype proves a large win.
-- Start with a graph-runner-only API path because it already models "load once,
-  run many times" and can amortize native plan construction. The implementation
-  may add a runner-specific profile type or adapter rather than expanding the
-  shared `NodeRuntimeProfile` union used by `createProcessor(...)`.
+- Keep the explicit `native-fast` runtime profile graph-runner-only.
+  `createGraphRunner(...)` already models "load once, run many times" and can
+  amortize native plan construction; `runGraph(...)` and
+  `createProcessor(...)` must not consider native execution until they have
+  their own benchmark gate.
 - Keep `runGraph(...)` and default `createProcessor(...)` on the current
   TypeScript policies until native one-shot overhead is proven safe.
 - Do not change the implementation of existing runtime profiles except for the
@@ -139,18 +138,18 @@ must not share mutable runtime code with the ordinary TypeScript modes.
 - Keep Remote Debugger, recording, trace mode, partial output callbacks,
   user-input/wait-event flows, and editor execution on the TypeScript engine in
   v1.
-- Add a private decision report for native runner tests and benchmarks, for
-  example `nativeUsed: boolean` plus a short fallback reason. Do not add that
-  report to normal graph outputs.
+- Keep the private native decision report for runner tests and benchmarks:
+  `nativeUsed`, `nativeEligible`, `nativeBackend`, and a short fallback reason.
+  Do not add that report to normal graph outputs.
 
 ### Native package shape
 
-- Start the native runtime package outside the normal Yarn workspace as
+- Keep the native runtime package outside the normal Yarn workspace as
   `native-runtime/`. Move it under `packages/*` only after native packaging is
   proven not to affect normal install/build/test flows on machines without a
   Rust toolchain.
-- Expose the eventual Rust backend to Node through a small JS adapter package
-  named `@valerypopoff/rivet2-native-runtime`.
+- Expose the Rust backend to Node through the small JS adapter package named
+  `@valerypopoff/rivet2-native-runtime`.
 - Treat the package as optional from `@valerypopoff/rivet2-node`; missing native
   binaries must not break installs or existing runtime behavior.
 - Load the package only from the native adapter after
@@ -232,22 +231,15 @@ Current status:
   5.88x to 37.04x on the native-eligible target shapes. Unsupported Code stayed
   on whole-run TypeScript fallback and reported `nativeUsed=false`.
 
-- Build a throwaway Rust prototype outside the public API path. The current
-  worker-process prototype is enough for feasibility; N-API remains a
-  productization step, not a P0 prerequisite.
-- Feed it generated benchmark IR for cheap chains, wide fan-in, direct subgraph
-  chains, mixed subgraph fan-in, and unsupported Code fallback. Repeated
-  referenced-project and dynamic Call Graph cases were left as later
-  fallback/control rows for P0 because they were outside the initial native
-  eligibility set; P4 now graduates the static Referenced Graph Alias case.
-- Treat the 2026-05-24 matrix as end-to-end runner-run evidence: the measured
-  native rows include TypeScript-to-native input conversion, native execution,
-  and native-to-TypeScript output conversion. Add separate slice timers before
-  productization or when diagnosing a future native regression.
-- Continue only if the native execution slice is at least 30% faster than the
-  optimized TypeScript runtime on the target shapes after conversion overhead.
-  The current Rust worker clears this gate for the measured eligible shapes;
-  promotion still depends on the later productization and equivalence gates.
+Validation notes:
+
+- The worker-process prototype is enough for feasibility; N-API remains a
+  productization step, not a prerequisite.
+- The 2026-05-24 matrix is end-to-end runner-run evidence: measured native rows
+  include TypeScript-to-native input conversion, native execution, and
+  native-to-TypeScript output conversion.
+- The current Rust worker clears the 30% speed gate for measured eligible
+  shapes, but promotion still depends on productization and equivalence gates.
 
 ### P1: Optional package and gated profile [DONE]
 
@@ -265,24 +257,15 @@ Completed:
   custom-registry fallback, native decision reporting, explicit local-module
   loading, native runner disposal, and overlapping native-fast runs.
 
-- Add the native package boundary and CI build smoke tests. Keep it outside the
-  normal workspace until package-manager and platform packaging risks are
-  resolved.
-- Keep the root build/test path TypeScript-only. Add explicit native scripts for
-  building/testing the Rust package so normal contributors are not forced into
-  the native toolchain.
-- Add a Node-side capability probe and keep all existing APIs functional when
-  the native package is unavailable. The probe must be called only from the
-  native-profile branch.
-- Add `native-fast` behind an internal flag first. Do not expose it as a normal
-  documented profile until equivalence and benchmark gates pass.
-- Add benchmark rows for native load-once runner execution and one-shot native
-  conversion overhead.
-- Add a native decision report used by tests/benchmarks to distinguish "native
-  actually ran" from "native requested but TypeScript fallback ran".
-- Add explicit tests where the native package import throws and ordinary
-  `runGraph(...)`, `createProcessor(...)`, and `createGraphRunner(...)` calls
-  still use the TypeScript engine successfully.
+Validation notes:
+
+- Root build/test remains TypeScript-only; native build/test work uses explicit
+  native scripts and CI jobs.
+- Native probing happens only after `runtimeProfile: 'native-fast'` is selected.
+- Decision reports distinguish "native actually ran" from "native requested but
+  TypeScript fallback ran".
+- Import-failure tests prove ordinary `runGraph(...)`, `createProcessor(...)`,
+  and non-native `createGraphRunner(...)` calls still use the TypeScript engine.
 
 ### P2: Native graph plan and scheduler [DONE]
 
@@ -518,6 +501,134 @@ Completed:
   user-facing language/compatibility contract, migration story, sandbox model,
   and dedicated benchmarks before implementation.
 
+### P7: Real-workflow fallback diagnostics [DONE]
+
+Completed:
+
+- `packages/node/bench/nativeRealWorkflow.bench.ts` now emits a JSON object with
+  raw per-graph `results` plus a deterministic `summary`.
+- The summary includes status counts, fallback-family counts, normalized
+  fallback blockers, exact fallback reasons, unsupported node-type counts, and
+  representative `project#graph` examples.
+- Raw per-graph rows remain intact, including missing project files, load
+  errors, output mismatches, and run errors.
+- Fallback rows remain side-effect-safe: the benchmark reports native
+  eligibility decisions without executing TypeScript fallback graphs just to
+  gather diagnostics.
+- [`native-runtime-real-workflow-benchmark.md`](native-runtime-real-workflow-benchmark.md)
+  now includes a top-blockers section and names the next candidate tranches:
+  project-plugin gate reassessment, simple conditionals, and simple JSONPath
+  expansion.
+
+### P8: Project plugin gate reassessment [NOT STARTED]
+
+Goal:
+
+- Decide whether `project-has-plugins` must block the whole project or whether
+  native-fast can safely run built-in-only graphs when project plugins are
+  present but unused by the selected graph and its native-resolved child graph
+  closure.
+
+Scope:
+
+- P8 is a gate-design phase. It should not widen native eligibility by itself
+  unless the required tests and docs for the narrower gate are included in the
+  same change.
+
+Required analysis:
+
+- Trace how project plugins can affect node registration, node data semantics,
+  graph references, and execution-time behavior.
+- Identify whether a graph that uses only built-in native-supported nodes can
+  be classified independently from unrelated project-level plugins.
+- Confirm that plugin presence cannot change built-in node implementations,
+  port definitions, graph input/output behavior, globals, context, or fallback
+  expectations for the selected graph closure.
+
+Possible outcomes:
+
+- Keep the current whole-project plugin gate if plugins can alter semantics in
+  a way native preflight cannot prove safe.
+- Replace it with a narrower graph-closure plugin gate if unused plugins can be
+  ignored safely and covered with negative tests.
+- Defer the gate if plugin safety depends on unresolved graph-reference,
+  custom-registry, or dynamic node-definition questions.
+
+Exit criteria:
+
+- The decision is documented in developer docs and benchmark notes.
+- If the gate is narrowed, equivalence tests prove plugin-bearing projects still
+  fall back when the selected graph actually uses plugin/custom nodes.
+- The real-workflow benchmark explicitly reports whether `project-has-plugins`
+  remains a top blocker after the decision.
+
+### P9: First real-workflow eligibility tranche [NOT STARTED]
+
+Goal:
+
+- Add one cheap, side-effect-free native eligibility expansion chosen from the
+  P7/P8 fallback data, with tests before implementation.
+
+Selection rules:
+
+- Prefer blockers that appear in checked-in real projects and keep execution
+  entirely deterministic.
+- Prefer simple built-ins, simple data-type expansions, or simple port-setting
+  variants over provider, file, user-input, debugger, Code, Expression, or
+  dynamic-dispatch behavior.
+- Prefer features that can be proven from the static TypeScript native
+  preflight without executing the fallback TypeScript graph.
+- Do not add more than one semantic node family per tranche unless the second
+  family is purely mechanical test coverage for the first.
+
+Required implementation order:
+
+- Add TypeScript/native equivalence tests for supported and unsupported
+  settings.
+- Add negative fallback tests before widening eligibility.
+- Implement the native JS adapter behavior first, then Rust worker behavior.
+- Update native IR typing only for the selected feature.
+- Keep fallback whole-run and observable when settings exceed the supported
+  native subset.
+
+Exit criteria:
+
+- Existing TypeScript modes remain unchanged.
+- Native-fast only accepts the newly covered semantics.
+- The selected real-workflow blocker count decreases in the benchmark report.
+- If the selected blocker count does not decrease, stop and explain why before
+  starting another tranche.
+
+### P10: Rerun and document the eligibility matrix [NOT STARTED]
+
+Goal:
+
+- Prove whether the new tranche actually increases real checked-in workflow
+  reach without hiding regressions.
+
+Required checks:
+
+- Run focused equivalence tests for the new native feature.
+- Run native runtime tests and the lightweight real-workflow audit.
+- Run the full native/runtime benchmark matrix when eligibility or worker
+  transport changes could affect measured performance.
+- Use the same documented benchmark command shape before and after the change,
+  changing only the code under test.
+- Update
+  [`native-runtime-real-workflow-benchmark.md`](native-runtime-real-workflow-benchmark.md)
+  with before/after eligible counts, exact fallback deltas, output mismatch
+  count, run error count, and measured timing rows.
+- Update developer docs with the new native-eligible feature and fallback
+  limits.
+- Mark the relevant P7-P10 phase headers as done only after checks and docs are
+  complete.
+
+Exit criteria:
+
+- The report clearly says whether native-fast real-project reach improved.
+- Any speed wins are counted only when `nativeUsed=true`.
+- Any unchanged or worsened reach is explained before the next tranche begins.
+
 ## Benchmark Gates
 
 Every native phase must compare against the existing optimized TypeScript
@@ -552,8 +663,9 @@ Promotion thresholds:
   that fell back to TypeScript cannot be counted as native speed wins
 - normal build/test/install flows must pass on a machine without Rust installed
 
-If the prototype cannot meet these gates, stop the rewrite and keep optimizing
-the TypeScript runtime.
+If a future expansion tranche cannot meet these gates, stop widening native
+eligibility for that tranche and keep the unsupported behavior on the
+TypeScript runtime.
 
 ## Compatibility Rules
 
@@ -594,18 +706,19 @@ The TypeScript-side adapter contract, local JS control adapter, process-based
 Rust worker backend, cross-platform native CI smoke, Code/Expression fallback
 decision, and before/after benchmark matrices are now in place. The Rust worker
 proved the speed win for the narrow eligible workload set, but the product gate
-keeps it internal and opt-in rather than default:
+keeps it internal and opt-in rather than default.
+
+The next remaining implementation sequence is P8 through P10: reassess the
+project-plugin gate, implement one data-backed low-risk eligibility tranche,
+then rerun and document the matrix. During that work:
 
 - keep ordinary TypeScript paths unchanged and keep `native-fast` opt-in;
 - keep the worker-process boundary unless a future release-packaging phase
   proves N-API is worth the crash-isolation tradeoff;
-- keep expanding equivalence tests before widening the eligible node set; the
-  first broader fixture pass is done, but every new native node family still
-  needs its own supported and unsupported cases;
-- run the benchmark matrix whenever native eligibility or worker transport
-  changes;
-- use the real-workflow benchmark before choosing the next native node family,
-  because current checked-in projects are bottlenecked by eligibility breadth
-  more than by Rust execution speed;
+- do not start P9 until the P8 plugin-gate decision is documented;
+- add supported and unsupported equivalence tests before every eligibility
+  expansion;
+- rerun the relevant benchmark matrix whenever native eligibility or worker
+  transport changes;
 - keep Code and Expression on TypeScript fallback unless a separate
   product-level language/runtime plan proves a migration-safe speed win.
