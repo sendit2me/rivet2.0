@@ -301,6 +301,20 @@ export const nodeStyles = css`
     text-transform: uppercase;
   }
 
+  .global-node-title-icon {
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+    margin-right: 0.35em;
+    vertical-align: -0.14em;
+    color: currentColor;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
   .node .node-title .title-text-description {
     min-width: 0;
     max-width: 100%;

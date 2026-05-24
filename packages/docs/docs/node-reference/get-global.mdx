@@ -13,6 +13,8 @@ import TabItem from '@theme/TabItem';
 
 The Get Global Node is used to retrieve a global value that is shared across all graphs and subgraphs. The ID of the global value is configured in this node.
 
+On the canvas, the node title shows an upward arrow icon rising from a baseline so it is easier to distinguish from [Set Global](./set-global.mdx). This icon is only a visual title cue.
+
 The node can be configured to retrieve the value on demand, which means it will be read when nodes need it, rather than when this node executes. This is useful when the global value might change during the execution of the graph.
 
 The node can also be configured to wait until the variable is available. This is useful when the global value is set by another node that might not have completed its execution when this node runs.

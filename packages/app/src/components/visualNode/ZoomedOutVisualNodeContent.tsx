@@ -12,6 +12,7 @@ import { useCanvasHandlersContext, useCanvasViewContext } from '../CanvasContext
 import { SubGraphHeaderLink } from './SubGraphHeaderLink.js';
 import { SplitRunSummary } from './SplitRunSummary.js';
 import { NodeRunningIndicator } from './NodeRunningIndicator.js';
+import { NodeTitleLabel } from './NodeTitleLabel.js';
 
 export const ZoomedOutVisualNodeContent: FC<{
   node: ChartNode;
@@ -75,7 +76,7 @@ export const ZoomedOutVisualNodeContent: FC<{
           <div className="grab-area">
             <SubGraphHeaderLink node={node} />
             <div className="title-text">
-              <span className="title-text-label">{node.title}</span>
+              <NodeTitleLabel node={node} />
               {nodeDescription && <span className="title-text-description">{nodeDescription}</span>}
               <SplitRunSummary node={node} isKnownNodeType={isKnownNodeType} />
             </div>

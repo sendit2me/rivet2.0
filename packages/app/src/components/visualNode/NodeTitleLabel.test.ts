@@ -1,0 +1,36 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { NodeTitleLabel } from './NodeTitleLabel.js';
+
+function renderNodeTitle(type: string, title: string) {
+  return renderToStaticMarkup(createElement(NodeTitleLabel, { node: { type, title } as any }));
+}
+
+test('NodeTitleLabel decorates Get Global canvas titles only in rendered markup', () => {
+  const html = renderNodeTitle('getGlobal', 'Get Global');
+
+  assert.match(html, /global-node-title-icon-get/);
+  assert.match(html, /aria-hidden="true"/);
+  assert.match(html, /d="M7 20h10"/);
+  assert.doesNotMatch(html, /d="M7 4h10"/);
+  assert.match(html, />Get Global<\/span>/);
+});
+
+test('NodeTitleLabel decorates Set Global canvas titles with the matching icon', () => {
+  const html = renderNodeTitle('setGlobal', 'Set Global');
+
+  assert.match(html, /global-node-title-icon-set/);
+  assert.match(html, /d="M12 6v11"/);
+  assert.doesNotMatch(html, /d="M12 4v13"/);
+  assert.match(html, /d="M7 20h10"/);
+  assert.match(html, />Set Global<\/span>/);
+});
+
+test('NodeTitleLabel leaves other node titles plain', () => {
+  const html = renderNodeTitle('text', 'Text');
+
+  assert.doesNotMatch(html, /global-node-title-icon/);
+  assert.match(html, /^<span class="title-text-label">Text<\/span>$/);
+});

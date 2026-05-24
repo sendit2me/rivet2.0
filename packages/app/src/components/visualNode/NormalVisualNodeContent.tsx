@@ -28,6 +28,7 @@ import { NodeOutput } from '../NodeOutput.js';
 import { SubGraphHeaderLink } from './SubGraphHeaderLink.js';
 import { SplitRunSummary } from './SplitRunSummary.js';
 import { NodeRunningIndicator } from './NodeRunningIndicator.js';
+import { NodeTitleLabel } from './NodeTitleLabel.js';
 import {
   computeBoxNodeResizeBounds,
   computeHorizontalNodeResizeBounds,
@@ -282,7 +283,7 @@ export const NormalVisualNodeContent: FC<{
           <div className="grab-area">
             <SubGraphHeaderLink node={node} />
             <div className="title-text">
-              <span className="title-text-label">{node.title}</span>
+              <NodeTitleLabel node={node} />
               {nodeDescription && <span className="title-text-description">{nodeDescription}</span>}
               <SplitRunSummary node={node} isKnownNodeType={isKnownNodeType} />
             </div>

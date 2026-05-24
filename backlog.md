@@ -2,10 +2,6 @@
 
 
 
-
-- Make get global and set global nodes different enough thtat it's easy to notice which is which. Like, icons maybe?
-
-
 - When I try to resize the left panel width too narrow (<= 50% of minimal width), collapse it completely as if I clicked the collapse button
 
 
