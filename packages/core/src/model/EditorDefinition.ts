@@ -28,6 +28,11 @@ export type SharedEditorDefinitionProps<T extends ChartNode> = {
   disableIf?: (data: T['data']) => boolean;
 };
 
+export type InfoEditorDefinition<T extends ChartNode> = SharedEditorDefinitionProps<T> & {
+  type: 'info';
+  useInputToggleDataKey?: never;
+};
+
 export type StringEditorDefinition<T extends ChartNode> = SharedEditorDefinitionProps<T> & {
   type: 'string';
 
@@ -244,6 +249,7 @@ export type DynamicEditorDefinition<T extends ChartNode> = SharedEditorDefinitio
 };
 
 export type EditorDefinition<T extends ChartNode> =
+  | InfoEditorDefinition<T>
   | StringEditorDefinition<T>
   | ToggleEditorDefinition<T>
   | DataTypeSelectorEditorDefinition<T>

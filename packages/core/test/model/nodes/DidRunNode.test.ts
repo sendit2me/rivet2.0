@@ -33,6 +33,7 @@ describe('DidRunNodeImpl', () => {
 
     assert.strictEqual(node.type, 'didRun');
     assert.strictEqual(node.title, 'Did Run');
+    assert.strictEqual(node.visualData.width, 167);
   });
 
   it('has dynamic input definitions based on connections', () => {
@@ -50,12 +51,15 @@ describe('DidRunNodeImpl', () => {
     );
   });
 
-  it('shows a concise body explanation', () => {
+  it('keeps the explanation in settings instead of the node body', () => {
     const node = createNode();
-    const body = node.getBody();
+    const editors = node.getEditors();
 
-    assert.match(body, /connected inputs/i);
-    assert.match(body, /true/i);
+    assert.strictEqual(node.getBody(), undefined);
+    assert.strictEqual(editors.length, 1);
+    assert.strictEqual(editors[0]?.type, 'info');
+    assert.match(editors[0]?.helperMessage as string, /connected inputs/i);
+    assert.match(editors[0]?.helperMessage as string, /true/i);
   });
 
   it('outputs true when invoked with any dynamic input entry', async () => {

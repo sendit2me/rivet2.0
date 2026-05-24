@@ -1,50 +1,19 @@
 
 
-- Sometimes, when I'm working in Rivet for hours already, when I click the project tree with the right mouse button, the Rivet crashes and I have to reload the page. This is what I see in the web console when it happens:
-
-react-dom-BiLoywox.js:3093 RangeError: Maximum call stack size exceeded
-    at editorBridgeFocus-PphY3KF8.js:446:67
-    at editorBridgeFocus-PphY3KF8.js:448:38
-    at Array.forEach (<anonymous>)
-    at editorBridgeFocus-PphY3KF8.js:447:13
-    at editorBridgeFocus-PphY3KF8.js:448:38
-    at Array.forEach (<anonymous>)
-    at editorBridgeFocus-PphY3KF8.js:447:13
-    at editorBridgeFocus-PphY3KF8.js:448:38
-    at Array.forEach (<anonymous>)
-    at editorBridgeFocus-PphY3KF8.js:447:13
-react-dom-BiLoywox.js:2206 Uncaught RangeError: Maximum call stack size exceeded
-    at editorBridgeFocus-PphY3KF8.js:446:67
-    at editorBridgeFocus-PphY3KF8.js:448:38
-    at Array.forEach (<anonymous>)
-    at editorBridgeFocus-PphY3KF8.js:447:13
-    at editorBridgeFocus-PphY3KF8.js:448:38
-    at Array.forEach (<anonymous>)
-    at editorBridgeFocus-PphY3KF8.js:447:13
-    at editorBridgeFocus-PphY3KF8.js:448:38
-    at Array.forEach (<anonymous>)
-    at editorBridgeFocus-PphY3KF8.js:447:13
-HostedEditorApp-DOEPI7oD.js:114464 WebSocket connection to 'wss://storyteller-rivet.litnet.com/ws/executor/internal' failed: WebSocket is closed before the connection is established.
 
 
+- When I try to resize the left panel width too narrow (<= 50% of minimal width), collapse it completely as if I clicked the collapse button
 
 
+- Need keyboard shortcuts to run the project and the current graph
 
-- Small and big letters in graph names affect the sorting in the panel. Don't
-
-
-- Did run nod c remove the explanation form the node's body and put it into the settings panel
-
-- For each node in the settings panel; add a link to the user documentation
+- For each node in the settings panel - add a link to the user documentation
 
 - When a graph is picked in the left panel and the panel is open, make F2 force renaming
 
 
-- Make get global and set global nodes different enough thtat it's easy to notice which is which. Like, icons maybe?
 
-- Need keyboard shortcuts to run the project and the current graph
 
-- When I decrease the left panel width too narrow, collapse it completely as if I clicked the collapse button
 
 
 - Now, the executor mode is global for all open projects (remote debugger, browser, node). Make it per tab

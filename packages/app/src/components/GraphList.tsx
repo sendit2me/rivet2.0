@@ -20,8 +20,6 @@ import { useGraphListDragDrop } from '../hooks/useGraphListDragDrop';
 import { useProjectNodeRegistry } from '../hooks/useProjectNodeRegistry.js';
 import { FolderItem } from './graphList/FolderItem';
 import { AppModalHeader } from './AppModalHeader';
-import { ContextMenuItem, menuStyles } from './ContextMenu';
-import { type ContextMenuItem as ContextMenuConfigItem } from '../hooks/useContextMenuConfiguration';
 import EditPenIcon from 'majesticons/line/edit-pen-2-line.svg?react';
 import DuplicateIcon from 'majesticons/line/image-multiple-line.svg?react';
 import DeleteIcon from 'majesticons/line/delete-bin-line.svg?react';
@@ -38,9 +36,11 @@ import {
   buildGraphListContextMenuItems,
   getGraphListContextMenuTarget,
   type GraphListContextMenuIcons,
+  type GraphListContextMenuItem,
 } from './graphList/graphListContextMenu.js';
 import { useGraphListPresentation } from './graphList/useGraphListPresentation.js';
 import { getFolderNames } from './graphList/graphFolders.js';
+import { PopupMenuItem, popupMenuListStyles } from './PopupMenu.js';
 
 const styles = css`
   display: flex;
@@ -426,7 +426,13 @@ const styles = css`
 `;
 
 const contextMenuStyles = css`
-  ${menuStyles};
+  ${popupMenuListStyles};
+  z-index: 1;
+
+  .context-menu-items {
+    display: flex;
+    flex-direction: column;
+  }
 `;
 
 const deleteGraphConfirmBody = css`
@@ -559,7 +565,7 @@ export const GraphList: FC = memo(() => {
   });
 
   const graphItemMenuItems = useMemo(
-    (): ContextMenuConfigItem[] =>
+    (): GraphListContextMenuItem[] =>
       buildGraphItemContextMenuItems({
         icons: graphListContextMenuIcons,
         isMainGraph: contextMenuTarget?.type === 'graph-item' ? contextMenuTarget.isMainGraph : false,
@@ -568,12 +574,12 @@ export const GraphList: FC = memo(() => {
   );
 
   const folderMenuItems = useMemo(
-    (): ContextMenuConfigItem[] => buildFolderContextMenuItems(graphListContextMenuIcons),
+    (): GraphListContextMenuItem[] => buildFolderContextMenuItems(graphListContextMenuIcons),
     [],
   );
 
   const graphListMenuItems = useMemo(
-    (): ContextMenuConfigItem[] => buildGraphListContextMenuItems(graphListContextMenuIcons),
+    (): GraphListContextMenuItem[] => buildGraphListContextMenuItems(graphListContextMenuIcons),
     [],
   );
 
@@ -802,18 +808,20 @@ export const GraphList: FC = memo(() => {
 GraphList.displayName = 'GraphList';
 
 const GraphListContextMenuItems: FC<{
-  items: ContextMenuConfigItem[];
+  items: GraphListContextMenuItem[];
   onSelected: (id: string) => void;
 }> = ({ items, onSelected }) => (
   <div className="context-menu-items">
     {items.map((item, index) => (
-      <ContextMenuItem
+      <PopupMenuItem
         key={item.id}
-        config={item}
-        context={{}}
-        showSeparator={index > 0 && item.separatorBefore === true}
-        onMenuItemSelected={onSelected}
-      />
+        icon={item.icon}
+        separatorBefore={index > 0 && item.separatorBefore === true}
+        tone={item.tone}
+        onClick={() => onSelected(item.id)}
+      >
+        {item.label}
+      </PopupMenuItem>
     ))}
   </div>
 );

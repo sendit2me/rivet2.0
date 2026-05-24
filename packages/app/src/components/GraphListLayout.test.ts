@@ -9,6 +9,7 @@ const componentsDir = dirname(fileURLToPath(import.meta.url));
 test('graph tree panel keeps the compact text-list layout source contract', () => {
   const graphListSource = readFileSync(join(componentsDir, 'GraphList.tsx'), 'utf8');
   const folderItemSource = readFileSync(join(componentsDir, 'graphList', 'FolderItem.tsx'), 'utf8');
+  const graphListContextMenuSource = readFileSync(join(componentsDir, 'graphList', 'graphListContextMenu.ts'), 'utf8');
 
   // This remains a narrow source guard because the project tree is not covered by a render/screenshot test yet.
   // Behavior such as context-menu targeting, folder presentation, reachability, and running state is covered in
@@ -24,6 +25,11 @@ test('graph tree panel keeps the compact text-list layout source contract', () =
   assert.match(graphListSource, /className="graph-list-filter"/);
   assert.match(graphListSource, /aria-label="Filter graphs"/);
   assert.match(graphListSource, /placeholder="Filter graphs"/);
+  assert.match(graphListSource, /<PopupMenuItem\b/);
+  assert.doesNotMatch(graphListSource, /from '\.\/ContextMenu'/);
+  assert.doesNotMatch(graphListSource, /<ContextMenuItem\b/);
+  assert.match(graphListContextMenuSource, /export type GraphListContextMenuItem =/);
+  assert.doesNotMatch(graphListContextMenuSource, /useContextMenuConfiguration/);
   assert.match(graphListSource, /&:focus::placeholder {\s+opacity: 0;\s+}/);
   assert.match(graphListSource, /\.graph-list-action {\s+cursor: pointer;\s+svg {\s+margin-bottom: 0\.35em;/);
   assert.match(graphListSource, /\.spinner \.node-running-indicator {\s+width: var\(--ui-font-size-base\);/);

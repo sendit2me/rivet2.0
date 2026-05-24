@@ -25,6 +25,7 @@ import { CustomEditor } from './CustomEditor';
 import { DefaultDynamicEditor } from './DynamicEditor';
 import { Tooltip } from '../Tooltip';
 import { DefaultDirectoryBrowserEditor } from './DirectoryBrowserEditor';
+import { InfoEditor } from './InfoEditor';
 
 export const DefaultNodeEditorField: FC<
   SharedEditorProps & {
@@ -48,6 +49,7 @@ export const DefaultNodeEditorField: FC<
   };
 
   const input = match(editor)
+    .with({ type: 'info' }, (editor) => <InfoEditor node={node} editor={editor} />)
     .with({ type: 'string' }, (editor) => <DefaultStringEditor {...sharedProps} editor={editor} />)
     .with({ type: 'toggle' }, (editor) => <DefaultToggleEditor {...sharedProps} editor={editor} />)
     .with({ type: 'dataTypeSelector' }, (editor) => <DefaultDataTypeSelector {...sharedProps} editor={editor} />)

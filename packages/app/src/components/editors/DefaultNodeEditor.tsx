@@ -165,6 +165,18 @@ export const defaultEditorContainerStyles = css`
     margin-bottom: 0 !important;
   }
 
+  .row.info .editor-wrapper-wrapper > label {
+    margin-bottom: var(--node-editor-label-helper-gap) !important;
+  }
+
+  .row.info [aria-live='polite'] {
+    margin-bottom: 0 !important;
+  }
+
+  .node-editor-info-helper > div {
+    margin-block: 0;
+  }
+
   .editor-viewport-shell {
     position: relative;
     min-height: 0;
