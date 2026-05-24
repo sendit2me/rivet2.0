@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::{Number, Value};
 use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::io::{self, BufRead, Write};
@@ -10,8 +10,19 @@ pub type DataValueMap = BTreeMap<String, DataValue>;
 pub struct DataValue {
     #[serde(rename = "type")]
     pub data_type: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_optional_value",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub value: Option<Value>,
+}
+
+fn deserialize_optional_value<'de, D>(deserializer: D) -> Result<Option<Value>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    Value::deserialize(deserializer).map(Some)
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
@@ -61,6 +72,14 @@ pub enum NativeNodeIr {
         id: String,
         join_string: String,
     },
+    #[serde(rename = "coalesce", rename_all = "camelCase")]
+    Coalesce {
+        id: String,
+        #[serde(default)]
+        ignore_null: bool,
+        #[serde(default)]
+        ignore_undefined: bool,
+    },
     #[serde(rename = "graphOutput", rename_all = "camelCase")]
     GraphOutput {
         data_type: String,
@@ -82,6 +101,7 @@ impl NativeNodeIr {
             NativeNodeIr::GraphInput { id, .. }
             | NativeNodeIr::Text { id, .. }
             | NativeNodeIr::Join { id, .. }
+            | NativeNodeIr::Coalesce { id, .. }
             | NativeNodeIr::GraphOutput { id, .. }
             | NativeNodeIr::SubGraph { id, .. } => id,
         }
@@ -317,6 +337,11 @@ fn run_node(node: &NativeNodeIr, state: NodeRunState<'_>) -> Result<DataValueMap
             join_string,
             ..
         } => Ok(run_join_node(*flatten, join_string, state)),
+        NativeNodeIr::Coalesce {
+            ignore_null,
+            ignore_undefined,
+            ..
+        } => Ok(run_coalesce_node(*ignore_null, *ignore_undefined, state)),
         NativeNodeIr::GraphOutput { output_id, .. } => Ok(run_graph_output_node(output_id, state)),
         NativeNodeIr::SubGraph {
             graph_id,
@@ -443,6 +468,42 @@ fn run_join_node(flatten: bool, join_string: &str, state: NodeRunState<'_>) -> D
     )])
 }
 
+fn run_coalesce_node(
+    ignore_null: bool,
+    ignore_undefined: bool,
+    state: NodeRunState<'_>,
+) -> DataValueMap {
+    if state
+        .node_inputs
+        .get("conditional")
+        .is_some_and(|value| value.data_type == "control-flow-excluded")
+    {
+        return coalesce_excluded_output();
+    }
+
+    let input_key_count = state
+        .node_inputs
+        .keys()
+        .filter_map(|key| dynamic_input_number(key))
+        .max()
+        .unwrap_or(0);
+
+    for index in 1..=input_key_count {
+        let input_key = format!("input{index}");
+        let Some(input_value) = state.node_inputs.get(&input_key) else {
+            continue;
+        };
+
+        if input_value.data_type != "control-flow-excluded"
+            && !should_skip_coalesce_input_value(input_value, ignore_null, ignore_undefined)
+        {
+            return BTreeMap::from([("output".to_string(), input_value.clone())]);
+        }
+    }
+
+    coalesce_excluded_output()
+}
+
 fn run_graph_output_node(output_id: &str, state: NodeRunState<'_>) -> DataValueMap {
     let has_value_input = state.node_inputs.contains_key("value");
     let value = state
@@ -470,6 +531,35 @@ fn run_graph_output_node(output_id: &str, state: NodeRunState<'_>) -> DataValueM
     current_output
         .map(|output| BTreeMap::from([("valueOutput".to_string(), output)]))
         .unwrap_or_default()
+}
+
+fn coalesce_excluded_output() -> DataValueMap {
+    BTreeMap::from([(
+        "output".to_string(),
+        DataValue {
+            data_type: "control-flow-excluded".to_string(),
+            value: None,
+        },
+    )])
+}
+
+fn should_skip_coalesce_input_value(
+    input_value: &DataValue,
+    ignore_null: bool,
+    ignore_undefined: bool,
+) -> bool {
+    (ignore_null && matches!(input_value.value, Some(Value::Null)))
+        || (ignore_undefined && input_value.value.is_none())
+}
+
+fn dynamic_input_number(input_id: &str) -> Option<usize> {
+    let suffix = input_id.strip_prefix("input")?;
+    if suffix.is_empty() || !suffix.chars().all(|character| character.is_ascii_digit()) {
+        return None;
+    }
+
+    let input_number = suffix.parse::<usize>().ok()?;
+    (input_number > 0).then_some(input_number)
 }
 
 fn run_subgraph_node(
@@ -1330,6 +1420,162 @@ mod tests {
     }
 
     #[test]
+    fn preserves_explicit_null_data_value() {
+        let explicit_null = serde_json::from_value::<DataValue>(json!({
+            "type": "any",
+            "value": null
+        }))
+        .unwrap();
+        let missing_value = serde_json::from_value::<DataValue>(json!({
+            "type": "any"
+        }))
+        .unwrap();
+
+        assert_eq!(explicit_null.value, Some(Value::Null));
+        assert_eq!(missing_value.value, None);
+        assert_eq!(
+            serde_json::to_value(explicit_null).unwrap(),
+            json!({ "type": "any", "value": null })
+        );
+        assert_eq!(
+            serde_json::to_value(missing_value).unwrap(),
+            json!({ "type": "any" })
+        );
+    }
+
+    #[test]
+    fn runs_coalesce_with_null_and_undefined_rules() {
+        let outputs = run_coalesce_for_test(
+            true,
+            true,
+            BTreeMap::from([
+                ("input1".to_string(), data_value("any", Some(Value::Null))),
+                ("input2".to_string(), data_value("any", None)),
+                (
+                    "input3".to_string(),
+                    data_value("string", Some(Value::String("winner".to_string()))),
+                ),
+            ]),
+        );
+
+        assert_eq!(
+            outputs.get("output"),
+            Some(&DataValue {
+                data_type: "string".to_string(),
+                value: Some(Value::String("winner".to_string())),
+            })
+        );
+
+        let outputs = run_coalesce_for_test(
+            false,
+            false,
+            BTreeMap::from([
+                ("input1".to_string(), data_value("any", Some(Value::Null))),
+                (
+                    "input2".to_string(),
+                    data_value("string", Some(Value::String("fallback".to_string()))),
+                ),
+            ]),
+        );
+
+        assert_eq!(
+            outputs.get("output"),
+            Some(&DataValue {
+                data_type: "any".to_string(),
+                value: Some(Value::Null),
+            })
+        );
+    }
+
+    #[test]
+    fn defaults_missing_coalesce_flags_to_false() {
+        let node = serde_json::from_value::<NativeNodeIr>(json!({
+            "type": "coalesce",
+            "id": "coalesce"
+        }))
+        .unwrap();
+
+        assert_eq!(
+            node,
+            NativeNodeIr::Coalesce {
+                id: "coalesce".to_string(),
+                ignore_null: false,
+                ignore_undefined: false,
+            }
+        );
+    }
+
+    #[test]
+    fn runs_coalesce_through_graph_execution() {
+        let request = serde_json::from_value::<NativeRuntimeCreateRequest>(json!({
+            "graphId": "main",
+            "graphs": [{
+                "graphId": "main",
+                "nodes": [
+                    { "type": "graphInput", "id": "conditional", "inputId": "conditional", "dataType": "boolean" },
+                    { "type": "graphInput", "id": "first", "inputId": "first", "dataType": "any" },
+                    { "type": "graphInput", "id": "second", "inputId": "second", "dataType": "any" },
+                    { "type": "graphInput", "id": "third", "inputId": "third", "dataType": "string" },
+                    { "type": "coalesce", "id": "coalesce", "ignoreNull": true, "ignoreUndefined": true },
+                    { "type": "graphOutput", "id": "output", "outputId": "result", "dataType": "any" }
+                ],
+                "connections": [
+                    { "outputNodeId": "conditional", "outputId": "data", "inputNodeId": "coalesce", "inputId": "conditional" },
+                    { "outputNodeId": "first", "outputId": "data", "inputNodeId": "coalesce", "inputId": "input1" },
+                    { "outputNodeId": "second", "outputId": "data", "inputNodeId": "coalesce", "inputId": "input2" },
+                    { "outputNodeId": "third", "outputId": "data", "inputNodeId": "coalesce", "inputId": "input3" },
+                    { "outputNodeId": "coalesce", "outputId": "output", "inputNodeId": "output", "inputId": "value" }
+                ]
+            }]
+        }))
+        .unwrap();
+        let plan = prepare_runner(request).unwrap();
+        let outputs = run_prepared_graph(
+            &plan,
+            BTreeMap::from([
+                (
+                    "conditional".to_string(),
+                    DataValue {
+                        data_type: "boolean".to_string(),
+                        value: Some(Value::Bool(false)),
+                    },
+                ),
+                (
+                    "first".to_string(),
+                    DataValue {
+                        data_type: "any".to_string(),
+                        value: Some(Value::Null),
+                    },
+                ),
+                (
+                    "second".to_string(),
+                    DataValue {
+                        data_type: "any".to_string(),
+                        value: None,
+                    },
+                ),
+                (
+                    "third".to_string(),
+                    DataValue {
+                        data_type: "string".to_string(),
+                        value: Some(Value::String("winner".to_string())),
+                    },
+                ),
+            ]),
+            BTreeMap::new(),
+        )
+        .unwrap();
+
+        assert_eq!(
+            outputs.get("result"),
+            Some(&DataValue {
+                data_type: "string".to_string(),
+                value: Some(Value::String("winner".to_string())),
+            })
+        );
+    }
+
+    #[test]
     fn formats_integer_like_numbers_like_javascript() {
         assert_eq!(number_to_js_string(&Number::from(7)), "7");
         assert_eq!(number_to_js_string(&Number::from_f64(7.0).unwrap()), "7");
@@ -1346,5 +1592,37 @@ mod tests {
             parse_message_id(r#"{"type":"create","id":42,"request":{"graphId":"main"}}"#),
             Some(42)
         );
+    }
+
+    fn run_coalesce_for_test(
+        ignore_null: bool,
+        ignore_undefined: bool,
+        node_inputs: DataValueMap,
+    ) -> DataValueMap {
+        let context = BTreeMap::new();
+        let graphs = HashMap::new();
+        let inputs = BTreeMap::new();
+        let mut graph_inputs = BTreeMap::new();
+        let mut graph_outputs = BTreeMap::new();
+
+        run_coalesce_node(
+            ignore_null,
+            ignore_undefined,
+            NodeRunState {
+                context: &context,
+                graph_inputs: &mut graph_inputs,
+                graph_outputs: &mut graph_outputs,
+                graphs: &graphs,
+                inputs: &inputs,
+                node_inputs,
+            },
+        )
+    }
+
+    fn data_value(data_type: &str, value: Option<Value>) -> DataValue {
+        DataValue {
+            data_type: data_type.to_string(),
+            value,
+        }
     }
 }

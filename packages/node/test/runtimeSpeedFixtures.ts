@@ -228,6 +228,28 @@ export function makeSameSourceFanInProject(): RuntimeSpeedProjectFixture {
   );
 }
 
+export function makeCoalesceFanInProject(): RuntimeSpeedProjectFixture {
+  const firstInput = makeGraphInputNode('first-input', 'first', 'any');
+  const secondInput = makeGraphInputNode('second-input', 'second', 'any');
+  const thirdInput = makeGraphInputNode('third-input', 'third', 'string');
+  const coalesceNode = makeCoalesceNode('coalesce', {
+    ignoreNull: true,
+    ignoreUndefined: true,
+  });
+  const outputNode = makeGraphOutputNode('graph-output', 'result', 'any');
+
+  return makeFixture(
+    [firstInput, secondInput, thirdInput, coalesceNode, outputNode],
+    [
+      connect(firstInput.id, 'data', coalesceNode.id, 'input1'),
+      connect(secondInput.id, 'data', coalesceNode.id, 'input2'),
+      connect(thirdInput.id, 'data', coalesceNode.id, 'input3'),
+      connect(coalesceNode.id, 'output', outputNode.id, 'value'),
+    ],
+    outputNode.id,
+  );
+}
+
 export function makeSubgraphChainProject(subgraphCallCount: number): RuntimeSpeedProjectFixture {
   const mainGraphId = 'runtime-speed-main' as GraphId;
   const subGraphId = 'runtime-speed-subgraph' as GraphId;
@@ -911,6 +933,25 @@ function makeJoinNode(id: string): ChartNode {
     id: id as NodeId,
     title: 'Join',
     type: 'join',
+    visualData: { width: 150, x: 0, y: 0 },
+  };
+}
+
+function makeCoalesceNode(
+  id: string,
+  data: {
+    ignoreNull?: boolean;
+    ignoreUndefined?: boolean;
+  } = {},
+): ChartNode {
+  return {
+    data: {
+      ignoreNull: data.ignoreNull === true,
+      ignoreUndefined: data.ignoreUndefined === true,
+    },
+    id: id as NodeId,
+    title: 'Coalesce',
+    type: 'coalesce',
     visualData: { width: 150, x: 0, y: 0 },
   };
 }

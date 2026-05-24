@@ -12,6 +12,7 @@ for (const backend of backends) {
   await testRepeatedAndConcurrentRuns(backend);
   await testGraphInputDefaultsAndCoercion(backend);
   await testJoinArrayFanIn(backend);
+  await testCoalesceFanIn(backend);
   await testCreateRejectionReasons(backend);
 }
 
@@ -114,6 +115,32 @@ async function testJoinArrayFanIn({ backend, expectedBackend }) {
       });
     } finally {
       runner.dispose?.();
+    }
+  });
+}
+
+async function testCoalesceFanIn({ backend, expectedBackend }) {
+  await withBackend(backend, async () => {
+    const skippedRunner = await createSupportedRunner(
+      makeCoalesceRequest({ ignoreNull: true, ignoreUndefined: true }),
+      expectedBackend,
+    );
+    try {
+      assert.deepEqual(
+        await skippedRunner.run({
+          inputs: {
+            conditional: { type: 'boolean', value: false },
+            first: { type: 'any', value: null },
+            second: { type: 'any', value: undefined },
+            third: { type: 'string', value: 'winner' },
+          },
+        }),
+        {
+          result: { type: 'string', value: 'winner' },
+        },
+      );
+    } finally {
+      skippedRunner.dispose?.();
     }
   });
 }
@@ -310,10 +337,7 @@ function makeJoinArrayFanInRequest() {
             type: 'graphOutput',
           },
         ],
-        connections: [
-          connect('items-input', 'data', 'join', 'input1'),
-          connect('join', 'output', 'output', 'value'),
-        ],
+        connections: [connect('items-input', 'data', 'join', 'input1'), connect('join', 'output', 'output', 'value')],
       },
     ],
   };
@@ -340,6 +364,62 @@ function makeDuplicateNodeRequest() {
           },
         ],
         connections: [],
+      },
+    ],
+  };
+}
+
+function makeCoalesceRequest({ ignoreNull, ignoreUndefined }) {
+  return {
+    graphId: 'main',
+    graphs: [
+      {
+        graphId: 'main',
+        nodes: [
+          {
+            dataType: 'boolean',
+            id: 'conditional-input',
+            inputId: 'conditional',
+            type: 'graphInput',
+          },
+          {
+            dataType: 'any',
+            id: 'first-input',
+            inputId: 'first',
+            type: 'graphInput',
+          },
+          {
+            dataType: 'any',
+            id: 'second-input',
+            inputId: 'second',
+            type: 'graphInput',
+          },
+          {
+            dataType: 'string',
+            id: 'third-input',
+            inputId: 'third',
+            type: 'graphInput',
+          },
+          {
+            id: 'coalesce',
+            ignoreNull,
+            ignoreUndefined,
+            type: 'coalesce',
+          },
+          {
+            dataType: 'any',
+            id: 'output',
+            outputId: 'result',
+            type: 'graphOutput',
+          },
+        ],
+        connections: [
+          connect('conditional-input', 'data', 'coalesce', 'conditional'),
+          connect('first-input', 'data', 'coalesce', 'input1'),
+          connect('second-input', 'data', 'coalesce', 'input2'),
+          connect('third-input', 'data', 'coalesce', 'input3'),
+          connect('coalesce', 'output', 'output', 'value'),
+        ],
       },
     ],
   };

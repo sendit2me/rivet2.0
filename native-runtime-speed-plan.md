@@ -24,7 +24,7 @@ Current implementation state:
 - Native runtime experiments can be loaded with `RIVET_NATIVE_RUNTIME_MODULE`
   using either a package name, file URL, or filesystem path.
 - The local JS adapter can execute the existing narrow native IR for
-  `graphInput`, `text`, `join`, `graphOutput`, and direct `subGraph`
+  `graphInput`, `text`, `join`, `coalesce`, `graphOutput`, and direct `subGraph`
   boundaries when `RIVET_NATIVE_RUNTIME_BACKEND=js` is selected or when no Rust
   worker binary is available.
 - The Rust crate under `native-runtime/native/` now includes a persistent
@@ -151,8 +151,8 @@ must not share mutable runtime code with the ordinary TypeScript modes.
   named `@valerypopoff/rivet2-native-runtime`.
 - Treat the package as optional from `@valerypopoff/rivet2-node`; missing native
   binaries must not break installs or existing runtime behavior.
-- Load the package only from the native adapter after `runtimeProfile:
-  'native-fast'` has been selected.
+- Load the package only from the native adapter after
+  `runtimeProfile: 'native-fast'` has been selected.
 - Prefer keeping native artifacts out of the main `@valerypopoff/rivet2-node`
   bundle. Native packaging should be optional per platform and should fail
   closed to TypeScript fallback when unavailable.
@@ -294,8 +294,8 @@ Completed:
   TypeScript processor.
 - The explicit native test script now runs JS-adapter and Rust-worker
   equivalence smoke for interpolation, graph input defaults, join fan-in,
-  direct subgraph fan-in, repeated runs, concurrent runs, duplicate nodes, and
-  stale connections.
+  coalesce fan-in, direct subgraph fan-in, repeated runs, concurrent runs,
+  duplicate nodes, and stale connections.
 
 Still pending:
 
@@ -320,25 +320,38 @@ Still pending:
 
 Completed:
 
-- `graphInput`, `text`, `join`, and `graphOutput` execute in both the local JS
-  adapter and Rust worker for the supported scalar data types already admitted
-  by the TypeScript eligibility pass.
+- `graphInput`, `text`, `join`, `coalesce`, and `graphOutput` execute in both
+  the local JS adapter and Rust worker for the supported scalar data types
+  already admitted by the TypeScript eligibility pass.
 - Text interpolation supports ordinary input tokens, `@context.*`,
   `@graphInputs.*`, escaped interpolation tokens, line-ending normalization, and
   the parity-tested processing subset: `uppercase`, `lowercase`, `trim`, and
   non-negative-integer `truncate`.
 - Join supports the current static join-string path and flattening for array
   DataValues.
+- Coalesce supports exact `inputN` candidate ports, the node-level
+  `conditional` gate, and static `ignoreNull`/`ignoreUndefined` settings in
+  both JS-adapter and Rust-worker backends.
+- The Rust worker defaults omitted coalesce flags to `false`, matching the JS
+  adapter and TypeScript node defaults for direct native IR tests.
+- Rust `DataValue` deserialization now preserves explicit JSON `null` as
+  distinct from missing `value`, which is required for null/undefined coalesce
+  parity over the worker transport. Graph-level coalesce smoke currently proves
+  fan-in ordering and undefined fallthrough; explicit null handling is covered
+  at the Rust node/transport level until another native-eligible node can
+  produce null inside a graph fixture.
 
 Still pending:
 
-- Add object-like construction, destructure/extract primitives, coalesce-style
-  fan-in, and any other cheap node only after dedicated semantic fixtures exist.
+- Add object-like construction, destructure/extract primitives, and any other
+  cheap node only after dedicated semantic fixtures exist.
 
 - Implement the smallest useful set of cheap built-in nodes natively.
 - Prioritize nodes that keep benchmark execution entirely native: graph input,
   graph output, simple text/value passthrough, object-like value construction,
-  destructure/extract primitives, and coalesce-style fan-in.
+  destructure/extract primitives, and coalesce-style fan-in. Coalesce-style
+  fan-in is now represented by native `coalesce`; keep adding only one node
+  family at a time with fixtures.
 - Add a strict TypeScript fallback when a node's settings or data type exceed
   the native implementation's supported subset.
 - Do not cross the native boundary per node.
@@ -380,6 +393,13 @@ Completed:
 - The main CI build remains TypeScript-only.
 - `.github/workflows/build.yml` has a separate `native-runtime` job that sets up
   Rust and runs `npm --prefix native-runtime run test:native` explicitly.
+- Runtime-speed benchmarks now include compatible and native-fast coalesce
+  fan-in rows so the next before/after run can report whether the new cheap
+  fan-in primitive helps or regresses.
+- A tiny 2026-05-24 smoke run with two measured iterations confirmed the new
+  coalesce benchmark row executes through `nativeBackend: rust-worker` with
+  `nativeUsed=true`. This is wiring evidence only; it is not a replacement for
+  the full five-sample before/after matrix.
 
 Still pending:
 

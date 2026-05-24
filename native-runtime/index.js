@@ -406,6 +406,8 @@ async function runNode(node, state) {
       return runTextNode(node, state);
     case 'join':
       return runJoinNode(node, state);
+    case 'coalesce':
+      return runCoalesceNode(node, state);
     case 'graphOutput':
       return runGraphOutputNode(node, state);
     case 'subGraph':
@@ -478,6 +480,38 @@ function runJoinNode(node, state) {
   };
 }
 
+function runCoalesceNode(node, state) {
+  if (state.nodeInputs.conditional?.type === 'control-flow-excluded') {
+    return {
+      output: {
+        type: 'control-flow-excluded',
+        value: undefined,
+      },
+    };
+  }
+
+  const inputCount = Object.keys(state.nodeInputs).reduce((maxInputNumber, inputId) => {
+    const inputNumber = getDynamicInputNumber(inputId);
+    return inputNumber == null ? maxInputNumber : Math.max(maxInputNumber, inputNumber);
+  }, 0);
+
+  for (let i = 1; i <= inputCount; i += 1) {
+    const inputValue = state.nodeInputs[`input${i}`];
+    if (inputValue && inputValue.type !== 'control-flow-excluded' && !shouldSkipCoalesceInputValue(node, inputValue)) {
+      return {
+        output: inputValue,
+      };
+    }
+  }
+
+  return {
+    output: {
+      type: 'control-flow-excluded',
+      value: undefined,
+    },
+  };
+}
+
 function runGraphOutputNode(node, state) {
   const hasValueInput = hasRecordValue(state.nodeInputs, 'value');
   const value = hasValueInput ? getRecordValue(state.nodeInputs, 'value') : { type: 'any', value: undefined };
@@ -515,6 +549,23 @@ async function runSubGraphNode(node, state) {
   }
 
   return outputs;
+}
+
+function shouldSkipCoalesceInputValue(node, inputValue) {
+  return (
+    (node.ignoreNull === true && inputValue.value === null) ||
+    (node.ignoreUndefined === true && inputValue.value === undefined)
+  );
+}
+
+function getDynamicInputNumber(inputId) {
+  const match = /^input([1-9]\d*)$/.exec(inputId);
+  if (!match) {
+    return undefined;
+  }
+
+  const inputNumber = Number(match[1]);
+  return Number.isSafeInteger(inputNumber) ? inputNumber : undefined;
 }
 
 function resolveNodeInputs(connections, outputsByNodeId) {
@@ -706,9 +757,7 @@ function applyProcessing(value, processingChain) {
         case 'trim':
           return result.trim();
         case 'truncate':
-          return result.length <= parameterOrDefault(50)
-            ? result
-            : `${result.slice(0, parameterOrDefault(50))}...`;
+          return result.length <= parameterOrDefault(50) ? result : `${result.slice(0, parameterOrDefault(50))}...`;
         case 'list':
           return result
             .split('\n')
@@ -747,7 +796,10 @@ function wrapText(input, width) {
 }
 
 function dedent(value) {
-  const lines = value.replace(/^\n/, '').replace(/\n\s*$/, '').split('\n');
+  const lines = value
+    .replace(/^\n/, '')
+    .replace(/\n\s*$/, '')
+    .split('\n');
   const indentation = lines
     .filter((line) => line.trim().length > 0)
     .reduce((minimum, line) => Math.min(minimum, line.match(/^ */)?.[0].length ?? 0), Number.POSITIVE_INFINITY);
@@ -956,7 +1008,14 @@ function toPlainRecord(record) {
 }
 
 function isSupportedNodeType(type) {
-  return type === 'graphInput' || type === 'text' || type === 'join' || type === 'graphOutput' || type === 'subGraph';
+  return (
+    type === 'graphInput' ||
+    type === 'text' ||
+    type === 'join' ||
+    type === 'coalesce' ||
+    type === 'graphOutput' ||
+    type === 'subGraph'
+  );
 }
 
 function isConnection(connection) {

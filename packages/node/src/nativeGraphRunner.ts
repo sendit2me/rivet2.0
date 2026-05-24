@@ -85,6 +85,12 @@ export type NativeNodeIr =
       type: 'join';
     }
   | {
+      id: string;
+      ignoreNull: boolean;
+      ignoreUndefined: boolean;
+      type: 'coalesce';
+    }
+  | {
       dataType: string;
       id: string;
       outputId: string;
@@ -346,7 +352,10 @@ type NativeRuntimeRequestResult =
       supported: false;
     };
 
-function buildNativeRuntimeRequest(project: Project, options: NativeFastGraphRunnerOptions): NativeRuntimeRequestResult {
+function buildNativeRuntimeRequest(
+  project: Project,
+  options: NativeFastGraphRunnerOptions,
+): NativeRuntimeRequestResult {
   const unsupportedOption = getUnsupportedNativeRuntimeOption(options);
   if (unsupportedOption) {
     return unsupported(`unsupported-option:${unsupportedOption}`);
@@ -485,11 +494,7 @@ function getUnsupportedNativeConnection(
   return undefined;
 }
 
-function isSupportedNativeInputPort(
-  node: NativeNodeIr,
-  portId: string,
-  graphs: Map<string, NativeGraphIr>,
-): boolean {
+function isSupportedNativeInputPort(node: NativeNodeIr, portId: string, graphs: Map<string, NativeGraphIr>): boolean {
   switch (node.type) {
     case 'graphInput':
       return false;
@@ -497,6 +502,8 @@ function isSupportedNativeInputPort(
       return extractInterpolationVariables(node.template).includes(portId);
     case 'join':
       return /^input[1-9]\d*$/.test(portId);
+    case 'coalesce':
+      return portId === 'conditional' || /^input[1-9]\d*$/.test(portId);
     case 'graphOutput':
       return portId === 'value';
     case 'subGraph':
@@ -504,16 +511,13 @@ function isSupportedNativeInputPort(
   }
 }
 
-function isSupportedNativeOutputPort(
-  node: NativeNodeIr,
-  portId: string,
-  graphs: Map<string, NativeGraphIr>,
-): boolean {
+function isSupportedNativeOutputPort(node: NativeNodeIr, portId: string, graphs: Map<string, NativeGraphIr>): boolean {
   switch (node.type) {
     case 'graphInput':
       return portId === 'data';
     case 'text':
     case 'join':
+    case 'coalesce':
       return portId === 'output';
     case 'graphOutput':
       return portId === 'valueOutput';
@@ -555,7 +559,12 @@ function buildNativeNodeIr(node: ChartNode): NativeNodeResult {
 
   switch (node.type) {
     case 'graphInput': {
-      const data = node.data as { dataType?: unknown; defaultValue?: unknown; id?: unknown; useDefaultValueInput?: unknown };
+      const data = node.data as {
+        dataType?: unknown;
+        defaultValue?: unknown;
+        id?: unknown;
+        useDefaultValueInput?: unknown;
+      };
       if (data.useDefaultValueInput) {
         return unsupportedNode(node, 'graph-input-default-port');
       }
@@ -618,6 +627,27 @@ function buildNativeNodeIr(node: ChartNode): NativeNodeResult {
           id: node.id,
           joinString: data.joinString,
           type: 'join',
+        },
+        supported: true,
+      };
+    }
+
+    case 'coalesce': {
+      const data = node.data as { ignoreNull?: unknown; ignoreUndefined?: unknown };
+      if (data.ignoreNull != null && typeof data.ignoreNull !== 'boolean') {
+        return unsupportedNode(node, 'invalid-coalesce-data');
+      }
+
+      if (data.ignoreUndefined != null && typeof data.ignoreUndefined !== 'boolean') {
+        return unsupportedNode(node, 'invalid-coalesce-data');
+      }
+
+      return {
+        node: {
+          id: node.id,
+          ignoreNull: data.ignoreNull === true,
+          ignoreUndefined: data.ignoreUndefined === true,
+          type: 'coalesce',
         },
         supported: true,
       };

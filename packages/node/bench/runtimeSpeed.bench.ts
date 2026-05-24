@@ -25,6 +25,7 @@ import {
   createRuntimeSpeedProcessor,
   makeCodeChainProject,
   makeCallGraphFanInProject,
+  makeCoalesceFanInProject,
   makeExpressionChainProject,
   makeMixedSubgraphFanInProject,
   makeNestedSubgraphProject,
@@ -79,6 +80,7 @@ async function main() {
   const repeatedSubgraph50 = makeRepeatedSubgraphFanInProject(50);
   const wideFanIn100 = makeWideTextFanInProject(100);
   const wideFanIn200 = makeWideTextFanInProject(200);
+  const coalesceFanIn = makeCoalesceFanInProject();
   const mixedSubgraphFanIn = makeMixedSubgraphFanInProject(8, 20);
   const callGraph50 = makeCallGraphFanInProject(50);
   const referencedGraph1 = makeReferencedGraphAliasFanInProject(1);
@@ -199,18 +201,10 @@ async function main() {
       ),
     );
     results.push(
-      await benchmarkDirectProcessor(
-        'direct GraphProcessor compatible text chain 500',
-        cheap500,
-        'compatible',
-      ),
+      await benchmarkDirectProcessor('direct GraphProcessor compatible text chain 500', cheap500, 'compatible'),
     );
     results.push(
-      await benchmarkDirectProcessor(
-        'direct GraphProcessor fast-acyclic text chain 500',
-        cheap500,
-        'fast-acyclic',
-      ),
+      await benchmarkDirectProcessor('direct GraphProcessor fast-acyclic text chain 500', cheap500, 'fast-acyclic'),
     );
     results.push(
       await benchmarkGraphRunner(
@@ -435,11 +429,7 @@ async function main() {
       ),
     );
     results.push(
-      await benchmarkDirectProcessor(
-        'direct GraphProcessor compatible wide fan-in 200',
-        wideFanIn200,
-        'compatible',
-      ),
+      await benchmarkDirectProcessor('direct GraphProcessor compatible wide fan-in 200', wideFanIn200, 'compatible'),
     );
     results.push(
       await benchmarkDirectProcessor(
@@ -457,6 +447,34 @@ async function main() {
           runtimeProfile: 'headless-fast',
         },
         { inputs: { input: 'bench' } },
+      ),
+    );
+    results.push(
+      await benchmarkGraphRunner(
+        'createGraphRunner compatible coalesce fan-in',
+        coalesceFanIn.project,
+        { graph: coalesceFanIn.graphId },
+        {
+          inputs: {
+            first: { type: 'any', value: null },
+            second: { type: 'any', value: undefined },
+            third: { type: 'string', value: 'bench' },
+          },
+        },
+      ),
+    );
+    results.push(
+      await benchmarkNativeFastGraphRunner(
+        'createGraphRunner native-fast coalesce fan-in',
+        coalesceFanIn.project,
+        { graph: coalesceFanIn.graphId },
+        {
+          inputs: {
+            first: { type: 'any', value: null },
+            second: { type: 'any', value: undefined },
+            third: { type: 'string', value: 'bench' },
+          },
+        },
       ),
     );
     results.push(
@@ -572,7 +590,9 @@ async function main() {
 
     const executedResults = results.filter((result) => result.iterations > 0);
     if (executedResults.length === 0) {
-      throw new Error(`No runtime-speed benchmarks matched filter ${JSON.stringify(process.env.RIVET_RUNTIME_BENCH_FILTER)}.`);
+      throw new Error(
+        `No runtime-speed benchmarks matched filter ${JSON.stringify(process.env.RIVET_RUNTIME_BENCH_FILTER)}.`,
+      );
     }
 
     if (process.env.RIVET_RUNTIME_BENCH_JSON === '1') {

@@ -21,6 +21,7 @@ import {
   makeAbortSignalProject,
   makeAsyncDelayProject,
   makeCodeChainProject,
+  makeCoalesceFanInProject,
   makeGlobalStateProject,
   makeInputContextTextProject,
   makeSubgraphChainProject,
@@ -663,6 +664,50 @@ void describe('createGraphRunner', () => {
       assert.equal(wideRunner.getNativeRuntimeDecision?.().nativeBackend, 'js-adapter');
       assert.equal(pipeRunner.getNativeRuntimeDecision?.().nativeUsed, true);
       assert.equal(pipeRunner.getNativeRuntimeDecision?.().nativeBackend, 'js-adapter');
+    } finally {
+      if (previousNativeRuntimeModule == null) {
+        delete process.env.RIVET_NATIVE_RUNTIME_MODULE;
+      } else {
+        process.env.RIVET_NATIVE_RUNTIME_MODULE = previousNativeRuntimeModule;
+      }
+      if (previousNativeRuntimeBackend == null) {
+        delete process.env.RIVET_NATIVE_RUNTIME_BACKEND;
+      } else {
+        process.env.RIVET_NATIVE_RUNTIME_BACKEND = previousNativeRuntimeBackend;
+      }
+    }
+  });
+
+  void it('runs coalesce fan-in through the local native-fast adapter', async () => {
+    const fixture = makeCoalesceFanInProject();
+    const previousNativeRuntimeModule = process.env.RIVET_NATIVE_RUNTIME_MODULE;
+    const previousNativeRuntimeBackend = process.env.RIVET_NATIVE_RUNTIME_BACKEND;
+    process.env.RIVET_NATIVE_RUNTIME_MODULE = new URL('../../../native-runtime/index.js', import.meta.url).href;
+    process.env.RIVET_NATIVE_RUNTIME_BACKEND = 'js';
+
+    try {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        runtimeProfile: 'native-fast',
+      });
+      const outputs = await runner.run({
+        inputs: {
+          first: { type: 'any', value: null },
+          second: { type: 'any', value: undefined },
+          third: { type: 'string', value: 'winner' },
+        },
+      });
+
+      assert.deepEqual(outputs, {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: 'winner' },
+      } satisfies Record<string, DataValue>);
+      assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+        nativeBackend: 'js-adapter',
+        nativeEligible: true,
+        nativeUsed: true,
+        requested: true,
+      });
     } finally {
       if (previousNativeRuntimeModule == null) {
         delete process.env.RIVET_NATIVE_RUNTIME_MODULE;

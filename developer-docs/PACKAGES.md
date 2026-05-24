@@ -181,14 +181,17 @@ errors with a decision reason so benchmarks do not hide native defects. Native
 outputs are normalized with the ordinary zero-cost output when the native runner
 omits `cost`, and native `DataValue` objects that cross the JSON worker
 transport without a `value` field are restored to `value: undefined`, matching
-the TypeScript shape. The initial native
+the TypeScript shape. The Rust worker keeps explicit JSON `null` distinct from
+missing `value` fields so native nodes with null/undefined semantics can match
+TypeScript. The initial native
 package boundary lives under
 [`native-runtime/`](../native-runtime/) rather than `packages/*`; it is a
 private prototype with explicit Cargo scripts and no effect on normal Yarn
 workspace install/build/test flows. Its checked-in JS adapter can execute the
-current eligible IR for `graphInput`, `text`, `join`, `graphOutput`, and direct
-`subGraph` nodes when `RIVET_NATIVE_RUNTIME_BACKEND=js` is selected or when no
-Rust worker binary is available. The Rust worker backend under
+current eligible IR for `graphInput`, `text`, `join`, `coalesce`,
+`graphOutput`, and direct `subGraph` nodes when
+`RIVET_NATIVE_RUNTIME_BACKEND=js` is selected or when no Rust worker binary is
+available. The Rust worker backend under
 `native-runtime/native/` now executes the same narrow IR through a persistent
 child process when `RIVET_NATIVE_RUNTIME_BACKEND=rust` is selected, or
 automatically when a built worker binary is present. Move the native package
@@ -206,21 +209,28 @@ worker executable for benchmark runs.
 Native runtime checks remain explicit: `npm --prefix native-runtime run test:native`
 runs the Rust crate tests, builds the release worker, and runs a
 JS-adapter/Rust-worker equivalence smoke for interpolation, defaults, fan-in,
-direct subgraphs, concurrent runs, and create-time rejection reasons. The main
-workspace build/test scripts stay TypeScript-only; CI runs the native prototype
-in its own `native-runtime` job so ordinary contributors do not need native
-artifacts for normal Rivet development.
+coalesce fan-in, direct subgraphs, concurrent runs, and create-time rejection
+reasons. Rust unit coverage separately verifies explicit JSON `null` versus
+missing `value` transport semantics for native nodes that need to distinguish
+null from undefined. The main workspace build/test scripts stay TypeScript-only;
+CI runs the native prototype in its own `native-runtime` job so ordinary
+contributors do not need native artifacts for normal Rivet development.
 
 The supported native IR subset is intentionally small: acyclic graphs with
-`graphInput`, `text`, `join`, `graphOutput`, and direct `subGraph` nodes whose
-reached graphs are also eligible. Disabled, conditional, split-run, plugin,
-custom registry, callback/event-sensitive, dynamic Call Graph,
+`graphInput`, `text`, `join`, `coalesce`, `graphOutput`, and direct `subGraph`
+nodes whose reached graphs are also eligible. Disabled, conditional, split-run,
+plugin, custom registry, callback/event-sensitive, dynamic Call Graph,
 referenced-project, Code, Expression, stale connection, and unsupported port
 paths remain TypeScript fallback.
 Text-node interpolation is native-eligible only for the processing pipes whose
 Rust behavior is covered by current parity tests: `uppercase`, `lowercase`,
 `trim`, and non-negative-integer `truncate`. Other text processing pipes stay on
 the TypeScript path until they have exact semantic fixtures.
+Coalesce is native-eligible for static `ignoreNull` and `ignoreUndefined`
+settings. Its `conditional` input is only a node-run gate, matching the
+TypeScript node, dynamic candidate ports must use exact `inputN` names, and the
+Rust worker defaults missing coalesce flags to `false` to match the JS adapter
+and TypeScript node defaults.
 Benchmark rows with
 `createGraphRunner native-fast ...` include `nativeEligible`, `nativeUsed`,
 `nativeBackend`, and `nativeFallbackReason` fields; a row where `nativeUsed` is
