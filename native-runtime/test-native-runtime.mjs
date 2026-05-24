@@ -13,6 +13,8 @@ for (const backend of backends) {
   await testGraphInputDefaultsAndCoercion(backend);
   await testObjectGraphInputDefault(backend);
   await testJoinArrayFanIn(backend);
+  await testObjectConstruction(backend);
+  await testObjectArrayConstruction(backend);
   await testCoalesceFanIn(backend);
   await testDestructureObjectPaths(backend);
   await testExtractObjectPath(backend);
@@ -130,6 +132,63 @@ async function testJoinArrayFanIn({ backend, expectedBackend }) {
 
       assert.deepEqual(outputs, {
         result: { type: 'string', value: 'a\nb\nc' },
+      });
+    } finally {
+      runner.dispose?.();
+    }
+  });
+}
+
+async function testObjectConstruction({ backend, expectedBackend }) {
+  await withBackend(backend, async () => {
+    const runner = await createSupportedRunner(makeObjectConstructionRequest(), expectedBackend);
+    try {
+      const outputs = await runner.run({
+        context: {
+          suffix: { type: 'string', value: 'ctx' },
+        },
+        inputs: {
+          count: { type: 'number', value: 3 },
+          input: { type: 'string', value: 'Ada "Lovelace"' },
+          meta: { type: 'object', value: { role: 'builder' } },
+        },
+      });
+
+      assert.deepEqual(outputs, {
+        result: {
+          type: 'object',
+          value: {
+            count: 3,
+            label: 'Name Ada "Lovelace"',
+            literal: '{{ignored}}',
+            meta: { role: 'builder' },
+            metaText: '{"role":"builder"}',
+            name: 'Ada "Lovelace"',
+            suffix: 'ctx',
+          },
+        },
+      });
+    } finally {
+      runner.dispose?.();
+    }
+  });
+}
+
+async function testObjectArrayConstruction({ backend, expectedBackend }) {
+  await withBackend(backend, async () => {
+    const runner = await createSupportedRunner(makeObjectArrayConstructionRequest(), expectedBackend);
+    try {
+      const outputs = await runner.run({
+        inputs: {
+          input: { type: 'string', value: 'Ada' },
+        },
+      });
+
+      assert.deepEqual(outputs, {
+        result: {
+          type: 'object[]',
+          value: [{ name: 'Ada' }, { name: 'static' }],
+        },
       });
     } finally {
       runner.dispose?.();
@@ -454,6 +513,89 @@ function makeObjectDefaultInputRequest() {
           },
         ],
         connections: [connect('object-input', 'data', 'output', 'value')],
+      },
+    ],
+  };
+}
+
+function makeObjectConstructionRequest() {
+  return {
+    graphId: 'main',
+    graphs: [
+      {
+        graphId: 'main',
+        nodes: [
+          {
+            dataType: 'string',
+            id: 'input',
+            inputId: 'input',
+            type: 'graphInput',
+          },
+          {
+            dataType: 'object',
+            id: 'meta',
+            inputId: 'meta',
+            type: 'graphInput',
+          },
+          {
+            dataType: 'number',
+            id: 'count',
+            inputId: 'count',
+            type: 'graphInput',
+          },
+          {
+            id: 'object',
+            jsonTemplate:
+              '{"name":"{{input}}","label":"Name {{input}}","meta":{{meta}},"metaText":"{{meta}}","count":{{count}},"suffix":"{{@context.suffix}}","literal":"{{{ignored}}}"}',
+            type: 'object',
+          },
+          {
+            dataType: 'object',
+            id: 'output',
+            outputId: 'result',
+            type: 'graphOutput',
+          },
+        ],
+        connections: [
+          connect('input', 'data', 'object', 'input'),
+          connect('meta', 'data', 'object', 'meta'),
+          connect('count', 'data', 'object', 'count'),
+          connect('object', 'output', 'output', 'value'),
+        ],
+      },
+    ],
+  };
+}
+
+function makeObjectArrayConstructionRequest() {
+  return {
+    graphId: 'main',
+    graphs: [
+      {
+        graphId: 'main',
+        nodes: [
+          {
+            dataType: 'string',
+            id: 'input',
+            inputId: 'input',
+            type: 'graphInput',
+          },
+          {
+            id: 'object-array',
+            jsonTemplate: '[{"name":"{{input}}"},{"name":"static"}]',
+            type: 'object',
+          },
+          {
+            dataType: 'object[]',
+            id: 'output',
+            outputId: 'result',
+            type: 'graphOutput',
+          },
+        ],
+        connections: [
+          connect('input', 'data', 'object-array', 'input'),
+          connect('object-array', 'output', 'output', 'value'),
+        ],
       },
     ],
   };

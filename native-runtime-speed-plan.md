@@ -24,7 +24,7 @@ Current implementation state:
 - Native runtime experiments can be loaded with `RIVET_NATIVE_RUNTIME_MODULE`
   using either a package name, file URL, or filesystem path.
 - The local JS adapter can execute the existing narrow native IR for
-  `graphInput`, `text`, `join`, `coalesce`, `destructure`,
+  `graphInput`, `text`, `join`, `object`, `coalesce`, `destructure`,
   `extractObjectPath`, `graphOutput`, and direct `subGraph` boundaries when
   `RIVET_NATIVE_RUNTIME_BACKEND=js` is
   selected or when no Rust worker binary is available.
@@ -295,9 +295,9 @@ Completed:
   TypeScript processor.
 - The explicit native test script now runs JS-adapter and Rust-worker
   equivalence smoke for interpolation, graph input defaults, join fan-in,
-  coalesce fan-in, simple destructure paths, static Extract Object Path,
-  direct subgraph fan-in, repeated runs, concurrent runs, duplicate nodes, and
-  stale connections.
+  object construction, coalesce fan-in, simple destructure paths, static
+  Extract Object Path, direct subgraph fan-in, repeated runs, concurrent runs,
+  duplicate nodes, and stale connections.
 
 Still pending:
 
@@ -322,17 +322,26 @@ Still pending:
 
 Completed:
 
-- `graphInput`, `text`, `join`, `coalesce`, `destructure`,
+- `graphInput`, `text`, `join`, `object`, `coalesce`, `destructure`,
   `extractObjectPath`, and `graphOutput` execute in both the local JS adapter
   and Rust worker for the supported data types already admitted by the
   TypeScript eligibility pass, including plain object inputs needed by
-  destructure and Extract Object Path.
+  destructure and Extract Object Path. Graph outputs also admit primitive,
+  `any`, and `object` array data types so native Object and Extract Object Path
+  results can cross graph boundaries; array graph inputs remain fallback-only
+  until native-fast implements the TypeScript array coercion rules.
 - Text interpolation supports ordinary input tokens, `@context.*`,
   `@graphInputs.*`, escaped interpolation tokens, line-ending normalization, and
   the parity-tested processing subset: `uppercase`, `lowercase`, `trim`, and
   non-negative-integer `truncate`.
 - Join supports the current static join-string path and flattening for array
   DataValues.
+- Object supports static JSON templates using the same interpolation-token
+  discovery as TypeScript, including quoted string escaping, unquoted JSON
+  value insertion, embedded string fragments, escaped interpolation tokens,
+  `@context.*`, `@graphInputs.*` lookups, and `object[]` outputs. It remains
+  native-eligible only when the graph otherwise fits the whole-run native
+  subset.
 - Coalesce supports exact `inputN` candidate ports, the node-level
   `conditional` gate, and static `ignoreNull`/`ignoreUndefined` settings in
   both JS-adapter and Rust-worker backends.
@@ -352,23 +361,23 @@ Completed:
   same simple JSONPath subset as native destructure, required-object-input
   validation, `match`, `all_matches`, no-match exclusion semantics, and
   TypeScript fallback for dynamic path input or richer JSONPath.
-- Focused tests now cover native-fast Extract Object Path execution, fallback
-  before native module loading for unsupported JSONPath, invalid-path
+- Focused tests now cover native-fast Object and Extract Object Path execution,
+  fallback before native module loading for unsupported JSONPath, invalid-path
   eligibility decisions, `all_matches` fan-out, object graph-input defaults,
   JS-adapter/Rust-worker smoke parity, and public TypeScript runtime
   equivalence.
 
 Still pending:
 
-- Add object-like construction and any other cheap node only after dedicated
-  semantic fixtures exist.
+- Add any further cheap node only after dedicated semantic fixtures exist.
 
 - Implement the smallest useful set of cheap built-in nodes natively.
 - Prioritize nodes that keep benchmark execution entirely native: graph input,
   graph output, simple text/value passthrough, object-like value construction,
-  destructure/extract primitives, and coalesce-style fan-in. Coalesce-style
-  fan-in is now represented by native `coalesce`; keep adding only one node
-  family at a time with fixtures.
+  destructure/extract primitives, and coalesce-style fan-in. Object-like value
+  construction is now represented by native `object`, and coalesce-style fan-in
+  is now represented by native `coalesce`; keep adding only one node family at
+  a time with fixtures.
 - Add a strict TypeScript fallback when a node's settings or data type exceed
   the native implementation's supported subset.
 - Do not cross the native boundary per node.
@@ -410,8 +419,9 @@ Completed:
 - The main CI build remains TypeScript-only.
 - `.github/workflows/build.yml` has a separate `native-runtime` job that sets up
   Rust and runs `npm --prefix native-runtime run test:native` explicitly.
-- Runtime-speed benchmarks now include compatible and native-fast coalesce
-  fan-in, destructure fan-out, and Extract Object Path rows so the next
+- Runtime-speed benchmarks now include compatible and native-fast object
+  construction, coalesce fan-in, destructure fan-out, and Extract Object Path
+  rows so the next
   before/after run can report whether the new cheap object primitives help or
   regress.
 - Tiny 2026-05-24 smoke runs with two measured iterations confirmed the new
@@ -421,6 +431,11 @@ Completed:
 - A tiny 2026-05-24 Extract Object Path smoke run with two measured iterations
   also executed through `nativeBackend: rust-worker` with `nativeUsed=true`:
   compatible mean `0.805ms`, native-fast mean `0.228ms`. This is wiring
+  evidence only; it is not a replacement for the full five-sample before/after
+  matrix.
+- A tiny 2026-05-24 Object construction smoke run with two measured iterations
+  also executed through `nativeBackend: rust-worker` with `nativeUsed=true`:
+  compatible mean `0.741ms`, native-fast mean `0.181ms`. This is wiring
   evidence only; it is not a replacement for the full five-sample before/after
   matrix.
 

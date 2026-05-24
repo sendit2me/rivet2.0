@@ -22,6 +22,8 @@ import {
   makeMissingRequiredInputProject,
   makeMixedSubgraphFanInProject,
   makeNestedSubgraphProject,
+  makeObjectArrayConstructionProject,
+  makeObjectConstructionProject,
   makeReferencedGraphAliasFanInProject,
   makeRepeatedSubgraphFanInProject,
   makeSameSourceFanInProject,
@@ -296,6 +298,51 @@ void describe('runtime speed equivalence guards', () => {
                 name: 'Ada',
               },
             },
+          },
+        },
+      },
+      {
+        expected: {
+          cost: { type: 'number', value: 0 },
+          result: {
+            type: 'object',
+            value: {
+              count: 3,
+              label: 'Name Ada "Lovelace"',
+              literal: '{{ignored}}',
+              meta: { role: 'builder' },
+              metaText: '{"role":"builder"}',
+              name: 'Ada "Lovelace"',
+              suffix: 'ctx',
+            },
+          },
+        },
+        fixture: makeObjectConstructionProject(),
+        name: 'object construction',
+        options: {
+          context: {
+            suffix: 'ctx',
+          },
+          inputs: {
+            count: 3,
+            meta: { type: 'object', value: { role: 'builder' } },
+            name: 'Ada "Lovelace"',
+          },
+        },
+      },
+      {
+        expected: {
+          cost: { type: 'number', value: 0 },
+          result: {
+            type: 'object[]',
+            value: [{ name: 'Ada' }, { name: 'static' }],
+          },
+        },
+        fixture: makeObjectArrayConstructionProject(),
+        name: 'object array construction',
+        options: {
+          inputs: {
+            name: 'Ada',
           },
         },
       },

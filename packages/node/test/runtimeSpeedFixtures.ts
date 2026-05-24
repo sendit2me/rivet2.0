@@ -290,6 +290,40 @@ export function makeExtractObjectPathProject(): RuntimeSpeedProjectFixture {
   );
 }
 
+export function makeObjectConstructionProject(): RuntimeSpeedProjectFixture {
+  const inputNode = makeGraphInputNode('name-input', 'name', 'string');
+  const metaNode = makeGraphInputNode('meta-input', 'meta', 'object');
+  const countNode = makeGraphInputNode('count-input', 'count', 'number');
+  const objectNode = makeObjectNode(
+    'object',
+    '{"name":"{{name}}","label":"Name {{name}}","meta":{{meta}},"metaText":"{{meta}}","count":{{count}},"suffix":"{{@context.suffix}}","literal":"{{{ignored}}}"}',
+  );
+  const outputNode = makeGraphOutputNode('graph-output', 'result', 'object');
+
+  return makeFixture(
+    [inputNode, metaNode, countNode, objectNode, outputNode],
+    [
+      connect(inputNode.id, 'data', objectNode.id, 'name'),
+      connect(metaNode.id, 'data', objectNode.id, 'meta'),
+      connect(countNode.id, 'data', objectNode.id, 'count'),
+      connect(objectNode.id, 'output', outputNode.id, 'value'),
+    ],
+    outputNode.id,
+  );
+}
+
+export function makeObjectArrayConstructionProject(): RuntimeSpeedProjectFixture {
+  const inputNode = makeGraphInputNode('name-input', 'name', 'string');
+  const objectNode = makeObjectNode('object-array', '[{"name":"{{name}}"},{"name":"static"}]');
+  const outputNode = makeGraphOutputNode('graph-output', 'result', 'object[]');
+
+  return makeFixture(
+    [inputNode, objectNode, outputNode],
+    [connect(inputNode.id, 'data', objectNode.id, 'name'), connect(objectNode.id, 'output', outputNode.id, 'value')],
+    outputNode.id,
+  );
+}
+
 export function makeSubgraphChainProject(subgraphCallCount: number): RuntimeSpeedProjectFixture {
   const mainGraphId = 'runtime-speed-main' as GraphId;
   const subGraphId = 'runtime-speed-subgraph' as GraphId;

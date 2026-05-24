@@ -31,6 +31,7 @@ import {
   makeExpressionChainProject,
   makeMixedSubgraphFanInProject,
   makeNestedSubgraphProject,
+  makeObjectConstructionProject,
   makeReferencedGraphAliasFanInProject,
   makeRepeatedSubgraphFanInProject,
   makeSubgraphChainProject,
@@ -85,6 +86,7 @@ async function main() {
   const coalesceFanIn = makeCoalesceFanInProject();
   const destructureFanOut = makeDestructureFanOutProject();
   const extractObjectPath = makeExtractObjectPathProject();
+  const objectConstruction = makeObjectConstructionProject();
   const mixedSubgraphFanIn = makeMixedSubgraphFanInProject(8, 20);
   const callGraph50 = makeCallGraphFanInProject(50);
   const referencedGraph1 = makeReferencedGraphAliasFanInProject(1);
@@ -534,6 +536,37 @@ async function main() {
         extractObjectPath.project,
         { graph: extractObjectPath.graphId },
         extractObjectPathInputs,
+      ),
+    );
+    const objectConstructionInputs = {
+      context: {
+        suffix: { type: 'string' as const, value: 'ctx' },
+      },
+      inputs: {
+        count: { type: 'number' as const, value: 3 },
+        meta: {
+          type: 'object' as const,
+          value: {
+            role: 'runner',
+          },
+        },
+        name: { type: 'string' as const, value: 'bench "object"' },
+      },
+    };
+    results.push(
+      await benchmarkGraphRunner(
+        'createGraphRunner compatible object construction',
+        objectConstruction.project,
+        { graph: objectConstruction.graphId },
+        objectConstructionInputs,
+      ),
+    );
+    results.push(
+      await benchmarkNativeFastGraphRunner(
+        'createGraphRunner native-fast object construction',
+        objectConstruction.project,
+        { graph: objectConstruction.graphId },
+        objectConstructionInputs,
       ),
     );
     results.push(

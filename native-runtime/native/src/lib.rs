@@ -85,6 +85,8 @@ pub enum NativeNodeIr {
         id: String,
         paths: Vec<NativeDestructurePath>,
     },
+    #[serde(rename = "object", rename_all = "camelCase")]
+    Object { id: String, json_template: String },
     #[serde(rename = "extractObjectPath", rename_all = "camelCase")]
     ExtractObjectPath { id: String, path: String },
     #[serde(rename = "graphOutput", rename_all = "camelCase")]
@@ -117,6 +119,7 @@ impl NativeNodeIr {
             | NativeNodeIr::Join { id, .. }
             | NativeNodeIr::Coalesce { id, .. }
             | NativeNodeIr::Destructure { id, .. }
+            | NativeNodeIr::Object { id, .. }
             | NativeNodeIr::ExtractObjectPath { id, .. }
             | NativeNodeIr::GraphOutput { id, .. }
             | NativeNodeIr::SubGraph { id, .. } => id,
@@ -401,6 +404,7 @@ fn run_node(node: &NativeNodeIr, state: NodeRunState<'_>) -> Result<DataValueMap
             ..
         } => Ok(run_coalesce_node(*ignore_null, *ignore_undefined, state)),
         NativeNodeIr::Destructure { paths, .. } => Ok(run_destructure_node(paths, state)),
+        NativeNodeIr::Object { json_template, .. } => run_object_node(json_template, state),
         NativeNodeIr::ExtractObjectPath { path, .. } => {
             Ok(run_extract_object_path_node(path, state))
         }
@@ -604,6 +608,44 @@ fn run_destructure_node(paths: &[NativeDestructurePath], state: NodeRunState<'_>
             )
         })
         .collect()
+}
+
+fn run_object_node(json_template: &str, state: NodeRunState<'_>) -> Result<DataValueMap, String> {
+    if state
+        .node_inputs
+        .values()
+        .any(|value| value.data_type == "control-flow-excluded")
+    {
+        return Ok(BTreeMap::from([(
+            "output".to_string(),
+            DataValue {
+                data_type: "control-flow-excluded".to_string(),
+                value: None,
+            },
+        )]));
+    }
+
+    let interpolated = interpolate_json_template(
+        json_template,
+        &state.node_inputs,
+        state.graph_inputs,
+        state.context,
+    );
+    let output_value = serde_json::from_str::<Value>(&interpolated)
+        .map_err(|error| format!("object-node-json-parse-failed:{error}"))?;
+    let data_type = if output_value.is_array() {
+        "object[]"
+    } else {
+        "object"
+    };
+
+    Ok(BTreeMap::from([(
+        "output".to_string(),
+        DataValue {
+            data_type: data_type.to_string(),
+            value: Some(output_value),
+        },
+    )]))
 }
 
 fn run_extract_object_path_node(path: &str, state: NodeRunState<'_>) -> DataValueMap {
@@ -910,6 +952,151 @@ fn interpolate(
             apply_processing(&resolved_value, &processing_chain)
         }
     })
+}
+
+fn interpolate_json_template(
+    template: &str,
+    variables: &DataValueMap,
+    graph_input_values: &DataValueMap,
+    context_values: &DataValueMap,
+) -> String {
+    let protected_template = protect_escaped_interpolation_tokens(template);
+    let spans = find_interpolation_token_spans(&protected_template);
+
+    if spans.is_empty() {
+        return restore_escaped_interpolation_tokens(&protected_template);
+    }
+
+    let mut result = String::new();
+    let mut cursor = 0;
+
+    for span in spans {
+        let is_inside_string = is_inside_json_string(&protected_template, span.start);
+        let is_whole_quoted_token = is_inside_string
+            && is_unescaped_quote_at(&protected_template, span.start.saturating_sub(1))
+            && is_unescaped_quote_at(&protected_template, span.end);
+        let replacement_start = if is_whole_quoted_token {
+            span.start.saturating_sub(1)
+        } else {
+            span.start
+        };
+        let replacement_end = if is_whole_quoted_token {
+            span.end + 1
+        } else {
+            span.end
+        };
+        let raw_inner = &protected_template[span.raw_inner_start..span.raw_inner_end];
+        let token_name = get_interpolation_token_name(raw_inner)
+            .map(str::to_string)
+            .unwrap_or_else(|| raw_inner.trim().to_string());
+        let value =
+            resolve_json_template_value(&token_name, variables, graph_input_values, context_values);
+
+        result.push_str(&protected_template[cursor..replacement_start]);
+        if is_inside_string && !is_whole_quoted_token {
+            result.push_str(&stringify_embedded_json_string_fragment(value));
+        } else if is_whole_quoted_token {
+            result.push_str(&stringify_whole_quoted_json_value(value));
+        } else {
+            result.push_str(&stringify_json_value(value));
+        }
+        cursor = replacement_end;
+    }
+
+    result.push_str(&protected_template[cursor..]);
+    restore_escaped_interpolation_tokens(&result)
+}
+
+fn resolve_json_template_value(
+    token_name: &str,
+    variables: &DataValueMap,
+    graph_input_values: &DataValueMap,
+    context_values: &DataValueMap,
+) -> Option<Value> {
+    if let Some(expression) = token_name.strip_prefix("@graphInputs.") {
+        return resolve_expression_raw_value(graph_input_values, expression);
+    }
+
+    if let Some(expression) = token_name.strip_prefix("@context.") {
+        return resolve_expression_raw_value(context_values, expression);
+    }
+
+    variables
+        .get(token_name)
+        .map(|value| value.value.clone().unwrap_or(Value::Null))
+}
+
+fn stringify_json_value(value: Option<Value>) -> String {
+    match value {
+        None | Some(Value::Null) => "null".to_string(),
+        Some(value) => serde_json::to_string(&value).unwrap_or_else(|_| "null".to_string()),
+    }
+}
+
+fn stringify_whole_quoted_json_value(value: Option<Value>) -> String {
+    match value {
+        None | Some(Value::Null) => "null".to_string(),
+        Some(Value::String(value)) => {
+            serde_json::to_string(&value).unwrap_or_else(|_| "null".to_string())
+        }
+        Some(value) => {
+            let json_text = serde_json::to_string(&value).unwrap_or_else(|_| "null".to_string());
+            serde_json::to_string(&json_text).unwrap_or_else(|_| "null".to_string())
+        }
+    }
+}
+
+fn stringify_embedded_json_string_fragment(value: Option<Value>) -> String {
+    let fragment = match value {
+        None | Some(Value::Null) => "null".to_string(),
+        Some(Value::String(value)) => value,
+        Some(value) => serde_json::to_string(&value).unwrap_or_else(|_| "null".to_string()),
+    };
+    let quoted_fragment =
+        serde_json::to_string(&fragment).unwrap_or_else(|_| "\"null\"".to_string());
+
+    quoted_fragment
+        .strip_prefix('"')
+        .and_then(|value| value.strip_suffix('"'))
+        .unwrap_or(&quoted_fragment)
+        .to_string()
+}
+
+fn get_interpolation_token_name(raw_inner: &str) -> Option<&str> {
+    let token = raw_inner.split('|').next()?.trim();
+    (!token.is_empty()).then_some(token)
+}
+
+fn is_escaped_character(value: &str, index: usize) -> bool {
+    if index == 0 || index > value.len() {
+        return false;
+    }
+
+    let bytes = value.as_bytes();
+    let mut backslash_count = 0;
+    let mut cursor = index;
+
+    while cursor > 0 && bytes.get(cursor - 1).copied() == Some(b'\\') {
+        backslash_count += 1;
+        cursor -= 1;
+    }
+
+    backslash_count % 2 == 1
+}
+
+fn is_unescaped_quote_at(value: &str, index: usize) -> bool {
+    value.as_bytes().get(index).copied() == Some(b'"') && !is_escaped_character(value, index)
+}
+
+fn is_inside_json_string(value: &str, index: usize) -> bool {
+    let mut inside_string = false;
+    for position in 0..index.min(value.len()) {
+        if is_unescaped_quote_at(value, position) {
+            inside_string = !inside_string;
+        }
+    }
+
+    inside_string
 }
 
 fn replace_interpolation_tokens(
@@ -1411,6 +1598,10 @@ fn infer_data_value(value: Option<Value>) -> DataValue {
 }
 
 fn get_default_value(data_type: &str) -> Option<Value> {
+    if data_type.ends_with("[]") {
+        return Some(Value::Array(Vec::new()));
+    }
+
     match data_type {
         "string" => Some(Value::String(String::new())),
         "number" => Some(Value::Number(Number::from(0))),
@@ -1962,6 +2153,69 @@ mod tests {
     }
 
     #[test]
+    fn runs_object_node_with_json_template_interpolation() {
+        let outputs = run_object_for_test(
+            r#"{"name":"{{input}}","label":"Name {{input}}","meta":{{meta}},"metaText":"{{meta}}","count":{{count}},"suffix":"{{@context.suffix}}","literal":"{{{ignored}}}"}"#,
+            BTreeMap::from([
+                (
+                    "input".to_string(),
+                    data_value("string", Some(Value::String("Ada \"Lovelace\"".to_string()))),
+                ),
+                (
+                    "meta".to_string(),
+                    data_value("object", Some(json!({ "role": "builder" }))),
+                ),
+                (
+                    "count".to_string(),
+                    data_value("number", Some(Value::Number(Number::from(3)))),
+                ),
+            ]),
+            BTreeMap::from([(
+                "suffix".to_string(),
+                data_value("string", Some(Value::String("ctx".to_string()))),
+            )]),
+        )
+        .unwrap();
+
+        assert_eq!(
+            outputs.get("output"),
+            Some(&DataValue {
+                data_type: "object".to_string(),
+                value: Some(json!({
+                    "count": 3,
+                    "label": "Name Ada \"Lovelace\"",
+                    "literal": "{{ignored}}",
+                    "meta": { "role": "builder" },
+                    "metaText": "{\"role\":\"builder\"}",
+                    "name": "Ada \"Lovelace\"",
+                    "suffix": "ctx"
+                })),
+            })
+        );
+    }
+
+    #[test]
+    fn excludes_object_node_when_an_input_is_excluded() {
+        let outputs = run_object_for_test(
+            r#"{"name":"{{input}}"}"#,
+            BTreeMap::from([(
+                "input".to_string(),
+                data_value("control-flow-excluded", None),
+            )]),
+            BTreeMap::new(),
+        )
+        .unwrap();
+
+        assert_eq!(
+            outputs.get("output"),
+            Some(&DataValue {
+                data_type: "control-flow-excluded".to_string(),
+                value: None,
+            })
+        );
+    }
+
+    #[test]
     fn rejects_unsupported_destructure_paths_at_create_time() {
         let request = serde_json::from_value::<NativeRuntimeCreateRequest>(json!({
             "graphId": "main",
@@ -2148,6 +2402,29 @@ mod tests {
 
         run_extract_object_path_node(
             path,
+            NodeRunState {
+                context: &context,
+                graph_inputs: &mut graph_inputs,
+                graph_outputs: &mut graph_outputs,
+                graphs: &graphs,
+                inputs: &inputs,
+                node_inputs,
+            },
+        )
+    }
+
+    fn run_object_for_test(
+        json_template: &str,
+        node_inputs: DataValueMap,
+        context: DataValueMap,
+    ) -> Result<DataValueMap, String> {
+        let graphs = HashMap::new();
+        let inputs = BTreeMap::new();
+        let mut graph_inputs = BTreeMap::new();
+        let mut graph_outputs = BTreeMap::new();
+
+        run_object_node(
+            json_template,
             NodeRunState {
                 context: &context,
                 graph_inputs: &mut graph_inputs,

@@ -101,6 +101,11 @@ export type NativeNodeIr =
     }
   | {
       id: string;
+      jsonTemplate: string;
+      type: 'object';
+    }
+  | {
+      id: string;
       path: string;
       type: 'extractObjectPath';
     }
@@ -530,6 +535,8 @@ function isSupportedNativeInputPort(node: NativeNodeIr, portId: string, graphs: 
       return portId === 'conditional' || /^input[1-9]\d*$/.test(portId);
     case 'destructure':
       return portId === 'object';
+    case 'object':
+      return extractInterpolationVariables(node.jsonTemplate).includes(portId);
     case 'extractObjectPath':
       return portId === 'object';
     case 'graphOutput':
@@ -549,6 +556,8 @@ function isSupportedNativeOutputPort(node: NativeNodeIr, portId: string, graphs:
       return portId === 'output';
     case 'destructure':
       return node.paths.some((path) => path.outputId === portId);
+    case 'object':
+      return portId === 'output';
     case 'extractObjectPath':
       return portId === 'match' || portId === 'all_matches';
     case 'graphOutput':
@@ -615,7 +624,7 @@ function buildNativeNodeIr(node: ChartNode): NativeNodeResult {
         return unsupportedNode(node, 'invalid-graph-input-data');
       }
 
-      if (!isSupportedNativeDataType(data.dataType)) {
+      if (!isSupportedNativeGraphInputDataType(data.dataType)) {
         return unsupportedNode(node, `unsupported-data-type:${data.dataType}`);
       }
 
@@ -732,6 +741,22 @@ function buildNativeNodeIr(node: ChartNode): NativeNodeResult {
       };
     }
 
+    case 'object': {
+      const data = node.data as { jsonTemplate?: unknown };
+      if (typeof data.jsonTemplate !== 'string') {
+        return unsupportedNode(node, 'invalid-object-data');
+      }
+
+      return {
+        node: {
+          id: node.id,
+          jsonTemplate: data.jsonTemplate,
+          type: 'object',
+        },
+        supported: true,
+      };
+    }
+
     case 'extractObjectPath': {
       const data = node.data as { path?: unknown; usePathInput?: unknown };
       if (data.usePathInput) {
@@ -766,7 +791,7 @@ function buildNativeNodeIr(node: ChartNode): NativeNodeResult {
         return unsupportedNode(node, 'invalid-graph-output-data');
       }
 
-      if (!isSupportedNativeDataType(data.dataType)) {
+      if (!isSupportedNativeGraphOutputDataType(data.dataType)) {
         return unsupportedNode(node, `unsupported-data-type:${data.dataType}`);
       }
 
@@ -812,13 +837,24 @@ function buildNativeNodeIr(node: ChartNode): NativeNodeResult {
   }
 }
 
-function isSupportedNativeDataType(dataType: string): boolean {
+function isSupportedNativeGraphInputDataType(dataType: string): boolean {
   return (
     dataType === 'string' ||
     dataType === 'number' ||
     dataType === 'boolean' ||
     dataType === 'any' ||
     dataType === 'object'
+  );
+}
+
+function isSupportedNativeGraphOutputDataType(dataType: string): boolean {
+  return (
+    isSupportedNativeGraphInputDataType(dataType) ||
+    dataType === 'string[]' ||
+    dataType === 'number[]' ||
+    dataType === 'boolean[]' ||
+    dataType === 'any[]' ||
+    dataType === 'object[]'
   );
 }
 

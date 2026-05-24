@@ -188,7 +188,7 @@ package boundary lives under
 [`native-runtime/`](../native-runtime/) rather than `packages/*`; it is a
 private prototype with explicit Cargo scripts and no effect on normal Yarn
 workspace install/build/test flows. Its checked-in JS adapter can execute the
-current eligible IR for `graphInput`, `text`, `join`, `coalesce`,
+current eligible IR for `graphInput`, `text`, `join`, `object`, `coalesce`,
 `destructure`, `extractObjectPath`, `graphOutput`, and direct `subGraph` nodes
 when `RIVET_NATIVE_RUNTIME_BACKEND=js` is selected or when no Rust worker
 binary is available. The Rust worker backend under
@@ -209,17 +209,19 @@ worker executable for benchmark runs.
 Native runtime checks remain explicit: `npm --prefix native-runtime run test:native`
 runs the Rust crate tests, builds the release worker, and runs a
 JS-adapter/Rust-worker equivalence smoke for interpolation, defaults, fan-in,
-coalesce fan-in, simple destructure paths, static Extract Object Path,
-direct subgraphs, concurrent runs, and create-time rejection reasons. Rust unit
-coverage separately verifies explicit JSON `null` versus missing `value`
-transport semantics for native nodes that need to distinguish null from
-undefined. The main workspace build/test scripts stay TypeScript-only; CI runs
-the native prototype in its own `native-runtime` job so ordinary contributors do
-not need native artifacts for normal Rivet development.
+Object JSON-template construction, coalesce fan-in, simple destructure paths,
+static Extract Object Path, direct subgraphs, concurrent runs, and create-time
+rejection reasons. Rust unit coverage separately verifies explicit JSON `null`
+versus missing `value` transport semantics for native nodes that need to
+distinguish null from undefined. The main workspace build/test scripts stay
+TypeScript-only; CI runs the native prototype in its own `native-runtime` job so
+ordinary contributors do not need native artifacts for normal Rivet
+development.
 
 The supported native IR subset is intentionally small: acyclic graphs with
-`graphInput`, `text`, `join`, `coalesce`, `destructure`, `extractObjectPath`,
-`graphOutput`, and direct `Subgraph` nodes whose reached graphs are also
+`graphInput`, `text`, `join`, `object`, `coalesce`, `destructure`,
+`extractObjectPath`, `graphOutput`, and direct `Subgraph` nodes whose reached
+graphs are also
 eligible. Disabled,
 conditional, split-run, plugin, custom registry, callback/event-sensitive,
 dynamic Call Graph,
@@ -229,6 +231,14 @@ Text-node interpolation is native-eligible only for the processing pipes whose
 Rust behavior is covered by current parity tests: `uppercase`, `lowercase`,
 `trim`, and non-negative-integer `truncate`. Other text processing pipes stay on
 the TypeScript path until they have exact semantic fixtures.
+Object-node construction is native-eligible for static JSON templates whose
+interpolation inputs are ordinary node inputs, `@context.*`, or
+`@graphInputs.*`. The native adapters mirror the TypeScript Object node's
+quoted-token escaping, unquoted JSON value insertion, embedded string fragments,
+escaped interpolation tokens, and `object` versus `object[]` output typing.
+Object nodes still inherit the whole-graph native eligibility gate: disabled,
+conditional, split-run, plugin/custom-registry, event-sensitive, or unsupported
+neighboring nodes keep the entire run on TypeScript fallback.
 Coalesce is native-eligible for static `ignoreNull` and `ignoreUndefined`
 settings. Its `conditional` input is only a node-run gate, matching the
 TypeScript node, dynamic candidate ports must use exact `inputN` names, and the
@@ -243,7 +253,11 @@ graph can enter native-fast so missing-input behavior stays aligned with the
 TypeScript processor. Plain `object` graph inputs and graph outputs are admitted
 across the current native subset so object-shaped values can cross graph
 boundaries without changing the default TypeScript path; omitted `object` graph
-inputs use the same `{}` default as the TypeScript engine.
+inputs use the same `{}` default as the TypeScript engine. Native graph outputs
+also admit the primitive, `any`, and `object` array data types so nodes such as
+Object and Extract Object Path can expose array-shaped results without forcing a
+fallback, but array graph inputs remain TypeScript-only until native-fast covers
+the TypeScript array coercion rules.
 Extract Object Path is native-eligible only when `usePathInput` is disabled, the
 stored path has no interpolation tokens, and the path fits the same simple
 JSONPath subset as native destructure. Dynamic path inputs, interpolation,

@@ -26,6 +26,8 @@ import {
   makeExtractObjectPathProject,
   makeGlobalStateProject,
   makeInputContextTextProject,
+  makeObjectArrayConstructionProject,
+  makeObjectConstructionProject,
   makeSubgraphChainProject,
   makeTextChainProject,
   makeWideTextFanInProject,
@@ -87,6 +89,30 @@ function trackDefinitionCalls(impl: NodeImpl<ChartNode>, onDefinitionCall: () =>
   };
 
   return impl;
+}
+
+const localNativeRuntimeModuleUrl = new URL('../../../native-runtime/index.js', import.meta.url).href;
+
+async function withLocalNativeFastAdapterEnv<T>(run: () => Promise<T>): Promise<T> {
+  const previousNativeRuntimeModule = process.env.RIVET_NATIVE_RUNTIME_MODULE;
+  const previousNativeRuntimeBackend = process.env.RIVET_NATIVE_RUNTIME_BACKEND;
+  process.env.RIVET_NATIVE_RUNTIME_MODULE = localNativeRuntimeModuleUrl;
+  process.env.RIVET_NATIVE_RUNTIME_BACKEND = 'js';
+
+  try {
+    return await run();
+  } finally {
+    if (previousNativeRuntimeModule == null) {
+      delete process.env.RIVET_NATIVE_RUNTIME_MODULE;
+    } else {
+      process.env.RIVET_NATIVE_RUNTIME_MODULE = previousNativeRuntimeModule;
+    }
+    if (previousNativeRuntimeBackend == null) {
+      delete process.env.RIVET_NATIVE_RUNTIME_BACKEND;
+    } else {
+      process.env.RIVET_NATIVE_RUNTIME_BACKEND = previousNativeRuntimeBackend;
+    }
+  }
 }
 
 void describe('createGraphRunner', () => {
@@ -405,6 +431,34 @@ void describe('createGraphRunner', () => {
     }
   });
 
+  void it('keeps array graph inputs on the TypeScript fallback path', async () => {
+    const fixture = makeTextChainProject(1);
+    const graphInput = fixture.project.graphs[fixture.graphId]!.nodes.find((node) => node.id === 'graph-input')!;
+    (graphInput.data as { dataType: string }).dataType = 'string[]';
+    let nativeLoadCalls = 0;
+    setNativeRuntimeModuleLoaderForTesting(async () => {
+      nativeLoadCalls += 1;
+      throw new Error('Native runtime should not load for array graph inputs.');
+    });
+
+    try {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        runtimeProfile: 'native-fast',
+      });
+      const outputs = await runner.run();
+
+      assert.deepEqual(outputs, {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: 'x' },
+      } satisfies Record<string, DataValue>);
+      assert.equal(nativeLoadCalls, 0);
+      assert.match(runner.getNativeRuntimeDecision?.().fallbackReason ?? '', /^unsupported-data-type:string\[\]:/);
+    } finally {
+      setNativeRuntimeModuleLoaderForTesting(undefined);
+    }
+  });
+
   void it('falls back without loading native code when runner callbacks are provided', async () => {
     const fixture = makeTextChainProject(1);
     let nativeLoadCalls = 0;
@@ -549,12 +603,8 @@ void describe('createGraphRunner', () => {
 
   void it('can load and run the local native-fast adapter from an explicit file URL override', async () => {
     const fixture = makeTextChainProject(1);
-    const previousNativeRuntimeModule = process.env.RIVET_NATIVE_RUNTIME_MODULE;
-    const previousNativeRuntimeBackend = process.env.RIVET_NATIVE_RUNTIME_BACKEND;
-    process.env.RIVET_NATIVE_RUNTIME_MODULE = new URL('../../../native-runtime/index.js', import.meta.url).href;
-    process.env.RIVET_NATIVE_RUNTIME_BACKEND = 'js';
 
-    try {
+    await withLocalNativeFastAdapterEnv(async () => {
       const runner = createGraphRunner(fixture.project, {
         graph: fixture.graphId,
         runtimeProfile: 'native-fast',
@@ -571,28 +621,13 @@ void describe('createGraphRunner', () => {
         nativeUsed: true,
         requested: true,
       });
-    } finally {
-      if (previousNativeRuntimeModule == null) {
-        delete process.env.RIVET_NATIVE_RUNTIME_MODULE;
-      } else {
-        process.env.RIVET_NATIVE_RUNTIME_MODULE = previousNativeRuntimeModule;
-      }
-      if (previousNativeRuntimeBackend == null) {
-        delete process.env.RIVET_NATIVE_RUNTIME_BACKEND;
-      } else {
-        process.env.RIVET_NATIVE_RUNTIME_BACKEND = previousNativeRuntimeBackend;
-      }
-    }
+    });
   });
 
   void it('runs direct subgraph boundaries through the local native-fast adapter', async () => {
     const fixture = makeSubgraphChainProject(2);
-    const previousNativeRuntimeModule = process.env.RIVET_NATIVE_RUNTIME_MODULE;
-    const previousNativeRuntimeBackend = process.env.RIVET_NATIVE_RUNTIME_BACKEND;
-    process.env.RIVET_NATIVE_RUNTIME_MODULE = new URL('../../../native-runtime/index.js', import.meta.url).href;
-    process.env.RIVET_NATIVE_RUNTIME_BACKEND = 'js';
 
-    try {
+    await withLocalNativeFastAdapterEnv(async () => {
       const runner = createGraphRunner(fixture.project, {
         graph: fixture.graphId,
         runtimeProfile: 'native-fast',
@@ -609,18 +644,7 @@ void describe('createGraphRunner', () => {
         nativeUsed: true,
         requested: true,
       });
-    } finally {
-      if (previousNativeRuntimeModule == null) {
-        delete process.env.RIVET_NATIVE_RUNTIME_MODULE;
-      } else {
-        process.env.RIVET_NATIVE_RUNTIME_MODULE = previousNativeRuntimeModule;
-      }
-      if (previousNativeRuntimeBackend == null) {
-        delete process.env.RIVET_NATIVE_RUNTIME_BACKEND;
-      } else {
-        process.env.RIVET_NATIVE_RUNTIME_BACKEND = previousNativeRuntimeBackend;
-      }
-    }
+    });
   });
 
   void it('runs context interpolation, processing pipes, and join fan-in through the local native-fast adapter', async () => {
@@ -629,12 +653,8 @@ void describe('createGraphRunner', () => {
     const wideFixture = makeWideTextFanInProject(3);
     const pipeTextNode = pipeFixture.project.graphs[pipeFixture.graphId]!.nodes.find((node) => node.id === 'text-0')!;
     (pipeTextNode.data as { text: string }).text = '{{input | truncate 0}}';
-    const previousNativeRuntimeModule = process.env.RIVET_NATIVE_RUNTIME_MODULE;
-    const previousNativeRuntimeBackend = process.env.RIVET_NATIVE_RUNTIME_BACKEND;
-    process.env.RIVET_NATIVE_RUNTIME_MODULE = new URL('../../../native-runtime/index.js', import.meta.url).href;
-    process.env.RIVET_NATIVE_RUNTIME_BACKEND = 'js';
 
-    try {
+    await withLocalNativeFastAdapterEnv(async () => {
       const contextRunner = createGraphRunner(contextFixture.project, {
         graph: contextFixture.graphId,
         runtimeProfile: 'native-fast',
@@ -666,28 +686,13 @@ void describe('createGraphRunner', () => {
       assert.equal(wideRunner.getNativeRuntimeDecision?.().nativeBackend, 'js-adapter');
       assert.equal(pipeRunner.getNativeRuntimeDecision?.().nativeUsed, true);
       assert.equal(pipeRunner.getNativeRuntimeDecision?.().nativeBackend, 'js-adapter');
-    } finally {
-      if (previousNativeRuntimeModule == null) {
-        delete process.env.RIVET_NATIVE_RUNTIME_MODULE;
-      } else {
-        process.env.RIVET_NATIVE_RUNTIME_MODULE = previousNativeRuntimeModule;
-      }
-      if (previousNativeRuntimeBackend == null) {
-        delete process.env.RIVET_NATIVE_RUNTIME_BACKEND;
-      } else {
-        process.env.RIVET_NATIVE_RUNTIME_BACKEND = previousNativeRuntimeBackend;
-      }
-    }
+    });
   });
 
   void it('runs coalesce fan-in through the local native-fast adapter', async () => {
     const fixture = makeCoalesceFanInProject();
-    const previousNativeRuntimeModule = process.env.RIVET_NATIVE_RUNTIME_MODULE;
-    const previousNativeRuntimeBackend = process.env.RIVET_NATIVE_RUNTIME_BACKEND;
-    process.env.RIVET_NATIVE_RUNTIME_MODULE = new URL('../../../native-runtime/index.js', import.meta.url).href;
-    process.env.RIVET_NATIVE_RUNTIME_BACKEND = 'js';
 
-    try {
+    await withLocalNativeFastAdapterEnv(async () => {
       const runner = createGraphRunner(fixture.project, {
         graph: fixture.graphId,
         runtimeProfile: 'native-fast',
@@ -710,28 +715,13 @@ void describe('createGraphRunner', () => {
         nativeUsed: true,
         requested: true,
       });
-    } finally {
-      if (previousNativeRuntimeModule == null) {
-        delete process.env.RIVET_NATIVE_RUNTIME_MODULE;
-      } else {
-        process.env.RIVET_NATIVE_RUNTIME_MODULE = previousNativeRuntimeModule;
-      }
-      if (previousNativeRuntimeBackend == null) {
-        delete process.env.RIVET_NATIVE_RUNTIME_BACKEND;
-      } else {
-        process.env.RIVET_NATIVE_RUNTIME_BACKEND = previousNativeRuntimeBackend;
-      }
-    }
+    });
   });
 
   void it('runs destructure fan-out through the local native-fast adapter', async () => {
     const fixture = makeDestructureFanOutProject();
-    const previousNativeRuntimeModule = process.env.RIVET_NATIVE_RUNTIME_MODULE;
-    const previousNativeRuntimeBackend = process.env.RIVET_NATIVE_RUNTIME_BACKEND;
-    process.env.RIVET_NATIVE_RUNTIME_MODULE = new URL('../../../native-runtime/index.js', import.meta.url).href;
-    process.env.RIVET_NATIVE_RUNTIME_BACKEND = 'js';
 
-    try {
+    await withLocalNativeFastAdapterEnv(async () => {
       const runner = createGraphRunner(fixture.project, {
         graph: fixture.graphId,
         runtimeProfile: 'native-fast',
@@ -759,28 +749,13 @@ void describe('createGraphRunner', () => {
         nativeUsed: true,
         requested: true,
       });
-    } finally {
-      if (previousNativeRuntimeModule == null) {
-        delete process.env.RIVET_NATIVE_RUNTIME_MODULE;
-      } else {
-        process.env.RIVET_NATIVE_RUNTIME_MODULE = previousNativeRuntimeModule;
-      }
-      if (previousNativeRuntimeBackend == null) {
-        delete process.env.RIVET_NATIVE_RUNTIME_BACKEND;
-      } else {
-        process.env.RIVET_NATIVE_RUNTIME_BACKEND = previousNativeRuntimeBackend;
-      }
-    }
+    });
   });
 
   void it('runs extract object path through the local native-fast adapter', async () => {
     const fixture = makeExtractObjectPathProject();
-    const previousNativeRuntimeModule = process.env.RIVET_NATIVE_RUNTIME_MODULE;
-    const previousNativeRuntimeBackend = process.env.RIVET_NATIVE_RUNTIME_BACKEND;
-    process.env.RIVET_NATIVE_RUNTIME_MODULE = new URL('../../../native-runtime/index.js', import.meta.url).href;
-    process.env.RIVET_NATIVE_RUNTIME_BACKEND = 'js';
 
-    try {
+    await withLocalNativeFastAdapterEnv(async () => {
       const runner = createGraphRunner(fixture.project, {
         graph: fixture.graphId,
         runtimeProfile: 'native-fast',
@@ -808,18 +783,80 @@ void describe('createGraphRunner', () => {
         nativeUsed: true,
         requested: true,
       });
-    } finally {
-      if (previousNativeRuntimeModule == null) {
-        delete process.env.RIVET_NATIVE_RUNTIME_MODULE;
-      } else {
-        process.env.RIVET_NATIVE_RUNTIME_MODULE = previousNativeRuntimeModule;
-      }
-      if (previousNativeRuntimeBackend == null) {
-        delete process.env.RIVET_NATIVE_RUNTIME_BACKEND;
-      } else {
-        process.env.RIVET_NATIVE_RUNTIME_BACKEND = previousNativeRuntimeBackend;
-      }
-    }
+    });
+  });
+
+  void it('runs object construction through the local native-fast adapter', async () => {
+    const fixture = makeObjectConstructionProject();
+
+    await withLocalNativeFastAdapterEnv(async () => {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        runtimeProfile: 'native-fast',
+      });
+      const outputs = await runner.run({
+        context: {
+          suffix: 'ctx',
+        },
+        inputs: {
+          count: 3,
+          meta: { type: 'object', value: { role: 'builder' } },
+          name: 'Ada "Lovelace"',
+        },
+      });
+
+      assert.deepEqual(outputs, {
+        cost: { type: 'number', value: 0 },
+        result: {
+          type: 'object',
+          value: {
+            count: 3,
+            label: 'Name Ada "Lovelace"',
+            literal: '{{ignored}}',
+            meta: { role: 'builder' },
+            metaText: '{"role":"builder"}',
+            name: 'Ada "Lovelace"',
+            suffix: 'ctx',
+          },
+        },
+      } satisfies Record<string, DataValue>);
+      assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+        nativeBackend: 'js-adapter',
+        nativeEligible: true,
+        nativeUsed: true,
+        requested: true,
+      });
+    });
+  });
+
+  void it('keeps object array graph outputs native-fast eligible', async () => {
+    const fixture = makeObjectArrayConstructionProject();
+
+    await withLocalNativeFastAdapterEnv(async () => {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        runtimeProfile: 'native-fast',
+      });
+      const outputs = await runner.run({
+        inputs: {
+          name: 'Ada',
+        },
+      });
+
+      assert.deepEqual(outputs, {
+        cost: { type: 'number', value: 0 },
+        result: {
+          type: 'object[]',
+          value: [{ name: 'Ada' }, { name: 'static' }],
+        },
+      } satisfies Record<string, DataValue>);
+      assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+        nativeBackend: 'js-adapter',
+        nativeEligible: true,
+        nativeUsed: true,
+        requested: true,
+      });
+    });
   });
 
   void it('falls back before loading native-fast when destructure JSONPath exceeds the native subset', async () => {

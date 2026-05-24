@@ -420,6 +420,8 @@ async function runNode(node, state) {
       return runCoalesceNode(node, state);
     case 'destructure':
       return runDestructureNode(node, state);
+    case 'object':
+      return runObjectNode(node, state);
     case 'extractObjectPath':
       return runExtractObjectPathNode(node, state);
     case 'graphOutput':
@@ -549,6 +551,26 @@ function runDestructureNode(node, state) {
   }
 
   return outputs;
+}
+
+function runObjectNode(node, state) {
+  if (Object.values(state.nodeInputs).some((value) => value?.type === 'control-flow-excluded')) {
+    return {
+      output: {
+        type: 'control-flow-excluded',
+        value: undefined,
+      },
+    };
+  }
+
+  const objectValue = JSON.parse(interpolateJsonTemplate(node.jsonTemplate, state.nodeInputs, state.graphInputs, state.context));
+
+  return {
+    output: {
+      type: Array.isArray(objectValue) ? 'object[]' : 'object',
+      value: objectValue,
+    },
+  };
 }
 
 function runExtractObjectPathNode(node, state) {
@@ -784,6 +806,116 @@ function interpolate(template, variables, graphInputValues, contextValues) {
 
     return processingChain ? applyProcessing(resolvedValue, processingChain) : resolvedValue;
   });
+}
+
+function interpolateJsonTemplate(template, variables, graphInputValues, contextValues) {
+  const protectedTemplate = protectEscapedInterpolationTokens(template);
+  const spans = findInterpolationTokenSpans(protectedTemplate);
+
+  if (spans.length === 0) {
+    return restoreEscapedInterpolationTokens(protectedTemplate);
+  }
+
+  let result = '';
+  let cursor = 0;
+
+  for (const span of spans) {
+    const isInsideString = isInsideJsonString(protectedTemplate, span.start);
+    const isWholeQuotedToken =
+      isInsideString &&
+      isUnescapedQuoteAt(protectedTemplate, span.start - 1) &&
+      isUnescapedQuoteAt(protectedTemplate, span.end);
+    const replacementStart = isWholeQuotedToken ? span.start - 1 : span.start;
+    const replacementEnd = isWholeQuotedToken ? span.end + 1 : span.end;
+    const tokenName = getInterpolationTokenName(span.rawInner) ?? span.rawInner.trim();
+    const value = resolveJsonTemplateValue(tokenName, variables, graphInputValues, contextValues);
+
+    result += protectedTemplate.slice(cursor, replacementStart);
+    if (isInsideString && !isWholeQuotedToken) {
+      result += stringifyEmbeddedJsonStringFragment(value);
+    } else if (isWholeQuotedToken) {
+      result += stringifyWholeQuotedJsonValue(value);
+    } else {
+      result += stringifyJsonValue(value);
+    }
+    cursor = replacementEnd;
+  }
+
+  result += protectedTemplate.slice(cursor);
+  return restoreEscapedInterpolationTokens(result);
+}
+
+function resolveJsonTemplateValue(tokenName, variables, graphInputValues, contextValues) {
+  if (tokenName.startsWith('@graphInputs.')) {
+    return resolveExpressionRawValue(graphInputValues, tokenName.slice('@graphInputs.'.length));
+  }
+
+  if (tokenName.startsWith('@context.')) {
+    return resolveExpressionRawValue(contextValues, tokenName.slice('@context.'.length));
+  }
+
+  if (hasRecordValue(variables, tokenName)) {
+    return unwrapPotentialDataValue(getRecordValue(variables, tokenName));
+  }
+
+  return undefined;
+}
+
+function stringifyJsonValue(value) {
+  if (value == null) {
+    return 'null';
+  }
+
+  return JSON.stringify(value) ?? 'null';
+}
+
+function stringifyWholeQuotedJsonValue(value) {
+  if (value == null) {
+    return 'null';
+  }
+
+  if (typeof value === 'string') {
+    return JSON.stringify(value);
+  }
+
+  return JSON.stringify(JSON.stringify(value) ?? null) ?? 'null';
+}
+
+function stringifyEmbeddedJsonStringFragment(value) {
+  const fragment = value == null ? 'null' : typeof value === 'string' ? value : (JSON.stringify(value) ?? 'null');
+
+  return JSON.stringify(fragment).slice(1, -1);
+}
+
+function getInterpolationTokenName(rawInner) {
+  const token = rawInner.split('|')[0]?.trim();
+  return token === '' ? undefined : token;
+}
+
+function isEscapedCharacter(value, index) {
+  let backslashCount = 0;
+
+  for (let i = index - 1; i >= 0 && value[i] === '\\'; i -= 1) {
+    backslashCount += 1;
+  }
+
+  return backslashCount % 2 === 1;
+}
+
+function isUnescapedQuoteAt(value, index) {
+  return index >= 0 && index < value.length && value[index] === '"' && !isEscapedCharacter(value, index);
+}
+
+function isInsideJsonString(value, index) {
+  let insideString = false;
+
+  for (let i = 0; i < index; i += 1) {
+    if (isUnescapedQuoteAt(value, i)) {
+      insideString = !insideString;
+    }
+  }
+
+  return insideString;
 }
 
 function replaceInterpolationTokens(template, getReplacement) {
@@ -1129,6 +1261,10 @@ function inferDataValue(value) {
 }
 
 function getDefaultValue(type) {
+  if (typeof type === 'string' && type.endsWith('[]')) {
+    return [];
+  }
+
   switch (type) {
     case 'string':
       return '';
@@ -1193,6 +1329,7 @@ function isSupportedNodeType(type) {
     type === 'join' ||
     type === 'coalesce' ||
     type === 'destructure' ||
+    type === 'object' ||
     type === 'extractObjectPath' ||
     type === 'graphOutput' ||
     type === 'subGraph'
@@ -1217,6 +1354,12 @@ function validateNode(node, graphId) {
         ) {
           return unsupported(`invalid-node:${graphId}:destructure:${node.id}`);
         }
+      }
+
+      return { supported: true };
+    case 'object':
+      if (typeof node.jsonTemplate !== 'string') {
+        return unsupported(`invalid-node:${graphId}:object:${node.id}`);
       }
 
       return { supported: true };
