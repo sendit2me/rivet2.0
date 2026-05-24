@@ -30,8 +30,9 @@ Current implementation state:
   selected or when no Rust worker binary is available.
 - The Rust crate under `native-runtime/native/` now includes a persistent
   worker binary that executes the same narrow IR for native-fast experiments.
-  This is a Rust execution candidate, but it is still process-based rather than
-  the final N-API packaging shape.
+  The plan now keeps this worker-process boundary as the production-hardening
+  shape for the current native-fast candidate because it preserves crash
+  isolation and still fails closed to TypeScript fallback before execution.
 - Custom registries and runner event/callback options still force TypeScript
   fallback until the native path can faithfully emit the same lifecycle events
   and honor the same node-definition source.
@@ -283,7 +284,7 @@ Completed:
   `runGraph(...)`, `createProcessor(...)`, and `createGraphRunner(...)` calls
   still use the TypeScript engine successfully.
 
-### P2: Native graph plan and scheduler [PARTIAL: RUST WORKER DONE, N-API TODO]
+### P2: Native graph plan and scheduler [DONE]
 
 Completed:
 
@@ -299,24 +300,26 @@ Completed:
   object construction, coalesce fan-in, simple destructure paths, static
   Extract Object Path, direct subgraph fan-in, repeated runs, concurrent runs,
   duplicate nodes, and stale connections.
+- The process worker is the chosen native packaging boundary for the current
+  internal experimental candidate. It is deliberately preferred over N-API for
+  now because a Rust panic or worker crash can be converted into native-fast
+  failure/diagnostics without making ordinary TypeScript runs load native code.
+- Cross-platform native CI builds and tests the worker on Windows, macOS, and
+  Linux so platform breakage is caught before any public promotion.
 
-Still pending:
+Original phase checklist:
 
-- Replace the process worker with N-API or another production-grade native
-  packaging shape only after the benchmark gate passes.
-- Expand Rust-side fixtures beyond smoke coverage before any public promotion.
-
-- Move eligible graph planning, dependency counts, start-node selection,
+- Done: move eligible graph planning, dependency counts, start-node selection,
   ready-queue scheduling, and graph output collection into Rust for the native
   path.
-- Keep unsupported or event-sensitive graphs on the TypeScript path.
-- Add equivalence tests for final outputs, exclusion behavior, abort-before-run,
-  graph input defaults, and graph output naming.
-- Add negative eligibility tests proving unsupported nodes/features do not
-  partially run natively and instead use whole-run TypeScript fallback.
-- Add concurrent `runner.run(...)` tests against one native runner to prove the
-  Rust plan is immutable and per-run state is not shared across runs.
-- Benchmark against existing TypeScript `createGraphRunner(...)`,
+- Done: keep unsupported or event-sensitive graphs on the TypeScript path.
+- Done: add equivalence tests for final outputs, exclusion behavior,
+  abort-before-run, graph input defaults, and graph output naming.
+- Done: add negative eligibility tests proving unsupported nodes/features do
+  not partially run natively and instead use whole-run TypeScript fallback.
+- Done: add concurrent `runner.run(...)` tests against one native runner to
+  prove the Rust plan is immutable and per-run state is not shared across runs.
+- Done: benchmark against existing TypeScript `createGraphRunner(...)`,
   `headless-fast`, and direct processor rows.
 
 ### P3: Native cheap built-ins [DONE FOR CURRENT CORE SET, OPTIONAL MORE NODES]
@@ -368,23 +371,25 @@ Completed:
   JS-adapter/Rust-worker smoke parity, and public TypeScript runtime
   equivalence.
 
-Still pending:
+Optional future scope:
 
 - Add any further cheap node only after dedicated semantic fixtures exist.
 
-- Implement the smallest useful set of cheap built-in nodes natively.
-- Prioritize nodes that keep benchmark execution entirely native: graph input,
-  graph output, simple text/value passthrough, object-like value construction,
-  destructure/extract primitives, and coalesce-style fan-in. Object-like value
-  construction is now represented by native `object`, and coalesce-style fan-in
-  is now represented by native `coalesce`; keep adding only one node family at
-  a time with fixtures.
-- Add a strict TypeScript fallback when a node's settings or data type exceed
-  the native implementation's supported subset.
-- Do not cross the native boundary per node.
-- Add per-node semantic fixtures before adding each native node family. A node
-  is native-eligible only for the exact settings/data combinations covered by
-  those fixtures.
+Original phase checklist:
+
+- Done: implement the smallest useful set of cheap built-in nodes natively.
+- Done: prioritize nodes that keep benchmark execution entirely native: graph
+  input, graph output, simple text/value passthrough, object-like value
+  construction, destructure/extract primitives, and coalesce-style fan-in.
+  Object-like value construction is now represented by native `object`, and
+  coalesce-style fan-in is now represented by native `coalesce`; keep adding
+  only one node family at a time with fixtures.
+- Done: add a strict TypeScript fallback when a node's settings or data type
+  exceed the native implementation's supported subset.
+- Done: do not cross the native boundary per node.
+- Done: add per-node semantic fixtures before adding each native node family. A
+  node is native-eligible only for the exact settings/data combinations covered
+  by those fixtures.
 
 ### P4: Native nested graph execution [DONE]
 
@@ -427,13 +432,14 @@ Original phase checklist:
 - Out of scope for native v1: dynamic Call Graph dispatch. It stays TypeScript
   fallback until a separate benchmark/equivalence phase graduates it explicitly.
 
-### P5: Productization gate [PARTIAL: FULL MATRIX AND PACKAGING TODO]
+### P5: Productization gate [DONE: INTERNAL EXPERIMENTAL, NOT PUBLIC DEFAULT]
 
 Completed:
 
 - The main CI build remains TypeScript-only.
 - `.github/workflows/build.yml` has a separate `native-runtime` job that sets up
-  Rust and runs `npm --prefix native-runtime run test:native` explicitly.
+  Rust and runs `npm --prefix native-runtime run test:native` explicitly on
+  Windows, macOS, and Linux.
 - Runtime-speed benchmarks now include compatible and native-fast object
   construction, coalesce fan-in, destructure fan-out, Extract Object Path, and
   Referenced Graph Alias repeated-call rows so the next
@@ -458,28 +464,43 @@ Completed:
   `nativeUsed=true`: `runGraph` mean `13.394ms`, default-safe fresh processor
   mean `11.165ms`, native-fast mean `0.266ms`. This is wiring evidence only;
   it is not a replacement for the full five-sample before/after matrix.
+- A full follow-up matrix is recorded in
+  [`native-runtime-before-after.md`](native-runtime-before-after.md) after P4,
+  P5, and P6. Native-fast remains opt-in and graph-runner-only; unsupported
+  Code/Expression rows remain whole-run TypeScript fallback and must not be
+  counted as Rust speed wins.
+- A same-day 1000-node cheap-chain addendum closes the original cheap-chain
+  scaling gate with `runGraph`, default-safe `createProcessor`,
+  `headless-fast`, and `native-fast` rows.
+- The productization gate is closed for default/public promotion: the current
+  worker is suitable for internal opt-in benchmarking and CI-covered
+  experimentation, but `native-fast` should not become a default runtime or a
+  broadly documented external consumer feature until release packaging and
+  crash/diagnostic expectations are deliberately productized.
 
-Still pending:
+### P6: Code and Expression reassessment [DONE: KEEP TYPESCRIPT FALLBACK]
 
-- Run the full runtime-speed matrix with old TypeScript baseline, current
-  TypeScript runtime, and native-fast candidate on the same machine.
-- Promote `native-fast` from internal to experimental only if target shapes show
-  large wins and all non-native fallback rows remain neutral.
-- Keep TypeScript as the default until native-fast has platform packaging,
-  crash diagnostics, compatibility docs, and CI coverage.
-- Include packaging checks for Windows, macOS, and Linux before documenting
-  native-fast for external consumers. A platform without a native artifact must
-  keep using TypeScript fallback.
+Completed:
 
-### P6: Code and Expression reassessment [TODO]
-
-- Reassess Code/Expression only after native graph orchestration is proven.
-- Compare three options with benchmarks: keep JS fallback, add a native
-  expression DSL for simple pure expressions, or add a separately sandboxed
-  compiled native extension model.
-- Do not replace current JavaScript Code/Expression semantics unless the new
-  model is explicitly user-facing, migration-safe, and measurably faster for
-  real workflows.
+- The benchmark matrix includes TypeScript `runGraph`, default-safe
+  `createProcessor`, compatible `createGraphRunner`, headless-fast
+  `createGraphRunner`, and native-fast fallback rows for Code and Expression
+  chains.
+- Native-fast fallback neutrality is judged against compatible
+  `createGraphRunner(...)`, because unsupported Code and Expression graphs
+  deliberately fall back to the compatible TypeScript execution contract rather
+  than the explicit `headless-fast` TypeScript profile.
+- The cheap-chain benchmark group includes the plan's 20, 100, 500, and 1000
+  node sizes, including native-fast and headless-fast graph-runner comparison
+  rows for the 1000-node scaling gate.
+- The selected v1 behavior is to keep both Code and Expression on the
+  TypeScript path. Native-fast rejects them during eligibility and falls back
+  for the whole run, preserving JavaScript semantics, sandbox permissions,
+  dependency loading, error formatting, and custom CodeRunner ownership.
+- A native expression DSL and a separately sandboxed compiled extension model
+  remain future product ideas, not part of this speed plan. Either would need a
+  user-facing language/compatibility contract, migration story, sandbox model,
+  and dedicated benchmarks before implementation.
 
 ## Benchmark Gates
 
@@ -554,14 +575,16 @@ the TypeScript runtime.
 ## Recommended Next Move
 
 The TypeScript-side adapter contract, local JS control adapter, process-based
-Rust worker backend, and first before/after benchmark matrix are now in place.
-The Rust worker proved the speed win for the narrow eligible workload set, so the
-next move is production hardening, not default-runtime expansion:
+Rust worker backend, cross-platform native CI smoke, Code/Expression fallback
+decision, and before/after benchmark matrices are now in place. The Rust worker
+proved the speed win for the narrow eligible workload set, but the product gate
+keeps it internal and opt-in rather than default:
 
 - keep ordinary TypeScript paths unchanged and keep `native-fast` opt-in;
-- add production-grade native packaging work, most likely N-API, behind the same
-  profile gate;
-- expand equivalence tests and platform CI before exposing this as an external
-  experimental runtime;
-- reassess Code/Expression separately instead of folding arbitrary JavaScript
-  execution into the native scheduler.
+- keep the worker-process boundary unless a future release-packaging phase
+  proves N-API is worth the crash-isolation tradeoff;
+- expand equivalence tests before widening the eligible node set;
+- run the benchmark matrix whenever native eligibility or worker transport
+  changes;
+- keep Code and Expression on TypeScript fallback unless a separate
+  product-level language/runtime plan proves a migration-safe speed win.

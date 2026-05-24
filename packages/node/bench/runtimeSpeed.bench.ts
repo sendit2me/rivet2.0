@@ -74,6 +74,7 @@ async function main() {
   const cheap20 = makeTextChainProject(20);
   const cheap100 = makeTextChainProject(100);
   const cheap500 = makeTextChainProject(500);
+  const cheap1000 = makeTextChainProject(1000);
   const expression20 = makeExpressionChainProject(20);
   const code20 = makeCodeChainProject(20);
   const singleSubgraph = makeSubgraphChainProject(1);
@@ -207,6 +208,11 @@ async function main() {
       ),
     );
     results.push(
+      await benchmark('runGraph text chain 1000', () =>
+        runGraph(cheap1000.project, { graph: cheap1000.graphId, inputs: { input: 'bench' } }),
+      ),
+    );
+    results.push(
       await benchmarkDirectProcessor('direct GraphProcessor compatible text chain 500', cheap500, 'compatible'),
     );
     results.push(
@@ -240,6 +246,25 @@ async function main() {
       ),
     );
     results.push(
+      await benchmarkGraphRunner(
+        'createGraphRunner headless-fast text chain 1000',
+        cheap1000.project,
+        {
+          graph: cheap1000.graphId,
+          runtimeProfile: 'headless-fast',
+        },
+        { inputs: { input: 'bench' } },
+      ),
+    );
+    results.push(
+      await benchmarkNativeFastGraphRunner(
+        'createGraphRunner native-fast text chain 1000',
+        cheap1000.project,
+        { graph: cheap1000.graphId },
+        { inputs: { input: 'bench' } },
+      ),
+    );
+    results.push(
       await benchmark('runGraph wide independent text nodes 100', () =>
         runGraph(wideFanIn100.project, { graph: wideFanIn100.graphId, inputs: { input: 'bench' } }),
       ),
@@ -269,6 +294,12 @@ async function main() {
         graph: cheap500.graphId,
         inputs: { input: 'bench' },
         runtimeProfile: 'headless-fast',
+      }),
+    );
+    results.push(
+      await benchmarkCreateProcessor('fresh createProcessor default-safe text chain 1000', cheap1000.project, {
+        graph: cheap1000.graphId,
+        inputs: { input: 'bench' },
       }),
     );
     results.push(
@@ -642,6 +673,14 @@ async function main() {
           graph: expression20.graphId,
           runtimeProfile: 'headless-fast',
         },
+        { inputs: { input: 0 } },
+      ),
+    );
+    results.push(
+      await benchmarkNativeFastGraphRunner(
+        'createGraphRunner native-fast unsupported expression chain 20',
+        expression20.project,
+        { graph: expression20.graphId },
         { inputs: { input: 0 } },
       ),
     );

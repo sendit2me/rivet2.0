@@ -195,9 +195,12 @@ subgraph IR when `RIVET_NATIVE_RUNTIME_BACKEND=js` is selected or when no Rust
 worker binary is available. The Rust worker backend under
 `native-runtime/native/` now executes the same narrow IR through a persistent
 child process when `RIVET_NATIVE_RUNTIME_BACKEND=rust` is selected, or
-automatically when a built worker binary is present. Move the native package
-into the workspace only after the package-manager, platform, and benchmark
-gates in the plan are satisfied.
+automatically when a built worker binary is present. The worker-process
+boundary is the selected native-fast hardening shape for now because it keeps
+native crash isolation and still fails closed before execution; N-API remains a
+future release-packaging option, not a prerequisite for the current internal
+experimental profile. Move the native package into the workspace only after the
+package-manager, platform, and benchmark gates in the plan are satisfied.
 Both adapters validate the IR they receive before creating a runner, including
 duplicate node IDs and stale connections, and keep per-run input/output maps
 fresh so repeated native-fast runs cannot share values.
@@ -218,8 +221,10 @@ distinguish null from undefined. The Node graph-runner tests cover the
 TypeScript reference-resolution step that turns eligible Referenced Graph Alias
 nodes into synthetic native subgraph IR before either native adapter sees the
 request. The main workspace build/test scripts stay TypeScript-only; CI runs
-the native prototype in its own `native-runtime` job so ordinary contributors
-do not need native artifacts for normal Rivet development.
+the native prototype in its own `native-runtime` matrix job on Windows, macOS,
+and Linux so ordinary contributors do not need native artifacts for normal Rivet
+development, while platform-specific worker build/test failures are still
+caught in CI.
 
 The supported native IR subset is intentionally small: acyclic graphs with
 `graphInput`, `text`, `join`, `object`, `coalesce`, `destructure`,
@@ -245,6 +250,11 @@ project cannot be resolved, or when the reached graph is outside the native
 subset. Per-run abort signals also stay on the TypeScript path and skip native
 reference-snapshot construction before falling back; the fallback runner still
 uses the normal TypeScript project-reference loading behavior.
+Code and Expression are an intentional v1 fallback rather than an omission: the
+current JavaScript semantics include sandbox permissions, dependency loading,
+custom CodeRunner ownership, and error formatting that need a separate
+product-level migration plan before any native DSL or compiled-extension model
+can replace them.
 Text-node interpolation is native-eligible only for the processing pipes whose
 Rust behavior is covered by current parity tests: `uppercase`, `lowercase`,
 `trim`, and non-negative-integer `truncate`. Other text processing pipes stay on
@@ -297,7 +307,11 @@ The first measured native before/after matrix is recorded in
 [`native-runtime-before-after.md`](../native-runtime-before-after.md). On the
 2026-05-24 local benchmark, the Rust worker cleared the feasibility gate for
 eligible cheap-node, fan-in, and subgraph-heavy graph-runner workloads while
-unsupported Code rows stayed on TypeScript fallback with `nativeUsed=false`.
+unsupported Code and Expression rows stayed on TypeScript fallback with
+`nativeUsed=false`. The follow-up full matrix in the same document records the
+post-reference-boundary Rust worker results, including cross-reference
+dispatch, object-like cheap nodes, fallback neutrality checks, and the
+1000-node cheap-chain scaling gate.
 
 `createGraphRunner(...)` is the additive production-facing fast path for
 headless/programmatic Node integrations that load a project once and run the
