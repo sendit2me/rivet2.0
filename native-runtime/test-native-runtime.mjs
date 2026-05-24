@@ -11,6 +11,9 @@ for (const backend of backends) {
   await testContextInterpolationAndProcessing(backend);
   await testRepeatedAndConcurrentRuns(backend);
   await testGraphInputDefaultsAndCoercion(backend);
+  await testGraphInputDefaultInputPort(backend);
+  await testGraphInputUnconnectedDefaultInputPort(backend);
+  await testGraphInputUnconnectedBooleanDefaultInputPort(backend);
   await testObjectGraphInputDefault(backend);
   await testJoinArrayFanIn(backend);
   await testObjectConstruction(backend);
@@ -98,6 +101,60 @@ async function testGraphInputDefaultsAndCoercion({ backend, expectedBackend }) {
 
       assert.deepEqual(outputs, {
         result: { type: 'string', value: '7 true' },
+      });
+    } finally {
+      runner.dispose?.();
+    }
+  });
+}
+
+async function testGraphInputDefaultInputPort({ backend, expectedBackend }) {
+  await withBackend(backend, async () => {
+    const runner = await createSupportedRunner(makeDefaultInputPortRequest(), expectedBackend);
+    try {
+      assert.deepEqual(await runner.run(), {
+        result: { type: 'string', value: 'dynamic' },
+      });
+
+      assert.deepEqual(
+        await runner.run({
+          inputs: {
+            input: { type: 'string', value: 'explicit' },
+          },
+        }),
+        {
+          result: { type: 'string', value: 'explicit' },
+        },
+      );
+    } finally {
+      runner.dispose?.();
+    }
+  });
+}
+
+async function testGraphInputUnconnectedDefaultInputPort({ backend, expectedBackend }) {
+  await withBackend(backend, async () => {
+    const runner = await createSupportedRunner(makeUnconnectedDefaultInputPortRequest(), expectedBackend);
+    try {
+      const outputs = await runner.run();
+
+      assert.deepEqual(outputs, {
+        result: { type: 'string', value: '' },
+      });
+    } finally {
+      runner.dispose?.();
+    }
+  });
+}
+
+async function testGraphInputUnconnectedBooleanDefaultInputPort({ backend, expectedBackend }) {
+  await withBackend(backend, async () => {
+    const runner = await createSupportedRunner(makeUnconnectedBooleanDefaultInputPortRequest(), expectedBackend);
+    try {
+      const outputs = await runner.run();
+
+      assert.deepEqual(outputs, {
+        result: { type: 'boolean', value: false },
       });
     } finally {
       runner.dispose?.();
@@ -455,6 +512,99 @@ function makeDefaultInputRequest() {
           connect('flag-input', 'data', 'text', 'flag'),
           connect('text', 'output', 'output', 'value'),
         ],
+      },
+    ],
+  };
+}
+
+function makeDefaultInputPortRequest() {
+  return {
+    graphId: 'main',
+    graphs: [
+      {
+        graphId: 'main',
+        nodes: [
+          {
+            id: 'dynamic-default',
+            normalizeLineEndings: true,
+            template: 'dynamic',
+            type: 'text',
+          },
+          {
+            dataType: 'string',
+            defaultValue: 'static',
+            id: 'input',
+            inputId: 'input',
+            type: 'graphInput',
+            useDefaultValueInput: true,
+          },
+          {
+            dataType: 'string',
+            id: 'output',
+            outputId: 'result',
+            type: 'graphOutput',
+          },
+        ],
+        connections: [
+          connect('dynamic-default', 'output', 'input', 'default'),
+          connect('input', 'data', 'output', 'value'),
+        ],
+      },
+    ],
+  };
+}
+
+function makeUnconnectedDefaultInputPortRequest() {
+  return {
+    graphId: 'main',
+    graphs: [
+      {
+        graphId: 'main',
+        nodes: [
+          {
+            dataType: 'string',
+            defaultValue: 'static',
+            id: 'input',
+            inputId: 'input',
+            type: 'graphInput',
+            useDefaultValueInput: true,
+          },
+          {
+            dataType: 'string',
+            id: 'output',
+            outputId: 'result',
+            type: 'graphOutput',
+          },
+        ],
+        connections: [connect('input', 'data', 'output', 'value')],
+      },
+    ],
+  };
+}
+
+function makeUnconnectedBooleanDefaultInputPortRequest() {
+  return {
+    graphId: 'main',
+    graphs: [
+      {
+        graphId: 'main',
+        nodes: [
+          {
+            dataType: 'boolean',
+            defaultValue: true,
+            id: 'input',
+            inputId: 'input',
+            type: 'graphInput',
+            useDefaultValueInput: true,
+          },
+          {
+            dataType: 'boolean',
+            id: 'output',
+            outputId: 'result',
+            type: 'graphOutput',
+          },
+        ],
+        connections: [connect('input', 'data', 'output', 'value')],
       },
     ],
   };

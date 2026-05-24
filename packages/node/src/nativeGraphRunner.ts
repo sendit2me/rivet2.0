@@ -75,6 +75,7 @@ export type NativeNodeIr =
       id: string;
       inputId: string;
       type: 'graphInput';
+      useDefaultValueInput: boolean;
     }
   | {
       id: string;
@@ -702,7 +703,7 @@ function getUnsupportedNativeConnection(
 function isSupportedNativeInputPort(node: NativeNodeIr, portId: string, graphs: Map<string, NativeGraphIr>): boolean {
   switch (node.type) {
     case 'graphInput':
-      return false;
+      return node.useDefaultValueInput && portId === 'default';
     case 'text':
       return extractInterpolationVariables(node.template).includes(portId);
     case 'join':
@@ -809,9 +810,6 @@ function buildNativeNodeIr(
         id?: unknown;
         useDefaultValueInput?: unknown;
       };
-      if (data.useDefaultValueInput) {
-        return unsupportedNode(node, 'graph-input-default-port');
-      }
 
       if (typeof data.id !== 'string' || typeof data.dataType !== 'string') {
         return unsupportedNode(node, 'invalid-graph-input-data');
@@ -821,6 +819,10 @@ function buildNativeNodeIr(
         return unsupportedNode(node, `unsupported-data-type:${data.dataType}`);
       }
 
+      if (data.useDefaultValueInput != null && typeof data.useDefaultValueInput !== 'boolean') {
+        return unsupportedNode(node, 'invalid-graph-input-default-port-setting');
+      }
+
       return {
         node: {
           dataType: data.dataType,
@@ -828,6 +830,7 @@ function buildNativeNodeIr(
           id: node.id,
           inputId: data.id,
           type: 'graphInput',
+          useDefaultValueInput: data.useDefaultValueInput === true,
         },
         supported: true,
       };

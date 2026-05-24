@@ -516,9 +516,9 @@ Completed:
   eligibility decisions without executing TypeScript fallback graphs just to
   gather diagnostics.
 - [`native-runtime-real-workflow-benchmark.md`](native-runtime-real-workflow-benchmark.md)
-  now includes a top-blockers section and names the next candidate tranches:
-  project-plugin gate reassessment, simple conditionals, and simple JSONPath
-  expansion.
+  now includes a top-blockers section and names candidate tranches such as
+  project-plugin gate reassessment, simple conditionals, simple JSONPath
+  expansion, and small text-processing parity gaps.
 
 ### P8: Project plugin gate reassessment [DONE]
 
@@ -556,72 +556,61 @@ Decision:
   native graph must be a supported built-in native node, including child
   subgraphs and referenced graph aliases.
 
-### P9: First real-workflow eligibility tranche [NOT STARTED]
+### P9: First real-workflow eligibility tranche [DONE]
 
-Goal:
+Completed:
 
-- Add one cheap, side-effect-free native eligibility expansion chosen from the
-  P7/P8 fallback data, with tests before implementation.
+- Selected Graph Input default-value input ports as the first cheap,
+  side-effect-free tranche from the P7/P8 fallback data.
+- Native IR now carries `useDefaultValueInput` for Graph Input nodes.
+- Native preflight accepts the `default` input port only when that setting is
+  enabled; a connection to the same port while the setting is disabled remains a
+  whole-run TypeScript fallback.
+- The JS adapter and Rust worker now preserve TypeScript precedence exactly:
+  explicit graph-run inputs win, then connected `default` input values, then the
+  existing Graph Input fallback behavior. The implementation intentionally
+  preserves the current unconnected optional-port coercion behavior instead of
+  inventing a new static-default rule.
+- Tests cover supported connected default ports, explicit input precedence,
+  string and boolean unconnected enabled default ports, malformed setting
+  fallback, and the disabled-port fallback path.
+- A lightweight real-workflow audit after the change reduced
+  `graph-input-default-port:*` blockers from 2 to 0.
 
-Selection rules:
+Scope:
 
-- Prefer blockers that appear in checked-in real projects and keep execution
-  entirely deterministic.
-- Prefer simple built-ins, simple data-type expansions, or simple port-setting
-  variants over provider, file, user-input, debugger, Code, Expression, or
-  dynamic-dispatch behavior.
-- Prefer features that can be proven from the static TypeScript native
-  preflight without executing the fallback TypeScript graph.
-- Do not add more than one semantic node family per tranche unless the second
-  family is purely mechanical test coverage for the first.
+- P9 did not add array Graph Input support, new Graph Input data types, new node
+  families, dynamic project loading, Code/Expression execution, or debugger
+  behavior.
+- The eligible real-graph count stayed at 6 because the two affected real graphs
+  exposed deeper unsupported blockers after the Graph Input port blocker was
+  removed.
 
-Required implementation order:
+### P10: Rerun and document the eligibility matrix [DONE]
 
-- Add TypeScript/native equivalence tests for supported and unsupported
-  settings.
-- Add negative fallback tests before widening eligibility.
-- Implement the native JS adapter behavior first, then Rust worker behavior.
-- Update native IR typing only for the selected feature.
-- Keep fallback whole-run and observable when settings exceed the supported
-  native subset.
+Completed:
 
-Exit criteria:
+- Focused native-fast Node tests, the native-runtime JS/Rust contract smoke, and
+  Rust unit tests cover the new Graph Input port behavior.
+- The lightweight real-workflow audit was rerun with the same one-iteration
+  command shape used for recent eligibility checks.
+- [`native-runtime-real-workflow-benchmark.md`](native-runtime-real-workflow-benchmark.md)
+  now records the post-P9 status counts, fallback-family deltas, timing rows,
+  and the important caveat: selected blocker count improved from 2 to 0, but
+  total eligible reach did not improve yet.
+- Developer docs now describe Graph Input default-value input port eligibility,
+  malformed-setting fallback, fallback limits, and the current real-workflow
+  audit result.
 
-- Existing TypeScript modes remain unchanged.
-- Native-fast only accepts the newly covered semantics.
-- The selected real-workflow blocker count decreases in the benchmark report.
-- If the selected blocker count does not decrease, stop and explain why before
-  starting another tranche.
+Validation:
 
-### P10: Rerun and document the eligibility matrix [NOT STARTED]
-
-Goal:
-
-- Prove whether the new tranche actually increases real checked-in workflow
-  reach without hiding regressions.
-
-Required checks:
-
-- Run focused equivalence tests for the new native feature.
-- Run native runtime tests and the lightweight real-workflow audit.
-- Run the full native/runtime benchmark matrix when eligibility or worker
-  transport changes could affect measured performance.
-- Use the same documented benchmark command shape before and after the change,
-  changing only the code under test.
-- Update
-  [`native-runtime-real-workflow-benchmark.md`](native-runtime-real-workflow-benchmark.md)
-  with before/after eligible counts, exact fallback deltas, output mismatch
-  count, run error count, and measured timing rows.
-- Update developer docs with the new native-eligible feature and fallback
-  limits.
-- Mark the relevant P7-P10 phase headers as done only after checks and docs are
-  complete.
-
-Exit criteria:
-
-- The report clearly says whether native-fast real-project reach improved.
-- Any speed wins are counted only when `nativeUsed=true`.
-- Any unchanged or worsened reach is explained before the next tranche begins.
+- `cargo test --manifest-path native-runtime/native/Cargo.toml`
+- focused Node tests with `--test-name-pattern "native-fast|native-runtime"`
+- `npm --prefix native-runtime run test:native`
+- `yarn workspace @valerypopoff/rivet2-node run bench:native-real-workflows`
+  with `RIVET_REAL_WORKFLOW_BENCH_ITERATIONS=1`,
+  `RIVET_REAL_WORKFLOW_BENCH_WARMUP_ITERATIONS=0`, and
+  `RIVET_REAL_WORKFLOW_BENCH_SAMPLES=1`
 
 ## Benchmark Gates
 
@@ -702,9 +691,12 @@ decision, and before/after benchmark matrices are now in place. The Rust worker
 proved the speed win for the narrow eligible workload set, but the product gate
 keeps it internal and opt-in rather than default.
 
-The next remaining implementation sequence is P9 through P10: implement one
-data-backed low-risk eligibility tranche, then rerun and document the matrix.
-During that work:
+The next useful implementation step is another data-backed low-risk eligibility
+tranche. The P9 Graph Input port work reduced one blocker family from 2 to 0,
+but did not increase total real-project reach, so the next tranche should target
+either the newly exposed `unsupported-text-processing:quote` row or a small
+deterministic control-flow group with enough fixtures to justify the added
+native semantics. During that work:
 
 - keep ordinary TypeScript paths unchanged and keep `native-fast` opt-in;
 - keep the worker-process boundary unless a future release-packaging phase

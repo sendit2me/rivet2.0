@@ -437,6 +437,12 @@ function runGraphInputNode(node, state) {
   const input = getRecordValue(state.inputs, node.inputId);
   let inputValue = input == null ? undefined : coerceDataValue(input, node.dataType);
 
+  if (inputValue == null && node.useDefaultValueInput) {
+    inputValue = hasRecordValue(state.nodeInputs, 'default')
+      ? coerceDataValue(getRecordValue(state.nodeInputs, 'default'), node.dataType)
+      : coerceUnconnectedOptionalInputPort(node.dataType);
+  }
+
   if (inputValue == null) {
     inputValue = coerceDataValue(inferDataValue(node.defaultValue), node.dataType) || getDefaultValue(node.dataType);
   }
@@ -563,7 +569,9 @@ function runObjectNode(node, state) {
     };
   }
 
-  const objectValue = JSON.parse(interpolateJsonTemplate(node.jsonTemplate, state.nodeInputs, state.graphInputs, state.context));
+  const objectValue = JSON.parse(
+    interpolateJsonTemplate(node.jsonTemplate, state.nodeInputs, state.graphInputs, state.context),
+  );
 
   return {
     output: {
@@ -882,7 +890,7 @@ function stringifyWholeQuotedJsonValue(value) {
 }
 
 function stringifyEmbeddedJsonStringFragment(value) {
-  const fragment = value == null ? 'null' : typeof value === 'string' ? value : (JSON.stringify(value) ?? 'null');
+  const fragment = value == null ? 'null' : typeof value === 'string' ? value : JSON.stringify(value) ?? 'null';
 
   return JSON.stringify(fragment).slice(1, -1);
 }
@@ -1144,6 +1152,17 @@ function coerceDataValue(value, type) {
       return coerceToBoolean(dataValue);
     default:
       return dataValue.value;
+  }
+}
+
+function coerceUnconnectedOptionalInputPort(type) {
+  switch (type) {
+    case 'string':
+      return '';
+    case 'boolean':
+      return false;
+    default:
+      return undefined;
   }
 }
 

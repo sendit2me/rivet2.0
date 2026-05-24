@@ -31,6 +31,8 @@ import {
   makeExtractObjectPathProject,
   makeGlobalStateProject,
   makeInputContextTextProject,
+  makeNativeGraphInputDefaultPortProject,
+  makeNativeGraphInputUnconnectedDefaultPortProject,
   makeObjectArrayConstructionProject,
   makeObjectConstructionProject,
   makeReferencedGraphAliasFanInProject,
@@ -455,6 +457,117 @@ void describe('createGraphRunner', () => {
       } satisfies Record<string, DataValue>);
       assert.equal(nativeLoadCalls, 0);
       assert.match(runner.getNativeRuntimeDecision?.().fallbackReason ?? '', /^unsupported-data-type:string\[\]:/);
+    } finally {
+      setNativeRuntimeModuleLoaderForTesting(undefined);
+    }
+  });
+
+  void it('runs graph input default-value input ports through the local native-fast adapter', async () => {
+    const fixture = makeNativeGraphInputDefaultPortProject();
+
+    await withLocalNativeFastAdapterEnv(async () => {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        runtimeProfile: 'native-fast',
+      });
+
+      assert.deepEqual(await runner.run(), {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: 'dynamic' },
+      } satisfies Record<string, DataValue>);
+      assert.deepEqual(await runner.run({ inputs: { input: 'explicit' } }), {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: 'explicit' },
+      } satisfies Record<string, DataValue>);
+      assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+        nativeBackend: 'js-adapter',
+        nativeEligible: true,
+        nativeUsed: true,
+        requested: true,
+      });
+    });
+  });
+
+  void it('keeps graph input default-value input connections disabled unless the node opts in', async () => {
+    const fixture = makeNativeGraphInputDefaultPortProject();
+    const graphInput = fixture.project.graphs[fixture.graphId]!.nodes.find((node) => node.id === 'graph-input')!;
+    (graphInput.data as { useDefaultValueInput: boolean }).useDefaultValueInput = false;
+    let nativeLoadCalls = 0;
+    setNativeRuntimeModuleLoaderForTesting(async () => {
+      nativeLoadCalls += 1;
+      throw new Error('Native runtime should not load for disabled Graph Input default ports.');
+    });
+
+    try {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        runtimeProfile: 'native-fast',
+      });
+      const outputs = await runner.run();
+
+      assert.deepEqual(outputs, {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: 'static' },
+      } satisfies Record<string, DataValue>);
+      assert.equal(nativeLoadCalls, 0);
+      assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+        fallbackReason: 'unsupported-connection-input-port:graph-input:default',
+        nativeEligible: false,
+        nativeUsed: false,
+        requested: true,
+      });
+    } finally {
+      setNativeRuntimeModuleLoaderForTesting(undefined);
+    }
+  });
+
+  void it('matches Graph Input behavior when the enabled default-value input is unconnected', async () => {
+    const fixture = makeNativeGraphInputUnconnectedDefaultPortProject();
+
+    await withLocalNativeFastAdapterEnv(async () => {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        runtimeProfile: 'native-fast',
+      });
+      const outputs = await runner.run();
+
+      assert.deepEqual(outputs, {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: '' },
+      } satisfies Record<string, DataValue>);
+      assert.equal(runner.getNativeRuntimeDecision?.().nativeUsed, true);
+      assert.equal(runner.getNativeRuntimeDecision?.().nativeBackend, 'js-adapter');
+    });
+  });
+
+  void it('falls back before loading native-fast when the Graph Input default-port setting is malformed', async () => {
+    const fixture = makeNativeGraphInputUnconnectedDefaultPortProject();
+    const graphInput = fixture.project.graphs[fixture.graphId]!.nodes.find((node) => node.id === 'graph-input')!;
+    (graphInput.data as { useDefaultValueInput: unknown }).useDefaultValueInput = 'true';
+    let nativeLoadCalls = 0;
+    setNativeRuntimeModuleLoaderForTesting(async () => {
+      nativeLoadCalls += 1;
+      throw new Error('Native runtime should not load for malformed Graph Input default-port settings.');
+    });
+
+    try {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        runtimeProfile: 'native-fast',
+      });
+      const outputs = await runner.run();
+
+      assert.deepEqual(outputs, {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: '' },
+      } satisfies Record<string, DataValue>);
+      assert.equal(nativeLoadCalls, 0);
+      assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+        fallbackReason: 'invalid-graph-input-default-port-setting:graph-input',
+        nativeEligible: false,
+        nativeUsed: false,
+        requested: true,
+      });
     } finally {
       setNativeRuntimeModuleLoaderForTesting(undefined);
     }

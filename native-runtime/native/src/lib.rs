@@ -59,6 +59,8 @@ pub enum NativeNodeIr {
         default_value: Option<Value>,
         id: String,
         input_id: String,
+        #[serde(default)]
+        use_default_value_input: bool,
     },
     #[serde(rename = "text", rename_all = "camelCase")]
     Text {
@@ -381,11 +383,13 @@ fn run_node(node: &NativeNodeIr, state: NodeRunState<'_>) -> Result<DataValueMap
             data_type,
             default_value,
             input_id,
+            use_default_value_input,
             ..
         } => Ok(run_graph_input_node(
             data_type,
             default_value.as_ref(),
             input_id,
+            *use_default_value_input,
             state,
         )),
         NativeNodeIr::Text {
@@ -421,12 +425,20 @@ fn run_graph_input_node(
     data_type: &str,
     default_value: Option<&Value>,
     input_id: &str,
+    use_default_value_input: bool,
     state: NodeRunState<'_>,
 ) -> DataValueMap {
     let mut input_value = state
         .inputs
         .get(input_id)
         .and_then(|input| coerce_data_value(input, data_type));
+
+    if is_nullish(input_value.as_ref()) && use_default_value_input {
+        input_value = match state.node_inputs.get("default") {
+            Some(input) => coerce_data_value(input, data_type),
+            None => coerce_unconnected_optional_input_port(data_type),
+        };
+    }
 
     if is_nullish(input_value.as_ref()) {
         let default_data_value = infer_data_value(default_value.cloned());
@@ -1477,6 +1489,14 @@ fn coerce_data_value(value: &DataValue, data_type: &str) -> Option<Value> {
     }
 }
 
+fn coerce_unconnected_optional_input_port(data_type: &str) -> Option<Value> {
+    match data_type {
+        "string" => Some(Value::String(String::new())),
+        "boolean" => Some(Value::Bool(false)),
+        _ => None,
+    }
+}
+
 fn coerce_to_string(data_value: &DataValue) -> Option<String> {
     if is_array_data_value(data_value) {
         let scalar_type = data_value.data_type.strip_suffix("[]").unwrap_or("any");
@@ -1855,6 +1875,115 @@ mod tests {
             Some(&DataValue {
                 data_type: "string".to_string(),
                 value: Some(Value::String("native rust".to_string())),
+            })
+        );
+    }
+
+    #[test]
+    fn runs_graph_input_default_value_input_port() {
+        let request = serde_json::from_value::<NativeRuntimeCreateRequest>(json!({
+            "graphId": "main",
+            "graphs": [{
+                "graphId": "main",
+                "nodes": [
+                    { "type": "text", "id": "dynamic-default", "template": "dynamic", "normalizeLineEndings": true },
+                    {
+                        "type": "graphInput",
+                        "id": "input",
+                        "inputId": "input",
+                        "dataType": "string",
+                        "defaultValue": "static",
+                        "useDefaultValueInput": true
+                    },
+                    { "type": "graphOutput", "id": "output", "outputId": "result", "dataType": "string" }
+                ],
+                "connections": [
+                    { "outputNodeId": "dynamic-default", "outputId": "output", "inputNodeId": "input", "inputId": "default" },
+                    { "outputNodeId": "input", "outputId": "data", "inputNodeId": "output", "inputId": "value" }
+                ]
+            }]
+        }))
+        .unwrap();
+        let plan = prepare_runner(request).unwrap();
+
+        let default_outputs = run_prepared_graph(&plan, BTreeMap::new(), BTreeMap::new()).unwrap();
+        assert_eq!(
+            default_outputs.get("result"),
+            Some(&DataValue {
+                data_type: "string".to_string(),
+                value: Some(Value::String("dynamic".to_string())),
+            })
+        );
+
+        let explicit_outputs = run_prepared_graph(
+            &plan,
+            BTreeMap::from([(
+                "input".to_string(),
+                DataValue {
+                    data_type: "string".to_string(),
+                    value: Some(Value::String("explicit".to_string())),
+                },
+            )]),
+            BTreeMap::new(),
+        )
+        .unwrap();
+        assert_eq!(
+            explicit_outputs.get("result"),
+            Some(&DataValue {
+                data_type: "string".to_string(),
+                value: Some(Value::String("explicit".to_string())),
+            })
+        );
+    }
+
+    #[test]
+    fn matches_unconnected_graph_input_default_value_input_port() {
+        let request = serde_json::from_value::<NativeRuntimeCreateRequest>(json!({
+            "graphId": "main",
+            "graphs": [{
+                "graphId": "main",
+                "nodes": [
+                    {
+                        "type": "graphInput",
+                        "id": "input",
+                        "inputId": "input",
+                        "dataType": "string",
+                        "defaultValue": "static",
+                        "useDefaultValueInput": true
+                    },
+                    {
+                        "type": "graphInput",
+                        "id": "flag-input",
+                        "inputId": "flag",
+                        "dataType": "boolean",
+                        "defaultValue": true,
+                        "useDefaultValueInput": true
+                    },
+                    { "type": "graphOutput", "id": "output", "outputId": "result", "dataType": "string" },
+                    { "type": "graphOutput", "id": "flag-output", "outputId": "flag", "dataType": "boolean" }
+                ],
+                "connections": [
+                    { "outputNodeId": "input", "outputId": "data", "inputNodeId": "output", "inputId": "value" },
+                    { "outputNodeId": "flag-input", "outputId": "data", "inputNodeId": "flag-output", "inputId": "value" }
+                ]
+            }]
+        }))
+        .unwrap();
+        let plan = prepare_runner(request).unwrap();
+        let outputs = run_prepared_graph(&plan, BTreeMap::new(), BTreeMap::new()).unwrap();
+
+        assert_eq!(
+            outputs.get("result"),
+            Some(&DataValue {
+                data_type: "string".to_string(),
+                value: Some(Value::String(String::new())),
+            })
+        );
+        assert_eq!(
+            outputs.get("flag"),
+            Some(&DataValue {
+                data_type: "boolean".to_string(),
+                value: Some(Value::Bool(false)),
             })
         );
     }

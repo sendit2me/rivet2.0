@@ -343,6 +343,31 @@ export function makeNativeGraphInputDefaultProject(): RuntimeSpeedProjectFixture
   );
 }
 
+export function makeNativeGraphInputDefaultPortProject(): RuntimeSpeedProjectFixture {
+  const defaultText = makeTextNode('dynamic-default', 'dynamic');
+  const inputNode = makeGraphInputNode('graph-input', 'input', 'string');
+  const outputNode = makeGraphOutputNode('graph-output', 'result', 'string');
+  const inputData = inputNode.data as { defaultValue: unknown; useDefaultValueInput: boolean };
+  inputData.defaultValue = 'static';
+  inputData.useDefaultValueInput = true;
+
+  return makeFixture(
+    [defaultText, inputNode, outputNode],
+    [connect(defaultText.id, 'output', inputNode.id, 'default'), connect(inputNode.id, 'data', outputNode.id, 'value')],
+    outputNode.id,
+  );
+}
+
+export function makeNativeGraphInputUnconnectedDefaultPortProject(): RuntimeSpeedProjectFixture {
+  const inputNode = makeGraphInputNode('graph-input', 'input', 'string');
+  const outputNode = makeGraphOutputNode('graph-output', 'result', 'string');
+  const inputData = inputNode.data as { defaultValue: unknown; useDefaultValueInput: boolean };
+  inputData.defaultValue = 'static';
+  inputData.useDefaultValueInput = true;
+
+  return makeFixture([inputNode, outputNode], [connect(inputNode.id, 'data', outputNode.id, 'value')], outputNode.id);
+}
+
 export function makeNativeObjectPipelineProject(): RuntimeSpeedProjectFixture {
   const nameInput = makeGraphInputNode('name-input', 'name', 'string');
   const countInput = makeGraphInputNode('count-input', 'count', 'number');

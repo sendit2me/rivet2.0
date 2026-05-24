@@ -68,7 +68,8 @@ JSON summary.
 
 The audit covered 88 graphs from 8 checked-in project files. After the P8
 project-plugin gate reassessment, plugin metadata alone no longer blocks
-native-fast. A lightweight one-iteration audit on 2026-05-24 reported:
+native-fast. After the P9 Graph Input default-value input-port tranche, a
+lightweight one-iteration audit on 2026-05-24 reported:
 
 | Status                    | Count |
 | ------------------------- | ----: |
@@ -80,24 +81,32 @@ native-fast. A lightweight one-iteration audit on 2026-05-24 reported:
 The earlier full timing pass in this document used the 100-iteration command
 shape and found the first 3 eligible graphs. The P8 audit widened eligibility to
 three additional small `graph-creator` graphs; their one-iteration timing values
-are useful as eligibility evidence only, not as stable speed measurements.
+are useful as eligibility evidence only, not as stable speed measurements. The
+P9 audit removed `graph-input-default-port:*` as a blocker, but did not increase
+the eligible graph count because the affected real graphs then exposed deeper
+unsupported node or text-processing settings.
 
-This is the key real-workflow finding: the current native subset works and is
-faster on the tiny eligible real graphs, but most real checked-in workflows do
-not enter native-fast yet. The limiting factor is eligibility breadth, not Rust
-execution speed on the graphs that are already supported.
+This is the key real-workflow finding: the current native subset works on the
+tiny eligible real graphs, but these rows are too small for stable speed
+conclusions and most real checked-in workflows still do not enter native-fast.
+The limiting factor is eligibility breadth, not Rust execution speed on the
+synthetic orchestration-heavy graphs that are already supported.
 
 ## Timed Native-Eligible Graphs
 
-All values are mean milliseconds per run. Values in parentheses are standard
-deviation across five sample means. Native speedup compares Rust worker time to
-the fastest TypeScript row for the same graph.
+All values are lightweight one-iteration means from the P9 audit. Native speedup
+compares Rust worker time to the fastest TypeScript row for the same graph. Use
+the higher-iteration command shape before treating any individual row as stable
+performance evidence.
 
-| Project                                                             | Graph         | Nodes | Compatible TS | Headless-fast TS | Native Rust worker | Rust vs best TS | Native used |
-| ------------------------------------------------------------------- | ------------- | ----: | ------------: | ---------------: | -----------------: | --------------: | ----------- |
-| `packages/app/src/assets/templates/ai_agent_template.rivet-project` | `Tools/tool1` |     4 | 0.188 (0.013) |    0.118 (0.013) |      0.052 (0.008) |    2.27x faster | true        |
-| `packages/app/src/assets/templates/ai_agent_template.rivet-project` | `Tools/tool2` |     4 | 0.141 (0.017) |    0.094 (0.004) |      0.075 (0.005) |    1.25x faster | true        |
-| `packages/cli/cli-example.rivet-project`                            | `Passthrough` |     2 | 0.083 (0.010) |    0.062 (0.013) |      0.054 (0.010) |    1.15x faster | true        |
+| Project                                                             | Graph            | Nodes | Compatible TS | Headless-fast TS | Native Rust worker | Rust vs best TS | Native used |
+| ------------------------------------------------------------------- | ---------------- | ----: | ------------: | ---------------: | -----------------: | --------------: | ----------- |
+| `packages/app/graphs/graph-creator.rivet-project`                   | `Function: help` |     2 |       0.920ms |          0.536ms |            0.211ms |    2.54x faster | true        |
+| `packages/app/graphs/graph-creator.rivet-project`                   | `Function: plan` |     2 |       0.109ms |          0.081ms |            0.146ms |    0.55x slower | true        |
+| `packages/app/graphs/graph-creator.rivet-project`                   | `Help`           |     2 |       0.108ms |          0.071ms |            0.101ms |    0.70x slower | true        |
+| `packages/app/src/assets/templates/ai_agent_template.rivet-project` | `Tools/tool1`    |     4 |       0.278ms |          0.112ms |            0.073ms |    1.53x faster | true        |
+| `packages/app/src/assets/templates/ai_agent_template.rivet-project` | `Tools/tool2`    |     4 |       0.182ms |          0.110ms |            0.069ms |    1.59x faster | true        |
+| `packages/cli/cli-example.rivet-project`                            | `Passthrough`    |     2 |       0.100ms |          0.071ms |            0.098ms |    0.72x slower | true        |
 
 These are very small graphs, so the wins are intentionally treated as
 sanity-check evidence only. They prove the real project loader, native
@@ -111,12 +120,12 @@ what blocks real workflows today:
 
 | Fallback family                     | Count | Notes                                                                                                                                  |
 | ----------------------------------- | ----: | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `unsupported-node:*`                |    62 | Common blockers include Chat, external calls, Prompt, Loop Controller, comments, matching/conditionals, and other non-v1 native nodes. |
+| `unsupported-node:*`                |    63 | Common blockers include Chat, external calls, Prompt, Loop Controller, comments, matching/conditionals, and other non-v1 native nodes. |
 | `split-run:*`                       |     7 | Split-run graphs remain TypeScript-only.                                                                                               |
 | `unsupported-data-type:*`           |     5 | Chat-message graph boundaries remain TypeScript-only, including singular and array data types.                                         |
 | `unsupported-extract-object-path:*` |     5 | Real graphs use JSONPath features outside the current simple native subset, such as wildcards, filters, and bracket property syntax.   |
-| `graph-input-default-port:*`        |     2 | Graph Input nodes that expose the default-value input port are still outside the native subset.                                        |
 | `empty-graph`                       |     1 | Empty graph intentionally excluded from timings.                                                                                       |
+| `unsupported-text-processing:*`     |     1 | One graph now reaches a Text processing pipe outside the native parity subset after the Graph Input port blocker was removed.          |
 
 ### Top Normalized Blockers
 
@@ -145,7 +154,7 @@ chosen by behavior, not by individual graph shape.
 | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Simple conditionals: `if`, `ifElse`, `compare`, and `match` | These are deterministic, side-effect-free control/data decisions and appear in checked-in graphs. They are a better first semantic tranche than LLM, file, or loop behavior. | They must exactly preserve control-flow exclusion, false `If` ports, branch outputs, missing inputs, and unsupported settings before becoming eligible. |
 | Simple JSONPath expansion for `extractObjectPath`           | Existing native support already handles a narrow static JSONPath subset; bracket properties, simple wildcards, and a few real paths appear in checked-in graphs.             | Keep filter expressions such as `$[?(@.arguments.finished == true)]...` unsupported until JSONPath equivalence is proven.                               |
-| Graph input default-value ports                             | Only two rows are blocked, but the behavior is cheap and local.                                                                                                              | It must preserve default-value precedence and the optional input port shape exactly.                                                                    |
+| Text processing `quote` parity                              | The P9 audit exposed one real checked-in graph blocked by `unsupported-text-processing:quote` after Graph Input default ports became eligible.                               | Add exact TypeScript/native fixtures first; processing pipes are small, but string escaping semantics are easy to drift.                                |
 
 The practical next bottleneck is visible from this distribution. Native-fast
 will not reach many real workflows until selected cheap/control-flow node

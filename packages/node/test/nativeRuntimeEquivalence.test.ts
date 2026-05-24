@@ -7,6 +7,8 @@ import {
   makeControlFlowExclusionProject,
   makeExpressionChainProject,
   makeNativeGraphInputDefaultProject,
+  makeNativeGraphInputDefaultPortProject,
+  makeNativeGraphInputUnconnectedDefaultPortProject,
   makeNativeObjectPipelineProject,
   makeNativeSubgraphInputDataProject,
   makeNativeTextProcessingProject,
@@ -86,6 +88,22 @@ void describe('native-fast equivalence fixtures', () => {
         },
         fixture: makeNativeGraphInputDefaultProject(),
         name: 'graph input defaults',
+      },
+      {
+        expected: {
+          cost: { type: 'number', value: 0 },
+          result: { type: 'string', value: 'dynamic' },
+        },
+        fixture: makeNativeGraphInputDefaultPortProject(),
+        name: 'graph input connected default port',
+      },
+      {
+        expected: {
+          cost: { type: 'number', value: 0 },
+          result: { type: 'string', value: '' },
+        },
+        fixture: makeNativeGraphInputUnconnectedDefaultPortProject(),
+        name: 'graph input unconnected default port',
       },
       {
         expected: {

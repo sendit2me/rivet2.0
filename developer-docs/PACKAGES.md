@@ -289,8 +289,16 @@ graph can enter native-fast so missing-input behavior stays aligned with the
 TypeScript processor. Plain `object` graph inputs and graph outputs are admitted
 across the current native subset so object-shaped values can cross graph
 boundaries without changing the default TypeScript path; omitted `object` graph
-inputs use the same `{}` default as the TypeScript engine. Native graph outputs
-also admit the primitive, `any`, and `object` array data types so nodes such as
+inputs use the same `{}` default as the TypeScript engine. Graph Input's
+`useDefaultValueInput` setting is native-eligible for the currently supported
+Graph Input data types. The optional `default` input port is accepted only when
+that setting is enabled, explicit graph-run inputs still win over connected
+default-port values, and an enabled but unconnected `default` port preserves the
+existing TypeScript optional-coercion behavior instead of inventing a new static
+default rule. Malformed non-boolean `useDefaultValueInput` metadata falls back
+to the TypeScript runner instead of being coerced in native-fast. Native graph
+outputs also admit the primitive, `any`, and `object`
+array data types so nodes such as
 Object and Extract Object Path can expose array-shaped results without forcing a
 fallback, but array graph inputs remain TypeScript-only until native-fast covers
 the TypeScript array coercion rules.
@@ -348,7 +356,11 @@ errors remain visible in the report if they occur. The first run found only
 three small native-eligible real graphs out of 88 audited graphs. After the
 project-plugin gate was narrowed, a lightweight audit found six eligible graphs
 and zero `project-has-plugins` fallback reasons, so future native work should
-continue treating eligibility breadth as the real-project bottleneck.
+continue treating eligibility breadth as the real-project bottleneck. After
+Graph Input default-value input ports entered the native subset, the
+`graph-input-default-port:*` blocker count dropped from two to zero while the
+eligible-row count stayed at six because the affected real graphs exposed deeper
+unsupported nodes or text-processing settings.
 
 `createGraphRunner(...)` is the additive production-facing fast path for
 headless/programmatic Node integrations that load a project once and run the
