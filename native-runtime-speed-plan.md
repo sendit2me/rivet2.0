@@ -2,11 +2,11 @@
 
 ## Status
 
-Implementation plan with the first isolated adapter slice started. This is not
-a commitment to rewrite Rivet in Rust. It is a benchmark-first plan for testing
-whether a coarse-grained Rust execution core can make orchestration-heavy
-workflows meaningfully faster while keeping the TypeScript public API and
-editor/runtime compatibility intact.
+Implementation plan and live checkpoint for the optional native-fast runtime.
+This is not a commitment to rewrite Rivet in Rust. It is a benchmark-first plan
+for testing whether a coarse-grained Rust execution core can make
+orchestration-heavy workflows meaningfully faster while keeping the TypeScript
+public API and editor/runtime compatibility intact.
 
 Current implementation state:
 
@@ -14,15 +14,21 @@ Current implementation state:
   path that can attempt native execution.
 - Existing `runGraph(...)`, `runGraphInFile(...)`, `createProcessor(...)`,
   editor, debugger, and recording paths still use the TypeScript runtime.
-- Native package loading, native eligibility checks, and native IR construction
-  are gated behind the `native-fast` branch.
+- Native package loading, native eligibility checks, native IR construction, and
+  adapter execution are gated behind the `native-fast` branch.
 - Native fallback uses the compatible TypeScript graph runner so unsupported or
   unavailable native execution does not silently substitute a second fast mode.
-- The checked-in native package is an explicit prototype/stub under
+- The checked-in native package is an explicit prototype under
   `native-runtime/`. It is outside `packages/*` so normal workspace
   install/build/test flows do not require Rust or native package artifacts.
 - Native runtime experiments can be loaded with `RIVET_NATIVE_RUNTIME_MODULE`
   using either a package name, file URL, or filesystem path.
+- The current local JS adapter can execute the existing narrow native IR for
+  `graphInput`, `text`, `join`, `graphOutput`, and direct `subGraph`
+  boundaries when explicitly loaded. This proves the Node adapter contract and
+  benchmark plumbing, but it is not the final Rust speed proof.
+- The Rust crate under `native-runtime/native/` is still a smoke-test scaffold.
+  It has not yet replaced the JS adapter as the execution backend.
 - Custom registries and runner event/callback options still force TypeScript
   fallback until the native path can faithfully emit the same lifecycle events
   and honor the same node-definition source.
@@ -31,7 +37,7 @@ Current implementation state:
   zero-cost output when an eligible cheap-node native run omits `cost`.
 - Runtime-speed benchmarks include `native-fast` rows that report whether
   native execution actually ran or fell back. Fallback rows must not be counted
-  as Rust wins.
+  as native wins, and JS-adapter rows must not be counted as Rust wins.
 
 Target workflow shapes:
 
@@ -200,7 +206,20 @@ outputs or events.
 
 ## Implementation Phases
 
-### P0: Native feasibility benchmark
+### P0: Native feasibility benchmark [PARTIAL]
+
+Current status:
+
+- Runtime-speed benchmark rows now cover `native-fast` text chains, subgraph
+  chains, wide fan-in, mixed subgraph fan-in, and unsupported Code fallback.
+- Benchmark result rows report `nativeEligible`, `nativeUsed`, and
+  `nativeFallbackReason` so fallback cannot be mistaken for native execution.
+- The local JS adapter can now make the eligible rows execute through the
+  opt-in adapter path when `RIVET_NATIVE_RUNTIME_MODULE` points at
+  `native-runtime/index.js`.
+- The throwaway Rust/N-API benchmark prototype is still pending. Until Rust
+  executes the same IR and beats the optimized TypeScript runner by the gate
+  threshold, this phase is not complete.
 
 - Build a throwaway Rust/N-API prototype outside the public API path.
 - Feed it generated benchmark IR for cheap chains, wide fan-in/fan-out, repeated
@@ -212,7 +231,21 @@ outputs or events.
 - Continue only if the native execution slice is at least 30% faster than the
   optimized TypeScript runtime on the target shapes after conversion overhead.
 
-### P1: Optional package and gated profile
+### P1: Optional package and gated profile [DONE]
+
+Completed:
+
+- `runtimeProfile: 'native-fast'` is scoped to `createGraphRunner(...)`.
+- Normal `runGraph(...)`, `createProcessor(...)`, compatible
+  `createGraphRunner(...)`, and `headless-fast` graph runners do not load the
+  native module.
+- The native package boundary lives under `native-runtime/` and is outside the
+  normal workspace package set.
+- `RIVET_NATIVE_RUNTIME_MODULE` can point at a package name, file URL, or
+  filesystem path.
+- Tests cover missing module fallback, unsupported graph fallback, callback and
+  custom-registry fallback, native decision reporting, explicit local-module
+  loading, native runner disposal, and overlapping native-fast runs.
 
 - Add the native package boundary and CI build smoke tests. Keep it outside the
   normal workspace until package-manager and platform packaging risks are
@@ -233,7 +266,23 @@ outputs or events.
   `runGraph(...)`, `createProcessor(...)`, and `createGraphRunner(...)` calls
   still use the TypeScript engine successfully.
 
-### P2: Native graph plan and scheduler
+### P2: Native graph plan and scheduler [JS ADAPTER DONE, RUST TODO]
+
+Completed in the adapter:
+
+- The current local adapter builds immutable per-graph node maps, dependency
+  sets, ready queues, incoming connection lists, and dependent-node maps from
+  the TypeScript-produced IR.
+- Each `runner.run(...)` owns fresh output maps, graph input maps, graph output
+  maps, remaining dependencies, and ready queues.
+- The adapter can process eligible acyclic graph IR without invoking the
+  TypeScript processor.
+
+Still pending:
+
+- Move this scheduler implementation into Rust and expose it through the native
+  package backend.
+- Add Rust-side equivalence tests before using Rust numbers for promotion.
 
 - Move eligible graph planning, dependency counts, start-node selection,
   ready-queue scheduling, and graph output collection into Rust for the native
@@ -248,7 +297,24 @@ outputs or events.
 - Benchmark against existing TypeScript `createGraphRunner(...)`,
   `headless-fast`, and direct processor rows.
 
-### P3: Native cheap built-ins
+### P3: Native cheap built-ins [JS ADAPTER PARTIAL, RUST TODO]
+
+Completed in the adapter:
+
+- `graphInput`, `text`, `join`, and `graphOutput` execute in the local adapter
+  for the supported scalar data types already admitted by the TypeScript
+  eligibility pass.
+- Text interpolation supports ordinary input tokens, `@context.*`,
+  `@graphInputs.*`, escaped interpolation tokens, common processing pipes, and
+  line-ending normalization.
+- Join supports the current static join-string path and flattening for array
+  DataValues.
+
+Still pending:
+
+- Move these cheap built-ins into Rust.
+- Add object-like construction, destructure/extract primitives, coalesce-style
+  fan-in, and any other cheap node only after dedicated semantic fixtures exist.
 
 - Implement the smallest useful set of cheap built-in nodes natively.
 - Prioritize nodes that keep benchmark execution entirely native: graph input,
@@ -261,7 +327,21 @@ outputs or events.
   is native-eligible only for the exact settings/data combinations covered by
   those fixtures.
 
-### P4: Native nested graph execution
+### P4: Native nested graph execution [JS ADAPTER PARTIAL, RUST TODO]
+
+Completed in the adapter:
+
+- Direct eligible `Subgraph` nodes execute inside the same adapter run.
+- Child graph plans are reused across runs because they are prepared once from
+  the TypeScript-produced IR.
+- Per-run subgraph inputs, outputs, graph input values, and graph output maps
+  are fresh; final subgraph output values are not memoized.
+
+Still pending:
+
+- Move direct subgraph execution into Rust.
+- Add Referenced Graph Alias support only after resolved referenced-project
+  snapshots are serialized into stable native IR.
 
 - Execute eligible Subgraph and Referenced Graph Alias boundaries inside the
   same native run. Keep dynamic Call Graph out of native v1 unless a preceding
@@ -274,7 +354,7 @@ outputs or events.
 - Benchmark repeated same-input and changing-input subgraph/reference calls.
   Do not memoize final subgraph outputs by input value.
 
-### P5: Productization gate
+### P5: Productization gate [TODO]
 
 - Run the full runtime-speed matrix with old TypeScript baseline, current
   TypeScript runtime, and native-fast candidate on the same machine.
@@ -286,7 +366,7 @@ outputs or events.
   native-fast for external consumers. A platform without a native artifact must
   keep using TypeScript fallback.
 
-### P6: Code and Expression reassessment
+### P6: Code and Expression reassessment [TODO]
 
 - Reassess Code/Expression only after native graph orchestration is proven.
 - Compare three options with benchmarks: keep JS fallback, add a native
@@ -366,10 +446,18 @@ the TypeScript runtime.
 - Adding `native-fast` to shared profile plumbing too early can accidentally
   route one-shot APIs through native checks; keep v1 graph-runner scoped.
 
-## Recommended First Move
+## Recommended Next Move
 
-Start with P0 only. Build a small native benchmark prototype for generated graph
-IR and compare it against the current `yarn bench:runtime-speed` matrix. Do not
-change the public runtime, project schema, editor, debugger, or Code/Expression
-semantics until the prototype proves that Rust can beat the optimized
-TypeScript engine by a large enough margin on the target workflow shapes.
+The TypeScript-side adapter contract and local JS execution prototype are now
+in place. The next move is to replace the JS adapter internals with a real
+Rust/N-API execution backend for the same IR, then run the full benchmark
+matrix with:
+
+- optimized TypeScript `createGraphRunner(...)`;
+- `native-fast` with the JS adapter, as an adapter-contract control row;
+- `native-fast` with the Rust backend, as the candidate row.
+
+Do not change the public runtime, project schema, editor, debugger, or
+Code/Expression semantics unless the Rust candidate proves that it beats the
+optimized TypeScript engine by a large enough margin on the target workflow
+shapes.

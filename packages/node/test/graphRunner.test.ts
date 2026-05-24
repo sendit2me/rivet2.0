@@ -25,6 +25,7 @@ import {
   makeInputContextTextProject,
   makeSubgraphChainProject,
   makeTextChainProject,
+  makeWideTextFanInProject,
 } from './runtimeSpeedFixtures.js';
 
 class CountingCodeRunner implements CodeRunner {
@@ -543,7 +544,7 @@ void describe('createGraphRunner', () => {
     }
   });
 
-  void it('can load a native-fast module from an explicit file URL override', async () => {
+  void it('can load and run the local native-fast adapter from an explicit file URL override', async () => {
     const fixture = makeTextChainProject(1);
     const previousNativeRuntimeModule = process.env.RIVET_NATIVE_RUNTIME_MODULE;
     process.env.RIVET_NATIVE_RUNTIME_MODULE = new URL('../../../native-runtime/index.js', import.meta.url).href;
@@ -560,12 +561,87 @@ void describe('createGraphRunner', () => {
         result: { type: 'string', value: 'local-stubx' },
       } satisfies Record<string, DataValue>);
       assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
-        fallbackReason:
-          'module-unsupported:native runtime binary is not built yet; run the explicit native-runtime build after the Rust backend passes the benchmark gate',
         nativeEligible: true,
-        nativeUsed: false,
+        nativeUsed: true,
         requested: true,
       });
+    } finally {
+      if (previousNativeRuntimeModule == null) {
+        delete process.env.RIVET_NATIVE_RUNTIME_MODULE;
+      } else {
+        process.env.RIVET_NATIVE_RUNTIME_MODULE = previousNativeRuntimeModule;
+      }
+    }
+  });
+
+  void it('runs direct subgraph boundaries through the local native-fast adapter', async () => {
+    const fixture = makeSubgraphChainProject(2);
+    const previousNativeRuntimeModule = process.env.RIVET_NATIVE_RUNTIME_MODULE;
+    process.env.RIVET_NATIVE_RUNTIME_MODULE = new URL('../../../native-runtime/index.js', import.meta.url).href;
+
+    try {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        runtimeProfile: 'native-fast',
+      });
+      const outputs = await runner.run({ inputs: { input: 'nested' } });
+
+      assert.deepEqual(outputs, {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: 'nestedxx' },
+      } satisfies Record<string, DataValue>);
+      assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+        nativeEligible: true,
+        nativeUsed: true,
+        requested: true,
+      });
+    } finally {
+      if (previousNativeRuntimeModule == null) {
+        delete process.env.RIVET_NATIVE_RUNTIME_MODULE;
+      } else {
+        process.env.RIVET_NATIVE_RUNTIME_MODULE = previousNativeRuntimeModule;
+      }
+    }
+  });
+
+  void it('runs context interpolation, processing pipes, and join fan-in through the local native-fast adapter', async () => {
+    const contextFixture = makeInputContextTextProject();
+    const pipeFixture = makeTextChainProject(1);
+    const wideFixture = makeWideTextFanInProject(3);
+    const pipeTextNode = pipeFixture.project.graphs[pipeFixture.graphId]!.nodes.find((node) => node.id === 'text-0')!;
+    (pipeTextNode.data as { text: string }).text = '{{input | truncate 0}}';
+    const previousNativeRuntimeModule = process.env.RIVET_NATIVE_RUNTIME_MODULE;
+    process.env.RIVET_NATIVE_RUNTIME_MODULE = new URL('../../../native-runtime/index.js', import.meta.url).href;
+
+    try {
+      const contextRunner = createGraphRunner(contextFixture.project, {
+        graph: contextFixture.graphId,
+        runtimeProfile: 'native-fast',
+      });
+      const wideRunner = createGraphRunner(wideFixture.project, {
+        graph: wideFixture.graphId,
+        runtimeProfile: 'native-fast',
+      });
+      const pipeRunner = createGraphRunner(pipeFixture.project, {
+        graph: pipeFixture.graphId,
+        runtimeProfile: 'native-fast',
+      });
+
+      assert.deepEqual(await contextRunner.run({ context: { suffix: 'ctx' }, inputs: { input: 'native' } }), {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: 'native ctx' },
+      } satisfies Record<string, DataValue>);
+      assert.deepEqual(await wideRunner.run({ inputs: { input: 'fan' } }), {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: 'fan-0fan-1fan-2' },
+      } satisfies Record<string, DataValue>);
+      assert.deepEqual(await pipeRunner.run({ inputs: { input: 'truncate me' } }), {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: '...' },
+      } satisfies Record<string, DataValue>);
+      assert.equal(contextRunner.getNativeRuntimeDecision?.().nativeUsed, true);
+      assert.equal(wideRunner.getNativeRuntimeDecision?.().nativeUsed, true);
+      assert.equal(pipeRunner.getNativeRuntimeDecision?.().nativeUsed, true);
     } finally {
       if (previousNativeRuntimeModule == null) {
         delete process.env.RIVET_NATIVE_RUNTIME_MODULE;
