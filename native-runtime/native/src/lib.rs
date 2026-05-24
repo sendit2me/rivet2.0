@@ -80,6 +80,11 @@ pub enum NativeNodeIr {
         #[serde(default)]
         ignore_undefined: bool,
     },
+    #[serde(rename = "destructure", rename_all = "camelCase")]
+    Destructure {
+        id: String,
+        paths: Vec<NativeDestructurePath>,
+    },
     #[serde(rename = "graphOutput", rename_all = "camelCase")]
     GraphOutput {
         data_type: String,
@@ -95,6 +100,13 @@ pub enum NativeNodeIr {
     },
 }
 
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NativeDestructurePath {
+    pub output_id: String,
+    pub path: String,
+}
+
 impl NativeNodeIr {
     fn id(&self) -> &str {
         match self {
@@ -102,6 +114,7 @@ impl NativeNodeIr {
             | NativeNodeIr::Text { id, .. }
             | NativeNodeIr::Join { id, .. }
             | NativeNodeIr::Coalesce { id, .. }
+            | NativeNodeIr::Destructure { id, .. }
             | NativeNodeIr::GraphOutput { id, .. }
             | NativeNodeIr::SubGraph { id, .. } => id,
         }
@@ -177,6 +190,8 @@ fn prepare_graph(graph: NativeGraphIr) -> Result<PreparedGraph, String> {
     let mut dependents_by_node_id = HashMap::new();
 
     for (index, node) in graph.nodes.iter().enumerate() {
+        validate_node(&graph.graph_id, node)?;
+
         let node_id = node.id();
         if nodes_by_id.contains_key(node_id) {
             return Err(format!("duplicate-node:{}:{}", graph.graph_id, node_id));
@@ -214,6 +229,22 @@ fn prepare_graph(graph: NativeGraphIr) -> Result<PreparedGraph, String> {
         }
     }
 
+    for node in &graph.nodes {
+        if let NativeNodeIr::Destructure { id, .. } = node {
+            let has_object_input = incoming_by_node_id.get(id).is_some_and(|connections| {
+                connections
+                    .iter()
+                    .any(|connection| connection.input_id == "object")
+            });
+            if !has_object_input {
+                return Err(format!(
+                    "missing-required-input:{}:{}:object",
+                    graph.graph_id, id
+                ));
+            }
+        }
+    }
+
     let ready_node_ids = graph
         .nodes
         .iter()
@@ -234,6 +265,18 @@ fn prepare_graph(graph: NativeGraphIr) -> Result<PreparedGraph, String> {
         nodes_by_id,
         ready_node_ids,
     })
+}
+
+fn validate_node(graph_id: &str, node: &NativeNodeIr) -> Result<(), String> {
+    if let NativeNodeIr::Destructure { id, paths } = node {
+        for selection in paths {
+            if selection.output_id.is_empty() || parse_simple_json_path(&selection.path).is_none() {
+                return Err(format!("invalid-node:{graph_id}:destructure:{id}"));
+            }
+        }
+    }
+
+    Ok(())
 }
 
 fn run_graph(
@@ -342,6 +385,7 @@ fn run_node(node: &NativeNodeIr, state: NodeRunState<'_>) -> Result<DataValueMap
             ignore_undefined,
             ..
         } => Ok(run_coalesce_node(*ignore_null, *ignore_undefined, state)),
+        NativeNodeIr::Destructure { paths, .. } => Ok(run_destructure_node(paths, state)),
         NativeNodeIr::GraphOutput { output_id, .. } => Ok(run_graph_output_node(output_id, state)),
         NativeNodeIr::SubGraph {
             graph_id,
@@ -504,6 +548,46 @@ fn run_coalesce_node(
     coalesce_excluded_output()
 }
 
+fn run_destructure_node(paths: &[NativeDestructurePath], state: NodeRunState<'_>) -> DataValueMap {
+    if state
+        .node_inputs
+        .get("object")
+        .is_some_and(|value| value.data_type == "control-flow-excluded")
+    {
+        return paths
+            .iter()
+            .map(|selection| {
+                (
+                    selection.output_id.clone(),
+                    DataValue {
+                        data_type: "control-flow-excluded".to_string(),
+                        value: None,
+                    },
+                )
+            })
+            .collect();
+    }
+
+    let object_value = state
+        .node_inputs
+        .get("object")
+        .and_then(|value| coerce_data_value(value, "object"))
+        .unwrap_or(Value::Null);
+
+    paths
+        .iter()
+        .map(|selection| {
+            (
+                selection.output_id.clone(),
+                DataValue {
+                    data_type: "any".to_string(),
+                    value: get_simple_json_path_value(&object_value, &selection.path),
+                },
+            )
+        })
+        .collect()
+}
+
 fn run_graph_output_node(output_id: &str, state: NodeRunState<'_>) -> DataValueMap {
     let has_value_input = state.node_inputs.contains_key("value");
     let value = state
@@ -560,6 +644,106 @@ fn dynamic_input_number(input_id: &str) -> Option<usize> {
 
     let input_number = suffix.parse::<usize>().ok()?;
     (input_number > 0).then_some(input_number)
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum SimpleJsonPathSegment {
+    Key(String),
+    Index(usize),
+}
+
+const MAX_SAFE_JSON_PATH_ARRAY_INDEX: u64 = 9_007_199_254_740_991;
+
+fn get_simple_json_path_value(value: &Value, path: &str) -> Option<Value> {
+    let segments = parse_simple_json_path(path)?;
+    let mut current = value;
+
+    for segment in segments {
+        match segment {
+            SimpleJsonPathSegment::Key(key) => {
+                current = current.as_object()?.get(&key)?;
+            }
+            SimpleJsonPathSegment::Index(index) => {
+                current = current.as_array()?.get(index)?;
+            }
+        }
+    }
+
+    Some(current.clone())
+}
+
+fn parse_simple_json_path(path: &str) -> Option<Vec<SimpleJsonPathSegment>> {
+    let source = path.trim();
+    let bytes = source.as_bytes();
+    if bytes.first().copied() != Some(b'$') {
+        return None;
+    }
+
+    let mut segments = Vec::new();
+    let mut index = 1;
+
+    while index < bytes.len() {
+        match bytes[index] {
+            b'.' => {
+                index += 1;
+                let key_start = index;
+                if !bytes
+                    .get(index)
+                    .copied()
+                    .is_some_and(is_json_path_identifier_start)
+                {
+                    return None;
+                }
+
+                index += 1;
+                while bytes
+                    .get(index)
+                    .copied()
+                    .is_some_and(is_json_path_identifier_continue)
+                {
+                    index += 1;
+                }
+
+                segments.push(SimpleJsonPathSegment::Key(
+                    source.get(key_start..index)?.to_string(),
+                ));
+            }
+            b'[' => {
+                index += 1;
+                let index_start = index;
+                while bytes
+                    .get(index)
+                    .copied()
+                    .is_some_and(|byte| byte.is_ascii_digit())
+                {
+                    index += 1;
+                }
+
+                if index == index_start || bytes.get(index).copied() != Some(b']') {
+                    return None;
+                }
+
+                let array_index = source.get(index_start..index)?.parse::<u64>().ok()?;
+                if array_index > MAX_SAFE_JSON_PATH_ARRAY_INDEX {
+                    return None;
+                }
+
+                segments.push(SimpleJsonPathSegment::Index(array_index as usize));
+                index += 1;
+            }
+            _ => return None,
+        }
+    }
+
+    Some(segments)
+}
+
+fn is_json_path_identifier_start(byte: u8) -> bool {
+    byte.is_ascii_alphabetic() || byte == b'_' || byte == b'$'
+}
+
+fn is_json_path_identifier_continue(byte: u8) -> bool {
+    is_json_path_identifier_start(byte) || byte.is_ascii_digit()
 }
 
 fn run_subgraph_node(
@@ -1576,6 +1760,126 @@ mod tests {
     }
 
     #[test]
+    fn runs_destructure_with_simple_object_paths() {
+        let outputs = run_destructure_for_test(
+            vec![
+                NativeDestructurePath {
+                    output_id: "first".to_string(),
+                    path: "$.first".to_string(),
+                },
+                NativeDestructurePath {
+                    output_id: "second".to_string(),
+                    path: "$.nested.second".to_string(),
+                },
+                NativeDestructurePath {
+                    output_id: "indexed".to_string(),
+                    path: "$.items[1]".to_string(),
+                },
+                NativeDestructurePath {
+                    output_id: "missing".to_string(),
+                    path: "$.missing".to_string(),
+                },
+            ],
+            BTreeMap::from([(
+                "object".to_string(),
+                data_value(
+                    "object",
+                    Some(json!({
+                        "first": "alpha",
+                        "items": ["zero", "one"],
+                        "nested": { "second": 42 }
+                    })),
+                ),
+            )]),
+        );
+
+        assert_eq!(
+            outputs.get("first"),
+            Some(&DataValue {
+                data_type: "any".to_string(),
+                value: Some(Value::String("alpha".to_string())),
+            })
+        );
+        assert_eq!(
+            outputs.get("second"),
+            Some(&DataValue {
+                data_type: "any".to_string(),
+                value: Some(Value::Number(Number::from(42))),
+            })
+        );
+        assert_eq!(
+            outputs.get("indexed"),
+            Some(&DataValue {
+                data_type: "any".to_string(),
+                value: Some(Value::String("one".to_string())),
+            })
+        );
+        assert_eq!(
+            outputs.get("missing"),
+            Some(&DataValue {
+                data_type: "any".to_string(),
+                value: None,
+            })
+        );
+    }
+
+    #[test]
+    fn rejects_unsupported_destructure_paths_at_create_time() {
+        let request = serde_json::from_value::<NativeRuntimeCreateRequest>(json!({
+            "graphId": "main",
+            "graphs": [{
+                "graphId": "main",
+                "nodes": [
+                    { "type": "graphInput", "id": "object", "inputId": "object", "dataType": "object" },
+                    {
+                        "type": "destructure",
+                        "id": "destructure",
+                        "paths": [{ "outputId": "wildcard", "path": "$.items[*]" }]
+                    },
+                    { "type": "graphOutput", "id": "output", "outputId": "result", "dataType": "any" }
+                ],
+                "connections": [
+                    { "outputNodeId": "object", "outputId": "data", "inputNodeId": "destructure", "inputId": "object" },
+                    { "outputNodeId": "destructure", "outputId": "wildcard", "inputNodeId": "output", "inputId": "value" }
+                ]
+            }]
+        }))
+        .unwrap();
+
+        assert_eq!(
+            prepare_runner(request).unwrap_err(),
+            "invalid-node:main:destructure:destructure"
+        );
+    }
+
+    #[test]
+    fn rejects_destructure_without_required_object_input() {
+        let request = serde_json::from_value::<NativeRuntimeCreateRequest>(json!({
+            "graphId": "main",
+            "graphs": [{
+                "graphId": "main",
+                "nodes": [
+                    {
+                        "type": "destructure",
+                        "id": "destructure",
+                        "paths": [{ "outputId": "match", "path": "$.value" }]
+                    },
+                    { "type": "graphOutput", "id": "output", "outputId": "result", "dataType": "any" }
+                ],
+                "connections": [
+                    { "outputNodeId": "destructure", "outputId": "match", "inputNodeId": "output", "inputId": "value" }
+                ]
+            }]
+        }))
+        .unwrap();
+
+        assert_eq!(
+            prepare_runner(request).unwrap_err(),
+            "missing-required-input:main:destructure:object"
+        );
+    }
+
+    #[test]
     fn formats_integer_like_numbers_like_javascript() {
         assert_eq!(number_to_js_string(&Number::from(7)), "7");
         assert_eq!(number_to_js_string(&Number::from_f64(7.0).unwrap()), "7");
@@ -1624,5 +1928,28 @@ mod tests {
             data_type: data_type.to_string(),
             value,
         }
+    }
+
+    fn run_destructure_for_test(
+        paths: Vec<NativeDestructurePath>,
+        node_inputs: DataValueMap,
+    ) -> DataValueMap {
+        let context = BTreeMap::new();
+        let graphs = HashMap::new();
+        let inputs = BTreeMap::new();
+        let mut graph_inputs = BTreeMap::new();
+        let mut graph_outputs = BTreeMap::new();
+
+        run_destructure_node(
+            &paths,
+            NodeRunState {
+                context: &context,
+                graph_inputs: &mut graph_inputs,
+                graph_outputs: &mut graph_outputs,
+                graphs: &graphs,
+                inputs: &inputs,
+                node_inputs,
+            },
+        )
     }
 }

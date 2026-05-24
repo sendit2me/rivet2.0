@@ -1,6 +1,7 @@
 import {
   extractInterpolationVariables,
   looseDataValuesToDataValues,
+  resolveStoredOrderedPortIds,
   type ChartNode,
   type DataValue,
   type GraphId,
@@ -89,6 +90,14 @@ export type NativeNodeIr =
       ignoreNull: boolean;
       ignoreUndefined: boolean;
       type: 'coalesce';
+    }
+  | {
+      id: string;
+      paths: Array<{
+        outputId: string;
+        path: string;
+      }>;
+      type: 'destructure';
     }
   | {
       dataType: string;
@@ -491,6 +500,16 @@ function getUnsupportedNativeConnection(
     }
   }
 
+  const connectedInputs = new Set(
+    graph.connections.map((connection) => `${connection.inputNodeId}:${connection.inputId}`),
+  );
+  for (const node of nodes) {
+    const missingInput = getMissingRequiredNativeInputPort(node, connectedInputs);
+    if (missingInput) {
+      return `missing-required-input:${node.id}:${missingInput}`;
+    }
+  }
+
   return undefined;
 }
 
@@ -504,6 +523,8 @@ function isSupportedNativeInputPort(node: NativeNodeIr, portId: string, graphs: 
       return /^input[1-9]\d*$/.test(portId);
     case 'coalesce':
       return portId === 'conditional' || /^input[1-9]\d*$/.test(portId);
+    case 'destructure':
+      return portId === 'object';
     case 'graphOutput':
       return portId === 'value';
     case 'subGraph':
@@ -519,6 +540,8 @@ function isSupportedNativeOutputPort(node: NativeNodeIr, portId: string, graphs:
     case 'join':
     case 'coalesce':
       return portId === 'output';
+    case 'destructure':
+      return node.paths.some((path) => path.outputId === portId);
     case 'graphOutput':
       return portId === 'valueOutput';
     case 'subGraph':
@@ -532,6 +555,15 @@ function getNativeGraphInputIds(graph: NativeGraphIr | undefined): Set<string> {
 
 function getNativeGraphOutputIds(graph: NativeGraphIr | undefined): Set<string> {
   return new Set(graph?.nodes.flatMap((node) => (node.type === 'graphOutput' ? [node.outputId] : [])) ?? []);
+}
+
+function getMissingRequiredNativeInputPort(node: NativeNodeIr, connectedInputs: Set<string>): string | undefined {
+  switch (node.type) {
+    case 'destructure':
+      return connectedInputs.has(`${node.id}:object`) ? undefined : 'object';
+    default:
+      return undefined;
+  }
 }
 
 type NativeNodeResult =
@@ -653,6 +685,43 @@ function buildNativeNodeIr(node: ChartNode): NativeNodeResult {
       };
     }
 
+    case 'destructure': {
+      const data = node.data as { pathPortIds?: unknown; paths?: unknown };
+      if (!Array.isArray(data.paths) || data.paths.some((path) => typeof path !== 'string')) {
+        return unsupportedNode(node, 'invalid-destructure-data');
+      }
+
+      if (
+        data.pathPortIds != null &&
+        (!Array.isArray(data.pathPortIds) || data.pathPortIds.some((portId) => typeof portId !== 'string'))
+      ) {
+        return unsupportedNode(node, 'invalid-destructure-data');
+      }
+
+      const unsupportedPath = data.paths.find((path) => !isSupportedNativeSimpleJsonPath(path));
+      if (unsupportedPath !== undefined) {
+        return unsupportedNode(node, `unsupported-destructure-path:${unsupportedPath.trim() || '<empty>'}`);
+      }
+
+      const outputPortIds = resolveStoredOrderedPortIds(data.paths.length, data.pathPortIds as string[] | undefined, {
+        kind: 'prefix',
+        prefix: 'match_',
+        startIndex: 0,
+      });
+
+      return {
+        node: {
+          id: node.id,
+          paths: data.paths.map((path, index) => ({
+            outputId: outputPortIds[index]!,
+            path: path.trim(),
+          })),
+          type: 'destructure',
+        },
+        supported: true,
+      };
+    }
+
     case 'graphOutput': {
       const data = node.data as { dataType?: unknown; id?: unknown };
       if (typeof data.id !== 'string' || typeof data.dataType !== 'string') {
@@ -706,7 +775,13 @@ function buildNativeNodeIr(node: ChartNode): NativeNodeResult {
 }
 
 function isSupportedNativeDataType(dataType: string): boolean {
-  return dataType === 'string' || dataType === 'number' || dataType === 'boolean' || dataType === 'any';
+  return (
+    dataType === 'string' ||
+    dataType === 'number' ||
+    dataType === 'boolean' ||
+    dataType === 'any' ||
+    dataType === 'object'
+  );
 }
 
 function getUnsupportedNativeTextProcessing(template: string): string | undefined {
@@ -776,6 +851,53 @@ function isDataValue(value: unknown): value is DataValue {
     'type' in value &&
     typeof (value as { type?: unknown }).type === 'string'
   );
+}
+
+function isSupportedNativeSimpleJsonPath(path: string): boolean {
+  const source = path.trim();
+  if (source.length === 0 || source[0] !== '$') {
+    return false;
+  }
+
+  let index = 1;
+  while (index < source.length) {
+    if (source[index] === '.') {
+      index += 1;
+      if (!/[A-Za-z_$]/.test(source[index] ?? '')) {
+        return false;
+      }
+
+      index += 1;
+      while (/[A-Za-z0-9_$]/.test(source[index] ?? '')) {
+        index += 1;
+      }
+
+      continue;
+    }
+
+    if (source[index] === '[') {
+      index += 1;
+      const indexStart = index;
+      while (/[0-9]/.test(source[index] ?? '')) {
+        index += 1;
+      }
+
+      if (index === indexStart || source[index] !== ']') {
+        return false;
+      }
+
+      if (!Number.isSafeInteger(Number(source.slice(indexStart, index)))) {
+        return false;
+      }
+
+      index += 1;
+      continue;
+    }
+
+    return false;
+  }
+
+  return true;
 }
 
 function getGraph(project: Project, graphNameOrId: string | undefined): NodeGraph | undefined {

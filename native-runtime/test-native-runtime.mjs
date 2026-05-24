@@ -13,6 +13,7 @@ for (const backend of backends) {
   await testGraphInputDefaultsAndCoercion(backend);
   await testJoinArrayFanIn(backend);
   await testCoalesceFanIn(backend);
+  await testDestructureObjectPaths(backend);
   await testCreateRejectionReasons(backend);
 }
 
@@ -145,6 +146,35 @@ async function testCoalesceFanIn({ backend, expectedBackend }) {
   });
 }
 
+async function testDestructureObjectPaths({ backend, expectedBackend }) {
+  await withBackend(backend, async () => {
+    const runner = await createSupportedRunner(makeDestructureRequest(), expectedBackend);
+    try {
+      assert.deepEqual(
+        await runner.run({
+          inputs: {
+            object: {
+              type: 'object',
+              value: {
+                first: 'alpha',
+                items: ['zero', 'one'],
+                nested: { second: 42 },
+              },
+            },
+          },
+        }),
+        {
+          first: { type: 'any', value: 'alpha' },
+          indexed: { type: 'any', value: 'one' },
+          second: { type: 'any', value: 42 },
+        },
+      );
+    } finally {
+      runner.dispose?.();
+    }
+  });
+}
+
 async function testCreateRejectionReasons({ backend }) {
   await withBackend(backend, async () => {
     const duplicateNodeResult = await createNativeGraphRunner(makeDuplicateNodeRequest());
@@ -156,6 +186,14 @@ async function testCreateRejectionReasons({ backend }) {
     const staleConnectionResult = await createNativeGraphRunner(makeStaleConnectionRequest());
     assert.deepEqual(staleConnectionResult, {
       reason: 'stale-connection:main',
+      supported: false,
+    });
+
+    const invalidDestructureResult = await createNativeGraphRunner(
+      makeInvalidDestructurePathRequest('$.items[9007199254740992]'),
+    );
+    assert.deepEqual(invalidDestructureResult, {
+      reason: 'invalid-node:main:destructure:destructure',
       supported: false,
     });
   });
@@ -419,6 +457,92 @@ function makeCoalesceRequest({ ignoreNull, ignoreUndefined }) {
           connect('second-input', 'data', 'coalesce', 'input2'),
           connect('third-input', 'data', 'coalesce', 'input3'),
           connect('coalesce', 'output', 'output', 'value'),
+        ],
+      },
+    ],
+  };
+}
+
+function makeDestructureRequest() {
+  return {
+    graphId: 'main',
+    graphs: [
+      {
+        graphId: 'main',
+        nodes: [
+          {
+            dataType: 'object',
+            id: 'object-input',
+            inputId: 'object',
+            type: 'graphInput',
+          },
+          {
+            id: 'destructure',
+            paths: [
+              { outputId: 'first-output', path: '$.first' },
+              { outputId: 'second-output', path: '$.nested.second' },
+              { outputId: 'indexed-output', path: '$.items[1]' },
+            ],
+            type: 'destructure',
+          },
+          {
+            dataType: 'any',
+            id: 'first',
+            outputId: 'first',
+            type: 'graphOutput',
+          },
+          {
+            dataType: 'any',
+            id: 'second',
+            outputId: 'second',
+            type: 'graphOutput',
+          },
+          {
+            dataType: 'any',
+            id: 'indexed',
+            outputId: 'indexed',
+            type: 'graphOutput',
+          },
+        ],
+        connections: [
+          connect('object-input', 'data', 'destructure', 'object'),
+          connect('destructure', 'first-output', 'first', 'value'),
+          connect('destructure', 'second-output', 'second', 'value'),
+          connect('destructure', 'indexed-output', 'indexed', 'value'),
+        ],
+      },
+    ],
+  };
+}
+
+function makeInvalidDestructurePathRequest(path) {
+  return {
+    graphId: 'main',
+    graphs: [
+      {
+        graphId: 'main',
+        nodes: [
+          {
+            dataType: 'object',
+            id: 'object-input',
+            inputId: 'object',
+            type: 'graphInput',
+          },
+          {
+            id: 'destructure',
+            paths: [{ outputId: 'match', path }],
+            type: 'destructure',
+          },
+          {
+            dataType: 'any',
+            id: 'output',
+            outputId: 'result',
+            type: 'graphOutput',
+          },
+        ],
+        connections: [
+          connect('object-input', 'data', 'destructure', 'object'),
+          connect('destructure', 'match', 'output', 'value'),
         ],
       },
     ],

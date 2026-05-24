@@ -250,6 +250,29 @@ export function makeCoalesceFanInProject(): RuntimeSpeedProjectFixture {
   );
 }
 
+export function makeDestructureFanOutProject(): RuntimeSpeedProjectFixture {
+  const inputNode = makeGraphInputNode('object-input', 'object', 'object');
+  const destructureNode = makeDestructureNode('destructure', [
+    { outputId: 'name', path: '$.name' },
+    { outputId: 'role', path: '$.meta.role' },
+    { outputId: 'second-tag', path: '$.tags[1]' },
+  ]);
+  const joinNode = makeJoinNode('join');
+  const outputNode = makeGraphOutputNode('graph-output', 'result', 'string');
+
+  return makeFixture(
+    [inputNode, destructureNode, joinNode, outputNode],
+    [
+      connect(inputNode.id, 'data', destructureNode.id, 'object'),
+      connect(destructureNode.id, 'name', joinNode.id, 'input1'),
+      connect(destructureNode.id, 'role', joinNode.id, 'input2'),
+      connect(destructureNode.id, 'second-tag', joinNode.id, 'input3'),
+      connect(joinNode.id, 'output', outputNode.id, 'value'),
+    ],
+    outputNode.id,
+  );
+}
+
 export function makeSubgraphChainProject(subgraphCallCount: number): RuntimeSpeedProjectFixture {
   const mainGraphId = 'runtime-speed-main' as GraphId;
   const subGraphId = 'runtime-speed-subgraph' as GraphId;
@@ -953,6 +976,25 @@ function makeCoalesceNode(
     title: 'Coalesce',
     type: 'coalesce',
     visualData: { width: 150, x: 0, y: 0 },
+  };
+}
+
+function makeDestructureNode(
+  id: string,
+  paths: Array<{
+    outputId: string;
+    path: string;
+  }>,
+): ChartNode {
+  return {
+    data: {
+      pathPortIds: paths.map((path) => path.outputId),
+      paths: paths.map((path) => path.path),
+    },
+    id: id as NodeId,
+    title: 'Destructure',
+    type: 'destructure',
+    visualData: { width: 250, x: 0, y: 0 },
   };
 }
 

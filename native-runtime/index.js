@@ -301,6 +301,11 @@ function prepareGraph(graph) {
       return unsupported(`unsupported-node:${graph.graphId}:${node.type ?? '<missing>'}:${node.id}`);
     }
 
+    const nodeValidation = validateNode(node, graph.graphId);
+    if (!nodeValidation.supported) {
+      return nodeValidation;
+    }
+
     if (nodesById.has(node.id)) {
       return unsupported(`duplicate-node:${graph.graphId}:${node.id}`);
     }
@@ -326,6 +331,11 @@ function prepareGraph(graph) {
       dependenciesByNodeId.get(connection.inputNodeId).add(connection.outputNodeId);
       dependentsByNodeId.get(connection.outputNodeId).add(connection.inputNodeId);
     }
+  }
+
+  const missingRequiredInput = getMissingRequiredInput(graph.nodes, graph.connections, graph.graphId);
+  if (missingRequiredInput) {
+    return missingRequiredInput;
   }
 
   const readyNodeIds = graph.nodes
@@ -408,6 +418,8 @@ async function runNode(node, state) {
       return runJoinNode(node, state);
     case 'coalesce':
       return runCoalesceNode(node, state);
+    case 'destructure':
+      return runDestructureNode(node, state);
     case 'graphOutput':
       return runGraphOutputNode(node, state);
     case 'subGraph':
@@ -512,6 +524,31 @@ function runCoalesceNode(node, state) {
   };
 }
 
+function runDestructureNode(node, state) {
+  const outputs = createRecord();
+  const objectInput = state.nodeInputs.object;
+
+  if (objectInput?.type === 'control-flow-excluded') {
+    for (const selection of node.paths) {
+      outputs[selection.outputId] = {
+        type: 'control-flow-excluded',
+        value: undefined,
+      };
+    }
+    return outputs;
+  }
+
+  const objectValue = coerceDataValue(objectInput, 'object') ?? null;
+  for (const selection of node.paths) {
+    outputs[selection.outputId] = {
+      type: 'any',
+      value: getSimpleJsonPathValue(objectValue, selection.path),
+    };
+  }
+
+  return outputs;
+}
+
 function runGraphOutputNode(node, state) {
   const hasValueInput = hasRecordValue(state.nodeInputs, 'value');
   const value = hasValueInput ? getRecordValue(state.nodeInputs, 'value') : { type: 'any', value: undefined };
@@ -566,6 +603,95 @@ function getDynamicInputNumber(inputId) {
 
   const inputNumber = Number(match[1]);
   return Number.isSafeInteger(inputNumber) ? inputNumber : undefined;
+}
+
+function getSimpleJsonPathValue(value, path) {
+  const segments = parseSimpleJsonPath(path);
+  if (!segments) {
+    return undefined;
+  }
+
+  let current = value;
+  for (const segment of segments) {
+    if (current == null) {
+      return undefined;
+    }
+
+    if (typeof segment === 'number') {
+      if (!Array.isArray(current) || segment >= current.length) {
+        return undefined;
+      }
+      current = current[segment];
+      continue;
+    }
+
+    if (
+      typeof current !== 'object' ||
+      Array.isArray(current) ||
+      !Object.prototype.hasOwnProperty.call(current, segment)
+    ) {
+      return undefined;
+    }
+    current = current[segment];
+  }
+
+  return current;
+}
+
+function parseSimpleJsonPath(path) {
+  if (typeof path !== 'string') {
+    return undefined;
+  }
+
+  const source = path.trim();
+  if (!source || source[0] !== '$') {
+    return undefined;
+  }
+
+  const segments = [];
+  let index = 1;
+
+  while (index < source.length) {
+    if (source[index] === '.') {
+      index += 1;
+      if (!/[A-Za-z_$]/.test(source[index] ?? '')) {
+        return undefined;
+      }
+
+      const keyStart = index;
+      index += 1;
+      while (/[A-Za-z0-9_$]/.test(source[index] ?? '')) {
+        index += 1;
+      }
+      segments.push(source.slice(keyStart, index));
+      continue;
+    }
+
+    if (source[index] === '[') {
+      index += 1;
+      const indexStart = index;
+      while (/[0-9]/.test(source[index] ?? '')) {
+        index += 1;
+      }
+
+      if (index === indexStart || source[index] !== ']') {
+        return undefined;
+      }
+
+      const arrayIndex = Number(source.slice(indexStart, index));
+      if (!Number.isSafeInteger(arrayIndex)) {
+        return undefined;
+      }
+
+      segments.push(arrayIndex);
+      index += 1;
+      continue;
+    }
+
+    return undefined;
+  }
+
+  return segments;
 }
 
 function resolveNodeInputs(connections, outputsByNodeId) {
@@ -1013,9 +1139,46 @@ function isSupportedNodeType(type) {
     type === 'text' ||
     type === 'join' ||
     type === 'coalesce' ||
+    type === 'destructure' ||
     type === 'graphOutput' ||
     type === 'subGraph'
   );
+}
+
+function validateNode(node, graphId) {
+  if (node.type !== 'destructure') {
+    return { supported: true };
+  }
+
+  if (!Array.isArray(node.paths)) {
+    return unsupported(`invalid-node:${graphId}:destructure:${node.id}`);
+  }
+
+  for (const selection of node.paths) {
+    if (
+      !selection ||
+      typeof selection !== 'object' ||
+      typeof selection.outputId !== 'string' ||
+      selection.outputId.length === 0 ||
+      typeof selection.path !== 'string' ||
+      !parseSimpleJsonPath(selection.path)
+    ) {
+      return unsupported(`invalid-node:${graphId}:destructure:${node.id}`);
+    }
+  }
+
+  return { supported: true };
+}
+
+function getMissingRequiredInput(nodes, connections, graphId) {
+  const connectedInputs = new Set(connections.map((connection) => `${connection.inputNodeId}:${connection.inputId}`));
+  for (const node of nodes) {
+    if (node.type === 'destructure' && !connectedInputs.has(`${node.id}:object`)) {
+      return unsupported(`missing-required-input:${graphId}:${node.id}:object`);
+    }
+  }
+
+  return undefined;
 }
 
 function isConnection(connection) {

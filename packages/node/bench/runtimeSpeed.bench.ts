@@ -26,6 +26,7 @@ import {
   makeCodeChainProject,
   makeCallGraphFanInProject,
   makeCoalesceFanInProject,
+  makeDestructureFanOutProject,
   makeExpressionChainProject,
   makeMixedSubgraphFanInProject,
   makeNestedSubgraphProject,
@@ -81,6 +82,7 @@ async function main() {
   const wideFanIn100 = makeWideTextFanInProject(100);
   const wideFanIn200 = makeWideTextFanInProject(200);
   const coalesceFanIn = makeCoalesceFanInProject();
+  const destructureFanOut = makeDestructureFanOutProject();
   const mixedSubgraphFanIn = makeMixedSubgraphFanInProject(8, 20);
   const callGraph50 = makeCallGraphFanInProject(50);
   const referencedGraph1 = makeReferencedGraphAliasFanInProject(1);
@@ -475,6 +477,34 @@ async function main() {
             third: { type: 'string', value: 'bench' },
           },
         },
+      ),
+    );
+    const destructureInputs = {
+      inputs: {
+        object: {
+          type: 'object' as const,
+          value: {
+            meta: { role: 'runner' },
+            name: 'bench',
+            tags: ['native', 'destructure'],
+          },
+        },
+      },
+    };
+    results.push(
+      await benchmarkGraphRunner(
+        'createGraphRunner compatible destructure fan-out',
+        destructureFanOut.project,
+        { graph: destructureFanOut.graphId },
+        destructureInputs,
+      ),
+    );
+    results.push(
+      await benchmarkNativeFastGraphRunner(
+        'createGraphRunner native-fast destructure fan-out',
+        destructureFanOut.project,
+        { graph: destructureFanOut.graphId },
+        destructureInputs,
       ),
     );
     results.push(

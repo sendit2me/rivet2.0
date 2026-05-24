@@ -24,9 +24,9 @@ Current implementation state:
 - Native runtime experiments can be loaded with `RIVET_NATIVE_RUNTIME_MODULE`
   using either a package name, file URL, or filesystem path.
 - The local JS adapter can execute the existing narrow native IR for
-  `graphInput`, `text`, `join`, `coalesce`, `graphOutput`, and direct `subGraph`
-  boundaries when `RIVET_NATIVE_RUNTIME_BACKEND=js` is selected or when no Rust
-  worker binary is available.
+  `graphInput`, `text`, `join`, `coalesce`, `destructure`, `graphOutput`, and
+  direct `subGraph` boundaries when `RIVET_NATIVE_RUNTIME_BACKEND=js` is
+  selected or when no Rust worker binary is available.
 - The Rust crate under `native-runtime/native/` now includes a persistent
   worker binary that executes the same narrow IR for native-fast experiments.
   This is a Rust execution candidate, but it is still process-based rather than
@@ -294,8 +294,8 @@ Completed:
   TypeScript processor.
 - The explicit native test script now runs JS-adapter and Rust-worker
   equivalence smoke for interpolation, graph input defaults, join fan-in,
-  coalesce fan-in, direct subgraph fan-in, repeated runs, concurrent runs,
-  duplicate nodes, and stale connections.
+  coalesce fan-in, simple destructure paths, direct subgraph fan-in, repeated
+  runs, concurrent runs, duplicate nodes, and stale connections.
 
 Still pending:
 
@@ -320,9 +320,10 @@ Still pending:
 
 Completed:
 
-- `graphInput`, `text`, `join`, `coalesce`, and `graphOutput` execute in both
-  the local JS adapter and Rust worker for the supported scalar data types
-  already admitted by the TypeScript eligibility pass.
+- `graphInput`, `text`, `join`, `coalesce`, `destructure`, and `graphOutput`
+  execute in both the local JS adapter and Rust worker for the supported data
+  types already admitted by the TypeScript eligibility pass, including plain
+  object inputs needed by destructure.
 - Text interpolation supports ordinary input tokens, `@context.*`,
   `@graphInputs.*`, escaped interpolation tokens, line-ending normalization, and
   the parity-tested processing subset: `uppercase`, `lowercase`, `trim`, and
@@ -340,11 +341,15 @@ Completed:
   fan-in ordering and undefined fallthrough; explicit null handling is covered
   at the Rust node/transport level until another native-eligible node can
   produce null inside a graph fixture.
+- Destructure supports required-object-input validation plus a deliberately
+  small static JSONPath subset: `$`, dot-property segments, and safe
+  non-negative array indexes. Unsupported JSONPath features remain TypeScript
+  fallback.
 
 Still pending:
 
-- Add object-like construction, destructure/extract primitives, and any other
-  cheap node only after dedicated semantic fixtures exist.
+- Add object-like construction, Extract Object Path, and any other cheap node
+  only after dedicated semantic fixtures exist.
 
 - Implement the smallest useful set of cheap built-in nodes natively.
 - Prioritize nodes that keep benchmark execution entirely native: graph input,
@@ -394,12 +399,12 @@ Completed:
 - `.github/workflows/build.yml` has a separate `native-runtime` job that sets up
   Rust and runs `npm --prefix native-runtime run test:native` explicitly.
 - Runtime-speed benchmarks now include compatible and native-fast coalesce
-  fan-in rows so the next before/after run can report whether the new cheap
-  fan-in primitive helps or regresses.
-- A tiny 2026-05-24 smoke run with two measured iterations confirmed the new
-  coalesce benchmark row executes through `nativeBackend: rust-worker` with
-  `nativeUsed=true`. This is wiring evidence only; it is not a replacement for
-  the full five-sample before/after matrix.
+  fan-in and destructure fan-out rows so the next before/after run can report
+  whether the new cheap object primitives help or regress.
+- Tiny 2026-05-24 smoke runs with two measured iterations confirmed the new
+  coalesce and destructure benchmark rows execute through
+  `nativeBackend: rust-worker` with `nativeUsed=true`. This is wiring evidence
+  only; it is not a replacement for the full five-sample before/after matrix.
 
 Still pending:
 

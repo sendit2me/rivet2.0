@@ -22,6 +22,7 @@ import {
   makeAsyncDelayProject,
   makeCodeChainProject,
   makeCoalesceFanInProject,
+  makeDestructureFanOutProject,
   makeGlobalStateProject,
   makeInputContextTextProject,
   makeSubgraphChainProject,
@@ -719,6 +720,122 @@ void describe('createGraphRunner', () => {
       } else {
         process.env.RIVET_NATIVE_RUNTIME_BACKEND = previousNativeRuntimeBackend;
       }
+    }
+  });
+
+  void it('runs destructure fan-out through the local native-fast adapter', async () => {
+    const fixture = makeDestructureFanOutProject();
+    const previousNativeRuntimeModule = process.env.RIVET_NATIVE_RUNTIME_MODULE;
+    const previousNativeRuntimeBackend = process.env.RIVET_NATIVE_RUNTIME_BACKEND;
+    process.env.RIVET_NATIVE_RUNTIME_MODULE = new URL('../../../native-runtime/index.js', import.meta.url).href;
+    process.env.RIVET_NATIVE_RUNTIME_BACKEND = 'js';
+
+    try {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        runtimeProfile: 'native-fast',
+      });
+      const outputs = await runner.run({
+        inputs: {
+          object: {
+            type: 'object',
+            value: {
+              meta: { role: 'builder' },
+              name: 'Ada',
+              tags: ['logic', 'speed'],
+            },
+          },
+        },
+      });
+
+      assert.deepEqual(outputs, {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: 'Adabuilderspeed' },
+      } satisfies Record<string, DataValue>);
+      assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+        nativeBackend: 'js-adapter',
+        nativeEligible: true,
+        nativeUsed: true,
+        requested: true,
+      });
+    } finally {
+      if (previousNativeRuntimeModule == null) {
+        delete process.env.RIVET_NATIVE_RUNTIME_MODULE;
+      } else {
+        process.env.RIVET_NATIVE_RUNTIME_MODULE = previousNativeRuntimeModule;
+      }
+      if (previousNativeRuntimeBackend == null) {
+        delete process.env.RIVET_NATIVE_RUNTIME_BACKEND;
+      } else {
+        process.env.RIVET_NATIVE_RUNTIME_BACKEND = previousNativeRuntimeBackend;
+      }
+    }
+  });
+
+  void it('falls back before loading native-fast when destructure JSONPath exceeds the native subset', async () => {
+    const fixture = makeDestructureFanOutProject();
+    const destructureNode = fixture.project.graphs[fixture.graphId]!.nodes.find((node) => node.id === 'destructure')!;
+    (destructureNode.data as { paths: string[] }).paths[0] = '$..name';
+    let nativeLoadCalls = 0;
+    setNativeRuntimeModuleLoaderForTesting(async () => {
+      nativeLoadCalls += 1;
+      throw new Error('Unsupported destructure JSONPath should not load the native runtime module.');
+    });
+
+    try {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        runtimeProfile: 'native-fast',
+      });
+      const outputs = await runner.run({
+        inputs: {
+          object: {
+            type: 'object',
+            value: {
+              meta: { role: 'builder' },
+              name: 'Ada',
+              tags: ['logic', 'speed'],
+            },
+          },
+        },
+      });
+
+      assert.deepEqual(outputs, {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: 'Adabuilderspeed' },
+      } satisfies Record<string, DataValue>);
+      assert.equal(nativeLoadCalls, 0);
+      assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+        fallbackReason: 'unsupported-destructure-path:$..name:destructure',
+        nativeEligible: false,
+        nativeUsed: false,
+        requested: true,
+      });
+    } finally {
+      setNativeRuntimeModuleLoaderForTesting(undefined);
+    }
+  });
+
+  void it('rejects invalid destructure JSONPath during native-fast eligibility', () => {
+    for (const { expectedPath, path } of [
+      { expectedPath: '<empty>', path: '' },
+      { expectedPath: '$.tags[9007199254740992]', path: '$.tags[9007199254740992]' },
+    ]) {
+      const fixture = makeDestructureFanOutProject();
+      const destructureNode = fixture.project.graphs[fixture.graphId]!.nodes.find((node) => node.id === 'destructure')!;
+      (destructureNode.data as { paths: string[] }).paths[0] = path;
+
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        runtimeProfile: 'native-fast',
+      });
+
+      assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+        fallbackReason: `unsupported-destructure-path:${expectedPath}:destructure`,
+        nativeEligible: false,
+        nativeUsed: false,
+        requested: true,
+      });
     }
   });
 
