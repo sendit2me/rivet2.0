@@ -265,8 +265,11 @@ product-level migration plan before any native DSL or compiled-extension model
 can replace them.
 Text-node interpolation is native-eligible only for the processing pipes whose
 Rust behavior is covered by current parity tests: `uppercase`, `lowercase`,
-`trim`, and non-negative-integer `truncate`. Other text processing pipes stay on
-the TypeScript path until they have exact semantic fixtures.
+`trim`, non-negative-integer `truncate`, and `quote` with an omitted or
+non-negative-integer level. Malformed `quote` parameters stay on the TypeScript
+path so native-fast does not diverge from JS parsing or mask TypeScript errors.
+Other text processing pipes stay on the TypeScript path until they have exact
+semantic fixtures.
 Object-node construction is native-eligible for static JSON templates whose
 interpolation inputs are ordinary node inputs, `@context.*`, or
 `@graphInputs.*`. The native adapters mirror the TypeScript Object node's

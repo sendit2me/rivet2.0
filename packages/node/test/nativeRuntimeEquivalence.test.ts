@@ -12,6 +12,7 @@ import {
   makeNativeObjectPipelineProject,
   makeNativeSubgraphInputDataProject,
   makeNativeTextProcessingProject,
+  makeNativeTextQuoteProcessingProject,
   makeObjectArrayConstructionProject,
   makeReferencedGraphAliasFanInProject,
   type RuntimeSpeedProjectFixture,
@@ -45,6 +46,19 @@ void describe('native-fast equivalence fixtures', () => {
         options: {
           inputs: {
             input: ' Ada ',
+          },
+        },
+      },
+      {
+        expected: {
+          cost: { type: 'number', value: 0 },
+          result: { type: 'string', value: '> Ada\n> LovelaceAda\nLovelace> > Ada\n> > Lovelace' },
+        },
+        fixture: makeNativeTextQuoteProcessingProject(),
+        name: 'text quote processor',
+        options: {
+          inputs: {
+            input: 'Ada\nLovelace',
           },
         },
       },

@@ -33,6 +33,7 @@ import {
   makeInputContextTextProject,
   makeNativeGraphInputDefaultPortProject,
   makeNativeGraphInputUnconnectedDefaultPortProject,
+  makeNativeTextQuoteProcessingProject,
   makeObjectArrayConstructionProject,
   makeObjectConstructionProject,
   makeReferencedGraphAliasFanInProject,
@@ -1137,6 +1138,33 @@ void describe('createGraphRunner', () => {
     });
   });
 
+  void it('runs quote text processing through the local native-fast adapter', async () => {
+    const fixture = makeNativeTextQuoteProcessingProject();
+
+    await withLocalNativeFastAdapterEnv(async () => {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        runtimeProfile: 'native-fast',
+      });
+      const outputs = await runner.run({
+        inputs: {
+          input: 'Ada\nLovelace',
+        },
+      });
+
+      assert.deepEqual(outputs, {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: '> Ada\n> LovelaceAda\nLovelace> > Ada\n> > Lovelace' },
+      } satisfies Record<string, DataValue>);
+      assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+        nativeBackend: 'js-adapter',
+        nativeEligible: true,
+        nativeUsed: true,
+        requested: true,
+      });
+    });
+  });
+
   void it('runs coalesce fan-in through the local native-fast adapter', async () => {
     const fixture = makeCoalesceFanInProject();
 
@@ -1466,6 +1494,38 @@ void describe('createGraphRunner', () => {
         nativeUsed: false,
         requested: true,
       });
+    } finally {
+      setNativeRuntimeModuleLoaderForTesting(undefined);
+    }
+  });
+
+  void it('falls back before loading native-fast when quote text processing has an unsupported parameter', () => {
+    let nativeLoadCalls = 0;
+    setNativeRuntimeModuleLoaderForTesting(async () => {
+      nativeLoadCalls += 1;
+      throw new Error('Unsupported native graph should not load the native runtime module.');
+    });
+
+    try {
+      for (const template of ['{{input | quote -1}}', '{{input | quote abc}}']) {
+        const fixture = makeTextChainProject(1);
+        const textNode = fixture.project.graphs[fixture.graphId]!.nodes.find((node) => node.id === 'text-0')!;
+        (textNode.data as { text: string }).text = template;
+
+        const runner = createGraphRunner(fixture.project, {
+          graph: fixture.graphId,
+          runtimeProfile: 'native-fast',
+        });
+
+        assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+          fallbackReason: 'unsupported-text-processing:quote:text-0',
+          nativeEligible: false,
+          nativeUsed: false,
+          requested: true,
+        });
+      }
+
+      assert.equal(nativeLoadCalls, 0);
     } finally {
       setNativeRuntimeModuleLoaderForTesting(undefined);
     }

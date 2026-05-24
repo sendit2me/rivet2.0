@@ -1880,6 +1880,57 @@ mod tests {
     }
 
     #[test]
+    fn runs_quote_text_processing() {
+        let request = serde_json::from_value::<NativeRuntimeCreateRequest>(json!({
+            "graphId": "main",
+            "graphs": [{
+                "graphId": "main",
+                "nodes": [
+                    { "type": "graphInput", "id": "input", "inputId": "input", "dataType": "string" },
+                    { "type": "text", "id": "quote-default-text", "template": "{{input | quote}}", "normalizeLineEndings": true },
+                    { "type": "text", "id": "quote-zero-text", "template": "{{input | quote 0}}", "normalizeLineEndings": true },
+                    { "type": "text", "id": "quote-double-text", "template": "{{input | quote 2}}", "normalizeLineEndings": true },
+                    { "type": "join", "id": "join-quotes", "flatten": true, "joinString": "" },
+                    { "type": "graphOutput", "id": "output", "outputId": "result", "dataType": "string" }
+                ],
+                "connections": [
+                    { "outputNodeId": "input", "outputId": "data", "inputNodeId": "quote-default-text", "inputId": "input" },
+                    { "outputNodeId": "input", "outputId": "data", "inputNodeId": "quote-zero-text", "inputId": "input" },
+                    { "outputNodeId": "input", "outputId": "data", "inputNodeId": "quote-double-text", "inputId": "input" },
+                    { "outputNodeId": "quote-default-text", "outputId": "output", "inputNodeId": "join-quotes", "inputId": "input1" },
+                    { "outputNodeId": "quote-zero-text", "outputId": "output", "inputNodeId": "join-quotes", "inputId": "input2" },
+                    { "outputNodeId": "quote-double-text", "outputId": "output", "inputNodeId": "join-quotes", "inputId": "input3" },
+                    { "outputNodeId": "join-quotes", "outputId": "output", "inputNodeId": "output", "inputId": "value" }
+                ]
+            }]
+        }))
+        .unwrap();
+        let plan = prepare_runner(request).unwrap();
+        let outputs = run_prepared_graph(
+            &plan,
+            BTreeMap::from([(
+                "input".to_string(),
+                DataValue {
+                    data_type: "string".to_string(),
+                    value: Some(Value::String("Ada\nLovelace".to_string())),
+                },
+            )]),
+            BTreeMap::new(),
+        )
+        .unwrap();
+
+        assert_eq!(
+            outputs.get("result"),
+            Some(&DataValue {
+                data_type: "string".to_string(),
+                value: Some(Value::String(
+                    "> Ada\n> LovelaceAda\nLovelace> > Ada\n> > Lovelace".to_string()
+                )),
+            })
+        );
+    }
+
+    #[test]
     fn runs_graph_input_default_value_input_port() {
         let request = serde_json::from_value::<NativeRuntimeCreateRequest>(json!({
             "graphId": "main",

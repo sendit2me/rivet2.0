@@ -514,6 +514,29 @@ export function makeNativeTextProcessingProject(): RuntimeSpeedProjectFixture {
   );
 }
 
+export function makeNativeTextQuoteProcessingProject(): RuntimeSpeedProjectFixture {
+  const inputNode = makeGraphInputNode('graph-input', 'input', 'string');
+  const defaultQuoteNode = makeTextNode('quote-default-text', '{{input | quote}}');
+  const zeroQuoteNode = makeTextNode('quote-zero-text', '{{input | quote 0}}');
+  const doubleQuoteNode = makeTextNode('quote-double-text', '{{input | quote 2}}');
+  const joinNode = makeJoinNode('join-quotes');
+  const outputNode = makeGraphOutputNode('graph-output', 'result', 'string');
+
+  return makeFixture(
+    [inputNode, defaultQuoteNode, zeroQuoteNode, doubleQuoteNode, joinNode, outputNode],
+    [
+      connect(inputNode.id, 'data', defaultQuoteNode.id, 'input'),
+      connect(inputNode.id, 'data', zeroQuoteNode.id, 'input'),
+      connect(inputNode.id, 'data', doubleQuoteNode.id, 'input'),
+      connect(defaultQuoteNode.id, 'output', joinNode.id, 'input1'),
+      connect(zeroQuoteNode.id, 'output', joinNode.id, 'input2'),
+      connect(doubleQuoteNode.id, 'output', joinNode.id, 'input3'),
+      connect(joinNode.id, 'output', outputNode.id, 'value'),
+    ],
+    outputNode.id,
+  );
+}
+
 export function makeSubgraphChainProject(subgraphCallCount: number): RuntimeSpeedProjectFixture {
   const mainGraphId = 'runtime-speed-main' as GraphId;
   const subGraphId = 'runtime-speed-subgraph' as GraphId;

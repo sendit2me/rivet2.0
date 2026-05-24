@@ -9,6 +9,7 @@ const backends = [
 
 for (const backend of backends) {
   await testContextInterpolationAndProcessing(backend);
+  await testQuoteProcessing(backend);
   await testRepeatedAndConcurrentRuns(backend);
   await testGraphInputDefaultsAndCoercion(backend);
   await testGraphInputDefaultInputPort(backend);
@@ -39,6 +40,25 @@ async function testContextInterpolationAndProcessing({ backend, expectedBackend 
 
       assert.deepEqual(outputs, {
         result: { type: 'string', value: 'native RUST' },
+      });
+    } finally {
+      runner.dispose?.();
+    }
+  });
+}
+
+async function testQuoteProcessing({ backend, expectedBackend }) {
+  await withBackend(backend, async () => {
+    const runner = await createSupportedRunner(makeQuoteProcessingRequest(), expectedBackend);
+    try {
+      const outputs = await runner.run({
+        inputs: {
+          input: { type: 'string', value: 'Ada\nLovelace' },
+        },
+      });
+
+      assert.deepEqual(outputs, {
+        result: { type: 'string', value: '> Ada\n> LovelaceAda\nLovelace> > Ada\n> > Lovelace' },
       });
     } finally {
       runner.dispose?.();
@@ -418,6 +438,64 @@ function makeContextInterpolationRequest() {
         connections: [
           connect('graph-input', 'data', 'text', 'input'),
           connect('text', 'output', 'graph-output', 'value'),
+        ],
+      },
+    ],
+  };
+}
+
+function makeQuoteProcessingRequest() {
+  return {
+    graphId: 'main',
+    graphs: [
+      {
+        graphId: 'main',
+        nodes: [
+          {
+            dataType: 'string',
+            id: 'graph-input',
+            inputId: 'input',
+            type: 'graphInput',
+          },
+          {
+            id: 'quote-default-text',
+            normalizeLineEndings: true,
+            template: '{{input | quote}}',
+            type: 'text',
+          },
+          {
+            id: 'quote-zero-text',
+            normalizeLineEndings: true,
+            template: '{{input | quote 0}}',
+            type: 'text',
+          },
+          {
+            id: 'quote-double-text',
+            normalizeLineEndings: true,
+            template: '{{input | quote 2}}',
+            type: 'text',
+          },
+          {
+            flatten: true,
+            id: 'join-quotes',
+            joinString: '',
+            type: 'join',
+          },
+          {
+            dataType: 'string',
+            id: 'graph-output',
+            outputId: 'result',
+            type: 'graphOutput',
+          },
+        ],
+        connections: [
+          connect('graph-input', 'data', 'quote-default-text', 'input'),
+          connect('graph-input', 'data', 'quote-zero-text', 'input'),
+          connect('graph-input', 'data', 'quote-double-text', 'input'),
+          connect('quote-default-text', 'output', 'join-quotes', 'input1'),
+          connect('quote-zero-text', 'output', 'join-quotes', 'input2'),
+          connect('quote-double-text', 'output', 'join-quotes', 'input3'),
+          connect('join-quotes', 'output', 'graph-output', 'value'),
         ],
       },
     ],

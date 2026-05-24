@@ -319,8 +319,9 @@ Completed:
   until native-fast implements the TypeScript array coercion rules.
 - Text interpolation supports ordinary input tokens, `@context.*`,
   `@graphInputs.*`, escaped interpolation tokens, line-ending normalization, and
-  the parity-tested processing subset: `uppercase`, `lowercase`, `trim`, and
-  non-negative-integer `truncate`.
+  the parity-tested processing subset: `uppercase`, `lowercase`, `trim`,
+  non-negative-integer `truncate`, and `quote` with an omitted or
+  non-negative-integer level.
 - Join supports the current static join-string path and flattening for array
   DataValues.
 - Object supports static JSON templates using the same interpolation-token
@@ -612,6 +613,36 @@ Validation:
   `RIVET_REAL_WORKFLOW_BENCH_WARMUP_ITERATIONS=0`, and
   `RIVET_REAL_WORKFLOW_BENCH_SAMPLES=1`
 
+### P11: Text Processing Quote Parity [DONE]
+
+Completed:
+
+- Admitted the Text interpolation `quote` pipe into native-fast for the same
+  deterministic omitted-or-non-negative-integer parameter shape as TypeScript.
+- Kept malformed and negative quote parameters on whole-run TypeScript fallback
+  so native-fast does not mask TypeScript errors or diverge from JS parsing.
+- Added native-fast graph-runner, equivalence, JS/Rust runtime, and Rust unit
+  coverage for multiline quote output with omitted, zero, and explicit quote
+  levels.
+- Left `indent`, `list`, `sort`, `dedent`, `wrap`, and broader text processing
+  parity outside this tranche.
+- Reran the lightweight real-workflow audit. It no longer reports
+  `unsupported-text-processing:quote`, but total reach stayed at 6 eligible
+  graphs because the affected graph exposed another unsupported node.
+- Updated developer docs and
+  [`native-runtime-real-workflow-benchmark.md`](native-runtime-real-workflow-benchmark.md)
+  with the new quote eligibility and audit result.
+
+Validation:
+
+- `npm --prefix native-runtime run test:native`
+- `cargo test --manifest-path native-runtime/native/Cargo.toml`
+- focused Node tests with `--test-name-pattern "native-fast|native-runtime"`
+- `yarn workspace @valerypopoff/rivet2-node run bench:native-real-workflows`
+  with `RIVET_REAL_WORKFLOW_BENCH_ITERATIONS=1`,
+  `RIVET_REAL_WORKFLOW_BENCH_WARMUP_ITERATIONS=0`, and
+  `RIVET_REAL_WORKFLOW_BENCH_SAMPLES=1`
+
 ## Benchmark Gates
 
 Every native phase must compare against the existing optimized TypeScript
@@ -691,12 +722,12 @@ decision, and before/after benchmark matrices are now in place. The Rust worker
 proved the speed win for the narrow eligible workload set, but the product gate
 keeps it internal and opt-in rather than default.
 
-The next useful implementation step is another data-backed low-risk eligibility
-tranche. The P9 Graph Input port work reduced one blocker family from 2 to 0,
-but did not increase total real-project reach, so the next tranche should target
-either the newly exposed `unsupported-text-processing:quote` row or a small
-deterministic control-flow group with enough fixtures to justify the added
-native semantics. During that work:
+The next useful implementation step is another data-backed eligibility tranche.
+P9 removed the Graph Input default-port blocker and P11 removed the Text
+`quote` blocker, but total real-project reach stayed at six eligible graphs.
+The next tranche should target either a small deterministic control-flow group
+(`if`, `ifElse`, `compare`, `match`) or a narrow JSONPath expansion with enough
+fixtures to justify the added native semantics. During that work:
 
 - keep ordinary TypeScript paths unchanged and keep `native-fast` opt-in;
 - keep the worker-process boundary unless a future release-packaging phase

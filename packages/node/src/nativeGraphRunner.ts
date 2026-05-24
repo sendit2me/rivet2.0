@@ -165,7 +165,7 @@ const UNSUPPORTED_NATIVE_RUNTIME_OPTION_KEYS = [
   'tokenizer',
 ] as const satisfies readonly (keyof NativeFastGraphRunnerOptions)[];
 
-const SUPPORTED_NATIVE_TEXT_PROCESSORS = new Set(['lowercase', 'trim', 'truncate', 'uppercase']);
+const SUPPORTED_NATIVE_TEXT_PROCESSORS = new Set(['lowercase', 'quote', 'trim', 'truncate', 'uppercase']);
 
 let nativeRuntimeModuleLoaderForTesting: NativeRuntimeModuleLoader | undefined;
 
@@ -1133,8 +1133,8 @@ function getUnsupportedNativeTextProcessing(template: string): string | undefine
         return `unsupported-text-processing:${name || '<empty>'}`;
       }
 
-      if (name === 'truncate' && parameter != null && !/^(?:0|[1-9]\d*)$/.test(parameter)) {
-        return 'unsupported-text-processing:truncate';
+      if ((name === 'quote' || name === 'truncate') && parameter != null && !/^(?:0|[1-9]\d*)$/.test(parameter)) {
+        return `unsupported-text-processing:${name}`;
       }
     }
   }
