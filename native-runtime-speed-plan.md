@@ -480,6 +480,14 @@ Completed:
 - A same-day 1000-node cheap-chain addendum closes the original cheap-chain
   scaling gate with `runGraph`, default-safe `createProcessor`,
   `headless-fast`, and `native-fast` rows.
+- A same-day real-workflow audit/benchmark is recorded in
+  [`native-runtime-real-workflow-benchmark.md`](native-runtime-real-workflow-benchmark.md).
+  It checked 88 graphs from eight checked-in project files, timed only the
+  three non-empty graphs that were native-eligible before execution, and found
+  the Rust worker faster on all three. The larger finding is reach: 85 real
+  graphs still fall back, mostly because of project-level plugins,
+  unsupported built-in nodes, richer JSONPath, split-run, and chat-message
+  graph boundary types.
 - The productization gate is closed for default/public promotion: the current
   worker is suitable for internal opt-in benchmarking and CI-covered
   experimentation, but `native-fast` should not become a default runtime or a
@@ -596,5 +604,8 @@ keeps it internal and opt-in rather than default:
   needs its own supported and unsupported cases;
 - run the benchmark matrix whenever native eligibility or worker transport
   changes;
+- use the real-workflow benchmark before choosing the next native node family,
+  because current checked-in projects are bottlenecked by eligibility breadth
+  more than by Rust execution speed;
 - keep Code and Expression on TypeScript fallback unless a separate
   product-level language/runtime plan proves a migration-safe speed win.
