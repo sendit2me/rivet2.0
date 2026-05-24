@@ -1,5 +1,9 @@
 
 
+- Need keyboard shortcuts to run the project and the current graph
+
+- When I decrease the left panel width too narrow, collapse it completely as if I clicked the collapse button
+
 
 - Now, the executor mode is global for all open projects (remote debugger, browser, node). Make it per tab
 

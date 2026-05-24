@@ -151,6 +151,19 @@ path issue and recorded the final matrix in
 [`runtime-speed-before-after.md`](../runtime-speed-before-after.md).
 Future speed work should still treat direct `GraphProcessor` diagnostic rows as
 core hot-path evidence, not only Node API runtime-policy evidence.
+The follow-up native-runtime exploration is planned in
+[`native-runtime-speed-plan.md`](../native-runtime-speed-plan.md). That plan
+keeps the TypeScript public APIs and current engine as the default, and treats
+Rust as an optional coarse-grained execution core only if benchmarks prove large
+wins for cheap-node, wide fan-in/fan-out, and repeated nested-graph workloads.
+The proposed Rust path is strictly opt-in: existing profiles must bypass native
+package loading, eligibility checks, native IR construction, and native runtime
+branches unless the caller explicitly selects the future `native-fast` profile.
+The first implementation should stay graph-runner scoped, keep `runGraph(...)`
+and one-shot `createProcessor(...)` on the current TypeScript paths, and report
+whether native execution actually ran so benchmark rows cannot count TypeScript
+fallback as Rust speed wins. Normal install/build/test flows must remain
+TypeScript-only unless an explicit native-runtime script or CI job is invoked.
 
 `createGraphRunner(...)` is the additive production-facing fast path for
 headless/programmatic Node integrations that load a project once and run the
