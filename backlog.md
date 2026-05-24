@@ -1,7 +1,6 @@
 
-- In both Expression and new Code nodes, when they return an object (as a literal or as a variable), this object is weird. When I retyrn it in the main workflow output that expects an object, my backend (that recieves it via HTTP) fails. But if after the expression/code node I add an "Object" node with thr content "{{input}}" that does nothing, just accepts an object and passes further, it all works. If I comvert the object to text and then parse it, it all works too. I tried to copy the object (from the expression/code node output) and look at it, but it's fine. I only get the probkem when I return such object right away from the main graph.
 
-- Sometimes when I click the project tree with the right mouse button, the Rivet crashes
+- Sometimes, when I'm working in Rivet for hours already, when I click the project tree with the right mouse button, the Rivet crashes and I have to reload the page. This is what I see in the web console when it happens:
 
 react-dom-BiLoywox.js:3093 RangeError: Maximum call stack size exceeded
     at editorBridgeFocus-PphY3KF8.js:446:67

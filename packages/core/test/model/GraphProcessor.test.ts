@@ -223,6 +223,60 @@ function makeGraphOutputNode(id = 'output', dataType = 'any') {
   };
 }
 
+async function runGraphOutputFromNode(node: ChartNode, outputId: PortId, outputDataType = 'object') {
+  const outputNode = makeGraphOutputNode('result', outputDataType);
+  const graph = {
+    metadata: {
+      id: `${node.id}-graph-output`,
+      name: 'Single Node Graph Output',
+      description: '',
+    },
+    nodes: [node, outputNode],
+    connections: [
+      {
+        outputNodeId: node.id,
+        outputId,
+        inputNodeId: outputNode.id,
+        inputId: 'value',
+      },
+    ],
+  };
+
+  const processor = new GraphProcessor(makeProject(graph), graph.metadata.id, globalRivetNodeRegistry);
+  const outputs = await processor.processGraph(testProcessContext());
+
+  return outputs.result;
+}
+
+function makeExpressionNode(expression: string): ChartNode {
+  return {
+    id: 'expression-node',
+    type: 'expression',
+    title: 'Expression',
+    data: {
+      expression,
+    },
+    visualData: { x: 0, y: 0, width: 260 },
+  };
+}
+
+function makeCodeNewNode(code: string): ChartNode {
+  return {
+    id: 'code-node',
+    type: 'codeNew',
+    title: 'Code',
+    data: {
+      code,
+      allowFetch: false,
+      allowRequire: false,
+      allowRivet: false,
+      allowProcess: false,
+      allowConsole: false,
+    },
+    visualData: { x: 0, y: 0, width: 260 },
+  };
+}
+
 function makeDestructureNode(overrides: Partial<ChartNode> = {}) {
   return {
     id: 'destructure-node',
@@ -372,6 +426,84 @@ void describe('GraphProcessor', () => {
     assert.deepEqual(outputs.output, {
       type: 'string',
       value: 'input value',
+    });
+  });
+
+  void it('coerces Expression any object output to the declared Graph Output object type', async () => {
+    const result = await runGraphOutputFromNode(
+      makeExpressionNode('({ foo: "bar", nested: { ok: true } })'),
+      'output' as PortId,
+      'object',
+    );
+
+    assert.deepStrictEqual(result, {
+      type: 'object',
+      value: { foo: 'bar', nested: { ok: true } },
+    });
+  });
+
+  void it('coerces Code any object output to the declared Graph Output object type', async () => {
+    const result = await runGraphOutputFromNode(
+      makeCodeNewNode('const value = { foo: "bar", nested: { ok: true } };\nreturn value;'),
+      'output' as PortId,
+      'object',
+    );
+
+    assert.deepStrictEqual(result, {
+      type: 'object',
+      value: { foo: 'bar', nested: { ok: true } },
+    });
+  });
+
+  void it('keeps Expression object output as any when Graph Output is declared any', async () => {
+    const result = await runGraphOutputFromNode(makeExpressionNode('({ foo: "bar" })'), 'output' as PortId, 'any');
+
+    assert.deepStrictEqual(result, {
+      type: 'any',
+      value: { foo: 'bar' },
+    });
+  });
+
+  void it('coerces Expression any array output to the declared Graph Output object array type', async () => {
+    const result = await runGraphOutputFromNode(makeExpressionNode('([{ foo: "bar" }])'), 'output' as PortId, 'object[]');
+
+    assert.deepStrictEqual(result, {
+      type: 'object[]',
+      value: [{ foo: 'bar' }],
+    });
+  });
+
+  void it('does not relabel Expression scalar any output as a declared Graph Output object', async () => {
+    const result = await runGraphOutputFromNode(makeExpressionNode('"not an object"'), 'output' as PortId, 'object');
+
+    assert.deepStrictEqual(result, {
+      type: 'any',
+      value: 'not an object',
+    });
+  });
+
+  void it('does not relabel non-plain Expression object instances as declared Graph Output objects', async () => {
+    const result = await runGraphOutputFromNode(makeExpressionNode('new Date(0)'), 'output' as PortId, 'object');
+
+    assert.equal(result.type, 'any');
+    assert.ok(result.value instanceof Date);
+  });
+
+  void it('does not relabel Expression object any output as a declared Graph Output object array', async () => {
+    const result = await runGraphOutputFromNode(makeExpressionNode('({ foo: "bar" })'), 'output' as PortId, 'object[]');
+
+    assert.deepStrictEqual(result, {
+      type: 'any',
+      value: { foo: 'bar' },
+    });
+  });
+
+  void it('does not relabel Expression primitive arrays as declared Graph Output object arrays', async () => {
+    const result = await runGraphOutputFromNode(makeExpressionNode('[1, 2, 3]'), 'output' as PortId, 'object[]');
+
+    assert.deepStrictEqual(result, {
+      type: 'any',
+      value: [1, 2, 3],
     });
   });
 
