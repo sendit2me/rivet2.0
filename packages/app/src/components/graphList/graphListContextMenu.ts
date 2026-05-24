@@ -1,17 +1,26 @@
-import type { ComponentType } from 'react';
+import type { ComponentType, SVGProps } from 'react';
 import type { GraphId, NodeGraph } from '@valerypopoff/rivet2-core';
 import type { ContextMenuData } from '../../hooks/useContextMenu.js';
-import type { ContextMenuItem } from '../../hooks/useContextMenuConfiguration.js';
+
+type GraphListContextMenuIcon = ComponentType<SVGProps<SVGSVGElement>>;
+
+export type GraphListContextMenuItem = {
+  id: string;
+  label: string;
+  icon?: GraphListContextMenuIcon;
+  tone?: 'default' | 'danger';
+  separatorBefore?: boolean;
+};
 
 export type GraphListContextMenuIcons = {
-  renameGraph: ComponentType;
-  duplicateGraph: ComponentType;
-  graphInfo: ComponentType;
-  makeMainGraph: ComponentType;
-  deleteGraph: ComponentType;
-  newGraph: ComponentType;
-  newFolder: ComponentType;
-  importGraph: ComponentType;
+  renameGraph: GraphListContextMenuIcon;
+  duplicateGraph: GraphListContextMenuIcon;
+  graphInfo: GraphListContextMenuIcon;
+  makeMainGraph: GraphListContextMenuIcon;
+  deleteGraph: GraphListContextMenuIcon;
+  newGraph: GraphListContextMenuIcon;
+  newFolder: GraphListContextMenuIcon;
+  importGraph: GraphListContextMenuIcon;
 };
 
 export type GraphListContextMenuTarget =
@@ -86,7 +95,7 @@ export function getGraphListContextMenuTarget({
 export function buildGraphItemContextMenuItems(options: {
   icons: GraphListContextMenuIcons;
   isMainGraph: boolean;
-}): ContextMenuItem[] {
+}): GraphListContextMenuItem[] {
   const { icons, isMainGraph } = options;
 
   return [
@@ -125,7 +134,7 @@ export function buildGraphItemContextMenuItems(options: {
   ];
 }
 
-export function buildFolderContextMenuItems(icons: GraphListContextMenuIcons): ContextMenuItem[] {
+export function buildFolderContextMenuItems(icons: GraphListContextMenuIcons): GraphListContextMenuItem[] {
   return [
     {
       id: 'rename-folder',
@@ -152,7 +161,7 @@ export function buildFolderContextMenuItems(icons: GraphListContextMenuIcons): C
   ];
 }
 
-export function buildGraphListContextMenuItems(icons: GraphListContextMenuIcons): ContextMenuItem[] {
+export function buildGraphListContextMenuItems(icons: GraphListContextMenuIcons): GraphListContextMenuItem[] {
   return [
     {
       id: 'new-graph',

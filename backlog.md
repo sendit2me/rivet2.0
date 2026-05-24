@@ -1,36 +1,8 @@
 
 
-- Sometimes, when I'm working in Rivet for hours already, when I click the project tree with the right mouse button, the Rivet crashes and I have to reload the page. This is what I see in the web console when it happens:
-
-react-dom-BiLoywox.js:3093 RangeError: Maximum call stack size exceeded
-    at editorBridgeFocus-PphY3KF8.js:446:67
-    at editorBridgeFocus-PphY3KF8.js:448:38
-    at Array.forEach (<anonymous>)
-    at editorBridgeFocus-PphY3KF8.js:447:13
-    at editorBridgeFocus-PphY3KF8.js:448:38
-    at Array.forEach (<anonymous>)
-    at editorBridgeFocus-PphY3KF8.js:447:13
-    at editorBridgeFocus-PphY3KF8.js:448:38
-    at Array.forEach (<anonymous>)
-    at editorBridgeFocus-PphY3KF8.js:447:13
-react-dom-BiLoywox.js:2206 Uncaught RangeError: Maximum call stack size exceeded
-    at editorBridgeFocus-PphY3KF8.js:446:67
-    at editorBridgeFocus-PphY3KF8.js:448:38
-    at Array.forEach (<anonymous>)
-    at editorBridgeFocus-PphY3KF8.js:447:13
-    at editorBridgeFocus-PphY3KF8.js:448:38
-    at Array.forEach (<anonymous>)
-    at editorBridgeFocus-PphY3KF8.js:447:13
-    at editorBridgeFocus-PphY3KF8.js:448:38
-    at Array.forEach (<anonymous>)
-    at editorBridgeFocus-PphY3KF8.js:447:13
-HostedEditorApp-DOEPI7oD.js:114464 WebSocket connection to 'wss://storyteller-rivet.litnet.com/ws/executor/internal' failed: WebSocket is closed before the connection is established.
 
 
-
-
-
-- Small and big letters in graph names affect the sorting in the panel. Don't
+- Small and big letters in graph tree item names affect the sorting in the graph tree. Thta's wrong. I want the sorting to be case-insensitive
 
 
 - Did run nod c remove the explanation form the node's body and put it into the settings panel
