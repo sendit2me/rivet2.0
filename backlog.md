@@ -1,7 +1,6 @@
 
 
 
-- Did run node - remove the node explanation from the node's body and put it into the settings panel
 
 
 - Make get global and set global nodes different enough thtat it's easy to notice which is which. Like, icons maybe?

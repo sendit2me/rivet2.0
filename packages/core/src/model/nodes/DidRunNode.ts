@@ -1,5 +1,4 @@
 import { nanoid } from 'nanoid/non-secure';
-import { dedent } from 'ts-dedent';
 import {
   type ChartNode,
   type NodeConnection,
@@ -11,10 +10,14 @@ import {
 import { NodeImpl, type NodeUIData } from '../NodeImpl.js';
 import { nodeDefinition } from '../NodeDefinition.js';
 import { type Inputs, type Outputs } from '../GraphProcessor.js';
+import { type EditorDefinition } from '../EditorDefinition.js';
 
 export type DidRunNode = ChartNode<'didRun', DidRunNodeData>;
 
 export type DidRunNodeData = {};
+
+const DID_RUN_EXPLANATION =
+  'Outputs true when all connected inputs have run. Falsy or empty values still count as having run, so this is useful for adapting "did this branch run at all?" into a boolean If port.';
 
 export class DidRunNodeImpl extends NodeImpl<DidRunNode> {
   static create(): DidRunNode {
@@ -26,7 +29,7 @@ export class DidRunNodeImpl extends NodeImpl<DidRunNode> {
       visualData: {
         x: 0,
         y: 0,
-        width: 250,
+        width: 167,
       },
     };
   }
@@ -58,17 +61,21 @@ export class DidRunNodeImpl extends NodeImpl<DidRunNode> {
 
   static getUIData(): NodeUIData {
     return {
-      infoBoxBody: dedent`
-        Outputs true when all connected inputs have run. Falsy or empty values still count as having run, so this is useful for adapting "did this branch run at all?" into a boolean If port.
-      `,
+      infoBoxBody: DID_RUN_EXPLANATION,
       infoBoxTitle: 'Did Run Node',
       contextMenuTitle: 'Did Run',
       group: ['Logic'],
     };
   }
 
-  getBody(): string {
-    return 'Outputs true when all connected inputs have run. Falsy or empty values still count';
+  getEditors(): EditorDefinition<DidRunNode>[] {
+    return [
+      {
+        type: 'info',
+        label: 'Behavior',
+        helperMessage: DID_RUN_EXPLANATION,
+      },
+    ];
   }
 
   #getInputPortCount(connections: NodeConnection[]): number {

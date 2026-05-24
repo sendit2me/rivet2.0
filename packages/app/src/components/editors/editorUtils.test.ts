@@ -35,13 +35,13 @@ test('getEditorListKey falls back to label plus index for non-dataKey editors', 
   assert.equal(
     getEditorListKey(
       {
-        type: 'group',
-        label: 'Runtime Permissions',
-        editors: [],
+        type: 'info',
+        label: 'Behavior',
+        helperMessage: 'Explains this node.',
       } as any,
       2,
     ),
-    'group:Runtime Permissions:2',
+    'info:Behavior:2',
   );
 });
 
