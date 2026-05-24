@@ -151,6 +151,219 @@ path issue and recorded the final matrix in
 [`runtime-speed-before-after.md`](../runtime-speed-before-after.md).
 Future speed work should still treat direct `GraphProcessor` diagnostic rows as
 core hot-path evidence, not only Node API runtime-policy evidence.
+The follow-up native-runtime exploration is planned in
+[`native-runtime-speed-plan.md`](../native-runtime-speed-plan.md). That plan
+keeps the TypeScript public APIs and current engine as the default, and treats
+Rust as an optional coarse-grained execution core only if benchmarks prove large
+wins for cheap-node, wide fan-in/fan-out, and repeated nested-graph workloads.
+The proposed Rust path is strictly opt-in: existing profiles must bypass native
+package loading, eligibility checks, native IR construction, and native runtime
+branches unless the caller explicitly selects the future `native-fast` profile.
+The first implementation should stay graph-runner scoped, keep `runGraph(...)`
+and one-shot `createProcessor(...)` on the current TypeScript paths, and report
+whether native execution actually ran so benchmark rows cannot count TypeScript
+fallback as Rust speed wins. Normal install/build/test flows must remain
+TypeScript-only unless an explicit native-runtime script or CI job is invoked.
+
+The native-runtime adapter is now seeded as an opt-in `createGraphRunner(...)`
+profile only. `runtimeProfile: 'native-fast'` routes through
+[`packages/node/src/nativeGraphRunner.ts`](../packages/node/src/nativeGraphRunner.ts),
+which performs a TypeScript-side eligibility pass, builds compact graph IR for
+the narrow supported subset, and lazily imports the optional native package only
+after that profile has been selected. Unsupported graphs, missing native
+modules, and native creation failures fall back to a whole-run compatible
+TypeScript runner and expose `getNativeRuntimeDecision()` for tests and
+benchmarks. The fallback runner is created lazily so successful native runs do
+not pay TypeScript runner setup cost. Per-run abort signals still use compatible
+TypeScript fallback until the native path has proven equivalent abort behavior.
+Native run-time failures are not double-run through TypeScript; they surface as
+errors with a decision reason so benchmarks do not hide native defects. Native
+outputs are normalized with the ordinary zero-cost output when the native runner
+omits `cost`, and native `DataValue` objects that cross the JSON worker
+transport without a `value` field are restored to `value: undefined`, matching
+the TypeScript shape. The Rust worker keeps explicit JSON `null` distinct from
+missing `value` fields so native nodes with null/undefined semantics can match
+TypeScript. The initial native
+package boundary lives under
+[`native-runtime/`](../native-runtime/) rather than `packages/*`; it is a
+private prototype with explicit Cargo scripts and no effect on normal Yarn
+workspace install/build/test flows. Its checked-in JS adapter can execute the
+current eligible IR for `graphInput`, `text`, `join`, `object`, `coalesce`,
+`destructure`, `extractObjectPath`, `graphOutput`, direct `subGraph` nodes, and
+TypeScript-resolved Referenced Graph Alias nodes compiled into synthetic
+subgraph IR when `RIVET_NATIVE_RUNTIME_BACKEND=js` is selected or when no Rust
+worker binary is available. The Rust worker backend under
+`native-runtime/native/` now executes the same narrow IR through a persistent
+child process when `RIVET_NATIVE_RUNTIME_BACKEND=rust` is selected, or
+automatically when a built worker binary is present. The worker-process
+boundary is the selected native-fast hardening shape for now because it keeps
+native crash isolation and still fails closed before execution; N-API remains a
+future release-packaging option, not a prerequisite for the current internal
+experimental profile. Move the native package into the workspace only after the
+package-manager, platform, and benchmark gates in the plan are satisfied.
+Both adapters validate the IR they receive before creating a runner, including
+duplicate node IDs and stale connections, and keep per-run input/output maps
+fresh so repeated native-fast runs cannot share values.
+Local experiments can point the adapter at a package name, file URL, or
+filesystem path with `RIVET_NATIVE_RUNTIME_MODULE`; the default unresolved
+module name remains `@valerypopoff/rivet2-native-runtime` so a missing native
+artifact fails closed to TypeScript fallback. `RIVET_NATIVE_RUNTIME_BACKEND`
+can force `rust` or `js`; `RIVET_NATIVE_RUNTIME_BINARY` can point at a specific
+worker executable for benchmark runs.
+Native runtime checks remain explicit: `npm --prefix native-runtime run test:native`
+runs the Rust crate tests, builds the release worker, and runs a
+JS-adapter/Rust-worker equivalence smoke for interpolation, defaults, fan-in,
+Object JSON-template construction, coalesce fan-in, simple destructure paths,
+static Extract Object Path, direct subgraphs, concurrent runs, and create-time
+rejection reasons. Rust unit coverage separately verifies explicit JSON `null`
+versus missing `value` transport semantics for native nodes that need to
+distinguish null from undefined. The Node graph-runner tests cover the
+TypeScript reference-resolution step that turns eligible Referenced Graph Alias
+nodes into synthetic native subgraph IR before either native adapter sees the
+request.
+[`packages/node/test/nativeRuntimeEquivalence.test.ts`](../packages/node/test/nativeRuntimeEquivalence.test.ts)
+is the focused native-fast equivalence suite for real-ish supported graph
+patterns: it runs each fixture through the compatible TypeScript graph runner,
+asserts the expected outputs, then reruns the same project through the local
+native-fast JS adapter and requires identical outputs and a positive native
+decision. It also covers nearby unsupported Expression and dynamic graph-call
+fixtures, proving they fall back before the native module is loaded. The main
+workspace build/test scripts stay TypeScript-only; CI runs
+the native prototype in its own `native-runtime` matrix job on Windows, macOS,
+and Linux so ordinary contributors do not need native artifacts for normal Rivet
+development, while platform-specific worker build/test failures are still
+caught in CI.
+
+The supported native IR subset is intentionally small: acyclic graphs with
+`graphInput`, `text`, `join`, `object`, `coalesce`, `destructure`,
+`extractObjectPath`, `graphOutput`, direct `Subgraph` nodes, and Referenced
+Graph Alias nodes whose reached graphs are also eligible. Referenced Graph
+Alias support is still TypeScript-owned at the boundary: the Node runner loads
+referenced projects once through the configured `projectReferenceLoader` or
+default Node loader, turns those projects into an immutable native-runner
+snapshot, and serializes only the eligible target graphs into namespaced native
+IR so referenced subgraph IDs cannot collide with root-project graph IDs. The
+internal `__rivet_native_reference__:` graph-ID prefix is reserved for that
+synthetic namespace, and its project/graph ID components are URI-encoded so
+IDs containing separators cannot collide; project graphs using the reserved
+prefix stay on TypeScript fallback. The
+native adapters never perform project-file discovery or dynamic reference
+loading themselves. Disabled,
+conditional, split-run, plugin, custom registry, callback/event-sensitive,
+dynamic Call Graph,
+Graph Reference, Code, Expression, stale connection, and unsupported port paths
+remain TypeScript fallback. Referenced Graph Alias nodes also fall back when
+`useErrorOutput` or cost/duration output mode is enabled, when the referenced
+project cannot be resolved, or when the reached graph is outside the native
+subset. Per-run abort signals also stay on the TypeScript path and skip native
+reference-snapshot construction before falling back; the fallback runner still
+uses the normal TypeScript project-reference loading behavior.
+Code and Expression are an intentional v1 fallback rather than an omission: the
+current JavaScript semantics include sandbox permissions, dependency loading,
+custom CodeRunner ownership, and error formatting that need a separate
+product-level migration plan before any native DSL or compiled-extension model
+can replace them.
+Text-node interpolation is native-eligible only for the processing pipes whose
+Rust behavior is covered by current parity tests: `uppercase`, `lowercase`,
+`trim`, non-negative-integer `truncate`, and `quote` with an omitted or
+non-negative-integer level. Malformed `quote` parameters stay on the TypeScript
+path so native-fast does not diverge from JS parsing or mask TypeScript errors.
+Other text processing pipes stay on the TypeScript path until they have exact
+semantic fixtures.
+Object-node construction is native-eligible for static JSON templates whose
+interpolation inputs are ordinary node inputs, `@context.*`, or
+`@graphInputs.*`. The native adapters mirror the TypeScript Object node's
+quoted-token escaping, unquoted JSON value insertion, embedded string fragments,
+escaped interpolation tokens, and `object` versus `object[]` output typing.
+Object nodes still inherit the whole-graph native eligibility gate: disabled,
+conditional, split-run, plugin/custom-registry, event-sensitive, or unsupported
+neighboring nodes keep the entire run on TypeScript fallback.
+Coalesce is native-eligible for static `ignoreNull` and `ignoreUndefined`
+settings. Its `conditional` input is only a node-run gate, matching the
+TypeScript node, dynamic candidate ports must use exact `inputN` names, and the
+Rust worker defaults missing coalesce flags to `false` to match the JS adapter
+and TypeScript node defaults.
+Destructure is native-eligible only for static output paths that fit the current
+simple JSONPath subset: `$`, dot-property segments such as `$.meta.name`, and
+safe non-negative array-index segments such as `$.items[0]`. Wildcards,
+filters, recursive descent, path inputs, and other JSONPath features remain
+TypeScript fallback. The required `object` input must be connected before a
+graph can enter native-fast so missing-input behavior stays aligned with the
+TypeScript processor. Plain `object` graph inputs and graph outputs are admitted
+across the current native subset so object-shaped values can cross graph
+boundaries without changing the default TypeScript path; omitted `object` graph
+inputs use the same `{}` default as the TypeScript engine. Graph Input's
+`useDefaultValueInput` setting is native-eligible for the currently supported
+Graph Input data types. The optional `default` input port is accepted only when
+that setting is enabled, explicit graph-run inputs still win over connected
+default-port values, and an enabled but unconnected `default` port preserves the
+existing TypeScript optional-coercion behavior instead of inventing a new static
+default rule. Malformed non-boolean `useDefaultValueInput` metadata falls back
+to the TypeScript runner instead of being coerced in native-fast. Native graph
+outputs also admit the primitive, `any`, and `object`
+array data types so nodes such as
+Object and Extract Object Path can expose array-shaped results without forcing a
+fallback, but array graph inputs remain TypeScript-only until native-fast covers
+the TypeScript array coercion rules.
+Extract Object Path is native-eligible only when `usePathInput` is disabled, the
+stored path has no interpolation tokens, and the path fits the same simple
+JSONPath subset as native destructure. Dynamic path inputs, interpolation,
+wildcards, filters, recursive descent, and other JSONPath features remain
+TypeScript fallback. A supported path with no match returns an empty
+`all_matches` value and a control-flow-excluded `match`, matching the
+TypeScript node behavior.
+Benchmark rows with
+`createGraphRunner native-fast ...` include `nativeEligible`, `nativeUsed`,
+`nativeBackend`, and `nativeFallbackReason` fields; a row where `nativeUsed` is
+false is a fallback measurement, not a native speed result. A row where
+`nativeBackend` is `js-adapter` is useful adapter evidence, but only
+`nativeBackend: rust-worker` rows can be counted as Rust candidate evidence.
+The runtime-speed benchmark matrix includes a
+`createGraphRunner native-fast Referenced Graph Alias repeated same-input 50`
+row so reference-boundary work is measured next to the compatible and
+default-safe TypeScript rows.
+The first measured native before/after matrix is recorded in
+[`native-runtime-before-after.md`](../native-runtime-before-after.md). On the
+2026-05-24 local benchmark, the Rust worker cleared the feasibility gate for
+eligible cheap-node, fan-in, and subgraph-heavy graph-runner workloads while
+unsupported Code and Expression rows stayed on TypeScript fallback with
+`nativeUsed=false`. The follow-up full matrix in the same document records the
+post-reference-boundary Rust worker results, including cross-reference
+dispatch, object-like cheap nodes, fallback neutrality checks, and the
+1000-node cheap-chain scaling gate.
+[`packages/node/bench/nativeRealWorkflow.bench.ts`](../packages/node/bench/nativeRealWorkflow.bench.ts)
+is the checked-in real-project audit/benchmark for native-fast reach. Run it
+with `yarn workspace @valerypopoff/rivet2-node run bench:native-real-workflows`.
+It reports fallback reasons for each checked-in project graph but only executes
+non-empty graphs that are native-eligible before the run, so the benchmark does
+not accidentally call LLMs, file nodes, user-input flows, or other TypeScript
+fallback workflows. The benchmark still reports checked-in projects with
+external references as `project-has-references` because it does not resolve
+arbitrary reference files during the side-effect-safe audit; that benchmark
+guard is separate from `createGraphRunner(...)`, which can classify referenced
+projects through its configured `projectReferenceLoader`. Project plugin
+metadata alone is not a native-fast blocker: plugin-bearing projects and
+referenced projects can run natively when the selected graph closure uses only
+supported built-in native nodes. Actual plugin/custom nodes in that closure
+still fall back before native module load, with active plugin/custom node types
+reported as `unsupported-node:<type>:<nodeId>`, and `native-fast` still rejects
+custom registries. The first local result is recorded in
+[`native-runtime-real-workflow-benchmark.md`](../native-runtime-real-workflow-benchmark.md);
+with `RIVET_REAL_WORKFLOW_BENCH_JSON=1`, the script emits raw per-graph
+`results` plus a deterministic `summary` of status counts, fallback families,
+normalized blockers, exact fallback reasons, unsupported node types, and
+representative graphs. Console mode prints labeled summary tables with bounded
+exact fallback reasons, while JSON mode keeps the complete exact-reason list.
+Missing project files, project load errors, output parity mismatches, and run
+errors remain visible in the report if they occur. The first run found only
+three small native-eligible real graphs out of 88 audited graphs. After the
+project-plugin gate was narrowed, a lightweight audit found six eligible graphs
+and zero `project-has-plugins` fallback reasons, so future native work should
+continue treating eligibility breadth as the real-project bottleneck. After
+Graph Input default-value input ports entered the native subset, the
+`graph-input-default-port:*` blocker count dropped from two to zero while the
+eligible-row count stayed at six because the affected real graphs exposed deeper
+unsupported nodes or text-processing settings.
 
 `createGraphRunner(...)` is the additive production-facing fast path for
 headless/programmatic Node integrations that load a project once and run the

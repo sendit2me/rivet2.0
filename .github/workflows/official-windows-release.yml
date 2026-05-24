@@ -80,11 +80,36 @@ jobs:
         env:
           NODE_OPTIONS: --max-old-space-size=6000
 
+      - name: Prepare Apple signing and notarization
+        run: bash .github/scripts/prepare-macos-signing-env.sh
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_PRIVATE_KEY: ${{ secrets.APPLE_API_PRIVATE_KEY }}
+
       - name: Build Tauri macOS bundle
         working-directory: packages/app
         run: yarn tauri build --verbose --ci --target universal-apple-darwin --bundles "dmg"
         env:
           NODE_OPTIONS: --max-old-space-size=6000
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+
+      - name: Notarize macOS DMG
+        run: bash .github/scripts/notarize-macos-dmg.sh
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+
+      - name: Verify macOS signing and notarization
+        run: bash .github/scripts/verify-macos-dmg.sh
 
       - name: Upload macOS bundles
         uses: actions/upload-artifact@v7

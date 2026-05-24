@@ -1,24 +1,47 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+  createProcessor,
   createGraphRunner,
   globalRivetNodeRegistry,
+  runGraph,
   type ChartNode,
   type CodeRunner,
   type DataValue,
+  type GraphId,
   type Inputs,
+  type NodeGraph,
+  type NodeConnection,
   type NodeImpl,
+  type NodeId,
   type NodeRegistration,
   type Outputs,
+  type PortId,
+  type Project,
+  type ProjectId,
+  type ProjectReferenceLoader,
 } from '../src/index.js';
+import { setNativeRuntimeModuleLoaderForTesting, type NativeRuntimeModule } from '../src/nativeGraphRunner.js';
 import {
   makeAbortSignalProject,
   makeAsyncDelayProject,
   makeCodeChainProject,
+  makeCoalesceFanInProject,
+  makeDestructureFanOutProject,
+  makeExtractObjectPathProject,
   makeGlobalStateProject,
   makeInputContextTextProject,
+  makeNativeGraphInputDefaultPortProject,
+  makeNativeGraphInputUnconnectedDefaultPortProject,
+  makeNativeTextQuoteProcessingProject,
+  makeObjectArrayConstructionProject,
+  makeObjectConstructionProject,
+  makeReferencedGraphAliasFanInProject,
   makeSubgraphChainProject,
+  makeTextChainProject,
+  makeWideTextFanInProject,
 } from './runtimeSpeedFixtures.js';
+import { withLocalNativeFastAdapterEnv } from './testUtils.js';
 
 class CountingCodeRunner implements CodeRunner {
   calls = 0;
@@ -76,6 +99,24 @@ function trackDefinitionCalls(impl: NodeImpl<ChartNode>, onDefinitionCall: () =>
   };
 
   return impl;
+}
+
+function addUnusedProjectPluginMetadata(project: Project): void {
+  project.plugins = [
+    { id: 'openai', name: 'OpenAI', type: 'built-in' },
+    { id: 'test-package-plugin', package: '@rivet/test-package-plugin', tag: 'latest', type: 'package' },
+    { id: 'test-uri-plugin', type: 'uri', uri: 'https://example.test/rivet-plugin.js' },
+  ];
+}
+
+function makeOpenAIPluginNode(id: string): ChartNode {
+  return {
+    data: {},
+    id: id as NodeId,
+    title: 'OpenAI Plugin Node',
+    type: 'openaiCreateThread',
+    visualData: { width: 260, x: 0, y: 0 },
+  };
 }
 
 void describe('createGraphRunner', () => {
@@ -265,5 +306,1398 @@ void describe('createGraphRunner', () => {
     await compatibleRunner.run({ inputs: { input: 'b' } });
     assert.equal(compatibleRegistry.getCreateCalls(), nodeCount * 2);
     assert.equal(compatibleRegistry.getDefinitionCalls(), nodeCount * 4);
+  });
+
+  void it('does not load the native runtime for existing TypeScript profiles', async () => {
+    const fixture = makeTextChainProject(1);
+    let nativeLoadCalls = 0;
+    setNativeRuntimeModuleLoaderForTesting(async () => {
+      nativeLoadCalls += 1;
+      throw new Error('Native runtime should not load for non-native profiles.');
+    });
+
+    try {
+      const compatibleRunner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+      });
+      const fastRunner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        runtimeProfile: 'headless-fast',
+      });
+
+      assert.deepEqual(await compatibleRunner.run({ inputs: { input: 'a' } }), {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: 'ax' },
+      } satisfies Record<string, DataValue>);
+      assert.deepEqual(await fastRunner.run({ inputs: { input: 'b' } }), {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: 'bx' },
+      } satisfies Record<string, DataValue>);
+      assert.equal(nativeLoadCalls, 0);
+    } finally {
+      setNativeRuntimeModuleLoaderForTesting(undefined);
+    }
+  });
+
+  void it('keeps native-fast scoped away from runGraph and createProcessor', async () => {
+    const fixture = makeTextChainProject(1);
+    let nativeLoadCalls = 0;
+    setNativeRuntimeModuleLoaderForTesting(async () => {
+      nativeLoadCalls += 1;
+      throw new Error('Native runtime should not load outside createGraphRunner native-fast.');
+    });
+
+    try {
+      assert.deepEqual(
+        await runGraph(fixture.project, {
+          graph: fixture.graphId,
+          inputs: { input: 'runGraph' },
+          runtimeProfile: 'native-fast',
+        } as Parameters<typeof runGraph>[1] & { runtimeProfile: 'native-fast' }),
+        {
+          cost: { type: 'number', value: 0 },
+          result: { type: 'string', value: 'runGraphx' },
+        } satisfies Record<string, DataValue>,
+      );
+
+      assert.deepEqual(
+        await createProcessor(fixture.project, {
+          graph: fixture.graphId,
+          inputs: { input: 'processor' },
+          runtimeProfile: 'native-fast' as never,
+        }).run(),
+        {
+          cost: { type: 'number', value: 0 },
+          result: { type: 'string', value: 'processorx' },
+        } satisfies Record<string, DataValue>,
+      );
+
+      assert.equal(nativeLoadCalls, 0);
+    } finally {
+      setNativeRuntimeModuleLoaderForTesting(undefined);
+    }
+  });
+
+  void it('falls back from native-fast when the native module cannot load', async () => {
+    const fixture = makeTextChainProject(1);
+    let nativeLoadCalls = 0;
+    setNativeRuntimeModuleLoaderForTesting(async () => {
+      nativeLoadCalls += 1;
+      throw new Error('native module missing');
+    });
+
+    try {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        runtimeProfile: 'native-fast',
+      });
+      const outputs = await runner.run({ inputs: { input: 'fallback' } });
+
+      assert.deepEqual(outputs, {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: 'fallbackx' },
+      } satisfies Record<string, DataValue>);
+      assert.equal(nativeLoadCalls, 1);
+      assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+        fallbackReason: 'module-load-failed:native module missing',
+        nativeEligible: true,
+        nativeUsed: false,
+        requested: true,
+      });
+    } finally {
+      setNativeRuntimeModuleLoaderForTesting(undefined);
+    }
+  });
+
+  void it('falls back without loading native code when the graph is not native eligible', async () => {
+    const fixture = makeCodeChainProject(1);
+    let nativeLoadCalls = 0;
+    setNativeRuntimeModuleLoaderForTesting(async () => {
+      nativeLoadCalls += 1;
+      throw new Error('Native runtime should not load for unsupported graphs.');
+    });
+
+    try {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        runtimeProfile: 'native-fast',
+      });
+      const outputs = await runner.run({ inputs: { input: 1 } });
+
+      assert.deepEqual(outputs, {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'any', value: 2 },
+      } satisfies Record<string, DataValue>);
+      assert.equal(nativeLoadCalls, 0);
+      assert.match(runner.getNativeRuntimeDecision?.().fallbackReason ?? '', /^unsupported-node:codeNew:/);
+    } finally {
+      setNativeRuntimeModuleLoaderForTesting(undefined);
+    }
+  });
+
+  void it('keeps array graph inputs on the TypeScript fallback path', async () => {
+    const fixture = makeTextChainProject(1);
+    const graphInput = fixture.project.graphs[fixture.graphId]!.nodes.find((node) => node.id === 'graph-input')!;
+    (graphInput.data as { dataType: string }).dataType = 'string[]';
+    let nativeLoadCalls = 0;
+    setNativeRuntimeModuleLoaderForTesting(async () => {
+      nativeLoadCalls += 1;
+      throw new Error('Native runtime should not load for array graph inputs.');
+    });
+
+    try {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        runtimeProfile: 'native-fast',
+      });
+      const outputs = await runner.run();
+
+      assert.deepEqual(outputs, {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: 'x' },
+      } satisfies Record<string, DataValue>);
+      assert.equal(nativeLoadCalls, 0);
+      assert.match(runner.getNativeRuntimeDecision?.().fallbackReason ?? '', /^unsupported-data-type:string\[\]:/);
+    } finally {
+      setNativeRuntimeModuleLoaderForTesting(undefined);
+    }
+  });
+
+  void it('runs graph input default-value input ports through the local native-fast adapter', async () => {
+    const fixture = makeNativeGraphInputDefaultPortProject();
+
+    await withLocalNativeFastAdapterEnv(async () => {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        runtimeProfile: 'native-fast',
+      });
+
+      assert.deepEqual(await runner.run(), {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: 'dynamic' },
+      } satisfies Record<string, DataValue>);
+      assert.deepEqual(await runner.run({ inputs: { input: 'explicit' } }), {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: 'explicit' },
+      } satisfies Record<string, DataValue>);
+      assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+        nativeBackend: 'js-adapter',
+        nativeEligible: true,
+        nativeUsed: true,
+        requested: true,
+      });
+    });
+  });
+
+  void it('keeps graph input default-value input connections disabled unless the node opts in', async () => {
+    const fixture = makeNativeGraphInputDefaultPortProject();
+    const graphInput = fixture.project.graphs[fixture.graphId]!.nodes.find((node) => node.id === 'graph-input')!;
+    (graphInput.data as { useDefaultValueInput: boolean }).useDefaultValueInput = false;
+    let nativeLoadCalls = 0;
+    setNativeRuntimeModuleLoaderForTesting(async () => {
+      nativeLoadCalls += 1;
+      throw new Error('Native runtime should not load for disabled Graph Input default ports.');
+    });
+
+    try {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        runtimeProfile: 'native-fast',
+      });
+      const outputs = await runner.run();
+
+      assert.deepEqual(outputs, {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: 'static' },
+      } satisfies Record<string, DataValue>);
+      assert.equal(nativeLoadCalls, 0);
+      assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+        fallbackReason: 'unsupported-connection-input-port:graph-input:default',
+        nativeEligible: false,
+        nativeUsed: false,
+        requested: true,
+      });
+    } finally {
+      setNativeRuntimeModuleLoaderForTesting(undefined);
+    }
+  });
+
+  void it('matches Graph Input behavior when the enabled default-value input is unconnected', async () => {
+    const fixture = makeNativeGraphInputUnconnectedDefaultPortProject();
+
+    await withLocalNativeFastAdapterEnv(async () => {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        runtimeProfile: 'native-fast',
+      });
+      const outputs = await runner.run();
+
+      assert.deepEqual(outputs, {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: '' },
+      } satisfies Record<string, DataValue>);
+      assert.equal(runner.getNativeRuntimeDecision?.().nativeUsed, true);
+      assert.equal(runner.getNativeRuntimeDecision?.().nativeBackend, 'js-adapter');
+    });
+  });
+
+  void it('falls back before loading native-fast when the Graph Input default-port setting is malformed', async () => {
+    const fixture = makeNativeGraphInputUnconnectedDefaultPortProject();
+    const graphInput = fixture.project.graphs[fixture.graphId]!.nodes.find((node) => node.id === 'graph-input')!;
+    (graphInput.data as { useDefaultValueInput: unknown }).useDefaultValueInput = 'true';
+    let nativeLoadCalls = 0;
+    setNativeRuntimeModuleLoaderForTesting(async () => {
+      nativeLoadCalls += 1;
+      throw new Error('Native runtime should not load for malformed Graph Input default-port settings.');
+    });
+
+    try {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        runtimeProfile: 'native-fast',
+      });
+      const outputs = await runner.run();
+
+      assert.deepEqual(outputs, {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: '' },
+      } satisfies Record<string, DataValue>);
+      assert.equal(nativeLoadCalls, 0);
+      assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+        fallbackReason: 'invalid-graph-input-default-port-setting:graph-input',
+        nativeEligible: false,
+        nativeUsed: false,
+        requested: true,
+      });
+    } finally {
+      setNativeRuntimeModuleLoaderForTesting(undefined);
+    }
+  });
+
+  void it('falls back without loading native code when runner callbacks are provided', async () => {
+    const fixture = makeTextChainProject(1);
+    let nativeLoadCalls = 0;
+    let nodeFinishCalls = 0;
+    setNativeRuntimeModuleLoaderForTesting(async () => {
+      nativeLoadCalls += 1;
+      throw new Error('Native runtime should not load when callbacks are present.');
+    });
+
+    try {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        onNodeFinish: () => {
+          nodeFinishCalls += 1;
+        },
+        runtimeProfile: 'native-fast',
+      });
+      const outputs = await runner.run({ inputs: { input: 'callback' } });
+
+      assert.deepEqual(outputs, {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: 'callbackx' },
+      } satisfies Record<string, DataValue>);
+      assert.equal(nativeLoadCalls, 0);
+      assert.ok(nodeFinishCalls > 0);
+      assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+        fallbackReason: 'unsupported-option:onNodeFinish',
+        nativeEligible: false,
+        nativeUsed: false,
+        requested: true,
+      });
+    } finally {
+      setNativeRuntimeModuleLoaderForTesting(undefined);
+    }
+  });
+
+  void it('falls back without loading native code when a custom registry is provided', async () => {
+    const fixture = makeTextChainProject(1);
+    const countingRegistry = createCountingRegistry();
+    let nativeLoadCalls = 0;
+    setNativeRuntimeModuleLoaderForTesting(async () => {
+      nativeLoadCalls += 1;
+      throw new Error('Native runtime should not load when a custom registry is present.');
+    });
+
+    try {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        registry: countingRegistry.registry,
+        runtimeProfile: 'native-fast',
+      });
+      const outputs = await runner.run({ inputs: { input: 'registry' } });
+
+      assert.deepEqual(outputs, {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: 'registryx' },
+      } satisfies Record<string, DataValue>);
+      assert.equal(nativeLoadCalls, 0);
+      assert.ok(countingRegistry.getDefinitionCalls() > 0);
+      assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+        fallbackReason: 'unsupported-option:registry',
+        nativeEligible: false,
+        nativeUsed: false,
+        requested: true,
+      });
+    } finally {
+      setNativeRuntimeModuleLoaderForTesting(undefined);
+    }
+  });
+
+  void it('falls back without loading native code when per-run abort signals are used', async () => {
+    const fixture = makeTextChainProject(1);
+    const controller = new AbortController();
+    let nativeLoadCalls = 0;
+    setNativeRuntimeModuleLoaderForTesting(async () => {
+      nativeLoadCalls += 1;
+      throw new Error('Native runtime should not load when per-run abort handling is required.');
+    });
+
+    try {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        runtimeProfile: 'native-fast',
+      });
+      const outputs = await runner.run({
+        abortSignal: controller.signal,
+        inputs: { input: 'abort-signal' },
+      });
+
+      assert.deepEqual(outputs, {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: 'abort-signalx' },
+      } satisfies Record<string, DataValue>);
+      assert.equal(nativeLoadCalls, 0);
+      assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+        fallbackReason: 'unsupported-run-option:abortSignal',
+        nativeEligible: true,
+        nativeUsed: false,
+        requested: true,
+      });
+    } finally {
+      setNativeRuntimeModuleLoaderForTesting(undefined);
+    }
+  });
+
+  void it('does not resolve native references before per-run abort-signal fallback', async () => {
+    const fixture = makeTextChainProject(1);
+    const referencedFixture = makeTextChainProject(1);
+    const referencedProjectId = 'unused-abort-reference' as ProjectId;
+    referencedFixture.project.metadata.id = referencedProjectId;
+    fixture.project.references = [{ id: referencedProjectId, title: 'Unused Abort Reference' }];
+    const controller = new AbortController();
+    let nativeLoadCalls = 0;
+    let referenceLoadCalls = 0;
+    const projectReferenceLoader: ProjectReferenceLoader = {
+      async loadProject(_currentProjectPath, reference) {
+        referenceLoadCalls += 1;
+        assert.equal(reference.id, referencedProjectId);
+        return referencedFixture.project as Project;
+      },
+    };
+    setNativeRuntimeModuleLoaderForTesting(async () => {
+      nativeLoadCalls += 1;
+      throw new Error('Native runtime should not load when per-run abort handling is required.');
+    });
+
+    try {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        projectReferenceLoader,
+        runtimeProfile: 'native-fast',
+      });
+      const outputs = await runner.run({
+        abortSignal: controller.signal,
+        inputs: { input: 'abort-reference' },
+      });
+
+      assert.deepEqual(outputs, {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: 'abort-referencex' },
+      } satisfies Record<string, DataValue>);
+      assert.equal(nativeLoadCalls, 0);
+      assert.equal(referenceLoadCalls, 1);
+      assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+        fallbackReason: 'unsupported-run-option:abortSignal',
+        nativeEligible: true,
+        nativeUsed: false,
+        requested: true,
+      });
+    } finally {
+      setNativeRuntimeModuleLoaderForTesting(undefined);
+    }
+  });
+
+  void it('falls back without loading native code when eligible nodes have unsupported connection ports', async () => {
+    const fixture = makeTextChainProject(1);
+    fixture.project.graphs[fixture.graphId]!.connections.push({
+      inputId: 'value' as PortId,
+      inputNodeId: 'graph-output' as NodeId,
+      outputId: 'missing' as PortId,
+      outputNodeId: 'text-0' as NodeId,
+    } satisfies NodeConnection);
+    let nativeLoadCalls = 0;
+    setNativeRuntimeModuleLoaderForTesting(async () => {
+      nativeLoadCalls += 1;
+      throw new Error('Native runtime should not load with unsupported connection ports.');
+    });
+
+    try {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        runtimeProfile: 'native-fast',
+      });
+      const outputs = await runner.run({ inputs: { input: 'ports' } });
+
+      assert.deepEqual(outputs, {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: 'portsx' },
+      } satisfies Record<string, DataValue>);
+      assert.equal(nativeLoadCalls, 0);
+      assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+        fallbackReason: 'unsupported-connection-output-port:text-0:missing',
+        nativeEligible: false,
+        nativeUsed: false,
+        requested: true,
+      });
+    } finally {
+      setNativeRuntimeModuleLoaderForTesting(undefined);
+    }
+  });
+
+  void it('can load and run the local native-fast adapter from an explicit file URL override', async () => {
+    const fixture = makeTextChainProject(1);
+
+    await withLocalNativeFastAdapterEnv(async () => {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        runtimeProfile: 'native-fast',
+      });
+      const outputs = await runner.run({ inputs: { input: 'local-stub' } });
+
+      assert.deepEqual(outputs, {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: 'local-stubx' },
+      } satisfies Record<string, DataValue>);
+      assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+        nativeBackend: 'js-adapter',
+        nativeEligible: true,
+        nativeUsed: true,
+        requested: true,
+      });
+    });
+  });
+
+  void it('keeps plugin-bearing projects native-fast eligible when the selected graph closure uses only supported built-ins', async () => {
+    const fixture = makeTextChainProject(1);
+    addUnusedProjectPluginMetadata(fixture.project);
+
+    await withLocalNativeFastAdapterEnv(async () => {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        runtimeProfile: 'native-fast',
+      });
+      const outputs = await runner.run({ inputs: { input: 'plugin-spec' } });
+
+      assert.deepEqual(outputs, {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: 'plugin-specx' },
+      } satisfies Record<string, DataValue>);
+      assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+        nativeBackend: 'js-adapter',
+        nativeEligible: true,
+        nativeUsed: true,
+        requested: true,
+      });
+    });
+  });
+
+  void it('keeps referenced plugin-bearing projects native-fast eligible when the referenced graph closure uses only supported built-ins', async () => {
+    const fixture = makeReferencedGraphAliasFanInProject(1);
+    addUnusedProjectPluginMetadata(fixture.referencedProject);
+
+    await withLocalNativeFastAdapterEnv(async () => {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        projectReferenceLoader: fixture.projectReferenceLoader,
+        runtimeProfile: 'native-fast',
+      });
+      const outputs = await runner.run({ inputs: { input: 'ref-plugin-spec' } });
+
+      assert.deepEqual(outputs, {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: 'ref-plugin-specx' },
+      } satisfies Record<string, DataValue>);
+      assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+        nativeBackend: 'js-adapter',
+        nativeEligible: true,
+        nativeUsed: true,
+        requested: true,
+      });
+    });
+  });
+
+  void it('falls back before loading native-fast when the selected graph contains a plugin node', () => {
+    const fixture = makeTextChainProject(1);
+    addUnusedProjectPluginMetadata(fixture.project);
+    fixture.project.graphs[fixture.graphId]!.nodes.push(makeOpenAIPluginNode('plugin-node'));
+
+    let nativeLoadCalls = 0;
+    setNativeRuntimeModuleLoaderForTesting(async () => {
+      nativeLoadCalls += 1;
+      throw new Error('Plugin nodes in the selected graph should not load native-fast.');
+    });
+
+    try {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        runtimeProfile: 'native-fast',
+      });
+
+      assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+        fallbackReason: 'unsupported-node:openaiCreateThread:plugin-node',
+        nativeEligible: false,
+        nativeUsed: false,
+        requested: true,
+      });
+      assert.equal(nativeLoadCalls, 0);
+    } finally {
+      setNativeRuntimeModuleLoaderForTesting(undefined);
+    }
+  });
+
+  void it('falls back before loading native-fast when a referenced graph contains a plugin node', async () => {
+    const fixture = makeReferencedGraphAliasFanInProject(1);
+    const referencedGraphId = fixture.referencedProject.metadata.mainGraphId!;
+    fixture.referencedProject.graphs[referencedGraphId]!.nodes.push(makeOpenAIPluginNode('referenced-plugin-node'));
+    addUnusedProjectPluginMetadata(fixture.referencedProject);
+
+    let nativeLoadCalls = 0;
+    setNativeRuntimeModuleLoaderForTesting(async () => {
+      nativeLoadCalls += 1;
+      throw new Error('Referenced plugin nodes should not load native-fast.');
+    });
+
+    try {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        projectReferenceLoader: fixture.projectReferenceLoader,
+        runtimeProfile: 'native-fast',
+      });
+
+      await assert.rejects(() => runner.run({ inputs: { input: 'ref-plugin-node' } }));
+      assert.equal(nativeLoadCalls, 0);
+      assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+        fallbackReason: 'unsupported-node:openaiCreateThread:referenced-plugin-node',
+        nativeEligible: false,
+        nativeUsed: false,
+        requested: true,
+      });
+    } finally {
+      setNativeRuntimeModuleLoaderForTesting(undefined);
+    }
+  });
+
+  void it('runs direct subgraph boundaries through the local native-fast adapter', async () => {
+    const fixture = makeSubgraphChainProject(2);
+
+    await withLocalNativeFastAdapterEnv(async () => {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        runtimeProfile: 'native-fast',
+      });
+      const outputs = await runner.run({ inputs: { input: 'nested' } });
+
+      assert.deepEqual(outputs, {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: 'nestedxx' },
+      } satisfies Record<string, DataValue>);
+      assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+        nativeBackend: 'js-adapter',
+        nativeEligible: true,
+        nativeUsed: true,
+        requested: true,
+      });
+    });
+  });
+
+  void it('runs referenced graph aliases through the local native-fast adapter after resolving references', async () => {
+    const fixture = makeReferencedGraphAliasFanInProject(2);
+
+    await withLocalNativeFastAdapterEnv(async () => {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        projectReferenceLoader: fixture.projectReferenceLoader,
+        runtimeProfile: 'native-fast',
+      });
+      const outputs = await runner.run({ inputs: { input: 'ref' } });
+
+      assert.deepEqual(outputs, {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: 'refxrefx' },
+      } satisfies Record<string, DataValue>);
+      assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+        nativeBackend: 'js-adapter',
+        nativeEligible: true,
+        nativeUsed: true,
+        requested: true,
+      });
+    });
+  });
+
+  void it('namespaces nested graphs inside referenced projects before native-fast execution', async () => {
+    const fixture = makeReferencedGraphAliasFanInProject(1);
+    const nestedReferencedProject = makeSubgraphChainProject(1);
+    const referencedAlias = fixture.project.graphs[fixture.graphId]!.nodes.find(
+      (node) => node.type === 'referencedGraphAlias',
+    )!;
+    (referencedAlias.data as { graphId: GraphId }).graphId = nestedReferencedProject.graphId;
+    fixture.referencedProject.graphs = nestedReferencedProject.project.graphs;
+    fixture.referencedProject.metadata.mainGraphId = nestedReferencedProject.graphId;
+
+    const collidingGraphId = 'runtime-speed-subgraph' as GraphId;
+    const collidingGraphFixture = makeTextChainProject(1);
+    const collidingGraph = structuredClone(
+      collidingGraphFixture.project.graphs[collidingGraphFixture.graphId]!,
+    ) as NodeGraph;
+    collidingGraph.metadata.id = collidingGraphId;
+    collidingGraph.metadata.name = 'Root Graph With Colliding Id';
+    const collidingTextNode = collidingGraph.nodes.find((node) => node.type === 'text')!;
+    (collidingTextNode.data as { text: string }).text = '{{input}}wrong';
+    fixture.project.graphs[collidingGraphId] = collidingGraph;
+    fixture.project.graphs[fixture.graphId]!.nodes.push({
+      data: {
+        graphId: collidingGraphId,
+        useAsGraphPartialOutput: false,
+        useErrorOutput: false,
+      },
+      id: 'unused-root-subgraph' as NodeId,
+      title: 'Unused Root Subgraph',
+      type: 'subGraph',
+      visualData: { width: 300, x: 0, y: 0 },
+    });
+
+    await withLocalNativeFastAdapterEnv(async () => {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        projectReferenceLoader: fixture.projectReferenceLoader,
+        runtimeProfile: 'native-fast',
+      });
+      const outputs = await runner.run({ inputs: { input: 'ref' } });
+
+      assert.deepEqual(outputs, {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: 'refx' },
+      } satisfies Record<string, DataValue>);
+      const nativeDecision = runner.getNativeRuntimeDecision?.();
+      assert.equal(nativeDecision?.nativeUsed, true, JSON.stringify(nativeDecision));
+    });
+  });
+
+  void it('keeps referenced graph namespace IDs distinct when project and graph IDs contain separators', async () => {
+    const fixture = makeReferencedGraphAliasFanInProject(2);
+    const mainGraph = fixture.project.graphs[fixture.graphId]!;
+    const aliasNodes = mainGraph.nodes.filter((node) => node.type === 'referencedGraphAlias');
+    const firstAlias = aliasNodes[0]!;
+    const secondAlias = aliasNodes[1]!;
+    const firstProjectId = 'ref' as ProjectId;
+    const firstGraphId = 'a:b' as GraphId;
+    const secondProjectId = 'ref:a' as ProjectId;
+    const secondGraphId = 'b' as GraphId;
+    const originalReferencedGraphId = fixture.referencedProject.metadata.mainGraphId!;
+    const firstGraph = fixture.referencedProject.graphs[originalReferencedGraphId]!;
+    delete fixture.referencedProject.graphs[originalReferencedGraphId];
+    firstGraph.metadata.id = firstGraphId;
+    fixture.referencedProject.graphs[firstGraphId] = firstGraph;
+    fixture.referencedProject.metadata.id = firstProjectId;
+    fixture.referencedProject.metadata.mainGraphId = firstGraphId;
+    (firstAlias.data as { graphId: GraphId; projectId: ProjectId }).graphId = firstGraphId;
+    (firstAlias.data as { graphId: GraphId; projectId: ProjectId }).projectId = firstProjectId;
+
+    const secondReferencedProject = structuredClone(fixture.referencedProject) as Project;
+    const secondGraph = structuredClone(firstGraph) as NodeGraph;
+    secondGraph.metadata.id = secondGraphId;
+    const secondTextNode = secondGraph.nodes.find((node) => node.type === 'text')!;
+    (secondTextNode.data as { text: string }).text = '{{input}}y';
+    secondReferencedProject.graphs = { [secondGraphId]: secondGraph };
+    secondReferencedProject.metadata.id = secondProjectId;
+    secondReferencedProject.metadata.mainGraphId = secondGraphId;
+    (secondAlias.data as { graphId: GraphId; projectId: ProjectId }).graphId = secondGraphId;
+    (secondAlias.data as { graphId: GraphId; projectId: ProjectId }).projectId = secondProjectId;
+    fixture.project.references = [
+      { id: firstProjectId, title: 'First Referenced Project' },
+      { id: secondProjectId, title: 'Second Referenced Project' },
+    ];
+    const projectReferenceLoader: ProjectReferenceLoader = {
+      async loadProject(_currentProjectPath, reference) {
+        if (reference.id === firstProjectId) {
+          return fixture.referencedProject;
+        }
+
+        if (reference.id === secondProjectId) {
+          return secondReferencedProject;
+        }
+
+        throw new Error(`Unexpected reference ${reference.id}`);
+      },
+    };
+
+    await withLocalNativeFastAdapterEnv(async () => {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        projectReferenceLoader,
+        runtimeProfile: 'native-fast',
+      });
+      const outputs = await runner.run({ inputs: { input: 'ref' } });
+
+      assert.deepEqual(outputs, {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: 'refxrefy' },
+      } satisfies Record<string, DataValue>);
+      const nativeDecision = runner.getNativeRuntimeDecision?.();
+      assert.equal(nativeDecision?.nativeUsed, true, JSON.stringify(nativeDecision));
+    });
+  });
+
+  void it('falls back before loading native-fast when a graph id uses the reserved reference namespace', async () => {
+    const fixture = makeTextChainProject(1);
+    const originalGraph = fixture.project.graphs[fixture.graphId]!;
+    const reservedGraphId = '__rivet_native_reference__:project:graph' as GraphId;
+    delete fixture.project.graphs[fixture.graphId];
+    originalGraph.metadata.id = reservedGraphId;
+    fixture.project.graphs[reservedGraphId] = originalGraph;
+    fixture.project.metadata.mainGraphId = reservedGraphId;
+    let nativeLoadCalls = 0;
+    setNativeRuntimeModuleLoaderForTesting(async () => {
+      nativeLoadCalls += 1;
+      throw new Error('Reserved internal native graph ids should use TypeScript fallback.');
+    });
+
+    try {
+      const runner = createGraphRunner(fixture.project, {
+        graph: reservedGraphId,
+        runtimeProfile: 'native-fast',
+      });
+      const outputs = await runner.run({ inputs: { input: 'reserved' } });
+
+      assert.deepEqual(outputs, {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: 'reservedx' },
+      } satisfies Record<string, DataValue>);
+      assert.equal(nativeLoadCalls, 0);
+      assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+        fallbackReason: `reserved-native-graph-id:${reservedGraphId}`,
+        nativeEligible: false,
+        nativeUsed: false,
+        requested: true,
+      });
+    } finally {
+      setNativeRuntimeModuleLoaderForTesting(undefined);
+    }
+  });
+
+  void it('runs context interpolation, processing pipes, and join fan-in through the local native-fast adapter', async () => {
+    const contextFixture = makeInputContextTextProject();
+    const pipeFixture = makeTextChainProject(1);
+    const wideFixture = makeWideTextFanInProject(3);
+    const pipeTextNode = pipeFixture.project.graphs[pipeFixture.graphId]!.nodes.find((node) => node.id === 'text-0')!;
+    (pipeTextNode.data as { text: string }).text = '{{input | truncate 0}}';
+
+    await withLocalNativeFastAdapterEnv(async () => {
+      const contextRunner = createGraphRunner(contextFixture.project, {
+        graph: contextFixture.graphId,
+        runtimeProfile: 'native-fast',
+      });
+      const wideRunner = createGraphRunner(wideFixture.project, {
+        graph: wideFixture.graphId,
+        runtimeProfile: 'native-fast',
+      });
+      const pipeRunner = createGraphRunner(pipeFixture.project, {
+        graph: pipeFixture.graphId,
+        runtimeProfile: 'native-fast',
+      });
+
+      assert.deepEqual(await contextRunner.run({ context: { suffix: 'ctx' }, inputs: { input: 'native' } }), {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: 'native ctx' },
+      } satisfies Record<string, DataValue>);
+      assert.deepEqual(await wideRunner.run({ inputs: { input: 'fan' } }), {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: 'fan-0fan-1fan-2' },
+      } satisfies Record<string, DataValue>);
+      assert.deepEqual(await pipeRunner.run({ inputs: { input: 'truncate me' } }), {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: '...' },
+      } satisfies Record<string, DataValue>);
+      assert.equal(contextRunner.getNativeRuntimeDecision?.().nativeUsed, true);
+      assert.equal(contextRunner.getNativeRuntimeDecision?.().nativeBackend, 'js-adapter');
+      assert.equal(wideRunner.getNativeRuntimeDecision?.().nativeUsed, true);
+      assert.equal(wideRunner.getNativeRuntimeDecision?.().nativeBackend, 'js-adapter');
+      assert.equal(pipeRunner.getNativeRuntimeDecision?.().nativeUsed, true);
+      assert.equal(pipeRunner.getNativeRuntimeDecision?.().nativeBackend, 'js-adapter');
+    });
+  });
+
+  void it('runs quote text processing through the local native-fast adapter', async () => {
+    const fixture = makeNativeTextQuoteProcessingProject();
+
+    await withLocalNativeFastAdapterEnv(async () => {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        runtimeProfile: 'native-fast',
+      });
+      const outputs = await runner.run({
+        inputs: {
+          input: 'Ada\nLovelace',
+        },
+      });
+
+      assert.deepEqual(outputs, {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: '> Ada\n> LovelaceAda\nLovelace> > Ada\n> > Lovelace' },
+      } satisfies Record<string, DataValue>);
+      assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+        nativeBackend: 'js-adapter',
+        nativeEligible: true,
+        nativeUsed: true,
+        requested: true,
+      });
+    });
+  });
+
+  void it('runs coalesce fan-in through the local native-fast adapter', async () => {
+    const fixture = makeCoalesceFanInProject();
+
+    await withLocalNativeFastAdapterEnv(async () => {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        runtimeProfile: 'native-fast',
+      });
+      const outputs = await runner.run({
+        inputs: {
+          first: { type: 'any', value: null },
+          second: { type: 'any', value: undefined },
+          third: { type: 'string', value: 'winner' },
+        },
+      });
+
+      assert.deepEqual(outputs, {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: 'winner' },
+      } satisfies Record<string, DataValue>);
+      assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+        nativeBackend: 'js-adapter',
+        nativeEligible: true,
+        nativeUsed: true,
+        requested: true,
+      });
+    });
+  });
+
+  void it('runs destructure fan-out through the local native-fast adapter', async () => {
+    const fixture = makeDestructureFanOutProject();
+
+    await withLocalNativeFastAdapterEnv(async () => {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        runtimeProfile: 'native-fast',
+      });
+      const outputs = await runner.run({
+        inputs: {
+          object: {
+            type: 'object',
+            value: {
+              meta: { role: 'builder' },
+              name: 'Ada',
+              tags: ['logic', 'speed'],
+            },
+          },
+        },
+      });
+
+      assert.deepEqual(outputs, {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: 'Adabuilderspeed' },
+      } satisfies Record<string, DataValue>);
+      assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+        nativeBackend: 'js-adapter',
+        nativeEligible: true,
+        nativeUsed: true,
+        requested: true,
+      });
+    });
+  });
+
+  void it('runs extract object path through the local native-fast adapter', async () => {
+    const fixture = makeExtractObjectPathProject();
+
+    await withLocalNativeFastAdapterEnv(async () => {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        runtimeProfile: 'native-fast',
+      });
+      const outputs = await runner.run({
+        inputs: {
+          object: {
+            type: 'object',
+            value: {
+              meta: { role: 'builder' },
+              name: 'Ada',
+            },
+          },
+        },
+      });
+
+      assert.deepEqual(outputs, {
+        allMatches: { type: 'any[]', value: ['builder'] },
+        cost: { type: 'number', value: 0 },
+        result: { type: 'any', value: 'builder' },
+      } satisfies Record<string, DataValue>);
+      assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+        nativeBackend: 'js-adapter',
+        nativeEligible: true,
+        nativeUsed: true,
+        requested: true,
+      });
+    });
+  });
+
+  void it('runs object construction through the local native-fast adapter', async () => {
+    const fixture = makeObjectConstructionProject();
+
+    await withLocalNativeFastAdapterEnv(async () => {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        runtimeProfile: 'native-fast',
+      });
+      const outputs = await runner.run({
+        context: {
+          suffix: 'ctx',
+        },
+        inputs: {
+          count: 3,
+          meta: { type: 'object', value: { role: 'builder' } },
+          name: 'Ada "Lovelace"',
+        },
+      });
+
+      assert.deepEqual(outputs, {
+        cost: { type: 'number', value: 0 },
+        result: {
+          type: 'object',
+          value: {
+            count: 3,
+            label: 'Name Ada "Lovelace"',
+            literal: '{{ignored}}',
+            meta: { role: 'builder' },
+            metaText: '{"role":"builder"}',
+            name: 'Ada "Lovelace"',
+            suffix: 'ctx',
+          },
+        },
+      } satisfies Record<string, DataValue>);
+      assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+        nativeBackend: 'js-adapter',
+        nativeEligible: true,
+        nativeUsed: true,
+        requested: true,
+      });
+    });
+  });
+
+  void it('keeps object array graph outputs native-fast eligible', async () => {
+    const fixture = makeObjectArrayConstructionProject();
+
+    await withLocalNativeFastAdapterEnv(async () => {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        runtimeProfile: 'native-fast',
+      });
+      const outputs = await runner.run({
+        inputs: {
+          name: 'Ada',
+        },
+      });
+
+      assert.deepEqual(outputs, {
+        cost: { type: 'number', value: 0 },
+        result: {
+          type: 'object[]',
+          value: [{ name: 'Ada' }, { name: 'static' }],
+        },
+      } satisfies Record<string, DataValue>);
+      assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+        nativeBackend: 'js-adapter',
+        nativeEligible: true,
+        nativeUsed: true,
+        requested: true,
+      });
+    });
+  });
+
+  void it('falls back before loading native-fast when destructure JSONPath exceeds the native subset', async () => {
+    const fixture = makeDestructureFanOutProject();
+    const destructureNode = fixture.project.graphs[fixture.graphId]!.nodes.find((node) => node.id === 'destructure')!;
+    (destructureNode.data as { paths: string[] }).paths[0] = '$..name';
+    let nativeLoadCalls = 0;
+    setNativeRuntimeModuleLoaderForTesting(async () => {
+      nativeLoadCalls += 1;
+      throw new Error('Unsupported destructure JSONPath should not load the native runtime module.');
+    });
+
+    try {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        runtimeProfile: 'native-fast',
+      });
+      const outputs = await runner.run({
+        inputs: {
+          object: {
+            type: 'object',
+            value: {
+              meta: { role: 'builder' },
+              name: 'Ada',
+              tags: ['logic', 'speed'],
+            },
+          },
+        },
+      });
+
+      assert.deepEqual(outputs, {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: 'Adabuilderspeed' },
+      } satisfies Record<string, DataValue>);
+      assert.equal(nativeLoadCalls, 0);
+      assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+        fallbackReason: 'unsupported-destructure-path:$..name:destructure',
+        nativeEligible: false,
+        nativeUsed: false,
+        requested: true,
+      });
+    } finally {
+      setNativeRuntimeModuleLoaderForTesting(undefined);
+    }
+  });
+
+  void it('falls back before loading native-fast when extract object path JSONPath exceeds the native subset', async () => {
+    const fixture = makeExtractObjectPathProject();
+    const extractNode = fixture.project.graphs[fixture.graphId]!.nodes.find((node) => node.id === 'extract')!;
+    (extractNode.data as { path: string }).path = '$..role';
+    let nativeLoadCalls = 0;
+    setNativeRuntimeModuleLoaderForTesting(async () => {
+      nativeLoadCalls += 1;
+      throw new Error('Unsupported extract object path JSONPath should not load the native runtime module.');
+    });
+
+    try {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        runtimeProfile: 'native-fast',
+      });
+      const outputs = await runner.run({
+        inputs: {
+          object: {
+            type: 'object',
+            value: {
+              meta: { role: 'builder' },
+              name: 'Ada',
+            },
+          },
+        },
+      });
+
+      assert.deepEqual(outputs, {
+        allMatches: { type: 'any[]', value: ['builder'] },
+        cost: { type: 'number', value: 0 },
+        result: { type: 'any', value: 'builder' },
+      } satisfies Record<string, DataValue>);
+      assert.equal(nativeLoadCalls, 0);
+      assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+        fallbackReason: 'unsupported-extract-object-path:$..role:extract',
+        nativeEligible: false,
+        nativeUsed: false,
+        requested: true,
+      });
+    } finally {
+      setNativeRuntimeModuleLoaderForTesting(undefined);
+    }
+  });
+
+  void it('rejects invalid destructure JSONPath during native-fast eligibility', () => {
+    for (const { expectedPath, path } of [
+      { expectedPath: '<empty>', path: '' },
+      { expectedPath: '$.tags[9007199254740992]', path: '$.tags[9007199254740992]' },
+    ]) {
+      const fixture = makeDestructureFanOutProject();
+      const destructureNode = fixture.project.graphs[fixture.graphId]!.nodes.find((node) => node.id === 'destructure')!;
+      (destructureNode.data as { paths: string[] }).paths[0] = path;
+
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        runtimeProfile: 'native-fast',
+      });
+
+      assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+        fallbackReason: `unsupported-destructure-path:${expectedPath}:destructure`,
+        nativeEligible: false,
+        nativeUsed: false,
+        requested: true,
+      });
+    }
+  });
+
+  void it('rejects invalid extract object path JSONPath during native-fast eligibility', () => {
+    for (const { expectedPath, path } of [
+      { expectedPath: '<empty>', path: '' },
+      { expectedPath: '$.tags[9007199254740992]', path: '$.tags[9007199254740992]' },
+    ]) {
+      const fixture = makeExtractObjectPathProject();
+      const extractNode = fixture.project.graphs[fixture.graphId]!.nodes.find((node) => node.id === 'extract')!;
+      (extractNode.data as { path: string }).path = path;
+
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        runtimeProfile: 'native-fast',
+      });
+
+      assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+        fallbackReason: `unsupported-extract-object-path:${expectedPath}:extract`,
+        nativeEligible: false,
+        nativeUsed: false,
+        requested: true,
+      });
+    }
+  });
+
+  void it('falls back before loading native-fast when text processing is outside the native parity subset', async () => {
+    const fixture = makeTextChainProject(1);
+    const textNode = fixture.project.graphs[fixture.graphId]!.nodes.find((node) => node.id === 'text-0')!;
+    (textNode.data as { text: string }).text = '{{input | list}}';
+    setNativeRuntimeModuleLoaderForTesting(async () => {
+      throw new Error('Unsupported native graph should not load the native runtime module.');
+    });
+
+    try {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        runtimeProfile: 'native-fast',
+      });
+      const outputs = await runner.run({ inputs: { input: 'fallback' } });
+
+      assert.deepEqual(outputs, {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: '- fallback' },
+      } satisfies Record<string, DataValue>);
+      assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+        fallbackReason: 'unsupported-text-processing:list:text-0',
+        nativeEligible: false,
+        nativeUsed: false,
+        requested: true,
+      });
+    } finally {
+      setNativeRuntimeModuleLoaderForTesting(undefined);
+    }
+  });
+
+  void it('falls back before loading native-fast when quote text processing has an unsupported parameter', () => {
+    let nativeLoadCalls = 0;
+    setNativeRuntimeModuleLoaderForTesting(async () => {
+      nativeLoadCalls += 1;
+      throw new Error('Unsupported native graph should not load the native runtime module.');
+    });
+
+    try {
+      for (const template of ['{{input | quote -1}}', '{{input | quote abc}}']) {
+        const fixture = makeTextChainProject(1);
+        const textNode = fixture.project.graphs[fixture.graphId]!.nodes.find((node) => node.id === 'text-0')!;
+        (textNode.data as { text: string }).text = template;
+
+        const runner = createGraphRunner(fixture.project, {
+          graph: fixture.graphId,
+          runtimeProfile: 'native-fast',
+        });
+
+        assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+          fallbackReason: 'unsupported-text-processing:quote:text-0',
+          nativeEligible: false,
+          nativeUsed: false,
+          requested: true,
+        });
+      }
+
+      assert.equal(nativeLoadCalls, 0);
+    } finally {
+      setNativeRuntimeModuleLoaderForTesting(undefined);
+    }
+  });
+
+  void it('can use an injected native-fast runner and report that native execution ran', async () => {
+    const fixture = makeTextChainProject(1);
+    let nativeCreateCalls = 0;
+    const nativeModule: NativeRuntimeModule = {
+      async createNativeGraphRunner(request) {
+        nativeCreateCalls += 1;
+        assert.equal(request.graphId, fixture.graphId);
+        assert.equal(request.graphs.length, 1);
+
+        return {
+          backend: 'test-native',
+          runner: {
+            async run(options) {
+              return {
+                result: { type: 'string', value: `${options.inputs.input?.value}x` },
+              };
+            },
+          },
+          supported: true,
+        };
+      },
+    };
+    setNativeRuntimeModuleLoaderForTesting(async () => nativeModule);
+
+    try {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        runtimeProfile: 'native-fast',
+      });
+      const outputs = await runner.run({ inputs: { input: 'native' } });
+
+      assert.deepEqual(outputs, {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: 'nativex' },
+      } satisfies Record<string, DataValue>);
+      assert.equal(nativeCreateCalls, 1);
+      assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+        nativeBackend: 'test-native',
+        nativeEligible: true,
+        nativeUsed: true,
+        requested: true,
+      });
+    } finally {
+      setNativeRuntimeModuleLoaderForTesting(undefined);
+    }
+  });
+
+  void it('normalizes native-fast DataValues that cross JSON transport without an explicit value field', async () => {
+    const fixture = makeTextChainProject(1);
+    const nativeModule: NativeRuntimeModule = {
+      async createNativeGraphRunner() {
+        return {
+          backend: 'test-native',
+          runner: {
+            async run() {
+              return {
+                result: { type: 'any' } as unknown as DataValue,
+              };
+            },
+          },
+          supported: true,
+        };
+      },
+    };
+    setNativeRuntimeModuleLoaderForTesting(async () => nativeModule);
+
+    try {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        runtimeProfile: 'native-fast',
+      });
+      const outputs = await runner.run({ inputs: { input: 'native' } });
+
+      assert.deepEqual(outputs, {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'any', value: undefined },
+      } satisfies Record<string, DataValue>);
+      assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+        nativeBackend: 'test-native',
+        nativeEligible: true,
+        nativeUsed: true,
+        requested: true,
+      });
+    } finally {
+      setNativeRuntimeModuleLoaderForTesting(undefined);
+    }
+  });
+
+  void it('rejects a native-fast run disposed while the native module is loading', async () => {
+    const fixture = makeTextChainProject(1);
+    let resolveNativeModule!: (module: NativeRuntimeModule) => void;
+    const nativeModulePromise = new Promise<NativeRuntimeModule>((resolve) => {
+      resolveNativeModule = resolve;
+    });
+    let nativeCreateCalls = 0;
+
+    setNativeRuntimeModuleLoaderForTesting(async () => nativeModulePromise);
+
+    try {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        runtimeProfile: 'native-fast',
+      });
+      const runPromise = runner.run({ inputs: { input: 'disposed' } });
+      runner.dispose();
+      resolveNativeModule({
+        async createNativeGraphRunner() {
+          nativeCreateCalls += 1;
+          return {
+            runner: {
+              async run() {
+                throw new Error('Disposed native runner should not run.');
+              },
+            },
+            supported: true,
+          };
+        },
+      });
+
+      await assert.rejects(runPromise, /Cannot run a disposed graph runner/);
+      assert.equal(nativeCreateCalls, 0);
+    } finally {
+      setNativeRuntimeModuleLoaderForTesting(undefined);
+    }
+  });
+
+  void it('allows overlapping native-fast runner calls without sharing per-run inputs', async () => {
+    const fixture = makeTextChainProject(1);
+    const nativeModule: NativeRuntimeModule = {
+      async createNativeGraphRunner() {
+        return {
+          runner: {
+            async run(options) {
+              await new Promise((resolve) => setTimeout(resolve, 5));
+              return {
+                cost: { type: 'number', value: 0 },
+                result: { type: 'string', value: `${options.inputs.input?.value}x` },
+              };
+            },
+          },
+          supported: true,
+        };
+      },
+    };
+    setNativeRuntimeModuleLoaderForTesting(async () => nativeModule);
+
+    try {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        runtimeProfile: 'native-fast',
+      });
+      const [firstOutputs, secondOutputs] = await Promise.all([
+        runner.run({ inputs: { input: 'first' } }),
+        runner.run({ inputs: { input: 'second' } }),
+      ]);
+
+      assert.deepEqual(firstOutputs, {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: 'firstx' },
+      } satisfies Record<string, DataValue>);
+      assert.deepEqual(secondOutputs, {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: 'secondx' },
+      } satisfies Record<string, DataValue>);
+      assert.equal(runner.getNativeRuntimeDecision?.().nativeUsed, true);
+    } finally {
+      setNativeRuntimeModuleLoaderForTesting(undefined);
+    }
   });
 });

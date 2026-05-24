@@ -8,7 +8,7 @@ import {
 import { nanoid } from 'nanoid/non-secure';
 import { NodeImpl, type NodeUIData } from '../NodeImpl.js';
 import { nodeDefinition } from '../NodeDefinition.js';
-import { type DataType } from '../DataValue.js';
+import { type DataType, type DataValue } from '../DataValue.js';
 import { type Inputs, type Outputs } from '../GraphProcessor.js';
 import { type InternalProcessContext } from '../ProcessContext.js';
 import { dedent } from 'ts-dedent';
@@ -21,6 +21,41 @@ export type GraphOutputNodeData = {
   id: string;
   dataType: DataType;
 };
+
+function isPlainObjectRecordValue(value: unknown): value is Record<string, unknown> {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    return false;
+  }
+
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+
+function coerceAnyGraphOutputValue(value: DataValue, dataType: DataType): DataValue {
+  if (value.type === 'control-flow-excluded' || dataType === 'any' || value.type === dataType) {
+    return value;
+  }
+
+  if (value.type !== 'any') {
+    return value;
+  }
+
+  if (dataType === 'object' && isPlainObjectRecordValue(value.value)) {
+    return {
+      type: 'object',
+      value: value.value,
+    };
+  }
+
+  if (dataType === 'object[]' && Array.isArray(value.value) && value.value.every(isPlainObjectRecordValue)) {
+    return {
+      type: 'object[]',
+      value: value.value as Record<string, unknown>[],
+    };
+  }
+
+  return value;
+}
 
 export class GraphOutputNodeImpl extends NodeImpl<GraphOutputNode> {
   static create(): GraphOutputNode {
@@ -96,7 +131,8 @@ export class GraphOutputNodeImpl extends NodeImpl<GraphOutputNode> {
   }
 
   async process(inputs: Inputs, context: InternalProcessContext): Promise<Outputs> {
-    const value = inputs['value' as PortId] ?? { type: 'any', value: undefined };
+    const inputValue = inputs['value' as PortId];
+    const value = coerceAnyGraphOutputValue(inputValue ?? { type: 'any', value: undefined }, this.data.dataType);
 
     const isExcluded = value.type === 'control-flow-excluded';
 
@@ -108,7 +144,7 @@ export class GraphOutputNodeImpl extends NodeImpl<GraphOutputNode> {
     } else if (
       (context.graphOutputs[this.data.id] == null ||
         context.graphOutputs[this.data.id]?.type === 'control-flow-excluded') &&
-      inputs['value' as PortId]
+      inputValue
     ) {
       context.graphOutputs[this.data.id] = value;
     }

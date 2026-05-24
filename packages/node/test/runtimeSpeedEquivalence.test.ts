@@ -15,12 +15,15 @@ import {
   makeCodeChainProject,
   makeCallGraphFanInProject,
   makeControlFlowExclusionProject,
+  makeExtractObjectPathProject,
   makeExpressionChainProject,
   makeGlobalStateProject,
   makeInputContextTextProject,
   makeMissingRequiredInputProject,
   makeMixedSubgraphFanInProject,
   makeNestedSubgraphProject,
+  makeObjectArrayConstructionProject,
+  makeObjectConstructionProject,
   makeReferencedGraphAliasFanInProject,
   makeRepeatedSubgraphFanInProject,
   makeSameSourceFanInProject,
@@ -275,6 +278,71 @@ void describe('runtime speed equivalence guards', () => {
         options: {
           inputs: {
             input: { type: 'object', value: { present: true } },
+          },
+        },
+      },
+      {
+        expected: {
+          allMatches: { type: 'any[]', value: ['builder'] },
+          cost: { type: 'number', value: 0 },
+          result: { type: 'any', value: 'builder' },
+        },
+        fixture: makeExtractObjectPathProject(),
+        name: 'extract object path',
+        options: {
+          inputs: {
+            object: {
+              type: 'object',
+              value: {
+                meta: { role: 'builder' },
+                name: 'Ada',
+              },
+            },
+          },
+        },
+      },
+      {
+        expected: {
+          cost: { type: 'number', value: 0 },
+          result: {
+            type: 'object',
+            value: {
+              count: 3,
+              label: 'Name Ada "Lovelace"',
+              literal: '{{ignored}}',
+              meta: { role: 'builder' },
+              metaText: '{"role":"builder"}',
+              name: 'Ada "Lovelace"',
+              suffix: 'ctx',
+            },
+          },
+        },
+        fixture: makeObjectConstructionProject(),
+        name: 'object construction',
+        options: {
+          context: {
+            suffix: 'ctx',
+          },
+          inputs: {
+            count: 3,
+            meta: { type: 'object', value: { role: 'builder' } },
+            name: 'Ada "Lovelace"',
+          },
+        },
+      },
+      {
+        expected: {
+          cost: { type: 'number', value: 0 },
+          result: {
+            type: 'object[]',
+            value: [{ name: 'Ada' }, { name: 'static' }],
+          },
+        },
+        fixture: makeObjectArrayConstructionProject(),
+        name: 'object array construction',
+        options: {
+          inputs: {
+            name: 'Ada',
           },
         },
       },

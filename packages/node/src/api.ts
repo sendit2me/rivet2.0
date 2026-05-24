@@ -33,8 +33,12 @@ import type { RivetDebuggerServer } from './debugger.js';
 import { NodeProjectReferenceLoader } from './native/NodeProjectReferenceLoader.js';
 import { NodeMCPProvider } from './native/NodeMCPProvider.js';
 import { resolveCreateProcessorRuntimePolicy, type NodeRuntimeProfile } from './createProcessorRuntimePolicy.js';
+import {
+  createNativeFastGraphRunner,
+  type NodeNativeRuntimeDecision,
+} from './nativeGraphRunner.js';
 
-export type { NodeRuntimeProfile };
+export type { NodeNativeRuntimeDecision, NodeRuntimeProfile };
 
 class FallbackTokenizer implements Tokenizer {
   on(_event: 'error', _listener: (err: Error) => void): () => void {
@@ -107,10 +111,16 @@ export type NodeCreateProcessorOptions = NodeRunGraphOptions & {
   runtimeProfile?: NodeRuntimeProfile;
 };
 
+export type NodeGraphRunnerRuntimeProfile = NodeRuntimeProfile | 'native-fast';
+
 export type NodeGraphRunnerOptions = Omit<
   NodeRunGraphOptions,
   'abortSignal' | 'context' | 'inputs' | 'remoteDebugger' | 'remoteDebuggerRequestId'
 > & {
+  runtimeProfile?: NodeGraphRunnerRuntimeProfile;
+};
+
+type TypeScriptGraphRunnerOptions = Omit<NodeGraphRunnerOptions, 'runtimeProfile'> & {
   runtimeProfile?: NodeRuntimeProfile;
 };
 
@@ -122,6 +132,7 @@ export type NodeGraphRunnerRunOptions = {
 
 export type NodeGraphRunner = {
   dispose: () => void;
+  getNativeRuntimeDecision?: () => NodeNativeRuntimeDecision;
   run: (options?: NodeGraphRunnerRunOptions) => Promise<Record<string, DataValue>>;
 };
 
@@ -215,6 +226,17 @@ function clearGraphProcessorRuntimeCache(runtimeCache: GraphProcessorRuntimeCach
 }
 
 export function createGraphRunner(project: Project, options: NodeGraphRunnerOptions): NodeGraphRunner {
+  const { runtimeProfile = 'compatible', ...processorOptions } = options;
+  if (runtimeProfile === 'native-fast') {
+    return createNativeFastGraphRunner(project, processorOptions, () =>
+      createTypeScriptGraphRunner(project, { ...processorOptions, runtimeProfile: 'compatible' }),
+    );
+  }
+
+  return createTypeScriptGraphRunner(project, { ...processorOptions, runtimeProfile });
+}
+
+function createTypeScriptGraphRunner(project: Project, options: TypeScriptGraphRunnerOptions): NodeGraphRunner {
   const { runtimeProfile = 'compatible', ...processorOptions } = options;
   const ownsCodeRunner = processorOptions.codeRunner == null && runtimeProfile === 'headless-fast';
   const runnerCodeRunner = ownsCodeRunner ? new CachedNodeCodeRunner() : undefined;

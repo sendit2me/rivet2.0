@@ -228,6 +228,315 @@ export function makeSameSourceFanInProject(): RuntimeSpeedProjectFixture {
   );
 }
 
+export function makeCoalesceFanInProject(): RuntimeSpeedProjectFixture {
+  const firstInput = makeGraphInputNode('first-input', 'first', 'any');
+  const secondInput = makeGraphInputNode('second-input', 'second', 'any');
+  const thirdInput = makeGraphInputNode('third-input', 'third', 'string');
+  const coalesceNode = makeCoalesceNode('coalesce', {
+    ignoreNull: true,
+    ignoreUndefined: true,
+  });
+  const outputNode = makeGraphOutputNode('graph-output', 'result', 'any');
+
+  return makeFixture(
+    [firstInput, secondInput, thirdInput, coalesceNode, outputNode],
+    [
+      connect(firstInput.id, 'data', coalesceNode.id, 'input1'),
+      connect(secondInput.id, 'data', coalesceNode.id, 'input2'),
+      connect(thirdInput.id, 'data', coalesceNode.id, 'input3'),
+      connect(coalesceNode.id, 'output', outputNode.id, 'value'),
+    ],
+    outputNode.id,
+  );
+}
+
+export function makeDestructureFanOutProject(): RuntimeSpeedProjectFixture {
+  const inputNode = makeGraphInputNode('object-input', 'object', 'object');
+  const destructureNode = makeDestructureNode('destructure', [
+    { outputId: 'name', path: '$.name' },
+    { outputId: 'role', path: '$.meta.role' },
+    { outputId: 'second-tag', path: '$.tags[1]' },
+  ]);
+  const joinNode = makeJoinNode('join');
+  const outputNode = makeGraphOutputNode('graph-output', 'result', 'string');
+
+  return makeFixture(
+    [inputNode, destructureNode, joinNode, outputNode],
+    [
+      connect(inputNode.id, 'data', destructureNode.id, 'object'),
+      connect(destructureNode.id, 'name', joinNode.id, 'input1'),
+      connect(destructureNode.id, 'role', joinNode.id, 'input2'),
+      connect(destructureNode.id, 'second-tag', joinNode.id, 'input3'),
+      connect(joinNode.id, 'output', outputNode.id, 'value'),
+    ],
+    outputNode.id,
+  );
+}
+
+export function makeExtractObjectPathProject(): RuntimeSpeedProjectFixture {
+  const inputNode = makeGraphInputNode('object-input', 'object', 'object');
+  const extractNode = makeExtractObjectPathNode('extract', '$.meta.role');
+  const outputNode = makeGraphOutputNode('graph-output', 'result', 'any');
+  const allMatchesOutputNode = makeGraphOutputNode('all-matches-output', 'allMatches', 'any');
+
+  return makeFixture(
+    [inputNode, extractNode, outputNode, allMatchesOutputNode],
+    [
+      connect(inputNode.id, 'data', extractNode.id, 'object'),
+      connect(extractNode.id, 'match', outputNode.id, 'value'),
+      connect(extractNode.id, 'all_matches', allMatchesOutputNode.id, 'value'),
+    ],
+    outputNode.id,
+  );
+}
+
+export function makeObjectConstructionProject(): RuntimeSpeedProjectFixture {
+  const inputNode = makeGraphInputNode('name-input', 'name', 'string');
+  const metaNode = makeGraphInputNode('meta-input', 'meta', 'object');
+  const countNode = makeGraphInputNode('count-input', 'count', 'number');
+  const objectNode = makeObjectNode(
+    'object',
+    '{"name":"{{name}}","label":"Name {{name}}","meta":{{meta}},"metaText":"{{meta}}","count":{{count}},"suffix":"{{@context.suffix}}","literal":"{{{ignored}}}"}',
+  );
+  const outputNode = makeGraphOutputNode('graph-output', 'result', 'object');
+
+  return makeFixture(
+    [inputNode, metaNode, countNode, objectNode, outputNode],
+    [
+      connect(inputNode.id, 'data', objectNode.id, 'name'),
+      connect(metaNode.id, 'data', objectNode.id, 'meta'),
+      connect(countNode.id, 'data', objectNode.id, 'count'),
+      connect(objectNode.id, 'output', outputNode.id, 'value'),
+    ],
+    outputNode.id,
+  );
+}
+
+export function makeObjectArrayConstructionProject(): RuntimeSpeedProjectFixture {
+  const inputNode = makeGraphInputNode('name-input', 'name', 'string');
+  const objectNode = makeObjectNode('object-array', '[{"name":"{{name}}"},{"name":"static"}]');
+  const outputNode = makeGraphOutputNode('graph-output', 'result', 'object[]');
+
+  return makeFixture(
+    [inputNode, objectNode, outputNode],
+    [connect(inputNode.id, 'data', objectNode.id, 'name'), connect(objectNode.id, 'output', outputNode.id, 'value')],
+    outputNode.id,
+  );
+}
+
+export function makeNativeGraphInputDefaultProject(): RuntimeSpeedProjectFixture {
+  const countInput = makeGraphInputNode('count-input', 'count', 'number');
+  const flagInput = makeGraphInputNode('flag-input', 'flag', 'boolean');
+  (countInput.data as { defaultValue: unknown }).defaultValue = 7;
+  (flagInput.data as { defaultValue: unknown }).defaultValue = true;
+  const textNode = makeTextNode('default-text', '{{count}} {{flag}}');
+  const outputNode = makeGraphOutputNode('graph-output', 'result', 'string');
+
+  return makeFixture(
+    [countInput, flagInput, textNode, outputNode],
+    [
+      connect(countInput.id, 'data', textNode.id, 'count'),
+      connect(flagInput.id, 'data', textNode.id, 'flag'),
+      connect(textNode.id, 'output', outputNode.id, 'value'),
+    ],
+    outputNode.id,
+  );
+}
+
+export function makeNativeGraphInputDefaultPortProject(): RuntimeSpeedProjectFixture {
+  const defaultText = makeTextNode('dynamic-default', 'dynamic');
+  const inputNode = makeGraphInputNode('graph-input', 'input', 'string');
+  const outputNode = makeGraphOutputNode('graph-output', 'result', 'string');
+  const inputData = inputNode.data as { defaultValue: unknown; useDefaultValueInput: boolean };
+  inputData.defaultValue = 'static';
+  inputData.useDefaultValueInput = true;
+
+  return makeFixture(
+    [defaultText, inputNode, outputNode],
+    [connect(defaultText.id, 'output', inputNode.id, 'default'), connect(inputNode.id, 'data', outputNode.id, 'value')],
+    outputNode.id,
+  );
+}
+
+export function makeNativeGraphInputUnconnectedDefaultPortProject(): RuntimeSpeedProjectFixture {
+  const inputNode = makeGraphInputNode('graph-input', 'input', 'string');
+  const outputNode = makeGraphOutputNode('graph-output', 'result', 'string');
+  const inputData = inputNode.data as { defaultValue: unknown; useDefaultValueInput: boolean };
+  inputData.defaultValue = 'static';
+  inputData.useDefaultValueInput = true;
+
+  return makeFixture([inputNode, outputNode], [connect(inputNode.id, 'data', outputNode.id, 'value')], outputNode.id);
+}
+
+export function makeNativeObjectPipelineProject(): RuntimeSpeedProjectFixture {
+  const nameInput = makeGraphInputNode('name-input', 'name', 'string');
+  const countInput = makeGraphInputNode('count-input', 'count', 'number');
+  const fallbackInput = makeGraphInputNode('fallback-input', 'fallback', 'string');
+  const preferredInput = makeGraphInputNode('preferred-input', 'preferred', 'any');
+  const objectNode = makeObjectNode(
+    'profile-object',
+    '{"profile":{"name":"{{name}}","role":"{{@context.role}}"},"count":{{count}},"tags":["static","{{fallback}}"]}',
+  );
+  const destructureNode = makeDestructureNode('profile-parts', [
+    { outputId: 'name', path: '$.profile.name' },
+    { outputId: 'role', path: '$.profile.role' },
+    { outputId: 'fallback-tag', path: '$.tags[1]' },
+  ]);
+  const extractRoleNode = makeExtractObjectPathNode('extract-role', '$.profile.role');
+  const coalesceNode = makeCoalesceNode('preferred-or-fallback', {
+    ignoreNull: true,
+    ignoreUndefined: true,
+  });
+  const joinNode = makeJoinNode('summary-join');
+  const summaryOutput = makeGraphOutputNode('summary-output', 'summary', 'string');
+  const roleOutput = makeGraphOutputNode('role-output', 'role', 'any');
+  const allRolesOutput = makeGraphOutputNode('all-roles-output', 'allRoles', 'any[]');
+  const selectedOutput = makeGraphOutputNode('selected-output', 'selected', 'any');
+  const profileOutput = makeGraphOutputNode('profile-output', 'profile', 'object');
+
+  return makeFixture(
+    [
+      nameInput,
+      countInput,
+      fallbackInput,
+      preferredInput,
+      objectNode,
+      destructureNode,
+      extractRoleNode,
+      coalesceNode,
+      joinNode,
+      summaryOutput,
+      roleOutput,
+      allRolesOutput,
+      selectedOutput,
+      profileOutput,
+    ],
+    [
+      connect(nameInput.id, 'data', objectNode.id, 'name'),
+      connect(countInput.id, 'data', objectNode.id, 'count'),
+      connect(fallbackInput.id, 'data', objectNode.id, 'fallback'),
+      connect(objectNode.id, 'output', destructureNode.id, 'object'),
+      connect(objectNode.id, 'output', extractRoleNode.id, 'object'),
+      connect(preferredInput.id, 'data', coalesceNode.id, 'input1'),
+      connect(fallbackInput.id, 'data', coalesceNode.id, 'input2'),
+      connect(destructureNode.id, 'name', joinNode.id, 'input1'),
+      connect(destructureNode.id, 'role', joinNode.id, 'input2'),
+      connect(destructureNode.id, 'fallback-tag', joinNode.id, 'input3'),
+      connect(joinNode.id, 'output', summaryOutput.id, 'value'),
+      connect(extractRoleNode.id, 'match', roleOutput.id, 'value'),
+      connect(extractRoleNode.id, 'all_matches', allRolesOutput.id, 'value'),
+      connect(coalesceNode.id, 'output', selectedOutput.id, 'value'),
+      connect(objectNode.id, 'output', profileOutput.id, 'value'),
+    ],
+    summaryOutput.id,
+  );
+}
+
+export function makeNativeSubgraphInputDataProject(): RuntimeSpeedProjectFixture {
+  const mainGraphId = 'runtime-speed-main' as GraphId;
+  const subGraphId = 'runtime-speed-static-input-subgraph' as GraphId;
+  const mainInput = makeGraphInputNode('main-input', 'input', 'string');
+  const subgraphNode = makeSubgraphNode('static-input-subgraph', subGraphId);
+  (subgraphNode.data as { inputData: Record<string, DataValue> }).inputData = {
+    suffix: { type: 'string', value: 'static' },
+  };
+  const mainOutput = makeGraphOutputNode('main-output', 'result', 'string');
+  const subPrefixInput = makeGraphInputNode('sub-prefix-input', 'prefix', 'string');
+  const subSuffixInput = makeGraphInputNode('sub-suffix-input', 'suffix', 'string');
+  const subJoin = makeJoinNode('sub-join');
+  const subOutput = makeGraphOutputNode('sub-output', 'result', 'string');
+
+  return {
+    graphId: mainGraphId,
+    project: {
+      graphs: {
+        [mainGraphId]: {
+          connections: [
+            connect(mainInput.id, 'data', subgraphNode.id, 'prefix'),
+            connect(subgraphNode.id, 'result', mainOutput.id, 'value'),
+          ],
+          metadata: {
+            description: '',
+            id: mainGraphId,
+            name: 'Runtime Speed Main',
+          },
+          nodes: [mainInput, subgraphNode, mainOutput],
+        },
+        [subGraphId]: {
+          connections: [
+            connect(subPrefixInput.id, 'data', subJoin.id, 'input1'),
+            connect(subSuffixInput.id, 'data', subJoin.id, 'input2'),
+            connect(subJoin.id, 'output', subOutput.id, 'value'),
+          ],
+          metadata: {
+            description: '',
+            id: subGraphId,
+            name: 'Runtime Speed Static Input Subgraph',
+          },
+          nodes: [subPrefixInput, subSuffixInput, subJoin, subOutput],
+        },
+      },
+      metadata: {
+        description: '',
+        id: 'runtime-speed-project' as ProjectId,
+        mainGraphId,
+        title: 'Runtime Speed Project',
+      },
+      plugins: [],
+    },
+    terminalNodeId: mainOutput.id,
+  };
+}
+
+export function makeNativeTextProcessingProject(): RuntimeSpeedProjectFixture {
+  const inputNode = makeGraphInputNode('graph-input', 'input', 'string');
+  const trimNode = makeTextNode('trim-text', '{{input | trim}}');
+  const uppercaseNode = makeTextNode('uppercase-text', '{{input | uppercase}}');
+  const lowercaseNode = makeTextNode('lowercase-text', '{{input | lowercase}}');
+  const truncateNode = makeTextNode('truncate-text', '{{input | truncate 0}}');
+  const joinNode = makeJoinNode('join-text');
+  const outputNode = makeGraphOutputNode('graph-output', 'result', 'string');
+
+  return makeFixture(
+    [inputNode, trimNode, uppercaseNode, lowercaseNode, truncateNode, joinNode, outputNode],
+    [
+      connect(inputNode.id, 'data', trimNode.id, 'input'),
+      connect(inputNode.id, 'data', uppercaseNode.id, 'input'),
+      connect(inputNode.id, 'data', lowercaseNode.id, 'input'),
+      connect(inputNode.id, 'data', truncateNode.id, 'input'),
+      connect(trimNode.id, 'output', joinNode.id, 'input1'),
+      connect(uppercaseNode.id, 'output', joinNode.id, 'input2'),
+      connect(lowercaseNode.id, 'output', joinNode.id, 'input3'),
+      connect(truncateNode.id, 'output', joinNode.id, 'input4'),
+      connect(joinNode.id, 'output', outputNode.id, 'value'),
+    ],
+    outputNode.id,
+  );
+}
+
+export function makeNativeTextQuoteProcessingProject(): RuntimeSpeedProjectFixture {
+  const inputNode = makeGraphInputNode('graph-input', 'input', 'string');
+  const defaultQuoteNode = makeTextNode('quote-default-text', '{{input | quote}}');
+  const zeroQuoteNode = makeTextNode('quote-zero-text', '{{input | quote 0}}');
+  const doubleQuoteNode = makeTextNode('quote-double-text', '{{input | quote 2}}');
+  const joinNode = makeJoinNode('join-quotes');
+  const outputNode = makeGraphOutputNode('graph-output', 'result', 'string');
+
+  return makeFixture(
+    [inputNode, defaultQuoteNode, zeroQuoteNode, doubleQuoteNode, joinNode, outputNode],
+    [
+      connect(inputNode.id, 'data', defaultQuoteNode.id, 'input'),
+      connect(inputNode.id, 'data', zeroQuoteNode.id, 'input'),
+      connect(inputNode.id, 'data', doubleQuoteNode.id, 'input'),
+      connect(defaultQuoteNode.id, 'output', joinNode.id, 'input1'),
+      connect(zeroQuoteNode.id, 'output', joinNode.id, 'input2'),
+      connect(doubleQuoteNode.id, 'output', joinNode.id, 'input3'),
+      connect(joinNode.id, 'output', outputNode.id, 'value'),
+    ],
+    outputNode.id,
+  );
+}
+
 export function makeSubgraphChainProject(subgraphCallCount: number): RuntimeSpeedProjectFixture {
   const mainGraphId = 'runtime-speed-main' as GraphId;
   const subGraphId = 'runtime-speed-subgraph' as GraphId;
@@ -912,6 +1221,44 @@ function makeJoinNode(id: string): ChartNode {
     title: 'Join',
     type: 'join',
     visualData: { width: 150, x: 0, y: 0 },
+  };
+}
+
+function makeCoalesceNode(
+  id: string,
+  data: {
+    ignoreNull?: boolean;
+    ignoreUndefined?: boolean;
+  } = {},
+): ChartNode {
+  return {
+    data: {
+      ignoreNull: data.ignoreNull === true,
+      ignoreUndefined: data.ignoreUndefined === true,
+    },
+    id: id as NodeId,
+    title: 'Coalesce',
+    type: 'coalesce',
+    visualData: { width: 150, x: 0, y: 0 },
+  };
+}
+
+function makeDestructureNode(
+  id: string,
+  paths: Array<{
+    outputId: string;
+    path: string;
+  }>,
+): ChartNode {
+  return {
+    data: {
+      pathPortIds: paths.map((path) => path.outputId),
+      paths: paths.map((path) => path.path),
+    },
+    id: id as NodeId,
+    title: 'Destructure',
+    type: 'destructure',
+    visualData: { width: 250, x: 0, y: 0 },
   };
 }
 
