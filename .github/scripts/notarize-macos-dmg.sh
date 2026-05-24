@@ -34,7 +34,12 @@ if [[ -z "$dmg_path" ]]; then
   exit 1
 fi
 
-codesign --force --timestamp --sign "$APPLE_SIGNING_IDENTITY" "$dmg_path"
+codesign_args=(--force --timestamp --sign "$APPLE_SIGNING_IDENTITY")
+if [[ -n "${APPLE_SIGNING_KEYCHAIN:-}" ]]; then
+  codesign_args+=(--keychain "$APPLE_SIGNING_KEYCHAIN")
+fi
+
+codesign "${codesign_args[@]}" "$dmg_path"
 xcrun notarytool submit "$dmg_path" \
   --key "$APPLE_API_KEY_PATH" \
   --key-id "$APPLE_API_KEY" \
