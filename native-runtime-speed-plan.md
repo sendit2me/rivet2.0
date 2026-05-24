@@ -211,7 +211,7 @@ outputs or events.
 
 ## Implementation Phases
 
-### P0: Native feasibility benchmark [PARTIAL]
+### P0: Native feasibility benchmark [DONE]
 
 Current status:
 
@@ -224,19 +224,27 @@ Current status:
   `native-runtime/index.js`.
 - The Rust worker backend can now execute the same IR when a native worker
   binary is built and `RIVET_NATIVE_RUNTIME_BACKEND=rust` is selected.
-- A full before/after benchmark matrix against optimized TypeScript is still
-  pending. Until Rust beats the optimized TypeScript runner by the gate
-  threshold, this phase is not complete.
+- The before/after matrix is recorded in
+  [`native-runtime-before-after.md`](native-runtime-before-after.md). On the
+  local 2026-05-24 run, the Rust worker beat the fastest TypeScript row by
+  5.88x to 37.04x on the native-eligible target shapes. Unsupported Code stayed
+  on whole-run TypeScript fallback and reported `nativeUsed=false`.
 
-- Build a throwaway Rust/N-API prototype outside the public API path.
-- Feed it generated benchmark IR for cheap chains, wide fan-in/fan-out, repeated
-  subgraph calls, nested subgraphs, and referenced-graph-like dispatch.
-  Benchmark dynamic Call Graph separately as a fallback/control row, not as a v1
-  native success row.
-- Measure native plan construction, per-run execution, TypeScript-to-native
-  conversion, and native-to-TypeScript output conversion separately.
+- Build a throwaway Rust prototype outside the public API path. The current
+  worker-process prototype is enough for feasibility; N-API remains a
+  productization step, not a P0 prerequisite.
+- Feed it generated benchmark IR for cheap chains, wide fan-in, direct subgraph
+  chains, mixed subgraph fan-in, and unsupported Code fallback. Repeated
+  referenced-project and dynamic Call Graph cases remain later fallback/control
+  rows because they are outside the current native eligibility set.
+- Treat the 2026-05-24 matrix as end-to-end runner-run evidence: the measured
+  native rows include TypeScript-to-native input conversion, native execution,
+  and native-to-TypeScript output conversion. Add separate slice timers before
+  productization or when diagnosing a future native regression.
 - Continue only if the native execution slice is at least 30% faster than the
   optimized TypeScript runtime on the target shapes after conversion overhead.
+  The current Rust worker clears this gate for the measured eligible shapes;
+  promotion still depends on the later productization and equivalence gates.
 
 ### P1: Optional package and gated profile [DONE]
 
@@ -455,16 +463,15 @@ the TypeScript runtime.
 
 ## Recommended Next Move
 
-The TypeScript-side adapter contract, local JS control adapter, and process-based
-Rust worker backend are now in place. The next move is to run the full benchmark
-matrix with:
+The TypeScript-side adapter contract, local JS control adapter, process-based
+Rust worker backend, and first before/after benchmark matrix are now in place.
+The Rust worker proved the speed win for the narrow eligible workload set, so the
+next move is production hardening, not default-runtime expansion:
 
-- optimized TypeScript `createGraphRunner(...)`;
-- `native-fast` with the JS adapter, as an adapter-contract control row;
-- `native-fast` with the Rust worker backend, as the candidate row.
-
-Do not change the public runtime, project schema, editor, debugger, or
-Code/Expression semantics unless the Rust worker candidate proves that it beats
-the optimized TypeScript engine by a large enough margin on the target workflow
-shapes. If the worker proves the speed win, the follow-up is production native
-packaging, most likely N-API, without changing the ordinary TypeScript paths.
+- keep ordinary TypeScript paths unchanged and keep `native-fast` opt-in;
+- add production-grade native packaging work, most likely N-API, behind the same
+  profile gate;
+- expand equivalence tests and platform CI before exposing this as an external
+  experimental runtime;
+- reassess Code/Expression separately instead of folding arbitrary JavaScript
+  execution into the native scheduler.

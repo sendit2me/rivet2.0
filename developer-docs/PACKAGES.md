@@ -220,6 +220,11 @@ Benchmark rows with
 false is a fallback measurement, not a native speed result. A row where
 `nativeBackend` is `js-adapter` is useful adapter evidence, but only
 `nativeBackend: rust-worker` rows can be counted as Rust candidate evidence.
+The first measured native before/after matrix is recorded in
+[`native-runtime-before-after.md`](../native-runtime-before-after.md). On the
+2026-05-24 local benchmark, the Rust worker cleared the feasibility gate for
+eligible cheap-node, fan-in, and subgraph-heavy graph-runner workloads while
+unsupported Code rows stayed on TypeScript fallback with `nativeUsed=false`.
 
 `createGraphRunner(...)` is the additive production-facing fast path for
 headless/programmatic Node integrations that load a project once and run the

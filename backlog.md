@@ -1,5 +1,38 @@
 
+- In both Expression and new Code nodes, when they return an object (as a literal or as a variable), this object is weird. When I retyrn it in the main workflow output that expects an object, my backend (that recieves it via HTTP) fails. But if after the expression/code node I add an "Object" node with thr content "{{input}}" that does nothing, just accepts an object and passes further, it all works. If I comvert the object to text and then parse it, it all works too. I tried to copy the object (from the expression/code node output) and look at it, but it's fine. I only get the probkem when I return such object right away from the main graph.
+
+- Sometimes when I click the project tree with the right mouse button, the Rivet crashes
+
+react-dom-BiLoywox.js:3093 RangeError: Maximum call stack size exceeded
+    at editorBridgeFocus-PphY3KF8.js:446:67
+    at editorBridgeFocus-PphY3KF8.js:448:38
+    at Array.forEach (<anonymous>)
+    at editorBridgeFocus-PphY3KF8.js:447:13
+    at editorBridgeFocus-PphY3KF8.js:448:38
+    at Array.forEach (<anonymous>)
+    at editorBridgeFocus-PphY3KF8.js:447:13
+    at editorBridgeFocus-PphY3KF8.js:448:38
+    at Array.forEach (<anonymous>)
+    at editorBridgeFocus-PphY3KF8.js:447:13
+react-dom-BiLoywox.js:2206 Uncaught RangeError: Maximum call stack size exceeded
+    at editorBridgeFocus-PphY3KF8.js:446:67
+    at editorBridgeFocus-PphY3KF8.js:448:38
+    at Array.forEach (<anonymous>)
+    at editorBridgeFocus-PphY3KF8.js:447:13
+    at editorBridgeFocus-PphY3KF8.js:448:38
+    at Array.forEach (<anonymous>)
+    at editorBridgeFocus-PphY3KF8.js:447:13
+    at editorBridgeFocus-PphY3KF8.js:448:38
+    at Array.forEach (<anonymous>)
+    at editorBridgeFocus-PphY3KF8.js:447:13
+HostedEditorApp-DOEPI7oD.js:114464 WebSocket connection to 'wss://storyteller-rivet.litnet.com/ws/executor/internal' failed: WebSocket is closed before the connection is established.
+
+
+
+
+
 - Small and big letters in graph names affect the sorting in the panel. Don't
+
 
 - Did run nod c remove the explanation form the node's body and put it into the settings panel
 
