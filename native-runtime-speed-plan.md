@@ -292,12 +292,16 @@ Completed:
   maps, remaining dependencies, and ready queues.
 - The Rust worker can process eligible acyclic graph IR without invoking the
   TypeScript processor.
+- The explicit native test script now runs JS-adapter and Rust-worker
+  equivalence smoke for interpolation, graph input defaults, join fan-in,
+  direct subgraph fan-in, repeated runs, concurrent runs, duplicate nodes, and
+  stale connections.
 
 Still pending:
 
 - Replace the process worker with N-API or another production-grade native
   packaging shape only after the benchmark gate passes.
-- Expand Rust-side equivalence tests before using Rust numbers for promotion.
+- Expand Rust-side fixtures beyond smoke coverage before any public promotion.
 
 - Move eligible graph planning, dependency counts, start-node selection,
   ready-queue scheduling, and graph output collection into Rust for the native
@@ -369,7 +373,15 @@ Still pending:
 - Benchmark repeated same-input and changing-input subgraph/reference calls.
   Do not memoize final subgraph outputs by input value.
 
-### P5: Productization gate [TODO]
+### P5: Productization gate [PARTIAL]
+
+Completed:
+
+- The main CI build remains TypeScript-only.
+- `.github/workflows/build.yml` has a separate `native-runtime` job that sets up
+  Rust and runs `npm --prefix native-runtime run test:native` explicitly.
+
+Still pending:
 
 - Run the full runtime-speed matrix with old TypeScript baseline, current
   TypeScript runtime, and native-fast candidate on the same machine.

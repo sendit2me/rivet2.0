@@ -10,6 +10,6 @@
   ],
   "scripts": {
     "build:native": "cargo build --manifest-path native/Cargo.toml --release",
-    "test:native": "cargo test --manifest-path native/Cargo.toml && npm run build:native && node test-rust-worker.mjs"
+    "test:native": "cargo test --manifest-path native/Cargo.toml && npm run build:native && node test-native-runtime.mjs"
   }
 }

@@ -33,3 +33,15 @@ jobs:
         run: yarn lint
       - name: Prettier
         run: yarn prettier --check
+
+  native-runtime:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '20.4.x'
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Test native runtime prototype
+        run: npm --prefix native-runtime run test:native

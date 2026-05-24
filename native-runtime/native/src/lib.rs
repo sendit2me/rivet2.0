@@ -958,11 +958,11 @@ fn coerce_to_string(data_value: &DataValue) -> Option<String> {
     match (&*data_value.data_type, &data_value.value) {
         ("string", Some(Value::String(value))) => Some(value.clone()),
         ("boolean", Some(Value::Bool(value))) => Some(value.to_string()),
-        ("number", Some(Value::Number(value))) => Some(value.to_string()),
+        ("number", Some(Value::Number(value))) => Some(number_to_js_string(value)),
         (_, None | Some(Value::Null)) => None,
         (_, Some(Value::String(value))) => Some(value.clone()),
         (_, Some(Value::Bool(value))) => Some(value.to_string()),
-        (_, Some(Value::Number(value))) => Some(value.to_string()),
+        (_, Some(Value::Number(value))) => Some(number_to_js_string(value)),
         (_, Some(value)) => serde_json::to_string(value).ok(),
     }
 }
@@ -1104,6 +1104,22 @@ fn string_value(value: Value) -> Option<String> {
 
 fn number_value(value: f64) -> Option<Value> {
     Number::from_f64(value).map(Value::Number)
+}
+
+fn number_to_js_string(value: &Number) -> String {
+    if let Some(value) = value.as_i64() {
+        return value.to_string();
+    }
+
+    if let Some(value) = value.as_u64() {
+        return value.to_string();
+    }
+
+    match value.as_f64() {
+        Some(0.0) => "0".to_string(),
+        Some(value) if value.is_finite() && value.fract() == 0.0 => format!("{value:.0}"),
+        _ => value.to_string(),
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -1310,6 +1326,17 @@ mod tests {
         assert_eq!(
             prepare_runner(request).unwrap_err(),
             "duplicate-node:main:duplicate"
+        );
+    }
+
+    #[test]
+    fn formats_integer_like_numbers_like_javascript() {
+        assert_eq!(number_to_js_string(&Number::from(7)), "7");
+        assert_eq!(number_to_js_string(&Number::from_f64(7.0).unwrap()), "7");
+        assert_eq!(number_to_js_string(&Number::from_f64(-0.0).unwrap()), "0");
+        assert_eq!(
+            number_to_js_string(&Number::from_f64(7.25).unwrap()),
+            "7.25"
         );
     }
 

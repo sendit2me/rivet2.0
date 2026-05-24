@@ -203,6 +203,13 @@ module name remains `@valerypopoff/rivet2-native-runtime` so a missing native
 artifact fails closed to TypeScript fallback. `RIVET_NATIVE_RUNTIME_BACKEND`
 can force `rust` or `js`; `RIVET_NATIVE_RUNTIME_BINARY` can point at a specific
 worker executable for benchmark runs.
+Native runtime checks remain explicit: `npm --prefix native-runtime run test:native`
+runs the Rust crate tests, builds the release worker, and runs a
+JS-adapter/Rust-worker equivalence smoke for interpolation, defaults, fan-in,
+direct subgraphs, concurrent runs, and create-time rejection reasons. The main
+workspace build/test scripts stay TypeScript-only; CI runs the native prototype
+in its own `native-runtime` job so ordinary contributors do not need native
+artifacts for normal Rivet development.
 
 The supported native IR subset is intentionally small: acyclic graphs with
 `graphInput`, `text`, `join`, `graphOutput`, and direct `subGraph` nodes whose
