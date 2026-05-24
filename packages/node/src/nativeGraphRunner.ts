@@ -100,6 +100,11 @@ export type NativeNodeIr =
       type: 'destructure';
     }
   | {
+      id: string;
+      path: string;
+      type: 'extractObjectPath';
+    }
+  | {
       dataType: string;
       id: string;
       outputId: string;
@@ -525,6 +530,8 @@ function isSupportedNativeInputPort(node: NativeNodeIr, portId: string, graphs: 
       return portId === 'conditional' || /^input[1-9]\d*$/.test(portId);
     case 'destructure':
       return portId === 'object';
+    case 'extractObjectPath':
+      return portId === 'object';
     case 'graphOutput':
       return portId === 'value';
     case 'subGraph':
@@ -542,6 +549,8 @@ function isSupportedNativeOutputPort(node: NativeNodeIr, portId: string, graphs:
       return portId === 'output';
     case 'destructure':
       return node.paths.some((path) => path.outputId === portId);
+    case 'extractObjectPath':
+      return portId === 'match' || portId === 'all_matches';
     case 'graphOutput':
       return portId === 'valueOutput';
     case 'subGraph':
@@ -560,6 +569,7 @@ function getNativeGraphOutputIds(graph: NativeGraphIr | undefined): Set<string> 
 function getMissingRequiredNativeInputPort(node: NativeNodeIr, connectedInputs: Set<string>): string | undefined {
   switch (node.type) {
     case 'destructure':
+    case 'extractObjectPath':
       return connectedInputs.has(`${node.id}:object`) ? undefined : 'object';
     default:
       return undefined;
@@ -717,6 +727,34 @@ function buildNativeNodeIr(node: ChartNode): NativeNodeResult {
             path: path.trim(),
           })),
           type: 'destructure',
+        },
+        supported: true,
+      };
+    }
+
+    case 'extractObjectPath': {
+      const data = node.data as { path?: unknown; usePathInput?: unknown };
+      if (data.usePathInput) {
+        return unsupportedNode(node, 'extract-object-path-input');
+      }
+
+      if (typeof data.path !== 'string') {
+        return unsupportedNode(node, 'invalid-extract-object-path-data');
+      }
+
+      if (getInterpolationTokenInnerTexts(data.path).length > 0) {
+        return unsupportedNode(node, 'extract-object-path-interpolation');
+      }
+
+      if (!isSupportedNativeSimpleJsonPath(data.path)) {
+        return unsupportedNode(node, `unsupported-extract-object-path:${data.path.trim() || '<empty>'}`);
+      }
+
+      return {
+        node: {
+          id: node.id,
+          path: data.path.trim(),
+          type: 'extractObjectPath',
         },
         supported: true,
       };

@@ -27,6 +27,7 @@ import {
   makeCallGraphFanInProject,
   makeCoalesceFanInProject,
   makeDestructureFanOutProject,
+  makeExtractObjectPathProject,
   makeExpressionChainProject,
   makeMixedSubgraphFanInProject,
   makeNestedSubgraphProject,
@@ -83,6 +84,7 @@ async function main() {
   const wideFanIn200 = makeWideTextFanInProject(200);
   const coalesceFanIn = makeCoalesceFanInProject();
   const destructureFanOut = makeDestructureFanOutProject();
+  const extractObjectPath = makeExtractObjectPathProject();
   const mixedSubgraphFanIn = makeMixedSubgraphFanInProject(8, 20);
   const callGraph50 = makeCallGraphFanInProject(50);
   const referencedGraph1 = makeReferencedGraphAliasFanInProject(1);
@@ -505,6 +507,33 @@ async function main() {
         destructureFanOut.project,
         { graph: destructureFanOut.graphId },
         destructureInputs,
+      ),
+    );
+    const extractObjectPathInputs = {
+      inputs: {
+        object: {
+          type: 'object' as const,
+          value: {
+            meta: { role: 'runner' },
+            name: 'bench',
+          },
+        },
+      },
+    };
+    results.push(
+      await benchmarkGraphRunner(
+        'createGraphRunner compatible extract object path',
+        extractObjectPath.project,
+        { graph: extractObjectPath.graphId },
+        extractObjectPathInputs,
+      ),
+    );
+    results.push(
+      await benchmarkNativeFastGraphRunner(
+        'createGraphRunner native-fast extract object path',
+        extractObjectPath.project,
+        { graph: extractObjectPath.graphId },
+        extractObjectPathInputs,
       ),
     );
     results.push(

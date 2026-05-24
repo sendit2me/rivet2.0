@@ -189,9 +189,9 @@ package boundary lives under
 private prototype with explicit Cargo scripts and no effect on normal Yarn
 workspace install/build/test flows. Its checked-in JS adapter can execute the
 current eligible IR for `graphInput`, `text`, `join`, `coalesce`,
-`destructure`, `graphOutput`, and direct `subGraph` nodes when
-`RIVET_NATIVE_RUNTIME_BACKEND=js` is selected or when no Rust worker binary is
-available. The Rust worker backend under
+`destructure`, `extractObjectPath`, `graphOutput`, and direct `subGraph` nodes
+when `RIVET_NATIVE_RUNTIME_BACKEND=js` is selected or when no Rust worker
+binary is available. The Rust worker backend under
 `native-runtime/native/` now executes the same narrow IR through a persistent
 child process when `RIVET_NATIVE_RUNTIME_BACKEND=rust` is selected, or
 automatically when a built worker binary is present. Move the native package
@@ -209,17 +209,18 @@ worker executable for benchmark runs.
 Native runtime checks remain explicit: `npm --prefix native-runtime run test:native`
 runs the Rust crate tests, builds the release worker, and runs a
 JS-adapter/Rust-worker equivalence smoke for interpolation, defaults, fan-in,
-coalesce fan-in, simple destructure paths, direct subgraphs, concurrent runs,
-and create-time rejection reasons. Rust unit coverage separately verifies
-explicit JSON `null` versus missing `value` transport semantics for native nodes
-that need to distinguish null from undefined. The main workspace build/test
-scripts stay TypeScript-only; CI runs the native prototype in its own
-`native-runtime` job so ordinary contributors do not need native artifacts for
-normal Rivet development.
+coalesce fan-in, simple destructure paths, static Extract Object Path,
+direct subgraphs, concurrent runs, and create-time rejection reasons. Rust unit
+coverage separately verifies explicit JSON `null` versus missing `value`
+transport semantics for native nodes that need to distinguish null from
+undefined. The main workspace build/test scripts stay TypeScript-only; CI runs
+the native prototype in its own `native-runtime` job so ordinary contributors do
+not need native artifacts for normal Rivet development.
 
 The supported native IR subset is intentionally small: acyclic graphs with
-`graphInput`, `text`, `join`, `coalesce`, `destructure`, `graphOutput`, and
-direct `Subgraph` nodes whose reached graphs are also eligible. Disabled,
+`graphInput`, `text`, `join`, `coalesce`, `destructure`, `extractObjectPath`,
+`graphOutput`, and direct `Subgraph` nodes whose reached graphs are also
+eligible. Disabled,
 conditional, split-run, plugin, custom registry, callback/event-sensitive,
 dynamic Call Graph,
 referenced-project, Code, Expression, stale connection, and unsupported port
@@ -241,7 +242,15 @@ TypeScript fallback. The required `object` input must be connected before a
 graph can enter native-fast so missing-input behavior stays aligned with the
 TypeScript processor. Plain `object` graph inputs and graph outputs are admitted
 across the current native subset so object-shaped values can cross graph
-boundaries without changing the default TypeScript path.
+boundaries without changing the default TypeScript path; omitted `object` graph
+inputs use the same `{}` default as the TypeScript engine.
+Extract Object Path is native-eligible only when `usePathInput` is disabled, the
+stored path has no interpolation tokens, and the path fits the same simple
+JSONPath subset as native destructure. Dynamic path inputs, interpolation,
+wildcards, filters, recursive descent, and other JSONPath features remain
+TypeScript fallback. A supported path with no match returns an empty
+`all_matches` value and a control-flow-excluded `match`, matching the
+TypeScript node behavior.
 Benchmark rows with
 `createGraphRunner native-fast ...` include `nativeEligible`, `nativeUsed`,
 `nativeBackend`, and `nativeFallbackReason` fields; a row where `nativeUsed` is

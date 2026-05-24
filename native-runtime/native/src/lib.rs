@@ -85,6 +85,8 @@ pub enum NativeNodeIr {
         id: String,
         paths: Vec<NativeDestructurePath>,
     },
+    #[serde(rename = "extractObjectPath", rename_all = "camelCase")]
+    ExtractObjectPath { id: String, path: String },
     #[serde(rename = "graphOutput", rename_all = "camelCase")]
     GraphOutput {
         data_type: String,
@@ -115,6 +117,7 @@ impl NativeNodeIr {
             | NativeNodeIr::Join { id, .. }
             | NativeNodeIr::Coalesce { id, .. }
             | NativeNodeIr::Destructure { id, .. }
+            | NativeNodeIr::ExtractObjectPath { id, .. }
             | NativeNodeIr::GraphOutput { id, .. }
             | NativeNodeIr::SubGraph { id, .. } => id,
         }
@@ -230,7 +233,11 @@ fn prepare_graph(graph: NativeGraphIr) -> Result<PreparedGraph, String> {
     }
 
     for node in &graph.nodes {
-        if let NativeNodeIr::Destructure { id, .. } = node {
+        if matches!(
+            node,
+            NativeNodeIr::Destructure { .. } | NativeNodeIr::ExtractObjectPath { .. }
+        ) {
+            let id = node.id();
             let has_object_input = incoming_by_node_id.get(id).is_some_and(|connections| {
                 connections
                     .iter()
@@ -268,12 +275,20 @@ fn prepare_graph(graph: NativeGraphIr) -> Result<PreparedGraph, String> {
 }
 
 fn validate_node(graph_id: &str, node: &NativeNodeIr) -> Result<(), String> {
-    if let NativeNodeIr::Destructure { id, paths } = node {
-        for selection in paths {
-            if selection.output_id.is_empty() || parse_simple_json_path(&selection.path).is_none() {
-                return Err(format!("invalid-node:{graph_id}:destructure:{id}"));
+    match node {
+        NativeNodeIr::Destructure { id, paths } => {
+            for selection in paths {
+                if selection.output_id.is_empty()
+                    || parse_simple_json_path(&selection.path).is_none()
+                {
+                    return Err(format!("invalid-node:{graph_id}:destructure:{id}"));
+                }
             }
         }
+        NativeNodeIr::ExtractObjectPath { id, path } if parse_simple_json_path(path).is_none() => {
+            return Err(format!("invalid-node:{graph_id}:extractObjectPath:{id}"));
+        }
+        _ => {}
     }
 
     Ok(())
@@ -386,6 +401,9 @@ fn run_node(node: &NativeNodeIr, state: NodeRunState<'_>) -> Result<DataValueMap
             ..
         } => Ok(run_coalesce_node(*ignore_null, *ignore_undefined, state)),
         NativeNodeIr::Destructure { paths, .. } => Ok(run_destructure_node(paths, state)),
+        NativeNodeIr::ExtractObjectPath { path, .. } => {
+            Ok(run_extract_object_path_node(path, state))
+        }
         NativeNodeIr::GraphOutput { output_id, .. } => Ok(run_graph_output_node(output_id, state)),
         NativeNodeIr::SubGraph {
             graph_id,
@@ -586,6 +604,73 @@ fn run_destructure_node(paths: &[NativeDestructurePath], state: NodeRunState<'_>
             )
         })
         .collect()
+}
+
+fn run_extract_object_path_node(path: &str, state: NodeRunState<'_>) -> DataValueMap {
+    if state
+        .node_inputs
+        .get("object")
+        .is_some_and(|value| value.data_type == "control-flow-excluded")
+    {
+        return BTreeMap::from([
+            (
+                "all_matches".to_string(),
+                DataValue {
+                    data_type: "control-flow-excluded".to_string(),
+                    value: None,
+                },
+            ),
+            (
+                "match".to_string(),
+                DataValue {
+                    data_type: "control-flow-excluded".to_string(),
+                    value: None,
+                },
+            ),
+        ]);
+    }
+
+    let object_value = state
+        .node_inputs
+        .get("object")
+        .and_then(|value| coerce_data_value(value, "object"))
+        .unwrap_or(Value::Null);
+
+    let Some(match_value) = get_simple_json_path_value(&object_value, path) else {
+        return BTreeMap::from([
+            (
+                "all_matches".to_string(),
+                DataValue {
+                    data_type: "any[]".to_string(),
+                    value: Some(Value::Array(Vec::new())),
+                },
+            ),
+            (
+                "match".to_string(),
+                DataValue {
+                    data_type: "control-flow-excluded".to_string(),
+                    value: None,
+                },
+            ),
+        ]);
+    };
+
+    BTreeMap::from([
+        (
+            "all_matches".to_string(),
+            DataValue {
+                data_type: "any[]".to_string(),
+                value: Some(Value::Array(vec![match_value.clone()])),
+            },
+        ),
+        (
+            "match".to_string(),
+            DataValue {
+                data_type: "any".to_string(),
+                value: Some(match_value),
+            },
+        ),
+    ])
 }
 
 fn run_graph_output_node(output_id: &str, state: NodeRunState<'_>) -> DataValueMap {
@@ -1330,6 +1415,7 @@ fn get_default_value(data_type: &str) -> Option<Value> {
         "string" => Some(Value::String(String::new())),
         "number" => Some(Value::Number(Number::from(0))),
         "boolean" => Some(Value::Bool(false)),
+        "object" => Some(Value::Object(serde_json::Map::new())),
         _ => None,
     }
 }
@@ -1824,6 +1910,58 @@ mod tests {
     }
 
     #[test]
+    fn runs_extract_object_path_with_simple_object_path() {
+        let outputs = run_extract_object_path_for_test(
+            "$.nested.second",
+            BTreeMap::from([(
+                "object".to_string(),
+                data_value(
+                    "object",
+                    Some(json!({
+                        "items": ["zero", "one"],
+                        "nested": { "second": 42 }
+                    })),
+                ),
+            )]),
+        );
+
+        assert_eq!(
+            outputs.get("match"),
+            Some(&DataValue {
+                data_type: "any".to_string(),
+                value: Some(Value::Number(Number::from(42))),
+            })
+        );
+        assert_eq!(
+            outputs.get("all_matches"),
+            Some(&DataValue {
+                data_type: "any[]".to_string(),
+                value: Some(Value::Array(vec![Value::Number(Number::from(42))])),
+            })
+        );
+
+        let outputs = run_extract_object_path_for_test(
+            "$.missing",
+            BTreeMap::from([("object".to_string(), data_value("object", Some(json!({}))))]),
+        );
+
+        assert_eq!(
+            outputs.get("match"),
+            Some(&DataValue {
+                data_type: "control-flow-excluded".to_string(),
+                value: None,
+            })
+        );
+        assert_eq!(
+            outputs.get("all_matches"),
+            Some(&DataValue {
+                data_type: "any[]".to_string(),
+                value: Some(Value::Array(Vec::new())),
+            })
+        );
+    }
+
+    #[test]
     fn rejects_unsupported_destructure_paths_at_create_time() {
         let request = serde_json::from_value::<NativeRuntimeCreateRequest>(json!({
             "graphId": "main",
@@ -1853,6 +1991,31 @@ mod tests {
     }
 
     #[test]
+    fn rejects_unsupported_extract_object_path_at_create_time() {
+        let request = serde_json::from_value::<NativeRuntimeCreateRequest>(json!({
+            "graphId": "main",
+            "graphs": [{
+                "graphId": "main",
+                "nodes": [
+                    { "type": "graphInput", "id": "object", "inputId": "object", "dataType": "object" },
+                    { "type": "extractObjectPath", "id": "extract", "path": "$.items[*]" },
+                    { "type": "graphOutput", "id": "output", "outputId": "result", "dataType": "any" }
+                ],
+                "connections": [
+                    { "outputNodeId": "object", "outputId": "data", "inputNodeId": "extract", "inputId": "object" },
+                    { "outputNodeId": "extract", "outputId": "match", "inputNodeId": "output", "inputId": "value" }
+                ]
+            }]
+        }))
+        .unwrap();
+
+        assert_eq!(
+            prepare_runner(request).unwrap_err(),
+            "invalid-node:main:extractObjectPath:extract"
+        );
+    }
+
+    #[test]
     fn rejects_destructure_without_required_object_input() {
         let request = serde_json::from_value::<NativeRuntimeCreateRequest>(json!({
             "graphId": "main",
@@ -1876,6 +2039,29 @@ mod tests {
         assert_eq!(
             prepare_runner(request).unwrap_err(),
             "missing-required-input:main:destructure:object"
+        );
+    }
+
+    #[test]
+    fn rejects_extract_object_path_without_required_object_input() {
+        let request = serde_json::from_value::<NativeRuntimeCreateRequest>(json!({
+            "graphId": "main",
+            "graphs": [{
+                "graphId": "main",
+                "nodes": [
+                    { "type": "extractObjectPath", "id": "extract", "path": "$.value" },
+                    { "type": "graphOutput", "id": "output", "outputId": "result", "dataType": "any" }
+                ],
+                "connections": [
+                    { "outputNodeId": "extract", "outputId": "match", "inputNodeId": "output", "inputId": "value" }
+                ]
+            }]
+        }))
+        .unwrap();
+
+        assert_eq!(
+            prepare_runner(request).unwrap_err(),
+            "missing-required-input:main:extract:object"
         );
     }
 
@@ -1942,6 +2128,26 @@ mod tests {
 
         run_destructure_node(
             &paths,
+            NodeRunState {
+                context: &context,
+                graph_inputs: &mut graph_inputs,
+                graph_outputs: &mut graph_outputs,
+                graphs: &graphs,
+                inputs: &inputs,
+                node_inputs,
+            },
+        )
+    }
+
+    fn run_extract_object_path_for_test(path: &str, node_inputs: DataValueMap) -> DataValueMap {
+        let context = BTreeMap::new();
+        let graphs = HashMap::new();
+        let inputs = BTreeMap::new();
+        let mut graph_inputs = BTreeMap::new();
+        let mut graph_outputs = BTreeMap::new();
+
+        run_extract_object_path_node(
+            path,
             NodeRunState {
                 context: &context,
                 graph_inputs: &mut graph_inputs,

@@ -11,9 +11,11 @@ for (const backend of backends) {
   await testContextInterpolationAndProcessing(backend);
   await testRepeatedAndConcurrentRuns(backend);
   await testGraphInputDefaultsAndCoercion(backend);
+  await testObjectGraphInputDefault(backend);
   await testJoinArrayFanIn(backend);
   await testCoalesceFanIn(backend);
   await testDestructureObjectPaths(backend);
+  await testExtractObjectPath(backend);
   await testCreateRejectionReasons(backend);
 }
 
@@ -101,6 +103,21 @@ async function testGraphInputDefaultsAndCoercion({ backend, expectedBackend }) {
   });
 }
 
+async function testObjectGraphInputDefault({ backend, expectedBackend }) {
+  await withBackend(backend, async () => {
+    const runner = await createSupportedRunner(makeObjectDefaultInputRequest(), expectedBackend);
+    try {
+      const outputs = await runner.run();
+
+      assert.deepEqual(outputs, {
+        result: { type: 'object', value: {} },
+      });
+    } finally {
+      runner.dispose?.();
+    }
+  });
+}
+
 async function testJoinArrayFanIn({ backend, expectedBackend }) {
   await withBackend(backend, async () => {
     const runner = await createSupportedRunner(makeJoinArrayFanInRequest(), expectedBackend);
@@ -175,6 +192,33 @@ async function testDestructureObjectPaths({ backend, expectedBackend }) {
   });
 }
 
+async function testExtractObjectPath({ backend, expectedBackend }) {
+  await withBackend(backend, async () => {
+    const runner = await createSupportedRunner(makeExtractObjectPathRequest(), expectedBackend);
+    try {
+      assert.deepEqual(
+        await runner.run({
+          inputs: {
+            object: {
+              type: 'object',
+              value: {
+                meta: { role: 'builder' },
+                name: 'Ada',
+              },
+            },
+          },
+        }),
+        {
+          allMatches: { type: 'any[]', value: ['builder'] },
+          result: { type: 'any', value: 'builder' },
+        },
+      );
+    } finally {
+      runner.dispose?.();
+    }
+  });
+}
+
 async function testCreateRejectionReasons({ backend }) {
   await withBackend(backend, async () => {
     const duplicateNodeResult = await createNativeGraphRunner(makeDuplicateNodeRequest());
@@ -194,6 +238,14 @@ async function testCreateRejectionReasons({ backend }) {
     );
     assert.deepEqual(invalidDestructureResult, {
       reason: 'invalid-node:main:destructure:destructure',
+      supported: false,
+    });
+
+    const invalidExtractObjectPathResult = await createNativeGraphRunner(
+      makeInvalidExtractObjectPathRequest('$.items[*]'),
+    );
+    assert.deepEqual(invalidExtractObjectPathResult, {
+      reason: 'invalid-node:main:extractObjectPath:extract',
       supported: false,
     });
   });
@@ -381,6 +433,32 @@ function makeJoinArrayFanInRequest() {
   };
 }
 
+function makeObjectDefaultInputRequest() {
+  return {
+    graphId: 'main',
+    graphs: [
+      {
+        graphId: 'main',
+        nodes: [
+          {
+            dataType: 'object',
+            id: 'object-input',
+            inputId: 'object',
+            type: 'graphInput',
+          },
+          {
+            dataType: 'object',
+            id: 'output',
+            outputId: 'result',
+            type: 'graphOutput',
+          },
+        ],
+        connections: [connect('object-input', 'data', 'output', 'value')],
+      },
+    ],
+  };
+}
+
 function makeDuplicateNodeRequest() {
   return {
     graphId: 'main',
@@ -515,6 +593,47 @@ function makeDestructureRequest() {
   };
 }
 
+function makeExtractObjectPathRequest() {
+  return {
+    graphId: 'main',
+    graphs: [
+      {
+        graphId: 'main',
+        nodes: [
+          {
+            dataType: 'object',
+            id: 'object-input',
+            inputId: 'object',
+            type: 'graphInput',
+          },
+          {
+            id: 'extract',
+            path: '$.meta.role',
+            type: 'extractObjectPath',
+          },
+          {
+            dataType: 'any',
+            id: 'match-output',
+            outputId: 'result',
+            type: 'graphOutput',
+          },
+          {
+            dataType: 'any',
+            id: 'all-matches-output',
+            outputId: 'allMatches',
+            type: 'graphOutput',
+          },
+        ],
+        connections: [
+          connect('object-input', 'data', 'extract', 'object'),
+          connect('extract', 'match', 'match-output', 'value'),
+          connect('extract', 'all_matches', 'all-matches-output', 'value'),
+        ],
+      },
+    ],
+  };
+}
+
 function makeInvalidDestructurePathRequest(path) {
   return {
     graphId: 'main',
@@ -543,6 +662,40 @@ function makeInvalidDestructurePathRequest(path) {
         connections: [
           connect('object-input', 'data', 'destructure', 'object'),
           connect('destructure', 'match', 'output', 'value'),
+        ],
+      },
+    ],
+  };
+}
+
+function makeInvalidExtractObjectPathRequest(path) {
+  return {
+    graphId: 'main',
+    graphs: [
+      {
+        graphId: 'main',
+        nodes: [
+          {
+            dataType: 'object',
+            id: 'object-input',
+            inputId: 'object',
+            type: 'graphInput',
+          },
+          {
+            id: 'extract',
+            path,
+            type: 'extractObjectPath',
+          },
+          {
+            dataType: 'any',
+            id: 'output',
+            outputId: 'result',
+            type: 'graphOutput',
+          },
+        ],
+        connections: [
+          connect('object-input', 'data', 'extract', 'object'),
+          connect('extract', 'match', 'output', 'value'),
         ],
       },
     ],

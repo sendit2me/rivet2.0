@@ -15,6 +15,7 @@ import {
   makeCodeChainProject,
   makeCallGraphFanInProject,
   makeControlFlowExclusionProject,
+  makeExtractObjectPathProject,
   makeExpressionChainProject,
   makeGlobalStateProject,
   makeInputContextTextProject,
@@ -275,6 +276,26 @@ void describe('runtime speed equivalence guards', () => {
         options: {
           inputs: {
             input: { type: 'object', value: { present: true } },
+          },
+        },
+      },
+      {
+        expected: {
+          allMatches: { type: 'any[]', value: ['builder'] },
+          cost: { type: 'number', value: 0 },
+          result: { type: 'any', value: 'builder' },
+        },
+        fixture: makeExtractObjectPathProject(),
+        name: 'extract object path',
+        options: {
+          inputs: {
+            object: {
+              type: 'object',
+              value: {
+                meta: { role: 'builder' },
+                name: 'Ada',
+              },
+            },
           },
         },
       },

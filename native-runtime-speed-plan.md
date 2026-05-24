@@ -24,8 +24,9 @@ Current implementation state:
 - Native runtime experiments can be loaded with `RIVET_NATIVE_RUNTIME_MODULE`
   using either a package name, file URL, or filesystem path.
 - The local JS adapter can execute the existing narrow native IR for
-  `graphInput`, `text`, `join`, `coalesce`, `destructure`, `graphOutput`, and
-  direct `subGraph` boundaries when `RIVET_NATIVE_RUNTIME_BACKEND=js` is
+  `graphInput`, `text`, `join`, `coalesce`, `destructure`,
+  `extractObjectPath`, `graphOutput`, and direct `subGraph` boundaries when
+  `RIVET_NATIVE_RUNTIME_BACKEND=js` is
   selected or when no Rust worker binary is available.
 - The Rust crate under `native-runtime/native/` now includes a persistent
   worker binary that executes the same narrow IR for native-fast experiments.
@@ -294,8 +295,9 @@ Completed:
   TypeScript processor.
 - The explicit native test script now runs JS-adapter and Rust-worker
   equivalence smoke for interpolation, graph input defaults, join fan-in,
-  coalesce fan-in, simple destructure paths, direct subgraph fan-in, repeated
-  runs, concurrent runs, duplicate nodes, and stale connections.
+  coalesce fan-in, simple destructure paths, static Extract Object Path,
+  direct subgraph fan-in, repeated runs, concurrent runs, duplicate nodes, and
+  stale connections.
 
 Still pending:
 
@@ -320,10 +322,11 @@ Still pending:
 
 Completed:
 
-- `graphInput`, `text`, `join`, `coalesce`, `destructure`, and `graphOutput`
-  execute in both the local JS adapter and Rust worker for the supported data
-  types already admitted by the TypeScript eligibility pass, including plain
-  object inputs needed by destructure.
+- `graphInput`, `text`, `join`, `coalesce`, `destructure`,
+  `extractObjectPath`, and `graphOutput` execute in both the local JS adapter
+  and Rust worker for the supported data types already admitted by the
+  TypeScript eligibility pass, including plain object inputs needed by
+  destructure and Extract Object Path.
 - Text interpolation supports ordinary input tokens, `@context.*`,
   `@graphInputs.*`, escaped interpolation tokens, line-ending normalization, and
   the parity-tested processing subset: `uppercase`, `lowercase`, `trim`, and
@@ -345,11 +348,20 @@ Completed:
   small static JSONPath subset: `$`, dot-property segments, and safe
   non-negative array indexes. Unsupported JSONPath features remain TypeScript
   fallback.
+- Extract Object Path supports static stored paths with no interpolation, the
+  same simple JSONPath subset as native destructure, required-object-input
+  validation, `match`, `all_matches`, no-match exclusion semantics, and
+  TypeScript fallback for dynamic path input or richer JSONPath.
+- Focused tests now cover native-fast Extract Object Path execution, fallback
+  before native module loading for unsupported JSONPath, invalid-path
+  eligibility decisions, `all_matches` fan-out, object graph-input defaults,
+  JS-adapter/Rust-worker smoke parity, and public TypeScript runtime
+  equivalence.
 
 Still pending:
 
-- Add object-like construction, Extract Object Path, and any other cheap node
-  only after dedicated semantic fixtures exist.
+- Add object-like construction and any other cheap node only after dedicated
+  semantic fixtures exist.
 
 - Implement the smallest useful set of cheap built-in nodes natively.
 - Prioritize nodes that keep benchmark execution entirely native: graph input,
@@ -399,12 +411,18 @@ Completed:
 - `.github/workflows/build.yml` has a separate `native-runtime` job that sets up
   Rust and runs `npm --prefix native-runtime run test:native` explicitly.
 - Runtime-speed benchmarks now include compatible and native-fast coalesce
-  fan-in and destructure fan-out rows so the next before/after run can report
-  whether the new cheap object primitives help or regress.
+  fan-in, destructure fan-out, and Extract Object Path rows so the next
+  before/after run can report whether the new cheap object primitives help or
+  regress.
 - Tiny 2026-05-24 smoke runs with two measured iterations confirmed the new
   coalesce and destructure benchmark rows execute through
   `nativeBackend: rust-worker` with `nativeUsed=true`. This is wiring evidence
   only; it is not a replacement for the full five-sample before/after matrix.
+- A tiny 2026-05-24 Extract Object Path smoke run with two measured iterations
+  also executed through `nativeBackend: rust-worker` with `nativeUsed=true`:
+  compatible mean `0.805ms`, native-fast mean `0.228ms`. This is wiring
+  evidence only; it is not a replacement for the full five-sample before/after
+  matrix.
 
 Still pending:
 

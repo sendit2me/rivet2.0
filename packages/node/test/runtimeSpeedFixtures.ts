@@ -273,6 +273,23 @@ export function makeDestructureFanOutProject(): RuntimeSpeedProjectFixture {
   );
 }
 
+export function makeExtractObjectPathProject(): RuntimeSpeedProjectFixture {
+  const inputNode = makeGraphInputNode('object-input', 'object', 'object');
+  const extractNode = makeExtractObjectPathNode('extract', '$.meta.role');
+  const outputNode = makeGraphOutputNode('graph-output', 'result', 'any');
+  const allMatchesOutputNode = makeGraphOutputNode('all-matches-output', 'allMatches', 'any');
+
+  return makeFixture(
+    [inputNode, extractNode, outputNode, allMatchesOutputNode],
+    [
+      connect(inputNode.id, 'data', extractNode.id, 'object'),
+      connect(extractNode.id, 'match', outputNode.id, 'value'),
+      connect(extractNode.id, 'all_matches', allMatchesOutputNode.id, 'value'),
+    ],
+    outputNode.id,
+  );
+}
+
 export function makeSubgraphChainProject(subgraphCallCount: number): RuntimeSpeedProjectFixture {
   const mainGraphId = 'runtime-speed-main' as GraphId;
   const subGraphId = 'runtime-speed-subgraph' as GraphId;

@@ -420,6 +420,8 @@ async function runNode(node, state) {
       return runCoalesceNode(node, state);
     case 'destructure':
       return runDestructureNode(node, state);
+    case 'extractObjectPath':
+      return runExtractObjectPathNode(node, state);
     case 'graphOutput':
       return runGraphOutputNode(node, state);
     case 'subGraph':
@@ -549,6 +551,49 @@ function runDestructureNode(node, state) {
   return outputs;
 }
 
+function runExtractObjectPathNode(node, state) {
+  const objectInput = state.nodeInputs.object;
+
+  if (objectInput?.type === 'control-flow-excluded') {
+    return {
+      all_matches: {
+        type: 'control-flow-excluded',
+        value: undefined,
+      },
+      match: {
+        type: 'control-flow-excluded',
+        value: undefined,
+      },
+    };
+  }
+
+  const objectValue = coerceDataValue(objectInput, 'object') ?? null;
+  const match = getSimpleJsonPathMatch(objectValue, node.path);
+  if (!match) {
+    return {
+      all_matches: {
+        type: 'any[]',
+        value: [],
+      },
+      match: {
+        type: 'control-flow-excluded',
+        value: undefined,
+      },
+    };
+  }
+
+  return {
+    all_matches: {
+      type: 'any[]',
+      value: [match.value],
+    },
+    match: {
+      type: 'any',
+      value: match.value,
+    },
+  };
+}
+
 function runGraphOutputNode(node, state) {
   const hasValueInput = hasRecordValue(state.nodeInputs, 'value');
   const value = hasValueInput ? getRecordValue(state.nodeInputs, 'value') : { type: 'any', value: undefined };
@@ -606,6 +651,10 @@ function getDynamicInputNumber(inputId) {
 }
 
 function getSimpleJsonPathValue(value, path) {
+  return getSimpleJsonPathMatch(value, path)?.value;
+}
+
+function getSimpleJsonPathMatch(value, path) {
   const segments = parseSimpleJsonPath(path);
   if (!segments) {
     return undefined;
@@ -635,7 +684,9 @@ function getSimpleJsonPathValue(value, path) {
     current = current[segment];
   }
 
-  return current;
+  return {
+    value: current,
+  };
 }
 
 function parseSimpleJsonPath(path) {
@@ -1085,6 +1136,8 @@ function getDefaultValue(type) {
       return 0;
     case 'boolean':
       return false;
+    case 'object':
+      return {};
     case 'any':
     default:
       return undefined;
@@ -1140,40 +1193,51 @@ function isSupportedNodeType(type) {
     type === 'join' ||
     type === 'coalesce' ||
     type === 'destructure' ||
+    type === 'extractObjectPath' ||
     type === 'graphOutput' ||
     type === 'subGraph'
   );
 }
 
 function validateNode(node, graphId) {
-  if (node.type !== 'destructure') {
-    return { supported: true };
-  }
+  switch (node.type) {
+    case 'destructure':
+      if (!Array.isArray(node.paths)) {
+        return unsupported(`invalid-node:${graphId}:destructure:${node.id}`);
+      }
 
-  if (!Array.isArray(node.paths)) {
-    return unsupported(`invalid-node:${graphId}:destructure:${node.id}`);
-  }
+      for (const selection of node.paths) {
+        if (
+          !selection ||
+          typeof selection !== 'object' ||
+          typeof selection.outputId !== 'string' ||
+          selection.outputId.length === 0 ||
+          typeof selection.path !== 'string' ||
+          !parseSimpleJsonPath(selection.path)
+        ) {
+          return unsupported(`invalid-node:${graphId}:destructure:${node.id}`);
+        }
+      }
 
-  for (const selection of node.paths) {
-    if (
-      !selection ||
-      typeof selection !== 'object' ||
-      typeof selection.outputId !== 'string' ||
-      selection.outputId.length === 0 ||
-      typeof selection.path !== 'string' ||
-      !parseSimpleJsonPath(selection.path)
-    ) {
-      return unsupported(`invalid-node:${graphId}:destructure:${node.id}`);
-    }
-  }
+      return { supported: true };
+    case 'extractObjectPath':
+      if (typeof node.path !== 'string' || !parseSimpleJsonPath(node.path)) {
+        return unsupported(`invalid-node:${graphId}:extractObjectPath:${node.id}`);
+      }
 
-  return { supported: true };
+      return { supported: true };
+    default:
+      return { supported: true };
+  }
 }
 
 function getMissingRequiredInput(nodes, connections, graphId) {
   const connectedInputs = new Set(connections.map((connection) => `${connection.inputNodeId}:${connection.inputId}`));
   for (const node of nodes) {
-    if (node.type === 'destructure' && !connectedInputs.has(`${node.id}:object`)) {
+    if (
+      (node.type === 'destructure' || node.type === 'extractObjectPath') &&
+      !connectedInputs.has(`${node.id}:object`)
+    ) {
       return unsupported(`missing-required-input:${graphId}:${node.id}:object`);
     }
   }
