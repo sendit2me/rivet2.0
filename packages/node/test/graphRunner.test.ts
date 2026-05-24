@@ -38,6 +38,7 @@ import {
   makeTextChainProject,
   makeWideTextFanInProject,
 } from './runtimeSpeedFixtures.js';
+import { withLocalNativeFastAdapterEnv } from './testUtils.js';
 
 class CountingCodeRunner implements CodeRunner {
   calls = 0;
@@ -95,30 +96,6 @@ function trackDefinitionCalls(impl: NodeImpl<ChartNode>, onDefinitionCall: () =>
   };
 
   return impl;
-}
-
-const localNativeRuntimeModuleUrl = new URL('../../../native-runtime/index.js', import.meta.url).href;
-
-async function withLocalNativeFastAdapterEnv<T>(run: () => Promise<T>): Promise<T> {
-  const previousNativeRuntimeModule = process.env.RIVET_NATIVE_RUNTIME_MODULE;
-  const previousNativeRuntimeBackend = process.env.RIVET_NATIVE_RUNTIME_BACKEND;
-  process.env.RIVET_NATIVE_RUNTIME_MODULE = localNativeRuntimeModuleUrl;
-  process.env.RIVET_NATIVE_RUNTIME_BACKEND = 'js';
-
-  try {
-    return await run();
-  } finally {
-    if (previousNativeRuntimeModule == null) {
-      delete process.env.RIVET_NATIVE_RUNTIME_MODULE;
-    } else {
-      process.env.RIVET_NATIVE_RUNTIME_MODULE = previousNativeRuntimeModule;
-    }
-    if (previousNativeRuntimeBackend == null) {
-      delete process.env.RIVET_NATIVE_RUNTIME_BACKEND;
-    } else {
-      process.env.RIVET_NATIVE_RUNTIME_BACKEND = previousNativeRuntimeBackend;
-    }
-  }
 }
 
 void describe('createGraphRunner', () => {

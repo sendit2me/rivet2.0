@@ -324,6 +324,171 @@ export function makeObjectArrayConstructionProject(): RuntimeSpeedProjectFixture
   );
 }
 
+export function makeNativeGraphInputDefaultProject(): RuntimeSpeedProjectFixture {
+  const countInput = makeGraphInputNode('count-input', 'count', 'number');
+  const flagInput = makeGraphInputNode('flag-input', 'flag', 'boolean');
+  (countInput.data as { defaultValue: unknown }).defaultValue = 7;
+  (flagInput.data as { defaultValue: unknown }).defaultValue = true;
+  const textNode = makeTextNode('default-text', '{{count}} {{flag}}');
+  const outputNode = makeGraphOutputNode('graph-output', 'result', 'string');
+
+  return makeFixture(
+    [countInput, flagInput, textNode, outputNode],
+    [
+      connect(countInput.id, 'data', textNode.id, 'count'),
+      connect(flagInput.id, 'data', textNode.id, 'flag'),
+      connect(textNode.id, 'output', outputNode.id, 'value'),
+    ],
+    outputNode.id,
+  );
+}
+
+export function makeNativeObjectPipelineProject(): RuntimeSpeedProjectFixture {
+  const nameInput = makeGraphInputNode('name-input', 'name', 'string');
+  const countInput = makeGraphInputNode('count-input', 'count', 'number');
+  const fallbackInput = makeGraphInputNode('fallback-input', 'fallback', 'string');
+  const preferredInput = makeGraphInputNode('preferred-input', 'preferred', 'any');
+  const objectNode = makeObjectNode(
+    'profile-object',
+    '{"profile":{"name":"{{name}}","role":"{{@context.role}}"},"count":{{count}},"tags":["static","{{fallback}}"]}',
+  );
+  const destructureNode = makeDestructureNode('profile-parts', [
+    { outputId: 'name', path: '$.profile.name' },
+    { outputId: 'role', path: '$.profile.role' },
+    { outputId: 'fallback-tag', path: '$.tags[1]' },
+  ]);
+  const extractRoleNode = makeExtractObjectPathNode('extract-role', '$.profile.role');
+  const coalesceNode = makeCoalesceNode('preferred-or-fallback', {
+    ignoreNull: true,
+    ignoreUndefined: true,
+  });
+  const joinNode = makeJoinNode('summary-join');
+  const summaryOutput = makeGraphOutputNode('summary-output', 'summary', 'string');
+  const roleOutput = makeGraphOutputNode('role-output', 'role', 'any');
+  const allRolesOutput = makeGraphOutputNode('all-roles-output', 'allRoles', 'any[]');
+  const selectedOutput = makeGraphOutputNode('selected-output', 'selected', 'any');
+  const profileOutput = makeGraphOutputNode('profile-output', 'profile', 'object');
+
+  return makeFixture(
+    [
+      nameInput,
+      countInput,
+      fallbackInput,
+      preferredInput,
+      objectNode,
+      destructureNode,
+      extractRoleNode,
+      coalesceNode,
+      joinNode,
+      summaryOutput,
+      roleOutput,
+      allRolesOutput,
+      selectedOutput,
+      profileOutput,
+    ],
+    [
+      connect(nameInput.id, 'data', objectNode.id, 'name'),
+      connect(countInput.id, 'data', objectNode.id, 'count'),
+      connect(fallbackInput.id, 'data', objectNode.id, 'fallback'),
+      connect(objectNode.id, 'output', destructureNode.id, 'object'),
+      connect(objectNode.id, 'output', extractRoleNode.id, 'object'),
+      connect(preferredInput.id, 'data', coalesceNode.id, 'input1'),
+      connect(fallbackInput.id, 'data', coalesceNode.id, 'input2'),
+      connect(destructureNode.id, 'name', joinNode.id, 'input1'),
+      connect(destructureNode.id, 'role', joinNode.id, 'input2'),
+      connect(destructureNode.id, 'fallback-tag', joinNode.id, 'input3'),
+      connect(joinNode.id, 'output', summaryOutput.id, 'value'),
+      connect(extractRoleNode.id, 'match', roleOutput.id, 'value'),
+      connect(extractRoleNode.id, 'all_matches', allRolesOutput.id, 'value'),
+      connect(coalesceNode.id, 'output', selectedOutput.id, 'value'),
+      connect(objectNode.id, 'output', profileOutput.id, 'value'),
+    ],
+    summaryOutput.id,
+  );
+}
+
+export function makeNativeSubgraphInputDataProject(): RuntimeSpeedProjectFixture {
+  const mainGraphId = 'runtime-speed-main' as GraphId;
+  const subGraphId = 'runtime-speed-static-input-subgraph' as GraphId;
+  const mainInput = makeGraphInputNode('main-input', 'input', 'string');
+  const subgraphNode = makeSubgraphNode('static-input-subgraph', subGraphId);
+  (subgraphNode.data as { inputData: Record<string, DataValue> }).inputData = {
+    suffix: { type: 'string', value: 'static' },
+  };
+  const mainOutput = makeGraphOutputNode('main-output', 'result', 'string');
+  const subPrefixInput = makeGraphInputNode('sub-prefix-input', 'prefix', 'string');
+  const subSuffixInput = makeGraphInputNode('sub-suffix-input', 'suffix', 'string');
+  const subJoin = makeJoinNode('sub-join');
+  const subOutput = makeGraphOutputNode('sub-output', 'result', 'string');
+
+  return {
+    graphId: mainGraphId,
+    project: {
+      graphs: {
+        [mainGraphId]: {
+          connections: [
+            connect(mainInput.id, 'data', subgraphNode.id, 'prefix'),
+            connect(subgraphNode.id, 'result', mainOutput.id, 'value'),
+          ],
+          metadata: {
+            description: '',
+            id: mainGraphId,
+            name: 'Runtime Speed Main',
+          },
+          nodes: [mainInput, subgraphNode, mainOutput],
+        },
+        [subGraphId]: {
+          connections: [
+            connect(subPrefixInput.id, 'data', subJoin.id, 'input1'),
+            connect(subSuffixInput.id, 'data', subJoin.id, 'input2'),
+            connect(subJoin.id, 'output', subOutput.id, 'value'),
+          ],
+          metadata: {
+            description: '',
+            id: subGraphId,
+            name: 'Runtime Speed Static Input Subgraph',
+          },
+          nodes: [subPrefixInput, subSuffixInput, subJoin, subOutput],
+        },
+      },
+      metadata: {
+        description: '',
+        id: 'runtime-speed-project' as ProjectId,
+        mainGraphId,
+        title: 'Runtime Speed Project',
+      },
+      plugins: [],
+    },
+    terminalNodeId: mainOutput.id,
+  };
+}
+
+export function makeNativeTextProcessingProject(): RuntimeSpeedProjectFixture {
+  const inputNode = makeGraphInputNode('graph-input', 'input', 'string');
+  const trimNode = makeTextNode('trim-text', '{{input | trim}}');
+  const uppercaseNode = makeTextNode('uppercase-text', '{{input | uppercase}}');
+  const lowercaseNode = makeTextNode('lowercase-text', '{{input | lowercase}}');
+  const truncateNode = makeTextNode('truncate-text', '{{input | truncate 0}}');
+  const joinNode = makeJoinNode('join-text');
+  const outputNode = makeGraphOutputNode('graph-output', 'result', 'string');
+
+  return makeFixture(
+    [inputNode, trimNode, uppercaseNode, lowercaseNode, truncateNode, joinNode, outputNode],
+    [
+      connect(inputNode.id, 'data', trimNode.id, 'input'),
+      connect(inputNode.id, 'data', uppercaseNode.id, 'input'),
+      connect(inputNode.id, 'data', lowercaseNode.id, 'input'),
+      connect(inputNode.id, 'data', truncateNode.id, 'input'),
+      connect(trimNode.id, 'output', joinNode.id, 'input1'),
+      connect(uppercaseNode.id, 'output', joinNode.id, 'input2'),
+      connect(lowercaseNode.id, 'output', joinNode.id, 'input3'),
+      connect(truncateNode.id, 'output', joinNode.id, 'input4'),
+      connect(joinNode.id, 'output', outputNode.id, 'value'),
+    ],
+    outputNode.id,
+  );
+}
+
 export function makeSubgraphChainProject(subgraphCallCount: number): RuntimeSpeedProjectFixture {
   const mainGraphId = 'runtime-speed-main' as GraphId;
   const subGraphId = 'runtime-speed-subgraph' as GraphId;

@@ -220,7 +220,15 @@ versus missing `value` transport semantics for native nodes that need to
 distinguish null from undefined. The Node graph-runner tests cover the
 TypeScript reference-resolution step that turns eligible Referenced Graph Alias
 nodes into synthetic native subgraph IR before either native adapter sees the
-request. The main workspace build/test scripts stay TypeScript-only; CI runs
+request.
+[`packages/node/test/nativeRuntimeEquivalence.test.ts`](../packages/node/test/nativeRuntimeEquivalence.test.ts)
+is the focused native-fast equivalence suite for real-ish supported graph
+patterns: it runs each fixture through the compatible TypeScript graph runner,
+asserts the expected outputs, then reruns the same project through the local
+native-fast JS adapter and requires identical outputs and a positive native
+decision. It also covers nearby unsupported Expression and dynamic graph-call
+fixtures, proving they fall back before the native module is loaded. The main
+workspace build/test scripts stay TypeScript-only; CI runs
 the native prototype in its own `native-runtime` matrix job on Windows, macOS,
 and Linux so ordinary contributors do not need native artifacts for normal Rivet
 development, while platform-specific worker build/test failures are still

@@ -370,6 +370,14 @@ Completed:
   eligibility decisions, `all_matches` fan-out, object graph-input defaults,
   JS-adapter/Rust-worker smoke parity, and public TypeScript runtime
   equivalence.
+- The first broader native-fast equivalence pass is now in
+  `packages/node/test/nativeRuntimeEquivalence.test.ts`. It compares compatible
+  TypeScript graph-runner outputs with local native-fast JS-adapter outputs for
+  supported text processing, Object/Destructure/Extract/Coalesce pipelines,
+  graph input defaults, static subgraph input data, object-array graph outputs,
+  control-flow exclusion, and Referenced Graph Alias fan-in. It also proves
+  nearby unsupported Expression and dynamic graph-call patterns fall back before
+  native module loading.
 
 Optional future scope:
 
@@ -565,8 +573,8 @@ the TypeScript runtime.
   supporting graph scheduling and cheap built-ins.
 - Native package distribution increases CI, release, and platform complexity.
 - Bugs in native code can be harder to diagnose than TypeScript runtime bugs.
-- A native runtime may duplicate engine semantics unless equivalence tests are
-  expanded before implementation.
+- A native runtime may duplicate engine semantics unless the expanded
+  equivalence fixtures stay ahead of new native node families.
 - Silent fallback can hide the fact that Rust did not actually run unless the
   decision report is included in benchmarks and diagnostics.
 - Adding `native-fast` to shared profile plumbing too early can accidentally
@@ -583,7 +591,9 @@ keeps it internal and opt-in rather than default:
 - keep ordinary TypeScript paths unchanged and keep `native-fast` opt-in;
 - keep the worker-process boundary unless a future release-packaging phase
   proves N-API is worth the crash-isolation tradeoff;
-- expand equivalence tests before widening the eligible node set;
+- keep expanding equivalence tests before widening the eligible node set; the
+  first broader fixture pass is done, but every new native node family still
+  needs its own supported and unsupported cases;
 - run the benchmark matrix whenever native eligibility or worker transport
   changes;
 - keep Code and Expression on TypeScript fallback unless a separate
