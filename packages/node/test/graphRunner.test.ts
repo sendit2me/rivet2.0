@@ -1,16 +1,22 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+  createProcessor,
   createGraphRunner,
   globalRivetNodeRegistry,
+  runGraph,
   type ChartNode,
   type CodeRunner,
   type DataValue,
   type Inputs,
+  type NodeConnection,
   type NodeImpl,
+  type NodeId,
   type NodeRegistration,
   type Outputs,
+  type PortId,
 } from '../src/index.js';
+import { setNativeRuntimeModuleLoaderForTesting, type NativeRuntimeModule } from '../src/nativeGraphRunner.js';
 import {
   makeAbortSignalProject,
   makeAsyncDelayProject,
@@ -18,6 +24,7 @@ import {
   makeGlobalStateProject,
   makeInputContextTextProject,
   makeSubgraphChainProject,
+  makeTextChainProject,
 } from './runtimeSpeedFixtures.js';
 
 class CountingCodeRunner implements CodeRunner {
@@ -265,5 +272,433 @@ void describe('createGraphRunner', () => {
     await compatibleRunner.run({ inputs: { input: 'b' } });
     assert.equal(compatibleRegistry.getCreateCalls(), nodeCount * 2);
     assert.equal(compatibleRegistry.getDefinitionCalls(), nodeCount * 4);
+  });
+
+  void it('does not load the native runtime for existing TypeScript profiles', async () => {
+    const fixture = makeTextChainProject(1);
+    let nativeLoadCalls = 0;
+    setNativeRuntimeModuleLoaderForTesting(async () => {
+      nativeLoadCalls += 1;
+      throw new Error('Native runtime should not load for non-native profiles.');
+    });
+
+    try {
+      const compatibleRunner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+      });
+      const fastRunner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        runtimeProfile: 'headless-fast',
+      });
+
+      assert.deepEqual(await compatibleRunner.run({ inputs: { input: 'a' } }), {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: 'ax' },
+      } satisfies Record<string, DataValue>);
+      assert.deepEqual(await fastRunner.run({ inputs: { input: 'b' } }), {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: 'bx' },
+      } satisfies Record<string, DataValue>);
+      assert.equal(nativeLoadCalls, 0);
+    } finally {
+      setNativeRuntimeModuleLoaderForTesting(undefined);
+    }
+  });
+
+  void it('keeps native-fast scoped away from runGraph and createProcessor', async () => {
+    const fixture = makeTextChainProject(1);
+    let nativeLoadCalls = 0;
+    setNativeRuntimeModuleLoaderForTesting(async () => {
+      nativeLoadCalls += 1;
+      throw new Error('Native runtime should not load outside createGraphRunner native-fast.');
+    });
+
+    try {
+      assert.deepEqual(
+        await runGraph(fixture.project, {
+          graph: fixture.graphId,
+          inputs: { input: 'runGraph' },
+          runtimeProfile: 'native-fast',
+        } as Parameters<typeof runGraph>[1] & { runtimeProfile: 'native-fast' }),
+        {
+          cost: { type: 'number', value: 0 },
+          result: { type: 'string', value: 'runGraphx' },
+        } satisfies Record<string, DataValue>,
+      );
+
+      assert.deepEqual(
+        await createProcessor(fixture.project, {
+          graph: fixture.graphId,
+          inputs: { input: 'processor' },
+          runtimeProfile: 'native-fast' as never,
+        }).run(),
+        {
+          cost: { type: 'number', value: 0 },
+          result: { type: 'string', value: 'processorx' },
+        } satisfies Record<string, DataValue>,
+      );
+
+      assert.equal(nativeLoadCalls, 0);
+    } finally {
+      setNativeRuntimeModuleLoaderForTesting(undefined);
+    }
+  });
+
+  void it('falls back from native-fast when the native module cannot load', async () => {
+    const fixture = makeTextChainProject(1);
+    let nativeLoadCalls = 0;
+    setNativeRuntimeModuleLoaderForTesting(async () => {
+      nativeLoadCalls += 1;
+      throw new Error('native module missing');
+    });
+
+    try {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        runtimeProfile: 'native-fast',
+      });
+      const outputs = await runner.run({ inputs: { input: 'fallback' } });
+
+      assert.deepEqual(outputs, {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: 'fallbackx' },
+      } satisfies Record<string, DataValue>);
+      assert.equal(nativeLoadCalls, 1);
+      assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+        fallbackReason: 'module-load-failed:native module missing',
+        nativeEligible: true,
+        nativeUsed: false,
+        requested: true,
+      });
+    } finally {
+      setNativeRuntimeModuleLoaderForTesting(undefined);
+    }
+  });
+
+  void it('falls back without loading native code when the graph is not native eligible', async () => {
+    const fixture = makeCodeChainProject(1);
+    let nativeLoadCalls = 0;
+    setNativeRuntimeModuleLoaderForTesting(async () => {
+      nativeLoadCalls += 1;
+      throw new Error('Native runtime should not load for unsupported graphs.');
+    });
+
+    try {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        runtimeProfile: 'native-fast',
+      });
+      const outputs = await runner.run({ inputs: { input: 1 } });
+
+      assert.deepEqual(outputs, {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'any', value: 2 },
+      } satisfies Record<string, DataValue>);
+      assert.equal(nativeLoadCalls, 0);
+      assert.match(runner.getNativeRuntimeDecision?.().fallbackReason ?? '', /^unsupported-node:codeNew:/);
+    } finally {
+      setNativeRuntimeModuleLoaderForTesting(undefined);
+    }
+  });
+
+  void it('falls back without loading native code when runner callbacks are provided', async () => {
+    const fixture = makeTextChainProject(1);
+    let nativeLoadCalls = 0;
+    let nodeFinishCalls = 0;
+    setNativeRuntimeModuleLoaderForTesting(async () => {
+      nativeLoadCalls += 1;
+      throw new Error('Native runtime should not load when callbacks are present.');
+    });
+
+    try {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        onNodeFinish: () => {
+          nodeFinishCalls += 1;
+        },
+        runtimeProfile: 'native-fast',
+      });
+      const outputs = await runner.run({ inputs: { input: 'callback' } });
+
+      assert.deepEqual(outputs, {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: 'callbackx' },
+      } satisfies Record<string, DataValue>);
+      assert.equal(nativeLoadCalls, 0);
+      assert.ok(nodeFinishCalls > 0);
+      assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+        fallbackReason: 'unsupported-option:onNodeFinish',
+        nativeEligible: false,
+        nativeUsed: false,
+        requested: true,
+      });
+    } finally {
+      setNativeRuntimeModuleLoaderForTesting(undefined);
+    }
+  });
+
+  void it('falls back without loading native code when a custom registry is provided', async () => {
+    const fixture = makeTextChainProject(1);
+    const countingRegistry = createCountingRegistry();
+    let nativeLoadCalls = 0;
+    setNativeRuntimeModuleLoaderForTesting(async () => {
+      nativeLoadCalls += 1;
+      throw new Error('Native runtime should not load when a custom registry is present.');
+    });
+
+    try {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        registry: countingRegistry.registry,
+        runtimeProfile: 'native-fast',
+      });
+      const outputs = await runner.run({ inputs: { input: 'registry' } });
+
+      assert.deepEqual(outputs, {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: 'registryx' },
+      } satisfies Record<string, DataValue>);
+      assert.equal(nativeLoadCalls, 0);
+      assert.ok(countingRegistry.getDefinitionCalls() > 0);
+      assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+        fallbackReason: 'unsupported-option:registry',
+        nativeEligible: false,
+        nativeUsed: false,
+        requested: true,
+      });
+    } finally {
+      setNativeRuntimeModuleLoaderForTesting(undefined);
+    }
+  });
+
+  void it('falls back without loading native code when per-run abort signals are used', async () => {
+    const fixture = makeTextChainProject(1);
+    const controller = new AbortController();
+    let nativeLoadCalls = 0;
+    setNativeRuntimeModuleLoaderForTesting(async () => {
+      nativeLoadCalls += 1;
+      throw new Error('Native runtime should not load when per-run abort handling is required.');
+    });
+
+    try {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        runtimeProfile: 'native-fast',
+      });
+      const outputs = await runner.run({
+        abortSignal: controller.signal,
+        inputs: { input: 'abort-signal' },
+      });
+
+      assert.deepEqual(outputs, {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: 'abort-signalx' },
+      } satisfies Record<string, DataValue>);
+      assert.equal(nativeLoadCalls, 0);
+      assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+        fallbackReason: 'unsupported-run-option:abortSignal',
+        nativeEligible: true,
+        nativeUsed: false,
+        requested: true,
+      });
+    } finally {
+      setNativeRuntimeModuleLoaderForTesting(undefined);
+    }
+  });
+
+  void it('falls back without loading native code when eligible nodes have unsupported connection ports', async () => {
+    const fixture = makeTextChainProject(1);
+    fixture.project.graphs[fixture.graphId]!.connections.push({
+      inputId: 'value' as PortId,
+      inputNodeId: 'graph-output' as NodeId,
+      outputId: 'missing' as PortId,
+      outputNodeId: 'text-0' as NodeId,
+    } satisfies NodeConnection);
+    let nativeLoadCalls = 0;
+    setNativeRuntimeModuleLoaderForTesting(async () => {
+      nativeLoadCalls += 1;
+      throw new Error('Native runtime should not load with unsupported connection ports.');
+    });
+
+    try {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        runtimeProfile: 'native-fast',
+      });
+      const outputs = await runner.run({ inputs: { input: 'ports' } });
+
+      assert.deepEqual(outputs, {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: 'portsx' },
+      } satisfies Record<string, DataValue>);
+      assert.equal(nativeLoadCalls, 0);
+      assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+        fallbackReason: 'unsupported-connection-output-port:text-0:missing',
+        nativeEligible: false,
+        nativeUsed: false,
+        requested: true,
+      });
+    } finally {
+      setNativeRuntimeModuleLoaderForTesting(undefined);
+    }
+  });
+
+  void it('can load a native-fast module from an explicit file URL override', async () => {
+    const fixture = makeTextChainProject(1);
+    const previousNativeRuntimeModule = process.env.RIVET_NATIVE_RUNTIME_MODULE;
+    process.env.RIVET_NATIVE_RUNTIME_MODULE = new URL('../../../native-runtime/index.js', import.meta.url).href;
+
+    try {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        runtimeProfile: 'native-fast',
+      });
+      const outputs = await runner.run({ inputs: { input: 'local-stub' } });
+
+      assert.deepEqual(outputs, {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: 'local-stubx' },
+      } satisfies Record<string, DataValue>);
+      assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+        fallbackReason:
+          'module-unsupported:native runtime binary is not built yet; run the explicit native-runtime build after the Rust backend passes the benchmark gate',
+        nativeEligible: true,
+        nativeUsed: false,
+        requested: true,
+      });
+    } finally {
+      if (previousNativeRuntimeModule == null) {
+        delete process.env.RIVET_NATIVE_RUNTIME_MODULE;
+      } else {
+        process.env.RIVET_NATIVE_RUNTIME_MODULE = previousNativeRuntimeModule;
+      }
+    }
+  });
+
+  void it('can use an injected native-fast runner and report that native execution ran', async () => {
+    const fixture = makeTextChainProject(1);
+    let nativeCreateCalls = 0;
+    const nativeModule: NativeRuntimeModule = {
+      async createNativeGraphRunner(request) {
+        nativeCreateCalls += 1;
+        assert.equal(request.graphId, fixture.graphId);
+        assert.equal(request.graphs.length, 1);
+
+        return {
+          runner: {
+            async run(options) {
+              return {
+                result: { type: 'string', value: `${options.inputs.input?.value}x` },
+              };
+            },
+          },
+          supported: true,
+        };
+      },
+    };
+    setNativeRuntimeModuleLoaderForTesting(async () => nativeModule);
+
+    try {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        runtimeProfile: 'native-fast',
+      });
+      const outputs = await runner.run({ inputs: { input: 'native' } });
+
+      assert.deepEqual(outputs, {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: 'nativex' },
+      } satisfies Record<string, DataValue>);
+      assert.equal(nativeCreateCalls, 1);
+      assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+        nativeEligible: true,
+        nativeUsed: true,
+        requested: true,
+      });
+    } finally {
+      setNativeRuntimeModuleLoaderForTesting(undefined);
+    }
+  });
+
+  void it('rejects a native-fast run disposed while the native module is loading', async () => {
+    const fixture = makeTextChainProject(1);
+    let resolveNativeModule!: (module: NativeRuntimeModule) => void;
+    const nativeModulePromise = new Promise<NativeRuntimeModule>((resolve) => {
+      resolveNativeModule = resolve;
+    });
+    let nativeCreateCalls = 0;
+
+    setNativeRuntimeModuleLoaderForTesting(async () => nativeModulePromise);
+
+    try {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        runtimeProfile: 'native-fast',
+      });
+      const runPromise = runner.run({ inputs: { input: 'disposed' } });
+      runner.dispose();
+      resolveNativeModule({
+        async createNativeGraphRunner() {
+          nativeCreateCalls += 1;
+          return {
+            runner: {
+              async run() {
+                throw new Error('Disposed native runner should not run.');
+              },
+            },
+            supported: true,
+          };
+        },
+      });
+
+      await assert.rejects(runPromise, /Cannot run a disposed graph runner/);
+      assert.equal(nativeCreateCalls, 0);
+    } finally {
+      setNativeRuntimeModuleLoaderForTesting(undefined);
+    }
+  });
+
+  void it('allows overlapping native-fast runner calls without sharing per-run inputs', async () => {
+    const fixture = makeTextChainProject(1);
+    const nativeModule: NativeRuntimeModule = {
+      async createNativeGraphRunner() {
+        return {
+          runner: {
+            async run(options) {
+              await new Promise((resolve) => setTimeout(resolve, 5));
+              return {
+                cost: { type: 'number', value: 0 },
+                result: { type: 'string', value: `${options.inputs.input?.value}x` },
+              };
+            },
+          },
+          supported: true,
+        };
+      },
+    };
+    setNativeRuntimeModuleLoaderForTesting(async () => nativeModule);
+
+    try {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        runtimeProfile: 'native-fast',
+      });
+      const [firstOutputs, secondOutputs] = await Promise.all([
+        runner.run({ inputs: { input: 'first' } }),
+        runner.run({ inputs: { input: 'second' } }),
+      ]);
+
+      assert.deepEqual(firstOutputs, {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: 'firstx' },
+      } satisfies Record<string, DataValue>);
+      assert.deepEqual(secondOutputs, {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: 'secondx' },
+      } satisfies Record<string, DataValue>);
+      assert.equal(runner.getNativeRuntimeDecision?.().nativeUsed, true);
+    } finally {
+      setNativeRuntimeModuleLoaderForTesting(undefined);
+    }
   });
 });

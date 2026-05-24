@@ -32,7 +32,7 @@ type NodeGraphRunnerOptions = Omit<
   NodeRunGraphOptions,
   'abortSignal' | 'context' | 'inputs' | 'remoteDebugger' | 'remoteDebuggerRequestId'
 > & {
-  runtimeProfile?: 'compatible' | 'headless-fast';
+  runtimeProfile?: 'compatible' | 'headless-fast' | 'native-fast';
 };
 
 type NodeGraphRunnerRunOptions = {
@@ -41,9 +41,17 @@ type NodeGraphRunnerRunOptions = {
   abortSignal?: AbortSignal;
 };
 
+type NodeNativeRuntimeDecision = {
+  requested: boolean;
+  nativeEligible: boolean;
+  nativeUsed: boolean;
+  fallbackReason?: string;
+};
+
 type NodeGraphRunner = {
   run(options?: NodeGraphRunnerRunOptions): Promise<Record<string, DataValue>>;
   dispose(): void;
+  getNativeRuntimeDecision?: () => NodeNativeRuntimeDecision;
 };
 ```
 
@@ -57,6 +65,14 @@ type NodeGraphRunner = {
   a custom `codeRunner`, uses a runner-owned cached Node CodeRunner for
   Code-family nodes. Unsupported graph shapes fall back to compatible
   scheduling automatically.
+- `native-fast` is an experimental, opt-in native-runtime probe. It is scoped to
+  `createGraphRunner` only. Rivet first checks whether the graph is in the
+  narrow supported subset, then lazily loads the optional native package. Missing
+  native artifacts, unsupported graphs, custom registries, event callbacks,
+  trace/timing-sensitive options, per-run abort signals, unsupported connection
+  ports, and native creation failures fall back to the compatible TypeScript
+  runner. Native run-time failures are reported as errors instead of being
+  double-run through TypeScript.
 
 The fast profile caches graph topology, validated connections, port definitions,
 planner adjacency maps, and loaded project-reference snapshots for the runner's
@@ -65,6 +81,10 @@ and referenced graphs can reuse their own planning data too. It does not cache
 output values, input values, graph inputs, context values, or node
 implementation instances, so each `run` call still receives fresh request data,
 fresh node implementations, and a run-scoped processor.
+
+`getNativeRuntimeDecision()` is present only on native-capable runners. Use it
+for diagnostics and benchmarks to distinguish a real native run from TypeScript
+fallback. It does not affect graph outputs.
 
 ## Parameters
 

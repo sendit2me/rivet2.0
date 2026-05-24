@@ -1,0 +1,10 @@
+[package]
+name = "rivet2_native_runtime"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]

@@ -2,10 +2,36 @@
 
 ## Status
 
-Planning document. This is not a commitment to rewrite Rivet in Rust. It is a
-benchmark-first plan for testing whether a coarse-grained Rust execution core
-can make orchestration-heavy workflows meaningfully faster while keeping the
-TypeScript public API and editor/runtime compatibility intact.
+Implementation plan with the first isolated adapter slice started. This is not
+a commitment to rewrite Rivet in Rust. It is a benchmark-first plan for testing
+whether a coarse-grained Rust execution core can make orchestration-heavy
+workflows meaningfully faster while keeping the TypeScript public API and
+editor/runtime compatibility intact.
+
+Current implementation state:
+
+- `createGraphRunner(..., { runtimeProfile: 'native-fast' })` is the only API
+  path that can attempt native execution.
+- Existing `runGraph(...)`, `runGraphInFile(...)`, `createProcessor(...)`,
+  editor, debugger, and recording paths still use the TypeScript runtime.
+- Native package loading, native eligibility checks, and native IR construction
+  are gated behind the `native-fast` branch.
+- Native fallback uses the compatible TypeScript graph runner so unsupported or
+  unavailable native execution does not silently substitute a second fast mode.
+- The checked-in native package is an explicit prototype/stub under
+  `native-runtime/`. It is outside `packages/*` so normal workspace
+  install/build/test flows do not require Rust or native package artifacts.
+- Native runtime experiments can be loaded with `RIVET_NATIVE_RUNTIME_MODULE`
+  using either a package name, file URL, or filesystem path.
+- Custom registries and runner event/callback options still force TypeScript
+  fallback until the native path can faithfully emit the same lifecycle events
+  and honor the same node-definition source.
+- Per-run abort signals, stale connections, and unsupported native port shapes
+  force TypeScript fallback; native output maps are normalized with the ordinary
+  zero-cost output when an eligible cheap-node native run omits `cost`.
+- Runtime-speed benchmarks include `native-fast` rows that report whether
+  native execution actually ran or fell back. Fallback rows must not be counted
+  as Rust wins.
 
 Target workflow shapes:
 
@@ -106,8 +132,12 @@ must not share mutable runtime code with the ordinary TypeScript modes.
 
 ### Native package shape
 
-- Add a separate optional workspace package for the native runtime, for example
-  `packages/native-runtime`, exposed to Node through N-API.
+- Start the native runtime package outside the normal Yarn workspace as
+  `native-runtime/`. Move it under `packages/*` only after native packaging is
+  proven not to affect normal install/build/test flows on machines without a
+  Rust toolchain.
+- Expose the eventual Rust backend to Node through a small JS adapter package
+  named `@valerypopoff/rivet2-native-runtime`.
 - Treat the package as optional from `@valerypopoff/rivet2-node`; missing native
   binaries must not break installs or existing runtime behavior.
 - Load the package only from the native adapter after `runtimeProfile:
@@ -184,7 +214,9 @@ outputs or events.
 
 ### P1: Optional package and gated profile
 
-- Add the native workspace package and CI build smoke tests.
+- Add the native package boundary and CI build smoke tests. Keep it outside the
+  normal workspace until package-manager and platform packaging risks are
+  resolved.
 - Keep the root build/test path TypeScript-only. Add explicit native scripts for
   building/testing the Rust package so normal contributors are not forced into
   the native toolchain.

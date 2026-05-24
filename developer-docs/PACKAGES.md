@@ -165,6 +165,42 @@ whether native execution actually ran so benchmark rows cannot count TypeScript
 fallback as Rust speed wins. Normal install/build/test flows must remain
 TypeScript-only unless an explicit native-runtime script or CI job is invoked.
 
+The native-runtime adapter is now seeded as an opt-in `createGraphRunner(...)`
+profile only. `runtimeProfile: 'native-fast'` routes through
+[`packages/node/src/nativeGraphRunner.ts`](../packages/node/src/nativeGraphRunner.ts),
+which performs a TypeScript-side eligibility pass, builds compact graph IR for
+the narrow supported subset, and lazily imports the optional native package only
+after that profile has been selected. Unsupported graphs, missing native
+modules, and native creation failures fall back to a whole-run compatible
+TypeScript runner and expose `getNativeRuntimeDecision()` for tests and
+benchmarks. The fallback runner is created lazily so successful native runs do
+not pay TypeScript runner setup cost. Per-run abort signals still use compatible
+TypeScript fallback until the native path has proven equivalent abort behavior.
+Native run-time failures are not double-run through TypeScript; they surface as
+errors with a decision reason so benchmarks do not hide native defects. Native
+outputs are normalized with the ordinary zero-cost output when the native runner
+omits `cost`, matching supported cheap-node TypeScript runs. The initial native
+package boundary lives under
+[`native-runtime/`](../native-runtime/) rather than `packages/*`; it is a
+private prototype/stub with explicit Cargo scripts and no effect on normal Yarn
+workspace install/build/test flows. Move it into the workspace only after the
+package-manager, platform, and benchmark gates in the plan are satisfied.
+Local experiments can point the adapter at a package name, file URL, or
+filesystem path with `RIVET_NATIVE_RUNTIME_MODULE`; the default unresolved
+module name remains `@valerypopoff/rivet2-native-runtime` so a missing native
+artifact fails closed to TypeScript fallback.
+
+The supported native IR subset is intentionally small: acyclic graphs with
+`graphInput`, `text`, `join`, `graphOutput`, and direct `subGraph` nodes whose
+reached graphs are also eligible. Disabled, conditional, split-run, plugin,
+custom registry, callback/event-sensitive, dynamic Call Graph,
+referenced-project, Code, Expression, stale connection, and unsupported port
+paths remain TypeScript fallback.
+Benchmark rows with
+`createGraphRunner native-fast ...` include `nativeEligible`, `nativeUsed`, and
+`nativeFallbackReason` fields; a row where `nativeUsed` is false is a fallback
+measurement, not a Rust speed result.
+
 `createGraphRunner(...)` is the additive production-facing fast path for
 headless/programmatic Node integrations that load a project once and run the
 same graph many times. It resolves graph selection, registry/plugin setup,

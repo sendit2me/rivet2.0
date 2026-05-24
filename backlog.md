@@ -1,4 +1,14 @@
 
+- Small and big letters in graph names affect the sorting in the panel. Don't
+
+- Did run nod c remove the explanation form the node's body and put it into the settings panel
+
+- For each node in the settings panel; add a link to the user documentation
+
+- When a graph is picked in the left panel and the panel is open, make F2 force renaming
+
+
+- Make get global and set global nodes different enough thtat it's easy to notice which is which. Like, icons maybe?
 
 - Need keyboard shortcuts to run the project and the current graph
 

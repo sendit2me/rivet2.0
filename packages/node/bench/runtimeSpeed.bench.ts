@@ -37,6 +37,9 @@ import {
 } from '../test/runtimeSpeedFixtures.js';
 
 type BenchmarkResult = {
+  nativeEligible?: boolean;
+  nativeFallbackReason?: string;
+  nativeUsed?: boolean;
   iterations: number;
   maxMeanMs: string;
   meanMs: string;
@@ -228,6 +231,14 @@ async function main() {
       ),
     );
     results.push(
+      await benchmarkNativeFastGraphRunner(
+        'createGraphRunner native-fast text chain 500',
+        cheap500.project,
+        { graph: cheap500.graphId },
+        { inputs: { input: 'bench' } },
+      ),
+    );
+    results.push(
       await benchmark('runGraph wide independent text nodes 100', () =>
         runGraph(wideFanIn100.project, { graph: wideFanIn100.graphId, inputs: { input: 'bench' } }),
       ),
@@ -309,6 +320,14 @@ async function main() {
           graph: subgraph50.graphId,
           runtimeProfile: 'headless-fast',
         },
+        { inputs: { input: 'bench' } },
+      ),
+    );
+    results.push(
+      await benchmarkNativeFastGraphRunner(
+        'createGraphRunner native-fast subgraph chain 50',
+        subgraph50.project,
+        { graph: subgraph50.graphId },
         { inputs: { input: 'bench' } },
       ),
     );
@@ -440,8 +459,24 @@ async function main() {
       ),
     );
     results.push(
+      await benchmarkNativeFastGraphRunner(
+        'createGraphRunner native-fast wide fan-in 200',
+        wideFanIn200.project,
+        { graph: wideFanIn200.graphId },
+        { inputs: { input: 'bench' } },
+      ),
+    );
+    results.push(
       await benchmarkGraphRunner(
         'createGraphRunner compatible mixed subgraph fan-in',
+        mixedSubgraphFanIn.project,
+        { graph: mixedSubgraphFanIn.graphId },
+        { inputs: { input: 'bench' } },
+      ),
+    );
+    results.push(
+      await benchmarkNativeFastGraphRunner(
+        'createGraphRunner native-fast mixed subgraph fan-in',
         mixedSubgraphFanIn.project,
         { graph: mixedSubgraphFanIn.graphId },
         { inputs: { input: 'bench' } },
@@ -515,6 +550,14 @@ async function main() {
           graph: code20.graphId,
           runtimeProfile: 'headless-fast',
         },
+        { inputs: { input: 0 } },
+      ),
+    );
+    results.push(
+      await benchmarkNativeFastGraphRunner(
+        'createGraphRunner native-fast unsupported code chain 20',
+        code20.project,
+        { graph: code20.graphId },
         { inputs: { input: 0 } },
       ),
     );
@@ -608,6 +651,31 @@ async function benchmarkGraphRunner(
   const runner = createGraphRunner(project, options);
   try {
     return await benchmark(name, () => runner.run(runOptions));
+  } finally {
+    runner.dispose();
+  }
+}
+
+async function benchmarkNativeFastGraphRunner(
+  name: string,
+  project: Project,
+  options: Omit<NodeGraphRunnerOptions, 'runtimeProfile'>,
+  runOptions: NodeGraphRunnerRunOptions,
+): Promise<BenchmarkResult> {
+  if (!shouldRunBenchmark(name)) {
+    return skippedBenchmarkResult(name);
+  }
+
+  const runner = createGraphRunner(project, { ...options, runtimeProfile: 'native-fast' });
+  try {
+    const result = await benchmark(name, () => runner.run(runOptions));
+    const nativeDecision = runner.getNativeRuntimeDecision?.();
+    return {
+      ...result,
+      nativeEligible: nativeDecision?.nativeEligible,
+      nativeFallbackReason: nativeDecision?.fallbackReason,
+      nativeUsed: nativeDecision?.nativeUsed,
+    };
   } finally {
     runner.dispose();
   }
