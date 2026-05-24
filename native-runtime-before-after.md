@@ -50,6 +50,20 @@ the fastest TypeScript row for the same workload.
 | Mixed subgraph fan-in | 8.275 (0.266) | 4.454 (0.051) | 0.589 (0.008) | 0.330 (0.018) | 13.50x faster |
 | Unsupported Code chain 20 | 8.156 (0.107) | 7.926 (0.058) | 8.175 (0.220) | 8.249 (0.359) | native fallback |
 
+## Targeted P4 Reference-Boundary Smoke
+
+After P4 added static Referenced Graph Alias support, a small wiring benchmark
+was run locally with `RIVET_RUNTIME_BENCH_FILTER='Referenced Graph Alias
+repeated same-input 50'`, five measured iterations, one warmup iteration, one
+sample, and `RIVET_NATIVE_RUNTIME_BACKEND=rust`. This is a quick smoke, not a
+replacement for the five-sample matrix above.
+
+| Workload | Mean ms/run | Native backend | Native used |
+| --- | ---: | --- | --- |
+| `runGraph Referenced Graph Alias repeated same-input 50` | 13.394 | TypeScript | n/a |
+| `fresh createProcessor default-safe Referenced Graph Alias repeated same-input 50` | 11.165 | TypeScript | n/a |
+| `createGraphRunner native-fast Referenced Graph Alias repeated same-input 50` | 0.266 | rust-worker | true |
+
 The unsupported Code row reported `nativeEligible=false`, `nativeUsed=false`,
 and `nativeFallbackReason=unsupported-node:codeNew:code-0` for both native
 backends. That row is a fallback safety check, not a native speed result. The
@@ -71,9 +85,11 @@ value.
 
 This does not mean normal Rivet workflows are faster by default. `runGraph(...)`,
 one-shot `createProcessor(...)`, the editor, debugger, Code, Expression, dynamic
-Call Graph, referenced-project, callback-sensitive, and plugin paths still use
-the TypeScript engine unless a caller explicitly opts into `native-fast` and the
-graph passes the narrow eligibility check.
+Call Graph, Graph Reference, callback-sensitive, and plugin paths still use the
+TypeScript engine unless a caller explicitly opts into `native-fast` and the
+graph passes the narrow eligibility check. Static Referenced Graph Alias paths
+can now enter native-fast only after the Node runner resolves the referenced
+project snapshot and every reached graph passes the native subset.
 
 ## Outcome
 

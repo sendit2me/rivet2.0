@@ -407,6 +407,17 @@ async function main() {
       ),
     );
     results.push(
+      await benchmarkNativeFastGraphRunner(
+        'createGraphRunner native-fast Referenced Graph Alias repeated same-input 50',
+        referencedGraph50.project,
+        {
+          graph: referencedGraph50.graphId,
+          projectReferenceLoader: referencedGraph50.projectReferenceLoader,
+        },
+        { inputs: { input: 'bench' } },
+      ),
+    );
+    results.push(
       await benchmark('runGraph custom projectReferenceLoader referenced graph', () =>
         runGraph(referencedGraph1.project, {
           graph: referencedGraph1.graphId,

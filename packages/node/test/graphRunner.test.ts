@@ -8,13 +8,18 @@ import {
   type ChartNode,
   type CodeRunner,
   type DataValue,
+  type GraphId,
   type Inputs,
+  type NodeGraph,
   type NodeConnection,
   type NodeImpl,
   type NodeId,
   type NodeRegistration,
   type Outputs,
   type PortId,
+  type Project,
+  type ProjectId,
+  type ProjectReferenceLoader,
 } from '../src/index.js';
 import { setNativeRuntimeModuleLoaderForTesting, type NativeRuntimeModule } from '../src/nativeGraphRunner.js';
 import {
@@ -28,6 +33,7 @@ import {
   makeInputContextTextProject,
   makeObjectArrayConstructionProject,
   makeObjectConstructionProject,
+  makeReferencedGraphAliasFanInProject,
   makeSubgraphChainProject,
   makeTextChainProject,
   makeWideTextFanInProject,
@@ -564,6 +570,55 @@ void describe('createGraphRunner', () => {
     }
   });
 
+  void it('does not resolve native references before per-run abort-signal fallback', async () => {
+    const fixture = makeTextChainProject(1);
+    const referencedFixture = makeTextChainProject(1);
+    const referencedProjectId = 'unused-abort-reference' as ProjectId;
+    referencedFixture.project.metadata.id = referencedProjectId;
+    fixture.project.references = [{ id: referencedProjectId, title: 'Unused Abort Reference' }];
+    const controller = new AbortController();
+    let nativeLoadCalls = 0;
+    let referenceLoadCalls = 0;
+    const projectReferenceLoader: ProjectReferenceLoader = {
+      async loadProject(_currentProjectPath, reference) {
+        referenceLoadCalls += 1;
+        assert.equal(reference.id, referencedProjectId);
+        return referencedFixture.project as Project;
+      },
+    };
+    setNativeRuntimeModuleLoaderForTesting(async () => {
+      nativeLoadCalls += 1;
+      throw new Error('Native runtime should not load when per-run abort handling is required.');
+    });
+
+    try {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        projectReferenceLoader,
+        runtimeProfile: 'native-fast',
+      });
+      const outputs = await runner.run({
+        abortSignal: controller.signal,
+        inputs: { input: 'abort-reference' },
+      });
+
+      assert.deepEqual(outputs, {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: 'abort-referencex' },
+      } satisfies Record<string, DataValue>);
+      assert.equal(nativeLoadCalls, 0);
+      assert.equal(referenceLoadCalls, 1);
+      assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+        fallbackReason: 'unsupported-run-option:abortSignal',
+        nativeEligible: true,
+        nativeUsed: false,
+        requested: true,
+      });
+    } finally {
+      setNativeRuntimeModuleLoaderForTesting(undefined);
+    }
+  });
+
   void it('falls back without loading native code when eligible nodes have unsupported connection ports', async () => {
     const fixture = makeTextChainProject(1);
     fixture.project.graphs[fixture.graphId]!.connections.push({
@@ -645,6 +700,181 @@ void describe('createGraphRunner', () => {
         requested: true,
       });
     });
+  });
+
+  void it('runs referenced graph aliases through the local native-fast adapter after resolving references', async () => {
+    const fixture = makeReferencedGraphAliasFanInProject(2);
+
+    await withLocalNativeFastAdapterEnv(async () => {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        projectReferenceLoader: fixture.projectReferenceLoader,
+        runtimeProfile: 'native-fast',
+      });
+      const outputs = await runner.run({ inputs: { input: 'ref' } });
+
+      assert.deepEqual(outputs, {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: 'refxrefx' },
+      } satisfies Record<string, DataValue>);
+      assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+        nativeBackend: 'js-adapter',
+        nativeEligible: true,
+        nativeUsed: true,
+        requested: true,
+      });
+    });
+  });
+
+  void it('namespaces nested graphs inside referenced projects before native-fast execution', async () => {
+    const fixture = makeReferencedGraphAliasFanInProject(1);
+    const nestedReferencedProject = makeSubgraphChainProject(1);
+    const referencedAlias = fixture.project.graphs[fixture.graphId]!.nodes.find(
+      (node) => node.type === 'referencedGraphAlias',
+    )!;
+    (referencedAlias.data as { graphId: GraphId }).graphId = nestedReferencedProject.graphId;
+    fixture.referencedProject.graphs = nestedReferencedProject.project.graphs;
+    fixture.referencedProject.metadata.mainGraphId = nestedReferencedProject.graphId;
+
+    const collidingGraphId = 'runtime-speed-subgraph' as GraphId;
+    const collidingGraphFixture = makeTextChainProject(1);
+    const collidingGraph = structuredClone(
+      collidingGraphFixture.project.graphs[collidingGraphFixture.graphId]!,
+    ) as NodeGraph;
+    collidingGraph.metadata.id = collidingGraphId;
+    collidingGraph.metadata.name = 'Root Graph With Colliding Id';
+    const collidingTextNode = collidingGraph.nodes.find((node) => node.type === 'text')!;
+    (collidingTextNode.data as { text: string }).text = '{{input}}wrong';
+    fixture.project.graphs[collidingGraphId] = collidingGraph;
+    fixture.project.graphs[fixture.graphId]!.nodes.push({
+      data: {
+        graphId: collidingGraphId,
+        useAsGraphPartialOutput: false,
+        useErrorOutput: false,
+      },
+      id: 'unused-root-subgraph' as NodeId,
+      title: 'Unused Root Subgraph',
+      type: 'subGraph',
+      visualData: { width: 300, x: 0, y: 0 },
+    });
+
+    await withLocalNativeFastAdapterEnv(async () => {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        projectReferenceLoader: fixture.projectReferenceLoader,
+        runtimeProfile: 'native-fast',
+      });
+      const outputs = await runner.run({ inputs: { input: 'ref' } });
+
+      assert.deepEqual(outputs, {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: 'refx' },
+      } satisfies Record<string, DataValue>);
+      const nativeDecision = runner.getNativeRuntimeDecision?.();
+      assert.equal(nativeDecision?.nativeUsed, true, JSON.stringify(nativeDecision));
+    });
+  });
+
+  void it('keeps referenced graph namespace IDs distinct when project and graph IDs contain separators', async () => {
+    const fixture = makeReferencedGraphAliasFanInProject(2);
+    const mainGraph = fixture.project.graphs[fixture.graphId]!;
+    const aliasNodes = mainGraph.nodes.filter((node) => node.type === 'referencedGraphAlias');
+    const firstAlias = aliasNodes[0]!;
+    const secondAlias = aliasNodes[1]!;
+    const firstProjectId = 'ref' as ProjectId;
+    const firstGraphId = 'a:b' as GraphId;
+    const secondProjectId = 'ref:a' as ProjectId;
+    const secondGraphId = 'b' as GraphId;
+    const originalReferencedGraphId = fixture.referencedProject.metadata.mainGraphId!;
+    const firstGraph = fixture.referencedProject.graphs[originalReferencedGraphId]!;
+    delete fixture.referencedProject.graphs[originalReferencedGraphId];
+    firstGraph.metadata.id = firstGraphId;
+    fixture.referencedProject.graphs[firstGraphId] = firstGraph;
+    fixture.referencedProject.metadata.id = firstProjectId;
+    fixture.referencedProject.metadata.mainGraphId = firstGraphId;
+    (firstAlias.data as { graphId: GraphId; projectId: ProjectId }).graphId = firstGraphId;
+    (firstAlias.data as { graphId: GraphId; projectId: ProjectId }).projectId = firstProjectId;
+
+    const secondReferencedProject = structuredClone(fixture.referencedProject) as Project;
+    const secondGraph = structuredClone(firstGraph) as NodeGraph;
+    secondGraph.metadata.id = secondGraphId;
+    const secondTextNode = secondGraph.nodes.find((node) => node.type === 'text')!;
+    (secondTextNode.data as { text: string }).text = '{{input}}y';
+    secondReferencedProject.graphs = { [secondGraphId]: secondGraph };
+    secondReferencedProject.metadata.id = secondProjectId;
+    secondReferencedProject.metadata.mainGraphId = secondGraphId;
+    (secondAlias.data as { graphId: GraphId; projectId: ProjectId }).graphId = secondGraphId;
+    (secondAlias.data as { graphId: GraphId; projectId: ProjectId }).projectId = secondProjectId;
+    fixture.project.references = [
+      { id: firstProjectId, title: 'First Referenced Project' },
+      { id: secondProjectId, title: 'Second Referenced Project' },
+    ];
+    const projectReferenceLoader: ProjectReferenceLoader = {
+      async loadProject(_currentProjectPath, reference) {
+        if (reference.id === firstProjectId) {
+          return fixture.referencedProject;
+        }
+
+        if (reference.id === secondProjectId) {
+          return secondReferencedProject;
+        }
+
+        throw new Error(`Unexpected reference ${reference.id}`);
+      },
+    };
+
+    await withLocalNativeFastAdapterEnv(async () => {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        projectReferenceLoader,
+        runtimeProfile: 'native-fast',
+      });
+      const outputs = await runner.run({ inputs: { input: 'ref' } });
+
+      assert.deepEqual(outputs, {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: 'refxrefy' },
+      } satisfies Record<string, DataValue>);
+      const nativeDecision = runner.getNativeRuntimeDecision?.();
+      assert.equal(nativeDecision?.nativeUsed, true, JSON.stringify(nativeDecision));
+    });
+  });
+
+  void it('falls back before loading native-fast when a graph id uses the reserved reference namespace', async () => {
+    const fixture = makeTextChainProject(1);
+    const originalGraph = fixture.project.graphs[fixture.graphId]!;
+    const reservedGraphId = '__rivet_native_reference__:project:graph' as GraphId;
+    delete fixture.project.graphs[fixture.graphId];
+    originalGraph.metadata.id = reservedGraphId;
+    fixture.project.graphs[reservedGraphId] = originalGraph;
+    fixture.project.metadata.mainGraphId = reservedGraphId;
+    let nativeLoadCalls = 0;
+    setNativeRuntimeModuleLoaderForTesting(async () => {
+      nativeLoadCalls += 1;
+      throw new Error('Reserved internal native graph ids should use TypeScript fallback.');
+    });
+
+    try {
+      const runner = createGraphRunner(fixture.project, {
+        graph: reservedGraphId,
+        runtimeProfile: 'native-fast',
+      });
+      const outputs = await runner.run({ inputs: { input: 'reserved' } });
+
+      assert.deepEqual(outputs, {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: 'reservedx' },
+      } satisfies Record<string, DataValue>);
+      assert.equal(nativeLoadCalls, 0);
+      assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+        fallbackReason: `reserved-native-graph-id:${reservedGraphId}`,
+        nativeEligible: false,
+        nativeUsed: false,
+        requested: true,
+      });
+    } finally {
+      setNativeRuntimeModuleLoaderForTesting(undefined);
+    }
   });
 
   void it('runs context interpolation, processing pipes, and join fan-in through the local native-fast adapter', async () => {

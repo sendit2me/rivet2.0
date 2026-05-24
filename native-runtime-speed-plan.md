@@ -236,8 +236,9 @@ Current status:
   productization step, not a P0 prerequisite.
 - Feed it generated benchmark IR for cheap chains, wide fan-in, direct subgraph
   chains, mixed subgraph fan-in, and unsupported Code fallback. Repeated
-  referenced-project and dynamic Call Graph cases remain later fallback/control
-  rows because they are outside the current native eligibility set.
+  referenced-project and dynamic Call Graph cases were left as later
+  fallback/control rows for P0 because they were outside the initial native
+  eligibility set; P4 now graduates the static Referenced Graph Alias case.
 - Treat the 2026-05-24 matrix as end-to-end runner-run evidence: the measured
   native rows include TypeScript-to-native input conversion, native execution,
   and native-to-TypeScript output conversion. Add separate slice timers before
@@ -282,7 +283,7 @@ Completed:
   `runGraph(...)`, `createProcessor(...)`, and `createGraphRunner(...)` calls
   still use the TypeScript engine successfully.
 
-### P2: Native graph plan and scheduler [RUST WORKER DONE, N-API TODO]
+### P2: Native graph plan and scheduler [PARTIAL: RUST WORKER DONE, N-API TODO]
 
 Completed:
 
@@ -318,7 +319,7 @@ Still pending:
 - Benchmark against existing TypeScript `createGraphRunner(...)`,
   `headless-fast`, and direct processor rows.
 
-### P3: Native cheap built-ins [RUST WORKER PARTIAL, MORE NODES TODO]
+### P3: Native cheap built-ins [DONE FOR CURRENT CORE SET, OPTIONAL MORE NODES]
 
 Completed:
 
@@ -385,34 +386,48 @@ Still pending:
   is native-eligible only for the exact settings/data combinations covered by
   those fixtures.
 
-### P4: Native nested graph execution [RUST WORKER PARTIAL, REFERENCES TODO]
+### P4: Native nested graph execution [DONE]
 
 Completed:
 
 - Direct eligible `Subgraph` nodes execute inside the same JS adapter or Rust
   worker run.
+- Static eligible `Referenced Graph Alias` nodes execute inside the same JS
+  adapter or Rust worker run after TypeScript resolves the referenced project
+  snapshot and compiles the target graph into namespaced synthetic subgraph IR.
 - Child graph plans are reused across runs because they are prepared once from
   the TypeScript-produced IR.
 - Per-run subgraph inputs, outputs, graph input values, and graph output maps
   are fresh; final subgraph output values are not memoized.
+- Referenced project snapshots are immutable native runner inputs. If a
+  referenced project can change between runs, the caller must create a new
+  native runner or use the TypeScript path.
+- Referenced-project graph IDs are namespaced throughout the reached graph tree
+  so a referenced child subgraph cannot collide with a root-project graph that
+  happens to have the same ID.
+- The internal `__rivet_native_reference__:` graph-ID prefix is reserved for
+  that synthetic namespace; projects using it stay on TypeScript fallback.
+  Synthetic namespace components are URI-encoded so project and graph IDs that
+  contain separators still map to distinct native graph IDs.
+- Referenced Graph Alias nodes still fall back for dynamic/error-output modes,
+  unresolved references, target graphs outside the native subset, and any
+  unsupported boundary ports.
+- The benchmark matrix now includes
+  `createGraphRunner native-fast Referenced Graph Alias repeated same-input 50`.
 
-Still pending:
+Original phase checklist:
 
-- Add Referenced Graph Alias support only after resolved referenced-project
-  snapshots are serialized into stable native IR.
+- Done: execute eligible Subgraph and Referenced Graph Alias boundaries inside
+  the same native run.
+- Done: reuse immutable native child graph plans across runner runs.
+- Done: preserve graph boundary ids/names and final subgraph output maps for
+  supported native boundaries.
+- Done: treat resolved referenced projects as immutable runner inputs.
+- Done: benchmark repeated same-input subgraph/reference calls.
+- Out of scope for native v1: dynamic Call Graph dispatch. It stays TypeScript
+  fallback until a separate benchmark/equivalence phase graduates it explicitly.
 
-- Execute eligible Subgraph and Referenced Graph Alias boundaries inside the
-  same native run. Keep dynamic Call Graph out of native v1 unless a preceding
-  benchmark/equivalence phase graduates it explicitly.
-- Reuse immutable native child graph plans across runner runs.
-- Preserve graph boundary ids/names and final subgraph output maps exactly.
-- Treat resolved referenced projects as immutable runner inputs. If a referenced
-  project can change between runs, the caller must create a new native runner or
-  fall back to TypeScript.
-- Benchmark repeated same-input and changing-input subgraph/reference calls.
-  Do not memoize final subgraph outputs by input value.
-
-### P5: Productization gate [PARTIAL]
+### P5: Productization gate [PARTIAL: FULL MATRIX AND PACKAGING TODO]
 
 Completed:
 
@@ -420,8 +435,8 @@ Completed:
 - `.github/workflows/build.yml` has a separate `native-runtime` job that sets up
   Rust and runs `npm --prefix native-runtime run test:native` explicitly.
 - Runtime-speed benchmarks now include compatible and native-fast object
-  construction, coalesce fan-in, destructure fan-out, and Extract Object Path
-  rows so the next
+  construction, coalesce fan-in, destructure fan-out, Extract Object Path, and
+  Referenced Graph Alias repeated-call rows so the next
   before/after run can report whether the new cheap object primitives help or
   regress.
 - Tiny 2026-05-24 smoke runs with two measured iterations confirmed the new
@@ -438,6 +453,11 @@ Completed:
   compatible mean `0.741ms`, native-fast mean `0.181ms`. This is wiring
   evidence only; it is not a replacement for the full five-sample before/after
   matrix.
+- A targeted 2026-05-24 Referenced Graph Alias smoke run with five measured
+  iterations also executed through `nativeBackend: rust-worker` with
+  `nativeUsed=true`: `runGraph` mean `13.394ms`, default-safe fresh processor
+  mean `11.165ms`, native-fast mean `0.266ms`. This is wiring evidence only;
+  it is not a replacement for the full five-sample before/after matrix.
 
 Still pending:
 

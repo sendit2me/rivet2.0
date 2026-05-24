@@ -7,6 +7,8 @@ import {
   type GraphId,
   type NodeGraph,
   type Project,
+  type ProjectId,
+  type ProjectReference,
   type RunGraphOptions,
 } from '@valerypopoff/rivet2-core';
 
@@ -14,6 +16,7 @@ import { isAbsolute, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import type { NodeGraphRunner, NodeGraphRunnerRunOptions } from './api.js';
+import { NodeProjectReferenceLoader } from './native/NodeProjectReferenceLoader.js';
 
 export type NodeNativeRuntimeDecision = {
   fallbackReason?: string;
@@ -125,6 +128,7 @@ export type NativeNodeIr =
 type NativeRuntimeModuleLoader = () => Promise<NativeRuntimeModule>;
 
 const DEFAULT_NATIVE_RUNTIME_MODULE = '@valerypopoff/rivet2-native-runtime';
+const REFERENCED_NATIVE_GRAPH_ID_PREFIX = '__rivet_native_reference__:';
 
 type NativeFastGraphRunnerOptions = Omit<RunGraphOptions, 'abortSignal' | 'context' | 'inputs'>;
 
@@ -156,8 +160,6 @@ const UNSUPPORTED_NATIVE_RUNTIME_OPTION_KEYS = [
   'onTrace',
   'onUserEvent',
   'onUserInput',
-  'projectPath',
-  'projectReferenceLoader',
   'registry',
   'tokenizer',
 ] as const satisfies readonly (keyof NativeFastGraphRunnerOptions)[];
@@ -176,19 +178,19 @@ export function createNativeFastGraphRunner(
   createFallbackRunner: () => NodeGraphRunner,
 ): NodeGraphRunner {
   let fallbackRunner: NodeGraphRunner | undefined;
-  const nativeRequest = buildNativeRuntimeRequest(project, options);
+  const initialNativeRequest = hasProjectReferences(project)
+    ? undefined
+    : buildNativeRuntimeRequestWithResolvedReferences(project, options, {});
+  let nativeRequestPromise: Promise<NativeRuntimeRequestResult> | undefined = initialNativeRequest
+    ? Promise.resolve(initialNativeRequest)
+    : undefined;
   let nativeRunnerPromise: Promise<NativeRuntimeGraphRunner | undefined> | undefined;
   let disposed = false;
   let nativeBackend: string | undefined;
-  let decision: NodeNativeRuntimeDecision = nativeRequest.supported
-    ? {
-        nativeEligible: true,
-        nativeUsed: false,
-        requested: true,
-      }
+  let decision: NodeNativeRuntimeDecision = initialNativeRequest
+    ? getNativeRuntimeDecisionForRequest(initialNativeRequest)
     : {
-        fallbackReason: nativeRequest.reason,
-        nativeEligible: false,
+        nativeEligible: true,
         nativeUsed: false,
         requested: true,
       };
@@ -202,7 +204,46 @@ export function createNativeFastGraphRunner(
     return fallbackRunner;
   };
 
+  const getNativeRequest = async (): Promise<NativeRuntimeRequestResult> => {
+    nativeRequestPromise ??= buildNativeRuntimeRequest(project, options)
+      .then((nativeRequest) => {
+        if (!nativeRequest.supported) {
+          decision = {
+            fallbackReason: nativeRequest.reason,
+            nativeEligible: false,
+            nativeUsed: false,
+            requested: true,
+          };
+        }
+
+        return nativeRequest;
+      })
+      .catch((error) => {
+        const reason = `request-build-failed:${getErrorMessage(error)}`;
+        const nativeRequest = unsupported(reason);
+        decision = {
+          fallbackReason: reason,
+          nativeEligible: false,
+          nativeUsed: false,
+          requested: true,
+        };
+        return nativeRequest;
+      });
+
+    return nativeRequestPromise;
+  };
+
+  const getNativeEligibilityWithoutReferenceResolution = (): boolean => {
+    const earlyUnsupportedRequest = getEarlyUnsupportedNativeRuntimeRequest(project, options);
+    return earlyUnsupportedRequest ? false : decision.nativeEligible;
+  };
+
   const getNativeRunner = async (): Promise<NativeRuntimeGraphRunner | undefined> => {
+    if (disposed) {
+      throw new Error('Cannot run a disposed graph runner.');
+    }
+
+    const nativeRequest = await getNativeRequest();
     if (disposed) {
       throw new Error('Cannot run a disposed graph runner.');
     }
@@ -275,7 +316,7 @@ export function createNativeFastGraphRunner(
       if (runOptions.abortSignal != null) {
         decision = {
           fallbackReason: 'unsupported-run-option:abortSignal',
-          nativeEligible: nativeRequest.supported,
+          nativeEligible: getNativeEligibilityWithoutReferenceResolution(),
           nativeUsed: false,
           requested: true,
         };
@@ -371,10 +412,75 @@ type NativeRuntimeRequestResult =
       supported: false;
     };
 
-function buildNativeRuntimeRequest(
+async function buildNativeRuntimeRequest(
   project: Project,
   options: NativeFastGraphRunnerOptions,
+): Promise<NativeRuntimeRequestResult> {
+  const earlyUnsupportedRequest = getEarlyUnsupportedNativeRuntimeRequest(project, options);
+  if (earlyUnsupportedRequest) {
+    return earlyUnsupportedRequest;
+  }
+
+  const referencedProjectsResult = await loadNativeReferencedProjects(project, options);
+  if (!referencedProjectsResult.supported) {
+    return referencedProjectsResult;
+  }
+
+  return buildNativeRuntimeRequestWithResolvedReferences(project, options, referencedProjectsResult.projects);
+}
+
+function buildNativeRuntimeRequestWithResolvedReferences(
+  project: Project,
+  options: NativeFastGraphRunnerOptions,
+  referencedProjects: Record<string, Project>,
 ): NativeRuntimeRequestResult {
+  const earlyUnsupportedRequest = getEarlyUnsupportedNativeRuntimeRequest(project, options);
+  if (earlyUnsupportedRequest) {
+    return earlyUnsupportedRequest;
+  }
+
+  for (const referencedProject of Object.values(referencedProjects)) {
+    if (referencedProject.plugins && referencedProject.plugins.length > 0) {
+      return unsupported(`referenced-project-has-plugins:${referencedProject.metadata.id}`);
+    }
+  }
+
+  const reservedGraphId = getReservedNativeGraphId(project, referencedProjects);
+  if (reservedGraphId) {
+    return unsupported(`reserved-native-graph-id:${reservedGraphId}`);
+  }
+
+  const graph = getGraph(project, options.graph);
+  if (!graph?.metadata?.id) {
+    return unsupported('graph-not-found');
+  }
+
+  const graphs = new Map<string, NativeGraphIr>();
+  const result = buildNativeGraphIr({
+    activeGraphIds: new Set(),
+    graphId: graph.metadata.id,
+    graphs,
+    nativeGraphId: graph.metadata.id,
+    project,
+    referencedProjects,
+  });
+  if (!result.supported) {
+    return result;
+  }
+
+  return {
+    request: {
+      graphId: graph.metadata.id,
+      graphs: [...graphs.values()],
+    },
+    supported: true,
+  };
+}
+
+function getEarlyUnsupportedNativeRuntimeRequest(
+  project: Project,
+  options: NativeFastGraphRunnerOptions,
+): NativeRuntimeRequestResult | undefined {
   const unsupportedOption = getUnsupportedNativeRuntimeOption(options);
   if (unsupportedOption) {
     return unsupported(`unsupported-option:${unsupportedOption}`);
@@ -389,19 +495,26 @@ function buildNativeRuntimeRequest(
     return unsupported('graph-not-found');
   }
 
-  const graphs = new Map<string, NativeGraphIr>();
-  const result = buildNativeGraphIr(project, graph.metadata.id, graphs, new Set());
-  if (!result.supported) {
-    return result;
-  }
+  return undefined;
+}
 
-  return {
-    request: {
-      graphId: graph.metadata.id,
-      graphs: [...graphs.values()],
-    },
-    supported: true,
-  };
+function getNativeRuntimeDecisionForRequest(nativeRequest: NativeRuntimeRequestResult): NodeNativeRuntimeDecision {
+  return nativeRequest.supported
+    ? {
+        nativeEligible: true,
+        nativeUsed: false,
+        requested: true,
+      }
+    : {
+        fallbackReason: nativeRequest.reason,
+        nativeEligible: false,
+        nativeUsed: false,
+        requested: true,
+      };
+}
+
+function hasProjectReferences(project: Project): boolean {
+  return (project.references?.length ?? 0) > 0;
 }
 
 function getUnsupportedNativeRuntimeOption(options: NativeFastGraphRunnerOptions): string | undefined {
@@ -419,17 +532,80 @@ function getUnsupportedNativeRuntimeOption(options: NativeFastGraphRunnerOptions
   });
 }
 
-function buildNativeGraphIr(
+type NativeReferencedProjectsResult =
+  | {
+      projects: Record<string, Project>;
+      supported: true;
+    }
+  | {
+      reason: string;
+      supported: false;
+    };
+
+async function loadNativeReferencedProjects(
   project: Project,
-  graphId: GraphId,
-  graphs: Map<string, NativeGraphIr>,
-  activeGraphIds: Set<string>,
-): NativeRuntimeRequestResult {
-  if (graphs.has(graphId)) {
-    return { request: { graphId, graphs: [...graphs.values()] }, supported: true };
+  options: NativeFastGraphRunnerOptions,
+): Promise<NativeReferencedProjectsResult> {
+  if (!project.references || project.references.length === 0) {
+    return { projects: {}, supported: true };
   }
 
-  if (activeGraphIds.has(graphId)) {
+  const loader = options.projectReferenceLoader ?? new NodeProjectReferenceLoader();
+  const loadedProjects: Record<string, Project> = {};
+  const loadingProjectIds = new Set<string>();
+
+  const loadReference = async (reference: ProjectReference): Promise<NativeReferencedProjectsResult> => {
+    if (loadedProjects[reference.id] || loadingProjectIds.has(reference.id)) {
+      return { projects: loadedProjects, supported: true };
+    }
+
+    loadingProjectIds.add(reference.id);
+    let referencedProject: Project;
+    try {
+      referencedProject = await loader.loadProject(options.projectPath, reference);
+    } catch (error) {
+      return unsupportedReferencedProjects(`project-reference-load-failed:${reference.id}:${getErrorMessage(error)}`);
+    }
+
+    loadedProjects[referencedProject.metadata.id] = referencedProject;
+    for (const nestedReference of referencedProject.references ?? []) {
+      const nestedResult = await loadReference(nestedReference);
+      if (!nestedResult.supported) {
+        return nestedResult;
+      }
+    }
+
+    return { projects: loadedProjects, supported: true };
+  };
+
+  for (const reference of project.references) {
+    const result = await loadReference(reference);
+    if (!result.supported) {
+      return result;
+    }
+  }
+
+  return { projects: loadedProjects, supported: true };
+}
+
+type NativeGraphBuildOptions = {
+  activeGraphIds: Set<string>;
+  graphId: GraphId;
+  graphs: Map<string, NativeGraphIr>;
+  nativeGraphId: string;
+  nativeProjectId?: ProjectId;
+  project: Project;
+  referencedProjects: Record<string, Project>;
+};
+
+function buildNativeGraphIr(options: NativeGraphBuildOptions): NativeRuntimeRequestResult {
+  const { activeGraphIds, graphId, graphs, nativeGraphId, nativeProjectId, project, referencedProjects } = options;
+
+  if (graphs.has(nativeGraphId)) {
+    return { request: { graphId: nativeGraphId, graphs: [...graphs.values()] }, supported: true };
+  }
+
+  if (activeGraphIds.has(nativeGraphId)) {
     return unsupported(`recursive-graph:${graphId}`);
   }
 
@@ -438,17 +614,27 @@ function buildNativeGraphIr(
     return unsupported(`missing-graph:${graphId}`);
   }
 
-  activeGraphIds.add(graphId);
+  activeGraphIds.add(nativeGraphId);
   try {
     const nodes: NativeNodeIr[] = [];
     for (const node of graph.nodes) {
-      const nativeNode = buildNativeNodeIr(node);
+      const nativeNode = buildNativeNodeIr(node, referencedProjects, nativeProjectId);
       if (!nativeNode.supported) {
         return nativeNode;
       }
 
       if (nativeNode.node.type === 'subGraph') {
-        const subgraphResult = buildNativeGraphIr(project, nativeNode.node.graphId as GraphId, graphs, activeGraphIds);
+        const subgraphProject = nativeNode.project ?? project;
+        const subgraphNativeProjectId = nativeNode.nativeProjectId ?? nativeProjectId;
+        const subgraphResult = buildNativeGraphIr({
+          activeGraphIds,
+          graphId: nativeNode.graphId as GraphId,
+          graphs,
+          nativeGraphId: nativeNode.node.graphId,
+          ...(subgraphNativeProjectId ? { nativeProjectId: subgraphNativeProjectId } : {}),
+          project: subgraphProject,
+          referencedProjects,
+        });
         if (!subgraphResult.supported) {
           return subgraphResult;
         }
@@ -466,20 +652,20 @@ function buildNativeGraphIr(
       return unsupported(unsupportedConnection);
     }
 
-    graphs.set(graphId, {
+    graphs.set(nativeGraphId, {
       connections: graph.connections.map((connection) => ({
         inputId: connection.inputId,
         inputNodeId: connection.inputNodeId,
         outputId: connection.outputId,
         outputNodeId: connection.outputNodeId,
       })),
-      graphId,
+      graphId: nativeGraphId,
       nodes,
     });
 
-    return { request: { graphId, graphs: [...graphs.values()] }, supported: true };
+    return { request: { graphId: nativeGraphId, graphs: [...graphs.values()] }, supported: true };
   } finally {
-    activeGraphIds.delete(graphId);
+    activeGraphIds.delete(nativeGraphId);
   }
 }
 
@@ -575,6 +761,23 @@ function getNativeGraphOutputIds(graph: NativeGraphIr | undefined): Set<string> 
   return new Set(graph?.nodes.flatMap((node) => (node.type === 'graphOutput' ? [node.outputId] : [])) ?? []);
 }
 
+function getReferencedNativeGraphId(projectId: ProjectId, graphId: GraphId): string {
+  return `${REFERENCED_NATIVE_GRAPH_ID_PREFIX}${encodeURIComponent(projectId)}:${encodeURIComponent(graphId)}`;
+}
+
+function getReservedNativeGraphId(project: Project, referencedProjects: Record<string, Project>): string | undefined {
+  for (const candidateProject of [project, ...Object.values(referencedProjects)]) {
+    const graphId = Object.keys(candidateProject.graphs).find((candidateGraphId) =>
+      candidateGraphId.startsWith(REFERENCED_NATIVE_GRAPH_ID_PREFIX),
+    );
+    if (graphId) {
+      return graphId;
+    }
+  }
+
+  return undefined;
+}
+
 function getMissingRequiredNativeInputPort(node: NativeNodeIr, connectedInputs: Set<string>): string | undefined {
   switch (node.type) {
     case 'destructure':
@@ -587,7 +790,10 @@ function getMissingRequiredNativeInputPort(node: NativeNodeIr, connectedInputs: 
 
 type NativeNodeResult =
   | {
+      graphId?: string;
+      nativeProjectId?: ProjectId;
       node: NativeNodeIr;
+      project?: Project;
       supported: true;
     }
   | {
@@ -595,17 +801,14 @@ type NativeNodeResult =
       supported: false;
     };
 
-function buildNativeNodeIr(node: ChartNode): NativeNodeResult {
-  if (node.disabled) {
-    return unsupportedNode(node, 'disabled');
-  }
-
-  if (node.isConditional) {
-    return unsupportedNode(node, 'conditional');
-  }
-
-  if (node.isSplitRun) {
-    return unsupportedNode(node, 'split-run');
+function buildNativeNodeIr(
+  node: ChartNode,
+  referencedProjects: Record<string, Project>,
+  nativeProjectId?: ProjectId,
+): NativeNodeResult {
+  const unsupportedState = getUnsupportedNativeNodeState(node);
+  if (unsupportedState) {
+    return unsupportedNode(node, unsupportedState);
   }
 
   switch (node.type) {
@@ -821,9 +1024,11 @@ function buildNativeNodeIr(node: ChartNode): NativeNodeResult {
         return unsupportedNode(node, 'invalid-subgraph-data');
       }
 
+      const graphId = data.graphId as GraphId;
       return {
+        graphId,
         node: {
-          graphId: data.graphId,
+          graphId: nativeProjectId ? getReferencedNativeGraphId(nativeProjectId, graphId) : data.graphId,
           id: node.id,
           inputData: isDataValueMap(data.inputData) ? data.inputData : undefined,
           type: 'subGraph',
@@ -832,9 +1037,72 @@ function buildNativeNodeIr(node: ChartNode): NativeNodeResult {
       };
     }
 
+    case 'referencedGraphAlias': {
+      return buildNativeReferencedGraphAliasNodeIr(node, referencedProjects);
+    }
+
     default:
       return unsupportedNode(node, `unsupported-node:${node.type}`);
   }
+}
+
+function getUnsupportedNativeNodeState(node: ChartNode): string | undefined {
+  if (node.disabled) {
+    return 'disabled';
+  }
+
+  if (node.isConditional) {
+    return 'conditional';
+  }
+
+  if (node.isSplitRun) {
+    return 'split-run';
+  }
+
+  return undefined;
+}
+
+function buildNativeReferencedGraphAliasNodeIr(
+  node: ChartNode,
+  referencedProjects: Record<string, Project>,
+): NativeNodeResult {
+  const data = node.data as {
+    graphId?: unknown;
+    inputData?: unknown;
+    outputCostDuration?: unknown;
+    projectId?: unknown;
+    useErrorOutput?: unknown;
+  };
+  if (data.useErrorOutput) {
+    return unsupportedNode(node, 'referenced-graph-error-output');
+  }
+
+  if (data.outputCostDuration) {
+    return unsupportedNode(node, 'referenced-graph-cost-duration-output');
+  }
+
+  if (typeof data.projectId !== 'string' || typeof data.graphId !== 'string') {
+    return unsupportedNode(node, 'invalid-referenced-graph-alias-data');
+  }
+
+  const referencedProject = referencedProjects[data.projectId];
+  if (!referencedProject) {
+    return unsupportedNode(node, `missing-referenced-project:${data.projectId}`);
+  }
+
+  const nativeGraphId = getReferencedNativeGraphId(data.projectId as ProjectId, data.graphId as GraphId);
+  return {
+    graphId: data.graphId,
+    nativeProjectId: data.projectId as ProjectId,
+    node: {
+      graphId: nativeGraphId,
+      id: node.id,
+      inputData: isDataValueMap(data.inputData) ? data.inputData : undefined,
+      type: 'subGraph',
+    },
+    project: referencedProject,
+    supported: true,
+  };
 }
 
 function isSupportedNativeGraphInputDataType(dataType: string): boolean {
@@ -1020,6 +1288,10 @@ function hasCycle(graph: NodeGraph): boolean {
 }
 
 function unsupported(reason: string): NativeRuntimeRequestResult {
+  return { reason, supported: false };
+}
+
+function unsupportedReferencedProjects(reason: string): NativeReferencedProjectsResult {
   return { reason, supported: false };
 }
 

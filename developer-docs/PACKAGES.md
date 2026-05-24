@@ -189,9 +189,10 @@ package boundary lives under
 private prototype with explicit Cargo scripts and no effect on normal Yarn
 workspace install/build/test flows. Its checked-in JS adapter can execute the
 current eligible IR for `graphInput`, `text`, `join`, `object`, `coalesce`,
-`destructure`, `extractObjectPath`, `graphOutput`, and direct `subGraph` nodes
-when `RIVET_NATIVE_RUNTIME_BACKEND=js` is selected or when no Rust worker
-binary is available. The Rust worker backend under
+`destructure`, `extractObjectPath`, `graphOutput`, direct `subGraph` nodes, and
+TypeScript-resolved Referenced Graph Alias nodes compiled into synthetic
+subgraph IR when `RIVET_NATIVE_RUNTIME_BACKEND=js` is selected or when no Rust
+worker binary is available. The Rust worker backend under
 `native-runtime/native/` now executes the same narrow IR through a persistent
 child process when `RIVET_NATIVE_RUNTIME_BACKEND=rust` is selected, or
 automatically when a built worker binary is present. Move the native package
@@ -213,20 +214,37 @@ Object JSON-template construction, coalesce fan-in, simple destructure paths,
 static Extract Object Path, direct subgraphs, concurrent runs, and create-time
 rejection reasons. Rust unit coverage separately verifies explicit JSON `null`
 versus missing `value` transport semantics for native nodes that need to
-distinguish null from undefined. The main workspace build/test scripts stay
-TypeScript-only; CI runs the native prototype in its own `native-runtime` job so
-ordinary contributors do not need native artifacts for normal Rivet
-development.
+distinguish null from undefined. The Node graph-runner tests cover the
+TypeScript reference-resolution step that turns eligible Referenced Graph Alias
+nodes into synthetic native subgraph IR before either native adapter sees the
+request. The main workspace build/test scripts stay TypeScript-only; CI runs
+the native prototype in its own `native-runtime` job so ordinary contributors
+do not need native artifacts for normal Rivet development.
 
 The supported native IR subset is intentionally small: acyclic graphs with
 `graphInput`, `text`, `join`, `object`, `coalesce`, `destructure`,
-`extractObjectPath`, `graphOutput`, and direct `Subgraph` nodes whose reached
-graphs are also
-eligible. Disabled,
+`extractObjectPath`, `graphOutput`, direct `Subgraph` nodes, and Referenced
+Graph Alias nodes whose reached graphs are also eligible. Referenced Graph
+Alias support is still TypeScript-owned at the boundary: the Node runner loads
+referenced projects once through the configured `projectReferenceLoader` or
+default Node loader, turns those projects into an immutable native-runner
+snapshot, and serializes only the eligible target graphs into namespaced native
+IR so referenced subgraph IDs cannot collide with root-project graph IDs. The
+internal `__rivet_native_reference__:` graph-ID prefix is reserved for that
+synthetic namespace, and its project/graph ID components are URI-encoded so
+IDs containing separators cannot collide; project graphs using the reserved
+prefix stay on TypeScript fallback. The
+native adapters never perform project-file discovery or dynamic reference
+loading themselves. Disabled,
 conditional, split-run, plugin, custom registry, callback/event-sensitive,
 dynamic Call Graph,
-referenced-project, Code, Expression, stale connection, and unsupported port
-paths remain TypeScript fallback.
+Graph Reference, Code, Expression, stale connection, and unsupported port paths
+remain TypeScript fallback. Referenced Graph Alias nodes also fall back when
+`useErrorOutput` or cost/duration output mode is enabled, when the referenced
+project cannot be resolved, or when the reached graph is outside the native
+subset. Per-run abort signals also stay on the TypeScript path and skip native
+reference-snapshot construction before falling back; the fallback runner still
+uses the normal TypeScript project-reference loading behavior.
 Text-node interpolation is native-eligible only for the processing pipes whose
 Rust behavior is covered by current parity tests: `uppercase`, `lowercase`,
 `trim`, and non-negative-integer `truncate`. Other text processing pipes stay on
@@ -271,6 +289,10 @@ Benchmark rows with
 false is a fallback measurement, not a native speed result. A row where
 `nativeBackend` is `js-adapter` is useful adapter evidence, but only
 `nativeBackend: rust-worker` rows can be counted as Rust candidate evidence.
+The runtime-speed benchmark matrix includes a
+`createGraphRunner native-fast Referenced Graph Alias repeated same-input 50`
+row so reference-boundary work is measured next to the compatible and
+default-safe TypeScript rows.
 The first measured native before/after matrix is recorded in
 [`native-runtime-before-after.md`](../native-runtime-before-after.md). On the
 2026-05-24 local benchmark, the Rust worker cleared the feasibility gate for
