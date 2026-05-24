@@ -23,21 +23,26 @@ Current implementation state:
   install/build/test flows do not require Rust or native package artifacts.
 - Native runtime experiments can be loaded with `RIVET_NATIVE_RUNTIME_MODULE`
   using either a package name, file URL, or filesystem path.
-- The current local JS adapter can execute the existing narrow native IR for
+- The local JS adapter can execute the existing narrow native IR for
   `graphInput`, `text`, `join`, `graphOutput`, and direct `subGraph`
-  boundaries when explicitly loaded. This proves the Node adapter contract and
-  benchmark plumbing, but it is not the final Rust speed proof.
-- The Rust crate under `native-runtime/native/` is still a smoke-test scaffold.
-  It has not yet replaced the JS adapter as the execution backend.
+  boundaries when `RIVET_NATIVE_RUNTIME_BACKEND=js` is selected or when no Rust
+  worker binary is available.
+- The Rust crate under `native-runtime/native/` now includes a persistent
+  worker binary that executes the same narrow IR for native-fast experiments.
+  This is a Rust execution candidate, but it is still process-based rather than
+  the final N-API packaging shape.
 - Custom registries and runner event/callback options still force TypeScript
   fallback until the native path can faithfully emit the same lifecycle events
   and honor the same node-definition source.
 - Per-run abort signals, stale connections, and unsupported native port shapes
   force TypeScript fallback; native output maps are normalized with the ordinary
-  zero-cost output when an eligible cheap-node native run omits `cost`.
+  zero-cost output when an eligible cheap-node native run omits `cost`, and
+  JSON-transported DataValues that omit `value` are restored to
+  `value: undefined` at the Node seam.
 - Runtime-speed benchmarks include `native-fast` rows that report whether
-  native execution actually ran or fell back. Fallback rows must not be counted
-  as native wins, and JS-adapter rows must not be counted as Rust wins.
+  native execution actually ran or fell back, plus which backend ran. Fallback
+  rows must not be counted as native wins, and JS-adapter rows must not be
+  counted as Rust wins.
 
 Target workflow shapes:
 
@@ -217,8 +222,10 @@ Current status:
 - The local JS adapter can now make the eligible rows execute through the
   opt-in adapter path when `RIVET_NATIVE_RUNTIME_MODULE` points at
   `native-runtime/index.js`.
-- The throwaway Rust/N-API benchmark prototype is still pending. Until Rust
-  executes the same IR and beats the optimized TypeScript runner by the gate
+- The Rust worker backend can now execute the same IR when a native worker
+  binary is built and `RIVET_NATIVE_RUNTIME_BACKEND=rust` is selected.
+- A full before/after benchmark matrix against optimized TypeScript is still
+  pending. Until Rust beats the optimized TypeScript runner by the gate
   threshold, this phase is not complete.
 
 - Build a throwaway Rust/N-API prototype outside the public API path.
@@ -266,23 +273,23 @@ Completed:
   `runGraph(...)`, `createProcessor(...)`, and `createGraphRunner(...)` calls
   still use the TypeScript engine successfully.
 
-### P2: Native graph plan and scheduler [JS ADAPTER DONE, RUST TODO]
+### P2: Native graph plan and scheduler [RUST WORKER DONE, N-API TODO]
 
-Completed in the adapter:
+Completed:
 
-- The current local adapter builds immutable per-graph node maps, dependency
-  sets, ready queues, incoming connection lists, and dependent-node maps from
-  the TypeScript-produced IR.
+- The JS adapter and Rust worker both build immutable per-graph node maps,
+  dependency sets, ready queues, incoming connection lists, and dependent-node
+  maps from the TypeScript-produced IR.
 - Each `runner.run(...)` owns fresh output maps, graph input maps, graph output
   maps, remaining dependencies, and ready queues.
-- The adapter can process eligible acyclic graph IR without invoking the
+- The Rust worker can process eligible acyclic graph IR without invoking the
   TypeScript processor.
 
 Still pending:
 
-- Move this scheduler implementation into Rust and expose it through the native
-  package backend.
-- Add Rust-side equivalence tests before using Rust numbers for promotion.
+- Replace the process worker with N-API or another production-grade native
+  packaging shape only after the benchmark gate passes.
+- Expand Rust-side equivalence tests before using Rust numbers for promotion.
 
 - Move eligible graph planning, dependency counts, start-node selection,
   ready-queue scheduling, and graph output collection into Rust for the native
@@ -297,22 +304,22 @@ Still pending:
 - Benchmark against existing TypeScript `createGraphRunner(...)`,
   `headless-fast`, and direct processor rows.
 
-### P3: Native cheap built-ins [JS ADAPTER PARTIAL, RUST TODO]
+### P3: Native cheap built-ins [RUST WORKER PARTIAL, MORE NODES TODO]
 
-Completed in the adapter:
+Completed:
 
-- `graphInput`, `text`, `join`, and `graphOutput` execute in the local adapter
-  for the supported scalar data types already admitted by the TypeScript
-  eligibility pass.
+- `graphInput`, `text`, `join`, and `graphOutput` execute in both the local JS
+  adapter and Rust worker for the supported scalar data types already admitted
+  by the TypeScript eligibility pass.
 - Text interpolation supports ordinary input tokens, `@context.*`,
-  `@graphInputs.*`, escaped interpolation tokens, common processing pipes, and
-  line-ending normalization.
+  `@graphInputs.*`, escaped interpolation tokens, line-ending normalization, and
+  the parity-tested processing subset: `uppercase`, `lowercase`, `trim`, and
+  non-negative-integer `truncate`.
 - Join supports the current static join-string path and flattening for array
   DataValues.
 
 Still pending:
 
-- Move these cheap built-ins into Rust.
 - Add object-like construction, destructure/extract primitives, coalesce-style
   fan-in, and any other cheap node only after dedicated semantic fixtures exist.
 
@@ -327,11 +334,12 @@ Still pending:
   is native-eligible only for the exact settings/data combinations covered by
   those fixtures.
 
-### P4: Native nested graph execution [JS ADAPTER PARTIAL, RUST TODO]
+### P4: Native nested graph execution [RUST WORKER PARTIAL, REFERENCES TODO]
 
-Completed in the adapter:
+Completed:
 
-- Direct eligible `Subgraph` nodes execute inside the same adapter run.
+- Direct eligible `Subgraph` nodes execute inside the same JS adapter or Rust
+  worker run.
 - Child graph plans are reused across runs because they are prepared once from
   the TypeScript-produced IR.
 - Per-run subgraph inputs, outputs, graph input values, and graph output maps
@@ -339,7 +347,6 @@ Completed in the adapter:
 
 Still pending:
 
-- Move direct subgraph execution into Rust.
 - Add Referenced Graph Alias support only after resolved referenced-project
   snapshots are serialized into stable native IR.
 
@@ -448,16 +455,16 @@ the TypeScript runtime.
 
 ## Recommended Next Move
 
-The TypeScript-side adapter contract and local JS execution prototype are now
-in place. The next move is to replace the JS adapter internals with a real
-Rust/N-API execution backend for the same IR, then run the full benchmark
+The TypeScript-side adapter contract, local JS control adapter, and process-based
+Rust worker backend are now in place. The next move is to run the full benchmark
 matrix with:
 
 - optimized TypeScript `createGraphRunner(...)`;
 - `native-fast` with the JS adapter, as an adapter-contract control row;
-- `native-fast` with the Rust backend, as the candidate row.
+- `native-fast` with the Rust worker backend, as the candidate row.
 
 Do not change the public runtime, project schema, editor, debugger, or
-Code/Expression semantics unless the Rust candidate proves that it beats the
-optimized TypeScript engine by a large enough margin on the target workflow
-shapes.
+Code/Expression semantics unless the Rust worker candidate proves that it beats
+the optimized TypeScript engine by a large enough margin on the target workflow
+shapes. If the worker proves the speed win, the follow-up is production native
+packaging, most likely N-API, without changing the ordinary TypeScript paths.

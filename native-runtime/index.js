@@ -1,6 +1,26 @@
-const MISSING = Symbol('missing');
+import { spawn } from 'node:child_process';
+import { constants } from 'node:fs';
+import { access } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
+import { createInterface } from 'node:readline';
+import { fileURLToPath } from 'node:url';
 
 export async function createNativeGraphRunner(request) {
+  const backendPreference = process.env.RIVET_NATIVE_RUNTIME_BACKEND ?? 'auto';
+
+  if (backendPreference !== 'js') {
+    const rustRunner = await createRustWorkerGraphRunner(request);
+    if (rustRunner.supported || backendPreference === 'rust') {
+      return rustRunner;
+    }
+  }
+
+  return createJsGraphRunner(request);
+}
+
+const MISSING = Symbol('missing');
+
+async function createJsGraphRunner(request) {
   const prepared = prepareRequest(request);
   if (!prepared.supported) {
     return prepared;
@@ -9,6 +29,7 @@ export async function createNativeGraphRunner(request) {
   let disposed = false;
 
   return {
+    backend: 'js-adapter',
     supported: true,
     runner: {
       dispose() {
@@ -27,6 +48,197 @@ export async function createNativeGraphRunner(request) {
           abortSignal: options.abortSignal,
         });
       },
+    },
+  };
+}
+
+async function createRustWorkerGraphRunner(request) {
+  const workerBinary = await resolveRustWorkerBinary();
+  if (!workerBinary) {
+    return unsupported('rust-worker-not-built');
+  }
+
+  const worker = createRustWorkerProcess(workerBinary);
+
+  try {
+    const createResult = await worker.send({
+      request,
+      type: 'create',
+    });
+
+    if (!createResult.ok) {
+      worker.dispose();
+      return unsupported(createResult.reason ?? 'rust-worker-create-rejected');
+    }
+  } catch (error) {
+    worker.dispose();
+    return unsupported(`rust-worker-create-failed:${getErrorMessage(error)}`);
+  }
+
+  let disposed = false;
+
+  return {
+    backend: 'rust-worker',
+    supported: true,
+    runner: {
+      dispose() {
+        disposed = true;
+        worker.dispose();
+      },
+      async run(options = {}) {
+        if (disposed) {
+          throw new Error('Cannot run a disposed native graph runner.');
+        }
+
+        if (options.abortSignal?.aborted) {
+          throw new Error('Aborted');
+        }
+
+        const runResult = await worker.send({
+          context: options.context ?? {},
+          inputs: options.inputs ?? {},
+          type: 'run',
+        });
+
+        if (!runResult.ok) {
+          throw new Error(runResult.reason ?? 'Rust native worker run failed.');
+        }
+
+        return runResult.outputs ?? {};
+      },
+    },
+  };
+}
+
+async function resolveRustWorkerBinary() {
+  const explicitBinary = process.env.RIVET_NATIVE_RUNTIME_BINARY;
+  const executableName = `rivet2_native_runtime_worker${process.platform === 'win32' ? '.exe' : ''}`;
+  const packageDirectory = dirname(fileURLToPath(import.meta.url));
+  const candidates = [
+    explicitBinary,
+    join(packageDirectory, 'native', 'target', 'release', executableName),
+    join(packageDirectory, 'native', 'target', 'debug', executableName),
+  ].filter(Boolean);
+
+  for (const candidate of candidates) {
+    try {
+      await access(candidate, constants.F_OK);
+      return candidate;
+    } catch {
+      // Try the next explicit/native build location.
+    }
+  }
+
+  return undefined;
+}
+
+function createRustWorkerProcess(workerBinary) {
+  const child = spawn(workerBinary, [], {
+    stdio: ['pipe', 'pipe', 'pipe'],
+    windowsHide: true,
+  });
+  const pendingMessages = new Map();
+  const stderrChunks = [];
+  let disposed = false;
+  let closed = false;
+  let nextMessageId = 1;
+
+  child.stderr?.on('data', (chunk) => {
+    stderrChunks.push(chunk.toString());
+    if (stderrChunks.length > 20) {
+      stderrChunks.shift();
+    }
+  });
+
+  createInterface({ input: child.stdout }).on('line', (line) => {
+    let message;
+    try {
+      message = JSON.parse(line);
+    } catch (error) {
+      closed = true;
+      rejectAllPendingMessages(`invalid-rust-worker-response:${getErrorMessage(error)}`);
+      child.kill();
+      return;
+    }
+
+    const pending = pendingMessages.get(message.id);
+    if (!pending) {
+      return;
+    }
+
+    pendingMessages.delete(message.id);
+    pending.resolve(message);
+  });
+
+  child.on('error', (error) => {
+    closed = true;
+    rejectAllPendingMessages(`rust-worker-error:${getErrorMessage(error)}`);
+  });
+
+  child.on('exit', (code, signal) => {
+    closed = true;
+    if (disposed) {
+      return;
+    }
+
+    const stderr = stderrChunks.join('').trim();
+    rejectAllPendingMessages(
+      `rust-worker-exited:code=${code ?? '<none>'}:signal=${signal ?? '<none>'}${stderr ? `:${stderr}` : ''}`,
+    );
+  });
+
+  function rejectAllPendingMessages(reason) {
+    for (const pending of pendingMessages.values()) {
+      pending.reject(new Error(reason));
+    }
+    pendingMessages.clear();
+  }
+
+  return {
+    dispose() {
+      if (disposed) {
+        return;
+      }
+
+      disposed = true;
+      closed = true;
+      try {
+        child.stdin?.write(`${JSON.stringify({ id: nextMessageId++, type: 'dispose' })}\n`);
+      } catch {
+        // The process may already be gone.
+      }
+
+      rejectAllPendingMessages('rust-worker-disposed');
+      child.kill();
+    },
+    send(message) {
+      if (disposed) {
+        return Promise.reject(new Error('rust-worker-disposed'));
+      }
+
+      if (closed) {
+        return Promise.reject(new Error('rust-worker-closed'));
+      }
+
+      const id = nextMessageId++;
+      const payload = `${JSON.stringify({ ...message, id })}\n`;
+
+      return new Promise((resolve, reject) => {
+        pendingMessages.set(id, { reject, resolve });
+        try {
+          child.stdin.write(payload, (error) => {
+            if (!error) {
+              return;
+            }
+
+            pendingMessages.delete(id);
+            reject(error);
+          });
+        } catch (error) {
+          pendingMessages.delete(id);
+          reject(error);
+        }
+      });
     },
   };
 }

@@ -179,26 +179,30 @@ TypeScript fallback until the native path has proven equivalent abort behavior.
 Native run-time failures are not double-run through TypeScript; they surface as
 errors with a decision reason so benchmarks do not hide native defects. Native
 outputs are normalized with the ordinary zero-cost output when the native runner
-omits `cost`, matching supported cheap-node TypeScript runs. The initial native
+omits `cost`, and native `DataValue` objects that cross the JSON worker
+transport without a `value` field are restored to `value: undefined`, matching
+the TypeScript shape. The initial native
 package boundary lives under
 [`native-runtime/`](../native-runtime/) rather than `packages/*`; it is a
 private prototype with explicit Cargo scripts and no effect on normal Yarn
 workspace install/build/test flows. Its checked-in JS adapter can execute the
 current eligible IR for `graphInput`, `text`, `join`, `graphOutput`, and direct
-`subGraph` nodes when a caller explicitly points `RIVET_NATIVE_RUNTIME_MODULE`
-at it. That adapter proves the opt-in module contract and benchmark plumbing,
-but it is not the Rust speed proof; the Rust crate under
-`native-runtime/native/` remains a smoke-test scaffold until the scheduler and
-cheap-node implementation are moved behind a real native backend. Move the
-native package into the workspace only after the package-manager, platform, and
-benchmark gates in the plan are satisfied.
-The adapter validates the IR it receives before creating a runner, including
-duplicate node IDs and stale connections, and keeps per-run input/output maps
+`subGraph` nodes when `RIVET_NATIVE_RUNTIME_BACKEND=js` is selected or when no
+Rust worker binary is available. The Rust worker backend under
+`native-runtime/native/` now executes the same narrow IR through a persistent
+child process when `RIVET_NATIVE_RUNTIME_BACKEND=rust` is selected, or
+automatically when a built worker binary is present. Move the native package
+into the workspace only after the package-manager, platform, and benchmark
+gates in the plan are satisfied.
+Both adapters validate the IR they receive before creating a runner, including
+duplicate node IDs and stale connections, and keep per-run input/output maps
 fresh so repeated native-fast runs cannot share values.
 Local experiments can point the adapter at a package name, file URL, or
 filesystem path with `RIVET_NATIVE_RUNTIME_MODULE`; the default unresolved
 module name remains `@valerypopoff/rivet2-native-runtime` so a missing native
-artifact fails closed to TypeScript fallback.
+artifact fails closed to TypeScript fallback. `RIVET_NATIVE_RUNTIME_BACKEND`
+can force `rust` or `js`; `RIVET_NATIVE_RUNTIME_BINARY` can point at a specific
+worker executable for benchmark runs.
 
 The supported native IR subset is intentionally small: acyclic graphs with
 `graphInput`, `text`, `join`, `graphOutput`, and direct `subGraph` nodes whose
@@ -206,11 +210,16 @@ reached graphs are also eligible. Disabled, conditional, split-run, plugin,
 custom registry, callback/event-sensitive, dynamic Call Graph,
 referenced-project, Code, Expression, stale connection, and unsupported port
 paths remain TypeScript fallback.
+Text-node interpolation is native-eligible only for the processing pipes whose
+Rust behavior is covered by current parity tests: `uppercase`, `lowercase`,
+`trim`, and non-negative-integer `truncate`. Other text processing pipes stay on
+the TypeScript path until they have exact semantic fixtures.
 Benchmark rows with
-`createGraphRunner native-fast ...` include `nativeEligible`, `nativeUsed`, and
-`nativeFallbackReason` fields; a row where `nativeUsed` is false is a fallback
-measurement, not a native speed result. A row where the local JS adapter ran is
-useful adapter evidence, but it still should not be counted as a Rust win.
+`createGraphRunner native-fast ...` include `nativeEligible`, `nativeUsed`,
+`nativeBackend`, and `nativeFallbackReason` fields; a row where `nativeUsed` is
+false is a fallback measurement, not a native speed result. A row where
+`nativeBackend` is `js-adapter` is useful adapter evidence, but only
+`nativeBackend: rust-worker` rows can be counted as Rust candidate evidence.
 
 `createGraphRunner(...)` is the additive production-facing fast path for
 headless/programmatic Node integrations that load a project once and run the

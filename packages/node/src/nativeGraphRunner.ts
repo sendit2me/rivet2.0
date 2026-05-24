@@ -16,6 +16,7 @@ import type { NodeGraphRunner, NodeGraphRunnerRunOptions } from './api.js';
 
 export type NodeNativeRuntimeDecision = {
   fallbackReason?: string;
+  nativeBackend?: string;
   nativeEligible: boolean;
   nativeUsed: boolean;
   requested: boolean;
@@ -34,6 +35,7 @@ export type NativeRuntimeGraphRunner = {
 
 export type NativeRuntimeCreateResult =
   | {
+      backend?: string;
       runner: NativeRuntimeGraphRunner;
       supported: true;
     }
@@ -135,6 +137,8 @@ const UNSUPPORTED_NATIVE_RUNTIME_OPTION_KEYS = [
   'tokenizer',
 ] as const satisfies readonly (keyof NativeFastGraphRunnerOptions)[];
 
+const SUPPORTED_NATIVE_TEXT_PROCESSORS = new Set(['lowercase', 'trim', 'truncate', 'uppercase']);
+
 let nativeRuntimeModuleLoaderForTesting: NativeRuntimeModuleLoader | undefined;
 
 export function setNativeRuntimeModuleLoaderForTesting(loader: NativeRuntimeModuleLoader | undefined): void {
@@ -150,6 +154,7 @@ export function createNativeFastGraphRunner(
   const nativeRequest = buildNativeRuntimeRequest(project, options);
   let nativeRunnerPromise: Promise<NativeRuntimeGraphRunner | undefined> | undefined;
   let disposed = false;
+  let nativeBackend: string | undefined;
   let decision: NodeNativeRuntimeDecision = nativeRequest.supported
     ? {
         nativeEligible: true,
@@ -216,6 +221,7 @@ export function createNativeFastGraphRunner(
           return undefined;
         }
 
+        nativeBackend = createResult.backend;
         return createResult.runner;
       } catch (error) {
         decision = {
@@ -265,15 +271,20 @@ export function createNativeFastGraphRunner(
       }
 
       try {
-        const outputs = withDefaultCostOutput(await nativeRunner.run({
-          abortSignal: runOptions.abortSignal,
-          context: looseDataValuesToDataValues(runOptions.context ?? {}),
-          inputs: looseDataValuesToDataValues(runOptions.inputs ?? {}),
-        }));
+        const outputs = withDefaultCostOutput(
+          normalizeNativeOutputDataValues(
+            await nativeRunner.run({
+              abortSignal: runOptions.abortSignal,
+              context: looseDataValuesToDataValues(runOptions.context ?? {}),
+              inputs: looseDataValuesToDataValues(runOptions.inputs ?? {}),
+            }),
+          ),
+        );
         decision = {
           nativeEligible: true,
           nativeUsed: true,
           requested: true,
+          ...(nativeBackend ? { nativeBackend } : {}),
         };
         return outputs;
       } catch (error) {
@@ -575,6 +586,11 @@ function buildNativeNodeIr(node: ChartNode): NativeNodeResult {
         return unsupportedNode(node, 'invalid-text-data');
       }
 
+      const unsupportedTextProcessing = getUnsupportedNativeTextProcessing(data.text);
+      if (unsupportedTextProcessing) {
+        return unsupportedNode(node, unsupportedTextProcessing);
+      }
+
       return {
         node: {
           id: node.id,
@@ -663,6 +679,58 @@ function isSupportedNativeDataType(dataType: string): boolean {
   return dataType === 'string' || dataType === 'number' || dataType === 'boolean' || dataType === 'any';
 }
 
+function getUnsupportedNativeTextProcessing(template: string): string | undefined {
+  for (const rawInner of getInterpolationTokenInnerTexts(template)) {
+    const processingInstructions = rawInner
+      .split('|')
+      .slice(1)
+      .map((instruction) => instruction.trim())
+      .filter(Boolean);
+
+    for (const instruction of processingInstructions) {
+      const [name, parameter] = instruction.split(/\s+/);
+      if (!name || !SUPPORTED_NATIVE_TEXT_PROCESSORS.has(name)) {
+        return `unsupported-text-processing:${name || '<empty>'}`;
+      }
+
+      if (name === 'truncate' && parameter != null && !/^(?:0|[1-9]\d*)$/.test(parameter)) {
+        return 'unsupported-text-processing:truncate';
+      }
+    }
+  }
+
+  return undefined;
+}
+
+function getInterpolationTokenInnerTexts(template: string): string[] {
+  const protectedTemplate = template.replace(/\{\{\{([^}]+?)\}\}\}/g, '');
+  const tokenInnerTexts: string[] = [];
+  let searchIndex = 0;
+
+  while (searchIndex < protectedTemplate.length) {
+    const openIndex = protectedTemplate.indexOf('{{', searchIndex);
+    if (openIndex === -1) {
+      break;
+    }
+
+    const closeIndex = protectedTemplate.indexOf('}}', openIndex + 2);
+    if (closeIndex === -1) {
+      break;
+    }
+
+    const nestedOpenIndex = protectedTemplate.indexOf('{{', openIndex + 2);
+    if (nestedOpenIndex !== -1 && nestedOpenIndex < closeIndex) {
+      searchIndex = nestedOpenIndex;
+      continue;
+    }
+
+    tokenInnerTexts.push(protectedTemplate.slice(openIndex + 2, closeIndex));
+    searchIndex = closeIndex + 2;
+  }
+
+  return tokenInnerTexts;
+}
+
 function isDataValueMap(value: unknown): value is Record<string, DataValue> {
   if (value == null || typeof value !== 'object' || Array.isArray(value)) {
     return false;
@@ -740,6 +808,20 @@ function withDefaultCostOutput(outputs: Record<string, DataValue>): Record<strin
         cost: { type: 'number', value: 0 },
       }
     : outputs;
+}
+
+function normalizeNativeOutputDataValues(outputs: Record<string, DataValue>): Record<string, DataValue> {
+  return Object.fromEntries(
+    Object.entries(outputs).map(([key, value]) => [key, normalizeNativeOutputDataValue(value)]),
+  ) as Record<string, DataValue>;
+}
+
+function normalizeNativeOutputDataValue(value: DataValue): DataValue {
+  if (value != null && typeof value === 'object' && 'type' in value && !('value' in value)) {
+    return Object.assign({}, value, { value: undefined }) as DataValue;
+  }
+
+  return value;
 }
 
 function getErrorMessage(error: unknown): string {

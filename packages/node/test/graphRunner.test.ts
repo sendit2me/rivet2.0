@@ -547,7 +547,9 @@ void describe('createGraphRunner', () => {
   void it('can load and run the local native-fast adapter from an explicit file URL override', async () => {
     const fixture = makeTextChainProject(1);
     const previousNativeRuntimeModule = process.env.RIVET_NATIVE_RUNTIME_MODULE;
+    const previousNativeRuntimeBackend = process.env.RIVET_NATIVE_RUNTIME_BACKEND;
     process.env.RIVET_NATIVE_RUNTIME_MODULE = new URL('../../../native-runtime/index.js', import.meta.url).href;
+    process.env.RIVET_NATIVE_RUNTIME_BACKEND = 'js';
 
     try {
       const runner = createGraphRunner(fixture.project, {
@@ -561,6 +563,7 @@ void describe('createGraphRunner', () => {
         result: { type: 'string', value: 'local-stubx' },
       } satisfies Record<string, DataValue>);
       assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+        nativeBackend: 'js-adapter',
         nativeEligible: true,
         nativeUsed: true,
         requested: true,
@@ -571,13 +574,20 @@ void describe('createGraphRunner', () => {
       } else {
         process.env.RIVET_NATIVE_RUNTIME_MODULE = previousNativeRuntimeModule;
       }
+      if (previousNativeRuntimeBackend == null) {
+        delete process.env.RIVET_NATIVE_RUNTIME_BACKEND;
+      } else {
+        process.env.RIVET_NATIVE_RUNTIME_BACKEND = previousNativeRuntimeBackend;
+      }
     }
   });
 
   void it('runs direct subgraph boundaries through the local native-fast adapter', async () => {
     const fixture = makeSubgraphChainProject(2);
     const previousNativeRuntimeModule = process.env.RIVET_NATIVE_RUNTIME_MODULE;
+    const previousNativeRuntimeBackend = process.env.RIVET_NATIVE_RUNTIME_BACKEND;
     process.env.RIVET_NATIVE_RUNTIME_MODULE = new URL('../../../native-runtime/index.js', import.meta.url).href;
+    process.env.RIVET_NATIVE_RUNTIME_BACKEND = 'js';
 
     try {
       const runner = createGraphRunner(fixture.project, {
@@ -591,6 +601,7 @@ void describe('createGraphRunner', () => {
         result: { type: 'string', value: 'nestedxx' },
       } satisfies Record<string, DataValue>);
       assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+        nativeBackend: 'js-adapter',
         nativeEligible: true,
         nativeUsed: true,
         requested: true,
@@ -600,6 +611,11 @@ void describe('createGraphRunner', () => {
         delete process.env.RIVET_NATIVE_RUNTIME_MODULE;
       } else {
         process.env.RIVET_NATIVE_RUNTIME_MODULE = previousNativeRuntimeModule;
+      }
+      if (previousNativeRuntimeBackend == null) {
+        delete process.env.RIVET_NATIVE_RUNTIME_BACKEND;
+      } else {
+        process.env.RIVET_NATIVE_RUNTIME_BACKEND = previousNativeRuntimeBackend;
       }
     }
   });
@@ -611,7 +627,9 @@ void describe('createGraphRunner', () => {
     const pipeTextNode = pipeFixture.project.graphs[pipeFixture.graphId]!.nodes.find((node) => node.id === 'text-0')!;
     (pipeTextNode.data as { text: string }).text = '{{input | truncate 0}}';
     const previousNativeRuntimeModule = process.env.RIVET_NATIVE_RUNTIME_MODULE;
+    const previousNativeRuntimeBackend = process.env.RIVET_NATIVE_RUNTIME_BACKEND;
     process.env.RIVET_NATIVE_RUNTIME_MODULE = new URL('../../../native-runtime/index.js', import.meta.url).href;
+    process.env.RIVET_NATIVE_RUNTIME_BACKEND = 'js';
 
     try {
       const contextRunner = createGraphRunner(contextFixture.project, {
@@ -640,14 +658,52 @@ void describe('createGraphRunner', () => {
         result: { type: 'string', value: '...' },
       } satisfies Record<string, DataValue>);
       assert.equal(contextRunner.getNativeRuntimeDecision?.().nativeUsed, true);
+      assert.equal(contextRunner.getNativeRuntimeDecision?.().nativeBackend, 'js-adapter');
       assert.equal(wideRunner.getNativeRuntimeDecision?.().nativeUsed, true);
+      assert.equal(wideRunner.getNativeRuntimeDecision?.().nativeBackend, 'js-adapter');
       assert.equal(pipeRunner.getNativeRuntimeDecision?.().nativeUsed, true);
+      assert.equal(pipeRunner.getNativeRuntimeDecision?.().nativeBackend, 'js-adapter');
     } finally {
       if (previousNativeRuntimeModule == null) {
         delete process.env.RIVET_NATIVE_RUNTIME_MODULE;
       } else {
         process.env.RIVET_NATIVE_RUNTIME_MODULE = previousNativeRuntimeModule;
       }
+      if (previousNativeRuntimeBackend == null) {
+        delete process.env.RIVET_NATIVE_RUNTIME_BACKEND;
+      } else {
+        process.env.RIVET_NATIVE_RUNTIME_BACKEND = previousNativeRuntimeBackend;
+      }
+    }
+  });
+
+  void it('falls back before loading native-fast when text processing is outside the native parity subset', async () => {
+    const fixture = makeTextChainProject(1);
+    const textNode = fixture.project.graphs[fixture.graphId]!.nodes.find((node) => node.id === 'text-0')!;
+    (textNode.data as { text: string }).text = '{{input | list}}';
+    setNativeRuntimeModuleLoaderForTesting(async () => {
+      throw new Error('Unsupported native graph should not load the native runtime module.');
+    });
+
+    try {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        runtimeProfile: 'native-fast',
+      });
+      const outputs = await runner.run({ inputs: { input: 'fallback' } });
+
+      assert.deepEqual(outputs, {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'string', value: '- fallback' },
+      } satisfies Record<string, DataValue>);
+      assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+        fallbackReason: 'unsupported-text-processing:list:text-0',
+        nativeEligible: false,
+        nativeUsed: false,
+        requested: true,
+      });
+    } finally {
+      setNativeRuntimeModuleLoaderForTesting(undefined);
     }
   });
 
@@ -661,6 +717,7 @@ void describe('createGraphRunner', () => {
         assert.equal(request.graphs.length, 1);
 
         return {
+          backend: 'test-native',
           runner: {
             async run(options) {
               return {
@@ -687,6 +744,48 @@ void describe('createGraphRunner', () => {
       } satisfies Record<string, DataValue>);
       assert.equal(nativeCreateCalls, 1);
       assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+        nativeBackend: 'test-native',
+        nativeEligible: true,
+        nativeUsed: true,
+        requested: true,
+      });
+    } finally {
+      setNativeRuntimeModuleLoaderForTesting(undefined);
+    }
+  });
+
+  void it('normalizes native-fast DataValues that cross JSON transport without an explicit value field', async () => {
+    const fixture = makeTextChainProject(1);
+    const nativeModule: NativeRuntimeModule = {
+      async createNativeGraphRunner() {
+        return {
+          backend: 'test-native',
+          runner: {
+            async run() {
+              return {
+                result: { type: 'any' } as unknown as DataValue,
+              };
+            },
+          },
+          supported: true,
+        };
+      },
+    };
+    setNativeRuntimeModuleLoaderForTesting(async () => nativeModule);
+
+    try {
+      const runner = createGraphRunner(fixture.project, {
+        graph: fixture.graphId,
+        runtimeProfile: 'native-fast',
+      });
+      const outputs = await runner.run({ inputs: { input: 'native' } });
+
+      assert.deepEqual(outputs, {
+        cost: { type: 'number', value: 0 },
+        result: { type: 'any', value: undefined },
+      } satisfies Record<string, DataValue>);
+      assert.deepEqual(runner.getNativeRuntimeDecision?.(), {
+        nativeBackend: 'test-native',
         nativeEligible: true,
         nativeUsed: true,
         requested: true,

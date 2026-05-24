@@ -45,6 +45,7 @@ type NodeNativeRuntimeDecision = {
   requested: boolean;
   nativeEligible: boolean;
   nativeUsed: boolean;
+  nativeBackend?: string;
   fallbackReason?: string;
 };
 
@@ -70,9 +71,11 @@ type NodeGraphRunner = {
   narrow supported subset, then lazily loads the optional native package. Missing
   native artifacts, unsupported graphs, custom registries, event callbacks,
   trace/timing-sensitive options, per-run abort signals, unsupported connection
-  ports, and native creation failures fall back to the compatible TypeScript
-  runner. Native run-time failures are reported as errors instead of being
-  double-run through TypeScript.
+  ports, text processing outside the parity-tested native subset, and native
+  creation failures fall back to the compatible TypeScript runner. Native
+  run-time failures are reported as errors instead of being double-run through
+  TypeScript. `nativeBackend` reports whether the opt-in module ran through the
+  `rust-worker` backend or the `js-adapter` control path.
 
 The fast profile caches graph topology, validated connections, port definitions,
 planner adjacency maps, and loaded project-reference snapshots for the runner's
@@ -84,7 +87,9 @@ fresh node implementations, and a run-scoped processor.
 
 `getNativeRuntimeDecision()` is present only on native-capable runners. Use it
 for diagnostics and benchmarks to distinguish a real native run from TypeScript
-fallback. It does not affect graph outputs.
+fallback. `nativeBackend: 'rust-worker'` means the Rust worker executed the
+eligible graph; `nativeBackend: 'js-adapter'` is adapter-contract evidence, not
+a Rust speed result. It does not affect graph outputs.
 
 ## Parameters
 

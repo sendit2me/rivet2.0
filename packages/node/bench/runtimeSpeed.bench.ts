@@ -37,6 +37,7 @@ import {
 } from '../test/runtimeSpeedFixtures.js';
 
 type BenchmarkResult = {
+  nativeBackend?: string;
   nativeEligible?: boolean;
   nativeFallbackReason?: string;
   nativeUsed?: boolean;
@@ -672,6 +673,7 @@ async function benchmarkNativeFastGraphRunner(
     const nativeDecision = runner.getNativeRuntimeDecision?.();
     return {
       ...result,
+      nativeBackend: nativeDecision?.nativeBackend,
       nativeEligible: nativeDecision?.nativeEligible,
       nativeFallbackReason: nativeDecision?.fallbackReason,
       nativeUsed: nativeDecision?.nativeUsed,
