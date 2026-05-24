@@ -1,12 +1,6 @@
 
 
 
-
-
-
-- Установщик для макоси не дает нормально установить апп потому что я никто
-
-
 - Now, the executor mode is global for all open projects (remote debugger, browser, node). Make it per tab
 
 
