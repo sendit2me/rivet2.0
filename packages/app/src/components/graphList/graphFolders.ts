@@ -1,4 +1,3 @@
-import { orderBy } from 'lodash-es';
 import { type NodeGraph } from '@valerypopoff/rivet2-core';
 
 export interface NodeGraphFolder {
@@ -15,6 +14,16 @@ export interface NodeGraphFolderGraph {
 }
 
 export type NodeGraphFolderItem = NodeGraphFolder | NodeGraphFolderGraph;
+
+const graphTreeNameCollator = new Intl.Collator(undefined, { sensitivity: 'base' });
+
+function compareGraphTreeItems(left: NodeGraphFolderItem, right: NodeGraphFolderItem): number {
+  if (left.type !== right.type) {
+    return left.type === 'folder' ? -1 : 1;
+  }
+
+  return graphTreeNameCollator.compare(left.name, right.name);
+}
 
 export function createFoldersFromGraphs(graphs: NodeGraph[], folderNames: string[]): NodeGraphFolderItem[] {
   const rootFolder: NodeGraphFolder = {
@@ -85,7 +94,7 @@ export function createFoldersFromGraphs(graphs: NodeGraph[], folderNames: string
   });
 
   const sortFolder = (folder: NodeGraphFolder) => {
-    folder.children = orderBy(folder.children, ['type', 'name'], ['asc', 'asc']);
+    folder.children.sort(compareGraphTreeItems);
     folder.children.forEach((child) => {
       if (child.type === 'folder') {
         sortFolder(child);

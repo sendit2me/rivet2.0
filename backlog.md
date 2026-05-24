@@ -1,22 +1,24 @@
 
 
 
-
-- Small and big letters in graph tree item names affect the sorting in the graph tree. Thta's wrong. I want the sorting to be case-insensitive
-
-
-- Did run nod c remove the explanation form the node's body and put it into the settings panel
-
-- For each node in the settings panel; add a link to the user documentation
-
-- When a graph is picked in the left panel and the panel is open, make F2 force renaming
+- Did run node - remove the node explanation from the node's body and put it into the settings panel
 
 
 - Make get global and set global nodes different enough thtat it's easy to notice which is which. Like, icons maybe?
 
+
+- When I try to resize the left panel width too narrow (<= 50% of minimal width), collapse it completely as if I clicked the collapse button
+
+
 - Need keyboard shortcuts to run the project and the current graph
 
-- When I decrease the left panel width too narrow, collapse it completely as if I clicked the collapse button
+- For each node in the settings panel - add a link to the user documentation
+
+- When a graph is picked in the left panel and the panel is open, make F2 force renaming
+
+
+
+
 
 
 - Now, the executor mode is global for all open projects (remote debugger, browser, node). Make it per tab
