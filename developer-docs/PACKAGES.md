@@ -133,16 +133,37 @@ Keep that fixture local and ignored because it can contain production-shaped
 payload data. Use `RIVET_RUNTIME_BENCH_FILTER='local real workflow fixture'` to
 run only these rows.
 
-The default Subgraph runtime speed pass is closed in
-[`default-subgraph-runtime-speed-plan.md`](../default-subgraph-runtime-speed-plan.md)
-and
-[`default-subgraph-runtime-benchmark.md`](../default-subgraph-runtime-benchmark.md).
-The final local real-workflow fixture run measured loaded `runGraph(...)` at
-about 37.6 ms mean and default-safe fresh `createProcessor(...)` at about
-38.5 ms mean, which is accepted as healthy for the current backend target. The
-plan did not keep the experimental opt-in profiles or native prototype because
-the default TypeScript runtime already met the target for the production-shaped
-fixture.
+The default Subgraph runtime speed pass is closed. The final local
+real-workflow fixture run measured loaded `runGraph(...)` at about 37.6 ms mean
+and default-safe fresh `createProcessor(...)` at about 38.5 ms mean, which is
+accepted as healthy for the current backend target. The cleanup did not keep
+the experimental opt-in profiles or native prototype because the default
+TypeScript runtime already met the target for the production-shaped fixture.
+
+The same fixture was also used to check how Node heap limits affect fresh
+`createProcessor(...).run()` latency. This was measured against the built Node
+package on Windows with Node `v22.22.3`; each heap cap used 15 samples, 20
+measured runs per sample, and 5 warmup runs per sample. The benchmark varied
+only `--max-old-space-size` and loaded the fixture once before measuring fresh
+processors:
+
+| Node heap cap | Mean | Median | p95 | Takeaway |
+| ---: | ---: | ---: | ---: | --- |
+| 64 MB | 59.812 ms | 59.809 ms | 63.841 ms | Too low; GC pressure roughly doubles runtime. |
+| 80 MB | 33.007 ms | 32.820 ms | 37.510 ms | Usable but still measurably slower. |
+| 96 MB | 31.358 ms | 31.230 ms | 35.149 ms | Near the normal plateau. |
+| 128 MB | 30.751 ms | 30.253 ms | 35.815 ms | Safe practical floor for this fixture. |
+| 256 MB | 30.875 ms | 30.769 ms | 34.042 ms | No material speedup over 128 MB. |
+| 512 MB | 30.734 ms | 30.567 ms | 33.775 ms | No material speedup over 128 MB. |
+| 1024 MB | 30.806 ms | 30.498 ms | 34.601 ms | No material speedup over 128 MB. |
+| 2048 MB | 29.883 ms | 29.672 ms | 33.298 ms | Slight best run, within normal noise. |
+| 4096 MB | 30.756 ms | 30.631 ms | 33.277 ms | Baseline large heap. |
+
+Treat Node heap size as a floor, not a latency tuning knob: this workload gets
+hurt by very tight heaps, but it does not get meaningfully faster once the
+process has roughly 96-128 MB of V8 heap. More physical RAM still matters when
+the host would otherwise page, when many workflow processes run concurrently,
+or when real workflows allocate much larger values than this fixture.
 
 `createGraphRunner(...)` is the production-facing reuse path for Node
 integrations that load a stable project graph once and run it many times. It
