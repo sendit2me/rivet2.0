@@ -21,6 +21,7 @@ import {
   type LooseDataValue,
   type NodeGraph,
   type ProcessContext,
+  type GraphProcessorRuntimeProfiler,
 } from '@valerypopoff/rivet2-core';
 
 import { readFile } from 'node:fs/promises';
@@ -104,6 +105,7 @@ export type NodeRunGraphOptions = RunGraphOptions & {
 type NodeGraphProcessor = ReturnType<typeof coreCreateProcessor>['processor'];
 
 export type NodeCreateProcessorOptions = NodeRunGraphOptions & {
+  runtimeProfiler?: GraphProcessorRuntimeProfiler;
   runtimeProfile?: NodeRuntimeProfile;
 };
 
@@ -129,7 +131,7 @@ export function createProcessor(
   project: Project,
   options: NodeCreateProcessorOptions,
 ): ReturnType<typeof coreCreateProcessor> {
-  const { runtimeProfile, ...processorOptions } = options;
+  const { runtimeProfile, runtimeProfiler, ...processorOptions } = options;
   const effectiveProcessorOptions = {
     ...processorOptions,
     captureNodeTimings:
@@ -140,6 +142,7 @@ export function createProcessor(
     cacheLoadedProjects: runtimePolicy.cacheLoadedProjects,
     executionPlanCacheMode: runtimePolicy.executionPlanCacheMode,
     runtimeCache: runtimePolicy.runtimeCache,
+    runtimeProfiler,
     scheduler: runtimePolicy.scheduler,
   });
 

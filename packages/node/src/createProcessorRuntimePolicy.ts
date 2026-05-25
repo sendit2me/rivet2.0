@@ -49,10 +49,10 @@ export function resolveCreateProcessorRuntimePolicy({
 
   return {
     cacheLoadedProjects: false,
-    executionPlanCacheMode: 'subprocessors',
+    executionPlanCacheMode: 'all',
     fallbackReasons: [],
     runtimeCache: {},
-    scheduler: 'compatible',
+    scheduler: 'fast-acyclic',
     useCachedDefaultCodeRunner: codeRunner == null,
   };
 }

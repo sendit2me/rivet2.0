@@ -120,6 +120,16 @@ Subgraph node `duration` is a graph-boundary wall-clock metric around the child 
 
 Recordings preserve incoming `durationMs` and `splitRunDurationMs` when present. [`RecordingPlayer`](../packages/core/src/model/RecordingPlayer.ts) can also derive replay-only legacy aggregate durations from existing recorded `nodeStart.ts` and terminal event `ts` values; that fallback is not used for live remote-debugger traffic where receive timing would be misleading.
 
+`GraphProcessor` also has an off-by-default runtime profiler hook used by Node
+benchmark attribution. It records coarse diagnostic buckets such as
+preprocessing, scheduler wall time, node implementation time, subprocessor
+creation, and subprocessor listener wiring without emitting logs or changing
+outputs. Normal app, debugger, and headless runs do not pass a profiler and
+therefore do not collect these buckets. Some buckets are inclusive across
+nested graph/subgraph calls. Treat the profiler as attribution instrumentation
+only: benchmark speed claims still need unprofiled before/after runs because
+the diagnostic spans add timestamp reads and aggregation work.
+
 ## Graph Model
 
 Core graph model types live in `model/`.
@@ -488,26 +498,30 @@ Current architectural detail:
   node-instance, node-id, and connection maps instead of merging into old maps;
   this keeps reused processors from retaining stale graph-edit state
 - `createProcessor(...)`, and eligible `runGraph(...)` calls that route through
-  the same default-safe policy, use the same plan shape only as run-scoped data
+  the same default policy, use the same plan shape only as run-scoped data
   for a fresh one-off processor run. The Node wrapper clears that cache before
   and after `run()` so endpoint-style callers do not depend on cross-request
   cache state. Its policy is split in
   [`createProcessorRuntimePolicy.ts`](../packages/node/src/createProcessorRuntimePolicy.ts):
-  omitted `runtimeProfile` enables the default-safe pieces, explicit
-  `compatible` stays fully compatible, Remote Debugger forces the compatible
-  policy, and trace-sensitive omitted runs stay fully compatible. The default-safe
-  `createProcessor(...)` policy caches execution plans only for subprocessors,
-  so a one-shot root graph does not pay reusable-plan construction cost unless
-  nested graph execution can reuse it. Unknown runtime `runtimeProfile` strings
-  use the compatible policy for untyped JavaScript callers.
+  omitted `runtimeProfile` enables run-scoped root/subprocessor execution-plan
+  caching and the internal `fast-acyclic` scheduler for eligible graphs,
+  explicit `compatible` stays fully compatible, Remote Debugger forces the
+  compatible policy, and trace-sensitive omitted runs stay fully compatible.
+  Unknown runtime `runtimeProfile` strings use the compatible policy for
+  untyped JavaScript callers.
+  The fast acyclic scheduler uses an iterative reverse-reachable walk from the
+  same start nodes as the compatible path and only unlocks downstream nodes
+  through input dependencies that were actually counted, so very deep eligible
+  graphs avoid recursive reachability limits and invalid or stale target-port
+  connections do not make otherwise ignored nodes observable.
   The loaded-reference flag controls both reading and writing
   `runtimeCache.loadedProjects`; a runtime cache alone is not enough to reuse
   referenced projects. Execution-plan caching is also disabled for projects
   with references unless loaded-reference caching is enabled, because node port
   plans can depend on referenced project definitions.
-- Default-safe characterization lives in
+- Omitted-default compatibility characterization lives in
   [`packages/node/test/defaultSafeCompatibility.test.ts`](../packages/node/test/defaultSafeCompatibility.test.ts).
-  It compares omitted default-safe and compatible Node `createProcessor(...)`
+  It compares omitted default and compatible Node `createProcessor(...)`
   runs at the event, partial-output callback, user-input callback,
   global/user-event recorder, error, abort, custom provider,
   reference-loader, and shared-project-object seams.
@@ -516,8 +530,8 @@ Current architectural detail:
   as timing-dependent values.
 - Core cache-mode behavior is pinned in
   [`GraphProcessor.characterization.test.ts`](../packages/core/test/model/GraphProcessor.characterization.test.ts),
-  including the default-safe requirement that runtime execution-plan caching can
-  apply to child processors without caching the one-shot root graph.
+  including the run-scoped runtime cache requirement that cached execution plans
+  are cleared before and after endpoint-style runs.
 
 ### Event system
 
@@ -845,13 +859,13 @@ callers keep the old behavior. Hosted wrappers can set
 runner is constructed to resolve Code-family `require()` from a runtime-library
 directory without patching source.
 
-The default-safe Node policy can use a cached CodeRunner inside omitted-default
+The default Node policy can use a cached CodeRunner inside omitted-default
 `createProcessor(...)` when the caller does not pass an explicit `codeRunner`.
 The cache stores compiled functions by source text plus the injected argument
 shape (`inputs`, permissions, graph inputs, and context presence). It does not
 cache values or outputs, so locals remain fresh for every invocation and
 per-run `inputs`/`context` still vary normally. Eligible `runGraph(...)` calls
-use the same default-safe CodeRunner policy as omitted-default
+use the same default CodeRunner policy as omitted-default
 `createProcessor(...)`.
 `runGraph(...)` does not expose `runtimeProfile`; untyped `runtimeProfile`
 properties are ignored. Compatible `createProcessor(...)`, Browser mode,

@@ -8,6 +8,7 @@ import type {
   GraphProcessorConcurrency,
   GraphProcessorExecutionPlanCacheMode,
   GraphProcessorRuntimeCache,
+  GraphProcessorRuntimeProfiler,
   GraphProcessorScheduler,
   ProcessEvents,
 } from '../model/GraphProcessor.js';
@@ -63,6 +64,7 @@ export type CoreCreateProcessorInternalOptions = {
   cacheLoadedProjects?: boolean;
   executionPlanCacheMode?: GraphProcessorExecutionPlanCacheMode;
   runtimeCache?: GraphProcessorRuntimeCache;
+  runtimeProfiler?: GraphProcessorRuntimeProfiler;
   scheduler?: GraphProcessorScheduler;
 };
 
@@ -95,6 +97,7 @@ export function coreCreateProcessor(
       concurrency: options.concurrency,
       executionPlanCacheMode: internalOptions.executionPlanCacheMode,
       runtimeCache: internalOptions.runtimeCache,
+      runtimeProfiler: internalOptions.runtimeProfiler,
       scheduler: internalOptions.scheduler,
     },
   );

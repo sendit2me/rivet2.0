@@ -113,6 +113,10 @@ records command, commit, date, OS, CPU, Node version, warmups, iterations,
 samples, sessions, filter, output path, JSON mode, dirty working-tree status,
 raw timings, mean, median, p75, p95, min/max, standard deviation, coefficient
 of variation, and 95% confidence bounds.
+When the output path is relative and starts with `packages/`, the benchmark
+resolves it from the repo root so repo-relative commands such as
+`packages/node/bench-results/example.json` do not create nested package
+directories when run through `yarn workspace`.
 
 The benchmark matrix measures one-shot `runGraphInFile(...)`, loaded-project
 `runGraph(...)`, reused and fresh `createProcessor(...)`, `createGraphRunner(...)`,
@@ -134,11 +138,12 @@ payload data. Use `RIVET_RUNTIME_BENCH_FILTER='local real workflow fixture'` to
 run only these rows.
 
 The default Subgraph runtime speed pass is closed. The final local
-real-workflow fixture run measured loaded `runGraph(...)` at about 37.6 ms mean
-and default-safe fresh `createProcessor(...)` at about 38.5 ms mean, which is
-accepted as healthy for the current backend target. The cleanup did not keep
-the experimental opt-in profiles or native prototype because the default
-TypeScript runtime already met the target for the production-shaped fixture.
+real-workflow fixture run measured explicit compatible rollback
+`createProcessor(...)` at about 33.7 ms mean, default fresh
+`createProcessor(...)` at about 29.5 ms mean, and reused default
+`createProcessor(...)` at about 29.2 ms mean. The cleanup did not keep the
+experimental opt-in profiles or native prototype because the default TypeScript
+runtime met the target for the production-shaped fixture.
 
 [`packages/node/bench/runtimeAttribution.bench.ts`](../packages/node/bench/runtimeAttribution.bench.ts)
 is the diagnostic attribution harness for that local fixture. Run it with
@@ -147,8 +152,13 @@ is the diagnostic attribution harness for that local fixture. Run it with
 uses `captureNodeTimings` and a profiling cached CodeRunner, so its numbers are
 for attribution only rather than clean before/after speed claims. It reports
 fixture load/run wall time, node-type duration totals, graph summaries, top
-nodes, fixture CodeRunner cache/compile/invocation/execution buckets, and small
-synthetic CodeRunner scenarios.
+nodes, fixture CodeRunner cache/compile/invocation/execution buckets, coarse
+`GraphProcessor` runtime phase buckets, `createProcessor(...)` construction
+time, and small synthetic CodeRunner scenarios. Runtime phase buckets are
+diagnostic and can be inclusive across nested graph/subgraph calls; use them to
+choose the next optimization target, not as standalone proof that the
+unprofiled runtime got faster. Like the speed benchmark, relative attribution
+output paths that start with `packages/` resolve from the repo root.
 
 A later fixture-focused speed pass kept only one low-risk runtime optimization:
 default `CachedNodeCodeRunner` instances cache immutable invocation plans by
@@ -230,38 +240,64 @@ Global node values and mutable node state do not leak between backend requests.
 The runner does not expose an execution-mode selector; it stays on the standard
 TypeScript runtime.
 
-`createProcessor(...)` keeps the endpoint-style default-safe policy for callers
+`createProcessor(...)` keeps the endpoint-style default policy for callers
 that create a fresh processor, run it once, and discard it.
 [`createProcessorRuntimePolicy.ts`](../packages/node/src/createProcessorRuntimePolicy.ts)
-owns this internal split. Omitted `runtimeProfile` enables run-scoped
-subprocessor execution-plan caching and the default cached Node CodeRunner when
-no custom `codeRunner` is supplied, but keeps compatible scheduling and does not
-cache loaded project references. The root graph stays on the ordinary one-shot
-planning path so plain cheap workflows do not pay reusable-plan construction
-cost when there is no nested graph execution to reuse it. The only documented
-profile is `runtimeProfile: 'compatible'`, which forces the fully compatible
-rollback path. Unknown profile strings from untyped JavaScript callers are also
-treated as compatible.
+owns this internal split. Omitted `runtimeProfile` enables a run-scoped runtime
+cache for root and subprocessor execution plans, the default cached Node
+CodeRunner when no custom `codeRunner` is supplied, and the internal
+`fast-acyclic` scheduler for eligible graphs. Unsupported graphs fall back
+inside `GraphProcessor` to compatible scheduling for that graph. Remote Debugger
+and trace-sensitive runs still force the compatible policy. The only documented
+rollback profile is `runtimeProfile: 'compatible'`, which forces the fully
+compatible path. Unknown profile strings from untyped JavaScript callers are
+also treated as compatible. The fast scheduler follows the compatible path's
+reverse-reachable start-node set with an iterative walk and ignores
+stale/invalid target-port connections when unlocking downstream nodes, so deep
+eligible graphs and stale graph-shape edge cases do not become observable just
+because a faster scheduler is active.
 
 Remote Debugger or trace-sensitive runs use the compatible policy. Custom
 `codeRunner` instances always win; the Node cached CodeRunner is only used when
 no custom runner was supplied. Recording remains supported because the
-default-safe path still emits normal processor events. `runGraph(...)`
+default path still emits normal processor events. `runGraph(...)`
 intentionally ignores any untyped `runtimeProfile` property and uses only the
 default-safe internal policy selected by its own observable-run guards.
 
-Default-safe processors use a graph boundary cache for direct nested-graph
-callers. The core `GraphBoundaryCache` helper is used by Subgraph, Referenced
-Graph Alias, and Loop Until definition paths plus Subgraph/Referenced Graph
-Alias runtime input/output map construction. The cache is keyed by graph object
-and cleared with the rest of the processor runtime cache; it never stores final
-outputs. Processors with project references and disabled loaded-project caching
-reset the boundary cache at run start, because referenced project boundaries
-can be reloaded dynamically. Manually constructed internal contexts can omit
-the resolver and nested-graph nodes will fall back to uncached boundary
-derivation. Ordinary graphs without boundary-driven nested-graph nodes keep the
-direct definition-loading path so simple workflows do not pay a boundary-cache
-branch.
+The fixture speedup pass made that scheduler/cache policy the default omitted
+`createProcessor(...)` path only after compatibility characterization and
+repeated benchmark runs. The saved artifacts were:
+
+- `packages/node/bench-results/fixture-speedup-runtime-attribution-20260525.json`
+- `packages/node/bench-results/fixture-speedup-direct-scheduler-20260525.json`
+- `packages/node/bench-results/fixture-speedup-createprocessor-default-fast-20260525.json`
+
+The full `createProcessor(...)` benchmark used 3 sessions, 15 samples per
+session, 20 measured runs per sample, and 5 warmup runs per sample:
+
+| Fixture row | Mean | Median | p95 | Note |
+| --- | ---: | ---: | ---: | --- |
+| Fresh compatible rollback `createProcessor(...)` | 33.728 ms | 33.817 ms | 35.962 ms | Explicit `runtimeProfile: 'compatible'`. |
+| Fresh default `createProcessor(...)` | 29.543 ms | 29.671 ms | 32.403 ms | Omitted profile; about 12.4% faster mean than compatible rollback. |
+| Reused default `createProcessor(...)` | 29.321 ms | 29.383 ms | 32.433 ms | Reuse is faster for this run, but backend endpoints usually construct per request. |
+
+The default and compatible paths stayed equivalent in the compatibility
+characterization suite, including callbacks and recorder events for covered
+eligible graphs. Keep Remote Debugger and trace-sensitive runs on compatible
+policy unless their observable ordering has separate coverage.
+
+The omitted-default `createProcessor(...)` policy uses a graph boundary cache
+for direct nested-graph callers. The core `GraphBoundaryCache` helper is used by
+Subgraph, Referenced Graph Alias, and Loop Until definition paths plus
+Subgraph/Referenced Graph Alias runtime input/output map construction. The cache
+is keyed by graph object and cleared with the rest of the processor runtime
+cache; it never stores final outputs. Processors with project references and
+disabled loaded-project caching reset the boundary cache at run start, because
+referenced project boundaries can be reloaded dynamically. Manually constructed
+internal contexts can omit the resolver and nested-graph nodes will fall back to
+uncached boundary derivation. Ordinary graphs without boundary-driven
+nested-graph nodes keep the direct definition-loading path so simple workflows
+do not pay a boundary-cache branch.
 
 `captureNodeTimings` is an optional execution-metadata flag shared with core. It
 adds `durationMs` and split-run `splitRunDurationMs` to `nodeFinish` / `nodeError` events without changing output
@@ -293,9 +329,9 @@ It asserts the new serializer's parsed websocket payload matches the old sanitiz
 
 Large debugger outputs can still make Subgraph node `duration` exceed the sum of child node `durationMs`: the debugger must inspect and serialize values that it displays. The optimization trims clone allocation for common JSON-safe branches, but the measured serialization win is modest and it does not make Remote Debugger transport free.
 
-Default-safe promotion is guarded by
+Omitted-default promotion is guarded by
 [`packages/node/test/defaultSafeCompatibility.test.ts`](../packages/node/test/defaultSafeCompatibility.test.ts).
-That suite compares omitted default-safe and explicit compatible one-shot
+That suite compares omitted default and explicit compatible one-shot
 `createProcessor(...)` runs for final outputs, callback-visible events,
 recorder events after serialization, partial-output callbacks, user-input
 callbacks, global-set events, raised user events, Code/Expression errors,

@@ -3,13 +3,13 @@ import { describe, it } from 'node:test';
 import { resolveCreateProcessorRuntimePolicy } from '../src/createProcessorRuntimePolicy.js';
 
 void describe('createProcessor runtime policy', () => {
-  void it('defaults an omitted runtime profile to the default-safe policy', () => {
+  void it('defaults an omitted runtime profile to the faster default policy', () => {
     const policy = resolveCreateProcessorRuntimePolicy({});
 
     assert.ok(policy.runtimeCache);
     assert.equal(policy.cacheLoadedProjects, false);
-    assert.equal(policy.executionPlanCacheMode, 'subprocessors');
-    assert.equal(policy.scheduler, 'compatible');
+    assert.equal(policy.executionPlanCacheMode, 'all');
+    assert.equal(policy.scheduler, 'fast-acyclic');
     assert.equal(policy.useCachedDefaultCodeRunner, true);
     assert.deepEqual(policy.fallbackReasons, []);
   });
@@ -47,8 +47,8 @@ void describe('createProcessor runtime policy', () => {
 
     assert.ok(policy.runtimeCache);
     assert.equal(policy.cacheLoadedProjects, false);
-    assert.equal(policy.executionPlanCacheMode, 'subprocessors');
-    assert.equal(policy.scheduler, 'compatible');
+    assert.equal(policy.executionPlanCacheMode, 'all');
+    assert.equal(policy.scheduler, 'fast-acyclic');
     assert.equal(policy.useCachedDefaultCodeRunner, false);
   });
 

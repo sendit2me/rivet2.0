@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { access, mkdir, writeFile } from 'node:fs/promises';
 import { arch, cpus, platform, release, type } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, isAbsolute, join } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { fileURLToPath } from 'node:url';
 import {
@@ -11,6 +11,7 @@ import {
   type CodeRunnerOptions,
   type DataValue,
   type GraphId,
+  type GraphProcessorRuntimeProfileBucket,
   type Inputs,
   type NodeGraph,
   type Outputs,
@@ -28,7 +29,7 @@ const benchDir = dirname(fileURLToPath(import.meta.url));
 const nodePackageDir = join(benchDir, '..');
 const repoRoot = join(nodePackageDir, '..', '..');
 const localRealWorkflowFixturePath = join(repoRoot, '.fixtures', 'graph-fixture.rivet-project');
-const outputPath = process.env.RIVET_RUNTIME_ATTRIBUTION_OUTPUT?.trim();
+const outputPath = resolveAttributionOutputPath(process.env.RIVET_RUNTIME_ATTRIBUTION_OUTPUT?.trim());
 const jsonMode = process.env.RIVET_RUNTIME_ATTRIBUTION_JSON === '1';
 const runs = readPositiveIntegerEnv('RIVET_RUNTIME_ATTRIBUTION_RUNS', 1);
 const ARGUMENT_SHAPE_SEPARATOR = '\0';
@@ -80,14 +81,22 @@ type TopNodeSummary = {
   splitDurationMs: number;
 };
 
+type RuntimePhaseSummary = {
+  bucket: GraphProcessorRuntimeProfileBucket;
+  durationMs: number;
+  percentOfRunWallMs: number;
+};
+
 type AttributionSummary = {
   codeRunner: CodeRunnerProfile;
+  createProcessorMs: number;
   excludedNodes: number;
   graphRunCount: number;
   leafNodeDurationMs: number;
   loadProjectMs: number;
   nodeDurationMs: number;
   outputCount: number;
+  runtimeProfiledInclusiveMs: number;
   runWallMs: number;
   terminalNodeEvents: number;
 };
@@ -113,6 +122,7 @@ type AttributionOutput = {
     runs: number;
   };
   nodeTypes: Array<NodeTypeSummary & { nodeType: string }>;
+  runtimePhases: RuntimePhaseSummary[];
   summary: AttributionSummary;
   topNodes: TopNodeSummary[];
 };
@@ -242,12 +252,15 @@ async function main() {
   const codeRunner = new ProfilingCachedNodeCodeRunner();
   const graphRuns = new Map<string, GraphSummary>();
   const nodeTypes = new Map<string, NodeTypeSummary>();
+  const runtimePhaseDurations = new Map<GraphProcessorRuntimeProfileBucket, number>();
   const topNodes: TopNodeSummary[] = [];
+  let createProcessorMs = 0;
   let excludedNodes = 0;
   let outputCount = 0;
   let runWallMs = 0;
 
   for (let runIndex = 0; runIndex < runs; runIndex += 1) {
+    const createProcessorStart = performance.now();
     const processor = createProcessor(project, {
       captureNodeTimings: true,
       codeRunner,
@@ -298,7 +311,13 @@ async function main() {
           splitDurationMs,
         });
       },
+      runtimeProfiler: {
+        addDuration(bucket, durationMs) {
+          runtimePhaseDurations.set(bucket, (runtimePhaseDurations.get(bucket) ?? 0) + durationMs);
+        },
+      },
     });
+    createProcessorMs += performance.now() - createProcessorStart;
 
     const runStart = performance.now();
     const outputs = await processor.run();
@@ -309,11 +328,13 @@ async function main() {
   const output = createAttributionOutput({
     codeRunner,
     codeRunnerScenarios: await runCodeRunnerScenarios(),
+    createProcessorMs,
     excludedNodes,
     graphRuns,
     loadProjectMs,
     nodeTypes,
     outputCount,
+    runtimePhaseDurations,
     runWallMs,
     topNodes,
   });
@@ -335,6 +356,8 @@ async function main() {
   console.table(output.topNodes.slice(0, 20).map(formatTopNodeForConsole));
   console.log('Graphs');
   console.table(output.graphs.slice(0, 20).map(formatGraphForConsole));
+  console.log('Runtime phases');
+  console.table(output.runtimePhases.map(formatRuntimePhaseForConsole));
   console.log('CodeRunner profile');
   console.table([formatCodeRunnerForConsole(output.summary.codeRunner)]);
   console.log('Synthetic CodeRunner scenarios');
@@ -347,21 +370,25 @@ async function main() {
 function createAttributionOutput({
   codeRunner,
   codeRunnerScenarios,
+  createProcessorMs,
   excludedNodes,
   graphRuns,
   loadProjectMs,
   nodeTypes,
   outputCount,
+  runtimePhaseDurations,
   runWallMs,
   topNodes,
 }: {
   codeRunner: ProfilingCachedNodeCodeRunner;
   codeRunnerScenarios: CodeRunnerScenarioSummary[];
+  createProcessorMs: number;
   excludedNodes: number;
   graphRuns: Map<string, GraphSummary>;
   loadProjectMs: number;
   nodeTypes: Map<string, NodeTypeSummary>;
   outputCount: number;
+  runtimePhaseDurations: Map<GraphProcessorRuntimeProfileBucket, number>;
   runWallMs: number;
   topNodes: TopNodeSummary[];
 }): AttributionOutput {
@@ -375,20 +402,31 @@ function createAttributionOutput({
     .filter((entry) => entry.nodeType !== 'subGraph')
     .reduce((sum, entry) => sum + entry.durationMs, 0);
   const terminalNodeEvents = nodeTypesArray.reduce((sum, entry) => sum + entry.count, 0);
+  const runtimePhases = [...runtimePhaseDurations.entries()]
+    .map(([bucket, durationMs]) => ({
+      bucket,
+      durationMs,
+      percentOfRunWallMs: runWallMs > 0 ? (durationMs / runWallMs) * 100 : 0,
+    }))
+    .sort((a, b) => b.durationMs - a.durationMs);
+  const runtimeProfiledInclusiveMs = runtimePhases.reduce((sum, entry) => sum + entry.durationMs, 0);
 
   return {
     codeRunnerScenarios,
     graphs,
     metadata: createMetadata(),
     nodeTypes: nodeTypesArray,
+    runtimePhases,
     summary: {
       codeRunner: codeRunner.getProfile(),
+      createProcessorMs,
       excludedNodes,
       graphRunCount: graphs.length,
       leafNodeDurationMs,
       loadProjectMs,
       nodeDurationMs,
       outputCount,
+      runtimeProfiledInclusiveMs,
       runWallMs,
       terminalNodeEvents,
     },
@@ -583,6 +621,18 @@ function createMetadata(): AttributionOutput['metadata'] {
   };
 }
 
+function resolveAttributionOutputPath(path: string | undefined): string | undefined {
+  if (!path) {
+    return undefined;
+  }
+
+  if (isAbsolute(path)) {
+    return path;
+  }
+
+  return path.replaceAll('\\', '/').startsWith('packages/') ? join(repoRoot, path) : path;
+}
+
 async function writeAttributionOutput(path: string, output: AttributionOutput): Promise<void> {
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, `${JSON.stringify(output, null, 2)}\n`, 'utf8');
@@ -628,13 +678,23 @@ function formatMs(value: number): string {
 function formatSummaryForConsole(summary: AttributionSummary) {
   return {
     excludedNodes: summary.excludedNodes,
+    createProcessorMs: formatMs(summary.createProcessorMs),
     graphRunCount: summary.graphRunCount,
     leafNodeDurationMs: formatMs(summary.leafNodeDurationMs),
     loadProjectMs: formatMs(summary.loadProjectMs),
     nodeDurationMs: formatMs(summary.nodeDurationMs),
     outputCount: summary.outputCount,
+    runtimeProfiledInclusiveMs: formatMs(summary.runtimeProfiledInclusiveMs),
     runWallMs: formatMs(summary.runWallMs),
     terminalNodeEvents: summary.terminalNodeEvents,
+  };
+}
+
+function formatRuntimePhaseForConsole(summary: RuntimePhaseSummary) {
+  return {
+    bucket: summary.bucket,
+    durationMs: formatMs(summary.durationMs),
+    percentOfRunWallMs: summary.percentOfRunWallMs.toFixed(2),
   };
 }
 

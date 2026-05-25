@@ -2,7 +2,7 @@ import { performance } from 'node:perf_hooks';
 import { execFileSync } from 'node:child_process';
 import { access, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { arch, cpus, platform, release, tmpdir, type } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, isAbsolute, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   createProcessor,
@@ -141,13 +141,16 @@ const samples = readPositiveIntegerEnv('RIVET_RUNTIME_BENCH_SAMPLES', 1);
 const sessions = readPositiveIntegerEnv('RIVET_RUNTIME_BENCH_SESSIONS', 1);
 const benchmarkFilterPattern = process.env.RIVET_RUNTIME_BENCH_FILTER?.trim();
 const benchmarkFilter = readBenchmarkFilter(benchmarkFilterPattern);
-const benchmarkOutputPath = process.env.RIVET_RUNTIME_BENCH_OUTPUT?.trim();
+const benchmarkOutputPath = resolveBenchmarkOutputPath(process.env.RIVET_RUNTIME_BENCH_OUTPUT?.trim());
 const localRealWorkflowFixtureBenchmarkNames = [
   'loadProjectFromFile local real workflow fixture only',
   'runGraphInFile local real workflow fixture no inputs',
   'runGraph local real workflow fixture no inputs',
-  'fresh createProcessor default-safe local real workflow fixture no inputs',
-  'reuse createProcessor default-safe local real workflow fixture no inputs',
+  'fresh createProcessor compatible rollback local real workflow fixture no inputs',
+  'fresh createProcessor default-fast local real workflow fixture no inputs',
+  'reuse createProcessor default-fast local real workflow fixture no inputs',
+  'direct GraphProcessor compatible local real workflow fixture no inputs',
+  'direct GraphProcessor fast-acyclic local real workflow fixture no inputs',
 ] as const;
 
 async function main() {
@@ -266,6 +269,16 @@ async function main() {
           localRealWorkflowFixture.project,
           {
             graph: localRealWorkflowFixture.graphId,
+            runtimeProfile: 'compatible',
+          },
+        ),
+      );
+      results.push(
+        await benchmarkCreateProcessor(
+          localRealWorkflowFixtureBenchmarkNames[4],
+          localRealWorkflowFixture.project,
+          {
+            graph: localRealWorkflowFixture.graphId,
           },
         ),
       );
@@ -274,9 +287,27 @@ async function main() {
           graph: localRealWorkflowFixture.graphId,
         });
         results.push(
-          await benchmark(localRealWorkflowFixtureBenchmarkNames[4], () => processor.run()),
+          await benchmark(localRealWorkflowFixtureBenchmarkNames[5], () => processor.run()),
         );
       }
+      results.push(
+        await benchmarkDirectGraphProcessor(
+          localRealWorkflowFixtureBenchmarkNames[6],
+          localRealWorkflowFixture.project,
+          localRealWorkflowFixture.graphId,
+          'compatible',
+          {},
+        ),
+      );
+      results.push(
+        await benchmarkDirectGraphProcessor(
+          localRealWorkflowFixtureBenchmarkNames[7],
+          localRealWorkflowFixture.project,
+          localRealWorkflowFixture.graphId,
+          'fast-acyclic',
+          {},
+        ),
+      );
     }
 
     results.push(
@@ -1111,6 +1142,7 @@ async function benchmarkDirectGraphProcessor(
   project: Project,
   graphId: GraphId,
   scheduler?: GraphProcessorScheduler,
+  inputs: Record<string, DataValue> = { input: { type: 'string', value: 'bench' } satisfies DataValue },
 ): Promise<BenchmarkResult> {
   if (!shouldRunBenchmark(name)) {
     return skippedBenchmarkResult(name);
@@ -1118,7 +1150,6 @@ async function benchmarkDirectGraphProcessor(
 
   const processor = createRuntimeSpeedProcessor(project, graphId, scheduler ? { scheduler } : undefined);
   const context = createRuntimeSpeedProcessContext();
-  const inputs = { input: { type: 'string', value: 'bench' } satisfies DataValue };
   return await benchmark(name, () => processor.processGraph(context, inputs));
 }
 
@@ -1503,6 +1534,18 @@ function createBenchmarkOutput(results: BenchmarkResult[]): BenchmarkOutput {
     metadata: createBenchmarkMetadata(),
     results,
   };
+}
+
+function resolveBenchmarkOutputPath(path: string | undefined): string | undefined {
+  if (!path) {
+    return undefined;
+  }
+
+  if (isAbsolute(path)) {
+    return path;
+  }
+
+  return path.replaceAll('\\', '/').startsWith('packages/') ? join(repoRoot, path) : path;
 }
 
 function createBenchmarkMetadata(): BenchmarkMetadata {

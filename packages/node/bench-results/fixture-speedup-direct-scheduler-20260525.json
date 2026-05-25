@@ -1,0 +1,92 @@
+{
+  "metadata": {
+    "arch": "x64",
+    "command": "C:\\nvm4w\\nodejs\\node.exe F:\\Programming\\Rivet2.0\\packages\\node\\bench\\runtimeSpeed.bench.ts",
+    "commit": "5f6ffbf0be5bc6a45ee36ff878b0df4fff296a9d",
+    "cpuModel": "Intel(R) Core(TM) Ultra 5 245KF",
+    "date": "2026-05-25T19:35:50.537Z",
+    "filter": "direct GraphProcessor .*local real workflow fixture",
+    "gitDirty": true,
+    "gitStatusShort": [
+      " M developer-docs/CORE-ENGINE.md",
+      " M developer-docs/PACKAGES.md",
+      " M fixture-workflow-speedup-plan.md",
+      " M packages/core/src/api/createProcessor.ts",
+      " M packages/core/src/model/GraphProcessor.ts",
+      " M packages/node/bench/runtimeAttribution.bench.ts",
+      " M packages/node/bench/runtimeSpeed.bench.ts",
+      " M packages/node/src/api.ts",
+      " M packages/node/src/createProcessorRuntimePolicy.ts",
+      " M packages/node/test/createProcessorRuntimePolicy.test.ts",
+      " M packages/node/test/defaultSafeCompatibility.test.ts",
+      " M packages/node/test/runtimeSpeedFixtures.ts",
+      "?? packages/node/bench-results/fixture-speedup-createprocessor-default-fast-20260525.json",
+      "?? packages/node/bench-results/fixture-speedup-direct-scheduler-20260525.json",
+      "?? packages/node/bench-results/fixture-speedup-runtime-attribution-20260525.json",
+      "?? packages/node/test/runtimeProfiler.test.ts"
+    ],
+    "iterations": 20,
+    "jsonMode": false,
+    "node": "v22.22.3",
+    "os": "Windows_NT",
+    "outputPath": "F:\\Programming\\Rivet2.0\\packages\\node\\bench-results\\fixture-speedup-direct-scheduler-20260525.json",
+    "platform": "win32",
+    "release": "10.0.26200",
+    "samplesPerSession": 5,
+    "sessions": 1,
+    "warmupIterations": 5,
+    "yarnUserAgent": "yarn/4.6.0 npm/? node/v22.22.3 win32 x64"
+  },
+  "results": [
+    {
+      "ci95HighMs": "34.897",
+      "ci95LowMs": "33.040",
+      "coefficientVariation": "0.031",
+      "iterations": 20,
+      "maxMs": "35.403",
+      "meanMs": "33.969",
+      "medianMs": "33.875",
+      "minMs": "32.299",
+      "name": "direct GraphProcessor compatible local real workflow fixture no inputs",
+      "p75Ms": "34.724",
+      "p95Ms": "35.403",
+      "rawSamplesMs": [
+        35.403295,
+        33.875405,
+        33.54186,
+        34.724335,
+        32.29877
+      ],
+      "samples": 5,
+      "sessions": 1,
+      "stdDevMs": "1.059",
+      "totalMs": "3396.873",
+      "warmupIterations": 5
+    },
+    {
+      "ci95HighMs": "30.472",
+      "ci95LowMs": "29.765",
+      "coefficientVariation": "0.013",
+      "iterations": 20,
+      "maxMs": "30.625",
+      "meanMs": "30.118",
+      "medianMs": "29.874",
+      "minMs": "29.723",
+      "name": "direct GraphProcessor fast-acyclic local real workflow fixture no inputs",
+      "p75Ms": "30.593",
+      "p95Ms": "30.625",
+      "rawSamplesMs": [
+        30.62505,
+        29.723375,
+        29.87418,
+        29.776795,
+        30.592675
+      ],
+      "samples": 5,
+      "sessions": 1,
+      "stdDevMs": "0.403",
+      "totalMs": "3011.841",
+      "warmupIterations": 5
+    }
+  ]
+}

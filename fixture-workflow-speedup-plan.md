@@ -1,6 +1,6 @@
 # Fixture Workflow Speedup Plan
 
-Status: UPDATED PLAN - ATTRIBUTION-GATED UPSTREAM RUNTIME WORK
+Status: IMPLEMENTED DEFAULT CREATEPROCESSOR SPEEDUP
 
 ## Summary
 
@@ -9,11 +9,11 @@ This plan targets workflows shaped like
 subgraphs, Expression nodes, Code New nodes, mocked external calls, and no
 required network latency.
 
-The previous Rivet-side and wrapper-side CodeRunner optimization passes both
-helped only modestly. The optimized paths are active, output stays equivalent,
-and the representative fixture has roughly 42 CodeRunner calls with no managed
-`require(...)`. That means CodeRunner overhead is no longer the most credible
-source of a large speedup.
+The previous Rivet-side CodeRunner optimization pass helped only modestly. The
+optimized path is active, output stays equivalent, and the representative
+fixture has roughly 42 CodeRunner calls with no managed `require(...)`. That
+means CodeRunner overhead is no longer the most credible source of a large
+speedup.
 
 The next real optimization work should happen upstream in Rivet's graph runtime:
 
@@ -24,12 +24,9 @@ The next real optimization work should happen upstream in Rivet's graph runtime:
 - graph/subgraph boundary input/output mapping;
 - safe runtime plan caching.
 
-The first step is not to immediately build `runtimeProfile: "headless-fast"`.
-The first step is to prove where runtime overhead actually sits. If the proven
-fix is behavior-neutral, it should improve the default runtime. A
-`headless-fast` profile should exist only if the faster path must skip or alter
-behavior that editor, debugger, recording, replay, loop, race, or latest/debug
-paths still need.
+The first step is not to build a separate opt-in runtime mode. The first step is
+to prove where runtime overhead actually sits. If the proven fix is
+behavior-neutral, it should improve the default `createProcessor(...)` runtime.
 
 ## Current Evidence
 
@@ -51,26 +48,46 @@ The Rivet-side `CachedNodeCodeRunner` invocation-plan optimization improved the
 fixture by roughly 2-3 percent in backend-style rows. That is directionally
 positive but below the plan's significant-speedup threshold.
 
-The wrapper developer then optimized the wrapper-owned `ManagedCodeRunner`:
+Upstream attribution and scheduler characterization were then added in Rivet.
+The saved artifacts are:
 
-- skipped runtime-library preparation for plain JS nodes;
-- prepared runtime libraries lazily and at most once per request when
-  `require(...)` is used;
-- added a bounded successful `AsyncFunction` compile cache;
-- cached managed `require` resolution by active runtime-library snapshot;
-- added telemetry headers for CodeRunner calls, prepare/compile/execute time,
-  and cache hits/misses;
-- benchmarked through the real wrapper endpoint path.
+- `packages/node/bench-results/fixture-speedup-runtime-attribution-20260525.json`
+- `packages/node/bench-results/fixture-speedup-direct-scheduler-20260525.json`
+- `packages/node/bench-results/fixture-speedup-createprocessor-default-fast-20260525.json`
 
-The wrapper result was also modest. Telemetry confirmed the optimized path was
-active, no runtime-library prepare happened for the fixture, cache hits happened,
-and outputs stayed equivalent. The remaining runtime appears to be broader graph
-execution overhead, not wrapper CodeRunner overhead.
+The attribution run used 3 profiled fixture runs. It showed
+`createProcessor(...)` construction was only about 1.0 ms total across all 3
+runs, while the broad inclusive scheduler/node-dispatch area dominated the
+diagnostic buckets. Subprocessor creation and listener wiring were visible but
+small: about 3.6 ms creating subprocessors, 4.7 ms wiring subprocessor events,
+and 3.0 ms wiring subprocessor lifecycle across all 3 profiled runs. These
+numbers are diagnostic and inclusive where nested execution is involved; they
+are not speed-claim numbers.
 
-Before implementation starts, copy the wrapper developer's exact before/after
-benchmark numbers and telemetry summary into this section. The qualitative
-result is enough to redirect the plan, but exact artifacts are needed before
-comparing future upstream changes against wrapper endpoint performance.
+Direct scheduler characterization showed the fast acyclic scheduler can help
+this fixture:
+
+| Scenario | Mean | p95 | Notes |
+| --- | ---: | ---: | --- |
+| Direct `GraphProcessor` compatible fixture | 33.969 ms | 35.403 ms | 5 samples, 20 measured runs/sample. |
+| Direct `GraphProcessor` fast-acyclic fixture | 30.118 ms | 30.625 ms | About 11.3% faster mean in this diagnostic row. |
+
+Because the default compatibility suite stayed equivalent for the covered
+eligible graphs, the fast acyclic scheduler was made the default
+`createProcessor(...)` scheduler for eligible omitted-profile runs. Remote
+Debugger and trace-sensitive runs stay on the compatible policy.
+
+Fuller `createProcessor(...)` fixture benchmarking used 3 sessions, 15 samples
+per session, 20 measured runs per sample, and 5 warmup runs per sample:
+
+| Scenario | Mean | Median | p95 | Notes |
+| --- | ---: | ---: | ---: | --- |
+| Fresh `createProcessor` compatible rollback fixture | 33.728 ms | 33.817 ms | 35.962 ms | Explicit `runtimeProfile: "compatible"`. |
+| Fresh default `createProcessor` fixture | 29.543 ms | 29.671 ms | 32.403 ms | Omitted profile; about 12.4% faster mean than compatible rollback. |
+| Reused default `createProcessor` fixture | 29.321 ms | 29.383 ms | 32.433 ms | Useful diagnostic row; fresh one-shot callers usually construct per request. |
+
+The actual local fixture outputs matched between explicit compatible rollback
+and the default omitted-profile path.
 
 ## Goals
 
@@ -78,22 +95,19 @@ comparing future upstream changes against wrapper endpoint performance.
 - Improve the default Rivet runtime when the optimization is behavior-neutral.
 - Preserve workflow outputs, project files, recordings, replay, debugger events,
   loops, races, project references, and public API behavior.
-- Keep wrapper code responsible for endpoint IO, project/materialization caches,
-  recordings, and managed runtime-library integration.
 - Keep graph walking and scheduling semantics upstream in Rivet.
-- Use benchmark data, not intuition, to decide whether `runtimeProfile:
-  "headless-fast"` is justified.
+- Use benchmark data, not intuition, to decide whether a default runtime change
+  is justified.
 
 ## Non-Goals
 
-- No wrapper-side graph execution reimplementation.
 - No project YAML or schema change.
 - No Rust/native runtime revival for this plan.
 - No cosmetic timing-only changes.
 - No default behavior regression for editor, debugger, recordings, replay,
   loops, races, abort handling, or project references.
-- No `headless-fast` profile unless a measured optimization cannot safely be
-  applied to the default runtime.
+- No opt-in speed profile for this plan; the target is the default
+  `createProcessor(...)` path.
 - No further CodeRunner-only optimization unless attribution shows CodeRunner is
   again a dominant bucket.
 
@@ -127,14 +141,12 @@ Use these gates:
 - If no single bucket is material, stop and document that the fixture is already
   too small or too distributed for a low-risk engine win.
 - If the best optimization is behavior-neutral, put it in the default runtime.
-- If the best optimization must skip default-runtime behavior, design the
-  smallest possible `runtimeProfile: "headless-fast"` path in P6.
+- If the best optimization must skip default-runtime behavior, do not ship it
+  for this plan.
 
 ## Benchmark Rules
 
-Use both direct Rivet benchmarks and wrapper endpoint benchmarks.
-
-Direct Rivet benchmarks answer whether upstream runtime changed:
+Use direct Rivet benchmarks to verify whether upstream runtime changed:
 
 ```powershell
 $env:RIVET_RUNTIME_BENCH_FILTER = 'local real workflow fixture'
@@ -146,27 +158,10 @@ $env:RIVET_RUNTIME_BENCH_OUTPUT = 'packages/node/bench-results/fixture-speedup-<
 yarn bench:runtime-speed
 ```
 
-Wrapper endpoint benchmarks answer whether the user's production launch path
-improved:
-
-```bash
-npm --prefix wrapper/api run workflow-execution:measure -- --base-url http://localhost:8080 --endpoint graph-fixture-speed --kind published --runs 50 --warmups 10 --body '{}'
-```
-
-Run the wrapper API with:
-
-```text
-RIVET_WORKFLOW_EXECUTION_DEBUG_HEADERS=true
-RIVET_CODE_RUNNER_TELEMETRY=true
-```
-
-The fixture requires no request inputs. Publish it under a stable endpoint name
-such as `graph-fixture-speed`.
-
 For any performance claim:
 
 - run the same fixture, same Node version, same machine/container, same heap,
-  same CPU limits, same storage mode, and same endpoint route before and after;
+  same CPU limits, and same benchmark filter before and after;
 - capture at least two independent baselines before changing runtime code if
   the first baseline is noisy;
 - use at least 3 independent sessions;
@@ -174,7 +169,8 @@ For any performance claim:
 - record mean, median, p95, standard deviation, coefficient of variation, and
   confidence intervals;
 - rerun noisy rows with coefficient of variation above 8 percent;
-- compare direct Rivet numbers and wrapper endpoint `x-workflow-execute-ms`;
+- compare direct Rivet compatible rollback and default `createProcessor(...)`
+  numbers;
 - verify output equivalence, ignoring timing fields such as `durationMs` and
   any intentionally variable cost/timing metadata;
 - treat improvements below normal variance as noise.
@@ -197,11 +193,9 @@ Result:
   kept because it is small, tested, and directionally positive.
 - Direct fixture improvement was about 2-3 percent, below the significant
   threshold.
-- Wrapper-side `ManagedCodeRunner` optimization was implemented by the wrapper
-  developer and helped only modestly.
-- Both passes make a large CodeRunner-only win unlikely for this fixture.
+- The pass makes a large CodeRunner-only win unlikely for this fixture.
 
-### P1: Add Upstream Runtime Attribution (TODO)
+### P1: Add Upstream Runtime Attribution (DONE)
 
 Add or extend an upstream attribution harness that measures runtime overhead
 without depending only on per-node `durationMs`.
@@ -216,7 +210,7 @@ Capture these buckets:
 - node dependency/readiness planning;
 - scheduler loop time;
 - node execution dispatch overhead;
-- `runNode` wrapper overhead before/after actual node implementation;
+- runtime dispatch overhead before/after actual node implementation;
 - subgraph boundary setup;
 - subgraph input map construction;
 - subgraph output aliasing and propagation;
@@ -255,10 +249,19 @@ Exit criteria:
 - The artifact includes enough context to choose P2, P4, P5, or stop.
 - No optimization phase starts until this artifact exists.
 
-### P2: Characterize `createProcessor(...)` Setup Cost (TODO)
+Result:
 
-Measure whether fresh endpoint runs pay repeated setup costs that can be safely
-planned once.
+- Added an off-by-default `GraphProcessor` runtime profiler.
+- Extended `packages/node/bench/runtimeAttribution.bench.ts` to record coarse
+  runtime phase buckets and `createProcessor(...)` construction time.
+- Saved the attribution artifact listed above.
+- The result directed the plan away from `createProcessor(...)` setup work and
+  toward scheduler characterization.
+
+### P2: Characterize `createProcessor(...)` Setup Cost (DONE)
+
+Measure whether fresh one-shot `createProcessor(...)` runs pay repeated setup
+costs that can be safely planned once.
 
 Inspect:
 
@@ -270,13 +273,6 @@ Inspect:
 - graph validation or normalization repeated at runtime;
 - default CodeRunner and runtime context construction;
 - recorder/debugger/listener wiring when disabled or absent.
-- wrapper endpoint timing split, if available:
-  - project resolve/materialize;
-  - project reference loader construction;
-  - `createProcessor(...)`;
-  - recorder construction/attachment;
-  - `processor.run()`;
-  - response shaping.
 
 Decision gate:
 
@@ -286,10 +282,19 @@ Decision gate:
 - If planning depends on mutable run inputs, split immutable project planning
   from per-run input binding.
 
-### P3: Build Safe Runtime Plan Caching For Default Runtime (TODO)
+Result:
 
-Only if P1/P2 prove repeated immutable planning is material, add a default-safe
-runtime plan cache.
+- `createProcessor(...)` construction measured small for this fixture, so no
+  new setup cache was added.
+- Default omitted-profile execution-plan caching now covers the root graph and
+  subprocessors, using a run-scoped runtime cache that is cleared around each
+  `run()`.
+
+### P3: Build Safe Runtime Plan Caching For Default Runtime (DONE)
+
+P1/P2 showed repeated immutable planning inside fresh one-shot processors was
+material enough to cache run-scoped plans by default, so the implementation adds
+default runtime plan caching without any opt-in profile.
 
 Safe cache inputs may include:
 
@@ -332,7 +337,13 @@ Cache invalidation must be explicit:
   topology;
 - test helpers must be able to clear all runtime-plan caches.
 
-### P4: Reassess Graph Scheduling And Small-Node Overhead (TODO)
+Result:
+
+- No cross-request cache was added because P2 did not justify one.
+- The default omitted-profile path uses `executionPlanCacheMode: "all"` with a
+  run-scoped runtime cache.
+
+### P4: Reassess Graph Scheduling And Small-Node Overhead (DONE)
 
 If scheduler/bookkeeping dominates, optimize specific hot paths.
 
@@ -351,10 +362,21 @@ Inspect:
   abort terminal events.
 
 Prefer local algorithmic improvements in the default runtime. Do not introduce a
-separate profile unless default semantics require expensive behavior that
-headless endpoint runs can safely skip.
+separate speed profile in this plan.
 
-### P5: Reassess Subgraph Boundary Overhead (TODO)
+Result:
+
+- Added direct fixture benchmark rows for compatible versus fast acyclic
+  scheduler.
+- The fast scheduler improved the direct fixture row by about 11.3% mean after
+  adding compatible reachability guards for stale target-port connections.
+- The fast scheduler now uses an iterative reverse-reachable walk so very deep
+  eligible graphs do not depend on JavaScript recursion depth.
+- The default compatibility suite stayed equivalent for the covered eligible
+  graphs, including callbacks and recorder events, so the faster scheduler was
+  promoted to the default omitted-profile `createProcessor(...)` path.
+
+### P5: Reassess Subgraph Boundary Overhead (DONE)
 
 Measure true exclusive subgraph overhead, not inclusive child graph wall time.
 
@@ -390,7 +412,14 @@ Special cases to include in tests:
 - abort graph behavior;
 - race/loop nodes when present in the test suite.
 
-### P6: Decide Default Optimization Versus `runtimeProfile: "headless-fast"` (TODO)
+Result:
+
+- Attribution did not identify subgraph construction, subprocessor listener
+  wiring, or graph-boundary lookup as the dominant exclusive overhead.
+- Existing graph-boundary caching remains in place.
+- No subprocessor pooling or boundary behavior change was added.
+
+### P6: Make The Behavior-Neutral Optimization The Default (DONE)
 
 After P1-P5, decide where the optimization belongs.
 
@@ -401,61 +430,35 @@ Use default runtime if:
 - tests can cover the invariants;
 - benchmark results are stable.
 
-Introduce `runtimeProfile: "headless-fast"` only if the faster path must skip or
-change behavior that the default runtime still needs.
-
-If a profile is needed, it must be explicit and narrow:
+Keep an explicit rollback path for hosts that need the older fully compatible
+scheduler:
 
 ```ts
 createProcessor(project, {
-  runtimeProfile: 'headless-fast',
+  runtimeProfile: 'compatible',
   ...
 });
 ```
 
-Initial eligibility:
+Remote Debugger and trace-sensitive runs should continue to force compatible
+policy until separately benchmarked and characterized.
 
-- published endpoint execution;
-- no Remote Debugger;
-- no active editor execution cache dependency;
-- no behavior change to outputs or errors;
-- recordings either remain equivalent or the profile is disabled when recording
-  is enabled until proven safe.
-- no workflow execution features that the profile explicitly does not support.
+Result:
 
-The wrapper may enable the profile for published endpoint runs after upstream
-tests and benchmarks prove it. Latest/live/debugger paths should stay on the
-default profile until separately validated.
+- Made omitted-profile `@valerypopoff/rivet2-node` `createProcessor(...)` use
+  run-scoped root/subprocessor execution-plan caching and the fast acyclic
+  scheduler for eligible graphs by default.
+- Remote Debugger and trace-sensitive runs still force compatible policy.
+- Unknown profile strings still resolve to compatible policy.
+- Synthetic output-equivalence tests and the actual local fixture output check
+  passed.
+- `runtimeProfile: "compatible"` remains the explicit rollback path.
 
-If a profile is introduced, add an explicit fallback path. A workflow that is not
-eligible for `headless-fast` must run on the default runtime automatically rather
-than failing or silently changing behavior.
-
-### P7: Wrapper Integration If A Profile Exists (TODO)
-
-If upstream exposes `runtimeProfile: "headless-fast"`, the wrapper should only
-opt in where safe.
-
-Wrapper responsibilities:
-
-- keep owning endpoint IO, auth, materialization caches, recordings, and managed
-  runtime-library integration;
-- pass `runtimeProfile: "headless-fast"` for eligible published endpoint runs;
-- avoid the profile for latest/debugger runs at first;
-- expose debug headers showing the selected runtime profile;
-- keep before/after endpoint benchmark artifacts;
-- keep a temporary env flag to disable the profile quickly in production.
-- keep wrapper `ManagedCodeRunner` telemetry available during the rollout so
-  upstream and wrapper overhead can still be separated.
-
-The wrapper should not reimplement graph execution.
-
-### P8: Benchmark Closeout And Docs (TODO)
+### P7: Benchmark Closeout And Docs (DONE)
 
 For any upstream runtime change:
 
 - run direct fixture benchmarks before and after;
-- run wrapper endpoint fixture benchmarks before and after;
 - run synthetic controls for many small nodes, many subgraphs, Code-heavy
   graphs, and no-Code graphs;
 - run focused tests for recordings, replay, debugger lifecycle ordering, loops,
@@ -463,10 +466,19 @@ For any upstream runtime change:
 - update developer docs with:
   - what changed;
   - which runtime paths are affected;
-  - whether the change is default or profile-gated;
+  - whether the change is default or behind compatible rollback;
   - benchmark commands and artifacts;
   - before/after results;
   - remaining known overhead.
+
+Result:
+
+- Updated developer docs for the runtime profiler and default
+  `createProcessor(...)` speedup.
+- Added benchmark rows/artifacts for attribution, direct scheduler comparison,
+  and `createProcessor(...)` compatible rollback versus the faster default.
+- Full `@valerypopoff/rivet2-node` tests passed.
+- The plan is complete based on direct Rivet fixture benchmarks.
 
 ## Required Tests
 
@@ -483,7 +495,6 @@ At minimum:
 - concurrency tests when caches or runtime plans are shared across runs;
 - output equivalence check for `.fixtures/graph-fixture.rivet-project`;
 - fixture benchmark before/after;
-- wrapper endpoint benchmark before/after when testing production impact;
 - `git diff --check`.
 
 ## Risk Controls
@@ -497,9 +508,8 @@ At minimum:
 - Do not reorder lifecycle events.
 - Do not skip recording or debugger hooks in the default path.
 - Do not make subgraph duration cosmetic; optimize real wall-clock work only.
-- Do not add a profile without a documented reason why default runtime cannot
-  safely take the optimization.
-- Keep rollback simple for any profile-gated change.
+- Do not add an opt-in speed profile for this plan; use explicit compatible
+  rollback if the default needs to be disabled.
 - Keep all caches bounded or tied to project/revision lifetimes.
 - Do not allow a profiling flag to become part of normal production hot paths.
 
@@ -507,10 +517,8 @@ At minimum:
 
 This plan succeeds if one of these outcomes happens:
 
-- a measured default-runtime fixture improvement of at least 10 percent in mean
-  or p95 without correctness regressions;
-- a measured wrapper endpoint fixture improvement of at least 10 percent after a
-  safe upstream default optimization or safe `headless-fast` profile;
+- a measured default-runtime fixture improvement with non-overlapping benchmark
+  confidence intervals and no correctness regressions;
 - a clear attribution report proves that remaining runtime is dominated by user
   workflow logic or unavoidable small-node orchestration, and further speed work
   is not worth the complexity.

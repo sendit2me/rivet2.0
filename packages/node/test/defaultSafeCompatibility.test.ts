@@ -32,6 +32,7 @@ import {
   makeControlFlowExclusionProject,
   makeExpressionChainProject,
   makeGlobalStateProject,
+  makeInvalidInputConnectionProject,
   makeInputContextTextProject,
   makeMissingRequiredInputProject,
   makeMixedSubgraphFanInProject,
@@ -42,6 +43,7 @@ import {
   makeSameSourceFanInProject,
   makeSubgraphChainProject,
   makeSyntaxErrorCodeProject,
+  makeTextChainProject,
   makeThrowingCodeProject,
   makeWideTextFanInProject,
   type RuntimeSpeedProjectFixture,
@@ -759,6 +761,10 @@ void describe('default-safe compatibility characterization', () => {
         },
       },
       {
+        fixture: makeInvalidInputConnectionProject(),
+        name: 'invalid target input connection',
+      },
+      {
         fixture: makeMissingRequiredInputProject(),
         name: 'missing required input',
       },
@@ -887,6 +893,15 @@ void describe('default-safe compatibility characterization', () => {
       assert.equal(defaultSafe.status, 'resolved', `${testCase.name} default`);
       assert.deepEqual(defaultSafe.outputs, compatible.outputs, `${testCase.name} default outputs`);
     }
+  });
+
+  void it('handles deep eligible chains in the omitted-default fast scheduler', async () => {
+    const run = await runProfile(makeTextChainProject(750), undefined, {
+      inputs: { input: 'seed' },
+    });
+
+    assert.equal(run.status, 'resolved');
+    assert.deepEqual(run.outputs.result, { type: 'string', value: `seed${'x'.repeat(750)}` });
   });
 
   void it('keeps failed Code runs equivalent in callbacks and recorder events', async () => {
