@@ -64,6 +64,29 @@ this phase. The goal is real runtime speed, not debugger-only duration changes.
   policy guards were added, targeted benchmark artifacts were refreshed, and the
   result is documented in
   [`default-subgraph-runtime-benchmark.md`](default-subgraph-runtime-benchmark.md).
+- P6 is complete as a no-ship attribution pass. The measured frame segments did
+  not expose a small, dominant hot-path cut: construction, boundary maps,
+  lifecycle edges, root setup, and finalization are all tiny in the current
+  fixtures. Most remaining time is recursive child graph execution.
+- P7/P8 are paused by evidence. The explicit `headless-fast` check showed a
+  one-off fresh single-Subgraph win, but the nested win was only about 5% and
+  default `createProcessor(...)` cannot safely assume a silent run because
+  callers can observe the returned processor. Do not broaden default one-off
+  Subgraph execution without a new benchmark-proven mechanism.
+
+## Next Steps
+
+1. Keep the shipped repeated direct-Subgraph `runGraph(...)` slice as the only
+   default runtime change from this plan.
+2. Do not implement P7/P8 now. The plan's own stop condition was met: P6 did
+   not expose a credible 10%+ one-off/nested default-runtime win that is safe
+   for both public APIs.
+3. Reopen one-off/nested Subgraph work only with new evidence, preferably a real
+   checked-in workflow fixture that shows a larger repeatable bottleneck than
+   the current synthetic graphs.
+4. If the work is reopened, start from P6 again on a committed product-runtime
+   baseline and require the P5 benchmark gate before shipping any new default
+   behavior.
 
 ## Implementation Plan
 
@@ -303,6 +326,112 @@ this phase. The goal is real runtime speed, not debugger-only duration changes.
   result, and continue only with the next gated phase.
 - Update `developer-docs/PACKAGES.md` after implementation to describe the
   shipped default behavior, the rollback path, and the before/after matrix.
+
+### P6: Nested Graph-Frame Attribution [DONE - NO-SHIP ATTRIBUTION]
+
+- Start from a committed product-runtime baseline and record the attribution
+  artifact before editing runtime behavior. The benchmark harness itself may be
+  dirty because P6 adds benchmark-only timing rows.
+- Extend the benchmark harness with attribution rows that isolate one-off and
+  nested Subgraph frame costs after child processor construction and boundary
+  map work have been ruled out.
+- Attribution rows should separate, as much as practical without product-code
+  noise:
+  - root graph `processGraph(...)` setup before first node execution;
+  - child graph `processGraph(...)` setup before first child node execution;
+  - execution-plan lookup or preprocessing;
+  - scheduler queue setup and empty/cheap scheduler loop overhead;
+  - graph input materialization;
+  - graph output node collection and output map assembly;
+  - lifecycle event emission in silent headless runs;
+  - finalization after all nodes have settled.
+- Include paired public API rows in the same run:
+  - `runGraph single subgraph call`;
+  - `runGraph nested subgraph depth 5`;
+  - `fresh createProcessor default-safe single subgraph call`;
+  - `fresh createProcessor default-safe nested subgraph depth 5`;
+  - `reuse createProcessor default-safe single subgraph call`;
+  - `reuse createProcessor default-safe nested subgraph depth 5`;
+  - no-Subgraph text/expression/code controls.
+- Document the attribution result in
+  [`default-subgraph-runtime-benchmark.md`](default-subgraph-runtime-benchmark.md)
+  before implementing a runtime change.
+- Stop after P6 if the largest attributable cost is too small, too noisy, or
+  belongs to behavior that default mode must preserve.
+- Result: stopped after P6. The new attribution rows are in
+  [`packages/node/bench-results/default-subgraph-runtime-frame-attribution.json`](packages/node/bench-results/default-subgraph-runtime-frame-attribution.json).
+  They show root setup, graph-start-to-first-node, finalization, processor
+  construction, and graph-boundary map work are too small to justify P7. The
+  remaining cost is recursive child graph execution, which would require a
+  broader frame runner with a compatibility burden larger than the current
+  measured opportunity.
+
+### P7: Existing Hot-Path Reduction [PAUSED - NO DOMINANT STEP FOUND]
+
+- Use this path only if P6 finds one specific `processGraph(...)` step that
+  dominates the one-off/nested Subgraph gap.
+- Prefer local changes inside the existing `GraphProcessor` path over a new
+  runner:
+  - reuse immutable per-run structures only when they are already proven safe;
+  - avoid extra public API state;
+  - keep event order, graph-run metadata, abort behavior, globals, and output
+    shapes identical;
+  - avoid adding work to cheap non-Subgraph graphs.
+- Add tests around the exact behavior touched by the hot-path change, plus the
+  existing API policy tests and runtime equivalence guards.
+- Run the P5 benchmark gate before shipping. If the change only improves
+  diagnostic/direct processor rows but not public Node API rows, document it as
+  internal evidence and do not claim a user-visible speedup.
+- Result: paused. P6 did not find one specific existing `processGraph(...)`
+  step large enough to optimize without risking cheap control paths.
+
+### P8: Narrow TypeScript Subgraph Frame Runner [PAUSED - COST/BENEFIT REJECTED FOR NOW]
+
+- Use this path only if P6 shows the cost is spread across full nested
+  graph-frame setup/teardown and P7 has no small safe target.
+- Keep the first prototype silent-headless only. It must fall back before
+  execution for any observable run until full lifecycle parity is implemented.
+- Start with the smallest useful eligible closure:
+  - direct Subgraph chains;
+  - one input and one output per graph boundary;
+  - deterministic built-in nodes already covered by native-runtime parity
+    fixtures, such as `graphInput`, `text`, `join`, `object`, `coalesce`,
+    `destructure`, `extractObjectPath`, `graphOutput`, and direct `subGraph`;
+  - no project references in the first default slice.
+- The runner must never cache final runtime values. It may cache only immutable
+  graph shape analysis for the duration already allowed by the public API being
+  used.
+- Add a decision/reporting hook for tests and benchmarks so a benchmark row can
+  prove whether the frame runner actually executed or fell back.
+- Add equivalence tests for output parity, fallback-before-execution, no native
+  loading, no project mutation, and repeated changing inputs.
+- Ship only if P5 clears and the implementation is smaller than the cost it
+  removes. If parity requires duplicating a large part of `GraphProcessor`,
+  reject the runner and document why.
+- Result: paused. A frame runner remains the theoretical route to one-off and
+  nested Subgraph wins, but the current P6 data does not justify duplicating
+  graph-frame behavior, lifecycle metadata, abort semantics, and fallback
+  eligibility for the measured synthetic fixture costs.
+
+### P9: Final Matrix And Closeout [DONE FOR NO-SHIP P6]
+
+- Rerun the full default Subgraph matrix from P0/P5 on the same machine with
+  raw artifacts.
+- Update
+  [`default-subgraph-runtime-benchmark.md`](default-subgraph-runtime-benchmark.md)
+  and `developer-docs/PACKAGES.md` with:
+  - before/after numbers;
+  - rows that improved;
+  - neutral and regressed rows;
+  - variance notes;
+  - exact runtime eligibility and fallback rules;
+  - the rollback path.
+- Mark P7 or P8 as done only if a runtime change shipped. If neither ships,
+  mark P6 as done and explicitly close the remaining one-off/nested Subgraph
+  work as paused by evidence.
+- Result: no runtime change shipped after P6, so no before/after runtime matrix
+  is claimed. The P6 artifacts and docs close this plan with the repeated
+  `runGraph(...)` slice as the only default speedup.
 
 ## Verification Commands
 

@@ -26,6 +26,7 @@ project-reference runs keep the previous default-safe or compatible paths.
 - Samples: 30 raw samples per row, 3 sessions, 10 samples per session
 - Iterations per sample: 30 measured runs
 - Warmup per sample: 5 runs
+
 - Raw artifact:
   [`packages/node/bench-results/default-subgraph-runtime-targeted.json`](packages/node/bench-results/default-subgraph-runtime-targeted.json)
 
@@ -240,3 +241,128 @@ near the noise boundary for a sub-millisecond row.
   the 10% median target by a small amount, while the same-input row cleared the
   gate strongly. Further default work should still require another benchmark
   gate before broadening eligibility.
+
+## P6 Nested Graph-Frame Attribution
+
+P6 added measured-duration attribution rows around graph-frame lifecycle
+segments. These rows use processor lifecycle events to estimate where one-off
+and nested Subgraph time is spent without adding product runtime
+instrumentation.
+
+### Run
+
+- Date: 2026-05-25
+- Attribution artifact:
+  [`packages/node/bench-results/default-subgraph-runtime-frame-attribution.json`](packages/node/bench-results/default-subgraph-runtime-frame-attribution.json)
+- Explicit `headless-fast` check artifact:
+  [`packages/node/bench-results/default-subgraph-runtime-frame-headless-check.json`](packages/node/bench-results/default-subgraph-runtime-frame-headless-check.json)
+- OS: Windows_NT 10.0.26200 x64
+- CPU: Intel(R) Core(TM) Ultra 5 245KF
+- Node: v22.22.3
+- Samples: 30 raw samples per row, 3 sessions, 10 samples per session
+- Iterations per sample: 30 measured runs
+- Warmup per sample: 5 runs
+
+The P6 artifacts show `gitDirty: true` because the benchmark-only attribution
+rows were added before running the matrix. Product runtime files were not
+changed for this pass.
+
+Command:
+
+```powershell
+$env:RIVET_RUNTIME_BENCH_FILTER='runGraph single subgraph call|runGraph nested subgraph depth 5|fresh createProcessor default-safe single subgraph call|fresh createProcessor default-safe nested subgraph depth 5|reuse createProcessor default-safe single subgraph call|reuse createProcessor default-safe nested subgraph depth 5|runGraph text chain 20|runGraph expression chain 20|runGraph code chain 20|attribution'
+$env:RIVET_RUNTIME_BENCH_ITERATIONS='30'
+$env:RIVET_RUNTIME_BENCH_WARMUP_ITERATIONS='5'
+$env:RIVET_RUNTIME_BENCH_SAMPLES='10'
+$env:RIVET_RUNTIME_BENCH_SESSIONS='3'
+$env:RIVET_RUNTIME_BENCH_OUTPUT='bench-results/default-subgraph-runtime-frame-attribution.json'
+yarn workspace @valerypopoff/rivet2-node run bench:runtime-speed
+```
+
+Explicit `headless-fast` check:
+
+```powershell
+$env:RIVET_RUNTIME_BENCH_FILTER='fresh createProcessor headless-fast single subgraph call|fresh createProcessor headless-fast nested subgraph depth 5|runGraph single subgraph call|runGraph nested subgraph depth 5|fresh createProcessor default-safe single subgraph call|fresh createProcessor default-safe nested subgraph depth 5'
+$env:RIVET_RUNTIME_BENCH_ITERATIONS='30'
+$env:RIVET_RUNTIME_BENCH_WARMUP_ITERATIONS='5'
+$env:RIVET_RUNTIME_BENCH_SAMPLES='10'
+$env:RIVET_RUNTIME_BENCH_SESSIONS='3'
+$env:RIVET_RUNTIME_BENCH_OUTPUT='bench-results/default-subgraph-runtime-frame-headless-check.json'
+yarn workspace @valerypopoff/rivet2-node run bench:runtime-speed
+```
+
+### Public API Rows
+
+| Row | Mean ms | Median ms | CV | 95% CI ms |
+| --- | ---: | ---: | ---: | --- |
+| runGraph text chain 20 | 0.502 | 0.447 | 0.229 | 0.461-0.543 |
+| runGraph single subgraph call | 0.300 | 0.292 | 0.102 | 0.289-0.311 |
+| fresh createProcessor default-safe single subgraph call | 0.260 | 0.263 | 0.142 | 0.247-0.274 |
+| reuse createProcessor default-safe single subgraph call | 0.254 | 0.238 | 0.346 | 0.223-0.285 |
+| runGraph nested subgraph depth 5 | 1.145 | 1.155 | 0.065 | 1.118-1.172 |
+| fresh createProcessor default-safe nested subgraph depth 5 | 1.220 | 1.189 | 0.099 | 1.177-1.263 |
+| reuse createProcessor default-safe nested subgraph depth 5 | 1.177 | 1.174 | 0.098 | 1.136-1.219 |
+| runGraph expression chain 20 | 2.494 | 2.471 | 0.051 | 2.448-2.539 |
+| runGraph code chain 20 | 6.169 | 6.111 | 0.023 | 6.117-6.221 |
+
+### Frame Attribution Rows
+
+These rows are observer-instrumented estimates. They are useful for rejecting
+large missing hot spots, but they should not be treated as exact internal
+subsystem timers because the lifecycle listeners themselves add a tiny amount of
+work to the measured run.
+
+| Row | Mean ms | Median ms | CV | 95% CI ms |
+| --- | ---: | ---: | ---: | --- |
+| attribution direct GraphProcessor single subgraph root | 0.227 | 0.226 | 0.117 | 0.217-0.236 |
+| attribution direct GraphProcessor single subgraph child body | 0.057 | 0.052 | 0.156 | 0.054-0.061 |
+| attribution measured single root process start to graphStart | 0.035 | 0.026 | 0.805 | 0.025-0.045 |
+| attribution measured single root graphStart to first nodeStart | 0.012 | 0.010 | 0.536 | 0.009-0.014 |
+| attribution measured single root last node terminal to graphFinish | 0.003 | 0.003 | 0.152 | 0.003-0.003 |
+| attribution measured single root graphFinish to process resolve | 0.004 | 0.003 | 0.899 | 0.002-0.005 |
+| attribution measured single child graphStart to first nodeStart | 0.012 | 0.012 | 0.267 | 0.011-0.014 |
+| attribution measured single child last node terminal to graphFinish | 0.018 | 0.018 | 0.031 | 0.018-0.019 |
+| attribution measured single child graphStart to graphFinish | 0.095 | 0.092 | 0.211 | 0.088-0.102 |
+| attribution measured single root subgraph nodeStart to nodeFinish | 0.197 | 0.181 | 0.392 | 0.170-0.225 |
+| attribution direct GraphProcessor nested subgraph root | 1.158 | 1.137 | 0.118 | 1.109-1.207 |
+| attribution direct GraphProcessor nested first child | 0.929 | 0.911 | 0.136 | 0.884-0.974 |
+| attribution measured nested root process start to graphStart | 0.031 | 0.030 | 0.154 | 0.029-0.033 |
+| attribution measured nested root graphStart to first nodeStart | 0.011 | 0.011 | 0.114 | 0.011-0.012 |
+| attribution measured nested root last node terminal to graphFinish | 0.004 | 0.003 | 0.553 | 0.003-0.005 |
+| attribution measured nested first child graphStart to first nodeStart | 0.014 | 0.012 | 0.780 | 0.010-0.018 |
+| attribution measured nested first child last node terminal to graphFinish | 0.019 | 0.019 | 0.054 | 0.018-0.019 |
+| attribution measured nested first child graphStart to graphFinish | 1.007 | 1.001 | 0.065 | 0.983-1.030 |
+| attribution measured nested root subgraph nodeStart to nodeFinish | 1.167 | 1.134 | 0.118 | 1.118-1.216 |
+
+### Explicit `headless-fast` Check
+
+| Row | Mean ms | Median ms | CV | 95% CI ms |
+| --- | ---: | ---: | ---: | --- |
+| fresh createProcessor default-safe single subgraph call | 0.306 | 0.303 | 0.123 | 0.293-0.320 |
+| fresh createProcessor headless-fast single subgraph call | 0.256 | 0.258 | 0.107 | 0.246-0.266 |
+| fresh createProcessor default-safe nested subgraph depth 5 | 1.266 | 1.251 | 0.101 | 1.220-1.311 |
+| fresh createProcessor headless-fast nested subgraph depth 5 | 1.193 | 1.187 | 0.101 | 1.150-1.236 |
+
+### P6 Decision
+
+- P6 does not justify a new default runtime change.
+- The tiny rows are still tiny: processor construction, graph-boundary work,
+  root graph setup, graph-start-to-first-node, graph-finalization, and
+  graph-finish-to-resolve are not large enough to be useful P7 targets in these
+  fixtures.
+- The single Subgraph child frame took about 0.095 ms from graphStart to
+  graphFinish, while the direct child body took about 0.057 ms. The remaining
+  opportunity is measured in a few hundredths of a millisecond for the one-off
+  synthetic fixture.
+- The nested depth-5 rows mostly reflect recursive child graph execution. The
+  first child graphStart-to-graphFinish row was about 1.007 ms, close to the
+  direct first-child processor row at about 0.929 ms.
+- The explicit `headless-fast` check showed an isolated fresh single-Subgraph
+  win, but the nested win was about 5% and does not clear the default-mode gate.
+  It is also not safe to make omitted `createProcessor(...)` silently assume no
+  event observation, because callers receive the processor and can observe it
+  before `run()`.
+- P7 and P8 are paused. A TypeScript frame runner remains a theoretical route,
+  but the measured synthetic opportunity is too small to justify duplicating
+  graph-frame semantics, lifecycle metadata, abort behavior, and fallback
+  eligibility now.

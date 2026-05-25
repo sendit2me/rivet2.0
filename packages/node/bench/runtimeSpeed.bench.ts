@@ -19,6 +19,8 @@ import {
   type NodeCreateProcessorOptions,
   type NodeGraphRunnerOptions,
   type NodeGraphRunnerRunOptions,
+  type NodeId,
+  type ProcessEvents,
   type Project,
 } from '../src/index.js';
 import { CachedNodeCodeRunner } from '../src/native/CachedNodeCodeRunner.js';
@@ -110,6 +112,22 @@ type BenchmarkGraphBoundary = {
   outputs: readonly BenchmarkGraphBoundaryPort[];
 };
 
+type GraphFrameTimingField =
+  | 'processStartToGraphStartMs'
+  | 'graphStartToFirstNodeStartMs'
+  | 'graphStartToGraphFinishMs'
+  | 'lastNodeTerminalToGraphFinishMs'
+  | 'graphFinishToProcessResolveMs';
+
+type GraphFrameTimingMarkers = Partial<Record<GraphFrameTimingField, number>> & {
+  firstNodeStartMs?: number;
+  graphFinishMs?: number;
+  graphStartMs?: number;
+  lastNodeTerminalMs?: number;
+  processResolveMs?: number;
+  processStartMs: number;
+};
+
 const benchDir = dirname(fileURLToPath(import.meta.url));
 const nodePackageDir = join(benchDir, '..');
 const testGraphsPath = join(nodePackageDir, 'test', 'test-graphs.rivet-project');
@@ -146,6 +164,11 @@ async function main() {
   const singleSubgraphBoundaryCache = new WeakMap<NodeGraph, BenchmarkGraphBoundary>([
     [singleSubgraphChildGraph, singleSubgraphChildBoundary],
   ]);
+  const singleSubgraphRootSubgraphNodeId = getFirstNodeIdByType(
+    singleSubgraph.project,
+    singleSubgraph.graphId,
+    'subGraph',
+  );
   const repeatedSubgraph50 = makeRepeatedSubgraphFanInProject(50);
   const wideFanIn100 = makeWideTextFanInProject(100);
   const wideFanIn200 = makeWideTextFanInProject(200);
@@ -424,6 +447,78 @@ async function main() {
       ),
     );
     results.push(
+      await benchmarkGraphFrameTiming(
+        'attribution measured single root process start to graphStart',
+        singleSubgraph.project,
+        singleSubgraph.graphId,
+        singleSubgraph.graphId,
+        'processStartToGraphStartMs',
+      ),
+    );
+    results.push(
+      await benchmarkGraphFrameTiming(
+        'attribution measured single root graphStart to first nodeStart',
+        singleSubgraph.project,
+        singleSubgraph.graphId,
+        singleSubgraph.graphId,
+        'graphStartToFirstNodeStartMs',
+      ),
+    );
+    results.push(
+      await benchmarkGraphFrameTiming(
+        'attribution measured single root last node terminal to graphFinish',
+        singleSubgraph.project,
+        singleSubgraph.graphId,
+        singleSubgraph.graphId,
+        'lastNodeTerminalToGraphFinishMs',
+      ),
+    );
+    results.push(
+      await benchmarkGraphFrameTiming(
+        'attribution measured single root graphFinish to process resolve',
+        singleSubgraph.project,
+        singleSubgraph.graphId,
+        singleSubgraph.graphId,
+        'graphFinishToProcessResolveMs',
+      ),
+    );
+    results.push(
+      await benchmarkGraphFrameTiming(
+        'attribution measured single child graphStart to first nodeStart',
+        singleSubgraph.project,
+        singleSubgraph.graphId,
+        singleSubgraphChildGraphId,
+        'graphStartToFirstNodeStartMs',
+      ),
+    );
+    results.push(
+      await benchmarkGraphFrameTiming(
+        'attribution measured single child last node terminal to graphFinish',
+        singleSubgraph.project,
+        singleSubgraph.graphId,
+        singleSubgraphChildGraphId,
+        'lastNodeTerminalToGraphFinishMs',
+      ),
+    );
+    results.push(
+      await benchmarkGraphFrameTiming(
+        'attribution measured single child graphStart to graphFinish',
+        singleSubgraph.project,
+        singleSubgraph.graphId,
+        singleSubgraphChildGraphId,
+        'graphStartToGraphFinishMs',
+      ),
+    );
+    results.push(
+      await benchmarkNodeLifecycleTiming(
+        'attribution measured single root subgraph nodeStart to nodeFinish',
+        singleSubgraph.project,
+        singleSubgraph.graphId,
+        singleSubgraph.graphId,
+        singleSubgraphRootSubgraphNodeId,
+      ),
+    );
+    results.push(
       await benchmark('attribution derive graph boundary equivalent single subgraph child', () =>
         deriveBenchmarkGraphBoundary(singleSubgraph.project, singleSubgraphChildGraphId),
       ),
@@ -488,6 +583,11 @@ async function main() {
         runGraph(nestedSubgraph5.project, { graph: nestedSubgraph5.graphId, inputs: { input: 'bench' } }),
       ),
     );
+    const nestedSubgraphRootSubgraphNodeId = getFirstNodeIdByType(
+      nestedSubgraph5.project,
+      nestedSubgraph5.graphId,
+      'subGraph',
+    );
     results.push(
       await benchmarkGraphProcessorConstruction(
         'attribution construct GraphProcessor nested subgraph root',
@@ -530,6 +630,69 @@ async function main() {
         nestedSubgraph5.project,
         nestedSubgraphFirstChildGraphId,
         'fast-acyclic',
+      ),
+    );
+    results.push(
+      await benchmarkGraphFrameTiming(
+        'attribution measured nested root process start to graphStart',
+        nestedSubgraph5.project,
+        nestedSubgraph5.graphId,
+        nestedSubgraph5.graphId,
+        'processStartToGraphStartMs',
+      ),
+    );
+    results.push(
+      await benchmarkGraphFrameTiming(
+        'attribution measured nested root graphStart to first nodeStart',
+        nestedSubgraph5.project,
+        nestedSubgraph5.graphId,
+        nestedSubgraph5.graphId,
+        'graphStartToFirstNodeStartMs',
+      ),
+    );
+    results.push(
+      await benchmarkGraphFrameTiming(
+        'attribution measured nested root last node terminal to graphFinish',
+        nestedSubgraph5.project,
+        nestedSubgraph5.graphId,
+        nestedSubgraph5.graphId,
+        'lastNodeTerminalToGraphFinishMs',
+      ),
+    );
+    results.push(
+      await benchmarkGraphFrameTiming(
+        'attribution measured nested first child graphStart to first nodeStart',
+        nestedSubgraph5.project,
+        nestedSubgraph5.graphId,
+        nestedSubgraphFirstChildGraphId,
+        'graphStartToFirstNodeStartMs',
+      ),
+    );
+    results.push(
+      await benchmarkGraphFrameTiming(
+        'attribution measured nested first child last node terminal to graphFinish',
+        nestedSubgraph5.project,
+        nestedSubgraph5.graphId,
+        nestedSubgraphFirstChildGraphId,
+        'lastNodeTerminalToGraphFinishMs',
+      ),
+    );
+    results.push(
+      await benchmarkGraphFrameTiming(
+        'attribution measured nested first child graphStart to graphFinish',
+        nestedSubgraph5.project,
+        nestedSubgraph5.graphId,
+        nestedSubgraphFirstChildGraphId,
+        'graphStartToGraphFinishMs',
+      ),
+    );
+    results.push(
+      await benchmarkNodeLifecycleTiming(
+        'attribution measured nested root subgraph nodeStart to nodeFinish',
+        nestedSubgraph5.project,
+        nestedSubgraph5.graphId,
+        nestedSubgraph5.graphId,
+        nestedSubgraphRootSubgraphNodeId,
       ),
     );
     results.push(
@@ -1139,6 +1302,202 @@ async function benchmarkDirectGraphProcessor(
   return await benchmark(name, () => processor.processGraph(context, inputs));
 }
 
+async function benchmarkGraphFrameTiming(
+  name: string,
+  project: Project,
+  rootGraphId: GraphId,
+  targetGraphId: GraphId,
+  field: GraphFrameTimingField,
+): Promise<BenchmarkResult> {
+  return await benchmarkMeasuredDuration(name, () => measureGraphFrameTiming(project, rootGraphId, targetGraphId, field));
+}
+
+async function benchmarkNodeLifecycleTiming(
+  name: string,
+  project: Project,
+  rootGraphId: GraphId,
+  targetGraphId: GraphId,
+  targetNodeId: NodeId,
+): Promise<BenchmarkResult> {
+  return await benchmarkMeasuredDuration(name, () =>
+    measureNodeLifecycleTiming(project, rootGraphId, targetGraphId, targetNodeId),
+  );
+}
+
+async function benchmarkMeasuredDuration(
+  name: string,
+  measure: () => Promise<number>,
+): Promise<BenchmarkResult> {
+  if (!shouldRunBenchmark(name)) {
+    return skippedBenchmarkResult(name);
+  }
+
+  const sampleMs: number[] = [];
+  let measuredTotalMs = 0;
+
+  for (let session = 0; session < sessions; session++) {
+    for (let sample = 0; sample < samples; sample++) {
+      for (let i = 0; i < warmupIterations; i++) {
+        await measure();
+      }
+
+      let sampleTotalMs = 0;
+      for (let i = 0; i < iterations; i++) {
+        sampleTotalMs += await measure();
+      }
+
+      measuredTotalMs += sampleTotalMs;
+      sampleMs.push(sampleTotalMs / iterations);
+    }
+  }
+
+  const meanMs = average(sampleMs);
+  const stdDevMs = standardDeviation(sampleMs, meanMs);
+  const confidence = confidenceInterval95(sampleMs, meanMs, stdDevMs);
+
+  return {
+    ci95HighMs: confidence.high.toFixed(3),
+    ci95LowMs: confidence.low.toFixed(3),
+    coefficientVariation: meanMs === 0 ? '0.000' : (stdDevMs / meanMs).toFixed(3),
+    iterations,
+    maxMs: Math.max(...sampleMs).toFixed(3),
+    meanMs: meanMs.toFixed(3),
+    medianMs: percentile(sampleMs, 0.5).toFixed(3),
+    minMs: Math.min(...sampleMs).toFixed(3),
+    name,
+    p75Ms: percentile(sampleMs, 0.75).toFixed(3),
+    p95Ms: percentile(sampleMs, 0.95).toFixed(3),
+    rawSamplesMs: sampleMs.map((sample) => Number(sample.toFixed(6))),
+    samples: sampleMs.length,
+    sessions,
+    stdDevMs: stdDevMs.toFixed(3),
+    totalMs: measuredTotalMs.toFixed(3),
+    warmupIterations,
+  };
+}
+
+async function measureGraphFrameTiming(
+  project: Project,
+  rootGraphId: GraphId,
+  targetGraphId: GraphId,
+  field: GraphFrameTimingField,
+): Promise<number> {
+  const processor = createRuntimeSpeedProcessor(project, rootGraphId);
+  const timings: GraphFrameTimingMarkers = {
+    processStartMs: 0,
+  };
+  const unsubscribers = [
+    processor.on('graphStart', (event) => {
+      if (event.execution.graphId !== targetGraphId || timings.graphStartMs !== undefined) {
+        return;
+      }
+
+      timings.graphStartMs = performance.now();
+      timings.processStartToGraphStartMs = timings.graphStartMs - timings.processStartMs;
+    }),
+    processor.on('nodeStart', (event) => {
+      if (event.execution.graphId !== targetGraphId || timings.firstNodeStartMs !== undefined) {
+        return;
+      }
+
+      timings.firstNodeStartMs = performance.now();
+      if (timings.graphStartMs !== undefined) {
+        timings.graphStartToFirstNodeStartMs = timings.firstNodeStartMs - timings.graphStartMs;
+      }
+    }),
+    processor.on('nodeFinish', (event) => {
+      recordNodeTerminalTiming(timings, event, targetGraphId);
+    }),
+    processor.on('nodeError', (event) => {
+      recordNodeTerminalTiming(timings, event, targetGraphId);
+    }),
+    processor.on('nodeExcluded', (event) => {
+      recordNodeTerminalTiming(timings, event, targetGraphId);
+    }),
+    processor.on('graphFinish', (event) => {
+      if (event.execution.graphId !== targetGraphId || timings.graphFinishMs !== undefined) {
+        return;
+      }
+
+      timings.graphFinishMs = performance.now();
+      if (timings.graphStartMs !== undefined) {
+        timings.graphStartToGraphFinishMs = timings.graphFinishMs - timings.graphStartMs;
+      }
+      if (timings.lastNodeTerminalMs !== undefined) {
+        timings.lastNodeTerminalToGraphFinishMs = timings.graphFinishMs - timings.lastNodeTerminalMs;
+      }
+    }),
+  ];
+
+  try {
+    timings.processStartMs = performance.now();
+    await processor.processGraph(createRuntimeSpeedProcessContext(), {
+      input: { type: 'string', value: 'bench' },
+    });
+    timings.processResolveMs = performance.now();
+  } finally {
+    unsubscribers.forEach((unsubscribe) => unsubscribe());
+  }
+
+  if (timings.graphFinishMs !== undefined && timings.processResolveMs !== undefined) {
+    timings.graphFinishToProcessResolveMs = timings.processResolveMs - timings.graphFinishMs;
+  }
+
+  const timing = timings[field];
+  if (timing === undefined) {
+    throw new Error(`Unable to measure ${field} for graph ${targetGraphId}.`);
+  }
+
+  return timing;
+}
+
+async function measureNodeLifecycleTiming(
+  project: Project,
+  rootGraphId: GraphId,
+  targetGraphId: GraphId,
+  targetNodeId: NodeId,
+): Promise<number> {
+  const processor = createRuntimeSpeedProcessor(project, rootGraphId);
+  let nodeStartMs: number | undefined;
+  let nodeFinishMs: number | undefined;
+  const unsubscribers = [
+    processor.on('nodeStart', (event) => {
+      if (event.execution.graphId === targetGraphId && event.node.id === targetNodeId && nodeStartMs === undefined) {
+        nodeStartMs = performance.now();
+      }
+    }),
+    processor.on('nodeFinish', (event) => {
+      if (event.execution.graphId === targetGraphId && event.node.id === targetNodeId && nodeFinishMs === undefined) {
+        nodeFinishMs = performance.now();
+      }
+    }),
+  ];
+
+  try {
+    await processor.processGraph(createRuntimeSpeedProcessContext(), {
+      input: { type: 'string', value: 'bench' },
+    });
+  } finally {
+    unsubscribers.forEach((unsubscribe) => unsubscribe());
+  }
+
+  if (nodeStartMs !== undefined && nodeFinishMs !== undefined) {
+    return nodeFinishMs - nodeStartMs;
+  }
+
+  throw new Error(`Unable to measure nodeStartToNodeFinishMs for node ${targetNodeId}.`);
+}
+
+function recordNodeTerminalTiming(
+  timings: GraphFrameTimingMarkers,
+  event: ProcessEvents['nodeFinish'] | ProcessEvents['nodeError'] | ProcessEvents['nodeExcluded'],
+  targetGraphId: GraphId,
+): void {
+  if (event.execution.graphId === targetGraphId) {
+    timings.lastNodeTerminalMs = performance.now();
+  }
+}
+
 async function benchmarkDirectProcessor(
   name: string,
   fixture: RuntimeSpeedProjectFixture,
@@ -1185,6 +1544,16 @@ function getFirstSubgraphTargetGraphId(project: Project, graphId: GraphId): Grap
   }
 
   return subgraphNode.data.graphId;
+}
+
+function getFirstNodeIdByType(project: Project, graphId: GraphId, nodeType: string): NodeId {
+  const graph = getGraphOrThrow(project, graphId);
+  const node = graph.nodes.find((candidate) => candidate.type === nodeType);
+  if (!node) {
+    throw new Error(`Graph ${graphId} does not contain a ${nodeType} node.`);
+  }
+
+  return node.id;
 }
 
 function getGraphOrThrow(project: Project, graphId: GraphId): NodeGraph {

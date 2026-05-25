@@ -186,7 +186,20 @@ That slice improved `runGraph repeated subgraph same-input 50` from 9.139 ms to
 row from 7.649 ms to 7.026 ms mean and 7.614 ms to 6.926 ms median. One-off
 single/nested Subgraph speed work still needs a narrowly eligible TypeScript
 subgraph frame runner or a broader nested graph-frame hot-path reduction before
-it can ship.
+it can ship. The follow-up P6 frame-attribution pass is stored in
+[`packages/node/bench-results/default-subgraph-runtime-frame-attribution.json`](../packages/node/bench-results/default-subgraph-runtime-frame-attribution.json),
+with an explicit `headless-fast` comparison in
+[`packages/node/bench-results/default-subgraph-runtime-frame-headless-check.json`](../packages/node/bench-results/default-subgraph-runtime-frame-headless-check.json).
+The P6 rows are observer-instrumented estimates, not product runtime timers.
+P6 did not ship another default change: construction, graph-boundary work, root
+setup, lifecycle edges, and finalization were all too small to justify a
+targeted hot-path patch, and the remaining nested time was recursive child graph
+execution. The explicit `headless-fast` check showed an isolated fresh
+single-Subgraph improvement, but nested Subgraph improvement was only about 5%
+and omitted `createProcessor(...)` cannot safely assume a silent run because
+callers can observe the returned processor before `run()`. Keep P7/P8-style
+frame-runner work paused until a real fixture or new attribution data shows a
+larger, repeatable default-runtime bottleneck.
 
 The post-P7 full before/after matrix found real wins but also unacceptable
 cheap-runtime regressions. The P8-P12 recovery pass fixed the repeatable cheap
