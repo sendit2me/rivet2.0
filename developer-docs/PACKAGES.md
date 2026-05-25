@@ -140,6 +140,39 @@ accepted as healthy for the current backend target. The cleanup did not keep
 the experimental opt-in profiles or native prototype because the default
 TypeScript runtime already met the target for the production-shaped fixture.
 
+[`packages/node/bench/runtimeAttribution.bench.ts`](../packages/node/bench/runtimeAttribution.bench.ts)
+is the diagnostic attribution harness for that local fixture. Run it with
+`yarn bench:runtime-attribution` and optionally set
+`RIVET_RUNTIME_ATTRIBUTION_OUTPUT` to write a JSON artifact. It intentionally
+uses `captureNodeTimings` and a profiling cached CodeRunner, so its numbers are
+for attribution only rather than clean before/after speed claims. It reports
+fixture load/run wall time, node-type duration totals, graph summaries, top
+nodes, fixture CodeRunner cache/compile/invocation/execution buckets, and small
+synthetic CodeRunner scenarios.
+
+A later fixture-focused speed pass kept only one low-risk runtime optimization:
+default `CachedNodeCodeRunner` instances cache immutable invocation plans by
+permission shape plus graph-input/context argument presence, while still
+rebuilding the actual argument values for every invocation. The representative
+fixture benchmark used 3 sessions, 15 samples per session, 20 measured runs per
+sample, and 5 warmup runs per sample. Against the stable baseline artifact
+`fixture-speedup-baseline2-f7d72213-20260525-182552.json`, the after artifact
+`fixture-speedup-after-invocation-plan-f7d72213-20260525-183526.json` measured:
+
+| Fixture row | Baseline mean | After mean | Mean delta | Baseline p95 | After p95 | P95 delta |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `loadProjectFromFile(...)` | 20.034 ms | 19.686 ms | -1.74% | 20.619 ms | 20.287 ms | -1.61% |
+| `runGraphInFile(...)` | 49.333 ms | 49.015 ms | -0.64% | 52.186 ms | 53.051 ms | +1.66% |
+| loaded `runGraph(...)` | 28.066 ms | 27.468 ms | -2.13% | 29.334 ms | 28.392 ms | -3.21% |
+| fresh `createProcessor(...)` | 27.636 ms | 26.921 ms | -2.59% | 29.365 ms | 28.451 ms | -3.11% |
+| reused `createProcessor(...)` | 27.776 ms | 26.971 ms | -2.90% | 29.397 ms | 27.884 ms | -5.15% |
+
+Treat this as a modest cleanup win, not a significant runtime breakthrough. The
+result is below the 10% threshold used for fixture-speed claims. Further large
+gains likely need a higher-cost compiled-code reuse strategy with strict
+invalidation and state-isolation rules, or workflow-level consolidation of many
+tiny helper nodes.
+
 The same fixture was also used to check how Node heap limits affect fresh
 `createProcessor(...).run()` latency. This was measured against the built Node
 package on Windows with Node `v22.22.3`; each heap cap used 15 samples, 20

@@ -1,13 +1,14 @@
 import type { CodeRunner, CodeRunnerOptions, DataValue, Inputs, Outputs } from '@valerypopoff/rivet2-core';
 import { createCodeRunnerRequire } from './codeRunnerRequire.js';
 import {
-  buildNodeCodeRunnerInvocation,
+  buildNodeCodeRunnerInvocationArgs,
   compileNodeCodeRunnerFunction,
+  createNodeCodeRunnerInvocationPlan,
   type NodeCodeRunnerFunction,
+  type NodeCodeRunnerInvocationPlan,
 } from './nodeCodeRunnerInvocation.js';
 
 const DEFAULT_MAX_ENTRIES = 1_000;
-const ARGUMENT_SHAPE_SEPARATOR = '\0';
 
 type CacheEntry = {
   argShape: string;
@@ -39,6 +40,7 @@ function normalizeMaxEntries(maxEntries: number | undefined): number {
 
 export class CachedNodeCodeRunner implements CodeRunner {
   private readonly cacheByCode = new Map<string, Map<string, CacheEntry>>();
+  private readonly invocationPlans = new Map<number, NodeCodeRunnerInvocationPlan>();
   private readonly lruEntries = new Set<CacheEntry>();
   private readonly maxEntries: number;
   private readonly runtimeRequire = createCodeRunnerRequire();
@@ -57,7 +59,8 @@ export class CachedNodeCodeRunner implements CodeRunner {
     graphInputs?: Record<string, DataValue>,
     contextValues?: Record<string, DataValue>,
   ): Promise<Outputs> {
-    const { argNames, args } = await buildNodeCodeRunnerInvocation({
+    const invocationPlan = this.getInvocationPlan(options, graphInputs != null, contextValues != null);
+    const args = await buildNodeCodeRunnerInvocationArgs({
       contextValues,
       graphInputs,
       inputs,
@@ -65,7 +68,7 @@ export class CachedNodeCodeRunner implements CodeRunner {
       options,
       runtimeRequire: this.runtimeRequire,
     });
-    const codeFunction = this.getCodeFunction(argNames, code);
+    const codeFunction = this.getCodeFunction(invocationPlan, code);
 
     return await codeFunction(...args);
   }
@@ -73,6 +76,7 @@ export class CachedNodeCodeRunner implements CodeRunner {
   clearCache(): void {
     this.cacheByCode.clear();
     this.lruEntries.clear();
+    this.invocationPlans.clear();
   }
 
   getCacheStats(): CachedNodeCodeRunnerStats {
@@ -83,8 +87,7 @@ export class CachedNodeCodeRunner implements CodeRunner {
     };
   }
 
-  private getCodeFunction(argNames: string[], code: string): NodeCodeRunnerFunction {
-    const argShape = argNames.join(ARGUMENT_SHAPE_SEPARATOR);
+  private getCodeFunction({ argNames, argShape }: NodeCodeRunnerInvocationPlan, code: string): NodeCodeRunnerFunction {
     const cached = this.cacheByCode.get(code)?.get(argShape);
 
     if (cached) {
@@ -103,6 +106,21 @@ export class CachedNodeCodeRunner implements CodeRunner {
     }
 
     return codeFunction;
+  }
+
+  private getInvocationPlan(
+    options: CodeRunnerOptions,
+    hasGraphInputs: boolean,
+    hasContextValues: boolean,
+  ): NodeCodeRunnerInvocationPlan {
+    const cacheKey = getInvocationPlanCacheKey(options, hasGraphInputs, hasContextValues);
+    let plan = this.invocationPlans.get(cacheKey);
+    if (!plan) {
+      plan = createNodeCodeRunnerInvocationPlan(options, hasGraphInputs, hasContextValues);
+      this.invocationPlans.set(cacheKey, plan);
+    }
+
+    return plan;
   }
 
   private storeCodeFunction(code: string, argShape: string, codeFunction: NodeCodeRunnerFunction): void {
@@ -149,4 +167,35 @@ export class CachedNodeCodeRunner implements CodeRunner {
       throw error;
     }
   }
+}
+
+function getInvocationPlanCacheKey(
+  options: CodeRunnerOptions,
+  hasGraphInputs: boolean,
+  hasContextValues: boolean,
+): number {
+  let key = 0;
+  if (options.includeConsole) {
+    key |= 1 << 0;
+  }
+  if (options.includeRequire) {
+    key |= 1 << 1;
+  }
+  if (options.includeProcess) {
+    key |= 1 << 2;
+  }
+  if (options.includeFetch) {
+    key |= 1 << 3;
+  }
+  if (options.includeRivet) {
+    key |= 1 << 4;
+  }
+  if (hasGraphInputs) {
+    key |= 1 << 5;
+  }
+  if (hasContextValues) {
+    key |= 1 << 6;
+  }
+
+  return key;
 }

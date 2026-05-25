@@ -1,6 +1,6 @@
 # Fixture Workflow Speedup Plan
 
-Status: NOT STARTED
+Status: RIVET-SIDE CLOSED - MODEST LOW-RISK OPTIMIZATION KEPT, WRAPPER FOLLOW-UP REQUIRED
 
 ## Summary
 
@@ -16,6 +16,17 @@ rewrite. Subgraph timings are mostly inclusive child-graph wall time, so they
 double-count the work inside nested graphs. The more actionable target is the
 Code-family execution path used by Expression, Code, Code New, and JS callback
 helpers.
+
+After the wrapper launch path was clarified, the important production caveat is
+that the user's backend does not use Rivet's default cached CodeRunner. It calls
+`createProcessor(...)`, but always passes the wrapper-owned
+`ManagedCodeRunner`. That means the small Rivet-side
+`CachedNodeCodeRunner` improvement in this plan is useful for default Rivet
+callers, but it cannot materially speed wrapper endpoint runs that replace the
+default CodeRunner.
+
+The active next step is therefore the wrapper-side handoff plan:
+`wrapper-managed-code-runner-speed-plan.md`.
 
 ## Goals
 
@@ -39,6 +50,8 @@ helpers.
 - No manual rewrite of the user's workflow as the primary product fix.
 - No cosmetic timing changes that make subgraph duration look smaller without
   reducing actual wall-clock runtime.
+- No further Rivet-side CodeRunner complexity unless a benchmark proves the
+  default Rivet runtime, not the wrapper `ManagedCodeRunner`, is the bottleneck.
 
 ## Current Evidence
 
@@ -75,7 +88,7 @@ enough to justify focused measurement.
 
 ## Working Hypothesis
 
-The cheapest significant win, if one exists, is likely in Code-family execution:
+The original cheapest-significant-win hypothesis was Code-family execution:
 
 - Expression and Code New both use `context.codeRunner.runCode(...)`.
 - The default-safe Node runtime already uses a run-scoped
@@ -85,9 +98,16 @@ The cheapest significant win, if one exists, is likely in Code-family execution:
 - Fixture workflows with many small Code/Expression nodes are sensitive to that
   per-invocation overhead.
 
-The plan should prove or disprove this before changing runtime code. If user
-code itself dominates, engine optimization will not buy much and workflow-level
-consolidation becomes the honest recommendation.
+This was tested for the default Rivet runtime. It produced only a small
+2-3 percent fixture improvement, below the plan's 10 percent significant-speedup
+threshold.
+
+For the user's production backend path, the hypothesis changes: Code-family
+overhead is still the right area to inspect, but the implementation point is
+the wrapper `ManagedCodeRunner`, not Rivet's default `CachedNodeCodeRunner`.
+The wrapper runner currently owns runtime-library preparation, `AsyncFunction`
+compilation, require injection, and request context injection for endpoint runs.
+That is where the next measured optimization should happen.
 
 ## Benchmark Rules
 
@@ -138,6 +158,10 @@ consolidation becomes the honest recommendation.
 - Preserve at least one baseline JSON and one final JSON in
   `packages/node/bench-results/`, then summarize the comparison in developer
   docs. Do not rely on console-only numbers.
+- For wrapper production claims, do not use `yarn bench:runtime-speed` as the
+  acceptance benchmark. Use the wrapper endpoint benchmark protocol described
+  in `wrapper-managed-code-runner-speed-plan.md`, because that path exercises
+  `ManagedCodeRunner`.
 
 ### Required Fixture Before/After Protocol
 
@@ -165,7 +189,7 @@ above are the source of truth for whether this project became faster.
 
 ## Implementation Phases
 
-### P0: Refresh Fixture Baseline Matrix (NOT DONE)
+### P0: Refresh Fixture Baseline Matrix (DONE)
 
 Before changing runtime code, capture a clean, repeatable baseline:
 
@@ -184,7 +208,21 @@ Deliverable: a trustworthy before matrix for `runGraphInFile(...)`,
 `runGraph(...)`, fresh `createProcessor(...)`, reused `createProcessor(...)`,
 and fixture load time.
 
-### P1: Add Runtime Attribution Harness (NOT DONE)
+Result:
+
+- Baseline artifact:
+  `packages/node/bench-results/fixture-speedup-baseline2-f7d72213-20260525-182552.json`.
+- The first baseline run had high variance, so the matrix was rerun as required.
+- The stable baseline used 3 sessions, 15 samples per session, 20 measured runs
+  per sample, and 5 warmup runs per sample.
+- Stable baseline means:
+  - `runGraphInFile(...)`: 49.333 ms;
+  - loaded `runGraph(...)`: 28.066 ms;
+  - fresh `createProcessor(...)`: 27.636 ms;
+  - reused `createProcessor(...)`: 27.776 ms;
+  - fixture load only: 20.034 ms.
+
+### P1: Add Runtime Attribution Harness (DONE)
 
 Create a diagnostic harness that can attribute fixture runtime without changing
 production execution:
@@ -212,7 +250,16 @@ production execution:
 Deliverable: a repeatable command that answers "what took time in this fixture?"
 without requiring ad hoc scripts.
 
-### P2: Characterize Code-Family Runtime Cost (NOT DONE)
+Result:
+
+- Added `packages/node/bench/runtimeAttribution.bench.ts`.
+- Added `bench:runtime-attribution` scripts at the root and Node package level.
+- Attribution artifact:
+  `packages/node/bench-results/fixture-speedup-attribution-f7d72213-20260525.json`.
+- The harness reports fixture phase timings, node type totals, graph summaries,
+  top nodes, and CodeRunner profile buckets.
+
+### P2: Characterize Code-Family Runtime Cost (DONE)
 
 Before optimizing, split Code-family cost into measurable buckets:
 
@@ -239,7 +286,18 @@ Decision gate:
 - If user code dominates, stop engine work and document workflow-level options.
 - If result normalization dominates, inspect output conversion separately.
 
-### P3: Optimize CodeRunner Invocation Preparation (NOT DONE)
+Result:
+
+- Fixture attribution showed 42 CodeRunner calls in the representative run:
+  32 cache misses, 10 cache hits, about 2.8 ms compile time, 4.4 ms invocation
+  build time, 7.1 ms execution time, and 15.1 ms total diagnostic CodeRunner
+  time.
+- Synthetic CodeRunner scenarios showed repeated cached snippets are already
+  tiny; distinct snippets pay compile cost.
+- The data justified only a small, low-risk invocation-shape optimization. It
+  did not justify a larger Code-family rewrite.
+
+### P3: Optimize CodeRunner Invocation Preparation (DONE)
 
 If P2 shows invocation prep is material, reduce repeated allocation and repeated
 shape work in the default `CachedNodeCodeRunner` path:
@@ -266,7 +324,28 @@ graphs, processors, or permission configurations.
 After this phase, rerun the full fixture benchmark matrix with the same command
 used in P0 and compare against the baseline before continuing.
 
-### P4: Optimize Code-Family Output Normalization (NOT DONE)
+Result:
+
+- `CachedNodeCodeRunner` now caches immutable invocation plans by permission
+  shape plus graph-input/context presence.
+- Runtime argument values are still rebuilt fresh per invocation.
+- Focused cache tests prove graph input and context values do not leak across
+  cache hits.
+- After artifact:
+  `packages/node/bench-results/fixture-speedup-after-invocation-plan-f7d72213-20260525-183526.json`.
+
+| Fixture row | Baseline mean | After mean | Mean delta | Baseline p95 | After p95 | P95 delta |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| loadProjectFromFile | 20.034 ms | 19.686 ms | -1.74% | 20.619 ms | 20.287 ms | -1.61% |
+| runGraphInFile | 49.333 ms | 49.015 ms | -0.64% | 52.186 ms | 53.051 ms | +1.66% |
+| loaded runGraph | 28.066 ms | 27.468 ms | -2.13% | 29.334 ms | 28.392 ms | -3.21% |
+| fresh createProcessor | 27.636 ms | 26.921 ms | -2.59% | 29.365 ms | 28.451 ms | -3.11% |
+| reused createProcessor | 27.776 ms | 26.971 ms | -2.90% | 29.397 ms | 27.884 ms | -5.15% |
+
+This is a small measured improvement, not a significant fixture speedup by the
+plan's 10 percent threshold.
+
+### P4: Optimize Code-Family Output Normalization (SKIPPED)
 
 If P2 shows result conversion is material, make output normalization cheaper
 without changing returned values:
@@ -287,7 +366,14 @@ part of fixture runtime.
 After this phase, rerun the full fixture benchmark matrix with the same command
 used in P0 and compare against the baseline before continuing.
 
-### P5: Reassess Subgraph Exclusive Overhead (NOT DONE)
+Result:
+
+- Skipped because P2 did not identify output normalization as a material
+  bottleneck. The object-returning synthetic CodeRunner scenario was already
+  tiny, and changing output normalization would add risk around DataValue
+  semantics for no proven fixture gain.
+
+### P5: Reassess Subgraph Exclusive Overhead (SKIPPED)
 
 Only after Code-family costs are understood, measure true subgraph boundary
 overhead:
@@ -311,7 +397,14 @@ After any subgraph-boundary runtime change, rerun the full fixture benchmark
 matrix with the same command used in P0 and compare against the baseline before
 continuing.
 
-### P6: Add Workflow-Level Diagnostic Advice (OPTIONAL, NOT DONE)
+Result:
+
+- Skipped for this implementation pass. Subgraph timings in the fixture remain
+  mostly inclusive child-graph time, and the measured CodeRunner optimization
+  did not expose a new exclusive subgraph-boundary bottleneck that would justify
+  another runtime change.
+
+### P6: Add Workflow-Level Diagnostic Advice (OPTIONAL, SKIPPED)
 
 If engine-level wins are small, add a diagnostic report that identifies likely
 manual simplification opportunities in fixture-shaped workflows:
@@ -324,7 +417,13 @@ manual simplification opportunities in fixture-shaped workflows:
 This should be a developer diagnostic only. It must not alter runtime behavior
 or require project changes.
 
-### P7: Benchmark Closeout And Documentation (NOT DONE)
+Result:
+
+- Skipped because no engine-level change produced a significant fixture win.
+  The attribution harness itself now supplies the diagnostic information needed
+  to identify repeated tiny Expression/Code/subgraph patterns in future passes.
+
+### P7: Benchmark Closeout And Documentation (DONE)
 
 For every implemented optimization:
 
@@ -345,6 +444,45 @@ For every implemented optimization:
 - Update developer docs with the final results and any new runtime invariants.
 - Keep benchmark claims honest if the result is "no meaningful improvement."
 
+Result:
+
+- Final fixture result is a 2-3 percent mean improvement for loaded
+  `runGraph(...)`, fresh `createProcessor(...)`, and reused
+  `createProcessor(...)`, below the plan's significant-speedup threshold.
+- The implemented CodeRunner invocation-plan cache is kept because it is small,
+  covered, and directionally improves the backend-style fixture rows.
+- Further significant speedup is unlikely to come from another small CodeRunner
+  preparation tweak; it would need a higher-cost strategy such as cross-run or
+  per-node compiled-code reuse with strong invalidation/state-isolation rules,
+  or workflow-level consolidation of tiny helper nodes.
+- Follow-up discovery: the user's backend passes a custom wrapper
+  `ManagedCodeRunner`, so further production endpoint speed work must be tested
+  in the wrapper endpoint path. See `wrapper-managed-code-runner-speed-plan.md`.
+
+### P8: Wrapper Handoff (DONE)
+
+The default Rivet runtime plan is no longer the active implementation path for
+the user's backend performance issue.
+
+Result:
+
+- Created `wrapper-managed-code-runner-speed-plan.md` as the handoff document
+  for the wrapper developer.
+- The handoff explains why the previous Rivet-side CodeRunner optimization did
+  not materially affect wrapper endpoint runs.
+- The handoff keeps `createProcessor(...)` as the correct API because the
+  wrapper needs `processor.processor` before `run()` for `ExecutionRecorder`.
+- The handoff targets `ManagedCodeRunner` instead:
+  - skip runtime-library preparation when `includeRequire=false`;
+  - prepare runtime libraries lazily once per request when `includeRequire=true`;
+  - add bounded compiled-function caching with fresh request values;
+  - add request-scoped CodeRunner telemetry;
+  - benchmark through the wrapper endpoint using
+    `.fixtures/graph-fixture.rivet-project`.
+- The fixture should still be used as the representative workflow, but the
+  source of truth for wrapper speed is `x-workflow-execute-ms` from the wrapper
+  API measurement script, not direct Rivet package benchmarks.
+
 ## Test Plan
 
 Run focused correctness checks after each runtime change:
@@ -359,6 +497,22 @@ Run focused correctness checks after each runtime change:
 When app-facing behavior might be touched, also run the relevant app executor or
 typecheck/lint command.
 
+For wrapper follow-up validation, use the wrapper plan's endpoint benchmark:
+
+```bash
+npm --prefix wrapper/api run workflow-execution:measure -- --base-url http://localhost:8080 --endpoint graph-fixture-speed --kind published --runs 50 --warmups 10 --body '{}'
+```
+
+Run the wrapper API with:
+
+```text
+RIVET_WORKFLOW_EXECUTION_DEBUG_HEADERS=true
+RIVET_CODE_RUNNER_TELEMETRY=true
+```
+
+The fixture requires no request inputs. Publish it under a stable endpoint name
+such as `graph-fixture-speed` before running this command.
+
 ## Risk Controls
 
 - Do not change public `DataValue` schema or graph output shape.
@@ -372,7 +526,7 @@ typecheck/lint command.
 
 ## Success Criteria
 
-This plan succeeds if it produces one of these outcomes:
+This Rivet-side plan succeeds if it produces one of these outcomes:
 
 - A measured default-runtime improvement of at least 10 percent in fixture
   `createProcessor(...).run()` mean or p95 without correctness regressions.
@@ -380,7 +534,15 @@ This plan succeeds if it produces one of these outcomes:
   no measurable fixture regression.
 - A clear, documented conclusion that the remaining fixture runtime is already
   dominated by user workflow logic or host CPU limits, not easy engine overhead.
+- A clear, documented conclusion that the bottleneck for the user's production
+  backend path sits outside the default Rivet runtime because the wrapper
+  replaces the default CodeRunner.
 
 If the best measured improvement is below benchmark variance, the correct
 outcome is to stop and document that further speed work needs a different,
 higher-cost strategy.
+
+Current outcome: this Rivet-side plan is closed. It produced a small,
+low-risk default-runtime improvement, but not a significant fixture speedup.
+The production endpoint optimization now belongs to the wrapper
+`ManagedCodeRunner` follow-up plan.

@@ -26,6 +26,7 @@
     "test:docs": "yarn workspace docs run typecheck",
     "test:style": "node scripts/check-test-style.mjs",
     "bench:runtime-speed": "yarn workspace @valerypopoff/rivet2-node run bench:runtime-speed",
+    "bench:runtime-attribution": "yarn workspace @valerypopoff/rivet2-node run bench:runtime-attribution",
     "lint": "yarn workspace @valerypopoff/rivet2-core run lint && yarn workspace @valerypopoff/rivet2-node run lint && yarn workspace @valerypopoff/rivet-app run lint && yarn workspace @valerypopoff/trivet run lint && yarn workspace @valerypopoff/rivet-app-executor run lint && yarn workspace @valerypopoff/rivet2-cli run lint",
     "prettier:fix": "prettier --write ."
   },

@@ -10,6 +10,13 @@ export type NodeCodeRunnerInvocation = {
   args: unknown[];
 };
 
+export type NodeCodeRunnerInvocationPlan = {
+  argNames: string[];
+  argShape: string;
+};
+
+const ARGUMENT_SHAPE_SEPARATOR = '\0';
+
 export function getNodeCodeRunnerArgumentNames(
   options: CodeRunnerOptions,
   hasGraphInputs: boolean,
@@ -48,16 +55,28 @@ export function getNodeCodeRunnerArgumentNames(
   return argNames;
 }
 
-export async function buildNodeCodeRunnerInvocation(params: {
+export function createNodeCodeRunnerInvocationPlan(
+  options: CodeRunnerOptions,
+  hasGraphInputs: boolean,
+  hasContextValues: boolean,
+): NodeCodeRunnerInvocationPlan {
+  const argNames = getNodeCodeRunnerArgumentNames(options, hasGraphInputs, hasContextValues);
+
+  return {
+    argNames,
+    argShape: argNames.join(ARGUMENT_SHAPE_SEPARATOR),
+  };
+}
+
+export async function buildNodeCodeRunnerInvocationArgs(params: {
   contextValues?: Record<string, DataValue>;
   graphInputs?: Record<string, DataValue>;
   inputs: Inputs;
   loadRivet: () => Promise<unknown>;
   options: CodeRunnerOptions;
   runtimeRequire: RuntimeRequire;
-}): Promise<NodeCodeRunnerInvocation> {
+}): Promise<unknown[]> {
   const { contextValues, graphInputs, inputs, loadRivet, options, runtimeRequire } = params;
-  const argNames = getNodeCodeRunnerArgumentNames(options, graphInputs != null, contextValues != null);
   const args: unknown[] = [inputs];
 
   if (options.includeConsole) {
@@ -87,6 +106,28 @@ export async function buildNodeCodeRunnerInvocation(params: {
   if (contextValues) {
     args.push(contextValues);
   }
+
+  return args;
+}
+
+export async function buildNodeCodeRunnerInvocation(params: {
+  contextValues?: Record<string, DataValue>;
+  graphInputs?: Record<string, DataValue>;
+  inputs: Inputs;
+  loadRivet: () => Promise<unknown>;
+  options: CodeRunnerOptions;
+  runtimeRequire: RuntimeRequire;
+}): Promise<NodeCodeRunnerInvocation> {
+  const { contextValues, graphInputs, inputs, loadRivet, options, runtimeRequire } = params;
+  const { argNames } = createNodeCodeRunnerInvocationPlan(options, graphInputs != null, contextValues != null);
+  const args = await buildNodeCodeRunnerInvocationArgs({
+    contextValues,
+    graphInputs,
+    inputs,
+    loadRivet,
+    options,
+    runtimeRequire,
+  });
 
   return {
     argNames,
