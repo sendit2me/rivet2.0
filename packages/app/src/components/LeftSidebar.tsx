@@ -5,7 +5,7 @@ import { projectState } from '../state/savedGraphs.js';
 import { sidebarOpenState } from '../state/graphBuilder.js';
 import { GraphList } from './GraphList.js';
 import { leftSidebarLiveWidthState, leftSidebarWidthState } from '../state/ui.js';
-import { clampLeftSidebarWidth } from '../utils/leftSidebarWidth.js';
+import { clampLeftSidebarWidth, shouldCollapseLeftSidebarDrag } from '../utils/leftSidebarWidth.js';
 import { resizeCursorStyles } from '../utils/resizeCursors.js';
 
 const styles = css`
@@ -66,16 +66,23 @@ const styles = css`
 
 export const LeftSidebar: FC = () => {
   const project = useAtomValue(projectState);
-  const sidebarOpen = useAtomValue(sidebarOpenState);
+  const [sidebarOpen, setSidebarOpen] = useAtom(sidebarOpenState);
   const [persistedSidebarWidth, setPersistedSidebarWidth] = useAtom(leftSidebarWidthState);
   const [liveSidebarWidth, setLiveSidebarWidth] = useAtom(leftSidebarLiveWidthState);
   const [isResizing, setIsResizing] = useState(false);
   const dragStartClientXRef = useRef(0);
   const dragStartWidthRef = useRef(liveSidebarWidth);
   const liveSidebarWidthRef = useRef(liveSidebarWidth);
+  const resizeSidebarOpenRef = useRef(sidebarOpen);
   const isResizingRef = useRef(false);
 
   liveSidebarWidthRef.current = liveSidebarWidth;
+
+  useEffect(() => {
+    if (!isResizing) {
+      resizeSidebarOpenRef.current = sidebarOpen;
+    }
+  }, [isResizing, sidebarOpen]);
 
   useEffect(() => {
     if (!isResizing) {
@@ -121,6 +128,7 @@ export const LeftSidebar: FC = () => {
     event.currentTarget.setPointerCapture(event.pointerId);
     dragStartClientXRef.current = event.clientX;
     dragStartWidthRef.current = liveSidebarWidth;
+    resizeSidebarOpenRef.current = true;
     isResizingRef.current = true;
     setIsResizing(true);
   };
@@ -132,7 +140,13 @@ export const LeftSidebar: FC = () => {
 
     event.preventDefault();
     event.stopPropagation();
-    const nextWidth = clampLeftSidebarWidth(dragStartWidthRef.current + event.clientX - dragStartClientXRef.current);
+    const rawWidth = dragStartWidthRef.current + event.clientX - dragStartClientXRef.current;
+    const nextSidebarOpen = !shouldCollapseLeftSidebarDrag(rawWidth);
+    if (resizeSidebarOpenRef.current !== nextSidebarOpen) {
+      resizeSidebarOpenRef.current = nextSidebarOpen;
+      setSidebarOpen(nextSidebarOpen);
+    }
+    const nextWidth = clampLeftSidebarWidth(rawWidth);
     liveSidebarWidthRef.current = nextWidth;
     setLiveSidebarWidth(nextWidth);
   };
@@ -146,7 +160,11 @@ export const LeftSidebar: FC = () => {
     event.stopPropagation();
     isResizingRef.current = false;
     setIsResizing(false);
-    setPersistedSidebarWidth(liveSidebarWidthRef.current);
+    if (resizeSidebarOpenRef.current) {
+      setPersistedSidebarWidth(liveSidebarWidthRef.current);
+    } else {
+      setLiveSidebarWidth(clampLeftSidebarWidth(persistedSidebarWidth));
+    }
   };
 
   return (
@@ -162,7 +180,7 @@ export const LeftSidebar: FC = () => {
       }
       key={project.metadata.id}
     >
-      {sidebarOpen && (
+      {(sidebarOpen || isResizing) && (
         <div
           aria-label="Resize graphs panel"
           aria-orientation="vertical"
