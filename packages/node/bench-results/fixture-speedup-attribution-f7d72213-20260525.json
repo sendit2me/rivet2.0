@@ -1,0 +1,5597 @@
+{
+  "codeRunnerScenarios": [
+    {
+      "cacheEntries": 1,
+      "cacheHits": 199,
+      "cacheMisses": 1,
+      "compileMs": 0.019800000000032014,
+      "executeMs": 0.08109999999828688,
+      "invocationBuildMs": 0.06299999999941974,
+      "lookupMs": 0.024000000000569344,
+      "runCalls": 200,
+      "totalMs": 0.24630000000001928,
+      "iterations": 200,
+      "name": "repeated identical expression-like code"
+    },
+    {
+      "cacheEntries": 200,
+      "cacheHits": 0,
+      "cacheMisses": 200,
+      "compileMs": 1.479400000005171,
+      "executeMs": 0.19450000000028922,
+      "invocationBuildMs": 0.07490000000234431,
+      "lookupMs": 0.06449999999722422,
+      "runCalls": 200,
+      "totalMs": 1.9195000000001983,
+      "iterations": 200,
+      "name": "distinct expression-like code"
+    },
+    {
+      "cacheEntries": 1,
+      "cacheHits": 199,
+      "cacheMisses": 1,
+      "compileMs": 0.014699999999947977,
+      "executeMs": 0.07720000000176697,
+      "invocationBuildMs": 0.04509999999913816,
+      "lookupMs": 0.014900000000579894,
+      "runCalls": 200,
+      "totalMs": 0.185799999999972,
+      "iterations": 200,
+      "name": "object-returning code"
+    },
+    {
+      "cacheEntries": 1,
+      "cacheHits": 199,
+      "cacheMisses": 1,
+      "compileMs": 0.02119999999990796,
+      "executeMs": 0.290100000000848,
+      "invocationBuildMs": 0.06249999999863576,
+      "lookupMs": 0.030300000001034277,
+      "runCalls": 200,
+      "totalMs": 0.4416999999998552,
+      "iterations": 200,
+      "name": "require-enabled code"
+    },
+    {
+      "cacheEntries": 1,
+      "cacheHits": 199,
+      "cacheMisses": 1,
+      "compileMs": 0.0238000000001648,
+      "executeMs": 0.06410000000005311,
+      "invocationBuildMs": 0.044699999997646955,
+      "lookupMs": 0.015499999999974534,
+      "runCalls": 200,
+      "totalMs": 0.1850999999992382,
+      "iterations": 200,
+      "name": "async code"
+    },
+    {
+      "cacheEntries": 1,
+      "cacheHits": 199,
+      "cacheMisses": 1,
+      "compileMs": 0.01700000000005275,
+      "executeMs": 0.040600000000267755,
+      "invocationBuildMs": 0.05469999999877473,
+      "lookupMs": 0.028200000002470915,
+      "runCalls": 200,
+      "totalMs": 0.17660000000137188,
+      "iterations": 200,
+      "name": "graphInputs and context code"
+    }
+  ],
+  "graphs": [
+    {
+      "durationMs": 0,
+      "finishCount": 1,
+      "graphId": "29f17ff8-3aa4-4294-8a92-13116d5a8a9b",
+      "graphName": "Main Graph",
+      "graphRunId": "xgsVPReMB5D3eYb-iN338",
+      "nodeDurationMs": 66.43550000000005,
+      "nodeTerminalCount": 13,
+      "outputKeys": [
+        "output",
+        "cost"
+      ],
+      "startCount": 1
+    },
+    {
+      "durationMs": 0,
+      "finishCount": 1,
+      "graphId": "f2hcG8KFEiq06uN5_Akmx",
+      "graphName": "AI-completion/generateStoryBeat",
+      "graphRunId": "jcnwtq2dE5UeR5nFibElu",
+      "nodeDurationMs": 60.40499999999997,
+      "nodeTerminalCount": 25,
+      "outputKeys": [
+        "beforeUserInput",
+        "storyBeatEnglish",
+        "isCurrentSceneConcluded",
+        "cost"
+      ],
+      "parentGraphRunId": "xgsVPReMB5D3eYb-iN338",
+      "startCount": 1
+    },
+    {
+      "durationMs": 0,
+      "finishCount": 1,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "graphRunId": "VrzQrkUqaB_x8PSEm4GCE",
+      "nodeDurationMs": 22.8461999999995,
+      "nodeTerminalCount": 18,
+      "outputKeys": [
+        "allCharactersShort",
+        "playerCharacter",
+        "otherCharacters",
+        "cost"
+      ],
+      "parentGraphRunId": "jcnwtq2dE5UeR5nFibElu",
+      "startCount": 1
+    },
+    {
+      "durationMs": 0,
+      "finishCount": 1,
+      "graphId": "Ua-DgqU7T4qut9Ct53BjV",
+      "graphName": "AI-completion/generateMessages",
+      "graphRunId": "sJN4mfu7ZKxd12VOsP00D",
+      "nodeDurationMs": 20.386400000000094,
+      "nodeTerminalCount": 22,
+      "outputKeys": [
+        "rawJSON",
+        "response",
+        "cost"
+      ],
+      "parentGraphRunId": "xgsVPReMB5D3eYb-iN338",
+      "startCount": 1
+    },
+    {
+      "durationMs": 0,
+      "finishCount": 1,
+      "graphId": "nbxMMKghCNZLjJqoG1oUe",
+      "graphName": "getters/getConversationHistory",
+      "graphRunId": "cwL-imFGfOWkU4a31DsdG",
+      "nodeDurationMs": 12.186299999999846,
+      "nodeTerminalCount": 13,
+      "outputKeys": [
+        "playerMessage",
+        "pastScenesSummary",
+        "currentSceneMessageHistory",
+        "cost"
+      ],
+      "parentGraphRunId": "jcnwtq2dE5UeR5nFibElu",
+      "startCount": 1
+    },
+    {
+      "durationMs": 0,
+      "finishCount": 1,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "graphRunId": "JmcWNnxsd1yl3thmpk4zC",
+      "nodeDurationMs": 10.418399999999792,
+      "nodeTerminalCount": 18,
+      "outputKeys": [
+        "allCharactersShort",
+        "playerCharacter",
+        "otherCharacters",
+        "cost"
+      ],
+      "parentGraphRunId": "k-M6L_Jl7kiqhlYfOVUzU",
+      "startCount": 1
+    },
+    {
+      "durationMs": 0,
+      "finishCount": 1,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "graphRunId": "7n0bknctwHxS7V47HhgUc",
+      "nodeDurationMs": 10.264200000000756,
+      "nodeTerminalCount": 18,
+      "outputKeys": [
+        "allCharactersShort",
+        "playerCharacter",
+        "otherCharacters",
+        "cost"
+      ],
+      "parentGraphRunId": "sJN4mfu7ZKxd12VOsP00D",
+      "startCount": 1
+    },
+    {
+      "durationMs": 0,
+      "finishCount": 1,
+      "graphId": "7nRRjXEKHdyA5Mn3Q5boI",
+      "graphName": "AI-completion/translateStoryBeat_nonLLM",
+      "graphRunId": "k-M6L_Jl7kiqhlYfOVUzU",
+      "nodeDurationMs": 8.330499999999802,
+      "nodeTerminalCount": 13,
+      "outputKeys": [
+        "output",
+        "cost"
+      ],
+      "parentGraphRunId": "xgsVPReMB5D3eYb-iN338",
+      "startCount": 1
+    },
+    {
+      "durationMs": 0,
+      "finishCount": 1,
+      "graphId": "OwidTgXa48n-OFTzszcCe",
+      "graphName": "routines/assembleResponse",
+      "graphRunId": "Kd7UNsAgTfrYJbQH8ulq9",
+      "nodeDurationMs": 7.9456000000002405,
+      "nodeTerminalCount": 11,
+      "outputKeys": [
+        "output",
+        "cost"
+      ],
+      "parentGraphRunId": "xgsVPReMB5D3eYb-iN338",
+      "startCount": 1
+    },
+    {
+      "durationMs": 0,
+      "finishCount": 1,
+      "graphId": "kHRgoPs_MP7uMlMPv6-0x",
+      "graphName": "routines/setGlobals",
+      "graphRunId": "gUDgZLdmF9o-FjcxneGA4",
+      "nodeDurationMs": 7.2716999999997824,
+      "nodeTerminalCount": 18,
+      "outputKeys": [
+        "payload",
+        "cost"
+      ],
+      "parentGraphRunId": "xgsVPReMB5D3eYb-iN338",
+      "startCount": 1
+    },
+    {
+      "durationMs": 0,
+      "finishCount": 1,
+      "graphId": "HAn8daeFYK-OK-zAi7tvm",
+      "graphName": "graphQL/getUnits",
+      "graphRunId": "alqtBW9LLIrcj3I0UAAOx",
+      "nodeDurationMs": 6.817700000000059,
+      "nodeTerminalCount": 10,
+      "outputKeys": [
+        "rawUnits",
+        "cost"
+      ],
+      "parentGraphRunId": "xgsVPReMB5D3eYb-iN338",
+      "startCount": 1
+    },
+    {
+      "durationMs": 0,
+      "finishCount": 1,
+      "graphId": "7wRcxgKBiQZY9aH8jkpgi",
+      "graphName": "routines/maybeSummarizePrevScene",
+      "graphRunId": "jfUbwwAJz8aJF5hkn7Ws5",
+      "nodeDurationMs": 6.2613999999996395,
+      "nodeTerminalCount": 21,
+      "outputKeys": [
+        "output",
+        "cost"
+      ],
+      "parentGraphRunId": "xgsVPReMB5D3eYb-iN338",
+      "startCount": 1
+    },
+    {
+      "durationMs": 0,
+      "finishCount": 1,
+      "graphId": "nbxMMKghCNZLjJqoG1oUe",
+      "graphName": "getters/getConversationHistory",
+      "graphRunId": "qfpogUvUW6-uV3Wd_hVcE",
+      "nodeDurationMs": 5.729400000000169,
+      "nodeTerminalCount": 13,
+      "outputKeys": [
+        "playerMessage",
+        "pastScenesSummary",
+        "currentSceneMessageHistory",
+        "cost"
+      ],
+      "parentGraphRunId": "sJN4mfu7ZKxd12VOsP00D",
+      "startCount": 1
+    },
+    {
+      "durationMs": 0,
+      "finishCount": 1,
+      "graphId": "CkhdNzz-3jQ3vXNd2LziX",
+      "graphName": "getters/getScenes",
+      "graphRunId": "9MDPJfA3itHWbjdh_r0Dp",
+      "nodeDurationMs": 5.5993999999993775,
+      "nodeTerminalCount": 16,
+      "outputKeys": [
+        "currentSceneRules",
+        "currentSceneName",
+        "currentSceneEndCondition",
+        "currentSceneID",
+        "nextStageInitialMessage",
+        "cost"
+      ],
+      "parentGraphRunId": "jcnwtq2dE5UeR5nFibElu",
+      "startCount": 1
+    },
+    {
+      "durationMs": 0,
+      "finishCount": 1,
+      "graphId": "RscR69jZaptNHfxw9GlyU",
+      "graphName": "routines/maybeAddEpilogue",
+      "graphRunId": "wqrkYGbdIVVNKlHvVU5VJ",
+      "nodeDurationMs": 3.184400000000096,
+      "nodeTerminalCount": 15,
+      "outputKeys": [
+        "output",
+        "cost"
+      ],
+      "parentGraphRunId": "xgsVPReMB5D3eYb-iN338",
+      "startCount": 1
+    },
+    {
+      "durationMs": 0,
+      "finishCount": 1,
+      "graphId": "CkhdNzz-3jQ3vXNd2LziX",
+      "graphName": "getters/getScenes",
+      "graphRunId": "nrl7nwC_N45lTLUUEmdoU",
+      "nodeDurationMs": 3.054600000000164,
+      "nodeTerminalCount": 16,
+      "outputKeys": [
+        "currentSceneRules",
+        "currentSceneName",
+        "currentSceneEndCondition",
+        "currentSceneID",
+        "nextStageInitialMessage",
+        "cost"
+      ],
+      "parentGraphRunId": "Kd7UNsAgTfrYJbQH8ulq9",
+      "startCount": 1
+    },
+    {
+      "durationMs": 0,
+      "finishCount": 1,
+      "graphId": "IVmVkPNkzf6WLztqkj7TI",
+      "graphName": "routines/lines2schema",
+      "graphRunId": "Dqp75bc3orPcJtmB19LvL",
+      "nodeDurationMs": 2.9273000000002867,
+      "nodeTerminalCount": 5,
+      "outputKeys": [
+        "output",
+        "cost"
+      ],
+      "parentGraphRunId": "jcnwtq2dE5UeR5nFibElu",
+      "startCount": 1
+    },
+    {
+      "durationMs": 0,
+      "finishCount": 1,
+      "graphId": "GkMPgfe3akOzxEzDxTnaY",
+      "graphName": "getters/getSceneIDs",
+      "graphRunId": "-P5cOvHwniuHwrWK0Af_G",
+      "nodeDurationMs": 2.8722999999999956,
+      "nodeTerminalCount": 9,
+      "outputKeys": [
+        "currentSceneId",
+        "allSceneIds",
+        "lastPrevSceneId",
+        "cost"
+      ],
+      "parentGraphRunId": "jfUbwwAJz8aJF5hkn7Ws5",
+      "startCount": 1
+    },
+    {
+      "durationMs": 0,
+      "finishCount": 1,
+      "graphId": "wqHcnBsv-qMnOdJ57c0ol",
+      "graphName": "graphQL/getApiUrlAndToken",
+      "graphRunId": "-w_2AK2xSyI7qNcmB9d6r",
+      "nodeDurationMs": 2.832499999999527,
+      "nodeTerminalCount": 8,
+      "outputKeys": [
+        "apiToken",
+        "apiURL",
+        "cost"
+      ],
+      "parentGraphRunId": "alqtBW9LLIrcj3I0UAAOx",
+      "startCount": 1
+    },
+    {
+      "durationMs": 0,
+      "finishCount": 1,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "graphRunId": "VieqAzywNUfeUkqhgJ0a4",
+      "nodeDurationMs": 0.7550000000003365,
+      "nodeTerminalCount": 6,
+      "outputKeys": [
+        "characterDescriptionFull",
+        "characterDescriptionShort",
+        "cost"
+      ],
+      "parentGraphRunId": "VrzQrkUqaB_x8PSEm4GCE",
+      "startCount": 1
+    },
+    {
+      "durationMs": 0,
+      "finishCount": 1,
+      "graphId": "zopUlAYWHabtzxNm3lqsg",
+      "graphName": "getters/getAllCharacterIDs",
+      "graphRunId": "v7i3jnlue2rYyRoIuAE6M",
+      "nodeDurationMs": 0.7217000000000553,
+      "nodeTerminalCount": 4,
+      "outputKeys": [
+        "output",
+        "cost"
+      ],
+      "parentGraphRunId": "Kd7UNsAgTfrYJbQH8ulq9",
+      "startCount": 1
+    },
+    {
+      "durationMs": 0,
+      "finishCount": 1,
+      "graphId": "7oXbm2QvWJst3LVgIcdsD",
+      "graphName": "getters/getCharacterObjects",
+      "graphRunId": "vUBsUn274mtnpKHOAiDbI",
+      "nodeDurationMs": 0.6858999999999469,
+      "nodeTerminalCount": 5,
+      "outputKeys": [
+        "characters",
+        "cost"
+      ],
+      "parentGraphRunId": "cwL-imFGfOWkU4a31DsdG",
+      "startCount": 1
+    },
+    {
+      "durationMs": 0,
+      "finishCount": 1,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "graphRunId": "fgQt0mjcMeH9FuGCJ4apD",
+      "nodeDurationMs": 0.6154999999998836,
+      "nodeTerminalCount": 6,
+      "outputKeys": [
+        "characterDescriptionFull",
+        "characterDescriptionShort",
+        "cost"
+      ],
+      "parentGraphRunId": "VrzQrkUqaB_x8PSEm4GCE",
+      "startCount": 1
+    },
+    {
+      "durationMs": 0,
+      "finishCount": 1,
+      "graphId": "jvLovJmhVUdFtDHrLNhVF",
+      "graphName": "routines/buildMessagesSchema",
+      "graphRunId": "jnge_PtDTLuVKDLi7atvJ",
+      "nodeDurationMs": 0.528700000000299,
+      "nodeTerminalCount": 4,
+      "outputKeys": [
+        "schema",
+        "cost"
+      ],
+      "parentGraphRunId": "sJN4mfu7ZKxd12VOsP00D",
+      "startCount": 1
+    },
+    {
+      "durationMs": 0,
+      "finishCount": 1,
+      "graphId": "7oXbm2QvWJst3LVgIcdsD",
+      "graphName": "getters/getCharacterObjects",
+      "graphRunId": "JcrpKczx_vCuFnUk4w3cS",
+      "nodeDurationMs": 0.3351999999999862,
+      "nodeTerminalCount": 5,
+      "outputKeys": [
+        "characters",
+        "cost"
+      ],
+      "parentGraphRunId": "qfpogUvUW6-uV3Wd_hVcE",
+      "startCount": 1
+    },
+    {
+      "durationMs": 0,
+      "finishCount": 1,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "graphRunId": "ZD2ronUpW0JAr2iC97TNU",
+      "nodeDurationMs": 0.26850000000013097,
+      "nodeTerminalCount": 6,
+      "outputKeys": [
+        "characterDescriptionFull",
+        "characterDescriptionShort",
+        "cost"
+      ],
+      "parentGraphRunId": "7n0bknctwHxS7V47HhgUc",
+      "startCount": 1
+    },
+    {
+      "durationMs": 0,
+      "finishCount": 1,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "graphRunId": "tIc78Lb1nDboYwLwXQY4B",
+      "nodeDurationMs": 0.26510000000007494,
+      "nodeTerminalCount": 6,
+      "outputKeys": [
+        "characterDescriptionFull",
+        "characterDescriptionShort",
+        "cost"
+      ],
+      "parentGraphRunId": "JmcWNnxsd1yl3thmpk4zC",
+      "startCount": 1
+    },
+    {
+      "durationMs": 0,
+      "finishCount": 1,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "graphRunId": "Qtv7je1-cXjubtrLpB8c1",
+      "nodeDurationMs": 0.2584999999999127,
+      "nodeTerminalCount": 6,
+      "outputKeys": [
+        "characterDescriptionFull",
+        "characterDescriptionShort",
+        "cost"
+      ],
+      "parentGraphRunId": "7n0bknctwHxS7V47HhgUc",
+      "startCount": 1
+    },
+    {
+      "durationMs": 0,
+      "finishCount": 1,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "graphRunId": "QLFTY31e5MUM-PPdO3shw",
+      "nodeDurationMs": 0.24600000000032196,
+      "nodeTerminalCount": 6,
+      "outputKeys": [
+        "characterDescriptionFull",
+        "characterDescriptionShort",
+        "cost"
+      ],
+      "parentGraphRunId": "JmcWNnxsd1yl3thmpk4zC",
+      "startCount": 1
+    },
+    {
+      "durationMs": 0,
+      "finishCount": 1,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "graphRunId": "cQaAHZWNInJ_Sp8fAGXcJ",
+      "nodeDurationMs": 0.2399000000000342,
+      "nodeTerminalCount": 6,
+      "outputKeys": [
+        "characterDescriptionFull",
+        "characterDescriptionShort",
+        "cost"
+      ],
+      "parentGraphRunId": "VrzQrkUqaB_x8PSEm4GCE",
+      "startCount": 1
+    },
+    {
+      "durationMs": 0,
+      "finishCount": 1,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "graphRunId": "Ng1FgqDD0lyEPuKPdlHj3",
+      "nodeDurationMs": 0.2288999999996122,
+      "nodeTerminalCount": 6,
+      "outputKeys": [
+        "characterDescriptionFull",
+        "characterDescriptionShort",
+        "cost"
+      ],
+      "parentGraphRunId": "VrzQrkUqaB_x8PSEm4GCE",
+      "startCount": 1
+    },
+    {
+      "durationMs": 0,
+      "finishCount": 1,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "graphRunId": "sk2z_j5sPC3D4hY7XBQ9g",
+      "nodeDurationMs": 0.2165999999997439,
+      "nodeTerminalCount": 6,
+      "outputKeys": [
+        "characterDescriptionFull",
+        "characterDescriptionShort",
+        "cost"
+      ],
+      "parentGraphRunId": "7n0bknctwHxS7V47HhgUc",
+      "startCount": 1
+    },
+    {
+      "durationMs": 0,
+      "finishCount": 1,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "graphRunId": "wrtyl7Csh2Lr2OLG2RlZj",
+      "nodeDurationMs": 0.21640000000024884,
+      "nodeTerminalCount": 6,
+      "outputKeys": [
+        "characterDescriptionFull",
+        "characterDescriptionShort",
+        "cost"
+      ],
+      "parentGraphRunId": "JmcWNnxsd1yl3thmpk4zC",
+      "startCount": 1
+    },
+    {
+      "durationMs": 0,
+      "finishCount": 1,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "graphRunId": "BQB1_b6AAoWzMMFn0ER3V",
+      "nodeDurationMs": 0.2145000000004984,
+      "nodeTerminalCount": 6,
+      "outputKeys": [
+        "characterDescriptionFull",
+        "characterDescriptionShort",
+        "cost"
+      ],
+      "parentGraphRunId": "VrzQrkUqaB_x8PSEm4GCE",
+      "startCount": 1
+    },
+    {
+      "durationMs": 0,
+      "finishCount": 1,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "graphRunId": "_ElCvRnO1WdTMHGDqwWCM",
+      "nodeDurationMs": 0.20920000000000982,
+      "nodeTerminalCount": 6,
+      "outputKeys": [
+        "characterDescriptionFull",
+        "characterDescriptionShort",
+        "cost"
+      ],
+      "parentGraphRunId": "JmcWNnxsd1yl3thmpk4zC",
+      "startCount": 1
+    },
+    {
+      "durationMs": 0,
+      "finishCount": 1,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "graphRunId": "xTcdrRYIwpRA5svo__q5n",
+      "nodeDurationMs": 0.20780000000013388,
+      "nodeTerminalCount": 6,
+      "outputKeys": [
+        "characterDescriptionFull",
+        "characterDescriptionShort",
+        "cost"
+      ],
+      "parentGraphRunId": "VrzQrkUqaB_x8PSEm4GCE",
+      "startCount": 1
+    },
+    {
+      "durationMs": 0,
+      "finishCount": 1,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "graphRunId": "GmzKENk7YJtugqhXhTJak",
+      "nodeDurationMs": 0.2062999999998283,
+      "nodeTerminalCount": 6,
+      "outputKeys": [
+        "characterDescriptionFull",
+        "characterDescriptionShort",
+        "cost"
+      ],
+      "parentGraphRunId": "JmcWNnxsd1yl3thmpk4zC",
+      "startCount": 1
+    },
+    {
+      "durationMs": 0,
+      "finishCount": 1,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "graphRunId": "F8LsslgKcW-VHvnYq9Vd4",
+      "nodeDurationMs": 0.2039999999997235,
+      "nodeTerminalCount": 6,
+      "outputKeys": [
+        "characterDescriptionFull",
+        "characterDescriptionShort",
+        "cost"
+      ],
+      "parentGraphRunId": "VrzQrkUqaB_x8PSEm4GCE",
+      "startCount": 1
+    },
+    {
+      "durationMs": 0,
+      "finishCount": 1,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "graphRunId": "snrFHSfaAjuIubniuW20t",
+      "nodeDurationMs": 0.20019999999999527,
+      "nodeTerminalCount": 6,
+      "outputKeys": [
+        "characterDescriptionFull",
+        "characterDescriptionShort",
+        "cost"
+      ],
+      "parentGraphRunId": "7n0bknctwHxS7V47HhgUc",
+      "startCount": 1
+    },
+    {
+      "durationMs": 0,
+      "finishCount": 1,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "graphRunId": "Ia2aR1vbrpp0R5ya0-1gL",
+      "nodeDurationMs": 0.19790000000011787,
+      "nodeTerminalCount": 6,
+      "outputKeys": [
+        "characterDescriptionFull",
+        "characterDescriptionShort",
+        "cost"
+      ],
+      "parentGraphRunId": "VrzQrkUqaB_x8PSEm4GCE",
+      "startCount": 1
+    },
+    {
+      "durationMs": 0,
+      "finishCount": 1,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "graphRunId": "CU5CijU4VlXGskI8hZmot",
+      "nodeDurationMs": 0.19699999999988904,
+      "nodeTerminalCount": 5,
+      "outputKeys": [
+        "cost"
+      ],
+      "parentGraphRunId": "wqrkYGbdIVVNKlHvVU5VJ",
+      "startCount": 1
+    },
+    {
+      "durationMs": 0,
+      "finishCount": 1,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "graphRunId": "ri_WLlm461n1nXMz6k-SW",
+      "nodeDurationMs": 0.19689999999968677,
+      "nodeTerminalCount": 6,
+      "outputKeys": [
+        "characterDescriptionFull",
+        "characterDescriptionShort",
+        "cost"
+      ],
+      "parentGraphRunId": "JmcWNnxsd1yl3thmpk4zC",
+      "startCount": 1
+    },
+    {
+      "durationMs": 0,
+      "finishCount": 1,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "graphRunId": "Xy2bNFUbfk3IhZuDu5iDS",
+      "nodeDurationMs": 0.19270000000005894,
+      "nodeTerminalCount": 6,
+      "outputKeys": [
+        "characterDescriptionFull",
+        "characterDescriptionShort",
+        "cost"
+      ],
+      "parentGraphRunId": "JmcWNnxsd1yl3thmpk4zC",
+      "startCount": 1
+    },
+    {
+      "durationMs": 0,
+      "finishCount": 1,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "graphRunId": "GLO7nNrit7HMhB9IyWyiX",
+      "nodeDurationMs": 0.19040000000018154,
+      "nodeTerminalCount": 6,
+      "outputKeys": [
+        "characterDescriptionFull",
+        "characterDescriptionShort",
+        "cost"
+      ],
+      "parentGraphRunId": "7n0bknctwHxS7V47HhgUc",
+      "startCount": 1
+    },
+    {
+      "durationMs": 0,
+      "finishCount": 1,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "graphRunId": "NONE4RuUCWAv6Nq3x0aK6",
+      "nodeDurationMs": 0.19000000000005457,
+      "nodeTerminalCount": 6,
+      "outputKeys": [
+        "characterDescriptionFull",
+        "characterDescriptionShort",
+        "cost"
+      ],
+      "parentGraphRunId": "JmcWNnxsd1yl3thmpk4zC",
+      "startCount": 1
+    },
+    {
+      "durationMs": 0,
+      "finishCount": 1,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "graphRunId": "HFL_NBdyxI2pvReHvPgEO",
+      "nodeDurationMs": 0.18460000000004584,
+      "nodeTerminalCount": 6,
+      "outputKeys": [
+        "characterDescriptionFull",
+        "characterDescriptionShort",
+        "cost"
+      ],
+      "parentGraphRunId": "7n0bknctwHxS7V47HhgUc",
+      "startCount": 1
+    },
+    {
+      "durationMs": 0,
+      "finishCount": 1,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "graphRunId": "SO5_Qt8kZ35fUKtJa__gD",
+      "nodeDurationMs": 0.1793999999999869,
+      "nodeTerminalCount": 6,
+      "outputKeys": [
+        "characterDescriptionFull",
+        "characterDescriptionShort",
+        "cost"
+      ],
+      "parentGraphRunId": "7n0bknctwHxS7V47HhgUc",
+      "startCount": 1
+    },
+    {
+      "durationMs": 0,
+      "finishCount": 1,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "graphRunId": "vsIPpXDVHsBHmAuPKh41H",
+      "nodeDurationMs": 0.17850000000021282,
+      "nodeTerminalCount": 6,
+      "outputKeys": [
+        "characterDescriptionFull",
+        "characterDescriptionShort",
+        "cost"
+      ],
+      "parentGraphRunId": "7n0bknctwHxS7V47HhgUc",
+      "startCount": 1
+    }
+  ],
+  "metadata": {
+    "arch": "x64",
+    "command": "C:\\nvm4w\\nodejs\\node.exe F:\\Programming\\Rivet2.0\\packages\\node\\bench\\runtimeAttribution.bench.ts",
+    "commit": "f7d72213048032b14333dac19c32c47b44ab6456",
+    "cpuModel": "Intel(R) Core(TM) Ultra 5 245KF",
+    "date": "2026-05-25T14:33:29.470Z",
+    "fixturePath": "F:\\Programming\\Rivet2.0\\.fixtures\\graph-fixture.rivet-project",
+    "gitDirty": true,
+    "gitStatusShort": [
+      "M package.json",
+      " M packages/node/package.json",
+      "?? packages/node/bench-results/fixture-speedup-attribution-f7d72213-20260525.json",
+      "?? packages/node/bench-results/fixture-speedup-baseline-f7d72213-20260525-182105.json",
+      "?? packages/node/bench-results/fixture-speedup-baseline2-f7d72213-20260525-182552.json",
+      "?? packages/node/bench/runtimeAttribution.bench.ts"
+    ],
+    "jsonMode": false,
+    "node": "v22.22.3",
+    "os": "Windows_NT 10.0.26200",
+    "outputPath": "packages/node/bench-results/fixture-speedup-attribution-f7d72213-20260525.json",
+    "platform": "win32",
+    "release": "10.0.26200",
+    "runs": 1
+  },
+  "nodeTypes": [
+    {
+      "nodeType": "subGraph",
+      "count": 32,
+      "durationMs": 206.67400000000066,
+      "errorCount": 0,
+      "excludedCount": 3,
+      "splitDurationMs": 20.825200000000223
+    },
+    {
+      "nodeType": "expression",
+      "count": 36,
+      "durationMs": 21.549899999999525,
+      "errorCount": 0,
+      "excludedCount": 3,
+      "splitDurationMs": 0
+    },
+    {
+      "nodeType": "extractObjectPath",
+      "count": 31,
+      "durationMs": 7.130699999999706,
+      "errorCount": 0,
+      "excludedCount": 2,
+      "splitDurationMs": 0
+    },
+    {
+      "nodeType": "text",
+      "count": 89,
+      "durationMs": 6.696400000000949,
+      "errorCount": 0,
+      "excludedCount": 9,
+      "splitDurationMs": 1.2105000000001382
+    },
+    {
+      "nodeType": "getGlobal",
+      "count": 36,
+      "durationMs": 6.248099999999795,
+      "errorCount": 0,
+      "excludedCount": 2,
+      "splitDurationMs": 0
+    },
+    {
+      "nodeType": "destructure",
+      "count": 33,
+      "durationMs": 5.901400000000194,
+      "errorCount": 0,
+      "excludedCount": 1,
+      "splitDurationMs": 1.8268000000000484
+    },
+    {
+      "nodeType": "codeNew",
+      "count": 11,
+      "durationMs": 4.657699999999977,
+      "errorCount": 0,
+      "excludedCount": 2,
+      "splitDurationMs": 0
+    },
+    {
+      "nodeType": "graphOutput",
+      "count": 96,
+      "durationMs": 3.992299999998977,
+      "errorCount": 0,
+      "excludedCount": 1,
+      "splitDurationMs": 0
+    },
+    {
+      "nodeType": "graphInput",
+      "count": 41,
+      "durationMs": 2.6269000000008873,
+      "errorCount": 0,
+      "excludedCount": 1,
+      "splitDurationMs": 0
+    },
+    {
+      "nodeType": "object",
+      "count": 44,
+      "durationMs": 2.4330999999999676,
+      "errorCount": 0,
+      "excludedCount": 31,
+      "splitDurationMs": 0
+    },
+    {
+      "nodeType": "array",
+      "count": 10,
+      "durationMs": 1.4801999999997406,
+      "errorCount": 0,
+      "excludedCount": 2,
+      "splitDurationMs": 0
+    },
+    {
+      "nodeType": "setGlobal",
+      "count": 9,
+      "durationMs": 1.0126999999999953,
+      "errorCount": 0,
+      "excludedCount": 2,
+      "splitDurationMs": 0
+    },
+    {
+      "nodeType": "coalesce",
+      "count": 5,
+      "durationMs": 0.7256999999997333,
+      "errorCount": 0,
+      "excludedCount": 0,
+      "splitDurationMs": 0
+    },
+    {
+      "nodeType": "abortGraph",
+      "count": 2,
+      "durationMs": 0.5955000000001291,
+      "errorCount": 0,
+      "excludedCount": 0,
+      "splitDurationMs": 0
+    },
+    {
+      "nodeType": "boolean",
+      "count": 4,
+      "durationMs": 0.4417999999998301,
+      "errorCount": 0,
+      "excludedCount": 2,
+      "splitDurationMs": 0
+    },
+    {
+      "nodeType": "comment",
+      "count": 11,
+      "durationMs": 0.44149999999967804,
+      "errorCount": 0,
+      "excludedCount": 0,
+      "splitDurationMs": 0
+    },
+    {
+      "nodeType": "passthrough",
+      "count": 2,
+      "durationMs": 0.3447000000001026,
+      "errorCount": 0,
+      "excludedCount": 0,
+      "splitDurationMs": 0
+    },
+    {
+      "nodeType": "prompt",
+      "count": 5,
+      "durationMs": 0.3413999999997941,
+      "errorCount": 0,
+      "excludedCount": 1,
+      "splitDurationMs": 0
+    },
+    {
+      "nodeType": "extractJson",
+      "count": 3,
+      "durationMs": 0.23840000000018335,
+      "errorCount": 0,
+      "excludedCount": 0,
+      "splitDurationMs": 0
+    },
+    {
+      "nodeType": "randomNumber",
+      "count": 1,
+      "durationMs": 0.22530000000006112,
+      "errorCount": 0,
+      "excludedCount": 0,
+      "splitDurationMs": 0
+    },
+    {
+      "nodeType": "assemblePrompt",
+      "count": 1,
+      "durationMs": 0.21030000000018845,
+      "errorCount": 0,
+      "excludedCount": 0,
+      "splitDurationMs": 0
+    },
+    {
+      "nodeType": "match",
+      "count": 1,
+      "durationMs": 0.15350000000012187,
+      "errorCount": 0,
+      "excludedCount": 0,
+      "splitDurationMs": 0
+    },
+    {
+      "nodeType": "didRun",
+      "count": 8,
+      "durationMs": 0.10269999999991342,
+      "errorCount": 0,
+      "excludedCount": 1,
+      "splitDurationMs": 0
+    },
+    {
+      "nodeType": "number",
+      "count": 1,
+      "durationMs": 0.07590000000004693,
+      "errorCount": 0,
+      "excludedCount": 0,
+      "splitDurationMs": 0
+    },
+    {
+      "nodeType": "llmChatV2",
+      "count": 1,
+      "durationMs": 0,
+      "errorCount": 0,
+      "excludedCount": 1,
+      "splitDurationMs": 0
+    },
+    {
+      "nodeType": "join",
+      "count": 1,
+      "durationMs": 0,
+      "errorCount": 0,
+      "excludedCount": 1,
+      "splitDurationMs": 0
+    }
+  ],
+  "summary": {
+    "codeRunner": {
+      "cacheEntries": 32,
+      "cacheHits": 10,
+      "cacheMisses": 32,
+      "compileMs": 2.7944999999997435,
+      "executeMs": 7.128699999999753,
+      "invocationBuildMs": 4.445600000000923,
+      "lookupMs": 0.4912000000001626,
+      "runCalls": 42,
+      "totalMs": 15.07380000000012
+    },
+    "excludedNodes": 65,
+    "graphRunCount": 48,
+    "leafNodeDurationMs": 67.6260999999995,
+    "loadProjectMs": 47.35140000000001,
+    "nodeDurationMs": 274.30010000000016,
+    "outputCount": 2,
+    "runWallMs": 71.33730000000014,
+    "terminalNodeEvents": 514
+  },
+  "topNodes": [
+    {
+      "durationMs": 21.265100000000075,
+      "graphId": "29f17ff8-3aa4-4294-8a92-13116d5a8a9b",
+      "graphName": "Main Graph",
+      "nodeId": "qjKbPWk-wQUEp3w15g1A1",
+      "nodeTitle": "Subgraph - generate Story Beat",
+      "nodeType": "subGraph",
+      "processId": "R9ZJG01iP4fbG8ESFO7ye",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 18.620200000000068,
+      "graphId": "f2hcG8KFEiq06uN5_Akmx",
+      "graphName": "AI-completion/generateStoryBeat",
+      "nodeId": "If77ISrQBwyQ0Nogac5vU",
+      "nodeTitle": "Subgraph - Get characters",
+      "nodeType": "subGraph",
+      "processId": "kEm9h-gbpi3fP8jaF1A1r",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 12.949599999999919,
+      "graphId": "f2hcG8KFEiq06uN5_Akmx",
+      "graphName": "AI-completion/generateStoryBeat",
+      "nodeId": "aijbbcKWwD-iAT8xA3sM0",
+      "nodeTitle": "Subgraph",
+      "nodeType": "subGraph",
+      "processId": "f5Rpg8N8fdid9ZvjfIIxS",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 12.685100000000148,
+      "graphId": "f2hcG8KFEiq06uN5_Akmx",
+      "graphName": "AI-completion/generateStoryBeat",
+      "nodeId": "3tcgzd7ewQaRN2lHCmylH",
+      "nodeTitle": "Subgraph - Get Scenes",
+      "nodeType": "subGraph",
+      "processId": "MYVA1-BT-8ZNglRrbMWhw",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 11.25200000000018,
+      "graphId": "29f17ff8-3aa4-4294-8a92-13116d5a8a9b",
+      "graphName": "Main Graph",
+      "nodeId": "auo_6YVsPJJ82tsVDGd1E",
+      "nodeTitle": "Subgraph - generate messages",
+      "nodeType": "subGraph",
+      "processId": "4TxH6aVGoN_b8B37fjHWP",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 10.09010000000012,
+      "graphId": "f2hcG8KFEiq06uN5_Akmx",
+      "graphName": "AI-completion/generateStoryBeat",
+      "nodeId": "zTHm0x4X_shKX_dZh5QG7",
+      "nodeTitle": "Subgraph - Lines to schema",
+      "nodeType": "subGraph",
+      "processId": "XuhTmYMyJ4H9csJsX5ktg",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 9.584299999999985,
+      "graphId": "Ua-DgqU7T4qut9Ct53BjV",
+      "graphName": "AI-completion/generateMessages",
+      "nodeId": "jnECbpLZTj9byVQ7wSFZm",
+      "nodeTitle": "Subgraph - Get characters",
+      "nodeType": "subGraph",
+      "processId": "cZZapvWSd0mc1HE3u4Bd2",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 9.200399999999945,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "nodeId": "krAbCth5ycZKFX0nObg29",
+      "nodeTitle": "Subgraph - format character",
+      "nodeType": "subGraph",
+      "processId": "ofANhoIG0qY8ZNEaRnwiw",
+      "splitDurationMs": 9.019300000000385
+    },
+    {
+      "durationMs": 8.678100000000086,
+      "graphId": "nbxMMKghCNZLjJqoG1oUe",
+      "graphName": "getters/getConversationHistory",
+      "nodeId": "A-zUIu0lEs0PaXSpqXp6I",
+      "nodeTitle": "Subgraph - Get character objects",
+      "nodeType": "subGraph",
+      "processId": "w6pbOK_O958QjbWrbcjFE",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 8.583399999999983,
+      "graphId": "29f17ff8-3aa4-4294-8a92-13116d5a8a9b",
+      "graphName": "Main Graph",
+      "nodeId": "mP7awExNeKV3Xl3mnPdWQ",
+      "nodeTitle": "Subgraph - translate story beat",
+      "nodeType": "subGraph",
+      "processId": "L54tDDAmQfu1lgr9ukE56",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 7.664299999999912,
+      "graphId": "7nRRjXEKHdyA5Mn3Q5boI",
+      "graphName": "AI-completion/translateStoryBeat_nonLLM",
+      "nodeId": "dBPvYADY6Blln2rrvlwI4",
+      "nodeTitle": "Subgraph",
+      "nodeType": "subGraph",
+      "processId": "hmX0MG8CwjKgtaZhwUqJ2",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 7.131200000000035,
+      "graphId": "29f17ff8-3aa4-4294-8a92-13116d5a8a9b",
+      "graphName": "Main Graph",
+      "nodeId": "nE4fDLmPMw1gyIDO_sO14",
+      "nodeTitle": "Subgraph - get Units",
+      "nodeType": "subGraph",
+      "processId": "R683CSsTlQ4xM-Q1pObRN",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 6.5504000000000815,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "nodeId": "yE-SVoKvQJbRhgkwvazfl",
+      "nodeTitle": "Subgraph",
+      "nodeType": "subGraph",
+      "processId": "9d-S9UdZJvetJqpBCMqlD",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 6.532500000000027,
+      "graphId": "29f17ff8-3aa4-4294-8a92-13116d5a8a9b",
+      "graphName": "Main Graph",
+      "nodeId": "JyEyrpM01ASaRuYIHP5hX",
+      "nodeTitle": "Subgraph - Maybe Summarize Prev scene",
+      "nodeType": "subGraph",
+      "processId": "IKwZZnjSyQp5ZZUO6tKNi",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 5.979900000000043,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "nodeId": "krAbCth5ycZKFX0nObg29",
+      "nodeTitle": "Subgraph - format character",
+      "nodeType": "subGraph",
+      "processId": "JKrBz5VEMiqAQv_TS79hj",
+      "splitDurationMs": 5.936000000000149
+    },
+    {
+      "durationMs": 5.917100000000119,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "nodeId": "krAbCth5ycZKFX0nObg29",
+      "nodeTitle": "Subgraph - format character",
+      "nodeType": "subGraph",
+      "processId": "QmhNfipmzVQzzgR9TGQds",
+      "splitDurationMs": 5.869899999999689
+    },
+    {
+      "durationMs": 5.34719999999993,
+      "graphId": "Ua-DgqU7T4qut9Ct53BjV",
+      "graphName": "AI-completion/generateMessages",
+      "nodeId": "vD78Nr9zUfvHz00xngz_S",
+      "nodeTitle": "Subgraph",
+      "nodeType": "subGraph",
+      "processId": "1kCKxRdbXF1WzBduM4z6a",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 4.610699999999952,
+      "graphId": "HAn8daeFYK-OK-zAi7tvm",
+      "graphName": "graphQL/getUnits",
+      "nodeId": "_BrIIetdJoDoFmSZYVMG8",
+      "nodeTitle": "Subgraph - get API URL and Token",
+      "nodeType": "subGraph",
+      "processId": "Jz8djaW81UKPtpmLnCE8S",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 4.5728999999998905,
+      "graphId": "29f17ff8-3aa4-4294-8a92-13116d5a8a9b",
+      "graphName": "Main Graph",
+      "nodeId": "KQqwp-bDgeSY2h7Fd-rqa",
+      "nodeTitle": "Subgraph - assemble Response",
+      "nodeType": "subGraph",
+      "processId": "iM6zFDjKd0fKa8bbtT1ll",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 3.660400000000209,
+      "graphId": "nbxMMKghCNZLjJqoG1oUe",
+      "graphName": "getters/getConversationHistory",
+      "nodeId": "A-zUIu0lEs0PaXSpqXp6I",
+      "nodeTitle": "Subgraph - Get character objects",
+      "nodeType": "subGraph",
+      "processId": "z_Bo7ojXi2Sl1qyZ2BlsF",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 3.52819999999997,
+      "graphId": "Ua-DgqU7T4qut9Ct53BjV",
+      "graphName": "AI-completion/generateMessages",
+      "nodeId": "2VTF8R3gflBuZv0es6ipP",
+      "nodeTitle": "Subgraph - get messages Schema",
+      "nodeType": "subGraph",
+      "processId": "2ThB62CjWfn5eZcfQEyJF",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 3.40319999999997,
+      "graphId": "OwidTgXa48n-OFTzszcCe",
+      "graphName": "routines/assembleResponse",
+      "nodeId": "0TYjfuVOBRuOnOi36J0r-",
+      "nodeTitle": "Subgraph - Get Scenes",
+      "nodeType": "subGraph",
+      "processId": "hsJsr7bRRXmQfcF7mkMCY",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 3.3308999999999287,
+      "graphId": "29f17ff8-3aa4-4294-8a92-13116d5a8a9b",
+      "graphName": "Main Graph",
+      "nodeId": "HUS4Egak6YdKKBBEE5e3R",
+      "nodeTitle": "Subgraph - Set Globals",
+      "nodeType": "subGraph",
+      "processId": "eFBGq-xR9BrUw6g4hUpS9",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 2.9927999999999884,
+      "graphId": "7wRcxgKBiQZY9aH8jkpgi",
+      "graphName": "routines/maybeSummarizePrevScene",
+      "nodeId": "RO0K0pUEEUCouEf4k9NbB",
+      "nodeTitle": "Subgraph - get scene ids",
+      "nodeType": "subGraph",
+      "processId": "fJ2vrR8Jd1BsqXrqi76F3",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 2.900100000000066,
+      "graphId": "29f17ff8-3aa4-4294-8a92-13116d5a8a9b",
+      "graphName": "Main Graph",
+      "nodeId": "hqTMTZpcu5QsJQDymbKuw",
+      "nodeTitle": "Subgraph - maybeAddEpilogue",
+      "nodeType": "subGraph",
+      "processId": "XynfCBHLLtnm93MsoMRER",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 2.845399999999927,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "nodeId": "yE-SVoKvQJbRhgkwvazfl",
+      "nodeTitle": "Subgraph",
+      "nodeType": "subGraph",
+      "processId": "qDCd2R1UIdc6uQ8XzMvnO",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 2.726699999999937,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "nodeId": "yE-SVoKvQJbRhgkwvazfl",
+      "nodeTitle": "Subgraph",
+      "nodeType": "subGraph",
+      "processId": "i6ciKrbbT4ikWphNl_BUB",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 2.2409999999999854,
+      "graphId": "OwidTgXa48n-OFTzszcCe",
+      "graphName": "routines/assembleResponse",
+      "nodeId": "52VAofmXvjEyZ8svtVF1X",
+      "nodeTitle": "Subgraph - Get character IDs",
+      "nodeType": "subGraph",
+      "processId": "vJsFIcUgvEoTe_iHN5qS2",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 1.8308000000001812,
+      "graphId": "RscR69jZaptNHfxw9GlyU",
+      "graphName": "routines/maybeAddEpilogue",
+      "nodeId": "ca92g-z7OD3rMo7lNy7BI",
+      "nodeTitle": "Subgraph - Get characters",
+      "nodeType": "subGraph",
+      "processId": "eQAmpf541oFfnZRVeuTcz",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 1.7941000000000713,
+      "graphId": "kHRgoPs_MP7uMlMPv6-0x",
+      "graphName": "routines/setGlobals",
+      "nodeId": "baSbyJeEyycjoRqDz-xRk",
+      "nodeTitle": "Expression",
+      "nodeType": "expression",
+      "processId": "e818macGZ2t0NWT5AWqP9",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 1.7931999999998425,
+      "graphId": "kHRgoPs_MP7uMlMPv6-0x",
+      "graphName": "routines/setGlobals",
+      "nodeId": "r_lu52SgXeMk55gvp58Ui",
+      "nodeTitle": "Expression",
+      "nodeType": "expression",
+      "processId": "wMzKei7lMyIG1rtGh-GzZ",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 1.7931999999998425,
+      "graphId": "kHRgoPs_MP7uMlMPv6-0x",
+      "graphName": "routines/setGlobals",
+      "nodeId": "xeRn94xhr9-HmFS1y6IMj",
+      "nodeTitle": "Expression",
+      "nodeType": "expression",
+      "processId": "Iq4YS7AzBW5y2DvaGVxOH",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 1.5068999999998596,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "nodeId": "u_P6UbuHXXNSZibDsb2Tm",
+      "nodeTitle": "Get Global",
+      "nodeType": "getGlobal",
+      "processId": "gBFMBmZiSfVDm1GJqn5cb",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 1.4254000000000815,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "nodeId": "aAr9rhBTpZk1mo3sdb_fO",
+      "nodeTitle": "Destructure",
+      "nodeType": "destructure",
+      "processId": "9tOZEZOFYSIA3y-1QGUp6",
+      "splitDurationMs": 1.1359999999999673
+    },
+    {
+      "durationMs": 1.193899999999985,
+      "graphId": "IVmVkPNkzf6WLztqkj7TI",
+      "graphName": "routines/lines2schema",
+      "nodeId": "oGHRh8QOL77Snc5jv_AhL",
+      "nodeTitle": "Expression",
+      "nodeType": "expression",
+      "processId": "m1Boa635aIDVExkuP1Xx6",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 1.1276000000000295,
+      "graphId": "wqHcnBsv-qMnOdJ57c0ol",
+      "graphName": "graphQL/getApiUrlAndToken",
+      "nodeId": "U60DMSlXLShcdE7ZU03G-",
+      "nodeTitle": "Expression",
+      "nodeType": "expression",
+      "processId": "o1n5_PTgIdDxA_5i3lXXB",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 1.1090999999998985,
+      "graphId": "wqHcnBsv-qMnOdJ57c0ol",
+      "graphName": "graphQL/getApiUrlAndToken",
+      "nodeId": "PRB2TF4ZRA2pp4UnGb0Pj",
+      "nodeTitle": "Extract Object Path",
+      "nodeType": "extractObjectPath",
+      "processId": "cdGusKIfXJXwT74tiu9le",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 1.0382999999999356,
+      "graphId": "nbxMMKghCNZLjJqoG1oUe",
+      "graphName": "getters/getConversationHistory",
+      "nodeId": "DqxJ7Ijo6kPtRgCrV1w0D",
+      "nodeTitle": "Code - filter out last scene message units",
+      "nodeType": "codeNew",
+      "processId": "zlUvYzNl_O7OzrzF7bLxy",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 1.0359000000000833,
+      "graphId": "CkhdNzz-3jQ3vXNd2LziX",
+      "graphName": "getters/getScenes",
+      "nodeId": "fcD051YZH1Ns1mJdMXk09",
+      "nodeTitle": "Expression - current scene index",
+      "nodeType": "expression",
+      "processId": "2ARa5rRasUaNlWk-D_jkO",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.9826000000000477,
+      "graphId": "nbxMMKghCNZLjJqoG1oUe",
+      "graphName": "getters/getConversationHistory",
+      "nodeId": "GWyAbHMKchZwjAvYk7NyD",
+      "nodeTitle": "Expression",
+      "nodeType": "expression",
+      "processId": "gsRHImLVp4I7QcapVnLst",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.8730000000000473,
+      "graphId": "HAn8daeFYK-OK-zAi7tvm",
+      "graphName": "graphQL/getUnits",
+      "nodeId": "_04fxlEXCfq3_6lj9IEcg",
+      "nodeTitle": "Extract Object Path",
+      "nodeType": "extractObjectPath",
+      "processId": "idPv00NtqWyXtYZbFaoNg",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.8713999999999942,
+      "graphId": "IVmVkPNkzf6WLztqkj7TI",
+      "graphName": "routines/lines2schema",
+      "nodeId": "B7t5UTXmO89IAzioN9yXZ",
+      "nodeTitle": "Expression",
+      "nodeType": "expression",
+      "processId": "U45l1OAsjbICdLZFGVPey",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.7980000000000018,
+      "graphId": "f2hcG8KFEiq06uN5_Akmx",
+      "graphName": "AI-completion/generateStoryBeat",
+      "nodeId": "pz5vM3xzbp0_4Sf9M024J",
+      "nodeTitle": "Expression - first field",
+      "nodeType": "expression",
+      "processId": "mCPOJZK9QOAl8XWnZ63Rb",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.7971999999999753,
+      "graphId": "f2hcG8KFEiq06uN5_Akmx",
+      "graphName": "AI-completion/generateStoryBeat",
+      "nodeId": "9Q3HUeDwMTqOwbf7-kMGB",
+      "nodeTitle": "Expression - last field",
+      "nodeType": "expression",
+      "processId": "h5-ah3WAnWkT1nTU-BohF",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.7966000000001259,
+      "graphId": "f2hcG8KFEiq06uN5_Akmx",
+      "graphName": "AI-completion/generateStoryBeat",
+      "nodeId": "XUTYGs4FkduoGl9h49v6h",
+      "nodeTitle": "Expression - last field",
+      "nodeType": "expression",
+      "processId": "nn5PyYIfO3SGkDVD1bEG7",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.7941999999998188,
+      "graphId": "f2hcG8KFEiq06uN5_Akmx",
+      "graphName": "AI-completion/generateStoryBeat",
+      "nodeId": "nwTwwoV0tDgp1gvB97AK-",
+      "nodeTitle": "Get Global",
+      "nodeType": "getGlobal",
+      "processId": "t5gIV6gu0T8JFZPCQsRXV",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.785799999999881,
+      "graphId": "CkhdNzz-3jQ3vXNd2LziX",
+      "graphName": "getters/getScenes",
+      "nodeId": "mEKtTYbXmTGv8xv24rGfh",
+      "nodeTitle": "Expression - current scene",
+      "nodeType": "expression",
+      "processId": "XjZOFZXfbicadD6MsahnE",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.7849999999998545,
+      "graphId": "CkhdNzz-3jQ3vXNd2LziX",
+      "graphName": "getters/getScenes",
+      "nodeId": "zl3EFnYoUK_O8_JESE_3s",
+      "nodeTitle": "Expression - next scene",
+      "nodeType": "expression",
+      "processId": "OaBhLLkowky1FCKLcXYGw",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.7735999999999876,
+      "graphId": "f2hcG8KFEiq06uN5_Akmx",
+      "graphName": "AI-completion/generateStoryBeat",
+      "nodeId": "krI9ziqz7x14zJk4s7Wdt",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "Q5IWD3YuWM8oY7CN7yRv3",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.7683999999999287,
+      "graphId": "f2hcG8KFEiq06uN5_Akmx",
+      "graphName": "AI-completion/generateStoryBeat",
+      "nodeId": "S2qNgnmFsAmlZP0tH1S7Q",
+      "nodeTitle": "Object",
+      "nodeType": "object",
+      "processId": "SfuirVnGr3WPHMDwY3nG5",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.7093999999999596,
+      "graphId": "7wRcxgKBiQZY9aH8jkpgi",
+      "graphName": "routines/maybeSummarizePrevScene",
+      "nodeId": "ybIB1UsWcdh7PitsP9Ntg",
+      "nodeTitle": "Expression - scene Summaries",
+      "nodeType": "expression",
+      "processId": "Wgld5n00HsZY2LX3fgdj0",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.7083000000000084,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "nodeId": "vqKTJznK0wFq-XvNhR1wx",
+      "nodeTitle": "Extract Object Path",
+      "nodeType": "extractObjectPath",
+      "processId": "25UfPfkeb9Wz0-PiW7981",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.7047000000000025,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "nodeId": "Rw5iiLX3pOK5fcPDVbmgl",
+      "nodeTitle": "Extract Object Path",
+      "nodeType": "extractObjectPath",
+      "processId": "GOBU1zbZlG81rfH7DGPyn",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.631099999999833,
+      "graphId": "GkMPgfe3akOzxEzDxTnaY",
+      "graphName": "getters/getSceneIDs",
+      "nodeId": "gTqFTcYZXXYgWwGyDOZoh",
+      "nodeTitle": "Expression - all scene ids",
+      "nodeType": "expression",
+      "processId": "ukaotSWtKxxE4E_vrk-6J",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.6292000000000826,
+      "graphId": "GkMPgfe3akOzxEzDxTnaY",
+      "graphName": "getters/getSceneIDs",
+      "nodeId": "8ErTo5w1ay7d-WFtgMnAX",
+      "nodeTitle": "Expression - current Scene Id",
+      "nodeType": "expression",
+      "processId": "ENS9OrJOfXX1GL4-GpM3y",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.6177000000000135,
+      "graphId": "zopUlAYWHabtzxNm3lqsg",
+      "graphName": "getters/getAllCharacterIDs",
+      "nodeId": "7-WWu830fGqCH01mZJukK",
+      "nodeTitle": "Code",
+      "nodeType": "codeNew",
+      "processId": "oHRrKpqF1-J0MiaLwHx8u",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.6054999999998927,
+      "graphId": "RscR69jZaptNHfxw9GlyU",
+      "graphName": "routines/maybeAddEpilogue",
+      "nodeId": "zp7KMOwAoJwZYtfWuTa0v",
+      "nodeTitle": "Code - is story completed",
+      "nodeType": "codeNew",
+      "processId": "MoMe9-8EGmkmPcGwlJ3CZ",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.5958000000000538,
+      "graphId": "CkhdNzz-3jQ3vXNd2LziX",
+      "graphName": "getters/getScenes",
+      "nodeId": "DrA3rDhsvZF__zCbk1Nh5",
+      "nodeTitle": "Extract Object Path",
+      "nodeType": "extractObjectPath",
+      "processId": "oBPS2gF3JuiarQI6ttTWb",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.5817999999999302,
+      "graphId": "CkhdNzz-3jQ3vXNd2LziX",
+      "graphName": "getters/getScenes",
+      "nodeId": "fTAwMH82cmgmZ6t9JeASJ",
+      "nodeTitle": "Extract Object Path",
+      "nodeType": "extractObjectPath",
+      "processId": "P95XcbtDff12G-NQyKC6D",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.5729000000001179,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "nodeId": "yqtBeOqdsExlDUYvXvhym",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "K9stq4tPSXnlBqY7JqtHd",
+      "splitDurationMs": 0.48460000000000036
+    },
+    {
+      "durationMs": 0.5498000000000047,
+      "graphId": "29f17ff8-3aa4-4294-8a92-13116d5a8a9b",
+      "graphName": "Main Graph",
+      "nodeId": "R-Aebrn1skSQcJpOnUhwS",
+      "nodeTitle": "Object - test",
+      "nodeType": "object",
+      "processId": "djLM2lhbQK-CLdWtDDI5H",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.5390999999999622,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "nodeId": "r_e_mU2KZglfS_o4pzHfx",
+      "nodeTitle": "Array",
+      "nodeType": "array",
+      "processId": "w00a0MNDW4Ihqctqxq05-",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.5290999999999713,
+      "graphId": "IVmVkPNkzf6WLztqkj7TI",
+      "graphName": "routines/lines2schema",
+      "nodeId": "il5fm_cM01pxooIE2oJ1d",
+      "nodeTitle": "Expression",
+      "nodeType": "expression",
+      "processId": "CP9MslSgAcPKUe8funUo8",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.5013000000001284,
+      "graphId": "OwidTgXa48n-OFTzszcCe",
+      "graphName": "routines/assembleResponse",
+      "nodeId": "ESNHjBf1clL8WWuz5YYZQ",
+      "nodeTitle": "Code - maybe add NPC events",
+      "nodeType": "codeNew",
+      "processId": "PFUHbCbrA36E5MM3eoW_E",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.49720000000002074,
+      "graphId": "nbxMMKghCNZLjJqoG1oUe",
+      "graphName": "getters/getConversationHistory",
+      "nodeId": "DqxJ7Ijo6kPtRgCrV1w0D",
+      "nodeTitle": "Code - filter out last scene message units",
+      "nodeType": "codeNew",
+      "processId": "RrYwuq0ZDCzSZu2jLqSNq",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.48090000000001965,
+      "graphId": "CkhdNzz-3jQ3vXNd2LziX",
+      "graphName": "getters/getScenes",
+      "nodeId": "uO0O76EzhqwEc4xCxFHQy",
+      "nodeTitle": "Destructure",
+      "nodeType": "destructure",
+      "processId": "Z-zwdmfpRgmatZQngU5Y-",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.47870000000011714,
+      "graphId": "CkhdNzz-3jQ3vXNd2LziX",
+      "graphName": "getters/getScenes",
+      "nodeId": "BCDKAPiGl8wiJNTn0wpVI",
+      "nodeTitle": "Destructure",
+      "nodeType": "destructure",
+      "processId": "d3HvHgXXbiOTTDOlbKbcr",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.47109999999997854,
+      "graphId": "kHRgoPs_MP7uMlMPv6-0x",
+      "graphName": "routines/setGlobals",
+      "nodeId": "PhjjsyMhY0sD2-y1sJ8G6",
+      "nodeTitle": "Expression - Set storyteller id to storyteller units",
+      "nodeType": "expression",
+      "processId": "tcuWxSz2bCg79eWFV9W01",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.4678999999998723,
+      "graphId": "CkhdNzz-3jQ3vXNd2LziX",
+      "graphName": "getters/getScenes",
+      "nodeId": "3ED_KPmuC78AhHXMC5GuE",
+      "nodeTitle": "Get Global",
+      "nodeType": "getGlobal",
+      "processId": "G8rmyRR6UqyH84l7ngZc6",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.46100000000001273,
+      "graphId": "CkhdNzz-3jQ3vXNd2LziX",
+      "graphName": "getters/getScenes",
+      "nodeId": "uxbuH_0FXLC5Csftv2F3l",
+      "nodeTitle": "Get Global",
+      "nodeType": "getGlobal",
+      "processId": "WCfiIWtJgmf-DaJs89ELr",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.45460000000002765,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "nodeId": "txhazCzRn6agsVqtTbU4v",
+      "nodeTitle": "Get Global",
+      "nodeType": "getGlobal",
+      "processId": "ithVDUmH7a6uBHgFivgFa",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.44020000000000437,
+      "graphId": "kHRgoPs_MP7uMlMPv6-0x",
+      "graphName": "routines/setGlobals",
+      "nodeId": "5WsIJxorbRv6sIdfLdjJg",
+      "nodeTitle": "Set Global",
+      "nodeType": "setGlobal",
+      "processId": "tUqRAx4yQlefmXwkVI5Mb",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.4113999999999578,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "nodeId": "nFvPWz2wcqNuQ-vtYbfX2",
+      "nodeTitle": "Expression",
+      "nodeType": "expression",
+      "processId": "XMB-dIXqwYkcKGUNIwDdU",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.40970000000015716,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "nodeId": "aAr9rhBTpZk1mo3sdb_fO",
+      "nodeTitle": "Destructure",
+      "nodeType": "destructure",
+      "processId": "rQ3rs8Gd9oEtObPGaNg97",
+      "splitDurationMs": 0.37770000000023174
+    },
+    {
+      "durationMs": 0.4090000000001055,
+      "graphId": "7wRcxgKBiQZY9aH8jkpgi",
+      "graphName": "routines/maybeSummarizePrevScene",
+      "nodeId": "CKgTxcPXiec6ZD6q1EkEV",
+      "nodeTitle": "Abort Graph",
+      "nodeType": "abortGraph",
+      "processId": "u-8u-s_UMTsTKYiFPpJRF",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.4076000000000022,
+      "graphId": "nbxMMKghCNZLjJqoG1oUe",
+      "graphName": "getters/getConversationHistory",
+      "nodeId": "GWyAbHMKchZwjAvYk7NyD",
+      "nodeTitle": "Expression",
+      "nodeType": "expression",
+      "processId": "VRovAoECU3D8muMJXAzuu",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.40469999999982065,
+      "graphId": "nbxMMKghCNZLjJqoG1oUe",
+      "graphName": "getters/getConversationHistory",
+      "nodeId": "XUYYj09MQ0dObwwO6bOgM",
+      "nodeTitle": "Expression - format messages",
+      "nodeType": "expression",
+      "processId": "zGRkneEIDB0SjSIATmWmy",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.40300000000002,
+      "graphId": "OwidTgXa48n-OFTzszcCe",
+      "graphName": "routines/assembleResponse",
+      "nodeId": "YS5FDmk4Gs06m7lwa8mh0",
+      "nodeTitle": "Code - add \"token_usage\"",
+      "nodeType": "codeNew",
+      "processId": "9VYLnMYDaLVi21mF4UeA-",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.3832999999999629,
+      "graphId": "CkhdNzz-3jQ3vXNd2LziX",
+      "graphName": "getters/getScenes",
+      "nodeId": "BCDKAPiGl8wiJNTn0wpVI",
+      "nodeTitle": "Destructure",
+      "nodeType": "destructure",
+      "processId": "fTMmgGN-xxMByjVU0k4oc",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.3829000000000633,
+      "graphId": "CkhdNzz-3jQ3vXNd2LziX",
+      "graphName": "getters/getScenes",
+      "nodeId": "uO0O76EzhqwEc4xCxFHQy",
+      "nodeTitle": "Destructure",
+      "nodeType": "destructure",
+      "processId": "6uJnf2jPf1rz_YayCocTt",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.38279999999986103,
+      "graphId": "f2hcG8KFEiq06uN5_Akmx",
+      "graphName": "AI-completion/generateStoryBeat",
+      "nodeId": "WpX-PpCwEWlIM5PtTTbob",
+      "nodeTitle": "Destructure",
+      "nodeType": "destructure",
+      "processId": "NF0hPtjZEpvldU3-ckSVH",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.38229999999998654,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "QTlPTL5PsEPaj2gszF7fP",
+      "nodeTitle": "Graph Input",
+      "nodeType": "graphInput",
+      "processId": "aD5UJZiLqjpYdfdOxZi_Q",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.3806999999999334,
+      "graphId": "7wRcxgKBiQZY9aH8jkpgi",
+      "graphName": "routines/maybeSummarizePrevScene",
+      "nodeId": "aHW93KGwUb--o4egsQbCN",
+      "nodeTitle": "Bool",
+      "nodeType": "boolean",
+      "processId": "c3db9g0EowVZjqStpua7R",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.3684000000000651,
+      "graphId": "OwidTgXa48n-OFTzszcCe",
+      "graphName": "routines/assembleResponse",
+      "nodeId": "ay_KLhgSBnzoTyELmeeHK",
+      "nodeTitle": "Code - Reformat messages to backend-native format",
+      "nodeType": "codeNew",
+      "processId": "ego69fDbfiVD2d_Az-zQl",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.3636999999998807,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "nodeId": "s_kjI6HZ7K2ntEAc_o52I",
+      "nodeTitle": "Array",
+      "nodeType": "array",
+      "processId": "0ldrKhXeclPGql8jb73iK",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.3636999999998807,
+      "graphId": "Ua-DgqU7T4qut9Ct53BjV",
+      "graphName": "AI-completion/generateMessages",
+      "nodeId": "farb8UH6o9FKRi-BZEcaS",
+      "nodeTitle": "Expression",
+      "nodeType": "expression",
+      "processId": "LlcanbDnbElx6WCVBpNn5",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.36230000000000473,
+      "graphId": "GkMPgfe3akOzxEzDxTnaY",
+      "graphName": "getters/getSceneIDs",
+      "nodeId": "UHUacZNgyqYCptjaIZkQG",
+      "nodeTitle": "Expression - last previous scene id",
+      "nodeType": "expression",
+      "processId": "W-DgWUZOapgNriYAeaTMN",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.35649999999986903,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "nodeId": "aAr9rhBTpZk1mo3sdb_fO",
+      "nodeTitle": "Destructure",
+      "nodeType": "destructure",
+      "processId": "g1tsoMg2S7uz1e7EkE64Q",
+      "splitDurationMs": 0.3130999999998494
+    },
+    {
+      "durationMs": 0.3424999999999727,
+      "graphId": "GkMPgfe3akOzxEzDxTnaY",
+      "graphName": "getters/getSceneIDs",
+      "nodeId": "vet0dvWQlSQvZswzDFp88",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "MS0yPF6mMFbA3DWnscVI7",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.3409999999998945,
+      "graphId": "GkMPgfe3akOzxEzDxTnaY",
+      "graphName": "getters/getSceneIDs",
+      "nodeId": "o7nMRHPr3mO5MdGQBeWDW",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "skGF8Kkfe1hvBxBVRu3kM",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.33920000000011896,
+      "graphId": "7wRcxgKBiQZY9aH8jkpgi",
+      "graphName": "routines/maybeSummarizePrevScene",
+      "nodeId": "Gf-5HLDC7ifrBVaAY5OGT",
+      "nodeTitle": "Expression - need to summarize?",
+      "nodeType": "expression",
+      "processId": "c-Km5a5XBciTEc5seFoTP",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.33029999999985193,
+      "graphId": "OwidTgXa48n-OFTzszcCe",
+      "graphName": "routines/assembleResponse",
+      "nodeId": "VvvHZCVKA78ccBK4YfgV_",
+      "nodeTitle": "Code - update state context",
+      "nodeType": "codeNew",
+      "processId": "Xxgw_-bkH0xYiBffSd7HP",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.3230999999998403,
+      "graphId": "nbxMMKghCNZLjJqoG1oUe",
+      "graphName": "getters/getConversationHistory",
+      "nodeId": "0yO5ALK8hAHJw8lwmDU6M",
+      "nodeTitle": "Get Global",
+      "nodeType": "getGlobal",
+      "processId": "GU74yNNIdSPTxGXMvBgtN",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.32130000000006476,
+      "graphId": "7wRcxgKBiQZY9aH8jkpgi",
+      "graphName": "routines/maybeSummarizePrevScene",
+      "nodeId": "n3hJin71oTPraYLxv1NFs",
+      "nodeTitle": "Passthrough - lastPrevSceneId",
+      "nodeType": "passthrough",
+      "processId": "9y8C_NZgsrCMbXq2tvX14",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.32110000000011496,
+      "graphId": "nbxMMKghCNZLjJqoG1oUe",
+      "graphName": "getters/getConversationHistory",
+      "nodeId": "j9AfbwhU2zx1H_pj0Qw42",
+      "nodeTitle": "Get Global",
+      "nodeType": "getGlobal",
+      "processId": "MS4QXjorUaNc-m_R0mbWN",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.31780000000003383,
+      "graphId": "OwidTgXa48n-OFTzszcCe",
+      "graphName": "routines/assembleResponse",
+      "nodeId": "4b-k8PFryuhvlGvebuL4W",
+      "nodeTitle": "Get Global",
+      "nodeType": "getGlobal",
+      "processId": "Y2clVBveCko0ep2Clo16L",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.31529999999997926,
+      "graphId": "HAn8daeFYK-OK-zAi7tvm",
+      "graphName": "graphQL/getUnits",
+      "nodeId": "xQxwi63PFXRg0nGDM1Re5",
+      "nodeTitle": "Text - GraphQL query",
+      "nodeType": "text",
+      "processId": "vK3KWoxLVL1COLfE-ZGgL",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.31330000000002656,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "nodeId": "nFvPWz2wcqNuQ-vtYbfX2",
+      "nodeTitle": "Expression",
+      "nodeType": "expression",
+      "processId": "c1dib1U9dl-MUu9O8h3cP",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.3106000000000222,
+      "graphId": "kHRgoPs_MP7uMlMPv6-0x",
+      "graphName": "routines/setGlobals",
+      "nodeId": "ZR-1mY8vlUnmnUlfeO3Dw",
+      "nodeTitle": "Set Global",
+      "nodeType": "setGlobal",
+      "processId": "zN6q9SXM7cFUShvDyJoQ5",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.3103000000000975,
+      "graphId": "HAn8daeFYK-OK-zAi7tvm",
+      "graphName": "graphQL/getUnits",
+      "nodeId": "3v2x9vCAeDB86AP6wTJVW",
+      "nodeTitle": "Graph Input",
+      "nodeType": "graphInput",
+      "processId": "e2Q6FaX6Y18P-jMnt27qq",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.3025000000000091,
+      "graphId": "CkhdNzz-3jQ3vXNd2LziX",
+      "graphName": "getters/getScenes",
+      "nodeId": "fTAwMH82cmgmZ6t9JeASJ",
+      "nodeTitle": "Extract Object Path",
+      "nodeType": "extractObjectPath",
+      "processId": "BvhEkmSk6_-8lCxMOsU0d",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.30189999999993233,
+      "graphId": "CkhdNzz-3jQ3vXNd2LziX",
+      "graphName": "getters/getScenes",
+      "nodeId": "DrA3rDhsvZF__zCbk1Nh5",
+      "nodeTitle": "Extract Object Path",
+      "nodeType": "extractObjectPath",
+      "processId": "Eqf4FvbnDAmuGCpcbKqSG",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.2960000000000491,
+      "graphId": "OwidTgXa48n-OFTzszcCe",
+      "graphName": "routines/assembleResponse",
+      "nodeId": "gwU3CfE8OCnevelb5WdUH",
+      "nodeTitle": "Code - maybe add StageCompleted event",
+      "nodeType": "codeNew",
+      "processId": "6BkwDMEk-NTwQ0z8XQQhE",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.28749999999990905,
+      "graphId": "29f17ff8-3aa4-4294-8a92-13116d5a8a9b",
+      "graphName": "Main Graph",
+      "nodeId": "_iPxZKI3fjNkKI462TE86",
+      "nodeTitle": "Graph Input",
+      "nodeType": "graphInput",
+      "processId": "B6FQIo5VDKp22_NTq_weN",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.2861000000000331,
+      "graphId": "7wRcxgKBiQZY9aH8jkpgi",
+      "graphName": "routines/maybeSummarizePrevScene",
+      "nodeId": "Ml3cZY8ansWmgXAnVFZ3z",
+      "nodeTitle": "Expression - no need to summarize",
+      "nodeType": "expression",
+      "processId": "XiFZUCeI907QGxGJ7xtpq",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.2799999999999727,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "nodeId": "yqtBeOqdsExlDUYvXvhym",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "dIqmTrbgwxRu1S-SjMsgK",
+      "splitDurationMs": 0.24420000000031905
+    },
+    {
+      "durationMs": 0.26310000000012224,
+      "graphId": "GkMPgfe3akOzxEzDxTnaY",
+      "graphName": "getters/getSceneIDs",
+      "nodeId": "V9tBNkeer4abrMBo4dKjV",
+      "nodeTitle": "Extract Object Path",
+      "nodeType": "extractObjectPath",
+      "processId": "UYz0yblHeEXi1G8io2Tl2",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.26299999999991996,
+      "graphId": "GkMPgfe3akOzxEzDxTnaY",
+      "graphName": "getters/getSceneIDs",
+      "nodeId": "lTY--toNOzp_UXxAsjny6",
+      "nodeTitle": "Extract Object Path",
+      "nodeType": "extractObjectPath",
+      "processId": "uc1yiAJp6YnzxaCj3XyT9",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.2518000000000029,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "nodeId": "yqtBeOqdsExlDUYvXvhym",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "YwGwyoiNe8FRejtYIdiKr",
+      "splitDurationMs": 0.22630000000026484
+    },
+    {
+      "durationMs": 0.23299999999994725,
+      "graphId": "nbxMMKghCNZLjJqoG1oUe",
+      "graphName": "getters/getConversationHistory",
+      "nodeId": "eyJ5uXMCn-PPQP_r6UZMW",
+      "nodeTitle": "Coalesce",
+      "nodeType": "coalesce",
+      "processId": "ldp1aBUABhWH5Ug3gzaC3",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.23109999999996944,
+      "graphId": "Ua-DgqU7T4qut9Ct53BjV",
+      "graphName": "AI-completion/generateMessages",
+      "nodeId": "UQmYBJer4pRKt30pMdlyI",
+      "nodeTitle": "Coalesce",
+      "nodeType": "coalesce",
+      "processId": "tvTwz0vSJuY4U1gadsbUi",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.2278000000001157,
+      "graphId": "jvLovJmhVUdFtDHrLNhVF",
+      "graphName": "routines/buildMessagesSchema",
+      "nodeId": "l3tmrIDV57Vk0ykYXCTAn",
+      "nodeTitle": "Object - Response format",
+      "nodeType": "object",
+      "processId": "tOS5jF7VTNjp1t8Y_rXXG",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.22759999999993852,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "FuDzUGCsK6zzFNTFV8Hsc",
+      "nodeTitle": "Destructure",
+      "nodeType": "destructure",
+      "processId": "SZ6egypmMP1O47K6SI2Ao",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.22660000000018954,
+      "graphId": "HAn8daeFYK-OK-zAi7tvm",
+      "graphName": "graphQL/getUnits",
+      "nodeId": "ZMSK9ajXu6VP5RvyILjSA",
+      "nodeTitle": "Object - request body",
+      "nodeType": "object",
+      "processId": "EzpvvwjhDDIC2Qq4tBpto",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.22530000000006112,
+      "graphId": "jvLovJmhVUdFtDHrLNhVF",
+      "graphName": "routines/buildMessagesSchema",
+      "nodeId": "zTVfgMtRZ4iFAh7xx0VWy",
+      "nodeTitle": "Random number",
+      "nodeType": "randomNumber",
+      "processId": "JtmWfxUWPzDaIWfXTgBr5",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.22060000000010405,
+      "graphId": "nbxMMKghCNZLjJqoG1oUe",
+      "graphName": "getters/getConversationHistory",
+      "nodeId": "8uspe_CUyrHfr_SMpnmNj",
+      "nodeTitle": "Extract Object Path",
+      "nodeType": "extractObjectPath",
+      "processId": "_DhyqVZDTdGoJ2YuvoP6R",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.21870000000012624,
+      "graphId": "7oXbm2QvWJst3LVgIcdsD",
+      "graphName": "getters/getCharacterObjects",
+      "nodeId": "AhUQ-ajs1FKZdCXxW9s3c",
+      "nodeTitle": "Array",
+      "nodeType": "array",
+      "processId": "5Gbnj-H7-khqbwliuA2Tb",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.21770000000014988,
+      "graphId": "IVmVkPNkzf6WLztqkj7TI",
+      "graphName": "routines/lines2schema",
+      "nodeId": "k7YKeHq7Xq7HzFlLmxQwk",
+      "nodeTitle": "Graph Input",
+      "nodeType": "graphInput",
+      "processId": "pVsf1IJaKvaBcXhxw-jLj",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.21030000000018845,
+      "graphId": "f2hcG8KFEiq06uN5_Akmx",
+      "graphName": "AI-completion/generateStoryBeat",
+      "nodeId": "69REkmX7WM6shfrVK8iFw",
+      "nodeTitle": "Assemble Prompt",
+      "nodeType": "assemblePrompt",
+      "processId": "MvL1UPb5trXn9RTt1hDBs",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.2037000000000262,
+      "graphId": "f2hcG8KFEiq06uN5_Akmx",
+      "graphName": "AI-completion/generateStoryBeat",
+      "nodeId": "7_Seoe54U5HknedS7Nap3",
+      "nodeTitle": "Prompt - story",
+      "nodeType": "prompt",
+      "processId": "hyYG7iRoULXtmxAs9n9Xh",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.20219999999994798,
+      "graphId": "HAn8daeFYK-OK-zAi7tvm",
+      "graphName": "graphQL/getUnits",
+      "nodeId": "BQ8ceru-InF-imL0Cn0MJ",
+      "nodeTitle": "Object - headers",
+      "nodeType": "object",
+      "processId": "OXlEfkyDs6kv0kqaT0XMF",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.20049999999991996,
+      "graphId": "HAn8daeFYK-OK-zAi7tvm",
+      "graphName": "graphQL/getUnits",
+      "nodeId": "8e2FqNXeGkaSLo_OkEGbN",
+      "nodeTitle": "Text - url",
+      "nodeType": "text",
+      "processId": "RsKIns1hBdL5VGrL3qi9Z",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.1932000000001608,
+      "graphId": "CkhdNzz-3jQ3vXNd2LziX",
+      "graphName": "getters/getScenes",
+      "nodeId": "mEKtTYbXmTGv8xv24rGfh",
+      "nodeTitle": "Expression - current scene",
+      "nodeType": "expression",
+      "processId": "VTfsvdkYw_1BzwmazVjne",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.19290000000000873,
+      "graphId": "CkhdNzz-3jQ3vXNd2LziX",
+      "graphName": "getters/getScenes",
+      "nodeId": "zl3EFnYoUK_O8_JESE_3s",
+      "nodeTitle": "Expression - next scene",
+      "nodeType": "expression",
+      "processId": "JHV-3agyM0aY8trntP6tt",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.18650000000002365,
+      "graphId": "RscR69jZaptNHfxw9GlyU",
+      "graphName": "routines/maybeAddEpilogue",
+      "nodeId": "ag9_0DeIhpvhya2fpTK3F",
+      "nodeTitle": "Abort Graph",
+      "nodeType": "abortGraph",
+      "processId": "wsBf6eBFvIB-b-UJGFAQ6",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.1851000000001477,
+      "graphId": "nbxMMKghCNZLjJqoG1oUe",
+      "graphName": "getters/getConversationHistory",
+      "nodeId": "XUYYj09MQ0dObwwO6bOgM",
+      "nodeTitle": "Expression - format messages",
+      "nodeType": "expression",
+      "processId": "-UfZKkr4v9IUEItSfMlGz",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.17460000000005493,
+      "graphId": "7oXbm2QvWJst3LVgIcdsD",
+      "graphName": "getters/getCharacterObjects",
+      "nodeId": "BDVZezGZAkLExdpoX5Ejb",
+      "nodeTitle": "Get Global",
+      "nodeType": "getGlobal",
+      "processId": "ttHyr0e2G4HtUh0mJCxmV",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.16919999999981883,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "nodeId": "9UNtff_4hGYVooGi7KqId",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "ElEcFvgVcDdGzMsc0v8xU",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.15869999999995343,
+      "graphId": "7oXbm2QvWJst3LVgIcdsD",
+      "graphName": "getters/getCharacterObjects",
+      "nodeId": "6AKuLwvGE2LzFcpN8TfzI",
+      "nodeTitle": "Extract Object Path",
+      "nodeType": "extractObjectPath",
+      "processId": "OBLb1LS2-uWTj-RVMEbPc",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.15609999999992397,
+      "graphId": "7oXbm2QvWJst3LVgIcdsD",
+      "graphName": "getters/getCharacterObjects",
+      "nodeId": "GWpYs3tvEc2gf5V2drNWB",
+      "nodeTitle": "Extract Object Path",
+      "nodeType": "extractObjectPath",
+      "processId": "6GKdCyxdKPKXClXO2UVeo",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.15530000000012478,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "nodeId": "nFvPWz2wcqNuQ-vtYbfX2",
+      "nodeTitle": "Expression",
+      "nodeType": "expression",
+      "processId": "vgt-rtyIVRtv1au_c2a-l",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.15429999999992106,
+      "graphId": "7wRcxgKBiQZY9aH8jkpgi",
+      "graphName": "routines/maybeSummarizePrevScene",
+      "nodeId": "dV-i2fgIFHxxZ3E-9LJva",
+      "nodeTitle": "Get Global",
+      "nodeType": "getGlobal",
+      "processId": "ZawecSom7qaT4FjAOAamA",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.15390000000002146,
+      "graphId": "wqHcnBsv-qMnOdJ57c0ol",
+      "graphName": "graphQL/getApiUrlAndToken",
+      "nodeId": "VB69PnzpYUwRQIkhVRSkA",
+      "nodeTitle": "Extract JSON",
+      "nodeType": "extractJson",
+      "processId": "uv9b-DJ7OFcwxKNc8oBae",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.15350000000012187,
+      "graphId": "Ua-DgqU7T4qut9Ct53BjV",
+      "graphName": "AI-completion/generateMessages",
+      "nodeId": "knDMej0qh15Jey4fNAjmo",
+      "nodeTitle": "Match",
+      "nodeType": "match",
+      "processId": "9S2ReP5QqbaSWYE--IDps",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.15160000000014406,
+      "graphId": "Ua-DgqU7T4qut9Ct53BjV",
+      "graphName": "AI-completion/generateMessages",
+      "nodeId": "GJkwP6V4cgxDGoX6syGEW",
+      "nodeTitle": "Graph Input",
+      "nodeType": "graphInput",
+      "processId": "c34ysicVtXYQm1DsTXT9R",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.15030000000001564,
+      "graphId": "Ua-DgqU7T4qut9Ct53BjV",
+      "graphName": "AI-completion/generateMessages",
+      "nodeId": "H34XEImSSdLIy1hiUBFax",
+      "nodeTitle": "Graph Input",
+      "nodeType": "graphInput",
+      "processId": "BuSZXDbS_EKgMrhkDYKn5",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.14779999999996107,
+      "graphId": "nbxMMKghCNZLjJqoG1oUe",
+      "graphName": "getters/getConversationHistory",
+      "nodeId": "0yO5ALK8hAHJw8lwmDU6M",
+      "nodeTitle": "Get Global",
+      "nodeType": "getGlobal",
+      "processId": "jTrJW7z-gX4b2f7b4FlzJ",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.14689999999995962,
+      "graphId": "nbxMMKghCNZLjJqoG1oUe",
+      "graphName": "getters/getConversationHistory",
+      "nodeId": "j9AfbwhU2zx1H_pj0Qw42",
+      "nodeTitle": "Get Global",
+      "nodeType": "getGlobal",
+      "processId": "oVij8bP6El1PSqYi-R-z9",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.1454999999998563,
+      "graphId": "7wRcxgKBiQZY9aH8jkpgi",
+      "graphName": "routines/maybeSummarizePrevScene",
+      "nodeId": "smvWY5xbTIOkUKEDCEx22",
+      "nodeTitle": "Expression - scene summaries",
+      "nodeType": "expression",
+      "processId": "2rziTvr4b_gCnA0cdMaUu",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.14469999999982974,
+      "graphId": "7wRcxgKBiQZY9aH8jkpgi",
+      "graphName": "routines/maybeSummarizePrevScene",
+      "nodeId": "QkjTVF7SujuQrq5isLN2N",
+      "nodeTitle": "Text - prompt",
+      "nodeType": "text",
+      "processId": "LGgKINKp2jBN44e79kU60",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.14289999999982683,
+      "graphId": "7nRRjXEKHdyA5Mn3Q5boI",
+      "graphName": "AI-completion/translateStoryBeat_nonLLM",
+      "nodeId": "h0OcJvYNfVXLqkEyVTGSZ",
+      "nodeTitle": "Graph Input",
+      "nodeType": "graphInput",
+      "processId": "ubMCXM8WVH78GF9gP4Dvi",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.14289999999982683,
+      "graphId": "7nRRjXEKHdyA5Mn3Q5boI",
+      "graphName": "AI-completion/translateStoryBeat_nonLLM",
+      "nodeId": "DwaLSOIbKtrGkocJPglfY",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "_1PYLluCLYGFiTkSTkQpP",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.13609999999994216,
+      "graphId": "RscR69jZaptNHfxw9GlyU",
+      "graphName": "routines/maybeAddEpilogue",
+      "nodeId": "eVkXErUdmTAklxKL66ZhJ",
+      "nodeTitle": "Expression - no need for epilogue",
+      "nodeType": "expression",
+      "processId": "FtNxyUDbECJxx3nzwwSHB",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.13200000000006185,
+      "graphId": "Ua-DgqU7T4qut9Ct53BjV",
+      "graphName": "AI-completion/generateMessages",
+      "nodeId": "fx24HL4-YHOG-kkgt857b",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "KLPWhiIvz-AlggLOccpWF",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.1290999999998803,
+      "graphId": "CkhdNzz-3jQ3vXNd2LziX",
+      "graphName": "getters/getScenes",
+      "nodeId": "fcD051YZH1Ns1mJdMXk09",
+      "nodeTitle": "Expression - current scene index",
+      "nodeType": "expression",
+      "processId": "nFRqmTQwZudj3isV3dwUN",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.1270999999999276,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "nodeId": "s_kjI6HZ7K2ntEAc_o52I",
+      "nodeTitle": "Array",
+      "nodeType": "array",
+      "processId": "xFPTgUDnq-5yiJe9R9avf",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.12419999999997344,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "0Y5yXc0NYTx5ZmMm8RINu",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "IEnB7UEEw_G5B-8OGlXMo",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.12380000000007385,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "nodeId": "9UNtff_4hGYVooGi7KqId",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "cEzrll9-nU5PQ8P_gKOQL",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.1230000000000473,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "QXN-Sna61iRbuyd0gYnbf",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "81UjBFq0dI8F1lvEzlXJF",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.12239999999997053,
+      "graphId": "RscR69jZaptNHfxw9GlyU",
+      "graphName": "routines/maybeAddEpilogue",
+      "nodeId": "t71g4-uqbNbV8IFzVe6Eb",
+      "nodeTitle": "Get Global",
+      "nodeType": "getGlobal",
+      "processId": "gKU-RI95oYPyL_TPH45pr",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.12200000000007094,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "nodeId": "s_kjI6HZ7K2ntEAc_o52I",
+      "nodeTitle": "Array",
+      "nodeType": "array",
+      "processId": "BqeSza6wJsVH8mvvuWC9y",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.12180000000012114,
+      "graphId": "Ua-DgqU7T4qut9Ct53BjV",
+      "graphName": "AI-completion/generateMessages",
+      "nodeId": "uFQV295iQ2LEO2daiVEmJ",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "giL1D7VVKsU5Na-5cQuBT",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.12179999999989377,
+      "graphId": "wqHcnBsv-qMnOdJ57c0ol",
+      "graphName": "graphQL/getApiUrlAndToken",
+      "nodeId": "13BZXztmjEPSj-yUN8mx9",
+      "nodeTitle": "Object",
+      "nodeType": "object",
+      "processId": "bI5wfbwUoqMUsZLUzE7z1",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.11520000000018626,
+      "graphId": "IVmVkPNkzf6WLztqkj7TI",
+      "graphName": "routines/lines2schema",
+      "nodeId": "B11qNyXdKQEFVdbJI6RSo",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "7_-ck1IQF4jKzbmStuAbV",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.11320000000000618,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "nodeId": "O_DBfydQOBM5lhR4ppje1",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "wO3M_6WXeyfwPq4s5uJQQ",
+      "splitDurationMs": 0.0953999999996995
+    },
+    {
+      "durationMs": 0.11230000000000473,
+      "graphId": "wqHcnBsv-qMnOdJ57c0ol",
+      "graphName": "graphQL/getApiUrlAndToken",
+      "nodeId": "bQWg-VfpJki_y91JABtRi",
+      "nodeTitle": "Comment",
+      "nodeType": "comment",
+      "processId": "nkrYTEIV2pNOxPmaOiqxY",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.11079999999992651,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "nodeId": "9UNtff_4hGYVooGi7KqId",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "uBUMgJV6iBttDZ_SNVr32",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.10829999999987194,
+      "graphId": "f2hcG8KFEiq06uN5_Akmx",
+      "graphName": "AI-completion/generateStoryBeat",
+      "nodeId": "q4kDji_0lKu2bCXjD8_4O",
+      "nodeTitle": "Extract Object Path",
+      "nodeType": "extractObjectPath",
+      "processId": "bnrBvy6F2ulvurcm3XZw_",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.10819999999989705,
+      "graphId": "7oXbm2QvWJst3LVgIcdsD",
+      "graphName": "getters/getCharacterObjects",
+      "nodeId": "MZbiZNU3RUr5QQEuu5Ww2",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "u4XzCyGFAmwIUeRYpYgQi",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.1068000000000211,
+      "graphId": "CkhdNzz-3jQ3vXNd2LziX",
+      "graphName": "getters/getScenes",
+      "nodeId": "okIqx9HJdmC3GlcjVnJxQ",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "y8D9kXhoi9t2ySIt504F4",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.1047000000000935,
+      "graphId": "CkhdNzz-3jQ3vXNd2LziX",
+      "graphName": "getters/getScenes",
+      "nodeId": "QUSCsdIquY1yIpJjjnpJW",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "eA6nrxYl5LNM-3RPer5cp",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.10469999999986612,
+      "graphId": "CkhdNzz-3jQ3vXNd2LziX",
+      "graphName": "getters/getScenes",
+      "nodeId": "eFFn4dFojTLB5110YqWdk",
+      "nodeTitle": "Coalesce",
+      "nodeType": "coalesce",
+      "processId": "Tnx_VqJHs_TWWrLh7qZMo",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.10419999999999163,
+      "graphId": "CkhdNzz-3jQ3vXNd2LziX",
+      "graphName": "getters/getScenes",
+      "nodeId": "KARuwzkRiJp65ZyYn_uHj",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "ovJAS_tIgkVFxiBpseX31",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.10419999999999163,
+      "graphId": "CkhdNzz-3jQ3vXNd2LziX",
+      "graphName": "getters/getScenes",
+      "nodeId": "zw9waVzRA5orMcMfm7FR7",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "JYalaNEmPXdmuo6pEqvNR",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.10389999999983957,
+      "graphId": "CkhdNzz-3jQ3vXNd2LziX",
+      "graphName": "getters/getScenes",
+      "nodeId": "_beEJ03lpwXHaVVzB3Z5M",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "y9ndK_TPcB04vxyAyCR-Z",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.10339999999996508,
+      "graphId": "nbxMMKghCNZLjJqoG1oUe",
+      "graphName": "getters/getConversationHistory",
+      "nodeId": "eyJ5uXMCn-PPQP_r6UZMW",
+      "nodeTitle": "Coalesce",
+      "nodeType": "coalesce",
+      "processId": "oRb8j7svR--0Ewd6eF60b",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.10329999999999018,
+      "graphId": "kHRgoPs_MP7uMlMPv6-0x",
+      "graphName": "routines/setGlobals",
+      "nodeId": "10Dyz7nMMLDhff5TgQOE7",
+      "nodeTitle": "Graph Input",
+      "nodeType": "graphInput",
+      "processId": "ptArohZZN7IRMhoBxK0gd",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.09820000000013351,
+      "graphId": "kHRgoPs_MP7uMlMPv6-0x",
+      "graphName": "routines/setGlobals",
+      "nodeId": "MOTMyQOhcC74tSLMSi2Bu",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "PtpK8NX86SreOmKX9Qdq7",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.09769999999980428,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "nodeId": "O_DBfydQOBM5lhR4ppje1",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "ZPmdPFo0nid9JyznbqWzg",
+      "splitDurationMs": 0.08009999999990214
+    },
+    {
+      "durationMs": 0.0963000000001557,
+      "graphId": "kHRgoPs_MP7uMlMPv6-0x",
+      "graphName": "routines/setGlobals",
+      "nodeId": "wb1sQBFme9_loj5kwoufp",
+      "nodeTitle": "Graph Input",
+      "nodeType": "graphInput",
+      "processId": "31sZZrnSsAqmedEMzBf05",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.09550000000012915,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "nodeId": "O_DBfydQOBM5lhR4ppje1",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "XXfauFZSNv6h9CczEtG9r",
+      "splitDurationMs": 0.07989999999995234
+    },
+    {
+      "durationMs": 0.09469999999987522,
+      "graphId": "Ua-DgqU7T4qut9Ct53BjV",
+      "graphName": "AI-completion/generateMessages",
+      "nodeId": "yt25-RLhmjrO-ahfpwLJ7",
+      "nodeTitle": "Extract Object Path",
+      "nodeType": "extractObjectPath",
+      "processId": "XPWzbaE9e5Dn4BdyQYsoZ",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.09459999999990032,
+      "graphId": "wqHcnBsv-qMnOdJ57c0ol",
+      "graphName": "graphQL/getApiUrlAndToken",
+      "nodeId": "2TCM2bD6vvO9Rm3pKAJrQ",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "KJBFpaJxwCEwqvpVWm-5p",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.09439999999995052,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "niZQhFF_SVRSfm2sPw2wP",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "NbNHQyicH4C7NEx7hBO7e",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.09300000000007458,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "JLznSVSYROmkuXI382X4j",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "q52yPoJBYN6XrmY6wIJLo",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.09189999999989595,
+      "graphId": "wqHcnBsv-qMnOdJ57c0ol",
+      "graphName": "graphQL/getApiUrlAndToken",
+      "nodeId": "_3_7iVaB82_LvoPW1XppG",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "8MRl3ajQ2UlBjO4-1OMXt",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.09189999999989595,
+      "graphId": "nbxMMKghCNZLjJqoG1oUe",
+      "graphName": "getters/getConversationHistory",
+      "nodeId": "fpJEc3MaZ8q169RnllU2w",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "d7CBE6f_ir4J_iUImDOpE",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.0885000000000673,
+      "graphId": "nbxMMKghCNZLjJqoG1oUe",
+      "graphName": "getters/getConversationHistory",
+      "nodeId": "gyPbWqTDS_aQ_M2LGB-9X",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "h_pJ8JGLw-psIcbiNRZoZ",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.0885000000000673,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "nodeId": "txhazCzRn6agsVqtTbU4v",
+      "nodeTitle": "Get Global",
+      "nodeType": "getGlobal",
+      "processId": "LEPpxYqoQVii9eP67wPsM",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.08809999999994034,
+      "graphId": "7nRRjXEKHdyA5Mn3Q5boI",
+      "graphName": "AI-completion/translateStoryBeat_nonLLM",
+      "nodeId": "2bbqJQUMEohDDsrQh3tcK",
+      "nodeTitle": "Object",
+      "nodeType": "object",
+      "processId": "1d1rG0gG3_S-zKF_gwxtS",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.08740000000011605,
+      "graphId": "kHRgoPs_MP7uMlMPv6-0x",
+      "graphName": "routines/setGlobals",
+      "nodeId": "K4EBZzGgUo0mkcBiVoKt-",
+      "nodeTitle": "Set Global",
+      "nodeType": "setGlobal",
+      "processId": "wT1plKOyYkRTsotqXeA5x",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.08639999999991232,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "QTlPTL5PsEPaj2gszF7fP",
+      "nodeTitle": "Graph Input",
+      "nodeType": "graphInput",
+      "processId": "OvZRYp2QQmhH1kbRuKrE0",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.0831999999998061,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "nodeId": "K1Eei_9LOZLDGdupFZXrg",
+      "nodeTitle": "Extract Object Path",
+      "nodeType": "extractObjectPath",
+      "processId": "N-5hP45aPU5w0pBiZ8sGJ",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.0804000000000542,
+      "graphId": "nbxMMKghCNZLjJqoG1oUe",
+      "graphName": "getters/getConversationHistory",
+      "nodeId": "8uspe_CUyrHfr_SMpnmNj",
+      "nodeTitle": "Extract Object Path",
+      "nodeType": "extractObjectPath",
+      "processId": "cJP1vrOH64oIAzkjFMICd",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.08030000000007931,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "FuDzUGCsK6zzFNTFV8Hsc",
+      "nodeTitle": "Destructure",
+      "nodeType": "destructure",
+      "processId": "78gunjknsrdmX0aTU07VP",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.07629999999994652,
+      "graphId": "kHRgoPs_MP7uMlMPv6-0x",
+      "graphName": "routines/setGlobals",
+      "nodeId": "t2_ru8N9JLjmhhaTm5tup",
+      "nodeTitle": "Set Global",
+      "nodeType": "setGlobal",
+      "processId": "6i6jSsG8Ls1X29MP_DvZb",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.07590000000004693,
+      "graphId": "Ua-DgqU7T4qut9Ct53BjV",
+      "graphName": "AI-completion/generateMessages",
+      "nodeId": "QgM66Awn205_rvuY5_td7",
+      "nodeTitle": "maxChoices",
+      "nodeType": "number",
+      "processId": "caD0cAhUedNG-xcyDCd7B",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.07510000000002037,
+      "graphId": "kHRgoPs_MP7uMlMPv6-0x",
+      "graphName": "routines/setGlobals",
+      "nodeId": "ZeCAu3g-qQcJVdH1V03Ny",
+      "nodeTitle": "Extract JSON",
+      "nodeType": "extractJson",
+      "processId": "bBvLTdsUKy_VRRfLbH6op",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.07449999999994361,
+      "graphId": "Ua-DgqU7T4qut9Ct53BjV",
+      "graphName": "AI-completion/generateMessages",
+      "nodeId": "X1zMJ-cKLJENkBYWGP7cr",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "T2AacNbZMQwFcJvEnZ3Y4",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.07420000000001892,
+      "graphId": "7nRRjXEKHdyA5Mn3Q5boI",
+      "graphName": "AI-completion/translateStoryBeat_nonLLM",
+      "nodeId": "g9EL3H0oEHmnzx3fuev5d",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "Jvhmbtpcf7zP_nvKiS8a-",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.07390000000009422,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "nodeId": "uAIMYwmSNY41wSuXZ5bYq",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "WdSsPk-WfHPxoRn4jxfII",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.07319999999981519,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "FuDzUGCsK6zzFNTFV8Hsc",
+      "nodeTitle": "Destructure",
+      "nodeType": "destructure",
+      "processId": "QuMWJx1r1Nn7WwkyeV8jg",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.0702000000001135,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "nodeId": "vqKTJznK0wFq-XvNhR1wx",
+      "nodeTitle": "Extract Object Path",
+      "nodeType": "extractObjectPath",
+      "processId": "OiKGczOQ2TvMEgICNssp-",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.07000000000016371,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "nodeId": "Rw5iiLX3pOK5fcPDVbmgl",
+      "nodeTitle": "Extract Object Path",
+      "nodeType": "extractObjectPath",
+      "processId": "n4P6N-MGNfzLQS66xkITe",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.0682000000001608,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "FuDzUGCsK6zzFNTFV8Hsc",
+      "nodeTitle": "Destructure",
+      "nodeType": "destructure",
+      "processId": "MRBnxIS8fIVyHD6G_0GuF",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.06780000000003383,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "nodeId": "vqKTJznK0wFq-XvNhR1wx",
+      "nodeTitle": "Extract Object Path",
+      "nodeType": "extractObjectPath",
+      "processId": "5JdIQ3PopkTaBF0dyGpA-",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.06700000000000728,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "FuDzUGCsK6zzFNTFV8Hsc",
+      "nodeTitle": "Destructure",
+      "nodeType": "destructure",
+      "processId": "adeZed9wtDWWSX1z-bCCX",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.06619999999998072,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "FuDzUGCsK6zzFNTFV8Hsc",
+      "nodeTitle": "Destructure",
+      "nodeType": "destructure",
+      "processId": "5PKPwVOkiEzOZ735gCoVG",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.06610000000000582,
+      "graphId": "7nRRjXEKHdyA5Mn3Q5boI",
+      "graphName": "AI-completion/translateStoryBeat_nonLLM",
+      "nodeId": "wmZBnrNdZw-j1Q_YK_UB1",
+      "nodeTitle": "Object",
+      "nodeType": "object",
+      "processId": "LyVOD6Bsg-6fbe3ZC0Rdn",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.06600000000003092,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "FuDzUGCsK6zzFNTFV8Hsc",
+      "nodeTitle": "Destructure",
+      "nodeType": "destructure",
+      "processId": "aHQHdsUEx41UYn9qVv5_-",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.06540000000018154,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "FuDzUGCsK6zzFNTFV8Hsc",
+      "nodeTitle": "Destructure",
+      "nodeType": "destructure",
+      "processId": "BydE5l-GJjWyPt03jyUMl",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.06480000000010477,
+      "graphId": "7wRcxgKBiQZY9aH8jkpgi",
+      "graphName": "routines/maybeSummarizePrevScene",
+      "nodeId": "BzkPWk-lGrPfXGDJxNwOU",
+      "nodeTitle": "Get Global",
+      "nodeType": "getGlobal",
+      "processId": "A-K8gRI5kSWN6gzZdxcE-",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.0646999999999025,
+      "graphId": "CkhdNzz-3jQ3vXNd2LziX",
+      "graphName": "getters/getScenes",
+      "nodeId": "SYOnmrsdSeoVgfXsBQx0W",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "bTdSpayRd1kJhBeSAB3fa",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.06400000000007822,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "FuDzUGCsK6zzFNTFV8Hsc",
+      "nodeTitle": "Destructure",
+      "nodeType": "destructure",
+      "processId": "49C2dIFAIvxEVeMvBmqbQ",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.06359999999995125,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "FuDzUGCsK6zzFNTFV8Hsc",
+      "nodeTitle": "Destructure",
+      "nodeType": "destructure",
+      "processId": "QGIPpWOziE8Cr31F6_2us",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.06340000000000146,
+      "graphId": "nbxMMKghCNZLjJqoG1oUe",
+      "graphName": "getters/getConversationHistory",
+      "nodeId": "fpJEc3MaZ8q169RnllU2w",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "A-AOpgOG_4hvi9hfWZYYU",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.0625,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "0Y5yXc0NYTx5ZmMm8RINu",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "0NX-_6JL2ATy1TTg7aGGu",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.0624000000000251,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "FuDzUGCsK6zzFNTFV8Hsc",
+      "nodeTitle": "Destructure",
+      "nodeType": "destructure",
+      "processId": "lzEZho0hhtKNsEjvd69IQ",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.06140000000004875,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "QXN-Sna61iRbuyd0gYnbf",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "y_FZ_atKMp7U028lS3Yba",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.06130000000007385,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "0Y5yXc0NYTx5ZmMm8RINu",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "hQ7o5F1YeDvI-Dc6jxn8N",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.06109999999989668,
+      "graphId": "7wRcxgKBiQZY9aH8jkpgi",
+      "graphName": "routines/maybeSummarizePrevScene",
+      "nodeId": "yTQRwaBu_S47C1Dq5aqqC",
+      "nodeTitle": "Bool",
+      "nodeType": "boolean",
+      "processId": "MkTj1kC3emW1glCbud_q0",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.060899999999946886,
+      "graphId": "CkhdNzz-3jQ3vXNd2LziX",
+      "graphName": "getters/getScenes",
+      "nodeId": "okIqx9HJdmC3GlcjVnJxQ",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "rTt8kcoSukyr8VQnm6e7S",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.0603000000000975,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "0Y5yXc0NYTx5ZmMm8RINu",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "BxiKO6CsF1dhpQR_E-CwC",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.0603000000000975,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "QXN-Sna61iRbuyd0gYnbf",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "Eb9XP-t3-wvudjLIKp8T-",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.059799999999995634,
+      "graphId": "Ua-DgqU7T4qut9Ct53BjV",
+      "graphName": "AI-completion/generateMessages",
+      "nodeId": "esNK_XWWxTWbfvK-5lJ39",
+      "nodeTitle": "Text - propmpt",
+      "nodeType": "text",
+      "processId": "m_T5UxlqfrLYOvVasgu1G",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.059700000000020736,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "FuDzUGCsK6zzFNTFV8Hsc",
+      "nodeTitle": "Destructure",
+      "nodeType": "destructure",
+      "processId": "ky9TOe55eaivC7hUq8SSd",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.05960000000004584,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "QXN-Sna61iRbuyd0gYnbf",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "FyIGSI32L4G2taYqbC08R",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.059099999999943975,
+      "graphId": "Ua-DgqU7T4qut9Ct53BjV",
+      "graphName": "AI-completion/generateMessages",
+      "nodeId": "sIXWElcFXyPrkYX-ufTPQ",
+      "nodeTitle": "Comment",
+      "nodeType": "comment",
+      "processId": "A506TdjC84Om3B2RMNrt5",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.05840000000011969,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "FuDzUGCsK6zzFNTFV8Hsc",
+      "nodeTitle": "Destructure",
+      "nodeType": "destructure",
+      "processId": "Na1X71x49ByCUz2bsDidW",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.056800000000066575,
+      "graphId": "f2hcG8KFEiq06uN5_Akmx",
+      "graphName": "AI-completion/generateStoryBeat",
+      "nodeId": "TO_7YShDw3rNiZimpmk8n",
+      "nodeTitle": "Get Global",
+      "nodeType": "getGlobal",
+      "processId": "p0rGgI7_0q0cKvn6oKK0a",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.05580000000009022,
+      "graphId": "f2hcG8KFEiq06uN5_Akmx",
+      "graphName": "AI-completion/generateStoryBeat",
+      "nodeId": "h7fFc_9_LDReNA0OgNqaC",
+      "nodeTitle": "Text - controlled thinking",
+      "nodeType": "text",
+      "processId": "wTed7sYuSXo2NHMWx1Xei",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.055700000000115324,
+      "graphId": "Ua-DgqU7T4qut9Ct53BjV",
+      "graphName": "AI-completion/generateMessages",
+      "nodeId": "VUqGiTQ5WM5n2LNMntdPc",
+      "nodeTitle": "Object",
+      "nodeType": "object",
+      "processId": "gWMzEoNYk3OZOixZdxkPx",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.05569999999988795,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "FuDzUGCsK6zzFNTFV8Hsc",
+      "nodeTitle": "Destructure",
+      "nodeType": "destructure",
+      "processId": "I4DzTo0IfvThgyrzw1ts5",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.055399999999963256,
+      "graphId": "CkhdNzz-3jQ3vXNd2LziX",
+      "graphName": "getters/getScenes",
+      "nodeId": "QUSCsdIquY1yIpJjjnpJW",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "UZcjwgO9un-WsQ5OHsYv1",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.05510000000003856,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "FuDzUGCsK6zzFNTFV8Hsc",
+      "nodeTitle": "Destructure",
+      "nodeType": "destructure",
+      "processId": "WiZA7qpdhmGOqe7c0bAjj",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.0544999999999618,
+      "graphId": "CkhdNzz-3jQ3vXNd2LziX",
+      "graphName": "getters/getScenes",
+      "nodeId": "KARuwzkRiJp65ZyYn_uHj",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "N6cNuffJxhXeD8QFKd0z0",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.0543999999999869,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "0Y5yXc0NYTx5ZmMm8RINu",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "V5cWx59EuCR4pODVA9AKe",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.0543999999999869,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "FuDzUGCsK6zzFNTFV8Hsc",
+      "nodeTitle": "Destructure",
+      "nodeType": "destructure",
+      "processId": "mxchSZV3cp6yLdCZTUczI",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.05420000000003711,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "0Y5yXc0NYTx5ZmMm8RINu",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "VEZp3NhxhJSJyyJOsN2RD",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.05399999999985994,
+      "graphId": "CkhdNzz-3jQ3vXNd2LziX",
+      "graphName": "getters/getScenes",
+      "nodeId": "zw9waVzRA5orMcMfm7FR7",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "BwKS3jU2upZizg317Wng6",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.053900000000112414,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "QXN-Sna61iRbuyd0gYnbf",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "hKKEtYgNnazgZZmbvx701",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.053699999999935244,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "FuDzUGCsK6zzFNTFV8Hsc",
+      "nodeTitle": "Destructure",
+      "nodeType": "destructure",
+      "processId": "VxQbXfscbbNiWIS1DlNrN",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.053699999999935244,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "FuDzUGCsK6zzFNTFV8Hsc",
+      "nodeTitle": "Destructure",
+      "nodeType": "destructure",
+      "processId": "yBuhCtPk-IJECuGlcv9Fw",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.05349999999998545,
+      "graphId": "CkhdNzz-3jQ3vXNd2LziX",
+      "graphName": "getters/getScenes",
+      "nodeId": "eFFn4dFojTLB5110YqWdk",
+      "nodeTitle": "Coalesce",
+      "nodeType": "coalesce",
+      "processId": "VGaMpz2AQ4oc9rWByhiK3",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.05330000000003565,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "FuDzUGCsK6zzFNTFV8Hsc",
+      "nodeTitle": "Destructure",
+      "nodeType": "destructure",
+      "processId": "P5VNQfbStlxsvvLhQeJDE",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.05329999999980828,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "QXN-Sna61iRbuyd0gYnbf",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "j_yJcYNMl-CVWIWz5Xxlo",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.053200000000060754,
+      "graphId": "Ua-DgqU7T4qut9Ct53BjV",
+      "graphName": "AI-completion/generateMessages",
+      "nodeId": "-E2E7lnjECExv15I9yiGc",
+      "nodeTitle": "Graph Input",
+      "nodeType": "graphInput",
+      "processId": "sDUIldAw7g0P4QrBTxFNM",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.05279999999993379,
+      "graphId": "f2hcG8KFEiq06uN5_Akmx",
+      "graphName": "AI-completion/generateStoryBeat",
+      "nodeId": "lOpXKVH0qoa4Tv0z8_6SG",
+      "nodeTitle": "Prompt - summary + message history",
+      "nodeType": "prompt",
+      "processId": "rG4Kq7lanyS5jPzKzdaXR",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.052500000000009095,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "FuDzUGCsK6zzFNTFV8Hsc",
+      "nodeTitle": "Destructure",
+      "nodeType": "destructure",
+      "processId": "KIf1i2Og5OYJctix7TcH8",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.052500000000009095,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "FuDzUGCsK6zzFNTFV8Hsc",
+      "nodeTitle": "Destructure",
+      "nodeType": "destructure",
+      "processId": "nVyWl5Cz4E5qTVRysmGgH",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.05209999999988213,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "0Y5yXc0NYTx5ZmMm8RINu",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "YlcrZ1H2B7l0ejgOYtt-w",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.05160000000000764,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "QXN-Sna61iRbuyd0gYnbf",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "ASHHry18tUBoTq46dzqmN",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.05160000000000764,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "FuDzUGCsK6zzFNTFV8Hsc",
+      "nodeTitle": "Destructure",
+      "nodeType": "destructure",
+      "processId": "OKgadoJX5eHdNNY7_6OS5",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.051400000000057844,
+      "graphId": "CkhdNzz-3jQ3vXNd2LziX",
+      "graphName": "getters/getScenes",
+      "nodeId": "3ED_KPmuC78AhHXMC5GuE",
+      "nodeTitle": "Get Global",
+      "nodeType": "getGlobal",
+      "processId": "4V9DWTrQptKIhENeGjMIP",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.05100000000015825,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "QXN-Sna61iRbuyd0gYnbf",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "PtXS8miUEti-bQ88Znlvl",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.05100000000015825,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "0Y5yXc0NYTx5ZmMm8RINu",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "sQzt9bgmFP4jnks_Ek5NK",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.05079999999998108,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "0Y5yXc0NYTx5ZmMm8RINu",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "pb-JAIo6-VCZ5WrllFyHq",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.050700000000006185,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "0Y5yXc0NYTx5ZmMm8RINu",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "Wammb0dc5gPL1EKGNvw1j",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.05030000000010659,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "0Y5yXc0NYTx5ZmMm8RINu",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "52Bqn7ljCHn16SvL5Nshs",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.05019999999990432,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "QXN-Sna61iRbuyd0gYnbf",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "S7eeR_WyLp9ArVEjF3Uds",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.0500000000001819,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "0Y5yXc0NYTx5ZmMm8RINu",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "67itp1du5YxIW5OxtXPyW",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.04980000000000473,
+      "graphId": "7wRcxgKBiQZY9aH8jkpgi",
+      "graphName": "routines/maybeSummarizePrevScene",
+      "nodeId": "_6w_o3uVJfDh7ITChkMrU",
+      "nodeTitle": "Get Global",
+      "nodeType": "getGlobal",
+      "processId": "VfKkzF590jbFeO0xIMxM6",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.04970000000002983,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "QXN-Sna61iRbuyd0gYnbf",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "ss-PLXHqvbMbmn5nhqFQt",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.049600000000054933,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "QXN-Sna61iRbuyd0gYnbf",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "fs_2udmuaTcUYOLqJtH4K",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.049600000000054933,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "0Y5yXc0NYTx5ZmMm8RINu",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "S97zGuxkEkTI4-jgCXXza",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.04919999999992797,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "QXN-Sna61iRbuyd0gYnbf",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "dT_MQ8pf-xb-kQlRNGZJX",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.04919999999992797,
+      "graphId": "nbxMMKghCNZLjJqoG1oUe",
+      "graphName": "getters/getConversationHistory",
+      "nodeId": "gyPbWqTDS_aQ_M2LGB-9X",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "pdGkwoHNQ5RA5tUMOzSyr",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.048900000000003274,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "QXN-Sna61iRbuyd0gYnbf",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "C_F5HQ-881qLZi_gXKNA0",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.048900000000003274,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "0Y5yXc0NYTx5ZmMm8RINu",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "pl1Js4IWcK804B3Va99t2",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.048699999999826105,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "0Y5yXc0NYTx5ZmMm8RINu",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "DqnBuUHGAkDO0e5Wvnsce",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.04839999999990141,
+      "graphId": "kHRgoPs_MP7uMlMPv6-0x",
+      "graphName": "routines/setGlobals",
+      "nodeId": "1u1IDHuoAcmyudbKhOXoS",
+      "nodeTitle": "Set Global",
+      "nodeType": "setGlobal",
+      "processId": "ScDu04wjOz3PMwtPkcPO-",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.04839999999990141,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "FuDzUGCsK6zzFNTFV8Hsc",
+      "nodeTitle": "Destructure",
+      "nodeType": "destructure",
+      "processId": "tu2UGegRcJNgQQU6CG2gt",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.04829999999992651,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "FuDzUGCsK6zzFNTFV8Hsc",
+      "nodeTitle": "Destructure",
+      "nodeType": "destructure",
+      "processId": "meMg0pX2QJ4nnZVd823Ro",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.04809999999997672,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "QXN-Sna61iRbuyd0gYnbf",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "dbbtDgqdk_HQbFRIhBuWk",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.04800000000000182,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "QXN-Sna61iRbuyd0gYnbf",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "vJoRiaC-cELdC9-5COcay",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.04780000000005202,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "0Y5yXc0NYTx5ZmMm8RINu",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "zGgvL6lzXt64cOaUXPhK6",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.047700000000077125,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "QXN-Sna61iRbuyd0gYnbf",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "cfHZ7QrF9Y6-5FsEB1tL4",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.04760000000010223,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "0Y5yXc0NYTx5ZmMm8RINu",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "0U_uYE9vqwBhzvuwqVv-e",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.04750000000012733,
+      "graphId": "7oXbm2QvWJst3LVgIcdsD",
+      "graphName": "getters/getCharacterObjects",
+      "nodeId": "6AKuLwvGE2LzFcpN8TfzI",
+      "nodeTitle": "Extract Object Path",
+      "nodeType": "extractObjectPath",
+      "processId": "sZp-ZDH6pmUna3_-iWDV1",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.047499999999899956,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "0Y5yXc0NYTx5ZmMm8RINu",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "AuA3CR1GtJcnzOAZjP19v",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.047499999999899956,
+      "graphId": "f2hcG8KFEiq06uN5_Akmx",
+      "graphName": "AI-completion/generateStoryBeat",
+      "nodeId": "21PJSf7sc_l4olS3oUdq-",
+      "nodeTitle": "Object",
+      "nodeType": "object",
+      "processId": "hqhvz59ymmYDJnkMWCjUK",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.04739999999992506,
+      "graphId": "7oXbm2QvWJst3LVgIcdsD",
+      "graphName": "getters/getCharacterObjects",
+      "nodeId": "GWpYs3tvEc2gf5V2drNWB",
+      "nodeTitle": "Extract Object Path",
+      "nodeType": "extractObjectPath",
+      "processId": "HcYXPglZGNSgbw72LOjfL",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.047100000000000364,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "0Y5yXc0NYTx5ZmMm8RINu",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "8wSGUewJqOzyJwA_jMHZX",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.047000000000025466,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "0Y5yXc0NYTx5ZmMm8RINu",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "Dyb9LNScF_-nQzv_1qixa",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.046500000000150976,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "QXN-Sna61iRbuyd0gYnbf",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "deyuwdq2XDcp4GbPZnicF",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.046399999999948704,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "QXN-Sna61iRbuyd0gYnbf",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "MyWgQrw6GGPY5A_66WUuV",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.046399999999948704,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "QXN-Sna61iRbuyd0gYnbf",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "_ukrSpYHolGC5KwpFD8NU",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.045900000000074215,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "0Y5yXc0NYTx5ZmMm8RINu",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "rAAWqr2zrZkyX3ejgXVEG",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.04579999999987194,
+      "graphId": "Ua-DgqU7T4qut9Ct53BjV",
+      "graphName": "AI-completion/generateMessages",
+      "nodeId": "JGa2_Ybje2Jwz85NQINK8",
+      "nodeTitle": "Prompt",
+      "nodeType": "prompt",
+      "processId": "AJrarCqjTym6bWRSqmRSH",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.04559999999992215,
+      "graphId": "f2hcG8KFEiq06uN5_Akmx",
+      "graphName": "AI-completion/generateStoryBeat",
+      "nodeId": "od-dCAq4R9UZI9Fej8ow6",
+      "nodeTitle": "Get Global",
+      "nodeType": "getGlobal",
+      "processId": "Hk3kGdpc-Oshenzkd84g5",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.04529999999999745,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "QXN-Sna61iRbuyd0gYnbf",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "y6yNrDuFcoR-iEKlYo2Mi",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.045200000000022555,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "nodeId": "u_P6UbuHXXNSZibDsb2Tm",
+      "nodeTitle": "Get Global",
+      "nodeType": "getGlobal",
+      "processId": "pQTgYTlyzoQnufgBEdz-v",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.044999999999845386,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "QXN-Sna61iRbuyd0gYnbf",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "gx5AcHMWlq3XJxflB7Us-",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.04490000000009786,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "QXN-Sna61iRbuyd0gYnbf",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "-up9adQBUBSgdfXAM9Dlu",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.04490000000009786,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "0Y5yXc0NYTx5ZmMm8RINu",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "bSxkBWcuk1QMU8CsCCvR8",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.044700000000148066,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "0Y5yXc0NYTx5ZmMm8RINu",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "ZEF3feXNBRDjB4mmWvvR-",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.044700000000148066,
+      "graphId": "CkhdNzz-3jQ3vXNd2LziX",
+      "graphName": "getters/getScenes",
+      "nodeId": "uxbuH_0FXLC5Csftv2F3l",
+      "nodeTitle": "Get Global",
+      "nodeType": "getGlobal",
+      "processId": "kzqYs31Q5y26zusa9xKi-",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.0442000000000462,
+      "graphId": "7oXbm2QvWJst3LVgIcdsD",
+      "graphName": "getters/getCharacterObjects",
+      "nodeId": "BDVZezGZAkLExdpoX5Ejb",
+      "nodeTitle": "Get Global",
+      "nodeType": "getGlobal",
+      "processId": "JRzZPymj3_7sCxqFdeuC2",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.0442000000000462,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "QXN-Sna61iRbuyd0gYnbf",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "qhMesbuaKYbwwwO4cSMkK",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.044100000000071304,
+      "graphId": "nbxMMKghCNZLjJqoG1oUe",
+      "graphName": "getters/getConversationHistory",
+      "nodeId": "d2iS5Oti_73EQuivC7JJ2",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "GEaMd_NttW1L_lisbtMea",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.04369999999994434,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "0Y5yXc0NYTx5ZmMm8RINu",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "4K5aK6VFKRwcZA4xc-lsq",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.043400000000019645,
+      "graphId": "f2hcG8KFEiq06uN5_Akmx",
+      "graphName": "AI-completion/generateStoryBeat",
+      "nodeId": "VcjqrRTA-QYYZCVAI5MKy",
+      "nodeTitle": "Text - instructions",
+      "nodeType": "text",
+      "processId": "6dD3LOSfOrNZ_KwR_t-U5",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.04300000000012005,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "QXN-Sna61iRbuyd0gYnbf",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "aI9uCtfEjPT-mvDHG91KF",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.04289999999991778,
+      "graphId": "zopUlAYWHabtzxNm3lqsg",
+      "graphName": "getters/getAllCharacterIDs",
+      "nodeId": "FqikBW2orugEJloo4IP7o",
+      "nodeTitle": "Get Global",
+      "nodeType": "getGlobal",
+      "processId": "9246l5DTdY2ay1E5Yiw1k",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.042300000000068394,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "nodeId": "Rw5iiLX3pOK5fcPDVbmgl",
+      "nodeTitle": "Extract Object Path",
+      "nodeType": "extractObjectPath",
+      "processId": "C5ivH4b4VT3knX4w6vXoL",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.041999999999916326,
+      "graphId": "7oXbm2QvWJst3LVgIcdsD",
+      "graphName": "getters/getCharacterObjects",
+      "nodeId": "AhUQ-ajs1FKZdCXxW9s3c",
+      "nodeTitle": "Array",
+      "nodeType": "array",
+      "processId": "75GNFXUnOnRXN8_FsrwEE",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.04099999999993997,
+      "graphId": "zopUlAYWHabtzxNm3lqsg",
+      "graphName": "getters/getAllCharacterIDs",
+      "nodeId": "vJJodiq6oJlYMK4RNN1-g",
+      "nodeTitle": "Get Global",
+      "nodeType": "getGlobal",
+      "processId": "Eori4y9BZFAkL_HNlBeoV",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.04079999999999018,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "nodeId": "r_e_mU2KZglfS_o4pzHfx",
+      "nodeTitle": "Array",
+      "nodeType": "array",
+      "processId": "MDd67W4U6679hrkhC2f3v",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.039700000000038926,
+      "graphId": "jvLovJmhVUdFtDHrLNhVF",
+      "graphName": "routines/buildMessagesSchema",
+      "nodeId": "NRFWM2GPCc7ZIahEKTB25",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "XZGPEXGH6CjNxgHVmfVg1",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.039700000000038926,
+      "graphId": "RscR69jZaptNHfxw9GlyU",
+      "graphName": "routines/maybeAddEpilogue",
+      "nodeId": "C9ck7iI94liWRfYdqkxgX",
+      "nodeTitle": "Comment",
+      "nodeType": "comment",
+      "processId": "QVX-cxU85U-B54uwH0S7s",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.039099999999962165,
+      "graphId": "f2hcG8KFEiq06uN5_Akmx",
+      "graphName": "AI-completion/generateStoryBeat",
+      "nodeId": "f22Vj7tcIGCoeV6YyMfPc",
+      "nodeTitle": "Prompt - characters",
+      "nodeType": "prompt",
+      "processId": "HLlZgwKrVofefW_RY40VP",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.03830000000016298,
+      "graphId": "nbxMMKghCNZLjJqoG1oUe",
+      "graphName": "getters/getConversationHistory",
+      "nodeId": "rUA2CMjfzPRfUt0i1qpnD",
+      "nodeTitle": "Get Global",
+      "nodeType": "getGlobal",
+      "processId": "IWAgFl8zTzjR50hK2oFx3",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.03819999999996071,
+      "graphId": "HAn8daeFYK-OK-zAi7tvm",
+      "graphName": "graphQL/getUnits",
+      "nodeId": "7CykEMjO5OGSgJ8j4wg5v",
+      "nodeTitle": "Did Run",
+      "nodeType": "didRun",
+      "processId": "F4zh018UeikhOhBnj1L-W",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.03760000000011132,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "nodeId": "u_P6UbuHXXNSZibDsb2Tm",
+      "nodeTitle": "Get Global",
+      "nodeType": "getGlobal",
+      "processId": "cyLMA3J55V-bcGVZ_2mIS",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.037299999999959255,
+      "graphId": "7wRcxgKBiQZY9aH8jkpgi",
+      "graphName": "routines/maybeSummarizePrevScene",
+      "nodeId": "kF8OYNPMNFll0s6FaIfdE",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "Zsdd0ip64A1L6okEdJwSZ",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.03710000000000946,
+      "graphId": "Ua-DgqU7T4qut9Ct53BjV",
+      "graphName": "AI-completion/generateMessages",
+      "nodeId": "ycxdPF6Z2frOWBK7oD2dz",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "MUdlDa0d-3m3E42bEcIYS",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.03700000000003456,
+      "graphId": "RscR69jZaptNHfxw9GlyU",
+      "graphName": "routines/maybeAddEpilogue",
+      "nodeId": "VePoafbRPmIt78fqf6CsO",
+      "nodeTitle": "Graph Input",
+      "nodeType": "graphInput",
+      "processId": "ABFFg9esDelSUJUxrHW1u",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.03640000000018517,
+      "graphId": "OwidTgXa48n-OFTzszcCe",
+      "graphName": "routines/assembleResponse",
+      "nodeId": "XkBVPHBl2VRS59qdHSNvI",
+      "nodeTitle": "Graph Input",
+      "nodeType": "graphInput",
+      "processId": "HW5TjfejxRKyu5HQzDxmd",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.03609999999980573,
+      "graphId": "RscR69jZaptNHfxw9GlyU",
+      "graphName": "routines/maybeAddEpilogue",
+      "nodeId": "LWfdN_rrLEBznoyxvpqUy",
+      "nodeTitle": "Comment",
+      "nodeType": "comment",
+      "processId": "eWx3JXnQOzz33P4IZugsj",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.03590000000008331,
+      "graphId": "jvLovJmhVUdFtDHrLNhVF",
+      "graphName": "routines/buildMessagesSchema",
+      "nodeId": "BvR8J8sBEaqTzxxOhVUEG",
+      "nodeTitle": "Graph Input",
+      "nodeType": "graphInput",
+      "processId": "xbwMYJG_M_0Whd8DfHSKs",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.03569999999990614,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "QTlPTL5PsEPaj2gszF7fP",
+      "nodeTitle": "Graph Input",
+      "nodeType": "graphInput",
+      "processId": "6ysJwD0pWeHmURhuDIQlr",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.03569999999990614,
+      "graphId": "7nRRjXEKHdyA5Mn3Q5boI",
+      "graphName": "AI-completion/translateStoryBeat_nonLLM",
+      "nodeId": "65df1nBt8FLUeWyXVWooz",
+      "nodeTitle": "Extract Object Path",
+      "nodeType": "extractObjectPath",
+      "processId": "cBZQR12ifxAobDxIZlnak",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.03499999999985448,
+      "graphId": "RscR69jZaptNHfxw9GlyU",
+      "graphName": "routines/maybeAddEpilogue",
+      "nodeId": "SA0kvx66BFtUV4gGOZ4F0",
+      "nodeTitle": "Comment",
+      "nodeType": "comment",
+      "processId": "zD4wWFHNVCne843LoPzHU",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.03459999999995489,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "QTlPTL5PsEPaj2gszF7fP",
+      "nodeTitle": "Graph Input",
+      "nodeType": "graphInput",
+      "processId": "X86qnRiKbrXAGubNzuzTA",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.03449999999997999,
+      "graphId": "Ua-DgqU7T4qut9Ct53BjV",
+      "graphName": "AI-completion/generateMessages",
+      "nodeId": "aUJbroeKfFr6dz69TAUaA",
+      "nodeTitle": "Get Global",
+      "nodeType": "getGlobal",
+      "processId": "7zl-tM6bB514AGRWpdbDD",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.03440000000000509,
+      "graphId": "RscR69jZaptNHfxw9GlyU",
+      "graphName": "routines/maybeAddEpilogue",
+      "nodeId": "Z6HTJW24gfFxWU8_7r0_8",
+      "nodeTitle": "Comment",
+      "nodeType": "comment",
+      "processId": "oyDEKJuBhFYHu9dE2wT4Z",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.03440000000000509,
+      "graphId": "OwidTgXa48n-OFTzszcCe",
+      "graphName": "routines/assembleResponse",
+      "nodeId": "c1wCLX6fpVN5UyvhvNm-g",
+      "nodeTitle": "Graph Input",
+      "nodeType": "graphInput",
+      "processId": "Ct7LZBv9EUjNqcFb1gHg-",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.033800000000155705,
+      "graphId": "RscR69jZaptNHfxw9GlyU",
+      "graphName": "routines/maybeAddEpilogue",
+      "nodeId": "OIBko1gZBEx5tKz-sqYOA",
+      "nodeTitle": "Graph Input",
+      "nodeType": "graphInput",
+      "processId": "vZVWxBSyj7AeBGmctqT1h",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.03350000000000364,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "nodeId": "Rw5iiLX3pOK5fcPDVbmgl",
+      "nodeTitle": "Extract Object Path",
+      "nodeType": "extractObjectPath",
+      "processId": "K0gkvv4sZpYSIqC5bIpR3",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.032999999999901775,
+      "graphId": "nbxMMKghCNZLjJqoG1oUe",
+      "graphName": "getters/getConversationHistory",
+      "nodeId": "rUA2CMjfzPRfUt0i1qpnD",
+      "nodeTitle": "Get Global",
+      "nodeType": "getGlobal",
+      "processId": "ZaC6RGjn-kHVNVVNQBQ-Y",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.03289999999992688,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "nodeId": "vqKTJznK0wFq-XvNhR1wx",
+      "nodeTitle": "Extract Object Path",
+      "nodeType": "extractObjectPath",
+      "processId": "_WAnhxp5RTEe70CU8OaYx",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.03260000000000218,
+      "graphId": "7nRRjXEKHdyA5Mn3Q5boI",
+      "graphName": "AI-completion/translateStoryBeat_nonLLM",
+      "nodeId": "E2QABU5phfbY4HvM_QQVD",
+      "nodeTitle": "Graph Input",
+      "nodeType": "graphInput",
+      "processId": "iLEEkTw-P3OEKxy78VZKf",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.03230000000007749,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "QTlPTL5PsEPaj2gszF7fP",
+      "nodeTitle": "Graph Input",
+      "nodeType": "graphInput",
+      "processId": "0XOyrK04lYLyZyOFT84Rv",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.03210000000012769,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "nodeId": "uAIMYwmSNY41wSuXZ5bYq",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "JinyDuBwNncGQRUzBviKb",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.031899999999950523,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "QTlPTL5PsEPaj2gszF7fP",
+      "nodeTitle": "Graph Input",
+      "nodeType": "graphInput",
+      "processId": "FkZY39JTqO5YF--EdsNCq",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.031400000000076034,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "nodeId": "txhazCzRn6agsVqtTbU4v",
+      "nodeTitle": "Get Global",
+      "nodeType": "getGlobal",
+      "processId": "n2LuqQpjWYYUaesjUA13c",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.031400000000076034,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "JLznSVSYROmkuXI382X4j",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "DuYKAqtChUNK_aO7vYcAf",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.03099999999994907,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "niZQhFF_SVRSfm2sPw2wP",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "aac_L-6ZYoVJgPCYWGlkY",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.030700000000024374,
+      "graphId": "kHRgoPs_MP7uMlMPv6-0x",
+      "graphName": "routines/setGlobals",
+      "nodeId": "cVSxJ2H6fhwCb7KkHk1IZ",
+      "nodeTitle": "Set Global",
+      "nodeType": "setGlobal",
+      "processId": "g23AuOkPPHjaYUGkGJ7Jd",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.030700000000024374,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "nodeId": "uAIMYwmSNY41wSuXZ5bYq",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "1tUdqRGchYa3ti_elVZRw",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.029799999999795546,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "nodeId": "mYW3A09SWw4EAUu6F_RCj",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "noN1Qf3HJn0wXydvkjpTJ",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.029499999999870852,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "JLznSVSYROmkuXI382X4j",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "R18Sbgmx2fbunc6jegftL",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.029400000000123327,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "niZQhFF_SVRSfm2sPw2wP",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "LZmfWEQDxDRAVNUzOKzqN",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.029399999999895954,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "nodeId": "K1Eei_9LOZLDGdupFZXrg",
+      "nodeTitle": "Extract Object Path",
+      "nodeType": "extractObjectPath",
+      "processId": "QdWUoCR5ulQJFEI524E3L",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.029100000000198634,
+      "graphId": "7nRRjXEKHdyA5Mn3Q5boI",
+      "graphName": "AI-completion/translateStoryBeat_nonLLM",
+      "nodeId": "znc_NYCQlQkW4p1VGCMxj",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "ES24lxIHJVp1LsaNzdDwp",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.02909999999997126,
+      "graphId": "7wRcxgKBiQZY9aH8jkpgi",
+      "graphName": "routines/maybeSummarizePrevScene",
+      "nodeId": "IaJKfq5L4_kSQp2DJ6_Y1",
+      "nodeTitle": "Comment",
+      "nodeType": "comment",
+      "processId": "eyYWCnjM5GmQlvt4-9trI",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.028699999999844295,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "nodeId": "K1Eei_9LOZLDGdupFZXrg",
+      "nodeTitle": "Extract Object Path",
+      "nodeType": "extractObjectPath",
+      "processId": "72X9SaT3kTWPiK7l1O7w6",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.028199999999969805,
+      "graphId": "HAn8daeFYK-OK-zAi7tvm",
+      "graphName": "graphQL/getUnits",
+      "nodeId": "fFxvJSm-icrxcWtHAq6Cs",
+      "nodeTitle": "Object",
+      "nodeType": "object",
+      "processId": "mIkIkvrqqQKrFwrNjMJJW",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.028099999999994907,
+      "graphId": "7wRcxgKBiQZY9aH8jkpgi",
+      "graphName": "routines/maybeSummarizePrevScene",
+      "nodeId": "TBMG5O_t0Xh6QOkWFzwHp",
+      "nodeTitle": "Comment",
+      "nodeType": "comment",
+      "processId": "1M_FrsSCTITYRu8Y1lxEB",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.028099999999994907,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "nodeId": "u_P6UbuHXXNSZibDsb2Tm",
+      "nodeTitle": "Get Global",
+      "nodeType": "getGlobal",
+      "processId": "OQJcYp8v7w4dtWWv2jo1Z",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.02790000000004511,
+      "graphId": "7wRcxgKBiQZY9aH8jkpgi",
+      "graphName": "routines/maybeSummarizePrevScene",
+      "nodeId": "A_wtk_GIJqr-AoEEhL-9N",
+      "nodeTitle": "Comment",
+      "nodeType": "comment",
+      "processId": "qsr6CWsC-wLhzSENek3ty",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.027700000000095315,
+      "graphId": "f2hcG8KFEiq06uN5_Akmx",
+      "graphName": "AI-completion/generateStoryBeat",
+      "nodeId": "t2RgP7bKE4qBdZ_WbEygk",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "k_Cldg_t7URud9EyxHCbI",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.02729999999996835,
+      "graphId": "7nRRjXEKHdyA5Mn3Q5boI",
+      "graphName": "AI-completion/translateStoryBeat_nonLLM",
+      "nodeId": "R50iyMg1HlYUM7RpV9K0G",
+      "nodeTitle": "Object",
+      "nodeType": "object",
+      "processId": "UkcrvkfttZO-Et14qoO66",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.02719999999999345,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "niZQhFF_SVRSfm2sPw2wP",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "AjmFKgnjp7H7kSb8xjiA2",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.027100000000018554,
+      "graphId": "7wRcxgKBiQZY9aH8jkpgi",
+      "graphName": "routines/maybeSummarizePrevScene",
+      "nodeId": "C4Uf8vbM3qZsqy0GFITZh",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "1y3ZjnSFvO2ftB2hWsgf_",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.027100000000018554,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "JLznSVSYROmkuXI382X4j",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "gRix4WrWiNyOAnldNskrf",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.026799999999866486,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "nodeId": "r_e_mU2KZglfS_o4pzHfx",
+      "nodeTitle": "Array",
+      "nodeType": "array",
+      "processId": "cQjmiB2l6I2aTCgaVVPfp",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.02589999999986503,
+      "graphId": "nbxMMKghCNZLjJqoG1oUe",
+      "graphName": "getters/getConversationHistory",
+      "nodeId": "E9aSpq-LW0o4gI6Bh-w99",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "iRif7B87GpCYx-EVxXUtb",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.025599999999940337,
+      "graphId": "nbxMMKghCNZLjJqoG1oUe",
+      "graphName": "getters/getConversationHistory",
+      "nodeId": "E9aSpq-LW0o4gI6Bh-w99",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "fil0WZ6tu3POb1VURkHcl",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.025599999999940337,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "QTlPTL5PsEPaj2gszF7fP",
+      "nodeTitle": "Graph Input",
+      "nodeType": "graphInput",
+      "processId": "L3c3ZD2qUtoeHd9NpWYSH",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.02549999999996544,
+      "graphId": "nbxMMKghCNZLjJqoG1oUe",
+      "graphName": "getters/getConversationHistory",
+      "nodeId": "d2iS5Oti_73EQuivC7JJ2",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "tFoU-_YlYGzLb-NO7uGsQ",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.02369999999996253,
+      "graphId": "7oXbm2QvWJst3LVgIcdsD",
+      "graphName": "getters/getCharacterObjects",
+      "nodeId": "MZbiZNU3RUr5QQEuu5Ww2",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "weIEfoB_tRZDwpIqbcsFe",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.02359999999998763,
+      "graphId": "f2hcG8KFEiq06uN5_Akmx",
+      "graphName": "AI-completion/generateStoryBeat",
+      "nodeId": "TZElE79p1MJc-p5wBEhRc",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "51G6-P0vQL1oZbv44tt7K",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.02359999999998763,
+      "graphId": "Ua-DgqU7T4qut9Ct53BjV",
+      "graphName": "AI-completion/generateMessages",
+      "nodeId": "bNAL0AwW3pFdj7An4XYEe",
+      "nodeTitle": "Object",
+      "nodeType": "object",
+      "processId": "mVJlknWJQ2DlFUCLyclqI",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.023400000000037835,
+      "graphId": "7wRcxgKBiQZY9aH8jkpgi",
+      "graphName": "routines/maybeSummarizePrevScene",
+      "nodeId": "VxQmfYHGhhB1LrtsLazkW",
+      "nodeTitle": "Passthrough - lastPrevSceneId",
+      "nodeType": "passthrough",
+      "processId": "moP3UqqPZA5xPWvXm3vw7",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.02310000000011314,
+      "graphId": "GkMPgfe3akOzxEzDxTnaY",
+      "graphName": "getters/getSceneIDs",
+      "nodeId": "ZTKMzggmb3YrPtToABbGe",
+      "nodeTitle": "Get Global",
+      "nodeType": "getGlobal",
+      "processId": "asfN5vwgrlHLYtYM3j7-L",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.022600000000011278,
+      "graphId": "f2hcG8KFEiq06uN5_Akmx",
+      "graphName": "AI-completion/generateStoryBeat",
+      "nodeId": "sPWY4fRPd7oMqJPISSoOB",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "Sb3hx1JFBeaDQtgDHSdWo",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.022400000000061482,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "QTlPTL5PsEPaj2gszF7fP",
+      "nodeTitle": "Graph Input",
+      "nodeType": "graphInput",
+      "processId": "uQnjkS8sn-9Fv7y1wtJjm",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.022300000000086584,
+      "graphId": "RscR69jZaptNHfxw9GlyU",
+      "graphName": "routines/maybeAddEpilogue",
+      "nodeId": "y2fGvo6s2dc60URpmMv0K",
+      "nodeTitle": "Comment",
+      "nodeType": "comment",
+      "processId": "zztKxwXFNSPBkzJVdVT04",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.022300000000086584,
+      "graphId": "RscR69jZaptNHfxw9GlyU",
+      "graphName": "routines/maybeAddEpilogue",
+      "nodeId": "RXRcKd-9ylACR1Ov9LINw",
+      "nodeTitle": "Graph Input",
+      "nodeType": "graphInput",
+      "processId": "nmmnz8NEA-Wl4jo11mJTj",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.02229999999985921,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "JLznSVSYROmkuXI382X4j",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "n3AYnFO5yiU7T-kjJJh5j",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.022200000000111686,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "QTlPTL5PsEPaj2gszF7fP",
+      "nodeTitle": "Graph Input",
+      "nodeType": "graphInput",
+      "processId": "vkwhgKMnGYzoGGD7XTVq4",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.02179999999998472,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "niZQhFF_SVRSfm2sPw2wP",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "536SzqSjWQwfd6z75SmzA",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.021700000000009823,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "JLznSVSYROmkuXI382X4j",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "w_80zBRG8g5-8rhNJd2O7",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.021700000000009823,
+      "graphId": "RscR69jZaptNHfxw9GlyU",
+      "graphName": "routines/maybeAddEpilogue",
+      "nodeId": "wkD71XY84Yl6B2u1-EJbS",
+      "nodeTitle": "Get Global",
+      "nodeType": "getGlobal",
+      "processId": "V0RC3PLFtTu-8EPXESy3P",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.02140000000008513,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "niZQhFF_SVRSfm2sPw2wP",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "_7ZDll8K-LA8i67gSw_qM",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.021299999999882857,
+      "graphId": "wqHcnBsv-qMnOdJ57c0ol",
+      "graphName": "graphQL/getApiUrlAndToken",
+      "nodeId": "tj4fSZshOLJqLfczJp_Tp",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "WjmreOkiVqkxQ46IOUduE",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.020800000000008367,
+      "graphId": "RscR69jZaptNHfxw9GlyU",
+      "graphName": "routines/maybeAddEpilogue",
+      "nodeId": "AOrk-gQKI-JqOzIn4WFJO",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "wrsxUuMDm9NHrVqt_BECv",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.020599999999831198,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "nodeId": "txhazCzRn6agsVqtTbU4v",
+      "nodeTitle": "Get Global",
+      "nodeType": "getGlobal",
+      "processId": "SldNs_GjYM_gaZPOLk8dE",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.020399999999881402,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "nodeId": "7128zjNdBtYzjJNduRSzh",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "_jFMalMbqRZ5c3z--Tlp0",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.02010000000018408,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "nodeId": "K1Eei_9LOZLDGdupFZXrg",
+      "nodeTitle": "Extract Object Path",
+      "nodeType": "extractObjectPath",
+      "processId": "JluMtAkBR7F06983siw8D",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.02010000000018408,
+      "graphId": "zopUlAYWHabtzxNm3lqsg",
+      "graphName": "getters/getAllCharacterIDs",
+      "nodeId": "VQ9v0odUpS3vMA0Ne1KeE",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "jJ1jLKThr4ZWpf6sOHOoY",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.01939999999990505,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "nodeId": "2_aVVS8zyJG9DFJkbLhOc",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "bUPFuT1St9RyYbC9ZxjSE",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.019300000000157524,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "nodeId": "mYW3A09SWw4EAUu6F_RCj",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "dKR9_J3WdN2m4KiQB9ZIt",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.019099999999980355,
+      "graphId": "kHRgoPs_MP7uMlMPv6-0x",
+      "graphName": "routines/setGlobals",
+      "nodeId": "3Q3jupou6R5u0cEUAetvg",
+      "nodeTitle": "Set Global",
+      "nodeType": "setGlobal",
+      "processId": "ZJpPZ4YywCwUcz-V-asyS",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.018700000000080763,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "nodeId": "mYW3A09SWw4EAUu6F_RCj",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "bTpeZ_LhDqgo-FhQlWDLF",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.0181999999999789,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "QTlPTL5PsEPaj2gszF7fP",
+      "nodeTitle": "Graph Input",
+      "nodeType": "graphInput",
+      "processId": "7YDn-INeldxxE2jTIfUI6",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.0181999999999789,
+      "graphId": "CkhdNzz-3jQ3vXNd2LziX",
+      "graphName": "getters/getScenes",
+      "nodeId": "SYOnmrsdSeoVgfXsBQx0W",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "CN-ALG7JGwzKoXTU12Kin",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.018100000000004002,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "QTlPTL5PsEPaj2gszF7fP",
+      "nodeTitle": "Graph Input",
+      "nodeType": "graphInput",
+      "processId": "WeF0eMM3GWp2LH-gipBwu",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.018000000000029104,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "JLznSVSYROmkuXI382X4j",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "Pq7w9GPIFte5Pdv7URL0J",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.01749999999992724,
+      "graphId": "7wRcxgKBiQZY9aH8jkpgi",
+      "graphName": "routines/maybeSummarizePrevScene",
+      "nodeId": "hMJ6H_ewqDV71B-ey-vSH",
+      "nodeTitle": "Comment",
+      "nodeType": "comment",
+      "processId": "hsFP4SMznRDiRGMgKhJCH",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.017400000000179716,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "JLznSVSYROmkuXI382X4j",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "UOyfDmsUvOHouHkXGji8p",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.017299999999977445,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "QTlPTL5PsEPaj2gszF7fP",
+      "nodeTitle": "Graph Input",
+      "nodeType": "graphInput",
+      "processId": "7JInFVkoXi0nT63DSEdOA",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.017200000000002547,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "niZQhFF_SVRSfm2sPw2wP",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "oBp9FcJa4jFqFmxMmKEHz",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.017200000000002547,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "JLznSVSYROmkuXI382X4j",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "nz12nPjj1LEnMIMvCSWA9",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.017200000000002547,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "niZQhFF_SVRSfm2sPw2wP",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "6FFhdat6ZvV-iM4CiNRc2",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.017200000000002547,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "JLznSVSYROmkuXI382X4j",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "XeRmxrbviK2KnR3inbnAi",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.01700000000005275,
+      "graphId": "GkMPgfe3akOzxEzDxTnaY",
+      "graphName": "getters/getSceneIDs",
+      "nodeId": "fK7Nrt-CQWz1MCUPfEZWc",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "TVS1_HE4YlwG8LlCKuGs4",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.01700000000005275,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "niZQhFF_SVRSfm2sPw2wP",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "dyd1hmB-LPTZOU1vI9dga",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.016900000000077853,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "niZQhFF_SVRSfm2sPw2wP",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "NcDNdV8-34HSBYOIV9oKI",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.016900000000077853,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "JLznSVSYROmkuXI382X4j",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "evkyzOSugxIAEx7vjo1LI",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.016800000000102955,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "nodeId": "2_aVVS8zyJG9DFJkbLhOc",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "M_EKUnq9fqZ2g14qSFK-k",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.01679999999987558,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "niZQhFF_SVRSfm2sPw2wP",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "R1cJmH2NRc6DzaCkjP8fs",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.01679999999987558,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "JLznSVSYROmkuXI382X4j",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "b_2LwIe_1ro9V56OquDbr",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.016699999999900683,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "niZQhFF_SVRSfm2sPw2wP",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "2kmZ12XbX4C6_CJ7NObJl",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.016599999999925785,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "niZQhFF_SVRSfm2sPw2wP",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "lJ5uixPSWFyKzl2YTS7qT",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.016499999999950887,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "JLznSVSYROmkuXI382X4j",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "CU5kFyGb-HbbE6AfOp6BR",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.016499999999950887,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "JLznSVSYROmkuXI382X4j",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "610lJ92apAt7ZXT4zXmTS",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.016200000000026193,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "niZQhFF_SVRSfm2sPw2wP",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "XILYrlOWqBaDm5MszEeCu",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.016200000000026193,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "JLznSVSYROmkuXI382X4j",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "nOXGSPtr9Z-WgJaTpGnPQ",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.01619999999979882,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "niZQhFF_SVRSfm2sPw2wP",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "WoZyEEEIiChnfWmmzh3pr",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.016100000000051296,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "JLznSVSYROmkuXI382X4j",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "fuMEGbYyfcreIFSPp7_EF",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.0159000000001015,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "niZQhFF_SVRSfm2sPw2wP",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "Vm1V-PRg4iN0LGy6tP57K",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.015899999999874126,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "JLznSVSYROmkuXI382X4j",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "55tfn6NRiwSMpQh-Kza0m",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.0158000000001266,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "niZQhFF_SVRSfm2sPw2wP",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "4rNcUHFihc_czbQrPF_mk",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.01569999999992433,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "JLznSVSYROmkuXI382X4j",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "CWWpEgBYQgTh13crtEGpb",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.015399999999999636,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "JLznSVSYROmkuXI382X4j",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "ZX56ycfRuGZeeLjDnqK7H",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.015300000000024738,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "QTlPTL5PsEPaj2gszF7fP",
+      "nodeTitle": "Graph Input",
+      "nodeType": "graphInput",
+      "processId": "u6eA2Uh6P_3EYZii37cjn",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.01520000000004984,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "JLznSVSYROmkuXI382X4j",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "H6bBAVqZSvPHBQ-4tQRaZ",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.015199999999822467,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "niZQhFF_SVRSfm2sPw2wP",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "zpVo2a6F9cigN0KNc8qo4",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.015100000000074942,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "JLznSVSYROmkuXI382X4j",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "pfjIbOyrg7Y0iCwHeQURe",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.015100000000074942,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "JLznSVSYROmkuXI382X4j",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "vY-vLYfr78Gwt8U9q9D7k",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.015100000000074942,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "JLznSVSYROmkuXI382X4j",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "uIch19gRcV1YkPdnhjzqW",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.015000000000100044,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "JLznSVSYROmkuXI382X4j",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "TJm5DHjHtZQCoE7Y1mAvg",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.01499999999987267,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "niZQhFF_SVRSfm2sPw2wP",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "DPzf_Q6mnLbgMuu9va7_g",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.01499999999987267,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "niZQhFF_SVRSfm2sPw2wP",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "1UMWhHCP2golYyDHQfRIL",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.014900000000125146,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "niZQhFF_SVRSfm2sPw2wP",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "qdEtSc0O-hLxZqeQxmb2y",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.014699999999947977,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "niZQhFF_SVRSfm2sPw2wP",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "jaTmZPdN26MNiWrn2zL0q",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.014699999999947977,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "niZQhFF_SVRSfm2sPw2wP",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "Niwo20uUoqxrYkti-0F2Z",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.014599999999973079,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "QTlPTL5PsEPaj2gszF7fP",
+      "nodeTitle": "Graph Input",
+      "nodeType": "graphInput",
+      "processId": "Q4_vaC5GpIIHnCo6hNnye",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.014299999999821011,
+      "graphId": "kHRgoPs_MP7uMlMPv6-0x",
+      "graphName": "routines/setGlobals",
+      "nodeId": "iCG2v7gIEwvF5wjj9soLF",
+      "nodeTitle": "Text",
+      "nodeType": "text",
+      "processId": "noiLPIhsNnBwux39tB6J_",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.014299999999821011,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "niZQhFF_SVRSfm2sPw2wP",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "i4glmOyPxTtaja_np3rV3",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.01389999999992142,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "nodeId": "7128zjNdBtYzjJNduRSzh",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "Smik3Dot0kwiqA6lxeWet",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.013799999999946522,
+      "graphId": "OwidTgXa48n-OFTzszcCe",
+      "graphName": "routines/assembleResponse",
+      "nodeId": "2BVXhK79-Z-pqW-gpvbT3",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "sqs6TLWpoxmuZeVl1C7u5",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.013599999999996726,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "QTlPTL5PsEPaj2gszF7fP",
+      "nodeTitle": "Graph Input",
+      "nodeType": "graphInput",
+      "processId": "j5s0C3pGVpLKMWFyYT9LE",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.013500000000021828,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "QTlPTL5PsEPaj2gszF7fP",
+      "nodeTitle": "Graph Input",
+      "nodeType": "graphInput",
+      "processId": "sExoRgbP4AFdj0gd1exmQ",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.012799999999970169,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "QTlPTL5PsEPaj2gszF7fP",
+      "nodeTitle": "Graph Input",
+      "nodeType": "graphInput",
+      "processId": "UEmsmi4UdR2DBu3mXfv5n",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.01269999999999527,
+      "graphId": "HAn8daeFYK-OK-zAi7tvm",
+      "graphName": "graphQL/getUnits",
+      "nodeId": "V_ZQ9lkwOCvLUDhaNXbt7",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "wz0xhRCf2vZogArfz7Q5s",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.01269999999999527,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "QTlPTL5PsEPaj2gszF7fP",
+      "nodeTitle": "Graph Input",
+      "nodeType": "graphInput",
+      "processId": "7UvHOHQWuWrhIY5V4fpH7",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.012600000000020373,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "QTlPTL5PsEPaj2gszF7fP",
+      "nodeTitle": "Graph Input",
+      "nodeType": "graphInput",
+      "processId": "meMNAowOfEwROT2ugmFHs",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.012500000000045475,
+      "graphId": "29f17ff8-3aa4-4294-8a92-13116d5a8a9b",
+      "graphName": "Main Graph",
+      "nodeId": "o6DfI3PYxsRaOScMTWU5Y",
+      "nodeTitle": "Did Run",
+      "nodeType": "didRun",
+      "processId": "Idg8eEb5iSxxgEvZZ4TP_",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.012400000000070577,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "QTlPTL5PsEPaj2gszF7fP",
+      "nodeTitle": "Graph Input",
+      "nodeType": "graphInput",
+      "processId": "rwQdBCBcWt30YOZvR52dI",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.012400000000070577,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "QTlPTL5PsEPaj2gszF7fP",
+      "nodeTitle": "Graph Input",
+      "nodeType": "graphInput",
+      "processId": "e1riWFxXtYHMxhNyoFY5b",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.012299999999868305,
+      "graphId": "7wRcxgKBiQZY9aH8jkpgi",
+      "graphName": "routines/maybeSummarizePrevScene",
+      "nodeId": "FsWHGLxNmYLCIp6xTxSpy",
+      "nodeTitle": "Get Global",
+      "nodeType": "getGlobal",
+      "processId": "zLnLvGnCtyBJD3_pIn7Qb",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.011999999999943611,
+      "graphId": "f2hcG8KFEiq06uN5_Akmx",
+      "graphName": "AI-completion/generateStoryBeat",
+      "nodeId": "Pw3BCQjGywZ0nOJEwOFxd",
+      "nodeTitle": "Did Run",
+      "nodeType": "didRun",
+      "processId": "541RVwa6vYNXR3Rb_LMCn",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.01160000000004402,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "QTlPTL5PsEPaj2gszF7fP",
+      "nodeTitle": "Graph Input",
+      "nodeType": "graphInput",
+      "processId": "IRrwWR_Hos9gjSaEjZ4m9",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.011499999999841748,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "QTlPTL5PsEPaj2gszF7fP",
+      "nodeTitle": "Graph Input",
+      "nodeType": "graphInput",
+      "processId": "nEI2fnyBM-CGmrpygndR3",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.011400000000094224,
+      "graphId": "B6jkpClRCxj3n2MmKxgCN",
+      "graphName": "routines/formatCharacter",
+      "nodeId": "QTlPTL5PsEPaj2gszF7fP",
+      "nodeTitle": "Graph Input",
+      "nodeType": "graphInput",
+      "processId": "N9i7N2XnzuYWXSMNQctI4",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.010999999999967258,
+      "graphId": "kHRgoPs_MP7uMlMPv6-0x",
+      "graphName": "routines/setGlobals",
+      "nodeId": "3g6mdSuj0iFsP5b5rTrXZ",
+      "nodeTitle": "Did Run",
+      "nodeType": "didRun",
+      "processId": "U_ieZlim589FGrvmhAqMF",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.010800000000017462,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "nodeId": "2_aVVS8zyJG9DFJkbLhOc",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "mztnNM-EHxZ8pgn86T-BA",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.010700000000042564,
+      "graphId": "7nRRjXEKHdyA5Mn3Q5boI",
+      "graphName": "AI-completion/translateStoryBeat_nonLLM",
+      "nodeId": "9DlK7jWXvcSG47GeUL4pC",
+      "nodeTitle": "Did Run",
+      "nodeType": "didRun",
+      "processId": "QE_VvISySWeE_ua8JKiq1",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.010099999999965803,
+      "graphId": "tUxoht0oq0hFKtvCLj-Nw",
+      "graphName": "getters/getCharactersAsText",
+      "nodeId": "7128zjNdBtYzjJNduRSzh",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "m4s1InTS6sSk5gSfJkacy",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.009600000000091313,
+      "graphId": "CkhdNzz-3jQ3vXNd2LziX",
+      "graphName": "getters/getScenes",
+      "nodeId": "_beEJ03lpwXHaVVzB3Z5M",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "8bZWEa_rJtXzZjUP4bFgf",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.009499999999889042,
+      "graphId": "29f17ff8-3aa4-4294-8a92-13116d5a8a9b",
+      "graphName": "Main Graph",
+      "nodeId": "r7RpqCpNkC8244hO38v55",
+      "nodeTitle": "Did Run",
+      "nodeType": "didRun",
+      "processId": "hL3toklF9pk3-y5pJ1-Fa",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.009400000000141517,
+      "graphId": "7nRRjXEKHdyA5Mn3Q5boI",
+      "graphName": "AI-completion/translateStoryBeat_nonLLM",
+      "nodeId": "dsoID_7kGB5h0ywtAQZv0",
+      "nodeTitle": "Extract JSON",
+      "nodeType": "extractJson",
+      "processId": "hz_9tgyKVZ2fBFxCpjFcd",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.009199999999964348,
+      "graphId": "kHRgoPs_MP7uMlMPv6-0x",
+      "graphName": "routines/setGlobals",
+      "nodeId": "80rQu6nqTOC5Nm4S4WHgY",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "uY9ZRd7B_tytwJ3LRiHMd",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.008800000000064756,
+      "graphId": "Ua-DgqU7T4qut9Ct53BjV",
+      "graphName": "AI-completion/generateMessages",
+      "nodeId": "mVUlGzyRVou4kFhBXhi2V",
+      "nodeTitle": "Did Run",
+      "nodeType": "didRun",
+      "processId": "dVP8B4oiGVVvUt-VR2Mw0",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.008100000000013097,
+      "graphId": "29f17ff8-3aa4-4294-8a92-13116d5a8a9b",
+      "graphName": "Main Graph",
+      "nodeId": "91rnP_8svcIpZDYSYUW9D",
+      "nodeTitle": "Graph Output",
+      "nodeType": "graphOutput",
+      "processId": "4U0rIcJdeK0Mq3eaV0Hzf",
+      "splitDurationMs": 0
+    },
+    {
+      "durationMs": 0.0072000000000116415,
+      "graphId": "7nRRjXEKHdyA5Mn3Q5boI",
+      "graphName": "AI-completion/translateStoryBeat_nonLLM",
+      "nodeId": "h8XkVrzWHlPQtF90H4hN1",
+      "nodeTitle": "Graph output",
+      "nodeType": "graphOutput",
+      "processId": "QaLhJ2EpM3Gxg9ckzmkeo",
+      "splitDurationMs": 0
+    }
+  ]
+}

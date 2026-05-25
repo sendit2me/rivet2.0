@@ -2,15 +2,19 @@
 
 ## Description
 
-`createGraphRunner` creates a reusable Node runner for headless or backend integrations that load a project once and run the same graph many times.
+`createGraphRunner` creates a reusable Node runner for headless or backend
+integrations that load a project once and run the same graph many times.
 
-Use it when you do not need Remote Debugger attachment, recording playback, or event streams for each run. Those surfaces should keep using `createProcessor`, `runGraph`, or `runGraphInFile`.
+Use it when you do not need Remote Debugger attachment, recording playback, or
+event streams for each run. Those surfaces should keep using
+`createProcessor`, `runGraph`, or `runGraphInFile`.
 
 The runner keeps stable setup at creation time:
 
 - graph selection
 - registry and plugin setup
-- Node defaults such as `NodeNativeApi`, `NodeMCPProvider`, the Node CodeRunner, `NodeProjectReferenceLoader`, and the fallback tokenizer
+- Node defaults such as `NodeNativeApi`, `NodeMCPProvider`, the Node
+  CodeRunner, `NodeProjectReferenceLoader`, and the fallback tokenizer
 - process settings and plugin environment values
 - project path and project-reference loader
 - event callbacks supplied in the creation options
@@ -21,7 +25,10 @@ Each `run` call owns the values that naturally vary per request:
 - graph context values
 - abort signal
 
-Each `run` call uses a run-scoped processor so mutable graph state, including Global node values, does not leak between requests. The runner still reuses the stable Node runtime context instead of reconstructing provider defaults for every call.
+Each `run` call uses a run-scoped processor so mutable graph state, including
+Global node values, does not leak between requests. The runner still reuses the
+stable Node runtime context instead of reconstructing provider defaults for
+every call.
 
 ## Syntax
 
@@ -31,9 +38,7 @@ function createGraphRunner(project: Project, options: NodeGraphRunnerOptions): N
 type NodeGraphRunnerOptions = Omit<
   NodeRunGraphOptions,
   'abortSignal' | 'context' | 'inputs' | 'remoteDebugger' | 'remoteDebuggerRequestId'
-> & {
-  runtimeProfile?: 'compatible' | 'headless-fast' | 'native-fast';
-};
+>;
 
 type NodeGraphRunnerRunOptions = {
   inputs?: Record<string, LooseDataValue>;
@@ -41,64 +46,23 @@ type NodeGraphRunnerRunOptions = {
   abortSignal?: AbortSignal;
 };
 
-type NodeNativeRuntimeDecision = {
-  requested: boolean;
-  nativeEligible: boolean;
-  nativeUsed: boolean;
-  nativeBackend?: string;
-  fallbackReason?: string;
-};
-
 type NodeGraphRunner = {
   run(options?: NodeGraphRunnerRunOptions): Promise<Record<string, DataValue>>;
   dispose(): void;
-  getNativeRuntimeDecision?: () => NodeNativeRuntimeDecision;
 };
 ```
-
-`runtimeProfile` controls runner-only optimizations:
-
-- `compatible` uses the same default `NodeCodeRunner` behavior as `runGraph` and
-  `createProcessor`.
-- `headless-fast` uses optimized headless execution when a graph is eligible:
-  it reuses an immutable graph execution plan across runs, uses a narrow
-  fast acyclic scheduler for supported graph shapes, and, when you do not pass
-  a custom `codeRunner`, uses a runner-owned cached Node CodeRunner for
-  Code-family nodes. Unsupported graph shapes fall back to compatible
-  scheduling automatically.
-- `native-fast` is an experimental, opt-in native-runtime probe. It is scoped to
-  `createGraphRunner` only. Rivet first checks whether the graph is in the
-  narrow supported subset, then lazily loads the optional native package. Missing
-  native artifacts, unsupported graphs, custom registries, event callbacks,
-  trace/timing-sensitive options, per-run abort signals, unsupported connection
-  ports, text processing outside the parity-tested native subset, and native
-  creation failures fall back to the compatible TypeScript runner. Native
-  run-time failures are reported as errors instead of being double-run through
-  TypeScript. `nativeBackend` reports whether the opt-in module ran through the
-  `rust-worker` backend or the `js-adapter` control path.
-
-The fast profile caches graph topology, validated connections, port definitions,
-planner adjacency maps, and loaded project-reference snapshots for the runner's
-stable project/registry setup. Plans are keyed per graph, so nested subgraphs
-and referenced graphs can reuse their own planning data too. It does not cache
-output values, input values, graph inputs, context values, or node
-implementation instances, so each `run` call still receives fresh request data,
-fresh node implementations, and a run-scoped processor.
-
-`getNativeRuntimeDecision()` is present only on native-capable runners. Use it
-for diagnostics and benchmarks to distinguish a real native run from TypeScript
-fallback. `nativeBackend: 'rust-worker'` means the Rust worker executed the
-eligible graph; `nativeBackend: 'js-adapter'` is adapter-contract evidence, not
-a Rust speed result. It does not affect graph outputs.
 
 ## Parameters
 
 - `project` (Project): The loaded Rivet project.
-- `options` (NodeGraphRunnerOptions): Stable runner configuration. `inputs`, `context`, and `abortSignal` are intentionally not creation-time options. `remoteDebugger` is not supported by this runner path.
+- `options` (NodeGraphRunnerOptions): Stable runner configuration. `inputs`,
+  `context`, and `abortSignal` are intentionally not creation-time options.
+  `remoteDebugger` is not supported by this runner path.
 
 ## Return
 
-Returns a `NodeGraphRunner`. Call `run` for each request and `dispose` when the runner should no longer accept new runs.
+Returns a `NodeGraphRunner`. Call `run` for each request and `dispose` when the
+runner should no longer accept new runs.
 
 ## Example
 
@@ -108,7 +72,6 @@ import { createGraphRunner, loadProjectFromFile } from '@valerypopoff/rivet2-nod
 const project = await loadProjectFromFile('./workflow.rivet-project');
 const runner = createGraphRunner(project, {
   graph: 'Main',
-  runtimeProfile: 'headless-fast',
 });
 
 const outputs = await runner.run({
@@ -125,13 +88,15 @@ console.log(outputs);
 
 ## When To Use It
 
-Use `createGraphRunner` for repeated backend or API-server calls where the project and graph are stable and only inputs/context change.
+Use `createGraphRunner` for repeated backend or API-server calls where the
+project and graph are stable and only inputs/context change.
 
 Keep using:
 
 - `runGraphInFile` for simple one-shot scripts.
 - `runGraph` when you already loaded a project but still want one-shot execution.
-- `createProcessor` when you need processor events, SSE streams, node streams, recording, or Remote Debugger behavior.
+- `createProcessor` when you need processor events, SSE streams, node streams,
+  recording, or Remote Debugger behavior.
 
 ## See Also
 

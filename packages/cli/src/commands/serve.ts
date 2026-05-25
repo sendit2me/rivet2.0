@@ -1,6 +1,12 @@
 import { serve as serveHono } from '@hono/node-server';
 import { createProcessor, getSingleNodeStream, loadProjectFromFile } from '@valerypopoff/rivet2-node';
-import type { LooseDataValue, Outputs, Project, RivetEventStreamFilterSpec } from '@valerypopoff/rivet2-node';
+import type {
+  LooseDataValue,
+  NodeCreateProcessorOptions,
+  Outputs,
+  Project,
+  RivetEventStreamFilterSpec,
+} from '@valerypopoff/rivet2-node';
 import chalk from 'chalk';
 import didYouMean from 'didyoumean2';
 import { configDotenv } from 'dotenv';
@@ -33,6 +39,8 @@ type GraphRunArgs = {
   openaiOrganization: string | undefined;
   project: Project;
 };
+
+type GraphProcessorArgs = Omit<GraphRunArgs, 'exposeCost' | 'project'>;
 
 export function makeCommand<T>(y: yargs.Argv<T>) {
   return y
@@ -217,13 +225,16 @@ async function streamGraph({
   stream,
   streamNode,
 }: GraphRunArgs & { stream: string | undefined; streamNode: string | undefined }): Promise<ReadableStream> {
-  const { run, processor, getSSEStream } = createProcessor(project, {
-    inputs,
-    graph,
-    openAiKey: openaiApiKey,
-    openAiEndpoint: openaiEndpoint,
-    openAiOrganization: openaiOrganization,
-  });
+  const { run, processor, getSSEStream } = createProcessor(
+    project,
+    buildStreamingGraphProcessorOptions({
+      graph,
+      inputs,
+      openaiApiKey,
+      openaiEndpoint,
+      openaiOrganization,
+    }),
+  );
 
   const responseStream = streamNode
     ? getSingleNodeStream(processor, streamNode)
@@ -234,6 +245,29 @@ async function streamGraph({
   });
 
   return responseStream;
+}
+
+export function buildGraphProcessorOptions({
+  inputs,
+  graph,
+  openaiApiKey,
+  openaiEndpoint,
+  openaiOrganization,
+}: GraphProcessorArgs): NodeCreateProcessorOptions {
+  return {
+    inputs,
+    graph,
+    openAiKey: openaiApiKey,
+    openAiEndpoint: openaiEndpoint,
+    openAiOrganization: openaiOrganization,
+  };
+}
+
+export function buildStreamingGraphProcessorOptions(args: GraphProcessorArgs): NodeCreateProcessorOptions {
+  return {
+    ...buildGraphProcessorOptions(args),
+    runtimeProfile: 'compatible',
+  };
 }
 
 export function buildStreamEventFilter(stream: string | undefined): RivetEventStreamFilterSpec {
@@ -263,13 +297,13 @@ async function runGraph({
   openaiOrganization,
   exposeCost,
 }: GraphRunArgs): Promise<Outputs> {
-  const { run } = createProcessor(project, {
-    inputs,
+  const { run } = createProcessor(project, buildGraphProcessorOptions({
     graph,
-    openAiKey: openaiApiKey,
-    openAiEndpoint: openaiEndpoint,
-    openAiOrganization: openaiOrganization,
-  });
+    inputs,
+    openaiApiKey,
+    openaiEndpoint,
+    openaiOrganization,
+  }));
 
   const outputs = await run();
 

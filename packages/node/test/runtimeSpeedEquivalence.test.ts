@@ -65,38 +65,11 @@ const publicRuntimeModes: RuntimeMode[] = [
     },
   },
   {
-    name: 'createProcessor.run headless-fast',
-    run: async (fixture, options = {}) => {
-      const processor = createProcessor(fixture.project, {
-        graph: fixture.graphId,
-        runtimeProfile: 'headless-fast',
-        ...options,
-      });
-      return processor.run();
-    },
-  },
-  {
     name: 'createGraphRunner.run',
     run: async (fixture, options = {}) => {
       const { abortSignal, context, inputs, ...runnerOptions } = options as NodeRunGraphOptions;
       const runner = createGraphRunner(fixture.project, {
         graph: fixture.graphId,
-        ...runnerOptions,
-      });
-      return runner.run({
-        abortSignal,
-        context,
-        inputs,
-      });
-    },
-  },
-  {
-    name: 'createGraphRunner.run headless-fast',
-    run: async (fixture, options = {}) => {
-      const { abortSignal, context, inputs, ...runnerOptions } = options as NodeRunGraphOptions;
-      const runner = createGraphRunner(fixture.project, {
-        graph: fixture.graphId,
-        runtimeProfile: 'headless-fast',
         ...runnerOptions,
       });
       return runner.run({

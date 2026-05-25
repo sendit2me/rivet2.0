@@ -20,8 +20,10 @@ import {
 } from '../src/index.js';
 import {
   makeCallGraphFanInProject,
+  makeNestedSubgraphProject,
   makeReferencedGraphAliasFanInProject,
   makeRepeatedSubgraphFanInProject,
+  makeSubgraphChainProject,
   makeTextChainProject,
 } from './runtimeSpeedFixtures.js';
 
@@ -404,7 +406,7 @@ describe('api', () => {
     });
   });
 
-  it('uses fast createProcessor planning only inside each run', async () => {
+  it('uses default createProcessor subprocessor planning only inside each run', async () => {
     const fixture = makeRepeatedSubgraphFanInProject(3);
     const countingRegistry = createCountingRegistry();
     const processor = createProcessor(fixture.project, {
@@ -413,7 +415,6 @@ describe('api', () => {
         input: 'same',
       },
       registry: countingRegistry.registry,
-      runtimeProfile: 'headless-fast',
     });
 
     await processor.run();
@@ -432,10 +433,42 @@ describe('api', () => {
   it('uses default-safe runGraph planning for repeated subgraphs', async () => {
     const fixture = makeRepeatedSubgraphFanInProject(3);
 
+    await assertRunGraphMatchesDefaultSafeAndBeatsCompatible(fixture.project, makeStandardRunOptions(fixture.graphId));
+  });
+
+  it('keeps observable repeated subgraph runGraph planning on the default-safe path', async () => {
+    const fixture = makeRepeatedSubgraphFanInProject(3);
+
     await assertRunGraphMatchesDefaultSafeAndBeatsCompatible(
       fixture.project,
-      makeStandardRunOptions(fixture.graphId),
+      makeStandardRunOptions(fixture.graphId, {
+        onNodeFinish: () => undefined,
+      }),
     );
+  });
+
+  it('keeps abortable repeated subgraph runGraph planning on the default-safe path', async () => {
+    const fixture = makeRepeatedSubgraphFanInProject(3);
+    const abortController = new AbortController();
+
+    await assertRunGraphMatchesDefaultSafeAndBeatsCompatible(
+      fixture.project,
+      makeStandardRunOptions(fixture.graphId, {
+        abortSignal: abortController.signal,
+      }),
+    );
+  });
+
+  it('keeps single static subgraph runGraph planning on the compatible path', async () => {
+    const fixture = makeSubgraphChainProject(1);
+
+    await assertRunGraphMatchesCompatible(fixture.project, makeStandardRunOptions(fixture.graphId));
+  });
+
+  it('keeps nested static subgraph runGraph planning on the compatible path', async () => {
+    const fixture = makeNestedSubgraphProject(3);
+
+    await assertRunGraphMatchesCompatible(fixture.project, makeStandardRunOptions(fixture.graphId));
   });
 
   it('uses default-safe runGraph planning for repeated Call Graph nodes', async () => {
@@ -458,7 +491,18 @@ describe('api', () => {
     );
   });
 
-  it('uses default-safe runGraph planning when the target graph is selected by name', async () => {
+  it('keeps single static referenced graph alias runGraph planning on the compatible path', async () => {
+    const fixture = makeReferencedGraphAliasFanInProject(1);
+
+    await assertRunGraphMatchesCompatible(
+      fixture.project,
+      makeStandardRunOptions(fixture.graphId, {
+        projectReferenceLoader: fixture.projectReferenceLoader,
+      }),
+    );
+  });
+
+  it('keeps repeated subgraph runGraph planning stable when the target graph is selected by name', async () => {
     const fixture = makeRepeatedSubgraphFanInProject(3);
     const idSelectedDefinitionCalls = await countRunGraphDefinitionCalls(fixture.project, {
       graph: fixture.graphId,
@@ -543,7 +587,7 @@ describe('api', () => {
       },
       registry: countingRegistry.registry,
       remoteDebugger,
-      runtimeProfile: 'headless-fast',
+      runtimeProfile: 'removed-profile' as never,
     });
 
     await processor.run();
@@ -625,14 +669,13 @@ describe('api', () => {
     assert.equal(Object.prototype.hasOwnProperty.call(untimedFinish!, 'durationMs'), false);
   });
 
-  it('keeps fast createProcessor runs recordable through processor events', async () => {
+  it('keeps default createProcessor runs recordable through processor events', async () => {
     const fixture = makeRepeatedSubgraphFanInProject(3);
     const processor = createProcessor(fixture.project, {
       graph: fixture.graphId,
       inputs: {
         input: 'same',
       },
-      runtimeProfile: 'headless-fast',
     });
     const recorder = new ExecutionRecorder();
     recorder.record(processor.processor);

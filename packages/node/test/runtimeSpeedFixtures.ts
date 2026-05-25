@@ -228,6 +228,24 @@ export function makeSameSourceFanInProject(): RuntimeSpeedProjectFixture {
   );
 }
 
+export function makeInvalidInputConnectionProject(): RuntimeSpeedProjectFixture {
+  const invalidSourceNode = makeTextNode('invalid-source', 'invalid');
+  const validSourceNode = makeCodeNode(
+    'valid-source',
+    'await new Promise((resolve) => setTimeout(resolve, 1)); return "valid";',
+  );
+  const outputNode = makeGraphOutputNode('graph-output', 'result', 'string');
+
+  return makeFixture(
+    [invalidSourceNode, validSourceNode, outputNode],
+    [
+      connect(invalidSourceNode.id, 'output', outputNode.id, 'missing-input-port'),
+      connect(validSourceNode.id, 'output', outputNode.id, 'value'),
+    ],
+    outputNode.id,
+  );
+}
+
 export function makeCoalesceFanInProject(): RuntimeSpeedProjectFixture {
   const firstInput = makeGraphInputNode('first-input', 'first', 'any');
   const secondInput = makeGraphInputNode('second-input', 'second', 'any');

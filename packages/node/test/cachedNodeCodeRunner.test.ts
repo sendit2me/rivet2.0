@@ -65,24 +65,40 @@ void describe('CachedNodeCodeRunner', () => {
   void it('separates cached functions by graph input and context argument presence', async () => {
     const runner = new CachedNodeCodeRunner();
     const code = `
+      const graphInputValue = typeof graphInputs === 'undefined' ? 'none' : graphInputs.graphInput?.value;
+      const contextValue = typeof context === 'undefined' ? 'none' : context.contextValue?.value;
       return {
         output: {
           type: 'string',
-          value: String(typeof graphInputs) + ':' + String(typeof context),
+          value: String(typeof graphInputs) + ':' + String(typeof context) + ':' + graphInputValue + ':' + contextValue,
         },
       };
     `;
 
     const withoutExtras = await runner.runCode(code, {}, DEFAULT_OPTIONS);
     const withGraphInputs = await runner.runCode(code, {}, DEFAULT_OPTIONS, {});
-    const withGraphInputsAndContext = await runner.runCode(code, {}, DEFAULT_OPTIONS, {}, {});
+    const withGraphInputsAndContext = await runner.runCode(
+      code,
+      {},
+      DEFAULT_OPTIONS,
+      { graphInput: { type: 'string', value: 'first' } },
+      { contextValue: { type: 'string', value: 'first' } },
+    );
+    const withGraphInputsAndContextAgain = await runner.runCode(
+      code,
+      {},
+      DEFAULT_OPTIONS,
+      { graphInput: { type: 'string', value: 'second' } },
+      { contextValue: { type: 'string', value: 'second' } },
+    );
 
-    assert.deepEqual(withoutExtras, { output: { type: 'string', value: 'undefined:undefined' } });
-    assert.deepEqual(withGraphInputs, { output: { type: 'string', value: 'object:undefined' } });
-    assert.deepEqual(withGraphInputsAndContext, { output: { type: 'string', value: 'object:object' } });
+    assert.deepEqual(withoutExtras, { output: { type: 'string', value: 'undefined:undefined:none:none' } });
+    assert.deepEqual(withGraphInputs, { output: { type: 'string', value: 'object:undefined:undefined:none' } });
+    assert.deepEqual(withGraphInputsAndContext, { output: { type: 'string', value: 'object:object:first:first' } });
+    assert.deepEqual(withGraphInputsAndContextAgain, { output: { type: 'string', value: 'object:object:second:second' } });
     assert.deepEqual(runner.getCacheStats(), {
       entries: 3,
-      hits: 0,
+      hits: 1,
       misses: 3,
     });
   });

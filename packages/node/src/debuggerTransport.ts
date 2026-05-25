@@ -1,6 +1,6 @@
 import WebSocket from 'ws';
 import { WarningsPort, getError } from '@valerypopoff/rivet2-core';
-import { sanitizeDebuggerPayloadForTransport } from './debuggerPayloadSanitizer.js';
+import { stringifyDebuggerPayloadForTransport } from './debuggerPayloadSanitizer.js';
 
 export type DebuggerErrorEmitter = {
   emit(eventName: 'error', eventData: Error): Promise<void>;
@@ -33,7 +33,7 @@ export function stringifyDebuggerMessage(
   emitter: DebuggerErrorEmitter,
 ): string | undefined {
   try {
-    return JSON.stringify(sanitizeDebuggerPayloadForTransport(message));
+    return stringifyDebuggerPayloadForTransport(message);
   } catch (err) {
     emitDebuggerError(emitter, err);
     return stringifyDebuggerFallbackMessage(message, err, emitter);
@@ -51,7 +51,7 @@ function stringifyDebuggerFallbackMessage(
   }
 
   try {
-    return JSON.stringify(sanitizeDebuggerPayloadForTransport(fallbackMessage));
+    return stringifyDebuggerPayloadForTransport(fallbackMessage);
   } catch (fallbackError) {
     emitDebuggerError(emitter, fallbackError);
     return undefined;

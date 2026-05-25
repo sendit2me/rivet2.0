@@ -17,6 +17,9 @@
 # apple
 .apple
 
+# local benchmark fixtures with production-shaped payloads
+.fixtures/
+
 # misc
 .DS_Store
 .env

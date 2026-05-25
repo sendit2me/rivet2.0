@@ -21,6 +21,7 @@ import {
   type LooseDataValue,
   type NodeGraph,
   type ProcessContext,
+  type GraphProcessorRuntimeProfiler,
 } from '@valerypopoff/rivet2-core';
 
 import { readFile } from 'node:fs/promises';
@@ -33,12 +34,8 @@ import type { RivetDebuggerServer } from './debugger.js';
 import { NodeProjectReferenceLoader } from './native/NodeProjectReferenceLoader.js';
 import { NodeMCPProvider } from './native/NodeMCPProvider.js';
 import { resolveCreateProcessorRuntimePolicy, type NodeRuntimeProfile } from './createProcessorRuntimePolicy.js';
-import {
-  createNativeFastGraphRunner,
-  type NodeNativeRuntimeDecision,
-} from './nativeGraphRunner.js';
 
-export type { NodeNativeRuntimeDecision, NodeRuntimeProfile };
+export type { NodeRuntimeProfile };
 
 class FallbackTokenizer implements Tokenizer {
   on(_event: 'error', _listener: (err: Error) => void): () => void {
@@ -108,21 +105,14 @@ export type NodeRunGraphOptions = RunGraphOptions & {
 type NodeGraphProcessor = ReturnType<typeof coreCreateProcessor>['processor'];
 
 export type NodeCreateProcessorOptions = NodeRunGraphOptions & {
+  runtimeProfiler?: GraphProcessorRuntimeProfiler;
   runtimeProfile?: NodeRuntimeProfile;
 };
-
-export type NodeGraphRunnerRuntimeProfile = NodeRuntimeProfile | 'native-fast';
 
 export type NodeGraphRunnerOptions = Omit<
   NodeRunGraphOptions,
   'abortSignal' | 'context' | 'inputs' | 'remoteDebugger' | 'remoteDebuggerRequestId'
-> & {
-  runtimeProfile?: NodeGraphRunnerRuntimeProfile;
-};
-
-type TypeScriptGraphRunnerOptions = Omit<NodeGraphRunnerOptions, 'runtimeProfile'> & {
-  runtimeProfile?: NodeRuntimeProfile;
-};
+>;
 
 export type NodeGraphRunnerRunOptions = {
   abortSignal?: AbortSignal;
@@ -132,15 +122,16 @@ export type NodeGraphRunnerRunOptions = {
 
 export type NodeGraphRunner = {
   dispose: () => void;
-  getNativeRuntimeDecision?: () => NodeNativeRuntimeDecision;
   run: (options?: NodeGraphRunnerRunOptions) => Promise<Record<string, DataValue>>;
 };
+
+type DefaultRunGraphRuntimePlan = 'compatible' | 'default-safe';
 
 export function createProcessor(
   project: Project,
   options: NodeCreateProcessorOptions,
 ): ReturnType<typeof coreCreateProcessor> {
-  const { runtimeProfile, ...processorOptions } = options;
+  const { runtimeProfile, runtimeProfiler, ...processorOptions } = options;
   const effectiveProcessorOptions = {
     ...processorOptions,
     captureNodeTimings:
@@ -151,6 +142,7 @@ export function createProcessor(
     cacheLoadedProjects: runtimePolicy.cacheLoadedProjects,
     executionPlanCacheMode: runtimePolicy.executionPlanCacheMode,
     runtimeCache: runtimePolicy.runtimeCache,
+    runtimeProfiler,
     scheduler: runtimePolicy.scheduler,
   });
 
@@ -226,23 +218,13 @@ function clearGraphProcessorRuntimeCache(runtimeCache: GraphProcessorRuntimeCach
 }
 
 export function createGraphRunner(project: Project, options: NodeGraphRunnerOptions): NodeGraphRunner {
-  const { runtimeProfile = 'compatible', ...processorOptions } = options;
-  if (runtimeProfile === 'native-fast') {
-    return createNativeFastGraphRunner(project, processorOptions, () =>
-      createTypeScriptGraphRunner(project, { ...processorOptions, runtimeProfile: 'compatible' }),
-    );
-  }
+  const { runtimeProfile: ignoredRuntimeProfile, ...processorOptions } = options as NodeGraphRunnerOptions & {
+    runtimeProfile?: unknown;
+  };
+  void ignoredRuntimeProfile;
 
-  return createTypeScriptGraphRunner(project, { ...processorOptions, runtimeProfile });
-}
-
-function createTypeScriptGraphRunner(project: Project, options: TypeScriptGraphRunnerOptions): NodeGraphRunner {
-  const { runtimeProfile = 'compatible', ...processorOptions } = options;
-  const ownsCodeRunner = processorOptions.codeRunner == null && runtimeProfile === 'headless-fast';
-  const runnerCodeRunner = ownsCodeRunner ? new CachedNodeCodeRunner() : undefined;
-  const runtimeCache: GraphProcessorRuntimeCache | undefined = runtimeProfile === 'headless-fast' ? {} : undefined;
   const processContext = createNodeProcessContext(processorOptions, resolveNodePluginEnv(processorOptions), {
-    codeRunner: runnerCodeRunner,
+    codeRunner: undefined,
   });
   const activeProcessors = new Set<NodeGraphProcessor>();
   let disposed = false;
@@ -279,32 +261,33 @@ function createTypeScriptGraphRunner(project: Project, options: TypeScriptGraphR
         void processor.abort(false, 'Graph runner disposed.');
       }
       activeProcessors.clear();
-      runnerCodeRunner?.clearCache();
-      if (runtimeCache) {
-        runtimeCache.executionPlans = undefined;
-        runtimeCache.graphBoundaries = undefined;
-        runtimeCache.loadedProjects = undefined;
-      }
     },
     async run(runOptions = {}) {
       if (disposed) {
         throw new Error('Cannot run a disposed graph runner.');
       }
 
-      return await runWithProcessor(createRunnerProcessor(project, processorOptions, runtimeCache), runOptions);
+      return await runWithProcessor(createRunnerProcessor(project, processorOptions), runOptions);
     },
   };
 }
 
 export async function runGraph(project: Project, options: NodeRunGraphOptions): Promise<Record<string, DataValue>> {
   const processorOptions = stripRunGraphRuntimeProfile(options);
-  const processorInfo = createProcessor(
-    project,
-    shouldUseDefaultSafeRunGraphPolicy(project, processorOptions)
-      ? processorOptions
-      : { ...processorOptions, runtimeProfile: 'compatible' },
-  );
+  const runtimePlan = resolveDefaultRunGraphRuntimePlan(project, processorOptions);
+  const processorInfo = createProcessor(project, createRunGraphProcessorOptions(processorOptions, runtimePlan));
   return processorInfo.run();
+}
+
+function createRunGraphProcessorOptions(
+  options: NodeRunGraphOptions,
+  runtimePlan: DefaultRunGraphRuntimePlan,
+): NodeCreateProcessorOptions {
+  if (runtimePlan === 'default-safe') {
+    return options;
+  }
+
+  return { ...options, runtimeProfile: 'compatible' };
 }
 
 function stripRunGraphRuntimeProfile(options: NodeRunGraphOptions): NodeRunGraphOptions {
@@ -317,13 +300,17 @@ function stripRunGraphRuntimeProfile(options: NodeRunGraphOptions): NodeRunGraph
   return processorOptions;
 }
 
-function shouldUseDefaultSafeRunGraphPolicy(project: Project, options: NodeRunGraphOptions): boolean {
-  if (options.remoteDebugger !== undefined || options.includeTrace) {
-    return false;
-  }
-
+function resolveDefaultRunGraphRuntimePlan(project: Project, options: NodeRunGraphOptions): DefaultRunGraphRuntimePlan {
   const graph = getRunGraphTarget(project, options.graph);
   if (!graph) {
+    return 'compatible';
+  }
+
+  return shouldUseDefaultSafeRunGraphPolicy(graph, options) ? 'default-safe' : 'compatible';
+}
+
+function shouldUseDefaultSafeRunGraphPolicy(graph: NodeGraph, options: NodeRunGraphOptions): boolean {
+  if (options.remoteDebugger !== undefined || options.includeTrace) {
     return false;
   }
 
@@ -410,7 +397,6 @@ function configureNodeProcessor(processor: NodeGraphProcessor): void {
 function createRunnerProcessor(
   project: Project,
   options: RunGraphOptions,
-  runtimeCache?: GraphProcessorRuntimeCache,
 ): NodeGraphProcessor {
   const processorInfo = coreCreateProcessor(
     project,
@@ -421,10 +407,9 @@ function createRunnerProcessor(
       inputs: {},
     },
     {
-      cacheLoadedProjects: runtimeCache != null,
+      cacheLoadedProjects: false,
       executionPlanCacheMode: 'all',
-      runtimeCache,
-      scheduler: runtimeCache ? 'fast-acyclic' : 'compatible',
+      scheduler: 'compatible',
     },
   );
 

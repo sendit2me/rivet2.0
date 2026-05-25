@@ -284,19 +284,10 @@ For package plugins, the sidecar expects installed plugin files under the app-da
 
 ### Node runtime
 
-`rivet-node` consumers can also pass a custom registry or rely on built-ins/plugins already present in the registry they use.
-
-The opt-in `createGraphRunner(..., { runtimeProfile: 'native-fast' })` path does
-not load plugin registries or execute plugin nodes. Project and referenced
-project `plugins` metadata alone does not block native-fast, because native
-preflight classifies only the selected graph closure. A plugin-bearing project
-can still run natively when that closure uses only supported built-in native
-nodes. If the selected graph, subgraph, or referenced graph alias closure
-contains an actual active plugin/custom node type, native-fast falls back before
-loading the native module with `unsupported-node:<type>:<nodeId>`; disabled,
-conditional, or split-run nodes still use those earlier preflight fallback
-reasons. Passing a custom registry remains an explicit native-fast fallback
-because registry-owned semantics cannot be proven by the native preflight.
+`rivet-node` consumers can also pass a custom registry or rely on
+built-ins/plugins already present in the registry they use. The default
+TypeScript runtime is the only supported Node runtime path; plugin execution is
+owned by the assembled registry passed to `GraphProcessor`.
 
 ## Plugin Ownership and Config Lookup
 
