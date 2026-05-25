@@ -1,0 +1,31 @@
+---
+id: expression
+title: Expression Node
+sidebar_label: Expression
+---
+
+# Expression Node
+
+The Expression node evaluates one JavaScript expression and returns the result on its `Output` port.
+
+Use `{{name}}` tokens inside the expression to create input ports. Connected values are exposed as JavaScript values, not as wrapped Rivet `DataValue` objects.
+
+## Inputs
+
+Inputs are created from `{{name}}` interpolation tokens in the expression body.
+
+## Outputs
+
+| Title  | Data Type | Description                           |
+| ------ | --------- | ------------------------------------- |
+| Output | `any`     | The value returned by the expression. |
+
+## Settings
+
+| Setting    | Description                            |
+| ---------- | -------------------------------------- |
+| Expression | The JavaScript expression to evaluate. |
+
+## Notes
+
+Expression is best for compact value transforms. Use the [Code node](./code-new.mdx) when you need statements, local declarations, `await`, or an explicit `return`.

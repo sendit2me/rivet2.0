@@ -1,0 +1,31 @@
+---
+id: to-tree
+title: To Tree Node
+sidebar_label: To Tree
+---
+
+# To Tree Node
+
+The To Tree node renders an object or object array as a text tree.
+
+Use it when you have hierarchical data and want a readable indented tree string.
+
+## Inputs
+
+| Title   | Data Type              | Description                  |
+| ------- | ---------------------- | ---------------------------- |
+| Objects | `object[]` or `object` | Objects to render as a tree. |
+
+## Outputs
+
+| Title | Data Type | Description         |
+| ----- | --------- | ------------------- |
+| Tree  | `string`  | Rendered text tree. |
+
+## Settings
+
+| Setting             | Description                                         |
+| ------------------- | --------------------------------------------------- |
+| Children Property   | Object property that contains child nodes.          |
+| Format              | Interpolation template for each rendered tree item. |
+| Sort Alphabetically | Sorts items by path before rendering.               |

@@ -1,0 +1,34 @@
+---
+id: loop-until
+title: Loop Until Node
+sidebar_label: Loop Until
+---
+
+# Loop Until Node
+
+The Loop Until node repeatedly executes a target graph until a stop condition is met.
+
+Each iteration can feed output values back into the next iteration through matching graph input and output names.
+
+## Inputs
+
+Inputs are generated from the selected target graph's [Graph Input](./graph-input.mdx) nodes.
+
+## Outputs
+
+Outputs are generated from the target graph's [Graph Output](./graph-output.mdx) nodes, plus:
+
+| Title      | Data Type | Description                     |
+| ---------- | --------- | ------------------------------- |
+| Iterations | `number`  | Number of iterations completed. |
+| Completed  | `boolean` | True when the loop completed.   |
+
+## Settings
+
+| Setting        | Description                                            |
+| -------------- | ------------------------------------------------------ |
+| Target Graph   | Graph to run repeatedly.                               |
+| Stop Condition | `All Outputs Set` or `Input Equals Value`.             |
+| Max Iterations | Optional hard limit for loop iterations.               |
+| Input to Check | Input name used by the `Input Equals Value` condition. |
+| Target Value   | Value used by the `Input Equals Value` condition.      |

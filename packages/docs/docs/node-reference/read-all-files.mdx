@@ -1,0 +1,40 @@
+---
+id: read-all-files
+title: Read All Files Node
+sidebar_label: Read All Files
+---
+
+# Read All Files Node
+
+The Read All Files node reads every file in a directory and outputs an array containing each file path and content.
+
+It requires a native API, so it is available in environments that can read the local filesystem.
+
+## Inputs
+
+Inputs appear when their corresponding settings are toggled to input mode.
+
+| Title        | Data Type  | Description                         |
+| ------------ | ---------- | ----------------------------------- |
+| Path         | `string`   | Directory path to read.             |
+| Recursive    | `boolean`  | Whether to read nested directories. |
+| Filter Globs | `string[]` | Glob filters for files to include.  |
+| Ignores      | `string[]` | Glob filters for paths to ignore.   |
+
+## Outputs
+
+| Title     | Data Type  | Description                                   |
+| --------- | ---------- | --------------------------------------------- |
+| Files     | `object[]` | Objects with `path` and `content` properties. |
+| Root Path | `string`   | The root directory path used for the read.    |
+
+## Settings
+
+| Setting               | Description                                                             |
+| --------------------- | ----------------------------------------------------------------------- |
+| Path                  | Directory path to read.                                                 |
+| Recursive             | Reads nested directories when enabled.                                  |
+| Filter Globs          | Include filters.                                                        |
+| Ignores               | Ignore filters.                                                         |
+| Read as Binary        | Returns file contents as base64-encoded binary content instead of text. |
+| Error on Missing File | Aborts when the path cannot be read.                                    |

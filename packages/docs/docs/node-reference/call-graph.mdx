@@ -1,0 +1,31 @@
+---
+id: call-graph
+title: Call Graph Node
+sidebar_label: Call Graph
+---
+
+# Call Graph Node
+
+The Call Graph node executes a graph from a `graph-reference` value.
+
+Use it with [Graph Reference](./graph-reference.mdx) or [List Graphs](./list-graphs.mdx) when the target graph should be chosen at runtime instead of being fixed in a [Subgraph](./subgraph.mdx) node.
+
+## Inputs
+
+| Title  | Data Type         | Description                                                        |
+| ------ | ----------------- | ------------------------------------------------------------------ |
+| Graph  | `graph-reference` | The graph reference to execute.                                    |
+| Inputs | `object`          | Object whose keys are graph input IDs and values are input values. |
+
+## Outputs
+
+| Title   | Data Type | Description                                                    |
+| ------- | --------- | -------------------------------------------------------------- |
+| Outputs | `object`  | Outputs returned by the called graph.                          |
+| Error   | `string`  | Error message when error output is enabled and the call fails. |
+
+## Settings
+
+| Setting          | Description                                                       |
+| ---------------- | ----------------------------------------------------------------- |
+| Use Error Output | Adds an `Error` output instead of aborting on graph-call failure. |

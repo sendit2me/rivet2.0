@@ -1,0 +1,31 @@
+---
+id: graph-reference
+title: Graph Reference Node
+sidebar_label: Graph Reference
+---
+
+# Graph Reference Node
+
+The Graph Reference node outputs a reference to another graph in the current project.
+
+Pass the reference to a [Call Graph node](./call-graph.mdx) when the graph to execute should be selected dynamically.
+
+## Inputs
+
+| Title            | Data Type | Description                                             |
+| ---------------- | --------- | ------------------------------------------------------- |
+| Graph Name Or ID | `string`  | Optional input used when the graph is selected by wire. |
+
+The input appears only when the Graph setting is switched to use an input.
+
+## Outputs
+
+| Title | Data Type         | Description                      |
+| ----- | ----------------- | -------------------------------- |
+| Graph | `graph-reference` | A reference to the chosen graph. |
+
+## Settings
+
+| Setting | Description                                         |
+| ------- | --------------------------------------------------- |
+| Graph   | The project graph to reference, or an input toggle. |

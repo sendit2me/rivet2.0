@@ -1,7 +1,5 @@
 - Need keyboard shortcuts to run the project and the current graph
 
-- For each node in the settings panel - add a link to the user documentation
-
 - When a graph is picked in the left panel and the panel is open, make F2 force renaming
 
 - Now, the executor mode is global for all open projects (remote debugger, browser, node). Make it per tab

@@ -648,6 +648,7 @@ describe the current Rivet 2 surface:
 - app package names and root workspace scripts from the current manifests
 - LLM Chat as the recommended chat node for new graphs, with legacy Chat called out as legacy
 - Getting Started, User Guide, and Node Reference pages should teach `LLM Chat` as the default chat node for new workflows. Legacy `Chat` examples are acceptable only when the page is explicitly documenting old project/tutorial content or the legacy node itself
+- Node Reference must keep one checked-in page for every built-in node type exposed by `createBuiltInRegistry()`. The app's node-settings footer links use [`packages/app/src/utils/nodeDocumentation.ts`](../packages/app/src/utils/nodeDocumentation.ts), so when adding, renaming, or removing a built-in node, update that mapping, the corresponding `packages/docs/docs/node-reference/*.mdx` page, `all-nodes.mdx`, and `sidebars.js` together.
 - User-facing docs should use `Running Many Items`, `Run once`, `Many parallel runs`, and `Many sequential runs` for node run modes. The old `Splitting` URL may remain for link stability, but new prose should avoid presenting "Split node" as the current UI label
 - User-facing docs should say `workflow` / `Executing Workflows` for current graph execution concepts. The old `executing-ai-chains` URL may remain for link stability, but visible labels and prose should not present "AI chains" as the current product language
 - Browser, Node, and remote executor behavior, including hosted/internal executor URL seams

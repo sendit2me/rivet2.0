@@ -1,0 +1,30 @@
+---
+id: to-markdown-table
+title: To Markdown Table Node
+sidebar_label: To Markdown Table
+---
+
+# To Markdown Table Node
+
+The To Markdown Table node converts an array of objects into a Markdown table string.
+
+Use it when structured records should be rendered as readable Markdown for prompts, reports, or logs.
+
+## Inputs
+
+| Title      | Data Type | Description                            |
+| ---------- | --------- | -------------------------------------- |
+| Data Array | `any`     | Array of objects to render as a table. |
+
+## Outputs
+
+| Title          | Data Type | Description                   |
+| -------------- | --------- | ----------------------------- |
+| Markdown Table | `string`  | The generated Markdown table. |
+
+## Settings
+
+| Setting         | Description                                  |
+| --------------- | -------------------------------------------- |
+| Include Headers | Adds a header row from the object keys.      |
+| Align Pipes     | Aligns table pipes for more readable source. |

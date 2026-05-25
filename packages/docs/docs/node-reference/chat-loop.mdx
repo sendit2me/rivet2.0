@@ -1,0 +1,29 @@
+---
+id: chat-loop
+title: Chat Loop Node
+sidebar_label: Chat Loop
+---
+
+# Chat Loop Node
+
+The Chat Loop node is a convenience node for interactive chat-style workflows.
+
+It keeps appending generated assistant messages to the conversation until the configured stop behavior is reached.
+
+## Inputs
+
+Chat Loop uses the same model, prompt, tool, and provider inputs as chat-family nodes.
+
+## Outputs
+
+| Title             | Data Type        | Description                                  |
+| ----------------- | ---------------- | -------------------------------------------- |
+| Full Conversation | `chat-message[]` | Complete conversation collected by the loop. |
+| Last Message      | `chat-message`   | Final message in the conversation.           |
+
+## Settings
+
+| Setting     | Description                                                   |
+| ----------- | ------------------------------------------------------------- |
+| User Prompt | Prompt text shown when the loop asks the user for a reply.    |
+| Rendering   | Whether user-facing prompts are rendered as text or markdown. |

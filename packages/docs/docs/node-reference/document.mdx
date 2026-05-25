@@ -1,0 +1,39 @@
+---
+id: document
+title: Document Node
+sidebar_label: Document
+---
+
+# Document Node
+
+The Document node creates a document value.
+
+Use it when a workflow needs to carry file-like document data, media type, and optional metadata between nodes.
+
+## Inputs
+
+| Title            | Data Type            | Description                                    |
+| ---------------- | -------------------- | ---------------------------------------------- |
+| Data             | `string` or `binary` | Optional document content when using an input. |
+| Media Type       | `string`             | Optional MIME type when using an input.        |
+| Title            | `string`             | Optional document title when using an input.   |
+| Context          | `string`             | Optional document context when using an input. |
+| Enable Citations | `boolean`            | Optional citation flag when using an input.    |
+
+Inputs appear only when their corresponding settings are toggled to input mode.
+
+## Outputs
+
+| Title         | Data Type  | Description                    |
+| ------------- | ---------- | ------------------------------ |
+| Document Data | `document` | The configured document value. |
+
+## Settings
+
+| Setting          | Description                                |
+| ---------------- | ------------------------------------------ |
+| Document File    | File to load as document data.             |
+| Media Type       | MIME type for the document.                |
+| Title            | Optional title metadata.                   |
+| Context          | Optional context metadata.                 |
+| Enable Citations | Whether consumers should enable citations. |

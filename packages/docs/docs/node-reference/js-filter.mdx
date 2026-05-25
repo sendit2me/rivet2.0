@@ -1,0 +1,37 @@
+---
+id: js-filter
+title: JS Filter Node
+sidebar_label: JS Filter
+---
+
+# JS Filter Node
+
+The JS Filter node filters an input array with a JavaScript callback body.
+
+The callback body can use `item`, `index`, and `array`, and should `return` a truthy value for items that should stay in the output.
+
+## Inputs
+
+| Title | Data Type | Description          |
+| ----- | --------- | -------------------- |
+| Array | `any[]`   | The array to filter. |
+
+Additional inputs are created from `{{name}}` interpolation tokens in the callback body.
+
+## Outputs
+
+| Title    | Data Type | Description                             |
+| -------- | --------- | --------------------------------------- |
+| Filtered | `any[]`   | Items whose callback result was truthy. |
+
+## Settings
+
+| Setting       | Description                                                                 |
+| ------------- | --------------------------------------------------------------------------- |
+| Callback Body | JavaScript callback body. Use `return` to decide whether each item remains. |
+
+## Example
+
+```js
+return item != null;
+```
