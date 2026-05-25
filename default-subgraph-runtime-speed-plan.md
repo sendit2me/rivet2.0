@@ -74,26 +74,29 @@ this phase. The goal is real runtime speed, not debugger-only duration changes.
   callers can observe the returned processor. Do not broaden default one-off
   Subgraph execution without a new benchmark-proven mechanism.
 - A local production-shaped fixture at `.fixtures/graph-fixture.rivet-project`
-  reopened the plan with better evidence. It runs the main graph with no
-  explicit inputs because the graph owns its mocked/default inputs. The first
-  baseline is documented in
+  added better backend-style evidence. It runs the main graph with no explicit
+  inputs because the graph owns its mocked/default inputs. The first baseline is
+  documented in
   [`default-subgraph-runtime-benchmark.md`](default-subgraph-runtime-benchmark.md):
   loaded `runGraph(...)` measured about 37.6 ms mean, default-safe fresh
   `createProcessor(...)` about 38.5 ms mean, and explicit `headless-fast` fresh
-  `createProcessor(...)` about 27.9 ms mean.
+  `createProcessor(...)` about 27.9 ms mean. The backend-style default-safe
+  fresh `createProcessor(...)` result is accepted as healthy for the current
+  target, so no further default behavior change is planned from this evidence.
 
-## Next Steps
+## Closeout
 
-1. Use the local real-workflow fixture as the next investigation target, not the
-   tiny synthetic one-off/nested rows.
-2. Explain why explicit `headless-fast` is about 10 ms faster on the fixture and
-   which default-safety guard prevents the default APIs from taking that path.
-3. Propose a narrower automatic eligibility rule only if it can be proven
-   equivalent for silent, no-debugger, no-trace runs and does not change
-   observable `createProcessor(...)` behavior.
-4. Keep the shipped repeated direct-Subgraph `runGraph(...)` slice as the only
-   default runtime change until the real-fixture benchmark clears the same P5
-   benchmark gate.
+1. Keep the shipped repeated direct-Subgraph `runGraph(...)` slice as the only
+   default runtime change from this plan.
+2. Keep the optional local real-workflow fixture rows as a regression and
+   diagnostic tool for future backend-performance work.
+3. Do not broaden omitted/default `createProcessor(...)` behavior now. The
+   measured default-safe fresh `createProcessor(...)` fixture run is already
+   within the accepted backend target.
+4. Reopen the `headless-fast` gap only if the backend latency target tightens or
+   a regression appears. Any reopened work must start by rerunning the fixture
+   benchmark and clearing the same equivalence and benchmark gates before a
+   default runtime change ships.
 
 ## Implementation Plan
 
@@ -456,22 +459,33 @@ this phase. The goal is real runtime speed, not debugger-only duration changes.
   [`packages/node/bench-results/default-subgraph-runtime-real-fixture.json`](packages/node/bench-results/default-subgraph-runtime-real-fixture.json).
 - Result: explicit `headless-fast` fresh `createProcessor(...)` was about
   27.9 ms mean, compared with about 38.5 ms default-safe fresh
-  `createProcessor(...)` and about 37.6 ms loaded `runGraph(...)`. This is a
-  real optimization lead that the synthetic one-off/nested rows did not expose.
+  `createProcessor(...)` and about 37.6 ms loaded `runGraph(...)`. This remains
+  useful diagnostic ceiling data, but the default-safe backend-style result is
+  accepted as healthy for the current target.
 
-### P11: Explain The Real-Fixture `headless-fast` Gap [TODO]
+### P11: Explain The Real-Fixture `headless-fast` Gap [PARKED - BACKEND BASELINE ACCEPTED]
 
-- Inspect the runtime policy decision for the fixture and identify exactly why
-  omitted/default APIs do not use the faster `headless-fast` path.
-- Attribute the gap before changing runtime behavior:
+- Parked because the backend-style fresh default-safe `createProcessor(...)`
+  fixture row measured about 38.5 ms mean, which is accepted as healthy for the
+  current target.
+- Keep the explicit `headless-fast` row as a useful ceiling and diagnostic, not
+  as an active default-mode requirement.
+- Do not change omitted/default `createProcessor(...)` behavior merely to chase
+  the fixture's `headless-fast` gap; callers can observe a returned processor
+  before `run()`, so default behavior needs stronger proof than a raw speed gap.
+- Reopen this phase only if the accepted backend target changes or future
+  regression data requires it. If reopened, inspect the runtime policy decision
+  for the fixture and identify exactly why omitted/default APIs do not use the
+  faster `headless-fast` path.
+- If reopened, attribute the gap before changing runtime behavior:
   - scheduler choice;
   - lifecycle observability;
   - Code/Expression runner setup;
   - subgraph boundary/cache reuse;
   - globals and context setup;
   - any fallback triggered by graph shape.
-- Add focused tests for any proposed new automatic eligibility rule before
-  implementation.
+- If reopened, add focused tests for any proposed new automatic eligibility rule
+  before implementation.
 - Do not change `createProcessor(...)` omitted behavior unless the returned
   processor remains safely observable before `run()`.
 - Prefer an automatic `runGraph(...)`-only improvement first, because

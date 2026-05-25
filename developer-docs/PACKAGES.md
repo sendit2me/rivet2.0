@@ -212,10 +212,13 @@ The local real-workflow fixture baseline is now recorded in
 [`packages/node/bench-results/default-subgraph-runtime-real-fixture.json`](../packages/node/bench-results/default-subgraph-runtime-real-fixture.json).
 On that fixture, loaded `runGraph(...)` measured about 37.6 ms mean, default-safe
 fresh `createProcessor(...)` about 38.5 ms mean, and explicit `headless-fast`
-fresh `createProcessor(...)` about 27.9 ms mean. Treat this as the next
-optimization lead: first explain the policy or runtime-cost gap, then prove any
-new automatic eligibility rule with equivalence tests and the same benchmark
-gate before changing default behavior.
+fresh `createProcessor(...)` about 27.9 ms mean. The default-safe fresh
+`createProcessor(...)` result is accepted as healthy for the current backend
+target, so this plan is closed with no further default `createProcessor(...)`
+behavior change. Keep the fixture rows as regression diagnostics, and reopen the
+`headless-fast` policy gap only if the backend latency target tightens or a
+future benchmark shows a regression; any reopened default change still needs
+equivalence tests and the same benchmark gate.
 
 The post-P7 full before/after matrix found real wins but also unacceptable
 cheap-runtime regressions. The P8-P12 recovery pass fixed the repeatable cheap

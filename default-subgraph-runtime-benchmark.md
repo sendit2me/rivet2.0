@@ -422,11 +422,13 @@ yarn workspace @valerypopoff/rivet2-node run bench:runtime-speed
   loading alone measured about 35.7 ms, while loaded `runGraph(...)` measured
   about 37.6 ms.
 - The loaded default rows are stable enough to use as a regression baseline.
-- Explicit `headless-fast` on fresh `createProcessor(...)` is meaningfully
+- The backend-style fresh default-safe `createProcessor(...)` row measured about
+  38.5 ms mean, which is accepted as healthy for the current backend target.
+- Explicit `headless-fast` on fresh `createProcessor(...)` is still meaningfully
   faster on this fixture: about 27.9 ms mean versus about 38.5 ms default-safe
-  mean. That is evidence for a real optimization direction, not a shipped
-  default change yet.
-- The next investigation should explain which default-safety guard keeps this
-  fixture on the default-safe path and whether a narrower automatic
-  `headless-fast` eligibility rule can be proven equivalent for this workflow
-  shape without changing observable runs.
+  mean. Treat that as a diagnostic ceiling, not as an active requirement to
+  change default behavior.
+- Do not broaden omitted/default `createProcessor(...)` behavior solely to
+  chase this gap. Keep the fixture rows as regression checks and reopen the
+  policy investigation only if the backend latency target tightens or a future
+  benchmark shows a regression.
