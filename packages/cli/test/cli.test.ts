@@ -3,7 +3,12 @@ import test from 'node:test';
 import yargs from 'yargs';
 import { parseJsonInputRecord, parseKeyValueInputRecord } from '../src/commandInputs.js';
 import { makeCommand as makeRunCommand } from '../src/commands/run.js';
-import { buildStreamEventFilter, makeCommand as makeServeCommand } from '../src/commands/serve.js';
+import {
+  buildGraphProcessorOptions,
+  buildStreamEventFilter,
+  buildStreamingGraphProcessorOptions,
+  makeCommand as makeServeCommand,
+} from '../src/commands/serve.js';
 
 test('run command builder registers its default option values', async () => {
   const command = makeRunCommand(yargs([])).exitProcess(false);
@@ -62,4 +67,32 @@ test('buildStreamEventFilter filters SSE events when --stream names a node', () 
     nodeFinish: ['Chat Node'],
     partialOutputs: ['Chat Node'],
   });
+});
+
+test('serve processor options keep non-streaming runs on the default runtime policy', () => {
+  const options = buildGraphProcessorOptions({
+    graph: 'Main',
+    inputs: { input: 'value' },
+    openaiApiKey: 'key',
+    openaiEndpoint: undefined,
+    openaiOrganization: undefined,
+  });
+
+  assert.equal('runtimeProfile' in options, false);
+  assert.equal(options.graph, 'Main');
+  assert.deepEqual(options.inputs, { input: 'value' });
+});
+
+test('serve streaming runs force the compatible runtime policy', () => {
+  const options = buildStreamingGraphProcessorOptions({
+    graph: 'Main',
+    inputs: { input: 'value' },
+    openaiApiKey: undefined,
+    openaiEndpoint: undefined,
+    openaiOrganization: undefined,
+  });
+
+  assert.equal(options.runtimeProfile, 'compatible');
+  assert.equal(options.graph, 'Main');
+  assert.deepEqual(options.inputs, { input: 'value' });
 });

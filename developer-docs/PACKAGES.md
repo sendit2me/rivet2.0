@@ -23,7 +23,7 @@ Shared runtime foundation for the entire repo.
 
 ### Package metadata
 
-- Version: `2.0.1`
+- Version: `2.0.10`
 - Main: `dist/cjs/bundle.cjs`
 - Module: `dist/esm/index.js`
 - Types: `dist/types/index.d.ts`
@@ -59,7 +59,7 @@ Node runtime wrapper around core.
 
 ### Package metadata
 
-- Version: `2.0.1`
+- Version: `2.0.10`
 - Main: `dist/cjs/bundle.cjs`
 - Module: `dist/esm/index.js`
 - Types: `dist/types/index.d.ts`
@@ -257,12 +257,22 @@ stale/invalid target-port connections when unlocking downstream nodes, so deep
 eligible graphs and stale graph-shape edge cases do not become observable just
 because a faster scheduler is active.
 
-Remote Debugger or trace-sensitive runs use the compatible policy. Custom
+There are two intentional runtime-observability paths:
+
+| Path | Default policy | Why |
+| --- | --- | --- |
+| Ordinary headless endpoint-style execution (`createProcessor(...)` with no `runtimeProfile`, and eligible `runGraph(...)`) | Uses run-scoped execution-plan caching, the cached default CodeRunner when no custom runner is supplied, and the internal `fast-acyclic` scheduler for eligible graphs. | The public contract is final outputs, errors, callbacks, and normal processor events; this path has compatibility tests and fixture benchmarks. |
+| Remote Debugger, trace-sensitive runs, CLI `serve --stream` / `--stream-node`, and explicit `runtimeProfile: 'compatible'` | Forces the compatible scheduler/policy. | The execution order itself is user-visible: node start/finish/excluded ordering, trace text/SSE payload order, live running state, nested graph lifecycle ordering, and debugger timing can all be observed. |
+
+Do not "simplify" this into one always-fast policy unless Remote Debugger,
+trace, and CLI streaming runs first get their own golden lifecycle tests,
+nested-subgraph coverage, abort/race coverage, manual debugger/manual SSE
+validation, and benchmark evidence. Custom
 `codeRunner` instances always win; the Node cached CodeRunner is only used when
-no custom runner was supplied. Recording remains supported because the
-default path still emits normal processor events. `runGraph(...)`
-intentionally ignores any untyped `runtimeProfile` property and uses only the
-default-safe internal policy selected by its own observable-run guards.
+no custom runner was supplied. Recording remains supported because the default
+path still emits normal processor events. `runGraph(...)` intentionally ignores
+any untyped `runtimeProfile` property and uses only the default-safe internal
+policy selected by its own observable-run guards.
 
 The fixture speedup pass made that scheduler/cache policy the default omitted
 `createProcessor(...)` path only after compatibility characterization and
@@ -355,7 +365,7 @@ Desktop IDE frontend plus Tauri app packaging layer.
 
 ### Package metadata
 
-- Version: `2.0.1`
+- Version: `2.2.2`
 - Private: yes
 
 ### Runtime shape
@@ -418,7 +428,7 @@ Node sidecar process used by the desktop app for Node-capable execution.
 
 ### Package metadata
 
-- Version: `2.0.0`
+- Version: `2.0.4`
 - Bin: `./bin/executor-bundle.cjs`
 
 ### Main behavior
@@ -500,7 +510,7 @@ Operational CLI for running or serving Rivet graphs.
 
 ### Package metadata
 
-- Version: `2.0.1`
+- Version: `2.0.10`
 - Source entry: `src/cli.ts`
 - Published bin mapping: `rivet -> bin/cli.js`
 - Types: `dist/types/cli.d.ts`
@@ -548,7 +558,7 @@ Supports:
 - optional single-node streaming
 - OpenAI-related option overrides
 
-Architecturally, it is a thin HTTP wrapper around `rivet-node` processor creation and streaming helpers. Request bodies are parsed through the same object-input helper as `run`, so empty bodies become `{}` and arrays/primitives are rejected before execution. Project-file lookup resolves relative paths to absolute paths, handles directory inputs, and uses platform path helpers for suggestions so Windows paths do not get split with POSIX-only separators. Graph validation also checks that a stored main graph ID actually exists before the server starts.
+Architecturally, it is a thin HTTP wrapper around `rivet-node` processor creation and streaming helpers. Request bodies are parsed through the same object-input helper as `run`, so empty bodies become `{}` and arrays/primitives are rejected before execution. Project-file lookup resolves relative paths to absolute paths, handles directory inputs, and uses platform path helpers for suggestions so Windows paths do not get split with POSIX-only separators. Graph validation also checks that a stored main graph ID actually exists before the server starts. Non-streaming `run` and `serve` requests use the default omitted-profile Node runtime policy, so eligible headless runs get the automatic fast scheduler/cache path. `serve --stream` and `serve --stream-node` explicitly pass `runtimeProfile: 'compatible'` because those modes expose node lifecycle events over SSE, making scheduler ordering part of the client-visible contract.
 
 ### Docker image behavior
 
@@ -562,7 +572,7 @@ Graph-oriented testing package.
 
 ### Package metadata
 
-- Version: `2.0.1`
+- Version: `2.0.10`
 - Main: `dist/cjs/bundle.cjs`
 - Module: `dist/esm/index.js`
 - Types: `dist/types/index.d.ts`

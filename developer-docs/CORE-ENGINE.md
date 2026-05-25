@@ -514,6 +514,16 @@ Current architectural detail:
   through input dependencies that were actually counted, so very deep eligible
   graphs avoid recursive reachability limits and invalid or stale target-port
   connections do not make otherwise ignored nodes observable.
+  This creates two deliberate observability contracts. Ordinary headless runs
+  can take the faster path when outputs, errors, callbacks, and normal processor
+  events remain equivalent. Remote Debugger, trace-sensitive runs, and CLI SSE
+  streaming stay on the compatible path because the scheduler's internal order
+  is part of the visible product contract there: node lifecycle ordering, trace
+  text or SSE payload order, live running state, nested graph lifecycle
+  ordering, and debugger timing are observable.
+  Do not move debugger, trace, or CLI streaming runs to `fast-acyclic` without
+  dedicated golden lifecycle, nested-subgraph, abort/race, trace/SSE, and manual
+  debugger or streaming-client coverage.
   The loaded-reference flag controls both reading and writing
   `runtimeCache.loadedProjects`; a runtime cache alone is not enough to reuse
   referenced projects. Execution-plan caching is also disabled for projects
