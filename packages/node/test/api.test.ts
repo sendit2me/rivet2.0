@@ -20,8 +20,10 @@ import {
 } from '../src/index.js';
 import {
   makeCallGraphFanInProject,
+  makeNestedSubgraphProject,
   makeReferencedGraphAliasFanInProject,
   makeRepeatedSubgraphFanInProject,
+  makeSubgraphChainProject,
   makeTextChainProject,
 } from './runtimeSpeedFixtures.js';
 
@@ -152,6 +154,24 @@ async function assertRunGraphMatchesDefaultSafeAndBeatsCompatible(
   const runGraphDefinitionCalls = await countRunGraphDefinitionCalls(project, options);
 
   assert.equal(runGraphDefinitionCalls, defaultCreateProcessorDefinitionCalls);
+  assert.ok(runGraphDefinitionCalls < compatibleDefinitionCalls);
+}
+
+async function assertRunGraphMatchesHeadlessFastAndBeatsCompatible(
+  project: Project,
+  options: Parameters<typeof runGraph>[1],
+): Promise<void> {
+  const compatibleDefinitionCalls = await countCreateProcessorDefinitionCalls(project, {
+    ...options,
+    runtimeProfile: 'compatible',
+  });
+  const headlessFastCreateProcessorDefinitionCalls = await countCreateProcessorDefinitionCalls(project, {
+    ...options,
+    runtimeProfile: 'headless-fast',
+  });
+  const runGraphDefinitionCalls = await countRunGraphDefinitionCalls(project, options);
+
+  assert.equal(runGraphDefinitionCalls, headlessFastCreateProcessorDefinitionCalls);
   assert.ok(runGraphDefinitionCalls < compatibleDefinitionCalls);
 }
 
@@ -429,13 +449,90 @@ describe('api', () => {
     await assertRunGraphMatchesCompatible(fixture.project, makeStandardRunOptions(fixture.graphId));
   });
 
-  it('uses default-safe runGraph planning for repeated subgraphs', async () => {
+  it('uses headless-fast runGraph planning for unobservable repeated subgraphs', async () => {
+    const fixture = makeRepeatedSubgraphFanInProject(3);
+
+    await assertRunGraphMatchesHeadlessFastAndBeatsCompatible(
+      fixture.project,
+      makeStandardRunOptions(fixture.graphId),
+    );
+  });
+
+  it('keeps observable repeated subgraph runGraph planning on the default-safe path', async () => {
     const fixture = makeRepeatedSubgraphFanInProject(3);
 
     await assertRunGraphMatchesDefaultSafeAndBeatsCompatible(
       fixture.project,
-      makeStandardRunOptions(fixture.graphId),
+      makeStandardRunOptions(fixture.graphId, {
+        onNodeFinish: () => undefined,
+      }),
     );
+  });
+
+  it('keeps abortable repeated subgraph runGraph planning on the default-safe path', async () => {
+    const fixture = makeRepeatedSubgraphFanInProject(3);
+    const abortController = new AbortController();
+
+    await assertRunGraphMatchesDefaultSafeAndBeatsCompatible(
+      fixture.project,
+      makeStandardRunOptions(fixture.graphId, {
+        abortSignal: abortController.signal,
+      }),
+    );
+  });
+
+  it('keeps projects with references off the headless-fast runGraph path', async () => {
+    const fixture = makeRepeatedSubgraphFanInProject(3);
+    const unusedReferencedProject = {
+      graphs: {},
+      metadata: {
+        description: '',
+        id: 'unused-reference',
+        title: 'Unused Reference',
+      },
+    } as Project;
+    const projectReferenceLoader = {
+      loadProject: async () => unusedReferencedProject,
+    };
+    const options = makeStandardRunOptions(fixture.graphId, {
+      projectReferenceLoader,
+    });
+    const projectWithUnusedReference: Project = {
+      ...fixture.project,
+      references: [
+        {
+          id: 'unused-reference',
+        },
+      ],
+    } as Project;
+
+    const defaultCreateProcessorDefinitionCalls = await countCreateProcessorDefinitionCalls(
+      projectWithUnusedReference,
+      options,
+    );
+    const headlessFastCreateProcessorDefinitionCalls = await countCreateProcessorDefinitionCalls(
+      projectWithUnusedReference,
+      {
+        ...options,
+        runtimeProfile: 'headless-fast',
+      },
+    );
+    const runGraphDefinitionCalls = await countRunGraphDefinitionCalls(projectWithUnusedReference, options);
+
+    assert.equal(runGraphDefinitionCalls, defaultCreateProcessorDefinitionCalls);
+    assert.notEqual(runGraphDefinitionCalls, headlessFastCreateProcessorDefinitionCalls);
+  });
+
+  it('keeps single static subgraph runGraph planning on the compatible path', async () => {
+    const fixture = makeSubgraphChainProject(1);
+
+    await assertRunGraphMatchesCompatible(fixture.project, makeStandardRunOptions(fixture.graphId));
+  });
+
+  it('keeps nested static subgraph runGraph planning on the compatible path', async () => {
+    const fixture = makeNestedSubgraphProject(3);
+
+    await assertRunGraphMatchesCompatible(fixture.project, makeStandardRunOptions(fixture.graphId));
   });
 
   it('uses default-safe runGraph planning for repeated Call Graph nodes', async () => {
@@ -458,7 +555,18 @@ describe('api', () => {
     );
   });
 
-  it('uses default-safe runGraph planning when the target graph is selected by name', async () => {
+  it('keeps single static referenced graph alias runGraph planning on the compatible path', async () => {
+    const fixture = makeReferencedGraphAliasFanInProject(1);
+
+    await assertRunGraphMatchesCompatible(
+      fixture.project,
+      makeStandardRunOptions(fixture.graphId, {
+        projectReferenceLoader: fixture.projectReferenceLoader,
+      }),
+    );
+  });
+
+  it('keeps repeated subgraph runGraph planning stable when the target graph is selected by name', async () => {
     const fixture = makeRepeatedSubgraphFanInProject(3);
     const idSelectedDefinitionCalls = await countRunGraphDefinitionCalls(fixture.project, {
       graph: fixture.graphId,

@@ -113,13 +113,20 @@ is the repeatable baseline benchmark for the speed plan. Run it with
 `RIVET_RUNTIME_BENCH_ITERATIONS` and
 `RIVET_RUNTIME_BENCH_WARMUP_ITERATIONS`. Set
 `RIVET_RUNTIME_BENCH_SAMPLES` to run each benchmark case multiple times and
-report the average, min/max sample means, and standard deviation. Use
-`RIVET_RUNTIME_BENCH_FILTER` with a JavaScript regular expression to run a
-targeted subset during regression attribution, and set
-`RIVET_RUNTIME_BENCH_JSON=1` when a script needs the benchmark payload as JSON.
+`RIVET_RUNTIME_BENCH_SESSIONS` to repeat those samples across independent
+sessions. The output reports mean, median, p75, p95, min/max, standard
+deviation, coefficient of variation, and 95% confidence bounds, and keeps raw
+per-sample timings in the JSON payload. Use `RIVET_RUNTIME_BENCH_FILTER` with a
+JavaScript regular expression to run a targeted subset during regression
+attribution. Set `RIVET_RUNTIME_BENCH_OUTPUT` to write a machine-readable
+artifact, and set `RIVET_RUNTIME_BENCH_JSON=1` when a script needs the benchmark
+payload as JSON.
 The package script still builds `@valerypopoff/rivet2-core` first, so scripts
-should read the final JSON array line unless they invoke the built benchmark
-file directly. The full matrix is still the required release gate. It measures one-shot
+should read the final JSON object line unless they invoke the built benchmark
+file directly. The JSON shape is `{ metadata, results }`, where `metadata`
+records the command, commit, date, OS, CPU, Node version, warmups, iterations,
+samples, sessions, filter, output path, JSON mode, and dirty working-tree
+status. The full matrix is still the required release gate. It measures one-shot
 `runGraphInFile(...)`, loaded-project `runGraph(...)`, reused
 `createProcessor(...)`, fresh `createProcessor(...)` with default-safe,
 explicit compatible, and `runtimeProfile: 'headless-fast'` profiles,
@@ -144,6 +151,42 @@ surface; running the benchmark against stale `packages/core/dist` output can
 hide or invent speed changes.
 Benchmarks are diagnostic only; correctness remains pinned by the equivalence
 tests.
+
+The default Subgraph runtime speed pass is recorded in
+[`default-subgraph-runtime-speed-plan.md`](../default-subgraph-runtime-speed-plan.md)
+and
+[`default-subgraph-runtime-benchmark.md`](../default-subgraph-runtime-benchmark.md).
+The 2026-05-25 targeted matrix kept 30 raw samples per row in
+[`packages/node/bench-results/default-subgraph-runtime-targeted.json`](../packages/node/bench-results/default-subgraph-runtime-targeted.json).
+That pass did not ship a new one-off Subgraph promotion because direct and
+nested static Subgraph rows did not clear the benchmark gate; one-off Subgraph
+and static Referenced Graph Alias `runGraph(...)` calls remain compatible until
+a future attribution pass proves a repeatable default-runtime win. Treat that
+artifact as a targeted no-ship gate. A follow-up attribution run is stored in
+[`packages/node/bench-results/default-subgraph-runtime-attribution.json`](../packages/node/bench-results/default-subgraph-runtime-attribution.json).
+It shows processor construction and graph-boundary map work are not the
+material Subgraph cost in the current small-boundary fixtures; the remaining
+cost is the nested `processGraph(...)` execution boundary itself. That result
+keeps subprocessor pooling out of the default path. The first shipped default
+slice is narrower than a frame runner: silent `runGraph(...)` calls whose
+selected root graph repeats the same direct Subgraph target now use the existing
+TypeScript `headless-fast` scheduler automatically. This is blocked for Remote
+Debugger, `includeTrace`, abort signals, `runGraph(...)` event callbacks or
+user-event callbacks, editor execution cache, and project references.
+`createProcessor(...)` defaults are unchanged. `runGraph(...)` intentionally
+ignores untyped `runtimeProfile` properties, so callers that need an explicit
+rollback path should use `createProcessor(...)` with the compatible runtime
+profile.
+The before/after artifacts are
+[`packages/node/bench-results/default-subgraph-runtime-repeated-headless-attribution.json`](../packages/node/bench-results/default-subgraph-runtime-repeated-headless-attribution.json)
+and
+[`packages/node/bench-results/default-subgraph-runtime-repeated-headless-after.json`](../packages/node/bench-results/default-subgraph-runtime-repeated-headless-after.json).
+That slice improved `runGraph repeated subgraph same-input 50` from 9.139 ms to
+7.646 ms mean and 9.046 ms to 7.323 ms median, and improved the changing-input
+row from 7.649 ms to 7.026 ms mean and 7.614 ms to 6.926 ms median. One-off
+single/nested Subgraph speed work still needs a narrowly eligible TypeScript
+subgraph frame runner or a broader nested graph-frame hot-path reduction before
+it can ship.
 
 The post-P7 full before/after matrix found real wins but also unacceptable
 cheap-runtime regressions. The P8-P12 recovery pass fixed the repeatable cheap
@@ -428,20 +471,29 @@ trace-sensitive runs also use the fully compatible path; explicit
 other explicit fast pieces. Custom `codeRunner` instances always win; the Node
 cached CodeRunner is only used when no custom runner was supplied. Recording
 remains supported because the default-safe and explicit fast paths still emit
-normal processor events. `runGraph(...)` now applies that omitted-profile
-default-safe single-run policy selectively: root graphs with repeated direct
-Subgraph targets, repeated direct Referenced Graph Alias targets, multiple
-dynamic Call Graph nodes, or Code-family nodes without a custom `codeRunner`,
-can use the same run-scoped subprocessor execution-plan caching and default
-cached Node CodeRunner as `createProcessor(...).run()`. Simple graphs and
-unrelated one-off Subgraph targets stay on the compatible policy to avoid
-tiny-graph and no-reuse benchmark regressions.
-`runGraph(...)` does not enable the `headless-fast` scheduler or loaded
-project-reference caching, and it intentionally ignores any untyped
-`runtimeProfile` property. Use `createProcessor(...)` or `createGraphRunner(...)`
-when a caller needs an explicit runtime profile. Remote Debugger and
-trace-sensitive `runGraph(...)` calls still fall back to the fully compatible
-path through the shared runtime policy.
+normal processor events. `runGraph(...)` now applies fast pieces selectively.
+Silent root graphs with repeated direct Subgraph targets and no project
+references can use the explicit `headless-fast` policy automatically, which
+means run-scoped root/subprocessor execution-plan caching, the fast acyclic
+scheduler when eligible, and the default cached Node CodeRunner when no custom
+runner was supplied. Observable or reference-sensitive `runGraph(...)` calls
+stay on the previous paths: callbacks, user-event callbacks, abort signals,
+Remote Debugger, `includeTrace`, editor execution cache, and project references
+all block the automatic `headless-fast` slice. Repeated direct Referenced Graph
+Alias targets, multiple dynamic Call Graph nodes, and Code-family nodes without
+a custom `codeRunner` remain eligible for the default-safe policy, which uses
+subprocessor execution-plan caching and the default cached Node CodeRunner but
+keeps compatible scheduling and loaded-project-reference behavior. Simple
+graphs and unrelated one-off direct or nested Subgraph targets stay on the
+compatible policy to avoid tiny-graph and no-reuse benchmark regressions. The
+default Subgraph runtime-speed pass also keeps one-off static Referenced Graph
+Alias targets compatible; repeated direct aliases remain eligible for the
+default-safe policy because they reuse the existing graph-boundary cache.
+`runGraph(...)` intentionally ignores any untyped `runtimeProfile` property.
+Use `createProcessor(...)` or `createGraphRunner(...)` when a caller needs an
+explicit runtime profile. Remote Debugger and trace-sensitive `runGraph(...)`
+calls still fall back to the fully compatible path through the shared runtime
+policy.
 
 The P8-P12 recovery pass preserved this policy while removing redundant core
 hot-path work. The final matrix restored cheap `runGraph(...)`, fresh

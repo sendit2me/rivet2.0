@@ -1,6 +1,7 @@
 import { performance } from 'node:perf_hooks';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { execFileSync } from 'node:child_process';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { arch, cpus, platform, release, tmpdir, type } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -12,7 +13,9 @@ import {
   runGraphInFile,
   serializeProject,
   type DataValue,
+  type GraphId,
   type GraphProcessorScheduler,
+  type NodeGraph,
   type NodeCreateProcessorOptions,
   type NodeGraphRunnerOptions,
   type NodeGraphRunnerRunOptions,
@@ -41,18 +44,54 @@ import {
 } from '../test/runtimeSpeedFixtures.js';
 
 type BenchmarkResult = {
+  ci95HighMs: string;
+  ci95LowMs: string;
+  coefficientVariation: string;
+  maxMs: string;
   nativeBackend?: string;
   nativeEligible?: boolean;
   nativeFallbackReason?: string;
   nativeUsed?: boolean;
   iterations: number;
-  maxMeanMs: string;
   meanMs: string;
-  minMeanMs: string;
+  medianMs: string;
+  minMs: string;
   name: string;
+  p75Ms: string;
+  p95Ms: string;
+  rawSamplesMs: number[];
   samples: number;
+  sessions: number;
   stdDevMs: string;
   totalMs: string;
+  warmupIterations: number;
+};
+
+type BenchmarkMetadata = {
+  arch: string;
+  command: string;
+  commit: string;
+  cpuModel: string;
+  date: string;
+  filter?: string;
+  gitDirty: boolean;
+  gitStatusShort: string[];
+  iterations: number;
+  jsonMode: boolean;
+  node: string;
+  os: string;
+  outputPath?: string;
+  platform: NodeJS.Platform;
+  release: string;
+  samplesPerSession: number;
+  sessions: number;
+  warmupIterations: number;
+  yarnUserAgent?: string;
+};
+
+type BenchmarkOutput = {
+  metadata: BenchmarkMetadata;
+  results: BenchmarkResult[];
 };
 
 type BenchmarkProjectFiles = {
@@ -61,13 +100,26 @@ type BenchmarkProjectFiles = {
   subgraphProjectPath: string;
 };
 
+type BenchmarkGraphBoundaryPort = {
+  id: string;
+  portId: string;
+};
+
+type BenchmarkGraphBoundary = {
+  inputs: readonly BenchmarkGraphBoundaryPort[];
+  outputs: readonly BenchmarkGraphBoundaryPort[];
+};
+
 const benchDir = dirname(fileURLToPath(import.meta.url));
 const nodePackageDir = join(benchDir, '..');
 const testGraphsPath = join(nodePackageDir, 'test', 'test-graphs.rivet-project');
 const iterations = readPositiveIntegerEnv('RIVET_RUNTIME_BENCH_ITERATIONS', 50);
 const warmupIterations = readPositiveIntegerEnv('RIVET_RUNTIME_BENCH_WARMUP_ITERATIONS', 5);
 const samples = readPositiveIntegerEnv('RIVET_RUNTIME_BENCH_SAMPLES', 1);
-const benchmarkFilter = readBenchmarkFilter();
+const sessions = readPositiveIntegerEnv('RIVET_RUNTIME_BENCH_SESSIONS', 1);
+const benchmarkFilterPattern = process.env.RIVET_RUNTIME_BENCH_FILTER?.trim();
+const benchmarkFilter = readBenchmarkFilter(benchmarkFilterPattern);
+const benchmarkOutputPath = process.env.RIVET_RUNTIME_BENCH_OUTPUT?.trim();
 
 async function main() {
   const passthroughProject = await loadProjectFromFile(testGraphsPath);
@@ -81,6 +133,19 @@ async function main() {
   const serializedSingleSubgraphProject = String(serializeProject(singleSubgraph.project));
   const subgraph50 = makeSubgraphChainProject(50);
   const nestedSubgraph5 = makeNestedSubgraphProject(5);
+  const singleSubgraphChildGraphId = getFirstSubgraphTargetGraphId(singleSubgraph.project, singleSubgraph.graphId);
+  const nestedSubgraphFirstChildGraphId = getFirstSubgraphTargetGraphId(
+    nestedSubgraph5.project,
+    nestedSubgraph5.graphId,
+  );
+  const singleSubgraphChildBoundary = deriveBenchmarkGraphBoundary(
+    singleSubgraph.project,
+    singleSubgraphChildGraphId,
+  );
+  const singleSubgraphChildGraph = getGraphOrThrow(singleSubgraph.project, singleSubgraphChildGraphId);
+  const singleSubgraphBoundaryCache = new WeakMap<NodeGraph, BenchmarkGraphBoundary>([
+    [singleSubgraphChildGraph, singleSubgraphChildBoundary],
+  ]);
   const repeatedSubgraph50 = makeRepeatedSubgraphFanInProject(50);
   const wideFanIn100 = makeWideTextFanInProject(100);
   const wideFanIn200 = makeWideTextFanInProject(200);
@@ -308,12 +373,106 @@ async function main() {
       ),
     );
     results.push(
+      await benchmarkCreateProcessorConstruction(
+        'attribution createProcessor object only single subgraph call',
+        singleSubgraph.project,
+        { graph: singleSubgraph.graphId, inputs: { input: 'bench' } },
+      ),
+    );
+    results.push(
+      await benchmarkGraphProcessorConstruction(
+        'attribution construct GraphProcessor single subgraph root',
+        singleSubgraph.project,
+        singleSubgraph.graphId,
+      ),
+    );
+    results.push(
+      await benchmarkGraphProcessorConstruction(
+        'attribution construct GraphProcessor single subgraph child',
+        singleSubgraph.project,
+        singleSubgraphChildGraphId,
+      ),
+    );
+    results.push(
+      await benchmarkDirectGraphProcessor(
+        'attribution direct GraphProcessor single subgraph root',
+        singleSubgraph.project,
+        singleSubgraph.graphId,
+      ),
+    );
+    results.push(
+      await benchmarkDirectGraphProcessor(
+        'attribution direct GraphProcessor fast-acyclic single subgraph root',
+        singleSubgraph.project,
+        singleSubgraph.graphId,
+        'fast-acyclic',
+      ),
+    );
+    results.push(
+      await benchmarkDirectGraphProcessor(
+        'attribution direct GraphProcessor single subgraph child body',
+        singleSubgraph.project,
+        singleSubgraphChildGraphId,
+      ),
+    );
+    results.push(
+      await benchmarkDirectGraphProcessor(
+        'attribution direct GraphProcessor fast-acyclic single subgraph child body',
+        singleSubgraph.project,
+        singleSubgraphChildGraphId,
+        'fast-acyclic',
+      ),
+    );
+    results.push(
+      await benchmark('attribution derive graph boundary equivalent single subgraph child', () =>
+        deriveBenchmarkGraphBoundary(singleSubgraph.project, singleSubgraphChildGraphId),
+      ),
+    );
+    results.push(
+      await benchmark('attribution cached graph boundary lookup equivalent single subgraph child', () => {
+        const boundary = singleSubgraphBoundaryCache.get(singleSubgraphChildGraph);
+        if (!boundary) {
+          throw new Error('Expected warmed benchmark graph boundary cache entry.');
+        }
+
+        return boundary;
+      }),
+    );
+    results.push(
+      await benchmark('attribution build boundary input map equivalent single subgraph child', () =>
+        buildBenchmarkGraphBoundaryInputData(singleSubgraphChildBoundary, {
+          input: { type: 'string', value: 'bench' },
+        }),
+      ),
+    );
+    results.push(
+      await benchmarkCreateProcessor('fresh createProcessor compatible single subgraph call', singleSubgraph.project, {
+        graph: singleSubgraph.graphId,
+        inputs: { input: 'bench' },
+        runtimeProfile: 'compatible',
+      }),
+    );
+    results.push(
       await benchmarkCreateProcessor(
         'fresh createProcessor default-safe single subgraph call',
         singleSubgraph.project,
         { graph: singleSubgraph.graphId, inputs: { input: 'bench' } },
       ),
     );
+    results.push(
+      await benchmarkCreateProcessor('fresh createProcessor headless-fast single subgraph call', singleSubgraph.project, {
+        graph: singleSubgraph.graphId,
+        inputs: { input: 'bench' },
+        runtimeProfile: 'headless-fast',
+      }),
+    );
+    {
+      const processor = createProcessor(singleSubgraph.project, {
+        graph: singleSubgraph.graphId,
+        inputs: { input: 'bench' },
+      });
+      results.push(await benchmark('reuse createProcessor default-safe single subgraph call', () => processor.run()));
+    }
     results.push(
       await benchmark('runGraph repeated subgraph same-input 50', () =>
         runGraph(repeatedSubgraph50.project, { graph: repeatedSubgraph50.graphId, inputs: { input: 'bench' } }),
@@ -330,12 +489,77 @@ async function main() {
       ),
     );
     results.push(
+      await benchmarkGraphProcessorConstruction(
+        'attribution construct GraphProcessor nested subgraph root',
+        nestedSubgraph5.project,
+        nestedSubgraph5.graphId,
+      ),
+    );
+    results.push(
+      await benchmarkGraphProcessorConstruction(
+        'attribution construct GraphProcessor nested first child',
+        nestedSubgraph5.project,
+        nestedSubgraphFirstChildGraphId,
+      ),
+    );
+    results.push(
+      await benchmarkDirectGraphProcessor(
+        'attribution direct GraphProcessor nested subgraph root',
+        nestedSubgraph5.project,
+        nestedSubgraph5.graphId,
+      ),
+    );
+    results.push(
+      await benchmarkDirectGraphProcessor(
+        'attribution direct GraphProcessor fast-acyclic nested subgraph root',
+        nestedSubgraph5.project,
+        nestedSubgraph5.graphId,
+        'fast-acyclic',
+      ),
+    );
+    results.push(
+      await benchmarkDirectGraphProcessor(
+        'attribution direct GraphProcessor nested first child',
+        nestedSubgraph5.project,
+        nestedSubgraphFirstChildGraphId,
+      ),
+    );
+    results.push(
+      await benchmarkDirectGraphProcessor(
+        'attribution direct GraphProcessor fast-acyclic nested first child',
+        nestedSubgraph5.project,
+        nestedSubgraphFirstChildGraphId,
+        'fast-acyclic',
+      ),
+    );
+    results.push(
+      await benchmarkCreateProcessor('fresh createProcessor compatible nested subgraph depth 5', nestedSubgraph5.project, {
+        graph: nestedSubgraph5.graphId,
+        inputs: { input: 'bench' },
+        runtimeProfile: 'compatible',
+      }),
+    );
+    results.push(
       await benchmarkCreateProcessor(
         'fresh createProcessor default-safe nested subgraph depth 5',
         nestedSubgraph5.project,
         { graph: nestedSubgraph5.graphId, inputs: { input: 'bench' } },
       ),
     );
+    results.push(
+      await benchmarkCreateProcessor(
+        'fresh createProcessor headless-fast nested subgraph depth 5',
+        nestedSubgraph5.project,
+        { graph: nestedSubgraph5.graphId, inputs: { input: 'bench' }, runtimeProfile: 'headless-fast' },
+      ),
+    );
+    {
+      const processor = createProcessor(nestedSubgraph5.project, {
+        graph: nestedSubgraph5.graphId,
+        inputs: { input: 'bench' },
+      });
+      results.push(await benchmark('reuse createProcessor default-safe nested subgraph depth 5', () => processor.run()));
+    }
     results.push(
       await benchmarkGraphRunner(
         'createGraphRunner compatible subgraph chain 50',
@@ -737,10 +961,18 @@ async function main() {
       );
     }
 
+    const output = createBenchmarkOutput(executedResults);
+    if (benchmarkOutputPath) {
+      await writeBenchmarkOutput(benchmarkOutputPath, output);
+    }
+
     if (process.env.RIVET_RUNTIME_BENCH_JSON === '1') {
-      console.log(JSON.stringify(executedResults));
+      console.log(JSON.stringify(output));
     } else {
-      console.table(executedResults);
+      console.table(executedResults.map(formatBenchmarkResultForConsole));
+      if (benchmarkOutputPath) {
+        console.log(`Wrote runtime-speed benchmark artifact to ${benchmarkOutputPath}`);
+      }
     }
   } finally {
     await benchmarkProjectFiles.cleanup();
@@ -752,35 +984,48 @@ async function benchmark(name: string, run: () => Promise<unknown> | unknown): P
     return skippedBenchmarkResult(name);
   }
 
-  const sampleMeanMs: number[] = [];
+  const sampleMs: number[] = [];
   let measuredTotalMs = 0;
 
-  for (let sample = 0; sample < samples; sample++) {
-    for (let i = 0; i < warmupIterations; i++) {
-      await run();
-    }
+  for (let session = 0; session < sessions; session++) {
+    for (let sample = 0; sample < samples; sample++) {
+      for (let i = 0; i < warmupIterations; i++) {
+        await run();
+      }
 
-    const start = performance.now();
-    for (let i = 0; i < iterations; i++) {
-      await run();
-    }
+      const start = performance.now();
+      for (let i = 0; i < iterations; i++) {
+        await run();
+      }
 
-    const totalMs = performance.now() - start;
-    measuredTotalMs += totalMs;
-    sampleMeanMs.push(totalMs / iterations);
+      const totalMs = performance.now() - start;
+      measuredTotalMs += totalMs;
+      sampleMs.push(totalMs / iterations);
+    }
   }
 
-  const meanMs = average(sampleMeanMs);
+  const meanMs = average(sampleMs);
+  const stdDevMs = standardDeviation(sampleMs, meanMs);
+  const confidence = confidenceInterval95(sampleMs, meanMs, stdDevMs);
 
   return {
+    ci95HighMs: confidence.high.toFixed(3),
+    ci95LowMs: confidence.low.toFixed(3),
+    coefficientVariation: meanMs === 0 ? '0.000' : (stdDevMs / meanMs).toFixed(3),
     iterations,
-    maxMeanMs: Math.max(...sampleMeanMs).toFixed(3),
+    maxMs: Math.max(...sampleMs).toFixed(3),
     meanMs: meanMs.toFixed(3),
-    minMeanMs: Math.min(...sampleMeanMs).toFixed(3),
+    medianMs: percentile(sampleMs, 0.5).toFixed(3),
+    minMs: Math.min(...sampleMs).toFixed(3),
     name,
-    samples,
-    stdDevMs: standardDeviation(sampleMeanMs, meanMs).toFixed(3),
+    p75Ms: percentile(sampleMs, 0.75).toFixed(3),
+    p95Ms: percentile(sampleMs, 0.95).toFixed(3),
+    rawSamplesMs: sampleMs.map((sample) => Number(sample.toFixed(6))),
+    samples: sampleMs.length,
+    sessions,
+    stdDevMs: stdDevMs.toFixed(3),
     totalMs: measuredTotalMs.toFixed(3),
+    warmupIterations,
   };
 }
 
@@ -790,14 +1035,23 @@ function shouldRunBenchmark(name: string): boolean {
 
 function skippedBenchmarkResult(name: string): BenchmarkResult {
   return {
+    ci95HighMs: '0.000',
+    ci95LowMs: '0.000',
+    coefficientVariation: '0.000',
     iterations: 0,
-    maxMeanMs: '0.000',
+    maxMs: '0.000',
     meanMs: '0.000',
-    minMeanMs: '0.000',
+    medianMs: '0.000',
+    minMs: '0.000',
     name,
+    p75Ms: '0.000',
+    p95Ms: '0.000',
+    rawSamplesMs: [],
     samples: 0,
+    sessions: 0,
     stdDevMs: '0.000',
     totalMs: '0.000',
+    warmupIterations: 0,
   };
 }
 
@@ -853,19 +1107,44 @@ async function benchmarkCreateProcessor(
   return await benchmark(name, () => createProcessor(project, options).run());
 }
 
-async function benchmarkDirectProcessor(
+async function benchmarkCreateProcessorConstruction(
   name: string,
-  fixture: RuntimeSpeedProjectFixture,
-  scheduler: GraphProcessorScheduler,
+  project: Project,
+  options: NodeCreateProcessorOptions,
+): Promise<BenchmarkResult> {
+  return await benchmark(name, () => createProcessor(project, options));
+}
+
+async function benchmarkGraphProcessorConstruction(
+  name: string,
+  project: Project,
+  graphId: GraphId,
+): Promise<BenchmarkResult> {
+  return await benchmark(name, () => createRuntimeSpeedProcessor(project, graphId));
+}
+
+async function benchmarkDirectGraphProcessor(
+  name: string,
+  project: Project,
+  graphId: GraphId,
+  scheduler?: GraphProcessorScheduler,
 ): Promise<BenchmarkResult> {
   if (!shouldRunBenchmark(name)) {
     return skippedBenchmarkResult(name);
   }
 
-  const processor = createRuntimeSpeedProcessor(fixture.project, fixture.graphId, { scheduler });
+  const processor = createRuntimeSpeedProcessor(project, graphId, scheduler ? { scheduler } : undefined);
   const context = createRuntimeSpeedProcessContext();
   const inputs = { input: { type: 'string', value: 'bench' } satisfies DataValue };
   return await benchmark(name, () => processor.processGraph(context, inputs));
+}
+
+async function benchmarkDirectProcessor(
+  name: string,
+  fixture: RuntimeSpeedProjectFixture,
+  scheduler: GraphProcessorScheduler,
+): Promise<BenchmarkResult> {
+  return await benchmarkDirectGraphProcessor(name, fixture.project, fixture.graphId, scheduler);
 }
 
 async function benchmarkCodeRunner(
@@ -895,13 +1174,92 @@ function benchmarkLazyPreprocessDependency(fixture: RuntimeSpeedProjectFixture):
   return processor.getDependencyNodesDeep(fixture.terminalNodeId);
 }
 
+function getFirstSubgraphTargetGraphId(project: Project, graphId: GraphId): GraphId {
+  const graph = getGraphOrThrow(project, graphId);
+  const subgraphNode = graph.nodes.find((node) => node.type === 'subGraph') as
+    | { data?: { graphId?: GraphId } }
+    | undefined;
+
+  if (!subgraphNode?.data?.graphId) {
+    throw new Error(`Graph ${graphId} does not contain a Subgraph node.`);
+  }
+
+  return subgraphNode.data.graphId;
+}
+
+function getGraphOrThrow(project: Project, graphId: GraphId): NodeGraph {
+  const graph = project.graphs[graphId];
+  if (!graph) {
+    throw new Error(`Graph ${graphId} does not exist in runtime speed fixture.`);
+  }
+
+  return graph;
+}
+
+function deriveBenchmarkGraphBoundary(project: Project, graphId: GraphId): BenchmarkGraphBoundary {
+  const graph = getGraphOrThrow(project, graphId);
+  const inputsById = new Map<string, BenchmarkGraphBoundaryPort>();
+  const outputsById = new Map<string, BenchmarkGraphBoundaryPort>();
+
+  for (const node of graph.nodes) {
+    const data = node.data as { id?: string };
+
+    if (typeof data.id !== 'string') {
+      continue;
+    }
+
+    if (node.type === 'graphInput' && !inputsById.has(data.id)) {
+      inputsById.set(data.id, {
+        id: data.id,
+        portId: data.id,
+      });
+    } else if (node.type === 'graphOutput' && !outputsById.has(data.id)) {
+      outputsById.set(data.id, {
+        id: data.id,
+        portId: data.id,
+      });
+    }
+  }
+
+  return {
+    inputs: Array.from(inputsById.keys())
+      .sort()
+      .map((id) => inputsById.get(id)!),
+    outputs: Array.from(outputsById.keys())
+      .sort()
+      .map((id) => outputsById.get(id)!),
+  };
+}
+
+function buildBenchmarkGraphBoundaryInputData(
+  boundary: BenchmarkGraphBoundary,
+  inputs: Record<string, DataValue>,
+  defaults?: Record<string, DataValue>,
+): Record<string, DataValue> {
+  const inputData: Record<string, DataValue> = {};
+
+  for (const input of boundary.inputs) {
+    const inputValue = inputs[input.portId];
+    if (inputValue != null) {
+      inputData[input.portId] = inputValue;
+      continue;
+    }
+
+    const defaultValue = defaults?.[input.id];
+    if (defaultValue != null) {
+      inputData[input.portId] = defaultValue;
+    }
+  }
+
+  return inputData;
+}
+
 function readPositiveIntegerEnv(name: string, fallback: number): number {
   const value = Number(process.env[name]);
   return Number.isSafeInteger(value) && value > 0 ? value : fallback;
 }
 
-function readBenchmarkFilter(): RegExp | undefined {
-  const value = process.env.RIVET_RUNTIME_BENCH_FILTER?.trim();
+function readBenchmarkFilter(value: string | undefined): RegExp | undefined {
   if (!value) {
     return undefined;
   }
@@ -920,6 +1278,104 @@ function average(values: number[]): number {
 function standardDeviation(values: number[], mean = average(values)): number {
   const variance = values.reduce((sum, value) => sum + (value - mean) ** 2, 0) / values.length;
   return Math.sqrt(variance);
+}
+
+function percentile(values: number[], percentileValue: number): number {
+  if (values.length === 0) {
+    return 0;
+  }
+
+  const sorted = [...values].sort((left, right) => left - right);
+  const index = Math.min(sorted.length - 1, Math.max(0, Math.ceil(sorted.length * percentileValue) - 1));
+  return sorted[index]!;
+}
+
+function confidenceInterval95(
+  values: number[],
+  mean: number,
+  stdDev: number,
+): {
+  high: number;
+  low: number;
+} {
+  if (values.length <= 1) {
+    return { high: mean, low: mean };
+  }
+
+  const margin = 1.96 * (stdDev / Math.sqrt(values.length));
+  return {
+    high: mean + margin,
+    low: mean - margin,
+  };
+}
+
+function createBenchmarkOutput(results: BenchmarkResult[]): BenchmarkOutput {
+  return {
+    metadata: createBenchmarkMetadata(),
+    results,
+  };
+}
+
+function createBenchmarkMetadata(): BenchmarkMetadata {
+  const gitStatusShort = getGitStatusShort();
+
+  return {
+    arch: arch(),
+    command: process.argv.join(' '),
+    commit: getGitCommit(),
+    cpuModel: cpus()[0]?.model ?? '<unknown>',
+    date: new Date().toISOString(),
+    filter: benchmarkFilterPattern || undefined,
+    gitDirty: gitStatusShort.length > 0,
+    gitStatusShort,
+    iterations,
+    jsonMode: process.env.RIVET_RUNTIME_BENCH_JSON === '1',
+    node: process.version,
+    os: type(),
+    outputPath: benchmarkOutputPath || undefined,
+    platform: platform(),
+    release: release(),
+    samplesPerSession: samples,
+    sessions,
+    warmupIterations,
+    yarnUserAgent: process.env.npm_config_user_agent,
+  };
+}
+
+function getGitCommit(): string {
+  try {
+    return execFileSync('git', ['rev-parse', 'HEAD'], {
+      cwd: join(benchDir, '..', '..', '..'),
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+  } catch {
+    return '<unknown>';
+  }
+}
+
+function getGitStatusShort(): string[] {
+  try {
+    return execFileSync('git', ['status', '--short'], {
+      cwd: join(benchDir, '..', '..', '..'),
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
+      .split(/\r?\n/)
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+async function writeBenchmarkOutput(path: string, output: BenchmarkOutput): Promise<void> {
+  await mkdir(dirname(path), { recursive: true });
+  await writeFile(path, `${JSON.stringify(output, null, 2)}\n`, 'utf8');
+}
+
+function formatBenchmarkResultForConsole(result: BenchmarkResult): Omit<BenchmarkResult, 'rawSamplesMs'> {
+  const { rawSamplesMs: _rawSamplesMs, ...summary } = result;
+  return summary;
 }
 
 async function createBenchmarkProjectFiles(

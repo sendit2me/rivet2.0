@@ -136,6 +136,8 @@ export type NodeGraphRunner = {
   run: (options?: NodeGraphRunnerRunOptions) => Promise<Record<string, DataValue>>;
 };
 
+type DefaultRunGraphRuntimePlan = 'compatible' | 'default-safe' | 'headless-fast';
+
 export function createProcessor(
   project: Project,
   options: NodeCreateProcessorOptions,
@@ -298,13 +300,24 @@ function createTypeScriptGraphRunner(project: Project, options: TypeScriptGraphR
 
 export async function runGraph(project: Project, options: NodeRunGraphOptions): Promise<Record<string, DataValue>> {
   const processorOptions = stripRunGraphRuntimeProfile(options);
-  const processorInfo = createProcessor(
-    project,
-    shouldUseDefaultSafeRunGraphPolicy(project, processorOptions)
-      ? processorOptions
-      : { ...processorOptions, runtimeProfile: 'compatible' },
-  );
+  const runtimePlan = resolveDefaultRunGraphRuntimePlan(project, processorOptions);
+  const processorInfo = createProcessor(project, createRunGraphProcessorOptions(processorOptions, runtimePlan));
   return processorInfo.run();
+}
+
+function createRunGraphProcessorOptions(
+  options: NodeRunGraphOptions,
+  runtimePlan: DefaultRunGraphRuntimePlan,
+): NodeCreateProcessorOptions {
+  if (runtimePlan === 'headless-fast') {
+    return { ...options, runtimeProfile: 'headless-fast' };
+  }
+
+  if (runtimePlan === 'default-safe') {
+    return options;
+  }
+
+  return { ...options, runtimeProfile: 'compatible' };
 }
 
 function stripRunGraphRuntimeProfile(options: NodeRunGraphOptions): NodeRunGraphOptions {
@@ -317,13 +330,82 @@ function stripRunGraphRuntimeProfile(options: NodeRunGraphOptions): NodeRunGraph
   return processorOptions;
 }
 
-function shouldUseDefaultSafeRunGraphPolicy(project: Project, options: NodeRunGraphOptions): boolean {
+function resolveDefaultRunGraphRuntimePlan(project: Project, options: NodeRunGraphOptions): DefaultRunGraphRuntimePlan {
+  const graph = getRunGraphTarget(project, options.graph);
+  if (!graph) {
+    return 'compatible';
+  }
+
+  if (shouldUseHeadlessFastRunGraphPolicy(project, graph, options)) {
+    return 'headless-fast';
+  }
+
+  return shouldUseDefaultSafeRunGraphPolicy(graph, options) ? 'default-safe' : 'compatible';
+}
+
+function shouldUseHeadlessFastRunGraphPolicy(
+  project: Project,
+  graph: NodeGraph,
+  options: NodeRunGraphOptions,
+): boolean {
+  if (!isSilentRunGraphOptions(options)) {
+    return false;
+  }
+
+  if (project.references && project.references.length > 0) {
+    return false;
+  }
+
+  const subgraphTargetCounts = new Map<string, number>();
+  for (const node of graph.nodes) {
+    if (node.type === 'subGraph' && hasRepeatedTarget(subgraphTargetCounts, getNodeGraphId(node))) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function isSilentRunGraphOptions(options: NodeRunGraphOptions): boolean {
   if (options.remoteDebugger !== undefined || options.includeTrace) {
     return false;
   }
 
-  const graph = getRunGraphTarget(project, options.graph);
-  if (!graph) {
+  if (options.abortSignal || options.editorExecutionCache) {
+    return false;
+  }
+
+  if (options.onUserEvent && Object.keys(options.onUserEvent).length > 0) {
+    return false;
+  }
+
+  return !(
+    options.onStart ||
+    options.onGraphStart ||
+    options.onGraphError ||
+    options.onGraphFinish ||
+    options.onGraphAbort ||
+    options.onNodeStart ||
+    options.onNodeFinish ||
+    options.onNodeError ||
+    options.onNodeExcluded ||
+    options.onUserInput ||
+    options.onPartialOutput ||
+    options.onNodeOutputsCleared ||
+    options.onError ||
+    options.onDone ||
+    options.onAbort ||
+    options.onFinish ||
+    options.onTrace ||
+    options.onPause ||
+    options.onResume ||
+    options.onGlobalSet ||
+    options.onNewAbortController
+  );
+}
+
+function shouldUseDefaultSafeRunGraphPolicy(graph: NodeGraph, options: NodeRunGraphOptions): boolean {
+  if (options.remoteDebugger !== undefined || options.includeTrace) {
     return false;
   }
 
