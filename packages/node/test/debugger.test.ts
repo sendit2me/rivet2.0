@@ -22,6 +22,7 @@ import { DEBUGGER_HEARTBEAT_INTERVAL_MS, DEBUGGER_HEARTBEAT_TIMEOUT_MS, startDeb
 import { createProcessor } from '../src/api.js';
 import { loadTestGraphs } from './testUtils.js';
 import { makeThrowingCodeProject } from './runtimeSpeedFixtures.js';
+import { stringifyDebuggerPayloadForTransport } from '../src/debuggerPayloadSanitizer.js';
 
 class FakeWebSocket extends EventEmitter {
   readyState = WebSocket.OPEN;
@@ -645,7 +646,9 @@ describe('startDebuggerServer broadcast', () => {
       heartbeatIntervalMs: 0,
     });
     const circular: Record<string, unknown> = {};
+    circular.bigint = 1n;
     circular.self = circular;
+    circular.undefinedValue = undefined;
     debuggerServer.on('error', (error) => {
       errors.push(error);
     });
@@ -669,12 +672,37 @@ describe('startDebuggerServer broadcast', () => {
     assert.equal(socket.terminated, false);
     assert.equal(errors.length, 0);
 
-    const nodeFinish = getSentDebuggerMessage(socket, 'nodeFinish');
+    const nodeFinish = decodeDebuggerTransportSentinels(getSentDebuggerMessage(socket, 'nodeFinish'));
     assert.equal(nodeFinish.data.node.id, 'expression-1');
+    assert.equal(nodeFinish.data.outputs.output.value.bigint, '[Unserializable bigint: 1]');
     assert.equal(
       nodeFinish.data.outputs.output.value.self,
       '[Unserializable value: circular reference]',
     );
+    assert.equal(nodeFinish.data.outputs.output.value.undefinedValue, undefined);
+  });
+
+  it('optimized debugger serializer preserves JSON-safe payload shape', () => {
+    const payload = {
+      data: {
+        execution: makeExecution(),
+        node: { id: 'node-1', title: 'Node 1', type: 'text' },
+        outputs: {
+          output: {
+            type: 'object',
+            value: {
+              array: [1, 'two', true, null],
+              nested: { ok: true },
+            },
+          },
+        },
+        processId: 'process-1',
+      },
+      message: 'nodeFinish',
+      requestId: 'request-1',
+    };
+
+    assert.deepEqual(JSON.parse(stringifyDebuggerPayloadForTransport(payload)), payload);
   });
 
   it('falls back to a warning lifecycle payload if safe serialization itself fails', async () => {
@@ -685,36 +713,39 @@ describe('startDebuggerServer broadcast', () => {
       server: server as unknown as WebSocketServer,
       heartbeatIntervalMs: 0,
     });
-    const originalWeakSetHas = WeakSet.prototype.has;
-    let throwOnce = true;
     debuggerServer.on('error', (error) => {
       errors.push(error);
     });
 
     server.connect(socket);
 
-    try {
-      WeakSet.prototype.has = function syntheticHasFailure(value: object) {
-        if (throwOnce) {
-          throwOnce = false;
-          throw new Error('synthetic sanitizer failure');
-        }
-        return originalWeakSetHas.call(this, value);
-      };
+    const originalStringify = JSON.stringify;
+    let shouldThrow = true;
+    JSON.stringify = ((value: unknown, replacer?: Parameters<typeof JSON.stringify>[1], space?: Parameters<typeof JSON.stringify>[2]) => {
+      if (shouldThrow) {
+        shouldThrow = false;
+        throw new Error('synthetic serializer failure');
+      }
 
+      return originalStringify(value, replacer, space);
+    }) as typeof JSON.stringify;
+
+    try {
       debuggerServer.broadcast(fakeProcessor(), 'nodeFinish', {
         execution: makeExecution(),
         node: { id: 'expression-1', type: 'expression' },
         outputs: {
           output: {
             type: 'any',
-            value: { ok: true },
+            value: {
+              ok: true,
+            },
           },
         },
         processId: 'process-1',
       });
     } finally {
-      WeakSet.prototype.has = originalWeakSetHas;
+      JSON.stringify = originalStringify;
     }
 
     const nodeFinish = getSentDebuggerMessage(socket, 'nodeFinish');
@@ -780,6 +811,117 @@ describe('startDebuggerServer broadcast', () => {
 
     const nodeFinish = getSentDebuggerMessage(socket, 'nodeFinish');
     assert.deepEqual(nodeFinish.data.outputs.value.value, { serialized: true });
+  });
+
+  it('sanitizes throwing accessor values without dropping lifecycle events', () => {
+    const server = new FakeWebSocketServer();
+    const socket = new FakeWebSocket();
+    const debuggerServer = startDebuggerServer({
+      server: server as unknown as WebSocketServer,
+      heartbeatIntervalMs: 0,
+    });
+    const value = {};
+    Object.defineProperty(value, 'computed', {
+      enumerable: true,
+      get() {
+        throw new Error('synthetic getter failure');
+      },
+    });
+
+    server.connect(socket);
+
+    debuggerServer.broadcast(fakeProcessor(), 'nodeFinish', {
+      execution: makeExecution(),
+      node: { id: 'expression-1', type: 'expression' },
+      outputs: {
+        value: {
+          type: 'any',
+          value,
+        },
+      },
+      processId: 'process-1',
+    });
+
+    const nodeFinish = getSentDebuggerMessage(socket, 'nodeFinish');
+    assert.equal(nodeFinish.data.outputs.value.value.computed, '[Unserializable property: synthetic getter failure]');
+  });
+
+  it('keeps branch placeholders when thrown accessor reasons cannot be stringified', () => {
+    const server = new FakeWebSocketServer();
+    const socket = new FakeWebSocket();
+    const debuggerServer = startDebuggerServer({
+      server: server as unknown as WebSocketServer,
+      heartbeatIntervalMs: 0,
+    });
+    const value = {};
+    Object.defineProperty(value, 'computed', {
+      enumerable: true,
+      get() {
+        throw {
+          toString() {
+            throw new Error('synthetic reason formatter failure');
+          },
+        };
+      },
+    });
+
+    server.connect(socket);
+
+    debuggerServer.broadcast(fakeProcessor(), 'nodeFinish', {
+      execution: makeExecution(),
+      node: { id: 'expression-1', type: 'expression' },
+      outputs: {
+        value: {
+          type: 'any',
+          value,
+        },
+      },
+      processId: 'process-1',
+    });
+
+    const nodeFinish = getSentDebuggerMessage(socket, 'nodeFinish');
+    assert.equal(nodeFinish.data.outputs.value.value.computed, '[Unserializable property: unavailable reason]');
+  });
+
+  it('preserves legacy debugger display shape for boxed primitive objects', () => {
+    const server = new FakeWebSocketServer();
+    const socket = new FakeWebSocket();
+    const debuggerServer = startDebuggerServer({
+      server: server as unknown as WebSocketServer,
+      heartbeatIntervalMs: 0,
+    });
+    const boxedNumber = Object.assign(new Number(5), { label: 'number' });
+    const boxedString = Object.assign(new String('abc'), { label: 'string' });
+
+    server.connect(socket);
+
+    debuggerServer.broadcast(fakeProcessor(), 'nodeFinish', {
+      execution: makeExecution(),
+      node: { id: 'expression-1', type: 'expression' },
+      outputs: {
+        value: {
+          type: 'any',
+          value: {
+            boxedBigInt: Object(1n),
+            boxedBoolean: new Boolean(false),
+            boxedNumber,
+            boxedString,
+          },
+        },
+      },
+      processId: 'process-1',
+    });
+
+    const nodeFinish = getSentDebuggerMessage(socket, 'nodeFinish');
+    assert.deepEqual(nodeFinish.data.outputs.value.value.boxedBigInt, {});
+    assert.deepEqual(nodeFinish.data.outputs.value.value.boxedBoolean, {});
+    assert.deepEqual(nodeFinish.data.outputs.value.value.boxedNumber, { label: 'number' });
+    assert.deepEqual(nodeFinish.data.outputs.value.value.boxedString, {
+      0: 'a',
+      1: 'b',
+      2: 'c',
+      label: 'string',
+    });
   });
 
   it('preserves explicit undefined and replaces non-JSON primitives in debugger payloads', () => {

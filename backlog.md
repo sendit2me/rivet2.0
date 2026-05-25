@@ -1,5 +1,9 @@
 
 
+- I noticed that when I use the Subgraph node, it runs about 50ms longer than the sum of the nodes in the actual subgraph. Well, according to the "Duration" statistic in the output. 
+
+
+- When a subgraph is opened and it is used in a graph that is in collapsed folder, show a pale dot against this folder
 
 
 - When I try to resize the left panel width too narrow (<= 50% of minimal width), collapse it completely as if I clicked the collapse button

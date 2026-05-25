@@ -116,6 +116,8 @@ Per-node run durations are transient execution metadata, not graph outputs. [`Gr
 
 Timing starts after the awaited `nodeStart` event and ends when the node succeeds or errors. Preloaded `processId: 'preload'` values, `nodeExcluded`, output maps, graph YAML, and node data are intentionally unchanged. Subprocessors inherit the parent processor's `captureNodeTimings` value. Split-run nodes report the aggregate split node duration as `durationMs` from aggregate `nodeStart` to aggregate `nodeFinish` / `nodeError`, and also report per-item timings in transient `splitRunDurationMs` so the app can show a total plus one duration line per split item without changing output values.
 
+Subgraph node `duration` is a graph-boundary wall-clock metric around the child `processGraph(...)` call, not the sum of the child nodes' `durationMs`. In Remote Debugger runs it can include awaited lifecycle listener and transport work, including display-safe debugger serialization, while child node `durationMs` excludes the awaited `nodeStart` and terminal event listener work around each node. Keep this distinction: changing Subgraph `duration` to a cosmetic child-duration sum would hide real graph-boundary overhead and would diverge from existing output semantics.
+
 Recordings preserve incoming `durationMs` and `splitRunDurationMs` when present. [`RecordingPlayer`](../packages/core/src/model/RecordingPlayer.ts) can also derive replay-only legacy aggregate durations from existing recorded `nodeStart.ts` and terminal event `ts` values; that fallback is not used for live remote-debugger traffic where receive timing would be misleading.
 
 ## Graph Model

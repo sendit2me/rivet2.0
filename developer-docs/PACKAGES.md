@@ -485,6 +485,22 @@ Debugger processor attachments must forward this metadata on both successful
 `nodeFinish` events and normalized `nodeError` payloads; do not rebuild error
 messages in the debugger layer in a way that drops `durationMs` or split-run `splitRunDurationMs`.
 
+Remote Debugger transport uses a display-safe serializer before writing websocket messages. The serializer prepares a structural-sharing display payload: JSON-safe branches are reused instead of cloned, while branches with explicit `undefined`, circular references, `BigInt`, functions, symbols, `NaN`, infinities, debugger sentinel-shaped user values, boxed primitive objects, throwing getters, or other unsafe values are replaced with display placeholders or cloned to preserve legacy display shape. Lifecycle events are still sent instead of being dropped. Runtime outputs, project YAML, and debugger wire message shape stay unchanged.
+
+The transport benchmark lives at
+[`packages/node/bench/debuggerTransport.bench.ts`](../packages/node/bench/debuggerTransport.bench.ts)
+and runs with `yarn workspace @valerypopoff/rivet2-node run bench:debugger-transport`.
+It asserts the new serializer's parsed websocket payload matches the old sanitize-then-stringify shape before timing either path. On the local Windows/Node 22.22.3 run that introduced the structural-sharing path:
+
+| Case | Old ms/event | New ms/event | Speedup | Bytes/event |
+| --- | ---: | ---: | ---: | ---: |
+| nodeFinish nested object output | 0.1291 | 0.1308 | 0.99x | 31827 |
+| graphFinish subgraph outputs | 0.0604 | 0.0599 | 1.01x | 15161 |
+| nodeStart fan-in inputs | 0.1220 | 0.1139 | 1.07x | 27734 |
+| non-json-safe expression output | 0.0051 | 0.0058 | 0.88x | 856 |
+
+Large debugger outputs can still make Subgraph node `duration` exceed the sum of child node `durationMs`: the debugger must inspect and serialize values that it displays. The optimization trims clone allocation for common JSON-safe branches, but the measured serialization win is modest and it does not make Remote Debugger transport free.
+
 Default-fast promotion is guarded by
 [`packages/node/test/defaultFastCompatibility.test.ts`](../packages/node/test/defaultFastCompatibility.test.ts).
 That suite compares omitted default-safe, explicit compatible, and explicit
