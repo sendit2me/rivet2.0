@@ -73,20 +73,27 @@ this phase. The goal is real runtime speed, not debugger-only duration changes.
   default `createProcessor(...)` cannot safely assume a silent run because
   callers can observe the returned processor. Do not broaden default one-off
   Subgraph execution without a new benchmark-proven mechanism.
+- A local production-shaped fixture at `.fixtures/graph-fixture.rivet-project`
+  reopened the plan with better evidence. It runs the main graph with no
+  explicit inputs because the graph owns its mocked/default inputs. The first
+  baseline is documented in
+  [`default-subgraph-runtime-benchmark.md`](default-subgraph-runtime-benchmark.md):
+  loaded `runGraph(...)` measured about 37.6 ms mean, default-safe fresh
+  `createProcessor(...)` about 38.5 ms mean, and explicit `headless-fast` fresh
+  `createProcessor(...)` about 27.9 ms mean.
 
 ## Next Steps
 
-1. Keep the shipped repeated direct-Subgraph `runGraph(...)` slice as the only
-   default runtime change from this plan.
-2. Do not implement P7/P8 now. The plan's own stop condition was met: P6 did
-   not expose a credible 10%+ one-off/nested default-runtime win that is safe
-   for both public APIs.
-3. Reopen one-off/nested Subgraph work only with new evidence, preferably a real
-   checked-in workflow fixture that shows a larger repeatable bottleneck than
-   the current synthetic graphs.
-4. If the work is reopened, start from P6 again on a committed product-runtime
-   baseline and require the P5 benchmark gate before shipping any new default
-   behavior.
+1. Use the local real-workflow fixture as the next investigation target, not the
+   tiny synthetic one-off/nested rows.
+2. Explain why explicit `headless-fast` is about 10 ms faster on the fixture and
+   which default-safety guard prevents the default APIs from taking that path.
+3. Propose a narrower automatic eligibility rule only if it can be proven
+   equivalent for silent, no-debugger, no-trace runs and does not change
+   observable `createProcessor(...)` behavior.
+4. Keep the shipped repeated direct-Subgraph `runGraph(...)` slice as the only
+   default runtime change until the real-fixture benchmark clears the same P5
+   benchmark gate.
 
 ## Implementation Plan
 
@@ -432,6 +439,44 @@ this phase. The goal is real runtime speed, not debugger-only duration changes.
 - Result: no runtime change shipped after P6, so no before/after runtime matrix
   is claimed. The P6 artifacts and docs close this plan with the repeated
   `runGraph(...)` slice as the only default speedup.
+
+### P10: Local Real Workflow Fixture Baseline [DONE - NEW EVIDENCE]
+
+- Add optional runtime-speed rows that load
+  `.fixtures/graph-fixture.rivet-project` when it exists locally.
+- Keep the fixture itself ignored and local because it can contain
+  production-shaped payload data.
+- Run the fixture's `metadata.mainGraphId` without explicit inputs so the graph's
+  own mocked/default Graph Input path is measured.
+- Include rows for project loading, `runGraphInFile(...)`, loaded
+  `runGraph(...)`, fresh default-safe `createProcessor(...)`, fresh explicit
+  `headless-fast` `createProcessor(...)`, and reused default-safe
+  `createProcessor(...)`.
+- Store the raw benchmark artifact in
+  [`packages/node/bench-results/default-subgraph-runtime-real-fixture.json`](packages/node/bench-results/default-subgraph-runtime-real-fixture.json).
+- Result: explicit `headless-fast` fresh `createProcessor(...)` was about
+  27.9 ms mean, compared with about 38.5 ms default-safe fresh
+  `createProcessor(...)` and about 37.6 ms loaded `runGraph(...)`. This is a
+  real optimization lead that the synthetic one-off/nested rows did not expose.
+
+### P11: Explain The Real-Fixture `headless-fast` Gap [TODO]
+
+- Inspect the runtime policy decision for the fixture and identify exactly why
+  omitted/default APIs do not use the faster `headless-fast` path.
+- Attribute the gap before changing runtime behavior:
+  - scheduler choice;
+  - lifecycle observability;
+  - Code/Expression runner setup;
+  - subgraph boundary/cache reuse;
+  - globals and context setup;
+  - any fallback triggered by graph shape.
+- Add focused tests for any proposed new automatic eligibility rule before
+  implementation.
+- Do not change `createProcessor(...)` omitted behavior unless the returned
+  processor remains safely observable before `run()`.
+- Prefer an automatic `runGraph(...)`-only improvement first, because
+  unobservable `runGraph(...)` has a narrower public contract than omitted
+  `createProcessor(...)`.
 
 ## Verification Commands
 

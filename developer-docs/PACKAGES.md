@@ -152,6 +152,14 @@ hide or invent speed changes.
 Benchmarks are diagnostic only; correctness remains pinned by the equivalence
 tests.
 
+For production-shaped local analysis, the benchmark also looks for an ignored
+`.fixtures/graph-fixture.rivet-project` file. When present, it adds `local real
+workflow fixture` rows that run the fixture's `metadata.mainGraphId` with no
+explicit inputs, relying on the graph's own mocked/default Graph Input values.
+Keep that fixture local and ignored because it can contain production-shaped
+payload data. Use `RIVET_RUNTIME_BENCH_FILTER='local real workflow fixture'` to
+run only these rows.
+
 The default Subgraph runtime speed pass is recorded in
 [`default-subgraph-runtime-speed-plan.md`](../default-subgraph-runtime-speed-plan.md)
 and
@@ -200,6 +208,14 @@ and omitted `createProcessor(...)` cannot safely assume a silent run because
 callers can observe the returned processor before `run()`. Keep P7/P8-style
 frame-runner work paused until a real fixture or new attribution data shows a
 larger, repeatable default-runtime bottleneck.
+The local real-workflow fixture baseline is now recorded in
+[`packages/node/bench-results/default-subgraph-runtime-real-fixture.json`](../packages/node/bench-results/default-subgraph-runtime-real-fixture.json).
+On that fixture, loaded `runGraph(...)` measured about 37.6 ms mean, default-safe
+fresh `createProcessor(...)` about 38.5 ms mean, and explicit `headless-fast`
+fresh `createProcessor(...)` about 27.9 ms mean. Treat this as the next
+optimization lead: first explain the policy or runtime-cost gap, then prove any
+new automatic eligibility rule with equivalence tests and the same benchmark
+gate before changing default behavior.
 
 The post-P7 full before/after matrix found real wins but also unacceptable
 cheap-runtime regressions. The P8-P12 recovery pass fixed the repeatable cheap

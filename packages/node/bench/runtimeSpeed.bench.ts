@@ -1,6 +1,6 @@
 import { performance } from 'node:perf_hooks';
 import { execFileSync } from 'node:child_process';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { access, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { arch, cpus, platform, release, tmpdir, type } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -112,6 +112,12 @@ type BenchmarkGraphBoundary = {
   outputs: readonly BenchmarkGraphBoundaryPort[];
 };
 
+type LocalRealWorkflowFixture = {
+  graphId: GraphId;
+  project: Project;
+  projectPath: string;
+};
+
 type GraphFrameTimingField =
   | 'processStartToGraphStartMs'
   | 'graphStartToFirstNodeStartMs'
@@ -130,7 +136,9 @@ type GraphFrameTimingMarkers = Partial<Record<GraphFrameTimingField, number>> & 
 
 const benchDir = dirname(fileURLToPath(import.meta.url));
 const nodePackageDir = join(benchDir, '..');
+const repoRoot = join(nodePackageDir, '..', '..');
 const testGraphsPath = join(nodePackageDir, 'test', 'test-graphs.rivet-project');
+const localRealWorkflowFixturePath = join(repoRoot, '.fixtures', 'graph-fixture.rivet-project');
 const iterations = readPositiveIntegerEnv('RIVET_RUNTIME_BENCH_ITERATIONS', 50);
 const warmupIterations = readPositiveIntegerEnv('RIVET_RUNTIME_BENCH_WARMUP_ITERATIONS', 5);
 const samples = readPositiveIntegerEnv('RIVET_RUNTIME_BENCH_SAMPLES', 1);
@@ -138,6 +146,14 @@ const sessions = readPositiveIntegerEnv('RIVET_RUNTIME_BENCH_SESSIONS', 1);
 const benchmarkFilterPattern = process.env.RIVET_RUNTIME_BENCH_FILTER?.trim();
 const benchmarkFilter = readBenchmarkFilter(benchmarkFilterPattern);
 const benchmarkOutputPath = process.env.RIVET_RUNTIME_BENCH_OUTPUT?.trim();
+const localRealWorkflowFixtureBenchmarkNames = [
+  'loadProjectFromFile local real workflow fixture only',
+  'runGraphInFile local real workflow fixture no inputs',
+  'runGraph local real workflow fixture no inputs',
+  'fresh createProcessor default-safe local real workflow fixture no inputs',
+  'fresh createProcessor headless-fast local real workflow fixture no inputs',
+  'reuse createProcessor default-safe local real workflow fixture no inputs',
+] as const;
 
 async function main() {
   const passthroughProject = await loadProjectFromFile(testGraphsPath);
@@ -180,6 +196,15 @@ async function main() {
   const callGraph50 = makeCallGraphFanInProject(50);
   const referencedGraph1 = makeReferencedGraphAliasFanInProject(1);
   const referencedGraph50 = makeReferencedGraphAliasFanInProject(50);
+  const shouldRunLocalRealWorkflowFixture = shouldRunLocalRealWorkflowFixtureBenchmarks();
+  const localRealWorkflowFixture = shouldRunLocalRealWorkflowFixture ? await loadLocalRealWorkflowFixture() : undefined;
+  if (shouldRunLocalRealWorkflowFixture && !localRealWorkflowFixture && benchmarkFilterPattern) {
+    throw new Error(
+      `Local real workflow fixture benchmark matched filter ${JSON.stringify(
+        benchmarkFilterPattern,
+      )}, but ${localRealWorkflowFixturePath} does not exist.`,
+    );
+  }
   const benchmarkProjectFiles = await createBenchmarkProjectFiles(singleSubgraph.project, referencedGraph1);
   const codeRunner = new NodeCodeRunner();
   const cachedCodeRunner = new CachedNodeCodeRunner();
@@ -219,6 +244,55 @@ async function main() {
         loadProjectFromString(serializedSingleSubgraphProject),
       ),
     );
+
+    if (localRealWorkflowFixture) {
+      results.push(
+        await benchmark(localRealWorkflowFixtureBenchmarkNames[0], () =>
+          loadProjectFromFile(localRealWorkflowFixture.projectPath),
+        ),
+      );
+      results.push(
+        await benchmark(localRealWorkflowFixtureBenchmarkNames[1], () =>
+          runGraphInFile(localRealWorkflowFixture.projectPath, {
+            graph: localRealWorkflowFixture.graphId,
+          }),
+        ),
+      );
+      results.push(
+        await benchmark(localRealWorkflowFixtureBenchmarkNames[2], () =>
+          runGraph(localRealWorkflowFixture.project, {
+            graph: localRealWorkflowFixture.graphId,
+          }),
+        ),
+      );
+      results.push(
+        await benchmarkCreateProcessor(
+          localRealWorkflowFixtureBenchmarkNames[3],
+          localRealWorkflowFixture.project,
+          {
+            graph: localRealWorkflowFixture.graphId,
+          },
+        ),
+      );
+      results.push(
+        await benchmarkCreateProcessor(
+          localRealWorkflowFixtureBenchmarkNames[4],
+          localRealWorkflowFixture.project,
+          {
+            graph: localRealWorkflowFixture.graphId,
+            runtimeProfile: 'headless-fast',
+          },
+        ),
+      );
+      {
+        const processor = createProcessor(localRealWorkflowFixture.project, {
+          graph: localRealWorkflowFixture.graphId,
+        });
+        results.push(
+          await benchmark(localRealWorkflowFixtureBenchmarkNames[5], () => processor.run()),
+        );
+      }
+    }
 
     results.push(
       await benchmark('loadProjectFromFile subgraph project only', () =>
@@ -1196,6 +1270,10 @@ function shouldRunBenchmark(name: string): boolean {
   return benchmarkFilter == null || benchmarkFilter.test(name);
 }
 
+function shouldRunLocalRealWorkflowFixtureBenchmarks(): boolean {
+  return localRealWorkflowFixtureBenchmarkNames.some((name) => shouldRunBenchmark(name));
+}
+
 function skippedBenchmarkResult(name: string): BenchmarkResult {
   return {
     ci95HighMs: '0.000',
@@ -1708,6 +1786,26 @@ function createBenchmarkMetadata(): BenchmarkMetadata {
     sessions,
     warmupIterations,
     yarnUserAgent: process.env.npm_config_user_agent,
+  };
+}
+
+async function loadLocalRealWorkflowFixture(): Promise<LocalRealWorkflowFixture | undefined> {
+  try {
+    await access(localRealWorkflowFixturePath);
+  } catch {
+    return undefined;
+  }
+
+  const project = await loadProjectFromFile(localRealWorkflowFixturePath);
+  const graphId = project.metadata.mainGraphId;
+  if (!graphId || !project.graphs[graphId]) {
+    throw new Error(`Local real workflow fixture ${localRealWorkflowFixturePath} must define metadata.mainGraphId.`);
+  }
+
+  return {
+    graphId,
+    project,
+    projectPath: localRealWorkflowFixturePath,
   };
 }
 

@@ -366,3 +366,67 @@ work to the measured run.
   but the measured synthetic opportunity is too small to justify duplicating
   graph-frame semantics, lifecycle metadata, abort behavior, and fallback
   eligibility now.
+
+## Local Real Workflow Fixture Baseline
+
+The runtime-speed benchmark can also pick up a local, ignored
+`.fixtures/graph-fixture.rivet-project` file. This fixture is intentionally not
+checked in because it can contain production-shaped payload data. When present,
+the benchmark runs the fixture's `metadata.mainGraphId` with no explicit inputs,
+so Graph Input default-value mocks inside the project are part of the measured
+workflow.
+
+### Run
+
+- Date: 2026-05-25
+- Artifact:
+  [`packages/node/bench-results/default-subgraph-runtime-real-fixture.json`](packages/node/bench-results/default-subgraph-runtime-real-fixture.json)
+- Fixture path: `.fixtures/graph-fixture.rivet-project` (local, ignored)
+- Graph: `Main Graph` (`29f17ff8-3aa4-4294-8a92-13116d5a8a9b`)
+- Inputs: none
+- OS: Windows_NT 10.0.26200 x64
+- CPU: Intel(R) Core(TM) Ultra 5 245KF
+- Node: v22.22.3
+- Samples: 24 raw samples per row, 3 sessions, 8 samples per session
+- Iterations per sample: 10 measured runs
+- Warmup per sample: 3 runs
+
+Command:
+
+```powershell
+$env:RIVET_RUNTIME_BENCH_FILTER='local real workflow fixture'
+$env:RIVET_RUNTIME_BENCH_ITERATIONS='10'
+$env:RIVET_RUNTIME_BENCH_WARMUP_ITERATIONS='3'
+$env:RIVET_RUNTIME_BENCH_SAMPLES='8'
+$env:RIVET_RUNTIME_BENCH_SESSIONS='3'
+$env:RIVET_RUNTIME_BENCH_OUTPUT='bench-results/default-subgraph-runtime-real-fixture.json'
+yarn workspace @valerypopoff/rivet2-node run bench:runtime-speed
+```
+
+### Results
+
+| Row | Mean ms | Median ms | CV | 95% CI ms |
+| --- | ---: | ---: | ---: | --- |
+| loadProjectFromFile local real workflow fixture only | 35.710 | 35.617 | 0.031 | 35.269-36.150 |
+| runGraphInFile local real workflow fixture no inputs | 76.919 | 76.089 | 0.039 | 75.710-78.127 |
+| runGraph local real workflow fixture no inputs | 37.645 | 37.284 | 0.031 | 37.181-38.110 |
+| fresh createProcessor default-safe local real workflow fixture no inputs | 38.472 | 37.723 | 0.085 | 37.166-39.777 |
+| fresh createProcessor headless-fast local real workflow fixture no inputs | 27.915 | 27.779 | 0.023 | 27.662-28.169 |
+| reuse createProcessor default-safe local real workflow fixture no inputs | 32.507 | 31.246 | 0.159 | 30.441-34.574 |
+
+### Interpretation
+
+- The fixture is now a better default Subgraph-speed signal than the tiny
+  synthetic one-off/nested rows.
+- `runGraphInFile(...)` is dominated by one-shot project loading plus execution:
+  loading alone measured about 35.7 ms, while loaded `runGraph(...)` measured
+  about 37.6 ms.
+- The loaded default rows are stable enough to use as a regression baseline.
+- Explicit `headless-fast` on fresh `createProcessor(...)` is meaningfully
+  faster on this fixture: about 27.9 ms mean versus about 38.5 ms default-safe
+  mean. That is evidence for a real optimization direction, not a shipped
+  default change yet.
+- The next investigation should explain which default-safety guard keeps this
+  fixture on the default-safe path and whether a narrower automatic
+  `headless-fast` eligibility rule can be proven equivalent for this workflow
+  shape without changing observable runs.
