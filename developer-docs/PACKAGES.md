@@ -15,6 +15,18 @@ The root `yarn build` script currently builds packages in this order:
 
 That order is encoded directly in the root `package.json` and reflects actual runtime dependencies.
 
+Hosted wrappers should prefer the narrower root build targets when they do not
+need the full desktop/app/CLI surface:
+
+- `yarn build:runtime`: core + node for API endpoint runtime images.
+- `yarn build:hosted-web-deps`: core + Trivet for hosted web/editor images.
+- `yarn build:executor-runtime`: core + node + app-executor artifacts.
+- `yarn build:npm-public`: core + node + Trivet + CLI for npm publishing.
+
+Those targets are implemented by
+[`scripts/build-wrapper-target.mjs`](../scripts/build-wrapper-target.mjs) so
+downstream wrappers do not need to duplicate workspace build order.
+
 ## `@valerypopoff/rivet2-core` (`packages/core/`)
 
 ### Role
@@ -685,6 +697,39 @@ before publishing. It calls this script with `--skip-clean-check` so ignored
 `packages/node/dist`, `packages/trivet/dist`, `packages/cli/dist`,
 `packages/cli/bin`, and `packages/cli/tsconfig.tsbuildinfo` outputs do not
 block publishing.
+
+## `scripts/create-built-package-artifacts.mjs`
+
+Although not itself a package, this script is the wrapper-facing artifact
+contract for exact-checkout builds. It validates already-built outputs and
+stages package-manager-neutral artifacts under `.rivet-built-packages` by
+default.
+
+Supported targets:
+
+- `--target runtime`: `rivet2-core` + `rivet2-node`; this is the default.
+- `--target hosted-web-deps`: `rivet2-core` + Trivet.
+- `--target executor-runtime`: `rivet2-core` + `rivet2-node` + app-executor.
+- `--target wrapper`: all wrapper-facing artifacts.
+- `--include core,node,trivet,app-executor`: custom artifact set.
+
+For package artifacts, workspace dependencies are rewritten to local `file:`
+dependencies inside the staged artifact set. Custom `--include` sets
+automatically add required local artifacts, so selecting `node` or `trivet`
+also stages `core`. For app-executor, the script copies
+`bin/executor-bundle.cjs` and the generated `dist/` sidecar artifacts, but not
+build metadata such as TypeScript build-info files.
+
+Every run writes `rivet-build-artifacts.json` with schema version, generation
+time, target, resolved Rivet revision, source ref, and artifact paths. CI jobs
+that bootstrap Rivet without `.git` should set `RIVET_SOURCE_REVISION=<sha>` or
+pass `--revision <sha>` so artifact caches are keyed to the exact upstream
+commit. Set `RIVET_SOURCE_REF=<branch-or-tag>` when the manifest should also
+record the configured source ref.
+
+The script intentionally does not build workspaces itself; callers should run
+the matching root build target first. This keeps Dockerfiles explicit about
+which build layers are expensive and cacheable.
 
 ## Package-Level Refactor Guidance
 

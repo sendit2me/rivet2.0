@@ -35,6 +35,11 @@ Current root scripts from `package.json`:
 yarn dev
 yarn build
 yarn build:all
+yarn build:runtime
+yarn build:hosted-web-deps
+yarn build:executor-runtime
+yarn build:npm-public
+yarn build:packages:local
 yarn sync:desktop-version
 yarn verify:desktop-version
 yarn test
@@ -46,6 +51,7 @@ yarn test:app-executor
 yarn test:cli
 yarn test:docs
 yarn test:style
+yarn bench:build-timing
 yarn lint
 yarn prettier:fix
 yarn publish
@@ -73,6 +79,32 @@ Runs builds in fixed order:
 ### `yarn build:all`
 
 Alias for `yarn build`.
+
+### Wrapper-facing minimal build scripts
+
+Hosted wrappers and Docker image builds should use these stable root scripts
+instead of knowing Rivet's internal workspace order:
+
+- `yarn build:runtime`: builds `@valerypopoff/rivet2-core` and
+  `@valerypopoff/rivet2-node`. This is the API endpoint runtime set.
+- `yarn build:hosted-web-deps`: builds `@valerypopoff/rivet2-core` and
+  `@valerypopoff/trivet`. This is the hosted web/editor dependency set; the
+  app source is still consumed from `packages/app/src`.
+- `yarn build:executor-runtime`: builds `@valerypopoff/rivet2-core`,
+  `@valerypopoff/rivet2-node`, and `@valerypopoff/rivet-app-executor`.
+- `yarn build:npm-public`: builds the public npm publish set: core, node,
+  Trivet, and CLI.
+
+These scripts intentionally do not build docs, tests, the desktop app, or the
+CLI unless that package is part of the named target.
+
+### `yarn bench:build-timing`
+
+Runs `node scripts/measure-build-phases.mjs`, which measures Yarn install,
+core build, node build, Trivet build, app-executor build, and app build. Use
+`--skip-install` to measure build-only phases and `--skip-app` when a hosted
+wrapper does not need the browser app build. This is a build-time diagnostic,
+not a graph-runtime benchmark.
 
 ### `yarn sync:desktop-version`
 
@@ -222,16 +254,21 @@ Wrappers that embed this checkout but consume `@valerypopoff/rivet2-core` and
 `@valerypopoff/rivet2-node` as built packages should not create symlinks inside the
 Rivet workspace or change Rivet's package-manager mode. After building both
 workspaces, run `yarn build:packages:local` or
-`node scripts/create-built-package-artifacts.mjs --out-dir <dir>`. The script
-validates the built `dist/esm`, `dist/cjs`, and `dist/types` outputs, writes
-package-manager-neutral `file:` package directories, and rewrites
-`@valerypopoff/rivet2-node` to depend on the generated local `@valerypopoff/rivet2-core`
-package. npm, Yarn, and pnpm based wrappers can then depend on those generated
-local directories without pulling stale public registry packages and without
-mutating this checkout's PnP/node-modules layout. The artifact script recreates
-its output directory, so it refuses targets that are the repo root, a parent of
-the repo root, inside this checkout outside `.rivet-built-packages`, or
-overlapping a source package directory.
+`node scripts/create-built-package-artifacts.mjs --out-dir <dir>`. By default,
+the script stages the `runtime` target (`core` + `node`). It also accepts
+`--target hosted-web-deps`, `--target executor-runtime`, `--target wrapper`, or
+`--include core,node,trivet,app-executor` for custom sets. Custom sets
+automatically include required local package artifacts such as core when node or
+Trivet is selected. The script validates built outputs, writes
+package-manager-neutral `file:` package directories, rewrites generated
+internal dependencies to local `file:` dependencies, copies the app-executor
+bundle/sidecar artifacts when requested, and writes `rivet-build-artifacts.json`
+with the resolved Rivet revision/ref. npm, Yarn, and pnpm based wrappers can
+then depend on those generated local directories without pulling stale public
+registry packages and without mutating this checkout's PnP/node-modules layout.
+The artifact script recreates its output directory, so it refuses targets that
+are the repo root, a parent of the repo root, inside this checkout outside
+`.rivet-built-packages`, or overlapping a source package directory.
 
 ### App
 
@@ -289,6 +326,46 @@ wrapper runtimes can provide per-project libraries without string-rewriting
 also expose `globalThis.__RIVET_PREPARE_RUNTIME_LIBRARIES__`; the app-executor
 worker runner calls it before require-enabled/Rivet-capable Code-family nodes so Docker
 or server wrappers can synchronize runtime libraries before module resolution.
+
+## Hosted Wrapper Image Build Contract
+
+Wrappers that build Docker images from this source should keep the Rivet build
+surface narrow:
+
+- API endpoint runtime images need built `@valerypopoff/rivet2-core` and
+  `@valerypopoff/rivet2-node`; use `yarn build:runtime` and
+  `node scripts/create-built-package-artifacts.mjs --target runtime`.
+- Executor images need built core, node, and app-executor bundle/artifacts; use
+  `yarn build:executor-runtime` and
+  `node scripts/create-built-package-artifacts.mjs --target executor-runtime`.
+  The app-executor binary artifacts are platform-specific, so build this target
+  on the platform that will run the executor image.
+- Hosted web/editor images need built core and Trivet plus app host/editor
+  source under `packages/app/src`; use `yarn build:hosted-web-deps` and
+  `node scripts/create-built-package-artifacts.mjs --target hosted-web-deps`.
+
+Wrapper image builds do not need the CLI, docs, test suites, desktop Tauri
+bundle, or full root `yarn build` unless the image explicitly packages those
+surfaces. Cache image layers by the exact Rivet revision, not by a moving branch
+name alone. The artifact helper records the resolved revision in
+`rivet-build-artifacts.json`; wrappers can also pass `--revision <sha>` or
+`RIVET_SOURCE_REVISION=<sha>` when the source checkout does not have `.git`.
+Set `RIVET_SOURCE_REF=<branch-or-tag>` when the artifact manifest should record
+the configured source ref separately from the resolved revision.
+
+For cache-safe dependency install layers, copy only dependency metadata before
+`yarn install`:
+
+- root `package.json`
+- `yarn.lock`
+- `.yarnrc.yml`
+- `.yarn/releases/**`
+- `.yarn/patches/**`
+- `.yarn/plugins/**`, if present
+- `package.json` files for declared workspaces under `packages/*`
+
+Copy source files only after dependency installation. This keeps Docker
+dependency layers stable when regular TypeScript/source files change.
 
 ### CLI
 
