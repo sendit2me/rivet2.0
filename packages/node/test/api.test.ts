@@ -157,24 +157,6 @@ async function assertRunGraphMatchesDefaultSafeAndBeatsCompatible(
   assert.ok(runGraphDefinitionCalls < compatibleDefinitionCalls);
 }
 
-async function assertRunGraphMatchesHeadlessFastAndBeatsCompatible(
-  project: Project,
-  options: Parameters<typeof runGraph>[1],
-): Promise<void> {
-  const compatibleDefinitionCalls = await countCreateProcessorDefinitionCalls(project, {
-    ...options,
-    runtimeProfile: 'compatible',
-  });
-  const headlessFastCreateProcessorDefinitionCalls = await countCreateProcessorDefinitionCalls(project, {
-    ...options,
-    runtimeProfile: 'headless-fast',
-  });
-  const runGraphDefinitionCalls = await countRunGraphDefinitionCalls(project, options);
-
-  assert.equal(runGraphDefinitionCalls, headlessFastCreateProcessorDefinitionCalls);
-  assert.ok(runGraphDefinitionCalls < compatibleDefinitionCalls);
-}
-
 async function assertRunGraphMatchesCompatible(
   project: Project,
   options: Parameters<typeof runGraph>[1],
@@ -424,7 +406,7 @@ describe('api', () => {
     });
   });
 
-  it('uses fast createProcessor planning only inside each run', async () => {
+  it('uses default createProcessor subprocessor planning only inside each run', async () => {
     const fixture = makeRepeatedSubgraphFanInProject(3);
     const countingRegistry = createCountingRegistry();
     const processor = createProcessor(fixture.project, {
@@ -433,7 +415,6 @@ describe('api', () => {
         input: 'same',
       },
       registry: countingRegistry.registry,
-      runtimeProfile: 'headless-fast',
     });
 
     await processor.run();
@@ -449,13 +430,10 @@ describe('api', () => {
     await assertRunGraphMatchesCompatible(fixture.project, makeStandardRunOptions(fixture.graphId));
   });
 
-  it('uses headless-fast runGraph planning for unobservable repeated subgraphs', async () => {
+  it('uses default-safe runGraph planning for repeated subgraphs', async () => {
     const fixture = makeRepeatedSubgraphFanInProject(3);
 
-    await assertRunGraphMatchesHeadlessFastAndBeatsCompatible(
-      fixture.project,
-      makeStandardRunOptions(fixture.graphId),
-    );
+    await assertRunGraphMatchesDefaultSafeAndBeatsCompatible(fixture.project, makeStandardRunOptions(fixture.graphId));
   });
 
   it('keeps observable repeated subgraph runGraph planning on the default-safe path', async () => {
@@ -479,48 +457,6 @@ describe('api', () => {
         abortSignal: abortController.signal,
       }),
     );
-  });
-
-  it('keeps projects with references off the headless-fast runGraph path', async () => {
-    const fixture = makeRepeatedSubgraphFanInProject(3);
-    const unusedReferencedProject = {
-      graphs: {},
-      metadata: {
-        description: '',
-        id: 'unused-reference',
-        title: 'Unused Reference',
-      },
-    } as Project;
-    const projectReferenceLoader = {
-      loadProject: async () => unusedReferencedProject,
-    };
-    const options = makeStandardRunOptions(fixture.graphId, {
-      projectReferenceLoader,
-    });
-    const projectWithUnusedReference: Project = {
-      ...fixture.project,
-      references: [
-        {
-          id: 'unused-reference',
-        },
-      ],
-    } as Project;
-
-    const defaultCreateProcessorDefinitionCalls = await countCreateProcessorDefinitionCalls(
-      projectWithUnusedReference,
-      options,
-    );
-    const headlessFastCreateProcessorDefinitionCalls = await countCreateProcessorDefinitionCalls(
-      projectWithUnusedReference,
-      {
-        ...options,
-        runtimeProfile: 'headless-fast',
-      },
-    );
-    const runGraphDefinitionCalls = await countRunGraphDefinitionCalls(projectWithUnusedReference, options);
-
-    assert.equal(runGraphDefinitionCalls, defaultCreateProcessorDefinitionCalls);
-    assert.notEqual(runGraphDefinitionCalls, headlessFastCreateProcessorDefinitionCalls);
   });
 
   it('keeps single static subgraph runGraph planning on the compatible path', async () => {
@@ -651,7 +587,7 @@ describe('api', () => {
       },
       registry: countingRegistry.registry,
       remoteDebugger,
-      runtimeProfile: 'headless-fast',
+      runtimeProfile: 'removed-profile' as never,
     });
 
     await processor.run();
@@ -733,14 +669,13 @@ describe('api', () => {
     assert.equal(Object.prototype.hasOwnProperty.call(untimedFinish!, 'durationMs'), false);
   });
 
-  it('keeps fast createProcessor runs recordable through processor events', async () => {
+  it('keeps default createProcessor runs recordable through processor events', async () => {
     const fixture = makeRepeatedSubgraphFanInProject(3);
     const processor = createProcessor(fixture.project, {
       graph: fixture.graphId,
       inputs: {
         input: 'same',
       },
-      runtimeProfile: 'headless-fast',
     });
     const recorder = new ExecutionRecorder();
     recorder.record(processor.processor);

@@ -226,26 +226,18 @@ provide these defaults when the corresponding option is omitted:
 `createGraphRunner` resolves the same Node defaults once at runner creation and
 reuses them across repeated runs of the same graph. This is the preferred
 programmatic path for stable backend workflows where only request inputs and
-context change between runs. With `runtimeProfile: 'headless-fast'`, the runner
-also reuses a cached graph execution plan, uses a narrow fast acyclic scheduler
-when the graph is eligible, and uses a cached Node CodeRunner for Code-family
-nodes unless you pass an explicit `codeRunner`. With experimental
-`runtimeProfile: 'native-fast'`, the runner can try the optional native runtime
-for a narrow eligible subset and otherwise falls back to the compatible
-TypeScript runner while reporting the native decision for diagnostics. Text
-processing pipes outside the native parity-tested subset also fall back to
-TypeScript. The decision includes `nativeBackend`, so benchmarks can distinguish
-the Rust worker from the JS adapter control path.
+context change between runs. The runner uses the standard TypeScript runtime
+and gives each `runner.run(...)` call fresh request data, abort state, and
+mutable processor state.
 
 `createProcessor` accepts a Node-only
-`runtimeProfile?: 'compatible' | 'headless-fast'` option. Omitted
-`runtimeProfile` uses the safe single-run fast policy: subprocessor
+`runtimeProfile?: 'compatible'` option. Omitted
+`runtimeProfile` uses the default-safe single-run policy: subprocessor
 execution-plan caching and the run-scoped cached default CodeRunner when no
 custom `codeRunner` is supplied. Use `runtimeProfile: 'compatible'` as the
-fully compatible rollback path, or `runtimeProfile: 'headless-fast'` for the
-more aggressive eligible fast path. `runGraph` ignores any untyped
-`runtimeProfile` property and uses the compatible path unless a graph shape is
-eligible for its internal default-safe one-shot policy.
+fully compatible rollback path. `runGraph` ignores any untyped
+`runtimeProfile` property and uses only its internal default-safe one-shot
+policy.
 
 ## Usage
 

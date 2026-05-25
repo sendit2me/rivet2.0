@@ -3,7 +3,7 @@ import { describe, it } from 'node:test';
 import { resolveCreateProcessorRuntimePolicy } from '../src/createProcessorRuntimePolicy.js';
 
 void describe('createProcessor runtime policy', () => {
-  void it('defaults omitted runtime profiles to the safe fast policy', () => {
+  void it('defaults an omitted runtime profile to the default-safe policy', () => {
     const policy = resolveCreateProcessorRuntimePolicy({});
 
     assert.ok(policy.runtimeCache);
@@ -14,7 +14,7 @@ void describe('createProcessor runtime policy', () => {
     assert.deepEqual(policy.fallbackReasons, []);
   });
 
-  void it('keeps compatible runtime profiles fully compatible', () => {
+  void it('keeps the compatible runtime profile fully compatible', () => {
     const policy = resolveCreateProcessorRuntimePolicy({ runtimeProfile: 'compatible' });
 
     assert.equal(policy.runtimeCache, undefined);
@@ -34,34 +34,6 @@ void describe('createProcessor runtime policy', () => {
     assert.equal(policy.scheduler, 'compatible');
     assert.equal(policy.useCachedDefaultCodeRunner, false);
     assert.deepEqual(policy.fallbackReasons, []);
-  });
-
-  void it('splits explicit headless-fast into independent fast capabilities', () => {
-    const policy = resolveCreateProcessorRuntimePolicy({ runtimeProfile: 'headless-fast' });
-
-    assert.ok(policy.runtimeCache);
-    assert.equal(policy.cacheLoadedProjects, true);
-    assert.equal(policy.executionPlanCacheMode, 'all');
-    assert.equal(policy.scheduler, 'fast-acyclic');
-    assert.equal(policy.useCachedDefaultCodeRunner, true);
-    assert.deepEqual(policy.fallbackReasons, []);
-  });
-
-  void it('keeps custom CodeRunner ownership while allowing other fast capabilities', () => {
-    const policy = resolveCreateProcessorRuntimePolicy({
-      codeRunner: {
-        async runCode() {
-          return {};
-        },
-      },
-      runtimeProfile: 'headless-fast',
-    });
-
-    assert.ok(policy.runtimeCache);
-    assert.equal(policy.cacheLoadedProjects, true);
-    assert.equal(policy.executionPlanCacheMode, 'all');
-    assert.equal(policy.scheduler, 'fast-acyclic');
-    assert.equal(policy.useCachedDefaultCodeRunner, false);
   });
 
   void it('keeps custom CodeRunner ownership in the omitted default policy', () => {
@@ -85,7 +57,7 @@ void describe('createProcessor runtime policy', () => {
       resolveCreateProcessorRuntimePolicy({ remoteDebugger: {} }),
       resolveCreateProcessorRuntimePolicy({
         remoteDebugger: {},
-        runtimeProfile: 'headless-fast',
+        runtimeProfile: 'removed-profile' as never,
       }),
     ]) {
       assert.equal(policy.runtimeCache, undefined);
@@ -110,17 +82,17 @@ void describe('createProcessor runtime policy', () => {
     assert.deepEqual(policy.fallbackReasons, ['trace']);
   });
 
-  void it('keeps trace-sensitive runs on compatible scheduling without disabling other explicit fast pieces', () => {
+  void it('treats unknown profile values with trace as compatible for untyped callers', () => {
     const policy = resolveCreateProcessorRuntimePolicy({
       includeTrace: true,
-      runtimeProfile: 'headless-fast',
+      runtimeProfile: 'removed-profile' as never,
     });
 
-    assert.ok(policy.runtimeCache);
-    assert.equal(policy.cacheLoadedProjects, true);
-    assert.equal(policy.executionPlanCacheMode, 'all');
+    assert.equal(policy.runtimeCache, undefined);
+    assert.equal(policy.cacheLoadedProjects, false);
+    assert.equal(policy.executionPlanCacheMode, undefined);
     assert.equal(policy.scheduler, 'compatible');
-    assert.equal(policy.useCachedDefaultCodeRunner, true);
+    assert.equal(policy.useCachedDefaultCodeRunner, false);
     assert.deepEqual(policy.fallbackReasons, ['trace']);
   });
 });

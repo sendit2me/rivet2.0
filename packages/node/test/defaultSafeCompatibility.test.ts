@@ -145,7 +145,7 @@ function createCallbackCapture(
 
 async function runProfile(
   fixture: RuntimeSpeedProjectFixture,
-  runtimeProfile: RuntimeProfile,
+  runtimeProfile: RuntimeProfile | undefined,
   options: ProfileRunOptions = {},
 ): Promise<ProfileRun> {
   const { beforeNodeStart, project = cloneProject(fixture.project), ...processorOptions } = options;
@@ -185,26 +185,15 @@ async function runProfile(
 async function runBothProfiles(
   fixture: RuntimeSpeedProjectFixture,
   options: ProfileRunOptions = {},
-): Promise<{ compatible: ProfileRun; fast: ProfileRun }> {
-  return {
-    compatible: await runProfile(fixture, 'compatible', options),
-    fast: await runProfile(fixture, 'headless-fast', options),
-  };
-}
-
-async function runAllProfiles(
-  fixture: RuntimeSpeedProjectFixture,
-  options: ProfileRunOptions = {},
-): Promise<{ compatible: ProfileRun; defaultSafe: ProfileRun; fast: ProfileRun }> {
+): Promise<{ compatible: ProfileRun; defaultSafe: ProfileRun }> {
   return {
     compatible: await runProfile(fixture, 'compatible', options),
     defaultSafe: await runProfile(fixture, undefined, options),
-    fast: await runProfile(fixture, 'headless-fast', options),
   };
 }
 
-function assertProfileRunsEqual(compatible: ProfileRun, fast: ProfileRun, label: string): void {
-  assert.deepEqual(fast, compatible, label);
+function assertProfileRunsEqual(compatible: ProfileRun, candidate: ProfileRun, label: string): void {
+  assert.deepEqual(candidate, compatible, label);
 }
 
 function normalizeProcessEvent<T extends keyof ProcessEvents>(type: T, data: ProcessEvents[T]): CapturedEvent {
@@ -733,7 +722,7 @@ function createCompatibilityRegistry(): NodeRegistration<any, any> {
   } as NodeRegistration<any, any>;
 }
 
-void describe('default-fast compatibility characterization', () => {
+void describe('default-safe compatibility characterization', () => {
   void it('keeps eligible createProcessor outputs, callbacks, and recorder events equivalent', async () => {
     const cases: Array<{
       fixture: RuntimeSpeedProjectFixture;
@@ -863,9 +852,8 @@ void describe('default-fast compatibility characterization', () => {
     });
 
     for (const testCase of cases) {
-      const { compatible, defaultSafe, fast } = await runAllProfiles(testCase.fixture, testCase.options);
+      const { compatible, defaultSafe } = await runBothProfiles(testCase.fixture, testCase.options);
       assertProfileRunsEqual(compatible, defaultSafe, `${testCase.name} default`);
-      assertProfileRunsEqual(compatible, fast, testCase.name);
     }
   });
 
@@ -894,12 +882,10 @@ void describe('default-fast compatibility characterization', () => {
     ];
 
     for (const testCase of cases) {
-      const { compatible, defaultSafe, fast } = await runAllProfiles(testCase.fixture, testCase.options);
+      const { compatible, defaultSafe } = await runBothProfiles(testCase.fixture, testCase.options);
       assert.equal(compatible.status, 'resolved', testCase.name);
       assert.equal(defaultSafe.status, 'resolved', `${testCase.name} default`);
-      assert.equal(fast.status, 'resolved', testCase.name);
       assert.deepEqual(defaultSafe.outputs, compatible.outputs, `${testCase.name} default outputs`);
-      assert.deepEqual(fast.outputs, compatible.outputs, `${testCase.name} fast outputs`);
     }
   });
 
@@ -916,10 +902,9 @@ void describe('default-fast compatibility characterization', () => {
     ];
 
     for (const testCase of cases) {
-      const { compatible, defaultSafe, fast } = await runAllProfiles(testCase.fixture);
+      const { compatible, defaultSafe } = await runBothProfiles(testCase.fixture);
       assert.equal(compatible.status, 'rejected', testCase.name);
       assertProfileRunsEqual(compatible, defaultSafe, `${testCase.name} default`);
-      assertProfileRunsEqual(compatible, fast, testCase.name);
     }
   });
 
@@ -938,17 +923,15 @@ void describe('default-fast compatibility characterization', () => {
 
     const compatible = await runProfile(fixture, 'compatible', createAbortOptions());
     const defaultSafe = await runProfile(fixture, undefined, createAbortOptions());
-    const fast = await runProfile(fixture, 'headless-fast', createAbortOptions());
 
     assert.equal(compatible.status, 'rejected');
     assertProfileRunsEqual(compatible, defaultSafe, 'abort default');
-    assertProfileRunsEqual(compatible, fast, 'abort');
   });
 
-  void it('honors custom Code runners when the fast profile is requested', async () => {
+  void it('honors custom Code runners in compatible and omitted-default runs', async () => {
     const fixture = makeCodeChainProject(2);
 
-    for (const runtimeProfile of [undefined, 'compatible', 'headless-fast'] as const) {
+    for (const runtimeProfile of [undefined, 'compatible'] as const) {
       const codeRunner = new CountingCodeRunner();
       const result = await runProfile(fixture, runtimeProfile, {
         codeRunner,
@@ -973,9 +956,8 @@ void describe('default-fast compatibility characterization', () => {
       includeTrace: true,
       inputs: { input: 'seed' },
     };
-    const { compatible, defaultSafe, fast } = await runAllProfiles(fixture, options);
+    const { compatible, defaultSafe } = await runBothProfiles(fixture, options);
     assertProfileRunsEqual(compatible, defaultSafe, 'includeTrace default fallback');
-    assertProfileRunsEqual(compatible, fast, 'includeTrace fallback');
 
     const remoteCompatible = await runProfile(fixture, 'compatible', {
       context: { suffix: 'context' },
@@ -986,20 +968,13 @@ void describe('default-fast compatibility characterization', () => {
       inputs: { input: 'seed' },
       remoteDebugger: createRemoteDebugger(),
     });
-    const remoteFast = await runProfile(fixture, 'headless-fast', {
-      context: { suffix: 'context' },
-      inputs: { input: 'seed' },
-      remoteDebugger: createRemoteDebugger(),
-    });
     assertProfileRunsEqual(remoteCompatible, remoteDefault, 'remote debugger default fallback');
-    assertProfileRunsEqual(remoteCompatible, remoteFast, 'remote debugger fallback');
   });
 
-  void it('documents project-reference loader call-count differences as a default-fast blocker', async () => {
+  void it('keeps project-reference loader call counts compatible in omitted-default runs', async () => {
     const { fixture, referencedProject } = withProjectReference(makeRepeatedSubgraphFanInProject(3));
     const compatibleLoader = createCountingProjectReferenceLoader(referencedProject);
     const defaultLoader = createCountingProjectReferenceLoader(referencedProject);
-    const fastLoader = createCountingProjectReferenceLoader(referencedProject);
 
     const compatible = await runProfile(fixture, 'compatible', {
       inputs: { input: 'seed' },
@@ -1009,46 +984,32 @@ void describe('default-fast compatibility characterization', () => {
       inputs: { input: 'seed' },
       projectReferenceLoader: defaultLoader.loader,
     });
-    const fast = await runProfile(fixture, 'headless-fast', {
-      inputs: { input: 'seed' },
-      projectReferenceLoader: fastLoader.loader,
-    });
 
     assert.equal(compatible.status, 'resolved');
     assert.equal(defaultSafe.status, 'resolved');
-    assert.equal(fast.status, 'resolved');
     assert.deepEqual(defaultSafe.outputs, compatible.outputs);
-    assert.deepEqual(fast.outputs, compatible.outputs);
     assert.equal(
       defaultLoader.calls.length,
       compatibleLoader.calls.length,
       'default policy keeps compatible project-reference loader call counts',
     );
-    assert.ok(
-      compatibleLoader.calls.length > fastLoader.calls.length,
-      'headless-fast caches loaded references across subprocessors inside one run',
-    );
-    assert.equal(fastLoader.calls.length, 1);
   });
 
   void it('keeps project-reference loader failures equivalent', async () => {
     const { fixture } = withProjectReference(makeInputContextTextProject());
-    const { compatible, defaultSafe, fast } = await runAllProfiles(fixture, {
+    const { compatible, defaultSafe } = await runBothProfiles(fixture, {
       inputs: { input: 'seed' },
       projectReferenceLoader: createFailingProjectReferenceLoader(),
     });
 
     assert.equal(compatible.status, 'rejected');
     assertProfileRunsEqual(compatible, defaultSafe, 'project reference loader failure default');
-    assertProfileRunsEqual(compatible, fast, 'project reference loader failure');
   });
 
   void it('does not mutate shared project objects across concurrent endpoint-style runs', async () => {
     const fixture = makeSubgraphChainProject(2);
     const defaultProject = cloneProject(fixture.project);
     const beforeDefaultRun = cloneProject(defaultProject);
-    const project = cloneProject(fixture.project);
-    const beforeRun = cloneProject(project);
 
     const [defaultFirst, defaultSecond] = await Promise.all([
       runProfile(fixture, undefined, {
@@ -1060,26 +1021,11 @@ void describe('default-fast compatibility characterization', () => {
         project: defaultProject,
       }),
     ]);
-    const [first, second] = await Promise.all([
-      runProfile(fixture, 'headless-fast', {
-        inputs: { input: 'first' },
-        project,
-      }),
-      runProfile(fixture, 'headless-fast', {
-        inputs: { input: 'second' },
-        project,
-      }),
-    ]);
 
     assert.equal(defaultFirst.status, 'resolved');
     assert.equal(defaultSecond.status, 'resolved');
     assert.deepEqual(defaultFirst.outputs.result, { type: 'string', value: 'firstxx' });
     assert.deepEqual(defaultSecond.outputs.result, { type: 'string', value: 'secondxx' });
     assert.deepEqual(defaultProject, beforeDefaultRun);
-    assert.equal(first.status, 'resolved');
-    assert.equal(second.status, 'resolved');
-    assert.deepEqual(first.outputs.result, { type: 'string', value: 'firstxx' });
-    assert.deepEqual(second.outputs.result, { type: 'string', value: 'secondxx' });
-    assert.deepEqual(project, beforeRun);
   });
 });

@@ -13,21 +13,18 @@ The Node package version wraps core processor creation with Node defaults:
 
 `captureNodeTimings` can be passed to include `durationMs` on `nodeFinish` and `nodeError` events. Split-run nodes also include `splitRunDurationMs`, keyed by split item index. When `remoteDebugger` is provided and `captureNodeTimings` is omitted, `createProcessor` enables timing metadata by default so externally triggered Remote Debugger runs can show node durations in Rivet. Pass `captureNodeTimings: false` to keep debugger event payloads untimed.
 
-By default, omitted `runtimeProfile` uses the safe single-run fast policy:
+By default, omitted `runtimeProfile` uses the default-safe single-run policy:
 subprocessor execution-plan caching plus the cached default Node CodeRunner
 when you did not pass a custom `codeRunner`. Use
-`runtimeProfile: 'compatible'` to force the old fully compatible path. Use
-`runtimeProfile: 'headless-fast'` to request the more aggressive fast profile,
-which can use root graph-plan caching, loaded project-reference caching, and
-the narrow fast acyclic scheduler when eligible. If `remoteDebugger` is
-provided, debugger compatibility wins and the processor uses compatible
-execution even when `headless-fast` is requested.
+`runtimeProfile: 'compatible'` to force the fully compatible path. If
+`remoteDebugger` is provided, debugger compatibility wins and the processor
+uses compatible execution.
 
 ## Syntax
 
 ```typescript
 type NodeCreateProcessorOptions = NodeRunGraphOptions & {
-  runtimeProfile?: 'compatible' | 'headless-fast';
+  runtimeProfile?: 'compatible';
 };
 
 function createProcessor(project: Project, options: NodeCreateProcessorOptions): {

@@ -465,25 +465,25 @@ graph-wide cleanup loop for every node, and invalid graphs must not fall back to
 whole-graph scans either. Execution-plan construction and the compatible
 `NodeExecutionPlanner` path also group output connections by target node in one
 pass so wide fan-out nodes do not repeatedly rescan the same connection list.
-`createGraphRunner(..., { runtimeProfile: 'headless-fast' })` passes a shared
-runtime cache into its run-scoped processors so repeated backend runs can reuse
-the graph-keyed plans and loaded project-reference snapshot without sharing
-mutable run state such as outputs, globals, pending user inputs, abort
-controllers, or execution metadata. The same cache is passed into subprocessors,
-so subgraph, call-graph, loop, cron, tool-delegation, and referenced-graph
-invocations can reuse their own immutable plans too. Cached plans also do not
-reuse `NodeImpl` runtime objects; each processor creates fresh node
-implementations before processing so custom node instance state stays
-run-scoped. When a fresh subprocessor is created and the runtime cache already
-has that child graph's immutable plan, `#createSubProcessor(...)` seeds the
-child with the plan before its first `processGraph(...)` call. That skips the
-preprocessor dispatch for that one child instance while still creating fresh
-node implementations and fresh mutable run state.
+The Node wrapper can pass a run-scoped runtime cache into processors so
+Subgraph, Call Graph, loop, cron, tool-delegation, and referenced-graph
+invocations can reuse immutable child graph plans without sharing mutable run
+state such as outputs, globals, pending user inputs, abort controllers, or
+execution metadata. Cached plans do not reuse `NodeImpl` runtime objects; each
+processor creates fresh node implementations before processing so custom node
+instance state stays run-scoped. When a fresh subprocessor is created and the
+runtime cache already has that child graph's immutable plan,
+`#createSubProcessor(...)` seeds the child with the plan before its first
+`processGraph(...)` call. That skips the preprocessor dispatch for that one
+child instance while still creating fresh node implementations and fresh
+mutable run state.
 
 Current architectural detail:
 
 - preprocessing is not only a `processGraph(...)` concern; some public helper paths depend on it being available lazily
-- cached plans are scoped to immutable runner snapshots; graph edits, registry/plugin changes, settings that affect definitions, or project-reference changes require a new runner
+- cached plans are scoped to immutable project/registry snapshots; graph edits,
+  registry/plugin changes, settings that affect definitions, or
+  project-reference changes require a fresh runtime cache
 - applying a fresh or cached preprocessed state replaces the processor's
   node-instance, node-id, and connection maps instead of merging into old maps;
   this keeps reused processors from retaining stale graph-edit state
@@ -494,10 +494,8 @@ Current architectural detail:
   cache state. Its policy is split in
   [`createProcessorRuntimePolicy.ts`](../packages/node/src/createProcessorRuntimePolicy.ts):
   omitted `runtimeProfile` enables the default-safe pieces, explicit
-  `compatible` stays fully compatible, explicit `headless-fast` enables
-  graph-plan caching, loaded-reference caching, default CodeRunner caching, and
-  fast scheduling as separate flags, Remote Debugger forces all fast pieces off,
-  and trace-sensitive omitted runs stay fully compatible. The default-safe
+  `compatible` stays fully compatible, Remote Debugger forces the compatible
+  policy, and trace-sensitive omitted runs stay fully compatible. The default-safe
   `createProcessor(...)` policy caches execution plans only for subprocessors,
   so a one-shot root graph does not pay reusable-plan construction cost unless
   nested graph execution can reuse it. Unknown runtime `runtimeProfile` strings
@@ -507,12 +505,12 @@ Current architectural detail:
   referenced projects. Execution-plan caching is also disabled for projects
   with references unless loaded-reference caching is enabled, because node port
   plans can depend on referenced project definitions.
-- Default-fast characterization lives in
-  [`packages/node/test/defaultFastCompatibility.test.ts`](../packages/node/test/defaultFastCompatibility.test.ts).
-  It compares omitted default-safe, compatible, and explicit `headless-fast`
-  Node `createProcessor(...)` runs at the event, partial-output callback,
-  user-input callback, global/user-event recorder, error, abort, custom
-  provider, reference-loader, and shared-project-object seams.
+- Default-safe characterization lives in
+  [`packages/node/test/defaultSafeCompatibility.test.ts`](../packages/node/test/defaultSafeCompatibility.test.ts).
+  It compares omitted default-safe and compatible Node `createProcessor(...)`
+  runs at the event, partial-output callback, user-input callback,
+  global/user-event recorder, error, abort, custom provider,
+  reference-loader, and shared-project-object seams.
   Recorder checks use the serialized replay shape because JSON drops
   `undefined` object properties, and subgraph `duration` outputs are normalized
   as timing-dependent values.
@@ -592,8 +590,8 @@ error contract. `GraphProcessor.characterization.test.ts` pins that downstream
 nodes do not start or emit their own node errors after an upstream input node
 fails.
 
-The internal `fast-acyclic` scheduler is an opt-in headless path selected by the
-Node fast profiles only. It starts from source nodes and runs a small ready queue
+The internal `fast-acyclic` scheduler is an internal TypeScript scheduler path.
+It starts from source nodes and runs a small ready queue
 instead of recursively pulling from graph-output nodes through `p-queue` at
 every hop. Eligibility is intentionally narrow: no cycles, no split-run nodes,
 no preloaded/run-to editor state, no trace mode, and no loop, race, user-input,
@@ -847,26 +845,19 @@ callers keep the old behavior. Hosted wrappers can set
 runner is constructed to resolve Code-family `require()` from a runtime-library
 directory without patching source.
 
-The headless Node fast policies use a cached CodeRunner inside
-`createGraphRunner(..., { runtimeProfile: 'headless-fast' })`, omitted-default
-`createProcessor(...)`, and `createProcessor(..., { runtimeProfile:
-'headless-fast' })` when the caller does not pass an explicit `codeRunner`. The
-cache stores compiled functions by source text plus the injected argument shape
-(`inputs`, permissions, graph inputs, and context presence). It does not cache
-values or outputs, so locals remain fresh for every invocation and per-run
-`inputs`/`context` still vary normally. Eligible `runGraph(...)` calls use the
-same default-safe CodeRunner policy as omitted-default `createProcessor(...)`.
-Eligibility is deliberately narrow: repeated direct Subgraph targets, repeated
-direct Referenced Graph Alias targets, multiple dynamic Call Graph nodes, or
-Code-family nodes without a custom `codeRunner`. Simple `runGraph(...)` calls
-and unrelated one-off Subgraph targets stay compatible to avoid tiny-graph or
-no-reuse overhead.
+The default-safe Node policy can use a cached CodeRunner inside omitted-default
+`createProcessor(...)` when the caller does not pass an explicit `codeRunner`.
+The cache stores compiled functions by source text plus the injected argument
+shape (`inputs`, permissions, graph inputs, and context presence). It does not
+cache values or outputs, so locals remain fresh for every invocation and
+per-run `inputs`/`context` still vary normally. Eligible `runGraph(...)` calls
+use the same default-safe CodeRunner policy as omitted-default
+`createProcessor(...)`.
 `runGraph(...)` does not expose `runtimeProfile`; untyped `runtimeProfile`
-properties are ignored so explicit profile selection stays owned by
-`createProcessor(...)` and `createGraphRunner(...)`.
-Compatible `createProcessor(...)`, Browser mode, Remote Debugger fallback, and
-app-executor worker execution keep their existing CodeRunner ownership. Custom
-`codeRunner` instances always win over the cached runner.
+properties are ignored. Compatible `createProcessor(...)`, Browser mode,
+Remote Debugger fallback, and app-executor worker execution keep their existing
+CodeRunner ownership. Custom `codeRunner` instances always win over the cached
+runner.
 
 Syntax-error diagnostics are deliberately failure-only. The core does not pre-parse
 successful `Code` node runs. If `AsyncFunction` construction throws a syntax error,

@@ -50,10 +50,6 @@ type BenchmarkResult = {
   ci95LowMs: string;
   coefficientVariation: string;
   maxMs: string;
-  nativeBackend?: string;
-  nativeEligible?: boolean;
-  nativeFallbackReason?: string;
-  nativeUsed?: boolean;
   iterations: number;
   meanMs: string;
   medianMs: string;
@@ -151,7 +147,6 @@ const localRealWorkflowFixtureBenchmarkNames = [
   'runGraphInFile local real workflow fixture no inputs',
   'runGraph local real workflow fixture no inputs',
   'fresh createProcessor default-safe local real workflow fixture no inputs',
-  'fresh createProcessor headless-fast local real workflow fixture no inputs',
   'reuse createProcessor default-safe local real workflow fixture no inputs',
 ] as const;
 
@@ -274,22 +269,12 @@ async function main() {
           },
         ),
       );
-      results.push(
-        await benchmarkCreateProcessor(
-          localRealWorkflowFixtureBenchmarkNames[4],
-          localRealWorkflowFixture.project,
-          {
-            graph: localRealWorkflowFixture.graphId,
-            runtimeProfile: 'headless-fast',
-          },
-        ),
-      );
       {
         const processor = createProcessor(localRealWorkflowFixture.project, {
           graph: localRealWorkflowFixture.graphId,
         });
         results.push(
-          await benchmark(localRealWorkflowFixtureBenchmarkNames[5], () => processor.run()),
+          await benchmark(localRealWorkflowFixtureBenchmarkNames[4], () => processor.run()),
         );
       }
     }
@@ -389,44 +374,6 @@ async function main() {
       ),
     );
     results.push(
-      await benchmarkGraphRunner(
-        'createGraphRunner headless-fast text chain 500',
-        cheap500.project,
-        {
-          graph: cheap500.graphId,
-          runtimeProfile: 'headless-fast',
-        },
-        { inputs: { input: 'bench' } },
-      ),
-    );
-    results.push(
-      await benchmarkNativeFastGraphRunner(
-        'createGraphRunner native-fast text chain 500',
-        cheap500.project,
-        { graph: cheap500.graphId },
-        { inputs: { input: 'bench' } },
-      ),
-    );
-    results.push(
-      await benchmarkGraphRunner(
-        'createGraphRunner headless-fast text chain 1000',
-        cheap1000.project,
-        {
-          graph: cheap1000.graphId,
-          runtimeProfile: 'headless-fast',
-        },
-        { inputs: { input: 'bench' } },
-      ),
-    );
-    results.push(
-      await benchmarkNativeFastGraphRunner(
-        'createGraphRunner native-fast text chain 1000',
-        cheap1000.project,
-        { graph: cheap1000.graphId },
-        { inputs: { input: 'bench' } },
-      ),
-    );
-    results.push(
       await benchmark('runGraph wide independent text nodes 100', () =>
         runGraph(wideFanIn100.project, { graph: wideFanIn100.graphId, inputs: { input: 'bench' } }),
       ),
@@ -449,13 +396,6 @@ async function main() {
       await benchmarkCreateProcessor('fresh createProcessor default-safe text chain 500', cheap500.project, {
         graph: cheap500.graphId,
         inputs: { input: 'bench' },
-      }),
-    );
-    results.push(
-      await benchmarkCreateProcessor('fresh createProcessor headless-fast text chain 500', cheap500.project, {
-        graph: cheap500.graphId,
-        inputs: { input: 'bench' },
-        runtimeProfile: 'headless-fast',
       }),
     );
     results.push(
@@ -628,13 +568,6 @@ async function main() {
         { graph: singleSubgraph.graphId, inputs: { input: 'bench' } },
       ),
     );
-    results.push(
-      await benchmarkCreateProcessor('fresh createProcessor headless-fast single subgraph call', singleSubgraph.project, {
-        graph: singleSubgraph.graphId,
-        inputs: { input: 'bench' },
-        runtimeProfile: 'headless-fast',
-      }),
-    );
     {
       const processor = createProcessor(singleSubgraph.project, {
         graph: singleSubgraph.graphId,
@@ -783,13 +716,6 @@ async function main() {
         { graph: nestedSubgraph5.graphId, inputs: { input: 'bench' } },
       ),
     );
-    results.push(
-      await benchmarkCreateProcessor(
-        'fresh createProcessor headless-fast nested subgraph depth 5',
-        nestedSubgraph5.project,
-        { graph: nestedSubgraph5.graphId, inputs: { input: 'bench' }, runtimeProfile: 'headless-fast' },
-      ),
-    );
     {
       const processor = createProcessor(nestedSubgraph5.project, {
         graph: nestedSubgraph5.graphId,
@@ -800,25 +726,6 @@ async function main() {
     results.push(
       await benchmarkGraphRunner(
         'createGraphRunner compatible subgraph chain 50',
-        subgraph50.project,
-        { graph: subgraph50.graphId },
-        { inputs: { input: 'bench' } },
-      ),
-    );
-    results.push(
-      await benchmarkGraphRunner(
-        'createGraphRunner headless-fast subgraph chain 50',
-        subgraph50.project,
-        {
-          graph: subgraph50.graphId,
-          runtimeProfile: 'headless-fast',
-        },
-        { inputs: { input: 'bench' } },
-      ),
-    );
-    results.push(
-      await benchmarkNativeFastGraphRunner(
-        'createGraphRunner native-fast subgraph chain 50',
         subgraph50.project,
         { graph: subgraph50.graphId },
         { inputs: { input: 'bench' } },
@@ -840,13 +747,6 @@ async function main() {
     );
     results.push(
       await benchmarkCreateProcessor(
-        'fresh createProcessor headless-fast repeated subgraph same-input 50',
-        repeatedSubgraph50.project,
-        { graph: repeatedSubgraph50.graphId, inputs: { input: 'bench' }, runtimeProfile: 'headless-fast' },
-      ),
-    );
-    results.push(
-      await benchmarkCreateProcessor(
         'fresh createProcessor compatible repeated subgraph changing-input 50',
         subgraph50.project,
         { graph: subgraph50.graphId, inputs: { input: 'bench' }, runtimeProfile: 'compatible' },
@@ -857,13 +757,6 @@ async function main() {
         'fresh createProcessor default-safe repeated subgraph changing-input 50',
         subgraph50.project,
         { graph: subgraph50.graphId, inputs: { input: 'bench' } },
-      ),
-    );
-    results.push(
-      await benchmarkCreateProcessor(
-        'fresh createProcessor headless-fast repeated subgraph changing-input 50',
-        subgraph50.project,
-        { graph: subgraph50.graphId, inputs: { input: 'bench' }, runtimeProfile: 'headless-fast' },
       ),
     );
     results.push(
@@ -896,17 +789,6 @@ async function main() {
           inputs: { input: 'bench' },
           projectReferenceLoader: referencedGraph50.projectReferenceLoader,
         },
-      ),
-    );
-    results.push(
-      await benchmarkNativeFastGraphRunner(
-        'createGraphRunner native-fast Referenced Graph Alias repeated same-input 50',
-        referencedGraph50.project,
-        {
-          graph: referencedGraph50.graphId,
-          projectReferenceLoader: referencedGraph50.projectReferenceLoader,
-        },
-        { inputs: { input: 'bench' } },
       ),
     );
     results.push(
@@ -949,32 +831,7 @@ async function main() {
     );
     results.push(
       await benchmarkGraphRunner(
-        'createGraphRunner headless-fast wide fan-in 200',
-        wideFanIn200.project,
-        {
-          graph: wideFanIn200.graphId,
-          runtimeProfile: 'headless-fast',
-        },
-        { inputs: { input: 'bench' } },
-      ),
-    );
-    results.push(
-      await benchmarkGraphRunner(
         'createGraphRunner compatible coalesce fan-in',
-        coalesceFanIn.project,
-        { graph: coalesceFanIn.graphId },
-        {
-          inputs: {
-            first: { type: 'any', value: null },
-            second: { type: 'any', value: undefined },
-            third: { type: 'string', value: 'bench' },
-          },
-        },
-      ),
-    );
-    results.push(
-      await benchmarkNativeFastGraphRunner(
-        'createGraphRunner native-fast coalesce fan-in',
         coalesceFanIn.project,
         { graph: coalesceFanIn.graphId },
         {
@@ -993,7 +850,7 @@ async function main() {
           value: {
             meta: { role: 'runner' },
             name: 'bench',
-            tags: ['native', 'destructure'],
+            tags: ['bench', 'destructure'],
           },
         },
       },
@@ -1001,14 +858,6 @@ async function main() {
     results.push(
       await benchmarkGraphRunner(
         'createGraphRunner compatible destructure fan-out',
-        destructureFanOut.project,
-        { graph: destructureFanOut.graphId },
-        destructureInputs,
-      ),
-    );
-    results.push(
-      await benchmarkNativeFastGraphRunner(
-        'createGraphRunner native-fast destructure fan-out',
         destructureFanOut.project,
         { graph: destructureFanOut.graphId },
         destructureInputs,
@@ -1028,14 +877,6 @@ async function main() {
     results.push(
       await benchmarkGraphRunner(
         'createGraphRunner compatible extract object path',
-        extractObjectPath.project,
-        { graph: extractObjectPath.graphId },
-        extractObjectPathInputs,
-      ),
-    );
-    results.push(
-      await benchmarkNativeFastGraphRunner(
-        'createGraphRunner native-fast extract object path',
         extractObjectPath.project,
         { graph: extractObjectPath.graphId },
         extractObjectPathInputs,
@@ -1065,45 +906,10 @@ async function main() {
       ),
     );
     results.push(
-      await benchmarkNativeFastGraphRunner(
-        'createGraphRunner native-fast object construction',
-        objectConstruction.project,
-        { graph: objectConstruction.graphId },
-        objectConstructionInputs,
-      ),
-    );
-    results.push(
-      await benchmarkNativeFastGraphRunner(
-        'createGraphRunner native-fast wide fan-in 200',
-        wideFanIn200.project,
-        { graph: wideFanIn200.graphId },
-        { inputs: { input: 'bench' } },
-      ),
-    );
-    results.push(
       await benchmarkGraphRunner(
         'createGraphRunner compatible mixed subgraph fan-in',
         mixedSubgraphFanIn.project,
         { graph: mixedSubgraphFanIn.graphId },
-        { inputs: { input: 'bench' } },
-      ),
-    );
-    results.push(
-      await benchmarkNativeFastGraphRunner(
-        'createGraphRunner native-fast mixed subgraph fan-in',
-        mixedSubgraphFanIn.project,
-        { graph: mixedSubgraphFanIn.graphId },
-        { inputs: { input: 'bench' } },
-      ),
-    );
-    results.push(
-      await benchmarkGraphRunner(
-        'createGraphRunner headless-fast mixed subgraph fan-in',
-        mixedSubgraphFanIn.project,
-        {
-          graph: mixedSubgraphFanIn.graphId,
-          runtimeProfile: 'headless-fast',
-        },
         { inputs: { input: 'bench' } },
       ),
     );
@@ -1127,25 +933,6 @@ async function main() {
       ),
     );
     results.push(
-      await benchmarkGraphRunner(
-        'createGraphRunner headless-fast expression chain 20',
-        expression20.project,
-        {
-          graph: expression20.graphId,
-          runtimeProfile: 'headless-fast',
-        },
-        { inputs: { input: 0 } },
-      ),
-    );
-    results.push(
-      await benchmarkNativeFastGraphRunner(
-        'createGraphRunner native-fast unsupported expression chain 20',
-        expression20.project,
-        { graph: expression20.graphId },
-        { inputs: { input: 0 } },
-      ),
-    );
-    results.push(
       await benchmark('runGraph code chain 20', () =>
         runGraph(code20.project, { graph: code20.graphId, inputs: { input: 0 } }),
       ),
@@ -1159,25 +946,6 @@ async function main() {
     results.push(
       await benchmarkGraphRunner(
         'createGraphRunner compatible code chain 20',
-        code20.project,
-        { graph: code20.graphId },
-        { inputs: { input: 0 } },
-      ),
-    );
-    results.push(
-      await benchmarkGraphRunner(
-        'createGraphRunner headless-fast code chain 20',
-        code20.project,
-        {
-          graph: code20.graphId,
-          runtimeProfile: 'headless-fast',
-        },
-        { inputs: { input: 0 } },
-      ),
-    );
-    results.push(
-      await benchmarkNativeFastGraphRunner(
-        'createGraphRunner native-fast unsupported code chain 20',
         code20.project,
         { graph: code20.graphId },
         { inputs: { input: 0 } },
@@ -1309,32 +1077,6 @@ async function benchmarkGraphRunner(
   const runner = createGraphRunner(project, options);
   try {
     return await benchmark(name, () => runner.run(runOptions));
-  } finally {
-    runner.dispose();
-  }
-}
-
-async function benchmarkNativeFastGraphRunner(
-  name: string,
-  project: Project,
-  options: Omit<NodeGraphRunnerOptions, 'runtimeProfile'>,
-  runOptions: NodeGraphRunnerRunOptions,
-): Promise<BenchmarkResult> {
-  if (!shouldRunBenchmark(name)) {
-    return skippedBenchmarkResult(name);
-  }
-
-  const runner = createGraphRunner(project, { ...options, runtimeProfile: 'native-fast' });
-  try {
-    const result = await benchmark(name, () => runner.run(runOptions));
-    const nativeDecision = runner.getNativeRuntimeDecision?.();
-    return {
-      ...result,
-      nativeBackend: nativeDecision?.nativeBackend,
-      nativeEligible: nativeDecision?.nativeEligible,
-      nativeFallbackReason: nativeDecision?.fallbackReason,
-      nativeUsed: nativeDecision?.nativeUsed,
-    };
   } finally {
     runner.dispose();
   }

@@ -1,522 +1,77 @@
 # Default Subgraph Runtime Speed Plan
 
-## Summary
+## Status
+
+Closed. The default TypeScript runtime is the supported path, and the
+experimental opt-in fast/native work has been retired from the app and Node API
+surface.
+
+## Goal
 
 Make Subgraph-heavy workflows faster in the default headless runtime, with no
-developer opt-in, no project YAML changes, and no Rust/native requirement. The
-first-class targets are omitted-profile `createProcessor(...).run()` and
+developer opt-in, no project YAML changes, and no separate native dependency.
+The first-class targets are omitted-profile `createProcessor(...).run()` and
 `runGraph(...)`.
 
-Remote Debugger and `includeTrace` runs stay on the fully compatible path for
-this phase. The goal is real runtime speed, not debugger-only duration changes.
+Remote Debugger and `includeTrace` runs stay on the fully compatible path unless
+their behavior is separately characterized.
 
-## Reassessment Decisions
+## Decisions
 
-- Do not make `native-fast` default. The Rust worker proved a large speed
-  ceiling for narrow eligible workloads, but it still excludes Code,
-  Expression, callbacks, debugger, trace, many node types, and most checked-in
-  real workflows.
-- Use native work as evidence and structure only: benchmark matrix discipline,
-  graph-closure classification, fallback reporting, and isolation guards.
-- Do not pool subprocessors for the current plan. Reusing `GraphProcessor`
-  objects touches parent/executor metadata, abort/pause wiring, passive event
-  forwarding, globals, and private per-run state, and the attribution pass did
-  not show processor construction/listener setup as a material cost.
-- Do not broadly promote `fast-acyclic`, loaded project-reference caching, or
-  native execution into default mode. `fast-acyclic` can alter event ordering
-  assumptions, loaded-reference caching changes loader call counts, and native
-  execution has a narrower compatibility contract. Use `fast-acyclic` by
-  default only for a benchmark-proven, silent `runGraph(...)` slice with hard
-  fallback guards.
-- Keep default optimizations TypeScript-owned. APIs that expose
-  `runtimeProfile` remain reversible with the compatible runtime profile;
-  `runGraph(...)` intentionally ignores untyped runtime profile overrides, so
-  callers that need an explicit rollback path should use `createProcessor(...)`.
-
-## Current Implementation Result
-
-- P0 is complete for the first targeted no-ship gate: the runtime-speed
-  benchmark now records metadata, raw samples, median, p75, p95, min/max,
-  coefficient of variation, and 95% confidence bounds, and can write a
-  machine-readable artifact. A full before/after matrix is still required
-  before any future default speedup is shipped or claimed.
-- P1 is complete with the benchmark gate applied. The attempted broadening for
-  one-off static Subgraph shapes was rejected because the targeted matrix did
-  not show a clear repeatable win. Repeated Referenced Graph Alias, repeated
-  Call Graph, and default Code-family `runGraph(...)` promotions remain on the
-  existing default-safe path.
-- P2 is intentionally rejected for now. The current benchmark work did not
-  prove a construction/listener bottleneck large enough to justify pooling
-  subprocessors. The follow-up attribution pass shows the remaining measurable
-  single-Subgraph gap is inside the nested `processGraph(...)` execution
-  boundary, not processor construction or boundary-map setup.
-- P3 is partially complete for a small default slice. Silent `runGraph(...)`
-  calls whose root graph repeats the same direct Subgraph target now use the
-  existing TypeScript `headless-fast` scheduler automatically. Observable,
-  abortable, Remote Debugger, trace, editor-cache, and project-reference runs
-  stay on the previous paths. `createProcessor(...)` defaults are unchanged.
-- P3 is not complete for one-off single/nested Subgraph calls. The remaining
-  candidate must still target nested graph-frame overhead directly, either by a
-  narrow TypeScript subgraph frame runner or by a smaller `processGraph(...)`
-  hot-path reduction. It should not revisit subprocessor pooling unless new
-  data contradicts the attribution result.
-- P4/P5 are complete for the shipped repeated-Subgraph `runGraph(...)` slice:
-  policy guards were added, targeted benchmark artifacts were refreshed, and the
-  result is documented in
-  [`default-subgraph-runtime-benchmark.md`](default-subgraph-runtime-benchmark.md).
-- P6 is complete as a no-ship attribution pass. The measured frame segments did
-  not expose a small, dominant hot-path cut: construction, boundary maps,
-  lifecycle edges, root setup, and finalization are all tiny in the current
-  fixtures. Most remaining time is recursive child graph execution.
-- P7/P8 are paused by evidence. The explicit `headless-fast` check showed a
-  one-off fresh single-Subgraph win, but the nested win was only about 5% and
-  default `createProcessor(...)` cannot safely assume a silent run because
-  callers can observe the returned processor. Do not broaden default one-off
-  Subgraph execution without a new benchmark-proven mechanism.
-- A local production-shaped fixture at `.fixtures/graph-fixture.rivet-project`
-  added better backend-style evidence. It runs the main graph with no explicit
-  inputs because the graph owns its mocked/default inputs. The first baseline is
-  documented in
-  [`default-subgraph-runtime-benchmark.md`](default-subgraph-runtime-benchmark.md):
-  loaded `runGraph(...)` measured about 37.6 ms mean, default-safe fresh
-  `createProcessor(...)` about 38.5 ms mean, and explicit `headless-fast` fresh
-  `createProcessor(...)` about 27.9 ms mean. The backend-style default-safe
-  fresh `createProcessor(...)` result is accepted as healthy for the current
-  target, so no further default behavior change is planned from this evidence.
-
-## Closeout
-
-1. Keep the shipped repeated direct-Subgraph `runGraph(...)` slice as the only
-   default runtime change from this plan.
-2. Keep the optional local real-workflow fixture rows as a regression and
-   diagnostic tool for future backend-performance work.
-3. Do not broaden omitted/default `createProcessor(...)` behavior now. The
-   measured default-safe fresh `createProcessor(...)` fixture run is already
-   within the accepted backend target.
-4. Reopen the `headless-fast` gap only if the backend latency target tightens or
-   a regression appears. Any reopened work must start by rerunning the fixture
-   benchmark and clearing the same equivalence and benchmark gates before a
-   default runtime change ships.
-
-## Implementation Plan
-
-### P0: Baseline And Attribution [DONE - TARGETED NO-SHIP GATE]
-
-- Run a no-debugger default benchmark matrix before implementation, with
-  multiple samples and exact command/env recorded.
-- Benchmark the current mainline/default state before every implementation
-  tranche. Do not reuse an older baseline unless the exact commit, OS, Node
-  version, CPU mode, and benchmark harness are unchanged.
-- Store raw benchmark samples, not only summaries, in a machine-readable file
-  alongside the generated report. Include commit SHA, date, machine, OS, Node
-  version, package manager version, warmup count, measured iteration count, and
-  command line.
-- Use a harness that reports median, mean, standard deviation, coefficient of
-  variation, min, max, p75, p95, and a confidence interval or bootstrap interval
-  for each row. The report must show the raw before/after delta and percent
-  delta for median and mean.
-- Run enough iterations to reduce noise:
-  - at least 30 measured samples per row for cheap in-process fixtures;
-  - at least 10 measured samples per row for slower workflow fixtures;
-  - at least 3 independent benchmark sessions when a claimed win is under 20%.
-- Separate warmup from measurement. Warm up each fixture before collecting
-  samples, then discard warmup timings.
-- Separate one-shot cold behavior from same-process repeated behavior:
-  - fresh process / fresh `createProcessor(...)`;
-  - same process / repeated `createProcessor(...).run()`;
-  - `runGraph(...)` one-shot;
-  - `runGraph(...)` repeated in the same process.
-- Alternate or randomize row order within benchmark sessions so thermal drift,
-  JIT warmup, and background OS noise do not consistently favor the before or
-  after run.
-- Include default target rows:
-  - `runGraph single subgraph call`
-  - `runGraph nested subgraph depth 5`
-  - `runGraph repeated subgraph same-input 50`
-  - `runGraph repeated subgraph changing-input 50`
-  - `fresh createProcessor default-safe single subgraph call`
-  - `fresh createProcessor default-safe nested subgraph depth 5`
-  - `fresh createProcessor default-safe repeated subgraph same-input 50`
-  - `fresh createProcessor default-safe repeated subgraph changing-input 50`
-  - Call Graph and Referenced Graph Alias repeated rows
-  - cheap/simple non-Subgraph control rows
-- Include at least one real checked-in workflow fixture, if a safe fixture is
-  available, in addition to synthetic microbenchmarks. Synthetic wins are not
-  enough by themselves.
-- Include negative/control rows that should not benefit:
-  - a cheap graph with no Subgraph nodes;
-  - a Code or Expression graph that is ineligible for the proposed change;
-  - a project-reference loader fixture that confirms loader calls are not hidden
-    by a new cache.
-- Record matching `compatible`, `headless-fast`, and documented `native-fast`
-  peer rows where available. Treat native rows as ceilings, not default-mode
-  success claims.
-- Add temporary or benchmark-only attribution if needed to separate:
-  - child `GraphProcessor` construction;
-  - child preprocessing and execution-plan reuse;
-  - event forwarding and lifecycle listener wiring;
-  - graph-boundary input/output map construction;
-  - nested `processGraph(...)` initialization, scheduling, finalization, and
-    output collection;
-  - cached default CodeRunner effects.
-- Do not keep any new default optimization enabled unless the attribution points
-  to a real default-runtime bottleneck.
-- Do not claim a speedup if the before/after confidence intervals overlap
-  materially, the coefficient of variation is too high to trust the row, or the
-  result appears only in a single benchmark session.
-
-### P1: Promote Only Existing Safe TypeScript Pieces [DONE - GATED]
-
-- Keep omitted-profile `createProcessor(...)` on the existing default-safe
-  policy: compatible scheduling, run-scoped subprocessor execution-plan caching,
+- Keep the default runtime TypeScript-owned.
+- Keep omitted-profile `createProcessor(...)` on the default-safe policy:
+  compatible scheduling, run-scoped subprocessor execution-plan caching,
   graph-boundary caching, and cached default Node CodeRunner when no custom
   runner is supplied.
-- For omitted-profile `runGraph(...)`, broaden default-safe eligibility only for
-  static nested-graph shapes that P0 shows are neutral or faster. Start with
-  direct `subGraph` and static `referencedGraphAlias` closures; do not blanket
-  promote all single `callGraph` roots.
-- Preserve current compatibility blockers:
-  - Remote Debugger;
-  - `includeTrace`;
-  - explicit or unknown `runtimeProfile`;
-  - project-reference loading that would change loader call counts;
-  - any path whose benchmark shows a repeatable control-row regression.
-- Add policy tests proving ordinary default paths still do not load native code.
+- Keep `runtimeProfile: 'compatible'` as the only documented rollback profile.
+- Keep `runGraph(...)` ignoring untyped runtime-profile values.
+- Do not ship subprocessor pooling. Attribution showed processor construction
+  and boundary-map work are too small to justify the extra state-management
+  complexity.
+- Do not add a separate native execution path. The production-shaped fixture
+  already runs within the accepted backend target on the default TypeScript
+  runtime.
 
-### P2: Candidate Subprocessor Construction Reduction [SKIPPED - ATTRIBUTION REJECTED]
+## Benchmark Gate
 
-- Implement this phase only if future evidence contradicts the current
-  attribution result. The 2026-05-25 attribution pass measured child
-  `GraphProcessor` construction around 0.01 ms, which is far too small to be
-  the main default Subgraph bottleneck.
-- Prefer the smallest internal change that reduces that cost:
-  - a private run-scoped subprocessor acquire/release helper;
-  - keyed by project object, graph id, registry, scheduler, timing flag, and
-    runtime-cache identity;
-  - reused only when the child processor is idle;
-  - reset before and after the parent `processGraph(...)` run;
-  - never reused across backend requests.
-- Every acquired child processor must get fresh per-call state:
-  - executor node id, parent graph id, split index, and process id;
-  - root/parent graph run metadata;
-  - abort signal and parent abort wiring;
-  - pause/resume lifecycle wiring;
-  - globals, execution cache, context values, and graph inputs.
-- Passive child event forwarding may be wired once per pooled processor, but
-  per-call abort/pause/resume listeners must be cleaned up after the child graph
-  terminal event.
-- If this cannot be done with tight internal APIs and clear cleanup, do not ship
-  pooling; move to P3 instead.
+Every future default speed change must start with a benchmark matrix that:
 
-### P3: Reduce Nested Graph-Frame Overhead [PARTIAL - REPEATED RUNGRAPH SLICE DONE]
+- records commit SHA, date, machine, OS, CPU, Node version, package manager
+  version, warmup count, measured iterations, samples, sessions, command line,
+  and dirty working-tree status;
+- stores raw benchmark samples, not only summaries;
+- reports median, mean, standard deviation, coefficient of variation, min,
+  max, p75, p95, and a confidence interval for each row;
+- separates warmup from measurement;
+- separates one-shot cold behavior from same-process repeated behavior;
+- includes cheap non-Subgraph control rows;
+- includes Subgraph, nested Subgraph, repeated Subgraph, Call Graph, Referenced
+  Graph Alias, Code, Expression, and project-reference rows;
+- includes the local `.fixtures/graph-fixture.rivet-project` row when that
+  ignored fixture is available;
+- avoids claiming a speedup when confidence intervals overlap materially or
+  variation is too high.
 
-- First shipped slice: silent `runGraph(...)` calls whose selected root graph
-  repeats the same direct Subgraph target are automatically run with
-  `runtimeProfile: 'headless-fast'`. This reuses the existing TypeScript
-  scheduler and run-scoped caches; it does not load native code and does not
-  change `createProcessor(...)` defaults.
-- The shipped slice is blocked by Remote Debugger, `includeTrace`, abort
-  signals, event callbacks/listeners supplied through `runGraph(...)`, user
-  event callbacks, editor execution cache, and project references. Those runs
-  keep the previous default-safe or compatible paths.
-- The shipped slice improved the repeated Subgraph benchmark rows, but it does
-  not solve one-off single/nested Subgraph frame overhead. If we continue
-  pursuing default Subgraph speed after this slice, the remaining plausible
-  target is the nested graph execution boundary itself.
-- Use the remaining P3 work only if we continue after the current shipped slice.
-  P1 did not produce a one-off Subgraph win, and P2 was rejected by attribution.
-- Start with more attribution before implementation if needed. The next probe
-  should break the nested `processGraph(...)` boundary into:
-  - graph-run initialization and metadata setup;
-  - process-context base preparation;
-  - dependency planning or preprocessing;
-  - scheduler loop overhead;
-  - graph-output collection and finalization;
-  - lifecycle/event emission overhead in silent headless runs.
-- Choose the smaller of two implementation routes after that probe:
-  - optimize the existing `processGraph(...)` hot path if one specific step is
-    clearly responsible;
-  - add a narrow TypeScript subgraph frame runner only if the cost is spread
-    across full nested graph-frame setup and teardown.
-- Keep the first shipped path default but conditional, not opt-in. It may run
-  automatically only for ordinary headless default runs where the compatibility
-  contract is already proven. If the run is observable in ways the fast path
-  cannot reproduce exactly, fall back to ordinary `GraphProcessor`.
-- Reuse the native graph-closure idea, but keep execution TypeScript-owned and
-  do not load native/Rust code.
-- Start with a narrow eligible closure for any frame runner:
-  `graphInput`, `text`, `join`, `object`, `coalesce`, `destructure`,
-  `extractObjectPath`, `graphOutput`, direct `subGraph`, and static
-  Referenced Graph Alias.
-- The first frame-runner slice should be even narrower if that helps safety:
-  direct Subgraph chains with one input, one output, and cheap deterministic
-  built-in nodes are enough to prove or reject the approach.
-- Eligibility must be graph-closure based. If any reached graph contains an
-  unsupported node or unsupported dynamic behavior, the whole run must stay on
-  the existing processor path before execution starts.
-- Preserve event semantics. Either emit lifecycle events that match the
-  compatible path, including node start/finish/exclusion, timings when enabled,
-  graph start/finish, output maps, and parent/child graph-run metadata, or
-  disable the fast path for observable runs.
-- Treat these as hard fallback blockers for the first shipped slice:
-  Remote Debugger, `includeTrace`, execution recording, callbacks/listeners
-  that observe processor events, user input, pause/resume, wait events, split
-  run, race, loop, dynamic graph calls, custom registries with non-built-in
-  nodes, Code, Expression, and uncertain project-reference loader behavior.
-- Preserve abort behavior. If the narrow frame runner cannot observe abort
-  signals at the same boundaries as `GraphProcessor`, fall back until parity is
-  proven by tests.
-- Do not cache final Subgraph outputs. This phase is about reducing per-run
-  frame overhead, not memoizing runtime values across calls.
-- Add benchmark rows before and after the implementation:
-  - direct Subgraph frame runner eligible single call;
-  - nested Subgraph depth 5 eligible chain;
-  - repeated Subgraph same-input 50 eligible fan-in;
-  - repeated Subgraph changing-input 50 eligible chain;
-  - mixed Subgraph fan-in with a wider child graph;
-  - no-Subgraph cheap controls;
-  - Code/Expression ineligible controls;
-  - observable/debugger/trace fallback controls.
-- Ship only if at least two Subgraph-heavy rows clear the P5 acceptance gate
-  and all fallback/control rows stay neutral.
+Use [`packages/node/bench/runtimeSpeed.bench.ts`](packages/node/bench/runtimeSpeed.bench.ts)
+through `yarn workspace @valerypopoff/rivet2-node run bench:runtime-speed`.
 
-### P4: Equivalence And Safety Tests [DONE FOR REPEATED RUNGRAPH SLICE - EXTEND BEFORE NEXT SLICE]
+## Final Evidence
 
-- Core characterization tests:
-  - sequential repeated Subgraph calls;
-  - parallel and split-run Subgraph calls;
-  - nested Subgraph chains preserving `rootRunId`, `graphRunId`,
-    `parentGraphRunId`, executor node id, split index, and process id;
-  - abort and successful abort behavior;
-  - user events and user input propagation;
-  - globals and wait-for-global behavior;
-  - partial outputs and node timings;
-  - Referenced Graph Alias and Call Graph equivalence.
-- Node API policy tests:
-  - omitted `createProcessor(...)` uses only default-safe TypeScript pieces;
-  - omitted `runGraph(...)` broadens only for approved nested-graph shapes;
-  - simple non-nested `runGraph(...)` remains compatible;
-  - Remote Debugger, `includeTrace`, explicit `compatible`, and unknown profiles
-    stay compatible;
-  - default `runGraph(...)` and `createProcessor(...)` do not load native code.
-- Reuse existing `defaultFastCompatibility` and `nativeRuntimeEquivalence`
-  fixture patterns, but require stricter event parity for default mode than
-  native-fast requires.
-- Before any P3 fast path ships, add frame-runner-specific tests for:
-  - eligible direct and nested Subgraph output parity;
-  - fallback before execution for unsupported nodes and observable runs;
-  - lifecycle event parity when the fast path claims to support observable runs;
-  - abort parity at graph and child-node boundaries;
-  - no native-module loading and no project mutation;
-  - no final-output memoization across repeated or changing inputs.
+The production-shaped local fixture at `.fixtures/graph-fixture.rivet-project`
+runs the main graph with no explicit inputs because the graph owns its mocked
+defaults. The latest accepted local baseline measured:
 
-### P5: Benchmark Gate And Documentation [DONE FOR REPEATED RUNGRAPH SLICE - RERUN BEFORE NEXT SLICE]
+| Row | Mean |
+| --- | ---: |
+| loaded `runGraph(...)` local real workflow fixture | about 37.6 ms |
+| fresh `createProcessor(...)` local real workflow fixture | about 38.5 ms |
 
-- Rerun the same no-debugger default benchmark matrix from P0.
-- Run the before/after comparison on the same machine, using the same benchmark
-  harness and the same fixture inputs. If possible, benchmark the previous
-  baseline commit and the optimized commit in the same session to reduce
-  machine-day noise.
-- Keep the raw sample artifacts for both before and after. The documentation
-  must link or name the artifact paths and include the summarized matrix.
-- Acceptance gate:
-  - `createProcessor(...)` Subgraph-heavy rows improve materially, targeting at
-    least 10% median improvement on at least two rows, with matching mean
-    improvement and no confidence-interval overlap that would make the result
-    ambiguous;
-  - `runGraph(...)` Subgraph-heavy rows improve or stay statistically flat;
-  - cheap/simple non-Subgraph controls do not regress by more than 5% median or
-    mean, and any small movement must be inside measured noise;
-  - unsupported Code/Expression controls stay neutral;
-  - at least one claimed win reproduces across three independent benchmark
-    sessions when the improvement is below 20%;
-  - benchmark results are documented honestly, including neutral rows,
-    regressions, variance, and any rows rejected as too noisy.
-- If the gate fails, disable the attempted default optimization, document the
-  result, and continue only with the next gated phase.
-- Update `developer-docs/PACKAGES.md` after implementation to describe the
-  shipped default behavior, the rollback path, and the before/after matrix.
+That is healthy for the current backend target, so no further default
+`createProcessor(...)` behavior change is planned from this evidence.
 
-### P6: Nested Graph-Frame Attribution [DONE - NO-SHIP ATTRIBUTION]
+## Future Work
 
-- Start from a committed product-runtime baseline and record the attribution
-  artifact before editing runtime behavior. The benchmark harness itself may be
-  dirty because P6 adds benchmark-only timing rows.
-- Extend the benchmark harness with attribution rows that isolate one-off and
-  nested Subgraph frame costs after child processor construction and boundary
-  map work have been ruled out.
-- Attribution rows should separate, as much as practical without product-code
-  noise:
-  - root graph `processGraph(...)` setup before first node execution;
-  - child graph `processGraph(...)` setup before first child node execution;
-  - execution-plan lookup or preprocessing;
-  - scheduler queue setup and empty/cheap scheduler loop overhead;
-  - graph input materialization;
-  - graph output node collection and output map assembly;
-  - lifecycle event emission in silent headless runs;
-  - finalization after all nodes have settled.
-- Include paired public API rows in the same run:
-  - `runGraph single subgraph call`;
-  - `runGraph nested subgraph depth 5`;
-  - `fresh createProcessor default-safe single subgraph call`;
-  - `fresh createProcessor default-safe nested subgraph depth 5`;
-  - `reuse createProcessor default-safe single subgraph call`;
-  - `reuse createProcessor default-safe nested subgraph depth 5`;
-  - no-Subgraph text/expression/code controls.
-- Document the attribution result in
-  [`default-subgraph-runtime-benchmark.md`](default-subgraph-runtime-benchmark.md)
-  before implementing a runtime change.
-- Stop after P6 if the largest attributable cost is too small, too noisy, or
-  belongs to behavior that default mode must preserve.
-- Result: stopped after P6. The new attribution rows are in
-  [`packages/node/bench-results/default-subgraph-runtime-frame-attribution.json`](packages/node/bench-results/default-subgraph-runtime-frame-attribution.json).
-  They show root setup, graph-start-to-first-node, finalization, processor
-  construction, and graph-boundary map work are too small to justify P7. The
-  remaining cost is recursive child graph execution, which would require a
-  broader frame runner with a compatibility burden larger than the current
-  measured opportunity.
-
-### P7: Existing Hot-Path Reduction [PAUSED - NO DOMINANT STEP FOUND]
-
-- Use this path only if P6 finds one specific `processGraph(...)` step that
-  dominates the one-off/nested Subgraph gap.
-- Prefer local changes inside the existing `GraphProcessor` path over a new
-  runner:
-  - reuse immutable per-run structures only when they are already proven safe;
-  - avoid extra public API state;
-  - keep event order, graph-run metadata, abort behavior, globals, and output
-    shapes identical;
-  - avoid adding work to cheap non-Subgraph graphs.
-- Add tests around the exact behavior touched by the hot-path change, plus the
-  existing API policy tests and runtime equivalence guards.
-- Run the P5 benchmark gate before shipping. If the change only improves
-  diagnostic/direct processor rows but not public Node API rows, document it as
-  internal evidence and do not claim a user-visible speedup.
-- Result: paused. P6 did not find one specific existing `processGraph(...)`
-  step large enough to optimize without risking cheap control paths.
-
-### P8: Narrow TypeScript Subgraph Frame Runner [PAUSED - COST/BENEFIT REJECTED FOR NOW]
-
-- Use this path only if P6 shows the cost is spread across full nested
-  graph-frame setup/teardown and P7 has no small safe target.
-- Keep the first prototype silent-headless only. It must fall back before
-  execution for any observable run until full lifecycle parity is implemented.
-- Start with the smallest useful eligible closure:
-  - direct Subgraph chains;
-  - one input and one output per graph boundary;
-  - deterministic built-in nodes already covered by native-runtime parity
-    fixtures, such as `graphInput`, `text`, `join`, `object`, `coalesce`,
-    `destructure`, `extractObjectPath`, `graphOutput`, and direct `subGraph`;
-  - no project references in the first default slice.
-- The runner must never cache final runtime values. It may cache only immutable
-  graph shape analysis for the duration already allowed by the public API being
-  used.
-- Add a decision/reporting hook for tests and benchmarks so a benchmark row can
-  prove whether the frame runner actually executed or fell back.
-- Add equivalence tests for output parity, fallback-before-execution, no native
-  loading, no project mutation, and repeated changing inputs.
-- Ship only if P5 clears and the implementation is smaller than the cost it
-  removes. If parity requires duplicating a large part of `GraphProcessor`,
-  reject the runner and document why.
-- Result: paused. A frame runner remains the theoretical route to one-off and
-  nested Subgraph wins, but the current P6 data does not justify duplicating
-  graph-frame behavior, lifecycle metadata, abort semantics, and fallback
-  eligibility for the measured synthetic fixture costs.
-
-### P9: Final Matrix And Closeout [DONE FOR NO-SHIP P6]
-
-- Rerun the full default Subgraph matrix from P0/P5 on the same machine with
-  raw artifacts.
-- Update
-  [`default-subgraph-runtime-benchmark.md`](default-subgraph-runtime-benchmark.md)
-  and `developer-docs/PACKAGES.md` with:
-  - before/after numbers;
-  - rows that improved;
-  - neutral and regressed rows;
-  - variance notes;
-  - exact runtime eligibility and fallback rules;
-  - the rollback path.
-- Mark P7 or P8 as done only if a runtime change shipped. If neither ships,
-  mark P6 as done and explicitly close the remaining one-off/nested Subgraph
-  work as paused by evidence.
-- Result: no runtime change shipped after P6, so no before/after runtime matrix
-  is claimed. The P6 artifacts and docs close this plan with the repeated
-  `runGraph(...)` slice as the only default speedup.
-
-### P10: Local Real Workflow Fixture Baseline [DONE - NEW EVIDENCE]
-
-- Add optional runtime-speed rows that load
-  `.fixtures/graph-fixture.rivet-project` when it exists locally.
-- Keep the fixture itself ignored and local because it can contain
-  production-shaped payload data.
-- Run the fixture's `metadata.mainGraphId` without explicit inputs so the graph's
-  own mocked/default Graph Input path is measured.
-- Include rows for project loading, `runGraphInFile(...)`, loaded
-  `runGraph(...)`, fresh default-safe `createProcessor(...)`, fresh explicit
-  `headless-fast` `createProcessor(...)`, and reused default-safe
-  `createProcessor(...)`.
-- Store the raw benchmark artifact in
-  [`packages/node/bench-results/default-subgraph-runtime-real-fixture.json`](packages/node/bench-results/default-subgraph-runtime-real-fixture.json).
-- Result: explicit `headless-fast` fresh `createProcessor(...)` was about
-  27.9 ms mean, compared with about 38.5 ms default-safe fresh
-  `createProcessor(...)` and about 37.6 ms loaded `runGraph(...)`. This remains
-  useful diagnostic ceiling data, but the default-safe backend-style result is
-  accepted as healthy for the current target.
-
-### P11: Explain The Real-Fixture `headless-fast` Gap [PARKED - BACKEND BASELINE ACCEPTED]
-
-- Parked because the backend-style fresh default-safe `createProcessor(...)`
-  fixture row measured about 38.5 ms mean, which is accepted as healthy for the
-  current target.
-- Keep the explicit `headless-fast` row as a useful ceiling and diagnostic, not
-  as an active default-mode requirement.
-- Do not change omitted/default `createProcessor(...)` behavior merely to chase
-  the fixture's `headless-fast` gap; callers can observe a returned processor
-  before `run()`, so default behavior needs stronger proof than a raw speed gap.
-- Reopen this phase only if the accepted backend target changes or future
-  regression data requires it. If reopened, inspect the runtime policy decision
-  for the fixture and identify exactly why omitted/default APIs do not use the
-  faster `headless-fast` path.
-- If reopened, attribute the gap before changing runtime behavior:
-  - scheduler choice;
-  - lifecycle observability;
-  - Code/Expression runner setup;
-  - subgraph boundary/cache reuse;
-  - globals and context setup;
-  - any fallback triggered by graph shape.
-- If reopened, add focused tests for any proposed new automatic eligibility rule
-  before implementation.
-- Do not change `createProcessor(...)` omitted behavior unless the returned
-  processor remains safely observable before `run()`.
-- Prefer an automatic `runGraph(...)`-only improvement first, because
-  unobservable `runGraph(...)` has a narrower public contract than omitted
-  `createProcessor(...)`.
-
-## Verification Commands
-
-- `yarn workspace @valerypopoff/rivet2-core test`
-- `yarn workspace @valerypopoff/rivet2-node test`
-- focused runtime/default-fast compatibility tests
-- no-debugger runtime benchmark matrix with raw samples, warmups, variance, and
-  before/after confidence reporting
-- `git diff --check`
-
-## Assumptions And Non-Goals
-
-- Default-mode targets are omitted-profile `createProcessor(...).run()` and
-  `runGraph(...)`.
-- Default event compatibility matters more than maximum possible speed.
-- Speedups must come from reducing nested graph-frame overhead, not from
-  caching final Subgraph results. The current attribution rejects
-  construction-only and graph-boundary-only work as likely wins for the small
-  default fixtures.
-- `runtimeProfile: 'compatible'` remains the rollback path on APIs that expose
-  runtime profiles. `runGraph(...)` still ignores untyped `runtimeProfile`
-  properties, so its explicit rollback path is using `createProcessor(...)`
-  with `runtimeProfile: 'compatible'`.
-- `headless-fast` and `native-fast` remain opt-in proving grounds.
-- Remote Debugger and `includeTrace` are fallback blockers for the first P3
-  implementation slice unless lifecycle parity is explicitly implemented and
-  tested.
-- Native-fast benchmark wins are evidence about the ceiling and target shape,
-  not permission to route default execution through Rust/native code.
+Reopen this plan only if the backend latency target tightens or the benchmark
+fixture regresses. A reopened change must begin with the benchmark gate above,
+then prove a real default-runtime bottleneck before adding code. Favor small
+TypeScript hot-path reductions over new execution modes.

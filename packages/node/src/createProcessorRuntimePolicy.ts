@@ -5,7 +5,7 @@ import type {
   ProcessContext,
 } from '@valerypopoff/rivet2-core';
 
-export type NodeRuntimeProfile = 'compatible' | 'headless-fast';
+export type NodeRuntimeProfile = 'compatible';
 
 export type CreateProcessorRuntimeFallbackReason = 'remote-debugger' | 'trace';
 
@@ -39,10 +39,6 @@ export function resolveCreateProcessorRuntimePolicy({
     return createCompatibleRuntimePolicy(['remote-debugger']);
   }
 
-  if (runtimeProfile === 'headless-fast') {
-    return createHeadlessFastRuntimePolicy({ codeRunner, includeTrace });
-  }
-
   if (includeTrace) {
     return createCompatibleRuntimePolicy(['trace']);
   }
@@ -57,27 +53,6 @@ export function resolveCreateProcessorRuntimePolicy({
     fallbackReasons: [],
     runtimeCache: {},
     scheduler: 'compatible',
-    useCachedDefaultCodeRunner: codeRunner == null,
-  };
-}
-
-function createHeadlessFastRuntimePolicy({
-  codeRunner,
-  includeTrace,
-}: Pick<CreateProcessorRuntimePolicyOptions, 'codeRunner' | 'includeTrace'>): CreateProcessorRuntimePolicy {
-  const fallbackReasons: CreateProcessorRuntimeFallbackReason[] = [];
-  const scheduler = includeTrace ? 'compatible' : 'fast-acyclic';
-
-  if (includeTrace) {
-    fallbackReasons.push('trace');
-  }
-
-  return {
-    cacheLoadedProjects: true,
-    executionPlanCacheMode: 'all',
-    fallbackReasons,
-    runtimeCache: {},
-    scheduler,
     useCachedDefaultCodeRunner: codeRunner == null,
   };
 }
