@@ -60,6 +60,7 @@ export const FolderItem: FC<{
     const isExpanded = expandedFolders[`${projectMetadata.id}/${fullPath}`] ?? true; // Default open
 
     const {
+      containsReferencingSelectedGraph,
       folderGraphCount,
       graphIsRunning,
       isCollapsedOpenGraphFolder,
@@ -169,7 +170,14 @@ export const FolderItem: FC<{
                       <NodeRunningIndicator isRunning delayMs={0} label="Graph running" />
                     </div>
                   )}
-                  {referencesSelectedGraph && <span className="graph-reference-dot" aria-hidden="true" />}
+                  {(referencesSelectedGraph || containsReferencingSelectedGraph) && (
+                    <span
+                      className={clsx('graph-reference-dot', {
+                        'folder-reference-dot': containsReferencingSelectedGraph,
+                      })}
+                      aria-hidden="true"
+                    />
+                  )}
                   <span className="graph-item-name">
                     {item.type === 'folder' &&
                       (isExpanded ? (

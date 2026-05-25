@@ -81,6 +81,7 @@ export function getGraphListItemPath(item: NodeGraphFolderItem): string {
 }
 
 export type FolderItemPresentation = {
+  containsReferencingSelectedGraph: boolean;
   folderGraphCount: number | undefined;
   fullPath: string;
   graphIsRunning: boolean;
@@ -133,6 +134,11 @@ export function getFolderItemPresentation(options: {
     item.type === 'folder' && !isExpanded && openGraphName != null && isInFolder(fullPath, openGraphName);
   const isMainGraph = item.type === 'graph' && graphId === mainGraphId;
   const referencesSelectedGraph = item.type === 'graph' && graphId ? referencingSelectedGraphIds.has(graphId) : false;
+  const containsReferencingSelectedGraph =
+    item.type === 'folder' &&
+    !isExpanded &&
+    referencingSelectedGraphIds.size > 0 &&
+    folderContainsReferencingSelectedGraph(item, referencingSelectedGraphIds);
   const isDraggingOver =
     item.type === 'folder' && dragOverFolderName === fullPath && draggingItemFolder !== dragOverFolderName;
   const graphReachability = item.type === 'graph' && graphId ? graphReachabilityByGraphId[graphId] : undefined;
@@ -141,6 +147,7 @@ export function getFolderItemPresentation(options: {
     item.type === 'graph' && !isRenaming && showUnreachableBadges && graphReachability === 'unreachable';
   const graphIsRunning = graphId != null && runningGraphs.includes(graphId);
   return {
+    containsReferencingSelectedGraph,
     folderGraphCount,
     fullPath,
     graphIsRunning,
@@ -154,4 +161,16 @@ export function getFolderItemPresentation(options: {
     savedGraph,
     shouldShowUnreachableBadge,
   };
+}
+
+function folderContainsReferencingSelectedGraph(
+  item: NodeGraphFolderItem,
+  referencingSelectedGraphIds: ReadonlySet<GraphId>,
+): boolean {
+  if (item.type === 'graph') {
+    const graphId = item.graph.metadata?.id;
+    return graphId != null && referencingSelectedGraphIds.has(graphId);
+  }
+
+  return item.children.some((child) => folderContainsReferencingSelectedGraph(child, referencingSelectedGraphIds));
 }

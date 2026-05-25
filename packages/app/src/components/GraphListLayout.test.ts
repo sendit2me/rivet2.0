@@ -34,7 +34,18 @@ test('graph tree panel keeps the compact text-list layout source contract', () =
   assert.match(graphListSource, /\.graph-list-action {\s+cursor: pointer;\s+svg {\s+margin-bottom: 0\.35em;/);
   assert.match(graphListSource, /\.spinner \.node-running-indicator {\s+width: var\(--ui-font-size-base\);/);
   assert.match(graphListSource, /\.graph-main-icon {\s+width: 1em;\s+height: 1em;/);
-  assert.match(graphListSource, /\.contains-open-graph \.graph-item-select {\s+background-color: color-mix/);
+  assert.match(
+    graphListSource,
+    /--collapsed-open-graph-folder-color: color-mix\(in srgb, var\(--primary\) 28%, transparent\);/,
+  );
+  assert.match(
+    graphListSource,
+    /\.contains-open-graph \.graph-item-select {\s+background-color: var\(--collapsed-open-graph-folder-color\);/,
+  );
+  assert.match(
+    graphListSource,
+    /\.graph-reference-dot\.folder-reference-dot {\s+background: var\(--collapsed-open-graph-folder-color\);/,
+  );
   assert.doesNotMatch(graphListSource, /graph-item-tooltip/);
   assert.doesNotMatch(graphListSource, /metadata!/);
   assert.match(graphListSource, /padding: 8px 10px 8px calc\(10px \+ var\(--graph-item-indent, 0px\)\);/);
@@ -44,6 +55,8 @@ test('graph tree panel keeps the compact text-list layout source contract', () =
   assert.doesNotMatch(graphListSource, /iconBefore=|shouldFitContainer/);
 
   assert.match(folderItemSource, /'--graph-item-indent': `\$\{virtualDepth \* 20\}px`/);
+  assert.match(folderItemSource, /containsReferencingSelectedGraph/);
+  assert.match(folderItemSource, /'folder-reference-dot': containsReferencingSelectedGraph/);
   assert.match(
     folderItemSource,
     /const showChildGuideLine = item\.type === 'folder' && isExpanded && item\.children\.length > 0/,

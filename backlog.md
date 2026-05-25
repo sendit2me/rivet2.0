@@ -1,11 +1,7 @@
 
 
 
-
-- When a subgraph is opened and it is used in a graph that is in collapsed folder, show a pale dot against this folder
-
-
-- When I try to resize the left panel width too narrow (<= 50% of minimal width), collapse it completely as if I clicked the collapse button
+- When I try to resize the left panel width too narrow (<= 50% of minimal width), collapse it completely as if I clicked the collapse button. But make it so that I can continue drag (if I haven't released the mouse button) to the right and it opens again and lets me resize normally.
 
 
 - Need keyboard shortcuts to run the project and the current graph

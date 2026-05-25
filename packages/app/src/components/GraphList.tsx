@@ -43,6 +43,8 @@ import { getFolderNames } from './graphList/graphFolders.js';
 import { PopupMenuItem, popupMenuListStyles } from './PopupMenu.js';
 
 const styles = css`
+  --collapsed-open-graph-folder-color: color-mix(in srgb, var(--primary) 28%, transparent);
+
   display: flex;
   flex-direction: column;
   flex-shrink: 1;
@@ -289,7 +291,7 @@ const styles = css`
   }
 
   .contains-open-graph .graph-item-select {
-    background-color: color-mix(in srgb, var(--primary) 28%, transparent);
+    background-color: var(--collapsed-open-graph-folder-color);
     color: var(--grey-lightest);
   }
 
@@ -307,6 +309,11 @@ const styles = css`
     border-radius: 50%;
     background: var(--primary);
     box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18);
+  }
+
+  .graph-reference-dot.folder-reference-dot {
+    background: var(--collapsed-open-graph-folder-color);
+    box-shadow: 0 0 0 1px var(--collapsed-open-graph-folder-color);
   }
 
   .selected {
