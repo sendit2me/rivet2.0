@@ -165,6 +165,28 @@ process has roughly 96-128 MB of V8 heap. More physical RAM still matters when
 the host would otherwise page, when many workflow processes run concurrently,
 or when real workflows allocate much larger values than this fixture.
 
+The fixture was also measured under Docker CPU quotas to approximate slower or
+throttled compute. This run used `node:20-alpine`, fixed the Node heap at
+512 MB, and used 15 samples with 10 measured runs per sample. Docker Desktop on
+the measuring machine exposed only 3 CPUs to containers, so `--cpus=4` was not
+available and the `unlimited` row means "up to Docker's configured 3 CPU
+ceiling":
+
+| Docker CPU quota | Mean | Median | p95 | Takeaway |
+| ---: | ---: | ---: | ---: | --- |
+| 0.25 CPU | 226.911 ms | 210.018 ms | 358.600 ms | Too throttled; latency is about 5.7x the unlimited row. |
+| 0.5 CPU | 97.938 ms | 91.349 ms | 159.430 ms | Still heavily throttled; about 2.45x the unlimited row. |
+| 1 CPU | 48.234 ms | 46.360 ms | 79.378 ms | Usable but still about 21% slower than unlimited. |
+| 2 CPUs | 44.555 ms | 43.570 ms | 52.182 ms | Near the local Docker ceiling, about 12% slower. |
+| 3 CPUs | 39.616 ms | 38.714 ms | 47.663 ms | Equivalent to the Docker ceiling within noise. |
+| Unlimited | 39.922 ms | 38.680 ms | 49.116 ms | Baseline for this Docker setup. |
+
+Treat CPU quota as a real latency knob for backend/container sizing. Unlike the
+heap benchmark, the sub-1-CPU rows degrade sharply. Docker absolute timings are
+not directly comparable to host timings because they include container,
+filesystem, VM, and Node-version differences, but the relative shape is useful:
+very small CPU shares hurt this workflow much more than modest heap changes.
+
 `createGraphRunner(...)` is the production-facing reuse path for Node
 integrations that load a stable project graph once and run it many times. It
 resolves graph selection, registry/plugin setup, Node defaults, settings,
