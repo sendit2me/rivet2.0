@@ -147,6 +147,7 @@ test('canNodeTypeBeFrozen blocks non-replayable node categories', () => {
   for (const nodeType of [
     'comment',
     'abortGraph',
+    'graphOutput',
     'appendToDataset',
     'createDataset',
     'replaceDataset',
@@ -157,10 +158,10 @@ test('canNodeTypeBeFrozen blocks non-replayable node categories', () => {
   }
 });
 
-test('getNodeCanvasContextMenuContext disables Freeze for unfreezable node types with retained outputs', () => {
+test('getNodeCanvasContextMenuContext disables Freeze for Graph Output nodes with retained outputs', () => {
   const context = getNodeCanvasContextMenuContext({
     ...contextModelOptions,
-    contextMenuData: makeContextMenuData('node-raiseEvent'),
+    contextMenuData: makeContextMenuData('node-graphOutput'),
     lastRunPerNode: {
       [nodeId]: [
         {
@@ -169,7 +170,7 @@ test('getNodeCanvasContextMenuContext disables Freeze for unfreezable node types
           data: {
             status: { type: 'ok' },
             outputData: {
-              result: { type: 'string', storage: 'inline', value: 'event data' },
+              valueOutput: { type: 'string', storage: 'inline', value: 'graph output value' },
             },
           },
         },

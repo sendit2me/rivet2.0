@@ -1,5 +1,4 @@
 
-- When hovering the gear icon of  afrozen node, it doesn't get ac tive color
 
 - Now, the executor mode is global for all open projects (remote debugger, browser, node). Make it per tab
 

@@ -53,6 +53,18 @@ test('frozen node output visuals stay compact and canvas-scoped', () => {
   );
   assert.ok(genericRunningIndicatorRuleIndex >= 0);
   assert.ok(frozenRunningIndicatorRuleIndex > genericRunningIndicatorRuleIndex);
+  const frozenHeaderForegroundRuleIndex = nodeStylesSource.indexOf(
+    '.node.frozen:not(.isComment) .subgraph-link-button,',
+  );
+  const frozenHeaderControlHoverRuleIndex = nodeStylesSource.indexOf(
+    '.node.frozen:not(.isComment) .title-controls .changed-button:hover,',
+  );
+  assert.ok(frozenHeaderForegroundRuleIndex >= 0);
+  assert.ok(frozenHeaderControlHoverRuleIndex > frozenHeaderForegroundRuleIndex);
+  assert.match(
+    nodeStylesSource,
+    /\.node\.frozen:not\(\.isComment\) \.title-controls \.edit-button:hover \{[\s\S]*?color: var\(--primary-text\);/,
+  );
   assert.match(
     nodeStylesSource,
     /\.node\.frozen\.hasCustomBorderColor:not\(\.isComment\):not\(\.selected\):not\(\.hovered\):not\(\.overlayNode\)/,

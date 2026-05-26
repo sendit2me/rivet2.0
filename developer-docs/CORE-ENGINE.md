@@ -140,7 +140,7 @@ When the resolver returns frozen `Outputs`, `GraphProcessor` skips the node impl
 
 Frozen replay replaces computation, not arbitrary host side effects. Core mirrors only recoverable dataflow side effects that downstream graph execution depends on:
 
-- `Graph Output` writes the frozen `valueOutput` to `graphOutputs[data.id]`.
+- The desktop app blocks new `Graph Output` freezes because graph boundary nodes are not useful freeze targets. If a custom caller or stale in-memory state still supplies frozen `Graph Output` data to the low-level resolver, core defensively writes the frozen `valueOutput` to `graphOutputs[data.id]` so graph state remains coherent.
 - `Set Global` writes the frozen `saved-value` to the frozen `variable_id_out` global id and emits `globalSet`.
 
 Other side effects such as dataset writes, raised events, audio playback, external I/O, and graph aborts are intentionally not replayed by frozen execution. Feature work that adds replay for another side effect must make that effect explicit and testable rather than relying on the skipped node implementation.

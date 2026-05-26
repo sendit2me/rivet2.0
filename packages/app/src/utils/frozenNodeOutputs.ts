@@ -24,6 +24,7 @@ type GraphSelectionOptions = {
 const UNFREEZABLE_NODE_TYPES = new Set<ChartNode['type']>([
   'comment',
   'abortGraph',
+  'graphOutput',
   'appendToDataset',
   'createDataset',
   'replaceDataset',

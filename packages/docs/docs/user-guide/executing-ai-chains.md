@@ -29,9 +29,9 @@ Freezing captures the retained successful output runs for that node in the curre
 
 Frozen execution still follows normal graph readiness rules. If a node would not run because an upstream branch did not run, an `If` condition is false, or a required input is missing, freezing does not force it to run.
 
-Frozen outputs replace computation, not every possible side effect. Rivet restores graph-output dataflow and global-variable writes for frozen **Graph Output** and **Set Global** nodes, but other side effects such as dataset writes, raised events, audio playback, external calls, and graph aborts are not replayed.
+Frozen outputs replace computation, not every possible side effect. Rivet restores global-variable writes for frozen **Set Global** nodes, but other side effects such as graph-output boundaries, dataset writes, raised events, audio playback, external calls, and graph aborts are not replayed.
 
-Some nodes cannot be frozen because their behavior is not useful or safe to replay as stored output data: **Comment**, **Abort Graph**, **Create Dataset**, **Append to Dataset**, **Replace Dataset**, **Raise Event**, and **Play Audio**.
+Some nodes cannot be frozen because their behavior is not useful or safe to replay as stored output data: **Comment**, **Abort Graph**, **Graph Output**, **Create Dataset**, **Append to Dataset**, **Replace Dataset**, **Raise Event**, and **Play Audio**.
 
 Freeze node output is available only for normal editor runs in Browser mode or the built-in Node executor. It is not available while using an external Remote Debugger session or while viewing a loaded recording.
 

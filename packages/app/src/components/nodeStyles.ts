@@ -487,6 +487,11 @@ export const nodeStyles = css`
     color: var(--node-frozen-header-foreground);
   }
 
+  .node.frozen:not(.isComment) .title-controls .changed-button:hover,
+  .node.frozen:not(.isComment) .title-controls .edit-button:hover {
+    color: var(--primary-text);
+  }
+
   .title-controls .node-running-indicator {
     color: var(--node-bg-foreground);
     margin-top: calc(3px * var(--ui-font-scale));
