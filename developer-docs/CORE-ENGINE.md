@@ -132,7 +132,7 @@ the diagnostic spans add timestamp reads and aggregation work.
 
 ## Frozen Output Resolver
 
-`GraphProcessor` exposes an optional frozen-output resolver for the desktop app's editor-only Freeze node feature. The resolver is a low-level runtime hook, not serialized graph state and not part of normal headless execution unless an app caller explicitly attaches it with `setFrozenNodeOutputResolver(...)`.
+`GraphProcessor` exposes an optional frozen-output resolver for the desktop app's editor-only Freeze node output feature. The resolver is a low-level runtime hook, not serialized graph state and not part of normal headless execution unless an app caller explicitly attaches it with `setFrozenNodeOutputResolver(...)`.
 
 The resolver receives the current execution metadata, processor graph id, node, process id, and already-resolved input values. `GraphProcessor` calls it only after normal readiness checks, missing-required-input checks, disabled-node handling, and control-flow exclusion checks have passed. This means a frozen node still does not run when it would have been skipped by ordinary graph semantics.
 

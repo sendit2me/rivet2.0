@@ -11,6 +11,7 @@ export const nodeStyles = css`
     --node-output-multi-hover-max-height: calc(20 * 1.4em + 60px);
     --node-frozen-output-accent: #68b7ff;
     --node-frozen-output-bg: color-mix(in srgb, var(--node-frozen-output-accent) 11%, var(--grey-darkest) 89%);
+    --node-frozen-header-foreground: #102235;
     background-color: var(--grey-darker-darker);
     background-clip: padding-box;
     border-radius: var(--node-card-radius);
@@ -125,6 +126,11 @@ export const nodeStyles = css`
     border-color: var(--node-frame-border-color, var(--node-border));
   }
 
+  .node.frozen.hasCustomBorderColor:not(.isComment):not(.selected):not(.hovered):not(.overlayNode)
+    .node-border-overlay {
+    border-color: var(--node-frozen-output-accent);
+  }
+
   .node-title {
     background-color: var(--node-bg);
     font-family: var(--font-family);
@@ -142,6 +148,14 @@ export const nodeStyles = css`
     word-break: break-word;
     hyphens: auto;
     cursor: pointer;
+  }
+
+  .node.frozen:not(.isComment) .node-title {
+    background-color: var(--node-frozen-output-accent);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='86' height='52' viewBox='0 0 86 52'%3E%3Cg fill='none' stroke='white' stroke-opacity='.25' stroke-linecap='round'%3E%3Cpath stroke-width='1.5' d='M12 7v14M6 10l12 8M18 10 6 18'/%3E%3Cpath stroke-width='1' d='M40 4v9M36 6l8 5M44 6l-8 5'/%3E%3Cpath stroke-width='1.9' d='M68 18v20M60 23l16 10M76 23 60 33'/%3E%3Cpath stroke-width='1.2' d='M28 34v11M23 37l10 6M33 37l-10 6'/%3E%3Cpath stroke-width='.9' d='M81 2v8M77 4l8 5M85 4l-8 5'/%3E%3C/g%3E%3C/svg%3E");
+    background-position: 0 0;
+    background-size: 86px 52px;
+    color: var(--node-frozen-header-foreground);
   }
 
   .node-title.grabbable {
@@ -466,9 +480,20 @@ export const nodeStyles = css`
     width: calc(72px * var(--ui-font-scale));
   }
 
+  .node.frozen:not(.isComment) .subgraph-link-button,
+  .node.frozen:not(.isComment) .title-controls .changed-button,
+  .node.frozen:not(.isComment) .title-controls .edit-button,
+  .node.frozen:not(.isComment) .title-controls .frozen-node-indicator {
+    color: var(--node-frozen-header-foreground);
+  }
+
   .title-controls .node-running-indicator {
     color: var(--node-bg-foreground);
     margin-top: calc(3px * var(--ui-font-scale));
+  }
+
+  .node.frozen:not(.isComment) .title-controls .node-running-indicator {
+    color: var(--node-frozen-header-foreground);
   }
 
   .title-controls .frozen-node-indicator {

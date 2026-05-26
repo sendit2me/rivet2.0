@@ -17,23 +17,23 @@ The following graph will _roughly_ execute in the order of these numbers. Every 
 
 ![Data Flow](assets/data-flow.png)
 
-## Freeze a Node While Editing
+## Freeze Node Output While Editing
 
-When you are iterating on a graph in the editor, you can right-click a node that already has successful output data and choose **Freeze node**. A frozen node reuses the captured output instead of running its normal implementation during later editor runs. This is useful when a node is slow, expensive, or calls an external service, and you want downstream nodes to keep receiving the same value while you work.
+When you are iterating on a graph in the editor, you can right-click a node that already has successful output data and choose **Freeze node output**. A node with frozen output reuses the captured output instead of running its normal implementation during later editor runs. This is useful when a node is slow, expensive, or calls an external service, and you want downstream nodes to keep receiving the same value while you work.
 
-Frozen nodes show a snowflake icon in the node header. To return the node to normal execution, right-click it and choose **Unfreeze node**.
+Nodes with frozen output show a blue varied-size snowflake-pattern header and a snowflake icon in the node header. The fullscreen output modal keeps the normal output view colors when you inspect the full value. To return the node to normal execution, right-click it and choose **Unfreeze node output**.
 
 Freeze state is temporary. It exists only while the project is open in the editor and is not saved into the project file. If you close the project, delete the node, delete its graph, or unfreeze it manually, the frozen output is removed.
 
-Freezing captures the retained successful output runs for that node in the current run selection. When the frozen node is invoked again, Rivet replays those captured outputs in order. If the node is invoked more times than there are captured outputs, Rivet reuses the last captured output.
+Freezing captures the retained successful output runs for that node in the current run selection. When the node with frozen output is invoked again, Rivet replays those captured outputs in order. If the node is invoked more times than there are captured outputs, Rivet reuses the last captured output.
 
 Frozen execution still follows normal graph readiness rules. If a node would not run because an upstream branch did not run, an `If` condition is false, or a required input is missing, freezing does not force it to run.
 
-Frozen nodes replace computation, not every possible side effect. Rivet restores graph-output dataflow and global-variable writes for frozen **Graph Output** and **Set Global** nodes, but other side effects such as dataset writes, raised events, audio playback, external calls, and graph aborts are not replayed.
+Frozen outputs replace computation, not every possible side effect. Rivet restores graph-output dataflow and global-variable writes for frozen **Graph Output** and **Set Global** nodes, but other side effects such as dataset writes, raised events, audio playback, external calls, and graph aborts are not replayed.
 
 Some nodes cannot be frozen because their behavior is not useful or safe to replay as stored output data: **Comment**, **Abort Graph**, **Create Dataset**, **Append to Dataset**, **Replace Dataset**, **Raise Event**, and **Play Audio**.
 
-Freeze node is available only for normal editor runs in Browser mode or the built-in Node executor. It is not available while using an external Remote Debugger session or while viewing a loaded recording.
+Freeze node output is available only for normal editor runs in Browser mode or the built-in Node executor. It is not available while using an external Remote Debugger session or while viewing a loaded recording.
 
 When the built-in Node executor is selected, frozen outputs must be safe to send to the executor process. Rivet preserves explicit JavaScript `undefined` values during this transfer, including optional fields inside LLM message objects. If the captured value contains unsupported JavaScript-only values such as `BigInt`, circular references, `NaN`, `Infinity`, typed arrays, or class instances, Rivet will ask you to use Browser mode or freeze a JSON-serializable output instead.
 

@@ -310,8 +310,8 @@ export const NormalVisualNodeContent: FC<{
             )}
             <NodeRunningIndicator isRunning={showRunningIndicator} delayMs={0} />
             {isFrozen && (
-              <Tooltip content="Frozen node" tag="span" className="frozen-node-tooltip">
-                <span className="frozen-node-indicator" aria-label="Frozen node">
+              <Tooltip content="Frozen output" tag="span" className="frozen-node-tooltip">
+                <span className="frozen-node-indicator" aria-label="Frozen output">
                   <SnowflakeIcon />
                 </span>
               </Tooltip>

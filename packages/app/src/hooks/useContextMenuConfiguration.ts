@@ -137,14 +137,14 @@ export function useContextMenuConfiguration() {
               },
               {
                 id: 'node-freeze',
-                label: 'Freeze node',
+                label: 'Freeze node output',
                 icon: SnowflakeIcon,
                 conditional: canFreezeNode,
                 separatorBefore: true,
               },
               {
                 id: 'node-unfreeze',
-                label: 'Unfreeze node',
+                label: 'Unfreeze node output',
                 icon: SnowflakeIcon,
                 conditional: canUnfreezeNode,
                 separatorBefore: true,
