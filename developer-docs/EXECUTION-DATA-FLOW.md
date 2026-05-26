@@ -34,6 +34,18 @@ External Remote Debugger runs are different: a backend that calls `createProcess
 
 Copy actions intentionally ignore run-duration metadata. The ordinary copy button and JSON-copy button continue to serialize displayed output values / internal output maps only.
 
+## Frozen Node Outputs
+
+Freeze node is editor-only execution state. It is not graph data, is not written to `.rivet-project` YAML, and is not included in persisted opened-project editor state. The active project stores frozen outputs in `frozenNodeOutputsState`; `useProjectExecutionSnapshots` captures and restores that atom together with the other in-memory execution view state when switching open projects. Closing/replacing a project, deleting a graph, deleting a folder of graphs, deleting a node, or choosing `Unfreeze node` must remove the matching frozen entries.
+
+Frozen entries are scoped by graph id and node id inside each project execution snapshot. Freezing a node restores all currently retained successful output instances for the selected graph-run context through the execution-data ref reader, then stores cloned runtime `Outputs[]` maps. This is deliberately separate from `ProcessDataForNode` / output refs so normal execution-history retention can prune old pages without invalidating the frozen value while the project remains open. If execution memory already pruned a referenced output, capture fails and the app should leave the node unfrozen.
+
+Browser execution can replay any frozen value that `structuredClone(...)` can clone. Internal Node executor runs must additionally send the frozen snapshot through the app-to-executor JSON run message, so Node-mode freezes and internal executor run payloads validate that frozen outputs are JSON-transportable. Values such as `BigInt`, `undefined`, circular references, `NaN`, infinities, functions, symbols, typed arrays, and class instances should fail before the run message is sent instead of breaking or lossy-serializing through the executor websocket path.
+
+Replay is not `preloadNodeData(...)`. A frozen node still receives its real current inputs in `nodeStart`, emits a normal `nodeFinish`, uses a normal process id, writes `nodeResults`, and schedules downstream nodes exactly like a computed node. The core frozen-output resolver resets its replay counter per graph run and keys lookup by the processor's current graph id plus node id. If a node is invoked more times within the same graph run than there are captured output instances, the resolver reuses the last captured output. A node inside a reusable subgraph is therefore frozen for every invocation of that graph node while the project remains open.
+
+Normal live run-from planning treats frozen boundary outputs as available preload data. If a boundary dependency has both previous execution history and frozen output data, the frozen output wins. Preload event suppression remains unchanged; frozen boundary data is only used to seed the run boundary and must not create duplicate output pages. Recording playback does not consult frozen outputs, even for run-from preload planning.
+
 ## Key Concept: Graph View Identity
 
 The same graph definition can execute in multiple distinct contexts:

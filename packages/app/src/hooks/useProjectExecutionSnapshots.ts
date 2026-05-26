@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 import { useSetAtom, useStore } from 'jotai';
 import {
   createEmptyProjectExecutionSnapshot,
+  frozenNodeOutputsState,
   graphPausedState,
   graphRunHistoryByViewState,
   graphRunningState,
@@ -29,6 +30,7 @@ export function useProjectExecutionSnapshots() {
       graphRunHistoryByView: store.get(graphRunHistoryByViewState),
       graphRunning: store.get(graphRunningState),
       graphStartTime: store.get(graphStartTimeState),
+      frozenNodeOutputs: store.get(frozenNodeOutputsState),
       lastRunDataByNode: store.get(lastRunDataByNodeState),
       rootGraph: store.get(rootGraphState),
       runningGraphs: store.get(runningGraphsState),
@@ -45,6 +47,7 @@ export function useProjectExecutionSnapshots() {
       store.set(graphRunHistoryByViewState, nextSnapshot.graphRunHistoryByView);
       store.set(graphRunningState, nextSnapshot.graphRunning);
       store.set(graphStartTimeState, nextSnapshot.graphStartTime);
+      store.set(frozenNodeOutputsState, nextSnapshot.frozenNodeOutputs ?? {});
       store.set(lastRunDataByNodeState, nextSnapshot.lastRunDataByNode);
       store.set(rootGraphState, nextSnapshot.rootGraph);
       store.set(runningGraphsState, nextSnapshot.runningGraphs);

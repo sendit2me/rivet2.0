@@ -5,6 +5,7 @@ import type { GraphId, NodeGraph } from './NodeGraph.js';
 import type { GraphExecutionMetadata, ProcessId } from './ProcessContext.js';
 import type { Project, ProjectId } from './Project.js';
 import type { Settings } from './Settings.js';
+import type { FrozenNodeOutputsByGraph } from './GraphProcessor.js';
 
 export type GraphInputs = Record<string, DataValue>;
 export type GraphOutputs = Record<string, DataValue>;
@@ -135,6 +136,7 @@ export type OutgoingMessageMap = {
     graphId: GraphId;
     runToNodeIds?: NodeId[];
     preloadData?: Record<NodeId, Outputs>;
+    frozenNodeOutputs?: FrozenNodeOutputsByGraph;
     contextValues: Record<string, DataValue>;
     inputs?: GraphInputs;
     projectPath?: string | null;

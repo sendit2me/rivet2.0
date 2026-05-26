@@ -241,6 +241,10 @@ export const nodeStyles = css`
     padding-right: calc(66px * var(--ui-font-scale));
   }
 
+  .node.frozen:not(.isComment) .grab-area {
+    padding-right: calc(96px * var(--ui-font-scale));
+  }
+
   .split-run-mode-icon {
     flex: 0 0 auto;
     width: calc(16px * var(--ui-font-scale));
@@ -418,7 +422,8 @@ export const nodeStyles = css`
     pointer-events: none;
 
     .changed-button,
-    .edit-button {
+    .edit-button,
+    .frozen-node-indicator {
       background-color: transparent;
       border: none;
       color: var(--node-bg-foreground);
@@ -454,9 +459,18 @@ export const nodeStyles = css`
     z-index: 4;
   }
 
+  .node.frozen:not(.isComment) .title-controls {
+    width: calc(96px * var(--ui-font-scale));
+  }
+
   .title-controls .node-running-indicator {
     color: var(--node-bg-foreground);
     margin-top: calc(3px * var(--ui-font-scale));
+  }
+
+  .title-controls .frozen-node-indicator {
+    cursor: default;
+    pointer-events: auto;
   }
 
   .node:not(:hover):not(.hovered):not(:focus-within) .title-controls .node-running-indicator {

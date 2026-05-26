@@ -1,4 +1,3 @@
-- Need keyboard shortcuts to run the project and the current graph
 
 - Now, the executor mode is global for all open projects (remote debugger, browser, node). Make it per tab
 

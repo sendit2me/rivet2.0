@@ -5,6 +5,7 @@ import {
   type DataValue,
   coerceTypeOptional,
   ExecutionRecorder,
+  createFrozenNodeOutputResolver,
   type GraphOutputs,
   type GraphId,
   type ProcessEvents,
@@ -29,7 +30,7 @@ import { fillMissingSettingsFromEnvironmentVariables } from '../utils/tauri';
 import { getLLMChatV2CustomProviderApiKeyEnvVarNames } from '../utils/chatV2CustomProviderEnv';
 import { trivetState } from '../state/trivet';
 import { runTrivet } from '@valerypopoff/trivet';
-import { lastRunDataByNodeState } from '../state/dataFlow';
+import { frozenNodeOutputsState, lastRunDataByNodeState } from '../state/dataFlow';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { TauriProjectReferenceLoader } from '../model/TauriProjectReferenceLoader';
 import {
@@ -45,6 +46,7 @@ import { getDependentDataForNodeForPreload, getEditorRunFromPlan } from './remot
 import { pluginsState } from '../state/plugins.js';
 import { withDerivedProjectPluginSpecs } from '../utils/pluginUsage.js';
 import { getProjectContextValues } from '../utils/projectContextValues.js';
+import { cloneFrozenNodeOutputsForExecutor } from '../utils/frozenNodeOutputs.js';
 
 /**
  * Yield to the macrotask queue so the browser can repaint.
@@ -93,6 +95,7 @@ export function useLocalExecutor() {
   const projectData = useAtomValue(projectDataState);
   const projectContext = useAtomValue(projectContextState(project.metadata.id));
   const lastRunData = useAtomValue(lastRunDataByNodeState);
+  const frozenNodeOutputs = useAtomValue(frozenNodeOutputsState);
   const loadedProject = useAtomValue(loadedProjectState);
   const pluginStates = useAtomValue(pluginsState);
   const editorExecutionCachesByProjectId = useRef(new Map<string, Map<string, unknown>>());
@@ -207,7 +210,11 @@ export function useLocalExecutor() {
         if (options.from) {
           const runFromPlan = getEditorRunFromPlan(tempProject, graphToRun, options.from, projectNodeRegistry);
           processor.runToNodeIds = runFromPlan.runToNodeIds;
-          const preloadData = getDependentDataForNodeForPreload(runFromPlan.preloadNodeIds, lastRunData);
+          const preloadData = getDependentDataForNodeForPreload(
+            runFromPlan.preloadNodeIds,
+            lastRunData,
+            loadedRecording ? undefined : { frozenNodeOutputs, graphId: graphToRun },
+          );
           for (const [nodeId, outputs] of Object.entries(preloadData)) {
             processor.preloadNodeData(nodeId as NodeId, outputs);
           }
@@ -228,6 +235,9 @@ export function useLocalExecutor() {
         if (loadedRecording) {
           results = await processor.replayRecording(loadedRecording.recorder);
         } else {
+          processor.setFrozenNodeOutputResolver(
+            createFrozenNodeOutputResolver(cloneFrozenNodeOutputsForExecutor(frozenNodeOutputs)),
+          );
           const contextValues = getProjectContextValues(projectContext);
 
           results = await processor.processGraph(

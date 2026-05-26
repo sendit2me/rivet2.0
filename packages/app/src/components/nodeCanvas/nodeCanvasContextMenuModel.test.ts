@@ -20,6 +20,9 @@ const nodeId = 'node-1' as NodeId;
 const project = makeProject();
 const contextModelOptions = {
   canStartEditorGraphRun: true,
+  canUseFrozenNodes: true,
+  frozenNodeOutputs: {},
+  graphSelection: {},
   lastRunPerNode: {},
   project,
   projectNodeRegistry: registry,
@@ -103,9 +106,95 @@ test('getNodeCanvasContextMenuContext hydrates node context data from the DOM ta
         nodeId,
         canRunFromEditor: true,
         canRunFromHere: true,
+        canFreeze: false,
+        canUnfreeze: false,
+        isFrozen: false,
       },
     },
   );
+});
+
+test('getNodeCanvasContextMenuContext enables Freeze for nodes with retained successful outputs', () => {
+  const context = getNodeCanvasContextMenuContext({
+    ...contextModelOptions,
+    contextMenuData: makeContextMenuData('node-text'),
+    lastRunPerNode: {
+      [nodeId]: [
+        {
+          graphId,
+          processId: 'process-1' as any,
+          data: {
+            status: { type: 'ok' },
+            outputData: {
+              output: { type: 'string', storage: 'inline', value: 'saved output' },
+            },
+          },
+        },
+      ],
+    } as any,
+  });
+
+  assert.equal(context.type, 'node');
+  assert.equal(context.data.canFreeze, true);
+  assert.equal(context.data.canUnfreeze, false);
+  assert.equal(context.data.isFrozen, false);
+});
+
+test('getNodeCanvasContextMenuContext enables Unfreeze for frozen nodes', () => {
+  const context = getNodeCanvasContextMenuContext({
+    ...contextModelOptions,
+    contextMenuData: makeContextMenuData('node-text'),
+    frozenNodeOutputs: {
+      [graphId]: {
+        [nodeId]: [
+          {
+            output: { type: 'string', value: 'frozen output' },
+          },
+        ],
+      },
+    } as any,
+  });
+
+  assert.equal(context.type, 'node');
+  assert.equal(context.data.canFreeze, false);
+  assert.equal(context.data.canUnfreeze, true);
+  assert.equal(context.data.isFrozen, true);
+});
+
+test('getNodeCanvasContextMenuContext disables Freeze and Unfreeze outside normal editor runs', () => {
+  const context = getNodeCanvasContextMenuContext({
+    ...contextModelOptions,
+    canUseFrozenNodes: false,
+    contextMenuData: makeContextMenuData('node-text'),
+    frozenNodeOutputs: {
+      [graphId]: {
+        [nodeId]: [
+          {
+            output: { type: 'string', value: 'frozen output' },
+          },
+        ],
+      },
+    } as any,
+    lastRunPerNode: {
+      [nodeId]: [
+        {
+          graphId,
+          processId: 'process-1' as any,
+          data: {
+            status: { type: 'ok' },
+            outputData: {
+              output: { type: 'string', storage: 'inline', value: 'saved output' },
+            },
+          },
+        },
+      ],
+    } as any,
+  });
+
+  assert.equal(context.type, 'node');
+  assert.equal(context.data.canFreeze, false);
+  assert.equal(context.data.canUnfreeze, false);
+  assert.equal(context.data.isFrozen, true);
 });
 
 test('canRunNodeCanvasContextMenuFromHere is false when editor runs are unavailable or planning fails', () => {

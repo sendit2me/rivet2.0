@@ -37,7 +37,13 @@ import {
   fullscreenOutputNodeState,
 } from '../state/graphBuilder';
 import { graphMetadataState } from '../state/graph.js';
-import { lastRunDataByNodeState, selectedProcessPageNodesState } from '../state/dataFlow';
+import {
+  frozenNodeOutputsState,
+  graphRunningState,
+  lastRunDataByNodeState,
+  resolvedGraphSelectionState,
+  selectedProcessPageNodesState,
+} from '../state/dataFlow';
 import { projectState, referencedProjectsState } from '../state/savedGraphs.js';
 import { selectedExecutorState, zoomSensitivityState } from '../state/settings';
 import { canvasPreviewConnectionsState } from '../state/selectors/canvasGraphSelectors.js';
@@ -58,6 +64,7 @@ import { groupConnectionsByNode } from './nodeCanvas/groupConnectionsByNode.js';
 import { getDraggingViewportNodeIds } from './nodeCanvas/draggingViewportNodeIds.js';
 import { filterValidSubGraphConnections } from '../domain/graphEditing/connectionValidation.js';
 import { useExecutorSessionState } from '../hooks/useExecutorSession.js';
+import { loadedRecordingState } from '../state/execution.js';
 import { type DragActivatorModifierState } from './nodeCanvas/nodeDragInteraction.js';
 import {
   getCanvasHighlightedNodeIds,
@@ -113,8 +120,12 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
   const expandedOutputNodeIds = useAtomValue(expandedOutputNodeIdsState);
   const fullscreenOutputNodeId = useAtomValue(fullscreenOutputNodeState);
   const lastRunPerNode = useAtomValue(lastRunDataByNodeState);
+  const frozenNodeOutputs = useAtomValue(frozenNodeOutputsState);
+  const graphSelection = useAtomValue(resolvedGraphSelectionState);
   const selectedProcessPagePerNode = useAtomValue(selectedProcessPageNodesState);
   const selectedExecutor = useAtomValue(selectedExecutorState);
+  const graphRunning = useAtomValue(graphRunningState);
+  const loadedRecording = useAtomValue(loadedRecordingState);
   const zoomSensitivity = useAtomValue(zoomSensitivityState);
   const rawPreviewConnections = useAtomValue(canvasPreviewConnectionsState);
   const nodesById = useAtomValue(nodesByIdState);
@@ -122,9 +133,12 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
   const referencedProjects = useAtomValue(referencedProjectsState);
   const executorSession = useExecutorSessionState();
   const canStartEditorGraphRun = canRunGraphFromEditor({
+    hasLoadedRecording: loadedRecording != null,
     selectedExecutor,
     session: executorSession,
   });
+  const canUseFrozenNodes =
+    canStartEditorGraphRun && !graphRunning && loadedRecording == null && executorSession.target?.type !== 'external-debugger';
 
   const setLastSavedCanvasPosition = useSetAtom(lastCanvasPositionByGraphState);
   const setLastMousePosition = useSetAtom(lastMousePositionState);
@@ -457,7 +471,10 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
     (): ContextMenuContext =>
       getNodeCanvasContextMenuContext({
         canStartEditorGraphRun,
+        canUseFrozenNodes,
         contextMenuData,
+        frozenNodeOutputs,
+        graphSelection,
         lastRunPerNode,
         project: projectWithCanvasGraph,
         projectNodeRegistry,
@@ -465,7 +482,10 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
       }),
     [
       canStartEditorGraphRun,
+      canUseFrozenNodes,
       contextMenuData,
+      frozenNodeOutputs,
+      graphSelection,
       lastRunPerNode,
       projectNodeRegistry,
       projectWithCanvasGraph,

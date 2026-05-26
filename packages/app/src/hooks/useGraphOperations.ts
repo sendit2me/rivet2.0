@@ -20,6 +20,8 @@ import {
   preserveFolderNames,
   renameFolderItemInGraphs,
 } from '../domain/graphEditing/graphListActions.js';
+import { frozenNodeOutputsState } from '../state/dataFlow.js';
+import { removeFrozenNodeOutputsForGraphs } from '../utils/frozenNodeOutputs.js';
 
 export function useGraphOperations() {
   const projectMetadata = useAtomValue(projectMetadataState);
@@ -51,6 +53,7 @@ export function useGraphOperations() {
   const importGraph = useImportGraph();
 
   const setExpandedFolders = useSetAtom(expandedFoldersState);
+  const setFrozenNodeOutputs = useSetAtom(frozenNodeOutputsState);
 
   const startRename = useStableCallback((folderItemName: string) => {
     setRenamingItemFullPath(folderItemName);
@@ -99,6 +102,10 @@ export function useGraphOperations() {
 
   const handleDeleteFolder = useStableCallback((folderName: string) => {
     const nextSavedGraphs = deleteFolderGraphs(savedGraphs, folderName);
+    const deletedGraphIds = savedGraphs
+      .filter((savedGraph) => !nextSavedGraphs.some((nextSavedGraph) => nextSavedGraph.metadata?.id === savedGraph.metadata?.id))
+      .map((savedGraph) => savedGraph.metadata?.id)
+      .filter((id): id is NonNullable<typeof id> => id != null);
     const currentGraphId = graph.metadata?.id;
     const currentGraphWasDeleted =
       currentGraphId != null &&
@@ -106,6 +113,7 @@ export function useGraphOperations() {
       !nextSavedGraphs.some((savedGraph: NodeGraph) => savedGraph.metadata?.id === currentGraphId);
 
     setSavedGraphs(nextSavedGraphs);
+    setFrozenNodeOutputs((prev) => removeFrozenNodeOutputsForGraphs(prev, deletedGraphIds));
 
     if (currentGraphWasDeleted) {
       setGraph(emptyNodeGraph());

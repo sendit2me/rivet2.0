@@ -15,6 +15,7 @@ import {
   canPreloadEditorRunFromPlan,
   getDependentDataForNodeForPreload,
   getEditorRunFromPlan,
+  getFrozenNodeOutputsForExecutorRunPayload,
   selectTestSuitesToRun,
 } from './remoteExecutorHelpers';
 import { deleteGlobalDataRef, setGlobalDataRef } from '../utils/globals/globalDataRefs';
@@ -196,6 +197,41 @@ test('canPreloadEditorRunFromPlan treats absent output wrappers as unavailable p
   );
 });
 
+test('canPreloadEditorRunFromPlan treats frozen boundary outputs as available preload data', () => {
+  const plan = getEditorRunFromPlan(makeProject(makeRunFromGraph()), graphId, 'selected' as NodeId, registry);
+
+  assert.equal(
+    canPreloadEditorRunFromPlan(
+      plan,
+      {
+        source: [
+          {
+            processId: 'process-1' as any,
+            data: {
+              outputData: {
+                output: { type: 'string', storage: 'inline', value: 'source' },
+              },
+            },
+          },
+        ],
+      } as any,
+      {
+        graphId,
+        frozenNodeOutputs: {
+          [graphId]: {
+            side: [
+              {
+                output: { type: 'string', value: 'frozen side' },
+              },
+            ],
+          },
+        } as any,
+      },
+    ),
+    true,
+  );
+});
+
 test('getDependentDataForNodeForPreload returns prior outputs for requested dependency nodes', () => {
   const preloadData = getDependentDataForNodeForPreload(['node-1' as any], {
     'node-1': [
@@ -227,6 +263,104 @@ test('getDependentDataForNodeForPreload returns prior outputs for requested depe
       output: { type: 'string', value: 'hello' },
     },
   });
+});
+
+test('getDependentDataForNodeForPreload prefers frozen boundary outputs over previous run outputs', () => {
+  const preloadData = getDependentDataForNodeForPreload(
+    ['node-1' as NodeId],
+    {
+      'node-1': [
+        {
+          processId: 'process-latest' as any,
+          data: {
+            outputData: {
+              output: { type: 'string', storage: 'inline', value: 'history value' },
+            },
+          },
+        },
+      ],
+    } as any,
+    {
+      graphId,
+      frozenNodeOutputs: {
+        [graphId]: {
+          ['node-1' as NodeId]: [
+            {
+              output: { type: 'string', value: 'frozen value' },
+            },
+          ],
+        },
+      } as any,
+    },
+  );
+
+  assert.deepEqual(preloadData, {
+    'node-1': {
+      output: { type: 'string', value: 'frozen value' },
+    },
+  });
+});
+
+test('getFrozenNodeOutputsForExecutorRunPayload includes cloned data for internal executors', () => {
+  const frozenNodeOutputs = {
+    [graphId]: {
+      ['node-1' as NodeId]: [
+        {
+          output: { type: 'object', value: { nested: true } },
+        },
+      ],
+    },
+  } as any;
+
+  const payload = getFrozenNodeOutputsForExecutorRunPayload(frozenNodeOutputs, {
+    type: 'internal-hosted',
+    url: 'ws://executor.example/internal',
+  });
+
+  assert.deepEqual(payload, frozenNodeOutputs);
+  assert.notEqual(payload, frozenNodeOutputs);
+  assert.notEqual(payload?.[graphId]?.['node-1' as NodeId]?.[0], frozenNodeOutputs[graphId]['node-1' as NodeId][0]);
+});
+
+test('getFrozenNodeOutputsForExecutorRunPayload rejects non-JSON-safe data for internal executors', () => {
+  const frozenNodeOutputs = {
+    [graphId]: {
+      ['node-1' as NodeId]: [
+        {
+          output: { type: 'object', value: { id: BigInt(1) } },
+        },
+      ],
+    },
+  } as any;
+
+  assert.throws(
+    () =>
+      getFrozenNodeOutputsForExecutorRunPayload(frozenNodeOutputs, {
+        type: 'internal-hosted',
+        url: 'ws://executor.example/internal',
+      }),
+    /BigInt/,
+  );
+});
+
+test('getFrozenNodeOutputsForExecutorRunPayload excludes data for external debuggers', () => {
+  const frozenNodeOutputs = {
+    [graphId]: {
+      ['node-1' as NodeId]: [
+        {
+          output: { type: 'string', value: 'frozen' },
+        },
+      ],
+    },
+  } as any;
+
+  assert.equal(
+    getFrozenNodeOutputsForExecutorRunPayload(frozenNodeOutputs, {
+      type: 'external-debugger',
+      url: 'ws://debugger.example/latest',
+    }),
+    undefined,
+  );
 });
 
 test('getDependentDataForNodeForPreload skips newer runs with only absent output wrappers', () => {
