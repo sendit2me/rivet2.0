@@ -1,0 +1,36 @@
+---
+id: cron
+title: Cron Node
+sidebar_label: Cron
+---
+
+# Cron Node
+
+The Cron node runs a target graph on a schedule after the node is triggered.
+
+It supports simple intervals such as `5 minutes` and cron expressions such as `*/5 * * * *`.
+
+## Inputs
+
+| Title        | Data Type | Description                                             |
+| ------------ | --------- | ------------------------------------------------------- |
+| Trigger      | `boolean` | Starts the scheduled job when true.                     |
+| Target Graph | `string`  | Optional target graph input when input mode is enabled. |
+
+## Outputs
+
+| Title       | Data Type | Description                               |
+| ----------- | --------- | ----------------------------------------- |
+| Last Output | `any`     | Last output returned by the target graph. |
+| Iteration   | `number`  | Current iteration number.                 |
+| Completed   | `boolean` | True after the scheduled job completes.   |
+| Next Run    | `string`  | ISO timestamp for the next scheduled run. |
+
+## Settings
+
+| Setting             | Description                                        |
+| ------------------- | -------------------------------------------------- |
+| Execute Immediately | Runs once immediately in addition to the schedule. |
+| Target Graph        | Graph to execute on schedule.                      |
+| Schedule Type       | Cron expression or simple interval.                |
+| Schedule            | Schedule expression.                               |

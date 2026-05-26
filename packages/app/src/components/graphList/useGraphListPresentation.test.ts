@@ -37,6 +37,76 @@ describe('graph list presentation helpers', () => {
     assert.equal(presentation.isCollapsedOpenGraphFolder, true);
     assert.equal(presentation.folderGraphCount, 1);
     assert.equal(presentation.graphIsRunning, false);
+    assert.equal(presentation.containsReferencingSelectedGraph, false);
+  });
+
+  it('detects collapsed folders that contain graphs referencing the open graph', () => {
+    const item: NodeGraphFolderItem = {
+      type: 'folder',
+      name: 'Folder',
+      fullPath: 'Folder',
+      children: [
+        {
+          type: 'folder',
+          name: 'Nested',
+          fullPath: 'Folder/Nested',
+          children: [{ type: 'graph', name: 'Caller', graph: graph('caller', 'Folder/Nested/Caller') }],
+        },
+      ],
+    };
+    const baseOptions = {
+      currentGraph: graph('target', 'Target'),
+      dragOverFolderName: undefined,
+      draggingItemFolder: undefined,
+      fullPath: getGraphListItemPath(item),
+      graphReachabilityByGraphId: {},
+      item,
+      mainGraphId: 'main' as GraphId,
+      referencingSelectedGraphIds: new Set(['caller' as GraphId]),
+      renamingItemFullPath: undefined,
+      runningGraphs: [],
+      showUnreachableBadges: true,
+    };
+
+    const collapsedPresentation = getFolderItemPresentation({
+      ...baseOptions,
+      isExpanded: false,
+    });
+
+    assert.equal(collapsedPresentation.containsReferencingSelectedGraph, true);
+
+    const expandedPresentation = getFolderItemPresentation({
+      ...baseOptions,
+      isExpanded: true,
+    });
+
+    assert.equal(expandedPresentation.containsReferencingSelectedGraph, false);
+  });
+
+  it('skips collapsed folder reference markers when there are no referencing graphs', () => {
+    const item: NodeGraphFolderItem = {
+      type: 'folder',
+      name: 'Folder',
+      fullPath: 'Folder',
+      children: [{ type: 'graph', name: 'Caller', graph: graph('caller', 'Folder/Caller') }],
+    };
+
+    const presentation = getFolderItemPresentation({
+      currentGraph: graph('target', 'Target'),
+      dragOverFolderName: undefined,
+      draggingItemFolder: undefined,
+      fullPath: getGraphListItemPath(item),
+      graphReachabilityByGraphId: {},
+      isExpanded: false,
+      item,
+      mainGraphId: 'main' as GraphId,
+      referencingSelectedGraphIds: new Set(),
+      renamingItemFullPath: undefined,
+      runningGraphs: [],
+      showUnreachableBadges: true,
+    });
+
+    assert.equal(presentation.containsReferencingSelectedGraph, false);
   });
 
   it('derives graph row status without reading React state', () => {
@@ -65,6 +135,7 @@ describe('graph list presentation helpers', () => {
     assert.equal(presentation.isSelected, true);
     assert.equal(presentation.isMainGraph, true);
     assert.equal(presentation.referencesSelectedGraph, true);
+    assert.equal(presentation.containsReferencingSelectedGraph, false);
     assert.equal(presentation.graphIsRunning, true);
     assert.equal(presentation.shouldShowUnreachableBadge, true);
   });

@@ -37,6 +37,7 @@ export const FolderItem: FC<{
   draggingItemFolder: string | undefined;
   onGraphSelected?: (savedGraph: NodeGraph) => void;
   onRenameItem: (fullPath: string, newFullPath: string) => void;
+  onCancelRename: () => void;
   showUnreachableBadges: boolean;
 }> = memo(
   ({
@@ -49,6 +50,7 @@ export const FolderItem: FC<{
     draggingItemFolder,
     onGraphSelected,
     onRenameItem,
+    onCancelRename,
     depth,
     dragOverFolderName,
     showUnreachableBadges,
@@ -60,6 +62,7 @@ export const FolderItem: FC<{
     const isExpanded = expandedFolders[`${projectMetadata.id}/${fullPath}`] ?? true; // Default open
 
     const {
+      containsReferencingSelectedGraph,
       folderGraphCount,
       graphIsRunning,
       isCollapsedOpenGraphFolder,
@@ -161,7 +164,11 @@ export const FolderItem: FC<{
           >
             <div className="graph-item-select" {...draggableRowProps} onClick={handleItemClick}>
               {isRenaming ? (
-                <FolderItemRename value={fullPath.replace(/.*\//, '')} onSaved={handleRenameSaved} />
+                <FolderItemRename
+                  value={fullPath.replace(/.*\//, '')}
+                  onSaved={handleRenameSaved}
+                  onCancel={onCancelRename}
+                />
               ) : (
                 <>
                   {graphIsRunning && (
@@ -169,7 +176,14 @@ export const FolderItem: FC<{
                       <NodeRunningIndicator isRunning delayMs={0} label="Graph running" />
                     </div>
                   )}
-                  {referencesSelectedGraph && <span className="graph-reference-dot" aria-hidden="true" />}
+                  {(referencesSelectedGraph || containsReferencingSelectedGraph) && (
+                    <span
+                      className={clsx('graph-reference-dot', {
+                        'folder-reference-dot': containsReferencingSelectedGraph,
+                      })}
+                      aria-hidden="true"
+                    />
+                  )}
                   <span className="graph-item-name">
                     {item.type === 'folder' &&
                       (isExpanded ? (
@@ -208,6 +222,7 @@ export const FolderItem: FC<{
                   referencingSelectedGraphIds={referencingSelectedGraphIds}
                   onGraphSelected={onGraphSelected}
                   onRenameItem={onRenameItem}
+                  onCancelRename={onCancelRename}
                   dragOverFolderName={dragOverFolderName}
                   depth={virtualDepth + 1}
                   draggingItemFolder={draggingItemFolder}
@@ -245,33 +260,60 @@ const OpenFolderIcon: FC<SVGProps<SVGSVGElement>> = (props) => (
 
 const FolderItemRename: FC<{
   value: string;
-  onSaved?: (newName: string) => void;
-}> = ({ value, onSaved }) => {
+  onSaved: (newName: string) => void;
+  onCancel: () => void;
+}> = ({ value, onSaved, onCancel }) => {
   const [renameValue, setRenameValue] = useState(value);
+  const renameFieldRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const ownerDocument = renameFieldRef.current?.ownerDocument ?? document;
+    const handleOutsidePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (target instanceof Node && renameFieldRef.current?.contains(target)) {
+        return;
+      }
+
+      onCancel();
+    };
+
+    ownerDocument.addEventListener('pointerdown', handleOutsidePointerDown, true);
+    return () => {
+      ownerDocument.removeEventListener('pointerdown', handleOutsidePointerDown, true);
+    };
+  }, [onCancel]);
 
   const handleRenameFocus = useStableCallback((e: FocusEvent<HTMLInputElement>) => {
     e.target.select();
     e.preventDefault();
   });
 
-  const handleRenameBlur = useStableCallback((e: FocusEvent<HTMLInputElement>) => {
-    onSaved?.(renameValue);
+  const handleRenameBlur = useStableCallback(() => {
+    onCancel();
   });
 
   const handleRenameKeyDown = useStableCallback((e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
-      onSaved?.(renameValue);
+      e.preventDefault();
+      e.stopPropagation();
+      onSaved(renameValue);
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      onCancel();
     }
   });
 
   return (
-    <TextField
-      autoFocus
-      onFocus={handleRenameFocus}
-      onBlur={handleRenameBlur}
-      onKeyDown={handleRenameKeyDown}
-      value={renameValue}
-      onChange={(e) => setRenameValue((e.target as HTMLInputElement).value)}
-    />
+    <div ref={renameFieldRef}>
+      <TextField
+        autoFocus
+        onFocus={handleRenameFocus}
+        onBlur={handleRenameBlur}
+        onKeyDown={handleRenameKeyDown}
+        value={renameValue}
+        onChange={(e) => setRenameValue((e.target as HTMLInputElement).value)}
+      />
+    </div>
   );
 };

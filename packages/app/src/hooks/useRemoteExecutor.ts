@@ -21,7 +21,7 @@ import { trivetState } from '../state/trivet';
 import { runTrivet } from '@valerypopoff/trivet';
 import { produce } from 'immer';
 import { userInputModalQuestionsState } from '../state/userInput';
-import { lastRunDataByNodeState } from '../state/dataFlow';
+import { frozenNodeOutputsState, lastRunDataByNodeState } from '../state/dataFlow';
 import { useAtomValue, useSetAtom, useAtom } from 'jotai';
 import { setUserInputSubmitHandler } from '../state/actions/userInputActions';
 import { useEffect, useRef } from 'react';
@@ -30,6 +30,8 @@ import {
   createProcessEventDispatcher,
   getDependentDataForNodeForPreload,
   getEditorRunFromPlan,
+  getFrozenNodePreloadOptionsForExecutorTarget,
+  getFrozenNodeOutputsForExecutorRunPayload,
   selectTestSuitesToRun,
 } from './remoteExecutorHelpers.js';
 import { handleError } from '../utils/errorHandling.js';
@@ -89,6 +91,7 @@ export function useRemoteExecutor() {
   const [{ testSuites }, setTrivetState] = useAtom(trivetState);
   const setUserInputQuestions = useSetAtom(userInputModalQuestionsState);
   const lastRunData = useAtomValue(lastRunDataByNodeState);
+  const frozenNodeOutputs = useAtomValue(frozenNodeOutputsState);
   const loadedProject = useAtomValue(loadedProjectState);
   const pluginStates = useAtomValue(pluginsState);
 
@@ -350,7 +353,11 @@ export function useRemoteExecutor() {
           projectNodeRegistry,
         );
         runToNodeIds = runFromPlan.runToNodeIds;
-        preloadData = getDependentDataForNodeForPreload(runFromPlan.preloadNodeIds, lastRunData);
+        preloadData = getDependentDataForNodeForPreload(
+          runFromPlan.preloadNodeIds,
+          lastRunData,
+          getFrozenNodePreloadOptionsForExecutorTarget(frozenNodeOutputs, graphToRun, sessionState.target),
+        );
         currentExecution.preserveNodeRunDataForNextStart(runFromPlan.preserveNodeIds);
         currentExecution.suppressPreloadedNodeEventsForCurrentRun(runFromPlan.preloadNodeIds);
       }
@@ -362,6 +369,7 @@ export function useRemoteExecutor() {
           graphId: graphToRun,
           runToNodeIds,
           preloadData,
+          frozenNodeOutputs: getFrozenNodeOutputsForExecutorRunPayload(frozenNodeOutputs, sessionState.target),
           contextValues,
           projectPath: loadedProject.path,
           useEditorCache: true,

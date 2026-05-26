@@ -1,0 +1,34 @@
+---
+id: delegate-tool-call
+title: Delegate Tool Call Node
+sidebar_label: Delegate Tool Call
+---
+
+# Delegate Tool Call Node
+
+The Delegate Tool Call node routes a tool call object to a handler graph.
+
+It is useful after an LLM returns a tool call and each tool should be implemented by a Rivet graph.
+
+## Inputs
+
+| Title     | Data Type | Description                   |
+| --------- | --------- | ----------------------------- |
+| Tool Call | `object`  | Tool call object to delegate. |
+
+## Outputs
+
+| Title          | Data Type                          | Description                                        |
+| -------------- | ---------------------------------- | -------------------------------------------------- |
+| Output         | `string` or `string[]`             | Output returned by the delegated handler.          |
+| Message Output | `chat-message`, `object`, or array | Handler output shaped for prompt/message assembly. |
+
+## Settings
+
+| Setting                    | Description                                                                    |
+| -------------------------- | ------------------------------------------------------------------------------ |
+| Auto Delegate              | Finds a subgraph whose name matches the tool name.                             |
+| Fall Back To External Call | If no graph matches, attempts host external functions before unknown handling. |
+| Passthrough Errors         | Returns external-function errors as output strings instead of aborting.        |
+| Handlers                   | Manual mapping from tool name to graph when auto delegate is off.              |
+| Unknown Handler            | Graph to run when no specific handler is found.                                |

@@ -6,21 +6,38 @@ import {
   type Outputs,
   type ProcessEvents,
   type Project,
+  type FrozenNodeOutputsByGraph,
 } from '@valerypopoff/rivet2-core';
 import type { ProcessDataForNode, RunDataByNodeId } from '../state/dataFlow.js';
 import type { DataRefReader } from '../providers/ProvidersContext.js';
 import { hasStoredPortMapValues, restoreStoredPortMap } from '../utils/executionDataReaders.js';
 import { hasUnavailableStoredRefs } from '../utils/executionDataStorage.js';
 import { getGlobalDataRef } from '../utils/globals/globalDataRefs.js';
+import {
+  cloneFrozenNodeOutputsForExecutor,
+  getFrozenNodePreloadOutput,
+  prepareFrozenNodeOutputsForInternalExecutorTransport,
+} from '../utils/frozenNodeOutputs.js';
+import type { ExecutorSessionTarget } from './executorSessionTarget.js';
 
 const dataRefs: DataRefReader = {
   get: getGlobalDataRef,
 };
 
-export function getDependentDataForNodeForPreload(dependencyNodes: NodeId[], previousRunData: RunDataByNodeId) {
+export function getDependentDataForNodeForPreload(
+  dependencyNodes: NodeId[],
+  previousRunData: RunDataByNodeId,
+  options: { frozenNodeOutputs?: FrozenNodeOutputsByGraph; graphId?: GraphId } = {},
+) {
   const preloadData: Record<NodeId, Outputs> = {};
 
   for (const dependencyNode of dependencyNodes) {
+    const frozenOutput = getFrozenNodePreloadOutput(options.frozenNodeOutputs, options.graphId, dependencyNode);
+    if (frozenOutput) {
+      preloadData[dependencyNode] = frozenOutput;
+      continue;
+    }
+
     const dependencyNodeData = previousRunData[dependencyNode];
 
     if (!dependencyNodeData) {
@@ -56,6 +73,30 @@ export function getDependentDataForNodeForPreload(dependencyNodes: NodeId[], pre
   }
 
   return preloadData;
+}
+
+export function getFrozenNodeOutputsForExecutorRunPayload(
+  frozenNodeOutputs: FrozenNodeOutputsByGraph,
+  target: ExecutorSessionTarget | null | undefined,
+): FrozenNodeOutputsByGraph | undefined {
+  if (!canUseFrozenNodeOutputsForExecutorTarget(target)) {
+    return undefined;
+  }
+
+  const payload = cloneFrozenNodeOutputsForExecutor(frozenNodeOutputs);
+  return payload ? prepareFrozenNodeOutputsForInternalExecutorTransport(payload) : undefined;
+}
+
+export function getFrozenNodePreloadOptionsForExecutorTarget(
+  frozenNodeOutputs: FrozenNodeOutputsByGraph,
+  graphId: GraphId,
+  target: ExecutorSessionTarget | null | undefined,
+): { frozenNodeOutputs: FrozenNodeOutputsByGraph; graphId: GraphId } | undefined {
+  return canUseFrozenNodeOutputsForExecutorTarget(target) ? { frozenNodeOutputs, graphId } : undefined;
+}
+
+function canUseFrozenNodeOutputsForExecutorTarget(target: ExecutorSessionTarget | null | undefined): boolean {
+  return target?.type === 'internal-desktop' || target?.type === 'internal-hosted';
 }
 
 export type EditorRunFromPlan = {
@@ -130,12 +171,24 @@ export function getEditorRunFromPlan(
   };
 }
 
-export function canPreloadEditorRunFromPlan(plan: EditorRunFromPlan, previousRunData: RunDataByNodeId): boolean {
-  return getUnavailablePreloadNodeIds(plan.preloadNodeIds, previousRunData).length === 0;
+export function canPreloadEditorRunFromPlan(
+  plan: EditorRunFromPlan,
+  previousRunData: RunDataByNodeId,
+  options: { frozenNodeOutputs?: FrozenNodeOutputsByGraph; graphId?: GraphId } = {},
+): boolean {
+  return getUnavailablePreloadNodeIds(plan.preloadNodeIds, previousRunData, options).length === 0;
 }
 
-export function getUnavailablePreloadNodeIds(preloadNodeIds: NodeId[], previousRunData: RunDataByNodeId): NodeId[] {
+export function getUnavailablePreloadNodeIds(
+  preloadNodeIds: NodeId[],
+  previousRunData: RunDataByNodeId,
+  options: { frozenNodeOutputs?: FrozenNodeOutputsByGraph; graphId?: GraphId } = {},
+): NodeId[] {
   return preloadNodeIds.filter((nodeId) => {
+    if (getFrozenNodePreloadOutput(options.frozenNodeOutputs, options.graphId, nodeId)) {
+      return false;
+    }
+
     const latestExecutionWithOutput = findLatestExecutionWithOutput(previousRunData[nodeId]);
     const outputData = latestExecutionWithOutput?.data.outputData;
 

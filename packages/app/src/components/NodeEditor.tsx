@@ -36,6 +36,7 @@ import type { NodeColor } from '../utils/nodeColor.js';
 import Modal, { ModalBody, ModalFooter, ModalTransition } from '@atlaskit/modal-dialog';
 import Button from '@atlaskit/button';
 import { AppModalHeader } from './AppModalHeader';
+import { getBuiltInNodeDocumentationUrl } from '../utils/nodeDocumentation.js';
 
 export const NodeEditorRenderer: FC = () => {
   const nodesById = useAtomValue(nodesByIdState);
@@ -176,15 +177,40 @@ const Container = styled.div`
     display: flex;
     justify-content: flex-end;
     align-items: center;
+    gap: 16px;
     height: 24px;
     background-color: rgba(0, 0, 0, 0.1);
+    padding: 0 16px;
+    font-size: var(--ui-font-size-sm);
+    color: var(--foreground-muted);
+    font-family: var(--font-family-monospace);
+
+    &.has-node-doc-link {
+      justify-content: space-between;
+    }
+
+    .node-doc-link,
+    .node-id {
+      line-height: 24px;
+    }
+
+    .node-doc-link {
+      color: inherit;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      white-space: nowrap;
+    }
+
+    .node-doc-link:hover {
+      color: var(--grey-light);
+    }
 
     .node-id {
-      font-size: var(--ui-font-size-sm);
-      color: var(--foreground-muted);
-      font-family: var(--font-family-monospace);
-      padding: 0 16px;
-      line-height: 24px;
+      min-width: 0;
+      overflow: hidden;
+      text-align: right;
+      text-overflow: ellipsis;
+      white-space: nowrap;
       cursor: pointer;
     }
   }
@@ -840,6 +866,7 @@ export const NodeEditor: FC<NodeEditorProps> = ({ selectedNode, onDeselect }) =>
   const showGlobalControls = selectedNode.type !== 'comment';
   const projectNodeRegistry = useProjectNodeRegistry();
   const nodeDisplayName = `${projectNodeRegistry.getDynamicDisplayName(selectedNode.type)} node`;
+  const nodeDocumentationUrl = getBuiltInNodeDocumentationUrl(selectedNode.type);
   const actionBarAvoidance = useNodeEditorActionBarAvoidance(containerRef);
   const containerStyle = {
     '--node-editor-panel-width': `${panelWidth}px`,
@@ -893,7 +920,12 @@ export const NodeEditor: FC<NodeEditorProps> = ({ selectedNode, onDeselect }) =>
               <div className="bottom-spacer" />
             </div>
           </div>
-          <div className="section section-footer">
+          <div className={`section section-footer${nodeDocumentationUrl ? ' has-node-doc-link' : ''}`}>
+            {nodeDocumentationUrl && (
+              <a className="node-doc-link" href={nodeDocumentationUrl} target="_blank" rel="noreferrer">
+                Node documentation
+              </a>
+            )}
             <span className="node-id" onClick={selectText}>
               {`${nodeDisplayName}, ${selectedNode.id}`}
             </span>

@@ -14,6 +14,7 @@ import {
   type GraphRunId,
   type RootRunId,
   type ProjectId,
+  type FrozenNodeOutputsByGraph,
 } from '@valerypopoff/rivet2-core';
 import { graphNavigationStackState } from './graphBuilder.js';
 import type { GraphViewKey } from '../domain/graphEditing/navigationActions.js';
@@ -47,6 +48,7 @@ export type ProjectExecutionSnapshot = {
   graphRunHistoryByView: Record<GraphViewKey, GraphRunRecord[]>;
   graphRunning: boolean;
   graphStartTime: number | undefined;
+  frozenNodeOutputs?: FrozenNodeOutputsByGraph;
   lastRunDataByNode: RunDataByNodeId;
   rootGraph: GraphId | undefined;
   runningGraphs: GraphId[];
@@ -184,6 +186,8 @@ export const resolvedGraphSelectionState = atom((get) => {
 
 export const selectedProcessPageNodesState = atom<Record<NodeId, PageValue>>({});
 
+export const frozenNodeOutputsState = atom<FrozenNodeOutputsByGraph>({});
+
 export const projectExecutionSnapshotsState = atom<Record<ProjectId, ProjectExecutionSnapshot | undefined>>({});
 
 export const selectedProcessPageState = atomFamily((nodeId: NodeId) =>
@@ -214,6 +218,7 @@ export function createEmptyProjectExecutionSnapshot(): ProjectExecutionSnapshot 
     graphRunHistoryByView: {},
     graphRunning: false,
     graphStartTime: undefined,
+    frozenNodeOutputs: {},
     lastRunDataByNode: {},
     rootGraph: undefined,
     runningGraphs: [],

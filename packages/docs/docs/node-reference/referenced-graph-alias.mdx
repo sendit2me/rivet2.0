@@ -1,0 +1,34 @@
+---
+id: referenced-graph-alias
+title: Referenced Graph Alias Node
+sidebar_label: Referenced Graph Alias
+---
+
+# Referenced Graph Alias Node
+
+The Referenced Graph Alias node calls a graph from a referenced project.
+
+It behaves like a cross-project subgraph node: inputs and outputs come from the referenced graph's Graph Input and Graph Output nodes.
+
+## Inputs
+
+Inputs are generated from the referenced graph's [Graph Input](./graph-input.mdx) nodes.
+
+## Outputs
+
+Outputs are generated from the referenced graph's [Graph Output](./graph-output.mdx) nodes.
+
+| Title | Data Type | Description                                         |
+| ----- | --------- | --------------------------------------------------- |
+| Error | `string`  | Optional error output when error output is enabled. |
+
+## Settings
+
+| Setting                | Description                                        |
+| ---------------------- | -------------------------------------------------- |
+| Use Error Output       | Adds an `Error` output instead of aborting.        |
+| Output Cost & Duration | Adds cost and duration outputs from the graph run. |
+
+## Notes
+
+This node is created for project-reference workflows. Use [Subgraph](./subgraph.mdx) for graphs inside the current project.

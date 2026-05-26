@@ -5,7 +5,7 @@ import { useAtomValue } from 'jotai';
 import { useDependsOnPlugins } from '../hooks/useDependsOnPlugins';
 import { useHistoricalNodeChangeInfo } from '../hooks/useHistoricalNodeChangeInfo';
 import { useNodePortLabelMinWidth } from '../hooks/useNodePortLabelMinWidth';
-import { type ProcessDataForNode, resolvedGraphSelectionState } from '../state/dataFlow.js';
+import { type ProcessDataForNode, frozenNodeOutputsState, resolvedGraphSelectionState } from '../state/dataFlow.js';
 import { getNodeExecutionClassFlags, getSelectedProcessRun } from '../state/selectors/executionSelectors.js';
 import { getSplitStackGhostColors } from '../utils/nodeSplitStackColors.js';
 import { getNodeBorderReferenceColor, getNodeHeaderColor, isNodeBorderVisible } from '../utils/nodeColor.js';
@@ -14,6 +14,7 @@ import { ZoomedOutVisualNodeContent } from './visualNode/ZoomedOutVisualNodeCont
 import { NormalVisualNodeContent } from './visualNode/NormalVisualNodeContent';
 import { getCanvasCommentHeight } from '../hooks/canvasVisibilityBounds.js';
 import { useDelayedRunningState } from './visualNode/NodeRunningIndicator.js';
+import { graphMetadataState } from '../state/graph.js';
 
 export type VisualNodeProps = {
   node: ChartNode;
@@ -70,6 +71,8 @@ export const VisualNode = memo(
       const minimumNodeWidth = useNodePortLabelMinWidth(node);
       const changeInfo = useHistoricalNodeChangeInfo(node.id);
       const graphSelectionOptions = useAtomValue(resolvedGraphSelectionState);
+      const frozenNodeOutputs = useAtomValue(frozenNodeOutputsState);
+      const graphId = useAtomValue(graphMetadataState)?.id;
       const nodeColor = node.visualData.color;
       const isOutputPreviewHovered = Boolean(isHovered || shouldShowHoverControls);
 
@@ -117,6 +120,7 @@ export const VisualNode = memo(
       const selectedProcessRun = getSelectedProcessRun(lastRun, processPage, graphSelectionOptions);
       const executionClassFlags = getNodeExecutionClassFlags(selectedProcessRun);
       const showRunningChrome = useDelayedRunningState(executionClassFlags.running);
+      const isFrozen = Boolean(graphId && frozenNodeOutputs[graphId]?.[node.id]?.length);
 
       if (renderSkeleton) {
         return <div className="node-skeleton" style={style} {...nodeAttributes} />;
@@ -149,6 +153,7 @@ export const VisualNode = memo(
               isComment,
               isOutputExpanded,
               isSplit: node.isSplitRun,
+              frozen: isFrozen,
               disabled: node.disabled,
               conditional: !!node.isConditional,
             },
@@ -179,6 +184,7 @@ export const VisualNode = memo(
               handleAttributes={handleAttributes}
               isKnownNodeType={isKnownNodeType}
               isReallyZoomedOut={effectiveIsReallyZoomedOut}
+              isFrozen={isFrozen}
               showRunningIndicator={showRunningChrome}
             />
           ) : (
@@ -190,6 +196,7 @@ export const VisualNode = memo(
               isKnownNodeType={isKnownNodeType}
               isHistoricalChanged={isHistoricalChanged}
               isOutputPreviewHovered={isOutputPreviewHovered}
+              isFrozen={isFrozen}
               showRunningIndicator={showRunningChrome}
               renderHeavyContent={renderHeavyContent}
               minimumNodeWidth={minimumNodeWidth}

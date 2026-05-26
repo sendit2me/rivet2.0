@@ -1,0 +1,37 @@
+---
+id: js-map
+title: JS Map Node
+sidebar_label: JS Map
+---
+
+# JS Map Node
+
+The JS Map node transforms each item in an input array with a JavaScript callback body.
+
+The callback body can use `item`, `index`, and `array`, and should `return` the mapped value for each item.
+
+## Inputs
+
+| Title | Data Type | Description             |
+| ----- | --------- | ----------------------- |
+| Array | `any[]`   | The array to transform. |
+
+Additional inputs are created from `{{name}}` interpolation tokens in the callback body.
+
+## Outputs
+
+| Title  | Data Type | Description                        |
+| ------ | --------- | ---------------------------------- |
+| Mapped | `any[]`   | The array of mapped return values. |
+
+## Settings
+
+| Setting       | Description                                                  |
+| ------------- | ------------------------------------------------------------ |
+| Callback Body | JavaScript callback body. Use `return` to produce each item. |
+
+## Example
+
+```js
+return { ...item, index };
+```

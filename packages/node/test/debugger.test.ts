@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import * as assert from 'node:assert/strict';
 import {
   WarningsPort,
+  createDebuggerTransportUndefinedSentinel,
   decodeDebuggerTransportSentinels,
   type ChartNode,
   type DataType,
@@ -112,6 +113,70 @@ function makeExecution(graphId = 'graph-1' as GraphId) {
     rootRunId: 'root-run' as RootRunId,
   };
 }
+
+it('forwards frozen node outputs from internal run messages to the dynamic graph runner', async () => {
+  const server = new FakeWebSocketServer();
+  const socket = new FakeWebSocket();
+  const frozenNodeOutputs = {
+    ['graph-1' as GraphId]: {
+      ['node-1' as NodeId]: [
+        {
+          ['output' as PortId]: {
+            type: 'object',
+            value: {
+              messages: [{ isCacheBreakpoint: undefined, role: 'user' }],
+            },
+          },
+        },
+      ],
+    },
+  };
+  const transportFrozenNodeOutputs = {
+    ['graph-1' as GraphId]: {
+      ['node-1' as NodeId]: [
+        {
+          ['output' as PortId]: {
+            type: 'object',
+            value: {
+              messages: [{ isCacheBreakpoint: createDebuggerTransportUndefinedSentinel(), role: 'user' }],
+            },
+          },
+        },
+      ],
+    },
+  };
+  let receivedFrozenNodeOutputs: unknown;
+  startDebuggerServer({
+    server: server as unknown as WebSocketServer,
+    dynamicGraphRun: async (options) => {
+      receivedFrozenNodeOutputs = options.frozenNodeOutputs;
+    },
+  });
+
+  server.connect(socket);
+  socket.emit(
+    'message',
+    Buffer.from(
+      JSON.stringify({
+        type: 'run',
+        data: {
+          requestId: 'request-1',
+          graphId: 'graph-1',
+          inputs: {},
+          contextValues: {},
+          projectPath: undefined,
+          frozenNodeOutputs: transportFrozenNodeOutputs,
+        },
+      }),
+    ),
+  );
+
+  await waitFor(() => {
+    assert.deepEqual(receivedFrozenNodeOutputs, frozenNodeOutputs);
+  });
+
+  socket.close();
+});
 
 function makeNestedCircularExpressionProject(): Project {
   const mainGraphId = 'main' as GraphId;

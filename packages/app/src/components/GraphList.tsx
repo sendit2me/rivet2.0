@@ -1,6 +1,6 @@
 import { DndContext, PointerSensor, useDroppable, useSensor, useSensors } from '@dnd-kit/core';
 import { css } from '@emotion/react';
-import { type FC, type MouseEvent, type KeyboardEvent, memo, useMemo, useState, type SVGProps } from 'react';
+import { type FC, type MouseEvent, type KeyboardEvent, memo, useMemo, useRef, useState, type SVGProps } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
 import Button from '@atlaskit/button';
 import Modal, { ModalBody, ModalFooter, ModalTransition } from '@atlaskit/modal-dialog';
@@ -43,6 +43,8 @@ import { getFolderNames } from './graphList/graphFolders.js';
 import { PopupMenuItem, popupMenuListStyles } from './PopupMenu.js';
 
 const styles = css`
+  --collapsed-open-graph-folder-color: color-mix(in srgb, var(--primary) 28%, transparent);
+
   display: flex;
   flex-direction: column;
   flex-shrink: 1;
@@ -55,6 +57,10 @@ const styles = css`
     flex-direction: column;
     flex: 1 1 auto;
     min-height: 0;
+
+    &:focus {
+      outline: none;
+    }
   }
 
   .project-tree-panel-header {
@@ -289,7 +295,7 @@ const styles = css`
   }
 
   .contains-open-graph .graph-item-select {
-    background-color: color-mix(in srgb, var(--primary) 28%, transparent);
+    background-color: var(--collapsed-open-graph-folder-color);
     color: var(--grey-lightest);
   }
 
@@ -307,6 +313,11 @@ const styles = css`
     border-radius: 50%;
     background: var(--primary);
     box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18);
+  }
+
+  .graph-reference-dot.folder-reference-dot {
+    background: var(--collapsed-open-graph-folder-color);
+    box-shadow: 0 0 0 1px var(--collapsed-open-graph-folder-color);
   }
 
   .selected {
@@ -441,6 +452,12 @@ const deleteGraphConfirmBody = css`
   gap: 8px;
 `;
 
+function isInteractiveGraphListTarget(target: EventTarget): boolean {
+  return target instanceof Element
+    ? target.closest('a, button, input, select, textarea, [contenteditable="true"], [role="textbox"]') != null
+    : false;
+}
+
 const graphListContextMenuIcons: GraphListContextMenuIcons = {
   renameGraph: EditPenIcon,
   duplicateGraph: DuplicateIcon,
@@ -469,10 +486,12 @@ export const GraphList: FC = memo(() => {
     handleDeleteFolder,
     makeMainGraph,
     startRename,
+    cancelRename,
     renameFolderItem,
   } = useGraphOperations();
   const setGraph = useSetAtom(graphState);
   const setSavedGraphs = useSetAtom(savedGraphsState);
+  const graphListContainerRef = useRef<HTMLDivElement>(null);
 
   const { draggingItemFolder, dragOverFolderName, handleDragStart, handleDragEnd, handleDragOver } =
     useGraphListDragDrop(renameFolderItem);
@@ -526,6 +545,39 @@ export const GraphList: FC = memo(() => {
       setSearchText('');
       (e.target as HTMLElement).blur();
     }
+  });
+
+  const currentGraphListName = useMemo(() => {
+    const currentGraphId = graph.metadata?.id;
+    return savedGraphs.find((savedGraph) => savedGraph.metadata?.id === currentGraphId)?.metadata?.name;
+  }, [graph.metadata?.id, savedGraphs]);
+
+  const handleGraphListMouseDown = useStableCallback((e: MouseEvent<HTMLDivElement>) => {
+    if (isInteractiveGraphListTarget(e.target)) {
+      return;
+    }
+
+    graphListContainerRef.current?.focus({ preventScroll: true });
+  });
+
+  const handleGraphListKeyDown = useStableCallback((e: KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== 'F2' || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) {
+      return;
+    }
+
+    if (isInteractiveGraphListTarget(e.target)) {
+      return;
+    }
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (e.repeat || showContextMenu || renamingItemFullPath != null || currentGraphListName == null) {
+      return;
+    }
+
+    setSearchText('');
+    startRename(currentGraphListName);
   });
 
   const { reachability: graphListReachability, referencingSelectedGraphIds } = useGraphListPresentation({
@@ -696,7 +748,14 @@ export const GraphList: FC = memo(() => {
         </div>
       </div>
       {graphListReachability.notice && <div className="graph-list-notice">{graphListReachability.notice}</div>}
-      <div className="graph-list-container" onContextMenu={handleSidebarContextMenu}>
+      <div
+        className="graph-list-container"
+        onContextMenu={handleSidebarContextMenu}
+        onKeyDown={handleGraphListKeyDown}
+        onMouseDown={handleGraphListMouseDown}
+        ref={graphListContainerRef}
+        tabIndex={-1}
+      >
         <div
           className={clsx('graph-list', { 'dragging-over': dragOverFolderName === '' && draggingItemFolder !== '' })}
         >
@@ -720,6 +779,7 @@ export const GraphList: FC = memo(() => {
                 depth={0}
                 onGraphSelected={loadGraph}
                 onRenameItem={renameFolderItem}
+                onCancelRename={cancelRename}
                 showUnreachableBadges={graphListReachability.showUnreachableBadges}
               />
             ))}

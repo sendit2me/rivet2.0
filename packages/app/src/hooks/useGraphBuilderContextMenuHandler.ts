@@ -1,6 +1,6 @@
 import { P, match } from 'ts-pattern';
 import { useStableCallback } from './useStableCallback';
-import { type NodeId, type GraphId } from '@valerypopoff/rivet2-core';
+import { type ChartNode, type NodeId, type GraphId } from '@valerypopoff/rivet2-core';
 import { type ContextMenuContext } from '../components/ContextMenu';
 import { createRootGraphViewContext } from '../domain/graphEditing/navigationActions.js';
 import { editingNodeState } from '../state/graphBuilder';
@@ -10,7 +10,7 @@ import { useFactorIntoSubgraph } from './useFactorIntoSubgraph';
 import { useGraphExecutor } from './useGraphExecutor';
 import { useLoadGraph } from './useLoadGraph';
 import { usePasteNodes } from './usePasteNodes';
-import { nodesByIdState } from '../state/graph';
+import { graphMetadataState, nodesByIdState } from '../state/graph';
 import { useCopyNodes } from './useCopyNodes';
 import { useDuplicateNode } from './useDuplicateNode';
 import { useAtomValue, useSetAtom } from 'jotai';
@@ -18,6 +18,7 @@ import { useAddNodeCommand } from '../commands/addNodeCommand';
 import { useDeleteNodesCommand } from '../commands/deleteNodeCommand';
 import { copyToClipboard } from '../utils/copyToClipboard';
 import { useGoToSubgraphNode } from './useGoToSubgraphNode.js';
+import { useFrozenNodeOutputActions } from './useFrozenNodeOutputActions.js';
 
 export function useGraphBuilderContextMenuHandler() {
   const { clientToCanvasPosition } = useCanvasPositioning();
@@ -30,8 +31,10 @@ export function useGraphBuilderContextMenuHandler() {
   const factorIntoSubgraph = useFactorIntoSubgraph();
   const setEditingNodeId = useSetAtom(editingNodeState);
   const nodesById = useAtomValue(nodesByIdState);
+  const graphId = useAtomValue(graphMetadataState)?.id;
   const removeNodes = useDeleteNodesCommand();
   const goToSubgraphNode = useGoToSubgraphNode();
+  const { freezeNode, unfreezeNode } = useFrozenNodeOutputActions();
 
   const addNode = useAddNodeCommand();
 
@@ -83,6 +86,18 @@ export function useGraphBuilderContextMenuHandler() {
           const { nodeId } = context.data as { nodeId: NodeId };
 
           tryRunGraph({ from: nodeId });
+        })
+        .with('node-freeze', () => {
+          const { nodeId, nodeType } = context.data as { nodeId: NodeId; nodeType: ChartNode['type'] };
+          if (graphId) {
+            freezeNode(graphId, nodeId, nodeType);
+          }
+        })
+        .with('node-unfreeze', () => {
+          const { nodeId } = context.data as { nodeId: NodeId };
+          if (graphId) {
+            unfreezeNode(graphId, nodeId);
+          }
         })
         .with('node-copy', () => {
           const { nodeId } = context.data as { nodeId: NodeId };

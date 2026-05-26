@@ -4,9 +4,11 @@ import {
   GraphProcessor,
   NodeImpl,
   createBuiltInRegistry,
+  createFrozenNodeOutputResolver,
   globalRivetNodeRegistry,
   nodeDefinition,
   type ChartNode,
+  type GraphId,
   type Inputs,
   type NodeConnection,
   type NodeId,
@@ -37,10 +39,12 @@ function waitFor(ms: number) {
 class TrackedTestNodeImpl extends NodeImpl<TrackedNode> {
   static activeCount = 0;
   static maxActiveCount = 0;
+  static processCount = 0;
 
   static resetCounts() {
     TrackedTestNodeImpl.activeCount = 0;
     TrackedTestNodeImpl.maxActiveCount = 0;
+    TrackedTestNodeImpl.processCount = 0;
   }
 
   static create(): TrackedNode {
@@ -92,6 +96,7 @@ class TrackedTestNodeImpl extends NodeImpl<TrackedNode> {
   async process(inputs: Inputs): Promise<Outputs> {
     TrackedTestNodeImpl.activeCount += 1;
     TrackedTestNodeImpl.maxActiveCount = Math.max(TrackedTestNodeImpl.maxActiveCount, TrackedTestNodeImpl.activeCount);
+    TrackedTestNodeImpl.processCount += 1;
 
     try {
       await waitFor(this.data.delayMs);
@@ -629,6 +634,323 @@ void describe('GraphProcessor', () => {
     await processor.processGraph(testProcessContext(), {});
 
     assert.equal(Object.prototype.hasOwnProperty.call(preloadFinish!, 'durationMs'), false);
+  });
+
+  void it('replays frozen node outputs and skips the node implementation', async () => {
+    TrackedTestNodeImpl.resetCounts();
+    const registry = createTrackedRegistry();
+    const trackedNode = registry.create('trackedTest');
+    trackedNode.id = 'frozen-tracked-node' as NodeId;
+    const outputNode = makeGraphOutputNode('result', 'string');
+    const graph = {
+      metadata: {
+        id: 'frozen-output-graph',
+        name: 'Frozen Output Graph',
+        description: '',
+      },
+      nodes: [trackedNode, outputNode],
+      connections: [
+        {
+          outputNodeId: trackedNode.id,
+          outputId: 'output1' as PortId,
+          inputNodeId: outputNode.id,
+          inputId: 'value' as PortId,
+        },
+      ],
+    };
+    const processor = new GraphProcessor(makeProject(graph), graph.metadata.id as GraphId, registry);
+    const nodeEvents: string[] = [];
+    processor.setFrozenNodeOutputResolver(
+      createFrozenNodeOutputResolver({
+        [graph.metadata.id]: {
+          [trackedNode.id]: [
+            {
+              ['output1' as PortId]: { type: 'string', value: 'frozen value' },
+            },
+          ],
+        },
+      } as any),
+    );
+    processor.on('nodeStart', ({ node }) => nodeEvents.push(`start:${node.id}`));
+    processor.on('nodeFinish', ({ node }) => nodeEvents.push(`finish:${node.id}`));
+
+    const outputs = await processor.processGraph(testProcessContext());
+
+    assert.deepEqual(outputs.result, { type: 'string', value: 'frozen value' });
+    assert.equal(TrackedTestNodeImpl.processCount, 0);
+    assert.deepEqual(nodeEvents, [
+      'start:frozen-tracked-node',
+      'finish:frozen-tracked-node',
+      `start:${outputNode.id}`,
+      `finish:${outputNode.id}`,
+    ]);
+  });
+
+  void it('inherits the frozen output resolver into subprocessors', async () => {
+    TrackedTestNodeImpl.resetCounts();
+    const registry = createTrackedRegistry();
+    const trackedNode = registry.create('trackedTest');
+    trackedNode.id = 'frozen-child-node' as NodeId;
+    const childOutputNode = makeGraphOutputNode('childResult', 'string');
+    const childGraph = {
+      metadata: {
+        id: 'frozen-child-graph',
+        name: 'Frozen Child Graph',
+        description: '',
+      },
+      nodes: [trackedNode, childOutputNode],
+      connections: [
+        {
+          outputNodeId: trackedNode.id,
+          outputId: 'output1' as PortId,
+          inputNodeId: childOutputNode.id,
+          inputId: 'value' as PortId,
+        },
+      ],
+    };
+    const subGraphNode = {
+      id: 'call-frozen-child' as NodeId,
+      type: 'subGraph',
+      title: 'Call Frozen Child',
+      data: {
+        graphId: childGraph.metadata.id,
+        useErrorOutput: false,
+        useAsGraphPartialOutput: false,
+      },
+      visualData: { x: 0, y: 0, width: 300 },
+    };
+    const mainOutputNode = makeGraphOutputNode('result', 'string');
+    const mainGraph = {
+      metadata: {
+        id: 'frozen-main-graph',
+        name: 'Frozen Main Graph',
+        description: '',
+      },
+      nodes: [subGraphNode, mainOutputNode],
+      connections: [
+        {
+          outputNodeId: subGraphNode.id,
+          outputId: 'childResult' as PortId,
+          inputNodeId: mainOutputNode.id,
+          inputId: 'value' as PortId,
+        },
+      ],
+    };
+    const project = makeProject(mainGraph);
+    project.graphs[childGraph.metadata.id] = childGraph as any;
+    const processor = new GraphProcessor(project, mainGraph.metadata.id as GraphId, registry);
+    processor.setFrozenNodeOutputResolver(
+      createFrozenNodeOutputResolver({
+        [childGraph.metadata.id]: {
+          [trackedNode.id]: [
+            {
+              ['output1' as PortId]: { type: 'string', value: 'frozen child value' },
+            },
+          ],
+        },
+      } as any),
+    );
+
+    const outputs = await processor.processGraph(testProcessContext());
+
+    assert.deepEqual(outputs.result, { type: 'string', value: 'frozen child value' });
+    assert.equal(TrackedTestNodeImpl.processCount, 0);
+  });
+
+  void it('keeps readiness and control-flow exclusions ahead of frozen output replay', async () => {
+    const outputNode = makeGraphOutputNode('result');
+    const graph = {
+      metadata: {
+        id: 'frozen-missing-required-input-graph',
+        name: 'Frozen Missing Required Input Graph',
+        description: '',
+      },
+      nodes: [makeDestructureNode(), outputNode],
+      connections: [
+        {
+          outputNodeId: 'destructure-node',
+          outputId: 'name',
+          inputNodeId: outputNode.id,
+          inputId: 'value',
+        },
+      ],
+    };
+    const processor = new GraphProcessor(makeProject(graph), graph.metadata.id as GraphId, globalRivetNodeRegistry);
+    const startedNodes: string[] = [];
+    processor.setFrozenNodeOutputResolver(
+      createFrozenNodeOutputResolver({
+        [graph.metadata.id]: {
+          ['destructure-node' as NodeId]: [
+            {
+              ['name' as PortId]: { type: 'string', value: 'should not replay' },
+            },
+          ],
+        },
+      } as any),
+    );
+    processor.on('nodeStart', ({ node }) => startedNodes.push(node.id));
+
+    const outputs = await processor.processGraph(testProcessContext());
+
+    assert.deepEqual(outputs.result, { type: 'control-flow-excluded', value: undefined });
+    assert.equal(startedNodes.includes('destructure-node'), false);
+  });
+
+  void it('replays frozen output instances in order and reuses the last output within one graph run', () => {
+    const graphId = 'resolver-frozen-graph' as GraphId;
+    const node = {
+      id: 'resolver-frozen-node' as NodeId,
+      type: 'text',
+      title: 'Text',
+      data: {},
+      visualData: { x: 0, y: 0, width: 175 },
+    } as ChartNode;
+    const resolver = createFrozenNodeOutputResolver({
+      [graphId]: {
+        [node.id]: [
+          { ['output' as PortId]: { type: 'string', value: 'first' } },
+          { ['output' as PortId]: { type: 'string', value: 'second' } },
+        ],
+      },
+    })!;
+    const request = {
+      execution: {
+        rootRunId: 'root-run' as any,
+        graphRunId: 'graph-run-1' as any,
+        graphId,
+      },
+      graphId,
+      inputs: {},
+      node,
+      processId: 'process-1' as ProcessId,
+    };
+
+    assert.deepEqual(resolver(request)?.output, { type: 'string', value: 'first' });
+    assert.deepEqual(resolver(request)?.output, { type: 'string', value: 'second' });
+    assert.deepEqual(resolver(request)?.output, { type: 'string', value: 'second' });
+    assert.deepEqual(
+      resolver({
+        ...request,
+        execution: { ...request.execution, graphRunId: 'graph-run-2' as any },
+      })?.output,
+      { type: 'string', value: 'first' },
+    );
+  });
+
+  void it('applies recoverable frozen Graph Output dataflow effects', async () => {
+    const registry = createBuiltInRegistry();
+    const textNode = registry.create('text');
+    textNode.id = 'live-text-node' as NodeId;
+    textNode.data = {
+      ...(textNode.data as Record<string, unknown>),
+      text: 'live value',
+    };
+    const outputNode = makeGraphOutputNode('result', 'string');
+    const graph = {
+      metadata: {
+        id: 'frozen-graph-output-effect-graph',
+        name: 'Frozen Graph Output Effect Graph',
+        description: '',
+      },
+      nodes: [textNode, outputNode],
+      connections: [
+        {
+          outputNodeId: textNode.id,
+          outputId: 'output' as PortId,
+          inputNodeId: outputNode.id,
+          inputId: 'value' as PortId,
+        },
+      ],
+    };
+    const processor = new GraphProcessor(makeProject(graph), graph.metadata.id as GraphId, registry);
+    processor.setFrozenNodeOutputResolver(
+      createFrozenNodeOutputResolver({
+        [graph.metadata.id]: {
+          [outputNode.id as NodeId]: [
+            {
+              ['valueOutput' as PortId]: { type: 'string', value: 'frozen graph output value' },
+            },
+          ],
+        },
+      } as any),
+    );
+
+    const outputs = await processor.processGraph(testProcessContext());
+
+    assert.deepEqual(outputs.result, { type: 'string', value: 'frozen graph output value' });
+  });
+
+  void it('applies recoverable frozen Set Global dataflow effects', async () => {
+    const registry = createBuiltInRegistry();
+    const textNode = registry.create('text');
+    textNode.id = 'global-input-text-node' as NodeId;
+    textNode.data = {
+      ...(textNode.data as Record<string, unknown>),
+      text: 'live global value',
+    };
+    const setGlobalNode = registry.create('setGlobal');
+    setGlobalNode.id = 'frozen-set-global-node' as NodeId;
+    setGlobalNode.data = {
+      ...(setGlobalNode.data as Record<string, unknown>),
+      id: 'frozen-global-id',
+      dataType: 'string',
+      useIdInput: false,
+    };
+    const getGlobalNode = registry.create('getGlobal');
+    getGlobalNode.id = 'get-frozen-global-node' as NodeId;
+    getGlobalNode.data = {
+      ...(getGlobalNode.data as Record<string, unknown>),
+      dataType: 'string',
+      useIdInput: true,
+      wait: false,
+    };
+    const outputNode = makeGraphOutputNode('result', 'string');
+    const graph = {
+      metadata: {
+        id: 'frozen-set-global-effect-graph',
+        name: 'Frozen Set Global Effect Graph',
+        description: '',
+      },
+      nodes: [textNode, setGlobalNode, getGlobalNode, outputNode],
+      connections: [
+        {
+          outputNodeId: textNode.id,
+          outputId: 'output' as PortId,
+          inputNodeId: setGlobalNode.id,
+          inputId: 'value' as PortId,
+        },
+        {
+          outputNodeId: setGlobalNode.id,
+          outputId: 'variable_id_out' as PortId,
+          inputNodeId: getGlobalNode.id,
+          inputId: 'id' as PortId,
+        },
+        {
+          outputNodeId: getGlobalNode.id,
+          outputId: 'value' as PortId,
+          inputNodeId: outputNode.id,
+          inputId: 'value' as PortId,
+        },
+      ],
+    };
+    const processor = new GraphProcessor(makeProject(graph), graph.metadata.id as GraphId, registry);
+    processor.setFrozenNodeOutputResolver(
+      createFrozenNodeOutputResolver({
+        [graph.metadata.id]: {
+          [setGlobalNode.id]: [
+            {
+              ['saved-value' as PortId]: { type: 'string', value: 'frozen global value' },
+              ['previous-value' as PortId]: { type: 'string', value: '' },
+              ['variable_id_out' as PortId]: { type: 'string', value: 'frozen-global-id' },
+            },
+          ],
+        },
+      } as any),
+    );
+
+    const outputs = await processor.processGraph(testProcessContext());
+
+    assert.deepEqual(outputs.result, { type: 'string', value: 'frozen global value' });
   });
 
   void it('marks nodes with unconnected required inputs as not ran', async () => {

@@ -135,6 +135,7 @@ const rivetDebugger = startDebuggerServer({
     inputs,
     runToNodeIds,
     preloadData,
+    frozenNodeOutputs,
     contextValues,
     projectPath,
     useEditorCache,
@@ -238,6 +239,8 @@ const rivetDebugger = startDebuggerServer({
       if (runToNodeIds) {
         processor.processor.runToNodeIds = runToNodeIds;
       }
+
+      processor.processor.setFrozenNodeOutputResolver(Rivet.createFrozenNodeOutputResolver(frozenNodeOutputs));
 
       for (const [nodeId, outputs] of Object.entries(preloadData ?? {})) {
         processor.processor.preloadNodeData(nodeId as Rivet.NodeId, outputs);

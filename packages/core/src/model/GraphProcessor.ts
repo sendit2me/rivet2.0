@@ -201,6 +201,75 @@ export type NodeResults = Map<NodeId, Outputs>;
 export type Inputs = Record<PortId, DataValue | undefined>;
 export type Outputs = Record<PortId, DataValue | undefined>;
 
+export type FrozenNodeOutputsByGraph = Record<GraphId, Record<NodeId, Outputs[] | undefined> | undefined>;
+
+export type FrozenNodeOutputResolverRequest = {
+  execution: GraphExecutionMetadata;
+  graphId: GraphId;
+  inputs: Inputs;
+  node: ChartNode;
+  processId: ProcessId;
+};
+
+export type FrozenNodeOutputResolver = (request: FrozenNodeOutputResolverRequest) => Outputs | undefined;
+
+export function cloneFrozenNodeOutputs(outputs: Outputs): Outputs {
+  if (typeof structuredClone !== 'function') {
+    throw new Error('Frozen node output cloning requires structuredClone support');
+  }
+
+  return structuredClone(outputs) as Outputs;
+}
+
+export function cloneFrozenNodeOutputsByGraph(outputsByGraph: FrozenNodeOutputsByGraph): FrozenNodeOutputsByGraph {
+  return Object.fromEntries(
+    Object.entries(outputsByGraph).map(([graphId, outputsByNode]) => [
+      graphId,
+      outputsByNode
+        ? Object.fromEntries(
+            Object.entries(outputsByNode).map(([nodeId, outputInstances]) => [
+              nodeId,
+              outputInstances?.map((outputs) => cloneFrozenNodeOutputs(outputs)),
+            ]),
+          )
+        : undefined,
+    ]),
+  ) as FrozenNodeOutputsByGraph;
+}
+
+export function hasFrozenNodeOutputs(outputsByGraph: FrozenNodeOutputsByGraph | undefined): boolean {
+  if (!outputsByGraph) {
+    return false;
+  }
+
+  return Object.values(outputsByGraph).some((outputsByNode) =>
+    Object.values(outputsByNode ?? {}).some((outputInstances) => (outputInstances?.length ?? 0) > 0),
+  );
+}
+
+export function createFrozenNodeOutputResolver(
+  outputsByGraph: FrozenNodeOutputsByGraph | undefined,
+): FrozenNodeOutputResolver | undefined {
+  if (!hasFrozenNodeOutputs(outputsByGraph)) {
+    return undefined;
+  }
+
+  const countersByGraphRunAndNode = new Map<string, number>();
+
+  return ({ execution, graphId, node }) => {
+    const outputInstances = outputsByGraph?.[graphId]?.[node.id];
+    if (!outputInstances?.length) {
+      return undefined;
+    }
+
+    const counterKey = `${execution.graphRunId}:${graphId}:${node.id}`;
+    const currentIndex = countersByGraphRunAndNode.get(counterKey) ?? 0;
+    countersByGraphRunAndNode.set(counterKey, currentIndex + 1);
+
+    return cloneFrozenNodeOutputs(outputInstances[Math.min(currentIndex, outputInstances.length - 1)]!);
+  };
+}
+
 export type ExternalFunctionProcessContext = Omit<InternalProcessContext, 'setGlobal'>;
 
 export type ExternalFunction = (
@@ -366,6 +435,7 @@ export class GraphProcessor {
   readonly #scheduler: GraphProcessorScheduler;
   readonly #runtimeProfiler: GraphProcessorRuntimeProfiler | undefined;
   readonly #captureNodeTimings: boolean;
+  #frozenNodeOutputResolver: FrozenNodeOutputResolver | undefined;
   #useSeededExecutionPlanOnNextRun = false;
   id = nanoid();
 
@@ -831,6 +901,10 @@ export class GraphProcessor {
     this.#nodeResults.set(nodeId, data);
     this.#visitedNodes.add(nodeId);
     this.#hasPreloadedData = true;
+  }
+
+  setFrozenNodeOutputResolver(resolver: FrozenNodeOutputResolver | undefined): void {
+    this.#frozenNodeOutputResolver = resolver;
   }
 
   /** Gets all node IDs that a given node ID depends on being complete before the given node ID can start. */
@@ -1526,7 +1600,7 @@ export class GraphProcessor {
     const processProfileStart = this.#startRuntimeProfile();
     let processResult!: { processId: ProcessId; shouldQueueOutputNodes: boolean };
     try {
-      processResult = await this.#processNode(node);
+      processResult = await this.#processNode(node, inputValues);
     } finally {
       this.#finishRuntimeProfile('nodeDispatch', processProfileStart);
     }
@@ -1766,7 +1840,7 @@ export class GraphProcessor {
     return nodeData;
   }
 
-  async #processNode(node: ChartNode) {
+  async #processNode(node: ChartNode, inputValues: Inputs) {
     const processId = nanoid() as ProcessId;
 
     if (this.#abortController.signal.aborted) {
@@ -1775,10 +1849,13 @@ export class GraphProcessor {
       return { processId, shouldQueueOutputNodes: false };
     }
 
-    if (node.isSplitRun) {
+    const frozenOutputs = this.#resolveFrozenNodeOutputs(node, inputValues, processId);
+    if (frozenOutputs) {
+      await this.#processFrozenNode(node, processId, inputValues, frozenOutputs);
+    } else if (node.isSplitRun) {
       await this.#processSplitRunNode(node, processId);
     } else {
-      await this.#processNormalNode(node, processId);
+      await this.#processNormalNode(node, processId, inputValues);
     }
 
     const successfulAbortTerminal = this.#successfulAbortTerminalProcessIds.delete(processId);
@@ -1812,15 +1889,68 @@ export class GraphProcessor {
     });
   }
 
-  async #processNormalNode(node: ChartNode, processId: ProcessId) {
-    const inputValuesProfileStart = this.#startRuntimeProfile();
-    const inputValues = this.#getInputValuesForNode(node);
-    this.#finishRuntimeProfile('getInputValuesForNode', inputValuesProfileStart);
+  #resolveFrozenNodeOutputs(node: ChartNode, inputValues: Inputs, processId: ProcessId): Outputs | undefined {
+    return this.#frozenNodeOutputResolver?.({
+      execution: this.#buildExecutionMetadata(),
+      graphId: this.#graph.metadata!.id!,
+      inputs: inputValues,
+      node,
+      processId,
+    });
+  }
 
-    if (this.#excludedDueToControlFlow(node, inputValues, processId)) {
+  async #processFrozenNode(node: ChartNode, processId: ProcessId, inputValues: Inputs, outputValues: Outputs) {
+    await this.#emitter.emit('nodeStart', this.#withExecution({ node, inputs: inputValues, processId }));
+
+    const timingStart = this.#startNodeTiming();
+    this.#nodeResults.set(node.id, outputValues);
+    this.#visitedNodes.add(node.id);
+    this.#accumulateCost(outputValues);
+    this.#applyFrozenNodeDataflowEffects(node, outputValues, processId);
+
+    await this.#emitter.emit(
+      'nodeFinish',
+      this.#withExecution(
+        withOptionalDuration(
+          {
+            node,
+            outputs: outputValues,
+            processId,
+          },
+          this.#finishNodeTiming(timingStart),
+        ),
+      ),
+    );
+  }
+
+  #applyFrozenNodeDataflowEffects(node: ChartNode, outputValues: Outputs, processId: ProcessId): void {
+    if (node.type === 'graphOutput') {
+      const outputId = (node.data as { id?: string } | undefined)?.id;
+      const valueOutput = outputValues['valueOutput' as PortId];
+      if (outputId && valueOutput) {
+        this.#graphOutputs[outputId] = valueOutput;
+      }
       return;
     }
 
+    if (node.type !== 'setGlobal') {
+      return;
+    }
+
+    const savedValue = outputValues['saved-value' as PortId];
+    const variableId = outputValues['variable_id_out' as PortId];
+    const variableIdValue = variableId?.type === 'string' ? variableId.value : undefined;
+
+    if (!variableIdValue || !savedValue) {
+      return;
+    }
+
+    const frozenGlobalValue = savedValue as ScalarOrArrayDataValue;
+    this.#globals.set(variableIdValue, frozenGlobalValue);
+    emitDetached(this.#emitter, 'globalSet', this.#withExecution({ id: variableIdValue, value: frozenGlobalValue, processId }));
+  }
+
+  async #processNormalNode(node: ChartNode, processId: ProcessId, inputValues: Inputs) {
     // Use awaited emit (not emitDetached) so that listeners can yield to the
     // macrotask queue, giving the browser a chance to repaint during execution.
     await this.#emitter.emit('nodeStart', this.#withExecution({ node, inputs: inputValues, processId }));
@@ -2171,6 +2301,7 @@ export class GraphProcessor {
     processor.#contextValues = this.#contextValues;
     processor.#parent = this;
     processor.#globals = this.#globals;
+    processor.#frozenNodeOutputResolver = this.#frozenNodeOutputResolver;
     processor.#executor = {
       nodeId: node.id,
       parentGraphId: this.#graph.metadata!.id!,

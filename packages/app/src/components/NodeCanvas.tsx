@@ -3,7 +3,15 @@ import { useMergeRefs } from '@floating-ui/react';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { produce } from 'immer';
 import { type FC, type MouseEvent, useEffect, useMemo, useRef, useState } from 'react';
-import { type ChartNode, type CommentNode, type NodeConnection, type NodeId } from '@valerypopoff/rivet2-core';
+import {
+  type ChartNode,
+  type CommentNode,
+  type NodeConnection,
+  type NodeId,
+  type NodeInputDefinition,
+  type NodeOutputDefinition,
+  type PortId,
+} from '@valerypopoff/rivet2-core';
 import { useDeleteNodesCommand } from '../commands/deleteNodeCommand';
 import { useEditNodeCommand } from '../commands/editNodeCommand';
 import { useCanvasHotkeys } from '../hooks/useCanvasHotkeys';
@@ -37,7 +45,13 @@ import {
   fullscreenOutputNodeState,
 } from '../state/graphBuilder';
 import { graphMetadataState } from '../state/graph.js';
-import { lastRunDataByNodeState, selectedProcessPageNodesState } from '../state/dataFlow';
+import {
+  frozenNodeOutputsState,
+  graphRunningState,
+  lastRunDataByNodeState,
+  resolvedGraphSelectionState,
+  selectedProcessPageNodesState,
+} from '../state/dataFlow';
 import { projectState, referencedProjectsState } from '../state/savedGraphs.js';
 import { selectedExecutorState, zoomSensitivityState } from '../state/settings';
 import { canvasPreviewConnectionsState } from '../state/selectors/canvasGraphSelectors.js';
@@ -58,6 +72,7 @@ import { groupConnectionsByNode } from './nodeCanvas/groupConnectionsByNode.js';
 import { getDraggingViewportNodeIds } from './nodeCanvas/draggingViewportNodeIds.js';
 import { filterValidSubGraphConnections } from '../domain/graphEditing/connectionValidation.js';
 import { useExecutorSessionState } from '../hooks/useExecutorSession.js';
+import { loadedRecordingState } from '../state/execution.js';
 import { type DragActivatorModifierState } from './nodeCanvas/nodeDragInteraction.js';
 import {
   getCanvasHighlightedNodeIds,
@@ -113,8 +128,12 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
   const expandedOutputNodeIds = useAtomValue(expandedOutputNodeIdsState);
   const fullscreenOutputNodeId = useAtomValue(fullscreenOutputNodeState);
   const lastRunPerNode = useAtomValue(lastRunDataByNodeState);
+  const frozenNodeOutputs = useAtomValue(frozenNodeOutputsState);
+  const graphSelection = useAtomValue(resolvedGraphSelectionState);
   const selectedProcessPagePerNode = useAtomValue(selectedProcessPageNodesState);
   const selectedExecutor = useAtomValue(selectedExecutorState);
+  const graphRunning = useAtomValue(graphRunningState);
+  const loadedRecording = useAtomValue(loadedRecordingState);
   const zoomSensitivity = useAtomValue(zoomSensitivityState);
   const rawPreviewConnections = useAtomValue(canvasPreviewConnectionsState);
   const nodesById = useAtomValue(nodesByIdState);
@@ -122,9 +141,12 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
   const referencedProjects = useAtomValue(referencedProjectsState);
   const executorSession = useExecutorSessionState();
   const canStartEditorGraphRun = canRunGraphFromEditor({
+    hasLoadedRecording: loadedRecording != null,
     selectedExecutor,
     session: executorSession,
   });
+  const canUseFrozenNodes =
+    canStartEditorGraphRun && !graphRunning && loadedRecording == null && executorSession.target?.type !== 'external-debugger';
 
   const setLastSavedCanvasPosition = useSetAtom(lastCanvasPositionByGraphState);
   const setLastMousePosition = useSetAtom(lastMousePositionState);
@@ -186,8 +208,14 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
   }, [connections, nodes, project, selectedGraphMetadata]);
 
   const { selectionBox, startSelectionBox, updateSelectionBox, endSelectionBox } = useSelectionBox();
-  const { hoveringPort, hoveringShowPortInfo, onPortMouseOver, onPortMouseOut, floatingStyles, floatingRefs } =
-    usePortHoverTooltip();
+  const {
+    hoveringPort,
+    hoveringShowPortInfo,
+    onPortMouseOver: showPortTooltip,
+    onPortMouseOut: hidePortTooltip,
+    floatingStyles,
+    floatingRefs,
+  } = usePortHoverTooltip();
 
   const {
     dragAxisLock,
@@ -340,6 +368,23 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
     setHoveringNode(undefined);
   });
 
+  const onPortMouseOver = useStableCallback(
+    (
+      event: MouseEvent<HTMLElement>,
+      nodeId: NodeId,
+      isInput: boolean,
+      portId: PortId,
+      definition: NodeInputDefinition | NodeOutputDefinition,
+    ) => {
+      setHoveringNode(nodeId);
+      showPortTooltip(event, nodeId, isInput, portId, definition);
+    },
+  );
+
+  const onPortMouseOut = useStableCallback(() => {
+    hidePortTooltip();
+  });
+
   const clearHoveringNode = useStableCallback(() => {
     setHoveringNode(undefined);
   });
@@ -457,7 +502,10 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
     (): ContextMenuContext =>
       getNodeCanvasContextMenuContext({
         canStartEditorGraphRun,
+        canUseFrozenNodes,
         contextMenuData,
+        frozenNodeOutputs,
+        graphSelection,
         lastRunPerNode,
         project: projectWithCanvasGraph,
         projectNodeRegistry,
@@ -465,7 +513,10 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
       }),
     [
       canStartEditorGraphRun,
+      canUseFrozenNodes,
       contextMenuData,
+      frozenNodeOutputs,
+      graphSelection,
       lastRunPerNode,
       projectNodeRegistry,
       projectWithCanvasGraph,
@@ -603,7 +654,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
           draggingNodes={draggingNodes}
           draggingSourceNodeIds={draggedSourceNodeIds}
           heavyContentNodeIdSet={heavyContentNodeIdSet}
-          hoveredNodeId={hoveringPort ? undefined : hoveringNode}
+          hoveredNodeId={hoveringNode}
           lastRunPerNode={lastRunPerNode}
           layer="comments"
           nodeTypes={nodeTypes}
@@ -642,7 +693,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
           draggingNodes={draggingNodes}
           draggingSourceNodeIds={draggedSourceNodeIds}
           heavyContentNodeIdSet={heavyContentNodeIdSet}
-          hoveredNodeId={hoveringPort ? undefined : hoveringNode}
+          hoveredNodeId={hoveringNode}
           lastRunPerNode={lastRunPerNode}
           layer="nodes"
           nodeTypes={nodeTypes}

@@ -1,11 +1,12 @@
-import type { ChartNode, GraphId, NodeId, Project } from '@valerypopoff/rivet2-core';
+import type { ChartNode, FrozenNodeOutputsByGraph, GraphId, NodeId, Project } from '@valerypopoff/rivet2-core';
 import type { ContextMenuContext } from '../ContextMenu.js';
 import type { ContextMenuData } from '../../hooks/useContextMenu.js';
 import {
   canPreloadEditorRunFromPlan,
   getEditorRunFromPlan,
 } from '../../hooks/remoteExecutorHelpers.js';
-import type { RunDataByNodeId } from '../../state/dataFlow.js';
+import type { GraphRunRecord, GraphRunSelection, RunDataByNodeId } from '../../state/dataFlow.js';
+import { canFreezeNodeOutputs, canNodeTypeBeFrozen } from '../../utils/frozenNodeOutputs.js';
 
 type ProjectNodeRegistry = Parameters<typeof getEditorRunFromPlan>[3];
 const NODE_CONTEXT_MENU_TYPE_PREFIX = 'node-';
@@ -17,14 +18,23 @@ type NodeContextMenuTarget = {
 
 export function getNodeCanvasContextMenuContext({
   canStartEditorGraphRun,
+  canUseFrozenNodes,
   contextMenuData,
+  frozenNodeOutputs,
+  graphSelection,
   lastRunPerNode,
   project,
   projectNodeRegistry,
   selectedGraphId,
 }: {
   canStartEditorGraphRun: boolean;
+  canUseFrozenNodes: boolean;
   contextMenuData: ContextMenuData;
+  frozenNodeOutputs: FrozenNodeOutputsByGraph;
+  graphSelection: {
+    graphRuns?: GraphRunRecord[];
+    selectedGraphRun?: GraphRunSelection;
+  };
   lastRunPerNode: RunDataByNodeId;
   project: Project;
   projectNodeRegistry: ProjectNodeRegistry;
@@ -39,6 +49,8 @@ export function getNodeCanvasContextMenuContext({
     };
   }
 
+  const isFrozen = Boolean(selectedGraphId && frozenNodeOutputs[selectedGraphId]?.[target.nodeId]?.length);
+
   return {
     type: 'node',
     data: {
@@ -47,12 +59,29 @@ export function getNodeCanvasContextMenuContext({
       canRunFromEditor: canStartEditorGraphRun,
       canRunFromHere: canRunNodeCanvasContextMenuFromHere({
         canStartEditorGraphRun,
+        frozenNodeOutputs: canUseFrozenNodes ? frozenNodeOutputs : undefined,
         lastRunPerNode,
         nodeId: target.nodeId,
         project,
         projectNodeRegistry,
         selectedGraphId,
       }),
+      canFreeze:
+        canUseFrozenNodes &&
+        canNodeTypeBeFrozen(target.nodeType) &&
+        !isFrozen &&
+        Boolean(
+          selectedGraphId &&
+            canFreezeNodeOutputs({
+              graphId: selectedGraphId,
+              processData: lastRunPerNode[target.nodeId],
+              selection: graphSelection,
+            }),
+        ),
+      canUnfreeze:
+        canUseFrozenNodes &&
+        isFrozen,
+      isFrozen,
     },
   };
 }
@@ -76,6 +105,7 @@ export function getNodeCanvasContextMenuTarget(
 
 export function canRunNodeCanvasContextMenuFromHere({
   canStartEditorGraphRun,
+  frozenNodeOutputs,
   lastRunPerNode,
   nodeId,
   project,
@@ -83,6 +113,7 @@ export function canRunNodeCanvasContextMenuFromHere({
   selectedGraphId,
 }: {
   canStartEditorGraphRun: boolean;
+  frozenNodeOutputs?: FrozenNodeOutputsByGraph;
   lastRunPerNode: RunDataByNodeId;
   nodeId: NodeId;
   project: Project;
@@ -95,7 +126,7 @@ export function canRunNodeCanvasContextMenuFromHere({
 
   try {
     const runFromPlan = getEditorRunFromPlan(project, selectedGraphId, nodeId, projectNodeRegistry);
-    return canPreloadEditorRunFromPlan(runFromPlan, lastRunPerNode);
+    return canPreloadEditorRunFromPlan(runFromPlan, lastRunPerNode, { frozenNodeOutputs, graphId: selectedGraphId });
   } catch {
     return false;
   }

@@ -7,6 +7,7 @@ import PlayIcon from 'majesticons/line/play-circle-line.svg?react';
 import CopyIcon from '../assets/icons/copy-icon.svg?react';
 import PasteIcon from '../assets/icons/paste-icon.svg?react';
 import PlusIcon from 'majesticons/line/plus-line.svg?react';
+import SnowflakeIcon from '../assets/icons/snowflake-icon.svg?react';
 import { type ChartNode, type NodeId } from '@valerypopoff/rivet2-core';
 import { selectedNodesState } from '../state/graphBuilder.js';
 import { useContextMenuCommands } from './useContextMenuCommands.js';
@@ -58,6 +59,9 @@ type NodeContextMenuData = {
   nodeId: NodeId;
   canRunFromEditor: boolean;
   canRunFromHere: boolean;
+  canFreeze: boolean;
+  canUnfreeze: boolean;
+  isFrozen: boolean;
 };
 
 const getNodeContextMenuData = (context: unknown): NodeContextMenuData | undefined => {
@@ -70,7 +74,10 @@ const getNodeContextMenuData = (context: unknown): NodeContextMenuData | undefin
     typeof data.nodeType !== 'string' ||
     typeof data.nodeId !== 'string' ||
     typeof data.canRunFromEditor !== 'boolean' ||
-    typeof data.canRunFromHere !== 'boolean'
+    typeof data.canRunFromHere !== 'boolean' ||
+    typeof data.canFreeze !== 'boolean' ||
+    typeof data.canUnfreeze !== 'boolean' ||
+    typeof data.isFrozen !== 'boolean'
   ) {
     return undefined;
   }
@@ -80,6 +87,9 @@ const getNodeContextMenuData = (context: unknown): NodeContextMenuData | undefin
     nodeId: data.nodeId as NodeId,
     canRunFromEditor: data.canRunFromEditor,
     canRunFromHere: data.canRunFromHere,
+    canFreeze: data.canFreeze,
+    canUnfreeze: data.canUnfreeze,
+    isFrozen: data.isFrozen,
   };
 };
 
@@ -92,6 +102,10 @@ const canRunFromHere = (context: unknown) => {
   const data = getNodeContextMenuData(context);
   return data != null && data.canRunFromEditor && data.nodeType !== 'comment' && data.canRunFromHere;
 };
+
+const canFreezeNode = (context: unknown) => getNodeContextMenuData(context)?.canFreeze === true;
+
+const canUnfreezeNode = (context: unknown) => getNodeContextMenuData(context)?.canUnfreeze === true;
 
 const isSubgraphNodeContext = (context: unknown) => getNodeContextMenuData(context)?.nodeType === 'subGraph';
 
@@ -120,6 +134,20 @@ export function useContextMenuConfiguration() {
                 label: 'Run from here',
                 icon: PlayIcon,
                 conditional: canRunFromHere,
+              },
+              {
+                id: 'node-freeze',
+                label: 'Freeze node output',
+                icon: SnowflakeIcon,
+                conditional: canFreezeNode,
+                separatorBefore: true,
+              },
+              {
+                id: 'node-unfreeze',
+                label: 'Unfreeze node output',
+                icon: SnowflakeIcon,
+                conditional: canUnfreezeNode,
+                separatorBefore: true,
               },
               {
                 id: 'node-copy',

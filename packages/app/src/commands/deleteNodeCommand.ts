@@ -3,13 +3,14 @@ import { connectionsState, graphMetadataState, nodesState, removeGraphNodeStateF
 import { useCommand } from './Command';
 import { editingNodeState, selectedNodesState, removeGraphBuilderNodeStateFamilies } from '../state/graphBuilder';
 import { type NodeConnection, type ChartNode, type NodeId } from '@valerypopoff/rivet2-core';
-import { removeExecutionNodeStateFamilies } from '../state/dataFlow';
+import { frozenNodeOutputsState, removeExecutionNodeStateFamilies } from '../state/dataFlow';
 import { deleteNodesFromGraph } from '../domain/graphEditing/nodeActions.js';
 import { recoverableNodeConnectionsStatePerGraph, removeRecoverableNodeConnectionsForGraphNodes } from '../state/recoverableNodeConnections';
 import { findConnectedGraphInputUsages } from '../domain/graphEditing/graphInputUsage';
 import { projectState } from '../state/savedGraphs';
 import { useStableCallback } from '../hooks/useStableCallback';
 import { deleteGraphInputConfirmState } from '../state/ui';
+import { removeFrozenNodeOutputsForNodes } from '../utils/frozenNodeOutputs';
 
 type DeleteNodesCommandArgs = {
   nodeIds: NodeId[];
@@ -29,6 +30,7 @@ export const useDeleteNodesCommand = () => {
   const setEditingNodeId = useSetAtom(editingNodeState);
   const setRecoverableNodeConnections = useSetAtom(recoverableNodeConnectionsStatePerGraph);
   const setDeleteGraphInputConfirm = useSetAtom(deleteGraphInputConfirmState);
+  const setFrozenNodeOutputs = useSetAtom(frozenNodeOutputsState);
 
   const deleteNodesCommand = useCommand<
     DeleteNodesCommandArgs,
@@ -52,6 +54,7 @@ export const useDeleteNodesCommand = () => {
       setRecoverableNodeConnections((entries) =>
         removeRecoverableNodeConnectionsForGraphNodes(entries, currentState.graphId, nodeIds),
       );
+      setFrozenNodeOutputs((entries) => removeFrozenNodeOutputsForNodes(entries, currentState.graphId, nodeIds));
       setSelectedNodeIds((current) => current.filter((id) => !nodeIds.includes(id)));
       for (const nodeId of nodeIds) {
         removeGraphNodeStateFamilies(nodeId);

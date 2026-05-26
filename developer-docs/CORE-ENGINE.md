@@ -130,6 +130,21 @@ nested graph/subgraph calls. Treat the profiler as attribution instrumentation
 only: benchmark speed claims still need unprofiled before/after runs because
 the diagnostic spans add timestamp reads and aggregation work.
 
+## Frozen Output Resolver
+
+`GraphProcessor` exposes an optional frozen-output resolver for the desktop app's editor-only Freeze node output feature. The resolver is a low-level runtime hook, not serialized graph state and not part of normal headless execution unless an app caller explicitly attaches it with `setFrozenNodeOutputResolver(...)`.
+
+The resolver receives the current execution metadata, processor graph id, node, process id, and already-resolved input values. `GraphProcessor` calls it only after normal readiness checks, missing-required-input checks, disabled-node handling, and control-flow exclusion checks have passed. This means a frozen node still does not run when it would have been skipped by ordinary graph semantics.
+
+When the resolver returns frozen `Outputs`, `GraphProcessor` skips the node implementation and emits the same high-level node lifecycle shape as a normal successful node: `nodeStart`, `nodeFinish`, `nodeResults`, visited-node bookkeeping, cost accumulation, and downstream scheduling. Frozen replay happens before split-run dispatch, so a frozen split-run node replays the captured aggregate terminal output and does not synthesize per-item partial-output events. Subprocessors inherit the parent resolver so frozen nodes inside subgraphs work with the child processor's graph identity.
+
+Frozen replay replaces computation, not arbitrary host side effects. Core mirrors only recoverable dataflow side effects that downstream graph execution depends on:
+
+- The desktop app blocks new `Graph Output` freezes because graph boundary nodes are not useful freeze targets. If a custom caller or stale in-memory state still supplies frozen `Graph Output` data to the low-level resolver, core defensively writes the frozen `valueOutput` to `graphOutputs[data.id]` so graph state remains coherent.
+- `Set Global` writes the frozen `saved-value` to the frozen `variable_id_out` global id and emits `globalSet`.
+
+Other side effects such as dataset writes, raised events, audio playback, external I/O, and graph aborts are intentionally not replayed by frozen execution. Feature work that adds replay for another side effect must make that effect explicit and testable rather than relying on the skipped node implementation.
+
 ## Graph Model
 
 Core graph model types live in `model/`.

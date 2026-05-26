@@ -10,7 +10,9 @@ import {
   type DataId,
   type DataValue,
   type Outputs,
+  type FrozenNodeOutputsByGraph,
   type RemoteRunRequestId,
+  decodeDebuggerTransportSentinels,
 } from '@valerypopoff/rivet2-core';
 import { match } from 'ts-pattern';
 import Emittery from 'emittery';
@@ -54,6 +56,7 @@ export type DynamicGraphRunOptions = {
   inputs?: GraphInputs;
   runToNodeIds?: NodeId[];
   preloadData?: Record<NodeId, Outputs>;
+  frozenNodeOutputs?: FrozenNodeOutputsByGraph;
   contextValues: Record<string, DataValue>;
   projectPath: string | undefined;
   useEditorCache?: boolean;
@@ -165,6 +168,7 @@ export function startDebuggerServer(
               inputs: GraphInputs;
               runToNodeIds?: NodeId[];
               preloadData?: Record<NodeId, Outputs>;
+              frozenNodeOutputs?: FrozenNodeOutputsByGraph;
               contextValues: Record<string, DataValue>;
               projectPath: string | undefined;
               useEditorCache?: boolean;
@@ -177,10 +181,14 @@ export function startDebuggerServer(
               runToNodeIds,
               contextValues,
               preloadData,
+              frozenNodeOutputs,
               projectPath,
               useEditorCache,
               captureNodeTimings,
             } = runData;
+            const decodedFrozenNodeOutputs = frozenNodeOutputs
+              ? decodeDebuggerTransportSentinels(frozenNodeOutputs)
+              : undefined;
 
             await options.dynamicGraphRun?.({
               client: socket,
@@ -190,6 +198,7 @@ export function startDebuggerServer(
               runToNodeIds,
               contextValues,
               preloadData,
+              frozenNodeOutputs: decodedFrozenNodeOutputs,
               projectPath,
               useEditorCache,
               captureNodeTimings,
