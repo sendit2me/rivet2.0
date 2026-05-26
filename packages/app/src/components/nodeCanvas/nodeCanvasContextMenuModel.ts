@@ -59,7 +59,7 @@ export function getNodeCanvasContextMenuContext({
       canRunFromEditor: canStartEditorGraphRun,
       canRunFromHere: canRunNodeCanvasContextMenuFromHere({
         canStartEditorGraphRun,
-        frozenNodeOutputs,
+        frozenNodeOutputs: canUseFrozenNodes ? frozenNodeOutputs : undefined,
         lastRunPerNode,
         nodeId: target.nodeId,
         project,

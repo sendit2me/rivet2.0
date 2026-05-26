@@ -46,7 +46,7 @@ Browser execution can replay any frozen value that `structuredClone(...)` can cl
 
 Replay is not `preloadNodeData(...)`. A frozen node still receives its real current inputs in `nodeStart`, emits a normal `nodeFinish`, uses a normal process id, writes `nodeResults`, and schedules downstream nodes exactly like a computed node. The core frozen-output resolver resets its replay counter per graph run and keys lookup by the processor's current graph id plus node id. If a node is invoked more times within the same graph run than there are captured output instances, the resolver reuses the last captured output. A node inside a reusable subgraph is therefore frozen for every invocation of that graph node while the project remains open.
 
-Normal live run-from planning treats frozen boundary outputs as available preload data. If a boundary dependency has both previous execution history and frozen output data, the frozen output wins. Preload event suppression remains unchanged; frozen boundary data is only used to seed the run boundary and must not create duplicate output pages. Recording playback does not consult frozen outputs, even for run-from preload planning.
+The Browser and internal Node live run-from paths treat frozen boundary outputs as available preload data. If a boundary dependency has both previous execution history and frozen output data, the frozen output wins. Preload event suppression remains unchanged; frozen boundary data is only used to seed the run boundary and must not create duplicate output pages. External Remote Debugger runs, recording playback, and Trivet/test execution do not consult frozen outputs, even for run-from preload planning.
 
 ## Key Concept: Graph View Identity
 

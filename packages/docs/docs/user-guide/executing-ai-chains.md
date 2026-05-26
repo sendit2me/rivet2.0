@@ -19,9 +19,15 @@ The following graph will _roughly_ execute in the order of these numbers. Every 
 
 ## Freeze Node Output While Editing
 
-When you are iterating on a graph in the editor, you can right-click a node that already has successful output data and choose **Freeze node output**. A node with frozen output reuses the captured output instead of running its normal implementation during later editor runs. This is useful when a node is slow, expensive, or calls an external service, and you want downstream nodes to keep receiving the same value while you work.
+When you are iterating on a graph in the editor, you can freeze a node's current output and reuse it during later editor runs. This is useful when a node is slow, expensive, random, or calls an external service, and you want downstream nodes to keep receiving the same value while you work.
 
-Nodes with frozen output show a blue varied-size snowflake-pattern header and a snowflake icon in the node header. The fullscreen output modal keeps the normal output view colors when you inspect the full value. To return the node to normal execution, right-click it and choose **Unfreeze node output**.
+To freeze a node output:
+
+1. Run the graph so the node has a successful output.
+2. Right-click the node on the canvas.
+3. Choose **Freeze node output**.
+
+Nodes with frozen output show a blue snowflake-pattern header and a snowflake icon in the node header. During later editor runs, Rivet skips the node's normal implementation and sends the captured output to downstream nodes. To return the node to normal execution, right-click it and choose **Unfreeze node output**.
 
 Freeze state is temporary. It exists only while the project is open in the editor and is not saved into the project file. If you close the project, delete the node, delete its graph, or unfreeze it manually, the frozen output is removed.
 

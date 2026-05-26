@@ -4,6 +4,7 @@ import {
   createBuiltInRegistry,
   decodeDebuggerTransportSentinels,
   type ChartNode,
+  type FrozenNodeOutputsByGraph,
   type GraphId,
   type NodeConnection,
   type NodeGraph,
@@ -16,6 +17,7 @@ import {
   canPreloadEditorRunFromPlan,
   getDependentDataForNodeForPreload,
   getEditorRunFromPlan,
+  getFrozenNodePreloadOptionsForExecutorTarget,
   getFrozenNodeOutputsForExecutorRunPayload,
   selectTestSuitesToRun,
 } from './remoteExecutorHelpers';
@@ -300,6 +302,34 @@ test('getDependentDataForNodeForPreload prefers frozen boundary outputs over pre
       output: { type: 'string', value: 'frozen value' },
     },
   });
+});
+
+test('getFrozenNodePreloadOptionsForExecutorTarget only enables frozen preloads for internal executors', () => {
+  const frozenNodeOutputs = {
+    [graphId]: {
+      ['node-1' as NodeId]: [
+        {
+          output: { type: 'string', value: 'frozen value' },
+        },
+      ],
+    },
+  } satisfies FrozenNodeOutputsByGraph;
+
+  assert.deepEqual(
+    getFrozenNodePreloadOptionsForExecutorTarget(frozenNodeOutputs, graphId, {
+      type: 'internal-hosted',
+      url: 'ws://executor.example/internal',
+    }),
+    { frozenNodeOutputs, graphId },
+  );
+
+  assert.equal(
+    getFrozenNodePreloadOptionsForExecutorTarget(frozenNodeOutputs, graphId, {
+      type: 'external-debugger',
+      url: 'ws://debugger.example/latest',
+    }),
+    undefined,
+  );
 });
 
 test('getFrozenNodeOutputsForExecutorRunPayload includes cloned data for internal executors', () => {

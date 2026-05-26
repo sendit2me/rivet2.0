@@ -79,12 +79,24 @@ export function getFrozenNodeOutputsForExecutorRunPayload(
   frozenNodeOutputs: FrozenNodeOutputsByGraph,
   target: ExecutorSessionTarget | null | undefined,
 ): FrozenNodeOutputsByGraph | undefined {
-  if (target?.type !== 'internal-desktop' && target?.type !== 'internal-hosted') {
+  if (!canUseFrozenNodeOutputsForExecutorTarget(target)) {
     return undefined;
   }
 
   const payload = cloneFrozenNodeOutputsForExecutor(frozenNodeOutputs);
   return payload ? prepareFrozenNodeOutputsForInternalExecutorTransport(payload) : undefined;
+}
+
+export function getFrozenNodePreloadOptionsForExecutorTarget(
+  frozenNodeOutputs: FrozenNodeOutputsByGraph,
+  graphId: GraphId,
+  target: ExecutorSessionTarget | null | undefined,
+): { frozenNodeOutputs: FrozenNodeOutputsByGraph; graphId: GraphId } | undefined {
+  return canUseFrozenNodeOutputsForExecutorTarget(target) ? { frozenNodeOutputs, graphId } : undefined;
+}
+
+function canUseFrozenNodeOutputsForExecutorTarget(target: ExecutorSessionTarget | null | undefined): boolean {
+  return target?.type === 'internal-desktop' || target?.type === 'internal-hosted';
 }
 
 export type EditorRunFromPlan = {

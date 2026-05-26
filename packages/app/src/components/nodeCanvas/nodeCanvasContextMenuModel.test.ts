@@ -2,8 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   createBuiltInRegistry,
+  type FrozenNodeOutputsByGraph,
   type GraphId,
   type NodeId,
+  type PortId,
   type Project,
   type ProjectId,
 } from '@valerypopoff/rivet2-core';
@@ -47,6 +49,43 @@ function makeProject(): Project {
         metadata: { id: graphId, name: 'Graph' },
         nodes: [node],
         connections: [],
+      },
+    },
+  };
+}
+
+function makeProjectWithFrozenBoundaryDependency(): Project {
+  const sourceNode = registry.createDynamic('text');
+  sourceNode.id = 'source-node' as NodeId;
+  sourceNode.title = 'Source';
+
+  const selectedNode = registry.createDynamic('text');
+  selectedNode.id = nodeId;
+  selectedNode.title = 'Selected';
+  selectedNode.data = {
+    ...(selectedNode.data as Record<string, unknown>),
+    text: '{{input}}',
+  };
+
+  return {
+    metadata: {
+      description: '',
+      id: 'project-1' as ProjectId,
+      mainGraphId: graphId,
+      title: 'Project',
+    },
+    graphs: {
+      [graphId]: {
+        metadata: { id: graphId, name: 'Graph' },
+        nodes: [sourceNode, selectedNode],
+        connections: [
+          {
+            outputNodeId: sourceNode.id,
+            outputId: 'output' as PortId,
+            inputNodeId: selectedNode.id,
+            inputId: 'input' as PortId,
+          },
+        ],
       },
     },
   };
@@ -259,6 +298,40 @@ test('getNodeCanvasContextMenuContext disables Freeze and Unfreeze outside norma
   assert.equal(context.data.canFreeze, false);
   assert.equal(context.data.canUnfreeze, false);
   assert.equal(context.data.isFrozen, true);
+});
+
+test('getNodeCanvasContextMenuContext ignores frozen preload boundaries when frozen nodes are disabled', () => {
+  const projectWithFrozenBoundaryDependency = makeProjectWithFrozenBoundaryDependency();
+  const frozenNodeOutputs = {
+    [graphId]: {
+      ['source-node' as NodeId]: [
+        {
+          output: { type: 'string', value: 'frozen source' },
+        },
+      ],
+    },
+  } satisfies FrozenNodeOutputsByGraph;
+
+  const enabledContext = getNodeCanvasContextMenuContext({
+    ...contextModelOptions,
+    contextMenuData: makeContextMenuData('node-text'),
+    frozenNodeOutputs,
+    lastRunPerNode: {},
+    project: projectWithFrozenBoundaryDependency,
+  });
+  const disabledContext = getNodeCanvasContextMenuContext({
+    ...contextModelOptions,
+    canUseFrozenNodes: false,
+    contextMenuData: makeContextMenuData('node-text'),
+    frozenNodeOutputs,
+    lastRunPerNode: {},
+    project: projectWithFrozenBoundaryDependency,
+  });
+
+  assert.equal(enabledContext.type, 'node');
+  assert.equal(enabledContext.data.canRunFromHere, true);
+  assert.equal(disabledContext.type, 'node');
+  assert.equal(disabledContext.data.canRunFromHere, false);
 });
 
 test('canRunNodeCanvasContextMenuFromHere is false when editor runs are unavailable or planning fails', () => {
