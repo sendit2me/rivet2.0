@@ -3,7 +3,15 @@ import { useMergeRefs } from '@floating-ui/react';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { produce } from 'immer';
 import { type FC, type MouseEvent, useEffect, useMemo, useRef, useState } from 'react';
-import { type ChartNode, type CommentNode, type NodeConnection, type NodeId } from '@valerypopoff/rivet2-core';
+import {
+  type ChartNode,
+  type CommentNode,
+  type NodeConnection,
+  type NodeId,
+  type NodeInputDefinition,
+  type NodeOutputDefinition,
+  type PortId,
+} from '@valerypopoff/rivet2-core';
 import { useDeleteNodesCommand } from '../commands/deleteNodeCommand';
 import { useEditNodeCommand } from '../commands/editNodeCommand';
 import { useCanvasHotkeys } from '../hooks/useCanvasHotkeys';
@@ -200,8 +208,14 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
   }, [connections, nodes, project, selectedGraphMetadata]);
 
   const { selectionBox, startSelectionBox, updateSelectionBox, endSelectionBox } = useSelectionBox();
-  const { hoveringPort, hoveringShowPortInfo, onPortMouseOver, onPortMouseOut, floatingStyles, floatingRefs } =
-    usePortHoverTooltip();
+  const {
+    hoveringPort,
+    hoveringShowPortInfo,
+    onPortMouseOver: showPortTooltip,
+    onPortMouseOut: hidePortTooltip,
+    floatingStyles,
+    floatingRefs,
+  } = usePortHoverTooltip();
 
   const {
     dragAxisLock,
@@ -352,6 +366,23 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
 
   const onNodeMouseLeave = useStableCallback(() => {
     setHoveringNode(undefined);
+  });
+
+  const onPortMouseOver = useStableCallback(
+    (
+      event: MouseEvent<HTMLElement>,
+      nodeId: NodeId,
+      isInput: boolean,
+      portId: PortId,
+      definition: NodeInputDefinition | NodeOutputDefinition,
+    ) => {
+      setHoveringNode(nodeId);
+      showPortTooltip(event, nodeId, isInput, portId, definition);
+    },
+  );
+
+  const onPortMouseOut = useStableCallback(() => {
+    hidePortTooltip();
   });
 
   const clearHoveringNode = useStableCallback(() => {
@@ -623,7 +654,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
           draggingNodes={draggingNodes}
           draggingSourceNodeIds={draggedSourceNodeIds}
           heavyContentNodeIdSet={heavyContentNodeIdSet}
-          hoveredNodeId={hoveringPort ? undefined : hoveringNode}
+          hoveredNodeId={hoveringNode}
           lastRunPerNode={lastRunPerNode}
           layer="comments"
           nodeTypes={nodeTypes}
@@ -662,7 +693,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
           draggingNodes={draggingNodes}
           draggingSourceNodeIds={draggedSourceNodeIds}
           heavyContentNodeIdSet={heavyContentNodeIdSet}
-          hoveredNodeId={hoveringPort ? undefined : hoveringNode}
+          hoveredNodeId={hoveringNode}
           lastRunPerNode={lastRunPerNode}
           layer="nodes"
           nodeTypes={nodeTypes}

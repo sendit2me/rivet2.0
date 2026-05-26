@@ -1,6 +1,5 @@
 
-- When I hover the node, but the cursor is over one of the inputs or outputs, the hover is not registering. I want the hover to be hover even if the cursor is ove rone of the inputs or outputs
-
+- When hovering the gear icon of  afrozen node, it doesn't get ac tive color
 
 - Now, the executor mode is global for all open projects (remote debugger, browser, node). Make it per tab
 
