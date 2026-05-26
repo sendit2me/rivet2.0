@@ -1,4 +1,4 @@
-import type { GraphId, NodeId } from '@valerypopoff/rivet2-core';
+import type { ChartNode, GraphId, NodeId } from '@valerypopoff/rivet2-core';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { toast } from 'react-toastify';
 import { useDataRefs } from '../providers/ProvidersContext.js';
@@ -6,6 +6,7 @@ import { frozenNodeOutputsState, lastRunDataByNodeState, resolvedGraphSelectionS
 import { selectedExecutorState } from '../state/settings.js';
 import {
   assertFrozenNodeOutputsSerializableForInternalExecutor,
+  canNodeTypeBeFrozen,
   captureFrozenNodeOutputs,
   removeFrozenNodeOutputsForNode,
   setFrozenNodeOutputsForNode,
@@ -19,8 +20,13 @@ export function useFrozenNodeOutputActions() {
   const selectedExecutor = useAtomValue(selectedExecutorState);
   const setFrozenNodeOutputs = useSetAtom(frozenNodeOutputsState);
 
-  const freezeNode = useStableCallback((graphId: GraphId, nodeId: NodeId): boolean => {
+  const freezeNode = useStableCallback((graphId: GraphId, nodeId: NodeId, nodeType: ChartNode['type']): boolean => {
     try {
+      if (!canNodeTypeBeFrozen(nodeType)) {
+        toast.error('This node type cannot be frozen.');
+        return false;
+      }
+
       const outputInstances = captureFrozenNodeOutputs({
         dataRefs,
         graphId,

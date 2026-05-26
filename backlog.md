@@ -1,4 +1,7 @@
 
+- When I hover the node, but the cursor is over one of the inputs or outputs, the hover is not registering. I want the hover to be hover even if the cursor is ove rone of the inputs or outputs
+
+
 - Now, the executor mode is global for all open projects (remote debugger, browser, node). Make it per tab
 
 - Need to show the curent graph name somewhere. When there's many and they are in the folders and you click through subgraphs, the user gets lost. It's already shown in the run button. maybe make it more noticeable?
@@ -14,7 +17,6 @@
 - Get back to MCP and see if it works and how it works. I don't see an MCP node. I think we need it
 - Reassess all the "Generate using AI" in different nodes. The model picker is clipped by the section border
 
-- Add "Freeze node" functionality? Kust like in That Databricks tool. Maybe it can replace the current LLM chat node's "cache" functionality
 
 - In nodes that have variadic inputs, when an input in the middle is removed, the remaining inputs look weird. Do we need to automatically remove them? It should we allow the user to remove them if needed?
 

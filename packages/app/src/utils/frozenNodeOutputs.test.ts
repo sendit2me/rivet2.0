@@ -1,12 +1,19 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { DataValue, GraphId, NodeId, PortId } from '@valerypopoff/rivet2-core';
+import {
+  decodeDebuggerTransportSentinels,
+  type DataValue,
+  type GraphId,
+  type NodeId,
+  type PortId,
+} from '@valerypopoff/rivet2-core';
 import type { DataRefReader } from '../providers/ProvidersContext.js';
 import type { ProcessDataForNode } from '../state/dataFlow.js';
 import {
   assertFrozenNodeOutputsSerializableForInternalExecutor,
   captureFrozenNodeOutputs,
   getFrozenNodePreloadOutput,
+  prepareFrozenNodeOutputsForInternalExecutorTransport,
   removeFrozenNodeOutputsForGraphs,
   removeFrozenNodeOutputsForNode,
   setFrozenNodeOutputsForNode,
@@ -118,6 +125,54 @@ test('internal executor serialization guard accepts JSON-safe frozen outputs', (
   );
 });
 
+test('internal executor transport preserves explicit undefined in frozen outputs', () => {
+  const frozenOutputs = [
+    {
+      ['output' as PortId]: {
+        type: 'object',
+        value: {
+          messages: [
+            { role: 'system', text: 'hello' },
+            { isCacheBreakpoint: undefined, role: 'user', text: 'hi' },
+          ],
+        },
+      },
+      ['any-output' as PortId]: {
+        type: 'any',
+        value: undefined,
+      },
+    },
+  ];
+
+  const prepared = prepareFrozenNodeOutputsForInternalExecutorTransport(frozenOutputs);
+  const roundTripped = decodeDebuggerTransportSentinels(JSON.parse(JSON.stringify(prepared)));
+
+  assert.deepEqual(roundTripped, frozenOutputs);
+  assert.notDeepEqual(prepared, frozenOutputs);
+});
+
+test('internal executor transport preserves user values shaped like debugger sentinels', () => {
+  const sentinelShapedUserValue = {
+    __rivetDebuggerTransportSentinel: {
+      type: 'undefined',
+      version: 1,
+    },
+  };
+  const frozenOutputs = [
+    {
+      ['output' as PortId]: {
+        type: 'object',
+        value: sentinelShapedUserValue,
+      },
+    },
+  ];
+
+  const prepared = prepareFrozenNodeOutputsForInternalExecutorTransport(frozenOutputs);
+  const roundTripped = decodeDebuggerTransportSentinels(JSON.parse(JSON.stringify(prepared)));
+
+  assert.deepEqual(roundTripped, frozenOutputs);
+});
+
 test('internal executor serialization guard rejects values the run message cannot represent', () => {
   const circular: any = {};
   circular.self = circular;
@@ -126,7 +181,6 @@ test('internal executor serialization guard rejects values the run message canno
     { reason: /BigInt/, value: { type: 'object', value: { id: BigInt(1) } } },
     { reason: /Infinity/, value: { type: 'number', value: Infinity } },
     { reason: /NaN/, value: { type: 'number', value: Number.NaN } },
-    { reason: /undefined/, value: { type: 'object', value: { missing: undefined } } },
     { reason: /circular reference/, value: { type: 'object', value: circular } },
     { reason: /non-plain object/, value: { type: 'binary', value: Uint8Array.from([1, 2, 3]) } },
     { reason: /non-plain object/, value: { type: 'object', value: new Date('2026-01-01T00:00:00.000Z') } },

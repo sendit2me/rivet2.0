@@ -12,6 +12,7 @@ import {
   type Outputs,
   type FrozenNodeOutputsByGraph,
   type RemoteRunRequestId,
+  decodeDebuggerTransportSentinels,
 } from '@valerypopoff/rivet2-core';
 import { match } from 'ts-pattern';
 import Emittery from 'emittery';
@@ -185,6 +186,9 @@ export function startDebuggerServer(
               useEditorCache,
               captureNodeTimings,
             } = runData;
+            const decodedFrozenNodeOutputs = frozenNodeOutputs
+              ? decodeDebuggerTransportSentinels(frozenNodeOutputs)
+              : undefined;
 
             await options.dynamicGraphRun?.({
               client: socket,
@@ -194,7 +198,7 @@ export function startDebuggerServer(
               runToNodeIds,
               contextValues,
               preloadData,
-              frozenNodeOutputs,
+              frozenNodeOutputs: decodedFrozenNodeOutputs,
               projectPath,
               useEditorCache,
               captureNodeTimings,

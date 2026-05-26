@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   createBuiltInRegistry,
+  decodeDebuggerTransportSentinels,
   type ChartNode,
   type GraphId,
   type NodeConnection,
@@ -320,6 +321,31 @@ test('getFrozenNodeOutputsForExecutorRunPayload includes cloned data for interna
   assert.deepEqual(payload, frozenNodeOutputs);
   assert.notEqual(payload, frozenNodeOutputs);
   assert.notEqual(payload?.[graphId]?.['node-1' as NodeId]?.[0], frozenNodeOutputs[graphId]['node-1' as NodeId][0]);
+});
+
+test('getFrozenNodeOutputsForExecutorRunPayload preserves undefined through the internal executor transport shape', () => {
+  const frozenNodeOutputs = {
+    [graphId]: {
+      ['node-1' as NodeId]: [
+        {
+          output: {
+            type: 'object',
+            value: {
+              messages: [{ isCacheBreakpoint: undefined, role: 'user' }],
+            },
+          },
+        },
+      ],
+    },
+  } as any;
+
+  const payload = getFrozenNodeOutputsForExecutorRunPayload(frozenNodeOutputs, {
+    type: 'internal-hosted',
+    url: 'ws://executor.example/internal',
+  });
+  const roundTripped = decodeDebuggerTransportSentinels(JSON.parse(JSON.stringify(payload)));
+
+  assert.deepEqual(roundTripped, frozenNodeOutputs);
 });
 
 test('getFrozenNodeOutputsForExecutorRunPayload rejects non-JSON-safe data for internal executors', () => {

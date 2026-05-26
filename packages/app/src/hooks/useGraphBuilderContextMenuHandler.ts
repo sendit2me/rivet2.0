@@ -1,6 +1,6 @@
 import { P, match } from 'ts-pattern';
 import { useStableCallback } from './useStableCallback';
-import { type NodeId, type GraphId } from '@valerypopoff/rivet2-core';
+import { type ChartNode, type NodeId, type GraphId } from '@valerypopoff/rivet2-core';
 import { type ContextMenuContext } from '../components/ContextMenu';
 import { createRootGraphViewContext } from '../domain/graphEditing/navigationActions.js';
 import { editingNodeState } from '../state/graphBuilder';
@@ -88,9 +88,9 @@ export function useGraphBuilderContextMenuHandler() {
           tryRunGraph({ from: nodeId });
         })
         .with('node-freeze', () => {
-          const { nodeId } = context.data as { nodeId: NodeId };
+          const { nodeId, nodeType } = context.data as { nodeId: NodeId; nodeType: ChartNode['type'] };
           if (graphId) {
-            freezeNode(graphId, nodeId);
+            freezeNode(graphId, nodeId, nodeType);
           }
         })
         .with('node-unfreeze', () => {

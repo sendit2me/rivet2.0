@@ -9,6 +9,8 @@ export const nodeStyles = css`
     --node-output-hover-max-height: calc(20 * 1.4em + 36px);
     --node-output-multi-collapsed-max-height: calc(3 * 1.4em + 60px);
     --node-output-multi-hover-max-height: calc(20 * 1.4em + 60px);
+    --node-frozen-output-accent: #68b7ff;
+    --node-frozen-output-bg: color-mix(in srgb, var(--node-frozen-output-accent) 11%, var(--grey-darkest) 89%);
     background-color: var(--grey-darker-darker);
     background-clip: padding-box;
     border-radius: var(--node-card-radius);
@@ -242,7 +244,7 @@ export const nodeStyles = css`
   }
 
   .node.frozen:not(.isComment) .grab-area {
-    padding-right: calc(96px * var(--ui-font-scale));
+    padding-right: calc(72px * var(--ui-font-scale));
   }
 
   .split-run-mode-icon {
@@ -460,7 +462,8 @@ export const nodeStyles = css`
   }
 
   .node.frozen:not(.isComment) .title-controls {
-    width: calc(96px * var(--ui-font-scale));
+    gap: calc(3px * var(--ui-font-scale));
+    width: calc(72px * var(--ui-font-scale));
   }
 
   .title-controls .node-running-indicator {
@@ -471,6 +474,7 @@ export const nodeStyles = css`
   .title-controls .frozen-node-indicator {
     cursor: default;
     pointer-events: auto;
+    width: calc(24px * var(--ui-font-scale));
   }
 
   .node:not(:hover):not(.hovered):not(:focus-within) .title-controls .node-running-indicator {
@@ -795,6 +799,12 @@ export const nodeStyles = css`
     border-top-color: var(--success-light);
   }
 
+  .node.frozen.success:not(.running) .node-output:not(.multi) .node-output-inner,
+  .node.frozen.success:not(.running) .multi-node-output {
+    background-color: var(--node-frozen-output-bg);
+    border-top-color: var(--node-frozen-output-accent);
+  }
+
   .node.error .node-output:not(.multi) .node-output-inner,
   .node.interrupted .node-output:not(.multi) .node-output-inner,
   .node.error .multi-node-output,
@@ -857,6 +867,10 @@ export const nodeStyles = css`
 
   .node.success .node-output:before {
     border-top-color: var(--success-light);
+  }
+
+  .node.frozen.success:not(.running) .node-output:before {
+    border-top-color: var(--node-frozen-output-accent);
   }
 
   .node.error .node-output:before,

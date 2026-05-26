@@ -31,9 +31,11 @@ Frozen execution still follows normal graph readiness rules. If a node would not
 
 Frozen nodes replace computation, not every possible side effect. Rivet restores graph-output dataflow and global-variable writes for frozen **Graph Output** and **Set Global** nodes, but other side effects such as dataset writes, raised events, audio playback, external calls, and graph aborts are not replayed.
 
+Some nodes cannot be frozen because their behavior is not useful or safe to replay as stored output data: **Comment**, **Abort Graph**, **Create Dataset**, **Append to Dataset**, **Replace Dataset**, **Raise Event**, and **Play Audio**.
+
 Freeze node is available only for normal editor runs in Browser mode or the built-in Node executor. It is not available while using an external Remote Debugger session or while viewing a loaded recording.
 
-When the built-in Node executor is selected, frozen outputs must be JSON-serializable so Rivet can send them to the executor process. If the captured value contains JavaScript-only values such as `BigInt`, `undefined`, circular references, `NaN`, `Infinity`, typed arrays, or class instances, Rivet will ask you to use Browser mode or freeze a JSON-serializable output instead.
+When the built-in Node executor is selected, frozen outputs must be safe to send to the executor process. Rivet preserves explicit JavaScript `undefined` values during this transfer, including optional fields inside LLM message objects. If the captured value contains unsupported JavaScript-only values such as `BigInt`, circular references, `NaN`, `Infinity`, typed arrays, or class instances, Rivet will ask you to use Browser mode or freeze a JSON-serializable output instead.
 
 ## Chaining LLM Responses
 

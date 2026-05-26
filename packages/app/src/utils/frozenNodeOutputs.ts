@@ -1,7 +1,11 @@
 import {
   cloneFrozenNodeOutputs,
   cloneFrozenNodeOutputsByGraph,
+  createDebuggerTransportEscapedSentinelEnvelope,
+  createDebuggerTransportUndefinedSentinel,
   hasFrozenNodeOutputs,
+  isDebuggerTransportSentinelEnvelope,
+  type ChartNode,
   type FrozenNodeOutputsByGraph,
   type GraphId,
   type NodeId,
@@ -16,6 +20,20 @@ type GraphSelectionOptions = {
   graphRuns?: GraphRunRecord[];
   selectedGraphRun?: GraphRunSelection;
 };
+
+const UNFREEZABLE_NODE_TYPES = new Set<ChartNode['type']>([
+  'comment',
+  'abortGraph',
+  'appendToDataset',
+  'createDataset',
+  'replaceDataset',
+  'raiseEvent',
+  'playAudio',
+]);
+
+export function canNodeTypeBeFrozen(nodeType: ChartNode['type']): boolean {
+  return !UNFREEZABLE_NODE_TYPES.has(nodeType);
+}
 
 export function getSuccessfulFrozenOutputCandidates(options: {
   graphId: GraphId;
@@ -166,11 +184,19 @@ export function cloneFrozenNodeOutputsForExecutor(
 }
 
 export function assertFrozenNodeOutputsSerializableForInternalExecutor(value: unknown): void {
-  const stack = new WeakSet<object>();
-  visitInternalExecutorSerializableValue(value, ['frozenNodeOutputs'], stack);
+  prepareFrozenNodeOutputsForInternalExecutorTransport(value);
 }
 
-function visitInternalExecutorSerializableValue(value: unknown, path: Array<string | number>, stack: WeakSet<object>) {
+export function prepareFrozenNodeOutputsForInternalExecutorTransport<T>(value: T): T {
+  const stack = new WeakSet<object>();
+  return prepareInternalExecutorSerializableValue(value, ['frozenNodeOutputs'], stack) as T;
+}
+
+function prepareInternalExecutorSerializableValue(
+  value: unknown,
+  path: Array<string | number>,
+  stack: WeakSet<object>,
+): unknown {
   switch (typeof value) {
     case 'bigint':
       throw new Error(createInternalExecutorSerializationError('BigInt', path));
@@ -180,14 +206,14 @@ function visitInternalExecutorSerializableValue(value: unknown, path: Array<stri
       if (!Number.isFinite(value)) {
         throw new Error(createInternalExecutorSerializationError(String(value), path));
       }
-      return;
+      return value;
     case 'symbol':
       throw new Error(createInternalExecutorSerializationError('symbol', path));
     case 'undefined':
-      throw new Error(createInternalExecutorSerializationError('undefined', path));
+      return createDebuggerTransportUndefinedSentinel();
     case 'object':
       if (value == null) {
-        return;
+        return value;
       }
 
       if (stack.has(value)) {
@@ -195,21 +221,28 @@ function visitInternalExecutorSerializableValue(value: unknown, path: Array<stri
       }
 
       stack.add(value);
-      if (Array.isArray(value)) {
-        value.forEach((item, index) => visitInternalExecutorSerializableValue(item, [...path, index], stack));
-      } else {
+      try {
+        if (Array.isArray(value)) {
+          return value.map((item, index) => prepareInternalExecutorSerializableValue(item, [...path, index], stack));
+        }
+
         if (!isPlainJsonObject(value)) {
           throw new Error(createInternalExecutorSerializationError('a non-plain object', path));
         }
 
-        Object.entries(value).forEach(([key, item]) =>
-          visitInternalExecutorSerializableValue(item, [...path, key], stack),
-        );
+        const prepared: Record<string, unknown> = {};
+        for (const [key, item] of Object.entries(value)) {
+          prepared[key] = prepareInternalExecutorSerializableValue(item, [...path, key], stack);
+        }
+
+        return isDebuggerTransportSentinelEnvelope(value)
+          ? createDebuggerTransportEscapedSentinelEnvelope(prepared)
+          : prepared;
+      } finally {
+        stack.delete(value);
       }
-      stack.delete(value);
-      return;
     default:
-      return;
+      return value;
   }
 }
 

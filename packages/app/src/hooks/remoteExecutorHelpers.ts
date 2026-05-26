@@ -14,9 +14,9 @@ import { hasStoredPortMapValues, restoreStoredPortMap } from '../utils/execution
 import { hasUnavailableStoredRefs } from '../utils/executionDataStorage.js';
 import { getGlobalDataRef } from '../utils/globals/globalDataRefs.js';
 import {
-  assertFrozenNodeOutputsSerializableForInternalExecutor,
   cloneFrozenNodeOutputsForExecutor,
   getFrozenNodePreloadOutput,
+  prepareFrozenNodeOutputsForInternalExecutorTransport,
 } from '../utils/frozenNodeOutputs.js';
 import type { ExecutorSessionTarget } from './executorSessionTarget.js';
 
@@ -84,11 +84,7 @@ export function getFrozenNodeOutputsForExecutorRunPayload(
   }
 
   const payload = cloneFrozenNodeOutputsForExecutor(frozenNodeOutputs);
-  if (payload) {
-    assertFrozenNodeOutputsSerializableForInternalExecutor(payload);
-  }
-
-  return payload;
+  return payload ? prepareFrozenNodeOutputsForInternalExecutorTransport(payload) : undefined;
 }
 
 export type EditorRunFromPlan = {

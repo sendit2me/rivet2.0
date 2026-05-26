@@ -13,6 +13,7 @@ import {
   getNodeCanvasContextMenuContext,
   getNodeCanvasContextMenuTarget,
 } from './nodeCanvasContextMenuModel.js';
+import { canNodeTypeBeFrozen } from '../../utils/frozenNodeOutputs.js';
 
 const registry = createBuiltInRegistry();
 const graphId = 'graph-1' as GraphId;
@@ -140,6 +141,47 @@ test('getNodeCanvasContextMenuContext enables Freeze for nodes with retained suc
   assert.equal(context.data.isFrozen, false);
 });
 
+test('canNodeTypeBeFrozen blocks non-replayable node categories', () => {
+  assert.equal(canNodeTypeBeFrozen('text'), true);
+
+  for (const nodeType of [
+    'comment',
+    'abortGraph',
+    'appendToDataset',
+    'createDataset',
+    'replaceDataset',
+    'raiseEvent',
+    'playAudio',
+  ] as const) {
+    assert.equal(canNodeTypeBeFrozen(nodeType), false, `${nodeType} should not be freezable`);
+  }
+});
+
+test('getNodeCanvasContextMenuContext disables Freeze for unfreezable node types with retained outputs', () => {
+  const context = getNodeCanvasContextMenuContext({
+    ...contextModelOptions,
+    contextMenuData: makeContextMenuData('node-raiseEvent'),
+    lastRunPerNode: {
+      [nodeId]: [
+        {
+          graphId,
+          processId: 'process-1' as any,
+          data: {
+            status: { type: 'ok' },
+            outputData: {
+              result: { type: 'string', storage: 'inline', value: 'event data' },
+            },
+          },
+        },
+      ],
+    } as any,
+  });
+
+  assert.equal(context.type, 'node');
+  assert.equal(context.data.canFreeze, false);
+  assert.equal(context.data.canUnfreeze, false);
+});
+
 test('getNodeCanvasContextMenuContext enables Unfreeze for frozen nodes', () => {
   const context = getNodeCanvasContextMenuContext({
     ...contextModelOptions,
@@ -149,6 +191,27 @@ test('getNodeCanvasContextMenuContext enables Unfreeze for frozen nodes', () => 
         [nodeId]: [
           {
             output: { type: 'string', value: 'frozen output' },
+          },
+        ],
+      },
+    } as any,
+  });
+
+  assert.equal(context.type, 'node');
+  assert.equal(context.data.canFreeze, false);
+  assert.equal(context.data.canUnfreeze, true);
+  assert.equal(context.data.isFrozen, true);
+});
+
+test('getNodeCanvasContextMenuContext keeps Unfreeze available for stale frozen blocked nodes', () => {
+  const context = getNodeCanvasContextMenuContext({
+    ...contextModelOptions,
+    contextMenuData: makeContextMenuData('node-raiseEvent'),
+    frozenNodeOutputs: {
+      [graphId]: {
+        [nodeId]: [
+          {
+            result: { type: 'string', value: 'event data' },
           },
         ],
       },

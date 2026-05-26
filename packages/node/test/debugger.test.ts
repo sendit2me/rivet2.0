@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import * as assert from 'node:assert/strict';
 import {
   WarningsPort,
+  createDebuggerTransportUndefinedSentinel,
   decodeDebuggerTransportSentinels,
   type ChartNode,
   type DataType,
@@ -120,7 +121,26 @@ it('forwards frozen node outputs from internal run messages to the dynamic graph
     ['graph-1' as GraphId]: {
       ['node-1' as NodeId]: [
         {
-          ['output' as PortId]: { type: 'string', value: 'frozen value' },
+          ['output' as PortId]: {
+            type: 'object',
+            value: {
+              messages: [{ isCacheBreakpoint: undefined, role: 'user' }],
+            },
+          },
+        },
+      ],
+    },
+  };
+  const transportFrozenNodeOutputs = {
+    ['graph-1' as GraphId]: {
+      ['node-1' as NodeId]: [
+        {
+          ['output' as PortId]: {
+            type: 'object',
+            value: {
+              messages: [{ isCacheBreakpoint: createDebuggerTransportUndefinedSentinel(), role: 'user' }],
+            },
+          },
         },
       ],
     },
@@ -145,7 +165,7 @@ it('forwards frozen node outputs from internal run messages to the dynamic graph
           inputs: {},
           contextValues: {},
           projectPath: undefined,
-          frozenNodeOutputs,
+          frozenNodeOutputs: transportFrozenNodeOutputs,
         },
       }),
     ),

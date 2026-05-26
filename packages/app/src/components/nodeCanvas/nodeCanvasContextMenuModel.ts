@@ -6,7 +6,7 @@ import {
   getEditorRunFromPlan,
 } from '../../hooks/remoteExecutorHelpers.js';
 import type { GraphRunRecord, GraphRunSelection, RunDataByNodeId } from '../../state/dataFlow.js';
-import { canFreezeNodeOutputs } from '../../utils/frozenNodeOutputs.js';
+import { canFreezeNodeOutputs, canNodeTypeBeFrozen } from '../../utils/frozenNodeOutputs.js';
 
 type ProjectNodeRegistry = Parameters<typeof getEditorRunFromPlan>[3];
 const NODE_CONTEXT_MENU_TYPE_PREFIX = 'node-';
@@ -68,7 +68,7 @@ export function getNodeCanvasContextMenuContext({
       }),
       canFreeze:
         canUseFrozenNodes &&
-        target.nodeType !== 'comment' &&
+        canNodeTypeBeFrozen(target.nodeType) &&
         !isFrozen &&
         Boolean(
           selectedGraphId &&
@@ -80,7 +80,6 @@ export function getNodeCanvasContextMenuContext({
         ),
       canUnfreeze:
         canUseFrozenNodes &&
-        target.nodeType !== 'comment' &&
         isFrozen,
       isFrozen,
     },
