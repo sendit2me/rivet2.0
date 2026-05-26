@@ -25,6 +25,14 @@ test('graph tree panel keeps the compact text-list layout source contract', () =
   assert.match(graphListSource, /className="graph-list-filter"/);
   assert.match(graphListSource, /aria-label="Filter graphs"/);
   assert.match(graphListSource, /placeholder="Filter graphs"/);
+  assert.match(graphListSource, /onKeyDown={handleGraphListKeyDown}/);
+  assert.match(graphListSource, /onMouseDown={handleGraphListMouseDown}/);
+  assert.match(graphListSource, /tabIndex={-1}/);
+  assert.match(graphListSource, /e\.key !== 'F2'/);
+  assert.match(graphListSource, /isInteractiveGraphListTarget\(e\.target\)/);
+  assert.match(graphListSource, /setSearchText\(''\);/);
+  assert.match(graphListSource, /startRename\(currentGraphListName\)/);
+  assert.match(graphListSource, /cancelRename/);
   assert.match(graphListSource, /<PopupMenuItem\b/);
   assert.doesNotMatch(graphListSource, /from '\.\/ContextMenu'/);
   assert.doesNotMatch(graphListSource, /<ContextMenuItem\b/);
@@ -57,6 +65,11 @@ test('graph tree panel keeps the compact text-list layout source contract', () =
   assert.match(folderItemSource, /'--graph-item-indent': `\$\{virtualDepth \* 20\}px`/);
   assert.match(folderItemSource, /containsReferencingSelectedGraph/);
   assert.match(folderItemSource, /'folder-reference-dot': containsReferencingSelectedGraph/);
+  assert.match(folderItemSource, /onCancel={onCancelRename}/);
+  assert.match(folderItemSource, /onBlur={handleRenameBlur}/);
+  assert.match(folderItemSource, /addEventListener\('pointerdown', handleOutsidePointerDown, true\)/);
+  assert.match(folderItemSource, /e\.key === 'Escape'/);
+  assert.match(folderItemSource, /onCancel\(\);/);
   assert.match(
     folderItemSource,
     /const showChildGuideLine = item\.type === 'folder' && isExpanded && item\.children\.length > 0/,

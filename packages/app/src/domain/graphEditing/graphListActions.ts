@@ -53,6 +53,11 @@ export function buildUniqueNewFolderPath(parentPath: string | undefined, folderN
   return candidatePath;
 }
 
+export function getAncestorFolderPaths(fullPath: string): string[] {
+  const pathParts = fullPath.split('/').filter(Boolean);
+  return pathParts.slice(0, -1).map((_, index) => pathParts.slice(0, index + 1).join('/'));
+}
+
 export function deleteFolderGraphs(savedGraphs: NodeGraph[], folderName: string) {
   return savedGraphs.filter((graph) => !(graph.metadata?.name && isInFolder(folderName, graph.metadata.name)));
 }

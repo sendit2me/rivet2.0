@@ -1,7 +1,5 @@
 - Need keyboard shortcuts to run the project and the current graph
 
-- When a graph is picked in the left panel and the panel is open, make F2 force renaming
-
 - Now, the executor mode is global for all open projects (remote debugger, browser, node). Make it per tab
 
 - Need to show the curent graph name somewhere. When there's many and they are in the folders and you click through subgraphs, the user gets lost. It's already shown in the run button. maybe make it more noticeable?

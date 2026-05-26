@@ -6,6 +6,7 @@ import {
   buildUniqueNewFolderPath,
   buildUntitledGraph,
   deleteFolderGraphs,
+  getAncestorFolderPaths,
   renameFolderItemInGraphs,
 } from './graphListActions';
 
@@ -33,6 +34,12 @@ test('buildUniqueNewFolderPath increments folder names within the same parent', 
   assert.equal(buildUniqueNewFolderPath(undefined, ['New Folder'], []), 'New Folder 2');
   assert.equal(buildUniqueNewFolderPath('parent', ['parent/New Folder'], []), 'parent/New Folder 2');
   assert.equal(buildUniqueNewFolderPath('parent', ['parent/New Folder', 'parent/New Folder 2'], []), 'parent/New Folder 3');
+});
+
+test('getAncestorFolderPaths returns parent folders from outermost to innermost', () => {
+  assert.deepEqual(getAncestorFolderPaths('Graph'), []);
+  assert.deepEqual(getAncestorFolderPaths('Folder/Graph'), ['Folder']);
+  assert.deepEqual(getAncestorFolderPaths('Folder/Nested/Graph'), ['Folder', 'Folder/Nested']);
 });
 
 test('deleteFolderGraphs removes graphs within the folder subtree', () => {

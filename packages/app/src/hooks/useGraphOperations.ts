@@ -16,6 +16,7 @@ import {
   buildUntitledGraph,
   createFolderedGraphs,
   deleteFolderGraphs,
+  getAncestorFolderPaths,
   preserveFolderNames,
   renameFolderItemInGraphs,
 } from '../domain/graphEditing/graphListActions.js';
@@ -53,6 +54,25 @@ export function useGraphOperations() {
 
   const startRename = useStableCallback((folderItemName: string) => {
     setRenamingItemFullPath(folderItemName);
+    const ancestorFolderPaths = getAncestorFolderPaths(folderItemName);
+    if (ancestorFolderPaths.length === 0) {
+      return;
+    }
+
+    setExpandedFolders((prev) => {
+      let next = prev;
+      for (const ancestorFolderPath of ancestorFolderPaths) {
+        const expandedFolderKey = `${projectMetadata.id}/${ancestorFolderPath}`;
+        if (next[expandedFolderKey] !== true) {
+          next = { ...next, [expandedFolderKey]: true };
+        }
+      }
+      return next;
+    });
+  });
+
+  const cancelRename = useStableCallback(() => {
+    setRenamingItemFullPath(undefined);
   });
 
   const handleNew = useStableCallback((folderPath?: string) => {
@@ -162,6 +182,7 @@ export function useGraphOperations() {
     handleDeleteFolder,
     makeMainGraph,
     startRename,
+    cancelRename,
     renameFolderItem,
   };
 }
