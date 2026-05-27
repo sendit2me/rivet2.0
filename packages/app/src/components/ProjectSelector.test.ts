@@ -12,7 +12,7 @@ test('project top bar owns the graph tree sidebar toggle for the active project 
 
   assert.match(
     projectSelectorTsx,
-    /{projectTabsSelected && <GraphTreeSidebarToggle \/>}[\s\S]*{!isInTauri\(\) && <ProjectFileMenu \/>}/,
+    /{projectTabsSelected && <GraphTreeSidebarToggle \/>}[\s\S]*{projectTabsSelected && <GraphHistoryControls \/>}[\s\S]*{reserveSidebarColumn && \([\s\S]*className={clsx\('sidebar-panel-spacer', \{ 'no-left-controls': !projectTabsSelected \}\)}[\s\S]*{!isInTauri\(\) && <ProjectFileMenu \/>}/,
   );
   assert.match(projectSelectorTsx, /aria-controls="graph-tree-sidebar"/);
   assert.match(projectSelectorTsx, /aria-expanded={sidebarOpen}/);
@@ -31,6 +31,21 @@ test('project top bar owns the graph tree sidebar toggle for the active project 
   assert.match(projectSelectorTsx, /const GraphTreeSidebarIcon: FC<{ sidebarOpen: boolean }>/);
   assert.match(projectSelectorTsx, /<rect x="2\.75" y="3\.5" width="10\.5" height="9" rx="1\.25"/);
   assert.match(projectSelectorTsx, /d={sidebarOpen \? 'M5\.25 4\.75v6\.5' : 'M7\.25 4\.75v6\.5'}/);
+  assert.match(projectSelectorTsx, /const GraphHistoryControls: FC = \(\) => {/);
+  assert.match(projectSelectorTsx, /<GraphHistoryButton[\s\S]*?disabled={!navigationStack\.hasBackward}/);
+  assert.match(projectSelectorTsx, /<GraphHistoryButton[\s\S]*?disabled={!navigationStack\.hasForward}/);
+  assert.match(projectSelectorTsx, /tooltip={GRAPH_HISTORY_PREVIOUS_TOOLTIP}/);
+  assert.match(projectSelectorTsx, /tooltip={GRAPH_HISTORY_NEXT_TOOLTIP}/);
+  assert.match(projectSelectorTsx, /<button[\s\S]*?aria-label={label}[\s\S]*?disabled={disabled}/);
+  assert.match(projectSelectorTsx, /onClick={disabled \? undefined : onClick}/);
+  assert.match(
+    projectSelectorTsx,
+    /flex: 0 0 max\(0px, calc\(var\(--left-sidebar-width\) - var\(--top-bar-left-controls-width\)\)\);/,
+  );
+  assert.match(
+    projectSelectorTsx,
+    /\.sidebar-panel-spacer\.no-left-controls {\s+flex-basis: var\(--left-sidebar-width\);/,
+  );
   assert.match(leftSidebarTsx, /id="graph-tree-sidebar"/);
   assert.match(leftSidebarTsx, /shouldCollapseLeftSidebarDrag\(rawWidth\)/);
   assert.match(leftSidebarTsx, /\{\(sidebarOpen \|\| isResizing\) && \(/);

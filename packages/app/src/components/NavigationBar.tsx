@@ -4,17 +4,12 @@ import {
   useEffect,
   useMemo,
   useRef,
-  type CSSProperties,
   type FC,
   type KeyboardEvent,
   type PointerEvent as ReactPointerEvent,
   type RefObject,
-  type ReactNode,
   type UIEvent,
 } from 'react';
-import { useGraphHistoryNavigation } from '../hooks/useGraphHistoryNavigation';
-import LeftIcon from 'majesticons/line/chevron-left-line.svg?react';
-import RightIcon from 'majesticons/line/chevron-right-line.svg?react';
 import CrossIcon from 'majesticons/line/multiply-line.svg?react';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import {
@@ -24,7 +19,6 @@ import {
   hideGraphSearchPanelState,
   searchingGraphState,
   selectedNodesState,
-  sidebarOpenState,
 } from '../state/graphBuilder';
 import { Tooltip } from './Tooltip';
 import { useSearchProject, type FuseResultMatch, type SearchedItem, type RangeTuple } from '../hooks/useSearchProject';
@@ -42,10 +36,8 @@ import {
 import { useLoadGraph } from '../hooks/useLoadGraph';
 import { graphState } from '../state/graph';
 import { createRootGraphViewContext } from '../domain/graphEditing/navigationActions';
-import { graphSearchPanelHeightState, leftSidebarLiveWidthState } from '../state/ui';
-import { getLeftSidebarAttachedControlOffset } from '../utils/leftSidebarWidth';
+import { graphSearchPanelHeightState } from '../state/ui';
 import { resizeCursorStyles } from '../utils/resizeCursors';
-import { GRAPH_HISTORY_NEXT_TOOLTIP, GRAPH_HISTORY_PREVIOUS_TOOLTIP } from '../hooks/canvasNavigationShortcuts.js';
 import { getGraphSearchPanelMaxHeight, getNextGraphSearchPanelHeight } from './graphSearch/graphSearchPanelModel';
 
 const GRAPH_SEARCH_FOCUS_ZOOM = 0.8;
@@ -53,8 +45,6 @@ const MIN_GRAPH_SEARCH_PANEL_HEIGHT = 180;
 const GRAPH_SEARCH_PANEL_BOTTOM_MARGIN = 16;
 
 const styles = css`
-  --graph-navigation-button-height: calc(32px * var(--ui-font-scale));
-
   position: fixed;
   inset: 0;
   z-index: 50;
@@ -83,47 +73,6 @@ const styles = css`
     svg {
       width: 16px;
       height: 16px;
-    }
-  }
-
-  .graph-history-controls {
-    display: flex;
-    gap: 8px;
-    left: var(--graph-navigation-left);
-    pointer-events: none;
-    position: fixed;
-    top: calc(20px + var(--project-selector-height));
-
-    &.sidebar-closed {
-      left: 25px;
-    }
-
-    button {
-      background: var(--grey-darkish);
-      color: var(--grey-lightest);
-      height: var(--graph-navigation-button-height);
-      padding: 0;
-      pointer-events: auto;
-      width: var(--graph-navigation-button-height);
-
-      &:hover {
-        background: var(--grey);
-      }
-
-      &:disabled {
-        background: var(--grey-darkish);
-        color: var(--grey-light);
-        cursor: default;
-        opacity: 0.45;
-      }
-
-      &:disabled:hover {
-        background: var(--grey-darkish);
-      }
-    }
-
-    .tooltip {
-      pointer-events: auto;
     }
   }
 
@@ -451,9 +400,6 @@ const styles = css`
 `;
 
 export const NavigationBar: FC = () => {
-  const navigationStack = useGraphHistoryNavigation();
-  const sidebarOpen = useAtomValue(sidebarOpenState);
-  const graphNavigationLeft = getLeftSidebarAttachedControlOffset(useAtomValue(leftSidebarLiveWidthState));
   const [searching, setSearching] = useAtom(searchingGraphState);
   const [graphSearchPanelHeight, setGraphSearchPanelHeight] = useAtom(graphSearchPanelHeightState);
   const goToNode = useGoToNode();
@@ -651,30 +597,6 @@ export const NavigationBar: FC = () => {
 
   return (
     <div css={styles}>
-      {(navigationStack.hasBackward || navigationStack.hasForward) && (
-        <div
-          className={clsx('graph-history-controls', { 'sidebar-closed': !sidebarOpen })}
-          style={{ '--graph-navigation-left': `${graphNavigationLeft}px` } as CSSProperties}
-        >
-          <GraphHistoryButton
-            disabled={!navigationStack.hasBackward}
-            label="Go to previous graph"
-            tooltip={GRAPH_HISTORY_PREVIOUS_TOOLTIP}
-            onClick={navigationStack.navigateBack}
-          >
-            <LeftIcon />
-          </GraphHistoryButton>
-          <GraphHistoryButton
-            disabled={!navigationStack.hasForward}
-            label="Go to next graph"
-            tooltip={GRAPH_HISTORY_NEXT_TOOLTIP}
-            onClick={navigationStack.navigateForward}
-          >
-            <RightIcon />
-          </GraphHistoryButton>
-        </div>
-      )}
-
       {searching.searching && searching.panelOpen && (
         <div
           ref={graphSearchPanelRef}
@@ -747,26 +669,6 @@ export const NavigationBar: FC = () => {
         </div>
       )}
     </div>
-  );
-};
-
-const GraphHistoryButton: FC<{
-  children: ReactNode;
-  disabled: boolean;
-  label: string;
-  tooltip: string;
-  onClick: () => void;
-}> = ({ children, disabled, label, onClick, tooltip }) => {
-  const button = (
-    <button aria-label={label} disabled={disabled} onClick={disabled ? undefined : onClick} type="button">
-      {children}
-    </button>
-  );
-
-  return (
-    <Tooltip content={tooltip} placement="bottom">
-      {button}
-    </Tooltip>
   );
 };
 

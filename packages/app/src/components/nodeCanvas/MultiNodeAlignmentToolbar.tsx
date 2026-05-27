@@ -3,17 +3,21 @@ import { type ChartNode, type NodeId } from '@valerypopoff/rivet2-core';
 import { useAtomValue } from 'jotai';
 import { type FC, type ReactNode, type RefObject } from 'react';
 import { useMoveNodeCommand } from '../../commands/moveNodeCommand.js';
+import { useSetNodeWidthsCommand } from '../../commands/setNodeWidthsCommand.js';
 import {
+  calculateMultiNodeEqualWidthChanges,
   calculateMultiNodeAlignmentMoves,
   type MultiNodeAlignmentAction,
   type NodeLayoutBounds,
 } from '../../domain/graphEditing/multiNodeAlignment.js';
+import { getCanvasNodeWidth } from '../../hooks/canvasVisibilityBounds.js';
 import { useStableCallback } from '../../hooks/useStableCallback.js';
 import { isReadOnlyGraphState } from '../../state/graph.js';
 import { Tooltip } from '../Tooltip.js';
-import { DEFAULT_NODE_WIDTH } from '../../utils/nodeResize.js';
 
 const DEFAULT_NODE_HEIGHT = 200;
+
+type NodeWidthMeasurementMode = 'layout' | 'resize';
 
 const styles = css`
   position: fixed;
@@ -40,13 +44,22 @@ const styles = css`
     grid-template-rows: repeat(2, 36px);
   }
 
+  .sizing-column,
   .distribution-column {
     display: grid;
     grid-template-columns: 36px;
-    grid-template-rows: repeat(2, 36px);
     margin-left: 4px;
     padding-left: 8px;
     border-left: 1px solid var(--grey);
+  }
+
+  .sizing-column {
+    grid-template-rows: 36px;
+    align-content: center;
+  }
+
+  .distribution-column {
+    grid-template-rows: repeat(2, 36px);
   }
 
   .toolbar-button {
@@ -89,6 +102,7 @@ const styles = css`
 function measureNodeBounds(
   selectedNodes: readonly ChartNode[],
   canvasRoot: HTMLDivElement | null,
+  widthMeasurementMode: NodeWidthMeasurementMode = 'layout',
 ): NodeLayoutBounds[] {
   const nodeElements = new Map<NodeId, HTMLElement>();
 
@@ -106,10 +120,31 @@ function measureNodeBounds(
       nodeId: node.id,
       x: node.visualData.x,
       y: node.visualData.y,
-      width: element?.offsetWidth ?? node.visualData.width ?? DEFAULT_NODE_WIDTH,
+      width: getMeasuredNodeWidth(node, element, widthMeasurementMode),
       height: element?.offsetHeight ?? DEFAULT_NODE_HEIGHT,
     };
   });
+}
+
+function getMeasuredNodeWidth(
+  node: ChartNode,
+  element: HTMLElement | undefined,
+  widthMeasurementMode: NodeWidthMeasurementMode,
+): number {
+  if (!element) {
+    return getCanvasNodeWidth(node);
+  }
+
+  if (widthMeasurementMode === 'layout') {
+    return element.offsetWidth;
+  }
+
+  const computedWidth = Number.parseFloat(window.getComputedStyle(element).width);
+  if (Number.isFinite(computedWidth)) {
+    return computedWidth;
+  }
+
+  return getCanvasNodeWidth(node);
 }
 
 const IconFrame: FC<{ children: ReactNode }> = ({ children }) => (
@@ -182,14 +217,20 @@ const DistributeVerticallyIcon = () => (
   </IconFrame>
 );
 
+const EqualWidthIcon = () => (
+  <IconFrame>
+    <rect x="3" y="4" width="10" height="3" rx="0.8" />
+    <rect x="3" y="9" width="10" height="3" rx="0.8" />
+  </IconFrame>
+);
+
 const ToolbarButton: FC<{
-  action: MultiNodeAlignmentAction;
   label: string;
-  onClick: (action: MultiNodeAlignmentAction) => void;
+  onClick: () => void;
   children: ReactNode;
-}> = ({ action, label, onClick, children }) => (
+}> = ({ label, onClick, children }) => (
   <Tooltip content={label} tag="span" className="toolbar-button">
-    <button type="button" aria-label={label} onClick={() => onClick(action)}>
+    <button type="button" aria-label={label} onClick={onClick}>
       {children}
     </button>
   </Tooltip>
@@ -207,11 +248,9 @@ export function shouldShowMultiNodeAlignmentToolbar(options: {
   return options.selectedNodeCount >= 2 && !options.isReadOnlyGraph;
 }
 
-export const MultiNodeAlignmentToolbar: FC<MultiNodeAlignmentToolbarProps> = ({
-  canvasRootRef,
-  selectedNodes,
-}) => {
+export const MultiNodeAlignmentToolbar: FC<MultiNodeAlignmentToolbarProps> = ({ canvasRootRef, selectedNodes }) => {
   const moveNode = useMoveNodeCommand();
+  const setNodeWidths = useSetNodeWidthsCommand();
   const isReadOnlyGraph = useAtomValue(isReadOnlyGraphState);
 
   const applyAction = useStableCallback((action: MultiNodeAlignmentAction) => {
@@ -228,6 +267,21 @@ export const MultiNodeAlignmentToolbar: FC<MultiNodeAlignmentToolbarProps> = ({
     moveNode({ moves });
   });
 
+  const applyEqualWidth = useStableCallback(() => {
+    const bounds = measureNodeBounds(selectedNodes, canvasRootRef.current, 'resize');
+    const currentWidthsByNodeId = new Map(bounds.map((node) => [node.nodeId, node.width]));
+    const widths = calculateMultiNodeEqualWidthChanges(bounds).filter((widthChange) => {
+      const currentWidth = currentWidthsByNodeId.get(widthChange.nodeId);
+      return currentWidth !== widthChange.width;
+    });
+
+    if (widths.length === 0) {
+      return;
+    }
+
+    setNodeWidths({ widths });
+  });
+
   if (
     !shouldShowMultiNodeAlignmentToolbar({
       selectedNodeCount: selectedNodes.length,
@@ -240,30 +294,35 @@ export const MultiNodeAlignmentToolbar: FC<MultiNodeAlignmentToolbarProps> = ({
   return (
     <div css={styles}>
       <div className="alignment-grid">
-        <ToolbarButton action="align-left" label="Align left" onClick={applyAction}>
-          <AlignLeftIcon />
-        </ToolbarButton>
-        <ToolbarButton action="align-center" label="Align center" onClick={applyAction}>
-          <AlignCenterIcon />
-        </ToolbarButton>
-        <ToolbarButton action="align-right" label="Align right" onClick={applyAction}>
-          <AlignRightIcon />
-        </ToolbarButton>
-        <ToolbarButton action="align-top" label="Align top" onClick={applyAction}>
+        <ToolbarButton label="Align top" onClick={() => applyAction('align-top')}>
           <AlignTopIcon />
         </ToolbarButton>
-        <ToolbarButton action="align-middle" label="Align middle" onClick={applyAction}>
+        <ToolbarButton label="Align middle" onClick={() => applyAction('align-middle')}>
           <AlignMiddleIcon />
         </ToolbarButton>
-        <ToolbarButton action="align-bottom" label="Align bottom" onClick={applyAction}>
+        <ToolbarButton label="Align bottom" onClick={() => applyAction('align-bottom')}>
           <AlignBottomIcon />
+        </ToolbarButton>
+        <ToolbarButton label="Align left" onClick={() => applyAction('align-left')}>
+          <AlignLeftIcon />
+        </ToolbarButton>
+        <ToolbarButton label="Align center" onClick={() => applyAction('align-center')}>
+          <AlignCenterIcon />
+        </ToolbarButton>
+        <ToolbarButton label="Align right" onClick={() => applyAction('align-right')}>
+          <AlignRightIcon />
+        </ToolbarButton>
+      </div>
+      <div className="sizing-column">
+        <ToolbarButton label="Make equal width" onClick={applyEqualWidth}>
+          <EqualWidthIcon />
         </ToolbarButton>
       </div>
       <div className="distribution-column">
-        <ToolbarButton action="distribute-horizontally" label="Distribute horizontally" onClick={applyAction}>
+        <ToolbarButton label="Distribute horizontally" onClick={() => applyAction('distribute-horizontally')}>
           <DistributeHorizontallyIcon />
         </ToolbarButton>
-        <ToolbarButton action="distribute-vertically" label="Distribute vertically" onClick={applyAction}>
+        <ToolbarButton label="Distribute vertically" onClick={() => applyAction('distribute-vertically')}>
           <DistributeVerticallyIcon />
         </ToolbarButton>
       </div>

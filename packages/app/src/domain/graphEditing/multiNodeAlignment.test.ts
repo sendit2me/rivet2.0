@@ -1,15 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { NodeId } from '@valerypopoff/rivet2-core';
-import { calculateMultiNodeAlignmentMoves } from './multiNodeAlignment.js';
+import { calculateMultiNodeAlignmentMoves, calculateMultiNodeEqualWidthChanges } from './multiNodeAlignment.js';
 
-function makeBounds(
-  nodeId: string,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-) {
+function makeBounds(nodeId: string, x: number, y: number, width: number, height: number) {
   return {
     nodeId: nodeId as NodeId,
     x,
@@ -21,11 +15,7 @@ function makeBounds(
 
 test('align-left snaps every node to the left-most edge', () => {
   const moves = calculateMultiNodeAlignmentMoves(
-    [
-      makeBounds('a', 120, 40, 60, 40),
-      makeBounds('b', 80, 140, 80, 40),
-      makeBounds('c', 200, 240, 100, 40),
-    ],
+    [makeBounds('a', 120, 40, 60, 40), makeBounds('b', 80, 140, 80, 40), makeBounds('c', 200, 240, 100, 40)],
     'align-left',
   );
 
@@ -37,10 +27,7 @@ test('align-left snaps every node to the left-most edge', () => {
 
 test('align-center uses the shared selection center', () => {
   const moves = calculateMultiNodeAlignmentMoves(
-    [
-      makeBounds('a', 100, 40, 50, 30),
-      makeBounds('b', 250, 120, 150, 30),
-    ],
+    [makeBounds('a', 100, 40, 50, 30), makeBounds('b', 250, 120, 150, 30)],
     'align-center',
   );
 
@@ -52,10 +39,7 @@ test('align-center uses the shared selection center', () => {
 
 test('align-middle uses the shared vertical center', () => {
   const moves = calculateMultiNodeAlignmentMoves(
-    [
-      makeBounds('a', 0, 100, 40, 20),
-      makeBounds('b', 80, 240, 40, 80),
-    ],
+    [makeBounds('a', 0, 100, 40, 20), makeBounds('b', 80, 240, 40, 80)],
     'align-middle',
   );
 
@@ -67,11 +51,7 @@ test('align-middle uses the shared vertical center', () => {
 
 test('distribute-horizontally preserves outer bounds and equalizes gaps', () => {
   const moves = calculateMultiNodeAlignmentMoves(
-    [
-      makeBounds('a', 0, 20, 50, 40),
-      makeBounds('b', 120, 30, 30, 40),
-      makeBounds('c', 240, 40, 60, 40),
-    ],
+    [makeBounds('a', 0, 20, 50, 40), makeBounds('b', 120, 30, 30, 40), makeBounds('c', 240, 40, 60, 40)],
     'distribute-horizontally',
   );
 
@@ -84,11 +64,7 @@ test('distribute-horizontally preserves outer bounds and equalizes gaps', () => 
 
 test('distribute-vertically preserves outer bounds and equalizes gaps', () => {
   const moves = calculateMultiNodeAlignmentMoves(
-    [
-      makeBounds('a', 20, 0, 50, 50),
-      makeBounds('b', 30, 150, 50, 30),
-      makeBounds('c', 40, 240, 50, 60),
-    ],
+    [makeBounds('a', 20, 0, 50, 50), makeBounds('b', 30, 150, 50, 30), makeBounds('c', 40, 240, 50, 60)],
     'distribute-vertically',
   );
 
@@ -96,5 +72,19 @@ test('distribute-vertically preserves outer bounds and equalizes gaps', () => {
     { nodeId: 'a' as NodeId, position: { x: 20, y: 0 } },
     { nodeId: 'b' as NodeId, position: { x: 30, y: 130 } },
     { nodeId: 'c' as NodeId, position: { x: 40, y: 240 } },
+  ]);
+});
+
+test('equal-width changes use the widest selected node width', () => {
+  const widths = calculateMultiNodeEqualWidthChanges([
+    makeBounds('a', 0, 20, 50, 40),
+    makeBounds('b', 120, 30, 140, 40),
+    makeBounds('c', 240, 40, 90, 40),
+  ]);
+
+  assert.deepEqual(widths, [
+    { nodeId: 'a' as NodeId, width: 140 },
+    { nodeId: 'b' as NodeId, width: 140 },
+    { nodeId: 'c' as NodeId, width: 140 },
   ]);
 });

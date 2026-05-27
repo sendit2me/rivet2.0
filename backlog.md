@@ -1,11 +1,5 @@
 
-- Switch the rows in the alignment options popup
 
-- Add an alignment option "Make selected nodes the same width"
-
-- Nove the Prev and Next buttons to the main bar to the right from the graph tree collapse button
-
-- Put the global search to the left panel
 
 - Does the prompt node need better line endings? Just like the text node has
 
