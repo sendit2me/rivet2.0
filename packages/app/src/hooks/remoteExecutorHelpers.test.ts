@@ -309,7 +309,7 @@ test('getFrozenNodePreloadOptionsForExecutorTarget only enables frozen preloads 
     [graphId]: {
       ['node-1' as NodeId]: [
         {
-          output: { type: 'string', value: 'frozen value' },
+          ['output' as PortId]: { type: 'string', value: 'frozen value' },
         },
       ],
     },
