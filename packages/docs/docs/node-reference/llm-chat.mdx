@@ -59,7 +59,7 @@ The older [Chat Node](./chat.mdx) remains available for existing graphs, but new
 | Messages Sent | `chat-message[]` | Messages sent to the provider. |
 | All Messages | `chat-message[]` | Conversation messages including the response. |
 | Response Tokens | `number` | Response token count when available. |
-| Function Calls | `object[]` | Available when tool use or provider built-in tools are enabled. |
+| Tool Calls | `object[]` | Available when tool use or provider built-in tools are enabled. |
 | Usage | `object` | Available when Output usage details is enabled. Includes provider usage metadata when available. |
 | Reasoning | `string` or `string[]` | Available when Output reasoning is enabled and the provider exposes reasoning/thinking output. |
 | Response Status | `number` or `number[]` | Available when Output request status is enabled. When Retry on non-200 is enabled, this is a per-attempt array. |
