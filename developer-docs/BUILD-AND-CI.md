@@ -182,7 +182,7 @@ generated JavaScript beside Docusaurus source files during CI or local cleanup.
 
 ### `yarn test:style`
 
-Runs [`scripts/check-test-style.mjs`](../scripts/check-test-style.mjs). The
+Runs [`scripts/checks/check-test-style.mjs`](../scripts/checks/check-test-style.mjs). The
 script fails when `test.only`, `it.only`, `describe.only`, `suite.only`, or
 `context.only` calls are present in tracked or untracked non-ignored test files.
 It also prints report-only lists of test files that use `readFileSync` or
@@ -285,10 +285,10 @@ Current dev/build detail:
 - `packages/app/scripts/prepare-tauri.mjs` syncs desktop version metadata from `packages/app/package.json` before rebuilding the app executor sidecar
 - `packages/app/src-tauri/tauri.conf.json` now runs `yarn prepare:tauri` before both `beforeDevCommand` and `beforeBuildCommand`, so desktop Node executor runs cannot drift onto an older bundled sidecar when app/core code has changed
 - `packages/app/src-tauri/vendor/` now carries the small vendored Tauri v1 plugin crates (`tauri-plugin-persisted-scope` and `tauri-plugin-window-state`) so Cargo no longer has to parse the upstream `plugins-workspace` template manifest during metadata/check/dev runs
-- Vite bundle visualization is opt-in for normal app builds. Set
-  `RIVET_BUNDLE_ANALYZE=true` before `yarn workspace @valerypopoff/rivet-app
-  run build` when a Rollup visualizer report is needed; CI leaves it off so
-  routine builds do not spend time generating analysis artifacts.
+- Vite bundle visualization is opt-in for normal app builds. Set `RIVET_BUNDLE_ANALYZE=true`
+  before running `yarn workspace @valerypopoff/rivet-app run build` when a Rollup visualizer
+  report is needed; CI leaves it off so routine builds do not spend time generating analysis
+  artifacts.
 
 #### pnpm sidecar binaries
 
@@ -462,12 +462,13 @@ Runs on `ubuntu-latest` and performs:
 6. `yarn test:docs`
 7. `yarn test:style`
 8. `yarn lint`
-9. `yarn prettier --check`
+9. `yarn prettier:check`
 
 ### Important notes
 
 - build runs with increased `NODE_OPTIONS`
-- formatting check uses the Prettier binary directly via Yarn, not the repo's `prettier:fix` script
+- formatting check covers repo-maintenance docs and scripts that are already Prettier-clean. The full repo is not
+  currently Prettier-normalized, so do not switch this to `prettier --check .` without a dedicated format pass.
 
 ## `release.yml`
 

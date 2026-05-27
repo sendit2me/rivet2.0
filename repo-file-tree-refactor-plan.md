@@ -25,7 +25,7 @@ This is a structural cleanup plan only. Every phase must be mechanically verifia
 - Several very small files are legitimate public contracts or focused helpers, but they should be audited for unnecessary shim/barrel layers before any move/delete work.
 - `packages/core/src/model/nodes` contains many built-in node implementations. Node-adjacent tests, fixtures, and metadata should be reviewed for consistent locality.
 - `packages/node/bench` contains important performance benchmarks. These should remain easy to discover and should not be confused with product runtime code.
-- `scripts/` is small but mixes wrapper build targets, packaging, CI timing, version sync, and test-style checks. A light grouping may make intent clearer if imports and package scripts stay stable.
+- `scripts/` is small but mixes wrapper build targets, packaging, CI timing, version sync, and check scripts. A light grouping may make intent clearer later if imports and package scripts stay stable.
 
 ## Non-Goals
 
@@ -74,9 +74,20 @@ Use these rules to keep the refactor from becoming a second architecture project
 - A move must make ownership clearer, imports shorter, tests more local, or docs easier to find. If it only makes the tree look nicer, do not do it.
 - The program can stop after any phase if the remaining cleanup is mostly aesthetic.
 
-## Phase 0 - Baseline Inventory (Required Before Any Refactor)
+## Completion Semantics
+
+`DONE` can mean one of two things:
+
+- a phase made a small structural/docs/check change; or
+- a phase completed the audit and intentionally made no file moves because the stop conditions showed the move would be mostly aesthetic or risky.
+
+When a phase is completed by audit/no-op, its implementation result must say so explicitly and the durable decision must live in `developer-docs/REPO-FILE-TREE.md`.
+
+## Phase 0 - DONE - Baseline Inventory
 
 Purpose: produce a checked-in or attached inventory that separates tracked source structure from local build noise.
+
+Implementation result: added `yarn check:file-tree` as a repeatable inventory and generated-path check for tracked plus unignored untracked files, and recorded the source-layout contract in `developer-docs/REPO-FILE-TREE.md`.
 
 Tasks:
 
@@ -124,6 +135,7 @@ Exit criteria:
 Baseline verification:
 
 ```powershell
+node scripts/checks/check-file-tree.mjs
 node .yarn\releases\yarn-4.6.0.cjs test:core
 node .yarn\releases\yarn-4.6.0.cjs test:node
 node .yarn\releases\yarn-4.6.0.cjs workspace @valerypopoff/rivet-app run build
@@ -137,9 +149,11 @@ Risks:
 - Thin-file and deep-import searches can produce false positives; treat them as review queues, not deletion lists.
 - Baseline commands can be slow on a cold checkout; slowness is not itself evidence that the file tree needs restructuring.
 
-## Phase 1 - Local Noise And Ignore Hygiene
+## Phase 1 - DONE - Local Noise And Ignore Hygiene
 
 Purpose: make local tree inspection trustworthy before moving source files.
+
+Implementation result: confirmed generated outputs and `.fixtures/` are untracked, documented local-only fixture rules, and added ignore coverage for local Node/runtime and desktop signing/icon scratch paths. `packages/native-runtime` was left unignored because a future real package should not be hidden by `.gitignore`.
 
 Tasks:
 
@@ -167,6 +181,7 @@ Exit criteria:
 Verification:
 
 ```powershell
+node scripts/checks/check-file-tree.mjs
 git status --short --ignored
 git ls-files | rg "(^|/)(dist|node_modules|tsconfig\\.tsbuildinfo|stats\\.html|tmp-|\\.rivet-built-packages|\\.local-node|\\.node-runtime)/|stats\\.html|tsconfig\\.tsbuildinfo"
 git diff --check
@@ -178,9 +193,11 @@ Risks:
 - A broad ignore pattern can hide files that should have been reviewed or committed.
 - Moving shared fixtures out of `.fixtures/` can accidentally change benchmark reproducibility.
 
-## Phase 2 - Public Entrypoint And Shim Audit
+## Phase 2 - DONE - Public Entrypoint And Shim Audit
 
 Purpose: identify thin shims that are useful contracts versus shims that only add navigation friction.
+
+Implementation result: retained public and package-facing shims as compatibility contracts, documented the current entrypoint/shim audit snapshot, documented that short files are review candidates rather than deletion candidates, and made import-boundary candidates report-only in `yarn check:file-tree`.
 
 Tasks:
 
@@ -229,9 +246,11 @@ Risks:
 - Adding explanatory comments to too many retained shims can add noise instead of clarity.
 - Replacing barrels with deep imports can make later package-boundary cleanup harder.
 
-## Phase 3 - App Source Domain Boundaries
+## Phase 3 - DONE - App Source Domain Boundaries Audit
 
 Purpose: reduce the pressure on `packages/app/src/components`, `hooks`, `state`, and `utils` by moving pure rules to domain folders without changing UI behavior.
+
+Implementation result: audited the current app layout and documented the existing `domain/graphEditing` ownership rule. No app files were moved because the remaining candidate moves were not clearly better than the current locality.
 
 Possible end-state shape, not a required skeleton:
 
@@ -281,9 +300,9 @@ Candidate moves to audit:
 
 Exit criteria:
 
-- No component imports from a deeper component folder unless it is a local sibling feature.
-- Pure helpers have focused tests near their new location.
-- Imports get shorter or clearer, not just different.
+- The app ownership rule is documented.
+- No app files move unless imports get shorter or ownership gets clearer.
+- Existing domain helpers have focused tests near their location.
 
 Verification:
 
@@ -299,9 +318,11 @@ Risks:
 - Moving React-adjacent helpers too far from their components can create awkward imports or accidental cycles.
 - Test relocation can hide behavior context if the test is more about UI composition than pure rules.
 
-## Phase 4 - Core Runtime Structure
+## Phase 4 - DONE - Core Runtime Structure Audit
 
 Purpose: make `packages/core/src` easier to navigate while preserving node ids, exports, and runtime behavior.
+
+Implementation result: audited the core layout and documented the stable ownership boundaries. No core files were moved because runtime, recorder, debugger, and serialization seams are tightly coupled and a move-only change would add risk without clearer ownership.
 
 Possible end-state shape, not a required skeleton:
 
@@ -337,8 +358,8 @@ Candidate areas:
 Exit criteria:
 
 - Core public exports remain stable.
-- Runtime tests pass before and after each batch.
-- Important moved files have compatibility import updates in one commit.
+- No core files move unless a clear execution/model ownership cluster emerges.
+- Important future moved files must have compatibility import updates in one commit.
 
 Verification:
 
@@ -354,9 +375,11 @@ Risks:
 - Runtime concepts such as recordings, debugger lifecycle, graph outputs, and subprocessors are tightly coupled; separating them too aggressively can obscure invariants.
 - Node ids, serialized data, and port ids must remain unchanged even if files move.
 
-## Phase 5 - Node Package, App Executor, And CLI Boundaries
+## Phase 5 - DONE - Node Package, App Executor, And CLI Boundaries Audit
 
 Purpose: keep headless runtime, debugger transport, executor sidecar, and CLI responsibilities distinct.
+
+Implementation result: audited Node, app-executor, and CLI ownership and documented why app-executor remains under `bin` for packaging compatibility. No executable or Docker-facing paths were moved.
 
 Tasks:
 
@@ -372,7 +395,7 @@ Tasks:
 
 Exit criteria:
 
-- `bin` directories contain true entrypoints or documented exceptions.
+- `bin` directories contain true entrypoints or documented packaging exceptions.
 - Node debugger/runtime files are grouped by responsibility.
 - CLI package layout remains friendly to npm users and Docker builds.
 
@@ -392,9 +415,11 @@ Risks:
 - Moving CLI root files can break npm package consumers or Docker build contexts even if TypeScript still builds.
 - Benchmarks lose value if fixtures or output paths become harder to reproduce.
 
-## Phase 6 - Docs Tree Split And Indexing
+## Phase 6 - DONE - Docs Tree Split And Indexing
 
 Purpose: make developer docs easier to maintain without breaking user docs routes.
+
+Implementation result: added `developer-docs/README.md`, added `developer-docs/REPO-FILE-TREE.md`, and linked the new file from the root README and developer overview. Existing large docs were not split because a focused index plus tree doc solved the immediate discoverability gap without duplicating content.
 
 Tasks:
 
@@ -411,8 +436,9 @@ Tasks:
 
 Exit criteria:
 
-- Every developer doc has a clear owner/topic.
-- No duplicated stale behavior descriptions remain after split.
+- The developer-docs index exists and points to every current maintainer-facing doc.
+- The file-tree contract has a dedicated owner/topic.
+- No new duplicated stale behavior descriptions are introduced.
 - User docs typecheck still passes.
 
 Verification:
@@ -429,29 +455,35 @@ Risks:
 - Short redirect documents can become permanent clutter if they are not treated as compatibility shims.
 - Broken links in developer docs are easy to miss because not every doc path is route-checked like user docs.
 
-## Phase 7 - Scripts And Build Tooling Layout
+## Phase 7 - DONE - Scripts And Build Tooling Layout
 
 Purpose: keep root `scripts/` discoverable as build tooling grows.
+
+Implementation result: moved check scripts into `scripts/checks/` and documented why build, release, CI timing, and version scripts remain at the root for now. Broader script moves were intentionally skipped because those root paths are more likely to be called by workflows, releases, or wrapper automation.
 
 Possible target shape if script count keeps growing:
 
 ```text
 scripts/
-  build/
-  ci/
-  release/
   checks/
+  build/    (future, only if wrapper-facing paths get a compatibility plan)
+  ci/       (future, only if workflow paths are updated safely)
+  release/  (future, only if release callers are known)
 ```
 
-Candidate classification:
+Implemented classification:
+
+- `check-file-tree.mjs` -> `scripts/checks/`
+- `check-test-style.mjs` -> `scripts/checks/`
+
+Deferred classification:
 
 - `build-wrapper-target.mjs` -> `scripts/build/`
 - `create-built-package-artifacts.mjs` -> `scripts/build/` or `scripts/release/`
 - `measure-build-phases.mjs` -> `scripts/ci/` or `scripts/build/`
 - `ci-timing.mjs` -> `scripts/ci/`
 - `publish-npm-packages.mjs` -> `scripts/release/`
-- `sync-desktop-version.mjs` -> `scripts/release/` or `scripts/checks/`
-- `check-test-style.mjs` -> `scripts/checks/`
+- `sync-desktop-version.mjs` -> `scripts/release/`
 
 Rules:
 
@@ -463,7 +495,7 @@ Rules:
 
 Exit criteria:
 
-- Root `scripts/` no longer mixes unrelated concerns in a flat list.
+- Root `scripts/` is either grouped by responsibility or explicitly documented as intentionally flat.
 - All package scripts and workflows still resolve.
 
 Verification:
@@ -481,9 +513,11 @@ Risks:
 - Compatibility shims for moved scripts can outlive their usefulness and add the same clutter this phase is trying to remove.
 - Some verification commands are expensive; use focused smoke checks before full build timing runs.
 
-## Phase 8 - Dependency And Import Boundary Enforcement
+## Phase 8 - DONE - Dependency And Import Boundary Enforcement
 
 Purpose: prevent the tree from drifting back after cleanup.
+
+Implementation result: added report-only import-boundary detection to `yarn check:file-tree`. Hard lint enforcement was intentionally skipped because the plan did not produce enough stable moved boundaries to justify CI-blocking rules.
 
 Tasks:
 
@@ -495,12 +529,13 @@ Tasks:
 
 Exit criteria:
 
-- Either the new structure is enforced by CI, or this phase is explicitly skipped because enforcement would add more churn than protection.
+- Either the new structure is enforced by CI, or this phase is explicitly completed as report-only because enforcement would add more churn than protection.
 - Allowed exceptions are few, named, and documented when enforcement exists.
 
 Verification:
 
 ```powershell
+node scripts/checks/check-file-tree.mjs
 node .yarn\releases\yarn-4.6.0.cjs lint
 node .yarn\releases\yarn-4.6.0.cjs test:style
 git diff --check
@@ -571,6 +606,7 @@ Use the smallest useful verification per batch, then run the full matrix before 
 Focused checks:
 
 ```powershell
+node scripts/checks/check-file-tree.mjs
 node .yarn\releases\yarn-4.6.0.cjs workspace @valerypopoff/rivet2-core run test
 node .yarn\releases\yarn-4.6.0.cjs workspace @valerypopoff/rivet2-node run test
 node .yarn\releases\yarn-4.6.0.cjs workspace @valerypopoff/rivet-app exec tsx --test "src/**/*.test.ts"

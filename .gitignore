@@ -13,6 +13,8 @@
 # production
 /build
 .rivet-built-packages
+.local-node/
+.node-runtime/
 
 # apple
 .apple
@@ -51,3 +53,6 @@ packages/app-executor/bin/executor-bundle.cjs
 .idea
 
 packages/app/stats.html
+packages/app/tmp-icon-test/
+tmp-macos-signing-test/
+tmp-rivet-icon-test/
