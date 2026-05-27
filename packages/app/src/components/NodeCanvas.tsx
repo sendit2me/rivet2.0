@@ -507,9 +507,11 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
         frozenNodeOutputs,
         graphSelection,
         lastRunPerNode,
+        nodesById,
         project: projectWithCanvasGraph,
         projectNodeRegistry,
         selectedGraphId: selectedGraphMetadata?.id,
+        selectedNodeIds,
       }),
     [
       canStartEditorGraphRun,
@@ -518,9 +520,11 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
       frozenNodeOutputs,
       graphSelection,
       lastRunPerNode,
+      nodesById,
       projectNodeRegistry,
       projectWithCanvasGraph,
       selectedGraphMetadata?.id,
+      selectedNodeIds,
     ],
   );
 

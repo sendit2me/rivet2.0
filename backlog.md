@@ -1,3 +1,5 @@
+- Square connection lines
+
 - Simplify the duplicate icon that is used everywhere in the menus. Just remove the picture from the rectangle
 
 - Now, the executor mode is global for all open projects (remote debugger, browser, node). Make it per tab

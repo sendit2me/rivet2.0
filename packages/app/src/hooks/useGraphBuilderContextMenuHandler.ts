@@ -20,6 +20,11 @@ import { copyToClipboard } from '../utils/copyToClipboard';
 import { useGoToSubgraphNode } from './useGoToSubgraphNode.js';
 import { useFrozenNodeOutputActions } from './useFrozenNodeOutputActions.js';
 
+type NodeFreezeTarget = {
+  nodeId: NodeId;
+  nodeType: ChartNode['type'];
+};
+
 export function useGraphBuilderContextMenuHandler() {
   const { clientToCanvasPosition } = useCanvasPositioning();
   const loadGraph = useLoadGraph();
@@ -87,16 +92,26 @@ export function useGraphBuilderContextMenuHandler() {
 
           tryRunGraph({ from: nodeId });
         })
-        .with('node-freeze', () => {
-          const { nodeId, nodeType } = context.data as { nodeId: NodeId; nodeType: ChartNode['type'] };
+        .with(P.union('node-freeze', 'nodes-freeze'), () => {
+          const { nodeId, nodeType, freezeNodeTargets } = context.data as {
+            nodeId: NodeId;
+            nodeType: ChartNode['type'];
+            freezeNodeTargets?: NodeFreezeTarget[];
+          };
+          const targets = freezeNodeTargets?.length ? freezeNodeTargets : [{ nodeId, nodeType }];
           if (graphId) {
-            freezeNode(graphId, nodeId, nodeType);
+            for (const target of targets) {
+              freezeNode(graphId, target.nodeId, target.nodeType);
+            }
           }
         })
-        .with('node-unfreeze', () => {
-          const { nodeId } = context.data as { nodeId: NodeId };
+        .with(P.union('node-unfreeze', 'nodes-unfreeze'), () => {
+          const { nodeId, unfreezeNodeIds } = context.data as { nodeId: NodeId; unfreezeNodeIds?: NodeId[] };
+          const nodeIds = unfreezeNodeIds?.length ? unfreezeNodeIds : [nodeId];
           if (graphId) {
-            unfreezeNode(graphId, nodeId);
+            for (const nodeIdToUnfreeze of nodeIds) {
+              unfreezeNode(graphId, nodeIdToUnfreeze);
+            }
           }
         })
         .with('node-copy', () => {
