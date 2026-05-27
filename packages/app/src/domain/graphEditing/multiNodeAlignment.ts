@@ -26,6 +26,11 @@ export type NodeLayoutMove = {
   };
 };
 
+export type NodeLayoutWidthChange = {
+  nodeId: NodeId;
+  width: number;
+};
+
 function getSelectionBounds(nodeBounds: readonly NodeLayoutBounds[]) {
   return nodeBounds.reduce(
     (bounds, node) => ({
@@ -145,4 +150,17 @@ export function calculateMultiNodeAlignmentMoves(
     case 'distribute-vertically':
       return distributeVertically(nodeBounds);
   }
+}
+
+export function calculateMultiNodeEqualWidthChanges(nodeBounds: readonly NodeLayoutBounds[]): NodeLayoutWidthChange[] {
+  if (nodeBounds.length === 0) {
+    return [];
+  }
+
+  const maxWidth = Math.max(...nodeBounds.map((node) => node.width));
+
+  return nodeBounds.map((node) => ({
+    nodeId: node.nodeId,
+    width: maxWidth,
+  }));
 }

@@ -1,7 +1,4 @@
 
-- Switch the rows in the alignment options popup
-
-- Add an alignment option "Make selected nodes the same width"
 
 - Nove the Prev and Next buttons to the main bar to the right from the graph tree collapse button
 
