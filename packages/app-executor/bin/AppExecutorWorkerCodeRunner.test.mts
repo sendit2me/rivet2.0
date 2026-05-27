@@ -8,6 +8,7 @@ import {
   CodeNodeImpl,
   type CodeRunnerOptions,
   GraphProcessor,
+  GraphInputNodeImpl,
   TextNodeImpl,
   createBuiltInRegistry,
   type ChartNode,
@@ -22,13 +23,9 @@ import {
   type ProjectId,
   type Tokenizer,
 } from '@valerypopoff/rivet2-core';
-import {
-  AppExecutorWorkerCodeRunner,
-} from './AppExecutorWorkerCodeRunner.mjs';
-import {
-  AppExecutorCodeWorkerPool,
-  shutdownSharedAppExecutorCodeWorkerPool,
-} from './codeRunnerWorkerPool.mjs';
+import { AppExecutorWorkerCodeRunner } from './AppExecutorWorkerCodeRunner.mjs';
+import { AppExecutorCodeWorkerPool, shutdownSharedAppExecutorCodeWorkerPool } from './codeRunnerWorkerPool.mjs';
+import { createProcessor as createNodeProcessor } from '@valerypopoff/rivet2-node';
 
 const tokenizer: Tokenizer = {
   on: () => undefined,
@@ -93,6 +90,45 @@ function makeTextNode(): ChartNode {
     text: 'ready',
   };
   return node;
+}
+
+function makeCodeRunnerEquivalenceProject(code: string): Project {
+  const graphInput = GraphInputNodeImpl.create();
+  graphInput.id = 'graph-input-node' as NodeId;
+  graphInput.data = {
+    ...graphInput.data,
+    dataType: 'string',
+    id: 'local',
+  };
+
+  const codeNode = makeCodeNode(code);
+  codeNode.data = {
+    ...codeNode.data,
+    allowFetch: true,
+    allowProcess: true,
+    allowRequire: true,
+    inputNames: ['local'],
+    outputNames: ['output1'],
+  };
+
+  const graph: NodeGraph = {
+    connections: [
+      {
+        inputId: 'local' as PortId,
+        inputNodeId: codeNode.id,
+        outputId: 'data' as PortId,
+        outputNodeId: graphInput.id,
+      },
+    ],
+    metadata: {
+      description: '',
+      id: 'code-runner-equivalence-graph' as GraphId,
+      name: 'Code Runner Equivalence Graph',
+    },
+    nodes: [graphInput, codeNode],
+  };
+
+  return makeProject(graph);
 }
 
 function defaultCodeRunnerOptions(overrides: Partial<CodeRunnerOptions> = {}): CodeRunnerOptions {
@@ -359,6 +395,75 @@ void describe('AppExecutorWorkerCodeRunner', () => {
     });
   });
 
+  void it('matches the default Node runner for worker-safe capabilities', async () => {
+    const appExecutorRunner = new AppExecutorWorkerCodeRunner();
+    const code = `
+      const path = require('node:path');
+      const response = await fetch('data:text/plain,fetched');
+      return {
+        output1: {
+          type: 'object',
+          value: {
+            input: inputs.local.value,
+            graph: graphInputs.local.value,
+            context: context.ctx.value,
+            process: process.release.name,
+            require: path.basename('one/two.txt'),
+            fetch: await response.text(),
+          },
+        },
+      };
+    `;
+    const inputs = {
+      ['local' as PortId]: { type: 'string', value: 'input' },
+    };
+    const options = defaultCodeRunnerOptions({
+      includeFetch: true,
+      includeProcess: true,
+      includeRequire: true,
+    });
+    const graphInputs = {
+      local: { type: 'string', value: 'input' },
+    };
+    const contextValues = {
+      ctx: { type: 'string', value: 'context' },
+    };
+    let nodeOutputs: Outputs | undefined;
+
+    const nodeProcessor = createNodeProcessor(makeCodeRunnerEquivalenceProject(code), {
+      context: {
+        ctx: 'context',
+      },
+      graph: 'code-runner-equivalence-graph',
+      inputs: {
+        local: 'input',
+      },
+      onNodeFinish: ({ node, outputs }) => {
+        if (node.id === 'code-node') {
+          nodeOutputs = outputs;
+        }
+      },
+      runtimeProfile: 'compatible',
+    });
+    await nodeProcessor.run();
+    const appExecutorOutputs = await appExecutorRunner.runCode(code, inputs, options, graphInputs, contextValues);
+
+    assert.deepEqual(appExecutorOutputs, nodeOutputs);
+    assert.deepEqual(appExecutorOutputs, {
+      output1: {
+        type: 'object',
+        value: {
+          context: 'context',
+          fetch: 'fetched',
+          graph: 'input',
+          input: 'input',
+          process: 'node',
+          require: 'two.txt',
+        },
+      },
+    });
+  });
+
   void it('supports fetch inside the worker', async () => {
     const runner = new AppExecutorWorkerCodeRunner();
 
@@ -576,7 +681,10 @@ void describe('AppExecutorWorkerCodeRunner', () => {
       (error) => {
         assert.ok(error instanceof Error);
         assert.ok(error.cause instanceof Error);
-        assert.match(error.cause.message, /Code \(legacy\) node must return an object with output values for all outputs/);
+        assert.match(
+          error.cause.message,
+          /Code \(legacy\) node must return an object with output values for all outputs/,
+        );
         return true;
       },
     );
@@ -652,15 +760,7 @@ void describe('AppExecutorWorkerCodeRunner', () => {
         id: 'worker-code-new-error-location-graph' as GraphId,
         name: 'Worker Code Error Location Graph',
       },
-      nodes: [
-        makeCodeNewNode(
-          [
-            'const first = 1;',
-            'const second = 2;',
-            'return missingVariable;',
-          ].join('\n'),
-        ),
-      ],
+      nodes: [makeCodeNewNode(['const first = 1;', 'const second = 2;', 'return missingVariable;'].join('\n'))],
     };
     const processor = new GraphProcessor(makeProject(graph), graph.metadata!.id!, createBuiltInRegistry());
     processor.executor = 'nodejs';

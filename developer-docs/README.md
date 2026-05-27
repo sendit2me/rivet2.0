@@ -14,12 +14,12 @@ contracts, or source layout. User-facing docs live under `packages/docs/docs`.
 - [App Architecture](./APP-ARCHITECTURE.md)
 - [Core Engine](./CORE-ENGINE.md)
 - [Execution Data Flow](./EXECUTION-DATA-FLOW.md)
+- [LLM Chat V2 Contract](./LLM-CHAT-V2-CONTRACT.md)
 - [Plugin System](./PLUGIN-SYSTEM.md)
 - [Unreachable Graph Detection](./UNREACHABLE-GRAPH-DETECTION.md)
 
 ## Refactor Tracking
 
-- [Active Refactor Plan](../refactor.md)
 - [Refactor History](../refactor-history.md)
 - [Repo Maintainability Refactor Plan](../repo-maintainability-refactor-plan.md)
 

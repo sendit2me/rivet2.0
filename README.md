@@ -40,9 +40,9 @@ Rivet 2 is organized as a Yarn workspace monorepo:
 | `packages/docs`                    | Docusaurus documentation site.                                                                                                                             |
 
 The repo also includes `developer-docs/`, which documents current architecture
-and integration contracts, `refactor.md`, which tracks the active prioritized
-refactor plan, and `refactor-history.md`, which consolidates completed refactor
-notes and residual watchlist items.
+and integration contracts, `repo-maintainability-refactor-plan.md`, which tracks
+the active prioritized refactor plan, and `refactor-history.md`, which
+consolidates completed refactor notes and residual watchlist items.
 
 ## Getting started with local development
 
@@ -197,7 +197,7 @@ Useful current developer docs:
 - [App Architecture](developer-docs/APP-ARCHITECTURE.md)
 - [Plugin System](developer-docs/PLUGIN-SYSTEM.md)
 - [Execution Data Flow](developer-docs/EXECUTION-DATA-FLOW.md)
-- [Refactor Plan](refactor.md)
+- [Refactor Plan](repo-maintainability-refactor-plan.md)
 - [Refactor History](refactor-history.md)
 
 The public docs site lives in `packages/docs`.

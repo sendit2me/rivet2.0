@@ -173,7 +173,7 @@ Focused root scripts cover workspace test suites plus repository-level checks:
 - `yarn test:app-executor`: `@valerypopoff/rivet-app-executor`
 - `yarn test:cli`: `@valerypopoff/rivet2-cli`
 - `yarn test:docs`: docs workspace typecheck (`tsc --noEmit`)
-- `yarn test:style`: repository-level test style guardrails
+- `yarn test:style`: repository-level test and documentation-link guardrails
 
 Docs typecheck is not part of `yarn test`; CI runs `yarn test:docs` as a
 separate step so runtime/package tests and documentation validation stay
@@ -182,12 +182,19 @@ generated JavaScript beside Docusaurus source files during CI or local cleanup.
 
 ### `yarn test:style`
 
-Runs [`scripts/checks/check-test-style.mjs`](../scripts/checks/check-test-style.mjs). The
-script fails when `test.only`, `it.only`, `describe.only`, `suite.only`, or
-`context.only` calls are present in tracked or untracked non-ignored test files.
-It also prints report-only lists of test files that use `readFileSync` or
-`.skip`; those reports keep the remaining source-shape guardrails and any
-temporary skipped tests visible without blocking cleanup work.
+Runs [`scripts/checks/check-test-style.mjs`](../scripts/checks/check-test-style.mjs)
+and [`scripts/checks/check-doc-links.mjs`](../scripts/checks/check-doc-links.mjs).
+The test-style script fails when `test.only`, `it.only`, `describe.only`,
+`suite.only`, or `context.only` calls are present in tracked or untracked
+non-ignored test files. It also prints report-only lists of test files that use
+`readFileSync` or `.skip`; those reports keep the remaining source-shape
+guardrails and any temporary skipped tests visible without blocking cleanup
+work.
+
+The documentation-link checker validates local Markdown links in root-level
+docs and direct `developer-docs/*.md` files. It skips external URLs, anchors,
+and fenced code blocks, then resolves remaining links against the repo root so
+Windows and Linux CI runners use the same containment rules.
 
 ### `yarn lint`
 

@@ -29,7 +29,7 @@ packages/
   node/           Node integration library
   trivet/         Test-runner package
 developer-docs/   These internal docs
-refactor.md       Active refactor plan and prioritized future phases
+repo-maintainability-refactor-plan.md  Active refactor plan and prioritized future phases
 refactor-history.md  Consolidated record of completed refactors and residual watchlist
 .github/         CI workflows and release scripts
 ```
@@ -235,7 +235,8 @@ Based on the current code, the highest-risk/highest-value refactor areas are:
 - serialization contracts in `packages/core/src/utils/serialization/`
 - debugger/server protocol surfaces between app, app-executor, and node
 
-The active prioritized refactor plan lives in [`../refactor.md`](../refactor.md).
+The active prioritized refactor plan lives in
+[`../repo-maintainability-refactor-plan.md`](../repo-maintainability-refactor-plan.md).
 Use it together with [`../refactor-history.md`](../refactor-history.md): the
 plan describes where future work should go, while the history explains which
 seams already changed and which small watchlist items were intentionally
@@ -245,7 +246,7 @@ deferred.
 
 Recommended reading order:
 
-1. [../refactor.md](../refactor.md) for the active prioritized refactor plan
+1. [../repo-maintainability-refactor-plan.md](../repo-maintainability-refactor-plan.md) for the active prioritized refactor plan
 2. [../refactor-history.md](../refactor-history.md) for completed refactors and deferred watchlist items
 3. [APP-ARCHITECTURE.md](./APP-ARCHITECTURE.md) for desktop IDE structure and state flows
 4. [CORE-ENGINE.md](./CORE-ENGINE.md) for the runtime model and execution engine

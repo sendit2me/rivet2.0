@@ -138,6 +138,14 @@ The resolver receives the current execution metadata, processor graph id, node, 
 
 When the resolver returns frozen `Outputs`, `GraphProcessor` skips the node implementation and emits the same high-level node lifecycle shape as a normal successful node: `nodeStart`, `nodeFinish`, `nodeResults`, visited-node bookkeeping, cost accumulation, and downstream scheduling. Frozen replay happens before split-run dispatch, so a frozen split-run node replays the captured aggregate terminal output and does not synthesize per-item partial-output events. Subprocessors inherit the parent resolver so frozen nodes inside subgraphs work with the child processor's graph identity.
 
+Recoverable frozen graph-boundary effects are intentionally isolated in
+[`GraphBoundaryEffects.ts`](../packages/core/src/model/GraphBoundaryEffects.ts)
+with focused tests. `GraphProcessor` still owns event emission, global storage,
+and mutable run state, but the rules for final cost output, defensive frozen
+`Graph Output` replay, and frozen `Set Global` effect extraction live in one
+pure helper module so future processor extractions do not duplicate those
+policies.
+
 Frozen replay replaces computation, not arbitrary host side effects. Core mirrors only recoverable dataflow side effects that downstream graph execution depends on:
 
 - The desktop app blocks new `Graph Output` freezes because graph boundary nodes are not useful freeze targets. If a custom caller or stale in-memory state still supplies frozen `Graph Output` data to the low-level resolver, core defensively writes the frozen `valueOutput` to `graphOutputs[data.id]` so graph state remains coherent.
@@ -715,18 +723,22 @@ Graph boundary metadata for direct nested-graph callers is centralized in
 [`GraphBoundaryCache.ts`](../packages/core/src/model/GraphBoundaryCache.ts).
 The helper derives sorted, first-duplicate-wins Graph Input and Graph Output
 ports, builds subgraph input maps without repeated object spreads, and builds
-error-path excluded output maps. `GraphProcessor` exposes it to runtime nodes
-through `InternalProcessContext.getGraphBoundary(...)`, backed by the optional
-`GraphProcessorRuntimeCache.graphBoundaries` WeakMap. Fresh processors get a
-fresh cache; `createGraphRunner` reuses the cache until `dispose()`, matching
-its immutable-project execution-plan cache contract. If a processor uses
-project references without loaded-project caching, the boundary cache is reset
-at run start so a newly loaded or mutated referenced project cannot inherit
-stale Graph Input / Graph Output metadata. The context resolver itself is
-optional for compatibility with manually constructed internal
-contexts; nested-graph nodes fall back to uncached boundary derivation when it
-is absent. The same resolver is threaded into preprocessing through the
-internal `NodeDefinitionContext`, but only for boundary-driven nodes
+error-path excluded output maps. Graph-boundary dataflow effects that are not
+metadata-only live in
+[`GraphBoundaryEffects.ts`](../packages/core/src/model/GraphBoundaryEffects.ts):
+final `cost` output insertion and recoverable frozen `Graph Output` /
+`Set Global` effects. `GraphProcessor` exposes boundary metadata to runtime
+nodes through `InternalProcessContext.getGraphBoundary(...)`, backed by the
+optional `GraphProcessorRuntimeCache.graphBoundaries` WeakMap. Fresh processors
+get a fresh cache; `createGraphRunner` reuses the cache until `dispose()`,
+matching its immutable-project execution-plan cache contract. If a processor
+uses project references without loaded-project caching, the boundary cache is
+reset at run start so a newly loaded or mutated referenced project cannot
+inherit stale Graph Input / Graph Output metadata. The context resolver itself
+is optional for compatibility with manually constructed internal contexts;
+nested-graph nodes fall back to uncached boundary derivation when it is absent.
+The same resolver is threaded into preprocessing through the internal
+`NodeDefinitionContext`, but only for boundary-driven nodes
 (`Subgraph`, `Referenced Graph Alias`, and `Loop Until`) so ordinary
 node-definition loading keeps the no-cache hot path. Editor settings use
 uncached boundary derivation so in-place graph input/output edits remain
@@ -855,6 +867,22 @@ runner so most Code-family JavaScript runs off the sidecar's main event loop.
 The app-executor worker runner falls back to current-thread execution when a
 Code-family node requests the `Rivet` capability, because packaged sidecar
 module resolution for that capability must stay compatible.
+
+The CodeRunner capability argument order is part of the runtime contract:
+`inputs`, optional `console`, optional `require`, optional `process`, optional
+`fetch`, optional `Rivet`, optional `graphInputs`, then optional `context`.
+[`nodeCodeRunnerInvocation.ts`](../packages/node/src/native/nodeCodeRunnerInvocation.ts)
+is the shared source of truth for public Node runners and the cached default
+Node runner. The app-executor worker path mirrors this order in
+[`codeRunnerWorkerHost.mts`](../packages/app-executor/bin/codeRunnerWorkerHost.mts)
+for worker-safe capabilities, while
+[`AppExecutorWorkerCodeRunner.mts`](../packages/app-executor/bin/AppExecutorWorkerCodeRunner.mts)
+keeps the matching current-thread fallback for `includeRivet`. Refactors in
+this area should change the capability order in one place first, then update
+the worker/current-thread mirror and tests in the same change. The
+app-executor runner tests include an equivalence case against the default Node
+runner for worker-safe capabilities so that `inputs`, `require`, `process`,
+`fetch`, `graphInputs`, and `context` do not silently drift.
 
 The Code-family nodes that own full code editors, `Code (legacy)` and `Code`, append a generated `sourceURL` before calling
 whichever runner is configured so runtime stack frames can be mapped back to the

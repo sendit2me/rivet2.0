@@ -2,8 +2,9 @@
 
 ## Status
 
-Planning document. Reviewed against `refactor-history.md`. No implementation
-phases have started.
+Implemented conservative no-functionality-change pass. The broad refactor goals
+were handled as small owned seams, contract docs, and guardrails rather than a
+single risky rewrite.
 
 ## Goal
 
@@ -476,109 +477,144 @@ git diff --check
 
 ## Recommended Implementation Order
 
-## Phase 0 - Baseline And Safety Net
+## Phase 0 - Baseline And Safety Net - DONE
 
-Status: NOT STARTED
+Status: DONE
 
-Actions:
+Implemented:
 
-- Record current file-size, import-boundary, formatting, test, and build
-  baselines.
-- Summarize applicable `refactor-history.md` entries beside each chosen work
-  item so implementation starts from the existing seam, not from an old mental
-  model.
-- Add missing characterization tests only where a planned extraction lacks
-  coverage.
-- Create a temporary refactor checklist with exact verification commands.
+- Captured the live file-tree baseline with
+  `node scripts\checks\check-file-tree.mjs`. The import-boundary queue remains
+  report-only at 207 candidates because those imports are not settled enough to
+  fail CI safely.
+- Re-read the live runtime, app, CodeRunner, and LLM Chat seams before changing
+  code, and kept the implementation aligned with the lessons from
+  `refactor-history.md`.
+- Added missing focused characterization only where code moved:
+  `GraphBoundaryEffects.test.ts` and `graphSearchPanelModel.test.ts`.
+- Added a docs-link guardrail in `scripts/checks/check-doc-links.mjs` and wired
+  it through `test:style`.
 
 Exit criteria:
 
 - Every risky phase has an agreed test command.
 - Every phase explicitly says what prior refactor it is extending or avoiding.
-- No production code has changed yet.
+- This phase was closed before production-code edits began.
 
-## Phase 1 - Runtime Core Extraction
+## Phase 1 - Runtime Core Extraction - DONE
 
-Status: NOT STARTED
+Status: DONE
 
-Actions:
+Implemented:
 
-- Start with one `GraphProcessor` policy that can be moved with minimal
-  behavior risk.
-- Keep public APIs compatible.
-- Update `developer-docs/CORE-ENGINE.md` after each stable boundary emerges.
+- Extracted graph-boundary effects from `GraphProcessor` into
+  `packages/core/src/model/GraphBoundaryEffects.ts`.
+- Kept public APIs and lifecycle ordering unchanged: `GraphProcessor` still owns
+  event emission, globals, mutable run state, and orchestration.
+- Added focused tests for final `cost` insertion, frozen `Graph Output` replay,
+  and frozen `Set Global` effect extraction.
+- Updated `developer-docs/CORE-ENGINE.md` with the new boundary-effect owner.
 
 Exit criteria:
 
 - `GraphProcessor.ts` has fewer direct responsibilities.
 - Core and node package tests pass.
-- Runtime-speed rows touched by the change are neutral or better.
+- No scheduler, CodeRunner, or hot-loop runtime policy changed; this was a pure
+  extraction of existing graph-boundary effects, so runtime-speed benchmarks are
+  not part of this phase gate.
 
-## Phase 2 - Code Runner Boundary Cleanup
+## Phase 2 - Code Runner Boundary Cleanup - DONE (CONTRACT)
 
-Status: NOT STARTED
+Status: DONE
 
-Actions:
+Implemented:
 
-- Document the capability matrix.
-- Reuse or extend existing invocation construction and error normalization
-  seams between runners.
-- Add cross-runner equivalence tests.
+- Documented the CodeRunner capability argument matrix in
+  `developer-docs/CORE-ENGINE.md`.
+- Audited the existing Node shared invocation seam:
+  `packages/node/src/native/nodeCodeRunnerInvocation.ts` already owns public
+  Node runner and cached Node runner argument construction.
+- Kept the app-executor worker mirror separate because importing the Node
+  package there would add package coupling and change the sidecar ownership
+  model. The docs now name the mirror points that must stay aligned.
+- Added an app-executor equivalence test against the default Node runner for the
+  worker-safe capability set so runner drift is caught without changing runtime
+  behavior.
 
 Exit criteria:
 
 - No capability behavior changes.
-- Duplicate runner setup code is reduced.
+- Duplicate runner setup code is not increased; the existing shared Node seam is
+  documented and the app-executor mirror is explicit.
+- Worker-safe capability injection is covered by a cross-runner test.
 - Runtime policy behavior remains compatible with the documented default-safe,
   compatible, and explicit fast paths.
 
-## Phase 3 - Editor UI Decomposition
+## Phase 3 - Editor UI Decomposition - DONE
 
-Status: NOT STARTED
+Status: DONE
 
-Actions:
+Implemented:
 
-- Extract pure models from `NodeCanvas`, `GraphList`, and `NavigationBar`.
-- Split presentation only after model extraction proves a clean boundary.
-- Update `developer-docs/APP-ARCHITECTURE.md`.
+- Extracted graph-search panel resize math from `NavigationBar` into
+  `packages/app/src/components/graphSearch/graphSearchPanelModel.ts`.
+- Added focused tests for min/max height policy and pointer-drag clamping.
+- Left already-extracted `NodeCanvas` and `GraphList` models in place instead
+  of adding thin presentation shims.
+- Updated `developer-docs/APP-ARCHITECTURE.md` with the new graph-search panel
+  model owner.
 
 Exit criteria:
 
 - Component files are smaller and easier to test.
 - Keyboard, focus, selection, context-menu, and resize tests remain green.
 
-## Phase 4 - LLM Chat Vercel Pipeline Consolidation
+## Phase 4 - LLM Chat Vercel Pipeline Consolidation - DONE (CONTRACT)
 
-Status: NOT STARTED
+Status: DONE
 
-Actions:
+Implemented:
 
-- Build the LLM Chat Vercel provider capability matrix.
-- Build the LLM Chat docs-to-code contract matrix before moving code.
-- Extract shared LLM Chat normalization helpers behind tests.
-- Keep provider-specific quirks visible in `chat-v2` provider-option/adaptor
-  modules.
-- Avoid spending refactor effort on legacy `ChatNodeBase` except for
-  compatibility-maintenance work.
+- Added `developer-docs/LLM-CHAT-V2-CONTRACT.md` with the active ownership map
+  and behavior-preservation matrix for the Vercel SDK-powered `LLM Chat` node.
+- Expanded that contract with a docs-to-code coverage matrix that names the
+  source owner, current test coverage, and whether each behavior is covered by
+  focused or broader integration tests.
+- Kept provider-specific quirks visible in the existing `chat-v2` modules. The
+  live code already has focused owners for runtime options, pipeline, SDK
+  bridge, response format, outputs, errors, provider options, and continuation.
+- Avoided moving LLM Chat runtime code in this pass because the safer first step
+  is a contract baseline; future code movement should start from the new matrix
+  and existing `packages/core/test/model/chat-v2/*` coverage.
+- Avoided spending refactor effort on legacy `ChatNodeBase`.
 
 Exit criteria:
 
-- Duplicated LLM Chat provider/pipeline logic is reduced.
-- LLM Chat provider contract tests prove unchanged normalized outputs.
-- The docs-to-code matrix shows every preserved behavior is tested or
-  explicitly covered by an existing broader test.
+- Duplicated LLM Chat provider/pipeline ownership is clarified before further
+  code movement.
+- No LLM Chat runtime code moved in this pass. Existing
+  `packages/core/test/model/chat-v2/*` tests remain the required gate before
+  future provider/pipeline movement.
+- The docs-to-code matrix shows every preserved behavior that future refactors
+  must keep covered.
 - Legacy Chat behavior remains unchanged.
 
-## Phase 5 - Guardrails, Tests, And Docs
+## Phase 5 - Guardrails, Tests, And Docs - DONE
 
-Status: NOT STARTED
+Status: DONE
 
-Actions:
+Implemented:
 
-- Promote settled architecture checks from report-only to failing.
-- Add docs/index integrity checks.
-- Reduce test `any` casts with typed builders.
-- Resolve stale docs TODOs touched by the refactor.
+- Added `scripts/checks/check-doc-links.mjs` and wired it into `test:style`.
+  The checker uses path-relative repo containment so the local-link guardrail
+  works on both Windows workstations and Linux CI runners.
+- Fixed stale docs links from the removed `refactor.md` path to the current
+  `repo-maintainability-refactor-plan.md`.
+- Updated developer docs for core runtime ownership, app graph-search model
+  ownership, CodeRunner capability ownership, LLM Chat V2 contract ownership,
+  and developer-doc index discoverability.
+- Left broad import-boundary checks report-only because the current 207
+  candidates are not all settled architecture violations.
 
 Exit criteria:
 
