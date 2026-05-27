@@ -1,0 +1,28 @@
+name: Setup pkg Cache
+description: Configure and restore the pkg base binary cache used by app-executor builds.
+
+runs:
+  using: composite
+  steps:
+    - name: Configure pkg cache path (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        $pkgCachePath = Join-Path $env:RUNNER_TEMP 'pkg-cache'
+        New-Item -ItemType Directory -Force -Path $pkgCachePath | Out-Null
+        "PKG_CACHE_PATH=$pkgCachePath" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+    - name: Configure pkg cache path (Unix)
+      if: runner.os != 'Windows'
+      shell: bash
+      run: |
+        mkdir -p "$RUNNER_TEMP/pkg-cache"
+        echo "PKG_CACHE_PATH=$RUNNER_TEMP/pkg-cache" >> "$GITHUB_ENV"
+
+    - name: Restore pkg binary cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ runner.temp }}/pkg-cache
+        key: ${{ runner.os }}-${{ runner.arch }}-pkg-${{ hashFiles('yarn.lock', 'packages/app-executor/package.json', 'packages/app-executor/scripts/build-executor.mts') }}
+        restore-keys: |
+          ${{ runner.os }}-${{ runner.arch }}-pkg-
