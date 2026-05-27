@@ -2,7 +2,7 @@ import { type ComponentType, useMemo } from 'react';
 import { useContextMenuAddNodeConfiguration } from './useContextMenuAddNodeConfiguration.js';
 import DeleteIcon from 'majesticons/line/delete-bin-line.svg?react';
 import SettingsCogIcon from 'majesticons/line/settings-cog-line.svg?react';
-import DuplicateIcon from 'majesticons/line/image-multiple-line.svg?react';
+import DuplicateIcon from '../assets/icons/duplicate-icon.svg?react';
 import PlayIcon from 'majesticons/line/play-circle-line.svg?react';
 import CopyIcon from '../assets/icons/copy-icon.svg?react';
 import PasteIcon from '../assets/icons/paste-icon.svg?react';

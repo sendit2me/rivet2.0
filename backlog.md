@@ -1,6 +1,5 @@
+- Frozen nodes: when a node is frozen and I do "run to here" or such on a completely different node, it wipes out any other node's output, including the frozen node's output (at least visually). But the frozen node's output should not be wiped out, even visually
 
-
-- Simplify the duplicate icon that is used everywhere in the menus. Now, it depicts 2 rectangles and the fron one has a picture in it. Just remove the picture from the rectangle. Let' it be 2 rectangles.
 
 - Now, the executor mode is global for all open projects (remote debugger, browser, node). Make it per tab
 

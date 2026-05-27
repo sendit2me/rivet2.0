@@ -21,7 +21,7 @@ import { useProjectNodeRegistry } from '../hooks/useProjectNodeRegistry.js';
 import { FolderItem } from './graphList/FolderItem';
 import { AppModalHeader } from './AppModalHeader';
 import EditPenIcon from 'majesticons/line/edit-pen-2-line.svg?react';
-import DuplicateIcon from 'majesticons/line/image-multiple-line.svg?react';
+import DuplicateIcon from '../assets/icons/duplicate-icon.svg?react';
 import DeleteIcon from 'majesticons/line/delete-bin-line.svg?react';
 import InfoIcon from 'majesticons/line/info-circle-line.svg?react';
 import SettingsCogIcon from 'majesticons/line/settings-cog-line.svg?react';
