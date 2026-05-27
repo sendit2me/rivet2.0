@@ -1,4 +1,4 @@
-- When hovering on node terminals (input or output), the tooltip window pops up with the terminal details. But if this window pops up in such a way that part of it goes under the visible view, instead of showing and staying while I'm hovering, It pops up for split second, disappears and shows again and disappears and it's doing it indefinitely
+
 
 - Simplify the duplicate icon that is used everywhere in the menus. Now, it depicts 2 rectangles and the fron one has a picture in it. Just remove the picture from the rectangle. Let' it be 2 rectangles.
 
