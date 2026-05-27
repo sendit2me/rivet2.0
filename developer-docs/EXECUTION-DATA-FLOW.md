@@ -48,7 +48,7 @@ Browser execution can replay any frozen value that `structuredClone(...)` can cl
 
 Replay is not `preloadNodeData(...)`. A frozen node still receives its real current inputs in `nodeStart`, emits a normal `nodeFinish`, uses a normal process id, writes `nodeResults`, and schedules downstream nodes exactly like a computed node. The core frozen-output resolver resets its replay counter per graph run and keys lookup by the processor's current graph id plus node id. If a node is invoked more times within the same graph run than there are captured output instances, the resolver reuses the last captured output. A node inside a reusable subgraph is therefore frozen for every invocation of that graph node while the project remains open.
 
-The Browser and internal Node live run-from paths treat frozen boundary outputs as available preload data. If a boundary dependency has both previous execution history and frozen output data, the frozen output wins. Preload event suppression remains unchanged; frozen boundary data is only used to seed the run boundary and must not create duplicate output pages. External Remote Debugger runs, recording playback, and Trivet/test execution do not consult frozen outputs, even for run-from preload planning.
+The Browser and internal Node live run-from paths treat frozen boundary outputs as available preload data. If a boundary dependency has both previous execution history and frozen output data, the frozen output wins. Preload event suppression remains unchanged; frozen boundary data is only used to seed the run boundary and must not create duplicate output pages. Live `Run to here` also preserves visible execution data for frozen nodes that are outside the selected target's dependency slice, so a frozen node does not visually lose its output when the user runs to an unrelated node. Frozen nodes inside the run-to slice are allowed to replay normally and update through the ordinary node lifecycle. External Remote Debugger runs, recording playback, and Trivet/test execution do not consult frozen outputs, even for run-from preload planning or run-to visual preservation.
 
 ## Key Concept: Graph View Identity
 
@@ -730,10 +730,11 @@ Local and remote editor run-from execution share the same explicit run plan:
 - `useRemoteExecutor` sends `runToNodeIds` and restored `preloadData` together in the debugger `run` message so the app executor can create the processor, preload it, and then run it
 - before that run emits `start`, the executor hook tells the execution-data layer which prior node snapshots are outside the rerun slice. `onStart` preserves those snapshots and clears only nodes that will be recalculated, so untouched upstream outputs stay visible and can still seed later editor run-from actions.
 - `GraphProcessor.preloadNodeData(...)` still emits `nodeStart`/`nodeFinish` with `processId: 'preload'` for its generic event contract. During editor run-from, `useNodeExecutionEvents` suppresses those preload node events for the boundary nodes that were already preserved, so reused boundary outputs do not appear as duplicate previous/next history pages.
+- editor `Run to here` keeps its existing execution semantics: it passes only `runToNodeIds` to the processor and does not preload ordinary previous outputs. The app still computes the target dependency slice through `getEditorRunToPlan(...)` so `onStart` can preserve existing visible output pages for frozen nodes that are outside that slice; this is display preservation only, not a preload input to the processor.
 
 ### Lifecycle
 
-- `onStart`: Clears run history and selection state. It clears prior run data for full runs, but editor run-from starts preserve prior node snapshots that are outside the rerun slice.
+- `onStart`: Clears run history and selection state. It clears prior run data for full runs, but editor run-from starts preserve prior node snapshots that are outside the rerun slice, and editor run-to starts preserve frozen node snapshots outside the run-to dependency slice.
 - `onGraphStart`: Creates a `GraphRunRecord` in history.
 - `onGraphFinish`/`onGraphError`/`onGraphAbort`: Updates the record's status through a shared `finishGraphRun(...)` helper in `useGraphExecutionEvents`.
 - `onNodeStart`/`onNodeFinish`/`onNodeExcluded`/`onPartialOutput`/`onNodeError`: Store per-node data.

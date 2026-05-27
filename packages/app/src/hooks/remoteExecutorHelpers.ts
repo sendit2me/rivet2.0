@@ -87,7 +87,7 @@ export function getFrozenNodeOutputsForExecutorRunPayload(
   return payload ? prepareFrozenNodeOutputsForInternalExecutorTransport(payload) : undefined;
 }
 
-export function getFrozenNodePreloadOptionsForExecutorTarget(
+export function getFrozenNodeOptionsForExecutorTarget(
   frozenNodeOutputs: FrozenNodeOutputsByGraph,
   graphId: GraphId,
   target: ExecutorSessionTarget | null | undefined,
@@ -103,6 +103,12 @@ export type EditorRunFromPlan = {
   nodesToRun: NodeId[];
   preserveNodeIds: NodeId[];
   preloadNodeIds: NodeId[];
+  runToNodeIds: NodeId[];
+};
+
+export type EditorRunToPlan = {
+  nodesToRun: NodeId[];
+  preserveNodeIds: NodeId[];
   runToNodeIds: NodeId[];
 };
 
@@ -168,6 +174,47 @@ export function getEditorRunFromPlan(
     preserveNodeIds: graphNodeIds.filter((nodeId) => !nodesToRunSet.has(nodeId)),
     preloadNodeIds: graphNodeIds.filter((nodeId) => preloadNodeSet.has(nodeId)),
     runToNodeIds: graphNodeIds.filter((nodeId) => runToNodeSet.has(nodeId)),
+  };
+}
+
+export function getEditorRunToPlan(
+  project: Project,
+  graphId: GraphId,
+  to: NodeId[],
+  projectNodeRegistry: NodeRegistration<any, any>,
+  options: { frozenNodeOutputs?: FrozenNodeOutputsByGraph } = {},
+): EditorRunToPlan {
+  const graph = project.graphs[graphId];
+  if (!graph) {
+    throw new Error(`Graph ${graphId} was not found, cannot plan run-to execution`);
+  }
+
+  const processor = new GraphProcessor(project, graphId, projectNodeRegistry, true);
+  const graphNodeIds = graph.nodes.map((node) => node.id);
+  const graphNodeIdSet = new Set(graphNodeIds);
+  const runToNodeIds = to.filter((nodeId) => graphNodeIdSet.has(nodeId));
+  const nodesToRunSet = new Set<NodeId>();
+
+  for (const nodeId of runToNodeIds) {
+    nodesToRunSet.add(nodeId);
+    for (const dependencyNodeId of processor.getDependencyNodesDeep(nodeId)) {
+      nodesToRunSet.add(dependencyNodeId);
+    }
+  }
+
+  const frozenNodeOutputsByNode = options.frozenNodeOutputs?.[graphId];
+  const frozenNodeIds = new Set(
+    frozenNodeOutputsByNode
+      ? Object.entries(frozenNodeOutputsByNode)
+          .filter(([, outputInstances]) => outputInstances?.length)
+          .map(([nodeId]) => nodeId as NodeId)
+      : [],
+  );
+
+  return {
+    nodesToRun: graphNodeIds.filter((nodeId) => nodesToRunSet.has(nodeId)),
+    preserveNodeIds: graphNodeIds.filter((nodeId) => frozenNodeIds.has(nodeId) && !nodesToRunSet.has(nodeId)),
+    runToNodeIds,
   };
 }
 

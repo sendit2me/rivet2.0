@@ -1,4 +1,4 @@
-- Frozen nodes: when a node is frozen and I do "run to here" or such on a completely different node, it wipes out any other node's output, including the frozen node's output (at least visually). But the frozen node's output should not be wiped out, even visually
+
 
 
 - Now, the executor mode is global for all open projects (remote debugger, browser, node). Make it per tab

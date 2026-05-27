@@ -42,7 +42,7 @@ import {
 import { setUserInputSubmitHandler } from '../state/actions/userInputActions';
 import { useProjectNodeRegistry } from './useProjectNodeRegistry';
 import { handleError } from '../utils/errorHandling.js';
-import { getDependentDataForNodeForPreload, getEditorRunFromPlan } from './remoteExecutorHelpers.js';
+import { getDependentDataForNodeForPreload, getEditorRunFromPlan, getEditorRunToPlan } from './remoteExecutorHelpers.js';
 import { pluginsState } from '../state/plugins.js';
 import { withDerivedProjectPluginSpecs } from '../utils/pluginUsage.js';
 import { getProjectContextValues } from '../utils/projectContextValues.js';
@@ -221,7 +221,15 @@ export function useLocalExecutor() {
           currentExecution.preserveNodeRunDataForNextStart(runFromPlan.preserveNodeIds);
           currentExecution.suppressPreloadedNodeEventsForCurrentRun(runFromPlan.preloadNodeIds);
         } else if (options.to) {
-          processor.runToNodeIds = options.to;
+          const runToPlan = getEditorRunToPlan(
+            tempProject,
+            graphToRun,
+            options.to,
+            projectNodeRegistry,
+            loadedRecording ? undefined : { frozenNodeOutputs },
+          );
+          processor.runToNodeIds = runToPlan.runToNodeIds;
+          currentExecution.preserveNodeRunDataForNextStart(runToPlan.preserveNodeIds);
         }
 
         if (recordExecutions) {
