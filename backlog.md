@@ -1,4 +1,3 @@
-- Square connection lines
 
 - Simplify the duplicate icon that is used everywhere in the menus. Just remove the picture from the rectangle
 
