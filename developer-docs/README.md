@@ -21,7 +21,7 @@ contracts, or source layout. User-facing docs live under `packages/docs/docs`.
 
 - [Active Refactor Plan](../refactor.md)
 - [Refactor History](../refactor-history.md)
-- [Repo File Tree Refactor Plan](../repo-file-tree-refactor-plan.md)
+- [Repo Maintainability Refactor Plan](../repo-maintainability-refactor-plan.md)
 
 When changing code structure, update the relevant developer doc in the same
 change so future maintainers can see the current contract instead of reverse

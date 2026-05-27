@@ -34,7 +34,7 @@
     "bench:runtime-speed": "yarn workspace @valerypopoff/rivet2-node run bench:runtime-speed",
     "bench:runtime-attribution": "yarn workspace @valerypopoff/rivet2-node run bench:runtime-attribution",
     "lint": "yarn workspace @valerypopoff/rivet2-core run lint && yarn workspace @valerypopoff/rivet2-node run lint && yarn workspace @valerypopoff/rivet-app run lint && yarn workspace @valerypopoff/trivet run lint && yarn workspace @valerypopoff/rivet-app-executor run lint && yarn workspace @valerypopoff/rivet2-cli run lint",
-    "prettier:check": "prettier --check package.json README.md developer-docs/BUILD-AND-CI.md developer-docs/OVERVIEW.md developer-docs/README.md developer-docs/REPO-FILE-TREE.md repo-file-tree-refactor-plan.md \"scripts/checks/*.mjs\"",
+    "prettier:check": "prettier --check package.json README.md developer-docs/BUILD-AND-CI.md developer-docs/OVERVIEW.md developer-docs/README.md developer-docs/REPO-FILE-TREE.md repo-maintainability-refactor-plan.md \"scripts/checks/*.mjs\"",
     "prettier:fix": "prettier --write ."
   },
   "devDependencies": {
