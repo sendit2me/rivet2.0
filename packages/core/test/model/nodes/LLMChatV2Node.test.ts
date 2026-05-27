@@ -402,7 +402,7 @@ describe('LLMChatV2NodeImpl', () => {
     );
   });
 
-  it('adds function-call output when provider built-in tools are enabled', () => {
+  it('adds Tool Calls output when provider built-in tools are enabled', () => {
     const node = createNode({
       provider: 'openai',
       useToolCalling: false,
@@ -413,6 +413,7 @@ describe('LLMChatV2NodeImpl', () => {
     const functionCalls = outputs.find((output) => output.id === 'function-calls');
 
     assert.ok(functionCalls);
+    assert.equal(functionCalls.title, 'Tool Calls');
     assert.equal(functionCalls?.dataType, 'object[]');
   });
 

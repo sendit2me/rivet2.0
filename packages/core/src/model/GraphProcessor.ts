@@ -45,6 +45,7 @@ import {
   type GraphBoundary,
   type GraphBoundaryCache,
 } from './GraphBoundaryCache.js';
+import { applyFrozenGraphBoundaryEffects, ensureGraphCostOutput } from './GraphBoundaryEffects.js';
 import { replayExecutionRecording } from './RecordingPlayer.js';
 import { didLoopControllerBreak, LOOP_NOT_BROKEN_SENTINEL } from './loopControllerBreak.js';
 import { buildNodeProcessContext, type NodeProcessContextBase } from './ProcessContextBuilder.js';
@@ -1396,12 +1397,7 @@ export class GraphProcessor {
   }
 
   async #finalizeGraphRun(): Promise<GraphOutputs> {
-    if (this.#graphOutputs['cost' as PortId] == null) {
-      this.#graphOutputs['cost' as PortId] = {
-        type: 'number',
-        value: this.#totalCost,
-      };
-    }
+    ensureGraphCostOutput(this.#graphOutputs, this.#totalCost);
 
     const outputValues = this.#graphOutputs;
     this.#running = false;
@@ -1924,30 +1920,17 @@ export class GraphProcessor {
   }
 
   #applyFrozenNodeDataflowEffects(node: ChartNode, outputValues: Outputs, processId: ProcessId): void {
-    if (node.type === 'graphOutput') {
-      const outputId = (node.data as { id?: string } | undefined)?.id;
-      const valueOutput = outputValues['valueOutput' as PortId];
-      if (outputId && valueOutput) {
-        this.#graphOutputs[outputId] = valueOutput;
-      }
+    const setGlobalEffect = applyFrozenGraphBoundaryEffects(this.#graphOutputs, node, outputValues);
+    if (!setGlobalEffect) {
       return;
     }
 
-    if (node.type !== 'setGlobal') {
-      return;
-    }
-
-    const savedValue = outputValues['saved-value' as PortId];
-    const variableId = outputValues['variable_id_out' as PortId];
-    const variableIdValue = variableId?.type === 'string' ? variableId.value : undefined;
-
-    if (!variableIdValue || !savedValue) {
-      return;
-    }
-
-    const frozenGlobalValue = savedValue as ScalarOrArrayDataValue;
-    this.#globals.set(variableIdValue, frozenGlobalValue);
-    emitDetached(this.#emitter, 'globalSet', this.#withExecution({ id: variableIdValue, value: frozenGlobalValue, processId }));
+    this.#globals.set(setGlobalEffect.variableId, setGlobalEffect.value);
+    emitDetached(
+      this.#emitter,
+      'globalSet',
+      this.#withExecution({ id: setGlobalEffect.variableId, value: setGlobalEffect.value, processId }),
+    );
   }
 
   async #processNormalNode(node: ChartNode, processId: ProcessId, inputValues: Inputs) {

@@ -29,10 +29,12 @@
     "test:app-executor": "yarn workspace @valerypopoff/rivet-app-executor run test",
     "test:cli": "yarn workspace @valerypopoff/rivet2-cli run test",
     "test:docs": "yarn workspace docs run typecheck",
-    "test:style": "node scripts/check-test-style.mjs",
+    "test:style": "node scripts/checks/check-test-style.mjs && node scripts/checks/check-doc-links.mjs",
+    "check:file-tree": "node scripts/checks/check-file-tree.mjs",
     "bench:runtime-speed": "yarn workspace @valerypopoff/rivet2-node run bench:runtime-speed",
     "bench:runtime-attribution": "yarn workspace @valerypopoff/rivet2-node run bench:runtime-attribution",
     "lint": "yarn workspace @valerypopoff/rivet2-core run lint && yarn workspace @valerypopoff/rivet2-node run lint && yarn workspace @valerypopoff/rivet-app run lint && yarn workspace @valerypopoff/trivet run lint && yarn workspace @valerypopoff/rivet-app-executor run lint && yarn workspace @valerypopoff/rivet2-cli run lint",
+    "prettier:check": "prettier --check package.json README.md developer-docs/APP-ARCHITECTURE.md developer-docs/BUILD-AND-CI.md developer-docs/CORE-ENGINE.md developer-docs/LLM-CHAT-V2-CONTRACT.md developer-docs/OVERVIEW.md developer-docs/README.md developer-docs/REPO-FILE-TREE.md \"scripts/checks/*.mjs\"",
     "prettier:fix": "prettier --write ."
   },
   "devDependencies": {

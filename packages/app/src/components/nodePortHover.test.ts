@@ -16,3 +16,9 @@ test('port hover keeps the parent node hover presentation active', () => {
   assert.doesNotMatch(nodeCanvasSource, /hoveredNodeId=\{hoveringPort \? undefined : hoveringNode\}/);
   assert.equal([...nodeCanvasSource.matchAll(/hoveredNodeId=\{hoveringNode\}/g)].length, 2);
 });
+
+test('port info tooltip does not steal hover from the port', () => {
+  const portInfoSource = readFileSync(join(componentsDir, 'PortInfo.tsx'), 'utf8');
+
+  assert.match(portInfoSource, /pointer-events:\s*none;/);
+});

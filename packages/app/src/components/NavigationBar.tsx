@@ -46,6 +46,7 @@ import { graphSearchPanelHeightState, leftSidebarLiveWidthState } from '../state
 import { getLeftSidebarAttachedControlOffset } from '../utils/leftSidebarWidth';
 import { resizeCursorStyles } from '../utils/resizeCursors';
 import { GRAPH_HISTORY_NEXT_TOOLTIP, GRAPH_HISTORY_PREVIOUS_TOOLTIP } from '../hooks/canvasNavigationShortcuts.js';
+import { getGraphSearchPanelMaxHeight, getNextGraphSearchPanelHeight } from './graphSearch/graphSearchPanelModel';
 
 const GRAPH_SEARCH_FOCUS_ZOOM = 0.8;
 const MIN_GRAPH_SEARCH_PANEL_HEIGHT = 180;
@@ -564,18 +565,23 @@ export const NavigationBar: FC = () => {
     const startHeight = panelRect?.height ?? graphSearchPanelHeight;
     const previousCursor = document.body.style.cursor;
     const previousUserSelect = document.body.style.userSelect;
-    const maxHeight = Math.max(
-      MIN_GRAPH_SEARCH_PANEL_HEIGHT,
-      window.innerHeight - (panelRect?.top ?? 0) - GRAPH_SEARCH_PANEL_BOTTOM_MARGIN,
-    );
+    const maxHeight = getGraphSearchPanelMaxHeight({
+      bottomMargin: GRAPH_SEARCH_PANEL_BOTTOM_MARGIN,
+      minHeight: MIN_GRAPH_SEARCH_PANEL_HEIGHT,
+      panelTop: panelRect?.top ?? 0,
+      viewportHeight: window.innerHeight,
+    });
     document.body.style.cursor = resizeCursorStyles.vertical;
     document.body.style.userSelect = 'none';
 
     const resize = (event: PointerEvent) => {
-      const nextHeight = Math.min(
+      const nextHeight = getNextGraphSearchPanelHeight({
         maxHeight,
-        Math.max(MIN_GRAPH_SEARCH_PANEL_HEIGHT, startHeight + event.clientY - startY),
-      );
+        minHeight: MIN_GRAPH_SEARCH_PANEL_HEIGHT,
+        pointerY: event.clientY,
+        startHeight,
+        startY,
+      });
       setGraphSearchPanelHeight(nextHeight);
     };
 

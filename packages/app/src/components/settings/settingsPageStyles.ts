@@ -14,6 +14,35 @@ export const fields = css`
     gap: var(--settings-auto-configuration-gap);
   }
 
+  .settings-section {
+    display: flex;
+    flex-direction: column;
+    gap: calc(14px * var(--ui-font-scale));
+  }
+
+  .settings-section-heading {
+    margin: 0;
+    color: var(--grey-lightest);
+    font-size: var(--ui-font-size-xl);
+    font-weight: 700;
+    line-height: 1.25;
+  }
+
+  .settings-section-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .settings-section-fields > * {
+    margin-top: 0 !important;
+    margin-bottom: var(--settings-field-gap);
+  }
+
+  .settings-section-fields > :last-child {
+    margin-bottom: 0;
+  }
+
   .settings-toggle-field {
     color: var(--grey-light);
     font-size: var(--ui-font-size-base);

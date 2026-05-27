@@ -1,17 +1,33 @@
 
-- Simplify the duplicate icon that is used everywhere in the menus. Just remove the picture from the rectangle
+- Switch the rows in the alignment options popup
+
+- Add an alignment option "Make selected nodes the same width"
+
+- Nove the Prev and Next buttons to the main bar to the right from the graph tree collapse button
+
+- Put the global search to the left panel
+
+- Does the prompt node need better line endings? Just like the text node has
+
+- Code editor: show a hint that Ctrl++ and Ctrl+- are working here. Also add Ctrl/Cmd+scroll to scale the font size
+
+- Words: 20 Characters: 111 - make the separator larger
+
+
+- Reassess Ctrl+N window
+
+
+
+- In the node inputs list, allow changing their order manually. But when the amount of the inputs changes, the order can reset
+
+
 
 - Now, the executor mode is global for all open projects (remote debugger, browser, node). Make it per tab
 
 - Need to show the curent graph name somewhere. When there's many and they are in the folders and you click through subgraphs, the user gets lost. It's already shown in the run button. maybe make it more noticeable?
 
-- New artboard background image. I want diagonal strokes like in the logo. Also maybe more sparse crosses in rectangular manner
 
-- Support Python in all nodes that support javascript
 
-- In the node inputs list, allow changing their order manually. But when the amount of the inputs changes, the order can reset
-
-- Reassess Ctrl+N window
 
 - Get back to MCP and see if it works and how it works. I don't see an MCP node. I think we need it
 - Reassess all the "Generate using AI" in different nodes. The model picker is clipped by the section border
@@ -45,3 +61,5 @@
 - Convenient node type browser, just like in n8n
 - Show run time in each node
 - I want to be able to adjust the node height when it's not hovered so I can see this much of the content in the output section
+
+- Support Python in all nodes that support javascript

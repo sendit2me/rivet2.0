@@ -18,6 +18,7 @@ import { canvasIoDefinitionsForNodeState } from '../state/selectors/canvasGraphS
 
 const style = css`
   position: absolute;
+  pointer-events: none;
 
   padding: 12px;
   border-radius: 10px;

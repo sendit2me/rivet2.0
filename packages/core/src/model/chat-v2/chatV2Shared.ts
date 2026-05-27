@@ -243,7 +243,7 @@ export function getCommonChatV2Outputs(
   if (includeFunctionCalls) {
     outputs.push({
       id: functionCallsPortId,
-      title: 'Function Calls',
+      title: 'Tool Calls',
       dataType: 'object[]',
     });
   }

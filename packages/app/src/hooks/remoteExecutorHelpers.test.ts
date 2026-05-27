@@ -17,7 +17,8 @@ import {
   canPreloadEditorRunFromPlan,
   getDependentDataForNodeForPreload,
   getEditorRunFromPlan,
-  getFrozenNodePreloadOptionsForExecutorTarget,
+  getEditorRunToPlan,
+  getFrozenNodeOptionsForExecutorTarget,
   getFrozenNodeOutputsForExecutorRunPayload,
   selectTestSuitesToRun,
 } from './remoteExecutorHelpers';
@@ -117,6 +118,36 @@ test('getEditorRunFromPlan preloads only direct boundary inputs for a selected l
   assert.deepEqual(plan.nodesToRun, ['downstream']);
   assert.deepEqual(plan.preserveNodeIds, ['source', 'selected', 'side', 'unrelated-source', 'unrelated-sink']);
   assert.deepEqual(plan.preloadNodeIds, ['selected', 'side']);
+  assert.deepEqual(plan.runToNodeIds, ['downstream']);
+});
+
+test('getEditorRunToPlan preserves frozen nodes outside the run-to dependency slice', () => {
+  const plan = getEditorRunToPlan(
+    makeProject(makeRunFromGraph()),
+    graphId,
+    ['downstream' as NodeId],
+    registry,
+    {
+      frozenNodeOutputs: {
+        [graphId]: {
+          ['source' as NodeId]: [{ ['output' as PortId]: { type: 'string', value: 'runs again' } }],
+          ['unrelated-source' as NodeId]: [{ ['output' as PortId]: { type: 'string', value: 'keep me visible' } }],
+          ['unrelated-sink' as NodeId]: [],
+        },
+      },
+    },
+  );
+
+  assert.deepEqual(plan.nodesToRun, ['source', 'selected', 'downstream', 'side']);
+  assert.deepEqual(plan.preserveNodeIds, ['unrelated-source']);
+  assert.deepEqual(plan.runToNodeIds, ['downstream']);
+});
+
+test('getEditorRunToPlan does not preserve unfrozen nodes outside the run-to dependency slice', () => {
+  const plan = getEditorRunToPlan(makeProject(makeRunFromGraph()), graphId, ['downstream' as NodeId], registry);
+
+  assert.deepEqual(plan.nodesToRun, ['source', 'selected', 'downstream', 'side']);
+  assert.deepEqual(plan.preserveNodeIds, []);
   assert.deepEqual(plan.runToNodeIds, ['downstream']);
 });
 
@@ -304,7 +335,7 @@ test('getDependentDataForNodeForPreload prefers frozen boundary outputs over pre
   });
 });
 
-test('getFrozenNodePreloadOptionsForExecutorTarget only enables frozen preloads for internal executors', () => {
+test('getFrozenNodeOptionsForExecutorTarget only enables frozen outputs for internal executors', () => {
   const frozenNodeOutputs = {
     [graphId]: {
       ['node-1' as NodeId]: [
@@ -316,7 +347,7 @@ test('getFrozenNodePreloadOptionsForExecutorTarget only enables frozen preloads 
   } satisfies FrozenNodeOutputsByGraph;
 
   assert.deepEqual(
-    getFrozenNodePreloadOptionsForExecutorTarget(frozenNodeOutputs, graphId, {
+    getFrozenNodeOptionsForExecutorTarget(frozenNodeOutputs, graphId, {
       type: 'internal-hosted',
       url: 'ws://executor.example/internal',
     }),
@@ -324,7 +355,7 @@ test('getFrozenNodePreloadOptionsForExecutorTarget only enables frozen preloads 
   );
 
   assert.equal(
-    getFrozenNodePreloadOptionsForExecutorTarget(frozenNodeOutputs, graphId, {
+    getFrozenNodeOptionsForExecutorTarget(frozenNodeOutputs, graphId, {
       type: 'external-debugger',
       url: 'ws://debugger.example/latest',
     }),

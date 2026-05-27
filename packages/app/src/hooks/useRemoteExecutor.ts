@@ -30,7 +30,8 @@ import {
   createProcessEventDispatcher,
   getDependentDataForNodeForPreload,
   getEditorRunFromPlan,
-  getFrozenNodePreloadOptionsForExecutorTarget,
+  getEditorRunToPlan,
+  getFrozenNodeOptionsForExecutorTarget,
   getFrozenNodeOutputsForExecutorRunPayload,
   selectTestSuitesToRun,
 } from './remoteExecutorHelpers.js';
@@ -356,10 +357,20 @@ export function useRemoteExecutor() {
         preloadData = getDependentDataForNodeForPreload(
           runFromPlan.preloadNodeIds,
           lastRunData,
-          getFrozenNodePreloadOptionsForExecutorTarget(frozenNodeOutputs, graphToRun, sessionState.target),
+          getFrozenNodeOptionsForExecutorTarget(frozenNodeOutputs, graphToRun, sessionState.target),
         );
         currentExecution.preserveNodeRunDataForNextStart(runFromPlan.preserveNodeIds);
         currentExecution.suppressPreloadedNodeEventsForCurrentRun(runFromPlan.preloadNodeIds);
+      } else if (options.to) {
+        const runToPlan = getEditorRunToPlan(
+          projectWithCurrentGraph,
+          graphToRun,
+          options.to,
+          projectNodeRegistry,
+          getFrozenNodeOptionsForExecutorTarget(frozenNodeOutputs, graphToRun, sessionState.target),
+        );
+        runToNodeIds = runToPlan.runToNodeIds;
+        currentExecution.preserveNodeRunDataForNextStart(runToPlan.preserveNodeIds);
       }
 
       const runRequest = startActiveRemoteGraphRunRequest({
