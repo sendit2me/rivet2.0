@@ -6,7 +6,7 @@ import clsx from 'clsx';
 import { trivetState } from '../state/trivet.js';
 import { LoadingSpinner } from './LoadingSpinner.js';
 import { type OverlayKey, overlayOpenState } from '../state/ui';
-import { hideGraphSearchPanelState, openOrFocusGraphSearchState, searchingGraphState } from '../state/graphBuilder';
+import { hideGraphSearchPanelState, searchingGraphState } from '../state/graphBuilder';
 import { projectState } from '../state/savedGraphs.js';
 import { graphState } from '../state/graph.js';
 import { lastRunDataByNodeState } from '../state/dataFlow.js';
@@ -94,18 +94,6 @@ const styles = css`
     }
   }
 
-  .search-menu {
-    > button {
-      gap: 6px;
-
-      svg {
-        flex: 0 0 auto;
-        height: 14px;
-        width: 14px;
-      }
-    }
-  }
-
   .trivet-menu button {
     display: flex;
     flex-direction: row;
@@ -121,9 +109,8 @@ const styles = css`
 `;
 
 export const OverlayTabs: FC<{
-  showGraphSearch?: boolean;
   showWelcomeScreen?: boolean;
-}> = ({ showGraphSearch = true, showWelcomeScreen = false }) => {
+}> = ({ showWelcomeScreen = false }) => {
   const [openOverlay, setOpenOverlay] = useAtom(overlayOpenState);
   const setGraphSearch = useSetAtom(searchingGraphState);
 
@@ -172,23 +159,6 @@ export const OverlayTabs: FC<{
             )}
           </WorkspaceTab>
         ))}
-        {showGraphSearch && (
-          <div className="menu-item search-menu">
-            <button
-              type="button"
-              className="dropdown-item"
-              onMouseDown={(e) => {
-                if (e.button === 0) {
-                  setOpenOverlay(undefined);
-                  setGraphSearch(openOrFocusGraphSearchState);
-                }
-              }}
-            >
-              <SearchIcon />
-              Search
-            </button>
-          </div>
-        )}
       </div>
     </nav>
   );
@@ -213,16 +183,4 @@ const WorkspaceTab: FC<{
       {children}
     </button>
   </div>
-);
-
-const SearchIcon: FC = () => (
-  <svg aria-hidden="true" fill="none" viewBox="0 0 24 24">
-    <path
-      d="M10.75 17.5a6.75 6.75 0 1 1 0-13.5 6.75 6.75 0 0 1 0 13.5ZM16 16l4 4"
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth="2"
-    />
-  </svg>
 );

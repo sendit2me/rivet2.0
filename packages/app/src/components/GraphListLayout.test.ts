@@ -20,6 +20,9 @@ test('graph tree panel keeps the compact text-list layout source contract', () =
   assert.doesNotMatch(graphListSource, /project-tree-header-tooltip|content={project\.metadata\.title}/);
   assert.doesNotMatch(graphListSource, /className="project-tree-header" title=/);
   assert.match(graphListSource, /<span className="project-tree-header-label">Project:<\/span>/);
+  assert.match(graphListSource, /content="Search \(Ctrl\/Cmd\+F\)"/);
+  assert.match(graphListSource, /setGraphSearch\(openOrFocusGraphSearchState\)/);
+  assert.match(graphListSource, /<span>Search<\/span>[\s\S]*<span>Project settings<\/span>/);
   assert.match(graphListSource, /className="graph-list-action"/);
   assert.match(graphListSource, /<span>Project settings<\/span>/);
   assert.match(graphListSource, /className="graph-list-filter"/);
@@ -39,9 +42,14 @@ test('graph tree panel keeps the compact text-list layout source contract', () =
   assert.match(graphListContextMenuSource, /export type GraphListContextMenuItem =/);
   assert.doesNotMatch(graphListContextMenuSource, /useContextMenuConfiguration/);
   assert.match(graphListSource, /&:focus::placeholder {\s+opacity: 0;\s+}/);
-  assert.match(graphListSource, /\.graph-list-action {\s+cursor: pointer;\s+svg {\s+margin-bottom: 0\.35em;/);
+  assert.match(graphListSource, /\.graph-list-action {\s+cursor: pointer;\s+}/);
+  assert.match(graphListSource, /\.graph-list-action-icon-adjusted {\s+margin-bottom: 0\.35em;\s+}/);
+  assert.match(graphListSource, /<SettingsCogIcon aria-hidden="true" className="graph-list-action-icon-adjusted" \/>/);
   assert.match(graphListSource, /\.spinner \.node-running-indicator {\s+width: var\(--ui-font-size-base\);/);
-  assert.match(graphListSource, /\.graph-main-icon {\s+width: 1em;\s+height: 1em;/);
+  assert.match(
+    graphListSource,
+    /\.graph-main-icon {\s+width: 1em;\s+height: 1em;[\s\S]*transform: translateY\(-1px\);/,
+  );
   assert.match(
     graphListSource,
     /--collapsed-open-graph-folder-color: color-mix\(in srgb, var\(--primary\) 28%, transparent\);/,

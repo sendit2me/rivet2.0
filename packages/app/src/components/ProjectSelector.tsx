@@ -1,9 +1,21 @@
 import { css } from '@emotion/react';
-import { Fragment, useEffect, useMemo, useRef, useState, type FC, type MouseEvent as ReactMouseEvent } from 'react';
+import {
+  Fragment,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type FC,
+  type MouseEvent as ReactMouseEvent,
+  type ReactNode,
+} from 'react';
 import { DndContext, type DragEndEvent } from '@dnd-kit/core';
 import { type ProjectId } from '@valerypopoff/rivet2-core';
 import { useAtom, useAtomValue } from 'jotai';
 import CloseIcon from 'majesticons/line/multiply-line.svg?react';
+import LeftIcon from 'majesticons/line/chevron-left-line.svg?react';
+import RightIcon from 'majesticons/line/chevron-right-line.svg?react';
 import { openedProjectsSortedIdsState, openedProjectsState, projectState } from '../state/savedGraphs';
 import clsx from 'clsx';
 import { useLoadProject } from '../hooks/useLoadProject';
@@ -17,10 +29,15 @@ import { OverlayTabs } from './OverlayTabs.js';
 import { popupMenuListStyles, popupMenuRowStyles, popupMenuSeparatorStyles } from './PopupMenu.js';
 import { useRivetAppHostUiConfig } from '../providers/HostUiConfigContext.js';
 import { getVisibleFileMenuGroups } from '../utils/fileMenuConfiguration.js';
-import { overlayOpenState } from '../state/ui.js';
+import { leftSidebarLiveWidthState, overlayOpenState } from '../state/ui.js';
 import { sidebarOpenState } from '../state/graphBuilder.js';
-import { GRAPH_TREE_TOGGLE_SHORTCUT_LABEL } from '../hooks/canvasNavigationShortcuts.js';
+import {
+  GRAPH_HISTORY_NEXT_TOOLTIP,
+  GRAPH_HISTORY_PREVIOUS_TOOLTIP,
+  GRAPH_TREE_TOGGLE_SHORTCUT_LABEL,
+} from '../hooks/canvasNavigationShortcuts.js';
 import { Tooltip } from './Tooltip.js';
+import { useGraphHistoryNavigation } from '../hooks/useGraphHistoryNavigation.js';
 
 export const styles = css`
   position: absolute;
@@ -37,7 +54,10 @@ export const styles = css`
   display: flex;
   align-items: stretch;
 
+  --top-bar-left-controls-width: calc(var(--project-selector-height) * 3);
+
   .sidebar-toggle-menu,
+  .graph-history-menu,
   .file-menu {
     align-items: stretch;
     background: var(--grey-darkerish);
@@ -55,9 +75,38 @@ export const styles = css`
     width: var(--project-selector-height);
   }
 
+  .graph-history-controls {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: stretch;
+  }
+
+  .graph-history-menu {
+    width: var(--project-selector-height);
+
+    &:hover {
+      background-color: var(--grey-darkish);
+    }
+
+    &.disabled {
+      color: var(--grey-light);
+      cursor: default;
+      opacity: 0.45;
+
+      &:hover {
+        background: var(--grey-darkerish);
+      }
+    }
+  }
+
   .sidebar-toggle-tooltip {
     display: flex;
     width: 100%;
+    height: 100%;
+  }
+
+  .graph-history-tooltip {
+    display: flex;
     height: 100%;
   }
 
@@ -72,6 +121,7 @@ export const styles = css`
   }
 
   .sidebar-toggle-button,
+  .graph-history-button,
   .file-menu-button {
     align-items: center;
     background: transparent;
@@ -101,6 +151,34 @@ export const styles = css`
       height: 16px;
       width: 16px;
     }
+  }
+
+  .graph-history-button {
+    padding: 0;
+
+    &:disabled {
+      cursor: default;
+      pointer-events: none;
+    }
+
+    svg {
+      color: currentColor;
+      height: 16px;
+      width: 16px;
+    }
+  }
+
+  .sidebar-panel-spacer {
+    background: var(--grey-darkerish);
+    border-bottom: 1px solid var(--grey);
+    flex: 0 0 max(0px, calc(var(--left-sidebar-width) - var(--top-bar-left-controls-width)));
+    height: calc(100% + 1px);
+    margin-bottom: -1px;
+    min-width: 0;
+  }
+
+  .sidebar-panel-spacer.no-left-controls {
+    flex-basis: var(--left-sidebar-width);
   }
 
   .file-dropdown {
@@ -278,6 +356,8 @@ export const ProjectSelector: FC<{
   const openedProjects = useAtomValue(openedProjectsState);
   const [openedProjectsSortedIds, setOpenedProjectsSortedIds] = useAtom(openedProjectsSortedIdsState);
   const [openOverlay, setOpenOverlay] = useAtom(overlayOpenState);
+  const sidebarOpen = useAtomValue(sidebarOpenState);
+  const leftSidebarWidth = useAtomValue(leftSidebarLiveWidthState);
   const currentProject = useAtomValue(projectState);
   const { closeProject } = useRivetWorkspaceHost();
 
@@ -293,6 +373,7 @@ export const ProjectSelector: FC<{
 
   const loadProject = useLoadProject();
   const projectTabsSelected = projectMode && openOverlay === undefined;
+  const reserveSidebarColumn = projectMode && sidebarOpen;
 
   useSyncCurrentStateIntoOpenedProjects({ enabled: projectMode });
 
@@ -323,8 +404,15 @@ export const ProjectSelector: FC<{
   };
 
   return (
-    <div css={styles}>
+    <div css={styles} style={{ '--left-sidebar-width': `${leftSidebarWidth}px` } as CSSProperties}>
       {projectTabsSelected && <GraphTreeSidebarToggle />}
+      {projectTabsSelected && <GraphHistoryControls />}
+      {reserveSidebarColumn && (
+        <div
+          className={clsx('sidebar-panel-spacer', { 'no-left-controls': !projectTabsSelected })}
+          aria-hidden="true"
+        />
+      )}
       {!isInTauri() && <ProjectFileMenu />}
       <div className={clsx('projects-container', { empty: visibleProjects.length === 0 })}>
         <div className="projects">
@@ -345,7 +433,7 @@ export const ProjectSelector: FC<{
           </DndContext>
         </div>
       </div>
-      <OverlayTabs showGraphSearch={projectMode} showWelcomeScreen={!projectMode} />
+      <OverlayTabs showWelcomeScreen={!projectMode} />
     </div>
   );
 };
@@ -384,6 +472,59 @@ const GraphTreeSidebarIcon: FC<{ sidebarOpen: boolean }> = ({ sidebarOpen }) => 
     />
   </svg>
 );
+
+const GraphHistoryControls: FC = () => {
+  const navigationStack = useGraphHistoryNavigation();
+
+  return (
+    <div className="graph-history-controls">
+      <GraphHistoryButton
+        disabled={!navigationStack.hasBackward}
+        label="Go to previous graph"
+        tooltip={GRAPH_HISTORY_PREVIOUS_TOOLTIP}
+        onClick={navigationStack.navigateBack}
+      >
+        <LeftIcon />
+      </GraphHistoryButton>
+      <GraphHistoryButton
+        disabled={!navigationStack.hasForward}
+        label="Go to next graph"
+        tooltip={GRAPH_HISTORY_NEXT_TOOLTIP}
+        onClick={navigationStack.navigateForward}
+      >
+        <RightIcon />
+      </GraphHistoryButton>
+    </div>
+  );
+};
+
+const GraphHistoryButton: FC<{
+  children: ReactNode;
+  disabled: boolean;
+  label: string;
+  tooltip: string;
+  onClick: () => void;
+}> = ({ children, disabled, label, onClick, tooltip }) => {
+  const button = (
+    <div className={clsx('graph-history-menu', { disabled })}>
+      <button
+        aria-label={label}
+        className="graph-history-button dropdown-item"
+        disabled={disabled}
+        onClick={disabled ? undefined : onClick}
+        type="button"
+      >
+        {children}
+      </button>
+    </div>
+  );
+
+  return (
+    <Tooltip content={tooltip} placement="bottom" className="graph-history-tooltip">
+      {button}
+    </Tooltip>
+  );
+};
 
 const ProjectFileMenu: FC = () => {
   const [fileMenuOpen, setFileMenuOpen] = useState(false);

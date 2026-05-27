@@ -8,9 +8,10 @@ import { type NodeGraph } from '@valerypopoff/rivet2-core';
 import clsx from 'clsx';
 import { runningGraphsState } from '../state/dataFlow.js';
 import { graphState } from '../state/graph.js';
+import { openOrFocusGraphSearchState, searchingGraphState } from '../state/graphBuilder.js';
 import { pluginsState } from '../state/plugins.js';
 import { projectState, savedGraphsState } from '../state/savedGraphs.js';
-import { showGraphReferenceIndicatorsState, showUnreachableGraphTagsState } from '../state/ui.js';
+import { overlayOpenState, showGraphReferenceIndicatorsState, showUnreachableGraphTagsState } from '../state/ui.js';
 import { useContextMenu } from '../hooks/useContextMenu.js';
 import Portal from '@atlaskit/portal';
 import CrossIcon from 'majesticons/line/multiply-line.svg?react';
@@ -41,6 +42,7 @@ import {
 import { useGraphListPresentation } from './graphList/useGraphListPresentation.js';
 import { getFolderNames } from './graphList/graphFolders.js';
 import { PopupMenuItem, popupMenuListStyles } from './PopupMenu.js';
+import { Tooltip } from './Tooltip.js';
 
 const styles = css`
   --collapsed-open-graph-folder-color: color-mix(in srgb, var(--primary) 28%, transparent);
@@ -99,6 +101,11 @@ const styles = css`
     margin: 0;
   }
 
+  .graph-list-action-tooltip {
+    display: flex;
+    width: 100%;
+  }
+
   .graph-list-action,
   .graph-list-filter-label {
     display: flex;
@@ -123,10 +130,10 @@ const styles = css`
 
   .graph-list-action {
     cursor: pointer;
+  }
 
-    svg {
-      margin-bottom: 0.35em;
-    }
+  .graph-list-action-icon-adjusted {
+    margin-bottom: 0.35em;
   }
 
   .graph-list-action:hover,
@@ -269,6 +276,7 @@ const styles = css`
     width: 1em;
     height: 1em;
     flex-shrink: 0;
+    transform: translateY(-1px);
     color: var(--grey-lightish);
   }
 
@@ -491,6 +499,8 @@ export const GraphList: FC = memo(() => {
   } = useGraphOperations();
   const setGraph = useSetAtom(graphState);
   const setSavedGraphs = useSetAtom(savedGraphsState);
+  const setGraphSearch = useSetAtom(searchingGraphState);
+  const setOpenOverlay = useSetAtom(overlayOpenState);
   const graphListContainerRef = useRef<HTMLDivElement>(null);
 
   const { draggingItemFolder, dragOverFolderName, handleDragStart, handleDragEnd, handleDragOver } =
@@ -545,6 +555,11 @@ export const GraphList: FC = memo(() => {
       setSearchText('');
       (e.target as HTMLElement).blur();
     }
+  });
+
+  const openGraphSearch = useStableCallback(() => {
+    setOpenOverlay(undefined);
+    setGraphSearch(openOrFocusGraphSearchState);
   });
 
   const currentGraphListName = useMemo(() => {
@@ -721,8 +736,14 @@ export const GraphList: FC = memo(() => {
           <span className="project-tree-header-title">{project.metadata.title}</span>
         </div>
         <div className="graph-list-toolbar">
+          <Tooltip content="Search (Ctrl/Cmd+F)" placement="right" tag="span" className="graph-list-action-tooltip">
+            <button type="button" className="graph-list-action" onClick={openGraphSearch}>
+              <SearchIcon aria-hidden="true" />
+              <span>Search</span>
+            </button>
+          </Tooltip>
           <button type="button" className="graph-list-action" onClick={() => setIsProjectInfoOpen(true)}>
-            <SettingsCogIcon aria-hidden="true" />
+            <SettingsCogIcon aria-hidden="true" className="graph-list-action-icon-adjusted" />
             <span>Project settings</span>
           </button>
           <div className="graph-list-filter">
@@ -889,6 +910,18 @@ const GraphListContextMenuItems: FC<{
 const FilterIcon: FC<SVGProps<SVGSVGElement>> = (props) => (
   <svg viewBox="0 0 16 16" fill="none" {...props}>
     <path d="M2.5 3.5h11L9.25 8.35v3.4l-2.5.9v-4.3L2.5 3.5Z" fill="currentColor" />
+  </svg>
+);
+
+const SearchIcon: FC<SVGProps<SVGSVGElement>> = (props) => (
+  <svg viewBox="0 0 16 16" fill="none" {...props}>
+    <path
+      d="M7.25 11.25a4 4 0 1 1 0-8 4 4 0 0 1 0 8ZM10.25 10.25l3 3"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.8"
+    />
   </svg>
 );
 
