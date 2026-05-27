@@ -733,10 +733,16 @@ not preserve a complete file list.
     - Affected files/areas: `packages/core/src/model/GraphProcessor.ts`, `packages/core/test/model/GraphProcessor.characterization.test.ts`, `packages/node/bench/runtimeSpeed.bench.ts`, `runtime-speed-before-after.md`, `execution-speed.md`, `developer-docs/CORE-ENGINE.md`, `developer-docs/PACKAGES.md`.
     - Result in numbers: production runtime code shrank by 12 lines in `GraphProcessor.ts` by removing the duplicate input scan. Benchmark tooling moved `+53/-1`; focused characterization tests added 24 lines; developer docs moved `+30/-1`; planning/reporting docs moved `+544/-29` plus one 70-line benchmark report. The final full matrix compares 61 rows against the original baseline and reports 33 big wins, 11 additional wins, 16 neutral rows, 1 small slower row, and 0 regressions at or above 10%, using a `0.05ms` absolute noise gate.
 
+131. **Closed the repo maintainability refactor plan with narrow seams and guardrails**
+    - Why: The repo-wide maintainability audit identified five active risk areas: residual `GraphProcessor` responsibility concentration, large editor UI surfaces, CodeRunner capability drift, LLM Chat V2 provider-contract breadth, and report-only guardrails. The goal was to improve ownership and bug surface without changing functionality, serialized project formats, execution semantics, runtime-speed policy, or user-visible behavior.
+    - How: Extracted graph-boundary effects from `GraphProcessor` into a pure `GraphBoundaryEffects` module while leaving event emission, global storage, and mutable run state in the processor. Moved graph-search panel resize math from `NavigationBar` into a small tested model. Documented the CodeRunner capability argument order and added an app-executor equivalence test against the public Node package runner for worker-safe capabilities. Added `developer-docs/LLM-CHAT-V2-CONTRACT.md` as the contract baseline for the Vercel SDK-powered `LLM Chat` node, explicitly keeping legacy Chat compatibility-only. Added a local Markdown link checker and wired it into `yarn test:style`, while leaving the broad import-boundary queue report-only because the current candidates are not all settled violations.
+    - Affected files/areas: `packages/core/src/model/GraphBoundaryEffects.ts`, `packages/core/src/model/GraphProcessor.ts`, `packages/core/test/model/GraphBoundaryEffects.test.ts`, `packages/app/src/components/graphSearch/graphSearchPanelModel.ts`, `packages/app/src/components/NavigationBar.tsx`, `packages/app-executor/bin/AppExecutorWorkerCodeRunner.test.mts`, `scripts/checks/check-doc-links.mjs`, `developer-docs/CORE-ENGINE.md`, `developer-docs/APP-ARCHITECTURE.md`, `developer-docs/BUILD-AND-CI.md`, `developer-docs/LLM-CHAT-V2-CONTRACT.md`, root/developer-doc indexes, and `repo-maintainability-refactor-plan.md`.
+    - Result in numbers: new production helper code is intentionally small: a 53-line core graph-boundary helper and a 33-line app graph-search model. Focused tests added 65 lines for graph-boundary effects, 42 lines for graph-search resize policy, and a cross-runner app-executor equivalence case. The docs-link guardrail added a 100-line repository script and now runs through `test:style`. The LLM Chat V2 contract added an 85-line docs-to-code matrix, and the plan was marked complete across all phases. Fresh verification passed for core tests, app tests, app-executor tests, style/docs-link checks, formatting, and `git diff --check`.
+
 ## Residual Watchlist For Future Refactors
 
 1. **GraphProcessor size and responsibility concentration**
-   - Current state: Several targeted extractions landed, Phase 8 added a characterization suite, node-exclusion decisions now live in `NodeExclusionPolicy.ts`, and the runtime-speed recovery removed one redundant hot-path scan while adding errored-input downstream characterization. `GraphProcessor.ts` still owns many execution policies.
+   - Current state: Several targeted extractions landed, Phase 8 added a characterization suite, node-exclusion decisions now live in `NodeExclusionPolicy.ts`, graph-boundary effects now live in `GraphBoundaryEffects.ts`, and the runtime-speed recovery removed one redundant hot-path scan while adding errored-input downstream characterization. `GraphProcessor.ts` still owns many execution policies.
    - Next refactor should extract one policy at a time and extend the characterization suite before touching event order, aborts, subgraphs, loops, or races.
 
 2. **MCP stdio config logging and env handling**
@@ -752,8 +758,8 @@ not preserve a complete file list.
    - Future work would be release-engineering heavy: Git LFS or checksum-verified downloads plus release packaging validation on every supported platform.
 
 5. **Provider implementation size**
-   - Current state: OpenAI/Anthropic unsafe parse diagnostics were centralized, but provider files remain large.
-   - Future extraction should only target proven shared seams, such as tool-call accumulation, after focused tests exist.
+   - Current state: OpenAI/Anthropic unsafe parse diagnostics were centralized, provider files remain large, and `developer-docs/LLM-CHAT-V2-CONTRACT.md` now documents the Vercel SDK-powered `LLM Chat` ownership and test matrix. Legacy Chat remains compatibility-only.
+   - Future extraction should only target proven shared seams in the LLM Chat V2 path, such as provider-option assembly, structured-output normalization, or tool-call accumulation, after focused tests exist.
 
 6. **Deletion targets versus helper boundaries**
    - Current state: The second refactor met its deletion target; the third did not, because two Chat v2 helper modules made high-risk policy easier to audit.
