@@ -53,7 +53,14 @@ import {
   selectedProcessPageNodesState,
 } from '../state/dataFlow';
 import { projectState, referencedProjectsState } from '../state/savedGraphs.js';
-import { selectedExecutorState, zoomSensitivityState } from '../state/settings';
+import {
+  canvasBackgroundPatternOpacityState,
+  canvasBackgroundPatternState,
+  clampCanvasBackgroundPatternOpacity,
+  resolveCanvasBackgroundPattern,
+  selectedExecutorState,
+  zoomSensitivityState,
+} from '../state/settings';
 import { canvasPreviewConnectionsState } from '../state/selectors/canvasGraphSelectors.js';
 import { nodesByIdState } from '../state/selectors/graphSelectors.js';
 import { canRunGraphFromEditor } from '../state/selectors/executionSelectors.js';
@@ -68,6 +75,7 @@ import { WireLayer } from './WireLayer.js';
 import type { NodeResizeBounds } from '../utils/nodeResize.js';
 import { MEDIUM_GRAPH_NODE_THRESHOLD } from './nodeCanvas/canvasPerformanceBudget.js';
 import { getCanvasPerfSnapshot } from './nodeCanvas/canvasPerfDebug.js';
+import { CanvasBackgroundPatternLayer } from './nodeCanvas/CanvasBackgroundPattern.js';
 import { groupConnectionsByNode } from './nodeCanvas/groupConnectionsByNode.js';
 import { getDraggingViewportNodeIds } from './nodeCanvas/draggingViewportNodeIds.js';
 import { filterValidSubGraphConnections } from '../domain/graphEditing/connectionValidation.js';
@@ -135,6 +143,8 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
   const graphRunning = useAtomValue(graphRunningState);
   const loadedRecording = useAtomValue(loadedRecordingState);
   const zoomSensitivity = useAtomValue(zoomSensitivityState);
+  const canvasBackgroundPattern = useAtomValue(canvasBackgroundPatternState);
+  const canvasBackgroundPatternOpacity = useAtomValue(canvasBackgroundPatternOpacityState);
   const rawPreviewConnections = useAtomValue(canvasPreviewConnectionsState);
   const nodesById = useAtomValue(nodesByIdState);
   const project = useAtomValue(projectState);
@@ -150,6 +160,8 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
 
   const setLastSavedCanvasPosition = useSetAtom(lastCanvasPositionByGraphState);
   const setLastMousePosition = useSetAtom(lastMousePositionState);
+  const normalizedCanvasBackgroundPattern = resolveCanvasBackgroundPattern(canvasBackgroundPattern);
+  const normalizedCanvasBackgroundPatternOpacity = clampCanvasBackgroundPatternOpacity(canvasBackgroundPatternOpacity);
 
   const { clientToCanvasPosition } = useCanvasPositioning();
   const removeNodes = useDeleteNodesCommand();
@@ -636,11 +648,12 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
         onMouseUp={canvasMouseUp}
         onMouseLeave={canvasMouseUp}
         onWheel={handleZoom}
-        style={{
-          backgroundPosition: `${canvasPosition.x - 1}px ${canvasPosition.y - 1}px`,
-          backgroundSize: `${20 * canvasPosition.zoom}px ${20 * canvasPosition.zoom}px`,
-        }}
       >
+        <CanvasBackgroundPatternLayer
+          canvasPosition={canvasPosition}
+          opacity={normalizedCanvasBackgroundPatternOpacity}
+          pattern={normalizedCanvasBackgroundPattern}
+        />
         <MouseIcon isDraggingNode={isDraggingNode} />
         <CopyNodesHotkeys />
         <DebugOverlay enabled={false} />

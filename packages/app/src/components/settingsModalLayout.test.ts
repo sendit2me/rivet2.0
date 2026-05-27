@@ -14,5 +14,6 @@ test('SettingsModal uses independent viewport-capped column scrolling', () => {
   assert.doesNotMatch(source, /height="80%"/);
   assert.match(source, /nav \{[\s\S]*max-height: 100%;[\s\S]*overflow: auto;/);
   assert.match(source, /main \{[\s\S]*height: 100%;[\s\S]*overflow: auto;/);
+  assert.match(source, /main:not\(\.fill-page\) > \* \{[\s\S]*max-width: 850px;/);
   assert.match(source, /overflow: hidden;/);
 });

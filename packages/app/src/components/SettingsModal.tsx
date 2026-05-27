@@ -47,6 +47,11 @@ const modalBody = css`
     padding: 0 30px 30px 30px;
   }
 
+  main:not(.fill-page) > * {
+    width: 100%;
+    max-width: 850px;
+  }
+
   main.fill-page {
     display: flex;
     flex-direction: column;

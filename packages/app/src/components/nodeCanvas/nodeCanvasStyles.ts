@@ -6,12 +6,16 @@ export const nodeCanvasStyles = css`
   height: 100vh;
   position: relative;
   background-color: var(--grey-darker);
-  background-image: linear-gradient(to right, var(--grey-subtle-accent) 1px, transparent 1px),
-    linear-gradient(to bottom, var(--grey-subtle-accent) 1px, transparent 1px);
-  background-size: 20px 20px;
-  background-position: -1px -1px;
   overflow: hidden;
   z-index: 0;
+
+  .canvas-background-pattern {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+  }
 
   &.dragging-node,
   &.dragging-node * {

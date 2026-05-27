@@ -2,9 +2,14 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createStore } from 'jotai/vanilla';
 import {
+  clampCanvasBackgroundPatternOpacity,
+  DEFAULT_CANVAS_BACKGROUND_PATTERN_OPACITY,
+  MAX_CANVAS_BACKGROUND_PATTERN_OPACITY,
+  MIN_CANVAS_BACKGROUND_PATTERN_OPACITY,
   defaultExecutorState,
   getExecutorOptions,
   getStartupDefaultExecutor,
+  resolveCanvasBackgroundPattern,
   resolveEditorPreferences,
   selectedExecutorState,
 } from './settings.js';
@@ -109,4 +114,22 @@ test('getExecutorOptions exposes Node in desktop and hosted internal-executor sh
     { label: 'Browser', value: 'browser' },
     { label: 'Node', value: 'nodejs' },
   ]);
+});
+
+test('resolveCanvasBackgroundPattern falls back to grid for invalid stored values', () => {
+  assert.equal(resolveCanvasBackgroundPattern('grid'), 'grid');
+  assert.equal(resolveCanvasBackgroundPattern('dots'), 'dots');
+  assert.equal(resolveCanvasBackgroundPattern('crosses'), 'crosses');
+  assert.equal(resolveCanvasBackgroundPattern('bad-pattern'), 'grid');
+  assert.equal(resolveCanvasBackgroundPattern(undefined), 'grid');
+});
+
+test('clampCanvasBackgroundPatternOpacity keeps canvas pattern opacity in range', () => {
+  assert.equal(clampCanvasBackgroundPatternOpacity(0.04), 0.04);
+  assert.equal(clampCanvasBackgroundPatternOpacity(-1), MIN_CANVAS_BACKGROUND_PATTERN_OPACITY);
+  assert.equal(clampCanvasBackgroundPatternOpacity(1), MAX_CANVAS_BACKGROUND_PATTERN_OPACITY);
+  assert.equal(clampCanvasBackgroundPatternOpacity(Number.NaN), DEFAULT_CANVAS_BACKGROUND_PATTERN_OPACITY);
+  assert.equal(clampCanvasBackgroundPatternOpacity(Number.POSITIVE_INFINITY), DEFAULT_CANVAS_BACKGROUND_PATTERN_OPACITY);
+  assert.equal(clampCanvasBackgroundPatternOpacity(null), DEFAULT_CANVAS_BACKGROUND_PATTERN_OPACITY);
+  assert.equal(clampCanvasBackgroundPatternOpacity('0.04'), DEFAULT_CANVAS_BACKGROUND_PATTERN_OPACITY);
 });
