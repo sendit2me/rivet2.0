@@ -436,7 +436,10 @@ Build helper scripts that can hide meaningful work should report timings with
 `Timing: ... took ...` to logs and appends the same values to
 `GITHUB_STEP_SUMMARY` in CI. Current timing coverage includes the
 `build-wrapper-target.mjs` workspace builds and the two `prepare-tauri` phases
-(desktop version sync and app-executor sidecar build).
+(desktop version sync and app-executor sidecar build). Because the app package
+typechecks its Node-side scripts, [`packages/app/tsconfig.json`](../packages/app/tsconfig.json)
+must explicitly include the shared timing helper whenever `prepare-tauri.mjs`
+imports it.
 
 ## `build.yml`
 

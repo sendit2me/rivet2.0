@@ -19,7 +19,7 @@
     "noUncheckedIndexedAccess": true,
     "composite": true
   },
-  "include": ["src", "scripts", "sidecars"],
+  "include": ["src", "scripts", "sidecars", "../../scripts/ci-timing.mjs"],
   "exclude": ["**/dist", "**/node_modules"],
   "ts-node": {
     "swc": true,
