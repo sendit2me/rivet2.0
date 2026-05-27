@@ -16,6 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-yarn
+      - uses: ./.github/actions/setup-pkg-cache
       # Make sure mac x64 gets the aarch64 toolchain too
       - uses: dtolnay/rust-toolchain@stable
         with:
