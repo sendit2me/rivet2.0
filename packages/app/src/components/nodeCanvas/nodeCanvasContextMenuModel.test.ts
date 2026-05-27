@@ -306,7 +306,7 @@ test('getNodeCanvasContextMenuContext ignores frozen preload boundaries when fro
     [graphId]: {
       ['source-node' as NodeId]: [
         {
-          output: { type: 'string', value: 'frozen source' },
+          ['output' as PortId]: { type: 'string', value: 'frozen source' },
         },
       ],
     },

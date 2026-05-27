@@ -23,11 +23,13 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: actions/setup-node@v5
-        with:
-          node-version: '20.4.x'
+      - uses: ./.github/actions/setup-yarn
 
       - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: packages/app/src-tauri -> target
 
       - name: Install dependencies
         run: yarn --immutable
@@ -35,8 +37,8 @@ jobs:
       - name: Sync desktop version metadata
         run: yarn sync:desktop-version
 
-      - name: Build Rivet
-        run: yarn build
+      - name: Build desktop web dependencies
+        run: yarn build:hosted-web-deps
         env:
           NODE_OPTIONS: --max-old-space-size=6000
 
@@ -61,13 +63,15 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: actions/setup-node@v5
-        with:
-          node-version: '20.4.x'
+      - uses: ./.github/actions/setup-yarn
 
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: x86_64-apple-darwin,aarch64-apple-darwin
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: packages/app/src-tauri -> target
 
       - name: Install dependencies
         run: yarn --immutable
@@ -75,8 +79,8 @@ jobs:
       - name: Sync desktop version metadata
         run: yarn sync:desktop-version
 
-      - name: Build Rivet
-        run: yarn build
+      - name: Build desktop web dependencies
+        run: yarn build:hosted-web-deps
         env:
           NODE_OPTIONS: --max-old-space-size=6000
 
@@ -119,12 +123,38 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  build-docs:
+    name: Stable documentation site
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: ./.github/actions/setup-yarn
+
+      - name: Install dependencies
+        run: yarn --immutable
+
+      - name: Build documentation site
+        run: node .yarn/releases/yarn-4.6.0.cjs workspace docs run build
+        env:
+          NODE_OPTIONS: --max-old-space-size=6000
+
+      - name: Upload documentation site
+        uses: actions/upload-artifact@v7
+        with:
+          name: rivet-stable-docs-site
+          path: packages/docs/build
+          if-no-files-found: error
+          retention-days: 7
+
   build-pages:
     name: Stable desktop download page
     if: github.ref == 'refs/heads/main'
     needs:
       - build-windows
       - build-macos
+      - build-docs
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -133,16 +163,14 @@ jobs:
         with:
           node-version: '20.4.x'
 
-      - name: Install dependencies
-        run: yarn --immutable
-
       - name: Sync desktop version metadata
-        run: yarn sync:desktop-version
+        run: node scripts/sync-desktop-version.mjs
 
-      - name: Build documentation site
-        run: node .yarn/releases/yarn-4.6.0.cjs workspace docs run build
-        env:
-          NODE_OPTIONS: --max-old-space-size=6000
+      - name: Download documentation site
+        uses: actions/download-artifact@v7
+        with:
+          name: rivet-stable-docs-site
+          path: packages/docs/build
 
       - name: Download Windows bundles
         uses: actions/download-artifact@v7

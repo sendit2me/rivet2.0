@@ -8,6 +8,8 @@ import topLevelAwait from 'vite-plugin-top-level-await';
 import { resolve } from 'node:path';
 import { visualizer } from 'rollup-plugin-visualizer';
 
+const analyzeBundle = process.env.RIVET_BUNDLE_ANALYZE === 'true';
+
 const reactDevTools = (): PluginOption => {
   return {
     name: 'react-devtools',
@@ -53,7 +55,7 @@ export default defineConfig({
           }
         },
       },
-      plugins: [visualizer()],
+      plugins: analyzeBundle ? [visualizer()] : [],
     },
   },
   plugins: [

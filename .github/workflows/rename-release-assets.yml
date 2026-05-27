@@ -6,20 +6,21 @@ on:
       - published
       - edited
 
+permissions:
+  contents: write
+
 jobs:
   rename:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
       - name: Set up Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v5
         with:
           node-version: '20.4.x'
-      - name: Run yarn
-        run: yarn --immutable
       - name: Run rename script
-        run: yarn tsx .github/scripts/rename-release-files.mts
+        run: node .github/scripts/rename-release-files.mjs
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_RELEASE_ID: ${{ github.event.release.id }}

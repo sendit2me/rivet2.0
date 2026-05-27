@@ -1,0 +1,26 @@
+name: Setup Node and Yarn
+description: Set up the repository Node toolchain and restore the local Yarn cache.
+
+inputs:
+  node-version:
+    description: Node.js version to install.
+    required: false
+    default: 20.4.x
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Node.js
+      uses: actions/setup-node@v5
+      with:
+        node-version: ${{ inputs.node-version }}
+
+    - name: Restore Yarn cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          .yarn/cache
+          .yarn/install-state.gz
+        key: ${{ runner.os }}-node-${{ inputs.node-version }}-yarn-${{ hashFiles('yarn.lock', '.yarnrc.yml') }}
+        restore-keys: |
+          ${{ runner.os }}-node-${{ inputs.node-version }}-yarn-
