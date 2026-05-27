@@ -285,6 +285,10 @@ Current dev/build detail:
 - `packages/app/scripts/prepare-tauri.mjs` syncs desktop version metadata from `packages/app/package.json` before rebuilding the app executor sidecar
 - `packages/app/src-tauri/tauri.conf.json` now runs `yarn prepare:tauri` before both `beforeDevCommand` and `beforeBuildCommand`, so desktop Node executor runs cannot drift onto an older bundled sidecar when app/core code has changed
 - `packages/app/src-tauri/vendor/` now carries the small vendored Tauri v1 plugin crates (`tauri-plugin-persisted-scope` and `tauri-plugin-window-state`) so Cargo no longer has to parse the upstream `plugins-workspace` template manifest during metadata/check/dev runs
+- Vite bundle visualization is opt-in for normal app builds. Set
+  `RIVET_BUNDLE_ANALYZE=true` before `yarn workspace @valerypopoff/rivet-app
+  run build` when a Rollup visualizer report is needed; CI leaves it off so
+  routine builds do not spend time generating analysis artifacts.
 
 #### pnpm sidecar binaries
 
@@ -403,6 +407,20 @@ contracts, Code-family runtime-permission changes, and wrapper/embedder seams.
 
 Workflows live under [`.github/workflows/`](../.github/workflows/).
 
+### Shared setup and cache behavior
+
+Node/Yarn CI jobs should use
+[`.github/actions/setup-yarn`](../.github/actions/setup-yarn/action.yml)
+after checkout. The composite action installs Node `20.4.x` by default and
+restores the local Yarn PnP cache (`.yarn/cache` plus
+`.yarn/install-state.gz`) with a key based on the OS, Node version, `yarn.lock`,
+and `.yarnrc.yml`.
+
+Desktop/Tauri jobs should also use `Swatinem/rust-cache@v2` after the Rust
+toolchain is installed, scoped to `packages/app/src-tauri -> target`. Keep that
+cache per runner OS/target; do not share a Tauri target directory across
+platforms.
+
 ## `build.yml`
 
 ### Trigger conditions
@@ -417,7 +435,7 @@ This general build workflow is also develop-only for now. It should not be widen
 Runs on `ubuntu-latest` and performs:
 
 1. checkout
-2. Node setup (`20.4.x`)
+2. shared Node/Yarn setup and Yarn cache restore
 3. `yarn --immutable`
 4. `yarn build`
 5. `yarn test`
@@ -450,12 +468,19 @@ Runs on `ubuntu-latest` and performs:
 Per matrix entry, the workflow:
 
 1. checks out the repo
-2. sets up Node `20.4.x`
+2. runs the shared Node/Yarn setup and restores the Yarn cache
 3. sets up Rust toolchains
-4. installs Linux system dependencies where needed
-5. runs `yarn --immutable`
-6. runs `yarn build`
-7. invokes `tauri-apps/tauri-action`
+4. restores the Tauri/Rust cache
+5. installs Linux system dependencies where needed
+6. runs `yarn --immutable`
+7. runs `yarn build:hosted-web-deps`
+8. invokes `tauri-apps/tauri-action`
+
+`yarn build:hosted-web-deps` builds only the core and Trivet package outputs
+that the app package typecheck consumes. The Tauri `beforeBuildCommand` still
+runs `yarn prepare:tauri && yarn build` from `packages/app`, so the final app
+frontend and app-executor sidecar are built once by the Tauri packaging path
+instead of being built once by the root `yarn build` and again by Tauri.
 
 ### Tauri release details
 
@@ -482,7 +507,7 @@ Rivet publishes desktop download metadata through the Docusaurus GitHub Pages si
 - [`.github/workflows/official-windows-release.yml`](../.github/workflows/official-windows-release.yml) runs on `main`
 - [`.github/workflows/developer-windows-release.yml`](../.github/workflows/developer-windows-release.yml) runs on `develop`
 
-The workflow filenames are historical, but the workflows are desktop release workflows. Each one builds Windows installers and a macOS disk image, then publishes both sets of aliases and original artifacts to the `/download` page.
+The workflow filenames are historical, but the workflows are desktop release workflows. Each one builds Windows installers and a macOS disk image, builds the documentation site in parallel with the platform bundles, then publishes both sets of aliases and original artifacts to the `/download` page.
 
 The platform and docs build jobs use `actions/checkout@v6` for the initial repository checkout. A failure in that step happens before any Rivet, Tauri, Rust, or Node build command runs. Treat `fatal: could not read Username for 'https://github.com': terminal prompts disabled` from this step as a GitHub repository checkout/authentication failure, not a macOS packaging failure. If the failing log fetches `origin/develop`, it is the developer release workflow; stable `main` runs fetch `origin/main`.
 
@@ -502,7 +527,7 @@ The job then runs [`.github/scripts/verify-macos-dmg.sh`](../.github/scripts/ver
 Both workflows use [`.github/scripts/prepare-desktop-release-pages.mjs`](../.github/scripts/prepare-desktop-release-pages.mjs) after the docs build. The script reads `WINDOWS_BUNDLE_DIR` and `MACOS_BUNDLE_DIR`, copies original artifacts under platform-specific `downloads/<channel>/original/<platform>/` paths, creates stable download aliases, and generates a channel metadata file with a shared `version` field.
 It fails the job if a requested platform does not produce a stable download alias, so a successful Pages deployment cannot silently drop the macOS DMG or the Windows installer links.
 
-Before building installers, both platform jobs run `yarn sync:desktop-version`. The `build-pages` job also runs the sync before generating metadata, because it checks out a fresh workspace and the metadata script verifies that `packages/app/package.json` and Tauri's `package.version` match.
+Before building installers, both platform jobs run `yarn sync:desktop-version`; Tauri's `beforeBuildCommand` also runs `prepare:tauri`, which performs the same version sync before rebuilding the sidecar. The `build-pages` assembly job runs `node scripts/sync-desktop-version.mjs` without installing dependencies before generating metadata, because it checks out a fresh workspace and the metadata script verifies that `packages/app/package.json` and Tauri's `package.version` match.
 That sync copies `packages/app/package.json` `version` into
 `packages/app/src-tauri/tauri.conf.json`, `packages/app/src-tauri/Cargo.toml`,
 and the app entry in `Cargo.lock`. Tauri uses `tauri.conf.json`
@@ -531,12 +556,13 @@ The release workflows share the `rivet-docs-pages` concurrency group with `cance
 
 #### Current behavior
 
-The workflow has four jobs:
+The workflow has five jobs:
 
-1. `build-windows` runs on `windows-latest`, checks out the repo, sets up Node `20.4.x`, installs Rust stable, runs `yarn --immutable`, syncs desktop version metadata, runs the root `yarn build`, then runs `yarn tauri build --verbose --ci --bundles "msi,nsis"` from `packages/app`.
-2. `build-macos` runs on `macos-latest`, checks out the repo, sets up Node `20.4.x`, installs the stable Rust toolchain with `x86_64-apple-darwin` and `aarch64-apple-darwin` targets, runs `yarn --immutable`, syncs desktop version metadata, runs the root `yarn build`, then runs `yarn tauri build --verbose --ci --target universal-apple-darwin --bundles "dmg"` from `packages/app`.
-3. `build-pages` runs on `ubuntu-latest`, syncs desktop version metadata, builds the Docusaurus docs site from `packages/docs`, downloads the Windows and macOS bundle artifacts, preserves the current developer release feed from Pages if it exists, writes stable release metadata and installer files into `packages/docs/build`, and uploads that complete docs-site artifact.
-4. `publish-pages` runs on `ubuntu-latest`, downloads the generated docs-site artifact, configures GitHub Pages, uploads it as a GitHub Pages artifact, and deploys it with `actions/deploy-pages`.
+1. `build-windows` runs on `windows-latest`, checks out the repo, restores Node/Yarn and Rust caches, installs Rust stable, runs `yarn --immutable`, syncs desktop version metadata, runs `yarn build:hosted-web-deps`, then runs `yarn tauri build --verbose --ci --bundles "msi,nsis"` from `packages/app`.
+2. `build-macos` runs on `macos-latest`, checks out the repo, restores Node/Yarn and Rust caches, installs the stable Rust toolchain with `x86_64-apple-darwin` and `aarch64-apple-darwin` targets, runs `yarn --immutable`, syncs desktop version metadata, runs `yarn build:hosted-web-deps`, then runs `yarn tauri build --verbose --ci --target universal-apple-darwin --bundles "dmg"` from `packages/app`.
+3. `build-docs` runs on `ubuntu-latest`, installs dependencies with the shared Yarn cache, builds the Docusaurus docs site from `packages/docs`, and uploads the docs build as an intermediate artifact. This job intentionally starts without waiting for the platform bundles.
+4. `build-pages` runs on `ubuntu-latest` after the platform bundles and docs artifact are ready, checks out the repo, syncs desktop version metadata without a Yarn install, downloads the docs site plus Windows and macOS bundle artifacts, preserves the current developer release feed from Pages if it exists, writes stable release metadata and installer files into `packages/docs/build`, and uploads that complete docs-site artifact.
+5. `publish-pages` runs on `ubuntu-latest`, downloads the generated docs-site artifact, configures GitHub Pages, uploads it as a GitHub Pages artifact, and deploys it with `actions/deploy-pages`.
 
 The stable deploy job uses the `github-pages` environment. If that environment has branch restrictions, it must allow `main`.
 
@@ -551,12 +577,13 @@ This workflow is intentionally develop-only. It does not run for `main`.
 
 ### Current behavior
 
-The workflow has four jobs:
+The workflow has five jobs:
 
-1. `build-windows` runs on `windows-latest`, checks out the repo, sets up Node `20.4.x`, installs Rust stable, runs `yarn --immutable`, syncs desktop version metadata, runs the root `yarn build`, then runs `yarn tauri build --verbose --ci --bundles "msi,nsis"` from `packages/app`.
-2. `build-macos` runs on `macos-latest`, checks out the repo, sets up Node `20.4.x`, installs the stable Rust toolchain with `x86_64-apple-darwin` and `aarch64-apple-darwin` targets, runs `yarn --immutable`, syncs desktop version metadata, runs the root `yarn build`, then runs `yarn tauri build --verbose --ci --target universal-apple-darwin --bundles "dmg"` from `packages/app`.
-3. `build-pages` runs on `ubuntu-latest`, syncs desktop version metadata, builds the Docusaurus docs site from `packages/docs`, downloads the Windows and macOS bundle artifacts, preserves the current stable release feed from Pages if it exists, writes developer release metadata and installer files into `packages/docs/build`, and uploads that complete docs-site artifact.
-4. `publish-pages` runs on `ubuntu-latest`, downloads the generated docs-site artifact, configures GitHub Pages, uploads it as a GitHub Pages artifact, and deploys it with `actions/deploy-pages`.
+1. `build-windows` runs on `windows-latest`, checks out the repo, restores Node/Yarn and Rust caches, installs Rust stable, runs `yarn --immutable`, syncs desktop version metadata, runs `yarn build:hosted-web-deps`, then runs `yarn tauri build --verbose --ci --bundles "msi,nsis"` from `packages/app`.
+2. `build-macos` runs on `macos-latest`, checks out the repo, restores Node/Yarn and Rust caches, installs the stable Rust toolchain with `x86_64-apple-darwin` and `aarch64-apple-darwin` targets, runs `yarn --immutable`, syncs desktop version metadata, runs `yarn build:hosted-web-deps`, then runs `yarn tauri build --verbose --ci --target universal-apple-darwin --bundles "dmg"` from `packages/app`.
+3. `build-docs` runs on `ubuntu-latest`, installs dependencies with the shared Yarn cache, builds the Docusaurus docs site from `packages/docs`, and uploads the docs build as an intermediate artifact. This job intentionally starts without waiting for the platform bundles.
+4. `build-pages` runs on `ubuntu-latest` after the platform bundles and docs artifact are ready, checks out the repo, syncs desktop version metadata without a Yarn install, downloads the docs site plus Windows and macOS bundle artifacts, preserves the current stable release feed from Pages if it exists, writes developer release metadata and installer files into `packages/docs/build`, and uploads that complete docs-site artifact.
+5. `publish-pages` runs on `ubuntu-latest`, downloads the generated docs-site artifact, configures GitHub Pages, uploads it as a GitHub Pages artifact, and deploys it with `actions/deploy-pages`.
 
 Docusaurus owns the site root and reads `developer-release.json` on the `/download` page. The generated Pages site represents the current public docs plus the latest successful developer Windows and macOS release from `develop`, while preserving the stable release feed that was already published from `main`.
 
@@ -621,9 +648,9 @@ The workflow:
 
 1. checks out the repo
 2. verifies the checkout starts clean
-3. sets up Node `20.4.x` for the build, matching the repo development toolchain
+3. runs the shared Node/Yarn setup for the build, matching the repo development toolchain and restoring the Yarn cache
 4. installs dependencies with the checked-in Yarn release and `--immutable`
-5. builds `@valerypopoff/rivet2-core`, `@valerypopoff/rivet2-node`, `@valerypopoff/trivet`, and `@valerypopoff/rivet2-cli`
+5. runs `yarn build:npm-public`, which builds `@valerypopoff/rivet2-core`, `@valerypopoff/rivet2-node`, `@valerypopoff/trivet`, and `@valerypopoff/rivet2-cli`
 6. verifies that dependency install and package build touched only generated artifacts
 7. switches to Node `22.14.x` and npm `11.5.1` for npm trusted-publishing compatibility
 8. verifies that the repository `NPM_TOKEN` secret is present and accepted by `npm whoami`
@@ -707,12 +734,22 @@ normal npm dependency on `@valerypopoff/rivet2-core`,
 
 ### Current behavior
 
-Runs `.github/scripts/rename-release-files.mts`, which:
+Runs `.github/scripts/rename-release-files.mjs`, which:
 
-- enumerates release assets
+- enumerates release assets with pagination
 - downloads versioned app artifacts
 - re-uploads renamed stable filenames under the `Rivet-2` name
 - deletes older assets with the same target filename if needed
+
+The workflow does not run `yarn install`; the script uses Node's built-in
+`fetch` and the GitHub REST API directly so release-asset aliasing does not pay
+the full monorepo dependency install cost. If more than one versioned artifact
+normalizes to the same stable filename, the script updates its in-memory asset
+map after delete/upload operations so later uploads replace the current alias
+without trying to delete an already-deleted stale asset. Upload failures are
+collected and fail the workflow after all matching assets have been attempted,
+so a green release-asset job means the stable download aliases were actually
+created.
 
 Current rename targets include patterns for:
 

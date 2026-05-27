@@ -22,7 +22,7 @@ jobs:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Verify clean checkout
         run: |
@@ -33,19 +33,13 @@ jobs:
           fi
 
       - name: Set up build Node
-        uses: actions/setup-node@v5
-        with:
-          node-version: '20.4.x'
+        uses: ./.github/actions/setup-yarn
 
       - name: Install dependencies
         run: node .yarn/releases/yarn-4.6.0.cjs install --immutable
 
       - name: Build publishable packages
-        run: |
-          node .yarn/releases/yarn-4.6.0.cjs workspace @valerypopoff/rivet2-core run build
-          node .yarn/releases/yarn-4.6.0.cjs workspace @valerypopoff/rivet2-node run build
-          node .yarn/releases/yarn-4.6.0.cjs workspace @valerypopoff/trivet run build
-          node .yarn/releases/yarn-4.6.0.cjs workspace @valerypopoff/rivet2-cli run build
+        run: node .yarn/releases/yarn-4.6.0.cjs build:npm-public
 
       - name: Verify package build changed only generated artifacts
         run: |
