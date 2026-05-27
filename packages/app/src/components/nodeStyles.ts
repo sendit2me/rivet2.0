@@ -11,7 +11,7 @@ export const nodeStyles = css`
     --node-output-multi-hover-max-height: calc(20 * 1.4em + 60px);
     --node-frozen-output-accent: #68b7ff;
     --node-frozen-output-bg: color-mix(in srgb, var(--node-frozen-output-accent) 11%, var(--grey-darkest) 89%);
-    --node-frozen-header-foreground: #102235;
+    --node-frozen-output-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='113' height='71' viewBox='0 0 113 71'%3E%3Cg fill='none' stroke='white' stroke-opacity='.09' stroke-linecap='round'%3E%3Cpath stroke-width='1.35' d='M9 11v13M3 14l12 7M15 14 3 21'/%3E%3Cpath stroke-width='.8' d='M33 6v7M29 8l8 5M37 8l-8 5'/%3E%3Cpath stroke-width='1.7' d='M55 21v18M48 25l15 10M63 25 48 35'/%3E%3Cpath stroke-width='1.05' d='M86 9v10M81 12l10 6M91 12l-10 6'/%3E%3Cpath stroke-width='1.45' d='M102 42v15M95 46l14 8M109 46 95 54'/%3E%3Cpath stroke-width='.75' d='M23 50v8M19 52l8 5M27 52l-8 5'/%3E%3Cpath stroke-width='.95' d='M72 55v9M68 57l8 5M76 57l-8 5'/%3E%3C/g%3E%3C/svg%3E");
     background-color: var(--grey-darker-darker);
     background-clip: padding-box;
     border-radius: var(--node-card-radius);
@@ -126,11 +126,6 @@ export const nodeStyles = css`
     border-color: var(--node-frame-border-color, var(--node-border));
   }
 
-  .node.frozen.hasCustomBorderColor:not(.isComment):not(.selected):not(.hovered):not(.overlayNode)
-    .node-border-overlay {
-    border-color: var(--node-frozen-output-accent);
-  }
-
   .node-title {
     background-color: var(--node-bg);
     font-family: var(--font-family);
@@ -148,14 +143,6 @@ export const nodeStyles = css`
     word-break: break-word;
     hyphens: auto;
     cursor: pointer;
-  }
-
-  .node.frozen:not(.isComment) .node-title {
-    background-color: var(--node-frozen-output-accent);
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='86' height='52' viewBox='0 0 86 52'%3E%3Cg fill='none' stroke='white' stroke-opacity='.25' stroke-linecap='round'%3E%3Cpath stroke-width='1.5' d='M12 7v14M6 10l12 8M18 10 6 18'/%3E%3Cpath stroke-width='1' d='M40 4v9M36 6l8 5M44 6l-8 5'/%3E%3Cpath stroke-width='1.9' d='M68 18v20M60 23l16 10M76 23 60 33'/%3E%3Cpath stroke-width='1.2' d='M28 34v11M23 37l10 6M33 37l-10 6'/%3E%3Cpath stroke-width='.9' d='M81 2v8M77 4l8 5M85 4l-8 5'/%3E%3C/g%3E%3C/svg%3E");
-    background-position: 0 0;
-    background-size: 86px 52px;
-    color: var(--node-frozen-header-foreground);
   }
 
   .node-title.grabbable {
@@ -480,25 +467,9 @@ export const nodeStyles = css`
     width: calc(72px * var(--ui-font-scale));
   }
 
-  .node.frozen:not(.isComment) .subgraph-link-button,
-  .node.frozen:not(.isComment) .title-controls .changed-button,
-  .node.frozen:not(.isComment) .title-controls .edit-button,
-  .node.frozen:not(.isComment) .title-controls .frozen-node-indicator {
-    color: var(--node-frozen-header-foreground);
-  }
-
-  .node.frozen:not(.isComment) .title-controls .changed-button:hover,
-  .node.frozen:not(.isComment) .title-controls .edit-button:hover {
-    color: var(--primary-text);
-  }
-
   .title-controls .node-running-indicator {
     color: var(--node-bg-foreground);
     margin-top: calc(3px * var(--ui-font-scale));
-  }
-
-  .node.frozen:not(.isComment) .title-controls .node-running-indicator {
-    color: var(--node-frozen-header-foreground);
   }
 
   .title-controls .frozen-node-indicator {
@@ -832,6 +803,9 @@ export const nodeStyles = css`
   .node.frozen.success:not(.running) .node-output:not(.multi) .node-output-inner,
   .node.frozen.success:not(.running) .multi-node-output {
     background-color: var(--node-frozen-output-bg);
+    background-image: var(--node-frozen-output-pattern);
+    background-position: -11px -7px;
+    background-size: 113px 71px;
     border-top-color: var(--node-frozen-output-accent);
   }
 

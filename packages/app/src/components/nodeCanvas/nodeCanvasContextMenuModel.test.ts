@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   createBuiltInRegistry,
+  type ChartNode,
   type FrozenNodeOutputsByGraph,
   type GraphId,
   type NodeId,
@@ -21,21 +22,31 @@ const registry = createBuiltInRegistry();
 const graphId = 'graph-1' as GraphId;
 const nodeId = 'node-1' as NodeId;
 const project = makeProject();
+const baseNode = project.graphs[graphId]!.nodes[0]!;
 const contextModelOptions = {
   canStartEditorGraphRun: true,
   canUseFrozenNodes: true,
   frozenNodeOutputs: {},
   graphSelection: {},
   lastRunPerNode: {},
+  nodesById: {
+    [nodeId]: baseNode,
+  },
   project,
   projectNodeRegistry: registry,
   selectedGraphId: graphId,
+  selectedNodeIds: [],
 };
 
+function makeNode(type: ChartNode['type'], id: NodeId, title = type): ChartNode {
+  const node = registry.createDynamic(type);
+  node.id = id;
+  node.title = title;
+  return node;
+}
+
 function makeProject(): Project {
-  const node = registry.createDynamic('text');
-  node.id = nodeId;
-  node.title = 'Text';
+  const node = makeNode('text', nodeId, 'Text');
 
   return {
     metadata: {
@@ -148,6 +159,8 @@ test('getNodeCanvasContextMenuContext hydrates node context data from the DOM ta
         canRunFromHere: true,
         canFreeze: false,
         canUnfreeze: false,
+        freezeNodeTargets: [],
+        unfreezeNodeIds: [],
         isFrozen: false,
       },
     },
@@ -177,7 +190,119 @@ test('getNodeCanvasContextMenuContext enables Freeze for nodes with retained suc
   assert.equal(context.type, 'node');
   assert.equal(context.data.canFreeze, true);
   assert.equal(context.data.canUnfreeze, false);
+  assert.deepEqual(context.data.freezeNodeTargets, [{ nodeId, nodeType: 'text' }]);
+  assert.deepEqual(context.data.unfreezeNodeIds, []);
   assert.equal(context.data.isFrozen, false);
+});
+
+test('getNodeCanvasContextMenuContext bulk-freezes only selected nodes with retained successful outputs', () => {
+  const secondNodeId = 'node-2' as NodeId;
+  const noOutputNodeId = 'node-without-output' as NodeId;
+  const graphOutputNodeId = 'graph-output-node' as NodeId;
+  const secondNode = makeNode('text', secondNodeId, 'Second');
+  const noOutputNode = makeNode('text', noOutputNodeId, 'No output');
+  const graphOutputNode = makeNode('graphOutput', graphOutputNodeId, 'Graph Output');
+
+  const context = getNodeCanvasContextMenuContext({
+    ...contextModelOptions,
+    contextMenuData: makeContextMenuData('node-text'),
+    selectedNodeIds: [nodeId, secondNodeId, noOutputNodeId, graphOutputNodeId],
+    nodesById: {
+      [nodeId]: baseNode,
+      [secondNodeId]: secondNode,
+      [noOutputNodeId]: noOutputNode,
+      [graphOutputNodeId]: graphOutputNode,
+    },
+    lastRunPerNode: {
+      [nodeId]: [
+        {
+          graphId,
+          processId: 'process-1' as any,
+          data: {
+            status: { type: 'ok' },
+            outputData: {
+              output: { type: 'string', storage: 'inline', value: 'first output' },
+            },
+          },
+        },
+      ],
+      [secondNodeId]: [
+        {
+          graphId,
+          processId: 'process-2' as any,
+          data: {
+            status: { type: 'ok' },
+            outputData: {
+              output: { type: 'string', storage: 'inline', value: 'second output' },
+            },
+          },
+        },
+      ],
+      [graphOutputNodeId]: [
+        {
+          graphId,
+          processId: 'process-3' as any,
+          data: {
+            status: { type: 'ok' },
+            outputData: {
+              valueOutput: { type: 'string', storage: 'inline', value: 'blocked output' },
+            },
+          },
+        },
+      ],
+    } as any,
+  });
+
+  assert.equal(context.type, 'node');
+  assert.equal(context.data.canFreeze, true);
+  assert.deepEqual(context.data.freezeNodeTargets, [
+    { nodeId, nodeType: 'text' },
+    { nodeId: secondNodeId, nodeType: 'text' },
+  ]);
+});
+
+test('getNodeCanvasContextMenuContext ignores the selection when right-clicking an unselected node', () => {
+  const selectedNodeId = 'selected-node' as NodeId;
+  const selectedNode = makeNode('text', selectedNodeId, 'Selected');
+
+  const context = getNodeCanvasContextMenuContext({
+    ...contextModelOptions,
+    contextMenuData: makeContextMenuData('node-text'),
+    selectedNodeIds: [selectedNodeId],
+    nodesById: {
+      [nodeId]: baseNode,
+      [selectedNodeId]: selectedNode,
+    },
+    lastRunPerNode: {
+      [nodeId]: [
+        {
+          graphId,
+          processId: 'process-1' as any,
+          data: {
+            status: { type: 'ok' },
+            outputData: {
+              output: { type: 'string', storage: 'inline', value: 'target output' },
+            },
+          },
+        },
+      ],
+      [selectedNodeId]: [
+        {
+          graphId,
+          processId: 'process-2' as any,
+          data: {
+            status: { type: 'ok' },
+            outputData: {
+              output: { type: 'string', storage: 'inline', value: 'selected output' },
+            },
+          },
+        },
+      ],
+    } as any,
+  });
+
+  assert.equal(context.type, 'node');
+  assert.deepEqual(context.data.freezeNodeTargets, [{ nodeId, nodeType: 'text' }]);
 });
 
 test('canNodeTypeBeFrozen blocks non-replayable node categories', () => {
@@ -220,6 +345,8 @@ test('getNodeCanvasContextMenuContext disables Freeze for Graph Output nodes wit
   assert.equal(context.type, 'node');
   assert.equal(context.data.canFreeze, false);
   assert.equal(context.data.canUnfreeze, false);
+  assert.deepEqual(context.data.freezeNodeTargets, []);
+  assert.deepEqual(context.data.unfreezeNodeIds, []);
 });
 
 test('getNodeCanvasContextMenuContext enables Unfreeze for frozen nodes', () => {
@@ -240,7 +367,41 @@ test('getNodeCanvasContextMenuContext enables Unfreeze for frozen nodes', () => 
   assert.equal(context.type, 'node');
   assert.equal(context.data.canFreeze, false);
   assert.equal(context.data.canUnfreeze, true);
+  assert.deepEqual(context.data.freezeNodeTargets, []);
+  assert.deepEqual(context.data.unfreezeNodeIds, [nodeId]);
   assert.equal(context.data.isFrozen, true);
+});
+
+test('getNodeCanvasContextMenuContext bulk-unfreezes frozen selected nodes only', () => {
+  const secondNodeId = 'node-2' as NodeId;
+  const unfrozenNodeId = 'unfrozen-node' as NodeId;
+  const staleGraphOutputNodeId = 'stale-graph-output-node' as NodeId;
+  const secondNode = makeNode('text', secondNodeId, 'Second');
+  const unfrozenNode = makeNode('text', unfrozenNodeId, 'Unfrozen');
+  const staleGraphOutputNode = makeNode('graphOutput', staleGraphOutputNodeId, 'Stale Graph Output');
+
+  const context = getNodeCanvasContextMenuContext({
+    ...contextModelOptions,
+    contextMenuData: makeContextMenuData('node-text'),
+    selectedNodeIds: [nodeId, secondNodeId, unfrozenNodeId, staleGraphOutputNodeId],
+    nodesById: {
+      [nodeId]: baseNode,
+      [secondNodeId]: secondNode,
+      [unfrozenNodeId]: unfrozenNode,
+      [staleGraphOutputNodeId]: staleGraphOutputNode,
+    },
+    frozenNodeOutputs: {
+      [graphId]: {
+        [nodeId]: [{ output: { type: 'string', value: 'first frozen output' } }],
+        [secondNodeId]: [{ output: { type: 'string', value: 'second frozen output' } }],
+        [staleGraphOutputNodeId]: [{ valueOutput: { type: 'string', value: 'stale frozen output' } }],
+      },
+    } as any,
+  });
+
+  assert.equal(context.type, 'node');
+  assert.equal(context.data.canUnfreeze, true);
+  assert.deepEqual(context.data.unfreezeNodeIds, [nodeId, secondNodeId, staleGraphOutputNodeId]);
 });
 
 test('getNodeCanvasContextMenuContext keeps Unfreeze available for stale frozen blocked nodes', () => {
@@ -261,6 +422,8 @@ test('getNodeCanvasContextMenuContext keeps Unfreeze available for stale frozen 
   assert.equal(context.type, 'node');
   assert.equal(context.data.canFreeze, false);
   assert.equal(context.data.canUnfreeze, true);
+  assert.deepEqual(context.data.freezeNodeTargets, []);
+  assert.deepEqual(context.data.unfreezeNodeIds, [nodeId]);
   assert.equal(context.data.isFrozen, true);
 });
 
@@ -297,6 +460,8 @@ test('getNodeCanvasContextMenuContext disables Freeze and Unfreeze outside norma
   assert.equal(context.type, 'node');
   assert.equal(context.data.canFreeze, false);
   assert.equal(context.data.canUnfreeze, false);
+  assert.deepEqual(context.data.freezeNodeTargets, []);
+  assert.deepEqual(context.data.unfreezeNodeIds, []);
   assert.equal(context.data.isFrozen, true);
 });
 

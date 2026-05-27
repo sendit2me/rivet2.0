@@ -26,7 +26,9 @@ test('frozen node output visuals stay compact and canvas-scoped', () => {
 
   assert.equal([...snowflakeIconSource.matchAll(/<path\b/g)].length, 3);
   assert.match(contextMenuConfigurationSource, /label: 'Freeze node output'/);
+  assert.match(contextMenuConfigurationSource, /label: 'Freeze node outputs'/);
   assert.match(contextMenuConfigurationSource, /label: 'Unfreeze node output'/);
+  assert.match(contextMenuConfigurationSource, /label: 'Unfreeze node outputs'/);
   assert.match(
     normalVisualNodeContentSource,
     /<Tooltip content="Frozen output" tag="span" className="frozen-node-tooltip">/,
@@ -40,32 +42,16 @@ test('frozen node output visuals stay compact and canvas-scoped', () => {
     /\.node\.frozen:not\(\.isComment\) \.title-controls \{[\s\S]*gap: calc\(3px \* var\(--ui-font-scale\)\);[\s\S]*width: calc\(72px \* var\(--ui-font-scale\)\);/,
   );
   assert.match(nodeStylesSource, /--node-frozen-output-accent: #68b7ff;/);
-  assert.match(nodeStylesSource, /\.node\.frozen:not\(\.isComment\) \.node-title \{/);
-  assert.match(nodeStylesSource, /background-color: var\(--node-frozen-output-accent\);/);
-  assert.match(nodeStylesSource, /background-image: url\("data:image\/svg\+xml,/);
-  assert.match(nodeStylesSource, /width='86' height='52'/);
-  assert.match(nodeStylesSource, /stroke-width='1\.9'/);
-  assert.match(nodeStylesSource, /stroke-width='\.9'/);
-  assert.match(nodeStylesSource, /background-size: 86px 52px;/);
-  const genericRunningIndicatorRuleIndex = nodeStylesSource.indexOf('.title-controls .node-running-indicator {');
-  const frozenRunningIndicatorRuleIndex = nodeStylesSource.indexOf(
-    '.node.frozen:not(.isComment) .title-controls .node-running-indicator {',
-  );
-  assert.ok(genericRunningIndicatorRuleIndex >= 0);
-  assert.ok(frozenRunningIndicatorRuleIndex > genericRunningIndicatorRuleIndex);
-  const frozenHeaderForegroundRuleIndex = nodeStylesSource.indexOf(
-    '.node.frozen:not(.isComment) .subgraph-link-button,',
-  );
-  const frozenHeaderControlHoverRuleIndex = nodeStylesSource.indexOf(
-    '.node.frozen:not(.isComment) .title-controls .changed-button:hover,',
-  );
-  assert.ok(frozenHeaderForegroundRuleIndex >= 0);
-  assert.ok(frozenHeaderControlHoverRuleIndex > frozenHeaderForegroundRuleIndex);
-  assert.match(
-    nodeStylesSource,
-    /\.node\.frozen:not\(\.isComment\) \.title-controls \.edit-button:hover \{[\s\S]*?color: var\(--primary-text\);/,
-  );
-  assert.match(
+  assert.match(nodeStylesSource, /--node-frozen-output-pattern: url\("data:image\/svg\+xml,/);
+  assert.match(nodeStylesSource, /width='113' height='71'/);
+  assert.match(nodeStylesSource, /stroke-opacity='\.09'/);
+  assert.match(nodeStylesSource, /stroke-width='1\.7'/);
+  assert.match(nodeStylesSource, /stroke-width='\.75'/);
+  assert.match(nodeStylesSource, /background-position: -11px -7px;/);
+  assert.match(nodeStylesSource, /background-size: 113px 71px;/);
+  assert.doesNotMatch(nodeStylesSource, /\.node\.frozen:not\(\.isComment\) \.node-title \{/);
+  assert.doesNotMatch(nodeStylesSource, /node-frozen-header-foreground/);
+  assert.doesNotMatch(
     nodeStylesSource,
     /\.node\.frozen\.hasCustomBorderColor:not\(\.isComment\):not\(\.selected\):not\(\.hovered\):not\(\.overlayNode\)/,
   );
@@ -73,6 +59,7 @@ test('frozen node output visuals stay compact and canvas-scoped', () => {
     nodeStylesSource,
     /\.node\.frozen\.success:not\(\.running\) \.node-output:not\(\.multi\) \.node-output-inner,/,
   );
+  assert.match(nodeStylesSource, /background-image: var\(--node-frozen-output-pattern\);/);
   assert.match(nodeStylesSource, /\.node\.frozen\.success:not\(\.running\) \.node-output:before \{/);
   assert.doesNotMatch(nodeFullscreenOutputSource, /frozenNodeOutputsState/);
   assert.doesNotMatch(nodeFullscreenOutputSource, /\[data-testid='fullscreen-output-modal--scrollable'\] \{/);

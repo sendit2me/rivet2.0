@@ -61,8 +61,23 @@ type NodeContextMenuData = {
   canRunFromHere: boolean;
   canFreeze: boolean;
   canUnfreeze: boolean;
+  freezeNodeTargets: NodeFreezeTarget[];
+  unfreezeNodeIds: NodeId[];
   isFrozen: boolean;
 };
+
+type NodeFreezeTarget = {
+  nodeId: NodeId;
+  nodeType: ChartNode['type'];
+};
+
+const isNodeFreezeTarget = (value: unknown): value is NodeFreezeTarget =>
+  Boolean(
+    value &&
+      typeof value === 'object' &&
+      typeof (value as Partial<NodeFreezeTarget>).nodeId === 'string' &&
+      typeof (value as Partial<NodeFreezeTarget>).nodeType === 'string',
+  );
 
 const getNodeContextMenuData = (context: unknown): NodeContextMenuData | undefined => {
   if (!context || typeof context !== 'object') {
@@ -70,6 +85,13 @@ const getNodeContextMenuData = (context: unknown): NodeContextMenuData | undefin
   }
 
   const data = context as Partial<NodeContextMenuData>;
+  const freezeNodeTargets = Array.isArray(data.freezeNodeTargets)
+    ? data.freezeNodeTargets.filter(isNodeFreezeTarget)
+    : [];
+  const unfreezeNodeIds = Array.isArray(data.unfreezeNodeIds)
+    ? data.unfreezeNodeIds.filter((nodeId): nodeId is NodeId => typeof nodeId === 'string')
+    : [];
+
   if (
     typeof data.nodeType !== 'string' ||
     typeof data.nodeId !== 'string' ||
@@ -89,6 +111,8 @@ const getNodeContextMenuData = (context: unknown): NodeContextMenuData | undefin
     canRunFromHere: data.canRunFromHere,
     canFreeze: data.canFreeze,
     canUnfreeze: data.canUnfreeze,
+    freezeNodeTargets,
+    unfreezeNodeIds,
     isFrozen: data.isFrozen,
   };
 };
@@ -103,9 +127,23 @@ const canRunFromHere = (context: unknown) => {
   return data != null && data.canRunFromEditor && data.nodeType !== 'comment' && data.canRunFromHere;
 };
 
-const canFreezeNode = (context: unknown) => getNodeContextMenuData(context)?.canFreeze === true;
+const getFreezeNodeTargetCount = (context: unknown) => {
+  const data = getNodeContextMenuData(context);
+  return data?.canFreeze ? data.freezeNodeTargets.length : 0;
+};
 
-const canUnfreezeNode = (context: unknown) => getNodeContextMenuData(context)?.canUnfreeze === true;
+const getUnfreezeNodeTargetCount = (context: unknown) => {
+  const data = getNodeContextMenuData(context);
+  return data?.canUnfreeze ? data.unfreezeNodeIds.length : 0;
+};
+
+const canFreezeOneNode = (context: unknown) => getFreezeNodeTargetCount(context) === 1;
+
+const canFreezeMultipleNodes = (context: unknown) => getFreezeNodeTargetCount(context) > 1;
+
+const canUnfreezeOneNode = (context: unknown) => getUnfreezeNodeTargetCount(context) === 1;
+
+const canUnfreezeMultipleNodes = (context: unknown) => getUnfreezeNodeTargetCount(context) > 1;
 
 const isSubgraphNodeContext = (context: unknown) => getNodeContextMenuData(context)?.nodeType === 'subGraph';
 
@@ -139,14 +177,28 @@ export function useContextMenuConfiguration() {
                 id: 'node-freeze',
                 label: 'Freeze node output',
                 icon: SnowflakeIcon,
-                conditional: canFreezeNode,
+                conditional: canFreezeOneNode,
+                separatorBefore: true,
+              },
+              {
+                id: 'nodes-freeze',
+                label: 'Freeze node outputs',
+                icon: SnowflakeIcon,
+                conditional: canFreezeMultipleNodes,
                 separatorBefore: true,
               },
               {
                 id: 'node-unfreeze',
                 label: 'Unfreeze node output',
                 icon: SnowflakeIcon,
-                conditional: canUnfreezeNode,
+                conditional: canUnfreezeOneNode,
+                separatorBefore: true,
+              },
+              {
+                id: 'nodes-unfreeze',
+                label: 'Unfreeze node outputs',
+                icon: SnowflakeIcon,
+                conditional: canUnfreezeMultipleNodes,
                 separatorBefore: true,
               },
               {
