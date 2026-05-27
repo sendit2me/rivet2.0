@@ -1,8 +1,6 @@
 
 
 
-- Does the prompt node need better line endings? Just like the text node has
-
 - Code editor: show a hint that Ctrl++ and Ctrl+- are working here. Also add Ctrl/Cmd+scroll to scale the font size
 
 - Words: 20 Characters: 111 - make the separator larger
