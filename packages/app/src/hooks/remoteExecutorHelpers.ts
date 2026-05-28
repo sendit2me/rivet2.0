@@ -5,6 +5,7 @@ import {
   type NodeRegistration,
   type Outputs,
   type ProcessEvents,
+  type ProcessEventMessageMap,
   type Project,
   type FrozenNodeOutputsByGraph,
 } from '@valerypopoff/rivet2-core';
@@ -93,6 +94,22 @@ export function getFrozenNodeOptionsForExecutorTarget(
   target: ExecutorSessionTarget | null | undefined,
 ): { frozenNodeOutputs: FrozenNodeOutputsByGraph; graphId: GraphId } | undefined {
   return canUseFrozenNodeOutputsForExecutorTarget(target) ? { frozenNodeOutputs, graphId } : undefined;
+}
+
+const REMOTE_DEBUGGER_NON_RUN_EVENT_MESSAGES = new Set<keyof ProcessEventMessageMap>(['trace']);
+
+export function shouldFlushFrozenNodeOutputsForRemoteDebuggerEvent(options: {
+  alreadyFlushed: boolean;
+  message: keyof ProcessEventMessageMap;
+  shouldDispatchExecutionEvent: boolean;
+  target: ExecutorSessionTarget | null | undefined;
+}): boolean {
+  return (
+    options.target?.type === 'external-debugger' &&
+    options.shouldDispatchExecutionEvent &&
+    !options.alreadyFlushed &&
+    !REMOTE_DEBUGGER_NON_RUN_EVENT_MESSAGES.has(options.message)
+  );
 }
 
 function canUseFrozenNodeOutputsForExecutorTarget(target: ExecutorSessionTarget | null | undefined): boolean {

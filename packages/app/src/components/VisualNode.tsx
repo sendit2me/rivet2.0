@@ -15,6 +15,7 @@ import { NormalVisualNodeContent } from './visualNode/NormalVisualNodeContent';
 import { getCanvasCommentHeight } from '../hooks/canvasVisibilityBounds.js';
 import { useDelayedRunningState } from './visualNode/NodeRunningIndicator.js';
 import { graphMetadataState } from '../state/graph.js';
+import { useExecutorSessionState } from '../hooks/useExecutorSession.js';
 
 export type VisualNodeProps = {
   node: ChartNode;
@@ -73,6 +74,7 @@ export const VisualNode = memo(
       const graphSelectionOptions = useAtomValue(resolvedGraphSelectionState);
       const frozenNodeOutputs = useAtomValue(frozenNodeOutputsState);
       const graphId = useAtomValue(graphMetadataState)?.id;
+      const executorSession = useExecutorSessionState();
       const nodeColor = node.visualData.color;
       const isOutputPreviewHovered = Boolean(isHovered || shouldShowHoverControls);
 
@@ -120,7 +122,8 @@ export const VisualNode = memo(
       const selectedProcessRun = getSelectedProcessRun(lastRun, processPage, graphSelectionOptions);
       const executionClassFlags = getNodeExecutionClassFlags(selectedProcessRun);
       const showRunningChrome = useDelayedRunningState(executionClassFlags.running);
-      const isFrozen = Boolean(graphId && frozenNodeOutputs[graphId]?.[node.id]?.length);
+      const showFrozenState = executorSession.target?.type !== 'external-debugger';
+      const isFrozen = showFrozenState && Boolean(graphId && frozenNodeOutputs[graphId]?.[node.id]?.length);
 
       if (renderSkeleton) {
         return <div className="node-skeleton" style={style} {...nodeAttributes} />;

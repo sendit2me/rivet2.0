@@ -12,6 +12,7 @@ test('frozen node output visuals stay compact and canvas-scoped', () => {
     join(componentsDir, 'visualNode', 'NormalVisualNodeContent.tsx'),
     'utf8',
   );
+  const visualNodeSource = readFileSync(join(componentsDir, 'VisualNode.tsx'), 'utf8');
   const zoomedOutVisualNodeContentSource = readFileSync(
     join(componentsDir, 'visualNode', 'ZoomedOutVisualNodeContent.tsx'),
     'utf8',
@@ -35,6 +36,8 @@ test('frozen node output visuals stay compact and canvas-scoped', () => {
   assert.match(contextMenuConfigurationSource, /label: 'Unfreeze node outputs'/);
   assert.doesNotMatch(normalVisualNodeContentSource, /frozen-node-indicator/);
   assert.doesNotMatch(zoomedOutVisualNodeContentSource, /frozen-node-indicator/);
+  assert.match(visualNodeSource, /useExecutorSessionState/);
+  assert.match(visualNodeSource, /executorSession\.target\?\.type !== 'external-debugger'/);
   assert.match(normalVisualNodeContentSource, /isFrozen=\{isFrozen\}/);
   assert.match(
     nodeInlineOutputSource,

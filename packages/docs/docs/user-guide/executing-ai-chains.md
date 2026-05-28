@@ -41,7 +41,7 @@ Frozen outputs replace computation, not every possible side effect. Rivet restor
 
 Some nodes cannot be frozen because their behavior is not useful or safe to replay as stored output data: **Comment**, **Abort Graph**, **Graph Output**, **Create Dataset**, **Append to Dataset**, **Replace Dataset**, **Raise Event**, and **Play Audio**.
 
-Freeze node output is available only for normal editor runs in Browser mode or the built-in Node executor. It is not available while using an external Remote Debugger session or while viewing a loaded recording.
+Freeze node output is available only for normal editor runs in Browser mode or the built-in Node executor. It is not available while using an external Remote Debugger session or while viewing a loaded recording. When you connect an external Remote Debugger, Rivet hides frozen-output markers because remote runs do not use local frozen outputs. If you disconnect before any remote run happens, the markers come back. After a remote run starts, Rivet clears the frozen outputs for that open project.
 
 When the built-in Node executor is selected, frozen outputs must be safe to send to the executor process. Rivet preserves explicit JavaScript `undefined` values during this transfer, including optional fields inside LLM message objects. If the captured value contains unsupported JavaScript-only values such as `BigInt`, circular references, `NaN`, `Infinity`, typed arrays, or class instances, Rivet will ask you to use Browser mode or freeze a JSON-serializable output instead.
 
