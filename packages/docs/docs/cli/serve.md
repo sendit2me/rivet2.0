@@ -238,10 +238,6 @@ data: {
     "nodeId": "vzC9lcEyXZ2Q1-cCaG0v4",
     "nodeTitle": "Chat",
     "outputs": {
-        "__hidden_token_count": {
-            "type": "number",
-            "value": 68
-        },
         "all-messages": {
             "type": "chat-message[]",
             "value": [

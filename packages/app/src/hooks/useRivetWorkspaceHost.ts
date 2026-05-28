@@ -46,6 +46,22 @@ export type RivetWorkspaceHost = {
   replaceCurrent(snapshot: RivetProjectSnapshotInput): Promise<boolean>;
 };
 
+function clearCodeEditorModelCacheForClosedProject(projectId: ProjectId): void {
+  window.setTimeout(() => {
+    void import('../utils/monaco/codeEditorModelCache.js')
+      .then(({ clearCodeEditorModelCacheForProject }) => {
+        clearCodeEditorModelCacheForProject(projectId);
+      })
+      .catch((error) => {
+        handleError(error, 'Failed to clear code editor model cache', {
+          metadata: {
+            projectId,
+          },
+        });
+      });
+  }, 0);
+}
+
 type NormalizedProjectSnapshot = {
   project: Omit<Project, 'data'>;
   data?: Project['data'];
@@ -141,6 +157,7 @@ export function useRivetWorkspaceHost(): RivetWorkspaceHost {
           });
           removeProjectExecutionSnapshot(currentProjectId);
           clearProjectContextState(currentProjectId);
+          clearCodeEditorModelCacheForClosedProject(currentProjectId);
         }
 
         return true;
@@ -241,6 +258,7 @@ export function useRivetWorkspaceHost(): RivetWorkspaceHost {
       return nextSnapshots;
     });
     clearProjectContextState(projectId);
+    clearCodeEditorModelCacheForClosedProject(projectId);
 
     return true;
   });

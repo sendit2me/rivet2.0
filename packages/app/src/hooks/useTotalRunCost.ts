@@ -43,11 +43,10 @@ export function useTotalRunCost() {
 
   const totals = useMemo(() => {
     if (!lastRunData) {
-      return { cost: 0, tokens: 0 };
+      return 0;
     }
 
     let totalCost = 0;
-    let totalTokens = 0;
 
     for (const [nodeId, nodeLastRunData] of entries(lastRunData)) {
       const node = allNodesById[nodeId];
@@ -90,45 +89,12 @@ export function useTotalRunCost() {
         return acc;
       }, 0);
 
-      const tokens = nodeLastRunData.reduce((acc: number, curr) => {
-        if (curr.data.status?.type !== 'ok') {
-          return acc;
-        }
-
-        const outputData = curr.data.outputData;
-
-        if (!outputData) {
-          return acc;
-        }
-
-        const restoredTokenArray = coerceStoredPortValue(
-          outputData,
-          '__hidden_token_count' as PortId,
-          'number[]',
-          dataRefs,
-        );
-        if (restoredTokenArray) {
-          return sumNumberArray(restoredTokenArray.value, acc);
-        }
-
-        const restoredTokens = coerceStoredPortValue(outputData, '__hidden_token_count' as PortId, 'number', dataRefs);
-        if (restoredTokens && typeof restoredTokens.value === 'number') {
-          return restoredTokens.value + acc;
-        }
-
-        return acc;
-      }, 0);
-
       if (cost) {
         totalCost += cost;
       }
-
-      if (tokens) {
-        totalTokens += tokens;
-      }
     }
 
-    return { cost: totalCost, tokens: totalTokens };
+    return totalCost;
   }, [allNodesById, dataRefs, lastRunData]);
 
   return totals;

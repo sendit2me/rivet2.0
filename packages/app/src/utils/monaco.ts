@@ -49,18 +49,23 @@ const PROMPT_INTERPOLATION_BRACE_CONFIGURATION: monaco.languages.LanguageConfigu
   surroundingPairs: [{ open: '{', close: '}' }],
 };
 
-monaco.languages.register({ id: 'prompt-interpolation' });
-monaco.languages.register({ id: 'prompt-interpolation-markdown' });
+const isLanguageRegistered = (id: string) => monaco.languages.getLanguages().some((language) => language.id === id);
 
-monaco.languages.setMonarchTokensProvider('prompt-interpolation', {
-  tokenizer: {
-    root: [[/\{\{[^}]+\}\}/, 'prompt-replacement']],
-  },
-});
+if (!isLanguageRegistered('prompt-interpolation')) {
+  monaco.languages.register({ id: 'prompt-interpolation' });
+  monaco.languages.setMonarchTokensProvider('prompt-interpolation', {
+    tokenizer: {
+      root: [[/\{\{[^}]+\}\}/, 'prompt-replacement']],
+    },
+  });
+  monaco.languages.setLanguageConfiguration('prompt-interpolation', PROMPT_INTERPOLATION_BRACE_CONFIGURATION);
+}
 
-monaco.languages.setMonarchTokensProvider('prompt-interpolation-markdown', promptInterpolationMarkdownLanguage);
-monaco.languages.setLanguageConfiguration('prompt-interpolation-markdown', promptInterpolationMarkdownConf);
-monaco.languages.setLanguageConfiguration('prompt-interpolation', PROMPT_INTERPOLATION_BRACE_CONFIGURATION);
+if (!isLanguageRegistered('prompt-interpolation-markdown')) {
+  monaco.languages.register({ id: 'prompt-interpolation-markdown' });
+  monaco.languages.setMonarchTokensProvider('prompt-interpolation-markdown', promptInterpolationMarkdownLanguage);
+  monaco.languages.setLanguageConfiguration('prompt-interpolation-markdown', promptInterpolationMarkdownConf);
+}
 
 const definePITheme = (name: string, colors: { primary: string }) =>
   monaco.editor.defineTheme(`prompt-interpolation-${name}`, {

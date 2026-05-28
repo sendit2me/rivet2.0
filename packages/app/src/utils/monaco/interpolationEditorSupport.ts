@@ -1,4 +1,4 @@
-import { monaco } from '../monaco.js';
+import * as monaco from 'monaco-editor';
 import {
   type EditorInterpolationSyntax,
   getActiveInterpolationOffsetRanges,

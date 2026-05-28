@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import {
   getActiveInterpolationOffsetRanges,
@@ -16,6 +17,22 @@ test('getActiveInterpolationOffsetRanges ignores escaped interpolation tokens', 
     ranges.map((range) => text.slice(range.start, range.end)),
     ['{{real}}', '{{input}}'],
   );
+});
+
+test('getActiveInterpolationOffsetRanges skips malformed outer tokens with nested openers', () => {
+  const text = 'before {{outer {{inner}} after {{real}}';
+  const ranges = getActiveInterpolationOffsetRanges(text);
+
+  assert.deepEqual(
+    ranges.map((range) => text.slice(range.start, range.end)),
+    ['{{inner}}', '{{real}}'],
+  );
+});
+
+test('interpolation diagnostics stay independent from the core runtime barrel', async () => {
+  const source = await readFile(new URL('./interpolationDiagnostics.ts', import.meta.url), 'utf8');
+
+  assert.equal(source.includes('@valerypopoff/rivet2-core'), false);
 });
 
 test('JSON template interpolation uses JSON validation markers only', () => {

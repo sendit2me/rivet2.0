@@ -246,7 +246,6 @@ export async function applyOpenAIStreamingResponse(params: {
   }
 
   output['cost' as PortId] = { type: 'number', value: totalCost };
-  output['__hidden_token_count' as PortId] = { type: 'number', value: inputTokenCount + outputTokenCount };
 }
 
 export function handleOpenAIRetryableFailure(params: {

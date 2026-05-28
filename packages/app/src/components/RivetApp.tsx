@@ -38,6 +38,7 @@ import { overlayOpenState, uiFontSizeState } from '../state/ui.js';
 import { getUiFontSizeCssVariables } from '../utils/uiFontSize.js';
 import { useProjectPlugins } from '../hooks/useProjectPlugins.js';
 import { MissingAppPluginsModalRenderer } from './MissingAppPluginsModal.js';
+import { warmCodeEditor } from './LazyComponents.js';
 
 const styles = css`
   position: fixed;
@@ -94,6 +95,34 @@ export const RivetApp: FC = () => {
   }, []);
 
   useWindowTitle();
+
+  useEffect(() => {
+    let cancelled = false;
+    const preload = () => {
+      if (!cancelled) {
+        warmCodeEditor();
+      }
+    };
+
+    const idleWindow = window as Window & {
+      requestIdleCallback?: (callback: () => void, options?: { timeout?: number }) => number;
+      cancelIdleCallback?: (id: number) => void;
+    };
+
+    if (idleWindow.requestIdleCallback) {
+      const idleId = idleWindow.requestIdleCallback(preload, { timeout: 2500 });
+      return () => {
+        cancelled = true;
+        idleWindow.cancelIdleCallback?.(idleId);
+      };
+    }
+
+    const timeoutId = window.setTimeout(preload, 1200);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, []);
 
   useEffect(() => {
     const rootStyle = document.documentElement.style;

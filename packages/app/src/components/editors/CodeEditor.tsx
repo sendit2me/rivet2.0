@@ -5,6 +5,8 @@ import { useAtomValue } from 'jotai';
 import { type FC, type MutableRefObject, useRef, useEffect, Suspense, useMemo, useState } from 'react';
 import { type monaco } from '../../utils/monaco';
 import { themeState } from '../../state/settings.js';
+import { graphMetadataState } from '../../state/graph.js';
+import { projectState } from '../../state/savedGraphs.js';
 import { LazyCodeEditor } from '../LazyComponents';
 import { type SharedEditorProps } from './SharedEditorProps';
 import { getHelperMessage, getPostEditorHelperMessage } from './editorUtils';
@@ -22,6 +24,7 @@ import { lastRunDataState, resolvedGraphSelectionState, selectedProcessPageState
 import { getSelectedProcessData } from '../../state/selectors/executionSelectors.js';
 import { getCodeNodeErrorLineHighlight, type CodeNodeErrorLineHighlight } from '../nodes/codeNodeOutputUtils.js';
 import { type EditorInterpolationSyntax } from '../../utils/monaco/interpolationDiagnostics.js';
+import { buildCodeEditorModelCacheKey } from '../../utils/monaco/codeEditorModelCacheKey.js';
 
 type CodeEditorDefinitionWithInterpolationSyntax = CodeEditorDefinition<ChartNode> & {
   interpolationSyntax?: EditorInterpolationSyntax;
@@ -143,12 +146,22 @@ export const CodeEditor: FC<CodeEditorProps> = ({
   const onChangeLatest = useLatest(onChange);
   const isEditorReadOnly = isReadonly || isDisabled;
   const appTheme = useAtomValue(themeState);
+  const graphMetadata = useAtomValue(graphMetadataState);
+  const project = useAtomValue(projectState);
   const resolvedTheme = resolveMonacoTheme(theme, appTheme);
   const isResizable = language != null && RESIZABLE_LANGUAGES.has(language);
   const editorIdentityKey = name?.trim() || label;
+  const modelCacheKey = buildCodeEditorModelCacheKey({
+    projectId: project.metadata.id,
+    graphId: graphMetadata?.id,
+    nodeId: id,
+    editorKey: editorIdentityKey,
+    language,
+    interpolationSyntax,
+  });
   const editorMountKey = `${id ?? 'node-editor'}::${editorIdentityKey}::${language ?? 'language'}::${resolvedTheme ?? 'theme'}::${
     interpolationSyntax ?? 'no-interpolation'
-  }::${enableFolding ? 'folding-on' : 'folding-off'}`;
+  }::${enableFolding ? 'folding-on' : 'folding-off'}::${modelCacheKey ?? 'uncached-model'}`;
   const errorLineHighlightKey = getErrorLineHighlightKey(errorLineHighlight);
   const activeErrorLineHighlight =
     errorLineHighlightKey &&
@@ -222,6 +235,7 @@ export const CodeEditor: FC<CodeEditorProps> = ({
           onKeyDown={handleKeyDown}
           autoFocus={autoFocus}
           enableFolding={enableFolding}
+          modelCacheKey={modelCacheKey}
           editorKey={editorIdentityKey}
           nodeType={nodeType}
           defaultHeight={defaultHeight}
@@ -240,6 +254,7 @@ export const CodeEditor: FC<CodeEditorProps> = ({
           onKeyDown={handleKeyDown}
           autoFocus={autoFocus}
           enableFolding={enableFolding}
+          modelCacheKey={modelCacheKey}
           editorKey={editorIdentityKey}
           defaultHeight={defaultHeight}
           errorLineHighlight={activeErrorLineHighlight}
@@ -267,6 +282,7 @@ type ViewportProps = {
   onKeyDown: (e: monaco.IKeyboardEvent) => void;
   autoFocus: boolean | undefined;
   enableFolding: boolean | undefined;
+  modelCacheKey: string | undefined;
   editorKey: string | undefined;
   errorLineHighlight?: CodeNodeErrorLineHighlight;
 };
@@ -289,6 +305,7 @@ const SuspendedCodeEditor: FC<ViewportProps> = ({
   onKeyDown,
   autoFocus,
   enableFolding,
+  modelCacheKey,
   errorLineHighlight,
 }) => (
   <Suspense fallback={<CodeEditorLoadingFallback />}>
@@ -304,6 +321,7 @@ const SuspendedCodeEditor: FC<ViewportProps> = ({
       onKeyDown={onKeyDown}
       autoFocus={autoFocus}
       enableFolding={enableFolding}
+      modelCacheKey={modelCacheKey}
       errorLineHighlight={errorLineHighlight}
     />
   </Suspense>

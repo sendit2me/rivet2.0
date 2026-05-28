@@ -1,4 +1,4 @@
-import { monaco } from '../monaco.js';
+import * as monaco from 'monaco-editor';
 import { findJsStyleCommentRanges, type JsStyleCommentRange } from './commentRangeScanner.js';
 
 const JS_STYLE_COMMENT_CLASS_NAME = 'rivet-editor-js-style-comment';
