@@ -1,5 +1,13 @@
 
+- In text editor, highlight the JS comments
 
+- When renaming the graphs output, it is being renamed letter by letter. Maybe add a debounce effect?
+
+- When "Freeze" is enabled and I enable remote debugger, hide the frozen state of the nodes. Freezing doesn't work in Remote debugger. But If I turn off the remote debugger right after turning it on when no actual remote debugger run has iccured, restore showing the frozen node outputs. But if at least one remote run ran, flush the frozen nodes
+
+- When "Freeze" is disabled, don't hide it from the menu, instead disable it and explain why exactly it's disabled
+
+- Change the IF port so it doesn't take up spane in the node's header and so it looks like a very special input port
 
 - Code editor: show a hint that Ctrl++ and Ctrl+- are working here. Also add Ctrl/Cmd+scroll to scale the font size
 

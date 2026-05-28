@@ -6,6 +6,7 @@ import FlaskIcon from 'majesticons/line/flask-line.svg?react';
 import type { FC, MouseEvent } from 'react';
 import { useMemo } from 'react';
 import ExpandDownStopIcon from '../../assets/icons/expand-down-stop.svg?react';
+import SnowflakeIcon from '../../assets/icons/snowflake-icon.svg?react';
 import { useNodeIO } from '../../hooks/useGetNodeIO.js';
 import { useStableCallback } from '../../hooks/useStableCallback.js';
 import { useUnknownNodeComponentDescriptorFor } from '../../hooks/useNodeTypes.js';
@@ -47,11 +48,12 @@ import { renderNodeOutputBody } from './renderNodeOutputBody.js';
 
 export const NodeInlineOutput: FC<{
   node: ChartNode;
+  isFrozen: boolean;
   isOutputExpanded: boolean;
   isHovered: boolean;
   onToggleExpandedOutput: () => void;
   onOpenFullscreenModal?: () => void;
-}> = ({ node, isOutputExpanded, isHovered, onToggleExpandedOutput, onOpenFullscreenModal }) => {
+}> = ({ node, isFrozen, isOutputExpanded, isHovered, onToggleExpandedOutput, onOpenFullscreenModal }) => {
   const dataRefs = useDataRefs();
   const output = useAtomValue(lastRunDataState(node.id));
   const selectedPage = useAtomValue(selectedProcessPageState(node.id));
@@ -80,6 +82,7 @@ export const NodeInlineOutput: FC<{
         <NodeOutputSingleProcess
           node={node}
           data={firstOutput.data}
+          isFrozen={isFrozen}
           isOutputExpanded={isOutputExpanded}
           isHovered={isHovered}
           processId={firstOutput.processId}
@@ -95,6 +98,7 @@ export const NodeInlineOutput: FC<{
         <NodeOutputMultiProcess
           node={node}
           data={visibleOutput}
+          isFrozen={isFrozen}
           isOutputExpanded={isOutputExpanded}
           isHovered={isHovered}
           showNodeRunDuration={showNodeRunDurations}
@@ -109,6 +113,7 @@ export const NodeInlineOutput: FC<{
 const NodeOutputSingleProcess: FC<{
   node: ChartNode;
   data: NodeRunDataWithRefs;
+  isFrozen: boolean;
   isOutputExpanded: boolean;
   isHovered: boolean;
   processId: ProcessId;
@@ -119,6 +124,7 @@ const NodeOutputSingleProcess: FC<{
 }> = ({
   node,
   data,
+  isFrozen,
   isOutputExpanded,
   isHovered,
   processId,
@@ -263,6 +269,7 @@ const NodeOutputSingleProcess: FC<{
           </div>
         </Tooltip>
       </div>
+      {isFrozen && <FrozenOutputNotice />}
       <NodeOutputContentFade key={contentKey} contentKey={contentKey}>
         {showDurationSummary && <NodeRunDurationSummaryMeta processData={durationProcessData} hasBody={hasBody} />}
         {showDurationMeta && <NodeRunDurationMeta data={data} hasBody={hasBody} />}
@@ -284,6 +291,7 @@ const NodeOutputSingleProcess: FC<{
 const NodeOutputMultiProcess: FC<{
   node: ChartNode;
   data: ProcessDataForNode[];
+  isFrozen: boolean;
   isOutputExpanded: boolean;
   isHovered: boolean;
   showNodeRunDuration: boolean;
@@ -292,6 +300,7 @@ const NodeOutputMultiProcess: FC<{
 }> = ({
   node,
   data,
+  isFrozen,
   isOutputExpanded,
   isHovered,
   showNodeRunDuration,
@@ -330,12 +339,11 @@ const NodeOutputMultiProcess: FC<{
           stopDoubleClickPropagation
         />
       </div>
-      {showDurationSummary && (
-        <NodeRunDurationSummaryMeta processData={data} hasBody={selectedHasVisibleBody} />
-      )}
+      {showDurationSummary && <NodeRunDurationSummaryMeta processData={data} hasBody={selectedHasVisibleBody} />}
       {selectedData && (
         <NodeOutputSingleProcess
           data={selectedData.data}
+          isFrozen={isFrozen}
           isOutputExpanded={isOutputExpanded}
           isHovered={isHovered}
           node={node}
@@ -349,3 +357,10 @@ const NodeOutputMultiProcess: FC<{
     </div>
   );
 };
+
+const FrozenOutputNotice: FC = () => (
+  <div className="frozen-output-notice" aria-label="Output is frozen">
+    <SnowflakeIcon aria-hidden="true" focusable="false" />
+    <span>Output is frozen</span>
+  </div>
+);

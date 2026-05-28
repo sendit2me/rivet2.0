@@ -10,8 +10,7 @@ export const nodeStyles = css`
     --node-output-multi-collapsed-max-height: calc(3 * 1.4em + 60px);
     --node-output-multi-hover-max-height: calc(20 * 1.4em + 60px);
     --node-frozen-output-accent: #68b7ff;
-    --node-frozen-output-bg: color-mix(in srgb, var(--node-frozen-output-accent) 11%, var(--grey-darkest) 89%);
-    --node-frozen-output-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='113' height='71' viewBox='0 0 113 71'%3E%3Cg fill='none' stroke='white' stroke-opacity='.09' stroke-linecap='round'%3E%3Cpath stroke-width='1.35' d='M9 11v13M3 14l12 7M15 14 3 21'/%3E%3Cpath stroke-width='.8' d='M33 6v7M29 8l8 5M37 8l-8 5'/%3E%3Cpath stroke-width='1.7' d='M55 21v18M48 25l15 10M63 25 48 35'/%3E%3Cpath stroke-width='1.05' d='M86 9v10M81 12l10 6M91 12l-10 6'/%3E%3Cpath stroke-width='1.45' d='M102 42v15M95 46l14 8M109 46 95 54'/%3E%3Cpath stroke-width='.75' d='M23 50v8M19 52l8 5M27 52l-8 5'/%3E%3Cpath stroke-width='.95' d='M72 55v9M68 57l8 5M76 57l-8 5'/%3E%3C/g%3E%3C/svg%3E");
+    --node-frozen-output-bg: color-mix(in srgb, var(--node-frozen-output-accent) 25%, var(--grey-darkest) 83%);
     background-color: var(--grey-darker-darker);
     background-clip: padding-box;
     border-radius: var(--node-card-radius);
@@ -244,10 +243,6 @@ export const nodeStyles = css`
     padding-right: calc(66px * var(--ui-font-scale));
   }
 
-  .node.frozen:not(.isComment) .grab-area {
-    padding-right: calc(72px * var(--ui-font-scale));
-  }
-
   .split-run-mode-icon {
     flex: 0 0 auto;
     width: calc(16px * var(--ui-font-scale));
@@ -425,8 +420,7 @@ export const nodeStyles = css`
     pointer-events: none;
 
     .changed-button,
-    .edit-button,
-    .frozen-node-indicator {
+    .edit-button {
       background-color: transparent;
       border: none;
       color: var(--node-bg-foreground);
@@ -462,20 +456,9 @@ export const nodeStyles = css`
     z-index: 4;
   }
 
-  .node.frozen:not(.isComment) .title-controls {
-    gap: calc(3px * var(--ui-font-scale));
-    width: calc(72px * var(--ui-font-scale));
-  }
-
   .title-controls .node-running-indicator {
     color: var(--node-bg-foreground);
     margin-top: calc(3px * var(--ui-font-scale));
-  }
-
-  .title-controls .frozen-node-indicator {
-    cursor: default;
-    pointer-events: auto;
-    width: calc(24px * var(--ui-font-scale));
   }
 
   .node:not(:hover):not(.hovered):not(:focus-within) .title-controls .node-running-indicator {
@@ -803,10 +786,54 @@ export const nodeStyles = css`
   .node.frozen.success:not(.running) .node-output:not(.multi) .node-output-inner,
   .node.frozen.success:not(.running) .multi-node-output {
     background-color: var(--node-frozen-output-bg);
-    background-image: var(--node-frozen-output-pattern);
-    background-position: -11px -7px;
-    background-size: 113px 71px;
     border-top-color: var(--node-frozen-output-accent);
+  }
+
+  .frozen-output-notice {
+    align-items: center;
+    color: var(--node-frozen-output-accent);
+    display: flex;
+    font-family: var(--font-family);
+    font-size: var(--ui-font-size-xs);
+    font-weight: 700;
+    gap: 6px;
+    letter-spacing: 0.08em;
+    line-height: 1.2;
+    margin-bottom: 10px;
+    min-height: 18px;
+    padding-right: 96px;
+    position: relative;
+    text-transform: uppercase;
+    z-index: 2;
+
+    svg {
+      flex: 0 0 auto;
+      height: 15px;
+      transform: translateY(-1px);
+      width: 15px;
+    }
+  }
+
+  .node-output-content-fade {
+    position: relative;
+    z-index: 2;
+  }
+
+  .node.frozen.success:not(.running) .node-output:not(.multi) .node-output-inner::after,
+  .node.frozen.success:not(.running) .multi-node-output::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 120px;
+    z-index: 1;
+    pointer-events: none;
+    background: linear-gradient(to bottom, rgba(109, 213, 255, 0.1) 0%, rgba(109, 213, 255, 0) 100%);
+    -webkit-mask-image: linear-gradient(-60deg, transparent 0 38%, #000 38%);
+    mask-image: linear-gradient(-60deg, transparent 0 38%, #000 38%);
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
   }
 
   .node.error .node-output:not(.multi) .node-output-inner,

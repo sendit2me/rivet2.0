@@ -184,7 +184,6 @@ export const VisualNode = memo(
               handleAttributes={handleAttributes}
               isKnownNodeType={isKnownNodeType}
               isReallyZoomedOut={effectiveIsReallyZoomedOut}
-              isFrozen={isFrozen}
               showRunningIndicator={showRunningChrome}
             />
           ) : (
