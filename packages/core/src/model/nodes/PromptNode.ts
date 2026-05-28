@@ -233,12 +233,14 @@ export class PromptNodeImpl extends NodeImpl<PromptNode> {
       {} as Record<PortId, string>,
     );
 
-    const outputValue = interpolate(
+    let outputValue = interpolate(
       this.chartNode.data.promptText,
       inputMap,
       context.graphInputNodeValues,
-      context.contextValues
+      context.contextValues,
     );
+
+    outputValue = outputValue.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 
     const type = getInputOrData(this.data, inputs, 'type', 'string');
     const isCacheBreakpoint = getInputOrData(this.data, inputs, 'isCacheBreakpoint', 'boolean');

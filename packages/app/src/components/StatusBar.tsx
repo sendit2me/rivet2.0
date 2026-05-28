@@ -31,7 +31,7 @@ const styles = css`
 `;
 
 export const StatusBar: FC<{}> = () => {
-  const { cost, tokens } = useTotalRunCost();
+  const cost = useTotalRunCost();
   const graphRunning = useAtomValue(graphRunningState);
   const graphStartTime = useAtomValue(graphStartTimeState);
 
@@ -58,11 +58,6 @@ export const StatusBar: FC<{}> = () => {
       {(graphStartTime ?? 0) > 0 && (
         <div className="runtime">
           Runtime: <strong ref={runtimeRef}></strong>
-        </div>
-      )}
-      {tokens > 0 && (
-        <div className="tokens">
-          Tokens: <strong>{tokens.toLocaleString()}</strong>
         </div>
       )}
       {cost > 0 && (

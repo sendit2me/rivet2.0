@@ -50,6 +50,10 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: (id) => {
+          if (id.includes('commonjsHelpers')) {
+            return 'vendor';
+          }
+
           if (id.includes('gpt-tokenizer')) {
             return 'gpt-tokenizer';
           }

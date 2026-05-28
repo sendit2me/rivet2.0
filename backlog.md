@@ -1,7 +1,9 @@
 
 
 
-- Does the prompt node need better line endings? Just like the text node has
+
+
+- Change the IF port so it doesn't take up spane in the node's header and so it looks like a very special input port
 
 - Code editor: show a hint that Ctrl++ and Ctrl+- are working here. Also add Ctrl/Cmd+scroll to scale the font size
 

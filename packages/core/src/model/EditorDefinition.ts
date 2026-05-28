@@ -40,6 +40,7 @@ export type StringEditorDefinition<T extends ChartNode> = SharedEditorDefinition
   useInputToggleDataKey?: DataOfType<T, boolean>;
   placeholder?: string;
   maxLength?: number;
+  commitDebounceMs?: number;
 };
 
 export type ToggleEditorDefinition<T extends ChartNode> = SharedEditorDefinitionProps<T> & {

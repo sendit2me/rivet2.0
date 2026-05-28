@@ -85,6 +85,12 @@ const isContextMenuItemVisible = <T extends object>(
   contextData: unknown,
 ) => !item.conditional || item.conditional(contextData);
 
+const isContextMenuItemDisabled = (item: ContextMenuConfigItem, contextData: unknown) =>
+  typeof item.disabled === 'function' ? item.disabled(contextData) : item.disabled === true;
+
+const getContextMenuItemDisabledReason = (item: ContextMenuConfigItem, contextData: unknown) =>
+  typeof item.disabledReason === 'function' ? item.disabledReason(contextData) : item.disabledReason;
+
 export const ContextMenu = forwardRef<HTMLDivElement, ContextMenuProps>(
   ({ x, y, context, disabled, onMenuItemSelected }, ref) => {
     const canSearch = context.type !== 'node';
@@ -200,7 +206,7 @@ export const ContextMenu = forwardRef<HTMLDivElement, ContextMenuProps>(
           e.preventDefault();
           {
             const selectedSearchItem = visibleShownItems[selectedResultIndex] as ContextMenuConfigItem | undefined;
-            if (selectedSearchItem) {
+            if (selectedSearchItem && !isContextMenuItemDisabled(selectedSearchItem, context.data)) {
               handleMenuItemSelected(selectedSearchItem.id, selectedSearchItem.data);
             }
           }
@@ -345,6 +351,7 @@ const infoBoxTransitionStyles = css`
 export const ContextMenuItemDiv = styled.div<{
   hasSubmenu?: boolean;
   tone?: 'default' | 'danger';
+  isDisabled?: boolean;
   showSeparator?: boolean;
 }>`
   position: relative;
@@ -377,9 +384,17 @@ export const ContextMenuItemDiv = styled.div<{
     ${popupMenuLabelStyles};
   }
 
+  .label-area.has-sublabel {
+    padding-block: calc((2.8em - 1.2em) / 2);
+  }
+
   .sublabel {
     font-size: var(--ui-font-size-sm);
     color: var(--grey-lightish);
+    line-height: 1.25;
+    margin-top: 0.55em;
+    max-width: calc(280px * var(--ui-font-scale));
+    white-space: normal;
   }
 
   ${(props) =>
@@ -399,12 +414,35 @@ export const ContextMenuItemDiv = styled.div<{
   }
 
   ${(props) =>
+    props.isDisabled &&
+    css`
+      cursor: not-allowed;
+      opacity: 0.6;
+
+      &:hover,
+      &.active {
+        background-color: transparent;
+        color: inherit;
+      }
+    `}
+
+  ${(props) =>
     props.tone === 'danger' &&
     css`
       &:hover,
       &.active {
         background-color: rgba(255, 255, 255, 0.1);
         color: var(--error-light);
+      }
+    `}
+
+  ${(props) =>
+    props.isDisabled &&
+    props.tone === 'danger' &&
+    css`
+      &:hover,
+      &.active {
+        color: var(--error);
       }
     `}
 
@@ -426,6 +464,15 @@ export const ContextMenuItemDiv = styled.div<{
 
       &:hover::after {
         border-color: transparent transparent transparent var(--primary);
+      }
+    `}
+
+  ${(props) =>
+    props.isDisabled &&
+    props.hasSubmenu &&
+    css`
+      &:hover::after {
+        border-color: transparent transparent transparent var(--grey-darkish);
       }
     `}
 `;
@@ -450,6 +497,8 @@ export const ContextMenuItem: FC<ContextMenuItemProps> = ({
   const [isSubMenuVisible, setIsSubMenuVisible] = useState(false);
   const [isInfoVisible, setIsInfoVisible] = useState(false);
   const hasSubMenu = (config.items?.length ?? 0) > 0;
+  const isDisabled = isContextMenuItemDisabled(config, context);
+  const subLabel = config.subLabel ?? (isDisabled ? getContextMenuItemDisabledReason(config, context) : undefined);
   const submenuFloating = useFloating({
     placement: 'right-start',
     whileElementsMounted: autoUpdate,
@@ -463,10 +512,10 @@ export const ContextMenuItem: FC<ContextMenuItemProps> = ({
   });
 
   const handleMouseEnter = useStableCallback(() => {
-    if (hasSubMenu) {
+    if (hasSubMenu && !isDisabled) {
       setIsSubMenuVisible(true);
     }
-    setIsInfoVisible(true);
+    setIsInfoVisible(!isDisabled);
     onHover?.();
   });
 
@@ -478,7 +527,7 @@ export const ContextMenuItem: FC<ContextMenuItemProps> = ({
   });
 
   const handleClick = () => {
-    if (hasSubMenu) {
+    if (hasSubMenu || isDisabled) {
       return;
     }
 
@@ -495,19 +544,20 @@ export const ContextMenuItem: FC<ContextMenuItemProps> = ({
     <ContextMenuItemDiv
       hasSubmenu={hasSubMenu}
       tone={config.tone}
+      isDisabled={isDisabled}
       showSeparator={showSeparator}
       onClick={handleClick}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       ref={mainRef}
-      className={clsx({ active })}
+      className={clsx({ active: active && !isDisabled, disabled: isDisabled })}
     >
-      <div className="label-area">
+      <div className={clsx('label-area', { 'has-sublabel': subLabel })}>
         <div className="label">
           {config.icon && <config.icon />}
           <span className="context-menu-label-text">{config.label}</span>
         </div>
-        {config.subLabel && <div className="sublabel">{config.subLabel}</div>}
+        {subLabel && <div className="sublabel">{subLabel}</div>}
       </div>
 
       <CSSTransition

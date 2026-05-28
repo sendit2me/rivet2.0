@@ -8,22 +8,25 @@ import { NodeInlineOutput } from './nodeOutput/NodeInlineOutput.js';
 
 export { FullscreenNodeOutputModalRenderer } from './nodeOutput/NodeFullscreenOutput.js';
 
-export const NodeOutput: FC<{ node: ChartNode; suspended?: boolean; isHovered?: boolean }> = memo(
-  ({ node, suspended = false, isHovered = false }) => {
+export const NodeOutput: FC<{ node: ChartNode; suspended?: boolean; isFrozen?: boolean; isHovered?: boolean }> = memo(
+  ({ node, suspended = false, isFrozen = false, isHovered = false }) => {
     const isOutputExpanded = useAtomValue(expandedOutputNodeIdsState).includes(node.id);
 
     if (suspended && !isOutputExpanded) {
       return null;
     }
 
-    return <ActiveNodeOutput node={node} isOutputExpanded={isOutputExpanded} isHovered={isHovered} />;
+    return (
+      <ActiveNodeOutput node={node} isFrozen={isFrozen} isOutputExpanded={isOutputExpanded} isHovered={isHovered} />
+    );
   },
 );
 
 NodeOutput.displayName = 'NodeOutput';
 
-const ActiveNodeOutput: FC<{ node: ChartNode; isOutputExpanded: boolean; isHovered: boolean }> = ({
+const ActiveNodeOutput: FC<{ node: ChartNode; isFrozen: boolean; isOutputExpanded: boolean; isHovered: boolean }> = ({
   node,
+  isFrozen,
   isOutputExpanded,
   isHovered,
 }) => {
@@ -51,6 +54,7 @@ const ActiveNodeOutput: FC<{ node: ChartNode; isOutputExpanded: boolean; isHover
     <div className="node-output-outer">
       <NodeInlineOutput
         node={node}
+        isFrozen={isFrozen}
         isOutputExpanded={isOutputExpanded}
         isHovered={isHovered}
         onToggleExpandedOutput={handleToggleExpandedOutput}

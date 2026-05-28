@@ -16,12 +16,20 @@ type NodeContextMenuTarget = {
   nodeType: ChartNode['type'];
 };
 
+type FreezeTargetEligibility = NodeContextMenuTarget & {
+  canFreeze: boolean;
+  hasRetainedSuccessfulOutput: boolean;
+  isAlreadyFrozen: boolean;
+  isFreezableNodeType: boolean;
+};
+
 type NodesById = Readonly<Record<NodeId, ChartNode | undefined>>;
 
 export function getNodeCanvasContextMenuContext({
   canStartEditorGraphRun,
   canUseFrozenNodes,
   contextMenuData,
+  freezeUnavailableReason,
   frozenNodeOutputs,
   graphSelection,
   lastRunPerNode,
@@ -34,6 +42,7 @@ export function getNodeCanvasContextMenuContext({
   canStartEditorGraphRun: boolean;
   canUseFrozenNodes: boolean;
   contextMenuData: ContextMenuData;
+  freezeUnavailableReason?: string;
   frozenNodeOutputs: FrozenNodeOutputsByGraph;
   graphSelection: {
     graphRuns?: GraphRunRecord[];
@@ -58,19 +67,39 @@ export function getNodeCanvasContextMenuContext({
   const isFrozen = Boolean(selectedGraphId && frozenNodeOutputs[selectedGraphId]?.[target.nodeId]?.length);
   const scopedTargets = getNodeCanvasContextMenuScopedTargets({ nodesById, selectedNodeIds, target });
   const frozenOutputsByNode = selectedGraphId ? frozenNodeOutputs[selectedGraphId] : undefined;
+  const freezeTargetEligibility = selectedGraphId
+    ? scopedTargets.map((scopedTarget): FreezeTargetEligibility => {
+        const isFreezableNodeType = canNodeTypeBeFrozen(scopedTarget.nodeType);
+        const isAlreadyFrozen = Boolean(frozenOutputsByNode?.[scopedTarget.nodeId]?.length);
+        const hasRetainedSuccessfulOutput = canFreezeNodeOutputs({
+          graphId: selectedGraphId,
+          processData: lastRunPerNode[scopedTarget.nodeId],
+          selection: graphSelection,
+        });
+
+        return {
+          ...scopedTarget,
+          canFreeze: isFreezableNodeType && !isAlreadyFrozen && hasRetainedSuccessfulOutput,
+          hasRetainedSuccessfulOutput,
+          isAlreadyFrozen,
+          isFreezableNodeType,
+        };
+      })
+    : [];
   const freezeNodeTargets =
     canUseFrozenNodes && selectedGraphId
-      ? scopedTargets.filter(
-          (scopedTarget) =>
-            canNodeTypeBeFrozen(scopedTarget.nodeType) &&
-            !frozenOutputsByNode?.[scopedTarget.nodeId]?.length &&
-            canFreezeNodeOutputs({
-              graphId: selectedGraphId,
-              processData: lastRunPerNode[scopedTarget.nodeId],
-              selection: graphSelection,
-            }),
-        )
+      ? freezeTargetEligibility
+          .filter((scopedTarget) => scopedTarget.canFreeze)
+          .map(({ nodeId, nodeType }) => ({ nodeId, nodeType }))
       : [];
+  const freezeDisabledReason = getFreezeDisabledReason({
+    canUseFrozenNodes,
+    freezeNodeTargets,
+    freezeTargetEligibility,
+    freezeUnavailableReason,
+    selectedGraphId,
+    scopedTargets,
+  });
   const unfreezeNodeIds =
     canUseFrozenNodes && selectedGraphId
       ? scopedTargets
@@ -96,10 +125,86 @@ export function getNodeCanvasContextMenuContext({
       canFreeze: freezeNodeTargets.length > 0,
       canUnfreeze: unfreezeNodeIds.length > 0,
       freezeNodeTargets,
+      freezeMenuTargetCount: scopedTargets.length,
+      freezeDisabledReason,
       unfreezeNodeIds,
       isFrozen,
     },
   };
+}
+
+function getFreezeDisabledReason({
+  canUseFrozenNodes,
+  freezeNodeTargets,
+  freezeTargetEligibility,
+  freezeUnavailableReason,
+  selectedGraphId,
+  scopedTargets,
+}: {
+  canUseFrozenNodes: boolean;
+  freezeNodeTargets: NodeContextMenuTarget[];
+  freezeTargetEligibility: FreezeTargetEligibility[];
+  freezeUnavailableReason?: string;
+  selectedGraphId: GraphId | undefined;
+  scopedTargets: NodeContextMenuTarget[];
+}): string | undefined {
+  if (freezeNodeTargets.length > 0 || scopedTargets.length === 0) {
+    return undefined;
+  }
+
+  if (!selectedGraphId) {
+    return 'Open a graph before freezing node outputs.';
+  }
+
+  if (shouldHideDisabledFreezeForMissingOrFrozenOutputs(freezeTargetEligibility)) {
+    return undefined;
+  }
+
+  if (freezeTargetEligibility.length === 1) {
+    const singleNodeReason = getSingleNodeFreezeDisabledReason(freezeTargetEligibility[0]!);
+    if (singleNodeReason) {
+      return singleNodeReason;
+    }
+  } else {
+    const multiNodeReason = getMultiNodeFreezeDisabledReason(freezeTargetEligibility);
+    if (multiNodeReason) {
+      return multiNodeReason;
+    }
+  }
+
+  if (freezeUnavailableReason) {
+    return freezeUnavailableReason;
+  }
+
+  if (!canUseFrozenNodes) {
+    return 'Freeze node output is unavailable in the current editor mode.';
+  }
+
+  return undefined;
+}
+
+function shouldHideDisabledFreezeForMissingOrFrozenOutputs(targets: FreezeTargetEligibility[]): boolean {
+  return targets.every((target) => target.isAlreadyFrozen || !target.hasRetainedSuccessfulOutput);
+}
+
+function getSingleNodeFreezeDisabledReason(target: FreezeTargetEligibility): string | undefined {
+  if (!target.isFreezableNodeType) {
+    return 'This node type cannot be frozen';
+  }
+
+  return undefined;
+}
+
+function getMultiNodeFreezeDisabledReason(targets: FreezeTargetEligibility[]): string | undefined {
+  if (targets.every((target) => !target.isFreezableNodeType)) {
+    return 'None of the selected node types can be frozen';
+  }
+
+  if (targets.some((target) => !target.isFreezableNodeType)) {
+    return 'Some selected node types cannot be frozen';
+  }
+
+  return undefined;
 }
 
 function getNodeCanvasContextMenuScopedTargets({

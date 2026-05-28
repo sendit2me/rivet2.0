@@ -13,7 +13,6 @@ import { type ChartNode, type CommentNode, IF_PORT, type NodeConnection, type Po
 import type { HeightCache } from '../../hooks/useNodeBodyHeight';
 import SettingsCogIcon from 'majesticons/line/settings-cog-line.svg?react';
 import BookIcon from 'majesticons/line/book-open-line.svg?react';
-import SnowflakeIcon from '../../assets/icons/snowflake-icon.svg?react';
 import { ResizeHandle } from '../ResizeHandle.js';
 import { useCanvasPositioning } from '../../hooks/useCanvasPositioning.js';
 import { useStableCallback } from '../../hooks/useStableCallback.js';
@@ -309,13 +308,6 @@ export const NormalVisualNodeContent: FC<{
               </button>
             )}
             <NodeRunningIndicator isRunning={showRunningIndicator} delayMs={0} />
-            {isFrozen && (
-              <Tooltip content="Frozen output" tag="span" className="frozen-node-tooltip">
-                <span className="frozen-node-indicator" aria-label="Frozen output">
-                  <SnowflakeIcon />
-                </span>
-              </Tooltip>
-            )}
             <Tooltip className="edit-button-tooltip" content="Edit Node">
               <button
                 type="button"
@@ -365,7 +357,12 @@ export const NormalVisualNodeContent: FC<{
         {isKnownNodeType && <NodePortsRenderer node={node} connections={connections} />}
 
         <ErrorBoundary fallback={<div>Error rendering node output</div>}>
-          <NodeOutput node={node} suspended={!renderHeavyContent} isHovered={isOutputPreviewHovered} />
+          <NodeOutput
+            node={node}
+            suspended={!renderHeavyContent}
+            isFrozen={isFrozen}
+            isHovered={isOutputPreviewHovered}
+          />
         </ErrorBoundary>
         <div className="node-resize-handles">
           {resizeDirections.map((direction) => (

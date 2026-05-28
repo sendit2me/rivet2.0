@@ -52,6 +52,41 @@ test('node code editor lazy loading keeps the field shell visible', () => {
   assert.match(defaultNodeEditorSource, /\.code-editor-loading-placeholder/);
 });
 
+test('node code editor is preloaded before settings need it', () => {
+  const lazyComponentsSource = readFileSync(join(componentsDir, 'LazyComponents.tsx'), 'utf8');
+  const graphBuilderSource = readFileSync(join(componentsDir, 'GraphBuilder.tsx'), 'utf8');
+  const appSource = readFileSync(join(componentsDir, 'RivetApp.tsx'), 'utf8');
+
+  assert.match(lazyComponentsSource, /export function preloadCodeEditor\(\): Promise<CodeEditorModule>/);
+  assert.match(lazyComponentsSource, /codeEditorPreloadPromise = undefined;/);
+  assert.match(lazyComponentsSource, /export function warmCodeEditor\(\): void/);
+  assert.match(lazyComponentsSource, /const LazyCodeEditorImpl = lazy\(preloadCodeEditor\);/);
+  assert.match(appSource, /requestIdleCallback\(preload, \{ timeout: 2500 \}\)/);
+  assert.match(graphBuilderSource, /warmCodeEditor\(\);\s+setEditingNodeId\(node\.id\);/);
+});
+
+test('node code editor uses project-scoped Monaco model caching', () => {
+  const codeEditorSource = readFileSync(join(componentsDir, 'editors', 'CodeEditor.tsx'), 'utf8');
+  const lazyCodeEditorSource = readFileSync(join(componentsDir, 'CodeEditor.tsx'), 'utf8');
+  const workspaceHostSource = readFileSync(join(componentsDir, '..', 'hooks', 'useRivetWorkspaceHost.ts'), 'utf8');
+
+  assert.match(codeEditorSource, /buildCodeEditorModelCacheKey/);
+  assert.match(codeEditorSource, /codeEditorModelCacheKey\.js/);
+  assert.doesNotMatch(codeEditorSource, /codeEditorModelCache\.js/);
+  assert.match(codeEditorSource, /projectId: project\.metadata\.id/);
+  assert.match(codeEditorSource, /graphId: graphMetadata\?\.id/);
+  assert.match(codeEditorSource, /editorMountKey[\s\S]*modelCacheKey \?\? 'uncached-model'/);
+  assert.match(codeEditorSource, /modelCacheKey=\{modelCacheKey\}/);
+  assert.match(lazyCodeEditorSource, /getOrCreateCodeEditorModel/);
+  assert.match(lazyCodeEditorSource, /const modelUri = modelCacheKey \? monaco\.Uri\.parse\(getCodeEditorModelUri\(modelCacheKey\)\) : undefined/);
+  assert.match(lazyCodeEditorSource, /getExistingModel: modelUri \? \(\) => monaco\.editor\.getModel\(modelUri\) : undefined/);
+  assert.match(lazyCodeEditorSource, /if \(model\.getValue\(\) !== text\) \{\s+currentOnChange\?\.\(model\.getValue\(\)\);/);
+  assert.match(lazyCodeEditorSource, /if \(!isCached\) \{\s+model\.dispose\(\);/);
+  assert.match(workspaceHostSource, /function clearCodeEditorModelCacheForClosedProject/);
+  assert.match(workspaceHostSource, /clearCodeEditorModelCacheForClosedProject\(currentProjectId\);/);
+  assert.match(workspaceHostSource, /clearCodeEditorModelCacheForClosedProject\(projectId\);/);
+});
+
 test('node code editor text stats are editor-definition driven', () => {
   const codeEditorSource = readFileSync(join(componentsDir, 'editors', 'CodeEditor.tsx'), 'utf8');
 
@@ -66,4 +101,18 @@ test('node code editor lets panel scrolling continue at editor scroll edges', ()
     codeEditorSource,
     /scrollbar: \{\s+alwaysConsumeMouseWheel: false,\s+\},/,
   );
+});
+
+test('lazy Monaco editor chunk stays independent from app UI state', () => {
+  const codeEditorSource = readFileSync(join(componentsDir, 'CodeEditor.tsx'), 'utf8');
+  const lazyComponentsSource = readFileSync(join(componentsDir, 'LazyComponents.tsx'), 'utf8');
+
+  assert.match(lazyComponentsSource, /useMultilineEditorFontSize/);
+  assert.match(lazyComponentsSource, /useIsNodeEditorResizing/);
+  assert.match(codeEditorSource, /codeEditorMonaco/);
+  assert.doesNotMatch(codeEditorSource, /useMultilineEditorFontSize/);
+  assert.doesNotMatch(codeEditorSource, /NodeEditorResizeContext/);
+  assert.doesNotMatch(codeEditorSource, /codeEditorTheme/);
+  assert.doesNotMatch(codeEditorSource, /\.\.\/utils\/monaco\.js/);
+  assert.doesNotMatch(codeEditorSource, /\.\.\/state\//);
 });

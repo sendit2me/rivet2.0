@@ -30,6 +30,7 @@ import { submitUserInputAnswers } from '../state/actions/userInputActions';
 import { useSyncCurrentProjectEditorState } from '../hooks/useSyncCurrentProjectEditorState.js';
 import { toggleNodeSelection } from '../domain/graphEditing/nodeSelection.js';
 import { useSyncProjectPluginsFromGraphUsage } from '../hooks/useSyncProjectPluginsFromGraphUsage.js';
+import { warmCodeEditor } from './LazyComponents.js';
 
 const Container = styled.div`
   position: relative;
@@ -95,6 +96,7 @@ export const GraphBuilder: FC = () => {
   });
 
   const nodeStartEditing = useStableCallback((node: ChartNode) => {
+    warmCodeEditor();
     setEditingNodeId(node.id);
   });
 

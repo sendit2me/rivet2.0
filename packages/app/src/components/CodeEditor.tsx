@@ -1,13 +1,23 @@
 import { useLatest } from 'ahooks';
 import { type FC, type MutableRefObject, useEffect, useRef } from 'react';
-import { monaco } from '../utils/monaco.js';
-import { useMultilineEditorFontSize } from '../hooks/useMultilineEditorFontSize.js';
-import { DEFAULT_MONACO_THEME } from './codeEditorTheme.js';
-import { useIsNodeEditorResizing } from './nodeEditor/NodeEditorResizeContext.js';
+import { ensureCodeEditorMonacoLanguages, monaco } from '../utils/monaco/codeEditorMonaco.js';
 import { installEditorInterpolationSupport } from '../utils/monaco/interpolationEditorSupport.js';
 import { type EditorInterpolationSyntax } from '../utils/monaco/interpolationDiagnostics.js';
+import { installJsStyleCommentHighlighting } from '../utils/monaco/commentHighlighting.js';
+import { shouldHighlightJsStyleComments } from '../utils/monaco/commentRangeScanner.js';
+import { getCodeEditorModelUri, getOrCreateCodeEditorModel } from '../utils/monaco/codeEditorModelCache.js';
 
-export const CodeEditor: FC<{
+const DEFAULT_MONACO_THEME = 'vs-dark';
+const DEFAULT_MULTILINE_EDITOR_FONT_SIZE = 14;
+
+ensureCodeEditorMonacoLanguages();
+
+type MultilineEditorFontSizeKeyEvent = Pick<KeyboardEvent, 'key' | 'code' | 'ctrlKey' | 'metaKey' | 'altKey'> & {
+  preventDefault(): void;
+  stopPropagation(): void;
+};
+
+export type CodeEditorProps = {
   text: string;
   isReadonly?: boolean;
   onChange?: (newText: string) => void;
@@ -24,7 +34,13 @@ export const CodeEditor: FC<{
     line: number;
     source: string;
   };
-}> = ({
+  fontSize?: number;
+  onFontSizeKeyDown?: (event: MultilineEditorFontSizeKeyEvent) => boolean;
+  isNodeEditorResizing?: boolean;
+  modelCacheKey?: string;
+};
+
+export const CodeEditor: FC<CodeEditorProps> = ({
   text,
   isReadonly,
   onChange,
@@ -38,6 +54,10 @@ export const CodeEditor: FC<{
   scrollBeyondLastLine,
   enableFolding,
   errorLineHighlight,
+  fontSize = DEFAULT_MULTILINE_EDITOR_FONT_SIZE,
+  onFontSizeKeyDown,
+  isNodeEditorResizing = false,
+  modelCacheKey,
 }) => {
   const editorContainer = useRef<HTMLDivElement>(null);
   const editorInstance = useRef<monaco.editor.IStandaloneCodeEditor>();
@@ -45,8 +65,6 @@ export const CodeEditor: FC<{
   const pendingResizeLayoutRef = useRef(false);
 
   const onChangeLatest = useLatest(onChange);
-  const { fontSize, handleKeyDown: handleFontSizeKeyDown } = useMultilineEditorFontSize();
-  const isNodeEditorResizing = useIsNodeEditorResizing();
   const isNodeEditorResizingRef = useRef(isNodeEditorResizing);
 
   isNodeEditorResizingRef.current = isNodeEditorResizing;
@@ -58,6 +76,14 @@ export const CodeEditor: FC<{
       return;
     }
 
+    const modelUri = modelCacheKey ? monaco.Uri.parse(getCodeEditorModelUri(modelCacheKey)) : undefined;
+    const { model, isCached } = getOrCreateCodeEditorModel({
+      cacheKey: modelCacheKey,
+      text,
+      getExistingModel: modelUri ? () => monaco.editor.getModel(modelUri) : undefined,
+      createModel: () => monaco.editor.createModel(text, language, modelUri),
+    });
+
     const editor = monaco.editor.create(container, {
       theme: theme ?? DEFAULT_MONACO_THEME,
       lineNumbers: 'on',
@@ -68,14 +94,13 @@ export const CodeEditor: FC<{
       foldingHighlight: enableFolding ? true : undefined,
       unfoldOnClickAfterEndOfLine: enableFolding ? false : undefined,
       lineNumbersMinChars: 2,
-      language,
       minimap: {
         enabled: false,
       },
       fontSize,
       wordWrap: 'on',
       readOnly: isReadonly,
-      value: text,
+      model,
       scrollBeyondLastLine,
       scrollbar: {
         alwaysConsumeMouseWheel: false,
@@ -85,6 +110,9 @@ export const CodeEditor: FC<{
     editor.layout();
     const interpolationSupport =
       interpolationSyntax != null ? installEditorInterpolationSupport(editor, interpolationSyntax) : undefined;
+    const commentHighlightingSupport = shouldHighlightJsStyleComments(language)
+      ? installJsStyleCommentHighlighting(editor)
+      : undefined;
 
     const onResize = () => {
       // Resizing the node settings panel can emit a dense stream of ResizeObserver
@@ -113,17 +141,25 @@ export const CodeEditor: FC<{
       editorRef.current = editor;
     }
 
-    const latestBeforeDispose = onChangeLatest.current;
+    const currentOnChange = onChangeLatest.current;
+
+    if (model.getValue() !== text) {
+      currentOnChange?.(model.getValue());
+    }
 
     return () => {
-      latestBeforeDispose?.(editor.getValue());
+      currentOnChange?.(editor.getValue());
       editorInstance.current = undefined;
       if (editorRef) {
         editorRef.current = undefined;
       }
       resizeObserver?.disconnect();
       interpolationSupport?.dispose();
+      commentHighlightingSupport?.dispose();
       editor.dispose();
+      if (!isCached) {
+        model.dispose();
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -136,7 +172,7 @@ export const CodeEditor: FC<{
     }
 
     const dispose = editor.onKeyDown((event) => {
-      if (handleFontSizeKeyDown(event.browserEvent)) {
+      if (onFontSizeKeyDown?.(event.browserEvent)) {
         event.preventDefault();
         event.stopPropagation();
         return;
@@ -148,7 +184,7 @@ export const CodeEditor: FC<{
     return () => {
       dispose.dispose();
     };
-  }, [handleFontSizeKeyDown, onKeyDown]);
+  }, [onFontSizeKeyDown, onKeyDown]);
 
   useEffect(() => {
     if (autoFocus) {

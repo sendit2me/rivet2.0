@@ -3,7 +3,6 @@ import { type FC, type HTMLAttributes, type MouseEvent, type PointerEvent, memo 
 import { useAtomValue } from 'jotai';
 import { type ChartNode, IF_PORT, type NodeConnection, type PortId } from '@valerypopoff/rivet2-core';
 import SettingsCogIcon from 'majesticons/line/settings-cog-line.svg?react';
-import SnowflakeIcon from '../../assets/icons/snowflake-icon.svg?react';
 import { useStableCallback } from '../../hooks/useStableCallback.js';
 import { NodePortsRenderer } from '../NodePorts.js';
 import { useDependsOnPlugins } from '../../hooks/useDependsOnPlugins';
@@ -21,7 +20,6 @@ export const ZoomedOutVisualNodeContent: FC<{
   connections?: NodeConnection[];
   handleAttributes?: HTMLAttributes<HTMLDivElement>;
   isKnownNodeType: boolean;
-  isFrozen: boolean;
   isReallyZoomedOut: boolean;
   showRunningIndicator: boolean;
 }> = memo(
@@ -30,7 +28,6 @@ export const ZoomedOutVisualNodeContent: FC<{
     connections = [],
     handleAttributes,
     isKnownNodeType,
-    isFrozen,
     isReallyZoomedOut,
     showRunningIndicator,
   }) => {
@@ -97,13 +94,6 @@ export const ZoomedOutVisualNodeContent: FC<{
           {!isReallyZoomedOut && (
             <div className="title-controls">
               <NodeRunningIndicator isRunning={showRunningIndicator} delayMs={0} />
-              {isFrozen && (
-                <Tooltip content="Frozen output" tag="span" className="frozen-node-tooltip">
-                  <span className="frozen-node-indicator" aria-label="Frozen output">
-                    <SnowflakeIcon />
-                  </span>
-                </Tooltip>
-              )}
               <button
                 type="button"
                 className="edit-button"

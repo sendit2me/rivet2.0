@@ -155,8 +155,17 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
     selectedExecutor,
     session: executorSession,
   });
-  const canUseFrozenNodes =
-    canStartEditorGraphRun && !graphRunning && loadedRecording == null && executorSession.target?.type !== 'external-debugger';
+  const freezeUnavailableReason =
+    loadedRecording != null
+      ? 'Freeze node output is unavailable while viewing a recording.'
+      : executorSession.target?.type === 'external-debugger'
+        ? 'Freeze node output is unavailable while the Remote Debugger is active.'
+        : graphRunning
+          ? 'Stop the current run before freezing node outputs.'
+          : !canStartEditorGraphRun
+            ? 'Freeze node output is unavailable until editor runs are available.'
+            : undefined;
+  const canUseFrozenNodes = freezeUnavailableReason == null;
 
   const setLastSavedCanvasPosition = useSetAtom(lastCanvasPositionByGraphState);
   const setLastMousePosition = useSetAtom(lastMousePositionState);
@@ -516,6 +525,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
         canStartEditorGraphRun,
         canUseFrozenNodes,
         contextMenuData,
+        freezeUnavailableReason,
         frozenNodeOutputs,
         graphSelection,
         lastRunPerNode,
@@ -529,6 +539,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
       canStartEditorGraphRun,
       canUseFrozenNodes,
       contextMenuData,
+      freezeUnavailableReason,
       frozenNodeOutputs,
       graphSelection,
       lastRunPerNode,

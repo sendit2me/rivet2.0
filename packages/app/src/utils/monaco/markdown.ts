@@ -1,6 +1,5 @@
 import { cloneDeep } from 'lodash-es';
 
-// @ts-ignore
 import { conf, language } from 'monaco-editor/esm/vs/basic-languages/markdown/markdown';
 
 const markdownPromptInterpolationConf = cloneDeep(conf);

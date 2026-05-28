@@ -27,7 +27,9 @@ To freeze a node output:
 2. Right-click the node on the canvas.
 3. Choose **Freeze node output**.
 
-Nodes with frozen output show a snowflake icon in the node header, and their successful output preview is blue-tinted with a subtle snowflake pattern. During later editor runs, Rivet skips the node's normal implementation and sends the captured output to downstream nodes. To return the node to normal execution, right-click it and choose **Unfreeze node output**.
+If a node output has no retained successful run yet, the Freeze action is hidden until there is something to capture. If the output is already frozen, the menu shows **Unfreeze node output** instead. For other blockers, such as an unsupported node type or Remote Debugger/recording playback mode, the Freeze row stays visible but disabled and shows the reason below the label.
+
+Nodes with frozen output show a snowflake **Output is frozen** notice at the top of their successful output preview, and the output area is blue-tinted. During later editor runs, Rivet skips the node's normal implementation and sends the captured output to downstream nodes. To return the node to normal execution, right-click it and choose **Unfreeze node output**.
 
 You can also freeze or unfreeze several selected nodes at once. Right-click any node in the selection and choose **Freeze node outputs** or **Unfreeze node outputs**. Bulk actions use the same rules as freezing one node: Rivet only applies the action to selected nodes that support freezing and currently have a retained successful output, and skips selected nodes that do not.
 
@@ -41,7 +43,7 @@ Frozen outputs replace computation, not every possible side effect. Rivet restor
 
 Some nodes cannot be frozen because their behavior is not useful or safe to replay as stored output data: **Comment**, **Abort Graph**, **Graph Output**, **Create Dataset**, **Append to Dataset**, **Replace Dataset**, **Raise Event**, and **Play Audio**.
 
-Freeze node output is available only for normal editor runs in Browser mode or the built-in Node executor. It is not available while using an external Remote Debugger session or while viewing a loaded recording.
+Freeze node output is available only for normal editor runs in Browser mode or the built-in Node executor. It is not available while using an external Remote Debugger session or while viewing a loaded recording. When you connect an external Remote Debugger, Rivet hides frozen-output markers because remote runs do not use local frozen outputs. If you disconnect before any remote run happens, the markers come back. After a remote run starts, Rivet clears the frozen outputs for that open project.
 
 When the built-in Node executor is selected, frozen outputs must be safe to send to the executor process. Rivet preserves explicit JavaScript `undefined` values during this transfer, including optional fields inside LLM message objects. If the captured value contains unsupported JavaScript-only values such as `BigInt`, circular references, `NaN`, `Infinity`, typed arrays, or class instances, Rivet will ask you to use Browser mode or freeze a JSON-serializable output instead.
 

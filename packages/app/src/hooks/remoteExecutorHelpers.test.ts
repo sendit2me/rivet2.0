@@ -21,6 +21,7 @@ import {
   getFrozenNodeOptionsForExecutorTarget,
   getFrozenNodeOutputsForExecutorRunPayload,
   selectTestSuitesToRun,
+  shouldFlushFrozenNodeOutputsForRemoteDebuggerEvent,
 } from './remoteExecutorHelpers';
 import { deleteGlobalDataRef, setGlobalDataRef } from '../utils/globals/globalDataRefs';
 
@@ -447,6 +448,77 @@ test('getFrozenNodeOutputsForExecutorRunPayload excludes data for external debug
       url: 'ws://debugger.example/latest',
     }),
     undefined,
+  );
+});
+
+test('shouldFlushFrozenNodeOutputsForRemoteDebuggerEvent only flushes on first accepted external run event', () => {
+  const externalTarget = {
+    type: 'external-debugger',
+    url: 'ws://debugger.example/latest',
+  } as const;
+  const internalTarget = {
+    type: 'internal-hosted',
+    url: 'ws://executor.example/internal',
+  } as const;
+
+  assert.equal(
+    shouldFlushFrozenNodeOutputsForRemoteDebuggerEvent({
+      alreadyFlushed: false,
+      message: 'graphStart',
+      shouldDispatchExecutionEvent: true,
+      target: externalTarget,
+    }),
+    true,
+  );
+
+  assert.equal(
+    shouldFlushFrozenNodeOutputsForRemoteDebuggerEvent({
+      alreadyFlushed: true,
+      message: 'graphStart',
+      shouldDispatchExecutionEvent: true,
+      target: externalTarget,
+    }),
+    false,
+  );
+
+  assert.equal(
+    shouldFlushFrozenNodeOutputsForRemoteDebuggerEvent({
+      alreadyFlushed: false,
+      message: 'graphStart',
+      shouldDispatchExecutionEvent: false,
+      target: externalTarget,
+    }),
+    false,
+  );
+
+  assert.equal(
+    shouldFlushFrozenNodeOutputsForRemoteDebuggerEvent({
+      alreadyFlushed: false,
+      message: 'trace',
+      shouldDispatchExecutionEvent: true,
+      target: externalTarget,
+    }),
+    false,
+  );
+
+  assert.equal(
+    shouldFlushFrozenNodeOutputsForRemoteDebuggerEvent({
+      alreadyFlushed: false,
+      message: 'nodeOutputsCleared',
+      shouldDispatchExecutionEvent: true,
+      target: externalTarget,
+    }),
+    true,
+  );
+
+  assert.equal(
+    shouldFlushFrozenNodeOutputsForRemoteDebuggerEvent({
+      alreadyFlushed: false,
+      message: 'graphStart',
+      shouldDispatchExecutionEvent: true,
+      target: internalTarget,
+    }),
+    false,
   );
 });
 

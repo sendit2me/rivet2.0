@@ -48,3 +48,12 @@ test('context menu target lookup returns null without a menu ancestor', () => {
   assert.equal(getContextMenuDataFromTarget(asEventTarget(ordinaryElement)), null);
   assert.equal(getContextMenuDataFromTarget(null), null);
 });
+
+test('context menu target lookup stops on cyclic parent chains', () => {
+  const ordinaryElement: FakeContextMenuNode = {
+    dataset: {},
+  };
+  ordinaryElement.parentElement = ordinaryElement;
+
+  assert.equal(getContextMenuDataFromTarget(asEventTarget(ordinaryElement)), null);
+});

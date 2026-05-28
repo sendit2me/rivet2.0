@@ -34,6 +34,7 @@ import {
   getFrozenNodeOptionsForExecutorTarget,
   getFrozenNodeOutputsForExecutorRunPayload,
   selectTestSuitesToRun,
+  shouldFlushFrozenNodeOutputsForRemoteDebuggerEvent,
 } from './remoteExecutorHelpers.js';
 import { handleError } from '../utils/errorHandling.js';
 import { getLLMChatV2CustomProviderApiKeyEnvVarNames } from '../utils/chatV2CustomProviderEnv.js';
@@ -68,6 +69,7 @@ export function useRemoteExecutor() {
   const executorSession = useExecutorSessionRuntime();
   const environmentProvider = useEnvironmentProvider();
   const activeGraphRequestIdRef = useRef<RemoteRunRequestId | null>(null);
+  const externalDebuggerRunFlushedFrozenOutputsRef = useRef(false);
   const remoteDebuggerDiagnosticsRef = useRef(createRemoteDebuggerDiagnostics());
   const unscopedEventRoutingRef = useRef(createUnscopedRemoteExecutionRoutingState());
   const uploadCacheRef = useRef<RemoteExecutorUploadCache>({});
@@ -93,6 +95,7 @@ export function useRemoteExecutor() {
   const setUserInputQuestions = useSetAtom(userInputModalQuestionsState);
   const lastRunData = useAtomValue(lastRunDataByNodeState);
   const frozenNodeOutputs = useAtomValue(frozenNodeOutputsState);
+  const setFrozenNodeOutputs = useSetAtom(frozenNodeOutputsState);
   const loadedProject = useAtomValue(loadedProjectState);
   const pluginStates = useAtomValue(pluginsState);
 
@@ -106,12 +109,14 @@ export function useRemoteExecutor() {
   const eventDispatcher = createProcessEventDispatcher(currentExecution);
 
   useEffect(() => {
+    externalDebuggerRunFlushedFrozenOutputsRef.current = false;
     remoteDebuggerDiagnosticsRef.current.reset();
     resetUnscopedRemoteExecutionRoutingState(unscopedEventRoutingRef.current);
   }, [project.metadata.id]);
 
   useEffect(() => {
     const resetSessionCaches = () => {
+      externalDebuggerRunFlushedFrozenOutputsRef.current = false;
       remoteDebuggerDiagnosticsRef.current.reset();
       resetRemoteExecutorUploadCache(uploadCacheRef.current);
     };
@@ -145,6 +150,18 @@ export function useRemoteExecutor() {
       const routingAfter = externalDebuggerTarget
         ? summarizeRemoteDebuggerRoutingState(unscopedEventRoutingRef.current)
         : undefined;
+
+      if (
+        shouldFlushFrozenNodeOutputsForRemoteDebuggerEvent({
+          alreadyFlushed: externalDebuggerRunFlushedFrozenOutputsRef.current,
+          message,
+          shouldDispatchExecutionEvent,
+          target: externalDebuggerTarget,
+        })
+      ) {
+        externalDebuggerRunFlushedFrozenOutputsRef.current = true;
+        setFrozenNodeOutputs({});
+      }
 
       if (externalDebuggerTarget && routingBefore && routingAfter && eventSummary) {
         remoteDebuggerDiagnosticsRef.current.recordEvent({
@@ -274,7 +291,7 @@ export function useRemoteExecutor() {
           break;
       }
     });
-  }, [eventDispatcher, executorSession, project.metadata.id]);
+  }, [eventDispatcher, executorSession, project.metadata.id, setFrozenNodeOutputs]);
 
   const tryRunGraph = async (options: { to?: NodeId[]; from?: NodeId; graphId?: GraphId } = {}) => {
     const sessionState = executorSession.getRuntimeState();

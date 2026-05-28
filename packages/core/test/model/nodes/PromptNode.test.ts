@@ -93,6 +93,25 @@ describe('PromptNode', () => {
     });
   });
 
+  it('normalizes line endings in generated chat message text', async () => {
+    const node = createNode({
+      promptText: 'First\r\n{{input}}\rThird',
+    });
+
+    const result = await node.process(
+      {
+        input: { type: 'string', value: 'Second\r\nLine' },
+      } satisfies Record<string, DataValue>,
+      context,
+    );
+
+    assert.deepStrictEqual(result.output?.value, {
+      type: 'user',
+      message: 'First\nSecond\nLine\nThird',
+      isCacheBreakpoint: undefined,
+    });
+  });
+
   it('finishes graph execution when a whole prompt text input resolves to an empty string', async () => {
     const promptNode = PromptNodeImpl.create();
     const graph = {

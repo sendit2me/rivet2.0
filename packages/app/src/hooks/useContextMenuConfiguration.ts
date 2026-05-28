@@ -35,6 +35,8 @@ export type ContextMenuItem<Context = unknown, Data = unknown> = {
   id: string;
   label: string;
   subLabel?: string;
+  disabled?: boolean | ((context: Context) => boolean);
+  disabledReason?: string | ((context: Context) => string | undefined);
   searchSection?: ContextMenuSearchSection;
   icon?: ComponentType;
   tone?: 'default' | 'danger';
@@ -62,6 +64,8 @@ type NodeContextMenuData = {
   canFreeze: boolean;
   canUnfreeze: boolean;
   freezeNodeTargets: NodeFreezeTarget[];
+  freezeMenuTargetCount: number;
+  freezeDisabledReason?: string;
   unfreezeNodeIds: NodeId[];
   isFrozen: boolean;
 };
@@ -99,6 +103,7 @@ const getNodeContextMenuData = (context: unknown): NodeContextMenuData | undefin
     typeof data.canRunFromHere !== 'boolean' ||
     typeof data.canFreeze !== 'boolean' ||
     typeof data.canUnfreeze !== 'boolean' ||
+    typeof data.freezeMenuTargetCount !== 'number' ||
     typeof data.isFrozen !== 'boolean'
   ) {
     return undefined;
@@ -112,6 +117,11 @@ const getNodeContextMenuData = (context: unknown): NodeContextMenuData | undefin
     canFreeze: data.canFreeze,
     canUnfreeze: data.canUnfreeze,
     freezeNodeTargets,
+    freezeMenuTargetCount: data.freezeMenuTargetCount,
+    freezeDisabledReason:
+      typeof data.freezeDisabledReason === 'string' && data.freezeDisabledReason.length > 0
+        ? data.freezeDisabledReason
+        : undefined,
     unfreezeNodeIds,
     isFrozen: data.isFrozen,
   };
@@ -132,14 +142,30 @@ const getFreezeNodeTargetCount = (context: unknown) => {
   return data?.canFreeze ? data.freezeNodeTargets.length : 0;
 };
 
+const getFreezeMenuTargetCount = (context: unknown) => {
+  const data = getNodeContextMenuData(context);
+  return data?.freezeMenuTargetCount ?? 0;
+};
+
+const getFreezeDisabledReason = (context: unknown) => getNodeContextMenuData(context)?.freezeDisabledReason;
+
 const getUnfreezeNodeTargetCount = (context: unknown) => {
   const data = getNodeContextMenuData(context);
   return data?.canUnfreeze ? data.unfreezeNodeIds.length : 0;
 };
 
+const isFreezeDisabled = (context: unknown) =>
+  getFreezeNodeTargetCount(context) === 0 && getFreezeDisabledReason(context) != null;
+
 const canFreezeOneNode = (context: unknown) => getFreezeNodeTargetCount(context) === 1;
 
 const canFreezeMultipleNodes = (context: unknown) => getFreezeNodeTargetCount(context) > 1;
+
+const shouldShowFreezeOneNode = (context: unknown) =>
+  canFreezeOneNode(context) || (isFreezeDisabled(context) && getFreezeMenuTargetCount(context) === 1);
+
+const shouldShowFreezeMultipleNodes = (context: unknown) =>
+  canFreezeMultipleNodes(context) || (isFreezeDisabled(context) && getFreezeMenuTargetCount(context) > 1);
 
 const canUnfreezeOneNode = (context: unknown) => getUnfreezeNodeTargetCount(context) === 1;
 
@@ -177,14 +203,18 @@ export function useContextMenuConfiguration() {
                 id: 'node-freeze',
                 label: 'Freeze node output',
                 icon: SnowflakeIcon,
-                conditional: canFreezeOneNode,
+                conditional: shouldShowFreezeOneNode,
+                disabled: isFreezeDisabled,
+                disabledReason: getFreezeDisabledReason,
                 separatorBefore: true,
               },
               {
                 id: 'nodes-freeze',
                 label: 'Freeze node outputs',
                 icon: SnowflakeIcon,
-                conditional: canFreezeMultipleNodes,
+                conditional: shouldShowFreezeMultipleNodes,
+                disabled: isFreezeDisabled,
+                disabledReason: getFreezeDisabledReason,
                 separatorBefore: true,
               },
               {

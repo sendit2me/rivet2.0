@@ -106,11 +106,15 @@ export const CanvasBackgroundPatternLayer: FC<CanvasBackgroundPatternProps> = ({
     context.fillStyle = canvasPattern;
     context.fillRect(-offsetX, -offsetY, canvasWidth + tileSize, canvasHeight + tileSize);
     context.restore();
-  }, [canvasPosition, opacity, pattern, theme]);
+  }, [canvasPosition, opacity, pattern]);
 
   useEffect(() => {
     redrawRef.current = redraw;
   }, [redraw]);
+
+  useEffect(() => {
+    redrawRef.current();
+  }, [theme]);
 
   useEffect(() => {
     redraw();
