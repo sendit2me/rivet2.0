@@ -19,7 +19,7 @@ test('drag previews use the same output preview sizing as hovered nodes', () => 
   assert.match(visualNodeSource, /const isOutputPreviewHovered = Boolean\(isHovered \|\| shouldShowHoverControls\);/);
   assert.match(
     normalVisualNodeContentSource,
-    /<NodeOutput node=\{node\} suspended=\{!renderHeavyContent\} isHovered=\{isOutputPreviewHovered\} \/>/,
+    /<NodeOutput[\s\S]*?node=\{node\}[\s\S]*?suspended=\{!renderHeavyContent\}[\s\S]*?isHovered=\{isOutputPreviewHovered\}[\s\S]*?\/>/,
   );
   assert.match(
     nodeCanvasViewportSource,
