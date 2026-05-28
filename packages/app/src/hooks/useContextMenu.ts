@@ -83,13 +83,23 @@ type ContextMenuDomNode = {
   parentElement?: ContextMenuDomNode | null;
 };
 
+const MAX_CONTEXT_MENU_TARGET_ANCESTORS = 256;
+
 const isContextMenuDomNode = (target: unknown): target is ContextMenuDomNode =>
   target != null && typeof target === 'object' && ('dataset' in target || 'parentElement' in target);
 
 export const getContextMenuDataFromTarget = (target: EventTarget | null): ContextMenuData['data'] | null => {
   let element: ContextMenuDomNode | null = isContextMenuDomNode(target) ? target : null;
+  const visited = new Set<ContextMenuDomNode>();
+  let depth = 0;
 
   while (element && !element.dataset?.contextmenutype) {
+    if (visited.has(element) || depth >= MAX_CONTEXT_MENU_TARGET_ANCESTORS) {
+      return null;
+    }
+
+    visited.add(element);
+    depth += 1;
     element = element.parentElement ?? null;
   }
 

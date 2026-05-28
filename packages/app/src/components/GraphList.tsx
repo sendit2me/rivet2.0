@@ -568,6 +568,10 @@ export const GraphList: FC = memo(() => {
   }, [graph.metadata?.id, savedGraphs]);
 
   const handleGraphListMouseDown = useStableCallback((e: MouseEvent<HTMLDivElement>) => {
+    if (e.button !== 0) {
+      return;
+    }
+
     if (isInteractiveGraphListTarget(e.target)) {
       return;
     }
