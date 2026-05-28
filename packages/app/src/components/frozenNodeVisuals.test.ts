@@ -22,6 +22,7 @@ test('frozen node output visuals stay compact and canvas-scoped', () => {
     'utf8',
   );
   const nodeInlineOutputSource = readFileSync(join(componentsDir, 'nodeOutput', 'NodeInlineOutput.tsx'), 'utf8');
+  const contextMenuSource = readFileSync(join(componentsDir, 'ContextMenu.tsx'), 'utf8');
   const nodeStylesSource = readFileSync(join(componentsDir, 'nodeStyles.ts'), 'utf8');
   const contextMenuConfigurationSource = readFileSync(
     join(appSrcDir, 'hooks', 'useContextMenuConfiguration.ts'),
@@ -32,6 +33,11 @@ test('frozen node output visuals stay compact and canvas-scoped', () => {
   assert.equal([...snowflakeIconSource.matchAll(/<path\b/g)].length, 3);
   assert.match(contextMenuConfigurationSource, /label: 'Freeze node output'/);
   assert.match(contextMenuConfigurationSource, /label: 'Freeze node outputs'/);
+  assert.match(contextMenuConfigurationSource, /disabled: isFreezeDisabled/);
+  assert.match(contextMenuConfigurationSource, /disabledReason: getFreezeDisabledReason/);
+  assert.doesNotMatch(contextMenuSource, /padding-top: 0\.65em;/);
+  assert.doesNotMatch(contextMenuSource, /padding-bottom: 0\.65em;/);
+  assert.match(contextMenuSource, /margin-top: 0\.45em;/);
   assert.match(contextMenuConfigurationSource, /label: 'Unfreeze node output'/);
   assert.match(contextMenuConfigurationSource, /label: 'Unfreeze node outputs'/);
   assert.doesNotMatch(normalVisualNodeContentSource, /frozen-node-indicator/);

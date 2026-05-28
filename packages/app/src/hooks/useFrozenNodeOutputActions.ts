@@ -23,7 +23,7 @@ export function useFrozenNodeOutputActions() {
   const freezeNode = useStableCallback((graphId: GraphId, nodeId: NodeId, nodeType: ChartNode['type']): boolean => {
     try {
       if (!canNodeTypeBeFrozen(nodeType)) {
-        toast.error('This node type cannot be frozen.');
+        toast.error('This node type cannot be frozen');
         return false;
       }
 

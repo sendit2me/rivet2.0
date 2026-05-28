@@ -160,6 +160,8 @@ test('getNodeCanvasContextMenuContext hydrates node context data from the DOM ta
         canFreeze: false,
         canUnfreeze: false,
         freezeNodeTargets: [],
+        freezeMenuTargetCount: 1,
+        freezeDisabledReason: undefined,
         unfreezeNodeIds: [],
         isFrozen: false,
       },
@@ -191,6 +193,8 @@ test('getNodeCanvasContextMenuContext enables Freeze for nodes with retained suc
   assert.equal(context.data.canFreeze, true);
   assert.equal(context.data.canUnfreeze, false);
   assert.deepEqual(context.data.freezeNodeTargets, [{ nodeId, nodeType: 'text' }]);
+  assert.equal(context.data.freezeMenuTargetCount, 1);
+  assert.equal(context.data.freezeDisabledReason, undefined);
   assert.deepEqual(context.data.unfreezeNodeIds, []);
   assert.equal(context.data.isFrozen, false);
 });
@@ -255,6 +259,8 @@ test('getNodeCanvasContextMenuContext bulk-freezes only selected nodes with reta
 
   assert.equal(context.type, 'node');
   assert.equal(context.data.canFreeze, true);
+  assert.equal(context.data.freezeMenuTargetCount, 4);
+  assert.equal(context.data.freezeDisabledReason, undefined);
   assert.deepEqual(context.data.freezeNodeTargets, [
     { nodeId, nodeType: 'text' },
     { nodeId: secondNodeId, nodeType: 'text' },
@@ -303,6 +309,8 @@ test('getNodeCanvasContextMenuContext ignores the selection when right-clicking 
 
   assert.equal(context.type, 'node');
   assert.deepEqual(context.data.freezeNodeTargets, [{ nodeId, nodeType: 'text' }]);
+  assert.equal(context.data.freezeMenuTargetCount, 1);
+  assert.equal(context.data.freezeDisabledReason, undefined);
 });
 
 test('canNodeTypeBeFrozen blocks non-replayable node categories', () => {
@@ -346,6 +354,8 @@ test('getNodeCanvasContextMenuContext disables Freeze for Graph Output nodes wit
   assert.equal(context.data.canFreeze, false);
   assert.equal(context.data.canUnfreeze, false);
   assert.deepEqual(context.data.freezeNodeTargets, []);
+  assert.equal(context.data.freezeMenuTargetCount, 1);
+  assert.equal(context.data.freezeDisabledReason, 'This node type cannot be frozen');
   assert.deepEqual(context.data.unfreezeNodeIds, []);
 });
 
@@ -368,6 +378,8 @@ test('getNodeCanvasContextMenuContext enables Unfreeze for frozen nodes', () => 
   assert.equal(context.data.canFreeze, false);
   assert.equal(context.data.canUnfreeze, true);
   assert.deepEqual(context.data.freezeNodeTargets, []);
+  assert.equal(context.data.freezeMenuTargetCount, 1);
+  assert.equal(context.data.freezeDisabledReason, undefined);
   assert.deepEqual(context.data.unfreezeNodeIds, [nodeId]);
   assert.equal(context.data.isFrozen, true);
 });
@@ -401,6 +413,8 @@ test('getNodeCanvasContextMenuContext bulk-unfreezes frozen selected nodes only'
 
   assert.equal(context.type, 'node');
   assert.equal(context.data.canUnfreeze, true);
+  assert.equal(context.data.freezeMenuTargetCount, 4);
+  assert.equal(context.data.freezeDisabledReason, undefined);
   assert.deepEqual(context.data.unfreezeNodeIds, [nodeId, secondNodeId, staleGraphOutputNodeId]);
 });
 
@@ -423,6 +437,8 @@ test('getNodeCanvasContextMenuContext keeps Unfreeze available for stale frozen 
   assert.equal(context.data.canFreeze, false);
   assert.equal(context.data.canUnfreeze, true);
   assert.deepEqual(context.data.freezeNodeTargets, []);
+  assert.equal(context.data.freezeMenuTargetCount, 1);
+  assert.equal(context.data.freezeDisabledReason, undefined);
   assert.deepEqual(context.data.unfreezeNodeIds, [nodeId]);
   assert.equal(context.data.isFrozen, true);
 });
@@ -432,6 +448,7 @@ test('getNodeCanvasContextMenuContext disables Freeze and Unfreeze outside norma
     ...contextModelOptions,
     canUseFrozenNodes: false,
     contextMenuData: makeContextMenuData('node-text'),
+    freezeUnavailableReason: 'Freeze node output is unavailable while the Remote Debugger is active.',
     frozenNodeOutputs: {
       [graphId]: {
         [nodeId]: [
@@ -461,8 +478,39 @@ test('getNodeCanvasContextMenuContext disables Freeze and Unfreeze outside norma
   assert.equal(context.data.canFreeze, false);
   assert.equal(context.data.canUnfreeze, false);
   assert.deepEqual(context.data.freezeNodeTargets, []);
+  assert.equal(context.data.freezeMenuTargetCount, 1);
+  assert.equal(context.data.freezeDisabledReason, undefined);
   assert.deepEqual(context.data.unfreezeNodeIds, []);
   assert.equal(context.data.isFrozen, true);
+});
+
+test('getNodeCanvasContextMenuContext keeps disabled Freeze visible for mode blockers when output can be frozen', () => {
+  const context = getNodeCanvasContextMenuContext({
+    ...contextModelOptions,
+    canUseFrozenNodes: false,
+    contextMenuData: makeContextMenuData('node-text'),
+    freezeUnavailableReason: 'Freeze node output is unavailable while the Remote Debugger is active.',
+    lastRunPerNode: {
+      [nodeId]: [
+        {
+          graphId,
+          processId: 'process-1' as any,
+          data: {
+            status: { type: 'ok' },
+            outputData: {
+              output: { type: 'string', storage: 'inline', value: 'saved output' },
+            },
+          },
+        },
+      ],
+    } as any,
+  });
+
+  assert.equal(context.type, 'node');
+  assert.equal(context.data.canFreeze, false);
+  assert.deepEqual(context.data.freezeNodeTargets, []);
+  assert.equal(context.data.freezeMenuTargetCount, 1);
+  assert.equal(context.data.freezeDisabledReason, 'Freeze node output is unavailable while the Remote Debugger is active.');
 });
 
 test('getNodeCanvasContextMenuContext ignores frozen preload boundaries when frozen nodes are disabled', () => {

@@ -27,6 +27,8 @@ To freeze a node output:
 2. Right-click the node on the canvas.
 3. Choose **Freeze node output**.
 
+If a node output has no retained successful run yet, the Freeze action is hidden until there is something to capture. If the output is already frozen, the menu shows **Unfreeze node output** instead. For other blockers, such as an unsupported node type or Remote Debugger/recording playback mode, the Freeze row stays visible but disabled and shows the reason below the label.
+
 Nodes with frozen output show a snowflake **Output is frozen** notice at the top of their successful output preview, and the output area is blue-tinted. During later editor runs, Rivet skips the node's normal implementation and sends the captured output to downstream nodes. To return the node to normal execution, right-click it and choose **Unfreeze node output**.
 
 You can also freeze or unfreeze several selected nodes at once. Right-click any node in the selection and choose **Freeze node outputs** or **Unfreeze node outputs**. Bulk actions use the same rules as freezing one node: Rivet only applies the action to selected nodes that support freezing and currently have a retained successful output, and skips selected nodes that do not.
