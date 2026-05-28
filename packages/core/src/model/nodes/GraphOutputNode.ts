@@ -103,6 +103,7 @@ export class GraphOutputNodeImpl extends NodeImpl<GraphOutputNode> {
         type: 'string',
         label: 'ID',
         dataKey: 'id',
+        commitDebounceMs: 300,
       },
       {
         type: 'dataTypeSelector',
