@@ -184,6 +184,10 @@ code {
   color: var(--primary-text);
 }
 
+.monaco-editor .rivet-editor-js-style-comment {
+  color: #6a9955;
+}
+
 .atlaskit-portal-container {
   position: absolute;
   left: 0;

@@ -1,8 +1,8 @@
 
-- In text editor, highlight the JS comments
+- When I'm renaming the already connected graph's output, it is being renamed slowly letter by letter. Maybe because on each change in the name field there's a lot of actions happening? Maybe let's just debounce the rename action?
 
-- When renaming the already connected graph's output, it is being renamed slowly letter by letter. Maybe because on each change in the name field there's a lot of actions happening? Maybe let's just debounce the rename action?
 
+- Node settings panel with text/code editor sometimes is loading fro 5 seconds
 
 
 - Change the IF port so it doesn't take up spane in the node's header and so it looks like a very special input port

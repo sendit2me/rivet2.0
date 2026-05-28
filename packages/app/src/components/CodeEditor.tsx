@@ -6,6 +6,8 @@ import { DEFAULT_MONACO_THEME } from './codeEditorTheme.js';
 import { useIsNodeEditorResizing } from './nodeEditor/NodeEditorResizeContext.js';
 import { installEditorInterpolationSupport } from '../utils/monaco/interpolationEditorSupport.js';
 import { type EditorInterpolationSyntax } from '../utils/monaco/interpolationDiagnostics.js';
+import { installJsStyleCommentHighlighting } from '../utils/monaco/commentHighlighting.js';
+import { shouldHighlightJsStyleComments } from '../utils/monaco/commentRangeScanner.js';
 
 export const CodeEditor: FC<{
   text: string;
@@ -85,6 +87,9 @@ export const CodeEditor: FC<{
     editor.layout();
     const interpolationSupport =
       interpolationSyntax != null ? installEditorInterpolationSupport(editor, interpolationSyntax) : undefined;
+    const commentHighlightingSupport = shouldHighlightJsStyleComments(language)
+      ? installJsStyleCommentHighlighting(editor)
+      : undefined;
 
     const onResize = () => {
       // Resizing the node settings panel can emit a dense stream of ResizeObserver
@@ -123,6 +128,7 @@ export const CodeEditor: FC<{
       }
       resizeObserver?.disconnect();
       interpolationSupport?.dispose();
+      commentHighlightingSupport?.dispose();
       editor.dispose();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
