@@ -37,7 +37,9 @@ test('frozen node output visuals stay compact and canvas-scoped', () => {
   assert.match(contextMenuConfigurationSource, /disabledReason: getFreezeDisabledReason/);
   assert.doesNotMatch(contextMenuSource, /padding-top: 0\.65em;/);
   assert.doesNotMatch(contextMenuSource, /padding-bottom: 0\.65em;/);
-  assert.match(contextMenuSource, /margin-top: 0\.45em;/);
+  assert.match(contextMenuSource, /padding-block: calc\(\(2\.8em - 1\.2em\) \/ 2\);/);
+  assert.match(contextMenuSource, /className=\{clsx\('label-area', \{ 'has-sublabel': subLabel \}\)\}/);
+  assert.match(contextMenuSource, /margin-top: 0\.55em;/);
   assert.match(contextMenuConfigurationSource, /label: 'Unfreeze node output'/);
   assert.match(contextMenuConfigurationSource, /label: 'Unfreeze node outputs'/);
   assert.doesNotMatch(normalVisualNodeContentSource, /frozen-node-indicator/);

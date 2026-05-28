@@ -384,11 +384,15 @@ export const ContextMenuItemDiv = styled.div<{
     ${popupMenuLabelStyles};
   }
 
+  .label-area.has-sublabel {
+    padding-block: calc((2.8em - 1.2em) / 2);
+  }
+
   .sublabel {
     font-size: var(--ui-font-size-sm);
     color: var(--grey-lightish);
     line-height: 1.25;
-    margin-top: 0.45em;
+    margin-top: 0.55em;
     max-width: calc(280px * var(--ui-font-scale));
     white-space: normal;
   }
@@ -548,7 +552,7 @@ export const ContextMenuItem: FC<ContextMenuItemProps> = ({
       ref={mainRef}
       className={clsx({ active: active && !isDisabled, disabled: isDisabled })}
     >
-      <div className="label-area">
+      <div className={clsx('label-area', { 'has-sublabel': subLabel })}>
         <div className="label">
           {config.icon && <config.icon />}
           <span className="context-menu-label-text">{config.label}</span>

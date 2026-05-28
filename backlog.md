@@ -1,6 +1,6 @@
 
 
-- When clicking the graph tree with right mouse button, it still crashes the editor sometimes
+
 
 
 - Change the IF port so it doesn't take up spane in the node's header and so it looks like a very special input port
