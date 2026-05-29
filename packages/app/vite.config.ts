@@ -9,6 +9,19 @@ import { resolve } from 'node:path';
 import { visualizer } from 'rollup-plugin-visualizer';
 
 const analyzeBundle = process.env.RIVET_BUNDLE_ANALYZE === 'true';
+const tauriApiOptimizeDepsExcludes = [
+  '@tauri-apps/api',
+  '@tauri-apps/api/app',
+  '@tauri-apps/api/dialog',
+  '@tauri-apps/api/fs',
+  '@tauri-apps/api/globalShortcut',
+  '@tauri-apps/api/http',
+  '@tauri-apps/api/path',
+  '@tauri-apps/api/process',
+  '@tauri-apps/api/shell',
+  '@tauri-apps/api/tauri',
+  '@tauri-apps/api/window',
+];
 
 const reactDevTools = (): PluginOption => {
   return {
@@ -34,7 +47,7 @@ const reactDevTools = (): PluginOption => {
 // https://vitejs.dev/config/
 export default defineConfig({
   optimizeDeps: {
-    exclude: ['@valerypopoff/rivet2-core', '@valerypopoff/trivet'],
+    exclude: ['@valerypopoff/rivet2-core', '@valerypopoff/trivet', ...tauriApiOptimizeDepsExcludes],
   },
   resolve: {
     preserveSymlinks: true,

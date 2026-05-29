@@ -1,7 +1,10 @@
 
 
 
+- Add "Collapse all" and "Unfold all" actions in the graph tree
 
+
+- When I need to gather a lot of inputs into one node, it looks messy and it's easy to look over some connections. like in the "setGlobals" graph. We need to do something about this UX. maybe introduce a "Group" node that will contain many same type nodes and combine their outputs into one so I can later pipe it into just one node and be sur ethat all the nodes are connected?
 
 - Change the IF port so it doesn't take up spane in the node's header and so it looks like a very special input port
 

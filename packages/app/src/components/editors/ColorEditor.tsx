@@ -1,7 +1,7 @@
 import { Field, HelperMessage } from '@atlaskit/form';
 import { type ChartNode, type ColorEditorDefinition } from '@valerypopoff/rivet2-core';
-import { type FC, Suspense } from 'react';
-import { LazyTripleBarColorPicker } from '../LazyComponents';
+import { type FC } from 'react';
+import { TripleBarColorPicker } from '../TripleBarColorPicker';
 import { type SharedEditorProps } from './SharedEditorProps';
 import { getHelperMessage } from './editorUtils';
 
@@ -25,28 +25,26 @@ export const DefaultColorEditor: FC<
   };
 
   return (
-    <Suspense fallback={<div />}>
-      <Field name={editor.dataKey} label={editor.label}>
-        {() => (
-          <>
-            {helperMessage && <HelperMessage>{helperMessage}</HelperMessage>}
-            <div className="node-editor-color-picker">
-              <LazyTripleBarColorPicker
-                color={{ r, g, b, a }}
-                onChange={(newColor) => {
-                  onChange({
-                    ...node,
-                    data: {
-                      ...data,
-                      [editor.dataKey]: `rgba(${newColor.rgb.r},${newColor.rgb.g},${newColor.rgb.b},${newColor.rgb.a})`,
-                    },
-                  });
-                }}
-              />
-            </div>
-          </>
-        )}
-      </Field>
-    </Suspense>
+    <Field name={editor.dataKey} label={editor.label}>
+      {() => (
+        <>
+          {helperMessage && <HelperMessage>{helperMessage}</HelperMessage>}
+          <div className="node-editor-color-picker">
+            <TripleBarColorPicker
+              color={{ r, g, b, a }}
+              onChange={(newColor) => {
+                onChange({
+                  ...node,
+                  data: {
+                    ...data,
+                    [editor.dataKey]: `rgba(${newColor.rgb.r},${newColor.rgb.g},${newColor.rgb.b},${newColor.rgb.a})`,
+                  },
+                });
+              }}
+            />
+          </div>
+        </>
+      )}
+    </Field>
   );
 };

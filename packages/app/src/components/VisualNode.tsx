@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { type CSSProperties, type FC, type HTMLAttributes, type MouseEvent, forwardRef, memo, useMemo } from 'react';
+import { type CSSProperties, type HTMLAttributes, type MouseEvent, forwardRef, memo, useMemo } from 'react';
 import { type ChartNode, type CommentNode, type NodeConnection } from '@valerypopoff/rivet2-core';
 import { useAtomValue } from 'jotai';
 import { useDependsOnPlugins } from '../hooks/useDependsOnPlugins';
@@ -16,6 +16,8 @@ import { getCanvasCommentHeight } from '../hooks/canvasVisibilityBounds.js';
 import { useDelayedRunningState } from './visualNode/NodeRunningIndicator.js';
 import { graphMetadataState } from '../state/graph.js';
 import { useExecutorSessionState } from '../hooks/useExecutorSession.js';
+import { getMissingStaticSetGlobalWarning } from '../domain/graphEditing/globalVariables.js';
+import { enabledStaticGlobalVariableIdsState } from '../state/selectors/globalVariables.js';
 
 export type VisualNodeProps = {
   node: ChartNode;
@@ -38,8 +40,12 @@ export type VisualNodeProps = {
   handleAttributes?: HTMLAttributes<HTMLDivElement>;
 };
 
-export const VisualNode = memo(
-  forwardRef<HTMLDivElement, VisualNodeProps>(
+type VisualNodeImplProps = VisualNodeProps & {
+  headerWarning?: string;
+};
+
+const VisualNodeImpl = memo(
+  forwardRef<HTMLDivElement, VisualNodeImplProps>(
     (
       {
         node,
@@ -60,6 +66,7 @@ export const VisualNode = memo(
         processPage,
         renderHeavyContent,
         renderSkeleton,
+        headerWarning,
       },
       ref,
     ) => {
@@ -159,6 +166,7 @@ export const VisualNode = memo(
               frozen: isFrozen,
               disabled: node.disabled,
               conditional: !!node.isConditional,
+              hasHeaderWarning: Boolean(headerWarning),
             },
             changedClass,
           )}
@@ -188,6 +196,7 @@ export const VisualNode = memo(
               isKnownNodeType={isKnownNodeType}
               isReallyZoomedOut={effectiveIsReallyZoomedOut}
               showRunningIndicator={showRunningChrome}
+              headerWarning={headerWarning}
             />
           ) : (
             <NormalVisualNodeContent
@@ -202,6 +211,7 @@ export const VisualNode = memo(
               showRunningIndicator={showRunningChrome}
               renderHeavyContent={renderHeavyContent}
               minimumNodeWidth={minimumNodeWidth}
+              headerWarning={headerWarning}
             />
           )}
           <div className="node-border-overlay" aria-hidden="true" />
@@ -209,4 +219,23 @@ export const VisualNode = memo(
       );
     },
   ),
+);
+
+const GetGlobalVisualNode = memo(
+  forwardRef<HTMLDivElement, VisualNodeProps>((props, ref) => {
+    const enabledStaticGlobalVariableIds = useAtomValue(enabledStaticGlobalVariableIdsState);
+    const headerWarning = getMissingStaticSetGlobalWarning(props.node, enabledStaticGlobalVariableIds);
+
+    return <VisualNodeImpl {...props} ref={ref} headerWarning={headerWarning} />;
+  }),
+);
+
+export const VisualNode = memo(
+  forwardRef<HTMLDivElement, VisualNodeProps>((props, ref) => {
+    if (props.node.type === 'getGlobal') {
+      return <GetGlobalVisualNode {...props} ref={ref} />;
+    }
+
+    return <VisualNodeImpl {...props} ref={ref} />;
+  }),
 );

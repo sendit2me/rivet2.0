@@ -243,6 +243,10 @@ export const nodeStyles = css`
     padding-right: calc(66px * var(--ui-font-scale));
   }
 
+  .node.hasHeaderWarning:not(.isComment) .grab-area {
+    padding-right: calc(108px * var(--ui-font-scale));
+  }
+
   .split-run-mode-icon {
     flex: 0 0 auto;
     width: calc(16px * var(--ui-font-scale));
@@ -420,7 +424,8 @@ export const nodeStyles = css`
     pointer-events: none;
 
     .changed-button,
-    .edit-button {
+    .edit-button,
+    .node-header-warning {
       background-color: transparent;
       border: none;
       color: var(--node-bg-foreground);
@@ -441,6 +446,12 @@ export const nodeStyles = css`
       }
     }
 
+    .node-header-warning {
+      cursor: help;
+      pointer-events: auto;
+      width: calc(20px * var(--ui-font-scale));
+    }
+
     .changed-button:hover,
     .edit-button:hover {
       color: var(--primary-text);
@@ -454,6 +465,17 @@ export const nodeStyles = css`
     right: 6px;
     top: 14px;
     z-index: 4;
+  }
+
+  .node.hasHeaderWarning:not(.isComment) .title-controls {
+    gap: calc(3px * var(--ui-font-scale));
+    min-width: calc(66px * var(--ui-font-scale));
+    width: max-content;
+  }
+
+  .node.hasHeaderWarning:not(.isComment):not(:hover):not(.hovered):not(.showHoverControls):not(:focus-within)
+    .title-controls {
+    right: calc(11px * var(--ui-font-scale));
   }
 
   .title-controls .node-running-indicator {
@@ -472,6 +494,12 @@ export const nodeStyles = css`
   .title-controls .tooltip {
     display: flex;
     align-items: center;
+  }
+
+  .title-controls .node-header-warning-tooltip {
+    position: static;
+    opacity: 1;
+    pointer-events: auto;
   }
 
   .title-controls .edit-button-tooltip,

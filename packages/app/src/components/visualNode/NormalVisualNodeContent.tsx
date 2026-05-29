@@ -38,6 +38,7 @@ import {
 } from '../../utils/nodeResize.js';
 import { getCanvasCommentHeight, getCanvasNodeWidth } from '../../hooks/canvasVisibilityBounds.js';
 import { getBoxResizeCursor } from '../../utils/resizeCursors.js';
+import { NodeHeaderWarningIcon } from './NodeHeaderWarningIcon.js';
 
 export const NormalVisualNodeContent: FC<{
   heightCache: HeightCache;
@@ -51,6 +52,7 @@ export const NormalVisualNodeContent: FC<{
   showRunningIndicator: boolean;
   renderHeavyContent: boolean;
   minimumNodeWidth: number;
+  headerWarning?: string;
 }> = memo(
   ({
     heightCache,
@@ -64,6 +66,7 @@ export const NormalVisualNodeContent: FC<{
     showRunningIndicator,
     renderHeavyContent,
     minimumNodeWidth,
+    headerWarning,
   }) => {
     useDependsOnPlugins();
     const { draggingWire, closestPortToDraggingWire } = useCanvasViewContext();
@@ -308,6 +311,13 @@ export const NormalVisualNodeContent: FC<{
               </button>
             )}
             <NodeRunningIndicator isRunning={showRunningIndicator} delayMs={0} />
+            {headerWarning && (
+              <Tooltip className="node-header-warning-tooltip" content={headerWarning} tag="span" wrap width={260}>
+                <span className="node-header-warning" role="img" aria-label={headerWarning}>
+                  <NodeHeaderWarningIcon />
+                </span>
+              </Tooltip>
+            )}
             <Tooltip className="edit-button-tooltip" content="Edit Node">
               <button
                 type="button"

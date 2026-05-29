@@ -3,8 +3,6 @@ import { useMultilineEditorFontSize } from '../hooks/useMultilineEditorFontSize.
 import { useIsNodeEditorResizing } from './nodeEditor/NodeEditorResizeContext.js';
 import type { CodeEditorProps } from './CodeEditor.js';
 
-export const LazyTripleBarColorPicker = lazy(() => import('./TripleBarColorPicker'));
-
 type CodeEditorModule = {
   default: FC<CodeEditorProps>;
   CodeEditor: FC<CodeEditorProps>;

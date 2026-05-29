@@ -14,6 +14,7 @@ import { SplitRunSummary } from './SplitRunSummary.js';
 import { NodeRunningIndicator } from './NodeRunningIndicator.js';
 import { NodeTitleLabel } from './NodeTitleLabel.js';
 import { Tooltip } from '../Tooltip.js';
+import { NodeHeaderWarningIcon } from './NodeHeaderWarningIcon.js';
 
 export const ZoomedOutVisualNodeContent: FC<{
   node: ChartNode;
@@ -22,6 +23,7 @@ export const ZoomedOutVisualNodeContent: FC<{
   isKnownNodeType: boolean;
   isReallyZoomedOut: boolean;
   showRunningIndicator: boolean;
+  headerWarning?: string;
 }> = memo(
   ({
     node,
@@ -30,6 +32,7 @@ export const ZoomedOutVisualNodeContent: FC<{
     isKnownNodeType,
     isReallyZoomedOut,
     showRunningIndicator,
+    headerWarning,
   }) => {
     useDependsOnPlugins();
     const { draggingWire, closestPortToDraggingWire } = useCanvasViewContext();
@@ -94,6 +97,13 @@ export const ZoomedOutVisualNodeContent: FC<{
           {!isReallyZoomedOut && (
             <div className="title-controls">
               <NodeRunningIndicator isRunning={showRunningIndicator} delayMs={0} />
+              {headerWarning && (
+                <Tooltip className="node-header-warning-tooltip" content={headerWarning} tag="span" wrap width={260}>
+                  <span className="node-header-warning" role="img" aria-label={headerWarning}>
+                    <NodeHeaderWarningIcon />
+                  </span>
+                </Tooltip>
+              )}
               <button
                 type="button"
                 className="edit-button"

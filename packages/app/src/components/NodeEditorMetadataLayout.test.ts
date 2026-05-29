@@ -65,6 +65,30 @@ test('node code editor is preloaded before settings need it', () => {
   assert.match(graphBuilderSource, /warmCodeEditor\(\);\s+setEditingNodeId\(node\.id\);/);
 });
 
+test('node color picker is not split into a fragile dev lazy module', () => {
+  const lazyComponentsSource = readFileSync(join(componentsDir, 'LazyComponents.tsx'), 'utf8');
+  const colorEditorSource = readFileSync(join(componentsDir, 'editors', 'ColorEditor.tsx'), 'utf8');
+
+  assert.doesNotMatch(lazyComponentsSource, /TripleBarColorPicker/);
+  assert.match(colorEditorSource, /import \{ TripleBarColorPicker \} from '\.\.\/TripleBarColorPicker';/);
+  assert.doesNotMatch(colorEditorSource, /LazyTripleBarColorPicker|Suspense/);
+});
+
+test('get global warning state stays scoped to get global canvas nodes', () => {
+  const visualNodeSource = readFileSync(join(componentsDir, 'VisualNode.tsx'), 'utf8');
+  const visualNodeImplSource = visualNodeSource.slice(
+    visualNodeSource.indexOf('const VisualNodeImpl = memo('),
+    visualNodeSource.indexOf('const GetGlobalVisualNode = memo('),
+  );
+  const getGlobalVisualNodeSource = visualNodeSource.slice(visualNodeSource.indexOf('const GetGlobalVisualNode = memo('));
+
+  assert.match(visualNodeSource, /const VisualNodeImpl = memo\(/);
+  assert.match(visualNodeSource, /const GetGlobalVisualNode = memo\(/);
+  assert.match(visualNodeSource, /props\.node\.type === 'getGlobal'/);
+  assert.match(getGlobalVisualNodeSource, /enabledStaticGlobalVariableIdsState/);
+  assert.doesNotMatch(visualNodeImplSource, /enabledStaticGlobalVariableIdsState/);
+});
+
 test('node code editor uses project-scoped Monaco model caching', () => {
   const codeEditorSource = readFileSync(join(componentsDir, 'editors', 'CodeEditor.tsx'), 'utf8');
   const lazyCodeEditorSource = readFileSync(join(componentsDir, 'CodeEditor.tsx'), 'utf8');
