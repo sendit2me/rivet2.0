@@ -17,6 +17,11 @@ type MultilineEditorFontSizeKeyEvent = Pick<KeyboardEvent, 'key' | 'code' | 'ctr
   stopPropagation(): void;
 };
 
+type MultilineEditorFontSizeWheelEvent = Pick<WheelEvent, 'deltaY' | 'ctrlKey' | 'metaKey' | 'altKey'> & {
+  preventDefault(): void;
+  stopPropagation(): void;
+};
+
 export type CodeEditorProps = {
   text: string;
   isReadonly?: boolean;
@@ -36,6 +41,7 @@ export type CodeEditorProps = {
   };
   fontSize?: number;
   onFontSizeKeyDown?: (event: MultilineEditorFontSizeKeyEvent) => boolean;
+  onFontSizeWheel?: (event: MultilineEditorFontSizeWheelEvent) => boolean;
   isNodeEditorResizing?: boolean;
   modelCacheKey?: string;
 };
@@ -56,6 +62,7 @@ export const CodeEditor: FC<CodeEditorProps> = ({
   errorLineHighlight,
   fontSize = DEFAULT_MULTILINE_EDITOR_FONT_SIZE,
   onFontSizeKeyDown,
+  onFontSizeWheel,
   isNodeEditorResizing = false,
   modelCacheKey,
 }) => {
@@ -185,6 +192,24 @@ export const CodeEditor: FC<CodeEditorProps> = ({
       dispose.dispose();
     };
   }, [onFontSizeKeyDown, onKeyDown]);
+
+  useEffect(() => {
+    const container = editorContainer.current;
+
+    if (!container || !onFontSizeWheel) {
+      return undefined;
+    }
+
+    const handleWheel = (event: WheelEvent) => {
+      onFontSizeWheel(event);
+    };
+
+    container.addEventListener('wheel', handleWheel, { capture: true, passive: false });
+
+    return () => {
+      container.removeEventListener('wheel', handleWheel, true);
+    };
+  }, [onFontSizeWheel]);
 
   useEffect(() => {
     if (autoFocus) {

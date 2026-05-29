@@ -1,7 +1,9 @@
 
+- For the subgraph node, I want to allow changing the input and output ports order manually. Is it possible to implement it reliably without remembering the order in the project yaml file?
+
+- Need to show the curent graph name somewhere. When there's many and they are in the folders and you click through subgraphs, the user gets lost. It's already shown in the run button. maybe make it more noticeable?
 
 
-- In the node inputs list, allow changing their order manually. But when the amount of the inputs changes, the order can reset
 
 - Code editor: show a hint that Ctrl++ and Ctrl+- are working here. Also add Ctrl/Cmd+scroll to scale the font size
 
@@ -20,7 +22,6 @@
 
 - Now, the executor mode is global for all open projects (remote debugger, browser, node). Make it per tab
 
-- Need to show the curent graph name somewhere. When there's many and they are in the folders and you click through subgraphs, the user gets lost. It's already shown in the run button. maybe make it more noticeable?
 
 
 

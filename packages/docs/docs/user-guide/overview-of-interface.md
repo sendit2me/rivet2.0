@@ -84,6 +84,8 @@ Variants allow you to save slight differences to a node, and test them without l
 
 This area contains the editors for the currently selected node. The editor will change depending on the type of node you are editing. For example, the shown [Text Node](../node-reference/text) has a text editor, and the [LLM Chat Node](../node-reference/llm-chat) has provider, model, reasoning, response-format, tools, and technical-details sections.
 
+Text and code editors have their own font-size control, separate from the main app UI font size. When focus is inside one of these editors, press **Ctrl + +** or **Cmd + +** to make the editor text larger, **Ctrl + -** or **Cmd + -** to make it smaller, and **Ctrl + 0** or **Cmd + 0** to reset it. You can also hold **Ctrl** or **Cmd** and use the mouse wheel or trackpad scroll while the pointer is over the editor to scale the editor font.
+
 ## Workspaces
 
 The top app bar contains workspace tabs. Canvas is the normal graph-editing workspace. Other workspaces, such as Trivet Tests, Chat Viewer, and Data Studio, open full-screen workspace views. When no project is open, the top bar shows a Welcome screen tab so you can return to the centered welcome screen after opening a project-independent workspace. Run/debug controls are shown only while Canvas is active.

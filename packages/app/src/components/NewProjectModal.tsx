@@ -123,7 +123,11 @@ const BlankProjectTemplate: FC<{
 }> = ({ onCreated }) => {
   const [projectName, setProjectName] = useState<string>('');
   const [projectDescription, setProjectDescription] = useState<string>('');
-  const { fontSize, handleKeyDown: handleMultilineEditorFontSizeKeyDown } = useMultilineEditorFontSize();
+  const {
+    fontSize,
+    handleKeyDown: handleMultilineEditorFontSizeKeyDown,
+    handleWheel: handleMultilineEditorFontSizeWheel,
+  } = useMultilineEditorFontSize();
 
   const newProject = useNewProject();
 
@@ -172,6 +176,7 @@ const BlankProjectTemplate: FC<{
                   e.stopPropagation();
                 }
               }}
+              onWheel={(e) => handleMultilineEditorFontSizeWheel(e.nativeEvent)}
               style={{ fontSize }}
             />
           )}

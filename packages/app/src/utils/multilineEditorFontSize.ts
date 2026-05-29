@@ -5,7 +5,15 @@ export const MULTILINE_EDITOR_FONT_SIZE_STEP = 1;
 
 export type MultilineEditorFontSizeCommand = 'increase' | 'decrease' | 'reset';
 
-export type MultilineEditorFontSizeKeyEvent = Pick<KeyboardEvent, 'key' | 'code' | 'ctrlKey' | 'metaKey' | 'altKey'>;
+type MultilineEditorFontSizeModifierEvent = {
+  ctrlKey: boolean;
+  metaKey: boolean;
+  altKey: boolean;
+};
+
+export type MultilineEditorFontSizeKeyEvent = Pick<KeyboardEvent, 'key' | 'code'> &
+  MultilineEditorFontSizeModifierEvent;
+export type MultilineEditorFontSizeWheelEvent = Pick<WheelEvent, 'deltaY'> & MultilineEditorFontSizeModifierEvent;
 
 const MULTILINE_EDITOR_FONT_SIZE_SHORTCUTS: Record<
   MultilineEditorFontSizeCommand,
@@ -28,7 +36,7 @@ const MULTILINE_EDITOR_FONT_SIZE_SHORTCUTS: Record<
   },
 };
 
-function hasMultilineEditorFontSizeModifier(event: MultilineEditorFontSizeKeyEvent): boolean {
+function hasMultilineEditorFontSizeModifier(event: MultilineEditorFontSizeModifierEvent): boolean {
   return (event.ctrlKey || event.metaKey) && !event.altKey;
 }
 
@@ -70,4 +78,14 @@ export function getMultilineEditorFontSizeCommand(
   return (['increase', 'decrease', 'reset'] as const).find((command) =>
     matchesMultilineEditorFontSizeShortcut(event, command),
   );
+}
+
+export function getMultilineEditorFontSizeWheelCommand(
+  event: MultilineEditorFontSizeWheelEvent,
+): MultilineEditorFontSizeCommand | undefined {
+  if (!hasMultilineEditorFontSizeModifier(event) || event.deltaY === 0) {
+    return undefined;
+  }
+
+  return event.deltaY < 0 ? 'increase' : 'decrease';
 }

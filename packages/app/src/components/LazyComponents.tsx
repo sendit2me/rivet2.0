@@ -24,10 +24,17 @@ export function warmCodeEditor(): void {
 
 const LazyCodeEditorImpl = lazy(preloadCodeEditor);
 
-type LazyCodeEditorProps = Omit<CodeEditorProps, 'fontSize' | 'onFontSizeKeyDown' | 'isNodeEditorResizing'>;
+type LazyCodeEditorProps = Omit<
+  CodeEditorProps,
+  'fontSize' | 'onFontSizeKeyDown' | 'onFontSizeWheel' | 'isNodeEditorResizing'
+>;
 
 export const LazyCodeEditor: FC<LazyCodeEditorProps> = (props) => {
-  const { fontSize, handleKeyDown: handleFontSizeKeyDown } = useMultilineEditorFontSize();
+  const {
+    fontSize,
+    handleKeyDown: handleFontSizeKeyDown,
+    handleWheel: handleFontSizeWheel,
+  } = useMultilineEditorFontSize();
   const isNodeEditorResizing = useIsNodeEditorResizing();
 
   return (
@@ -35,6 +42,7 @@ export const LazyCodeEditor: FC<LazyCodeEditorProps> = (props) => {
       {...props}
       fontSize={fontSize}
       onFontSizeKeyDown={handleFontSizeKeyDown}
+      onFontSizeWheel={handleFontSizeWheel}
       isNodeEditorResizing={isNodeEditorResizing}
     />
   );
