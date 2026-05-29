@@ -1,17 +1,20 @@
 
 
-- When I need to gather a lot of inputs into one node, it looks messy and it's easy to look over some connections. like in the "setGlobals" graph. We need to do something about this UX. maybe introduce a "Group" node that will contain many same type nodes and combine their outputs into one so I can later pipe it into just one node and be sur ethat all the nodes are connected?
 
+- In the node inputs list, allow changing their order manually. But when the amount of the inputs changes, the order can reset
 
 - Code editor: show a hint that Ctrl++ and Ctrl+- are working here. Also add Ctrl/Cmd+scroll to scale the font size
 
+- When I need to gather a lot of inputs into one node, it looks messy and it's easy to look over some connections. like in the "setGlobals" graph. We need to do something about this UX. maybe introduce a "Group" node that will contain many same type nodes and combine their outputs into one so I can later pipe it into just one node and be sur ethat all the nodes are connected?
 
 
-- Reassess Ctrl+N window
 
 
 
-- In the node inputs list, allow changing their order manually. But when the amount of the inputs changes, the order can reset
+- Reassess templates for the Ctrl+N window
+
+
+
 
 
 

@@ -2,7 +2,7 @@ import { useEffect, useMemo } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { graphState } from '../state/graph';
 import { loadedProjectState, projectDataState, projectState, projectsState } from '../state/savedGraphs';
-import { addOpenedProject } from '../utils/openedProjects.js';
+import { addOpenedProject, resolveSyncedOpenedProjectFsPathOptions } from '../utils/openedProjects.js';
 
 export function useSyncCurrentStateIntoOpenedProjects({ enabled = true }: { enabled?: boolean } = {}) {
   const setProjects = useSetAtom(projectsState);
@@ -31,16 +31,20 @@ export function useSyncCurrentStateIntoOpenedProjects({ enabled = true }: { enab
     setProjects((previousProjects) => {
       const existingProject = previousProjects.openedProjects[currentProject.metadata.id];
       const nextOpenedGraph = currentGraph?.metadata?.id;
-      const nextFsPath = loadedProject.path ?? existingProject?.fsPath ?? null;
+      const fsPathOptions = resolveSyncedOpenedProjectFsPathOptions(
+        previousProjects,
+        currentProject.metadata.id,
+        loadedProject.path,
+      );
       const nextProjects = addOpenedProject(previousProjects, currentProjectWithData, {
-        ...(loadedProject.path ? { fsPath: loadedProject.path } : {}),
+        ...fsPathOptions,
         ...(nextOpenedGraph ? { openedGraph: nextOpenedGraph } : {}),
       });
       const nextProject = nextProjects.openedProjects[currentProject.metadata.id];
 
       if (
         existingProject?.title === currentProject.metadata.title &&
-        existingProject?.fsPath === nextFsPath &&
+        existingProject?.fsPath === nextProject?.fsPath &&
         existingProject?.openedGraph === nextOpenedGraph &&
         previousProjects.openedProjectsSortedIds.includes(currentProject.metadata.id)
       ) {

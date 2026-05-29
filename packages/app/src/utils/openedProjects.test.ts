@@ -1,7 +1,12 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { GraphId, Project, ProjectId } from '@valerypopoff/rivet2-core';
-import { addOpenedProject, moveOpenedProjectPaths, removeOpenedProject } from './openedProjects.js';
+import {
+  addOpenedProject,
+  moveOpenedProjectPaths,
+  removeOpenedProject,
+  resolveSyncedOpenedProjectFsPathOptions,
+} from './openedProjects.js';
 
 function makeProject(id: string, title: string): Project {
   return {
@@ -104,6 +109,118 @@ describe('openedProjects helpers', () => {
     assert.equal(result.openedProjects[project.metadata.id]?.title, 'Updated');
     assert.equal(result.openedProjects[project.metadata.id]?.fsPath, '/tmp/project-1.rivet-project');
     assert.equal(result.openedProjects[project.metadata.id]?.openedGraph, 'graph-2');
+  });
+
+  test('allows callers to explicitly clear an already-open project path', () => {
+    const project = makeProject('project-1', 'Existing');
+
+    const result = addOpenedProject(
+      {
+        openedProjects: {
+          [project.metadata.id]: {
+            projectId: project.metadata.id,
+            title: project.metadata.title,
+            fsPath: '/tmp/project-1.rivet-project',
+          },
+        },
+        openedProjectsSortedIds: [project.metadata.id],
+      },
+      project,
+      { fsPath: null },
+    );
+
+    assert.equal(result.openedProjects[project.metadata.id]?.fsPath, null);
+  });
+
+  test('does not sync a loaded project path that belongs to another open project', () => {
+    const existingProject = makeProject('project-1', 'Existing');
+    const nextProject = makeProject('project-2', 'Next');
+
+    const result = resolveSyncedOpenedProjectFsPathOptions(
+      {
+        openedProjects: {
+          [existingProject.metadata.id]: {
+            projectId: existingProject.metadata.id,
+            title: existingProject.metadata.title,
+            fsPath: '/tmp/existing.rivet-project',
+          },
+        },
+        openedProjectsSortedIds: [existingProject.metadata.id],
+      },
+      nextProject.metadata.id,
+      '/tmp/existing.rivet-project',
+    );
+
+    assert.deepEqual(result, {});
+  });
+
+  test('preserves an existing project path when a stale loaded path belongs to another open project', () => {
+    const previousProject = makeProject('project-1', 'Previous');
+    const nextProject = makeProject('project-2', 'Next');
+
+    const result = resolveSyncedOpenedProjectFsPathOptions(
+      {
+        openedProjects: {
+          [previousProject.metadata.id]: {
+            projectId: previousProject.metadata.id,
+            title: previousProject.metadata.title,
+            fsPath: '/tmp/previous.rivet-project',
+          },
+          [nextProject.metadata.id]: {
+            projectId: nextProject.metadata.id,
+            title: nextProject.metadata.title,
+            fsPath: '/tmp/next.rivet-project',
+          },
+        },
+        openedProjectsSortedIds: [previousProject.metadata.id, nextProject.metadata.id],
+      },
+      nextProject.metadata.id,
+      '/tmp/previous.rivet-project',
+    );
+
+    assert.deepEqual(result, {});
+  });
+
+  test('syncs a loaded project path when no other open project owns it', () => {
+    const project = makeProject('project-1', 'Existing');
+
+    const result = resolveSyncedOpenedProjectFsPathOptions(
+      {
+        openedProjects: {},
+        openedProjectsSortedIds: [],
+      },
+      project.metadata.id,
+      '/tmp/project-1.rivet-project',
+    );
+
+    assert.deepEqual(result, { fsPath: '/tmp/project-1.rivet-project' });
+  });
+
+  test('clears stale tab paths that are already owned by another open project', () => {
+    const existingProject = makeProject('project-1', 'Existing');
+    const nextProject = makeProject('project-2', 'Next');
+
+    const result = resolveSyncedOpenedProjectFsPathOptions(
+      {
+        openedProjects: {
+          [existingProject.metadata.id]: {
+            projectId: existingProject.metadata.id,
+            title: existingProject.metadata.title,
+            fsPath: '/tmp/existing.rivet-project',
+          },
+          [nextProject.metadata.id]: {
+            projectId: nextProject.metadata.id,
+            title: nextProject.metadata.title,
+            fsPath: '/tmp/existing.rivet-project',
+          },
+        },
+        openedProjectsSortedIds: [existingProject.metadata.id, nextProject.metadata.id],
+      },
+      nextProject.metadata.id,
+      null,
+    );
+
+    assert.deepEqual(result, { fsPath: null });
   });
 
   test('removes closed projects and prunes stale sorted ids', () => {
