@@ -15,7 +15,10 @@ test('graph tree panel keeps the compact text-list layout source contract', () =
   // Behavior such as context-menu targeting, folder presentation, reachability, and running state is covered in
   // graph-list helper tests.
   assert.match(graphListSource, /className="project-tree-panel-header"/);
-  assert.match(graphListSource, /background-color: var\(--black-seethrough\);/);
+  const panelHeaderStyles = graphListSource.match(/\.project-tree-panel-header \{(?<styles>[\s\S]*?)\n  \}/)
+    ?.groups?.styles;
+  assert.ok(panelHeaderStyles);
+  assert.doesNotMatch(panelHeaderStyles, /background(?:-color)?:/);
   assert.match(graphListSource, /className="project-tree-header"/);
   assert.doesNotMatch(graphListSource, /project-tree-header-tooltip|content={project\.metadata\.title}/);
   assert.doesNotMatch(graphListSource, /className="project-tree-header" title=/);
@@ -24,6 +27,9 @@ test('graph tree panel keeps the compact text-list layout source contract', () =
   assert.match(graphListSource, /setGraphSearch\(openOrFocusGraphSearchState\)/);
   assert.match(graphListSource, /<span>Search<\/span>[\s\S]*<span>Project settings<\/span>/);
   assert.match(graphListSource, /className="graph-list-action"/);
+  assert.match(graphListSource, /color: var\(--grey-lightest\);/);
+  assert.match(graphListSource, /className="graph-list-heading">Graphs<\/div>/);
+  assert.match(graphListSource, /\.graph-list-heading \{[\s\S]*color: color-mix\(in srgb, var\(--grey-light\) 64%, transparent\);/);
   assert.match(graphListSource, /<span>Project settings<\/span>/);
   assert.match(graphListSource, /className="graph-list-filter"/);
   assert.match(graphListSource, /aria-label="Filter graphs"/);

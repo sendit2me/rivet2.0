@@ -23,6 +23,9 @@ import { useSyncCurrentStateIntoOpenedProjects } from '../hooks/useSyncCurrentSt
 import { type SyntheticListenerMap } from '@dnd-kit/core/dist/hooks/utilities';
 import { SortableContext, horizontalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { isInTauri } from '../utils/tauri.js';
+import { isWindowsPlatform } from '../utils/platform/os.js';
+import { getAppWindowHandle } from '../utils/platform/window.js';
+import { type NativeWindowHandle } from '../utils/platform/core.js';
 import { useRunMenuCommand } from '../hooks/useMenuCommands.js';
 import { useRivetWorkspaceHost } from '../hooks/useRivetWorkspaceHost.js';
 import { OverlayTabs } from './OverlayTabs.js';
@@ -49,26 +52,43 @@ export const styles = css`
   z-index: 250;
 
   background: var(--grey-darkerish);
-  border-bottom: 1px solid var(--grey);
 
   display: flex;
   align-items: stretch;
 
   --top-bar-left-controls-width: calc(var(--project-selector-height) * 3);
 
+  &::after {
+    background: var(--grey);
+    bottom: 0;
+    content: '';
+    height: 1px;
+    left: 0;
+    pointer-events: none;
+    position: absolute;
+    right: 0;
+    z-index: 2;
+  }
+
+  > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  &.graph-tree-open::after {
+    left: var(--left-sidebar-width);
+  }
+
   .sidebar-toggle-menu,
   .graph-history-menu,
   .file-menu {
     align-items: stretch;
     background: var(--grey-darkerish);
-    border-bottom: 1px solid var(--grey);
-    border-right: 1px solid var(--grey-darkest);
     color: var(--grey-light);
     display: flex;
     flex: 0 0 auto;
     position: relative;
-    height: calc(100% + 1px);
-    margin-bottom: -1px;
+    height: 100%;
   }
 
   .sidebar-toggle-menu {
@@ -111,6 +131,8 @@ export const styles = css`
   }
 
   .file-menu {
+    border-left: 1px solid var(--grey-darkest);
+    border-right: 1px solid var(--grey-darkest);
     min-width: 64px;
   }
 
@@ -170,15 +192,24 @@ export const styles = css`
 
   .sidebar-panel-spacer {
     background: var(--grey-darkerish);
-    border-bottom: 1px solid var(--grey);
     flex: 0 0 max(0px, calc(var(--left-sidebar-width) - var(--top-bar-left-controls-width)));
-    height: calc(100% + 1px);
-    margin-bottom: -1px;
+    height: 100%;
     min-width: 0;
   }
 
-  .sidebar-panel-spacer.no-left-controls {
-    flex-basis: var(--left-sidebar-width);
+  &.graph-tree-open .sidebar-toggle-menu,
+  &.graph-tree-open .graph-history-menu,
+  &.graph-tree-open .sidebar-panel-spacer {
+    background: var(--grey-dark-bluish-seethrough);
+  }
+
+  &.graph-tree-open .sidebar-toggle-menu:hover,
+  &.graph-tree-open .graph-history-menu:hover {
+    background: var(--grey-darkish);
+  }
+
+  &.graph-tree-open .graph-history-menu.disabled:hover {
+    background: var(--grey-dark-bluish-seethrough);
   }
 
   .file-dropdown {
@@ -217,13 +248,30 @@ export const styles = css`
     flex: 0 0 auto;
   }
 
+  .projects-container.empty.with-window-drag-region {
+    flex: 1 1 auto;
+  }
+
   .projects {
     display: flex;
     align-items: stretch;
     height: 100%;
     gap: 1px;
     padding-right: 1px;
+    max-width: 100%;
     width: 100%;
+  }
+
+  .projects-container.with-window-drag-region .projects {
+    flex: 0 1 auto;
+    max-width: calc(100% - 40px);
+    width: auto;
+  }
+
+  .window-drag-region {
+    cursor: default;
+    flex: 1 0 40px;
+    min-width: 40px;
   }
 
   .draggableProject {
@@ -242,10 +290,8 @@ export const styles = css`
     display: flex;
     gap: 8px;
     font-size: var(--ui-font-size-sm);
-    height: calc(100% + 1px);
-    margin-bottom: -1px;
+    height: 100%;
     background: var(--grey-darkerish);
-    border-bottom: 1px solid var(--grey);
     flex-shrink: 1;
     min-width: 50px;
     position: relative;
@@ -274,18 +320,15 @@ export const styles = css`
 
     &:hover {
       background-color: var(--grey-darkish);
-      border-bottom: 1px solid var(--grey);
     }
 
     &.active {
       background-color: var(--primary);
-      border-bottom: 1px solid var(--primary);
       color: var(--foreground-on-primary);
     }
 
     &.active:hover {
       background-color: var(--primary-dark);
-      border-bottom-color: var(--primary-dark);
     }
 
     &.active .close-project {
@@ -347,6 +390,44 @@ export const styles = css`
     background-color: var(--grey-darkest);
     height: 100%;
   }
+
+  .windows-window-controls {
+    align-items: stretch;
+    display: flex;
+    flex: 0 0 auto;
+    height: 100%;
+  }
+
+  .windows-window-control {
+    align-items: center;
+    background: transparent;
+    border: none;
+    color: var(--grey-light);
+    cursor: pointer;
+    display: flex;
+    height: 100%;
+    justify-content: center;
+    margin: 0;
+    min-height: 0;
+    padding: 0;
+    width: 46px;
+
+    svg {
+      color: currentColor;
+      height: 14px;
+      width: 14px;
+    }
+
+    &:hover {
+      background: var(--grey-darkish);
+      color: var(--grey-lightest);
+    }
+
+    &.close-window:hover {
+      background: #c42b1c;
+      color: white;
+    }
+  }
 `;
 
 export const ProjectSelector: FC<{
@@ -373,7 +454,9 @@ export const ProjectSelector: FC<{
 
   const loadProject = useLoadProject();
   const projectTabsSelected = projectMode && openOverlay === undefined;
-  const reserveSidebarColumn = projectMode && sidebarOpen;
+  const reserveSidebarColumn = projectTabsSelected && sidebarOpen;
+  const showFileMenu = !isInTauri() || isWindowsPlatform();
+  const showWindowsWindowControls = isInTauri() && isWindowsPlatform();
 
   useSyncCurrentStateIntoOpenedProjects({ enabled: projectMode });
 
@@ -404,17 +487,21 @@ export const ProjectSelector: FC<{
   };
 
   return (
-    <div css={styles} style={{ '--left-sidebar-width': `${leftSidebarWidth}px` } as CSSProperties}>
+    <div
+      className={clsx({ 'graph-tree-open': reserveSidebarColumn })}
+      css={styles}
+      style={{ '--left-sidebar-width': `${leftSidebarWidth}px` } as CSSProperties}
+    >
       {projectTabsSelected && <GraphTreeSidebarToggle />}
       {projectTabsSelected && <GraphHistoryControls />}
-      {reserveSidebarColumn && (
-        <div
-          className={clsx('sidebar-panel-spacer', { 'no-left-controls': !projectTabsSelected })}
-          aria-hidden="true"
-        />
-      )}
-      {!isInTauri() && <ProjectFileMenu />}
-      <div className={clsx('projects-container', { empty: visibleProjects.length === 0 })}>
+      {reserveSidebarColumn && <div className="sidebar-panel-spacer" aria-hidden="true" />}
+      {showFileMenu && <ProjectFileMenu />}
+      <div
+        className={clsx('projects-container', {
+          empty: visibleProjects.length === 0,
+          'with-window-drag-region': showWindowsWindowControls,
+        })}
+      >
         <div className="projects">
           <DndContext onDragEnd={handleDragEnd}>
             <SortableContext items={visibleProjects} strategy={horizontalListSortingStrategy}>
@@ -432,11 +519,135 @@ export const ProjectSelector: FC<{
             </SortableContext>
           </DndContext>
         </div>
+        {showWindowsWindowControls && <WindowsWindowDragRegion />}
       </div>
       <OverlayTabs showWelcomeScreen={!projectMode} />
+      {showWindowsWindowControls && <WindowsWindowControls />}
     </div>
   );
 };
+
+const useWindowsAppWindow = () => {
+  const appWindowRef = useRef<NativeWindowHandle | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void getAppWindowHandle()
+      .then((handle) => {
+        if (!cancelled) {
+          appWindowRef.current = handle;
+        }
+      })
+      .catch((err) => {
+        console.warn(`Error getting app window handle: ${err}`);
+      });
+
+    return () => {
+      cancelled = true;
+      appWindowRef.current = null;
+    };
+  }, []);
+
+  return async () => {
+    if (appWindowRef.current) {
+      return appWindowRef.current;
+    }
+
+    appWindowRef.current = await getAppWindowHandle();
+    return appWindowRef.current;
+  };
+};
+
+const WindowsWindowDragRegion: FC = () => {
+  const getAppWindow = useWindowsAppWindow();
+
+  const startDragging = (event: ReactMouseEvent<HTMLDivElement>) => {
+    if (event.button !== 0 || event.detail > 1) {
+      return;
+    }
+
+    void getAppWindow()
+      .then((appWindow) => appWindow?.startDragging?.())
+      .catch((err) => {
+        console.warn(`Error starting app window drag: ${err}`);
+      });
+  };
+
+  const toggleMaximize = () => {
+    void getAppWindow()
+      .then((appWindow) => appWindow?.toggleMaximize?.())
+      .catch((err) => {
+        console.warn(`Error toggling app window maximize state: ${err}`);
+      });
+  };
+
+  return (
+    <div
+      className="window-drag-region"
+      aria-hidden="true"
+      onDoubleClick={toggleMaximize}
+      onMouseDown={startDragging}
+    />
+  );
+};
+
+const WindowsWindowControls: FC = () => {
+  const getAppWindow = useWindowsAppWindow();
+
+  const runWindowAction = (action: (appWindow: NativeWindowHandle) => Promise<void> | void) => {
+    void getAppWindow()
+      .then((appWindow) => {
+        if (appWindow) {
+          return action(appWindow);
+        }
+      })
+      .catch((err) => {
+        console.warn(`Error running app window action: ${err}`);
+      });
+  };
+
+  return (
+    <div className="windows-window-controls" aria-label="Window controls">
+      <button
+        type="button"
+        className="windows-window-control"
+        aria-label="Minimize window"
+        onClick={() => runWindowAction((appWindow) => appWindow.minimize?.())}
+      >
+        <MinimizeWindowIcon />
+      </button>
+      <button
+        type="button"
+        className="windows-window-control"
+        aria-label="Maximize or restore window"
+        onClick={() => runWindowAction((appWindow) => appWindow.toggleMaximize?.())}
+      >
+        <MaximizeWindowIcon />
+      </button>
+      <button
+        type="button"
+        className="windows-window-control close-window"
+        aria-label="Close window"
+        onClick={() => runWindowAction((appWindow) => appWindow.close())}
+      >
+        <CloseIcon />
+      </button>
+    </div>
+  );
+};
+
+const MinimizeWindowIcon: FC = () => (
+  <svg aria-hidden="true" fill="none" viewBox="0 0 16 16">
+    <path d="M3 8.5h10" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5" />
+  </svg>
+);
+
+const MaximizeWindowIcon: FC = () => (
+  <svg aria-hidden="true" fill="none" viewBox="0 0 16 16">
+    <rect x="3.25" y="3.25" width="9.5" height="9.5" rx="1" stroke="currentColor" strokeWidth="1.5" />
+  </svg>
+);
 
 const GraphTreeSidebarToggle: FC = () => {
   const [sidebarOpen, setSidebarOpen] = useAtom(sidebarOpenState);

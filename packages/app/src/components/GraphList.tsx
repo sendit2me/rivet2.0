@@ -73,7 +73,6 @@ const styles = css`
   .project-tree-panel-header {
     margin: -16px -8px 9px;
     padding: 16px 18px 25px;
-    background-color: var(--black-seethrough);
   }
 
   .project-tree-header {
@@ -121,7 +120,7 @@ const styles = css`
     padding: 0;
     border: 0;
     background: transparent;
-    color: var(--grey-light);
+    color: var(--grey-lightest);
     font-size: var(--ui-font-size-base);
     line-height: calc(20px * var(--ui-font-scale));
     text-align: left;
@@ -183,6 +182,15 @@ const styles = css`
     padding: 0 0 12px;
   }
 
+  .graph-list-heading {
+    margin: 0 10px 8px;
+    color: color-mix(in srgb, var(--grey-light) 64%, transparent);
+    font-size: var(--ui-font-size-base);
+    font-weight: 400;
+    letter-spacing: 0;
+    line-height: calc(16px * var(--ui-font-scale));
+  }
+
   .graph-list,
   .folder-children {
     position: relative;
@@ -240,7 +248,7 @@ const styles = css`
     padding: 8px 10px 8px calc(10px + var(--graph-item-indent, 0px));
     flex: 1;
     min-width: 0;
-    border-radius: 4px;
+    border-radius: 10px;
     corner-shape: squircle;
     @supports not (corner-shape: squircle) {
       border-radius: 2px;
@@ -830,6 +838,7 @@ export const GraphList: FC = memo(() => {
         ref={graphListContainerRef}
         tabIndex={-1}
       >
+        <div className="graph-list-heading">Graphs</div>
         <div
           className={clsx('graph-list', { 'dragging-over': dragOverFolderName === '' && draggingItemFolder !== '' })}
           data-contextmenutype="graph-list"

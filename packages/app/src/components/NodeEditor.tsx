@@ -175,12 +175,12 @@ const Container = styled.div`
 
   .section-footer {
     display: flex;
+    flex-shrink: 0;
     justify-content: flex-end;
     align-items: center;
     gap: 16px;
-    height: 24px;
     background-color: rgba(0, 0, 0, 0.1);
-    padding: 0 16px;
+    padding: 0.5em 1em 1em 1em;
     font-size: var(--ui-font-size-sm);
     color: var(--foreground-muted);
     font-family: var(--font-family-monospace);

@@ -20,7 +20,6 @@ const styles = css`
   flex: 0 1 auto;
   min-width: 0;
   max-width: min(760px, 65vw);
-  z-index: 200;
   border-left: 1px solid var(--grey-darkest);
 
   .left-menu {
@@ -45,18 +44,14 @@ const styles = css`
     border: none;
     transition:
       background-color 0.2s ease-out,
-      color 0.2s ease-out,
-      border-color 0.2s ease-out;
-
-    border-bottom: 1px solid var(--grey);
+      color 0.2s ease-out;
     border-right: 1px solid var(--grey-darkest);
 
     margin: 0;
     display: flex;
     flex: 0 0 auto;
     min-width: 0;
-    height: calc(100% + 1px);
-    margin-bottom: -1px;
+    height: 100%;
 
     background: var(--grey-darkerish);
   }
@@ -86,11 +81,9 @@ const styles = css`
   .menu-item.active {
     background-color: var(--primary);
     color: var(--foreground-on-primary);
-    border-bottom-color: var(--primary);
 
     &:hover {
       background-color: var(--primary-dark);
-      border-bottom-color: var(--primary-dark);
     }
   }
 

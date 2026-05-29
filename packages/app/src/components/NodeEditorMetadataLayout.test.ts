@@ -33,6 +33,19 @@ test('node metadata title and description share the same text inset', () => {
   );
 });
 
+test('node metadata footer stays content-sized and pinned below settings content', () => {
+  const nodeEditorSource = readFileSync(join(componentsDir, 'NodeEditor.tsx'), 'utf8');
+  const sectionFooterStyles = nodeEditorSource.match(/\.section-footer \{(?<styles>[\s\S]*?)\n  \}/)
+    ?.groups?.styles;
+
+  assert.ok(sectionFooterStyles);
+  assert.match(sectionFooterStyles, /display: flex;/);
+  assert.match(sectionFooterStyles, /flex-shrink: 0;/);
+  assert.match(sectionFooterStyles, /justify-content: flex-end;/);
+  assert.match(sectionFooterStyles, /padding: 0\.5em 1em 1em 1em;/);
+  assert.doesNotMatch(sectionFooterStyles, /^\s*height:\s*24px;/m);
+});
+
 test('node editor keeps selected-node editor identity stable across panel rerenders', () => {
   const nodeEditorSource = readFileSync(join(componentsDir, 'NodeEditor.tsx'), 'utf8');
 
