@@ -46,6 +46,8 @@ export function useGraphOperations() {
   const [folderNames, setFolderNames] = useState<string[]>([]);
 
   const folderedGraphs = useMemo(() => createFolderedGraphs(filteredGraphs, folderNames), [filteredGraphs, folderNames]);
+  const allFolderedGraphs = useMemo(() => createFolderedGraphs(savedGraphs, folderNames), [savedGraphs, folderNames]);
+  const allFolderPaths = useMemo(() => preserveFolderNames(allFolderedGraphs), [allFolderedGraphs]);
 
   const deleteGraph = useDeleteGraph();
   const loadGraph = useLoadGraph();
@@ -181,6 +183,7 @@ export function useGraphOperations() {
     setSearchText,
     renamingItemFullPath,
     folderedGraphs,
+    allFolderPaths,
     loadGraph,
     duplicateGraph,
     importGraph,

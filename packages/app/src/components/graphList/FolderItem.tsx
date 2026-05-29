@@ -19,7 +19,7 @@ import FolderIcon from 'majesticons/line/folder-line.svg?react';
 import { useStableCallback } from '../../hooks/useStableCallback.js';
 import TextField from '@atlaskit/textfield';
 import { expandedFoldersState } from '../../state/ui';
-import { type NodeGraphFolderItem } from './graphFolders';
+import { getGraphFolderExpansionStorageKey, type NodeGraphFolderItem } from './graphFolders';
 import { type GraphReachabilityBucket } from '../../utils/graphReachability.js';
 import { MainGraphIcon } from './MainGraphIcon';
 import { NodeRunningIndicator } from '../visualNode/NodeRunningIndicator.js';
@@ -59,7 +59,8 @@ export const FolderItem: FC<{
     const [expandedFolders, setExpandedFolders] = useAtom(expandedFoldersState);
 
     const fullPath = getGraphListItemPath(item);
-    const isExpanded = expandedFolders[`${projectMetadata.id}/${fullPath}`] ?? true; // Default open
+    const folderExpansionKey = getGraphFolderExpansionStorageKey(projectMetadata.id, fullPath);
+    const isExpanded = expandedFolders[folderExpansionKey] ?? true; // Default open
 
     const {
       containsReferencingSelectedGraph,
@@ -122,7 +123,7 @@ export const FolderItem: FC<{
     const setExpanded = useStableCallback((expanded: boolean) => {
       setExpandedFolders((prev) => ({
         ...prev,
-        [`${projectMetadata.id}/${fullPath}`]: expanded,
+        [folderExpansionKey]: expanded,
       }));
     });
 

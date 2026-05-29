@@ -13,8 +13,10 @@ export type GraphListContextMenuItem = {
 };
 
 export type GraphListContextMenuIcons = {
+  collapseAllFolders: GraphListContextMenuIcon;
   renameGraph: GraphListContextMenuIcon;
   duplicateGraph: GraphListContextMenuIcon;
+  expandAllFolders: GraphListContextMenuIcon;
   graphInfo: GraphListContextMenuIcon;
   makeMainGraph: GraphListContextMenuIcon;
   deleteGraph: GraphListContextMenuIcon;
@@ -152,6 +154,17 @@ export function buildFolderContextMenuItems(icons: GraphListContextMenuIcons): G
       icon: icons.newFolder,
     },
     {
+      id: 'collapse-all-folders',
+      label: 'Collapse all folders',
+      icon: icons.collapseAllFolders,
+      separatorBefore: true,
+    },
+    {
+      id: 'expand-all-folders',
+      label: 'Expand all folders',
+      icon: icons.expandAllFolders,
+    },
+    {
       id: 'delete-folder',
       label: 'Delete',
       icon: icons.deleteGraph,
@@ -161,7 +174,12 @@ export function buildFolderContextMenuItems(icons: GraphListContextMenuIcons): G
   ];
 }
 
-export function buildGraphListContextMenuItems(icons: GraphListContextMenuIcons): GraphListContextMenuItem[] {
+export function buildGraphListContextMenuItems(options: {
+  hasFolders: boolean;
+  icons: GraphListContextMenuIcons;
+}): GraphListContextMenuItem[] {
+  const { hasFolders, icons } = options;
+
   return [
     {
       id: 'new-graph',
@@ -178,5 +196,20 @@ export function buildGraphListContextMenuItems(icons: GraphListContextMenuIcons)
       label: 'Import Graph...',
       icon: icons.importGraph,
     },
+    ...(hasFolders
+      ? [
+          {
+            id: 'collapse-all-folders',
+            label: 'Collapse all folders',
+            icon: icons.collapseAllFolders,
+            separatorBefore: true,
+          },
+          {
+            id: 'expand-all-folders',
+            label: 'Expand all folders',
+            icon: icons.expandAllFolders,
+          },
+        ]
+      : []),
   ];
 }

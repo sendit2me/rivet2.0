@@ -124,6 +124,39 @@ export function getFolderNames(folderedGraphs: NodeGraphFolderItem[]): string[] 
   return folderNames;
 }
 
+export function getGraphFolderExpansionStorageKey(projectId: string | undefined, folderPath: string): string {
+  return `${projectId}/${folderPath}`;
+}
+
+export function setAllGraphFolderExpansionStates(options: {
+  expandedFolders: Record<string, boolean>;
+  folderPaths: readonly string[];
+  isExpanded: boolean;
+  projectId: string | undefined;
+}): Record<string, boolean> {
+  const { expandedFolders, folderPaths, isExpanded, projectId } = options;
+  let nextExpandedFolders = expandedFolders;
+
+  for (const folderPath of folderPaths) {
+    if (!folderPath) {
+      continue;
+    }
+
+    const folderKey = getGraphFolderExpansionStorageKey(projectId, folderPath);
+    if (nextExpandedFolders[folderKey] === isExpanded) {
+      continue;
+    }
+
+    if (nextExpandedFolders === expandedFolders) {
+      nextExpandedFolders = { ...expandedFolders };
+    }
+
+    nextExpandedFolders[folderKey] = isExpanded;
+  }
+
+  return nextExpandedFolders;
+}
+
 export function countGraphsInFolder(folder: NodeGraphFolder): number {
   return folder.children.reduce((count, child) => {
     if (child.type === 'graph') {
