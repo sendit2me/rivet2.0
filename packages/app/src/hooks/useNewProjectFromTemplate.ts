@@ -66,6 +66,7 @@ export function useNewProjectFromTemplate() {
     if (loaded) {
       setProjects((prev) =>
         addOpenedProject(prev, projectWithNewId, {
+          fsPath: null,
           openedGraph: graphToLoad.metadata?.id,
         }),
       );

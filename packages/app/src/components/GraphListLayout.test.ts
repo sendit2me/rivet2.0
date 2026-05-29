@@ -28,6 +28,7 @@ test('graph tree panel keeps the compact text-list layout source contract', () =
   assert.match(graphListSource, /className="graph-list-filter"/);
   assert.match(graphListSource, /aria-label="Filter graphs"/);
   assert.match(graphListSource, /placeholder="Filter graphs"/);
+  assert.match(graphListSource, /data-contextmenutype="graph-list"/);
   assert.match(graphListSource, /onKeyDown={handleGraphListKeyDown}/);
   assert.match(graphListSource, /onMouseDown={handleGraphListMouseDown}/);
   assert.match(graphListSource, /tabIndex={-1}/);
@@ -38,10 +39,15 @@ test('graph tree panel keeps the compact text-list layout source contract', () =
   assert.match(graphListSource, /startRename\(currentGraphListName\)/);
   assert.match(graphListSource, /cancelRename/);
   assert.match(graphListSource, /<PopupMenuItem\b/);
+  assert.match(graphListSource, /setAllGraphFolderExpansionStates/);
+  assert.match(graphListSource, /handleFolderExpansionMenuSelected/);
   assert.doesNotMatch(graphListSource, /from '\.\/ContextMenu'/);
   assert.doesNotMatch(graphListSource, /<ContextMenuItem\b/);
   assert.match(graphListContextMenuSource, /export type GraphListContextMenuItem =/);
   assert.doesNotMatch(graphListContextMenuSource, /useContextMenuConfiguration/);
+  assert.match(graphListContextMenuSource, /id: 'collapse-all-folders'[\s\S]*label: 'Collapse all folders'/);
+  assert.match(graphListContextMenuSource, /id: 'expand-all-folders'[\s\S]*label: 'Expand all folders'/);
+  assert.match(graphListContextMenuSource, /hasFolders/);
   assert.match(graphListSource, /&:focus::placeholder {\s+opacity: 0;\s+}/);
   assert.match(graphListSource, /\.graph-list-action {\s+cursor: pointer;\s+}/);
   assert.match(graphListSource, /\.graph-list-action-icon-adjusted {\s+margin-bottom: 0\.35em;\s+}/);

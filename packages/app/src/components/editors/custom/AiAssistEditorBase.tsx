@@ -176,7 +176,11 @@ export const AiAssistEditorBase = <TNodeData, TOutputs>({
   const record = true;
 
   const [modelAndApi, setModelAndApi] = useAtom(selectedAssistModelState);
-  const { fontSize, handleKeyDown: handleMultilineEditorFontSizeKeyDown } = useMultilineEditorFontSize();
+  const {
+    fontSize,
+    handleKeyDown: handleMultilineEditorFontSizeKeyDown,
+    handleWheel: handleMultilineEditorFontSizeWheel,
+  } = useMultilineEditorFontSize();
 
   const generate = async () => {
     try {
@@ -294,6 +298,7 @@ export const AiAssistEditorBase = <TNodeData, TOutputs>({
               generate();
             }
           }}
+          onWheel={(e) => handleMultilineEditorFontSizeWheel(e.nativeEvent)}
           minimumRows={3}
           style={{ fontSize }}
         />

@@ -3,8 +3,6 @@ import { useMultilineEditorFontSize } from '../hooks/useMultilineEditorFontSize.
 import { useIsNodeEditorResizing } from './nodeEditor/NodeEditorResizeContext.js';
 import type { CodeEditorProps } from './CodeEditor.js';
 
-export const LazyTripleBarColorPicker = lazy(() => import('./TripleBarColorPicker'));
-
 type CodeEditorModule = {
   default: FC<CodeEditorProps>;
   CodeEditor: FC<CodeEditorProps>;
@@ -26,10 +24,17 @@ export function warmCodeEditor(): void {
 
 const LazyCodeEditorImpl = lazy(preloadCodeEditor);
 
-type LazyCodeEditorProps = Omit<CodeEditorProps, 'fontSize' | 'onFontSizeKeyDown' | 'isNodeEditorResizing'>;
+type LazyCodeEditorProps = Omit<
+  CodeEditorProps,
+  'fontSize' | 'onFontSizeKeyDown' | 'onFontSizeWheel' | 'isNodeEditorResizing'
+>;
 
 export const LazyCodeEditor: FC<LazyCodeEditorProps> = (props) => {
-  const { fontSize, handleKeyDown: handleFontSizeKeyDown } = useMultilineEditorFontSize();
+  const {
+    fontSize,
+    handleKeyDown: handleFontSizeKeyDown,
+    handleWheel: handleFontSizeWheel,
+  } = useMultilineEditorFontSize();
   const isNodeEditorResizing = useIsNodeEditorResizing();
 
   return (
@@ -37,6 +42,7 @@ export const LazyCodeEditor: FC<LazyCodeEditorProps> = (props) => {
       {...props}
       fontSize={fontSize}
       onFontSizeKeyDown={handleFontSizeKeyDown}
+      onFontSizeWheel={handleFontSizeWheel}
       isNodeEditorResizing={isNodeEditorResizing}
     />
   );

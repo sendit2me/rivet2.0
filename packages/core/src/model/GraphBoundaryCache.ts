@@ -55,8 +55,46 @@ export function getGraphBoundary(
   return boundary;
 }
 
-export function getGraphBoundaryInputDefinitions(boundary: GraphBoundary): NodeInputDefinition[] {
-  return boundary.inputs.map(
+export function applyGraphBoundaryPortOrder<T extends { id: string }>(
+  boundaryItems: readonly T[],
+  portOrder: readonly string[] | undefined,
+): T[] {
+  if (!portOrder?.length) {
+    return [...boundaryItems];
+  }
+
+  const itemsById = new Map(boundaryItems.map((item) => [item.id, item]));
+  const usedIds = new Set<string>();
+  const orderedItems: T[] = [];
+
+  for (const id of portOrder) {
+    if (usedIds.has(id)) {
+      continue;
+    }
+
+    const item = itemsById.get(id);
+    if (!item) {
+      continue;
+    }
+
+    orderedItems.push(item);
+    usedIds.add(id);
+  }
+
+  for (const item of boundaryItems) {
+    if (!usedIds.has(item.id)) {
+      orderedItems.push(item);
+    }
+  }
+
+  return orderedItems;
+}
+
+export function getGraphBoundaryInputDefinitions(
+  boundary: GraphBoundary,
+  inputPortOrder?: readonly string[],
+): NodeInputDefinition[] {
+  return applyGraphBoundaryPortOrder(boundary.inputs, inputPortOrder).map(
     (input): NodeInputDefinition => ({
       id: input.portId,
       title: input.id,
@@ -65,8 +103,11 @@ export function getGraphBoundaryInputDefinitions(boundary: GraphBoundary): NodeI
   );
 }
 
-export function getGraphBoundaryOutputDefinitions(boundary: GraphBoundary): NodeOutputDefinition[] {
-  return boundary.outputs.map(
+export function getGraphBoundaryOutputDefinitions(
+  boundary: GraphBoundary,
+  outputPortOrder?: readonly string[],
+): NodeOutputDefinition[] {
+  return applyGraphBoundaryPortOrder(boundary.outputs, outputPortOrder).map(
     (output): NodeOutputDefinition => ({
       id: output.portId,
       title: output.id,

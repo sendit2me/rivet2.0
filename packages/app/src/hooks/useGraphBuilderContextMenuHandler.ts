@@ -19,6 +19,7 @@ import { useDeleteNodesCommand } from '../commands/deleteNodeCommand';
 import { copyToClipboard } from '../utils/copyToClipboard';
 import { useGoToSubgraphNode } from './useGoToSubgraphNode.js';
 import { useFrozenNodeOutputActions } from './useFrozenNodeOutputActions.js';
+import { subGraphPortRearrangeTargetState } from '../state/ui.js';
 
 type NodeFreezeTarget = {
   nodeId: NodeId;
@@ -40,6 +41,7 @@ export function useGraphBuilderContextMenuHandler() {
   const removeNodes = useDeleteNodesCommand();
   const goToSubgraphNode = useGoToSubgraphNode();
   const { freezeNode, unfreezeNode } = useFrozenNodeOutputActions();
+  const setSubGraphPortRearrangeTarget = useSetAtom(subGraphPortRearrangeTargetState);
 
   const addNode = useAddNodeCommand();
 
@@ -63,6 +65,12 @@ export function useGraphBuilderContextMenuHandler() {
         .with('node-edit', () => {
           const { nodeId } = context.data as { nodeId: NodeId };
           setEditingNodeId(nodeId);
+        })
+        .with('node-rearrange-subgraph-ports', () => {
+          const { nodeId } = context.data as { nodeId: NodeId };
+          if (graphId) {
+            setSubGraphPortRearrangeTarget({ graphId, nodeId, projectId: project.metadata.id });
+          }
         })
         .with('node-duplicate', () => {
           const { nodeId } = context.data as { nodeId: NodeId };

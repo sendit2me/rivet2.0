@@ -41,6 +41,7 @@ type EditNodeParams = {
   nodeId: NodeId;
   newNode: Partial<ChartNode>;
   previousNodeOverride?: Partial<ChartNode>;
+  mergeWithPrevious?: boolean;
 };
 
 type EditNodeAppliedData = {
@@ -489,7 +490,7 @@ export function useEditNodeCommand() {
         params.nodeId,
       );
       const lastCommand = currentState.commandHistoryStack.at(-1);
-      const shouldMerge = shouldMergeEditNodeCommand(lastCommand, params.nodeId);
+      const shouldMerge = params.mergeWithPrevious !== false && shouldMergeEditNodeCommand(lastCommand, params.nodeId);
 
       if (shouldMerge) {
         setCommandHistories((stacks) => removeLastCommandHistoryEntryForGraph(stacks, currentState.graphId));

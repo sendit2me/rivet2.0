@@ -88,6 +88,7 @@ import {
   getCanvasSelectedInteractionNodeIds,
 } from './nodeCanvas/nodeCanvasInteractionModel.js';
 import { getNodeCanvasContextMenuContext } from './nodeCanvas/nodeCanvasContextMenuModel.js';
+import { subGraphPortRearrangeTargetState } from '../state/ui.js';
 
 const EMPTY_NODE_CONNECTIONS: NodeConnection[] = [];
 
@@ -123,6 +124,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
   const [editingNodeId, setEditingNodeId] = useAtom(editingNodeState);
   const [selectedNodeIds, setSelectedNodeIds] = useAtom(selectedNodesState);
   const [hoveringNode, setHoveringNode] = useAtom(hoveringNodeState);
+  const [subGraphPortRearrangeTarget, setSubGraphPortRearrangeTarget] = useAtom(subGraphPortRearrangeTargetState);
   const [isDraggingCanvas, setIsDraggingCanvas] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0, canvasStartX: 0, canvasStartY: 0 });
   const [contextMenuDisabled, setContextMenuDisabled] = useState(true);
@@ -209,6 +211,20 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
 
     onConnectionsChanged(connections);
   }, [_connections.length, connections, onConnectionsChanged]);
+
+  useEffect(() => {
+    if (!subGraphPortRearrangeTarget) {
+      return;
+    }
+
+    if (
+      subGraphPortRearrangeTarget.projectId !== project.metadata.id ||
+      subGraphPortRearrangeTarget.graphId !== selectedGraphMetadata?.id ||
+      !nodes.some((node) => node.id === subGraphPortRearrangeTarget.nodeId)
+    ) {
+      setSubGraphPortRearrangeTarget(undefined);
+    }
+  }, [nodes, project.metadata.id, selectedGraphMetadata?.id, setSubGraphPortRearrangeTarget, subGraphPortRearrangeTarget]);
 
   const projectWithCanvasGraph = useMemo(() => {
     if (!selectedGraphMetadata?.id) {

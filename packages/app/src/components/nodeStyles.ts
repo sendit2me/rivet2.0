@@ -154,10 +154,6 @@ export const nodeStyles = css`
     cursor: grabbing;
   }
 
-  .node.conditional .node-title {
-    padding-left: 30px;
-  }
-
   .node.isSplit::before,
   .node.isSplit::after {
     content: '';
@@ -241,6 +237,10 @@ export const nodeStyles = css`
 
   .node:not(.isComment) .grab-area {
     padding-right: calc(66px * var(--ui-font-scale));
+  }
+
+  .node.hasHeaderWarning:not(.isComment) .grab-area {
+    padding-right: calc(108px * var(--ui-font-scale));
   }
 
   .split-run-mode-icon {
@@ -420,7 +420,8 @@ export const nodeStyles = css`
     pointer-events: none;
 
     .changed-button,
-    .edit-button {
+    .edit-button,
+    .node-header-warning {
       background-color: transparent;
       border: none;
       color: var(--node-bg-foreground);
@@ -441,6 +442,12 @@ export const nodeStyles = css`
       }
     }
 
+    .node-header-warning {
+      cursor: help;
+      pointer-events: auto;
+      width: calc(20px * var(--ui-font-scale));
+    }
+
     .changed-button:hover,
     .edit-button:hover {
       color: var(--primary-text);
@@ -454,6 +461,17 @@ export const nodeStyles = css`
     right: 6px;
     top: 14px;
     z-index: 4;
+  }
+
+  .node.hasHeaderWarning:not(.isComment) .title-controls {
+    gap: calc(3px * var(--ui-font-scale));
+    min-width: calc(66px * var(--ui-font-scale));
+    width: max-content;
+  }
+
+  .node.hasHeaderWarning:not(.isComment):not(:hover):not(.hovered):not(.showHoverControls):not(:focus-within)
+    .title-controls {
+    right: calc(11px * var(--ui-font-scale));
   }
 
   .title-controls .node-running-indicator {
@@ -472,6 +490,12 @@ export const nodeStyles = css`
   .title-controls .tooltip {
     display: flex;
     align-items: center;
+  }
+
+  .title-controls .node-header-warning-tooltip {
+    position: static;
+    opacity: 1;
+    pointer-events: auto;
   }
 
   .title-controls .edit-button-tooltip,
@@ -620,6 +644,35 @@ export const nodeStyles = css`
     user-select: none;
     opacity: 0.5;
     cursor: default;
+  }
+
+  .port.reorderable .port-label {
+    background: color-mix(in srgb, var(--primary) 18%, var(--grey-darkest) 82%);
+    border: 1px solid color-mix(in srgb, var(--primary) 42%, transparent);
+    border-radius: calc(6px * var(--ui-font-scale));
+    color: var(--grey-lightest);
+    cursor: grab;
+    opacity: 1;
+    padding: 2px 6px;
+    corner-shape: squircle;
+
+    @supports not (corner-shape: squircle) {
+      border-radius: calc(4px * var(--ui-font-scale));
+    }
+  }
+
+  .port.reorderable .port-label:active {
+    cursor: grabbing;
+  }
+
+  .port.reorder-dragging-source .port-label {
+    visibility: hidden;
+  }
+
+  body.subgraph-port-reorder-dragging,
+  body.subgraph-port-reorder-dragging * {
+    cursor: grabbing !important;
+    user-select: none !important;
   }
 
   .node.zoomedOut .port-label {

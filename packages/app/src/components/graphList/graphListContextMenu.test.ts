@@ -14,8 +14,10 @@ import {
 const TestIcon = (() => null) as ComponentType;
 
 const icons: GraphListContextMenuIcons = {
+  collapseAllFolders: TestIcon,
   renameGraph: TestIcon,
   duplicateGraph: TestIcon,
+  expandAllFolders: TestIcon,
   graphInfo: TestIcon,
   makeMainGraph: TestIcon,
   deleteGraph: TestIcon,
@@ -70,10 +72,21 @@ describe('graphListContextMenu', () => {
   it('builds folder and list root menus in the existing visible order', () => {
     assert.deepEqual(
       buildFolderContextMenuItems(icons).map((item) => item.id),
-      ['rename-folder', 'new-graph-in-folder', 'new-folder-in-folder', 'delete-folder'],
+      [
+        'rename-folder',
+        'new-graph-in-folder',
+        'new-folder-in-folder',
+        'collapse-all-folders',
+        'expand-all-folders',
+        'delete-folder',
+      ],
     );
     assert.deepEqual(
-      buildGraphListContextMenuItems(icons).map((item) => item.id),
+      buildGraphListContextMenuItems({ hasFolders: true, icons }).map((item) => item.id),
+      ['new-graph', 'new-folder', 'import-graph', 'collapse-all-folders', 'expand-all-folders'],
+    );
+    assert.deepEqual(
+      buildGraphListContextMenuItems({ hasFolders: false, icons }).map((item) => item.id),
       ['new-graph', 'new-folder', 'import-graph'],
     );
   });

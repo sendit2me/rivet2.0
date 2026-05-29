@@ -57,6 +57,10 @@ When a graph is used as a subgraph, each Graph Output Node in the graph turns in
 
 </Tabs>
 
+## Duplicate Output IDs
+
+Graph Output IDs should be unique within a graph. If two enabled Graph Output nodes in the same graph use the same ID, Rivet shows a warning icon in the node header so you can spot the duplicate before running the graph.
+
 ## Example 1: Define an output for a graph
 
 1. Create a [Text Node](./text.mdx) and set the value to `Hello, world!`.
@@ -80,7 +84,7 @@ A: Yes, you can have multiple Graph Output Nodes in a graph. Each Graph Output N
 
 **Q: What happens if the ID of a Graph Output Node is not unique?**
 
-A: If the ID of a Graph Output Node is not unique, the output of the graph will contain the value of the last Graph Output Node with that ID that was processed.
+A: If the ID of a Graph Output Node is not unique, only one value can appear under that output key, so the result can be confusing. Rivet shows a warning icon on enabled duplicate Graph Output nodes in the same graph; use unique IDs to make the graph output unambiguous.
 
 **Q: Can I use the Graph Output Node to output an array or an object?**
 

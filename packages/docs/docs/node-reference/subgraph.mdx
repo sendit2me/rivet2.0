@@ -15,6 +15,10 @@ The Subgraph Node allows you to execute another graph within the current graph. 
 
 The inputs and outputs of the Subgraph Node are defined by [Graph Input Nodes](./graph-input.mdx) and [Graph Output Nodes](./graph-output.mdx) within the subgraph. The Subgraph Node will automatically update its inputs and outputs to match those of the selected subgraph.
 
+## Rearranging ports
+
+You can manually reorder a Subgraph node's visible graph input and graph output ports by right-clicking the Subgraph node and choosing **Rearrange inputs/outputs**. While draggable port labels have rounded backgrounds, drag a port label or row up and down; the other labels shift while you drag, so you can drop the port between existing ports. Click outside the node to exit rearrange mode. Drag the circular port handle when you want to create or rewire a connection. The saved order is specific to that Subgraph node instance; it does not rename ports, change connections, or change the keys in the subgraph output object. The optional `Error` output is not part of the subgraph boundary and stays after the graph outputs.
+
 The Subgraph Node also has an optional error output. If enabled, any errors that occur while executing the subgraph will be caught and output from the error output port. If not enabled, errors will cause the entire graph to fail.
 
 <Tabs

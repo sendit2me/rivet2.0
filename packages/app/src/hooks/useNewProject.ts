@@ -27,6 +27,7 @@ export function useNewProject() {
     if (loaded) {
       setProjects((prev) =>
         addOpenedProject(prev, project, {
+          fsPath: null,
           openedGraph: initialGraph?.metadata?.id,
         }),
       );

@@ -1,26 +1,30 @@
 
 
+- When the graph tree is open, don't show the horizontal divider between the main tabs bar and the graph tree.
+
+- When many nodes are selected and I change the width of one of them, change the width of all selected nodes as much (if it's possible for each node)
+
+- Need to show the curent graph name somewhere. When there's many and they are in the folders and you click through subgraphs, the user gets lost. It's already shown in the run button. maybe make it more noticeable?
 
 
-
-- Change the IF port so it doesn't take up spane in the node's header and so it looks like a very special input port
 
 - Code editor: show a hint that Ctrl++ and Ctrl+- are working here. Also add Ctrl/Cmd+scroll to scale the font size
 
-- Words: 20 Characters: 111 - make the separator larger
-
-
-- Reassess Ctrl+N window
+- When I need to gather a lot of inputs into one node, it looks messy and it's easy to look over some connections. like in the "setGlobals" graph. We need to do something about this UX. maybe introduce a "Group" node that will contain many same type nodes and combine their outputs into one so I can later pipe it into just one node and be sur ethat all the nodes are connected?
 
 
 
-- In the node inputs list, allow changing their order manually. But when the amount of the inputs changes, the order can reset
+
+
+- Reassess templates for the Ctrl+N window
+
+
+
 
 
 
 - Now, the executor mode is global for all open projects (remote debugger, browser, node). Make it per tab
 
-- Need to show the curent graph name somewhere. When there's many and they are in the folders and you click through subgraphs, the user gets lost. It's already shown in the run button. maybe make it more noticeable?
 
 
 

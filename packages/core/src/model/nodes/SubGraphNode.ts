@@ -20,6 +20,7 @@ import { getError } from '../../utils/errors.js';
 
 import type { RivetUIContext } from '../RivetUIContext.js';
 import {
+  applyGraphBoundaryPortOrder,
   buildExcludedGraphBoundaryOutputs,
   buildGraphBoundaryInputData,
   getGraphBoundary,
@@ -36,6 +37,8 @@ export type SubGraphNode = ChartNode & {
 
     /** Data for each of the inputs of the subgraph */
     inputData?: Record<string, DataValue>;
+    inputPortOrder?: string[];
+    outputPortOrder?: string[];
   };
 };
 
@@ -68,12 +71,12 @@ export class SubGraphNodeImpl extends NodeImpl<SubGraphNode> {
     definitionContext?: NodeDefinitionContext,
   ): NodeInputDefinition[] {
     const boundary = this.getBoundary(project, definitionContext);
-    return boundary ? getGraphBoundaryInputDefinitions(boundary) : [];
+    return boundary ? getGraphBoundaryInputDefinitions(boundary, this.data.inputPortOrder) : [];
   }
 
   getGraphOutputs(project: Project, definitionContext?: NodeDefinitionContext): NodeOutputDefinition[] {
     const boundary = this.getBoundary(project, definitionContext);
-    return boundary ? getGraphBoundaryOutputDefinitions(boundary) : [];
+    return boundary ? getGraphBoundaryOutputDefinitions(boundary, this.data.outputPortOrder) : [];
   }
 
   getOutputDefinitions(
@@ -121,7 +124,7 @@ export class SubGraphNodeImpl extends NodeImpl<SubGraphNode> {
     if (this.data.graphId) {
       const boundary = getGraphBoundary(context.project, this.data.graphId);
       if (boundary) {
-        for (const input of boundary.inputs) {
+        for (const input of applyGraphBoundaryPortOrder(boundary.inputs, this.data.inputPortOrder)) {
           definitions.push({
             type: 'dynamic',
             dataKey: 'inputData',

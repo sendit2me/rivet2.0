@@ -52,6 +52,51 @@ test('propagateGraphOutputRename renames direct subgraph output connections', ()
   assert.deepEqual(result.projectGraphSnapshots[parentGraphId]!.previousGraph.connections, [parentConnection]);
 });
 
+test('propagateGraphOutputRename renames persisted subgraph output port order', () => {
+  const previousOutputNode = makeGraphOutput('output-node', 'old');
+  const nextOutputNode = makeGraphOutput('output-node', 'new');
+  const subGraphNode = makeSubGraphNode('subgraph', subGraphId, {
+    data: {
+      outputPortOrder: ['b', 'old', 'a'],
+    },
+  });
+  const parentGraph = makeGraph(parentGraphId, [subGraphNode]);
+
+  const result = propagateGraphOutputRename({
+    currentGraphId: subGraphId,
+    editedNodeId: previousOutputNode.id,
+    nextCurrentConnections: [],
+    nextCurrentNodes: [nextOutputNode],
+    previousCurrentNodes: [previousOutputNode],
+    project: makeProject([parentGraph]),
+  });
+  const nextSubGraphNode = result.projectGraphSnapshots[parentGraphId]!.nextGraph.nodes[0]!;
+
+  assert.deepEqual((nextSubGraphNode.data as { outputPortOrder?: string[] }).outputPortOrder, ['b', 'new', 'a']);
+});
+
+test('propagateGraphOutputRename leaves unrelated subgraph output port order unchanged', () => {
+  const previousOutputNode = makeGraphOutput('output-node', 'old');
+  const nextOutputNode = makeGraphOutput('output-node', 'new');
+  const unrelatedSubGraphNode = makeSubGraphNode('subgraph', 'other-graph', {
+    data: {
+      outputPortOrder: ['old', 'tail'],
+    },
+  });
+  const parentGraph = makeGraph(parentGraphId, [unrelatedSubGraphNode]);
+
+  const result = propagateGraphOutputRename({
+    currentGraphId: subGraphId,
+    editedNodeId: previousOutputNode.id,
+    nextCurrentConnections: [],
+    nextCurrentNodes: [nextOutputNode],
+    previousCurrentNodes: [previousOutputNode],
+    project: makeProject([parentGraph]),
+  });
+
+  assert.deepEqual(result.projectGraphSnapshots, {});
+});
+
 test('propagateGraphOutputRename preserves fan-out connections from the renamed output', () => {
   const previousOutputNode = makeGraphOutput('output-node', 'old');
   const nextOutputNode = makeGraphOutput('output-node', 'new');

@@ -56,7 +56,11 @@ export const AiGraphCreatorInput: FC = () => {
   const [record, setRecord] = useState(true);
 
   const [show, setShow] = useAtom(showAiGraphCreatorInputState);
-  const { fontSize, handleKeyDown: handleMultilineEditorFontSizeKeyDown } = useMultilineEditorFontSize();
+  const {
+    fontSize,
+    handleKeyDown: handleMultilineEditorFontSizeKeyDown,
+    handleWheel: handleMultilineEditorFontSizeWheel,
+  } = useMultilineEditorFontSize();
 
   const [abortController, setAbortController] = useState<AbortController | null>(null);
 
@@ -121,6 +125,7 @@ export const AiGraphCreatorInput: FC = () => {
           autoFocus
           onChange={(e) => setPrompt(e.target.value)}
           onKeyDown={handleKeyDown}
+          onWheel={(e) => handleMultilineEditorFontSizeWheel(e.nativeEvent)}
           style={{ fontSize }}
         />
         <div className="model-selector">

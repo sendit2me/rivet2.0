@@ -5,6 +5,7 @@ import {
   clampMultilineEditorFontSize,
   DEFAULT_MULTILINE_EDITOR_FONT_SIZE,
   getMultilineEditorFontSizeCommand,
+  getMultilineEditorFontSizeWheelCommand,
   MAX_MULTILINE_EDITOR_FONT_SIZE,
   MIN_MULTILINE_EDITOR_FONT_SIZE,
 } from './multilineEditorFontSize.js';
@@ -75,6 +76,29 @@ describe('multilineEditorFontSize', () => {
     assert.equal(getMultilineEditorFontSizeCommand(createFontSizeKeyEvent('+', {})), undefined);
     assert.equal(getMultilineEditorFontSizeCommand(createFontSizeKeyEvent('a', { code: 'KeyA', ctrlKey: true })), undefined);
     assert.equal(getMultilineEditorFontSizeCommand(createFontSizeKeyEvent('+', { ctrlKey: true, altKey: true })), undefined);
+  });
+
+  test('detects ctrl/meta wheel direction for font size changes', () => {
+    assert.equal(
+      getMultilineEditorFontSizeWheelCommand({ deltaY: -1, ctrlKey: true, metaKey: false, altKey: false }),
+      'increase',
+    );
+    assert.equal(
+      getMultilineEditorFontSizeWheelCommand({ deltaY: 1, ctrlKey: false, metaKey: true, altKey: false }),
+      'decrease',
+    );
+    assert.equal(
+      getMultilineEditorFontSizeWheelCommand({ deltaY: 0, ctrlKey: true, metaKey: false, altKey: false }),
+      undefined,
+    );
+    assert.equal(
+      getMultilineEditorFontSizeWheelCommand({ deltaY: -1, ctrlKey: false, metaKey: false, altKey: false }),
+      undefined,
+    );
+    assert.equal(
+      getMultilineEditorFontSizeWheelCommand({ deltaY: -1, ctrlKey: true, metaKey: false, altKey: true }),
+      undefined,
+    );
   });
 
   test('adjusts and clamps font size within the supported range', () => {

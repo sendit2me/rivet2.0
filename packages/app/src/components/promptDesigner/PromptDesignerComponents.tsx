@@ -15,7 +15,11 @@ export const PromptDesignerMessage: FC<{
   onChange: (message: ChatMessage) => void;
   onDelete: () => void;
 }> = ({ message, onChange, onDelete }) => {
-  const { fontSize, handleKeyDown: handleMultilineEditorFontSizeKeyDown } = useMultilineEditorFontSize();
+  const {
+    fontSize,
+    handleKeyDown: handleMultilineEditorFontSizeKeyDown,
+    handleWheel: handleMultilineEditorFontSizeWheel,
+  } = useMultilineEditorFontSize();
 
   const toggleAuthorType = useStableCallback(() => {
     const index = findIndex(CHAT_MESSAGE_TYPES, (type) => message.type === type);
@@ -67,6 +71,7 @@ export const PromptDesignerMessage: FC<{
               event.stopPropagation();
             }
           }}
+          onWheel={(event) => handleMultilineEditorFontSizeWheel(event.nativeEvent)}
           ref={textareaRef}
           style={{ fontSize }}
         />
@@ -88,7 +93,11 @@ export const PromptDesignerTestGroup: FC<{
   inProgress: boolean;
   onCancel?: () => void;
 }> = ({ testGroup, onChange, onStart, onDelete, inProgress, onCancel }) => {
-  const { fontSize, handleKeyDown: handleMultilineEditorFontSizeKeyDown } = useMultilineEditorFontSize();
+  const {
+    fontSize,
+    handleKeyDown: handleMultilineEditorFontSizeKeyDown,
+    handleWheel: handleMultilineEditorFontSizeWheel,
+  } = useMultilineEditorFontSize();
   const hasEvaluatorGraph = Boolean(testGroup.evaluatorGraphId);
 
   return (
@@ -117,6 +126,7 @@ export const PromptDesignerTestGroup: FC<{
                     event.stopPropagation();
                   }
                 }}
+                onWheel={(event) => handleMultilineEditorFontSizeWheel(event.nativeEvent)}
                 onChange={(event) =>
                   onChange({
                     ...testGroup,

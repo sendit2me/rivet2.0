@@ -11,9 +11,3 @@ export function getTextEditorStats(text: string): TextEditorStats {
     characterCount: text.length,
   };
 }
-
-export function formatTextEditorStatsLine(text: string): string {
-  const { wordCount, characterCount } = getTextEditorStats(text);
-
-  return `Words: ${wordCount.toLocaleString()}  Characters: ${characterCount.toLocaleString()}`;
-}

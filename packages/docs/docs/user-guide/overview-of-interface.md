@@ -18,7 +18,7 @@ The graph tree is where you can navigate between all graphs in your project, fil
 
 ![Graphs](./assets/graphs.png)
 
-Clicking on a graph in the list will open it in the main graph area. When the graph tree has focus, press **F2** to rename the currently open graph; press **Enter** to save the rename, or press **Escape** or click anywhere else, including the canvas, to cancel it. To add a new graph, right click in the blank space in the graph list and select "New Graph".
+Clicking on a graph in the list will open it in the main graph area. When the graph tree has focus, press **F2** to rename the currently open graph; press **Enter** to save the rename, or press **Escape** or click anywhere else, including the canvas, to cancel it. To add a new graph, right click in the blank space in the graph list and select "New Graph". To collapse or expand every folder without adding permanent toolbar buttons, right click the blank space in the graph list or right click a folder and choose **Collapse all folders** or **Expand all folders**.
 
 Use the search button in the top bar, or press **Ctrl+F** or **Cmd+F**, to search across graph names and node content in the current project. When matches are found, Rivet shows how many text occurrences were found and how many graphs contain them.
 
@@ -83,6 +83,8 @@ Variants allow you to save slight differences to a node, and test them without l
 ### Node Data Editor
 
 This area contains the editors for the currently selected node. The editor will change depending on the type of node you are editing. For example, the shown [Text Node](../node-reference/text) has a text editor, and the [LLM Chat Node](../node-reference/llm-chat) has provider, model, reasoning, response-format, tools, and technical-details sections.
+
+Text and code editors have their own font-size control, separate from the main app UI font size. When focus is inside one of these editors, press **Ctrl + +** or **Cmd + +** to make the editor text larger, **Ctrl + -** or **Cmd + -** to make it smaller, and **Ctrl + 0** or **Cmd + 0** to reset it. You can also hold **Ctrl** or **Cmd** and use the mouse wheel or trackpad scroll while the pointer is over the editor to scale the editor font.
 
 ## Workspaces
 

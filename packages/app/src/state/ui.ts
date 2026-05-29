@@ -1,6 +1,6 @@
 import { atom } from 'jotai';
 import { atomWithStorage } from 'jotai/utils';
-import type { NodeId } from '@valerypopoff/rivet2-core';
+import type { GraphId, NodeId, ProjectId } from '@valerypopoff/rivet2-core';
 import { createHybridStorage } from './storage.js';
 import { DEFAULT_MULTILINE_EDITOR_FONT_SIZE } from '../utils/multilineEditorFontSize.js';
 import { DEFAULT_UI_FONT_SIZE } from '../utils/uiFontSize.js';
@@ -32,6 +32,14 @@ export type DeleteGraphInputConfirmState = {
 };
 
 export const deleteGraphInputConfirmState = atom<DeleteGraphInputConfirmState | null>(null);
+
+export type SubGraphPortRearrangeTarget = {
+  graphId: GraphId;
+  nodeId: NodeId;
+  projectId: ProjectId;
+};
+
+export const subGraphPortRearrangeTargetState = atom<SubGraphPortRearrangeTarget | undefined>(undefined);
 
 export const expandedFoldersState = atomWithStorage<Record<string, boolean>>('expandedFoldersState', {}, storage);
 

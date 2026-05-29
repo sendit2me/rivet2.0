@@ -36,6 +36,34 @@ export function addOpenedProject(
   };
 }
 
+export function resolveSyncedOpenedProjectFsPathOptions(
+  current: OpenedProjectsInfo,
+  projectId: ProjectId,
+  loadedProjectPath: string | null | undefined,
+): { fsPath?: string | null } {
+  const existingProject = current.openedProjects[projectId];
+  const isPathOwnedByAnotherProject = (path: string | null | undefined) =>
+    path != null &&
+    Object.entries(current.openedProjects).some(
+      ([otherProjectId, projectInfo]) => otherProjectId !== projectId && projectInfo.fsPath === path,
+    );
+  const existingPathIsOwnedByAnotherProject = isPathOwnedByAnotherProject(existingProject?.fsPath);
+
+  if (loadedProjectPath) {
+    if (!isPathOwnedByAnotherProject(loadedProjectPath)) {
+      return { fsPath: loadedProjectPath };
+    }
+
+    return existingPathIsOwnedByAnotherProject ? { fsPath: null } : {};
+  }
+
+  if (existingPathIsOwnedByAnotherProject) {
+    return { fsPath: null };
+  }
+
+  return {};
+}
+
 export function removeOpenedProject(current: OpenedProjectsInfo, projectId: ProjectId): OpenedProjectsInfo {
   const openedProjects = { ...current.openedProjects };
   delete openedProjects[projectId];

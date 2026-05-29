@@ -1,6 +1,12 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { countGraphsInFolder, createFoldersFromGraphs, getFolderNames, isInFolder } from './graphFolders';
+import {
+  countGraphsInFolder,
+  createFoldersFromGraphs,
+  getFolderNames,
+  isInFolder,
+  setAllGraphFolderExpansionStates,
+} from './graphFolders';
 
 describe('graphFolders', () => {
   it('creates stable nested folder trees including empty folders', () => {
@@ -76,5 +82,35 @@ describe('graphFolders', () => {
     if (rootFolder?.type === 'folder') {
       assert.equal(countGraphsInFolder(rootFolder), 2);
     }
+  });
+
+  it('sets expansion state for every folder in the active project only when needed', () => {
+    const previousState = {
+      'project-a/root': true,
+      'project-b/root': true,
+    };
+
+    const collapsedState = setAllGraphFolderExpansionStates({
+      expandedFolders: previousState,
+      folderPaths: ['root', 'root/nested'],
+      isExpanded: false,
+      projectId: 'project-a',
+    });
+
+    assert.deepEqual(collapsedState, {
+      'project-a/root': false,
+      'project-a/root/nested': false,
+      'project-b/root': true,
+    });
+    assert.notEqual(collapsedState, previousState);
+
+    const unchangedState = setAllGraphFolderExpansionStates({
+      expandedFolders: collapsedState,
+      folderPaths: ['root', 'root/nested'],
+      isExpanded: false,
+      projectId: 'project-a',
+    });
+
+    assert.equal(unchangedState, collapsedState);
   });
 });

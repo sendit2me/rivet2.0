@@ -11,7 +11,12 @@ import { graphState } from '../state/graph.js';
 import { openOrFocusGraphSearchState, searchingGraphState } from '../state/graphBuilder.js';
 import { pluginsState } from '../state/plugins.js';
 import { projectState, savedGraphsState } from '../state/savedGraphs.js';
-import { overlayOpenState, showGraphReferenceIndicatorsState, showUnreachableGraphTagsState } from '../state/ui.js';
+import {
+  expandedFoldersState,
+  overlayOpenState,
+  showGraphReferenceIndicatorsState,
+  showUnreachableGraphTagsState,
+} from '../state/ui.js';
 import { useContextMenu } from '../hooks/useContextMenu.js';
 import Portal from '@atlaskit/portal';
 import CrossIcon from 'majesticons/line/multiply-line.svg?react';
@@ -40,7 +45,7 @@ import {
   type GraphListContextMenuItem,
 } from './graphList/graphListContextMenu.js';
 import { useGraphListPresentation } from './graphList/useGraphListPresentation.js';
-import { getFolderNames } from './graphList/graphFolders.js';
+import { setAllGraphFolderExpansionStates } from './graphList/graphFolders.js';
 import { PopupMenuItem, popupMenuListStyles } from './PopupMenu.js';
 import { Tooltip } from './Tooltip.js';
 
@@ -467,8 +472,10 @@ function isInteractiveGraphListTarget(target: EventTarget): boolean {
 }
 
 const graphListContextMenuIcons: GraphListContextMenuIcons = {
+  collapseAllFolders: CollapseAllFoldersIcon,
   renameGraph: EditPenIcon,
   duplicateGraph: DuplicateIcon,
+  expandAllFolders: ExpandAllFoldersIcon,
   graphInfo: InfoIcon,
   makeMainGraph: MainGraphIcon,
   deleteGraph: DeleteIcon,
@@ -485,6 +492,7 @@ export const GraphList: FC = memo(() => {
     setSearchText,
     renamingItemFullPath,
     folderedGraphs,
+    allFolderPaths,
     loadGraph,
     duplicateGraph,
     importGraph,
@@ -501,6 +509,7 @@ export const GraphList: FC = memo(() => {
   const setSavedGraphs = useSetAtom(savedGraphsState);
   const setGraphSearch = useSetAtom(searchingGraphState);
   const setOpenOverlay = useSetAtom(overlayOpenState);
+  const setExpandedFolders = useSetAtom(expandedFoldersState);
   const graphListContainerRef = useRef<HTMLDivElement>(null);
 
   const { draggingItemFolder, dragOverFolderName, handleDragStart, handleDragEnd, handleDragOver } =
@@ -530,7 +539,8 @@ export const GraphList: FC = memo(() => {
     handleContextMenu(e);
   });
 
-  const folderPathsForContextMenu = useMemo(() => new Set(getFolderNames(folderedGraphs)), [folderedGraphs]);
+  const hasFolders = allFolderPaths.length > 0;
+  const folderPathsForContextMenu = useMemo(() => new Set(allFolderPaths), [allFolderPaths]);
   const contextMenuTarget = useMemo(
     () =>
       getGraphListContextMenuTarget({
@@ -560,6 +570,31 @@ export const GraphList: FC = memo(() => {
   const openGraphSearch = useStableCallback(() => {
     setOpenOverlay(undefined);
     setGraphSearch(openOrFocusGraphSearchState);
+  });
+
+  const setAllFoldersExpanded = useStableCallback((isExpanded: boolean) => {
+    setExpandedFolders((prev) =>
+      setAllGraphFolderExpansionStates({
+        expandedFolders: prev,
+        folderPaths: allFolderPaths,
+        isExpanded,
+        projectId: project.metadata.id,
+      }),
+    );
+  });
+
+  const handleFolderExpansionMenuSelected = useStableCallback((id: string) => {
+    if (id === 'collapse-all-folders') {
+      setAllFoldersExpanded(false);
+      return true;
+    }
+
+    if (id === 'expand-all-folders') {
+      setAllFoldersExpanded(true);
+      return true;
+    }
+
+    return false;
   });
 
   const currentGraphListName = useMemo(() => {
@@ -650,8 +685,12 @@ export const GraphList: FC = memo(() => {
   );
 
   const graphListMenuItems = useMemo(
-    (): GraphListContextMenuItem[] => buildGraphListContextMenuItems(graphListContextMenuIcons),
-    [],
+    (): GraphListContextMenuItem[] =>
+      buildGraphListContextMenuItems({
+        hasFolders,
+        icons: graphListContextMenuIcons,
+      }),
+    [hasFolders],
   );
 
   const handleGraphItemMenuSelected = useStableCallback((id: string) => {
@@ -689,6 +728,11 @@ export const GraphList: FC = memo(() => {
   });
 
   const handleFolderMenuSelected = useStableCallback((id: string) => {
+    if (handleFolderExpansionMenuSelected(id)) {
+      setShowContextMenu(false);
+      return;
+    }
+
     if (!selectedFolderNameForContextMenu) {
       setShowContextMenu(false);
       return;
@@ -715,6 +759,11 @@ export const GraphList: FC = memo(() => {
   });
 
   const handleGraphListMenuSelected = useStableCallback((id: string) => {
+    if (handleFolderExpansionMenuSelected(id)) {
+      setShowContextMenu(false);
+      return;
+    }
+
     switch (id) {
       case 'new-graph':
         handleNew();
@@ -783,6 +832,7 @@ export const GraphList: FC = memo(() => {
       >
         <div
           className={clsx('graph-list', { 'dragging-over': dragOverFolderName === '' && draggingItemFolder !== '' })}
+          data-contextmenutype="graph-list"
         >
           <DndContext
             sensors={dragSensors}
@@ -916,6 +966,36 @@ const FilterIcon: FC<SVGProps<SVGSVGElement>> = (props) => (
     <path d="M2.5 3.5h11L9.25 8.35v3.4l-2.5.9v-4.3L2.5 3.5Z" fill="currentColor" />
   </svg>
 );
+
+function CollapseAllFoldersIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" {...props}>
+      <path
+        d="M2.5 5.25c0-.69.56-1.25 1.25-1.25h2.4c.35 0 .68.15.91.41l.66.74c.24.27.58.43.94.43h3.59c.69 0 1.25.56 1.25 1.25v5c0 .69-.56 1.25-1.25 1.25h-8.5c-.69 0-1.25-.56-1.25-1.25V5.25Z"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.55"
+      />
+      <path d="M5.45 9.5h5.1" stroke="currentColor" strokeLinecap="round" strokeWidth="1.55" />
+    </svg>
+  );
+}
+
+function ExpandAllFoldersIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" {...props}>
+      <path
+        d="M2.5 5.25c0-.69.56-1.25 1.25-1.25h2.4c.35 0 .68.15.91.41l.66.74c.24.27.58.43.94.43h3.59c.69 0 1.25.56 1.25 1.25v5c0 .69-.56 1.25-1.25 1.25h-8.5c-.69 0-1.25-.56-1.25-1.25V5.25Z"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.55"
+      />
+      <path d="M8 7v5M5.5 9.5h5" stroke="currentColor" strokeLinecap="round" strokeWidth="1.55" />
+    </svg>
+  );
+}
 
 const SearchIcon: FC<SVGProps<SVGSVGElement>> = (props) => (
   <svg viewBox="0 0 16 16" fill="none" {...props}>

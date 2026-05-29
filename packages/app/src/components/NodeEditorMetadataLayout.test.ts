@@ -65,6 +65,55 @@ test('node code editor is preloaded before settings need it', () => {
   assert.match(graphBuilderSource, /warmCodeEditor\(\);\s+setEditingNodeId\(node\.id\);/);
 });
 
+test('node color picker is not split into a fragile dev lazy module', () => {
+  const lazyComponentsSource = readFileSync(join(componentsDir, 'LazyComponents.tsx'), 'utf8');
+  const colorEditorSource = readFileSync(join(componentsDir, 'editors', 'ColorEditor.tsx'), 'utf8');
+
+  assert.doesNotMatch(lazyComponentsSource, /TripleBarColorPicker/);
+  assert.match(colorEditorSource, /import \{ TripleBarColorPicker \} from '\.\.\/TripleBarColorPicker';/);
+  assert.doesNotMatch(colorEditorSource, /LazyTripleBarColorPicker|Suspense/);
+});
+
+test('node header warning state stays scoped to warning-specific canvas nodes', () => {
+  const visualNodeSource = readFileSync(join(componentsDir, 'VisualNode.tsx'), 'utf8');
+  const visualNodeImplSource = sliceSourceBetween(
+    visualNodeSource,
+    'const VisualNodeImpl = memo(',
+    'const GetGlobalVisualNode = memo(',
+  );
+  const getGlobalVisualNodeSource = sliceSourceBetween(
+    visualNodeSource,
+    'const GetGlobalVisualNode = memo(',
+    'const GraphOutputVisualNode = memo(',
+  );
+  const graphOutputVisualNodeSource = sliceSourceBetween(
+    visualNodeSource,
+    'const GraphOutputVisualNode = memo(',
+    'export const VisualNode = memo(',
+  );
+
+  assert.match(visualNodeSource, /const VisualNodeImpl = memo\(/);
+  assert.match(visualNodeSource, /const GetGlobalVisualNode = memo\(/);
+  assert.match(visualNodeSource, /const GraphOutputVisualNode = memo\(/);
+  assert.match(visualNodeSource, /props\.node\.type === 'getGlobal'/);
+  assert.match(visualNodeSource, /props\.node\.type === 'graphOutput'/);
+  assert.match(getGlobalVisualNodeSource, /enabledStaticGlobalVariableIdsState/);
+  assert.match(graphOutputVisualNodeSource, /duplicateGraphOutputIdsState/);
+  assert.doesNotMatch(visualNodeImplSource, /enabledStaticGlobalVariableIdsState/);
+  assert.doesNotMatch(visualNodeImplSource, /duplicateGraphOutputIdsState/);
+});
+
+function sliceSourceBetween(source: string, startNeedle: string, endNeedle: string): string {
+  const startIndex = source.indexOf(startNeedle);
+  const endIndex = source.indexOf(endNeedle);
+
+  assert.notEqual(startIndex, -1, `Missing source marker: ${startNeedle}`);
+  assert.notEqual(endIndex, -1, `Missing source marker: ${endNeedle}`);
+  assert.ok(startIndex < endIndex, `Expected ${startNeedle} to appear before ${endNeedle}`);
+
+  return source.slice(startIndex, endIndex);
+}
+
 test('node code editor uses project-scoped Monaco model caching', () => {
   const codeEditorSource = readFileSync(join(componentsDir, 'editors', 'CodeEditor.tsx'), 'utf8');
   const lazyCodeEditorSource = readFileSync(join(componentsDir, 'CodeEditor.tsx'), 'utf8');
@@ -101,6 +150,16 @@ test('node code editor lets panel scrolling continue at editor scroll edges', ()
     codeEditorSource,
     /scrollbar: \{\s+alwaysConsumeMouseWheel: false,\s+\},/,
   );
+});
+
+test('node code editor popup widgets are allowed outside the rounded editor shell', () => {
+  const codeEditorSource = readFileSync(join(componentsDir, 'CodeEditor.tsx'), 'utf8');
+  const defaultNodeEditorSource = readFileSync(join(componentsDir, 'editors', 'DefaultNodeEditor.tsx'), 'utf8');
+
+  assert.doesNotMatch(codeEditorSource, /fixedOverflowWidgets/);
+  assert.match(defaultNodeEditorSource, /\.editor-wrapper \{[\s\S]*?overflow: visible;/);
+  assert.match(defaultNodeEditorSource, /\.editor-container \{[\s\S]*?border-radius: inherit;[\s\S]*?overflow: visible;/);
+  assert.match(defaultNodeEditorSource, /\.node-editor-static-code-editor \.editor-container \{[\s\S]*?overflow: visible;/);
 });
 
 test('lazy Monaco editor chunk stays independent from app UI state', () => {

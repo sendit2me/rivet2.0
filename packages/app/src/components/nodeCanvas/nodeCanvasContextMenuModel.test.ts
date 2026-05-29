@@ -157,6 +157,7 @@ test('getNodeCanvasContextMenuContext hydrates node context data from the DOM ta
         nodeId,
         canRunFromEditor: true,
         canRunFromHere: true,
+        canRearrangeSubgraphPorts: false,
         canFreeze: false,
         canUnfreeze: false,
         freezeNodeTargets: [],
@@ -167,6 +168,85 @@ test('getNodeCanvasContextMenuContext hydrates node context data from the DOM ta
       },
     },
   );
+});
+
+test('getNodeCanvasContextMenuContext enables Subgraph port rearrange when the target graph has boundary nodes', () => {
+  const childGraphId = 'child-graph' as GraphId;
+  const subGraphNode = makeNode('subGraph', nodeId, 'Subgraph');
+  subGraphNode.data = {
+    ...(subGraphNode.data as Record<string, unknown>),
+    graphId: childGraphId,
+  };
+  const inputNode = makeNode('graphInput', 'input-node' as NodeId, 'Graph Input');
+  inputNode.data = {
+    ...(inputNode.data as Record<string, unknown>),
+    id: 'input',
+  };
+
+  const projectWithBoundarySubgraph: Project = {
+    ...project,
+    graphs: {
+      [graphId]: {
+        metadata: { id: graphId, name: 'Graph' },
+        nodes: [subGraphNode],
+        connections: [],
+      },
+      [childGraphId]: {
+        metadata: { id: childGraphId, name: 'Child' },
+        nodes: [inputNode],
+        connections: [],
+      },
+    },
+  };
+
+  const context = getNodeCanvasContextMenuContext({
+    ...contextModelOptions,
+    contextMenuData: makeContextMenuData('node-subGraph'),
+    nodesById: {
+      [nodeId]: subGraphNode,
+    },
+    project: projectWithBoundarySubgraph,
+  });
+
+  assert.equal(context.type, 'node');
+  assert.equal(context.data.canRearrangeSubgraphPorts, true);
+});
+
+test('getNodeCanvasContextMenuContext hides Subgraph port rearrange when the target graph has no boundary nodes', () => {
+  const childGraphId = 'empty-child-graph' as GraphId;
+  const subGraphNode = makeNode('subGraph', nodeId, 'Subgraph');
+  subGraphNode.data = {
+    ...(subGraphNode.data as Record<string, unknown>),
+    graphId: childGraphId,
+  };
+
+  const projectWithEmptySubgraph: Project = {
+    ...project,
+    graphs: {
+      [graphId]: {
+        metadata: { id: graphId, name: 'Graph' },
+        nodes: [subGraphNode],
+        connections: [],
+      },
+      [childGraphId]: {
+        metadata: { id: childGraphId, name: 'Child' },
+        nodes: [],
+        connections: [],
+      },
+    },
+  };
+
+  const context = getNodeCanvasContextMenuContext({
+    ...contextModelOptions,
+    contextMenuData: makeContextMenuData('node-subGraph'),
+    nodesById: {
+      [nodeId]: subGraphNode,
+    },
+    project: projectWithEmptySubgraph,
+  });
+
+  assert.equal(context.type, 'node');
+  assert.equal(context.data.canRearrangeSubgraphPorts, false);
 });
 
 test('getNodeCanvasContextMenuContext enables Freeze for nodes with retained successful outputs', () => {

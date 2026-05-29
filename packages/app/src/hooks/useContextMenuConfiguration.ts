@@ -8,6 +8,7 @@ import CopyIcon from '../assets/icons/copy-icon.svg?react';
 import PasteIcon from '../assets/icons/paste-icon.svg?react';
 import PlusIcon from 'majesticons/line/plus-line.svg?react';
 import SnowflakeIcon from '../assets/icons/snowflake-icon.svg?react';
+import RearrangePortsIcon from '../assets/icons/rearrange-ports-icon.svg?react';
 import { type ChartNode, type NodeId } from '@valerypopoff/rivet2-core';
 import { selectedNodesState } from '../state/graphBuilder.js';
 import { useContextMenuCommands } from './useContextMenuCommands.js';
@@ -61,6 +62,7 @@ type NodeContextMenuData = {
   nodeId: NodeId;
   canRunFromEditor: boolean;
   canRunFromHere: boolean;
+  canRearrangeSubgraphPorts: boolean;
   canFreeze: boolean;
   canUnfreeze: boolean;
   freezeNodeTargets: NodeFreezeTarget[];
@@ -101,6 +103,7 @@ const getNodeContextMenuData = (context: unknown): NodeContextMenuData | undefin
     typeof data.nodeId !== 'string' ||
     typeof data.canRunFromEditor !== 'boolean' ||
     typeof data.canRunFromHere !== 'boolean' ||
+    typeof data.canRearrangeSubgraphPorts !== 'boolean' ||
     typeof data.canFreeze !== 'boolean' ||
     typeof data.canUnfreeze !== 'boolean' ||
     typeof data.freezeMenuTargetCount !== 'number' ||
@@ -114,6 +117,7 @@ const getNodeContextMenuData = (context: unknown): NodeContextMenuData | undefin
     nodeId: data.nodeId as NodeId,
     canRunFromEditor: data.canRunFromEditor,
     canRunFromHere: data.canRunFromHere,
+    canRearrangeSubgraphPorts: data.canRearrangeSubgraphPorts,
     canFreeze: data.canFreeze,
     canUnfreeze: data.canUnfreeze,
     freezeNodeTargets,
@@ -172,6 +176,9 @@ const canUnfreezeOneNode = (context: unknown) => getUnfreezeNodeTargetCount(cont
 const canUnfreezeMultipleNodes = (context: unknown) => getUnfreezeNodeTargetCount(context) > 1;
 
 const isSubgraphNodeContext = (context: unknown) => getNodeContextMenuData(context)?.nodeType === 'subGraph';
+
+const canRearrangeSubgraphPorts = (context: unknown) =>
+  getNodeContextMenuData(context)?.canRearrangeSubgraphPorts === true;
 
 export function useContextMenuConfiguration() {
   const addMenuConfig = useContextMenuAddNodeConfiguration();
@@ -252,6 +259,12 @@ export function useContextMenuConfiguration() {
                 id: 'node-edit',
                 label: 'Edit',
                 icon: SettingsCogIcon,
+              },
+              {
+                id: 'node-rearrange-subgraph-ports',
+                label: 'Rearrange inputs/outputs',
+                icon: RearrangePortsIcon,
+                conditional: canRearrangeSubgraphPorts,
               },
               {
                 id: 'nodes-factor-into-subgraph',

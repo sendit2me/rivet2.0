@@ -17,6 +17,7 @@ export function canStartWireDragFromPortLabel(input: boolean): boolean {
 export const Port: FC<{
   input?: boolean;
   title: string;
+  hideLabel?: boolean;
   nodeId: NodeId;
   id: PortId;
   connected?: boolean;
@@ -25,6 +26,8 @@ export const Port: FC<{
   preservePortCase?: boolean;
   definition: NodeInputDefinition | NodeOutputDefinition;
   draggingDataType?: DataType | Readonly<DataType[]>;
+  reorderable?: boolean;
+  reorderDragging?: boolean;
   onMouseDown?: (event: MouseEvent<HTMLDivElement>, port: PortId, isInput: boolean) => void;
   onMouseUp?: (event: MouseEvent<HTMLDivElement>, port: PortId) => void;
   onMouseOver?: (
@@ -41,10 +44,12 @@ export const Port: FC<{
     portId: PortId,
     definition: NodeInputDefinition | NodeOutputDefinition,
   ) => void;
+  onReorderMouseDown?: (event: MouseEvent<HTMLDivElement>, port: PortId, isInput: boolean, title: string) => void;
 }> = memo(
   ({
     input = false,
     title,
+    hideLabel = false,
     nodeId,
     id,
     connected,
@@ -52,10 +57,13 @@ export const Port: FC<{
     closest,
     definition,
     draggingDataType,
+    reorderable = false,
+    reorderDragging = false,
     onMouseDown,
     onMouseUp,
     onMouseOver,
     onMouseOut,
+    onReorderMouseDown,
     preservePortCase,
   }) => {
     const ref = useRef<HTMLDivElement>(null);
@@ -75,6 +83,13 @@ export const Port: FC<{
     });
 
     const handleLabelMouseDown = useStableCallback((event: MouseEvent<HTMLDivElement>) => {
+      if (reorderable) {
+        event.stopPropagation();
+        event.preventDefault();
+        onReorderMouseDown?.(event, id, input, title);
+        return;
+      }
+
       if (!canStartWireDragFromPortLabel(input)) {
         return;
       }
@@ -106,9 +121,14 @@ export const Port: FC<{
           {
             connected,
             closest,
+            reorderable,
+            'reorder-dragging-source': reorderDragging,
           },
           accepted,
         )}
+        data-reorder-nodeid={reorderable ? nodeId : undefined}
+        data-reorder-portid={reorderable ? id : undefined}
+        data-reorder-portside={reorderable ? (input ? 'input' : 'output') : undefined}
       >
         <div
           ref={ref}
@@ -125,14 +145,16 @@ export const Port: FC<{
         >
           {canDragTo && <div className={clsx('port-hover-area')} />}
         </div>
-        <div
-          className={clsx('port-label', preservePortCase ? '' : 'port-label-uppercase')}
-          onMouseDown={handleLabelMouseDown}
-          onMouseOver={handleMouseOver}
-          onMouseOut={handleMouseOut}
-        >
-          {title}
-        </div>
+        {!hideLabel && (
+          <div
+            className={clsx('port-label', preservePortCase ? '' : 'port-label-uppercase')}
+            onMouseDown={handleLabelMouseDown}
+            onMouseOver={handleMouseOver}
+            onMouseOut={handleMouseOut}
+          >
+            {title}
+          </div>
+        )}
       </div>
     );
   },

@@ -340,6 +340,74 @@ describe('serialization compatibility', () => {
     assert.equal(conn.inputNodeId, 'n2');
   });
 
+  it('round-trips Subgraph manual port order fields through V4 project serialization', () => {
+    const project: Project = {
+      metadata: {
+        id: 'project-subgraph-order',
+        title: 'Subgraph Order Test',
+        description: '',
+      },
+      graphs: {
+        'main-graph': {
+          metadata: { id: 'main-graph', name: 'Main Graph', description: '' },
+          nodes: [
+            {
+              id: 'subgraph-node',
+              type: 'subGraph',
+              title: 'Subgraph',
+              visualData: { x: 0, y: 0 },
+              data: {
+                graphId: 'child-graph',
+                inputPortOrder: ['second', 'first'],
+                outputPortOrder: ['result-b', 'result-a'],
+              },
+              variants: [],
+            },
+          ],
+          connections: [],
+        },
+        'child-graph': {
+          metadata: { id: 'child-graph', name: 'Child Graph', description: '' },
+          nodes: [],
+          connections: [],
+        },
+      },
+      plugins: [],
+      references: [],
+    };
+
+    const [deserialized] = deserializeProject(serializeProject(project) as string);
+    const subgraph = deserialized.graphs['main-graph']!.nodes[0]!;
+
+    assert.deepEqual((subgraph.data as Record<string, unknown>).inputPortOrder, ['second', 'first']);
+    assert.deepEqual((subgraph.data as Record<string, unknown>).outputPortOrder, ['result-b', 'result-a']);
+  });
+
+  it('deserializes old-style Subgraph nodes without manual port order fields', () => {
+    const graph: NodeGraph = {
+      metadata: { id: 'g-old-subgraph', name: 'Old Subgraph', description: '' },
+      nodes: [
+        {
+          id: 'subgraph-node',
+          type: 'subGraph',
+          title: 'Subgraph',
+          visualData: { x: 0, y: 0 },
+          data: {
+            graphId: 'child-graph',
+          },
+          variants: [],
+        },
+      ],
+      connections: [],
+    };
+
+    const deserialized = deserializeGraph(serializeGraph(graph));
+    const subgraph = deserialized.nodes[0]!;
+
+    assert.equal((subgraph.data as Record<string, unknown>).inputPortOrder, undefined);
+    assert.equal((subgraph.data as Record<string, unknown>).outputPortOrder, undefined);
+  });
+
   it('round-trips graph through V4 serialize/deserialize', () => {
     const graph: NodeGraph = {
       metadata: { id: 'g1', name: 'Test', description: '' },

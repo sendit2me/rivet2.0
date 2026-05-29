@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  applyGraphBoundaryPortOrder,
   buildExcludedGraphBoundaryOutputs,
   buildGraphBoundaryInputData,
   getGraphBoundary,
@@ -52,6 +53,47 @@ void describe('GraphBoundaryCache', () => {
       { dataType: 'string', id: 'a', title: 'a' },
       { dataType: 'object', id: 'z', title: 'z' },
     ]);
+  });
+
+  void it('applies persisted boundary port order while ignoring stale and duplicate ids', () => {
+    const project = makeProject([
+      makeGraphInputNode('input-a', 'a', 'string'),
+      makeGraphInputNode('input-b', 'b', 'number'),
+      makeGraphInputNode('input-c', 'c', 'boolean'),
+      makeGraphOutputNode('output-a', 'a', 'string'),
+      makeGraphOutputNode('output-b', 'b', 'number'),
+      makeGraphOutputNode('output-c', 'c', 'boolean'),
+    ]);
+    const boundary = getGraphBoundary(project, graphId)!;
+
+    assert.deepEqual(
+      applyGraphBoundaryPortOrder(boundary.inputs, ['c', 'missing', 'a', 'c']).map((input) => input.id),
+      ['c', 'a', 'b'],
+    );
+    assert.deepEqual(getGraphBoundaryInputDefinitions(boundary, ['c', 'missing', 'a', 'c']), [
+      { dataType: 'boolean', id: 'c', title: 'c' },
+      { dataType: 'string', id: 'a', title: 'a' },
+      { dataType: 'number', id: 'b', title: 'b' },
+    ]);
+    assert.deepEqual(getGraphBoundaryOutputDefinitions(boundary, ['b', 'b', 'missing']), [
+      { dataType: 'number', id: 'b', title: 'b' },
+      { dataType: 'string', id: 'a', title: 'a' },
+      { dataType: 'boolean', id: 'c', title: 'c' },
+    ]);
+  });
+
+  void it('preserves default boundary order when persisted port order is absent', () => {
+    const project = makeProject([
+      makeGraphInputNode('input-c', 'c', 'boolean'),
+      makeGraphInputNode('input-a', 'a', 'string'),
+      makeGraphInputNode('input-b', 'b', 'number'),
+    ]);
+    const boundary = getGraphBoundary(project, graphId)!;
+
+    assert.deepEqual(
+      getGraphBoundaryInputDefinitions(boundary).map((input) => input.id),
+      ['a', 'b', 'c'],
+    );
   });
 
   void it('keeps boundary caches scoped to the provided cache object', () => {
