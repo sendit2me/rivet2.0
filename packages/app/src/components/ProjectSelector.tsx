@@ -49,26 +49,43 @@ export const styles = css`
   z-index: 250;
 
   background: var(--grey-darkerish);
-  border-bottom: 1px solid var(--grey);
 
   display: flex;
   align-items: stretch;
 
   --top-bar-left-controls-width: calc(var(--project-selector-height) * 3);
 
+  &::after {
+    background: var(--grey);
+    bottom: 0;
+    content: '';
+    height: 1px;
+    left: 0;
+    pointer-events: none;
+    position: absolute;
+    right: 0;
+    z-index: 2;
+  }
+
+  > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  &.graph-tree-open::after {
+    left: var(--left-sidebar-width);
+  }
+
   .sidebar-toggle-menu,
   .graph-history-menu,
   .file-menu {
     align-items: stretch;
     background: var(--grey-darkerish);
-    border-bottom: 1px solid var(--grey);
-    border-right: 1px solid var(--grey-darkest);
     color: var(--grey-light);
     display: flex;
     flex: 0 0 auto;
     position: relative;
-    height: calc(100% + 1px);
-    margin-bottom: -1px;
+    height: 100%;
   }
 
   .sidebar-toggle-menu {
@@ -111,6 +128,8 @@ export const styles = css`
   }
 
   .file-menu {
+    border-left: 1px solid var(--grey-darkest);
+    border-right: 1px solid var(--grey-darkest);
     min-width: 64px;
   }
 
@@ -170,15 +189,24 @@ export const styles = css`
 
   .sidebar-panel-spacer {
     background: var(--grey-darkerish);
-    border-bottom: 1px solid var(--grey);
     flex: 0 0 max(0px, calc(var(--left-sidebar-width) - var(--top-bar-left-controls-width)));
-    height: calc(100% + 1px);
-    margin-bottom: -1px;
+    height: 100%;
     min-width: 0;
   }
 
-  .sidebar-panel-spacer.no-left-controls {
-    flex-basis: var(--left-sidebar-width);
+  &.graph-tree-open .sidebar-toggle-menu,
+  &.graph-tree-open .graph-history-menu,
+  &.graph-tree-open .sidebar-panel-spacer {
+    background: var(--grey-dark-bluish-seethrough);
+  }
+
+  &.graph-tree-open .sidebar-toggle-menu:hover,
+  &.graph-tree-open .graph-history-menu:hover {
+    background: var(--grey-darkish);
+  }
+
+  &.graph-tree-open .graph-history-menu.disabled:hover {
+    background: var(--grey-dark-bluish-seethrough);
   }
 
   .file-dropdown {
@@ -242,10 +270,8 @@ export const styles = css`
     display: flex;
     gap: 8px;
     font-size: var(--ui-font-size-sm);
-    height: calc(100% + 1px);
-    margin-bottom: -1px;
+    height: 100%;
     background: var(--grey-darkerish);
-    border-bottom: 1px solid var(--grey);
     flex-shrink: 1;
     min-width: 50px;
     position: relative;
@@ -274,18 +300,15 @@ export const styles = css`
 
     &:hover {
       background-color: var(--grey-darkish);
-      border-bottom: 1px solid var(--grey);
     }
 
     &.active {
       background-color: var(--primary);
-      border-bottom: 1px solid var(--primary);
       color: var(--foreground-on-primary);
     }
 
     &.active:hover {
       background-color: var(--primary-dark);
-      border-bottom-color: var(--primary-dark);
     }
 
     &.active .close-project {
@@ -373,7 +396,7 @@ export const ProjectSelector: FC<{
 
   const loadProject = useLoadProject();
   const projectTabsSelected = projectMode && openOverlay === undefined;
-  const reserveSidebarColumn = projectMode && sidebarOpen;
+  const reserveSidebarColumn = projectTabsSelected && sidebarOpen;
 
   useSyncCurrentStateIntoOpenedProjects({ enabled: projectMode });
 
@@ -404,15 +427,14 @@ export const ProjectSelector: FC<{
   };
 
   return (
-    <div css={styles} style={{ '--left-sidebar-width': `${leftSidebarWidth}px` } as CSSProperties}>
+    <div
+      className={clsx({ 'graph-tree-open': reserveSidebarColumn })}
+      css={styles}
+      style={{ '--left-sidebar-width': `${leftSidebarWidth}px` } as CSSProperties}
+    >
       {projectTabsSelected && <GraphTreeSidebarToggle />}
       {projectTabsSelected && <GraphHistoryControls />}
-      {reserveSidebarColumn && (
-        <div
-          className={clsx('sidebar-panel-spacer', { 'no-left-controls': !projectTabsSelected })}
-          aria-hidden="true"
-        />
-      )}
+      {reserveSidebarColumn && <div className="sidebar-panel-spacer" aria-hidden="true" />}
       {!isInTauri() && <ProjectFileMenu />}
       <div className={clsx('projects-container', { empty: visibleProjects.length === 0 })}>
         <div className="projects">

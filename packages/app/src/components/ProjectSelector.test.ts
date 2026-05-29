@@ -9,10 +9,25 @@ const srcDir = dirname(fileURLToPath(import.meta.url));
 test('project top bar owns the graph tree sidebar toggle for the active project workspace', () => {
   const projectSelectorTsx = readFileSync(join(srcDir, 'ProjectSelector.tsx'), 'utf8');
   const leftSidebarTsx = readFileSync(join(srcDir, 'LeftSidebar.tsx'), 'utf8');
+  const overlayTabsTsx = readFileSync(join(srcDir, 'OverlayTabs.tsx'), 'utf8');
 
   assert.match(
     projectSelectorTsx,
-    /{projectTabsSelected && <GraphTreeSidebarToggle \/>}[\s\S]*{projectTabsSelected && <GraphHistoryControls \/>}[\s\S]*{reserveSidebarColumn && \([\s\S]*className={clsx\('sidebar-panel-spacer', \{ 'no-left-controls': !projectTabsSelected \}\)}[\s\S]*{!isInTauri\(\) && <ProjectFileMenu \/>}/,
+    /{projectTabsSelected && <GraphTreeSidebarToggle \/>}[\s\S]*{projectTabsSelected && <GraphHistoryControls \/>}[\s\S]*{reserveSidebarColumn && <div className="sidebar-panel-spacer" aria-hidden="true" \/>}[\s\S]*{!isInTauri\(\) && <ProjectFileMenu \/>}/,
+  );
+  assert.match(projectSelectorTsx, /const reserveSidebarColumn = projectTabsSelected && sidebarOpen;/);
+  assert.match(projectSelectorTsx, /className={clsx\(\{ 'graph-tree-open': reserveSidebarColumn \}\)}/);
+  assert.match(projectSelectorTsx, /&::after \{[\s\S]*left: 0;[\s\S]*right: 0;/);
+  assert.match(projectSelectorTsx, /&::after \{[\s\S]*z-index: 2;/);
+  assert.match(projectSelectorTsx, /> \* \{[\s\S]*position: relative;[\s\S]*z-index: 1;/);
+  assert.match(projectSelectorTsx, /&\.graph-tree-open::after \{\s+left: var\(--left-sidebar-width\);/);
+  assert.match(
+    projectSelectorTsx,
+    /&\.graph-tree-open \.sidebar-toggle-menu,[\s\S]*&\.graph-tree-open \.graph-history-menu,[\s\S]*&\.graph-tree-open \.sidebar-panel-spacer \{[\s\S]*background: var\(--grey-dark-bluish-seethrough\);/,
+  );
+  assert.match(
+    projectSelectorTsx,
+    /&\.graph-tree-open \.sidebar-toggle-menu:hover,[\s\S]*&\.graph-tree-open \.graph-history-menu:hover \{[\s\S]*background: var\(--grey-darkish\);/,
   );
   assert.match(projectSelectorTsx, /aria-controls="graph-tree-sidebar"/);
   assert.match(projectSelectorTsx, /aria-expanded={sidebarOpen}/);
@@ -42,10 +57,24 @@ test('project top bar owns the graph tree sidebar toggle for the active project 
     projectSelectorTsx,
     /flex: 0 0 max\(0px, calc\(var\(--left-sidebar-width\) - var\(--top-bar-left-controls-width\)\)\);/,
   );
-  assert.match(
-    projectSelectorTsx,
-    /\.sidebar-panel-spacer\.no-left-controls {\s+flex-basis: var\(--left-sidebar-width\);/,
-  );
+  assert.doesNotMatch(projectSelectorTsx, /no-left-controls/);
+  assert.doesNotMatch(projectSelectorTsx, /\.project[\s\S]*?border-bottom:/);
+  const sidebarToggleStyles = projectSelectorTsx.match(/\.sidebar-toggle-menu \{(?<styles>[\s\S]*?)\n  \}/)
+    ?.groups?.styles;
+  const graphHistoryStyles = projectSelectorTsx.match(
+    /\.graph-history-menu \{(?<styles>[\s\S]*?)\n  \.sidebar-toggle-tooltip/,
+  )?.groups?.styles;
+  assert.ok(sidebarToggleStyles);
+  assert.ok(graphHistoryStyles);
+  assert.doesNotMatch(sidebarToggleStyles, /border-right:/);
+  assert.doesNotMatch(graphHistoryStyles, /border-right:/);
+  assert.match(projectSelectorTsx, /\.file-menu \{[\s\S]*border-left: 1px solid var\(--grey-darkest\);/);
+  assert.match(projectSelectorTsx, /\.file-menu \{[\s\S]*border-right: 1px solid var\(--grey-darkest\);/);
+  assert.match(projectSelectorTsx, /\.project::after \{[\s\S]*background-color: var\(--grey-darkest\);/);
+  assert.doesNotMatch(overlayTabsTsx, /\.menu-item[\s\S]*?border-bottom:/);
+  assert.doesNotMatch(overlayTabsTsx, /z-index: 200;/);
+  assert.match(overlayTabsTsx, /border-left: 1px solid var\(--grey-darkest\);/);
+  assert.match(overlayTabsTsx, /\.menu-item \{[\s\S]*border-right: 1px solid var\(--grey-darkest\);/);
   assert.match(leftSidebarTsx, /id="graph-tree-sidebar"/);
   assert.match(leftSidebarTsx, /shouldCollapseLeftSidebarDrag\(rawWidth\)/);
   assert.match(leftSidebarTsx, /\{\(sidebarOpen \|\| isResizing\) && \(/);
