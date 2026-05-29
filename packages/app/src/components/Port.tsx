@@ -17,6 +17,7 @@ export function canStartWireDragFromPortLabel(input: boolean): boolean {
 export const Port: FC<{
   input?: boolean;
   title: string;
+  hideLabel?: boolean;
   nodeId: NodeId;
   id: PortId;
   connected?: boolean;
@@ -45,6 +46,7 @@ export const Port: FC<{
   ({
     input = false,
     title,
+    hideLabel = false,
     nodeId,
     id,
     connected,
@@ -125,14 +127,16 @@ export const Port: FC<{
         >
           {canDragTo && <div className={clsx('port-hover-area')} />}
         </div>
-        <div
-          className={clsx('port-label', preservePortCase ? '' : 'port-label-uppercase')}
-          onMouseDown={handleLabelMouseDown}
-          onMouseOver={handleMouseOver}
-          onMouseOut={handleMouseOut}
-        >
-          {title}
-        </div>
+        {!hideLabel && (
+          <div
+            className={clsx('port-label', preservePortCase ? '' : 'port-label-uppercase')}
+            onMouseDown={handleLabelMouseDown}
+            onMouseOver={handleMouseOver}
+            onMouseOut={handleMouseOut}
+          >
+            {title}
+          </div>
+        )}
       </div>
     );
   },

@@ -1,16 +1,12 @@
 
 
-
-- Add "Collapse all" and "Unfold all" actions in the graph tree
-
+- When text/code input has popup hints, they get clipped by the input perimeter. Don't clip them and let them render outside the input too
 
 - When I need to gather a lot of inputs into one node, it looks messy and it's easy to look over some connections. like in the "setGlobals" graph. We need to do something about this UX. maybe introduce a "Group" node that will contain many same type nodes and combine their outputs into one so I can later pipe it into just one node and be sur ethat all the nodes are connected?
 
-- Change the IF port so it doesn't take up spane in the node's header and so it looks like a very special input port
 
 - Code editor: show a hint that Ctrl++ and Ctrl+- are working here. Also add Ctrl/Cmd+scroll to scale the font size
 
-- Words: 20 Characters: 111 - make the separator larger
 
 
 - Reassess Ctrl+N window

@@ -1,9 +1,4 @@
-import {
-  IF_PORT,
-  isBuiltInInputDefinition,
-  type NodeInputDefinition,
-  type NodeOutputDefinition,
-} from '@valerypopoff/rivet2-core';
+import { isBuiltInInputDefinition, type NodeInputDefinition, type NodeOutputDefinition } from '@valerypopoff/rivet2-core';
 
 import { MIN_NODE_WIDTH } from './nodeResize.js';
 
@@ -20,7 +15,6 @@ export type NodePortLabelWidthOptions = {
   inputDefinitions: readonly NodeInputDefinition[];
   outputDefinitions: readonly NodeOutputDefinition[];
   preservePortCase: boolean;
-  includeConditionalPort?: boolean;
   uiFontScale?: number;
 };
 
@@ -66,16 +60,11 @@ export function getMinimumNodeWidthForPortLabels({
   inputDefinitions,
   outputDefinitions,
   preservePortCase,
-  includeConditionalPort = false,
   uiFontScale = 1,
 }: NodePortLabelWidthOptions) {
   const inputTitles = inputDefinitions
     .filter((inputDefinition) => !isBuiltInInputDefinition(inputDefinition))
     .map((inputDefinition) => inputDefinition.title);
-
-  if (includeConditionalPort) {
-    inputTitles.push(IF_PORT.title);
-  }
 
   const outputTitles = outputDefinitions.map((outputDefinition) => outputDefinition.title);
 

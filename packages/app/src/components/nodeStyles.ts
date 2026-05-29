@@ -154,10 +154,6 @@ export const nodeStyles = css`
     cursor: grabbing;
   }
 
-  .node.conditional .node-title {
-    padding-left: 30px;
-  }
-
   .node.isSplit::before,
   .node.isSplit::after {
     content: '';

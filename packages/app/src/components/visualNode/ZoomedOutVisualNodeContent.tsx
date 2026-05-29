@@ -130,6 +130,7 @@ export const ZoomedOutVisualNodeContent: FC<{
               definition={IF_PORT}
               nodeId={node.id}
               title="if"
+              hideLabel
               input
               preservePortCase={preservePortTextCase}
               onMouseOver={onPortMouseOver}

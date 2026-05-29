@@ -23,14 +23,12 @@ export function useNodePortLabelMinWidth(node: ChartNode) {
       inputDefinitions: nodeIO?.inputDefinitions ?? [],
       outputDefinitions: nodeIO?.outputDefinitions ?? [],
       preservePortCase,
-      includeConditionalPort: node.isConditional,
       uiFontScale: getUiFontScale(uiFontSize),
     });
   }, [
     node.type,
     nodeIO?.inputDefinitions,
     nodeIO?.outputDefinitions,
-    node.isConditional,
     preservePortCase,
     uiFontSize,
   ]);
