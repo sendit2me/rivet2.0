@@ -646,6 +646,35 @@ export const nodeStyles = css`
     cursor: default;
   }
 
+  .port.reorderable .port-label {
+    background: color-mix(in srgb, var(--primary) 18%, var(--grey-darkest) 82%);
+    border: 1px solid color-mix(in srgb, var(--primary) 42%, transparent);
+    border-radius: calc(6px * var(--ui-font-scale));
+    color: var(--grey-lightest);
+    cursor: grab;
+    opacity: 1;
+    padding: 2px 6px;
+    corner-shape: squircle;
+
+    @supports not (corner-shape: squircle) {
+      border-radius: calc(4px * var(--ui-font-scale));
+    }
+  }
+
+  .port.reorderable .port-label:active {
+    cursor: grabbing;
+  }
+
+  .port.reorder-dragging-source .port-label {
+    visibility: hidden;
+  }
+
+  body.subgraph-port-reorder-dragging,
+  body.subgraph-port-reorder-dragging * {
+    cursor: grabbing !important;
+    user-select: none !important;
+  }
+
   .node.zoomedOut .port-label {
     display: none;
   }

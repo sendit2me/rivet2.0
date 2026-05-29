@@ -122,6 +122,7 @@ export function getNodeCanvasContextMenuContext({
         projectNodeRegistry,
         selectedGraphId,
       }),
+      canRearrangeSubgraphPorts: canRearrangeNodeSubgraphPorts(nodesById[target.nodeId], project),
       canFreeze: freezeNodeTargets.length > 0,
       canUnfreeze: unfreezeNodeIds.length > 0,
       freezeNodeTargets,
@@ -131,6 +132,17 @@ export function getNodeCanvasContextMenuContext({
       isFrozen,
     },
   };
+}
+
+function canRearrangeNodeSubgraphPorts(node: ChartNode | undefined, project: Project): boolean {
+  if (node?.type !== 'subGraph') {
+    return false;
+  }
+
+  const graphId = (node.data as { graphId?: GraphId }).graphId;
+  const graph = graphId ? project.graphs[graphId] : undefined;
+
+  return Boolean(graph?.nodes.some((graphNode) => graphNode.type === 'graphInput' || graphNode.type === 'graphOutput'));
 }
 
 function getFreezeDisabledReason({

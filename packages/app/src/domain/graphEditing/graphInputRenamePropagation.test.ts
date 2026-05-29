@@ -77,6 +77,52 @@ test('propagateGraphInputRename renames subgraph inputData defaults', () => {
   });
 });
 
+test('propagateGraphInputRename renames persisted subgraph input port order', () => {
+  const previousInputNode = makeGraphInput('input-node', 'old');
+  const nextInputNode = makeGraphInput('input-node', 'new');
+  const subGraphNode = makeSubGraphNode('subgraph', subGraphId, {
+    data: {
+      inputPortOrder: ['b', 'old', 'a'],
+    },
+  });
+  const parentGraph = makeGraph(parentGraphId, [subGraphNode]);
+
+  const result = propagateGraphInputRename({
+    currentGraphId: subGraphId,
+    editedNodeId: previousInputNode.id,
+    nextCurrentConnections: [],
+    nextCurrentNodes: [nextInputNode],
+    previousCurrentNodes: [previousInputNode],
+    project: makeProject([parentGraph]),
+  });
+  const nextSubGraphNode = result.projectGraphSnapshots[parentGraphId]!.nextGraph.nodes[0]!;
+
+  assert.deepEqual((nextSubGraphNode.data as { inputPortOrder?: string[] }).inputPortOrder, ['b', 'new', 'a']);
+});
+
+test('propagateGraphInputRename deduplicates persisted subgraph input order collisions', () => {
+  const previousInputNode = makeGraphInput('input-node', 'old');
+  const nextInputNode = makeGraphInput('input-node', 'new');
+  const subGraphNode = makeSubGraphNode('subgraph', subGraphId, {
+    data: {
+      inputPortOrder: ['new', 'old', 'tail'],
+    },
+  });
+  const parentGraph = makeGraph(parentGraphId, [subGraphNode]);
+
+  const result = propagateGraphInputRename({
+    currentGraphId: subGraphId,
+    editedNodeId: previousInputNode.id,
+    nextCurrentConnections: [],
+    nextCurrentNodes: [nextInputNode],
+    previousCurrentNodes: [previousInputNode],
+    project: makeProject([parentGraph]),
+  });
+  const nextSubGraphNode = result.projectGraphSnapshots[parentGraphId]!.nextGraph.nodes[0]!;
+
+  assert.deepEqual((nextSubGraphNode.data as { inputPortOrder?: string[] }).inputPortOrder, ['new', 'tail']);
+});
+
 test('propagateGraphInputRename keeps existing new-name inputData default on collision', () => {
   const previousInputNode = makeGraphInput('input-node', 'old');
   const nextInputNode = makeGraphInput('input-node', 'new');

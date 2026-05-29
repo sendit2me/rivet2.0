@@ -7,6 +7,7 @@ import {
   type PortId,
   type Project,
 } from '@valerypopoff/rivet2-core';
+import { renameSubGraphPortOrder } from './subGraphPortOrder.js';
 
 export type GraphInputRenameProjectGraphSnapshots = Record<
   GraphId,
@@ -181,8 +182,9 @@ function reconcileGraph({
     changed ||= connectionResult.changed;
 
     const inputDataResult = renameSubGraphInputData(node, oldInputId, newInputId);
-    changed ||= inputDataResult.changed;
-    return inputDataResult.node;
+    const orderResult = renameSubGraphPortOrder(inputDataResult.node, 'inputPortOrder', oldInputId, newInputId);
+    changed ||= inputDataResult.changed || orderResult.changed;
+    return orderResult.node;
   });
 
   return {

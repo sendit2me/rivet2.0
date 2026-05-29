@@ -723,7 +723,16 @@ Graph boundary metadata for direct nested-graph callers is centralized in
 [`GraphBoundaryCache.ts`](../packages/core/src/model/GraphBoundaryCache.ts).
 The helper derives sorted, first-duplicate-wins Graph Input and Graph Output
 ports, builds subgraph input maps without repeated object spreads, and builds
-error-path excluded output maps. Graph-boundary dataflow effects that are not
+error-path excluded output maps. `SubGraphNode.data.inputPortOrder` and
+`SubGraphNode.data.outputPortOrder` are per-node-instance visual ordering
+overrides layered on top of that boundary metadata: ordered live ids are shown
+first, duplicate/stale ids are ignored, and new boundary ports append in the
+default sorted order. The optional Subgraph `Error` output is appended after
+ordered graph outputs and is not part of `outputPortOrder`. The order arrays
+live inside node `data` so project YAML
+stays backward-compatible: old projects omit them, and older Rivet versions can
+ignore the extra keys without changing connection ids or execution semantics.
+Graph-boundary dataflow effects that are not
 metadata-only live in
 [`GraphBoundaryEffects.ts`](../packages/core/src/model/GraphBoundaryEffects.ts):
 final `cost` output insertion and recoverable frozen `Graph Output` /
