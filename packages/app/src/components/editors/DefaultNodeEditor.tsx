@@ -202,13 +202,19 @@ export const defaultEditorContainerStyles = css`
     @supports not (corner-shape: squircle) {
       border-radius: 6px;
     }
-    overflow: hidden;
+    overflow: visible;
   }
 
   .editor-container {
     height: 100%;
     min-height: 0;
     background-color: var(--grey-darker);
+    border-radius: inherit;
+    overflow: visible;
+  }
+
+  .editor-container .monaco-editor {
+    border-radius: inherit;
   }
 
   .code-editor-loading-placeholder {
@@ -251,7 +257,7 @@ export const defaultEditorContainerStyles = css`
     @supports not (corner-shape: squircle) {
       border-radius: 6px;
     }
-    overflow: hidden;
+    overflow: visible;
   }
 
   .editor-status-line {

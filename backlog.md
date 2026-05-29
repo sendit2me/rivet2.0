@@ -1,7 +1,5 @@
 
 
-- When text/code input has popup hints, they get clipped by the input perimeter. Don't clip them and let them render outside the input too
-
 - When I need to gather a lot of inputs into one node, it looks messy and it's easy to look over some connections. like in the "setGlobals" graph. We need to do something about this UX. maybe introduce a "Group" node that will contain many same type nodes and combine their outputs into one so I can later pipe it into just one node and be sur ethat all the nodes are connected?
 
 

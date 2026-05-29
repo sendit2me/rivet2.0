@@ -152,6 +152,16 @@ test('node code editor lets panel scrolling continue at editor scroll edges', ()
   );
 });
 
+test('node code editor popup widgets are allowed outside the rounded editor shell', () => {
+  const codeEditorSource = readFileSync(join(componentsDir, 'CodeEditor.tsx'), 'utf8');
+  const defaultNodeEditorSource = readFileSync(join(componentsDir, 'editors', 'DefaultNodeEditor.tsx'), 'utf8');
+
+  assert.doesNotMatch(codeEditorSource, /fixedOverflowWidgets/);
+  assert.match(defaultNodeEditorSource, /\.editor-wrapper \{[\s\S]*?overflow: visible;/);
+  assert.match(defaultNodeEditorSource, /\.editor-container \{[\s\S]*?border-radius: inherit;[\s\S]*?overflow: visible;/);
+  assert.match(defaultNodeEditorSource, /\.node-editor-static-code-editor \.editor-container \{[\s\S]*?overflow: visible;/);
+});
+
 test('lazy Monaco editor chunk stays independent from app UI state', () => {
   const codeEditorSource = readFileSync(join(componentsDir, 'CodeEditor.tsx'), 'utf8');
   const lazyComponentsSource = readFileSync(join(componentsDir, 'LazyComponents.tsx'), 'utf8');
