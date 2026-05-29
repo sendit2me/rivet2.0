@@ -23,6 +23,9 @@ import { useSyncCurrentStateIntoOpenedProjects } from '../hooks/useSyncCurrentSt
 import { type SyntheticListenerMap } from '@dnd-kit/core/dist/hooks/utilities';
 import { SortableContext, horizontalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { isInTauri } from '../utils/tauri.js';
+import { isWindowsPlatform } from '../utils/platform/os.js';
+import { getAppWindowHandle } from '../utils/platform/window.js';
+import { type NativeWindowHandle } from '../utils/platform/core.js';
 import { useRunMenuCommand } from '../hooks/useMenuCommands.js';
 import { useRivetWorkspaceHost } from '../hooks/useRivetWorkspaceHost.js';
 import { OverlayTabs } from './OverlayTabs.js';
@@ -245,13 +248,30 @@ export const styles = css`
     flex: 0 0 auto;
   }
 
+  .projects-container.empty.with-window-drag-region {
+    flex: 1 1 auto;
+  }
+
   .projects {
     display: flex;
     align-items: stretch;
     height: 100%;
     gap: 1px;
     padding-right: 1px;
+    max-width: 100%;
     width: 100%;
+  }
+
+  .projects-container.with-window-drag-region .projects {
+    flex: 0 1 auto;
+    max-width: calc(100% - 40px);
+    width: auto;
+  }
+
+  .window-drag-region {
+    cursor: default;
+    flex: 1 0 40px;
+    min-width: 40px;
   }
 
   .draggableProject {
@@ -370,6 +390,44 @@ export const styles = css`
     background-color: var(--grey-darkest);
     height: 100%;
   }
+
+  .windows-window-controls {
+    align-items: stretch;
+    display: flex;
+    flex: 0 0 auto;
+    height: 100%;
+  }
+
+  .windows-window-control {
+    align-items: center;
+    background: transparent;
+    border: none;
+    color: var(--grey-light);
+    cursor: pointer;
+    display: flex;
+    height: 100%;
+    justify-content: center;
+    margin: 0;
+    min-height: 0;
+    padding: 0;
+    width: 46px;
+
+    svg {
+      color: currentColor;
+      height: 14px;
+      width: 14px;
+    }
+
+    &:hover {
+      background: var(--grey-darkish);
+      color: var(--grey-lightest);
+    }
+
+    &.close-window:hover {
+      background: #c42b1c;
+      color: white;
+    }
+  }
 `;
 
 export const ProjectSelector: FC<{
@@ -397,6 +455,8 @@ export const ProjectSelector: FC<{
   const loadProject = useLoadProject();
   const projectTabsSelected = projectMode && openOverlay === undefined;
   const reserveSidebarColumn = projectTabsSelected && sidebarOpen;
+  const showFileMenu = !isInTauri() || isWindowsPlatform();
+  const showWindowsWindowControls = isInTauri() && isWindowsPlatform();
 
   useSyncCurrentStateIntoOpenedProjects({ enabled: projectMode });
 
@@ -435,8 +495,13 @@ export const ProjectSelector: FC<{
       {projectTabsSelected && <GraphTreeSidebarToggle />}
       {projectTabsSelected && <GraphHistoryControls />}
       {reserveSidebarColumn && <div className="sidebar-panel-spacer" aria-hidden="true" />}
-      {!isInTauri() && <ProjectFileMenu />}
-      <div className={clsx('projects-container', { empty: visibleProjects.length === 0 })}>
+      {showFileMenu && <ProjectFileMenu />}
+      <div
+        className={clsx('projects-container', {
+          empty: visibleProjects.length === 0,
+          'with-window-drag-region': showWindowsWindowControls,
+        })}
+      >
         <div className="projects">
           <DndContext onDragEnd={handleDragEnd}>
             <SortableContext items={visibleProjects} strategy={horizontalListSortingStrategy}>
@@ -454,11 +519,135 @@ export const ProjectSelector: FC<{
             </SortableContext>
           </DndContext>
         </div>
+        {showWindowsWindowControls && <WindowsWindowDragRegion />}
       </div>
       <OverlayTabs showWelcomeScreen={!projectMode} />
+      {showWindowsWindowControls && <WindowsWindowControls />}
     </div>
   );
 };
+
+const useWindowsAppWindow = () => {
+  const appWindowRef = useRef<NativeWindowHandle | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void getAppWindowHandle()
+      .then((handle) => {
+        if (!cancelled) {
+          appWindowRef.current = handle;
+        }
+      })
+      .catch((err) => {
+        console.warn(`Error getting app window handle: ${err}`);
+      });
+
+    return () => {
+      cancelled = true;
+      appWindowRef.current = null;
+    };
+  }, []);
+
+  return async () => {
+    if (appWindowRef.current) {
+      return appWindowRef.current;
+    }
+
+    appWindowRef.current = await getAppWindowHandle();
+    return appWindowRef.current;
+  };
+};
+
+const WindowsWindowDragRegion: FC = () => {
+  const getAppWindow = useWindowsAppWindow();
+
+  const startDragging = (event: ReactMouseEvent<HTMLDivElement>) => {
+    if (event.button !== 0 || event.detail > 1) {
+      return;
+    }
+
+    void getAppWindow()
+      .then((appWindow) => appWindow?.startDragging?.())
+      .catch((err) => {
+        console.warn(`Error starting app window drag: ${err}`);
+      });
+  };
+
+  const toggleMaximize = () => {
+    void getAppWindow()
+      .then((appWindow) => appWindow?.toggleMaximize?.())
+      .catch((err) => {
+        console.warn(`Error toggling app window maximize state: ${err}`);
+      });
+  };
+
+  return (
+    <div
+      className="window-drag-region"
+      aria-hidden="true"
+      onDoubleClick={toggleMaximize}
+      onMouseDown={startDragging}
+    />
+  );
+};
+
+const WindowsWindowControls: FC = () => {
+  const getAppWindow = useWindowsAppWindow();
+
+  const runWindowAction = (action: (appWindow: NativeWindowHandle) => Promise<void> | void) => {
+    void getAppWindow()
+      .then((appWindow) => {
+        if (appWindow) {
+          return action(appWindow);
+        }
+      })
+      .catch((err) => {
+        console.warn(`Error running app window action: ${err}`);
+      });
+  };
+
+  return (
+    <div className="windows-window-controls" aria-label="Window controls">
+      <button
+        type="button"
+        className="windows-window-control"
+        aria-label="Minimize window"
+        onClick={() => runWindowAction((appWindow) => appWindow.minimize?.())}
+      >
+        <MinimizeWindowIcon />
+      </button>
+      <button
+        type="button"
+        className="windows-window-control"
+        aria-label="Maximize or restore window"
+        onClick={() => runWindowAction((appWindow) => appWindow.toggleMaximize?.())}
+      >
+        <MaximizeWindowIcon />
+      </button>
+      <button
+        type="button"
+        className="windows-window-control close-window"
+        aria-label="Close window"
+        onClick={() => runWindowAction((appWindow) => appWindow.close())}
+      >
+        <CloseIcon />
+      </button>
+    </div>
+  );
+};
+
+const MinimizeWindowIcon: FC = () => (
+  <svg aria-hidden="true" fill="none" viewBox="0 0 16 16">
+    <path d="M3 8.5h10" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5" />
+  </svg>
+);
+
+const MaximizeWindowIcon: FC = () => (
+  <svg aria-hidden="true" fill="none" viewBox="0 0 16 16">
+    <rect x="3.25" y="3.25" width="9.5" height="9.5" rx="1" stroke="currentColor" strokeWidth="1.5" />
+  </svg>
+);
 
 const GraphTreeSidebarToggle: FC = () => {
   const [sidebarOpen, setSidebarOpen] = useAtom(sidebarOpenState);

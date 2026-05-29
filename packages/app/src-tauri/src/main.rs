@@ -5,7 +5,11 @@
 
 use std::path::{Path, PathBuf};
 
-use tauri::{AppHandle, CustomMenuItem, InvokeError, Manager, Menu, MenuItem, Submenu};
+use tauri::{AppHandle, InvokeError, Manager};
+#[cfg(not(target_os = "windows"))]
+use tauri::{CustomMenuItem, Menu, MenuItem, Submenu};
+#[cfg(target_os = "windows")]
+use tauri_plugin_window_state::StateFlags;
 mod plugins;
 
 fn main() {
@@ -16,15 +20,18 @@ fn main() {
 
     std::env::remove_var("_VOLTA_TOOL_RECURSION");
 
-    tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .plugin(tauri_plugin_persisted_scope::init())
-        .plugin(tauri_plugin_window_state::Builder::default().build())
+        .plugin(create_window_state_plugin_builder().build())
         .invoke_handler(tauri::generate_handler![
             get_environment_variable,
             plugins::extract_package_plugin_tarball,
             allow_data_file_scope,
             read_relative_project_file
-        ])
+        ]);
+
+    #[cfg(not(target_os = "windows"))]
+    let builder = builder
         .menu(create_menu())
         .on_menu_event(|event| match event.menu_item_id() {
             "toggle_devtools" => {
@@ -36,15 +43,43 @@ fn main() {
             }
             "quit" => event.window().app_handle().exit(0),
             _ => {}
-        })
+        });
+
+    builder
         .setup(|app| {
             if let Some(path) = app.path_resolver().app_local_data_dir() {
                 app.fs_scope().allow_directory(path, true)?;
             }
+
+            #[cfg(target_os = "windows")]
+            configure_windows_frameless_window(app)?;
+
             Ok(())
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(target_os = "windows")]
+fn create_window_state_plugin_builder() -> tauri_plugin_window_state::Builder {
+    let mut state_flags = StateFlags::all();
+    state_flags.remove(StateFlags::DECORATIONS);
+
+    tauri_plugin_window_state::Builder::default().with_state_flags(state_flags)
+}
+
+#[cfg(not(target_os = "windows"))]
+fn create_window_state_plugin_builder() -> tauri_plugin_window_state::Builder {
+    tauri_plugin_window_state::Builder::default()
+}
+
+#[cfg(target_os = "windows")]
+fn configure_windows_frameless_window(app: &mut tauri::App) -> tauri::Result<()> {
+    if let Some(window) = app.get_window("main") {
+        window.set_decorations(false)?;
+    }
+
+    Ok(())
 }
 
 #[tauri::command]
@@ -88,6 +123,7 @@ fn read_relative_project_file(
     std::fs::read_to_string(full_path).map_err(|_| InvokeError::from("Failed to read file"))
 }
 
+#[cfg(not(target_os = "windows"))]
 fn create_menu() -> Menu {
     let about_menu = Submenu::new(
         "App",

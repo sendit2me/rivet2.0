@@ -13,9 +13,11 @@ test('project top bar owns the graph tree sidebar toggle for the active project 
 
   assert.match(
     projectSelectorTsx,
-    /{projectTabsSelected && <GraphTreeSidebarToggle \/>}[\s\S]*{projectTabsSelected && <GraphHistoryControls \/>}[\s\S]*{reserveSidebarColumn && <div className="sidebar-panel-spacer" aria-hidden="true" \/>}[\s\S]*{!isInTauri\(\) && <ProjectFileMenu \/>}/,
+    /{projectTabsSelected && <GraphTreeSidebarToggle \/>}[\s\S]*{projectTabsSelected && <GraphHistoryControls \/>}[\s\S]*{reserveSidebarColumn && <div className="sidebar-panel-spacer" aria-hidden="true" \/>}[\s\S]*{showFileMenu && <ProjectFileMenu \/>}/,
   );
   assert.match(projectSelectorTsx, /const reserveSidebarColumn = projectTabsSelected && sidebarOpen;/);
+  assert.match(projectSelectorTsx, /const showFileMenu = !isInTauri\(\) \|\| isWindowsPlatform\(\);/);
+  assert.match(projectSelectorTsx, /const showWindowsWindowControls = isInTauri\(\) && isWindowsPlatform\(\);/);
   assert.match(projectSelectorTsx, /className={clsx\(\{ 'graph-tree-open': reserveSidebarColumn \}\)}/);
   assert.match(projectSelectorTsx, /&::after \{[\s\S]*left: 0;[\s\S]*right: 0;/);
   assert.match(projectSelectorTsx, /&::after \{[\s\S]*z-index: 2;/);
@@ -68,6 +70,12 @@ test('project top bar owns the graph tree sidebar toggle for the active project 
   assert.ok(graphHistoryStyles);
   assert.doesNotMatch(sidebarToggleStyles, /border-right:/);
   assert.doesNotMatch(graphHistoryStyles, /border-right:/);
+  assert.match(projectSelectorTsx, /{showWindowsWindowControls && <WindowsWindowDragRegion \/>}/);
+  assert.match(projectSelectorTsx, /{showWindowsWindowControls && <WindowsWindowControls \/>}/);
+  assert.match(projectSelectorTsx, /\.projects-container\.empty\.with-window-drag-region \{[\s\S]*flex: 1 1 auto;/);
+  assert.match(projectSelectorTsx, /\.window-drag-region \{[\s\S]*flex: 1 0 40px;/);
+  assert.match(projectSelectorTsx, /\.windows-window-control \{[\s\S]*width: 46px;/);
+  assert.match(projectSelectorTsx, /\.windows-window-control \{[\s\S]*&\.close-window:hover \{[\s\S]*background: #c42b1c;/);
   assert.match(projectSelectorTsx, /\.file-menu \{[\s\S]*border-left: 1px solid var\(--grey-darkest\);/);
   assert.match(projectSelectorTsx, /\.file-menu \{[\s\S]*border-right: 1px solid var\(--grey-darkest\);/);
   assert.match(projectSelectorTsx, /\.project::after \{[\s\S]*background-color: var\(--grey-darkest\);/);
@@ -84,4 +92,36 @@ test('project top bar owns the graph tree sidebar toggle for the active project 
   );
   assert.doesNotMatch(leftSidebarTsx, /SIDEBAR_TRANSITION_EASING|transition:.*transform/);
   assert.doesNotMatch(leftSidebarTsx, /toggle-tab|menu-expand-left-line|menu-expand-right-line/);
+});
+
+test('windows desktop uses the in-strip File menu instead of a native Tauri menubar', () => {
+  const projectSelectorTsx = readFileSync(join(srcDir, 'ProjectSelector.tsx'), 'utf8');
+  const platformCoreSource = readFileSync(join(srcDir, '..', 'utils', 'platform', 'core.ts'), 'utf8');
+  const windowsHotkeysSource = readFileSync(join(srcDir, '..', 'hooks', 'useWindowsHotkeysFix.tsx'), 'utf8');
+  const tauriMainSource = readFileSync(join(srcDir, '..', '..', 'src-tauri', 'src', 'main.rs'), 'utf8');
+
+  assert.match(projectSelectorTsx, /import \{ isWindowsPlatform \} from '\.\.\/utils\/platform\/os\.js';/);
+  assert.match(projectSelectorTsx, /import \{ getAppWindowHandle \} from '\.\.\/utils\/platform\/window\.js';/);
+  assert.match(projectSelectorTsx, /const showFileMenu = !isInTauri\(\) \|\| isWindowsPlatform\(\);/);
+  assert.match(projectSelectorTsx, /const showWindowsWindowControls = isInTauri\(\) && isWindowsPlatform\(\);/);
+  assert.match(projectSelectorTsx, /const WindowsWindowControls: FC = \(\) => \{/);
+  assert.match(projectSelectorTsx, /appWindow\.minimize\?\.\(\)/);
+  assert.match(projectSelectorTsx, /appWindow\.toggleMaximize\?\.\(\)/);
+  assert.match(projectSelectorTsx, /appWindow\.close\(\)/);
+  assert.match(projectSelectorTsx, /appWindow\?\.startDragging\?\.\(\)/);
+  assert.match(projectSelectorTsx, /event\.detail > 1/);
+  assert.match(projectSelectorTsx, /onDoubleClick={toggleMaximize}/);
+  assert.match(platformCoreSource, /minimize\?\(\): Promise<void>;/);
+  assert.match(platformCoreSource, /startDragging\?\(\): Promise<void>;/);
+  assert.match(platformCoreSource, /toggleMaximize\?\(\): Promise<void>;/);
+  assert.match(windowsHotkeysSource, /import \{ isWindowsPlatform \} from '\.\.\/utils\/platform\/os\.js';/);
+  assert.match(tauriMainSource, /#\[cfg\(not\(target_os = "windows"\)\)\]\s+use tauri::\{CustomMenuItem, Menu, MenuItem, Submenu\};/);
+  assert.match(tauriMainSource, /#\[cfg\(target_os = "windows"\)\]\s+use tauri_plugin_window_state::StateFlags;/);
+  assert.match(tauriMainSource, /\.plugin\(create_window_state_plugin_builder\(\)\.build\(\)\)/);
+  assert.match(tauriMainSource, /#\[cfg\(target_os = "windows"\)\]\s+configure_windows_frameless_window\(app\)\?;/);
+  assert.match(tauriMainSource, /state_flags\.remove\(StateFlags::DECORATIONS\);/);
+  assert.match(tauriMainSource, /fn configure_windows_frameless_window\(app: &mut tauri::App\) -> tauri::Result<\(\)>/);
+  assert.match(tauriMainSource, /window\.set_decorations\(false\)\?;/);
+  assert.match(tauriMainSource, /#\[cfg\(not\(target_os = "windows"\)\)\]\s+let builder = builder[\s\S]*?\.menu\(create_menu\(\)\)[\s\S]*?\.on_menu_event/);
+  assert.match(tauriMainSource, /#\[cfg\(not\(target_os = "windows"\)\)\]\s+fn create_menu\(\) -> Menu/);
 });

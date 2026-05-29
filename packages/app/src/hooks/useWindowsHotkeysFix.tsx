@@ -1,13 +1,13 @@
 import { useEffect } from 'react';
 import { type MenuIds, useRunMenuCommand } from './useMenuCommands';
+import { isWindowsPlatform } from '../utils/platform/os.js';
 
 interface HotkeyFixWindow extends Window {
   __rivetWindowsHotkeysCleanup?: () => void;
 }
 declare let window: HotkeyFixWindow;
 
-const isWindowsPlatform =
-  typeof navigator !== 'undefined' && /Windows|Win32|Win64|WOW64/i.test(`${navigator.userAgent} ${navigator.platform}`);
+const isWindows = isWindowsPlatform();
 
 const shortcutToMenuId: Record<string, MenuIds> = {
   F5: 'remote_debugger',
@@ -22,7 +22,7 @@ const shortcutToMenuId: Record<string, MenuIds> = {
 
 const hotkeyListenerOptions = { capture: true };
 
-if (isWindowsPlatform) {
+if (isWindows) {
   console.warn('Fix applied for Windows platform');
 }
 
@@ -34,7 +34,7 @@ export const useWindowsHotkeysFix = () => {
 
   // @see https://github.com/valerypopoff/rivet2.0/issues/261
   useEffect(() => {
-    if (typeof window === 'undefined' || !isWindowsPlatform) {
+    if (typeof window === 'undefined' || !isWindows) {
       return;
     }
 
@@ -74,5 +74,5 @@ export const useWindowsHotkeysFix = () => {
     };
   }, [runMenuCommandImpl]);
 
-  return isWindowsPlatform;
+  return isWindows;
 };

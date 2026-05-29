@@ -30,10 +30,13 @@ export type NativeWindowListener = () => void | Promise<void>;
 
 export type NativeWindowHandle = {
   close(): Promise<void>;
+  minimize?(): Promise<void>;
   onCloseRequested?(handler: () => void): Promise<NativeWindowListener>;
   onMenuClicked?(handler: (event: { payload: string }) => void): Promise<NativeWindowListener>;
   once?(event: string, handler: (event: unknown) => void): Promise<NativeWindowListener>;
   setTitle?(title: string): Promise<void>;
+  startDragging?(): Promise<void>;
+  toggleMaximize?(): Promise<void>;
 };
 
 export function isInTauri(): boolean {

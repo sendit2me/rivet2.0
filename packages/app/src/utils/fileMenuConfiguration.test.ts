@@ -15,7 +15,7 @@ test('getVisibleFileMenuGroups returns the canonical menu when no host config is
   );
 });
 
-test('getVisibleFileMenuGroups labels the app settings and help commands for the browser File menu', () => {
+test('getVisibleFileMenuGroups labels the app settings and help commands for the in-app File menu', () => {
   const items = getVisibleFileMenuGroups().flatMap((group) => group);
 
   assert.equal(items.find((item) => item.id === 'settings')?.label, 'Rivet settings');
