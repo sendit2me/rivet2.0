@@ -18,6 +18,8 @@ import { graphMetadataState } from '../state/graph.js';
 import { useExecutorSessionState } from '../hooks/useExecutorSession.js';
 import { getMissingStaticSetGlobalWarning } from '../domain/graphEditing/globalVariables.js';
 import { enabledStaticGlobalVariableIdsState } from '../state/selectors/globalVariables.js';
+import { getDuplicateGraphOutputIdWarning } from '../domain/graphEditing/graphOutputs.js';
+import { duplicateGraphOutputIdsState } from '../state/selectors/graphOutputs.js';
 
 export type VisualNodeProps = {
   node: ChartNode;
@@ -230,10 +232,23 @@ const GetGlobalVisualNode = memo(
   }),
 );
 
+const GraphOutputVisualNode = memo(
+  forwardRef<HTMLDivElement, VisualNodeProps>((props, ref) => {
+    const duplicateGraphOutputIds = useAtomValue(duplicateGraphOutputIdsState);
+    const headerWarning = getDuplicateGraphOutputIdWarning(props.node, duplicateGraphOutputIds);
+
+    return <VisualNodeImpl {...props} ref={ref} headerWarning={headerWarning} />;
+  }),
+);
+
 export const VisualNode = memo(
   forwardRef<HTMLDivElement, VisualNodeProps>((props, ref) => {
     if (props.node.type === 'getGlobal') {
       return <GetGlobalVisualNode {...props} ref={ref} />;
+    }
+
+    if (props.node.type === 'graphOutput') {
+      return <GraphOutputVisualNode {...props} ref={ref} />;
     }
 
     return <VisualNodeImpl {...props} ref={ref} />;
