@@ -1,6 +1,6 @@
 
 
-- When the graph tree is open, don't show the divider between the main tabs bar and the graph tree.
+- When the graph tree is open, don't show the horizontal divider between the main tabs bar and the graph tree.
 
 - When many nodes are selected and I change the width of one of them, change the width of all selected nodes as much (if it's possible for each node)
 
