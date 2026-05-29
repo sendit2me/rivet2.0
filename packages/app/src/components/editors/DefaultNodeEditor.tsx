@@ -255,6 +255,10 @@ export const defaultEditorContainerStyles = css`
   }
 
   .editor-status-line {
+    display: flex;
+    flex-wrap: wrap;
+    column-gap: 24px;
+    row-gap: 2px;
     margin-top: 6px;
     color: var(--foreground-muted);
     font-size: var(--ui-font-size-compact);

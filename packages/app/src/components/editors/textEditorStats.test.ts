@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { formatTextEditorStatsLine, getTextEditorStats } from './textEditorStats.js';
+import { getTextEditorStats } from './textEditorStats.js';
 
 test('getTextEditorStats counts words by whitespace-delimited tokens and counts all characters', () => {
   assert.deepEqual(getTextEditorStats('Hello world\nfrom Rivet'), {
@@ -16,6 +16,9 @@ test('getTextEditorStats ignores repeated whitespace for words but still counts 
   });
 });
 
-test('formatTextEditorStatsLine formats the status line for text editors', () => {
-  assert.equal(formatTextEditorStatsLine('abc def'), 'Words: 2  Characters: 7');
+test('getTextEditorStats returns display-ready counts for text editor status lines', () => {
+  const stats = getTextEditorStats('abc def');
+
+  assert.equal(stats.wordCount.toLocaleString(), '2');
+  assert.equal(stats.characterCount.toLocaleString(), '7');
 });

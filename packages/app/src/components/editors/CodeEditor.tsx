@@ -18,7 +18,7 @@ import {
   RESIZABLE_LANGUAGES,
   useNodeEditorCodeViewportHeight,
 } from './useNodeEditorCodeViewportHeight.js';
-import { formatTextEditorStatsLine } from './textEditorStats.js';
+import { getTextEditorStats } from './textEditorStats.js';
 import { handleCodeEditorEscape } from './codeEditorEscape.js';
 import { lastRunDataState, resolvedGraphSelectionState, selectedProcessPageState } from '../../state/dataFlow.js';
 import { getSelectedProcessData } from '../../state/selectors/executionSelectors.js';
@@ -169,6 +169,7 @@ export const CodeEditor: FC<CodeEditorProps> = ({
     displayValue === errorLineHighlight?.source
       ? errorLineHighlight
       : undefined;
+  const textStats = showTextStats ? getTextEditorStats(displayValue) : undefined;
 
   useEffect(() => {
     if (editorInstance.current) {
@@ -265,7 +266,12 @@ export const CodeEditor: FC<CodeEditorProps> = ({
           <HelperMessage>{postEditorHelperMessage}</HelperMessage>
         </div>
       )}
-      {showTextStats && <div className="editor-status-line">{formatTextEditorStatsLine(displayValue)}</div>}
+      {textStats && (
+        <div className="editor-status-line">
+          <span>Words: {textStats.wordCount.toLocaleString()}</span>
+          <span>Characters: {textStats.characterCount.toLocaleString()}</span>
+        </div>
+      )}
     </div>
   );
 };
