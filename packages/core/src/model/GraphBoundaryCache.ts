@@ -1,6 +1,6 @@
 import type { DataType, DataValue } from './DataValue.js';
 import type { Inputs, Outputs } from './GraphProcessor.js';
-import type { ChartNode, NodeInputDefinition, NodeOutputDefinition, PortId } from './NodeBase.js';
+import type { ChartNode, NodeId, NodeInputDefinition, NodeOutputDefinition, PortId } from './NodeBase.js';
 import type { GraphId, NodeGraph } from './NodeGraph.js';
 import type { Project } from './Project.js';
 import type { DynamicEditorEditor } from './EditorDefinition.js';
@@ -17,6 +17,7 @@ export type GraphBoundaryInput = {
 export type GraphBoundaryOutput = {
   dataType: DataType;
   id: string;
+  nodeId: NodeId;
   portId: PortId;
 };
 
@@ -152,6 +153,15 @@ export function buildExcludedGraphBoundaryOutputs(boundary: GraphBoundary): Outp
   return outputs;
 }
 
+export function getRequestedGraphOutputNodeIds(
+  boundary: GraphBoundary,
+  requestedOutputPortIds: ReadonlySet<PortId>,
+): NodeId[] {
+  return boundary.outputs
+    .filter((output) => requestedOutputPortIds.has(output.portId))
+    .map((output) => output.nodeId);
+}
+
 function deriveGraphBoundary(graph: NodeGraph): GraphBoundary {
   const inputsById = new Map<string, GraphBoundaryInput>();
   const outputsById = new Map<string, GraphBoundaryOutput>();
@@ -170,6 +180,7 @@ function deriveGraphBoundary(graph: NodeGraph): GraphBoundary {
       outputsById.set(outputNode.data.id, {
         dataType: outputNode.data.dataType,
         id: outputNode.data.id,
+        nodeId: outputNode.id,
         portId: outputNode.data.id as PortId,
       });
     }

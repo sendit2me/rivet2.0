@@ -12,6 +12,7 @@ import {
   type DatasetProvider,
   type ChartNode,
   type NodeId,
+  type PortId,
   type AttachedNodeData,
   type AudioProvider,
   type StringArrayDataValue,
@@ -105,6 +106,12 @@ export type InternalProcessContext<T extends ChartNode = ChartNode> = ProcessCon
 
   /** A unique ID for this specific execution of the node. */
   processId: ProcessId;
+
+  /** Output ports with at least one active immediate downstream consumer in this graph run. */
+  activeOutputPortIds: ReadonlySet<PortId>;
+
+  /** True when this exact node is the direct terminal selected by run-to execution. */
+  isDirectRunTarget: boolean;
 
   /** Stable execution lineage for the current graph invocation. */
   execution: GraphExecutionMetadata;

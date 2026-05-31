@@ -1,6 +1,6 @@
 import type { DataValue, ScalarOrArrayDataValue, StringArrayDataValue } from './DataValue.js';
 import type { GraphExecutionMetadata, InternalProcessContext, ProcessId } from './ProcessContext.js';
-import type { ChartNode } from './NodeBase.js';
+import type { ChartNode, PortId } from './NodeBase.js';
 import type { GraphId } from './NodeGraph.js';
 import type { Project } from './Project.js';
 import type { AttachedNodeData, ExternalFunction, Outputs } from './GraphProcessor.js';
@@ -8,6 +8,7 @@ import type { AttachedNodeData, ExternalFunction, Outputs } from './GraphProcess
 export type NodeProcessContextBase = Omit<
   InternalProcessContext,
   | 'attachedData'
+  | 'activeOutputPortIds'
   | 'createSubProcessor'
   | 'execution'
   | 'externalFunctions'
@@ -16,12 +17,14 @@ export type NodeProcessContextBase = Omit<
   | 'onPartialOutputs'
   | 'processId'
   | 'requestUserInput'
+  | 'isDirectRunTarget'
   | 'setGlobal'
   | 'signal'
   | 'waitEvent'
 >;
 
 export function buildNodeProcessContext(options: {
+  activeOutputPortIds: ReadonlySet<PortId>;
   base: NodeProcessContextBase;
   attachedData: AttachedNodeData;
   createSubProcessor: (
@@ -31,6 +34,7 @@ export function buildNodeProcessContext(options: {
   execution: GraphExecutionMetadata;
   externalFunctions: Record<string, ExternalFunction>;
   getPluginConfig: (name: string) => string | undefined;
+  isDirectRunTarget: boolean;
   node: ChartNode;
   nodeAbortController: AbortController;
   onPartialOutputs: (partialOutputs: Outputs) => void;
@@ -41,11 +45,13 @@ export function buildNodeProcessContext(options: {
 }): InternalProcessContext {
   const {
     attachedData,
+    activeOutputPortIds,
     base,
     createSubProcessor,
     execution,
     externalFunctions,
     getPluginConfig,
+    isDirectRunTarget,
     node,
     nodeAbortController,
     onPartialOutputs,
@@ -59,6 +65,8 @@ export function buildNodeProcessContext(options: {
     ...base,
     node,
     attachedData,
+    activeOutputPortIds,
+    isDirectRunTarget,
     waitEvent,
     externalFunctions: { ...externalFunctions },
     onPartialOutputs,

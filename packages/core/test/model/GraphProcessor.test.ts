@@ -1561,7 +1561,7 @@ void describe('GraphProcessor', () => {
           data: {
             graphId: 'middle-graph',
             useErrorOutput: false,
-            useAsGraphPartialOutput: false,
+            useAsGraphPartialOutput: true,
           },
           visualData: { x: 0, y: 0, width: 300 },
         },
@@ -1582,7 +1582,7 @@ void describe('GraphProcessor', () => {
           data: {
             graphId: 'leaf-graph',
             useErrorOutput: false,
-            useAsGraphPartialOutput: false,
+            useAsGraphPartialOutput: true,
           },
           visualData: { x: 0, y: 0, width: 300 },
         },

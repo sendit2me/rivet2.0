@@ -20,6 +20,8 @@ If you select multiple nodes by holding shift and clicking on them, you can righ
 
 To call a subgraph, add a [Subgraph Node](../node-reference/subgraph) to your graph. Connect any required data to the input ports of the subgraph, and connect any output data of the subgraph to the next nodes in your chain.
 
+Subgraph outputs are demand-driven: Rivet only runs the child graph branches needed for output ports that are connected to active, non-disabled downstream nodes. Unconnected outputs, or outputs connected only to disabled nodes, are shown as not ran and their child branches are skipped. If a child branch must run for a side effect such as setting a global, writing a dataset, raising an event, aborting, or calling an external/API/LLM/code path, connect that Subgraph output to an active node.
+
 ### Rearranging Subgraph ports
 
 To change the visual order of a Subgraph node's graph input and graph output ports, right-click the Subgraph node and choose **Rearrange inputs/outputs**. The draggable port labels get rounded backgrounds while rearrange mode is active. Drag a port label or row up and down; the other labels shift while you drag, so you can drop a port between existing ports. Click outside the node to leave rearrange mode. The circular port handles still create and rewire connections. Port ordering is saved for that Subgraph node instance only; it does not change port IDs, connections, or output object keys. The optional error output stays after the graph outputs.

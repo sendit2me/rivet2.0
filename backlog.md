@@ -1,5 +1,4 @@
 
-- I noticed that if I create a graph with multiple outputs, and then use it as a subgraph and one output will not be used/connected at all, and I run the project, the node branch that generates this unused output is still executed. This is not optimal. I'd want to optimize it but I'm worried that there might be some side effects. Deeply analyze the architecture and the code and check: if we optimize it, will it have unexpected side effects? What can break? What can start working differently or in a way that is not expected by the user?
 
 
 

@@ -26,6 +26,8 @@ import {
   getGraphBoundary,
   getGraphBoundaryInputDefinitions,
   getGraphBoundaryOutputDefinitions,
+  getRequestedGraphOutputNodeIds,
+  type GraphBoundary,
 } from '../GraphBoundaryCache.js';
 
 export type SubGraphNode = ChartNode & {
@@ -167,16 +169,37 @@ export class SubGraphNodeImpl extends NodeImpl<SubGraphNode> {
       context.getGraphBoundary?.(project, this.data.graphId) ?? getGraphBoundary(project, this.data.graphId)!;
     const inputData = buildGraphBoundaryInputData(boundary, inputs, this.data.inputData);
 
+    const shouldRunWholeGraph =
+      context.isDirectRunTarget ||
+      this.data.useAsGraphPartialOutput === true ||
+      (this.data.useErrorOutput === true && context.activeOutputPortIds.has('error' as PortId));
+    const requestedGraphOutputNodeIds = shouldRunWholeGraph
+      ? []
+      : getRequestedGraphOutputNodeIds(boundary, context.activeOutputPortIds);
+
+    if (!shouldRunWholeGraph && requestedGraphOutputNodeIds.length === 0) {
+      return buildSkippedSubgraphOutputs(boundary, this.data.useErrorOutput);
+    }
+
     const subGraphProcessor = context.createSubProcessor(this.data.graphId, { signal: context.signal });
+    if (!shouldRunWholeGraph) {
+      subGraphProcessor.runToNodeIds = requestedGraphOutputNodeIds;
+    }
 
     try {
       const startTime = Date.now();
 
-      const outputs = await subGraphProcessor.processGraph(
+      const graphOutputs = await subGraphProcessor.processGraph(
         context,
         inputData as Record<string, DataValue>,
         context.contextValues,
       );
+      const outputs = shouldRunWholeGraph
+        ? graphOutputs
+        : {
+            ...buildExcludedGraphBoundaryOutputs(boundary),
+            ...graphOutputs,
+          };
 
       const duration = Date.now() - startTime;
 
@@ -213,3 +236,25 @@ export class SubGraphNodeImpl extends NodeImpl<SubGraphNode> {
 }
 
 export const subGraphNode = nodeDefinition(SubGraphNodeImpl, 'Subgraph');
+
+function buildSkippedSubgraphOutputs(boundary: GraphBoundary, useErrorOutput: boolean | undefined): Outputs {
+  const outputs: Outputs = buildExcludedGraphBoundaryOutputs(boundary);
+
+  if (useErrorOutput) {
+    outputs['error' as PortId] = {
+      type: 'control-flow-excluded',
+      value: undefined,
+    };
+  }
+
+  outputs['cost' as PortId] = {
+    type: 'number',
+    value: 0,
+  };
+  outputs['duration' as PortId] = {
+    type: 'number',
+    value: 0,
+  };
+
+  return outputs;
+}
