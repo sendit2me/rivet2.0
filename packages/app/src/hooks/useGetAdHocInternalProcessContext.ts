@@ -50,6 +50,8 @@ export function useGetAdHocInternalProcessContext() {
         node: {} as ChartNode,
         tokenizer: new GptTokenizerTokenizer(),
         contextValues: {},
+        activeOutputPortIds: new Set<PortId>(),
+        isDirectRunTarget: false,
 
         createSubProcessor: undefined!,
         settings: await fillMissingSettingsFromEnvironmentVariables(settings, plugins, {

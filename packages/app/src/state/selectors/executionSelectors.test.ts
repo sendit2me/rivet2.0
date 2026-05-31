@@ -155,6 +155,7 @@ describe('executionSelectors', () => {
           isPending: true,
           label: 'Remote Debugger (Connecting...)',
         },
+        runButtonLoading: false,
         showRunButton: false,
         showRemoteDebuggerBanner: true,
       },
@@ -192,6 +193,7 @@ describe('executionSelectors', () => {
           isPending: false,
           label: 'Stop Remote Debugger',
         },
+        runButtonLoading: false,
         showRunButton: false,
         showRemoteDebuggerBanner: true,
       },
@@ -226,6 +228,7 @@ describe('executionSelectors', () => {
         graphRunning: false,
         isActuallyRemoteDebugging: false,
         remoteDebuggerBanner: null,
+        runButtonLoading: true,
         showRunButton: true,
         showRemoteDebuggerBanner: false,
       },
@@ -260,6 +263,7 @@ describe('executionSelectors', () => {
         graphRunning: false,
         isActuallyRemoteDebugging: false,
         remoteDebuggerBanner: null,
+        runButtonLoading: true,
         showRunButton: true,
         showRemoteDebuggerBanner: false,
       },
@@ -295,6 +299,81 @@ describe('executionSelectors', () => {
         graphRunning: false,
         isActuallyRemoteDebugging: false,
         remoteDebuggerBanner: null,
+        runButtonLoading: false,
+        showRunButton: true,
+        showRemoteDebuggerBanner: false,
+      },
+    );
+  });
+
+  test('action bar shows recording playback startup as a loading run button', () => {
+    const session = {
+      capabilities: inactiveCapabilities,
+      status: 'idle',
+      started: false,
+      reconnecting: false,
+      socket: null,
+      url: '',
+      remoteUploadAllowed: false,
+      isInternalExecutor: false,
+      target: null,
+    } as const;
+
+    assert.deepEqual(
+      getActionBarExecutionState({
+        graphPaused: false,
+        graphRunning: false,
+        hasLoadedRecording: true,
+        recordingPlaybackStarting: true,
+        selectedExecutor: 'browser',
+        session,
+      }),
+      {
+        canRun: false,
+        executorLoading: false,
+        executorProductState: { type: 'recording-playback-ready' },
+        graphPaused: false,
+        graphRunning: false,
+        isActuallyRemoteDebugging: false,
+        remoteDebuggerBanner: null,
+        runButtonLoading: true,
+        showRunButton: true,
+        showRemoteDebuggerBanner: false,
+      },
+    );
+  });
+
+  test('action bar ignores recording playback startup once the graph is running', () => {
+    const session = {
+      capabilities: inactiveCapabilities,
+      status: 'idle',
+      started: false,
+      reconnecting: false,
+      socket: null,
+      url: '',
+      remoteUploadAllowed: false,
+      isInternalExecutor: false,
+      target: null,
+    } as const;
+
+    assert.deepEqual(
+      getActionBarExecutionState({
+        graphPaused: false,
+        graphRunning: true,
+        hasLoadedRecording: true,
+        recordingPlaybackStarting: true,
+        selectedExecutor: 'browser',
+        session,
+      }),
+      {
+        canRun: true,
+        executorLoading: false,
+        executorProductState: { type: 'recording-playback-ready' },
+        graphPaused: false,
+        graphRunning: true,
+        isActuallyRemoteDebugging: false,
+        remoteDebuggerBanner: null,
+        runButtonLoading: false,
         showRunButton: true,
         showRemoteDebuggerBanner: false,
       },

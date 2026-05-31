@@ -92,7 +92,6 @@ export const NormalVisualNodeContent: FC<{
       initialY: number;
       initialMouseX: number;
       initialMouseY: number;
-      previousNodeOverride: Partial<ChartNode>;
     } | null>(null);
     const [shiftHeld, setShiftHeld] = useState(false);
     const isComment = node.type === 'comment';
@@ -180,7 +179,6 @@ export const NormalVisualNodeContent: FC<{
         initialY: currentBounds.y,
         initialMouseX: event.clientX,
         initialMouseY: event.clientY,
-        previousNodeOverride: structuredClone(node),
       });
     });
 
@@ -215,25 +213,8 @@ export const NormalVisualNodeContent: FC<{
 
       const nextBounds = getNextResizeBounds(event);
 
-      if (
-        resizeState &&
-        nextBounds &&
-        haveNodeResizeBoundsChanged(
-          isComment
-            ? {
-                x: resizeState.initialX,
-                y: resizeState.initialY,
-                width: resizeState.initialWidth,
-                height: resizeState.initialHeight,
-              }
-            : {
-                x: resizeState.initialX,
-                width: resizeState.initialWidth,
-              },
-          nextBounds,
-        )
-      ) {
-        onResizeFinish?.(node, nextBounds, resizeState.previousNodeOverride);
+      if (resizeState && nextBounds) {
+        onResizeFinish?.(node, nextBounds);
       }
 
       setResizeState(null);

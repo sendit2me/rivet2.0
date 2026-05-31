@@ -18,18 +18,22 @@ test('project top bar owns the graph tree sidebar toggle for the active project 
   assert.match(projectSelectorTsx, /const reserveSidebarColumn = projectTabsSelected && sidebarOpen;/);
   assert.match(projectSelectorTsx, /const showFileMenu = !isInTauri\(\) \|\| isWindowsPlatform\(\);/);
   assert.match(projectSelectorTsx, /const showWindowsWindowControls = isInTauri\(\) && isWindowsPlatform\(\);/);
+  assert.match(projectSelectorTsx, /import RivetLogo from '\.\.\/rivet-2-logo-no-background\.svg';/);
   assert.match(projectSelectorTsx, /className={clsx\(\{ 'graph-tree-open': reserveSidebarColumn \}\)}/);
+  assert.match(projectSelectorTsx, /--project-selector-strip-bg: var\(--grey-dark-bluish-seethrough\);/);
+  assert.match(projectSelectorTsx, /background: var\(--project-selector-strip-bg\);/);
   assert.match(projectSelectorTsx, /&::after \{[\s\S]*left: 0;[\s\S]*right: 0;/);
   assert.match(projectSelectorTsx, /&::after \{[\s\S]*z-index: 2;/);
+  assert.match(projectSelectorTsx, /&::after \{[\s\S]*background: var\(--grey-darkish\);/);
   assert.match(projectSelectorTsx, /> \* \{[\s\S]*position: relative;[\s\S]*z-index: 1;/);
   assert.match(projectSelectorTsx, /&\.graph-tree-open::after \{\s+left: var\(--left-sidebar-width\);/);
   assert.match(
     projectSelectorTsx,
-    /&\.graph-tree-open \.sidebar-toggle-menu,[\s\S]*&\.graph-tree-open \.graph-history-menu,[\s\S]*&\.graph-tree-open \.sidebar-panel-spacer \{[\s\S]*background: var\(--grey-dark-bluish-seethrough\);/,
+    /&\.graph-tree-open \.sidebar-toggle-menu,[\s\S]*&\.graph-tree-open \.graph-history-menu,[\s\S]*&\.graph-tree-open \.sidebar-panel-spacer \{[\s\S]*background: var\(--project-selector-strip-bg\);/,
   );
   assert.match(
     projectSelectorTsx,
-    /&\.graph-tree-open \.sidebar-toggle-menu:hover,[\s\S]*&\.graph-tree-open \.graph-history-menu:hover \{[\s\S]*background: var\(--grey-darkish\);/,
+    /&\.graph-tree-open \.sidebar-toggle-menu:hover,[\s\S]*&\.graph-tree-open \.graph-history-menu:not\(\.disabled\):hover \{[\s\S]*background: var\(--grey-darkish\);/,
   );
   assert.match(projectSelectorTsx, /aria-controls="graph-tree-sidebar"/);
   assert.match(projectSelectorTsx, /aria-expanded={sidebarOpen}/);
@@ -70,6 +74,10 @@ test('project top bar owns the graph tree sidebar toggle for the active project 
   assert.ok(graphHistoryStyles);
   assert.doesNotMatch(sidebarToggleStyles, /border-right:/);
   assert.doesNotMatch(graphHistoryStyles, /border-right:/);
+  assert.match(graphHistoryStyles, /&:not\(\.disabled\):hover \{[\s\S]*background-color: var\(--grey-darkish\);/);
+  assert.doesNotMatch(graphHistoryStyles, /opacity: 0\.45;/);
+  assert.doesNotMatch(graphHistoryStyles, /\.disabled[\s\S]*background:/);
+  assert.match(projectSelectorTsx, /\.graph-history-button \{[\s\S]*&:disabled \{[\s\S]*opacity: 0\.45;/);
   assert.match(projectSelectorTsx, /{showWindowsWindowControls && <WindowsWindowDragRegion \/>}/);
   assert.match(projectSelectorTsx, /{showWindowsWindowControls && <WindowsWindowControls \/>}/);
   assert.match(projectSelectorTsx, /\.projects-container\.empty\.with-window-drag-region \{[\s\S]*flex: 1 1 auto;/);
@@ -78,12 +86,19 @@ test('project top bar owns the graph tree sidebar toggle for the active project 
   assert.match(projectSelectorTsx, /\.windows-window-control \{[\s\S]*&\.close-window:hover \{[\s\S]*background: #c42b1c;/);
   assert.match(projectSelectorTsx, /\.file-menu \{[\s\S]*border-left: 1px solid var\(--grey-darkest\);/);
   assert.match(projectSelectorTsx, /\.file-menu \{[\s\S]*border-right: 1px solid var\(--grey-darkest\);/);
+  assert.match(projectSelectorTsx, /\.file-menu-logo \{[\s\S]*height: 14px;[\s\S]*width: 16px;/);
+  assert.match(projectSelectorTsx, /\.project \{[\s\S]*background: var\(--project-selector-strip-bg\);/);
+  assert.match(overlayTabsTsx, /background: var\(--project-selector-strip-bg, var\(--grey-dark-bluish-seethrough\)\);/);
+  assert.match(projectSelectorTsx, /<img src={RivetLogo} alt="" aria-hidden="true" className="file-menu-logo" \/>/);
+  assert.match(projectSelectorTsx, />\s*Menu\s*<\/button>/);
+  assert.doesNotMatch(projectSelectorTsx, />\s*File\s*<\/button>/);
   assert.match(projectSelectorTsx, /\.project::after \{[\s\S]*background-color: var\(--grey-darkest\);/);
   assert.doesNotMatch(overlayTabsTsx, /\.menu-item[\s\S]*?border-bottom:/);
   assert.doesNotMatch(overlayTabsTsx, /z-index: 200;/);
   assert.match(overlayTabsTsx, /border-left: 1px solid var\(--grey-darkest\);/);
   assert.match(overlayTabsTsx, /\.menu-item \{[\s\S]*border-right: 1px solid var\(--grey-darkest\);/);
   assert.match(leftSidebarTsx, /id="graph-tree-sidebar"/);
+  assert.match(leftSidebarTsx, /border-right: 1px solid var\(--grey-darkish\);/);
   assert.match(leftSidebarTsx, /shouldCollapseLeftSidebarDrag\(rawWidth\)/);
   assert.match(leftSidebarTsx, /\{\(sidebarOpen \|\| isResizing\) && \(/);
   assert.match(
@@ -94,7 +109,7 @@ test('project top bar owns the graph tree sidebar toggle for the active project 
   assert.doesNotMatch(leftSidebarTsx, /toggle-tab|menu-expand-left-line|menu-expand-right-line/);
 });
 
-test('windows desktop uses the in-strip File menu instead of a native Tauri menubar', () => {
+test('windows desktop uses the in-strip Menu dropdown instead of a native Tauri menubar', () => {
   const projectSelectorTsx = readFileSync(join(srcDir, 'ProjectSelector.tsx'), 'utf8');
   const platformCoreSource = readFileSync(join(srcDir, '..', 'utils', 'platform', 'core.ts'), 'utf8');
   const windowsHotkeysSource = readFileSync(join(srcDir, '..', 'hooks', 'useWindowsHotkeysFix.tsx'), 'utf8');

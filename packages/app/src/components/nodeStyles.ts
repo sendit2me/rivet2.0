@@ -774,6 +774,38 @@ export const nodeStyles = css`
 
   .node-output-inner,
   .multi-node-output {
+    /*
+     * Inline output action controls:
+     * - actions-* moves/sizes the visible button group
+     * - action-exclusion-* reserves text-wrapping space at that group position
+     * - *-icon-size and *-icon-offset-* tune each SVG without changing hit targets
+     */
+    --node-output-actions-top: 3px;
+    --node-output-actions-right: 4px;
+    --node-output-actions-gap: calc(5px * var(--ui-font-scale));
+    --node-output-action-hit-size: calc(24px * var(--ui-font-scale));
+    --node-output-surface-padding: 12px;
+    --node-output-action-exclusion-width: calc(88px * var(--ui-font-scale));
+    --node-output-action-exclusion-height: var(--node-output-action-hit-size);
+    --node-output-action-exclusion-top: calc(var(--node-output-actions-top) - var(--node-output-surface-padding));
+    --node-output-action-exclusion-right: var(--node-output-actions-right);
+    --node-output-action-exclusion-left-gap: 0;
+    --node-output-action-icon-size: 80%;
+    --node-output-action-icon-offset-x: 0px;
+    --node-output-action-icon-offset-y: 0px;
+    --node-output-unfold-icon-size: var(--node-output-action-icon-size);
+    --node-output-unfold-icon-offset-x: var(--node-output-action-icon-offset-x);
+    --node-output-unfold-icon-offset-y: 0.03em;
+    --node-output-copy-icon-size: calc(var(--node-output-action-icon-size) * 0.9);
+    --node-output-copy-icon-offset-x: 0.06em;
+    --node-output-copy-icon-offset-y: var(--node-output-action-icon-offset-y);
+    --node-output-prompt-designer-icon-size: var(--node-output-action-icon-size);
+    --node-output-prompt-designer-icon-offset-x: var(--node-output-action-icon-offset-x);
+    --node-output-prompt-designer-icon-offset-y: var(--node-output-action-icon-offset-y);
+    --node-output-fullscreen-icon-size: calc(var(--node-output-action-icon-size) * 0.85);
+    --node-output-fullscreen-icon-offset-x: var(--node-output-action-icon-offset-x);
+    --node-output-fullscreen-icon-offset-y: var(--node-output-action-icon-offset-y);
+
     background-color: var(--grey-darkest);
     /*background-image: linear-gradient(to bottom, var(--grey-darker) 0%, var(--grey-darkest) 100%);*/
     border-radius: 0 0 var(--node-card-radius) var(--node-card-radius);
@@ -784,7 +816,7 @@ export const nodeStyles = css`
     line-height: 1.4;
     margin: 8px -12px -12px -12px;
     min-height: var(--node-output-min-height);
-    padding: 12px;
+    padding: var(--node-output-surface-padding);
     position: relative;
     transition: border-color 0.2s ease-out;
     transition: max-height 0.2s ease-out;
@@ -793,6 +825,10 @@ export const nodeStyles = css`
 
   .node-output-inner {
     max-height: var(--node-output-collapsed-max-height);
+  }
+
+  .node-output-inner.has-prompt-designer-action {
+    --node-output-action-exclusion-width: calc(120px * var(--ui-font-scale));
   }
 
   .multi-node-output {
@@ -870,6 +906,17 @@ export const nodeStyles = css`
   .node-output-content-fade {
     position: relative;
     z-index: 2;
+  }
+
+  .node-output-inner.has-output-actions .node-output-content-fade::before {
+    content: '';
+    float: right;
+    width: var(--node-output-action-exclusion-width);
+    height: var(--node-output-action-exclusion-height);
+    margin-top: var(--node-output-action-exclusion-top);
+    margin-right: var(--node-output-action-exclusion-right);
+    margin-left: var(--node-output-action-exclusion-left-gap);
+    pointer-events: none;
   }
 
   .node.frozen.success:not(.running) .node-output:not(.multi) .node-output-inner::after,
@@ -976,10 +1023,10 @@ export const nodeStyles = css`
 
   .overlay-buttons {
     position: absolute;
-    top: 8px;
-    right: 4px;
+    top: var(--node-output-actions-top);
+    right: var(--node-output-actions-right);
     display: flex;
-    gap: calc(8px * var(--ui-font-scale));
+    gap: var(--node-output-actions-gap);
     z-index: 10;
   }
 
@@ -987,8 +1034,8 @@ export const nodeStyles = css`
   .expand-button,
   .output-toggle-button,
   .prompt-designer-button {
-    width: calc(24px * var(--ui-font-scale));
-    height: calc(24px * var(--ui-font-scale));
+    width: var(--node-output-action-hit-size);
+    height: var(--node-output-action-hit-size);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1016,12 +1063,31 @@ export const nodeStyles = css`
     opacity: 1;
   }
 
-  .copy-button svg,
-  .expand-button svg,
-  .output-toggle-button svg,
+  .output-toggle-button svg {
+    width: var(--node-output-unfold-icon-size);
+    height: var(--node-output-unfold-icon-size);
+    transform: translate(var(--node-output-unfold-icon-offset-x), var(--node-output-unfold-icon-offset-y));
+  }
+
+  .copy-button svg {
+    width: var(--node-output-copy-icon-size);
+    height: var(--node-output-copy-icon-size);
+    transform: translate(var(--node-output-copy-icon-offset-x), var(--node-output-copy-icon-offset-y));
+  }
+
   .prompt-designer-button svg {
-    width: 80%;
-    height: 80%;
+    width: var(--node-output-prompt-designer-icon-size);
+    height: var(--node-output-prompt-designer-icon-size);
+    transform: translate(
+      var(--node-output-prompt-designer-icon-offset-x),
+      var(--node-output-prompt-designer-icon-offset-y)
+    );
+  }
+
+  .expand-button svg {
+    width: var(--node-output-fullscreen-icon-size);
+    height: var(--node-output-fullscreen-icon-size);
+    transform: translate(var(--node-output-fullscreen-icon-offset-x), var(--node-output-fullscreen-icon-offset-y));
   }
 
   .node.isOutputExpanded .output-toggle-button {

@@ -157,6 +157,21 @@ function makeGraphOutputNode(id = 'result'): ChartNode {
   };
 }
 
+function makeSubgraphNode(id: string, targetGraphId: GraphId, data: Record<string, unknown> = {}): ChartNode {
+  return {
+    id: id as NodeId,
+    type: 'subGraph',
+    title: 'Subgraph',
+    data: {
+      graphId: targetGraphId,
+      useErrorOutput: false,
+      useAsGraphPartialOutput: false,
+      ...data,
+    },
+    visualData: { x: 0, y: 0, width: 240 },
+  };
+}
+
 function connect(outputNodeId: string, inputNodeId: string, inputId = 'input', outputId = 'output'): NodeConnection {
   return {
     outputNodeId: outputNodeId as NodeId,
@@ -445,6 +460,500 @@ void describe('GraphProcessor characterization', () => {
       processId: parentSubgraphProcessId,
       splitIndex: 0,
     });
+  });
+
+  void it('runs only subgraph output branches demanded by active parent output connections', async () => {
+    const usedProbe = makeProbeNode('child-used-probe', { value: { type: 'string', value: 'used' } });
+    const unusedProbe = makeProbeNode('child-unused-probe', {
+      setGlobal: { id: 'unused-side-effect', value: { type: 'string', value: 'should not be set' } },
+      value: { type: 'string', value: 'unused' },
+    });
+    const usedOutput = makeGraphOutputNode('childUsed');
+    const unusedOutput = makeGraphOutputNode('childUnused');
+    const childGraph = makeGraph(
+      [usedProbe, usedOutput, unusedProbe, unusedOutput],
+      [
+        connect(usedProbe.id, usedOutput.id, 'value'),
+        connect(unusedProbe.id, unusedOutput.id, 'value'),
+      ],
+      'demand-child-graph' as GraphId,
+    );
+    const subgraphNode = makeSubgraphNode('demand-subgraph', childGraph.metadata!.id);
+    const parentOutput = makeGraphOutputNode('parentUsed');
+    const disabledConsumer = makeProbeNode('disabled-consumer');
+    disabledConsumer.disabled = true;
+    const parentGraph = makeGraph(
+      [subgraphNode, parentOutput, disabledConsumer],
+      [
+        connect(subgraphNode.id, parentOutput.id, 'value', 'childUsed'),
+        connect(subgraphNode.id, disabledConsumer.id, 'input', 'childUnused'),
+      ],
+      'demand-parent-graph' as GraphId,
+    );
+    const processor = createProcessor(parentGraph, [childGraph]);
+    const finishedNodeIds: NodeId[] = [];
+    const globalSetIds: string[] = [];
+    let subgraphFinish: ProcessEvents['nodeFinish'] | undefined;
+
+    processor.on('nodeFinish', (event) => {
+      finishedNodeIds.push(event.node.id);
+      if (event.node.id === subgraphNode.id) {
+        subgraphFinish = event;
+      }
+    });
+    processor.on('globalSet', (event) => globalSetIds.push(event.id));
+
+    const outputs = await processor.processGraph(testProcessContext());
+
+    assert.deepEqual(outputs.parentUsed, { type: 'string', value: 'used' });
+    assert.equal(finishedNodeIds.includes(usedProbe.id), true);
+    assert.equal(finishedNodeIds.includes(unusedProbe.id), false);
+    assert.deepEqual(globalSetIds, []);
+    assert.deepEqual(subgraphFinish?.outputs.childUnused, {
+      type: 'control-flow-excluded',
+      value: undefined,
+    });
+  });
+
+  void it('treats a subgraph output connected to any enabled downstream node as demanded', async () => {
+    const childProbe = makeProbeNode('child-enabled-consumer-probe', { value: { type: 'string', value: 'value' } });
+    const childOutput = makeGraphOutputNode('childValue');
+    const childGraph = makeGraph(
+      [childProbe, childOutput],
+      [connect(childProbe.id, childOutput.id, 'value')],
+      'enabled-consumer-child' as GraphId,
+    );
+    const subgraphNode = makeSubgraphNode('enabled-consumer-subgraph', childGraph.metadata!.id);
+    const enabledConsumer = makeProbeNode('enabled-consumer');
+    const parentGraph = makeGraph(
+      [subgraphNode, enabledConsumer],
+      [connect(subgraphNode.id, enabledConsumer.id, 'input', 'childValue')],
+      'enabled-consumer-parent' as GraphId,
+    );
+    const processor = createProcessor(parentGraph, [childGraph]);
+    const finishedNodeIds: NodeId[] = [];
+
+    processor.on('nodeFinish', ({ node }) => finishedNodeIds.push(node.id));
+
+    await processor.processGraph(testProcessContext());
+
+    assert.equal(finishedNodeIds.includes(childProbe.id), true);
+    assert.equal(finishedNodeIds.includes(enabledConsumer.id), true);
+  });
+
+  void it('skips errors from unrequested subgraph output branches', async () => {
+    const usedProbe = makeProbeNode('skipped-error-used-probe', { value: { type: 'string', value: 'used' } });
+    const throwingProbe = makeProbeNode('skipped-error-throwing-probe', { throwMessage: 'unused branch failed' });
+    const usedOutput = makeGraphOutputNode('used');
+    const unusedOutput = makeGraphOutputNode('unused');
+    const childGraph = makeGraph(
+      [usedProbe, usedOutput, throwingProbe, unusedOutput],
+      [
+        connect(usedProbe.id, usedOutput.id, 'value'),
+        connect(throwingProbe.id, unusedOutput.id, 'value'),
+      ],
+      'skipped-error-child-graph' as GraphId,
+    );
+    const subgraphNode = makeSubgraphNode('skipped-error-subgraph', childGraph.metadata!.id);
+    const parentOutput = makeGraphOutputNode('parentUsed');
+    const parentGraph = makeGraph(
+      [subgraphNode, parentOutput],
+      [connect(subgraphNode.id, parentOutput.id, 'value', 'used')],
+      'skipped-error-parent-graph' as GraphId,
+    );
+    const processor = createProcessor(parentGraph, [childGraph]);
+    const erroredNodeIds: NodeId[] = [];
+    const finishedNodeIds: NodeId[] = [];
+
+    processor.on('nodeError', ({ node }) => erroredNodeIds.push(node.id));
+    processor.on('nodeFinish', ({ node }) => finishedNodeIds.push(node.id));
+
+    const outputs = await processor.processGraph(testProcessContext());
+
+    assert.deepEqual(outputs.parentUsed, { type: 'string', value: 'used' });
+    assert.deepEqual(erroredNodeIds, []);
+    assert.equal(finishedNodeIds.includes(usedProbe.id), true);
+    assert.equal(finishedNodeIds.includes(throwingProbe.id), false);
+  });
+
+  void it('runs shared child dependencies once when multiple demanded subgraph outputs need them', async () => {
+    const sharedProbe = makeProbeNode('shared-child-probe', { value: { type: 'string', value: 'shared' } });
+    const leftOutput = makeGraphOutputNode('left');
+    const rightOutput = makeGraphOutputNode('right');
+    const childGraph = makeGraph(
+      [sharedProbe, leftOutput, rightOutput],
+      [
+        connect(sharedProbe.id, leftOutput.id, 'value'),
+        connect(sharedProbe.id, rightOutput.id, 'value'),
+      ],
+      'shared-child-graph' as GraphId,
+    );
+    const subgraphNode = makeSubgraphNode('shared-subgraph', childGraph.metadata!.id);
+    const leftParentOutput = makeGraphOutputNode('parentLeft');
+    const rightParentOutput = makeGraphOutputNode('parentRight');
+    const parentGraph = makeGraph(
+      [subgraphNode, leftParentOutput, rightParentOutput],
+      [
+        connect(subgraphNode.id, leftParentOutput.id, 'value', 'left'),
+        connect(subgraphNode.id, rightParentOutput.id, 'value', 'right'),
+      ],
+      'shared-parent-graph' as GraphId,
+    );
+    const processor = createProcessor(parentGraph, [childGraph]);
+    const finishedNodeIds: NodeId[] = [];
+
+    processor.on('nodeFinish', ({ node }) => finishedNodeIds.push(node.id));
+
+    const outputs = await processor.processGraph(testProcessContext());
+
+    assert.deepEqual(outputs.parentLeft, { type: 'string', value: 'shared' });
+    assert.deepEqual(outputs.parentRight, { type: 'string', value: 'shared' });
+    assert.equal(finishedNodeIds.filter((nodeId) => nodeId === sharedProbe.id).length, 1);
+  });
+
+  void it('skips child graph execution when a subgraph has no active output consumers', async () => {
+    const childProbe = makeProbeNode('skipped-child-probe', { value: { type: 'string', value: 'unused' } });
+    const childOutput = makeGraphOutputNode('childValue');
+    const childGraph = makeGraph(
+      [childProbe, childOutput],
+      [connect(childProbe.id, childOutput.id, 'value')],
+      'skipped-child-graph' as GraphId,
+    );
+    const subgraphNode = makeSubgraphNode('skipped-subgraph', childGraph.metadata!.id);
+    const parentGraph = makeGraph([subgraphNode], [], 'skipped-parent-graph' as GraphId);
+    const processor = createProcessor(parentGraph, [childGraph]);
+    const finishedNodeIds: NodeId[] = [];
+    let subgraphFinish: ProcessEvents['nodeFinish'] | undefined;
+
+    processor.on('nodeFinish', (event) => {
+      finishedNodeIds.push(event.node.id);
+      if (event.node.id === subgraphNode.id) {
+        subgraphFinish = event;
+      }
+    });
+
+    await processor.processGraph(testProcessContext());
+
+    assert.equal(finishedNodeIds.includes(childProbe.id), false);
+    assert.deepEqual(subgraphFinish?.outputs.childValue, {
+      type: 'control-flow-excluded',
+      value: undefined,
+    });
+    assert.deepEqual(subgraphFinish?.outputs.cost, { type: 'number', value: 0 });
+    assert.deepEqual(subgraphFinish?.outputs.duration, { type: 'number', value: 0 });
+  });
+
+  void it('runs a direct run-to subgraph target as a full child graph for inspection', async () => {
+    const usedProbe = makeProbeNode('run-to-used-probe', { value: { type: 'string', value: 'used' } });
+    const unusedProbe = makeProbeNode('run-to-unused-probe', { value: { type: 'string', value: 'unused' } });
+    const usedOutput = makeGraphOutputNode('used');
+    const unusedOutput = makeGraphOutputNode('unused');
+    const childGraph = makeGraph(
+      [usedProbe, usedOutput, unusedProbe, unusedOutput],
+      [
+        connect(usedProbe.id, usedOutput.id, 'value'),
+        connect(unusedProbe.id, unusedOutput.id, 'value'),
+      ],
+      'run-to-child-graph' as GraphId,
+    );
+    const subgraphNode = makeSubgraphNode('run-to-subgraph', childGraph.metadata!.id);
+    const parentGraph = makeGraph([subgraphNode], [], 'run-to-parent-graph' as GraphId);
+    const processor = createProcessor(parentGraph, [childGraph]);
+    const finishedNodeIds: NodeId[] = [];
+
+    processor.runToNodeIds = [subgraphNode.id];
+    processor.on('nodeFinish', ({ node }) => finishedNodeIds.push(node.id));
+
+    await processor.processGraph(testProcessContext());
+
+    assert.equal(finishedNodeIds.includes(usedProbe.id), true);
+    assert.equal(finishedNodeIds.includes(unusedProbe.id), true);
+  });
+
+  void it('uses downstream run-to targets to demand only relevant subgraph output ports', async () => {
+    const leftProbe = makeProbeNode('run-to-downstream-left-probe', { value: { type: 'string', value: 'left' } });
+    const rightProbe = makeProbeNode('run-to-downstream-right-probe', { value: { type: 'string', value: 'right' } });
+    const leftOutput = makeGraphOutputNode('left');
+    const rightOutput = makeGraphOutputNode('right');
+    const childGraph = makeGraph(
+      [leftProbe, leftOutput, rightProbe, rightOutput],
+      [
+        connect(leftProbe.id, leftOutput.id, 'value'),
+        connect(rightProbe.id, rightOutput.id, 'value'),
+      ],
+      'run-to-downstream-child-graph' as GraphId,
+    );
+    const subgraphNode = makeSubgraphNode('run-to-downstream-subgraph', childGraph.metadata!.id);
+    const leftConsumer = makeProbeNode('run-to-downstream-left-consumer');
+    const rightConsumer = makeProbeNode('run-to-downstream-right-consumer');
+    const parentGraph = makeGraph(
+      [subgraphNode, leftConsumer, rightConsumer],
+      [
+        connect(subgraphNode.id, leftConsumer.id, 'input', 'left'),
+        connect(subgraphNode.id, rightConsumer.id, 'input', 'right'),
+      ],
+      'run-to-downstream-parent-graph' as GraphId,
+    );
+    const processor = createProcessor(parentGraph, [childGraph]);
+    const finishedNodeIds: NodeId[] = [];
+
+    processor.runToNodeIds = [leftConsumer.id];
+    processor.on('nodeFinish', ({ node }) => finishedNodeIds.push(node.id));
+
+    await processor.processGraph(testProcessContext());
+
+    assert.equal(finishedNodeIds.includes(leftProbe.id), true);
+    assert.equal(finishedNodeIds.includes(rightProbe.id), false);
+    assert.equal(finishedNodeIds.includes(leftConsumer.id), true);
+    assert.equal(finishedNodeIds.includes(rightConsumer.id), false);
+  });
+
+  void it('runs the full child graph when a subgraph error output is actively connected', async () => {
+    const goodProbe = makeProbeNode('error-active-good-probe', { value: { type: 'string', value: 'good' } });
+    const throwingProbe = makeProbeNode('error-active-throwing-probe', { throwMessage: 'unused branch failed' });
+    const goodOutput = makeGraphOutputNode('good');
+    const throwingOutput = makeGraphOutputNode('unused');
+    const childGraph = makeGraph(
+      [goodProbe, goodOutput, throwingProbe, throwingOutput],
+      [
+        connect(goodProbe.id, goodOutput.id, 'value'),
+        connect(throwingProbe.id, throwingOutput.id, 'value'),
+      ],
+      'error-active-child-graph' as GraphId,
+    );
+    const subgraphNode = makeSubgraphNode('error-active-subgraph', childGraph.metadata!.id, {
+      useErrorOutput: true,
+    });
+    const parentGoodOutput = makeGraphOutputNode('parentGood');
+    const parentErrorOutput = makeGraphOutputNode('parentError');
+    const parentGraph = makeGraph(
+      [subgraphNode, parentGoodOutput, parentErrorOutput],
+      [
+        connect(subgraphNode.id, parentGoodOutput.id, 'value', 'good'),
+        connect(subgraphNode.id, parentErrorOutput.id, 'value', 'error'),
+      ],
+      'error-active-parent-graph' as GraphId,
+    );
+    const processor = createProcessor(parentGraph, [childGraph]);
+    const erroredNodeIds: NodeId[] = [];
+
+    processor.on('nodeError', ({ node }) => erroredNodeIds.push(node.id));
+
+    const outputs = await processor.processGraph(testProcessContext());
+
+    assert.equal(erroredNodeIds.includes(throwingProbe.id), true);
+    assert.deepEqual(outputs.parentGood, {
+      type: 'control-flow-excluded',
+      value: undefined,
+    });
+    assert.equal(outputs.parentError?.type, 'string');
+    assert.match(String(outputs.parentError?.value), /unused branch failed|error-active-throwing-probe/);
+  });
+
+  void it('runs the full child graph when subgraph partial-output forwarding is enabled', async () => {
+    const usedProbe = makeProbeNode('partial-used-probe', { value: { type: 'string', value: 'used' } });
+    const unusedProbe = makeProbeNode('partial-unused-probe', { value: { type: 'string', value: 'unused' } });
+    const usedOutput = makeGraphOutputNode('used');
+    const unusedOutput = makeGraphOutputNode('unused');
+    const childGraph = makeGraph(
+      [usedProbe, usedOutput, unusedProbe, unusedOutput],
+      [
+        connect(usedProbe.id, usedOutput.id, 'value'),
+        connect(unusedProbe.id, unusedOutput.id, 'value'),
+      ],
+      'partial-subgraph-child' as GraphId,
+    );
+    const subgraphNode = makeSubgraphNode('partial-subgraph', childGraph.metadata!.id, {
+      useAsGraphPartialOutput: true,
+    });
+    const parentOutput = makeGraphOutputNode('parentUsed');
+    const parentGraph = makeGraph(
+      [subgraphNode, parentOutput],
+      [connect(subgraphNode.id, parentOutput.id, 'value', 'used')],
+      'partial-subgraph-parent' as GraphId,
+    );
+    const processor = createProcessor(parentGraph, [childGraph]);
+    const finishedNodeIds: NodeId[] = [];
+
+    processor.on('nodeFinish', ({ node }) => finishedNodeIds.push(node.id));
+
+    await processor.processGraph(testProcessContext());
+
+    assert.equal(finishedNodeIds.includes(usedProbe.id), true);
+    assert.equal(finishedNodeIds.includes(unusedProbe.id), true);
+  });
+
+  void it('targets the winning duplicate Graph Output node when pruning subgraph outputs', async () => {
+    const firstProbe = makeProbeNode('duplicate-first-probe', { value: { type: 'string', value: 'first' } });
+    const secondProbe = makeProbeNode('duplicate-second-probe', { value: { type: 'string', value: 'second' } });
+    const firstOutput = makeGraphOutputNode('duplicate');
+    firstOutput.id = 'duplicate-output-first' as NodeId;
+    const secondOutput = makeGraphOutputNode('duplicate');
+    secondOutput.id = 'duplicate-output-second' as NodeId;
+    const childGraph = makeGraph(
+      [firstProbe, firstOutput, secondProbe, secondOutput],
+      [
+        connect(firstProbe.id, firstOutput.id, 'value'),
+        connect(secondProbe.id, secondOutput.id, 'value'),
+      ],
+      'duplicate-output-child' as GraphId,
+    );
+    const subgraphNode = makeSubgraphNode('duplicate-output-subgraph', childGraph.metadata!.id);
+    const parentOutput = makeGraphOutputNode('parentDuplicate');
+    const parentGraph = makeGraph(
+      [subgraphNode, parentOutput],
+      [connect(subgraphNode.id, parentOutput.id, 'value', 'duplicate')],
+      'duplicate-output-parent' as GraphId,
+    );
+    const processor = createProcessor(parentGraph, [childGraph]);
+    const finishedNodeIds: NodeId[] = [];
+
+    processor.on('nodeFinish', ({ node }) => finishedNodeIds.push(node.id));
+
+    const outputs = await processor.processGraph(testProcessContext());
+
+    assert.deepEqual(outputs.parentDuplicate, { type: 'string', value: 'first' });
+    assert.equal(finishedNodeIds.includes(firstProbe.id), true);
+    assert.equal(finishedNodeIds.includes(secondProbe.id), false);
+  });
+
+  void it('runs only referenced graph alias output branches demanded by active parent output connections', async () => {
+    const referencedProjectId = 'referenced-demand-project' as ProjectId;
+    const referencedGraphId = 'referenced-demand-graph' as GraphId;
+    const usedProbe = makeProbeNode('referenced-used-probe', { value: { type: 'string', value: 'used' } });
+    const unusedProbe = makeProbeNode('referenced-unused-probe', { value: { type: 'string', value: 'unused' } });
+    const usedOutput = makeGraphOutputNode('referencedUsed');
+    const unusedOutput = makeGraphOutputNode('referencedUnused');
+    const referencedGraph = makeGraph(
+      [usedProbe, usedOutput, unusedProbe, unusedOutput],
+      [
+        connect(usedProbe.id, usedOutput.id, 'value'),
+        connect(unusedProbe.id, unusedOutput.id, 'value'),
+      ],
+      referencedGraphId,
+    );
+    const referencedProject = makeProject(referencedGraph);
+    referencedProject.metadata.id = referencedProjectId;
+    const aliasNode: ChartNode = {
+      id: 'referenced-demand-alias' as NodeId,
+      type: 'referencedGraphAlias',
+      title: 'Referenced Graph Alias',
+      data: {
+        graphId: referencedGraphId,
+        inputData: {},
+        projectId: referencedProjectId,
+        useErrorOutput: false,
+      },
+      visualData: { x: 0, y: 0, width: 240 },
+    };
+    const parentOutput = makeGraphOutputNode('parentReferencedUsed');
+    const disabledConsumer = makeProbeNode('referenced-disabled-consumer');
+    disabledConsumer.disabled = true;
+    const parentGraph = makeGraph(
+      [aliasNode, parentOutput, disabledConsumer],
+      [
+        connect(aliasNode.id, parentOutput.id, 'value', 'referencedUsed'),
+        connect(aliasNode.id, disabledConsumer.id, 'input', 'referencedUnused'),
+      ],
+      'referenced-demand-parent' as GraphId,
+    );
+    const project = makeProject(parentGraph);
+    project.references = [{ id: referencedProjectId }];
+    const processor = new GraphProcessor(project, parentGraph.metadata!.id, createRegistry());
+    const finishedNodeIds: NodeId[] = [];
+    let aliasFinish: ProcessEvents['nodeFinish'] | undefined;
+
+    processor.on('nodeFinish', (event) => {
+      finishedNodeIds.push(event.node.id);
+      if (event.node.id === aliasNode.id) {
+        aliasFinish = event;
+      }
+    });
+
+    const outputs = await processor.processGraph({
+      ...testProcessContext(),
+      projectReferenceLoader: {
+        loadProject: async () => referencedProject,
+      },
+    });
+
+    assert.deepEqual(outputs.parentReferencedUsed, { type: 'string', value: 'used' });
+    assert.equal(finishedNodeIds.includes(usedProbe.id), true);
+    assert.equal(finishedNodeIds.includes(unusedProbe.id), false);
+    assert.deepEqual(aliasFinish?.outputs.referencedUnused, {
+      type: 'control-flow-excluded',
+      value: undefined,
+    });
+    assert.equal(aliasFinish?.outputs.cost, undefined);
+    assert.equal(aliasFinish?.outputs.duration, undefined);
+  });
+
+  void it('honors the referenced graph alias metric toggle when demand pruning skips the child graph', async () => {
+    const referencedProjectId = 'referenced-skipped-metrics-project' as ProjectId;
+    const referencedGraphId = 'referenced-skipped-metrics-graph' as GraphId;
+    const childProbe = makeProbeNode('referenced-skipped-metrics-probe', {
+      value: { type: 'string', value: 'unused' },
+    });
+    const childOutput = makeGraphOutputNode('childValue');
+    const referencedGraph = makeGraph(
+      [childProbe, childOutput],
+      [connect(childProbe.id, childOutput.id, 'value')],
+      referencedGraphId,
+    );
+    const referencedProject = makeProject(referencedGraph);
+    referencedProject.metadata.id = referencedProjectId;
+    const createAliasNode = (outputCostDuration: boolean): ChartNode => ({
+      id: `referenced-skipped-metrics-alias-${outputCostDuration}` as NodeId,
+      type: 'referencedGraphAlias',
+      title: 'Referenced Graph Alias',
+      data: {
+        graphId: referencedGraphId,
+        inputData: {},
+        outputCostDuration,
+        projectId: referencedProjectId,
+        useErrorOutput: false,
+      },
+      visualData: { x: 0, y: 0, width: 240 },
+    });
+    const runAlias = async (outputCostDuration: boolean) => {
+      const aliasNode = createAliasNode(outputCostDuration);
+      const parentGraph = makeGraph([aliasNode], [], `referenced-skipped-metrics-${outputCostDuration}` as GraphId);
+      const project = makeProject(parentGraph);
+      project.references = [{ id: referencedProjectId }];
+      const processor = new GraphProcessor(project, parentGraph.metadata!.id, createRegistry());
+      let aliasFinish: ProcessEvents['nodeFinish'] | undefined;
+
+      processor.on('nodeFinish', (event) => {
+        if (event.node.id === aliasNode.id) {
+          aliasFinish = event;
+        }
+      });
+
+      await processor.processGraph({
+        ...testProcessContext(),
+        projectReferenceLoader: {
+          loadProject: async () => referencedProject,
+        },
+      });
+
+      return aliasFinish?.outputs;
+    };
+
+    const outputsWithoutMetrics = await runAlias(false);
+    assert.deepEqual(outputsWithoutMetrics?.childValue, {
+      type: 'control-flow-excluded',
+      value: undefined,
+    });
+    assert.equal(outputsWithoutMetrics?.cost, undefined);
+    assert.equal(outputsWithoutMetrics?.duration, undefined);
+
+    const outputsWithMetrics = await runAlias(true);
+    assert.deepEqual(outputsWithMetrics?.childValue, {
+      type: 'control-flow-excluded',
+      value: undefined,
+    });
+    assert.deepEqual(outputsWithMetrics?.cost, { type: 'number', value: 0 });
+    assert.deepEqual(outputsWithMetrics?.duration, { type: 'number', value: 0 });
   });
 
   void it('preloads boundary nodes and runs only the requested terminal slice', async () => {

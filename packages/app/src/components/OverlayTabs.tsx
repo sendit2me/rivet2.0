@@ -53,7 +53,7 @@ const styles = css`
     min-width: 0;
     height: 100%;
 
-    background: var(--grey-darkerish);
+    background: var(--project-selector-strip-bg, var(--grey-dark-bluish-seethrough));
   }
 
   .menu-item > button {

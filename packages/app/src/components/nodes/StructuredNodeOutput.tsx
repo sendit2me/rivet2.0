@@ -4,14 +4,18 @@ import ColorizedPreformattedText from '../ColorizedPreformattedText.js';
 import { outputSectionGroupGap, outputSectionLabelStyles } from '../renderDataValue/renderDataValueStyles.js';
 
 const structuredNodeOutputCss = css`
-  display: flex;
-  flex-direction: column;
-  gap: ${outputSectionGroupGap};
+  display: block;
+
+  .structured-node-output-section + .structured-node-output-section {
+    margin-top: ${outputSectionGroupGap};
+  }
 
   .structured-node-output-section {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
+    display: block;
+  }
+
+  .structured-node-output-section > * + * {
+    margin-top: 6px;
   }
 
   .structured-node-output-source pre {

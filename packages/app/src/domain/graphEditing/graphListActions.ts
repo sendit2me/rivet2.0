@@ -58,6 +58,30 @@ export function getAncestorFolderPaths(fullPath: string): string[] {
   return pathParts.slice(0, -1).map((_, index) => pathParts.slice(0, index + 1).join('/'));
 }
 
+function getParentFolderPath(fullPath: string): string | undefined {
+  const pathParts = fullPath.split('/').filter(Boolean);
+  if (pathParts.length <= 1) {
+    return undefined;
+  }
+
+  return pathParts.slice(0, -1).join('/');
+}
+
+function appendUniqueFolderName(folderNames: string[], folderName: string | undefined): string[] {
+  if (folderName == null || folderNames.includes(folderName)) {
+    return folderNames;
+  }
+
+  return [...folderNames, folderName];
+}
+
+function hasVisibleFolderContent(folderPath: string, graphs: NodeGraph[], folderNames: string[]): boolean {
+  return (
+    graphs.some((graph) => graph.metadata?.name != null && isInFolder(folderPath, graph.metadata.name)) ||
+    folderNames.some((folderName) => folderName === folderPath || isInFolder(folderPath, folderName))
+  );
+}
+
 export function deleteFolderGraphs(savedGraphs: NodeGraph[], folderName: string) {
   return savedGraphs.filter((graph) => !(graph.metadata?.name && isInFolder(folderName, graph.metadata.name)));
 }
@@ -118,11 +142,18 @@ export function renameFolderItemInGraphs(options: {
   const nextFolderNames = folderNames.map((name) =>
     name === fullPath || isInFolder(fullPath, name) ? name.replace(fullPath, newFullPath) : name,
   );
+  const sourceParentFolderPath = savedGraphs.some((graph) => graph.metadata?.name === fullPath)
+    ? getParentFolderPath(fullPath)
+    : undefined;
+  const shouldPreserveSourceParentFolder =
+    sourceParentFolderPath != null && !hasVisibleFolderContent(sourceParentFolderPath, nextSavedGraphs, nextFolderNames);
 
   return {
     savedGraphs: nextSavedGraphs,
     currentGraph: nextCurrentGraph,
-    folderNames: nextFolderNames,
+    folderNames: shouldPreserveSourceParentFolder
+      ? appendUniqueFolderName(nextFolderNames, sourceParentFolderPath)
+      : nextFolderNames,
   };
 }
 

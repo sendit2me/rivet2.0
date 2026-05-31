@@ -5,7 +5,7 @@ import { useAtomValue } from 'jotai';
 import { useLoadRecording } from '../hooks/useLoadRecording';
 import { useSaveRecording } from '../hooks/useSaveRecording';
 import { graphRunningState, graphPausedState } from '../state/dataFlow';
-import { lastRecordingState, loadedRecordingState } from '../state/execution';
+import { lastRecordingState, loadedRecordingState, recordingPlaybackStartingState } from '../state/execution';
 import { selectedExecutorState } from '../state/settings';
 import MultiplyIcon from 'majesticons/line/multiply-line.svg?react';
 import PauseIcon from 'majesticons/line/pause-circle-line.svg?react';
@@ -173,15 +173,18 @@ export const ActionBar: FC<ActionBarProps> = ({ onRunGraph, onAbortGraph, onPaus
   const graphPaused = useAtomValue(graphPausedState);
 
   const loadedRecording = useAtomValue(loadedRecordingState);
+  const recordingPlaybackStarting = useAtomValue(recordingPlaybackStartingState);
   const { unloadRecording } = useLoadRecording();
   const [menuIsOpen, toggleMenuIsOpen] = useToggle();
   const selectedExecutor = useAtomValue(selectedExecutorState);
+  const recordingPlaybackIsStarting = !!loadedRecording && recordingPlaybackStarting && !graphRunning;
 
   const { sessionState: remoteDebugger, disconnect } = useRemoteDebugger();
   const actionBarExecutionState = getActionBarExecutionState({
     graphPaused,
     graphRunning,
     hasLoadedRecording: !!loadedRecording,
+    recordingPlaybackStarting: recordingPlaybackIsStarting,
     selectedExecutor,
     session: remoteDebugger,
   });
@@ -229,11 +232,15 @@ export const ActionBar: FC<ActionBarProps> = ({ onRunGraph, onAbortGraph, onPaus
   };
 
   const renderRunButtonContents = (label: string) => {
-    if (actionBarExecutionState.executorLoading) {
+    if (actionBarExecutionState.runButtonLoading) {
       return (
         <>
           {label}
-          <NodeRunningIndicator isRunning delayMs={0} label="Node executor starting" />
+          <NodeRunningIndicator
+            isRunning
+            delayMs={0}
+            label={recordingPlaybackIsStarting ? 'Recording playback starting' : 'Node executor starting'}
+          />
         </>
       );
     }
@@ -292,6 +299,7 @@ export const ActionBar: FC<ActionBarProps> = ({ onRunGraph, onAbortGraph, onPaus
           <button
             disabled={runButtonsBlocked}
             aria-disabled={runButtonsBlocked || undefined}
+            aria-busy={actionBarExecutionState.runButtonLoading || undefined}
             onClick={() => runGraph(graphMetadata?.id)}
           >
             {graphRunning ? (
@@ -311,6 +319,7 @@ export const ActionBar: FC<ActionBarProps> = ({ onRunGraph, onAbortGraph, onPaus
           <button
             disabled={runButtonsBlocked}
             aria-disabled={runButtonsBlocked || undefined}
+            aria-busy={actionBarExecutionState.runButtonLoading || undefined}
             onClick={() => runGraph(projectMetadata.mainGraphId)}
           >
             {graphRunning ? (

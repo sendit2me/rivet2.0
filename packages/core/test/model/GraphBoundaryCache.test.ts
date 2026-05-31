@@ -7,6 +7,7 @@ import {
   getGraphBoundary,
   getGraphBoundaryInputDefinitions,
   getGraphBoundaryOutputDefinitions,
+  getRequestedGraphOutputNodeIds,
 } from '../../src/model/GraphBoundaryCache.js';
 import {
   type ChartNode,
@@ -16,6 +17,7 @@ import {
   type GraphId,
   type NodeGraph,
   type NodeId,
+  type PortId,
   type Project,
   type ProjectId,
 } from '../../src/index.js';
@@ -42,8 +44,8 @@ void describe('GraphBoundaryCache', () => {
       { dataType: 'number', editor: 'number', id: 'b', portId: 'b' },
     ]);
     assert.deepEqual(boundary.outputs, [
-      { dataType: 'string', id: 'a', portId: 'a' },
-      { dataType: 'object', id: 'z', portId: 'z' },
+      { dataType: 'string', id: 'a', nodeId: 'output-a', portId: 'a' },
+      { dataType: 'object', id: 'z', nodeId: 'output-z-first', portId: 'z' },
     ]);
     assert.deepEqual(getGraphBoundaryInputDefinitions(boundary), [
       { dataType: 'string', id: 'a', title: 'a' },
@@ -160,6 +162,20 @@ void describe('GraphBoundaryCache', () => {
       a: { type: 'control-flow-excluded', value: undefined },
       b: { type: 'control-flow-excluded', value: undefined },
     });
+  });
+
+  void it('maps requested output port ids to first-duplicate-winning Graph Output node ids', () => {
+    const project = makeProject([
+      makeGraphOutputNode('output-z-first', 'z', 'object'),
+      makeGraphOutputNode('output-a', 'a', 'string'),
+      makeGraphOutputNode('output-z-second', 'z', 'number'),
+    ]);
+    const boundary = getGraphBoundary(project, graphId)!;
+
+    assert.deepEqual(
+      getRequestedGraphOutputNodeIds(boundary, new Set(['z' as PortId, 'missing' as PortId])),
+      ['output-z-first'],
+    );
   });
 
   void it('returns undefined for missing graph ids', () => {

@@ -16,6 +16,7 @@ import { useAtom, useAtomValue } from 'jotai';
 import CloseIcon from 'majesticons/line/multiply-line.svg?react';
 import LeftIcon from 'majesticons/line/chevron-left-line.svg?react';
 import RightIcon from 'majesticons/line/chevron-right-line.svg?react';
+import RivetLogo from '../rivet-2-logo-no-background.svg';
 import { openedProjectsSortedIdsState, openedProjectsState, projectState } from '../state/savedGraphs';
 import clsx from 'clsx';
 import { useLoadProject } from '../hooks/useLoadProject';
@@ -51,7 +52,9 @@ export const styles = css`
   height: var(--project-selector-height);
   z-index: 250;
 
-  background: var(--grey-darkerish);
+  --project-selector-strip-bg: var(--grey-dark-bluish-seethrough);
+
+  background: var(--project-selector-strip-bg);
 
   display: flex;
   align-items: stretch;
@@ -59,7 +62,7 @@ export const styles = css`
   --top-bar-left-controls-width: calc(var(--project-selector-height) * 3);
 
   &::after {
-    background: var(--grey);
+    background: var(--grey-darkish);
     bottom: 0;
     content: '';
     height: 1px;
@@ -83,7 +86,7 @@ export const styles = css`
   .graph-history-menu,
   .file-menu {
     align-items: stretch;
-    background: var(--grey-darkerish);
+    background: var(--project-selector-strip-bg);
     color: var(--grey-light);
     display: flex;
     flex: 0 0 auto;
@@ -104,18 +107,13 @@ export const styles = css`
   .graph-history-menu {
     width: var(--project-selector-height);
 
-    &:hover {
+    &:not(.disabled):hover {
       background-color: var(--grey-darkish);
     }
 
     &.disabled {
       color: var(--grey-light);
       cursor: default;
-      opacity: 0.45;
-
-      &:hover {
-        background: var(--grey-darkerish);
-      }
     }
   }
 
@@ -133,7 +131,7 @@ export const styles = css`
   .file-menu {
     border-left: 1px solid var(--grey-darkest);
     border-right: 1px solid var(--grey-darkest);
-    min-width: 64px;
+    min-width: 78px;
   }
 
   .sidebar-toggle-menu:hover,
@@ -165,6 +163,18 @@ export const styles = css`
     width: 100%;
   }
 
+  .file-menu-button {
+    gap: 7px;
+  }
+
+  .file-menu-logo {
+    display: block;
+    flex: 0 0 auto;
+    height: 14px;
+    opacity: 0.95;
+    width: 16px;
+  }
+
   .sidebar-toggle-button {
     padding: 0;
 
@@ -180,6 +190,7 @@ export const styles = css`
 
     &:disabled {
       cursor: default;
+      opacity: 0.45;
       pointer-events: none;
     }
 
@@ -191,7 +202,7 @@ export const styles = css`
   }
 
   .sidebar-panel-spacer {
-    background: var(--grey-darkerish);
+    background: var(--project-selector-strip-bg);
     flex: 0 0 max(0px, calc(var(--left-sidebar-width) - var(--top-bar-left-controls-width)));
     height: 100%;
     min-width: 0;
@@ -200,16 +211,12 @@ export const styles = css`
   &.graph-tree-open .sidebar-toggle-menu,
   &.graph-tree-open .graph-history-menu,
   &.graph-tree-open .sidebar-panel-spacer {
-    background: var(--grey-dark-bluish-seethrough);
+    background: var(--project-selector-strip-bg);
   }
 
   &.graph-tree-open .sidebar-toggle-menu:hover,
-  &.graph-tree-open .graph-history-menu:hover {
+  &.graph-tree-open .graph-history-menu:not(.disabled):hover {
     background: var(--grey-darkish);
-  }
-
-  &.graph-tree-open .graph-history-menu.disabled:hover {
-    background: var(--grey-dark-bluish-seethrough);
   }
 
   .file-dropdown {
@@ -291,7 +298,7 @@ export const styles = css`
     gap: 8px;
     font-size: var(--ui-font-size-sm);
     height: 100%;
-    background: var(--grey-darkerish);
+    background: var(--project-selector-strip-bg);
     flex-shrink: 1;
     min-width: 50px;
     position: relative;
@@ -782,7 +789,8 @@ const ProjectFileMenu: FC = () => {
         aria-haspopup="menu"
         onClick={() => setFileMenuOpen((open) => !open)}
       >
-        File
+        <img src={RivetLogo} alt="" aria-hidden="true" className="file-menu-logo" />
+        Menu
       </button>
       <div className={clsx('file-dropdown', { open: fileMenuOpen })} role="menu">
         {visibleFileMenuGroups.map((group, groupIndex) => (

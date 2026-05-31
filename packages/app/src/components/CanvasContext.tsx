@@ -40,11 +40,7 @@ export type CanvasHandlersContextValue = {
     portId: PortId,
     definition: NodeInputDefinition | NodeOutputDefinition,
   ) => void;
-  onResizeFinish?: (
-    node: ChartNode,
-    nextBounds: NodeResizeBounds,
-    previousNodeOverride?: Partial<ChartNode>,
-  ) => void;
+  onResizeFinish?: (node: ChartNode, nextBounds: NodeResizeBounds) => void;
   onWireEndDrag?: (event: MouseEvent<HTMLElement>, endNodeId: NodeId, endPortId: PortId) => void;
   onWireStartDrag?: (
     event: MouseEvent<HTMLElement>,

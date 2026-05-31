@@ -93,3 +93,79 @@ test('renameFolderItemInGraphs leaves unrelated current graph names unchanged', 
   assert.equal(result.currentGraph.metadata?.name, 'other/folderish/Two');
   assert.deepEqual(result.folderNames, ['renamed']);
 });
+
+test('renameFolderItemInGraphs preserves the source folder when moving a graph out of it', () => {
+  const result = renameFolderItemInGraphs({
+    fullPath: 'folder/One',
+    newFullPath: 'One',
+    savedGraphs: [makeGraph('g-1', 'folder/One')],
+    currentGraph: makeGraph('g-1', 'folder/One'),
+    folderNames: [],
+  });
+
+  assert.ok(!('error' in result));
+  if ('error' in result) {
+    return;
+  }
+
+  assert.equal(result.savedGraphs[0]?.metadata?.name, 'One');
+  assert.equal(result.currentGraph.metadata?.name, 'One');
+  assert.deepEqual(result.folderNames, ['folder']);
+});
+
+test('renameFolderItemInGraphs does not preserve the source folder while it still has graphs', () => {
+  const result = renameFolderItemInGraphs({
+    fullPath: 'folder/One',
+    newFullPath: 'One',
+    savedGraphs: [makeGraph('g-1', 'folder/One'), makeGraph('g-2', 'folder/Two')],
+    currentGraph: makeGraph('g-1', 'folder/One'),
+    folderNames: [],
+  });
+
+  assert.ok(!('error' in result));
+  if ('error' in result) {
+    return;
+  }
+
+  assert.equal(result.savedGraphs[0]?.metadata?.name, 'One');
+  assert.equal(result.savedGraphs[1]?.metadata?.name, 'folder/Two');
+  assert.deepEqual(result.folderNames, []);
+});
+
+test('renameFolderItemInGraphs does not preserve the source folder when a renamed graph stays inside it', () => {
+  const result = renameFolderItemInGraphs({
+    fullPath: 'folder/One',
+    newFullPath: 'folder/Renamed',
+    savedGraphs: [makeGraph('g-1', 'folder/One')],
+    currentGraph: makeGraph('g-1', 'folder/One'),
+    folderNames: [],
+  });
+
+  assert.ok(!('error' in result));
+  if ('error' in result) {
+    return;
+  }
+
+  assert.equal(result.savedGraphs[0]?.metadata?.name, 'folder/Renamed');
+  assert.equal(result.currentGraph.metadata?.name, 'folder/Renamed');
+  assert.deepEqual(result.folderNames, []);
+});
+
+test('renameFolderItemInGraphs does not preserve old parent folders when renaming folders', () => {
+  const result = renameFolderItemInGraphs({
+    fullPath: 'folder/nested',
+    newFullPath: 'folder/renamed',
+    savedGraphs: [makeGraph('g-1', 'folder/nested/One')],
+    currentGraph: makeGraph('g-1', 'folder/nested/One'),
+    folderNames: [],
+  });
+
+  assert.ok(!('error' in result));
+  if ('error' in result) {
+    return;
+  }
+
+  assert.equal(result.savedGraphs[0]?.metadata?.name, 'folder/renamed/One');
+  assert.equal(result.currentGraph.metadata?.name, 'folder/renamed/One');
+  assert.deepEqual(result.folderNames, []);
+});

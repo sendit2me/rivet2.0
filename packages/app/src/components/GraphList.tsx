@@ -99,9 +99,11 @@ const styles = css`
   }
 
   .graph-list-toolbar {
+    --project-tree-panel-icon-color: var(--grey-light);
+
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 16px;
     margin: 0;
   }
 
@@ -112,6 +114,7 @@ const styles = css`
 
   .graph-list-action,
   .graph-list-filter-label {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 6px;
@@ -124,29 +127,78 @@ const styles = css`
     font-size: var(--ui-font-size-base);
     line-height: calc(20px * var(--ui-font-scale));
     text-align: left;
+  }
 
-    svg {
-      width: 16px;
-      height: 16px;
-      flex-shrink: 0;
+  .graph-list-action::before,
+  .graph-list-filter-label::before {
+    content: '';
+    position: absolute;
+    inset: -7px -10px;
+    border-radius: 10px;
+    corner-shape: squircle;
+    background: transparent;
+    pointer-events: none;
+    z-index: 0;
+    @supports not (corner-shape: squircle) {
+      border-radius: 2px;
     }
+  }
+
+  .graph-list-action > *,
+  .graph-list-filter-label > * {
+    position: relative;
+    z-index: 1;
   }
 
   .graph-list-action {
     cursor: pointer;
+    isolation: isolate;
   }
 
-  .graph-list-action-icon-adjusted {
-    margin-bottom: 0.35em;
+  .project-tree-panel-icon {
+    color: var(--project-tree-panel-icon-color, currentColor);
+    flex-shrink: 0;
+    height: var(--project-tree-panel-icon-size, 16px);
+    transform: translate(var(--project-tree-panel-icon-x, 0), var(--project-tree-panel-icon-y, 0));
+    width: var(--project-tree-panel-icon-size, 16px);
+  }
+
+  .project-tree-panel-icon-search {
+    --project-tree-panel-icon-x: 0;
+    --project-tree-panel-icon-y: -0.1em;
+  }
+
+  .project-tree-panel-icon-project-settings {
+    --project-tree-panel-icon-x: 0;
+    --project-tree-panel-icon-y: -0.1em;
+  }
+
+  .project-tree-panel-icon-filter {
+    --project-tree-panel-icon-x: 0;
+    --project-tree-panel-icon-y: 0;
+  }
+
+  .project-tree-panel-icon-filter-clear {
+    --project-tree-panel-icon-size: 12px;
+    --project-tree-panel-icon-x: 0;
+    --project-tree-panel-icon-y: 0;
   }
 
   .graph-list-action:hover,
+  .graph-list-filter:hover .graph-list-filter-label,
   .graph-list-filter:focus-within .graph-list-filter-label {
     color: var(--grey-lightest);
   }
 
+  .graph-list-action:hover::before,
+  .graph-list-filter:hover .graph-list-filter-label::before,
+  .graph-list-filter:focus-within .graph-list-filter-label::before {
+    background-color: var(--grey-darkish);
+  }
+
   .graph-list-filter {
     position: relative;
+    isolation: isolate;
   }
 
   .graph-list-filter-label {
@@ -411,10 +463,6 @@ const styles = css`
       background: var(--grey-lightish);
     }
 
-    svg {
-      width: 12px;
-      height: 12px;
-    }
   }
 
   .graph-list-notice {
@@ -799,17 +847,20 @@ export const GraphList: FC = memo(() => {
         <div className="graph-list-toolbar">
           <Tooltip content="Search (Ctrl/Cmd+F)" placement="right" tag="span" className="graph-list-action-tooltip">
             <button type="button" className="graph-list-action" onClick={openGraphSearch}>
-              <SearchIcon aria-hidden="true" />
+              <SearchIcon aria-hidden="true" className="project-tree-panel-icon project-tree-panel-icon-search" />
               <span>Search</span>
             </button>
           </Tooltip>
           <button type="button" className="graph-list-action" onClick={() => setIsProjectInfoOpen(true)}>
-            <SettingsCogIcon aria-hidden="true" className="graph-list-action-icon-adjusted" />
+            <SettingsCogIcon
+              aria-hidden="true"
+              className="project-tree-panel-icon project-tree-panel-icon-project-settings"
+            />
             <span>Project settings</span>
           </button>
           <div className="graph-list-filter">
             <label className="graph-list-filter-label">
-              <FilterIcon aria-hidden="true" />
+              <FilterIcon aria-hidden="true" className="project-tree-panel-icon project-tree-panel-icon-filter" />
               <input
                 aria-label="Filter graphs"
                 autoComplete="off"
@@ -823,7 +874,7 @@ export const GraphList: FC = memo(() => {
             </label>
             {searchText.length > 0 && (
               <button type="button" className="clear" onClick={() => setSearchText('')} aria-label="Clear graph filter">
-                <CrossIcon />
+                <CrossIcon aria-hidden="true" className="project-tree-panel-icon project-tree-panel-icon-filter-clear" />
               </button>
             )}
           </div>

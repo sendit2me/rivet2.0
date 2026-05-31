@@ -499,6 +499,7 @@ export class GraphProcessor {
   #scc: ChartNode[][] = undefined!;
   #graphExecutionPlan: GraphExecutionPlan | undefined;
   #nodeProcessContextBase: NodeProcessContextBase = undefined!;
+  #runToRelevantNodeIds: Set<NodeId> | undefined;
 
   #nodesNotInCycle: ChartNode[] = undefined!;
 
@@ -1007,6 +1008,7 @@ export class GraphProcessor {
     this.#globals ??= new Map();
     this.#ignoreNodes = new Set();
     this.#nodeProcessContextBase = undefined!;
+    this.#runToRelevantNodeIds = undefined;
 
     this.#abortController = this.#newAbortController();
     this.#abortController.signal.addEventListener('abort', () => {
@@ -2185,6 +2187,7 @@ export class GraphProcessor {
     const plugin = this.#registry.getPluginFor(node.type);
 
     return buildNodeProcessContext({
+      activeOutputPortIds: this.#getActiveOutputPortIds(node),
       attachedData: this.#getAttachedDataTo(node),
       base: this.#nodeProcessContextBase,
       createSubProcessor: (subGraphId, options = {}) =>
@@ -2192,6 +2195,7 @@ export class GraphProcessor {
       execution: this.#buildExecutionMetadata(),
       externalFunctions: this.#externalFunctions,
       getPluginConfig: (name) => getPluginConfig(plugin, this.#context.settings, name),
+      isDirectRunTarget: this.runToNodeIds?.includes(node.id) ?? false,
       node,
       nodeAbortController,
       onPartialOutputs: (partialOutputs) => {
@@ -2222,6 +2226,52 @@ export class GraphProcessor {
         });
       },
     });
+  }
+
+  #getActiveOutputPortIds(node: ChartNode): ReadonlySet<PortId> {
+    const outputConnections = getOutputNodesFrom(this.#executionState, node).connectionsToNodes;
+    if (outputConnections.length === 0) {
+      return new Set();
+    }
+
+    const runToRelevantNodeIds = this.#getRunToRelevantNodeIds();
+    const activeOutputPortIds = new Set<PortId>();
+
+    for (const { node: outputNode, connections } of outputConnections) {
+      if (outputNode.disabled) {
+        continue;
+      }
+
+      if (runToRelevantNodeIds && !runToRelevantNodeIds.has(outputNode.id)) {
+        continue;
+      }
+
+      for (const connection of connections) {
+        activeOutputPortIds.add(connection.outputId);
+      }
+    }
+
+    return activeOutputPortIds;
+  }
+
+  #getRunToRelevantNodeIds(): Set<NodeId> | undefined {
+    if (!this.runToNodeIds) {
+      return undefined;
+    }
+
+    if (this.#runToRelevantNodeIds) {
+      return this.#runToRelevantNodeIds;
+    }
+
+    const relevantNodeIds = new Set<NodeId>();
+    for (const runToNodeId of this.runToNodeIds) {
+      for (const dependencyNodeId of this.getDependencyNodesDeep(runToNodeId)) {
+        relevantNodeIds.add(dependencyNodeId);
+      }
+    }
+
+    this.#runToRelevantNodeIds = relevantNodeIds;
+    return relevantNodeIds;
   }
 
   #emitGraphPartialOutputIfNeeded(node: ChartNode, partialOutputs: Outputs): void {

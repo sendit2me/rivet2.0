@@ -17,7 +17,7 @@ const styles = css`
   backdrop-filter: blur(2px);
   padding: 0;
   z-index: 50;
-  border-right: 1px solid var(--grey);
+  border-right: 1px solid var(--grey-darkish);
   height: calc(100vh - var(--project-selector-height));
 
   .panel {

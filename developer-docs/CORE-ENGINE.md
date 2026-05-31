@@ -753,6 +753,30 @@ node-definition loading keeps the no-cache hot path. Editor settings use
 uncached boundary derivation so in-place graph input/output edits remain
 visible immediately.
 
+Subgraph output execution is demand-driven by default. Before a node
+implementation runs, `GraphProcessor` computes `activeOutputPortIds` from valid
+outgoing connections whose immediate downstream node exists, is not disabled,
+and is relevant to the current run-to slice when `runToNodeIds` is active. The
+node process context also receives `isDirectRunTarget`, so nested-graph nodes
+can distinguish "this Subgraph is being inspected" from "this Subgraph is only
+a dependency of another target." `SubGraph` and `Referenced Graph Alias` use
+their boundary metadata to map active output ports to the first-duplicate-wins
+child `Graph Output` node ids and run the child processor with those ids as
+`runToNodeIds`. Unrequested boundary outputs are returned from the caller node
+as `control-flow-excluded` values. If no boundary output is active, the child
+graph is not started; Subgraph returns excluded boundary outputs plus zero
+cost/duration metrics, while Referenced Graph Alias returns zero cost/duration
+only when its `Output Cost & Duration` setting is enabled.
+
+The full child graph still runs when the caller node is the direct run-to
+target, when Subgraph partial-output forwarding is enabled, or when an enabled
+Subgraph/Referenced Graph Alias `Error` output has an active downstream
+consumer. This is an intentional default behavior change: side-effect-only work
+in unconnected child output branches no longer runs. That includes globals,
+dataset writes, events, audio playback, aborts, external calls, HTTP/LLM calls,
+and arbitrary Code/Expression side effects. Errors in skipped branches are also
+skipped.
+
 ### User input
 
 User-input nodes are supported directly by the processor.

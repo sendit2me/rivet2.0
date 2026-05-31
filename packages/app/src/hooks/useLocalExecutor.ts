@@ -25,7 +25,7 @@ import { userInputModalQuestionsState } from '../state/userInput';
 import { loadedProjectState, projectContextState, projectDataState, projectState } from '../state/savedGraphs';
 import { recordExecutionsState, settingsState, showNodeRunDurationsState } from '../state/settings';
 import { graphState } from '../state/graph';
-import { lastRecordingState, loadedRecordingState } from '../state/execution';
+import { lastRecordingState, loadedRecordingState, recordingPlaybackStartingState } from '../state/execution';
 import { fillMissingSettingsFromEnvironmentVariables } from '../utils/tauri';
 import { getLLMChatV2CustomProviderApiKeyEnvVarNames } from '../utils/chatV2CustomProviderEnv';
 import { trivetState } from '../state/trivet';
@@ -88,6 +88,8 @@ export function useLocalExecutor() {
   const setUserInputQuestions = useSetAtom(userInputModalQuestionsState);
   const savedSettings = useAtomValue(settingsState);
   const loadedRecording = useAtomValue(loadedRecordingState);
+  const recordingPlaybackStarting = useAtomValue(recordingPlaybackStartingState);
+  const setRecordingPlaybackStarting = useSetAtom(recordingPlaybackStartingState);
   const setLastRecordingState = useSetAtom(lastRecordingState);
   const [{ testSuites }, setTrivetState] = useAtom(trivetState);
   const recordExecutions = useAtomValue(recordExecutionsState);
@@ -99,6 +101,8 @@ export function useLocalExecutor() {
   const loadedProject = useAtomValue(loadedProjectState);
   const pluginStates = useAtomValue(pluginsState);
   const editorExecutionCachesByProjectId = useRef(new Map<string, Map<string, unknown>>());
+  const recordingPlaybackStartingRef = useRef(recordingPlaybackStarting);
+  recordingPlaybackStartingRef.current = recordingPlaybackStarting;
 
   function getEditorExecutionCache(projectId: string) {
     let cache = editorExecutionCachesByProjectId.current.get(projectId);
@@ -174,14 +178,25 @@ export function useLocalExecutor() {
         from?: NodeId;
       } = {},
     ) => {
+      const recordingToReplay = loadedRecording;
+
+      if (currentProcessor.current?.isRunning || (recordingToReplay && recordingPlaybackStartingRef.current)) {
+        return;
+      }
+
+      if (recordingToReplay) {
+        recordingPlaybackStartingRef.current = true;
+        setRecordingPlaybackStarting(true);
+      }
+
       try {
+        if (recordingToReplay) {
+          await yieldToMacrotask();
+        }
+
         const savedGraph = saveGraph() ?? graph;
 
         const graphToRun = options.graphId ?? graph.metadata!.id!;
-
-        if (currentProcessor.current?.isRunning) {
-          return;
-        }
 
         const tempProject = withDerivedProjectPluginSpecs(
           {
@@ -240,8 +255,8 @@ export function useLocalExecutor() {
 
         let results: GraphOutputs;
 
-        if (loadedRecording) {
-          results = await processor.replayRecording(loadedRecording.recorder);
+        if (recordingToReplay) {
+          results = await processor.replayRecording(recordingToReplay.recorder);
         } else {
           processor.setFrozenNodeOutputResolver(
             createFrozenNodeOutputResolver(cloneFrozenNodeOutputsForExecutor(frozenNodeOutputs)),
@@ -282,6 +297,11 @@ export function useLocalExecutor() {
         }
 
         logRuntimeError('Local graph run failed.', e);
+      } finally {
+        if (recordingToReplay) {
+          recordingPlaybackStartingRef.current = false;
+          setRecordingPlaybackStarting(false);
+        }
       }
     },
   );

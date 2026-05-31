@@ -156,7 +156,7 @@ storage-bootstrap wrapper used by the desktop app while still allowing external
 shells to inject IO, datasets, environment variables, storage, path policies, an
 internal executor websocket URL, wrapper UI policy, and post-app bridge
 components. The first wrapper UI policy is
-`ui.fileMenu.visibleItems`, which filters the browser File menu by stable item
+`ui.fileMenu.visibleItems`, which filters the browser top-bar Menu by stable item
 ids, including optional app-level items such as `settings` and `get_help`,
 while leaving command behavior owned by the app command layer.
 

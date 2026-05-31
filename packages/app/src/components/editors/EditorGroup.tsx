@@ -40,10 +40,10 @@ const styles = css`
     flex-direction: column;
     padding-left: var(--editor-group-padding-x);
     padding-right: var(--editor-group-padding-x);
-    border: 1px solid var(--grey-darkish);
+    border: 1px solid var(--settings-collapsible-border);
     border-radius: var(--editor-group-radius);
     corner-shape: squircle;
-    background: var(--grey-darker);
+    background: var(--settings-collapsible-header-bg);
   }
 
   > .editor-group-toggle-container.open,
@@ -55,11 +55,11 @@ const styles = css`
 
   > .editor-group-toggle-container.open + .editor-group-static-content,
   > .Collapsible > .editor-group-toggle-container.open + .Collapsible__contentOuter {
-    border: 1px solid var(--grey-darkish);
+    border: 1px solid var(--settings-collapsible-border);
     border-top: none;
     border-radius: 0 0 var(--editor-group-radius) var(--editor-group-radius);
     corner-shape: squircle;
-    background: var(--grey-light-seethrougher);
+    background: var(--settings-collapsible-body-bg);
   }
 
   .editor-group-toggle-area {
@@ -98,7 +98,7 @@ const styles = css`
     }
 
     &:hover {
-      background: var(--grey-darkish);
+      background: var(--settings-collapsible-hover-bg);
     }
   }
 

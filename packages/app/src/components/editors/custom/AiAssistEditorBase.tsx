@@ -52,10 +52,10 @@ const styles = css`
     flex-direction: column;
     padding-left: var(--ai-assist-padding-x);
     padding-right: var(--ai-assist-padding-x);
-    border: 1px solid var(--grey-darkish);
+    border: 1px solid var(--settings-collapsible-border);
     border-radius: var(--ai-assist-radius);
     corner-shape: squircle;
-    background: var(--grey-darker);
+    background: var(--settings-collapsible-header-bg);
   }
 
   .ai-assist-toggle-area {
@@ -70,11 +70,11 @@ const styles = css`
   }
 
   > .Collapsible > .ai-assist-toggle-container.open + .Collapsible__contentOuter {
-    border: 1px solid var(--grey-darkish);
+    border: 1px solid var(--settings-collapsible-border);
     border-top: none;
     border-radius: 0 0 var(--ai-assist-radius) var(--ai-assist-radius);
     corner-shape: squircle;
-    background: var(--grey-light-seethrougher);
+    background: var(--settings-collapsible-body-bg);
   }
 
   .ai-assist-toggle {
@@ -106,7 +106,7 @@ const styles = css`
     }
 
     &:hover {
-      background: var(--grey-darkish);
+      background: var(--settings-collapsible-hover-bg);
     }
   }
 

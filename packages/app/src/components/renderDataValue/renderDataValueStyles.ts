@@ -41,14 +41,18 @@ export const outputSectionLabelStyles = css`
 export const outputSectionGroupGap = 'calc(18px * var(--ui-font-scale))';
 
 export const renderedDataOutputsStyles = css`
-  display: flex;
-  flex-direction: column;
-  gap: ${outputSectionGroupGap};
+  display: block;
+
+  .port-value + .port-value {
+    margin-top: ${outputSectionGroupGap};
+  }
 
   .port-value {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
+    display: block;
+  }
+
+  .port-value > * + * {
+    margin-top: 4px;
   }
 `;
 

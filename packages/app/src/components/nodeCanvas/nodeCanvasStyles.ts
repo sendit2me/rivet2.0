@@ -5,7 +5,7 @@ export const nodeCanvasStyles = css`
   width: 100vw;
   height: 100vh;
   position: relative;
-  background-color: var(--grey-darker);
+  background-color: var(--canvas-background-color, var(--grey-darker));
   overflow: hidden;
   z-index: 0;
 

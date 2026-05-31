@@ -22,6 +22,8 @@ Outputs are generated from the referenced graph's [Graph Output](./graph-output.
 | ----- | --------- | --------------------------------------------------- |
 | Error | `string`  | Optional error output when error output is enabled. |
 
+Like Subgraph nodes, Referenced Graph Alias outputs are demand-driven. Rivet only runs referenced child graph branches needed for output ports connected to active, non-disabled downstream nodes. Unconnected outputs are shown as not ran, and side-effect-only work or errors in skipped child branches do not happen. The full referenced graph still runs when you use **Run to here** on the Referenced Graph Alias node itself, or when its `Error` output is enabled and connected to an active node.
+
 ## Settings
 
 | Setting                | Description                                        |

@@ -56,6 +56,8 @@ Right click to open the context menu to add new nodes.
 
 Hold shift and drag to create a selection box. Any nodes inside the selection box will be selected. You can then move all of the selected nodes as a group, or create a subgraph from the selected nodes. You can also hold shift and click the title bar of a node to add it to the selection.
 
+In **Rivet settings** > **UI** > **Canvas**, you can change the canvas color and choose the canvas background pattern. The default **Grey** canvas keeps the standard Rivet background, **Black** uses a black canvas, and **Custom** lets you pick your own canvas color.
+
 ## Node Editor
 
 The node editor is visible when you click the edit node icon on a node. It is used to edit the data on the node.
