@@ -1,5 +1,6 @@
 import { type FC } from 'react';
 import { useAtom } from 'jotai';
+import { css } from '@emotion/react';
 import { Field, Label } from '@atlaskit/form';
 import Range from '@atlaskit/range';
 import {
@@ -10,14 +11,21 @@ import {
   clampUiFontSize,
 } from '../../../utils/uiFontSize.js';
 import {
+  canvasBackgroundColorModeState,
+  canvasBackgroundColorOptions,
+  canvasBackgroundCustomColorState,
   canvasBackgroundPatternOpacityState,
   canvasBackgroundPatternState,
   canvasBackgroundPatterns,
   CANVAS_BACKGROUND_PATTERN_OPACITY_STEP,
   clampCanvasBackgroundPatternOpacity,
+  formatCanvasBackgroundCustomColor,
   MAX_CANVAS_BACKGROUND_PATTERN_OPACITY,
   MIN_CANVAS_BACKGROUND_PATTERN_OPACITY,
+  parseCanvasBackgroundCustomColor,
+  resolveCanvasBackgroundColorMode,
   type CanvasBackgroundPattern,
+  type CanvasBackgroundColorMode,
   preservePortTextCaseState,
   resolveEditorPreferences,
   resolveCanvasBackgroundPattern,
@@ -32,6 +40,22 @@ import { fields } from '../settingsPageStyles.js';
 import { LabeledToggle } from '../../LabeledToggle.js';
 import { FieldHelperMessage } from '../../FieldHelperMessage.js';
 import { SegmentedEditor } from '../../editors/SegmentedEditor.js';
+import { TripleBarColorPicker } from '../../TripleBarColorPicker.js';
+
+const uiSettingsPageStyles = css`
+  .canvas-color-picker {
+    background: var(--grey-darker);
+    border: 1px solid var(--grey-darkish);
+    border-radius: 8px;
+    corner-shape: squircle;
+    max-width: 260px;
+    padding: 10px;
+
+    @supports not (corner-shape: squircle) {
+      border-radius: 4px;
+    }
+  }
+`;
 
 export const UiSettingsPage: FC = () => {
   const [settings, setSettings] = useAtom(settingsState);
@@ -39,18 +63,22 @@ export const UiSettingsPage: FC = () => {
   const [uiFontSize, setUiFontSize] = useAtom(uiFontSizeState);
   const [zoomSensitivity, setZoomSensitivity] = useAtom(zoomSensitivityState);
   const [preservePortTextCase, setPreservePortTextCase] = useAtom(preservePortTextCaseState);
+  const [canvasBackgroundColorMode, setCanvasBackgroundColorMode] = useAtom(canvasBackgroundColorModeState);
+  const [canvasBackgroundCustomColor, setCanvasBackgroundCustomColor] = useAtom(canvasBackgroundCustomColorState);
   const [canvasBackgroundPattern, setCanvasBackgroundPattern] = useAtom(canvasBackgroundPatternState);
   const [canvasBackgroundPatternOpacity, setCanvasBackgroundPatternOpacity] = useAtom(
     canvasBackgroundPatternOpacityState,
   );
   const editorPreferences = resolveEditorPreferences(settings);
   const normalizedUiFontSize = clampUiFontSize(uiFontSize);
+  const normalizedCanvasBackgroundColorMode = resolveCanvasBackgroundColorMode(canvasBackgroundColorMode);
+  const normalizedCanvasBackgroundCustomColor = parseCanvasBackgroundCustomColor(canvasBackgroundCustomColor);
   const normalizedCanvasBackgroundPattern = resolveCanvasBackgroundPattern(canvasBackgroundPattern);
   const normalizedCanvasBackgroundPatternOpacity = clampCanvasBackgroundPatternOpacity(canvasBackgroundPatternOpacity);
   const capitalizeNodePortNames = !preservePortTextCase;
 
   return (
-    <div css={fields}>
+    <div css={[fields, uiSettingsPageStyles]}>
       <section className="settings-section" aria-labelledby="ui-settings-theme-font-size">
         <h2 id="ui-settings-theme-font-size" className="settings-section-heading">
           Theme and font size
@@ -96,11 +124,41 @@ export const UiSettingsPage: FC = () => {
         </div>
       </section>
 
-      <section className="settings-section" aria-labelledby="ui-settings-canvas-pattern">
-        <h2 id="ui-settings-canvas-pattern" className="settings-section-heading">
-          Canvas pattern
+      <section className="settings-section" aria-labelledby="ui-settings-canvas">
+        <h2 id="ui-settings-canvas" className="settings-section-heading">
+          Canvas
         </h2>
         <div className="settings-section-fields">
+          <SegmentedEditor
+            value={normalizedCanvasBackgroundColorMode}
+            onChange={(value) => setCanvasBackgroundColorMode(value as CanvasBackgroundColorMode)}
+            isReadonly={false}
+            isDisabled={false}
+            label="Canvas color"
+            name="canvas-color"
+            options={canvasBackgroundColorOptions}
+          />
+          {normalizedCanvasBackgroundColorMode === 'custom' && (
+            <Field name="canvasCustomColor" label="Custom canvas color">
+              {() => (
+                <div className="canvas-color-picker">
+                  <TripleBarColorPicker
+                    color={normalizedCanvasBackgroundCustomColor}
+                    onChange={(newColor) => {
+                      setCanvasBackgroundCustomColor(
+                        formatCanvasBackgroundCustomColor({
+                          r: newColor.rgb.r,
+                          g: newColor.rgb.g,
+                          b: newColor.rgb.b,
+                          a: newColor.rgb.a ?? 1,
+                        }),
+                      );
+                    }}
+                  />
+                </div>
+              )}
+            </Field>
+          )}
           <SegmentedEditor
             value={normalizedCanvasBackgroundPattern}
             onChange={(value) => setCanvasBackgroundPattern(value as CanvasBackgroundPattern)}

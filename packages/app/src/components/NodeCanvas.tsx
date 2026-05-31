@@ -2,7 +2,7 @@ import { DndContext, useDroppable } from '@dnd-kit/core';
 import { useMergeRefs } from '@floating-ui/react';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { produce } from 'immer';
-import { type FC, type MouseEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { type CSSProperties, type FC, type MouseEvent, useEffect, useMemo, useRef, useState } from 'react';
 import {
   type ChartNode,
   type CommentNode,
@@ -56,8 +56,12 @@ import { projectState, referencedProjectsState } from '../state/savedGraphs.js';
 import {
   canvasBackgroundPatternOpacityState,
   canvasBackgroundPatternState,
+  canvasBackgroundColorModeState,
+  canvasBackgroundCustomColorState,
   clampCanvasBackgroundPatternOpacity,
+  getCanvasBackgroundColor,
   preservePortTextCaseState,
+  resolveCanvasBackgroundColorMode,
   resolveCanvasBackgroundPattern,
   selectedExecutorState,
   zoomSensitivityState,
@@ -186,6 +190,8 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
   const graphRunning = useAtomValue(graphRunningState);
   const loadedRecording = useAtomValue(loadedRecordingState);
   const zoomSensitivity = useAtomValue(zoomSensitivityState);
+  const canvasBackgroundColorMode = useAtomValue(canvasBackgroundColorModeState);
+  const canvasBackgroundCustomColor = useAtomValue(canvasBackgroundCustomColorState);
   const canvasBackgroundPattern = useAtomValue(canvasBackgroundPatternState);
   const canvasBackgroundPatternOpacity = useAtomValue(canvasBackgroundPatternOpacityState);
   const preservePortCase = useAtomValue(preservePortTextCaseState);
@@ -216,6 +222,10 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
   const setLastMousePosition = useSetAtom(lastMousePositionState);
   const normalizedCanvasBackgroundPattern = resolveCanvasBackgroundPattern(canvasBackgroundPattern);
   const normalizedCanvasBackgroundPatternOpacity = clampCanvasBackgroundPatternOpacity(canvasBackgroundPatternOpacity);
+  const canvasBackgroundColor = getCanvasBackgroundColor({
+    mode: resolveCanvasBackgroundColorMode(canvasBackgroundColorMode),
+    customColor: canvasBackgroundCustomColor,
+  });
 
   const { clientToCanvasPosition } = useCanvasPositioning();
   const removeNodes = useDeleteNodesCommand();
@@ -834,6 +844,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
         ref={setCanvasRef}
         className={isDraggingNode ? 'node-canvas dragging-node' : 'node-canvas'}
         css={nodeCanvasStyles}
+        style={{ '--canvas-background-color': canvasBackgroundColor } as CSSProperties}
         onContextMenu={handleCanvasContextMenu}
         onMouseDown={canvasMouseDown}
         onMouseMove={canvasMouseMove.run}
