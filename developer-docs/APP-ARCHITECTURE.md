@@ -670,6 +670,7 @@ Current boundary:
 
 - `useGraphOperations` is now mostly a UI adapter over `graphListActions.ts`
 - graph/folder naming, deletion, and path-rename sequencing are kept out of the React hook body
+- graph moves preserve the source parent folder as an explicit transient folder name when the moved graph was the last item that made that folder visible, so drag/drop does not make an emptied folder disappear while the project is open
 - command-oriented graph editing behavior can now reuse the same domain helpers instead of rebuilding folder/path logic inline
 
 ### `useGraphListDragDrop`

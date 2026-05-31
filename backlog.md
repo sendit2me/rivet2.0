@@ -1,8 +1,14 @@
 
+- In the canvas context menu (where nodas are added), rename "Add" to "Add node"
 
 - In the node settings panel, there's many fonts are used. Including the Mono font. I don't need mono font there. Ecluding the text/code editor of course. I want text/code editor to keep the font it uses now.
 
+- Rework ChatViewer workspace
+
+
 - In the full output modal show word and character counters
+
+
 
 
 - Need to show the curent graph name somewhere. When there's many and they are in the folders and you click through subgraphs, the user gets lost. It's already shown in the run button. maybe make it more noticeable?
