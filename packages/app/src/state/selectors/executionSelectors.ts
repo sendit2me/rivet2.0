@@ -28,19 +28,14 @@ export function getGraphRunsForView(options: {
     return [];
   }
 
-  const directMatches = (graphRunHistoryByView[currentGraphView.key] ?? []).filter(
-    (graphRun) => graphRun.graphId === currentGraphView.graphId,
+  const directMatches = sortGraphRunsByTime(
+    (graphRunHistoryByView[currentGraphView.key] ?? []).filter(
+      (graphRun) => graphRun.graphId === currentGraphView.graphId,
+    ),
   );
 
-  // Direct key matches are the strongest signal for both root and explicit
-  // subgraph views. Broader fallbacks exist only for navigation paths whose
-  // view key cannot be reconstructed from older or metadata-poor run history.
-  if (directMatches.length > 0) {
-    return sortGraphRunsByTime(directMatches);
-  }
-
   const exactRunsById = new Map<GraphRunId, GraphRunRecord>();
-  const graphIdFallbackRunsById = new Map<GraphRunId, GraphRunRecord>();
+  const graphIdRunsById = new Map<GraphRunId, GraphRunRecord>();
 
   for (const graphRuns of Object.values(graphRunHistoryByView)) {
     for (const graphRun of graphRuns) {
@@ -48,10 +43,11 @@ export function getGraphRunsForView(options: {
         continue;
       }
 
+      graphIdRunsById.set(graphRun.graphRunId, graphRun);
+
       if (currentGraphView.parent) {
         const executor = graphRun.executor;
         if (!executor) {
-          graphIdFallbackRunsById.set(graphRun.graphRunId, graphRun);
           continue;
         }
 
@@ -62,18 +58,22 @@ export function getGraphRunsForView(options: {
           exactRunsById.set(graphRun.graphRunId, graphRun);
           continue;
         }
-
-        graphIdFallbackRunsById.set(graphRun.graphRunId, graphRun);
-        continue;
-      } else {
-        graphIdFallbackRunsById.set(graphRun.graphRunId, graphRun);
       }
     }
   }
 
-  const runs = exactRunsById.size > 0 ? exactRunsById : graphIdFallbackRunsById;
+  const exactMatches = sortGraphRunsByTime([...exactRunsById.values()]);
+  const graphIdMatches = sortGraphRunsByTime([...graphIdRunsById.values()]);
+  const matchGroupsByPriority = [directMatches, exactMatches, graphIdMatches];
 
-  return sortGraphRunsByTime([...runs.values()]);
+  // Prefer precise view/executor matches when they provide an actual execution
+  // history to switch through. A single precise record should not hide broader
+  // same-graph history; that would make the execution selector disappear when
+  // opening the graph through "Go to subgraph" even though the sidebar view can
+  // still see multiple invocations of the same graph.
+  return (
+    matchGroupsByPriority.find(hasSwitchableRunHistory) ?? matchGroupsByPriority.find(hasGraphRunHistory) ?? []
+  );
 }
 
 function sortGraphRunsByTime(graphRuns: GraphRunRecord[]): GraphRunRecord[] {
@@ -82,6 +82,14 @@ function sortGraphRunsByTime(graphRuns: GraphRunRecord[]): GraphRunRecord[] {
     const rightTime = right.startedAt ?? right.finishedAt ?? 0;
     return leftTime - rightTime;
   });
+}
+
+function hasSwitchableRunHistory(graphRuns: GraphRunRecord[]): boolean {
+  return graphRuns.length > 1;
+}
+
+function hasGraphRunHistory(graphRuns: GraphRunRecord[]): boolean {
+  return graphRuns.length > 0;
 }
 
 export function getGraphSelectionOptions(options: {

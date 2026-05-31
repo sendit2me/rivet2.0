@@ -186,18 +186,17 @@ inverse can also happen in normal editor runs or Remote Debugger runs:
 ### How this is solved
 
 The mismatch is handled in one place: **`getGraphRunsForView()`** in
-`executionSelectors.ts`. Direct matches for the current graph-view key are trusted
-first, including explicit "Go to subgraph" contexts. When viewing a root context
-with no direct history matches, it falls through to a broader search across all
-history entries matching by `graphId`. When viewing an explicit subgraph context,
-it prefers runs whose executor metadata matches the parent graph and Subgraph
-node. If no direct-key or executor-matched runs exist, it falls back to same
-`graphId` runs so legacy, metadata-poor, or metadata-mismatched execution history
-still shows the run switcher and node data instead of an empty graph. If a graph
-was also run directly as a root graph, or the same child graph was called from
-another Subgraph node, the app cannot distinguish those records during the broad
-fallback, so they can appear together until reliable direct/executor metadata is
-available.
+`executionSelectors.ts`. It collects direct graph-view key matches,
+executor-matched runs for explicit "Go to subgraph" contexts, and broader
+same-`graphId` matches. Direct or executor matches are preferred when they
+provide multiple runs, because they preserve the most precise caller context
+while still giving the user an execution switcher. A single direct or executor
+match does not hide a broader same-graph history; otherwise "Go to subgraph"
+can open without the execution switcher even though the sidebar view of the same
+graph can see repeated invocations. If a graph was also run directly as a root
+graph, or the same child graph was called from another Subgraph node, the app
+cannot distinguish those records during the broad fallback, so they can appear
+together until reliable direct/executor metadata is available.
 
 Once the correct `graphRunId` is resolved via the run switcher, all downstream
 filtering uses `graphRunId` only:
