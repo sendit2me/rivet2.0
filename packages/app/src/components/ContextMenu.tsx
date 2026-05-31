@@ -107,6 +107,7 @@ export const ContextMenu = forwardRef<HTMLDivElement, ContextMenuProps>(
 
     const { contexts, commands } = useContextMenuConfiguration();
     const { items } = contexts[context.type];
+    const searchPlaceholder = context.type === 'blankArea' ? 'Type in node name...' : 'Search...';
 
     // Flatten the items into a single array
     const searchItems = useMemo(() => {
@@ -241,7 +242,7 @@ export const ContextMenu = forwardRef<HTMLDivElement, ContextMenuProps>(
                 spellCheck={false}
                 ref={searchRef}
                 autoFocus
-                placeholder="Search..."
+                placeholder={searchPlaceholder}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm((e.target as HTMLInputElement).value)}
                 onKeyDown={handleKeyDown}

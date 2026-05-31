@@ -286,7 +286,7 @@ export function useContextMenuConfiguration() {
             items: [
               {
                 id: 'add',
-                label: 'Add',
+                label: 'Add node',
                 items: addMenuConfig,
                 icon: PlusIcon,
               },
