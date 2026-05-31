@@ -1,7 +1,6 @@
 import { type FC, useCallback, useEffect, useRef } from 'react';
-import { useAtomValue } from 'jotai';
 import { type CanvasPosition } from '../../state/graphBuilder.js';
-import { type CanvasBackgroundPattern as CanvasBackgroundPatternKind, themeState } from '../../state/settings.js';
+import { type CanvasBackgroundPattern as CanvasBackgroundPatternKind } from '../../state/settings.js';
 import {
   getCanvasBackgroundPatternDots,
   getCanvasBackgroundPatternOpacity,
@@ -30,7 +29,6 @@ export const CanvasBackgroundPatternLayer: FC<CanvasBackgroundPatternProps> = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const patternTileCacheRef = useRef<PatternTileCache | undefined>();
   const redrawRef = useRef<() => void>(() => {});
-  const theme = useAtomValue(themeState);
 
   const redraw = useCallback(() => {
     const canvas = canvasRef.current;
@@ -111,10 +109,6 @@ export const CanvasBackgroundPatternLayer: FC<CanvasBackgroundPatternProps> = ({
   useEffect(() => {
     redrawRef.current = redraw;
   }, [redraw]);
-
-  useEffect(() => {
-    redrawRef.current();
-  }, [theme]);
 
   useEffect(() => {
     redraw();

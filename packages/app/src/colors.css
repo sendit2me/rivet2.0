@@ -56,7 +56,7 @@
   --shadow: rgba(0, 0, 0, 0.2);
   --shadow-dark: rgba(0, 0, 0, 0.4);
 
-  /* Canvas background pattern hue. Opacity is controlled by the UI setting. */
+  /* Canvas background pattern hue. Keep this theme-independent; opacity is controlled by the UI setting. */
   --canvas-background-pattern-rgb: 255, 255, 255;
 
   --node-color-1: #ff9900;
@@ -145,7 +145,6 @@
   --shadow-primary: rgba(255, 136, 98, 0.5); /* darker shadow */
   --shadow-primary-bright: rgba(255, 136, 98, 0.8); /* lighter shadow */
 
-  --canvas-background-pattern-rgb: 255, 136, 98;
 }
 
 :root.theme-taffy,
@@ -185,5 +184,4 @@
   --shadow-primary: rgba(165, 95, 255, 0.5); /* darker shadow */
   --shadow-primary-bright: rgba(165, 95, 255, 0.8); /* lighter shadow */
 
-  --canvas-background-pattern-rgb: 165, 95, 255;
 }
