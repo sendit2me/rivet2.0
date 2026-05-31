@@ -470,6 +470,54 @@ describe('executionSelectors', () => {
     assert.deepEqual(runs.map((run) => run.graphRunId), ['nested-sub-run']);
   });
 
+  test('getGraphRunsForView trusts direct subgraph view key matches before broader fallback', () => {
+    const graphRunHistoryByView = {
+      'subgraph:main-graph:subgraph-node:sub-graph': [
+        {
+          graphId: 'sub-graph' as GraphId,
+          graphRunId: 'direct-key-run-a' as GraphRunId,
+          rootRunId: 'root-1' as RootRunId,
+          startedAt: 2,
+        },
+        {
+          graphId: 'sub-graph' as GraphId,
+          graphRunId: 'direct-key-run-b' as GraphRunId,
+          rootRunId: 'root-1' as RootRunId,
+          startedAt: 3,
+        },
+      ],
+      'subgraph:other-graph:other-node:sub-graph': [
+        {
+          executor: {
+            nodeId: 'other-node' as NodeId,
+            parentGraphId: 'other-graph' as GraphId,
+            processId: 'other-process' as ProcessId,
+          },
+          graphId: 'sub-graph' as GraphId,
+          graphRunId: 'fallback-run' as GraphRunId,
+          rootRunId: 'root-1' as RootRunId,
+          startedAt: 1,
+        },
+      ],
+    };
+
+    const subgraphView = {
+      graphId: 'sub-graph' as GraphId,
+      key: 'subgraph:main-graph:subgraph-node:sub-graph',
+      parent: {
+        parentGraphId: 'main-graph' as GraphId,
+        parentNodeId: 'subgraph-node' as NodeId,
+      },
+    };
+
+    const runs = getGraphRunsForView({ currentGraphView: subgraphView, graphRunHistoryByView });
+
+    assert.deepEqual(
+      runs.map((run) => run.graphRunId),
+      ['direct-key-run-a', 'direct-key-run-b'],
+    );
+  });
+
   test('getGraphRunsForView falls back to graph id matches for subgraph contexts without executor metadata', () => {
     const graphRunHistoryByView = {
       'root:sub-graph': [
@@ -515,6 +563,19 @@ describe('executionSelectors', () => {
           startedAt: 1,
         },
       ],
+      'subgraph:other-graph:other-node:sub-graph': [
+        {
+          executor: {
+            nodeId: 'other-node' as NodeId,
+            parentGraphId: 'other-graph' as GraphId,
+            processId: 'process-other' as ProcessId,
+          },
+          graphId: 'sub-graph' as GraphId,
+          graphRunId: 'other-caller-run' as GraphRunId,
+          rootRunId: 'root-1' as RootRunId,
+          startedAt: 3,
+        },
+      ],
       'subgraph:main-graph:subgraph-node:sub-graph': [
         {
           executor: {
@@ -544,7 +605,7 @@ describe('executionSelectors', () => {
     assert.deepEqual(runs.map((run) => run.graphRunId), ['matched-run']);
   });
 
-  test('getGraphRunsForView does not use conflicting executor metadata as subgraph fallback', () => {
+  test('getGraphRunsForView falls back to graph id matches when explicit subgraph metadata has no exact match', () => {
     const graphRunHistoryByView = {
       'subgraph:other-graph:other-node:sub-graph': [
         {
@@ -572,7 +633,7 @@ describe('executionSelectors', () => {
 
     const runs = getGraphRunsForView({ currentGraphView: subgraphView, graphRunHistoryByView });
 
-    assert.deepEqual(runs, []);
+    assert.deepEqual(runs.map((run) => run.graphRunId), ['other-caller-run']);
   });
 
   test('getGraphRunsForView returns direct matches for root graphs with matching data', () => {

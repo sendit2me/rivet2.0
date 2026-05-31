@@ -32,11 +32,11 @@ export function getGraphRunsForView(options: {
     (graphRun) => graphRun.graphId === currentGraphView.graphId,
   );
 
-  // When viewing a root context with direct matches, no broader search needed.
-  // But when viewing a graph as root that was only executed as a subgraph (no direct matches),
-  // or when viewing an explicit subgraph context, do a broader search by graphId.
-  if (!currentGraphView.parent && directMatches.length > 0) {
-    return directMatches;
+  // Direct key matches are the strongest signal for both root and explicit
+  // subgraph views. Broader fallbacks exist only for navigation paths whose
+  // view key cannot be reconstructed from older or metadata-poor run history.
+  if (directMatches.length > 0) {
+    return sortGraphRunsByTime(directMatches);
   }
 
   const exactRunsById = new Map<GraphRunId, GraphRunRecord>();
@@ -56,22 +56,28 @@ export function getGraphRunsForView(options: {
         }
 
         if (
-          executor.nodeId !== currentGraphView.parent.parentNodeId ||
-          executor.parentGraphId !== currentGraphView.parent.parentGraphId
+          executor.nodeId === currentGraphView.parent.parentNodeId &&
+          executor.parentGraphId === currentGraphView.parent.parentGraphId
         ) {
+          exactRunsById.set(graphRun.graphRunId, graphRun);
           continue;
         }
+
+        graphIdFallbackRunsById.set(graphRun.graphRunId, graphRun);
+        continue;
       } else {
         graphIdFallbackRunsById.set(graphRun.graphRunId, graphRun);
       }
-
-      exactRunsById.set(graphRun.graphRunId, graphRun);
     }
   }
 
   const runs = exactRunsById.size > 0 ? exactRunsById : graphIdFallbackRunsById;
 
-  return [...runs.values()].sort((left, right) => {
+  return sortGraphRunsByTime([...runs.values()]);
+}
+
+function sortGraphRunsByTime(graphRuns: GraphRunRecord[]): GraphRunRecord[] {
+  return [...graphRuns].sort((left, right) => {
     const leftTime = left.startedAt ?? left.finishedAt ?? 0;
     const rightTime = right.startedAt ?? right.finishedAt ?? 0;
     return leftTime - rightTime;
