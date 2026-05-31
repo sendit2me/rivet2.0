@@ -877,6 +877,8 @@ This changes the execution selection model in an important way:
 - selectors resolve graph runs per view through `getGraphRunsForView(...)`, including the root-view fallback for subgraph history reached from sidebar navigation
 - once a run is resolved, node history is filtered by `graphRunId`, not by a stored `graphViewKey`
 - if a stored selected graph run becomes stale, selectors fall back to the latest available run for that graph view instead of mixing runs together
+- if a node has graph-run-tagged history for other runs but no process for the selected run, the UI shows no data for that node instead of falling back to stale output from another run; untagged legacy records are only reused when the node has no tagged records at all
+- per-node process page selections are resolved against the filtered process list, so a page index chosen in one graph run is clamped before another graph run renders
 - node history entries carry execution identity such as `rootRunId`, `graphRunId`, and `graphId`, so the app does not reconstruct nested execution identity from array position
 
 The execution UI is now intentionally graph-view-aware:

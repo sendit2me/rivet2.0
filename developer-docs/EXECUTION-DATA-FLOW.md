@@ -174,14 +174,29 @@ If the user navigates to a subgraph via the sidebar after execution:
 
 - `currentGraphView.key` = `root:${subgraphId}`
 - Execution data is stored under `subgraph:${parentId}:${nodeId}:${subgraphId}`
-- Direct lookup finds nothing, so no run switcher or node data is displayed
+- A direct key lookup would find nothing
+
+If nested graph execution history is stored with only the child `graphId`, the
+inverse can also happen in normal editor runs or Remote Debugger runs:
+
+- `currentGraphView.key` = `subgraph:${parentId}:${nodeId}:${subgraphId}` because the user clicked "Go to subgraph" from the caller node
+- Execution history may be stored under `root:${subgraphId}` because the app only has the child `graphId` for that record
+- Strict parent/executor matching finds nothing even though the child graph did run
 
 ### How this is solved
 
 The mismatch is handled in one place: **`getGraphRunsForView()`** in
 `executionSelectors.ts`. When viewing a root context with no direct history matches,
 it falls through to a broader search across all history entries matching by `graphId`.
-This resolves the correct `graphRunId` values for the current view.
+When viewing an explicit subgraph context, it first prefers runs whose executor
+metadata matches the parent graph and Subgraph node. If no executor-matched runs
+exist, it falls back to executorless runs with the same `graphId` so legacy or
+metadata-poor execution history still shows the run switcher and node data
+instead of an empty graph. Metadata-rich runs from other callers are ignored in
+that fallback; only executorless records are ambiguous enough to reuse. If a
+graph was also run directly as a root graph and those records lack executor
+metadata, the app cannot distinguish those direct records from metadata-poor
+subgraph records, so they can appear together in that fallback view.
 
 Once the correct `graphRunId` is resolved via the run switcher, all downstream
 filtering uses `graphRunId` only:
@@ -562,17 +577,27 @@ When rendering node output or execution status, the app filters the node's
 All ProcessDataForNode[] for this node
   |
   |- Stage 1: Filter by selected graphRunId
-  |  Match: process.graphRunId === resolvedSelectedGraphRunId
-  |  OR process.graphRunId is null (legacy/untagged data)
-  |  Falls back to showing all data if no match.
+  |  First use exact process.graphRunId === resolvedSelectedGraphRunId matches.
+  |  If exact matches are present, ignore untagged records so stale or
+  |  metadata-poor entries cannot mix into the selected graph run.
+  |  If no process entries have graphRunId at all, keep legacy/untagged data.
+  |  If other graphRunId-tagged entries exist but the selected run has none,
+  |  show no node data for that selected graph run.
   |
   `- Stage 2: Page selection
-     Pick entry by page index or 'latest'.
+     Pick entry by page index or 'latest'. Numeric page selections are clamped
+     to the filtered process list so a page chosen in another graph run cannot
+     make the current run appear empty.
 ```
 
 The `resolvedSelectedGraphRunId` comes from the run switcher, which uses
 `getGraphRunsForView()` to resolve the correct runs for the current view
 (handling the key mismatch described above).
+
+Inline node outputs keep a short replacement grace window to avoid flicker when
+stored refs are being swapped during execution. That grace is scoped to the
+resolved selected graph run, so changing the subgraph execution selector does not
+temporarily reuse visible output from the previously selected invocation.
 
 This pipeline is implemented across:
 

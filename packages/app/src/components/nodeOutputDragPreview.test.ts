@@ -85,6 +85,52 @@ test('node output content fade only replays for unseen output content', () => {
   );
 });
 
+test('node output rendering does not fall back to stale all-run data after graph-run filtering', () => {
+  const nodeInlineOutputSource = readFileSync(join(componentsDir, 'nodeOutput', 'NodeInlineOutput.tsx'), 'utf8');
+  const nodeFullscreenOutputSource = readFileSync(join(componentsDir, 'nodeOutput', 'NodeFullscreenOutput.tsx'), 'utf8');
+  const portInfoSource = readFileSync(join(componentsDir, 'PortInfo.tsx'), 'utf8');
+
+  assert.match(
+    nodeInlineOutputSource,
+    /filterProcessDataForSelection\(\{ \.\.\.graphSelectionOptions, processData: output \}\)/,
+  );
+  assert.match(
+    nodeFullscreenOutputSource,
+    /filterProcessDataForSelection\(\{ \.\.\.graphSelectionOptions, processData: output \}\)/,
+  );
+  assert.doesNotMatch(nodeInlineOutputSource, /filterProcessDataForSelection\([\s\S]*?\)\s*\?\?\s*output/);
+  assert.doesNotMatch(nodeFullscreenOutputSource, /filterProcessDataForSelection\([\s\S]*?\)\s*\?\?\s*output/);
+  assert.match(portInfoSource, /filterProcessDataForSelection\(\{ \.\.\.graphSelectionOptions, processData: lastRun \}\)/);
+});
+
+test('inline node output replacement grace is scoped to the selected graph run', () => {
+  const nodeInlineOutputSource = readFileSync(join(componentsDir, 'nodeOutput', 'NodeInlineOutput.tsx'), 'utf8');
+  const nodeOutputContentStateSource = readFileSync(
+    join(componentsDir, 'nodeOutput', 'NodeOutputContentState.tsx'),
+    'utf8',
+  );
+
+  assert.match(nodeInlineOutputSource, /const selectedGraphRunScopeKey = getSelectedGraphRunId\(/);
+  assert.match(nodeInlineOutputSource, /replacementScopeKey: selectedGraphRunScopeKey,/);
+  assert.match(
+    nodeOutputContentStateSource,
+    /displayState\.replacementScopeKey === replacementScopeKey \? displayState\.output : undefined/,
+  );
+});
+
+test('node output pagers clamp stale process page selections to the filtered process list', () => {
+  const nodeInlineOutputSource = readFileSync(join(componentsDir, 'nodeOutput', 'NodeInlineOutput.tsx'), 'utf8');
+  const nodeFullscreenOutputSource = readFileSync(join(componentsDir, 'nodeOutput', 'NodeFullscreenOutput.tsx'), 'utf8');
+  const portInfoSource = readFileSync(join(componentsDir, 'PortInfo.tsx'), 'utf8');
+
+  assert.match(nodeInlineOutputSource, /const selectedPageIndex = getSelectedProcessPageIndex\(data, selectedPage\);/);
+  assert.match(
+    nodeFullscreenOutputSource,
+    /const selectedPageIndex = getSelectedProcessPageIndex\(filteredOutput, selectedPage\);/,
+  );
+  assert.match(portInfoSource, /const selectedPageIndex = getSelectedProcessPageIndex\(filteredLastRun, selectedPage\);/);
+});
+
 test('inline node output actions reserve flow space without moving their hit targets', () => {
   const nodeInlineOutputSource = readFileSync(join(componentsDir, 'nodeOutput', 'NodeInlineOutput.tsx'), 'utf8');
   const nodeStylesSource = readFileSync(join(componentsDir, 'nodeStyles.ts'), 'utf8');
