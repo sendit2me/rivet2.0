@@ -186,17 +186,18 @@ inverse can also happen in normal editor runs or Remote Debugger runs:
 ### How this is solved
 
 The mismatch is handled in one place: **`getGraphRunsForView()`** in
-`executionSelectors.ts`. When viewing a root context with no direct history matches,
-it falls through to a broader search across all history entries matching by `graphId`.
-When viewing an explicit subgraph context, it first prefers runs whose executor
-metadata matches the parent graph and Subgraph node. If no executor-matched runs
-exist, it falls back to executorless runs with the same `graphId` so legacy or
-metadata-poor execution history still shows the run switcher and node data
-instead of an empty graph. Metadata-rich runs from other callers are ignored in
-that fallback; only executorless records are ambiguous enough to reuse. If a
-graph was also run directly as a root graph and those records lack executor
-metadata, the app cannot distinguish those direct records from metadata-poor
-subgraph records, so they can appear together in that fallback view.
+`executionSelectors.ts`. Direct matches for the current graph-view key are trusted
+first, including explicit "Go to subgraph" contexts. When viewing a root context
+with no direct history matches, it falls through to a broader search across all
+history entries matching by `graphId`. When viewing an explicit subgraph context,
+it prefers runs whose executor metadata matches the parent graph and Subgraph
+node. If no direct-key or executor-matched runs exist, it falls back to same
+`graphId` runs so legacy, metadata-poor, or metadata-mismatched execution history
+still shows the run switcher and node data instead of an empty graph. If a graph
+was also run directly as a root graph, or the same child graph was called from
+another Subgraph node, the app cannot distinguish those records during the broad
+fallback, so they can appear together until reliable direct/executor metadata is
+available.
 
 Once the correct `graphRunId` is resolved via the run switcher, all downstream
 filtering uses `graphRunId` only:
