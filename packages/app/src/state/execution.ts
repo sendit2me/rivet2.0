@@ -9,4 +9,6 @@ export const loadedRecordingState = atom<{
   recorder: ExecutionRecorder;
 } | null>(null);
 
+export const recordingPlaybackStartingState = atom(false);
+
 export const lastRecordingState = atom<string | undefined>(undefined);

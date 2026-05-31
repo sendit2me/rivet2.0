@@ -175,20 +175,30 @@ export function getActionBarExecutionState(options: {
   graphPaused: boolean;
   graphRunning: boolean;
   hasLoadedRecording?: boolean;
+  recordingPlaybackStarting?: boolean;
   selectedExecutor: DefaultExecutor;
   session: ExecutorSessionState;
 }) {
-  const { graphPaused, graphRunning, hasLoadedRecording = false, selectedExecutor, session } = options;
+  const {
+    graphPaused,
+    graphRunning,
+    hasLoadedRecording = false,
+    recordingPlaybackStarting: recordingPlaybackStartingInput = false,
+    selectedExecutor,
+    session,
+  } = options;
   const executorProductState = getExecutorProductState({ hasLoadedRecording, selectedExecutor, session });
-  const canRun = isRunnableExecutorProductState(executorProductState);
+  const recordingPlaybackStarting = hasLoadedRecording && recordingPlaybackStartingInput && !graphRunning;
+  const canRun = isRunnableExecutorProductState(executorProductState) && !recordingPlaybackStarting;
   const isActuallyRemoteDebugging = isExternalDebuggerProductState(executorProductState);
-  const showRunButton = !isActuallyRemoteDebugging && (selectedExecutor === 'nodejs' || canRun);
+  const showRunButton = !isActuallyRemoteDebugging && (selectedExecutor === 'nodejs' || canRun || recordingPlaybackStarting);
   const remoteDebuggerBanner = getRemoteDebuggerBannerState(executorProductState);
   const showRemoteDebuggerBanner = remoteDebuggerBanner != null;
   const executorLoading =
     !graphRunning &&
     (executorProductState.type === 'internal-node-reconnecting' ||
       executorProductState.type === 'internal-node-starting');
+  const runButtonLoading = executorLoading || recordingPlaybackStarting;
 
   return {
     canRun,
@@ -198,6 +208,7 @@ export function getActionBarExecutionState(options: {
     graphRunning,
     isActuallyRemoteDebugging,
     remoteDebuggerBanner,
+    runButtonLoading,
     showRunButton,
     showRemoteDebuggerBanner,
   };

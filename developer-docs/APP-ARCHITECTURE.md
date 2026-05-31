@@ -1127,7 +1127,7 @@ Current architectural detail:
 - in browser executor mode, a `connecting` or `reconnecting` remote session does not preempt local browser execution; remote execution is only selected once product-state routing says an external debugger is run-capable
 - loaded recording playback always routes graph runs and playback controls to `useLocalExecutor`, even when the live executor is Node and the sidecar is ready. Replay is an editor-local event-stream operation over `GraphProcessor.replayRecording(...)`, not a remote `run` protocol message, so it must not execute the graph through the app-executor sidecar.
 - other live-execution features such as Trivet test runs continue to follow the selected live executor.
-- recording load/unload is blocked while any execution is running so the active Abort/Pause/Resume controls keep targeting the executor that actually owns the run.
+- recording load/unload is blocked while any execution is running, and while loaded-recording playback is in the short pre-start phase, so the active Abort/Pause/Resume controls keep targeting the executor that actually owns the run.
 
 ### Local executor
 
@@ -1140,7 +1140,7 @@ Current responsibilities:
 - attach event handlers to `GraphProcessor`
 - wire `userInput` callbacks into UI state
 - optionally record executions
-- support replaying loaded recordings regardless of the selected live executor
+- support replaying loaded recordings regardless of the selected live executor. While `GraphProcessor.replayRecording(...)` is being prepared but has not emitted the graph-start events that flip `graphRunningState`, `recordingPlaybackStartingState` keeps the `Play Recording` button disabled with a spinner so the user gets immediate feedback and duplicate starts are blocked. The local executor yields one macrotask after setting this flag so React can paint the spinner before recording replay setup continues.
 - support run-to and run-from execution
 - preload dependent outputs for partial reruns
 - provide browser-mode Trivet execution
@@ -1261,7 +1261,7 @@ Current ownership detail:
 - read-only consumers such as `useGraphExecutor` and `ActionBarMoreMenu` should observe session state through `useExecutorSessionState`
 - controller consumers such as `useRemoteExecutor`, `ActionBar`, `DebuggerConnectPanel`, and `GentraceInteractors` should use `useRemoteDebugger` for connect/disconnect/send operations without taking over session binding or teardown
 - feature code should ask the session capability model before sending protocol commands. Remote graph runs use `canSendRun`, upload paths use `canUploadProject`, control commands use `canSendAbort` / `canSendPause` / `canSendResume`, and Gentrace uses `canRecordSocket` plus `recordSocketEvents(...)` instead of reading the active websocket from UI state.
-- UI code should use product-state selectors instead of raw session status. `getExecutorProductState(...)` folds selected executor, loaded recording state, target classification, status, and `canSendRun` into product states such as `internal-node-ready` or `external-debugger-connecting`; `getActionBarExecutionState(...)` derives Run visibility, loading, Remote Debugger banner text, and banner pending styling from that product state.
+- UI code should use product-state selectors instead of raw session status. `getExecutorProductState(...)` folds selected executor, loaded recording state, target classification, status, and `canSendRun` into product states such as `internal-node-ready` or `external-debugger-connecting`; `getActionBarExecutionState(...)` derives Run visibility, run-button loading, Remote Debugger banner text, and banner pending styling from that product state plus the explicit loaded-recording playback-start flag.
 
 `useRemoteDebugger` is now a thin controller/subscription hook over the shared session layer rather than another owner of executor-session wiring. It does not decide whether Node mode should be restored after disconnect; the coordinator owns that decision.
 
