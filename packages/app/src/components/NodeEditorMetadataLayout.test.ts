@@ -73,6 +73,8 @@ test('node settings panel uses regular UI typography outside embedded code edito
   assert.match(panelContainerStyles, /--ds-font-family-heading: var\(--font-family\);/);
   assert.match(panelContainerStyles, /--ds-font-family-code: var\(--font-family-monospace\);/);
   assert.match(panelContainerStyles, /--label-font-family: var\(--font-family\);/);
+  assert.match(panelContainerStyles, /border-left: 1px solid var\(--grey-darkish\);/);
+  assert.match(panelContainerStyles, /box-shadow: none;/);
   assert.doesNotMatch(sectionFooterStyles, /font-family: var\(--font-family-monospace\);/);
   assert.doesNotMatch(titleReadContentStyles, /font-family: var\(--font-family-monospace\);/);
   assert.doesNotMatch(metadataInputStyles, /font-family: var\(--font-family-monospace\);/);
@@ -118,6 +120,28 @@ test('node color picker is not split into a fragile dev lazy module', () => {
   assert.doesNotMatch(lazyComponentsSource, /TripleBarColorPicker/);
   assert.match(colorEditorSource, /import \{ TripleBarColorPicker \} from '\.\.\/TripleBarColorPicker';/);
   assert.doesNotMatch(colorEditorSource, /LazyTripleBarColorPicker|Suspense/);
+});
+
+test('collapsible settings surfaces share opaque colors across panels and modals', () => {
+  const colorsSource = readFileSync(join(componentsDir, '..', 'colors.css'), 'utf8');
+  const editorGroupSource = readFileSync(join(componentsDir, 'editors', 'EditorGroup.tsx'), 'utf8');
+  const projectInfoModalSource = readFileSync(join(componentsDir, 'ProjectInfoModal.tsx'), 'utf8');
+  const aiAssistEditorSource = readFileSync(join(componentsDir, 'editors', 'custom', 'AiAssistEditorBase.tsx'), 'utf8');
+
+  assert.match(colorsSource, /--settings-collapsible-border: var\(--grey-darkish\);/);
+  assert.match(colorsSource, /--settings-collapsible-header-bg: var\(--grey-darker\);/);
+  assert.match(
+    colorsSource,
+    /--settings-collapsible-body-bg: color-mix\(in srgb, var\(--grey-light\) 5%, var\(--grey-darker\) 95%\);/,
+  );
+  assert.match(colorsSource, /--settings-collapsible-hover-bg: var\(--grey-darkish\);/);
+
+  for (const source of [editorGroupSource, projectInfoModalSource, aiAssistEditorSource]) {
+    assert.match(source, /border: 1px solid var\(--settings-collapsible-border\);/);
+    assert.match(source, /background: var\(--settings-collapsible-header-bg\);/);
+    assert.match(source, /background: var\(--settings-collapsible-body-bg\);/);
+    assert.match(source, /background: var\(--settings-collapsible-hover-bg\);/);
+  }
 });
 
 test('node header warning state stays scoped to warning-specific canvas nodes', () => {

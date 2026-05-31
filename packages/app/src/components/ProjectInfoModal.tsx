@@ -103,10 +103,10 @@ const styles = css`
     flex-direction: column;
     padding-left: var(--editor-group-padding-x);
     padding-right: var(--editor-group-padding-x);
-    border: 1px solid var(--grey-darkish);
+    border: 1px solid var(--settings-collapsible-border);
     border-radius: var(--editor-group-radius);
     corner-shape: squircle;
-    background: var(--grey-darker);
+    background: var(--settings-collapsible-header-bg);
   }
 
   .project-info-foldable > .Collapsible > .project-info-foldable-toggle-container.open {
@@ -116,11 +116,11 @@ const styles = css`
   }
 
   .project-info-foldable > .Collapsible > .project-info-foldable-toggle-container.open + .Collapsible__contentOuter {
-    border: 1px solid var(--grey-darkish);
+    border: 1px solid var(--settings-collapsible-border);
     border-top: none;
     border-radius: 0 0 var(--editor-group-radius) var(--editor-group-radius);
     corner-shape: squircle;
-    background: var(--grey-light-seethrougher);
+    background: var(--settings-collapsible-body-bg);
   }
 
   .project-info-foldable-toggle-area {
@@ -150,7 +150,7 @@ const styles = css`
   }
 
   .project-info-foldable-toggle:hover {
-    background: var(--grey-darkish);
+    background: var(--settings-collapsible-hover-bg);
   }
 
   .project-info-foldable-toggle .indicator {

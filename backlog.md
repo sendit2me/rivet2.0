@@ -1,14 +1,9 @@
 
 
-
-- Make the output's main buttons visible
-
 - Rework ChatViewer workspace
 
 
 - In the full output modal show word and character counters
-
-
 
 
 - Need to show the curent graph name somewhere. When there's many and they are in the folders and you click through subgraphs, the user gets lost. It's already shown in the run button. maybe make it more noticeable?
@@ -25,15 +20,7 @@
 
 - Reassess templates for the Ctrl+N window
 
-
-
-
-
-
 - Now, the executor mode is global for all open projects (remote debugger, browser, node). Make it per tab
-
-
-
 
 
 - Get back to MCP and see if it works and how it works. I don't see an MCP node. I think we need it

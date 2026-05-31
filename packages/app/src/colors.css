@@ -1,6 +1,6 @@
 :root {
   /* Greyscale colors */
-  --black-seethrough: rgba(0, 0, 0, 0.15);
+  --black-seethrough: rgba(0, 0, 0, 0.25);
   --grey-darkest: #1e1e1e;
   --grey-darker-darker: #282828;
   --grey-darker: #282c34;
@@ -9,7 +9,7 @@
   --grey-dark-seethrough: #2e2e2eb8;
   --grey-dark-seethrougher: rgba(46, 46, 46, 0.35);
   --grey-dark-bluish: rgba(40, 44, 52);
-  --grey-dark-bluish-seethrough: rgba(40, 44, 52, 0.8);
+  --grey-dark-bluish-seethrough: rgba(35, 35, 45, 0.95);
   --grey-darkish: #3d3d3d;
   --grey-darkish-seethrough: rgba(61, 61, 61, 0.5);
   --grey: #5a5a5a;
@@ -23,6 +23,12 @@
   --foreground-bright: #fff;
   --foreground-muted: #727272;
   --foreground-on-primary: #1e1e1e;
+
+  /* Shared collapsible settings surfaces. Keep body background opaque so it matches panels and modals. */
+  --settings-collapsible-border: var(--grey-darkish);
+  --settings-collapsible-header-bg: var(--grey-darker);
+  --settings-collapsible-body-bg: color-mix(in srgb, var(--grey-light) 5%, var(--grey-darker) 95%);
+  --settings-collapsible-hover-bg: var(--grey-darkish);
 
   /* Tertiary colors */
   --tertiary: #444;

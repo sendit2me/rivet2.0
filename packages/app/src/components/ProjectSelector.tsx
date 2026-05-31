@@ -52,7 +52,9 @@ export const styles = css`
   height: var(--project-selector-height);
   z-index: 250;
 
-  background: var(--grey-darkerish);
+  --project-selector-strip-bg: var(--grey-dark-bluish-seethrough);
+
+  background: var(--project-selector-strip-bg);
 
   display: flex;
   align-items: stretch;
@@ -60,7 +62,7 @@ export const styles = css`
   --top-bar-left-controls-width: calc(var(--project-selector-height) * 3);
 
   &::after {
-    background: var(--grey);
+    background: var(--grey-darkish);
     bottom: 0;
     content: '';
     height: 1px;
@@ -84,7 +86,7 @@ export const styles = css`
   .graph-history-menu,
   .file-menu {
     align-items: stretch;
-    background: var(--grey-darkerish);
+    background: var(--project-selector-strip-bg);
     color: var(--grey-light);
     display: flex;
     flex: 0 0 auto;
@@ -105,18 +107,13 @@ export const styles = css`
   .graph-history-menu {
     width: var(--project-selector-height);
 
-    &:hover {
+    &:not(.disabled):hover {
       background-color: var(--grey-darkish);
     }
 
     &.disabled {
       color: var(--grey-light);
       cursor: default;
-      opacity: 0.45;
-
-      &:hover {
-        background: var(--grey-darkerish);
-      }
     }
   }
 
@@ -193,6 +190,7 @@ export const styles = css`
 
     &:disabled {
       cursor: default;
+      opacity: 0.45;
       pointer-events: none;
     }
 
@@ -204,7 +202,7 @@ export const styles = css`
   }
 
   .sidebar-panel-spacer {
-    background: var(--grey-darkerish);
+    background: var(--project-selector-strip-bg);
     flex: 0 0 max(0px, calc(var(--left-sidebar-width) - var(--top-bar-left-controls-width)));
     height: 100%;
     min-width: 0;
@@ -213,16 +211,12 @@ export const styles = css`
   &.graph-tree-open .sidebar-toggle-menu,
   &.graph-tree-open .graph-history-menu,
   &.graph-tree-open .sidebar-panel-spacer {
-    background: var(--grey-dark-bluish-seethrough);
+    background: var(--project-selector-strip-bg);
   }
 
   &.graph-tree-open .sidebar-toggle-menu:hover,
-  &.graph-tree-open .graph-history-menu:hover {
+  &.graph-tree-open .graph-history-menu:not(.disabled):hover {
     background: var(--grey-darkish);
-  }
-
-  &.graph-tree-open .graph-history-menu.disabled:hover {
-    background: var(--grey-dark-bluish-seethrough);
   }
 
   .file-dropdown {
@@ -304,7 +298,7 @@ export const styles = css`
     gap: 8px;
     font-size: var(--ui-font-size-sm);
     height: 100%;
-    background: var(--grey-darkerish);
+    background: var(--project-selector-strip-bg);
     flex-shrink: 1;
     min-width: 50px;
     position: relative;

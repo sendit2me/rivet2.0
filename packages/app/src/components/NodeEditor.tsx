@@ -119,8 +119,8 @@ const Container = styled.div`
     backdrop-filter: blur(2px);
     font-family: var(--font-family);
     width: 100%;
-    box-shadow: -4px 0 3px rgba(0, 0, 0, 0.1);
-    border-left: 1px solid var(--grey);
+    box-shadow: none;
+    border-left: 1px solid var(--grey-darkish);
   }
 
   .panel-container input,
