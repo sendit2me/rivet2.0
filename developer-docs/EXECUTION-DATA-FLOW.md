@@ -174,14 +174,29 @@ If the user navigates to a subgraph via the sidebar after execution:
 
 - `currentGraphView.key` = `root:${subgraphId}`
 - Execution data is stored under `subgraph:${parentId}:${nodeId}:${subgraphId}`
-- Direct lookup finds nothing, so no run switcher or node data is displayed
+- A direct key lookup would find nothing
+
+If nested graph execution history is stored with only the child `graphId`, the
+inverse can also happen in normal editor runs or Remote Debugger runs:
+
+- `currentGraphView.key` = `subgraph:${parentId}:${nodeId}:${subgraphId}` because the user clicked "Go to subgraph" from the caller node
+- Execution history may be stored under `root:${subgraphId}` because the app only has the child `graphId` for that record
+- Strict parent/executor matching finds nothing even though the child graph did run
 
 ### How this is solved
 
 The mismatch is handled in one place: **`getGraphRunsForView()`** in
 `executionSelectors.ts`. When viewing a root context with no direct history matches,
 it falls through to a broader search across all history entries matching by `graphId`.
-This resolves the correct `graphRunId` values for the current view.
+When viewing an explicit subgraph context, it first prefers runs whose executor
+metadata matches the parent graph and Subgraph node. If no executor-matched runs
+exist, it falls back to executorless runs with the same `graphId` so legacy or
+metadata-poor execution history still shows the run switcher and node data
+instead of an empty graph. Metadata-rich runs from other callers are ignored in
+that fallback; only executorless records are ambiguous enough to reuse. If a
+graph was also run directly as a root graph and those records lack executor
+metadata, the app cannot distinguish those direct records from metadata-poor
+subgraph records, so they can appear together in that fallback view.
 
 Once the correct `graphRunId` is resolved via the run switcher, all downstream
 filtering uses `graphRunId` only:

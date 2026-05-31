@@ -39,10 +39,8 @@ export function getGraphRunsForView(options: {
     return directMatches;
   }
 
-  const runsById = new Map<GraphRunId, GraphRunRecord>();
-  for (const graphRun of directMatches) {
-    runsById.set(graphRun.graphRunId, graphRun);
-  }
+  const exactRunsById = new Map<GraphRunId, GraphRunRecord>();
+  const graphIdFallbackRunsById = new Map<GraphRunId, GraphRunRecord>();
 
   for (const graphRuns of Object.values(graphRunHistoryByView)) {
     for (const graphRun of graphRuns) {
@@ -52,20 +50,28 @@ export function getGraphRunsForView(options: {
 
       if (currentGraphView.parent) {
         const executor = graphRun.executor;
+        if (!executor) {
+          graphIdFallbackRunsById.set(graphRun.graphRunId, graphRun);
+          continue;
+        }
+
         if (
-          !executor ||
           executor.nodeId !== currentGraphView.parent.parentNodeId ||
           executor.parentGraphId !== currentGraphView.parent.parentGraphId
         ) {
           continue;
         }
+      } else {
+        graphIdFallbackRunsById.set(graphRun.graphRunId, graphRun);
       }
 
-      runsById.set(graphRun.graphRunId, graphRun);
+      exactRunsById.set(graphRun.graphRunId, graphRun);
     }
   }
 
-  return [...runsById.values()].sort((left, right) => {
+  const runs = exactRunsById.size > 0 ? exactRunsById : graphIdFallbackRunsById;
+
+  return [...runs.values()].sort((left, right) => {
     const leftTime = left.startedAt ?? left.finishedAt ?? 0;
     const rightTime = right.startedAt ?? right.finishedAt ?? 0;
     return leftTime - rightTime;
