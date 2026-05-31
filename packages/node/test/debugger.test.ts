@@ -305,11 +305,13 @@ function makeSuccessfulAbortLeafSubgraphProject(): Project {
   const abortTriggerNode = makeExpressionNode('successful-abort-trigger-expression', '"abort"');
   const delayNode = makeDelayNode('successful-abort-delay', 10);
   const abortNode = makeAbortGraphNode('successful-abort-node');
+  const parentOutputNode = makeGraphOutputNode('successful-abort-parent-output', 'result', 'any');
 
   return {
     graphs: {
       [mainGraphId]: {
         connections: [
+          connect(leafSubgraphNode.id, 'result', parentOutputNode.id, 'value'),
           connect(abortTriggerNode.id, 'output', delayNode.id, 'input1'),
           connect(delayNode.id, 'output1', abortNode.id, 'data'),
         ],
@@ -318,7 +320,7 @@ function makeSuccessfulAbortLeafSubgraphProject(): Project {
           id: mainGraphId,
           name: mainGraphId,
         },
-        nodes: [leafSubgraphNode, abortTriggerNode, delayNode, abortNode],
+        nodes: [leafSubgraphNode, abortTriggerNode, delayNode, abortNode, parentOutputNode],
       },
       [leafGraphId]: makeSuccessfulAbortSlowLeafGraph(leafGraphId),
     },

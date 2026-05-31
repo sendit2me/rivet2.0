@@ -766,7 +766,10 @@ child `Graph Output` node ids and run the child processor with those ids as
 as `control-flow-excluded` values. If no boundary output is active, the child
 graph is not started; Subgraph returns excluded boundary outputs plus zero
 cost/duration metrics, while Referenced Graph Alias returns zero cost/duration
-only when its `Output Cost & Duration` setting is enabled.
+only when its `Output Cost & Duration` setting is enabled. This applies even
+when the Subgraph node itself is otherwise a runnable start node; at least one
+boundary output must be actively consumed unless a full-run exception below
+applies.
 
 The full child graph still runs when the caller node is the direct run-to
 target, when Subgraph partial-output forwarding is enabled, or when an enabled
