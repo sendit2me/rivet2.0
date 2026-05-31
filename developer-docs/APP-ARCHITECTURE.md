@@ -875,7 +875,10 @@ The graph navigation stack is no longer just a `GraphId[]` history. It stores gr
 This changes the execution selection model in an important way:
 
 - selectors resolve graph runs per view through `getGraphRunsForView(...)`, including the root-view fallback for subgraph history reached from sidebar navigation
-- direct graph-view key matches are trusted for explicit "Go to subgraph" navigation before broader graph-id fallbacks are considered
+- direct graph-view key and executor matches are trusted for explicit "Go to
+  subgraph" navigation when they provide multiple runs; a single precise match
+  does not hide broader same-graph history, so the execution switcher stays
+  available when the sidebar view can see repeated subgraph invocations
 - once a run is resolved, node history is filtered by `graphRunId`, not by a stored `graphViewKey`
 - if a stored selected graph run becomes stale, selectors fall back to the latest available run for that graph view instead of mixing runs together
 - if a node has graph-run-tagged history for other runs but no process for the selected run, the UI shows no data for that node instead of falling back to stale output from another run; untagged legacy records are only reused when the node has no tagged records at all
