@@ -81,33 +81,46 @@ export function useOutputDataWithReplacementGrace(
   output: ProcessDataForNode[] | undefined,
   selectedPage: PageValue,
   dataRefs: DataRefReader,
-  options: NodeRunDurationVisibilityOptions = {},
+  options: NodeRunDurationVisibilityOptions & { replacementScopeKey?: string } = {},
 ): ProcessDataForNode[] | undefined {
-  const [displayedOutput, setDisplayedOutput] = useState(output);
-  const hasSelectedVisibleOutput = getSelectedVisibleOutputProcess(nodeType, output, selectedPage, options) != null;
-  const displayedVisibleOutput = getSelectedVisibleOutputProcess(nodeType, displayedOutput, selectedPage, options);
+  const { replacementScopeKey, ...visibilityOptions } = options;
+  const [displayState, setDisplayState] = useState<{
+    output: ProcessDataForNode[] | undefined;
+    replacementScopeKey: string | undefined;
+  }>({ output, replacementScopeKey });
+  const displayedOutput = displayState.replacementScopeKey === replacementScopeKey ? displayState.output : undefined;
+  const hasSelectedVisibleOutput =
+    getSelectedVisibleOutputProcess(nodeType, output, selectedPage, visibilityOptions) != null;
+  const displayedVisibleOutput = getSelectedVisibleOutputProcess(
+    nodeType,
+    displayedOutput,
+    selectedPage,
+    visibilityOptions,
+  );
   const hasDisplayedAvailableOutput =
     displayedVisibleOutput != null && !hasUnavailableStoredRefs(displayedVisibleOutput.data, dataRefs);
 
   useEffect(() => {
     if (hasSelectedVisibleOutput) {
-      setDisplayedOutput(output);
+      setDisplayState({ output, replacementScopeKey });
       return;
     }
 
     if (!hasDisplayedAvailableOutput) {
-      setDisplayedOutput(undefined);
+      setDisplayState({ output: undefined, replacementScopeKey });
       return;
     }
 
     const timeout = globalThis.setTimeout(() => {
-      setDisplayedOutput(undefined);
+      setDisplayState((current) =>
+        current.replacementScopeKey === replacementScopeKey ? { output: undefined, replacementScopeKey } : current,
+      );
     }, NODE_OUTPUT_REPLACEMENT_GRACE_MS);
 
     return () => {
       globalThis.clearTimeout(timeout);
     };
-  }, [hasDisplayedAvailableOutput, hasSelectedVisibleOutput, output]);
+  }, [hasDisplayedAvailableOutput, hasSelectedVisibleOutput, output, replacementScopeKey]);
 
   return hasSelectedVisibleOutput ? output : hasDisplayedAvailableOutput ? displayedOutput : undefined;
 }

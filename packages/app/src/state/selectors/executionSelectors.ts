@@ -126,10 +126,17 @@ export function filterProcessDataForSelection(options: {
     return processData;
   }
 
-  const graphRunFiltered = processData.filter(
-    (process) => process.graphRunId == null || process.graphRunId === selectedGraphRunId,
-  );
-  return graphRunFiltered.length > 0 ? graphRunFiltered : processData;
+  const exactMatches = processData.filter((process) => process.graphRunId === selectedGraphRunId);
+  if (exactMatches.length > 0) {
+    return exactMatches;
+  }
+
+  const hasGraphRunTaggedData = processData.some((process) => process.graphRunId != null);
+  if (hasGraphRunTaggedData) {
+    return undefined;
+  }
+
+  return processData;
 }
 
 export function getSelectedProcessData(
@@ -150,11 +157,8 @@ export function getSelectedProcessData(
     return undefined;
   }
 
-  if (filteredProcessData.length === 1) {
-    return filteredProcessData[0];
-  }
-
-  return filteredProcessData[selectedPage === 'latest' ? filteredProcessData.length - 1 : selectedPage];
+  const selectedPageIndex = getSelectedProcessPageIndex(filteredProcessData, selectedPage);
+  return selectedPageIndex == null ? undefined : filteredProcessData[selectedPageIndex];
 }
 
 export function getSelectedProcessRun(
@@ -163,6 +167,21 @@ export function getSelectedProcessRun(
   options?: Parameters<typeof getSelectedProcessData>[2],
 ): NodeRunDataWithRefs | undefined {
   return getSelectedProcessData(processData, selectedPage, options)?.data;
+}
+
+export function getSelectedProcessPageIndex(
+  processData: ProcessDataForNode[] | undefined,
+  selectedPage: PageValue,
+): number | undefined {
+  if (!processData?.length) {
+    return undefined;
+  }
+
+  if (selectedPage === 'latest') {
+    return processData.length - 1;
+  }
+
+  return Math.min(Math.max(selectedPage, 0), processData.length - 1);
 }
 
 export function getNodeExecutionClassFlags(runData: NodeRunDataWithRefs | undefined) {

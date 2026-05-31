@@ -11,6 +11,7 @@ import {
   getNodeExecutionClassFlags,
   getSelectedGraphRunId,
   getSelectedProcessData,
+  getSelectedProcessPageIndex,
   getSelectedProcessRun,
   shouldUseRemoteExecutor,
 } from './executionSelectors.js';
@@ -44,7 +45,10 @@ describe('executionSelectors', () => {
 
     assert.equal(getSelectedProcessData(processData, 'latest')?.processId, 'p-2');
     assert.equal(getSelectedProcessData(processData, 0)?.processId, 'p-1');
+    assert.equal(getSelectedProcessData(processData, 50)?.processId, 'p-2');
     assert.equal(getSelectedProcessRun(processData, 'latest')?.status?.type, 'running');
+    assert.equal(getSelectedProcessPageIndex(processData, 'latest'), 1);
+    assert.equal(getSelectedProcessPageIndex(processData, 50), 1);
   });
 
   test('graph-run-aware selection filters node history by selected graph run', () => {
@@ -72,6 +76,28 @@ describe('executionSelectors', () => {
         selectedGraphRun: 'graph-run-b' as GraphRunId,
       })?.processId,
       'p-root-b',
+    );
+  });
+
+  test('graph-run-aware selection clamps stale node page indexes after filtering', () => {
+    const processData = [
+      { processId: 'p-sub-a', graphRunId: 'sub-run-a' as GraphRunId, data: { status: { type: 'ok' } } },
+      { processId: 'p-sub-b', graphRunId: 'sub-run-b' as GraphRunId, data: { status: { type: 'ok' } } },
+      { processId: 'p-sub-c', graphRunId: 'sub-run-c' as GraphRunId, data: { status: { type: 'ok' } } },
+    ] as ProcessDataForNode[];
+
+    const graphRuns = [
+      { graphRunId: 'sub-run-a' as GraphRunId, rootRunId: 'root-1' as RootRunId, graphId: 'sub-graph' as GraphId },
+      { graphRunId: 'sub-run-b' as GraphRunId, rootRunId: 'root-1' as RootRunId, graphId: 'sub-graph' as GraphId },
+      { graphRunId: 'sub-run-c' as GraphRunId, rootRunId: 'root-1' as RootRunId, graphId: 'sub-graph' as GraphId },
+    ];
+
+    assert.equal(
+      getSelectedProcessData(processData, 50, {
+        graphRuns,
+        selectedGraphRun: 'sub-run-c' as GraphRunId,
+      })?.processId,
+      'p-sub-c',
     );
   });
 
@@ -581,6 +607,66 @@ describe('executionSelectors', () => {
     });
 
     assert.deepEqual(filtered?.map((p) => p.processId), ['p-sub-a']);
+  });
+
+  test('filterProcessDataForSelection does not mix untagged process data into graph-run-tagged selections', () => {
+    const processData = [
+      { processId: 'p-untagged-a', data: { status: { type: 'ok' } } },
+      { processId: 'p-sub-a', graphRunId: 'sub-run-a' as GraphRunId, graphId: 'sub-graph' as GraphId, data: { status: { type: 'ok' } } },
+      { processId: 'p-untagged-b', data: { status: { type: 'ok' } } },
+    ] as ProcessDataForNode[];
+
+    const graphRuns = [
+      { graphRunId: 'sub-run-a' as GraphRunId, rootRunId: 'root-1' as RootRunId, graphId: 'sub-graph' as GraphId },
+      { graphRunId: 'sub-run-b' as GraphRunId, rootRunId: 'root-1' as RootRunId, graphId: 'sub-graph' as GraphId },
+    ];
+
+    const filtered = filterProcessDataForSelection({
+      graphRuns,
+      processData,
+      selectedGraphRun: 'sub-run-a' as GraphRunId,
+    });
+
+    assert.deepEqual(filtered?.map((p) => p.processId), ['p-sub-a']);
+  });
+
+  test('filterProcessDataForSelection returns no data when the selected graph run has no node process', () => {
+    const processData = [
+      { processId: 'p-sub-a', graphRunId: 'sub-run-a' as GraphRunId, graphId: 'sub-graph' as GraphId, data: { status: { type: 'ok' } } },
+    ] as ProcessDataForNode[];
+
+    const graphRuns = [
+      { graphRunId: 'sub-run-a' as GraphRunId, rootRunId: 'root-1' as RootRunId, graphId: 'sub-graph' as GraphId },
+      { graphRunId: 'sub-run-b' as GraphRunId, rootRunId: 'root-1' as RootRunId, graphId: 'sub-graph' as GraphId },
+    ];
+
+    const filtered = filterProcessDataForSelection({
+      graphRuns,
+      processData,
+      selectedGraphRun: 'sub-run-b' as GraphRunId,
+    });
+
+    assert.equal(filtered, undefined);
+  });
+
+  test('filterProcessDataForSelection keeps legacy untagged process data when no tagged data exists', () => {
+    const processData = [
+      { processId: 'p-untagged-a', data: { status: { type: 'ok' } } },
+      { processId: 'p-untagged-b', data: { status: { type: 'ok' } } },
+    ] as ProcessDataForNode[];
+
+    const graphRuns = [
+      { graphRunId: 'sub-run-a' as GraphRunId, rootRunId: 'root-1' as RootRunId, graphId: 'sub-graph' as GraphId },
+      { graphRunId: 'sub-run-b' as GraphRunId, rootRunId: 'root-1' as RootRunId, graphId: 'sub-graph' as GraphId },
+    ];
+
+    const filtered = filterProcessDataForSelection({
+      graphRuns,
+      processData,
+      selectedGraphRun: 'sub-run-a' as GraphRunId,
+    });
+
+    assert.deepEqual(filtered?.map((p) => p.processId), ['p-untagged-a', 'p-untagged-b']);
   });
 
   test('remote executor routing only uses remote transport when usable or required', () => {

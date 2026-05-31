@@ -10,7 +10,11 @@ import { type CSSProperties, forwardRef, useMemo } from 'react';
 import { useAtomValue } from 'jotai';
 import { draggingWireState } from '../state/graphBuilder';
 import { lastRunDataState, resolvedGraphSelectionState, selectedProcessPageState } from '../state/dataFlow';
-import { getSelectedProcessData } from '../state/selectors/executionSelectors.js';
+import {
+  filterProcessDataForSelection,
+  getSelectedProcessData,
+  getSelectedProcessPageIndex,
+} from '../state/selectors/executionSelectors.js';
 import clsx from 'clsx';
 import { RenderDataValue } from './RenderDataValue';
 import { getPortCompatibilityStatus } from '../domain/graphEditing/portCompatibility.js';
@@ -149,12 +153,16 @@ const PortInfoContent = forwardRef<
   const selectedPage = useAtomValue(selectedProcessPageState(port.nodeId));
   const graphSelectionOptions = useAtomValue(resolvedGraphSelectionState);
 
+  const filteredLastRun = useMemo(
+    () => filterProcessDataForSelection({ ...graphSelectionOptions, processData: lastRun }),
+    [graphSelectionOptions, lastRun],
+  );
   const portData = useMemo(() => {
-    if (!lastRun || selectedPage == null) {
+    if (!filteredLastRun || selectedPage == null) {
       return undefined;
     }
 
-    const execution = getSelectedProcessData(lastRun, selectedPage, graphSelectionOptions);
+    const execution = getSelectedProcessData(filteredLastRun, selectedPage);
     if (!execution?.data) {
       return undefined;
     }
@@ -165,7 +173,7 @@ const PortInfoContent = forwardRef<
     }
 
     return data;
-  }, [graphSelectionOptions, lastRun, port.isInput, selectedPage]);
+  }, [filteredLastRun, port.isInput, selectedPage]);
 
   const selectedPortData = portData?.[port.portId];
   const didNotRun = selectedPortData?.type === 'control-flow-excluded';
@@ -197,8 +205,8 @@ const PortInfoContent = forwardRef<
         ? draggingWire.dataType.join(' or ')
         : draggingWire.dataType;
 
-  const displayExecutionNum =
-    selectedPortData != null ? (selectedPage === 'latest' ? lastRun!.length : selectedPage + 1) : undefined;
+  const selectedPageIndex = getSelectedProcessPageIndex(filteredLastRun, selectedPage);
+  const displayExecutionNum = selectedPortData != null && selectedPageIndex != null ? selectedPageIndex + 1 : undefined;
 
   return (
     <Portal>

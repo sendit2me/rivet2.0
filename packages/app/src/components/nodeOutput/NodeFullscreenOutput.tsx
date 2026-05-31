@@ -12,7 +12,7 @@ import { promptDesignerAttachedChatNodeState } from '../../state/promptDesigner.
 import { graphMetadataState, nodesByIdState } from '../../state/graph.js';
 import { lastRunDataState, resolvedGraphSelectionState, selectedProcessPageState } from '../../state/dataFlow.js';
 import { showNodeRunDurationsState } from '../../state/settings.js';
-import { filterProcessDataForSelection } from '../../state/selectors/executionSelectors.js';
+import { filterProcessDataForSelection, getSelectedProcessPageIndex } from '../../state/selectors/executionSelectors.js';
 import { fullscreenOutputNodeState, hoveringNodeState } from '../../state/graphBuilder.js';
 import { fullscreenOutputModalBoundsState, overlayOpenState } from '../../state/ui.js';
 import { useDataRefs } from '../../providers/ProvidersContext.js';
@@ -267,9 +267,12 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
   const [isHeaderOverContent, setIsHeaderOverContent] = useState(false);
 
   const filteredOutput = useMemo(
-    () => filterProcessDataForSelection({ ...graphSelectionOptions, processData: output }) ?? output,
+    () => filterProcessDataForSelection({ ...graphSelectionOptions, processData: output }),
     [graphSelectionOptions, output],
   );
+  const selectedPageIndex = getSelectedProcessPageIndex(filteredOutput, selectedPage);
+  const displaySelectedPage: number | 'latest' =
+    selectedPage === 'latest' ? 'latest' : (selectedPageIndex ?? selectedPage);
 
   const { FullscreenOutput, Output, OutputSimple, FullscreenOutputSimple, defaultRenderMarkdown, getCopyValueData } =
     useUnknownNodeComponentDescriptorFor(node);
@@ -330,10 +333,10 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
       durationSummaryKey,
       processId,
       renderMarkdown,
-      selectedPage,
+      selectedPage: displaySelectedPage,
       showNodeRunDurations,
     }),
-    [data, durationSummaryKey, processId, renderMarkdown, selectedPage, showNodeRunDurations],
+    [data, displaySelectedPage, durationSummaryKey, processId, renderMarkdown, showNodeRunDurations],
   );
   const {
     contextValue: fullscreenOutputSearchContext,
@@ -389,7 +392,7 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
       return;
     }
     setSelectedPage((page) => {
-      const pageNum = page === 'latest' ? filteredOutput.length - 1 : page;
+      const pageNum = getSelectedProcessPageIndex(filteredOutput, page) ?? 0;
       return pageNum > 0 ? pageNum - 1 : pageNum;
     });
   });
@@ -399,7 +402,7 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
       return;
     }
     setSelectedPage((page) => {
-      const pageNum = page === 'latest' ? filteredOutput.length - 1 : page;
+      const pageNum = getSelectedProcessPageIndex(filteredOutput, page) ?? 0;
       return pageNum < filteredOutput.length - 1 ? pageNum + 1 : pageNum;
     });
   });
@@ -453,7 +456,7 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
       <header className={`fullscreen-header${isHeaderOverContent ? ' is-over-content' : ''}`}>
         {outputViewModel.totalPages > 1 ? (
           <NodeOutputPager
-            selectedPage={selectedPage}
+            selectedPage={displaySelectedPage}
             totalPages={outputViewModel.totalPages}
             onPrevPage={prevPage}
             onNextPage={nextPage}

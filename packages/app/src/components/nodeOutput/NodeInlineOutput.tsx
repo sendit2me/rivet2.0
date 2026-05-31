@@ -20,7 +20,11 @@ import {
   selectedProcessPageState,
 } from '../../state/dataFlow.js';
 import { showNodeRunDurationsState } from '../../state/settings.js';
-import { filterProcessDataForSelection } from '../../state/selectors/executionSelectors.js';
+import {
+  filterProcessDataForSelection,
+  getSelectedGraphRunId,
+  getSelectedProcessPageIndex,
+} from '../../state/selectors/executionSelectors.js';
 import { overlayOpenState } from '../../state/ui.js';
 import { Tooltip } from '../Tooltip.js';
 import { CodeNodeErrorOutput } from '../nodes/CodeNode.js';
@@ -60,10 +64,15 @@ export const NodeInlineOutput: FC<{
   const showNodeRunDurations = useAtomValue(showNodeRunDurationsState);
   const graphSelectionOptions = useAtomValue(resolvedGraphSelectionState);
   const filteredOutput = useMemo(
-    () => filterProcessDataForSelection({ ...graphSelectionOptions, processData: output }) ?? output,
+    () => filterProcessDataForSelection({ ...graphSelectionOptions, processData: output }),
     [graphSelectionOptions, output],
   );
+  const selectedGraphRunScopeKey = getSelectedGraphRunId(
+    graphSelectionOptions.graphRuns,
+    graphSelectionOptions.selectedGraphRun,
+  );
   const visibleOutput = useOutputDataWithReplacementGrace(node.type, filteredOutput, selectedPage, dataRefs, {
+    replacementScopeKey: selectedGraphRunScopeKey,
     showNodeRunDuration: showNodeRunDurations,
   });
 
@@ -315,17 +324,20 @@ const NodeOutputMultiProcess: FC<{
   onOpenFullscreenModal,
 }) => {
   const [selectedPage, setSelectedPage] = useAtom(selectedProcessPageState(node.id));
+  const selectedPageIndex = getSelectedProcessPageIndex(data, selectedPage);
+  const displaySelectedPage: number | 'latest' =
+    selectedPage === 'latest' ? 'latest' : (selectedPageIndex ?? selectedPage);
 
   const prevPage = useStableCallback(() => {
     setSelectedPage((page) => {
-      const pageNum = page === 'latest' ? data.length - 1 : page;
+      const pageNum = getSelectedProcessPageIndex(data, page) ?? 0;
       return pageNum > 0 ? pageNum - 1 : pageNum;
     });
   });
 
   const nextPage = useStableCallback(() => {
     setSelectedPage((page) => {
-      const pageNum = page === 'latest' ? data.length - 1 : page;
+      const pageNum = getSelectedProcessPageIndex(data, page) ?? 0;
       return pageNum < data.length - 1 ? pageNum + 1 : pageNum;
     });
   });
@@ -339,7 +351,7 @@ const NodeOutputMultiProcess: FC<{
     <div className="node-output multi">
       <div className="multi-node-output">
         <NodeOutputPager
-          selectedPage={selectedPage}
+          selectedPage={displaySelectedPage}
           totalPages={data.length}
           onPrevPage={prevPage}
           onNextPage={nextPage}
