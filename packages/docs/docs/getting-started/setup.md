@@ -4,7 +4,7 @@ title: Setup
 
 ## Settings
 
-Open Rivet settings from the app menu in the desktop app. In the browser-hosted app, open the top-bar **File** menu and choose **Rivet settings**.
+Open Rivet settings from the app menu in the desktop app. In the browser-hosted app, open the top-bar **Menu** dropdown and choose **Rivet settings**.
 
 ![Rivet Settings](assets/rivet-settings.png) ![Rivet Settings Menu](./assets/rivet-settings-menu.png)
 

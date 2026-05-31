@@ -18,6 +18,7 @@ test('project top bar owns the graph tree sidebar toggle for the active project 
   assert.match(projectSelectorTsx, /const reserveSidebarColumn = projectTabsSelected && sidebarOpen;/);
   assert.match(projectSelectorTsx, /const showFileMenu = !isInTauri\(\) \|\| isWindowsPlatform\(\);/);
   assert.match(projectSelectorTsx, /const showWindowsWindowControls = isInTauri\(\) && isWindowsPlatform\(\);/);
+  assert.match(projectSelectorTsx, /import RivetLogo from '\.\.\/rivet-2-logo-no-background\.svg';/);
   assert.match(projectSelectorTsx, /className={clsx\(\{ 'graph-tree-open': reserveSidebarColumn \}\)}/);
   assert.match(projectSelectorTsx, /&::after \{[\s\S]*left: 0;[\s\S]*right: 0;/);
   assert.match(projectSelectorTsx, /&::after \{[\s\S]*z-index: 2;/);
@@ -78,6 +79,10 @@ test('project top bar owns the graph tree sidebar toggle for the active project 
   assert.match(projectSelectorTsx, /\.windows-window-control \{[\s\S]*&\.close-window:hover \{[\s\S]*background: #c42b1c;/);
   assert.match(projectSelectorTsx, /\.file-menu \{[\s\S]*border-left: 1px solid var\(--grey-darkest\);/);
   assert.match(projectSelectorTsx, /\.file-menu \{[\s\S]*border-right: 1px solid var\(--grey-darkest\);/);
+  assert.match(projectSelectorTsx, /\.file-menu-logo \{[\s\S]*height: 14px;[\s\S]*width: 16px;/);
+  assert.match(projectSelectorTsx, /<img src={RivetLogo} alt="" aria-hidden="true" className="file-menu-logo" \/>/);
+  assert.match(projectSelectorTsx, />\s*Menu\s*<\/button>/);
+  assert.doesNotMatch(projectSelectorTsx, />\s*File\s*<\/button>/);
   assert.match(projectSelectorTsx, /\.project::after \{[\s\S]*background-color: var\(--grey-darkest\);/);
   assert.doesNotMatch(overlayTabsTsx, /\.menu-item[\s\S]*?border-bottom:/);
   assert.doesNotMatch(overlayTabsTsx, /z-index: 200;/);
@@ -94,7 +99,7 @@ test('project top bar owns the graph tree sidebar toggle for the active project 
   assert.doesNotMatch(leftSidebarTsx, /toggle-tab|menu-expand-left-line|menu-expand-right-line/);
 });
 
-test('windows desktop uses the in-strip File menu instead of a native Tauri menubar', () => {
+test('windows desktop uses the in-strip Menu dropdown instead of a native Tauri menubar', () => {
   const projectSelectorTsx = readFileSync(join(srcDir, 'ProjectSelector.tsx'), 'utf8');
   const platformCoreSource = readFileSync(join(srcDir, '..', 'utils', 'platform', 'core.ts'), 'utf8');
   const windowsHotkeysSource = readFileSync(join(srcDir, '..', 'hooks', 'useWindowsHotkeysFix.tsx'), 'utf8');

@@ -14,5 +14,5 @@ This Tutorial will walk you through the basic building blocks of Rivet.
 
 - Download the [documentation-tutorial.rivet-project](https://github.com/valerypopoff/rivet2.0/blob/main/packages/app/src/assets/tutorials/documentation-tutorial.rivet-project)
 - Open Rivet
-- Click File > Open Project
+- Click Menu > Open Project
 - Open the documentation-tutorial.rivet-project file you just downloaded

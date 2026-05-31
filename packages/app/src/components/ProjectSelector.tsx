@@ -16,6 +16,7 @@ import { useAtom, useAtomValue } from 'jotai';
 import CloseIcon from 'majesticons/line/multiply-line.svg?react';
 import LeftIcon from 'majesticons/line/chevron-left-line.svg?react';
 import RightIcon from 'majesticons/line/chevron-right-line.svg?react';
+import RivetLogo from '../rivet-2-logo-no-background.svg';
 import { openedProjectsSortedIdsState, openedProjectsState, projectState } from '../state/savedGraphs';
 import clsx from 'clsx';
 import { useLoadProject } from '../hooks/useLoadProject';
@@ -133,7 +134,7 @@ export const styles = css`
   .file-menu {
     border-left: 1px solid var(--grey-darkest);
     border-right: 1px solid var(--grey-darkest);
-    min-width: 64px;
+    min-width: 78px;
   }
 
   .sidebar-toggle-menu:hover,
@@ -163,6 +164,18 @@ export const styles = css`
     user-select: none;
     white-space: nowrap;
     width: 100%;
+  }
+
+  .file-menu-button {
+    gap: 7px;
+  }
+
+  .file-menu-logo {
+    display: block;
+    flex: 0 0 auto;
+    height: 14px;
+    opacity: 0.95;
+    width: 16px;
   }
 
   .sidebar-toggle-button {
@@ -782,7 +795,8 @@ const ProjectFileMenu: FC = () => {
         aria-haspopup="menu"
         onClick={() => setFileMenuOpen((open) => !open)}
       >
-        File
+        <img src={RivetLogo} alt="" aria-hidden="true" className="file-menu-logo" />
+        Menu
       </button>
       <div className={clsx('file-dropdown', { open: fileMenuOpen })} role="menu">
         {visibleFileMenuGroups.map((group, groupIndex) => (

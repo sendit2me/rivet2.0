@@ -62,8 +62,8 @@ Once the graph has finished executing, the code or parent graph will be able to 
 
 ## Exporting Graphs
 
-To export a single graph from your project, open the graph by clicking on it, and choose **Export Graph** from the File menu. This will open a file dialog where you can choose a location to save the graph. The graph will be saved as a `.rivet-graph` file.
+To export a single graph from your project, open the graph by clicking on it, and choose **Export Graph** from the top-bar **Menu** dropdown. This will open a file dialog where you can choose a location to save the graph. The graph will be saved as a `.rivet-graph` file.
 
 ## Importing Graphs
 
-To import a graph into the current project (merging it into the current project), choose **Import Graph** from the File menu. This will open a file dialog where you can choose a graph to import. The graph will be imported into the current project.
+To import a graph into the current project (merging it into the current project), choose **Import Graph** from the top-bar **Menu** dropdown. This will open a file dialog where you can choose a graph to import. The graph will be imported into the current project.
