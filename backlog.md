@@ -1,5 +1,4 @@
 
-- The left panel project-related buttons should have the same hover effect as the graph buttons in the tree
 
 - Do not change the canvas pattern color when the Theme is changed
 

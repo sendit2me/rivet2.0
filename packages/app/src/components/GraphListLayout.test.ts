@@ -28,6 +28,19 @@ test('graph tree panel keeps the compact text-list layout source contract', () =
   assert.match(graphListSource, /<span>Search<\/span>[\s\S]*<span>Project settings<\/span>/);
   assert.match(graphListSource, /className="graph-list-action"/);
   assert.match(graphListSource, /color: var\(--grey-lightest\);/);
+  assert.match(
+    graphListSource,
+    /\.graph-list-action,\s+\.graph-list-filter-label \{[\s\S]*min-height: calc\(20px \* var\(--ui-font-scale\)\);[\s\S]*padding: 0;/,
+  );
+  assert.match(
+    graphListSource,
+    /\.graph-list-action::before,\s+\.graph-list-filter-label::before \{[\s\S]*inset: -7px -10px;[\s\S]*border-radius: 10px;/,
+  );
+  assert.match(
+    graphListSource,
+    /\.graph-list-action:hover::before,\s+\.graph-list-filter:hover \.graph-list-filter-label::before,\s+\.graph-list-filter:focus-within \.graph-list-filter-label::before \{[\s\S]*background-color: var\(--grey-darkish\);/,
+  );
+  assert.match(graphListSource, /\.graph-list-toolbar \{[\s\S]*gap: 16px;/);
   assert.match(graphListSource, /className="graph-list-heading">Graphs<\/div>/);
   assert.match(graphListSource, /\.graph-list-heading \{[\s\S]*color: color-mix\(in srgb, var\(--grey-light\) 64%, transparent\);/);
   assert.match(graphListSource, /<span>Project settings<\/span>/);
@@ -55,7 +68,7 @@ test('graph tree panel keeps the compact text-list layout source contract', () =
   assert.match(graphListContextMenuSource, /id: 'expand-all-folders'[\s\S]*label: 'Expand all folders'/);
   assert.match(graphListContextMenuSource, /hasFolders/);
   assert.match(graphListSource, /&:focus::placeholder {\s+opacity: 0;\s+}/);
-  assert.match(graphListSource, /\.graph-list-action {\s+cursor: pointer;\s+}/);
+  assert.match(graphListSource, /\.graph-list-action {\s+cursor: pointer;\s+isolation: isolate;\s+}/);
   assert.match(graphListSource, /\.graph-list-toolbar \{[\s\S]*--project-tree-panel-icon-color: [^;]+;/);
   assert.match(
     graphListSource,

@@ -103,7 +103,7 @@ const styles = css`
 
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 16px;
     margin: 0;
   }
 
@@ -114,6 +114,7 @@ const styles = css`
 
   .graph-list-action,
   .graph-list-filter-label {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 6px;
@@ -128,8 +129,30 @@ const styles = css`
     text-align: left;
   }
 
+  .graph-list-action::before,
+  .graph-list-filter-label::before {
+    content: '';
+    position: absolute;
+    inset: -7px -10px;
+    border-radius: 10px;
+    corner-shape: squircle;
+    background: transparent;
+    pointer-events: none;
+    z-index: 0;
+    @supports not (corner-shape: squircle) {
+      border-radius: 2px;
+    }
+  }
+
+  .graph-list-action > *,
+  .graph-list-filter-label > * {
+    position: relative;
+    z-index: 1;
+  }
+
   .graph-list-action {
     cursor: pointer;
+    isolation: isolate;
   }
 
   .project-tree-panel-icon {
@@ -162,12 +185,20 @@ const styles = css`
   }
 
   .graph-list-action:hover,
+  .graph-list-filter:hover .graph-list-filter-label,
   .graph-list-filter:focus-within .graph-list-filter-label {
     color: var(--grey-lightest);
   }
 
+  .graph-list-action:hover::before,
+  .graph-list-filter:hover .graph-list-filter-label::before,
+  .graph-list-filter:focus-within .graph-list-filter-label::before {
+    background-color: var(--grey-darkish);
+  }
+
   .graph-list-filter {
     position: relative;
+    isolation: isolate;
   }
 
   .graph-list-filter-label {
