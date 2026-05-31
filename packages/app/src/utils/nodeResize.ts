@@ -19,6 +19,16 @@ export type NodeResizeBounds = HorizontalNodeResizeBounds & {
   height?: number;
 };
 
+export type NodeResizeGroupSnapshot = NodeResizeBounds & {
+  nodeId: string;
+  minWidth: number;
+};
+
+export type NodeResizeGroupChange = {
+  nodeId: string;
+  nextBounds: NodeResizeBounds;
+};
+
 export const DEFAULT_NODE_WIDTH = 300;
 export const MIN_NODE_WIDTH = 160;
 export const MIN_NODE_HEIGHT = 120;
@@ -112,4 +122,49 @@ export function computeBoxNodeResizeBounds({
     width,
     height,
   };
+}
+
+export function calculateNodeResizeGroupChanges({
+  sourceNodeId,
+  sourceNextBounds,
+  snapshots,
+}: {
+  sourceNodeId: string;
+  sourceNextBounds: NodeResizeBounds;
+  snapshots: readonly NodeResizeGroupSnapshot[];
+}): NodeResizeGroupChange[] {
+  const sourceSnapshot = snapshots.find((snapshot) => snapshot.nodeId === sourceNodeId);
+  if (!sourceSnapshot) {
+    return [];
+  }
+
+  const sourceNextWidth = Math.max(sourceSnapshot.minWidth, sourceNextBounds.width);
+  const widthDelta = sourceNextWidth - sourceSnapshot.width;
+  const resizesFromLeft = sourceNextBounds.x !== sourceSnapshot.x;
+  const sourceNextX = resizesFromLeft ? sourceSnapshot.x - widthDelta : sourceNextBounds.x;
+
+  return snapshots.map((snapshot) => {
+    if (snapshot.nodeId === sourceNodeId) {
+      return {
+        nodeId: snapshot.nodeId,
+        nextBounds: {
+          x: sourceNextX,
+          y: sourceNextBounds.y,
+          width: sourceNextWidth,
+          height: sourceNextBounds.height,
+        },
+      };
+    }
+
+    const nextWidth = Math.max(snapshot.minWidth, snapshot.width + widthDelta);
+    const actualWidthDelta = nextWidth - snapshot.width;
+
+    return {
+      nodeId: snapshot.nodeId,
+      nextBounds: {
+        x: resizesFromLeft ? snapshot.x - actualWidthDelta : snapshot.x,
+        width: nextWidth,
+      },
+    };
+  });
 }

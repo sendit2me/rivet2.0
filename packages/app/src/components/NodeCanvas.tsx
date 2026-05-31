@@ -13,7 +13,7 @@ import {
   type PortId,
 } from '@valerypopoff/rivet2-core';
 import { useDeleteNodesCommand } from '../commands/deleteNodeCommand';
-import { useEditNodeCommand } from '../commands/editNodeCommand';
+import { useResizeNodesCommand, type NodeResizeChange } from '../commands/resizeNodesCommand';
 import { useCanvasHotkeys } from '../hooks/useCanvasHotkeys';
 import { useCanvasPositioning } from '../hooks/useCanvasPositioning.js';
 import { useContextMenu } from '../hooks/useContextMenu.js';
@@ -57,6 +57,7 @@ import {
   canvasBackgroundPatternOpacityState,
   canvasBackgroundPatternState,
   clampCanvasBackgroundPatternOpacity,
+  preservePortTextCaseState,
   resolveCanvasBackgroundPattern,
   selectedExecutorState,
   zoomSensitivityState,
@@ -72,7 +73,13 @@ import { MultiNodeAlignmentToolbar } from './nodeCanvas/MultiNodeAlignmentToolba
 import { NodeCanvasViewport } from './nodeCanvas/NodeCanvasViewport.js';
 import { useNodeCanvasInteractions } from './nodeCanvas/useNodeCanvasInteractions.js';
 import { WireLayer } from './WireLayer.js';
-import type { NodeResizeBounds } from '../utils/nodeResize.js';
+import {
+  calculateNodeResizeGroupChanges,
+  MIN_NODE_WIDTH,
+  type NodeResizeBounds,
+  type NodeResizeGroupSnapshot,
+} from '../utils/nodeResize.js';
+import { getCanvasCommentHeight, getCanvasNodeWidth } from '../hooks/canvasVisibilityBounds.js';
 import { MEDIUM_GRAPH_NODE_THRESHOLD } from './nodeCanvas/canvasPerformanceBudget.js';
 import { getCanvasPerfSnapshot } from './nodeCanvas/canvasPerfDebug.js';
 import { CanvasBackgroundPatternLayer } from './nodeCanvas/CanvasBackgroundPattern.js';
@@ -88,9 +95,42 @@ import {
   getCanvasSelectedInteractionNodeIds,
 } from './nodeCanvas/nodeCanvasInteractionModel.js';
 import { getNodeCanvasContextMenuContext } from './nodeCanvas/nodeCanvasContextMenuModel.js';
-import { subGraphPortRearrangeTargetState } from '../state/ui.js';
+import { subGraphPortRearrangeTargetState, uiFontSizeState } from '../state/ui.js';
+import { getMinimumNodeWidthForPortLabels } from '../utils/nodePortLabelWidth.js';
+import { getUiFontScale } from '../utils/uiFontSize.js';
 
 const EMPTY_NODE_CONNECTIONS: NodeConnection[] = [];
+
+type ResizeNodeSnapshot = NodeResizeGroupSnapshot & {
+  previousNode: ChartNode;
+};
+
+type ActiveResizeGroup = {
+  sourceNodeId: NodeId;
+  snapshots: ResizeNodeSnapshot[];
+};
+
+function parseFiniteStyleNumber(value: string | undefined, fallback: number): number {
+  if (value == null) {
+    return fallback;
+  }
+
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function hasResizeSnapshotChanged(snapshot: ResizeNodeSnapshot, nextBounds: NodeResizeBounds): boolean {
+  return (
+    snapshot.x !== nextBounds.x ||
+    snapshot.width !== nextBounds.width ||
+    (nextBounds.y !== undefined && snapshot.y !== nextBounds.y) ||
+    (nextBounds.height !== undefined && snapshot.height !== nextBounds.height)
+  );
+}
+
+function getRenderedMinWidth(computedStyle: CSSStyleDeclaration | undefined): number {
+  return Math.max(MIN_NODE_WIDTH, parseFiniteStyleNumber(computedStyle?.minWidth, MIN_NODE_WIDTH));
+}
 
 export interface NodeCanvasProps {
   nodes: ChartNode[];
@@ -131,6 +171,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
   const canvasRootRef = useRef<HTMLDivElement>(null);
   const nodeDragGestureActiveRef = useRef(false);
   const hoverSyncAnimationFrameRef = useRef<number | undefined>();
+  const activeResizeGroupRef = useRef<ActiveResizeGroup | null>(null);
 
   const selectedGraphMetadata = useAtomValue(graphMetadataState);
   const closestPort = useAtomValue(draggingWireClosestPortState);
@@ -147,6 +188,8 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
   const zoomSensitivity = useAtomValue(zoomSensitivityState);
   const canvasBackgroundPattern = useAtomValue(canvasBackgroundPatternState);
   const canvasBackgroundPatternOpacity = useAtomValue(canvasBackgroundPatternOpacityState);
+  const preservePortCase = useAtomValue(preservePortTextCaseState);
+  const uiFontSize = useAtomValue(uiFontSizeState);
   const rawPreviewConnections = useAtomValue(canvasPreviewConnectionsState);
   const nodesById = useAtomValue(nodesByIdState);
   const project = useAtomValue(projectState);
@@ -176,7 +219,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
 
   const { clientToCanvasPosition } = useCanvasPositioning();
   const removeNodes = useDeleteNodesCommand();
-  const editNode = useEditNodeCommand();
+  const resizeNodes = useResizeNodesCommand();
   const cache = useNodeHeightCache();
   const nodeTypes = useNodeTypes();
   const projectNodeRegistry = useProjectNodeRegistry();
@@ -380,17 +423,146 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
   });
   useWireDragScrolling();
 
+  const getRenderedNodeElement = useStableCallback((nodeId: NodeId): HTMLElement | undefined => {
+    const root = canvasRootRef.current;
+    if (!root) {
+      return undefined;
+    }
+
+    for (const element of root.querySelectorAll<HTMLElement>('.node[data-nodeid]:not(.overlayNode)')) {
+      if (element.dataset.nodeid === nodeId) {
+        return element;
+      }
+    }
+
+    return undefined;
+  });
+
+  const getResizeMinWidthForNode = useStableCallback(
+    (node: ChartNode, computedStyle: CSSStyleDeclaration | undefined): number => {
+      const renderedMinWidth = getRenderedMinWidth(computedStyle);
+      if (node.type === 'comment') {
+        return renderedMinWidth;
+      }
+
+      try {
+        const instance = projectNodeRegistry.createDynamicImpl(node);
+        const nodeConnections = connectionsByNodeId[node.id] ?? EMPTY_NODE_CONNECTIONS;
+        const inputDefinitions = instance.getInputDefinitionsIncludingBuiltIn(
+          nodeConnections,
+          nodesById,
+          project,
+          referencedProjects,
+        );
+        const outputDefinitions = instance.getOutputDefinitions(nodeConnections, nodesById, project, referencedProjects);
+
+        return Math.max(
+          renderedMinWidth,
+          getMinimumNodeWidthForPortLabels({
+            inputDefinitions,
+            outputDefinitions,
+            preservePortCase,
+            uiFontScale: getUiFontScale(uiFontSize),
+          }),
+        );
+      } catch {
+        return renderedMinWidth;
+      }
+    },
+  );
+
+  const getResizeSnapshotForNode = useStableCallback((node: ChartNode): ResizeNodeSnapshot => {
+    const nodeElement = getRenderedNodeElement(node.id);
+    const computedStyle = nodeElement ? window.getComputedStyle(nodeElement) : undefined;
+    const fallbackWidth = getCanvasNodeWidth(node);
+    const fallbackHeight = node.type === 'comment' ? getCanvasCommentHeight(node as CommentNode) : undefined;
+    const width = parseFiniteStyleNumber(computedStyle?.width, fallbackWidth);
+    const minWidth = getResizeMinWidthForNode(node, computedStyle);
+
+    return {
+      nodeId: node.id,
+      x: node.visualData.x,
+      y: node.type === 'comment' ? node.visualData.y : undefined,
+      width,
+      height:
+        node.type === 'comment'
+          ? parseFiniteStyleNumber(computedStyle?.height, fallbackHeight ?? width)
+          : undefined,
+      minWidth,
+      previousNode: structuredClone(node),
+    };
+  });
+
+  const getResizeGroupForNode = useStableCallback((node: ChartNode): ActiveResizeGroup => {
+    const activeGroup = activeResizeGroupRef.current;
+    if (activeGroup?.sourceNodeId === node.id) {
+      return activeGroup;
+    }
+
+    const selectedNodeIdSet = new Set(selectedNodeIds);
+    const shouldResizeSelection = selectedNodeIdSet.has(node.id) && selectedNodeIdSet.size > 1;
+    const resizeNodeIds = shouldResizeSelection ? selectedNodeIdSet : new Set<NodeId>([node.id]);
+    const snapshots = nodes
+      .filter((candidate) => resizeNodeIds.has(candidate.id))
+      .map((candidate) => getResizeSnapshotForNode(candidate));
+
+    if (!snapshots.some((snapshot) => snapshot.nodeId === node.id)) {
+      snapshots.push(getResizeSnapshotForNode(node));
+    }
+
+    const nextGroup = {
+      sourceNodeId: node.id,
+      snapshots,
+    };
+
+    activeResizeGroupRef.current = nextGroup;
+    return nextGroup;
+  });
+
+  const getResizeChangesForNode = useStableCallback((node: ChartNode, nextBounds: NodeResizeBounds) => {
+    const resizeGroup = getResizeGroupForNode(node);
+    const previousNodesByNodeId = new Map(
+      resizeGroup.snapshots.map((snapshot) => [snapshot.nodeId, snapshot.previousNode]),
+    );
+
+    return calculateNodeResizeGroupChanges({
+      sourceNodeId: node.id,
+      sourceNextBounds: nextBounds,
+      snapshots: resizeGroup.snapshots,
+    }).map((change): NodeResizeChange => {
+      const previousNode = previousNodesByNodeId.get(change.nodeId as NodeId);
+      if (!previousNode) {
+        throw new Error(`No resize snapshot found for node ${change.nodeId}`);
+      }
+
+      return {
+        nodeId: change.nodeId as NodeId,
+        nextBounds: change.nextBounds,
+        previousNode,
+      };
+    });
+  });
+
   const onNodeSizeChanged = useStableCallback((node: ChartNode, nextBounds: NodeResizeBounds) => {
+    const resizeChanges = getResizeChangesForNode(node, nextBounds);
+    if (resizeChanges.length === 0) {
+      return;
+    }
+
     onNodesChanged(
       produce(nodes, (draft) => {
-        const foundNode = draft.find((candidate) => candidate.id === node.id);
-        if (foundNode) {
-          foundNode.visualData.x = nextBounds.x;
-          foundNode.visualData.y = nextBounds.y ?? foundNode.visualData.y;
-          foundNode.visualData.width = nextBounds.width;
+        for (const change of resizeChanges) {
+          const foundNode = draft.find((candidate) => candidate.id === change.nodeId);
+          if (!foundNode) {
+            continue;
+          }
 
-          if (foundNode.type === 'comment' && nextBounds.height != null) {
-            (foundNode as CommentNode).data.height = nextBounds.height;
+          foundNode.visualData.x = change.nextBounds.x;
+          foundNode.visualData.y = change.nextBounds.y ?? foundNode.visualData.y;
+          foundNode.visualData.width = change.nextBounds.width;
+
+          if (foundNode.type === 'comment' && change.nextBounds.height != null) {
+            (foundNode as CommentNode).data.height = change.nextBounds.height;
           }
         }
       }),
@@ -574,29 +746,22 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
   const isReallyZoomedOut = canvasPosition.zoom < 0.2;
 
   const onResizeFinish = useStableCallback(
-    (node: ChartNode, nextBounds: NodeResizeBounds, previousNodeOverride?: Partial<ChartNode>) => {
-      const newNode: Partial<ChartNode> = {
-        visualData: {
-          ...node.visualData,
-          x: nextBounds.x,
-          y: nextBounds.y ?? node.visualData.y,
-          width: nextBounds.width,
-        },
-      };
+    (node: ChartNode, nextBounds: NodeResizeBounds) => {
+      try {
+        const snapshotsByNodeId = new Map(
+          getResizeGroupForNode(node).snapshots.map((snapshot) => [snapshot.nodeId, snapshot]),
+        );
+        const changedResizeEntries = getResizeChangesForNode(node, nextBounds).filter((change) => {
+          const snapshot = snapshotsByNodeId.get(change.nodeId);
+          return snapshot ? hasResizeSnapshotChanged(snapshot, change.nextBounds) : true;
+        });
 
-      if (node.type === 'comment' && nextBounds.height != null) {
-        const commentNode = node as CommentNode;
-        newNode.data = {
-          ...commentNode.data,
-          height: nextBounds.height,
-        };
+        if (changedResizeEntries.length > 0) {
+          resizeNodes({ changes: changedResizeEntries });
+        }
+      } finally {
+        activeResizeGroupRef.current = null;
       }
-
-      editNode({
-        nodeId: node.id,
-        newNode,
-        previousNodeOverride,
-      });
     },
   );
 
