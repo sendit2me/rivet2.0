@@ -56,8 +56,32 @@ test('graph tree panel keeps the compact text-list layout source contract', () =
   assert.match(graphListContextMenuSource, /hasFolders/);
   assert.match(graphListSource, /&:focus::placeholder {\s+opacity: 0;\s+}/);
   assert.match(graphListSource, /\.graph-list-action {\s+cursor: pointer;\s+}/);
-  assert.match(graphListSource, /\.graph-list-action-icon-adjusted {\s+margin-bottom: 0\.35em;\s+}/);
-  assert.match(graphListSource, /<SettingsCogIcon aria-hidden="true" className="graph-list-action-icon-adjusted" \/>/);
+  assert.match(graphListSource, /\.graph-list-toolbar \{[\s\S]*--project-tree-panel-icon-color: [^;]+;/);
+  assert.match(
+    graphListSource,
+    /\.project-tree-panel-icon \{[^}]*color: var\(--project-tree-panel-icon-color, currentColor\);[^}]*--project-tree-panel-icon-size/s,
+  );
+  assert.match(graphListSource, /\.project-tree-panel-icon-search \{[^}]*--project-tree-panel-icon-y:/s);
+  assert.match(graphListSource, /\.project-tree-panel-icon-project-settings \{[^}]*--project-tree-panel-icon-y:/s);
+  assert.match(graphListSource, /\.project-tree-panel-icon-filter \{[^}]*--project-tree-panel-icon-y:/s);
+  assert.match(
+    graphListSource,
+    /\.project-tree-panel-icon-filter-clear \{[^}]*--project-tree-panel-icon-size: 12px;/s,
+  );
+  assert.doesNotMatch(
+    graphListSource,
+    /\.project-tree-panel-icon-(search|project-settings|filter|filter-clear) \{[^}]*--project-tree-panel-icon-color:/s,
+  );
+  assert.match(
+    graphListSource,
+    /<SearchIcon aria-hidden="true" className="project-tree-panel-icon project-tree-panel-icon-search" \/>/,
+  );
+  assert.match(graphListSource, /className="project-tree-panel-icon project-tree-panel-icon-project-settings"/);
+  assert.match(
+    graphListSource,
+    /<FilterIcon aria-hidden="true" className="project-tree-panel-icon project-tree-panel-icon-filter" \/>/,
+  );
+  assert.match(graphListSource, /project-tree-panel-icon-filter-clear/);
   assert.match(graphListSource, /\.spinner \.node-running-indicator {\s+width: var\(--ui-font-size-base\);/);
   assert.match(
     graphListSource,
