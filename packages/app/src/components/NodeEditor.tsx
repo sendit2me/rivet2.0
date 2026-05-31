@@ -111,13 +111,13 @@ const Container = styled.div`
     color: var(--grey-light);
     --label-color: var(--grey-light);
     --ds-text-subtlest: var(--grey-light);
-    --ds-font-family-body: var(--font-family-monospace);
-    --ds-font-family-heading: var(--font-family-monospace);
+    --ds-font-family-body: var(--font-family);
+    --ds-font-family-heading: var(--font-family);
     --ds-font-family-code: var(--font-family-monospace);
-    --label-font-family: var(--font-family-monospace);
+    --label-font-family: var(--font-family);
     background-color: var(--grey-dark-bluish-seethrough);
     backdrop-filter: blur(2px);
-    font-family: var(--font-family-monospace);
+    font-family: var(--font-family);
     width: 100%;
     box-shadow: -4px 0 3px rgba(0, 0, 0, 0.1);
     border-left: 1px solid var(--grey);
@@ -183,7 +183,6 @@ const Container = styled.div`
     padding: 0.5em 1em 1em 1em;
     font-size: var(--ui-font-size-sm);
     color: var(--foreground-muted);
-    font-family: var(--font-family-monospace);
 
     &.has-node-doc-link {
       justify-content: space-between;
@@ -319,7 +318,6 @@ const Container = styled.div`
     font-size: var(--ui-font-size-base);
     line-height: 38px;
     box-sizing: border-box;
-    font-family: var(--font-family-monospace);
     display: block;
     overflow: hidden;
     white-space: nowrap;
@@ -335,7 +333,6 @@ const Container = styled.div`
   .node-description-field textarea {
     width: 100%;
     box-sizing: border-box;
-    font-family: var(--font-family-monospace);
     background-color: var(--grey-darkerish);
     border: var(--node-metadata-control-border-width) solid var(--grey);
     border-radius: 4px;

@@ -1,8 +1,6 @@
 
 
 
-- In the node settings panel, there's many fonts are used. Including the Mono font. I don't need mono font there. Ecluding the text/code editor of course. I want text/code editor to keep the font it uses now.
-
 - Make the output's main buttons visible
 
 - Rework ChatViewer workspace

@@ -46,6 +46,39 @@ test('node metadata footer stays content-sized and pinned below settings content
   assert.doesNotMatch(sectionFooterStyles, /^\s*height:\s*24px;/m);
 });
 
+test('node settings panel uses regular UI typography outside embedded code editors', () => {
+  const nodeEditorSource = readFileSync(join(componentsDir, 'NodeEditor.tsx'), 'utf8');
+  const defaultNodeEditorSource = readFileSync(join(componentsDir, 'editors', 'DefaultNodeEditor.tsx'), 'utf8');
+  const panelContainerStyles = nodeEditorSource.match(/^  \.panel-container \{(?<styles>[\s\S]*?)\n  \}/m)
+    ?.groups?.styles;
+  const sectionFooterStyles = nodeEditorSource.match(/\.section-footer \{(?<styles>[\s\S]*?)\n  \}/)
+    ?.groups?.styles;
+  const titleReadContentStyles = nodeEditorSource.match(
+    /\.node-title-field \.node-title-read-button \.title-read-content \{(?<styles>[\s\S]*?)\n  \}/,
+  )?.groups?.styles;
+  const metadataInputStyles = nodeEditorSource.match(
+    /\.node-title-field input,\s+\.node-description-field textarea \{(?<styles>[\s\S]*?)\n  \}/,
+  )?.groups?.styles;
+  const editorStatusLineStyles = defaultNodeEditorSource.match(
+    /\.editor-status-line \{(?<styles>[\s\S]*?)\n  \}/,
+  )?.groups?.styles;
+
+  assert.ok(panelContainerStyles);
+  assert.ok(sectionFooterStyles);
+  assert.ok(titleReadContentStyles);
+  assert.ok(metadataInputStyles);
+  assert.ok(editorStatusLineStyles);
+  assert.match(panelContainerStyles, /font-family: var\(--font-family\);/);
+  assert.match(panelContainerStyles, /--ds-font-family-body: var\(--font-family\);/);
+  assert.match(panelContainerStyles, /--ds-font-family-heading: var\(--font-family\);/);
+  assert.match(panelContainerStyles, /--ds-font-family-code: var\(--font-family-monospace\);/);
+  assert.match(panelContainerStyles, /--label-font-family: var\(--font-family\);/);
+  assert.doesNotMatch(sectionFooterStyles, /font-family: var\(--font-family-monospace\);/);
+  assert.doesNotMatch(titleReadContentStyles, /font-family: var\(--font-family-monospace\);/);
+  assert.doesNotMatch(metadataInputStyles, /font-family: var\(--font-family-monospace\);/);
+  assert.doesNotMatch(editorStatusLineStyles, /font-family: var\(--font-family-monospace\);/);
+});
+
 test('node editor keeps selected-node editor identity stable across panel rerenders', () => {
   const nodeEditorSource = readFileSync(join(componentsDir, 'NodeEditor.tsx'), 'utf8');
 
