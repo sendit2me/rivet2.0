@@ -84,3 +84,95 @@ test('node output content fade only replays for unseen output content', () => {
     /&\.animate-node-output-content \{\s*animation: node-output-content-fade-in 140ms ease-out both;/,
   );
 });
+
+test('inline node output actions reserve flow space without moving their hit targets', () => {
+  const nodeInlineOutputSource = readFileSync(join(componentsDir, 'nodeOutput', 'NodeInlineOutput.tsx'), 'utf8');
+  const nodeStylesSource = readFileSync(join(componentsDir, 'nodeStyles.ts'), 'utf8');
+  const renderDataValueStylesSource = readFileSync(
+    join(componentsDir, 'renderDataValue', 'renderDataValueStyles.ts'),
+    'utf8',
+  );
+  const structuredNodeOutputSource = readFileSync(join(componentsDir, 'nodes', 'StructuredNodeOutput.tsx'), 'utf8');
+  const renderedDataOutputsStylesBlock = /export const renderedDataOutputsStyles = css`(?<styles>[\s\S]*?)`;/u.exec(
+    renderDataValueStylesSource,
+  )?.groups?.styles;
+  const structuredNodeOutputStylesBlock = /const structuredNodeOutputCss = css`(?<styles>[\s\S]*?)`;/u.exec(
+    structuredNodeOutputSource,
+  )?.groups?.styles;
+
+  assert.ok(renderedDataOutputsStylesBlock);
+  assert.ok(structuredNodeOutputStylesBlock);
+
+  assert.match(nodeInlineOutputSource, /const hasPromptDesignerAction = node\.type === 'chat';/);
+  assert.match(nodeInlineOutputSource, /'node-output-inner has-output-actions has-prompt-designer-action'/);
+  assert.match(nodeInlineOutputSource, /'node-output-inner has-output-actions'/);
+  assert.match(
+    nodeStylesSource,
+    /\.node-output-inner,[\s\S]*?--node-output-actions-top: [^;]+;[\s\S]*?--node-output-actions-right: [^;]+;[\s\S]*?--node-output-actions-gap: [^;]+;/,
+  );
+  assert.match(
+    nodeStylesSource,
+    /\.node-output-inner,[\s\S]*?--node-output-action-hit-size: [^;]+;[\s\S]*?--node-output-surface-padding: [^;]+;[\s\S]*?--node-output-action-exclusion-width: [^;]+;/,
+  );
+  assert.match(
+    nodeStylesSource,
+    /\.node-output-inner,[\s\S]*?--node-output-action-exclusion-height: var\(--node-output-action-hit-size\);[\s\S]*?--node-output-action-exclusion-top: calc\(var\(--node-output-actions-top\) - var\(--node-output-surface-padding\)\);[\s\S]*?--node-output-action-exclusion-right: var\(--node-output-actions-right\);[\s\S]*?--node-output-action-exclusion-left-gap: [^;]+;/,
+  );
+  assert.match(
+    nodeStylesSource,
+    /\.node-output-inner,[\s\S]*?--node-output-action-icon-offset-x: [^;]+;[\s\S]*?--node-output-action-icon-offset-y: [^;]+;/,
+  );
+  assert.match(
+    nodeStylesSource,
+    /\.node-output-inner,[\s\S]*?--node-output-unfold-icon-size: [^;]+;[\s\S]*?--node-output-unfold-icon-offset-x: [^;]+;[\s\S]*?--node-output-unfold-icon-offset-y: [^;]+;/,
+  );
+  assert.match(
+    nodeStylesSource,
+    /\.node-output-inner,[\s\S]*?--node-output-copy-icon-size: [^;]+;[\s\S]*?--node-output-copy-icon-offset-x: [^;]+;[\s\S]*?--node-output-copy-icon-offset-y: [^;]+;/,
+  );
+  assert.match(
+    nodeStylesSource,
+    /\.node-output-inner,[\s\S]*?--node-output-prompt-designer-icon-size: [^;]+;[\s\S]*?--node-output-prompt-designer-icon-offset-x: [^;]+;[\s\S]*?--node-output-prompt-designer-icon-offset-y: [^;]+;/,
+  );
+  assert.match(
+    nodeStylesSource,
+    /\.node-output-inner,[\s\S]*?--node-output-fullscreen-icon-size: [^;]+;[\s\S]*?--node-output-fullscreen-icon-offset-x: [^;]+;[\s\S]*?--node-output-fullscreen-icon-offset-y: [^;]+;/,
+  );
+  assert.match(
+    nodeStylesSource,
+    /\.node-output-inner\.has-prompt-designer-action \{[\s\S]*?--node-output-action-exclusion-width: calc\(120px \* var\(--ui-font-scale\)\);/,
+  );
+  assert.match(
+    nodeStylesSource,
+    /\.node-output-inner\.has-output-actions \.node-output-content-fade::before \{[\s\S]*?float: right;[\s\S]*?width: var\(--node-output-action-exclusion-width\);[\s\S]*?height: var\(--node-output-action-exclusion-height\);[\s\S]*?margin-top: var\(--node-output-action-exclusion-top\);[\s\S]*?margin-right: var\(--node-output-action-exclusion-right\);[\s\S]*?margin-left: var\(--node-output-action-exclusion-left-gap\);/,
+  );
+  assert.match(
+    nodeStylesSource,
+    /\.overlay-buttons \{[\s\S]*?position: absolute;[\s\S]*?top: var\(--node-output-actions-top\);[\s\S]*?right: var\(--node-output-actions-right\);[\s\S]*?gap: var\(--node-output-actions-gap\);/,
+  );
+  assert.match(
+    nodeStylesSource,
+    /\.output-toggle-button svg \{[\s\S]*?width: var\(--node-output-unfold-icon-size\);[\s\S]*?height: var\(--node-output-unfold-icon-size\);[\s\S]*?transform: translate\(var\(--node-output-unfold-icon-offset-x\), var\(--node-output-unfold-icon-offset-y\)\);/,
+  );
+  assert.match(
+    nodeStylesSource,
+    /\.copy-button svg \{[\s\S]*?width: var\(--node-output-copy-icon-size\);[\s\S]*?height: var\(--node-output-copy-icon-size\);[\s\S]*?transform: translate\(var\(--node-output-copy-icon-offset-x\), var\(--node-output-copy-icon-offset-y\)\);/,
+  );
+  assert.match(
+    nodeStylesSource,
+    /\.prompt-designer-button svg \{[\s\S]*?width: var\(--node-output-prompt-designer-icon-size\);[\s\S]*?height: var\(--node-output-prompt-designer-icon-size\);[\s\S]*?transform: translate\(\s*var\(--node-output-prompt-designer-icon-offset-x\),\s*var\(--node-output-prompt-designer-icon-offset-y\)\s*\);/,
+  );
+  assert.match(
+    nodeStylesSource,
+    /\.expand-button svg \{[\s\S]*?width: var\(--node-output-fullscreen-icon-size\);[\s\S]*?height: var\(--node-output-fullscreen-icon-size\);[\s\S]*?transform: translate\(var\(--node-output-fullscreen-icon-offset-x\), var\(--node-output-fullscreen-icon-offset-y\)\);/,
+  );
+  assert.match(renderedDataOutputsStylesBlock, /display: block;/);
+  assert.match(renderedDataOutputsStylesBlock, /\.port-value \+ \.port-value \{[\s\S]*?margin-top: \$\{outputSectionGroupGap\};/);
+  assert.doesNotMatch(renderedDataOutputsStylesBlock, /display: flex;/);
+  assert.match(structuredNodeOutputStylesBlock, /display: block;/);
+  assert.match(
+    structuredNodeOutputStylesBlock,
+    /\.structured-node-output-section \+ \.structured-node-output-section \{[\s\S]*?margin-top: \$\{outputSectionGroupGap\};/,
+  );
+  assert.doesNotMatch(structuredNodeOutputStylesBlock, /display: flex;/);
+});

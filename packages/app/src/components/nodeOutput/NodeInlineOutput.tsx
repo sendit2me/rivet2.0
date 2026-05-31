@@ -229,9 +229,16 @@ const NodeOutputSingleProcess: FC<{
   });
   const hasBody = body != null;
   const contentKey = getNodeOutputContentKey(processId, data, content.contentKeyKind);
+  const hasPromptDesignerAction = node.type === 'chat';
 
   return (
-    <div className="node-output-inner">
+    <div
+      className={
+        hasPromptDesignerAction
+          ? 'node-output-inner has-output-actions has-prompt-designer-action'
+          : 'node-output-inner has-output-actions'
+      }
+    >
       <div className="overlay-buttons" onMouseDown={handleOutputActionMouseDown} onClick={handleOutputActionClick}>
         <Tooltip content="Unfold output">
           <div
@@ -250,7 +257,7 @@ const NodeOutputSingleProcess: FC<{
           </div>
         </Tooltip>
 
-        {node.type === 'chat' && (
+        {hasPromptDesignerAction && (
           <Tooltip content="Open chat in Prompt Designer">
             <div className="prompt-designer-button" onClick={handleOpenPromptDesigner}>
               <FlaskIcon />
