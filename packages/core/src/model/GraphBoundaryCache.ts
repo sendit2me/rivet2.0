@@ -7,6 +7,8 @@ import type { DynamicEditorEditor } from './EditorDefinition.js';
 import type { GraphInputNode } from './nodes/GraphInputNode.js';
 import type { GraphOutputNode } from './nodes/GraphOutputNode.js';
 
+export const GRAPH_BOUNDARY_OUTPUT_DEMAND_OPTIMIZATION_ENABLED = false;
+
 export type GraphBoundaryInput = {
   dataType: DataType;
   editor?: DynamicEditorEditor;

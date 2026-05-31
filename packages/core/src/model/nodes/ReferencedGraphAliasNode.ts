@@ -21,6 +21,7 @@ import type { EditorDefinition } from '../EditorDefinition.js';
 import {
   buildExcludedGraphBoundaryOutputs,
   buildGraphBoundaryInputData,
+  GRAPH_BOUNDARY_OUTPUT_DEMAND_OPTIMIZATION_ENABLED,
   getGraphBoundary,
   getGraphBoundaryInputDefinitions,
   getGraphBoundaryOutputDefinitions,
@@ -187,6 +188,7 @@ export class ReferencedGraphAliasNodeImpl extends NodeImpl<ReferencedGraphAliasN
     const inputData = buildGraphBoundaryInputData(boundary, inputs, this.data.inputData);
 
     const shouldRunWholeGraph =
+      !GRAPH_BOUNDARY_OUTPUT_DEMAND_OPTIMIZATION_ENABLED ||
       context.isDirectRunTarget ||
       (this.data.useErrorOutput === true && context.activeOutputPortIds.has('error' as PortId));
     const requestedGraphOutputNodeIds = shouldRunWholeGraph

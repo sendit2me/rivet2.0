@@ -20,7 +20,7 @@ If you select multiple nodes by holding shift and clicking on them, you can righ
 
 To call a subgraph, add a [Subgraph Node](../node-reference/subgraph) to your graph. Connect any required data to the input ports of the subgraph, and connect any output data of the subgraph to the next nodes in your chain.
 
-Subgraph outputs are demand-driven: Rivet only runs the child graph branches needed for output ports that are connected to active, non-disabled downstream nodes. Unconnected outputs, or outputs connected only to disabled nodes, are shown as not ran and their child branches are skipped. Skipped branches do not run side effects and do not raise errors. If a child branch must run for a side effect such as setting a global, writing a dataset, raising an event, aborting, or calling an external/API/LLM/code path, connect that Subgraph output to an active node. The full child graph still runs when you use **Run to here** on the Subgraph node itself, when partial-output forwarding is enabled, or when the Subgraph `Error` output is enabled and connected to an active node.
+Subgraph nodes currently run the full child graph when they execute. This means child branches that produce unconnected Subgraph outputs still run, including any side effects or errors in those branches.
 
 ### Rearranging Subgraph ports
 

@@ -753,32 +753,36 @@ node-definition loading keeps the no-cache hot path. Editor settings use
 uncached boundary derivation so in-place graph input/output edits remain
 visible immediately.
 
-Subgraph output execution is demand-driven by default. Before a node
-implementation runs, `GraphProcessor` computes `activeOutputPortIds` from valid
-outgoing connections whose immediate downstream node exists, is not disabled,
-and is relevant to the current run-to slice when `runToNodeIds` is active. The
-node process context also receives `isDirectRunTarget`, so nested-graph nodes
-can distinguish "this Subgraph is being inspected" from "this Subgraph is only
-a dependency of another target." `SubGraph` and `Referenced Graph Alias` use
-their boundary metadata to map active output ports to the first-duplicate-wins
-child `Graph Output` node ids and run the child processor with those ids as
-`runToNodeIds`. Unrequested boundary outputs are returned from the caller node
-as `control-flow-excluded` values. If no boundary output is active, the child
-graph is not started; Subgraph returns excluded boundary outputs plus zero
-cost/duration metrics, while Referenced Graph Alias returns zero cost/duration
-only when its `Output Cost & Duration` setting is enabled. This applies even
-when the Subgraph node itself is otherwise a runnable start node; at least one
-boundary output must be actively consumed unless a full-run exception below
-applies.
+Subgraph output-demand execution is currently parked behind
+`GRAPH_BOUNDARY_OUTPUT_DEMAND_OPTIMIZATION_ENABLED`, which defaults to `false`.
+With the flag off, `SubGraph` and `Referenced Graph Alias` run their full child
+graphs just like the legacy runtime: unconnected child `Graph Output` branches
+still run, and their side effects/errors still occur. The implementation remains
+in place for later re-enablement. Before a node implementation runs,
+`GraphProcessor` still computes `activeOutputPortIds` from valid outgoing
+connections whose immediate downstream node exists, is not disabled, and is
+relevant to the current run-to slice when `runToNodeIds` is active. The node
+process context also receives `isDirectRunTarget`, so the parked optimization
+can distinguish "this Subgraph is being inspected" from "this Subgraph is only a
+dependency of another target."
 
-The full child graph still runs when the caller node is the direct run-to
-target, when Subgraph partial-output forwarding is enabled, or when an enabled
-Subgraph/Referenced Graph Alias `Error` output has an active downstream
-consumer. This is an intentional default behavior change: side-effect-only work
-in unconnected child output branches no longer runs. That includes globals,
-dataset writes, events, audio playback, aborts, external calls, HTTP/LLM calls,
-and arbitrary Code/Expression side effects. Errors in skipped branches are also
-skipped.
+When the flag is re-enabled, `SubGraph` and `Referenced Graph Alias` use their
+boundary metadata to map active output ports to the first-duplicate-wins child
+`Graph Output` node ids and run the child processor with those ids as
+`runToNodeIds`. Unrequested boundary outputs are returned from the caller node as
+`control-flow-excluded` values. If no boundary output is active, the child graph
+is not started; Subgraph returns excluded boundary outputs plus zero cost/duration
+metrics, while Referenced Graph Alias returns zero cost/duration only when its
+`Output Cost & Duration` setting is enabled.
+
+When the flag is on, the full child graph still runs when the caller node is the
+direct run-to target, when Subgraph partial-output forwarding is enabled, or when
+an enabled Subgraph/Referenced Graph Alias `Error` output has an active
+downstream consumer. Re-enabling the flag intentionally changes side-effect
+behavior: side-effect-only work in unconnected child output branches no longer
+runs. That includes globals, dataset writes, events, audio playback, aborts,
+external calls, HTTP/LLM calls, and arbitrary Code/Expression side effects.
+Errors in skipped branches are also skipped.
 
 ### User input
 

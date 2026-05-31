@@ -34,24 +34,27 @@ External Remote Debugger runs are different: a backend that calls `createProcess
 
 Copy actions intentionally ignore run-duration metadata. The ordinary copy button and JSON-copy button continue to serialize displayed output values / internal output maps only.
 
-## Subgraph Output-Demand Execution Data
+## Parked Subgraph Output-Demand Execution Data
 
-Normal Subgraph and Referenced Graph Alias runs execute only the child `Graph Output`
-branches whose caller output ports are connected to at least one active
-immediate downstream node. A downstream node counts as active when it exists, is
-not disabled, and is part of the current run-to slice if the run is targeted.
-Unrequested child boundary outputs are written on the caller node as
-`control-flow-excluded` values so the output panel can show that those outputs
-did not run.
+Subgraph and Referenced Graph Alias output-demand pruning is currently disabled
+by `GRAPH_BOUNDARY_OUTPUT_DEMAND_OPTIMIZATION_ENABLED`. With the flag off, child
+graphs execute fully and unconnected child `Graph Output` branches still emit
+their normal lifecycle/data events. Recording, Remote Debugger, graph-run
+history, cost, and duration therefore reflect the full child execution.
 
-Skipped child branches do not emit child `nodeStart`, `nodeFinish`,
-`nodeError`, or `nodeExcluded` events because the child nodes were never
-scheduled. Recording, Remote Debugger, graph-run history, cost, and duration
-therefore reflect the optimized run rather than a hidden full child execution.
-The child graph is still executed fully when the Subgraph node itself is the
-direct run-to target, when Subgraph partial-output forwarding is enabled, or
-when an enabled `Error` output is actively connected and must represent errors
-from the whole child graph.
+The parked implementation still computes the metadata it needs for later
+re-enablement. When the flag is turned back on, Subgraph and Referenced Graph
+Alias runs execute only the child `Graph Output` branches whose caller output
+ports are connected to at least one active immediate downstream node. A
+downstream node counts as active when it exists, is not disabled, and is part of
+the current run-to slice if the run is targeted. Unrequested child boundary
+outputs are written on the caller node as `control-flow-excluded` values so the
+output panel can show that those outputs did not run. Skipped child branches do
+not emit child `nodeStart`, `nodeFinish`, `nodeError`, or `nodeExcluded` events
+because the child nodes were never scheduled. The child graph is still executed
+fully when the Subgraph node itself is the direct run-to target, when Subgraph
+partial-output forwarding is enabled, or when an enabled `Error` output is
+actively connected and must represent errors from the whole child graph.
 
 ## Frozen Node Outputs
 
