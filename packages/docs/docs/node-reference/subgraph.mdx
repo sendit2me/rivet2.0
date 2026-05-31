@@ -25,7 +25,7 @@ The Subgraph Node also has an optional error output. If enabled, any errors that
 
 When a Subgraph node runs, Rivet only executes the child graph branches needed for Subgraph output ports that are connected to an active downstream node. A downstream node counts as active when it is not disabled. If a Subgraph output is not connected, or is connected only to disabled nodes, that child Graph Output branch is skipped and the Subgraph output is shown as **Not ran**.
 
-This makes unused outputs faster, but it also means side-effect-only work in an unconnected child branch will not happen. Connect an output to an active node if that branch must run for a global variable, dataset write, event, audio playback, abort, external call, HTTP/LLM call, or Code/Expression side effect.
+This makes unused outputs faster, but it also means side-effect-only work in an unconnected child branch will not happen. Connect an output to an active node if that branch must run for a global variable, dataset write, event, audio playback, abort, external call, HTTP/LLM call, or Code/Expression side effect. Errors in skipped branches are skipped too, so an unused output branch will not fail the Subgraph.
 
 The full child graph still runs when you use **Run to here** on the Subgraph node itself, when partial-output forwarding is enabled, or when the Subgraph `Error` output is enabled and connected to an active node.
 
