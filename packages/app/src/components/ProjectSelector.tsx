@@ -107,10 +107,6 @@ export const styles = css`
   .graph-history-menu {
     width: var(--project-selector-height);
 
-    &:not(.disabled):hover {
-      background-color: var(--grey-darkish);
-    }
-
     &.disabled {
       color: var(--grey-light);
       cursor: default;
@@ -129,15 +125,56 @@ export const styles = css`
   }
 
   .file-menu {
-    border-left: 1px solid var(--grey-darkest);
-    border-right: 1px solid var(--grey-darkest);
+    --project-tab-bg: var(--project-selector-strip-bg);
+    --project-tab-active-bg: color-mix(in srgb, var(--grey-light) 14%, var(--grey-darkish) 86%);
+    --project-tab-current-bg: var(--project-tab-bg);
+    --project-tab-hover-bg: var(--project-tab-active-bg);
+
+    align-self: flex-start;
+    background: var(--project-tab-current-bg);
+    border-radius: 7px;
+    color: var(--grey-light);
+    height: calc(100% - 9px);
+    margin: 4px 0 5px;
     min-width: 78px;
   }
 
+  .sidebar-toggle-menu,
+  .graph-history-menu {
+    --project-tab-bg: var(--project-selector-strip-bg);
+    --project-tab-active-bg: color-mix(in srgb, var(--grey-light) 14%, var(--grey-darkish) 86%);
+    --project-tab-current-bg: var(--project-tab-bg);
+    --project-tab-hover-bg: var(--project-tab-active-bg);
+
+    align-self: flex-start;
+    background: var(--project-tab-current-bg);
+    border-radius: 7px;
+    height: calc(100% - 9px);
+    margin: 4px 0 5px;
+  }
+
+  .file-menu:not(:hover):not(.open):has(
+      + .projects-container .draggableProject:first-child .project:not(.active):not(:hover)
+    )::after {
+    background: color-mix(in srgb, var(--grey-light) 18%, var(--project-selector-strip-bg) 82%);
+    content: '';
+    height: 18px;
+    pointer-events: none;
+    position: absolute;
+    right: -2px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 1px;
+    z-index: 3;
+  }
+
   .sidebar-toggle-menu:hover,
+  .graph-history-menu:not(.disabled):hover,
   .file-menu:hover,
   .file-menu.open {
-    background-color: var(--grey-darkish);
+    --project-tab-current-bg: var(--project-tab-hover-bg);
+
+    color: var(--grey-lightest);
   }
 
   .sidebar-toggle-button,
@@ -165,6 +202,7 @@ export const styles = css`
 
   .file-menu-button {
     gap: 7px;
+    padding: 0 10px;
   }
 
   .file-menu-logo {
@@ -208,15 +246,15 @@ export const styles = css`
     min-width: 0;
   }
 
-  &.graph-tree-open .sidebar-toggle-menu,
-  &.graph-tree-open .graph-history-menu,
   &.graph-tree-open .sidebar-panel-spacer {
     background: var(--project-selector-strip-bg);
   }
 
   &.graph-tree-open .sidebar-toggle-menu:hover,
   &.graph-tree-open .graph-history-menu:not(.disabled):hover {
-    background: var(--grey-darkish);
+    --project-tab-current-bg: var(--project-tab-hover-bg);
+
+    color: var(--grey-lightest);
   }
 
   .file-dropdown {
@@ -249,6 +287,7 @@ export const styles = css`
     flex: 1 1 auto;
     min-width: 0;
     overflow: hidden;
+    z-index: 3;
   }
 
   .projects-container.empty {
@@ -261,10 +300,10 @@ export const styles = css`
 
   .projects {
     display: flex;
-    align-items: stretch;
+    align-items: flex-end;
     height: 100%;
-    gap: 1px;
-    padding-right: 1px;
+    gap: 4px;
+    padding: 4px 10px 0 4px;
     max-width: 100%;
     width: 100%;
   }
@@ -283,25 +322,88 @@ export const styles = css`
 
   .draggableProject {
     display: flex;
+    align-items: flex-start;
     min-width: 50px;
     flex-shrink: 1;
+    height: 100%;
+    position: relative;
+  }
+
+  .draggableProject::after {
+    background: color-mix(in srgb, var(--grey-light) 18%, var(--project-selector-strip-bg) 82%);
+    content: '';
+    height: 18px;
+    pointer-events: none;
+    position: absolute;
+    right: -2px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 1px;
+    z-index: 3;
+  }
+
+  .draggableProject:last-child::after,
+  .draggableProject:has(.project.active)::after,
+  .draggableProject:has(.project:hover)::after,
+  .draggableProject:has(+ .draggableProject .project:hover)::after,
+  .draggableProject:has(+ .draggableProject .project.active)::after {
+    display: none;
   }
 
   .project {
+    --project-tab-bg: var(--project-selector-strip-bg);
+    --project-tab-active-bg: color-mix(in srgb, var(--grey-light) 14%, var(--grey-darkish) 86%);
+    --project-tab-current-bg: var(--project-tab-bg);
+    --project-tab-hover-bg: var(--project-tab-active-bg);
+    --project-tab-shoulder-size: 8px;
+
     display: flex;
     align-items: center;
-    justify-content: center;
-    padding: 0 6px 0 12px;
+    justify-content: flex-start;
+    padding: 0 10px;
     cursor: pointer;
     user-select: none;
-    display: flex;
-    gap: 8px;
+    gap: 0;
     font-size: var(--ui-font-size-sm);
-    height: 100%;
-    background: var(--project-selector-strip-bg);
+    height: calc(100% - 5px);
+    margin-bottom: 5px;
+    vertical-align: top;
+    background: var(--project-tab-current-bg);
+    border-radius: 7px;
+    color: var(--grey-light);
     flex-shrink: 1;
     min-width: 50px;
     position: relative;
+    z-index: 1;
+
+    &::before,
+    &::after {
+      bottom: 0;
+      content: '';
+      display: none;
+      height: var(--project-tab-shoulder-size);
+      pointer-events: none;
+      position: absolute;
+      width: var(--project-tab-shoulder-size);
+    }
+
+    &::before {
+      background: radial-gradient(
+        circle at 0 0,
+        transparent var(--project-tab-shoulder-size),
+        var(--project-tab-current-bg) calc(var(--project-tab-shoulder-size) + 0.5px)
+      );
+      left: calc(-1 * var(--project-tab-shoulder-size));
+    }
+
+    &::after {
+      background: radial-gradient(
+        circle at 100% 0,
+        transparent var(--project-tab-shoulder-size),
+        var(--project-tab-current-bg) calc(var(--project-tab-shoulder-size) + 0.5px)
+      );
+      right: calc(-1 * var(--project-tab-shoulder-size));
+    }
 
     svg {
       width: 12px;
@@ -326,25 +428,41 @@ export const styles = css`
     }
 
     &:hover {
-      background-color: var(--grey-darkish);
+      --project-tab-current-bg: var(--project-tab-hover-bg);
+
+      color: var(--grey-lightest);
     }
 
     &.active {
-      background-color: var(--primary);
-      color: var(--foreground-on-primary);
+      --project-tab-current-bg: var(--project-tab-active-bg);
+
+      align-self: flex-end;
+      border-radius: 8px 8px 0 0;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      color: var(--grey-lightest);
+      gap: 8px;
+      height: 100%;
+      margin-bottom: 0;
+      padding: 0 6px 4px 10px;
+      z-index: 2;
+    }
+
+    &.active::before,
+    &.active::after {
+      display: block;
     }
 
     &.active:hover {
-      background-color: var(--primary-dark);
+      --project-tab-current-bg: var(--project-tab-active-bg);
     }
 
     &.active .close-project {
-      color: rgba(255, 255, 255, 0.88);
+      color: var(--grey-light);
     }
 
     &.active .close-project:hover {
-      color: var(--foreground-on-primary);
-      background-color: rgba(0, 0, 0, 0.16);
+      color: var(--grey-lightest);
+      background-color: rgba(255, 255, 255, 0.12);
     }
 
     &.unsaved {
@@ -358,7 +476,11 @@ export const styles = css`
       visibility: hidden;
     }
 
-    &:hover .actions {
+    &:not(.active) > .actions {
+      display: none;
+    }
+
+    &.active:hover .actions {
       visibility: visible;
     }
 
@@ -383,19 +505,9 @@ export const styles = css`
 
       &:hover {
         color: var(--grey-lightest);
-        background-color: var(--grey);
+        background-color: rgba(255, 255, 255, 0.12);
       }
     }
-  }
-
-  .project::after {
-    content: '';
-    display: block;
-    position: absolute;
-    right: -1px;
-    width: 1px;
-    background-color: var(--grey-darkest);
-    height: 100%;
   }
 
   .windows-window-controls {
@@ -854,8 +966,9 @@ export const ProjectTab: FC<{
   const project = openedProjects[projectId];
 
   const unsaved = !project?.fsPath;
-  const fileName = unsaved ? 'Unsaved' : project.fsPath!.split('/').pop();
-  const projectDisplayName = `${project?.title}${fileName ? ` [${fileName}]` : ''}`;
+  const fileName = unsaved ? 'Unsaved' : project.fsPath!.split(/[\\/]/).pop();
+  const active = projectTabsSelected && currentProject.metadata.id === projectId;
+  const projectDisplayName = active ? `${project?.title}${fileName ? ` [${fileName}]` : ''}` : project?.title;
 
   const handleMouseDown = (e: ReactMouseEvent<HTMLDivElement>) => {
     if (e.button === 0) {
@@ -869,18 +982,17 @@ export const ProjectTab: FC<{
   };
 
   return (
-    <div
-      className={clsx('project', { active: projectTabsSelected && currentProject.metadata.id === projectId, unsaved })}
-      onMouseDown={handleMouseDown}
-    >
+    <div className={clsx('project', { active, unsaved })} onMouseDown={handleMouseDown}>
       <div className="project-name" {...dragListeners}>
         <span>{projectDisplayName}</span>
       </div>
-      <div className="actions">
-        <button className="close-project" onMouseDown={(e) => e.stopPropagation()} onClick={closeProject}>
-          <CloseIcon />
-        </button>
-      </div>
+      {active && (
+        <div className="actions">
+          <button className="close-project" onMouseDown={(e) => e.stopPropagation()} onClick={closeProject}>
+            <CloseIcon />
+          </button>
+        </div>
+      )}
     </div>
   );
 };
