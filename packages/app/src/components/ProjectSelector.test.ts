@@ -29,11 +29,11 @@ test('project top bar owns the graph tree sidebar toggle for the active project 
   assert.match(projectSelectorTsx, /&\.graph-tree-open::after \{\s+left: var\(--left-sidebar-width\);/);
   assert.match(
     projectSelectorTsx,
-    /&\.graph-tree-open \.sidebar-toggle-menu,[\s\S]*&\.graph-tree-open \.graph-history-menu,[\s\S]*&\.graph-tree-open \.sidebar-panel-spacer \{[\s\S]*background: var\(--project-selector-strip-bg\);/,
+    /&\.graph-tree-open \.sidebar-panel-spacer \{[\s\S]*background: var\(--project-selector-strip-bg\);/,
   );
   assert.match(
     projectSelectorTsx,
-    /&\.graph-tree-open \.sidebar-toggle-menu:hover,[\s\S]*&\.graph-tree-open \.graph-history-menu:not\(\.disabled\):hover \{[\s\S]*background: var\(--grey-darkish\);/,
+    /&\.graph-tree-open \.sidebar-toggle-menu:hover,[\s\S]*&\.graph-tree-open \.graph-history-menu:not\(\.disabled\):hover \{[\s\S]*--project-tab-current-bg: var\(--project-tab-hover-bg\);/,
   );
   assert.match(projectSelectorTsx, /aria-controls="graph-tree-sidebar"/);
   assert.match(projectSelectorTsx, /aria-expanded={sidebarOpen}/);
@@ -74,7 +74,14 @@ test('project top bar owns the graph tree sidebar toggle for the active project 
   assert.ok(graphHistoryStyles);
   assert.doesNotMatch(sidebarToggleStyles, /border-right:/);
   assert.doesNotMatch(graphHistoryStyles, /border-right:/);
-  assert.match(graphHistoryStyles, /&:not\(\.disabled\):hover \{[\s\S]*background-color: var\(--grey-darkish\);/);
+  assert.match(
+    projectSelectorTsx,
+    /\.sidebar-toggle-menu,\s+\.graph-history-menu \{[\s\S]*--project-tab-bg: var\(--project-selector-strip-bg\);[\s\S]*background: var\(--project-tab-current-bg\);[\s\S]*border-radius: 7px;[\s\S]*height: calc\(100% - 9px\);[\s\S]*margin: 4px 0 5px;/,
+  );
+  assert.match(
+    projectSelectorTsx,
+    /\.sidebar-toggle-menu:hover,[\s\S]*\.graph-history-menu:not\(\.disabled\):hover,[\s\S]*\.file-menu:hover,[\s\S]*\.file-menu\.open \{[\s\S]*--project-tab-current-bg: var\(--project-tab-hover-bg\);/,
+  );
   assert.doesNotMatch(graphHistoryStyles, /opacity: 0\.45;/);
   assert.doesNotMatch(graphHistoryStyles, /\.disabled[\s\S]*background:/);
   assert.match(projectSelectorTsx, /\.graph-history-button \{[\s\S]*&:disabled \{[\s\S]*opacity: 0\.45;/);
@@ -84,15 +91,79 @@ test('project top bar owns the graph tree sidebar toggle for the active project 
   assert.match(projectSelectorTsx, /\.window-drag-region \{[\s\S]*flex: 1 0 40px;/);
   assert.match(projectSelectorTsx, /\.windows-window-control \{[\s\S]*width: 46px;/);
   assert.match(projectSelectorTsx, /\.windows-window-control \{[\s\S]*&\.close-window:hover \{[\s\S]*background: #c42b1c;/);
-  assert.match(projectSelectorTsx, /\.file-menu \{[\s\S]*border-left: 1px solid var\(--grey-darkest\);/);
-  assert.match(projectSelectorTsx, /\.file-menu \{[\s\S]*border-right: 1px solid var\(--grey-darkest\);/);
+  const fileMenuStyles = [...projectSelectorTsx.matchAll(/\n  \.file-menu \{(?<styles>[\s\S]*?)\n  \}/g)]
+    .map((match) => match.groups?.styles ?? '')
+    .find((styles) => styles.includes('--project-tab-bg'));
+  assert.ok(fileMenuStyles);
+  assert.doesNotMatch(fileMenuStyles, /border-left:/);
+  assert.doesNotMatch(fileMenuStyles, /border-right:/);
+  assert.match(fileMenuStyles, /--project-tab-bg: var\(--project-selector-strip-bg\);/);
+  assert.match(fileMenuStyles, /background: var\(--project-tab-current-bg\);/);
+  assert.match(fileMenuStyles, /border-radius: 7px;/);
+  assert.match(fileMenuStyles, /height: calc\(100% - 9px\);/);
+  assert.match(fileMenuStyles, /margin: 4px 0 5px;/);
+  assert.match(
+    projectSelectorTsx,
+    /\.file-menu:not\(:hover\):not\(\.open\):has\([\s\S]*\+ \.projects-container \.draggableProject:first-child \.project:not\(\.active\):not\(:hover\)[\s\S]*\)::after \{[\s\S]*right: -2px;/,
+  );
+  assert.match(projectSelectorTsx, /\.file-menu:hover,[\s\S]*\.file-menu\.open \{[\s\S]*--project-tab-current-bg: var\(--project-tab-hover-bg\);/);
+  assert.match(projectSelectorTsx, /\.file-menu-button \{[\s\S]*padding: 0 10px;/);
   assert.match(projectSelectorTsx, /\.file-menu-logo \{[\s\S]*height: 14px;[\s\S]*width: 16px;/);
-  assert.match(projectSelectorTsx, /\.project \{[\s\S]*background: var\(--project-selector-strip-bg\);/);
+  assert.match(projectSelectorTsx, /\.projects \{[\s\S]*align-items: flex-end;/);
+  assert.match(projectSelectorTsx, /\.projects \{[\s\S]*padding: 4px 10px 0 4px;/);
+  assert.match(projectSelectorTsx, /\.projects-container \{[\s\S]*z-index: 3;/);
+  assert.match(projectSelectorTsx, /\.draggableProject \{[\s\S]*align-items: flex-start;/);
+  assert.match(projectSelectorTsx, /\.draggableProject \{[\s\S]*position: relative;/);
+  assert.match(
+    projectSelectorTsx,
+    /\.draggableProject::after \{[\s\S]*background: color-mix\(in srgb, var\(--grey-light\) 18%, var\(--project-selector-strip-bg\) 82%\);/,
+  );
+  assert.match(projectSelectorTsx, /\.draggableProject::after \{[\s\S]*height: 18px;/);
+  assert.match(projectSelectorTsx, /\.draggableProject::after \{[\s\S]*right: -2px;/);
+  assert.match(projectSelectorTsx, /\.draggableProject::after \{[\s\S]*transform: translateY\(-50%\);/);
+  assert.match(projectSelectorTsx, /\.draggableProject::after \{[\s\S]*z-index: 3;/);
+  assert.match(projectSelectorTsx, /\.draggableProject:last-child::after,/);
+  assert.match(projectSelectorTsx, /\.draggableProject:has\(\.project\.active\)::after,/);
+  assert.match(projectSelectorTsx, /\.draggableProject:has\(\.project:hover\)::after,/);
+  assert.match(projectSelectorTsx, /\.draggableProject:has\(\+ \.draggableProject \.project:hover\)::after,/);
+  assert.match(projectSelectorTsx, /\.draggableProject:has\(\+ \.draggableProject \.project\.active\)::after \{[\s\S]*display: none;/);
+  assert.match(projectSelectorTsx, /\.project \{[\s\S]*--project-tab-bg: var\(--project-selector-strip-bg\);/);
+  assert.match(projectSelectorTsx, /\.project \{[\s\S]*--project-tab-hover-bg: var\(--project-tab-active-bg\);/);
+  assert.match(projectSelectorTsx, /\.project \{[\s\S]*--project-tab-current-bg: var\(--project-tab-bg\);/);
+  assert.match(projectSelectorTsx, /\.project \{[\s\S]*background: var\(--project-tab-current-bg\);/);
+  assert.match(projectSelectorTsx, /\.project \{[\s\S]*gap: 0;/);
+  assert.match(projectSelectorTsx, /\.project \{[\s\S]*height: calc\(100% - 5px\);/);
+  assert.match(projectSelectorTsx, /\.project \{[\s\S]*margin-bottom: 5px;/);
+  assert.match(projectSelectorTsx, /\.project \{[\s\S]*border-radius: 7px;/);
+  assert.doesNotMatch(projectSelectorTsx, /\.project \{[\s\S]*border-left: 1px solid var\(--grey-darkest\);/);
+  assert.match(projectSelectorTsx, /&:hover \{[\s\S]*--project-tab-current-bg: var\(--project-tab-hover-bg\);/);
+  assert.match(projectSelectorTsx, /&::before,[\s\S]*&::after \{[\s\S]*display: none;/);
+  assert.match(projectSelectorTsx, /&::before,[\s\S]*&::after \{[\s\S]*height: var\(--project-tab-shoulder-size\);/);
+  assert.match(projectSelectorTsx, /&::before \{[\s\S]*radial-gradient\([\s\S]*circle at 0 0/);
+  assert.match(projectSelectorTsx, /&::after \{[\s\S]*radial-gradient\([\s\S]*circle at 100% 0/);
+  assert.match(projectSelectorTsx, /&\.active \{[\s\S]*--project-tab-current-bg: var\(--project-tab-active-bg\);/);
+  assert.match(projectSelectorTsx, /&\.active \{[\s\S]*align-self: flex-end;/);
+  assert.match(projectSelectorTsx, /&\.active \{[\s\S]*border-radius: 8px 8px 0 0;/);
+  assert.match(projectSelectorTsx, /&\.active \{[\s\S]*gap: 8px;/);
+  assert.match(projectSelectorTsx, /&\.active \{[\s\S]*height: 100%;/);
+  assert.match(projectSelectorTsx, /&\.active \{[\s\S]*margin-bottom: 0;/);
+  assert.match(projectSelectorTsx, /&\.active::before,[\s\S]*&\.active::after \{[\s\S]*display: block;/);
+  assert.doesNotMatch(projectSelectorTsx, /&\.active \{[\s\S]*background-color: var\(--primary\);/);
+  assert.ok(projectSelectorTsx.includes("const fileName = unsaved ? 'Unsaved' : project.fsPath!.split(/[\\\\/]/).pop();"));
+  assert.match(projectSelectorTsx, /const active = projectTabsSelected && currentProject\.metadata\.id === projectId;/);
+  assert.ok(
+    projectSelectorTsx.includes(
+      "const projectDisplayName = active ? `${project?.title}${fileName ? ` [${fileName}]` : ''}` : project?.title;",
+    ),
+  );
+  assert.match(projectSelectorTsx, /className={clsx\('project', \{ active, unsaved \}\)}/);
+  assert.match(projectSelectorTsx, /&:not\(\.active\) > \.actions \{[\s\S]*display: none;/);
+  assert.match(projectSelectorTsx, /{active && \(\s*<div className="actions">/);
   assert.match(overlayTabsTsx, /background: var\(--project-selector-strip-bg, var\(--grey-dark-bluish-seethrough\)\);/);
   assert.match(projectSelectorTsx, /<img src={RivetLogo} alt="" aria-hidden="true" className="file-menu-logo" \/>/);
   assert.match(projectSelectorTsx, />\s*Menu\s*<\/button>/);
   assert.doesNotMatch(projectSelectorTsx, />\s*File\s*<\/button>/);
-  assert.match(projectSelectorTsx, /\.project::after \{[\s\S]*background-color: var\(--grey-darkest\);/);
+  assert.doesNotMatch(projectSelectorTsx, /\.project::after \{[\s\S]*width: 1px;/);
   assert.doesNotMatch(overlayTabsTsx, /\.menu-item[\s\S]*?border-bottom:/);
   assert.doesNotMatch(overlayTabsTsx, /z-index: 200;/);
   assert.match(overlayTabsTsx, /border-left: 1px solid var\(--grey-darkest\);/);
