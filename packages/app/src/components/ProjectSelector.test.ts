@@ -120,6 +120,7 @@ test('project top bar owns the graph tree sidebar toggle for the active project 
   );
   assert.match(projectSelectorTsx, /\.draggableProject::after \{[\s\S]*height: 18px;/);
   assert.match(projectSelectorTsx, /\.draggableProject::after \{[\s\S]*right: -2px;/);
+  assert.match(projectSelectorTsx, /\.draggableProject::after \{[\s\S]*top: calc\(50% - 2px\);/);
   assert.match(projectSelectorTsx, /\.draggableProject::after \{[\s\S]*transform: translateY\(-50%\);/);
   assert.match(projectSelectorTsx, /\.draggableProject::after \{[\s\S]*z-index: 3;/);
   assert.match(projectSelectorTsx, /\.draggableProject:last-child::after,/);

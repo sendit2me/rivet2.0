@@ -336,7 +336,7 @@ export const styles = css`
     pointer-events: none;
     position: absolute;
     right: -2px;
-    top: 50%;
+    top: calc(50% - 2px);
     transform: translateY(-50%);
     width: 1px;
     z-index: 3;

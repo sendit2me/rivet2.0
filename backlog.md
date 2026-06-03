@@ -1,4 +1,5 @@
 
+- After graph or project running (in the editor or via remote debugger) highlight the input nodes that got no input. Like, it can indicate that the subgraph node hasn't passed all the needed inputs to the subgraph.
 
 - Rework ChatViewer workspace
 
