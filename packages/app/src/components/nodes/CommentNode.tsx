@@ -13,6 +13,16 @@ const styles = css`
     color: inherit !important;
   }
 
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    line-height: 1.12;
+    overflow-wrap: anywhere;
+  }
+
   h1 {
     font-size: 100px;
   }
