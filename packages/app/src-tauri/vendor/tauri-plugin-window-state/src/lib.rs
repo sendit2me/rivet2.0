@@ -20,6 +20,9 @@ use std::{
 mod cmd;
 
 pub const STATE_FILENAME: &str = ".window-state";
+const MAIN_WINDOW_LABEL: &str = "main";
+const MIN_RESTORED_MAIN_WINDOW_WIDTH: f64 = 800.0;
+const MIN_RESTORED_MAIN_WINDOW_HEIGHT: f64 = 600.0;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -88,6 +91,50 @@ impl Default for WindowState {
 }
 
 struct WindowStateCache(Arc<Mutex<HashMap<String, WindowState>>>);
+
+fn clamp_restored_window_size(label: &str, width: f64, height: f64) -> (f64, f64) {
+    if label != MAIN_WINDOW_LABEL {
+        return (width, height);
+    }
+
+    (
+        width.max(MIN_RESTORED_MAIN_WINDOW_WIDTH),
+        height.max(MIN_RESTORED_MAIN_WINDOW_HEIGHT),
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn clamps_restored_main_window_size_to_minimum() {
+        assert_eq!(
+            clamp_restored_window_size(MAIN_WINDOW_LABEL, 30.0, 80.0),
+            (
+                MIN_RESTORED_MAIN_WINDOW_WIDTH,
+                MIN_RESTORED_MAIN_WINDOW_HEIGHT
+            )
+        );
+    }
+
+    #[test]
+    fn keeps_restored_main_window_size_when_above_minimum() {
+        assert_eq!(
+            clamp_restored_window_size(MAIN_WINDOW_LABEL, 1200.0, 900.0),
+            (1200.0, 900.0)
+        );
+    }
+
+    #[test]
+    fn does_not_clamp_non_main_windows() {
+        assert_eq!(
+            clamp_restored_window_size("settings", 30.0, 80.0),
+            (30.0, 80.0)
+        );
+    }
+}
+
 pub trait AppHandleExt {
     /// Saves all open windows state to disk
     fn save_window_state(&self, flags: StateFlags) -> Result<()>;
@@ -140,16 +187,18 @@ impl<R: Runtime> WindowExt for Window<R> {
                 self.set_decorations(state.decorated)?;
             }
 
+            let restored_size = clamp_restored_window_size(self.label(), state.width, state.height);
+
             if flags.contains(StateFlags::SIZE) {
                 self.set_size(LogicalSize {
-                    width: state.width,
-                    height: state.height,
+                    width: restored_size.0,
+                    height: restored_size.1,
                 })?;
             }
 
             if flags.contains(StateFlags::POSITION) {
                 let position = (state.x, state.y).into();
-                let size = (state.width, state.height).into();
+                let size = restored_size.into();
                 // restore position to saved value if saved monitor exists
                 // otherwise, let the OS decide where to place the window
                 for m in self.available_monitors()? {

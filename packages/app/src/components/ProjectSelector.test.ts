@@ -90,7 +90,12 @@ test('project top bar owns the graph tree sidebar toggle for the active project 
   assert.match(projectSelectorTsx, /\.projects-container\.empty\.with-window-drag-region \{[\s\S]*flex: 1 1 auto;/);
   assert.match(projectSelectorTsx, /\.window-drag-region \{[\s\S]*flex: 1 0 40px;/);
   assert.match(projectSelectorTsx, /\.windows-window-control \{[\s\S]*width: 46px;/);
+  assert.match(projectSelectorTsx, /\.windows-window-control \{[\s\S]*border-radius: 0;/);
   assert.match(projectSelectorTsx, /\.windows-window-control \{[\s\S]*&\.close-window:hover \{[\s\S]*background: #c42b1c;/);
+  assert.match(projectSelectorTsx, /const \[isWindowMaximized, setIsWindowMaximized\] = useState\(false\);/);
+  assert.match(projectSelectorTsx, /appWindow\?\.listen\?\.\('tauri:\/\/resize'/);
+  assert.match(projectSelectorTsx, /isWindowMaximized \? <RestoreWindowIcon \/> : <MaximizeWindowIcon \/>/);
+  assert.match(projectSelectorTsx, /d="M5\.25 3\.25h7\.5v7\.5M3\.25 5\.25h8\.5v8\.5h-8\.5z"/);
   const fileMenuStyles = [...projectSelectorTsx.matchAll(/\n  \.file-menu \{(?<styles>[\s\S]*?)\n  \}/g)]
     .map((match) => match.groups?.styles ?? '')
     .find((styles) => styles.includes('--project-tab-bg'));
@@ -186,6 +191,11 @@ test('windows desktop uses the in-strip Menu dropdown instead of a native Tauri 
   const platformCoreSource = readFileSync(join(srcDir, '..', 'utils', 'platform', 'core.ts'), 'utf8');
   const windowsHotkeysSource = readFileSync(join(srcDir, '..', 'hooks', 'useWindowsHotkeysFix.tsx'), 'utf8');
   const tauriMainSource = readFileSync(join(srcDir, '..', '..', 'src-tauri', 'src', 'main.rs'), 'utf8');
+  const windowStatePluginSource = readFileSync(
+    join(srcDir, '..', '..', 'src-tauri', 'vendor', 'tauri-plugin-window-state', 'src', 'lib.rs'),
+    'utf8',
+  );
+  const tauriConfig = JSON.parse(readFileSync(join(srcDir, '..', '..', 'src-tauri', 'tauri.conf.json'), 'utf8'));
 
   assert.match(projectSelectorTsx, /import \{ isWindowsPlatform \} from '\.\.\/utils\/platform\/os\.js';/);
   assert.match(projectSelectorTsx, /import \{ getAppWindowHandle \} from '\.\.\/utils\/platform\/window\.js';/);
@@ -194,6 +204,7 @@ test('windows desktop uses the in-strip Menu dropdown instead of a native Tauri 
   assert.match(projectSelectorTsx, /const WindowsWindowControls: FC = \(\) => \{/);
   assert.match(projectSelectorTsx, /appWindow\.minimize\?\.\(\)/);
   assert.match(projectSelectorTsx, /appWindow\.toggleMaximize\?\.\(\)/);
+  assert.match(projectSelectorTsx, /appWindow\.isMaximized\?\.\(\)/);
   assert.match(projectSelectorTsx, /appWindow\.close\(\)/);
   assert.match(projectSelectorTsx, /appWindow\?\.startDragging\?\.\(\)/);
   assert.match(projectSelectorTsx, /event\.detail > 1/);
@@ -201,6 +212,8 @@ test('windows desktop uses the in-strip Menu dropdown instead of a native Tauri 
   assert.match(platformCoreSource, /minimize\?\(\): Promise<void>;/);
   assert.match(platformCoreSource, /startDragging\?\(\): Promise<void>;/);
   assert.match(platformCoreSource, /toggleMaximize\?\(\): Promise<void>;/);
+  assert.match(platformCoreSource, /isMaximized\?\(\): Promise<boolean>;/);
+  assert.match(platformCoreSource, /listen\?<T = unknown>\(event: string, handler: \(event: \{ payload: T \}\) => void\): Promise<NativeWindowListener>;/);
   assert.match(windowsHotkeysSource, /import \{ isWindowsPlatform \} from '\.\.\/utils\/platform\/os\.js';/);
   assert.match(tauriMainSource, /#\[cfg\(not\(target_os = "windows"\)\)\]\s+use tauri::\{CustomMenuItem, Menu, MenuItem, Submenu\};/);
   assert.match(tauriMainSource, /#\[cfg\(target_os = "windows"\)\]\s+use tauri_plugin_window_state::StateFlags;/);
@@ -208,7 +221,18 @@ test('windows desktop uses the in-strip Menu dropdown instead of a native Tauri 
   assert.match(tauriMainSource, /#\[cfg\(target_os = "windows"\)\]\s+configure_windows_frameless_window\(app\)\?;/);
   assert.match(tauriMainSource, /state_flags\.remove\(StateFlags::DECORATIONS\);/);
   assert.match(tauriMainSource, /fn configure_windows_frameless_window\(app: &mut tauri::App\) -> tauri::Result<\(\)>/);
+  assert.match(tauriMainSource, /const WINDOWS_MIN_WINDOW_WIDTH: f64 = 800\.0;/);
+  assert.match(tauriMainSource, /const WINDOWS_MIN_WINDOW_HEIGHT: f64 = 600\.0;/);
+  assert.match(tauriMainSource, /window\.set_min_size\(Some\(LogicalSize \{\s+width: WINDOWS_MIN_WINDOW_WIDTH,\s+height: WINDOWS_MIN_WINDOW_HEIGHT,\s+\}\)\)\?;/);
   assert.match(tauriMainSource, /window\.set_decorations\(false\)\?;/);
+  assert.equal(tauriConfig.tauri.windows[0].minWidth, 800);
+  assert.equal(tauriConfig.tauri.windows[0].minHeight, 600);
+  assert.match(windowStatePluginSource, /const MAIN_WINDOW_LABEL: &str = "main";/);
+  assert.match(windowStatePluginSource, /const MIN_RESTORED_MAIN_WINDOW_WIDTH: f64 = 800\.0;/);
+  assert.match(windowStatePluginSource, /const MIN_RESTORED_MAIN_WINDOW_HEIGHT: f64 = 600\.0;/);
+  assert.match(windowStatePluginSource, /fn clamp_restored_window_size\(label: &str, width: f64, height: f64\) -> \(f64, f64\)/);
+  assert.match(windowStatePluginSource, /let restored_size = clamp_restored_window_size\(self\.label\(\), state\.width, state\.height\);/);
+  assert.match(windowStatePluginSource, /width: restored_size\.0,[\s\S]*height: restored_size\.1,/);
   assert.match(tauriMainSource, /#\[cfg\(not\(target_os = "windows"\)\)\]\s+let builder = builder[\s\S]*?\.menu\(create_menu\(\)\)[\s\S]*?\.on_menu_event/);
   assert.match(tauriMainSource, /#\[cfg\(not\(target_os = "windows"\)\)\]\s+fn create_menu\(\) -> Menu/);
 });

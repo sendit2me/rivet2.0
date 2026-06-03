@@ -5,12 +5,19 @@
 
 use std::path::{Path, PathBuf};
 
+#[cfg(target_os = "windows")]
+use tauri::LogicalSize;
 use tauri::{AppHandle, InvokeError, Manager};
 #[cfg(not(target_os = "windows"))]
 use tauri::{CustomMenuItem, Menu, MenuItem, Submenu};
 #[cfg(target_os = "windows")]
 use tauri_plugin_window_state::StateFlags;
 mod plugins;
+
+#[cfg(target_os = "windows")]
+const WINDOWS_MIN_WINDOW_WIDTH: f64 = 800.0;
+#[cfg(target_os = "windows")]
+const WINDOWS_MIN_WINDOW_HEIGHT: f64 = 600.0;
 
 fn main() {
     // Fix $PATH on MacOS and Linux to include the bashrc/zshrc
@@ -76,6 +83,10 @@ fn create_window_state_plugin_builder() -> tauri_plugin_window_state::Builder {
 #[cfg(target_os = "windows")]
 fn configure_windows_frameless_window(app: &mut tauri::App) -> tauri::Result<()> {
     if let Some(window) = app.get_window("main") {
+        window.set_min_size(Some(LogicalSize {
+            width: WINDOWS_MIN_WINDOW_WIDTH,
+            height: WINDOWS_MIN_WINDOW_HEIGHT,
+        }))?;
         window.set_decorations(false)?;
     }
 

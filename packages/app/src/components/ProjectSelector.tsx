@@ -1,6 +1,7 @@
 import { css } from '@emotion/react';
 import {
   Fragment,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -26,7 +27,7 @@ import { SortableContext, horizontalListSortingStrategy, useSortable, arrayMove 
 import { isInTauri } from '../utils/tauri.js';
 import { isWindowsPlatform } from '../utils/platform/os.js';
 import { getAppWindowHandle } from '../utils/platform/window.js';
-import { type NativeWindowHandle } from '../utils/platform/core.js';
+import { type NativeWindowHandle, type NativeWindowListener } from '../utils/platform/core.js';
 import { useRunMenuCommand } from '../hooks/useMenuCommands.js';
 import { useRivetWorkspaceHost } from '../hooks/useRivetWorkspaceHost.js';
 import { OverlayTabs } from './OverlayTabs.js';
@@ -521,6 +522,7 @@ export const styles = css`
     align-items: center;
     background: transparent;
     border: none;
+    border-radius: 0;
     color: var(--grey-light);
     cursor: pointer;
     display: flex;
@@ -668,14 +670,14 @@ const useWindowsAppWindow = () => {
     };
   }, []);
 
-  return async () => {
+  return useCallback(async () => {
     if (appWindowRef.current) {
       return appWindowRef.current;
     }
 
     appWindowRef.current = await getAppWindowHandle();
     return appWindowRef.current;
-  };
+  }, []);
 };
 
 const WindowsWindowDragRegion: FC = () => {
@@ -713,6 +715,48 @@ const WindowsWindowDragRegion: FC = () => {
 
 const WindowsWindowControls: FC = () => {
   const getAppWindow = useWindowsAppWindow();
+  const [isWindowMaximized, setIsWindowMaximized] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    let unlistenResize: NativeWindowListener | undefined;
+
+    const refreshMaximizedState = async (appWindow?: NativeWindowHandle | null) => {
+      try {
+        const windowHandle = appWindow ?? (await getAppWindow());
+        const maximized = await windowHandle?.isMaximized?.();
+
+        if (!cancelled && maximized != null) {
+          setIsWindowMaximized(maximized);
+        }
+      } catch (err) {
+        console.warn(`Error tracking app window maximize state: ${err}`);
+      }
+    };
+
+    void getAppWindow()
+      .then(async (appWindow) => {
+        await refreshMaximizedState(appWindow);
+
+        const removeResizeListener = await appWindow?.listen?.('tauri://resize', () => {
+          void refreshMaximizedState(appWindow);
+        });
+
+        if (cancelled) {
+          void removeResizeListener?.();
+        } else {
+          unlistenResize = removeResizeListener;
+        }
+      })
+      .catch((err) => {
+        console.warn(`Error loading app window controls: ${err}`);
+      });
+
+    return () => {
+      cancelled = true;
+      void unlistenResize?.();
+    };
+  }, [getAppWindow]);
 
   const runWindowAction = (action: (appWindow: NativeWindowHandle) => Promise<void> | void) => {
     void getAppWindow()
@@ -724,6 +768,17 @@ const WindowsWindowControls: FC = () => {
       .catch((err) => {
         console.warn(`Error running app window action: ${err}`);
       });
+  };
+
+  const toggleMaximize = () => {
+    runWindowAction(async (appWindow) => {
+      await appWindow.toggleMaximize?.();
+      const maximized = await appWindow.isMaximized?.();
+
+      if (maximized != null) {
+        setIsWindowMaximized(maximized);
+      }
+    });
   };
 
   return (
@@ -739,10 +794,10 @@ const WindowsWindowControls: FC = () => {
       <button
         type="button"
         className="windows-window-control"
-        aria-label="Maximize or restore window"
-        onClick={() => runWindowAction((appWindow) => appWindow.toggleMaximize?.())}
+        aria-label={isWindowMaximized ? 'Restore window' : 'Maximize window'}
+        onClick={toggleMaximize}
       >
-        <MaximizeWindowIcon />
+        {isWindowMaximized ? <RestoreWindowIcon /> : <MaximizeWindowIcon />}
       </button>
       <button
         type="button"
@@ -765,6 +820,17 @@ const MinimizeWindowIcon: FC = () => (
 const MaximizeWindowIcon: FC = () => (
   <svg aria-hidden="true" fill="none" viewBox="0 0 16 16">
     <rect x="3.25" y="3.25" width="9.5" height="9.5" rx="1" stroke="currentColor" strokeWidth="1.5" />
+  </svg>
+);
+
+const RestoreWindowIcon: FC = () => (
+  <svg aria-hidden="true" fill="none" viewBox="0 0 16 16">
+    <path
+      d="M5.25 3.25h7.5v7.5M3.25 5.25h8.5v8.5h-8.5z"
+      stroke="currentColor"
+      strokeLinejoin="round"
+      strokeWidth="1.5"
+    />
   </svg>
 );
 

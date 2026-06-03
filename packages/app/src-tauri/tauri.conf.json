@@ -105,6 +105,8 @@
       {
         "fullscreen": false,
         "height": 1024,
+        "minHeight": 600,
+        "minWidth": 800,
         "resizable": true,
         "title": "Rivet 2",
         "width": 1200
