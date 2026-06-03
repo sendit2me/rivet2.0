@@ -102,6 +102,7 @@ import { getNodeCanvasContextMenuContext } from './nodeCanvas/nodeCanvasContextM
 import { subGraphPortRearrangeTargetState, uiFontSizeState } from '../state/ui.js';
 import { getMinimumNodeWidthForPortLabels } from '../utils/nodePortLabelWidth.js';
 import { getUiFontScale } from '../utils/uiFontSize.js';
+import { blurFocusedGraphFilterInput } from './graphList/graphFilterFocus.js';
 
 const EMPTY_NODE_CONNECTIONS: NodeConnection[] = [];
 
@@ -431,6 +432,11 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
     updateSelectionBox,
     zoomSensitivity,
   });
+
+  const handleCanvasMouseDownCapture = useStableCallback((event: MouseEvent<HTMLDivElement>) => {
+    blurFocusedGraphFilterInput(event.currentTarget.ownerDocument);
+  });
+
   useWireDragScrolling();
 
   const getRenderedNodeElement = useStableCallback((nodeId: NodeId): HTMLElement | undefined => {
@@ -846,6 +852,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
         css={nodeCanvasStyles}
         style={{ '--canvas-background-color': canvasBackgroundColor } as CSSProperties}
         onContextMenu={handleCanvasContextMenu}
+        onMouseDownCapture={handleCanvasMouseDownCapture}
         onMouseDown={canvasMouseDown}
         onMouseMove={canvasMouseMove.run}
         onMouseUp={canvasMouseUp}

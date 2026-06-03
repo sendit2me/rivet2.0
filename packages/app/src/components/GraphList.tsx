@@ -46,6 +46,7 @@ import {
 } from './graphList/graphListContextMenu.js';
 import { useGraphListPresentation } from './graphList/useGraphListPresentation.js';
 import { setAllGraphFolderExpansionStates } from './graphList/graphFolders.js';
+import { GRAPH_FILTER_INPUT_MARKER } from './graphList/graphFilterFocus.js';
 import { PopupMenuItem, popupMenuListStyles } from './PopupMenu.js';
 import { Tooltip } from './Tooltip.js';
 
@@ -444,6 +445,7 @@ const styles = css`
     position: absolute;
     right: 0;
     top: 50%;
+    z-index: 2;
     width: 20px;
     height: 20px;
     transform: translateY(-50%);
@@ -458,6 +460,7 @@ const styles = css`
     align-items: center;
     justify-content: center;
     padding: 0;
+    cursor: pointer;
 
     &:hover {
       background: var(--grey-lightish);
@@ -862,6 +865,7 @@ export const GraphList: FC = memo(() => {
             <label className="graph-list-filter-label">
               <FilterIcon aria-hidden="true" className="project-tree-panel-icon project-tree-panel-icon-filter" />
               <input
+                {...GRAPH_FILTER_INPUT_MARKER}
                 aria-label="Filter graphs"
                 autoComplete="off"
                 spellCheck={false}

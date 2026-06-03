@@ -8,7 +8,9 @@ const componentsDir = dirname(fileURLToPath(import.meta.url));
 
 test('graph tree panel keeps the compact text-list layout source contract', () => {
   const graphListSource = readFileSync(join(componentsDir, 'GraphList.tsx'), 'utf8');
+  const nodeCanvasSource = readFileSync(join(componentsDir, 'NodeCanvas.tsx'), 'utf8');
   const folderItemSource = readFileSync(join(componentsDir, 'graphList', 'FolderItem.tsx'), 'utf8');
+  const graphFilterFocusSource = readFileSync(join(componentsDir, 'graphList', 'graphFilterFocus.ts'), 'utf8');
   const graphListContextMenuSource = readFileSync(join(componentsDir, 'graphList', 'graphListContextMenu.ts'), 'utf8');
 
   // This remains a narrow source guard because the project tree is not covered by a render/screenshot test yet.
@@ -45,8 +47,19 @@ test('graph tree panel keeps the compact text-list layout source contract', () =
   assert.match(graphListSource, /\.graph-list-heading \{[\s\S]*color: color-mix\(in srgb, var\(--grey-light\) 64%, transparent\);/);
   assert.match(graphListSource, /<span>Project settings<\/span>/);
   assert.match(graphListSource, /className="graph-list-filter"/);
+  assert.match(graphListSource, /import \{ GRAPH_FILTER_INPUT_MARKER \} from '\.\/graphList\/graphFilterFocus\.js';/);
+  assert.match(graphListSource, /<input\s+\{...GRAPH_FILTER_INPUT_MARKER\}/);
   assert.match(graphListSource, /aria-label="Filter graphs"/);
   assert.match(graphListSource, /placeholder="Filter graphs"/);
+  assert.match(nodeCanvasSource, /import \{ blurFocusedGraphFilterInput \} from '\.\/graphList\/graphFilterFocus\.js';/);
+  assert.match(
+    nodeCanvasSource,
+    /const handleCanvasMouseDownCapture = useStableCallback\(\(event: MouseEvent<HTMLDivElement>\) => \{\s+blurFocusedGraphFilterInput\(event\.currentTarget\.ownerDocument\);/,
+  );
+  assert.match(nodeCanvasSource, /onMouseDownCapture={handleCanvasMouseDownCapture}/);
+  assert.match(graphFilterFocusSource, /GRAPH_FILTER_INPUT_MARKER = \{ 'data-graph-filter-input': 'true' \}/);
+  assert.match(graphFilterFocusSource, /resolvedDocument\.defaultView\?\.HTMLElement/);
+  assert.match(graphFilterFocusSource, /activeElement instanceof HTMLElementCtor && activeElement\.matches\(GRAPH_FILTER_INPUT_SELECTOR\)/);
   assert.match(graphListSource, /data-contextmenutype="graph-list"/);
   assert.match(graphListSource, /onKeyDown={handleGraphListKeyDown}/);
   assert.match(graphListSource, /onMouseDown={handleGraphListMouseDown}/);
@@ -55,6 +68,7 @@ test('graph tree panel keeps the compact text-list layout source contract', () =
   assert.match(graphListSource, /e\.key !== 'F2'/);
   assert.match(graphListSource, /isInteractiveGraphListTarget\(e\.target\)/);
   assert.match(graphListSource, /setSearchText\(''\);/);
+  assert.match(graphListSource, /\.clear \{[\s\S]*z-index: 2;[\s\S]*cursor: pointer;/);
   assert.match(graphListSource, /startRename\(currentGraphListName\)/);
   assert.match(graphListSource, /cancelRename/);
   assert.match(graphListSource, /<PopupMenuItem\b/);
