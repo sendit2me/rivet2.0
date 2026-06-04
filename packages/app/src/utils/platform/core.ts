@@ -30,6 +30,8 @@ export type NativeWindowListener = () => void | Promise<void>;
 
 export type NativeWindowHandle = {
   close(): Promise<void>;
+  isMaximized?(): Promise<boolean>;
+  listen?<T = unknown>(event: string, handler: (event: { payload: T }) => void): Promise<NativeWindowListener>;
   minimize?(): Promise<void>;
   onCloseRequested?(handler: () => void): Promise<NativeWindowListener>;
   onMenuClicked?(handler: (event: { payload: string }) => void): Promise<NativeWindowListener>;

@@ -6,6 +6,15 @@ import { fileURLToPath } from 'node:url';
 
 const componentsDir = dirname(fileURLToPath(import.meta.url));
 
+test('comment node markdown headings keep readable line height when wrapped', () => {
+  const commentNodeSource = readFileSync(join(componentsDir, 'nodes', 'CommentNode.tsx'), 'utf8');
+  const headingBlock = /h1,[\s\S]*?h6 \{(?<styles>[\s\S]*?)\n  \}/.exec(commentNodeSource)?.groups?.styles;
+
+  assert.ok(headingBlock, 'Expected Comment node heading styles to be present');
+  assert.match(headingBlock, /line-height: 1\.12;/);
+  assert.match(headingBlock, /overflow-wrap: anywhere;/);
+});
+
 test('comment node header controls keep an inset compact hit area', () => {
   const nodeStylesSource = readFileSync(join(componentsDir, 'nodeStyles.ts'), 'utf8');
   const titleBlock = /\.node\.node\.isComment \.node-title \{(?<styles>[\s\S]*?)\n  \}/.exec(nodeStylesSource)

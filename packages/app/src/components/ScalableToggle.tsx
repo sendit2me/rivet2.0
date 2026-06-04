@@ -3,6 +3,7 @@ import clsx from 'clsx';
 import { type ChangeEventHandler, type FC } from 'react';
 
 type ScalableToggleProps = {
+  ariaLabel?: string;
   id?: string;
   isChecked?: boolean;
   isDisabled?: boolean;
@@ -135,6 +136,7 @@ const scalableToggleStyles = css`
 `;
 
 export const ScalableToggle: FC<ScalableToggleProps> = ({
+  ariaLabel,
   className,
   id,
   isChecked,
@@ -153,6 +155,7 @@ export const ScalableToggle: FC<ScalableToggleProps> = ({
     css={scalableToggleStyles}
   >
     <input
+      aria-label={ariaLabel}
       id={id}
       checked={Boolean(isChecked)}
       className="scalable-toggle-input"

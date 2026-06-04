@@ -9,6 +9,7 @@ test('scalable toggle state marks use centered inline svg icons', () => {
   assert.match(scalableToggleSource, /className="scalable-toggle-mark scalable-toggle-cross-mark"/);
   assert.match(scalableToggleSource, /viewBox="0 0 12 12"/);
   assert.match(scalableToggleSource, /stroke="currentColor"/);
+  assert.match(scalableToggleSource, /aria-label=\{ariaLabel\}/);
   assert.match(scalableToggleSource, /strokeLinecap="round"/);
   assert.match(
     scalableToggleSource,

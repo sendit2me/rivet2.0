@@ -7,7 +7,7 @@
   },
   "package": {
     "productName": "Rivet 2",
-    "version": "2.4.9"
+    "version": "2.4.10"
   },
   "tauri": {
     "allowlist": {
@@ -105,6 +105,8 @@
       {
         "fullscreen": false,
         "height": 1024,
+        "minHeight": 600,
+        "minWidth": 800,
         "resizable": true,
         "title": "Rivet 2",
         "width": 1200
