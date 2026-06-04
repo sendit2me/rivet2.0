@@ -22,6 +22,24 @@ export type CompareNodeData = {
   useComparisonFunctionInput?: boolean;
 };
 
+export const compareNodeComparisonFunctionOptions: Array<{
+  label: string;
+  value: CompareNodeData['comparisonFunction'];
+}> = [
+  { label: '==', value: '==' },
+  { label: '!=', value: '!=' },
+  { label: '<', value: '<' },
+  { label: '<=', value: '<=' },
+  { label: '>', value: '>' },
+  { label: '>=', value: '>=' },
+  { label: 'and', value: 'and' },
+  { label: 'or', value: 'or' },
+  { label: 'xor', value: 'xor' },
+  { label: 'nand', value: 'nand' },
+  { label: 'nor', value: 'nor' },
+  { label: 'xnor', value: 'xnor' },
+];
+
 export class CompareNodeImpl extends NodeImpl<CompareNode> {
   static create(): CompareNode {
     const chartNode: CompareNode = {
@@ -82,20 +100,7 @@ export class CompareNodeImpl extends NodeImpl<CompareNode> {
         type: 'dropdown',
         label: 'Comparison Function',
         dataKey: 'comparisonFunction',
-        options: [
-          { label: '==', value: '==' },
-          { label: '!=', value: '!=' },
-          { label: '<', value: '<' },
-          { label: '<=', value: '<=' },
-          { label: '>', value: '>' },
-          { label: '>=', value: '>=' },
-          { label: 'and', value: 'and' },
-          { label: 'or', value: 'or' },
-          { label: 'xor', value: 'xor' },
-          { label: 'nand', value: 'nand' },
-          { label: 'nor', value: 'nor' },
-          { label: 'xnor', value: 'xnor' },
-        ],
+        options: compareNodeComparisonFunctionOptions,
         useInputToggleDataKey: 'useComparisonFunctionInput',
       },
     ];

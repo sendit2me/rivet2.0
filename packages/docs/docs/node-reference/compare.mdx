@@ -11,6 +11,8 @@ import TabItem from '@theme/TabItem';
 
 The Compare Node allows you to perform a comparison operation between two input values. The node supports a variety of comparison functions including equality, inequality, less than, greater than, and logical operations such as AND, OR, XOR, NAND, NOR, and XNOR.
 
+You can change the comparison function from the node body on the canvas or from the settings panel. Both controls edit the same setting. If you enable the `Comparison Function` input port, the canvas body shows `A (input) B` because the operator is supplied by the incoming value.
+
 ![Compare Node Screenshot](./assets/compare-node.png)
 
 <Tabs
@@ -49,7 +51,7 @@ The Compare Node allows you to perform a comparison operation between two input 
 
 | Setting             | Description                                                                                                                       | Default Value | Use Input Toggle | Input Data Type |
 | ------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ------------- | ---------------- | --------------- |
-| Comparison Function | The comparison function to be used for the operation. Available options are '==', '&lt;', '>', '&lt;=', '>=', '!=', 'and', 'or', 'xor'. | '=='          | Yes              | `string`        |
+| Comparison Function | The comparison function to be used for the operation. Available options are `==`, `!=`, `<`, `<=`, `>`, `>=`, `and`, `or`, `xor`, `nand`, `nor`, and `xnor`. This can also be changed from the node body while the input-port toggle is off. | `==`          | Yes              | `string`        |
 
 </TabItem>
 
