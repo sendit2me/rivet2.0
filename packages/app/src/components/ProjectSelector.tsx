@@ -25,7 +25,7 @@ import { useSyncCurrentStateIntoOpenedProjects } from '../hooks/useSyncCurrentSt
 import { type SyntheticListenerMap } from '@dnd-kit/core/dist/hooks/utilities';
 import { SortableContext, horizontalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { isInTauri } from '../utils/tauri.js';
-import { isWindowsPlatform } from '../utils/platform/os.js';
+import { isMacOSPlatform, isWindowsPlatform } from '../utils/platform/os.js';
 import { getAppWindowHandle } from '../utils/platform/window.js';
 import { type NativeWindowHandle, type NativeWindowListener } from '../utils/platform/core.js';
 import { useRunMenuCommand } from '../hooks/useMenuCommands.js';
@@ -576,7 +576,7 @@ export const ProjectSelector: FC<{
   const loadProject = useLoadProject();
   const projectTabsSelected = projectMode && openOverlay === undefined;
   const reserveSidebarColumn = projectTabsSelected && sidebarOpen;
-  const showFileMenu = !isInTauri() || isWindowsPlatform();
+  const showFileMenu = !isInTauri() || isWindowsPlatform() || isMacOSPlatform();
   const showWindowsWindowControls = isInTauri() && isWindowsPlatform();
 
   useSyncCurrentStateIntoOpenedProjects({ enabled: projectMode });

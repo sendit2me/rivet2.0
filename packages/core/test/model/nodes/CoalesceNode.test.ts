@@ -22,6 +22,14 @@ function createNode(data: Partial<CoalesceNode['data']> = {}) {
 }
 
 describe('CoalesceNode', () => {
+  it('creates a compact node with enough width for inline canvas toggles', () => {
+    const node = CoalesceNodeImpl.create();
+
+    assert.strictEqual(node.type, 'coalesce');
+    assert.strictEqual(node.title, 'Coalesce');
+    assert.strictEqual(node.visualData.width, 190);
+  });
+
   it('exposes null and undefined ignore toggles', () => {
     const node = createNode();
 

@@ -1,4 +1,4 @@
-import { useWindowsHotkeysFix } from '../hooks/useWindowsHotkeysFix';
+import { useInAppMenuHotkeys } from '../hooks/useInAppMenuHotkeys';
 import { GraphBuilder } from './GraphBuilder.js';
 import { type FC, useEffect, useMemo } from 'react';
 import { css } from '@emotion/react';
@@ -86,7 +86,7 @@ export const RivetApp: FC = () => {
     onRunGraph: runGraph,
   });
 
-  useWindowsHotkeysFix();
+  useInAppMenuHotkeys();
 
   const checkForUpdate = useCheckForUpdate();
 

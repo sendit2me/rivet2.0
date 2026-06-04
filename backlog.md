@@ -1,4 +1,5 @@
 
+
 - After graph or project running (in the editor or via remote debugger) highlight the input nodes that got no input. Like, it can indicate that the subgraph node hasn't passed all the needed inputs to the subgraph.
 
 - Rework ChatViewer workspace
@@ -18,7 +19,6 @@
 
 
 
-
 - Reassess templates for the Ctrl+N window
 
 - Now, the executor mode is global for all open projects (remote debugger, browser, node). Make it per tab
@@ -29,8 +29,6 @@
 
 
 - In nodes that have variadic inputs, when an input in the middle is removed, the remaining inputs look weird. Do we need to automatically remove them? It should we allow the user to remove them if needed?
-
-- In both Text node and Prompt node, in the statistics, output the amount of tokens (average for english language)
 
 - Reassess Loop until node. Definitely can make the end conditions better
 
@@ -54,7 +52,6 @@
 - Check the AI workflow generation feature
 
 - Convenient node type browser, just like in n8n
-- Show run time in each node
 - I want to be able to adjust the node height when it's not hovered so I can see this much of the content in the output section
 
 - Support Python in all nodes that support javascript

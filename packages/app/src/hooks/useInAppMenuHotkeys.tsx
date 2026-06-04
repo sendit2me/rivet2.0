@@ -1,13 +1,14 @@
 import { useEffect } from 'react';
 import { type MenuIds, useRunMenuCommand } from './useMenuCommands';
-import { isWindowsPlatform } from '../utils/platform/os.js';
+import { isMacOSPlatform, isWindowsPlatform } from '../utils/platform/os.js';
+import { isInTauri } from '../utils/tauri.js';
 
-interface HotkeyFixWindow extends Window {
-  __rivetWindowsHotkeysCleanup?: () => void;
+interface InAppMenuHotkeyWindow extends Window {
+  __rivetInAppMenuHotkeysCleanup?: () => void;
 }
-declare let window: HotkeyFixWindow;
+declare let window: InAppMenuHotkeyWindow;
 
-const isWindows = isWindowsPlatform();
+const shouldUseInAppMenuHotkeys = isWindowsPlatform() || (isInTauri() && isMacOSPlatform());
 
 const shortcutToMenuId: Record<string, MenuIds> = {
   F5: 'remote_debugger',
@@ -22,23 +23,15 @@ const shortcutToMenuId: Record<string, MenuIds> = {
 
 const hotkeyListenerOptions = { capture: true };
 
-if (isWindows) {
-  console.warn('Fix applied for Windows platform');
-}
-
-/**
- * Applies a keyboard shortcut fix for Windows platform.
- */
-export const useWindowsHotkeysFix = () => {
+export const useInAppMenuHotkeys = () => {
   const runMenuCommandImpl = useRunMenuCommand();
 
-  // @see https://github.com/valerypopoff/rivet2.0/issues/261
   useEffect(() => {
-    if (typeof window === 'undefined' || !isWindows) {
+    if (typeof window === 'undefined' || !shouldUseInAppMenuHotkeys) {
       return;
     }
 
-    window.__rivetWindowsHotkeysCleanup?.();
+    window.__rivetInAppMenuHotkeysCleanup?.();
 
     const onKeyDown = (event: KeyboardEvent) => {
       const { key, ctrlKey, metaKey, shiftKey } = event;
@@ -53,7 +46,6 @@ export const useWindowsHotkeysFix = () => {
           return;
         }
 
-        console.warn(`Hotkey Fix: ${code} -> ${command}`);
         runMenuCommandImpl(command);
       }
     };
@@ -64,15 +56,15 @@ export const useWindowsHotkeysFix = () => {
       window.removeEventListener('keydown', onKeyDown, hotkeyListenerOptions);
     };
 
-    window.__rivetWindowsHotkeysCleanup = cleanup;
+    window.__rivetInAppMenuHotkeysCleanup = cleanup;
 
     return () => {
-      if (window.__rivetWindowsHotkeysCleanup === cleanup) {
+      if (window.__rivetInAppMenuHotkeysCleanup === cleanup) {
         cleanup();
-        delete window.__rivetWindowsHotkeysCleanup;
+        delete window.__rivetInAppMenuHotkeysCleanup;
       }
     };
   }, [runMenuCommandImpl]);
 
-  return isWindows;
+  return shouldUseInAppMenuHotkeys;
 };

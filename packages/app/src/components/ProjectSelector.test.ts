@@ -16,7 +16,10 @@ test('project top bar owns the graph tree sidebar toggle for the active project 
     /{projectTabsSelected && <GraphTreeSidebarToggle \/>}[\s\S]*{projectTabsSelected && <GraphHistoryControls \/>}[\s\S]*{reserveSidebarColumn && <div className="sidebar-panel-spacer" aria-hidden="true" \/>}[\s\S]*{showFileMenu && <ProjectFileMenu \/>}/,
   );
   assert.match(projectSelectorTsx, /const reserveSidebarColumn = projectTabsSelected && sidebarOpen;/);
-  assert.match(projectSelectorTsx, /const showFileMenu = !isInTauri\(\) \|\| isWindowsPlatform\(\);/);
+  assert.match(
+    projectSelectorTsx,
+    /const showFileMenu = !isInTauri\(\) \|\| isWindowsPlatform\(\) \|\| isMacOSPlatform\(\);/,
+  );
   assert.match(projectSelectorTsx, /const showWindowsWindowControls = isInTauri\(\) && isWindowsPlatform\(\);/);
   assert.match(projectSelectorTsx, /import RivetLogo from '\.\.\/rivet-2-logo-no-background\.svg';/);
   assert.match(projectSelectorTsx, /className={clsx\(\{ 'graph-tree-open': reserveSidebarColumn \}\)}/);
@@ -186,10 +189,12 @@ test('project top bar owns the graph tree sidebar toggle for the active project 
   assert.doesNotMatch(leftSidebarTsx, /toggle-tab|menu-expand-left-line|menu-expand-right-line/);
 });
 
-test('windows desktop uses the in-strip Menu dropdown instead of a native Tauri menubar', () => {
+test('windows and macos desktop use the in-strip Menu dropdown instead of a full native Tauri menubar', () => {
   const projectSelectorTsx = readFileSync(join(srcDir, 'ProjectSelector.tsx'), 'utf8');
+  const platformOsSource = readFileSync(join(srcDir, '..', 'utils', 'platform', 'os.ts'), 'utf8');
   const platformCoreSource = readFileSync(join(srcDir, '..', 'utils', 'platform', 'core.ts'), 'utf8');
-  const windowsHotkeysSource = readFileSync(join(srcDir, '..', 'hooks', 'useWindowsHotkeysFix.tsx'), 'utf8');
+  const inAppMenuHotkeysSource = readFileSync(join(srcDir, '..', 'hooks', 'useInAppMenuHotkeys.tsx'), 'utf8');
+  const rivetAppSource = readFileSync(join(srcDir, 'RivetApp.tsx'), 'utf8');
   const tauriMainSource = readFileSync(join(srcDir, '..', '..', 'src-tauri', 'src', 'main.rs'), 'utf8');
   const windowStatePluginSource = readFileSync(
     join(srcDir, '..', '..', 'src-tauri', 'vendor', 'tauri-plugin-window-state', 'src', 'lib.rs'),
@@ -197,9 +202,17 @@ test('windows desktop uses the in-strip Menu dropdown instead of a native Tauri 
   );
   const tauriConfig = JSON.parse(readFileSync(join(srcDir, '..', '..', 'src-tauri', 'tauri.conf.json'), 'utf8'));
 
-  assert.match(projectSelectorTsx, /import \{ isWindowsPlatform \} from '\.\.\/utils\/platform\/os\.js';/);
+  assert.match(
+    projectSelectorTsx,
+    /import \{ isMacOSPlatform, isWindowsPlatform \} from '\.\.\/utils\/platform\/os\.js';/,
+  );
+  assert.match(platformOsSource, /export function isMacOSPlatform\(\): boolean/);
+  assert.match(platformOsSource, /Macintosh\|MacIntel\|MacPPC\|Mac68K\|Mac OS X/);
   assert.match(projectSelectorTsx, /import \{ getAppWindowHandle \} from '\.\.\/utils\/platform\/window\.js';/);
-  assert.match(projectSelectorTsx, /const showFileMenu = !isInTauri\(\) \|\| isWindowsPlatform\(\);/);
+  assert.match(
+    projectSelectorTsx,
+    /const showFileMenu = !isInTauri\(\) \|\| isWindowsPlatform\(\) \|\| isMacOSPlatform\(\);/,
+  );
   assert.match(projectSelectorTsx, /const showWindowsWindowControls = isInTauri\(\) && isWindowsPlatform\(\);/);
   assert.match(projectSelectorTsx, /const WindowsWindowControls: FC = \(\) => \{/);
   assert.match(projectSelectorTsx, /appWindow\.minimize\?\.\(\)/);
@@ -214,8 +227,27 @@ test('windows desktop uses the in-strip Menu dropdown instead of a native Tauri 
   assert.match(platformCoreSource, /toggleMaximize\?\(\): Promise<void>;/);
   assert.match(platformCoreSource, /isMaximized\?\(\): Promise<boolean>;/);
   assert.match(platformCoreSource, /listen\?<T = unknown>\(event: string, handler: \(event: \{ payload: T \}\) => void\): Promise<NativeWindowListener>;/);
-  assert.match(windowsHotkeysSource, /import \{ isWindowsPlatform \} from '\.\.\/utils\/platform\/os\.js';/);
-  assert.match(tauriMainSource, /#\[cfg\(not\(target_os = "windows"\)\)\]\s+use tauri::\{CustomMenuItem, Menu, MenuItem, Submenu\};/);
+  assert.match(
+    inAppMenuHotkeysSource,
+    /import \{ isMacOSPlatform, isWindowsPlatform \} from '\.\.\/utils\/platform\/os\.js';/,
+  );
+  assert.match(inAppMenuHotkeysSource, /import \{ isInTauri \} from '\.\.\/utils\/tauri\.js';/);
+  assert.match(
+    inAppMenuHotkeysSource,
+    /const shouldUseInAppMenuHotkeys = isWindowsPlatform\(\) \|\| \(isInTauri\(\) && isMacOSPlatform\(\)\);/,
+  );
+  assert.match(inAppMenuHotkeysSource, /__rivetInAppMenuHotkeysCleanup/);
+  assert.match(inAppMenuHotkeysSource, /'CmdOrCtrl\+S': 'save_project'/);
+  assert.match(inAppMenuHotkeysSource, /'CmdOrCtrl\+ENTER': 'run'/);
+  assert.match(inAppMenuHotkeysSource, /window\.addEventListener\('keydown', onKeyDown, hotkeyListenerOptions\)/);
+  assert.doesNotMatch(inAppMenuHotkeysSource, /Hotkey Fix|Fix applied for Windows platform/);
+  assert.match(rivetAppSource, /import \{ useInAppMenuHotkeys \} from '\.\.\/hooks\/useInAppMenuHotkeys';/);
+  assert.match(rivetAppSource, /useInAppMenuHotkeys\(\);/);
+  assert.match(
+    tauriMainSource,
+    /#\[cfg\(any\(target_os = "linux", target_os = "macos"\)\)\]\s+use tauri::\{CustomMenuItem, Menu, Submenu\};/,
+  );
+  assert.match(tauriMainSource, /#\[cfg\(target_os = "linux"\)\]\s+use tauri::MenuItem;/);
   assert.match(tauriMainSource, /#\[cfg\(target_os = "windows"\)\]\s+use tauri_plugin_window_state::StateFlags;/);
   assert.match(tauriMainSource, /\.plugin\(create_window_state_plugin_builder\(\)\.build\(\)\)/);
   assert.match(tauriMainSource, /#\[cfg\(target_os = "windows"\)\]\s+configure_windows_frameless_window\(app\)\?;/);
@@ -233,6 +265,24 @@ test('windows desktop uses the in-strip Menu dropdown instead of a native Tauri 
   assert.match(windowStatePluginSource, /fn clamp_restored_window_size\(label: &str, width: f64, height: f64\) -> \(f64, f64\)/);
   assert.match(windowStatePluginSource, /let restored_size = clamp_restored_window_size\(self\.label\(\), state\.width, state\.height\);/);
   assert.match(windowStatePluginSource, /width: restored_size\.0,[\s\S]*height: restored_size\.1,/);
-  assert.match(tauriMainSource, /#\[cfg\(not\(target_os = "windows"\)\)\]\s+let builder = builder[\s\S]*?\.menu\(create_menu\(\)\)[\s\S]*?\.on_menu_event/);
-  assert.match(tauriMainSource, /#\[cfg\(not\(target_os = "windows"\)\)\]\s+fn create_menu\(\) -> Menu/);
+  assert.match(
+    tauriMainSource,
+    /#\[cfg\(target_os = "macos"\)\]\s+let builder =\s+builder[\s\S]*?\.menu\(create_macos_menu\(\)\)[\s\S]*?\.on_menu_event/,
+  );
+  assert.match(
+    tauriMainSource,
+    /#\[cfg\(target_os = "linux"\)\]\s+let builder =\s+builder[\s\S]*?\.menu\(create_linux_menu\(\)\)[\s\S]*?\.on_menu_event/,
+  );
+  assert.match(tauriMainSource, /#\[cfg\(target_os = "macos"\)\]\s+fn create_macos_menu\(\) -> Menu/);
+  assert.match(tauriMainSource, /#\[cfg\(target_os = "linux"\)\]\s+fn create_linux_menu\(\) -> Menu/);
+
+  const macosMenuFunction = tauriMainSource.match(
+    /#\[cfg\(target_os = "macos"\)\]\s+fn create_macos_menu\(\) -> Menu \{(?<body>[\s\S]*?)\n\}/,
+  )?.groups?.body;
+  assert.ok(macosMenuFunction);
+  assert.match(macosMenuFunction, /CustomMenuItem::new\("quit", "Exit"\)/);
+  assert.doesNotMatch(
+    macosMenuFunction,
+    /"File"|"Edit"|"Run"|"Debug"|"Help"|"Window"|new_project|open_project|save_project|settings|remote_debugger|toggle_devtools/,
+  );
 });

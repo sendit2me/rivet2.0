@@ -8,12 +8,18 @@ const useNodeTypesSource = readFileSync(new URL('../../hooks/useNodeTypes.ts', i
 test('bool node uses a canvas toggle that edits the same value as the settings panel', () => {
   assert.match(booleanNodeSource, /useEditNodeCommand\(\)/);
   assert.match(booleanNodeSource, /node\.data\.useValueInput[\s\S]*?return null;/);
+  assert.match(booleanNodeSource, /font-family: var\(--font-family-monospace\);/);
+  assert.doesNotMatch(booleanNodeSource, /font-family: var\(--font-family\);/);
   assert.match(booleanNodeSource, /gap: calc\(7px \* var\(--ui-font-scale, 1\)\);/);
-  assert.match(booleanNodeSource, /onDoubleClick=\{handleDoubleClick\}/);
+  assert.match(booleanNodeSource, /aspect-ratio: 2 \/ 1;/);
+  assert.match(booleanNodeSource, /line-height: 0;/);
+  assert.match(booleanNodeSource, /className="boolean-node-body-toggle-wrap" onDoubleClick=\{handleToggleDoubleClick\}/);
   assert.match(booleanNodeSource, /value: event\.target\.checked/);
   assert.match(booleanNodeSource, /<ScalableToggle[\s\S]*?ariaLabel="Bool value"[\s\S]*?isChecked=\{value\}/);
+  assert.doesNotMatch(booleanNodeSource, /size="large"/);
   assert.match(booleanNodeSource, /className="boolean-node-body-value">\{value \? 'True' : 'False'\}/);
   assert.doesNotMatch(booleanNodeSource, /boolean-node-body-label/);
+  assert.doesNotMatch(booleanNodeSource, /<div css=\{styles\} onDoubleClick=/);
 });
 
 test('bool node descriptor is registered for custom canvas body rendering', () => {

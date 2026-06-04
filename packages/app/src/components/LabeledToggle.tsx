@@ -6,7 +6,7 @@ import { ScalableToggle } from './ScalableToggle.js';
 import { FieldHelperMessage } from './FieldHelperMessage.js';
 
 const labeledToggleStyles = css`
-  --labeled-toggle-gap: calc(8px * var(--ui-font-scale));
+  --labeled-toggle-gap: calc(8px * var(--ui-font-scale, 1));
 
   display: inline-flex;
   align-items: center;
@@ -14,7 +14,6 @@ const labeledToggleStyles = css`
   .labeled-toggle-control {
     display: inline-flex;
     align-items: center;
-    gap: var(--labeled-toggle-gap);
   }
 
   .labeled-toggle-control.has-helper-message {
@@ -45,6 +44,7 @@ const labeledToggleStyles = css`
 
   .labeled-toggle-label label {
     margin: 0;
+    padding-left: var(--labeled-toggle-gap);
   }
 
   .labeled-toggle-helper-label {
